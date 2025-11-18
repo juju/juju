@@ -11,7 +11,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/canonical/go-dqlite/v3/tracing"
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/database/drivererrors"
+	"github.com/juju/juju/internal/database/tracing"
 	internallogger "github.com/juju/juju/internal/logger"
 )
 

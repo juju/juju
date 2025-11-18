@@ -75,9 +75,13 @@ type machineStatus struct {
 	Containers         map[string]machineStatus      `json:"containers,omitempty" yaml:"containers,omitempty"`
 	Constraints        string                        `json:"constraints,omitempty" yaml:"constraints,omitempty"`
 	Hardware           string                        `json:"hardware,omitempty" yaml:"hardware,omitempty"`
-	HAStatus           string                        `json:"controller-member-status,omitempty" yaml:"controller-member-status,omitempty"`
-	HAPrimary          bool                          `json:"ha-primary,omitempty" yaml:"ha-primary,omitempty"`
 	LXDProfiles        map[string]lxdProfileContents `json:"lxd-profiles,omitempty" yaml:"lxd-profiles,omitempty"`
+	HAClusterRole      *string                       `json:"controller-cluster-role,omitempty" yaml:"controller-cluster-role,omitempty"`
+
+	// These fields should be deprecated in favour of HAClusterRole. Remove
+	// them in the next version of the API client version.
+	HAStatus  string `json:"controller-member-status,omitempty" yaml:"controller-member-status,omitempty"`
+	HAPrimary *bool  `json:"ha-primary,omitempty" yaml:"ha-primary,omitempty"`
 }
 
 // A goyaml bug means we can't declare these types

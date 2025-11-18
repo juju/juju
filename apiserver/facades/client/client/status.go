@@ -743,8 +743,24 @@ func (c *statusContext) makeMachineStatus(
 	status.Jobs = c.machineJobFetcher(ctx, machineName)
 
 	if clusterInfo := machine.ClusterInfo; clusterInfo != nil {
-		status.HasVote = clusterInfo.Role.HasVote()
-		status.WantsVote = clusterInfo.Role.WantsVote()
+		if clusterInfo.Present {
+			// If the machine has a cluster info with a voting role, it has vote
+			// and wants vote. This back fills the information missing from the
+			// machine status. We don't have the fidelity to know if it actually
+			// wants a vote, so we assume it does if it has one, or it never
+			// has one.
+			if clusterInfo.Role.HasVote() {
+				status.HasVote = true
+				status.WantsVote = true
+			}
+
+			// Instead of sending the has and wants vote booleans, we send the
+			// role string instead. This allows us to provide more concrete
+			// information about the cluster role of the machine.
+			status.ClusterRole = ptr(clusterInfo.Role.String())
+		} else {
+			status.ClusterRole = ptr("unknown")
+		}
 	}
 
 	if instanceID := machine.InstanceID; instanceID != instance.UnknownId {
@@ -1523,4 +1539,8 @@ func processStorage(
 		}
 	}
 	return storageResult, filesystemResult, volumeResult, nil
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

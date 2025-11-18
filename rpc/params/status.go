@@ -118,9 +118,10 @@ type MachineStatus struct {
 	// hardware specification datum.
 	Hardware string `json:"hardware"`
 
-	Jobs      []model.MachineJob `json:"jobs"`
-	HasVote   bool               `json:"has-vote"`
-	WantsVote bool               `json:"wants-vote"`
+	Jobs        []model.MachineJob `json:"jobs"`
+	HasVote     bool               `json:"has-vote"`
+	WantsVote   bool               `json:"wants-vote"`
+	ClusterRole *string            `json:"cluster-role,omitempty"`
 
 	// LXDProfiles holds all the machines current LXD profiles that have
 	// been applied to the machine

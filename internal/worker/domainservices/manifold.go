@@ -12,7 +12,6 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/database"
 	coredatabase "github.com/juju/juju/core/database"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
@@ -31,6 +30,7 @@ import (
 // worker in a dependency.Engine.
 type ManifoldConfig struct {
 	ChangeStreamName            string
+	DBAccessorName              string
 	ProviderFactoryName         string
 	ObjectStoreName             string
 	StorageRegistryName         string
@@ -56,7 +56,7 @@ type DomainServicesGetterFn func(
 	storage.StorageRegistryGetter,
 	domainservices.PublicKeyImporter,
 	lease.Manager,
-	database.ClusterDescriber,
+	coredatabase.ClusterDescriber,
 	corehttp.HTTPClient,
 	string,
 	clock.Clock,
@@ -83,7 +83,7 @@ type ModelDomainServicesFn func(
 	storage.ModelStorageRegistryGetter,
 	domainservices.PublicKeyImporter,
 	lease.ModelLeaseManagerGetter,
-	database.ClusterDescriber,
+	coredatabase.ClusterDescriber,
 	corehttp.HTTPClient,
 	string,
 	clock.Clock,
@@ -94,6 +94,9 @@ type ModelDomainServicesFn func(
 func (config ManifoldConfig) Validate() error {
 	if config.ChangeStreamName == "" {
 		return errors.NotValidf("empty ChangeStreamName")
+	}
+	if config.DBAccessorName == "" {
+		return errors.NotValidf("empty DBAccessorName")
 	}
 	if config.ProviderFactoryName == "" {
 		return errors.NotValidf("empty ProviderFactoryName")
@@ -143,6 +146,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.ChangeStreamName,
+			config.DBAccessorName,
 			config.ProviderFactoryName,
 			config.ObjectStoreName,
 			config.StorageRegistryName,
@@ -166,8 +170,8 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	var clusterDescriber database.ClusterDescriber
-	if err := getter.Get(config.ChangeStreamName, &clusterDescriber); err != nil {
+	var clusterDescriber coredatabase.ClusterDescriber
+	if err := getter.Get(config.DBAccessorName, &clusterDescriber); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -280,7 +284,7 @@ func NewProviderTrackerModelDomainServices(
 	storageRegistry storage.ModelStorageRegistryGetter,
 	publicKeyImporter domainservices.PublicKeyImporter,
 	leaseManager lease.ModelLeaseManagerGetter,
-	clusterDescriber database.ClusterDescriber,
+	clusterDescriber coredatabase.ClusterDescriber,
 	simpleStreamsHTTPClient corehttp.HTTPClient,
 	logDir string,
 	clock clock.Clock,
@@ -314,7 +318,7 @@ func NewDomainServicesGetter(
 	storageRegistryGetter storage.StorageRegistryGetter,
 	publicKeyImporter domainservices.PublicKeyImporter,
 	leaseManager lease.Manager,
-	clusterDescriber database.ClusterDescriber,
+	clusterDescriber coredatabase.ClusterDescriber,
 	simpleStreamsHTTPClient corehttp.HTTPClient,
 	logDir string,
 	clock clock.Clock,

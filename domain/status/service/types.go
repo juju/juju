@@ -96,9 +96,8 @@ func (r ClusterRole) HasVote() bool {
 	return r == ClusterRoleVoter || r == ClusterRoleStandby
 }
 
-// WantsVote indicates whether the role wants to have a vote in the cluster.
-func (r ClusterRole) WantsVote() bool {
-	return r == ClusterRoleSpare
+func (r ClusterRole) String() string {
+	return string(r)
 }
 
 // StatusHistoryFilter holds the parameters to filter a status history query.

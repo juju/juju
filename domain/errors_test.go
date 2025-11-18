@@ -1,3 +1,5 @@
+//go:build dqlite && linux
+
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
@@ -74,7 +76,7 @@ func (e *errorsSuite) TestMaskErrorIsHidesSqlErrors(c *tc.C) {
 	}
 
 	for _, test := range tests {
-		err := maskError{errors.Errorf("%q %w", test.Name, test.Error)}
+		err := maskError{error: errors.Errorf("%q %w", test.Name, test.Error)}
 		c.Check(errors.Is(err, test.Error), tc.IsFalse, tc.Commentf(test.Name))
 	}
 }

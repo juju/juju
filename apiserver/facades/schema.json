@@ -6206,6 +6206,9 @@
                         "base": {
                             "$ref": "#/definitions/Base"
                         },
+                        "cluster-role": {
+                            "type": "string"
+                        },
                         "constraints": {
                             "type": "string"
                         },

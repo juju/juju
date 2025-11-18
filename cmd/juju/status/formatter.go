@@ -6,6 +6,7 @@ package status
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/juju/names/v6"
 
@@ -178,15 +179,10 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 		out.Containers[k] = sf.formatMachine(m)
 	}
 
-	for _, job := range machine.Jobs {
-		if job == coremodel.JobManageModel {
-			out.HAStatus = makeHAStatus(machine.HasVote, machine.WantsVote)
-			isPrimary := machine.PrimaryControllerMachine
-			if isPrimary != nil {
-				out.HAPrimary = *isPrimary
-			}
-			break
-		}
+	if slices.Contains(machine.Jobs, coremodel.JobManageModel) {
+		out.HAStatus = makeHAStatus(machine.HasVote, machine.WantsVote)
+		out.HAPrimary = machine.PrimaryControllerMachine
+		out.HAClusterRole = machine.ClusterRole
 	}
 
 	for k, v := range machine.LXDProfiles {
