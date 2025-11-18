@@ -124,19 +124,20 @@ func GetStorageUniqueIDs(
 					namespace, a.Name, model.Name(), model.UUID(),
 					model.ControllerUUID(),
 				)
-				if err != nil && k8serrors.IsNotFound(err) {
+
+				if err == nil {
+					k8sApps = append(k8sApps, state.AppAndStorageID{
+						Id:              a.Id,
+						Name:            a.Name,
+						StorageUniqueID: storageUniqueID,
+					})
+					found = true
+					break
+				}
+				if k8serrors.IsNotFound(err) {
 					continue
 				}
-				if err != nil {
-					return nil, errors.Annotate(err, "finding storage unique id")
-				}
-				k8sApps = append(k8sApps, state.AppAndStorageID{
-					Id:              a.Id,
-					Name:            a.Name,
-					StorageUniqueID: storageUniqueID,
-				})
-				found = true
-				break
+				return nil, errors.Annotate(err, "finding storage unique ID")
 			}
 
 			if !found {
