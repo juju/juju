@@ -59,7 +59,6 @@ func (s *baseRelationSuite) Txn(c *tc.C, fn func(ctx context.Context, tx *sqlair
 // query executes a given SQL query with optional arguments within a
 // transactional context using the test database.
 func (s *baseRelationSuite) query(c *tc.C, query string, args ...any) {
-
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, query, args...)
 		if err != nil {
@@ -497,7 +496,8 @@ WHERE  relation_unit_uuid = ?
 
 		return nil
 	})
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) getting relation settings hash: %s",
+		errors.ErrorStack(err)))
 	return hash
 }
 

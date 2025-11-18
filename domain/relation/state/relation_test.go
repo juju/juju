@@ -2096,6 +2096,73 @@ func (s *relationSuite) TestGetAllRelationDetailsWithMissingInScopeCount(c *tc.C
 	c.Check(details[0].Endpoints, tc.SameContents, []domainrelation.Endpoint{endpoint1, endpoint2})
 }
 
+func (s *relationSuite) TestDeleteRelationUnit(c *tc.C) {
+	// Arrange: Populate charm metadata with subordinate data.
+	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
+	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
+
+	// Arrange: Add two endpoints
+	endpoint1 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	endpoint2 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      charm.RoleRequirer,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	applicationEndpointUUID2 := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
+
+	// Arrange: Add unit to application in the relation.
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+
+	// Arrange: Enter scope.
+	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
+	s.addRelationUnitSetting(c, relationUnitUUID, "ingress-address", "x.x.x.x")
+	s.addRelationUnitSettingsHash(c, relationUnitUUID, "42")
+
+	// Act: Delete relation unit and settings.
+	err := s.state.DeleteRelationUnit(c.Context(), relationUnitUUID.String())
+
+	// Assert:
+	c.Assert(err, tc.ErrorIsNil)
+
+	obtainedSettings := s.getRelationUnitSettings(c, relationUnitUUID.String())
+	c.Check(obtainedSettings, tc.DeepEquals, map[string]string{})
+
+	var hash string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRow(`
+SELECT sha256
+FROM   relation_unit_settings_hash
+WHERE  relation_unit_uuid = ?
+`, relationUnitUUID).Scan(&hash)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	c.Check(err, tc.ErrorIs, sql.ErrNoRows, tc.Commentf("(Assert) getting relation settings hash: %s",
+		errors.ErrorStack(err)))
+}
+
 func (s *relationSuite) TestEnterScope(c *tc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	s.addCharmMetadata(c, s.fakeCharmUUID1, false)

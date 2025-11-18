@@ -1699,6 +1699,58 @@ WHERE  name = $getUnit.name
 	return relationUnitUUID, errors.Capture(err)
 }
 
+// DeleteRelationUnit deletes the relation unit with the given UUID and
+// its settings. Intended for use by the service when a subordinate unit
+// cannot be created yet.
+func (st *State) DeleteRelationUnit(ctx context.Context, relationUnitUUID string) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteRelationUnitStmt, err := st.Prepare(`
+DELETE FROM relation_unit
+WHERE       uuid = $entityUUID.uuid
+`, entityUUID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteSettingsStmt, err := st.Prepare(`
+DELETE FROM relation_unit_setting
+WHERE       relation_unit_uuid = $entityUUID.uuid
+`, entityUUID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteSettingsHashStmt, err := st.Prepare(`
+DELETE FROM relation_unit_settings_hash
+WHERE       relation_unit_uuid = $entityUUID.uuid
+`, entityUUID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		relationUnit := entityUUID{UUID: relationUnitUUID}
+		err = tx.Query(ctx, deleteSettingsHashStmt, relationUnit).Run()
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, deleteSettingsStmt, relationUnit).Run()
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, deleteRelationUnitStmt, relationUnit).Run()
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	return errors.Capture(err)
+}
+
 // NeedsSubordinateUnit checks if there is a subordinate application
 // related to the principal unit that needs a subordinate unit created whilst
 // entering scope.
