@@ -19,6 +19,8 @@ import (
 	domainsecret "github.com/juju/juju/domain/secret"
 )
 
+type uuids []string
+
 // nameAndUUID is an agnostic container for the pair of
 // `uuid` and `name` columns.
 type nameAndUUID struct {
@@ -245,6 +247,17 @@ type offerConnection struct {
 	OfferUUID          string `db:"offer_uuid"`
 	RemoteRelationUUID string `db:"remote_relation_uuid"`
 	Username           string `db:"username"`
+}
+
+type offerConnectionDetail struct {
+	OfferUUID     string    `db:"offer_uuid"`
+	EndpointName  string    `db:"name"`
+	RelationUUID  string    `db:"relation_uuid"`
+	RelationID    uint64    `db:"relation_id"`
+	Since         time.Time `db:"updated_at"`
+	Status        string    `db:"status"`
+	StatusMessage string    `db:"message"`
+	Username      string    `db:"username"`
 }
 
 type remoteRelationUUID struct {
