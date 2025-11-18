@@ -54,6 +54,10 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
+	cfg.DBAccessorName = ""
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
 	cfg.ChangeStreamName = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
@@ -105,6 +109,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	s.httpClientGetter.EXPECT().GetHTTPClient(gomock.Any(), corehttp.SimpleStreamPurpose).Return(s.simpleStreamClient, nil)
 
 	getter := map[string]any{
+		"dbaccessor":      s.clusterDescriber,
 		"changestream":    s.dbGetter,
 		"providerfactory": s.providerFactory,
 		"objectstore":     s.objectStoreGetter,
@@ -115,6 +120,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	}
 
 	manifold := Manifold(ManifoldConfig{
+		DBAccessorName:              "dbaccessor",
 		ChangeStreamName:            "changestream",
 		ProviderFactoryName:         "providerfactory",
 		ObjectStoreName:             "objectstore",
@@ -142,6 +148,7 @@ func (s *manifoldSuite) TestOutputControllerDomainServices(c *tc.C) {
 
 	w, err := NewWorker(Config{
 		DBGetter:                    s.dbGetter,
+		ClusterDescriber:            s.clusterDescriber,
 		Logger:                      s.logger,
 		LoggerContextGetter:         s.loggerContextGetter,
 		ProviderFactory:             s.providerFactory,
@@ -171,6 +178,7 @@ func (s *manifoldSuite) TestOutputDomainServicesGetter(c *tc.C) {
 
 	w, err := NewWorker(Config{
 		DBGetter:                    s.dbGetter,
+		ClusterDescriber:            s.clusterDescriber,
 		Logger:                      s.logger,
 		LoggerContextGetter:         s.loggerContextGetter,
 		ProviderFactory:             s.providerFactory,
@@ -200,6 +208,7 @@ func (s *manifoldSuite) TestOutputInvalid(c *tc.C) {
 
 	w, err := NewWorker(Config{
 		DBGetter:                    s.dbGetter,
+		ClusterDescriber:            s.clusterDescriber,
 		Logger:                      s.logger,
 		LoggerContextGetter:         s.loggerContextGetter,
 		ProviderFactory:             s.providerFactory,
@@ -279,6 +288,7 @@ func (s *manifoldSuite) TestNewDomainServicesGetter(c *tc.C) {
 func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
 		ChangeStreamName:    "changestream",
+		DBAccessorName:      "dbaccessor",
 		ProviderFactoryName: "providerfactory",
 		ObjectStoreName:     "objectstore",
 		StorageRegistryName: "storageregistry",

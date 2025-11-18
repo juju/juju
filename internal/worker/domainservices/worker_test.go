@@ -76,15 +76,23 @@ func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
+	cfg.PublicKeyImporter = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
+	cfg.SimpleStreamsClient = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
+	cfg.ClusterDescriber = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
 	cfg.LogDir = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.Clock = nil
-	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig(c)
-	cfg.PublicKeyImporter = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
@@ -100,6 +108,7 @@ func (s *workerSuite) getConfig(c *tc.C) Config {
 		StorageRegistryGetter: s.storageRegistryGetter,
 		PublicKeyImporter:     s.publicKeyImporter,
 		LeaseManager:          s.leaseManager,
+		ClusterDescriber:      s.clusterDescriber,
 		LogDir:                c.MkDir(),
 		Clock:                 s.clock,
 		SimpleStreamsClient:   s.simpleStreamClient,
