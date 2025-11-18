@@ -46,8 +46,18 @@ const (
 	tableUserAuthentication
 )
 
+// ControllerDDLWithoutPatches returns the controller database schema excluding
+// any patches
+func ControllerDDLWithoutPatches() *schema.Schema {
+	return controllerDDL(false)
+}
+
 // ControllerDDL is used to create the controller database schema at bootstrap.
 func ControllerDDL() *schema.Schema {
+	return controllerDDL(true)
+}
+
+func controllerDDL(includePatches bool) *schema.Schema {
 	entries, err := controllerSchemaDir.ReadDir("controller/sql")
 	if err != nil {
 		panic(err)
@@ -94,8 +104,11 @@ func ControllerDDL() *schema.Schema {
 	for _, fn := range patches {
 		ctrlSchema.Add(fn())
 	}
-	for _, fn := range postPatches {
-		ctrlSchema.Add(fn())
+
+	if includePatches {
+		for _, fn := range postPatches {
+			ctrlSchema.Add(fn())
+		}
 	}
 
 	return ctrlSchema

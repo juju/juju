@@ -109,8 +109,18 @@ const (
 	tableRelationNetworkEgress
 )
 
+// ModelDDLWithoutPatches returns the model database schema excluding
+// any patches
+func ModelDDLWithoutPatches() *schema.Schema {
+	return modelDDL(false)
+}
+
 // ModelDDL is used to create model databases.
 func ModelDDL() *schema.Schema {
+	return modelDDL(true)
+}
+
+func modelDDL(includePatches bool) *schema.Schema {
 	entries, err := modelSchemaDir.ReadDir("model/sql")
 	if err != nil {
 		panic(err)
@@ -358,8 +368,11 @@ END;
 	for _, fn := range patches {
 		modelSchema.Add(fn())
 	}
-	for _, fn := range postPatches {
-		modelSchema.Add(fn())
+
+	if includePatches {
+		for _, fn := range postPatches {
+			modelSchema.Add(fn())
+		}
 	}
 
 	return modelSchema

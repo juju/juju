@@ -73,6 +73,11 @@ func (s *Schema) Hook(hook Hook) {
 	s.hook = hook
 }
 
+// Patches returns the list of patches in the schema.
+func (s *Schema) Patches() []Patch {
+	return s.patches
+}
+
 // Len returns the number of total patches in the schema.
 func (s *Schema) Len() int {
 	return len(s.patches)
