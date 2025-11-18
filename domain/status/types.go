@@ -158,3 +158,9 @@ type Endpoint struct {
 	Interface string
 	Limit     int
 }
+
+// ControllerNode represents the status of a controller node.
+type ControllerNode struct {
+	ControllerID string
+	DqliteNodeID uint64
+}

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain"
+	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
@@ -79,4 +80,43 @@ WHERE uuid = $modelUUID.uuid
 		HasInvalidCloudCredential:    modelStatusCtxResult.CredentialInvalid,
 		InvalidCloudCredentialReason: modelStatusCtxResult.CredentialInvalidReason,
 	}, nil
+}
+
+// GetControllerIDs returns the list of controller IDs from the controller node
+// records.
+func (s *ControllerState) GetControllerNodeIDs(ctx context.Context) ([]status.ControllerNode, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := s.Prepare(`
+SELECT &controllerID.* 
+FROM controller_node
+`, controllerID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var controllerIDs []controllerID
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&controllerIDs)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return controllernodeerrors.EmptyControllerIDs
+		} else if err != nil {
+			return errors.Errorf("getting controller node ids: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	res := make([]status.ControllerNode, len(controllerIDs))
+	for i, c := range controllerIDs {
+		res[i] = status.ControllerNode{
+			ControllerID: c.ControllerID,
+			DqliteNodeID: c.DqliteNodeID,
+		}
+	}
+	return res, nil
 }

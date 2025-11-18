@@ -15,3 +15,9 @@ type modelStatusContext struct {
 type modelUUID struct {
 	UUID string `db:"uuid"`
 }
+
+// controllerID is the database representation of a controller node id.
+type controllerID struct {
+	ControllerID string `db:"controller_id"`
+	DqliteNodeID uint64 `db:"dqlite_node_id"`
+}

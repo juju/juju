@@ -19,6 +19,8 @@ import (
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
+const DqliteNodeID = 0x2dc171858c3155be
+
 // ControllerSuite is used to provide a sql.DB reference to tests.
 // It is pre-populated with the controller schema.
 type ControllerSuite struct {
@@ -33,7 +35,7 @@ func (s *ControllerSuite) SetUpTest(c *tc.C) {
 		Schema:  schema.ControllerDDL(),
 		Verbose: s.Verbose,
 	})
-	err := database.InsertControllerNodeID(c.Context(), s.TxnRunner(), 0x2dc171858c3155be)
+	err := database.InsertControllerNodeID(c.Context(), s.TxnRunner(), DqliteNodeID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -44,7 +46,7 @@ func (s *ControllerSuite) ApplyDDLForRunner(c *tc.C, runner coredatabase.TxnRunn
 		Schema:  schema.ControllerDDL(),
 		Verbose: s.Verbose,
 	}, runner)
-	err := database.InsertControllerNodeID(c.Context(), runner, 0x2dc171858c3155be)
+	err := database.InsertControllerNodeID(c.Context(), runner, DqliteNodeID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
