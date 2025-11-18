@@ -6,8 +6,6 @@ package upgrades_test
 import (
 	"context"
 
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/upgrades"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	v1 "k8s.io/api/apps/v1"
@@ -15,6 +13,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
+
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/upgrades"
 )
 
 type backendSuite struct{}
