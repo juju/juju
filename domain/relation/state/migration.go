@@ -81,11 +81,11 @@ func (st *State) GetApplicationUUIDByName(ctx context.Context, appName string) (
 
 	var id application.UUID
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		app := applicationUUIDAndName{Name: appName}
+		app := nameAndUUID{Name: appName}
 		queryApplicationStmt, err := st.Prepare(`
-SELECT uuid AS &applicationUUIDAndName.uuid
+SELECT uuid AS &nameAndUUID.uuid
 FROM application
-WHERE name = $applicationUUIDAndName.name
+WHERE name = $nameAndUUID.name
 `, app)
 		if err != nil {
 			return errors.Capture(err)
@@ -97,7 +97,7 @@ WHERE name = $applicationUUIDAndName.name
 		} else if err != nil {
 			return errors.Errorf("looking up UUID for application %q: %w", appName, err)
 		}
-		id = app.ID
+		id = application.UUID(app.UUID)
 		return nil
 	}); err != nil {
 		return "", errors.Capture(err)

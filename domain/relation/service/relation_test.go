@@ -650,6 +650,30 @@ func (s *relationServiceSuite) TestEnterScope(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// TestEnterScopeNthTime tests the idempotency of EnterScope. If it's
+// be called before successfully, do not attempt to create a subordinate
+// unit.
+func (s *relationServiceSuite) TestEnterScopeNthTime(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange.
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	settings := map[string]string{"ingress": "x.x.x.x"}
+	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings).Return(relationerrors.RelationUnitAlreadyExists)
+
+	// Act.
+	err := s.service.EnterScope(
+		c.Context(),
+		relationUUID,
+		unitName,
+		settings,
+		nil,
+	)
+	// Assert.
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *relationServiceSuite) TestEnterScopeCreatingSubordinate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

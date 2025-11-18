@@ -1607,6 +1607,8 @@ WHERE  relation_uuid = $entityUUID.uuid`, rows{}, entityUUID{})
 //     principal application of the unit is not the application in the relation.
 //   - [relationerrors.CannotEnterScopeNotAlive] if the unit or relation is not
 //     alive.
+//   - [relationerrors.RelationUnitAlreadyExists] if the unit has already entered
+//     scope for the relation.
 func (st *State) EnterScope(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
@@ -1614,6 +1616,18 @@ func (st *State) EnterScope(
 	settings map[string]string,
 ) error {
 	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	alreadyInScopeStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &rows.count
+FROM   relation_unit AS ru
+JOIN   relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
+JOIN   unit AS u ON ru.unit_uuid = u.uuid
+WHERE  u.name = $nameAndUUID.name
+AND    re.relation_uuid = $nameAndUUID.uuid
+`, nameAndUUID{}, rows{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1631,6 +1645,27 @@ WHERE  name = $getUnit.name
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// If the unit is already in scope, return nil to be idempotent.
+		// Settings will not be changed. Even when the unit or relation is
+		// dying, EnterScope must succeed if already entered. This allows
+		// for the relation tear down hook flow to happen.
+		var count rows
+		exists := nameAndUUID{
+			Name: unitName.String(),
+			UUID: relationUUID.String(),
+		}
+		err = tx.Query(ctx, alreadyInScopeStmt, exists).Get(&count)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		if count.Count == 1 {
+			return relationerrors.RelationUnitAlreadyExists
+		} else if count.Count != 0 {
+			// The relation_unit table has a unique index constraint on
+			// the combination of relation and unit UUIDs.
+			return errors.Errorf("programming error: count must be 0 or 1 for unit %q in relation %q, not %d", unitName, relationUUID, count.Count)
+		}
+
 		// Get the UUID of the unit entering scope.
 		err = tx.Query(ctx, getUnitStmt, unitArgs).Get(&unitArgs)
 		if errors.Is(err, sqlair.ErrNoRows) {

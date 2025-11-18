@@ -52,8 +52,10 @@ type State interface {
 
 	// EnterScope indicates that the provided unit has joined the relation. When
 	// the unit has already entered its relation scope, EnterScope will report
-	// success but make no changes to state. The unit's settings are created or
-	// overwritten in the relation according to the supplied map.
+	// success but make no changes to state. The unit's settings are created in
+	// the relation according to the supplied map.
+	// Returns [relationerrors.RelationUnitAlreadyExists] if the unit is already
+	// in the relation.
 	EnterScope(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
@@ -463,9 +465,9 @@ func (s *Service) ApplicationRelationsInfo(
 }
 
 // EnterScope indicates that the provided unit has joined the relation.
-// When the unit has already entered its relation scope, EnterScope will report
-// success but make no changes to state. The unit's settings are created or
-// overwritten in the relation according to the supplied map.
+// The unit's settings are created in the relation according to the supplied
+// map. When the unit has already entered its relation scope, EnterScope will
+// report success but make no changes to state, nor trigger a subordinate unit.
 //
 // If there is a subordinate application related to the unit entering scope that
 // needs a subordinate unit creating, then the subordinate unit will be created
@@ -499,7 +501,10 @@ func (s *Service) EnterScope(
 	}
 
 	// Enter the unit into the relation scope.
-	if err := s.st.EnterScope(ctx, relationUUID, unitName, settings); err != nil {
+	err := s.st.EnterScope(ctx, relationUUID, unitName, settings)
+	if errors.Is(err, relationerrors.RelationUnitAlreadyExists) {
+		return nil
+	} else if err != nil {
 		return errors.Capture(err)
 	}
 
