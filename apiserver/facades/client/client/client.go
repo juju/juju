@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/permission"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -28,7 +27,6 @@ type Client struct {
 
 	auth             facade.Authorizer
 	leadershipReader leadership.Reader
-	clusterDescriber database.ClusterDescriber
 
 	logDir string
 	clock  clock.Clock

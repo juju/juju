@@ -52,7 +52,6 @@ type Config struct {
 	// DBGetter supplies WatchableDB implementations by namespace.
 	DBGetter                changestream.WatchableDBGetter
 	DBDeleter               database.DBDeleter
-	ClusterDescriber        database.ClusterDescriber
 	DomainServicesGetter    services.DomainServicesGetter
 	TracerGetter            trace.TracerGetter
 	ObjectStoreGetter       objectstore.ObjectStoreGetter
@@ -117,9 +116,6 @@ func (config Config) Validate() error {
 	}
 	if config.DBDeleter == nil {
 		return errors.NotValidf("nil DBDeleter")
-	}
-	if config.ClusterDescriber == nil {
-		return errors.NotValidf("nil ClusterDescriber")
 	}
 	if config.TracerGetter == nil {
 		return errors.NotValidf("nil TracerGetter")
@@ -199,7 +195,6 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		MacaroonHTTPClient:            config.MacaroonHTTPClient,
 		DBGetter:                      config.DBGetter,
 		DBDeleter:                     config.DBDeleter,
-		ClusterDescriber:              config.ClusterDescriber,
 		DomainServicesGetter:          config.DomainServicesGetter,
 		ControllerConfigService:       config.ControllerConfigService,
 		TracerGetter:                  config.TracerGetter,

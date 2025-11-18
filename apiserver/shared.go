@@ -53,9 +53,6 @@ type sharedServerContext struct {
 	// and the model is being removed.
 	dbDeleter database.DBDeleter
 
-	// clusterDescriber describes the database cluster.
-	clusterDescriber database.ClusterDescriber
-
 	// DomainServicesGetter is used to get the domain services for controllers
 	// and models.
 	domainServicesGetter     services.DomainServicesGetter
@@ -105,7 +102,6 @@ type sharedServerConfig struct {
 
 	dbGetter                 changestream.WatchableDBGetter
 	dbDeleter                database.DBDeleter
-	clusterDescriber         database.ClusterDescriber
 	domainServicesGetter     services.DomainServicesGetter
 	controllerDomainServices services.ControllerDomainServices
 	tracerGetter             trace.TracerGetter
@@ -134,9 +130,6 @@ func (c *sharedServerConfig) validate() error {
 	}
 	if c.dbDeleter == nil {
 		return errors.NotValidf("nil dbDeleter")
-	}
-	if c.clusterDescriber == nil {
-		return errors.NotValidf("nil clusterDescriber")
 	}
 	if c.domainServicesGetter == nil {
 		return errors.NotValidf("nil domainServicesGetter")
@@ -186,7 +179,6 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		macaroonHTTPClient:       config.macaroonHTTPClient,
 		dbGetter:                 config.dbGetter,
 		dbDeleter:                config.dbDeleter,
-		clusterDescriber:         config.clusterDescriber,
 		domainServicesGetter:     config.domainServicesGetter,
 		controllerDomainServices: config.controllerDomainServices,
 		tracerGetter:             config.tracerGetter,

@@ -42,7 +42,6 @@ func newFacadeV8(ctx facade.ModelContext) (*Client, error) {
 		modelTag:         names.NewModelTag(ctx.ModelUUID().String()),
 		auth:             authorizer,
 		leadershipReader: leadershipReader,
-		clusterDescriber: ctx.ClusterDescriber(),
 
 		applicationService:        domainServices.Application(),
 		crossModelRelationService: domainServices.CrossModelRelation(),
