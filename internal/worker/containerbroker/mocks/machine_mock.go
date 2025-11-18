@@ -509,44 +509,6 @@ func (c *MockMachineProvisionerRefreshCall) DoAndReturn(f func(context.Context) 
 	return c
 }
 
-// Remove mocks base method.
-func (m *MockMachineProvisioner) Remove(arg0 context.Context) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Remove", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Remove indicates an expected call of Remove.
-func (mr *MockMachineProvisionerMockRecorder) Remove(arg0 any) *MockMachineProvisionerRemoveCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockMachineProvisioner)(nil).Remove), arg0)
-	return &MockMachineProvisionerRemoveCall{Call: call}
-}
-
-// MockMachineProvisionerRemoveCall wrap *gomock.Call
-type MockMachineProvisionerRemoveCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineProvisionerRemoveCall) Return(arg0 error) *MockMachineProvisionerRemoveCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineProvisionerRemoveCall) Do(f func(context.Context) error) *MockMachineProvisionerRemoveCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineProvisionerRemoveCall) DoAndReturn(f func(context.Context) error) *MockMachineProvisionerRemoveCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SetCharmProfiles mocks base method.
 func (m *MockMachineProvisioner) SetCharmProfiles(arg0 context.Context, arg1 []string) error {
 	m.ctrl.T.Helper()
