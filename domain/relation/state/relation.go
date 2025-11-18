@@ -1597,7 +1597,8 @@ WHERE  relation_uuid = $entityUUID.uuid`, rows{}, entityUUID{})
 	return found.Count == 1, err
 }
 
-// EnterScope indicates that the provided unit has joined the relation.
+// EnterScope indicates that the provided unit has joined the relation. When
+// scope is entered, the relation unit UUID is returned.
 //
 // The following error types can be expected to be returned:
 //   - [relationerrors.RelationNotFound] if the relation cannot be found.
@@ -1614,10 +1615,10 @@ func (st *State) EnterScope(
 	relationUUID corerelation.UUID,
 	unitName unit.Name,
 	settings map[string]string,
-) error {
+) (string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	alreadyInScopeStmt, err := st.Prepare(`
@@ -1629,7 +1630,7 @@ WHERE  u.name = $nameAndUUID.name
 AND    re.relation_uuid = $nameAndUUID.uuid
 `, nameAndUUID{}, rows{})
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	unitArgs := getUnit{
@@ -1641,9 +1642,10 @@ FROM   unit
 WHERE  name = $getUnit.name
 `, unitArgs)
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
+	var relationUnitUUID string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// If the unit is already in scope, return nil to be idempotent.
 		// Settings will not be changed. Even when the unit or relation is
@@ -1681,7 +1683,7 @@ WHERE  name = $getUnit.name
 		}
 
 		// Upsert the row recording that the unit has entered scope.
-		relationUnitUUID, err := st.insertRelationUnit(ctx, tx, relationUUID.String(), unitArgs.UUID.String())
+		relationUnitUUID, err = st.insertRelationUnit(ctx, tx, relationUUID.String(), unitArgs.UUID.String())
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -1694,7 +1696,7 @@ WHERE  name = $getUnit.name
 
 		return nil
 	})
-	return errors.Capture(err)
+	return relationUnitUUID, errors.Capture(err)
 }
 
 // NeedsSubordinateUnit checks if there is a subordinate application
