@@ -4,7 +4,6 @@
 package migrationtarget_test
 
 import (
-	stdctx "context"
 	"fmt"
 	"time"
 
@@ -16,11 +15,6 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
-	v1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
@@ -35,7 +29,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/provider/dummy"
@@ -57,26 +50,9 @@ type Suite struct {
 	facadeContext facadetest.Context
 	callContext   context.ProviderCallContext
 	leaders       map[string]string
-
-	importModelNoOp migrationtarget.ImportModelFunc
 }
 
 var _ = gc.Suite(&Suite{})
-
-// caasSuite is specifically used for testing a caas model.
-type caasSuite struct {
-	statetesting.StateSuite
-	resources  *common.Resources
-	authorizer *apiservertesting.FakeAuthorizer
-
-	facadeContext facadetest.Context
-	callContext   context.ProviderCallContext
-	leaders       map[string]string
-
-	importModel migrationtarget.ImportModelFunc
-}
-
-var _ = gc.Suite(&caasSuite{})
 
 func (s *Suite) SetUpTest(c *gc.C) {
 	// Set up InitialConfig with a dummy provider configuration. This
@@ -103,13 +79,6 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	}
 
 	s.leaders = map[string]string{}
-	s.importModelNoOp = func(
-		importer migration.StateImporter,
-		getClaimer migration.ClaimerFunc,
-		model description.Model,
-	) (*state.Model, *state.State, error) {
-		return nil, nil, nil
-	}
 }
 
 func (s *Suite) TestFacadeRegistered(c *gc.C) {
@@ -140,13 +109,13 @@ func (s *Suite) TestFacadeRegisteredV2(c *gc.C) {
 
 func (s *Suite) TestNotUser(c *gc.C) {
 	s.authorizer.Tag = names.NewMachineTag("0")
-	_, err := s.newAPI(c, nil, nil)
+	_, err := s.newAPI(nil, nil)
 	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
 }
 
 func (s *Suite) TestNotControllerAdmin(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("jrandomuser")
-	_, err := s.newAPI(c, nil, nil)
+	_, err := s.newAPI(nil, nil)
 	c.Assert(errors.Is(err, apiservererrors.ErrPerm), jc.IsTrue)
 }
 
@@ -391,7 +360,7 @@ func (s *Suite) TestAdoptIAASResources(c *gc.C) {
 	defer st.Close()
 
 	env := mockEnv{Stub: &testing.Stub{}}
-	api, err := s.newAPI(c,
+	api, err := s.newAPI(
 		func(model stateenvirons.Model) (environs.Environ, error) {
 			c.Assert(model.ModelTag().Id(), gc.Equals, st.ModelUUID())
 			return &env, nil
@@ -421,7 +390,7 @@ func (s *Suite) TestAdoptCAASResources(c *gc.C) {
 	defer st.Close()
 
 	broker := mockBroker{Stub: &testing.Stub{}}
-	api, err := s.newAPI(c,
+	api, err := s.newAPI(
 		func(model stateenvirons.Model) (environs.Environ, error) {
 			return nil, errors.New("should not be called")
 		}, func(model stateenvirons.Model) (caas.Broker, error) {
@@ -570,17 +539,19 @@ func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
 }
 
 func (s *Suite) newAPI(
-	c *gc.C,
 	environFunc stateenvirons.NewEnvironFunc,
 	brokerFunc stateenvirons.NewCAASBrokerFunc,
 ) (*migrationtarget.API, error) {
 	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc,
-		brokerFunc, facades.FacadeVersions{}, nil, s.importModelNoOp)
+		brokerFunc, facades.FacadeVersions{}, nil, migrationImportModel,
+		precheckShim(s.facadeContext.State()), s.facadeContext.State(),
+		s.facadeContext.Auth(),
+	)
 	return api, err
 }
 
 func (s *Suite) mustNewAPI(c *gc.C) *migrationtarget.API {
-	api, err := s.newAPI(c, nil, nil)
+	api, err := s.newAPI(nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
@@ -591,7 +562,10 @@ func (s *Suite) newAPIWithFacadeVersions(c *gc.C,
 	versions facades.FacadeVersions,
 ) (*migrationtarget.API, error) {
 	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc, brokerFunc,
-		versions, nil, s.importModelNoOp)
+		versions, nil, migrationImportModel,
+		precheckShim(s.facadeContext.State()), s.facadeContext.State(),
+		s.facadeContext.Auth(),
+	)
 	return api, err
 }
 
@@ -603,7 +577,7 @@ func (s *Suite) mustNewAPIWithFacadeVersions(c *gc.C, versions facades.FacadeVer
 
 func (s *Suite) mustNewAPIWithModel(c *gc.C, env environs.Environ,
 	broker caas.Broker) *migrationtarget.API {
-	api, err := s.newAPI(c, func(stateenvirons.Model) (environs.Environ, error) {
+	api, err := s.newAPI(func(stateenvirons.Model) (environs.Environ, error) {
 		return env, nil
 	}, func(stateenvirons.Model) (caas.Broker, error) {
 		return broker, nil
@@ -640,6 +614,22 @@ func (s *Suite) importModel(c *gc.C, api *migrationtarget.API) names.ModelTag {
 	err := api.Import(params.SerializedModel{Bytes: bytes})
 	c.Assert(err, jc.ErrorIsNil)
 	return names.NewModelTag(uuid)
+}
+
+func migrationImportModel(
+	importer migration.StateImporter,
+	getClaimer migration.ClaimerFunc,
+	model description.Model,
+) (*state.Model, migrationtarget.MigrationState, error) {
+	return migration.ImportModel(importer, getClaimer, model)
+}
+
+func precheckShim(s *state.State) func(
+	controllerState *state.State,
+) (migration.PrecheckBackend, error) {
+	return func(controllerState *state.State) (migration.PrecheckBackend, error) {
+		return migration.PrecheckShim(s, controllerState)
+	}
 }
 
 type mockEnv struct {
@@ -690,144 +680,4 @@ type fakeClaimer struct {
 func (c *fakeClaimer) ClaimLeadership(application, unit string, duration time.Duration) error {
 	c.stub.AddCall("ClaimLeadership", application, unit, duration)
 	return c.stub.NextErr()
-}
-
-func (s *caasSuite) SetUpTest(c *gc.C) {
-	// Set up InitialConfig with a dummy provider configuration. This
-	// is required to allow model import test to work.
-	s.InitialConfig = jujutesting.CustomModelConfig(c, dummy.SampleConfig())
-	s.ControllerModelType = "caas"
-
-	// The call to StateSuite's SetUpTest uses s.InitialConfig so
-	// it has to happen here.
-	s.StateSuite.SetUpTest(c)
-
-	s.resources = common.NewResources()
-	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
-
-	s.authorizer = &apiservertesting.FakeAuthorizer{
-		Tag:      s.Owner,
-		AdminTag: s.Owner,
-	}
-	s.callContext = context.NewEmptyCloudCallContext()
-	s.facadeContext = facadetest.Context{
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
-	}
-	s.leaders = map[string]string{}
-	s.importModel = func(
-		importer migration.StateImporter,
-		getClaimer migration.ClaimerFunc,
-		model description.Model,
-	) (*state.Model, *state.State, error) {
-		// Make sure that the storage unique ID for this application is indeed
-		// backfilled. It was initially empty when exported in [makeSerializedModel].
-		c.Assert(model.Applications()[0].StorageUniqueID(), gc.Equals, "uniqueid")
-		return nil, s.facadeContext.State(), nil
-	}
-}
-
-func (s *caasSuite) mustNewAPIWithK8s(
-	c *gc.C,
-	newK8sClient func(
-		cloudSpec cloudspec.CloudSpec,
-	) (kubernetes.Interface, *rest.Config, error),
-) *migrationtarget.API {
-	api, err := s.newAPIWithK8s(nil, nil, newK8sClient)
-	c.Assert(err, jc.ErrorIsNil)
-	return api
-}
-
-func (s *caasSuite) newAPIWithK8s(
-	environFunc stateenvirons.NewEnvironFunc,
-	brokerFunc stateenvirons.NewCAASBrokerFunc,
-	newK8sClient func(
-		cloudSpec cloudspec.CloudSpec,
-	) (kubernetes.Interface, *rest.Config, error),
-) (*migrationtarget.API, error) {
-	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc,
-		brokerFunc, facades.FacadeVersions{}, newK8sClient, s.importModel)
-	return api, err
-}
-
-func (s *caasSuite) makeSerializedModel(c *gc.C) []byte {
-	model, err := s.State.Export(s.leaders)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Minimal arguments to add an application.
-	app := model.AddApplication(description.ApplicationArgs{
-		Tag:                  names.NewApplicationTag("ubuntu"),
-		Type:                 "caas",
-		CharmURL:             "local:trusty/ubuntu",
-		Channel:              "stable",
-		CharmModifiedVersion: 1,
-		CharmConfig: map[string]interface{}{
-			"key": "value",
-		},
-		Leader: "ubuntu/0",
-		LeadershipSettings: map[string]interface{}{
-			"leader": true,
-		},
-		MetricsCredentials: []byte("sekrit"),
-	})
-	app.SetStatus(description.StatusArgs{
-		Value:   "running",
-		Updated: time.Date(2025, 11, 16, 11, 50, 0, 0, time.UTC),
-	})
-	model.SetCloudCredential(description.CloudCredentialArgs{
-		Owner:    names.NewUserTag("test-admin"),
-		Cloud:    names.NewCloudTag("dummy"),
-		Name:     "kubernetes",
-		AuthType: string(cloud.EmptyAuthType),
-	})
-
-	err = s.State.UpdateCloudCredential(
-		names.NewCloudCredentialTag("dummy/test-admin/kubernetes"),
-		cloud.NewCredential(cloud.EmptyAuthType, map[string]string{}),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// For this test case we want to simulate an application with a missing storage
-	// unique ID to be eventually backfilled, hence we assert here it's empty
-	// as a pre-condition.
-	c.Assert(model.Applications(), gc.HasLen, 1)
-	c.Assert(model.Applications()[0].StorageUniqueID(), gc.Equals, "")
-
-	bytes, err := description.Serialize(model)
-	c.Assert(err, jc.ErrorIsNil)
-	return bytes
-}
-
-// TestImportPopulateStorageUniqueID tests that a model that holds an app
-// with an empty storage unique ID will have its storage unique ID backfilled
-// when we import the model.
-func (s *caasSuite) TestImportPopulateStorageUniqueID(c *gc.C) {
-	// Add a statefulset in k8s.
-	k8sClient := fake.NewSimpleClientset()
-	_, err := k8sClient.AppsV1().StatefulSets("only").
-		Create(stdctx.Background(), &v1.StatefulSet{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "ubuntu",
-				Annotations: map[string]string{
-					"app.juju.is/uuid": "uniqueid",
-				},
-			},
-		}, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Create the migrationtarget API.
-	api := s.mustNewAPIWithK8s(
-		c,
-		func(cloudSpec cloudspec.CloudSpec) (kubernetes.Interface, *rest.Config, error) {
-			return k8sClient, nil, nil
-		})
-
-	// Turn the model into a serialized format.
-	serializedModel := s.makeSerializedModel(c)
-
-	// Do the import.
-	err = api.Import(params.SerializedModel{Bytes: serializedModel})
-	c.Assert(err, jc.ErrorIsNil)
 }
