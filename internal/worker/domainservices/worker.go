@@ -12,7 +12,6 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/database"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
@@ -33,7 +32,7 @@ type Config struct {
 	DBGetter changestream.WatchableDBGetter
 
 	// ClusterDescriber is used to describe the cluster.
-	ClusterDescriber database.ClusterDescriber
+	ClusterDescriber coredatabase.ClusterDescriber
 
 	// ProviderFactory is used to get provider instances.
 	ProviderFactory providertracker.ProviderFactory
@@ -219,7 +218,7 @@ type domainServicesGetter struct {
 	storageRegistryGetter   storage.StorageRegistryGetter
 	publicKeyImporter       domainservices.PublicKeyImporter
 	leaseManager            lease.Manager
-	clusterDescriber        database.ClusterDescriber
+	clusterDescriber        coredatabase.ClusterDescriber
 	simpleStreamsHTTPClient http.HTTPClient
 	logDir                  string
 	clock                   clock.Clock

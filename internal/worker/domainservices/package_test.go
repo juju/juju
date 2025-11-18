@@ -11,7 +11,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/database"
 	coredatabase "github.com/juju/juju/core/database"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
@@ -161,7 +160,7 @@ func NewModelDomainServices(
 	storageRegistry storage.ModelStorageRegistryGetter,
 	publicKeyImporter domainservices.PublicKeyImporter,
 	leaseManager lease.ModelLeaseManagerGetter,
-	clusterDescriber database.ClusterDescriber,
+	clusterDescriber coredatabase.ClusterDescriber,
 	simpleStreamsClient corehttp.HTTPClient,
 	logDir string,
 	clock clock.Clock,

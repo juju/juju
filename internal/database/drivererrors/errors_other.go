@@ -8,8 +8,9 @@ package drivererrors
 import (
 	"errors"
 
-	"github.com/juju/juju/internal/database/driver"
 	"github.com/mattn/go-sqlite3"
+
+	"github.com/juju/juju/internal/database/driver"
 )
 
 // IsExtendedErrorCode returns true if the given error is a dqlite error with
