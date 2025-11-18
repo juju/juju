@@ -86,11 +86,11 @@ func (s *migrationServiceSuite) TestImportRelations(c *tc.C) {
 	s.expectSetRelationApplicationSettings(relUUID, app2ID, args[1].Endpoints[0].ApplicationSettings)
 	s.expectSetRelationApplicationSettings(relUUID, app3ID, args[1].Endpoints[1].ApplicationSettings)
 	settings := args[0].Endpoints[0].UnitSettings["ubuntu/0"]
-	s.expectEnterScope(peerRelUUID, coreunittesting.GenNewName(c, "ubuntu/0"), settings)
+	s.expectEnterScope(c, peerRelUUID, coreunittesting.GenNewName(c, "ubuntu/0"), settings)
 	settings = args[1].Endpoints[0].UnitSettings["ubuntu/0"]
-	s.expectEnterScope(relUUID, coreunittesting.GenNewName(c, "ubuntu/0"), settings)
+	s.expectEnterScope(c, relUUID, coreunittesting.GenNewName(c, "ubuntu/0"), settings)
 	settings = args[1].Endpoints[1].UnitSettings["ntp/0"]
-	s.expectEnterScope(relUUID, coreunittesting.GenNewName(c, "ntp/0"), settings)
+	s.expectEnterScope(c, relUUID, coreunittesting.GenNewName(c, "ntp/0"), settings)
 
 	// Act
 	err := s.service.ImportRelations(c.Context(), args)
@@ -205,10 +205,12 @@ func (s *migrationServiceSuite) expectSetRelationApplicationSettings(
 }
 
 func (s *migrationServiceSuite) expectEnterScope(
+	c *tc.C,
 	uuid corerelation.UUID,
 	name coreunit.Name,
 	settings map[string]interface{},
 ) {
+	relUnitUUID := tc.Must(c, corerelation.NewUnitUUID).String()
 	unitSettings, _ := settingsMap(settings)
-	s.state.EXPECT().EnterScope(gomock.Any(), uuid, name, unitSettings).Return(nil)
+	s.state.EXPECT().EnterScope(gomock.Any(), uuid, name, unitSettings).Return(relUnitUUID, nil)
 }

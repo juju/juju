@@ -42,6 +42,11 @@ type State interface {
 	// by ep1 and ep2 and returns the created endpoints.
 	AddRelation(ctx context.Context, ep1, ep2 relation.CandidateEndpointIdentifier, cidrs ...string) (relation.Endpoint, relation.Endpoint, error)
 
+	// DeleteRelationUnit deletes the relation unit with the given UUID and
+	// its settings. Intended for use by the service when a subordinate unit
+	// cannot be created yet.
+	DeleteRelationUnit(ctx context.Context, relationUnitUUID string) error
+
 	// NeedsSubordinateUnit checks if there is a subordinate application
 	// related to the principal unit that needs a subordinate unit created.
 	NeedsSubordinateUnit(
@@ -53,7 +58,8 @@ type State interface {
 	// EnterScope indicates that the provided unit has joined the relation. When
 	// the unit has already entered its relation scope, EnterScope will report
 	// success but make no changes to state. The unit's settings are created in
-	// the relation according to the supplied map.
+	// the relation according to the supplied map. When scope is entered, the
+	// relation unit UUID is returned.
 	// Returns [relationerrors.RelationUnitAlreadyExists] if the unit is already
 	// in the relation.
 	EnterScope(
@@ -61,7 +67,7 @@ type State interface {
 		relationUUID corerelation.UUID,
 		unitName unit.Name,
 		settings map[string]string,
-	) error
+	) (string, error)
 
 	// SetRelationRemoteApplicationAndUnitSettings will set the application and
 	// unit settings for a remote relation. If the unit has not yet entered
@@ -501,12 +507,25 @@ func (s *Service) EnterScope(
 	}
 
 	// Enter the unit into the relation scope.
-	err := s.st.EnterScope(ctx, relationUUID, unitName, settings)
+	relUnitUUID, err := s.st.EnterScope(ctx, relationUUID, unitName, settings)
 	if errors.Is(err, relationerrors.RelationUnitAlreadyExists) {
 		return nil
 	} else if err != nil {
 		return errors.Capture(err)
 	}
+
+	defer func() {
+		if err != nil {
+			// If there is any failure attempting to create the subordinate unit,
+			// roll back the relation unit creation. EnterScope may only succeed
+			// if the subordinate unit creation succeeds when the subordinate unit
+			// should be created.
+			backoutErr := s.st.DeleteRelationUnit(ctx, relUnitUUID)
+			if backoutErr != nil {
+				s.logger.Errorf(ctx, "rollback of relation unit on failed subordinate creation: %w", backoutErr)
+			}
+		}
+	}()
 
 	// Check if a subordinate unit needs creating.
 	subID, err := s.st.NeedsSubordinateUnit(ctx, relationUUID, unitName)
@@ -514,17 +533,14 @@ func (s *Service) EnterScope(
 		return errors.Capture(err)
 	} else if subID != nil {
 		// Create the required unit on the related subordinate application.
-		//
-		// TODO(aflynn): In 3.6 the subordinate was created in the same
-		// transaction as the principal entering scope. This is not the case
-		// here. If the subordinate creation fails, there should be some retry
-		// mechanism, or a rollback of enter scope.
 		if subordinateCreator == nil {
-			return errors.Errorf("subordinate creator is nil")
+			err = errors.Errorf("subordinate creator is nil")
+			return errors.Capture(err)
 		}
-		err := subordinateCreator.CreateSubordinate(ctx, *subID, unitName)
-		if err != nil {
-			return errors.Errorf("creating subordinate unit on application %q: %w", *subID, err)
+
+		if err = subordinateCreator.CreateSubordinate(ctx, *subID, unitName); err != nil {
+			err = errors.Errorf("creating subordinate unit on application %q: %w", *subID, err)
+			return errors.Capture(err)
 		}
 	}
 

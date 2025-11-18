@@ -635,7 +635,7 @@ func (s *relationServiceSuite) TestEnterScope(c *tc.C) {
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	unitName := coreunittesting.GenNewName(c, "app1/0")
 	settings := map[string]string{"ingress": "x.x.x.x"}
-	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings).Return(nil)
+	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings).Return("", nil)
 	s.state.EXPECT().NeedsSubordinateUnit(gomock.Any(), relationUUID, unitName).Return(nil, nil)
 
 	// Act.
@@ -646,8 +646,62 @@ func (s *relationServiceSuite) TestEnterScope(c *tc.C) {
 		settings,
 		nil,
 	)
+
 	// Assert.
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *relationServiceSuite) TestEnterScopeNeedsSubordinateUnitFails(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange: cause NeedsSubordinateUnit to fail, to assert
+	// that DeleteRelationUnit is called.
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	settings := map[string]string{"ingress": "x.x.x.x"}
+	relUnitUUID := tc.Must(c, corerelation.NewUnitUUID).String()
+	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings).Return(relUnitUUID, nil)
+	s.state.EXPECT().NeedsSubordinateUnit(gomock.Any(), relationUUID, unitName).Return(nil, errors.New("boom"))
+	s.state.EXPECT().DeleteRelationUnit(gomock.Any(), relUnitUUID)
+
+	// Act.
+	err := s.service.EnterScope(
+		c.Context(),
+		relationUUID,
+		unitName,
+		settings,
+		nil,
+	)
+
+	// Assert.
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+func (s *relationServiceSuite) TestEnterScopeCreateSubordinateFails(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange: cause NeedsSubordinateUnit to fail, to assert
+	// that DeleteRelationUnit is called.
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	settings := map[string]string{"ingress": "x.x.x.x"}
+	relUnitUUID := tc.Must(c, corerelation.NewUnitUUID).String()
+	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings).Return(relUnitUUID, nil)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	s.state.EXPECT().NeedsSubordinateUnit(gomock.Any(), relationUUID, unitName).Return(&appUUID, nil)
+	s.state.EXPECT().DeleteRelationUnit(gomock.Any(), relUnitUUID)
+
+	// Act.
+	err := s.service.EnterScope(
+		c.Context(),
+		relationUUID,
+		unitName,
+		settings,
+		nil,
+	)
+
+	// Assert.
+	c.Assert(err, tc.ErrorMatches, "subordinate creator is nil")
 }
 
 // TestEnterScopeNthTime tests the idempotency of EnterScope. If it's
@@ -660,7 +714,7 @@ func (s *relationServiceSuite) TestEnterScopeNthTime(c *tc.C) {
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	unitName := coreunittesting.GenNewName(c, "app1/0")
 	settings := map[string]string{"ingress": "x.x.x.x"}
-	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings).Return(relationerrors.RelationUnitAlreadyExists)
+	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings).Return("", relationerrors.RelationUnitAlreadyExists)
 
 	// Act.
 	err := s.service.EnterScope(
@@ -681,7 +735,8 @@ func (s *relationServiceSuite) TestEnterScopeCreatingSubordinate(c *tc.C) {
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	unitName := coreunittesting.GenNewName(c, "app1/0")
 	settings := map[string]string{"ingress": "x.x.x.x"}
-	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings).Return(nil)
+	relUnitUUID := tc.Must(c, corerelation.NewUnitUUID).String()
+	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings).Return(relUnitUUID, nil)
 
 	subAppID := tc.Must(c, coreapplication.NewUUID)
 	s.state.EXPECT().NeedsSubordinateUnit(gomock.Any(), relationUUID, unitName).Return(&subAppID, nil)

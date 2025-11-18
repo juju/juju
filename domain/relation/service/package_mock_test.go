@@ -169,12 +169,51 @@ func (c *MockStateApplicationRelationsInfoCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
-// EnterScope mocks base method.
-func (m *MockState) EnterScope(arg0 context.Context, arg1 relation.UUID, arg2 unit.Name, arg3 map[string]string) error {
+// DeleteRelationUnit mocks base method.
+func (m *MockState) DeleteRelationUnit(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnterScope", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "DeleteRelationUnit", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
+}
+
+// DeleteRelationUnit indicates an expected call of DeleteRelationUnit.
+func (mr *MockStateMockRecorder) DeleteRelationUnit(arg0, arg1 any) *MockStateDeleteRelationUnitCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRelationUnit", reflect.TypeOf((*MockState)(nil).DeleteRelationUnit), arg0, arg1)
+	return &MockStateDeleteRelationUnitCall{Call: call}
+}
+
+// MockStateDeleteRelationUnitCall wrap *gomock.Call
+type MockStateDeleteRelationUnitCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateDeleteRelationUnitCall) Return(arg0 error) *MockStateDeleteRelationUnitCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateDeleteRelationUnitCall) Do(f func(context.Context, string) error) *MockStateDeleteRelationUnitCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateDeleteRelationUnitCall) DoAndReturn(f func(context.Context, string) error) *MockStateDeleteRelationUnitCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// EnterScope mocks base method.
+func (m *MockState) EnterScope(arg0 context.Context, arg1 relation.UUID, arg2 unit.Name, arg3 map[string]string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnterScope", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // EnterScope indicates an expected call of EnterScope.
@@ -190,19 +229,19 @@ type MockStateEnterScopeCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateEnterScopeCall) Return(arg0 error) *MockStateEnterScopeCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockStateEnterScopeCall) Return(arg0 string, arg1 error) *MockStateEnterScopeCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateEnterScopeCall) Do(f func(context.Context, relation.UUID, unit.Name, map[string]string) error) *MockStateEnterScopeCall {
+func (c *MockStateEnterScopeCall) Do(f func(context.Context, relation.UUID, unit.Name, map[string]string) (string, error)) *MockStateEnterScopeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateEnterScopeCall) DoAndReturn(f func(context.Context, relation.UUID, unit.Name, map[string]string) error) *MockStateEnterScopeCall {
+func (c *MockStateEnterScopeCall) DoAndReturn(f func(context.Context, relation.UUID, unit.Name, map[string]string) (string, error)) *MockStateEnterScopeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1747,11 +1786,12 @@ func (c *MockMigrationStateDeleteImportedRelationsCall) DoAndReturn(f func(conte
 }
 
 // EnterScope mocks base method.
-func (m *MockMigrationState) EnterScope(arg0 context.Context, arg1 relation.UUID, arg2 unit.Name, arg3 map[string]string) error {
+func (m *MockMigrationState) EnterScope(arg0 context.Context, arg1 relation.UUID, arg2 unit.Name, arg3 map[string]string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnterScope", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // EnterScope indicates an expected call of EnterScope.
@@ -1767,19 +1807,19 @@ type MockMigrationStateEnterScopeCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockMigrationStateEnterScopeCall) Return(arg0 error) *MockMigrationStateEnterScopeCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockMigrationStateEnterScopeCall) Return(arg0 string, arg1 error) *MockMigrationStateEnterScopeCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMigrationStateEnterScopeCall) Do(f func(context.Context, relation.UUID, unit.Name, map[string]string) error) *MockMigrationStateEnterScopeCall {
+func (c *MockMigrationStateEnterScopeCall) Do(f func(context.Context, relation.UUID, unit.Name, map[string]string) (string, error)) *MockMigrationStateEnterScopeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMigrationStateEnterScopeCall) DoAndReturn(f func(context.Context, relation.UUID, unit.Name, map[string]string) error) *MockMigrationStateEnterScopeCall {
+func (c *MockMigrationStateEnterScopeCall) DoAndReturn(f func(context.Context, relation.UUID, unit.Name, map[string]string) (string, error)) *MockMigrationStateEnterScopeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

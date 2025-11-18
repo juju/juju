@@ -55,7 +55,7 @@ type MigrationState interface {
 		relationUUID corerelation.UUID,
 		unitName unit.Name,
 		settings map[string]string,
-	) error
+	) (string, error)
 
 	// DeleteImportedRelations deletes all imported relations in a model during
 	// an import rollback.
@@ -143,7 +143,7 @@ func (s *MigrationService) importRelationEndpoint(ctx context.Context, relUUID c
 		if err != nil {
 			return err
 		}
-		err = s.st.EnterScope(ctx, relUUID, unit.Name(unitName), settings)
+		_, err = s.st.EnterScope(ctx, relUUID, unit.Name(unitName), settings)
 		if err != nil {
 			return err
 		}
