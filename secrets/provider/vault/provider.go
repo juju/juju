@@ -48,7 +48,9 @@ func modelPathPrefix(name, modelUUID string) string {
 
 // Initialise sets up a kv store mounted on the model uuid.
 func (p vaultProvider) Initialise(cfg *provider.ModelBackendConfig) error {
-	client, err := p.newBackendNoMount(&cfg.BackendConfig)
+	modelUUID := cfg.ModelUUID
+	modelPath := modelPathPrefix(cfg.ModelName, modelUUID)
+	client, err := p.newBackend(modelPath, &cfg.BackendConfig)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -60,8 +62,7 @@ func (p vaultProvider) Initialise(cfg *provider.ModelBackendConfig) error {
 		return errors.Trace(err)
 	}
 	logger.Debugf("kv mounts: %v", mounts)
-	modelUUID := cfg.ModelUUID
-	mountPath := modelPathPrefix(cfg.ModelName, modelUUID)
+	mountPath := client.mountPath
 	if _, ok := mounts[mountPath+"/"]; ok {
 		return nil
 	}
@@ -187,11 +188,12 @@ func (p vaultProvider) RestrictedConfig(
 ) (*provider.BackendConfig, error) {
 	adminUser := tag == nil
 	// Get an admin backend client so we can set up the policies.
-	mountPath := modelPathPrefix(adminCfg.ModelName, adminCfg.ModelUUID)
-	backend, err := p.newBackend(mountPath, &adminCfg.BackendConfig)
+	modelPath := modelPathPrefix(adminCfg.ModelName, adminCfg.ModelUUID)
+	backend, err := p.newBackend(modelPath, &adminCfg.BackendConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	mountPath := backend.mountPath
 	sys := backend.client.Sys()
 
 	ctx := context.Background()
@@ -279,7 +281,10 @@ func (p vaultProvider) newBackend(modelPathPrefix string, cfg *provider.BackendC
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	backend.mountPath = modelPathPrefix
+	if backend.mountPath != "" && !strings.HasSuffix(backend.mountPath, "/") {
+		backend.mountPath += "/"
+	}
+	backend.mountPath += modelPathPrefix
 	return backend, nil
 }
 
@@ -332,7 +337,10 @@ func (p vaultProvider) newBackendNoMount(cfg *provider.BackendConfig) (*vaultBac
 	if ns := validCfg.namespace(); ns != "" {
 		c.SetNamespace(ns)
 	}
-	return &vaultBackend{client: c}, nil
+	return &vaultBackend{
+		client:    c,
+		mountPath: validCfg.mountPath(),
+	}, nil
 }
 
 // RefreshAuth implements SupportAuthRefresh.

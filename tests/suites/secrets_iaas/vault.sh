@@ -6,7 +6,7 @@ run_secrets_vault() {
 
 	prepare_vault
 
-	juju add-secret-backend myvault vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN" ca-cert="$(cat "$VAULT_CAPATH")"
+	juju add-secret-backend myvault vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN" mount-path=some-path ca-cert="$(cat "$VAULT_CAPATH")"
 
 	model_name='model-secrets-vault-charm-owned'
 	add_model "$model_name"
