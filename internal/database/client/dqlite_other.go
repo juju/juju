@@ -104,3 +104,10 @@ func DefaultDialFunc(ctx context.Context, address string) (net.Conn, error) {
 func DialFuncWithTLS(dial DialFunc, config *tls.Config) DialFunc {
 	return nil
 }
+
+// Dqlite node roles.
+const (
+	Voter   = 1
+	Standby = 2
+	Spare   = 3
+)

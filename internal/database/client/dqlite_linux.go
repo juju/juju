@@ -69,3 +69,10 @@ const (
 	LogWarn  = client.LogWarn
 	LogError = client.LogError
 )
+
+// Dqlite node roles.
+const (
+	Voter   = client.Voter
+	Standby = client.Standby
+	Spare   = client.Spare
+)

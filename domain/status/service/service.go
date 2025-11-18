@@ -24,6 +24,8 @@ import (
 	"github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
+	dqliteclient "github.com/juju/juju/internal/database/client"
+	"github.com/juju/juju/internal/database/dqlite"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -33,27 +35,23 @@ type ModelState interface {
 	CrossModelRelationState
 	StorageState
 
-	// GetAllRelationStatuses returns all the relation statuses of the given model.
+	// GetAllRelationStatuses returns all the relation statuses of the given
+	// model.
 	GetAllRelationStatuses(ctx context.Context) ([]status.RelationStatusInfo, error)
 
 	// GetApplicationUUIDByName returns the application UUID for the named
-	// application. If no application is found, an error satisfying
-	// [statuserrors.ApplicationNotFound] is returned.
+	// application.
 	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
-	// GetApplicationUUIDAndNameByUnitName returns the application UUID and name for
-	// the named unit, returning an error satisfying
-	// [statuserrors.UnitNotFound] if the unit doesn't exist.
+	// GetApplicationUUIDAndNameByUnitName returns the application UUID and name
+	// for the named unit.
 	GetApplicationUUIDAndNameByUnitName(ctx context.Context, name coreunit.Name) (coreapplication.UUID, string, error)
 
-	// GetApplicationStatus looks up the status of the specified application,
-	// returning an error satisfying [statuserrors.ApplicationNotFound] if the
-	// application is not found.
+	// GetApplicationStatus looks up the status of the specified application.
 	GetApplicationStatus(ctx context.Context, appID coreapplication.UUID) (status.StatusInfo[status.WorkloadStatusType], error)
 
 	// SetApplicationStatus sets the given application status, overwriting any
-	// current status data. If returns an error satisfying
-	// [statuserrors.ApplicationNotFound] if the application doesn't exist.
+	// current status data.
 	SetApplicationStatus(
 		ctx context.Context,
 		applicationID coreapplication.UUID,
@@ -61,21 +59,14 @@ type ModelState interface {
 	) error
 
 	// SetRelationStatus sets the given relation status and checks that the
-	// transition to the new status from the current status is valid. It can
-	// return the following errors:
-	//   - [statuserrors.RelationNotFound] if the relation doesn't exist.
-	//   - [statuserrors.RelationStatusTransitionNotValid] if the current
-	//     relation status cannot transition to the new relation status. the
-	//     relation does not exist.
+	// transition to the new status from the current status is valid.
 	SetRelationStatus(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
 		sts status.StatusInfo[status.RelationStatusType],
 	) error
 
-	// SetRemoteRelationStatus sets the given relation status. It can
-	// return the following errors:
-	//   - [statuserrors.RelationNotFound] if the relation doesn't exist.
+	// SetRemoteRelationStatus sets the given relation status.
 	SetRemoteRelationStatus(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
@@ -83,33 +74,22 @@ type ModelState interface {
 	) error
 
 	// GetRelationUUIDByID returns the UUID for the given relation ID.
-	// It can return the following errors:
-	//   - [statuserrors.RelationNotFound] if the relation doesn't exist.
 	GetRelationUUIDByID(
 		ctx context.Context,
 		id int,
 	) (corerelation.UUID, error)
 
-	// ImportRelationStatus sets the given relation status. It can return the
-	// following errors:
-	//   - [statuserrors.RelationNotFound] if the relation doesn't exist.
+	// ImportRelationStatus sets the given relation status.
 	ImportRelationStatus(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
 		sts status.StatusInfo[status.RelationStatusType],
 	) error
 
-	// GetUnitUUIDByName returns the UUID for the named unit, returning an
-	// error satisfying [statuserrors.UnitNotFound] if the unit doesn't
-	// exist.
+	// GetUnitUUIDByName returns the UUID for the named unit.
 	GetUnitUUIDByName(context.Context, coreunit.Name) (coreunit.UUID, error)
 
-	// GetUnitWorkloadStatus returns the workload status of the specified unit,
-	// returning:
-	// - an error satisfying [statuserrors.UnitNotFound] if the unit
-	//   doesn't exist or;
-	// - an error satisfying [statuserrors.UnitStatusNotFound] if the
-	//   status is not set.
+	// GetUnitWorkloadStatus returns the workload status of the specified unit.
 	GetUnitWorkloadStatus(context.Context, coreunit.UUID) (status.UnitStatusInfo[status.WorkloadStatusType], error)
 
 	// SetUnitWorkloadStatus sets the workload status of the specified unit,
@@ -118,63 +98,39 @@ type ModelState interface {
 	SetUnitWorkloadStatus(context.Context, coreunit.UUID, status.StatusInfo[status.WorkloadStatusType]) error
 
 	// GetUnitK8sPodStatus returns the k8s pod status of the
-	// specified unit. It returns;
-	// - an error satisfying [statuserrors.UnitNotFound] if the unit
-	//   doesn't exist
+	// specified unit.
 	GetUnitK8sPodStatus(context.Context, coreunit.UUID) (status.StatusInfo[status.K8sPodStatusType], error)
 
 	// GetUnitWorkloadStatusesForApplication returns the workload statuses for
-	// all units of the specified application, returning:
-	//   - an error satisfying [statuserrors.ApplicationNotFound] if the
-	//     application doesn't exist or;
-	//   - error satisfying [statuserrors.ApplicationIsDead] if the
-	//     application is dead.
+	// all units of the specified application.
 	GetUnitWorkloadStatusesForApplication(context.Context, coreapplication.UUID) (status.UnitWorkloadStatuses, error)
 
 	// GetUnitAgentStatusesForApplication returns the agent statuses for
-	// all units of the specified application, returning:
-	//   - an error satisfying [statuserrors.ApplicationNotFound] if the
-	//     application doesn't exist or;
-	//   - error satisfying [statuserrors.ApplicationIsDead] if the
-	//     application is dead.
+	// all units of the specified application.
 	GetUnitAgentStatusesForApplication(context.Context, coreapplication.UUID) (status.UnitAgentStatuses, error)
 
 	// GetAllFullUnitStatusesForApplication returns the workload statuses and
-	// the cloud container statuses for all units of the specified application,
-	// returning:
-	//   - an error satisfying [statuserrors.ApplicationNotFound] if the
-	//     application doesn't exist or;
-	//   - an error satisfying [statuserrors.ApplicationIsDead] if the
-	//     application is dead.
+	// the cloud container statuses for all units of the specified application.
 	GetAllFullUnitStatusesForApplication(
 		context.Context, coreapplication.UUID,
 	) (status.FullUnitStatuses, error)
 
-	// GetUnitAgentStatus returns the workload status of the specified unit,
-	// returning:
-	// - an error satisfying [statuserrors.UnitNotFound] if the unit
-	//   doesn't exist or;
-	// - an error satisfying [statuserrors.UnitStatusNotFound] if the
-	//   status is not set.
+	// GetUnitAgentStatus returns the workload status of the specified unit.
 	GetUnitAgentStatus(context.Context, coreunit.UUID) (status.UnitStatusInfo[status.UnitAgentStatusType], error)
 
-	// SetUnitAgentStatus sets the workload status of the specified unit,
-	// returning an error satisfying [statuserrors.UnitNotFound] if the
-	// unit doesn't exist.
+	// SetUnitAgentStatus sets the workload status of the specified unit.
 	SetUnitAgentStatus(context.Context, coreunit.UUID, status.StatusInfo[status.UnitAgentStatusType]) error
 
 	// GetAllUnitWorkloadAgentStatuses retrieves the presence, workload status,
-	// and agent status of every unit in the model. Returns an error satisfying
-	// [statuserrors.UnitStatusNotFound] if any units do not have statuses.
+	// and agent status of every unit in the model.
 	GetAllUnitWorkloadAgentStatuses(context.Context) (status.UnitWorkloadAgentStatuses, error)
 
 	// GetAllApplicationStatuses returns the statuses of all the applications in
 	// the model, indexed by application name, if they have a status set.
 	GetAllApplicationStatuses(context.Context) (map[string]status.StatusInfo[status.WorkloadStatusType], error)
 
-	// SetUnitPresence marks the presence of the specified unit, returning an
-	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
-	// exist. The unit life is not considered when making this query.
+	// SetUnitPresence marks the presence of the specified unit. The unit life
+	// is not considered when making this query.
 	SetUnitPresence(ctx context.Context, name coreunit.Name) error
 
 	// DeleteUnitPresence removes the presence of the specified unit. If the
@@ -191,14 +147,9 @@ type ModelState interface {
 	GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error)
 
 	// GetMachineStatus returns the status of the specified machine.
-	// This method may return the following errors:
-	// - [machineerrors.MachineNotFound] if the machine does not exist.
-	// - [statuserrors.MachineStatusNotFound] if the status is not set.
 	GetMachineStatus(ctx context.Context, machineName string) (status.StatusInfo[status.MachineStatusType], error)
 
 	// SetMachineStatus sets the status of the specified machine.
-	// This method may return the following errors:
-	// - [machineerrors.MachineNotFound] if the machine does not exist.
 	SetMachineStatus(ctx context.Context, machineName string, status status.StatusInfo[status.MachineStatusType]) error
 
 	// GetAllMachineStatuses returns all the machine statuses for the model,
@@ -211,9 +162,6 @@ type ModelState interface {
 
 	// GetInstanceStatus returns the cloud specific instance status for the
 	// given machine.
-	// This method may return the following errors:
-	// - [machineerrors.MachineNotFound] if the machine does not exist or;
-	// - [statuserrors.MachineStatusNotFound] if the status is not set.
 	GetInstanceStatus(ctx context.Context, machineName string) (status.StatusInfo[status.InstanceStatusType], error)
 
 	// GetAllInstanceStatuses returns all the instance statuses for the model,
@@ -222,14 +170,9 @@ type ModelState interface {
 
 	// SetInstanceStatus sets the cloud specific instance status for this
 	// machine.
-	// This method may return the following errors:
-	// - [machineerrors.NotProvisioned] if the machine does not exist.
 	SetInstanceStatus(ctx context.Context, machienName string, status status.StatusInfo[status.InstanceStatusType]) error
 
 	// GetModelStatusInfo returns information about the current model.
-	// The following error types can be expected to be returned:
-	// - [github.com/juju/juju/domain/model/errors.NotFound]: When the model
-	// does not exist.
 	GetModelStatusInfo(ctx context.Context) (status.ModelStatusInfo, error)
 
 	// GetApplicationUUIDForOffer returns the UUID of the application that the
@@ -239,13 +182,19 @@ type ModelState interface {
 	// NamespacesForWatchOfferStatus returns the namespace string identifiers
 	// for application status changes.
 	NamespacesForWatchOfferStatus() (offer, application, unitAgent, unitWorkload, unitPod string)
+
+	// IsControllerModel returns if the model is a controller model.
+	IsControllerModel(ctx context.Context) (bool, error)
 }
 
 // ControllerState is the controller state required by the service.
 type ControllerState interface {
 	// GetModelStatusContext returns the status context for the given model.
-	// It returns [github.com/juju/juju/domain/model/errors.NotFound] if the model no longer exists.
 	GetModelStatusContext(context.Context) (status.ModelStatusContext, error)
+
+	// GetControllerIDs returns the list of controller IDs from the controller
+	// node records.
+	GetControllerNodeIDs(ctx context.Context) ([]status.ControllerNode, error)
 }
 
 // Service provides the API for working with the statuses of applications and
@@ -783,6 +732,11 @@ func (s *Service) GetMachineFullStatuses(ctx context.Context) (map[machine.Name]
 		return nil, errors.Capture(err)
 	}
 
+	clusterInfo, err := s.getClusterMachineInfo(ctx)
+	if err != nil {
+		return nil, errors.Errorf("getting cluster machine info: %w", err)
+	}
+
 	result := make(map[machine.Name]Machine, len(machineStatuses))
 	for name, m := range machineStatuses {
 		if err := name.Validate(); err != nil {
@@ -793,9 +747,74 @@ func (s *Service) GetMachineFullStatuses(ctx context.Context) (map[machine.Name]
 		if err != nil {
 			return nil, errors.Errorf("decoding machine status for %q: %w", name, err)
 		}
+
+		if clusterInfo, ok := clusterInfo[name]; ok {
+			decodedStatus.ClusterInfo = &clusterInfo
+		}
+
 		result[name] = decodedStatus
 	}
 	return result, nil
+}
+
+func (s *Service) getClusterMachineInfo(ctx context.Context) (map[machine.Name]MachineClusterInfo, error) {
+	if isControllerModel, err := s.modelState.IsControllerModel(ctx); err != nil {
+		return nil, errors.Errorf("checking if controller model: %w", err)
+	} else if !isControllerModel {
+		return nil, nil
+	}
+
+	// First get the cluster details. This is direct from dqlite. This should
+	// signify if the cluster contains the controller nodes. If a dqlite
+	// cluster, it isn't present, so either it's is coming up or it was removed
+	// directly from dqlite itself. If the node is down, then we can't visibly
+	// see that here. We need to contact the leader directly, which is a more
+	// expensive operation.
+	description, err := s.clusterDescriber.ClusterDetails(ctx)
+	if err != nil {
+		return nil, errors.Errorf("getting cluster details: %w", err)
+	}
+
+	members := make(map[uint64]dqlite.NodeInfo)
+	for _, member := range description {
+		members[member.ID] = member
+	}
+
+	// Now get the controller nodes that are in the database.
+	controllerNodes, err := s.controllerState.GetControllerNodeIDs(ctx)
+	if err != nil {
+		return nil, errors.Errorf("getting controller node IDs: %w", err)
+	}
+
+	clusterInfo := make(map[machine.Name]MachineClusterInfo)
+	for _, node := range controllerNodes {
+		member, ok := members[node.DqliteNodeID]
+		if !ok {
+			// Node not in the dqlite cluster.
+			continue
+		}
+
+		clusterInfo[machine.Name(node.ControllerID)] = MachineClusterInfo{
+			Present: true,
+			Role:    encodeDqliteRole(member.Role),
+		}
+	}
+	return clusterInfo, nil
+}
+
+func encodeDqliteRole(role dqlite.NodeRole) ClusterRole {
+	var result ClusterRole
+	switch role {
+	case dqliteclient.Voter:
+		result = ClusterRoleVoter
+	case dqliteclient.Standby:
+		result = ClusterRoleStandby
+	case dqliteclient.Spare:
+		result = ClusterRoleSpare
+	default:
+		result = "unknown"
+	}
+	return result
 }
 
 // SetMachineStatus sets the status of the specified machine.

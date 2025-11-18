@@ -78,7 +78,18 @@ type Machine struct {
 // MachineClusterInfo represents the cluster information of a controller
 // machine.
 type MachineClusterInfo struct {
+	Present bool
+	Role    ClusterRole
 }
+
+// ClusterRole represents the role of a controller node in the dqlite cluster.
+type ClusterRole string
+
+const (
+	ClusterRoleVoter   ClusterRole = "voter"
+	ClusterRoleStandby ClusterRole = "standby"
+	ClusterRoleSpare   ClusterRole = "spare"
+)
 
 // StatusHistoryFilter holds the parameters to filter a status history query.
 type StatusHistoryFilter struct {
