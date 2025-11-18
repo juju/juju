@@ -9,6 +9,9 @@ import (
 	"github.com/juju/juju/testing"
 )
 
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade Context,Resources,Presence,Authorizer
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/apiserver/facades/controller/migrationtarget MigrationState
+
 func TestAll(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }
