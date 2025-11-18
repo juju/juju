@@ -6,6 +6,7 @@ package migrationtarget
 import (
 	"reflect"
 
+	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/environs/cloudspec"
 	jujukubernetes "github.com/juju/juju/internal/provider/kubernetes"
 	"github.com/juju/juju/migration"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -60,7 +62,10 @@ func newFacadeV1(ctx facade.Context) (*APIV1, error) {
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 		facades.FacadeVersions{},
 		newK8sClient,
-		migration.ImportModel,
+		migrationImportModel,
+		precheckShim(ctx.State()),
+		ctx.State(),
+		ctx.Auth(),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -76,7 +81,10 @@ func newFacadeV2(ctx facade.Context) (*APIV2, error) {
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 		facades.FacadeVersions{},
 		newK8sClient,
-		migration.ImportModel,
+		migrationImportModel,
+		precheckShim(ctx.State()),
+		ctx.State(),
+		ctx.Auth(),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -92,7 +100,10 @@ func newFacade(ctx facade.Context, facadeVersions facades.FacadeVersions) (*API,
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 		facadeVersions,
 		newK8sClient,
-		migration.ImportModel,
+		migrationImportModel,
+		precheckShim(ctx.State()),
+		ctx.State(),
+		ctx.Auth(),
 	)
 }
 
@@ -105,4 +116,22 @@ func newK8sClient(cloudSpec cloudspec.CloudSpec) (kubernetes.Interface, *rest.Co
 
 	k8sClient, err := kubernetes.NewForConfig(cfg)
 	return k8sClient, cfg, err
+}
+
+// migrationImportModel wraps [migration.ImportModel] so we conform to the contract
+// in [NewAPI].
+func migrationImportModel(
+	importer migration.StateImporter,
+	getClaimer migration.ClaimerFunc,
+	model description.Model,
+) (*state.Model, MigrationState, error) {
+	return migration.ImportModel(importer, getClaimer, model)
+}
+
+// precheckShim wraps [migration.PrecheckShim] so we conform to the contract
+// in [NewAPI].
+func precheckShim(s *state.State) precheckShimFunc {
+	return func(controllerState *state.State) (migration.PrecheckBackend, error) {
+		return migration.PrecheckShim(s, controllerState)
+	}
 }
