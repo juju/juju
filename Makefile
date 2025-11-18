@@ -708,7 +708,10 @@ host-install:
 .PHONY: minikube-operator-update
 minikube-operator-update: host-install operator-image
 ## minikube-operator-update: Inject the newly built operator image into minikube
-	$(OCI_BUILDER) save "$(shell ${OPERATOR_IMAGE_PATH})" | minikube image load --overwrite=true -
+	$(eval TMP_PATH=$(shell mktemp))
+	$(OCI_BUILDER) save "$(shell ${OPERATOR_IMAGE_PATH})" > "${TMP_PATH}"
+	minikube image load "${TMP_PATH}" --overwrite=true
+	rm "${TMP_PATH}"
 
 .PHONY: microk8s-operator-update
 microk8s-operator-update: host-install operator-image
