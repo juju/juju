@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/model"
@@ -42,7 +43,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/auth"
-	"github.com/juju/juju/internal/database/dqlite"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -563,6 +563,6 @@ type stubClusterDescriber struct{}
 
 // ClusterDetails returns the node information for Dqlite nodes configured to be
 // in the cluster.
-func (stubClusterDescriber) ClusterDetails(context.Context) ([]dqlite.NodeInfo, error) {
+func (stubClusterDescriber) ClusterDetails(context.Context) ([]database.ClusterNodeInfo, error) {
 	return nil, nil
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
@@ -79,25 +80,7 @@ type Machine struct {
 // machine.
 type MachineClusterInfo struct {
 	Present bool
-	Role    ClusterRole
-}
-
-// ClusterRole represents the role of a controller node in the dqlite cluster.
-type ClusterRole string
-
-const (
-	ClusterRoleVoter   ClusterRole = "voter"
-	ClusterRoleStandby ClusterRole = "standby"
-	ClusterRoleSpare   ClusterRole = "spare"
-)
-
-// HasVote indicates whether the role has a vote in the cluster.
-func (r ClusterRole) HasVote() bool {
-	return r == ClusterRoleVoter || r == ClusterRoleStandby
-}
-
-func (r ClusterRole) String() string {
-	return string(r)
+	Role    database.NodeRole
 }
 
 // StatusHistoryFilter holds the parameters to filter a status history query.

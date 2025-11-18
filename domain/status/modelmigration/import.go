@@ -9,6 +9,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/description/v10"
 
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/domain/status/service"
 	statecontroller "github.com/juju/juju/domain/status/state/controller"
 	statemodel "github.com/juju/juju/domain/status/state/model"
-	"github.com/juju/juju/internal/database/dqlite"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -195,6 +195,6 @@ type clusterDescriber struct{}
 
 // ClusterDetails returns the details of the dqlite cluster nodes. For
 // migrations it's ok that this is a no-op.
-func (c clusterDescriber) ClusterDetails(ctx context.Context) ([]dqlite.NodeInfo, error) {
+func (c clusterDescriber) ClusterDetails(ctx context.Context) ([]database.ClusterNodeInfo, error) {
 	return nil, nil
 }

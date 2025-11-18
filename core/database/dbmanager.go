@@ -6,7 +6,6 @@ package database
 import (
 	"context"
 
-	"github.com/juju/juju/internal/database/dqlite"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -64,5 +63,30 @@ type DBDeleter interface {
 type ClusterDescriber interface {
 	// ClusterDetails returns the node information for
 	// Dqlite nodes configured to be in the cluster.
-	ClusterDetails(context.Context) ([]dqlite.NodeInfo, error)
+	ClusterDetails(context.Context) ([]ClusterNodeInfo, error)
+}
+
+// NodeRole describes the role of a dqlite node.
+type NodeRole string
+
+// Dqlite node roles.
+const (
+	Voter   NodeRole = "voter"
+	Standby NodeRole = "standby"
+	Spare   NodeRole = "spare"
+)
+
+// HasVote returns whether the node role has voting rights.
+func (r NodeRole) HasVote() bool {
+	return r == Voter || r == Standby
+}
+
+func (r NodeRole) String() string {
+	return string(r)
+}
+
+// ClusterNodeInfo describes a dqlite cluster node.
+type ClusterNodeInfo struct {
+	ID   uint64
+	Role NodeRole
 }

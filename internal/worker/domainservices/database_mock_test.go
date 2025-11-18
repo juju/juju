@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	dqlite "github.com/juju/juju/internal/database/dqlite"
+	database "github.com/juju/juju/core/database"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -41,10 +41,10 @@ func (m *MockClusterDescriber) EXPECT() *MockClusterDescriberMockRecorder {
 }
 
 // ClusterDetails mocks base method.
-func (m *MockClusterDescriber) ClusterDetails(arg0 context.Context) ([]dqlite.NodeInfo, error) {
+func (m *MockClusterDescriber) ClusterDetails(arg0 context.Context) ([]database.ClusterNodeInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClusterDetails", arg0)
-	ret0, _ := ret[0].([]dqlite.NodeInfo)
+	ret0, _ := ret[0].([]database.ClusterNodeInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -62,19 +62,19 @@ type MockClusterDescriberClusterDetailsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockClusterDescriberClusterDetailsCall) Return(arg0 []dqlite.NodeInfo, arg1 error) *MockClusterDescriberClusterDetailsCall {
+func (c *MockClusterDescriberClusterDetailsCall) Return(arg0 []database.ClusterNodeInfo, arg1 error) *MockClusterDescriberClusterDetailsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockClusterDescriberClusterDetailsCall) Do(f func(context.Context) ([]dqlite.NodeInfo, error)) *MockClusterDescriberClusterDetailsCall {
+func (c *MockClusterDescriberClusterDetailsCall) Do(f func(context.Context) ([]database.ClusterNodeInfo, error)) *MockClusterDescriberClusterDetailsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockClusterDescriberClusterDetailsCall) DoAndReturn(f func(context.Context) ([]dqlite.NodeInfo, error)) *MockClusterDescriberClusterDetailsCall {
+func (c *MockClusterDescriberClusterDetailsCall) DoAndReturn(f func(context.Context) ([]database.ClusterNodeInfo, error)) *MockClusterDescriberClusterDetailsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

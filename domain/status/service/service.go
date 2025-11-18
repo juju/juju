@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/database/dqlite"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -774,7 +773,7 @@ func (s *Service) getClusterMachineInfo(ctx context.Context) (map[machine.Name]M
 		return nil, errors.Errorf("getting cluster details: %w", err)
 	}
 
-	members := make(map[uint64]dqlite.NodeInfo)
+	members := make(map[uint64]database.ClusterNodeInfo)
 	for _, member := range description {
 		members[member.ID] = member
 	}
@@ -795,25 +794,10 @@ func (s *Service) getClusterMachineInfo(ctx context.Context) (map[machine.Name]M
 
 		clusterInfo[machine.Name(node.ControllerID)] = MachineClusterInfo{
 			Present: true,
-			Role:    encodeDqliteRole(member.Role),
+			Role:    member.Role,
 		}
 	}
 	return clusterInfo, nil
-}
-
-func encodeDqliteRole(role dqlite.NodeRole) ClusterRole {
-	var result ClusterRole
-	switch role {
-	case dqlite.Voter:
-		result = ClusterRoleVoter
-	case dqlite.StandBy:
-		result = ClusterRoleStandby
-	case dqlite.Spare:
-		result = ClusterRoleSpare
-	default:
-		result = "unknown"
-	}
-	return result
 }
 
 // SetMachineStatus sets the status of the specified machine.

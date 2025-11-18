@@ -197,8 +197,33 @@ type clusterDetailer struct {
 
 // ClusterDetails returns the node information for Dqlite nodes configured to be
 // in the cluster.
-func (c *clusterDetailer) ClusterDetails(ctx context.Context) ([]dqlite.NodeInfo, error) {
+func (c *clusterDetailer) ClusterDetails(ctx context.Context) ([]coredatabase.ClusterNodeInfo, error) {
 	// TODO (stickupkid): We probably want to cache this result, as it could
 	// be expensive to fetch repeatedly from the underlying YAML store.
-	return c.nodeManager.ClusterServers(ctx)
+	clusterNodes, err := c.nodeManager.ClusterServers(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	result := make([]coredatabase.ClusterNodeInfo, len(clusterNodes))
+	for i, node := range clusterNodes {
+		result[i] = coredatabase.ClusterNodeInfo{
+			ID:   node.ID,
+			Role: convertNodeRole(node.Role),
+		}
+	}
+	return result, nil
+}
+
+func convertNodeRole(role dqlite.NodeRole) coredatabase.NodeRole {
+	switch role {
+	case dqlite.Voter:
+		return coredatabase.Voter
+	case dqlite.StandBy:
+		return coredatabase.Standby
+	case dqlite.Spare:
+		return coredatabase.Spare
+	default:
+		return coredatabase.NodeRole("unknown")
+	}
 }
