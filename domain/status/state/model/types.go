@@ -230,6 +230,10 @@ type modelInfo struct {
 	Type string `db:"type"`
 }
 
+type controllerModelInfo struct {
+	IsCOntrollerModel bool `db:"is_controller_model"`
+}
+
 type filesystemUUID struct {
 	FilesystemUUID string `db:"uuid"`
 }

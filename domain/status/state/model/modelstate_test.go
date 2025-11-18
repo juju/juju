@@ -72,15 +72,15 @@ func (s *modelStateSuite) TestGetModelStatusInfo(c *tc.C) {
 
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type, credential_owner)
-			VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2", "owner")
+INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type, credential_owner)
+VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2", "owner")
 		`, modelUUID.String(), controllerUUID.String())
 		return err
 	})
 	c.Check(err, tc.ErrorIsNil)
 
 	modelInfo, err := s.state.GetModelStatusInfo(c.Context())
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(modelInfo.Type, tc.Equals, model.IAAS)
 }
 
@@ -88,6 +88,51 @@ func (s *modelStateSuite) TestGetModelStatusInfoNotFound(c *tc.C) {
 	state := NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	_, err := state.GetModelStatusInfo(c.Context())
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
+}
+
+func (s *modelStateSuite) TestIsControllerModelNotControllerModel(c *tc.C) {
+	modelUUID := modeltesting.GenModelUUID(c)
+	controllerUUID, err := uuid.NewUUID()
+	c.Check(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type, credential_owner)
+VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2", "owner")
+		`, modelUUID.String(), controllerUUID.String())
+		return err
+	})
+	c.Check(err, tc.ErrorIsNil)
+
+	isControllerModel, err := s.state.IsControllerModel(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isControllerModel, tc.IsFalse)
+}
+
+func (s *modelStateSuite) TestIsControllerModel(c *tc.C) {
+	modelUUID := modeltesting.GenModelUUID(c)
+	controllerUUID, err := uuid.NewUUID()
+	c.Check(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type, credential_owner, is_controller_model)
+VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2", "owner", true)
+		`, modelUUID.String(), controllerUUID.String())
+		return err
+	})
+	c.Check(err, tc.ErrorIsNil)
+
+	isControllerModel, err := s.state.IsControllerModel(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isControllerModel, tc.IsTrue)
+}
+
+func (s *modelStateSuite) TestIsControllerModelNotFound(c *tc.C) {
+	state := NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	_, err := state.IsControllerModel(c.Context())
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 

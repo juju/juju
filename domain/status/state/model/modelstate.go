@@ -84,6 +84,42 @@ FROM   model
 	}
 
 	return status.ModelStatusInfo{Type: coremodel.ModelType(m.Type)}, nil
+}
+
+// IsControllerModel returns if the model is a controller model.
+// The following error types can be expected to be returned:
+// - [modelerrors.NotFound]: When the model does not exist.
+func (st *ModelState) IsControllerModel(ctx context.Context) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &controllerModelInfo.*
+FROM   model
+`, controllerModelInfo{})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var m controllerModelInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&m)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.New("model does not exist").Add(modelerrors.NotFound)
+		} else if err != nil {
+			return errors.Errorf(
+				"getting controller model information from database: %w", err,
+			)
+		}
+		return err
+	})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return m.IsCOntrollerModel, nil
 
 }
 
