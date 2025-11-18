@@ -429,13 +429,13 @@ WHERE  relation_endpoint_uuid = ?
 }
 
 // getRelationUnitInScope verifies that the expected row is populated in
-// relation_unit table.
+// relation_unit table, returning the relation unit UUID.
 func (s *baseRelationSuite) getRelationUnitInScope(
 	c *tc.C,
 	relationUUID corerelation.UUID,
 	unitUUID coreunit.UUID,
-) corerelation.UnitUUID {
-	var relationUnitUUID corerelation.UnitUUID
+) string {
+	var relationUnitUUID string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRow(`
 SELECT ru.uuid
@@ -455,7 +455,7 @@ AND    ru.unit_uuid = ?
 }
 
 // getRelationUnitSettings gets the relation application settings.
-func (s *baseRelationSuite) getRelationUnitSettings(c *tc.C, relationUnitUUID corerelation.UnitUUID) map[string]string {
+func (s *baseRelationSuite) getRelationUnitSettings(c *tc.C, relationUnitUUID string) map[string]string {
 	settings := map[string]string{}
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
@@ -483,7 +483,7 @@ WHERE relation_unit_uuid = ?
 	return settings
 }
 
-func (s *baseRelationSuite) getRelationUnitSettingsHash(c *tc.C, relationUnitUUID corerelation.UnitUUID) string {
+func (s *baseRelationSuite) getRelationUnitSettingsHash(c *tc.C, relationUnitUUID string) string {
 	var hash string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRow(`

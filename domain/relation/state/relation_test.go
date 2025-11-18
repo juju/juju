@@ -2211,9 +2211,7 @@ func (s *relationSuite) TestEnterScopeIdempotent(c *tc.C) {
 	// Check the same relation unit uuid is found and the settings stayed the
 	// same.
 	obtainedRelationUnitUUID := s.getRelationUnitInScope(c, relationUUID, unitUUID)
-	if c.Check(obtainedRelationUnitUUID.Validate(), tc.ErrorIsNil) {
-		c.Check(obtainedRelationUnitUUID.String(), tc.Equals, relationUnitUUID.String())
-	}
+	c.Check(obtainedRelationUnitUUID, tc.Equals, relationUnitUUID)
 
 	newObtainedSettings := s.getRelationUnitSettings(c, relationUnitUUID)
 	c.Check(newObtainedSettings, tc.DeepEquals, settings)
@@ -2275,7 +2273,8 @@ func (s *relationSuite) TestEnterScopeSubordinate(c *tc.C) {
 
 	// Assert: relation unit is in scope:
 	relationUnitUUID := s.getRelationUnitInScope(c, relationUUID, unitUUID1)
-	c.Check(relationUnitUUID.Validate(), tc.ErrorIsNil)
+	_, err = corerelation.ParseUnitUUID(relationUnitUUID)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestEnterScopePotentialRelationUnitNotValidSubordinate checks the right error
@@ -3226,7 +3225,7 @@ func (s *relationSuite) TestSetRelationUnitSettings(c *tc.C) {
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
-	foundSettings := s.getRelationUnitSettings(c, relationUnitUUID)
+	foundSettings := s.getRelationUnitSettings(c, relationUnitUUID.String())
 	c.Assert(foundSettings, tc.DeepEquals, expectedSettings)
 }
 
@@ -3278,7 +3277,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsNothingToSet(c *tc.C) {
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
-	foundSettings := s.getRelationUnitSettings(c, relationUnitUUID)
+	foundSettings := s.getRelationUnitSettings(c, relationUnitUUID.String())
 	c.Assert(foundSettings, tc.DeepEquals, expectedSettings)
 }
 
@@ -3332,7 +3331,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsNothingToUnset(c *tc.C) {
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
-	foundSettings := s.getRelationUnitSettings(c, relationUnitUUID)
+	foundSettings := s.getRelationUnitSettings(c, relationUnitUUID.String())
 	c.Assert(foundSettings, tc.DeepEquals, expectedSettings)
 }
 
@@ -3367,7 +3366,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsNilMap(c *tc.C) {
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
-	foundSettings := s.getRelationUnitSettings(c, relationUnitUUID)
+	foundSettings := s.getRelationUnitSettings(c, relationUnitUUID.String())
 	c.Assert(foundSettings, tc.HasLen, 0)
 }
 
@@ -3406,7 +3405,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsHashUpdated(c *tc.C) {
 
 	c.Assert(err, tc.ErrorIsNil)
 
-	initialHash := s.getRelationUnitSettingsHash(c, relationUnitUUID)
+	initialHash := s.getRelationUnitSettingsHash(c, relationUnitUUID.String())
 
 	// Act:
 	err = s.state.SetRelationUnitSettings(
@@ -3421,7 +3420,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsHashUpdated(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
 	// Assert: Check the hash has changed.
-	foundHash := s.getRelationUnitSettingsHash(c, relationUnitUUID)
+	foundHash := s.getRelationUnitSettingsHash(c, relationUnitUUID.String())
 	c.Assert(initialHash, tc.Not(tc.Equals), foundHash)
 }
 
@@ -3459,7 +3458,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsHashConstant(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	initialHash := s.getRelationUnitSettingsHash(c, relationUnitUUID)
+	initialHash := s.getRelationUnitSettingsHash(c, relationUnitUUID.String())
 
 	// Act:
 	err = s.state.SetRelationUnitSettings(
@@ -3472,7 +3471,7 @@ func (s *relationSuite) TestSetRelationUnitSettingsHashConstant(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
 	// Assert: Check the hash has changed.
-	foundHash := s.getRelationUnitSettingsHash(c, relationUnitUUID)
+	foundHash := s.getRelationUnitSettingsHash(c, relationUnitUUID.String())
 	c.Assert(initialHash, tc.Equals, foundHash)
 }
 
@@ -3557,7 +3556,7 @@ func (s *relationSuite) TestSetRelationApplicationAndUnitSettings(c *tc.C) {
 
 	foundAppSettings := s.getRelationApplicationSettings(c, relationEndpointUUID1)
 	c.Assert(foundAppSettings, tc.DeepEquals, appExpectedSettings)
-	foundUnitSettings := s.getRelationUnitSettings(c, relationUnitUUID)
+	foundUnitSettings := s.getRelationUnitSettings(c, relationUnitUUID.String())
 	c.Assert(foundUnitSettings, tc.DeepEquals, unitExpectedSettings)
 }
 
@@ -3593,7 +3592,7 @@ func (s *relationSuite) TestSetRelationApplicationAndUnitSettingsNilMap(c *tc.C)
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
 
-	foundSettings := s.getRelationUnitSettings(c, relationUnitUUID)
+	foundSettings := s.getRelationUnitSettings(c, relationUnitUUID.String())
 	c.Assert(foundSettings, tc.HasLen, 0)
 	foundSettings = s.getRelationApplicationSettings(c, relationEndpointUUID1)
 	c.Assert(foundSettings, tc.HasLen, 0)
