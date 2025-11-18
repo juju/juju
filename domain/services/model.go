@@ -11,6 +11,7 @@ import (
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
@@ -125,8 +126,9 @@ type ModelServices struct {
 	modelObjectStoreGetter      objectstore.ModelObjectStoreGetter
 	storageRegistry             corestorage.ModelStorageRegistryGetter
 	publicKeyImporter           PublicKeyImporter
-	simplestreamsClient         http.HTTPClient
 	leaseManager                lease.ModelLeaseManagerGetter
+	clusterDescriber            database.ClusterDescriber
+	simpleStreamsClient         http.HTTPClient
 	logDir                      string
 	clock                       clock.Clock
 }
@@ -143,8 +145,9 @@ func NewModelServices(
 	storageRegistry corestorage.ModelStorageRegistryGetter,
 	publicKeyImporter PublicKeyImporter,
 	leaseManager lease.ModelLeaseManagerGetter,
-	logDir string,
+	clusterDescriber database.ClusterDescriber,
 	simpleStreamsClient http.HTTPClient,
+	logDir string,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *ModelServices {
@@ -162,7 +165,8 @@ func NewModelServices(
 		storageRegistry:             storageRegistry,
 		publicKeyImporter:           publicKeyImporter,
 		leaseManager:                leaseManager,
-		simplestreamsClient:         simpleStreamsClient,
+		clusterDescriber:            clusterDescriber,
+		simpleStreamsClient:         simpleStreamsClient,
 		logDir:                      logDir,
 		clock:                       clock,
 		controllerObjectStoreGetter: controllerObjectStoreGetter,
@@ -196,7 +200,7 @@ func (s *ModelServices) AgentBinary() *agentbinaryservice.AgentBinaryService {
 		agentbinaryservice.NewSimpleStreamAgentBinaryStore(
 			providertracker.ProviderRunner[agentbinaryservice.ProviderForAgentBinaryFinder](
 				s.providerFactory, s.modelUUID.String(),
-			), envtools.FindTools, s.simplestreamsClient,
+			), envtools.FindTools, s.simpleStreamsClient,
 		))
 }
 
@@ -287,6 +291,7 @@ func (s *ModelServices) Status() *statusservice.LeadershipService {
 		statusstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, logger),
 		statusstate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB), s.modelUUID),
 		domain.NewLeaseService(s.leaseManager),
+		s.clusterDescriber,
 		s.modelWatcherFactory("status"),
 		s.modelUUID,
 		domain.NewStatusHistory(logger, s.clock),

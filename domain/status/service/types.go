@@ -72,6 +72,12 @@ type Machine struct {
 	Constraints             constraints.Value
 	HardwareCharacteristics instance.HardwareCharacteristics
 	LXDProfiles             []string
+	ClusterInfo             *MachineClusterInfo
+}
+
+// MachineClusterInfo represents the cluster information of a controller
+// machine.
+type MachineClusterInfo struct {
 }
 
 // StatusHistoryFilter holds the parameters to filter a status history query.

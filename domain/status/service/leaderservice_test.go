@@ -30,8 +30,9 @@ type leaderServiceSuite struct {
 	modelState      *MockModelState
 	controllerState *MockControllerState
 
-	leadership    *MockEnsurer
-	statusHistory *statusHistoryRecorder
+	leadership       *MockEnsurer
+	clusterDescriber *MockClusterDescriber
+	statusHistory    *statusHistoryRecorder
 
 	service *LeadershipService
 }
@@ -386,12 +387,14 @@ func (s *leaderServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.modelState = NewMockModelState(ctrl)
 	s.controllerState = NewMockControllerState(ctrl)
 	s.leadership = NewMockEnsurer(ctrl)
+	s.clusterDescriber = NewMockClusterDescriber(ctrl)
 	s.statusHistory = &statusHistoryRecorder{}
 
 	s.service = NewLeadershipService(
 		s.modelState,
 		s.controllerState,
 		s.leadership,
+		s.clusterDescriber,
 		nil,
 		model.UUID("test-model"),
 		s.statusHistory,
@@ -401,6 +404,15 @@ func (s *leaderServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
+
+	c.Cleanup(func() {
+		s.modelState = nil
+		s.controllerState = nil
+		s.leadership = nil
+		s.clusterDescriber = nil
+		s.statusHistory = nil
+		s.service = nil
+	})
 
 	return ctrl
 }

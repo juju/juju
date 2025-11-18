@@ -12,6 +12,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
@@ -30,6 +31,9 @@ import (
 type Config struct {
 	// DBGetter supplies WatchableDB implementations by namespace.
 	DBGetter changestream.WatchableDBGetter
+
+	// ClusterDescriber is used to describe the cluster.
+	ClusterDescriber database.ClusterDescriber
 
 	// ProviderFactory is used to get provider instances.
 	ProviderFactory providertracker.ProviderFactory
@@ -75,6 +79,9 @@ type Config struct {
 func (config Config) Validate() error {
 	if config.DBGetter == nil {
 		return errors.NotValidf("nil DBGetter")
+	}
+	if config.ClusterDescriber == nil {
+		return errors.NotValidf("nil ClusterDescriber")
 	}
 	if config.ProviderFactory == nil {
 		return errors.NotValidf("nil ProviderServices")
@@ -145,8 +152,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 			config.StorageRegistryGetter,
 			config.PublicKeyImporter,
 			config.LeaseManager,
-			config.LogDir,
+			config.ClusterDescriber,
 			config.SimpleStreamsClient,
+			config.LogDir,
 			config.Clock,
 			config.LoggerContextGetter,
 		),
@@ -203,18 +211,19 @@ type domainServices struct {
 // for a model using the given model uuid. This is late binding, so the model
 // domain services is created on demand.
 type domainServicesGetter struct {
-	ctrlFactory            services.ControllerDomainServices
-	dbGetter               changestream.WatchableDBGetter
-	newModelDomainServices ModelDomainServicesFn
-	providerFactory        providertracker.ProviderFactory
-	objectStoreGetter      objectstore.ObjectStoreGetter
-	storageRegistryGetter  storage.StorageRegistryGetter
-	publicKeyImporter      domainservices.PublicKeyImporter
-	leaseManager           lease.Manager
-	logDir                 string
-	httpClient             http.HTTPClient
-	clock                  clock.Clock
-	loggerContextGetter    logger.LoggerContextGetter
+	ctrlFactory             services.ControllerDomainServices
+	dbGetter                changestream.WatchableDBGetter
+	newModelDomainServices  ModelDomainServicesFn
+	providerFactory         providertracker.ProviderFactory
+	objectStoreGetter       objectstore.ObjectStoreGetter
+	storageRegistryGetter   storage.StorageRegistryGetter
+	publicKeyImporter       domainservices.PublicKeyImporter
+	leaseManager            lease.Manager
+	clusterDescriber        database.ClusterDescriber
+	simpleStreamsHTTPClient http.HTTPClient
+	logDir                  string
+	clock                   clock.Clock
+	loggerContextGetter     logger.LoggerContextGetter
 }
 
 // ServicesForModel returns the domain services for the given model uuid.
@@ -246,8 +255,9 @@ func (s *domainServicesGetter) ServicesForModel(ctx context.Context, modelUUID c
 				modelUUID: modelUUID,
 				manager:   s.leaseManager,
 			},
+			s.clusterDescriber,
+			s.simpleStreamsHTTPClient,
 			s.logDir,
-			s.httpClient,
 			s.clock,
 			loggerContext.GetLogger("juju.services"),
 		),

@@ -28,9 +28,10 @@ import (
 )
 
 type storageServiceSuite struct {
-	modelState      *MockModelState
-	controllerState *MockControllerState
-	statusHistory   *statusHistoryRecorder
+	modelState       *MockModelState
+	controllerState  *MockControllerState
+	clusterDescriber *MockClusterDescriber
+	statusHistory    *statusHistoryRecorder
 
 	service *Service
 }
@@ -44,11 +45,14 @@ func (s *storageServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.modelState = NewMockModelState(ctrl)
 	s.controllerState = NewMockControllerState(ctrl)
+	s.clusterDescriber = NewMockClusterDescriber(ctrl)
+
 	s.statusHistory = &statusHistoryRecorder{}
 
 	s.service = NewService(
 		s.modelState,
 		s.controllerState,
+		s.clusterDescriber,
 		s.statusHistory,
 		func() (StatusHistoryReader, error) {
 			return nil, errors.Errorf("status history reader not available")
@@ -60,6 +64,7 @@ func (s *storageServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	c.Cleanup(func() {
 		s.modelState = nil
 		s.controllerState = nil
+		s.clusterDescriber = nil
 		s.statusHistory = nil
 		s.service = nil
 	})

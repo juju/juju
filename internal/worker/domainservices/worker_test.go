@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
@@ -113,8 +114,9 @@ func (s *workerSuite) getConfig(c *tc.C) Config {
 			storage.StorageRegistryGetter,
 			domainservices.PublicKeyImporter,
 			lease.Manager,
-			string,
+			database.ClusterDescriber,
 			corehttp.HTTPClient,
+			string,
 			clock.Clock,
 			logger.LoggerContextGetter,
 		) services.DomainServicesGetter {
@@ -138,8 +140,9 @@ func (s *workerSuite) getConfig(c *tc.C) Config {
 			storage.ModelStorageRegistryGetter,
 			domainservices.PublicKeyImporter,
 			lease.ModelLeaseManagerGetter,
-			string,
+			database.ClusterDescriber,
 			corehttp.HTTPClient,
+			string,
 			clock.Clock,
 			logger.Logger,
 		) services.ModelDomainServices {

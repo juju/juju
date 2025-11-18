@@ -13,6 +13,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/trace"
@@ -48,6 +49,7 @@ func NewWatchableService(
 	modelState ModelState,
 	controllerState ControllerState,
 	watcherFactory WatcherFactory,
+	clusterDescriber database.ClusterDescriber,
 	statusHistory StatusHistory,
 	statusHistoryReaderFn StatusHistoryReaderFunc,
 	clock clock.Clock,
@@ -57,6 +59,7 @@ func NewWatchableService(
 		Service: NewService(
 			modelState,
 			controllerState,
+			clusterDescriber,
 			statusHistory,
 			statusHistoryReaderFn,
 			clock,

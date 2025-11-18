@@ -78,10 +78,12 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 		return service.NewService(
 			state.NewModelState(scope.ModelDB(), e.clock, e.logger),
 			state.NewControllerState(scope.ControllerDB(), modelUUID),
-			// TODO(jack): This is currently the wrong logger. We should construct
-			// the StatusHistory using the model logger, however, at the moment, we
-			// cannot get the model logger until the model has been imported. Once
-			// this has changed, refactor this to use the model logger.
+			clusterDescriber{},
+			// TODO(jack): This is currently the wrong logger. We should
+			// construct the StatusHistory using the model logger, however, at
+			// the moment, we cannot get the model logger until the model has
+			// been imported. Once this has changed, refactor this to use the
+			// model logger.
 			domain.NewStatusHistory(e.logger, e.clock),
 			func() (service.StatusHistoryReader, error) {
 				return nil, errors.Errorf("status history reader not available")

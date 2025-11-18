@@ -164,6 +164,7 @@ func (s *leadershipSuite) setupService(c *tc.C) *service.LeadershipService {
 			LeaseManager: s.leaseManager,
 		}),
 		nil,
+		nil,
 		model.UUID(s.ModelUUID()),
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		func() (service.StatusHistoryReader, error) {

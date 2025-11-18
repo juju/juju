@@ -13,6 +13,7 @@ import (
 	"github.com/juju/collections/transform"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	corerelation "github.com/juju/juju/core/relation"
@@ -252,6 +253,7 @@ type ControllerState interface {
 type Service struct {
 	modelState            ModelState
 	controllerState       ControllerState
+	clusterDescriber      database.ClusterDescriber
 	statusHistory         StatusHistory
 	statusHistoryReaderFn StatusHistoryReaderFunc
 	logger                logger.Logger
@@ -262,6 +264,7 @@ type Service struct {
 func NewService(
 	modelState ModelState,
 	controllerState ControllerState,
+	clusterDescriber database.ClusterDescriber,
 	statusHistory StatusHistory,
 	statusHistoryReaderFn StatusHistoryReaderFunc,
 	clock clock.Clock,
@@ -270,6 +273,7 @@ func NewService(
 	return &Service{
 		modelState:            modelState,
 		controllerState:       controllerState,
+		clusterDescriber:      clusterDescriber,
 		statusHistory:         statusHistory,
 		statusHistoryReaderFn: statusHistoryReaderFn,
 		logger:                logger,

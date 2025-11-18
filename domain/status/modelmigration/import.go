@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/status/service"
 	"github.com/juju/juju/domain/status/state"
+	"github.com/juju/juju/internal/database/dqlite"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -83,10 +84,12 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 		return service.NewService(
 			state.NewModelState(scope.ModelDB(), i.clock, i.logger),
 			state.NewControllerState(scope.ControllerDB(), modelUUID),
-			// TODO(jack): This is currently the wrong logger. We should construct
-			// the StatusHistory using the model logger, however, at the moment, we
-			// cannot get the model logger until the model has been imported. Once
-			// this has changed, refactor this to use the model logger.
+			clusterDescriber{},
+			// TODO(jack): This is currently the wrong logger. We should
+			// construct the StatusHistory using the model logger, however, at
+			// the moment, we cannot get the model logger until the model has
+			// been imported. Once this has changed, refactor this to use the
+			// model logger.
 			domain.NewStatusHistory(i.logger, i.clock),
 			func() (service.StatusHistoryReader, error) {
 				return nil, errors.Errorf("status history reader not available")
@@ -185,4 +188,12 @@ func (i *importOperation) importStatus(s description.Status) corestatus.StatusIn
 
 func ptr[T any](v T) *T {
 	return &v
+}
+
+type clusterDescriber struct{}
+
+// ClusterDetails returns the details of the dqlite cluster nodes. For
+// migrations it's ok that this is a no-op.
+func (c clusterDescriber) ClusterDetails(ctx context.Context) ([]dqlite.NodeInfo, error) {
+	return nil, nil
 }

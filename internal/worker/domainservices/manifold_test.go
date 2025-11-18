@@ -15,6 +15,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
@@ -237,8 +238,9 @@ func (s *manifoldSuite) TestNewModelDomainServices(c *tc.C) {
 		s.modelStorageRegistryGetter,
 		s.publicKeyImporter,
 		s.modelLeaseManagerGetter,
-		c.MkDir(),
+		s.clusterDescriber,
 		s.httpClient,
+		c.MkDir(),
 		s.clock,
 		s.logger,
 	)
@@ -261,8 +263,9 @@ func (s *manifoldSuite) TestNewDomainServicesGetter(c *tc.C) {
 		s.storageRegistryGetter,
 		s.publicKeyImporter,
 		s.leaseManager,
-		c.MkDir(),
+		s.clusterDescriber,
 		s.httpClient,
+		c.MkDir(),
 		s.clock,
 		s.loggerContextGetter,
 	)
@@ -303,8 +306,9 @@ func noopDomainServicesGetter(
 	storage.StorageRegistryGetter,
 	domainservices.PublicKeyImporter,
 	lease.Manager,
-	string,
+	database.ClusterDescriber,
 	corehttp.HTTPClient,
+	string,
 	clock.Clock,
 	logger.LoggerContextGetter,
 ) services.DomainServicesGetter {
@@ -330,8 +334,9 @@ func noopModelDomainServices(
 	storage.ModelStorageRegistryGetter,
 	domainservices.PublicKeyImporter,
 	lease.ModelLeaseManagerGetter,
-	string,
+	database.ClusterDescriber,
 	corehttp.HTTPClient,
+	string,
 	clock.Clock,
 	logger.Logger,
 ) services.ModelDomainServices {

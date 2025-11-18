@@ -12,6 +12,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	coredatabase "github.com/juju/juju/core/database"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
@@ -55,8 +56,9 @@ type DomainServicesGetterFn func(
 	storage.StorageRegistryGetter,
 	domainservices.PublicKeyImporter,
 	lease.Manager,
-	string,
+	database.ClusterDescriber,
 	corehttp.HTTPClient,
+	string,
 	clock.Clock,
 	logger.LoggerContextGetter,
 ) services.DomainServicesGetter
@@ -81,8 +83,9 @@ type ModelDomainServicesFn func(
 	storage.ModelStorageRegistryGetter,
 	domainservices.PublicKeyImporter,
 	lease.ModelLeaseManagerGetter,
-	string,
+	database.ClusterDescriber,
 	corehttp.HTTPClient,
+	string,
 	clock.Clock,
 	logger.Logger,
 ) services.ModelDomainServices
@@ -163,6 +166,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
+	var clusterDescriber database.ClusterDescriber
+	if err := getter.Get(config.ChangeStreamName, &clusterDescriber); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var providerFactory providertracker.ProviderFactory
 	if err := getter.Get(config.ProviderFactoryName, &providerFactory); err != nil {
 		return nil, errors.Trace(err)
@@ -205,6 +213,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 
 	return config.NewWorker(Config{
 		DBGetter:                    dbGetter,
+		ClusterDescriber:            clusterDescriber,
 		ProviderFactory:             providerFactory,
 		ObjectStoreGetter:           objectStoreGetter,
 		StorageRegistryGetter:       storageRegistryGetter,
@@ -271,8 +280,9 @@ func NewProviderTrackerModelDomainServices(
 	storageRegistry storage.ModelStorageRegistryGetter,
 	publicKeyImporter domainservices.PublicKeyImporter,
 	leaseManager lease.ModelLeaseManagerGetter,
+	clusterDescriber database.ClusterDescriber,
+	simpleStreamsHTTPClient corehttp.HTTPClient,
 	logDir string,
-	simplestreams corehttp.HTTPClient,
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.ModelDomainServices {
@@ -286,8 +296,9 @@ func NewProviderTrackerModelDomainServices(
 		storageRegistry,
 		publicKeyImporter,
 		leaseManager,
+		clusterDescriber,
+		simpleStreamsHTTPClient,
 		logDir,
-		simplestreams,
 		clock,
 		logger,
 	)
@@ -303,24 +314,26 @@ func NewDomainServicesGetter(
 	storageRegistryGetter storage.StorageRegistryGetter,
 	publicKeyImporter domainservices.PublicKeyImporter,
 	leaseManager lease.Manager,
+	clusterDescriber database.ClusterDescriber,
+	simpleStreamsHTTPClient corehttp.HTTPClient,
 	logDir string,
-	httpClient corehttp.HTTPClient,
 	clock clock.Clock,
 	loggerContextGetter logger.LoggerContextGetter,
 ) services.DomainServicesGetter {
 	return &domainServicesGetter{
-		ctrlFactory:            ctrlFactory,
-		dbGetter:               dbGetter,
-		newModelDomainServices: newModelDomainServices,
-		providerFactory:        providerFactory,
-		objectStoreGetter:      objectStoreGetter,
-		storageRegistryGetter:  storageRegistryGetter,
-		publicKeyImporter:      publicKeyImporter,
-		leaseManager:           leaseManager,
-		logDir:                 logDir,
-		httpClient:             httpClient,
-		clock:                  clock,
-		loggerContextGetter:    loggerContextGetter,
+		ctrlFactory:             ctrlFactory,
+		dbGetter:                dbGetter,
+		newModelDomainServices:  newModelDomainServices,
+		providerFactory:         providerFactory,
+		objectStoreGetter:       objectStoreGetter,
+		storageRegistryGetter:   storageRegistryGetter,
+		publicKeyImporter:       publicKeyImporter,
+		leaseManager:            leaseManager,
+		clusterDescriber:        clusterDescriber,
+		simpleStreamsHTTPClient: simpleStreamsHTTPClient,
+		logDir:                  logDir,
+		clock:                   clock,
+		loggerContextGetter:     loggerContextGetter,
 	}
 }
 
