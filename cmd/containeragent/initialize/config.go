@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/internal/mongo"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 )
 
@@ -82,10 +81,6 @@ func (c *configFromEnv) APIInfo() (*api.Info, bool) {
 		Tag:      c.Tag(),
 		Password: c.OldPassword(),
 	}, true
-}
-
-func (c *configFromEnv) MongoInfo() (*mongo.MongoInfo, bool) {
-	panic("not implemented")
 }
 
 func (c *configFromEnv) OldPassword() string {

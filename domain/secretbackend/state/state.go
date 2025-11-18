@@ -451,7 +451,7 @@ GROUP BY b.name, c.name`, kubernetes.BackendName)
 	if err != nil {
 		return nil, errors.Errorf("cannot list secret backends: %w", err)
 	}
-	return append(result, nonK8sRows.toSecretBackends()...), nil
+	return append(result, nonK8sRows.toSecretBackends(ctx, s.logger)...), nil
 }
 
 // listInUseKubernetesSecretBackends returns a list of all kubernetes secret backends which contain secrets.
@@ -624,7 +624,7 @@ WHERE  m.uuid = $M.uuid
 	}
 
 	var result []*secretbackend.SecretBackend
-	for _, b := range rows.toSecretBackends() {
+	for _, b := range rows.toSecretBackends(ctx, s.logger) {
 		if modelType == coremodel.CAAS && b.Name == juju.BackendName {
 			continue
 		}
@@ -754,7 +754,7 @@ WHERE b.%s = $M.identifier`, columName)
 	if err != nil {
 		return nil, errors.Errorf("querying secret backends: %w", err)
 	}
-	return rows.toSecretBackends()[0], nil
+	return rows.toSecretBackends(ctx, s.logger)[0], nil
 }
 
 // GetActiveModelSecretBackend returns the active secret backend ID and config for the given model.

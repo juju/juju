@@ -5,8 +5,7 @@ package schema
 
 import (
 	"embed"
-	"fmt"
-	"sort"
+	"path/filepath"
 
 	"github.com/juju/juju/core/database/schema"
 	"github.com/juju/juju/domain/schema/controller/triggers"
@@ -54,29 +53,9 @@ func ControllerDDL() *schema.Schema {
 		panic(err)
 	}
 
-	var names []string
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		names = append(names, entry.Name())
-	}
-
-	sort.Slice(names, func(i, j int) bool {
-		return names[i] < names[j]
+	patches, postPatches := readPatches(entries, controllerSchemaDir, func(s string) string {
+		return filepath.Join("controller/sql", s)
 	})
-
-	patches := make([]func() schema.Patch, len(names))
-	for i, name := range names {
-		data, err := controllerSchemaDir.ReadFile(fmt.Sprintf("controller/sql/%s", name))
-		if err != nil {
-			panic(err)
-		}
-
-		patches[i] = func() schema.Patch {
-			return schema.MakePatch(string(data))
-		}
-	}
 
 	// Changestream triggers.
 	patches = append(patches,
@@ -113,6 +92,9 @@ func ControllerDDL() *schema.Schema {
 
 	ctrlSchema := schema.New()
 	for _, fn := range patches {
+		ctrlSchema.Add(fn())
+	}
+	for _, fn := range postPatches {
 		ctrlSchema.Add(fn())
 	}
 

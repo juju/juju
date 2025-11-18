@@ -49,9 +49,10 @@ WHERE  uuid = $entityUUID.uuid`, modelUUID)
 	return modelExists, errors.Capture(err)
 }
 
-// EnsureModelNotAliveCascade ensures that there is no model identified
-// by the input model UUID, that is still alive.
-func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID string, force bool) error {
+// EnsureModelNotAlive ensures that there is no model identified
+// by the input model UUID, that is still alive. This does not cascade, as
+// it is only used to set the model life to dying.
+func (st *State) EnsureModelNotAlive(ctx context.Context, modelUUID string, force bool) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -228,7 +229,12 @@ FROM   model;
 
 	var modelUUIDs []entityUUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt).GetAll(&modelUUIDs)
+		if err := tx.Query(ctx, stmt).GetAll(&modelUUIDs); errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Errorf("running get model UUIDs query: %w", err)
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, errors.Errorf("getting model UUIDs: %w", err)

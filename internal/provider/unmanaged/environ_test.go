@@ -118,7 +118,6 @@ wait_for_jujud
     logger --id $(ps -o pid,cmd,state -p $(pgrep jujud) | awk 'NR != 1 {printf("Process %d (%s) has state %s\n", $1, $2, $3)}')
     exit 1
 }
-service juju-db stop && logger --id stopped juju-db
 exit 0
 `)
 		return resultStdout, "", resultErr

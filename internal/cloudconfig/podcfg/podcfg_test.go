@@ -59,44 +59,6 @@ func testPodLabels(c *tc.C, cfg *config.Config, jobs []model.MachineJob, expectT
 	c.Assert(tags, tc.DeepEquals, expectTags)
 }
 
-func (*podcfgSuite) TestOperatorImagesDefaultRepo(c *tc.C) {
-	cfg := testing.FakeControllerConfig()
-	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
-		cfg,
-		"controller-1",
-		"ubuntu",
-		constraints.Value{},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	podConfig.JujuVersion = semversion.MustParse("6.6.6.666")
-	path, err := podConfig.GetControllerImagePath()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(path, tc.Equals, "ghcr.io/juju/jujud-operator:6.6.6.666")
-	path, err = podConfig.GetJujuDbOCIImagePath()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(path, tc.Equals, "ghcr.io/juju/juju-db:4.4")
-}
-
-func (*podcfgSuite) TestOperatorImagesCustomRepo(c *tc.C) {
-	cfg := testing.FakeControllerConfig()
-	cfg["caas-image-repo"] = "path/to/my/repo"
-	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
-		cfg,
-		"controller-1",
-		"ubuntu",
-		constraints.Value{},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	podConfig.JujuVersion = semversion.MustParse("6.6.6.666")
-	c.Assert(err, tc.ErrorIsNil)
-	path, err := podConfig.GetControllerImagePath()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(path, tc.Equals, "path/to/my/repo/jujud-operator:6.6.6.666")
-	path, err = podConfig.GetJujuDbOCIImagePath()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(path, tc.Equals, "path/to/my/repo/juju-db:4.4")
-}
-
 func (*podcfgSuite) TestBootstrapConstraints(c *tc.C) {
 	cfg := testing.FakeControllerConfig()
 	cons := constraints.MustParse("mem=4G")

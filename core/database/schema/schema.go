@@ -140,3 +140,8 @@ func (s *Schema) Ensure(ctx context.Context, runner database.TxnRunner) (ChangeS
 
 // omitHook is a no-op hook that does not modify the DDL.
 func omitHook(_ int, ddl string) (string, error) { return ddl, nil }
+
+// Stmt returns the SQL statement of the patch.
+func Stmt(p Patch) string {
+	return p.stmt
+}

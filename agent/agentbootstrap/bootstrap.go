@@ -150,14 +150,6 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		return errors.Errorf("controller agent info not available")
 	}
 
-	// N.B. no users are set up when we're initializing the state,
-	// so don't use any tag or password when opening it.
-	info, ok := agentConfig.MongoInfo()
-	if !ok {
-		return errors.Errorf("state info not available")
-	}
-	info.Tag = nil
-
 	stateParams := b.stateInitializationParams
 
 	// Add the controller model cloud and credential to the database.
@@ -275,7 +267,6 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
-	b.logger.Debugf(ctx, "initializing address %v", info.Addrs)
 	b.agentConfig.SetControllerAgentInfo(controllerAgentInfo)
 
 	// Create a new password. It is used down below to set  the agent's initial

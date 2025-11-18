@@ -188,6 +188,9 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 	case removal.RelationWithRemoteConsumerJob:
 		err = s.processRelationWithRemoteConsumerRemovalJob(ctx, job)
 
+	case removal.ControllerModelJob:
+		err = s.processControllerModelJob(ctx, job)
+
 	default:
 		err = errors.Errorf("removal job type %q not supported", job.RemovalType).Add(
 			removalerrors.RemovalJobTypeNotSupported)

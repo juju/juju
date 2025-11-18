@@ -6,7 +6,7 @@ package schema
 import (
 	"embed"
 	"fmt"
-	"sort"
+	"path/filepath"
 
 	"github.com/juju/juju/core/database/schema"
 	"github.com/juju/juju/domain/schema/model/triggers"
@@ -116,29 +116,9 @@ func ModelDDL() *schema.Schema {
 		panic(err)
 	}
 
-	var names []string
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		names = append(names, entry.Name())
-	}
-
-	sort.Slice(names, func(i, j int) bool {
-		return names[i] < names[j]
+	patches, postPatches := readPatches(entries, modelSchemaDir, func(s string) string {
+		return filepath.Join("model/sql", s)
 	})
-
-	patches := make([]func() schema.Patch, len(names))
-	for i, name := range names {
-		data, err := modelSchemaDir.ReadFile(fmt.Sprintf("model/sql/%s", name))
-		if err != nil {
-			panic(err)
-		}
-
-		patches[i] = func() schema.Patch {
-			return schema.MakePatch(string(data))
-		}
-	}
 
 	// Changestream triggers.
 	patches = append(patches,
@@ -378,5 +358,9 @@ END;
 	for _, fn := range patches {
 		modelSchema.Add(fn())
 	}
+	for _, fn := range postPatches {
+		modelSchema.Add(fn())
+	}
+
 	return modelSchema
 }

@@ -213,7 +213,7 @@ func (s *SecretsSuite) TestUpdateSecretBackends(c *tc.C) {
 				BackendIdentifier:   secretbackend.BackendIdentifier{Name: "myvault"},
 				NewName:             ptr("new-name"),
 				TokenRotateInterval: ptr(200 * time.Minute),
-				Config: map[string]string{
+				Config: map[string]any{
 					"endpoint":        "http://vault",
 					"namespace":       "foo",
 					"tls-server-name": "server-name",

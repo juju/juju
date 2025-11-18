@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/juju/names"
 )
@@ -276,7 +275,6 @@ wait_for_jujud
     logger --id $(ps -o pid,cmd,state -p $(pgrep jujud) | awk 'NR != 1 {printf("Process %%d (%%s) has state %%s\n", $1, $2, $3)}')
     exit 1
 }
-service %[2]s stop && logger --id stopped %[2]s
 exit 0
 `
 	var diagnostics string
@@ -291,7 +289,6 @@ exit 0
 	script = fmt.Sprintf(
 		script,
 		diagnostics,
-		mongo.ServiceName,
 	)
 	logger.Tracef(ctx, "destroy controller script: %s", script)
 	host := e.host

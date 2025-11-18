@@ -34,8 +34,15 @@ type ModelState interface {
 	// the controller model.
 	IsControllerModel(ctx context.Context, modelUUID string) (bool, error)
 
+	// EnsureModelNotAlive ensures that there is no model identified
+	// by the input model UUID, that is still alive. This does not cascade
+	// all entities associated with the model will still be alive.
+	EnsureModelNotAlive(ctx context.Context, modelUUID string, force bool) error
+
 	// EnsureModelNotAliveCascade ensures that there is no model identified
-	// by the input model UUID, that is still alive.
+	// by the input model UUID, that is still alive. Returns the artifacts
+	// that were transitioned from alive to dying during setting the model to
+	// not alive.
 	EnsureModelNotAliveCascade(ctx context.Context, modelUUID string, force bool) (removal.ModelArtifacts, error)
 
 	// ModelScheduleRemoval schedules a removal job for the model with the
@@ -44,6 +51,14 @@ type ModelState interface {
 	// - it should have been validated prior to calling this method,
 	// - the removal job executor will handle that fact.
 	ModelScheduleRemoval(
+		ctx context.Context,
+		removalDeadUUID, modelUUID string,
+		force bool, when time.Time,
+	) error
+
+	// ControllerModelScheduleRemoval schedules a removal job for the controller
+	// model with the input UUID, qualified with the input force boolean.
+	ControllerModelScheduleRemoval(
 		ctx context.Context,
 		removalDeadUUID, modelUUID string,
 		force bool, when time.Time,
@@ -112,20 +127,20 @@ func (s *Service) removeModel(
 
 	controllerModelExists, err := s.controllerState.ModelExists(ctx, modelUUID.String())
 	if err != nil {
-		return "", errors.Errorf("checking if controller model exists: %w", err)
+		return "", errors.Errorf("checking if model exists in controller database: %w", err)
 	} else if !controllerModelExists {
 		s.logger.Infof(ctx, "model %q does not exist in controller database", modelUUID)
 	}
 
 	// If the model doesn't exist we can still run this, it just will be a
 	// no-op.
-	if err := s.controllerState.EnsureModelNotAliveCascade(ctx, modelUUID.String(), force); err != nil {
+	if err := s.controllerState.EnsureModelNotAlive(ctx, modelUUID.String(), force); err != nil {
 		return "", errors.Errorf("ensuring model %q is not alive: %w", modelUUID, err)
 	}
 
 	// Now check that the model exists in the model database. If it doesn't
-	// exist and the controller model exists, then we can return early. We've
-	// successfully removed the model from the database.
+	// exist and the model in the controller database exists, then we can return
+	// early. We've successfully removed the model from the database.
 	modelExists, err := s.modelState.ModelExists(ctx, modelUUID.String())
 	if err != nil {
 		return "", errors.Errorf("checking if model exists: %w", err)

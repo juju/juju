@@ -53,8 +53,42 @@ WHERE  uuid = $entityUUID.uuid`, modelUUID)
 	return modelExists, errors.Capture(err)
 }
 
-// EnsureModelNotAliveCascade ensures that there is no model identified
-// by the input model UUID, that is still alive.
+// EnsureModelNotAlive ensures that there is no model identified by the input
+// model UUID, that is still alive. This does not cascade all entities
+// associated with the model will still be alive.
+func (st *State) EnsureModelNotAlive(ctx context.Context, modelUUID string, force bool) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	eUUID := entityUUID{
+		UUID: modelUUID,
+	}
+
+	updateModelLife, err := st.Prepare(`UPDATE model_life SET life_id = 1 WHERE model_uuid = $entityUUID.uuid AND life_id = 0`, eUUID)
+	if err != nil {
+		return errors.Errorf("preparing update model life query: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Update the model life to dying.
+		if err := tx.Query(ctx, updateModelLife, eUUID).Run(); err != nil {
+			return errors.Errorf("setting model life to dying: %w", err)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return errors.Errorf("ensuring model %q is not alive: %w", modelUUID, err)
+	}
+
+	return nil
+}
+
+// EnsureModelNotAliveCascade ensures that there is no model identified by the
+// input model UUID, that is still alive. Returns the artifacts that were
+// transitioned from alive to dying during setting the model to not alive.
 func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID string, force bool) (removal.ModelArtifacts, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -222,7 +256,44 @@ func (st *State) ModelScheduleRemoval(
 
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt, removalDoc).Run(); err != nil {
-			return errors.Errorf("scheduling model  removal: %w", err)
+			return errors.Errorf("scheduling model removal: %w", err)
+		}
+		return nil
+	}))
+}
+
+// ControllerModelScheduleRemoval schedules the removal job for a controller
+// model.
+//
+// We don't care if the model does not exist at this point because:
+// - it should have been validated prior to calling this method,
+// - the removal job executor will handle that fact.
+func (st *State) ControllerModelScheduleRemoval(
+	ctx context.Context,
+	removalUUID, modelUUID string,
+	force bool, when time.Time,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	removalDoc := removalJob{
+		UUID:          removalUUID,
+		RemovalTypeID: uint64(removal.ControllerModelJob),
+		EntityUUID:    modelUUID,
+		Force:         force,
+		ScheduledFor:  when,
+	}
+
+	stmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removalJob.*)", removalDoc)
+	if err != nil {
+		return errors.Errorf("preparing controller model removal: %w", err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, removalDoc).Run(); err != nil {
+			return errors.Errorf("scheduling controller model removal: %w", err)
 		}
 		return nil
 	}))
