@@ -16,7 +16,8 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/status/service"
-	"github.com/juju/juju/domain/status/state"
+	statecontroller "github.com/juju/juju/domain/status/state/controller"
+	statemodel "github.com/juju/juju/domain/status/state/model"
 	"github.com/juju/juju/internal/database/dqlite"
 	"github.com/juju/juju/internal/errors"
 )
@@ -82,8 +83,8 @@ func (i *importOperation) Name() string {
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.serviceGetter = func(modelUUID model.UUID) ImportService {
 		return service.NewService(
-			state.NewModelState(scope.ModelDB(), i.clock, i.logger),
-			state.NewControllerState(scope.ControllerDB(), modelUUID),
+			statemodel.NewModelState(scope.ModelDB(), i.clock, i.logger),
+			statecontroller.NewControllerState(scope.ControllerDB(), modelUUID),
 			clusterDescriber{},
 			// TODO(jack): This is currently the wrong logger. We should
 			// construct the StatusHistory using the model logger, however, at

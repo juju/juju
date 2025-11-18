@@ -30,7 +30,7 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/domain/status/service"
-	"github.com/juju/juju/domain/status/state"
+	statemodel "github.com/juju/juju/domain/status/state/model"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
@@ -230,7 +230,7 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 	}
 
 	return service.NewWatchableService(
-		state.NewModelState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
+		statemodel.NewModelState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
 		nil,
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		nil,

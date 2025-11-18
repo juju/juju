@@ -38,7 +38,7 @@ import (
 	removalstatemodel "github.com/juju/juju/domain/removal/state/model"
 	"github.com/juju/juju/domain/resource"
 	"github.com/juju/juju/domain/status"
-	statusstate "github.com/juju/juju/domain/status/state"
+	statusstate "github.com/juju/juju/domain/status/state/model"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"

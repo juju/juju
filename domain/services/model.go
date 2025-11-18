@@ -89,7 +89,8 @@ import (
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
 	statusservice "github.com/juju/juju/domain/status/service"
-	statusstate "github.com/juju/juju/domain/status/state"
+	statusstatecontroller "github.com/juju/juju/domain/status/state/controller"
+	statusstatemodel "github.com/juju/juju/domain/status/state/model"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	storagestate "github.com/juju/juju/domain/storage/state"
 	storageprovisioningservice "github.com/juju/juju/domain/storageprovisioning/service"
@@ -288,8 +289,8 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 func (s *ModelServices) Status() *statusservice.LeadershipService {
 	logger := s.logger.Child("status")
 	return statusservice.NewLeadershipService(
-		statusstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, logger),
-		statusstate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB), s.modelUUID),
+		statusstatemodel.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, logger),
+		statusstatecontroller.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB), s.modelUUID),
 		domain.NewLeaseService(s.leaseManager),
 		s.clusterDescriber,
 		s.modelWatcherFactory("status"),
