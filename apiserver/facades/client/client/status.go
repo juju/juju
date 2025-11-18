@@ -742,6 +742,11 @@ func (c *statusContext) makeMachineStatus(
 
 	status.Jobs = c.machineJobFetcher(ctx, machineName)
 
+	if clusterInfo := machine.ClusterInfo; clusterInfo != nil {
+		status.HasVote = clusterInfo.Role.HasVote()
+		status.WantsVote = clusterInfo.Role.WantsVote()
+	}
+
 	if instanceID := machine.InstanceID; instanceID != instance.UnknownId {
 		status.InstanceId = instanceID
 

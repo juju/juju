@@ -7,6 +7,7 @@ package dqlite
 
 import (
 	"github.com/canonical/go-dqlite/v3"
+	"github.com/canonical/go-dqlite/v3/client"
 )
 
 const (
@@ -16,6 +17,16 @@ const (
 
 // NodeInfo holds information about a single server.
 type NodeInfo = dqlite.NodeInfo
+
+// NodeRole identifies the role of a node.
+type NodeRole = client.NodeRole
+
+// Dqlite node roles.
+const (
+	Voter   = client.Voter
+	StandBy = client.StandBy
+	Spare   = client.Spare
+)
 
 // ReconfigureMembership can be used to recover a cluster whose majority of
 // nodes have died, and therefore has become unavailable.

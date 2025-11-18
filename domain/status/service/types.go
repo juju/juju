@@ -91,6 +91,16 @@ const (
 	ClusterRoleSpare   ClusterRole = "spare"
 )
 
+// HasVote indicates whether the role has a vote in the cluster.
+func (r ClusterRole) HasVote() bool {
+	return r == ClusterRoleVoter || r == ClusterRoleStandby
+}
+
+// WantsVote indicates whether the role wants to have a vote in the cluster.
+func (r ClusterRole) WantsVote() bool {
+	return r == ClusterRoleSpare
+}
+
 // StatusHistoryFilter holds the parameters to filter a status history query.
 type StatusHistoryFilter struct {
 	Size  int

@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
-	dqliteclient "github.com/juju/juju/internal/database/client"
 	"github.com/juju/juju/internal/database/dqlite"
 	"github.com/juju/juju/internal/errors"
 )
@@ -805,11 +804,11 @@ func (s *Service) getClusterMachineInfo(ctx context.Context) (map[machine.Name]M
 func encodeDqliteRole(role dqlite.NodeRole) ClusterRole {
 	var result ClusterRole
 	switch role {
-	case dqliteclient.Voter:
+	case dqlite.Voter:
 		result = ClusterRoleVoter
-	case dqliteclient.Standby:
+	case dqlite.StandBy:
 		result = ClusterRoleStandby
-	case dqliteclient.Spare:
+	case dqlite.Spare:
 		result = ClusterRoleSpare
 	default:
 		result = "unknown"
