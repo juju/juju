@@ -35,6 +35,9 @@ func (k *klogAdapter) Enabled(level int) bool {
 // Error see https://pkg.go.dev/github.com/go-logr/logr#Logger
 func (k *klogAdapter) Error(err error, msg string, keysAndValues ...any) {
 	if err != nil {
+		if klogIgnorePrefixes.Matches(err.Error()) {
+			return
+		}
 		k.Logger.Errorf(msg+": "+err.Error(), keysAndValues...)
 		return
 	}

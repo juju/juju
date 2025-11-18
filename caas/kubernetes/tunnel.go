@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -227,6 +228,8 @@ func NewTunnel(
 	}
 }
 
+var logger = loggo.GetLogger("juju.caas.kubernetes.tunnel")
+
 // waitForPodReady waits for the provided pod name relative to this tunnels
 // namespace to become fully ready in the pod conditions. This func will block
 // until the pod is ready of the context dead line has fired.
@@ -240,9 +243,7 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 	informer := factory.Core().V1().Pods().Informer()
 
 	eventChan := make(chan error)
-	defer close(eventChan)
-
-	_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	reg, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			objPod, valid := obj.(*corev1.Pod)
 			if !valid {
@@ -281,7 +282,22 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 		return errors.Trace(err)
 	}
 
-	go informer.RunWithContext(ctx)
+	err = informer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+		if !errors.Is(err, context.Canceled) {
+			logger.Errorf("error watching pod %s: %v", podName, err)
+		}
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	waitCtx, cancel := context.WithCancel(ctx)
+	defer func() {
+		_ = informer.RemoveEventHandler(reg)
+		cancel()
+		close(eventChan)
+	}()
+	go informer.RunWithContext(waitCtx)
 
 	select {
 	case <-ctx.Done():

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/secrets/provider/vault"
 	"github.com/juju/juju/state"
 )
 
@@ -361,6 +363,15 @@ func (c *ModelConfigAPI) checkSecretBackend() state.ValidateConfigFunc {
 		backend, err := c.backend.GetSecretBackend(backendName)
 		if err != nil {
 			return errors.Trace(err)
+		}
+		if backend.BackendType == vault.BackendType {
+			mountPath, _ := backend.Config[vault.MountPathKey].(string)
+			if mountPath != "" {
+				vers, _ := oldConfig.AgentVersion()
+				if vers.Compare(version.MustParse("3.6.12")) < 0 {
+					return errors.New("vault secret backend with a mount path not supported in this version of Juju")
+				}
+			}
 		}
 		p, err := commonsecrets.GetProvider(backend.BackendType)
 		if err != nil {
