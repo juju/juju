@@ -4,12 +4,14 @@
 package state
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"sort"
 	"testing"
 	"time"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -214,34 +216,40 @@ func (s *stateSuite) createModelWithName(c *tc.C, modelType coremodel.ModelType,
 	c.Assert(err, tc.ErrorIsNil)
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	modelSt := statecontroller.NewState(s.TxnRunnerFactory())
-	err = modelSt.Create(
-		c.Context(),
-		modelUUID,
-		modelType,
-		model.GlobalModelCreationArgs{
-			Cloud:       "my-cloud",
-			CloudRegion: "my-region",
-			Credential: corecredential.Key{
-				Cloud: "my-cloud",
-				Owner: usertesting.GenNewName(c, "test-user"),
-				Name:  "foobar",
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		err = statecontroller.Create(
+			c.Context(),
+			preparer{},
+			tx,
+			modelUUID,
+			modelType,
+			model.GlobalModelCreationArgs{
+				Cloud:       "my-cloud",
+				CloudRegion: "my-region",
+				Credential: corecredential.Key{
+					Cloud: "my-cloud",
+					Owner: usertesting.GenNewName(c, "test-user"),
+					Name:  "foobar",
+				},
+				Name:          name,
+				Qualifier:     "prod",
+				AdminUsers:    []user.UUID{userUUID},
+				SecretBackend: "my-backend",
 			},
-			Name:          name,
-			Qualifier:     "prod",
-			AdminUsers:    []user.UUID{userUUID},
-			SecretBackend: "my-backend",
-		},
-	)
+		)
+		if err != nil {
+			return err
+		}
+
+		activator := statecontroller.GetActivator()
+		return activator(ctx, preparer{}, tx, modelUUID)
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	ccState := controllerconfigstate.NewState(s.TxnRunnerFactory())
 	err = ccState.UpdateControllerConfig(c.Context(), map[string]string{
 		"controller-name": "test",
 	}, nil, func(map[string]string) error { return nil })
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = modelSt.Activate(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	return modelUUID
 }
@@ -1842,4 +1850,10 @@ func (s *stateSuite) TestGetSecretBackendRotateChanges(c *tc.C) {
 	c.Assert(changes[1].ID, tc.Equals, backendID2)
 	c.Assert(changes[1].Name, tc.Equals, "my-backend2")
 	c.Assert(changes[1].NextTriggerTime.Equal(nextRotateTime2), tc.IsTrue)
+}
+
+type preparer struct{}
+
+func (p preparer) Prepare(query string, args ...any) (*sqlair.Statement, error) {
+	return sqlair.Prepare(query, args...)
 }

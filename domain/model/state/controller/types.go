@@ -17,6 +17,10 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+type modelLife struct {
+	Life life.Life `db:"life_id"`
+}
+
 // dbModel represents the state of a model.
 type dbModel struct {
 	// Name is the human friendly name of the model.

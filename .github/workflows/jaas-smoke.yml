@@ -14,7 +14,7 @@ jobs:
   smoke:
     name: JAAS Smoke Test
     runs-on: [self-hosted, linux, x64, aws, large]
-
+    if: github.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@v4
       # We can't use docker snap, because it is confined to /home and we are checking out the repository under /opt
