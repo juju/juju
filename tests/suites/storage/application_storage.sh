@@ -11,8 +11,7 @@ run_application_storage_directives() {
 	if [ "${BOOTSTRAP_PROVIDER:-}" = "k8s" ]; then
 		echo "Deploying k8s application"
 		app_name="postgresql-k8s"
-		juju deploy "$app_name" --storage pgdata=2G
-		juju trust "$app_name" --scope=cluster
+		juju deploy "$app_name" --storage pgdata=2G --trust
 	else
 		echo "Deploying non-k8s application"
 		app_name="postgresql"
@@ -29,12 +28,39 @@ run_application_storage_directives() {
 		exit 1
 	fi
 
+	# For k8s, verify initial PVC size.
+	if [ "${BOOTSTRAP_PROVIDER:-}" = "k8s" ]; then
+		echo "Checking initial PVC size"
+
+		# Get storageclass and PVC name (assumes single PVC for pgdata)
+		pvc_name=$(kubectl -n "${model_name}" get pvc -o json | jq -r '.items[0].metadata.name')
+		pvc_size=$(kubectl -n "${model_name}" get pvc "$pvc_name" -o json | jq -r '.spec.resources.requests.storage')
+
+		if [ "$pvc_size" != "2Gi" ]; then
+			echo "Expected PVC size 2Gi, got $pvc_size"
+			exit 1
+		fi
+	fi
+
 	# Update the storage directive pgdata=3G.
 	juju application-storage "$app_name" pgdata=3G
 	new_size=$(juju application-storage "$app_name" --format=json | jq -r '.pgdata.Size')
 	if [ "$new_size" != "3072" ]; then
 		echo "Expected updated storage size to be 3072Mi, got $new_size"
 		exit 1
+	fi
+
+	# For k8s, verify the updated PVC size.
+	if [ "${BOOTSTRAP_PROVIDER:-}" = "k8s" ]; then
+		echo "Checking updated PVC size"
+
+		pvc_name=$(kubectl -n "${model_name}" get pvc -o json | jq -r '.items[0].metadata.name')
+		pvc_size=$(kubectl -n "${model_name}" get pvc "$pvc_name" -o json | jq -r '.spec.resources.requests.storage')
+
+		if [ "$pvc_size" != "3Gi" ]; then
+			echo "Expected updated PVC size 3Gi, got $pvc_size"
+			exit 1
+		fi
 	fi
 
 	# Add 2 more units and check their storage size is 3G.
