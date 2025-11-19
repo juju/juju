@@ -108,7 +108,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 		Ports:    []string{"80", "443"},
 		Stateful: true,
 		Status: status.StatusInfo{
-			Status:  status.Active,
+			Status:  status.Running,
 			Message: "different",
 		},
 		FilesystemInfo: []caas.FilesystemInfo{{
@@ -145,6 +145,15 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 		ProviderID: ptr("a"),
 		Address:    ptr("1.2.3.5"),
 		Ports:      ptr([]string{"80", "443"}),
+		AgentStatus: &status.StatusInfo{
+			Status: status.Idle,
+			Since:  &now,
+		},
+		CloudContainerStatus: &status.StatusInfo{
+			Status:  status.Running,
+			Message: "different",
+			Since:   &now,
+		},
 	}
 
 	gomock.InOrder(
@@ -157,7 +166,15 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 		applicationService.EXPECT().GetAllUnitCloudContainerIDsForApplication(gomock.Any(), appId).Return(cloudContainerIDs, nil),
 		app.EXPECT().Units().Return(units, nil),
 		applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unit.Name("test/0"), gomock.Any()).DoAndReturn(func(_ context.Context, _ unit.Name, args applicationservice.UpdateCAASUnitParams) error {
-			c.Check(args, tc.DeepEquals, unit0Update)
+			c.Check(args.ProviderID, tc.DeepEquals, unit0Update.ProviderID)
+			c.Check(args.Address, tc.DeepEquals, unit0Update.Address)
+			c.Check(args.Ports, tc.DeepEquals, unit0Update.Ports)
+			c.Assert(args.AgentStatus, tc.NotNil, tc.Commentf("AgentStatus should not be nil"))
+			c.Assert(args.AgentStatus.Since, tc.NotNil, tc.Commentf("AgentStatus.Since should not be nil"))
+			c.Check(*args.AgentStatus.Since, tc.Equals, now, tc.Commentf("AgentStatus.Since should be set to current time"))
+			c.Assert(args.CloudContainerStatus, tc.NotNil, tc.Commentf("CloudContainerStatus should not be nil"))
+			c.Assert(args.CloudContainerStatus.Since, tc.NotNil, tc.Commentf("CloudContainerStatus.Since should not be nil"))
+			c.Check(*args.CloudContainerStatus.Since, tc.Equals, now, tc.Commentf("CloudContainerStatus.Since should be set to current time"))
 			return nil
 		}),
 		broker.EXPECT().AnnotateUnit(gomock.Any(), "test", "a", names.NewUnitTag("test/0")).Return(nil),
@@ -171,10 +188,12 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 			AgentStatus: &status.StatusInfo{
 				Status:  status.Allocating,
 				Message: "same",
+				Since:   &now,
 			},
 			CloudContainerStatus: &status.StatusInfo{
 				Status:  status.Waiting,
 				Message: "same",
+				Since:   &now,
 			},
 		},
 	}
@@ -185,6 +204,15 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 			ProviderID: ptr("a"),
 			Address:    ptr("1.2.3.5"),
 			Ports:      ptr([]string{"80", "443"}),
+			AgentStatus: &status.StatusInfo{
+				Status: status.Idle,
+				Since:  &now,
+			},
+			CloudContainerStatus: &status.StatusInfo{
+				Status:  status.Running,
+				Message: "different",
+				Since:   &now,
+			},
 		},
 		"test/1": {
 			ProviderID: ptr("b"),
@@ -193,10 +221,12 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 			AgentStatus: &status.StatusInfo{
 				Status:  status.Allocating,
 				Message: "same",
+				Since:   &now,
 			},
 			CloudContainerStatus: &status.StatusInfo{
 				Status:  status.Waiting,
 				Message: "same",
+				Since:   &now,
 			},
 		},
 	})

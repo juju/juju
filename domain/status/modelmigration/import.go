@@ -170,8 +170,10 @@ func (i *importOperation) importStatus(s description.Status) corestatus.StatusIn
 	// set by the lead unit. If that is the case, we make the status what
 	// the new code expects.
 	if s == nil || s.NeverSet() {
+		now := i.clock.Now()
 		return corestatus.StatusInfo{
 			Status: corestatus.Unset,
+			Since:  &now,
 		}
 	}
 
