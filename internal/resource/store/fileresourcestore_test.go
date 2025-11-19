@@ -33,13 +33,15 @@ func TestFileResourceStoreSuite(t *testing.T) {
 }
 
 func (s *fileResourceStoreSuite) SetUpTest(c *tc.C) {
-	data := "spamspamspam"
+	s.initResourceData(c, "spamspamspam")
+}
+
+func (s *fileResourceStoreSuite) initResourceData(c *tc.C, data string) {
 	size := int64(len(data))
 	sha384hash := sha512.New384()
 	sha384hash.Write([]byte(data))
 	fp := fmt.Sprintf("%x", sha384hash.Sum(nil))
-	fingerprint, err := charmresource.ParseFingerprint(fp)
-	c.Assert(err, tc.ErrorIsNil)
+	fingerprint := tc.Must1_1(c, charmresource.ParseFingerprint, fp)
 	s.resource = coreresource.Resource{
 		UUID: resourcestesting.GenResourceUUID(c),
 		Resource: charmresource.Resource{
@@ -66,6 +68,39 @@ func (s *fileResourceStoreSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *fileResourceStoreSuite) TestFileResourceStorePut(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	store := fileResourceStore{s.objectStore}
+
+	expectedStorageUUID := objectstoretesting.GenObjectStoreUUID(c)
+	s.objectStore.EXPECT().PutAndCheckHash(
+		c.Context(),
+		s.resource.UUID.String(),
+		s.file,
+		s.resource.Size,
+		s.resource.Fingerprint.String(),
+	).Return(expectedStorageUUID, nil)
+
+	fingerprint := resourcestore.NewFingerprint(s.resource.Fingerprint.Fingerprint)
+	size := s.resource.Size
+	storageUUID, returnedSize, returnedFingerprint, err := store.Put(
+		c.Context(),
+		s.resource.UUID.String(),
+		s.file,
+		size,
+		fingerprint,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	id, err := storageUUID.ObjectStoreUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(id, tc.Equals, expectedStorageUUID)
+	c.Check(returnedSize, tc.Equals, size)
+	c.Check(returnedFingerprint, tc.DeepEquals, fingerprint)
+}
+
+func (s *fileResourceStoreSuite) TestFileResourceStorePutZeroSize(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.initResourceData(c, "") // empty file
+	store := fileResourceStore{s.objectStore}
+	c.Assert(s.resource.Size, tc.Equals, int64(0))
 
 	expectedStorageUUID := objectstoretesting.GenObjectStoreUUID(c)
 	s.objectStore.EXPECT().PutAndCheckHash(
@@ -131,19 +166,6 @@ func (s *fileResourceStoreSuite) TestFileResourceStorePutBadFingerprint(c *tc.C)
 		resourcestore.Fingerprint{},
 	)
 	c.Assert(err, tc.ErrorMatches, "validating resource fingerprint: .*")
-}
-
-func (s *fileResourceStoreSuite) TestFileResourceStorePutZeroSize(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	store := fileResourceStore{s.objectStore}
-	_, _, _, err := store.Put(
-		c.Context(),
-		s.resource.UUID.String(),
-		s.file,
-		0,
-		resourcestore.Fingerprint{},
-	)
-	c.Assert(err, tc.ErrorMatches, "validating resource size: size is 0")
 }
 
 func (s *fileResourceStoreSuite) TestFileResourceStoreGet(c *tc.C) {
