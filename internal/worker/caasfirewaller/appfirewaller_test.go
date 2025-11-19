@@ -137,6 +137,8 @@ func (s *appFirewallerSuite) TestWorkerCleanShutdownOnApplicationRemoval(c *tc.C
 
 	w := s.makeWorker(c, appUUID)
 
+	// Initial watcher event on startup
+	portsChangeCh <- struct{}{}
 	// 1st port change event.
 	portsChangeCh <- struct{}{}
 	// 2nd port change event but the application has been removed.
@@ -203,6 +205,8 @@ func (s *appFirewallerSuite) TestWorkerPropogatesBrokerNotFoundError(c *tc.C) {
 
 	w := s.makeWorker(c, appUUID)
 
+	// Initial watcher event on startup
+	portsChangeCh <- struct{}{}
 	// 1st port change event.
 	portsChangeCh <- struct{}{}
 	err := w.Wait()
@@ -297,6 +301,8 @@ func (s *appFirewallerSuite) TestWorkerPortChanges(c *tc.C) {
 
 	w := s.makeWorker(c, appUUID)
 
+	// Initial watcher event on startup
+	portsChangeCh <- struct{}{}
 	// 1st port change event.
 	portsChangeCh <- struct{}{}
 	// 2nd port change event.

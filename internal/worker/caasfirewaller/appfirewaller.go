@@ -127,15 +127,6 @@ func (w *appFirewaller) loop() (err error) {
 	// applied to the application.
 	lastCheckPoint := network.GroupedPortRanges{}
 
-	// Ensure the applications initial set of open port requirements are applied.
-	lastCheckPoint, err = w.ensureOpenPorts(ctx, portMutator, lastCheckPoint)
-	if err != nil {
-		return errors.Errorf(
-			"ensuring initial open port requirements for application %q are applied: %w",
-			w.appUUID, err,
-		)
-	}
-
 	portsWatcher, err := w.portService.WatchOpenedPortsForApplication(ctx, w.appUUID)
 	if err != nil {
 		return errors.Errorf("getting application %q opened ports watcher: %w",
