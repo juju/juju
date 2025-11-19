@@ -260,7 +260,7 @@ func (c *CommandBase) NewAPIRootWithDialOpts(
 		param.AccountDetails.LastKnownAccess = conn.ControllerAccess()
 		err := store.UpdateAccount(controllerName, *param.AccountDetails)
 		if err != nil {
-			logger.Errorf(context.TODO(), "cannot update account information: %v", err)
+			logger.Errorf(ctx, "cannot update account information: %v", err)
 		}
 	}
 	if redirErr, ok := errors.Cause(err).(*api.RedirectError); ok {
@@ -270,7 +270,7 @@ func (c *CommandBase) NewAPIRootWithDialOpts(
 		return nil, errors.New("no controller API addresses; is bootstrap still in progress?")
 	}
 	if proxyerrors.IsProxyConnectError(err) {
-		logger.Debugf(context.TODO(), "proxy connection error: %v", err)
+		logger.Debugf(ctx, "proxy connection error: %v", err)
 		if proxyerrors.ProxyType(err) == k8sproxy.ProxierTypeKey {
 			return nil, errors.Annotate(err, "cannot connect to k8s api server; try running 'juju update-k8s --client <k8s cloud name>'")
 		}

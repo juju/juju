@@ -403,8 +403,8 @@ func (f logFunc) Log(r []corelogger.LogRecord) error {
 	return f(r)
 }
 
-func (c *debugLogCommand) getControllerAddresses(ctx context.Context) ([]string, error) {
-	controllerName, err := c.ClientStore().CurrentController()
+func (c *debugLogCommand) getControllerAddresses() ([]string, error) {
+	controllerName, err := c.ModelCommandBase.ControllerName()
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting controller details")
 	}
@@ -430,7 +430,7 @@ func (c *debugLogCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Get the controller addresses to connect to.
-	controllerAddrs, err := c.getControllerAddresses(ctx)
+	controllerAddrs, err := c.getControllerAddresses()
 	if err != nil {
 		return err
 	}
