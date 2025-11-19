@@ -52,13 +52,15 @@ join() {
 
 run_govulncheck() {
 	ignore=(
-		# false positive vulnerability in github.com/canonical/lxd. This is resolved in lxd-5.21.2.
+		# false positive vulnerability in github.com/canonical/lxd. This is resolved upstream.
 		# Anyway, it does not affect as we only use client-side lxc code, but the vulnerability is
 		# server-side.
 		# https://pkg.go.dev/vuln/GO-2024-3312
 		# https://pkg.go.dev/vuln/GO-2024-3313
+		# https://pkg.go.dev/vuln/GO-2025-4121
 		"GO-2024-3312"
 		"GO-2024-3313"
+		"GO-2025-4121"
 		# false positive vulnerabilities in github.com/canonical/lxd. These are resolved in lxd-5.21.4.
 		# https://pkg.go.dev/vuln/GO-2025-3999
 		# https://pkg.go.dev/vuln/GO-2025-4003
