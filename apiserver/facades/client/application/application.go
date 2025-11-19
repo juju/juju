@@ -1527,7 +1527,13 @@ func (api *APIBase) consumeOne(ctx context.Context, arg params.ConsumeApplicatio
 
 	applicationName := arg.ApplicationAlias
 	if applicationName == "" {
-		applicationName = arg.OfferName
+		// In this case we can default to the offer name, so we have to get it
+		// from the offer URL.
+		offerURL, err := crossmodel.ParseOfferURL(arg.OfferURL)
+		if err != nil {
+			return internalerrors.Errorf("parsing offer URL: %w", err).Add(coreerrors.BadRequest)
+		}
+		applicationName = offerURL.Name
 	}
 
 	return api.saveRemoteApplicationOfferer(

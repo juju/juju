@@ -1795,6 +1795,91 @@ func (s *applicationSuite) TestConsumeInvalidEndpointRole(c *tc.C) {
 	})
 }
 
+func (s *applicationSuite) TestConsumeWithEmptyApplicationAlias(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
+	macaroon := newMacaroon(c, "test")
+
+	// When ApplicationAlias is empty, the application name should be parsed from the offer URL
+	s.crossModelRelationService.EXPECT().AddRemoteApplicationOfferer(gomock.Any(), "my-offer", crossmodelrelationservice.AddRemoteApplicationOffererArgs{
+		OfferUUID:        offerUUID,
+		OfferURL:         tc.Must1(c, crossmodel.ParseOfferURL, "controller:qualifier/model.my-offer"),
+		OffererModelUUID: modelUUID,
+		Endpoints: []applicationcharm.Relation{{
+			Name:      "db",
+			Role:      applicationcharm.RoleRequirer,
+			Interface: "db",
+			Limit:     1,
+		}},
+		Macaroon: macaroon,
+	}).Return(nil)
+
+	s.setupAPI(c)
+
+	results, err := s.api.Consume(c.Context(), params.ConsumeApplicationArgsV5{
+		Args: []params.ConsumeApplicationArgV5{{
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
+				OfferUUID:      offerUUID.String(),
+				OfferName:      "my-offer",
+				OfferURL:       "controller:qualifier/model.my-offer",
+				SourceModelTag: names.NewModelTag(modelUUID).String(),
+				Endpoints: []params.RemoteEndpoint{{
+					Name:      "db",
+					Role:      "requirer",
+					Interface: "db",
+					Limit:     1,
+				}},
+			},
+			// ApplicationAlias is empty, should default to name from offer URL
+			ApplicationAlias: "",
+			Macaroon:         macaroon,
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	})
+}
+
+func (s *applicationSuite) TestConsumeWithInvalidOfferURL(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := tc.Must(c, uuid.NewUUID).String()
+	offerUUID := tc.Must(c, offer.NewUUID)
+
+	s.setupAPI(c)
+
+	results, err := s.api.Consume(c.Context(), params.ConsumeApplicationArgsV5{
+		Args: []params.ConsumeApplicationArgV5{{
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
+				OfferUUID:      offerUUID.String(),
+				OfferName:      "my-offer",
+				OfferURL:       "invalid-offer-url",
+				SourceModelTag: names.NewModelTag(modelUUID).String(),
+				Endpoints: []params.RemoteEndpoint{{
+					Name:      "db",
+					Role:      "requirer",
+					Interface: "db",
+					Limit:     1,
+				}},
+			},
+			// ApplicationAlias is empty, will try to parse offer URL.
+			ApplicationAlias: "",
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{
+			Error: &params.Error{
+				Code:    params.CodeBadRequest,
+				Message: `parsing offer URL: offer URL is missing the name`,
+			},
+		}},
+	})
+}
+
 func (s *applicationSuite) TestSetRelationsSuspended(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
