@@ -353,6 +353,28 @@ func (s *modelconfigSuite) TestSetSecretBackendExternal(c *gc.C) {
 	c.Assert(result.Config["secret-backend"].Value, gc.Equals, "backend-1")
 }
 
+func (s *modelconfigSuite) TestSetSecretBackendVaultMountPathNotSupported(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	old, err := config.New(config.UseDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
+		"agent-version": "3.6.11",
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.old = old
+
+	vaultProvider := mocks.NewMockSecretBackendProvider(ctrl)
+	s.PatchValue(&commonsecrets.GetProvider, func(string) (secretsprovider.SecretBackendProvider, error) { return vaultProvider, nil })
+
+	s.backend.secretBackend.Config["mount-path"] = "/path"
+
+	args := params.ModelSet{
+		Config: map[string]interface{}{"secret-backend": "backend-1"},
+	}
+	err = s.api.ModelSet(args)
+	c.Assert(err, gc.ErrorMatches, "vault secret backend with a mount path not supported in this version of Juju")
+}
+
 func (s *modelconfigSuite) TestSetSecretBackendExternalValidationFailed(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

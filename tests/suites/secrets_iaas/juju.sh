@@ -211,8 +211,8 @@ test_secrets_juju() {
 }
 
 obsolete_secret_revisions() {
-	local secret_id
-	secret_id=${1}
+	local secret_short_uri
+	secret_short_uri=${1}
 
 	yaml_out=$(
 		juju ssh juju-qa-test/0 sh <<EOF
@@ -220,7 +220,7 @@ obsolete_secret_revisions() {
 juju_engine_report
 EOF
 	)
-	out=$(echo "${yaml_out}" | sed 1d | yq "..style=\"flow\" | .manifolds.deployer.report.handler.units.workers.juju-qa-test/0.report.manifolds.uniter.report.secrets.obsolete-revisions.\"${secret_id}\"")
+	out=$(echo "${yaml_out}" | sed 1d | yq "..style=\"flow\" | .manifolds.deployer.report.units.workers.juju-qa-test/0.report.manifolds.uniter.report.secrets.obsolete-revisions.\"${secret_short_uri}\"")
 	echo "${out}"
 }
 
@@ -260,7 +260,7 @@ run_obsolete_revisions() {
 	echo "Checking initial obsolete revisions 1..10"
 	attempt=0
 	while true; do
-		obsolete=$(obsolete_secret_revisions "${secret_id}")
+		obsolete=$(obsolete_secret_revisions "${secret_short_uri}")
 		if [ "$obsolete" == "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]" ]; then
 			break
 		fi
@@ -280,7 +280,7 @@ run_obsolete_revisions() {
 	echo "Checking revision 6 has been removed from the obsolete revisions"
 	attempt=0
 	while true; do
-		obsolete=$(obsolete_secret_revisions "${secret_id}")
+		obsolete=$(obsolete_secret_revisions "${secret_short_uri}")
 		if [ "$obsolete" == "[1, 2, 3, 4, 5, 7, 8, 9, 10]" ]; then
 			break
 		fi
@@ -300,7 +300,7 @@ run_obsolete_revisions() {
 	echo "Checking all obsolete revision are removed when the secret is deleted"
 	attempt=0
 	while true; do
-		obsolete=$(obsolete_secret_revisions "${secret_id}")
+		obsolete=$(obsolete_secret_revisions "${secret_short_uri}")
 		if [ $obsolete == null ]; then
 			break
 		fi
