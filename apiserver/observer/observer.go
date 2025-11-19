@@ -22,7 +22,7 @@ type Observer interface {
 
 	// Join is called when the connection to the API server's
 	// WebSocket is opened.
-	Join(req *http.Request, connectionID uint64)
+	Join(req *http.Request, connectionID uint64, fd int)
 
 	// Leave is called when the connection to the API server's
 	// WebSocket is closed.
@@ -77,8 +77,8 @@ type Multiplexer struct {
 
 // Join is called when the connection to the API server's WebSocket is
 // opened.
-func (m *Multiplexer) Join(req *http.Request, connectionID uint64) {
-	mapConcurrent(func(o Observer) { o.Join(req, connectionID) }, m.observers)
+func (m *Multiplexer) Join(req *http.Request, connectionID uint64, fd int) {
+	mapConcurrent(func(o Observer) { o.Join(req, connectionID, fd) }, m.observers)
 }
 
 // Leave implements Observer.

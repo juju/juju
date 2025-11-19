@@ -162,6 +162,41 @@ func (w *Worker) URL() string {
 	}
 }
 
+// extractRawFd gets the underlying file descriptor from the http connection.
+// This should only be used for informational purposes.
+func extractRawFd(c net.Conn) int {
+	fd := -1
+	var tcpConn *net.TCPConn
+	switch v := c.(type) {
+	case *net.TCPConn:
+		tcpConn = v
+	case *tls.Conn:
+		tc := v.NetConn()
+		switch tc := tc.(type) {
+		case *net.TCPConn:
+			tcpConn = tc
+		}
+	}
+	if tcpConn == nil {
+		return fd
+	}
+	rawConn, err := tcpConn.SyscallConn()
+	if err != nil {
+		return fd
+	}
+	_ = rawConn.Control(func(localFD uintptr) {
+		fd = int(localFD)
+	})
+	return fd
+}
+
+// recordRawFd adds the "http-fd" key containing the raw HTTP file descriptor
+// This can be used for tracking raw file descriptors to their login purpose
+func recordRawFd(ctx context.Context, c net.Conn) context.Context {
+	fd := extractRawFd(c)
+	return context.WithValue(ctx, "raw-http-fd", fd)
+}
+
 func (w *Worker) loop() error {
 	serverLog := log.New(&loggoWrapper{
 		level:  loggo.WARNING,
@@ -176,10 +211,11 @@ func (w *Worker) loop() error {
 		// Once it has been upgraded to Websocket, then gorilla takes over the read/write deadlines.
 		ReadTimeout:  60 * time.Second,
 		WriteTimeout: 60 * time.Second,
+		ConnContext:  recordRawFd,
 	}
 	go func() {
 		err := server.Serve(tls.NewListener(w.holdable, w.config.TLSConfig))
-		if err != nil && err != http.ErrServerClosed {
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			w.logger.Errorf("server finished with error %v", err)
 		}
 	}()

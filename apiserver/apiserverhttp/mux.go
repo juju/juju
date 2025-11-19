@@ -6,9 +6,13 @@ package apiserverhttp
 import (
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/bmizerany/pat"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+
+	corelogger "github.com/juju/juju/core/logger"
 )
 
 // Mux is a pattern-based HTTP muxer, based on top of
@@ -35,6 +39,8 @@ type Mux struct {
 	// Clients who are using the mux can add themselves to prevent the
 	// httpserver from stopping until they're done.
 	clients sync.WaitGroup
+
+	logger logger
 }
 
 type patternHandler struct {
@@ -42,11 +48,16 @@ type patternHandler struct {
 	h   http.Handler
 }
 
+type logger interface {
+	Debugf(format string, args ...interface{})
+}
+
 // NewMux returns a new, empty mux.
 func NewMux(opts ...muxOption) *Mux {
 	m := &Mux{
-		p:     pat.New(),
-		added: make(map[string][]patternHandler),
+		p:      pat.New(),
+		added:  make(map[string][]patternHandler),
+		logger: loggo.GetLoggerWithLabels("juju.apiserver.http", corelogger.API),
 	}
 	for _, opt := range opts {
 		opt(m)
@@ -64,7 +75,14 @@ func (m *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	m.pmu.Lock()
 	p := m.p
 	m.pmu.Unlock()
+	rawFD := r.Context().Value("raw-http-fd")
+	if rawFD == nil {
+		rawFD = -1
+	}
+	requestStart := time.Now()
+	m.logger.Debugf("<- fd:%v ServeHTTP %s %s", rawFD, r.Method, r.URL)
 	p.ServeHTTP(w, r)
+	m.logger.Debugf("-> fd:%v %s ServeHTTP %s %s", rawFD, time.Since(requestStart), r.Method, r.URL)
 }
 
 // AddHandler adds an http.Handler for the given method and pattern.

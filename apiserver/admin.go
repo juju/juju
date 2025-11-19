@@ -63,8 +63,8 @@ func (a *admin) Admin(id string) (*admin, error) {
 
 // Login logs in with the provided credentials.  All subsequent requests on the
 // connection will act as the authenticated user.
-func (a *admin) Login(req params.LoginRequest) (params.LoginResult, error) {
-	return a.login(context.Background(), req, 3)
+func (a *admin) Login(ctx context.Context, req params.LoginRequest) (params.LoginResult, error) {
+	return a.login(ctx, req, 3)
 }
 
 // RedirectInfo returns redirected host information for the model.
@@ -326,10 +326,14 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 		// Hide the fact that the model does not exist.
 		return nil, errors.Unauthorizedf("invalid entity name or password")
 	}
-	// TODO(wallyworld) - we can't yet observe anonymous logins as entity must be non-nil
-	if !result.anonymousLogin {
-		a.apiObserver.Login(a.root.authInfo.Entity.Tag(), a.root.model.ModelTag(), controllerConn, req.UserData)
+	var tag names.Tag
+	if result.anonymousLogin {
+		tag = names.NewUserTag(api.AnonymousUsername)
+	} else {
+		tag = a.root.authInfo.Entity.Tag()
 	}
+	logger.Debugf("login for %s: http-fd: %v", tag, ctx.Value("raw-http-fd"))
+	a.apiObserver.Login(tag, a.root.model.ModelTag(), controllerConn, req.UserData)
 	a.loggedIn = true
 
 	if startPinger {
