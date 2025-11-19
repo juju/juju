@@ -113,7 +113,7 @@ Comma-delimited tags assigned to the machine. Tags can be positive, denoting an 
 (constraint-virt-type)=
 ## `virt-type`
 
-Virtualisation type. <p> Only supported by {ref}`LXD <cloud-lxd>` and {ref}`Openstack <cloud-openstack>`. **Valid values:** Cloud-dependent.
+Virtualisation type. <p> Only supported by {ref}`LXD <cloud-lxd>` and {ref}`OpenStack <cloud-openstack>`. **Valid values:** Cloud-dependent.
 
 (constraint-zones)=
 ## `zones`
