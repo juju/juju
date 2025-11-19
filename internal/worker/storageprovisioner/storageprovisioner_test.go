@@ -584,6 +584,52 @@ func (s *storageProvisionerSuite) TestAttachFilesystemRetry(c *tc.C) {
 	})
 }
 
+func (s *storageProvisionerSuite) TestAttachFilesystemIncomplete(c *tc.C) {
+	filesystemInfoSet := make(chan interface{})
+	filesystemAccessor := newMockFilesystemAccessor()
+	filesystemAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
+	filesystemAccessor.setFilesystemInfo = func(filesystems []params.Filesystem) ([]params.ErrorResult, error) {
+		defer close(filesystemInfoSet)
+		return make([]params.ErrorResult, len(filesystems)), nil
+	}
+	filesystemAttachmentInfoSet := make(chan interface{})
+	filesystemAccessor.setFilesystemAttachmentInfo = func(filesystemAttachments []params.FilesystemAttachment) ([]params.ErrorResult, error) {
+		defer close(filesystemAttachmentInfoSet)
+		return make([]params.ErrorResult, len(filesystemAttachments)), nil
+	}
+
+	// mockFunc's After will progress the current time by the specified
+	// duration and signal the channel immediately.
+	clock := &mockClock{}
+	var attachFilesystemTimes []time.Time
+
+	s.provider.attachFilesystemsFunc = func(args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
+		attachFilesystemTimes = append(attachFilesystemTimes, clock.Now())
+		return []storage.AttachFilesystemsResult{{Error: storage.FilesystemAttachParamsIncomplete}}, nil
+	}
+
+	args := &workerArgs{filesystems: filesystemAccessor, clock: clock, registry: s.registry}
+	worker := newStorageProvisioner(c, args)
+	defer func() { c.Assert(worker.Wait(), tc.IsNil) }()
+	defer worker.Kill()
+
+	filesystemAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageID{{
+		MachineTag: "machine-1", AttachmentTag: "filesystem-1",
+	}}
+	filesystemAccessor.filesystemsWatcher.changes <- []string{"1"}
+	waitChannel(c, filesystemInfoSet, "waiting for filesystem info to be set")
+	assertNoEvent(c, filesystemAttachmentInfoSet, "filesystem attachment info set event")
+	c.Assert(attachFilesystemTimes, tc.HasLen, 1)
+
+	// The first attempt should have been immediate: T0.
+	c.Assert(attachFilesystemTimes[0], tc.Equals, time.Time{})
+
+	c.Assert(args.statusSetter.args, tc.DeepEquals, []params.EntityStatusArgs{
+		{Tag: "filesystem-1", Status: "attaching", Info: ""}, // CreateFilesystems
+		// No update since the filesystem is missing attachment parameters.
+	})
+}
+
 func (s *storageProvisionerSuite) TestValidateVolumeParams(c *tc.C) {
 	volumeAccessor := newMockVolumeAccessor()
 	volumeAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
@@ -769,6 +815,47 @@ func (s *storageProvisionerSuite) TestValidateFilesystemParams(c *tc.C) {
 		{Tag: "filesystem-2", Status: "attaching"},
 		// destroyed filesystems are removed immediately,
 		// so there is no status update.
+	})
+}
+
+func (s *storageProvisionerSuite) TestValidateFilesystemParamsIncomplete(c *tc.C) {
+	filesystemAccessor := newMockFilesystemAccessor()
+	filesystemAccessor.provisionedMachines["machine-1"] = "already-provisioned-1"
+
+	validated := make(chan any)
+	s.provider.validateFilesystemParamsFunc = func(p storage.FilesystemParams) error {
+		close(validated)
+		return storage.FilesystemCreateParamsIncomplete
+	}
+
+	life := func(tags []names.Tag) ([]params.LifeResult, error) {
+		results := make([]params.LifeResult, len(tags))
+		for i := range results {
+			results[i].Life = life.Alive
+		}
+		return results, nil
+	}
+
+	args := &workerArgs{
+		filesystems: filesystemAccessor,
+		life: &mockLifecycleManager{
+			life: life,
+		},
+		registry: s.registry,
+	}
+	worker := newStorageProvisioner(c, args)
+	defer func() { c.Assert(worker.Wait(), tc.IsNil) }()
+	defer worker.Kill()
+
+	filesystemAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageID{{
+		MachineTag: "machine-1", AttachmentTag: "filesystem-1",
+	}}
+	filesystemAccessor.filesystemsWatcher.changes <- []string{"1"}
+	waitChannel(c, validated, "waiting for filesystem parameter validation")
+
+	c.Assert(args.statusSetter.args, tc.DeepEquals, []params.EntityStatusArgs{
+		// No status update for pending filesystem due to incomplete create
+		// parameters.
 	})
 }
 
@@ -2258,16 +2345,35 @@ func (s *caasStorageProvisionerSuite) TestRemoveFilesystems(c *tc.C) {
 		MachineTag: "unit-mariadb-1", AttachmentTag: "filesystem-1",
 	}}
 
+	expectedFilesystems := []names.Tag{
+		names.NewFilesystemTag("1"),
+	}
+
 	attachmentLife := func(ids []params.MachineStorageId) ([]params.LifeResult, error) {
-		c.Assert(ids, tc.DeepEquals, expectedAttachmentIds)
+		c.Check(ids, tc.DeepEquals, expectedAttachmentIds)
 		return []params.LifeResult{{Life: life.Dying}}, nil
 	}
 
-	removed := make(chan interface{})
+	detached := make(chan interface{})
+	fsLife := life.Dying
 	removeAttachments := func(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
-		c.Assert(ids, tc.DeepEquals, expectedAttachmentIds)
-		close(removed)
+		c.Check(ids, tc.DeepEquals, expectedAttachmentIds)
+		close(detached)
+		fsLife = life.Dead
 		return make([]params.ErrorResult, len(ids)), nil
+	}
+
+	removed := make(chan interface{})
+	remove := func(t []names.Tag) ([]params.ErrorResult, error) {
+		c.Check(t, tc.DeepEquals, expectedFilesystems)
+		close(removed)
+		return make([]params.ErrorResult, len(t)), nil
+	}
+	life := func(t []names.Tag) ([]params.LifeResult, error) {
+		c.Check(t, tc.DeepEquals, expectedFilesystems)
+		return []params.LifeResult{{
+			Life: fsLife,
+		}}, nil
 	}
 
 	args := &workerArgs{
@@ -2275,6 +2381,8 @@ func (s *caasStorageProvisionerSuite) TestRemoveFilesystems(c *tc.C) {
 		life: &mockLifecycleManager{
 			attachmentLife:    attachmentLife,
 			removeAttachments: removeAttachments,
+			life:              life,
+			remove:            remove,
 		},
 		registry: s.registry,
 	}
@@ -2282,9 +2390,12 @@ func (s *caasStorageProvisionerSuite) TestRemoveFilesystems(c *tc.C) {
 	defer func() { c.Assert(w.Wait(), tc.IsNil) }()
 	defer w.Kill()
 
+	filesystemAccessor.filesystemsWatcher.changes <- []string{"1"}
 	filesystemAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageID{{
 		MachineTag: "unit-mariadb-1", AttachmentTag: "filesystem-1",
 	}}
+	waitChannel(c, detached, "waiting for filesystem to be detached")
+	filesystemAccessor.filesystemsWatcher.changes <- []string{"1"}
 	waitChannel(c, removed, "waiting for filesystem to be removed")
 }
 

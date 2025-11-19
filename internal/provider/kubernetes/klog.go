@@ -37,15 +37,19 @@ func (k *klogAdapter) Enabled(level int) bool {
 
 // Error see https://pkg.go.dev/github.com/go-logr/logr#Logger
 func (k *klogAdapter) Error(err error, msg string, keysAndValues ...any) {
-	if err != nil {
-		k.Logger.Errorf(context.TODO(), msg+": "+err.Error(), keysAndValues...)
-		return
-	}
-
+	level := k.Logger.Errorf
 	if klogIgnorePrefixes.Matches(msg) {
+		level = k.Logger.Debugf
+	}
+	if err == nil {
+		level(context.TODO(), "%s(%#v)", msg)
 		return
 	}
-	k.Logger.Errorf(context.TODO(), msg, keysAndValues...)
+	errStr := err.Error()
+	if klogIgnorePrefixes.Matches(errStr) {
+		level = k.Logger.Debugf
+	}
+	level(context.TODO(), "%s(%#v): %s", msg, keysAndValues, errStr)
 }
 
 // Info see https://pkg.go.dev/github.com/go-logr/logr#Logger
