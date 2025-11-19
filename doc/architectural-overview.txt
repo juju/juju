@@ -205,6 +205,11 @@ XXXX
 
 XXXX
 
+Charm authors are responsible to set an appropriate
+[`umask(2)`](https://manpages.ubuntu.com/manpages/noble/man2/umask.2.html)
+setting. Future versions of Juju may use a different default than previous
+versions of Juju.
+
 
 ### The Relation Model
 

@@ -105,6 +105,11 @@ following characteristics:
     with: the command line tools won't work without them).
   * $JUJU_API_ADDRESSES holds a space separated list of juju API addresses.
   * $JUJU_MODEL_NAME holds the human friendly name of the current model.
+  * Current versions of Juju use a very permissive
+    [`umask(2)`](https://manpages.ubuntu.com/manpages/noble/man2/umask.2.html)
+    setting. Charm authors are responsible for setting this value, and
+    using Unix users and groups, necessary for the correct operation of
+    their charms.
 
 Hook tools
 ----------
