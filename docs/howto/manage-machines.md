@@ -202,7 +202,7 @@ machines:
 See more: {ref}`command-juju-add-machine`, {ref}`add-a-machine`
 ```
 
-**Get values.** You can get constraint values for for an individual machine by viewing details about the command with the `show-machine` command, for example:
+**Get values.** You can get constraint values for an individual machine by viewing details about the command with the `show-machine` command, for example:
 
 ```text
 juju show-machine 0

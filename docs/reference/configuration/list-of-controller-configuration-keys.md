@@ -324,6 +324,18 @@ created locally on the controller.
 **Can be changed after bootstrap:** no
 
 
+(controller-config-idle-connection-timeout)=
+## `idle-connection-timeout`
+
+`idle-connection-timeout` is the time between the controller resetting all idle connections.
+
+**Type:** duration
+
+**Default value:** 30s
+
+**Can be changed after bootstrap:** yes
+
+
 (controller-config-juju-db-snap-channel)=
 ## `juju-db-snap-channel`
 

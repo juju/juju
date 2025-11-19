@@ -232,7 +232,7 @@ To update Juju's definition for a private cloud, run the `update-cloud` command 
 juju update-cloud mymaas -f path/to/maas.yaml
 ```
 
-The command also allows you to indicate whether the update should happen on the client or the controller; to to update the definition on a controller to match the one on the client; etc.
+The command also allows you to indicate whether the update should happen on the client or the controller; to update the definition on a controller to match the one on the client; etc.
 
 ```{ibnote}
 See more: {ref}`command-juju-update-cloud`

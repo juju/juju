@@ -1,7 +1,7 @@
 (client)=
 # Client
 
-A Juju **client** is any software that implements th Juju client apiserver contract and is able to talk to a Juju {ref}`controller <controller>`.
+A Juju **client** is any software that implements the Juju client apiserver contract and is able to talk to a Juju {ref}`controller <controller>`.
 
 This currently includes:
 

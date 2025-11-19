@@ -2,7 +2,7 @@
 Sometimes developers need to store some new entities in Juju DB. This document provides key points for adding a new
 collection to MongoDB.
 
-# Define a new collection in Juju DB
+## Define a new collection in Juju DB
 
 All collections are represented in the package `state`. This package enables reading, observing, and changing the state
 stored in MongoDB of a whole model managed by juju.
@@ -24,7 +24,7 @@ newEntitiesC = "newEntities"
 
 ```
 
-# Define a new entity collection structure
+## Define a new entity collection structure
 
 Create a golang file in the state subfolder: `state/new_entites.go`
 
@@ -77,12 +77,12 @@ type newEntityDoc struct {
 
 ```
 
-# Develop an API to manipulate collection entities
+## Develop an API to manipulate collection entities
 
-You then need to implement methods that will help you interact with new collection docs. Let’s define some simple CRUD
-methods for ‘new entity’.
+You then need to implement methods that will help you interact with new collection docs. Let's define some simple CRUD
+methods for 'new entity'.
 
-## Add a new doc
+### Add a new doc
 
 Here is an example of a way to add a new doc to a MongoDB collocation:
 
@@ -138,7 +138,7 @@ func (ne *newEntityPersistence) AddNewEntity(args params.AddNewEntityParams) (*N
 
 ```
 
-## Remove a new doc
+### Remove a new doc
 
 Here is an example of a way to remove a new doc from a MongoDB collocation:
 
