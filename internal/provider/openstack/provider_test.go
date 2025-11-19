@@ -487,7 +487,7 @@ func (s *localTests) TestSchema(c *gc.C) {
 	y := []byte(`
 auth-types: [userpass, access-key]
 endpoint: http://foo.com/openstack
-regions: 
+regions:
   one:
     endpoint: http://foo.com/bar
   two:

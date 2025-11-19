@@ -2115,6 +2115,40 @@ func (s *localServerSuite) TestOpenModelPortsErrorNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
+func (s *localServerSuite) TestTerminateInstanceNetworkPorts(c *gc.C) {
+	model := neutronmodel.New()
+	err := model.AddPort(neutron.PortV2{
+		DeviceId: "test-instance-1",
+		Id:       "1",
+		Name:     "juju-" + s.env.Config().UUID() + "-1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.AddPort(neutron.PortV2{
+		DeviceId: "test-instance-2",
+		Id:       "2",
+		Name:     "juju-" + s.env.Config().UUID() + "-2",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.srv.Neutron.AddNeutronModel(model)
+	err = s.srv.Nova.AddOSInterface("test-instance-1", nova.OSInterface{
+		PortID: "1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.srv.Nova.AddOSInterface("test-instance-2", nova.OSInterface{
+		PortID: "2",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	instanceID := instance.Id("test-instance-1")
+	err = openstack.TerminateInstanceNetworkPorts(s.env, instanceID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ports := model.AllPorts()
+	c.Assert(ports, gc.HasLen, 1)
+	c.Assert(ports[0].DeviceId, gc.Equals, "test-instance-2")
+}
+
 // localHTTPSServerSuite contains tests that run against an Openstack service
 // double connected on an HTTPS port with a self-signed certificate. This
 // service is set up and torn down for every test.  This should only test
