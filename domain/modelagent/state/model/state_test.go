@@ -23,7 +23,6 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
-	coremachinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
@@ -86,7 +85,7 @@ func (s *modelStateSuite) addMachineWithBase(
 ) machine.UUID {
 	netNodeUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	machineUUID := coremachinetesting.GenUUID(c)
+	machineUUID := tc.Must(c, machine.NewUUID)
 
 	netNodeInsert := `
 INSERT INTO net_node(uuid) VALUES (?)
@@ -125,6 +124,61 @@ VALUES (?, ?, ?, 0)`
 				machineUUID.String(),
 				0, // This is always 0 as we only support Ubuntu for now.
 				base.Channel.String(),
+			)
+			return err
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	return machineUUID
+}
+
+// addMachineWithNullChannelBase adds a new machine to the model using the provided base
+// with a field to toggle channel to be null when inserting into the database.
+// The new machine's UUID is returned to the caller.
+func (s *modelStateSuite) addMachineWithNullChannelBase(c *tc.C) machine.UUID {
+	netNodeUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID := tc.Must(c, machine.NewUUID)
+
+	netNodeInsert := `
+INSERT INTO net_node(uuid) VALUES (?)
+`
+	machineInsert := `
+INSERT INTO machine (uuid, name, net_node_uuid, life_id)
+VALUES (?, ?, ?, ?)
+`
+
+	machinePlatform := `
+INSERT INTO machine_platform (machine_uuid, os_id, channel, architecture_id)
+VALUES (?, ?, ?, 0)`
+
+	channel := sql.NullString{String: "", Valid: false}
+
+	err = s.ModelTxnRunner().StdTxn(
+		c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, netNodeInsert, netNodeUUID.String())
+			if err != nil {
+				return err
+			}
+
+			_, err = tx.ExecContext(
+				ctx,
+				machineInsert,
+				machineUUID.String(),
+				machineUUID.String(),
+				netNodeUUID.String(),
+				life.Alive,
+			)
+			if err != nil {
+				return err
+			}
+
+			_, err = tx.ExecContext(
+				ctx,
+				machinePlatform,
+				machineUUID.String(),
+				0, // This is always 0 as we only support Ubuntu for now.
+				channel,
 			)
 			return err
 		},
@@ -1522,4 +1576,69 @@ func (s *modelStateSuite) TestUpdateLatestAgentVersionLessThanCurrentTarget(c *t
 
 	err := st.UpdateLatestAgentVersion(c.Context(), semversion.MustParse("4.1.0"))
 	c.Assert(err, tc.ErrorIs, modelagenterrors.LatestVersionDowngradeNotSupported)
+}
+
+// TestGetAllMachinesWithBase verifies that GetAllMachinesWithBase returns the
+// complete set of machines that have valid base and channel information recorded
+// in the database.
+func (s *modelStateSuite) TestGetAllMachinesWithBase(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	machineUUID1 := s.addMachineWithBase(c, corebase.MakeDefaultBase(corebase.UbuntuOS, "24.04"))
+	machineUUID2 := s.addMachineWithBase(c, corebase.MakeDefaultBase(corebase.UbuntuOS, "25.04"))
+
+	machineBases, err := st.GetAllMachinesWithBase(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machineBases, tc.DeepEquals, map[string]corebase.Base{
+		machineUUID1.String(): tc.Must2(c, corebase.ParseBase, "ubuntu", "24.04"),
+		machineUUID2.String(): tc.Must2(c, corebase.ParseBase, "ubuntu", "25.04"),
+	})
+}
+
+// TestGetAllMachinesWithBaseNoMachinesInModel verifies that calling
+// GetAllMachinesWithBase on an empty machine platform state
+// returns an empty result set and does not produce an error.
+func (s *modelStateSuite) TestGetAllMachinesWithBaseNoMachinesInModel(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	machineBases, err := st.GetAllMachinesWithBase(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machineBases, tc.HasLen, 0)
+}
+
+// TestGetAllMachinesWithBaseNullChannels tests that machines with NULL
+// channel values in the database are excluded from the result set, as they
+// represent machines that do not have valid channel information set.
+func (s *modelStateSuite) TestGetAllMachinesWithBaseNullChannels(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	s.addMachineWithNullChannelBase(c)
+	s.addMachineWithNullChannelBase(c)
+	machineBaseWithChannelUUID1 := s.addMachineWithBase(c, corebase.MakeDefaultBase(corebase.UbuntuOS, "24.04"))
+	machineBaseWithChannelUUID2 := s.addMachineWithBase(c, corebase.MakeDefaultBase(corebase.UbuntuOS, "25.04"))
+
+	machineBases, err := st.GetAllMachinesWithBase(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machineBases, tc.HasLen, 2)
+
+	c.Assert(machineBases, tc.DeepEquals, map[string]corebase.Base{
+		machineBaseWithChannelUUID1.String(): tc.Must2(c, corebase.ParseBase, "ubuntu", "24.04"),
+		machineBaseWithChannelUUID2.String(): tc.Must2(c, corebase.ParseBase, "ubuntu", "25.04"),
+	})
+}
+
+// TestGetAllMachinesWithBaseEmptyChannels verifies that machines whose channel
+// field is present but empty ("") trigger a coreerrors.NotValid error. An empty
+// string is considered invalid channel metadata, and the state method must reject such
+// entries rather than silently ignoring or returning them.
+func (s *modelStateSuite) TestGetAllMachinesWithBaseEmptyChannels(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	s.addMachineWithBase(
+		c,
+		corebase.MakeDefaultBase(corebase.UbuntuOS, ""),
+	)
+
+	machineBases, err := st.GetAllMachinesWithBase(c.Context())
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Assert(machineBases, tc.HasLen, 0)
 }

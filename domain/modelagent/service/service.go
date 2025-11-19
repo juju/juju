@@ -38,12 +38,6 @@ type AgentBinaryFinder interface {
 type agentBinaryFinderFunc func(semversion.Number) (bool, error)
 
 type ModelState interface {
-	// GetMachineCountNotUsingBase returns the number of machines that are not
-	// using one of the supplied bases. If no machines exist in the model or if
-	// no machines exist that are using a base not in the set provided, zero is
-	// returned with no error.
-	GetMachineCountNotUsingBase(context.Context, []corebase.Base) (int, error)
-
 	// GetMachineAgentBinaryMetadata reports the agent binary metadata that is
 	// currently running a given machine.
 	//
@@ -192,6 +186,19 @@ type ModelState interface {
 	// - [github.com/juju/juju/core/errors.NotSupported] if the architecture is
 	// not known to the database.
 	SetUnitRunningAgentBinaryVersion(context.Context, coreunit.UUID, agentbinary.Version) error
+
+	// GetAllMachinesWithBase returns a map of
+	// machine UUIDs to their resolved platform base.
+	//
+	// Machines for which the channel field is NULL are skipped and do not appear in the
+	// returned map.
+	//
+	// Machines for which the OS and channel field are both empty
+	// will result in a corresponding zero value base returned.
+	//
+	// This method may return the following errors:
+	//   - [coreerrors.NotValid] if, for any machine, either the OS or channel field but not both is non-empty.
+	GetAllMachinesWithBase(ctx context.Context) (map[string]corebase.Base, error)
 }
 
 // ControllerState defines the interface for interacting with the
