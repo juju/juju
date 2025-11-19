@@ -433,6 +433,8 @@ func (c *debugLogCommand) Run(ctx *cmd.Context) error {
 	controllerAddrs, err := c.getControllerAddresses(ctx)
 	if err != nil {
 		return err
+	} else if len(controllerAddrs) == 0 {
+		return errors.New("no controller addresses found")
 	}
 
 	// The default log buffer size is 1 for a single controller
