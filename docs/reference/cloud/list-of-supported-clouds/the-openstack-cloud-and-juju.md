@@ -111,7 +111,7 @@ The network label or UUID to bring machines up on when multiple networks exist.
 
 | {ref}`CONSTRAINT <constraint>`         |                                                                                                |
 |----------------------------------------|------------------------------------------------------------------------------------------------|
-| conflicting:                           | `{ref}`instance-type]` vs. `[mem, root-disk, cores]`                                           |
+| conflicting:                           | `[instance-type]` vs. `[mem, root-disk, cores]`                                           |
 | supported?                             |                                                                                                |
 | - {ref}`constraint-allocate-public-ip` | &#10003;                                                                                       |
 | - {ref}`constraint-arch`               | &#10003;                                                                                       |
