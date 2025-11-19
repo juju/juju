@@ -26,7 +26,7 @@ require (
 	github.com/aws/smithy-go v1.22.3
 	github.com/bmizerany/pat v0.0.0-20210406213842-e4b6760bdd6f
 	github.com/canonical/go-dqlite/v3 v3.0.3
-	github.com/canonical/lxd v0.0.0-20251112203541-660577aa1183
+	github.com/canonical/lxd v0.0.0-20251117151656-8e01bcf3d963
 	github.com/canonical/pebble v1.19.2
 	github.com/canonical/sqlair v0.0.0-20250120155751-a83645b9a121
 	github.com/chzyer/readline v1.5.1
@@ -276,7 +276,7 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0 // indirect
 	go.opentelemetry.io/otel/metric v1.38.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.8.0 // indirect
-	go.starlark.net v0.0.0-20250701195324-d457b4515e0e // indirect
+	go.starlark.net v0.0.0-20250906160240-bf296ed553ea // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/arch v0.20.0 // indirect
