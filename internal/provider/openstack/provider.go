@@ -154,8 +154,6 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
-var novaListOSInterfacesForTest func(*nova.Client, string) ([]nova.OSInterface, error)
-
 const (
 	// provider version 1 introduces tags to security groups.
 	providerVersion1 = 1
@@ -2238,16 +2236,7 @@ func (e *Environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 
 func (e *Environ) terminateInstanceNetworkPorts(id instance.Id) error {
 	novaClient := e.nova()
-
-	var osInterfaces []nova.OSInterface
-	var err error
-
-	if novaListOSInterfacesForTest != nil {
-		osInterfaces, err = novaListOSInterfacesForTest(novaClient, string(id))
-	} else {
-		osInterfaces, err = novaClient.ListOSInterfaces(string(id))
-	}
-
+	osInterfaces, err := novaClient.ListOSInterfaces(string(id))
 	if err != nil {
 		return errors.Trace(err)
 	}

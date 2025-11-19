@@ -149,6 +149,11 @@ func FindNetworks(e environs.Environ, internal bool) (set.Strings, error) {
 	return e.(*Environ).networking.FindNetworks(internal)
 }
 
+// TerminateInstanceNetworkPorts exposes environ helper function terminateInstanceNetworkPorts for testing.
+func TerminateInstanceNetworkPorts(e environs.Environ, id instance.Id) error {
+	return e.(*Environ).terminateInstanceNetworkPorts(id)
+}
+
 var PortsToRuleInfo = rulesToRuleInfo
 var SecGroupMatchesIngressRule = secGroupMatchesIngressRule
 
@@ -175,8 +180,4 @@ func GetModelGroupNames(e environs.Environ) ([]string, error) {
 func GetFirewaller(e environs.Environ) Firewaller {
 	env := e.(*Environ)
 	return env.firewaller
-}
-
-func SetNovaClient(env *Environ, client *nova.Client) {
-	env.novaUnlocked = client
 }
