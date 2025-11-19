@@ -82,10 +82,6 @@ BUILD_TAGS ?=
 
 # EXTRA_BUILD_TAGS is not passed in, but built up from context.
 EXTRA_BUILD_TAGS =
-ifeq (,$(findstring no-dqlite,$(BUILD_TAGS)))
-    EXTRA_BUILD_TAGS += libsqlite3
-    EXTRA_BUILD_TAGS += dqlite
-endif
 
 # Enable coverage collection.
 ifneq ($(COVERAGE_COLLECT_URL),)
@@ -232,6 +228,7 @@ define run_go_build
 	@echo "Building ${PACKAGE} for ${OS}/${ARCH}"
 	@env GOOS=${OS} \
 		GOARCH=${BUILD_ARCH} \
+		CGO_ENABLED=0 \
 		go build \
 			-mod=$(JUJU_GOMOD_MODE) \
 			-tags=$(FINAL_BUILD_TAGS) \
@@ -268,7 +265,8 @@ endef
 
 define run_go_install
 	@echo "Installing ${PACKAGE}"
-	@go install \
+	@env CGO_ENABLED=0 \
+		go install \
 		-mod=$(JUJU_GOMOD_MODE) \
 		-tags=$(FINAL_BUILD_TAGS) \
 		$(COMPILE_FLAGS) \
@@ -321,6 +319,7 @@ jujud:
 
 .PHONY: jujud-controller
 jujud-controller: PACKAGE = github.com/juju/juju/cmd/jujud-controller
+jujud-controller: EXTRA_BUILD_TAGS += dqlite libsqlite3
 jujud-controller: musl-install-if-missing dqlite-install-if-missing
 ## jujud: Install jujud without updating dependencies
 	${run_cgo_install}
@@ -328,6 +327,7 @@ jujud-controller: musl-install-if-missing dqlite-install-if-missing
 
 .PHONY: dqlite-repl
 dqlite-repl: PACKAGE = github.com/juju/juju/scripts/dqlite/cmd
+dqlite-repl: EXTRA_BUILD_TAGS += dqlite libsqlite3
 dqlite-repl: musl-install-if-missing dqlite-install-if-missing
 ## jujud: Install jujud without updating dependencies
 	${run_cgo_install}
@@ -356,6 +356,7 @@ phony_explicit:
 # phone_explicit: is a dummy target that can be added to pattern targets to phony make.
 
 ${BUILD_DIR}/%/bin/dqlite-bench: PACKAGE = github.com/juju/juju/scripts/dqlite-bench
+${BUILD_DIR}/%/bin/dqlite-bench: EXTRA_BUILD_TAGS += dqlite libsqlite3
 ${BUILD_DIR}/%/bin/dqlite-bench: phony_explicit musl-install-if-missing dqlite-install-if-missing
 # build for dqlite-bench
 	$(run_cgo_build)
@@ -380,6 +381,7 @@ ${BUILD_DIR}/%/bin/jujud: phony_explicit
 	mv ${BBIN_DIR}/jujud ${BBIN_DIR}/jujud-junk
 
 ${BUILD_DIR}/%/bin/jujud-controller: PACKAGE = github.com/juju/juju/cmd/jujud-controller
+${BUILD_DIR}/%/bin/jujud-controller: EXTRA_BUILD_TAGS += dqlite libsqlite3
 ${BUILD_DIR}/%/bin/jujud-controller: phony_explicit musl-install-if-missing dqlite-install-if-missing
 # build for jujud-controller
 	$(run_cgo_build)
@@ -505,6 +507,8 @@ test-packages:
 # 8. Filter out all mocks.
 	@go list -json $(PROJECT)/... | jq -s -r '[.[] | if (.TestGoFiles | length) + (.XTestGoFiles | length) > 0 then .ImportPath else null end]|del(..|nulls).[]' | sort | ([ -f "$(TEST_PACKAGE_LIST)" ] && comm -12 "$(TEST_PACKAGE_LIST)" - || cat) | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/generate/ | grep -v $(PROJECT)/mocks/ | grep -v mocks
 
+.PHONY: run-go-tests
+run-go-tests: EXTRA_BUILD_TAGS += dqlite libsqlite3
 run-go-tests: musl-install-if-missing dqlite-install-if-missing
 ## run-go-tests: Run the unit tests
 	$(eval OS = $(shell go env GOOS))
@@ -522,6 +526,8 @@ run-go-tests: musl-install-if-missing dqlite-install-if-missing
 		CGO_ENABLED=1 \
 		go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) -ldflags ${CGO_LINK_FLAGS} ${TEST_PACKAGES} -test.run $(TEST_FILTER) $(TEST_EXTRA_ARGS)
 
+.PHONY: go-test-alias
+go-test-alias: EXTRA_BUILD_TAGS += dqlite libsqlite3
 go-test-alias: musl-install-if-missing dqlite-install-if-missing
 ## go-test-alias: Prints out an alias command for easy running of tests.
 	$(eval PPATH := "PATH")
