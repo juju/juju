@@ -292,6 +292,12 @@ Controller configuration keys:
     identity-url:
       type: string
       description: The url of the identity manager
+    idle-connection-timeout:
+      type: string
+      description: |
+        The time the controller will wait between
+        resets of all idle connections. By default, every 10 minutes
+        the controller will close all idle connections.
     juju-db-snap-channel:
       type: string
       description: Sets channel for installing mongo snaps when bootstrapping on focal

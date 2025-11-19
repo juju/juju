@@ -114,6 +114,12 @@ Controller configuration keys:
     features:
       type: list
       description: A list of runtime changeable features to be updated
+    idle-connection-timeout:
+      type: string
+      description: |
+        The time the controller will wait between
+        resets of all idle connections. By default, every 10 minutes
+        the controller will close all idle connections.
     juju-ha-space:
       type: string
       description: The network space within which the MongoDB replica-set should communicate
