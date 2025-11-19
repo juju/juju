@@ -11,8 +11,10 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -163,6 +165,18 @@ func (s *applicationStateSuite) TestGetApplicationStorageDirectivesInfo(c *tc.C)
 			"cache":    {StoragePoolName: "my-fast", SizeMiB: directives[2].Size, Count: d2count},
 		},
 	)
+}
+
+func (s *applicationStateSuite) TestGetApplicationStorageDirectivesInfo_ApplicationNotFound(c *tc.C) {
+	ctx := c.Context()
+
+	_, err := s.state.GetApplicationStorageDirectivesInfo(ctx, "invalid-uuid")
+	tc.Check(c, err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+
+	randomAppUUID, err := coreapplication.NewUUID()
+
+	_, err = s.state.GetApplicationStorageDirectivesInfo(ctx, randomAppUUID)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 // TestCreateApplicationWithResources tests creation of an application with

@@ -2317,14 +2317,14 @@ func (api *APIBase) getOneApplicationStorage(ctx context.Context, entity params.
 
 	appUUID, err := api.applicationService.GetApplicationUUIDByName(ctx, appTag.Id())
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return nil, internalerrors.Errorf("application %q", appTag.Id()).Add(coreerrors.NotFound)
+		return nil, internalerrors.Errorf("application %q not found", appTag.Id()).Add(coreerrors.NotFound)
 	} else if err != nil {
 		return nil, internalerrors.Capture(err)
 	}
 
 	storage, err := api.applicationService.GetApplicationStorageDirectivesInfo(ctx, appUUID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return nil, internalerrors.Errorf("application %q", appTag.Id()).Add(coreerrors.NotFound)
+		return nil, internalerrors.Errorf("application %q not found", appTag.Id()).Add(coreerrors.NotFound)
 	} else if err != nil {
 		return nil, internalerrors.Capture(err)
 	}
