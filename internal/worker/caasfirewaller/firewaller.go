@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -103,34 +102,6 @@ func (p *firewaller) ensureApplicationWorkerStopped(
 	}
 
 	return nil
-}
-
-// isV2Charm works out if the charm backing the application uuid is on the v2
-// format returning true or false.
-//
-// The following errors may be returned:
-// - [applicationerrors.ApplicationNotFound] if the application does not exist.
-func (p *firewaller) isV2Charm(
-	ctx context.Context, appUUID application.UUID,
-) (bool, error) {
-	if _, ok := p.appWorkers[appUUID]; ok {
-		// If the application uuid already has a started worker then it can be
-		// inferred that it is a V2 charm. This avoids excess trips to the
-		// service.
-		return true, nil
-	}
-
-	ch, _, err := p.appService.GetCharmByApplicationUUID(ctx, appUUID)
-	if err != nil {
-		return false, errors.Errorf(
-			"getting charm information: %w", err,
-		)
-	}
-
-	if charm.MetaFormat(ch) < charm.FormatV2 {
-		return false, nil
-	}
-	return true, nil
 }
 
 // Kill is part of the worker.Worker interface.
@@ -224,27 +195,6 @@ func (p *firewaller) observeApplicationFirewallChange(
 	if appLife == life.Dead {
 		// Application is dead, make sure that any workers are stopped.
 		return p.ensureApplicationWorkerStopped(ctx, appUUID)
-	}
-
-	// We only ever need to perform this check if no worker already exists for
-	// the application. If a worker already exists then the implication exists.
-	isV2, err := p.isV2Charm(ctx, appUUID)
-	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		// Application no longer exists, make sure that any workers are stopped.
-		return p.ensureApplicationWorkerStopped(ctx, appUUID)
-	} else if err != nil {
-		return errors.Errorf(
-			"determining charm v2 format for application %q: %w", appUUID, err,
-		)
-	}
-
-	if !isV2 {
-		p.logger.Debugf(
-			ctx,
-			"application %q is for a v1 charm, no caas firewaller required",
-			appUUID,
-		)
-		return nil
 	}
 
 	return p.ensureApplicationWorkerStarted(ctx, appUUID)

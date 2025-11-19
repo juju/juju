@@ -11,14 +11,11 @@ import (
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/api/common/charms"
 	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasfirewaller/mocks"
@@ -109,16 +106,7 @@ func (s *firewallerSuite) TestStartStopAppWorkerOnLifeNotFoundError(c *tc.C) {
 	appWatcherChan := make(chan []string)
 	appWatcher := watchertest.NewMockStringsWatcher(appWatcherChan)
 
-	charmInfo := &charms.CharmInfo{
-		Meta:     &internalcharm.Meta{},
-		Manifest: &internalcharm.Manifest{Bases: []internalcharm.Base{{}}}, // bases make it a v2 charm
-	}
-
 	appSvcExp := s.applicationService.EXPECT()
-	// Return v2 charm info for all apps any time. Not the focus of this test.
-	appSvcExp.GetCharmByApplicationUUID(gomock.Any(), gomock.Any()).Return(
-		charmInfo.Charm(), charm.CharmLocator{}, nil,
-	).AnyTimes()
 	appSvcExp.WatchApplications(gomock.Any()).Return(appWatcher, nil).AnyTimes()
 
 	// 1st set of events
@@ -161,17 +149,7 @@ func (s *firewallerSuite) TestStartStopAppWorkerOnLifeDead(c *tc.C) {
 	appWatcherChan := make(chan []string)
 	appWatcher := watchertest.NewMockStringsWatcher(appWatcherChan)
 
-	charmInfo := &charms.CharmInfo{
-		Meta: &internalcharm.Meta{},
-		// bases make it a v2 charm
-		Manifest: &internalcharm.Manifest{Bases: []internalcharm.Base{{}}},
-	}
-
 	appSvcExp := s.applicationService.EXPECT()
-	// Return v2 charm info for all apps any time. Not the focus of this test.
-	appSvcExp.GetCharmByApplicationUUID(gomock.Any(), gomock.Any()).Return(
-		charmInfo.Charm(), charm.CharmLocator{}, nil,
-	).AnyTimes()
 	appSvcExp.WatchApplications(gomock.Any()).Return(appWatcher, nil).AnyTimes()
 
 	// 1st set of events
@@ -202,62 +180,6 @@ func (s *firewallerSuite) TestStartStopAppWorkerOnLifeDead(c *tc.C) {
 	c.Check(w.Wait(), tc.ErrorIsNil)
 }
 
-// TestStartStopAppWorkerOnCharmFormatNotFound tests that the application
-// firewaller does not attempt to start a worker for an application that is
-// reported to be not found when inspecting the charms format version.
-func (s *firewallerSuite) TestStartStopAppWorkerOnCharmFormatNotFound(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	app1UUID := tc.Must(c, coreapplication.NewUUID)
-
-	appWatcherChan := make(chan []string)
-	appWatcher := watchertest.NewMockStringsWatcher(appWatcherChan)
-	// Trigger to start app workers.
-
-	appSvcExp := s.applicationService.EXPECT()
-	appSvcExp.WatchApplications(gomock.Any()).Return(appWatcher, nil).AnyTimes()
-	appSvcExp.GetApplicationLife(gomock.Any(), app1UUID).Return(life.Alive, nil)
-	appSvcExp.GetCharmByApplicationUUID(gomock.Any(), app1UUID).Return(
-		nil, charm.CharmLocator{}, applicationerrors.ApplicationNotFound,
-	)
-
-	w, err := NewFirewallerWorker(s.getValidConfig(c.T))
-	c.Assert(err, tc.ErrorIsNil)
-
-	appWatcherChan <- []string{app1UUID.String()}
-	w.Kill()
-	c.Check(w.Wait(), tc.ErrorIsNil)
-}
-
-func (s *firewallerSuite) TestApplicationWithCharmFormatV1NotStarted(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	app1UUID := tc.Must(c, coreapplication.NewUUID)
-
-	charmInfo := &charms.CharmInfo{
-		Meta:     &internalcharm.Meta{},
-		Manifest: &internalcharm.Manifest{Bases: nil},
-	}
-
-	appWatcherChan := make(chan []string)
-	appWatcher := watchertest.NewMockStringsWatcher(appWatcherChan)
-
-	appSvcExp := s.applicationService.EXPECT()
-	appSvcExp.WatchApplications(gomock.Any()).Return(appWatcher, nil).AnyTimes()
-	appSvcExp.GetApplicationLife(gomock.Any(), app1UUID).Return(life.Alive, nil)
-	appSvcExp.GetCharmByApplicationUUID(gomock.Any(), app1UUID).Return(
-		charmInfo.Charm(), charm.CharmLocator{}, applicationerrors.ApplicationNotFound,
-	)
-
-	w, err := NewFirewallerWorker(s.getValidConfig(c.T))
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Trigger to start app workers.
-	appWatcherChan <- []string{app1UUID.String()}
-	w.Kill()
-	c.Check(w.Wait(), tc.ErrorIsNil)
-}
-
 // TestSingleWorkerPerApplication ensures that given multiple watcher events
 // for the same application uuid only a single worker is ever started.
 func (s *firewallerSuite) TestSingleWorkerPerApplication(c *tc.C) {
@@ -268,17 +190,7 @@ func (s *firewallerSuite) TestSingleWorkerPerApplication(c *tc.C) {
 	appWatcherChan := make(chan []string)
 	appWatcher := watchertest.NewMockStringsWatcher(appWatcherChan)
 
-	charmInfo := &charms.CharmInfo{
-		Meta: &internalcharm.Meta{},
-		// bases make it a v2 charm
-		Manifest: &internalcharm.Manifest{Bases: []internalcharm.Base{{}}},
-	}
-
 	appSvcExp := s.applicationService.EXPECT()
-	// Return v2 charm info for all apps any time. Not the focus of this test.
-	appSvcExp.GetCharmByApplicationUUID(gomock.Any(), gomock.Any()).Return(
-		charmInfo.Charm(), charm.CharmLocator{}, nil,
-	).AnyTimes()
 	appSvcExp.WatchApplications(gomock.Any()).Return(appWatcher, nil).AnyTimes()
 
 	// 1st set of events
@@ -345,17 +257,7 @@ func (s *firewallerSuite) TestFailedApplicationWorkerStopsFirewaller(c *tc.C) {
 	appWatcherChan := make(chan []string)
 	appWatcher := watchertest.NewMockStringsWatcher(appWatcherChan)
 
-	charmInfo := &charms.CharmInfo{
-		Meta: &internalcharm.Meta{},
-		// bases make it a v2 charm
-		Manifest: &internalcharm.Manifest{Bases: []internalcharm.Base{{}}},
-	}
-
 	appSvcExp := s.applicationService.EXPECT()
-	// Return v2 charm info for all apps any time. Not the focus of this test.
-	appSvcExp.GetCharmByApplicationUUID(gomock.Any(), gomock.Any()).Return(
-		charmInfo.Charm(), charm.CharmLocator{}, nil,
-	).AnyTimes()
 	appSvcExp.WatchApplications(gomock.Any()).Return(appWatcher, nil).AnyTimes()
 
 	// 1st set of events

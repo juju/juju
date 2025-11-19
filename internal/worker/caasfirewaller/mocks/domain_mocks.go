@@ -17,8 +17,6 @@ import (
 	life "github.com/juju/juju/core/life"
 	network "github.com/juju/juju/core/network"
 	watcher "github.com/juju/juju/core/watcher"
-	charm "github.com/juju/juju/domain/application/charm"
-	charm0 "github.com/juju/juju/internal/charm"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -119,46 +117,6 @@ func (c *MockApplicationServiceGetApplicationNameCall) Do(f func(context.Context
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceGetApplicationNameCall) DoAndReturn(f func(context.Context, application.UUID) (string, error)) *MockApplicationServiceGetApplicationNameCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetCharmByApplicationUUID mocks base method.
-func (m *MockApplicationService) GetCharmByApplicationUUID(arg0 context.Context, arg1 application.UUID) (charm0.Charm, charm.CharmLocator, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCharmByApplicationUUID", arg0, arg1)
-	ret0, _ := ret[0].(charm0.Charm)
-	ret1, _ := ret[1].(charm.CharmLocator)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// GetCharmByApplicationUUID indicates an expected call of GetCharmByApplicationUUID.
-func (mr *MockApplicationServiceMockRecorder) GetCharmByApplicationUUID(arg0, arg1 any) *MockApplicationServiceGetCharmByApplicationUUIDCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmByApplicationUUID", reflect.TypeOf((*MockApplicationService)(nil).GetCharmByApplicationUUID), arg0, arg1)
-	return &MockApplicationServiceGetCharmByApplicationUUIDCall{Call: call}
-}
-
-// MockApplicationServiceGetCharmByApplicationUUIDCall wrap *gomock.Call
-type MockApplicationServiceGetCharmByApplicationUUIDCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceGetCharmByApplicationUUIDCall) Return(arg0 charm0.Charm, arg1 charm.CharmLocator, arg2 error) *MockApplicationServiceGetCharmByApplicationUUIDCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetCharmByApplicationUUIDCall) Do(f func(context.Context, application.UUID) (charm0.Charm, charm.CharmLocator, error)) *MockApplicationServiceGetCharmByApplicationUUIDCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetCharmByApplicationUUIDCall) DoAndReturn(f func(context.Context, application.UUID) (charm0.Charm, charm.CharmLocator, error)) *MockApplicationServiceGetCharmByApplicationUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
