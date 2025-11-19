@@ -48,7 +48,7 @@ To view all storage directives for the given application:
 
     juju application-storage <application>
 
-	By default, the config will be printed in a tabular format. You can instead
+By default, the config will be printed in a tabular format. You can instead
 print it in `json` or `yaml` format using the `--format` flag:
 
    	juju application-storage &lt;application&gt; --format json

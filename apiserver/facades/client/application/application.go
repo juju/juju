@@ -3197,7 +3197,7 @@ func (api *APIBase) updateOneApplicationStorageDirective(storageUpdate params.Ap
 	return app.UpdateStorageConstraints(storageDirectivesUpdate)
 }
 
-// UpdateApplicationStorageDirectives updates the storage constraints for multiple existing applications in bulk.
+// UpdateApplicationStorageDirectives updates the storage directives for multiple existing applications in bulk.
 // We do not create new storage constraints since it is handled by addDefaultStorageConstraints during
 // application deployment. The storage constraints passed are validated against the charm's declared storage meta.
 // The following apiserver codes can be returned in each ErrorResult:

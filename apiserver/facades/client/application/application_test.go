@@ -1690,7 +1690,7 @@ func (s *applicationSuite) TestGetOneApplicationStorageSuccess(c *gc.C) {
 	c.Assert(application, gc.NotNil)
 	c.Assert(application.Name(), gc.Equals, "storage-block")
 
-	// Asserts that the application has defined resp constraints.
+	// Asserts that the application has defined the given directives.
 	resp, err := s.applicationAPI.GetApplicationStorageDirectives(params.Entities{Entities: []params.Entity{
 		{
 			Tag: application.Tag().String(),
@@ -1783,7 +1783,7 @@ func (s *applicationSuite) TestUpdateOneApplicationStorageSuccess(c *gc.C) {
 	c.Assert(application, gc.NotNil)
 	c.Assert(application.Name(), gc.Equals, "storage-block")
 
-	// Asserts that the application has defined resp constraints.
+	// Asserts that the application has defined the given directives.
 	resp, err := s.applicationAPI.GetApplicationStorageDirectives(params.Entities{Entities: []params.Entity{
 		{
 			Tag: application.Tag().String(),
@@ -1953,7 +1953,7 @@ func (s *applicationSuite) TestUpdateApplicationStorageNameServerError(c *gc.C) 
 	c.Assert(application, gc.NotNil)
 	c.Assert(application.Name(), gc.Equals, "storage-block")
 
-	// Asserts that the application has defined resp constraints.
+	// Asserts that the application has defined the given directives.
 	resp, err := s.applicationAPI.GetApplicationStorageDirectives(params.Entities{Entities: []params.Entity{
 		{
 			Tag: application.Tag().String(),

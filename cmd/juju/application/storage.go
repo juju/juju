@@ -25,15 +25,15 @@ const (
 	appStorageConfigSummary = "Displays or sets storage directives for an application."
 
 	appStorageConfigDoc = `
-A storage directive describes to the charm how to refer to the storage,
-and where to provision it from and takes the form <storage-name>[=<storage-specification>]; for details
+A storage directive describes to juju how the storage required by a charm should be provisioned
+and takes the form <storage-name>[=<storage-specification>]; for details
 see https://documentation.ubuntu.com/juju/3.6/reference/storage/#storage-directive.
 
 To view all storage directives for the given application:
 
     juju application-storage <application>
 
-	By default, the config will be printed in a tabular format. You can instead
+By default, the storage directives will be printed in a tabular format. You can instead
 print it in ` + "`json`" + ` or ` + "`yaml`" + ` format using the ` + "`--format`" + ` flag:
 
    	juju application-storage <application> --format json
@@ -72,10 +72,10 @@ func NewStorageCommand() cmd.Command {
 	applicationStorageConfigBase := config.ConfigCommandBase{
 		Resettable: false,
 	}
-	return modelcmd.Wrap(&storageConfigCommand{configBase: applicationStorageConfigBase})
+	return modelcmd.Wrap(&applicationStorageCommand{configBase: applicationStorageConfigBase})
 }
 
-type storageConfigCommand struct {
+type applicationStorageCommand struct {
 	modelcmd.ModelCommandBase
 	configBase config.ConfigCommandBase
 	out        cmd.Output
@@ -87,7 +87,7 @@ type storageConfigCommand struct {
 // Info returns the name and usage details for the application storage command,
 // providing guidance to the user.
 // It implements the [cmd.Command] interface.
-func (c *storageConfigCommand) Info() *cmd.Info {
+func (c *applicationStorageCommand) Info() *cmd.Info {
 	info := &cmd.Info{
 		Name:     "application-storage",
 		Args:     "<application-name> [<storage-name>[={<size>,<pool>,<count>}]] ...",
@@ -106,7 +106,7 @@ func (c *storageConfigCommand) Info() *cmd.Info {
 }
 
 // SetFlags implements part of the cmd.Command interface.
-func (c *storageConfigCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *applicationStorageCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	c.configBase.SetFlags(f)
 
@@ -119,7 +119,7 @@ func (c *storageConfigCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init parses the command arguments and validates the application name.
 // It implements the [cmd.Command] interface.
-func (c *storageConfigCommand) Init(args []string) error {
+func (c *applicationStorageCommand) Init(args []string) error {
 	nArgs := len(args)
 	if nArgs == 0 {
 		return errors.Errorf("no application specified")
@@ -134,7 +134,7 @@ func (c *storageConfigCommand) Init(args []string) error {
 
 // getAPI returns the API. This allows passing in a test configCommandAPI
 // implementation.
-func (c *storageConfigCommand) getAPI() (StorageDirectivesAPI, error) {
+func (c *applicationStorageCommand) getAPI() (StorageDirectivesAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -151,7 +151,7 @@ func (c *storageConfigCommand) getAPI() (StorageDirectivesAPI, error) {
 // storage directive for a single storage name, setting storage
 // directives, or listing all storage directives for the given application.
 // It implements the [cmd.Command] interface.
-func (c *storageConfigCommand) Run(ctx *cmd.Context) error {
+func (c *applicationStorageCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return err
@@ -183,7 +183,7 @@ type StorageDirectivesAPI interface {
 }
 
 // setConfig sets the provided key/value pairs on the application.
-func (c *storageConfigCommand) setConfig(client StorageDirectivesAPI, attrs config.Attrs) error {
+func (c *applicationStorageCommand) setConfig(client StorageDirectivesAPI, attrs config.Attrs) error {
 	sd := make(map[string]storage.Directives, len(attrs))
 	for k, v := range attrs {
 		// This should give us a string of the form "10G,rootfs,1".
@@ -204,7 +204,7 @@ func (c *storageConfigCommand) setConfig(client StorageDirectivesAPI, attrs conf
 }
 
 // getConfig writes the value of a single application config key to the cmd.Context.
-func (c *storageConfigCommand) getConfig(ctx *cmd.Context, client StorageDirectivesAPI) error {
+func (c *applicationStorageCommand) getConfig(ctx *cmd.Context, client StorageDirectivesAPI) error {
 	applicationStorageInfo, err := client.GetApplicationStorageDirectives(c.applicationName)
 	if err != nil {
 		return err
@@ -229,7 +229,7 @@ func (c *storageConfigCommand) getConfig(ctx *cmd.Context, client StorageDirecti
 }
 
 // getAllConfig returns the entire configuration for the selected application.
-func (c *storageConfigCommand) getAllConfig(ctx *cmd.Context, client StorageDirectivesAPI) error {
+func (c *applicationStorageCommand) getAllConfig(ctx *cmd.Context, client StorageDirectivesAPI) error {
 	applicationStorageInfo, err := client.GetApplicationStorageDirectives(c.applicationName)
 	if err != nil {
 		return err

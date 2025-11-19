@@ -232,7 +232,7 @@ func NewConfigCommandForTest(api ApplicationAPI, store jujuclient.ClientStore) m
 }
 
 func NewStorageCommandForTest(api StorageDirectivesAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
-	cmd := &storageConfigCommand{api: api}
+	cmd := &applicationStorageCommand{api: api}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }

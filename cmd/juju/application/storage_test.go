@@ -20,15 +20,15 @@ import (
 	jujutesting "github.com/juju/juju/testing"
 )
 
-type StorageConfigSuite struct {
+type ApplicationStorageSuite struct {
 	jujutesting.FakeJujuXDGDataHomeSuite
 	store   *jujuclient.MemStore
-	mockAPI *mockStorageConstraintsAPI
+	mockAPI *mockStorageDirectivesAPI
 }
 
-var _ = gc.Suite(&StorageConfigSuite{})
+var _ = gc.Suite(&ApplicationStorageSuite{})
 
-func (s *StorageConfigSuite) SetUpTest(c *gc.C) {
+func (s *ApplicationStorageSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.store = jujuclient.NewMemStore()
@@ -45,7 +45,7 @@ func (s *StorageConfigSuite) SetUpTest(c *gc.C) {
 	}
 
 	// Default mock returns one application with two storage keys.
-	s.mockAPI = &mockStorageConstraintsAPI{
+	s.mockAPI = &mockStorageDirectivesAPI{
 		getFunc: func(app string) (apiapplication.ApplicationStorageDirectives, error) {
 			return apiapplication.ApplicationStorageDirectives{
 				StorageDirectives: map[string]storage.Constraints{
@@ -60,25 +60,25 @@ func (s *StorageConfigSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *StorageConfigSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *ApplicationStorageSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, application.NewStorageCommandForTest(s.mockAPI, s.store), args...)
 }
 
-func (s *StorageConfigSuite) TestNoArguments(c *gc.C) {
+func (s *ApplicationStorageSuite) TestNoArguments(c *gc.C) {
 	ctx, err := s.run(c)
 	c.Assert(err, gc.ErrorMatches, "no application specified")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "ERROR no application specified\n")
 }
 
-func (s *StorageConfigSuite) TestGetConstraintsInvalidApplicationName(c *gc.C) {
+func (s *ApplicationStorageSuite) TestGetDirectivesInvalidApplicationName(c *gc.C) {
 	ctx, err := s.run(c, "so-42-far-not-good")
 	c.Assert(err, gc.ErrorMatches, `invalid application name "so-42-far-not-good"`)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "ERROR invalid application name \"so-42-far-not-good\"\n")
 }
 
-func (s *StorageConfigSuite) TestGetConstraintsAllJSON(c *gc.C) {
+func (s *ApplicationStorageSuite) TestGetDirectivesAllJSON(c *gc.C) {
 	context, err := s.run(c, "--format=json", "storage-block")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -90,7 +90,7 @@ func (s *StorageConfigSuite) TestGetConstraintsAllJSON(c *gc.C) {
 	c.Assert(output, gc.Equals, want)
 }
 
-func (s *StorageConfigSuite) TestGetConstraintsAllYAML(c *gc.C) {
+func (s *ApplicationStorageSuite) TestGetDirectivesAllYAML(c *gc.C) {
 	context, err := s.run(c, "--format=yaml", "storage-block")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -108,7 +108,7 @@ func (s *StorageConfigSuite) TestGetConstraintsAllYAML(c *gc.C) {
 	c.Assert(output, gc.Equals, want)
 }
 
-func (s *StorageConfigSuite) TestGetConstraintsAllTabular(c *gc.C) {
+func (s *ApplicationStorageSuite) TestGetDirectivesAllTabular(c *gc.C) {
 	ctx, err := s.run(c, "storage-block")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -123,7 +123,7 @@ func (s *StorageConfigSuite) TestGetConstraintsAllTabular(c *gc.C) {
 	c.Assert(strings.TrimSpace(cmdtesting.Stderr(ctx)), gc.Equals, "")
 }
 
-func (s *StorageConfigSuite) TestGetConstraintsSingleKeyTabular(c *gc.C) {
+func (s *ApplicationStorageSuite) TestGetDirectivesSingleKeyTabular(c *gc.C) {
 	ctx, err := s.run(c, "storage-block", "data")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -137,14 +137,14 @@ func (s *StorageConfigSuite) TestGetConstraintsSingleKeyTabular(c *gc.C) {
 	c.Assert(strings.TrimSpace(cmdtesting.Stderr(ctx)), gc.Equals, "")
 }
 
-func (s *StorageConfigSuite) TestGetConstraintsSingleKeyJSON(c *gc.C) {
+func (s *ApplicationStorageSuite) TestGetDirectivesSingleKeyJSON(c *gc.C) {
 	ctx, err := s.run(c, "storage-block", "data", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `{"data":{"Pool":"rootfs","Size":10240,"Count":1}}`+"\n")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 }
 
-func (s *StorageConfigSuite) TestGetConstraintsSingleKeyYAML(c *gc.C) {
+func (s *ApplicationStorageSuite) TestGetDirectivesSingleKeyYAML(c *gc.C) {
 	ctx, err := s.run(c, "storage-block", "data", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ""+
@@ -155,13 +155,13 @@ func (s *StorageConfigSuite) TestGetConstraintsSingleKeyYAML(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 }
 
-func (s *StorageConfigSuite) TestGetConstraintsKeyNotFound(c *gc.C) {
+func (s *ApplicationStorageSuite) TestGetDirectivesKeyNotFound(c *gc.C) {
 	ctx, err := s.run(c, "storage-block", "doesnotexist")
 	c.Assert(err, gc.ErrorMatches, `storage "doesnotexist" not found`)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
 
-func (s *StorageConfigSuite) TestGetConstraintsAPIError(c *gc.C) {
+func (s *ApplicationStorageSuite) TestGetDirectivesAPIError(c *gc.C) {
 	s.mockAPI.getFunc = func(app string) (apiapplication.ApplicationStorageDirectives, error) {
 		return apiapplication.ApplicationStorageDirectives{}, fmt.Errorf("api error")
 	}
@@ -169,7 +169,7 @@ func (s *StorageConfigSuite) TestGetConstraintsAPIError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "api error")
 }
 
-func (s *StorageConfigSuite) TestSetConstraintsAllFields(c *gc.C) {
+func (s *ApplicationStorageSuite) TestSetDirectivesAllFields(c *gc.C) {
 	var got apiapplication.ApplicationStorageUpdate
 	s.mockAPI.updateFunc = func(up apiapplication.ApplicationStorageUpdate) error {
 		got = up
@@ -191,7 +191,7 @@ func (s *StorageConfigSuite) TestSetConstraintsAllFields(c *gc.C) {
 	c.Assert(*data.Size, gc.Equals, uint64(102400))
 }
 
-func (s *StorageConfigSuite) TestSetConstraintsAllFieldsShuffledOrder(c *gc.C) {
+func (s *ApplicationStorageSuite) TestSetDirectivesAllFieldsShuffledOrder(c *gc.C) {
 	var got apiapplication.ApplicationStorageUpdate
 	s.mockAPI.updateFunc = func(up apiapplication.ApplicationStorageUpdate) error {
 		got = up
@@ -213,7 +213,7 @@ func (s *StorageConfigSuite) TestSetConstraintsAllFieldsShuffledOrder(c *gc.C) {
 	c.Assert(*data.Size, gc.Equals, uint64(102400))
 }
 
-func (s *StorageConfigSuite) TestSetConstraintsOneField(c *gc.C) {
+func (s *ApplicationStorageSuite) TestSetDirectivesOneField(c *gc.C) {
 	var got apiapplication.ApplicationStorageUpdate
 	s.mockAPI.updateFunc = func(up apiapplication.ApplicationStorageUpdate) error {
 		got = up
@@ -233,7 +233,7 @@ func (s *StorageConfigSuite) TestSetConstraintsOneField(c *gc.C) {
 	c.Assert(data.Size, gc.IsNil)
 }
 
-func (s *StorageConfigSuite) TestSetConstraintsMultipleStorageKeys(c *gc.C) {
+func (s *ApplicationStorageSuite) TestSetDirectivesMultipleStorageKeys(c *gc.C) {
 	var got apiapplication.ApplicationStorageUpdate
 	s.mockAPI.updateFunc = func(up apiapplication.ApplicationStorageUpdate) error {
 		got = up
@@ -260,7 +260,7 @@ func (s *StorageConfigSuite) TestSetConstraintsMultipleStorageKeys(c *gc.C) {
 	c.Assert(allecto.Size, gc.IsNil)
 }
 
-func (s *StorageConfigSuite) TestSetConstraintsAPIError(c *gc.C) {
+func (s *ApplicationStorageSuite) TestSetDirectivesAPIError(c *gc.C) {
 	s.mockAPI.updateFunc = func(up apiapplication.ApplicationStorageUpdate) error {
 		return fmt.Errorf("api error")
 	}
@@ -268,7 +268,7 @@ func (s *StorageConfigSuite) TestSetConstraintsAPIError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "api error")
 }
 
-func (s *StorageConfigSuite) TestSetConstraintsParseError(c *gc.C) {
+func (s *ApplicationStorageSuite) TestSetDirectivesParseError(c *gc.C) {
 	_, err := s.run(c, "storage-block", "data=not-a-size,rootfs,one")
 	c.Assert(err, gc.ErrorMatches, `parsing storage constraints for "data": .*`)
 }
@@ -279,17 +279,17 @@ func assertTabLine(c *gc.C, line string, fields ...string) {
 }
 
 // Mocks
-type mockStorageConstraintsAPI struct {
+type mockStorageDirectivesAPI struct {
 	getFunc    func(app string) (apiapplication.ApplicationStorageDirectives, error)
 	updateFunc func(apiapplication.ApplicationStorageUpdate) error
 }
 
-func (m *mockStorageConstraintsAPI) Close() error { return nil }
+func (m *mockStorageDirectivesAPI) Close() error { return nil }
 
-func (m *mockStorageConstraintsAPI) GetApplicationStorageDirectives(applicationName string) (apiapplication.ApplicationStorageDirectives, error) {
+func (m *mockStorageDirectivesAPI) GetApplicationStorageDirectives(applicationName string) (apiapplication.ApplicationStorageDirectives, error) {
 	return m.getFunc(applicationName)
 }
 
-func (m *mockStorageConstraintsAPI) UpdateApplicationStorageDirectives(up apiapplication.ApplicationStorageUpdate) error {
+func (m *mockStorageDirectivesAPI) UpdateApplicationStorageDirectives(up apiapplication.ApplicationStorageUpdate) error {
 	return m.updateFunc(up)
 }

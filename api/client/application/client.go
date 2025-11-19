@@ -1276,7 +1276,7 @@ type ApplicationStorageUpdate struct {
 	StorageDirectives map[string]storage.Directives
 }
 
-// UpdateApplicationStorageDirectives updates the storage constraints for multiple existing applications in bulk.
+// UpdateApplicationStorageDirectives updates the storage directives for multiple existing applications in bulk.
 func (c *Client) UpdateApplicationStorageDirectives(applicationStorageUpdate ApplicationStorageUpdate) error {
 	sd := make(map[string]params.StorageConstraints)
 	for k, v := range applicationStorageUpdate.StorageDirectives {

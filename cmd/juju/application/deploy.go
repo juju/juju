@@ -420,10 +420,11 @@ behaviour use the ` + "`set-constraints`" + ` command to change the application'
 constraints or add a machine (` + "`add-machine`" + `) with a certain constraint and then
 target that machine with ` + "`add-unit`" + ` by using the ` + "`--to`" + `option.
 
-Use the ` + "`--storage`" + ` option to specify persistent storage requirements for an application. 
-These directives become the application's default storage layout (i.e. they are used when the application is later 
-scaled out with the add-unit command and new units need storage provisioned). To change this behaviour after deployment,
-use the  ` + "`application-storage`" + ` command to update the application's default storage directives.
+Use the ` + "`--storage`" + ` option to specify a storage directive for the application;
+see more: https://documentation.ubuntu.com/juju/3.6/reference/storage/#storage-directive. 
+These directives will control the application's default persistent storage layout (i.e. they are used when the application is later
+scaled out with the ` + "`add-unit`" + ` command and new units need storage provisioned). To change this behaviour after deployment,
+use the  ` + "`application-storage`" + ` command -- this will update the application's default storage directives.
 
 Use the ` + "`--device`" + ` option to specify GPU device requirements (with Kubernetes).
 The below format is used for this option's value, where the 'label' is named in

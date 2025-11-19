@@ -81,7 +81,7 @@ func ParseConstraints(s string) (Constraints, error) {
 		}
 		if count, ok, err := parseCount(field); ok {
 			if err != nil {
-				return cons, errors.Annotate(err, "cannot parse count")
+				return cons, errors.Annotate(err, "parsing storage count")
 			}
 			if cons.Count != 0 {
 				return cons, errors.NotValidf("storage instance count is already set to %d, new value %d", cons.Count, count)
@@ -113,7 +113,7 @@ func ParseConstraints(s string) (Constraints, error) {
 // ParseDirectives parses the specified string and creates a
 // storage directives structure.
 //
-// The acceptable format for storage constraints is a comma separated
+// The acceptable format for storage directives is a comma separated
 // sequence of: POOL, COUNT, and SIZE, where
 //
 //	POOL identifies the storage pool. POOL can be a string
@@ -144,7 +144,7 @@ func ParseDirectives(s string) (Directives, error) {
 		}
 		if count, ok, err := parseCount(field); ok {
 			if err != nil {
-				return cons, errors.Annotate(err, "cannot parse count")
+				return cons, errors.Annotate(err, "parsing storage count")
 			}
 			if cons.Count != nil {
 				return cons, errors.NotValidf("storage instance count is already set to %d, new value %d", cons.Count, count)
@@ -165,7 +165,7 @@ func ParseDirectives(s string) (Directives, error) {
 		return cons, errors.NotValidf("unrecognized storage constraint %q", field)
 	}
 	if cons.Count == nil && cons.Size == nil && cons.Pool == "" {
-		return Directives{}, errors.New("storage constraints require at least one field to be specified")
+		return Directives{}, errors.New("storage directives require at least one field to be specified")
 	}
 	return cons, nil
 }
