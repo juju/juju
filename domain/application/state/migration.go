@@ -421,7 +421,7 @@ func (st *State) importCAASUnit(
 				"getting unit uuid for principal unit: %w", err,
 			)
 		}
-		if err = st.us.recordUnitPrincipal(ctx, tx, principalUnitUUID, unitUUID); err != nil {
+		if err = st.recordUnitPrincipal(ctx, tx, principalUnitUUID, unitUUID); err != nil {
 			return errors.Errorf("importing subordinate info for unit %q: %w", args.UnitName, err)
 		}
 	}
@@ -490,7 +490,7 @@ func (st *State) importIAASUnit(
 				"getting unit uuid for principal unit: %w", err,
 			)
 		}
-		if err = st.us.recordUnitPrincipal(ctx, tx, principalUnitUUID, unitUUID); err != nil {
+		if err = st.recordUnitPrincipal(ctx, tx, principalUnitUUID, unitUUID); err != nil {
 			return errors.Errorf("importing subordinate info for unit %q: %w", args.UnitName, err)
 		}
 	}

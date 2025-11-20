@@ -32,14 +32,6 @@ type count struct {
 	Count int `db:"count"`
 }
 
-// machineIdentifiers represents a machine's unique identifier values that can
-// be used to reference it within the model.
-type machineIdentifiers struct {
-	Name        string `db:"name"`
-	NetNodeUUID string `db:"net_node_uuid"`
-	UUID        string `db:"uuid"`
-}
-
 type KeyValue struct {
 	Key   string `db:"key"`
 	Value string `db:"value"`

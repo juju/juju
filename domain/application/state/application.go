@@ -429,7 +429,7 @@ func (st *State) insertIAASApplicationUnits(
 ) ([]coremachine.Name, error) {
 	var machineNames []coremachine.Name
 	for i, unit := range units {
-		_, _, mNames, err := st.us.insertIAASUnit(ctx, tx, appUUID, charmUUID, unit)
+		_, _, mNames, err := st.us.InsertIAASUnit(ctx, tx, appUUID, charmUUID, unit)
 		if err != nil {
 			return nil, errors.Errorf("inserting IAAS unit %d: %w", i, err)
 		}

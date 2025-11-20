@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	internalapplication "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/ipaddress"
@@ -551,67 +550,6 @@ WHERE  u.name = $getUnitMachineUUID.unit_name
 	return arg.MachineUUID, nil
 }
 
-// getUnitMachineIdentifiers gets the identifiers of the machine that a unit is
-// attached to.
-//
-// The following errors may be expected:
-// - [applicationerrors.UnitNotFound] when the unit identified by the uuid no
-// longer exists.
-// - [applicationerrors.UnitMachineNotAssigned] when the unit is not assigned to
-// a machine.
-func (st *SubordinateUnitState) getUnitMachineIdentifiers(
-	ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID,
-) (internalapplication.MachineIdentifiers, error) {
-	var (
-		input = entityUUID{UUID: unitUUID.String()}
-		dbVal machineIdentifiers
-	)
-
-	q := `
-SELECT (m.uuid, m.net_node_uuid, m.name) AS (&machineIdentifiers.*)
-FROM   unit u
-JOIN   machine AS m ON u.net_node_uuid = m.net_node_uuid
-WHERE  u.uuid = $entityUUID.uuid
-`
-
-	stmt, err := st.Prepare(q, input, dbVal)
-	if err != nil {
-		return internalapplication.MachineIdentifiers{}, errors.Capture(err)
-	}
-
-	// Note: can be done via subordinateUnitExists in relation domain.
-	var exists bool
-	//exists, err := st.checkUnitExists(ctx, tx, unitUUID)
-	//if err != nil {
-	//	return internalapplication.MachineIdentifiers{}, errors.Errorf(
-	//		"checking unit %q exists", unitUUID,
-	//	)
-	//}
-
-	if !exists {
-		return internalapplication.MachineIdentifiers{}, errors.Errorf(
-			"unit %q does not exist", unitUUID,
-		).Add(applicationerrors.UnitNotFound)
-	}
-
-	err = tx.Query(ctx, stmt, input).Get(&dbVal)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		// While we expect the caller had validated this statement we can still
-		// provide a more helpful error message than sql error no rows.
-		return internalapplication.MachineIdentifiers{}, errors.Errorf(
-			"unit %q is not assigned to a machine in the model", unitUUID,
-		).Add(applicationerrors.UnitMachineNotAssigned)
-	} else if err != nil {
-		return internalapplication.MachineIdentifiers{}, errors.Capture(err)
-	}
-
-	return internalapplication.MachineIdentifiers{
-		Name:        coremachine.Name(dbVal.Name),
-		NetNodeUUID: domainnetwork.NetNodeUUID(dbVal.NetNodeUUID),
-		UUID:        coremachine.UUID(dbVal.UUID),
-	}, nil
-}
-
 // AddIAASUnits adds the specified units to the application. Returns the unit
 // names, along with all of the machine names that were created for the
 // units. This machines aren't associated with the units, as this is for a
@@ -651,7 +589,7 @@ func (st *State) AddIAASUnits(
 		}
 
 		for i, arg := range args {
-			uName, _, mNames, err := st.us.insertIAASUnit(ctx, tx, appUUID, charmUUID, arg)
+			uName, _, mNames, err := st.us.InsertIAASUnit(ctx, tx, appUUID, charmUUID, arg)
 			if err != nil {
 				return errors.Errorf("inserting unit %d: %w ", i, err)
 			}
@@ -701,99 +639,6 @@ func (st *State) AddCAASUnits(
 	return unitNames, errors.Capture(err)
 }
 
-// AddIAASSubordinateUnit adds a unit to the specified subordinate application
-// to the IAAS application on the same machine as the given principal unit and
-// records the principal-subordinate relationship.
-//
-// The following error types can be expected:
-//   - [applicationerrors.ApplicationNotFound] when the subordinate application
-//     cannot be found.
-//   - [applicationerrors.UnitNotFound] when the principal unit cannot be found.
-//   - [machineerrors.MachineNotFound] when no machine is attached to the
-//
-// principal unit.
-func (st *SubordinateUnitState) AddIAASSubordinateUnit(
-	ctx context.Context,
-	arg application.SubordinateUnitArg,
-) (coreunit.Name, []coremachine.Name, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return "", nil, errors.Capture(err)
-	}
-
-	var (
-		unitName     coreunit.Name
-		unitUUID     coreunit.UUID
-		machineNames []coremachine.Name
-	)
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Check the application is alive.
-		if err := st.us.checkApplicationAlive(ctx, tx, arg.SubordinateAppID); err != nil {
-			return errors.Capture(err)
-		}
-		// TODO: re-write in relation domain.
-		if err := st.checkUnitNotDead(ctx, tx, arg.PrincipalUnitUUID); err != nil {
-			return errors.Capture(err)
-		}
-
-		// Check this unit does not already have a subordinate unit from this
-		// application.
-		err := st.checkNoSubordinateExists(ctx, tx, arg.SubordinateAppID, arg.PrincipalUnitUUID)
-		if err != nil {
-			return errors.Errorf("checking if subordinate already exists: %w", err)
-		}
-		// TODO: re-write in relation domain.
-		charmUUID, err := st.getCharmIDByApplicationUUID(ctx, tx, arg.SubordinateAppID)
-		if err != nil {
-			return errors.Errorf(
-				"getting subordinate application %q charm uuid: %w",
-				arg.SubordinateAppID, err,
-			)
-		}
-
-		// Place the subordinate on the same machine as the principal unit.
-		machineIdentifiers, err := st.getUnitMachineIdentifiers(
-			ctx, tx, arg.PrincipalUnitUUID,
-		)
-		if err != nil {
-			return errors.Errorf("getting principal unit machine information: %w", err)
-		}
-
-		addUnitArg := application.AddIAASUnitArg{
-			MachineNetNodeUUID: machineIdentifiers.NetNodeUUID,
-			MachineUUID:        machineIdentifiers.UUID,
-			AddUnitArg: application.AddUnitArg{
-				CreateUnitStorageArg: arg.CreateUnitStorageArg,
-				NetNodeUUID:          arg.NetNodeUUID,
-				Placement: deployment.Placement{
-					Type:      deployment.PlacementTypeMachine,
-					Directive: machineIdentifiers.Name.String(),
-				},
-				UnitStatusArg: arg.UnitStatusArg,
-			},
-		}
-
-		unitName, unitUUID, machineNames, err = st.us.insertIAASUnit(
-			ctx, tx, arg.SubordinateAppID, charmUUID, addUnitArg,
-		)
-		if err != nil {
-			return errors.Errorf("inserting new IAAS subordinate unitq: %w", err)
-		}
-
-		// Record the principal/subordinate relationship.
-		if err := st.us.recordUnitPrincipal(ctx, tx, arg.PrincipalUnitUUID, unitUUID); err != nil {
-			return errors.Errorf("recording principal-subordinate relationship: %w", err)
-		}
-
-		return nil
-	})
-	if err != nil {
-		return "", nil, errors.Capture(err)
-	}
-
-	return unitName, machineNames, nil
-}
-
 // GetUnitPrincipal gets the subordinates principal unit. If no principal unit
 // is found, for example, when the unit is not a subordinate, then false is
 // returned.
@@ -831,44 +676,6 @@ WHERE  sub.name = $getPrincipal.subordinate_unit_name
 		return err
 	})
 	return arg.PrincipalUnitName, ok, err
-}
-
-// checkNoSubordinateExists returns
-// [applicationerrors.UnitAlreadyHasSubordinate] if the specified unit already
-// has a subordinate for the given application.
-func (st *SubordinateUnitState) checkNoSubordinateExists(
-	ctx context.Context,
-	tx *sqlair.TX,
-	subordinateAppUUID coreapplication.UUID,
-	principalUnitUUID coreunit.UUID,
-) error {
-	var (
-		sAppUUID  = applicationUUID{ApplicationUUID: subordinateAppUUID.String()}
-		pUnitUUID = entityUUID{UUID: principalUnitUUID.String()}
-	)
-
-	stmt, err := st.Prepare(`
-SELECT pu.uuid AS &entityUUID.uuid
-FROM   unit pu
-JOIN   unit_principal up ON up.principal_uuid = pu.uuid
-JOIN   unit su ON su.uuid = up.unit_uuid
-WHERE  pu.uuid = $entityUUID.uuid
-AND    su.application_uuid = $applicationUUID.application_uuid
-`,
-		sAppUUID, pUnitUUID,
-	)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, stmt, sAppUUID, pUnitUUID).Get(&pUnitUUID)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return nil
-	} else if err != nil {
-		return errors.Capture(err)
-	}
-
-	return applicationerrors.UnitAlreadyHasSubordinate
 }
 
 // IsSubordinateApplication returns true if the application is a subordinate
@@ -1491,7 +1298,7 @@ func (st *InsertIAASUnitState) placeIAASUnitMachine(
 	return machineNames, nil
 }
 
-func (st *InsertIAASUnitState) insertIAASUnit(
+func (st *InsertIAASUnitState) InsertIAASUnit(
 	ctx context.Context,
 	tx *sqlair.TX,
 	appUUID coreapplication.UUID,
@@ -2316,7 +2123,7 @@ func (st *InsertIAASUnitState) newUnitName(
 //
 // It is expected that the caller has already verified that both unit uuids
 // exist in the model.
-func (st *InsertIAASUnitState) recordUnitPrincipal(
+func (st *State) recordUnitPrincipal(
 	ctx context.Context,
 	tx *sqlair.TX,
 	principalUnitUUID, subordinateUnitUUID coreunit.UUID,
