@@ -218,27 +218,23 @@ func (s *watcherSuite) TestWatchTaskLogs(c *tc.C) {
 		"task one",
 		"task two",
 	}
-	initialLogStrings := []string{}
-	for _, msg := range logMessages {
-		output := s.addOperationTaskLog(c, taskUUID.String(), msg)
-		initialLogStrings = append(initialLogStrings, output)
-	}
+	initialLogStrings := s.addOperationTaskLogs(c, taskUUID.String(), logMessages)
 
 	s.AssertChangeStreamIdle(c)
 	watcher, err := s.svc.WatchTaskLogs(c.Context(), taskID)
 	c.Assert(err, tc.ErrorIsNil)
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	logStrings := []string{}
+	var expectedLogStrings []string
 	harness.AddTest(c, func(c *tc.C) {
+		messages := make([]string, 15)
 		for i := range 15 {
-			msg := fmt.Sprintf("task %d", i)
-			output := s.addOperationTaskLog(c, taskUUID.String(), msg)
-			logStrings = append(logStrings, output)
+			messages[i] = fmt.Sprintf("task %d", i)
 		}
+		expectedLogStrings = s.addOperationTaskLogs(c, taskUUID.String(), messages)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
-			watchertest.StringSliceAssert[string](logStrings...),
+			watchertest.StringSliceAssert[string](expectedLogStrings...),
 		)
 	})
 
@@ -360,18 +356,32 @@ WHERE task_uuid = ?
 `, string(status), taskUUID.String())
 }
 
-// addOperationTaskLog inserts a log message for a task.
-func (s *watcherSuite) addOperationTaskLog(c *tc.C, taskUUID, content string) string {
-	date := time.Now().UTC()
+// addOperationTaskLogs inserts a batch of log messages for a task in a single transaction.
+func (s *watcherSuite) addOperationTaskLogs(c *tc.C, taskUUID string, contents []string) []string {
+	results := make([]string, 0, len(contents))
 
-	s.runQuery(c, `
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		for _, content := range contents {
+			date := time.Now().UTC()
+
+			_, err := tx.ExecContext(ctx, `
 INSERT INTO operation_task_log (task_uuid, content, created_at) VALUES (?, ?, ?)
 `, taskUUID, content, date)
+			if err != nil {
+				return err
+			}
 
-	str, err := internal.TaskLogMessage{
-		Message:   content,
-		Timestamp: date,
-	}.TransformToCore().Encode()
-	c.Check(err, tc.ErrorIsNil)
-	return str
+			str, err := internal.TaskLogMessage{
+				Message:   content,
+				Timestamp: date,
+			}.TransformToCore().Encode()
+			if err != nil {
+				return err
+			}
+			results = append(results, str)
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return results
 }
