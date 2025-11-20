@@ -481,7 +481,7 @@ func updateState(
 			Address:    &u.Address,
 			Ports:      &u.Ports,
 		}
-		args.AgentStatus, args.CloudContainerStatus = updateStatus(u.Status)
+		args.AgentStatus, args.CloudContainerStatus = updateStatus(u.Status, clk)
 
 		lastStatus, ok := lastReportedStatus[unitName]
 		reportedStatus[unitName] = args
@@ -922,10 +922,11 @@ func provisioningInfo(
 }
 
 // updateStatus constructs the agent and cloud container status values.
-func updateStatus(podStatus status.StatusInfo) (
+func updateStatus(podStatus status.StatusInfo, clk clock.Clock) (
 	agentStatus *status.StatusInfo,
 	cloudContainerStatus *status.StatusInfo,
 ) {
+	now := clk.Now()
 	switch podStatus.Status {
 	case status.Unknown:
 		// The container runtime can spam us with unimportant
@@ -936,41 +937,49 @@ func updateStatus(podStatus status.StatusInfo) (
 		agentStatus = &status.StatusInfo{
 			Status:  status.Allocating,
 			Message: podStatus.Message,
+			Since:   &now,
 		}
 		cloudContainerStatus = &status.StatusInfo{
 			Status:  status.Waiting,
 			Message: podStatus.Message,
 			Data:    podStatus.Data,
+			Since:   &now,
 		}
 	case status.Running:
 		// A pod has finished starting so the workload is now active.
 		agentStatus = &status.StatusInfo{
 			Status: status.Idle,
+			Since:  &now,
 		}
 		cloudContainerStatus = &status.StatusInfo{
 			Status:  status.Running,
 			Message: podStatus.Message,
 			Data:    podStatus.Data,
+			Since:   &now,
 		}
 	case status.Error:
 		agentStatus = &status.StatusInfo{
 			Status:  status.Error,
 			Message: podStatus.Message,
 			Data:    podStatus.Data,
+			Since:   &now,
 		}
 		cloudContainerStatus = &status.StatusInfo{
 			Status:  status.Error,
 			Message: podStatus.Message,
 			Data:    podStatus.Data,
+			Since:   &now,
 		}
 	case status.Blocked:
 		agentStatus = &status.StatusInfo{
 			Status: status.Idle,
+			Since:  &now,
 		}
 		cloudContainerStatus = &status.StatusInfo{
 			Status:  status.Blocked,
 			Message: podStatus.Message,
 			Data:    podStatus.Data,
+			Since:   &now,
 		}
 	}
 	return agentStatus, cloudContainerStatus

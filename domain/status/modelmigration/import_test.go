@@ -4,10 +4,12 @@
 package modelmigration
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/description/v10"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -119,8 +121,10 @@ func (s *importSuite) TestImportUnitStatus(c *tc.C) {
 		Updated: now,
 	})
 
-	s.importService.EXPECT().SetApplicationStatus(gomock.Any(), "foo", corestatus.StatusInfo{
-		Status: corestatus.Unset,
+	s.importService.EXPECT().SetApplicationStatus(gomock.Any(), "foo", gomock.Any()).Do(func(_ context.Context, _ string, status corestatus.StatusInfo) error {
+		c.Assert(status.Status, tc.Equals, corestatus.Unset)
+		c.Assert(status.Since, tc.NotNil, tc.Commentf("Since field should not be nil for NeverSet status"))
+		return nil
 	})
 	s.importService.EXPECT().SetUnitAgentStatus(gomock.Any(), coreunit.Name("foo/0"), corestatus.StatusInfo{
 		Status:  corestatus.Status("idle"),
@@ -202,6 +206,47 @@ func (s *importSuite) TestImportRelationStatus(c *tc.C) {
 			return s.importService
 		},
 		clock: clock,
+	}
+
+	err := importOp.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportNeverSetStatus(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	clk := testclock.NewClock(time.Now().UTC())
+	now := clk.Now()
+
+	model := description.NewModel(description.ModelArgs{})
+	app := model.AddApplication(description.ApplicationArgs{
+		Name: "foo",
+	})
+	// Don't set any status - this will be NeverSet
+
+	_ = app.AddUnit(description.UnitArgs{
+		Name: "foo/0",
+	})
+	// Don't set agent or workload status - these will be NeverSet
+
+	s.importService.EXPECT().SetApplicationStatus(gomock.Any(), "foo", corestatus.StatusInfo{
+		Status: corestatus.Unset,
+		Since:  &now,
+	})
+	s.importService.EXPECT().SetUnitAgentStatus(gomock.Any(), coreunit.Name("foo/0"), corestatus.StatusInfo{
+		Status: corestatus.Unset,
+		Since:  &now,
+	})
+	s.importService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), coreunit.Name("foo/0"), corestatus.StatusInfo{
+		Status: corestatus.Unset,
+		Since:  &now,
+	})
+
+	importOp := importOperation{
+		serviceGetter: func(u coremodel.UUID) ImportService {
+			return s.importService
+		},
+		clock: clk,
 	}
 
 	err := importOp.Execute(c.Context(), model)
