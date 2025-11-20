@@ -69,6 +69,13 @@ run_govulncheck() {
 		# The vulnerability below is for a method not used since Juju 1.x.
 		# https://pkg.go.dev/vuln/GO-2025-3798
 		"GO-2025-3798"
+		# The vulnerabilities below are fixed in the version of
+		# golang.org/x/crypto we now use but the govuln db
+		# seems out of date at the time of writing.
+		# https://pkg.go.dev/vuln/GO-2025-4134
+		# https://pkg.go.dev/vuln/GO-2025-4135
+		"GO-2025-4134"
+		"GO-2025-4135"
 	)
 	ignoreMatcher=$(join "|" "${ignore[@]}")
 
