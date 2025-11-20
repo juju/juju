@@ -82,7 +82,7 @@ func (s *StatusAPI) SetAgentStatus(ctx context.Context, args params.SetStatus) (
 			Message: arg.Info,
 			Data:    arg.Data,
 			Since:   ptr(s.clock.Now()),
-		}); errors.Is(err, statuserrors.UnitNotFound) {
+		}); errors.Is(err, applicationerrors.UnitNotFound) {
 			results.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", tag.Id()))
 		} else if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
@@ -135,7 +135,7 @@ func (s *StatusAPI) SetApplicationStatus(ctx context.Context, args params.SetSta
 			Message: arg.Info,
 			Data:    arg.Data,
 			Since:   ptr(s.clock.Now()),
-		}); errors.Is(err, statuserrors.UnitNotFound) {
+		}); errors.Is(err, applicationerrors.UnitNotFound) {
 			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", unitName))
 			continue
 		} else if errors.Is(err, statuserrors.UnitNotLeader) {

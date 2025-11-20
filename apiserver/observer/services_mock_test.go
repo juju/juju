@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	machine "github.com/juju/juju/core/machine"
 	model "github.com/juju/juju/core/model"
 	unit "github.com/juju/juju/core/unit"
 	gomock "go.uber.org/mock/gomock"
@@ -164,6 +165,44 @@ func (m *MockStatusService) EXPECT() *MockStatusServiceMockRecorder {
 	return m.recorder
 }
 
+// DeleteMachinePresence mocks base method.
+func (m *MockStatusService) DeleteMachinePresence(arg0 context.Context, arg1 machine.Name) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteMachinePresence", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteMachinePresence indicates an expected call of DeleteMachinePresence.
+func (mr *MockStatusServiceMockRecorder) DeleteMachinePresence(arg0, arg1 any) *MockStatusServiceDeleteMachinePresenceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteMachinePresence", reflect.TypeOf((*MockStatusService)(nil).DeleteMachinePresence), arg0, arg1)
+	return &MockStatusServiceDeleteMachinePresenceCall{Call: call}
+}
+
+// MockStatusServiceDeleteMachinePresenceCall wrap *gomock.Call
+type MockStatusServiceDeleteMachinePresenceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStatusServiceDeleteMachinePresenceCall) Return(arg0 error) *MockStatusServiceDeleteMachinePresenceCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStatusServiceDeleteMachinePresenceCall) Do(f func(context.Context, machine.Name) error) *MockStatusServiceDeleteMachinePresenceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStatusServiceDeleteMachinePresenceCall) DoAndReturn(f func(context.Context, machine.Name) error) *MockStatusServiceDeleteMachinePresenceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DeleteUnitPresence mocks base method.
 func (m *MockStatusService) DeleteUnitPresence(arg0 context.Context, arg1 unit.Name) error {
 	m.ctrl.T.Helper()
@@ -198,6 +237,44 @@ func (c *MockStatusServiceDeleteUnitPresenceCall) Do(f func(context.Context, uni
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStatusServiceDeleteUnitPresenceCall) DoAndReturn(f func(context.Context, unit.Name) error) *MockStatusServiceDeleteUnitPresenceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetMachinePresence mocks base method.
+func (m *MockStatusService) SetMachinePresence(arg0 context.Context, arg1 machine.Name) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetMachinePresence", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetMachinePresence indicates an expected call of SetMachinePresence.
+func (mr *MockStatusServiceMockRecorder) SetMachinePresence(arg0, arg1 any) *MockStatusServiceSetMachinePresenceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachinePresence", reflect.TypeOf((*MockStatusService)(nil).SetMachinePresence), arg0, arg1)
+	return &MockStatusServiceSetMachinePresenceCall{Call: call}
+}
+
+// MockStatusServiceSetMachinePresenceCall wrap *gomock.Call
+type MockStatusServiceSetMachinePresenceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStatusServiceSetMachinePresenceCall) Return(arg0 error) *MockStatusServiceSetMachinePresenceCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStatusServiceSetMachinePresenceCall) Do(f func(context.Context, machine.Name) error) *MockStatusServiceSetMachinePresenceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStatusServiceSetMachinePresenceCall) DoAndReturn(f func(context.Context, machine.Name) error) *MockStatusServiceSetMachinePresenceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
