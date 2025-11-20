@@ -340,11 +340,15 @@ func (a *admin) authenticate(ctx context.Context, modelExists bool, req params.L
 		// Hide the fact that the model does not exist.
 		return nil, errors.Unauthorizedf("invalid entity name or password")
 	}
-	// TODO(wallyworld) - we can't yet observe anonymous logins as entity must be non-nil
-	if !result.anonymousLogin {
-		tag := names.NewModelTag(a.root.modelUUID.String())
-		a.apiObserver.Login(ctx, a.root.authInfo.Tag, tag, a.root.modelUUID, controllerConn, req.UserData)
+	var tag names.Tag
+	if result.anonymousLogin {
+		tag = names.NewUserTag(api.AnonymousUsername)
+	} else {
+		tag = a.root.authInfo.Tag
 	}
+	logger.Debugf(ctx, "login for %s: http-fd: %v", tag, ctx.Value("raw-http-fd"))
+	modelTag := names.NewModelTag(a.root.modelUUID.String())
+	a.apiObserver.Login(ctx, tag, modelTag, a.root.modelUUID, controllerConn, req.UserData)
 	a.loggedIn = true
 
 	if startPinger {

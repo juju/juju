@@ -150,6 +150,11 @@ func FindNetworks(e environs.Environ, internal bool) (set.Strings, error) {
 	return e.(*Environ).networking.FindNetworks(internal)
 }
 
+// TerminateInstanceNetworkPorts exposes environ helper function terminateInstanceNetworkPorts for testing.
+func TerminateInstanceNetworkPorts(ctx context.Context, e environs.Environ, id instance.Id) error {
+	return e.(*Environ).terminateInstanceNetworkPorts(ctx, id)
+}
+
 var PortsToRuleInfo = rulesToRuleInfo
 var SecGroupMatchesIngressRule = secGroupMatchesIngressRule
 

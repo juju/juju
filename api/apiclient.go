@@ -159,15 +159,24 @@ func Open(ctx context.Context, info *Info, opts DialOpts) (Connection, error) {
 		bakeryClient.Client = &httpc
 	}
 
-	// Technically when there's no CACert, we don't need this
-	// machinery, because we could just use http.DefaultTransport
+	httpsTransport := jujuhttp.NewHTTPTLSTransport(jujuhttp.TransportConfig{
+		TLSConfig: dialResult.tlsConfig,
+	})
+	// http.DefaultTransport uses 100 idle connections and 90s timeout.
+	// Old versions of juju/http were not setting this at all, which meant
+	// that we were not cleaning up idle connections. Since we are creating
+	// a new httpsTransport for each api.Open, we can set the MaxIdleConns
+	// all the way down to a single connection.
+	httpsTransport.MaxIdleConns = 1
+	httpsTransport.IdleConnTimeout = 90 * time.Second
+
+	// Technically, when there's no CACert, we don't need this
+	// machinery because we could just use http.DefaultTransport
 	// for everything, but it's easier just to leave it in place.
 	bakeryClient.Client.Transport = &hostSwitchingTransport{
 		primaryHost: dialResult.controllerRootAddr.Host,
-		primary: jujuhttp.NewHTTPTLSTransport(jujuhttp.TransportConfig{
-			TLSConfig: dialResult.tlsConfig,
-		}),
-		fallback: http.DefaultTransport,
+		primary:     httpsTransport,
+		fallback:    http.DefaultTransport,
 	}
 
 	host := PreferredHost(info)
@@ -188,7 +197,7 @@ func Open(ctx context.Context, info *Info, opts DialOpts) (Connection, error) {
 	// is refactored we fall back to using the user-pass login provider
 	// with information from Info.
 	if loginProvider == nil {
-		loginProvider = NewLegacyLoginProvider(info.Tag, info.Password, info.Nonce, info.Macaroons, bakeryClient, CookieURLFromHost(host))
+		loginProvider = NewLegacyLoginProvider(info.Tag, info.Password, info.Nonce, info.Macaroons, CookieURLFromHost(host))
 	}
 
 	c := &conn{
@@ -1265,9 +1274,21 @@ func (c *conn) Close() error {
 	return err
 }
 
+// wrappedBakeryClient wraps an httpbakery.Client
+// to implement base.MacaroonDischarger.
+type wrappedBakeryClient struct {
+	*httpbakery.Client
+}
+
+// CookieJar implements base.MacaroonDischarger.
+// It returns the cookie jar used by the bakery client.
+func (w *wrappedBakeryClient) CookieJar() http.CookieJar {
+	return w.Client.Jar
+}
+
 // BakeryClient implements api.Connection.
 func (c *conn) BakeryClient() base.MacaroonDischarger {
-	return c.bakeryClient
+	return &wrappedBakeryClient{c.bakeryClient}
 }
 
 // Broken implements api.Connection.

@@ -13,9 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -249,17 +247,6 @@ func (c *registerCommand) controllerDetails(ctx *cmd.Context, p *registrationPar
 	return c.nonPublicControllerDetails(ctx, p, controllerName)
 }
 
-func cookieURL(host string) (*url.URL, error) {
-	if strings.Contains(host, ":") {
-		var err error
-		host, _, err = net.SplitHostPort(host)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	return url.Parse(host)
-}
-
 // publicControllerDetails returns controller and account details to be registered
 // for the given public controller host name.
 func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, controllerName string) (jujuclient.ControllerDetails, jujuclient.AccountDetails, error) {
@@ -281,11 +268,6 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 	bclient, err := c.BakeryClient(c.store, controllerName)
 	if err != nil {
 		return errRet(errors.Trace(err))
-	}
-
-	cookieURL, err := cookieURL(host)
-	if err != nil {
-		return errRet(err)
 	}
 
 	dialOpts := api.DefaultDialOpts()
@@ -310,7 +292,7 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 				sessionToken = t
 			},
 		),
-		api.NewLegacyLoginProvider(names.UserTag{}, "", "", nil, bclient, cookieURL),
+		api.NewLegacyLoginProvider(names.UserTag{}, "", "", nil, api.CookieURLFromHost(host)),
 	)
 
 	conn, err := c.apiOpen(ctx, &api.Info{

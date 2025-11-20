@@ -62,7 +62,7 @@ You may need to specify additional `bootstrap-constrains` to help juju
 choose the correct architecture.
 ```
 
-##  Recompile, upload, update, and run the binary in the the controller
+##  Recompile, upload, update, and run the binary in the controller
 
 Often once we have a bootstrapped controller we want to upgrade the controller
 for testing or time reasons.

@@ -169,14 +169,15 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 	config := newWorkerArgs[0].(httpserver.Config)
 
 	c.Assert(config, tc.DeepEquals, httpserver.Config{
-		AgentName:       "machine-42",
-		Clock:           s.clock,
-		TLSConfig:       s.tlsConfig,
-		Mux:             s.mux,
-		APIPort:         1024,
-		MuxShutdownWait: 1 * time.Minute,
-		LogDir:          "log-dir",
-		Logger:          s.config.Logger,
+		AgentName:             "machine-42",
+		Clock:                 s.clock,
+		TLSConfig:             s.tlsConfig,
+		Mux:                   s.mux,
+		APIPort:               1024,
+		MuxShutdownWait:       1 * time.Minute,
+		LogDir:                "log-dir",
+		Logger:                s.config.Logger,
+		IdleConnectionTimeout: 30 * time.Second,
 	})
 }
 

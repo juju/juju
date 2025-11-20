@@ -22,8 +22,8 @@ type Instance struct {
 }
 
 // Join implements Observer.
-func (f *Instance) Join(ctx context.Context, req *http.Request, connectionID uint64) {
-	f.AddCall(funcName(), req, connectionID)
+func (f *Instance) Join(ctx context.Context, req *http.Request, connectionID uint64, fd int) {
+	f.AddCall(funcName(), req, connectionID, fd)
 }
 
 // Leave implements Observer.

@@ -38,6 +38,7 @@ type RequestLogger struct {
 	pingLogger logger.Logger
 
 	id                 uint64
+	fd                 int
 	websocketConnected time.Time
 }
 
@@ -65,13 +66,15 @@ func (n *RequestLogger) Login(ctx context.Context, entity names.Tag, model names
 }
 
 // Join implements Observer.
-func (n *RequestLogger) Join(ctx context.Context, req *http.Request, connectionID uint64) {
+func (n *RequestLogger) Join(ctx context.Context, req *http.Request, connectionID uint64, fd int) {
 	n.id = connectionID
+	n.fd = fd
 	n.websocketConnected = n.clock.Now()
 
 	n.logger.Debugf(ctx,
-		"[%X] API connection from %s",
+		"[%X:%d] API connection from %s",
 		n.id,
+		n.fd,
 		req.RemoteAddr,
 	)
 }
@@ -87,8 +90,9 @@ func (n *RequestLogger) Leave(ctx context.Context) {
 	// if the entity is an agent before logging.
 
 	n.logger.Debugf(ctx,
-		"[%X] %s API connection terminated after %v",
+		"[%X:%d] %s API connection terminated after %v",
 		n.id,
+		n.fd,
 		n.AgentTagString(),
 		n.clock.Now().Sub(n.websocketConnected),
 	)

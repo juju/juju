@@ -1159,6 +1159,8 @@ func (s *HookContextSuite) assertSecretGetFromPendingChanges(c *tc.C,
 ) {
 	defer s.setupMocks(c).Finish()
 
+	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
+
 	hookContext := context.NewMockUnitHookContext(c, s.mockUnit, model.IAAS, s.mockLeadership)
 
 	uri := coresecrets.NewURI()
@@ -1168,7 +1170,7 @@ func (s *HookContextSuite) assertSecretGetFromPendingChanges(c *tc.C,
 		data["foo"] = "existing"
 	}
 	setPendingSecretChanges(hookContext, uri, label, data)
-	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, nil, mockBackendClient{})
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{}, nil, mockBackendClient{})
 
 	value, err := hookContext.GetSecret(c.Context(), nil, label, refresh, peek)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1309,9 +1311,12 @@ func (s *HookContextSuite) TestSecretGet(c *tc.C) {
 }
 
 func (s *HookContextSuite) assertSecretGetOwnedSecretURILookup(
-	c *tc.C, patchContext func(*context.HookContext, *coresecrets.URI, string, api.SecretsAccessor, secrets.BackendsClient),
+	c *tc.C, isLeader bool,
+	patchContext func(*context.HookContext, *coresecrets.URI, string, api.SecretsAccessor, secrets.BackendsClient),
 ) {
 	defer s.setupMocks(c).Finish()
+
+	s.mockLeadership.EXPECT().IsLeader().Return(isLeader, nil)
 
 	uri := coresecrets.NewURI()
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -1351,7 +1356,7 @@ func (s *HookContextSuite) assertSecretGetOwnedSecretURILookup(
 }
 
 func (s *HookContextSuite) TestSecretGetOwnedSecretURILookupFromAppliedCache(c *tc.C) {
-	s.assertSecretGetOwnedSecretURILookup(c,
+	s.assertSecretGetOwnedSecretURILookup(c, true,
 		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client api.SecretsAccessor, backend secrets.BackendsClient) {
 			context.SetEnvironmentHookContextSecret(
 				ctx, uri.String(),
@@ -1364,7 +1369,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretURILookupFromAppliedCache(c *
 }
 
 func (s *HookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingCreate(c *tc.C) {
-	s.assertSecretGetOwnedSecretURILookup(c,
+	s.assertSecretGetOwnedSecretURILookup(c, true,
 		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client api.SecretsAccessor, backend secrets.BackendsClient) {
 			arg := uniter.SecretCreateArg{Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: s.mockUnit.Name()}}
 			arg.URI = uri
@@ -1380,10 +1385,12 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingCreate(c 
 func (s *HookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingCreates(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.mockLeadership.EXPECT().IsLeader().Return(false, nil)
+
 	hookContext := context.NewMockUnitHookContext(c, s.mockUnit, model.IAAS, s.mockLeadership)
 	uri := coresecrets.NewURI()
 	label := "label-" + uri.String()
-	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, nil, nil)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{}, nil, nil)
 
 	arg := uniter.SecretCreateArg{Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: s.mockUnit.Name()}}
 	arg.URI = uri
@@ -1428,7 +1435,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretUpdatePendingCreateLabel(c *t
 }
 
 func (s *HookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingUpdate(c *tc.C) {
-	s.assertSecretGetOwnedSecretURILookup(c,
+	s.assertSecretGetOwnedSecretURILookup(c, false,
 		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client api.SecretsAccessor, backend secrets.BackendsClient) {
 			arg := uniter.SecretUpdateArg{}
 			arg.URI = uri
@@ -1444,10 +1451,12 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingUpdate(c 
 func (s *HookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingUpdatesPeek(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.mockLeadership.EXPECT().IsLeader().Return(false, nil)
+
 	hookContext := context.NewMockUnitHookContext(c, s.mockUnit, model.IAAS, s.mockLeadership)
 	uri := coresecrets.NewURI()
 	label := "label-" + uri.String()
-	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, nil, nil)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{}, nil, nil)
 
 	arg := uniter.SecretUpdateArg{}
 	arg.URI = uri
@@ -1468,10 +1477,12 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingUpdates
 func (s *HookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingUpdatesRefresh(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.mockLeadership.EXPECT().IsLeader().Return(false, nil)
+
 	hookContext := context.NewMockUnitHookContext(c, s.mockUnit, model.IAAS, s.mockLeadership)
 	uri := coresecrets.NewURI()
 	label := "label-" + uri.String()
-	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, nil, nil)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{}, nil, nil)
 
 	arg := uniter.SecretUpdateArg{}
 	arg.URI = uri

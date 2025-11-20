@@ -127,7 +127,7 @@ With LXD system containers, constraints are interpreted as resource *maximums* (
 
 LXD (localhost) does not officially support attaching loopback devices for storage out of the box. However, with some configuration you can make this work.
 
-Each container uses the 'default' LXD profile, but also uses a model-specific profile with the name `juju-<model-name>`. Editing a profile will affect all of the containers using it, so you can add loop devices to all LXD containers by editing the 'default' profile, or you can scope it to a model.
+Each container uses the 'default' LXD profile, but also uses a model-specific profile with the name `juju-<model-name>-<model-short-UUID>` where `<model-short-UUID>` is the first 6 characters of the model UUID. Editing a profile will affect all of the containers using it, so you can add loop devices to all LXD containers by editing the 'default' profile, or you can scope it to a model.
 
 To add loop devices to your container, add entries to the 'default', or model-specific, profile, with `lxc profile edit <profile>`:
 

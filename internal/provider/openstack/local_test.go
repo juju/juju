@@ -2609,6 +2609,40 @@ func (s *localServerSuite) TestStartInstanceWithoutDefaultSecurityGroup(c *tc.C)
 	s.assertStartInstanceDefaultSecurityGroup(c, false)
 }
 
+func (s *localServerSuite) TestTerminateInstanceNetworkPorts(c *tc.C) {
+	model := neutronmodel.New()
+	err := model.AddPort(neutron.PortV2{
+		DeviceId: "test-instance-1",
+		Id:       "1",
+		Name:     "juju-" + s.env.Config().UUID() + "-1",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	err = model.AddPort(neutron.PortV2{
+		DeviceId: "test-instance-2",
+		Id:       "2",
+		Name:     "juju-" + s.env.Config().UUID() + "-2",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.srv.Neutron.AddNeutronModel(model)
+	err = s.srv.Nova.AddOSInterface("test-instance-1", nova.OSInterface{
+		PortID: "1",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.srv.Nova.AddOSInterface("test-instance-2", nova.OSInterface{
+		PortID: "2",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	instanceID := instance.Id("test-instance-1")
+	err = openstack.TerminateInstanceNetworkPorts(c.Context(), s.env, instanceID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	ports := model.AllPorts()
+	c.Assert(ports, tc.HasLen, 1)
+	c.Assert(ports[0].DeviceId, tc.Equals, "test-instance-2")
+}
+
 // localHTTPSServerSuite contains tests that run against an Openstack service
 // double connected on an HTTPS port with a self-signed certificate. This
 // service is set up and torn down for every test.  This should only test
