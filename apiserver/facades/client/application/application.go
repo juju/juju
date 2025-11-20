@@ -2309,9 +2309,36 @@ func (api *APIBase) DeployFromRepository(ctx context.Context, args params.Deploy
 	}, nil
 }
 
-func (api *APIBase) getOneApplicationStorage(entity params.Entity) (map[string]params.StorageDirectives, error) {
-	// TODO(storage): implement and add test.
-	return nil, errors.NotImplementedf("GetApplicationStorage")
+func (api *APIBase) getOneApplicationStorage(ctx context.Context, entity params.Entity) (map[string]params.StorageDirectives, error) {
+	appTag, err := names.ParseApplicationTag(entity.Tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	appUUID, err := api.applicationService.GetApplicationUUIDByName(ctx, appTag.Id())
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return nil, internalerrors.Errorf("application %q not found", appTag.Id()).Add(coreerrors.NotFound)
+	} else if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	storage, err := api.applicationService.GetApplicationStorageDirectivesInfo(ctx, appUUID)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return nil, internalerrors.Errorf("application %q not found", appTag.Id()).Add(coreerrors.NotFound)
+	} else if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	sc := make(map[string]params.StorageDirectives, len(storage))
+	for name, storageInfo := range storage {
+		sc[name] = params.StorageDirectives{
+			Pool:    storageInfo.StoragePoolName,
+			SizeMiB: &storageInfo.SizeMiB,
+			Count:   &storageInfo.Count,
+		}
+	}
+
+	return sc, nil
 }
 
 // GetApplicationStorage returns the current storage constraints for the specified applications in bulk.
@@ -2323,7 +2350,7 @@ func (api *APIBase) GetApplicationStorage(ctx context.Context, args params.Entit
 		return resp, errors.Trace(err)
 	}
 	for i, entity := range args.Entities {
-		sc, err := api.getOneApplicationStorage(entity)
+		sc, err := api.getOneApplicationStorage(ctx, entity)
 		if err != nil {
 			resp.Results[i].Error = apiservererrors.ServerError(err)
 			continue

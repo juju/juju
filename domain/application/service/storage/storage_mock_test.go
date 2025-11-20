@@ -301,6 +301,45 @@ func (c *MockStateGetApplicationStorageDirectivesCall) DoAndReturn(f func(contex
 	return c
 }
 
+// GetApplicationStorageDirectivesInfo mocks base method.
+func (m *MockState) GetApplicationStorageDirectivesInfo(arg0 context.Context, arg1 application.UUID) (map[string]application0.ApplicationStorageInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationStorageDirectivesInfo", arg0, arg1)
+	ret0, _ := ret[0].(map[string]application0.ApplicationStorageInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationStorageDirectivesInfo indicates an expected call of GetApplicationStorageDirectivesInfo.
+func (mr *MockStateMockRecorder) GetApplicationStorageDirectivesInfo(arg0, arg1 any) *MockStateGetApplicationStorageDirectivesInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationStorageDirectivesInfo", reflect.TypeOf((*MockState)(nil).GetApplicationStorageDirectivesInfo), arg0, arg1)
+	return &MockStateGetApplicationStorageDirectivesInfoCall{Call: call}
+}
+
+// MockStateGetApplicationStorageDirectivesInfoCall wrap *gomock.Call
+type MockStateGetApplicationStorageDirectivesInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetApplicationStorageDirectivesInfoCall) Return(arg0 map[string]application0.ApplicationStorageInfo, arg1 error) *MockStateGetApplicationStorageDirectivesInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetApplicationStorageDirectivesInfoCall) Do(f func(context.Context, application.UUID) (map[string]application0.ApplicationStorageInfo, error)) *MockStateGetApplicationStorageDirectivesInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetApplicationStorageDirectivesInfoCall) DoAndReturn(f func(context.Context, application.UUID) (map[string]application0.ApplicationStorageInfo, error)) *MockStateGetApplicationStorageDirectivesInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetModelStoragePools mocks base method.
 func (m *MockState) GetModelStoragePools(arg0 context.Context) (internal.ModelStoragePools, error) {
 	m.ctrl.T.Helper()

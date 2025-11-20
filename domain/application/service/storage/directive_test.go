@@ -9,6 +9,8 @@ import (
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
+	coreapplication "github.com/juju/juju/core/application"
+	coreerrors "github.com/juju/juju/core/errors"
 	domainapplication "github.com/juju/juju/domain/application"
 	domainapplicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -211,6 +213,34 @@ func (s *directiveSuite) TestValidateApplicationStorageDirectiveOverridesNoMaxLi
 		c.Context(), charmStorageDefs, overrides,
 	)
 	tc.Check(c, err, tc.ErrorIsNil)
+}
+
+func (s *directiveSuite) TestGetApplicationStorageDirectivesInfo(c *tc.C) {
+	defer s.setupMocks(c.T).Finish()
+
+	ctx := c.Context()
+	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
+
+	// Test it rejects a bad UUID. test
+	_, err := svc.GetApplicationStorageDirectivesInfo(ctx, "invalid-uuid")
+	tc.Check(c, err, tc.ErrorIs, coreerrors.NotValid)
+
+	// Test happy path.
+	appUUID, err := coreapplication.NewUUID()
+	tc.Check(c, err, tc.ErrorIsNil)
+
+	expectedDirectivesInfo := make(map[string]domainapplication.ApplicationStorageInfo)
+	expectedDirectivesInfo["data"] = domainapplication.ApplicationStorageInfo{
+		Count:           2,
+		SizeMiB:         10240,
+		StoragePoolName: "my-storage-pool",
+	}
+	s.state.EXPECT().GetApplicationStorageDirectivesInfo(ctx, appUUID).Return(expectedDirectivesInfo, nil)
+
+	directivesInfo, err := svc.GetApplicationStorageDirectivesInfo(ctx, appUUID)
+	tc.Check(c, err, tc.ErrorIsNil)
+
+	c.Check(directivesInfo, tc.DeepEquals, expectedDirectivesInfo)
 }
 
 // TestValidateApplicationStorageDirectiveOverridesExceedMax tests that when a
