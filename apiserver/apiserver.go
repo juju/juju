@@ -1099,15 +1099,8 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 		// Don't use the request context as it will cause the Leave to be
 		// cancelled and not report the leave correctly. Giving it a timeout
 		// should ensure that the request doesn't hang indefinitely.
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		ctx, cancel := context.WithTimeout(srv.catacomb.Context(context.Background()), time.Second*5)
 		defer cancel()
-
-		// If the server is dying, cancel the context to avoid waiting
-		// unnecessarily.
-		go func() {
-			<-srv.catacomb.Dying()
-			cancel()
-		}()
 
 		apiObserver.Leave(ctx)
 	}()
