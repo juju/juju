@@ -179,7 +179,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderNoUnitFound(c 
 	unitName := coreunit.Name("foo/666")
 
 	s.modelState.EXPECT().GetApplicationUUIDAndNameByUnitName(gomock.Any(), unitName).
-		Return(applicationUUID, "foo", statuserrors.UnitNotFound)
+		Return(applicationUUID, "foo", applicationerrors.UnitNotFound)
 
 	err := s.service.SetApplicationStatusForUnitLeader(c.Context(), unitName, corestatus.StatusInfo{
 		Status:  corestatus.Active,
@@ -187,7 +187,7 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderNoUnitFound(c 
 		Data:    map[string]interface{}{"foo": "bar"},
 		Since:   &now,
 	})
-	c.Assert(err, tc.ErrorIs, statuserrors.UnitNotFound)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderNotLeader(c *tc.C) {

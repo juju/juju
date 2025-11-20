@@ -145,14 +145,14 @@ type ModelState interface {
 	GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error)
 
 	// GetMachineStatus returns the status of the specified machine.
-	GetMachineStatus(ctx context.Context, machineName string) (status.StatusInfo[status.MachineStatusType], error)
+	GetMachineStatus(ctx context.Context, machineName string) (status.MachineStatusInfo[status.MachineStatusType], error)
 
 	// SetMachineStatus sets the status of the specified machine.
 	SetMachineStatus(ctx context.Context, machineName string, status status.StatusInfo[status.MachineStatusType]) error
 
 	// GetAllMachineStatuses returns all the machine statuses for the model,
 	// indexed by machine name.
-	GetAllMachineStatuses(context.Context) (map[string]status.StatusInfo[status.MachineStatusType], error)
+	GetAllMachineStatuses(context.Context) (map[string]status.MachineStatusInfo[status.MachineStatusType], error)
 
 	// GetMachineFullStatuses returns all the machine statuses for the model,
 	// indexed by machine name.
@@ -691,7 +691,7 @@ func (s *Service) GetMachineStatus(ctx context.Context, machineName machine.Name
 	if err != nil {
 		return corestatus.StatusInfo{}, errors.Errorf("retrieving machine status for machine %q: %w", machineName, err)
 	}
-	return decodeMachineStatus(machineStatus)
+	return decodeMachineStatus(machineStatus.StatusInfo, machineStatus.Present)
 }
 
 // GetAllMachineStatuses returns all the machine statuses for the model, indexed
@@ -711,7 +711,7 @@ func (s *Service) GetAllMachineStatuses(ctx context.Context) (map[machine.Name]c
 		if err := machineName.Validate(); err != nil {
 			return nil, errors.Errorf("validating returned machine name %q: %w", name, err)
 		}
-		result[machineName], err = decodeMachineStatus(status)
+		result[machineName], err = decodeMachineStatus(status.StatusInfo, status.Present)
 		if err != nil {
 			return nil, errors.Errorf("decoding machine status for machine %q: %w", machineName, err)
 		}
@@ -887,7 +887,7 @@ func (s *Service) CheckMachineStatusesReadyForMigration(ctx context.Context) err
 			return errors.Errorf("some machines have unset statuses")
 		}
 
-		machineStatus, err := decodeMachineStatus(mStatus)
+		machineStatus, err := decodeMachineStatus(mStatus.StatusInfo, mStatus.Present)
 		if err != nil {
 			return errors.Errorf("decoding machine status for machine %q: %w", machineName, err)
 		}
@@ -950,7 +950,7 @@ func (s *Service) ExportMachineStatuses(ctx context.Context) (
 			return nil, nil, errors.Errorf("validating returned machine name %q: %w", name, err)
 		}
 
-		decodedMachineStatus, err := decodeMachineStatus(mStatus)
+		decodedMachineStatus, err := decodeMachineStatus(mStatus.StatusInfo, mStatus.Present)
 		if err != nil {
 			return nil, nil, errors.Errorf("decoding machine status for %q: %w", name, err)
 		}
@@ -1191,7 +1191,7 @@ func (s *Service) decodeMachineStatusDetails(machineName machine.Name, machine s
 		return Machine{}, errors.Errorf("decoding machine life: %w", err)
 	}
 
-	machineStatus, err := decodeMachineStatus(machine.MachineStatus)
+	machineStatus, err := decodeMachineStatus(machine.MachineStatus.StatusInfo, machine.MachineStatus.Present)
 	if err != nil {
 		return Machine{}, errors.Errorf("decoding machine status: %w", err)
 	}
