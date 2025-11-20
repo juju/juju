@@ -436,7 +436,7 @@ AND    life_id = 1`, machineUUID)
 			return removalerrors.EntityStillAlive
 		}
 
-		if err := st.checkNoMachineDependents(ctx, tx, machineUUID, false); err != nil {
+		if err := st.checkNoMachineDependents(ctx, tx, machineUUID); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -480,7 +480,7 @@ AND    life_id = 1`, machineUUID)
 			return removalerrors.EntityStillAlive
 		}
 
-		if err := st.checkNoMachineDependents(ctx, tx, machineUUID, false); err != nil {
+		if err := st.checkNoMachineDependents(ctx, tx, machineUUID); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -491,60 +491,6 @@ AND    life_id = 1`, machineUUID)
 
 		return nil
 	}))
-}
-
-// HasMachineRemovalJobUsedForce returns true if the machine has a removal job
-// that uses force. Once force is used, it cannot be undone and it will
-// always return true.
-func (st *State) HasMachineRemovalJobUsedForce(ctx context.Context, machineUUID string) (bool, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-
-	entityUUIDParam := entityUUID{UUID: machineUUID}
-
-	type forced struct {
-		Force bool `db:"force"`
-	}
-
-	queryStmt, err := st.Prepare(`
-SELECT force AS &forced.*
-FROM removal
-WHERE entity_uuid = $entityUUID.uuid
-AND   removal_type_id = 3
-`, entityUUIDParam, forced{})
-	if err != nil {
-		return false, errors.Errorf("preparing has machine removal job used force query: %w", err)
-	}
-
-	var result []forced
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, queryStmt, entityUUIDParam).GetAll(&result); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("running has machine removal job used force query: %w", err)
-		}
-		return nil
-	})
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-
-	// If there are no removal jobs for the machine uuid, then this is the
-	// likely event that the machine has run the scheduling of the removal and
-	// force was used in that job and we've now got detritus from that.
-	if len(result) == 0 {
-		return true, nil
-	}
-
-	var forcedResult bool
-	for _, force := range result {
-		if force.Force {
-			forcedResult = true
-			break
-		}
-	}
-
-	return forcedResult, errors.Capture(err)
 }
 
 // DeleteMachine deletes the specified machine and any dependent child records.
