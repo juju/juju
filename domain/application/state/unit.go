@@ -559,7 +559,7 @@ WHERE  u.name = $getUnitMachineUUID.unit_name
 // longer exists.
 // - [applicationerrors.UnitMachineNotAssigned] when the unit is not assigned to
 // a machine.
-func (st *State) getUnitMachineIdentifiers(
+func (st *SubordinateUnitState) getUnitMachineIdentifiers(
 	ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID,
 ) (internalapplication.MachineIdentifiers, error) {
 	var (
@@ -579,12 +579,14 @@ WHERE  u.uuid = $entityUUID.uuid
 		return internalapplication.MachineIdentifiers{}, errors.Capture(err)
 	}
 
-	exists, err := st.checkUnitExists(ctx, tx, unitUUID)
-	if err != nil {
-		return internalapplication.MachineIdentifiers{}, errors.Errorf(
-			"checking unit %q exists", unitUUID,
-		)
-	}
+	// Note: can be done via subordinateUnitExists in relation domain.
+	var exists bool
+	//exists, err := st.checkUnitExists(ctx, tx, unitUUID)
+	//if err != nil {
+	//	return internalapplication.MachineIdentifiers{}, errors.Errorf(
+	//		"checking unit %q exists", unitUUID,
+	//	)
+	//}
 
 	if !exists {
 		return internalapplication.MachineIdentifiers{}, errors.Errorf(
@@ -710,7 +712,7 @@ func (st *State) AddCAASUnits(
 //   - [machineerrors.MachineNotFound] when no machine is attached to the
 //
 // principal unit.
-func (st *State) AddIAASSubordinateUnit(
+func (st *SubordinateUnitState) AddIAASSubordinateUnit(
 	ctx context.Context,
 	arg application.SubordinateUnitArg,
 ) (coreunit.Name, []coremachine.Name, error) {
@@ -729,6 +731,7 @@ func (st *State) AddIAASSubordinateUnit(
 		if err := st.us.checkApplicationAlive(ctx, tx, arg.SubordinateAppID); err != nil {
 			return errors.Capture(err)
 		}
+		// TODO: re-write in relation domain.
 		if err := st.checkUnitNotDead(ctx, tx, arg.PrincipalUnitUUID); err != nil {
 			return errors.Capture(err)
 		}
@@ -739,6 +742,7 @@ func (st *State) AddIAASSubordinateUnit(
 		if err != nil {
 			return errors.Errorf("checking if subordinate already exists: %w", err)
 		}
+		// TODO: re-write in relation domain.
 		charmUUID, err := st.getCharmIDByApplicationUUID(ctx, tx, arg.SubordinateAppID)
 		if err != nil {
 			return errors.Errorf(
@@ -832,7 +836,7 @@ WHERE  sub.name = $getPrincipal.subordinate_unit_name
 // checkNoSubordinateExists returns
 // [applicationerrors.UnitAlreadyHasSubordinate] if the specified unit already
 // has a subordinate for the given application.
-func (st *State) checkNoSubordinateExists(
+func (st *SubordinateUnitState) checkNoSubordinateExists(
 	ctx context.Context,
 	tx *sqlair.TX,
 	subordinateAppUUID coreapplication.UUID,

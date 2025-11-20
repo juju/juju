@@ -1088,3 +1088,23 @@ WHERE uuid = $entityUUID.uuid;
 	}
 	return charmUUID.UUID, nil
 }
+
+func (s *SubordinateUnitState) getCharmIDByApplicationUUID(ctx context.Context, tx *sqlair.TX, appID application.UUID) (corecharm.ID, error) {
+	query := `
+SELECT charm_uuid AS &charmUUID.*
+FROM application
+WHERE uuid = $entityUUID.uuid;
+`
+	ident := entityUUID{UUID: appID.String()}
+	stmt, err := s.Prepare(query, charmUUID{}, ident)
+	if err != nil {
+		return "", errors.Errorf("preparing query: %w", err)
+	}
+	var charmUUID charmUUID
+	if err := tx.Query(ctx, stmt, ident).Get(&charmUUID); errors.Is(err, sqlair.ErrNoRows) {
+		return "", applicationerrors.ApplicationNotFound
+	} else if err != nil {
+		return "", errors.Errorf("getting charm ID by application UUID: %w", err)
+	}
+	return charmUUID.UUID, nil
+}

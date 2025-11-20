@@ -32,11 +32,21 @@ type State struct {
 	us     *InsertIAASUnitState
 }
 
-// InsertIAASUnitState represents the minium state required to insert an IAAS unit.
+// InsertIAASUnitState represents the minium state required to insert
+// an IAAS unit.
 type InsertIAASUnitState struct {
 	*domain.StateBase
 	clock  clock.Clock
 	logger logger.Logger
+}
+
+// SubordinateUnitState represents the minium state required to insert a
+// subordinate unit.
+type SubordinateUnitState struct {
+	*domain.StateBase
+	clock  clock.Clock
+	logger logger.Logger
+	us     *InsertIAASUnitState
 }
 
 // NewState returns a new state reference.
@@ -1283,6 +1293,39 @@ WHERE name = $unitName.name;
 // - If the unit is not found, [applicationerrors.UnitNotFound] is returned.
 // - If the unit is dead, [applicationerrors.UnitIsDead] is returned.
 func (st *State) checkUnitNotDead(ctx context.Context, tx *sqlair.TX, uuid unit.UUID) error {
+	query := `
+SELECT &lifeID.*
+FROM unit
+WHERE uuid = $unitUUID.uuid;
+`
+
+	input := unitUUID{UnitUUID: uuid}
+	stmt, err := st.Prepare(query, input, lifeID{})
+	if err != nil {
+		return errors.Errorf("preparing query for unit %q: %w", uuid, err)
+	}
+
+	var result lifeID
+	err = tx.Query(ctx, stmt, input).Get(&result)
+	if errors.Is(err, sql.ErrNoRows) {
+		return applicationerrors.UnitNotFound
+	} else if err != nil {
+		return errors.Errorf("getting unit %q life: %w", uuid, err)
+	}
+
+	switch result.LifeID {
+	case domainlife.Dead:
+		return applicationerrors.UnitIsDead
+	default:
+		return nil
+	}
+}
+
+// checkUnitNotDead checks if the unit exists and is not dead. It's possible to
+// access alive and dying units, but not dead ones:
+// - If the unit is not found, [applicationerrors.UnitNotFound] is returned.
+// - If the unit is dead, [applicationerrors.UnitIsDead] is returned.
+func (st *SubordinateUnitState) checkUnitNotDead(ctx context.Context, tx *sqlair.TX, uuid unit.UUID) error {
 	query := `
 SELECT &lifeID.*
 FROM unit
