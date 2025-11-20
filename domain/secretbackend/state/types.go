@@ -126,6 +126,8 @@ type SecretBackend struct {
 	BackendTypeID secretbackend.BackendType `db:"backend_type_id"`
 	// TokenRotateInterval is the interval at which the token for the secret backend should be rotated.
 	TokenRotateInterval database.NullDuration `db:"token_rotate_interval"`
+	// OriginID is the id of the secret backend origin.
+	OriginID int `db:"origin_id"`
 }
 
 // SecretBackendRotation represents a single row from the state database's
@@ -406,4 +408,9 @@ type SecretBackendReference struct {
 type Count struct {
 	// Num is the number of rows.
 	Num int `db:"num"`
+}
+
+// entityUUID is a helper struct to store a UUID.
+type entityUUID struct {
+	UUID string `db:"uuid"`
 }

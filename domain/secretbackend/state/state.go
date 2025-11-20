@@ -22,6 +22,7 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/secretbackend"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	"github.com/juju/juju/domain/secretbackend/internal"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
@@ -240,6 +241,12 @@ func (s *State) upsertSecretBackend(ctx context.Context, tx *sqlair.TX, params u
 		return "", errors.Capture(err)
 	}
 
+	if isImmutable, err := s.isImmutable(ctx, tx, params.ID); err != nil {
+		return "", errors.Errorf("checking if secret backend %q is immutable: %w", params.ID, err)
+	} else if isImmutable {
+		return "", errors.Errorf("secret backend %q is immutable", params.ID).Add(secretbackenderrors.Forbidden)
+	}
+
 	backendTypeID, err := secretbackend.MarshallBackendType(params.BackendType)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -248,6 +255,8 @@ func (s *State) upsertSecretBackend(ctx context.Context, tx *sqlair.TX, params u
 		ID:            params.ID,
 		Name:          params.Name,
 		BackendTypeID: backendTypeID,
+		// Backend inserted outside the bootstrap process are user backends.
+		OriginID: int(internal.User),
 	}
 	if params.TokenRotateInterval != nil {
 		sb.TokenRotateInterval = database.NewNullDuration(*params.TokenRotateInterval)
@@ -332,6 +341,12 @@ DELETE FROM secret_backend WHERE uuid = $SecretBackend.uuid`, input)
 			input.ID = sb.ID
 		}
 
+		if isImmutable, err := s.isImmutable(ctx, tx, input.ID); err != nil {
+			return errors.Capture(err)
+		} else if isImmutable {
+			return errors.Errorf("secret backend %q is immutable", input.ID).Add(secretbackenderrors.Forbidden)
+		}
+
 		if !deleteInUse {
 			var count Count
 			err := tx.Query(ctx, checkInUseStmt, input).Get(&count)
@@ -356,15 +371,35 @@ DELETE FROM secret_backend WHERE uuid = $SecretBackend.uuid`, input)
 			return errors.Errorf("removing secret backend reference for %q: %w", input.ID, err)
 		}
 		err = tx.Query(ctx, backendStmt, input).Run()
-		if database.IsErrConstraintTrigger(err) {
-			return errors.Errorf("%w: %q is immutable", secretbackenderrors.Forbidden, input.ID)
-		}
 		if err != nil {
 			return errors.Errorf("deleting secret backend for %q: %w", input.ID, err)
 		}
 		return nil
 	})
 	return err
+}
+
+// isImmutable determines if a secret backend is immutable by checking
+// if it's linked to a 'built-in' origin.
+// Returns a boolean and error.
+func (s *State) isImmutable(ctx context.Context, tx *sqlair.TX, backendUUID string) (bool, error) {
+	type secretBackend entityUUID
+	entity := secretBackend{UUID: backendUUID}
+	stmt, err := s.Prepare(`
+SELECT 1 AS &Count.num
+FROM   secret_backend
+WHERE  uuid = $secretBackend.uuid
+AND    origin_id = 0 -- built-in
+LIMIT 1`, entity, Count{})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	var count Count
+	err = tx.Query(ctx, stmt, entity).Get(&count)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return false, errors.Errorf("querying secret backend origin %q: %w", backendUUID, err)
+	}
+	return !errors.Is(err, sql.ErrNoRows), nil
 }
 
 // ListSecretBackendIDs returns a list of all secret backend ids.
