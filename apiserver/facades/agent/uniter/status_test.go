@@ -42,7 +42,7 @@ func (s *statusBaseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	auth := func(ctx context.Context) (common.AuthFunc, error) {
 		return s.authFunc, nil
 	}
-	s.api = NewStatusAPI(s.statusService, auth, nil, clock)
+	s.api = NewStatusAPI(s.statusService, auth, clock)
 
 	return ctrl
 }
