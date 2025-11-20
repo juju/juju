@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v6"
 
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -162,7 +162,7 @@ func (c *statusHistoryCommand) Init(args []string) error {
 		envVarValue := os.Getenv(osenv.JujuStatusIsoTimeEnvKey)
 		if envVarValue != "" {
 			if c.isoTime, err = strconv.ParseBool(envVarValue); err != nil {
-				return errors.Annotatef(err, "invalid %s env var, expected true|false", osenv.JujuStatusIsoTimeEnvKey)
+				return errors.Errorf("invalid %s env var, expected true|false: %w", osenv.JujuStatusIsoTimeEnvKey, err)
 			}
 		}
 	}
@@ -179,7 +179,7 @@ func (c *statusHistoryCommand) Init(args []string) error {
 		var err error
 		c.date, err = time.Parse("2006-01-02", c.backlogDate)
 		if err != nil {
-			return errors.Annotate(err, "parsing backlog date")
+			return errors.Errorf("parsing backlog date: %w", err)
 		}
 	}
 
@@ -212,7 +212,7 @@ func (c *statusHistoryCommand) getAPI(ctx context.Context) (HistoryAPI, error) {
 func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := c.getAPI(ctx)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	defer apiclient.Close()
 	kind := status.HistoryKind(c.outputContent)
@@ -235,7 +235,7 @@ func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 	case status.KindModel:
 		_, details, err := c.ModelDetails(ctx)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		tag = names.NewModelTag(details.ModelUUID)
 	case status.KindUnit, status.KindWorkload, status.KindUnitAgent:
@@ -258,7 +258,7 @@ func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 	historyLen := len(statuses)
 	if err != nil {
 		if historyLen == 0 {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		// Display any error, but continue to print status if some was returned
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
