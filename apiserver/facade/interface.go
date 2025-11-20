@@ -40,7 +40,8 @@ type Factory func(stdCtx context.Context, modelCtx ModelContext) (Facade, error)
 // MultiModelFactory is a callback used to create a Facade.
 type MultiModelFactory func(stdCtx context.Context, modelCtx MultiModelContext) (Facade, error)
 
-// LeadershipModelContext
+// LeadershipModelContext defines a context that provides leadership
+// capabilities for a specific model.
 type LeadershipModelContext interface {
 	// LeadershipClaimer returns a leadership.Claimer for this
 	// context's model.
@@ -334,11 +335,6 @@ type CrossModelAuthContext interface {
 
 	// OfferThirdPartyKey returns the key used to discharge offer macaroons.
 	OfferThirdPartyKey() *bakery.KeyPair
-}
-
-// Hub represents the central hub that the API server has.
-type Hub interface {
-	Publish(topic string, data interface{}) (func(), error)
 }
 
 // HTTPClient represents an HTTP client, for example, an *http.Client.
