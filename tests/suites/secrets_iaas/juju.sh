@@ -8,6 +8,7 @@ check_secrets() {
 	wait_for "active" '.applications["dummy-sink"] | ."application-status".current' 900
 	wait_for "dummy-source" "$(idle_condition "dummy-source" 0)"
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink" 0)"
+	wait_for "active" "$(workload_status "dummy-source" 0).current"
 	wait_for "active" "$(workload_status "dummy-sink" 0).current"
 
 	echo "Apps deployed, creating secrets"
@@ -48,6 +49,16 @@ check_secrets() {
 	juju exec --unit dummy-source/0 -- secret-grant "$secret_owned_by_dummy_source_0" -r "$relation_id"
 	juju exec --unit dummy-source/0 -- secret-grant "$secret_owned_by_dummy_source" -r "$relation_id"
 
+	echo "Checking: secret-get by label - refresh with pending updates"
+	another_secret_owned_by_dummy_source=$(juju exec --unit dummy-source/0 -- secret-add value=1 --label=mysecret)
+	check_contains "$(juju exec --unit dummy-source/0 -- "secret-set ${another_secret_owned_by_dummy_source} value=2; secret-get ${another_secret_owned_by_dummy_source} --refresh")" "2"
+	check_contains "$(juju exec --unit dummy-source/0 -- "secret-set ${another_secret_owned_by_dummy_source} value=3; secret-get --label=mysecret --refresh")" "3"
+	check_contains "$(juju exec --unit dummy-source/0 -- "secret-get --label=mysecret")" "3"
+	check_contains "$(
+		juju exec --unit dummy-source/0 -- "secret-set ${another_secret_owned_by_dummy_source} value=4"
+		juju exec --unit dummy-source/0 -- secret-get --label=mysecret --refresh
+	)" "4"
+
 	echo "Checking: secret-get by URI - consume content by ID"
 	check_contains "$(juju exec --unit dummy-sink/0 -- secret-get "$secret_owned_by_dummy_source_0" --label=consumer_label_secret_owned_by_dummy_source_0)" 'owned-by: dummy-source/0'
 	check_contains "$(juju exec --unit dummy-sink/0 -- secret-get "$secret_owned_by_dummy_source" --label=consumer_label_secret_owned_by_dummy_source)" 'owned-by: dummy-source-app'
@@ -69,11 +80,36 @@ check_secrets() {
 	juju exec --unit dummy-source/0 -- secret-revoke "$secret_owned_by_dummy_source_0" --app dummy-sink
 	check_contains "$(juju exec --unit dummy-sink/0 -- secret-get "$secret_owned_by_dummy_source_0" 2>&1)" 'is not allowed to read this secret'
 
+	echo "Checking secret rotate"
+	juju exec --unit dummy-source/0 -- secret-set "$secret_owned_by_dummy_source_0" --rotate daily
+	check_contains "$(juju show-secret "$secret_owned_by_dummy_source_0" --format json | jq ".[].rotation")" "daily"
+	original_rotate_time="$(juju show-secret "$secret_owned_by_dummy_source_0" --format json | jq ".[].rotates")"
+	# We set a new rotate time into the future and we need to retain
+	# the current next rotate time.
+	juju exec --unit dummy-source/0 -- secret-set "$secret_owned_by_dummy_source_0" --rotate monthly
+	check_contains "$(juju show-secret "$secret_owned_by_dummy_source_0" --format json | jq ".[].rotation")" "monthly"
+	next_rotate_time="$(juju show-secret "$secret_owned_by_dummy_source_0" --format json | jq ".[].rotates")"
+	if [[ $original_rotate_time != "$next_rotate_time" ]]; then
+		echo "secret next rotate time was updated in error"
+		exit 1
+	fi
+	# We set a new rotate time sooner than the current rotate time so we need to
+	# update the next rotate time.
+	juju exec --unit dummy-source/0 -- secret-set "$secret_owned_by_dummy_source_0" --rotate hourly
+	check_contains "$(juju show-secret "$secret_owned_by_dummy_source_0" --format json | jq ".[].rotation")" "hourly"
+	next_rotate_time="$(juju show-secret "$secret_owned_by_dummy_source_0" --format json | jq ".[].rotates")"
+	if [[ $original_rotate_time == "$next_rotate_time" ]]; then
+		echo "secret next rotate time was not updated"
+		exit 1
+	fi
+
 	echo "Checking: secret-remove"
 	juju exec --unit dummy-source/0 -- secret-remove "$secret_owned_by_dummy_source_0"
 	check_contains "$(juju exec --unit dummy-source/0 -- secret-get "$secret_owned_by_dummy_source_0" 2>&1)" 'not found'
 	juju exec --unit dummy-source/0 -- secret-remove "$secret_owned_by_dummy_source"
 	check_contains "$(juju exec --unit dummy-source/0 -- secret-get "$secret_owned_by_dummy_source" 2>&1)" 'not found'
+	juju exec --unit dummy-source/0 -- secret-remove "$another_secret_owned_by_dummy_source"
+	check_contains "$(juju exec --unit dummy-source/0 -- secret-get "$another_secret_owned_by_dummy_source" 2>&1)" 'not found'
 }
 
 run_user_secrets() {
@@ -83,7 +119,7 @@ run_user_secrets() {
 
 	app_name='dummy-user-secrets'
 	juju --show-log deploy juju-qa-test "$app_name"
-	
+
 	wait_for "active" '.applications["dummy-user-secrets"] | ."application-status".current'
 
 	# first test the creation of a large secret which encodes to approx 1MB in size.

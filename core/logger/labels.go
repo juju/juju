@@ -7,6 +7,9 @@ package logger
 type Tag = string
 
 const (
+	// API defines a common API tag to enable logging of all API connections and requests.
+	API Tag = "api"
+
 	// HTTP defines a common HTTP request tag.
 	HTTP Tag = "http"
 

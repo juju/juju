@@ -393,6 +393,7 @@ run_test_add_multiple_secrets_parallel() {
 	# Check logs during juju add-secret in controller model for any errors.
 	if ! seq 1 100 | xargs -P5 -I{} juju add-secret "test{}" "foo=bar{}" >"$ctrl_log_file" 2>&1 || grep -iq 'error' "$ctrl_log_file"; then
 		echo "Failed: could not add multiple secrets in parallel for controller model."
+		cat "$ctrl_log_file"
 		exit 1
 	fi
 	verify_secrets_exist "$ctrl_log_file"

@@ -36,7 +36,7 @@ point where it is critical that the resource be up to date.
 
 The "upgrade-charm" hook is useful for keeping your charm's resources
 on a unit up to date.  Run "resource-get" there for each of your
-charm's resources to do so. The hook fires whenever the the file for
+charm's resources to do so. The hook fires whenever the file for
 one of the application's resources changes on the controller (in addition
 to when the charm itself changes). That means it happens in response
 to "juju upgrade-charm" as well as to "juju push-resource".

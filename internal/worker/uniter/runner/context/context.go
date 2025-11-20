@@ -791,8 +791,21 @@ func (c *HookContext) lookupOwnedSecretURIByLabel(ctx context.Context, label str
 	if err != nil {
 		return nil, err
 	}
+	isLeader, err := c.IsLeader()
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot determine leadership")
+	}
+
 	for ID, md := range mds {
-		if md.Label == label && md.Owner.ID == c.unit.Tag().Id() {
+		if md.Label != label {
+			continue
+		}
+		if md.Owner.ID == c.unitName {
+			return &coresecrets.URI{ID: ID}, nil
+		}
+
+		// Leaders own application secrets.
+		if isLeader && md.Owner.ID == c.unit.ApplicationName() {
 			return &coresecrets.URI{ID: ID}, nil
 		}
 	}
@@ -826,22 +839,27 @@ func (c *HookContext) GetSecret(ctx context.Context, uri *coresecrets.URI, label
 		if v, got := c.getPendingSecretValue(uri, label, refresh, peek); got {
 			return v, nil
 		}
-	}
-	if label != "" {
-		if v, got := c.getPendingSecretValue(nil, label, refresh, peek); got {
-			return v, nil
-		}
-	}
-	if uri == nil && label != "" {
-		// try to resolve label to URI by looking up owned secrets.
+	} else {
+		// Try to resolve label to URI by looking up owned secrets.
 		ownedSecretURI, err := c.lookupOwnedSecretURIByLabel(ctx, label)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, err
 		}
 		if ownedSecretURI != nil {
-			// Found owned secret, no need label anymore.
+			// We now know the URI, see if there's any pending creates/updates
+			// that should be used for the content.
+			if v, got := c.getPendingSecretValue(ownedSecretURI, "", refresh, peek); got {
+				return v, nil
+			}
+			// Found owned secret, no need for label anymore.
 			uri = ownedSecretURI
 			label = ""
+		} else {
+			// No previously created secret with this label, check if there's
+			// any pending creates/updates that should be used for the content.
+			if v, got := c.getPendingSecretValue(nil, label, refresh, peek); got {
+				return v, nil
+			}
 		}
 	}
 	backend, err := c.getSecretsBackend()

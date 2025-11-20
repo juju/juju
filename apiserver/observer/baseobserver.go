@@ -31,7 +31,7 @@ func (n *BaseObserver) Login(ctx context.Context, entity names.Tag, model names.
 }
 
 // Join implements Observer.
-func (n *BaseObserver) Join(ctx context.Context, req *http.Request, connectionID uint64) {}
+func (n *BaseObserver) Join(ctx context.Context, req *http.Request, connectionID uint64, fd int) {}
 
 // IsAgent returns whether the entity is an agent during the current login.
 // If the entity has not logged in, it returns false.

@@ -24,6 +24,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	LoginTokenRefreshURL:               schema.String(),
 	IdentityURL:                        schema.String(),
 	IdentityPublicKey:                  schema.String(),
+	IdleConnectionTimeout:              schema.TimeDuration(),
 	SetNUMAControlPolicyKey:            schema.Bool(),
 	AutocertURLKey:                     schema.String(),
 	AutocertDNSNameKey:                 schema.String(),
@@ -79,6 +80,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	LoginTokenRefreshURL:               schema.Omit,
 	IdentityURL:                        schema.Omit,
 	IdentityPublicKey:                  schema.Omit,
+	IdleConnectionTimeout:              DefaultIdleConnectionTimeout,
 	SetNUMAControlPolicyKey:            DefaultNUMAControlPolicy,
 	AutocertURLKey:                     schema.Omit,
 	AutocertDNSNameKey:                 schema.Omit,
@@ -169,6 +171,13 @@ var ConfigSchema = configschema.Fields{
 	ControllerName: {
 		Type:        configschema.Tstring,
 		Description: `The canonical name of the controller`,
+	},
+	IdleConnectionTimeout: {
+		Type: configschema.Tstring,
+		Description: `The time the controller will wait between
+resets of all idle connections. By default, every 10 minutes
+the controller will close all idle connections.
+`,
 	},
 	LoginTokenRefreshURL: {
 		Type:        configschema.Tstring,

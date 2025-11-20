@@ -106,8 +106,14 @@ Controller configuration keys:
         time a writer will wait for others to finish writing on the
         same database.
     features:
+      type: list
+      description: A list of runtime changeable features to be updated
+    idle-connection-timeout:
       type: string
-      description: A comma-delimited list of runtime changeable features to be updated
+      description: |
+        The time the controller will wait between
+        resets of all idle connections. By default, every 10 minutes
+        the controller will close all idle connections.
     juju-mgmt-space:
       type: string
       description: The network space that agents should use to communicate with controllers

@@ -401,9 +401,8 @@ func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *tc.C) {
 		host = info.Addrs[0]
 	}
 
-	bClient, ok := client.BakeryClient().(*httpbakery.Client)
-	c.Assert(ok, tc.IsTrue)
-	dischargedMacaroons := httpbakery.MacaroonsForURL(bClient.Jar, api.CookieURLFromHost(host))
+	bClient := client.BakeryClient()
+	dischargedMacaroons := httpbakery.MacaroonsForURL(bClient.CookieJar(), api.CookieURLFromHost(host))
 	c.Assert(len(dischargedMacaroons), tc.Equals, 1)
 
 	// Mirror the situation in migration logtransfer - the macaroon is

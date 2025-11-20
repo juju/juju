@@ -296,6 +296,9 @@ const (
 	// SSHMaxConcurrentConnections is the maximum number of concurrent SSH
 	// connections to the controller.
 	SSHMaxConcurrentConnections = "ssh-max-concurrent-connections"
+
+	// IdleConnectionTimeout is the time between the controller resetting all idle connections.
+	IdleConnectionTimeout = "idle-connection-timeout"
 )
 
 // Attribute Defaults
@@ -450,7 +453,7 @@ const (
 	// tail sampling threshold for open telemetry.
 	DefaultOpenTelemetryTailSamplingThreshold = 1 * time.Millisecond
 
-	// JujudControllerSnapSource is the default value for the jujud controller
+	// DefaultJujudControllerSnapSource is the default value for the jujud controller
 	// snap source, which is the snapstore.
 	// TODO(jujud-controller-snap): change this to "snapstore" once it is implemented.
 	DefaultJujudControllerSnapSource = "legacy"
@@ -458,6 +461,11 @@ const (
 	// DefaultObjectStoreType is the default type of object store to use for
 	// storing blobs.
 	DefaultObjectStoreType = objectstore.FileBackend
+
+	// DefaultIdleConnectionTimeout is the default value for how often the jujud
+	// controller will reset idle connections. Apache defaults to a much more
+	// aggressive 5s timeout.
+	DefaultIdleConnectionTimeout = 30 * time.Second
 )
 
 var (
@@ -468,6 +476,7 @@ var (
 		AgentRateLimitMax,
 		AgentRateLimitRate,
 		APIPort,
+		IdleConnectionTimeout,
 		AutocertDNSNameKey,
 		AutocertURLKey,
 		CACertKey,
@@ -542,6 +551,7 @@ var (
 		AgentLogfileMaxSize,
 		AgentRateLimitMax,
 		AgentRateLimitRate,
+		IdleConnectionTimeout,
 		ApplicationResourceDownloadLimit,
 		AuditingEnabled,
 		AuditLogCaptureArgs,
@@ -714,6 +724,11 @@ func (c Config) durationOrDefault(name string, defaultVal time.Duration) time.Du
 // APIPort returns the API server port for the environment.
 func (c Config) APIPort() int {
 	return c.mustInt(APIPort)
+}
+
+// IdleConnectionTimeout returns the time between the controller resetting all idle connections
+func (c Config) IdleConnectionTimeout() time.Duration {
+	return c.durationOrDefault(IdleConnectionTimeout, DefaultIdleConnectionTimeout)
 }
 
 // ApplicationResourceDownloadLimit limits the number of concurrent resource download
@@ -1269,6 +1284,13 @@ func Validate(c Config) error {
 	if v, ok := c[ControllerName].(string); ok {
 		if !names.IsValidControllerName(v) {
 			return errors.Errorf("%s value must be a valid controller name (lowercase or digit with non-leading hyphen), got %q", ControllerName, v)
+		}
+	}
+
+	if v, ok := c[IdleConnectionTimeout].(string); ok {
+		_, err := time.ParseDuration(v)
+		if err != nil {
+			return errors.Errorf("%s value %q must be a valid duration", IdleConnectionTimeout, v)
 		}
 	}
 

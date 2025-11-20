@@ -453,6 +453,31 @@ To login as user "current-user" run 'juju login -u current-user -c ` + existingN
 	}
 }
 
+func (s *LoginCommandSuite) TestLoginToUnregisteredController(c *tc.C) {
+	var (
+		existingName string
+		details      jujuclient.ControllerDetails
+	)
+	for existingName, details = range s.store.Controllers {
+		break
+	}
+
+	delete(s.store.Controllers, existingName)
+	delete(s.store.Accounts, existingName)
+
+	loginCmd := user.NewLoginCommand()
+	args := []string{details.APIEndpoints[0], "-c", "some-controller-name", "-u", "some-user"}
+	stdin := ""
+	stdout, stderr, exitcode := run(c, stdin, loginCmd, args...)
+	c.Assert(exitcode, tc.Equals, 0)
+	c.Check(stdout, tc.Equals, "")
+	c.Check(stderr, tc.Matches, `(?s).*Welcome, some-user. You are now logged into "some-controller-name".*`)
+	newDetails := s.store.Controllers["some-controller-name"]
+	c.Check(newDetails.APIEndpoints, tc.DeepEquals, []string{details.APIEndpoints[0]})
+	newAccount := s.store.Accounts["some-controller-name"]
+	c.Check(newAccount.User, tc.Equals, "some-user")
+}
+
 func (s *LoginCommandSuite) TestLoginErrorSpecifyingUsernameWithOIDC(c *tc.C) {
 	s.store.Controllers["oidc-controller"] = jujuclient.ControllerDetails{
 		APIEndpoints:   []string{"1.1.1.1:12345"},

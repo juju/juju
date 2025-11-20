@@ -1088,9 +1088,13 @@ func (srv *Server) healthHandler(w http.ResponseWriter, req *http.Request) {
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	connectionID := atomic.AddUint64(&srv.connectionID, 1)
+	fd := -1
+	if v, ok := req.Context().Value("raw-http-fd").(int); ok {
+		fd = v
+	}
 
 	apiObserver := srv.newObserver()
-	apiObserver.Join(req.Context(), req, connectionID)
+	apiObserver.Join(req.Context(), req, connectionID, fd)
 	defer apiObserver.Leave(req.Context())
 
 	// Create a new offer auth context. This will be used to bake new
@@ -1120,7 +1124,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 		// deferred to the facade methods.
 		ctx := coremodel.WithContextModelUUID(req.Context(), resolvedModelUUID)
 
-		logger.Tracef(ctx, "got a request for model %q", modelUUID)
+		logger.Tracef(ctx, "got a request for model %q fd:%v", modelUUID, fd)
 		if err := srv.serveConn(
 			srv.catacomb.Context(ctx),
 			conn,

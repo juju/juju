@@ -123,7 +123,7 @@ type conn struct {
 // TODO (alesstimec, wallyworld): This method should be removed and
 // a login provider should be used instead.
 func (c *conn) Login(ctx context.Context, name names.Tag, password, nonce string, ms []macaroon.Slice) error {
-	lp := NewLegacyLoginProvider(name, password, nonce, ms, c.bakeryClient, c.cookieURL)
+	lp := NewLegacyLoginProvider(name, password, nonce, ms, c.cookieURL)
 	result, err := lp.Login(ctx, c)
 	if err != nil {
 		return errors.Trace(err)
