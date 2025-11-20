@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/domain/resolve/service"
 	"github.com/juju/juju/domain/resolve/state"
 	"github.com/juju/juju/domain/status"
-	statusstate "github.com/juju/juju/domain/status/state"
+	statusstate "github.com/juju/juju/domain/status/state/model"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )

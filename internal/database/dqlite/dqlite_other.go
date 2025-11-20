@@ -16,6 +16,13 @@ func (NodeRole) String() string {
 	return ""
 }
 
+// Dqlite node roles.
+const (
+	Voter   = 1
+	StandBy = 2
+	Spare   = 3
+)
+
 type NodeInfo struct {
 	ID      uint64   `yaml:"ID"`
 	Address string   `yaml:"Address"`

@@ -12,6 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/application"
+	database "github.com/juju/juju/core/database"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
@@ -35,10 +36,11 @@ import (
 )
 
 type serviceSuite struct {
-	clock           *testclock.Clock
-	controllerState *MockControllerState
-	modelState      *MockModelState
-	statusHistory   *statusHistoryRecorder
+	clock            *testclock.Clock
+	controllerState  *MockControllerState
+	modelState       *MockModelState
+	statusHistory    *statusHistoryRecorder
+	clusterDescriber *MockClusterDescriber
 
 	modelService *Service
 }
@@ -1835,6 +1837,126 @@ func (s *serviceSuite) TestGetMachineFullStatuses(c *tc.C) {
 			},
 		},
 	}, nil)
+	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
+
+	statuses, err := s.modelService.GetMachineFullStatuses(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(statuses, tc.DeepEquals, expectedStatuses)
+}
+
+func (s *serviceSuite) TestGetMachineFullStatusesControllerModel(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expectedStatuses := map[machine.Name]Machine{
+		"666": {
+			Name:        "666",
+			Life:        corelife.Alive,
+			DNSName:     "10.51.45.181",
+			IPAddresses: []string{"10.0.0.1", "10.51.45.181"},
+			MachineStatus: corestatus.StatusInfo{
+				Status: corestatus.Started,
+				Data: map[string]interface{}{
+					"foo": "bar",
+				},
+			},
+			InstanceStatus: corestatus.StatusInfo{
+				Status: corestatus.Running,
+			},
+			ClusterInfo: &MachineClusterInfo{
+				Present: true,
+				Role:    database.Voter,
+			},
+		},
+		"777": {
+			Name:        "777",
+			Life:        corelife.Dying,
+			DNSName:     "10.51.45.182",
+			IPAddresses: []string{"10.0.0.1", "10.51.45.181"},
+			MachineStatus: corestatus.StatusInfo{
+				Status: corestatus.Pending,
+				Data: map[string]interface{}{
+					"foo": "baz",
+				},
+			},
+			InstanceStatus: corestatus.StatusInfo{
+				Status: corestatus.Allocating,
+			},
+			ClusterInfo: &MachineClusterInfo{
+				Present: true,
+				Role:    database.Spare,
+			},
+		},
+		"888": {
+			Name:        "888",
+			Life:        corelife.Dead,
+			DNSName:     "10.51.45.183",
+			IPAddresses: []string{"10.0.0.1", "10.51.45.181"},
+			MachineStatus: corestatus.StatusInfo{
+				Status: corestatus.Stopped,
+				Data: map[string]interface{}{
+					"foo": "qux",
+				},
+			},
+			InstanceStatus: corestatus.StatusInfo{
+				Status: corestatus.Unset,
+			},
+		},
+	}
+	s.modelState.EXPECT().GetMachineFullStatuses(gomock.Any()).Return(map[machine.Name]status.Machine{
+		"666": {
+			Life:        life.Alive,
+			DNSName:     "10.51.45.181",
+			IPAddresses: []string{"10.0.0.1", "10.51.45.181"},
+			MachineStatus: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusStarted,
+				Data:   []byte(`{"foo": "bar"}`),
+			},
+			InstanceStatus: status.StatusInfo[status.InstanceStatusType]{
+				Status: status.InstanceStatusRunning,
+			},
+		},
+		"777": {
+			Life:        life.Dying,
+			DNSName:     "10.51.45.182",
+			IPAddresses: []string{"10.0.0.1", "10.51.45.181"},
+			MachineStatus: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusPending,
+				Data:   []byte(`{"foo": "baz"}`),
+			},
+			InstanceStatus: status.StatusInfo[status.InstanceStatusType]{
+				Status: status.InstanceStatusAllocating,
+			},
+		},
+		"888": {
+			Life:        life.Dead,
+			DNSName:     "10.51.45.183",
+			IPAddresses: []string{"10.0.0.1", "10.51.45.181"},
+			MachineStatus: status.StatusInfo[status.MachineStatusType]{
+				Status: status.MachineStatusStopped,
+				Data:   []byte(`{"foo": "qux"}`),
+			},
+		},
+	}, nil)
+	s.modelState.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
+	s.clusterDescriber.EXPECT().ClusterDetails(gomock.Any()).Return([]database.ClusterNodeInfo{{
+		ID:   1234,
+		Role: database.Voter,
+	}, {
+		ID:   1235,
+		Role: database.Spare,
+	}, {
+		ID: 1236,
+	}}, nil)
+	s.controllerState.EXPECT().GetControllerNodeIDs(gomock.Any()).Return([]status.ControllerNode{{
+		DqliteNodeID: 1234,
+		ControllerID: "666",
+	}, {
+		DqliteNodeID: 1235,
+		ControllerID: "777",
+	}, {
+		DqliteNodeID: 1236,
+		ControllerID: "999",
+	}}, nil)
 
 	statuses, err := s.modelService.GetMachineFullStatuses(c.Context())
 	c.Check(err, tc.ErrorIsNil)
@@ -2254,11 +2376,13 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.controllerState = NewMockControllerState(ctrl)
 	s.modelState = NewMockModelState(ctrl)
+	s.clusterDescriber = NewMockClusterDescriber(ctrl)
 	s.statusHistory = &statusHistoryRecorder{}
 
 	s.modelService = NewService(
 		s.modelState,
 		s.controllerState,
+		s.clusterDescriber,
 		s.statusHistory,
 		func() (StatusHistoryReader, error) {
 			return nil, errors.Errorf("status history reader not available")
@@ -2268,8 +2392,11 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	)
 
 	c.Cleanup(func() {
+		s.controllerState = nil
 		s.modelState = nil
+		s.clusterDescriber = nil
 		s.statusHistory = nil
+
 		s.modelService = nil
 	})
 

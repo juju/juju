@@ -118,16 +118,18 @@ type MachineStatus struct {
 	// hardware specification datum.
 	Hardware string `json:"hardware"`
 
-	Jobs      []model.MachineJob `json:"jobs"`
-	HasVote   bool               `json:"has-vote"`
-	WantsVote bool               `json:"wants-vote"`
+	Jobs        []model.MachineJob `json:"jobs"`
+	HasVote     bool               `json:"has-vote"`
+	WantsVote   bool               `json:"wants-vote"`
+	ClusterRole *string            `json:"cluster-role,omitempty"`
 
 	// LXDProfiles holds all the machines current LXD profiles that have
 	// been applied to the machine
 	LXDProfiles map[string]LXDProfile `json:"lxd-profiles,omitempty"`
 
-	// PrimaryControllerMachine indicates whether this machine has a primary mongo instance in replicaset and,
-	//	// thus, can be considered a primary controller machine in HA setup.
+	// PrimaryControllerMachine indicates whether this machine has a primary
+	// instance and, thus, can be considered a primary controller machine in HA
+	// setup.
 	PrimaryControllerMachine *bool `json:"primary-controller-machine,omitempty"`
 }
 

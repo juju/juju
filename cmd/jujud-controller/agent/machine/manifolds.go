@@ -604,6 +604,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		domainServicesName: workerdomainservices.Manifold(workerdomainservices.ManifoldConfig{
+			DBAccessorName:              dbAccessorName,
 			ChangeStreamName:            changeStreamName,
 			ProviderFactoryName:         providerTrackerName,
 			ObjectStoreName:             objectStoreFacadeName,
@@ -1379,7 +1380,6 @@ const (
 	objectStoreServicesName       = "object-store-services"
 	objectStoreFortressName       = "object-store-fortress"
 	objectStoreFacadeName         = "object-store-facade"
-	objectStoreDrainingFlagName   = "object-store-draining-flag"
 	objectStoreDrainerName        = "object-store-drainer"
 	providerDomainServicesName    = "provider-services"
 	providerTrackerName           = "provider-tracker"

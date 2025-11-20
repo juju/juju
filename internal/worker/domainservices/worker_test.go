@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
@@ -75,15 +76,23 @@ func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
+	cfg.PublicKeyImporter = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
+	cfg.SimpleStreamsClient = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
+	cfg.ClusterDescriber = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
 	cfg.LogDir = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
 	cfg.Clock = nil
-	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig(c)
-	cfg.PublicKeyImporter = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
@@ -99,6 +108,7 @@ func (s *workerSuite) getConfig(c *tc.C) Config {
 		StorageRegistryGetter: s.storageRegistryGetter,
 		PublicKeyImporter:     s.publicKeyImporter,
 		LeaseManager:          s.leaseManager,
+		ClusterDescriber:      s.clusterDescriber,
 		LogDir:                c.MkDir(),
 		Clock:                 s.clock,
 		SimpleStreamsClient:   s.simpleStreamClient,
@@ -113,8 +123,9 @@ func (s *workerSuite) getConfig(c *tc.C) Config {
 			storage.StorageRegistryGetter,
 			domainservices.PublicKeyImporter,
 			lease.Manager,
-			string,
+			database.ClusterDescriber,
 			corehttp.HTTPClient,
+			string,
 			clock.Clock,
 			logger.LoggerContextGetter,
 		) services.DomainServicesGetter {
@@ -138,8 +149,9 @@ func (s *workerSuite) getConfig(c *tc.C) Config {
 			storage.ModelStorageRegistryGetter,
 			domainservices.PublicKeyImporter,
 			lease.ModelLeaseManagerGetter,
-			string,
+			database.ClusterDescriber,
 			corehttp.HTTPClient,
+			string,
 			clock.Clock,
 			logger.Logger,
 		) services.ModelDomainServices {

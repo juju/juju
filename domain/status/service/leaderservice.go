@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock"
 
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
@@ -34,6 +35,7 @@ func NewLeadershipService(
 	modelState ModelState,
 	controllerState ControllerState,
 	leaderEnsurer leadership.Ensurer,
+	clusterDescriber database.ClusterDescriber,
 	watcherFactory WatcherFactory,
 	modelUUID model.UUID,
 	statusHistory StatusHistory,
@@ -46,6 +48,7 @@ func NewLeadershipService(
 			modelState,
 			controllerState,
 			watcherFactory,
+			clusterDescriber,
 			statusHistory,
 			statusHistoryReaderFn,
 			clock,

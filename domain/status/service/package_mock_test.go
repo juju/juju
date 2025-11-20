@@ -1410,6 +1410,45 @@ func (c *MockModelStateImportRelationStatusCall) DoAndReturn(f func(context.Cont
 	return c
 }
 
+// IsControllerModel mocks base method.
+func (m *MockModelState) IsControllerModel(ctx context.Context) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsControllerModel", ctx)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsControllerModel indicates an expected call of IsControllerModel.
+func (mr *MockModelStateMockRecorder) IsControllerModel(ctx any) *MockModelStateIsControllerModelCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsControllerModel", reflect.TypeOf((*MockModelState)(nil).IsControllerModel), ctx)
+	return &MockModelStateIsControllerModelCall{Call: call}
+}
+
+// MockModelStateIsControllerModelCall wrap *gomock.Call
+type MockModelStateIsControllerModelCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateIsControllerModelCall) Return(arg0 bool, arg1 error) *MockModelStateIsControllerModelCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateIsControllerModelCall) Do(f func(context.Context) (bool, error)) *MockModelStateIsControllerModelCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateIsControllerModelCall) DoAndReturn(f func(context.Context) (bool, error)) *MockModelStateIsControllerModelCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // NamespacesForWatchOfferStatus mocks base method.
 func (m *MockModelState) NamespacesForWatchOfferStatus() (string, string, string, string, string) {
 	m.ctrl.T.Helper()
@@ -1891,6 +1930,45 @@ func NewMockControllerState(ctrl *gomock.Controller) *MockControllerState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockControllerState) EXPECT() *MockControllerStateMockRecorder {
 	return m.recorder
+}
+
+// GetControllerNodeIDs mocks base method.
+func (m *MockControllerState) GetControllerNodeIDs(ctx context.Context) ([]status.ControllerNode, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetControllerNodeIDs", ctx)
+	ret0, _ := ret[0].([]status.ControllerNode)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetControllerNodeIDs indicates an expected call of GetControllerNodeIDs.
+func (mr *MockControllerStateMockRecorder) GetControllerNodeIDs(ctx any) *MockControllerStateGetControllerNodeIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerNodeIDs", reflect.TypeOf((*MockControllerState)(nil).GetControllerNodeIDs), ctx)
+	return &MockControllerStateGetControllerNodeIDsCall{Call: call}
+}
+
+// MockControllerStateGetControllerNodeIDsCall wrap *gomock.Call
+type MockControllerStateGetControllerNodeIDsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerStateGetControllerNodeIDsCall) Return(arg0 []status.ControllerNode, arg1 error) *MockControllerStateGetControllerNodeIDsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerStateGetControllerNodeIDsCall) Do(f func(context.Context) ([]status.ControllerNode, error)) *MockControllerStateGetControllerNodeIDsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerStateGetControllerNodeIDsCall) DoAndReturn(f func(context.Context) ([]status.ControllerNode, error)) *MockControllerStateGetControllerNodeIDsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // GetModelStatusContext mocks base method.

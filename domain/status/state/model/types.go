@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package model
 
 import (
 	"database/sql"
@@ -226,12 +226,12 @@ type applicationNameUnitCount struct {
 	UnitCount int    `db:"unit_count"`
 }
 
-type modelUUID struct {
-	UUID string `db:"uuid"`
-}
-
 type modelInfo struct {
 	Type string `db:"type"`
+}
+
+type controllerModelInfo struct {
+	IsCOntrollerModel bool `db:"is_controller_model"`
 }
 
 type filesystemUUID struct {
@@ -357,15 +357,6 @@ type volumeAttachmentPlanStatusDetails struct {
 	DeviceTypeID         int            `db:"device_type_id"`
 	DeviceAttributeKey   sql.NullString `db:"key"`
 	DeviceAttributeValue sql.NullString `db:"value"`
-}
-
-// modelStatusContext represents a single row from the v_model_state view.
-// These information are used to determine a model's status.
-type modelStatusContext struct {
-	Destroying              bool   `db:"destroying"`
-	CredentialInvalid       bool   `db:"cloud_credential_invalid"`
-	CredentialInvalidReason string `db:"cloud_credential_invalid_reason"`
-	Migrating               bool   `db:"migrating"`
 }
 
 type machineName struct {

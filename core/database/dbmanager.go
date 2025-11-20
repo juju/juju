@@ -58,3 +58,35 @@ type DBDeleter interface {
 	//    handled once it's supported by dqlite.
 	DeleteDB(namespace string) error
 }
+
+// ClusterDescriber describes the ability to get cluster details.
+type ClusterDescriber interface {
+	// ClusterDetails returns the node information for
+	// Dqlite nodes configured to be in the cluster.
+	ClusterDetails(context.Context) ([]ClusterNodeInfo, error)
+}
+
+// NodeRole describes the role of a dqlite node.
+type NodeRole string
+
+// Dqlite node roles.
+const (
+	Voter   NodeRole = "voter"
+	Standby NodeRole = "standby"
+	Spare   NodeRole = "spare"
+)
+
+// HasVote returns whether the node role has voting rights.
+func (r NodeRole) HasVote() bool {
+	return r == Voter || r == Standby
+}
+
+func (r NodeRole) String() string {
+	return string(r)
+}
+
+// ClusterNodeInfo describes a dqlite cluster node.
+type ClusterNodeInfo struct {
+	ID   uint64
+	Role NodeRole
+}

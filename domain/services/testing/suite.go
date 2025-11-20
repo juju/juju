@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/model"
@@ -302,8 +303,9 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *tc.C, o
 			modelApplicationLeaseManagerGetter(func() lease.LeaseManager {
 				return leaseManager
 			}),
-			c.MkDir(),
+			stubClusterDescriber{},
 			&http.Client{},
+			c.MkDir(),
 			clock,
 			logger,
 		)
@@ -554,5 +556,13 @@ func (s stubProvider) StorageProvider(storage.ProviderType) (storage.Provider, e
 
 // StorageProviderTypes implements providertracker.Provider.
 func (s stubProvider) StorageProviderTypes() ([]storage.ProviderType, error) {
+	return nil, nil
+}
+
+type stubClusterDescriber struct{}
+
+// ClusterDetails returns the node information for Dqlite nodes configured to be
+// in the cluster.
+func (stubClusterDescriber) ClusterDetails(context.Context) ([]database.ClusterNodeInfo, error) {
 	return nil, nil
 }

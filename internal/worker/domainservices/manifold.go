@@ -30,6 +30,7 @@ import (
 // worker in a dependency.Engine.
 type ManifoldConfig struct {
 	ChangeStreamName            string
+	DBAccessorName              string
 	ProviderFactoryName         string
 	ObjectStoreName             string
 	StorageRegistryName         string
@@ -55,8 +56,9 @@ type DomainServicesGetterFn func(
 	storage.StorageRegistryGetter,
 	domainservices.PublicKeyImporter,
 	lease.Manager,
-	string,
+	coredatabase.ClusterDescriber,
 	corehttp.HTTPClient,
+	string,
 	clock.Clock,
 	logger.LoggerContextGetter,
 ) services.DomainServicesGetter
@@ -81,8 +83,9 @@ type ModelDomainServicesFn func(
 	storage.ModelStorageRegistryGetter,
 	domainservices.PublicKeyImporter,
 	lease.ModelLeaseManagerGetter,
-	string,
+	coredatabase.ClusterDescriber,
 	corehttp.HTTPClient,
+	string,
 	clock.Clock,
 	logger.Logger,
 ) services.ModelDomainServices
@@ -91,6 +94,9 @@ type ModelDomainServicesFn func(
 func (config ManifoldConfig) Validate() error {
 	if config.ChangeStreamName == "" {
 		return errors.NotValidf("empty ChangeStreamName")
+	}
+	if config.DBAccessorName == "" {
+		return errors.NotValidf("empty DBAccessorName")
 	}
 	if config.ProviderFactoryName == "" {
 		return errors.NotValidf("empty ProviderFactoryName")
@@ -140,6 +146,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.ChangeStreamName,
+			config.DBAccessorName,
 			config.ProviderFactoryName,
 			config.ObjectStoreName,
 			config.StorageRegistryName,
@@ -160,6 +167,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 
 	var dbGetter changestream.WatchableDBGetter
 	if err := getter.Get(config.ChangeStreamName, &dbGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var clusterDescriber coredatabase.ClusterDescriber
+	if err := getter.Get(config.DBAccessorName, &clusterDescriber); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -205,6 +217,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 
 	return config.NewWorker(Config{
 		DBGetter:                    dbGetter,
+		ClusterDescriber:            clusterDescriber,
 		ProviderFactory:             providerFactory,
 		ObjectStoreGetter:           objectStoreGetter,
 		StorageRegistryGetter:       storageRegistryGetter,
@@ -271,8 +284,9 @@ func NewProviderTrackerModelDomainServices(
 	storageRegistry storage.ModelStorageRegistryGetter,
 	publicKeyImporter domainservices.PublicKeyImporter,
 	leaseManager lease.ModelLeaseManagerGetter,
+	clusterDescriber coredatabase.ClusterDescriber,
+	simpleStreamsHTTPClient corehttp.HTTPClient,
 	logDir string,
-	simplestreams corehttp.HTTPClient,
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.ModelDomainServices {
@@ -286,8 +300,9 @@ func NewProviderTrackerModelDomainServices(
 		storageRegistry,
 		publicKeyImporter,
 		leaseManager,
+		clusterDescriber,
+		simpleStreamsHTTPClient,
 		logDir,
-		simplestreams,
 		clock,
 		logger,
 	)
@@ -303,24 +318,26 @@ func NewDomainServicesGetter(
 	storageRegistryGetter storage.StorageRegistryGetter,
 	publicKeyImporter domainservices.PublicKeyImporter,
 	leaseManager lease.Manager,
+	clusterDescriber coredatabase.ClusterDescriber,
+	simpleStreamsHTTPClient corehttp.HTTPClient,
 	logDir string,
-	httpClient corehttp.HTTPClient,
 	clock clock.Clock,
 	loggerContextGetter logger.LoggerContextGetter,
 ) services.DomainServicesGetter {
 	return &domainServicesGetter{
-		ctrlFactory:            ctrlFactory,
-		dbGetter:               dbGetter,
-		newModelDomainServices: newModelDomainServices,
-		providerFactory:        providerFactory,
-		objectStoreGetter:      objectStoreGetter,
-		storageRegistryGetter:  storageRegistryGetter,
-		publicKeyImporter:      publicKeyImporter,
-		leaseManager:           leaseManager,
-		logDir:                 logDir,
-		httpClient:             httpClient,
-		clock:                  clock,
-		loggerContextGetter:    loggerContextGetter,
+		ctrlFactory:             ctrlFactory,
+		dbGetter:                dbGetter,
+		newModelDomainServices:  newModelDomainServices,
+		providerFactory:         providerFactory,
+		objectStoreGetter:       objectStoreGetter,
+		storageRegistryGetter:   storageRegistryGetter,
+		publicKeyImporter:       publicKeyImporter,
+		leaseManager:            leaseManager,
+		clusterDescriber:        clusterDescriber,
+		simpleStreamsHTTPClient: simpleStreamsHTTPClient,
+		logDir:                  logDir,
+		clock:                   clock,
+		loggerContextGetter:     loggerContextGetter,
 	}
 }
 

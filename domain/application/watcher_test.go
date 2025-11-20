@@ -40,7 +40,7 @@ import (
 	"github.com/juju/juju/domain/resolve"
 	resolvestate "github.com/juju/juju/domain/resolve/state"
 	"github.com/juju/juju/domain/status"
-	statusstate "github.com/juju/juju/domain/status/state"
+	statusstate "github.com/juju/juju/domain/status/state/model"
 	domaintesting "github.com/juju/juju/domain/testing"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	internalcharm "github.com/juju/juju/internal/charm"

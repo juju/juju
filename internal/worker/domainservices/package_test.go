@@ -27,6 +27,7 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination domainservices_mock_test.go github.com/juju/juju/internal/services ControllerDomainServices,ModelDomainServices,DomainServices,DomainServicesGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination changestream_mock_test.go github.com/juju/juju/core/changestream WatchableDBGetter
+//go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination database_mock_test.go github.com/juju/juju/core/database ClusterDescriber
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination providertracker_mock_test.go github.com/juju/juju/core/providertracker Provider,ProviderFactory
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore,ObjectStoreGetter,ModelObjectStoreGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination storage_mock_test.go github.com/juju/juju/core/storage StorageRegistryGetter,ModelStorageRegistryGetter
@@ -62,6 +63,8 @@ type baseSuite struct {
 	httpClientGetter   *MockHTTPClientGetter
 	httpClient         *MockHTTPClient
 	simpleStreamClient *MockHTTPClient
+
+	clusterDescriber *MockClusterDescriber
 
 	leaseManager            *MockManager
 	leaseManagerGetter      *MockLeaseManagerGetter
@@ -99,6 +102,8 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.httpClient = NewMockHTTPClient(ctrl)
 	s.simpleStreamClient = NewMockHTTPClient(ctrl)
 
+	s.clusterDescriber = NewMockClusterDescriber(ctrl)
+
 	s.leaseManager = NewMockManager(ctrl)
 	s.leaseManagerGetter = NewMockLeaseManagerGetter(ctrl)
 	s.modelLeaseManagerGetter = NewMockModelLeaseManagerGetter(ctrl)
@@ -130,6 +135,9 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 		s.httpClientGetter = nil
 		s.httpClient = nil
+		s.simpleStreamClient = nil
+
+		s.clusterDescriber = nil
 
 		s.leaseManager = nil
 		s.leaseManagerGetter = nil
@@ -152,8 +160,9 @@ func NewModelDomainServices(
 	storageRegistry storage.ModelStorageRegistryGetter,
 	publicKeyImporter domainservices.PublicKeyImporter,
 	leaseManager lease.ModelLeaseManagerGetter,
+	clusterDescriber coredatabase.ClusterDescriber,
+	simpleStreamsClient corehttp.HTTPClient,
 	logDir string,
-	simplestreamsClient corehttp.HTTPClient,
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.ModelDomainServices {
@@ -167,8 +176,9 @@ func NewModelDomainServices(
 		storageRegistry,
 		publicKeyImporter,
 		leaseManager,
+		clusterDescriber,
+		simpleStreamsClient,
 		logDir,
-		simplestreamsClient,
 		clock,
 		logger,
 	)

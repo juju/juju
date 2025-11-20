@@ -742,26 +742,29 @@ func (c *statusContext) makeMachineStatus(
 
 	status.Jobs = c.machineJobFetcher(ctx, machineName)
 
+	if clusterInfo := machine.ClusterInfo; clusterInfo != nil {
+		if clusterInfo.Present {
+			// If the machine has a cluster info with a voting role, it has vote
+			// and wants vote. This back fills the information missing from the
+			// machine status. We don't have the fidelity to know if it actually
+			// wants a vote, so we assume it does if it has one, or it never
+			// has one.
+			if clusterInfo.Role.HasVote() {
+				status.HasVote = true
+				status.WantsVote = true
+			}
+
+			// Instead of sending the has and wants vote booleans, we send the
+			// role string instead. This allows us to provide more concrete
+			// information about the cluster role of the machine.
+			status.ClusterRole = ptr(clusterInfo.Role.String())
+		} else {
+			status.ClusterRole = ptr("unknown")
+		}
+	}
+
 	if instanceID := machine.InstanceID; instanceID != instance.UnknownId {
 		status.InstanceId = instanceID
-
-		// TODO (stickupkid): Return the public address of the unit's machine.
-		// addr, err := machine.PublicAddress()
-		// if err != nil {
-		// 	// Usually this indicates that no addresses have been set on the
-		// 	// machine yet.
-		// 	addr = network.SpaceAddress{}
-		// 	logger.Debugf(ctx, "error fetching public address: %q", err)
-		// }
-		// status.DNSName = addr.Value
-
-		// if len(status.IPAddresses) == 0 {
-		// 	logger.Debugf(ctx, "no IP addresses fetched for machine %q", instanceID)
-		// 	// At least give it the newly created DNSName address, if it exists.
-		// 	if addr.Value != "" {
-		// 		status.IPAddresses = append(status.IPAddresses, addr.Value)
-		// 	}
-		// }
 
 		linkLayerDevices := c.linkLayerDevices[machineName]
 		status.NetworkInterfaces = transform.SliceToMap(linkLayerDevices, func(llDev domainnetwork.NetInterface) (string, params.NetworkInterface) {
@@ -790,18 +793,6 @@ func (c *statusContext) makeMachineStatus(
 	} else {
 		status.InstanceId = "pending"
 	}
-
-	lxdProfiles := make(map[string]params.LXDProfile)
-	for _, v := range machine.LXDProfiles {
-		if profile, ok := appStatusInfo.lxdProfiles[v]; ok {
-			lxdProfiles[v] = params.LXDProfile{
-				Config:      profile.Config,
-				Description: profile.Description,
-				Devices:     profile.Devices,
-			}
-		}
-	}
-	status.LXDProfiles = lxdProfiles
 
 	return
 }
@@ -1548,4 +1539,8 @@ func processStorage(
 		}
 	}
 	return storageResult, filesystemResult, volumeResult, nil
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

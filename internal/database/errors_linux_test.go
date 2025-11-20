@@ -1,3 +1,5 @@
+//go:build dqlite && linux
+
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
@@ -6,10 +8,10 @@ package database
 import (
 	"testing"
 
-	dqlite "github.com/canonical/go-dqlite/v3/driver"
 	"github.com/juju/tc"
 	"github.com/mattn/go-sqlite3"
 
+	"github.com/juju/juju/internal/database/drivererrors"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -24,7 +26,7 @@ func TestErrorSuite(t *testing.T) {
 func (s *errorSuite) TestIsErrConstraintUnique(c *tc.C) {
 	c.Check(IsErrConstraintUnique(nil), tc.IsFalse)
 
-	dErr := dqlite.Error{}
+	dErr := drivererrors.Error{}
 	c.Check(IsErrConstraintUnique(dErr), tc.IsFalse)
 
 	dErr.Code = int(sqlite3.ErrConstraintUnique)

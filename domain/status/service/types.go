@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
@@ -72,6 +73,14 @@ type Machine struct {
 	Constraints             constraints.Value
 	HardwareCharacteristics instance.HardwareCharacteristics
 	LXDProfiles             []string
+	ClusterInfo             *MachineClusterInfo
+}
+
+// MachineClusterInfo represents the cluster information of a controller
+// machine.
+type MachineClusterInfo struct {
+	Present bool
+	Role    database.NodeRole
 }
 
 // StatusHistoryFilter holds the parameters to filter a status history query.

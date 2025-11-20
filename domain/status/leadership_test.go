@@ -27,7 +27,7 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/domain/status/service"
-	"github.com/juju/juju/domain/status/state"
+	statemodel "github.com/juju/juju/domain/status/state/model"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -158,11 +158,12 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderCancelled(c *tc.C
 func (s *leadershipSuite) setupService(c *tc.C) *service.LeadershipService {
 
 	return service.NewLeadershipService(
-		state.NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c)),
+		statemodel.NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c)),
 		s.controllerState,
 		domain.NewLeaseService(leaseGetter{
 			LeaseManager: s.leaseManager,
 		}),
+		nil,
 		nil,
 		model.UUID(s.ModelUUID()),
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
