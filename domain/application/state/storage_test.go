@@ -174,6 +174,7 @@ func (s *applicationStateSuite) TestGetApplicationStorageDirectivesInfo_Applicat
 	tc.Check(c, err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 
 	randomAppUUID, err := coreapplication.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.state.GetApplicationStorageDirectivesInfo(ctx, randomAppUUID)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
