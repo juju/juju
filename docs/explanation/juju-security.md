@@ -303,7 +303,7 @@ Example threats:
 - {ref}`threats-confidentiality`: If a malicious actor gains unauthorized access to the secrets stored within the Juju model, they could potentially extract sensitive information such as API keys, passwords, or encryption keys.
 - {ref}`threats-integrity`: An attacker could modify the secrets stored in the Juju model.
 
-Controls: {ref}`controls-secrets`, {ref}`controls-secret-backend-can-be-external`, {ref}`controls-user-authentication`
+Controls: {ref}`controls-secrets`, {ref}`controls-secret-backends-can-be-external`, {ref}`controls-user-authentication`
 
 (assets-ssh-keys-and-agent-credentials)=
 ### SSH keys and agent credentials
@@ -638,7 +638,7 @@ A controller on a machine cloud can operate in high availability mode. Depending
 See more: {ref}`high-availability`
 ```
 
-(no-cloud-credentials-in-juju)=
+(controls-no-cloud-credentials-in-juju)=
 ### No cloud credentials in Juju
 
 In a typical Juju workflow you allow your client to read your locally stored cloud credentials, then copy them to the controller, so that the controller can use them to authenticate with the cloud. However, for some clouds, Juju now supports a workflow where  neither your client nor your controller know your credentials directly -- you can just supply an instance profile (AWS) or a managed identity (Azure).

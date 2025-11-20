@@ -109,7 +109,7 @@ With LXD system containers, constraints are interpreted as resource *maximums* (
 | - {ref}`constraint-root-disk-source`   | &#10003;  <br> `root-disk-source` is the LXD storage pool for the root disk. The default LXD storage pool is used if root-disk-source is not specified. |
 | - {ref}`constraint-spaces`             | &#10005;                                                                                                                                                |
 | - {ref}`constraint-tags`               | &#10005;                                                                                                                                                |
-| - {ref}`constraint-virt-type`          | &#10005;                                                                                                                                                |
+| - {ref}`constraint-virt-type`          | &#10003; <br> Valid values: `[container, virtual-machine]`. <br> Default value: `container`.                                                                                                                                               |
 | - {ref}`constraint-zones`              | &#10003;  <br> `zones` are the LXD node name(s).                                                                                                        |
 
 
