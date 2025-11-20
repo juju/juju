@@ -215,43 +215,6 @@ func (s *machineSuite) TestMarkMachineAsDeadError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, ".*the front fell off")
 }
 
-func (s *machineSuite) TestDeleteMachine(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	mUUID := machinetesting.GenUUID(c)
-
-	exp := s.modelState.EXPECT()
-	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
-	exp.DeleteMachine(gomock.Any(), mUUID.String()).Return(nil)
-
-	err := s.newService(c).DeleteMachine(c.Context(), mUUID)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *machineSuite) TestDeleteMachineMachineDoesNotExist(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	mUUID := machinetesting.GenUUID(c)
-
-	exp := s.modelState.EXPECT()
-	exp.MachineExists(gomock.Any(), mUUID.String()).Return(false, nil)
-
-	err := s.newService(c).DeleteMachine(c.Context(), mUUID)
-	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
-}
-
-func (s *machineSuite) TestDeleteMachineError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	mUUID := machinetesting.GenUUID(c)
-
-	exp := s.modelState.EXPECT()
-	exp.MachineExists(gomock.Any(), mUUID.String()).Return(false, errors.Errorf("the front fell off"))
-
-	err := s.newService(c).DeleteMachine(c.Context(), mUUID)
-	c.Assert(err, tc.ErrorMatches, ".*the front fell off")
-}
-
 func (s *machineSuite) TestMarkInstanceAsDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -359,7 +322,7 @@ func (s *machineSuite) TestExecuteJobForMachineDyingReleaseAddresses(c *tc.C) {
 	exp.GetMachineLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.GetInstanceLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
 	exp.GetMachineNetworkInterfaces(gomock.Any(), j.EntityUUID).Return(nil, machineerrors.MachineNotFound)
-	exp.DeleteMachine(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteMachine(gomock.Any(), j.EntityUUID, false).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
@@ -375,7 +338,7 @@ func (s *machineSuite) TestExecuteJobForMachineDyingReleaseAddressesNotSupported
 	exp.GetMachineLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.GetInstanceLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
 	exp.GetMachineNetworkInterfaces(gomock.Any(), j.EntityUUID).Return([]string{"foo"}, nil)
-	exp.DeleteMachine(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteMachine(gomock.Any(), j.EntityUUID, false).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	s.provider.EXPECT().ReleaseContainerAddresses(gomock.Any(), []string{"foo"}).Return(coreerrors.NotSupported)
@@ -393,10 +356,64 @@ func (s *machineSuite) TestExecuteJobForMachineDyingDeleteMachine(c *tc.C) {
 	exp.GetMachineLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.GetInstanceLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
 	exp.GetMachineNetworkInterfaces(gomock.Any(), j.EntityUUID).Return([]string{"foo"}, nil)
-	exp.DeleteMachine(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteMachine(gomock.Any(), j.EntityUUID, false).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	s.provider.EXPECT().ReleaseContainerAddresses(gomock.Any(), []string{"foo"}).Return(nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *machineSuite) TestExecuteJobForInstanceAndMachineDyingDeleteMachineWithForce(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newMachineJob(c)
+	j.Force = true
+
+	exp := s.modelState.EXPECT()
+	exp.GetMachineLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.GetInstanceLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.GetMachineNetworkInterfaces(gomock.Any(), j.EntityUUID).Return([]string{"foo"}, nil)
+	exp.DeleteMachine(gomock.Any(), j.EntityUUID, true).Return(nil)
+	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	s.provider.EXPECT().ReleaseContainerAddresses(gomock.Any(), []string{"foo"}).Return(nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *machineSuite) TestExecuteJobUnableReleaseContainerAddressesWithoutForce(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newMachineJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetMachineLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
+	exp.GetInstanceLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
+	exp.GetMachineNetworkInterfaces(gomock.Any(), j.EntityUUID).Return([]string{"foo"}, nil)
+
+	s.provider.EXPECT().ReleaseContainerAddresses(gomock.Any(), []string{"foo"}).Return(errors.Errorf("network error"))
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorMatches, `.*network error.*`)
+}
+
+func (s *machineSuite) TestExecuteJobUnableReleaseContainerAddressesWithForce(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newMachineJob(c)
+	j.Force = true
+
+	exp := s.modelState.EXPECT()
+	exp.GetMachineLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.GetInstanceLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.GetMachineNetworkInterfaces(gomock.Any(), j.EntityUUID).Return([]string{"foo"}, nil)
+	exp.DeleteMachine(gomock.Any(), j.EntityUUID, true).Return(nil)
+	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	s.provider.EXPECT().ReleaseContainerAddresses(gomock.Any(), []string{"foo"}).Return(errors.Errorf("network error"))
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIsNil)

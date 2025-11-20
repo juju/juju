@@ -59,10 +59,6 @@ type MachineProvisioner interface {
 	// Dying. It does nothing otherwise.
 	EnsureDead(ctx context.Context) error
 
-	// Remove removes the machine from state. It will fail if the machine
-	// is not Dead.
-	Remove(ctx context.Context) error
-
 	// MarkForRemoval indicates that the machine is ready to have any
 	// provider-level resources cleaned up and be removed.
 	MarkForRemoval(ctx context.Context) error
@@ -247,19 +243,6 @@ func (m *Machine) EnsureDead(ctx context.Context) error {
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
 	err := m.st.facade.FacadeCall(ctx, "EnsureDead", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
-}
-
-// Remove implements MachineProvisioner.Remove.
-func (m *Machine) Remove(ctx context.Context) error {
-	var result params.ErrorResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.tag.String()}},
-	}
-	err := m.st.facade.FacadeCall(ctx, "Remove", args, &result)
 	if err != nil {
 		return err
 	}

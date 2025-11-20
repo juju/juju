@@ -1544,48 +1544,10 @@ func (api *ProvisionerAPI) ModelUUID(ctx context.Context) params.StringResult {
 	return params.StringResult{Result: api.modelUUID.String()}
 }
 
-// Remove removes every given machine from state.
-// It will fail if the machine is not present.
+// Remove is a no-op for the provisioner API. Remove this in the next facade
+// version bump.
 func (api *ProvisionerAPI) Remove(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
-	result := params.ErrorResults{
+	return params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-	if len(args.Entities) == 0 {
-		return result, nil
-	}
-	canModify, err := api.getAuthFunc(ctx)
-	if err != nil {
-		return params.ErrorResults{}, errors.Capture(err)
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseMachineTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		if !canModify(tag) {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-
-		machineName := coremachine.Name(tag.Id())
-		machineUUID, err := api.machineService.GetMachineUUID(ctx, machineName)
-		if errors.Is(err, machineerrors.MachineNotFound) {
-			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", tag.Id())
-			continue
-		} else if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		err = api.removalService.DeleteMachine(ctx, machineUUID)
-		if errors.Is(err, machineerrors.MachineNotFound) {
-			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "machine %q not found", tag.Id())
-			continue
-		} else if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-	}
-	return result, nil
+	}, nil
 }

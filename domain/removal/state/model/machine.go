@@ -496,7 +496,7 @@ AND    life_id = 1`, machineUUID)
 }
 
 // DeleteMachine deletes the specified machine and any dependent child records.
-func (st *State) DeleteMachine(ctx context.Context, mUUID string) error {
+func (st *State) DeleteMachine(ctx context.Context, mUUID string, force bool) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -534,7 +534,10 @@ WHERE uuid = $machine.uuid;
 		} else if mLife == life.Alive {
 			return errors.Errorf("cannot delete machine %q, machine is still alive", machineUUIDParam.UUID).
 				Add(removalerrors.EntityStillAlive)
-		} else if mLife == life.Dying {
+		}
+
+		// Check to see if the machine is in the dying state only if not forced.
+		if !force && mLife == life.Dying {
 			return errors.Errorf("waiting for machine to be dead before deletion").
 				Add(removalerrors.RemovalJobIncomplete)
 		}
@@ -554,13 +557,19 @@ WHERE uuid = $machine.uuid;
 			return errors.Errorf("getting machine instance life: %w", err)
 		} else if iLife == life.Alive {
 			return errors.Errorf("cannot delete machine %q, instance is still alive", machineUUIDParam.UUID)
-		} else if iLife == life.Dying {
+		}
+
+		// Check to see if the instance is in the dying state only if not forced.
+		if !force && iLife == life.Dying {
 			return errors.Errorf("waiting for instance to be dead before deletion").Add(removalerrors.RemovalJobIncomplete)
 		}
 
-		err = st.checkNoMachineDependents(ctx, tx, machineUUIDParam)
-		if err != nil {
-			return errors.Errorf("checking for dependents: %w", err).Add(removalerrors.RemovalJobIncomplete)
+		// If force is not set, check for dependents before allowing deletion.
+		// This prevents accidental data loss.
+		if !force {
+			if err := st.checkNoMachineDependents(ctx, tx, machineUUIDParam); err != nil {
+				return errors.Errorf("checking for dependents: %w", err).Add(removalerrors.RemovalJobIncomplete)
+			}
 		}
 
 		// Remove all basic machine data associated with the machine.

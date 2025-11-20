@@ -673,40 +673,6 @@ func (s *provisionerMockSuite) TestMarkMachinesForRemovalNotFound(c *tc.C) {
 	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *provisionerMockSuite) TestRemove(c *tc.C) {
-	defer s.setup(c).Finish()
-
-	machineName := coremachine.Name("1")
-	machineUUID := machinetesting.GenUUID(c)
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
-	s.removalService.EXPECT().DeleteMachine(gomock.Any(), machineUUID).Return(nil)
-
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "machine-1"},
-	}}
-	result, err := s.api.Remove(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: nil},
-		},
-	})
-}
-
-func (s *provisionerMockSuite) TestRemoveMachineNotFound(c *tc.C) {
-	defer s.setup(c).Finish()
-
-	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("1")).Return("", machineerrors.MachineNotFound)
-
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "machine-1"},
-	}}
-	result, err := s.api.Remove(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result.Results, tc.HasLen, 1)
-	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
-}
-
 func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
