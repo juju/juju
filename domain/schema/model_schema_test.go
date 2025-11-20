@@ -4,6 +4,7 @@
 package schema
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/juju/collections/set"
@@ -12,6 +13,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	charmtesting "github.com/juju/juju/core/charm/testing"
+	"github.com/juju/juju/core/version"
 )
 
 type modelSchemaSuite struct {
@@ -20,6 +22,59 @@ type modelSchemaSuite struct {
 
 func TestModelSchemaSuite(t *testing.T) {
 	tc.Run(t, &modelSchemaSuite{})
+}
+
+func (s *modelSchemaSuite) TestCheckNoPatchFilesForNonMatchingMajorMinor(c *tc.C) {
+	for _, postPatch := range modelPostPatchFilesByVersion {
+		if postPatch.version.Major != version.Current.Major || postPatch.version.Minor != version.Current.Minor {
+			c.Fatalf("found post-patch file for version %v, but current version is %v", postPatch.version, version.Current)
+		}
+	}
+}
+
+func (s *modelSchemaSuite) TestCheckNoUnusedPostPatchFiles(c *tc.C) {
+	encodedPatches := set.NewStrings()
+	for _, postPatch := range modelPostPatchFilesByVersion {
+		encodedPatches = encodedPatches.Union(set.NewStrings(postPatch.files...))
+	}
+
+	embedded, err := modelSchemaDir.ReadDir("model/sql")
+	c.Assert(err, tc.ErrorIsNil)
+
+	embeddedPatches := set.NewStrings()
+	for _, entry := range embedded {
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".PATCH.sql") {
+			continue
+		}
+		embeddedPatches.Add(name)
+	}
+
+	unused := embeddedPatches.Difference(encodedPatches)
+	c.Assert(unused.Size(), tc.Equals, 0, tc.Commentf("unused post-patch files: %v", unused.SortedValues()))
+}
+
+func (s *modelSchemaSuite) TestApplyDDLIdempotent(c *tc.C) {
+	s.applyDDL(c, ModelDDL())
+	s.reapplyDDL(c, ModelDDL())
+}
+
+func (s *modelSchemaSuite) TestModelDDLForVersionsApplyCumulatively(c *tc.C) {
+	current := version.Current
+	if current.Patch == 0 || len(modelPostPatchFilesByVersion) == 0 {
+		c.Skip("no patches to test")
+	}
+
+	version := version.Current
+	version.Patch = 0
+	initalPatches := ModelDDLForVersion(version)
+	s.applyDDL(c, initalPatches)
+
+	for _, postPatch := range modelPostPatchFilesByVersion {
+		ddl := ModelDDLForVersion(postPatch.version)
+		c.Logf("Applying model DDL for version %v", postPatch.version)
+		s.reapplyDDL(c, ddl)
+	}
 }
 
 func (s *modelSchemaSuite) TestModelTables(c *tc.C) {

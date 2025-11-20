@@ -5,6 +5,7 @@ package schema
 
 import (
 	"io/fs"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -12,10 +13,25 @@ import (
 )
 
 const (
-	pathFileSuffix = ".PATCH.sql"
+	postPatchFileSuffix = ".PATCH.sql"
 )
 
-func readPatches(entries []fs.DirEntry, fs fs.ReadFileFS, fileName func(string) string) ([]func() schema.Patch, []func() schema.Patch) {
+// ReadFileDirFS is the interface implemented by a file system that
+// provides an optimized implementation of [ReadFile] and [ReadDir].
+type ReadFileDirFS interface {
+	fs.ReadFileFS
+	fs.ReadDirFS
+}
+
+// readPatches reads all the patch files in the given baseDir from the provided
+// file system. We exclude any post patch files, which are identified by their
+// file name suffix .PATCH.sql.
+func readPatches(fs ReadFileDirFS, baseDir string) ([]func() schema.Patch, error) {
+	entries, err := fs.ReadDir(baseDir)
+	if err != nil {
+		return nil, err
+	}
+
 	var names []string
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -26,25 +42,40 @@ func readPatches(entries []fs.DirEntry, fs fs.ReadFileFS, fileName func(string) 
 
 	slices.Sort(names)
 
-	var (
-		patches     []func() schema.Patch
-		postPatches []func() schema.Patch
-	)
+	var patches []func() schema.Patch
 	for _, name := range names {
-		data, err := fs.ReadFile(fileName(name))
+		if strings.HasSuffix(name, postPatchFileSuffix) {
+			continue
+		}
+
+		data, err := fs.ReadFile(filepath.Join(baseDir, name))
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		fn := func() schema.Patch {
 			return schema.MakePatch(string(data))
 		}
 
-		if strings.HasSuffix(name, pathFileSuffix) {
-			postPatches = append(postPatches, fn)
-			continue
-		}
 		patches = append(patches, fn)
 	}
-	return patches, postPatches
+	return patches, nil
+}
+
+// readPostPatches reads the specified post patch files from the given baseDir.
+func readPostPatches(fs fs.ReadFileFS, baseDir string, postPatchFiles []string) ([]func() schema.Patch, error) {
+	patches := make([]func() schema.Patch, len(postPatchFiles))
+	for i, name := range postPatchFiles {
+		data, err := fs.ReadFile(filepath.Join(baseDir, name))
+		if err != nil {
+			return nil, err
+		}
+
+		fn := func() schema.Patch {
+			return schema.MakePatch(string(data))
+		}
+
+		patches[i] = fn
+	}
+	return patches, nil
 }
