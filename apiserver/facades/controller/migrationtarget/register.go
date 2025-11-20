@@ -6,7 +6,6 @@ package migrationtarget
 import (
 	"reflect"
 
-	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -62,7 +61,7 @@ func newFacadeV1(ctx facade.Context) (*APIV1, error) {
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 		facades.FacadeVersions{},
 		newK8sClient,
-		migrationImportModel,
+		migration.ImportModel,
 		precheckShim(ctx.State()),
 		ctx.State(),
 		ctx.Auth(),
@@ -81,7 +80,7 @@ func newFacadeV2(ctx facade.Context) (*APIV2, error) {
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 		facades.FacadeVersions{},
 		newK8sClient,
-		migrationImportModel,
+		migration.ImportModel,
 		precheckShim(ctx.State()),
 		ctx.State(),
 		ctx.Auth(),
@@ -100,7 +99,7 @@ func newFacade(ctx facade.Context, facadeVersions facades.FacadeVersions) (*API,
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 		facadeVersions,
 		newK8sClient,
-		migrationImportModel,
+		migration.ImportModel,
 		precheckShim(ctx.State()),
 		ctx.State(),
 		ctx.Auth(),
@@ -116,16 +115,6 @@ func newK8sClient(cloudSpec cloudspec.CloudSpec) (kubernetes.Interface, *rest.Co
 
 	k8sClient, err := kubernetes.NewForConfig(cfg)
 	return k8sClient, cfg, err
-}
-
-// migrationImportModel wraps [migration.ImportModel] so we conform to the contract
-// in [NewAPI].
-func migrationImportModel(
-	importer migration.StateImporter,
-	getClaimer migration.ClaimerFunc,
-	model description.Model,
-) (*state.Model, MigrationState, error) {
-	return migration.ImportModel(importer, getClaimer, model)
 }
 
 // precheckShim wraps [migration.PrecheckShim] so we conform to the contract

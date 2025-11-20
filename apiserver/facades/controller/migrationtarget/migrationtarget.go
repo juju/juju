@@ -6,6 +6,7 @@ package migrationtarget
 import (
 	stdctx "context"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/juju/description/v9"
@@ -58,7 +59,7 @@ type importModelFunc func(
 	importer migration.StateImporter,
 	getClaimer migration.ClaimerFunc,
 	model description.Model,
-) (*state.Model, MigrationState, error)
+) (io.Closer, error)
 
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
@@ -202,7 +203,7 @@ func (api *API) Import(serialized params.SerializedModel) error {
 	}
 
 	controller := state.NewController(api.pool)
-	_, st, err := api.importModel(controller, api.getClaimer, descriptionModel)
+	st, err := api.importModel(controller, api.getClaimer, descriptionModel)
 	if err != nil {
 		return err
 	}

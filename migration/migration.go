@@ -39,7 +39,7 @@ type StateExporter interface {
 // StateImporter describes the method needed to import a model
 // into the database.
 type StateImporter interface {
-	Import(model description.Model) (*state.Model, *state.State, error)
+	Import(model description.Model) (*state.State, error)
 }
 
 // ClaimerFunc is a function that returns a leadership claimer for the
@@ -53,15 +53,15 @@ func ImportModel(
 	importer StateImporter,
 	getClaimer ClaimerFunc,
 	model description.Model,
-) (*state.Model, *state.State, error) {
-	dbModel, dbState, err := importer.Import(model)
+) (io.Closer, error) {
+	dbState, err := importer.Import(model)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	claimer, err := getClaimer(dbModel.UUID())
+	claimer, err := getClaimer(dbState.ModelUUID())
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "getting leadership claimer")
+		return nil, errors.Annotate(err, "getting leadership claimer")
 	}
 
 	logger.Debugf("importing leadership")
@@ -85,7 +85,7 @@ func ImportModel(
 			time.Minute,
 		)
 		if err != nil {
-			return nil, nil, errors.Annotatef(
+			return nil, errors.Annotatef(
 				err,
 				"claiming leadership for %q",
 				application.Leader(),
@@ -93,7 +93,7 @@ func ImportModel(
 		}
 	}
 
-	return dbModel, dbState, nil
+	return dbState, nil
 }
 
 // CharmDownloader defines a single method that is used to download a

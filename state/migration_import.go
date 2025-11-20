@@ -43,10 +43,10 @@ import (
 )
 
 // Import the database agnostic model representation into the database.
-func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err error) {
+func (ctrl *Controller) Import(model description.Model) (_ *State, err error) {
 	st, err := ctrl.pool.SystemState()
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	modelUUID := model.Tag().Id()
 	logger := loggo.GetLogger("juju.state.import-model")
@@ -55,21 +55,21 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	// At this stage, attempting to import a model with the same
 	// UUID as an existing model will error.
 	if modelExists, err := st.ModelExists(modelUUID); err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	} else if modelExists {
 		// We have an existing matching model.
-		return nil, nil, errors.AlreadyExistsf("model %s", modelUUID)
+		return nil, errors.AlreadyExistsf("model %s", modelUUID)
 	}
 
 	modelType, err := ParseModelType(model.Type())
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	// Create the model.
 	cfg, err := modelConfig(model.Config())
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	args := ModelArgs{
 		Type:                    modelType,
@@ -89,7 +89,7 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 		// tag in the names package from the cloud, owner and name.
 		credID := fmt.Sprintf("%s/%s/%s", creds.Cloud(), creds.Owner(), creds.Name())
 		if !names.IsValidCloudCredential(credID) {
-			return nil, nil, errors.NotValidf("cloud credential ID %q", credID)
+			return nil, errors.NotValidf("cloud credential ID %q", credID)
 		}
 		credTag := names.NewCloudCredentialTag(credID)
 
@@ -100,20 +100,20 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 				cloud.AuthType(creds.AuthType()),
 				creds.Attributes())
 			if err := st.UpdateCloudCredential(credTag, credential); err != nil {
-				return nil, nil, errors.Trace(err)
+				return nil, errors.Trace(err)
 			}
 		} else if err != nil {
-			return nil, nil, errors.Trace(err)
+			return nil, errors.Trace(err)
 		} else {
 			// ensure existing creds match
 			if existingCreds.AuthType != creds.AuthType() {
-				return nil, nil, errors.Errorf("credential auth type mismatch: %q != %q", existingCreds.AuthType, creds.AuthType())
+				return nil, errors.Errorf("credential auth type mismatch: %q != %q", existingCreds.AuthType, creds.AuthType())
 			}
 			if !credentialAttributesMatch(existingCreds.Attributes, creds.Attributes()) {
-				return nil, nil, errors.Errorf("credential attribute mismatch: %v != %v", existingCreds.Attributes, creds.Attributes())
+				return nil, errors.Errorf("credential attribute mismatch: %v != %v", existingCreds.Attributes, creds.Attributes())
 			}
 			if existingCreds.Revoked {
-				return nil, nil, errors.Errorf("credential %q is revoked", credID)
+				return nil, errors.Errorf("credential %q is revoked", credID)
 			}
 		}
 
@@ -121,7 +121,7 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	}
 	dbModel, newSt, err := ctrl.NewModel(args)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	logger.Debugf("model created %s/%s", dbModel.Owner().Id(), dbModel.Name())
 	defer func() {
@@ -136,7 +136,7 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 		Status:  status.Busy,
 		Message: "importing",
 	}); err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	// I would have loved to use import, but that is a reserved word.
@@ -147,84 +147,84 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 		logger:  logger,
 	}
 	if err := restore.sequences(); err != nil {
-		return nil, nil, errors.Annotate(err, "sequences")
+		return nil, errors.Annotate(err, "sequences")
 	}
 	// We need to import the sequences first as we may add blocks
 	// in the modelExtras which will touch the block sequence.
 	if err := restore.modelExtras(); err != nil {
-		return nil, nil, errors.Annotate(err, "base model aspects")
+		return nil, errors.Annotate(err, "base model aspects")
 	}
 	if err := newSt.SetModelConstraints(restore.constraints(model.Constraints())); err != nil {
-		return nil, nil, errors.Annotate(err, "model constraints")
+		return nil, errors.Annotate(err, "model constraints")
 	}
 	if err := restore.sshHostKeys(); err != nil {
-		return nil, nil, errors.Annotate(err, "sshHostKeys")
+		return nil, errors.Annotate(err, "sshHostKeys")
 	}
 	if err := restore.cloudimagemetadata(); err != nil {
-		return nil, nil, errors.Annotate(err, "cloudimagemetadata")
+		return nil, errors.Annotate(err, "cloudimagemetadata")
 	}
 	if err := restore.actions(); err != nil {
-		return nil, nil, errors.Annotate(err, "actions")
+		return nil, errors.Annotate(err, "actions")
 	}
 	if err := restore.operations(); err != nil {
-		return nil, nil, errors.Annotate(err, "operations")
+		return nil, errors.Annotate(err, "operations")
 	}
 
 	if err := restore.modelUsers(); err != nil {
-		return nil, nil, errors.Annotate(err, "modelUsers")
+		return nil, errors.Annotate(err, "modelUsers")
 	}
 	// Spaces are needed to migrate Subnets
 	if err := restore.spaces(); err != nil {
-		return nil, nil, errors.Annotate(err, "spaces")
+		return nil, errors.Annotate(err, "spaces")
 	}
 	// Subnets are needed to migrate machine portsDocs
 	if err := restore.subnets(); err != nil {
-		return nil, nil, errors.Annotate(err, "subnets")
+		return nil, errors.Annotate(err, "subnets")
 	}
 	if err := restore.machines(); err != nil {
-		return nil, nil, errors.Annotate(err, "machines")
+		return nil, errors.Annotate(err, "machines")
 	}
 	if err := restore.applications(); err != nil {
-		return nil, nil, errors.Annotate(err, "applications")
+		return nil, errors.Annotate(err, "applications")
 	}
 	if err := restore.remoteApplications(); err != nil {
-		return nil, nil, errors.Annotate(err, "remoteapplications")
+		return nil, errors.Annotate(err, "remoteapplications")
 	}
 	if err := restore.firewallRules(); err != nil {
-		return nil, nil, errors.Annotate(err, "firewallrules")
+		return nil, errors.Annotate(err, "firewallrules")
 	}
 	if err := restore.relations(); err != nil {
-		return nil, nil, errors.Annotate(err, "relations")
+		return nil, errors.Annotate(err, "relations")
 	}
 	if err := restore.remoteEntities(); err != nil {
-		return nil, nil, errors.Annotate(err, "remoteentitites")
+		return nil, errors.Annotate(err, "remoteentitites")
 	}
 	if err := restore.externalControllers(); err != nil {
-		return nil, nil, errors.Annotate(err, "externalcontrollers")
+		return nil, errors.Annotate(err, "externalcontrollers")
 	}
 	if err := restore.relationNetworks(); err != nil {
-		return nil, nil, errors.Annotate(err, "relationnetworks")
+		return nil, errors.Annotate(err, "relationnetworks")
 	}
 	if err := restore.linklayerdevices(); err != nil {
-		return nil, nil, errors.Annotate(err, "linklayerdevices")
+		return nil, errors.Annotate(err, "linklayerdevices")
 	}
 	if err := restore.ipAddresses(); err != nil {
-		return nil, nil, errors.Annotate(err, "ipAddresses")
+		return nil, errors.Annotate(err, "ipAddresses")
 	}
 	if err := restore.storage(); err != nil {
-		return nil, nil, errors.Annotate(err, "storage")
+		return nil, errors.Annotate(err, "storage")
 	}
 	if err := restore.secretBackend(); err != nil {
-		return nil, nil, errors.Annotate(err, "secret backend")
+		return nil, errors.Annotate(err, "secret backend")
 	}
 	if err := restore.secrets(); err != nil {
-		return nil, nil, errors.Annotate(err, "secrets")
+		return nil, errors.Annotate(err, "secrets")
 	}
 	if err := restore.remoteSecrets(); err != nil {
-		return nil, nil, errors.Annotate(err, "remote secrets")
+		return nil, errors.Annotate(err, "remote secrets")
 	}
 	if err := restore.virtualHostKeys(); err != nil {
-		return nil, nil, errors.Annotate(err, "virtual host keys")
+		return nil, errors.Annotate(err, "virtual host keys")
 	}
 
 	// NOTE: at the end of the import make sure that the mode of the model
@@ -239,11 +239,11 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 		model.SLA().Owner(),
 		[]byte(model.SLA().Credentials()),
 	); err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	logger.Debugf("import success")
-	return dbModel, newSt, nil
+	return newSt, nil
 }
 
 func credentialAttributesMatch(a map[string]string, b map[string]string) bool {
