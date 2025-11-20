@@ -5,6 +5,7 @@ package migrationtarget_test
 
 import (
 	stdctx "context"
+	"io"
 	"time"
 
 	"github.com/juju/description/v9"
@@ -99,7 +100,7 @@ func (s *caasSuite) TestImportPopulateStorageUniqueID(c *gc.C) {
 			return k8sClient, nil, nil
 		},
 		// We assert the storage unique ID value in [importModel].
-		importModel(c, s.state),
+		importModel(c, s.state, "uniqueid"),
 		nil,
 		s.state,
 		s.authorizer,
@@ -169,19 +170,23 @@ func (s *caasSuite) makeSerializedModel(c *gc.C) []byte {
 
 // importModel performs the assertion that it receives a model s.t. the application
 // storage unique ID has a non-empty value.
-func importModel(c *gc.C, mockState *mocks.MockMigrationState) func(
+func importModel(c *gc.C,
+	mockState *mocks.MockMigrationState,
+	expectedStorageID string,
+) func(
 	importer migration.StateImporter,
 	getClaimer migration.ClaimerFunc,
 	model description.Model,
-) (*state.Model, migrationtarget.MigrationState, error) {
+) (io.Closer, error) {
 	return func(
 		importer migration.StateImporter,
 		getClaimer migration.ClaimerFunc,
 		model description.Model,
-	) (*state.Model, migrationtarget.MigrationState, error) {
+	) (io.Closer, error) {
 		// Make sure that the storage unique ID for this application is indeed
 		// backfilled. It was initially empty when exported in [makeSerializedModel].
-		c.Assert(model.Applications()[0].StorageUniqueID(), gc.Equals, "uniqueid")
-		return nil, mockState, nil
+		c.Assert(model.Applications(), gc.HasLen, 1)
+		c.Assert(model.Applications()[0].StorageUniqueID(), gc.Equals, expectedStorageID)
+		return mockState, nil
 	}
 }

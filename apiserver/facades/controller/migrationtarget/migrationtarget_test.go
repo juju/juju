@@ -543,7 +543,7 @@ func (s *Suite) newAPI(
 	brokerFunc stateenvirons.NewCAASBrokerFunc,
 ) (*migrationtarget.API, error) {
 	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc,
-		brokerFunc, facades.FacadeVersions{}, nil, migrationImportModel,
+		brokerFunc, facades.FacadeVersions{}, nil, migration.ImportModel,
 		precheckShim(s.facadeContext.State()), s.facadeContext.State(),
 		s.facadeContext.Auth(),
 	)
@@ -562,7 +562,7 @@ func (s *Suite) newAPIWithFacadeVersions(c *gc.C,
 	versions facades.FacadeVersions,
 ) (*migrationtarget.API, error) {
 	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc, brokerFunc,
-		versions, nil, migrationImportModel,
+		versions, nil, migration.ImportModel,
 		precheckShim(s.facadeContext.State()), s.facadeContext.State(),
 		s.facadeContext.Auth(),
 	)
@@ -614,14 +614,6 @@ func (s *Suite) importModel(c *gc.C, api *migrationtarget.API) names.ModelTag {
 	err := api.Import(params.SerializedModel{Bytes: bytes})
 	c.Assert(err, jc.ErrorIsNil)
 	return names.NewModelTag(uuid)
-}
-
-func migrationImportModel(
-	importer migration.StateImporter,
-	getClaimer migration.ClaimerFunc,
-	model description.Model,
-) (*state.Model, migrationtarget.MigrationState, error) {
-	return migration.ImportModel(importer, getClaimer, model)
 }
 
 func precheckShim(s *state.State) func(
