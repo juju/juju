@@ -47,6 +47,15 @@ type unitPresence struct {
 	LastSeen time.Time `db:"last_seen"`
 }
 
+type machinePresence struct {
+	MachineUUID string    `db:"machine_uuid"`
+	LastSeen    time.Time `db:"last_seen"`
+}
+
+type count struct {
+	Count int `db:"count"`
+}
+
 type remoteApplicationUUID struct {
 	RemoteApplicationUUID string `db:"uuid"`
 }
@@ -86,7 +95,7 @@ type unitStatusInfo struct {
 	UpdatedAt *time.Time    `db:"updated_at"`
 }
 
-type unitPresentStatusInfo struct {
+type presentStatusInfo struct {
 	StatusID  int        `db:"status_id"`
 	Message   string     `db:"message"`
 	Data      []byte     `db:"data"`
@@ -372,9 +381,26 @@ type machineStatus struct {
 	Message string              `db:"message"`
 	Data    []byte              `db:"data"`
 	Updated sql.Null[time.Time] `db:"updated_at"`
+	Present sql.Null[bool]      `db:"present"`
 }
 
 type machineNameStatus struct {
+	Name    string              `db:"name"`
+	Status  string              `db:"status"`
+	Message string              `db:"message"`
+	Data    []byte              `db:"data"`
+	Updated sql.Null[time.Time] `db:"updated_at"`
+	Present sql.Null[bool]      `db:"present"`
+}
+
+type instanceStatus struct {
+	Status  string              `db:"status"`
+	Message string              `db:"message"`
+	Data    []byte              `db:"data"`
+	Updated sql.Null[time.Time] `db:"updated_at"`
+}
+
+type instanceNameStatus struct {
 	Name    string              `db:"name"`
 	Status  string              `db:"status"`
 	Message string              `db:"message"`
