@@ -730,7 +730,7 @@ func (s *Service) GetMachineFullStatuses(ctx context.Context) (map[machine.Name]
 		return nil, errors.Capture(err)
 	}
 
-	clusterInfo, err := s.getClusterMachineInfo(ctx)
+	clusterInfo, err := s.getDqliteClusterInfo(ctx)
 	if err != nil {
 		return nil, errors.Errorf("getting cluster machine info: %w", err)
 	}
@@ -755,7 +755,7 @@ func (s *Service) GetMachineFullStatuses(ctx context.Context) (map[machine.Name]
 	return result, nil
 }
 
-func (s *Service) getClusterMachineInfo(ctx context.Context) (map[machine.Name]MachineClusterInfo, error) {
+func (s *Service) getDqliteClusterInfo(ctx context.Context) (map[machine.Name]MachineClusterInfo, error) {
 	if isControllerModel, err := s.modelState.IsControllerModel(ctx); err != nil {
 		return nil, errors.Errorf("checking if controller model: %w", err)
 	} else if !isControllerModel {
