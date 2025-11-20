@@ -2082,6 +2082,7 @@ SELECT
   ms.message AS &machineStatusDetails.machine_message,
   ms.data AS &machineStatusDetails.machine_data,
   ms.updated_at AS &machineStatusDetails.machine_updated_at,
+  vms.present AS &machineStatusDetails.machine_present,
   mcis.status_id AS &machineStatusDetails.instance_status_id,
   mcis.message AS &machineStatusDetails.instance_message,
   mcis.data AS &machineStatusDetails.instance_data,
@@ -2100,6 +2101,7 @@ SELECT
   c.image_id AS &machineStatusDetails.constraint_image_id
 FROM machine AS m
 LEFT JOIN machine_status AS ms ON ms.machine_uuid = m.uuid
+LEFT JOIN v_machine_status AS vms ON vms.machine_uuid = m.uuid
 LEFT JOIN machine_platform AS p ON p.machine_uuid = m.uuid
 LEFT JOIN machine_cloud_instance AS mci ON mci.machine_uuid = m.uuid
 LEFT JOIN machine_cloud_instance_status mcis ON mcis.machine_uuid = m.uuid
@@ -2227,6 +2229,11 @@ LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
 			dnsName = matchedAddrs[0].Value
 		}
 
+		var present bool
+		if s.MachinePresent.Valid {
+			present = s.MachinePresent.V
+		}
+
 		result[s.Name] = status.Machine{
 			UUID:        s.UUID,
 			Life:        s.LifeID,
@@ -2236,11 +2243,14 @@ LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
 			DNSName:     dnsName,
 			IPAddresses: ipAddresses,
 			Platform:    platform,
-			MachineStatus: status.StatusInfo[status.MachineStatusType]{
-				Status:  s.MachineStatusID,
-				Message: s.MachineMessage,
-				Data:    s.MachineData,
-				Since:   s.MachineUpdatedAt,
+			MachineStatus: status.MachineStatusInfo[status.MachineStatusType]{
+				StatusInfo: status.StatusInfo[status.MachineStatusType]{
+					Status:  s.MachineStatusID,
+					Message: s.MachineMessage,
+					Data:    s.MachineData,
+					Since:   s.MachineUpdatedAt,
+				},
+				Present: present,
 			},
 			InstanceStatus: status.StatusInfo[status.InstanceStatusType]{
 				Status:  s.InstanceStatusID,

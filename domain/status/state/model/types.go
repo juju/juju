@@ -430,6 +430,7 @@ type machineStatusDetails struct {
 	MachineMessage             string                    `db:"machine_message"`
 	MachineData                []byte                    `db:"machine_data"`
 	MachineUpdatedAt           *time.Time                `db:"machine_updated_at"`
+	MachinePresent             sql.Null[bool]            `db:"machine_present"`
 	InstanceStatusID           status.InstanceStatusType `db:"instance_status_id"`
 	InstanceMessage            string                    `db:"instance_message"`
 	InstanceData               []byte                    `db:"instance_data"`

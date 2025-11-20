@@ -63,7 +63,7 @@ type Machine struct {
 	IPAddresses             []string
 	InstanceID              instance.Id
 	Life                    life.Life
-	MachineStatus           StatusInfo[MachineStatusType]
+	MachineStatus           MachineStatusInfo[MachineStatusType]
 	InstanceStatus          StatusInfo[InstanceStatusType]
 	Platform                deployment.Platform
 	Constraints             constraints.Constraints

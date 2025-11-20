@@ -2251,6 +2251,9 @@ func (s *modelStateSuite) TestGetMachineFullStatuses(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	err = s.state.SetMachinePresence(c.Context(), mName0)
+	c.Assert(err, tc.ErrorIsNil)
+
 	// Act
 	statuses, err := s.state.GetMachineFullStatuses(c.Context())
 
@@ -2285,10 +2288,13 @@ func (s *modelStateSuite) TestGetMachineFullStatuses(c *tc.C) {
 			DisplayName: mName0.String(),
 			DNSName:     "2.51.45.181",
 			IPAddresses: []string{"2.51.45.181", "10.0.0.154"},
-			MachineStatus: status.StatusInfo[status.MachineStatusType]{
-				Status:  status.MachineStatusStarted,
-				Message: "it's started",
-				Data:    []byte(`{"foo": "bar"}`),
+			MachineStatus: status.MachineStatusInfo[status.MachineStatusType]{
+				StatusInfo: status.StatusInfo[status.MachineStatusType]{
+					Status:  status.MachineStatusStarted,
+					Message: "it's started",
+					Data:    []byte(`{"foo": "bar"}`),
+				},
+				Present: true,
 			},
 			InstanceStatus: status.StatusInfo[status.InstanceStatusType]{
 				Status: status.InstanceStatusPending,
@@ -2313,10 +2319,12 @@ func (s *modelStateSuite) TestGetMachineFullStatuses(c *tc.C) {
 			UUID:        uuid1,
 			InstanceID:  instance.Id(mName1),
 			DisplayName: mName1.String(),
-			MachineStatus: status.StatusInfo[status.MachineStatusType]{
-				Status:  status.MachineStatusPending,
-				Message: "it's pending",
-				Data:    []byte(`{"bar": "foo"}`),
+			MachineStatus: status.MachineStatusInfo[status.MachineStatusType]{
+				StatusInfo: status.StatusInfo[status.MachineStatusType]{
+					Status:  status.MachineStatusPending,
+					Message: "it's pending",
+					Data:    []byte(`{"bar": "foo"}`),
+				},
 			},
 			InstanceStatus: status.StatusInfo[status.InstanceStatusType]{
 				Status: status.InstanceStatusPending,
@@ -2341,8 +2349,10 @@ func (s *modelStateSuite) TestGetMachineFullStatuses(c *tc.C) {
 			UUID:        uuid2,
 			InstanceID:  instance.Id(mName2),
 			DisplayName: mName2.String(),
-			MachineStatus: status.StatusInfo[status.MachineStatusType]{
-				Status: status.MachineStatusPending,
+			MachineStatus: status.MachineStatusInfo[status.MachineStatusType]{
+				StatusInfo: status.StatusInfo[status.MachineStatusType]{
+					Status: status.MachineStatusPending,
+				},
 			},
 			InstanceStatus: status.StatusInfo[status.InstanceStatusType]{
 				Status: status.InstanceStatusPending,
