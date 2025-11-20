@@ -29,6 +29,14 @@ type State struct {
 	*domain.StateBase
 	clock  clock.Clock
 	logger logger.Logger
+	us     *InsertIAASUnitState
+}
+
+// InsertIAASUnitState represents the minium state required to insert an IAAS unit.
+type InsertIAASUnitState struct {
+	*domain.StateBase
+	clock  clock.Clock
+	logger logger.Logger
 }
 
 // NewState returns a new state reference.
@@ -1382,7 +1390,7 @@ func (st *State) checkApplicationNotDead(ctx context.Context, tx *sqlair.TX, app
 
 // checkApplicationLife checks if the application exists and its life has not
 // advanced beyond the specified allowed life.
-// Note: this is a helper method and should be called directly.
+// Note: this is a helper method and should not be called directly.
 // Instead use one of:
 //   - checkApplicationAlive
 //   - checkApplicationNotDead

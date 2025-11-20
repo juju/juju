@@ -17,6 +17,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
+	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
@@ -145,7 +146,7 @@ func (st *State) GetCAASUnitRegistered(
 
 // status data. If returns an error satisfying [applicationerrors.UnitNotFound]
 // if the unit doesn't exist.
-func (st *State) setUnitAgentStatus(
+func (st *InsertIAASUnitState) setUnitAgentStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
@@ -190,7 +191,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 // setUnitWorkloadStatus saves the given unit workload status, overwriting any
 // current status data. If returns an error satisfying
 // [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *State) setUnitWorkloadStatus(
+func (st *InsertIAASUnitState) setUnitWorkloadStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
@@ -648,7 +649,7 @@ func (st *State) AddIAASUnits(
 		}
 
 		for i, arg := range args {
-			uName, _, mNames, err := st.insertIAASUnit(ctx, tx, appUUID, charmUUID, arg)
+			uName, _, mNames, err := st.us.insertIAASUnit(ctx, tx, appUUID, charmUUID, arg)
 			if err != nil {
 				return errors.Errorf("inserting unit %d: %w ", i, err)
 			}
@@ -725,7 +726,7 @@ func (st *State) AddIAASSubordinateUnit(
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check the application is alive.
-		if err := st.checkApplicationAlive(ctx, tx, arg.SubordinateAppID); err != nil {
+		if err := st.us.checkApplicationAlive(ctx, tx, arg.SubordinateAppID); err != nil {
 			return errors.Capture(err)
 		}
 		if err := st.checkUnitNotDead(ctx, tx, arg.PrincipalUnitUUID); err != nil {
@@ -768,7 +769,7 @@ func (st *State) AddIAASSubordinateUnit(
 			},
 		}
 
-		unitName, unitUUID, machineNames, err = st.insertIAASUnit(
+		unitName, unitUUID, machineNames, err = st.us.insertIAASUnit(
 			ctx, tx, arg.SubordinateAppID, charmUUID, addUnitArg,
 		)
 		if err != nil {
@@ -776,7 +777,7 @@ func (st *State) AddIAASSubordinateUnit(
 		}
 
 		// Record the principal/subordinate relationship.
-		if err := st.recordUnitPrincipal(ctx, tx, arg.PrincipalUnitUUID, unitUUID); err != nil {
+		if err := st.us.recordUnitPrincipal(ctx, tx, arg.PrincipalUnitUUID, unitUUID); err != nil {
 			return errors.Errorf("recording principal-subordinate relationship: %w", err)
 		}
 
@@ -1149,7 +1150,7 @@ func (st *State) getUnitDetails(ctx context.Context, tx *sqlair.TX, unitName cor
 	return &unit, nil
 }
 
-func (st *State) getUnitApplicationUUID(ctx context.Context, tx *sqlair.TX, uuid coreunit.UUID) (string, error) {
+func (st *InsertIAASUnitState) getUnitApplicationUUID(ctx context.Context, tx *sqlair.TX, uuid coreunit.UUID) (string, error) {
 	unitUUID := unitUUID{UnitUUID: uuid}
 
 	query, err := st.Prepare(`
@@ -1306,7 +1307,7 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 			return errors.Capture(err)
 		}
 
-		err = st.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.UnitUUID, toUpdate.NetNodeID, cloudContainer)
+		err = st.us.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.UnitUUID, toUpdate.NetNodeID, cloudContainer)
 		if err != nil {
 			return errors.Errorf("updating cloud container for unit %q: %w", arg.UnitName, err)
 		}
@@ -1374,7 +1375,7 @@ func (st *State) insertCAASUnit(
 	charmUUID corecharm.ID,
 	args application.AddCAASUnitArg,
 ) (coreunit.Name, error) {
-	unitName, err := st.newUnitName(ctx, tx, appUUID)
+	unitName, err := st.us.newUnitName(ctx, tx, appUUID)
 	if err != nil {
 		return "", errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
 	}
@@ -1402,7 +1403,7 @@ func (st *State) insertCAASUnitWithName(
 		return "", errors.Capture(err)
 	}
 
-	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, args.NetNodeUUID.String(), insertUnitArg{
+	if err := st.us.insertUnit(ctx, tx, appUUID, unitUUID, args.NetNodeUUID.String(), insertUnitArg{
 		CharmUUID:      charmUUID,
 		UnitName:       unitName,
 		CloudContainer: args.CloudContainer,
@@ -1412,7 +1413,7 @@ func (st *State) insertCAASUnitWithName(
 		return "", errors.Errorf("inserting unit for CAAS application %q: %w", appUUID, err)
 	}
 
-	err = st.insertUnitStorageDirectives(
+	err = st.us.insertUnitStorageDirectives(
 		ctx, tx, unitUUID, charmUUID, args.StorageDirectives,
 	)
 	if err != nil {
@@ -1421,7 +1422,7 @@ func (st *State) insertCAASUnitWithName(
 		)
 	}
 
-	err = st.insertUnitStorageInstances(
+	err = st.us.insertUnitStorageInstances(
 		ctx, tx, args.StorageInstances,
 	)
 	if err != nil {
@@ -1430,7 +1431,7 @@ func (st *State) insertCAASUnitWithName(
 		)
 	}
 
-	err = st.insertUnitStorageAttachments(
+	err = st.us.insertUnitStorageAttachments(
 		ctx,
 		tx,
 		unitUUID,
@@ -1442,7 +1443,7 @@ func (st *State) insertCAASUnitWithName(
 		)
 	}
 
-	err = st.insertUnitStorageOwnership(ctx, tx, unitUUID, args.StorageToOwn)
+	err = st.us.insertUnitStorageOwnership(ctx, tx, unitUUID, args.StorageToOwn)
 	if err != nil {
 		return "", errors.Errorf(
 			"inserting storage ownership for unit %q: %w", unitName, err,
@@ -1454,7 +1455,7 @@ func (st *State) insertCAASUnitWithName(
 
 // placeIAASUnitMachine is responsible for making sure that the machine required
 // by the unit being added has been placed.
-func (st *State) placeIAASUnitMachine(
+func (st *InsertIAASUnitState) placeIAASUnitMachine(
 	ctx context.Context,
 	tx *sqlair.TX,
 	args application.AddIAASUnitArg,
@@ -1486,7 +1487,7 @@ func (st *State) placeIAASUnitMachine(
 	return machineNames, nil
 }
 
-func (st *State) insertIAASUnit(
+func (st *InsertIAASUnitState) insertIAASUnit(
 	ctx context.Context,
 	tx *sqlair.TX,
 	appUUID coreapplication.UUID,
@@ -1585,7 +1586,7 @@ type insertUnitArg struct {
 	application.UnitStatusArg
 }
 
-func (st *State) insertUnit(
+func (st *InsertIAASUnitState) insertUnit(
 	ctx context.Context, tx *sqlair.TX,
 	appUUID coreapplication.UUID,
 	unitUUID coreunit.UUID,
@@ -1652,6 +1653,42 @@ func (st *State) insertUnit(
 	return nil
 }
 
+// checkApplicationAlive checks if the application exists and it is alive.
+func (st *InsertIAASUnitState) checkApplicationAlive(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.UUID) error {
+	type life struct {
+		LifeID corelife.Value `db:"value"`
+	}
+
+	ident := entityUUID{UUID: appUUID.String()}
+	query := `
+SELECT &life.*
+FROM   application AS a
+JOIN   life as l ON a.life_id = l.id
+WHERE  a.uuid = $ident.uuid
+`
+	stmt, err := st.Prepare(query, ident, life{})
+	if err != nil {
+		return errors.Errorf("preparing query for application %q: %w", ident.UUID, err)
+	}
+
+	var result life
+	err = tx.Query(ctx, stmt, ident).Get(&result)
+	if errors.Is(err, sql.ErrNoRows) {
+		return applicationerrors.ApplicationNotFound
+	} else if err != nil {
+		return errors.Errorf("checking application %q exists: %w", ident.UUID, err)
+	}
+
+	switch result.LifeID {
+	case corelife.Dead:
+		return applicationerrors.ApplicationIsDead
+	case corelife.Dying:
+		return applicationerrors.ApplicationNotAlive
+	default:
+		return nil
+	}
+}
+
 // UpdateCAASUnit updates the cloud container for specified unit,
 // returning an error satisfying [applicationerrors.UnitNotFoundError]
 // if the unit doesn't exist.
@@ -1683,17 +1720,17 @@ func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, par
 		}
 
 		if cloudContainer != nil {
-			err = st.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.UnitUUID, toUpdate.NetNodeID, cloudContainer)
+			err = st.us.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.UnitUUID, toUpdate.NetNodeID, cloudContainer)
 			if err != nil {
 				return errors.Errorf("updating cloud container for unit %q: %w", unitName, err)
 			}
 		}
 
-		if err := st.setUnitAgentStatus(ctx, tx, toUpdate.UnitUUID, params.AgentStatus); err != nil {
+		if err := st.us.setUnitAgentStatus(ctx, tx, toUpdate.UnitUUID, params.AgentStatus); err != nil {
 			return errors.Errorf("saving unit %q agent status: %w", unitName, err)
 		}
 
-		if err := st.setUnitWorkloadStatus(ctx, tx, toUpdate.UnitUUID, params.WorkloadStatus); err != nil {
+		if err := st.us.setUnitWorkloadStatus(ctx, tx, toUpdate.UnitUUID, params.WorkloadStatus); err != nil {
 			return errors.Errorf("saving unit %q workload status: %w", unitName, err)
 		}
 		if err := st.setK8sPodStatus(ctx, tx, toUpdate.UnitUUID, params.K8sPodStatus); err != nil {
@@ -2100,7 +2137,7 @@ func (st *State) SetUnitWorkloadVersion(ctx context.Context, unitName coreunit.N
 		if err != nil {
 			return errors.Errorf("getting uuid for unit %q: %w", unitName, err)
 		}
-		return st.setUnitWorkloadVersion(ctx, tx, unitUUID, version)
+		return st.us.setUnitWorkloadVersion(ctx, tx, unitUUID, version)
 	})
 	if err != nil {
 		return errors.Capture(err)
@@ -2113,7 +2150,7 @@ func (st *State) SetUnitWorkloadVersion(ctx context.Context, unitName coreunit.N
 // so we need to do two separate queries. This prevents the workload version
 // from trigging a cascade of unwanted updates to the application and or unit
 // tables.
-func (st *State) setUnitWorkloadVersion(
+func (st *InsertIAASUnitState) setUnitWorkloadVersion(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
@@ -2249,7 +2286,7 @@ WHERE u.application_uuid = $entityUUID.uuid
 
 // newUnitName returns a new name for the unit. It increments the unit counter
 // on the application.
-func (st *State) newUnitName(
+func (st *InsertIAASUnitState) newUnitName(
 	ctx context.Context,
 	tx *sqlair.TX,
 	appID coreapplication.UUID,
@@ -2275,7 +2312,7 @@ func (st *State) newUnitName(
 //
 // It is expected that the caller has already verified that both unit uuids
 // exist in the model.
-func (st *State) recordUnitPrincipal(
+func (st *InsertIAASUnitState) recordUnitPrincipal(
 	ctx context.Context,
 	tx *sqlair.TX,
 	principalUnitUUID, subordinateUnitUUID coreunit.UUID,
@@ -2481,7 +2518,7 @@ WHERE n.name = $unitName.name
 	return netNodeUUIDstrs, nil
 }
 
-func (st *State) upsertUnitCloudContainer(
+func (st *InsertIAASUnitState) upsertUnitCloudContainer(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitName coreunit.Name,
@@ -2553,7 +2590,7 @@ WHERE unit_uuid = $cloudContainer.unit_uuid
 	return nil
 }
 
-func (st *State) upsertCloudContainerAddress(
+func (st *InsertIAASUnitState) upsertCloudContainerAddress(
 	ctx context.Context, tx *sqlair.TX, unitName coreunit.Name, netNodeUUID string, address application.ContainerAddress,
 ) error {
 	// First ensure the address link layer device is upserted.
@@ -2671,7 +2708,7 @@ ON CONFLICT(uuid) DO UPDATE SET
 	return nil
 }
 
-func (st *State) upsertCloudContainerPorts(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, portValues []string) error {
+func (st *InsertIAASUnitState) upsertCloudContainerPorts(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, portValues []string) error {
 	type ports []string
 
 	ccPort := unitK8sPodPort{
@@ -2714,7 +2751,7 @@ DO NOTHING
 // be used for a machine exists. We do this because the business logic around if
 // netnode uuid for a unit is shared or already exists is outside the scope of
 // state.
-func (st *State) ensureFutureUnitNetNode(
+func (st *InsertIAASUnitState) ensureFutureUnitNetNode(
 	ctx context.Context, tx *sqlair.TX, uuid string,
 ) error {
 	netNodeUUID := netNodeUUID{NetNodeUUID: uuid}

@@ -429,7 +429,7 @@ func (st *State) insertIAASApplicationUnits(
 ) ([]coremachine.Name, error) {
 	var machineNames []coremachine.Name
 	for i, unit := range units {
-		_, _, mNames, err := st.insertIAASUnit(ctx, tx, appUUID, charmUUID, unit)
+		_, _, mNames, err := st.us.insertIAASUnit(ctx, tx, appUUID, charmUUID, unit)
 		if err != nil {
 			return nil, errors.Errorf("inserting IAAS unit %d: %w", i, err)
 		}
@@ -1123,7 +1123,7 @@ func addressTypeForUnspecifiedCIDR(cidr string) network.AddressType {
 	}
 }
 
-func (st *State) k8sSubnetUUIDsByAddressType(ctx context.Context, tx *sqlair.TX) (map[network.AddressType]string, error) {
+func (st *InsertIAASUnitState) k8sSubnetUUIDsByAddressType(ctx context.Context, tx *sqlair.TX) (map[network.AddressType]string, error) {
 	result := make(map[network.AddressType]string)
 	subnetStmt, err := st.Prepare(`
  SELECT &subnet.*
@@ -1157,7 +1157,7 @@ func (st *State) insertCloudServiceAddresses(
 		return nil
 	}
 
-	subnetUUIDs, err := st.k8sSubnetUUIDsByAddressType(ctx, tx)
+	subnetUUIDs, err := st.us.k8sSubnetUUIDsByAddressType(ctx, tx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -2468,7 +2468,7 @@ func (st *State) GetApplicationName(ctx context.Context, appID coreapplication.U
 	var name string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		name, err = st.getApplicationName(ctx, tx, appID)
+		name, err = st.us.getApplicationName(ctx, tx, appID)
 		return err
 	})
 	if err != nil {
@@ -2538,7 +2538,7 @@ WHERE  name = $getCharmUpgradeOnError.name AND c.source_id < 2;
 
 // getApplicationName returns the application name. If no application is found,
 // an error satisfying [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) getApplicationName(
+func (st *InsertIAASUnitState) getApplicationName(
 	ctx context.Context,
 	tx *sqlair.TX,
 	id coreapplication.UUID) (string, error) {
