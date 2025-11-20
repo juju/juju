@@ -46,6 +46,44 @@ func (m *MockModelState) EXPECT() *MockModelStateMockRecorder {
 	return m.recorder
 }
 
+// DeleteMachinePresence mocks base method.
+func (m *MockModelState) DeleteMachinePresence(ctx context.Context, name machine.Name) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteMachinePresence", ctx, name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteMachinePresence indicates an expected call of DeleteMachinePresence.
+func (mr *MockModelStateMockRecorder) DeleteMachinePresence(ctx, name any) *MockModelStateDeleteMachinePresenceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteMachinePresence", reflect.TypeOf((*MockModelState)(nil).DeleteMachinePresence), ctx, name)
+	return &MockModelStateDeleteMachinePresenceCall{Call: call}
+}
+
+// MockModelStateDeleteMachinePresenceCall wrap *gomock.Call
+type MockModelStateDeleteMachinePresenceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateDeleteMachinePresenceCall) Return(arg0 error) *MockModelStateDeleteMachinePresenceCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateDeleteMachinePresenceCall) Do(f func(context.Context, machine.Name) error) *MockModelStateDeleteMachinePresenceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateDeleteMachinePresenceCall) DoAndReturn(f func(context.Context, machine.Name) error) *MockModelStateDeleteMachinePresenceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DeleteUnitPresence mocks base method.
 func (m *MockModelState) DeleteUnitPresence(ctx context.Context, name unit.Name) error {
 	m.ctrl.T.Helper()
@@ -1601,6 +1639,44 @@ func (c *MockModelStateSetInstanceStatusCall) Do(f func(context.Context, string,
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateSetInstanceStatusCall) DoAndReturn(f func(context.Context, string, status.StatusInfo[status.InstanceStatusType]) error) *MockModelStateSetInstanceStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetMachinePresence mocks base method.
+func (m *MockModelState) SetMachinePresence(ctx context.Context, name machine.Name) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetMachinePresence", ctx, name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetMachinePresence indicates an expected call of SetMachinePresence.
+func (mr *MockModelStateMockRecorder) SetMachinePresence(ctx, name any) *MockModelStateSetMachinePresenceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachinePresence", reflect.TypeOf((*MockModelState)(nil).SetMachinePresence), ctx, name)
+	return &MockModelStateSetMachinePresenceCall{Call: call}
+}
+
+// MockModelStateSetMachinePresenceCall wrap *gomock.Call
+type MockModelStateSetMachinePresenceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateSetMachinePresenceCall) Return(arg0 error) *MockModelStateSetMachinePresenceCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateSetMachinePresenceCall) Do(f func(context.Context, machine.Name) error) *MockModelStateSetMachinePresenceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateSetMachinePresenceCall) DoAndReturn(f func(context.Context, machine.Name) error) *MockModelStateSetMachinePresenceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

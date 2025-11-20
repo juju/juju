@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/application"
 	database "github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
@@ -862,6 +863,38 @@ func (s *serviceSuite) TestDeleteUnitPresenceInvalidName(c *tc.C) {
 
 	err := s.modelService.DeleteUnitPresence(c.Context(), coreunit.Name("!!!"))
 	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
+}
+
+func (s *serviceSuite) TestSetMachinePresence(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().SetMachinePresence(gomock.Any(), machine.Name("666"))
+
+	err := s.modelService.SetMachinePresence(c.Context(), machine.Name("666"))
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetMachinePresenceInvalidName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.modelService.SetMachinePresence(c.Context(), machine.Name("!!!"))
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *serviceSuite) TestDeleteMachinePresence(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().DeleteMachinePresence(gomock.Any(), machine.Name("666"))
+
+	err := s.modelService.DeleteMachinePresence(c.Context(), machine.Name("666"))
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestDeleteMachinePresenceInvalidName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.modelService.DeleteMachinePresence(c.Context(), machine.Name("!!!"))
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationEmptyModel(c *tc.C) {

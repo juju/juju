@@ -150,6 +150,15 @@ type ModelState interface {
 	// SetMachineStatus sets the status of the specified machine.
 	SetMachineStatus(ctx context.Context, machineName string, status status.StatusInfo[status.MachineStatusType]) error
 
+	// SetMachinePresence marks the presence of the specified machine. The
+	// machine life is not considered when making this query.
+	SetMachinePresence(ctx context.Context, name machine.Name) error
+
+	// DeleteMachinePresence removes the presence of the specified machine. If
+	// the machine isn't found it ignores the error. The machine life is not
+	// considered when making this query.
+	DeleteMachinePresence(ctx context.Context, name machine.Name) error
+
 	// GetAllMachineStatuses returns all the machine statuses for the model,
 	// indexed by machine name.
 	GetAllMachineStatuses(context.Context) (map[string]status.MachineStatusInfo[status.MachineStatusType], error)
@@ -528,6 +537,33 @@ func (s *Service) DeleteUnitPresence(ctx context.Context, unitName coreunit.Name
 		return errors.Capture(err)
 	}
 	return s.modelState.DeleteUnitPresence(ctx, unitName)
+}
+
+// SetMachinePresence marks the presence of the machine in the model. It is
+// called by the machine agent accesses the API server. If the machine is not
+// found, an error satisfying [machineerrors.MachineNotFound] is returned. The
+// machine life is not considered when setting the presence.
+func (s *Service) SetMachinePresence(ctx context.Context, machineName machine.Name) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := machineName.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+	return s.modelState.SetMachinePresence(ctx, machineName)
+}
+
+// DeleteMachinePresence removes the presence of the machine in the model. If
+// the machine is not found, it ignores the error. The machine life is not
+// considered when deleting the presence.
+func (s *Service) DeleteMachinePresence(ctx context.Context, machineName machine.Name) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := machineName.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+	return s.modelState.DeleteMachinePresence(ctx, machineName)
 }
 
 // CheckUnitStatusesReadyForMigration returns an error if the statuses of any units
