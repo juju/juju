@@ -1539,3 +1539,64 @@ UPDATE SET version = excluded.version,
 
 	return nil
 }
+
+// GetAllMachinesWithBase returns a map of machine UUIDs to their resolved platform base.
+//
+// Machines for which the channel field is NULL are skipped and do not appear in the
+// returned map.
+//
+// Machines for which the OS and channel field are both empty will result in a corresponding zero value base returned.
+//
+// This method may return the following errors:
+//   - [coreerrors.NotValid] if, for any machine, either the OS or channel field but not both is non-empty.
+func (st *State) GetAllMachinesWithBase(ctx context.Context) (map[string]corebase.Base, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT mp.machine_uuid AS &machineBase.machine_uuid,
+       os.name AS &machineBase.os,
+       mp.channel AS &machineBase.channel
+FROM   machine_platform AS mp
+JOIN   os ON mp.os_id = os.id
+`, machineBase{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	machineBases := []machineBase{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&machineBases)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting all machines in model with their base information: %w", err)
+	}
+
+	// note that the Channel field may be empty or NULL in the underlying database.
+	m := make(map[string]corebase.Base, len(machineBases))
+	for _, machineBase := range machineBases {
+		if !machineBase.Channel.Valid {
+			// skip machine base with no channel set
+			continue
+		}
+		base, err := corebase.ParseBase(machineBase.OS, machineBase.Channel.V)
+		if err != nil {
+			return nil, errors.Errorf(
+				"parsing machine with UUID %q with OS %q and channel %q: %w",
+				machineBase.MachineUUID,
+				machineBase.OS,
+				machineBase.Channel.V,
+				err,
+			)
+		}
+		m[machineBase.MachineUUID] = base
+	}
+
+	return m, nil
+}

@@ -184,3 +184,10 @@ type unitUUID struct {
 type unitUUIDRef struct {
 	UUID coreunit.UUID `db:"unit_uuid"`
 }
+
+// machineBase represents the base information for a machine.
+type machineBase struct {
+	MachineUUID string           `db:"machine_uuid"`
+	OS          string           `db:"os"`
+	Channel     sql.Null[string] `db:"channel"`
+}

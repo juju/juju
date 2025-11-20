@@ -30,6 +30,9 @@ const (
 )
 
 // ParseBase constructs a Base from the os and channel string.
+// This method may return the following errors:
+// - [coreerrors.NotValid] if either os or channel is empty.
+// However, a zero value Base and a nil error will be returned if both are empty.
 func ParseBase(os string, channel string) (Base, error) {
 	if os == "" && channel == "" {
 		return Base{}, nil
