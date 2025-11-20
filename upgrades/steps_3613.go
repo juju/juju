@@ -3,8 +3,8 @@
 
 package upgrades
 
-// stateStepsFor3612 returns upgrade steps for Juju 3.6.12 that manipulate state directly.
-func stateStepsFor3612() []Step {
+// stateStepsFor3613 returns upgrade steps for Juju 3.6.13 that manipulate state directly.
+func stateStepsFor3613() []Step {
 	return []Step{
 		&upgradeStep{
 			description: "populate application storage unique ID",

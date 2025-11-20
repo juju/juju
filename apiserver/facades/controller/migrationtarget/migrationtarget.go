@@ -298,7 +298,7 @@ func buildCloudSpec(m description.Model, st MigrationState) (cloudspec.CloudSpec
 //  3. daemonset
 //
 // It is used to backfill the storageUniqueID field of an application when
-// migrating from models before 3.6.12 to 3.6.12 and greater.
+// migrating from models before 3.6.13 to 3.6.13 and greater.
 func (api *API) getStorageUniqueID(
 	ctx stdctx.Context,
 	app,

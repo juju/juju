@@ -12,15 +12,15 @@ import (
 	"github.com/juju/juju/upgrades"
 )
 
-var v3612 = version.MustParse("3.6.12")
+var v3613 = version.MustParse("3.6.13")
 
-type steps3612Suite struct {
+type steps3613Suite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&steps3612Suite{})
+var _ = gc.Suite(&steps3613Suite{})
 
-func (s *steps3612Suite) TestPopulateApplicationStorageUniqueID(c *gc.C) {
-	step := findStateStep(c, v3612, "populate application storage unique ID")
+func (s *steps3613Suite) TestPopulateApplicationStorageUniqueID(c *gc.C) {
+	step := findStateStep(c, v3613, "populate application storage unique ID")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
