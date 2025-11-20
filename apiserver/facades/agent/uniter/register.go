@@ -87,14 +87,6 @@ func newUniterAPIWithServices(
 	}
 	aClock := context.Clock()
 	watcherRegistry := context.WatcherRegistry()
-	leadershipChecker, err := context.LeadershipChecker()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	leadershipRevoker, err := context.LeadershipRevoker()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	accessUnit := unitcommon.UnitAccessor(authorizer, services.ApplicationService)
 	accessApplication := applicationAccessor(authorizer)
@@ -144,7 +136,6 @@ func newUniterAPIWithServices(
 	statusAPI := NewStatusAPI(
 		services.StatusService,
 		accessUnitOrApplication,
-		leadershipChecker,
 		aClock,
 	)
 
@@ -160,8 +151,6 @@ func newUniterAPIWithServices(
 		modelType:               modelInfo.Type,
 		clock:                   aClock,
 		auth:                    authorizer,
-		leadershipChecker:       leadershipChecker,
-		leadershipRevoker:       leadershipRevoker,
 		accessUnit:              accessUnit,
 		accessApplication:       accessApplication,
 		accessUnitOrApplication: accessUnitOrApplication,

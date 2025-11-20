@@ -31,7 +31,6 @@ type UniterSecretsSuite struct {
 
 	authorizer *facademocks.MockAuthorizer
 
-	leadership    *MockChecker
 	secretService *MockSecretService
 	authTag       names.Tag
 	clock         clock.Clock
@@ -54,14 +53,13 @@ func (s *UniterSecretsSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
 
-	s.leadership = NewMockChecker(ctrl)
 	s.secretService = NewMockSecretService(ctrl)
 	s.expectAuthUnitAgent()
 
 	s.clock = testclock.NewClock(time.Now())
 
 	var err error
-	s.facade, err = NewTestAPI(c, s.authorizer, s.leadership, s.secretService, nil, s.clock)
+	s.facade, err = NewTestAPI(c, s.authorizer, s.secretService, nil, s.clock)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl

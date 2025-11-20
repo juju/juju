@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -33,7 +32,7 @@ type StatusAPI struct {
 }
 
 // NewStatusAPI creates a new server-side Status setter API facade.
-func NewStatusAPI(statusService StatusService, getCanModify common.GetAuthFunc, leadershipChecker leadership.Checker, clock clock.Clock) *StatusAPI {
+func NewStatusAPI(statusService StatusService, getCanModify common.GetAuthFunc, clock clock.Clock) *StatusAPI {
 	// TODO(fwereade): so *all* of these have exactly the same auth
 	// characteristics? I think not.
 	unitSetter := common.NewUnitStatusSetter(statusService, clock, getCanModify)

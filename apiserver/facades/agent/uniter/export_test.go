@@ -10,7 +10,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/leadership"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -23,7 +22,6 @@ var (
 func NewTestAPI(
 	c *tc.C,
 	authorizer facade.Authorizer,
-	leadership leadership.Checker,
 	secretService SecretService,
 	applicationService ApplicationService,
 	clock clock.Clock,
@@ -36,7 +34,6 @@ func NewTestAPI(
 		auth:               authorizer,
 		secretService:      secretService,
 		applicationService: applicationService,
-		leadershipChecker:  leadership,
 		clock:              clock,
 		logger:             loggertesting.WrapCheckLog(c),
 	}, nil
