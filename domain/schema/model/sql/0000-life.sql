@@ -6,4 +6,5 @@ CREATE TABLE life (
 INSERT INTO life VALUES
 (0, 'alive'),
 (1, 'dying'),
-(2, 'dead');
+(2, 'dead'),
+(3, "undead");
