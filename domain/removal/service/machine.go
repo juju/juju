@@ -338,6 +338,12 @@ func (s *Service) processMachineRemovalJob(ctx context.Context, job removal.Job)
 		return errors.Errorf("getting instance %q life: %w", job.EntityUUID, err)
 	}
 
+	// The machine instance should never be alive, that is a programming error
+	// if it is. The machine instance should either be dying or dead.
+	if l == life.Alive {
+		return errors.Errorf("machine instance %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
+	}
+
 	// This instance hasn't yet been marked as dead, so we will not delete it
 	// yet if not forced.
 	if !job.Force && l != life.Dead {

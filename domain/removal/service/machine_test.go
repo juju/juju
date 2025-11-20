@@ -313,6 +313,19 @@ func (s *machineSuite) TestExecuteJobForMachineInstanceDying(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, removalerrors.EntityNotDead)
 }
 
+func (s *machineSuite) TestExecuteJobForMachineInstanceStillAlive(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newMachineJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetMachineLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
+	exp.GetInstanceLife(gomock.Any(), j.EntityUUID).Return(life.Alive, nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
+}
+
 func (s *machineSuite) TestExecuteJobForMachineDyingReleaseAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
