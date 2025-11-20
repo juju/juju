@@ -221,7 +221,7 @@ func (s *streamSuite) TestOneChangeWithClosedAbort(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectFileNotifyWatcher()
-	s.expectTermAfterAnyTimes()
+	s.expectAfterWithoutTermTimeout()
 	s.expectTimer()
 	s.expectClock()
 	s.expectMetrics()
