@@ -704,6 +704,8 @@ func encodeInstanceStatusType(s corestatus.Status) (status.InstanceStatusType, e
 		return status.InstanceStatusRunning, nil
 	case corestatus.ProvisioningError:
 		return status.InstanceStatusProvisioningError, nil
+	case corestatus.Unknown:
+		return status.InstanceStatusUnknown, nil
 	default:
 		return -1, errors.Errorf("unknown instance status %q", s)
 	}
@@ -723,6 +725,8 @@ func decodeInstanceStatusType(s status.InstanceStatusType) (corestatus.Status, e
 		return corestatus.Running, nil
 	case status.InstanceStatusProvisioningError:
 		return corestatus.ProvisioningError, nil
+	case status.InstanceStatusUnknown:
+		return corestatus.Unknown, nil
 	default:
 		return corestatus.Unset, errors.Errorf("unknown instance status %d", s)
 	}

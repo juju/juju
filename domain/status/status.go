@@ -412,6 +412,7 @@ const (
 	InstanceStatusAllocating
 	InstanceStatusRunning
 	InstanceStatusProvisioningError
+	InstanceStatusUnknown
 )
 
 // EncodeCloudInstanceStatus encodes a InstanceStatusType into

@@ -2220,6 +2220,42 @@ func (s *serviceSuite) TestSetInstanceStatusSuccess(c *tc.C) {
 	}})
 }
 
+func (s *serviceSuite) TestSetInstanceStatusEmpty(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	newStatus := corestatus.StatusInfo{Status: corestatus.Empty}
+	s.modelState.EXPECT().SetInstanceStatus(gomock.Any(), "666", status.StatusInfo[status.InstanceStatusType]{
+		Status: status.InstanceStatusUnknown,
+	}).Return(nil)
+
+	err := s.modelService.
+		SetInstanceStatus(c.Context(), "666", newStatus)
+	c.Check(err, tc.ErrorIsNil)
+
+	c.Check(s.statusHistory.records, tc.DeepEquals, []statusHistoryRecord{{
+		ns: status.MachineInstanceNamespace.WithID("666"),
+		s:  corestatus.StatusInfo{Status: corestatus.Unknown},
+	}})
+}
+
+func (s *serviceSuite) TestSetInstanceStatusUnknown(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	newStatus := corestatus.StatusInfo{Status: corestatus.Unknown}
+	s.modelState.EXPECT().SetInstanceStatus(gomock.Any(), "666", status.StatusInfo[status.InstanceStatusType]{
+		Status: status.InstanceStatusUnknown,
+	}).Return(nil)
+
+	err := s.modelService.
+		SetInstanceStatus(c.Context(), "666", newStatus)
+	c.Check(err, tc.ErrorIsNil)
+
+	c.Check(s.statusHistory.records, tc.DeepEquals, []statusHistoryRecord{{
+		ns: status.MachineInstanceNamespace.WithID("666"),
+		s:  newStatus,
+	}})
+}
+
 // TestSetInstanceStatusError asserts that an error coming from the state layer
 // is preserved, passed over to the service layer to be maintained there.
 func (s *serviceSuite) TestSetInstanceStatusError(c *tc.C) {
