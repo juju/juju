@@ -55,6 +55,11 @@ func Register(requiredMigrationFacadeVersions facades.FacadeVersions) func(regis
 
 // newFacadeV1 is used for APIV1 registration.
 func newFacadeV1(ctx facade.Context) (*APIV1, error) {
+	modelState := ctx.State()
+	controllerState, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	api, err := NewAPI(
 		ctx,
 		stateenvirons.GetNewEnvironFunc(environs.New),
@@ -62,7 +67,7 @@ func newFacadeV1(ctx facade.Context) (*APIV1, error) {
 		facades.FacadeVersions{},
 		newK8sClient,
 		migration.ImportModel,
-		precheckShim(ctx.State()),
+		precheckShim(modelState, controllerState),
 		ctx.State(),
 		ctx.Auth(),
 	)
@@ -74,6 +79,11 @@ func newFacadeV1(ctx facade.Context) (*APIV1, error) {
 
 // newFacadeV2 is used for APIV2 registration.
 func newFacadeV2(ctx facade.Context) (*APIV2, error) {
+	modelState := ctx.State()
+	controllerState, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	api, err := NewAPI(
 		ctx,
 		stateenvirons.GetNewEnvironFunc(environs.New),
@@ -81,7 +91,7 @@ func newFacadeV2(ctx facade.Context) (*APIV2, error) {
 		facades.FacadeVersions{},
 		newK8sClient,
 		migration.ImportModel,
-		precheckShim(ctx.State()),
+		precheckShim(modelState, controllerState),
 		ctx.State(),
 		ctx.Auth(),
 	)
@@ -93,6 +103,11 @@ func newFacadeV2(ctx facade.Context) (*APIV2, error) {
 
 // newFacade is used for API registration.
 func newFacade(ctx facade.Context, facadeVersions facades.FacadeVersions) (*API, error) {
+	modelState := ctx.State()
+	controllerState, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return NewAPI(
 		ctx,
 		stateenvirons.GetNewEnvironFunc(environs.New),
@@ -100,7 +115,7 @@ func newFacade(ctx facade.Context, facadeVersions facades.FacadeVersions) (*API,
 		facadeVersions,
 		newK8sClient,
 		migration.ImportModel,
-		precheckShim(ctx.State()),
+		precheckShim(modelState, controllerState),
 		ctx.State(),
 		ctx.Auth(),
 	)
@@ -119,8 +134,12 @@ func newK8sClient(cloudSpec cloudspec.CloudSpec) (kubernetes.Interface, *rest.Co
 
 // precheckShim wraps [migration.PrecheckShim] so we conform to the contract
 // in [NewAPI].
-func precheckShim(s *state.State) precheckShimFunc {
-	return func(controllerState *state.State) (migration.PrecheckBackend, error) {
-		return migration.PrecheckShim(s, controllerState)
+func precheckShim(modelState, controllerState *state.State) precheckShimFunc {
+	return func() (migration.PrecheckBackend, error) {
+		// NOTE (thumper): it isn't clear to me why modelState would be different
+		// from the controllerState as I had thought that the Precheck call was
+		// on the controller model, in which case it should be the same as the
+		// controllerState.
+		return migration.PrecheckShim(modelState, controllerState)
 	}
 }

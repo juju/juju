@@ -89,6 +89,7 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
+		StatePool_: s.StatePool,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.API))
@@ -102,6 +103,7 @@ func (s *Suite) TestFacadeRegisteredV2(c *gc.C) {
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
+		StatePool_: s.StatePool,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.APIV2))
@@ -542,9 +544,14 @@ func (s *Suite) newAPI(
 	environFunc stateenvirons.NewEnvironFunc,
 	brokerFunc stateenvirons.NewCAASBrokerFunc,
 ) (*migrationtarget.API, error) {
+	modelState := s.facadeContext.State()
+	controllerState, err := s.facadeContext.StatePool().SystemState()
+	if err != nil {
+		return nil, err
+	}
 	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc,
 		brokerFunc, facades.FacadeVersions{}, nil, migration.ImportModel,
-		precheckShim(s.facadeContext.State()), s.facadeContext.State(),
+		precheckShim(modelState, controllerState), s.facadeContext.State(),
 		s.facadeContext.Auth(),
 	)
 	return api, err
@@ -561,9 +568,14 @@ func (s *Suite) newAPIWithFacadeVersions(c *gc.C,
 	brokerFunc stateenvirons.NewCAASBrokerFunc,
 	versions facades.FacadeVersions,
 ) (*migrationtarget.API, error) {
+	modelState := s.facadeContext.State()
+	controllerState, err := s.facadeContext.StatePool().SystemState()
+	if err != nil {
+		return nil, err
+	}
 	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc, brokerFunc,
 		versions, nil, migration.ImportModel,
-		precheckShim(s.facadeContext.State()), s.facadeContext.State(),
+		precheckShim(modelState, controllerState), s.facadeContext.State(),
 		s.facadeContext.Auth(),
 	)
 	return api, err
@@ -616,11 +628,12 @@ func (s *Suite) importModel(c *gc.C, api *migrationtarget.API) names.ModelTag {
 	return names.NewModelTag(uuid)
 }
 
-func precheckShim(s *state.State) func(
+func precheckShim(
+	modelState,
 	controllerState *state.State,
-) (migration.PrecheckBackend, error) {
-	return func(controllerState *state.State) (migration.PrecheckBackend, error) {
-		return migration.PrecheckShim(s, controllerState)
+) func() (migration.PrecheckBackend, error) {
+	return func() (migration.PrecheckBackend, error) {
+		return migration.PrecheckShim(modelState, controllerState)
 	}
 }
 

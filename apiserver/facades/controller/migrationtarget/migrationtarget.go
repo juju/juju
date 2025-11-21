@@ -53,7 +53,7 @@ type newK8sClientFunc func(
 	cloudSpec cloudspec.CloudSpec,
 ) (kubernetes.Interface, *rest.Config, error)
 
-type precheckShimFunc func(controllerState *state.State) (migration.PrecheckBackend, error)
+type precheckShimFunc func() (migration.PrecheckBackend, error)
 
 type importModelFunc func(
 	importer migration.StateImporter,
@@ -169,7 +169,7 @@ with an earlier version of the target controller and try again.
 	if err != nil {
 		return errors.Trace(err)
 	}
-	backend, err := api.precheckShim(controllerState)
+	backend, err := api.precheckShim()
 	if err != nil {
 		return errors.Annotate(err, "creating backend")
 	}
