@@ -44,9 +44,10 @@ func (s *Service) GetStatusHistory(ctx context.Context, request StatusHistoryReq
 
 		results = append(results, record.Status)
 
-		// If we have more than the requested limit, so we can stop reading.
-		if limit := request.Filter.Size; limit > 0 && len(results) >= limit {
-			return true, nil
+		// If we have more than the requested limit, move the slice forward.
+		// (this will allow freeing space on the next realloc)
+		if limit := request.Filter.Size; limit > 0 && len(results) > limit {
+			results = results[1:]
 		}
 
 		return false, nil
