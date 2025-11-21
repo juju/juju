@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4"
@@ -44,6 +45,9 @@ func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.agentConfig.EXPECT().UpgradedToVersion().Return(semversion.MustParse("1.0.0")).AnyTimes()
 	s.upgradeServices.EXPECT().Upgrade().Return(
 		&upgradeservice.WatchableService{},
+	).AnyTimes()
+	s.upgradeServices.EXPECT().ControllerNode().Return(
+		&controllernodeservice.WatchableService{},
 	).AnyTimes()
 	s.upgradeServicesGetter.EXPECT().ServicesForController().Return(
 		s.upgradeServices,
