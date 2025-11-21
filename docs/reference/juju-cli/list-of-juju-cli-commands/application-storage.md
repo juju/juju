@@ -32,23 +32,19 @@ Print the storage directives for the storage name 'pgdata' of the postgresql app
 Set the size to 10GiB, pool name to "rootfs", and count to 1 for the mysql application's 'database' storage specification:
 
     juju application-storage mysql database=10G,rootfs,1
-	OR
-    juju application-storage mysql database=rootfs,1,10G
-	OR
-    juju application-storage mysql database=1,10G,rootfs
 
 
 ## Details
 
-A storage directive describes to the charm how to refer to the storage,
-and where to provision it from and takes the form &lt;storage-name&gt;[=&lt;storage-specification&gt;]; for details
+A storage directive describes to juju how the storage required by a charm should be provisioned
+and takes the form &lt;storage-name&gt;[=&lt;storage-specification&gt;]; for details
 see https://documentation.ubuntu.com/juju/3.6/reference/storage/#storage-directive.
 
 To view all storage directives for the given application:
 
     juju application-storage <application>
 
-By default, the config will be printed in a tabular format. You can instead
+By default, the storage directives will be printed in a tabular format. You can instead
 print it in `json` or `yaml` format using the `--format` flag:
 
    	juju application-storage &lt;application&gt; --format json

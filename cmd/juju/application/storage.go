@@ -60,10 +60,6 @@ Print the storage directives for the storage name 'pgdata' of the postgresql app
 Set the size to 10GiB, pool name to "rootfs", and count to 1 for the mysql application's 'database' storage specification:
 
     juju application-storage mysql database=10G,rootfs,1
-	OR
-    juju application-storage mysql database=rootfs,1,10G
-	OR
-    juju application-storage mysql database=1,10G,rootfs
 `
 )
 
