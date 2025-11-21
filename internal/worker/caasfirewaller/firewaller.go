@@ -6,6 +6,7 @@ package caasfirewaller
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/errors"
+	internalworker "github.com/juju/juju/internal/worker"
 )
 
 // applicationWorkerCreator describes a func that is capable of starting new
@@ -26,6 +28,7 @@ type AppFirewallerWokerCreator func(
 // FirewallerConfig holds configuration for the CAAS unit firewaller worker.
 type FirewallerConfig struct {
 	ApplicationService ApplicationService
+	Clock              clock.Clock
 	Logger             logger.Logger
 	WorkerCreator      AppFirewallerWokerCreator
 }
@@ -33,76 +36,19 @@ type FirewallerConfig struct {
 // firewaller is a worker responsible for watching applications in the model and
 // ensuring they have their corresponding application firewall events handled.
 type firewaller struct {
+	*worker.Runner
 	catacomb   catacomb.Catacomb
 	appService ApplicationService
 	logger     logger.Logger
 
-	appWorkers    map[application.UUID]worker.Worker
+	//appWorkers    map[application.UUID]worker.Worker
 	workerCreator AppFirewallerWokerCreator
 }
 
-// ensureApplicationWorkerStarted ensures that a firewall worker exists for the
-// supplied application uuid.
-func (p *firewaller) ensureApplicationWorkerStarted(
-	ctx context.Context, appUUID application.UUID,
-) error {
-	if _, ok := p.appWorkers[appUUID]; ok {
-		// Already watching the application.
-		return nil
-	}
-
-	p.logger.Debugf(
-		ctx, "creating application %q caas firewaller worker", appUUID,
-	)
-
-	w, err := p.workerCreator(appUUID)
-	if err != nil {
-		return errors.Errorf(
-			"starting new application %q firewall worker: %w",
-			appUUID, err,
-		)
-	}
-
-	err = p.catacomb.Add(w)
-	if err != nil {
-		if werr := worker.Stop(w); werr != nil {
-			return errors.Errorf(
-				"stopping application %q worker after failing to add to catacomb: %w",
-				appUUID, errors.Join(err, werr),
-			)
-		}
-		return errors.Errorf(
-			"adding application %q worker to catacomb: %w", appUUID, err,
-		)
-	}
-
-	p.appWorkers[appUUID] = w
-
-	return nil
-}
-
-// ensureApplicationWorkerStopped ensures that any existing firewall worker for
-// the supplied application uuid is stopped and removed.
-func (p *firewaller) ensureApplicationWorkerStopped(
-	ctx context.Context, appUUID application.UUID,
-) error {
-	w, exists := p.appWorkers[appUUID]
-	if !exists {
-		return nil
-	}
-
-	p.logger.Debugf(
-		ctx, "removing application %q caas firewaller worker", appUUID,
-	)
-
-	defer delete(p.appWorkers, appUUID)
-	err := worker.Stop(w)
-	if err != nil {
-		return errors.Errorf("stopping application %q worker: %w", appUUID, err)
-	}
-
-	return nil
-}
+// applicationWorkerNamePrefix is the prefix used for naming application
+// firewaller workers made by [firewaller]. This name is important as it is used
+// within log messages by the runner when managing the worker.
+const applicationWorkerNamePrefix = "caas-firewaller-application-"
 
 // Kill is part of the worker.Worker interface.
 func (p *firewaller) Kill() {
@@ -155,19 +101,46 @@ func NewFirewallerWorker(config FirewallerConfig) (worker.Worker, error) {
 		return nil, errors.Errorf("validating worker configuration: %w", err)
 	}
 
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Clock: config.Clock,
+		Name:  "application-caas-firewall-workers",
+		IsFatal: func(e error) bool {
+			// It is not fatal if the error is an application not found error.
+			// We don't expect this error to be leaked outwards but just in case
+			// it does.
+			return !errors.Is(e, applicationerrors.ApplicationNotFound)
+		},
+		Logger: internalworker.WrapLogger(config.Logger),
+	})
+	if err != nil {
+		return nil, errors.Errorf(
+			"creating new application firewall runner: %w", err,
+		)
+	}
+
 	p := &firewaller{
+		Runner:        runner,
 		appService:    config.ApplicationService,
 		logger:        config.Logger,
-		appWorkers:    make(map[application.UUID]worker.Worker),
 		workerCreator: config.WorkerCreator,
 	}
 
-	err := catacomb.Invoke(catacomb.Plan{
+	err = catacomb.Invoke(catacomb.Plan{
+		// This is important, we make the catacomb responsible for the life of
+		// [runner]. From this point out we don't have to worry about its life
+		// management.
+		Init: []worker.Worker{runner},
 		Name: "caas-firewaller",
 		Site: &p.catacomb,
 		Work: p.loop,
 	})
-	return p, err
+	if err != nil {
+		return nil, errors.Errorf(
+			"invoking new catacomb for worker: %w", err,
+		)
+	}
+
+	return p, nil
 }
 
 // observeApplicationFirewallChange observes and responds to a single event for
@@ -175,16 +148,13 @@ func NewFirewallerWorker(config FirewallerConfig) (worker.Worker, error) {
 // make sure that a worker is running for the application. If the application
 // is dead or removed and previously created workers will be stopped and
 // removed.
-//
-// Should the application not be using the v2 charm format it will be ignored
-// with no further processing done.
 func (p *firewaller) observeApplicationFirewallChange(
 	ctx context.Context, appUUID application.UUID,
 ) error {
 	appLife, err := p.appService.GetApplicationLife(ctx, appUUID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		// Application no longer exists, make sure that any workers are stopped.
-		return p.ensureApplicationWorkerStopped(ctx, appUUID)
+		return p.stopApplicationWorker(ctx, appUUID)
 	} else if err != nil {
 		return errors.Errorf(
 			"getting current life for application %q: %w",
@@ -194,10 +164,57 @@ func (p *firewaller) observeApplicationFirewallChange(
 
 	if appLife == life.Dead {
 		// Application is dead, make sure that any workers are stopped.
-		return p.ensureApplicationWorkerStopped(ctx, appUUID)
+		return p.stopApplicationWorker(ctx, appUUID)
 	}
 
-	return p.ensureApplicationWorkerStarted(ctx, appUUID)
+	return p.startApplicationWorker(ctx, appUUID)
+}
+
+// startApplicationWorker ensures that a firewall worker exists for the
+// supplied application uuid.
+func (p *firewaller) startApplicationWorker(
+	ctx context.Context, appUUID application.UUID,
+) error {
+	p.logger.Debugf(
+		ctx, "creating application %q caas firewaller worker", appUUID,
+	)
+
+	err := p.Runner.StartWorker(
+		ctx,
+		applicationWorkerNamePrefix+appUUID.String(),
+		func(context.Context) (worker.Worker, error) {
+			return p.workerCreator(appUUID)
+		},
+	)
+	if errors.Is(err, coreerrors.AlreadyExists) {
+		// Worker already exists for the application nothing more to do.
+		return nil
+	} else if err != nil {
+		return errors.Errorf(
+			"starting firewaller worker for application %q: %w", appUUID, err,
+		)
+	}
+
+	return nil
+}
+
+// stopApplicationWorker ensures that any existing firewall worker for
+// the supplied application uuid is stopped and removed.
+func (p *firewaller) stopApplicationWorker(
+	ctx context.Context, appUUID application.UUID,
+) error {
+	p.logger.Debugf(
+		ctx, "removing application %q caas firewaller worker", appUUID,
+	)
+
+	err := p.Runner.StopWorker(applicationWorkerNamePrefix + appUUID.String())
+	if err != nil {
+		return errors.Errorf(
+			"stopping firewaller worker for application %q: %w", appUUID, err,
+		)
+	}
+
+	return nil
 }
 
 // Validate takes the worker [FirewallerConfig] and checks that each field is set to an
@@ -208,6 +225,11 @@ func (p *firewaller) observeApplicationFirewallChange(
 func (config FirewallerConfig) Validate() error {
 	if config.ApplicationService == nil {
 		return errors.New("not valid nil ApplicationService").Add(
+			coreerrors.NotValid,
+		)
+	}
+	if config.Clock == nil {
+		return errors.New("not valid nil Clock").Add(
 			coreerrors.NotValid,
 		)
 	}

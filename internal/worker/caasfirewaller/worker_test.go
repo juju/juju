@@ -11,20 +11,51 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// BlockedWorker is a testing worker implementation that blocks indefinitely
+// until killed. This is used for simulating a running worker when the test does
+// not care about the worker does.
+type BlockedWorker struct {
+	catacomb.Catacomb
+}
+
 // FailingWorker is a dummy test worker that will fail after defined duration.
 //
 // Used for simulating failing child workers and how this propagates through the
 // worker.
 type FailingWorker struct {
-	Catacomb catacomb.Catacomb
+	catacomb.Catacomb
 }
 
 // FailingWorkerError the error returned when [FailingWorker] fails.
 const FailingWorkerError = errors.ConstError("fail duration met")
 
 // Kill places the worker into a dying state.
+func (b *BlockedWorker) Kill() {
+	b.Catacomb.Kill(nil)
+}
+
+// Kill places the worker into a dying state.
 func (f *FailingWorker) Kill() {
 	f.Catacomb.Kill(nil)
+}
+
+// NewBlockedWorker constructs and returns a [BlockedWorker] that will block and
+// wait until the worker is killed.
+func NewBlockedWorker() (*BlockedWorker, error) {
+	b := &BlockedWorker{}
+
+	loop := func() error {
+		select {
+		case <-b.Catacomb.Dying():
+			return b.Catacomb.ErrDying()
+		}
+	}
+
+	return b, catacomb.Invoke(catacomb.Plan{
+		Name: "blocked-worker",
+		Site: &b.Catacomb,
+		Work: loop,
+	})
 }
 
 // NewFailingWorker constructs and returns a [FailingWorker] that will fail
@@ -46,6 +77,12 @@ func NewFailingWorker(d time.Duration) (*FailingWorker, error) {
 		Site: &f.Catacomb,
 		Work: loop,
 	})
+}
+
+// Wait blocks until the worker has finished returning any errors from the
+// worker.
+func (b *BlockedWorker) Wait() error {
+	return b.Catacomb.Wait()
 }
 
 // Wait blocks until the worker has finished returning any errors from the
