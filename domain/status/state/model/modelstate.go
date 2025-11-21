@@ -1974,10 +1974,6 @@ WHERE st.machine_uuid = $machineUUID.uuid;
 	if len(mStatus.Data) > 0 {
 		data = mStatus.Data
 	}
-	var present bool
-	if mStatus.Present.Valid {
-		present = mStatus.Present.V
-	}
 
 	return status.MachineStatusInfo[status.MachineStatusType]{
 		StatusInfo: status.StatusInfo[status.MachineStatusType]{
@@ -1986,7 +1982,7 @@ WHERE st.machine_uuid = $machineUUID.uuid;
 			Since:   since,
 			Data:    data,
 		},
-		Present: present,
+		Present: mStatus.Present,
 	}, nil
 }
 
@@ -2034,10 +2030,6 @@ JOIN machine AS m ON ms.machine_uuid = m.uuid
 		if len(mStatus.Data) > 0 {
 			data = mStatus.Data
 		}
-		var present bool
-		if mStatus.Present.Valid {
-			present = mStatus.Present.V
-		}
 		result[mStatus.Name] = status.MachineStatusInfo[status.MachineStatusType]{
 			StatusInfo: status.StatusInfo[status.MachineStatusType]{
 				Status:  machineStatus,
@@ -2045,7 +2037,7 @@ JOIN machine AS m ON ms.machine_uuid = m.uuid
 				Since:   since,
 				Data:    data,
 			},
-			Present: present,
+			Present: mStatus.Present,
 		}
 	}
 	return result, nil

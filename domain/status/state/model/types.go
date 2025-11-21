@@ -377,7 +377,7 @@ type machineStatus struct {
 	Message string              `db:"message"`
 	Data    []byte              `db:"data"`
 	Updated sql.Null[time.Time] `db:"updated_at"`
-	Present sql.Null[bool]      `db:"present"`
+	Present bool                `db:"present"`
 }
 
 type machineNameStatus struct {
@@ -386,7 +386,7 @@ type machineNameStatus struct {
 	Message string              `db:"message"`
 	Data    []byte              `db:"data"`
 	Updated sql.Null[time.Time] `db:"updated_at"`
-	Present sql.Null[bool]      `db:"present"`
+	Present bool                `db:"present"`
 }
 
 type instanceStatus struct {
