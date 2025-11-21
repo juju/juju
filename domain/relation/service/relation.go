@@ -8,21 +8,35 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	corerelation "github.com/juju/juju/core/relation"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
+	domainapplication "github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/relation/internal"
+	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/statushistory"
 )
+
+// StatusHistory records status information into a generalized way.
+type StatusHistory interface {
+	// RecordStatus records the given status information.
+	// If the status data cannot be marshalled, it will not be recorded, instead
+	// the error will be logged under the data_error key.
+	RecordStatus(context.Context, statushistory.Namespace, corestatus.StatusInfo) error
+}
 
 // State describes retrieval and persistence methods for relations.
 type State interface {
@@ -396,8 +410,10 @@ func (s *LeadershipService) SetRelationApplicationAndUnitSettings(
 
 // Service provides the API for working with relations.
 type Service struct {
-	st     State
-	logger logger.Logger
+	st            State
+	clock         clock.Clock
+	logger        logger.Logger
+	statusHistory StatusHistory
 }
 
 // NewService returns a new service reference wrapping the input state.
@@ -522,13 +538,96 @@ func (s *Service) EnterScope(
 		if subordinateCreator == nil {
 			return errors.Errorf("subordinate creator is nil")
 		}
+		// TODO: remove the subordinate creator from the service.
 		err := subordinateCreator.CreateSubordinate(ctx, *subID, unitName)
 		if err != nil {
 			return errors.Errorf("creating subordinate unit on application %q: %w", *subID, err)
 		}
+		statusArg := s.makeIAASUnitStatusArgs()
+		if err := s.recordUnitStatusHistory(ctx, unitName, statusArg); err != nil {
+			return errors.Errorf("recording status history: %w", err)
+		}
+		// TODO: machineNames previously returned by AddIAASSubordinateUnit.
+		var machineNames []machine.Name
+		s.recordInitMachinesStatusHistory(ctx, machineNames)
 	}
 
 	return nil
+}
+
+// TODO: push makeIAASUnitStatusArgs into state
+func (s *Service) makeIAASUnitStatusArgs() domainapplication.UnitStatusArg {
+	now := ptr(s.clock.Now())
+	return domainapplication.UnitStatusArg{
+		AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+			Status: status.UnitAgentStatusAllocating,
+			Since:  now,
+		},
+		WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+			Status:  status.WorkloadStatusWaiting,
+			Message: corestatus.MessageWaitForMachine,
+			Since:   now,
+		},
+	}
+}
+
+// recordUnitStatusHistory records the initial status history for the unit
+// being added to the application.
+func (s *Service) recordUnitStatusHistory(
+	ctx context.Context,
+	unitName unit.Name,
+	statusArg domainapplication.UnitStatusArg,
+) error {
+	// The agent and workload status are required to be provided when adding
+	// a unit.
+	if statusArg.AgentStatus == nil || statusArg.WorkloadStatus == nil {
+		return errors.Errorf("unit %q status not provided", unitName)
+	}
+
+	// TODO: record the status history for the unit.
+	// Force the presence to be recorded as true, as the unit has just been
+	// added.
+	//if agentStatus, err := decodeUnitAgentStatus(&status.UnitStatusInfo[status.UnitAgentStatusType]{
+	//	StatusInfo: *statusArg.AgentStatus,
+	//	Present:    true,
+	//}); err == nil && agentStatus != nil {
+	//	if err := s.statusHistory.RecordStatus(ctx, status.UnitAgentNamespace.WithID(unitName.String()), *agentStatus); err != nil {
+	//		s.logger.Warningf(ctx, "recording agent status for unit %q: %v", unitName, err)
+	//	}
+	//}
+	//
+	//if workloadStatus, err := decodeUnitWorkloadStatus(&status.UnitStatusInfo[status.WorkloadStatusType]{
+	//	StatusInfo: *statusArg.WorkloadStatus,
+	//	Present:    true,
+	//}); err == nil && workloadStatus != nil {
+	//	if err := s.statusHistory.RecordStatus(ctx, status.UnitWorkloadNamespace.WithID(unitName.String()), *workloadStatus); err != nil {
+	//		s.logger.Warningf(ctx, "recording workload status for unit %q: %v", unitName, err)
+	//	}
+	//}
+
+	return nil
+}
+
+// recordInitMachinesStatusHistory records the initial status history for the
+// machines created for the application. The status is set to Pending, and
+// the Since time is set to the current time.
+func (s *Service) recordInitMachinesStatusHistory(
+	ctx context.Context,
+	machineNames []machine.Name,
+) {
+	// Record the status history for the machines created for the application.
+	machineStatusInfo := corestatus.StatusInfo{
+		Status: corestatus.Pending,
+		Since:  ptr(s.clock.Now()),
+	}
+	for _, machineName := range machineNames {
+		if err := s.statusHistory.RecordStatus(ctx, status.MachineNamespace.WithID(machineName.String()), machineStatusInfo); err != nil {
+			s.logger.Warningf(ctx, "recording machine %q status history: %w", machineName, err)
+		}
+		if err := s.statusHistory.RecordStatus(ctx, status.MachineInstanceNamespace.WithID(machineName.String()), machineStatusInfo); err != nil {
+			s.logger.Warningf(ctx, "recording machine instance %q status history: %w", machineName, err)
+		}
+	}
 }
 
 // SetRelationRemoteApplicationAndUnitSettings will set the application and
@@ -1195,4 +1294,8 @@ func settingsMap(in map[string]interface{}) (map[string]string, error) {
 		}
 		return k, fmt.Sprintf("%v", v)
 	}), errs
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
