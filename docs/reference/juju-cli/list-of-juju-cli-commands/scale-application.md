@@ -23,4 +23,4 @@ Set the desired number of k8s application units.
 
 Scale a Kubernetes application by specifying how many units there should be.
 The new number of units can be greater or less than the current number, thus
-allowing both scale up and scale down.
+allowing both scale out and scale in.
