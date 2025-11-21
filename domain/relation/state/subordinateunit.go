@@ -507,7 +507,7 @@ func (st *State) getNetNodeUUID(ctx context.Context, tx *sqlair.TX, unitUUID str
 	stmt, err := st.Prepare(`
 SELECT &netNodeUUID.*
 FROM   unit
-WHERE  uuid = entityUUID.uuid
+WHERE  uuid = $entityUUID.uuid
 `, input, dbVal)
 	if err != nil {
 		return "", errors.Capture(err)
