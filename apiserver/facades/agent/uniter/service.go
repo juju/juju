@@ -179,11 +179,6 @@ type ApplicationService interface {
 	// GetUnitRefreshAttributes returns the refresh attributes for the unit.
 	GetUnitRefreshAttributes(context.Context, coreunit.Name) (domainapplication.UnitAttributes, error)
 
-	// AddIAASSubordinateUnit adds a IAAS unit to the specified subordinate
-	// application to the application on the same machine as the given principal
-	// unit and records the principal-subordinate relationship.
-	AddIAASSubordinateUnit(ctx context.Context, subordinateAppID coreapplication.UUID, principalUnitName coreunit.Name) error
-
 	// SetUnitWorkloadVersion sets the workload version for the given unit.
 	SetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name, version string) error
 
@@ -440,20 +435,23 @@ type RelationService interface {
 	// overwritten in the relation according to the supplied map.
 	//
 	// If there is a subordinate application related to the unit entering scope
-	// that needs a subordinate unit creating, then the subordinate unit will be
-	// created with the provided createSubordinate function.
+	// that needs a subordinate unit created, then the subordinate unit will be
+	// created.
 	//
 	// The following error types can be expected to be returned:
 	//   - [relationerrors.PotentialRelationUnitNotValid] if the unit entering
 	//     scope is a subordinate and the endpoint scope is charm.ScopeContainer
 	//     where the other application is a principal, but not in the current
 	//     relation.
+	//   - [relationerrors.CannotEnterScopeNotAlive] if the unit or relation is not
+	//     alive.
+	//   - [relationerrors.CannotEnterScopeSubordinateNotAlive] if a subordinate
+	//     unit is needed but already exists and is not alive.
 	EnterScope(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
 		unitName coreunit.Name,
 		settings map[string]string,
-		createSubordinate relation.SubordinateCreator,
 	) error
 
 	// GetGoalStateRelationDataForApplication returns GoalStateRelationData for

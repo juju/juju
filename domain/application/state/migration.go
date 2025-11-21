@@ -399,7 +399,7 @@ func (st *State) importCAASUnit(
 		return errors.Errorf("generating new net node uuid for imported unit: %w", err)
 	}
 
-	err = st.insertUnit(
+	err = st.us.insertUnit(
 		ctx, tx, appUUID, unitUUID, netNodeUUID.String(),
 		insertUnitArg{
 			CharmUUID:      charmUUID,
@@ -472,7 +472,7 @@ func (st *State) importIAASUnit(
 		return errors.Errorf("getting charm for application %q: %w", appUUID, err)
 	}
 
-	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, netNodeUUID, insertUnitArg{
+	if err := st.us.insertUnit(ctx, tx, appUUID, unitUUID, netNodeUUID, insertUnitArg{
 		CharmUUID:      charmUUID,
 		UnitName:       args.UnitName,
 		CloudContainer: args.CloudContainer,

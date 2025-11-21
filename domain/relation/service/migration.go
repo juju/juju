@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/relation"
+	"github.com/juju/juju/domain/relation/internal"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 )
@@ -55,7 +56,7 @@ type MigrationState interface {
 		relationUUID corerelation.UUID,
 		unitName unit.Name,
 		settings map[string]string,
-	) error
+	) (internal.SubordinateUnitStatusHistoryData, error)
 
 	// DeleteImportedRelations deletes all imported relations in a model during
 	// an import rollback.
@@ -143,7 +144,7 @@ func (s *MigrationService) importRelationEndpoint(ctx context.Context, relUUID c
 		if err != nil {
 			return err
 		}
-		err = s.st.EnterScope(ctx, relUUID, unit.Name(unitName), settings)
+		_, err = s.st.EnterScope(ctx, relUUID, unit.Name(unitName), settings)
 		if err != nil {
 			return err
 		}

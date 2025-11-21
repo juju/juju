@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/application"
@@ -15,14 +16,26 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
+	domainapplication "github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/relation/internal"
+	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/statushistory"
 )
+
+// StatusHistory records status information into a generalized way.
+type StatusHistory interface {
+	// RecordStatus records the given status information.
+	// If the status data cannot be marshalled, it will not be recorded, instead
+	// the error will be logged under the data_error key.
+	RecordStatus(context.Context, statushistory.Namespace, corestatus.StatusInfo) error
+}
 
 // State describes retrieval and persistence methods for relations.
 type State interface {
@@ -42,14 +55,6 @@ type State interface {
 	// by ep1 and ep2 and returns the created endpoints.
 	AddRelation(ctx context.Context, ep1, ep2 relation.CandidateEndpointIdentifier, cidrs ...string) (relation.Endpoint, relation.Endpoint, error)
 
-	// NeedsSubordinateUnit checks if there is a subordinate application
-	// related to the principal unit that needs a subordinate unit created.
-	NeedsSubordinateUnit(
-		ctx context.Context,
-		relationUUID corerelation.UUID,
-		principalUnitName unit.Name,
-	) (*application.UUID, error)
-
 	// EnterScope indicates that the provided unit has joined the relation. When
 	// the unit has already entered its relation scope, EnterScope will report
 	// success but make no changes to state. The unit's settings are created in
@@ -61,7 +66,7 @@ type State interface {
 		relationUUID corerelation.UUID,
 		unitName unit.Name,
 		settings map[string]string,
-	) error
+	) (internal.SubordinateUnitStatusHistoryData, error)
 
 	// SetRelationRemoteApplicationAndUnitSettings will set the application and
 	// unit settings for a remote relation. If the unit has not yet entered
@@ -396,8 +401,10 @@ func (s *LeadershipService) SetRelationApplicationAndUnitSettings(
 
 // Service provides the API for working with relations.
 type Service struct {
-	st     State
-	logger logger.Logger
+	st            State
+	clock         clock.Clock
+	logger        logger.Logger
+	statusHistory StatusHistory
 }
 
 // NewService returns a new service reference wrapping the input state.
@@ -470,8 +477,7 @@ func (s *Service) ApplicationRelationsInfo(
 // report success but make no changes to state, nor trigger a subordinate unit.
 //
 // If there is a subordinate application related to the unit entering scope that
-// needs a subordinate unit creating, then the subordinate unit will be created
-// with the provided createSubordinate function.
+// needs a subordinate unit created, then the subordinate unit will be created.
 //
 // The following error types can be expected to be returned:
 //   - [relationerrors.PotentialRelationUnitNotValid] if the unit entering
@@ -487,7 +493,6 @@ func (s *Service) EnterScope(
 	relationUUID corerelation.UUID,
 	unitName unit.Name,
 	settings map[string]string,
-	subordinateCreator relation.SubordinateCreator,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -501,30 +506,55 @@ func (s *Service) EnterScope(
 	}
 
 	// Enter the unit into the relation scope.
-	err := s.st.EnterScope(ctx, relationUUID, unitName, settings)
+	subordinateUnitStatusHistoryData, err := s.st.EnterScope(ctx, relationUUID, unitName, settings)
 	if errors.Is(err, relationerrors.RelationUnitAlreadyExists) {
 		return nil
 	} else if err != nil {
 		return errors.Capture(err)
 	}
 
-	// Check if a subordinate unit needs creating.
-	subID, err := s.st.NeedsSubordinateUnit(ctx, relationUUID, unitName)
-	if err != nil {
-		return errors.Capture(err)
-	} else if subID != nil {
-		// Create the required unit on the related subordinate application.
-		//
-		// TODO(aflynn): In 3.6 the subordinate was created in the same
-		// transaction as the principal entering scope. This is not the case
-		// here. If the subordinate creation fails, there should be some retry
-		// mechanism, or a rollback of enter scope.
-		if subordinateCreator == nil {
-			return errors.Errorf("subordinate creator is nil")
+	// If the subordinate unit was not created, exit here.
+	if !subordinateUnitStatusHistoryData.SubordinateCreated() {
+		return nil
+	}
+
+	if err := s.recordUnitStatusHistory(ctx, unitName, subordinateUnitStatusHistoryData.UnitStatus); err != nil {
+		return errors.Errorf("recording status history: %w", err)
+	}
+
+	return nil
+}
+
+// recordUnitStatusHistory records the initial status history for the unit
+// being added to the application.
+func (s *Service) recordUnitStatusHistory(
+	ctx context.Context,
+	unitName unit.Name,
+	statusArg domainapplication.UnitStatusArg,
+) error {
+	// The agent and workload status are required to be provided when adding
+	// a unit.
+	if statusArg.AgentStatus == nil || statusArg.WorkloadStatus == nil {
+		return errors.Errorf("unit %q status not provided", unitName)
+	}
+
+	// Force the presence to be recorded as true, as the unit has just been
+	// added.
+	if agentStatus, err := decodeUnitAgentStatus(&status.UnitStatusInfo[status.UnitAgentStatusType]{
+		StatusInfo: *statusArg.AgentStatus,
+		Present:    true,
+	}); err == nil && agentStatus != nil {
+		if err := s.statusHistory.RecordStatus(ctx, status.UnitAgentNamespace.WithID(unitName.String()), *agentStatus); err != nil {
+			s.logger.Warningf(ctx, "recording agent status for unit %q: %v", unitName, err)
 		}
-		err := subordinateCreator.CreateSubordinate(ctx, *subID, unitName)
-		if err != nil {
-			return errors.Errorf("creating subordinate unit on application %q: %w", *subID, err)
+	}
+
+	if workloadStatus, err := decodeUnitWorkloadStatus(&status.UnitStatusInfo[status.WorkloadStatusType]{
+		StatusInfo: *statusArg.WorkloadStatus,
+		Present:    true,
+	}); err == nil && workloadStatus != nil {
+		if err := s.statusHistory.RecordStatus(ctx, status.UnitWorkloadNamespace.WithID(unitName.String()), *workloadStatus); err != nil {
+			s.logger.Warningf(ctx, "recording workload status for unit %q: %v", unitName, err)
 		}
 	}
 

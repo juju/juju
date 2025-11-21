@@ -4,7 +4,6 @@
 package relation
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -272,13 +271,6 @@ type RelationUnitsChange struct {
 	// Departed holds a set of units that have previously been reported to
 	// be in scope, but which no longer are, referenced by unit name.
 	Departed []unit.Name
-}
-
-// SubordinateCreator creates subordinate units in the database.
-type SubordinateCreator interface {
-	// CreateSubordinate is the signature of the function used to create units on a
-	// subordinate application.
-	CreateSubordinate(ctx context.Context, subordinateAppID application.UUID, principalUnitName unit.Name) error
 }
 
 // GoalStateRelationData contains the necessary data from the relation
