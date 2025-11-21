@@ -131,11 +131,11 @@ func (n *AgentPresence) Leave(ctx context.Context) {
 	case names.UnitTag:
 		err := statusService.DeleteUnitPresence(ctx, unit.Name(t.Id()))
 		if err != nil {
-			n.logger.Infof(ctx, "recording presence for agent %s: unable delete unit presence: %v", t, err)
+			n.logger.Infof(ctx, "recording presence for agent %s: unable to delete unit presence: %v", t, err)
 		}
 	case names.MachineTag:
 		if err := statusService.DeleteMachinePresence(ctx, machine.Name(t.Id())); err != nil {
-			n.logger.Infof(ctx, "recording presence for agent %s: unable delete machine presence: %v", t, err)
+			n.logger.Infof(ctx, "recording presence for agent %s: unable to delete machine presence: %v", t, err)
 		}
 	}
 }
