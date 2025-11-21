@@ -50,8 +50,8 @@ type ApplicationState interface {
 
 	// GetApplicationUUIDByName returns the application UUID for the named
 	// application.
-	// If no application is found, an error satisfying
-	// [applicationerrors.ApplicationNotFound] is returned.
+	// Note: This method filters out synthetic applications (remote offerers and
+	// remote consumers).
 	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
 	// CreateIAASApplication creates an application. Returns the application UUID,
@@ -799,11 +799,12 @@ func (s *Service) GetApplicationName(ctx context.Context, appUUID coreapplicatio
 	return name, nil
 }
 
-// GetApplicationUUIDByName returns an application UUID by application name. It
-// returns an error if the application can not be found by the name.
+// GetApplicationUUIDByName returns an application UUID by application name.
+// Note: This method filters out synthetic applications (remote offerers and
+// remote consumers).
 //
-// Returns [applicationerrors.ApplicationNameNotValid] if the name is not valid,
-// and [applicationerrors.ApplicationNotFound] if the application is not found.
+// Returns [applicationerrors.ApplicationNotFound] if the application is not
+// found or if it is a synthetic SAAS application.
 func (s *Service) GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
