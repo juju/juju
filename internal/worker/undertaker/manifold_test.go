@@ -49,10 +49,6 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.GetRemovalServiceGetter = nil
-	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig()
 	cfg.Clock = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
@@ -72,9 +68,6 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		},
 		GetControllerModelService: func(ctx context.Context, getter dependency.Getter, domainServicesName string) (ControllerModelService, error) {
 			return s.controllerModelService, nil
-		},
-		GetRemovalServiceGetter: func(ctx context.Context, getter dependency.Getter, domainServicesName string) (RemovalServiceGetter, error) {
-			return s.removalServiceGetter, nil
 		},
 	}
 }

@@ -15,7 +15,6 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
 	internalworker "github.com/juju/juju/internal/worker"
 )
@@ -24,7 +23,6 @@ import (
 type Config struct {
 	DBDeleter              coredatabase.DBDeleter
 	ControllerModelService ControllerModelService
-	RemovalServiceGetter   RemovalServiceGetter
 	Logger                 logger.Logger
 	Clock                  clock.Clock
 }
@@ -35,7 +33,6 @@ type Worker struct {
 	runner                 *worker.Runner
 	dbDeleter              coredatabase.DBDeleter
 	controllerModelService ControllerModelService
-	removalServiceGetter   RemovalServiceGetter
 	logger                 logger.Logger
 	clock                  clock.Clock
 }
@@ -61,7 +58,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 		runner:                 runner,
 		dbDeleter:              config.DBDeleter,
 		controllerModelService: config.ControllerModelService,
-		removalServiceGetter:   config.RemovalServiceGetter,
 		logger:                 config.Logger,
 		clock:                  config.Clock,
 	}
@@ -130,12 +126,7 @@ func (w *Worker) loop() error {
 
 func (w *Worker) handleDeadModel(ctx context.Context, mUUID model.UUID) error {
 	err := w.runner.StartWorker(ctx, mUUID.String(), func(ctx context.Context) (worker.Worker, error) {
-		removalService, err := w.removalServiceGetter.GetRemovalService(ctx, mUUID)
-		if err != nil {
-			return nil, errors.Errorf("getting removal service for model %s: %w", mUUID, err)
-		}
-
-		return newModelWorker(mUUID, removalService, w.dbDeleter), nil
+		return newModelWorker(mUUID, w.dbDeleter), nil
 	})
 	if err != nil && !errors.Is(err, jujuerrors.AlreadyExists) {
 		return errors.Errorf("starting worker for model %s: %w", mUUID, err)
@@ -147,16 +138,14 @@ func (w *Worker) handleDeadModel(ctx context.Context, mUUID model.UUID) error {
 type modelWorker struct {
 	tomb tomb.Tomb
 
-	modelUUID      model.UUID
-	removalService RemovalService
-	dbDeleter      coredatabase.DBDeleter
+	modelUUID model.UUID
+	dbDeleter coredatabase.DBDeleter
 }
 
-func newModelWorker(modelUUID model.UUID, removalService RemovalService, dbDeleter coredatabase.DBDeleter) *modelWorker {
+func newModelWorker(modelUUID model.UUID, dbDeleter coredatabase.DBDeleter) *modelWorker {
 	w := &modelWorker{
-		modelUUID:      modelUUID,
-		removalService: removalService,
-		dbDeleter:      dbDeleter,
+		modelUUID: modelUUID,
+		dbDeleter: dbDeleter,
 	}
 
 	w.tomb.Go(w.loop)
@@ -193,13 +182,6 @@ func (w *modelWorker) loop() error {
 }
 
 func (w *modelWorker) deleteModel(ctx context.Context) error {
-	if err := w.removalService.DeleteModel(ctx); err != nil && !errors.IsOneOf(err,
-		coredatabase.ErrDBNotFound,
-		modelerrors.NotFound,
-	) {
-		return errors.Errorf("deleting model: %w", err)
-	}
-
 	if err := w.dbDeleter.DeleteDB(w.modelUUID.String()); err != nil && !errors.Is(err, jujuerrors.NotFound) {
 		return errors.Errorf("deleting database %s: %w", w.modelUUID, err)
 	}
