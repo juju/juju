@@ -123,6 +123,6 @@ behavior.
 
 ### Behavior on machines vs. Kubernetes
 
- On machines, charm upgrades happen at the same time on all units of an application.
- However, on Kubernetes, because of the way Kubernetes works, charm upgrades happen
- sequentially, unit by unit.
+On machines, charm upgrades happen at the same time on all units of an application.
+However, on Kubernetes, because Juju deploys applications as StatefulSets
+with rolling updates, charm upgrades happen sequentially, unit by unit.
