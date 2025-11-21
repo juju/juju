@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"slices"
 
 	"github.com/juju/juju/core/agentbinary"
 	corebase "github.com/juju/juju/core/base"
@@ -909,6 +910,18 @@ func (s *Service) validateModelCanBeUpgraded(
 	//}
 
 	return nil
+}
+
+// machineUsesSupportedBase returns a predicate for maps.DeleteFunc that
+// removes machines whose base matches one of the supported bases.
+// Bases are considered equal if their OS and track match while risk and branch are ignored.
+func machineUsesSupportedBase(supported []corebase.Base) func(uuid string, b corebase.Base) bool {
+	return func(_ string, b corebase.Base) bool {
+		// We only compare OS and Track.
+		return slices.ContainsFunc(supported, func(s corebase.Base) bool {
+			return b.OS == s.OS && b.Channel.Track == s.Channel.Track
+		})
+	}
 }
 
 // validateModelCanBeUpgradedTo checks to see if the model can be upgraded to
