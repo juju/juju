@@ -4,6 +4,7 @@
 package service
 
 import (
+	"maps"
 	"testing"
 
 	"github.com/juju/tc"
@@ -11,6 +12,7 @@ import (
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	corearch "github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/semversion"
@@ -1113,4 +1115,205 @@ func (s *modelUpgradeSuite) TestUpgradeModelTargetAgentVersionStreamTo(c *tc.C) 
 		c.Context(), desiredVersion, domainagentbinary.AgentStreamProposed,
 	)
 	c.Check(err, tc.ErrorIsNil)
+}
+
+func (s *modelUpgradeSuite) TestMachinesUsingSupportedBase(c *tc.C) {
+	// Supported bases: ubuntu 22.04 and ubuntu 24.04
+	supported := []corebase.Base{
+		tc.Must2(c, corebase.ParseBase, "ubuntu", "22.04"),
+		tc.Must2(c, corebase.ParseBase, "ubuntu", "24.04"),
+	}
+
+	machines := map[string]corebase.Base{
+		// Should be deleted: same OS + Track, no risk
+		"m0": {
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "22.04",
+			},
+		},
+		// Should be deleted: same OS + Track, same risk
+		"m1": {
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "22.04",
+				Risk:  "stable",
+			},
+		},
+		// Should be deleted: same OS + Track, different risk
+		"m2": {
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "24.04",
+				Risk:  "edge",
+			},
+		},
+		// Should stay: unsupported track
+		"m3": {
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "20.04",
+				Risk:  "stable",
+			},
+		},
+		// Should stay: different OS
+		"m4": {
+			OS: "centos",
+			Channel: corebase.Channel{
+				Track: "24.04",
+				Risk:  "stable",
+			},
+		},
+		// Should stay: empty track
+		"m5": {
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "",
+			},
+		},
+		// Should stay: empty OS
+		"m6": {
+			OS: "",
+			Channel: corebase.Channel{
+				Track: "24.04",
+			},
+		},
+	}
+
+	maps.DeleteFunc(machines, machineUsesSupportedBase(supported))
+
+	c.Assert(machines, tc.DeepEquals, map[string]corebase.Base{
+		"m3": {
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "20.04",
+				Risk:  "stable",
+			},
+		},
+		"m4": {
+			OS: "centos",
+			Channel: corebase.Channel{
+				Track: "24.04",
+				Risk:  "stable",
+			},
+		},
+		"m5": {
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "",
+			},
+		},
+		"m6": {
+			OS: "",
+			Channel: corebase.Channel{
+				Track: "24.04",
+			},
+		},
+	})
+}
+
+func (s *modelUpgradeSuite) TestMachinesUsingSupportedBaseNilSupportedBases(c *tc.C) {
+	// Supported bases: nil
+	var supported []corebase.Base
+
+	// All should stay: no supported bases
+	machines := map[string]corebase.Base{
+		"m0": {
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "22.04",
+			},
+		},
+		"m1": {
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "22.04",
+				Risk:  "stable",
+			},
+		},
+		"m2": {
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "24.04",
+				Risk:  "edge",
+			},
+		},
+		"m3": {
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "20.04",
+				Risk:  "stable",
+			},
+		},
+		"m4": {
+			OS: "centos",
+			Channel: corebase.Channel{
+				Track: "24.04",
+				Risk:  "stable",
+			},
+		},
+		"m5": {
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "",
+			},
+		},
+		"m6": {
+			OS: "",
+			Channel: corebase.Channel{
+				Track: "24.04",
+			},
+		},
+	}
+
+	maps.DeleteFunc(machines, machineUsesSupportedBase(supported))
+
+	c.Assert(machines, tc.DeepEquals, map[string]corebase.Base{
+		"m0": {
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "22.04",
+			},
+		},
+		"m1": {
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "22.04",
+				Risk:  "stable",
+			},
+		},
+		"m2": {
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "24.04",
+				Risk:  "edge",
+			},
+		},
+		"m3": {
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "20.04",
+				Risk:  "stable",
+			},
+		},
+		"m4": {
+			OS: "centos",
+			Channel: corebase.Channel{
+				Track: "24.04",
+				Risk:  "stable",
+			},
+		},
+		"m5": {
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "",
+			},
+		},
+		"m6": {
+			OS: "",
+			Channel: corebase.Channel{
+				Track: "24.04",
+			},
+		},
+	})
 }
