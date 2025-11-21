@@ -12,7 +12,8 @@ package upgradedatabase
 import (
 	reflect "reflect"
 
-	service "github.com/juju/juju/domain/upgrade/service"
+	service "github.com/juju/juju/domain/controllernode/service"
+	service0 "github.com/juju/juju/domain/upgrade/service"
 	services "github.com/juju/juju/internal/services"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -40,11 +41,49 @@ func (m *MockUpgradeServices) EXPECT() *MockUpgradeServicesMockRecorder {
 	return m.recorder
 }
 
+// ControllerNode mocks base method.
+func (m *MockUpgradeServices) ControllerNode() *service.WatchableService {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerNode")
+	ret0, _ := ret[0].(*service.WatchableService)
+	return ret0
+}
+
+// ControllerNode indicates an expected call of ControllerNode.
+func (mr *MockUpgradeServicesMockRecorder) ControllerNode() *MockUpgradeServicesControllerNodeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerNode", reflect.TypeOf((*MockUpgradeServices)(nil).ControllerNode))
+	return &MockUpgradeServicesControllerNodeCall{Call: call}
+}
+
+// MockUpgradeServicesControllerNodeCall wrap *gomock.Call
+type MockUpgradeServicesControllerNodeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockUpgradeServicesControllerNodeCall) Return(arg0 *service.WatchableService) *MockUpgradeServicesControllerNodeCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockUpgradeServicesControllerNodeCall) Do(f func() *service.WatchableService) *MockUpgradeServicesControllerNodeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockUpgradeServicesControllerNodeCall) DoAndReturn(f func() *service.WatchableService) *MockUpgradeServicesControllerNodeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Upgrade mocks base method.
-func (m *MockUpgradeServices) Upgrade() *service.WatchableService {
+func (m *MockUpgradeServices) Upgrade() *service0.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Upgrade")
-	ret0, _ := ret[0].(*service.WatchableService)
+	ret0, _ := ret[0].(*service0.WatchableService)
 	return ret0
 }
 
@@ -61,19 +100,19 @@ type MockUpgradeServicesUpgradeCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockUpgradeServicesUpgradeCall) Return(arg0 *service.WatchableService) *MockUpgradeServicesUpgradeCall {
+func (c *MockUpgradeServicesUpgradeCall) Return(arg0 *service0.WatchableService) *MockUpgradeServicesUpgradeCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUpgradeServicesUpgradeCall) Do(f func() *service.WatchableService) *MockUpgradeServicesUpgradeCall {
+func (c *MockUpgradeServicesUpgradeCall) Do(f func() *service0.WatchableService) *MockUpgradeServicesUpgradeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUpgradeServicesUpgradeCall) DoAndReturn(f func() *service.WatchableService) *MockUpgradeServicesUpgradeCall {
+func (c *MockUpgradeServicesUpgradeCall) DoAndReturn(f func() *service0.WatchableService) *MockUpgradeServicesUpgradeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
