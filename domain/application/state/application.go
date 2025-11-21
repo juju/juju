@@ -2479,8 +2479,12 @@ func (st *State) GetApplicationName(ctx context.Context, appID coreapplication.U
 
 // GetApplicationUUIDByName returns the application UUID for the named
 // application.
+// Note: This method filters out synthetic applications (remote offerers and
+// remote consumers).
+//
 // The following errors may be returned:
-// - [applicationerrors.ApplicationNotFound] if the application does not exist
+//   - [applicationerrors.ApplicationNotFound] if the application does not exist
+//     or if it is a synthetic application
 func (st *State) GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -3251,14 +3255,21 @@ func encodeConstraints(constraintUUID string, cons constraints.Constraints, cont
 //
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
+// getApplicationUUID returns the application UUID for the named application.
+// This method filters out synthetic SAAS applications (remote offerers and
+// remote consumers) by checking that the application is not present in the
+// application_remote_offerer or application_remote_consumer tables.
 func (st *State) getApplicationUUID(ctx context.Context, tx *sqlair.TX, name string) (coreapplication.UUID, error) {
 	app := applicationUUIDAndName{Name: name}
 	queryApplicationStmt, err := st.Prepare(`
 SELECT a.uuid AS &applicationUUIDAndName.uuid
 FROM application AS a
 JOIN charm AS c ON c.uuid = a.charm_uuid
-WHERE a.name = $applicationUUIDAndName.name;
-`, app)
+LEFT JOIN application_remote_offerer AS aro ON aro.application_uuid = a.uuid
+LEFT JOIN application_remote_consumer AS arc ON arc.offer_connection_uuid = a.uuid
+WHERE a.name = $applicationUUIDAndName.name
+AND aro.application_uuid IS NULL
+AND arc.offer_connection_uuid IS NULL;`, app)
 	if err != nil {
 		return "", errors.Capture(err)
 	}

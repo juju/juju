@@ -2934,6 +2934,50 @@ func (s *applicationStateSuite) TestGetApplicationUUIDByNameNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
+func (s *applicationStateSuite) TestGetApplicationUUIDByNameFiltersSyntheticSAASApp(c *tc.C) {
+	// Create a regular application first.
+	appUUID := s.createIAASApplication(c, "foo", life.Alive)
+
+	// Mark it as a remote offerer (synthetic application in consumer model).
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO application_remote_offerer (uuid, life_id, application_uuid, offer_uuid, offer_url, offerer_model_uuid, macaroon)
+VALUES (?, 0, ?, ?, 'offer-url', ?, 'macaroon-data')
+`, uuid.MustNewUUID().String(), appUUID.String(), uuid.MustNewUUID().String(), uuid.MustNewUUID().String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// GetApplicationUUIDByName should now filter out this synthetic app.
+	_, err = s.state.GetApplicationUUIDByName(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) TestGetApplicationUUIDByNameAllowsNonSyntheticApp(c *tc.C) {
+	// Create a regular application
+	appUUID := s.createIAASApplication(c, "foo", life.Alive)
+
+	// Create another application that is synthetic (to verify filter works).
+	syntheticAppUUID := s.createIAASApplication(c, "synthetic-app", life.Alive)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO application_remote_offerer (uuid, life_id, application_uuid, offer_uuid, offer_url, offerer_model_uuid, macaroon)
+VALUES (?, 0, ?, ?, 'offer-url', ?, 'macaroon-data')
+`, uuid.MustNewUUID().String(), syntheticAppUUID.String(), uuid.MustNewUUID().String(), uuid.MustNewUUID().String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The regular app should still be accessible.
+	gotID, err := s.state.GetApplicationUUIDByName(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotID, tc.Equals, appUUID)
+
+	// But the synthetic app should not.
+	_, err = s.state.GetApplicationUUIDByName(c.Context(), "synthetic-app")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
 func (s *applicationStateSuite) TestHashConfigAndSettings(c *tc.C) {
 	tests := []struct {
 		name     string
