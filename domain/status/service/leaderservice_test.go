@@ -24,6 +24,7 @@ import (
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/statushistory"
 )
 
 type leaderServiceSuite struct {
@@ -129,6 +130,16 @@ func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeader(c *tc.C) {
 		Since:   &now,
 	})
 	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(s.statusHistory.records, tc.DeepEquals, []statusHistoryRecord{{
+		ns: statushistory.Namespace{Kind: corestatus.KindApplication, ID: applicationUUID.String()},
+		s: corestatus.StatusInfo{
+			Status:  corestatus.Active,
+			Message: "doink",
+			Data:    map[string]any{"foo": "bar"},
+			Since:   &now,
+		},
+	}})
 }
 
 func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeaderNotLeader(c *tc.C) {

@@ -66,7 +66,7 @@ func NewLeadershipService(
 func (s *LeadershipService) SetApplicationStatusForUnitLeader(
 	ctx context.Context,
 	unitName coreunit.Name,
-	status corestatus.StatusInfo,
+	statusInfo corestatus.StatusInfo,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -76,7 +76,7 @@ func (s *LeadershipService) SetApplicationStatusForUnitLeader(
 	}
 
 	// This will also verify that the status is valid.
-	encodedStatus, err := encodeWorkloadStatus(status)
+	encodedStatus, err := encodeWorkloadStatus(statusInfo)
 	if err != nil {
 		return errors.Errorf("encoding workload status: %w", err)
 	}
@@ -98,6 +98,11 @@ func (s *LeadershipService) SetApplicationStatusForUnitLeader(
 	} else if err != nil {
 		return errors.Capture(err)
 	}
+
+	if err := s.statusHistory.RecordStatus(ctx, status.ApplicationNamespace.WithID(appID.String()), statusInfo); err != nil {
+		s.logger.Warningf(ctx, "recording setting application status history: %v", err)
+	}
+
 	return nil
 }
 
@@ -193,14 +198,13 @@ func (s *LeadershipService) SetRelationStatus(
 		return errors.Errorf("invalid time: %v", info.Since)
 	}
 
+	relationStatus, err := encodeRelationStatus(info)
+	if err != nil {
+		return errors.Errorf("encoding relation status: %w", err)
+	}
+
 	// Status can only be set by the leader unit.
 	if err := s.leaderEnsurer.WithLeader(ctx, unitName.Application(), unitName.String(), func(ctx context.Context) error {
-		// Encode status.
-		relationStatus, err := encodeRelationStatus(info)
-		if err != nil {
-			return errors.Errorf("encoding relation status: %w", err)
-		}
-
 		return s.modelState.SetRelationStatus(ctx, relationUUID, relationStatus)
 	}); err != nil {
 		return errors.Capture(err)
