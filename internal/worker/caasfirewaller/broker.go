@@ -12,12 +12,10 @@ type CAASBroker interface {
 	Application(string, caas.DeploymentType) caas.Application
 }
 
-// PortMutator exposes CAAS application functionality to a worker.
+// PortMutator describes the required interface for mutating the ports of an
+// application.
 type PortMutator interface {
+	// UpdatePorts ensures that the applications currently available ports
+	// matches the supplied values.
 	UpdatePorts(ports []caas.ServicePort, updateContainerPorts bool) error
-}
-
-// ServiceUpdater exposes CAAS application functionality to a worker.
-type ServiceUpdater interface {
-	UpdateService(caas.ServiceParam) error
 }

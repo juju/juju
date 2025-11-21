@@ -17,8 +17,6 @@ import (
 	life "github.com/juju/juju/core/life"
 	network "github.com/juju/juju/core/network"
 	watcher "github.com/juju/juju/core/watcher"
-	charm "github.com/juju/juju/domain/application/charm"
-	charm0 "github.com/juju/juju/internal/charm"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -119,124 +117,6 @@ func (c *MockApplicationServiceGetApplicationNameCall) Do(f func(context.Context
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceGetApplicationNameCall) DoAndReturn(f func(context.Context, application.UUID) (string, error)) *MockApplicationServiceGetApplicationNameCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetCharmByApplicationUUID mocks base method.
-func (m *MockApplicationService) GetCharmByApplicationUUID(arg0 context.Context, arg1 application.UUID) (charm0.Charm, charm.CharmLocator, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCharmByApplicationUUID", arg0, arg1)
-	ret0, _ := ret[0].(charm0.Charm)
-	ret1, _ := ret[1].(charm.CharmLocator)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// GetCharmByApplicationUUID indicates an expected call of GetCharmByApplicationUUID.
-func (mr *MockApplicationServiceMockRecorder) GetCharmByApplicationUUID(arg0, arg1 any) *MockApplicationServiceGetCharmByApplicationUUIDCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmByApplicationUUID", reflect.TypeOf((*MockApplicationService)(nil).GetCharmByApplicationUUID), arg0, arg1)
-	return &MockApplicationServiceGetCharmByApplicationUUIDCall{Call: call}
-}
-
-// MockApplicationServiceGetCharmByApplicationUUIDCall wrap *gomock.Call
-type MockApplicationServiceGetCharmByApplicationUUIDCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceGetCharmByApplicationUUIDCall) Return(arg0 charm0.Charm, arg1 charm.CharmLocator, arg2 error) *MockApplicationServiceGetCharmByApplicationUUIDCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetCharmByApplicationUUIDCall) Do(f func(context.Context, application.UUID) (charm0.Charm, charm.CharmLocator, error)) *MockApplicationServiceGetCharmByApplicationUUIDCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetCharmByApplicationUUIDCall) DoAndReturn(f func(context.Context, application.UUID) (charm0.Charm, charm.CharmLocator, error)) *MockApplicationServiceGetCharmByApplicationUUIDCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// IsApplicationExposed mocks base method.
-func (m *MockApplicationService) IsApplicationExposed(arg0 context.Context, arg1 string) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsApplicationExposed", arg0, arg1)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// IsApplicationExposed indicates an expected call of IsApplicationExposed.
-func (mr *MockApplicationServiceMockRecorder) IsApplicationExposed(arg0, arg1 any) *MockApplicationServiceIsApplicationExposedCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsApplicationExposed", reflect.TypeOf((*MockApplicationService)(nil).IsApplicationExposed), arg0, arg1)
-	return &MockApplicationServiceIsApplicationExposedCall{Call: call}
-}
-
-// MockApplicationServiceIsApplicationExposedCall wrap *gomock.Call
-type MockApplicationServiceIsApplicationExposedCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceIsApplicationExposedCall) Return(arg0 bool, arg1 error) *MockApplicationServiceIsApplicationExposedCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceIsApplicationExposedCall) Do(f func(context.Context, string) (bool, error)) *MockApplicationServiceIsApplicationExposedCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceIsApplicationExposedCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockApplicationServiceIsApplicationExposedCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// WatchApplicationExposed mocks base method.
-func (m *MockApplicationService) WatchApplicationExposed(arg0 context.Context, arg1 string) (watcher.Watcher[struct{}], error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchApplicationExposed", arg0, arg1)
-	ret0, _ := ret[0].(watcher.Watcher[struct{}])
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchApplicationExposed indicates an expected call of WatchApplicationExposed.
-func (mr *MockApplicationServiceMockRecorder) WatchApplicationExposed(arg0, arg1 any) *MockApplicationServiceWatchApplicationExposedCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplicationExposed", reflect.TypeOf((*MockApplicationService)(nil).WatchApplicationExposed), arg0, arg1)
-	return &MockApplicationServiceWatchApplicationExposedCall{Call: call}
-}
-
-// MockApplicationServiceWatchApplicationExposedCall wrap *gomock.Call
-type MockApplicationServiceWatchApplicationExposedCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceWatchApplicationExposedCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockApplicationServiceWatchApplicationExposedCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceWatchApplicationExposedCall) Do(f func(context.Context, string) (watcher.Watcher[struct{}], error)) *MockApplicationServiceWatchApplicationExposedCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceWatchApplicationExposedCall) DoAndReturn(f func(context.Context, string) (watcher.Watcher[struct{}], error)) *MockApplicationServiceWatchApplicationExposedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

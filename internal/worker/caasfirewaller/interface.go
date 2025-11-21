@@ -10,8 +10,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain/application/charm"
-	internalcharm "github.com/juju/juju/internal/charm"
 )
 
 // PortService provides access to the port service.
@@ -40,33 +38,6 @@ type ApplicationService interface {
 	// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
 	// application is not found.
 	GetApplicationLife(context.Context, application.UUID) (life.Value, error)
-
-	// IsApplicationExposed returns whether the provided application is exposed or not.
-	//
-	// If no application is found, an error satisfying
-	// [applicationerrors.ApplicationNotFound] is returned.
-	IsApplicationExposed(ctx context.Context, name string) (bool, error)
-
-	// GetCharmByApplicationUUID returns the charm for the specified application
-	// UUID.
-	//
-	// If the application does not exist, an error satisfying
-	// [applicationerrors.ApplicationNotFound] is returned. If the charm for the
-	// application does not exist, an error satisfying
-	// [applicationerrors.CharmNotFound is returned. If the application name is not
-	// valid, an error satisfying [applicationerrors.ApplicationNameNotValid] is
-	// returned.
-	GetCharmByApplicationUUID(context.Context, application.UUID) (internalcharm.Charm, charm.CharmLocator, error)
-
-	// WatchApplicationExposed watches for changes to the specified application's
-	// exposed endpoints.
-	// This notifies on any changes to the application's exposed endpoints. It is up
-	// to the caller to determine if the exposed endpoints they're interested in has
-	// changed.
-	//
-	// If the application does not exist an error satisfying
-	// [applicationerrors.ApplicationNotFound] will be returned.
-	WatchApplicationExposed(ctx context.Context, name string) (watcher.NotifyWatcher, error)
 
 	// WatchApplications returns a watcher that emits application uuids when
 	// applications are added or removed.
