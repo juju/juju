@@ -694,8 +694,6 @@ func decodeMachineStatus(s status.StatusInfo[status.MachineStatusType], present 
 // status id.
 func encodeInstanceStatusType(s corestatus.Status) (status.InstanceStatusType, error) {
 	switch s {
-	case corestatus.Unset:
-		return status.InstanceStatusUnset, nil
 	case corestatus.Pending:
 		return status.InstanceStatusPending, nil
 	case corestatus.Provisioning:
@@ -715,8 +713,6 @@ func encodeInstanceStatusType(s corestatus.Status) (status.InstanceStatusType, e
 // status.
 func decodeInstanceStatusType(s status.InstanceStatusType) (corestatus.Status, error) {
 	switch s {
-	case status.InstanceStatusUnset:
-		return corestatus.Unset, nil
 	case status.InstanceStatusPending:
 		return corestatus.Pending, nil
 	case status.InstanceStatusAllocating:

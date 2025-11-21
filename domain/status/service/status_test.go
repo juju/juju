@@ -717,10 +717,10 @@ func (s *statusSuite) TestEncodeInstanceStatus(c *tc.C) {
 	}{
 		{
 			input: corestatus.StatusInfo{
-				Status: corestatus.Unset,
+				Status: corestatus.Unknown,
 			},
 			output: status.StatusInfo[status.InstanceStatusType]{
-				Status: status.InstanceStatusUnset,
+				Status: status.InstanceStatusUnknown,
 			},
 		},
 		{

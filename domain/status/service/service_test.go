@@ -1918,7 +1918,7 @@ func (s *serviceSuite) TestGetMachineFullStatuses(c *tc.C) {
 				},
 			},
 			InstanceStatus: corestatus.StatusInfo{
-				Status: corestatus.Unset,
+				Status: corestatus.Unknown,
 			},
 		},
 		"999": {
@@ -1931,7 +1931,7 @@ func (s *serviceSuite) TestGetMachineFullStatuses(c *tc.C) {
 				Message: "agent is not communicating with the server",
 			},
 			InstanceStatus: corestatus.StatusInfo{
-				Status: corestatus.Unset,
+				Status: corestatus.Unknown,
 			},
 		},
 	}
@@ -2050,7 +2050,7 @@ func (s *serviceSuite) TestGetMachineFullStatusesControllerModel(c *tc.C) {
 				},
 			},
 			InstanceStatus: corestatus.StatusInfo{
-				Status: corestatus.Unset,
+				Status: corestatus.Unknown,
 			},
 		},
 	}

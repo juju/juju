@@ -407,12 +407,11 @@ func EncodeMachineStatus(s MachineStatusType) (int, error) {
 type InstanceStatusType int
 
 const (
-	InstanceStatusUnset InstanceStatusType = iota
+	InstanceStatusUnknown InstanceStatusType = iota
 	InstanceStatusPending
 	InstanceStatusAllocating
 	InstanceStatusRunning
 	InstanceStatusProvisioningError
-	InstanceStatusUnknown
 )
 
 // EncodeCloudInstanceStatus encodes a InstanceStatusType into
@@ -421,7 +420,7 @@ const (
 func EncodeCloudInstanceStatus(s InstanceStatusType) (int, error) {
 	var result int
 	switch s {
-	case InstanceStatusUnset:
+	case InstanceStatusUnknown:
 		result = 0
 	case InstanceStatusPending:
 		result = 1
@@ -444,7 +443,7 @@ func DecodeCloudInstanceStatus(s string) (InstanceStatusType, error) {
 	var result InstanceStatusType
 	switch s {
 	case "unknown", "":
-		result = InstanceStatusUnset
+		result = InstanceStatusUnknown
 	case "pending":
 		result = InstanceStatusPending
 	case "allocating":
