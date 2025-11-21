@@ -52,10 +52,6 @@ type machinePresence struct {
 	LastSeen    time.Time `db:"last_seen"`
 }
 
-type count struct {
-	Count int `db:"count"`
-}
-
 type remoteApplicationUUID struct {
 	RemoteApplicationUUID string `db:"uuid"`
 }
