@@ -579,8 +579,8 @@ See more: {ref}`command-juju-download-backup`
 (restore-a-controller-from-a-backup)=
 ### Restore a controller from a backup
 
-```{important}
-Only supported machine (non-Kubernetes) controllers.
+```{caution}
+Only supported for machine (non-Kubernetes) controllers. Procedure relies on the `juju-restore` tool, which is experimental -- see [the tool's README](https://github.com/juju/juju-restore) for limitations.
 ```
 To restore a controller from a backup, you can use the [stand-alone `juju-restore` tool](https://github.com/juju/juju-restore).
 
