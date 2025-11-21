@@ -1601,6 +1601,14 @@ WHERE  relation_uuid = $entityUUID.uuid`, rows{}, entityUUID{})
 
 // EnterScope indicates that the provided unit has joined the relation.
 //
+// In the case that all the following hold, a subordinate unit will be created:
+//   - The unit and relation are alive.
+//   - The unit is in the relation.
+//   - The relation is container scoped.
+//   - The relation relates a subordinate application to a principal application.
+//   - The unit is on the principal application.
+//   - The unit does not already have a subordinate unit from the subordinate app.
+//
 // The following error types can be expected to be returned:
 //   - [relationerrors.RelationNotFound] if the relation cannot be found.
 //   - [applicationerrors.UnitNotFound] if no unit by the given name can be found
@@ -1611,15 +1619,18 @@ WHERE  relation_uuid = $entityUUID.uuid`, rows{}, entityUUID{})
 //     alive.
 //   - [relationerrors.RelationUnitAlreadyExists] if the unit has already entered
 //     scope for the relation.
+//   - [relationerrors.CannotEnterScopeSubordinateNotAlive] if a subordinate unit
+//     already exists, but is not alive.
 func (st *State) EnterScope(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
 	unitName unit.Name,
 	settings map[string]string,
-) error {
+) (internal.SubordinateUnitStatusHistoryData, error) {
+
 	db, err := st.DB(ctx)
 	if err != nil {
-		return errors.Capture(err)
+		return internal.SubordinateUnitStatusHistoryData{}, errors.Capture(err)
 	}
 
 	alreadyInScopeStmt, err := st.Prepare(`
@@ -1631,7 +1642,7 @@ WHERE  u.name = $nameAndUUID.name
 AND    re.relation_uuid = $nameAndUUID.uuid
 `, nameAndUUID{}, rows{})
 	if err != nil {
-		return errors.Capture(err)
+		return internal.SubordinateUnitStatusHistoryData{}, errors.Capture(err)
 	}
 
 	unitArgs := getUnit{
@@ -1643,9 +1654,10 @@ FROM   unit
 WHERE  name = $getUnit.name
 `, unitArgs)
 	if err != nil {
-		return errors.Capture(err)
+		return internal.SubordinateUnitStatusHistoryData{}, errors.Capture(err)
 	}
 
+	var subUnitStatusHistory internal.SubordinateUnitStatusHistoryData
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// If the unit is already in scope, return nil to be idempotent.
 		// Settings will not be changed. Even when the unit or relation is
@@ -1694,250 +1706,12 @@ WHERE  name = $getUnit.name
 			return errors.Errorf("setting relation unit settings: %w", err)
 		}
 
-		return nil
+		// If the relation is container scoped, create a subordinate unit
+		// for the principal application unit entering scope.
+		subUnitStatusHistory, err = st.addSubordinateUnit(ctx, tx, relationUUID.String(), relationUnitUUID, unitArgs.UUID.String())
+		return err
 	})
-	return errors.Capture(err)
-}
-
-// NeedsSubordinateUnit checks if there is a subordinate application
-// related to the principal unit that needs a subordinate unit created whilst
-// entering scope.
-//
-// In the case that all the following hold, parameters for creating a
-// subordinate unit will be returned:
-//   - The unit and relation are alive.
-//   - The unit is in the relation.
-//   - The relation is container scoped.
-//   - The relation relates a subordinate application to a principal application.
-//   - The unit is on the principal application.
-//   - The unit does not already have a subordinate unit from the subordinate app.
-//
-// Unless one of the error cases is matched below, nil will be returned.
-//
-// The following errors can be return:
-//   - [relationerrors.CannotEnterScopeNotAlive] if the unit or relation is not
-//     alive.
-//   - [relationerrors.CannotEnterScopeSubordinateNotAlive] if a subordinate unit
-//     already exists, but is not alive.
-func (st *State) NeedsSubordinateUnit(
-	ctx context.Context,
-	relationUUID corerelation.UUID,
-	principalUnitName unit.Name,
-) (*application.UUID, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var result *application.UUID
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Find the unit in the relation.
-		relUnitUUID, unitUUID, err := st.getRelationUnit(ctx, tx, relationUUID, principalUnitName)
-		if err != nil {
-			return errors.Errorf("getting relation unit: %w", err)
-		}
-
-		// Check the relation is alive.
-		if alive, err := st.checkLife(ctx, tx, "relation", relationUUID.String(), life.IsAlive); err != nil {
-			return errors.Errorf("getting relation life: %w", err)
-		} else if !alive {
-			return relationerrors.CannotEnterScopeNotAlive
-		}
-
-		// Check the unit is alive.
-		if alive, err := st.checkLife(ctx, tx, "unit", unitUUID.String(), life.IsAlive); err != nil {
-			return errors.Errorf("getting unit life: %w", err)
-		} else if !alive {
-			return relationerrors.CannotEnterScopeNotAlive
-		}
-
-		// Check that we are in a container scoped relation.
-		scope, err := st.getRelationScope(ctx, tx, relationUUID.String())
-		if err != nil {
-			return errors.Errorf("getting relation scope: %w", err)
-		} else if scope != string(charm.ScopeContainer) {
-			return nil
-		}
-
-		// Get the ID of the related subordinate application, if it exists.
-		subAppID, relatedSubExists, err := st.findRelatedSubordinateApplication(ctx, tx, relUnitUUID)
-		if err != nil {
-			return errors.Errorf("getting related subordinate application: %w", err)
-		} else if !relatedSubExists {
-			return nil
-		}
-
-		// Check if there is already a subordinate unit.
-		if exists, err := st.subordinateUnitExists(ctx, tx, subAppID, unitUUID); err != nil {
-			return errors.Errorf("checking if subordinate already exists: %w", err)
-		} else if exists {
-			return nil
-		}
-
-		result = &subAppID
-		return nil
-	})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	return result, nil
-}
-
-// findRelatedSubordinateApplication returns the application UUID of the related
-// subordinate application there is one, if there is not, it returns false as
-// the boolean argument.
-func (st *State) findRelatedSubordinateApplication(
-	ctx context.Context,
-	tx *sqlair.TX,
-	unitUUID corerelation.UnitUUID,
-) (application.UUID, bool, error) {
-	type getSub struct {
-		UnitUUID               corerelation.UnitUUID `db:"unit_uuid"`
-		Subordinate            bool                  `db:"subordinate"`
-		PrincipalApplicationID application.UUID      `db:"application_uuid"`
-	}
-
-	arg := getSub{
-		UnitUUID: unitUUID,
-	}
-	stmt, err := st.Prepare(`
-SELECT (cm.subordinate, ae.application_uuid) AS (&getSub.*)
-FROM   relation_unit ru
-JOIN   relation_endpoint re1 ON ru.relation_endpoint_uuid = re1.uuid
-JOIN   relation_endpoint re2 ON re2.relation_uuid = re1.relation_uuid AND re1.uuid != re2.uuid 
-JOIN   application_endpoint ae ON ae.uuid = re2.endpoint_uuid
-JOIN   charm_relation cr ON cr.uuid = ae.charm_relation_uuid
-JOIN   charm_metadata cm ON cm.charm_uuid = cr.charm_uuid
-WHERE  ru.uuid = $getSub.unit_uuid
-`, arg)
-	if err != nil {
-		return "", false, errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, stmt, arg).Get(&arg)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		// Peer relations will return no rows, so will units not in relations.
-		// Return false for these.
-		return "", false, nil
-	}
-	if err != nil {
-		return "", false, errors.Capture(err)
-	}
-
-	return arg.PrincipalApplicationID, arg.Subordinate, nil
-}
-
-// subordinateUnitExists checks if the principal unit already has a subordinate
-// unit of the given application.
-//
-// If the subordinate unit exists but is not alive
-// [relationerrors.CannotEnterScopeSubordinateNotAlive] is returned.
-func (st *State) subordinateUnitExists(
-	ctx context.Context,
-	tx *sqlair.TX,
-	subordinateAppID application.UUID,
-	principalUnit unit.UUID,
-) (bool, error) {
-	type getSub struct {
-		PrincipalUnitUUID        unit.UUID        `db:"unit_uuid"`
-		SubordinateApplicationID application.UUID `db:"application_uuid"`
-		SubordinateLife          life.Value       `db:"value"`
-	}
-	arg := getSub{
-		PrincipalUnitUUID:        principalUnit,
-		SubordinateApplicationID: subordinateAppID,
-	}
-	stmt, err := st.Prepare(`
-SELECT (u.application_uuid, l.value) AS (&getSub.*)
-FROM   unit_principal AS up
-JOIN   unit AS u ON u.uuid = up.unit_uuid
-JOIN   life AS l ON u.life_id = l.id
-WHERE  u.application_uuid = $getSub.application_uuid
-AND    up.principal_uuid  = $getSub.unit_uuid
-`, arg)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, stmt, arg).Get(&arg)
-	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
-	} else if err != nil {
-		return false, errors.Capture(err)
-	}
-
-	if arg.SubordinateLife != life.Alive {
-		return false, relationerrors.CannotEnterScopeSubordinateNotAlive
-	}
-
-	return true, nil
-}
-
-// checkUnitCanEnterScope checks that the unit can enter scope in the given
-// relation.
-func (st *State) checkUnitCanEnterScope(ctx context.Context, tx *sqlair.TX, relationUUID, unitUUID string) error {
-	// Check relation is alive.
-	relationLife, err := st.getRelationLife(ctx, tx, relationUUID)
-	if err != nil {
-		return errors.Errorf("getting relation life: %w", err)
-	} else if relationLife != life.Alive {
-		return relationerrors.CannotEnterScopeNotAlive
-	}
-
-	// Check unit is alive.
-	unitLife, err := st.getUnitLife(ctx, tx, unitUUID)
-	if err != nil {
-		return errors.Errorf("getting unit life: %w", err)
-	} else if unitLife != life.Alive {
-		return relationerrors.CannotEnterScopeNotAlive
-	}
-
-	// Get the IDs of the applications in the relation.
-	appIDs, err := st.getApplicationsInRelation(ctx, tx, relationUUID)
-	if err != nil {
-		return errors.Errorf("getting applications in relation: %w", err)
-	}
-
-	// Get the ID of the application for the unit trying to enter scope.
-	unitsAppID, err := st.getApplicationOfUnit(ctx, tx, unitUUID)
-	if err != nil {
-		return errors.Errorf("getting application of unit: %w", err)
-	}
-
-	// Check that the application of the unit is in the relation.
-	found := false
-	switch len(appIDs) {
-	case 1: // Peer relation.
-		if appIDs[0] == unitsAppID {
-			found = true
-		}
-	case 2: // Regular relation.
-		var otherAppID string
-		if appIDs[0] == unitsAppID {
-			found = true
-			otherAppID = appIDs[1]
-		} else if appIDs[1] == unitsAppID {
-			found = true
-			otherAppID = appIDs[0]
-		}
-
-		// If the unit is a subordinate, check that it can enter scope in this
-		// relation.
-		if subordinate, err := st.isSubordinate(ctx, tx, unitsAppID); err != nil {
-			return errors.Errorf("checking if application is subordinate: %w", err)
-		} else if subordinate {
-			err := st.checkSubordinateUnitCanEnterScope(ctx, tx, relationUUID, unitUUID, otherAppID)
-			if err != nil {
-				return errors.Errorf("checking subordinate unit can enter scope %w", err)
-			}
-		}
-	}
-	if !found {
-		return relationerrors.UnitNotInRelation
-	}
-
-	return nil
+	return subUnitStatusHistory, errors.Capture(err)
 }
 
 func (st *State) getRelationLife(ctx context.Context, tx *sqlair.TX, uuid string) (life.Value, error) {

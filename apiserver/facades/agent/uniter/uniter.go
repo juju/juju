@@ -1638,13 +1638,6 @@ func (u *UniterAPI) EnterScope(ctx context.Context, args params.RelationUnits) (
 	return result, nil
 }
 
-type subordinateCreator func(ctx context.Context, subordinateAppID application.UUID, principalUnitName coreunit.Name) error
-
-// CreateSubordinate creates units on a subordinate application.
-func (c subordinateCreator) CreateSubordinate(ctx context.Context, subordinateAppID application.UUID, principalUnitName coreunit.Name) error {
-	return c(ctx, subordinateAppID, principalUnitName)
-}
-
 func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc, relTagStr string, unitTag names.UnitTag) error {
 	if !canAccess(unitTag) {
 		return apiservererrors.ErrPerm
@@ -1682,7 +1675,6 @@ func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc
 		relUUID,
 		unitName,
 		unitNetworkToUnitSettings(info),
-		nil,
 	)
 	if internalerrors.Is(err, relationerrors.PotentialRelationUnitNotValid) {
 		u.logger.Debugf(ctx, "ignoring %q EnterScope for %q, not valid", unitName, relKey.String())

@@ -15,7 +15,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/machine"
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
@@ -56,14 +55,6 @@ type State interface {
 	// by ep1 and ep2 and returns the created endpoints.
 	AddRelation(ctx context.Context, ep1, ep2 relation.CandidateEndpointIdentifier, cidrs ...string) (relation.Endpoint, relation.Endpoint, error)
 
-	// NeedsSubordinateUnit checks if there is a subordinate application
-	// related to the principal unit that needs a subordinate unit created.
-	NeedsSubordinateUnit(
-		ctx context.Context,
-		relationUUID corerelation.UUID,
-		principalUnitName unit.Name,
-	) (*application.UUID, error)
-
 	// EnterScope indicates that the provided unit has joined the relation. When
 	// the unit has already entered its relation scope, EnterScope will report
 	// success but make no changes to state. The unit's settings are created in
@@ -75,7 +66,7 @@ type State interface {
 		relationUUID corerelation.UUID,
 		unitName unit.Name,
 		settings map[string]string,
-	) error
+	) (internal.SubordinateUnitStatusHistoryData, error)
 
 	// SetRelationRemoteApplicationAndUnitSettings will set the application and
 	// unit settings for a remote relation. If the unit has not yet entered
@@ -486,8 +477,7 @@ func (s *Service) ApplicationRelationsInfo(
 // report success but make no changes to state, nor trigger a subordinate unit.
 //
 // If there is a subordinate application related to the unit entering scope that
-// needs a subordinate unit creating, then the subordinate unit will be created
-// with the provided createSubordinate function.
+// needs a subordinate unit created, then the subordinate unit will be created.
 //
 // The following error types can be expected to be returned:
 //   - [relationerrors.PotentialRelationUnitNotValid] if the unit entering
@@ -503,7 +493,6 @@ func (s *Service) EnterScope(
 	relationUUID corerelation.UUID,
 	unitName unit.Name,
 	settings map[string]string,
-	subordinateCreator relation.SubordinateCreator,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -517,58 +506,23 @@ func (s *Service) EnterScope(
 	}
 
 	// Enter the unit into the relation scope.
-	err := s.st.EnterScope(ctx, relationUUID, unitName, settings)
+	subordinateUnitStatusHistoryData, err := s.st.EnterScope(ctx, relationUUID, unitName, settings)
 	if errors.Is(err, relationerrors.RelationUnitAlreadyExists) {
 		return nil
 	} else if err != nil {
 		return errors.Capture(err)
 	}
 
-	// Check if a subordinate unit needs creating.
-	subID, err := s.st.NeedsSubordinateUnit(ctx, relationUUID, unitName)
-	if err != nil {
-		return errors.Capture(err)
-	} else if subID != nil {
-		// Create the required unit on the related subordinate application.
-		//
-		// TODO(aflynn): In 3.6 the subordinate was created in the same
-		// transaction as the principal entering scope. This is not the case
-		// here. If the subordinate creation fails, there should be some retry
-		// mechanism, or a rollback of enter scope.
-		if subordinateCreator == nil {
-			return errors.Errorf("subordinate creator is nil")
-		}
-		// TODO: remove the subordinate creator from the service.
-		err := subordinateCreator.CreateSubordinate(ctx, *subID, unitName)
-		if err != nil {
-			return errors.Errorf("creating subordinate unit on application %q: %w", *subID, err)
-		}
-		statusArg := s.makeIAASUnitStatusArgs()
-		if err := s.recordUnitStatusHistory(ctx, unitName, statusArg); err != nil {
-			return errors.Errorf("recording status history: %w", err)
-		}
-		// TODO: machineNames previously returned by AddIAASSubordinateUnit.
-		var machineNames []machine.Name
-		s.recordInitMachinesStatusHistory(ctx, machineNames)
+	// If the subordinate unit was not created, exit here.
+	if !subordinateUnitStatusHistoryData.SubordinateCreated() {
+		return nil
+	}
+
+	if err := s.recordUnitStatusHistory(ctx, unitName, subordinateUnitStatusHistoryData.UnitStatus); err != nil {
+		return errors.Errorf("recording status history: %w", err)
 	}
 
 	return nil
-}
-
-// TODO: push makeIAASUnitStatusArgs into state
-func (s *Service) makeIAASUnitStatusArgs() domainapplication.UnitStatusArg {
-	now := ptr(s.clock.Now())
-	return domainapplication.UnitStatusArg{
-		AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
-			Status: status.UnitAgentStatusAllocating,
-			Since:  now,
-		},
-		WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
-			Status:  status.WorkloadStatusWaiting,
-			Message: corestatus.MessageWaitForMachine,
-			Since:   now,
-		},
-	}
 }
 
 // recordUnitStatusHistory records the initial status history for the unit
@@ -584,50 +538,27 @@ func (s *Service) recordUnitStatusHistory(
 		return errors.Errorf("unit %q status not provided", unitName)
 	}
 
-	// TODO: record the status history for the unit.
 	// Force the presence to be recorded as true, as the unit has just been
 	// added.
-	//if agentStatus, err := decodeUnitAgentStatus(&status.UnitStatusInfo[status.UnitAgentStatusType]{
-	//	StatusInfo: *statusArg.AgentStatus,
-	//	Present:    true,
-	//}); err == nil && agentStatus != nil {
-	//	if err := s.statusHistory.RecordStatus(ctx, status.UnitAgentNamespace.WithID(unitName.String()), *agentStatus); err != nil {
-	//		s.logger.Warningf(ctx, "recording agent status for unit %q: %v", unitName, err)
-	//	}
-	//}
-	//
-	//if workloadStatus, err := decodeUnitWorkloadStatus(&status.UnitStatusInfo[status.WorkloadStatusType]{
-	//	StatusInfo: *statusArg.WorkloadStatus,
-	//	Present:    true,
-	//}); err == nil && workloadStatus != nil {
-	//	if err := s.statusHistory.RecordStatus(ctx, status.UnitWorkloadNamespace.WithID(unitName.String()), *workloadStatus); err != nil {
-	//		s.logger.Warningf(ctx, "recording workload status for unit %q: %v", unitName, err)
-	//	}
-	//}
+	if agentStatus, err := decodeUnitAgentStatus(&status.UnitStatusInfo[status.UnitAgentStatusType]{
+		StatusInfo: *statusArg.AgentStatus,
+		Present:    true,
+	}); err == nil && agentStatus != nil {
+		if err := s.statusHistory.RecordStatus(ctx, status.UnitAgentNamespace.WithID(unitName.String()), *agentStatus); err != nil {
+			s.logger.Warningf(ctx, "recording agent status for unit %q: %v", unitName, err)
+		}
+	}
+
+	if workloadStatus, err := decodeUnitWorkloadStatus(&status.UnitStatusInfo[status.WorkloadStatusType]{
+		StatusInfo: *statusArg.WorkloadStatus,
+		Present:    true,
+	}); err == nil && workloadStatus != nil {
+		if err := s.statusHistory.RecordStatus(ctx, status.UnitWorkloadNamespace.WithID(unitName.String()), *workloadStatus); err != nil {
+			s.logger.Warningf(ctx, "recording workload status for unit %q: %v", unitName, err)
+		}
+	}
 
 	return nil
-}
-
-// recordInitMachinesStatusHistory records the initial status history for the
-// machines created for the application. The status is set to Pending, and
-// the Since time is set to the current time.
-func (s *Service) recordInitMachinesStatusHistory(
-	ctx context.Context,
-	machineNames []machine.Name,
-) {
-	// Record the status history for the machines created for the application.
-	machineStatusInfo := corestatus.StatusInfo{
-		Status: corestatus.Pending,
-		Since:  ptr(s.clock.Now()),
-	}
-	for _, machineName := range machineNames {
-		if err := s.statusHistory.RecordStatus(ctx, status.MachineNamespace.WithID(machineName.String()), machineStatusInfo); err != nil {
-			s.logger.Warningf(ctx, "recording machine %q status history: %w", machineName, err)
-		}
-		if err := s.statusHistory.RecordStatus(ctx, status.MachineInstanceNamespace.WithID(machineName.String()), machineStatusInfo); err != nil {
-			s.logger.Warningf(ctx, "recording machine instance %q status history: %w", machineName, err)
-		}
-	}
 }
 
 // SetRelationRemoteApplicationAndUnitSettings will set the application and
@@ -1294,8 +1225,4 @@ func settingsMap(in map[string]interface{}) (map[string]string, error) {
 		}
 		return k, fmt.Sprintf("%v", v)
 	}), errs
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

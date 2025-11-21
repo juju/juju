@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
+	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/relation/service"
 	"github.com/juju/juju/domain/relation/state"
@@ -48,8 +49,9 @@ func (e *exportOperation) Name() string {
 
 // Setup implements Operation.
 func (e *exportOperation) Setup(scope modelmigration.Scope) error {
+	us := applicationstate.NewInsertIAASUnitState(scope.ModelDB(), e.clock, e.logger)
 	e.exportService = service.NewMigrationService(
-		state.NewState(scope.ModelDB(), e.clock, e.logger),
+		state.NewState(scope.ModelDB(), e.clock, e.logger, us),
 	)
 	return nil
 }

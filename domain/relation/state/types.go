@@ -394,3 +394,7 @@ type machineIdentifiers struct {
 	NetNodeUUID string `db:"net_node_uuid"`
 	UUID        string `db:"uuid"`
 }
+
+type netNodeUUID struct {
+	NetNodeUUID string `db:"net_node_uuid"`
+}
