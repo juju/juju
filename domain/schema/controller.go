@@ -5,9 +5,9 @@ package schema
 
 import (
 	"embed"
-	"path/filepath"
 
 	"github.com/juju/juju/core/database/schema"
+	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/schema/controller/triggers"
 )
 
@@ -46,16 +46,18 @@ const (
 	tableUserAuthentication
 )
 
+var controllerPostPatchFilesByPatchVersion = map[int][]string{}
+
 // ControllerDDL is used to create the controller database schema at bootstrap.
 func ControllerDDL() *schema.Schema {
-	entries, err := controllerSchemaDir.ReadDir("controller/sql")
+	return ControllerDDLForPatchVersion(version.Current.Patch)
+}
+
+func ControllerDDLForPatchVersion(patch int) *schema.Schema {
+	patches, err := readPatches(controllerSchemaDir, "controller/sql")
 	if err != nil {
 		panic(err)
 	}
-
-	patches, postPatches := readPatches(entries, controllerSchemaDir, func(s string) string {
-		return filepath.Join("controller/sql", s)
-	})
 
 	// Changestream triggers.
 	patches = append(patches,
@@ -90,10 +92,23 @@ func ControllerDDL() *schema.Schema {
 			"secret backends with type controller or kubernetes are immutable"),
 	)
 
+	var postPatchFiles []string
+	for i := range patch + 1 {
+		files, ok := controllerPostPatchFilesByPatchVersion[i]
+		if ok {
+			postPatchFiles = append(postPatchFiles, files...)
+		}
+	}
+	postPatches, err := readPostPatches(controllerSchemaDir, "controller/sql", postPatchFiles)
+	if err != nil {
+		panic(err)
+	}
+
 	ctrlSchema := schema.New()
 	for _, fn := range patches {
 		ctrlSchema.Add(fn())
 	}
+
 	for _, fn := range postPatches {
 		ctrlSchema.Add(fn())
 	}

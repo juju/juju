@@ -17,7 +17,8 @@ import (
 	databasetesting "github.com/juju/juju/internal/database/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package schema -destination fs_mock_test.go io/fs ReadFileFS
+//go:generate go run go.uber.org/mock/mockgen -typed -package schema -destination fs_mock_test.go github.com/juju/juju/domain/schema ReadFileDirFS
+//go:generate go run go.uber.org/mock/mockgen -typed -package schema -destination dir_entry_mock_test.go io/fs DirEntry
 
 type schemaBaseSuite struct {
 	databasetesting.DqliteSuite
@@ -49,6 +50,17 @@ func (s *schemaBaseSuite) applyDDL(c *tc.C, ddl *schema.Schema) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(changeSet.Current, tc.Equals, 0)
 	c.Check(changeSet.Post, tc.Equals, ddl.Len())
+}
+
+func (s *schemaBaseSuite) reapplyDDL(c *tc.C, ddl *schema.Schema) {
+	if s.Verbose {
+		ddl.Hook(func(i int, statement string) (string, error) {
+			c.Logf("-- Reapplying schema change %d\n%s\n", i, statement)
+			return statement, nil
+		})
+	}
+	_, err := ddl.Ensure(c.Context(), s.TxnRunner())
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *schemaBaseSuite) assertExecSQL(c *tc.C, q string, args ...any) {

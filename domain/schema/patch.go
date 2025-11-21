@@ -5,6 +5,7 @@ package schema
 
 import (
 	"io/fs"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -15,7 +16,17 @@ const (
 	pathFileSuffix = ".PATCH.sql"
 )
 
-func readPatches(entries []fs.DirEntry, fs fs.ReadFileFS, fileName func(string) string) ([]func() schema.Patch, []func() schema.Patch) {
+type ReadFileDirFS interface {
+	fs.ReadFileFS
+	fs.ReadDirFS
+}
+
+func readPatches(fs ReadFileDirFS, baseDir string) ([]func() schema.Patch, error) {
+	entries, err := fs.ReadDir(baseDir)
+	if err != nil {
+		return nil, err
+	}
+
 	var names []string
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -26,25 +37,39 @@ func readPatches(entries []fs.DirEntry, fs fs.ReadFileFS, fileName func(string) 
 
 	slices.Sort(names)
 
-	var (
-		patches     []func() schema.Patch
-		postPatches []func() schema.Patch
-	)
+	var patches []func() schema.Patch
 	for _, name := range names {
-		data, err := fs.ReadFile(fileName(name))
+		if strings.HasSuffix(name, pathFileSuffix) {
+			continue
+		}
+
+		data, err := fs.ReadFile(filepath.Join(baseDir, name))
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		fn := func() schema.Patch {
 			return schema.MakePatch(string(data))
 		}
 
-		if strings.HasSuffix(name, pathFileSuffix) {
-			postPatches = append(postPatches, fn)
-			continue
-		}
 		patches = append(patches, fn)
 	}
-	return patches, postPatches
+	return patches, nil
+}
+
+func readPostPatches(fs fs.ReadFileFS, baseDir string, postPatchFiles []string) ([]func() schema.Patch, error) {
+	patches := make([]func() schema.Patch, len(postPatchFiles))
+	for i, name := range postPatchFiles {
+		data, err := fs.ReadFile(filepath.Join(baseDir, name))
+		if err != nil {
+			return nil, err
+		}
+
+		fn := func() schema.Patch {
+			return schema.MakePatch(string(data))
+		}
+
+		patches[i] = fn
+	}
+	return patches, nil
 }

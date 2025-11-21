@@ -6,9 +6,9 @@ package schema
 import (
 	"embed"
 	"fmt"
-	"path/filepath"
 
 	"github.com/juju/juju/core/database/schema"
+	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/schema/model/triggers"
 )
 
@@ -109,16 +109,20 @@ const (
 	tableRelationNetworkEgress
 )
 
+var modelPostPatchFilesByPatchVersion = map[int][]string{
+	1: {"0035-cleanup.PATCH.sql"},
+}
+
 // ModelDDL is used to create model databases.
 func ModelDDL() *schema.Schema {
-	entries, err := modelSchemaDir.ReadDir("model/sql")
+	return ModelDDLForPatchVersion(version.Current.Patch)
+}
+
+func ModelDDLForPatchVersion(patch int) *schema.Schema {
+	patches, err := readPatches(modelSchemaDir, "model/sql")
 	if err != nil {
 		panic(err)
 	}
-
-	patches, postPatches := readPatches(entries, modelSchemaDir, func(s string) string {
-		return filepath.Join("model/sql", s)
-	})
 
 	// Changestream triggers.
 	patches = append(patches,
@@ -354,10 +358,23 @@ END;
 
 	patches = append(patches, customModelTriggers()...)
 
+	var postPatchFiles []string
+	for i := range patch + 1 {
+		files, ok := modelPostPatchFilesByPatchVersion[i]
+		if ok {
+			postPatchFiles = append(postPatchFiles, files...)
+		}
+	}
+	postPatches, err := readPostPatches(modelSchemaDir, "model/sql", postPatchFiles)
+	if err != nil {
+		panic(err)
+	}
+
 	modelSchema := schema.New()
 	for _, fn := range patches {
 		modelSchema.Add(fn())
 	}
+
 	for _, fn := range postPatches {
 		modelSchema.Add(fn())
 	}
