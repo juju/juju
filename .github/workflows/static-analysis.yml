@@ -66,6 +66,30 @@ jobs:
       - name: Lint SQL
         run: "sqlfluff lint --config .github/.sqlfluff domain/schema/**/sql/*.sql"
 
+  ddl-changes:
+    name: Check DDL Changes
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v3
+
+      - name: Check for DDL changes
+        run: |
+          go run ./generate/ddlgen/main.go
+
+          git add -A
+          if [[ -n $(git diff HEAD) ]]; then
+            # Print the full diff for debugging purposes
+            git diff HEAD
+            echo "*****"
+            echo "The following released DDL files have been modified:"
+            git diff --name-status HEAD
+            echo "Please amend your PR to ensure DDLs for released patch versions are not modified."
+            echo "*****"
+            exit 1
+          fi
+
   conventional-commits:
     name: Check conventional commits
     runs-on: ubuntu-latest

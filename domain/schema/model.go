@@ -6,9 +6,10 @@ package schema
 import (
 	"embed"
 	"fmt"
-	"path/filepath"
 
 	"github.com/juju/juju/core/database/schema"
+	"github.com/juju/juju/core/semversion"
+	coreversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/schema/model/triggers"
 )
 
@@ -109,16 +110,38 @@ const (
 	tableRelationNetworkEgress
 )
 
+// modelPostPatchFilesByVersion is used to categorise the post patch files
+// to particular versions of Juju. To include a new post patch file, it must be
+// added to the list for the version in which it is first applied.
+//
+// Also, post-patch files are only applicable for differences in patch versions
+// within the same major.minor version. So all entries should be of the same
+// major.minor version as the current version. The full version is only included
+// for readability.
+var modelPostPatchFilesByVersion = []struct {
+	version semversion.Number
+	files   []string
+}{{
+	version: semversion.MustParse("4.0.1"),
+	files:   []string{"0035-cleanup.PATCH.sql", "0036-machine-status.PATCH.sql"},
+}}
+
 // ModelDDL is used to create model databases.
 func ModelDDL() *schema.Schema {
-	entries, err := modelSchemaDir.ReadDir("model/sql")
+	return ModelDDLForVersion(coreversion.Current)
+}
+
+// ModelDDLForVersion returns the model database schema for the specified version.
+// The version must match the current major.minor version.
+func ModelDDLForVersion(version semversion.Number) *schema.Schema {
+	if version.Major != coreversion.Current.Major || version.Minor != coreversion.Current.Minor {
+		panic("Cannot return the model DDL for a different major.minor version")
+	}
+
+	patches, err := readPatches(modelSchemaDir, "model/sql")
 	if err != nil {
 		panic(err)
 	}
-
-	patches, postPatches := readPatches(entries, modelSchemaDir, func(s string) string {
-		return filepath.Join("model/sql", s)
-	})
 
 	// Changestream triggers.
 	patches = append(patches,
@@ -354,10 +377,22 @@ END;
 
 	patches = append(patches, customModelTriggers()...)
 
+	var postPatchFiles []string
+	for _, postPatch := range modelPostPatchFilesByVersion {
+		if postPatch.version.Compare(version) <= 0 {
+			postPatchFiles = append(postPatchFiles, postPatch.files...)
+		}
+	}
+	postPatches, err := readPostPatches(modelSchemaDir, "model/sql", postPatchFiles)
+	if err != nil {
+		panic(err)
+	}
+
 	modelSchema := schema.New()
 	for _, fn := range patches {
 		modelSchema.Add(fn())
 	}
+
 	for _, fn := range postPatches {
 		modelSchema.Add(fn())
 	}

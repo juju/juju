@@ -4,12 +4,15 @@
 package schema
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
 	_ "github.com/mattn/go-sqlite3"
+
+	"github.com/juju/juju/core/version"
 )
 
 type controllerSchemaSuite struct {
@@ -18,6 +21,59 @@ type controllerSchemaSuite struct {
 
 func TestControllerSchemaSuite(t *testing.T) {
 	tc.Run(t, &controllerSchemaSuite{})
+}
+
+func (s *controllerSchemaSuite) TestCheckNoPatchFilesForNonMatchingMajorMinor(c *tc.C) {
+	for _, postPatch := range controllerPostPatchFilesByVersion {
+		if postPatch.version.Major != version.Current.Major || postPatch.version.Minor != version.Current.Minor {
+			c.Fatalf("found post-patch file for version %v, but current version is %v", postPatch.version, version.Current)
+		}
+	}
+}
+
+func (s *controllerSchemaSuite) TestCheckNoUnusedPostPatchFiles(c *tc.C) {
+	encodedPatches := set.NewStrings()
+	for _, postPatch := range controllerPostPatchFilesByVersion {
+		encodedPatches = encodedPatches.Union(set.NewStrings(postPatch.files...))
+	}
+
+	embedded, err := controllerSchemaDir.ReadDir("controller/sql")
+	c.Assert(err, tc.ErrorIsNil)
+
+	embeddedPatches := set.NewStrings()
+	for _, entry := range embedded {
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".PATCH.sql") {
+			continue
+		}
+		embeddedPatches.Add(name)
+	}
+
+	unused := embeddedPatches.Difference(encodedPatches)
+	c.Assert(unused.Size(), tc.Equals, 0, tc.Commentf("unused post-patch files: %v", unused.SortedValues()))
+}
+
+func (s *controllerSchemaSuite) TestApplyDDLIdempotent(c *tc.C) {
+	s.applyDDL(c, ControllerDDL())
+	s.reapplyDDL(c, ControllerDDL())
+}
+
+func (s *controllerSchemaSuite) TestControllerDDLForVersionsApplyCumulatively(c *tc.C) {
+	current := version.Current
+	if current.Patch == 0 || len(controllerPostPatchFilesByVersion) == 0 {
+		c.Skip("no patches to test")
+	}
+
+	version := version.Current
+	version.Patch = 0
+	initalPatches := ControllerDDLForVersion(version)
+	s.applyDDL(c, initalPatches)
+
+	for _, postPatch := range controllerPostPatchFilesByVersion {
+		ddl := ControllerDDLForVersion(postPatch.version)
+		c.Logf("Applying controller DDL for version %v", postPatch.version)
+		s.reapplyDDL(c, ddl)
+	}
 }
 
 func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
