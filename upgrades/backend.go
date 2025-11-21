@@ -5,7 +5,6 @@ package upgrades
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -117,7 +116,7 @@ func GetStorageUniqueIDs(
 		k8sApps := make([]state.AppAndStorageID, 0, len(apps))
 
 		for _, a := range apps {
-			found := false
+			k8sResourceMissing := true
 			for _, findStorageUniqueID := range jujukubernetes.StorageUniqueIDFinder {
 				storageUniqueID, err := findStorageUniqueID(
 					ctx, k8sClient,
@@ -131,7 +130,7 @@ func GetStorageUniqueIDs(
 						Name:            a.Name,
 						StorageUniqueID: storageUniqueID,
 					})
-					found = true
+					k8sResourceMissing = false
 					break
 				}
 				if k8serrors.IsNotFound(err) {
@@ -140,8 +139,8 @@ func GetStorageUniqueIDs(
 				return nil, errors.Annotate(err, "finding storage unique ID")
 			}
 
-			if !found {
-				return nil, fmt.Errorf("cannot find k8s artefact for "+
+			if k8sResourceMissing {
+				return nil, errors.Errorf("cannot find k8s artefact for "+
 					"app %q in model %q", a.Name, model.Name())
 			}
 		}
