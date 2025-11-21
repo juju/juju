@@ -46,9 +46,6 @@ func (f fileResourceStore) Put(
 	if r == nil {
 		return store.ID{}, 0, store.Fingerprint{}, errors.Errorf("validating resource: reader is nil")
 	}
-	if size == 0 {
-		return store.ID{}, 0, store.Fingerprint{}, errors.Errorf("validating resource size: size is 0")
-	}
 	if err := fingerprint.Validate(); err != nil {
 		return store.ID{}, 0, store.Fingerprint{}, errors.Errorf("validating resource fingerprint: %w", err)
 	}

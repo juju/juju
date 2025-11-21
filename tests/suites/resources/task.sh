@@ -15,6 +15,7 @@ test_resources() {
 
 	test_basic_resources
 	test_upgrade_resources
+	test_empty_resources
 
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"k8s")
