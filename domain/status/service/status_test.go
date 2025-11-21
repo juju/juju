@@ -624,46 +624,61 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsWithError(c *tc.C) {
 func (s *statusSuite) TestEncodeMachineStatus(c *tc.C) {
 	testCases := []struct {
 		input  corestatus.StatusInfo
-		output status.StatusInfo[status.MachineStatusType]
+		output status.MachineStatusInfo[status.MachineStatusType]
 	}{
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Started,
 			},
-			output: status.StatusInfo[status.MachineStatusType]{
-				Status: status.MachineStatusStarted,
+			output: status.MachineStatusInfo[status.MachineStatusType]{
+				StatusInfo: status.StatusInfo[status.MachineStatusType]{
+					Status: status.MachineStatusStarted,
+				},
+				Present: true,
 			},
 		},
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Stopped,
 			},
-			output: status.StatusInfo[status.MachineStatusType]{
-				Status: status.MachineStatusStopped,
+			output: status.MachineStatusInfo[status.MachineStatusType]{
+				StatusInfo: status.StatusInfo[status.MachineStatusType]{
+					Status: status.MachineStatusStopped,
+				},
+				Present: true,
 			},
 		},
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Error,
 			},
-			output: status.StatusInfo[status.MachineStatusType]{
-				Status: status.MachineStatusError,
+			output: status.MachineStatusInfo[status.MachineStatusType]{
+				StatusInfo: status.StatusInfo[status.MachineStatusType]{
+					Status: status.MachineStatusError,
+				},
+				Present: true,
 			},
 		},
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Pending,
 			},
-			output: status.StatusInfo[status.MachineStatusType]{
-				Status: status.MachineStatusPending,
+			output: status.MachineStatusInfo[status.MachineStatusType]{
+				StatusInfo: status.StatusInfo[status.MachineStatusType]{
+					Status: status.MachineStatusPending,
+				},
+				Present: true,
 			},
 		},
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Down,
 			},
-			output: status.StatusInfo[status.MachineStatusType]{
-				Status: status.MachineStatusDown,
+			output: status.MachineStatusInfo[status.MachineStatusType]{
+				StatusInfo: status.StatusInfo[status.MachineStatusType]{
+					Status: status.MachineStatusDown,
+				},
+				Present: true,
 			},
 		},
 		{
@@ -673,9 +688,12 @@ func (s *statusSuite) TestEncodeMachineStatus(c *tc.C) {
 					"foo": "bar",
 				},
 			},
-			output: status.StatusInfo[status.MachineStatusType]{
-				Status: status.MachineStatusDown,
-				Data:   []byte(`{"foo":"bar"}`),
+			output: status.MachineStatusInfo[status.MachineStatusType]{
+				StatusInfo: status.StatusInfo[status.MachineStatusType]{
+					Status: status.MachineStatusDown,
+					Data:   []byte(`{"foo":"bar"}`),
+				},
+				Present: true,
 			},
 		},
 	}
@@ -684,8 +702,9 @@ func (s *statusSuite) TestEncodeMachineStatus(c *tc.C) {
 		c.Logf("test %d", i)
 		output, err := encodeMachineStatus(test.input)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Assert(output, tc.DeepEquals, test.output)
-		result, err := decodeMachineStatus(output)
+		c.Assert(output, tc.DeepEquals, test.output.StatusInfo)
+
+		result, err := decodeMachineStatus(output, test.output.Present)
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(result, tc.DeepEquals, test.input)
 	}

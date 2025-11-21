@@ -9,6 +9,7 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/rpc"
@@ -17,16 +18,25 @@ import (
 // ApplicationService provides methods to interact with the application
 // model.
 type StatusService interface {
-	// SetUnitPresence marks the presence of the unit in the model. It is called by
-	// the unit agent accesses the API server. If the unit is not found, an error
-	// satisfying [applicationerrors.UnitNotFound] is returned. The unit life is not
+	// SetUnitPresence marks the presence of the unit in the model. It is called
+	// by the unit agent accesses the API server. The unit life is not
 	// considered when setting the presence.
 	SetUnitPresence(ctx context.Context, unitName unit.Name) error
 
-	// DeleteUnitPresence removes the presence of the unit in the model. If the unit
-	// is not found, it ignores the error. The unit life is not considered when
-	// deleting the presence.
+	// DeleteUnitPresence removes the presence of the unit in the model. If the
+	// unit is not found, it ignores the error. The unit life is not considered
+	// when deleting the presence.
 	DeleteUnitPresence(ctx context.Context, unitName unit.Name) error
+
+	// SetMachinePresence marks the presence of the machine in the model. It is
+	// called by the machine agent accesses the API server. The machine life is
+	// not considered when setting the presence.
+	SetMachinePresence(ctx context.Context, machineName machine.Name) error
+
+	// DeleteMachinePresence removes the presence of the machine in the model.
+	// If the machine is not found, it ignores the error. The machine life is
+	// not considered when deleting the presence.
+	DeleteMachinePresence(ctx context.Context, machineName machine.Name) error
 }
 
 // ModelService provides methods to interact with the model.
@@ -88,15 +98,17 @@ func (n *AgentPresence) Login(ctx context.Context, entity names.Tag, modelTag na
 	}
 
 	n.modelService = services
+	statusService := n.modelService.StatusService()
 
 	switch t := entity.(type) {
 	case names.UnitTag:
-		err := n.modelService.StatusService().SetUnitPresence(ctx, unit.Name(t.Id()))
-		if err != nil {
-			n.logger.Infof(ctx, "recording presence for agent %s: unable to set unit presence: %v", entity, err)
+		if err := statusService.SetUnitPresence(ctx, unit.Name(t.Id())); err != nil {
+			n.logger.Infof(ctx, "recording presence for agent %s: unable to set unit presence: %v", t, err)
 		}
 	case names.MachineTag:
-		// TODO (stickupkid): Handle machine agents.
+		if err := statusService.SetMachinePresence(ctx, machine.Name(t.Id())); err != nil {
+			n.logger.Infof(ctx, "recording presence for agent %s: unable to set machine presence: %v", t, err)
+		}
 	}
 }
 
@@ -113,14 +125,18 @@ func (n *AgentPresence) Leave(ctx context.Context) {
 		return
 	}
 
+	statusService := n.modelService.StatusService()
+
 	switch t := n.AgentTag().(type) {
 	case names.UnitTag:
-		err := n.modelService.StatusService().DeleteUnitPresence(ctx, unit.Name(t.Id()))
+		err := statusService.DeleteUnitPresence(ctx, unit.Name(t.Id()))
 		if err != nil {
-			n.logger.Infof(ctx, "recording presence for agent %s: unable to set unit presence: %v", t, err)
+			n.logger.Infof(ctx, "recording presence for agent %s: unable to delete unit presence: %v", t, err)
 		}
 	case names.MachineTag:
-		// TODO (stickupkid): Handle machine agents.
+		if err := statusService.DeleteMachinePresence(ctx, machine.Name(t.Id())); err != nil {
+			n.logger.Infof(ctx, "recording presence for agent %s: unable to delete machine presence: %v", t, err)
+		}
 	}
 }
 

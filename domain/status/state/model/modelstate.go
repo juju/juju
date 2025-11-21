@@ -193,7 +193,7 @@ func (st *ModelState) GetApplicationUUIDByName(ctx context.Context, name string)
 // GetApplicationUUIDAndNameByUnitName returns the application UUID and name for the
 // named unit.
 //
-// Returns an error satisfying [statuserrors.UnitNotFound] if the unit
+// Returns an error satisfying [applicationerrors.UnitNotFound] if the unit
 // doesn't exist.
 func (st *ModelState) GetApplicationUUIDAndNameByUnitName(
 	ctx context.Context,
@@ -221,7 +221,7 @@ WHERE u.name = $unitName.name;
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, query, unit).Get(&app)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return statuserrors.UnitNotFound
+			return applicationerrors.UnitNotFound
 		}
 		return err
 	})
@@ -540,7 +540,7 @@ WHERE relation_uuid = $relationStatus.relation_uuid
 }
 
 // GetUnitUUIDByName returns the UUID for the named unit, returning an error
-// satisfying [statuserrors.UnitNotFound] if the unit doesn't exist.
+// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 func (st *ModelState) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (coreunit.UUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -561,7 +561,7 @@ WHERE name = $unitName.name
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, query, unitName).Get(&unitUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("unit %q not found", name).Add(statuserrors.UnitNotFound)
+			return errors.Errorf("unit %q not found", name).Add(applicationerrors.UnitNotFound)
 		}
 		return err
 	})
@@ -573,7 +573,7 @@ WHERE name = $unitName.name
 }
 
 // GetUnitAgentStatus returns the agent status of the specified unit, returning:
-// - an error satisfying [statuserrors.UnitNotFound] if the unit doesn't exist or;
+// - an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist or;
 // - an error satisfying [statuserrors.UnitIsDead] if the unit is dead or;
 // - an error satisfying [statuserrors.UnitStatusNotFound] if the status is not set.
 func (st *ModelState) GetUnitAgentStatus(ctx context.Context, uuid coreunit.UUID) (status.UnitStatusInfo[status.UnitAgentStatusType], error) {
@@ -584,13 +584,15 @@ func (st *ModelState) GetUnitAgentStatus(ctx context.Context, uuid coreunit.UUID
 
 	unitUUID := unitUUID{UnitUUID: uuid.String()}
 	getUnitStatusStmt, err := st.Prepare(`
-SELECT &unitPresentStatusInfo.* FROM v_unit_agent_status WHERE unit_uuid = $unitUUID.uuid
-`, unitPresentStatusInfo{}, unitUUID)
+SELECT &presentStatusInfo.*
+FROM v_unit_agent_status
+WHERE unit_uuid = $unitUUID.uuid;
+`, presentStatusInfo{}, unitUUID)
 	if err != nil {
 		return status.UnitStatusInfo[status.UnitAgentStatusType]{}, errors.Capture(err)
 	}
 
-	var unitStatusInfo unitPresentStatusInfo
+	var unitStatusInfo presentStatusInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := st.checkUnitNotDead(ctx, tx, unitUUID)
 		if err != nil {
@@ -624,7 +626,7 @@ SELECT &unitPresentStatusInfo.* FROM v_unit_agent_status WHERE unit_uuid = $unit
 }
 
 // SetUnitAgentStatus updates the agent status of the specified unit,
-// returning an error satisfying [statuserrors.UnitNotFound] if the unit
+// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
 // doesn't exist.
 func (st *ModelState) SetUnitAgentStatus(ctx context.Context, unitUUID coreunit.UUID, status status.StatusInfo[status.UnitAgentStatusType]) error {
 	db, err := st.DB(ctx)
@@ -642,7 +644,7 @@ func (st *ModelState) SetUnitAgentStatus(ctx context.Context, unitUUID coreunit.
 }
 
 // GetUnitWorkloadStatus returns the workload status of the specified unit, returning:
-// - an error satisfying [statuserrors.UnitNotFound] if the unit doesn't exist or;
+// - an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist or;
 // - an error satisfying [statuserrors.UnitIsDead] if the unit is dead or;
 // - an error satisfying [statuserrors.UnitStatusNotFound] if the status is not set.
 func (st *ModelState) GetUnitWorkloadStatus(ctx context.Context, uuid coreunit.UUID) (status.UnitStatusInfo[status.WorkloadStatusType], error) {
@@ -653,13 +655,15 @@ func (st *ModelState) GetUnitWorkloadStatus(ctx context.Context, uuid coreunit.U
 
 	unitUUID := unitUUID{UnitUUID: uuid.String()}
 	getUnitStatusStmt, err := st.Prepare(`
-SELECT &unitPresentStatusInfo.* FROM v_unit_workload_status WHERE unit_uuid = $unitUUID.uuid
-`, unitPresentStatusInfo{}, unitUUID)
+SELECT &presentStatusInfo.*
+FROM v_unit_workload_status
+WHERE unit_uuid = $unitUUID.uuid;
+`, presentStatusInfo{}, unitUUID)
 	if err != nil {
 		return status.UnitStatusInfo[status.WorkloadStatusType]{}, errors.Capture(err)
 	}
 
-	var unitStatusInfo unitPresentStatusInfo
+	var unitStatusInfo presentStatusInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := st.checkUnitNotDead(ctx, tx, unitUUID)
 		if err != nil {
@@ -693,7 +697,7 @@ SELECT &unitPresentStatusInfo.* FROM v_unit_workload_status WHERE unit_uuid = $u
 }
 
 // SetUnitWorkloadStatus updates the workload status of the specified unit,
-// returning an error satisfying [statuserrors.UnitNotFound] if the unit
+// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
 // doesn't exist.
 func (st *ModelState) SetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UUID, status status.StatusInfo[status.WorkloadStatusType]) error {
 	db, err := st.DB(ctx)
@@ -712,7 +716,7 @@ func (st *ModelState) SetUnitWorkloadStatus(ctx context.Context, unitUUID coreun
 
 // GetUnitK8sPodStatus returns the cloud container status of the specified
 // unit. It returns;
-// - an error satisfying [statuserrors.UnitNotFound] if the unit doesn't exist or;
+// - an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist or;
 // - an error satisfying [statuserrors.UnitIsDead] if the unit is dead or;
 func (st *ModelState) GetUnitK8sPodStatus(ctx context.Context, uuid coreunit.UUID) (status.StatusInfo[status.K8sPodStatusType], error) {
 	db, err := st.DB(ctx)
@@ -1020,7 +1024,7 @@ JOIN application ON application.uuid = application_status.application_uuid
 }
 
 // SetUnitPresence marks the presence of the specified unit, returning an error
-// satisfying [statuserrors.UnitNotFound] if the unit doesn't exist.
+// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 // The unit life is not considered when making this query.
 func (st *ModelState) SetUnitPresence(ctx context.Context, name coreunit.Name) error {
 	db, err := st.DB(ctx)
@@ -1050,7 +1054,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, queryUnitStmt, unit).Get(&uuid); errors.Is(err, sql.ErrNoRows) {
-			return statuserrors.UnitNotFound
+			return applicationerrors.UnitNotFound
 		} else if err != nil {
 			return errors.Capture(err)
 		}
@@ -1095,6 +1099,90 @@ WHERE unit_uuid = (
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, deleteStmt, unit).Run(); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+
+	return errors.Capture(err)
+}
+
+// SetMachinePresence marks the presence of the specified machine, returning an
+// error satisfying [machineerrors.MachineNotFound] if the machine doesn't
+// exist. The machine life is not considered when making this query.
+func (st *ModelState) SetMachinePresence(ctx context.Context, name coremachine.Name) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	machine := machineName{Name: name.String()}
+	var uuid machineUUID
+
+	queryMachine := `SELECT &machineUUID.uuid FROM machine WHERE name = $machineName.name;`
+	queryMachineStmt, err := st.Prepare(queryMachine, machine, uuid)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	recordMachine := `
+INSERT INTO machine_agent_presence (*) VALUES ($machinePresence.*)
+ON CONFLICT(machine_uuid) DO UPDATE SET
+	last_seen = excluded.last_seen;
+`
+	var presence machinePresence
+	recordMachineStmt, err := st.Prepare(recordMachine, presence)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, queryMachineStmt, machine).Get(&uuid); errors.Is(err, sql.ErrNoRows) {
+			return machineerrors.MachineNotFound
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+
+		presence := machinePresence{
+			MachineUUID: uuid.UUID,
+			LastSeen:    st.clock.Now(),
+		}
+
+		if err := tx.Query(ctx, recordMachineStmt, presence).Run(); err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return nil
+}
+
+// DeleteMachinePresence removes the presence of the specified machine. If the
+// machine isn't found it ignores the error.
+// The machine life is not considered when making this query.
+func (st *ModelState) DeleteMachinePresence(ctx context.Context, name coremachine.Name) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	machine := machineName{Name: name.String()}
+
+	deleteStmt, err := st.Prepare(`
+DELETE FROM machine_agent_presence
+WHERE machine_uuid = (
+	SELECT uuid FROM machine
+	WHERE name = $machineName.name
+);
+`, machine)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, deleteStmt, machine).Run(); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return errors.Capture(err)
 		}
 		return nil
@@ -1165,7 +1253,7 @@ WHERE uuid = $applicationUUID.uuid;
 
 // checkUnitNotDead checks if the unit exists and is not dead. It's possible to
 // access alive and dying units, but not dead ones:
-// - If the unit is not found, [statuserrors.UnitNotFound] is returned.
+// - If the unit is not found, [applicationerrors.UnitNotFound] is returned.
 // - If the unit is dead, [statuserrors.UnitIsDead] is returned.
 func (st *ModelState) checkUnitNotDead(ctx context.Context, tx *sqlair.TX, ident unitUUID) error {
 	type life struct {
@@ -1185,7 +1273,7 @@ WHERE uuid = $unitUUID.uuid;
 	var result life
 	err = tx.Query(ctx, stmt, ident).Get(&result)
 	if errors.Is(err, sql.ErrNoRows) {
-		return statuserrors.UnitNotFound
+		return applicationerrors.UnitNotFound
 	} else if err != nil {
 		return errors.Errorf("checking unit %q exists: %w", ident.UnitUUID, err)
 	}
@@ -1289,7 +1377,7 @@ WHERE  application_uuid = $applicationUUID.uuid
 
 // setUnitAgentStatus saves the given unit agent status, overwriting any
 // current status data. If returns an error satisfying
-// [statuserrors.UnitNotFound] if the unit doesn't exist.
+// [applicationerrors.UnitNotFound] if the unit doesn't exist.
 func (st *ModelState) setUnitAgentStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -1321,7 +1409,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 	}
 
 	if err := tx.Query(ctx, stmt, statusInfo).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
-		return errors.Errorf("%w: %q", statuserrors.UnitNotFound, unitUUID)
+		return errors.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
 	} else if err != nil {
 		return errors.Capture(err)
 	}
@@ -1330,7 +1418,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 
 // setUnitWorkloadStatus saves the given unit workload status, overwriting any
 // current status data. If returns an error satisfying
-// [statuserrors.UnitNotFound] if the unit doesn't exist.
+// [applicationerrors.UnitNotFound] if the unit doesn't exist.
 func (st *ModelState) setUnitWorkloadStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -1362,7 +1450,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 	}
 
 	if err := tx.Query(ctx, stmt, statusInfo).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
-		return errors.Errorf("%w: %q", statuserrors.UnitNotFound, unitUUID)
+		return errors.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
 	} else if err != nil {
 		return errors.Capture(err)
 	}
@@ -1371,7 +1459,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 
 // setK8sPodStatus saves the given cloud container status, overwriting
 // any current status data. If returns an error satisfying
-// [statuserrors.UnitNotFound] if the unit doesn't exist.
+// [applicationerrors.UnitNotFound] if the unit doesn't exist.
 func (st *ModelState) setK8sPodStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -1403,7 +1491,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 	}
 
 	if err := tx.Query(ctx, stmt, statusInfo).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
-		return errors.Errorf("%w: %q", statuserrors.UnitNotFound, unitUUID)
+		return errors.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
 	} else if err != nil {
 		return errors.Capture(err)
 	}
@@ -1821,10 +1909,10 @@ GROUP BY u.application_uuid, application.name;
 // This method may return the following errors:
 // - [machineerrors.MachineNotFound] if the machine does not exist.
 // - [statuserrors.MachineStatusNotFound] if the status is not set.
-func (st *ModelState) GetMachineStatus(ctx context.Context, mName string) (status.StatusInfo[status.MachineStatusType], error) {
+func (st *ModelState) GetMachineStatus(ctx context.Context, mName string) (status.MachineStatusInfo[status.MachineStatusType], error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return status.StatusInfo[status.MachineStatusType]{}, errors.Capture(err)
+		return status.MachineStatusInfo[status.MachineStatusType]{}, errors.Capture(err)
 	}
 
 	nameIdent := machineName{Name: mName}
@@ -1833,7 +1921,7 @@ func (st *ModelState) GetMachineStatus(ctx context.Context, mName string) (statu
 	uuidQuery := `SELECT uuid AS &machineUUID.uuid FROM machine WHERE name = $machineName.name;`
 	uuidQueryStmt, err := st.Prepare(uuidQuery, nameIdent, uuid)
 	if err != nil {
-		return status.StatusInfo[status.MachineStatusType]{}, errors.Capture(err)
+		return status.MachineStatusInfo[status.MachineStatusType]{}, errors.Capture(err)
 	}
 
 	var mStatus machineStatus
@@ -1844,7 +1932,7 @@ WHERE st.machine_uuid = $machineUUID.uuid;
 `
 	statusCombinedQueryStmt, err := st.Prepare(statusQuery, uuid, mStatus)
 	if err != nil {
-		return status.StatusInfo[status.MachineStatusType]{}, errors.Capture(err)
+		return status.MachineStatusInfo[status.MachineStatusType]{}, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -1856,7 +1944,7 @@ WHERE st.machine_uuid = $machineUUID.uuid;
 			return errors.Errorf("querying uuid for machine %q: %w", mName, err)
 		}
 
-		// Query for the machine cloud instance status and status data combined
+		// Query for the machine cloud instance status and status data combined.
 		err = tx.Query(ctx, statusCombinedQueryStmt, uuid).Get(&mStatus)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("machine: %q: %w", mName, statuserrors.MachineStatusNotFound)
@@ -1868,14 +1956,14 @@ WHERE st.machine_uuid = $machineUUID.uuid;
 	})
 
 	if err != nil {
-		return status.StatusInfo[status.MachineStatusType]{}, errors.Capture(err)
+		return status.MachineStatusInfo[status.MachineStatusType]{}, errors.Capture(err)
 	}
 
 	// Convert the internal status id from the (machine_status_value table)
 	// into the core status.Status type.
 	machineStatus, err := status.DecodeMachineStatus(mStatus.Status)
 	if err != nil {
-		return status.StatusInfo[status.MachineStatusType]{}, errors.Errorf("decoding machine status for machine %q: %w", mName, err)
+		return status.MachineStatusInfo[status.MachineStatusType]{}, errors.Errorf("decoding machine status for machine %q: %w", mName, err)
 	}
 
 	var since *time.Time
@@ -1887,17 +1975,20 @@ WHERE st.machine_uuid = $machineUUID.uuid;
 		data = mStatus.Data
 	}
 
-	return status.StatusInfo[status.MachineStatusType]{
-		Status:  machineStatus,
-		Message: mStatus.Message,
-		Since:   since,
-		Data:    data,
+	return status.MachineStatusInfo[status.MachineStatusType]{
+		StatusInfo: status.StatusInfo[status.MachineStatusType]{
+			Status:  machineStatus,
+			Message: mStatus.Message,
+			Since:   since,
+			Data:    data,
+		},
+		Present: mStatus.Present,
 	}, nil
 }
 
 // GetAllMachineStatuses returns all the machine statuses for the model, indexed
 // by machine name.
-func (st *ModelState) GetAllMachineStatuses(ctx context.Context) (map[string]status.StatusInfo[status.MachineStatusType], error) {
+func (st *ModelState) GetAllMachineStatuses(ctx context.Context) (map[string]status.MachineStatusInfo[status.MachineStatusType], error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1923,7 +2014,7 @@ JOIN machine AS m ON ms.machine_uuid = m.uuid
 		return nil, errors.Capture(err)
 	}
 
-	result := make(map[string]status.StatusInfo[status.MachineStatusType])
+	result := make(map[string]status.MachineStatusInfo[status.MachineStatusType])
 	for _, mStatus := range res {
 		// Convert the internal status id from the (machine_status_value table)
 		// into the core status.Status type.
@@ -1939,11 +2030,14 @@ JOIN machine AS m ON ms.machine_uuid = m.uuid
 		if len(mStatus.Data) > 0 {
 			data = mStatus.Data
 		}
-		result[mStatus.Name] = status.StatusInfo[status.MachineStatusType]{
-			Status:  machineStatus,
-			Message: mStatus.Message,
-			Since:   since,
-			Data:    data,
+		result[mStatus.Name] = status.MachineStatusInfo[status.MachineStatusType]{
+			StatusInfo: status.StatusInfo[status.MachineStatusType]{
+				Status:  machineStatus,
+				Message: mStatus.Message,
+				Since:   since,
+				Data:    data,
+			},
+			Present: mStatus.Present,
 		}
 	}
 	return result, nil
@@ -1980,6 +2074,7 @@ SELECT
   ms.message AS &machineStatusDetails.machine_message,
   ms.data AS &machineStatusDetails.machine_data,
   ms.updated_at AS &machineStatusDetails.machine_updated_at,
+  vms.present AS &machineStatusDetails.machine_present,
   mcis.status_id AS &machineStatusDetails.instance_status_id,
   mcis.message AS &machineStatusDetails.instance_message,
   mcis.data AS &machineStatusDetails.instance_data,
@@ -1998,6 +2093,7 @@ SELECT
   c.image_id AS &machineStatusDetails.constraint_image_id
 FROM machine AS m
 LEFT JOIN machine_status AS ms ON ms.machine_uuid = m.uuid
+LEFT JOIN v_machine_status AS vms ON vms.machine_uuid = m.uuid
 LEFT JOIN machine_platform AS p ON p.machine_uuid = m.uuid
 LEFT JOIN machine_cloud_instance AS mci ON mci.machine_uuid = m.uuid
 LEFT JOIN machine_cloud_instance_status mcis ON mcis.machine_uuid = m.uuid
@@ -2125,6 +2221,11 @@ LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
 			dnsName = matchedAddrs[0].Value
 		}
 
+		var present bool
+		if s.MachinePresent.Valid {
+			present = s.MachinePresent.V
+		}
+
 		result[s.Name] = status.Machine{
 			UUID:        s.UUID,
 			Life:        s.LifeID,
@@ -2134,11 +2235,14 @@ LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
 			DNSName:     dnsName,
 			IPAddresses: ipAddresses,
 			Platform:    platform,
-			MachineStatus: status.StatusInfo[status.MachineStatusType]{
-				Status:  s.MachineStatusID,
-				Message: s.MachineMessage,
-				Data:    s.MachineData,
-				Since:   s.MachineUpdatedAt,
+			MachineStatus: status.MachineStatusInfo[status.MachineStatusType]{
+				StatusInfo: status.StatusInfo[status.MachineStatusType]{
+					Status:  s.MachineStatusID,
+					Message: s.MachineMessage,
+					Data:    s.MachineData,
+					Since:   s.MachineUpdatedAt,
+				},
+				Present: present,
 			},
 			InstanceStatus: status.StatusInfo[status.InstanceStatusType]{
 				Status:  s.InstanceStatusID,
@@ -2232,9 +2336,9 @@ func (st *ModelState) GetInstanceStatus(ctx context.Context, mName string) (stat
 		return status.StatusInfo[status.InstanceStatusType]{}, errors.Capture(err)
 	}
 
-	var mStatus machineStatus
+	var mStatus instanceStatus
 	statusCombinedQuery := `
-SELECT &machineStatus.*
+SELECT &instanceStatus.*
 FROM v_machine_cloud_instance_status AS st
 WHERE st.machine_uuid = $machineUUID.uuid`
 	statusCombinedQueryStmt, err := st.Prepare(statusCombinedQuery, uuid, mStatus)
@@ -2268,7 +2372,7 @@ WHERE st.machine_uuid = $machineUUID.uuid`
 	// Convert the internal status id from the
 	// (machine_cloud_instance_status_value table) into the core status.Status
 	// type.
-	machineStatus, err := status.DecodeCloudInstanceStatus(mStatus.Status)
+	instanceStatus, err := status.DecodeCloudInstanceStatus(mStatus.Status)
 	if err != nil {
 		return status.StatusInfo[status.InstanceStatusType]{}, errors.Errorf("decoding cloud instance status for machine %q: %w", mName, err)
 	}
@@ -2282,7 +2386,7 @@ WHERE st.machine_uuid = $machineUUID.uuid`
 		data = mStatus.Data
 	}
 	return status.StatusInfo[status.InstanceStatusType]{
-		Status:  machineStatus,
+		Status:  instanceStatus,
 		Message: mStatus.Message,
 		Since:   since,
 		Data:    data,
@@ -2298,15 +2402,15 @@ func (st *ModelState) GetAllInstanceStatuses(ctx context.Context) (map[string]st
 	}
 
 	stmt, err := st.Prepare(`
-SELECT &machineNameStatus.*
+SELECT &instanceNameStatus.*
 FROM v_machine_cloud_instance_status AS ms
 JOIN machine AS m ON ms.machine_uuid = m.uuid
-	`, machineNameStatus{})
+	`, instanceNameStatus{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var res []machineNameStatus
+	var res []instanceNameStatus
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).GetAll(&res)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {

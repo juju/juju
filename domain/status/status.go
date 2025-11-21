@@ -42,6 +42,14 @@ type UnitStatusInfo[T UnitStatusID] struct {
 	Present bool
 }
 
+// MachineStatusInfo holds details about the status of a machine. This
+// indicates if the machine agent is present and currently active in the model.
+type MachineStatusInfo[T StatusID] struct {
+	StatusInfo[T]
+	// Present is true if the machine agent logged into the API server.
+	Present bool
+}
+
 // K8sPodStatusType represents the status of a cloud container
 // as recorded in the k8s_pod_status_value lookup table.
 type K8sPodStatusType int

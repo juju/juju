@@ -13,7 +13,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
-	statuserrors "github.com/juju/juju/domain/status/errors"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -82,7 +82,7 @@ func (s *UnitStatusSetter) SetStatus(ctx context.Context, args params.SetStatus)
 			Since:   &now,
 		}
 		err = s.statusService.SetUnitWorkloadStatus(ctx, unitName, sInfo)
-		if errors.Is(err, statuserrors.UnitNotFound) {
+		if errors.Is(err, applicationerrors.UnitNotFound) {
 			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", unitName))
 			continue
 		} else if err != nil {
@@ -139,7 +139,7 @@ func (s *UnitStatusGetter) Status(ctx context.Context, args params.Entities) (pa
 		}
 
 		sInfo, err := s.statusService.GetUnitWorkloadStatus(ctx, unitName)
-		if errors.Is(err, statuserrors.UnitNotFound) {
+		if errors.Is(err, applicationerrors.UnitNotFound) {
 			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", unitName))
 			continue
 		} else if err != nil {

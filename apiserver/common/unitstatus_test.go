@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
-	statuserrors "github.com/juju/juju/domain/status/errors"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -110,7 +110,9 @@ func (s *unitSetStatusSuite) TestSetStatusUnitNotFound(c *tc.C) {
 
 	tag := names.NewUnitTag("ubuntu/42")
 
-	s.statusService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42"), gomock.Any()).Return(statuserrors.UnitNotFound)
+	s.statusService.EXPECT().
+		SetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42"), gomock.Any()).
+		Return(applicationerrors.UnitNotFound)
 
 	setter := common.NewUnitStatusSetter(s.statusService, s.clock, func(ctx context.Context) (common.AuthFunc, error) {
 		return s.authFunc, nil
@@ -218,7 +220,9 @@ func (s *unitGetStatusSuite) TestStatusUnitNotFound(c *tc.C) {
 
 	tag := names.NewUnitTag("ubuntu/42")
 
-	s.statusService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42")).Return(status.StatusInfo{}, statuserrors.UnitNotFound)
+	s.statusService.EXPECT().
+		GetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42")).
+		Return(status.StatusInfo{}, applicationerrors.UnitNotFound)
 
 	getter := common.NewUnitStatusGetter(s.statusService, s.clock, func(ctx context.Context) (common.AuthFunc, error) {
 		return s.authFunc, nil

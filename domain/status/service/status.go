@@ -659,7 +659,17 @@ func encodeMachineStatus(s corestatus.StatusInfo) (status.StatusInfo[status.Mach
 }
 
 // decodeMachineStatus converts a db status info into a core status info.
-func decodeMachineStatus(s status.StatusInfo[status.MachineStatusType]) (corestatus.StatusInfo, error) {
+func decodeMachineStatus(s status.StatusInfo[status.MachineStatusType], present bool) (corestatus.StatusInfo, error) {
+	// If the agent isn't present then we need to modify the status for the
+	// agent.
+	if !present && (s.Status != status.MachineStatusPending && s.Status != status.MachineStatusStopped) {
+		return corestatus.StatusInfo{
+			Status:  corestatus.Down,
+			Message: "agent is not communicating with the server",
+			Since:   s.Since,
+		}, nil
+	}
+
 	statusType, err := decodeMachineStatusType(s.Status)
 	if err != nil {
 		return corestatus.StatusInfo{}, err

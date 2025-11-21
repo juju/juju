@@ -145,14 +145,23 @@ type ModelState interface {
 	GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error)
 
 	// GetMachineStatus returns the status of the specified machine.
-	GetMachineStatus(ctx context.Context, machineName string) (status.StatusInfo[status.MachineStatusType], error)
+	GetMachineStatus(ctx context.Context, machineName string) (status.MachineStatusInfo[status.MachineStatusType], error)
 
 	// SetMachineStatus sets the status of the specified machine.
 	SetMachineStatus(ctx context.Context, machineName string, status status.StatusInfo[status.MachineStatusType]) error
 
+	// SetMachinePresence marks the presence of the specified machine. The
+	// machine life is not considered when making this query.
+	SetMachinePresence(ctx context.Context, name machine.Name) error
+
+	// DeleteMachinePresence removes the presence of the specified machine. If
+	// the machine isn't found it ignores the error. The machine life is not
+	// considered when making this query.
+	DeleteMachinePresence(ctx context.Context, name machine.Name) error
+
 	// GetAllMachineStatuses returns all the machine statuses for the model,
 	// indexed by machine name.
-	GetAllMachineStatuses(context.Context) (map[string]status.StatusInfo[status.MachineStatusType], error)
+	GetAllMachineStatuses(context.Context) (map[string]status.MachineStatusInfo[status.MachineStatusType], error)
 
 	// GetMachineFullStatuses returns all the machine statuses for the model,
 	// indexed by machine name.
@@ -530,6 +539,33 @@ func (s *Service) DeleteUnitPresence(ctx context.Context, unitName coreunit.Name
 	return s.modelState.DeleteUnitPresence(ctx, unitName)
 }
 
+// SetMachinePresence marks the presence of the machine in the model. It is
+// called by the machine agent accesses the API server. If the machine is not
+// found, an error satisfying [machineerrors.MachineNotFound] is returned. The
+// machine life is not considered when setting the presence.
+func (s *Service) SetMachinePresence(ctx context.Context, machineName machine.Name) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := machineName.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+	return s.modelState.SetMachinePresence(ctx, machineName)
+}
+
+// DeleteMachinePresence removes the presence of the machine in the model. If
+// the machine is not found, it ignores the error. The machine life is not
+// considered when deleting the presence.
+func (s *Service) DeleteMachinePresence(ctx context.Context, machineName machine.Name) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := machineName.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+	return s.modelState.DeleteMachinePresence(ctx, machineName)
+}
+
 // CheckUnitStatusesReadyForMigration returns an error if the statuses of any units
 // in the model indicate they cannot be migrated.
 func (s *Service) CheckUnitStatusesReadyForMigration(ctx context.Context) error {
@@ -691,7 +727,7 @@ func (s *Service) GetMachineStatus(ctx context.Context, machineName machine.Name
 	if err != nil {
 		return corestatus.StatusInfo{}, errors.Errorf("retrieving machine status for machine %q: %w", machineName, err)
 	}
-	return decodeMachineStatus(machineStatus)
+	return decodeMachineStatus(machineStatus.StatusInfo, machineStatus.Present)
 }
 
 // GetAllMachineStatuses returns all the machine statuses for the model, indexed
@@ -711,7 +747,7 @@ func (s *Service) GetAllMachineStatuses(ctx context.Context) (map[machine.Name]c
 		if err := machineName.Validate(); err != nil {
 			return nil, errors.Errorf("validating returned machine name %q: %w", name, err)
 		}
-		result[machineName], err = decodeMachineStatus(status)
+		result[machineName], err = decodeMachineStatus(status.StatusInfo, status.Present)
 		if err != nil {
 			return nil, errors.Errorf("decoding machine status for machine %q: %w", machineName, err)
 		}
@@ -887,7 +923,7 @@ func (s *Service) CheckMachineStatusesReadyForMigration(ctx context.Context) err
 			return errors.Errorf("some machines have unset statuses")
 		}
 
-		machineStatus, err := decodeMachineStatus(mStatus)
+		machineStatus, err := decodeMachineStatus(mStatus.StatusInfo, mStatus.Present)
 		if err != nil {
 			return errors.Errorf("decoding machine status for machine %q: %w", machineName, err)
 		}
@@ -950,7 +986,7 @@ func (s *Service) ExportMachineStatuses(ctx context.Context) (
 			return nil, nil, errors.Errorf("validating returned machine name %q: %w", name, err)
 		}
 
-		decodedMachineStatus, err := decodeMachineStatus(mStatus)
+		decodedMachineStatus, err := decodeMachineStatus(mStatus.StatusInfo, mStatus.Present)
 		if err != nil {
 			return nil, nil, errors.Errorf("decoding machine status for %q: %w", name, err)
 		}
@@ -1191,7 +1227,7 @@ func (s *Service) decodeMachineStatusDetails(machineName machine.Name, machine s
 		return Machine{}, errors.Errorf("decoding machine life: %w", err)
 	}
 
-	machineStatus, err := decodeMachineStatus(machine.MachineStatus)
+	machineStatus, err := decodeMachineStatus(machine.MachineStatus.StatusInfo, machine.MachineStatus.Present)
 	if err != nil {
 		return Machine{}, errors.Errorf("decoding machine status: %w", err)
 	}

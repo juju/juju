@@ -47,6 +47,11 @@ type unitPresence struct {
 	LastSeen time.Time `db:"last_seen"`
 }
 
+type machinePresence struct {
+	MachineUUID string    `db:"machine_uuid"`
+	LastSeen    time.Time `db:"last_seen"`
+}
+
 type remoteApplicationUUID struct {
 	RemoteApplicationUUID string `db:"uuid"`
 }
@@ -86,7 +91,7 @@ type unitStatusInfo struct {
 	UpdatedAt *time.Time    `db:"updated_at"`
 }
 
-type unitPresentStatusInfo struct {
+type presentStatusInfo struct {
 	StatusID  int        `db:"status_id"`
 	Message   string     `db:"message"`
 	Data      []byte     `db:"data"`
@@ -372,9 +377,26 @@ type machineStatus struct {
 	Message string              `db:"message"`
 	Data    []byte              `db:"data"`
 	Updated sql.Null[time.Time] `db:"updated_at"`
+	Present bool                `db:"present"`
 }
 
 type machineNameStatus struct {
+	Name    string              `db:"name"`
+	Status  string              `db:"status"`
+	Message string              `db:"message"`
+	Data    []byte              `db:"data"`
+	Updated sql.Null[time.Time] `db:"updated_at"`
+	Present bool                `db:"present"`
+}
+
+type instanceStatus struct {
+	Status  string              `db:"status"`
+	Message string              `db:"message"`
+	Data    []byte              `db:"data"`
+	Updated sql.Null[time.Time] `db:"updated_at"`
+}
+
+type instanceNameStatus struct {
 	Name    string              `db:"name"`
 	Status  string              `db:"status"`
 	Message string              `db:"message"`
@@ -404,6 +426,7 @@ type machineStatusDetails struct {
 	MachineMessage             string                    `db:"machine_message"`
 	MachineData                []byte                    `db:"machine_data"`
 	MachineUpdatedAt           *time.Time                `db:"machine_updated_at"`
+	MachinePresent             sql.Null[bool]            `db:"machine_present"`
 	InstanceStatusID           status.InstanceStatusType `db:"instance_status_id"`
 	InstanceMessage            string                    `db:"instance_message"`
 	InstanceData               []byte                    `db:"instance_data"`

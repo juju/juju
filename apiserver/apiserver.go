@@ -1095,7 +1095,15 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 
 	apiObserver := srv.newObserver()
 	apiObserver.Join(req.Context(), req, connectionID, fd)
-	defer apiObserver.Leave(req.Context())
+	defer func() {
+		// Don't use the request context as it will cause the Leave to be
+		// cancelled and not report the leave correctly. Giving it a timeout
+		// should ensure that the request doesn't hang indefinitely.
+		ctx, cancel := context.WithTimeout(srv.catacomb.Context(context.Background()), time.Second*5)
+		defer cancel()
+
+		apiObserver.Leave(ctx)
+	}()
 
 	// Create a new offer auth context. This will be used to bake new
 	// macaroons for offers, and to validate incoming macaroons.

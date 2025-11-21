@@ -18,10 +18,6 @@ const (
 	// current relation status cannot transition to the new relation status.
 	RelationStatusTransitionNotValid = errors.ConstError("relation status transition not valid")
 
-	// UnitNotFound describes an error that occurs when the unit being operated
-	// on does not exist.
-	UnitNotFound = errors.ConstError("unit not found")
-
 	// UnitIsDead describes an error that occurs when trying to access
 	// an application that is dead.
 	UnitIsDead = errors.ConstError("unit is dead")
