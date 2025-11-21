@@ -36,12 +36,11 @@ type FirewallerConfig struct {
 // firewaller is a worker responsible for watching applications in the model and
 // ensuring they have their corresponding application firewall events handled.
 type firewaller struct {
-	*worker.Runner
-	catacomb   catacomb.Catacomb
-	appService ApplicationService
-	logger     logger.Logger
+	appWorkerRunner *worker.Runner
+	catacomb        catacomb.Catacomb
+	appService      ApplicationService
+	logger          logger.Logger
 
-	//appWorkers    map[application.UUID]worker.Worker
 	workerCreator AppFirewallerWokerCreator
 }
 
@@ -119,17 +118,17 @@ func NewFirewallerWorker(config FirewallerConfig) (worker.Worker, error) {
 	}
 
 	p := &firewaller{
-		Runner:        runner,
-		appService:    config.ApplicationService,
-		logger:        config.Logger,
-		workerCreator: config.WorkerCreator,
+		appWorkerRunner: runner,
+		appService:      config.ApplicationService,
+		logger:          config.Logger,
+		workerCreator:   config.WorkerCreator,
 	}
 
 	err = catacomb.Invoke(catacomb.Plan{
 		// This is important, we make the catacomb responsible for the life of
 		// [runner]. From this point out we don't have to worry about its life
 		// management.
-		Init: []worker.Worker{runner},
+		Init: []worker.Worker{p.appWorkerRunner},
 		Name: "caas-firewaller",
 		Site: &p.catacomb,
 		Work: p.loop,
@@ -170,6 +169,16 @@ func (p *firewaller) observeApplicationFirewallChange(
 	return p.startApplicationWorker(ctx, appUUID)
 }
 
+// Report returns a map describing the current state of the firewaller worker's
+// child application workers. For each alive application in the model their
+// should exist a corresponding child worker managing the application's firewall
+// settings.
+//
+// Report implements the [worker.Reporter] interface.
+func (p *firewaller) Report() map[string]any {
+	return p.appWorkerRunner.Report()
+}
+
 // startApplicationWorker ensures that a firewall worker exists for the
 // supplied application uuid.
 func (p *firewaller) startApplicationWorker(
@@ -179,7 +188,7 @@ func (p *firewaller) startApplicationWorker(
 		ctx, "creating application %q caas firewaller worker", appUUID,
 	)
 
-	err := p.Runner.StartWorker(
+	err := p.appWorkerRunner.StartWorker(
 		ctx,
 		applicationWorkerNamePrefix+appUUID.String(),
 		func(context.Context) (worker.Worker, error) {
@@ -207,7 +216,7 @@ func (p *firewaller) stopApplicationWorker(
 		ctx, "removing application %q caas firewaller worker", appUUID,
 	)
 
-	err := p.Runner.StopWorker(applicationWorkerNamePrefix + appUUID.String())
+	err := p.appWorkerRunner.StopWorker(applicationWorkerNamePrefix + appUUID.String())
 	if err != nil {
 		return errors.Errorf(
 			"stopping firewaller worker for application %q: %w", appUUID, err,
