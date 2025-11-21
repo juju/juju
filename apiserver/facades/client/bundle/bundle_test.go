@@ -120,7 +120,7 @@ func (s *bundleSuite) TestGetChangesBundleStorageError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, gc.IsNil)
 	c.Assert(r.Errors, jc.SameContents, []string{
-		`invalid storage "bad" in application "django": cannot parse count: count must be greater than zero, got "0"`,
+		`invalid storage "bad" in application "django": parsing storage count: count must be greater than zero, got "0"`,
 	})
 }
 
@@ -450,7 +450,7 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleStorageError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, gc.IsNil)
 	c.Assert(r.Errors, jc.SameContents, []string{
-		`invalid storage "bad" in application "django": cannot parse count: count must be greater than zero, got "0"`,
+		`invalid storage "bad" in application "django": parsing storage count: count must be greater than zero, got "0"`,
 	})
 }
 
