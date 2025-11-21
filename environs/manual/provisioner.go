@@ -48,6 +48,12 @@ type ProvisionMachineArgs struct {
 	// ubuntu user's ~/.ssh/authorized_keys.
 	AuthorizedKeys string
 
+	// UbuntuUserPrivateKey may be supplied to use when we connect to the
+	// the machine as the ubuntu user (for provisioning check, hardware characteristics etc.),
+	// this for situations where the caller isn't necessarily the Juju CLI or the key isn't present
+	// in ~/.ssh. I.e., the juju terraform provider.
+	UbuntuUserPrivateKey string
+
 	// PrivateKey contains the path of the identify file containing the
 	// private key to be used during the ssh connection with a target
 	// machine.
