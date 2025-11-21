@@ -42,7 +42,22 @@ type InsertIAASUnitState struct {
 
 // NewState returns a new state reference.
 func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logger.Logger) *State {
+	base := domain.NewStateBase(factory)
 	return &State{
+		StateBase: base,
+		clock:     clock,
+		logger:    logger,
+		us: &InsertIAASUnitState{
+			StateBase: base,
+			clock:     clock,
+			logger:    logger,
+		},
+	}
+}
+
+// NewInsertIAASUnitState returns a new insert iaas unit state reference.
+func NewInsertIAASUnitState(factory database.TxnRunnerFactory, clock clock.Clock, logger logger.Logger) *InsertIAASUnitState {
+	return &InsertIAASUnitState{
 		StateBase: domain.NewStateBase(factory),
 		clock:     clock,
 		logger:    logger,

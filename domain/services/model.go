@@ -514,8 +514,9 @@ func (s *ModelServices) Resource() *resourceservice.Service {
 // for the current model.
 func (s *ModelServices) Relation() *relationservice.WatchableService {
 	log := s.logger.Child("relation")
+	us := applicationstate.NewInsertIAASUnitState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, log.Child("subordinateunit"))
 	return relationservice.NewWatchableService(
-		relationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, log),
+		relationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, log, us),
 		s.modelWatcherFactory("relation.watcher"),
 		domain.NewLeaseService(s.leaseManager),
 		log,

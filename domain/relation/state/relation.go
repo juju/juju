@@ -44,14 +44,16 @@ type State struct {
 	*domain.StateBase
 	clock  clock.Clock
 	logger logger.Logger
+	us     InsertIAASUnitState
 }
 
 // NewState returns a new state reference.
-func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logger.Logger) *State {
+func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logger.Logger, us InsertIAASUnitState) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
 		clock:     clock,
 		logger:    logger,
+		us:        us,
 	}
 }
 

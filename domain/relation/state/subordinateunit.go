@@ -8,30 +8,27 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/clock"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/charm"
 	corelife "github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 )
 
-// SubordinateUnitState represents the minium state required to insert a
-// subordinate unit.
-type SubordinateUnitState struct {
-	*domain.StateBase
-	clock  clock.Clock
-	logger logger.Logger
-	us     *applicationstate.InsertIAASUnitState
+type InsertIAASUnitState interface {
+	InsertIAASUnit(
+		ctx context.Context,
+		tx *sqlair.TX,
+		appUUID coreapplication.UUID,
+		charmUUID charm.ID,
+		args application.AddIAASUnitArg,
+	) (unit.Name, unit.UUID, []machine.Name, error)
 }
 
 // AddIAASSubordinateUnit adds a unit to the specified subordinate application
@@ -45,7 +42,7 @@ type SubordinateUnitState struct {
 //   - [machineerrors.MachineNotFound] when no machine is attached to the
 //
 // principal unit.
-func (st *SubordinateUnitState) AddIAASSubordinateUnit(
+func (st *State) AddIAASSubordinateUnit(
 	ctx context.Context,
 	arg application.SubordinateUnitArg,
 ) (unit.Name, []machine.Name, error) {
@@ -133,7 +130,7 @@ func (st *SubordinateUnitState) AddIAASSubordinateUnit(
 // longer exists.
 // - [applicationerrors.UnitMachineNotAssigned] when the unit is not assigned to
 // a machine.
-func (st *SubordinateUnitState) getUnitMachineIdentifiers(
+func (st *State) getUnitMachineIdentifiers(
 	ctx context.Context, tx *sqlair.TX, unitUUID unit.UUID,
 ) (machineIdentifiers, error) {
 	var (
@@ -184,7 +181,7 @@ WHERE  u.uuid = $entityUUID.uuid
 // checkNoSubordinateExists returns
 // [applicationerrors.UnitAlreadyHasSubordinate] if the specified unit already
 // has a subordinate for the given application.
-func (st *SubordinateUnitState) checkNoSubordinateExists(
+func (st *State) checkNoSubordinateExists(
 	ctx context.Context,
 	tx *sqlair.TX,
 	subordinateAppUUID coreapplication.UUID,
@@ -223,7 +220,7 @@ AND    su.application_uuid = $applicationUUID.application_uuid
 // access alive and dying units, but not dead ones:
 // - If the unit is not found, [applicationerrors.UnitNotFound] is returned.
 // - If the unit is dead, [applicationerrors.UnitIsDead] is returned.
-func (st *SubordinateUnitState) checkUnitNotDead(ctx context.Context, tx *sqlair.TX, uuid unit.UUID) error {
+func (st *State) checkUnitNotDead(ctx context.Context, tx *sqlair.TX, uuid unit.UUID) error {
 	query := `
 SELECT (uuid, value) AS (&getLife.*)
 FROM unit
@@ -252,7 +249,7 @@ WHERE uuid = $getLife.uuid;
 	}
 }
 
-func (s *SubordinateUnitState) getCharmIDByApplicationUUID(ctx context.Context, tx *sqlair.TX, appID coreapplication.UUID) (charm.ID, error) {
+func (s *State) getCharmIDByApplicationUUID(ctx context.Context, tx *sqlair.TX, appID coreapplication.UUID) (charm.ID, error) {
 	query := `
 SELECT charm_uuid AS &charmUUID.*
 FROM application
@@ -277,7 +274,7 @@ WHERE uuid = $entityUUID.uuid;
 //
 // It is expected that the caller has already verified that both unit uuids
 // exist in the model.
-func (st *SubordinateUnitState) recordUnitPrincipal(
+func (st *State) recordUnitPrincipal(
 	ctx context.Context,
 	tx *sqlair.TX,
 	principalUnitUUID, subordinateUnitUUID unit.UUID,
@@ -307,7 +304,7 @@ VALUES ($unitPrincipal.*)
 }
 
 // checkApplicationAlive checks if the application exists and it is alive.
-func (st *SubordinateUnitState) checkApplicationAlive(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.UUID) error {
+func (st *State) checkApplicationAlive(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.UUID) error {
 	type life struct {
 		LifeID corelife.Value `db:"value"`
 	}
@@ -344,7 +341,7 @@ WHERE  a.uuid = $ident.uuid
 
 // checkUnitExists checks if the unit with the given UUID exists in the model.
 // True is returned when the unit is found.
-func (st *SubordinateUnitState) checkUnitExists(
+func (st *State) checkUnitExists(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID unit.UUID,
