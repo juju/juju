@@ -16,6 +16,7 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type modelSuite struct {
@@ -31,11 +32,11 @@ func (s *modelSuite) TestModelExists(c *tc.C) {
 
 	exists, err := st.ModelExists(c.Context(), s.getModelUUID(c))
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.Equals, true)
+	c.Check(exists, tc.IsTrue)
 
 	exists, err = st.ModelExists(c.Context(), "not-today-henry")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.Equals, false)
+	c.Check(exists, tc.IsFalse)
 }
 
 func (s *modelSuite) TestGetModelLifeSuccess(c *tc.C) {
@@ -116,7 +117,7 @@ func (s *modelSuite) TestEnsureModelNotAliveCascadeEmpty(c *tc.C) {
 
 	artifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, false)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(artifacts.Empty(), tc.Equals, true)
+	c.Check(artifacts.Empty(), tc.IsTrue)
 }
 
 func (s *modelSuite) TestModelRemovalNormalSuccess(c *tc.C) {
@@ -149,7 +150,7 @@ func (s *modelSuite) TestModelRemovalNormalSuccess(c *tc.C) {
 
 		c.Check(removalTypeID, tc.Equals, idType)
 		c.Check(rUUID, tc.Equals, modelUUID)
-		c.Check(force, tc.Equals, false)
+		c.Check(force, tc.IsFalse)
 		c.Check(scheduledFor, tc.Equals, when)
 	}
 
@@ -188,7 +189,7 @@ where  r.uuid = ?`, removalUUID,
 
 		c.Check(removalType, tc.Equals, "model")
 		c.Check(rUUID, tc.Equals, "some-model-uuid")
-		c.Check(force, tc.Equals, true)
+		c.Check(force, tc.IsTrue)
 		c.Check(scheduledFor, tc.Equals, when)
 	}
 	ensureRemovalJob("removal-uuid")
@@ -224,7 +225,7 @@ func (s *modelSuite) TestControllerModelRemovalNormalSuccess(c *tc.C) {
 
 		c.Check(removalTypeID, tc.Equals, idType)
 		c.Check(rUUID, tc.Equals, modelUUID)
-		c.Check(force, tc.Equals, false)
+		c.Check(force, tc.IsFalse)
 		c.Check(scheduledFor, tc.Equals, when)
 	}
 
@@ -263,10 +264,56 @@ where  r.uuid = ?`, removalUUID,
 
 		c.Check(removalType, tc.Equals, "controller-model")
 		c.Check(rUUID, tc.Equals, "some-model-uuid")
-		c.Check(force, tc.Equals, true)
+		c.Check(force, tc.IsTrue)
 		c.Check(scheduledFor, tc.Equals, when)
 	}
 	ensureRemovalJob("removal-uuid")
+}
+
+func (s *modelSuite) TestMarkModelAsDeadNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.MarkModelAsDead(c.Context(), "foo", false)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
+}
+
+func (s *modelSuite) TestMarkModelAsDeadStillAlive(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	modelUUID := s.getModelUUID(c)
+
+	err := st.MarkModelAsDead(c.Context(), modelUUID, false)
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
+}
+
+func (s *modelSuite) TestMarkModelAsDeadStillDying(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	modelUUID := s.getModelUUID(c)
+
+	s.advanceModelLife(c, modelUUID, life.Dying)
+
+	err := st.MarkModelAsDead(c.Context(), modelUUID, false)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *modelSuite) TestMarkModelAsDead(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	modelUUID := s.getModelUUID(c)
+
+	err := st.MarkModelAsDead(c.Context(), modelUUID, false)
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
+
+	s.advanceModelLife(c, modelUUID, life.Dying)
+
+	err = st.MarkModelAsDead(c.Context(), modelUUID, true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.checkModelLife(c, modelUUID, life.Dead)
 }
 
 func (s *modelSuite) TestDeleteModel(c *tc.C) {
@@ -280,7 +327,7 @@ func (s *modelSuite) TestDeleteModel(c *tc.C) {
 
 	modelUUID := s.getModelUUID(c)
 
-	err := st.DeleteModelArtifacts(c.Context(), modelUUID)
+	err := st.DeleteModelArtifacts(c.Context(), modelUUID, false)
 	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
 
 	s.advanceModelLife(c, modelUUID, life.Dead)
@@ -289,10 +336,10 @@ func (s *modelSuite) TestDeleteModel(c *tc.C) {
 	s.advanceMachineLife(c, machineUUID, life.Dead)
 	s.advanceInstanceLife(c, machineUUID, life.Dead)
 
-	err = st.DeleteModelArtifacts(c.Context(), modelUUID)
+	err = st.DeleteModelArtifacts(c.Context(), modelUUID, false)
 	c.Assert(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
 
-	err = st.DeleteUnit(c.Context(), unitUUID.String())
+	err = st.DeleteUnit(c.Context(), unitUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.DeleteMachine(c.Context(), machineUUID.String(), false)
@@ -301,19 +348,19 @@ func (s *modelSuite) TestDeleteModel(c *tc.C) {
 	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.DeleteModelArtifacts(c.Context(), modelUUID)
+	err = st.DeleteModelArtifacts(c.Context(), modelUUID, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The model should be gone.
 	exists, err := st.ModelExists(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.Equals, false)
+	c.Check(exists, tc.IsFalse)
 }
 
 func (s *modelSuite) TestDeleteModelNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.DeleteModelArtifacts(c.Context(), "0")
+	err := st.DeleteModelArtifacts(c.Context(), "0", false)
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -324,7 +371,7 @@ func (s *modelSuite) TestIsControllerModel(c *tc.C) {
 
 	isController, err := st.IsControllerModel(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(isController, tc.Equals, false)
+	c.Check(isController, tc.IsFalse)
 }
 
 func (s *modelSuite) TestIsControllerModelControllerModel(c *tc.C) {
@@ -346,7 +393,7 @@ func (s *modelSuite) TestIsControllerModelControllerModel(c *tc.C) {
 
 	isController, err := st.IsControllerModel(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(isController, tc.Equals, true)
+	c.Check(isController, tc.IsTrue)
 }
 
 func (s *modelSuite) TestIsControllerModelNotFound(c *tc.C) {
@@ -354,6 +401,65 @@ func (s *modelSuite) TestIsControllerModelNotFound(c *tc.C) {
 
 	_, err := st.IsControllerModel(c.Context(), "not-a-model-uuid")
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
+}
+
+func (s *modelSuite) TestHasModelRemovalJobUsedForceNoJobFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	modelUUID := s.getModelUUID(c)
+	usedForce, err := st.HasModelRemovalJobUsedForce(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(usedForce, tc.IsTrue)
+}
+
+func (s *modelSuite) TestHasModelRemovalJobUsedForceNotForced(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	modelUUID := s.getModelUUID(c)
+
+	removalUUID := tc.Must(c, uuid.NewUUID).String()
+	err := st.ModelScheduleRemoval(c.Context(), removalUUID, modelUUID, false, time.Now().UTC())
+	c.Assert(err, tc.ErrorIsNil)
+
+	usedForce, err := st.HasModelRemovalJobUsedForce(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(usedForce, tc.IsFalse)
+}
+
+func (s *modelSuite) TestHasModelRemovalJobUsedForce(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	modelUUID := s.getModelUUID(c)
+
+	removalUUID := tc.Must(c, uuid.NewUUID).String()
+	err := st.ModelScheduleRemoval(c.Context(), removalUUID, modelUUID, true, time.Now().UTC())
+	c.Assert(err, tc.ErrorIsNil)
+
+	usedForce, err := st.HasModelRemovalJobUsedForce(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(usedForce, tc.IsTrue)
+}
+
+func (s *modelSuite) TestHasModelRemovalJobUsedForceTaintedPact(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	modelUUID := s.getModelUUID(c)
+
+	removalUUID := tc.Must(c, uuid.NewUUID).String()
+	err := st.ModelScheduleRemoval(c.Context(), removalUUID, modelUUID, true, time.Now().UTC())
+	c.Assert(err, tc.ErrorIsNil)
+
+	removalUUID = tc.Must(c, uuid.NewUUID).String()
+	err = st.ModelScheduleRemoval(c.Context(), removalUUID, modelUUID, false, time.Now().UTC())
+	c.Assert(err, tc.ErrorIsNil)
+
+	removalUUID = tc.Must(c, uuid.NewUUID).String()
+	err = st.ModelScheduleRemoval(c.Context(), removalUUID, modelUUID, false, time.Now().UTC())
+	c.Assert(err, tc.ErrorIsNil)
+
+	usedForce, err := st.HasModelRemovalJobUsedForce(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(usedForce, tc.IsTrue)
 }
 
 func (s *modelSuite) getModelUUID(c *tc.C) string {

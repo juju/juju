@@ -173,6 +173,8 @@ func (s *Service) processRelationRemovalJob(ctx context.Context, job removal.Job
 		return errors.Errorf("getting relation %q life: %w", job.EntityUUID, err)
 	}
 
+	// If the relation is alive, we cannot delete it even with force. This is
+	// programming error if we've reached this point and we're still alive.
 	if l == life.Alive {
 		return errors.Errorf("relation %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}

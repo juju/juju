@@ -436,8 +436,7 @@ AND    life_id = 1`, machineUUID)
 			return removalerrors.EntityStillAlive
 		}
 
-		err = st.checkNoMachineDependents(ctx, tx, machineUUID)
-		if err != nil {
+		if err := st.checkNoMachineDependents(ctx, tx, machineUUID); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -481,8 +480,7 @@ AND    life_id = 1`, machineUUID)
 			return removalerrors.EntityStillAlive
 		}
 
-		err = st.checkNoMachineDependents(ctx, tx, machineUUID)
-		if err != nil {
+		if err := st.checkNoMachineDependents(ctx, tx, machineUUID); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -559,14 +557,15 @@ WHERE uuid = $machine.uuid;
 			return errors.Errorf("cannot delete machine %q, instance is still alive", machineUUIDParam.UUID)
 		}
 
-		// Check to see if the instance is in the dying state only if not forced.
-		if !force && iLife == life.Dying {
-			return errors.Errorf("waiting for instance to be dead before deletion").Add(removalerrors.RemovalJobIncomplete)
-		}
-
-		// If force is not set, check for dependents before allowing deletion.
-		// This prevents accidental data loss.
 		if !force {
+			// Check to see if the machine instance is in the dying state only if
+			// not forced.
+			if iLife == life.Dying {
+				return errors.Errorf("waiting for instance to be dead before deletion").Add(removalerrors.RemovalJobIncomplete)
+			}
+
+			// If force is not set, check for dependents before allowing deletion.
+			// This prevents accidental data loss.
 			if err := st.checkNoMachineDependents(ctx, tx, machineUUIDParam); err != nil {
 				return errors.Errorf("checking for dependents: %w", err).Add(removalerrors.RemovalJobIncomplete)
 			}

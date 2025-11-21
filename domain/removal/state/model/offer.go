@@ -94,6 +94,7 @@ WHERE uuid = $entityUUID.uuid
 		return errors.Errorf("preparing delete offer query: %w", err)
 	}
 
+	// If we aren't forcing, check for existing connections.
 	if !force {
 		var count count
 		if err := tx.Query(ctx, checkConnsStmt, offerUUID).Get(&count); err != nil {
