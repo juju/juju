@@ -1475,7 +1475,7 @@ func (st *InsertIAASUnitState) checkApplicationAlive(ctx context.Context, tx *sq
 SELECT &life.*
 FROM   application AS a
 JOIN   life as l ON a.life_id = l.id
-WHERE  a.uuid = $ident.uuid
+WHERE  a.uuid = $entityUUID.uuid
 `
 	stmt, err := st.Prepare(query, ident, life{})
 	if err != nil {
