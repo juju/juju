@@ -3635,8 +3635,8 @@ func (a *Application) StorageConstraints() (map[string]StorageConstraints, error
 }
 
 // UpdateStorageConstraints updates the storage constraints for the application.
-func (a *Application) UpdateStorageConstraints(cons map[string]StorageConstraints) error {
-	if len(cons) == 0 {
+func (a *Application) UpdateStorageConstraints(storageDirectivesUpdate map[string]StorageDirectivesUpdate) error {
+	if len(storageDirectivesUpdate) == 0 {
 		return nil
 	}
 
@@ -3659,7 +3659,7 @@ func (a *Application) UpdateStorageConstraints(cons map[string]StorageConstraint
 			}
 		}
 
-		currentCons := maps.Clone(cons)
+		currentCons := maps.Clone(storageDirectivesUpdate)
 
 		storageConstraintsKey := a.storageConstraintsKey()
 
@@ -3669,15 +3669,37 @@ func (a *Application) UpdateStorageConstraints(cons map[string]StorageConstraint
 			return nil, errors.Trace(err)
 		}
 
-		if err := addDefaultStorageConstraints(sb, currentCons, ch.Meta()); err != nil {
-			return nil, errors.Annotate(err, "adding default storage constraints")
+		storageConsToUpdate, err := a.StorageConstraints()
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		if err := validateStorageConstraints(sb, currentCons, ch.Meta()); err != nil {
+
+		for storageName, storageCons := range currentCons {
+			originalStorageCons := storageConsToUpdate[storageName]
+			sc := StorageConstraints{
+				Pool:  originalStorageCons.Pool,
+				Size:  originalStorageCons.Size,
+				Count: originalStorageCons.Count,
+			}
+
+			if storageCons.Pool != "" {
+				sc.Pool = storageCons.Pool
+			}
+			if storageCons.Size != nil {
+				sc.Size = *storageCons.Size
+			}
+			if storageCons.Count != nil {
+				sc.Count = *storageCons.Count
+			}
+			storageConsToUpdate[storageName] = sc
+		}
+
+		if err := validateStorageConstraints(sb, storageConsToUpdate, ch.Meta()); err != nil {
 			return nil, errors.Annotate(err, "validating storage constraints")
 		}
 
 		storageConstraintsOp := replaceStorageConstraintsOp(
-			storageConstraintsKey, currentCons,
+			storageConstraintsKey, storageConsToUpdate,
 		)
 		return []txn.Op{storageConstraintsOp}, nil
 	}

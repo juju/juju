@@ -1285,7 +1285,7 @@
                         }
                     }
                 },
-                "GetApplicationStorage": {
+                "GetApplicationStorageDirectives": {
                     "type": "object",
                     "properties": {
                         "Params": {
@@ -1463,7 +1463,7 @@
                         }
                     }
                 },
-                "UpdateApplicationStorage": {
+                "UpdateApplicationStorageDirectives": {
                     "type": "object",
                     "properties": {
                         "Params": {
@@ -2161,7 +2161,7 @@
                         "application-tag": {
                             "type": "string"
                         },
-                        "storage-constraints": {
+                        "storage-directives": {
                             "type": "object",
                             "patternProperties": {
                                 ".*": {
@@ -2173,7 +2173,7 @@
                     "additionalProperties": false,
                     "required": [
                         "application-tag",
-                        "storage-constraints"
+                        "storage-directives"
                     ]
                 },
                 "ApplicationStorageUpdateRequest": {

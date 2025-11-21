@@ -1690,6 +1690,20 @@ type StorageConstraints struct {
 	Count uint64 `bson:"count"`
 }
 
+// StorageDirectivesUpdate contains the user-specified constraints for updating
+// storage directives for an application unit.
+type StorageDirectivesUpdate struct {
+	// Pool is the name of the storage pool from which to provision the
+	// storage instances.
+	Pool string
+
+	// Size is the required size of the storage instances, in MiB.
+	Size *uint64
+
+	// Count is the required number of storage instances.
+	Count *uint64
+}
+
 func createStorageConstraintsOp(key string, cons map[string]StorageConstraints) txn.Op {
 	return txn.Op{
 		C:      storageConstraintsC,
