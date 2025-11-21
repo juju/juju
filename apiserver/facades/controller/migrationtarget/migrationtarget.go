@@ -4,32 +4,67 @@
 package migrationtarget
 
 import (
+	stdctx "context"
 	"fmt"
+	"io"
 	"time"
 
+	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/cloud"
+	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/facades"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
+	jujukubernetes "github.com/juju/juju/internal/provider/kubernetes"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
+// MigrationState is a subset of [state.State] methods.
+type MigrationState interface {
+	state.ModelSessioner
+
+	Cloud(string) (cloud.Cloud, error)
+	CloudCredential(names.CloudCredentialTag) (state.Credential, error)
+	Close() (err error)
+	ControllerTag() names.ControllerTag
+	NewExternalControllers() state.ExternalControllers
+	ControllerConfig() (jujucontroller.Config, error)
+}
+
+type newK8sClientFunc func(
+	cloudSpec cloudspec.CloudSpec,
+) (kubernetes.Interface, *rest.Config, error)
+
+type precheckShimFunc func() (migration.PrecheckBackend, error)
+
+type importModelFunc func(
+	importer migration.StateImporter,
+	getClaimer migration.ClaimerFunc,
+	model description.Model,
+) (io.Closer, error)
+
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
 type API struct {
-	state                           *state.State
+	state                           MigrationState
 	pool                            *state.StatePool
 	authorizer                      facade.Authorizer
 	resources                       facade.Resources
@@ -38,6 +73,9 @@ type API struct {
 	getEnviron                      stateenvirons.NewEnvironFunc
 	CAASbrokerProvider              stateenvirons.NewCAASBrokerFunc
 	requiredMigrationFacadeVersions facades.FacadeVersions
+	newK8sClient                    newK8sClientFunc
+	importModel                     importModelFunc
+	precheckShim                    precheckShimFunc
 }
 
 // APIV1 implements the V1 version of the API facade.
@@ -57,9 +95,12 @@ func NewAPI(
 	getEnviron stateenvirons.NewEnvironFunc,
 	CAASbrokerProvider stateenvirons.NewCAASBrokerFunc,
 	requiredMigrationFacadeVersions facades.FacadeVersions,
+	newK8sClient newK8sClientFunc,
+	importModel importModelFunc,
+	precheckShim precheckShimFunc,
+	st MigrationState,
+	auth facade.Authorizer,
 ) (*API, error) {
-	auth := ctx.Auth()
-	st := ctx.State()
 	if err := checkAuth(auth, st); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -73,10 +114,13 @@ func NewAPI(
 		getEnviron:                      getEnviron,
 		CAASbrokerProvider:              CAASbrokerProvider,
 		requiredMigrationFacadeVersions: requiredMigrationFacadeVersions,
+		newK8sClient:                    newK8sClient,
+		importModel:                     importModel,
+		precheckShim:                    precheckShim,
 	}, nil
 }
 
-func checkAuth(authorizer facade.Authorizer, st *state.State) error {
+func checkAuth(authorizer facade.Authorizer, st MigrationState) error {
 	if !authorizer.AuthClient() {
 		return errors.Trace(apiservererrors.ErrPerm)
 	}
@@ -125,11 +169,7 @@ with an earlier version of the target controller and try again.
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// NOTE (thumper): it isn't clear to me why api.state would be different
-	// from the controllerState as I had thought that the Precheck call was
-	// on the controller model, in which case it should be the same as the
-	// controllerState.
-	backend, err := migration.PrecheckShim(api.state, controllerState)
+	backend, err := api.precheckShim()
 	if err != nil {
 		return errors.Annotate(err, "creating backend")
 	}
@@ -150,8 +190,20 @@ with an earlier version of the target controller and try again.
 // Import takes a serialized Juju model, deserializes it, and
 // recreates it in the receiving controller.
 func (api *API) Import(serialized params.SerializedModel) error {
+	descriptionModel, err := description.Deserialize(serialized.Bytes)
+	if err != nil {
+		return errors.Annotate(err, "deserializing model for import")
+	}
+
+	if descriptionModel.Type() == model.CAAS.String() {
+		err := api.backfillStorageUniqueIDs(descriptionModel)
+		if err != nil {
+			return errors.Annotate(err, "backfilling storage unique IDs")
+		}
+	}
+
 	controller := state.NewController(api.pool)
-	_, st, err := migration.ImportModel(controller, api.getClaimer, serialized.Bytes)
+	st, err := api.importModel(controller, api.getClaimer, descriptionModel)
 	if err != nil {
 		return err
 	}
@@ -160,6 +212,122 @@ func (api *API) Import(serialized params.SerializedModel) error {
 	// NOTE(fwereade) - checks here would be sensible, but we will
 	// also need to check after the binaries are imported too.
 	return err
+}
+
+func (api *API) backfillStorageUniqueIDs(
+	descriptionModel description.Model,
+) error {
+	var k8sClient kubernetes.Interface
+
+	for _, application := range descriptionModel.Applications() {
+		if application.StorageUniqueID() != "" {
+			continue
+		}
+		// If we reach here then we handle backfilling storage unique IDs.
+		// We have detected an empty storage unique ID. It must be coming from
+		// an old model.
+		if k8sClient == nil {
+			var err error
+			k8sClient, err = api.initK8sClient(descriptionModel)
+			if err != nil {
+				return errors.Annotate(err, "initializing k8s client")
+			}
+		}
+
+		modelName, _ := descriptionModel.Config()["name"].(string)
+		modelUUID := descriptionModel.Tag().Id()
+
+		// We have to backfill the storage unique ID by grabbing
+		// it from the k8s annotations.
+		storageUniqueID, err := api.getStorageUniqueID(
+			stdctx.Background(),
+			application.Name(),
+			modelName,
+			modelUUID,
+			k8sClient,
+		)
+		if err != nil {
+			return errors.Annotatef(err, "getting storage unique "+
+				"id for app %q", application.Name())
+		}
+		application.SetStorageUniqueID(storageUniqueID)
+	}
+	return nil
+}
+
+func (api *API) initK8sClient(descriptionModel description.Model) (kubernetes.Interface, error) {
+	cloudSpec, err := buildCloudSpec(descriptionModel, api.state)
+	if err != nil {
+		return nil, errors.Annotate(err, "constructing cloud spec for import")
+	}
+
+	k8sClient, _, err := api.newK8sClient(cloudSpec)
+	if err != nil {
+		return nil, errors.Annotate(err, "initializing k8s client for import")
+	}
+	return k8sClient, nil
+}
+
+func buildCloudSpec(m description.Model, st MigrationState) (cloudspec.CloudSpec, error) {
+	cloudName := m.Cloud()
+	c, err := st.Cloud(cloudName)
+	if err != nil {
+		return cloudspec.CloudSpec{}, err
+	}
+
+	cred := m.CloudCredential()
+	credID := fmt.Sprintf("%s/%s/%s", cred.Cloud(), cred.Owner(), cred.Name())
+	if !names.IsValidCloudCredential(credID) {
+		return cloudspec.CloudSpec{}, errors.NotValidf("cloud credential ID %q", credID)
+	}
+
+	credTag := names.NewCloudCredentialTag(credID)
+	credential, err := st.CloudCredential(credTag)
+	if err != nil {
+		return cloudspec.CloudSpec{}, err
+	}
+
+	regionName := m.CloudRegion()
+	return stateenvirons.CloudSpec(c, regionName, &credential)
+}
+
+// getStorageUniqueID finds the storage unique ID for a given CAAS app by
+// searching through the annotation of these objects in these respective order:
+//  1. statefulset
+//  2. deployment
+//  3. daemonset
+//
+// It is used to backfill the storageUniqueID field of an application when
+// migrating from models before 3.6.13 to 3.6.13 and greater.
+func (api *API) getStorageUniqueID(
+	ctx stdctx.Context,
+	app,
+	modelName,
+	modelUUID string,
+	k8sClient kubernetes.Interface,
+) (string, error) {
+	// Only workload models can be migrated. We know that k8s namespace for a
+	// workload model is the model name.
+	namespace := modelName
+
+	// Remember that only workload models are migrated so we represent
+	// controllerUUID as an empty string to reuse [utils.MatchModelLabelVersion]
+	// which is called in the downstream [findStorageUniqueID] func.
+	// The func uses it to match a controller model which we don't need.
+	controllerUUID := ""
+	for _, findStorageUniqueID := range jujukubernetes.StorageUniqueIDFinder {
+		storageUniqueID, err := findStorageUniqueID(ctx, k8sClient, namespace,
+			app, modelName, modelUUID, controllerUUID)
+		if err == nil {
+			return storageUniqueID, nil
+		}
+		if k8serrors.IsNotFound(err) {
+			continue
+		}
+		return "", errors.Annotate(err, "finding storage unique ID")
+	}
+
+	return "", errors.Errorf("could not find deployment for app %q", app)
 }
 
 func (api *API) getModel(modelTag string) (*state.Model, func(), error) {

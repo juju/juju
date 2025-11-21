@@ -7,11 +7,17 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/cloudspec"
+	jujukubernetes "github.com/juju/juju/internal/provider/kubernetes"
+	"github.com/juju/juju/migration"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -49,11 +55,21 @@ func Register(requiredMigrationFacadeVersions facades.FacadeVersions) func(regis
 
 // newFacadeV1 is used for APIV1 registration.
 func newFacadeV1(ctx facade.Context) (*APIV1, error) {
+	modelState := ctx.State()
+	controllerState, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	api, err := NewAPI(
 		ctx,
 		stateenvirons.GetNewEnvironFunc(environs.New),
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 		facades.FacadeVersions{},
+		newK8sClient,
+		migration.ImportModel,
+		precheckShim(modelState, controllerState),
+		ctx.State(),
+		ctx.Auth(),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -63,11 +79,21 @@ func newFacadeV1(ctx facade.Context) (*APIV1, error) {
 
 // newFacadeV2 is used for APIV2 registration.
 func newFacadeV2(ctx facade.Context) (*APIV2, error) {
+	modelState := ctx.State()
+	controllerState, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	api, err := NewAPI(
 		ctx,
 		stateenvirons.GetNewEnvironFunc(environs.New),
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 		facades.FacadeVersions{},
+		newK8sClient,
+		migration.ImportModel,
+		precheckShim(modelState, controllerState),
+		ctx.State(),
+		ctx.Auth(),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -77,10 +103,43 @@ func newFacadeV2(ctx facade.Context) (*APIV2, error) {
 
 // newFacade is used for API registration.
 func newFacade(ctx facade.Context, facadeVersions facades.FacadeVersions) (*API, error) {
+	modelState := ctx.State()
+	controllerState, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return NewAPI(
 		ctx,
 		stateenvirons.GetNewEnvironFunc(environs.New),
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 		facadeVersions,
+		newK8sClient,
+		migration.ImportModel,
+		precheckShim(modelState, controllerState),
+		ctx.State(),
+		ctx.Auth(),
 	)
+}
+
+// newK8sClient initializes a new kubernetes client.
+func newK8sClient(cloudSpec cloudspec.CloudSpec) (kubernetes.Interface, *rest.Config, error) {
+	cfg, err := jujukubernetes.CloudSpecToK8sRestConfig(cloudSpec)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	k8sClient, err := kubernetes.NewForConfig(cfg)
+	return k8sClient, cfg, err
+}
+
+// precheckShim wraps [migration.PrecheckShim] so we conform to the contract
+// in [NewAPI].
+func precheckShim(modelState, controllerState *state.State) precheckShimFunc {
+	return func() (migration.PrecheckBackend, error) {
+		// NOTE (thumper): it isn't clear to me why modelState would be different
+		// from the controllerState as I had thought that the Precheck call was
+		// on the controller model, in which case it should be the same as the
+		// controllerState.
+		return migration.PrecheckShim(modelState, controllerState)
+	}
 }

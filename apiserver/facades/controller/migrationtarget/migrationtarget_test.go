@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/provider/dummy"
 	_ "github.com/juju/juju/internal/provider/manual"
+	"github.com/juju/juju/migration"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -88,6 +89,7 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
+		StatePool_: s.StatePool,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.API))
@@ -101,6 +103,7 @@ func (s *Suite) TestFacadeRegisteredV2(c *gc.C) {
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
+		StatePool_: s.StatePool,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.APIV2))
@@ -359,12 +362,13 @@ func (s *Suite) TestAdoptIAASResources(c *gc.C) {
 	defer st.Close()
 
 	env := mockEnv{Stub: &testing.Stub{}}
-	api, err := s.newAPI(func(model stateenvirons.Model) (environs.Environ, error) {
-		c.Assert(model.ModelTag().Id(), gc.Equals, st.ModelUUID())
-		return &env, nil
-	}, func(model stateenvirons.Model) (caas.Broker, error) {
-		return nil, errors.New("should not be called")
-	})
+	api, err := s.newAPI(
+		func(model stateenvirons.Model) (environs.Environ, error) {
+			c.Assert(model.ModelTag().Id(), gc.Equals, st.ModelUUID())
+			return &env, nil
+		}, func(model stateenvirons.Model) (caas.Broker, error) {
+			return nil, errors.New("should not be called")
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, err := st.Model()
@@ -388,12 +392,13 @@ func (s *Suite) TestAdoptCAASResources(c *gc.C) {
 	defer st.Close()
 
 	broker := mockBroker{Stub: &testing.Stub{}}
-	api, err := s.newAPI(func(model stateenvirons.Model) (environs.Environ, error) {
-		return nil, errors.New("should not be called")
-	}, func(model stateenvirons.Model) (caas.Broker, error) {
-		c.Assert(model.ModelTag().Id(), gc.Equals, st.ModelUUID())
-		return &broker, nil
-	})
+	api, err := s.newAPI(
+		func(model stateenvirons.Model) (environs.Environ, error) {
+			return nil, errors.New("should not be called")
+		}, func(model stateenvirons.Model) (caas.Broker, error) {
+			c.Assert(model.ModelTag().Id(), gc.Equals, st.ModelUUID())
+			return &broker, nil
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, err := st.Model()
@@ -535,8 +540,20 @@ func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
-func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stateenvirons.NewCAASBrokerFunc) (*migrationtarget.API, error) {
-	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc, brokerFunc, facades.FacadeVersions{})
+func (s *Suite) newAPI(
+	environFunc stateenvirons.NewEnvironFunc,
+	brokerFunc stateenvirons.NewCAASBrokerFunc,
+) (*migrationtarget.API, error) {
+	modelState := s.facadeContext.State()
+	controllerState, err := s.facadeContext.StatePool().SystemState()
+	if err != nil {
+		return nil, err
+	}
+	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc,
+		brokerFunc, facades.FacadeVersions{}, nil, migration.ImportModel,
+		precheckShim(modelState, controllerState), s.facadeContext.State(),
+		s.facadeContext.Auth(),
+	)
 	return api, err
 }
 
@@ -546,18 +563,32 @@ func (s *Suite) mustNewAPI(c *gc.C) *migrationtarget.API {
 	return api
 }
 
-func (s *Suite) newAPIWithFacadeVersions(environFunc stateenvirons.NewEnvironFunc, brokerFunc stateenvirons.NewCAASBrokerFunc, versions facades.FacadeVersions) (*migrationtarget.API, error) {
-	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc, brokerFunc, versions)
+func (s *Suite) newAPIWithFacadeVersions(c *gc.C,
+	environFunc stateenvirons.NewEnvironFunc,
+	brokerFunc stateenvirons.NewCAASBrokerFunc,
+	versions facades.FacadeVersions,
+) (*migrationtarget.API, error) {
+	modelState := s.facadeContext.State()
+	controllerState, err := s.facadeContext.StatePool().SystemState()
+	if err != nil {
+		return nil, err
+	}
+	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc, brokerFunc,
+		versions, nil, migration.ImportModel,
+		precheckShim(modelState, controllerState), s.facadeContext.State(),
+		s.facadeContext.Auth(),
+	)
 	return api, err
 }
 
 func (s *Suite) mustNewAPIWithFacadeVersions(c *gc.C, versions facades.FacadeVersions) *migrationtarget.API {
-	api, err := s.newAPIWithFacadeVersions(nil, nil, versions)
+	api, err := s.newAPIWithFacadeVersions(c, nil, nil, versions)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
 
-func (s *Suite) mustNewAPIWithModel(c *gc.C, env environs.Environ, broker caas.Broker) *migrationtarget.API {
+func (s *Suite) mustNewAPIWithModel(c *gc.C, env environs.Environ,
+	broker caas.Broker) *migrationtarget.API {
 	api, err := s.newAPI(func(stateenvirons.Model) (environs.Environ, error) {
 		return env, nil
 	}, func(stateenvirons.Model) (caas.Broker, error) {
@@ -595,6 +626,15 @@ func (s *Suite) importModel(c *gc.C, api *migrationtarget.API) names.ModelTag {
 	err := api.Import(params.SerializedModel{Bytes: bytes})
 	c.Assert(err, jc.ErrorIsNil)
 	return names.NewModelTag(uuid)
+}
+
+func precheckShim(
+	modelState,
+	controllerState *state.State,
+) func() (migration.PrecheckBackend, error) {
+	return func() (migration.PrecheckBackend, error) {
+		return migration.PrecheckShim(modelState, controllerState)
+	}
 }
 
 type mockEnv struct {

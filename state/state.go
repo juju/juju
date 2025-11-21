@@ -1266,6 +1266,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		placement         string
 		hasResources      bool
 		operatorStatusDoc *statusDoc
+		storageUniqueID   string
 	)
 	nowNano := st.clock().Now().UnixNano()
 	switch model.Type() {
@@ -1287,6 +1288,9 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 			Status:     status.Waiting,
 			StatusInfo: status.MessageWaitForContainer,
 			Updated:    nowNano,
+		}
+		if storageUniqueID, err = storage.RandomPrefix(); err != nil {
+			return nil, err
 		}
 	}
 
@@ -1310,9 +1314,10 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		UnitCount:     args.NumUnits,
 
 		// CAAS
-		DesiredScale: scale,
-		Placement:    placement,
-		HasResources: hasResources,
+		DesiredScale:    scale,
+		Placement:       placement,
+		HasResources:    hasResources,
+		StorageUniqueID: storageUniqueID,
 	}
 
 	app := newApplication(st, appDoc)

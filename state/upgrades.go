@@ -4,6 +4,8 @@
 package state
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
@@ -14,6 +16,14 @@ import (
 // Until we add 3.0 upgrade steps, keep static analysis happy.
 var _ = func() {
 	_ = applyToAllModelSettings(nil, nil)
+}
+
+// AppAndStorageID represents an application with its id, name, and storage id.
+// It is used for backfilling an application's storage id during a controller upgrade.
+type AppAndStorageID struct {
+	Id              string
+	Name            string
+	StorageUniqueID string
 }
 
 // runForAllModelStates will run runner function for every model passing a state
@@ -249,4 +259,70 @@ func SplitMigrationStatusMessages(pool *StatePool) error {
 		})
 	}
 	return st.runRawTransaction(ops)
+}
+
+// PopulateApplicationStorageUniqueID has the responsibility of populating the
+// `storage-unique-id` field in the application document.
+func PopulateApplicationStorageUniqueID(
+	pool *StatePool,
+	getStorageUniqueIDs func(
+		ctx context.Context,
+		applications []AppAndStorageID,
+		model *Model,
+	) ([]AppAndStorageID, error),
+) error {
+	// Run for each model because we want to backfill for every application.
+	return runForAllModelStates(pool, func(st *State) error {
+		model, err := st.Model()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		logger.Debugf("trying to populate storage unique ID for apps in model %q", model.Name())
+
+		if model.Type() != ModelTypeCAAS {
+			logger.Debugf("skipping because model %q is not a k8s model", model.Name())
+			return nil
+		}
+
+		applicationsColl, closer := st.db().GetCollection(applicationsC)
+		defer closer()
+
+		// Fetch the list of applications with an empty storage unique ID.
+		// This ensures we don't repeat the upgrade for applications that have
+		// been populated with a storage unique ID.
+		query := bson.M{"storage-unique-id": bson.M{"$exists": false}}
+		fields := bson.M{"_id": 1, "name": 1}
+		iter := applicationsColl.Find(query).Select(fields).Iter()
+		defer iter.Close()
+
+		apps := make([]AppAndStorageID, 0)
+
+		var app bson.M
+		for iter.Next(&app) {
+			apps = append(apps, AppAndStorageID{
+				Id:   app["_id"].(string),
+				Name: app["name"].(string),
+			})
+		}
+
+		logger.Debugf("have %d apps to populate storage unique IDs", len(apps))
+
+		appsWithStorageUniqueIDs, err := getStorageUniqueIDs(context.Background(), apps, model)
+		if err != nil {
+			return errors.Annotate(err, "getting storage unique IDs")
+		}
+
+		var ops []txn.Op
+		for _, a := range appsWithStorageUniqueIDs {
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     a.Id,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{
+					{"storage-unique-id", a.StorageUniqueID},
+				}}},
+			})
+		}
+		return st.runRawTransaction(ops)
+	})
 }

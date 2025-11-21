@@ -75,6 +75,7 @@ type Application interface {
 	WatchUnits() state.StringsWatcher
 	ProvisioningState() *state.ApplicationProvisioningState
 	SetProvisioningState(state.ApplicationProvisioningState) error
+	GetStorageUniqueID() string
 }
 
 type Charm interface {

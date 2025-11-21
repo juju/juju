@@ -88,6 +88,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 			scaleWatcher:    statetesting.NewMockNotifyWatcher(s.scaleChanges),
 			settingsWatcher: statetesting.NewMockStringsWatcher(s.settingsChanges),
 			scale:           5,
+			storageUniqueID: "uniqueid",
 		},
 		applicationsWatcher: statetesting.NewMockStringsWatcher(s.applicationsChanges),
 		model: mockModel{

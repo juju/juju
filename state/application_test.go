@@ -6424,6 +6424,60 @@ func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {
 	c.Assert(containerInfo.Address().Value, gc.Equals, "1.2.3.4")
 }
 
+// TestGetStorageUniqueIDCAASApp tests that the storage unique ID for a CAAS app
+// is non-empty.
+func (s *StateSuite) TestGetStorageUniqueIDCAASApp(c *gc.C) {
+	st := s.Factory.MakeCAASModel(c, nil)
+	defer func() { _ = st.Close() }()
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+
+	insettings := charm.Settings{"tuning": "optimized"}
+	inconfig, err := config.NewConfig(config.ConfigAttributes{"outlook": "good"},
+		sampleApplicationConfigSchema(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gitlab, err := st.AddApplication(
+		state.AddApplicationArgs{
+			Name: "gitlab", Charm: ch,
+			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+				OS:      "ubuntu",
+				Channel: "22.04/stable",
+			}},
+			CharmConfig: insettings, ApplicationConfig: inconfig, NumUnits: 1,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gitlab.GetStorageUniqueID(), gc.Not(gc.Equals), "")
+}
+
+// TestGetStorageUniqueIDIAASApp tests that the storage unique ID for a IAAS app
+// is empty.
+func (s *StateSuite) TestGetStorageUniqueIDIAASApp(c *gc.C) {
+	ch := s.AddTestingCharm(c, "dummy")
+	insettings := charm.Settings{"tuning": "optimized"}
+	inconfig, err := config.NewConfig(config.ConfigAttributes{"outlook": "good"},
+		sampleApplicationConfigSchema(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wordpress, err := s.State.AddApplication(
+		state.AddApplicationArgs{
+			Name:              "wordpress",
+			Charm:             ch,
+			CharmConfig:       insettings,
+			ApplicationConfig: inconfig,
+			CharmOrigin: &state.CharmOrigin{
+				ID:   "charmID",
+				Hash: "testing-hash",
+				Platform: &state.Platform{
+					OS:      "ubuntu",
+					Channel: "22.04/stable",
+				},
+			},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(wordpress.GetStorageUniqueID(), gc.Equals, "")
+}
+
 func intPtr(val int) *int {
 	return &val
 }

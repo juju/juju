@@ -149,13 +149,14 @@ type mockApplication struct {
 	scaleWatcher    *statetesting.MockNotifyWatcher
 	settingsWatcher *statetesting.MockStringsWatcher
 
-	tag        names.Tag
-	scale      int
-	units      []caasunitprovisioner.Unit
-	ops        *state.UpdateUnitsOperation
-	providerId string
-	addresses  []network.SpaceAddress
-	charm      *mockCharm
+	tag             names.Tag
+	scale           int
+	units           []caasunitprovisioner.Unit
+	ops             *state.UpdateUnitsOperation
+	providerId      string
+	addresses       []network.SpaceAddress
+	charm           *mockCharm
+	storageUniqueID string
 }
 
 func (a *mockApplication) Tag() names.Tag {
@@ -284,6 +285,11 @@ func (m *mockApplication) SetOperatorStatus(sInfo status.StatusInfo) error {
 func (m *mockApplication) SetStatus(sInfo status.StatusInfo) error {
 	m.MethodCall(m, "SetStatus", sInfo)
 	return nil
+}
+
+func (m *mockApplication) GetStorageUniqueID() string {
+	m.MethodCall(m, "GetStorageUniqueID")
+	return m.storageUniqueID
 }
 
 type mockContainerInfo struct {

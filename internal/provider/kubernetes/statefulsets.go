@@ -53,19 +53,13 @@ func updateStrategyForStatefulSet(strategy specs.UpdateStrategy) (o apps.Statefu
 func (k *kubernetesClient) configureStatefulSet(
 	appName, deploymentName string, annotations k8sannotations.Annotation, workloadSpec *workloadSpec,
 	containers []specs.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
+	storageUniqueID string,
 ) error {
-	logger.Debugf("creating/updating stateful set for %s", appName)
+	logger.Debugf("creating/updating stateful set for %s storageuniqueid %s", appName, storageUniqueID)
 
 	// Add the specified file to the pod spec.
 	cfgName := func(fileSetName string) string {
 		return applicationConfigMapName(deploymentName, fileSetName)
-	}
-
-	storageUniqueID, err := k.getStorageUniqPrefix(func() (annotationGetter, error) {
-		return k.getStatefulSet(deploymentName)
-	})
-	if err != nil {
-		return errors.Trace(err)
 	}
 
 	selectorLabels := utils.SelectorLabelsForApp(appName, k.LabelVersion())
@@ -94,6 +88,7 @@ func (k *kubernetesClient) configureStatefulSet(
 		},
 	}
 	if workloadSpec.Service != nil && workloadSpec.Service.UpdateStrategy != nil {
+		var err error
 		if statefulSet.Spec.UpdateStrategy, err = updateStrategyForStatefulSet(*workloadSpec.Service.UpdateStrategy); err != nil {
 			return errors.Trace(err)
 		}
@@ -118,7 +113,7 @@ func (k *kubernetesClient) configureStatefulSet(
 		})
 		return nil
 	}
-	if err = k.configureStorage(appName, isLegacyName(deploymentName), storageUniqueID, filesystems, &podSpec, handlePVC); err != nil {
+	if err := k.configureStorage(appName, isLegacyName(deploymentName), storageUniqueID, filesystems, &podSpec, handlePVC); err != nil {
 		return errors.Trace(err)
 	}
 	statefulSet.Spec.Template.Spec = podSpec

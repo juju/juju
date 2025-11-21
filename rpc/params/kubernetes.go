@@ -27,6 +27,7 @@ type KubernetesProvisioningInfo struct {
 	Devices              []KubernetesDeviceParams     `json:"devices,omitempty"`
 	CharmModifiedVersion int                          `json:"charm-modified-version,omitempty"`
 	ImageRepo            DockerImageInfo              `json:"image-repo,omitempty"`
+	StorageUniqueID      string                       `json:"storage-unique-id"`
 }
 
 // KubernetesProvisioningInfoResult holds unit provisioning info or an error.

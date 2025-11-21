@@ -888,9 +888,6 @@ func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *gc.C) {
 	s.clock = testclock.NewClock(time.Time{})
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, "")
-	randomPrefixFunc := func() (string, error) {
-		return "appuuid", nil
-	}
 	watcherFn := k8swatcher.NewK8sWatcherFunc(func(i cache.SharedIndexInformer, n string, c jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
 		return nil, errors.NewNotFound(nil, "undefined k8sWatcherFn for base test")
 	})
@@ -901,7 +898,7 @@ func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *gc.C) {
 
 	var err error
 	s.broker, err = provider.NewK8sBroker(testing.ControllerTag.Id(), s.k8sRestConfig, s.cfg, "", newK8sClientFunc, newK8sRestFunc,
-		watcherFn, stringsWatcherFn, randomPrefixFunc, s.clock)
+		watcherFn, stringsWatcherFn, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Test namespace is actually empty string and a namespaced method fails.
@@ -929,9 +926,6 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDMigrated(
 	ctrl := gomock.NewController(c)
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
-	randomPrefixFunc := func() (string, error) {
-		return "appuuid", nil
-	}
 
 	newControllerUUID := names.NewControllerTag("deadbeef-1bad-500d-9000-4b1d0d06f00e").Id()
 	nsBefore := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{
@@ -950,16 +944,13 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDMigrated(
 		s.mockNamespaces.EXPECT().Update(gomock.Any(), &nsAfter, v1.UpdateOptions{}).Times(1).
 			Return(&nsAfter, nil),
 	)
-	s.setupBroker(c, ctrl, newControllerUUID, newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, "").Finish()
+	s.setupBroker(c, ctrl, newControllerUUID, newK8sClientFunc, newK8sRestFunc, "").Finish()
 }
 
 func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNotMigrated(c *gc.C) {
 	ctrl := gomock.NewController(c)
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
-	randomPrefixFunc := func() (string, error) {
-		return "appuuid", nil
-	}
 
 	ns := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{
 		ObjectMeta: v1.ObjectMeta{
@@ -971,31 +962,25 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNotMigrat
 		s.mockNamespaces.EXPECT().Get(gomock.Any(), s.getNamespace(), v1.GetOptions{}).Times(2).
 			Return(ns, nil),
 	)
-	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, "").Finish()
+	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, "").Finish()
 }
 
 func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpaceNotCreatedYet(c *gc.C) {
 	ctrl := gomock.NewController(c)
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
-	randomPrefixFunc := func() (string, error) {
-		return "appuuid", nil
-	}
 
 	gomock.InOrder(
 		s.mockNamespaces.EXPECT().Get(gomock.Any(), s.getNamespace(), v1.GetOptions{}).Times(2).
 			Return(nil, s.k8sNotFoundError()),
 	)
-	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, "").Finish()
+	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, "").Finish()
 }
 
 func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpaceExists(c *gc.C) {
 	ctrl := gomock.NewController(c)
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
-	randomPrefixFunc := func() (string, error) {
-		return "appuuid", nil
-	}
 
 	gomock.InOrder(
 		s.mockNamespaces.EXPECT().Get(gomock.Any(), s.getNamespace(), v1.GetOptions{}).Times(2).
@@ -1009,7 +994,7 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpace
 				},
 			}, nil),
 	)
-	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, "").Finish()
+	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, "").Finish()
 }
 
 func (s *K8sBrokerSuite) TestFileSetToVolumeFiles(c *gc.C) {
@@ -2413,8 +2398,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), serviceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	)
@@ -2426,6 +2409,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
 		},
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -2457,10 +2441,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceUpgrade(c *gc.C) {
 	newK8sRestFunc := func(cfg *rest.Config) (rest.Interface, error) {
 		return restClient, nil
 	}
-	randomPrefixFunc := func() (string, error) {
-		return "appuuid", nil
-	}
-	s.setupBroker(c, nil, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, "")
+	s.setupBroker(c, nil, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, "")
 
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -2643,8 +2624,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithUpdateStrategy(c *gc.
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), serviceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	)
@@ -2656,6 +2635,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithUpdateStrategy(c *gc.
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
 		},
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -2931,8 +2911,6 @@ password: shhhh`[1:],
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), serviceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	)
@@ -2944,6 +2922,7 @@ password: shhhh`[1:],
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
 		},
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -3189,8 +3168,6 @@ password: shhhh`[1:],
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), serviceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	)
@@ -3201,7 +3178,8 @@ password: shhhh`[1:],
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
 		},
-		ImageDetails: coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		ImageDetails:    coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -3692,8 +3670,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(gomock.Any(), statefulSetArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	)
@@ -3703,8 +3679,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 		Deployment: caas.DeploymentParams{
 			DeploymentType: caas.DeploymentStateful,
 		},
-		ImageDetails: coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
-		ResourceTags: map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
+		ImageDetails:    coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		ResourceTags:    map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
@@ -3780,8 +3757,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(statefulSetArg, nil),
 		s.mockStatefulSets.EXPECT().Create(gomock.Any(), statefulSetArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	)
@@ -3791,8 +3766,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
 		Deployment: caas.DeploymentParams{
 			ServiceType: caas.ServiceExternal,
 		},
-		ImageDetails: coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
-		ResourceTags: map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
+		ImageDetails:    coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		ResourceTags:    map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
@@ -3983,8 +3959,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), serviceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	)
@@ -3995,7 +3969,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
 		},
-		ImageDetails: coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		ImageDetails:    coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -4148,8 +4123,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), serviceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	)
@@ -4160,7 +4133,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
 		},
-		ImageDetails: coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		ImageDetails:    coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		StorageUniqueID: "appuuid",
 	}
 
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
@@ -4331,8 +4305,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), serviceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	)
@@ -4343,7 +4315,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
 		},
-		ImageDetails: coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		ImageDetails:    coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -4513,8 +4486,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), serviceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	)
@@ -4525,7 +4496,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
 		},
-		ImageDetails: coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		ImageDetails:    coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		StorageUniqueID: "appuuid",
 	}
 
 	errChan := make(chan error)
@@ -4772,8 +4744,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), serviceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	)
@@ -4784,7 +4754,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
 		},
-		ImageDetails: coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		ImageDetails:    coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -5045,8 +5016,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), serviceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	)
@@ -5057,7 +5026,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
 		},
-		ImageDetails: coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		ImageDetails:    coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -5370,8 +5340,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), serviceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	)
@@ -5382,7 +5350,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 			"fred":                 "mary",
 		},
-		ImageDetails: coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		ImageDetails:    coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -5448,8 +5417,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"app.juju.is/uuid": "appuuid"}}}, nil),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-workload-storage", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "workload-storage", v1.GetOptions{}).
@@ -5482,6 +5449,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 				Path: "path/to/there",
 			},
 		}},
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -5553,8 +5521,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithUpdateStrategy(c *gc
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"app.juju.is/uuid": "appuuid"}}}, nil),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-workload-storage", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "workload-storage", v1.GetOptions{}).
@@ -5587,6 +5553,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithUpdateStrategy(c *gc
 				Path: "path/to/there",
 			},
 		}},
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -5663,8 +5630,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), basicServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(deploymentArg, nil),
 	)
@@ -5682,6 +5647,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -5791,8 +5757,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageCreate(c *gc.C
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), basicServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-workload-storage", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "workload-storage", v1.GetOptions{}).
@@ -5830,6 +5794,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageCreate(c *gc.C
 				Path: "path/to/there",
 			},
 		}},
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -5939,8 +5904,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageUpdate(c *gc.C
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), basicServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(deploymentArg, nil),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-workload-storage", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "workload-storage", v1.GetOptions{}).
@@ -5986,6 +5949,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageUpdate(c *gc.C
 				Path: "path/to/there",
 			},
 		}},
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -6156,8 +6120,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), basicServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockDaemonSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-workload-storage", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "workload-storage", v1.GetOptions{}).
@@ -6195,7 +6157,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 				Path: "path/to/there",
 			},
 		}},
-		Constraints: constraints.MustParse(`tags=node.foo=a|b|c,^bar=d|e|f,^foo=g|h,pod.foo=1|2|3,^pod.bar=4|5|6,pod.topology-key=some-key,anti-pod.afoo=x|y|z,^anti-pod.abar=7|8|9,anti-pod.topology-key=another-key`),
+		Constraints:     constraints.MustParse(`tags=node.foo=a|b|c,^bar=d|e|f,^foo=g|h,pod.foo=1|2|3,^pod.bar=4|5|6,pod.topology-key=some-key,anti-pod.afoo=x|y|z,^anti-pod.abar=7|8|9,anti-pod.topology-key=another-key`),
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -6341,8 +6304,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithUpdateStrategy(c *gc.C
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), basicServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockDaemonSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-workload-storage", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "workload-storage", v1.GetOptions{}).
@@ -6380,7 +6341,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithUpdateStrategy(c *gc.C
 				Path: "path/to/there",
 			},
 		}},
-		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
+		Constraints:     constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -6510,8 +6472,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageUpdate(c *gc.C)
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), basicServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockDaemonSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-workload-storage", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "workload-storage", v1.GetOptions{}).
@@ -6558,7 +6518,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageUpdate(c *gc.C)
 				Path: "path/to/there",
 			},
 		}},
-		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
+		Constraints:     constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -6655,8 +6616,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsC
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), basicServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockDaemonSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockDaemonSets.EXPECT().Create(gomock.Any(), daemonSetArg, v1.CreateOptions{}).
 			Return(daemonSetArg, nil),
 	)
@@ -6677,7 +6636,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsC
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
-		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
+		Constraints:     constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -6774,8 +6734,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsU
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), basicServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockDaemonSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(daemonSetArg, nil),
 		s.mockDaemonSets.EXPECT().Create(gomock.Any(), daemonSetArg, v1.CreateOptions{}).
 			Return(nil, s.k8sAlreadyExistsError()),
 		s.mockDaemonSets.EXPECT().List(gomock.Any(), v1.ListOptions{
@@ -6801,7 +6759,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsU
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
-		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
+		Constraints:     constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -6855,8 +6814,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"app.juju.is/uuid": "appuuid"}}}, nil),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-workload-storage", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "workload-storage", v1.GetOptions{}).
@@ -6888,6 +6845,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -6986,8 +6944,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetUpdate(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"app.juju.is/uuid": "appuuid"}}}, nil),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-workload-storage", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "workload-storage", v1.GetOptions{}).
@@ -7023,6 +6979,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetUpdate(c *gc.C) {
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -7077,8 +7034,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"app.juju.is/uuid": "appuuid"}}}, nil),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-workload-storage", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "workload-storage", v1.GetOptions{}).
@@ -7103,7 +7058,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
-		Constraints: constraints.MustParse("mem=64 cpu-power=500 arch=amd64"),
+		Constraints:     constraints.MustParse("mem=64 cpu-power=500 arch=amd64"),
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -7167,8 +7123,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"app.juju.is/uuid": "appuuid"}}}, nil),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-workload-storage", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "workload-storage", v1.GetOptions{}).
@@ -7193,7 +7147,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
-		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
+		Constraints:     constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",
@@ -7249,8 +7204,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"app.juju.is/uuid": "appuuid"}}}, nil),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-workload-storage", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "workload-storage", v1.GetOptions{}).
@@ -7275,7 +7228,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
-		Constraints: constraints.MustParse(`zones=a,b,c`),
+		Constraints:     constraints.MustParse(`zones=a,b,c`),
+		StorageUniqueID: "appuuid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, config.ConfigAttributes{
 		"kubernetes-service-type":            "loadbalancer",

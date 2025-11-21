@@ -47,7 +47,7 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8s
 			Name:   "app-name",
 			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"app.juju.is/uuid":               "appuuid",
+				"app.juju.is/uuid":               "uniqueid",
 				"controller.juju.is/id":          testing.ControllerTag.Id(),
 				"charm.juju.is/modified-version": "0",
 			},
@@ -102,8 +102,6 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8s
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, metav1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", metav1.GetOptions{}).
-			Return(statefulSetArg, nil),
 		s.mockStatefulSets.EXPECT().Create(gomock.Any(), statefulSetArg, metav1.CreateOptions{}).
 			Return(nil, s.k8sAlreadyExistsError()),
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", metav1.GetOptions{}).
@@ -118,8 +116,9 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8s
 		Deployment: caas.DeploymentParams{
 			DeploymentType: caas.DeploymentStateful,
 		},
-		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
-		ResourceTags: map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
+		ImageDetails:    resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		ResourceTags:    map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
+		StorageUniqueID: "uniqueid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, e string, _ map[string]interface{}) error {
 		c.Logf("EnsureService error -> %q", e)
@@ -697,7 +696,7 @@ func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs []k
 			Name:   "app-name",
 			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"app.juju.is/uuid":               "appuuid",
+				"app.juju.is/uuid":               "uniqueid",
 				"controller.juju.is/id":          testing.ControllerTag.Id(),
 				"charm.juju.is/modified-version": "0",
 			},
@@ -752,8 +751,6 @@ func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs []k
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, metav1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", metav1.GetOptions{}).
-			Return(statefulSetArg, nil),
 		s.mockStatefulSets.EXPECT().Create(gomock.Any(), statefulSetArg, metav1.CreateOptions{}).
 			Return(nil, nil),
 	}...)
@@ -764,8 +761,9 @@ func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs []k
 		Deployment: caas.DeploymentParams{
 			DeploymentType: caas.DeploymentStateful,
 		},
-		ImageDetails: resources.DockerImageDetails{RegistryPath: "operator/image-path"},
-		ResourceTags: map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
+		ImageDetails:    resources.DockerImageDetails{RegistryPath: "operator/image-path"},
+		ResourceTags:    map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
+		StorageUniqueID: "uniqueid",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, e string, _ map[string]interface{}) error {
 		c.Logf("EnsureService error -> %q", e)

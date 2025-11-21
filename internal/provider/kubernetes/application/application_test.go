@@ -143,9 +143,6 @@ func (s *applicationSuite) getApp(c *gc.C, deploymentType caas.DeploymentType, m
 		s.dynamicClient,
 		watcherFn,
 		s.clock,
-		func() (string, error) {
-			return "appuuid", nil
-		},
 		func() resources.Applier {
 			if mockApplier {
 				return s.applier
@@ -412,6 +409,7 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 			}
 			return caas.RunAsDefault
 		}(),
+		StorageUniqueID: "appuuid",
 	}
 
 	c.Assert(app.Ensure(appConfig), jc.ErrorIsNil)

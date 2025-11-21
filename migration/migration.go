@@ -39,30 +39,29 @@ type StateExporter interface {
 // StateImporter describes the method needed to import a model
 // into the database.
 type StateImporter interface {
-	Import(model description.Model) (*state.Model, *state.State, error)
+	Import(model description.Model) (*state.State, error)
 }
 
 // ClaimerFunc is a function that returns a leadership claimer for the
 // model UUID passed.
 type ClaimerFunc func(string) (leadership.Claimer, error)
 
-// ImportModel deserializes a model description from the bytes, transforms
+// ImportModel takes a deserialized a model, transforms
 // the model config based on information from the controller model, and then
 // imports that as a new database model.
-func ImportModel(importer StateImporter, getClaimer ClaimerFunc, bytes []byte) (*state.Model, *state.State, error) {
-	model, err := description.Deserialize(bytes)
+func ImportModel(
+	importer StateImporter,
+	getClaimer ClaimerFunc,
+	model description.Model,
+) (io.Closer, error) {
+	dbState, err := importer.Import(model)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	dbModel, dbState, err := importer.Import(model)
+	claimer, err := getClaimer(dbState.ModelUUID())
 	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	claimer, err := getClaimer(dbModel.UUID())
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "getting leadership claimer")
+		return nil, errors.Annotate(err, "getting leadership claimer")
 	}
 
 	logger.Debugf("importing leadership")
@@ -86,7 +85,7 @@ func ImportModel(importer StateImporter, getClaimer ClaimerFunc, bytes []byte) (
 			time.Minute,
 		)
 		if err != nil {
-			return nil, nil, errors.Annotatef(
+			return nil, errors.Annotatef(
 				err,
 				"claiming leadership for %q",
 				application.Leader(),
@@ -94,7 +93,7 @@ func ImportModel(importer StateImporter, getClaimer ClaimerFunc, bytes []byte) (
 		}
 	}
 
-	return dbModel, dbState, nil
+	return dbState, nil
 }
 
 // CharmDownloader defines a single method that is used to download a

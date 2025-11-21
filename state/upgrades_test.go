@@ -4,9 +4,12 @@
 package state
 
 import (
+	"context"
 	"fmt"
+	"slices"
 	"sort"
 
+	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
@@ -31,6 +34,11 @@ type expectUpgradedData struct {
 	coll     *mgo.Collection
 	expected []bson.M
 	filter   bson.D
+}
+
+type appNameAndID struct {
+	appName  string
+	uniqueID string
 }
 
 func upgradedData(coll *mgo.Collection, expected []bson.M) expectUpgradedData {
@@ -206,4 +214,152 @@ func (s *upgradesSuite) TestSplitMigrationStatusMessages(c *gc.C) {
 		upgradedData(migStatus, expectedStatus),
 		upgradedData(migStatusMessage, expectedStatusMessage),
 	)
+}
+
+func (s *upgradesSuite) TestPopulateApplicationStorageUniqueID(c *gc.C) {
+	state1 := s.makeModel(c, "m1", coretesting.Attrs{}, ModelArgs{Type: ModelTypeCAAS})
+	state2 := s.makeModel(c, "m2", coretesting.Attrs{}, ModelArgs{Type: ModelTypeCAAS})
+	defer func() {
+		_ = state1.Close()
+		_ = state2.Close()
+	}()
+
+	appColl1, closer := state1.db().GetRawCollection(applicationsC)
+	defer closer()
+
+	model1, err := state1.Model()
+	c.Assert(err, gc.IsNil)
+
+	err = appColl1.Insert(bson.M{
+		"_id":        ensureModelUUID(model1.UUID(), "app1"),
+		"name":       "app1",
+		"model-uuid": model1.UUID(),
+	})
+	c.Assert(err, gc.IsNil)
+	err = appColl1.Insert(bson.M{
+		"_id":        ensureModelUUID(model1.UUID(), "app2"),
+		"name":       "app2",
+		"model-uuid": model1.UUID(),
+	})
+	c.Assert(err, gc.IsNil)
+	// app3 does not get backfilled because its storage unique ID is already
+	// populated.
+	err = appColl1.Insert(bson.M{
+		"_id":               ensureModelUUID(model1.UUID(), "app3"),
+		"name":              "app3",
+		"model-uuid":        model1.UUID(),
+		"storage-unique-id": "uniqueid3",
+	})
+	c.Assert(err, gc.IsNil)
+
+	model2, err := state2.Model()
+	c.Assert(err, gc.IsNil)
+
+	appColl2, closer := state2.db().GetRawCollection(applicationsC)
+	defer closer()
+
+	err = appColl2.Insert(bson.M{
+		"_id":        ensureModelUUID(model2.UUID(), "app4"),
+		"name":       "app4",
+		"model-uuid": model2.UUID(),
+	})
+	c.Assert(err, gc.IsNil)
+	err = appColl2.Insert(bson.M{
+		"_id":        ensureModelUUID(model2.UUID(), "app5"),
+		"name":       "app5",
+		"model-uuid": model2.UUID(),
+	})
+	c.Assert(err, gc.IsNil)
+
+	appMigratedCount := 0
+
+	getStorageUniqueID := func(
+		ctx context.Context,
+		apps []AppAndStorageID,
+		model *Model,
+	) ([]AppAndStorageID, error) {
+		fakeK8s := map[string][]appNameAndID{
+			model1.UUID(): {
+				{
+					appName:  "app1",
+					uniqueID: "uniqueid1",
+				},
+				{
+					appName:  "app2",
+					uniqueID: "uniqueid2",
+				},
+				// In practice, the unique ID in the annotation and in the document
+				// are always consistent. For testing purposes, I’ve made them differ
+				// to verify that app3 does not get backfilled, since the document
+				// already contains the unique ID.
+				{
+					appName:  "app3",
+					uniqueID: "uniqueid3-not-backfilled",
+				},
+			},
+			model2.UUID(): {
+				{
+					appName:  "app4",
+					uniqueID: "uniqueid4",
+				},
+				{
+					appName:  "app5",
+					uniqueID: "uniqueid5",
+				},
+			},
+		}
+
+		appsAndStorageIDs := make([]AppAndStorageID, 0, len(apps))
+		k8sDeployment, ok := fakeK8s[model.UUID()]
+		if !ok {
+			return nil, errors.Errorf("unknown model %q", model.UUID())
+		}
+		for _, app := range apps {
+			index := slices.IndexFunc(k8sDeployment, func(a appNameAndID) bool {
+				return a.appName == app.Name
+			})
+			if index == -1 {
+				c.Fatalf("app %q not found, this should not happen", app.Name)
+			}
+
+			appMigratedCount++
+			appsAndStorageIDs = append(appsAndStorageIDs, AppAndStorageID{
+				Id:              app.Id,
+				Name:            app.Name,
+				StorageUniqueID: k8sDeployment[index].uniqueID,
+			})
+		}
+
+		return appsAndStorageIDs, nil
+	}
+
+	err = PopulateApplicationStorageUniqueID(s.pool, getStorageUniqueID)
+	c.Assert(err, gc.IsNil)
+	c.Assert(appMigratedCount, gc.Equals, 4)
+
+	// Assert the values of storage unique ID in DB.
+	app1 := bson.M{}
+	err = appColl1.Find(bson.M{"name": "app1"}).One(&app1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(app1["storage-unique-id"], gc.Equals, "uniqueid1")
+
+	app2 := bson.M{}
+	err = appColl1.Find(bson.M{"name": "app2"}).One(&app2)
+	c.Assert(err, gc.IsNil)
+	c.Assert(app2["storage-unique-id"], gc.Equals, "uniqueid2")
+
+	app3 := bson.M{}
+	err = appColl1.Find(bson.M{"name": "app3"}).One(&app3)
+	c.Assert(err, gc.IsNil)
+	c.Assert(app3["storage-unique-id"], gc.Equals, "uniqueid3")
+
+	app4 := bson.M{}
+	err = appColl2.Find(bson.M{"name": "app4"}).One(&app4)
+	c.Assert(err, gc.IsNil)
+	c.Assert(app4["storage-unique-id"], gc.Equals, "uniqueid4")
+
+	app5 := bson.M{}
+	err = appColl2.Find(bson.M{"name": "app5"}).One(&app5)
+	c.Assert(err, gc.IsNil)
+	c.Assert(app5["storage-unique-id"], gc.Equals, "uniqueid5")
 }

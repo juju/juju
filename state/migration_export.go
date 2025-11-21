@@ -889,6 +889,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		LeadershipSettings:   leadershipSettings,
 		MetricsCredentials:   application.doc.MetricCredentials,
 		PodSpec:              ctx.podSpecs[application.globalKey()],
+		StorageUniqueID:      application.doc.StorageUniqueID,
 	}
 
 	if cloudService, found := ctx.cloudServices[application.globalKey()]; found {
