@@ -476,6 +476,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		caasFirewallerName: ifNotMigrating(caasfirewaller.Manifold(
 			caasfirewaller.ManifoldConfig{
+				ClockName:            clockName,
 				BrokerName:           providerTrackerName,
 				DomainServicesName:   domainServicesName,
 				NewAppFirewallWorker: caasfirewaller.NewAppFirewallerWorker,

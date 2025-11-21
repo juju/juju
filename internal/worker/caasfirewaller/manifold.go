@@ -6,6 +6,7 @@ package caasfirewaller
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
@@ -21,6 +22,7 @@ import (
 // ManifoldConfig describes the resources used by the firewaller worker.
 type ManifoldConfig struct {
 	BrokerName         string
+	ClockName          string
 	DomainServicesName string
 
 	NewAppFirewallWorker func(coreapplication.UUID, AppFirewallerConfig) (worker.Worker, error)
@@ -33,6 +35,7 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			cfg.BrokerName,
+			cfg.ClockName,
 			cfg.DomainServicesName,
 		},
 		Start:  cfg.start,
@@ -44,6 +47,9 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 func (config ManifoldConfig) Validate() error {
 	if config.BrokerName == "" {
 		return errors.New("not valid empty BrokerName").Add(coreerrors.NotValid)
+	}
+	if config.ClockName == "" {
+		return errors.New("not valid empty ClockName").Add(coreerrors.NotValid)
 	}
 	if config.DomainServicesName == "" {
 		return errors.New("not valid empty DomainServicesName").Add(
@@ -79,6 +85,13 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		)
 	}
 
+	var clock clock.Clock
+	if err := getter.Get(config.ClockName, &clock); err != nil {
+		return nil, errors.Errorf(
+			"getting clock for input name %q: %w", config.ClockName, err,
+		)
+	}
+
 	var domainServices services.ModelDomainServices
 	if err := getter.Get(config.DomainServicesName, &domainServices); err != nil {
 		return nil, errors.Errorf(
@@ -102,6 +115,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 
 	w, err := config.NewFirewallWorker(FirewallerConfig{
 		ApplicationService: domainServices.Application(),
+		Clock:              clock,
 		Logger:             config.Logger,
 		WorkerCreator:      appFirewallCreator,
 	})
