@@ -411,3 +411,23 @@ wait_for_aws_ingress_cidrs_for_port_range() {
 
 	echo "[+] security group rules for port range [${from_port}, ${to_port}] and CIDRs ${exp_cidrs} updated"
 }
+
+# wait_for_or_fail <command> [iterations]
+# Evaluates the given command until it succeeds or the number of allowed
+# iterations is reached. By default, it retries 10 times, waiting 1s between attempts.
+wait_for_or_fail() {
+	local iterations=${2:-10}
+	local n=0
+	local succeeded=false
+	while [ "$n" -lt "$iterations" ]; do
+		if eval "$1"; then
+			succeeded=true
+			break
+		fi
+		sleep 1
+		n=$((n + 1))
+	done
+	if [ "$succeeded" = false ]; then
+		return 1
+	fi
+}
