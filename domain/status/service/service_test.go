@@ -1918,7 +1918,7 @@ func (s *serviceSuite) TestGetMachineFullStatuses(c *tc.C) {
 				},
 			},
 			InstanceStatus: corestatus.StatusInfo{
-				Status: corestatus.Unset,
+				Status: corestatus.Unknown,
 			},
 		},
 		"999": {
@@ -1931,7 +1931,7 @@ func (s *serviceSuite) TestGetMachineFullStatuses(c *tc.C) {
 				Message: "agent is not communicating with the server",
 			},
 			InstanceStatus: corestatus.StatusInfo{
-				Status: corestatus.Unset,
+				Status: corestatus.Unknown,
 			},
 		},
 	}
@@ -2050,7 +2050,7 @@ func (s *serviceSuite) TestGetMachineFullStatusesControllerModel(c *tc.C) {
 				},
 			},
 			InstanceStatus: corestatus.StatusInfo{
-				Status: corestatus.Unset,
+				Status: corestatus.Unknown,
 			},
 		},
 	}
@@ -2208,6 +2208,42 @@ func (s *serviceSuite) TestSetInstanceStatusSuccess(c *tc.C) {
 	newStatus := corestatus.StatusInfo{Status: corestatus.Running}
 	s.modelState.EXPECT().SetInstanceStatus(gomock.Any(), "666", status.StatusInfo[status.InstanceStatusType]{
 		Status: status.InstanceStatusRunning,
+	}).Return(nil)
+
+	err := s.modelService.
+		SetInstanceStatus(c.Context(), "666", newStatus)
+	c.Check(err, tc.ErrorIsNil)
+
+	c.Check(s.statusHistory.records, tc.DeepEquals, []statusHistoryRecord{{
+		ns: status.MachineInstanceNamespace.WithID("666"),
+		s:  newStatus,
+	}})
+}
+
+func (s *serviceSuite) TestSetInstanceStatusEmpty(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	newStatus := corestatus.StatusInfo{Status: corestatus.Empty}
+	s.modelState.EXPECT().SetInstanceStatus(gomock.Any(), "666", status.StatusInfo[status.InstanceStatusType]{
+		Status: status.InstanceStatusUnknown,
+	}).Return(nil)
+
+	err := s.modelService.
+		SetInstanceStatus(c.Context(), "666", newStatus)
+	c.Check(err, tc.ErrorIsNil)
+
+	c.Check(s.statusHistory.records, tc.DeepEquals, []statusHistoryRecord{{
+		ns: status.MachineInstanceNamespace.WithID("666"),
+		s:  corestatus.StatusInfo{Status: corestatus.Unknown},
+	}})
+}
+
+func (s *serviceSuite) TestSetInstanceStatusUnknown(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	newStatus := corestatus.StatusInfo{Status: corestatus.Unknown}
+	s.modelState.EXPECT().SetInstanceStatus(gomock.Any(), "666", status.StatusInfo[status.InstanceStatusType]{
+		Status: status.InstanceStatusUnknown,
 	}).Return(nil)
 
 	err := s.modelService.

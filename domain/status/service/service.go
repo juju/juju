@@ -691,6 +691,13 @@ func (s *Service) SetInstanceStatus(ctx context.Context, machineName machine.Nam
 		return errors.Errorf("validating machine name %q: %w", machineName, err)
 	}
 
+	// If the status is empty, we don't actually know the current status. In
+	// this instance, we're going to set the status as unknown.
+	if statusInfo.Status == corestatus.Empty {
+		statusInfo.Status = corestatus.Unknown
+	}
+
+	// If the status in't a known instance status, return an error.
 	if !statusInfo.Status.KnownInstanceStatus() {
 		return statuserrors.InvalidStatus
 	}
