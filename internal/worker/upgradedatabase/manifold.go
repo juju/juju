@@ -100,13 +100,16 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 			return cfg.NewWorker(Config{
 				DBUpgradeCompleteLock: dbUpgradeCompleteLock,
 				Agent:                 controllerAgent,
-				UpgradeService:        upgradeServicesGetter.ServicesForController().Upgrade(),
-				DBGetter:              dbGetter,
-				Tag:                   currentConfig.Tag(),
-				FromVersion:           fromVersion,
-				ToVersion:             toVersion,
-				Logger:                cfg.Logger,
-				Clock:                 cfg.Clock,
+				UpgradeService: upgradeServicesGetter.
+					ServicesForController().Upgrade(),
+				ControllerNodeService: upgradeServicesGetter.
+					ServicesForController().ControllerNode(),
+				DBGetter:    dbGetter,
+				Tag:         currentConfig.Tag(),
+				FromVersion: fromVersion,
+				ToVersion:   toVersion,
+				Logger:      cfg.Logger,
+				Clock:       cfg.Clock,
 			})
 		},
 	}

@@ -15,11 +15,14 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
+	"github.com/juju/juju/core/arch"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/upgrade"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/schema"
@@ -68,6 +71,19 @@ type UpgradeService interface {
 	WatchForUpgradeState(ctx context.Context, upgradeUUID domainupgrade.UUID, state upgrade.State) (watcher.NotifyWatcher, error)
 }
 
+// ControllerNodeService provides the subset of methods of
+// [github.com/juju/juju/domain/controllernode/service.Service] .
+type ControllerNodeService interface {
+	// SetControllerNodeReportedAgentVersion sets the agent version for the
+	// supplied controllerID. Version represents the version of the controller
+	// node's agent binary.
+	SetControllerNodeReportedAgentVersion(
+		ctx context.Context,
+		controllerID string,
+		version coreagentbinary.Version,
+	) error
+}
+
 // Config holds the configuration for the worker.
 type Config struct {
 	// DBUpgradeCompleteLock is a lock used to synchronise workers that must
@@ -79,6 +95,10 @@ type Config struct {
 
 	// UpgradeService is the upgrade service used to drive the upgrade.
 	UpgradeService UpgradeService
+
+	// ControllerNodeService provides a means to communicate the controller's
+	// running agent version.
+	ControllerNodeService ControllerNodeService
 
 	// DBGetter is the database getter used to get the database for each model.
 	DBGetter coredatabase.DBGetter
@@ -135,7 +155,8 @@ type upgradeDBWorker struct {
 
 	dbGetter coredatabase.DBGetter
 
-	upgradeService UpgradeService
+	upgradeService        UpgradeService
+	controllerNodeService ControllerNodeService
 
 	logger logger.Logger
 	clock  clock.Clock
@@ -157,7 +178,8 @@ func NewUpgradeDatabaseWorker(config Config) (worker.Worker, error) {
 
 		dbGetter: config.DBGetter,
 
-		upgradeService: config.UpgradeService,
+		upgradeService:        config.UpgradeService,
+		controllerNodeService: config.ControllerNodeService,
 
 		logger: config.Logger,
 		clock:  config.Clock,
@@ -188,6 +210,11 @@ func (w *upgradeDBWorker) Wait() error {
 func (w *upgradeDBWorker) loop() error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
+
+	err := w.reportControllerNodeAgentVersion(ctx)
+	if err != nil {
+		return err
+	}
 
 	if w.upgradeDone(ctx) {
 		// We're already upgraded, so we can uninstall this worker. This will
@@ -498,6 +525,25 @@ func (w *upgradeDBWorker) addWatcher(ctx context.Context, watcher eventsource.Wa
 	// that event before we can start watching.
 	if _, err := eventsource.ConsumeInitialEvent[struct{}](ctx, watcher); err != nil {
 		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (w *upgradeDBWorker) reportControllerNodeAgentVersion(
+	ctx context.Context,
+) error {
+	version := coreagentbinary.Version{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+	}
+	err := w.controllerNodeService.SetControllerNodeReportedAgentVersion(
+		ctx,
+		w.controllerID,
+		version,
+	)
+	if err != nil {
+		return errors.Annotate(err, "setting controller node agent version")
 	}
 
 	return nil
