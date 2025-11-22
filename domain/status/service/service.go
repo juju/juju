@@ -39,6 +39,8 @@ type ModelState interface {
 
 	// GetApplicationUUIDByName returns the application UUID for the named
 	// application.
+	// Note: This method filters out synthetic applications (remote offerers and
+	// remote consumers).
 	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 
 	// GetApplicationUUIDAndNameByUnitName returns the application UUID and name
