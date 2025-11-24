@@ -66,6 +66,10 @@ Deploy to a machine with at least 8 GiB of memory:
 
     juju deploy postgresql --constraints mem=8G
 
+Deploy using the LXD storage pool with one 3 GiB volume:
+
+	juju deploy postgresql --storage pgdata=lxd,1,3G
+
 Deploy to a specific availability zone (provider-dependent):
 
     juju deploy mysql --to zone=us-east-1a
@@ -162,6 +166,12 @@ application is later scaled out with the `add-unit` command). To overcome this
 behaviour use the `set-constraints` command to change the application's default
 constraints or add a machine (`add-machine`) with a certain constraint and then
 target that machine with `add-unit` by using the `--to`option.
+
+Use the `--storage` option to specify a storage directive for the application;
+see more: https://documentation.ubuntu.com/juju/3.6/reference/storage/#storage-directive. 
+These directives will control the application's default persistent storage layout (i.e. they are used when the application is later
+scaled out with the `add-unit` command and new units need storage provisioned). To change this behaviour after deployment,
+use the  `application-storage` command -- this will update the application's default storage directives.
 
 Use the `--device` option to specify GPU device requirements (with Kubernetes).
 The below format is used for this option's value, where the 'label' is named in

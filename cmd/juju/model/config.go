@@ -38,8 +38,8 @@ You can target a specific model using the ` + "`-m`" + ` flag:
     juju model-config -m <model>
     juju model-config -m <controller>:<model>
 
-	By default, the config will be printed in a tabular format. You can instead
-print it in the ` + "`json`" + ` or ` + "`yaml`" + ` format using the ` + "`--format`" + ` flag:
+By default, the config will be printed in a tabular format. You can instead
+print it in ` + "`json`" + ` or ` + "`yaml`" + ` format using the ` + "`--format`" + ` flag:
 
     juju model-config --format json
     juju model-config --format yaml
