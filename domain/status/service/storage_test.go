@@ -234,6 +234,54 @@ func (s *storageServiceSuite) TestVolumeStatusTransitionErrorInvalid(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `cannot set status .* without message`)
 }
 
+func (s *storageServiceSuite) TestGetStorageInstanceStatuses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuids := []storage.StorageInstanceUUID{
+		tc.Must(c, storage.NewStorageInstanceUUID),
+	}
+	si := []status.StorageInstance{
+		{
+			UUID:  uuids[0],
+			ID:    "12",
+			Owner: ptr(unit.Name("foo/10")),
+			Life:  life.Alive,
+			Kind:  storage.StorageKindFilesystem,
+		},
+	}
+	s.modelState.EXPECT().GetStorageInstances(
+		gomock.Any(), uuids).Return(si, nil)
+	sa := []status.StorageAttachment{
+		{
+			StorageInstanceUUID: uuids[0],
+			Life:                life.Alive,
+			Unit:                unit.Name("foo/10"),
+			Machine:             ptr(machine.Name("5")),
+		},
+	}
+	s.modelState.EXPECT().GetStorageInstanceAttachments(
+		gomock.Any(), uuids).Return(sa, nil)
+
+	res, err := s.service.GetStorageInstanceStatuses(c.Context(), uuids)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, []StorageInstance{
+		{
+			UUID:  uuids[0],
+			ID:    "12",
+			Owner: ptr(unit.Name("foo/10")),
+			Kind:  storage.StorageKindFilesystem,
+			Life:  corelife.Alive,
+			Attachments: map[unit.Name]StorageAttachment{
+				"foo/10": {
+					Life:    corelife.Alive,
+					Unit:    "foo/10",
+					Machine: ptr(machine.Name("5")),
+				},
+			},
+		},
+	})
+}
+
 func (s *storageServiceSuite) TestGetAllStorageInstanceStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -351,6 +399,76 @@ func (s *storageServiceSuite) TestGetAllStorageInstanceStatusesMultiple(c *tc.C)
 					Unit:    "bar/0",
 					Machine: ptr(machine.Name("1")),
 					Life:    corelife.Dying,
+				},
+			},
+		},
+	})
+}
+
+func (s *storageServiceSuite) TestGetFilesystemStatuses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuids := []storageprovisioning.FilesystemUUID{
+		tc.Must(c, storageprovisioning.NewFilesystemUUID),
+	}
+	siUUID := tc.Must(c, storage.NewStorageInstanceUUID)
+	fs := []status.Filesystem{
+		{
+			UUID: uuids[0],
+			ID:   "1",
+			Life: life.Alive,
+			Status: status.StatusInfo[status.StorageFilesystemStatusType]{
+				Status:  status.StorageFilesystemStatusTypeAttaching,
+				Message: "attaching to the thing",
+			},
+			StorageUUID: &siUUID,
+			StorageID:   "data/0",
+			VolumeID:    ptr("9"),
+			ProviderID:  "provider-foo-0",
+			SizeMiB:     123,
+		},
+	}
+	s.modelState.EXPECT().GetFilesystems(gomock.Any(), uuids).Return(fs, nil)
+	fa := []status.FilesystemAttachment{
+		{
+			FilesystemUUID: uuids[0],
+			Life:           life.Alive,
+			Unit:           ptr(unit.Name("foo/0")),
+			Machine:        ptr(machine.Name("0")),
+			MountPoint:     "/foo/bar",
+			ReadOnly:       true,
+		},
+	}
+	s.modelState.EXPECT().GetFilesystemAttachments(gomock.Any(), uuids).Return(fa, nil)
+
+	res, err := s.service.GetFilesystemStatuses(c.Context(), uuids)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, []Filesystem{
+		{
+			UUID:        uuids[0],
+			StorageUUID: &siUUID,
+			ID:          "1",
+			Life:        corelife.Alive,
+			Status: corestatus.StatusInfo{
+				Status:  corestatus.Attaching,
+				Message: "attaching to the thing",
+			},
+			StorageID:  "data/0",
+			VolumeID:   ptr("9"),
+			ProviderID: "provider-foo-0",
+			SizeMiB:    123,
+			MachineAttachments: map[machine.Name]FilesystemAttachment{
+				"0": {
+					Life:       corelife.Alive,
+					MountPoint: "/foo/bar",
+					ReadOnly:   true,
+				},
+			},
+			UnitAttachments: map[unit.Name]FilesystemAttachment{
+				"foo/0": {
+					Life:       corelife.Alive,
+					MountPoint: "/foo/bar",
+					ReadOnly:   true,
 				},
 			},
 		},
@@ -546,6 +664,105 @@ func (s *storageServiceSuite) TestGetAllFilesystemStatusesMultiple(c *tc.C) {
 				"bar/8": {
 					Life:       corelife.Dying,
 					MountPoint: "/baz/y",
+				},
+			},
+		},
+	})
+}
+
+func (s *storageServiceSuite) TestGetVolumeStatuses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuids := []storageprovisioning.VolumeUUID{
+		tc.Must(c, storageprovisioning.NewVolumeUUID),
+	}
+	siUUID := tc.Must(c, storage.NewStorageInstanceUUID)
+	vol := []status.Volume{
+		{
+			UUID: uuids[0],
+			ID:   "1",
+			Life: life.Alive,
+			Status: status.StatusInfo[status.StorageVolumeStatusType]{
+				Status:  status.StorageVolumeStatusTypeAttaching,
+				Message: "attaching to the thing",
+			},
+			StorageUUID: &siUUID,
+			StorageID:   "data/0",
+			ProviderID:  "provider-foo-0",
+			SizeMiB:     123,
+			HardwareID:  "hw0",
+			WWN:         "wwn0",
+			Persistent:  true,
+		},
+	}
+	s.modelState.EXPECT().GetVolumes(gomock.Any(), uuids).Return(vol, nil)
+	va := []status.VolumeAttachment{
+		{
+			VolumeUUID: uuids[0],
+			Life:       life.Alive,
+			Unit:       ptr(unit.Name("foo/0")),
+			Machine:    ptr(machine.Name("0")),
+			ReadOnly:   true,
+			DeviceName: "dvname0",
+			DeviceLink: "/dev/link0",
+			BusAddress: "bus-addr0",
+			VolumeAttachmentPlan: &status.VolumeAttachmentPlan{
+				DeviceType: storageprovisioning.PlanDeviceTypeISCSI,
+				DeviceAttributes: map[string]string{
+					"foo": "bar",
+				},
+			},
+		},
+	}
+	s.modelState.EXPECT().GetVolumeAttachments(
+		gomock.Any(), uuids).Return(va, nil)
+
+	res, err := s.service.GetVolumeStatuses(c.Context(), uuids)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, []Volume{
+		{
+			UUID:        uuids[0],
+			StorageUUID: &siUUID,
+			ID:          "1",
+			Life:        corelife.Alive,
+			Status: corestatus.StatusInfo{
+				Status:  corestatus.Attaching,
+				Message: "attaching to the thing",
+			},
+			StorageID:  "data/0",
+			ProviderID: "provider-foo-0",
+			SizeMiB:    123,
+			HardwareID: "hw0",
+			WWN:        "wwn0",
+			Persistent: true,
+			MachineAttachments: map[machine.Name]VolumeAttachment{
+				"0": {
+					Life:       corelife.Alive,
+					ReadOnly:   true,
+					DeviceName: "dvname0",
+					DeviceLink: "/dev/link0",
+					BusAddress: "bus-addr0",
+					VolumeAttachmentPlan: &VolumeAttachmentPlan{
+						DeviceType: storageprovisioning.PlanDeviceTypeISCSI,
+						DeviceAttributes: map[string]string{
+							"foo": "bar",
+						},
+					},
+				},
+			},
+			UnitAttachments: map[unit.Name]VolumeAttachment{
+				"foo/0": {
+					Life:       corelife.Alive,
+					ReadOnly:   true,
+					DeviceName: "dvname0",
+					DeviceLink: "/dev/link0",
+					BusAddress: "bus-addr0",
+					VolumeAttachmentPlan: &VolumeAttachmentPlan{
+						DeviceType: storageprovisioning.PlanDeviceTypeISCSI,
+						DeviceAttributes: map[string]string{
+							"foo": "bar",
+						},
+					},
 				},
 			},
 		},

@@ -45,22 +45,53 @@ type StorageState interface {
 	// [storageerrors.VolumeNotFound] is returned.
 	GetVolumeUUIDByID(ctx context.Context, id string) (storage.VolumeUUID, error)
 
+	// GetStorageInstances returns the specified storage instances.
+	GetStorageInstances(
+		ctx context.Context, uuids []storage.StorageInstanceUUID,
+	) ([]status.StorageInstance, error)
+
 	// GetAllStorageInstances returns all the storage instances for this model.
 	GetAllStorageInstances(ctx context.Context) ([]status.StorageInstance, error)
+
+	// GetStorageInstanceAttachments returns the specified storage instance
+	// attachments.
+	GetStorageInstanceAttachments(
+		ctx context.Context, uuids []storage.StorageInstanceUUID,
+	) ([]status.StorageAttachment, error)
 
 	// GetAllStorageInstanceAttachments returns all the storage instance
 	// attachments for this model.
 	GetAllStorageInstanceAttachments(ctx context.Context) ([]status.StorageAttachment, error)
 
+	// GetFilesystems returns the specified filesystems for this model.
+	GetFilesystems(
+		ctx context.Context, uuids []storageprovisioning.FilesystemUUID,
+	) ([]status.Filesystem, error)
+
 	// GetAllFilesystems returns all the filesystems for this model.
 	GetAllFilesystems(ctx context.Context) ([]status.Filesystem, error)
+
+	// GetFilesystemAttachments returns the specifeid filesystem attachments.
+	GetFilesystemAttachments(
+		ctx context.Context, uuids []storageprovisioning.FilesystemUUID,
+	) ([]status.FilesystemAttachment, error)
 
 	// GetAllFilesystemAttachments returns all the filesystem attachments for this
 	// model.
 	GetAllFilesystemAttachments(ctx context.Context) ([]status.FilesystemAttachment, error)
 
+	// GetVolumes returns the specified volumes.
+	GetVolumes(
+		ctx context.Context, uuids []storageprovisioning.VolumeUUID,
+	) ([]status.Volume, error)
+
 	// GetAllVolumes returns all the volumes for this model.
 	GetAllVolumes(ctx context.Context) ([]status.Volume, error)
+
+	// GetVolumeAttachments returns the specified volume attachments.
+	GetVolumeAttachments(
+		ctx context.Context, uuids []storageprovisioning.VolumeUUID,
+	) ([]status.VolumeAttachment, error)
 
 	// GetAllVolumeAttachments returns all the volume attachments for this model.
 	GetAllVolumeAttachments(ctx context.Context) ([]status.VolumeAttachment, error)
@@ -140,6 +171,31 @@ func (s *Service) SetVolumeStatus(
 	return nil
 }
 
+// GetStorageInstanceStatuses returns the specified storage instance statuses.
+func (s *Service) GetStorageInstanceStatuses(
+	ctx context.Context, uuids []storage.StorageInstanceUUID,
+) ([]StorageInstance, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if len(uuids) == 0 {
+		return nil, nil
+	}
+
+	storageInstances, err := s.modelState.GetStorageInstances(ctx, uuids)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	storageAttachments, err := s.modelState.GetStorageInstanceAttachments(
+		ctx, uuids)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return s.transformStorageInstanceResults(
+		storageInstances, storageAttachments)
+}
+
 // GetAllStorageInstanceStatuses returns all the storage instance statuses for
 // the model.
 func (s *Service) GetAllStorageInstanceStatuses(
@@ -157,6 +213,14 @@ func (s *Service) GetAllStorageInstanceStatuses(
 		return nil, errors.Capture(err)
 	}
 
+	return s.transformStorageInstanceResults(
+		storageInstances, storageAttachments)
+}
+
+func (s *Service) transformStorageInstanceResults(
+	storageInstances []status.StorageInstance,
+	storageAttachments []status.StorageAttachment,
+) ([]StorageInstance, error) {
 	storageMap := map[storage.StorageInstanceUUID]*StorageInstance{}
 	for _, dsi := range storageInstances {
 		si := StorageInstance{
@@ -197,6 +261,30 @@ func (s *Service) GetAllStorageInstanceStatuses(
 	return ret, nil
 }
 
+// GetFilesystemStatuses returns the specified filesystem statuses.
+func (s *Service) GetFilesystemStatuses(
+	ctx context.Context, uuids []storageprovisioning.FilesystemUUID,
+) ([]Filesystem, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if len(uuids) == 0 {
+		return nil, nil
+	}
+
+	filesystems, err := s.modelState.GetFilesystems(ctx, uuids)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	filesystemAttachments, err := s.modelState.GetFilesystemAttachments(
+		ctx, uuids)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return s.transformFilesystemResults(filesystems, filesystemAttachments)
+}
+
 // GetAllFilesystemStatuses returns all the filesystem statuses for the model.
 func (s *Service) GetAllFilesystemStatuses(ctx context.Context) ([]Filesystem, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -211,7 +299,14 @@ func (s *Service) GetAllFilesystemStatuses(ctx context.Context) ([]Filesystem, e
 		return nil, errors.Capture(err)
 	}
 
-	fsMap := map[storage.FilesystemUUID]*Filesystem{}
+	return s.transformFilesystemResults(filesystems, filesystemAttachments)
+}
+
+func (s *Service) transformFilesystemResults(
+	filesystems []status.Filesystem,
+	filesystemAttachments []status.FilesystemAttachment,
+) ([]Filesystem, error) {
+	fsMap := map[storageprovisioning.FilesystemUUID]*Filesystem{}
 	for _, dfs := range filesystems {
 		fs := Filesystem{
 			UUID:        dfs.UUID,
@@ -266,6 +361,25 @@ func (s *Service) GetAllFilesystemStatuses(ctx context.Context) ([]Filesystem, e
 	return ret, nil
 }
 
+// GetVolumeStatuses returns the specified volume statuses.
+func (s *Service) GetVolumeStatuses(
+	ctx context.Context, uuids []storageprovisioning.VolumeUUID,
+) ([]Volume, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	volumes, err := s.modelState.GetVolumes(ctx, uuids)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	volumeAttachments, err := s.modelState.GetVolumeAttachments(ctx, uuids)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return s.transformVolumeResults(volumes, volumeAttachments)
+}
+
 // GetAllVolumeStatuses returns all the volume statuses for the model.
 func (s *Service) GetAllVolumeStatuses(ctx context.Context) ([]Volume, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -280,7 +394,14 @@ func (s *Service) GetAllVolumeStatuses(ctx context.Context) ([]Volume, error) {
 		return nil, errors.Capture(err)
 	}
 
-	volumeMap := map[storage.VolumeUUID]*Volume{}
+	return s.transformVolumeResults(volumes, volumeAttachments)
+}
+
+func (s *Service) transformVolumeResults(
+	volumes []status.Volume,
+	volumeAttachments []status.VolumeAttachment,
+) ([]Volume, error) {
+	volumeMap := map[storageprovisioning.VolumeUUID]*Volume{}
 	for _, dv := range volumes {
 		v := Volume{
 			UUID:        dv.UUID,
