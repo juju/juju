@@ -1296,7 +1296,7 @@ func encodeOSType(ostype deployment.OSType) (string, error) {
 func processStorage(
 	ctx context.Context, statusService StatusService,
 ) ([]params.StorageDetails, []params.FilesystemDetails, []params.VolumeDetails, error) {
-	storageInstances, err := statusService.GetStorageInstanceStatuses(ctx)
+	storageInstances, err := statusService.GetAllStorageInstanceStatuses(ctx)
 	if err != nil {
 		return nil, nil, nil, internalerrors.Capture(err)
 	}
@@ -1346,7 +1346,7 @@ func processStorage(
 		storageMap[v.ID] = &details
 	}
 
-	filesystems, err := statusService.GetFilesystemStatuses(ctx)
+	filesystems, err := statusService.GetAllFilesystemStatuses(ctx)
 	if err != nil {
 		return nil, nil, nil, internalerrors.Capture(err)
 	}
@@ -1419,7 +1419,7 @@ func processStorage(
 		filesystemResult = append(filesystemResult, details)
 	}
 
-	volumes, err := statusService.GetVolumeStatuses(ctx)
+	volumes, err := statusService.GetAllVolumeStatuses(ctx)
 	if err != nil {
 		return nil, nil, nil, internalerrors.Capture(err)
 	}

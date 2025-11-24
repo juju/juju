@@ -234,7 +234,7 @@ func (s *storageServiceSuite) TestVolumeStatusTransitionErrorInvalid(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `cannot set status .* without message`)
 }
 
-func (s *storageServiceSuite) TestGetStorageInstanceStatuses(c *tc.C) {
+func (s *storageServiceSuite) TestGetAllStorageInstanceStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
@@ -258,7 +258,7 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatuses(c *tc.C) {
 	}
 	s.modelState.EXPECT().GetStorageInstanceAttachments(gomock.Any()).Return(sa, nil)
 
-	res, err := s.service.GetStorageInstanceStatuses(c.Context())
+	res, err := s.service.GetAllStorageInstanceStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, []StorageInstance{
 		{
@@ -277,7 +277,7 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatuses(c *tc.C) {
 	})
 }
 
-func (s *storageServiceSuite) TestGetStorageInstanceStatusesMultiple(c *tc.C) {
+func (s *storageServiceSuite) TestGetAllStorageInstanceStatusesMultiple(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	storageInstanceUUID0 := storagetesting.GenStorageInstanceUUID(c)
@@ -319,7 +319,7 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatusesMultiple(c *tc.C) {
 	}
 	s.modelState.EXPECT().GetStorageInstanceAttachments(gomock.Any()).Return(sa, nil)
 
-	res, err := s.service.GetStorageInstanceStatuses(c.Context())
+	res, err := s.service.GetAllStorageInstanceStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.UnorderedMatch[[]StorageInstance](tc.DeepEquals), []StorageInstance{
 		{
@@ -354,7 +354,7 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatusesMultiple(c *tc.C) {
 	})
 }
 
-func (s *storageServiceSuite) TestGetFilesystemStatuses(c *tc.C) {
+func (s *storageServiceSuite) TestGetAllFilesystemStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	fsUUID := tc.Must(c, storage.NewFilesystemUUID)
@@ -386,7 +386,7 @@ func (s *storageServiceSuite) TestGetFilesystemStatuses(c *tc.C) {
 	}
 	s.modelState.EXPECT().GetFilesystemAttachments(gomock.Any()).Return(fa, nil)
 
-	res, err := s.service.GetFilesystemStatuses(c.Context())
+	res, err := s.service.GetAllFilesystemStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, []Filesystem{
 		{
@@ -418,7 +418,7 @@ func (s *storageServiceSuite) TestGetFilesystemStatuses(c *tc.C) {
 	})
 }
 
-func (s *storageServiceSuite) TestGetFilesystemStatusesMultiple(c *tc.C) {
+func (s *storageServiceSuite) TestGetAllFilesystemStatusesMultiple(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	fsUUID0 := tc.Must(c, storage.NewFilesystemUUID)
@@ -477,7 +477,7 @@ func (s *storageServiceSuite) TestGetFilesystemStatusesMultiple(c *tc.C) {
 	}
 	s.modelState.EXPECT().GetFilesystemAttachments(gomock.Any()).Return(fa, nil)
 
-	res, err := s.service.GetFilesystemStatuses(c.Context())
+	res, err := s.service.GetAllFilesystemStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.UnorderedMatch[[]Filesystem](tc.DeepEquals), []Filesystem{
 		{
@@ -537,7 +537,7 @@ func (s *storageServiceSuite) TestGetFilesystemStatusesMultiple(c *tc.C) {
 	})
 }
 
-func (s *storageServiceSuite) TestGetVolumeStatuses(c *tc.C) {
+func (s *storageServiceSuite) TestGetAllVolumeStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	volUUID := tc.Must(c, storage.NewVolumeUUID)
@@ -579,7 +579,7 @@ func (s *storageServiceSuite) TestGetVolumeStatuses(c *tc.C) {
 	}
 	s.modelState.EXPECT().GetVolumeAttachments(gomock.Any()).Return(va, nil)
 
-	res, err := s.service.GetVolumeStatuses(c.Context())
+	res, err := s.service.GetAllVolumeStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, []Volume{
 		{

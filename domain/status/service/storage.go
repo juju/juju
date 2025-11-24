@@ -140,9 +140,9 @@ func (s *Service) SetVolumeStatus(
 	return nil
 }
 
-// GetStorageInstanceStatuses returns all the storage instance statuses for
+// GetAllStorageInstanceStatuses returns all the storage instance statuses for
 // the model.
-func (s *Service) GetStorageInstanceStatuses(
+func (s *Service) GetAllStorageInstanceStatuses(
 	ctx context.Context,
 ) ([]StorageInstance, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -196,8 +196,8 @@ func (s *Service) GetStorageInstanceStatuses(
 	return ret, nil
 }
 
-// GetFilesystemStatuses returns all the filesystem statuses for the model.
-func (s *Service) GetFilesystemStatuses(ctx context.Context) ([]Filesystem, error) {
+// GetAllFilesystemStatuses returns all the filesystem statuses for the model.
+func (s *Service) GetAllFilesystemStatuses(ctx context.Context) ([]Filesystem, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -263,8 +263,8 @@ func (s *Service) GetFilesystemStatuses(ctx context.Context) ([]Filesystem, erro
 	return ret, nil
 }
 
-// GetVolumeStatuses returns all the volume statuses for the model.
-func (s *Service) GetVolumeStatuses(ctx context.Context) ([]Volume, error) {
+// GetAllVolumeStatuses returns all the volume statuses for the model.
+func (s *Service) GetAllVolumeStatuses(ctx context.Context) ([]Volume, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
