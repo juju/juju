@@ -306,10 +306,11 @@ type filesystemStatusDetails struct {
 	Message   string     `db:"message"`
 	UpdatedAt *time.Time `db:"updated_at"`
 
-	StorageID  string         `db:"storage_id"`
-	VolumeID   sql.NullString `db:"volume_id"`
-	ProviderID string         `db:"provider_id"`
-	SizeMiB    uint64         `db:"size_mib"`
+	StorageInstanceUUID sql.NullString `db:"storage_instance_uuid"`
+	StorageID           string         `db:"storage_id"`
+	VolumeID            sql.NullString `db:"volume_id"`
+	ProviderID          string         `db:"provider_id"`
+	SizeMiB             uint64         `db:"size_mib"`
 }
 
 // filesystemAttachmentStatusDetails is used to retrieve all required
@@ -334,12 +335,13 @@ type volumeStatusDetails struct {
 	Message   string     `db:"message"`
 	UpdatedAt *time.Time `db:"updated_at"`
 
-	StorageID  string `db:"storage_id"`
-	ProviderID string `db:"provider_id"`
-	HardwareID string `db:"hardware_id"`
-	WWN        string `db:"wwn"`
-	SizeMiB    uint64 `db:"size_mib"`
-	Persistent bool   `db:"persistent"`
+	StorageInstanceUUID sql.NullString `db:"storage_instance_uuid"`
+	StorageID           string         `db:"storage_id"`
+	ProviderID          string         `db:"provider_id"`
+	HardwareID          string         `db:"hardware_id"`
+	WWN                 string         `db:"wwn"`
+	SizeMiB             uint64         `db:"size_mib"`
+	Persistent          bool           `db:"persistent"`
 }
 
 // volumeAttachmentStatusDetails is used to retrieve all required

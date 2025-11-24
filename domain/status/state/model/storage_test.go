@@ -541,9 +541,10 @@ func (s *storageStatusSuite) TestGetFilesystems(c *tc.C) {
 				Status:  status.StorageFilesystemStatusTypeAttaching,
 				Message: "attaching the filez",
 			},
-			StorageID:  s0id,
-			ProviderID: "my-provider-id-1",
-			SizeMiB:    123,
+			StorageUUID: &s0,
+			StorageID:   s0id,
+			ProviderID:  "my-provider-id-1",
+			SizeMiB:     123,
 		},
 		{
 			UUID: f1,
@@ -552,10 +553,11 @@ func (s *storageStatusSuite) TestGetFilesystems(c *tc.C) {
 			Status: status.StatusInfo[status.StorageFilesystemStatusType]{
 				Status: status.StorageFilesystemStatusTypePending,
 			},
-			StorageID:  s1id,
-			ProviderID: "my-provider-id-2",
-			SizeMiB:    456,
-			VolumeID:   &v1id,
+			StorageUUID: &s1,
+			StorageID:   s1id,
+			ProviderID:  "my-provider-id-2",
+			SizeMiB:     456,
+			VolumeID:    &v1id,
 		},
 	})
 }
@@ -669,12 +671,13 @@ func (s *storageStatusSuite) TestGetVolumes(c *tc.C) {
 				Status:  status.StorageVolumeStatusTypeAttaching,
 				Message: "attaching the volumez",
 			},
-			StorageID:  s0id,
-			ProviderID: "my-provider-id-1",
-			SizeMiB:    123,
-			HardwareID: "hw0",
-			WWN:        "wwn0",
-			Persistent: true,
+			StorageUUID: &s0,
+			StorageID:   s0id,
+			ProviderID:  "my-provider-id-1",
+			SizeMiB:     123,
+			HardwareID:  "hw0",
+			WWN:         "wwn0",
+			Persistent:  true,
 		},
 		{
 			UUID: v1,
@@ -683,7 +686,8 @@ func (s *storageStatusSuite) TestGetVolumes(c *tc.C) {
 			Status: status.StatusInfo[status.StorageVolumeStatusType]{
 				Status: status.StorageVolumeStatusTypePending,
 			},
-			StorageID: s1id,
+			StorageUUID: &s1,
+			StorageID:   s1id,
 		},
 	})
 }

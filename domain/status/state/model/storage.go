@@ -464,7 +464,8 @@ func (st *ModelState) GetFilesystems(
 	stmt, err := st.Prepare(`
 SELECT    (sf.uuid, sf.filesystem_id, sf.life_id, sf.provider_id, sf.size_mib) AS (&filesystemStatusDetails.*),
           (sfs.status_id, sfs.message, sfs.updated_at) AS (&filesystemStatusDetails.*),
-          (si.storage_id, sv.volume_id) AS (&filesystemStatusDetails.*)
+          (si.storage_id, sv.volume_id) AS (&filesystemStatusDetails.*),
+          si.uuid AS &filesystemStatusDetails.storage_instance_uuid
 FROM      storage_filesystem sf
 LEFT JOIN storage_filesystem_status sfs ON sfs.filesystem_uuid=sf.uuid
 LEFT JOIN storage_instance_filesystem sif ON sf.uuid=sif.storage_filesystem_uuid
@@ -497,6 +498,11 @@ LEFT JOIN storage_volume sv ON sv.uuid=siv.storage_volume_uuid
 		if v.VolumeID.Valid {
 			volumeID = &v.VolumeID.String
 		}
+		var storageInstanceUUID *storage.StorageInstanceUUID
+		if v.StorageInstanceUUID.Valid {
+			siUUID := storage.StorageInstanceUUID(v.StorageInstanceUUID.String)
+			storageInstanceUUID = &siUUID
+		}
 		return status.Filesystem{
 			UUID: storage.FilesystemUUID(v.UUID),
 			ID:   v.ID,
@@ -506,10 +512,11 @@ LEFT JOIN storage_volume sv ON sv.uuid=siv.storage_volume_uuid
 				Message: v.Message,
 				Since:   v.UpdatedAt,
 			},
-			StorageID:  v.StorageID,
-			VolumeID:   volumeID,
-			ProviderID: v.ProviderID,
-			SizeMiB:    v.SizeMiB,
+			StorageUUID: storageInstanceUUID,
+			StorageID:   v.StorageID,
+			VolumeID:    volumeID,
+			ProviderID:  v.ProviderID,
+			SizeMiB:     v.SizeMiB,
 		}, nil
 	})
 }
@@ -584,7 +591,8 @@ func (st *ModelState) GetVolumes(
 	stmt, err := st.Prepare(`
 SELECT    (sv.uuid, sv.volume_id, sv.life_id, sv.provider_id, sv.hardware_id, sv.wwn, sv.size_mib, sv.persistent) AS (&volumeStatusDetails.*),
           (svs.status_id, svs.message, svs.updated_at) AS (&volumeStatusDetails.*),
-          (si.storage_id) AS (&volumeStatusDetails.*)
+          (si.storage_id) AS (&volumeStatusDetails.*),
+          si.uuid AS &volumeStatusDetails.storage_instance_uuid
 FROM      storage_volume sv
 LEFT JOIN storage_volume_status svs ON svs.volume_uuid=sv.uuid
 LEFT JOIN storage_instance_volume siv ON siv.storage_volume_uuid=sv.uuid
@@ -611,6 +619,11 @@ LEFT JOIN storage_instance si ON si.uuid=siv.storage_instance_uuid
 		if err != nil {
 			return status.Volume{}, errors.Capture(err)
 		}
+		var storageInstanceUUID *storage.StorageInstanceUUID
+		if v.StorageInstanceUUID.Valid {
+			siUUID := storage.StorageInstanceUUID(v.StorageInstanceUUID.String)
+			storageInstanceUUID = &siUUID
+		}
 		return status.Volume{
 			UUID: storage.VolumeUUID(v.UUID),
 			ID:   v.ID,
@@ -620,12 +633,13 @@ LEFT JOIN storage_instance si ON si.uuid=siv.storage_instance_uuid
 				Message: v.Message,
 				Since:   v.UpdatedAt,
 			},
-			StorageID:  v.StorageID,
-			ProviderID: v.ProviderID,
-			HardwareID: v.HardwareID,
-			WWN:        v.WWN,
-			Persistent: v.Persistent,
-			SizeMiB:    v.SizeMiB,
+			StorageUUID: storageInstanceUUID,
+			StorageID:   v.StorageID,
+			ProviderID:  v.ProviderID,
+			HardwareID:  v.HardwareID,
+			WWN:         v.WWN,
+			Persistent:  v.Persistent,
+			SizeMiB:     v.SizeMiB,
 		}, nil
 	})
 }

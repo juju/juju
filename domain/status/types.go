@@ -89,28 +89,30 @@ type StorageAttachment struct {
 
 // Filesystem represents the status of a filesystem.
 type Filesystem struct {
-	UUID       storage.FilesystemUUID
-	ID         string
-	Life       life.Life
-	Status     StatusInfo[StorageFilesystemStatusType]
-	StorageID  string
-	VolumeID   *string
-	ProviderID string
-	SizeMiB    uint64
+	UUID        storage.FilesystemUUID
+	StorageUUID *storage.StorageInstanceUUID
+	ID          string
+	Life        life.Life
+	Status      StatusInfo[StorageFilesystemStatusType]
+	StorageID   string
+	VolumeID    *string
+	ProviderID  string
+	SizeMiB     uint64
 }
 
 // Volume represents the status of a volume.
 type Volume struct {
-	UUID       storage.VolumeUUID
-	ID         string
-	Life       life.Life
-	Status     StatusInfo[StorageVolumeStatusType]
-	StorageID  string
-	ProviderID string
-	HardwareID string
-	WWN        string
-	SizeMiB    uint64
-	Persistent bool
+	UUID        storage.VolumeUUID
+	StorageUUID *storage.StorageInstanceUUID
+	ID          string
+	Life        life.Life
+	Status      StatusInfo[StorageVolumeStatusType]
+	StorageID   string
+	ProviderID  string
+	HardwareID  string
+	WWN         string
+	SizeMiB     uint64
+	Persistent  bool
 }
 
 // FilesystemAttachment represents the status of a filesystem attachment.

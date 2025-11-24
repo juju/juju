@@ -160,6 +160,7 @@ func (s *Service) GetAllStorageInstanceStatuses(
 	storageMap := map[storage.StorageInstanceUUID]*StorageInstance{}
 	for _, dsi := range storageInstances {
 		si := StorageInstance{
+			UUID:  dsi.UUID,
 			ID:    dsi.ID,
 			Kind:  dsi.Kind,
 			Owner: dsi.Owner,
@@ -213,11 +214,13 @@ func (s *Service) GetAllFilesystemStatuses(ctx context.Context) ([]Filesystem, e
 	fsMap := map[storage.FilesystemUUID]*Filesystem{}
 	for _, dfs := range filesystems {
 		fs := Filesystem{
-			ID:         dfs.ID,
-			StorageID:  dfs.StorageID,
-			VolumeID:   dfs.VolumeID,
-			ProviderID: dfs.ProviderID,
-			SizeMiB:    dfs.SizeMiB,
+			UUID:        dfs.UUID,
+			StorageUUID: dfs.StorageUUID,
+			ID:          dfs.ID,
+			StorageID:   dfs.StorageID,
+			VolumeID:    dfs.VolumeID,
+			ProviderID:  dfs.ProviderID,
+			SizeMiB:     dfs.SizeMiB,
 		}
 		var err error
 		fs.Life, err = dfs.Life.Value()
@@ -280,13 +283,15 @@ func (s *Service) GetAllVolumeStatuses(ctx context.Context) ([]Volume, error) {
 	volumeMap := map[storage.VolumeUUID]*Volume{}
 	for _, dv := range volumes {
 		v := Volume{
-			ID:         dv.ID,
-			StorageID:  dv.StorageID,
-			ProviderID: dv.ProviderID,
-			HardwareID: dv.HardwareID,
-			WWN:        dv.WWN,
-			SizeMiB:    dv.SizeMiB,
-			Persistent: dv.Persistent,
+			UUID:        dv.UUID,
+			StorageUUID: dv.StorageUUID,
+			ID:          dv.ID,
+			StorageID:   dv.StorageID,
+			ProviderID:  dv.ProviderID,
+			HardwareID:  dv.HardwareID,
+			WWN:         dv.WWN,
+			SizeMiB:     dv.SizeMiB,
+			Persistent:  dv.Persistent,
 		}
 		var err error
 		v.Life, err = dv.Life.Value()
