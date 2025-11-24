@@ -45,25 +45,25 @@ type StorageState interface {
 	// [storageerrors.VolumeNotFound] is returned.
 	GetVolumeUUIDByID(ctx context.Context, id string) (storage.VolumeUUID, error)
 
-	// GetStorageInstances returns all the storage instances for this model.
-	GetStorageInstances(ctx context.Context) ([]status.StorageInstance, error)
+	// GetAllStorageInstances returns all the storage instances for this model.
+	GetAllStorageInstances(ctx context.Context) ([]status.StorageInstance, error)
 
-	// GetStorageInstanceAttachments returns all the storage instance
+	// GetAllStorageInstanceAttachments returns all the storage instance
 	// attachments for this model.
-	GetStorageInstanceAttachments(ctx context.Context) ([]status.StorageAttachment, error)
+	GetAllStorageInstanceAttachments(ctx context.Context) ([]status.StorageAttachment, error)
 
-	// GetFilesystems returns all the filesystems for this model.
-	GetFilesystems(ctx context.Context) ([]status.Filesystem, error)
+	// GetAllFilesystems returns all the filesystems for this model.
+	GetAllFilesystems(ctx context.Context) ([]status.Filesystem, error)
 
-	// GetFilesystemAttachments returns all the filesystem attachments for this
+	// GetAllFilesystemAttachments returns all the filesystem attachments for this
 	// model.
-	GetFilesystemAttachments(ctx context.Context) ([]status.FilesystemAttachment, error)
+	GetAllFilesystemAttachments(ctx context.Context) ([]status.FilesystemAttachment, error)
 
-	// GetVolumes returns all the volumes for this model.
-	GetVolumes(ctx context.Context) ([]status.Volume, error)
+	// GetAllVolumes returns all the volumes for this model.
+	GetAllVolumes(ctx context.Context) ([]status.Volume, error)
 
-	// GetVolumeAttachments returns all the volume attachments for this model.
-	GetVolumeAttachments(ctx context.Context) ([]status.VolumeAttachment, error)
+	// GetAllVolumeAttachments returns all the volume attachments for this model.
+	GetAllVolumeAttachments(ctx context.Context) ([]status.VolumeAttachment, error)
 }
 
 // SetFilesystemStatus validates and sets the given filesystem status, overwriting any
@@ -148,11 +148,11 @@ func (s *Service) GetAllStorageInstanceStatuses(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	storageInstances, err := s.modelState.GetStorageInstances(ctx)
+	storageInstances, err := s.modelState.GetAllStorageInstances(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	storageAttachments, err := s.modelState.GetStorageInstanceAttachments(ctx)
+	storageAttachments, err := s.modelState.GetAllStorageInstanceAttachments(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -202,11 +202,11 @@ func (s *Service) GetAllFilesystemStatuses(ctx context.Context) ([]Filesystem, e
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	filesystems, err := s.modelState.GetFilesystems(ctx)
+	filesystems, err := s.modelState.GetAllFilesystems(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	filesystemAttachments, err := s.modelState.GetFilesystemAttachments(ctx)
+	filesystemAttachments, err := s.modelState.GetAllFilesystemAttachments(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -271,11 +271,11 @@ func (s *Service) GetAllVolumeStatuses(ctx context.Context) ([]Volume, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	volumes, err := s.modelState.GetVolumes(ctx)
+	volumes, err := s.modelState.GetAllVolumes(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	volumeAttachments, err := s.modelState.GetVolumeAttachments(ctx)
+	volumeAttachments, err := s.modelState.GetAllVolumeAttachments(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

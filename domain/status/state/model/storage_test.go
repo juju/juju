@@ -396,14 +396,14 @@ func (s *storageStatusSuite) NewModelState(c *tc.C) *ModelState {
 	return NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 }
 
-func (s *storageStatusSuite) TestGetStorageInstancesEmpty(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllStorageInstancesEmpty(c *tc.C) {
 	st := s.NewModelState(c)
-	res, err := st.GetStorageInstances(c.Context())
+	res, err := st.GetAllStorageInstances(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.HasLen, 0)
 }
 
-func (s *storageStatusSuite) TestGetStorageInstances(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllStorageInstances(c *tc.C) {
 	ch0 := s.newCharm(c)
 	s.newCharmStorage(c, ch0, "blk", storage.StorageKindBlock)
 	s.newCharmStorage(c, ch0, "fs", storage.StorageKindFilesystem)
@@ -423,7 +423,7 @@ func (s *storageStatusSuite) TestGetStorageInstances(c *tc.C) {
 	s.newStorageUnitOwner(c, s1, u0)
 
 	st := s.NewModelState(c)
-	res, err := st.GetStorageInstances(c.Context())
+	res, err := st.GetAllStorageInstances(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.UnorderedMatch[[]status.StorageInstance](tc.DeepEquals), []status.StorageInstance{
 		{
@@ -442,14 +442,14 @@ func (s *storageStatusSuite) TestGetStorageInstances(c *tc.C) {
 	})
 }
 
-func (s *storageStatusSuite) TestGetStorageInstanceAttachmentsEmpty(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllStorageInstanceAttachmentsEmpty(c *tc.C) {
 	st := s.NewModelState(c)
-	res, err := st.GetStorageInstanceAttachments(c.Context())
+	res, err := st.GetAllStorageInstanceAttachments(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.HasLen, 0)
 }
 
-func (s *storageStatusSuite) TestGetStorageInstanceAttachments(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllStorageInstanceAttachments(c *tc.C) {
 	ch0 := s.newCharm(c)
 	s.newCharmStorage(c, ch0, "blk", storage.StorageKindBlock)
 	s.newCharmStorage(c, ch0, "fs", storage.StorageKindFilesystem)
@@ -475,7 +475,7 @@ func (s *storageStatusSuite) TestGetStorageInstanceAttachments(c *tc.C) {
 	s.newStorageAttachment(c, s1, u1)
 
 	st := s.NewModelState(c)
-	res, err := st.GetStorageInstanceAttachments(c.Context())
+	res, err := st.GetAllStorageInstanceAttachments(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.UnorderedMatch[[]status.StorageAttachment](tc.DeepEquals), []status.StorageAttachment{
 		{
@@ -492,14 +492,14 @@ func (s *storageStatusSuite) TestGetStorageInstanceAttachments(c *tc.C) {
 	})
 }
 
-func (s *storageStatusSuite) TestGetFilesystemsEmpty(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllFilesystemsEmpty(c *tc.C) {
 	st := s.NewModelState(c)
-	res, err := st.GetFilesystems(c.Context())
+	res, err := st.GetAllFilesystems(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.HasLen, 0)
 }
 
-func (s *storageStatusSuite) TestGetFilesystems(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllFilesystems(c *tc.C) {
 	ch0 := s.newCharm(c)
 	s.newCharmStorage(c, ch0, "fs", storage.StorageKindFilesystem)
 
@@ -530,7 +530,7 @@ func (s *storageStatusSuite) TestGetFilesystems(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	res, err := st.GetFilesystems(c.Context())
+	res, err := st.GetAllFilesystems(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.UnorderedMatch[[]status.Filesystem](tc.DeepEquals), []status.Filesystem{
 		{
@@ -562,14 +562,14 @@ func (s *storageStatusSuite) TestGetFilesystems(c *tc.C) {
 	})
 }
 
-func (s *storageStatusSuite) TestGetFilesystemAttachmentsEmpty(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllFilesystemAttachmentsEmpty(c *tc.C) {
 	st := s.NewModelState(c)
-	res, err := st.GetFilesystemAttachments(c.Context())
+	res, err := st.GetAllFilesystemAttachments(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.HasLen, 0)
 }
 
-func (s *storageStatusSuite) TestGetFilesystemAttachments(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllFilesystemAttachments(c *tc.C) {
 	ch0 := s.newCharm(c)
 	s.newCharmStorage(c, ch0, "fs", storage.StorageKindFilesystem)
 
@@ -599,7 +599,7 @@ func (s *storageStatusSuite) TestGetFilesystemAttachments(c *tc.C) {
 	s.changeFilesystemAttachmentInfo(c, f1a, "/mnt/y", false)
 
 	st := s.NewModelState(c)
-	res, err := st.GetFilesystemAttachments(c.Context())
+	res, err := st.GetAllFilesystemAttachments(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.UnorderedMatch[[]status.FilesystemAttachment](tc.DeepEquals), []status.FilesystemAttachment{
 		{
@@ -620,14 +620,14 @@ func (s *storageStatusSuite) TestGetFilesystemAttachments(c *tc.C) {
 	})
 }
 
-func (s *storageStatusSuite) TestGetVolumesEmpty(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllVolumesEmpty(c *tc.C) {
 	st := s.NewModelState(c)
-	res, err := st.GetVolumes(c.Context())
+	res, err := st.GetAllVolumes(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.HasLen, 0)
 }
 
-func (s *storageStatusSuite) TestGetVolumes(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllVolumes(c *tc.C) {
 	ch0 := s.newCharm(c)
 	s.newCharmStorage(c, ch0, "blk", storage.StorageKindBlock)
 
@@ -660,7 +660,7 @@ func (s *storageStatusSuite) TestGetVolumes(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	res, err := st.GetVolumes(c.Context())
+	res, err := st.GetAllVolumes(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.UnorderedMatch[[]status.Volume](tc.DeepEquals), []status.Volume{
 		{
@@ -692,14 +692,14 @@ func (s *storageStatusSuite) TestGetVolumes(c *tc.C) {
 	})
 }
 
-func (s *storageStatusSuite) TestGetVolumeAttachmentsEmpty(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllVolumeAttachmentsEmpty(c *tc.C) {
 	st := s.NewModelState(c)
-	res, err := st.GetVolumeAttachments(c.Context())
+	res, err := st.GetAllVolumeAttachments(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.HasLen, 0)
 }
 
-func (s *storageStatusSuite) TestGetVolumeAttachments(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllVolumeAttachments(c *tc.C) {
 	ch0 := s.newCharm(c)
 	s.newCharmStorage(c, ch0, "blk", storage.StorageKindBlock)
 
@@ -759,7 +759,7 @@ func (s *storageStatusSuite) TestGetVolumeAttachments(c *tc.C) {
 	)
 
 	st := s.NewModelState(c)
-	res, err := st.GetVolumeAttachments(c.Context())
+	res, err := st.GetAllVolumeAttachments(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.UnorderedMatch[[]status.VolumeAttachment](tc.DeepEquals), []status.VolumeAttachment{
 		{

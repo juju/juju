@@ -247,7 +247,7 @@ func (s *storageServiceSuite) TestGetAllStorageInstanceStatuses(c *tc.C) {
 			Kind:  storage.StorageKindFilesystem,
 		},
 	}
-	s.modelState.EXPECT().GetStorageInstances(gomock.Any()).Return(si, nil)
+	s.modelState.EXPECT().GetAllStorageInstances(gomock.Any()).Return(si, nil)
 	sa := []status.StorageAttachment{
 		{
 			StorageInstanceUUID: storageInstanceUUID,
@@ -256,7 +256,7 @@ func (s *storageServiceSuite) TestGetAllStorageInstanceStatuses(c *tc.C) {
 			Machine:             ptr(machine.Name("5")),
 		},
 	}
-	s.modelState.EXPECT().GetStorageInstanceAttachments(gomock.Any()).Return(sa, nil)
+	s.modelState.EXPECT().GetAllStorageInstanceAttachments(gomock.Any()).Return(sa, nil)
 
 	res, err := s.service.GetAllStorageInstanceStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -297,7 +297,7 @@ func (s *storageServiceSuite) TestGetAllStorageInstanceStatusesMultiple(c *tc.C)
 			Kind: storage.StorageKindFilesystem,
 		},
 	}
-	s.modelState.EXPECT().GetStorageInstances(gomock.Any()).Return(si, nil)
+	s.modelState.EXPECT().GetAllStorageInstances(gomock.Any()).Return(si, nil)
 	sa := []status.StorageAttachment{
 		{
 			StorageInstanceUUID: storageInstanceUUID0,
@@ -318,7 +318,7 @@ func (s *storageServiceSuite) TestGetAllStorageInstanceStatusesMultiple(c *tc.C)
 			Life:                life.Dying,
 		},
 	}
-	s.modelState.EXPECT().GetStorageInstanceAttachments(gomock.Any()).Return(sa, nil)
+	s.modelState.EXPECT().GetAllStorageInstanceAttachments(gomock.Any()).Return(sa, nil)
 
 	res, err := s.service.GetAllStorageInstanceStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -378,7 +378,7 @@ func (s *storageServiceSuite) TestGetAllFilesystemStatuses(c *tc.C) {
 			SizeMiB:     123,
 		},
 	}
-	s.modelState.EXPECT().GetFilesystems(gomock.Any()).Return(fs, nil)
+	s.modelState.EXPECT().GetAllFilesystems(gomock.Any()).Return(fs, nil)
 	fa := []status.FilesystemAttachment{
 		{
 			FilesystemUUID: fsUUID,
@@ -389,7 +389,7 @@ func (s *storageServiceSuite) TestGetAllFilesystemStatuses(c *tc.C) {
 			ReadOnly:       true,
 		},
 	}
-	s.modelState.EXPECT().GetFilesystemAttachments(gomock.Any()).Return(fa, nil)
+	s.modelState.EXPECT().GetAllFilesystemAttachments(gomock.Any()).Return(fa, nil)
 
 	res, err := s.service.GetAllFilesystemStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -460,7 +460,7 @@ func (s *storageServiceSuite) TestGetAllFilesystemStatusesMultiple(c *tc.C) {
 			SizeMiB:     456,
 		},
 	}
-	s.modelState.EXPECT().GetFilesystems(gomock.Any()).Return(fs, nil)
+	s.modelState.EXPECT().GetAllFilesystems(gomock.Any()).Return(fs, nil)
 	fa := []status.FilesystemAttachment{
 		{
 			FilesystemUUID: fsUUID0,
@@ -486,7 +486,7 @@ func (s *storageServiceSuite) TestGetAllFilesystemStatusesMultiple(c *tc.C) {
 			ReadOnly:       false,
 		},
 	}
-	s.modelState.EXPECT().GetFilesystemAttachments(gomock.Any()).Return(fa, nil)
+	s.modelState.EXPECT().GetAllFilesystemAttachments(gomock.Any()).Return(fa, nil)
 
 	res, err := s.service.GetAllFilesystemStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -575,7 +575,7 @@ func (s *storageServiceSuite) TestGetAllVolumeStatuses(c *tc.C) {
 			Persistent:  true,
 		},
 	}
-	s.modelState.EXPECT().GetVolumes(gomock.Any()).Return(vol, nil)
+	s.modelState.EXPECT().GetAllVolumes(gomock.Any()).Return(vol, nil)
 	va := []status.VolumeAttachment{
 		{
 			VolumeUUID: volUUID,
@@ -594,7 +594,7 @@ func (s *storageServiceSuite) TestGetAllVolumeStatuses(c *tc.C) {
 			},
 		},
 	}
-	s.modelState.EXPECT().GetVolumeAttachments(gomock.Any()).Return(va, nil)
+	s.modelState.EXPECT().GetAllVolumeAttachments(gomock.Any()).Return(va, nil)
 
 	res, err := s.service.GetAllVolumeStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)

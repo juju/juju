@@ -58,7 +58,7 @@ func (st *ModelState) SetFilesystemStatus(
 	return nil
 }
 
-// getFilesystemStatus gets the status of the given filesystem
+// GetAllFilesystemstatus gets the status of the given filesystem
 // and a bool indicating if it is provisioned.
 // The following errors can be expected:
 // - [storageerrors.FilesystemNotFound] if the filesystem doesn't exist.
@@ -224,7 +224,7 @@ func (st *ModelState) SetVolumeStatus(
 	return nil
 }
 
-// getVolumeStatus gets the status of the given volume
+// GetAllVolumestatus gets the status of the given volume
 // and a bool indicating if it is provisioned.
 // The following errors can be expected:
 // - [storageerrors.VolumeNotFound] if the volume doesn't exist.
@@ -355,8 +355,8 @@ ON CONFLICT(volume_uuid) DO UPDATE SET
 	return nil
 }
 
-// GetStorageInstances returns all the storage instances for this model.
-func (st *ModelState) GetStorageInstances(
+// GetAllStorageInstances returns all the storage instances for this model.
+func (st *ModelState) GetAllStorageInstances(
 	ctx context.Context,
 ) ([]status.StorageInstance, error) {
 	db, err := st.DB(ctx)
@@ -403,9 +403,9 @@ LEFT JOIN unit u ON suo.unit_uuid=u.uuid
 	}), nil
 }
 
-// GetStorageInstanceAttachments returns all the storage instance
+// GetAllStorageInstanceAttachments returns all the storage instance
 // attachments for this model.
-func (st *ModelState) GetStorageInstanceAttachments(
+func (st *ModelState) GetAllStorageInstanceAttachments(
 	ctx context.Context,
 ) ([]status.StorageAttachment, error) {
 	db, err := st.DB(ctx)
@@ -452,8 +452,8 @@ LEFT JOIN machine m ON u.net_node_uuid=m.net_node_uuid
 	}), nil
 }
 
-// GetFilesystems returns all the filesystems for this model.
-func (st *ModelState) GetFilesystems(
+// GetAllFilesystems returns all the filesystems for this model.
+func (st *ModelState) GetAllFilesystems(
 	ctx context.Context,
 ) ([]status.Filesystem, error) {
 	db, err := st.DB(ctx)
@@ -521,9 +521,9 @@ LEFT JOIN storage_volume sv ON sv.uuid=siv.storage_volume_uuid
 	})
 }
 
-// GetFilesystemAttachments returns all the filesystem attachments for this
+// GetAllFilesystemAttachments returns all the filesystem attachments for this
 // model.
-func (st *ModelState) GetFilesystemAttachments(
+func (st *ModelState) GetAllFilesystemAttachments(
 	ctx context.Context,
 ) ([]status.FilesystemAttachment, error) {
 	db, err := st.DB(ctx)
@@ -579,8 +579,8 @@ LEFT JOIN unit u ON u.uuid=sa.unit_uuid
 	}), nil
 }
 
-// GetVolumes returns all the volumes for this model.
-func (st *ModelState) GetVolumes(
+// GetAllVolumes returns all the volumes for this model.
+func (st *ModelState) GetAllVolumes(
 	ctx context.Context,
 ) ([]status.Volume, error) {
 	db, err := st.DB(ctx)
@@ -644,8 +644,8 @@ LEFT JOIN storage_instance si ON si.uuid=siv.storage_instance_uuid
 	})
 }
 
-// GetVolumeAttachments returns all the volume attachments for this model.
-func (st *ModelState) GetVolumeAttachments(
+// GetAllVolumeAttachments returns all the volume attachments for this model.
+func (st *ModelState) GetAllVolumeAttachments(
 	ctx context.Context,
 ) ([]status.VolumeAttachment, error) {
 	db, err := st.DB(ctx)
