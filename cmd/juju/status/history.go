@@ -18,6 +18,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v6"
 
+	"github.com/juju/juju/api"
 	apiclient "github.com/juju/juju/api/client/client"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
@@ -433,7 +434,10 @@ func getStatusHistoryCollectors(c *statusHistoryCommand) func() ([]historyCollec
 // is closed once the data is retrieved.
 func (c *statusHistoryCommand) newHistoryCollector(addr string) historyCollector {
 	return func(ctx context.Context, kind status.HistoryKind, tag names.Tag, filter status.StatusHistoryFilter) collectorResult {
-		root, err := c.NewAPIRootWithAddressOverride(ctx, []string{addr})
+		root, err := c.NewAPIRootWithDialOpts(ctx, &api.DialOpts{
+			DialTimeout: 5 * time.Second,
+			Timeout:     30 * time.Second,
+		}, addr)
 		if err != nil {
 			return collectorResult{history: nil, err: errors.Capture(err)}
 		}

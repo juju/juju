@@ -395,27 +395,21 @@ func (c *ModelCommandBase) NewAPIRoot(ctx context.Context) (api.Connection, erro
 // NewAPIRootWithAddressOverride returns a new connection to the API server for the environment
 // directed to the model specified on the command line, using any address overrides.
 func (c *ModelCommandBase) NewAPIRootWithAddressOverride(ctx context.Context, addresses []string) (api.Connection, error) {
-	// We need to call ModelDetails() here and not just ModelName() to force
-	// a refresh of the internal model details if those are not yet stored locally.
-	modelName, _, err := c.ModelDetails(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	conn, err := c.newAPIRoot(ctx, modelName, nil, addresses)
-	return conn, errors.Trace(err)
+	return c.NewAPIRootWithDialOpts(ctx, nil, addresses...)
 }
 
 // NewAPIRootWithDialOpts returns a new connection to the API server for the
 // environment directed to the model specified on the command line (and with
-// the given dial options if non-nil).
-func (c *ModelCommandBase) NewAPIRootWithDialOpts(ctx context.Context, dialOpts *api.DialOpts) (api.Connection, error) {
+// the given dial options if non-nil and optional addresses override).
+func (c *ModelCommandBase) NewAPIRootWithDialOpts(ctx context.Context, dialOpts *api.DialOpts,
+	addresses ...string) (api.Connection, error) {
 	// We need to call ModelDetails() here and not just ModelName() to force
 	// a refresh of the internal model details if those are not yet stored locally.
 	modelName, _, err := c.ModelDetails(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	conn, err := c.newAPIRoot(ctx, modelName, dialOpts, nil)
+	conn, err := c.newAPIRoot(ctx, modelName, dialOpts, addresses)
 	return conn, errors.Trace(err)
 }
 
