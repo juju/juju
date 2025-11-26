@@ -60,7 +60,7 @@ CREATE TABLE unit_workload_version (
     REFERENCES unit (uuid)
 );
 
--- unit_agent_version tracks the reported agent version running for each
+-- unit_agnt_version tracks the reported agent version running for each
 -- unit.
 CREATE TABLE unit_agent_version (
     unit_uuid TEXT NOT NULL PRIMARY KEY,
