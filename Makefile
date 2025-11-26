@@ -565,9 +565,15 @@ endif
 
 .PHONY: rebuild-triggers
 rebuild-triggers:
-## rebuild-triggers: Rebuild the SQL trigger schema
+## rebuild-triggers: Rebuild the SQL trigger schema.
 	@echo "Generating trigger schema..."
 	@env GOOS= GOARCH= CGO_ENABLED=1 go generate -tags="libsqlite3" $(COMPILE_FLAGS) -x ./domain/schema
+
+.PHONY: generate-export
+generate-export:
+## generate-export: Generate structs and statements for common export base.
+	@echo "Generating export base from SQL schema..."
+	@go generate ./domain/export/types/...
 
 .PHONY: install-snap-dependencies
 # Install packages required to develop Juju and run tests. The stable
