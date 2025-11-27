@@ -1115,12 +1115,6 @@ type selectNextBaseSuite struct {
 
 var _ = gc.Suite(&selectNextBaseSuite{})
 
-func (*selectNextBaseSuite) TestSelectNextBaseWithNoBases(c *gc.C) {
-	repo := new(CharmHubRepository)
-	_, err := repo.selectNextBases(nil, corecharm.Origin{})
-	c.Assert(err, gc.ErrorMatches, `no bases available`)
-}
-
 func (*selectNextBaseSuite) TestSelectNextBaseWithInvalidBases(c *gc.C) {
 	repo := new(CharmHubRepository)
 	_, err := repo.selectNextBases([]transport.Base{{
@@ -1431,15 +1425,15 @@ func (s *composeSuggestionsSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-type retryResolveBaseSortingSuite struct {
+type retryResolveWithRespBasesSuite struct {
 	testing.IsolationSuite
 	logger *mocks.MockLogger
 	client *mocks.MockCharmHubClient
 }
 
-var _ = gc.Suite(&retryResolveBaseSortingSuite{})
+var _ = gc.Suite(&retryResolveWithRespBasesSuite{})
 
-func (s *retryResolveBaseSortingSuite) TestRetryResolveSortsBasesByTrackDescending(c *gc.C) {
+func (s *retryResolveWithRespBasesSuite) TestRetryResolveSortsBasesByTrackDescending(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	repo := NewCharmHubRepository(s.logger, s.client)
 
@@ -1486,7 +1480,7 @@ func (s *retryResolveBaseSortingSuite) TestRetryResolveSortsBasesByTrackDescendi
 		},
 	}
 
-	result, err := repo.retryResolveWithPreferredChannel("ubuntu-advantage", origin, apiError)
+	result, err := repo.retryResolveWithRespBases("ubuntu-advantage", origin, apiError)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
@@ -1503,7 +1497,7 @@ func (s *retryResolveBaseSortingSuite) TestRetryResolveSortsBasesByTrackDescendi
 	c.Assert(result.bases[4].Channel, gc.Equals, "16.04")
 }
 
-func (s *retryResolveBaseSortingSuite) TestRetryResolveSortsBasesByRiskStability(c *gc.C) {
+func (s *retryResolveWithRespBasesSuite) TestRetryResolveSortsBasesByRiskStability(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	repo := NewCharmHubRepository(s.logger, s.client)
 
@@ -1549,14 +1543,14 @@ func (s *retryResolveBaseSortingSuite) TestRetryResolveSortsBasesByRiskStability
 		},
 	}
 
-	result, err := repo.retryResolveWithPreferredChannel("ubuntu-advantage", origin, apiError)
+	result, err := repo.retryResolveWithRespBases("ubuntu-advantage", origin, apiError)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
 	// Verify the selected base is stable (most stable risk).
 	c.Assert(result.origin.Platform.Channel, gc.Equals, "24.04/stable")
 
-	// Verify bases are sorted by stability: stable > candidate > beta > edge
+	// Verify bases are sorted by stability: stable > candidate > beta > edge.
 	c.Assert(result.bases, gc.HasLen, 4)
 	c.Assert(result.bases[0].Channel, gc.Equals, "24.04/stable")
 	c.Assert(result.bases[1].Channel, gc.Equals, "24.04/candidate")
@@ -1564,7 +1558,7 @@ func (s *retryResolveBaseSortingSuite) TestRetryResolveSortsBasesByRiskStability
 	c.Assert(result.bases[3].Channel, gc.Equals, "24.04/edge")
 }
 
-func (s *retryResolveBaseSortingSuite) TestRetryResolveSortsBasesTrackThenRisk(c *gc.C) {
+func (s *retryResolveWithRespBasesSuite) TestRetryResolveSortsBasesTrackThenRisk(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	repo := NewCharmHubRepository(s.logger, s.client)
 
@@ -1611,7 +1605,7 @@ func (s *retryResolveBaseSortingSuite) TestRetryResolveSortsBasesTrackThenRisk(c
 		},
 	}
 
-	result, err := repo.retryResolveWithPreferredChannel("ubuntu-advantage", origin, apiError)
+	result, err := repo.retryResolveWithRespBases("ubuntu-advantage", origin, apiError)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
@@ -1627,7 +1621,7 @@ func (s *retryResolveBaseSortingSuite) TestRetryResolveSortsBasesTrackThenRisk(c
 	c.Assert(result.bases[4].Channel, gc.Equals, "20.04/stable")
 }
 
-func (s *retryResolveBaseSortingSuite) TestRetryResolveNoBases(c *gc.C) {
+func (s *retryResolveWithRespBasesSuite) TestRetryResolveNoBases(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	repo := NewCharmHubRepository(s.logger, s.client)
 
@@ -1647,12 +1641,12 @@ func (s *retryResolveBaseSortingSuite) TestRetryResolveNoBases(c *gc.C) {
 		},
 	}
 
-	result, err := repo.retryResolveWithPreferredChannel("ubuntu-advantage", origin, apiError)
-	c.Assert(err, gc.ErrorMatches, `selecting next bases: no bases available`)
+	result, err := repo.retryResolveWithRespBases("ubuntu-advantage", origin, apiError)
+	c.Assert(err, gc.ErrorMatches, `no bases available`)
 	c.Assert(result, gc.IsNil)
 }
 
-func (s *retryResolveBaseSortingSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *retryResolveWithRespBasesSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.logger = mocks.NewMockLogger(ctrl)
 	s.client = mocks.NewMockCharmHubClient(ctrl)
