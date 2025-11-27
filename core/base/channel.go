@@ -37,6 +37,29 @@ func isRisk(potential string) bool {
 	return false
 }
 
+// IsMoreStableThan returns true if r is more stable than other.
+// Stability order: stable > candidate > beta > edge.
+func (r Risk) IsMoreStableThan(other Risk) bool {
+	return r.index() < other.index()
+}
+
+// index returns the stability index of a risk.
+// Lower index means more stable.
+func (r Risk) index() int {
+	switch r {
+	case Stable:
+		return 0
+	case Candidate:
+		return 1
+	case Beta:
+		return 2
+	case Edge:
+		return 3
+	default:
+		return 4 // This should not happen, but unknown risks are least stable.
+	}
+}
+
 // Channel identifies and describes completely an os channel.
 //
 // A channel consists of, and is subdivided by, tracks and risk-levels:

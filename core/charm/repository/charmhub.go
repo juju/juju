@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"sort"
 	"strings"
 
 	"github.com/juju/charm/v12"
@@ -287,6 +288,27 @@ func (c *CharmHubRepository) retryResolveWithPreferredChannel(charmName string, 
 		}
 		return nil, errors.Wrap(resErr, errors.Errorf("no releases found for channel %q", ch))
 	}
+
+	// Sort the bases by descending order of track
+	// and then descending order of risk stability.
+	sort.Slice(bases, func(i, j int) bool {
+		// Parse the channels for both bases to sort.
+		iCh, iErr := corebase.ParseChannel(bases[i].Channel)
+		jCh, jErr := corebase.ParseChannel(bases[j].Channel)
+
+		// If either parse channel fails, we fall back to string comparison.
+		if iErr != nil || jErr != nil {
+			return bases[i].Channel > bases[j].Channel
+		}
+
+		// First we compare tracks (e.g., "24" vs "22").
+		if iCh.Track != jCh.Track {
+			return iCh.Track > jCh.Track
+		}
+
+		// If tracks are equal then we compare risk.
+		return iCh.Risk.IsMoreStableThan(jCh.Risk)
+	})
 	base := bases[0]
 
 	origin.Platform.OS = base.OS
