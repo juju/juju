@@ -281,14 +281,6 @@ func (c *CharmHubRepository) retryResolveWithPreferredChannel(charmName string, 
 		return nil, errors.Errorf("resolving error: %s", resErr.Message)
 	}
 
-	if len(bases) == 0 {
-		ch := origin.Channel.String()
-		if ch == "" {
-			ch = "stable"
-		}
-		return nil, errors.Wrap(resErr, errors.Errorf("no releases found for channel %q", ch))
-	}
-
 	// Sort the bases by descending order of track
 	// and then descending order of risk stability.
 	sort.Slice(bases, func(i, j int) bool {
@@ -298,6 +290,10 @@ func (c *CharmHubRepository) retryResolveWithPreferredChannel(charmName string, 
 
 		// If either parse channel fails, we fall back to string comparison.
 		if iErr != nil || jErr != nil {
+			c.logger.Errorf(
+				"failed to parse channel(s) while sorting bases: base[%d]=%q (err: %v), base[%d]=%q (err: %v); falling back to string comparison",
+				i, bases[i].Channel, iErr, j, bases[j].Channel, jErr,
+			)
 			return bases[i].Channel > bases[j].Channel
 		}
 
