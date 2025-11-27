@@ -124,8 +124,8 @@ github.com/canonical/go-flags v0.0.0-20230403090104-105d09a091b8 h1:zGaJEJI9qPVy
 github.com/canonical/go-flags v0.0.0-20230403090104-105d09a091b8/go.mod h1:ZZFeR9K9iGgpwOaLYF9PdT44/+lfSJ9sQz3B+SsGsYU=
 github.com/canonical/lxd v0.0.0-20251117151656-8e01bcf3d963 h1:kpc9e98uMDYkvi0CWM6HIHdCE459BYf9ltq06LeE1Fw=
 github.com/canonical/lxd v0.0.0-20251117151656-8e01bcf3d963/go.mod h1:nbrhimq0puBEwQNYsIOaVM8sndvc3DF9KKhnF8liabE=
-github.com/canonical/pebble v1.19.2 h1:5KTtTu4OK0q2+MCrlEm2hfar2kcdbJvIyM9JlvLfsFo=
-github.com/canonical/pebble v1.19.2/go.mod h1:fPtK3xrfuiRQBKSzfm3iBfdmIxlD/nup8yS1FVS8ZKQ=
+github.com/canonical/pebble v1.26.0 h1:jsPJmHe/E5PU6epAoq8QC/U2itPsMX947/oP4zcsWCA=
+github.com/canonical/pebble v1.26.0/go.mod h1:HtGFWX2hq+/jxXHvN3ibXUAqFGCRXmT2e4jYkpZi/O0=
 github.com/canonical/sqlair v0.0.0-20250120155751-a83645b9a121 h1:6weWVME/J1xtVyUDGHfDXhQji3/IdRdFqEEQo0yA6lg=
 github.com/canonical/sqlair v0.0.0-20250120155751-a83645b9a121/go.mod h1:T+40I2sXshY3KRxx0QQpqqn6hCibSKJ2KHzjBvJj8T4=
 github.com/canonical/x-go v0.0.0-20230522092633-7947a7587f5b h1:Da2fardddn+JDlVEYtrzBLTtyzoyU3nIS0Cf0GvjmwU=
