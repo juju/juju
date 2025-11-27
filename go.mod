@@ -72,7 +72,7 @@ require (
 	github.com/juju/ratelimit v1.0.2
 	github.com/juju/retry v1.0.1
 	github.com/juju/schema v1.2.0
-	github.com/juju/tc v0.0.0-20251023013639-77c6a1d20e5a
+	github.com/juju/tc v0.0.0-20251127122310-f26dff34c074
 	github.com/juju/testing v1.2.0
 	github.com/juju/utils/v4 v4.0.5
 	github.com/juju/webbrowser v1.0.0
