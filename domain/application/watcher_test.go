@@ -176,6 +176,8 @@ func (s *watcherSuite) TestWatchApplicationUnitLife(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
+	s.AssertChangeStreamIdle(c)
+
 	watcher, err := svc.WatchApplicationUnitLife(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -346,7 +348,6 @@ func (s *watcherSuite) TestWatchApplicationUnitLifeInitial(c *tc.C) {
 			return nil
 		})
 		c.Assert(err, tc.ErrorIsNil)
-
 	}
 
 	watcher, err := svc.WatchApplicationUnitLife(c.Context(), "foo")
@@ -369,6 +370,8 @@ func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 
 	svc := s.setupService(c, factory)
 	s.createIAASApplication(c, svc, "foo", service.AddIAASUnitArg{}, service.AddIAASUnitArg{})
+
+	s.AssertChangeStreamIdle(c)
 
 	watcher, err := svc.WatchUnitLife(c.Context(), unit.Name("foo/0"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -448,6 +451,8 @@ func (s *watcherSuite) TestWatchApplicationScale(c *tc.C) {
 
 	s.createCAASApplication(c, svc, "foo")
 	s.createCAASApplication(c, svc, "bar")
+
+	s.AssertChangeStreamIdle(c)
 
 	ctx := c.Context()
 	watcher, err := svc.WatchApplicationScale(ctx, "foo")
@@ -571,6 +576,8 @@ func (s *watcherSuite) TestWatchApplication(c *tc.C) {
 	appName := "foo"
 	appUUID := s.createIAASApplication(c, svc, appName)
 
+	s.AssertChangeStreamIdle(c)
+
 	ctx := c.Context()
 	watcher, err := svc.WatchApplication(ctx, appName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -632,6 +639,8 @@ func (s *watcherSuite) TestWatchApplicationConfig(c *tc.C) {
 
 	appName := "foo"
 	appUUID := s.createIAASApplication(c, svc, appName)
+
+	s.AssertChangeStreamIdle(c)
 
 	ctx := c.Context()
 	watcher, err := svc.WatchApplicationConfig(ctx, appName)
@@ -709,6 +718,8 @@ func (s *watcherSuite) TestWatchApplicationConfigHash(c *tc.C) {
 
 	appName := "foo"
 	appUUID := s.createIAASApplication(c, svc, appName)
+
+	s.AssertChangeStreamIdle(c)
 
 	ctx := c.Context()
 	watcher, err := svc.WatchApplicationConfigHash(ctx, appName)
@@ -789,6 +800,8 @@ func (s *watcherSuite) TestWatchApplicationSettings(c *tc.C) {
 	appName := "foo"
 	appUUID := s.createIAASApplication(c, svc, appName)
 
+	s.AssertChangeStreamIdle(c)
+
 	ctx := c.Context()
 	watcher, err := svc.WatchApplicationSettings(ctx, appName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -842,6 +855,8 @@ func (s *watcherSuite) TestWatchUnitAddressesHashEmptyInitial(c *tc.C) {
 
 	appName := "foo"
 	_ = s.createIAASApplication(c, svc, appName, service.AddIAASUnitArg{})
+
+	s.AssertChangeStreamIdle(c)
 
 	ctx := c.Context()
 	watcher, err := svc.WatchUnitAddressesHash(ctx, "foo/0")
@@ -915,6 +930,8 @@ func (s *watcherSuite) TestWatchUnitAddressesHash(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	s.AssertChangeStreamIdle(c)
+
 	ctx := c.Context()
 	watcher, err := svc.WatchUnitAddressesHash(ctx, "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
@@ -961,6 +978,8 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *tc.C) {
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
+
+	s.AssertChangeStreamIdle(c)
 
 	watcher, err := svc.WatchUnitAddressesHash(ctx, "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
@@ -1036,6 +1055,8 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineInitialEvents(c *tc.C) {
 		},
 	)
 
+	s.AssertChangeStreamIdle(c)
+
 	ctx := c.Context()
 	watcher, err := svc.WatchUnitAddRemoveOnMachine(ctx, machineName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1081,6 +1102,8 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
+
+	s.AssertChangeStreamIdle(c)
 
 	ctx := c.Context()
 	watcher, err := svc.WatchUnitAddRemoveOnMachine(ctx, res0.MachineName)
@@ -1182,6 +1205,8 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineSubordinates(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	s.AssertChangeStreamIdle(c)
+
 	ctx := c.Context()
 	watcher, err := svc.WatchUnitAddRemoveOnMachine(ctx, res0.MachineName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1270,6 +1295,8 @@ func (s *watcherSuite) TestWatchApplicationsInitialEvent(c *tc.C) {
 	app1 := s.createCAASApplication(c, svc, "foo")
 	app2 := s.createCAASApplication(c, svc, "bar")
 
+	s.AssertChangeStreamIdle(c)
+
 	ctx := c.Context()
 	watcher, err := svc.WatchApplications(ctx)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1337,6 +1364,8 @@ func (s *watcherSuite) TestWatchApplicationExposed(c *tc.C) {
 
 	appName := "foo"
 	appID := s.createIAASApplication(c, svc, appName)
+
+	s.AssertChangeStreamIdle(c)
 
 	ctx := c.Context()
 	watcher, err := svc.WatchApplicationExposed(ctx, appName)
@@ -1465,16 +1494,12 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	s.AssertChangeStreamIdle(c)
+
 	watcher, err := svc.WatchUnitForLegacyUniter(ctx, unitName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
-
-	// Capture the initial event
-	harness.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[struct{}]) {
-		w.AssertChange()
-		w.AssertNoChange()
-	})
 
 	// Assert no change is emitted from just changing the status.
 	// Conveniently, setting this also allows us to resolve in the next test
@@ -1591,6 +1616,8 @@ func (s *watcherSuite) TestWatchUnitAddresses(c *tc.C) {
 		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
+
+	s.AssertChangeStreamIdle(c)
 
 	watcher, err := svc.WatchUnitAddresses(c.Context(), unit.Name("foo/0"))
 	c.Assert(err, tc.ErrorIsNil)
