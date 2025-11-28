@@ -59,9 +59,16 @@ func (s *lockSuite) SetUpTest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	s.lock = lock
 
-	s.AddCleanup(func(c *tc.C) {
+	c.Cleanup(func() {
 		// release all the pending goroutines
 		close(s.allowAcquire)
+
+		s.lock = nil
+		s.clock = nil
+		s.logfile = ""
+		s.notify = nil
+		s.allowAcquire = nil
+		s.release = nil
 	})
 }
 
