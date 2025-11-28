@@ -50,6 +50,10 @@ func TestModelconfigSuite(t *testing.T) {
 func (s *modelconfigSuite) SetUpTest(c *tc.C) {
 	s.controllerUUID = uuid.MustNewUUID().String()
 	s.modelUUID = tc.Must0(c, coremodel.NewUUID)
+	c.Cleanup(func() {
+		s.controllerUUID = ""
+		s.modelUUID = ""
+	})
 }
 
 func (s *modelconfigSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -60,6 +64,14 @@ func (s *modelconfigSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.mockModelSecretBackendService = NewMockModelSecretBackendService(ctrl)
 	s.mockModelService = NewMockModelService(ctrl)
 	s.mockBlockCommandService = NewMockBlockCommandService(ctrl)
+	c.Cleanup(func() {
+		s.authorizer = nil
+		s.mockModelAgentService = nil
+		s.mockModelConfigService = nil
+		s.mockModelSecretBackendService = nil
+		s.mockModelService = nil
+		s.mockBlockCommandService = nil
+	})
 	return ctrl
 }
 
@@ -269,7 +281,6 @@ func (s *modelconfigSuite) assertBlocked(c *tc.C, err error, msg string) {
 }
 
 func (s *modelconfigSuite) assertModelSetBlocked(c *tc.C, args map[string]interface{}, msg string) {
-	defer s.setupMocks(c).Finish()
 	api := s.getAPI(c)
 
 	s.expectModelWriteAccess()
@@ -280,12 +291,14 @@ func (s *modelconfigSuite) assertModelSetBlocked(c *tc.C, args map[string]interf
 }
 
 func (s *modelconfigSuite) TestBlockChangesModelSet(c *tc.C) {
-	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("TestBlockChangesModelSet", nil)
+	defer s.setupMocks(c).Finish()
+
 	args := map[string]interface{}{"some-key": "value"}
 	s.assertModelSetBlocked(c, args, "TestBlockChangesModelSet")
 }
 
 func (s *modelconfigSuite) TestAdminCanSetLogTrace(c *tc.C) {
+	defer s.setupMocks(c).Finish()
 	modelUUID := tc.Must0(c, coremodel.NewUUID)
 	oldConfig, err := config.New(config.NoDefaults, map[string]any{
 		config.UUIDKey:   modelUUID.String(),
@@ -309,6 +322,7 @@ func (s *modelconfigSuite) TestAdminCanSetLogTrace(c *tc.C) {
 }
 
 func (s *modelconfigSuite) TestUserCanSetLogNoTrace(c *tc.C) {
+	defer s.setupMocks(c).Finish()
 	modelUUID := tc.Must0(c, coremodel.NewUUID)
 	oldConfig, err := config.New(config.NoDefaults, map[string]any{
 		config.UUIDKey:   modelUUID.String(),
@@ -343,6 +357,7 @@ func (s *modelconfigSuite) TestModelSetNoWriteAccess(c *tc.C) {
 }
 
 func (s *modelconfigSuite) TestUserCannotSetLogTrace(c *tc.C) {
+	defer s.setupMocks(c).Finish()
 	modelUUID := tc.Must0(c, coremodel.NewUUID)
 	oldConfig, err := config.New(config.NoDefaults, map[string]any{
 		config.UUIDKey:   modelUUID.String(),
@@ -511,6 +526,8 @@ func (s *modelconfigSuite) assertSetModelConstraintsBlocked(c *tc.C, msg string)
 }
 
 func (s *modelconfigSuite) TestBlockChangesClientSetModelConstraints(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.assertSetModelConstraintsBlocked(c, "TestBlockChangesClientSetModelConstraints")
 }
 
