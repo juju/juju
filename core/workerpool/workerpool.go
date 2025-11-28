@@ -55,9 +55,13 @@ type WorkerPool struct {
 	taskQueueCh chan Task
 
 	// A buffered channel (cap equal to pool size) which workers emit
-	// any errors they encounter before taskuesting the pool to be shut
+	// any errors they encounter before requesting the pool to be shut
 	// down.
 	taskErrCh chan error
+
+	// idleChans is a slice of unbuffered channel per worker. Idle uses this to
+	// establish if the workerpool is idle and has no work.
+	idleChans []chan chan int
 }
 
 // NewWorkerPool returns a pool with the taskuested number of workers. Callers
@@ -73,6 +77,10 @@ func NewWorkerPool(logger logger.Logger, size int) *WorkerPool {
 		shutdownTriggerCh: make(chan struct{}),
 		taskQueueCh:       make(chan Task, size),
 		taskErrCh:         make(chan error, size),
+		idleChans:         make([]chan chan int, size),
+	}
+	for i := range size {
+		wp.idleChans[i] = make(chan chan int)
 	}
 
 	wp.wg.Add(size)
@@ -99,6 +107,44 @@ func (wp *WorkerPool) Queue() chan<- Task {
 // to obtain any reported errors.
 func (wp *WorkerPool) Done() <-chan struct{} {
 	return wp.shutdownTriggerCh
+}
+
+// Idle returns true when the queue is empty and the workers are not working.
+func (wp *WorkerPool) Idle(ctx context.Context) bool {
+	respChan := make(chan int, len(wp.idleChans))
+	for {
+		numEmpty := 0
+		for _, idleChan := range wp.idleChans {
+			select {
+			case idleChan <- respChan:
+			case <-wp.shutdownTriggerCh:
+				return false
+			case <-ctx.Done():
+				return false
+			}
+			select {
+			case queueLength := <-respChan:
+				if queueLength == 0 {
+					numEmpty++
+				}
+			case <-wp.shutdownTriggerCh:
+				return false
+			case <-ctx.Done():
+				return false
+			}
+		}
+		if numEmpty == len(wp.idleChans) {
+			// All workers are idle and don't see any queued tasks.
+			return true
+		}
+		if numEmpty != 0 {
+			// Some of the workers disagreed about the number of queued tasks,
+			// try again until we get concensus.
+			continue
+		}
+		// All workers see queued tasks, so we cannot be idle.
+		return false
+	}
 }
 
 // Close the pool and return any queued errors. The method signals and waits
@@ -145,6 +191,12 @@ func (wp *WorkerPool) taskWorker(workerID int) {
 		case <-wp.shutdownTriggerCh:
 			wp.logger.Tracef(context.TODO(), "worker %d: terminating as worker pool is shutting down", workerID)
 			return
+		case resp := <-wp.idleChans[workerID]:
+			select {
+			case resp <- len(wp.taskQueueCh):
+			case <-wp.shutdownTriggerCh:
+				continue
+			}
 		}
 	}
 }
