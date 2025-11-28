@@ -74,6 +74,13 @@ func (s *addCredentialSuite) SetUpTest(c *tc.C) {
 		clouds: func() (map[names.CloudTag]jujucloud.Cloud, error) { return nil, nil },
 	}
 	s.credentialAPIFunc = func(ctx context.Context) (cloud.CredentialAPI, error) { return s.api, nil }
+	c.Cleanup(func() {
+		s.store = nil
+		s.cloudByNameFunc = nil
+		s.api = nil
+		s.credentialAPIFunc = nil
+		s.authTypes = nil
+	})
 }
 
 func (s *addCredentialSuite) runCmd(c *tc.C, stdin io.Reader, args ...string) (*cmd.Context, *cloud.AddCredentialCommand, error) {
@@ -107,12 +114,12 @@ func (s *addCredentialSuite) TestBadLocalCloudName(c *tc.C) {
 }
 
 func (s *addCredentialSuite) TestAddFromFileBadFilename(c *tc.C) {
+	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType, jujucloud.AccessKeyAuthType}
 	_, err := s.run(c, nil, "somecloud", "-f", "somefile.yaml", "--client")
 	c.Assert(err, tc.ErrorMatches, ".*open somefile.yaml: .*")
 }
 
 func (s *addCredentialSuite) TestNoCredentialsRequired(c *tc.C) {
-	s.authTypes = nil
 	_, err := s.run(c, nil, "somecloud", "--client")
 	c.Assert(err, tc.ErrorMatches, `cloud "somecloud" does not require credentials`)
 }
@@ -158,6 +165,7 @@ credentials:
 }
 
 func (s *addCredentialSuite) TestAddFromFileNoCredentialsFound(c *tc.C) {
+	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType, jujucloud.AccessKeyAuthType}
 	sourceFile := s.createTestCredentialData(c)
 	_, err := s.run(c, nil, "anothercloud", "-f", sourceFile, "--client")
 	c.Assert(err, tc.ErrorMatches, `no credentials for cloud anothercloud exist in file.*`)
