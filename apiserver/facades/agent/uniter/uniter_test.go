@@ -2638,6 +2638,8 @@ func (s *uniterRelationSuite) TestSetRelationStatus(c *tc.C) {
 }
 
 func (s *uniterRelationSuite) TestSetRelationStatusUnitTagNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// act
 	args := params.RelationStatusArgs{Args: []params.RelationStatusArg{{UnitTag: "foo"}}}
 	result, err := s.uniter.SetRelationStatus(c.Context(), args)
