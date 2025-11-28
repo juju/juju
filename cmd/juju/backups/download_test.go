@@ -52,6 +52,9 @@ func (s *downloadSuite) setSuccess() *fakeAPIClient {
 func (s *downloadSuite) TestOkay(c *tc.C) {
 	s.setSuccess()
 	s.filename = "juju-backup-" + s.metaresult.ID + ".tar.gz"
+	c.Cleanup(func() {
+		s.filename = ""
+	})
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, s.filename)
 	c.Check(err, tc.ErrorIsNil)
 
@@ -66,6 +69,9 @@ func (s *downloadSuite) TestFilename(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 
 	s.filename = "backup.tar.gz"
+	c.Cleanup(func() {
+		s.filename = ""
+	})
 	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
 	c.Check(cmdtesting.Stdout(ctx), tc.Equals, s.filename+"\n")
 	s.checkArchive(c)
