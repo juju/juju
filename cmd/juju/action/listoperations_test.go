@@ -109,57 +109,59 @@ func (s *ListOperationsSuite) TestRunQueryArgs(c *tc.C) {
 	}
 }
 
-var listOperationResults = actionapi.Operations{
-	Operations: []actionapi.Operation{{
-		Actions: []actionapi.ActionResult{{
-			Action: &actionapi.Action{
-				ID:       "2",
-				Receiver: "unit-mysql-0",
-				Name:     "backup",
-			},
+func exampleListOperationResults() actionapi.Operations {
+	return actionapi.Operations{
+		Operations: []actionapi.Operation{{
+			Actions: []actionapi.ActionResult{{
+				Action: &actionapi.Action{
+					ID:       "2",
+					Receiver: "unit-mysql-0",
+					Name:     "backup",
+				},
+			}},
+			Summary:   "operation 1",
+			Fail:      "fail",
+			ID:        "1",
+			Enqueued:  time.Date(2015, time.February, 14, 6, 6, 6, 0, time.UTC),
+			Started:   time.Time{},
+			Completed: time.Time{},
+			Status:    "error",
+		}, {
+			Actions: []actionapi.ActionResult{{
+				Action: &actionapi.Action{
+					ID:       "4",
+					Receiver: "unit-mysql-1",
+					Name:     "restore",
+				},
+			}},
+			Summary:   "operation 3",
+			ID:        "3",
+			Enqueued:  time.Time{},
+			Started:   time.Time{},
+			Completed: time.Date(2014, time.February, 14, 6, 6, 6, 0, time.UTC),
+			Status:    "running",
+		}, {
+			Actions: []actionapi.ActionResult{{
+				Action: &actionapi.Action{
+					ID:       "6",
+					Receiver: "machine-1",
+					Name:     "juju-exec",
+				},
+			}},
+			Summary:   "operation 5",
+			ID:        "5",
+			Enqueued:  time.Date(2013, time.February, 14, 6, 6, 6, 0, time.UTC),
+			Started:   time.Time{},
+			Completed: time.Time{},
+			Status:    "pending",
+		}, {
+			Actions: []actionapi.ActionResult{{
+				Error: errors.New("boom"),
+			}},
+			Summary: "operation 10",
+			ID:      "10",
 		}},
-		Summary:   "operation 1",
-		Fail:      "fail",
-		ID:        "1",
-		Enqueued:  time.Date(2015, time.February, 14, 6, 6, 6, 0, time.UTC),
-		Started:   time.Time{},
-		Completed: time.Time{},
-		Status:    "error",
-	}, {
-		Actions: []actionapi.ActionResult{{
-			Action: &actionapi.Action{
-				ID:       "4",
-				Receiver: "unit-mysql-1",
-				Name:     "restore",
-			},
-		}},
-		Summary:   "operation 3",
-		ID:        "3",
-		Enqueued:  time.Time{},
-		Started:   time.Time{},
-		Completed: time.Date(2014, time.February, 14, 6, 6, 6, 0, time.UTC),
-		Status:    "running",
-	}, {
-		Actions: []actionapi.ActionResult{{
-			Action: &actionapi.Action{
-				ID:       "6",
-				Receiver: "machine-1",
-				Name:     "juju-exec",
-			},
-		}},
-		Summary:   "operation 5",
-		ID:        "5",
-		Enqueued:  time.Date(2013, time.February, 14, 6, 6, 6, 0, time.UTC),
-		Started:   time.Time{},
-		Completed: time.Time{},
-		Status:    "pending",
-	}, {
-		Actions: []actionapi.ActionResult{{
-			Error: errors.New("boom"),
-		}},
-		Summary: "operation 10",
-		ID:      "10",
-	}},
+	}
 }
 
 func (s *ListOperationsSuite) TestRunNoResults(c *tc.C) {
@@ -179,7 +181,7 @@ func (s *ListOperationsSuite) TestRunNoResults(c *tc.C) {
 
 func (s *ListOperationsSuite) TestRunPlain(c *tc.C) {
 	fakeClient := &fakeAPIClient{
-		operationResults: listOperationResults,
+		operationResults: exampleListOperationResults(),
 	}
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
@@ -201,6 +203,7 @@ ID  Status   Started  Finished             Task IDs  Summary
 }
 
 func (s *ListOperationsSuite) TestRunPlainTruncated(c *tc.C) {
+	listOperationResults := exampleListOperationResults()
 	listOperationResults.Truncated = true
 	fakeClient := &fakeAPIClient{
 		operationResults: listOperationResults,
@@ -293,7 +296,7 @@ ID  Status     Started              Finished  Task IDs      Summary
 
 func (s *ListOperationsSuite) TestRunYaml(c *tc.C) {
 	fakeClient := &fakeAPIClient{
-		operationResults: listOperationResults,
+		operationResults: exampleListOperationResults(),
 	}
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
