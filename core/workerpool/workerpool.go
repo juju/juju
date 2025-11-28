@@ -139,7 +139,7 @@ func (wp *WorkerPool) Idle(ctx context.Context) bool {
 		}
 		if numEmpty != 0 {
 			// Some of the workers disagreed about the number of queued tasks,
-			// try again until we get concensus.
+			// try again until we get consensus.
 			continue
 		}
 		// All workers see queued tasks, so we cannot be idle.
