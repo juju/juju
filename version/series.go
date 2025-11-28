@@ -14,5 +14,5 @@ func DefaultSupportedLTS() string {
 // DefaultSupportedLTSBase returns the latest LTS base that Juju supports
 // and is compatible with.
 func DefaultSupportedLTSBase() corebase.Base {
-	return corebase.MakeDefaultBase(corebase.UbuntuOS, "24.04")
+	return corebase.DefaultSupportedLTSBase()
 }

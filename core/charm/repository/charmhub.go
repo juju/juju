@@ -290,7 +290,7 @@ func (c *CharmHubRepository) retryResolveWithRespBases(charmName string, origin 
 		return nil, errors.Annotatef(err, "selecting next bases")
 	}
 
-	// Sort the bases by descending order of track
+	// Sort the bases with LTS priority, then descending order of track,
 	// and then descending order of risk stability.
 	sort.Slice(bases, func(i, j int) bool {
 		// Parse the channels for both bases to sort.
@@ -306,13 +306,7 @@ func (c *CharmHubRepository) retryResolveWithRespBases(charmName string, origin 
 			return bases[i].Channel > bases[j].Channel
 		}
 
-		// First we compare tracks (e.g., "24" vs "22").
-		if iCh.Track != jCh.Track {
-			return iCh.Track > jCh.Track
-		}
-
-		// If tracks are equal then we compare risk.
-		return iCh.Risk.IsMoreStableThan(jCh.Risk)
+		return iCh.HasHigherPriorityThan(jCh)
 	})
 
 	base := bases[0]

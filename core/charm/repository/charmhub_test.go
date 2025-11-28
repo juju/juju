@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/juju/charm/v12"
@@ -22,6 +24,7 @@ import (
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/charm/repository/mocks"
 )
@@ -1644,6 +1647,82 @@ func (s *retryResolveWithRespBasesSuite) TestRetryResolveNoBases(c *gc.C) {
 	result, err := repo.retryResolveWithRespBases("ubuntu-advantage", origin, apiError)
 	c.Assert(err, gc.ErrorMatches, `no bases available`)
 	c.Assert(result, gc.IsNil)
+}
+
+func (s *retryResolveWithRespBasesSuite) TestRetryResolvePrefersLTSWhenNewerVersionsAvailable(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	repo := NewCharmHubRepository(s.logger, s.client)
+
+	supportedLTSTrack := corebase.DefaultSupportedLTSBase().Channel.Track
+
+	// Split track to get year and month.
+	parts := strings.Split(supportedLTSTrack, ".")
+	c.Assert(len(parts), gc.Equals, 2)
+	ltsYear, err := strconv.Atoi(parts[0])
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create future LTS tracks.
+	futureTrack2 := fmt.Sprintf("%02d.%s", ltsYear+2, parts[1])
+	futureTrack4 := fmt.Sprintf("%02d.%s", ltsYear+4, parts[1])
+
+	// Setup error with future versions, supported LTS, and older LTS versions.
+	// Should prefer supported LTS as it has highest priority, even though future version is higher.
+	apiError := &transport.APIError{
+		Code:    transport.ErrorCodeInvalidCharmBase,
+		Message: "invalid charm base",
+		Extra: transport.APIErrorExtra{
+			DefaultBases: []transport.Base{
+				{Architecture: "amd64", Name: "ubuntu", Channel: futureTrack4},
+				{Architecture: "amd64", Name: "ubuntu", Channel: futureTrack2},
+				{Architecture: "amd64", Name: "ubuntu", Channel: supportedLTSTrack},
+				{Architecture: "amd64", Name: "ubuntu", Channel: "22.04"},
+				{Architecture: "amd64", Name: "ubuntu", Channel: "20.04"},
+			},
+		},
+	}
+
+	// Expect refresh with supported LTS (not future version).
+	cfg, err := charmhub.InstallOneFromChannel("ubuntu-advantage", "stable", charmhub.RefreshBase{
+		Architecture: "amd64",
+		Name:         "ubuntu",
+		Channel:      supportedLTSTrack,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.client.EXPECT().Refresh(gomock.Any(), RefreshConfigMatcher{c: c, Config: cfg}).Return([]transport.RefreshResponse{{
+		InstanceKey: charmhub.ExtractConfigInstanceKey(cfg),
+		Entity: transport.RefreshEntity{
+			Type:         transport.CharmType,
+			ID:           "nt3kOo4yOEiUojrMTl09O9baTSBtTfsv",
+			Name:         "ubuntu-advantage",
+			Revision:     143,
+			MetadataYAML: "description: Ubuntu Advantage charm\nname: ubuntu-advantage\n",
+			ConfigYAML:   "options:\n  contract_url:\n",
+		},
+		EffectiveChannel: "stable",
+	}}, nil)
+
+	origin := corecharm.Origin{
+		Source: "charm-hub",
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+		},
+	}
+
+	result, err := repo.retryResolveWithRespBases("ubuntu-advantage", origin, apiError)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.NotNil)
+
+	// Verify supported LTS is selected, not future version (which comes after LTS in priority).
+	c.Assert(result.origin.Platform.Channel, gc.Equals, supportedLTSTrack)
+
+	// Verify all bases remain but are sorted with LTS first: LTS > future > 22.04 > 20.04.
+	c.Assert(result.bases, gc.HasLen, 5)
+	c.Assert(result.bases[0].Channel, gc.Equals, supportedLTSTrack)
+	c.Assert(result.bases[1].Channel, gc.Equals, futureTrack4)
+	c.Assert(result.bases[2].Channel, gc.Equals, futureTrack2)
+	c.Assert(result.bases[3].Channel, gc.Equals, "22.04")
+	c.Assert(result.bases[4].Channel, gc.Equals, "20.04")
 }
 
 func (s *retryResolveWithRespBasesSuite) setupMocks(c *gc.C) *gomock.Controller {

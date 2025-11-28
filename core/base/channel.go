@@ -10,6 +10,12 @@ import (
 	"github.com/juju/errors"
 )
 
+// DefaultSupportedLTSBase returns the latest LTS base that Juju supports
+// and is compatible with.
+func DefaultSupportedLTSBase() Base {
+	return MakeDefaultBase(UbuntuOS, "24.04")
+}
+
 // Risk describes the type of risk in a current channel.
 type Risk string
 
@@ -37,9 +43,9 @@ func isRisk(potential string) bool {
 	return false
 }
 
-// IsMoreStableThan returns true if r is more stable than other.
+// isMoreStableThan returns true if r is more stable than other.
 // Stability order: stable > candidate > beta > edge.
-func (r Risk) IsMoreStableThan(other Risk) bool {
+func (r Risk) isMoreStableThan(other Risk) bool {
 	return r.index() < other.index()
 }
 
@@ -169,4 +175,27 @@ func (ch Channel) DisplayString() string {
 		return track
 	}
 	return fmt.Sprintf("%s/%s", track, risk)
+}
+
+// HasHigherPriorityThan returns true if this channel has higher priority than the other channel.
+// Preference order:
+// 1. Supported LTS track has highest priority
+// 2. Tracks in descending order (higher version preferred)
+// 3. Risk stability (stable > candidate > beta > edge) if tracks are equal
+func (ch Channel) HasHigherPriorityThan(other Channel) bool {
+	// First priority: Is current ch the LTS? eg. If 24.04 is the supported LTS, prefer track 24.04.
+	supportedLTSTrack := DefaultSupportedLTSBase().Channel.Track
+	chIsLTSTrack := ch.Track == supportedLTSTrack
+	otherIsLTSTrack := other.Track == supportedLTSTrack
+	if chIsLTSTrack != otherIsLTSTrack {
+		return chIsLTSTrack
+	}
+
+	// Second priority: Track version (descending), eg. 22.04 > 20.04.
+	if ch.Track != other.Track {
+		return ch.Track > other.Track
+	}
+
+	// Third priority: Risk stability, eg. stable > candidate > beta > edge.
+	return ch.Risk.isMoreStableThan(other.Risk)
 }
