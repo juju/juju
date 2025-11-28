@@ -1488,16 +1488,16 @@ func (s *retryResolveWithRespBasesSuite) TestRetryResolveSortsBasesByTrackDescen
 	c.Assert(result, gc.NotNil)
 
 	// Verify the selected base is 24.04 (highest version).
-	c.Assert(result.origin.Platform.Channel, gc.Equals, "24.04")
-	c.Assert(result.origin.Platform.OS, gc.Equals, "ubuntu")
+	c.Check(result.origin.Platform.Channel, gc.Equals, "24.04")
+	c.Check(result.origin.Platform.OS, gc.Equals, "ubuntu")
 
 	// Verify bases are sorted with 24.04 first.
 	c.Assert(result.bases, gc.HasLen, 5)
-	c.Assert(result.bases[0].Channel, gc.Equals, "24.04")
-	c.Assert(result.bases[1].Channel, gc.Equals, "22.04")
-	c.Assert(result.bases[2].Channel, gc.Equals, "20.04")
-	c.Assert(result.bases[3].Channel, gc.Equals, "18.04")
-	c.Assert(result.bases[4].Channel, gc.Equals, "16.04")
+	c.Check(result.bases[0].Channel, gc.Equals, "24.04")
+	c.Check(result.bases[1].Channel, gc.Equals, "22.04")
+	c.Check(result.bases[2].Channel, gc.Equals, "20.04")
+	c.Check(result.bases[3].Channel, gc.Equals, "18.04")
+	c.Check(result.bases[4].Channel, gc.Equals, "16.04")
 }
 
 func (s *retryResolveWithRespBasesSuite) TestRetryResolveSortsBasesByRiskStability(c *gc.C) {
@@ -1551,14 +1551,14 @@ func (s *retryResolveWithRespBasesSuite) TestRetryResolveSortsBasesByRiskStabili
 	c.Assert(result, gc.NotNil)
 
 	// Verify the selected base is stable (most stable risk).
-	c.Assert(result.origin.Platform.Channel, gc.Equals, "24.04/stable")
+	c.Check(result.origin.Platform.Channel, gc.Equals, "24.04/stable")
 
 	// Verify bases are sorted by stability: stable > candidate > beta > edge.
 	c.Assert(result.bases, gc.HasLen, 4)
-	c.Assert(result.bases[0].Channel, gc.Equals, "24.04/stable")
-	c.Assert(result.bases[1].Channel, gc.Equals, "24.04/candidate")
-	c.Assert(result.bases[2].Channel, gc.Equals, "24.04/beta")
-	c.Assert(result.bases[3].Channel, gc.Equals, "24.04/edge")
+	c.Check(result.bases[0].Channel, gc.Equals, "24.04/stable")
+	c.Check(result.bases[1].Channel, gc.Equals, "24.04/candidate")
+	c.Check(result.bases[2].Channel, gc.Equals, "24.04/beta")
+	c.Check(result.bases[3].Channel, gc.Equals, "24.04/edge")
 }
 
 func (s *retryResolveWithRespBasesSuite) TestRetryResolveSortsBasesTrackThenRisk(c *gc.C) {
@@ -1613,15 +1613,15 @@ func (s *retryResolveWithRespBasesSuite) TestRetryResolveSortsBasesTrackThenRisk
 	c.Assert(result, gc.NotNil)
 
 	// Verify 24.04/stable is selected (highest track + most stable).
-	c.Assert(result.origin.Platform.Channel, gc.Equals, "24.04/stable")
+	c.Check(result.origin.Platform.Channel, gc.Equals, "24.04/stable")
 
 	// Verify sorting: 24.04/* > 22.04/* > 20.04/*, and within same track: stable > beta > edge.
 	c.Assert(result.bases, gc.HasLen, 5)
-	c.Assert(result.bases[0].Channel, gc.Equals, "24.04/stable")
-	c.Assert(result.bases[1].Channel, gc.Equals, "24.04/beta")
-	c.Assert(result.bases[2].Channel, gc.Equals, "22.04/stable")
-	c.Assert(result.bases[3].Channel, gc.Equals, "22.04/edge")
-	c.Assert(result.bases[4].Channel, gc.Equals, "20.04/stable")
+	c.Check(result.bases[0].Channel, gc.Equals, "24.04/stable")
+	c.Check(result.bases[1].Channel, gc.Equals, "24.04/beta")
+	c.Check(result.bases[2].Channel, gc.Equals, "22.04/stable")
+	c.Check(result.bases[3].Channel, gc.Equals, "22.04/edge")
+	c.Check(result.bases[4].Channel, gc.Equals, "20.04/stable")
 }
 
 func (s *retryResolveWithRespBasesSuite) TestRetryResolveNoBases(c *gc.C) {
@@ -1714,15 +1714,15 @@ func (s *retryResolveWithRespBasesSuite) TestRetryResolvePrefersLTSWhenNewerVers
 	c.Assert(result, gc.NotNil)
 
 	// Verify supported LTS is selected, not future version (which comes after LTS in priority).
-	c.Assert(result.origin.Platform.Channel, gc.Equals, supportedLTSTrack)
+	c.Check(result.origin.Platform.Channel, gc.Equals, supportedLTSTrack)
 
 	// Verify all bases remain but are sorted with LTS first: LTS > future > 22.04 > 20.04.
 	c.Assert(result.bases, gc.HasLen, 5)
-	c.Assert(result.bases[0].Channel, gc.Equals, supportedLTSTrack)
-	c.Assert(result.bases[1].Channel, gc.Equals, futureTrack4)
-	c.Assert(result.bases[2].Channel, gc.Equals, futureTrack2)
-	c.Assert(result.bases[3].Channel, gc.Equals, "22.04")
-	c.Assert(result.bases[4].Channel, gc.Equals, "20.04")
+	c.Check(result.bases[0].Channel, gc.Equals, supportedLTSTrack)
+	c.Check(result.bases[1].Channel, gc.Equals, futureTrack4)
+	c.Check(result.bases[2].Channel, gc.Equals, futureTrack2)
+	c.Check(result.bases[3].Channel, gc.Equals, "22.04")
+	c.Check(result.bases[4].Channel, gc.Equals, "20.04")
 }
 
 func (s *retryResolveWithRespBasesSuite) setupMocks(c *gc.C) *gomock.Controller {

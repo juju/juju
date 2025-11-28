@@ -279,7 +279,7 @@ func (c *CharmHubRepository) retryResolveWithPreferredChannel(charmName string, 
 // and risk stability (stable > candidate > beta > edge), then retries the
 // charm resolution with the highest priority base.
 func (c *CharmHubRepository) retryResolveWithRespBases(charmName string, origin corecharm.Origin, resErr *transport.APIError) (*retryResolveResult, error) {
-	c.logger.Tracef("Invalid charm base %q %v - Default Base: %v", charmName, origin, resErr.Extra.DefaultBases)
+	c.logger.Tracef("Invalid charm base %q %v - Default Bases: %v", charmName, origin, resErr.Extra.DefaultBases)
 
 	if len(resErr.Extra.DefaultBases) == 0 {
 		return nil, errors.Errorf("no bases available")
@@ -299,7 +299,7 @@ func (c *CharmHubRepository) retryResolveWithRespBases(charmName string, origin 
 
 		// If either parse channel fails, we fall back to string comparison.
 		if iErr != nil || jErr != nil {
-			c.logger.Errorf(
+			c.logger.Tracef(
 				"failed to parse channel(s) while sorting bases: base[%d]=%q (err: %v), base[%d]=%q (err: %v); falling back to string comparison",
 				i, bases[i].Channel, iErr, j, bases[j].Channel, jErr,
 			)
