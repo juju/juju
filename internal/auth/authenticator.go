@@ -49,6 +49,11 @@ type Authenticator interface {
 	//
 	// If the supplied context is or becomes cancelled the caller can expect an
 	// error result matching [context.Context.Err].
+	//
+	// The following errors can be expected from authentication:
+	// - [ErrorStopAuthentication] a signal indication from the authenticator
+	// that an error has been reached and the caller MUST stop any further
+	// authentication workflows from occuring.
 	Authenticate(context.Context) (AuthResult, bool, error)
 }
 
