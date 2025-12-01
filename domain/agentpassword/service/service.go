@@ -111,6 +111,14 @@ func (s *Service) SetUnitPassword(ctx context.Context, unitName unit.Name, passw
 
 // MatchesUnitPasswordHash checks if the password is valid or not against the
 // password hash stored in the database.
+//
+// The following errors may be returned:
+// - [unit.InvalidUnitName] when the supplied unit name is invalid.
+// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when no unit
+// for the given name exists in the model.
+// - [passworderrors.EmptyPassword] when the supplied password is empty.
+// - [passworderrors.InvalidPassword] when the password length is greater than
+// the maximum supported.
 func (s *Service) MatchesUnitPasswordHash(ctx context.Context, unitName unit.Name, password string) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
