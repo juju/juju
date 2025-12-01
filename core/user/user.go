@@ -87,7 +87,7 @@ var (
 )
 
 // NewName validates the name and returns a new Name object. If the name is not
-// valid an error satisfying [errors.NotValid] will be returned.
+// valid an error satisfying [coreerrors.NotValid] will be returned.
 func NewName(name string) (Name, error) {
 	parts := validName.FindStringSubmatch(name)
 	if len(parts) != 3 {
@@ -101,6 +101,15 @@ func NewName(name string) (Name, error) {
 		name:   parts[1],
 		domain: domain,
 	}, nil
+}
+
+// ParseNameWithDomain parses a supplied user name with a corresponding domain
+// returning a user [Name] that can be used within Juju.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the user name and domain provided are not valid.
+func ParseNameWithDomain(name, domain string) (Name, error) {
+	return NewName(name + "@" + domain)
 }
 
 // Name represents the identity of a user.
