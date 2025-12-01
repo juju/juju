@@ -10,6 +10,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/trace"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/errors"
@@ -95,6 +96,9 @@ const jaasUserDomain string = "jaas"
 func (a Authenticator) Authenticate(ctx context.Context) (
 	auth.AuthResult, bool, error,
 ) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	verifiedToken, err := a.verifier.VerifyToken(ctx, a.token)
 	switch {
 	// We MUST never output the token that forms part of this context in error
@@ -140,6 +144,9 @@ func (a Authenticator) Authenticate(ctx context.Context) (
 func (a AuthResult) AuthenticatedActor(ctx context.Context) (
 	auth.AuthenticatedActorType, string, error,
 ) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
 	userDomain := a.userDomain
 	if userDomain == "" {
 		// If the user has no domain set we apply the default JAAS domain.
