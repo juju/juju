@@ -5,6 +5,9 @@ package auth
 
 import "context"
 
+// AuthenticatedActorType represents the type of the actor that has been
+// authentciated. This information is useful to a controller when making context
+// aware authentication decisions.
 type AuthenticatedActorType string
 
 const (
