@@ -129,7 +129,7 @@ The `vault` backend supports the following configuration keys:
 | `client-key`      | The path to an unencrypted, PEM-encoded private key on disk which corresponds to the matching client certificate.                               |
 | `endpoint`        |                                                                                                                                                 |
 | `namespace`       | The namespace to use for the secret store. Setting this is not necessary but allows using relative paths.                                       |
-| `mount-point`     | The mount point to use as a prefix for the secret store. If specified, secrets are stored under `<mount-point>/<model-name>-<model-shortuuid>`. |
+| `mount-path`      | The mount path to use as a prefix for the secret store. If specified, secrets are stored under `<mount-path>/<model-name>-<model-shortuuid>`.   |
 | `tls-server-name` | The name to use as the SNI host when connecting via TLS.                                                                                        |
 | `token`           | The vault authentication token.                                                                                                                 |
 
