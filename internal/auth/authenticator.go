@@ -77,5 +77,53 @@ type AuthResult interface {
 	//
 	// If the supplied context is or becomes cancelled the caller can expect an
 	// error result matching [context.Context.Err].
+	// 
+	// Error conditions are possible with this func. The error exists to allow
+	// implementations of the interface to propogate problems retrieving dynamic
+	// information with authentication upwards to the caller. If this func
+	// should fail with an error then no guarantee is offered to the caller
+	// about the state of the authentication. A caller should continue on the
+	// assumption that the authentication result can not be reasonably relied
+	// upon further.
 	AuthenticatedActor(context.Context) (AuthenticatedActorType, string, error)
+
+	// WithAuditContext is responsible for taking a context and decorating it
+	// with audit information about this [AuthResult]. As a [AuthResult] MUST
+	// only ever be obtained from a successful [Authenticator.Authenticate]
+	// call. It is implied that the audit information is authenticated and
+	// successful if a caller can use this func.
+	//
+	// This func is useful for further adding context to both logging and
+	// tracing to establish the trusted actor that has been authenticated and
+	// also the means by which the authentication was performed.
+	//
+	// Another scenario that the audit information seeks to fulfill is adding
+	// information about wrapped authentication where by the the outer trust
+	// establishment of an authentication might be for a different entity to
+	// that reported by [AuthResult.AuthenticatedActor]. In this scenario we
+	// would consider the established trust to be acting on behalf of another
+	// actor.
+	//
+	// A concrete example of trust wrapping might be where the initial trust is
+	// established with a service account used by another component but the
+	// context that it is acting on is on behalf of a user. This is a common
+	// scenario you would expect to see in authentication mechanisms like
+	// OAuth2.
+	//
+	// At the very least WithAuditContext guarantees that the following
+	// information will be established on to the returned context:
+	// - Authenticated actor type.
+	// - Authenticated actor uuid.
+	// - The authenticator used for the authentication.
+	// - The name of the authenticator used for differentiating between
+	// authenticators of the same type.
+	//
+	// Error conditions are possible with this func. The error exists to allow
+	// implementations of the interface to propogate problems retrieving dynamic
+	// information with authentication upwards to the caller. If this func
+	// should fail with an error then no guarantee is offered to the caller
+	// about the state of the authentication. A caller should continue on the
+	// assumption that the authentication result can not be reasonably relied
+	// upon further.
+	WithAuditContext(context.Context) (context.Context, error)
 }
