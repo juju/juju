@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
@@ -19,6 +20,7 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/life"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	databasetesting "github.com/juju/juju/internal/database/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -624,6 +626,10 @@ func (s *unitSuite) TestDeleteSubordinateUnit(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.InjectPostTxnHook(func(ctx context.Context, tx *sqlair.TX) {
+		databasetesting.DumpForeignKeysForTableSqlair(c, st, tx, "unit")
+	})
 
 	err = st.DeleteUnit(c.Context(), subUnitUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
