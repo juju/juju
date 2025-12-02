@@ -41,6 +41,44 @@ func (m *MockTokenVerifier) EXPECT() *MockTokenVerifierMockRecorder {
 	return m.recorder
 }
 
+// SourceID mocks base method.
+func (m *MockTokenVerifier) SourceID() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SourceID")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// SourceID indicates an expected call of SourceID.
+func (mr *MockTokenVerifierMockRecorder) SourceID() *MockTokenVerifierSourceIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SourceID", reflect.TypeOf((*MockTokenVerifier)(nil).SourceID))
+	return &MockTokenVerifierSourceIDCall{Call: call}
+}
+
+// MockTokenVerifierSourceIDCall wrap *gomock.Call
+type MockTokenVerifierSourceIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockTokenVerifierSourceIDCall) Return(arg0 string) *MockTokenVerifierSourceIDCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockTokenVerifierSourceIDCall) Do(f func() string) *MockTokenVerifierSourceIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockTokenVerifierSourceIDCall) DoAndReturn(f func() string) *MockTokenVerifierSourceIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // VerifyToken mocks base method.
 func (m *MockTokenVerifier) VerifyToken(arg0 context.Context, arg1 string) (jwt.Token, error) {
 	m.ctrl.T.Helper()

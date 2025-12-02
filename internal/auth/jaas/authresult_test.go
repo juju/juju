@@ -4,6 +4,7 @@
 package jaas
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/tc"
@@ -51,9 +52,10 @@ func (s *authResultSuite) TestEnsuresExternalUserWithDefaultDomain(c *tc.C) {
 	).Return(userUUID, nil)
 
 	authRes := AuthResult{
-		userDomain:  "", // left blank to make sure the default gets set
-		userName:    "bob",
-		userService: s.userService,
+		jaasIdentifier: "jaas-1",
+		userDomain:     "", // left blank to make sure the default gets set
+		userName:       "bob",
+		userService:    s.userService,
 	}
 
 	actorType, actorUUID, err := authRes.AuthenticatedActor(c.Context())
@@ -63,7 +65,7 @@ func (s *authResultSuite) TestEnsuresExternalUserWithDefaultDomain(c *tc.C) {
 }
 
 // TestEnsureExternalUserWithDomain ensures that the authenticated actor is
-// created maintained the domain that has been passed down from JAAS.
+// created maintaining the domain that has been passed down from JAAS.
 func (s *authResultSuite) TestEnsureExternalUserWithDomain(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -77,13 +79,44 @@ func (s *authResultSuite) TestEnsureExternalUserWithDomain(c *tc.C) {
 	).Return(userUUID, nil)
 
 	authRes := AuthResult{
-		userDomain:  "juju.is",
-		userName:    "bob",
-		userService: s.userService,
+		jaasIdentifier: "jaas-1",
+		userDomain:     "juju.is",
+		userName:       "bob",
+		userService:    s.userService,
 	}
 
 	actorType, actorUUID, err := authRes.AuthenticatedActor(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(actorType, tc.Equals, auth.AuthenticatedEntityTypeUser)
 	c.Check(actorUUID, tc.Equals, userUUID.String())
+}
+
+// TestWithAuditContext ensures that the [AuthResult] correctly sets the
+// required audit information on the returned context.
+func (s *authResultSuite) TestWithAuditContext(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	userName := tc.Must2(c, coreuser.ParseNameWithDomain, "bob", "jaas")
+	userUUID := tc.Must(c, coreuser.NewUUID)
+
+	s.userService.EXPECT().EnsureExternalUser(
+		gomock.Any(),
+		userName,
+		"bob",
+	).Return(userUUID, nil)
+
+	authRes := AuthResult{
+		jaasIdentifier: "jaas-1",
+		userDomain:     "",
+		userName:       "bob",
+		userService:    s.userService,
+	}
+
+	ctx := context.Background()
+	ctx, err := authRes.WithAuditContext(ctx)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(auth.AuditActorTypeValue(ctx), tc.Equals, auth.AuthenticatedEntityTypeUser)
+	c.Check(auth.AuditActorUUIDValue(ctx), tc.Equals, userUUID.String())
+	c.Check(auth.AuditAuthenticatorNameValue(ctx), tc.Equals, "jaas-1")
+	c.Check(auth.AuditAuthenticatorUsedValue(ctx), tc.Equals, "jaas")
 }
