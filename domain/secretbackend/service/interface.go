@@ -8,11 +8,20 @@ import (
 	"time"
 
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secretbackend"
 	"github.com/juju/juju/internal/secrets/provider"
 )
+
+// AgentVersionGetter is responsible for retrieving the target
+// agent version for the current model.
+type AgentVersionGetter interface {
+	// GetModelTargetAgentVersion retrieves the version of the agent associated with
+	// the specified model ID. The version is returned as a semver string (e.g. "4.0.1").
+	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
+}
 
 // State provides methods for working with secret backends.
 type State interface {

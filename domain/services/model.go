@@ -413,7 +413,8 @@ func (s *ModelServices) ModelSecretBackend() *secretbackendservice.ModelSecretBa
 		changestream.NewTxnRunnerFactory(s.controllerDB),
 		s.logger.Child("modelsecretbackend"),
 	)
-	return secretbackendservice.NewModelSecretBackendService(s.modelUUID, state)
+	versionGetter := modelagentmodelstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB))
+	return secretbackendservice.NewModelSecretBackendService(s.modelUUID, state, versionGetter)
 }
 
 // Agent returns the model's agent service.

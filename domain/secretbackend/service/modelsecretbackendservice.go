@@ -7,22 +7,26 @@ import (
 	"context"
 
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/domain/secretbackend"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
+	"github.com/juju/juju/internal/secrets/provider/vault"
 )
 
 // ModelSecretBackendService is a service for interacting with the secret backend state for a specific model.
 type ModelSecretBackendService struct {
-	st      State
-	modelID coremodel.UUID
+	st            State
+	modelID       coremodel.UUID
+	versionGetter AgentVersionGetter
 }
 
 // NewModelSecretBackendService creates a new ModelSecretBackendService for interacting with the secret backend state for a specific model.
-func NewModelSecretBackendService(modelID coremodel.UUID, st State) *ModelSecretBackendService {
-	return &ModelSecretBackendService{modelID: modelID, st: st}
+func NewModelSecretBackendService(modelID coremodel.UUID, st State, versionGetter AgentVersionGetter) *ModelSecretBackendService {
+	return &ModelSecretBackendService{modelID: modelID, st: st, versionGetter: versionGetter}
 }
 
 // GetModelSecretBackend returns the secret backend name for the current model ID,
@@ -81,8 +85,45 @@ func (s *ModelSecretBackendService) SetModelSecretBackend(ctx context.Context, b
 
 		}
 	}
+
+	if err := s.checkBackendCompatibility(ctx, backendName); err != nil {
+		return errors.Errorf("checking backend compatibility for %q: %w", backendName, err)
+	}
+
 	if err := s.st.SetModelSecretBackend(ctx, s.modelID, backendName); err != nil {
 		return errors.Errorf("setting model secret backend for %q: %w", s.modelID, err)
 	}
+	return nil
+}
+
+// checkBackendCompatibility verifies if the specified secret backend is
+// compatible with the current Juju version.
+// It checks for built-in backends or applies version-specific logic for other
+// backends, returning an error if incompatible.
+func (s *ModelSecretBackendService) checkBackendCompatibility(ctx context.Context, name string) error {
+	if name == provider.Internal || name == kubernetes.BackendName {
+		// Internal and k8s secret backends are compatible with all versions of Juju, since those are built-in backends
+		return nil
+	}
+	backend, err := s.st.GetSecretBackend(ctx, secretbackend.BackendIdentifier{Name: name})
+	if err != nil {
+		return errors.Errorf("getting secret backend %q: %w", name, err)
+	}
+	if backend.BackendType == vault.BackendType {
+		mountPath, _ := backend.Config[vault.MountPathKey].(string)
+		if mountPath != "" {
+			modelVersion, err := s.versionGetter.GetModelTargetAgentVersion(ctx)
+			if err != nil {
+				return errors.Errorf("getting model agent version for %q: %w", s.modelID, err)
+			}
+
+			if modelVersion.Compare(semversion.MustParse("3.6.12")) < 0 ||
+				(modelVersion.Major == 4 &&
+					modelVersion.Compare(semversion.MustParse("4.0.1")) < 0) {
+				return errors.New("vault secret backend with a mount path not supported in this version of Juju")
+			}
+		}
+	}
+
 	return nil
 }
