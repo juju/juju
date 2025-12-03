@@ -6,6 +6,7 @@ package localuser
 import (
 	"context"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/trace"
 	coreuser "github.com/juju/juju/core/user"
@@ -38,7 +39,15 @@ type UserService interface {
 
 // AuthResult is an implementation of [auth.AuthResult] representing an
 // authenticated user uuid within the local controllers records.
-type AuthResult coreuser.UUID
+type AuthResult struct {
+	// modelUUID is the unique identifier for the model that forms part of the
+	// authentication result. It is the model's hosting controller for which
+	// [AuthResult.userUUID] was authenticated against.
+	modelUUID coremodel.UUID
+
+	// userUUID is the unique identifier for the user in the controller.
+	userUUID coreuser.UUID
+}
 
 // Authenticator provides an implementation of [auth.Authenticator] that is
 // capable of authenticating users via username and password within the scope of
@@ -64,6 +73,14 @@ type Authenticator struct {
 	// along with [Authenticator.password].
 	userName coreuser.Name
 }
+
+const (
+	// localUserAuthenticatorType represents a well known string value used to
+	// indicate the type of authenticator on offer by this package. This value
+	// is meant for auditing so that a auditer can reasonably associate an
+	// authentication with this package.
+	localUserAuthenticatorType = "local"
+)
 
 // Authenticate checks a user name and password against the controller's user
 // database. If the user is not found or no username and password match exist
@@ -117,12 +134,16 @@ func (a Authenticator) Authenticate(ctx context.Context) (
 		return nil, false, nil
 	case err != nil:
 		return nil, false, errors.Errorf(
-			"authenticating user %q against local controller records: %w", err,
+			"authenticating user %q against local controller records: %w",
+			a.userName, err,
 		)
 	}
 
 	// User exists and their password matches.
-	return AuthResult(user.UUID), true, nil
+	return AuthResult{
+		modelUUID: a.modelUUID,
+		userUUID:  user.UUID,
+	}, true, nil
 }
 
 // AuthenticatedActor returns the user uuid of the authenticated local user
@@ -132,7 +153,7 @@ func (a Authenticator) Authenticate(ctx context.Context) (
 func (a AuthResult) AuthenticatedActor(context.Context) (
 	auth.AuthenticatedActorType, string, error,
 ) {
-	return auth.AuthenticatedEntityTypeUser, coreuser.UUID(a).String(), nil
+	return auth.AuthenticatedEntityTypeUser, a.userUUID.String(), nil
 }
 
 // NewAuthenticator creates a new [Authenticator] using the supplied
@@ -149,4 +170,16 @@ func NewAuthenticator(
 		password:    password,
 		userName:    userName,
 	}
+}
+
+// WithAuditContext returns a derived context with audit information set about
+// the authentication result and how it was achieved. The required context audit
+// keys for actor type, actor uuid, authenticator name and authenticator used
+// will be set.
+func (a AuthResult) WithAuditContext(ctx context.Context) (context.Context, error) {
+	ctx = auth.WithAuditActorType(ctx, auth.AuthenticatedEntityTypeUser)
+	ctx = auth.WithAuditActorUUID(ctx, a.userUUID.String())
+	ctx = auth.WithAuditAuthenticatorName(ctx, "model-"+a.modelUUID.String())
+	ctx = auth.WithAuditAuthenticatorUsed(ctx, localUserAuthenticatorType)
+	return ctx, nil
 }
