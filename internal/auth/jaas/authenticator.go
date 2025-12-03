@@ -112,7 +112,7 @@ const (
 	jaasUserDomain string = "jaas"
 )
 
-// Authenticate checks to see that the recieved raw JAAS jwt token is valid and
+// Authenticate checks to see that the received raw JAAS jwt token is valid and
 // signed by a trusted JAAS source. The token is also checked to make sure that
 // it hasn't expired.
 //
@@ -134,15 +134,15 @@ func (a Authenticator) Authenticate(ctx context.Context) (
 	// messages. Tokens are secrets and MUST remain that way.
 	case errors.Is(err, jwt.ErrTokenExpired()):
 		return nil, false, errors.New(
-			"recieved JAAS token has expired and cannot be used for authentication",
+			"received JAAS token has expired and cannot be used for authentication",
 		).Add(auth.ErrStopAuthentication)
 	case errors.Is(err, jwt.ErrInvalidIssuedAt()):
 		return nil, false, errors.New(
-			"recieved JAAS token has invalid issued atand cannot be used for authentication",
+			"received JAAS token has invalid issued atand cannot be used for authentication",
 		).Add(auth.ErrStopAuthentication)
 	case err != nil:
 		return nil, false, errors.Errorf(
-			"verifying recieved JAAS token: %w", err,
+			"verifying received JAAS token: %w", err,
 		)
 	}
 

@@ -18,12 +18,12 @@ const (
 
 // Authenticator is an abstract concept of something that can authenticate a
 // singular context between two actors in Juju. The expectation is that given
-// two actors representing seperate IPCs in the context of a Juju controller
+// two actors representing separate IPCs in the context of a Juju controller
 // they should be able to us an [Authenticator] to establish trust and identity
 // between each other.
 //
 // An Authenticator in this package makes no assumptions to the context of how
-// the communication between the two actors occured and leaves this
+// the communication between the two actors occurred and leaves this
 // implementation detail to the high level communication component. It is
 // expected that when a caller receives an [Authenticator] the communication
 // context has been captured within the [Authenticator].
@@ -56,7 +56,7 @@ type Authenticator interface {
 	// The following errors can be expected from authentication:
 	// - [ErrorStopAuthentication] a signal indication from the authenticator
 	// that an error has been reached and the caller MUST stop any further
-	// authentication workflows from occuring.
+	// authentication workflows from occurring.
 	Authenticate(context.Context) (AuthResult, bool, error)
 }
 
@@ -82,7 +82,7 @@ type AuthResult interface {
 	// error result matching [context.Context.Err].
 	//
 	// Error conditions are possible with this func. The error exists to allow
-	// implementations of the interface to propogate problems retrieving dynamic
+	// implementations of the interface to propagate problems retrieving dynamic
 	// information with authentication upwards to the caller. If this func
 	// should fail with an error then no guarantee is offered to the caller
 	// about the state of the authentication. A caller should continue on the
@@ -122,7 +122,7 @@ type AuthResult interface {
 	// authenticators of the same type.
 	//
 	// Error conditions are possible with this func. The error exists to allow
-	// implementations of the interface to propogate problems retrieving dynamic
+	// implementations of the interface to propagate problems retrieving dynamic
 	// information with authentication upwards to the caller. If this func
 	// should fail with an error then no guarantee is offered to the caller
 	// about the state of the authentication. A caller should continue on the
