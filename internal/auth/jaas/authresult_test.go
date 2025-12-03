@@ -12,6 +12,7 @@ import (
 
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/auth"
+	"github.com/juju/juju/internal/errors"
 )
 
 // authResultSuite contains a set of tests for asserting the interface and
@@ -119,4 +120,32 @@ func (s *authResultSuite) TestWithAuditContext(c *tc.C) {
 	c.Check(auth.AuditActorUUIDValue(ctx), tc.Equals, userUUID.String())
 	c.Check(auth.AuditAuthenticatorNameValue(ctx), tc.Equals, "jaas-1")
 	c.Check(auth.AuditAuthenticatorUsedValue(ctx), tc.Equals, "jaas")
+}
+
+// TestWithAuditContextErrorCondition ensures that under error conditions
+// [AuthResult.WithAuditContext] returns back to the caller the original context
+// that was supplied.
+func (s *authResultSuite) TestWithAuditContextErrorCondition(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	userName := tc.Must2(c, coreuser.ParseNameWithDomain, "bob", "jaas")
+
+	failureErr := errors.New("failed to ensure external user")
+	s.userService.EXPECT().EnsureExternalUser(
+		gomock.Any(),
+		userName,
+		"bob",
+	).Return("", failureErr)
+
+	authRes := AuthResult{
+		jaasIdentifier: "jaas-1",
+		userDomain:     "",
+		userName:       "bob",
+		userService:    s.userService,
+	}
+
+	ctx := context.Background()
+	gotCtx, err := authRes.WithAuditContext(ctx)
+	c.Check(err, tc.ErrorIs, failureErr)
+	c.Check(gotCtx, tc.Equals, ctx)
 }

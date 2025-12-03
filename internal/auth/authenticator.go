@@ -80,7 +80,7 @@ type AuthResult interface {
 	//
 	// If the supplied context is or becomes cancelled the caller can expect an
 	// error result matching [context.Context.Err].
-	// 
+	//
 	// Error conditions are possible with this func. The error exists to allow
 	// implementations of the interface to propogate problems retrieving dynamic
 	// information with authentication upwards to the caller. If this func
@@ -128,5 +128,8 @@ type AuthResult interface {
 	// about the state of the authentication. A caller should continue on the
 	// assumption that the authentication result can not be reasonably relied
 	// upon further.
+	//
+	// This func guarantees that under an error context the original context
+	// supplied will be returned unmodified.
 	WithAuditContext(context.Context) (context.Context, error)
 }

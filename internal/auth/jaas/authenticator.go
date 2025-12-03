@@ -276,6 +276,9 @@ func getJAASUserUUIDFunc(
 // keys for actor type, actor uuid, authenticator name and authenticator used
 // will be set.
 //
+// This func guarantees that under an error context the original context
+// supplied will be returned unmodified.
+//
 // The following errors may be returned:
 // - [coreerrors.NotValid] when the user name or domain supplied are not valid.
 func (a AuthResult) WithAuditContext(
