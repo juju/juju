@@ -101,7 +101,7 @@ type UserService interface {
 
 const (
 	// jaasAuthenticatorType represents a well known string value used to
-	// represent the type of authenticator on offer by this package. This value
+	// indicate the type of authenticator on offer by this package. This value
 	// is meant for auditing so that a auditer can reasonably associate an
 	// authentication with this package.
 	jaasAuthenticatorType string = "jaas"
