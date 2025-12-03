@@ -299,7 +299,7 @@ func (c *CharmHubRepository) retryResolveWithRespBases(charmName string, origin 
 
 		// If either parse channel fails, we fall back to string comparison.
 		if iErr != nil || jErr != nil {
-			c.logger.Tracef(
+			c.logger.Errorf(
 				"failed to parse channel(s) while sorting bases: base[%d]=%q (err: %v), base[%d]=%q (err: %v); falling back to string comparison",
 				i, bases[i].Channel, iErr, j, bases[j].Channel, jErr,
 			)
