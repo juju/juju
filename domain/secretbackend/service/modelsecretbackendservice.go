@@ -117,10 +117,15 @@ func (s *ModelSecretBackendService) checkBackendCompatibility(ctx context.Contex
 				return errors.Errorf("getting model agent version for %q: %w", s.modelUUID, err)
 			}
 
-			if modelVersion.Compare(semversion.MustParse("3.6.12")) < 0 ||
-				(modelVersion.Major == 4 &&
-					modelVersion.Compare(semversion.MustParse("4.0.1")) < 0) {
-				return errors.New("vault secret backend with a mount path not supported in this version of Juju")
+			if modelVersion.Compare(semversion.MustParse("3.6.12")) < 0 {
+				return errors.Errorf(
+					"model agent version should be at least 3.6.12 to support %q for %q secret backend",
+					vault.MountPathKey, vault.BackendType).Add(secretbackenderrors.NotSupported)
+			}
+			if modelVersion.Major == 4 && modelVersion.Compare(semversion.MustParse("4.0.1")) < 0 {
+				return errors.Errorf(
+					"model agent version should be at least 4.0.1 to support %q for %q secret backend",
+					vault.MountPathKey, vault.BackendType).Add(secretbackenderrors.NotSupported)
 			}
 		}
 	}

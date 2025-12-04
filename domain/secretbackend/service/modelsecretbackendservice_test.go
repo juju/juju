@@ -225,7 +225,7 @@ func (s *modelSecretBackendServiceSuite) TestSetModelSecretBackendWithMountPathJ
 		nil)
 
 	err := svc.SetModelSecretBackend(c.Context(), backendName)
-	c.Assert(err, tc.ErrorMatches, `.*vault secret backend with a mount path not supported in this version of Juju`)
+	c.Assert(err, tc.ErrorIs, secretbackenderrors.NotSupported)
 }
 
 func (s *modelSecretBackendServiceSuite) TestSetModelSecretBackendWithMountPathJuju4Error(c *tc.C) {
@@ -243,7 +243,7 @@ func (s *modelSecretBackendServiceSuite) TestSetModelSecretBackendWithMountPathJ
 		nil)
 
 	err := svc.SetModelSecretBackend(c.Context(), backendName)
-	c.Assert(err, tc.ErrorMatches, `.*vault secret backend with a mount path not supported in this version of Juju`)
+	c.Assert(err, tc.ErrorIs, secretbackenderrors.NotSupported)
 }
 
 func (s *modelSecretBackendServiceSuite) TestSetModelSecretBackendWithMountPathJuju3Success(c *tc.C) {
