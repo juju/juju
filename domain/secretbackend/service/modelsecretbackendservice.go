@@ -97,7 +97,7 @@ func (s *ModelSecretBackendService) SetModelSecretBackend(ctx context.Context, b
 }
 
 // checkBackendCompatibility verifies if the specified secret backend is
-// compatible with the current Juju version.
+// compatible with the model's target Juju agent version.
 // It checks for built-in backends or applies version-specific logic for other
 // backends, returning an error if incompatible.
 func (s *ModelSecretBackendService) checkBackendCompatibility(ctx context.Context, name string) error {
