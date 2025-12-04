@@ -20,13 +20,13 @@ import (
 // ModelSecretBackendService is a service for interacting with the secret backend state for a specific model.
 type ModelSecretBackendService struct {
 	st            State
-	modelID       coremodel.UUID
+	modelUUID     coremodel.UUID
 	versionGetter AgentVersionGetter
 }
 
 // NewModelSecretBackendService creates a new ModelSecretBackendService for interacting with the secret backend state for a specific model.
 func NewModelSecretBackendService(modelID coremodel.UUID, st State, versionGetter AgentVersionGetter) *ModelSecretBackendService {
-	return &ModelSecretBackendService{modelID: modelID, st: st, versionGetter: versionGetter}
+	return &ModelSecretBackendService{modelUUID: modelID, st: st, versionGetter: versionGetter}
 }
 
 // GetModelSecretBackend returns the secret backend name for the current model ID,
@@ -35,9 +35,9 @@ func (s *ModelSecretBackendService) GetModelSecretBackend(ctx context.Context) (
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	modelSecretBackend, err := s.st.GetModelSecretBackendDetails(ctx, s.modelID)
+	modelSecretBackend, err := s.st.GetModelSecretBackendDetails(ctx, s.modelUUID)
 	if err != nil {
-		return "", errors.Errorf("getting model secret backend detail for %q: %w", s.modelID, err)
+		return "", errors.Errorf("getting model secret backend detail for %q: %w", s.modelUUID, err)
 	}
 	backendName := modelSecretBackend.SecretBackendName
 	switch modelSecretBackend.ModelType {
@@ -69,9 +69,9 @@ func (s *ModelSecretBackendService) SetModelSecretBackend(ctx context.Context, b
 	}
 
 	if backendName == provider.Auto {
-		modelType, err := s.st.GetModelType(ctx, s.modelID)
+		modelType, err := s.st.GetModelType(ctx, s.modelUUID)
 		if err != nil {
-			return errors.Errorf("getting model type for %q: %w", s.modelID, err)
+			return errors.Errorf("getting model type for %q: %w", s.modelUUID, err)
 		}
 		switch modelType {
 		case coremodel.IAAS:
@@ -81,7 +81,7 @@ func (s *ModelSecretBackendService) SetModelSecretBackend(ctx context.Context, b
 		default:
 			// Should never happen.
 			return errors.Errorf("setting model secret backend for unsupported model type %q for model %q",
-				modelType, s.modelID)
+				modelType, s.modelUUID)
 
 		}
 	}
@@ -90,8 +90,8 @@ func (s *ModelSecretBackendService) SetModelSecretBackend(ctx context.Context, b
 		return errors.Errorf("checking backend compatibility for %q: %w", backendName, err)
 	}
 
-	if err := s.st.SetModelSecretBackend(ctx, s.modelID, backendName); err != nil {
-		return errors.Errorf("setting model secret backend for %q: %w", s.modelID, err)
+	if err := s.st.SetModelSecretBackend(ctx, s.modelUUID, backendName); err != nil {
+		return errors.Errorf("setting model secret backend for %q: %w", s.modelUUID, err)
 	}
 	return nil
 }
@@ -114,7 +114,7 @@ func (s *ModelSecretBackendService) checkBackendCompatibility(ctx context.Contex
 		if mountPath != "" {
 			modelVersion, err := s.versionGetter.GetModelTargetAgentVersion(ctx)
 			if err != nil {
-				return errors.Errorf("getting model agent version for %q: %w", s.modelID, err)
+				return errors.Errorf("getting model agent version for %q: %w", s.modelUUID, err)
 			}
 
 			if modelVersion.Compare(semversion.MustParse("3.6.12")) < 0 ||
