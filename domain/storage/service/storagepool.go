@@ -77,13 +77,15 @@ type StoragePoolService struct {
 	registryGetter corestorage.ModelStorageRegistryGetter
 }
 
-// PoolAttrs define the attributes of a storage pool.
-type PoolAttrs map[string]any
-
 // CreateStoragePool creates a storage pool with the specified configuration.
 // The following errors can be expected:
 // - [storageerrors.PoolAlreadyExists] if a pool with the same name already exists.
-func (s *StoragePoolService) CreateStoragePool(ctx context.Context, name string, providerType internalstorage.ProviderType, attrs PoolAttrs) error {
+func (s *StoragePoolService) CreateStoragePool(
+	ctx context.Context,
+	name string,
+	providerType storage.ProviderType,
+	attrs map[string]any,
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -104,7 +106,7 @@ func (s *StoragePoolService) CreateStoragePool(ctx context.Context, name string,
 	return nil
 }
 
-func (s *StoragePoolService) validateConfig(ctx context.Context, name string, providerType internalstorage.ProviderType, attrs map[string]interface{}) error {
+func (s *StoragePoolService) validateConfig(ctx context.Context, name string, providerType storage.ProviderType, attrs map[string]any) error {
 	if name == "" {
 		return storageerrors.MissingPoolNameError
 	}
@@ -181,7 +183,12 @@ func (s *StoragePoolService) DeleteStoragePool(ctx context.Context, name string)
 // The following errors can be expected:
 // - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
 // - [storageerrors.InvalidPoolNameError] if the pool name is not valid.
-func (s *StoragePoolService) ReplaceStoragePool(ctx context.Context, name string, providerType internalstorage.ProviderType, attrs PoolAttrs) error {
+func (s *StoragePoolService) ReplaceStoragePool(
+	ctx context.Context,
+	name string,
+	providerType storage.ProviderType,
+	attrs map[string]any,
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
