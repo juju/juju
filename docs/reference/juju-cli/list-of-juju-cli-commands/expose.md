@@ -3,7 +3,7 @@
 > See also: [unexpose](#unexpose)
 
 ## Summary
-Makes an application publicly available over the network.
+Make an application publicly available over the network.
 
 ## Usage
 ```juju expose [options] <application name>```
@@ -11,11 +11,11 @@ Makes an application publicly available over the network.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--endpoints` |  | Expose only the ports that charms have opened for this comma-delimited list of endpoints |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--endpoints` |  | Exposes only the ports that charms have opened for this comma-delimited list of endpoints. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--to-cidrs` |  | A comma-delimited list of CIDRs that should be able to access the application ports once exposed |
-| `--to-spaces` |  | A comma-delimited list of spaces that should be able to access the application ports once exposed |
+| `--to-cidrs` |  | Specifies a comma-delimited list of CIDRs that should be able to access the application ports once exposed. |
+| `--to-spaces` |  | Specifies a comma-delimited list of spaces that should be able to access the application ports once exposed. |
 
 ## Examples
 

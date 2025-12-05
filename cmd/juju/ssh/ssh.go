@@ -28,8 +28,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var usageSSHSummary = `
-Initiates an SSH session or executes a command on a Juju machine or container.`[1:]
+const usageSSHSummary = "Initiates an SSH session or executes a command on a Juju machine or container."
 
 var usageSSHDetails = `
 The SSH target is identified by the ` + "`<target>`" + ` argument which is either a unit
@@ -191,7 +190,7 @@ type sshCommand struct {
 func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.sshMachine.SetFlags(f)
 	c.sshContainer.SetFlags(f)
-	f.Var(&c.pty, "pty", "Enable pseudo-tty allocation")
+	f.Var(&c.pty, "pty", "Enables pseudo-tty allocation.")
 }
 
 func (c *sshCommand) Info() *cmd.Info {

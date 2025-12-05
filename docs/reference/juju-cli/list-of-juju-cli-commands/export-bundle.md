@@ -9,10 +9,10 @@ Exports the current model configuration as a reusable bundle.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--filename` |  | Bundle file |
-| `--include-charm-defaults` | false | Whether to include charm config default values in the exported bundle |
-| `--include-series` | false | Compatibility option. Set to include series in the bundle alongside bases |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--filename` |  | Specifies the bundle file. |
+| `--include-charm-defaults` | false | Includes charm config default values in the exported bundle. |
+| `--include-series` | false | Includes series in the bundle alongside bases (compatibility option). |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 
 ## Examples

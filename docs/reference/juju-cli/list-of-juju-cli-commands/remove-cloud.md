@@ -11,10 +11,10 @@ Removes a cloud from Juju.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--client` | false | Client operation |
-| `--target-controller` |  | The name of a JAAS managed controller to remove a cloud from |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `-c`, `--controller` |  | Performs the operation in the specified controller. |
+| `--client` | false | Performs the operation on the local client. |
+| `--target-controller` |  | Specifies the name of a JAAS managed controller to remove a cloud from. |
 
 ## Examples
 
@@ -25,9 +25,9 @@ Removes a cloud from Juju.
 
 ## Details
 
-Remove a cloud from Juju.
+Removes a cloud from Juju.
 
-If `--controller` is used, also remove the cloud from the specified controller,
+If `--controller` is used, the cloud is also removed from the specified controller,
 if it is not in use.
 
-If `--client` is specified, Juju removes the cloud from this client.
+If `--client` is specified, the cloud is removed from this client.

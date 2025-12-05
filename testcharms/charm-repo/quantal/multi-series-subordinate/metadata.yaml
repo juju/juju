@@ -8,6 +8,7 @@ series:
   - jammy
   - focal
   - bionic
+  - precise
 provides:
     multi-client:
        interface: logging

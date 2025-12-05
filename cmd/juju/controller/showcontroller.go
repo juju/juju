@@ -27,7 +27,7 @@ import (
 )
 
 var usageShowControllerSummary = `
-Shows detailed information of a controller.`[1:]
+Shows detailed information about a controller.`[1:]
 
 var usageShowControllerDetails = `
 Shows extended information about a controller(s) as well as related models
@@ -85,7 +85,7 @@ func (c *showControllerCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *showControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.BoolVar(&c.showPasswords, "show-password", false, "Show password for logged in user")
+	f.BoolVar(&c.showPasswords, "show-password", false, "Shows the password for the logged in user.")
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,

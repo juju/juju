@@ -46,7 +46,7 @@ type validateAgentsMetadataCommand struct {
 
 var validateAgentsMetadataDoc = `
 validate-agent-binaries loads simplestreams metadata and validates the contents by
-looking for agent binaries belonging to the specified os type and architecture, 
+looking for agent binaries belonging to the specified os type and architecture,
 for the specified cloud. If version is specified, only agent binaries matching
 that exact version will be considered. It is also possible to just specify the
 major (and optionally minor) version numbers to search for.
@@ -55,7 +55,7 @@ The cloud specification comes from the current Juju model, as specified in
 the usual way from either the -m option, or JUJU_MODEL. Release, Region, and
 Endpoint are the key attributes.
 
-It is possible to specify a local directory containing agent metadata, 
+It is possible to specify a local directory containing agent metadata,
 in which case cloud attributes like provider type, region etc are optional.
 
 The key model attributes may be overridden using command arguments, so
@@ -64,28 +64,28 @@ that the validation may be performed on arbitrary metadata.
 Examples:
 
  - validate using the current model settings but with os type windows
-  
+
   juju metadata validate-agent-binaries -t windows
 
  - validate using the current model settings but with Juju version 1.11.4
-  
+
   juju metadata validate-agent-binaries -j 1.11.4
 
  - validate using the current model settings but with Juju major version 2
-  
+
   juju metadata validate-agent-binaries -m 2
 
  - validate using the current model settings but with Juju major.minor version 2.1
- 
+
   juju metadata validate-agent-binaries -m 2.1
 
- - validate using the current model settings and list all agent binaries found 
+ - validate using the current model settings and list all agent binaries found
    for any os type
- 
+
   juju metadata validate-agent-binaries --os-type=
 
  - validate with os type windows and using metadata from local directory
- 
+
   juju metadata validate-agent-binaries -t windows -d <some directory>
 
  - validate for the proposed stream

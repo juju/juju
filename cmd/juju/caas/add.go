@@ -71,19 +71,19 @@ Creates a user-defined cloud based on a Kubernetes cluster.
 The new Kubernetes cloud can then be used to bootstrap into, or it
 can be added to an existing controller.
 
-Specify a non default kubeconfig file location using ` + "`$KUBECONFIG` " +
+A non-default kubeconfig file location can be specified using ` + "`$KUBECONFIG` " +
 	`environment variable or pipe in file content from stdin.
 
 The config file can contain definitions for different Kubernetes clusters,
-use ` + "`--cluster-name` " + `to pick which one to use.
+the ` + "`--cluster-name` " + `option can be used to pick which one to use.
 It's also possible to select a context by name using ` + "`--context-name`" + `.
 
 When running ` + "`add-k8s` " + `the underlying cloud/region hosting the cluster needs to be
 detected to enable storage to be correctly configured. If the cloud/region cannot
-be detected automatically, use either
-  ` + "`--cloud <cloudType|cloudName> `" + `to specify the host cloud
+be detected automatically, either
+  ` + "`--cloud <cloudType|cloudName> `" + `can be used to specify the host cloud
 or
-  ` + "`--region <cloudType|cloudName>/<someregion>` " + `to specify the host
+  ` + "`--region <cloudType|cloudName>/<someregion>` " + `can be used to specify the host
   cloud type and region.
 
 Region is strictly necessary only when adding a Kubernetes cluster to a JAAS controller.
@@ -94,8 +94,8 @@ storage class to provide operator and workload storage. If none is found, use
 of the ` + "`--storage` " + `option is required so that Juju will create a storage class
 with the specified name.
 
-If the cluster does not have a storage provisioning capability, use the
-` + "`--skip-storage` " + `option to add the cluster without any workload storage configured.
+If the cluster does not have a storage provisioning capability, the
+` + "`--skip-storage` " + `option can be used to add the cluster without any workload storage configured.
 
 `
 
@@ -233,13 +233,13 @@ func (c *AddCAASCommand) Info() *cmd.Info {
 // SetFlags initializes the flags supported by the command.
 func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
-	f.StringVar(&c.clusterName, "cluster-name", "", "Specify the Kubernetes cluster to import")
-	f.StringVar(&c.contextName, "context-name", "", "Specify the Kubernetes context to import")
-	f.StringVar(&c.hostCloudRegion, "region", "", "Specify the Kubernetes cluster region or cloud/region")
-	f.StringVar(&c.hostCloud, "cloud", "", "Specify the Kubernetes cluster cloud")
-	f.StringVar(&c.workloadStorage, "storage", "", "Specify the Kubernetes storage class for workload storage")
-	f.BoolVar(&c.skipStorage, "skip-storage", false, "Skip storage provisioning for clusters that don't have storage")
-	f.StringVar(&c.credential, "credential", "", "Specify the credential to use when accessing the cluster")
+	f.StringVar(&c.clusterName, "cluster-name", "", "Specifies the Kubernetes cluster to import.")
+	f.StringVar(&c.contextName, "context-name", "", "Specifies the Kubernetes context to import.")
+	f.StringVar(&c.hostCloudRegion, "region", "", "Specifies the Kubernetes cluster region or cloud/region.")
+	f.StringVar(&c.hostCloud, "cloud", "", "Specifies the Kubernetes cluster cloud.")
+	f.StringVar(&c.workloadStorage, "storage", "", "Specifies the Kubernetes storage class for workload storage.")
+	f.BoolVar(&c.skipStorage, "skip-storage", false, "Skips storage provisioning for clusters that don't have storage.")
+	f.StringVar(&c.credential, "credential", "", "Specifies the credential to use when accessing the cluster.")
 	// TODO(k8s) - support k8s tooling in strict snap
 	// f.StringVar(&c.project, "project", "", "project to which the cluster belongs")
 	// f.StringVar(&c.resourceGroup, "resource-group", "", "the Azure resource group of the AKS cluster")

@@ -31,9 +31,9 @@ import (
 )
 
 const (
-	downloadSummary = "Locates and then downloads a Charmhub charm."
+	downloadSummary = "Locates and downloads a Charmhub charm."
 	downloadDoc     = `
-Download a charm to the current directory from the Charmhb store
+Downloads a charm to the current directory from the Charmhb store
 by a specified name. Downloading for a specific base can be done via
 ` + "`--base`" + `. ` + "`--base`" + ` can be specified using the OS name and the version of
 the OS, separated by ` + "`@`" + `. For example, ` + "`--base ubuntu@22.04`" + `.
@@ -97,14 +97,14 @@ func (c *downloadCommand) Info() *cmd.Info {
 func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.charmHubCommand.SetFlags(f)
 
-	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("Specify an arch <%s>", c.archArgumentList()))
-	f.StringVar(&c.series, "series", SeriesAll, "Specify a series. DEPRECATED use `--base`")
-	f.StringVar(&c.base, "base", "", "Specify a base")
-	f.StringVar(&c.channel, "channel", "", "Specify a channel to use instead of the default release")
-	f.IntVar(&c.revision, "revision", -1, "Specify a revision of the charm to download")
-	f.StringVar(&c.archivePath, "filepath", "", "Specify the filepath location of the charm to download to")
-	f.BoolVar(&c.noProgress, "no-progress", false, "Disable the progress bar")
-	f.BoolVar(&c.resources, "resources", false, "Download the resources associated with the charm (will be DEPRECATED and default behaviour in 4.0)")
+	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("Specifies an arch <%s>.", c.archArgumentList()))
+	f.StringVar(&c.series, "series", SeriesAll, "Specifies a series. DEPRECATED; use `--base`.")
+	f.StringVar(&c.base, "base", "", "Specifies a base.")
+	f.StringVar(&c.channel, "channel", "", "Specifies a channel to use instead of the default release.")
+	f.IntVar(&c.revision, "revision", -1, "Specifies a revision of the charm to download.")
+	f.StringVar(&c.archivePath, "filepath", "", "Specifies the filepath location of the charm to download to.")
+	f.BoolVar(&c.noProgress, "no-progress", false, "Disables the progress bar.")
+	f.BoolVar(&c.resources, "resources", false, "Downloads the resources associated with the charm (will be DEPRECATED and default behaviour in 4.0).")
 }
 
 // Init initializes the download command, including validating the provided

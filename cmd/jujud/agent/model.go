@@ -56,7 +56,7 @@ func (m *ModelCommand) Done(err error) {
 func (m *ModelCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "model",
-		Purpose: "run a juju model operator",
+		Purpose: "Runs a juju model operator",
 	})
 }
 

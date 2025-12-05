@@ -20,6 +20,8 @@ import (
 )
 
 const showApplicationDoc = `
+Displays information about deployed applications.
+
 The command takes deployed application names or aliases as an argument.
 
 The command does an exact search. It does not support wildcards.
@@ -57,7 +59,7 @@ func (c *showApplicationCommand) Info() *cmd.Info {
 	showCmd := &cmd.Info{
 		Name:     "show-application",
 		Args:     "<application name or alias>",
-		Purpose:  "Displays information about an application.",
+		Purpose:  "Display information about an application.",
 		Doc:      showApplicationDoc,
 		Examples: showApplicationExamples,
 	}

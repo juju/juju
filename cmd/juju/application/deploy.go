@@ -377,7 +377,7 @@ A local charm may be deployed by giving the path to its directory:
     juju deploy /path/to/charm
     juju deploy /path/to/charm --base ubuntu@22.04
 
-You will need to be explicit if there is an ambiguity between a local and a
+Explicit specification is required if there is an ambiguity between a local and a
 remote charm:
 
     juju deploy ./pig
@@ -632,24 +632,24 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	// new flags.
 	c.UnitCommandBase.SetFlags(f)
 	c.ModelCommandBase.SetFlags(f)
-	f.IntVar(&c.NumUnits, "n", 1, "Number of application units to deploy for principal charms")
-	f.StringVar(&c.channelStr, "channel", "", "Channel to use when deploying a charm or bundle from Charmhub")
-	f.Var(&c.ConfigOptions, "config", "Either a path to yaml-formatted application config file or a key=value pair ")
+	f.IntVar(&c.NumUnits, "n", 1, "Specifies the number of application units to deploy for principal charms.")
+	f.StringVar(&c.channelStr, "channel", "", "Specifies the channel to use when deploying a charm or bundle from Charmhub.")
+	f.Var(&c.ConfigOptions, "config", "Specifies a path to a `yaml`-formatted application config file or a key=value pair.")
 
-	f.BoolVar(&c.Trust, "trust", false, "Allows charm to run hooks that require access credentials")
+	f.BoolVar(&c.Trust, "trust", false, "Allows the charm to run hooks that require access credentials.")
 
-	f.Var(cmd.NewAppendStringsValue(&c.BundleOverlayFile), "overlay", "Bundles to overlay on the primary bundle, applied in order")
-	f.Var(&c.ConstraintsStr, "constraints", "Set application constraints")
-	f.StringVar(&c.Series, "series", "", "The series on which to deploy. DEPRECATED: use `--base`")
-	f.StringVar(&c.Base, "base", "", "The base on which to deploy")
-	f.IntVar(&c.Revision, "revision", -1, "The revision to deploy")
-	f.BoolVar(&c.DryRun, "dry-run", false, "Just show what the deploy would do")
-	f.BoolVar(&c.Force, "force", false, "Allow a charm/bundle to be deployed which bypasses checks such as supported base or LXD profile allow list")
-	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
-	f.Var(devicesFlag{&c.Devices, &c.BundleDevices}, "device", "Charm device constraints")
-	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
-	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
-	f.StringVar(&c.machineMap, "map-machines", "", "Specify the existing machines to use for bundle deployments")
+	f.Var(cmd.NewAppendStringsValue(&c.BundleOverlayFile), "overlay", "Specifies bundles to overlay on the primary bundle, applied in order.")
+	f.Var(&c.ConstraintsStr, "constraints", "Specifies the application constraints.")
+	f.StringVar(&c.Series, "series", "", "Specifies the series on which to deploy. DEPRECATED: use `--base`.")
+	f.StringVar(&c.Base, "base", "", "Specifies the base on which to deploy.")
+	f.IntVar(&c.Revision, "revision", -1, "Specifies the revision to deploy.")
+	f.BoolVar(&c.DryRun, "dry-run", false, "Simulates the deployment without making changes.")
+	f.BoolVar(&c.Force, "force", false, "Allows a charm/bundle to be deployed which bypasses checks such as supported base or LXD profile allow list.")
+	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Specifies the charm storage constraints.")
+	f.Var(devicesFlag{&c.Devices, &c.BundleDevices}, "device", "Specifies the charm device constraints.")
+	f.Var(stringMap{&c.Resources}, "resource", "Specifies a resource to be uploaded to the controller.")
+	f.StringVar(&c.BindToSpaces, "bind", "", "Configures application endpoint bindings to spaces.")
+	f.StringVar(&c.machineMap, "map-machines", "", "Specifies the existing machines to use for bundle deployments.")
 
 	c.flagSet = f
 }

@@ -13,12 +13,12 @@ Lists machines in a model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--color` | false | Force use of ANSI color codes |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--color` | false | Forces use of ANSI color codes. |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `-o`, `--output` |  | Specify an output file |
-| `--utc` | false | Display time as UTC in RFC3339 format |
+| `--utc` | false | Displays time as UTC in RFC3339 format. |
 
 ## Examples
 

@@ -3,7 +3,7 @@
 > See also: [users](#users), [disable-user](#disable-user), [login](#login)
 
 ## Summary
-Re-enables a previously disabled Juju user.
+Re-enable a previously disabled Juju user.
 
 ## Usage
 ```juju enable-user [options] <user name>```
@@ -11,8 +11,8 @@ Re-enables a previously disabled Juju user.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `-c`, `--controller` |  | Performs the operation in the specified controller. |
 
 ## Examples
 

@@ -48,7 +48,7 @@ type syncAgentBinaryCommand struct {
 var _ cmd.Command = (*syncAgentBinaryCommand)(nil)
 
 const synctoolsDoc = `
-This copies the Juju agent software from the official agent binaries store
+Copies the Juju agent software from the official agent binaries store
 (located at https://streams.canonical.com/juju) into the controller.
 It is generally done when the controller is without internet access.
 
@@ -65,7 +65,7 @@ const synctoolsExamples = `
 func (c *syncAgentBinaryCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "sync-agent-binary",
-		Purpose:  "Copy agent binaries from the official agent store into a local controller.",
+		Purpose:  "Copies agent binaries from the official agent store into a local controller.",
 		Doc:      synctoolsDoc,
 		Examples: synctoolsExamples,
 		SeeAlso: []string{
@@ -76,12 +76,12 @@ func (c *syncAgentBinaryCommand) Info() *cmd.Info {
 
 func (c *syncAgentBinaryCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.versionStr, "agent-version", "", "Copy a specific major[.minor] version")
-	f.BoolVar(&c.dryRun, "dry-run", false, "Don't copy, just print what would be copied")
-	f.BoolVar(&c.public, "public", false, "Tools are for a public cloud, so generate mirrors information")
-	f.StringVar(&c.source, "source", "", "Local source directory")
-	f.StringVar(&c.stream, "stream", "", "Simplestreams stream for which to sync metadata")
-	f.StringVar(&c.localDir, "local-dir", "", "Local destination directory")
+	f.StringVar(&c.versionStr, "agent-version", "", "Specifies the major[.minor] version to copy.")
+	f.BoolVar(&c.dryRun, "dry-run", false, "Simulates the copy without making changes.")
+	f.BoolVar(&c.public, "public", false, "Generates mirrors information for a public cloud.")
+	f.StringVar(&c.source, "source", "", "Specifies a local source directory.")
+	f.StringVar(&c.stream, "stream", "", "Specifies the simplestreams stream for which to sync metadata.")
+	f.StringVar(&c.localDir, "local-dir", "", "Specifies a local destination directory.")
 }
 
 func (c *syncAgentBinaryCommand) Init(args []string) error {

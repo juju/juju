@@ -3,7 +3,7 @@
 > See also: [disable-command](#disable-command), [disabled-commands](#disabled-commands), [enable-command](#enable-command)
 
 ## Summary
-Enable destroy-controller by removing disabled commands in the controller.
+Enables destroy-controller by removing disabled commands in the controller.
 
 ## Usage
 ```juju enable-destroy-controller [options] ```
@@ -11,8 +11,8 @@ Enable destroy-controller by removing disabled commands in the controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `-c`, `--controller` |  | Performs the operation in the specified controller. |
 
 ## Details
 

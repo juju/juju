@@ -13,8 +13,8 @@ Imports a filesystem into the model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--force` | false | import a volume even if otherwise prohibited (cloud specific) |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--force` | false | Imports a volume even if otherwise prohibited (cloud specific). |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 
 ## Examples

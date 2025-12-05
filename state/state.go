@@ -2177,7 +2177,8 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		// Collect per-application operations, checking sanity as we go.
 		var ops []txn.Op
 		var subordinateCount int
-		appBases := map[string][]corebase.Base{}
+		var principalApp *Application
+		var subordinateSupportedBases []corebase.Base
 		for _, ep := range eps {
 			app, err := aliveApplication(st, ep.ApplicationName)
 			if err != nil {
@@ -2227,7 +2228,11 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				if len(charmBases) == 0 {
 					return nil, errors.NotValidf("charm %q does not support any bases", ch.Meta().Name)
 				}
-				appBases[localApp.doc.Name] = charmBases
+				if localApp.IsPrincipal() {
+					principalApp = localApp
+				} else {
+					subordinateSupportedBases = charmBases
+				}
 				assertions = append(assertions, bson.DocElem{Name: "charmurl", Value: ch.URL()})
 				ops = append(ops, txn.Op{
 					C:      applicationsC,
@@ -2237,13 +2242,20 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				})
 			}
 		}
-		// We need to ensure that there's intersection between the supported
-		// bases of both applications' charms.
-		if compatibleBases && len(appBases) > 1 && !compatibleSupportedBases(appBases[eps[0].ApplicationName], appBases[eps[1].ApplicationName]) {
-			return nil, errors.Errorf("principal and subordinate applications' bases must match")
-		}
+
 		if eps[0].Scope == charm.ScopeContainer && subordinateCount < 1 {
 			return nil, errors.Errorf("container scoped relation requires at least one subordinate application")
+		}
+		// We need to ensure that the principal application's base is supported
+		// by the subordinate application.
+		if compatibleBases && principalApp != nil {
+			p, err := corebase.ParseBaseFromString(principalApp.Base().String())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if !subordinateSupportsBase(p, subordinateSupportedBases) {
+				return nil, errors.Errorf("subordinate must support principal application's base; subordinate only supports: %v", subordinateSupportedBases)
+			}
 		}
 
 		// Create a new unique id if that has not already been done, and add
@@ -2288,12 +2300,10 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	return nil, errors.Trace(err)
 }
 
-func compatibleSupportedBases(b1s, b2s []corebase.Base) bool {
-	for _, b1 := range b1s {
-		for _, b2 := range b2s {
-			if b1.IsCompatible(b2) {
-				return true
-			}
+func subordinateSupportsBase(principalBase corebase.Base, subordinateSupportedBases []corebase.Base) bool {
+	for _, base := range subordinateSupportedBases {
+		if base.IsCompatible(principalBase) {
+			return true
 		}
 	}
 	return false

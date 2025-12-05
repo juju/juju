@@ -3,7 +3,7 @@
 > See also: [remove-application](#remove-application), [add-unit](#add-unit), [remove-unit](#remove-unit)
 
 ## Summary
-Set the desired number of k8s application units.
+Sets the desired number of k8s application units.
 
 ## Usage
 ```juju scale-application [options] <application> <scale>```
@@ -11,7 +11,7 @@ Set the desired number of k8s application units.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 
 ## Examples
@@ -21,6 +21,6 @@ Set the desired number of k8s application units.
 
 ## Details
 
-Scale a Kubernetes application by specifying how many units there should be.
+Scales a Kubernetes application by specifying how many units there should be.
 The new number of units can be greater or less than the current number, thus
 allowing both scale out and scale in.

@@ -76,7 +76,7 @@ Whether you are a CIO or SysAdmin, DevOps engineer, or SRE, Juju helps you take 
 
 Juju is an open source project that warmly welcomes community projects, contributions, suggestions, fixes and constructive feedback.
 
-* [Roadmap & Releases](./reference/juju/juju-roadmap-and-releases.md)
+* [Roadmap & Releases](releasenotes/index.md)
 * [Code of Conduct ](https://ubuntu.com/community/code-of-conduct)
 * [Join our chat](https://matrix.to/#/#charmhub-juju:ubuntu.com)
 * [Join our forum ](https://discourse.charmhub.io/)

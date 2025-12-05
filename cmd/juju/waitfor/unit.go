@@ -81,7 +81,7 @@ func (c *unitCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "unit",
 		Args:     "[<name>]",
-		Purpose:  "Wait for a unit to reach a specified state.",
+		Purpose:  "Waits for a unit to reach a specified state.",
 		Doc:      unitCommandDoc,
 		Examples: unitCommandExamples,
 		SeeAlso: []string{
@@ -95,9 +95,9 @@ func (c *unitCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *unitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.waitForCommandBase.SetFlags(f)
-	f.StringVar(&c.query, "query", `life=="alive" && workload-status=="active"`, "Query the goal state")
-	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "How long to wait, before timing out")
-	f.BoolVar(&c.summary, "summary", true, "Output a summary of the application query on exit")
+	f.StringVar(&c.query, "query", `life=="alive" && workload-status=="active"`, "Queries the goal state.")
+	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "Specifies the timeout for the operation.")
+	f.BoolVar(&c.summary, "summary", true, "Outputs a summary of the application query on exit.")
 }
 
 // Init implements Command.Init.

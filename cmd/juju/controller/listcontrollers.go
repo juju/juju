@@ -71,8 +71,8 @@ func (c *listControllersCommand) Init(args []string) error {
 // SetFlags implements Command.SetFlags.
 func (c *listControllersCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.BoolVar(&c.refresh, "refresh", false, "Connect to each controller to download the latest details")
-	f.BoolVar(&c.managed, "managed", false, "Show controllers managed by JAAS")
+	f.BoolVar(&c.refresh, "refresh", false, "Connects to each controller to download the latest details.")
+	f.BoolVar(&c.managed, "managed", false, "Shows controllers managed by JAAS.")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,

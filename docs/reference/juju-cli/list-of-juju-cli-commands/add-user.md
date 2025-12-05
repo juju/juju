@@ -11,8 +11,8 @@ Adds a Juju user to a controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `-c`, `--controller` |  | Performs the operation in the specified controller. |
 
 ## Examples
 
@@ -25,7 +25,7 @@ Adds a Juju user to a controller.
 The user's details are stored within the controller and will be removed when
 the controller is destroyed.
 
-A user unique registration string will be printed. This registration string 
+Prints a user unique registration string. This registration string 
 must be used by the newly added user as supplied to complete the registration
 process.
 

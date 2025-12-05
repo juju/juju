@@ -8,12 +8,12 @@
 Juju 3.6 series is LTS
 ```
 
-### 🔸 **Juju 3.6.12**
+## 🔸 **Juju 3.6.12**
 🗓️ 26 Nov 2025
 
 ⚙️ Features:
 
-#### Support for importing and attaching storage to Kubernetes units
+### Support for importing and attaching storage to Kubernetes units
 A common use case for Kubernetes is to restore a volume from a backup and attach it to a unit.
 This feature allows that use case to be supported by providing support for:
 - importing a k8s persistent volume into the Juju model as a storage instance
@@ -32,14 +32,14 @@ and `<N>` is the ordinal of the storage instance created by the `juju import-fil
 
 * feat: remove k8s attach storage feature flag by @jneo8 in https://github.com/juju/juju/pull/20634
 
-#### Vault secrets backend mount path
+### Vault secrets backend mount path
 Vault secret backends now support a mount path. If specified, the final path to
 access secrets for a model will be `<mount-path>/<mode-name>-<model-shortuuid>`.
 The mount path is specified using the `mount-path` secret backend config option.
 
 * feat(secrets): add support for vault mount path by @wallyworld in https://github.com/juju/juju/pull/21229
 
-#### JAAS - service account login
+### JAAS - service account login
 For JAAS, a service account login method is added using env vars.
 If the env vars JUJU_CLIENT_ID and JUJU_CLIENT_SECRET are present,
 they will take precedence over all other login providers.
@@ -48,7 +48,7 @@ they will take precedence over all other login providers.
 
 🛠️ Fixes:
 
-#### File handle leaks
+### File handle leaks
 The default behaviour of the Go HTTP client is to keep all idle connections forever. For Juju controllers
 involved with cross-model relations where there's a degree of network instability (resulting in
 worker restarts), this can lead to a large number of idle connections which are never closed. The end result
@@ -58,7 +58,7 @@ controller jujud agent to crash. The fixes below address this issue.
 * fix: timeout idle fds by @jameinel in https://github.com/juju/juju/pull/21081
 * fix: log all API requests not just RPC ones by @jameinel in https://github.com/juju/juju/pull/21102
 
-#### Secrets
+### Secrets
 A few secrets issues are fixed:
 - updating a secret rotation policy would fail.
 - if a k8s secret resource was deleted manually, attempting to delete the secret revision
@@ -70,14 +70,14 @@ would return inconsistent results in `--refresh` were used.
 * fix: ensure secret-get with label and refresh returns the right value by @wallyworld in https://github.com/juju/juju/pull/21228
 * fix: ensure secret rotate policy can be updated by @wallyworld in https://github.com/juju/juju/pull/21220
 
-#### Openstack
+### Openstack
 When removing units, the relevant network interfaces on all running instances were removed, instead
 of interfaces on just the instance on which the unit was running.
 
 * fix: filter ports by server by @nicolasbock in https://github.com/juju/juju/pull/20791
 
 
-### 🔸 **Juju 3.6.11**
+## 🔸 **Juju 3.6.11**
 🗓️ 21 Oct 2025
 
 This is a bug fix release primarily to address 2 regressions in the 3.6.10 release. As such, the 3.6.10 release is revoked.
@@ -91,7 +91,7 @@ For a detailed list of every commit in this release, refer to the [Github 3.6.11
 
 ⚙️ Features:
 
-#### New Google Cloud provider functionality
+### New Google Cloud provider functionality
 The Google Cloud provider gains support for various features already available on other clouds like AWS or Azure.
 Specifically, the following features are now available:<br>
 
@@ -143,7 +143,7 @@ eg<br>
 * feat: add spaces and subnet placement for gce by @wallyworld in https://github.com/juju/juju/pull/20568
 * fix: support image-id constraint for charm deployment on gce by @adglkh in https://github.com/juju/juju/pull/20591
 
-#### Preview: support for `--attach-storage` on Kubernetes models
+### Preview: support for `--attach-storage` on Kubernetes models
 For this release, a feature flag needs to be used as the feature is in preview.
 On the client machine used to run the Juju CLI, simply:<br>
 `export JUJU_DEV_FEATURE_FLAGS=k8s-attach-storage`
@@ -167,14 +167,14 @@ existing claim reference will be removed.
 * feat: import filesystem force option by @jneo8 in https://github.com/juju/juju/pull/20247
 * feat: caas scale unit attach storage by @jneo8 in https://github.com/juju/juju/pull/20434
 
-#### Removal of charm metrics
+### Removal of charm metrics
 Charm metrics are no longer supported. This means that the `collect-metrics` and `meter-status-changed` hooks
 will no longer fire and the `add-metrics` hook command becomes a no-op. In addition, the Juju CLI commands
 `metrics`, `collect=metrics`, and `set-meter-status` are removed.
 
 * feat: remove metrics and meterstatus functionality by @adisazhar123 in https://github.com/juju/juju/pull/20520
 
-#### Documentation improvements
+### Documentation improvements
 Many documentation improvements have been done for this release. Highlights include:
 - better support for diagrams in dark mode
 - visual enhancements to tips and notes
@@ -203,7 +203,7 @@ Many documentation improvements have been done for this release. Highlights incl
 
 🛠️ Fixes:
 
-#### Juju infrastructure
+### Juju infrastructure
 The commits below fix a regression in 3.6.10 which could in some circumstances cause a deadlock when closing
 a web socket connection.
 * fix: close response body when we get an error by @manadart in https://github.com/juju/juju/pull/20732
@@ -211,7 +211,7 @@ a web socket connection.
 * fix: set IO deadlines without lock on websocket close by @manadart in https://github.com/juju/juju/pull/20744
 * feat: tighten up API client closure by @manadart in https://github.com/juju/juju/pull/20778
 
-#### Secrets
+### Secrets
 The commits below contain a fix to ensure obsolete secret revisions are purged from unit state, preventing unbounded
 growth when individual revisions are purged. There's also a fix to secret deletion to prevent removal of secret
 revisions partially matching the one asked for. Included as well are various performance improvements to better
@@ -228,17 +228,17 @@ handle 1000s of secret revisions.
 * refactor: optimise secret + revision metadata fetching for units by @hpidcock in https://github.com/juju/juju/pull/20878
 * feat: add a script for cleaning up obsolete secrets by @jameinel in https://github.com/juju/juju/pull/20720
 
-#### Juju refresh command
+### Juju refresh command
 In some cases, the `juju refresh` command could panic.
 
 * fix(refresh): fix panic in juju refresh when the channel is nil by @SimoneDutto in https://github.com/juju/juju/pull/20868
 
-#### Openstack
+### Openstack
 The 3.6.9 release introduced a [regression](https://github.com/juju/juju/issues/20513) when running on Openstack clouds where security groups are disabled.
  
 * fix: gracefully handle error when security group is disabled in openstack by @adisazhar123 in https://github.com/juju/juju/pull/20548
 
-#### Google cloud
+### Google cloud
 Specifying non-default disk storage using storage pools is fixed.
 Using images configured for pro support is fixed. 
 
@@ -246,7 +246,7 @@ Using images configured for pro support is fixed.
 * fix: set maintenance policy upon instance creation on GCE by @adglkh in https://github.com/juju/juju/pull/20509
 * fix: use `disk-type` instead of `type` when querying disk type on gce by @adglkh in https://github.com/juju/juju/pull/20557
 
-#### Kubernetes
+### Kubernetes
 The mutating web hook created a misnamed label on pods which cause a regression when deploying certain charms. 
 
 * fix: mutating web hook now attaches correct labels to k8s app resources by @wallyworld in https://github.com/juju/juju/pull/20774
@@ -275,7 +275,7 @@ The `credential-get` hook command now works on Kubernetes models for trusted app
 * fix: allow "credential-get" to work on a K8s model by @benhoyt in https://github.com/juju/juju/pull/20428
 * fix(k8s): call broker.Destroy when NewModel fails for CAAS models by @SimoneDutto in https://github.com/juju/juju/pull/20639
 
-#### LXD
+### LXD
 When a model is deleted, any LXD profiles created for the model and its applications are now removed.
 The profile naming scheme has been updated to include a reference to the model UUID as well as name to ensure
 profiles are fully disambiguated. Upon upgrade to this Juju version, existing profiles are renamed as needed. 
@@ -294,34 +294,34 @@ The new profile names are of the form:<br>
 * @dimaqq made their first contribution in https://github.com/juju/juju/pull/20567
 
 
-### 🔸 **Juju 3.6.9**
+## 🔸 **Juju 3.6.9**
 🗓️ 20 Aug 2025
 
 ⚙️ Features:
-#### New cloud regions
+### New cloud regions
 * feat: add aws and azure regions by @adisazhar123 in https://github.com/juju/juju/pull/20087
 
-#### Increased secret content size
+### Increased secret content size
 The secret content size limit has been increased from 8KiB to 1MiB.
 * feat(secrets): increase the allowed size for secret content to 1MiB by @wallyworld in https://github.com/juju/juju/pull/20287
 
-#### Other features
+### Other features
 * feat: support import-filesystem for k8s by @jneo8 in https://github.com/juju/juju/pull/19904
 * feat: allow migration minion worker to follow redirects by @kian99 in https://github.com/juju/juju/pull/20133
 * feat: add tags to Openstack security groups by @adisazhar123 in https://github.com/juju/juju/pull/20169
 * feat: allow edge snaps to be used as official builds by @wallyworld in https://github.com/juju/juju/pull/20202
 
 🛠️ Fixes:
-#### Openstack
+### Openstack
 The Openstack Neutron API endpoint was incurring excessive calls due to an inefficient query strategy.<br>
 SEV flavors are deprioritised when using constraints to choose a flavor as they are not yet modelled.
 * fix: inefficient security group client side filtering by @adisazhar123 in https://github.com/juju/juju/pull/19954
 * fix: choose non SEV flavor for Openstack by @adisazhar123 in https://github.com/juju/juju/pull/20299
 
-#### Azure
+### Azure
 * fix: azure prem storage pending indefinitely by @CodingCookieRookie in https://github.com/juju/juju/pull/20122
 
-#### LXD
+### LXD
 The LXD provider now supports zone constraints.<br>
 There are also storage fixes for deploying a charm with multiple storage requirements.
 * fix: ensure zone constraints are used with lxd by @wallyworld in https://github.com/juju/juju/pull/20271
@@ -329,29 +329,29 @@ There are also storage fixes for deploying a charm with multiple storage require
 * fix: sort lxd storage by path before attaching by @wallyworld in https://github.com/juju/juju/pull/20320
 * fix: make adding a disk to a lxd container idempotent by @wallyworld in https://github.com/juju/juju/pull/20269
 
-#### Kubernetes
+### Kubernetes
 The memory request and limit has been reduced for the charm container and no longer uses the same (possibly large) value
 that may have been required for the workload.<br>
 The default image repository is now ghcr rather than docker.
 * fix: reduce charm memory constraints and fill workload container requests by @CodingCookieRookie in https://github.com/juju/juju/pull/20014
 
-#### Storage
+### Storage
 A long occurring intermittent storage bug was fixed where sometimes storage would not be registred as attached and
 charms would hang and not run the storage attached hook.
 * fix: ensure filesystem attachment watcher sends all events by @wallyworld in https://github.com/juju/juju/pull/20338
 
-#### FAN networking
+### FAN networking
 If the container networking method is set to "local" or "provider", do not set up FAN networking.
 * fix: do not detect fan for local or provider container networking by @wallyworld in https://github.com/juju/juju/pull/20353
 
-#### Mitigate possible connection leak
+### Mitigate possible connection leak
 The worker to monitor and update external controller API addreses for cross model relations could needlessly and
 constantly bounce due to incorrect detection of address changes. This would cause HTTP connections to churn, possibly
 contributing to observed connection / file handle leaks.
 * fix: handle script runner errors and don't ignore them by @wallyworld in https://github.com/juju/juju/pull/20352
 * fix: do not update external controller info unless needed by @wallyworld in https://github.com/juju/juju/pull/20398
 
-#### Other fixes
+### Other fixes
 * fix: don't flush model when we have no machines by @adisazhar123 in https://github.com/juju/juju/pull/20029
 * fix: machine loopback addresses not being accounted by @sombrafam in https://github.com/juju/juju/pull/19998
 * fix: use correct version when bootstrapping from edge snap by @wallyworld in https://github.com/juju/juju/pull/20254
@@ -367,7 +367,7 @@ contributing to observed connection / file handle leaks.
 * @MattiaSarti made their first contribution in https://github.com/juju/juju/pull/20324
 
 
-### 🔸 **Juju 3.6.8**
+## 🔸 **Juju 3.6.8**
 🗓️ 7 Jul 2025
 
 🛠️ Fixes:
@@ -391,7 +391,7 @@ contributing to observed connection / file handle leaks.
 * docs: remove bundle phase out caveat by @tmihoc in https://github.com/juju/juju/pull/19838
 * docs: combine manage deployment docs into a single doc by @tmihoc in https://github.com/juju/juju/pull/19608
 
-### 🔸 **Juju 3.6.7**
+## 🔸 **Juju 3.6.7**
 🗓️ 9 Jun 2025
 
 🛠️ Fixes:
@@ -404,7 +404,7 @@ contributing to observed connection / file handle leaks.
 🥳 New Contributors:
 * @nsklikas made their first contribution in https://github.com/juju/juju/pull/19821
 
-### 🔸 **Juju 3.6.6**
+## 🔸 **Juju 3.6.6**
 🗓️ 29 May 2025
 ⚙️ Features:
 * feat(secrets): handle NotFound errors in secret backend during `RemoveUserSecrets` by @ca-scribner in [#19169](https://github.com/juju/juju/pull/19169)
@@ -426,7 +426,7 @@ contributing to observed connection / file handle leaks.
 * @abbiesims made their first contribution in [#19575](https://github.com/juju/juju/pull/19575)
 * @MggMuggins made their first contribution in [#19532](https://github.com/juju/juju/pull/19532)
 
-### 🔸 **Juju 3.6.5**
+## 🔸 **Juju 3.6.5**
 🗓️ 14 Apr 2025
 ⚙️ Features:
 * feat(ssh-server-worker): add feature flag for ssh jump server by @SimoneDutto in [#19364](https://github.com/juju/juju/pull/19364)
@@ -460,7 +460,7 @@ contributing to observed connection / file handle leaks.
 * @vlad-apostol made their first contribution in [#19261](https://github.com/juju/juju/pull/19261)
 * @alexdlukens made their first contribution in [#19390](https://github.com/juju/juju/pull/19390)
 
-### 🔸 **Juju 3.6.4**
+## 🔸 **Juju 3.6.4**
 🗓️ 11 Mar 2025
 ⚙️ Features:
 * feat(security): add SECURITY.md for reporting security issues by @anvial in [#18245](https://github.com/juju/juju/pull/18245)
@@ -488,7 +488,7 @@ contributing to observed connection / file handle leaks.
 * @andogq made their first contribution in [#19023](https://github.com/juju/juju/pull/19023)
 
 
-### 🔸 **Juju 3.6.3**
+## 🔸 **Juju 3.6.3**
 🗓️ 27 Feb 2025
 ⚙️ Features:
 * feat(secrets): add support for using besoke k8s secret backends by @wallyworld in [#18599](https://github.com/juju/juju/pull/18599)
@@ -539,7 +539,7 @@ contributing to observed connection / file handle leaks.
 * @YanisaHS made their first contribution in [#18903](https://github.com/juju/juju/pull/18903)
 
 
-### 🔸 **Juju 3.6.2**
+## 🔸 **Juju 3.6.2**
 🗓️ 21 Jan 2025
 ⚙️ Features:
 * feat: add relation-model-get hook command by @wallyworld in [#18444](https://github.com/juju/juju/pull/18444)
@@ -552,7 +552,7 @@ contributing to observed connection / file handle leaks.
 * fix: cater for leadership change during secret drain by @wallyworld in [#18556](https://github.com/juju/juju/pull/18556)
 
 
-### 🔸 **Juju 3.6.1**
+## 🔸 **Juju 3.6.1**
 🗓️ 11 Dec 2024
 ⚙️ Features:
 * feat: bump pebble version to v1.17.0 by @benhoyt in [#18462](https://github.com/juju/juju/pull/18462)
@@ -574,7 +574,7 @@ contributing to observed connection / file handle leaks.
 * fix(ec2): remove auto assigned public IP when constraint is false by @nvinuesa in [#18432](https://github.com/juju/juju/pull/18432)
 
 
-### 🔸 **Juju 3.6.0**
+## 🔸 **Juju 3.6.0**
 🗓️ 26 Nov 2024
 ⚙️ Features:
 * Rootless charms on k8s

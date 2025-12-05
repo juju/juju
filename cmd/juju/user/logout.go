@@ -48,7 +48,7 @@ type logoutCommand struct {
 func (c *logoutCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "logout",
-		Purpose:  "Logs a Juju user out of a controller.",
+		Purpose:  "Logs a user out of a controller.",
 		Doc:      logoutDoc,
 		Examples: logoutExamples,
 		SeeAlso: []string{
@@ -66,7 +66,7 @@ func (c *logoutCommand) Init(args []string) error {
 // SetFlags implements Command.SetFlags.
 func (c *logoutCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
-	f.BoolVar(&c.Force, "force", false, "Force logout when a locally recorded password is detected")
+	f.BoolVar(&c.Force, "force", false, "Forces logout when a locally recorded password is detected.")
 }
 
 // Run implements Command.Run.

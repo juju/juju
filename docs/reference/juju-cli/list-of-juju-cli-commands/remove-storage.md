@@ -11,10 +11,10 @@ Removes storage from the model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--force` | false | Remove storage even if it is currently attached |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--force` | false | Removes storage even if it is currently attached. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--no-destroy` | false | Remove the storage without destroying it |
+| `--no-destroy` | false | Removes the storage without destroying it. |
 
 ## Examples
 
@@ -35,7 +35,7 @@ the corresponding cloud storage:
 
 ## Details
 
-Removes storage from the model. Specify one or more
+Remove storage from the model. Specify one or more
 storage IDs, as output by `juju storage`.
 
 By default, `remove-storage` will fail if the storage

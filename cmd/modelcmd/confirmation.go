@@ -16,7 +16,7 @@ type DestroyConfirmationCommandBase struct {
 }
 
 func (c *DestroyConfirmationCommandBase) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.assumeNoPrompt, "no-prompt", false, "Do not ask for confirmation")
+	f.BoolVar(&c.assumeNoPrompt, "no-prompt", false, "Do not ask for confirmation.")
 }
 
 // NeedsConfirmation returns indicates whether confirmation is required or not.
@@ -36,7 +36,7 @@ type RemoveConfirmationCommandBase struct {
 
 // SetFlags implements Command.SetFlags.
 func (c *RemoveConfirmationCommandBase) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.assumeNoPrompt, "no-prompt", false, "Do not ask for confirmation. Overrides `mode` model config setting")
+	f.BoolVar(&c.assumeNoPrompt, "no-prompt", false, "Skip confirmation. Overrides `mode` model config setting.")
 }
 
 // NeedsConfirmation returns indicates whether confirmation is required or not.

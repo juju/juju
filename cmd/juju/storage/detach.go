@@ -36,7 +36,7 @@ func NewDetachStorageCommand(new NewEntityDetacherCloserFunc) cmd.Command {
 
 const (
 	detachStorageCommandDoc = `
-Detaches storage from units. Specify one or more unit/application storage IDs,
+Detach storage from units. Specify one or more unit/application storage IDs,
 as output by ` + "`juju storage`" + `. The storage will remain in the model until it is
 removed by an operator.
 
@@ -77,7 +77,7 @@ func (c *detachStorageCommand) Init(args []string) error {
 // SetFlags implements Command.SetFlags.
 func (c *detachStorageCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.StorageCommandBase.SetFlags(f)
-	f.BoolVar(&c.Force, "force", false, "Forcefully detach storage")
+	f.BoolVar(&c.Force, "force", false, "Forcibly detaches storage.")
 	c.fs = f
 }
 

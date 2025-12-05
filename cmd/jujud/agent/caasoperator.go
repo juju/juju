@@ -96,7 +96,7 @@ func NewCaasOperatorAgent(
 func (op *CaasOperatorAgent) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "caasoperator",
-		Purpose: "run a juju CAAS Operator",
+		Purpose: "Runs a juju CAAS Operator",
 	})
 }
 

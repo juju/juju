@@ -29,7 +29,7 @@ func NewRemoveStorageCommandWithAPI() cmd.Command {
 
 const (
 	removeStorageCommandDoc = `
-Removes storage from the model. Specify one or more
+Remove storage from the model. Specify one or more
 storage IDs, as output by ` + "`juju storage`" + `.
 
 By default, ` + "`remove-storage`" + ` will fail if the storage
@@ -89,8 +89,8 @@ func (c *removeStorageCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *removeStorageCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.StorageCommandBase.SetFlags(f)
-	f.BoolVar(&c.force, "force", false, "Remove storage even if it is currently attached")
-	f.BoolVar(&c.noDestroy, "no-destroy", false, "Remove the storage without destroying it")
+	f.BoolVar(&c.force, "force", false, "Removes storage even if it is currently attached.")
+	f.BoolVar(&c.noDestroy, "no-destroy", false, "Removes the storage without destroying it.")
 	c.fs = f
 }
 

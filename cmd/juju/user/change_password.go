@@ -73,16 +73,16 @@ type changePasswordCommand struct {
 }
 
 func (c *changePasswordCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.Reset, "reset", false, "Reset user password.")
-	f.BoolVar(&c.noPrompt, "no-prompt", false, "Don't prompt for password; instead, read a line from stdin.")
+	f.BoolVar(&c.Reset, "reset", false, "Resets user password.")
+	f.BoolVar(&c.noPrompt, "no-prompt", false, "Skips password prompt; instead, reads a line from `stdin`.")
 }
 
 // Info implements Command.Info.
 func (c *changePasswordCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "change-user-password",
-		Args:     "[username]",
-		Purpose:  "Changes the password for the current or specified Juju user.",
+		Args:     "[<username>]",
+		Purpose:  "Changes the password for the current or the specified Juju user.",
 		Doc:      userChangePasswordDoc,
 		Examples: userChangePasswordExamples,
 		SeeAlso: []string{

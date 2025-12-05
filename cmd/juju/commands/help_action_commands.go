@@ -26,7 +26,7 @@ func (t *helpActionCmdsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "help-action-commands",
 		Args:     "[action]",
-		Purpose:  "Show help on a Juju charm action command.",
+		Purpose:  "Shows help on a Juju charm action command.",
 		Doc:      helpActionCmdsDoc,
 		Examples: helpActionCmdsExamples,
 		SeeAlso:  []string{"help", "help-hook-commands"},

@@ -13,8 +13,8 @@ Display the resources for a charm in a repository.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--channel` | stable | the channel of the charm |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--channel` | stable | Specifies the channel of the charm. |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `-o`, `--output` |  | Specify an output file |
@@ -33,7 +33,7 @@ Display charm resources for `mycharm` in the `2.0/edge` channel:
 
 ## Details
 
-This command will report the resources and the current revision of each
+Reports the resources and the current revision of each
 resource for a charm in a repository.
 
 Channel can be specified with `--channel`.  If not provided, `stable` is used.

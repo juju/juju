@@ -3,7 +3,7 @@
 > See also: [remove-application](#remove-application), [scale-application](#scale-application)
 
 ## Summary
-Remove application units from the model.
+Removes application units from the model.
 
 ## Usage
 ```juju remove-unit [options] <unit> [...] | <application>```
@@ -11,14 +11,14 @@ Remove application units from the model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--destroy-storage` | false | Destroy storage attached to the unit |
-| `--dry-run` | false | Print what this command would remove without removing |
-| `--force` | false | Completely remove an unit and all its dependencies |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--destroy-storage` | false | Destroys storage attached to the unit. |
+| `--dry-run` | false | Prints what this command would remove without removing. |
+| `--force` | false | Completely removes an unit and all its dependencies. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--no-prompt` | false | Do not ask for confirmation. Overrides `mode` model config setting |
-| `--no-wait` | false | Rush through unit removal without waiting for each individual step to complete |
-| `--num-units` | 0 | Number of units to remove (k8s models only) |
+| `--no-prompt` | false | Skip confirmation. Overrides `mode` model config setting. |
+| `--no-wait` | false | Rushes through unit removal without waiting for each individual step to complete. |
+| `--num-units` | 0 | Specifies the number of units to remove (Kubernetes models only). |
 
 ## Examples
 
@@ -35,7 +35,7 @@ Remove application units from the model.
 
 ## Details
 
-Remove application units from the model.
+Removes application units from the model.
 
 The usage of this command differs depending on whether it is being used on a
 Kubernetes or a machine model.

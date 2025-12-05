@@ -181,8 +181,8 @@ func (c *modelCredentialCommand) findCredentialLocally(ctx *cmd.Context) (*cloud
 
 const modelCredentialDoc = `
 This command relates a credential cached on a controller to a specific model.
-It does not change/update the contents of an existing active credential. See
-command ` + "`update-credential`" + ` for that.
+It does not change/update the contents of an existing active credential. The
+command ` + "`update-credential`" + ` can be used for that.
 
 The credential specified may exist locally (on the client), remotely (on the
 controller), or both. The command will error out if the credential is stored
@@ -197,7 +197,7 @@ This command does not affect an existing relation between the specified
 credential and another model. If the credential is already related to a model
 this operation will result in that credential being related to two models.
 
-Use the ` + "`show-credential`" + ` command to see how remote credentials are related
+The ` + "`show-credential`" + ` command can be used to see how remote credentials are related
 to models.
 `
 

@@ -65,7 +65,7 @@ type ModelConstraintsClient interface {
 }
 
 const bundleDiffDoc = `
-Bundle can be a local bundle file or the name of a bundle in
+The bundle can be a local bundle file or the name of a bundle in
 Charmhub. The bundle can also be combined with overlays (in the
 same way as the deploy command) before comparing with the model.
 
@@ -145,7 +145,7 @@ func (c *diffBundleCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "diff-bundle",
 		Args:     "<bundle file or name>",
-		Purpose:  "Compares a bundle with a model and reports any differences.",
+		Purpose:  "Compares a bundle with a model and report any differences.",
 		Doc:      bundleDiffDoc,
 		Examples: bundleDiffExamples,
 		SeeAlso: []string{
@@ -158,13 +158,13 @@ func (c *diffBundleCommand) Info() *cmd.Info {
 func (c *diffBundleCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 
-	f.StringVar(&c.arch, "arch", "", fmt.Sprintf("specify an arch <%s>", c.archArgumentList()))
-	f.StringVar(&c.series, "series", "", "Specify a series. DEPRECATED: use `--base`")
-	f.StringVar(&c.base, "base", "", "Specify a base")
-	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the bundle from Charmhub")
-	f.Var(cmd.NewAppendStringsValue(&c.bundleOverlays), "overlay", "Bundles to overlay on the primary bundle, applied in order")
-	f.StringVar(&c.machineMap, "map-machines", "", "Indicates how existing machines correspond to bundle machines")
-	f.BoolVar(&c.annotations, "annotations", false, "Include differences in annotations")
+	f.StringVar(&c.arch, "arch", "", fmt.Sprintf("Specifies an arch <%s>", c.archArgumentList()))
+	f.StringVar(&c.series, "series", "", "Specifies a series. DEPRECATED: use `--base`.")
+	f.StringVar(&c.base, "base", "", "Specifies a base.")
+	f.StringVar(&c.channelStr, "channel", "", "Specifies the channel to use when getting the bundle from Charmhub.")
+	f.Var(cmd.NewAppendStringsValue(&c.bundleOverlays), "overlay", "Specifies bundles to overlay on the primary bundle, applied in order.")
+	f.StringVar(&c.machineMap, "map-machines", "", "Indicates how existing machines correspond to bundle machines.")
+	f.BoolVar(&c.annotations, "annotations", false, "Includes differences in annotations.")
 }
 
 // Init is part of cmd.Command.

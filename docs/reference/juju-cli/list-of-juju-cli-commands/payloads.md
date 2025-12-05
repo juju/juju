@@ -3,7 +3,7 @@
 **Aliases:** list-payloads
 
 ## Summary
-Display status information about known payloads.
+Displays status information about known payloads.
 
 ## Usage
 ```juju payloads [options] [pattern ...]```
@@ -11,14 +11,14 @@ Display status information about known payloads.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `-o`, `--output` |  | Specify an output file |
 
 ## Details
 
-This command will report on the runtime state of defined payloads.
+Reports on the runtime state of defined payloads.
 
 When one or more pattern is given, Juju will limit the results to only
 those payloads which match *any* of the provided patterns. Each pattern

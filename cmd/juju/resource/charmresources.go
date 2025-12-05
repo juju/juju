@@ -132,7 +132,7 @@ func (c *baseCharmResourcesCommand) setBaseFlags(f *gnuflag.FlagSet) {
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
 	})
-	f.StringVar(&c.channel, "channel", "stable", "the channel of the charm")
+	f.StringVar(&c.channel, "channel", "stable", "Specifies the channel of the charm.")
 }
 
 func (c *baseCharmResourcesCommand) baseInit(args []string) error {
@@ -204,7 +204,7 @@ func (c *baseCharmResourcesCommand) baseRun(ctx *cmd.Context) error {
 }
 
 const charmResourcesDoc = `
-This command will report the resources and the current revision of each
+Reports the resources and the current revision of each
 resource for a charm in a repository.
 
 Channel can be specified with ` + "`--channel`" + `.  If not provided, ` + "`stable`" + ` is used.

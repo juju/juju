@@ -28,7 +28,7 @@ The `juju` CLI client can be installed from a strictly confined snap. The strict
 The Juju agent binaries come in the same package as the `juju` CLI client. However, when you deploy them (e.g., to bootstrap a controller or deploy an application), they're no longer in a snap, so snap advantages no longer apply. Also, the Juju controller agent needs root access. Juju unit agents typically need root access too, except if the charm next to which they are deployed is rootless. Rootless charms are currently supported only for Kubernetes charms. (For more on rootless charms see {ref}`harden-the-applications`). To protect the agents, you must protect the cloud resource (machine or container) they're deployed on.
 
 ```{ibnote}
-See more: [Snapcraft | Snap confinement](https://snapcraft.io/docs/snap-confinement), {ref}`manage-juju`, {ref}`juju-roadmap-and-releases`
+See more: [Snapcraft | Snap confinement](https://snapcraft.io/docs/snap-confinement), {ref}`manage-juju`, {ref}`releasenotes`
 ```
 
 ## Harden the controller(s)

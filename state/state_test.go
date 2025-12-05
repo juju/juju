@@ -5274,3 +5274,69 @@ func (s *StateSuite) TestAddRelationEnforcesRelationLimits(c *gc.C) {
 	_, err = s.State.AddRelation(eps...)
 	c.Assert(err, gc.ErrorMatches, `cannot add relation \"wordpress:db mysql2:server\": establishing a new relation for wordpress:db would exceed its maximum relation limit of 1`)
 }
+
+func (s *StateSuite) TestAddRelationSubordinateCompatibleBase(c *gc.C) {
+	ch1 := s.AddTestingCharm(c, "wordpress")
+	s.AddTestingApplicationForBase(c, state.UbuntuBase("22.04"), "wordpress", ch1)
+
+	ch2 := s.AddTestingCharm(c, "logging")
+	s.AddTestingApplicationForBase(c, state.UbuntuBase("22.04"), "logging", ch2)
+
+	eps, err := s.State.InferEndpoints("wordpress:juju-info", "logging:info")
+	c.Assert(err, jc.ErrorIsNil)
+
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rel, gc.NotNil)
+}
+
+func (s *StateSuite) TestAddRelationSubordinateIncompatibleBase(c *gc.C) {
+	// Deploy principal charm that only supports 24.04 on base 24.04.
+	ch1 := s.AddTestingCharm(c, "wordpress-noble")
+	s.AddTestingApplicationForBase(c, state.UbuntuBase("24.04"), "wordpress-noble", ch1)
+
+	// Deploy subordinate charm that only supports 12.10, 20.04, 22.04 on 22.04.
+	ch2 := s.AddTestingCharm(c, "logging")
+	s.AddTestingApplicationForBase(c, state.UbuntuBase("22.04"), "logging", ch2)
+
+	eps, err := s.State.InferEndpoints("wordpress-noble:juju-info", "logging:info")
+	c.Assert(err, jc.ErrorIsNil)
+
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, gc.ErrorMatches, `.*subordinate must support principal application's base.*`)
+	c.Assert(rel, gc.IsNil)
+}
+
+func (s *StateSuite) TestAddRelationSubordinateMultipleBasesSupported(c *gc.C) {
+	// Deploy principal on base 20.04.
+	wordpressCh := s.AddTestingCharm(c, "wordpress")
+	s.AddTestingApplicationForBase(c, state.UbuntuBase("20.04"), "wordpress", wordpressCh)
+
+	// Deploy multi-base subordinate on 22.04 that supports 12.04, 20.04, and 22.04.
+	multiBaseCh := s.AddTestingCharm(c, "logging")
+	s.AddTestingApplicationForBase(c, state.UbuntuBase("22.04"), "logging", multiBaseCh)
+
+	// Relation should succeed because logging charm supports 20.04.
+	eps, err := s.State.InferEndpoints("wordpress:juju-info", "logging:info")
+	c.Assert(err, jc.ErrorIsNil)
+
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rel, gc.NotNil)
+}
+
+func (s *StateSuite) TestAddRelationNonSubordinateIgnoresBaseCheck(c *gc.C) {
+	ch1 := s.AddTestingCharm(c, "wordpress")
+	s.AddTestingApplicationForBase(c, state.UbuntuBase("20.04"), "wordpress", ch1)
+
+	ch2 := s.AddTestingCharm(c, "mysql")
+	s.AddTestingApplicationForBase(c, state.UbuntuBase("12.10"), "mysql", ch2)
+
+	// Relation should succeed since base check doesn't apply to relation between two principals.
+	eps, err := s.State.InferEndpoints("wordpress:db", "mysql:server")
+	c.Assert(err, jc.ErrorIsNil)
+
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rel, gc.NotNil)
+}

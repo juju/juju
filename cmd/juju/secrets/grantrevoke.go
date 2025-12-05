@@ -49,7 +49,7 @@ func (c *grantSecretCommand) secretsAPI() (GrantRevokeSecretsAPI, error) {
 
 const (
 	grantSecretDoc = `
-Grant applications access to view the value of a specified secret.
+Grants applications access to view the value of a specified secret.
 `
 	grantSecretExamples = `
     juju grant-secret my-secret ubuntu-k8s
@@ -62,7 +62,7 @@ func (c *grantSecretCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "grant-secret",
 		Args:     "<ID>|<name> <application>[,<application>...]",
-		Purpose:  "Grant access to a secret.",
+		Purpose:  "Grants access to a secret.",
 		Doc:      grantSecretDoc,
 		Examples: grantSecretExamples,
 	})
@@ -139,7 +139,7 @@ func (c *revokeSecretCommand) secretsAPI() (GrantRevokeSecretsAPI, error) {
 
 const (
 	revokeSecretDoc = `
-Revoke applications' access to view the value of a specified secret.
+Revokes applications' access to view the value of a specified secret.
 `
 	revokeSecretExamples = `
     juju revoke-secret my-secret ubuntu-k8s
@@ -152,7 +152,7 @@ func (c *revokeSecretCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "revoke-secret",
 		Args:     "<ID>|<name> <application>[,<application>...]",
-		Purpose:  "Revoke access to a secret.",
+		Purpose:  "Revokes access to a secret.",
 		Doc:      revokeSecretDoc,
 		Examples: revokeSecretExamples,
 	})

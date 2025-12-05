@@ -11,9 +11,9 @@ Attempts to automatically detect and add credentials for a cloud.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--client` | false | Client operation |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `-c`, `--controller` |  | Performs the operation in the specified controller. |
+| `--client` | false | Performs the operation on the local client. |
 
 ## Examples
 
@@ -26,7 +26,7 @@ Attempts to automatically detect and add credentials for a cloud.
 
 ## Details
 
-The command searches well known, cloud-specific locations on this client.
+Searches well-known, cloud-specific locations on this client.
 If credential information is found, it is presented to the user
 in a series of prompts to facilitated interactive addition and upload.
 An alternative to this command is `juju add-credential`.

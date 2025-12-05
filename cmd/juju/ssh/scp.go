@@ -16,10 +16,10 @@ import (
 )
 
 var usageSCPSummary = `
-Securely transfer files within a model.`[1:]
+Securely transfers files within a model.`[1:]
 
 var usageSCPDetails = `
-Transfer files to, from and between Juju machine(s), unit(s) and the
+Transfers files to, from and between Juju machine(s), unit(s) and the
 Juju client.
 
 The basic syntax for the command requires the location of 1 or more source
@@ -50,7 +50,7 @@ home directory of the remote user account.
 
 ### Providing arguments directly to scp
 
-Send arguments directly to the underlying scp utility for full control by
+Sends arguments directly to the underlying scp utility for full control by
 adding two hyphens to the argument list and adding arguments to the right
 (-- <arg> [...]). Common arguments to scp include
 
@@ -69,10 +69,10 @@ add ` + "`-- -3`" + ` to the command-line arguments.
 
 ## Security considerations
 
-To enable transfers to/from machines that do not have internet access, you can use
-the Juju controller as a proxy with the ` + "`--proxy`" + ` option.
+To enable transfers to/from machines that do not have internet access, the
+Juju controller can be used as a proxy with the ` + "`--proxy`" + ` option.
 
-The SSH host keys of the target are verified by default. To disable this, add
+The SSH host keys of the target are verified by default. To disable this, use the
  ` + "`--no-host-key-checks`" + ` option. Using this option is strongly discouraged.
 
 `

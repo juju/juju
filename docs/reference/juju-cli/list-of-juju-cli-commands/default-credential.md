@@ -13,7 +13,7 @@ Gets, sets, or unsets the default credential for a cloud on this client.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `--reset` | false | Reset default credential for the cloud |
+| `--reset` | false | Resets the default credential for the cloud. |
 
 ## Examples
 
@@ -32,7 +32,7 @@ Unset the default credential for the `google` cloud:
 
 ## Details
 
-This command sets a locally stored credential to be used as a default.
+Sets a locally stored credential to be used as a default.
 
 Default credentials avoid the need to specify a particular set of
 credentials when more than one credential is available on the client for a given cloud.

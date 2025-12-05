@@ -131,7 +131,7 @@ func (c *removeCredentialCommand) Init(args []string) (err error) {
 
 func (c *removeCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
-	f.BoolVar(&c.Force, "force", false, "Force remove controller-side credential, ignore validation errors")
+	f.BoolVar(&c.Force, "force", false, "Forcibly removes a controller-side credential, ignoring validation errors.")
 }
 
 func (c *removeCredentialCommand) Run(ctxt *cmd.Context) error {

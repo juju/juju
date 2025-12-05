@@ -15,8 +15,8 @@ Shows details for a specific secret.
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `-o`, `--output` |  | Specify an output file |
 | `-r`, `--revision` | 0 |  |
-| `--reveal` | false | Reveal secret values, applicable to yaml or json formats only |
-| `--revisions` | false | Show the secret revisions metadata |
+| `--reveal` | false | Reveals secret values. Applicable to `yaml` or `json` formats only. |
+| `--revisions` | false | Shows the secret revisions metadata. |
 
 ## Examples
 
@@ -35,5 +35,5 @@ Displays the details of a specified secret.
 For controller/model admins, the actual secret content is exposed
 with the `--reveal` option in the `json` or `yaml` formats.
 
-Use `--revision` to inspect a particular revision, else latest is used.
-Use `--revisions` to see the metadata for each revision.
+The `--revision` option can be used to inspect a particular revision, else latest is used.
+The `--revisions` option can be used to see the metadata for each revision.

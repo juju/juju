@@ -21,7 +21,8 @@ import (
 // getConstraintsDoc is multi-line since we need to use ` to denote
 // commands for ease in markdown.
 const getConstraintsDoc = `
-Shows constraints that have been set on the model with ` + "`juju set-model-constraints`" + `.
+Shows the constraints that have been set on the model with ` + "`juju set-model-constraints`" + `.
+
 By default, the model is the current model.
 Model constraints are combined with constraints set on an application.
 with ` + "`juju set-constraints`" + ` for commands (such as ` + "`deploy`" + `) that provision
@@ -39,7 +40,9 @@ const getConstraintsDocExamples = `
 // setConstraintsDoc is multi-line since we need to use ` to denote
 // commands for ease in markdown.
 const setConstraintsDoc = `
-Sets constraints on the model that can be viewed with ` + "`juju model-constraints`" + `.
+Sets constraints on the model.
+
+These constraints can be viewed with ` + "`juju model-constraints`" + `.
 By default, the model is the current model.
 Model constraints are combined with constraints set for an application with
 ` + "`juju set-constraints`" + ` for commands (such as ` + "`deploy`" + `) that provision
@@ -76,7 +79,7 @@ type modelGetConstraintsCommand struct {
 func (c *modelGetConstraintsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "model-constraints",
-		Purpose:  "Displays machine constraints for a model.",
+		Purpose:  "Display machine constraints for a model.",
 		Doc:      getConstraintsDoc,
 		Examples: getConstraintsDocExamples,
 		SeeAlso: []string{

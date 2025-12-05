@@ -3,7 +3,7 @@
 > See also: [constraints](#constraints), [model-constraints](#model-constraints), [set-model-constraints](#set-model-constraints)
 
 ## Summary
-Sets machine constraints for an application.
+Set machine constraints for an application.
 
 ## Usage
 ```juju set-constraints [options] <application> <constraint>=<value> ...```
@@ -11,7 +11,7 @@ Sets machine constraints for an application.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 
 ## Examples
@@ -21,7 +21,7 @@ Sets machine constraints for an application.
 
 
 ## Details
-Sets constraints for an application, which are used for all new machines
+Sets the constraints for an application. These will be used for all new machines
 provisioned for that application. They can be viewed with `juju constraints`.
 By default, the model is the current model.
 Application constraints are combined with model constraints, set with `juju set-model-constraints`, for commands (such as `juju deploy`) that

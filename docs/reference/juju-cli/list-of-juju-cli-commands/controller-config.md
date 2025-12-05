@@ -3,7 +3,7 @@
 > See also: [controllers](#controllers), [model-config](#model-config), [show-cloud](#show-cloud)
 
 ## Summary
-Displays or sets configuration settings for a controller.
+Display or set configuration settings for a controller.
 
 ## Usage
 ```juju controller-config [options] [<attribute key>[=<value>] ...]```
@@ -11,13 +11,13 @@ Displays or sets configuration settings for a controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--color` | false | Use ANSI color codes in output |
-| `--file` |  | Path to yaml-formatted configuration file |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `-c`, `--controller` |  | Performs the operation in the specified controller. |
+| `--color` | false | Uses ANSI color codes in output. |
+| `--file` |  | Specifies a path to a `yaml`-formatted configuration file. |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
-| `--ignore-read-only-fields` | false | Ignore read-only fields that might cause errors to be emitted while processing yaml documents |
-| `--no-color` | false | Disable ANSI color codes in tabular output |
+| `--ignore-read-only-fields` | false | Ignores read-only fields that might cause errors to be emitted while processing `yaml` documents. |
+| `--no-color` | false | Disables ANSI color codes in tabular output. |
 | `-o`, `--output` |  | Specify an output file |
 
 ## Examples

@@ -11,13 +11,13 @@ Terminate all machines/containers and resources for a non-controller model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--destroy-storage` | false | Destroy all storage instances in the model |
-| `--force` | false | Force destroy model ignoring any errors |
-| `--no-prompt` | false | Do not ask for confirmation |
-| `--no-wait` | false | Rush through model destruction without waiting for each individual step to complete |
-| `--release-storage` | false | Release all storage instances from the model, and management of the controller, without destroying them |
-| `-t`, `--timeout` | -1s | Timeout for each step of force model destruction |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--destroy-storage` | false | Destroys all storage instances in the model. |
+| `--force` | false | Forcibly destroys the model, ignoring any errors. |
+| `--no-prompt` | false | Do not ask for confirmation. |
+| `--no-wait` | false | Rushes through model destruction without waiting for each individual step to complete. |
+| `--release-storage` | false | Releases all storage instances from the model, and management of the controller, without destroying them. |
+| `-t`, `--timeout` | -1s | Specifies the timeout for each step of forced model destruction. |
 
 ## Examples
 

@@ -3,7 +3,7 @@
 > See also: [clouds](#clouds), [update-cloud](#update-cloud), [remove-cloud](#remove-cloud), [update-credential](#update-credential)
 
 ## Summary
-Add a cloud definition to Juju.
+Adds a cloud definition to Juju.
 
 ## Usage
 ```juju add-cloud [options] <cloud name> [<cloud definition file>]```
@@ -11,13 +11,13 @@ Add a cloud definition to Juju.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--client` | false | Client operation |
-| `--credential` |  | Credential to use for new cloud |
-| `-f`, `--file` |  | The path to a cloud definition file |
-| `--force` | false | Force add cloud to the controller |
-| `--target-controller` |  | The name of a JAAS managed controller to add a cloud to |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `-c`, `--controller` |  | Performs the operation in the specified controller. |
+| `--client` | false | Performs the operation on the local client. |
+| `--credential` |  | Specifies the credential to use for the new cloud. |
+| `-f`, `--file` |  | Specifies the path to a cloud definition file. |
+| `--force` | false | Forcibly adds the cloud to the controller. |
+| `--target-controller` |  | Specifies the name of a JAAS managed controller to add a cloud to. |
 
 ## Examples
 

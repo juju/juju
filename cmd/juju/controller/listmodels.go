@@ -80,10 +80,10 @@ func (c *modelsCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *modelsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
-	f.StringVar(&c.user, "user", "", "The user to list models for (administrative users only)")
-	f.BoolVar(&c.all, "all", false, "Lists all models, regardless of user accessibility (administrative users only)")
-	f.BoolVar(&c.listUUID, "uuid", false, "Display UUID for models")
-	f.BoolVar(&c.exactTime, "exact-time", false, "Use full timestamps")
+	f.StringVar(&c.user, "user", "", "Specifies the user to list models for (administrative users only).")
+	f.BoolVar(&c.all, "all", false, "Lists all models, regardless of user accessibility (administrative users only).")
+	f.BoolVar(&c.listUUID, "uuid", false, "Displays UUID for models.")
+	f.BoolVar(&c.exactTime, "exact-time", false, "Uses full timestamps.")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -467,8 +467,8 @@ func (c *modelsCommand) tabularSummaries(writer io.Writer, modelSet ModelSummary
 }
 
 var listModelsDoc = `
-The models listed here are either models you have created yourself, or
-models which have been shared with you. Default values for user and
+The models listed here are either models created by the user, or
+models which have been shared with the user. Default values for user and
 controller are, respectively, the current user and the current controller.
 The active model is denoted by an asterisk.
 `

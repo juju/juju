@@ -5,7 +5,7 @@
 **Aliases:** relate
 
 ## Summary
-Integrate two applications.
+Integrates two applications.
 
 ## Usage
 ```juju integrate [options] <application>[:<endpoint>] <application>[:<endpoint>]```
@@ -14,7 +14,7 @@ Integrate two applications.
 | Flag | Default | Usage |
 | --- | --- | --- |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--via` |  | For cross model relations, specify the egress subnets for outbound traffic |
+| `--via` |  | Specifies the egress subnets for outbound traffic for cross-model relations. |
 
 ## Examples
 
@@ -43,7 +43,7 @@ by specifying the routes used for integration data.
 
 ## Details
 
-Integrate two applications. Integrated applications communicate over a common
+Integrates two applications. Integrated applications communicate over a common
 interface provided by the Juju controller that enables units to share information.
 This topology allows units to share data, without needing direct connectivity
 between units is restricted by firewall rules. Charms define the logic for

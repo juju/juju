@@ -44,7 +44,7 @@ Valid unit identifiers are:
 
 If no hook or action is specified, all hooks and actions will be intercepted.
 
-See ` + "`juju help ssh`" + ` for information about SSH related options
+The ` + "`juju help ssh`" + ` command provides information about SSH related options
 accepted by the ` + "`debug-code`" + ` command.
 `
 
@@ -74,7 +74,7 @@ func (c *debugCodeCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "debug-code",
 		Args:     "<unit name> [hook or action names]",
-		Purpose:  "Launch a tmux session to debug hooks and/or actions.",
+		Purpose:  "Launches a tmux session to debug hooks and/or actions.",
 		Doc:      debugCodeDoc,
 		Examples: usageDebugCodeExamples,
 		SeeAlso: []string{
@@ -91,7 +91,7 @@ func (c *debugCodeCommand) Init(args []string) error {
 func (c *debugCodeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.debugHooksCommand.SetFlags(f)
 	f.StringVar(&c.debugAt, "at", "all",
-		"Specify the value that the `JUJU_DEBUG_AT` environment variable will be set to. This variable tells the charm where you want to stop.")
+		"Specifies the value that the `JUJU_DEBUG_AT` environment variable will be set to. This variable tells the charm where you want to stop.")
 }
 
 // Run ensures c.Target is a unit, and resolves its address,

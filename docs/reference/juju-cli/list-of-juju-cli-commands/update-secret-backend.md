@@ -3,7 +3,7 @@
 > See also: [add-secret-backend](#add-secret-backend), [secret-backends](#secret-backends), [remove-secret-backend](#remove-secret-backend), [show-secret-backend](#show-secret-backend)
 
 ## Summary
-Update an existing secret backend on the controller.
+Updates an existing secret backend on the controller.
 
 ## Usage
 ```juju update-secret-backend [options] <backend-name>```
@@ -11,10 +11,10 @@ Update an existing secret backend on the controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--config` |  | Path to yaml-formatted configuration file |
-| `--force` | false | Force update even if the backend is unreachable |
-| `--reset` |  | Reset the provided comma delimited config keys |
+| `-c`, `--controller` |  | Performs the operation in the specified controller. |
+| `--config` |  | Path to yaml-formatted configuration file. |
+| `--force` | false | Forces update even if the backend is unreachable. |
+| `--reset` |  | Resets the provided comma delimited config keys. |
 
 ## Examples
 
@@ -28,7 +28,7 @@ Update an existing secret backend on the controller.
 
 ## Details
 
-Updates a new secret backend for storing secret content.
+Updates a secret backend for storing secret content.
 
 You must specify a name for the backend to update,
 followed by any necessary backend specific config values.

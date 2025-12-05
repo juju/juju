@@ -91,11 +91,11 @@ func (c *runCommandBase) SetFlags(f *gnuflag.FlagSet) {
 // e.g. exec to define its own formatting flags.
 func (c *runCommandBase) setNonFormatFlags(f *gnuflag.FlagSet) {
 	c.ActionCommandBase.SetFlags(f)
-	f.BoolVar(&c.background, "background", false, "Run the task in the background")
-	f.DurationVar(&c.wait, "wait", 0, "Maximum wait time for a task to complete")
-	f.BoolVar(&c.noColor, "no-color", false, "Disable ANSI color codes in output")
-	f.BoolVar(&c.color, "color", false, "Use ANSI color codes in output")
-	f.BoolVar(&c.utc, "utc", false, "Show times in UTC")
+	f.BoolVar(&c.background, "background", false, "Runs the task in the background.")
+	f.DurationVar(&c.wait, "wait", 0, "Specifies the maximum wait time for a task to complete.")
+	f.BoolVar(&c.noColor, "no-color", false, "Disables ANSI color codes in output.")
+	f.BoolVar(&c.color, "color", false, "Uses ANSI color codes in output.")
+	f.BoolVar(&c.utc, "utc", false, "Shows times in UTC.")
 }
 
 func (c *runCommandBase) Init(_ []string) error {

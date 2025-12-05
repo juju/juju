@@ -162,6 +162,8 @@ type refreshCommand struct {
 }
 
 const refreshDoc = `
+Updates the charm to the latest revision available in the repository from which it was originally deployed.
+
 When no options are set, the application's charm will be refreshed to the latest
 revision available in the repository from which it was originally deployed. An
 explicit revision can be chosen with the ` + "`--revision`" + ` option.
@@ -274,7 +276,7 @@ func (c *refreshCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "refresh",
 		Args:     "<application>",
-		Purpose:  "Refresh an application's charm.",
+		Purpose:  "Refreshes an application's charm.",
 		Doc:      refreshDoc,
 		SeeAlso:  []string{"deploy"},
 		Examples: refreshExamples,
@@ -283,20 +285,20 @@ func (c *refreshCommand) Info() *cmd.Info {
 
 func (c *refreshCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.Force, "force", false, "Allow a charm to be refreshed which bypasses LXD profile allow list")
-	f.BoolVar(&c.ForceUnits, "force-units", false, "Refresh all units immediately, even if in error state")
-	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the charm from Charmhub")
-	f.BoolVar(&c.ForceBase, "force-series", false, "Refresh even if the series of the deployed application is not supported by the new charm. DEPRECATED: use --force-base")
-	f.BoolVar(&c.ForceBase, "force-base", false, "Refresh even if the base of the deployed application is not supported by the new charm")
-	f.StringVar(&c.SwitchURL, "switch", "", "Crossgrade to a different charm")
-	f.StringVar(&c.CharmPath, "path", "", "Refresh to a charm located at path")
-	f.StringVar(&c.Base, "base", "", "Select a different base than what is currently running.")
-	f.IntVar(&c.Revision, "revision", -1, "Explicit revision of current charm")
-	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
-	f.Var(storageFlag{&c.Storage, nil}, "storage", "Charm storage constraints")
-	f.Var(&c.ConfigOptions, "config", "Either a path to yaml-formatted application config file or a key=value pair ")
-	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
-	f.Var(newOptBoolValue(&c.Trust), "trust", "Allows charm to run hooks that require access credentials")
+	f.BoolVar(&c.Force, "force", false, "Allows a charm to be refreshed which bypasses LXD profile allow list.")
+	f.BoolVar(&c.ForceUnits, "force-units", false, "Refreshes all units immediately, even if in error state.")
+	f.StringVar(&c.channelStr, "channel", "", "Specifies the channel to use when getting the charm from Charmhub.")
+	f.BoolVar(&c.ForceBase, "force-series", false, "Refreshes even if the series of the deployed application is not supported by the new charm. DEPRECATED: use --force-base.")
+	f.BoolVar(&c.ForceBase, "force-base", false, "Refreshes even if the base of the deployed application is not supported by the new charm.")
+	f.StringVar(&c.SwitchURL, "switch", "", "Crossgrades to a different charm.")
+	f.StringVar(&c.CharmPath, "path", "", "Refreshes to a charm located at path.")
+	f.StringVar(&c.Base, "base", "", "Selects a different base than what is currently running.")
+	f.IntVar(&c.Revision, "revision", -1, "Specifies the explicit revision for the current charm.")
+	f.Var(stringMap{&c.Resources}, "resource", "Specifies a resource to be uploaded to the controller.")
+	f.Var(storageFlag{&c.Storage, nil}, "storage", "Specifies the charm storage constraints.")
+	f.Var(&c.ConfigOptions, "config", "Specifies either a path to `yaml`-formatted application config file or a `key=value` pair.")
+	f.StringVar(&c.BindToSpaces, "bind", "", "Configures application endpoint bindings to spaces.")
+	f.Var(newOptBoolValue(&c.Trust), "trust", "Allows charm to run hooks that require access credentials.")
 }
 
 type optBoolValue struct {

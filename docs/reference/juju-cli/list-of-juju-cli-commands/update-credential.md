@@ -13,12 +13,12 @@ Updates a controller credential for a cloud.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--client` | false | Client operation |
-| `-f`, `--file` |  | The YAML file containing credential details to update |
-| `--force` | false | Force update controller side credential, ignore validation errors |
-| `--region` |  | Cloud region that credential is valid for |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `-c`, `--controller` |  | Performs the operation in the specified controller. |
+| `--client` | false | Performs the operation on the local client. |
+| `-f`, `--file` |  | Specifies the YAML file containing credential details to update. |
+| `--force` | false | Forcibly updates controller side credential, ignoring validation errors. |
+| `--region` |  | Specifies the cloud region that the credential is valid for. |
 
 ## Examples
 
@@ -35,13 +35,13 @@ Updates a controller credential for a cloud.
 Cloud credentials are used for model operations and manipulations.
 Since it is common to have long-running models, it is also common to
 have these cloud credentials become invalid during a model's lifetime.
-When this happens, a user must update the cloud credential that
-a model was created with to the new and valid details on the controller.
+When this happens, the cloud credential that a model was created with
+must be updated to the new and valid details on the controller.
 
-This command allows to update an existing, already-stored, named,
+This command allows updating an existing, already-stored, named,
 cloud-specific credential on a controller as well as the one from this client.
 
-Use the `--controller `option to update a credential definition on a controller.
+The `--controller `option can be used to update a credential definition on a controller.
 
 When updating cloud credential on a controller, Juju performs additional
 checks to ensure that the models that use this credential can still
@@ -52,8 +52,8 @@ Consequently, it is not recommended as a default update action.
 Models with unreachable machines are most commonly fixed by using another cloud credential,
 see `juju set-credential` for more information.
 
-Use `--client` to update a credential definition on this client.
-If a user will use a different client, say a different laptop,
+The `--client` option can be used to update a credential definition on this client.
+If a different client will be used, say a different laptop,
 the update will not affect that client's (laptop's) copy.
 
 Before credential is updated, the new content is validated. For some providers,

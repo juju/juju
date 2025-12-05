@@ -11,31 +11,31 @@ Initializes a cloud environment.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--add-model` |  | Name of an initial model to create on the new controller |
-| `--agent-version` |  | Version of agent binaries to use for Juju agents |
-| `--auto-upgrade` | false | After bootstrap, upgrade to the latest patch release |
-| `--bootstrap-base` |  | Specify the base of the bootstrap machine |
-| `--bootstrap-constraints` | [] | Specify bootstrap machine constraints |
-| `--bootstrap-image` |  | Specify the image of the bootstrap machine (requires `--bootstrap-constraints` specifying architecture) |
-| `--bootstrap-series` |  | Specify the series of the bootstrap machine (deprecated; use `bootstrap-base`) |
-| `--build-agent` | false | Build local version of agent binary before bootstrapping |
-| `--clouds` | false | Print the available clouds which can be used to bootstrap a Juju environment |
-| `--config` |  | Specify a controller configuration file, or one or more configuration options. Model config keys only affect the controller model.     (`--config config.yaml [--config key=value ...])` |
-| `--constraints` | [] | Set model constraints |
-| `--controller-charm-channel` | 3.6/stable | The Charmhub channel to download the controller charm from (if not using a local charm) |
-| `--controller-charm-path` |  | Path to a locally built controller charm |
-| `--credential` |  | Credentials to use when bootstrapping |
-| `--db-snap` |  | Path to a locally built `.snap` to use as the internal `juju-db` service. |
-| `--db-snap-asserts` |  | Path to a local `.assert` file. Requires `--db-snap` |
-| `--force` | false | Allow the bypassing of checks such as supported series |
-| `--keep-broken` | false | Do not destroy the provisioned controller instance if bootstrap fails |
-| `--metadata-source` |  | Local path to use as agent and/or image metadata source |
-| `--model-default` |  | Specify a configuration file, or one or more configuration     options to be set for all models, unless otherwise specified     (`--model-default config.yaml [--model-default key=value ...])` |
-| `--no-switch` | false | Do not switch to the newly created controller |
-| `--regions` |  | Print the available regions for the specified cloud |
-| `--storage-pool` |  | Specify options for an initial storage pool     'name' and 'type' are required, plus any additional attributes     (`--storage-pool pool-config.yaml [--storage-pool key=value ...]`) |
-| `--to` |  | Placement directive indicating an instance to bootstrap |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--add-model` |  | Specifies the name of an initial model to create on the new controller. |
+| `--agent-version` |  | Specifies the version of agent binaries to use for Juju agents. |
+| `--auto-upgrade` | false | Upgrades to the latest patch release after bootstrap. |
+| `--bootstrap-base` |  | Specifies the base of the bootstrap machine. |
+| `--bootstrap-constraints` | [] | Specifies bootstrap machine constraints. |
+| `--bootstrap-image` |  | Specifies the image of the bootstrap machine (requires `--bootstrap-constraints` specifying architecture). |
+| `--bootstrap-series` |  | Specifies the series of the bootstrap machine (deprecated; use `bootstrap-base`). |
+| `--build-agent` | false | Builds local version of agent binary before bootstrapping. |
+| `--clouds` | false | Prints the available clouds which can be used to bootstrap a Juju environment. |
+| `--config` |  | Specifies a controller configuration file, or one or more configuration options. Model config keys only affect the controller model.     (`--config config.yaml [--config key=value ...])` |
+| `--constraints` | [] | Sets model constraints. |
+| `--controller-charm-channel` | 3.6/stable | Specifies the Charmhub channel to download the controller charm from (if not using a local charm). |
+| `--controller-charm-path` |  | Specifies a path to a locally built controller charm. |
+| `--credential` |  | Specifies the credentials to use when bootstrapping. |
+| `--db-snap` |  | Specifies a path to a locally built `.snap` to use as the internal `juju-db` service. |
+| `--db-snap-asserts` |  | Specifies a path to a local `.assert` file. Requires `--db-snap`. |
+| `--force` | false | Allows the bypassing of checks such as supported series. |
+| `--keep-broken` | false | Keeps the provisioned controller instance if bootstrap fails. |
+| `--metadata-source` |  | Specifies a local path to use as agent and/or image metadata source. |
+| `--model-default` |  | Specifies a configuration file, or one or more configuration     options to be set for all models, unless otherwise specified     (`--model-default config.yaml [--model-default key=value ...])` |
+| `--no-switch` | false | Skips switching to the newly created controller. |
+| `--regions` |  | Prints the available regions for the specified cloud. |
+| `--storage-pool` |  | Specifies options for an initial storage pool     'name' and 'type' are required, plus any additional attributes     (`--storage-pool pool-config.yaml [--storage-pool key=value ...]`) |
+| `--to` |  | Specifies a placement directive indicating an instance to bootstrap. |
 
 ## Examples
 
@@ -62,7 +62,7 @@ For a bootstrap on Kubernetes, setting the service type of the Juju controller s
 
 ## Details
 
-Used without arguments, bootstrap will step you through the process of
+Used without arguments, bootstrap steps you through the process of
 initializing a Juju cloud environment. Initialization consists of creating
 a 'controller' model and provisioning a machine to act as controller.
 

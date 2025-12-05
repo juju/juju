@@ -42,8 +42,8 @@ type baselistMachinesCommand struct {
 // SetFlags sets utc and format flags based on user specified options.
 func (c *baselistMachinesCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.baseMachinesCommand.SetFlags(f)
-	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
-	f.BoolVar(&c.color, "color", false, "Force use of ANSI color codes")
+	f.BoolVar(&c.isoTime, "utc", false, "Displays time as UTC in RFC3339 format.")
+	f.BoolVar(&c.color, "color", false, "Forces use of ANSI color codes.")
 	c.out.AddFlags(f, c.defaultFormat, map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,

@@ -3,7 +3,7 @@
 > See also: [change-user-password](#change-user-password), [login](#login)
 
 ## Summary
-Logs a Juju user out of a controller.
+Logs a user out of a controller.
 
 ## Usage
 ```juju logout [options] ```
@@ -11,9 +11,9 @@ Logs a Juju user out of a controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--force` | false | Force logout when a locally recorded password is detected |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `-c`, `--controller` |  | Performs the operation in the specified controller. |
+| `--force` | false | Forces logout when a locally recorded password is detected. |
 
 ## Examples
 

@@ -3,7 +3,7 @@
 > See also: [models](#models), [model-defaults](#model-defaults), [show-cloud](#show-cloud), [controller-config](#controller-config)
 
 ## Summary
-Displays or sets configuration values on a model.
+Display or set configuration values on a model.
 
 ## Usage
 ```juju model-config [options] [<model-key>[=<value>] ...]```
@@ -11,15 +11,15 @@ Displays or sets configuration values on a model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--color` | false | Use ANSI color codes in output |
-| `--file` |  | Path to yaml-formatted configuration file |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--color` | false | Uses ANSI color codes in output. |
+| `--file` |  | Specifies a path to a `yaml`-formatted configuration file. |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
-| `--ignore-read-only-fields` | false | Ignore read only fields that might cause errors to be emitted while processing yaml documents |
+| `--ignore-read-only-fields` | false | Ignores read-only fields that might cause errors to be emitted while processing `yaml` documents. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--no-color` | false | Disable ANSI color codes in tabular output |
+| `--no-color` | false | Disables ANSI color codes in tabular output. |
 | `-o`, `--output` |  | Specify an output file |
-| `--reset` |  | Reset the provided comma delimited keys |
+| `--reset` |  | Resets the provided comma delimited keys. |
 
 ## Examples
 

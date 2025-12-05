@@ -28,12 +28,12 @@ var (
 )
 
 const agreeDoc = `
-Agree to the terms required by a charm.
+Agrees to the terms required by a charm.
 
 When deploying a charm that requires agreement to terms, use ` + "`juju agree`" + ` to
 view the terms and agree to them. Then the charm may be deployed.
 
-Once you have agreed to terms, you will not be prompted to view them again.
+Once terms have been agreed to, the user will not be prompted to view them again.
 
 `
 
@@ -75,7 +75,7 @@ type agreeCommand struct {
 // SetFlags implements Command.SetFlags.
 func (c *agreeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.BoolVar(&c.SkipTermContent, "yes", false, "Agree to terms non interactively")
+	f.BoolVar(&c.SkipTermContent, "yes", false, "Agrees to terms non-interactively.")
 }
 
 // Info implements Command.Info.
@@ -83,7 +83,7 @@ func (c *agreeCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "agree",
 		Args:     "<term>",
-		Purpose:  "Agree to terms.",
+		Purpose:  "Agrees to terms.",
 		Doc:      agreeDoc,
 		Examples: agreeExamples,
 		SeeAlso: []string{

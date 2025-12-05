@@ -3,7 +3,7 @@
 > See also: [run](#run), [ssh](#ssh)
 
 ## Summary
-Run the commands on the remote targets specified.
+Runs the commands on the remote targets specified.
 
 ## Usage
 ```juju exec [options] <commands>```
@@ -11,22 +11,22 @@ Run the commands on the remote targets specified.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-a`, `--app`, `--application` |  | One or more application names |
-| `--all` | false | Run the commands on all the machines |
-| `--background` | false | Run the task in the background |
-| `--color` | false | Use ANSI color codes in output |
-| `--execution-group` |  | Commands in the same execution group are run sequentially |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `-a`, `--app`, `--application` |  | Specifies one or more application names. |
+| `--all` | false | Runs the commands on all the machines. |
+| `--background` | false | Runs the task in the background. |
+| `--color` | false | Uses ANSI color codes in output. |
+| `--execution-group` |  | Specifies an execution group; commands in the same group are run sequentially. |
 | `--format` | plain | Specify output format (json&#x7c;plain&#x7c;yaml) |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--machine` |  | One or more machine ids |
-| `--no-color` | false | Disable ANSI color codes in output |
+| `--machine` |  | Specifies one or more machine IDs. |
+| `--no-color` | false | Disables ANSI color codes in output. |
 | `-o`, `--output` |  | Specify an output file |
-| `--operator` | false | Run the commands on the operator (k8s-only) |
-| `--parallel` | true | Run the commands in parallel without first acquiring a lock |
-| `-u`, `--unit` |  | One or more unit ids |
-| `--utc` | false | Show times in UTC |
-| `--wait` | 0s | Maximum wait time for a task to complete |
+| `--operator` | false | Runs the commands on the operator (Kubernetes only). |
+| `--parallel` | true | Runs the commands in parallel without first acquiring a lock. |
+| `-u`, `--unit` |  | Specifies one or more unit IDs. |
+| `--utc` | false | Shows times in UTC. |
+| `--wait` | 0s | Specifies the maximum wait time for a task to complete. |
 
 ## Examples
 
@@ -40,7 +40,7 @@ Run the commands on the remote targets specified.
 
 ## Details
 
-Run a shell command on the specified targets. Only admin users of a model
+Runs a shell command on the specified targets. Only admin users of a model
 are able to use this command.
 
 Targets are specified using either machine ids, application names or unit

@@ -69,7 +69,7 @@ var usageBootstrapSummary = `
 Initializes a cloud environment.`[1:]
 
 var usageBootstrapDetailsPartOne = `
-Used without arguments, bootstrap will step you through the process of
+Used without arguments, bootstrap steps you through the process of
 initializing a Juju cloud environment. Initialization consists of creating
 a 'controller' model and provisioning a machine to act as controller.
 
@@ -355,38 +355,38 @@ func (c *bootstrapCommand) setControllerName(controllerName string) {
 
 func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.Var(&c.ConstraintsStr, "constraints", "Set model constraints")
-	f.Var(&c.BootstrapConstraintsStr, "bootstrap-constraints", "Specify bootstrap machine constraints")
-	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specify the series of the bootstrap machine (deprecated; use `bootstrap-base`)")
-	f.StringVar(&c.BootstrapBase, "bootstrap-base", "", "Specify the base of the bootstrap machine")
-	f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine (requires `--bootstrap-constraints` specifying architecture)")
-	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build local version of agent binary before bootstrapping")
+	f.Var(&c.ConstraintsStr, "constraints", "Sets model constraints.")
+	f.Var(&c.BootstrapConstraintsStr, "bootstrap-constraints", "Specifies bootstrap machine constraints.")
+	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specifies the series of the bootstrap machine (deprecated; use `bootstrap-base`).")
+	f.StringVar(&c.BootstrapBase, "bootstrap-base", "", "Specifies the base of the bootstrap machine.")
+	f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specifies the image of the bootstrap machine (requires `--bootstrap-constraints` specifying architecture).")
+	f.BoolVar(&c.BuildAgent, "build-agent", false, "Builds local version of agent binary before bootstrapping.")
 	f.StringVar(&c.JujuDbSnapPath, "db-snap", "",
-		"Path to a locally built `.snap` to use as the internal `juju-db` service.")
-	f.StringVar(&c.JujuDbSnapAssertionsPath, "db-snap-asserts", "", "Path to a local `.assert` file. Requires `--db-snap`")
-	f.StringVar(&c.MetadataSource, "metadata-source", "", "Local path to use as agent and/or image metadata source")
-	f.StringVar(&c.Placement, "to", "", "Placement directive indicating an instance to bootstrap")
+		"Specifies a path to a locally built `.snap` to use as the internal `juju-db` service.")
+	f.StringVar(&c.JujuDbSnapAssertionsPath, "db-snap-asserts", "", "Specifies a path to a local `.assert` file. Requires `--db-snap`.")
+	f.StringVar(&c.MetadataSource, "metadata-source", "", "Specifies a local path to use as agent and/or image metadata source.")
+	f.StringVar(&c.Placement, "to", "", "Specifies a placement directive indicating an instance to bootstrap.")
 	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false,
-		"Do not destroy the provisioned controller instance if bootstrap fails")
-	f.BoolVar(&c.AutoUpgrade, "auto-upgrade", false, "After bootstrap, upgrade to the latest patch release")
-	f.StringVar(&c.AgentVersionParam, "agent-version", "", "Version of agent binaries to use for Juju agents")
-	f.StringVar(&c.CredentialName, "credential", "", "Credentials to use when bootstrapping")
+		"Keeps the provisioned controller instance if bootstrap fails.")
+	f.BoolVar(&c.AutoUpgrade, "auto-upgrade", false, "Upgrades to the latest patch release after bootstrap.")
+	f.StringVar(&c.AgentVersionParam, "agent-version", "", "Specifies the version of agent binaries to use for Juju agents.")
+	f.StringVar(&c.CredentialName, "credential", "", "Specifies the credentials to use when bootstrapping.")
 	f.Var(&c.config, "config",
-		"Specify a controller configuration file, or one or more configuration options. Model config keys only affect the controller model.\n    (`--config config.yaml [--config key=value ...])`")
+		"Specifies a controller configuration file, or one or more configuration options. Model config keys only affect the controller model.\n    (`--config config.yaml [--config key=value ...])`")
 	f.Var(&c.modelDefaults, "model-default",
-		"Specify a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (`--model-default config.yaml [--model-default key=value ...])`")
+		"Specifies a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (`--model-default config.yaml [--model-default key=value ...])`")
 	f.Var(&c.storagePool, "storage-pool",
-		"Specify options for an initial storage pool\n    'name' and 'type' are required, plus any additional attributes\n    (`--storage-pool pool-config.yaml [--storage-pool key=value ...]`)")
-	f.StringVar(&c.initialModelName, "add-model", "", "Name of an initial model to create on the new controller")
+		"Specifies options for an initial storage pool\n    'name' and 'type' are required, plus any additional attributes\n    (`--storage-pool pool-config.yaml [--storage-pool key=value ...]`)")
+	f.StringVar(&c.initialModelName, "add-model", "", "Specifies the name of an initial model to create on the new controller.")
 	f.BoolVar(&c.showClouds, "clouds", false,
-		"Print the available clouds which can be used to bootstrap a Juju environment")
-	f.StringVar(&c.showRegionsForCloud, "regions", "", "Print the available regions for the specified cloud")
-	f.BoolVar(&c.noSwitch, "no-switch", false, "Do not switch to the newly created controller")
-	f.BoolVar(&c.Force, "force", false, "Allow the bypassing of checks such as supported series")
-	f.StringVar(&c.ControllerCharmPath, "controller-charm-path", "", "Path to a locally built controller charm")
+		"Prints the available clouds which can be used to bootstrap a Juju environment.")
+	f.StringVar(&c.showRegionsForCloud, "regions", "", "Prints the available regions for the specified cloud.")
+	f.BoolVar(&c.noSwitch, "no-switch", false, "Skips switching to the newly created controller.")
+	f.BoolVar(&c.Force, "force", false, "Allows the bypassing of checks such as supported series.")
+	f.StringVar(&c.ControllerCharmPath, "controller-charm-path", "", "Specifies a path to a locally built controller charm.")
 	f.StringVar(&c.ControllerCharmChannelStr, "controller-charm-channel",
 		fmt.Sprintf("%d.%d/stable", jujuversion.Current.Major, jujuversion.Current.Minor),
-		"The Charmhub channel to download the controller charm from (if not using a local charm)")
+		"Specifies the Charmhub channel to download the controller charm from (if not using a local charm).")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {

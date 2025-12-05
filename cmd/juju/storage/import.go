@@ -138,7 +138,7 @@ func (c *importFilesystemCommand) Init(args []string) error {
 // SetFlags implements Command.SetFlags.
 func (c *importFilesystemCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.StorageCommandBase.SetFlags(f)
-	f.BoolVar(&c.force, "force", false, "import a volume even if otherwise prohibited (cloud specific)")
+	f.BoolVar(&c.force, "force", false, "Imports a volume even if otherwise prohibited (cloud specific).")
 }
 
 // Info implements Command.Info.

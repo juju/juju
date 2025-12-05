@@ -11,7 +11,7 @@ import (
 )
 
 const showMachineCommandDoc = `
-Show a specified machine on a model.  The default format is ` + "`yaml`" + `;
+Shows a specified machine on a model.  The default format is ` + "`yaml`" + `;
 other formats can be specified with the ` + "`--format`" + ` option.
 Available formats are ` + "`yaml`" + `, ` + "`tabular`" + `, and ` + "`json`" + `.
 `
@@ -43,7 +43,7 @@ func (c *showMachineCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "show-machine",
 		Args:     "<machineID> ...",
-		Purpose:  "Show a machine's status.",
+		Purpose:  "Shows a machine's status.",
 		Doc:      showMachineCommandDoc,
 		Examples: showMachineExamples,
 		SeeAlso: []string{

@@ -3,7 +3,7 @@
 > See also: [consume](#consume), [integrate](#integrate), [remove-saas](#remove-saas)
 
 ## Summary
-Offer application endpoints for use in other models.
+Offers application endpoints for use in other models.
 
 ## Usage
 ```juju offer [options] [model-name.]<application-name>:<endpoint-name>[,...] [offer-name]```
@@ -11,8 +11,8 @@ Offer application endpoints for use in other models.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `-c`, `--controller` |  | Performs the operation in the specified controller. |
 
 ## Examples
 
@@ -24,6 +24,6 @@ Offer application endpoints for use in other models.
 
 ## Details
 
-Deployed application endpoints are offered for use by consumers.
+Offer application endpoints for use by consumers.
 By default, the offer is named after the application, unless
 an offer name is explicitly specified.

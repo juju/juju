@@ -77,8 +77,7 @@ func (c *disableCommand) Run(ctx *cmd.Context) error {
 }
 
 var disableCommandDoc = `
-Juju allows to safeguard deployed models from unintentional damage by preventing
-execution of operations that could alter model.
+Disables sets of commands to safeguard deployed models from unintentional damage.
 
 This is done by disabling certain sets of commands from successful execution.
 Disabled commands must be manually enabled to proceed.

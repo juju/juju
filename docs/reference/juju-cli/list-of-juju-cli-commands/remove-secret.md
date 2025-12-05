@@ -1,7 +1,7 @@
 (command-juju-remove-secret)=
 # `juju remove-secret`
 ## Summary
-Remove a existing secret.
+Removes an existing secret.
 
 ## Usage
 ```juju remove-secret [options] <ID>|<name>```
@@ -10,7 +10,7 @@ Remove a existing secret.
 | Flag | Default | Usage |
 | --- | --- | --- |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--revision` | 0 | remove the specified revision |
+| `--revision` | 0 | Removes the specified revision. |
 
 ## Examples
 
@@ -21,4 +21,4 @@ Remove a existing secret.
 
 ## Details
 
-Remove all the revisions of a secret with the specified URI or remove the provided revision only.
+Removes all the revisions of a secret with the specified URI or remove the provided revision only.

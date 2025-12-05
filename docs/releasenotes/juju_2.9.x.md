@@ -7,7 +7,7 @@
 ```{note}
 Juju 2.9 series is LTS
 ```
-### 🔸 **Juju 2.9.52** - 07 July 2025
+## 🔸 **Juju 2.9.52** - 07 July 2025
 
 🛠️ Fixes:
 
@@ -20,7 +20,7 @@ Juju 2.9 series is LTS
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.52).
 
-### 🔸 **Juju 2.9.51** - 30 August 2024
+## 🔸 **Juju 2.9.51** - 30 August 2024
 
 🛠️ Fixes:
 
@@ -31,7 +31,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.51).
 
 
-### 🔸 **Juju 2.9.50**
+## 🔸 **Juju 2.9.50**
 🗓️ 25 Jul 2024
 
 🛠️ Fixes:
@@ -41,7 +41,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.50).
 
 
-### 🔸 **Juju 2.9.49**
+## 🔸 **Juju 2.9.49**
 🗓️ 8 Apr 2024
 
 🛠️ Fixes:
@@ -50,7 +50,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.49).
 
-### 🔸 **Juju 2.9.47** - 18 March 2024
+## 🔸 **Juju 2.9.47** - 18 March 2024
 
 🛠️ Fixes:
 
@@ -59,7 +59,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.47).
 
 
-### 🔸 **Juju 2.9.46** - 5 Dec 2023
+## 🔸 **Juju 2.9.46** - 5 Dec 2023
 
 🛠️ Fixes:
 
@@ -70,7 +70,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.46).
 
-### 🔸 **Juju 2.9.45** - 27 Sep 2023
+## 🔸 **Juju 2.9.45** - 27 Sep 2023
 
 🛠️ Fixes:
 
@@ -81,7 +81,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.45).
 
-### 🔸 **Juju 2.9.44**
+## 🔸 **Juju 2.9.44**
 🗓️ 20 Jul 2023
 
 Fixes several major bugs in 2.9.44 **6 High** / 1 Medium
@@ -98,7 +98,7 @@ Fixes several major bugs in 2.9.44 **6 High** / 1 Medium
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.44).
 
-### 🔸 **Juju 2.9.43** - 13 June 2023
+## 🔸 **Juju 2.9.43** - 13 June 2023
 
 Fixes several major bugs in 2.9.43 **5 Critical / 10 High**
 
@@ -110,7 +110,7 @@ Fixes several major bugs in 2.9.43 **5 Critical / 10 High**
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.43).
 
-### 🔸 **Juju 2.9.42**
+## 🔸 **Juju 2.9.42**
 🗓️ 7 Mar 2023
 
 Fixes several major bugs in 2.9.42.
@@ -125,7 +125,7 @@ Fixes several major bugs in 2.9.42.
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.42).
 
-### 🔸 **Juju 2.9.38**
+## 🔸 **Juju 2.9.38**
 🗓️ 17 Jan 2023
 
 This release fixes some critical issues ending in panic and a some problems regarding the usage of lxd 5.x.
@@ -139,7 +139,7 @@ The main fixes in this release are below.
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.38).
 
-### 🔸 **Juju 2.9.37** - 15 Nov 2022
+## 🔸 **Juju 2.9.37** - 15 Nov 2022
 
 The main fixes in this release are below. A startup issue on k8s is fixed, plus an intermittent situation where container creation can fail.
 
@@ -150,7 +150,7 @@ The main fixes in this release are below. A startup issue on k8s is fixed, plus 
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.37).
 
-### 🔸 **Juju 2.9.35** - 12 Oct 2022
+## 🔸 **Juju 2.9.35** - 12 Oct 2022
 
 🛠️ Fixes (more on the milestone):
 
@@ -162,7 +162,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.35).
 
-### 🔸 **Juju 2.9.34** - 7 Sep 2022
+## 🔸 **Juju 2.9.34** - 7 Sep 2022
 
 🛠️ Fixes (more on the milestone):
 
@@ -174,7 +174,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.34).
 
-### 🔸 **Juju 2.9.33** - 9 Aug 2022
+## 🔸 **Juju 2.9.33** - 9 Aug 2022
 
 🛠️ Fixes (many more on the milestone):
 
@@ -187,7 +187,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.33).
 
-### 🔸 **Juju 2.9.32** - 24 June 2022
+## 🔸 **Juju 2.9.32** - 24 June 2022
 
 🛠️ Fixes:
 
@@ -199,7 +199,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.32).
 
-### 🔸 **Juju 2.9.31** - 31 May 2022
+## 🔸 **Juju 2.9.31** - 31 May 2022
 
 🛠️ Fixes:
 
@@ -212,7 +212,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.31).
 
-### 🔸 **Juju 2.9.29** - 30 Apr 2022
+## 🔸 **Juju 2.9.29** - 30 Apr 2022
 
 🛠️ Fixes:
 
@@ -223,7 +223,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.29).
 
-### 🔸 **Juju 2.9.28** - 08 Apr 2022
+## 🔸 **Juju 2.9.28** - 08 Apr 2022
 
 🛠️ Fixes:
 
@@ -233,7 +233,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.28).
 
-### 🔸 **Juju 2.9.27** - 21 Mar 2022
+## 🔸 **Juju 2.9.27** - 21 Mar 2022
 
 Candidate release:  18 Mar 2022
 
@@ -245,7 +245,7 @@ Candidate release:  18 Mar 2022
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.27).
 
-### 🔸 **Juju 2.9.26**
+## 🔸 **Juju 2.9.26**
 🗓️ 12 Mar 2022
 
 This release includes a fix for broken upgrades coming from a deployment with cross model relations to multiple offers hosted on an external controller ([LP1964130](https://bugs.launchpad.net/bugs/1964130)).
@@ -264,7 +264,7 @@ This release includes a fix for broken upgrades coming from a deployment with cr
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.26).
 
 
-### 🔸 **Juju 2.9.25**
+## 🔸 **Juju 2.9.25**
 🗓️ 24 Feb 2022
 
 This release is significant because it transitions to using the juju-db snap from the `4.4/stable` channel (running mongodb 4.4.11 at the time of writing) for newly bootstrapped controllers. NB the juu-db snap is not used if the default series is changed from `focal` to an earlier vrsion.
@@ -284,7 +284,7 @@ Existing controllers which are upgraded to this release will not change the mong
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.25).
 
-### 🔸 **Juju 2.9.22**
+## 🔸 **Juju 2.9.22**
 🗓️ 13 Dec 2021
 
 🛠️ Fixes:
@@ -298,7 +298,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.22).
 
-### 🔸 **Juju 2.9.21**
+## 🔸 **Juju 2.9.21**
 🗓️ 3 Dec 2021
 
 🛠️ Fixes:
@@ -310,7 +310,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.21).
 
-### 🔸 **Juju 2.9.19**
+## 🔸 **Juju 2.9.19**
 🗓️ 23 Nov 2021
 
 🛠️ Fixes:
@@ -322,7 +322,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.19).
 
-### 🔸 **Juju 2.8.13**
+## 🔸 **Juju 2.8.13**
 🗓️ 11 Nov 2021
 
 This release fixes various issues with Juju **2.8**
@@ -338,7 +338,7 @@ This release fixes various issues with Juju **2.8**
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.8.13).
 
-### 🔸 **Juju 2.9.18**
+## 🔸 **Juju 2.9.18**
 🗓️ 8 Nov 2021
 
 🛠️ Fixes:
@@ -348,7 +348,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.18).
 
-### 🔸 **Juju 2.9.17**
+## 🔸 **Juju 2.9.17**
 🗓️ 27 Oct 2021
 
 This release introduces {ref}`telemetry` as a configurable option per model.
@@ -362,7 +362,7 @@ It also supports [more OCI image registry providers](https://discourse.charmhub.
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.17).
 
-### 🔸 **Juju 2.9.16**
+## 🔸 **Juju 2.9.16**
 🗓️ 11 Oct 2021
 
 🛠️ Fixes:
@@ -374,7 +374,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.16).
 
-### 🔸 **Juju 2.9.15**
+## 🔸 **Juju 2.9.15**
 🗓️ 28 Sep 2021
 
 This release improves the robustness of repeated cross model relation setup / teardown.
@@ -389,7 +389,7 @@ There's also some improvements to how raft is used internally to manage leases.
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.15).
 
-### 🔸 **Juju 2.9.14**
+## 🔸 **Juju 2.9.14**
 🗓️ 14 Sep 2021
 
 This release fixes an upgrade issue found during testing of the 2.9.13 release.
@@ -404,7 +404,7 @@ There's also an additional fix for an earlier regression deploying LXD container
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.14).
 
-### 🔸 **Juju 2.9.13** - Release cancelled, replaced by 2.9.14
+## 🔸 **Juju 2.9.13** - Release cancelled, replaced by 2.9.14
 
 This release adds support for pulling images used for CAAS models from private OCI registries! This means you can host your own `jujud-operator`, `charm-base` and `juju-db` images. This initial release focuses on private registries on Dockerhub, with other public cloud registry support coming in a future release. More details in [this post](https://discourse.charmhub.io/t/initial-private-registry-support/5079).
 
@@ -414,7 +414,7 @@ This release adds support for pulling images used for CAAS models from private O
 - Juju is unable to match machine address CIDRs to subnet CIDRs on Equinix Metal clouds ([LP](https://bugs.launchpad.net/bugs/1942241))
 - Non POSIX-compatible script used in `/etc/profile.d/juju-introspection.sh` ([LP](https://bugs.launchpad.net/bugs/1942430))
 
-### 🔸 **Juju 2.9.12**
+## 🔸 **Juju 2.9.12**
 🗓️ 30 Aug 2021
 
 🛠️ Fixes:
@@ -426,7 +426,7 @@ This release adds support for pulling images used for CAAS models from private O
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.12).
 
-### 🔸 **Juju 2.9.11**
+## 🔸 **Juju 2.9.11**
 🗓️ 17 Aug 2021
 
 🛠️ Fixes:
@@ -437,7 +437,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.11).
 
-### 🔸 **Juju 2.9.10**
+## 🔸 **Juju 2.9.10**
 🗓️ 3 Aug 2021
 
 A new logging label: `charmhub`. To enable debugging information about Charmhub, you can now use the following:
@@ -456,7 +456,7 @@ juju model-config -m controller "logging-config='#charmhub=TRACE'"
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.10).
 
-### 🔸 **Juju 2.9.9**
+## 🔸 **Juju 2.9.9**
 🗓️ 19 Jul 2021
 
 🛠️ Fixes:
@@ -468,7 +468,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.9).
 
-### 🔸 **Juju 2.9.8**
+## 🔸 **Juju 2.9.8**
 🗓️ 13 Jul 2021
 
 This release introduces support for bootstrapping and deploying workloads to **[Equinix](https://www.equinix.com) cloud**. To try out the new provider:
@@ -498,7 +498,7 @@ The above will turn on HTTP loggers to trace. This is a new UX feature to help w
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.8).
 
-### 🔸 **Juju 2.9.7**
+## 🔸 **Juju 2.9.7**
 🗓️ 6 Jul 2021
 
 🛠️ Fixes:
@@ -521,19 +521,19 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.7).
 
-### 🔸 **Juju 2.9.5**
+## 🔸 **Juju 2.9.5**
 Release notes [here](https://discourse.charmhub.io/t/juju-2-9-5-release-notes/4750).
 
-### 🔸 **Juju 2.9.4**
+## 🔸 **Juju 2.9.4**
 Release notes [here](https://discourse.charmhub.io/t/juju-2-9-4-release-notes/4660).
 
-### 🔸 **Juju 2.9.3**
+## 🔸 **Juju 2.9.3**
 Release notes [here](https://discourse.charmhub.io/t/juju-2-9-3-release-notes/4628).
 
-### 🔸 **Juju 2.9.2**
+## 🔸 **Juju 2.9.2**
 Release notes [here](https://discourse.charmhub.io/t/juju-2-9-2-release-notes/4605).
 
-### 🔸 **Juju 2.9.0**
+## 🔸 **Juju 2.9.0**
 Release notes [here](https://discourse.charmhub.io/t/juju-2-9-0-release-notes/4525).
 
 

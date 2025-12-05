@@ -11,10 +11,10 @@ Updates an existing Kubernetes endpoint used by Juju.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--client` | false | Client operation |
-| `-f` |  | The path to a cloud definition file |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `-c`, `--controller` |  | Performs the operation in the specified controller. |
+| `--client` | false | Performs the operation on the local client. |
+| `-f` |  | Specifies the path to a cloud definition file. |
 
 ## Examples
 
@@ -28,7 +28,7 @@ Updates an existing Kubernetes endpoint used by Juju.
 
 ## Details
 
-Update Kubernetes cloud information on this client and/or on a controller.
+Updates Kubernetes cloud information on this client and/or on a controller.
 
 The Kubernetes cloud can be a built-in cloud such as MicroK8s.
 

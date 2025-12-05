@@ -32,7 +32,7 @@ type updateSecretBackendCommand struct {
 }
 
 var updateSecretBackendsDoc = `
-Updates a new secret backend for storing secret content.
+Updates a secret backend for storing secret content.
 
 You must specify a name for the backend to update,
 followed by any necessary backend specific config values.
@@ -83,7 +83,7 @@ func (c *updateSecretBackendCommand) secretBackendsAPI() (UpdateSecretBackendsAP
 func (c *updateSecretBackendCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "update-secret-backend",
-		Purpose:  "Update an existing secret backend on the controller.",
+		Purpose:  "Updates an existing secret backend on the controller.",
 		Doc:      updateSecretBackendsDoc,
 		Args:     "<backend-name>",
 		Examples: updateSecretBackendsExamples,
@@ -98,10 +98,10 @@ func (c *updateSecretBackendCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.SetFlags.
 func (c *updateSecretBackendCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.Var(&c.ConfigFile, "config", "Path to yaml-formatted configuration file")
+	f.Var(&c.ConfigFile, "config", "Path to yaml-formatted configuration file.")
 	f.Var(cmd.NewAppendStringsValue(&c.Reset), "reset",
-		"Reset the provided comma delimited config keys")
-	f.BoolVar(&c.Force, "force", false, "Force update even if the backend is unreachable")
+		"Resets the provided comma delimited config keys.")
+	f.BoolVar(&c.Force, "force", false, "Forces update even if the backend is unreachable.")
 }
 
 func (c *updateSecretBackendCommand) Init(args []string) error {

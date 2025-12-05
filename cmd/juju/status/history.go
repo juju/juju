@@ -53,7 +53,7 @@ type statusHistoryCommand struct {
 }
 
 var statusHistoryDoc = fmt.Sprintf(`
-This command will report the history of status changes for
+Reports the history of status changes for
 a given entity.
 
 The statuses are available for the following types.
@@ -130,11 +130,11 @@ func supportedHistoryKindDescs() string {
 
 func (c *statusHistoryCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.outputContent, "type", "unit", fmt.Sprintf("Type of statuses to be displayed [%v]", supportedHistoryKindTypes()))
-	f.IntVar(&c.backlogSize, "n", 0, "Returns the last N logs (cannot be combined with --days or --date)")
-	f.IntVar(&c.backlogSizeDays, "days", 0, "Returns the logs for the past <days> days (cannot be combined with -n or --date)")
-	f.StringVar(&c.backlogDate, "from-date", "", "Returns logs for any date after the passed one, the expected date format is YYYY-MM-DD (cannot be combined with -n or --days)")
-	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
+	f.StringVar(&c.outputContent, "type", "unit", fmt.Sprintf("Specifies the type of statuses to be displayed [%v].", supportedHistoryKindTypes()))
+	f.IntVar(&c.backlogSize, "n", 0, "Returns the last N logs (cannot be combined with `--days` or `--date`).")
+	f.IntVar(&c.backlogSizeDays, "days", 0, "Returns the logs for the past `<days>` days. Cannot be combined with `-n` or `--date`.")
+	f.StringVar(&c.backlogDate, "from-date", "", "Returns logs for any date after the passed one. The expected date format is `YYYY-MM-DD` (cannot be combined with `-n` or `--days`).")
+	f.BoolVar(&c.isoTime, "utc", false, "Displays time as UTC in RFC3339 format.")
 
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,

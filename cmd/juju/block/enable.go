@@ -47,7 +47,7 @@ func (c *enableCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "enable-command",
 		Args:     "<command set>",
-		Purpose:  "Enable commands that had been previously disabled.",
+		Purpose:  "Enables commands that had been previously disabled.",
 		Doc:      enableDoc,
 		Examples: enableExamples,
 		SeeAlso: []string{
@@ -75,6 +75,8 @@ func (c *enableCommand) Run(_ *cmd.Context) error {
 }
 
 const enableDoc = `
+Enables sets of commands that were previously disabled.
+
 Juju allows to safeguard deployed models from unintentional damage by preventing
 execution of operations that could alter model.
 

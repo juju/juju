@@ -26,8 +26,8 @@ var usageListUsersSummary = `
 Lists Juju users allowed to connect to a controller or model.`[1:]
 
 var usageListUsersDetails = `
-When used without a model name argument, users relevant to a controller are printed.
-When used with a model name, users relevant to the specified model are printed.
+Prints users relevant to a controller when used without a model name argument.
+Prints users relevant to the specified model when used with a model name.
 
 `[1:]
 
@@ -99,7 +99,7 @@ func (c *listCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.infoCommandBase.SetFlags(f)
-	f.BoolVar(&c.All, "all", false, "Include disabled users")
+	f.BoolVar(&c.All, "all", false, "Includes disabled users.")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,

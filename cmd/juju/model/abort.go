@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	abortSummary = "Aborts a branch in the model."
+	abortSummary = "Abort a branch in the model."
 	abortDoc     = `
 Aborting a branch aborts changes made to that branch.  A branch
 can only be aborted if no units are tracked by that branch.

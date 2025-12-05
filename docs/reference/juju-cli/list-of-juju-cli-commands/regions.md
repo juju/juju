@@ -13,9 +13,9 @@ Lists regions for a given cloud.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--client` | false | Client operation |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `-c`, `--controller` |  | Performs the operation in the specified controller. |
+| `--client` | false | Performs the operation on the local client. |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
 | `-o`, `--output` |  | Specify an output file |
 
@@ -29,7 +29,7 @@ Lists regions for a given cloud.
 
 ## Details
 
-List regions for a given cloud.
+Lists regions for a given cloud.
 
 Use `--controller` option to list regions from the cloud from a controller.
 

@@ -373,8 +373,8 @@ func (w *controllerCommandWrapper) inner() cmd.Command {
 // SetFlags implements Command.SetFlags, then calls the wrapped command's SetFlags.
 func (w *controllerCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 	if w.setControllerFlags {
-		f.StringVar(&w.controllerName, "c", "", "Controller to operate in")
-		f.StringVar(&w.controllerName, "controller", "", "")
+		f.StringVar(&w.controllerName, "c", "", "Performs the operation in the specified controller.")
+		f.StringVar(&w.controllerName, "controller", "", "Performs the operation in the specified controller.")
 	}
 	w.ControllerCommand.SetFlags(f)
 }
@@ -452,9 +452,9 @@ func (c *OptionalControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
 	// Embedded commands do not use the --client or --controller options.
 	if !c.Embedded {
-		f.BoolVar(&c.Client, "client", false, "Client operation")
-		f.StringVar(&c.ControllerName, "c", "", "Controller to operate in")
-		f.StringVar(&c.ControllerName, "controller", "", "")
+		f.BoolVar(&c.Client, "client", false, "Performs the operation on the local client.")
+		f.StringVar(&c.ControllerName, "c", "", "Performs the operation in the specified controller.")
+		f.StringVar(&c.ControllerName, "controller", "", "Performs the operation in the specified controller.")
 	}
 }
 

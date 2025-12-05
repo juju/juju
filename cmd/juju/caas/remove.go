@@ -25,7 +25,7 @@ Removes the specified Kubernetes cloud from this client.
 If ` + "`--controller`" + ` is used, also removes the cloud
 from the specified controller (if it is not in use).
 
-Use the ` + "`--client`" + ` option to update your current client.
+The ` + "`--client`" + ` option can be used to update the current client.
 
 `
 

@@ -1,7 +1,7 @@
 (command-juju-update-secret)=
 # `juju update-secret`
 ## Summary
-Update an existing secret.
+Updates an existing secret.
 
 ## Usage
 ```juju update-secret [options] <ID>|<name> [key[#base64|#file]=value...]```
@@ -9,11 +9,11 @@ Update an existing secret.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `--auto-prune` | nil | Used to allow Juju to automatically remove revisions which are no longer being tracked by any observers |
-| `--file` |  | A YAML file containing secret key values |
-| `--info` |  | The secret description |
+| `--auto-prune` | nil | Allows Juju to automatically remove revisions which are no longer being tracked by any observers. |
+| `--file` |  | Specifies a YAML file containing secret key values. |
+| `--info` |  | Specifies the secret description. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--name` |  | The new secret name |
+| `--name` |  | Specifies the new secret name. |
 
 ## Examples
 
@@ -32,7 +32,7 @@ Update an existing secret.
 
 ## Details
 
-Update a secret with a list of key values, or info.
+Updates a secret with a list of key values, or info.
 
 If a value has the `#base64` suffix, it is already in `base64` format and no
 encoding will be performed, otherwise the value will be base64 encoded

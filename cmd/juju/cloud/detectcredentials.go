@@ -49,7 +49,7 @@ type detectCredentialsCommand struct {
 const detectCredentialsSummary = `Attempts to automatically detect and add credentials for a cloud.`
 
 var detectCredentialsDoc = `
-The command searches well known, cloud-specific locations on this client.
+Searches well-known, cloud-specific locations on this client.
 If credential information is found, it is presented to the user
 in a series of prompts to facilitated interactive addition and upload.
 An alternative to this command is ` + "`juju add-credential`" + `.

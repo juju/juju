@@ -70,13 +70,13 @@ func (c *ListCommand) Info() *cmd.Info {
 		Name:    "resources",
 		Aliases: []string{"list-resources"},
 		Args:    "<application or unit>",
-		Purpose: "Show the resources for an application or unit.",
+		Purpose: "Shows the resources for an application or unit.",
 		SeeAlso: []string{
 			"attach-resource",
 			"charm-resources",
 		},
 		Doc: `
-This command shows the resources required by and those in use by an existing
+Show the resources required by and those in use by an existing
 application or unit in your model.  When run for an application, it will also show any
 updates available for resources from a store.
 `,
@@ -94,7 +94,7 @@ func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":        cmd.FormatJson,
 	})
 
-	f.BoolVar(&c.details, "details", false, "Show detailed information about the resources used by each unit.")
+	f.BoolVar(&c.details, "details", false, "Shows detailed information about the resources used by each unit.")
 }
 
 // Init implements cmd.Command.Init. It will return an error satisfying

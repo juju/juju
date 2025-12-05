@@ -11,15 +11,15 @@ Output past statuses for the specified entity.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--days` | 0 | Returns the logs for the past &lt;days&gt; days (cannot be combined with -n or --date) |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--days` | 0 | Returns the logs for the past `<days>` days. Cannot be combined with `-n` or `--date`. |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
-| `--from-date` |  | Returns logs for any date after the passed one, the expected date format is YYYY-MM-DD (cannot be combined with -n or --days) |
+| `--from-date` |  | Returns logs for any date after the passed one. The expected date format is `YYYY-MM-DD` (cannot be combined with `-n` or `--days`). |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `-n` | 0 | Returns the last N logs (cannot be combined with --days or --date) |
+| `-n` | 0 | Returns the last N logs (cannot be combined with `--days` or `--date`). |
 | `-o`, `--output` |  | Specify an output file |
-| `--type` | unit | Type of statuses to be displayed [application&#x7c;container&#x7c;juju-container&#x7c;juju-machine&#x7c;juju-unit&#x7c;machine&#x7c;model&#x7c;saas&#x7c;unit&#x7c;workload] |
-| `--utc` | false | Display time as UTC in RFC3339 format |
+| `--type` | unit | Specifies the type of statuses to be displayed [application&#x7c;container&#x7c;juju-container&#x7c;juju-machine&#x7c;juju-unit&#x7c;machine&#x7c;model&#x7c;saas&#x7c;unit&#x7c;workload]. |
+| `--utc` | false | Displays time as UTC in RFC3339 format. |
 
 ## Examples
 
@@ -54,7 +54,7 @@ Show the status history for the model:
 
 ## Details
 
-This command will report the history of status changes for
+Reports the history of status changes for
 a given entity.
 
 The statuses are available for the following types.

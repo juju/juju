@@ -11,7 +11,7 @@ Sets machine constraints on a model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 
 ## Examples
@@ -22,7 +22,9 @@ Sets machine constraints on a model.
 
 ## Details
 
-Sets constraints on the model that can be viewed with `juju model-constraints`.
+Sets constraints on the model.
+
+These constraints can be viewed with `juju model-constraints`.
 By default, the model is the current model.
 Model constraints are combined with constraints set for an application with
 `juju set-constraints` for commands (such as `deploy`) that provision

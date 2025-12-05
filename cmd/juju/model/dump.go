@@ -29,7 +29,7 @@ type dumpCommand struct {
 
 const dumpModelHelpDoc = `
 Calls export on the model's database representation and writes the
-resulting YAML to stdout.
+resulting YAML to ` + "`stdout`" + `.
 
 Examples:
 
@@ -44,7 +44,7 @@ See also:
 func (c *dumpCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "dump-model",
-		Purpose: "Displays the database agnostic representation of the model.",
+		Purpose: "Display the database-agnostic representation of the model.",
 		Doc:     dumpModelHelpDoc,
 	})
 }
@@ -53,7 +53,7 @@ func (c *dumpCommand) Info() *cmd.Info {
 func (c *dumpCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
-	f.BoolVar(&c.simplified, "simplified", false, "Dump a simplified partial model")
+	f.BoolVar(&c.simplified, "simplified", false, "Dumps a simplified partial model.")
 }
 
 // Init implements Command.

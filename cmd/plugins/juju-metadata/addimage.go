@@ -20,13 +20,13 @@ func newAddImageMetadataCommand() cmd.Command {
 }
 
 const addImageCommandDoc = `
-Add image metadata to Juju model.
+Adds image metadata to Juju model.
 
 Image metadata properties vary between providers. Consequently, some properties
 are optional for this command but they may still be needed by your provider.
 
-Adding an image for a specific base can be done via --base. --base can be 
-specified using the OS name and the version of the OS, separated by @. For 
+Adding an image for a specific base can be done via --base. --base can be
+specified using the OS name and the version of the OS, separated by @. For
 example, --base ubuntu@22.04.
 `
 
@@ -75,7 +75,7 @@ func (c *addImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.cloudImageMetadataCommandBase.SetFlags(f)
 
 	f.StringVar(&c.Region, "region", "", "image cloud region")
-	f.StringVar(&c.Series, "series", "", "image series. DEPRECATED, use --base")
+	f.StringVar(&c.Series, "series", "", "image series. DEPRECATED; use `--base")
 	f.StringVar(&c.Base, "base", "", "image base")
 	f.StringVar(&c.Arch, "arch", "amd64", "image architecture")
 	f.StringVar(&c.VirtType, "virt-type", "", "image metadata virtualisation type")

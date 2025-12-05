@@ -11,13 +11,13 @@ Remove applications from the model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--destroy-storage` | false | Destroy storage attached to application units |
-| `--dry-run` | false | Print what this command would remove without removing |
-| `--force` | false | Completely remove an application and all its dependencies |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--destroy-storage` | false | Destroys storage attached to application units. |
+| `--dry-run` | false | Prints what this command would remove without removing. |
+| `--force` | false | Completely removes an application and all its dependencies. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--no-prompt` | false | Do not ask for confirmation. Overrides `mode` model config setting |
-| `--no-wait` | false | Rush through application removal without waiting for each individual step to complete |
+| `--no-prompt` | false | Skip confirmation. Overrides `mode` model config setting. |
+| `--no-wait` | false | Rushes through application removal without waiting for each individual step to complete. |
 
 ## Examples
 

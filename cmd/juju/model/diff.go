@@ -22,9 +22,9 @@ import (
 )
 
 const (
-	diffSummary = `Displays details of active branches.`
+	diffSummary = `Display details of active branches.`
 	diffDoc     = `
-Details displayed include:
+Display details including:
 - user who created the branch
 - when it was created
 - configuration changes made under the branch for each application
@@ -35,7 +35,7 @@ tracking "master".
 
 Examples:
     juju diff
-	juju diff test-branch --all 	
+	juju diff test-branch --all
     juju diff --utc
 
 See also:
@@ -92,8 +92,8 @@ func (c *diffCommand) Info() *cmd.Info {
 // SetFlags implements part of the cmd.Command interface.
 func (c *diffCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
-	f.BoolVar(&c.detailed, "all", false, "Show branch unit detail")
+	f.BoolVar(&c.isoTime, "utc", false, "Displays time as UTC in `RFC3339` format.")
+	f.BoolVar(&c.detailed, "all", false, "Shows branch unit detail.")
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 

@@ -92,7 +92,7 @@ func (c *initCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.profileDir, "profile-dir", "", "install introspection functions to this directory")
 	f.StringVar(&c.pebbleIdentitiesFile, "pebble-identities-file", "", "pebble identities file for configuring workload pebbles to auth with the charm")
 	f.IntVar(&c.pebbleCharmIdentity, "pebble-charm-identity", -1, "charm identity user-id to add to the --pebble-identities-file")
-	f.BoolVar(&c.isController, "controller", false, "set when the charm is colocated with the controller")
+	f.BoolVar(&c.isController, "controller", false, "Sets when the charm is colocated with the controller")
 }
 
 // Info returns a description of the command.

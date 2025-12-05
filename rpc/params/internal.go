@@ -144,10 +144,6 @@ type ModelCreateArgs struct {
 	// and the owner is the controller owner, the same credential
 	// used for the controller model will be used.
 	CloudCredentialTag string `json:"credential,omitempty"`
-
-	// TargetController is a JAAS specific field to specify the
-	// name of the controller that hosts the model.
-	TargetController string `json:"target-controller,omitempty"`
 }
 
 // Model holds the result of an API call returning a name and UUID

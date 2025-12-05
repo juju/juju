@@ -24,20 +24,21 @@ const (
 )
 
 const createDoc = `
-This command requests that Juju creates a backup of its state.
-You may provide a note to associate with the backup.
+Creates a backup of Juju's state.
+
+A note may be provided to associate with the backup.
 
 By default, the backup archive and associated metadata are downloaded.
 
-Use ` + "`--no-download`" + ` to avoid getting a local copy of the backup downloaded
+The ` + "`--no-download`" + ` option can be used to avoid getting a local copy of the backup downloaded
 at the end of the backup process. In this case it is recommended that the
 model config attribute ` + "`backup-dir`" + ` be set to point to a path where the
 backup archives should be stored long term. This could be a remotely mounted
 filesystem; the same path must exist on each controller if using HA.
 
-Use ` + "`--verbose`" + ` to see extra information about backup.
+The ` + "`--verbose`" + ` option can be used to see extra information about backup.
 
-To access remote backups stored on the controller, see ` + "`juju download-backup`" + `.
+To access remote backups stored on the controller, ` + "`juju download-backup`" + ` can be used.
 `
 
 const createExamples = `
@@ -66,7 +67,7 @@ func (c *createCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "create-backup",
 		Args:     "[<notes>]",
-		Purpose:  "Create a backup.",
+		Purpose:  "Creates a backup.",
 		Doc:      createDoc,
 		Examples: createExamples,
 		SeeAlso: []string{
@@ -78,8 +79,8 @@ func (c *createCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *createCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.BoolVar(&c.NoDownload, "no-download", false, "Do not download the archive. DEPRECATED.")
-	f.StringVar(&c.Filename, "filename", notset, "Download to this file")
+	f.BoolVar(&c.NoDownload, "no-download", false, "Skips downloading the archive. DEPRECATED.")
+	f.StringVar(&c.Filename, "filename", notset, "Specifies the file to download to.")
 	c.fs = f
 }
 

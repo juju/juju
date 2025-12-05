@@ -393,19 +393,6 @@ func (s *modelManagerSuite) TestModelInfoWithReadAccess(c *gc.C) {
 	c.Assert(modelInfoReader.Results[0].Result, jc.DeepEquals, &expectedModelInfo)
 }
 
-func (s *modelManagerSuite) TestCreateModelWithTargetControllerSet(c *gc.C) {
-	args := params.ModelCreateArgs{
-		Name:               "foo",
-		OwnerTag:           "user-admin",
-		CloudTag:           "cloud-some-cloud",
-		CloudRegion:        "qux",
-		CloudCredentialTag: "cloudcred-some-cloud_admin_some-credential",
-		TargetController:   "some-controller",
-	}
-	_, err := s.api.CreateModel(args)
-	c.Assert(err, gc.ErrorMatches, `target-controller parameter is only supported on JAAS`)
-}
-
 func (s *modelManagerSuite) TestCreateModelArgsWithCloudNotFound(c *gc.C) {
 	s.st.SetErrors(errors.NotFoundf("cloud"))
 	args := params.ModelCreateArgs{

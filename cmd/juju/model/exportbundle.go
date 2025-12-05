@@ -79,9 +79,9 @@ func (c *exportBundleCommand) Info() *cmd.Info {
 // SetFlags implements Command.
 func (c *exportBundleCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.Filename, "filename", "", "Bundle file")
-	f.BoolVar(&c.includeCharmDefaults, "include-charm-defaults", false, "Whether to include charm config default values in the exported bundle")
-	f.BoolVar(&c.includeSeries, "include-series", false, "Compatibility option. Set to include series in the bundle alongside bases")
+	f.StringVar(&c.Filename, "filename", "", "Specifies the bundle file.")
+	f.BoolVar(&c.includeCharmDefaults, "include-charm-defaults", false, "Includes charm config default values in the exported bundle.")
+	f.BoolVar(&c.includeSeries, "include-series", false, "Includes series in the bundle alongside bases (compatibility option).")
 }
 
 // Init implements Command.

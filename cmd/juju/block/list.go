@@ -70,7 +70,7 @@ func (c *listCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.all, "all", false, "Lists for all models (administrative users only)")
+	f.BoolVar(&c.all, "all", false, "Lists for all models (administrative users only).")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,

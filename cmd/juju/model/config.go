@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	modelConfigSummary        = "Displays or sets configuration values on a model."
+	modelConfigSummary        = "Display or set configuration values on a model."
 	modelConfigHelpDocPartOne = `
 To view all configuration values for the current model:
 
@@ -266,7 +266,7 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 		"tabular": formatConfigTabular,
 		"yaml":    cmd.FormatYaml,
 	})
-	f.BoolVar(&c.ignoreReadOnlyFields, "ignore-read-only-fields", false, "Ignore read only fields that might cause errors to be emitted while processing yaml documents")
+	f.BoolVar(&c.ignoreReadOnlyFields, "ignore-read-only-fields", false, "Ignores read-only fields that might cause errors to be emitted while processing `yaml` documents.")
 }
 
 // Init implements part of the cmd.Command interface.

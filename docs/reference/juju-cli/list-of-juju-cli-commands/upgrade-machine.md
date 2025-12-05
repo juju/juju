@@ -3,7 +3,7 @@
 > See also: [machines](#machines), [status](#status), [refresh](#refresh), [set-application-base](#set-application-base)
 
 ## Summary
-Upgrade the Ubuntu base of a machine.
+Upgrades the Ubuntu base of a machine.
 
 ## Usage
 ```juju upgrade-machine [options] <machine> <command> [args]```
@@ -11,10 +11,10 @@ Upgrade the Ubuntu base of a machine.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--force` | false | Upgrade even if the base is not supported by the charm and/or related subordinate charms. |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--force` | false | Upgrades even if the base is not supported by the charm and/or related subordinate charms. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `-y`, `--yes` | false | Agree that the operation cannot be reverted or canceled once started without being prompted. |
+| `-y`, `--yes` | false | Agrees that the operation cannot be reverted or canceled once started without being prompted. |
 
 ## Examples
 
@@ -35,7 +35,7 @@ necessary manual upgrade steps have completed successfully:
 
 ## Details
 
-Upgrade a machine's operating system release.
+Upgrades a machine's operating system release.
 
 `upgrade-machine `allows users to perform a managed upgrade of the operating system
 release of a machine using a base. This command is performed in two steps;

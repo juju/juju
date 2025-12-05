@@ -3,7 +3,7 @@
 > See also: [wait-for model](#wait-for model), [wait-for application](#wait-for application), [wait-for unit](#wait-for unit)
 
 ## Summary
-Wait for a machine to reach a specified state.
+Waits for a machine to reach a specified state.
 
 ## Usage
 ```juju wait-for machine [options] [<id>]```
@@ -11,11 +11,11 @@ Wait for a machine to reach a specified state.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--query` | life=="alive" &amp;&amp; status=="started" | Query the goal state |
-| `--summary` | true | Output a summary of the application query on exit |
-| `--timeout` | 10m0s | How long to wait, before timing out |
+| `--query` | life=="alive" &amp;&amp; status=="started" | Queries the goal state. |
+| `--summary` | true | Outputs a summary of the application query on exit. |
+| `--timeout` | 10m0s | Specifies the timeout for the operation. |
 
 ## Examples
 

@@ -17,10 +17,10 @@ import (
 )
 
 const (
-	commitSummary = "Commits a branch to the model."
+	commitSummary = "Commit a branch to the model."
 	commitDoc     = `
-Committing a branch writes changes to charm configuration made under the 
-branch, to the model. All units who's applications were changed under the 
+Committing a branch writes changes to charm configuration made under the
+branch, to the model. All units who's applications were changed under the
 branch realise those changes, as will any new units.
 
 Examples:

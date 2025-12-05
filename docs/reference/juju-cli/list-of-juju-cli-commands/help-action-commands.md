@@ -3,7 +3,7 @@
 > See also: [help](#help), [help-hook-commands](#help-hook-commands)
 
 ## Summary
-Show help on a Juju charm action command.
+Shows help on a Juju charm action command.
 
 ## Usage
 ```juju help-action-commands [options] [action]```

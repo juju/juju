@@ -67,7 +67,7 @@ type enableHACommand struct {
 
 const enableHADoc = `
 To ensure availability of deployed applications, the Juju infrastructure
-must itself be highly available. The ` + "`enable-ha`" + ` command will ensure
+must itself be highly available. The ` + "`enable-ha`" + ` command ensures
 that the specified number of controller machines are used to make up the
 controller.
 
@@ -148,9 +148,9 @@ func (c *enableHACommand) Info() *cmd.Info {
 
 func (c *enableHACommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
-	f.IntVar(&c.NumControllers, "n", 0, "Number of controllers to make available")
-	f.StringVar(&c.PlacementSpec, "to", "", "The machine(s) to become controllers, bypasses constraints")
-	f.Var(&c.ConstraintsStr, "constraints", "Additional machine constraints")
+	f.IntVar(&c.NumControllers, "n", 3, "Specifies the number of controllers to maintain.")
+	f.StringVar(&c.PlacementSpec, "to", "", "Specifies the placement directive.")
+	f.Var(&c.ConstraintsStr, "constraints", "Specifies the constraints for the controller machines.")
 	c.out.AddFlags(f, "simple", map[string]cmd.Formatter{
 		"yaml":   cmd.FormatYaml,
 		"json":   cmd.FormatJson,

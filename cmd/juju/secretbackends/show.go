@@ -59,7 +59,7 @@ func (c *showSecretBackendCommand) secretBackendsAPI() (ShowSecretBackendsAPI, e
 func (c *showSecretBackendCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "show-secret-backend",
-		Purpose:  "Displays the specified secret backend.",
+		Purpose:  "Display the specified secret backend.",
 		Doc:      showSecretBackendsDoc,
 		Args:     "<backend-name>",
 		Examples: showSecretBackendsExamples,
@@ -74,7 +74,7 @@ func (c *showSecretBackendCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.SetFlags.
 func (c *showSecretBackendCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.revealSecrets, "reveal", false, "Include sensitive backend config content")
+	f.BoolVar(&c.revealSecrets, "reveal", false, "Includes sensitive backend config content.")
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 

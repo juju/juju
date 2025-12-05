@@ -118,7 +118,7 @@ func (c *poolCreateCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "create-storage-pool",
 		Args:     "<name> <storage provider> [<key>=<value> [<key>=<value>...]]",
-		Purpose:  "Create or define a storage pool.",
+		Purpose:  "Creates or defines a storage pool.",
 		Doc:      poolCreateCommandDoc,
 		Examples: poolCreateCommandExamples,
 		SeeAlso: []string{

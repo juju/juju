@@ -70,8 +70,8 @@ production. In this case, the metadata is placed in a local directory, a cloud
 provider type is specified (ec2, openstack etc), and the validation is performed
 for each supported region and base.
 
-Validating an image for a specific base can be done via --base. --base can be 
-specified using the OS name and the version of the OS, separated by @. For 
+Validating an image for a specific base can be done via --base. --base can be
+specified using the OS name and the version of the OS, separated by @. For
 example, --base ubuntu@22.04.
 
 Example bash snippet:

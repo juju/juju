@@ -11,7 +11,7 @@ Sets a firewall rule.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `--allowlist` |  | list of subnets to allowlist |
+| `--allowlist` |  | Specifies the list of subnets to allowlist. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--whitelist` |  |  |
 

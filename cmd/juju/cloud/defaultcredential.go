@@ -20,7 +20,7 @@ var usageSetDefaultCredentialSummary = `
 Gets, sets, or unsets the default credential for a cloud on this client.`[1:]
 
 var usageSetDefaultCredentialDetails = `
-This command sets a locally stored credential to be used as a default.
+Sets a locally stored credential to be used as a default.
 
 Default credentials avoid the need to specify a particular set of
 credentials when more than one credential is available on the client for a given cloud.
@@ -89,7 +89,7 @@ func (c *setDefaultCredentialCommand) Init(args []string) (err error) {
 
 // SetFlags initializes the flags supported by the command.
 func (c *setDefaultCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.reset, "reset", false, "Reset default credential for the cloud")
+	f.BoolVar(&c.reset, "reset", false, "Resets the default credential for the cloud.")
 }
 
 func hasCredential(credential string, credentials map[string]jujucloud.Credential) bool {

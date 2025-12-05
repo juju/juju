@@ -211,10 +211,6 @@ func (m *ModelManagerAPIV9) CreateModel(args params.ModelCreateArgs) (params.Mod
 func (m *ModelManagerAPI) createModel(args params.ModelCreateArgs, withDefaultOS bool) (params.ModelInfo, error) {
 	result := params.ModelInfo{}
 
-	if args.TargetController != "" {
-		return result, errors.NewNotSupported(nil, "target-controller parameter is only supported on JAAS")
-	}
-
 	// Get the controller model first. We need it both for the state
 	// server owner and the ability to get the config.
 	controllerModel, err := m.ctlrState.Model()

@@ -8,15 +8,15 @@
 Lists all clouds available to Juju.
 
 ## Usage
-```juju clouds [options] ```
+```juju clouds [options] [--format yaml|json] [--output <path>]```
 
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--all` | false | Show all available clouds |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--client` | false | Client operation |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--all` | false | Shows all available clouds. |
+| `-c`, `--controller` |  | Performs the operation in the specified controller. |
+| `--client` | false | Performs the operation on the local client. |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
 | `-o`, `--output` |  | Specify an output file |
 
@@ -31,7 +31,7 @@ Lists all clouds available to Juju.
 
 ## Details
 
-Display the fundamental properties for each cloud known to Juju: name, number of regions,
+Displays the fundamental properties for each cloud known to Juju: name, number of regions,
 number of registered credentials, default region, type, etc.
 
 Clouds known to this client are the clouds known to Juju out of the box

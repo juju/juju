@@ -1,0 +1,9 @@
+name: wordpress-noble
+summary: A WordPress principal charm supporting 24.04
+description: A test principal charm that supports only 24.04
+provides:
+  website:
+    interface: http
+requires:
+  db:
+    interface: mysql

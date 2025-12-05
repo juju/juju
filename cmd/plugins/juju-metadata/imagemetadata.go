@@ -93,12 +93,12 @@ generate-image creates simplestreams image metadata for the specified cloud.
 The cloud specification comes from the current Juju model, as specified in
 the usual way from either the -m option, or JUJU_MODEL.
 
-Using command arguments, it is possible to override cloud attributes region, 
-endpoint, and base. By default, "amd64" is used for the architecture but this 
+Using command arguments, it is possible to override cloud attributes region,
+endpoint, and base. By default, "amd64" is used for the architecture but this
 may also be changed.
 
-Selecting an image for a specific base can be done via --base. --base can be 
-specified using the OS name and the version of the OS, separated by @. For 
+Selecting an image for a specific base can be done via --base. --base can be
+specified using the OS name and the version of the OS, separated by @. For
 example, --base ubuntu@22.04.
 `
 

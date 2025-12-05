@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-const showModelCommandDoc = `Show information about the current or specified model.`
+const showModelCommandDoc = `Shows information about the current or specified model.`
 
 func NewShowCommand() cmd.Command {
 	showCmd := &showModelCommand{}
@@ -59,7 +59,7 @@ func (c *showModelCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "show-model",
 		Args:    "<model name>",
-		Purpose: "Shows information about the current or specified model.",
+		Purpose: "Shows information about the current or the specified model.",
 		Doc:     showModelCommandDoc,
 		SeeAlso: []string{
 			"add-model",

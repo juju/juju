@@ -43,7 +43,7 @@ type runCommand struct {
 }
 
 const runDoc = `
-Run a charm action for execution on the given unit(s), with a given set of params.
+Runs a charm action for execution on the given unit(s), with a given set of params.
 An ID is returned for use with ` + "`juju show-operation <ID>`" + `.
 
 All units must be of the same application.
@@ -103,15 +103,15 @@ const runExamples = `
 func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.runCommandBase.SetFlags(f)
 
-	f.Var(&c.paramsYAML, "params", "Path to yaml-formatted params file")
-	f.BoolVar(&c.parseStrings, "string-args", false, "Use raw string values of CLI args")
+	f.Var(&c.paramsYAML, "params", "Specifies the path to a yaml-formatted params file.")
+	f.BoolVar(&c.parseStrings, "string-args", false, "Uses raw string values of CLI args.")
 }
 
 func (c *runCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "run",
 		Args:     "<unit> [<unit> ...] <action-name> [<key>=<value> [<key>[.<key> ...]=<value>]]",
-		Purpose:  "Run an action on a specified unit.",
+		Purpose:  "Runs an action on a specified unit.",
 		Doc:      runDoc,
 		Examples: runExamples,
 		SeeAlso: []string{

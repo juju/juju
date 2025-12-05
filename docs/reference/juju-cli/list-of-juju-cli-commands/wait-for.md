@@ -1,7 +1,7 @@
 (command-juju-wait-for)=
 # `juju wait-for`
 ## Summary
-Wait for an entity to reach a specified state.
+Waits for an entity to reach a specified state.
 
 ## Usage
 ```juju wait-for [flags] <command> ...```
@@ -28,8 +28,7 @@ Waits for the model units to all start with `ubuntu`.
 
 
 ## Details
-The `wait-for` set of commands (model, application, machine and unit) defines
-a way to wait for a goal state to be reached. The goal state can be defined
+Waits for a goal state for a model, application, machine, or unit to be reached. The goal state can be defined
 programmatically using the query DSL (domain specific language).
 
 The `wait-for` command is an optimized alternative to the `status` command for

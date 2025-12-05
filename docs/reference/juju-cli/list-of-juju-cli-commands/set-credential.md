@@ -11,7 +11,7 @@ Relates a remote credential to a model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 
 ## Examples
@@ -24,8 +24,8 @@ For cloud `aws`, relate remote credential `bob` to model `trinity`:
 ## Details
 
 This command relates a credential cached on a controller to a specific model.
-It does not change/update the contents of an existing active credential. See
-command `update-credential` for that.
+It does not change/update the contents of an existing active credential. The
+command `update-credential` can be used for that.
 
 The credential specified may exist locally (on the client), remotely (on the
 controller), or both. The command will error out if the credential is stored
@@ -40,5 +40,5 @@ This command does not affect an existing relation between the specified
 credential and another model. If the credential is already related to a model
 this operation will result in that credential being related to two models.
 
-Use the `show-credential` command to see how remote credentials are related
+The `show-credential` command can be used to see how remote credentials are related
 to models.

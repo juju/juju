@@ -31,7 +31,7 @@ type AddCommand struct {
 }
 
 const addCommandDoc = `
-Adds a new space with the given name and associates the given
+Adds a new space with the given name and associate the given
 (optional) list of existing subnet CIDRs with it.`
 
 const addCommandExamples = `
@@ -46,7 +46,7 @@ func (c *AddCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "add-space",
 		Args:     "<name> [<CIDR1> <CIDR2> ...]",
-		Purpose:  "Add a new network space.",
+		Purpose:  "Adds a new network space.",
 		Doc:      strings.TrimSpace(addCommandDoc),
 		Examples: addCommandExamples,
 		SeeAlso: []string{

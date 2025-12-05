@@ -34,7 +34,7 @@ type listCommand struct {
 }
 
 const listDoc = `
-List the actions available to run on the target application, with a short
+Lists the actions available to run on the target application, with a short
 description.
 `
 
@@ -64,14 +64,14 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 		"tabular": c.printTabular,
 		"default": c.dummyDefault,
 	})
-	f.BoolVar(&c.fullSchema, "schema", false, "Display the full action schema")
+	f.BoolVar(&c.fullSchema, "schema", false, "Displays the full action schema.")
 }
 
 func (c *listCommand) Info() *cmd.Info {
 	info := jujucmd.Info(&cmd.Info{
 		Name:     "actions",
 		Args:     "<application>",
-		Purpose:  "List actions defined for an application.",
+		Purpose:  "Lists actions defined for an application.",
 		Doc:      listDoc,
 		Aliases:  []string{"list-actions"},
 		Examples: listExamples,

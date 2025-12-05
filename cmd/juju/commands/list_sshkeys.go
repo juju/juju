@@ -23,7 +23,7 @@ var usageListSSHKeysDetails = `
 Juju maintains a per-model cache of SSH keys which it copies to each newly
 created unit.
 
-This command will display a list of all the keys currently used by Juju in
+This command displays a list of all the keys currently used by Juju in
 the current model (or the model specified, if the ` + "`-m`" + ` option is used).
 
 By default a minimal list is returned, showing only the fingerprint of
@@ -70,7 +70,7 @@ func (c *listKeysCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *listKeysCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SSHKeysBase.SetFlags(f)
-	f.BoolVar(&c.showFullKey, "full", false, "Show full key instead of just the fingerprint")
+	f.BoolVar(&c.showFullKey, "full", false, "Shows full key instead of just the fingerprint.")
 }
 
 // Run implements Command.Run.

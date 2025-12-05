@@ -66,8 +66,8 @@ balancing when a controller is too busy, or as a way to upgrade a
 model's controller to a newer Juju version.
 
 In order to start a migration, the target controller must be in the
-` + "`juju`" + ` client's local configuration cache. See the ` + "`login`" + ` command
-for details of how to do this.
+` + "`juju`" + ` client's local configuration cache. The ` + "`login`" + ` command
+contains details of how to do this.
 
 The ` + "`migrate`" + ` command only starts a model migration -- it does not wait
 for its completion. The progress of a migration can be tracked using
@@ -88,7 +88,7 @@ func (c *migrateCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "migrate",
 		Args:    "<model-name> <target-controller-name>",
-		Purpose: "Migrate a workload model to another controller.",
+		Purpose: "Migrates a workload model to another controller.",
 		Doc:     migrateDoc,
 		SeeAlso: []string{
 			"login",

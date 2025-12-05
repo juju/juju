@@ -26,7 +26,7 @@ func NewListCommand() cmd.Command {
 }
 
 const listCommandDoc = `
-List information about storage.
+Lists information about storage.
 `
 
 const listCommandExample = `
@@ -80,8 +80,8 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 	// TODO(axw) deprecate these flags, and introduce separate commands
 	// for listing just filesystems or volumes.
-	f.BoolVar(&c.filesystem, "filesystem", false, "List filesystem storage (deprecated)")
-	f.BoolVar(&c.volume, "volume", false, "List volume storage (deprecated)")
+	f.BoolVar(&c.filesystem, "filesystem", false, "Lists filesystem storage (deprecated).")
+	f.BoolVar(&c.volume, "volume", false, "Lists volume storage (deprecated).")
 }
 
 // Init implements Command.Init.

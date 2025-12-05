@@ -673,7 +673,7 @@ For machine controllers, Juju provides tools to help with controller backups. Th
 Canonical releases updates and security patches for Juju to address vulnerabilities, improve performance, and add new features.
 
 ```{ibnote}
-See more: {ref}`juju-roadmap-and-releases`
+See more: {ref}`releasenotes`
 ```
 
 (controls-rootless-charms)=

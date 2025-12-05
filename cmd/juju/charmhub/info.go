@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	infoSummary = "Displays detailed information about CharmHub charms."
+	infoSummary = "Views detailed information about CharmHub charms."
 	infoDoc     = `
 The charm can be specified by name or by path.
 
@@ -88,14 +88,14 @@ func (c *infoCommand) Info() *cmd.Info {
 func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.charmHubCommand.SetFlags(f)
 
-	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("Specify an arch <%s>", c.archArgumentList()))
-	f.StringVar(&c.series, "series", SeriesAll, "Specify a series. DEPRECATED use `--base`")
-	f.StringVar(&c.base, "base", "", "Specify a base")
-	f.StringVar(&c.channel, "channel", "", "Specify a channel to use instead of the default release")
-	f.BoolVar(&c.config, "config", false, "Display config for this charm")
-	f.IntVar(&c.revision, "revision", -1, "Specify a revision number")
-	f.StringVar(&c.track, "track", "", "Specify a track to use instead of the default track")
-	f.StringVar(&c.unicode, "unicode", "auto", "Display output using unicode <auto|never|always>")
+	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("Specifies an arch <%s>", c.archArgumentList()))
+	f.StringVar(&c.series, "series", SeriesAll, "Specifies a series. DEPRECATED use `--base`.")
+	f.StringVar(&c.base, "base", "", "Specifies a base.")
+	f.StringVar(&c.channel, "channel", "", "Specifies a channel to use instead of the default release.")
+	f.BoolVar(&c.config, "config", false, "Displays config for this charm.")
+	f.IntVar(&c.revision, "revision", -1, "Specifies a revision number.")
+	f.StringVar(&c.track, "track", "", "Specifies a track to use instead of the default track.")
+	f.StringVar(&c.unicode, "unicode", "auto", "Displays output using unicode `<auto|never|always>`.")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,

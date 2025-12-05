@@ -3,7 +3,7 @@
 > See also: [clouds](#clouds), [add-cloud](#add-cloud), [update-cloud](#update-cloud)
 
 ## Summary
-Shows detailed information for a cloud.
+View detailed information about a cloud.
 
 ## Usage
 ```juju show-cloud [options] <cloud name>```
@@ -11,11 +11,11 @@ Shows detailed information for a cloud.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--client` | false | Client operation |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `-c`, `--controller` |  | Performs the operation in the specified controller. |
+| `--client` | false | Performs the operation on the local client. |
 | `--format` | display | Specify output format (display&#x7c;json&#x7c;yaml) |
-| `--include-config` | false | Print available config option details specific to the specified cloud |
+| `--include-config` | false | Prints available config option details specific to the specified cloud. |
 | `-o`, `--output` |  | Specify an output file |
 
 ## Examples
@@ -36,6 +36,6 @@ options.
 If `--include-config` is used, additional configuration (key, type, and
 description) specific to the cloud are displayed if available.
 
-Use the `--controller` option to show a cloud from a controller.
+The `--controller` option can be used to show a cloud from a controller.
 
-Use the `--client` option to show a cloud known on this client.
+The `--client` option can be used to show a cloud known on this client.

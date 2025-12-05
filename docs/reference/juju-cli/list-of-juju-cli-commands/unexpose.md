@@ -3,7 +3,7 @@
 > See also: [expose](#expose)
 
 ## Summary
-Removes public availability over the network for an application.
+Remove public availability over the network for an application.
 
 ## Usage
 ```juju unexpose [options] <application name>```
@@ -11,8 +11,8 @@ Removes public availability over the network for an application.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--endpoints` |  | Unexpose only the ports that charms have opened for this comma-delimited list of endpoints |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--endpoints` |  | Unexposes only the ports that charms have opened for this comma-delimited list of endpoints. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 
 ## Examples

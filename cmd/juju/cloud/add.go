@@ -43,7 +43,7 @@ type CloudMetadataStore interface {
 }
 
 var usageAddCloudSummary = `
-Add a cloud definition to Juju.`[1:]
+Adds a cloud definition to Juju.`[1:]
 
 var usageAddCloudDetails = `
 Juju needs to know how to connect to clouds. A cloud definition
@@ -212,11 +212,11 @@ func (c *AddCloudCommand) Info() *cmd.Info {
 // SetFlags initializes the flags supported by the command.
 func (c *AddCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
-	f.BoolVar(&c.Force, "force", false, "Force add cloud to the controller")
-	f.StringVar(&c.CloudFile, "f", "", "The path to a cloud definition file")
-	f.StringVar(&c.CloudFile, "file", "", "The path to a cloud definition file")
-	f.StringVar(&c.credentialName, "credential", "", "Credential to use for new cloud")
-	f.StringVar(&c.targetController, "target-controller", "", "The name of a JAAS managed controller to add a cloud to")
+	f.BoolVar(&c.Force, "force", false, "Forcibly adds the cloud to the controller.")
+	f.StringVar(&c.CloudFile, "f", "", "Specifies the path to a cloud definition file.")
+	f.StringVar(&c.CloudFile, "file", "", "Specifies the path to a cloud definition file.")
+	f.StringVar(&c.credentialName, "credential", "", "Specifies the credential to use for the new cloud.")
+	f.StringVar(&c.targetController, "target-controller", "", "Specifies the name of a JAAS managed controller to add a cloud to.")
 }
 
 // Init populates the command with the args from the command line.

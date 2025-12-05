@@ -45,7 +45,7 @@ func New() cmd.Command {
 }
 
 const introspectCommandDoc = `
-Introspect Juju agents running on this machine.
+Introspects Juju agents running on this machine.
 
 The juju-introspect command can be used to expose
 the agent's introspection socket via HTTP, using
@@ -82,7 +82,7 @@ func (c *IntrospectCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.agent, "agent", "", "agent to introspect (defaults to machine agent)")
 	f.StringVar(&c.listen, "listen", "", "address on which to expose the introspection socket")
 	f.BoolVar(&c.post, "post", false, "perform a POST action rather than a GET")
-	f.BoolVar(&c.verbose, "verbose", false, "show query path and args")
+	f.BoolVar(&c.verbose, "verbose", false, "Shows query path and args")
 }
 
 func (c *IntrospectCommand) Init(args []string) error {

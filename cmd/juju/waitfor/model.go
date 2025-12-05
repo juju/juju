@@ -98,7 +98,7 @@ func (c *modelCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "model",
 		Args:     "[<name>]",
-		Purpose:  "Wait for a model to reach a specified state.",
+		Purpose:  "Waits for a model to reach a specified state.",
 		Doc:      modelCommandDoc,
 		Examples: modelCommandExamples,
 		SeeAlso: []string{
@@ -112,9 +112,9 @@ func (c *modelCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *modelCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.waitForCommandBase.SetFlags(f)
-	f.StringVar(&c.query, "query", `life=="alive" && status=="available"`, "Query the goal state")
-	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "How long to wait, before timing out")
-	f.BoolVar(&c.summary, "summary", true, "Output a summary of the application query on exit")
+	f.StringVar(&c.query, "query", `life=="alive" && status=="available"`, "Queries the goal state.")
+	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "Specifies the timeout for the operation.")
+	f.BoolVar(&c.summary, "summary", true, "Outputs a summary of the application query on exit.")
 }
 
 // Init implements Command.Init.

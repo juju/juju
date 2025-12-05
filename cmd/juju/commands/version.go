@@ -14,7 +14,7 @@ import (
 )
 
 const versionDoc = `
-Print only the ` + "`juju `" + `CLI client version.`
+Prints only the ` + "`juju `" + `CLI client version.`
 
 const versionExamplesDoc = `
     juju version
@@ -77,7 +77,7 @@ func (v *versionCommand) SetFlags(f *gnuflag.FlagSet) {
 		formatters[k] = v.Formatter
 	}
 	v.out.AddFlags(f, "smart", formatters)
-	f.BoolVar(&v.showAll, "all", false, "Prints all version information")
+	f.BoolVar(&v.showAll, "all", false, "Prints all version information.")
 }
 
 func (v *versionCommand) Init(args []string) error {

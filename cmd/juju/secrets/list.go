@@ -66,7 +66,7 @@ func (c *listSecretsCommand) secretsAPI() (ListSecretsAPI, error) {
 func (c *listSecretsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "secrets",
-		Purpose:  "Lists secrets available in the model.",
+		Purpose:  "Lists the secrets available in the model.",
 		Doc:      listSecretsDoc,
 		Examples: listSecretsExamples,
 		Aliases:  []string{"list-secrets"},
@@ -81,7 +81,7 @@ func (c *listSecretsCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.SetFlags.
 func (c *listSecretsCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.owner, "owner", "", "Include secrets for the specified owner")
+	f.StringVar(&c.owner, "owner", "", "Includes secrets for the specified owner.")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,

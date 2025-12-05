@@ -36,7 +36,7 @@ type showOperationCommand struct {
 }
 
 const showOperationDoc = `
-Show the results returned by an operation with the given ID.
+Shows the results returned by an operation with the given ID.
 To block until the result is known completed or failed, use
 the ` + "`--wait`" + ` option with a duration, as in ` + "`--wait 5s`" + ` or ` + "`--wait 1h`" + `.
 Use ` + "`--watch`" + ` to wait indefinitely.
@@ -63,9 +63,9 @@ func (c *showOperationCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json": cmd.FormatJson,
 	})
 
-	f.DurationVar(&c.wait, "wait", defaultOperationWait, "Wait for results")
-	f.BoolVar(&c.watch, "watch", false, "Wait indefinitely for results")
-	f.BoolVar(&c.utc, "utc", false, "Show times in UTC")
+	f.DurationVar(&c.wait, "wait", defaultOperationWait, "Specifies the maximum wait time for results.")
+	f.BoolVar(&c.watch, "watch", false, "Waits indefinitely for results.")
+	f.BoolVar(&c.utc, "utc", false, "Shows times in UTC.")
 }
 
 // Info implements Command.
@@ -73,7 +73,7 @@ func (c *showOperationCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "show-operation",
 		Args:     "<operation-id>",
-		Purpose:  "Show results of an operation.",
+		Purpose:  "Shows results of an operation.",
 		Doc:      showOperationDoc,
 		Examples: showOperationExamples,
 		SeeAlso: []string{

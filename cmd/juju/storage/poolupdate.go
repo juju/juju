@@ -23,7 +23,7 @@ type PoolUpdateAPI interface {
 }
 
 const poolUpdateCommandDoc = `
-Update configuration attributes for a single existing storage pool.
+Updates configuration attributes for a single existing storage pool.
 `
 
 const poolUpdateCommandExamples = `
@@ -82,7 +82,7 @@ func (c *poolUpdateCommand) Init(args []string) (err error) {
 func (c *poolUpdateCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "update-storage-pool",
-		Purpose:  "Update storage pool attributes.",
+		Purpose:  "Updates storage pool attributes.",
 		Doc:      poolUpdateCommandDoc,
 		Args:     "<name> [<key>=<value> [<key>=<value>...]]",
 		Examples: poolUpdateCommandExamples,

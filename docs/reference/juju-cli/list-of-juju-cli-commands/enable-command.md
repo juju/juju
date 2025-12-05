@@ -3,7 +3,7 @@
 > See also: [disable-command](#disable-command), [disabled-commands](#disabled-commands)
 
 ## Summary
-Enable commands that had been previously disabled.
+Enables commands that had been previously disabled.
 
 ## Usage
 ```juju enable-command [options] <command set>```
@@ -11,7 +11,7 @@ Enable commands that had been previously disabled.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 
 ## Examples
@@ -30,6 +30,8 @@ To allow changes to the model:
 
 
 ## Details
+
+Enables sets of commands that were previously disabled.
 
 Juju allows to safeguard deployed models from unintentional damage by preventing
 execution of operations that could alter model.

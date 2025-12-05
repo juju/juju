@@ -22,7 +22,7 @@ import (
 
 const (
 	offerCommandDoc = `
-Deployed application endpoints are offered for use by consumers.
+Offer application endpoints for use by consumers.
 By default, the offer is named after the application, unless
 an offer name is explicitly specified.
 `
@@ -78,7 +78,7 @@ func (c *offerCommand) NewApplicationOffersAPI() (*applicationoffers.Client, err
 func (c *offerCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "offer",
-		Purpose:  "Offer application endpoints for use in other models.",
+		Purpose:  "Offers application endpoints for use in other models.",
 		Args:     "[model-name.]<application-name>:<endpoint-name>[,...] [offer-name]",
 		Doc:      offerCommandDoc,
 		Examples: offerCommandExamples,

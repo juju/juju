@@ -18,6 +18,8 @@ import (
 )
 
 const showUnitDoc = `
+Displays information about deployed units.
+
 The command takes deployed unit names as an argument.
 
 Optionally, relation data for only a specified endpoint
@@ -72,7 +74,7 @@ func (c *showUnitCommand) Info() *cmd.Info {
 	showCmd := &cmd.Info{
 		Name:     "show-unit",
 		Args:     "<unit name>",
-		Purpose:  "Displays information about a unit.",
+		Purpose:  "Display information about a unit.",
 		Doc:      showUnitDoc,
 		Examples: showUnitExamples,
 		SeeAlso: []string{
@@ -112,9 +114,9 @@ func (c *showUnitCommand) Init(args []string) error {
 func (c *showUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters.Formatters())
-	f.StringVar(&c.endpoint, "endpoint", "", "Only show relation data for the specified endpoint")
-	f.StringVar(&c.relatedUnit, "related-unit", "", "Only show relation data for the specified unit")
-	f.BoolVar(&c.appOnly, "app", false, "Only show application relation data")
+	f.StringVar(&c.endpoint, "endpoint", "", "Only shows relation data for the specified endpoint.")
+	f.StringVar(&c.relatedUnit, "related-unit", "", "Only shows relation data for the specified unit.")
+	f.BoolVar(&c.appOnly, "app", false, "Only shows application relation data.")
 }
 
 // UnitsInfoAPI defines the API methods that show-unit command uses.

@@ -11,16 +11,16 @@ Adds a Kubernetes endpoint and credential to Juju.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--client` | false | Client operation |
-| `--cloud` |  | Specify the Kubernetes cluster cloud |
-| `--cluster-name` |  | Specify the Kubernetes cluster to import |
-| `--context-name` |  | Specify the Kubernetes context to import |
-| `--credential` |  | Specify the credential to use when accessing the cluster |
-| `--region` |  | Specify the Kubernetes cluster region or cloud/region |
-| `--skip-storage` | false | Skip storage provisioning for clusters that don't have storage |
-| `--storage` |  | Specify the Kubernetes storage class for workload storage |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `-c`, `--controller` |  | Performs the operation in the specified controller. |
+| `--client` | false | Performs the operation on the local client. |
+| `--cloud` |  | Specifies the Kubernetes cluster cloud. |
+| `--cluster-name` |  | Specifies the Kubernetes cluster to import. |
+| `--context-name` |  | Specifies the Kubernetes context to import. |
+| `--credential` |  | Specifies the credential to use when accessing the cluster. |
+| `--region` |  | Specifies the Kubernetes cluster region or cloud/region. |
+| `--skip-storage` | false | Skips storage provisioning for clusters that don't have storage. |
+| `--storage` |  | Specifies the Kubernetes storage class for workload storage. |
 
 ## Examples
 
@@ -52,18 +52,18 @@ Creates a user-defined cloud based on a Kubernetes cluster.
 The new Kubernetes cloud can then be used to bootstrap into, or it
 can be added to an existing controller.
 
-Specify a non default kubeconfig file location using `$KUBECONFIG` environment variable or pipe in file content from stdin.
+A non-default kubeconfig file location can be specified using `$KUBECONFIG` environment variable or pipe in file content from stdin.
 
 The config file can contain definitions for different Kubernetes clusters,
-use `--cluster-name` to pick which one to use.
+the `--cluster-name` option can be used to pick which one to use.
 It's also possible to select a context by name using `--context-name`.
 
 When running `add-k8s` the underlying cloud/region hosting the cluster needs to be
 detected to enable storage to be correctly configured. If the cloud/region cannot
-be detected automatically, use either
-  `--cloud <cloudType|cloudName> `to specify the host cloud
+be detected automatically, either
+  `--cloud <cloudType|cloudName> `can be used to specify the host cloud
 or
-  `--region <cloudType|cloudName>/<someregion>` to specify the host
+  `--region <cloudType|cloudName>/<someregion>` can be used to specify the host
   cloud type and region.
 
 Region is strictly necessary only when adding a Kubernetes cluster to a JAAS controller.
@@ -74,5 +74,5 @@ storage class to provide operator and workload storage. If none is found, use
 of the `--storage` option is required so that Juju will create a storage class
 with the specified name.
 
-If the cluster does not have a storage provisioning capability, use the
-`--skip-storage` option to add the cluster without any workload storage configured.
+If the cluster does not have a storage provisioning capability, the
+`--skip-storage` option can be used to add the cluster without any workload storage configured.

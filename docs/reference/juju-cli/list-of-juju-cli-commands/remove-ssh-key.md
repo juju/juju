@@ -11,7 +11,7 @@ Removes a public SSH key (or keys) from a model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 
 ## Examples
@@ -23,7 +23,7 @@ Removes a public SSH key (or keys) from a model.
 
 ## Details
 Juju maintains a per-model cache of public SSH keys which it copies to
-each unit. This command will remove a specified key (or space-separated
+each unit. This command removes a specified key (or space-separated
 list of keys) from the model cache and all current units deployed in that
 model. The keys to be removed may be specified by the key's fingerprint,
 or by the text label associated with them. Invalid keys in the model cache

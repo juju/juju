@@ -11,27 +11,27 @@ Displays log messages for a model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--color` | false | Force use of ANSI color codes |
-| `--date` | false | Show dates as well as times |
-| `--exclude-label` |  | Do not show log messages for these logging labels |
-| `--exclude-module` |  | Do not show log messages for these logging modules |
-| `-i`, `--include` |  | Only show log messages for these entities |
-| `--include-label` |  | Only show log messages for these logging labels |
-| `--include-module` |  | Only show log messages for these logging modules |
-| `-l`, `--level` |  | Log level to show, one of [TRACE, DEBUG, INFO, WARNING, ERROR] |
-| `--limit` | 0 | Show this many of the most recent logs and then exit |
-| `--location` | false | Show filename and line numbers |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--color` | false | Forces use of ANSI color codes. |
+| `--date` | false | Shows dates as well as times. |
+| `--exclude-label` |  | Specifies the logging labels to exclude. |
+| `--exclude-module` |  | Specifies the logging modules to exclude. |
+| `-i`, `--include` |  | Specifies the entities to include. |
+| `--include-label` |  | Specifies the logging labels to include. |
+| `--include-module` |  | Specifies the logging modules to include. |
+| `-l`, `--level` |  | Specifies the log level to show, one of `[TRACE, DEBUG, INFO, WARNING, ERROR]`. |
+| `--limit` | 0 | Specifies the number of recent logs to show, then exit. |
+| `--location` | false | Shows filename and line numbers. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--ms` | false | Show times to millisecond precision |
-| `-n`, `--lines` | 0 | Show this many of the most recent lines and continue to append new ones |
-| `--no-tail` | false | Show existing log messages and then exit |
-| `--replay` | false | Show the entire log and continue to append new ones |
-| `--retry` | false | Retry connection on failure |
-| `--retry-delay` | 1s | Retry delay between connection failure retries |
-| `--tail` | false | Show existing log messages and continue to append new ones |
-| `--utc` | false | Show times in UTC |
-| `-x`, `--exclude` |  | Do not show log messages for these entities |
+| `--ms` | false | Shows times to millisecond precision. |
+| `-n`, `--lines` | 0 | Specifies the number of recent lines to show, and continue to append new ones. |
+| `--no-tail` | false | Shows existing log messages, then exit. |
+| `--replay` | false | Shows the entire log and continue to append new lines. |
+| `--retry` | false | Retries connection on failure. |
+| `--retry-delay` | 1s | Specifies the retry delay between connection failure retries. |
+| `--tail` | false | Shows existing log messages and continue to append new ones. |
+| `--utc` | false | Shows times in UTC. |
+| `-x`, `--exclude` |  | Specifies the entities to exclude. |
 
 ## Examples
 

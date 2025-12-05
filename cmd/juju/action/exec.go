@@ -60,7 +60,7 @@ type execCommand struct {
 }
 
 const execDoc = `
-Run a shell command on the specified targets. Only admin users of a model
+Runs a shell command on the specified targets. Only admin users of a model
 are able to use this command.
 
 Targets are specified using either machine ids, application names or unit
@@ -138,7 +138,7 @@ func (c *execCommand) Info() *cmd.Info {
 	info := jujucmd.Info(&cmd.Info{
 		Name:     "exec",
 		Args:     "<commands>",
-		Purpose:  "Run the commands on the remote targets specified.",
+		Purpose:  "Runs the commands on the remote targets specified.",
 		Doc:      execDoc,
 		Examples: example,
 		SeeAlso: []string{
@@ -162,15 +162,15 @@ func (c *execCommand) SetFlags(f *gnuflag.FlagSet) {
 		"plain": c.printExecOutput,
 	})
 
-	f.BoolVar(&c.all, "all", false, "Run the commands on all the machines")
-	f.BoolVar(&c.operator, "operator", false, "Run the commands on the operator (k8s-only)")
-	f.BoolVar(&c.parallel, "parallel", true, "Run the commands in parallel without first acquiring a lock")
-	f.StringVar(&c.executionGroup, "execution-group", "", "Commands in the same execution group are run sequentially")
-	f.Var(cmd.NewStringsValue(nil, &c.machines), "machine", "One or more machine ids")
-	f.Var(cmd.NewStringsValue(nil, &c.applications), "a", "One or more application names")
+	f.BoolVar(&c.all, "all", false, "Runs the commands on all the machines.")
+	f.BoolVar(&c.operator, "operator", false, "Runs the commands on the operator (Kubernetes only).")
+	f.BoolVar(&c.parallel, "parallel", true, "Runs the commands in parallel without first acquiring a lock.")
+	f.StringVar(&c.executionGroup, "execution-group", "", "Specifies an execution group; commands in the same group are run sequentially.")
+	f.Var(cmd.NewStringsValue(nil, &c.machines), "machine", "Specifies one or more machine IDs.")
+	f.Var(cmd.NewStringsValue(nil, &c.applications), "a", "Specifies one or more application names.")
 	f.Var(cmd.NewStringsValue(nil, &c.applications), "app", "")
 	f.Var(cmd.NewStringsValue(nil, &c.applications), "application", "")
-	f.Var(cmd.NewStringsValue(nil, &c.units), "u", "One or more unit ids")
+	f.Var(cmd.NewStringsValue(nil, &c.units), "u", "Specifies one or more unit IDs.")
 	f.Var(cmd.NewStringsValue(nil, &c.units), "unit", "")
 }
 

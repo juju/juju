@@ -88,7 +88,7 @@ Starter commands:
     expose              Makes an application publicly available over the network.
     models              Lists models a user can access on a controller.
     controllers         Lists all controllers.
-    whoami              Display the current controller, model and logged in user name. 
+    whoami              Displays the current controller, model and logged in user name. 
     switch              Selects or identifies the current controller and model.
     add-k8s             Adds a k8s endpoint and credential to Juju.
     add-cloud           Adds a user-defined cloud to Juju.

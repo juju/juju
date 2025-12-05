@@ -18,10 +18,10 @@ import (
 )
 
 var helpSummary = `
-Removes an existing relation between two applications.`[1:]
+Remove an existing relation between two applications.`[1:]
 
 var helpDetails = `
-An existing relation between the two specified applications will be removed.
+Removes an existing relation between the two specified applications.
 This should not result in either of the applications entering an error state,
 but may result in either or both of the applications being unable to continue
 normal operation. In the case that there is more than one relation between
@@ -110,7 +110,7 @@ func (c *removeRelationCommand) Init(args []string) (err error) {
 
 func (c *removeRelationCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.Force, "force", false, "Force remove a relation")
+	f.BoolVar(&c.Force, "force", false, "Forces removal of a relation.")
 	c.fs = f
 }
 

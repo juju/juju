@@ -3,7 +3,7 @@
 > See also: [find-offers](#find-offers)
 
 ## Summary
-Shows extended information about the offered application.
+View extended information about the offered application.
 
 ## Usage
 ```juju show-offer [options] [<controller>:]<offer url>```
@@ -11,7 +11,7 @@ Shows extended information about the offered application.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `-o`, `--output` |  | Specify an output file |
@@ -39,7 +39,6 @@ the model `default` on an accessible controller named `controller`:
 
 ## Details
 
-This command is intended to enable users to learn more about the
-application offered from a particular URL. In addition to the URL of
-the offer, extra information is provided from the readme file of the
-charm being offered.
+Displays extended information about the application offered from a particular URL.
+In addition to the URL of the offer, extra information is provided from the
+readme file of the charm being offered.

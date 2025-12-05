@@ -5,7 +5,7 @@
 **Aliases:** list-secret-backends
 
 ## Summary
-Lists secret backends available in the controller.
+Lists the secret backends available in the controller.
 
 ## Usage
 ```juju secret-backends [options] ```
@@ -13,10 +13,10 @@ Lists secret backends available in the controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-c`, `--controller` |  | Controller to operate in |
+| `-c`, `--controller` |  | Performs the operation in the specified controller. |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
 | `-o`, `--output` |  | Specify an output file |
-| `--reveal` | false | Include sensitive backend config content |
+| `--reveal` | false | Includes sensitive backend config content. |
 
 ## Examples
 

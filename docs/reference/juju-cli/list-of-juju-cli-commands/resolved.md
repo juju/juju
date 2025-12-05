@@ -3,7 +3,7 @@
 **Aliases:** resolve
 
 ## Summary
-Marks unit errors resolved and re-executes failed hooks.
+Marks unit errors resolved and re-execute failed hooks.
 
 ## Usage
 ```juju resolved [options] [<unit> ...]```
@@ -11,10 +11,10 @@ Marks unit errors resolved and re-executes failed hooks.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--all` | false | Marks all units in error as resolved |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--all` | false | Marks all units in error as resolved. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--no-retry` | false | Do not re-execute failed hooks on the unit |
+| `--no-retry` | false | Skips re-execution of failed hooks on the unit. |
 
 ## Examples
 

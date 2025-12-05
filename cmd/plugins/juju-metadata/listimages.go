@@ -26,13 +26,13 @@ const listCommandDoc = `
 List information about image metadata stored in Juju model.
 This list can be filtered using various filters as described below.
 
-More than one filter can be specified. Result will contain metadata that matches 
+More than one filter can be specified. Result will contain metadata that matches
 all filters in combination.
 
 If no filters are supplied, all stored image metadata will be listed.
 
-Filtering a list of images for a set of bases can be done via --bases. A base can 
-be  specified using the OS name and the version of the OS, separated by @. For 
+Filtering a list of images for a set of bases can be done via --bases. A base can
+be  specified using the OS name and the version of the OS, separated by @. For
 example, --bases ubuntu@22.04.
 `
 
@@ -84,9 +84,9 @@ func (c *listImagesCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Stream, "stream", "", "image metadata stream")
 	f.StringVar(&c.Region, "region", "", "image metadata cloud region")
 
-	f.Var(cmd.NewAppendStringsValue(&c.Series), "series", "only show cloud image metadata for these series. DEPRECATED use --bases")
-	f.Var(cmd.NewAppendStringsValue(&c.Bases), "bases", "only show cloud image metadata for these bases")
-	f.Var(cmd.NewAppendStringsValue(&c.Arches), "arch", "only show cloud image metadata for these architectures")
+	f.Var(cmd.NewAppendStringsValue(&c.Series), "series", "Only show cloud image metadata for these series. DEPRECATED; use `--bases")
+	f.Var(cmd.NewAppendStringsValue(&c.Bases), "bases", "Only show cloud image metadata for these bases")
+	f.Var(cmd.NewAppendStringsValue(&c.Arches), "arch", "Only show cloud image metadata for these architectures")
 
 	f.StringVar(&c.VirtType, "virt-type", "", "image metadata virtualisation type")
 	f.StringVar(&c.RootStorageType, "storage-type", "", "image metadata root storage type")

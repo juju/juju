@@ -38,7 +38,7 @@ type listCloudsCommand struct {
 // listCloudsDoc is multi-line since we need to use ` to denote
 // commands for ease in markdown.
 var listCloudsDoc = `
-Display the fundamental properties for each cloud known to Juju: name, number of regions,
+Displays the fundamental properties for each cloud known to Juju: name, number of regions,
 number of registered credentials, default region, type, etc.
 
 Clouds known to this client are the clouds known to Juju out of the box
@@ -102,8 +102,10 @@ func (c *listCloudsCommand) cloudAPI() (ListCloudsAPI, error) {
 func (c *listCloudsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "clouds",
+		Args:     "[--format yaml|json] [--output <path>]",
 		Purpose:  "Lists all clouds available to Juju.",
 		Doc:      listCloudsDoc,
+		Aliases:  []string{"list-clouds"},
 		Examples: listCloudsExamples,
 		SeeAlso: []string{
 			"add-cloud",
@@ -116,14 +118,13 @@ func (c *listCloudsCommand) Info() *cmd.Info {
 			"update-cloud",
 			"update-public-clouds",
 		},
-		Aliases: []string{"list-clouds"},
 	})
 }
 
 func (c *listCloudsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
 	if !c.Embedded {
-		f.BoolVar(&c.all, "all", false, "Show all available clouds")
+		f.BoolVar(&c.all, "all", false, "Shows all available clouds.")
 	}
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,

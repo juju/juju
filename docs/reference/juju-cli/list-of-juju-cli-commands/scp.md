@@ -3,7 +3,7 @@
 > See also: [ssh](#ssh)
 
 ## Summary
-Securely transfer files within a model.
+Securely transfers files within a model.
 
 ## Usage
 ```juju scp [options] <source> <destination>```
@@ -11,11 +11,11 @@ Securely transfer files within a model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `--container` |  | the container name of the target pod |
+| `--container` |  | Specifies the container name of the target pod. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--no-host-key-checks` | false | Skip host key checking (INSECURE) |
-| `--proxy` | false | Proxy through the API server |
-| `--remote` | false | Target on the workload or operator pod (k8s-only) |
+| `--no-host-key-checks` | false | Skips host key checking (INSECURE). |
+| `--proxy` | false | Proxies through the API server. |
+| `--remote` | false | Specifies the target on the workload or operator pod ( Kubernetes only). |
 
 ## Examples
 
@@ -62,7 +62,7 @@ in a specific container in a Juju unit running in Kubernetes:
 
 ## Details
 
-Transfer files to, from and between Juju machine(s), unit(s) and the
+Transfers files to, from and between Juju machine(s), unit(s) and the
 Juju client.
 
 The basic syntax for the command requires the location of 1 or more source
@@ -93,7 +93,7 @@ home directory of the remote user account.
 
 ### Providing arguments directly to scp
 
-Send arguments directly to the underlying scp utility for full control by
+Sends arguments directly to the underlying scp utility for full control by
 adding two hyphens to the argument list and adding arguments to the right
 (-- &lt;arg&gt; [...]). Common arguments to scp include
 
@@ -112,8 +112,8 @@ add `-- -3` to the command-line arguments.
 
 ## Security considerations
 
-To enable transfers to/from machines that do not have internet access, you can use
-the Juju controller as a proxy with the `--proxy` option.
+To enable transfers to/from machines that do not have internet access, the
+Juju controller can be used as a proxy with the `--proxy` option.
 
-The SSH host keys of the target are verified by default. To disable this, add
+The SSH host keys of the target are verified by default. To disable this, use the
  `--no-host-key-checks` option. Using this option is strongly discouraged.

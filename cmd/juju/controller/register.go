@@ -86,18 +86,18 @@ This is done either by completing the user registration process that
 began with the ` + "`juju add-user`" + ` command, or by providing the DNS host
 name of a public controller.
 
-To complete the user registration process, you should have been provided
-with a ` + "`base64`" + `-encoded blob of data (the output of ` + "`juju add-user`" + `)
+To complete the user registration process, a ` + "`base64`" + `-encoded blob of data
+(the output of ` + "`juju add-user`" + `) should have been provided
 which can be copied and pasted as the <string> argument to 'register'.
-You will be prompted for a password, which, once set, causes the
+The user will be prompted for a password, which, once set, causes the
 registration string to be voided. In order to start using Juju the user
 can now either add a model or wait for a model to be shared with them.
 Some machine providers will require the user to be in possession of
 certain credentials in order to add a model.
 
-If a new controller has been spun up to replace an existing one, and you want
-to start using that replacement controller instead of the original one,
-use the ` + "`--replace`" + ` option to overwrite any existing controller details based
+If a new controller has been spun up to replace an existing one, and that
+replacement controller is to be used instead of the original one,
+the ` + "`--replace`" + ` option can be used to overwrite any existing controller details based
 on either a name or UUID match.
 
 When adding a controller at a public address, authentication via some
@@ -135,7 +135,7 @@ func (c *registerCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *registerCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.BoolVar(&c.replace, "replace", false, "replace any existing controller")
+	f.BoolVar(&c.replace, "replace", false, "Replaces any existing controller.")
 }
 
 // Init implements Command.Init.

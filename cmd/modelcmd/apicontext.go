@@ -38,7 +38,7 @@ type AuthOpts struct {
 }
 
 func (o *AuthOpts) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&o.NoBrowser, "B", false, "Do not use web browser for authentication")
+	f.BoolVar(&o.NoBrowser, "B", false, "Disables web browser for authentication.")
 	f.BoolVar(&o.NoBrowser, "no-browser-login", false, "")
 }
 

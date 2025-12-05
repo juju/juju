@@ -105,15 +105,15 @@ func (c *upgradeModelCommand) Info() *cmd.Info {
 func (c *upgradeModelCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 
-	f.StringVar(&c.vers, "agent-version", "", "Upgrade to specific version")
-	f.StringVar(&c.AgentStream, "agent-stream", "", "Check this agent stream for upgrades")
-	f.BoolVar(&c.DryRun, "dry-run", false, "Don't change anything, just report what would be changed")
-	f.BoolVar(&c.ResetPrevious, "reset-previous-upgrade", false, "Clear the previous (incomplete) upgrade status (use with care)")
-	f.BoolVar(&c.AssumeYes, "y", false, "Answer 'yes' to confirmation prompts")
+	f.StringVar(&c.vers, "agent-version", "", "Specifies the version of the agent to upgrade to.")
+	f.StringVar(&c.AgentStream, "agent-stream", "", "Specifies the agent stream to upgrade to.")
+	f.BoolVar(&c.DryRun, "dry-run", false, "Simulates the upgrade without making changes.")
+	f.BoolVar(&c.ResetPrevious, "reset-previous-upgrade", false, "Clears the previous (incomplete) upgrade status (use with care).")
+	f.BoolVar(&c.AssumeYes, "y", false, "Answers 'yes' to confirmation prompts.")
 	f.BoolVar(&c.AssumeYes, "yes", false, "")
 	f.BoolVar(&c.IgnoreAgentVersions, "ignore-agent-versions", false,
-		"Don't check if all agents have already reached the current version")
-	f.DurationVar(&c.timeout, "timeout", 10*time.Minute, "Timeout before upgrade is aborted")
+		"Ignores check if all agents have already reached the current version.")
+	f.DurationVar(&c.timeout, "timeout", 10*time.Minute, "Specifies the timeout before upgrade is aborted.")
 }
 
 func (c *upgradeModelCommand) Init(args []string) error {

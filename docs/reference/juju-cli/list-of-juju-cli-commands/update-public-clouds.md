@@ -3,7 +3,7 @@
 > See also: [clouds](#clouds)
 
 ## Summary
-Updates public cloud information available to Juju.
+Updates the public cloud information available to Juju.
 
 ## Usage
 ```juju update-public-clouds [options] ```
@@ -11,9 +11,9 @@ Updates public cloud information available to Juju.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--client` | false | Client operation |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `-c`, `--controller` |  | Performs the operation in the specified controller. |
+| `--client` | false | Performs the operation on the local client. |
 
 ## Examples
 
@@ -28,7 +28,7 @@ If any new information for public clouds (such as regions and connection
 endpoints) are available this command will update Juju accordingly. It is
 suggested to run this command periodically.
 
-Use `--controller` to update public cloud(s) on a controller. The command
+The `--controller` option can be used to update public cloud(s) on a controller. The command
 will only update the clouds that a controller knows about.
 
-Use `--client` to update a definition of public cloud(s) on this client.
+The `--client` option can be used to update a definition of public cloud(s) on this client.

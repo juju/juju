@@ -23,7 +23,7 @@ type showCommand struct {
 }
 
 var showActionDoc = `
-Show detailed information about an action on the target application.
+Shows detailed information about an action on the target application.
 `
 
 const showActionExamples = `

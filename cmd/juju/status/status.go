@@ -80,8 +80,8 @@ var usageSummary = `
 Report the status of the model, its machines, applications and units.`[1:]
 
 var usageDetails = `
-Report the model's status, optionally filtered by names of applications or
-units. When selectors are present, filter the report to exclude entities that
+Reports the model's status, optionally filtered by names of applications or
+units. When selectors are present, filters the report to exclude entities that
 do not match.
 
     juju status [<selector> [...]]
@@ -167,18 +167,18 @@ func (c *statusCommand) Info() *cmd.Info {
 
 func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.isoTime, "utc", false, "Display timestamps in the UTC timezone")
+	f.BoolVar(&c.isoTime, "utc", false, "Displays timestamps in the UTC timezone.")
 
-	f.BoolVar(&c.color, "color", false, "Use ANSI color codes in tabular output")
-	f.BoolVar(&c.noColor, "no-color", false, "Disable ANSI color codes in tabular output")
-	f.BoolVar(&c.integrations, "integrations", false, "Same as `--relations`")
-	f.BoolVar(&c.relations, "relations", false, "Show relations section in tabular output")
-	f.BoolVar(&c.storage, "storage", false, "Show storage section in tabular output")
+	f.BoolVar(&c.color, "color", false, "Uses ANSI color codes in tabular output.")
+	f.BoolVar(&c.noColor, "no-color", false, "Disables ANSI color codes in tabular output.")
+	f.BoolVar(&c.integrations, "integrations", false, "Displays integrations section in tabular output (alias for `--relations).")
+	f.BoolVar(&c.relations, "relations", false, "Shows relations section in tabular output.")
+	f.BoolVar(&c.storage, "storage", false, "Shows storage section in tabular output.")
 
-	f.IntVar(&c.retryCount, "retry-count", 3, "Number of times to retry API failures")
-	f.DurationVar(&c.retryDelay, "retry-delay", 100*time.Millisecond, "Time to wait between retry attempts")
+	f.IntVar(&c.retryCount, "retry-count", 3, "Specifies the number of times to retry API failures.")
+	f.DurationVar(&c.retryDelay, "retry-delay", 100*time.Millisecond, "Specifies the time to wait between retry attempts.")
 
-	f.DurationVar(&c.watch, "watch", 0, "Watch the status every period of time")
+	f.DurationVar(&c.watch, "watch", 0, "Watches the status every period of time.")
 
 	c.checkProvidedIgnoredFlagF = func() set.Strings {
 		ignoredFlagForNonTabularFormat := set.NewStrings(

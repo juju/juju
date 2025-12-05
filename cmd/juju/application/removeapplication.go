@@ -103,10 +103,10 @@ func (c *removeApplicationCommand) Info() *cmd.Info {
 func (c *removeApplicationCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	c.RemoveConfirmationCommandBase.SetFlags(f)
-	f.BoolVar(&c.DryRun, "dry-run", false, "Print what this command would remove without removing")
-	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Destroy storage attached to application units")
-	f.BoolVar(&c.Force, "force", false, "Completely remove an application and all its dependencies")
-	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through application removal without waiting for each individual step to complete")
+	f.BoolVar(&c.DryRun, "dry-run", false, "Prints what this command would remove without removing.")
+	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Destroys storage attached to application units.")
+	f.BoolVar(&c.Force, "force", false, "Completely removes an application and all its dependencies.")
+	f.BoolVar(&c.NoWait, "no-wait", false, "Rushes through application removal without waiting for each individual step to complete.")
 	c.fs = f
 }
 

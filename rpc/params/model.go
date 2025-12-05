@@ -192,10 +192,6 @@ type ModelInfo struct {
 	// entries (e.g. juju version) and other features that depend on the
 	// substrate the model is deployed to.
 	SupportedFeatures []SupportedFeature `json:"supported-features,omitempty"`
-
-	// TargetController is a JAAS specific field to specify the
-	// name of the controller that hosts the model.
-	TargetController string `json:"target-controller,omitempty"`
 }
 
 // SupportedFeature describes a feature that is supported by a particular model.

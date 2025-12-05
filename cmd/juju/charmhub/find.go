@@ -78,10 +78,10 @@ func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
 		"tabular": c.formatter,
 	})
 
-	f.StringVar(&c.category, "category", "", `Filter by a category name`)
-	f.StringVar(&c.channel, "channel", "", `Filter by channel`)
-	f.StringVar(&c.charmType, "type", "", `Search by a given type <charm|bundle>`)
-	f.StringVar(&c.publisher, "publisher", "", `Search by a given publisher`)
+	f.StringVar(&c.category, "category", "", `Filters by a category name.`)
+	f.StringVar(&c.channel, "channel", "", `Filters by channel.`)
+	f.StringVar(&c.charmType, "type", "", `Searches by a given type <charm|bundle>.`)
+	f.StringVar(&c.publisher, "publisher", "", `Searches by a given publisher.`)
 
 	f.StringVar(&c.columns, "columns", "nbvps", `Display the columns associated with a find search.
 

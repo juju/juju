@@ -12,8 +12,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-var usageDisableUserSummary = `
-Disables a Juju user.`[1:]
+const usageDisableUserSummary = "Disables a Juju user."
 
 var usageDisableUserDetails = `
 A disabled Juju user is one that cannot log in to any controller.
@@ -26,8 +25,7 @@ const usageDisableUserExamples = `
     juju disable-user bob
 `
 
-var usageEnableUserSummary = `
-Re-enables a previously disabled Juju user.`[1:]
+const usageEnableUserSummary = "Re-enable a previously disabled Juju user."
 
 var usageEnableUserDetails = `
 An enabled Juju user is one that can log in to a controller.

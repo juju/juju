@@ -56,7 +56,7 @@ func (c *MoveCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "move-to-space",
 		Args:     "[--format yaml|json] <name> <CIDR1> [ <CIDR2> ...]",
-		Purpose:  "Update a network space's CIDR.",
+		Purpose:  "Updates a network space's CIDR.",
 		Doc:      strings.TrimSpace(moveCommandDoc),
 		Examples: moveCommandExamples,
 		SeeAlso: []string{
@@ -72,7 +72,7 @@ func (c *MoveCommand) Info() *cmd.Info {
 
 // SetFlags defines the move command flags it wants to offer.
 func (c *MoveCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.Force, "force", false, "Allow to force a move of subnets to a space even if they are in use on another machine.")
+	f.BoolVar(&c.Force, "force", false, "Forces a move of subnets to a space even if they are in use on another machine.")
 	c.out.AddFlags(f, "human", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,

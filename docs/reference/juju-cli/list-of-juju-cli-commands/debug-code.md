@@ -3,7 +3,7 @@
 > See also: [ssh](#ssh), [debug-hooks](#debug-hooks)
 
 ## Summary
-Launch a tmux session to debug hooks and/or actions.
+Launches a tmux session to debug hooks and/or actions.
 
 ## Usage
 ```juju debug-code [options] <unit name> [hook or action names]```
@@ -11,13 +11,13 @@ Launch a tmux session to debug hooks and/or actions.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `--at` | all | Specify the value that the `JUJU_DEBUG_AT` environment variable will be set to. This variable tells the charm where you want to stop. |
-| `--container` |  | the container name of the target pod |
+| `--at` | all | Specifies the value that the `JUJU_DEBUG_AT` environment variable will be set to. This variable tells the charm where you want to stop. |
+| `--container` |  | Specifies the container name of the target pod. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--no-host-key-checks` | false | Skip host key checking (INSECURE) |
-| `--proxy` | false | Proxy through the API server |
-| `--pty` | &lt;auto&gt; | Enable pseudo-tty allocation |
-| `--remote` | false | Target on the workload or operator pod (k8s-only) |
+| `--no-host-key-checks` | false | Skips host key checking (INSECURE). |
+| `--proxy` | false | Proxies through the API server. |
+| `--pty` | &lt;auto&gt; | Enables pseudo-tty allocation. |
+| `--remote` | false | Specifies the target on the workload or operator pod ( Kubernetes only). |
 
 ## Examples
 
@@ -59,5 +59,5 @@ Valid unit identifiers are:
 
 If no hook or action is specified, all hooks and actions will be intercepted.
 
-See `juju help ssh` for information about SSH related options
+The `juju help ssh` command provides information about SSH related options
 accepted by the `debug-code` command.

@@ -13,12 +13,12 @@ Shows credential information stored either on this client or on a controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--client` | false | Client operation |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `-c`, `--controller` |  | Performs the operation in the specified controller. |
+| `--client` | false | Performs the operation on the local client. |
 | `--format` | yaml | Specify output format (yaml) |
 | `-o`, `--output` |  | Specify an output file |
-| `--show-secrets` | false | Display credential secret attributes |
+| `--show-secrets` | false | Displays credential secret attributes. |
 
 ## Examples
 
@@ -32,14 +32,14 @@ Shows credential information stored either on this client or on a controller.
 
 ## Details
 
-This command displays information about cloud credential(s) stored
+Displays information about cloud credential(s) stored
 either on this client or on a controller for this user.
 
-To see the contents of a specific credential, supply its cloud and name.
-To see all credentials stored for you, supply no arguments.
+The cloud and name can be supplied to see the contents of a specific credential.
+If no arguments are supplied, all credentials stored for the user are displayed.
 
-To see secrets, content attributes marked as hidden, use the `--show-secrets` option.
+The `--show-secrets` option can be used to see secrets, content attributes marked as hidden.
 
-To see credentials from this client, use the `--client` option.
+The `--client` option can be used to see credentials from this client.
 
-To see credentials from a controller, use the `--controller` option.
+The `--controller` option can be used to see credentials from a controller.

@@ -15,10 +15,9 @@ import (
 )
 
 const showCommandDoc = `
-This command is intended to enable users to learn more about the
-application offered from a particular URL. In addition to the URL of
-the offer, extra information is provided from the readme file of the
-charm being offered.
+Displays extended information about the application offered from a particular URL.
+In addition to the URL of the offer, extra information is provided from the
+readme file of the charm being offered.
 `
 
 const showCommandExamples = `
@@ -73,7 +72,7 @@ func (c *showCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "show-offer",
 		Args:     "[<controller>:]<offer url>",
-		Purpose:  "Shows extended information about the offered application.",
+		Purpose:  "View extended information about the offered application.",
 		Doc:      showCommandDoc,
 		Examples: showCommandExamples,
 		SeeAlso: []string{

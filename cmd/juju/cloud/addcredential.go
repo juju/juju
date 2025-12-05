@@ -26,14 +26,13 @@ import (
 )
 
 var usageAddCredentialSummary = `
-Adds a credential for a cloud to a local client and uploads it to a controller.`[1:]
+Adds a credential for a cloud to a local client and upload it to a controller.`[1:]
 
 var usageAddCredentialDetails = `
 The ` + "`juju add-credential`" + `command operates in two modes.
 
 When called with only the ` + "`<cloud name>` " + `argument, ` + "`juju add-credential` " + `will
-take you through an interactive prompt to add a credential specific to
-the cloud provider.
+prompt interactively to add a credential specific to the cloud provider.
 
 Providing the ` + "`-f <credentials.yaml>` " + `option switches to the
 non-interactive mode. ` + "`<credentials.yaml>` " + `must be a path to a correctly
@@ -151,9 +150,10 @@ func (c *addCredentialCommand) Info() *cmd.Info {
 
 func (c *addCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
-	f.StringVar(&c.CredentialsFile, "f", "", "The YAML file containing credentials to add")
-	f.StringVar(&c.CredentialsFile, "file", "", "The YAML file containing credentials to add")
-	f.StringVar(&c.Region, "region", "", "Cloud region that credential is valid for")
+
+	f.StringVar(&c.CredentialsFile, "file", "", "Specifies the YAML file containing credentials to add.")
+	f.StringVar(&c.CredentialsFile, "f", "", "Specifies the YAML file containing credentials to add.")
+	f.StringVar(&c.Region, "region", "", "Specifies the cloud region that the credential is valid for.")
 }
 
 func (c *addCredentialCommand) Init(args []string) (err error) {

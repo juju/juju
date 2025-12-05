@@ -11,12 +11,12 @@ Initiates an SSH session or executes a command on a Juju machine or container.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `--container` |  | the container name of the target pod |
+| `--container` |  | Specifies the container name of the target pod. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--no-host-key-checks` | false | Skip host key checking (INSECURE) |
-| `--proxy` | false | Proxy through the API server |
-| `--pty` | &lt;auto&gt; | Enable pseudo-tty allocation |
-| `--remote` | false | Target on the workload or operator pod (k8s-only) |
+| `--no-host-key-checks` | false | Skips host key checking (INSECURE). |
+| `--proxy` | false | Proxies through the API server. |
+| `--pty` | &lt;auto&gt; | Enables pseudo-tty allocation. |
+| `--remote` | false | Specifies the target on the workload or operator pod ( Kubernetes only). |
 
 ## Examples
 

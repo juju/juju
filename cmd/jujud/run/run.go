@@ -52,7 +52,7 @@ type RunCommand struct {
 }
 
 const runCommandDoc = `
-Run the specified commands in the hook context for the unit.
+Runs the specified commands in the hook context for the unit.
 
 unit-name can be either the unit tag:
  i.e.  unit-ubuntu-0
@@ -93,20 +93,20 @@ func (c *RunCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "juju-exec",
 		Args:    "[-u] [<unit-name>] <commands>",
-		Purpose: "run commands in a unit's hook context",
+		Purpose: "Runs commands in a unit's hook context",
 		Doc:     runCommandDoc,
 	})
 }
 
 func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.noContext, "no-context", false, "do not run the command in a unit context")
-	f.StringVar(&c.relationId, "r", "", "run the commands for a specific relation context on a unit")
+	f.StringVar(&c.relationId, "r", "", "Runs the commands for a specific relation context on a unit")
 	f.StringVar(&c.relationId, "relation", "", "")
-	f.StringVar(&c.remoteUnitName, "remote-unit", "", "run the commands for a specific remote unit in a relation context on a unit")
-	f.StringVar(&c.remoteApplicationName, "remote-app", "", "run the commands for a specific remote application in a relation context on a unit")
-	f.BoolVar(&c.operator, "operator", false, "run the commands on the operator instead of the workload. Only supported on k8s workload charms")
-	f.BoolVar(&c.forceRemoteUnit, "force-remote-unit", false, "run the commands for a specific relation context, bypassing the remote unit check")
-	f.StringVar(&c.unitName, "u", "-", "explicit unit-name, all other arguments are commands. if -u is passed an empty string, unit-name is inferred from state")
+	f.StringVar(&c.remoteUnitName, "remote-unit", "", "Runs the commands for a specific remote unit in a relation context on a unit.")
+	f.StringVar(&c.remoteApplicationName, "remote-app", "", "Runs the commands for a specific remote application in a relation context on a unit.")
+	f.BoolVar(&c.operator, "operator", false, "Runs the commands on the operator instead of the workload. Only supported for Kubernetes workload charms.")
+	f.BoolVar(&c.forceRemoteUnit, "force-remote-unit", false, "Runs the commands for a specific relation context, bypassing the remote unit check.")
+	f.StringVar(&c.unitName, "u", "-", "Specifies an  xplicit unit name. All other arguments are commands. If `-u` is passed an empty string, the unit name is inferred from state.")
 }
 
 func (c *RunCommand) Init(args []string) error {

@@ -43,9 +43,9 @@ options.
 If ` + "`--include-config`" + ` is used, additional configuration (key, type, and
 description) specific to the cloud are displayed if available.
 
-Use the ` + "`--controller`" + ` option to show a cloud from a controller.
+The ` + "`--controller`" + ` option can be used to show a cloud from a controller.
 
-Use the ` + "`--client`" + ` option to show a cloud known on this client.
+The ` + "`--client`" + ` option can be used to show a cloud known on this client.
 `
 
 const showCloudExamples = `
@@ -89,7 +89,7 @@ func (c *showCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"display": cmd.FormatYaml,
 	})
-	f.BoolVar(&c.includeConfig, "include-config", false, "Print available config option details specific to the specified cloud")
+	f.BoolVar(&c.includeConfig, "include-config", false, "Prints available config option details specific to the specified cloud.")
 }
 
 func (c *showCloudCommand) Init(args []string) error {
@@ -109,7 +109,7 @@ func (c *showCloudCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "show-cloud",
 		Args:     "<cloud name>",
-		Purpose:  "Shows detailed information for a cloud.",
+		Purpose:  "View detailed information about a cloud.",
 		Doc:      showCloudDoc,
 		Examples: showCloudExamples,
 		SeeAlso: []string{

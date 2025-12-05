@@ -11,15 +11,15 @@ Upgrades Juju on all machines in a model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--agent-stream` |  | Check this agent stream for upgrades |
-| `--agent-version` |  | Upgrade to specific version |
-| `--dry-run` | false | Don't change anything, just report what would be changed |
-| `--ignore-agent-versions` | false | Don't check if all agents have already reached the current version |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--agent-stream` |  | Specifies the agent stream to upgrade to. |
+| `--agent-version` |  | Specifies the version of the agent to upgrade to. |
+| `--dry-run` | false | Simulates the upgrade without making changes. |
+| `--ignore-agent-versions` | false | Ignores check if all agents have already reached the current version. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--reset-previous-upgrade` | false | Clear the previous (incomplete) upgrade status (use with care) |
-| `--timeout` | 10m0s | Timeout before upgrade is aborted |
-| `-y`, `--yes` | false | Answer 'yes' to confirmation prompts |
+| `--reset-previous-upgrade` | false | Clears the previous (incomplete) upgrade status (use with care). |
+| `--timeout` | 10m0s | Specifies the timeout before upgrade is aborted. |
+| `-y`, `--yes` | false | Answers 'yes' to confirmation prompts. |
 
 ## Examples
 

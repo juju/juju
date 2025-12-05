@@ -25,10 +25,10 @@ const (
 	showCommitDoc     = `
 Show-commit shows the committed branches to the model.
 Details displayed include:
-- user who committed the branch 
-- when the branch was committed 
-- user who created the branch 
-- when the branch was created 
+- user who committed the branch
+- when the branch was committed
+- user who created the branch
+- when the branch was created
 - configuration  made under the branch for each application
 - a summary of how many units are tracking the branch
 
@@ -85,7 +85,7 @@ func (c *ShowCommitCommand) Info() *cmd.Info {
 // SetFlags implements part of the cmd.Command interface.
 func (c *ShowCommitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
+	f.BoolVar(&c.isoTime, "utc", false, "Displays time as UTC in `RFC3339` format.")
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 

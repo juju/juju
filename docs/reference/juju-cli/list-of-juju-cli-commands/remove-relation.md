@@ -3,7 +3,7 @@
 > See also: [integrate](#integrate), [remove-application](#remove-application)
 
 ## Summary
-Removes an existing relation between two applications.
+Remove an existing relation between two applications.
 
 ## Usage
 ```juju remove-relation [options] <application1>[:<relation name1>] <application2>[:<relation name2>] | <relation-id>```
@@ -11,8 +11,8 @@ Removes an existing relation between two applications.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--force` | false | Force remove a relation |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--force` | false | Forces removal of a relation. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 
 ## Examples
@@ -30,7 +30,7 @@ at least once. For example, the commands below will all have the same effect:
 
 
 ## Details
-An existing relation between the two specified applications will be removed.
+Removes an existing relation between the two specified applications.
 This should not result in either of the applications entering an error state,
 but may result in either or both of the applications being unable to continue
 normal operation. In the case that there is more than one relation between

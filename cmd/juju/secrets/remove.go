@@ -47,7 +47,7 @@ func (c *removeSecretCommand) secretsAPI() (RemoveSecretsAPI, error) {
 
 const (
 	removeSecretDoc = `
-Remove all the revisions of a secret with the specified URI or remove the provided revision only.
+Removes all the revisions of a secret with the specified URI or remove the provided revision only.
 `
 	removeSecretExamples = `
     juju remove-secret my-secret
@@ -61,7 +61,7 @@ func (c *removeSecretCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "remove-secret",
 		Args:     "<ID>|<name>",
-		Purpose:  "Remove a existing secret.",
+		Purpose:  "Removes an existing secret.",
 		Doc:      removeSecretDoc,
 		Examples: removeSecretExamples,
 	})
@@ -69,7 +69,7 @@ func (c *removeSecretCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.Command.
 func (c *removeSecretCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.IntVar(&c.revision, "revision", 0, "remove the specified revision")
+	f.IntVar(&c.revision, "revision", 0, "Removes the specified revision.")
 }
 
 // Init implements cmd.Command.

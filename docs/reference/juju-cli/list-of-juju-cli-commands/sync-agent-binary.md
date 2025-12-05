@@ -3,7 +3,7 @@
 > See also: [upgrade-controller](#upgrade-controller)
 
 ## Summary
-Copy agent binaries from the official agent store into a local controller.
+Copies agent binaries from the official agent store into a local controller.
 
 ## Usage
 ```juju sync-agent-binary [options] ```
@@ -11,14 +11,14 @@ Copy agent binaries from the official agent store into a local controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--agent-version` |  | Copy a specific major[.minor] version |
-| `--dry-run` | false | Don't copy, just print what would be copied |
-| `--local-dir` |  | Local destination directory |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--agent-version` |  | Specifies the major[.minor] version to copy. |
+| `--dry-run` | false | Simulates the copy without making changes. |
+| `--local-dir` |  | Specifies a local destination directory. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--public` | false | Tools are for a public cloud, so generate mirrors information |
-| `--source` |  | Local source directory |
-| `--stream` |  | Simplestreams stream for which to sync metadata |
+| `--public` | false | Generates mirrors information for a public cloud. |
+| `--source` |  | Specifies a local source directory. |
+| `--stream` |  | Specifies the simplestreams stream for which to sync metadata. |
 
 ## Examples
 
@@ -28,7 +28,7 @@ Copy agent binaries from the official agent store into a local controller.
 
 ## Details
 
-This copies the Juju agent software from the official agent binaries store
+Copies the Juju agent software from the official agent binaries store
 (located at https://streams.canonical.com/juju) into the controller.
 It is generally done when the controller is without internet access.
 

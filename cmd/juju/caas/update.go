@@ -41,7 +41,7 @@ var usageUpdateCAASSummary = `
 Updates an existing Kubernetes endpoint used by Juju.`[1:]
 
 var usageUpdateCAASDetails = `
-Update Kubernetes cloud information on this client and/or on a controller.
+Updates Kubernetes cloud information on this client and/or on a controller.
 
 The Kubernetes cloud can be a built-in cloud such as MicroK8s.
 
@@ -132,7 +132,7 @@ func (c *UpdateCAASCommand) Info() *cmd.Info {
 // SetFlags initializes the flags supported by the command.
 func (c *UpdateCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
-	f.StringVar(&c.CloudFile, "f", "", "The path to a cloud definition file")
+	f.StringVar(&c.CloudFile, "f", "", "Specifies the path to a cloud definition file.")
 }
 
 // Init populates the command with the args from the command line.

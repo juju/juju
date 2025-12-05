@@ -3,17 +3,17 @@
 > See also: [add-user](#add-user), [register](#register)
 
 ## Summary
-Changes the password for the current or specified Juju user.
+Changes the password for the current or the specified Juju user.
 
 ## Usage
-```juju change-user-password [options] [username]```
+```juju change-user-password [options] [<username>]```
 
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--no-prompt` | false | Don't prompt for password; instead, read a line from stdin. |
-| `--reset` | false | Reset user password. |
+| `-c`, `--controller` |  | Performs the operation in the specified controller. |
+| `--no-prompt` | false | Skips password prompt; instead, reads a line from `stdin`. |
+| `--reset` | false | Resets user password. |
 
 ## Examples
 

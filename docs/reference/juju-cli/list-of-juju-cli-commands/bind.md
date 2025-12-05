@@ -3,7 +3,7 @@
 > See also: [spaces](#spaces), [show-space](#show-space), [show-application](#show-application)
 
 ## Summary
-Change bindings for a deployed application.
+Changes bindings for a deployed application.
 
 ## Usage
 ```juju bind [options] <application> [<default-space>] [<endpoint-name>=<space> ...]```
@@ -11,8 +11,8 @@ Change bindings for a deployed application.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--force` | false | Allow endpoints to be bound to spaces that might not be available to all existing units |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--force` | false | Allows endpoints to be bound to spaces that might not be available to all existing units. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 
 ## Examples
@@ -35,6 +35,8 @@ and individual endpoints in one go:
 
 
 ## Details
+
+Configures application endpoint bindings to spaces.
 
 In order to be able to bind any endpoint to a space, all machines where the
 application units are deployed to are required to be configured with an address

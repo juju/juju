@@ -54,7 +54,7 @@ func (c *showCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 	})
-	f.BoolVar(&c.ShowSecrets, "show-secrets", false, "Display credential secret attributes")
+	f.BoolVar(&c.ShowSecrets, "show-secrets", false, "Displays credential secret attributes.")
 }
 
 func (c *showCredentialCommand) Init(args []string) error {
@@ -258,17 +258,17 @@ func (c *showCredentialCommand) parseContents(ctxt *cmd.Context, in []params.Cre
 }
 
 var showCredentialDoc = `
-This command displays information about cloud credential(s) stored
+Displays information about cloud credential(s) stored
 either on this client or on a controller for this user.
 
-To see the contents of a specific credential, supply its cloud and name.
-To see all credentials stored for you, supply no arguments.
+The cloud and name can be supplied to see the contents of a specific credential.
+If no arguments are supplied, all credentials stored for the user are displayed.
 
-To see secrets, content attributes marked as hidden, use the ` + "`--show-secrets`" + ` option.
+The ` + "`--show-secrets`" + ` option can be used to see secrets, content attributes marked as hidden.
 
-To see credentials from this client, use the ` + "`--client`" + ` option.
+The ` + "`--client`" + ` option can be used to see credentials from this client.
 
-To see credentials from a controller, use the ` + "`--controller`" + ` option.
+The ` + "`--controller`" + ` option can be used to see credentials from a controller.
 `
 
 const showCredentialExamples = `

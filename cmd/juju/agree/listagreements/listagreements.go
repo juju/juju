@@ -34,11 +34,11 @@ type TermsServiceClient interface {
 }
 
 const listAgreementsDoc = `
+Lists the terms that the user has agreed to.
+
 Charms may require a user to accept its terms in order for it to be deployed.
 In other words, some applications may only be installed if a user agrees to 
 accept some terms defined by the charm. 
-
-This command lists the terms that the user has agreed to.
 `
 
 const listAgreementsExamples = `
@@ -74,7 +74,7 @@ func (c *listAgreementsCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *listAgreementsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "agreements",
-		Purpose:  "List user's agreements.",
+		Purpose:  "Lists user's agreements.",
 		Doc:      listAgreementsDoc,
 		Aliases:  []string{"list-agreements"},
 		Examples: listAgreementsExamples,

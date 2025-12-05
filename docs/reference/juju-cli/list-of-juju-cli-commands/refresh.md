@@ -3,7 +3,7 @@
 > See also: [deploy](#deploy)
 
 ## Summary
-Refresh an application's charm.
+Refreshes an application's charm.
 
 ## Usage
 ```juju refresh [options] <application>```
@@ -11,21 +11,21 @@ Refresh an application's charm.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--base` |  | Select a different base than what is currently running. |
-| `--bind` |  | Configure application endpoint bindings to spaces |
-| `--channel` |  | Channel to use when getting the charm from Charmhub |
-| `--config` |  | Either a path to yaml-formatted application config file or a key=value pair  |
-| `--force` | false | Allow a charm to be refreshed which bypasses LXD profile allow list |
-| `--force-base`, `--force-series` | false | Refresh even if the base of the deployed application is not supported by the new charm |
-| `--force-units` | false | Refresh all units immediately, even if in error state |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--base` |  | Selects a different base than what is currently running. |
+| `--bind` |  | Configures application endpoint bindings to spaces. |
+| `--channel` |  | Specifies the channel to use when getting the charm from Charmhub. |
+| `--config` |  | Specifies either a path to `yaml`-formatted application config file or a `key=value` pair. |
+| `--force` | false | Allows a charm to be refreshed which bypasses LXD profile allow list. |
+| `--force-base`, `--force-series` | false | Refreshes even if the base of the deployed application is not supported by the new charm. |
+| `--force-units` | false | Refreshes all units immediately, even if in error state. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--path` |  | Refresh to a charm located at path |
-| `--resource` |  | Resource to be uploaded to the controller |
-| `--revision` | -1 | Explicit revision of current charm |
-| `--storage` |  | Charm storage constraints |
-| `--switch` |  | Crossgrade to a different charm |
-| `--trust` | unset | Allows charm to run hooks that require access credentials |
+| `--path` |  | Refreshes to a charm located at path. |
+| `--resource` |  | Specifies a resource to be uploaded to the controller. |
+| `--revision` | -1 | Specifies the explicit revision for the current charm. |
+| `--storage` |  | Specifies the charm storage constraints. |
+| `--switch` |  | Crossgrades to a different charm. |
+| `--trust` | unset | Allows charm to run hooks that require access credentials. |
 
 ## Examples
 
@@ -43,6 +43,8 @@ To refresh the resources for application `foo`:
 
 
 ## Details
+
+Updates the charm to the latest revision available in the repository from which it was originally deployed.
 
 When no options are set, the application's charm will be refreshed to the latest
 revision available in the repository from which it was originally deployed. An

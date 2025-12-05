@@ -3,7 +3,7 @@
 > See also: [operations](#operations), [show-operation](#show-operation), [show-task](#show-task)
 
 ## Summary
-Run an action on a specified unit.
+Runs an action on a specified unit.
 
 ## Usage
 ```juju run [options] <unit> [<unit> ...] <action-name> [<key>=<value> [<key>[.<key> ...]=<value>]]```
@@ -11,17 +11,17 @@ Run an action on a specified unit.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--background` | false | Run the task in the background |
-| `--color` | false | Use ANSI color codes in output |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--background` | false | Runs the task in the background. |
+| `--color` | false | Uses ANSI color codes in output. |
 | `--format` | plain | Specify output format (json&#x7c;plain&#x7c;yaml) |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--no-color` | false | Disable ANSI color codes in output |
+| `--no-color` | false | Disables ANSI color codes in output. |
 | `-o`, `--output` |  | Specify an output file |
-| `--params` |  | Path to yaml-formatted params file |
-| `--string-args` | false | Use raw string values of CLI args |
-| `--utc` | false | Show times in UTC |
-| `--wait` | 0s | Maximum wait time for a task to complete |
+| `--params` |  | Specifies the path to a yaml-formatted params file. |
+| `--string-args` | false | Uses raw string values of CLI args. |
+| `--utc` | false | Shows times in UTC. |
+| `--wait` | 0s | Specifies the maximum wait time for a task to complete. |
 
 ## Examples
 
@@ -41,7 +41,7 @@ Run an action on a specified unit.
 
 ## Details
 
-Run a charm action for execution on the given unit(s), with a given set of params.
+Runs a charm action for execution on the given unit(s), with a given set of params.
 An ID is returned for use with `juju show-operation <ID>`.
 
 All units must be of the same application.

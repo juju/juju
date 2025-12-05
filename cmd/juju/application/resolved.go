@@ -42,7 +42,7 @@ func (c *resolvedCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "resolved",
 		Args:     "[<unit> ...]",
-		Purpose:  "Marks unit errors resolved and re-executes failed hooks.",
+		Purpose:  "Marks unit errors resolved and re-execute failed hooks.",
 		Aliases:  []string{"resolve"},
 		Examples: resolvedCommandExamples,
 	})
@@ -50,8 +50,8 @@ func (c *resolvedCommand) Info() *cmd.Info {
 
 func (c *resolvedCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.NoRetry, "no-retry", false, "Do not re-execute failed hooks on the unit")
-	f.BoolVar(&c.All, "all", false, "Marks all units in error as resolved")
+	f.BoolVar(&c.NoRetry, "no-retry", false, "Skips re-execution of failed hooks on the unit.")
+	f.BoolVar(&c.All, "all", false, "Marks all units in error as resolved.")
 }
 
 func (c *resolvedCommand) Init(args []string) error {

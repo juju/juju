@@ -44,7 +44,7 @@ This command upgrades the Juju agent for a controller.
 A controller's agent version can be shown with `[1:] + "`juju model-config -m controller agent-version`" + `.
 A version is denoted by: ` + "`major.minor.patch`" + `.
 
-You can upgrade the controller to a new patch version by specifying
+The controller can be upgraded to a new patch version by specifying
 the ` + "`--agent-version`" + ` flag. If not specified, the upgrade candidate
 will default to the most recent patch version matching the current
 major and minor version. Upgrading to a new major or minor version is
@@ -105,16 +105,16 @@ func (c *upgradeControllerCommand) Info() *cmd.Info {
 func (c *upgradeControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
 
-	f.StringVar(&c.vers, "agent-version", "", "Upgrade to specific version")
-	f.StringVar(&c.AgentStream, "agent-stream", "", "Check this agent stream for upgrades")
-	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build a local version of the agent binary; for development use only")
-	f.BoolVar(&c.DryRun, "dry-run", false, "Don't change anything, just report what would be changed")
-	f.BoolVar(&c.ResetPrevious, "reset-previous-upgrade", false, "Clear the previous (incomplete) upgrade status (use with care)")
-	f.BoolVar(&c.AssumeYes, "y", false, "Answer 'yes' to confirmation prompts")
+	f.StringVar(&c.vers, "agent-version", "", "Specifies the version of the agent to upgrade to.")
+	f.StringVar(&c.AgentStream, "agent-stream", "", "Specifies the agent stream to upgrade to.")
+	f.BoolVar(&c.BuildAgent, "build-agent", false, "Builds a local version of the agent binary; for development use only.")
+	f.BoolVar(&c.DryRun, "dry-run", false, "Simulates the upgrade without making changes.")
+	f.BoolVar(&c.ResetPrevious, "reset-previous-upgrade", false, "Clears the previous (incomplete) upgrade status (use with care).")
+	f.BoolVar(&c.AssumeYes, "y", false, "Answers 'yes' to confirmation prompts.")
 	f.BoolVar(&c.AssumeYes, "yes", false, "")
 	f.BoolVar(&c.IgnoreAgentVersions, "ignore-agent-versions", false,
-		"Don't check if all agents have already reached the current version")
-	f.DurationVar(&c.timeout, "timeout", 10*time.Minute, "Timeout before upgrade is aborted")
+		"Ignores check if all agents have already reached the current version.")
+	f.DurationVar(&c.timeout, "timeout", 10*time.Minute, "Specifies the timeout before upgrade is aborted.")
 }
 
 func (c *upgradeControllerCommand) Init(args []string) error {

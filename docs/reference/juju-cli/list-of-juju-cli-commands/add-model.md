@@ -11,12 +11,12 @@ Adds a workload model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--config` |  | Specify the path to a YAML model configuration file or individual configuration options (`--config config.yaml [--config key=value ...]`) |
-| `--credential` |  | Specify the credential to be used by the model |
-| `--no-switch` | false | Choose not to switch to the newly created model |
-| `--owner` |  | Specify the user who will own the model, if not the current user |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `-c`, `--controller` |  | Performs the operation in the specified controller. |
+| `--config` |  | Specifies the path to a YAML model configuration file or individual configuration options (`--config config.yaml [--config key=value ...]`). |
+| `--credential` |  | Specifies the credential to use for the model. |
+| `--no-switch` | false | Skips switching to the model after creating it. |
+| `--owner` |  | Specifies the owner of the model, if not the current user. |
 
 ## Examples
 

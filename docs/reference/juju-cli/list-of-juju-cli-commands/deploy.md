@@ -11,26 +11,26 @@ Deploys a new application or bundle.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--attach-storage` |  | Specify an existing storage volume to attach to the deployed unit. |
-| `--base` |  | The base on which to deploy |
-| `--bind` |  | Configure application endpoint bindings to spaces |
-| `--channel` |  | Channel to use when deploying a charm or bundle from Charmhub |
-| `--config` |  | Either a path to yaml-formatted application config file or a key=value pair  |
-| `--constraints` | [] | Set application constraints |
-| `--device` |  | Charm device constraints |
-| `--dry-run` | false | Just show what the deploy would do |
-| `--force` | false | Allow a charm/bundle to be deployed which bypasses checks such as supported base or LXD profile allow list |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--attach-storage` |  | Specifies an existing storage volume to attach to the deployed unit. |
+| `--base` |  | Specifies the base on which to deploy. |
+| `--bind` |  | Configures application endpoint bindings to spaces. |
+| `--channel` |  | Specifies the channel to use when deploying a charm or bundle from Charmhub. |
+| `--config` |  | Specifies a path to a `yaml`-formatted application config file or a key=value pair. |
+| `--constraints` | [] | Specifies the application constraints. |
+| `--device` |  | Specifies the charm device constraints. |
+| `--dry-run` | false | Simulates the deployment without making changes. |
+| `--force` | false | Allows a charm/bundle to be deployed which bypasses checks such as supported base or LXD profile allow list. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--map-machines` |  | Specify the existing machines to use for bundle deployments |
-| `-n`, `--num-units` | 1 | Number of application units to deploy for principal charms |
-| `--overlay` |  | Bundles to overlay on the primary bundle, applied in order |
-| `--resource` |  | Resource to be uploaded to the controller |
-| `--revision` | -1 | The revision to deploy |
-| `--series` |  | The series on which to deploy. DEPRECATED: use `--base` |
-| `--storage` |  | Charm storage constraints |
-| `--to` |  | (Machine models only) Specify a comma-separated list of placement directives. If the length of this list is less than `-n`, the remaining units will be added in the default way (i.e., to new machines). |
-| `--trust` | false | Allows charm to run hooks that require access credentials |
+| `--map-machines` |  | Specifies the existing machines to use for bundle deployments. |
+| `-n`, `--num-units` | 1 | Specifies the number of application units to deploy for principal charms. |
+| `--overlay` |  | Specifies bundles to overlay on the primary bundle, applied in order. |
+| `--resource` |  | Specifies a resource to be uploaded to the controller. |
+| `--revision` | -1 | Specifies the revision to deploy. |
+| `--series` |  | Specifies the series on which to deploy. DEPRECATED: use `--base`. |
+| `--storage` |  | Specifies the charm storage constraints. |
+| `--to` |  | (Machine models only) Specifies a comma-separated list of placement directives. If the length of this list is less than `-n`, the remaining units will be added in the default way (i.e., to new machines). |
+| `--trust` | false | Allows the charm to run hooks that require access credentials. |
 
 ## Examples
 
@@ -122,7 +122,7 @@ A local charm may be deployed by giving the path to its directory:
     juju deploy /path/to/charm
     juju deploy /path/to/charm --base ubuntu@22.04
 
-You will need to be explicit if there is an ambiguity between a local and a
+Explicit specification is required if there is an ambiguity between a local and a
 remote charm:
 
     juju deploy ./pig

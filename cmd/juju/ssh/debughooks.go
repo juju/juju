@@ -45,6 +45,8 @@ type debugHooksCommand struct {
 }
 
 const debugHooksDoc = `
+Launches a ` + "`tmux`" + ` session on a unit or machine to debug hooks and/or actions.
+
 The command launches a ` + "`tmux`" + ` session that will intercept matching hooks and/or
 actions.
 
@@ -88,7 +90,7 @@ func (c *debugHooksCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "debug-hooks",
 		Args:     "<unit name> [hook or action names]",
-		Purpose:  "Launch a tmux session to debug hooks and/or actions.",
+		Purpose:  "Launches a tmux session to debug hooks and/or actions.",
 		Doc:      debugHooksDoc,
 		Examples: usageDebugHooksExamples,
 		Aliases:  []string{"debug-hook"},

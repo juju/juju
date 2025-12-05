@@ -14,8 +14,7 @@ type Logger interface {
 }
 
 var waitForDoc = `
-The ` + "`wait-for`" + ` set of commands (model, application, machine and unit) defines
-a way to wait for a goal state to be reached. The goal state can be defined
+Waits for a goal state for a model, application, machine, or unit to be reached. The goal state can be defined
 programmatically using the query DSL (domain specific language).
 
 The ` + "`wait-for`" + ` command is an optimized alternative to the ` + "`status`" + ` command for
@@ -61,7 +60,7 @@ func NewWaitForCommand() cmd.Command {
 		Name:        "wait-for",
 		UsagePrefix: "juju",
 		Doc:         waitForDoc,
-		Purpose:     "Wait for an entity to reach a specified state.",
+		Purpose:     "Waits for an entity to reach a specified state.",
 		Examples:    waitForExamples,
 	})
 

@@ -11,11 +11,11 @@ Logs a user in to a controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--no-prompt` | false | Don't prompt for password just read a line from `stdin` |
-| `--trust` | false | Automatically trust controller CA certificate |
-| `-u`, `--user` |  | Log in as this local user |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
+| `--no-prompt` | false | Skips password prompt; instead, read a line from `stdin`. |
+| `--trust` | false | Automatically trusts controller CA certificate. |
+| `-u`, `--user` |  | Logs in as this local user. |
 
 ## Examples
 
@@ -26,7 +26,7 @@ Logs a user in to a controller.
 
 ## Details
 
-By default, the `juju login` command logs the user into a controller.
+Logs the user in to a controller.
 The argument to the command can be a public controller
 host name or alias (see Aliases below).
 

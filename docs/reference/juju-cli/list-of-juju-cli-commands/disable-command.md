@@ -11,7 +11,7 @@ Disables commands for the model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 
 ## Examples
@@ -31,8 +31,7 @@ To prevent changes to the model:
 
 ## Details
 
-Juju allows to safeguard deployed models from unintentional damage by preventing
-execution of operations that could alter model.
+Disables sets of commands to safeguard deployed models from unintentional damage.
 
 This is done by disabling certain sets of commands from successful execution.
 Disabled commands must be manually enabled to proceed.

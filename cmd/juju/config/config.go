@@ -60,12 +60,12 @@ type ConfigCommandBase struct {
 
 // SetFlags implements cmd.Command.SetFlags.
 func (c *ConfigCommandBase) SetFlags(f *gnuflag.FlagSet) {
-	f.Var(&c.ConfigFile, "file", "Path to yaml-formatted configuration file")
-	f.BoolVar(&c.Color, "color", false, "Use ANSI color codes in output")
-	f.BoolVar(&c.NoColor, "no-color", false, "Disable ANSI color codes in tabular output")
+	f.Var(&c.ConfigFile, "file", "Specifies a path to a `yaml`-formatted configuration file.")
+	f.BoolVar(&c.Color, "color", false, "Uses ANSI color codes in output.")
+	f.BoolVar(&c.NoColor, "no-color", false, "Disables ANSI color codes in tabular output.")
 	if c.Resettable {
 		f.Var(cmd.NewAppendStringsValue(&c.reset), "reset",
-			"Reset the provided comma delimited keys")
+			"Resets the provided comma delimited keys.")
 	}
 
 }

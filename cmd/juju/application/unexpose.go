@@ -15,7 +15,7 @@ import (
 )
 
 var usageUnexposeSummary = `
-Removes public availability over the network for an application.`[1:]
+Remove public availability over the network for an application.`[1:]
 
 var usageUnexposeDetails = `
 Adjusts the firewall rules and any relevant security mechanisms of the
@@ -73,7 +73,7 @@ func (c *unexposeCommand) Info() *cmd.Info {
 
 func (c *unexposeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.ExposedEndpointsList, "endpoints", "", "Unexpose only the ports that charms have opened for this comma-delimited list of endpoints")
+	f.StringVar(&c.ExposedEndpointsList, "endpoints", "", "Unexposes only the ports that charms have opened for this comma-delimited list of endpoints.")
 }
 
 func (c *unexposeCommand) Init(args []string) error {

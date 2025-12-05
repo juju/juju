@@ -3,7 +3,7 @@
 > See also: [add-secret-backend](#add-secret-backend), [secret-backends](#secret-backends), [remove-secret-backend](#remove-secret-backend), [update-secret-backend](#update-secret-backend)
 
 ## Summary
-Displays the specified secret backend.
+Display the specified secret backend.
 
 ## Usage
 ```juju show-secret-backend [options] <backend-name>```
@@ -11,10 +11,10 @@ Displays the specified secret backend.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-c`, `--controller` |  | Controller to operate in |
+| `-c`, `--controller` |  | Performs the operation in the specified controller. |
 | `--format` | yaml | Specify output format (json&#x7c;yaml) |
 | `-o`, `--output` |  | Specify an output file |
-| `--reveal` | false | Include sensitive backend config content |
+| `--reveal` | false | Includes sensitive backend config content. |
 
 ## Examples
 

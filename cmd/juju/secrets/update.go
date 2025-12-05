@@ -54,7 +54,7 @@ func (c *updateSecretCommand) secretsAPI() (UpdateSecretsAPI, error) {
 
 const (
 	updateSecretDoc = `
-Update a secret with a list of key values, or info.
+Updates a secret with a list of key values, or info.
 
 If a value has the ` + "`#base64`" + ` suffix, it is already in ` + "`base64`" + ` format and no
 encoding will be performed, otherwise the value will be base64 encoded
@@ -86,7 +86,7 @@ func (c *updateSecretCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "update-secret",
 		Args:     "<ID>|<name> [key[#base64|#file]=value...]",
-		Purpose:  "Update an existing secret.",
+		Purpose:  "Updates an existing secret.",
 		Doc:      updateSecretDoc,
 		Examples: updateSecretExamples,
 	})
@@ -106,8 +106,8 @@ func (c *updateSecretCommand) Init(args []string) error {
 
 func (c *updateSecretCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SecretUpsertContentCommand.SetFlags(f)
-	f.StringVar(&c.newName, "name", "", "The new secret name")
-	f.Var(&c.autoPrune, "auto-prune", "Used to allow Juju to automatically remove revisions which are no longer being tracked by any observers")
+	f.StringVar(&c.newName, "name", "", "Specifies the new secret name.")
+	f.Var(&c.autoPrune, "auto-prune", "Allows Juju to automatically remove revisions which are no longer being tracked by any observers.")
 }
 
 // Run implements cmd.Command.

@@ -56,7 +56,7 @@ func NewUploadCommand() modelcmd.ModelCommand {
 
 const (
 	attachDoc = `
-This command updates a resource for an application.
+Update a resource for an application.
 
 The format is
 
@@ -99,7 +99,7 @@ func (c *UploadCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "attach-resource",
 		Args:     "application <resource name>=<resource>",
-		Purpose:  "Update a resource for an application.",
+		Purpose:  "Updates a resource for an application.",
 		Doc:      attachDoc,
 		Examples: attachExample,
 		SeeAlso: []string{

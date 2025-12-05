@@ -3,7 +3,7 @@
 > See also: [add-space](#add-space), [spaces](#spaces), [reload-spaces](#reload-spaces), [rename-space](#rename-space), [show-space](#show-space), [remove-space](#remove-space)
 
 ## Summary
-Update a network space's CIDR.
+Updates a network space's CIDR.
 
 ## Usage
 ```juju move-to-space [options] [--format yaml|json] <name> <CIDR1> [ <CIDR2> ...]```
@@ -11,7 +11,7 @@ Update a network space's CIDR.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `--force` | false | Allow to force a move of subnets to a space even if they are in use on another machine. |
+| `--force` | false | Forces a move of subnets to a space even if they are in use on another machine. |
 | `--format` | human | Specify output format (human&#x7c;json&#x7c;tabular&#x7c;yaml) |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `-o`, `--output` |  | Specify an output file |

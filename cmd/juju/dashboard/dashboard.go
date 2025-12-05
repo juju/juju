@@ -103,7 +103,7 @@ To deploy the Juju dashboard, follow these steps:
 func (c *dashboardCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "dashboard",
-		Purpose:  "Print the Juju Dashboard URL, or open the Juju Dashboard in the default browser.",
+		Purpose:  "Prints the Juju Dashboard URL, or opens the Juju Dashboard in the default browser.",
 		Doc:      dashboardDoc,
 		Examples: dashboardExamples,
 	})
@@ -112,9 +112,9 @@ func (c *dashboardCommand) Info() *cmd.Info {
 // SetFlags implements the cmd.Command interface.
 func (c *dashboardCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.IntVar(&c.port, "port", 31666, "Local port used to serve the dashboard")
-	f.BoolVar(&c.hideCreds, "hide-credential", false, "Do not show admin credential to use for logging into the Juju Dashboard")
-	f.BoolVar(&c.browser, "browser", false, "Open the web browser, instead of just printing the Juju Dashboard URL")
+	f.IntVar(&c.port, "port", 31666, "Specifies the local port used to serve the dashboard.")
+	f.BoolVar(&c.hideCreds, "hide-credential", false, "Hides the admin credential to use for logging into the Juju Dashboard.")
+	f.BoolVar(&c.browser, "browser", false, "Opens the web browser, instead of just printing the Juju Dashboard URL.")
 }
 
 // Run implements the cmd.Command interface.

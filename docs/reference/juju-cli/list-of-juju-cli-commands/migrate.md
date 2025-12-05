@@ -3,7 +3,7 @@
 > See also: [login](#login), [controllers](#controllers), [status](#status)
 
 ## Summary
-Migrate a workload model to another controller.
+Migrates a workload model to another controller.
 
 ## Usage
 ```juju migrate [options] <model-name> <target-controller-name>```
@@ -11,7 +11,7 @@ Migrate a workload model to another controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
 
 ## Details
 
@@ -21,8 +21,8 @@ balancing when a controller is too busy, or as a way to upgrade a
 model's controller to a newer Juju version.
 
 In order to start a migration, the target controller must be in the
-`juju` client's local configuration cache. See the `login` command
-for details of how to do this.
+`juju` client's local configuration cache. The `login` command
+contains details of how to do this.
 
 The `migrate` command only starts a model migration -- it does not wait
 for its completion. The progress of a migration can be tracked using

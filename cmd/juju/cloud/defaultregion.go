@@ -54,7 +54,7 @@ func NewSetDefaultRegionCommand() cmd.Command {
 
 // SetFlags initializes the flags supported by the command.
 func (c *setDefaultRegionCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.reset, "reset", false, "Reset default region for the cloud")
+	f.BoolVar(&c.reset, "reset", false, "Resets default region for the cloud.")
 }
 
 func (c *setDefaultRegionCommand) Info() *cmd.Info {

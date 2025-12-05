@@ -26,8 +26,7 @@ import (
 var usageAddUnitSummary = `Adds one or more units to a deployed application.`
 
 var usageAddUnitDetails = `
-The ` + "`add-unit`" + ` command is used to scale out an application for improved performance or
-availability.
+Scales out an application for improved performance or availability.
 
 Note: Some charms will seamlessly support horizontal scaling while others may need
 an additional application support (e.g. a separate load balancer). See the
@@ -94,9 +93,9 @@ type UnitCommandBase struct {
 }
 
 func (c *UnitCommandBase) SetFlags(f *gnuflag.FlagSet) {
-	f.IntVar(&c.NumUnits, "num-units", 1, "")
-	f.StringVar(&c.PlacementSpec, "to", "", "(Machine models only) Specify a comma-separated list of placement directives. If the length of this list is less than `-n`, the remaining units will be added in the default way (i.e., to new machines).")
-	f.Var(attachStorageFlag{&c.AttachStorage}, "attach-storage", "Specify an existing storage volume to attach to the deployed unit.")
+	f.IntVar(&c.NumUnits, "num-units", 1, "Sets the number of units to add.")
+	f.StringVar(&c.PlacementSpec, "to", "", "(Machine models only) Specifies a comma-separated list of placement directives. If the length of this list is less than `-n`, the remaining units will be added in the default way (i.e., to new machines).")
+	f.Var(attachStorageFlag{&c.AttachStorage}, "attach-storage", "Specifies an existing storage volume to attach to the deployed unit.")
 }
 
 func (c *UnitCommandBase) Init(args []string) error {
@@ -158,7 +157,7 @@ func (c *addUnitCommand) Info() *cmd.Info {
 
 func (c *addUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.UnitCommandBase.SetFlags(f)
-	f.IntVar(&c.NumUnits, "n", 1, "Specify the number of units to add.")
+	f.IntVar(&c.NumUnits, "n", 1, "Sets the number of units to add.")
 }
 
 func (c *addUnitCommand) Init(args []string) error {

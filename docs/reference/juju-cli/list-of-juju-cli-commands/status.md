@@ -11,19 +11,19 @@ Report the status of the model, its machines, applications and units.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--color` | false | Use ANSI color codes in tabular output |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `--color` | false | Uses ANSI color codes in tabular output. |
 | `--format` | tabular | Specify output format (json&#x7c;line&#x7c;oneline&#x7c;short&#x7c;summary&#x7c;tabular&#x7c;yaml) |
-| `--integrations` | false | Same as `--relations` |
+| `--integrations` | false | Displays integrations section in tabular output (alias for `--relations). |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--no-color` | false | Disable ANSI color codes in tabular output |
+| `--no-color` | false | Disables ANSI color codes in tabular output. |
 | `-o`, `--output` |  | Specify an output file |
-| `--relations` | false | Show relations section in tabular output |
-| `--retry-count` | 3 | Number of times to retry API failures |
-| `--retry-delay` | 100ms | Time to wait between retry attempts |
-| `--storage` | false | Show storage section in tabular output |
-| `--utc` | false | Display timestamps in the UTC timezone |
-| `--watch` | 0s | Watch the status every period of time |
+| `--relations` | false | Shows relations section in tabular output. |
+| `--retry-count` | 3 | Specifies the number of times to retry API failures. |
+| `--retry-delay` | 100ms | Specifies the time to wait between retry attempts. |
+| `--storage` | false | Shows storage section in tabular output. |
+| `--utc` | false | Displays timestamps in the UTC timezone. |
+| `--watch` | 0s | Watches the status every period of time. |
 
 ## Examples
 
@@ -62,8 +62,8 @@ Show only applications/units in error status:
 
 ## Details
 
-Report the model's status, optionally filtered by names of applications or
-units. When selectors are present, filter the report to exclude entities that
+Reports the model's status, optionally filtered by names of applications or
+units. When selectors are present, filters the report to exclude entities that
 do not match.
 
     juju status [<selector> [...]]

@@ -20,10 +20,10 @@ import (
 )
 
 var usageGetConstraintsSummary = `
-Displays machine constraints for an application.`[1:]
+Display the machine constraints for an application.`[1:]
 
 var usageGetConstraintsDetails = `
-Shows machine constraints that have been set for an application with
+Displays the machine constraints that have been set for an application with
 ` + "`juju set-constraints`" + `.
 
 By default, the model is the current model.
@@ -38,12 +38,12 @@ const usageGetConstraintsExamples = `
 `
 
 var usageSetConstraintsSummary = `
-Sets machine constraints for an application.`[1:]
+Set machine constraints for an application.`[1:]
 
 // setConstraintsDoc is multi-line since we need to use ` to denote
 // commands for ease in markdown.
 var usageSetConstraintsDetails = `
-Sets constraints for an application, which are used for all new machines
+Sets the constraints for an application. These will be used for all new machines
 provisioned for that application. They can be viewed with `[1:] + "`juju constraints`" + `.
 By default, the model is the current model.
 Application constraints are combined with model constraints, set with ` +

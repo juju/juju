@@ -32,8 +32,8 @@ Displays the details of a specified secret.
 For controller/model admins, the actual secret content is exposed
 with the ` + "`--reveal`" + ` option in the ` + "`json`" + ` or ` + "`yaml`" + ` formats.
 
-Use ` + "`--revision`" + ` to inspect a particular revision, else latest is used.
-Use ` + "`--revisions`" + ` to see the metadata for each revision.
+The ` + "`--revision`" + ` option can be used to inspect a particular revision, else latest is used.
+The ` + "`--revisions`" + ` option can be used to see the metadata for each revision.
 `
 
 const showSecretsExamples = `
@@ -80,9 +80,9 @@ func (c *showSecretsCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.SetFlags.
 func (c *showSecretsCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.revealSecrets, "reveal", false, "Reveal secret values, applicable to yaml or json formats only")
-	f.BoolVar(&c.revisions, "revisions", false, "Show the secret revisions metadata")
-	f.IntVar(&c.revision, "revision", 0, "Show a specific revision (defaults to latest)")
+	f.BoolVar(&c.revealSecrets, "reveal", false, "Reveals secret values. Applicable to `yaml` or `json` formats only.")
+	f.BoolVar(&c.revisions, "revisions", false, "Shows the secret revisions metadata.")
+	f.IntVar(&c.revision, "revision", 0, "Shows a specific revision (defaults to latest).")
 	f.IntVar(&c.revision, "r", 0, "")
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,

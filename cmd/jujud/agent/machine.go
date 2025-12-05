@@ -262,7 +262,7 @@ func (a *machineAgentCmd) SetFlags(f *gnuflag.FlagSet) {
 func (a *machineAgentCmd) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "machine",
-		Purpose: "run a juju machine agent",
+		Purpose: "Runs a juju machine agent",
 	})
 }
 

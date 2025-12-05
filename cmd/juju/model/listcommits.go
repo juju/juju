@@ -30,9 +30,9 @@ const (
 Commits shows the timeline of changes to the model that occurred through branching.
 It does not take into account other changes to the model that did not occur through a managed branch.
 Lists consists of:
-- the commit number 
-- user who committed the branch 
-- when the branch was committed 
+- the commit number
+- user who committed the branch
+- when the branch was committed
 - the branch name
 
 Examples:
@@ -93,7 +93,7 @@ func (c *CommitsCommand) Info() *cmd.Info {
 // SetFlags implements part of the cmd.Command interface.
 func (c *CommitsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
+	f.BoolVar(&c.isoTime, "utc", false, "Displays time as UTC in `RFC3339` format.")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,

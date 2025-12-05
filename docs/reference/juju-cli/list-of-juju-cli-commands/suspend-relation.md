@@ -11,9 +11,9 @@ Suspends a relation to an application offer.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--message` |  | Reason for suspension |
+| `--message` |  | Specifies the reason for suspension. |
 
 ## Examples
 
@@ -24,6 +24,7 @@ Suspends a relation to an application offer.
 
 ## Details
 
-A relation between an application in another model and an offer in this model will be suspended.
+Suspends a relation between an application in another model and an offer in this model.
+
 The `relation-departed` and `relation-broken` hooks will be run for the relation, and the relation
 status will be set to suspended. The relation is specified using its ID.

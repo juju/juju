@@ -41,7 +41,7 @@ type scaleApplicationCommand struct {
 }
 
 const scaleApplicationDoc = `
-Scale a Kubernetes application by specifying how many units there should be.
+Scales a Kubernetes application by specifying how many units there should be.
 The new number of units can be greater or less than the current number, thus
 allowing both scale out and scale in.
 `
@@ -55,7 +55,7 @@ func (c *scaleApplicationCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "scale-application",
 		Args:     "<application> <scale>",
-		Purpose:  "Set the desired number of k8s application units.",
+		Purpose:  "Sets the desired number of k8s application units.",
 		Doc:      scaleApplicationDoc,
 		Examples: scaleApplicationExamples,
 		SeeAlso: []string{

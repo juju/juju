@@ -47,7 +47,7 @@ type listOperationsCommand struct {
 }
 
 const listOperationsDoc = `
-List the operations with the specified query criteria.
+Lists the operations with the specified query criteria.
 When an application is specified, all units from that application are relevant.
 
 When run without any arguments, operations corresponding to actions for all
@@ -79,15 +79,15 @@ func (c *listOperationsCommand) SetFlags(f *gnuflag.FlagSet) {
 		"plain": c.formatTabular,
 	})
 
-	f.BoolVar(&c.utc, "utc", false, "Show times in UTC")
-	f.Var(cmd.NewStringsValue(nil, &c.applicationNames), "applications", "Comma separated list of applications to filter on")
-	f.Var(cmd.NewStringsValue(nil, &c.applicationNames), "apps", "Comma separated list of applications to filter on")
-	f.Var(cmd.NewStringsValue(nil, &c.unitNames), "units", "Comma separated list of units to filter on")
-	f.Var(cmd.NewStringsValue(nil, &c.machineNames), "machines", "Comma separated list of machines to filter on")
-	f.Var(cmd.NewStringsValue(nil, &c.actionNames), "actions", "Comma separated list of actions names to filter on")
-	f.Var(cmd.NewStringsValue(nil, &c.statusValues), "status", "Comma separated list of operation status values to filter on")
-	f.UintVar(&c.limit, "limit", 0, "The maximum number of operations to return")
-	f.UintVar(&c.offset, "offset", 0, "Return operations from offset onwards")
+	f.BoolVar(&c.utc, "utc", false, "Shows times in UTC.")
+	f.Var(cmd.NewStringsValue(nil, &c.applicationNames), "applications", "Specifies a comma-separated list of applications to filter on.")
+	f.Var(cmd.NewStringsValue(nil, &c.applicationNames), "apps", "Specifies a comma-separated list of applications to filter on.")
+	f.Var(cmd.NewStringsValue(nil, &c.unitNames), "units", "Specifies a comma-separated list of units to filter on.")
+	f.Var(cmd.NewStringsValue(nil, &c.machineNames), "machines", "Specifies a comma-separated list of machines to filter on.")
+	f.Var(cmd.NewStringsValue(nil, &c.actionNames), "actions", "Specifies a comma-separated list of actions names to filter on.")
+	f.Var(cmd.NewStringsValue(nil, &c.statusValues), "status", "Specifies a comma-separated list of operation status values to filter on.")
+	f.UintVar(&c.limit, "limit", 0, "Specifies the maximum number of operations to return.")
+	f.UintVar(&c.offset, "offset", 0, "Specifies the offset to start returning operations from.")
 }
 
 func (c *listOperationsCommand) Info() *cmd.Info {

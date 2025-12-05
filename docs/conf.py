@@ -1,8 +1,8 @@
 import datetime
 import os
 import yaml
-import sys
 
+import sys
 sys.path.append('./')
 sys.path.append(os.path.abspath("./scripts"))
 
@@ -74,7 +74,7 @@ copyright = "%s CC-BY-SA, %s" % (datetime.date.today().year, author)
 # NOTE: The Open Graph Protocol (OGP) enhances page display in a social graph
 #       and is used by social media platforms; see https://ogp.me/
 
-ogp_site_url = "https://canonical-starter-pack.readthedocs-hosted.com/"
+# ogp_site_url = "https://canonical-starter-pack.readthedocs-hosted.com/"
 
 
 # Preview name of the documentation website
@@ -88,7 +88,7 @@ ogp_site_name = project
 #
 # TODO: To customise the preview image, update as needed.
 
-ogp_image = "https://assets.ubuntu.com/v1/253da317-image-document-ubuntudocs.svg"
+# ogp_image = "https://assets.ubuntu.com/v1/cc828679-docs_illustration.svg"
 
 
 # Product favicon; shown in bookmarks, browser tabs, etc.
@@ -97,11 +97,6 @@ ogp_image = "https://assets.ubuntu.com/v1/253da317-image-document-ubuntudocs.svg
 
 # html_favicon = '.sphinx/_static/favicon.png'
 
-# Add any extra paths that contain custom files (such as robots.txt or
-# .htaccess) here, relative to this directory. These files are copied
-# directly to the root of the documentation.
-# TODO: Check if this is still needed.
-html_extra_path = ['.sphinx/_extra']
 
 # Dictionary of values to pass into the Sphinx context for all pages:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-html_context
@@ -115,7 +110,7 @@ html_context = {
     # TODO: If there's no such website,
     #       remove the {{ product_page }} link from the page header template
     #       (usually .sphinx/_templates/header.html; also, see README.rst).
-    "product_page": "juju.is/docs",
+    "product_page": "https://canonical.com/juju/docs",
     # Product tag image; the orange part of your logo, shown in the page header
     #
     # TODO: To add a tag image, uncomment and update as needed.
@@ -162,6 +157,13 @@ html_context = {
     'github_issues': 'enabled',
 }
 
+html_extra_path = ['.sphinx/_extra']
+
+# Allow opt-in build of the OpenAPI "Hello" example so docs stay clean by default.
+# if os.getenv("OPENAPI", ""):
+#     tags.add("openapi")
+#     html_extra_path.append("how-to/assets/openapi.yaml")
+
 # TODO: To enable the edit button on pages, uncomment and change the link to a
 # public repository on GitHub or Launchpad. Any of the following link domains
 # are accepted:
@@ -184,7 +186,7 @@ slug = 'juju'
 # Sitemap configuration: https://sphinx-sitemap.readthedocs.io/
 #######################
 
-# Base URL of RTD hosted project
+# Use RTD canonical URL to ensure duplicate pages have a specific canonical URL
 
 html_baseurl = 'https://documentation.ubuntu.com/juju/'
 
@@ -250,7 +252,6 @@ linkcheck_ignore = [
     "https://github.com/canonical/ACME/*"
     ]
 
-
 # A regex list of URLs where anchors are ignored by 'make linkcheck'
 
 linkcheck_anchors_ignore_for_url = [
@@ -264,9 +265,6 @@ linkcheck_anchors_ignore_for_url = [
 # give linkcheck multiple tries on failure
 # linkcheck_timeout = 30
 linkcheck_retries = 3
-
-
-######################## old below
 
 ########################
 # Configuration extras #
@@ -284,54 +282,32 @@ myst_enable_extensions = set(["colon_fence",])
 # https://www.sphinx-doc.org/en/master/usage/extensions/index.html
 
 # NOTE: The canonical_sphinx extension is required for the starter pack.
-#       It automatically enables the following extensions:
-#       - custom-rst-roles
-#       - myst_parser
-#       - notfound.extension
-#       - related-links
-#       - sphinx_copybutton
-#       - sphinx_design
-#       - sphinx_reredirects
-#       - sphinx_tabs.tabs
-#       - sphinxcontrib.jquery
-#       - sphinxext.opengraph
-#       - terminal-output
-#       - youtube-links
 
 extensions = [
-    # from upstream:
     "canonical_sphinx",
+    "notfound.extension",
+    "sphinx_design",
+    "sphinx_reredirects",
+    "sphinx_tabs.tabs",
+    "sphinxcontrib.jquery",
+    "sphinxext.opengraph",
+    "sphinx_config_options",
+    "sphinx_contributor_listing",
+    "sphinx_filtered_toctree",
+    "sphinx_related_links",
+    "sphinx_roles",
+    "sphinx_terminal",
+    "sphinx_ubuntu_images",
+    "sphinx_youtube_links",
     "sphinxcontrib.cairosvgconverter",
     "sphinx_last_updated_by_git",
     "sphinx.ext.intersphinx",
     "sphinx_sitemap",
-    # our own:
-    'sphinx_design',
-    # Make it possible to link to related RTD projects using their internal anchors
-    # with, e.g., {external+ops:ref}`manage-configurations`:
     'sphinxext.rediraffe',
-    # Display an external link icon and open link in new tab:
-    # new_tab_link_show_external_link_icon must also be set to True
     'sphinx_new_tab_link',
     'sphinxcontrib.lightbox2',
     'ibnote',
-    ]
-
-# Extension configs:
-# - sphinx.ext.intersphinx:
-intersphinx_mapping = {
-    # 'juju': ('https://canonical-juju.readthedocs-hosted.com/en/latest/', None),
-    'tfjuju': ('https://documentation.ubuntu.com/terraform-provider-juju/latest/', None),
-    'pyjuju': ('https://pythonlibjuju.readthedocs.io/en/latest/', None),
-    'jaas': ('https://documentation.ubuntu.com/jaas/latest/', None),
-    'charmcraft': ('https://documentation.ubuntu.com/charmcraft/stable/', None),
-    'ops': ('https://documentation.ubuntu.com/ops/latest/', None),
-}
-# - sphinx_new_tab_link:
-new_tab_link_show_external_link_icon = True
-# - sphinxext.rediraffe:
-# rediraffe_branch = "3.6"
-rediraffe_redirects = "redirects.txt"
+]
 
 # Excludes files or directories from processing
 
@@ -347,13 +323,11 @@ html_css_files = [
     "css/ibnote.css",
 ]
 
-
 # Adds custom JavaScript files, located under 'html_static_path'
 
 html_js_files = [
     "js/bundle.js",
 ]
-
 
 # Specifies a reST snippet to be appended to each .rst file
 
@@ -368,7 +342,6 @@ rst_epilog = """
 
 # disable_feedback_button = True
 
-
 # Your manpage URL
 #
 # TODO: To enable manpage links, uncomment and replace {codename} with required
@@ -378,13 +351,9 @@ rst_epilog = """
 # NOTE: If set, adding ':manpage:' to an .rst file
 #       adds a link to the corresponding man section at the bottom of the page.
 
-stable_distro = "plucky"
+# manpages_url = 'https://manpages.ubuntu.com/manpages/{codename}/en/' + \
+#     'man{section}/{page}.{section}.html'
 
-manpages_url = (
-    "https://manpages.ubuntu.com/manpages/"
-    + stable_distro
-    + "/en/man{section}/{page}.{section}.html"
-)
 
 # Specifies a reST snippet to be prepended to each .rst file
 # This defines a :center: role that centers table cell content.
@@ -412,3 +381,17 @@ if os.path.exists('./reuse/substitutions.yaml'):
     with open('./reuse/substitutions.yaml', 'r') as fd:
         myst_substitutions = yaml.safe_load(fd.read())
 
+# Add configuration for intersphinx mapping
+
+intersphinx_mapping = {
+    # 'juju': ('https://canonical-juju.readthedocs-hosted.com/en/latest/', None),
+    'tfjuju': ('https://documentation.ubuntu.com/terraform-provider-juju/latest/', None),
+    'pyjuju': ('https://pythonlibjuju.readthedocs.io/en/latest/', None),
+    'jaas': ('https://documentation.ubuntu.com/jaas/latest/', None),
+    'charmcraft': ('https://documentation.ubuntu.com/charmcraft/stable/', None),
+    'ops': ('https://documentation.ubuntu.com/ops/latest/', None),
+}
+
+new_tab_link_show_external_link_icon = True
+
+rediraffe_redirects = "redirects.txt"

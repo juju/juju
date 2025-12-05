@@ -11,10 +11,10 @@ Removes one or more offers specified by their URL.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--force` | false | Remove the offer as well as any relations to the offer |
-| `-y`, `--yes` | false | Do not prompt for confirmation |
+| `-B`, `--no-browser-login` | false | Disables web browser for authentication. |
+| `-c`, `--controller` |  | Performs the operation in the specified controller. |
+| `--force` | false | Removes the offer as well as any relations to the offer. |
+| `-y`, `--yes` | false | Skips confirmation prompt. |
 
 ## Examples
 
@@ -25,7 +25,7 @@ Removes one or more offers specified by their URL.
 
 ## Details
 
-Remove one or more application offers.
+Removes one or more application offers.
 
 If the `--force` option is specified, any existing relations to the
 offer will also be removed.

@@ -58,7 +58,7 @@ func (c *downloadCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.StringVar(&c.LocalFilename, "filename", "", "Download target")
+	f.StringVar(&c.LocalFilename, "filename", "", "Specifies the download target.")
 }
 
 // Init implements Command.Init.

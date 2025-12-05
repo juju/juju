@@ -61,4 +61,4 @@ You can also configure the Juju client using various environment variables. For 
 
 ## Roadmap and releases
 
-Each Juju release is accompanied by a set of release notes that highlight the changes and bug fixes for each release. For more, see  {ref}`juju-roadmap-and-releases`.
+Each Juju release is accompanied by a set of release notes that highlight the changes and bug fixes for each release. For more, see  {ref}`releasenotes`.

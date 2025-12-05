@@ -82,7 +82,7 @@ var errDryRunNotSupported = errors.New("Your controller does not support `--dry-
 func (c *removeCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "remove-machine",
-		Args:     "<machine number> ...",
+		Args:     "<machine-id> ...",
 		Purpose:  "Removes one or more machines from a model.",
 		Doc:      destroyMachineDoc,
 		Examples: destroyMachineExamples,
@@ -96,10 +96,10 @@ func (c *removeCommand) Info() *cmd.Info {
 func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	c.RemoveConfirmationCommandBase.SetFlags(f)
-	f.BoolVar(&c.DryRun, "dry-run", false, "Print what this command would be removed without removing")
-	f.BoolVar(&c.Force, "force", false, "Completely remove a machine and all its dependencies")
-	f.BoolVar(&c.KeepInstance, "keep-instance", false, "Do not stop the running cloud instance")
-	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through machine removal without waiting for each individual step to complete")
+	f.BoolVar(&c.DryRun, "dry-run", false, "Simulates the removal without making changes.")
+	f.BoolVar(&c.Force, "force", false, "Completely removes a machine and all its dependencies.")
+	f.BoolVar(&c.KeepInstance, "keep-instance", false, "Keeps the running cloud instance.")
+	f.BoolVar(&c.NoWait, "no-wait", false, "Rushes through machine removal without waiting for each individual step to complete.")
 	c.fs = f
 }
 

@@ -45,7 +45,7 @@ func (c *addSecretCommand) secretsAPI() (AddSecretsAPI, error) {
 
 const (
 	addSecretDoc = `
-Add a secret with a list of key values.
+Adds a secret with a list of key values.
 
 If a key has the ` + "`#base64` " + `suffix, the value is already in base64 format and no
 encoding will be performed, otherwise the value will be base64 encoded
@@ -74,7 +74,7 @@ func (c *addSecretCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "add-secret",
 		Args:     "<name> [key[#base64|#file]=value...]",
-		Purpose:  "Add a new secret.",
+		Purpose:  "Adds a new secret.",
 		Doc:      addSecretDoc,
 		Examples: addSecretExamples,
 	})
