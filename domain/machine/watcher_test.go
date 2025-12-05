@@ -163,6 +163,7 @@ func (s *watcherSuite) TestWatchModelMachinesInitialEventMachine(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	// Ensure change stream processes all events before creating watcher.
 	s.AssertChangeStreamIdle(c)
 
 	watcher, err := s.svc.WatchModelMachines(c.Context())
@@ -193,6 +194,7 @@ func (s *watcherSuite) TestWatchModelMachinesInitialEventContainer(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	// Ensure change stream processes all events before creating watcher.
 	s.AssertChangeStreamIdle(c)
 
 	watcher, err := s.svc.WatchModelMachines(c.Context())
@@ -695,6 +697,7 @@ func (s *watcherSuite) TestWatchMachineContainerLifeInitMachine(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	// Ensure change stream processes all events before creating watcher.
 	s.AssertChangeStreamIdle(c)
 
 	watcher, err := s.svc.WatchMachineContainerLife(c.Context(), res.MachineName)
@@ -723,6 +726,7 @@ func (s *watcherSuite) TestWatchMachineContainerLifeInitMachineContainer(c *tc.C
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	// Ensure change stream processes all events before creating watcher.
 	s.AssertChangeStreamIdle(c)
 
 	watcher, err := s.svc.WatchMachineContainerLife(c.Context(), res.MachineName)
