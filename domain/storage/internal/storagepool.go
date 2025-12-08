@@ -9,6 +9,7 @@ import (
 type CreateStoragePool struct {
 	Attrs        map[string]string
 	Name         string
+	Origin       domainstorage.StoragePoolOrigin
 	ProviderType domainstorage.ProviderType
 	UUID         domainstorage.StoragePoolUUID
 }
