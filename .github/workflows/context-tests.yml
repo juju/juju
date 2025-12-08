@@ -83,11 +83,7 @@ jobs:
               - 'go.mod'
               - '.github/workflows/docs.yml'
             check-ddl:
-              - 'go.mod'
               - 'domain/schema/**'
-              - 'core/database/**'
-              - 'internal/database/**'
-              - 'generate/ddlgen/**'
               - '.github/workflows/ddl.yml'
 
   build:

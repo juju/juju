@@ -4,27 +4,25 @@ on:
   workflow_call:
 
 jobs:
-  ddl-changes:
-    name: Check DDL Changes
+  check-for-patches:
+    name: Check for DDL Patches
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     steps:
       - name: Checkout PR
         uses: actions/checkout@v3
 
-      - name: Check for DDL changes
+      - name: Check for DDL patches
         run: |
-          go run ./generate/ddlgen/main.go
+          controller_patches=$(find ./domain/schema/controller/sql -maxdepth 1 -type f | grep ".PATCH.sql" || true)
+          model_patches=$(find ./domain/schema/model/sql -maxdepth 1 -type f | grep ".PATCH.sql" || true)
 
-          git add -A
-          if [[ -n $(git diff HEAD) ]]; then
-            # Print the full diff for debugging purposes
-            git diff HEAD
+          if [[ -n "$controller_patches" || -n "$model_patches" ]]; then
             echo "*****"
-            echo "The following released DDL files have been modified:"
-            git diff --name-status HEAD
-            echo "Please amend your PR to ensure DDLs for released patch versions are not modified."
+            echo "The following DDL patch files have been found:"
+            echo "$controller_patches"
+            echo "$model_patches"
+            echo "Please merge these patch files into the DDL itself. Patches are not allowed on main."
             echo "*****"
             exit 1
           fi
-
