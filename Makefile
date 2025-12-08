@@ -530,8 +530,7 @@ run-go-tests: musl-install-if-missing dqlite-install-if-missing
 go-test-alias: EXTRA_BUILD_TAGS += dqlite libsqlite3
 go-test-alias: musl-install-if-missing dqlite-install-if-missing
 ## go-test-alias: Prints out an alias command for easy running of tests.
-	$(eval PPATH := "PATH")
-	@echo alias jt=\'PATH=\"${MUSL_BIN_PATH}:$$${PPATH}\" \
+	@echo alias jt=\'PATH=\"${MUSL_BIN_PATH}:`printf '\x24'`PATH\" \
 		CC=\"musl-gcc\" \
 		CGO_CFLAGS=\"-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include\" \
 		CGO_LDFLAGS=\"-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -ldqlite -llz4 -lsqlite3 -Wl,-z,stack-size=1048576\" \
