@@ -4,12 +4,14 @@
 package storage
 
 import (
+	"regexp"
+
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
-// defaultStoragePoolLookup is the comparable type for which fixed storage pool uuids are
-// stored for.
+// defaultStoragePoolLookup is the comparable type for which fixed storage pool
+// uuids are stored for.
 type defaultStoragePoolLookup struct {
 	// N is the name of the storage pool.
 	N string
@@ -17,6 +19,30 @@ type defaultStoragePoolLookup struct {
 	// T is the provider type of the storage pool.
 	T string
 }
+
+var (
+	// validStoragePoolNameRegex is the regex pattern used to validate storage
+	// pool names when they are being created or updated. A valid storage pool
+	// name MUST meet the following requirements:
+	// - MUST start with a unicode letter (category L).
+	// - MUST if the legnth is greater than 1 only be followed by unicode
+	// letters, numbers or a hyphen.
+	//
+	// NOTE: In juju versions prior to 4.0 we only supported the following
+	// regex '^[a-zA-Z]+[-?a-zA-Z0-9]*$'. This regex had no upper bounds and
+	// allowed for abuse. It also allowed for '?' characters which violate dns
+	// naming. We want to maintain DNS name support as storage pools names can
+	// conceivably be conveyed outwards into clouds by Juju.
+	//
+	// It is important that with the change in supported regex the users
+	// understands that for storage pools being imported a pre 4.0 source may
+	// violate this regex. In this case the pool name should be validated
+	// against the old regex for sanity and accepted.
+	//
+	// See [validStoragePoolNameLegacyRegex] for the older validation regex of
+	// storage pool names.
+	validStoragePoolNameRegex = regexp.MustCompile("^\\p{L}[-\\p{L}\\p{N}]{0,127}$")
+)
 
 // getDefaultStoragePoolUUIDs returns the full set of fixed storage pool uuids
 // for the model.
@@ -97,4 +123,20 @@ func GenerateProviderDefaultStoragePoolUUIDWithDefaults(
 	}
 
 	return uuid, nil
+}
+
+// IsValidStoragePoolName checks a new or proposed updated storage pool name to
+// make sure that it is valid and can be used within a controller. This func
+// should only be used for validating storage pool names that are either new or
+// being updated. For existing storage pool names that are being imported into a
+// model or their history is unknown use [IsValidStoragePoolNameWithLegacy].
+//
+// For a storage pool name to be valid it MUST meet the following requirements:
+// - MUST be between 1 and 128 runes long. This would make a maximum
+// permissable size of 512 bytes.
+// - MUST start with a unicode letter (category L).
+// - MUST if the legnth is greater than 1 only be followed by unicode
+// letters, numbers or a hyphen.
+func IsValidStoragePoolName(name string) bool {
+	return validStoragePoolNameRegex.MatchString(name)
 }
