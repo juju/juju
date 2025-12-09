@@ -11,6 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	corestorage "github.com/juju/juju/core/storage"
+	domainstorage "github.com/juju/juju/domain/storage"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 )
@@ -79,7 +80,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 		Provider:   "ebs",
 		Attributes: map[string]any{"foo": "bar"},
 	})
-	s.service.EXPECT().CreateStoragePool(gomock.Any(), "ebs-fast", storage.ProviderType("ebs"), map[string]any{"foo": "bar"}).Times(1)
+	s.service.EXPECT().CreateStoragePool(gomock.Any(), "ebs-fast", domainstorage.ProviderType("ebs"), map[string]any{"foo": "bar"}).Times(1)
 
 	op := s.newImportOperation()
 	err := op.Execute(c.Context(), model)
