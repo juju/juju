@@ -3,7 +3,25 @@
 
 package errors
 
-import "github.com/juju/juju/internal/errors"
+import (
+	"fmt"
+
+	"github.com/juju/juju/internal/errors"
+)
+
+// PoolAttributeInvalid represents an error that occurs when parsing the
+// attributes of a storage pool and one of the key's contains a value that is
+// invalid for use.
+//
+// PoolAttributeInvalid implements the [error] interface.
+type PoolAttributeInvalid struct {
+	// Key is the attribute key where the invalid value was found.
+	Key string
+
+	// Message is a short error description explaining why the key value is not
+	// fit for use.
+	Message string
+}
 
 const (
 	// FilesystemNotFound describes an error that occurs when the filesystem being operated
@@ -28,6 +46,10 @@ const (
 	// PoolAlreadyExists is used when a storage pool already exists.
 	PoolAlreadyExists = errors.ConstError("storage pool already exists")
 
+	// ProviderTypeInvalid is used when a storage provider type value is not
+	// valid for use within the model.
+	ProviderTypeInvalid = errors.ConstError("provider type is invalid")
+
 	// ProviderTypeNotFound is used when a storage provider type is not found.
 	ProviderTypeNotFound = errors.ConstError("storage provider type not found")
 
@@ -42,3 +64,9 @@ const (
 	// on does not exist.
 	VolumeNotFound = errors.ConstError("volume not found")
 )
+
+// Error returns a formatted string error message describing the the storage
+// pool attribute key that is invalid and why it is considered invalid.
+func (e PoolAttributeInvalid) Error() string {
+	return fmt.Sprintf("invalid value for attribute %q: %s", e.Key, e.Message)
+}

@@ -9,20 +9,26 @@ import (
 
 	"github.com/juju/collections/transform"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	domainstorageinternal "github.com/juju/juju/domain/storage/internal"
 	"github.com/juju/juju/internal/errors"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
 
-// StoragePoolState defines an interface for interacting with the underlying state.
+// StoragePoolState defines an interface for interacting with the underlying
+// state of storage pools in the model.
 type StoragePoolState interface {
-	// CreateStoragePool creates a storage pool with the specified configuration.
+	// CreateStoragePool creates a new storage pool in the model with the
+	// specified args and uuid value.
+	//
 	// The following errors can be expected:
-	// - [storageerrors.PoolAlreadyExists] if a pool with the same name already exists.
-	CreateStoragePool(ctx context.Context, pool domainstorage.StoragePool) error
+	// - [storageerrors.PoolAlreadyExists] if a pool with the same name or
+	// uuid already exist in the model.
+	CreateStoragePool(context.Context, domainstorageinternal.CreateStoragePool) error
 
 	// DeleteStoragePool deletes a storage pool with the specified name.
 	// The following errors can be expected:
@@ -77,47 +83,143 @@ type StoragePoolService struct {
 	registryGetter corestorage.ModelStorageRegistryGetter
 }
 
-// CreateStoragePool creates a storage pool with the specified configuration.
-// The following errors can be expected:
-// - [storageerrors.PoolAlreadyExists] if a pool with the same name already exists.
+// CreateStoragePool creates a new storage pool with the given name and
+// provider in the model. Returned is the unique uuid for the new storage
+// pool.
+//
+// The following errors may be returned:
+// - [domainstorageerrors.InvalidPoolNameError] when the supplied storage
+// pool name is considered invalid or empty.
+// - [domainstorageerrors.ProviderTypeInvalid] when the supplied provider
+// type value is invalid for further use.
+// - [domainstorageerrors.ProviderTypeNotFound] when the supplied provider
+// type is not known to the controller.
+// - [domainstorageerrors.PoolAlreadyExists] when a storage pool for the
+// supplied name already exists in the model.
+// - [domainstorageerrors.PoolAttributeInvalid] when one of the supplied
+// storage pool attributes is invalid.
 func (s *StoragePoolService) CreateStoragePool(
 	ctx context.Context,
 	name string,
-	providerType storage.ProviderType,
+	providerType domainstorage.ProviderType,
 	attrs map[string]any,
-) error {
+) (domainstorage.StoragePoolUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := s.validateConfig(ctx, name, providerType, attrs); err != nil {
-		return errors.Capture(err)
+	if !domainstorage.IsValidStoragePoolName(name) {
+		// We don't include the invalid storage pool name on purpose. It's
+		// contents are unknown and so we would shouldn't process the occupied
+		// memory any further.
+		return "", errors.New("new storage pool name is not valid").Add(
+			storageerrors.InvalidPoolNameError,
+		)
 	}
 
-	attrsToSave := transform.Map(attrs, func(k string, v any) (string, string) { return k, fmt.Sprint(v) })
-	sp := domainstorage.StoragePool{
-		Name:     name,
-		Provider: string(providerType),
-		Attrs:    attrsToSave,
+	if !providerType.IsValid() {
+		// We don't include the invalid storage provider type on purpose. It's
+		// contents are unknown and so we would shouldn't process the occupied
+		// memory any further.
+		return "", errors.New("storage provider type is not valid").Add(
+			storageerrors.ProviderTypeInvalid,
+		)
 	}
 
-	if err := s.st.CreateStoragePool(ctx, sp); err != nil {
-		return errors.Errorf("creating storage pool %q: %w", name, err)
+	providerRegistry, err := s.registryGetter.GetStorageRegistry(ctx)
+	if err != nil {
+		return "", errors.Errorf("getting storage provider registry: %w", err)
 	}
+
+	storageProvider, err := providerRegistry.StorageProvider(
+		storage.ProviderType(providerType),
+	)
+	if errors.Is(err, coreerrors.NotFound) {
+		return "", errors.Errorf(
+			"storage provider %q does not exist in the model",
+			providerType.String(),
+		).Add(storageerrors.ProviderTypeNotFound)
+	} else if err != nil {
+		return "", errors.Errorf(
+			"getting storage provider %q: %w", providerType.String(), err,
+		)
+	}
+
+	// NOTE (tlm): We need to create better long term support with storage
+	// providers around their error contract for validation. They should return
+	// a better typed error describing the attribute key that failed and the
+	// reasons for this. Having this will allow this service func to give better
+	// context to the caller and in returned the user.
+	err = validateNewStoragePoolConfig(
+		ctx, storageProvider, name, providerType, attrs,
+	)
+	if err != nil {
+		return "", err
+	}
+
+	// TODO(tlm): Storage providers have default configurations for storage
+	// pools when the user may have not supplied a config key. We want to
+	// capture these defaults and persist them so storage pools are
+	// reproducible.
+
+	coercedAttrs := transform.Map(
+		attrs,
+		func(k string, v any) (string, string) {
+			return k, fmt.Sprint(v)
+		},
+	)
+
+	uuid, err := domainstorage.NewStoragePoolUUID()
+	if err != nil {
+		return "", errors.Errorf(
+			"creating new storage pool %q uuid: %w", name, err,
+		)
+	}
+	arg := domainstorageinternal.CreateStoragePool{
+		Attrs:        coercedAttrs,
+		Name:         name,
+		Origin:       domainstorage.StoragePoolOriginUser,
+		ProviderType: providerType,
+		UUID:         uuid,
+	}
+
+	if err := s.st.CreateStoragePool(ctx, arg); err != nil {
+		return "", err
+	}
+	return uuid, nil
+}
+
+// validateNewStoragePoolConfig is responsible for taking a proposed new storage
+// pool configuration and validating the configuration with the storage
+// provider.
+//
+// Any errors encounted with the storage provider during validation are
+// returned. There is no defined storage error contracts that exist with the
+// providers at present.
+func validateNewStoragePoolConfig(
+	ctx context.Context,
+	storageProvider storage.Provider,
+	name string,
+	providerType domainstorage.ProviderType,
+	attrs map[string]any,
+) error {
+	cfg, err := storage.NewConfig(name, storage.ProviderType(providerType), attrs)
+	if err != nil {
+		// We don't ever expect this to error.
+		return err
+	}
+
+	if err = storageProvider.ValidateConfig(cfg); err != nil {
+		return errors.Errorf(
+			"validating new storage pool configuration with provider %q: %w",
+			providerType, err,
+		)
+	}
+
 	return nil
 }
 
 func (s *StoragePoolService) validateConfig(ctx context.Context, name string, providerType storage.ProviderType, attrs map[string]any) error {
-	if name == "" {
-		return storageerrors.MissingPoolNameError
-	}
-	if !corestorage.IsValidPoolName(name) {
-		return errors.Errorf("pool name %q not valid", name).Add(storageerrors.InvalidPoolNameError)
-	}
-	if providerType == "" {
-		return storageerrors.MissingPoolTypeError
-	}
-
-	cfg, err := internalstorage.NewConfig(name, providerType, attrs)
+	cfg, err := storage.NewConfig(name, providerType, attrs)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -366,10 +468,15 @@ func (s *StoragePoolService) GetStoragePoolByName(ctx context.Context, name stri
 }
 
 func (s *StoragePoolService) validatePoolListFilterTerms(ctx context.Context, names domainstorage.Names, providers domainstorage.Providers) error {
-	if err := s.validateProviderCriteria(ctx, providers); err != nil {
+	// Validating names MUST happen before provider type validation. This is
+	// because provider validation calls off to dependency's and we should
+	// avoid expensive calls until as much of the basic criteria can be
+	// validated first.
+	if err := s.validateNameCriteria(names); err != nil {
 		return errors.Capture(err)
 	}
-	if err := s.validateNameCriteria(names); err != nil {
+
+	if err := s.validateProviderCriteria(ctx, providers); err != nil {
 		return errors.Capture(err)
 	}
 	return nil
