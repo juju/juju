@@ -192,7 +192,7 @@ func (s *StoragePoolService) CreateStoragePool(
 // pool configuration and validating the configuration with the storage
 // provider.
 //
-// Any errors encounted with the storage provider during validation are
+// Any errors encountered with the storage provider during validation are
 // returned. There is no defined storage error contracts that exist with the
 // providers at present.
 func validateNewStoragePoolConfig(

@@ -148,7 +148,7 @@ func GenerateProviderDefaultStoragePoolUUIDWithDefaults(
 //
 // For a storage pool name to be valid it MUST meet the following requirements:
 // - MUST be between 1 and 128 runes long. This would make a maximum
-// permissable size of 512 bytes.
+// permissible size of 512 bytes.
 // - MUST start with a unicode letter (category L).
 // - MUST if the legnth is greater than 1 only be followed by unicode
 // letters, numbers or a hyphen.
