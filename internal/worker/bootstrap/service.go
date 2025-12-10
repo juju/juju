@@ -22,10 +22,9 @@ import (
 	"github.com/juju/juju/domain/application"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/controllernode"
-	storageservice "github.com/juju/juju/domain/storage/service"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/storage"
 )
 
 // AgentPasswordService provides access to agent password management.
@@ -174,9 +173,30 @@ type NetworkService interface {
 	ReloadSpaces(ctx context.Context) error
 }
 
-// StorageService instances save a storage pool to dqlite state.
+// StorageService describes the interface required for configuring storage in a
+// model during bootstrap.
 type StorageService interface {
-	CreateStoragePool(ctx context.Context, name string, providerType storage.ProviderType, attrs storageservice.PoolAttrs) error
+	// CreateStoragePool creates a new storage pool with the given name and
+	// provider in the model. Returned is the unique uuid for the new storage
+	// pool.
+	//
+	// The following errors may be returned:
+	// - [domainstorageerrors.InvalidPoolNameError] when the supplied storage
+	// pool name is considered invalid or empty.
+	// - [domainstorageerrors.ProviderTypeInvalid] when the supplied provider
+	// type value is invalid for further use.
+	// - [domainstorageerrors.ProviderTypeNotFound] when the supplied provider
+	// type is not known to the controller.
+	// - [domainstorageerrors.PoolAlreadyExists] when a storage pool for the
+	// supplied name already exists in the model.
+	// - [domainstorageerrors.PoolAttributeInvalid] when one of the supplied
+	// storage pool attributes is invalid.
+	CreateStoragePool(
+		context.Context,
+		string,
+		domainstorage.ProviderType,
+		map[string]any,
+	) (domainstorage.StoragePoolUUID, error)
 }
 
 // UserService is the interface that is used to add a new user to the
