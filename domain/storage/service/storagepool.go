@@ -294,7 +294,7 @@ func (s *StoragePoolService) ReplaceStoragePool(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if !corestorage.IsValidPoolName(name) {
+	if !domainstorage.IsValidStoragePoolName(name) {
 		return errors.Errorf("pool name %q not valid", name).Add(storageerrors.InvalidPoolNameError)
 	}
 
@@ -429,11 +429,12 @@ func (s *StoragePoolService) GetStoragePoolUUID(ctx context.Context, name string
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if !corestorage.IsValidPoolName(name) {
+	if !domainstorage.IsValidStoragePoolName(name) {
 		return "", errors.Errorf(
 			"pool name %q not valid", name,
 		).Add(storageerrors.InvalidPoolNameError)
 	}
+
 	poolUUID, err := s.st.GetStoragePoolUUID(ctx, name)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -448,7 +449,7 @@ func (s *StoragePoolService) GetStoragePoolByName(ctx context.Context, name stri
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if !corestorage.IsValidPoolName(name) {
+	if !domainstorage.IsValidStoragePoolName(name) {
 		return domainstorage.StoragePool{}, errors.Errorf(
 			"pool name %q not valid", name,
 		).Add(storageerrors.InvalidPoolNameError)
@@ -483,13 +484,8 @@ func (s *StoragePoolService) validatePoolListFilterTerms(ctx context.Context, na
 }
 
 func (s *StoragePoolService) validateNameCriteria(names []string) error {
-	if len(names) == 0 {
-		// No names specified, so no validation needed.
-		return nil
-	}
-
 	for _, n := range names {
-		if !corestorage.IsValidPoolName(n) {
+		if !domainstorage.IsValidStoragePoolName(n) {
 			return errors.Errorf("pool name %q not valid", n).Add(storageerrors.InvalidPoolNameError)
 		}
 	}
