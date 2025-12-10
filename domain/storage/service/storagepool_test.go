@@ -157,7 +157,7 @@ func (s *storagePoolServiceSuite) TestCreateStoragePoolProviderTypeNotFound(c *t
 
 // TestCreateStoragePoolWithInvalidName tests that supplying an invalid name
 // for a new storage pool results in the caller getting back an error that
-// satisfies [domainstorageerrors.InvalidPoolNameError].
+// satisfies [domainstorageerrors.StoragePoolNameInvalid].
 func (s *storagePoolServiceSuite) TestCreateStoragePoolWithInvalidName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -172,13 +172,13 @@ func (s *storagePoolServiceSuite) TestCreateStoragePoolWithInvalidName(c *tc.C) 
 		"ebs",
 		nil,
 	)
-	c.Check(err, tc.ErrorIs, domainstorageerrors.InvalidPoolNameError)
+	c.Check(err, tc.ErrorIs, domainstorageerrors.StoragePoolNameInvalid)
 }
 
 // TestCreateStoragePoolAlreadyExists tests the case where a caller attempts to
 // add a new storage pool to the model using a name that already exists. We
 // expect the caller in this case to get back an error that satisfies
-// [domainstorageerrors.PoolAlreadyExists].
+// [domainstorageerrors.StoragePoolAlreadyExists].
 func (s *storagePoolServiceSuite) TestCreateStoragePoolAlreadyExists(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
@@ -202,7 +202,7 @@ func (s *storagePoolServiceSuite) TestCreateStoragePoolAlreadyExists(c *tc.C) {
 	createArgsMC.AddExpr("_.UUID", tc.IsUUID)
 	s.state.EXPECT().CreateStoragePool(
 		gomock.Any(), tc.Bind(createArgsMC, createArgs),
-	).Return(domainstorageerrors.PoolAlreadyExists)
+	).Return(domainstorageerrors.StoragePoolAlreadyExists)
 
 	svc := StoragePoolService{
 		registryGetter: registryGetter{s.registry},
@@ -215,7 +215,7 @@ func (s *storagePoolServiceSuite) TestCreateStoragePoolAlreadyExists(c *tc.C) {
 		"storageprovider1",
 		map[string]any{"key": "val"},
 	)
-	c.Check(err, tc.ErrorIs, domainstorageerrors.PoolAlreadyExists)
+	c.Check(err, tc.ErrorIs, domainstorageerrors.StoragePoolAlreadyExists)
 }
 
 // TestCreateStoragePoolUsesSameUUID is a sanity check to make sure that the
@@ -370,7 +370,7 @@ func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesAndProvidersInvalid
 		st:             s.state,
 	}
 	_, err := svc.ListStoragePoolsByNamesAndProviders(c.Context(), domainstorage.Names{"666invalid"}, domainstorage.Providers{"ebs"})
-	c.Assert(err, tc.ErrorIs, domainstorageerrors.InvalidPoolNameError)
+	c.Assert(err, tc.ErrorIs, domainstorageerrors.StoragePoolNameInvalid)
 	c.Assert(err, tc.ErrorMatches, `pool name "666invalid" not valid`)
 }
 
@@ -428,7 +428,7 @@ func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesInvalidNames(c *tc.
 		st:             s.state,
 	}
 	_, err := svc.ListStoragePoolsByNames(c.Context(), domainstorage.Names{"666invalid"})
-	c.Assert(err, tc.ErrorIs, domainstorageerrors.InvalidPoolNameError)
+	c.Assert(err, tc.ErrorIs, domainstorageerrors.StoragePoolNameInvalid)
 	c.Assert(err, tc.ErrorMatches, `pool name "666invalid" not valid`)
 }
 
@@ -510,14 +510,14 @@ func (s *storagePoolServiceSuite) TestGetStoragePoolByName(c *tc.C) {
 func (s *storagePoolServiceSuite) TestGetStoragePoolByNamePoolNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetStoragePoolUUID(gomock.Any(), "ebs-fast").Return("", domainstorageerrors.PoolNotFoundError)
+	s.state.EXPECT().GetStoragePoolUUID(gomock.Any(), "ebs-fast").Return("", domainstorageerrors.StoragePoolNotFound)
 
 	svc := StoragePoolService{
 		registryGetter: registryGetter{s.registry},
 		st:             s.state,
 	}
 	_, err := svc.GetStoragePoolByName(c.Context(), "ebs-fast")
-	c.Assert(err, tc.ErrorIs, domainstorageerrors.PoolNotFoundError)
+	c.Assert(err, tc.ErrorIs, domainstorageerrors.StoragePoolNotFound)
 }
 
 func (s *storagePoolServiceSuite) TestGetStoragePoolByNameInvalidName(c *tc.C) {
@@ -528,5 +528,5 @@ func (s *storagePoolServiceSuite) TestGetStoragePoolByNameInvalidName(c *tc.C) {
 		st:             s.state,
 	}
 	_, err := svc.GetStoragePoolByName(c.Context(), "666invalid")
-	c.Assert(err, tc.ErrorIs, domainstorageerrors.InvalidPoolNameError)
+	c.Assert(err, tc.ErrorIs, domainstorageerrors.StoragePoolNameInvalid)
 }

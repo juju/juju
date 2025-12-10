@@ -92,7 +92,7 @@ OR name = $storagePoolName.name
 // args and uuid value.
 //
 // The following errors can be expected:
-// - [domainstorageerrors.PoolAlreadyExists] if a pool with the same name or
+// - [domainstorageerrors.StoragePoolAlreadyExists] if a pool with the same name or
 // uuid already exist in the model.
 func (st *State) CreateStoragePool(
 	ctx context.Context, args domainstorageinternal.CreateStoragePool,
@@ -166,7 +166,7 @@ VALUES ($insertStoragePoolAttribute.*)
 		if exists {
 			return errors.Errorf(
 				"storage pool with name %q already exists", args.Name,
-			).Add(domainstorageerrors.PoolAlreadyExists)
+			).Add(domainstorageerrors.StoragePoolAlreadyExists)
 		}
 
 		err = tx.Query(ctx, insertPoolStmt, insertStoragePool).Run()
@@ -220,13 +220,6 @@ ON CONFLICT(uuid) DO UPDATE SET name=excluded.name,
 	}
 
 	return func(ctx context.Context, tx *sqlair.TX, poolUUID string, name string, providerType string) error {
-		if name == "" {
-			return errors.Errorf("storage pool name cannot be empty").Add(domainstorageerrors.MissingPoolNameError)
-		}
-		if providerType == "" {
-			return errors.Errorf("storage pool type cannot be empty").Add(domainstorageerrors.MissingPoolTypeError)
-		}
-
 		dbPool := storagePool{
 			UUID: poolUUID,
 			Name: name,
@@ -293,7 +286,7 @@ ON CONFLICT(storage_pool_uuid, key) DO UPDATE SET key=excluded.key,
 
 // DeleteStoragePool deletes a storage pool with the specified name.
 // The following errors can be expected:
-// - [domainstorageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
+// - [domainstorageerrors.StoragePoolNotFound] if a pool with the specified name does not exist.
 func (st State) DeleteStoragePool(ctx context.Context, name string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -334,7 +327,7 @@ WHERE  storage_pool.uuid = (select uuid FROM storage_pool WHERE name = $M.name)
 			return errors.Errorf("deleting storage pool: %w", err)
 		}
 		if rowsAffected == 0 {
-			return errors.Errorf("storage pool %q not found", name).Add(domainstorageerrors.PoolNotFoundError)
+			return errors.Errorf("storage pool %q not found", name).Add(domainstorageerrors.StoragePoolNotFound)
 		}
 		return nil
 	})
@@ -344,7 +337,7 @@ WHERE  storage_pool.uuid = (select uuid FROM storage_pool WHERE name = $M.name)
 // ReplaceStoragePool replaces an existing storage pool with the specified configuration.
 // The storage pool must already exist, and its UUID must be specified.
 // The following errors can be expected:
-// - [domainstorageerrors.PoolNotFoundError] if a pool with the specified UUID does not exist.
+// - [domainstorageerrors.StoragePoolNotFound] if a pool with the specified UUID does not exist.
 func (st State) ReplaceStoragePool(ctx context.Context, pool domainstorage.StoragePool) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -368,7 +361,7 @@ func (st State) ReplaceStoragePool(ctx context.Context, pool domainstorage.Stora
 		if !exists {
 			return errors.Errorf(
 				"storage pool %s not found", pool.UUID,
-			).Add(domainstorageerrors.PoolNotFoundError)
+			).Add(domainstorageerrors.StoragePoolNotFound)
 		}
 
 		if err := storagePoolUpserter(ctx, tx, pool.UUID, pool.Name, pool.Provider); err != nil {
@@ -561,7 +554,7 @@ ORDER BY sp.uuid`, spTypes, storagePool{}, storagePoolAttribute{})
 
 // GetStoragePoolUUID returns the UUID of the storage pool for the specified name.
 // The following errors can be expected:
-// - [domainstorageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
+// - [domainstorageerrors.StoragePoolNotFound] if a pool with the specified name does not exist.
 func (st State) GetStoragePoolUUID(
 	ctx context.Context,
 	name string,
@@ -585,7 +578,7 @@ func (st State) GetStoragePoolUUID(
 // GetStoragePool returns the storage pool for the specified UUID.
 //
 // The following errors can be expected:
-// - [domainstorageerrors.PoolNotFoundError] if a pool with the specified UUID
+// - [domainstorageerrors.StoragePoolNotFound] if a pool with the specified UUID
 // does not exist.
 func (st State) GetStoragePool(
 	ctx context.Context,
@@ -632,7 +625,7 @@ WHERE storage_pool_uuid = $entityUUID.uuid
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"storage pool %q does not exist", poolUUID,
-			).Add(storageerrors.PoolNotFoundError)
+			).Add(storageerrors.StoragePoolNotFound)
 		} else if err != nil {
 			return errors.Errorf(
 				"getting storage pool %q: %w", poolUUID, err,

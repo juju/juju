@@ -9,12 +9,12 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// PoolAttributeInvalid represents an error that occurs when parsing the
+// StoragePoolAttributeInvalid represents an error that occurs when parsing the
 // attributes of a storage pool and one of the key's contains a value that is
 // invalid for use.
 //
-// PoolAttributeInvalid implements the [error] interface.
-type PoolAttributeInvalid struct {
+// StoragePoolAttributeInvalid implements the [error] interface.
+type StoragePoolAttributeInvalid struct {
 	// Key is the attribute key where the invalid value was found.
 	Key string
 
@@ -28,23 +28,8 @@ const (
 	// on does not exist.
 	FilesystemNotFound = errors.ConstError("filesystem not found")
 
-	// InvalidPoolNameError is used when a storage pool name is invalid.
-	InvalidPoolNameError = errors.ConstError("pool name is not valid")
-
 	// InvalidStorageName represents an invalid storage name.
 	InvalidStorageName = errors.ConstError("invalid storage name")
-
-	// MissingPoolTypeError is used when a provider type is empty.
-	MissingPoolTypeError = errors.ConstError("pool provider type is empty")
-
-	// MissingPoolNameError is used when a name is empty.
-	MissingPoolNameError = errors.ConstError("pool name is empty")
-
-	// PoolNotFoundError is used when a storage pool is not found.
-	PoolNotFoundError = errors.ConstError("storage pool is not found")
-
-	// PoolAlreadyExists is used when a storage pool already exists.
-	PoolAlreadyExists = errors.ConstError("storage pool already exists")
 
 	// ProviderTypeInvalid is used when a storage provider type value is not
 	// valid for use within the model.
@@ -60,6 +45,15 @@ const (
 	// instance being operated on does not exist.
 	StorageInstanceNotFound = errors.ConstError("storage instance not found")
 
+	// StoragePoolAlreadyExists is used when a storage pool already exists.
+	StoragePoolAlreadyExists = errors.ConstError("storage pool already exists")
+
+	// StoragePoolNameInvalid is used when a storage pool name is invalid.
+	StoragePoolNameInvalid = errors.ConstError("storage pool name is invalid")
+
+	// StoragePoolNotFound is used when a storage pool is not found.
+	StoragePoolNotFound = errors.ConstError("storage pool is not found")
+
 	// VolumeNotFound describes an error that occurs when the volume being operated
 	// on does not exist.
 	VolumeNotFound = errors.ConstError("volume not found")
@@ -67,6 +61,6 @@ const (
 
 // Error returns a formatted string error message describing the the storage
 // pool attribute key that is invalid and why it is considered invalid.
-func (e PoolAttributeInvalid) Error() string {
+func (e StoragePoolAttributeInvalid) Error() string {
 	return fmt.Sprintf("invalid value for attribute %q: %s", e.Key, e.Message)
 }

@@ -421,7 +421,7 @@ func (w *bootstrapWorker) seedStoragePools(ctx context.Context, poolParams map[s
 			map[string]any(p.Attrs()),
 		)
 
-		if errors.Is(err, storageerrors.PoolAlreadyExists) {
+		if errors.Is(err, storageerrors.StoragePoolAlreadyExists) {
 			continue
 		} else if err != nil {
 			return errors.Annotatef(

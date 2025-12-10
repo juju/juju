@@ -88,15 +88,15 @@ type StoragePoolService struct {
 // pool.
 //
 // The following errors may be returned:
-// - [domainstorageerrors.InvalidPoolNameError] when the supplied storage
+// - [domainstorageerrors.StoragePoolNameInvalid] when the supplied storage
 // pool name is considered invalid or empty.
 // - [domainstorageerrors.ProviderTypeInvalid] when the supplied provider
 // type value is invalid for further use.
 // - [domainstorageerrors.ProviderTypeNotFound] when the supplied provider
 // type is not known to the controller.
-// - [domainstorageerrors.PoolAlreadyExists] when a storage pool for the
+// - [domainstorageerrors.StoragePoolAlreadyExists] when a storage pool for the
 // supplied name already exists in the model.
-// - [domainstorageerrors.PoolAttributeInvalid] when one of the supplied
+// - [domainstorageerrors.StoragePoolAttributeInvalid] when one of the supplied
 // storage pool attributes is invalid.
 func (s *StoragePoolService) CreateStoragePool(
 	ctx context.Context,
@@ -112,7 +112,7 @@ func (s *StoragePoolService) CreateStoragePool(
 		// contents are unknown and so we would shouldn't process the occupied
 		// memory any further.
 		return "", errors.New("new storage pool name is not valid").Add(
-			storageerrors.InvalidPoolNameError,
+			storageerrors.StoragePoolNameInvalid,
 		)
 	}
 
@@ -243,7 +243,7 @@ func (s *StoragePoolService) validateConfig(ctx context.Context, name string, pr
 
 // DeleteStoragePool deletes a storage pool with the specified name.
 // The following errors can be expected:
-// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
+// - [storageerrors.StoragePoolNotFound] if a pool with the specified name does not exist.
 func (s *StoragePoolService) DeleteStoragePool(ctx context.Context, name string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -283,8 +283,8 @@ func (s *StoragePoolService) DeleteStoragePool(ctx context.Context, name string)
 
 // ReplaceStoragePool replaces an existing storage pool with the specified configuration.
 // The following errors can be expected:
-// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
-// - [storageerrors.InvalidPoolNameError] if the pool name is not valid.
+// - [storageerrors.StoragePoolNotFound] if a pool with the specified name does not exist.
+// - [storageerrors.StoragePoolNameInvalid] if the pool name is not valid.
 func (s *StoragePoolService) ReplaceStoragePool(
 	ctx context.Context,
 	name string,
@@ -295,7 +295,7 @@ func (s *StoragePoolService) ReplaceStoragePool(
 	defer span.End()
 
 	if !domainstorage.IsValidStoragePoolName(name) {
-		return errors.Errorf("pool name %q not valid", name).Add(storageerrors.InvalidPoolNameError)
+		return errors.Errorf("pool name %q not valid", name).Add(storageerrors.StoragePoolNameInvalid)
 	}
 
 	poolUUID, err := s.st.GetStoragePoolUUID(ctx, name)
@@ -423,8 +423,8 @@ func (s *StoragePoolService) ListStoragePoolsByProviders(
 
 // GetStoragePoolUUID returns the UUID of the storage pool for the specified name.
 // The following errors can be expected:
-// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
-// - [storageerrors.InvalidPoolNameError] if the pool name is not valid.
+// - [storageerrors.StoragePoolNotFound] if a pool with the specified name does not exist.
+// - [storageerrors.StoragePoolNameInvalid] if the pool name is not valid.
 func (s *StoragePoolService) GetStoragePoolUUID(ctx context.Context, name string) (domainstorage.StoragePoolUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -432,7 +432,7 @@ func (s *StoragePoolService) GetStoragePoolUUID(ctx context.Context, name string
 	if !domainstorage.IsValidStoragePoolName(name) {
 		return "", errors.Errorf(
 			"pool name %q not valid", name,
-		).Add(storageerrors.InvalidPoolNameError)
+		).Add(storageerrors.StoragePoolNameInvalid)
 	}
 
 	poolUUID, err := s.st.GetStoragePoolUUID(ctx, name)
@@ -444,7 +444,7 @@ func (s *StoragePoolService) GetStoragePoolUUID(ctx context.Context, name string
 
 // GetStoragePoolByName returns the storage pool with the specified name.
 // The following errors can be expected:
-// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
+// - [storageerrors.StoragePoolNotFound] if a pool with the specified name does not exist.
 func (s *StoragePoolService) GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -452,7 +452,7 @@ func (s *StoragePoolService) GetStoragePoolByName(ctx context.Context, name stri
 	if !domainstorage.IsValidStoragePoolName(name) {
 		return domainstorage.StoragePool{}, errors.Errorf(
 			"pool name %q not valid", name,
-		).Add(storageerrors.InvalidPoolNameError)
+		).Add(storageerrors.StoragePoolNameInvalid)
 	}
 	poolUUID, err := s.st.GetStoragePoolUUID(ctx, name)
 	if err != nil {
@@ -486,7 +486,7 @@ func (s *StoragePoolService) validatePoolListFilterTerms(ctx context.Context, na
 func (s *StoragePoolService) validateNameCriteria(names []string) error {
 	for _, n := range names {
 		if !domainstorage.IsValidStoragePoolName(n) {
-			return errors.Errorf("pool name %q not valid", n).Add(storageerrors.InvalidPoolNameError)
+			return errors.Errorf("pool name %q not valid", n).Add(storageerrors.StoragePoolNameInvalid)
 		}
 	}
 	return nil

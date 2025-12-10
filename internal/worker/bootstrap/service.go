@@ -181,16 +181,16 @@ type StorageService interface {
 	// pool.
 	//
 	// The following errors may be returned:
-	// - [domainstorageerrors.InvalidPoolNameError] when the supplied storage
-	// pool name is considered invalid or empty.
-	// - [domainstorageerrors.ProviderTypeInvalid] when the supplied provider
-	// type value is invalid for further use.
-	// - [domainstorageerrors.ProviderTypeNotFound] when the supplied provider
-	// type is not known to the controller.
-	// - [domainstorageerrors.PoolAlreadyExists] when a storage pool for the
-	// supplied name already exists in the model.
-	// - [domainstorageerrors.PoolAttributeInvalid] when one of the supplied
-	// storage pool attributes is invalid.
+	// - [github.com/juju/juju/domain/storage/errors.StoragePoolNameInvalid]
+	// when the supplied storage pool name is considered invalid or empty.
+	// - [github.com/juju/juju/domain/storage/errors.ProviderTypeInvalid] when
+	// the supplied provider type value is invalid for further use.
+	// - [github.com/juju/juju/domain/storage/errors.ProviderTypeNotFound] when
+	// the supplied provider type is not known to the controller.
+	// - [github.com/juju/juju/domain/storage/errors.StoragePoolAlreadyExists]
+	// when a storage pool for the supplied name already exists in the model.
+	// - [github.com/juju/juju/domain/storage/errors.StoragePoolAttributeInvalid]
+	// when one of the supplied storage pool attributes is invalid.
 	CreateStoragePool(
 		context.Context,
 		string,

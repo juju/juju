@@ -102,7 +102,7 @@ func (s *storagePoolStateSuite) TestCreateStoragePoolWithNoAttributes(c *tc.C) {
 
 // TestCreateStoragePoolNameAlreadyExists tests that creating a storage pool
 // with the same name of one that exists returns to the caller an error
-// satisfying [storageerrors.PoolAlreadyExists].
+// satisfying [storageerrors.StoragePoolAlreadyExists].
 func (s *storagePoolStateSuite) TestCreateStoragePoolNameAlreadyExists(c *tc.C) {
 	storagePoolUUID1 := tc.Must(c, domainstorage.NewStoragePoolUUID)
 	args1 := domainstorageinternal.CreateStoragePool{
@@ -127,12 +127,12 @@ func (s *storagePoolStateSuite) TestCreateStoragePoolNameAlreadyExists(c *tc.C) 
 		UUID:         storagePoolUUID2,
 	}
 	err = st.CreateStoragePool(ctx, args2)
-	c.Check(err, tc.ErrorIs, storageerrors.PoolAlreadyExists)
+	c.Check(err, tc.ErrorIs, storageerrors.StoragePoolAlreadyExists)
 }
 
 // TestCreateStoragePoolNameUUIDExists tests that creating a storage pool
 // with the same uuid of one that exists returns to the caller an error
-// satisfying [storageerrors.PoolAlreadyExists].
+// satisfying [storageerrors.StoragePoolAlreadyExists].
 func (s *storagePoolStateSuite) TestCreateStoragePoolUUIDAlreadyExists(c *tc.C) {
 	storagePoolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 	args1 := domainstorageinternal.CreateStoragePool{
@@ -156,7 +156,7 @@ func (s *storagePoolStateSuite) TestCreateStoragePoolUUIDAlreadyExists(c *tc.C) 
 		UUID:         storagePoolUUID, // same uuid
 	}
 	err = st.CreateStoragePool(ctx, args2)
-	c.Check(err, tc.ErrorIs, storageerrors.PoolAlreadyExists)
+	c.Check(err, tc.ErrorIs, storageerrors.StoragePoolAlreadyExists)
 }
 
 func (s *storagePoolStateSuite) TestReplaceStoragePool(c *tc.C) {
@@ -244,7 +244,7 @@ func (s *storagePoolStateSuite) TestReplaceStoragePoolNotFound(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory())
 	err = st.ReplaceStoragePool(c.Context(), sp)
-	c.Check(err, tc.ErrorIs, storageerrors.PoolNotFoundError)
+	c.Check(err, tc.ErrorIs, storageerrors.StoragePoolNotFound)
 }
 
 //func (s *storagePoolStateSuite) TestDeleteStoragePool(c *tc.C) {
