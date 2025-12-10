@@ -4,8 +4,6 @@
 package state
 
 import (
-	"context"
-	"database/sql"
 	stdtesting "testing"
 
 	"github.com/juju/tc"
@@ -26,19 +24,6 @@ type storagePoolStateSuite struct {
 // [storagePoolStateSuite].
 func TestStoragePoolStateSuite(t *stdtesting.T) {
 	tc.Run(t, &storagePoolStateSuite{})
-}
-
-func (s *storagePoolStateSuite) getStoragePoolOrigin(c *tc.C, name string) string {
-	var origin string
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, `
-SELECT    spo.origin
-FROM      storage_pool sp
-LEFT JOIN storage_pool_origin spo ON spo.id = sp.origin_id
-WHERE     sp.name = ?`, name).Scan(&origin)
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	return origin
 }
 
 // TestCreateStoragePool is a happy path test for creating a new storage pool in
