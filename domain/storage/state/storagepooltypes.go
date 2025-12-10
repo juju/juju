@@ -4,7 +4,7 @@
 package state
 
 import (
-	"github.com/juju/juju/domain/storage"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -75,15 +75,15 @@ type storageProviderTypes []string
 
 type storagePools []storagePool
 
-func (rows storagePools) toStoragePools(keyValues []storagePoolAttribute) ([]storage.StoragePool, error) {
+func (rows storagePools) toStoragePools(keyValues []storagePoolAttribute) ([]domainstorage.StoragePool, error) {
 	if n := len(rows); n != len(keyValues) {
 		// Should never happen.
 		return nil, errors.New("row length mismatch")
 	}
 
 	var (
-		result  []storage.StoragePool
-		current *storage.StoragePool
+		result  []domainstorage.StoragePool
+		current *domainstorage.StoragePool
 	)
 
 	pushResult := func() {
@@ -102,7 +102,7 @@ func (rows storagePools) toStoragePools(keyValues []storagePoolAttribute) ([]sto
 		}
 
 		if current == nil {
-			current = &storage.StoragePool{
+			current = &domainstorage.StoragePool{
 				UUID:     row.UUID,
 				Name:     row.Name,
 				Provider: row.Type,

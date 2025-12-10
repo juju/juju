@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/domain/schema/testing"
 	domainstorage "github.com/juju/juju/domain/storage"
-	storageerrors "github.com/juju/juju/domain/storage/errors"
+	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	domainstorageinternal "github.com/juju/juju/domain/storage/internal"
 )
 
@@ -64,7 +64,7 @@ func (s *storagePoolHelperSuite) TestGetStoragePoolUUIDNotFound(c *tc.C) {
 		_, err := GetStoragePoolUUID(ctx, tx, st, "non-existent-pool")
 		return err
 	})
-	c.Assert(err, tc.ErrorIs, storageerrors.StoragePoolNotFound)
+	c.Assert(err, tc.ErrorIs, domainstorageerrors.StoragePoolNotFound)
 }
 
 func (s *storagePoolHelperSuite) TestGetStoragePool(c *tc.C) {
@@ -102,5 +102,5 @@ func (s *storagePoolHelperSuite) TestGetStoragePoolNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 	_, err := st.GetStoragePool(c.Context(), poolUUID)
-	c.Check(err, tc.ErrorIs, storageerrors.StoragePoolNotFound)
+	c.Check(err, tc.ErrorIs, domainstorageerrors.StoragePoolNotFound)
 }

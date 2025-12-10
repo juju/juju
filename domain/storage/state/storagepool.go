@@ -10,7 +10,6 @@ import (
 
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
-	storageerrors "github.com/juju/juju/domain/storage/errors"
 	domainstorageinternal "github.com/juju/juju/domain/storage/internal"
 	"github.com/juju/juju/internal/errors"
 )
@@ -625,7 +624,7 @@ WHERE storage_pool_uuid = $entityUUID.uuid
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"storage pool %q does not exist", poolUUID,
-			).Add(storageerrors.StoragePoolNotFound)
+			).Add(domainstorageerrors.StoragePoolNotFound)
 		} else if err != nil {
 			return errors.Errorf(
 				"getting storage pool %q: %w", poolUUID, err,

@@ -10,13 +10,13 @@ import (
 
 	"github.com/juju/juju/domain"
 	domainstorage "github.com/juju/juju/domain/storage"
-	storageerrors "github.com/juju/juju/domain/storage/errors"
+	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
 // GetStoragePoolUUID returns the UUID of the storage pool for the specified name.
 // The following errors can be expected:
-// - [storageerrors.StoragePoolNotFound] if a pool with the specified name does not exist.
+// - [domainstorageerrors.StoragePoolNotFound] if a pool with the specified name does not exist.
 // Exported for use by other domains that need to load storage pools.
 func GetStoragePoolUUID(
 	ctx context.Context,
@@ -34,7 +34,7 @@ WHERE  name = $storagePoolIdentifiers.name`, inputArg)
 	}
 	err = tx.Query(ctx, stmt, inputArg).Get(&inputArg)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", errors.Errorf("storage pool %q not found", name).Add(storageerrors.StoragePoolNotFound)
+		return "", errors.Errorf("storage pool %q not found", name).Add(domainstorageerrors.StoragePoolNotFound)
 	}
 	if err != nil {
 		return "", errors.Errorf("getting storage pool UUID %q: %w", name, err)
