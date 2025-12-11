@@ -177,16 +177,99 @@ func NewStorageAPI(
 	}
 }
 
-func (a *StorageAPI) checkCanRead(ctx context.Context) error {
-	err := a.authorizer.HasPermission(ctx, permission.SuperuserAccess, names.NewControllerTag(a.controllerUUID))
-	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
-		return errors.Capture(err)
+// checkHasModelPermission checks to see if the authenticated entity has the
+// supplied permission on the model returning true or false. Any errors
+// encounted performing the check are returned with false.
+func (a *StorageAPI) checkHasModelPermission(
+	ctx context.Context, perm permission.Access,
+) (bool, error) {
+	err := a.authorizer.HasPermission(
+		ctx, perm, names.NewModelTag(a.modelUUID.String()),
+	)
+	if errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return false, nil
+	} else if err != nil {
+		return false, err
 	}
 
-	if err == nil {
+	return true, nil
+}
+
+// checkHasSuperUserAccess checks to see if the authenticated entity has super
+// user access on the controller. Any errors encountered performing the check
+// are returned with false.
+func (a *StorageAPI) checkHasSuperUserAccess(ctx context.Context) (bool, error) {
+	err := a.authorizer.HasPermission(
+		ctx,
+		permission.SuperuserAccess,
+		names.NewControllerTag(a.controllerUUID),
+	)
+	if errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		// Subject doesn't have superuser access on the controller
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+// checkCanRead checks that the caller of the facade has read permissions on
+// the model or super user access on the controller. If the caller does not have
+// read permissions then a [params.Error] value is returned with the code set to
+// [apiservererrors.CodeUnauthorized].
+//
+// NOTE: this is a slight change in patterns from how this type of authorisation
+// check would be performed in a facade. We explicitly return a params error
+// here that has the unauthorized code check so that the facade contracts are
+// strict and can be tested within the facade.
+//
+// By returning any error out of this func and subsequently out of the facade
+// func we are relying on a catch all handler at the api root to perform the
+// last transformation. Relying on this means the facades contracts can not be
+// tested.
+//
+// Errors encounted checking permissions will be logged at warning level with a
+// params error returned and the code set to [apiservererrors.CodeUnauthorized].
+func (a *StorageAPI) checkCanRead(ctx context.Context) *params.Error {
+	hasSuperUser, err := a.checkHasSuperUserAccess(ctx)
+	if err != nil {
+		a.logger.Warningf(
+			ctx,
+			"checking for super user access on entity %q: %s",
+			a.authorizer.GetAuthTag().String(),
+			err.Error(),
+		)
+		return apiservererrors.ParamsErrorf(
+			params.CodeUnauthorized, "not authorized for request",
+		)
+	}
+
+	if hasSuperUser {
+		// authenticated entity has super user access on the controller.
 		return nil
 	}
-	return a.authorizer.HasPermission(ctx, permission.ReadAccess, names.NewModelTag(a.modelUUID.String()))
+
+	hasModelRead, err := a.checkHasModelPermission(ctx, permission.ReadAccess)
+	if err != nil {
+		a.logger.Warningf(
+			ctx,
+			"checking for read access on entity %q: %s",
+			a.authorizer.GetAuthTag().String(),
+			err.Error(),
+		)
+		return apiservererrors.ParamsErrorf(
+			params.CodeUnauthorized, "not authorized for request",
+		)
+	}
+
+	if hasModelRead {
+		return nil
+	}
+
+	return apiservererrors.ParamsErrorf(
+		params.CodeUnauthorized, "not authorized for request",
+	)
 }
 
 // checkCanWrite checks that the caller of the facade has write permissions on
@@ -196,20 +279,31 @@ func (a *StorageAPI) checkCanRead(ctx context.Context) error {
 //
 // NOTE: this is a slight change in patterns from how this type of authorisation
 // check would be performed in a facade. We explicitly return a params error
-// here that has the unauthorized code check so that the facades contracts are
+// here that has the unauthorized code check so that the facade contracts are
 // strict and can be tested within the facade.
 //
 // By returning any error out of this func and subsequently out of the facade
 // func we are relying on a catch all handler at the api root to perform the
 // last transformation. Relying on this means the facades contracts can not be
 // tested.
+//
+// Errors encounted checking permissions will be logged at warning level with a
+// params error returned and the code set to [apiservererrors.CodeUnauthorized].
 func (a *StorageAPI) checkCanWrite(ctx context.Context) *params.Error {
-	err := a.authorizer.HasPermission(
-		ctx,
-		permission.WriteAccess,
-		names.NewModelTag(a.modelUUID.String()),
-	)
-	if err == nil {
+	hasModelWrite, err := a.checkHasModelPermission(ctx, permission.WriteAccess)
+	if err != nil {
+		a.logger.Warningf(
+			ctx,
+			"checking for write access on entity %q: %s",
+			a.authorizer.GetAuthTag().String(),
+			err.Error(),
+		)
+		return apiservererrors.ParamsErrorf(
+			params.CodeUnauthorized, "not authorized for request",
+		)
+	}
+
+	if hasModelWrite {
 		return nil
 	}
 
