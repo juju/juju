@@ -24,7 +24,7 @@ var (
 	// - After the first character, ASCII alphasnumeric characters are allowed
 	// including hyphens.
 	// - MUST not be greater than 128 characters.
-	validProviderTypeRegex = regexp.MustCompile("^[[:alpha:]][-[:alpha:][:digit:]]{1,127}$")
+	validProviderTypeRegex = regexp.MustCompile("^[[:alpha:]][-[:alpha:][:digit:]]{0,127}$")
 )
 
 // IsValid exists to validate a supplied provider type value from an untrusted
