@@ -179,7 +179,7 @@ func NewStorageAPI(
 
 // checkHasModelPermission checks to see if the authenticated entity has the
 // supplied permission on the model returning true or false. Any errors
-// encounted performing the check are returned with false.
+// encountered performing the check are returned with false.
 func (a *StorageAPI) checkHasModelPermission(
 	ctx context.Context, perm permission.Access,
 ) (bool, error) {
@@ -229,7 +229,7 @@ func (a *StorageAPI) checkHasSuperUserAccess(ctx context.Context) (bool, error) 
 // last transformation. Relying on this means the facades contracts can not be
 // tested.
 //
-// Errors encounted checking permissions will be logged at warning level with a
+// Errors encountered checking permissions will be logged at warning level with a
 // params error returned and the code set to [apiservererrors.CodeUnauthorized].
 func (a *StorageAPI) checkCanRead(ctx context.Context) *params.Error {
 	hasSuperUser, err := a.checkHasSuperUserAccess(ctx)
@@ -287,7 +287,7 @@ func (a *StorageAPI) checkCanRead(ctx context.Context) *params.Error {
 // last transformation. Relying on this means the facades contracts can not be
 // tested.
 //
-// Errors encounted checking permissions will be logged at warning level with a
+// Errors encountered checking permissions will be logged at warning level with a
 // params error returned and the code set to [apiservererrors.CodeUnauthorized].
 func (a *StorageAPI) checkCanWrite(ctx context.Context) *params.Error {
 	hasModelWrite, err := a.checkHasModelPermission(ctx, permission.WriteAccess)
