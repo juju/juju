@@ -36,8 +36,9 @@ func TestStorageDetachSuite(t *testing.T) {
 func (s *storageDetachSuite) TestNegativeMaxWaitTime(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	api := s.makeTestAPI(c)
 	negativeMaxWait := time.Duration(-5)
-	_, err := s.api.DetachStorage(c.Context(), params.StorageDetachmentParams{
+	_, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{
 		MaxWait: &negativeMaxWait,
 	})
 	perr, is := errors.AsType[*params.Error](err)
@@ -50,7 +51,8 @@ func (s *storageDetachSuite) TestNegativeMaxWaitTime(c *tc.C) {
 func (s *storageDetachSuite) TestDetachStorageNoIDs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	result, err := s.api.DetachStorage(c.Context(), params.StorageDetachmentParams{})
+	api := s.makeTestAPI(c)
+	result, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{})
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 0)
 }
@@ -65,7 +67,8 @@ func (s *storageDetachSuite) TestDetachStorageUnitNotFound(c *tc.C) {
 		"", applicationerrors.UnitNotFound,
 	)
 
-	result, err := s.api.DetachStorage(c.Context(), params.StorageDetachmentParams{
+	api := s.makeTestAPI(c)
+	result, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{
 		StorageIds: params.StorageAttachmentIds{
 			Ids: []params.StorageAttachmentId{
 				{
@@ -95,7 +98,8 @@ func (s *storageDetachSuite) TestDetachStorageInstanceNotFound(c *tc.C) {
 		"", storageerrors.StorageInstanceNotFound,
 	)
 
-	result, err := s.api.DetachStorage(c.Context(), params.StorageDetachmentParams{
+	api := s.makeTestAPI(c)
+	result, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{
 		StorageIds: params.StorageAttachmentIds{
 			Ids: []params.StorageAttachmentId{
 				{
@@ -131,7 +135,8 @@ func (s *storageDetachSuite) TestDetachStorageAttachmentNotFound(c *tc.C) {
 		gomock.Any(), storageInstUUID, unitUUID,
 	).Return("", storageerrors.StorageAttachmentNotFound)
 
-	result, err := s.api.DetachStorage(c.Context(), params.StorageDetachmentParams{
+	api := s.makeTestAPI(c)
+	result, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{
 		StorageIds: params.StorageAttachmentIds{
 			Ids: []params.StorageAttachmentId{
 				{
@@ -178,7 +183,8 @@ func (s *storageDetachSuite) TestDetachStorageAttachmentUnitStorageViolation(c *
 		UnitUUID:         unitUUID.String(),
 	})
 
-	result, err := s.api.DetachStorage(c.Context(), params.StorageDetachmentParams{
+	api := s.makeTestAPI(c)
+	result, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{
 		StorageIds: params.StorageAttachmentIds{
 			Ids: []params.StorageAttachmentId{
 				{
@@ -218,7 +224,8 @@ func (s *storageDetachSuite) TestDetachStorageAttachment(c *tc.C) {
 		gomock.Any(), storageAttachmentUUID, false, time.Duration(0),
 	).Return("123", nil)
 
-	result, err := s.api.DetachStorage(c.Context(), params.StorageDetachmentParams{
+	api := s.makeTestAPI(c)
+	result, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{
 		StorageIds: params.StorageAttachmentIds{
 			Ids: []params.StorageAttachmentId{
 				{
@@ -262,7 +269,8 @@ func (s *storageDetachSuite) TestDetachStorageAttachmentWithForceAndWait(c *tc.C
 		force = true
 		wait  = time.Minute
 	)
-	result, err := s.api.DetachStorage(c.Context(), params.StorageDetachmentParams{
+	api := s.makeTestAPI(c)
+	result, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{
 		Force:   &force,
 		MaxWait: &wait,
 		StorageIds: params.StorageAttachmentIds{
@@ -307,7 +315,8 @@ func (s *storageDetachSuite) TestDetachStorageAllAttachments(c *tc.C) {
 		gomock.Any(), storageAttachmentUUID2, false, time.Duration(0),
 	).Return("124", nil)
 
-	result, err := s.api.DetachStorage(c.Context(), params.StorageDetachmentParams{
+	api := s.makeTestAPI(c)
+	result, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{
 		StorageIds: params.StorageAttachmentIds{
 			Ids: []params.StorageAttachmentId{
 				{
@@ -338,7 +347,8 @@ func (s *storageDetachSuite) TestDetachStorageAllAttachmentsEmpty(c *tc.C) {
 		gomock.Any(), storageInstUUID,
 	).Return([]domainstorageprovisioning.StorageAttachmentUUID{}, nil)
 
-	result, err := s.api.DetachStorage(c.Context(), params.StorageDetachmentParams{
+	api := s.makeTestAPI(c)
+	result, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{
 		StorageIds: params.StorageAttachmentIds{
 			Ids: []params.StorageAttachmentId{
 				{

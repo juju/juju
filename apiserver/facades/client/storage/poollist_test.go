@@ -42,7 +42,8 @@ func (s *poolSuite) TestListByNames(c *tc.C) {
 		},
 	}, nil)
 
-	results, err := s.api.ListPools(c.Context(), params.StoragePoolFilters{
+	api := s.makeTestAPI(c)
+	results, err := api.ListPools(c.Context(), params.StoragePoolFilters{
 		Filters: []params.StoragePoolFilter{{
 			Names: []string{fmt.Sprintf("%v%v", tstName, 0)},
 		}},
@@ -70,7 +71,8 @@ func (s *poolSuite) TestListByProviders(c *tc.C) {
 		},
 	}, nil)
 
-	results, err := s.api.ListPools(c.Context(), params.StoragePoolFilters{
+	api := s.makeTestAPI(c)
+	results, err := api.ListPools(c.Context(), params.StoragePoolFilters{
 		Filters: []params.StoragePoolFilter{{
 			Providers: []string{string(provider.LoopProviderType)},
 		}},
@@ -100,7 +102,8 @@ func (s *poolSuite) TestList(c *tc.C) {
 		},
 	}, nil)
 
-	results, err := s.api.ListPools(c.Context(), params.StoragePoolFilters{
+	api := s.makeTestAPI(c)
+	results, err := api.ListPools(c.Context(), params.StoragePoolFilters{
 		Filters: []params.StoragePoolFilter{{
 			Names:     []string{fmt.Sprintf("%v%v", tstName, 0)},
 			Providers: []string{string(provider.LoopProviderType)},
@@ -130,7 +133,8 @@ func (s *poolSuite) TestListAll(c *tc.C) {
 			},
 		}, nil)
 
-	results, err := s.api.ListPools(c.Context(), params.StoragePoolFilters{[]params.StoragePoolFilter{{}}})
+	api := s.makeTestAPI(c)
+	results, err := api.ListPools(c.Context(), params.StoragePoolFilters{[]params.StoragePoolFilter{{}}})
 	c.Assert(err, tc.ErrorIsNil)
 	assertPoolNames(c, results.Results[0].Result, "testpool0", "testpool1")
 }
@@ -149,7 +153,8 @@ func (s *poolSuite) TestListNoPools(c *tc.C) {
 	s.storageService.EXPECT().ListStoragePools(gomock.Any()).
 		Return([]domainstorage.StoragePool{}, nil)
 
-	results, err := s.api.ListPools(c.Context(), params.StoragePoolFilters{[]params.StoragePoolFilter{{}}})
+	api := s.makeTestAPI(c)
+	results, err := api.ListPools(c.Context(), params.StoragePoolFilters{[]params.StoragePoolFilter{{}}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Result, tc.HasLen, 0)

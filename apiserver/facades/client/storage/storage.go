@@ -59,6 +59,8 @@ type RemovalService interface {
 
 // StorageService defines apis on the storage service.
 type StorageService interface {
+	StoragePoolService
+
 	// GetStorageAttachmentUUIDForStorageInstanceAndUnit returns the
 	// [domainstorageprovisioning.StorageAttachmentUUID] associated with the
 	// given storage instance id and unit name.
@@ -187,8 +189,33 @@ func (a *StorageAPI) checkCanRead(ctx context.Context) error {
 	return a.authorizer.HasPermission(ctx, permission.ReadAccess, names.NewModelTag(a.modelUUID.String()))
 }
 
-func (a *StorageAPI) checkCanWrite(ctx context.Context) error {
-	return a.authorizer.HasPermission(ctx, permission.WriteAccess, names.NewModelTag(a.modelUUID.String()))
+// checkCanWrite checks that the caller of the facade has write permissions on
+// the model. If the caller does not have write permissions then a
+// [params.Error] value is returned with the code set to
+// [apiservererrors.CodeUnauthorized].
+//
+// NOTE: this is a slight change in patterns from how this type of authorisation
+// check would be performed in a facade. We explicitly return a params error
+// here that has the unauthorized code check so that the facades contracts are
+// strict and can be tested within the facade.
+//
+// By returning any error out of this func and subsequently out of the facade
+// func we are relying on a catch all handler at the api root to perform the
+// last transformation. Relying on this means the facades contracts can not be
+// tested.
+func (a *StorageAPI) checkCanWrite(ctx context.Context) *params.Error {
+	err := a.authorizer.HasPermission(
+		ctx,
+		permission.WriteAccess,
+		names.NewModelTag(a.modelUUID.String()),
+	)
+	if err == nil {
+		return nil
+	}
+
+	return apiservererrors.ParamsErrorf(
+		params.CodeUnauthorized, "not authorized for request",
+	)
 }
 
 // StorageDetails retrieves and returns detailed information about desired
@@ -203,78 +230,6 @@ func (a *StorageAPI) StorageDetails(ctx context.Context, entities params.Entitie
 // ListStorageDetails returns storage matching a filter.
 func (a *StorageAPI) ListStorageDetails(ctx context.Context, filters params.StorageFilters) (params.StorageDetailsListResults, error) {
 	return params.StorageDetailsListResults{}, apiservererrors.ParamsErrorf(
-		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
-	)
-}
-
-// ListPools returns a list of pools.
-// If filter is provided, returned list only contains pools that match
-// the filter.
-// Pools can be filtered on names and provider types.
-// If both names and types are provided as filter,
-// pools that match either are returned.
-// This method lists union of pools and environment provider types.
-// If no filter is provided, all pools are returned.
-func (a *StorageAPI) ListPools(
-	ctx context.Context,
-	filters params.StoragePoolFilters,
-) (params.StoragePoolsResults, error) {
-	if err := a.checkCanRead(ctx); err != nil {
-		return params.StoragePoolsResults{}, errors.Capture(err)
-	}
-
-	results := params.StoragePoolsResults{
-		Results: make([]params.StoragePoolsResult, len(filters.Filters)),
-	}
-	for i, filter := range filters.Filters {
-		pools, err := a.listPools(ctx, filter)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		results.Results[i].Result = pools
-	}
-	return results, nil
-}
-
-func (a *StorageAPI) listPools(ctx context.Context, filter params.StoragePoolFilter) ([]params.StoragePool, error) {
-	var (
-		pools []domainstorage.StoragePool
-		err   error
-	)
-	if len(filter.Names) == 0 && len(filter.Providers) == 0 {
-		pools, err = a.storageService.ListStoragePools(ctx)
-	} else if len(filter.Names) != 0 && len(filter.Providers) != 0 {
-		pools, err = a.storageService.ListStoragePoolsByNamesAndProviders(ctx, filter.Names, filter.Providers)
-	} else if len(filter.Names) != 0 {
-		pools, err = a.storageService.ListStoragePoolsByNames(ctx, filter.Names)
-	} else {
-		pools, err = a.storageService.ListStoragePoolsByProviders(ctx, filter.Providers)
-	}
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	results := make([]params.StoragePool, len(pools))
-	for i, p := range pools {
-		pool := params.StoragePool{
-			Name:     p.Name,
-			Provider: p.Provider,
-		}
-		if len(p.Attrs) > 0 {
-			pool.Attrs = make(map[string]any, len(p.Attrs))
-			for k, v := range p.Attrs {
-				pool.Attrs[k] = v
-			}
-		}
-		results[i] = pool
-
-	}
-	return results, nil
-}
-
-// CreatePool creates a new pool with specified parameters.
-func (a *StorageAPI) CreatePool(ctx context.Context, p params.StoragePoolArgs) (params.ErrorResults, error) {
-	return params.ErrorResults{}, apiservererrors.ParamsErrorf(
 		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
 	)
 }
@@ -424,20 +379,6 @@ func (a *StorageAPI) Import(ctx context.Context, args params.BulkImportStoragePa
 // A "CHANGE" block can block this operation.
 func (a *StorageAPIv6) Import(ctx context.Context, args params.BulkImportStorageParams) (params.ImportStorageResults, error) {
 	return params.ImportStorageResults{}, apiservererrors.ParamsErrorf(
-		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
-	)
-}
-
-// RemovePool deletes the named pool
-func (a *StorageAPI) RemovePool(ctx context.Context, p params.StoragePoolDeleteArgs) (params.ErrorResults, error) {
-	return params.ErrorResults{}, apiservererrors.ParamsErrorf(
-		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
-	)
-}
-
-// UpdatePool deletes the named pool
-func (a *StorageAPI) UpdatePool(ctx context.Context, p params.StoragePoolArgs) (params.ErrorResults, error) {
-	return params.ErrorResults{}, apiservererrors.ParamsErrorf(
 		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
 	)
 }

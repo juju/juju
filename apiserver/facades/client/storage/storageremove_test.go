@@ -29,8 +29,9 @@ func TestStorageRemoveSuite(t *testing.T) {
 func (s *storageRemoveSuite) TestNegativeMaxWaitTime(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	api := s.makeTestAPI(c)
 	negativeMaxWait := time.Duration(-5)
-	res, err := s.api.Remove(c.Context(), params.RemoveStorage{
+	res, err := api.Remove(c.Context(), params.RemoveStorage{
 		Storage: []params.RemoveStorageInstance{
 			{
 				MaxWait: &negativeMaxWait,
@@ -50,7 +51,8 @@ func (s *storageRemoveSuite) TestRemoveNotFound(c *tc.C) {
 		gomock.Any(), "data/1",
 	).Return("", storageerrors.StorageInstanceNotFound)
 
-	res, err := s.api.Remove(c.Context(), params.RemoveStorage{
+	api := s.makeTestAPI(c)
+	res, err := api.Remove(c.Context(), params.RemoveStorage{
 		Storage: []params.RemoveStorageInstance{
 			{
 				Tag: "storage-data/1",
@@ -77,7 +79,8 @@ func (s *storageRemoveSuite) TestRemove(c *tc.C) {
 		gomock.Any(), storageInstanceUUID, false, time.Duration(0), false,
 	).Return(nil)
 
-	res, err := s.api.Remove(c.Context(), params.RemoveStorage{
+	api := s.makeTestAPI(c)
+	res, err := api.Remove(c.Context(), params.RemoveStorage{
 		Storage: []params.RemoveStorageInstance{
 			{
 				Tag: "storage-data/1",
@@ -104,7 +107,8 @@ func (s *storageRemoveSuite) TestRemoveWithDestroy(c *tc.C) {
 		gomock.Any(), storageInstanceUUID, false, time.Duration(0), true,
 	).Return(nil)
 
-	res, err := s.api.Remove(c.Context(), params.RemoveStorage{
+	api := s.makeTestAPI(c)
+	res, err := api.Remove(c.Context(), params.RemoveStorage{
 		Storage: []params.RemoveStorageInstance{
 			{
 				Tag:            "storage-data/1",
@@ -136,7 +140,8 @@ func (s *storageRemoveSuite) TestRemoveWithForceAndWait(c *tc.C) {
 		force = true
 		wait  = time.Minute
 	)
-	res, err := s.api.Remove(c.Context(), params.RemoveStorage{
+	api := s.makeTestAPI(c)
+	res, err := api.Remove(c.Context(), params.RemoveStorage{
 		Storage: []params.RemoveStorageInstance{
 			{
 				Force:   &force,
@@ -174,7 +179,8 @@ func (s *storageRemoveSuite) TestRemoveWithStorageAttachments(c *tc.C) {
 		gomock.Any(), storageInstanceUUID, false, time.Duration(0), false,
 	).Return(nil)
 
-	res, err := s.api.Remove(c.Context(), params.RemoveStorage{
+	api := s.makeTestAPI(c)
+	res, err := api.Remove(c.Context(), params.RemoveStorage{
 		Storage: []params.RemoveStorageInstance{
 			{
 				Tag:                "storage-data/1",
