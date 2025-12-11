@@ -137,10 +137,39 @@ func (s *poolCreateSuite) TestCreateStoragePoolWithOneFailure(c *tc.C) {
 	c.Check(res.Results[2].Error, tc.IsNil)
 }
 
-// TestCreateStoragePoolWithNoModelWritePermission tests that if the caller does
+// TestCreateStoragePoolWithReadPermissionFails tests that if the caller does
 // not have model write permission they are unable to create storage pools. The
 // caller MUST get back an error with [params.CodeUnauthorized] set.
-func (s *poolCreateSuite) TestCreateStoragePoolWithNoModelWritePermission(c *tc.C) {
+func (s *poolCreateSuite) TestCreateStoragePoolWithNoPermissionFails(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	userTag := tc.Must1(c, names.ParseUserTag, "user-tlm")
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag: userTag,
+	}
+
+	apiArgs := params.StoragePoolArgs{
+		Pools: []params.StoragePool{
+			{
+				Name:     "test-pool3",
+				Provider: "myprovider3",
+				Attrs:    nil,
+			},
+		},
+	}
+
+	api := s.makeTestAPI(c)
+	res, err := api.CreatePool(c.Context(), apiArgs)
+	paramsErr, is := errors.AsType[*params.Error](err)
+	c.Assert(is, tc.IsTrue)
+	c.Check(paramsErr.Code, tc.Equals, params.CodeUnauthorized)
+	c.Check(res.Results, tc.HasLen, 0)
+}
+
+// TestCreateStoragePoolWithReadPermissionFails tests that if the caller does
+// not have model write permission they are unable to create storage pools. The
+// caller MUST get back an error with [params.CodeUnauthorized] set.
+func (s *poolCreateSuite) TestCreateStoragePoolWithReadPermissionFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	userTag := tc.Must1(c, names.ParseUserTag, "user-tlm")
@@ -165,6 +194,78 @@ func (s *poolCreateSuite) TestCreateStoragePoolWithNoModelWritePermission(c *tc.
 	c.Assert(is, tc.IsTrue)
 	c.Check(paramsErr.Code, tc.Equals, params.CodeUnauthorized)
 	c.Check(res.Results, tc.HasLen, 0)
+}
+
+// TestCreateStoragePoolWithWritePermission tests that if the caller has model
+// write permissions they are allowed to create storage pools.
+func (s *poolCreateSuite) TestCreateStoragePoolWithWritePermission(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	userTag := tc.Must1(c, names.ParseUserTag, "user-tlm")
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		HasWriteTag: userTag,
+		Tag:         userTag,
+	}
+
+	storageEXP := s.storageService.EXPECT()
+	storageEXP.CreateStoragePool(
+		gomock.Any(),
+		"test-pool",
+		domainstorage.ProviderType("myprovider"),
+		nil,
+	).Return(tc.Must(c, domainstorage.NewStoragePoolUUID), nil)
+
+	apiArgs := params.StoragePoolArgs{
+		Pools: []params.StoragePool{
+			{
+				Name:     "test-pool",
+				Provider: "myprovider",
+				Attrs:    nil,
+			},
+		},
+	}
+
+	api := s.makeTestAPI(c)
+	res, err := api.CreatePool(c.Context(), apiArgs)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.IsNil)
+}
+
+// TestCreateStoragePoolWithAdminPermission tests that if the caller has model
+// admin permissions they are allowed to create storage pools.
+func (s *poolCreateSuite) TestCreateStoragePoolWithAdminPermission(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	userTag := tc.Must1(c, names.ParseUserTag, "user-tlm")
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		AdminTag: userTag,
+		Tag:      userTag,
+	}
+
+	storageEXP := s.storageService.EXPECT()
+	storageEXP.CreateStoragePool(
+		gomock.Any(),
+		"test-pool",
+		domainstorage.ProviderType("myprovider"),
+		nil,
+	).Return(tc.Must(c, domainstorage.NewStoragePoolUUID), nil)
+
+	apiArgs := params.StoragePoolArgs{
+		Pools: []params.StoragePool{
+			{
+				Name:     "test-pool",
+				Provider: "myprovider",
+				Attrs:    nil,
+			},
+		},
+	}
+
+	api := s.makeTestAPI(c)
+	res, err := api.CreatePool(c.Context(), apiArgs)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.IsNil)
 }
 
 // TestCreateStoragePoolInvalidName tests that when a caller attempts to create
