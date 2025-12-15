@@ -34,7 +34,7 @@ import (
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/password"
-	"github.com/juju/juju/internal/storage"
+	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/gate"
 )
 
@@ -404,29 +404,32 @@ func (w *bootstrapWorker) seedInitialAuthorizedKeys(
 	return nil
 }
 
-func (w *bootstrapWorker) seedStoragePools(ctx context.Context, poolParams map[string]storage.Attrs) error {
+// seedStoragePools is responsible for seeing the initial set of storage pools
+// required for the newly created controller.
+func (w *bootstrapWorker) seedStoragePools(
+	ctx context.Context,
+	poolParams map[string]internalstorage.Attrs,
+) error {
 	err := w.cfg.ModelInfoService.SeedDefaultStoragePools(ctx)
 	if err != nil {
 		return fmt.Errorf("seeding default storage pools into model: %w", err)
 	}
 
-	storagePools, err := initialStoragePools(poolParams)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, p := range storagePools {
+	storagePoolsToCreate := initialStoragePools(poolParams)
+	for _, p := range storagePoolsToCreate {
 		_, err := w.cfg.StorageService.CreateStoragePool(
 			ctx,
-			p.Name(),
-			domainstorage.ProviderType(p.Provider()),
-			map[string]any(p.Attrs()),
+			p.Name,
+			p.ProviderType,
+			p.Attributes,
 		)
 
 		if errors.Is(err, storageerrors.StoragePoolAlreadyExists) {
+			// If the user defined storage pool already exists, skip it.
 			continue
 		} else if err != nil {
 			return errors.Annotatef(
-				err, "creating bootstrap storage pool %q", p.Name(),
+				err, "creating bootstrap storage pool %q", p.Name,
 			)
 		}
 	}
@@ -591,15 +594,12 @@ func (w *bootstrapWorker) bootstrapParams(ctx context.Context, dataDir string) (
 	return args, nil
 }
 
-// initialStoragePools extract any storage pools included with the bootstrap params.
-func initialStoragePools(poolParams map[string]storage.Attrs) ([]*storage.Config, error) {
-	var result []*storage.Config
-
-	for name, attrs := range poolParams {
+// initialStoragePools extracts any storage pools included with the bootstrap
+// params and returns them as a slice of [StoragePoolToCreate] values.
+func initialStoragePools(params map[string]internalstorage.Attrs) []StoragePoolToCreate {
+	retVal := make([]StoragePoolToCreate, 0, len(params))
+	for name, attrs := range params {
 		pType, _ := attrs[corestorage.BootstrapStoragePoolTypeKey].(string)
-		if pType == "" {
-			return nil, errors.Errorf("missing provider type for storage pool %q", name)
-		}
 		// During bootstrap a client passes any initial storage pools that
 		// should be created as an attribute map. This isn't an ideal
 		// representation but the one we have. We MUST make sure we remove these
@@ -607,13 +607,13 @@ func initialStoragePools(poolParams map[string]storage.Attrs) ([]*storage.Config
 		// controller.
 		delete(attrs, corestorage.BootstrapStoragePoolNameKey)
 		delete(attrs, corestorage.BootstrapStoragePoolTypeKey)
-		pool, err := storage.NewConfig(name, storage.ProviderType(pType), attrs)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		result = append(result, pool)
+		retVal = append(retVal, StoragePoolToCreate{
+			Attributes:   attrs,
+			Name:         name,
+			ProviderType: domainstorage.ProviderType(pType),
+		})
 	}
-	return result, nil
+	return retVal
 }
 
 func ptr[T any](v T) *T {
