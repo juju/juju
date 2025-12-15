@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	corestatus "github.com/juju/juju/core/status"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/user"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	userservice "github.com/juju/juju/domain/access/service"
@@ -595,12 +596,17 @@ func initialStoragePools(poolParams map[string]storage.Attrs) ([]*storage.Config
 	var result []*storage.Config
 
 	for name, attrs := range poolParams {
-		pType, _ := attrs[domainstorage.StorageProviderType].(string)
+		pType, _ := attrs[corestorage.BootstrapStoragePoolTypeKey].(string)
 		if pType == "" {
 			return nil, errors.Errorf("missing provider type for storage pool %q", name)
 		}
-		delete(attrs, domainstorage.StoragePoolName)
-		delete(attrs, domainstorage.StorageProviderType)
+		// During bootstrap a client passes any initial storage pools that
+		// should be created as an attribute map. This isn't an ideal
+		// representation but the one we have. We MUST make sure we remove these
+		// keys from the map before creating the storage pool(s) in the
+		// controller.
+		delete(attrs, corestorage.BootstrapStoragePoolNameKey)
+		delete(attrs, corestorage.BootstrapStoragePoolTypeKey)
 		pool, err := storage.NewConfig(name, storage.ProviderType(pType), attrs)
 		if err != nil {
 			return nil, errors.Trace(err)

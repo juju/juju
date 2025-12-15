@@ -10,12 +10,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 )
 
-// Pool configuration attribute names.
-const (
-	StoragePoolName     = "name"
-	StorageProviderType = "type"
-)
-
 // Attrs defines storage attributes.
 type Attrs map[string]string
 

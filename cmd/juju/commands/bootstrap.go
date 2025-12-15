@@ -34,8 +34,8 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
+	corestorage "github.com/juju/juju/core/storage"
 	jujuversion "github.com/juju/juju/core/version"
-	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -806,9 +806,9 @@ to create a new model to deploy %sworkloads.
 		for k, v := range cfg {
 			poolAttrs[k] = v
 		}
-		poolType, _ := poolAttrs[domainstorage.StorageProviderType].(string)
-		delete(poolAttrs, domainstorage.StoragePoolName)
-		delete(poolAttrs, domainstorage.StorageProviderType)
+		poolType, _ := poolAttrs[corestorage.BootstrapStoragePoolTypeKey].(string)
+		delete(poolAttrs, corestorage.BootstrapStoragePoolNameKey)
+		delete(poolAttrs, corestorage.BootstrapStoragePoolTypeKey)
 		sc, err := storage.NewConfig(poolName, storage.ProviderType(poolType), poolAttrs)
 		if err != nil {
 			return errors.Trace(err)
@@ -1409,13 +1409,19 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	}
 	var storagePools map[string]storage.Attrs
 	if len(storagePoolAttrs) > 0 {
-		poolName, _ := storagePoolAttrs[domainstorage.StoragePoolName].(string)
+		poolName, _ := storagePoolAttrs[corestorage.BootstrapStoragePoolNameKey].(string)
 		if poolName == "" {
-			return bootstrapConfigs{}, errors.NewNotValid(nil, "storage pool requires a name")
+			return bootstrapConfigs{}, errors.NotValidf(
+				"storage pool requires a %q key to be set",
+				corestorage.BootstrapStoragePoolNameKey,
+			)
 		}
-		poolType, _ := storagePoolAttrs[domainstorage.StorageProviderType].(string)
+		poolType, _ := storagePoolAttrs[corestorage.BootstrapStoragePoolTypeKey].(string)
 		if poolType == "" {
-			return bootstrapConfigs{}, errors.NewNotValid(nil, "storage pool requires a type")
+			return bootstrapConfigs{}, errors.NotValidf(
+				"storage pool requires a %q key to be set",
+				corestorage.BootstrapStoragePoolTypeKey,
+			)
 		}
 		storagePools = make(map[string]storage.Attrs)
 		storagePools[poolName] = storagePoolAttrs
