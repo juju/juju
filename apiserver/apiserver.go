@@ -57,6 +57,8 @@ import (
 	"github.com/juju/juju/core/securitylog"
 	coretrace "github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	internalmacaroon "github.com/juju/juju/internal/macaroon"
@@ -69,12 +71,18 @@ import (
 	"github.com/juju/juju/rpc/jsoncodec"
 )
 
-// ErrAPIServerDying is used to indicate to *third parties* that the
-// api-server worker is dying, instead of catacomb.ErrDying, which is
-// unsuitable for propagating inter-worker.
-// This error indicates to consuming workers that their dependency has
-// become unmet and a restart by the dependency engine is imminent.
-const ErrAPIServerDying = errors.ConstError("api-server worker is dying")
+const (
+	// ErrAPIServerDying is used to indicate to *third parties* that the
+	// api-server worker is dying, instead of catacomb.ErrDying, which is
+	// unsuitable for propagating inter-worker.
+	// This error indicates to consuming workers that their dependency has
+	// become unmet and a restart by the dependency engine is imminent.
+	ErrAPIServerDying = errors.ConstError("api-server worker is dying")
+
+	// ErrRPCConnectionClosed is used to indicate that the RPC connection
+	// has been closed.
+	ErrRPCConnectionClosed = errors.ConstError("rpc connection closed")
+)
 
 var logger = internallogger.GetLogger("juju.apiserver")
 
@@ -1082,14 +1090,16 @@ func (srv *Server) healthHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+
 	connectionID := atomic.AddUint64(&srv.connectionID, 1)
 	fd := -1
-	if v, ok := req.Context().Value("raw-http-fd").(int); ok {
+	if v, ok := ctx.Value("raw-http-fd").(int); ok {
 		fd = v
 	}
 
 	apiObserver := srv.newObserver()
-	apiObserver.Join(req.Context(), req, connectionID, fd)
+	apiObserver.Join(ctx, req, connectionID, fd)
 	defer func() {
 		// Don't use the request context as it will cause the Leave to be
 		// cancelled and not report the leave correctly. Giving it a timeout
@@ -1102,13 +1112,13 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 
 	// Create a new offer auth context. This will be used to bake new
 	// macaroons for offers, and to validate incoming macaroons.
-	crossModelAuthContext, err := srv.shared.NewCrossModelAuthContext(req.Context(), req.Host)
+	crossModelAuthContext, err := srv.shared.NewCrossModelAuthContext(req.Host)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to create offer auth context: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	websocket.Serve(w, req, func(conn *websocket.Conn) {
+	websocket.Serve(w, req, func(wsConn *websocket.Conn) {
 		modelUUID, modelOnlyLogin := httpcontext.RequestModelUUID(req.Context())
 
 		// If the modelUUID wasn't present in the request, then this is
@@ -1126,73 +1136,95 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 		// allow the peeling of the modelUUID from the request to be
 		// deferred to the facade methods.
 		ctx := coremodel.WithContextModelUUID(req.Context(), resolvedModelUUID)
+		ctx, cancel := context.WithCancelCause(ctx)
+		defer cancel(nil)
 
 		logger.Tracef(ctx, "got a request for model %q fd:%v", modelUUID, fd)
-		if err := srv.serveConn(
+
+		codec := jsoncodec.NewWebsocket(wsConn.Conn)
+		recorderFactory := observer.NewRecorderFactory(apiObserver, nil, observer.NoCaptureArgs)
+		rpcConn := rpc.NewConn(codec, recorderFactory)
+
+		if root, err := srv.serveConn(
 			srv.catacomb.Context(ctx),
-			conn,
+			rpcConn,
 			resolvedModelUUID,
 			controllerOnlyLogin,
 			connectionID,
 			apiObserver,
 			req.Host,
 			crossModelAuthContext,
-		); err != nil {
-			logger.Errorf(ctx, "error serving RPCs: %v", err)
+		); errors.Is(err, modelerrors.NotFound) {
+			// If the model is not found then we need to close the connection
+			// with the appropriate error so that the client can handle it.
+			err := fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, modelUUID)
+			rpcConn.ServeRoot(&errRoot{err: errors.Trace(err)}, recorderFactory, serverError)
+		} else if err != nil {
+			err := fmt.Errorf("serving model %q: %w", modelUUID, err)
+			rpcConn.ServeRoot(&errRoot{err: errors.Trace(err)}, recorderFactory, serverError)
+		} else {
+			rpcConn.ServeRoot(root, recorderFactory, serverError)
+		}
+
+		rpcConn.Start(ctx)
+		select {
+		case <-rpcConn.Dead():
+			cancel(ErrRPCConnectionClosed)
+		case <-srv.catacomb.Dying():
+		}
+		if err := rpcConn.Close(); err != nil {
+			logger.Errorf(ctx, "error closing RPC connection: %v", err)
 		}
 	})
 }
 
 func (srv *Server) serveConn(
 	ctx context.Context,
-	wsConn *websocket.Conn,
+	conn *rpc.Conn,
 	modelUUID coremodel.UUID,
 	controllerOnlyLogin bool,
 	connectionID uint64,
 	apiObserver observer.Observer,
 	host string,
 	crossModelAuthContext facade.CrossModelAuthContext,
-) error {
-	ctx, cancel := context.WithCancelCause(ctx)
-	defer cancel(nil)
+) (rpc.Root, error) {
+	domainServices, err := srv.shared.domainServicesGetter.ServicesForModel(ctx, modelUUID)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting domain services for model %q", modelUUID)
+	}
+
+	if err := srv.isModelAvailable(ctx, domainServices.Model(), modelUUID); err != nil {
+		return nil, errors.Annotatef(err, "checking model %q availability", modelUUID)
+	}
 
 	tracer, err := srv.shared.tracerGetter.GetTracer(
 		ctx,
 		coretrace.Namespace("apiserver", modelUUID.String()),
 	)
 	if err != nil {
-		logger.Infof(ctx, "failed to get tracer for model %q: %v", modelUUID, err)
+		logger.Tracef(ctx, "failed to get tracer for model %q: %v", modelUUID, err)
 		tracer = coretrace.NoopTracer{}
-	}
-
-	domainServices, err := srv.shared.domainServicesGetter.ServicesForModel(ctx, modelUUID)
-	if err != nil {
-		return errors.Annotatef(err, "getting domain services for model %q", modelUUID)
 	}
 
 	// Grab the object store for the model.
 	objectStore, err := srv.shared.objectStoreGetter.GetObjectStore(ctx, modelUUID.String())
 	if err != nil {
-		return errors.Annotatef(err, "getting object store for model %q", modelUUID)
+		return nil, errors.Annotatef(err, "getting object store for model %q", modelUUID)
 	}
 
 	// Grab the object store for the controller, this is primarily used for
 	// the agent tools.
 	controllerObjectStore, err := srv.shared.objectStoreGetter.GetObjectStore(ctx, database.ControllerNS)
 	if err != nil {
-		return errors.Annotatef(err, "getting controller object store")
+		return nil, errors.Annotatef(err, "getting controller object store")
 	}
 
 	watcherRegistry, err := srv.shared.watcherRegistryGetter.GetWatcherRegistry(ctx, connectionID)
 	if err != nil {
-		return errors.Annotatef(err, "getting watcher registry for connection %d", connectionID)
+		return nil, errors.Annotatef(err, "getting watcher registry for connection %d", connectionID)
 	}
 
-	codec := jsoncodec.NewWebsocket(wsConn.Conn)
-	recorderFactory := observer.NewRecorderFactory(apiObserver, nil, observer.NoCaptureArgs)
-	conn := rpc.NewConn(codec, recorderFactory)
-
-	handler, err := newAPIHandler(
+	handler := newAPIHandler(
 		ctx,
 		srv,
 		conn,
@@ -1209,30 +1241,58 @@ func (srv *Server) serveConn(
 		host,
 		crossModelAuthContext,
 	)
-	if errors.Is(err, errors.NotFound) {
-		err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, modelUUID)
+
+	// Set up the admin apis used to accept logins and direct
+	// requests to the relevant business facade.
+	// There may be more than one since we need a new API each
+	// time login changes in a non-backwards compatible way.
+	adminAPIs := make(map[int]interface{})
+	for apiVersion, factory := range adminAPIFactories {
+		adminAPIs[apiVersion] = factory(srv, handler, apiObserver)
 	}
 
+	return newAdminRoot(handler, adminAPIs), nil
+}
+
+// ModelService defines the subset of model.Service used to check
+// model existence and redirection.
+type ModelService interface {
+	// CheckModelExists returns whether the model with the given
+	// UUID exists on this controller.
+	CheckModelExists(ctx context.Context, modelUUID coremodel.UUID) (bool, error)
+	// ModelRedirection returns the model redirection information
+	// for the given model UUID.
+	ModelRedirection(ctx context.Context, modelUUID coremodel.UUID) (model.ModelRedirection, error)
+}
+
+func (srv *Server) isModelAvailable(
+	ctx context.Context,
+	modelService ModelService,
+	modelUUID coremodel.UUID,
+) error {
+	// Check that model exists before proceeding any further. There is no need
+	// in setting up any additional operations if the model is not present.
+	exists, err := modelService.CheckModelExists(ctx, modelUUID)
 	if err != nil {
-		conn.ServeRoot(&errRoot{err: errors.Trace(err)}, recorderFactory, serverError)
-	} else {
-		// Set up the admin apis used to accept logins and direct
-		// requests to the relevant business facade.
-		// There may be more than one since we need a new API each
-		// time login changes in a non-backwards compatible way.
-		adminAPIs := make(map[int]interface{})
-		for apiVersion, factory := range adminAPIFactories {
-			adminAPIs[apiVersion] = factory(srv, handler, apiObserver)
-		}
-		conn.ServeRoot(newAdminRoot(handler, adminAPIs), recorderFactory, serverError)
+		return errors.Trace(err)
+	} else if exists {
+		return nil
 	}
-	conn.Start(ctx)
-	select {
-	case <-conn.Dead():
-		cancel(errors.ConstError("rpc connection closed"))
-	case <-srv.catacomb.Dying():
+
+	// If this model used to be hosted on this controller but got
+	// migrated allow clients to connect and wait for a login
+	// request to decide whether the users should be redirected to
+	// the new controller for this model or not.
+	if _, migErr := modelService.ModelRedirection(ctx, modelUUID); migErr != nil {
+		// Return not found on any error.
+		// TODO (stickupkid): This is very brute force. What if there
+		// is an error with the database? The caller will assume that it
+		// is no longer on this controller. If we return a different error
+		// then it can at least retry the request.
+		return modelerrors.NotFound
 	}
-	return conn.Close()
+
+	return nil
 }
 
 // publicDNSName returns the current public hostname.
@@ -1262,7 +1322,6 @@ func (srv *Server) monitoredHandler(handler http.Handler, label string) http.Han
 }
 
 func newOfferAuthContext(
-	ctx context.Context,
 	accessService AccessService,
 	macaroonService MacaroonService,
 	keyPair *bakery.KeyPair,
