@@ -40,16 +40,22 @@ type ResourcesBackend interface {
 	UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resources.Resource, error)
 }
 
-// ResourcesHandler is the HTTP handler for client downloads and
+// ResourcesUploadHandler is the HTTP handler for client
 // uploads of resources.
-type ResourcesHandler struct {
-	StateAuthFunc     func(*http.Request, ...string) (ResourcesBackend, state.PoolHelper, names.Tag, error)
+type ResourcesUploadHandler struct {
 	ChangeAllowedFunc func(*http.Request) error
+	StateFunc         func(*http.Request) (ResourcesBackend, state.PoolHelper, names.Tag, error)
+}
+
+// ResourcesDownloadHandler is the HTTP handler for client
+// downloads of resources.
+type ResourcesDownloadHandler struct {
+	StateAuthFunc func(*http.Request, ...string) (ResourcesBackend, state.PoolHelper, error)
 }
 
 // ServeHTTP implements http.Handler.
-func (h *ResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	backend, poolhelper, tag, err := h.StateAuthFunc(req, names.UserTagKind, names.MachineTagKind, names.ControllerAgentTagKind, names.ApplicationTagKind)
+func (h *ResourcesDownloadHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+	backend, poolhelper, err := h.StateAuthFunc(req, names.UserTagKind, names.MachineTagKind, names.ControllerAgentTagKind, names.ApplicationTagKind)
 	if err != nil {
 		if err := sendError(resp, err); err != nil {
 			logger.Errorf("%v", err)
@@ -75,6 +81,36 @@ func (h *ResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request
 		if _, err := io.Copy(resp, reader); err != nil {
 			logger.Errorf("resource download failed: %v", err)
 		}
+	default:
+		if err := sendError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method)); err != nil {
+			logger.Errorf("%v", err)
+		}
+	}
+}
+
+func (h *ResourcesDownloadHandler) download(backend ResourcesBackend, req *http.Request) (io.ReadCloser, int64, error) {
+	defer req.Body.Close()
+
+	query := req.URL.Query()
+	application := query.Get(":application")
+	name := query.Get(":resource")
+
+	resource, reader, err := backend.OpenResource(application, name)
+	return reader, resource.Size, errors.Trace(err)
+}
+
+// ServeHTTP implements http.Handler.
+func (h *ResourcesUploadHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+	backend, closer, tag, err := h.StateFunc(req)
+	if err != nil {
+		if err := sendError(resp, err); err != nil {
+			logger.Errorf("%v", err)
+		}
+		return
+	}
+	defer closer.Release()
+
+	switch req.Method {
 	case "PUT":
 		if err := h.ChangeAllowedFunc(req); err != nil {
 			if err := sendError(resp, err); err != nil {
@@ -99,18 +135,7 @@ func (h *ResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request
 	}
 }
 
-func (h *ResourcesHandler) download(backend ResourcesBackend, req *http.Request) (io.ReadCloser, int64, error) {
-	defer req.Body.Close()
-
-	query := req.URL.Query()
-	application := query.Get(":application")
-	name := query.Get(":resource")
-
-	resource, reader, err := backend.OpenResource(application, name)
-	return reader, resource.Size, errors.Trace(err)
-}
-
-func (h *ResourcesHandler) upload(backend ResourcesBackend, req *http.Request, username string) (*params.UploadResult, error) {
+func (h *ResourcesUploadHandler) upload(backend ResourcesBackend, req *http.Request, username string) (*params.UploadResult, error) {
 	defer req.Body.Close()
 
 	uploaded, err := h.readResource(backend, req)
@@ -153,7 +178,7 @@ type uploadedResource struct {
 }
 
 // readResource extracts the relevant info from the request.
-func (h *ResourcesHandler) readResource(backend ResourcesBackend, req *http.Request) (*uploadedResource, error) {
+func (h *ResourcesUploadHandler) readResource(backend ResourcesBackend, req *http.Request) (*uploadedResource, error) {
 	uReq, err := extractUploadRequest(req)
 	if err != nil {
 		return nil, errors.Trace(err)

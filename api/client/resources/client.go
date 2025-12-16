@@ -5,12 +5,14 @@ package resources
 
 import (
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"gopkg.in/errgo.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
@@ -102,6 +104,18 @@ func newListResourcesArgs(applications []string) (params.ListResourcesArgs, erro
 	return args, nil
 }
 
+func translateUploadError(err error) error {
+	permissionCodes := []string{params.CodeForbidden, params.CodeUnauthorized}
+	var uploadErr *errgo.Err
+	if errors.As(err, &uploadErr) {
+		if slices.Contains(permissionCodes, params.ErrCode(uploadErr.Cause())) ||
+			slices.Contains(permissionCodes, params.ErrCode(uploadErr.Underlying())) {
+			return apiservererrors.ErrPerm
+		}
+	}
+	return err
+}
+
 // Upload sends the provided resource blob up to Juju.
 func (c Client) Upload(application, name, filename string, reader io.ReadSeeker) error {
 	uReq, err := NewUploadRequest(application, name, filename, reader)
@@ -115,7 +129,7 @@ func (c Client) Upload(application, name, filename string, reader io.ReadSeeker)
 
 	var response params.UploadResult // ignored
 	if err := c.httpClient.Do(c.facade.RawAPICaller().Context(), req, &response); err != nil {
-		return errors.Trace(err)
+		return errors.Trace(translateUploadError(err))
 	}
 
 	return nil
@@ -287,7 +301,7 @@ func (c Client) UploadPendingResource(application string, res charmresource.Reso
 
 		var response params.UploadResult // ignored
 		if err := c.httpClient.Do(c.facade.RawAPICaller().Context(), req, &response); err != nil {
-			return "", errors.Trace(err)
+			return "", translateUploadError(errors.Trace(err))
 		}
 	}
 

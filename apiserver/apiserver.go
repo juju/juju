@@ -762,9 +762,18 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		},
 	}
 	modelToolsDownloadHandler := newToolsDownloadHandler(httpCtxt)
-	resourcesHandler := &ResourcesHandler{
-		StateAuthFunc: func(req *http.Request, tagKinds ...string) (ResourcesBackend, state.PoolHelper, names.Tag, error) {
-			st, entity, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
+	var resourcesUploadAuthorizer httpcontext.CompositeAuthorizer = []httpcontext.Authorizer{
+		controllerAdminAuthorizer{
+			st: systemState,
+		},
+		modelPermissionAuthorizer{
+			userAccess: systemState.UserPermission,
+			perm:       permission.WriteAccess,
+		},
+	}
+	resourceUploadHandler := &ResourcesUploadHandler{
+		StateFunc: func(req *http.Request) (ResourcesBackend, state.PoolHelper, names.Tag, error) {
+			st, entity, err := httpCtxt.stateForRequestAuthenticated(req)
 			if err != nil {
 				return nil, nil, nil, errors.Trace(err)
 			}
@@ -781,6 +790,16 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 				return errors.Trace(err)
 			}
 			return nil
+		},
+	}
+	resourceDownloadHandler := &ResourcesDownloadHandler{
+		StateAuthFunc: func(req *http.Request, tagKinds ...string) (ResourcesBackend, state.PoolHelper, error) {
+			st, _, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
+			if err != nil {
+				return nil, nil, errors.Trace(err)
+			}
+			rst := st.Resources()
+			return rst, st, nil
 		},
 	}
 	unitResourcesHandler := &UnitResourcesHandler{
@@ -887,7 +906,13 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		unauthenticated: true,
 	}, {
 		pattern: modelRoutePrefix + "/applications/:application/resources/:resource",
-		handler: resourcesHandler,
+		methods: []string{"GET"},
+		handler: resourceDownloadHandler,
+	}, {
+		pattern:    modelRoutePrefix + "/applications/:application/resources/:resource",
+		methods:    []string{"PUT"},
+		handler:    resourceUploadHandler,
+		authorizer: resourcesUploadAuthorizer,
 	}, {
 		pattern: modelRoutePrefix + "/units/:unit/resources/:resource",
 		handler: unitResourcesHandler,
