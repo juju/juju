@@ -13,12 +13,12 @@ Lists Juju credentials for a cloud.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--client` | false | Client operation |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
+| `--client` | false | Specifies whether to perform the operation on the local client. |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
 | `-o`, `--output` |  | Specify an output file |
-| `--show-secrets` | false | Show secrets, applicable to yaml or json formats only |
+| `--show-secrets` | false | (YAML/JSON ONLY) Specifies whether to show secrets. |
 
 ## Examples
 
@@ -31,7 +31,7 @@ Lists Juju credentials for a cloud.
 
 
 ## Details
-This command list credentials from this client and credentials
+This command lists credentials from this client and credentials
 from a controller.
 
 Locally stored credentials are client specific and

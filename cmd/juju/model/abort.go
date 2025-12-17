@@ -19,20 +19,15 @@ import (
 const (
 	abortSummary = "Aborts a branch in the model."
 	abortDoc     = `
-Aborting a branch aborts changes made to that branch.  A branch
-can only be aborted if no units are tracked by that branch.
+Aborts changes made to that branch.
 
-Examples:
-    juju abort upgrade-postgresql
-
-See also:
-    track
-    branch
-    commit
-    add-branch
-    diff
+A branch can only be aborted if no units are tracked by that branch.
 `
 )
+
+const abortExamples = `
+    juju abort upgrade-postgresql
+`
 
 // NewAbortCommand wraps abortCommand with sane model settings.
 func NewAbortCommand() cmd.Command {
@@ -67,10 +62,18 @@ type AbortCommandAPI interface {
 // Info implements part of the cmd.Command interface.
 func (c *abortCommand) Info() *cmd.Info {
 	info := &cmd.Info{
-		Name:    "abort",
-		Args:    "<branch name>",
-		Purpose: abortSummary,
-		Doc:     abortDoc,
+		Name:     "abort",
+		Args:     "<branch name>",
+		Purpose:  abortSummary,
+		Doc:      abortDoc,
+		Examples: abortExamples,
+		SeeAlso: []string{
+			"track",
+			"branch",
+			"commit",
+			"add-branch",
+			"diff",
+		},
 	}
 	return jujucmd.Info(info)
 }

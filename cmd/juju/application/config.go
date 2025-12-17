@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	configSummary = `Get, set, or reset configuration for a deployed application.`
+	configSummary = `Gets, sets, or resets configuration for a deployed application.`
 	configDetails = `
 To view all configuration values for an application:
 
@@ -188,7 +188,7 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 
 	if featureflag.Enabled(feature.Branches) || featureflag.Enabled(feature.Generations) {
-		f.StringVar(&c.branchName, "branch", "", "Specifically target config for the supplied branch")
+		f.StringVar(&c.branchName, "branch", "", "Specifically targets config for the supplied branch.")
 	}
 }
 

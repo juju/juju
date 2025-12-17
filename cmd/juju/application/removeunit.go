@@ -47,7 +47,7 @@ type removeUnitCommand struct {
 }
 
 const removeUnitDoc = `
-Remove application units from the model.
+Removes application units from the model.
 
 The usage of this command differs depending on whether it is being used on a
 Kubernetes or a machine model.
@@ -106,7 +106,7 @@ func (c *removeUnitCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "remove-unit",
 		Args:     "<unit> [...] | <application>",
-		Purpose:  "Remove application units from the model.",
+		Purpose:  "Removes application units from the model.",
 		Doc:      removeUnitDoc,
 		Examples: removeUnitExamples,
 		SeeAlso: []string{
@@ -119,11 +119,11 @@ func (c *removeUnitCommand) Info() *cmd.Info {
 func (c *removeUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	c.RemoveConfirmationCommandBase.SetFlags(f)
-	f.BoolVar(&c.DryRun, "dry-run", false, "Print what this command would remove without removing")
-	f.IntVar(&c.NumUnits, "num-units", 0, "Number of units to remove (k8s models only)")
-	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Destroy storage attached to the unit")
-	f.BoolVar(&c.Force, "force", false, "Completely remove an unit and all its dependencies")
-	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through unit removal without waiting for each individual step to complete")
+	f.BoolVar(&c.DryRun, "dry-run", false, "Specifies whether to simulate the removal.")
+	f.IntVar(&c.NumUnits, "num-units", 0, "(KUBERNETES ONLY) Specifies the number of units to remove.")
+	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Specifies whether to destroy storage attached to the unit.")
+	f.BoolVar(&c.Force, "force", false, "Specifies whether to completely remove a unit and all its dependencies.")
+	f.BoolVar(&c.NoWait, "no-wait", false, "Specifies whether to rush through unit removal without waiting for each individual step to complete.")
 	c.fs = f
 }
 

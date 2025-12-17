@@ -1,7 +1,7 @@
 (command-juju-enable-ha)=
 # `juju enable-ha`
 ## Summary
-Ensure that sufficient controllers exist to provide redundancy.
+Ensures that sufficient controllers exist to provide redundancy.
 
 ## Usage
 ```juju enable-ha [options] ```
@@ -9,13 +9,13 @@ Ensure that sufficient controllers exist to provide redundancy.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--constraints` | [] | Additional machine constraints |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
+| `--constraints` | [] | Specifies additional machine constraints. |
 | `--format` | simple | Specify output format (json&#x7c;simple&#x7c;yaml) |
-| `-n` | 0 | Number of controllers to make available |
+| `-n` | 0 | Specifies the number of controllers to make available. |
 | `-o`, `--output` |  | Specify an output file |
-| `--to` |  | The machine(s) to become controllers, bypasses constraints |
+| `--to` |  | Specifies the machine(s) to become controllers, bypassing constraints. |
 
 ## Examples
 
@@ -44,7 +44,7 @@ machines having at least 8GB RAM.
 ## Details
 
 To ensure availability of deployed applications, the Juju infrastructure
-must itself be highly available. The `enable-ha` command will ensure
+must itself be highly available. The `enable-ha` command ensures
 that the specified number of controller machines are used to make up the
 controller.
 

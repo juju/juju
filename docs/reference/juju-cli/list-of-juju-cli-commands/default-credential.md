@@ -13,7 +13,7 @@ Gets, sets, or unsets the default credential for a cloud on this client.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `--reset` | false | Reset default credential for the cloud |
+| `--reset` | false | Specifies whether to reset the default credential for the cloud. |
 
 ## Examples
 

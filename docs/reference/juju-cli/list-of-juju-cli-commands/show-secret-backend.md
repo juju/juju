@@ -11,10 +11,10 @@ Displays the specified secret backend.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-c`, `--controller` |  | Controller to operate in |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
 | `--format` | yaml | Specify output format (json&#x7c;yaml) |
 | `-o`, `--output` |  | Specify an output file |
-| `--reveal` | false | Include sensitive backend config content |
+| `--reveal` | false | Includes sensitive backend config content. |
 
 ## Examples
 

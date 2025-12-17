@@ -75,7 +75,7 @@ type agreeCommand struct {
 // SetFlags implements Command.SetFlags.
 func (c *agreeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.BoolVar(&c.SkipTermContent, "yes", false, "Agree to terms non interactively")
+	f.BoolVar(&c.SkipTermContent, "yes", false, "Specifies whether to agree to terms non-interactively.")
 }
 
 // Info implements Command.Info.
@@ -83,7 +83,7 @@ func (c *agreeCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "agree",
 		Args:     "<term>",
-		Purpose:  "Agree to terms.",
+		Purpose:  "Agrees to terms.",
 		Doc:      agreeDoc,
 		Examples: agreeExamples,
 		SeeAlso: []string{

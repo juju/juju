@@ -89,7 +89,7 @@ func (c *showCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"display": cmd.FormatYaml,
 	})
-	f.BoolVar(&c.includeConfig, "include-config", false, "Print available config option details specific to the specified cloud")
+	f.BoolVar(&c.includeConfig, "include-config", false, "Specifies whether to print available config option details specific to the specified cloud.")
 }
 
 func (c *showCloudCommand) Init(args []string) error {

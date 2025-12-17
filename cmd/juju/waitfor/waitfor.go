@@ -61,7 +61,7 @@ func NewWaitForCommand() cmd.Command {
 		Name:        "wait-for",
 		UsagePrefix: "juju",
 		Doc:         waitForDoc,
-		Purpose:     "Wait for an entity to reach a specified state.",
+		Purpose:     "Waits for an entity to reach a specified state.",
 		Examples:    waitForExamples,
 	})
 

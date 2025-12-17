@@ -80,9 +80,9 @@ func (c *showSecretsCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.SetFlags.
 func (c *showSecretsCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.revealSecrets, "reveal", false, "Reveal secret values, applicable to yaml or json formats only")
-	f.BoolVar(&c.revisions, "revisions", false, "Show the secret revisions metadata")
-	f.IntVar(&c.revision, "revision", 0, "Show a specific revision (defaults to latest)")
+	f.BoolVar(&c.revealSecrets, "reveal", false, "(YAML/JSON ONLY) Specifies whether to reveal secret values.")
+	f.BoolVar(&c.revisions, "revisions", false, "Specifies whether to show the secret revisions metadata.")
+	f.IntVar(&c.revision, "revision", 0, "Shows a specific revision (defaults to latest).")
 	f.IntVar(&c.revision, "r", 0, "")
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,

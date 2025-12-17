@@ -39,7 +39,7 @@ in a Juju controller so that the controller can be destroyed if desired.
 func (c *enableDestroyController) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "enable-destroy-controller",
-		Purpose: "Enable destroy-controller by removing disabled commands in the controller.",
+		Purpose: "Enables `destroy-controller` by removing disabled commands in the controller.",
 		Doc:     enableDestroyDoc,
 		SeeAlso: []string{
 			"disable-command",

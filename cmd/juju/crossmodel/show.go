@@ -15,9 +15,10 @@ import (
 )
 
 const showCommandDoc = `
-This command is intended to enable users to learn more about the
-application offered from a particular URL. In addition to the URL of
-the offer, extra information is provided from the readme file of the
+Shows extended information about the application offered from a particular URL.
+
+In addition to the URL of
+the offer, additional information is provided from the README file of the
 charm being offered.
 `
 

@@ -74,7 +74,7 @@ func (c *listAgreementsCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *listAgreementsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "agreements",
-		Purpose:  "List user's agreements.",
+		Purpose:  "Lists user's agreements.",
 		Doc:      listAgreementsDoc,
 		Aliases:  []string{"list-agreements"},
 		Examples: listAgreementsExamples,

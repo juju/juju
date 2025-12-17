@@ -11,8 +11,8 @@ Registers a controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--replace` | false | replace any existing controller |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--replace` | false | Replaces any existing controller. |
 
 ## Examples
 

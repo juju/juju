@@ -3,7 +3,7 @@
 > See also: [add-user](#add-user), [register](#register), [users](#users)
 
 ## Summary
-Show information about a user.
+Shows information about a user.
 
 ## Usage
 ```juju show-user [options] [<user name>]```
@@ -11,8 +11,8 @@ Show information about a user.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--exact-time` | false | Use full timestamp for connection times |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
+| `--exact-time` | false | Specifies whether to use full timestamp for connection times. |
 | `--format` | yaml | Specify output format (json&#x7c;yaml) |
 | `-o`, `--output` |  | Specify an output file |
 

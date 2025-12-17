@@ -11,7 +11,7 @@ Unregisters a Juju controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `--no-prompt` | false | Do not ask for confirmation |
+| `--no-prompt` | false | Specifies whether to skip confirmation prompt. |
 
 ## Examples
 

@@ -11,8 +11,8 @@ Adds a Juju user to a controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
 
 ## Examples
 

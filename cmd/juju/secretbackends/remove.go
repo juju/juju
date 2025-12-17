@@ -77,7 +77,7 @@ func (c *removeSecretBackendCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.SetFlags.
 func (c *removeSecretBackendCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.Force, "force", false, "Force removal even if the backend stores in-use secrets")
+	f.BoolVar(&c.Force, "force", false, "Forces removal even if the backend stores in-use secrets.")
 }
 
 func (c *removeSecretBackendCommand) Init(args []string) error {

@@ -13,7 +13,7 @@ Gets, sets, or unsets the default region for a cloud on this client.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `--reset` | false | Reset default region for the cloud |
+| `--reset` | false | Specifies whether to reset the default region for the cloud. |
 
 ## Examples
 

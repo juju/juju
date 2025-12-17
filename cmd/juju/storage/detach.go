@@ -77,7 +77,7 @@ func (c *detachStorageCommand) Init(args []string) error {
 // SetFlags implements Command.SetFlags.
 func (c *detachStorageCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.StorageCommandBase.SetFlags(f)
-	f.BoolVar(&c.Force, "force", false, "Forcefully detach storage")
+	f.BoolVar(&c.Force, "force", false, "Specifies whether to forcibly detach storage.")
 	c.fs = f
 }
 

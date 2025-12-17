@@ -112,7 +112,7 @@ func (c *containerUnitAgent) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
 	f.IntVar(&c.charmModifiedVersion, "charm-modified-version", -1, "charm modified version to validate downloaded charm is for the provided infrastructure")
 	f.Var(cmd.NewAppendStringsValue(&c.envVars), "append-env", "can be specified multiple times and with the form ENV_VAR=VALUE where VALUE can be empty or contain unexpanded variables using $OTHER_ENV")
-	f.BoolVar(&c.colocatedWithController, "controller", false, "should be specified if this unit agent is running on the same machine as a controller")
+	f.BoolVar(&c.colocatedWithController, "controller", false, "Specifies whether this unit agent is running on the same machine as a controller.")
 }
 
 func (c *containerUnitAgent) CharmModifiedVersion() int {

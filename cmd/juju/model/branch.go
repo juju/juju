@@ -18,15 +18,21 @@ import (
 )
 
 const (
-	branchSummary = "Work on the supplied branch."
+	branchSummary = "Works on the supplied branch."
 	branchDoc     = `
-Switch to the supplied branch, causing changes to charm configuration to apply 
-only to units tracking the branch. Changing the branch to "master" causes 
+Switches to the supplied branch, causing changes to charm configuration to apply
+only to units tracking the branch.
+
+Changing the branch to "master" causes
 subsequent changes to be applied to all units that are not tracking an active
-branch.  If no branch is supplied, active branch is displayed.
+branch.
 
-Examples:
+If no branch is supplied, the active branch is displayed.
 
+`
+)
+
+const branchExamples = `
 Switch to make changes to test-branch:
 
     juju branch test-branch
@@ -39,14 +45,7 @@ Display the active branch:
 
     juju branch
 
-See also:
-    add-branch
-    track
-    commit
-    abort
-    diff
 `
-)
 
 // NewBranchCommand wraps branchCommand with sane model settings.
 func NewBranchCommand() cmd.Command {
@@ -77,10 +76,18 @@ type BranchCommandAPI interface {
 // Info implements part of the cmd.Command interface.
 func (c *branchCommand) Info() *cmd.Info {
 	info := &cmd.Info{
-		Name:    "branch",
-		Args:    "[<branch name>]",
-		Purpose: branchSummary,
-		Doc:     branchDoc,
+		Name:     "branch",
+		Args:     "[<branch name>]",
+		Purpose:  branchSummary,
+		Doc:      branchDoc,
+		Examples: branchExamples,
+		SeeAlso: []string{
+			"add-branch",
+			"track",
+			"commit",
+			"abort",
+			"diff",
+		},
 	}
 	return jujucmd.Info(info)
 }

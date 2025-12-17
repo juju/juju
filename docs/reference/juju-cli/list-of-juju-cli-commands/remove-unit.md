@@ -3,7 +3,7 @@
 > See also: [remove-application](#remove-application), [scale-application](#scale-application)
 
 ## Summary
-Remove application units from the model.
+Removes application units from the model.
 
 ## Usage
 ```juju remove-unit [options] <unit> [...] | <application>```
@@ -11,14 +11,14 @@ Remove application units from the model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--destroy-storage` | false | Destroy storage attached to the unit |
-| `--dry-run` | false | Print what this command would remove without removing |
-| `--force` | false | Completely remove an unit and all its dependencies |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--no-prompt` | false | Do not ask for confirmation. Overrides `mode` model config setting |
-| `--no-wait` | false | Rush through unit removal without waiting for each individual step to complete |
-| `--num-units` | 0 | Number of units to remove (k8s models only) |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--destroy-storage` | false | Specifies whether to destroy storage attached to the unit. |
+| `--dry-run` | false | Specifies whether to simulate the removal. |
+| `--force` | false | Specifies whether to completely remove a unit and all its dependencies. |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
+| `--no-prompt` | false | Specifies whether to skip confirmation prompt. Overrides `mode` model config setting. |
+| `--no-wait` | false | Specifies whether to rush through unit removal without waiting for each individual step to complete. |
+| `--num-units` | 0 | (KUBERNETES ONLY) Specifies the number of units to remove. |
 
 ## Examples
 
@@ -35,7 +35,7 @@ Remove application units from the model.
 
 ## Details
 
-Remove application units from the model.
+Removes application units from the model.
 
 The usage of this command differs depending on whether it is being used on a
 Kubernetes or a machine model.

@@ -11,13 +11,13 @@ Displays or sets configuration settings for a controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--color` | false | Use ANSI color codes in output |
-| `--file` |  | Path to yaml-formatted configuration file |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
+| `--color` | false | Uses ANSI color codes in output. |
+| `--file` |  | Specifies the path to the YAML-formatted configuration file. |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
-| `--ignore-read-only-fields` | false | Ignore read-only fields that might cause errors to be emitted while processing yaml documents |
-| `--no-color` | false | Disable ANSI color codes in tabular output |
+| `--ignore-read-only-fields` | false | Specifies whether to ignore read-only fields that might cause errors to be emitted while processing yaml documents. |
+| `--no-color` | false | Disables ANSI color codes in tabular output. |
 | `-o`, `--output` |  | Specify an output file |
 
 ## Examples

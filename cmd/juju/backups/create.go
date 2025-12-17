@@ -66,7 +66,7 @@ func (c *createCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "create-backup",
 		Args:     "[<notes>]",
-		Purpose:  "Create a backup.",
+		Purpose:  "Creates a backup.",
 		Doc:      createDoc,
 		Examples: createExamples,
 		SeeAlso: []string{
@@ -78,8 +78,8 @@ func (c *createCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *createCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.BoolVar(&c.NoDownload, "no-download", false, "Do not download the archive. DEPRECATED.")
-	f.StringVar(&c.Filename, "filename", notset, "Download to this file")
+	f.BoolVar(&c.NoDownload, "no-download", false, "(DEPRECATED) Specifies whether to skip downloading the archive.")
+	f.StringVar(&c.Filename, "filename", notset, "Specifies the file to download the archive to.")
 	c.fs = f
 }
 

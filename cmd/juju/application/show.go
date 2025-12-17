@@ -20,9 +20,9 @@ import (
 )
 
 const showApplicationDoc = `
-The command takes deployed application names or aliases as an argument.
+Takes deployed application names or aliases as an argument.
 
-The command does an exact search. It does not support wildcards.
+The command performs an exact search. It does not support wildcards.
 `
 
 const showApplicationExamples = `

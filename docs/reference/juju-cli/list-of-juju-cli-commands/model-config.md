@@ -11,15 +11,15 @@ Displays or sets configuration values on a model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--color` | false | Use ANSI color codes in output |
-| `--file` |  | Path to yaml-formatted configuration file |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--color` | false | Uses ANSI color codes in output. |
+| `--file` |  | Specifies the path to the YAML-formatted configuration file. |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
-| `--ignore-read-only-fields` | false | Ignore read only fields that might cause errors to be emitted while processing yaml documents |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--no-color` | false | Disable ANSI color codes in tabular output |
+| `--ignore-read-only-fields` | false | Specifies whether to ignore read-only fields that might cause errors to be emitted while processing YAML documents. |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
+| `--no-color` | false | Disables ANSI color codes in tabular output. |
 | `-o`, `--output` |  | Specify an output file |
-| `--reset` |  | Reset the provided comma delimited keys |
+| `--reset` |  | Resets the provided comma-delimited keys. |
 
 ## Examples
 
@@ -54,7 +54,7 @@ To view all configuration values for the current model:
 
     juju model-config
 
-You can target a specific model using the `-m` flag:
+To target a specific model:
 
     juju model-config -m <model>
     juju model-config -m <controller>:<model>

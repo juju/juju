@@ -26,7 +26,7 @@ func NewShowCommand() cmd.Command {
 }
 
 const showCommandDoc = `
-Show extended information about storage instances.
+Shows extended information about storage instances.
 
 Storage instances to display are specified by storage IDs.
 

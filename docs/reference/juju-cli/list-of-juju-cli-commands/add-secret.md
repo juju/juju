@@ -1,7 +1,7 @@
 (command-juju-add-secret)=
 # `juju add-secret`
 ## Summary
-Add a new secret.
+Adds a new secret.
 
 ## Usage
 ```juju add-secret [options] <name> [key[#base64|#file]=value...]```
@@ -9,9 +9,9 @@ Add a new secret.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `--file` |  | A YAML file containing secret key values |
-| `--info` |  | The secret description |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
+| `--file` |  | Specifies a YAML file containing secret key values. |
+| `--info` |  | Specifies the secret description. |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
 
 ## Examples
 
@@ -28,7 +28,7 @@ Add a new secret.
 
 ## Details
 
-Add a secret with a list of key values.
+Adds a secret with a list of key values.
 
 If a key has the `#base64` suffix, the value is already in base64 format and no
 encoding will be performed, otherwise the value will be base64 encoded

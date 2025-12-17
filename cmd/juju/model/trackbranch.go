@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	trackBranchSummary = "Set units and/or applications to realise changes made under a branch."
+	trackBranchSummary = "Sets units and/or applications to realise changes made under a branch."
 	trackBranchDoc     = `
 Specific units can be set to track a branch by supplying multiple unit IDs.
 All units of an application can be set to track a branch by passing an
@@ -87,7 +87,7 @@ func (c *trackBranchCommand) Info() *cmd.Info {
 // SetFlags implements part of the cmd.Command interface.
 func (c *trackBranchCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.Var(&c.numUnits, "n", "The number of units to track")
+	f.Var(&c.numUnits, "n", "Sets the number of units to track.")
 }
 
 // Init implements part of the cmd.Command interface.

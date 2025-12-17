@@ -3,7 +3,7 @@
 > See also: [operations](#operations), [show-operation](#show-operation), [show-task](#show-task)
 
 ## Summary
-Run an action on a specified unit.
+Runs an action on a specified unit.
 
 ## Usage
 ```juju run [options] <unit> [<unit> ...] <action-name> [<key>=<value> [<key>[.<key> ...]=<value>]]```
@@ -11,17 +11,17 @@ Run an action on a specified unit.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--background` | false | Run the task in the background |
-| `--color` | false | Use ANSI color codes in output |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--background` | false | Specifies whether to run the task in the background. |
+| `--color` | false | Specifies whether to use ANSI color codes in output. |
 | `--format` | plain | Specify output format (json&#x7c;plain&#x7c;yaml) |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--no-color` | false | Disable ANSI color codes in output |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
+| `--no-color` | false | Specifies whether to disable ANSI color codes in output. |
 | `-o`, `--output` |  | Specify an output file |
-| `--params` |  | Path to yaml-formatted params file |
-| `--string-args` | false | Use raw string values of CLI args |
-| `--utc` | false | Show times in UTC |
-| `--wait` | 0s | Maximum wait time for a task to complete |
+| `--params` |  | Specifies the path to the YAML-formatted params file. |
+| `--string-args` | false | Specifies whether to use raw string values of CLI args. |
+| `--utc` | false | Specifies whether to show times in UTC. |
+| `--wait` | 0s | Specifies the maximum wait time for a task to complete. |
 
 ## Examples
 
@@ -41,8 +41,8 @@ Run an action on a specified unit.
 
 ## Details
 
-Run a charm action for execution on the given unit(s), with a given set of params.
-An ID is returned for use with `juju show-operation <ID>`.
+Runs a charm action for execution on the given unit(s), with a given set of params.
+Returns an ID for use with `juju show-operation <ID>`.
 
 All units must be of the same application.
 
@@ -59,7 +59,7 @@ To set the maximum time to wait for an action to complete, use the `--wait` opti
 
 By default, a single action will output its failure message if the action fails,
 followed by any results set by the action. For multiple actions, each action's
-results will be printed with the action id and action status. To see more detailed
+results will be printed with the action ID and action status. To see more detailed
 information about run timings etc, use `--format` yaml.
 
 Valid unit identifiers are:

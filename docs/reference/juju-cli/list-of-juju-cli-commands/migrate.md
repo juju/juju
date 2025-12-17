@@ -3,7 +3,7 @@
 > See also: [login](#login), [controllers](#controllers), [status](#status)
 
 ## Summary
-Migrate a workload model to another controller.
+Migrates a workload model to another controller.
 
 ## Usage
 ```juju migrate [options] <model-name> <target-controller-name>```
@@ -11,7 +11,7 @@ Migrate a workload model to another controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
 
 ## Details
 

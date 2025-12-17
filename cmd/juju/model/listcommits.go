@@ -25,30 +25,25 @@ import (
 )
 
 const (
-	listCommitsSummary = "Lists commits history"
+	listCommitsSummary = "Lists commits history."
 	listCommitsDoc     = `
-Commits shows the timeline of changes to the model that occurred through branching.
-It does not take into account other changes to the model that did not occur through a managed branch.
-Lists consists of:
-- the commit number 
-- user who committed the branch 
-- when the branch was committed 
+Shows the timeline of changes to the model that occurred through branching.
+Does not take into account other changes to the model that did not occur through a managed branch.
+
+The list consists of:
+
+- the commit number
+- user who committed the branch
+- when the branch was committed
 - the branch name
 
-Examples:
-    juju commits
-    juju commits --utc
-
-See also:
-	commits
-	show-commit
-    add-branch
-    track
-    branch
-    abort
-    diff
 `
 )
+
+const commitsExamples = `
+    juju commits
+    juju commits --utc
+`
 
 // CommitsCommand supplies the "commit" CLI command used to commit changes made
 // under a branch, to the model.
@@ -82,10 +77,20 @@ func NewCommitsCommand() cmd.Command {
 // Info implements part of the cmd.Command interface.
 func (c *CommitsCommand) Info() *cmd.Info {
 	info := &cmd.Info{
-		Name:    "commits",
-		Purpose: listCommitsSummary,
-		Doc:     listCommitsDoc,
-		Aliases: []string{"list-commits"},
+		Name:     "commits",
+		Purpose:  listCommitsSummary,
+		Doc:      listCommitsDoc,
+		Examples: commitsExamples,
+		Aliases:  []string{"list-commits"},
+		SeeAlso: []string{
+			"commits",
+			"show-commit",
+			"add-branch",
+			"track",
+			"branch",
+			"abort",
+			"diff",
+		},
 	}
 	return jujucmd.Info(info)
 }
@@ -93,7 +98,7 @@ func (c *CommitsCommand) Info() *cmd.Info {
 // SetFlags implements part of the cmd.Command interface.
 func (c *CommitsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
+	f.BoolVar(&c.isoTime, "utc", false, "Specifies whether to display time as UTC in RFC3339 format.")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,

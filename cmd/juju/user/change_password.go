@@ -73,8 +73,8 @@ type changePasswordCommand struct {
 }
 
 func (c *changePasswordCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.Reset, "reset", false, "Reset user password.")
-	f.BoolVar(&c.noPrompt, "no-prompt", false, "Don't prompt for password; instead, read a line from stdin.")
+	f.BoolVar(&c.Reset, "reset", false, "Specifies whether to reset user password.")
+	f.BoolVar(&c.noPrompt, "no-prompt", false, "Specifies whether to skip password prompt and read a line from `stdin` instead.")
 }
 
 // Info implements Command.Info.

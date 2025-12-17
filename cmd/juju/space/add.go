@@ -46,7 +46,7 @@ func (c *AddCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "add-space",
 		Args:     "<name> [<CIDR1> <CIDR2> ...]",
-		Purpose:  "Add a new network space.",
+		Purpose:  "Adds a new network space.",
 		Doc:      strings.TrimSpace(addCommandDoc),
 		Examples: addCommandExamples,
 		SeeAlso: []string{

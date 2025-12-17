@@ -11,9 +11,9 @@ Changes the password for the current or specified Juju user.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--no-prompt` | false | Don't prompt for password; instead, read a line from stdin. |
-| `--reset` | false | Reset user password. |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
+| `--no-prompt` | false | Specifies whether to skip password prompt and read a line from `stdin` instead. |
+| `--reset` | false | Specifies whether to reset user password. |
 
 ## Examples
 

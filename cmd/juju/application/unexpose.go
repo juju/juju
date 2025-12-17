@@ -73,7 +73,7 @@ func (c *unexposeCommand) Info() *cmd.Info {
 
 func (c *unexposeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.ExposedEndpointsList, "endpoints", "", "Unexpose only the ports that charms have opened for this comma-delimited list of endpoints")
+	f.StringVar(&c.ExposedEndpointsList, "endpoints", "", "Specifies (in comma-delimited format) the ports opened by the charm which should now be unexposed.")
 }
 
 func (c *unexposeCommand) Init(args []string) error {

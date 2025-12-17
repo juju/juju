@@ -101,9 +101,9 @@ func (c *PluginCommand) Init(args []string) error {
 }
 
 func (c *PluginCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.modelName, "m", "", "Model to operate in. Accepts [<controller name>:]<model name>")
+	f.StringVar(&c.modelName, "m", "", "Specifies the model to operate in. Accepts [<controller name>:]<model name>.")
 	f.StringVar(&c.modelName, "model", "", "")
-	f.StringVar(&c.controllerName, "c", "", "Controller to operate in")
+	f.StringVar(&c.controllerName, "c", "", "Specifies the controller to operate in.")
 	f.StringVar(&c.controllerName, "controller", "", "")
 	c.CommandBase.SetFlags(f)
 }

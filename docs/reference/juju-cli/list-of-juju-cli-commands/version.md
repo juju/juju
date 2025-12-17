@@ -3,7 +3,7 @@
 > See also: [show-controller](#show-controller), [show-model](#show-model)
 
 ## Summary
-Print the Juju CLI client version.
+Prints the Juju CLI client version.
 
 ## Usage
 ```juju version [options] ```
@@ -11,7 +11,7 @@ Print the Juju CLI client version.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `--all` | false | Prints all version information |
+| `--all` | false | Specifies whether to print all version information. |
 | `--format` | smart | Specify output format (json&#x7c;smart&#x7c;yaml) |
 | `-o`, `--output` |  | Specify an output file |
 
@@ -26,4 +26,4 @@ Print all version information:
 
 ## Details
 
-Print only the `juju `CLI client version.
+Prints only the `juju `CLI client version.

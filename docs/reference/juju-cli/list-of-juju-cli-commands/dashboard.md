@@ -1,7 +1,7 @@
 (command-juju-dashboard)=
 # `juju dashboard`
 ## Summary
-Print the Juju Dashboard URL, or open the Juju Dashboard in the default browser.
+Prints the Juju Dashboard URL, or opens the Juju Dashboard in the default browser.
 
 ## Usage
 ```juju dashboard [options] ```
@@ -9,11 +9,11 @@ Print the Juju Dashboard URL, or open the Juju Dashboard in the default browser.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--browser` | false | Open the web browser, instead of just printing the Juju Dashboard URL |
-| `--hide-credential` | false | Do not show admin credential to use for logging into the Juju Dashboard |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--port` | 31666 | Local port used to serve the dashboard |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--browser` | false | Opens the web browser, instead of just printing the Juju Dashboard URL. |
+| `--hide-credential` | false | Hides the admin credential to use for logging into the Juju Dashboard. |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
+| `--port` | 31666 | Specifies the local port used to serve the dashboard. |
 
 ## Examples
 

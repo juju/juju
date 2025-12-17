@@ -74,7 +74,7 @@ func (c *showSecretBackendCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.SetFlags.
 func (c *showSecretBackendCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.revealSecrets, "reveal", false, "Include sensitive backend config content")
+	f.BoolVar(&c.revealSecrets, "reveal", false, "Includes sensitive backend config content.")
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 

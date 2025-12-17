@@ -138,10 +138,10 @@ func (c *updateCredentialCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *updateCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
-	f.StringVar(&c.CredentialsFile, "f", "", "The YAML file containing credential details to update")
-	f.StringVar(&c.CredentialsFile, "file", "", "The YAML file containing credential details to update")
-	f.StringVar(&c.Region, "region", "", "Cloud region that credential is valid for")
-	f.BoolVar(&c.Force, "force", false, "Force update controller side credential, ignore validation errors")
+	f.StringVar(&c.CredentialsFile, "f", "", "Specifies the YAML file containing credential details to update.")
+	f.StringVar(&c.CredentialsFile, "file", "", "Specifies the YAML file containing credential details to update.")
+	f.StringVar(&c.Region, "region", "", "Specifies the cloud region that credential is valid for.")
+	f.BoolVar(&c.Force, "force", false, "Specifies whether to forcibly update controller-side credential, ignoring validation errors.")
 }
 
 type CredentialAPI interface {

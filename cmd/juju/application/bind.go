@@ -56,12 +56,12 @@ type bindCommand struct {
 const bindCmdDoc = `
 In order to be able to bind any endpoint to a space, all machines where the
 application units are deployed to are required to be configured with an address
-in that space. However, you can use the --force option to bypass this check.
+in that space. However, you can use the ` + "`--force`" + ` option to bypass this check.
 `
 
 const bindCmdExamples = `
 To update the default binding for the application and automatically update all
-existing endpoint bindings that were referencing the old default, you can use 
+existing endpoint bindings that were referencing the old default, you can use
 the following syntax:
 
   juju bind foo new-default
@@ -81,7 +81,7 @@ func (c *bindCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "bind",
 		Args:     "<application> [<default-space>] [<endpoint-name>=<space> ...]",
-		Purpose:  "Change bindings for a deployed application.",
+		Purpose:  "Changes bindings for a deployed application.",
 		Doc:      bindCmdDoc,
 		Examples: bindCmdExamples,
 		SeeAlso: []string{
@@ -94,7 +94,7 @@ func (c *bindCommand) Info() *cmd.Info {
 
 func (c *bindCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.Force, "force", false, "Allow endpoints to be bound to spaces that might not be available to all existing units")
+	f.BoolVar(&c.Force, "force", false, "Specifies whether to allow endpoints to be bound to spaces that might not be available to all existing units.")
 }
 
 func (c *bindCommand) Init(args []string) error {

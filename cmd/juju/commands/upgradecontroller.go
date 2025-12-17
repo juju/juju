@@ -105,16 +105,16 @@ func (c *upgradeControllerCommand) Info() *cmd.Info {
 func (c *upgradeControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
 
-	f.StringVar(&c.vers, "agent-version", "", "Upgrade to specific version")
-	f.StringVar(&c.AgentStream, "agent-stream", "", "Check this agent stream for upgrades")
-	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build a local version of the agent binary; for development use only")
-	f.BoolVar(&c.DryRun, "dry-run", false, "Don't change anything, just report what would be changed")
-	f.BoolVar(&c.ResetPrevious, "reset-previous-upgrade", false, "Clear the previous (incomplete) upgrade status (use with care)")
-	f.BoolVar(&c.AssumeYes, "y", false, "Answer 'yes' to confirmation prompts")
+	f.StringVar(&c.vers, "agent-version", "", "Upgrades to specific version.")
+	f.StringVar(&c.AgentStream, "agent-stream", "", "Specifies the agent stream to check for upgrades.")
+	f.BoolVar(&c.BuildAgent, "build-agent", false, "(JUJU DEVELOPERS ONLY) Specifies whether to build a local version of the agent binary.")
+	f.BoolVar(&c.DryRun, "dry-run", false, "Specifies whether to merely simulate the upgrade.")
+	f.BoolVar(&c.ResetPrevious, "reset-previous-upgrade", false, "(USE WITH CARE) Specifies whether to clear the previous (incomplete) upgrade status.")
+	f.BoolVar(&c.AssumeYes, "y", false, "Specifies whether to answer 'yes' to confirmation prompts.")
 	f.BoolVar(&c.AssumeYes, "yes", false, "")
 	f.BoolVar(&c.IgnoreAgentVersions, "ignore-agent-versions", false,
-		"Don't check if all agents have already reached the current version")
-	f.DurationVar(&c.timeout, "timeout", 10*time.Minute, "Timeout before upgrade is aborted")
+		"Does not check if all agents have already reached the current version.")
+	f.DurationVar(&c.timeout, "timeout", 10*time.Minute, "Specifies the timeout before upgrade is aborted.")
 }
 
 func (c *upgradeControllerCommand) Init(args []string) error {

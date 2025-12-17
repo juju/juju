@@ -84,7 +84,7 @@ func (c *addSecretBackendCommand) secretBackendsAPI() (AddSecretBackendsAPI, err
 func (c *addSecretBackendCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "add-secret-backend",
-		Purpose:  "Add a new secret backend to the controller.",
+		Purpose:  "Adds a new secret backend to the controller.",
 		Doc:      addSecretBackendsDoc,
 		Args:     "<backend-name> <backend-type>",
 		Examples: addSecretBackendsExamples,
@@ -99,8 +99,8 @@ func (c *addSecretBackendCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.SetFlags.
 func (c *addSecretBackendCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.Var(&c.ConfigFile, "config", "Path to yaml-formatted configuration file")
-	f.StringVar(&c.ImportID, "import-id", "", "Add the backend with the specified ID")
+	f.Var(&c.ConfigFile, "config", "Specifies the path to yaml-formatted configuration file.")
+	f.StringVar(&c.ImportID, "import-id", "", "Adds the backend with the specified ID.")
 }
 
 func (c *addSecretBackendCommand) Init(args []string) error {

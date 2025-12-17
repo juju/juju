@@ -54,7 +54,7 @@ func (c *showCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 	})
-	f.BoolVar(&c.ShowSecrets, "show-secrets", false, "Display credential secret attributes")
+	f.BoolVar(&c.ShowSecrets, "show-secrets", false, "Specifies whether to display credential secret attributes.")
 }
 
 func (c *showCredentialCommand) Init(args []string) error {

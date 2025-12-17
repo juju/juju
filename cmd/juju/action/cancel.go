@@ -35,7 +35,7 @@ func (c *cancelCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 const cancelDoc = `
-Cancel pending or running tasks matching given IDs or partial ID prefixes.`
+Cancels pending or running tasks matching given IDs or partial ID prefixes.`
 
 const cancelExamples = `
 To cancel a task by ID:
@@ -51,7 +51,7 @@ func (c *cancelCommand) Info() *cmd.Info {
 	info := &cmd.Info{
 		Name:     "cancel-task",
 		Args:     "(<task-id>|<task-id-prefix>) [...]",
-		Purpose:  "Cancel pending or running tasks.",
+		Purpose:  "Cancels pending or running tasks.",
 		Doc:      cancelDoc,
 		Examples: cancelExamples,
 		SeeAlso: []string{

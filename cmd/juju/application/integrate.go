@@ -25,7 +25,9 @@ import (
 )
 
 const integrateDoc = `
-Integrate two applications. Integrated applications communicate over a common
+Integrates two applications.
+
+Integrated applications communicate over a common
 interface provided by the Juju controller that enables units to share information.
 This topology allows units to share data, without needing direct connectivity
 between units is restricted by firewall rules. Charms define the logic for
@@ -189,7 +191,7 @@ func (c *addRelationCommand) Info() *cmd.Info {
 		Name:     "integrate",
 		Aliases:  []string{"relate"},
 		Args:     "<application>[:<endpoint>] <application>[:<endpoint>]",
-		Purpose:  "Integrate two applications.",
+		Purpose:  "Integrates two applications.",
 		Doc:      integrateDoc,
 		Examples: integrateExamples,
 		SeeAlso: []string{
@@ -216,7 +218,7 @@ func (c *addRelationCommand) Init(args []string) error {
 }
 
 func (c *addRelationCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.viaValue, "via", "", "For cross model relations, specify the egress subnets for outbound traffic")
+	f.StringVar(&c.viaValue, "via", "", "Specifies the egress subnets for outbound traffic for cross model relations.")
 }
 
 // applicationAddRelationAPI defines the API methods that application add relation command uses.

@@ -33,7 +33,7 @@ type listRegionsCommand struct {
 }
 
 var listRegionsDoc = `
-List regions for a given cloud.
+Lists regions for a given cloud.
 
 Use ` + "`--controller`" + ` option to list regions from the cloud from a controller.
 

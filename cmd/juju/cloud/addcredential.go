@@ -151,9 +151,9 @@ func (c *addCredentialCommand) Info() *cmd.Info {
 
 func (c *addCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
-	f.StringVar(&c.CredentialsFile, "f", "", "The YAML file containing credentials to add")
-	f.StringVar(&c.CredentialsFile, "file", "", "The YAML file containing credentials to add")
-	f.StringVar(&c.Region, "region", "", "Cloud region that credential is valid for")
+	f.StringVar(&c.CredentialsFile, "f", "", "Specifies the YAML file containing credentials to add.")
+	f.StringVar(&c.CredentialsFile, "file", "", "Specifies the YAML file containing credentials to add.")
+	f.StringVar(&c.Region, "region", "", "Specifies the cloud region that the credential is valid for.")
 }
 
 func (c *addCredentialCommand) Init(args []string) (err error) {

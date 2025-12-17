@@ -45,7 +45,7 @@ type removeApplicationCommand struct {
 }
 
 var helpSummaryRmApp = `
-Remove applications from the model.`[1:]
+Removes applications from the model.`[1:]
 
 var helpDetailsRmApp = `
 Removing an application will terminate any relations that application has, remove
@@ -103,10 +103,10 @@ func (c *removeApplicationCommand) Info() *cmd.Info {
 func (c *removeApplicationCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	c.RemoveConfirmationCommandBase.SetFlags(f)
-	f.BoolVar(&c.DryRun, "dry-run", false, "Print what this command would remove without removing")
-	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Destroy storage attached to application units")
-	f.BoolVar(&c.Force, "force", false, "Completely remove an application and all its dependencies")
-	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through application removal without waiting for each individual step to complete")
+	f.BoolVar(&c.DryRun, "dry-run", false, "Specifies whether to merely simulate what the command would remove.")
+	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Specifies whether to destroy storage attached to application units.")
+	f.BoolVar(&c.Force, "force", false, "Specifies whether to completely remove an application and all its dependencies.")
+	f.BoolVar(&c.NoWait, "no-wait", false, "Specifies whether to rush through application removal without waiting for each individual step to complete.")
 	c.fs = f
 }
 

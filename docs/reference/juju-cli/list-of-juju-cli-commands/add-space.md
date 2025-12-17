@@ -3,7 +3,7 @@
 > See also: [spaces](#spaces), [remove-space](#remove-space)
 
 ## Summary
-Add a new network space.
+Adds a new network space.
 
 ## Usage
 ```juju add-space [options] <name> [<CIDR1> <CIDR2> ...]```
@@ -11,8 +11,8 @@ Add a new network space.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
 
 ## Examples
 

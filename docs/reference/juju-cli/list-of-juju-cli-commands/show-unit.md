@@ -11,13 +11,13 @@ Displays information about a unit.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--app` | false | Only show application relation data |
-| `--endpoint` |  | Only show relation data for the specified endpoint |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--app` | false | Specifies whether to show only application relation data. |
+| `--endpoint` |  | Shows relation data only for the specified endpoint. |
 | `--format` | yaml | Specify output format (json&#x7c;smart&#x7c;yaml) |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
 | `-o`, `--output` |  | Specify an output file |
-| `--related-unit` |  | Only show relation data for the specified unit |
+| `--related-unit` |  | Shows relation data only for the specified unit. |
 
 ## Examples
 
@@ -44,7 +44,7 @@ To show only the relation data for a specific related unit:
 
 ## Details
 
-The command takes deployed unit names as an argument.
+Takes deployed unit names as an argument.
 
-Optionally, relation data for only a specified endpoint
-or related unit may be shown, or just the application data.
+Optionally, shows relation data for only a specified endpoint
+or related unit, or just the application data.

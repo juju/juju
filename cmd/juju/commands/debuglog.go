@@ -226,38 +226,38 @@ type debugLogCommand struct {
 
 func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.Var(cmd.NewAppendStringsValue(&c.params.IncludeEntity), "i", "Only show log messages for these entities")
-	f.Var(cmd.NewAppendStringsValue(&c.params.IncludeEntity), "include", "Only show log messages for these entities")
-	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeEntity), "x", "Do not show log messages for these entities")
-	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeEntity), "exclude", "Do not show log messages for these entities")
-	f.Var(cmd.NewAppendStringsValue(&c.params.IncludeModule), "include-module", "Only show log messages for these logging modules")
-	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeModule), "exclude-module", "Do not show log messages for these logging modules")
-	f.Var(cmd.NewAppendStringsValue(&c.params.IncludeLabel), "include-label", "Only show log messages for these logging labels")
-	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeLabel), "exclude-label", "Do not show log messages for these logging labels")
+	f.Var(cmd.NewAppendStringsValue(&c.params.IncludeEntity), "i", "Specifies the entities to restrict log messages to.")
+	f.Var(cmd.NewAppendStringsValue(&c.params.IncludeEntity), "include", "Specifies the entities to restrict log messages to.")
+	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeEntity), "x", "Specifies the entities to exclude log messages from.")
+	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeEntity), "exclude", "Specifies the entities to exclude log messages from.")
+	f.Var(cmd.NewAppendStringsValue(&c.params.IncludeModule), "include-module", "Specifies the logging modules to restrict log messages to.")
+	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeModule), "exclude-module", "Specifies the logging modules to exclude log messages from.")
+	f.Var(cmd.NewAppendStringsValue(&c.params.IncludeLabel), "include-label", "Specifies the logging labels to restrict log messages to.")
+	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeLabel), "exclude-label", "Excludes log messages for the specified logging labels.")
 
-	f.StringVar(&c.level, "l", "", "Log level to show, one of [TRACE, DEBUG, INFO, WARNING, ERROR]")
+	f.StringVar(&c.level, "l", "", "Specifies the log level to show, one of `[TRACE, DEBUG, INFO, WARNING, ERROR]`.")
 	f.StringVar(&c.level, "level", "", "")
 
 	c.backLogFlag = newIntValue(&c.params.Backlog)
-	f.Var(c.backLogFlag, "n", "Show this many of the most recent lines and continue to append new ones")
+	f.Var(c.backLogFlag, "n", "Shows the specified number of the most recent lines and continues to append new ones.")
 	f.Var(c.backLogFlag, "lines", "")
 
 	c.limitFlag = newIntValue(&c.params.Limit)
-	f.Var(c.limitFlag, "limit", "Show this many of the most recent logs and then exit")
+	f.Var(c.limitFlag, "limit", "Shows the specified number of the most recent logs and then exits.")
 
-	f.BoolVar(&c.params.Replay, "replay", false, "Show the entire log and continue to append new ones")
+	f.BoolVar(&c.params.Replay, "replay", false, "Shows the entire log and continues to append new ones.")
 
-	f.BoolVar(&c.noTail, "no-tail", false, "Show existing log messages and then exit")
-	f.BoolVar(&c.tail, "tail", false, "Show existing log messages and continue to append new ones")
-	f.BoolVar(&c.color, "color", false, "Force use of ANSI color codes")
+	f.BoolVar(&c.noTail, "no-tail", false, "Shows existing log messages and then exits.")
+	f.BoolVar(&c.tail, "tail", false, "Shows existing log messages and continues to append new ones.")
+	f.BoolVar(&c.color, "color", false, "Forces use of ANSI color codes.")
 
-	f.BoolVar(&c.utc, "utc", false, "Show times in UTC")
-	f.BoolVar(&c.location, "location", false, "Show filename and line numbers")
-	f.BoolVar(&c.date, "date", false, "Show dates as well as times")
-	f.BoolVar(&c.ms, "ms", false, "Show times to millisecond precision")
+	f.BoolVar(&c.utc, "utc", false, "Shows times in UTC.")
+	f.BoolVar(&c.location, "location", false, "Shows filename and line numbers.")
+	f.BoolVar(&c.date, "date", false, "Shows dates as well as times.")
+	f.BoolVar(&c.ms, "ms", false, "Shows times to millisecond precision.")
 
-	f.BoolVar(&c.retry, "retry", false, "Retry connection on failure")
-	f.DurationVar(&c.retryDelay, "retry-delay", 1*time.Second, "Retry delay between connection failure retries")
+	f.BoolVar(&c.retry, "retry", false, "Retries connection on failure.")
+	f.DurationVar(&c.retryDelay, "retry-delay", 1*time.Second, "Specifies the retry delay between connection failure retries.")
 }
 
 func (c *debugLogCommand) Init(args []string) error {

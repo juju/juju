@@ -80,10 +80,10 @@ func (c *modelsCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *modelsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
-	f.StringVar(&c.user, "user", "", "The user to list models for (administrative users only)")
-	f.BoolVar(&c.all, "all", false, "Lists all models, regardless of user accessibility (administrative users only)")
-	f.BoolVar(&c.listUUID, "uuid", false, "Display UUID for models")
-	f.BoolVar(&c.exactTime, "exact-time", false, "Use full timestamps")
+	f.StringVar(&c.user, "user", "", "(ADMINS ONLY) Specifies the user to list models for.")
+	f.BoolVar(&c.all, "all", false, "(ADMINS ONLY) Lists all models, regardless of user accessibility.")
+	f.BoolVar(&c.listUUID, "uuid", false, "Displays UUID for models.")
+	f.BoolVar(&c.exactTime, "exact-time", false, "Uses full timestamps.")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,

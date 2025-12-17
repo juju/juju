@@ -11,13 +11,13 @@ Removes one or more machines from a model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--dry-run` | false | Print what this command would be removed without removing |
-| `--force` | false | Completely remove a machine and all its dependencies |
-| `--keep-instance` | false | Do not stop the running cloud instance |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--no-prompt` | false | Do not ask for confirmation. Overrides `mode` model config setting |
-| `--no-wait` | false | Rush through machine removal without waiting for each individual step to complete |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--dry-run` | false | Specifies whether to merely simulate removal. |
+| `--force` | false | Specifies whether to completely remove a machine and all its dependencies ignoring checks. |
+| `--keep-instance` | false | Specifies whether to preserve the machine instance, but remove it from Juju. |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
+| `--no-prompt` | false | Specifies whether to skip confirmation prompt. Overrides `mode` model config setting. |
+| `--no-wait` | false | Specifies whether to rush through machine removal without waiting for each individual step to complete. |
 
 ## Examples
 

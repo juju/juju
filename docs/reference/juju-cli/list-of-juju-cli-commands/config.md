@@ -3,7 +3,7 @@
 > See also: [deploy](#deploy), [status](#status), [model-config](#model-config), [controller-config](#controller-config)
 
 ## Summary
-Get, set, or reset configuration for a deployed application.
+Gets, sets, or resets configuration for a deployed application.
 
 ## Usage
 ```juju config [options] <application name> [--reset <key[,key]>] [<attribute-key>][=<value>] ...]```
@@ -11,14 +11,14 @@ Get, set, or reset configuration for a deployed application.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--color` | false | Use ANSI color codes in output |
-| `--file` |  | Path to yaml-formatted configuration file |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--color` | false | Uses ANSI color codes in output. |
+| `--file` |  | Specifies the path to the YAML-formatted configuration file. |
 | `--format` | yaml | Specify output format (json&#x7c;yaml) |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--no-color` | false | Disable ANSI color codes in tabular output |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
+| `--no-color` | false | Disables ANSI color codes in tabular output. |
 | `-o`, `--output` |  | Specify an output file |
-| `--reset` |  | Reset the provided comma delimited keys |
+| `--reset` |  | Resets the provided comma-delimited keys. |
 
 ## Examples
 

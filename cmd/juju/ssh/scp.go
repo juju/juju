@@ -16,10 +16,10 @@ import (
 )
 
 var usageSCPSummary = `
-Securely transfer files within a model.`[1:]
+Securely transfers files within a model.`[1:]
 
 var usageSCPDetails = `
-Transfer files to, from and between Juju machine(s), unit(s) and the
+Transfers files to, from, and between Juju machine(s), unit(s) and the
 Juju client.
 
 The basic syntax for the command requires the location of 1 or more source

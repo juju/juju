@@ -119,7 +119,7 @@ type upgradeMachineCommand struct {
 }
 
 var upgradeMachineDoc = `
-Upgrade a machine's operating system release.
+Upgrades a machine's operating system release.
 
 ` + "`upgrade-machine `" + `allows users to perform a managed upgrade of the operating system
 release of a machine using a base. This command is performed in two steps;
@@ -167,7 +167,7 @@ func (c *upgradeMachineCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "upgrade-machine",
 		Args:     "<machine> <command> [args]",
-		Purpose:  "Upgrade the Ubuntu base of a machine.",
+		Purpose:  "Upgrades the Ubuntu base of a machine.",
 		Doc:      upgradeMachineDoc,
 		Examples: upgradeMachineExamples,
 		SeeAlso: []string{
@@ -182,9 +182,9 @@ func (c *upgradeMachineCommand) Info() *cmd.Info {
 func (c *upgradeMachineCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.force, "force", false,
-		"Upgrade even if the base is not supported by the charm and/or related subordinate charms.")
+		"Upgrades even if the base is not supported by the charm and/or related subordinate charms.")
 	f.BoolVar(&c.yes, "y", false,
-		"Agree that the operation cannot be reverted or canceled once started without being prompted.")
+		"Agrees that the operation cannot be reverted or canceled once started without being prompted.")
 	f.BoolVar(&c.yes, "yes", false, "")
 }
 

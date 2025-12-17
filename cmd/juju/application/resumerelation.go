@@ -20,7 +20,8 @@ var resumeHelpSummary = `
 Resumes a suspended relation to an application offer.`[1:]
 
 var resumeHelpDetails = `
-A relation between an application in another model and an offer in this model will be resumed.
+Resumes a relation between an application in another model and an offer in this model.
+
 The ` + "`relation-joined`" + ` and ` + "`relation-changed`" + ` hooks will be run for the relation, and the relation
 status will be set to joined. The relation is specified using its ID.
 `

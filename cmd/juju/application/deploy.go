@@ -411,7 +411,7 @@ a letter and not have a group of all numbers follow a hyphen:
 - Valid:  ` + "`myappname`" + `, ` + "`custom-app`" + `, ` + "`app2-scat-23skidoo`" + `
 - Invalid: ` + "`myAppName`" + `, ` + "`custom--app`" + `, ` + "`app2-scat-23`" + `, ` + "`areacode-555-info`" + `
 
-Use the ` + "`--constraints`" + ` option to specify hardware requirements for new machines.
+Use these the ` + "`--constraints`" + ` option to specify hardware requirements for new machines.
 These become the application's default constraints (i.e. they are used if the
 application is later scaled out with the ` + "`add-unit`" + ` command). To overcome this
 behaviour use the ` + "`set-constraints`" + ` command to change the application's default
@@ -632,24 +632,24 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	// new flags.
 	c.UnitCommandBase.SetFlags(f)
 	c.ModelCommandBase.SetFlags(f)
-	f.IntVar(&c.NumUnits, "n", 1, "Number of application units to deploy for principal charms")
-	f.StringVar(&c.channelStr, "channel", "", "Channel to use when deploying a charm or bundle from Charmhub")
-	f.Var(&c.ConfigOptions, "config", "Either a path to yaml-formatted application config file or a key=value pair ")
+	f.IntVar(&c.NumUnits, "n", 1, "Specifies the number of application units to deploy for principal charms.")
+	f.StringVar(&c.channelStr, "channel", "", "Specifies the channel to use when deploying a charm or bundle from Charmhub.")
+	f.Var(&c.ConfigOptions, "config", "Specifies either a path to a YAML-formatted application config file or a key=value pair.")
 
-	f.BoolVar(&c.Trust, "trust", false, "Allows charm to run hooks that require access credentials")
+	f.BoolVar(&c.Trust, "trust", false, "Specifies whether to allow the charm to run hooks that require access credentials.")
 
-	f.Var(cmd.NewAppendStringsValue(&c.BundleOverlayFile), "overlay", "Bundles to overlay on the primary bundle, applied in order")
-	f.Var(&c.ConstraintsStr, "constraints", "Set application constraints")
-	f.StringVar(&c.Series, "series", "", "The series on which to deploy. DEPRECATED: use `--base`")
-	f.StringVar(&c.Base, "base", "", "The base on which to deploy")
-	f.IntVar(&c.Revision, "revision", -1, "The revision to deploy")
-	f.BoolVar(&c.DryRun, "dry-run", false, "Just show what the deploy would do")
-	f.BoolVar(&c.Force, "force", false, "Allow a charm/bundle to be deployed which bypasses checks such as supported base or LXD profile allow list")
-	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
-	f.Var(devicesFlag{&c.Devices, &c.BundleDevices}, "device", "Charm device constraints")
-	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
-	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
-	f.StringVar(&c.machineMap, "map-machines", "", "Specify the existing machines to use for bundle deployments")
+	f.Var(cmd.NewAppendStringsValue(&c.BundleOverlayFile), "overlay", "Specifies bundles to overlay on the primary bundle, applied in order.")
+	f.Var(&c.ConstraintsStr, "constraints", "Sets application constraints.")
+	f.StringVar(&c.Series, "series", "", "(DEPRECATED) The series on which to deploy. Deprecated: Use `--base` instead.")
+	f.StringVar(&c.Base, "base", "", "Specifies the base on which to deploy.")
+	f.IntVar(&c.Revision, "revision", -1, "Specifies the revision to deploy.")
+	f.BoolVar(&c.DryRun, "dry-run", false, "Specifies whether to simulate the deployment.")
+	f.BoolVar(&c.Force, "force", false, "Specifies whether to allow a charm/bundle to be deployed while bypassing checks such as supported base or LXD profile allow list.")
+	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Specifies charm storage constraints.")
+	f.Var(devicesFlag{&c.Devices, &c.BundleDevices}, "device", "Specifies charm device constraints.")
+	f.Var(stringMap{&c.Resources}, "resource", "Specifies a resource to be uploaded to the controller.")
+	f.StringVar(&c.BindToSpaces, "bind", "", "Configures application endpoint bindings to spaces.")
+	f.StringVar(&c.machineMap, "map-machines", "", "Specifies the existing machines to use for bundle deployments.")
 
 	c.flagSet = f
 }

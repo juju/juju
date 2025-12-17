@@ -255,7 +255,7 @@ func (a *machineAgentCmd) SetFlags(f *gnuflag.FlagSet) {
 	a.agentInitializer.AddFlags(f)
 	f.StringVar(&a.machineId, "machine-id", "", "id of the machine to run")
 	f.StringVar(&a.controllerId, "controller-id", "", "id of the controller to run")
-	f.BoolVar(&a.logToStdErr, "log-to-stderr", false, "log to stderr instead of logsink.log")
+	f.BoolVar(&a.logToStdErr, "log-to-stderr", false, "Specifies whether to log to `stderr` instead of `logsink.log`.")
 }
 
 // Info returns usage information for the command.

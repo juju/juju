@@ -43,7 +43,8 @@ type showTaskCommand struct {
 }
 
 const showTaskDoc = `
-Show the results returned by a task with the given ID.
+Shows the results returned by a task with the given ID.
+
 To block until the result is known completed or failed, use
 the ` + "`--wait`" + ` option with a duration, as in ` + "`--wait 5s`" + ` or ` + "`--wait 1h`" + `.
 Use ` + "`--watch`" + ` to wait indefinitely.
@@ -52,7 +53,7 @@ The default behavior without ` + "`--wait`" + ` or ` + "`--watch`" + ` is to imm
 if the results are ` + "`pending`" + `, then only the available information will be
 displayed.  This is also the behavior when any negative time is given.
 
-Note: if Juju has been upgraded from 2.6 and there are old action UUIDs still in use,
+Note: If Juju has been upgraded from 2.6 and there are old action UUIDs still in use,
 and you want to specify just the UUID prefix to match on, you will need to include up
 to at least the first ` + "`-`" + ` to disambiguate from a newer numeric ID.
 `
@@ -75,16 +76,16 @@ func (c *showTaskCommand) SetFlags(f *gnuflag.FlagSet) {
 		"plain": printOutput,
 	})
 
-	f.DurationVar(&c.wait, "wait", defaultTaskWait, "Maximum wait time for a task to complete")
-	f.BoolVar(&c.watch, "watch", false, "Wait indefinitely for results")
-	f.BoolVar(&c.utc, "utc", false, "Show times in UTC")
+	f.DurationVar(&c.wait, "wait", defaultTaskWait, "Specifies the maximum wait time for a task to complete.")
+	f.BoolVar(&c.watch, "watch", false, "Specifies whether to wait indefinitely for results.")
+	f.BoolVar(&c.utc, "utc", false, "Specifies whether to show times in UTC.")
 }
 
 func (c *showTaskCommand) Info() *cmd.Info {
 	info := jujucmd.Info(&cmd.Info{
 		Name:     "show-task",
 		Args:     "<task ID>",
-		Purpose:  "Show results of a task by ID.",
+		Purpose:  "Shows results of a task by ID.",
 		Doc:      showTaskDoc,
 		Examples: showTaskExamples,
 		SeeAlso: []string{

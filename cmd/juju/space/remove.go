@@ -68,7 +68,7 @@ func (c *RemoveCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "remove-space",
 		Args:     "<name>",
-		Purpose:  "Remove a network space.",
+		Purpose:  "Removes a network space.",
 		Doc:      strings.TrimSpace(removeCommandDoc),
 		Examples: removeCommandExamples,
 		SeeAlso: []string{
@@ -84,8 +84,8 @@ func (c *RemoveCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *RemoveCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SpaceCommandBase.SetFlags(f)
-	f.BoolVar(&c.force, "force", false, "remove the offer as well as any relations to the offer")
-	f.BoolVar(&c.assumeYes, "y", false, "Do not prompt for confirmation")
+	f.BoolVar(&c.force, "force", false, "Removes the space even if there are existing bindings, constraints, or settings.")
+	f.BoolVar(&c.assumeYes, "y", false, "Skips confirmation prompt.")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
 }
 

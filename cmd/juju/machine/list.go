@@ -14,7 +14,7 @@ var usageListMachinesSummary = `
 Lists machines in a model.`[1:]
 
 var usageListMachinesDetails = `
-By default, the tabular format is used.
+Uses the tabular format by default.
 The following sections are included: ` + "`ID`" + `, ` + "`STATE`" + `, ` +
 	"`DNS`" + `, ` + "`INS-ID`" + `, ` + "`SERIES`" + `, ` + "`AZ`" + `
 Note: Above, ` + "`AZ`" + ` is the cloud region's availability zone.

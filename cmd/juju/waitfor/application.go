@@ -84,7 +84,7 @@ func (c *applicationCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "application",
 		Args:     "[<name>]",
-		Purpose:  "Wait for an application to reach a specified state.",
+		Purpose:  "Waits for an application to reach a specified state.",
 		Doc:      applicationCommandDoc,
 		Examples: applicationCommandExamples,
 		SeeAlso: []string{
@@ -98,9 +98,9 @@ func (c *applicationCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *applicationCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.waitForCommandBase.SetFlags(f)
-	f.StringVar(&c.query, "query", `life=="alive" && status=="active"`, "Query the goal state")
-	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "How long to wait, before timing out")
-	f.BoolVar(&c.summary, "summary", true, "Output a summary of the application query on exit")
+	f.StringVar(&c.query, "query", `life=="alive" && status=="active"`, "Queries the goal state.")
+	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "Specifies how long to wait before timing out.")
+	f.BoolVar(&c.summary, "summary", true, "Outputs a summary of the application query on exit.")
 }
 
 // Init implements Command.Init.

@@ -1,7 +1,7 @@
 (command-juju-grant-secret)=
 # `juju grant-secret`
 ## Summary
-Grant access to a secret.
+Grants access to a secret.
 
 ## Usage
 ```juju grant-secret [options] <ID>|<name> <application>[,<application>...]```
@@ -9,8 +9,8 @@ Grant access to a secret.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
 
 ## Examples
 
@@ -20,4 +20,4 @@ Grant access to a secret.
 
 ## Details
 
-Grant applications access to view the value of a specified secret.
+Grants applications access to view the value of a specified secret.

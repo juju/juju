@@ -43,8 +43,8 @@ type runCommand struct {
 }
 
 const runDoc = `
-Run a charm action for execution on the given unit(s), with a given set of params.
-An ID is returned for use with ` + "`juju show-operation <ID>`" + `.
+Runs a charm action for execution on the given unit(s), with a given set of params.
+Returns an ID for use with ` + "`juju show-operation <ID>`" + `.
 
 All units must be of the same application.
 
@@ -61,7 +61,7 @@ To set the maximum time to wait for an action to complete, use the ` + "`--wait`
 
 By default, a single action will output its failure message if the action fails,
 followed by any results set by the action. For multiple actions, each action's
-results will be printed with the action id and action status. To see more detailed
+results will be printed with the action ID and action status. To see more detailed
 information about run timings etc, use ` + "`--format`" + ` yaml.
 
 Valid unit identifiers are:
@@ -103,15 +103,15 @@ const runExamples = `
 func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.runCommandBase.SetFlags(f)
 
-	f.Var(&c.paramsYAML, "params", "Path to yaml-formatted params file")
-	f.BoolVar(&c.parseStrings, "string-args", false, "Use raw string values of CLI args")
+	f.Var(&c.paramsYAML, "params", "Specifies the path to the YAML-formatted params file.")
+	f.BoolVar(&c.parseStrings, "string-args", false, "Specifies whether to use raw string values of CLI args.")
 }
 
 func (c *runCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "run",
 		Args:     "<unit> [<unit> ...] <action-name> [<key>=<value> [<key>[.<key> ...]=<value>]]",
-		Purpose:  "Run an action on a specified unit.",
+		Purpose:  "Runs an action on a specified unit.",
 		Doc:      runDoc,
 		Examples: runExamples,
 		SeeAlso: []string{

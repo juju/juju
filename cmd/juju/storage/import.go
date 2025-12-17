@@ -51,7 +51,7 @@ func NewStorageImporter(cmd *StorageCommandBase) (StorageImporter, error) {
 
 const (
 	importFilesystemCommandDoc = `
-Import an existing filesystem into the model. This will lead to the model
+Imports an existing filesystem into the model. This will lead to the model
 taking ownership of the storage, so you must take care not to import storage
 that is in use by another Juju model.
 
@@ -138,7 +138,7 @@ func (c *importFilesystemCommand) Init(args []string) error {
 // SetFlags implements Command.SetFlags.
 func (c *importFilesystemCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.StorageCommandBase.SetFlags(f)
-	f.BoolVar(&c.force, "force", false, "import a volume even if otherwise prohibited (cloud specific)")
+	f.BoolVar(&c.force, "force", false, "(CLOUD SPECIFIC) Specifies whether to import a volume even if otherwise prohibited.")
 }
 
 // Info implements Command.Info.

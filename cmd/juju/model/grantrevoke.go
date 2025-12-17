@@ -43,7 +43,7 @@ Valid access levels for application offers are:
     ` + strings.Join(filterAccessLevels(permission.AllAccessLevels, permission.ValidateOfferAccess), "\n    ")
 
 var usageGrantDetails = `
-By default, the controller is the current controller.
+Uses the current controller by default.
 
 Users with read access are limited in what they can do with models:
 ` + "`juju models`, `juju machines`, and `juju status`" + `.
@@ -81,7 +81,7 @@ var usageRevokeSummary = `
 Revokes access from a Juju user for a model, controller, or application offer.`[1:]
 
 var usageRevokeDetails = `
-By default, the controller is the current controller.
+Uses the current controller by default.
 
 Revoking write access, from a user who has that permission, will leave
 that user with read access. Revoking read access, however, also revokes

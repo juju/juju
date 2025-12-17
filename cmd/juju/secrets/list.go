@@ -81,7 +81,7 @@ func (c *listSecretsCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.SetFlags.
 func (c *listSecretsCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.owner, "owner", "", "Include secrets for the specified owner")
+	f.StringVar(&c.owner, "owner", "", "Includes secrets for the specified owner.")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,

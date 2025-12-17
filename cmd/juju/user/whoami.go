@@ -20,7 +20,7 @@ import (
 )
 
 var whoAmIDetails = `
-Display the current controller, model and logged in user name. 
+Displays the current controller, model and logged in user name. 
 `[1:]
 
 const whoAmIExamples = `
@@ -39,7 +39,7 @@ func NewWhoAmICommand() cmd.Command {
 func (c *whoAmICommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "whoami",
-		Purpose:  "Print current login details.",
+		Purpose:  "Prints current login details.",
 		Doc:      whoAmIDetails,
 		Examples: whoAmIExamples,
 		SeeAlso: []string{

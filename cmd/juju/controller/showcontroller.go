@@ -85,7 +85,7 @@ func (c *showControllerCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *showControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.BoolVar(&c.showPasswords, "show-password", false, "Show password for logged in user")
+	f.BoolVar(&c.showPasswords, "show-password", false, "Shows password for logged in user.")
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,

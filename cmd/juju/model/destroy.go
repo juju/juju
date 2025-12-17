@@ -142,7 +142,7 @@ func (c *destroyCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "destroy-model",
 		Args:     "[<controller name>:]<model name>",
-		Purpose:  "Terminate all machines/containers and resources for a non-controller model.",
+		Purpose:  "Terminates all machines/containers and resources for a non-controller model.",
 		Doc:      destroyDoc,
 		Examples: destroyExamples,
 		SeeAlso: []string{
@@ -157,12 +157,12 @@ const unsetTimeout = -1 * time.Second
 func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	c.DestroyConfirmationCommandBase.SetFlags(f)
-	f.DurationVar(&c.timeout, "t", unsetTimeout, "Timeout for each step of force model destruction")
+	f.DurationVar(&c.timeout, "t", unsetTimeout, "Specifies the timeout for each step of force model destruction.")
 	f.DurationVar(&c.timeout, "timeout", unsetTimeout, "")
-	f.BoolVar(&c.destroyStorage, "destroy-storage", false, "Destroy all storage instances in the model")
-	f.BoolVar(&c.releaseStorage, "release-storage", false, "Release all storage instances from the model, and management of the controller, without destroying them")
-	f.BoolVar(&c.Force, "force", false, "Force destroy model ignoring any errors")
-	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through model destruction without waiting for each individual step to complete")
+	f.BoolVar(&c.destroyStorage, "destroy-storage", false, "Specifies whether to destroy all storage instances in the model.")
+	f.BoolVar(&c.releaseStorage, "release-storage", false, "Specifies whether to release all storage instances from the model, and management of the controller, without destroying them.")
+	f.BoolVar(&c.Force, "force", false, "Specifies whether to force model destruction, ignoring any errors.")
+	f.BoolVar(&c.NoWait, "no-wait", false, "Specifies whether to rush through model destruction without waiting for each individual step to complete.")
 	c.fs = f
 }
 

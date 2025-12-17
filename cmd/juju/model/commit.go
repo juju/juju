@@ -19,21 +19,17 @@ import (
 const (
 	commitSummary = "Commits a branch to the model."
 	commitDoc     = `
-Committing a branch writes changes to charm configuration made under the 
-branch, to the model. All units who's applications were changed under the 
+Writes the changes to the charm configuration made under the
+branch to the model.
+
+All units whose applications were changed under the
 branch realise those changes, as will any new units.
-
-Examples:
-    juju commit upgrade-postgresql
-
-See also:
-    add-branch
-    track
-    branch
-    abort
-    diff
 `
 )
+
+const commitExamples = `
+    juju commit upgrade-postgresql
+`
 
 // NewCommitCommand wraps commitCommand with sane model settings.
 func NewCommitCommand() cmd.Command {
@@ -66,10 +62,18 @@ type CommitCommandAPI interface {
 // Info implements part of the cmd.Command interface.
 func (c *commitCommand) Info() *cmd.Info {
 	info := &cmd.Info{
-		Name:    "commit",
-		Args:    "<branch name>",
-		Purpose: commitSummary,
-		Doc:     commitDoc,
+		Name:     "commit",
+		Args:     "<branch name>",
+		Purpose:  commitSummary,
+		Doc:      commitDoc,
+		Examples: commitExamples,
+		SeeAlso: []string{
+			"add-branch",
+			"track",
+			"branch",
+			"abort",
+			"diff",
+		},
 	}
 	return jujucmd.Info(info)
 }

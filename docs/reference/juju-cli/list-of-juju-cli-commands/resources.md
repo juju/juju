@@ -5,7 +5,7 @@
 **Aliases:** list-resources
 
 ## Summary
-Show the resources for an application or unit.
+Shows the resources for an application or unit.
 
 ## Usage
 ```juju resources [options] <application or unit>```
@@ -13,10 +13,10 @@ Show the resources for an application or unit.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--details` | false | Show detailed information about the resources used by each unit. |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--details` | false | Shows detailed information about the resources used by each unit. |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
 | `-o`, `--output` |  | Specify an output file |
 
 ## Examples
@@ -36,6 +36,6 @@ To show detailed information about resources used by a unit:
 
 ## Details
 
-This command shows the resources required by and those in use by an existing
+Shows the resources required by and those in use by an existing
 application or unit in your model.  When run for an application, it will also show any
 updates available for resources from a store.

@@ -43,7 +43,7 @@ model.
 
 Juju may optimise how information is represented in the exported bundle.
 For example, if all applications share the same base, Juju may set a
-bundle-level default-base. 
+bundle-level default-base.
 
 Exposure rules and application offers may
 also be captured in an overlay as a second YAML document within the same
@@ -79,9 +79,9 @@ func (c *exportBundleCommand) Info() *cmd.Info {
 // SetFlags implements Command.
 func (c *exportBundleCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.Filename, "filename", "", "Bundle file")
-	f.BoolVar(&c.includeCharmDefaults, "include-charm-defaults", false, "Whether to include charm config default values in the exported bundle")
-	f.BoolVar(&c.includeSeries, "include-series", false, "Compatibility option. Set to include series in the bundle alongside bases")
+	f.StringVar(&c.Filename, "filename", "", "Specifies the bundle file.")
+	f.BoolVar(&c.includeCharmDefaults, "include-charm-defaults", false, "Specifies whether to include charm config default values in the exported bundle.")
+	f.BoolVar(&c.includeSeries, "include-series", false, "(BACKWARD COMPATIBILITY OPTION) Specifies whether to include series in the bundle alongside bases.")
 }
 
 // Init implements Command.

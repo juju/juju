@@ -11,10 +11,10 @@ Removes storage from the model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--force` | false | Remove storage even if it is currently attached |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--no-destroy` | false | Remove the storage without destroying it |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--force` | false | Specifies whether to remove storage even if it is currently attached. |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
+| `--no-destroy` | false | Specifies whether to remove the storage without destroying it. |
 
 ## Examples
 

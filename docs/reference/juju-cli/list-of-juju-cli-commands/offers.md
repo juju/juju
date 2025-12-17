@@ -13,14 +13,14 @@ Lists shared endpoints.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--active-only` | false | Only return results where the offer is in use |
-| `--allowed-consumer` |  | Return results where the user is allowed to consume the offer |
-| `--application` |  | Return results matching the application |
-| `--connected-user` |  | Return results where the user has a connection to the offer |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--active-only` | false | Specifies whether to only return results where the offer is in use. |
+| `--allowed-consumer` |  | Returns results where the user is allowed to consume the offer. |
+| `--application` |  | Returns results matching the application. |
+| `--connected-user` |  | Returns results where the user has a connection to the offer. |
 | `--format` | tabular | Specify output format (json&#x7c;summary&#x7c;tabular&#x7c;yaml) |
-| `--interface` |  | Return results matching the interface name |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
+| `--interface` |  | Returns results matching the interface name. |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
 | `-o`, `--output` |  | Specify an output file |
 
 ## Examples
@@ -37,7 +37,7 @@ Lists shared endpoints.
 
 ## Details
 
-List information about applications' endpoints that have been shared and who is connected.
+Lists information about applications' endpoints that have been shared and who is connected.
 
 The default tabular output shows each user connected (relating to) the offer, and the
 relation id of the relation.

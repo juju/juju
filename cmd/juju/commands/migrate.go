@@ -88,7 +88,7 @@ func (c *migrateCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "migrate",
 		Args:    "<model-name> <target-controller-name>",
-		Purpose: "Migrate a workload model to another controller.",
+		Purpose: "Migrates a workload model to another controller.",
 		Doc:     migrateDoc,
 		SeeAlso: []string{
 			"login",

@@ -11,10 +11,10 @@ Removes Juju credentials for a cloud.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--client` | false | Client operation |
-| `--force` | false | Force remove controller-side credential, ignore validation errors |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
+| `--client` | false | Specifies whether to perform the operation on the local client. |
+| `--force` | false | Specifies whether to forcibly remove controller-side credential, ignoring validation errors. |
 
 ## Examples
 

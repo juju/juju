@@ -11,9 +11,9 @@ Updates public cloud information available to Juju.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--client` | false | Client operation |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
+| `--client` | false | Specifies whether to perform the operation on the local client. |
 
 ## Examples
 

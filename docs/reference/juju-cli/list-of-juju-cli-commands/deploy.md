@@ -11,26 +11,26 @@ Deploys a new application or bundle.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--attach-storage` |  | Specify an existing storage volume to attach to the deployed unit. |
-| `--base` |  | The base on which to deploy |
-| `--bind` |  | Configure application endpoint bindings to spaces |
-| `--channel` |  | Channel to use when deploying a charm or bundle from Charmhub |
-| `--config` |  | Either a path to yaml-formatted application config file or a key=value pair  |
-| `--constraints` | [] | Set application constraints |
-| `--device` |  | Charm device constraints |
-| `--dry-run` | false | Just show what the deploy would do |
-| `--force` | false | Allow a charm/bundle to be deployed which bypasses checks such as supported base or LXD profile allow list |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--map-machines` |  | Specify the existing machines to use for bundle deployments |
-| `-n`, `--num-units` | 1 | Number of application units to deploy for principal charms |
-| `--overlay` |  | Bundles to overlay on the primary bundle, applied in order |
-| `--resource` |  | Resource to be uploaded to the controller |
-| `--revision` | -1 | The revision to deploy |
-| `--series` |  | The series on which to deploy. DEPRECATED: use `--base` |
-| `--storage` |  | Charm storage constraints |
-| `--to` |  | (Machine models only) Specify a comma-separated list of placement directives. If the length of this list is less than `-n`, the remaining units will be added in the default way (i.e., to new machines). |
-| `--trust` | false | Allows charm to run hooks that require access credentials |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--attach-storage` |  | Specifies an existing storage volume to attach to the deployed unit. |
+| `--base` |  | Specifies the base on which to deploy. |
+| `--bind` |  | Configures application endpoint bindings to spaces. |
+| `--channel` |  | Specifies the channel to use when deploying a charm or bundle from Charmhub. |
+| `--config` |  | Specifies either a path to a YAML-formatted application config file or a key=value pair. |
+| `--constraints` | [] | Sets application constraints. |
+| `--device` |  | Specifies charm device constraints. |
+| `--dry-run` | false | Specifies whether to simulate the deployment. |
+| `--force` | false | Specifies whether to allow a charm/bundle to be deployed while bypassing checks such as supported base or LXD profile allow list. |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
+| `--map-machines` |  | Specifies the existing machines to use for bundle deployments. |
+| `-n`, `--num-units` | 1 | Specifies the number of application units to deploy for principal charms. |
+| `--overlay` |  | Specifies bundles to overlay on the primary bundle, applied in order. |
+| `--resource` |  | Specifies a resource to be uploaded to the controller. |
+| `--revision` | -1 | Specifies the revision to deploy. |
+| `--series` |  | (DEPRECATED) The series on which to deploy. Deprecated: Use `--base` instead. |
+| `--storage` |  | Specifies charm storage constraints. |
+| `--to` |  | (MACHINES ONLY) Specifies a comma-separated list of placement directives. If the length of this list is less than `-n`, the remaining units will be added in the default way (i.e., to new machines). |
+| `--trust` | false | Specifies whether to allow the charm to run hooks that require access credentials. |
 
 ## Examples
 
@@ -156,7 +156,7 @@ a letter and not have a group of all numbers follow a hyphen:
 - Valid:  `myappname`, `custom-app`, `app2-scat-23skidoo`
 - Invalid: `myAppName`, `custom--app`, `app2-scat-23`, `areacode-555-info`
 
-Use the `--constraints` option to specify hardware requirements for new machines.
+Use these the `--constraints` option to specify hardware requirements for new machines.
 These become the application's default constraints (i.e. they are used if the
 application is later scaled out with the `add-unit` command). To overcome this
 behaviour use the `set-constraints` command to change the application's default

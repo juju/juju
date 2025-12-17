@@ -24,7 +24,7 @@ Deletes a Juju user from a controller.`[1:]
 
 // TODO(redir): Get updated copy for add-user as that may need updates, too.
 var removeUsageDetails = `
-This removes a user permanently.
+Removes a user permanently.
 
 By default, the controller is the current controller.
 
@@ -68,7 +68,7 @@ type removeCommand struct {
 // SetFlags adds command specific flags and then returns the flagset.
 func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
-	f.BoolVar(&c.ConfirmDelete, "y", false, "Confirm deletion of the user")
+	f.BoolVar(&c.ConfirmDelete, "y", false, "Specifies whether to confirm deletion of the user.")
 	f.BoolVar(&c.ConfirmDelete, "yes", false, "")
 }
 

@@ -3,7 +3,7 @@
 > See also: [create-storage-pool](#create-storage-pool), [remove-storage-pool](#remove-storage-pool), [storage-pools](#storage-pools)
 
 ## Summary
-Update storage pool attributes.
+Updates storage pool attributes.
 
 ## Usage
 ```juju update-storage-pool [options] <name> [<key>=<value> [<key>=<value>...]]```
@@ -11,8 +11,8 @@ Update storage pool attributes.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
 
 ## Examples
 
@@ -27,4 +27,4 @@ Update which provider the pool is for:
 
 ## Details
 
-Update configuration attributes for a single existing storage pool.
+Updates configuration attributes for a single existing storage pool.

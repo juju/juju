@@ -5,7 +5,7 @@
 **Aliases:** debug-hook
 
 ## Summary
-Launch a tmux session to debug hooks and/or actions.
+Launches a tmux session to debug hooks and/or actions.
 
 ## Usage
 ```juju debug-hooks [options] <unit name> [hook or action names]```
@@ -13,12 +13,12 @@ Launch a tmux session to debug hooks and/or actions.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `--container` |  | the container name of the target pod |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--no-host-key-checks` | false | Skip host key checking (INSECURE) |
-| `--proxy` | false | Proxy through the API server |
-| `--pty` | &lt;auto&gt; | Enable pseudo-tty allocation |
-| `--remote` | false | Target on the workload or operator pod (k8s-only) |
+| `--container` |  | Specifies the container name of the target pod. |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
+| `--no-host-key-checks` | false | (INSECURE) Specifies whether to skip host key checking. |
+| `--proxy` | false | Specifies whether to proxy through the API server. |
+| `--pty` | &lt;auto&gt; | Enables pseudo-tty allocation. |
+| `--remote` | false | (KUBERNETES ONLY) Targets the workload or operator pod. |
 
 ## Examples
 
@@ -41,7 +41,7 @@ Debug the `pull-site`action and `update-status` hook of unit `hello-kubecon/0`:
 
 ## Details
 
-The command launches a `tmux` session that will intercept matching hooks and/or
+Launches a `tmux` session that will intercept matching hooks and/or
 actions.
 
 Initially, the `tmux` session will take you to `/var/lib/juju` or `/home/ubuntu`.

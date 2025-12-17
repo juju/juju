@@ -22,7 +22,7 @@ import (
 )
 
 const listCommandDoc = `
-List information about applications' endpoints that have been shared and who is connected.
+Lists information about applications' endpoints that have been shared and who is connected.
 
 The default tabular output shows each user connected (relating to) the offer, and the
 relation id of the relation.
@@ -119,11 +119,11 @@ func (c *listCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.applicationName, "application", "", "Return results matching the application")
-	f.StringVar(&c.interfaceName, "interface", "", "Return results matching the interface name")
-	f.StringVar(&c.consumerName, "allowed-consumer", "", "Return results where the user is allowed to consume the offer")
-	f.StringVar(&c.connectedUserName, "connected-user", "", "Return results where the user has a connection to the offer")
-	f.BoolVar(&c.activeOnly, "active-only", false, "Only return results where the offer is in use")
+	f.StringVar(&c.applicationName, "application", "", "Returns results matching the application.")
+	f.StringVar(&c.interfaceName, "interface", "", "Returns results matching the interface name.")
+	f.StringVar(&c.consumerName, "allowed-consumer", "", "Returns results where the user is allowed to consume the offer.")
+	f.StringVar(&c.connectedUserName, "connected-user", "", "Returns results where the user has a connection to the offer.")
+	f.BoolVar(&c.activeOnly, "active-only", false, "Specifies whether to only return results where the offer is in use.")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,

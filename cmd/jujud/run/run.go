@@ -99,14 +99,14 @@ func (c *RunCommand) Info() *cmd.Info {
 }
 
 func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.noContext, "no-context", false, "do not run the command in a unit context")
+	f.BoolVar(&c.noContext, "no-context", false, "Specifies whether to run the command in a unit context.")
 	f.StringVar(&c.relationId, "r", "", "run the commands for a specific relation context on a unit")
 	f.StringVar(&c.relationId, "relation", "", "")
 	f.StringVar(&c.remoteUnitName, "remote-unit", "", "run the commands for a specific remote unit in a relation context on a unit")
 	f.StringVar(&c.remoteApplicationName, "remote-app", "", "run the commands for a specific remote application in a relation context on a unit")
-	f.BoolVar(&c.operator, "operator", false, "run the commands on the operator instead of the workload. Only supported on k8s workload charms")
-	f.BoolVar(&c.forceRemoteUnit, "force-remote-unit", false, "run the commands for a specific relation context, bypassing the remote unit check")
-	f.StringVar(&c.unitName, "u", "-", "explicit unit-name, all other arguments are commands. if -u is passed an empty string, unit-name is inferred from state")
+	f.BoolVar(&c.operator, "operator", false, "(KUBERNETES WORKLOAD CHARMS ONLY) Specifies whether to run the commands on the operator instead of the workload.")
+	f.BoolVar(&c.forceRemoteUnit, "force-remote-unit", false, "Specifies whether to run the commands for a specific relation context, bypassing the remote unit check.")
+	f.StringVar(&c.unitName, "u", "-", "explicit unit-name, all other arguments are commands. If `-u` is passed an empty string, unit-name is inferred from state.")
 }
 
 func (c *RunCommand) Init(args []string) error {

@@ -11,8 +11,8 @@ Revokes access from a Juju user for a model, controller, or application offer.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
 
 ## Examples
 
@@ -34,7 +34,7 @@ Revoke `consume` access from user `sam` for models `fred/prod.hosted-mysql` and 
 
 
 ## Details
-By default, the controller is the current controller.
+Uses the current controller by default.
 
 Revoking write access, from a user who has that permission, will leave
 that user with read access. Revoking read access, however, also revokes

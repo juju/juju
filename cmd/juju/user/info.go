@@ -19,7 +19,7 @@ import (
 )
 
 var helpSummary = `
-Show information about a user.`[1:]
+Shows information about a user.`[1:]
 
 var helpDetails = `
 By default, the ` + "`YAML`" + ` format is used and the user name is the current
@@ -49,7 +49,7 @@ type infoCommandBase struct {
 }
 
 func (c *infoCommandBase) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.exactTime, "exact-time", false, "Use full timestamp for connection times")
+	f.BoolVar(&c.exactTime, "exact-time", false, "Specifies whether to use full timestamp for connection times.")
 }
 
 func NewShowUserCommand() cmd.Command {

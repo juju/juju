@@ -11,9 +11,9 @@ Removes public availability over the network for an application.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--endpoints` |  | Unexpose only the ports that charms have opened for this comma-delimited list of endpoints |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--endpoints` |  | Specifies (in comma-delimited format) the ports opened by the charm which should now be unexposed. |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
 
 ## Examples
 

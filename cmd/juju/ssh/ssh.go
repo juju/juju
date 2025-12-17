@@ -191,7 +191,7 @@ type sshCommand struct {
 func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.sshMachine.SetFlags(f)
 	c.sshContainer.SetFlags(f)
-	f.Var(&c.pty, "pty", "Enable pseudo-tty allocation")
+	f.Var(&c.pty, "pty", "Enables pseudo-tty allocation.")
 }
 
 func (c *sshCommand) Info() *cmd.Info {

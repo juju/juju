@@ -3,7 +3,7 @@
 > See also: [deploy](#deploy)
 
 ## Summary
-Refresh an application's charm.
+Refreshes an application's charm.
 
 ## Usage
 ```juju refresh [options] <application>```
@@ -11,21 +11,21 @@ Refresh an application's charm.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--base` |  | Select a different base than what is currently running. |
-| `--bind` |  | Configure application endpoint bindings to spaces |
-| `--channel` |  | Channel to use when getting the charm from Charmhub |
-| `--config` |  | Either a path to yaml-formatted application config file or a key=value pair  |
-| `--force` | false | Allow a charm to be refreshed which bypasses LXD profile allow list |
-| `--force-base`, `--force-series` | false | Refresh even if the base of the deployed application is not supported by the new charm |
-| `--force-units` | false | Refresh all units immediately, even if in error state |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--path` |  | Refresh to a charm located at path |
-| `--resource` |  | Resource to be uploaded to the controller |
-| `--revision` | -1 | Explicit revision of current charm |
-| `--storage` |  | Charm storage constraints |
-| `--switch` |  | Crossgrade to a different charm |
-| `--trust` | unset | Allows charm to run hooks that require access credentials |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--base` |  | Selects a different base than what is currently running. |
+| `--bind` |  | Configures application endpoint bindings to spaces. |
+| `--channel` |  | Specifies the channel to use when getting the charm from Charmhub. |
+| `--config` |  | Specifies either a path to a YAML-formatted application config file or a key=value pair. |
+| `--force` | false | Allows a charm to be refreshed bypassing LXD profile allow list. |
+| `--force-base`, `--force-series` | false | Refreshes even if the base of the deployed application is not supported by the new charm. |
+| `--force-units` | false | Refreshes all units immediately, even if in error state. |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
+| `--path` |  | Refreshes to a charm located at path. |
+| `--resource` |  | Specifies a resource to be uploaded to the controller. |
+| `--revision` | -1 | Specifies the explicit revision of current charm. |
+| `--storage` |  | Specifies charm storage constraints. |
+| `--switch` |  | Crossgrades to a different charm. |
+| `--trust` | unset | Allows charm to run hooks that require access credentials. |
 
 ## Examples
 
@@ -83,7 +83,7 @@ Charm settings may be added or updated at upgrade time by specifying the
     juju refresh foo --config config.yaml
 
 If the new version of a charm does not explicitly support the application's series, the
-upgrade is disallowed unless the --force-series option is used. This option should be
+upgrade is disallowed unless the `--force-series` option is used. This option should be
 used with caution since using a charm on a machine running an unsupported series may
 cause unexpected behavior.
 

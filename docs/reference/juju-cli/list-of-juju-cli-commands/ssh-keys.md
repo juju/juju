@@ -13,9 +13,9 @@ Lists the currently known SSH keys for the current (or specified) model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--full` | false | Show full key instead of just the fingerprint |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--full` | false | Shows full key instead of just the fingerprint. |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
 
 ## Examples
 
@@ -31,7 +31,7 @@ To examine the full information for each key:
 Juju maintains a per-model cache of SSH keys which it copies to each newly
 created unit.
 
-This command will display a list of all the keys currently used by Juju in
+This command displays a list of all the keys currently used by Juju in
 the current model (or the model specified, if the `-m` option is used).
 
 By default a minimal list is returned, showing only the fingerprint of

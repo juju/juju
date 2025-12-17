@@ -132,11 +132,11 @@ func (c *addModelCommand) Info() *cmd.Info {
 
 func (c *addModelCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
-	f.StringVar(&c.Owner, "owner", "", "Specify the user who will own the model, if not the current user")
-	f.StringVar(&c.CredentialName, "credential", "", "Specify the credential to be used by the model")
-	f.Var(&c.Config, "config", "Specify the path to a YAML model configuration file or individual configuration options (`--config config.yaml [--config key=value ...]`)")
-	f.BoolVar(&c.noSwitch, "no-switch", false, "Choose not to switch to the newly created model")
-	f.StringVar(&c.targetController, "target-controller", "", "The name of a JAAS managed controller to add a model to")
+	f.StringVar(&c.Owner, "owner", "", "Specifies the user who will own the model, if not the current user.")
+	f.StringVar(&c.CredentialName, "credential", "", "Specifies the credential to be used by the model.")
+	f.Var(&c.Config, "config", "Specifies the path to a YAML model configuration file or individual configuration options (`--config config.yaml [--config key=value ...]`).")
+	f.BoolVar(&c.noSwitch, "no-switch", false, "Chooses not to switch to the newly created model.")
+	f.StringVar(&c.targetController, "target-controller", "", "Specifies the name of a JAAS managed controller to add a model to.")
 }
 
 func (c *addModelCommand) Init(args []string) error {

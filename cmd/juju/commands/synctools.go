@@ -76,12 +76,12 @@ func (c *syncAgentBinaryCommand) Info() *cmd.Info {
 
 func (c *syncAgentBinaryCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.versionStr, "agent-version", "", "Copy a specific major[.minor] version")
-	f.BoolVar(&c.dryRun, "dry-run", false, "Don't copy, just print what would be copied")
-	f.BoolVar(&c.public, "public", false, "Tools are for a public cloud, so generate mirrors information")
-	f.StringVar(&c.source, "source", "", "Local source directory")
-	f.StringVar(&c.stream, "stream", "", "Simplestreams stream for which to sync metadata")
-	f.StringVar(&c.localDir, "local-dir", "", "Local destination directory")
+	f.StringVar(&c.versionStr, "agent-version", "", "Copies a specific `major[.minor]` version.")
+	f.BoolVar(&c.dryRun, "dry-run", false, "Specifies whether to merely simulate the copy operation.")
+	f.BoolVar(&c.public, "public", false, "Specifies whether to generate mirrors information for a public cloud.")
+	f.StringVar(&c.source, "source", "", "Specifies the local source directory.")
+	f.StringVar(&c.stream, "stream", "", "Specifies the simplestreams stream for which to sync metadata.")
+	f.StringVar(&c.localDir, "local-dir", "", "Specifies the local destination directory.")
 }
 
 func (c *syncAgentBinaryCommand) Init(args []string) error {

@@ -56,7 +56,7 @@ func (c *ListCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "spaces",
 		Args:     "[--short] [--format yaml|json] [--output <path>]",
-		Purpose:  "List known spaces, including associated subnets.",
+		Purpose:  "Lists known spaces, including associated subnets.",
 		Doc:      strings.TrimSpace(listCommandDoc),
 		Aliases:  []string{"list-spaces"},
 		Examples: listCommandExamples,
@@ -75,7 +75,7 @@ func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"tabular": c.printTabular,
 	})
-	f.BoolVar(&c.Short, "short", false, "Only display spaces.")
+	f.BoolVar(&c.Short, "short", false, "Specifies whether to only display spaces.")
 }
 
 // Init is defined on the cmd.Command interface. It checks the

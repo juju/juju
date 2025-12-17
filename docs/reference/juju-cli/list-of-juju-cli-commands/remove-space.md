@@ -3,7 +3,7 @@
 > See also: [add-space](#add-space), [spaces](#spaces), [reload-spaces](#reload-spaces), [rename-space](#rename-space), [show-space](#show-space)
 
 ## Summary
-Remove a network space.
+Removes a network space.
 
 ## Usage
 ```juju remove-space [options] <name>```
@@ -11,10 +11,10 @@ Remove a network space.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--force` | false | remove the offer as well as any relations to the offer |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `-y`, `--yes` | false | Do not prompt for confirmation |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--force` | false | Removes the space even if there are existing bindings, constraints, or settings. |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
+| `-y`, `--yes` | false | Skips confirmation prompt. |
 
 ## Examples
 

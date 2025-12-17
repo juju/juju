@@ -49,7 +49,7 @@ func NewListCommand() modelcmd.ModelCommand {
 // TODO(ericsnow) Change "tag" to "label" in the help text?
 
 var listDoc = `
-This command will report on the runtime state of defined payloads.
+Reports on the runtime state of defined payloads.
 
 When one or more pattern is given, Juju will limit the results to only
 those payloads which match *any* of the provided patterns. Each pattern
@@ -68,7 +68,7 @@ func (c *ListCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "payloads",
 		Args:    "[pattern ...]",
-		Purpose: "Display status information about known payloads.",
+		Purpose: "Displays status information about known payloads.",
 		Doc:     listDoc,
 		Aliases: []string{"list-payloads"},
 	})

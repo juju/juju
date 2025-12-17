@@ -11,8 +11,8 @@ Removes a secret backend from the controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--force` | false | Force removal even if the backend stores in-use secrets |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
+| `--force` | false | Forces removal even if the backend stores in-use secrets. |
 
 ## Examples
 

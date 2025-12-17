@@ -60,10 +60,10 @@ type execCommand struct {
 }
 
 const execDoc = `
-Run a shell command on the specified targets. Only admin users of a model
+Runs a shell command on the specified targets. Only admin users of a model
 are able to use this command.
 
-Targets are specified using either machine ids, application names or unit
+Targets are specified using either machine IDs, application names or unit
 names.  At least one target specifier is needed.
 
 Multiple values can be set for ` + "`--machine`" + `, ` + "`--application`" + `, and ` + "`--unit`" + ` by using
@@ -78,7 +78,7 @@ The target and user are independent of whether ` + "`--all`" + ` or ` + "`--appl
 For example, ` + "`--all`" + ` will run as ` + "`ubuntu`" + ` on machines and ` + "`root`" + ` on units.
 And ` + "`--application`" + ` will run as ` + "`root`" + ` on all units of that application.
 
-Some options are shortened for usabilty purpose in CLI
+Some options are shortened for usability purposes in the CLI:
 
 - ` + "`--application`" + ` can also be specified as ` + "`--app`" + ` and ` + "`-a`" + `
 - ` + "`--unit`" + ` can also be specified as ` + "`-u`" + `
@@ -138,7 +138,7 @@ func (c *execCommand) Info() *cmd.Info {
 	info := jujucmd.Info(&cmd.Info{
 		Name:     "exec",
 		Args:     "<commands>",
-		Purpose:  "Run the commands on the remote targets specified.",
+		Purpose:  "Runs the commands on the remote targets specified.",
 		Doc:      execDoc,
 		Examples: example,
 		SeeAlso: []string{
@@ -162,15 +162,15 @@ func (c *execCommand) SetFlags(f *gnuflag.FlagSet) {
 		"plain": c.printExecOutput,
 	})
 
-	f.BoolVar(&c.all, "all", false, "Run the commands on all the machines")
-	f.BoolVar(&c.operator, "operator", false, "Run the commands on the operator (k8s-only)")
-	f.BoolVar(&c.parallel, "parallel", true, "Run the commands in parallel without first acquiring a lock")
-	f.StringVar(&c.executionGroup, "execution-group", "", "Commands in the same execution group are run sequentially")
-	f.Var(cmd.NewStringsValue(nil, &c.machines), "machine", "One or more machine ids")
-	f.Var(cmd.NewStringsValue(nil, &c.applications), "a", "One or more application names")
+	f.BoolVar(&c.all, "all", false, "Specifies whether to run the commands on all the machines.")
+	f.BoolVar(&c.operator, "operator", false, "(KUBERNETES ONLY) Specifies whether to run the commands on the operator.")
+	f.BoolVar(&c.parallel, "parallel", true, "Specifies whether to run the commands in parallel without first acquiring a lock.")
+	f.StringVar(&c.executionGroup, "execution-group", "", "Runs commands in the same execution group sequentially.")
+	f.Var(cmd.NewStringsValue(nil, &c.machines), "machine", "Specifies one or more machine IDs.")
+	f.Var(cmd.NewStringsValue(nil, &c.applications), "a", "Specifies one or more application names.")
 	f.Var(cmd.NewStringsValue(nil, &c.applications), "app", "")
 	f.Var(cmd.NewStringsValue(nil, &c.applications), "application", "")
-	f.Var(cmd.NewStringsValue(nil, &c.units), "u", "One or more unit ids")
+	f.Var(cmd.NewStringsValue(nil, &c.units), "u", "Specifies one or more unit IDs.")
 	f.Var(cmd.NewStringsValue(nil, &c.units), "unit", "")
 }
 

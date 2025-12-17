@@ -96,10 +96,10 @@ func (c *removeCommand) Info() *cmd.Info {
 func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	c.RemoveConfirmationCommandBase.SetFlags(f)
-	f.BoolVar(&c.DryRun, "dry-run", false, "Print what this command would be removed without removing")
-	f.BoolVar(&c.Force, "force", false, "Completely remove a machine and all its dependencies")
-	f.BoolVar(&c.KeepInstance, "keep-instance", false, "Do not stop the running cloud instance")
-	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through machine removal without waiting for each individual step to complete")
+	f.BoolVar(&c.DryRun, "dry-run", false, "Specifies whether to merely simulate removal.")
+	f.BoolVar(&c.Force, "force", false, "Specifies whether to completely remove a machine and all its dependencies ignoring checks.")
+	f.BoolVar(&c.KeepInstance, "keep-instance", false, "Specifies whether to preserve the machine instance, but remove it from Juju.")
+	f.BoolVar(&c.NoWait, "no-wait", false, "Specifies whether to rush through machine removal without waiting for each individual step to complete.")
 	c.fs = f
 }
 

@@ -28,7 +28,7 @@ var usageListCredentialsSummary = `
 Lists Juju credentials for a cloud.`[1:]
 
 var usageListCredentialsDetails = `
-This command list credentials from this client and credentials
+This command lists credentials from this client and credentials
 from a controller.
 
 Locally stored credentials are client specific and
@@ -180,7 +180,7 @@ func (c *listCredentialsCommand) Info() *cmd.Info {
 
 func (c *listCredentialsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
-	f.BoolVar(&c.showSecrets, "show-secrets", false, "Show secrets, applicable to yaml or json formats only")
+	f.BoolVar(&c.showSecrets, "show-secrets", false, "(YAML/JSON ONLY) Specifies whether to show secrets.")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,

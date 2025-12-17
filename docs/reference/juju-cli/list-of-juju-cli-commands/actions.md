@@ -5,7 +5,7 @@
 **Aliases:** list-actions
 
 ## Summary
-List actions defined for an application.
+Lists actions defined for an application.
 
 ## Usage
 ```juju actions [options] <application>```
@@ -13,11 +13,11 @@ List actions defined for an application.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
 | `--format` | default | Specify output format (default&#x7c;json&#x7c;tabular&#x7c;yaml) |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
 | `-o`, `--output` |  | Specify an output file |
-| `--schema` | false | Display the full action schema |
+| `--schema` | false | Specifies whether to display the full action schema. |
 
 ## Examples
 
@@ -28,5 +28,5 @@ List actions defined for an application.
 
 ## Details
 
-List the actions available to run on the target application, with a short
+Lists the actions available to run on the target application, with a short
 description.

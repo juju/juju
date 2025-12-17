@@ -3,7 +3,7 @@
 > See also: [secret-backends](#secret-backends), [remove-secret-backend](#remove-secret-backend), [show-secret-backend](#show-secret-backend), [update-secret-backend](#update-secret-backend)
 
 ## Summary
-Add a new secret backend to the controller.
+Adds a new secret backend to the controller.
 
 ## Usage
 ```juju add-secret-backend [options] <backend-name> <backend-type>```
@@ -11,9 +11,9 @@ Add a new secret backend to the controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--config` |  | Path to yaml-formatted configuration file |
-| `--import-id` |  | Add the backend with the specified ID |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
+| `--config` |  | Specifies the path to yaml-formatted configuration file. |
+| `--import-id` |  | Adds the backend with the specified ID. |
 
 ## Examples
 

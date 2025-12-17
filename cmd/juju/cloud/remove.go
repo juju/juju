@@ -21,9 +21,9 @@ var usageRemoveCloudSummary = `
 Removes a cloud from Juju.`[1:]
 
 var usageRemoveCloudDetails = `
-Remove a cloud from Juju.
+Removes a cloud from Juju.
 
-If ` + "`--controller`" + ` is used, also remove the cloud from the specified controller,
+If ` + "`--controller`" + ` is used, also removes the cloud from the specified controller,
 if it is not in use.
 
 If ` + "`--client`" + ` is specified, Juju removes the cloud from this client.
@@ -93,7 +93,7 @@ func (c *removeCloudCommand) Info() *cmd.Info {
 // SetFlags initializes the flags supported by the command.
 func (c *removeCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
-	f.StringVar(&c.targetController, "target-controller", "", "The name of a JAAS managed controller to remove a cloud from")
+	f.StringVar(&c.targetController, "target-controller", "", "Specifies the name of a JAAS managed controller to remove a cloud from.")
 }
 
 func (c *removeCloudCommand) Init(args []string) (err error) {

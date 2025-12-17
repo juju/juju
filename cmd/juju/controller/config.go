@@ -131,7 +131,7 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 		"tabular": formatConfigTabular,
 		"yaml":    cmd.FormatYaml,
 	})
-	f.BoolVar(&c.ignoreReadOnlyFields, "ignore-read-only-fields", false, "Ignore read-only fields that might cause errors to be emitted while processing yaml documents")
+	f.BoolVar(&c.ignoreReadOnlyFields, "ignore-read-only-fields", false, "Specifies whether to ignore read-only fields that might cause errors to be emitted while processing yaml documents.")
 }
 
 // Init initialised the command from the arguments - it's part of

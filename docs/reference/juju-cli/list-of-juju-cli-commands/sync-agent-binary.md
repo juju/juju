@@ -11,14 +11,14 @@ Copy agent binaries from the official agent store into a local controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--agent-version` |  | Copy a specific major[.minor] version |
-| `--dry-run` | false | Don't copy, just print what would be copied |
-| `--local-dir` |  | Local destination directory |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--public` | false | Tools are for a public cloud, so generate mirrors information |
-| `--source` |  | Local source directory |
-| `--stream` |  | Simplestreams stream for which to sync metadata |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--agent-version` |  | Copies a specific `major[.minor]` version. |
+| `--dry-run` | false | Specifies whether to merely simulate the copy operation. |
+| `--local-dir` |  | Specifies the local destination directory. |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
+| `--public` | false | Specifies whether to generate mirrors information for a public cloud. |
+| `--source` |  | Specifies the local source directory. |
+| `--stream` |  | Specifies the simplestreams stream for which to sync metadata. |
 
 ## Examples
 

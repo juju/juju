@@ -687,7 +687,7 @@ func (w *modelCommandWrapper) Run(ctx *cmd.Context) error {
 
 func (w *modelCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 	if !w.skipModelFlags {
-		desc := "Model to operate in. Accepts [<controller name>:]<model name>|<model UUID>"
+		desc := "Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`."
 		f.StringVar(&w.modelIdentifier, "m", "", desc)
 		f.StringVar(&w.modelIdentifier, "model", "", "")
 	}

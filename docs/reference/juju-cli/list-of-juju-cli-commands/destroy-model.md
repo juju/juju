@@ -3,7 +3,7 @@
 > See also: [destroy-controller](#destroy-controller)
 
 ## Summary
-Terminate all machines/containers and resources for a non-controller model.
+Terminates all machines/containers and resources for a non-controller model.
 
 ## Usage
 ```juju destroy-model [options] [<controller name>:]<model name>```
@@ -11,13 +11,13 @@ Terminate all machines/containers and resources for a non-controller model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--destroy-storage` | false | Destroy all storage instances in the model |
-| `--force` | false | Force destroy model ignoring any errors |
-| `--no-prompt` | false | Do not ask for confirmation |
-| `--no-wait` | false | Rush through model destruction without waiting for each individual step to complete |
-| `--release-storage` | false | Release all storage instances from the model, and management of the controller, without destroying them |
-| `-t`, `--timeout` | -1s | Timeout for each step of force model destruction |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--destroy-storage` | false | Specifies whether to destroy all storage instances in the model. |
+| `--force` | false | Specifies whether to force model destruction, ignoring any errors. |
+| `--no-prompt` | false | Specifies whether to skip confirmation prompt. |
+| `--no-wait` | false | Specifies whether to rush through model destruction without waiting for each individual step to complete. |
+| `--release-storage` | false | Specifies whether to release all storage instances from the model, and management of the controller, without destroying them. |
+| `-t`, `--timeout` | -1s | Specifies the timeout for each step of force model destruction. |
 
 ## Examples
 

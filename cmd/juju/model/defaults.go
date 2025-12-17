@@ -305,11 +305,11 @@ func (c *defaultsCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"tabular": formatDefaultConfigTabular,
 	})
-	f.BoolVar(&c.ignoreReadOnlyFields, "ignore-read-only-fields", false, "Ignore read only fields that might cause errors to be emitted while processing yaml documents")
+	f.BoolVar(&c.ignoreReadOnlyFields, "ignore-read-only-fields", false, "Specifies whether to ignore read-only fields that might cause errors to be emitted while processing YAML documents.")
 
 	// The syntax here is consistent with the `add-k8s` command
-	f.StringVar(&c.cloud, "cloud", "", "The cloud to target")
-	f.StringVar(&c.regionFlag, "region", "", "The region or cloud/region to target")
+	f.StringVar(&c.cloud, "cloud", "", "Specifies the cloud to target.")
+	f.StringVar(&c.regionFlag, "region", "", "Specifies the region or cloud/region to target.")
 }
 
 // Init implements cmd.Command.Init.

@@ -11,10 +11,10 @@ Shows detailed information of a controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
 | `--format` | yaml | Specify output format (json&#x7c;yaml) |
 | `-o`, `--output` |  | Specify an output file |
-| `--show-password` | false | Show password for logged in user |
+| `--show-password` | false | Shows password for logged in user. |
 
 ## Examples
 

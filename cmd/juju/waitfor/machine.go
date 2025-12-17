@@ -72,7 +72,7 @@ func (c *machineCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "machine",
 		Args:     "[<id>]",
-		Purpose:  "Wait for a machine to reach a specified state.",
+		Purpose:  "Waits for a machine to reach a specified state.",
 		Doc:      machineCommandDoc,
 		Examples: machineCommandExamples,
 		SeeAlso: []string{
@@ -86,9 +86,9 @@ func (c *machineCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *machineCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.waitForCommandBase.SetFlags(f)
-	f.StringVar(&c.query, "query", `life=="alive" && status=="started"`, "Query the goal state")
-	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "How long to wait, before timing out")
-	f.BoolVar(&c.summary, "summary", true, "Output a summary of the application query on exit")
+	f.StringVar(&c.query, "query", `life=="alive" && status=="started"`, "Queries the goal state.")
+	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "Specifies the time to wait before timing out.")
+	f.BoolVar(&c.summary, "summary", true, "Specifies whether to output a summary of the application query on exit.")
 }
 
 // Init implements Command.Init.

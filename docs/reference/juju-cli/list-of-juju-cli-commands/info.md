@@ -11,17 +11,17 @@ Displays detailed information about CharmHub charms.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `--arch` | all | Specify an arch &lt;all&#x7c;amd64&#x7c;arm64&#x7c;ppc64el&#x7c;riscv64&#x7c;s390x&gt; |
-| `--base` |  | Specify a base |
-| `--channel` |  | Specify a channel to use instead of the default release |
-| `--charmhub-url` | https://api.charmhub.io | Specify the Charmhub URL for querying the store |
-| `--config` | false | Display config for this charm |
+| `--arch` | all | Specifies an arch &lt;all&#x7c;amd64&#x7c;arm64&#x7c;ppc64el&#x7c;riscv64&#x7c;s390x&gt;. |
+| `--base` |  | Specifies a base. |
+| `--channel` |  | Specifies a channel to use instead of the default release. |
+| `--charmhub-url` | https://api.charmhub.io | Specifies the Charmhub URL for querying the store. |
+| `--config` | false | Specifies whether to display config for the charm. |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
 | `-o`, `--output` |  | Specify an output file |
-| `--revision` | -1 | Specify a revision number |
-| `--series` | all | Specify a series. DEPRECATED use `--base` |
-| `--track` |  | Specify a track to use instead of the default track |
-| `--unicode` | auto | Display output using unicode &lt;auto&#x7c;never&#x7c;always&gt; |
+| `--revision` | -1 | Specifies a revision number. |
+| `--series` | all | (DEPRECATED) Specifies a series. Deprecated: Use `--base`. |
+| `--track` |  | Specifies a track to use instead of the default track. |
+| `--unicode` | auto | Displays output using Unicode `<auto|never|always>`. |
 
 ## Examples
 

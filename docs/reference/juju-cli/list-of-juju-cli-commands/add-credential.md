@@ -11,11 +11,11 @@ Adds a credential for a cloud to a local client and uploads it to a controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--client` | false | Client operation |
-| `-f`, `--file` |  | The YAML file containing credentials to add |
-| `--region` |  | Cloud region that credential is valid for |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
+| `--client` | false | Specifies whether to perform the operation on the local client. |
+| `-f`, `--file` |  | Specifies the YAML file containing credentials to add. |
+| `--region` |  | Specifies the cloud region that the credential is valid for. |
 
 ## Examples
 

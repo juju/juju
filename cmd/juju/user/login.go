@@ -38,7 +38,7 @@ import (
 )
 
 const loginDoc = `
-By default, the ` + "`juju login`" + ` command logs the user into a controller.
+Logs the user into a controller. By default, the ` + "`juju login`" + ` command logs the user into a controller.
 The argument to the command can be a public controller
 host name or alias (see Aliases below).
 
@@ -134,12 +134,12 @@ func (c *loginCommand) Info() *cmd.Info {
 
 func (c *loginCommand) SetFlags(fset *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(fset)
-	fset.StringVar(&c.controllerName, "c", "", "Controller to operate in")
+	fset.StringVar(&c.controllerName, "c", "", "Specifies the controller to operate in.")
 	fset.StringVar(&c.controllerName, "controller", "", "")
-	fset.StringVar(&c.username, "u", "", "Log in as this local user")
+	fset.StringVar(&c.username, "u", "", "Specifies the user to log in as.")
 	fset.StringVar(&c.username, "user", "", "")
-	fset.BoolVar(&c.noPrompt, "no-prompt", false, "Don't prompt for password just read a line from `stdin`")
-	fset.BoolVar(&c.trust, "trust", false, "Automatically trust controller CA certificate")
+	fset.BoolVar(&c.noPrompt, "no-prompt", false, "Specifies whether to skip password prompt and read `stdin` instead.")
+	fset.BoolVar(&c.trust, "trust", false, "Specifies whether to automatically trust controller CA certificate.")
 }
 
 // Init implements Command.Init.

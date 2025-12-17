@@ -11,15 +11,15 @@ Locates and then downloads a Charmhub charm.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `--arch` | all | Specify an arch &lt;all&#x7c;amd64&#x7c;arm64&#x7c;ppc64el&#x7c;riscv64&#x7c;s390x&gt; |
-| `--base` |  | Specify a base |
-| `--channel` |  | Specify a channel to use instead of the default release |
-| `--charmhub-url` | https://api.charmhub.io | Specify the Charmhub URL for querying the store |
-| `--filepath` |  | Specify the filepath location of the charm to download to |
-| `--no-progress` | false | Disable the progress bar |
-| `--resources` | false | Download the resources associated with the charm (will be DEPRECATED and default behaviour in 4.0) |
-| `--revision` | -1 | Specify a revision of the charm to download |
-| `--series` | all | Specify a series. DEPRECATED use `--base` |
+| `--arch` | all | Specifies an arch &lt;all&#x7c;amd64&#x7c;arm64&#x7c;ppc64el&#x7c;riscv64&#x7c;s390x&gt;. |
+| `--base` |  | Specifies a base. |
+| `--channel` |  | Specifies a channel to use instead of the default release. |
+| `--charmhub-url` | https://api.charmhub.io | Specifies the Charmhub URL for querying the store. |
+| `--filepath` |  | Specifies the filepath location of the charm to download to. |
+| `--no-progress` | false | Specifies whether to disable the progress bar. |
+| `--resources` | false | (DEPRECATED IN JUJU 4.0 BECAUSE DEFAULT BEHAVIOR) Specifies whether to download the resources associated with the charm (will be default behaviour in 4.0). |
+| `--revision` | -1 | Specifies a revision of the charm to download. |
+| `--series` | all | (DEPRECATED) Specifies a series. Deprecated: use `--base`. |
 
 ## Examples
 
@@ -29,7 +29,7 @@ Locates and then downloads a Charmhub charm.
 
 ## Details
 
-Download a charm to the current directory from the Charmhb store
+Downloads a charm to the current directory from the Charmhub store
 by a specified name. Downloading for a specific base can be done via
 `--base`. `--base` can be specified using the OS name and the version of
 the OS, separated by `@`. For example, `--base ubuntu@22.04`.

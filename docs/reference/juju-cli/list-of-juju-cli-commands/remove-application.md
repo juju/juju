@@ -3,7 +3,7 @@
 > See also: [scale-application](#scale-application), [show-application](#show-application)
 
 ## Summary
-Remove applications from the model.
+Removes applications from the model.
 
 ## Usage
 ```juju remove-application [options] <application> [<application>...]```
@@ -11,13 +11,13 @@ Remove applications from the model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--destroy-storage` | false | Destroy storage attached to application units |
-| `--dry-run` | false | Print what this command would remove without removing |
-| `--force` | false | Completely remove an application and all its dependencies |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--no-prompt` | false | Do not ask for confirmation. Overrides `mode` model config setting |
-| `--no-wait` | false | Rush through application removal without waiting for each individual step to complete |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--destroy-storage` | false | Specifies whether to destroy storage attached to application units. |
+| `--dry-run` | false | Specifies whether to merely simulate what the command would remove. |
+| `--force` | false | Specifies whether to completely remove an application and all its dependencies. |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
+| `--no-prompt` | false | Specifies whether to skip confirmation prompt. Overrides `mode` model config setting. |
+| `--no-wait` | false | Specifies whether to rush through application removal without waiting for each individual step to complete. |
 
 ## Examples
 

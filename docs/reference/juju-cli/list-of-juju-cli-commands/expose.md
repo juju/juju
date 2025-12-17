@@ -11,11 +11,11 @@ Makes an application publicly available over the network.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--endpoints` |  | Expose only the ports that charms have opened for this comma-delimited list of endpoints |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--to-cidrs` |  | A comma-delimited list of CIDRs that should be able to access the application ports once exposed |
-| `--to-spaces` |  | A comma-delimited list of spaces that should be able to access the application ports once exposed |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--endpoints` |  | Specifies (in comma-delimited format) the endpoints for which ports opened by the charm should be exposed. |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
+| `--to-cidrs` |  | Specifies a comma-delimited list of CIDRs that should be able to access the application ports once exposed. |
+| `--to-spaces` |  | Specifies a comma-delimited list of spaces that should be able to access the application ports once exposed. |
 
 ## Examples
 

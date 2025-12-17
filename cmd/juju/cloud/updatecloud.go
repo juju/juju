@@ -34,7 +34,7 @@ type updateCloudCommand struct {
 }
 
 var updateCloudDoc = `
-Update cloud information on this client and/or on a controller.
+Updates cloud information on this client and/or on a controller.
 
 A cloud can be updated from a file. This requires a ` + "`<cloud name>`" + ` and a ` + "`YAML`" + ` file
 containing the cloud details.
@@ -124,7 +124,7 @@ func (c *updateCloudCommand) Info() *cmd.Info {
 
 func (c *updateCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
-	f.StringVar(&c.CloudFile, "f", "", "The path to a cloud definition file")
+	f.StringVar(&c.CloudFile, "f", "", "Specifies the path to a cloud definition file.")
 }
 
 func (c *updateCloudCommand) Run(ctxt *cmd.Context) error {

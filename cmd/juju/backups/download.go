@@ -46,7 +46,7 @@ func (c *downloadCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "download-backup",
 		Args:     "/full/path/to/backup/on/controller",
-		Purpose:  "Download a backup archive file.",
+		Purpose:  "Downloads a backup archive file.",
 		Doc:      downloadDoc,
 		Examples: examples,
 		SeeAlso: []string{
@@ -58,7 +58,7 @@ func (c *downloadCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.StringVar(&c.LocalFilename, "filename", "", "Download target")
+	f.StringVar(&c.LocalFilename, "filename", "", "Specifies the download target.")
 }
 
 // Init implements Command.Init.

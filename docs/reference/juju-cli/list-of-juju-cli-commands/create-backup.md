@@ -3,7 +3,7 @@
 > See also: [download-backup](#download-backup)
 
 ## Summary
-Create a backup.
+Creates a backup.
 
 ## Usage
 ```juju create-backup [options] [<notes>]```
@@ -11,10 +11,10 @@ Create a backup.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--filename` | juju-backup-&lt;date&gt;-&lt;time&gt;.tar.gz | Download to this file |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--no-download` | false | Do not download the archive. DEPRECATED. |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--filename` | juju-backup-&lt;date&gt;-&lt;time&gt;.tar.gz | Specifies the file to download the archive to. |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
+| `--no-download` | false | (DEPRECATED)Does not download the archive. |
 
 ## Examples
 

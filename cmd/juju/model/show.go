@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-const showModelCommandDoc = `Show information about the current or specified model.`
+const showModelCommandDoc = `Shows information about the current or specified model.`
 
 func NewShowCommand() cmd.Command {
 	showCmd := &showModelCommand{}

@@ -180,12 +180,12 @@ const unsetTimeout = -1 * time.Second
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.destroyCommandBase.SetFlags(f)
-	f.BoolVar(&c.destroyModels, "destroy-all-models", false, "Destroy all models in the controller")
-	f.BoolVar(&c.destroyStorage, "destroy-storage", false, "Destroy all storage instances managed by the controller")
-	f.BoolVar(&c.releaseStorage, "release-storage", false, "Release all storage instances from management of the controller, without destroying them")
-	f.DurationVar(&c.modelTimeout, "model-timeout", unsetTimeout, "Timeout for each step of force model destruction")
-	f.BoolVar(&c.force, "force", false, "Force destroy models ignoring any errors")
-	f.BoolVar(&c.noWait, "no-wait", false, "Rush through model destruction without waiting for each individual step to complete")
+	f.BoolVar(&c.destroyModels, "destroy-all-models", false, "Destroys all models in the controller.")
+	f.BoolVar(&c.destroyStorage, "destroy-storage", false, "Destroys all storage instances managed by the controller.")
+	f.BoolVar(&c.releaseStorage, "release-storage", false, "Releases all storage instances from management of the controller, without destroying them.")
+	f.DurationVar(&c.modelTimeout, "model-timeout", unsetTimeout, "Specifies the timeout for each step of force model destruction.")
+	f.BoolVar(&c.force, "force", false, "Forcibly destroys the controller even if it is not empty.")
+	f.BoolVar(&c.noWait, "no-wait", false, "Rushes through model destruction without waiting for each individual step to complete.")
 }
 
 // Init implements Command.Init.

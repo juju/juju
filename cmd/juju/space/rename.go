@@ -40,7 +40,7 @@ Rename a space from ` + "`db`" + ` to ` + "`fe`" + `:
 
 func (c *RenameCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SpaceCommandBase.SetFlags(f)
-	f.StringVar(&c.NewName, "rename", "", "The new name for the network space")
+	f.StringVar(&c.NewName, "rename", "", "Specifies the new name for the network space.")
 }
 
 // Info is defined on the cmd.Command interface.
@@ -48,7 +48,7 @@ func (c *RenameCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "rename-space",
 		Args:     "<old-name> <new-name>",
-		Purpose:  "Rename a network space.",
+		Purpose:  "Renames a network space.",
 		Doc:      strings.TrimSpace(renameCommandDoc),
 		Examples: renameCommandExamples,
 		SeeAlso: []string{

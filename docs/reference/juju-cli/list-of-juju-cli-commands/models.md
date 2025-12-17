@@ -13,14 +13,14 @@ Lists models a user can access on a controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--all` | false | Lists all models, regardless of user accessibility (administrative users only) |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--exact-time` | false | Use full timestamps |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--all` | false | (ADMINS ONLY) Lists all models, regardless of user accessibility. |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
+| `--exact-time` | false | Uses full timestamps. |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
 | `-o`, `--output` |  | Specify an output file |
-| `--user` |  | The user to list models for (administrative users only) |
-| `--uuid` | false | Display UUID for models |
+| `--user` |  | (ADMINS ONLY) Specifies the user to list models for. |
+| `--uuid` | false | Displays UUID for models. |
 
 ## Examples
 

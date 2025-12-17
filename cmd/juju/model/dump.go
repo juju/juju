@@ -53,7 +53,7 @@ func (c *dumpCommand) Info() *cmd.Info {
 func (c *dumpCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
-	f.BoolVar(&c.simplified, "simplified", false, "Dump a simplified partial model")
+	f.BoolVar(&c.simplified, "simplified", false, "Specifies whether to dump a simplified partial model.")
 }
 
 // Init implements Command.

@@ -26,7 +26,7 @@ import (
 )
 
 const killDoc = `
-Forcibly destroy the specified controller.  If the API server is accessible,
+Forcibly destroys the specified controller.  If the API server is accessible,
 this command will attempt to destroy the controller model and all models
 and their resources.
 
@@ -72,7 +72,7 @@ type killCommand struct {
 // SetFlags implements Command.SetFlags.
 func (c *killCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.destroyCommandBase.SetFlags(f)
-	f.Var(newDurationValue(time.Minute*5, &c.timeout), "t", "Timeout before direct destruction")
+	f.Var(newDurationValue(time.Minute*5, &c.timeout), "t", "Specifies the timeout before direct destruction.")
 	f.Var(newDurationValue(time.Minute*5, &c.timeout), "timeout", "")
 }
 
@@ -81,7 +81,7 @@ func (c *killCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "kill-controller",
 		Args:    "<controller name>",
-		Purpose: "Forcibly terminate all machines and other associated resources for a Juju controller.",
+		Purpose: "Forcibly terminates all machines and other associated resources for a Juju controller.",
 		Doc:     killDoc,
 		SeeAlso: []string{
 			"destroy-controller",

@@ -135,7 +135,7 @@ func (c *registerCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *registerCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.BoolVar(&c.replace, "replace", false, "replace any existing controller")
+	f.BoolVar(&c.replace, "replace", false, "Replaces any existing controller.")
 }
 
 // Init implements Command.Init.

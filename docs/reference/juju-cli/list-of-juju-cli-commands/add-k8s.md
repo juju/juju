@@ -11,16 +11,16 @@ Adds a Kubernetes endpoint and credential to Juju.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--client` | false | Client operation |
-| `--cloud` |  | Specify the Kubernetes cluster cloud |
-| `--cluster-name` |  | Specify the Kubernetes cluster to import |
-| `--context-name` |  | Specify the Kubernetes context to import |
-| `--credential` |  | Specify the credential to use when accessing the cluster |
-| `--region` |  | Specify the Kubernetes cluster region or cloud/region |
-| `--skip-storage` | false | Skip storage provisioning for clusters that don't have storage |
-| `--storage` |  | Specify the Kubernetes storage class for workload storage |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
+| `--client` | false | Specifies whether to perform the operation on the local client. |
+| `--cloud` |  | Specifies the Kubernetes cluster cloud. |
+| `--cluster-name` |  | Specifies the Kubernetes cluster to import. |
+| `--context-name` |  | Specifies the Kubernetes context to import. |
+| `--credential` |  | Specifies the credential to use when accessing the cluster. |
+| `--region` |  | Specifies the Kubernetes cluster region or cloud/region. |
+| `--skip-storage` | false | Skips storage provisioning for clusters that don't have storage. |
+| `--storage` |  | Specifies the Kubernetes storage class for workload storage. |
 
 ## Examples
 

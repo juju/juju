@@ -11,11 +11,11 @@ Shows detailed information for a cloud.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--client` | false | Client operation |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
+| `--client` | false | Specifies whether to perform the operation on the local client. |
 | `--format` | display | Specify output format (display&#x7c;json&#x7c;yaml) |
-| `--include-config` | false | Print available config option details specific to the specified cloud |
+| `--include-config` | false | Specifies whether to print available config option details specific to the specified cloud. |
 | `-o`, `--output` |  | Specify an output file |
 
 ## Examples

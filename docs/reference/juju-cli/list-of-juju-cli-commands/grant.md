@@ -11,8 +11,8 @@ Grants access level to a Juju user for a model, controller, or application offer
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
 
 ## Examples
 
@@ -44,7 +44,7 @@ Grant user `sam` `read` access to application offers `fred/prod.hosted-mysql` an
 
 ## Details
 
-By default, the controller is the current controller.
+Uses the current controller by default.
 
 Users with read access are limited in what they can do with models:
 `juju models`, `juju machines`, and `juju status`

@@ -78,7 +78,7 @@ func (c *setFirewallRuleCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.Command.
 func (c *setFirewallRuleCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.allowlist, "allowlist", "", "list of subnets to allowlist")
+	f.StringVar(&c.allowlist, "allowlist", "", "Specifies a list of subnets to allowlist.")
 	f.StringVar(&c.whitelist, "whitelist", "", "")
 }
 

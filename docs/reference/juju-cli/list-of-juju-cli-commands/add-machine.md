@@ -3,7 +3,7 @@
 > See also: [remove-machine](#remove-machine), [model-constraints](#model-constraints), [set-model-constraints](#set-model-constraints)
 
 ## Summary
-Provision a new machine or assign one to the model.
+Provisions a new machine or assigns one to the model.
 
 ## Usage
 ```juju add-machine [options] [<container-type>[:<machine-id>] | ssh:[<user>@]<host> | <placement>] | <private-key> | <public-key>```
@@ -11,15 +11,15 @@ Provision a new machine or assign one to the model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--base` |  | Specify the operating system base to install on the new machine(s) |
-| `--constraints` | [] | Specify the machine constraints to overwrite those available from `juju model-constraints` and provider's defaults |
-| `--disks` |  | Specify the storage constraints for disks to attach to the machine(s) |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `-n` | 1 | Specify the number of machines to add |
-| `--private-key` |  | Specify the path to the private key to use during the connection |
-| `--public-key` |  | Specify the path to the public key to add to the remote authorized keys |
-| `--series` |  | Specify the operating system series to install on the new machine(s). DEPRECATED use --base |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--base` |  | Specifies the operating system base to install on the new machine(s). |
+| `--constraints` | [] | Specifies the machine constraints to overwrite those available from `juju model-constraints` and provider's defaults. |
+| `--disks` |  | Specifies the storage constraints for disks to attach to the machine(s). |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
+| `-n` | 1 | Specifies the number of machines to add. |
+| `--private-key` |  | Specifies the path to the private key to use during the connection. |
+| `--public-key` |  | Specifies the path to the public key to add to the remote authorized keys. |
+| `--series` |  | (DEPRECATED) Specifies the operating system series to install on the new machine(s). Deprecated: Use `--base` instead. |
 
 ## Examples
 
@@ -78,7 +78,7 @@ Allocate a machine to the model. Note: specific to MAAS.
 
 ## Details
 
-Add a new machine to the model.
+Adds a new machine to the model.
 
 The command operates in three modes, depending on the options provided:
 

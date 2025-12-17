@@ -13,11 +13,11 @@ Lists all controllers.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
-| `--managed` | false | Show controllers managed by JAAS |
+| `--managed` | false | Specifies whether to show controllers managed by JAAS. |
 | `-o`, `--output` |  | Specify an output file |
-| `--refresh` | false | Connect to each controller to download the latest details |
+| `--refresh` | false | Specifies whether to connect to each controller to download the latest details. |
 
 ## Examples
 

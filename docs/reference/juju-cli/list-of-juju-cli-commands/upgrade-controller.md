@@ -11,16 +11,16 @@ Upgrades Juju on a controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--agent-stream` |  | Check this agent stream for upgrades |
-| `--agent-version` |  | Upgrade to specific version |
-| `--build-agent` | false | Build a local version of the agent binary; for development use only |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--dry-run` | false | Don't change anything, just report what would be changed |
-| `--ignore-agent-versions` | false | Don't check if all agents have already reached the current version |
-| `--reset-previous-upgrade` | false | Clear the previous (incomplete) upgrade status (use with care) |
-| `--timeout` | 10m0s | Timeout before upgrade is aborted |
-| `-y`, `--yes` | false | Answer 'yes' to confirmation prompts |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--agent-stream` |  | Specifies the agent stream to check for upgrades. |
+| `--agent-version` |  | Upgrades to specific version. |
+| `--build-agent` | false | (JUJU DEVELOPERS ONLY) Specifies whether to build a local version of the agent binary. |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
+| `--dry-run` | false | Specifies whether to merely simulate the upgrade. |
+| `--ignore-agent-versions` | false | Does not check if all agents have already reached the current version. |
+| `--reset-previous-upgrade` | false | (USE WITH CARE) Specifies whether to clear the previous (incomplete) upgrade status. |
+| `--timeout` | 10m0s | Specifies the timeout before upgrade is aborted. |
+| `-y`, `--yes` | false | Specifies whether to answer 'yes' to confirmation prompts. |
 
 ## Examples
 

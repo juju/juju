@@ -11,10 +11,10 @@ Marks unit errors resolved and re-executes failed hooks.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--all` | false | Marks all units in error as resolved |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--no-retry` | false | Do not re-execute failed hooks on the unit |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--all` | false | Specifies whether to mark all units in error as resolved. |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
+| `--no-retry` | false | Specifies whether to skip re-execution of failed hooks on the unit. |
 
 ## Examples
 

@@ -123,7 +123,7 @@ func (c *listCloudsCommand) Info() *cmd.Info {
 func (c *listCloudsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
 	if !c.Embedded {
-		f.BoolVar(&c.all, "all", false, "Show all available clouds")
+		f.BoolVar(&c.all, "all", false, "Specifies whether to show all available clouds.")
 	}
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,

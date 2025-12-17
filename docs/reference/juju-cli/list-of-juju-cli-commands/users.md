@@ -13,9 +13,9 @@ Lists Juju users allowed to connect to a controller or model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `--all` | false | Include disabled users |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--exact-time` | false | Use full timestamp for connection times |
+| `--all` | false | Specifies whether to include disabled users. |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
+| `--exact-time` | false | Specifies whether to use full timestamp for connection times. |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
 | `-o`, `--output` |  | Specify an output file |
 
@@ -24,7 +24,7 @@ Lists Juju users allowed to connect to a controller or model.
 Print the users relevant to the current controller:
 
     juju users
-    
+
 Print the users relevant to the controller "another":
 
     juju users -c another

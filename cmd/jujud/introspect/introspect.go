@@ -81,8 +81,8 @@ func (c *IntrospectCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.dataDir, "data-dir", config.DataDir, "Juju base data directory")
 	f.StringVar(&c.agent, "agent", "", "agent to introspect (defaults to machine agent)")
 	f.StringVar(&c.listen, "listen", "", "address on which to expose the introspection socket")
-	f.BoolVar(&c.post, "post", false, "perform a POST action rather than a GET")
-	f.BoolVar(&c.verbose, "verbose", false, "show query path and args")
+	f.BoolVar(&c.post, "post", false, "Specifies whether to perform a `POST` action rather than a `GET`.")
+	f.BoolVar(&c.verbose, "verbose", false, "Specifies whether to show query path and args.")
 }
 
 func (c *IntrospectCommand) Init(args []string) error {

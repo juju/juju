@@ -11,12 +11,13 @@ Adds a workload model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--config` |  | Specify the path to a YAML model configuration file or individual configuration options (`--config config.yaml [--config key=value ...]`) |
-| `--credential` |  | Specify the credential to be used by the model |
-| `--no-switch` | false | Choose not to switch to the newly created model |
-| `--owner` |  | Specify the user who will own the model, if not the current user |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
+| `--config` |  | Specifies the path to a YAML model configuration file or individual configuration options (`--config config.yaml [--config key=value ...]`). |
+| `--credential` |  | Specifies the credential to be used by the model. |
+| `--no-switch` | false | Chooses not to switch to the newly created model. |
+| `--owner` |  | Specifies the user who will own the model, if not the current user. |
+| `--target-controller` |  | Specifies the name of a JAAS managed controller to add a model to. |
 
 ## Examples
 

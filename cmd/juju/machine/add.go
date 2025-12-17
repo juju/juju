@@ -31,7 +31,7 @@ import (
 )
 
 var addMachineDoc = `
-Add a new machine to the model.
+Adds a new machine to the model.
 
 The command operates in three modes, depending on the options provided:
 
@@ -181,7 +181,7 @@ func (c *addCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "add-machine",
 		Args:     "[<container-type>[:<machine-id>] | ssh:[<user>@]<host> | <placement>] | <private-key> | <public-key>",
-		Purpose:  "Provision a new machine or assign one to the model.",
+		Purpose:  "Provisions a new machine or assigns one to the model.",
 		Doc:      addMachineDoc,
 		Examples: addMachineExamples,
 		SeeAlso: []string{
@@ -194,13 +194,13 @@ func (c *addCommand) Info() *cmd.Info {
 
 func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.Series, "series", "", "Specify the operating system series to install on the new machine(s). DEPRECATED use --base")
-	f.StringVar(&c.Base, "base", "", "Specify the operating system base to install on the new machine(s)")
-	f.IntVar(&c.NumMachines, "n", 1, "Specify the number of machines to add")
-	f.Var(&c.ConstraintsStr, "constraints", "Specify the machine constraints to overwrite those available from `juju model-constraints` and provider's defaults")
-	f.Var(disksFlag{&c.Disks}, "disks", "Specify the storage constraints for disks to attach to the machine(s)")
-	f.StringVar(&c.PrivateKey, "private-key", "", "Specify the path to the private key to use during the connection")
-	f.StringVar(&c.PublicKey, "public-key", "", "Specify the path to the public key to add to the remote authorized keys")
+	f.StringVar(&c.Series, "series", "", "(DEPRECATED) Specifies the operating system series to install on the new machine(s). Deprecated: Use `--base` instead.")
+	f.StringVar(&c.Base, "base", "", "Specifies the operating system base to install on the new machine(s).")
+	f.IntVar(&c.NumMachines, "n", 1, "Specifies the number of machines to add.")
+	f.Var(&c.ConstraintsStr, "constraints", "Specifies the machine constraints to overwrite those available from `juju model-constraints` and provider's defaults.")
+	f.Var(disksFlag{&c.Disks}, "disks", "Specifies the storage constraints for disks to attach to the machine(s).")
+	f.StringVar(&c.PrivateKey, "private-key", "", "Specifies the path to the private key to use during the connection.")
+	f.StringVar(&c.PublicKey, "public-key", "", "Specifies the path to the public key to add to the remote authorized keys.")
 }
 
 func (c *addCommand) Init(args []string) error {

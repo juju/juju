@@ -26,7 +26,7 @@ type dumpDBCommand struct {
 }
 
 const dumpDBHelpDoc = `
-dump-db returns all that is stored in the database for the specified model.
+Returns all that is stored in the database for the specified model.
 
 Examples:
 
@@ -41,7 +41,7 @@ See also:
 func (c *dumpDBCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "dump-db",
-		Purpose: "Displays the mongo documents for of the model.",
+		Purpose: "Displays the MongoDB documents for the model.",
 		Doc:     dumpDBHelpDoc,
 	})
 }

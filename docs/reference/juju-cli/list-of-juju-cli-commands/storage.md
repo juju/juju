@@ -13,12 +13,12 @@ Lists storage details.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--filesystem` | false | List filesystem storage (deprecated) |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--filesystem` | false | (DEPRECATED) Specifies whether to list filesystem storage. |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
 | `-o`, `--output` |  | Specify an output file |
-| `--volume` | false | List volume storage (deprecated) |
+| `--volume` | false | (DEPRECATED) Specifies whether to list volume storage. |
 
 ## Examples
 
@@ -37,4 +37,4 @@ List only volume storage:
 
 ## Details
 
-List information about storage.
+Lists information about storage.

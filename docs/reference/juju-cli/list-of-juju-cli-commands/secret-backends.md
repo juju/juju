@@ -13,10 +13,10 @@ Lists secret backends available in the controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-c`, `--controller` |  | Controller to operate in |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
 | `-o`, `--output` |  | Specify an output file |
-| `--reveal` | false | Include sensitive backend config content |
+| `--reveal` | false | Includes sensitive backend config content. |
 
 ## Examples
 

@@ -13,9 +13,9 @@ Imports a filesystem into the model.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--force` | false | import a volume even if otherwise prohibited (cloud specific) |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--force` | false | (CLOUD SPECIFIC) Specifies whether to import a volume even if otherwise prohibited. |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
 
 ## Examples
 
@@ -38,7 +38,7 @@ Import a PersistentVolume that is bound to a PVC not used by Juju:
 
 ## Details
 
-Import an existing filesystem into the model. This will lead to the model
+Imports an existing filesystem into the model. This will lead to the model
 taking ownership of the storage, so you must take care not to import storage
 that is in use by another Juju model.
 

@@ -19,7 +19,7 @@ type PoolRemoveAPI interface {
 }
 
 const poolRemoveCommandDoc = `
-Remove a single existing storage pool.
+Removes a single existing storage pool.
 `
 
 const poolRemoveCommandExamples = `
@@ -57,7 +57,7 @@ func (c *poolRemoveCommand) Init(args []string) (err error) {
 func (c *poolRemoveCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "remove-storage-pool",
-		Purpose:  "Remove an existing storage pool.",
+		Purpose:  "Removes an existing storage pool.",
 		Doc:      poolRemoveCommandDoc,
 		Args:     "<name>",
 		Examples: poolRemoveCommandExamples,

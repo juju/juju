@@ -14,7 +14,7 @@ import (
 )
 
 const logoutDoc = `
-If another client has logged in as the same user, they will remain logged
+Logs a Juju user out of a controller. If another client has logged in as the same user, they will remain logged
 in. This command only affects the local client.
 
 The command will fail if the user has not yet set a password
@@ -66,7 +66,7 @@ func (c *logoutCommand) Init(args []string) error {
 // SetFlags implements Command.SetFlags.
 func (c *logoutCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
-	f.BoolVar(&c.Force, "force", false, "Force logout when a locally recorded password is detected")
+	f.BoolVar(&c.Force, "force", false, "Specifies whether to force logout when a locally recorded password is detected.")
 }
 
 // Run implements Command.Run.

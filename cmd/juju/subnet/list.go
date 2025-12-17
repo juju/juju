@@ -66,7 +66,7 @@ func (c *ListCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "subnets",
 		Args:     "[--space <name>] [--zone <name>] [--format yaml|json] [--output <path>]",
-		Purpose:  "List subnets known to Juju.",
+		Purpose:  "Lists subnets known to Juju.",
 		Doc:      strings.TrimSpace(listCommandDoc),
 		Aliases:  []string{"list-subnets"},
 		Examples: listCommandExample,
@@ -78,8 +78,8 @@ func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SubnetCommandBase.SetFlags(f)
 	c.Out.AddFlags(f, "yaml", output.DefaultFormatters)
 
-	f.StringVar(&c.SpaceName, "space", "", "Filter results by space name")
-	f.StringVar(&c.ZoneName, "zone", "", "Filter results by zone name")
+	f.StringVar(&c.SpaceName, "space", "", "Filters results by space name.")
+	f.StringVar(&c.ZoneName, "zone", "", "Filters results by zone name.")
 }
 
 // Init is defined on the cmd.Command interface. It checks the

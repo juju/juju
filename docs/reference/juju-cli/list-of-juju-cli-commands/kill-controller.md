@@ -3,7 +3,7 @@
 > See also: [destroy-controller](#destroy-controller), [unregister](#unregister)
 
 ## Summary
-Forcibly terminate all machines and other associated resources for a Juju controller.
+Forcibly terminates all machines and other associated resources for a Juju controller.
 
 ## Usage
 ```juju kill-controller [options] <controller name>```
@@ -11,13 +11,13 @@ Forcibly terminate all machines and other associated resources for a Juju contro
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--no-prompt` | false | Do not ask for confirmation |
-| `-t`, `--timeout` | 5m0s | Timeout before direct destruction |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--no-prompt` | false | Specifies whether to skip confirmation prompt. |
+| `-t`, `--timeout` | 5m0s | Specifies the timeout before direct destruction. |
 
 ## Details
 
-Forcibly destroy the specified controller.  If the API server is accessible,
+Forcibly destroys the specified controller.  If the API server is accessible,
 this command will attempt to destroy the controller model and all models
 and their resources.
 

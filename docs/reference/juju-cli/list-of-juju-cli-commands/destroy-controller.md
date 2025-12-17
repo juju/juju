@@ -11,14 +11,14 @@ Destroys a controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--destroy-all-models` | false | Destroy all models in the controller |
-| `--destroy-storage` | false | Destroy all storage instances managed by the controller |
-| `--force` | false | Force destroy models ignoring any errors |
-| `--model-timeout` | -1s | Timeout for each step of force model destruction |
-| `--no-prompt` | false | Do not ask for confirmation |
-| `--no-wait` | false | Rush through model destruction without waiting for each individual step to complete |
-| `--release-storage` | false | Release all storage instances from management of the controller, without destroying them |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--destroy-all-models` | false | Destroys all models in the controller. |
+| `--destroy-storage` | false | Destroys all storage instances managed by the controller. |
+| `--force` | false | Forcibly destroys the controller even if it is not empty. |
+| `--model-timeout` | -1s | Specifies the timeout for each step of force model destruction. |
+| `--no-prompt` | false | Specifies whether to skip confirmation prompt. |
+| `--no-wait` | false | Rushes through model destruction without waiting for each individual step to complete. |
+| `--release-storage` | false | Releases all storage instances from management of the controller, without destroying them. |
 
 ## Examples
 

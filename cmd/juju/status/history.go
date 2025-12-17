@@ -52,17 +52,9 @@ type statusHistoryCommand struct {
 	date            time.Time
 }
 
-var statusHistoryDoc = fmt.Sprintf(`
-This command will report the history of status changes for
-a given entity.
-
-The statuses are available for the following types.
--type supports:
-%v
- and sorted by time of occurrence.
-
- The default is unit.
-`, supportedHistoryKindDescs())
+const statusHistoryDoc = `
+Reports the history of status information for a given entity.
+`
 
 const statusHistoryExamples = `
 Show the status history for the specified unit:
@@ -96,14 +88,11 @@ Show the status history for the model:
 
 func (c *statusHistoryCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:     "show-status-log",
-		Args:     "<entity name>",
-		Purpose:  "Output past statuses for the specified entity.",
-		Doc:      statusHistoryDoc,
-		Examples: statusHistoryExamples,
-		SeeAlso: []string{
-			"status",
-		},
+		Name:    "show-status-log",
+		Args:    "<entity> ...",
+		Purpose: "Outputs past statuses for the specified entity.",
+		Doc:     statusHistoryDoc,
+		Aliases: []string{"status-history"},
 	})
 }
 
@@ -130,11 +119,11 @@ func supportedHistoryKindDescs() string {
 
 func (c *statusHistoryCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.outputContent, "type", "unit", fmt.Sprintf("Type of statuses to be displayed [%v]", supportedHistoryKindTypes()))
-	f.IntVar(&c.backlogSize, "n", 0, "Returns the last N logs (cannot be combined with --days or --date)")
-	f.IntVar(&c.backlogSizeDays, "days", 0, "Returns the logs for the past <days> days (cannot be combined with -n or --date)")
-	f.StringVar(&c.backlogDate, "from-date", "", "Returns logs for any date after the passed one, the expected date format is YYYY-MM-DD (cannot be combined with -n or --days)")
-	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
+	f.StringVar(&c.outputContent, "type", "unit", fmt.Sprintf("Specifies the type of statuses to be displayed [%v]", supportedHistoryKindTypes()))
+	f.IntVar(&c.backlogSize, "n", 0, "Returns the last N logs (cannot be combined with --days or --date).")
+	f.IntVar(&c.backlogSizeDays, "days", 0, "Returns the logs for the past <days> days (cannot be combined with -n or --date).")
+	f.StringVar(&c.backlogDate, "from-date", "", "Returns logs for any date after the passed one, the expected date format is YYYY-MM-DD (cannot be combined with -n or --days).")
+	f.BoolVar(&c.isoTime, "utc", false, "Specifies whether to display time as UTC in RFC3339 format.")
 
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,

@@ -89,8 +89,8 @@ func (c *removeStorageCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *removeStorageCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.StorageCommandBase.SetFlags(f)
-	f.BoolVar(&c.force, "force", false, "Remove storage even if it is currently attached")
-	f.BoolVar(&c.noDestroy, "no-destroy", false, "Remove the storage without destroying it")
+	f.BoolVar(&c.force, "force", false, "Specifies whether to remove storage even if it is currently attached.")
+	f.BoolVar(&c.noDestroy, "no-destroy", false, "Specifies whether to remove the storage without destroying it.")
 	c.fs = f
 }
 

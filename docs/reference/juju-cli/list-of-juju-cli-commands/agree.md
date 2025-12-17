@@ -3,7 +3,7 @@
 > See also: [agreements](#agreements)
 
 ## Summary
-Agree to terms.
+Agrees to terms.
 
 ## Usage
 ```juju agree [options] <term>```
@@ -11,9 +11,9 @@ Agree to terms.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--yes` | false | Agree to terms non interactively |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
+| `--yes` | false | Agrees to terms non-interactively. |
 
 ## Examples
 

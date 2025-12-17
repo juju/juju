@@ -11,9 +11,9 @@ Deletes a Juju user from a controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `-y`, `--yes` | false | Confirm deletion of the user |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
+| `-y`, `--yes` | false | Specifies whether to confirm deletion of the user. |
 
 ## Examples
 
@@ -22,6 +22,6 @@ Deletes a Juju user from a controller.
 
 
 ## Details
-This removes a user permanently.
+Removes a user permanently.
 
 By default, the controller is the current controller.

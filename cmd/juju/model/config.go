@@ -33,7 +33,7 @@ To view all configuration values for the current model:
 
     juju model-config
 
-You can target a specific model using the ` + "`-m`" + ` flag:
+To target a specific model:
 
     juju model-config -m <model>
     juju model-config -m <controller>:<model>
@@ -266,7 +266,7 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 		"tabular": formatConfigTabular,
 		"yaml":    cmd.FormatYaml,
 	})
-	f.BoolVar(&c.ignoreReadOnlyFields, "ignore-read-only-fields", false, "Ignore read only fields that might cause errors to be emitted while processing yaml documents")
+	f.BoolVar(&c.ignoreReadOnlyFields, "ignore-read-only-fields", false, "Specifies whether to ignore read-only fields that might cause errors to be emitted while processing YAML documents.")
 }
 
 // Init implements part of the cmd.Command interface.

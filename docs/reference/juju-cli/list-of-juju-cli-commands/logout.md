@@ -11,9 +11,9 @@ Logs a Juju user out of a controller.
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--force` | false | Force logout when a locally recorded password is detected |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `-c`, `--controller` |  | Specifies the controller to operate in. |
+| `--force` | false | Specifies whether to force logout when a locally recorded password is detected. |
 
 ## Examples
 
@@ -22,7 +22,7 @@ Logs a Juju user out of a controller.
 
 ## Details
 
-If another client has logged in as the same user, they will remain logged
+Logs a Juju user out of a controller. If another client has logged in as the same user, they will remain logged
 in. This command only affects the local client.
 
 The command will fail if the user has not yet set a password

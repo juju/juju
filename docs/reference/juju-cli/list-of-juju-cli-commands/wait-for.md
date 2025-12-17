@@ -1,7 +1,7 @@
 (command-juju-wait-for)=
 # `juju wait-for`
 ## Summary
-Wait for an entity to reach a specified state.
+Waits for an entity to reach a specified state.
 
 ## Usage
 ```juju wait-for [flags] <command> ...```

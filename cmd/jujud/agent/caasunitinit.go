@@ -78,8 +78,8 @@ func (c *CAASUnitInitCommand) Info() *cmd.Info {
 }
 
 func (c *CAASUnitInitCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.Wait, "wait", false, "wait for args init via socket")
-	f.BoolVar(&c.Send, "send", false, "send args for init via socket")
+	f.BoolVar(&c.Wait, "wait", false, "Specifies whether to wait for args init via socket.")
+	f.BoolVar(&c.Send, "send", false, "Specifies whether to send args for init via socket.")
 	f.StringVar(&c.Args.Unit, "unit", "", "unit name")
 	f.StringVar(&c.Args.OperatorFile, "operator-file", "", "operator client info file")
 	f.StringVar(&c.Args.OperatorCACertFile, "operator-ca-cert-file", "", "ca cert for operator")

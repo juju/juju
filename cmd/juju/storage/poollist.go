@@ -35,7 +35,7 @@ func formatPoolInfo(all []params.StoragePool) map[string]PoolInfo {
 }
 
 const poolListCommandDoc = `
-The user can filter on pool type, name.
+Lists storage pools. Filters on pool type, name.
 
 If no filter is specified, all current pools are listed.
 If at least 1 name and type is specified, only pools that match both a name
@@ -88,7 +88,7 @@ func (c *poolListCommand) Init(args []string) (err error) {
 func (c *poolListCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "storage-pools",
-		Purpose:  "List storage pools.",
+		Purpose:  "Lists storage pools.",
 		Doc:      poolListCommandDoc,
 		Aliases:  []string{"list-storage-pools"},
 		Examples: poolListCommandExample,
@@ -102,8 +102,8 @@ func (c *poolListCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *poolListCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.StorageCommandBase.SetFlags(f)
-	f.Var(cmd.NewAppendStringsValue(&c.Providers), "provider", "Only show pools of these provider types")
-	f.Var(cmd.NewAppendStringsValue(&c.Names), "name", "Only show pools with these names")
+	f.Var(cmd.NewAppendStringsValue(&c.Providers), "provider", "Specifies the provider types to restrict pools to.")
+	f.Var(cmd.NewAppendStringsValue(&c.Names), "name", "Specifies the names to restrict pools to.")
 
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,

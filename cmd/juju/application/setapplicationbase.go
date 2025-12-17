@@ -44,7 +44,7 @@ type setApplicationBase struct {
 }
 
 var setApplicationBaseDoc = `
-The specified application's base value will be set within juju. Any subordinates
+Sets the specified application's base value within Juju. Any subordinates
 of the application will also have their base set to the provided value. A base
 can be specified using the OS name and the version of the OS, separated by ` + "`@`" + `.
 
@@ -67,7 +67,7 @@ func (c *setApplicationBase) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "set-application-base",
 		Args:     "<application> <base>",
-		Purpose:  "Set an application's base.",
+		Purpose:  "Sets an application's base.",
 		Doc:      setApplicationBaseDoc,
 		Examples: setApplicationBaseExamples,
 		SeeAlso: []string{

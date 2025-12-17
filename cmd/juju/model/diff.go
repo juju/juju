@@ -92,8 +92,8 @@ func (c *diffCommand) Info() *cmd.Info {
 // SetFlags implements part of the cmd.Command interface.
 func (c *diffCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
-	f.BoolVar(&c.detailed, "all", false, "Show branch unit detail")
+	f.BoolVar(&c.isoTime, "utc", false, "Specifies whether to display time as UTC in RFC3339 format.")
+	f.BoolVar(&c.detailed, "all", false, "Specifies whether to show branch unit detail.")
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 

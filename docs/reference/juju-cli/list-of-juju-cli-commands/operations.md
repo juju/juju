@@ -13,18 +13,18 @@ Lists pending, running, or completed operations for specified application, units
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--actions` |  | Comma separated list of actions names to filter on |
-| `--apps`, `--applications` |  | Comma separated list of applications to filter on |
+| `-B`, `--no-browser-login` | false | Specifies whether to skip web browser for authentication. |
+| `--actions` |  | Specifies a comma-separated list of action names to filter on. |
+| `--apps`, `--applications` |  | Specifies a comma-separated list of applications to filter on. |
 | `--format` | plain | Specify output format (json&#x7c;plain&#x7c;yaml) |
-| `--limit` | 0 | The maximum number of operations to return |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--machines` |  | Comma separated list of machines to filter on |
+| `--limit` | 0 | Specifies the maximum number of operations to return. |
+| `-m`, `--model` |  | Specifies the model to operate in. Accepts `[<controller name>:]<model name>|<model UUID>`. |
+| `--machines` |  | Specifies a comma-separated list of machines to filter on. |
 | `-o`, `--output` |  | Specify an output file |
-| `--offset` | 0 | Return operations from offset onwards |
-| `--status` |  | Comma separated list of operation status values to filter on |
-| `--units` |  | Comma separated list of units to filter on |
-| `--utc` | false | Show times in UTC |
+| `--offset` | 0 | Returns operations from offset onwards. |
+| `--status` |  | Specifies a comma-separated list of operation status values to filter on. |
+| `--units` |  | Specifies a comma-separated list of units to filter on. |
+| `--utc` | false | Specifies whether to show times in UTC. |
 
 ## Examples
 
@@ -42,7 +42,8 @@ Lists pending, running, or completed operations for specified application, units
 
 ## Details
 
-List the operations with the specified query criteria.
+Lists the operations with the specified query criteria.
+
 When an application is specified, all units from that application are relevant.
 
 When run without any arguments, operations corresponding to actions for all
