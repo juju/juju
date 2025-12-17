@@ -12,7 +12,7 @@ run_refresh_switch_local_to_ch_channel() {
 	ensure "${model_name}" "${file}"
 
 	juju download juju-qa-refresher --no-progress - >"${charm_name}"
-	juju deploy --channel=stable "${charm_name}"
+	juju deploy --channel=stable --series focal "${charm_name}"
 	wait_for "refresher" "$(idle_condition "refresher")"
 
 	OUT=$(juju refresh refresher --switch ch:juju-qa-refresher --channel edge 2>&1 || true)
@@ -28,7 +28,7 @@ run_refresh_switch_local_to_ch_channel() {
 	revision=$(echo "${OUT}" | awk 'BEGIN{FS=","} {print $2}' | awk 'BEGIN{FS=" "} {print $2}')
 
 	wait_for "refresher" "$(charm_rev "refresher" "${revision}")"
-	wait_for "refresher" "$(charm_channel "refresher" "latest/edge")"
+	wait_for "refresher" "$(charm_channel "refresher" "edge")"
 	wait_for "refresher" "$(idle_condition "refresher")"
 
 	destroy_model "${model_name}"

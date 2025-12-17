@@ -8,7 +8,7 @@ run_deploy_bundle() {
 
 	ensure "test-bundles-deploy" "${file}"
 
-	juju deploy juju-qa-bundle-test
+	juju deploy juju-qa-bundle-test --channel 2.9/stable
 	wait_for "dummy-subordinate" "$(idle_subordinate_condition "dummy-subordinate" "juju-qa-test")"
 	wait_for "dummy-subordinate-focal" "$(idle_subordinate_condition "dummy-subordinate-focal" "juju-qa-test-focal")"
 
@@ -206,7 +206,7 @@ run_deploy_charmhub_bundle() {
 	ensure "${model_name}" "${file}"
 
 	bundle=juju-qa-bundle-test
-	juju deploy "${bundle}"
+	juju deploy "${bundle}" --channel 2.9/stable
 
 	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "2.0/stable")"
 	wait_for "juju-qa-test-focal" "$(charm_channel "juju-qa-test-focal" "latest/candidate")"
