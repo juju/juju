@@ -18,6 +18,7 @@ func NewTestAPI(
 	authorizer facade.Authorizer,
 	secretService SecretService,
 	secretBackendService SecretBackendService,
+	modelName string,
 ) (*SecretsAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -28,6 +29,7 @@ func NewTestAPI(
 		authorizer:           authorizer,
 		controllerUUID:       coretesting.ControllerTag.Id(),
 		modelUUID:            coretesting.ModelTag.Id(),
+		modelName:            modelName,
 		secretService:        secretService,
 		secretBackendService: secretBackendService,
 	}, nil

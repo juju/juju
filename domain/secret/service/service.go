@@ -620,10 +620,28 @@ func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 		return []*secrets.SecretMetadata{metadata}, [][]*secrets.SecretRevisionMetadata{revisions}, nil
 	}
 
+	secretBackendUUIDstoNames, err := s.secretBackendState.GetSecretBackendNamesWithUUIDs(ctx)
+	if err != nil {
+		return nil, nil, errors.Errorf("getting secret backend names with UUIDs: %w", err)
+	}
 	if len(labels) > 0 {
 		metadataList, revisionsList, err := s.secretState.ListSecretsByLabels(ctx, labels, revision)
 		if err != nil {
 			return nil, nil, errors.Errorf("getting secrets by labels: %w", err)
+		}
+		for _, revisionsForOneSecret := range revisionsList {
+			for _, revision := range revisionsForOneSecret {
+				if revision == nil || revision.ValueRef == nil {
+					continue
+				}
+				secretBackendName, exists := secretBackendUUIDstoNames[revision.ValueRef.BackendID]
+				// BackendUUID may not exist, eg. LXD model with no external vaults.
+				// In that case, we leave BackendName and there will be a default value set later.
+				if exists {
+					revision.BackendName = &secretBackendName
+				}
+
+			}
 		}
 		return metadataList, revisionsList, nil
 	}

@@ -162,13 +162,13 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 		for _, r := range revisionMetadata[i] {
 			backendName := r.BackendName
 			if backendName == nil {
-				if r.ValueRef != nil {
-					if r.ValueRef.BackendID == s.modelUUID {
-						name := kubernetes.BuiltInName(s.modelName)
-						backendName = &name
-					}
-				} else {
-					name := juju.BackendName
+				name := juju.BackendName
+				backendName = &name
+			} else {
+				// We want to maintain the behavior that if the backend is kubernetes,
+				// we return the built-in name, even though the backend name is now populated.
+				if *backendName == kubernetes.BackendName {
+					name := kubernetes.BuiltInName(s.modelName)
 					backendName = &name
 				}
 			}

@@ -1817,3 +1817,31 @@ type preparer struct{}
 func (p preparer) Prepare(query string, args ...any) (*sqlair.Statement, error) {
 	return sqlair.Prepare(query, args...)
 }
+
+func (s *stateSuite) TestGetSecretBackendNamesWithUUIDsMultiple(c *tc.C) {
+	backends := map[string]string{
+		uuid.MustNewUUID().String(): "backend-one",
+		uuid.MustNewUUID().String(): "backend-two",
+		uuid.MustNewUUID().String(): "backend-three",
+	}
+	for id, name := range backends {
+		_, err := s.state.CreateSecretBackend(c.Context(), secretbackend.CreateSecretBackendParams{
+			BackendIdentifier: secretbackend.BackendIdentifier{
+				ID:   id,
+				Name: name,
+			},
+			BackendType: "vault",
+		})
+		c.Assert(err, tc.IsNil)
+	}
+
+	res, err := s.state.GetSecretBackendNamesWithUUIDs(c.Context())
+	c.Assert(err, tc.IsNil)
+	c.Assert(res, tc.DeepEquals, backends)
+}
+
+func (s *stateSuite) TestGetSecretBackendNamesWithUUIDsEmpty(c *tc.C) {
+	names, err := s.state.GetSecretBackendNamesWithUUIDs(c.Context())
+	c.Assert(err, tc.IsNil)
+	c.Assert(names, tc.HasLen, 0)
+}

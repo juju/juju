@@ -186,4 +186,8 @@ type SecretBackendState interface {
 	// GetActiveModelSecretBackend returns the active secret backend ID and config for the given model.
 	// It returns an error satisfying [modelerrors.NotFound] if the model provided does not exist.
 	GetActiveModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID) (string, *provider.ModelBackendConfig, error)
+
+	// GetSecretBackendNamesWithUUIDs returns a map of backend UUID to backend name for all backends.
+	// An empty map will be returned if there are no backends.
+	GetSecretBackendNamesWithUUIDs(ctx context.Context) (map[string]string, error)
 }

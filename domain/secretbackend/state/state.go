@@ -1273,3 +1273,38 @@ WHERE b.uuid IN ($S[:])`,
 func (s *State) NamespaceForWatchModelSecretBackend() string {
 	return "model_secret_backend"
 }
+
+// GetSecretBackendNamesWithUUIDs returns a map of backend UUID to backend name for all backends.
+// An empty map will be returned if there are no backends.
+func (s *State) GetSecretBackendNamesWithUUIDs(ctx context.Context) (map[string]string, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := s.Prepare(`
+SELECT uuid AS &SecretBackend.uuid,
+       name AS &SecretBackend.name
+FROM   secret_backend`, SecretBackend{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var rows []SecretBackend
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&rows)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]string, len(rows))
+	for _, backend := range rows {
+		result[backend.ID] = backend.Name
+	}
+	return result, nil
+}

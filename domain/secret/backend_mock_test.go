@@ -161,6 +161,45 @@ func (c *MockSecretBackendStateGetModelSecretBackendDetailsCall) DoAndReturn(f f
 	return c
 }
 
+// GetSecretBackendNamesWithUUIDs mocks base method.
+func (m *MockSecretBackendState) GetSecretBackendNamesWithUUIDs(arg0 context.Context) (map[string]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecretBackendNamesWithUUIDs", arg0)
+	ret0, _ := ret[0].(map[string]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecretBackendNamesWithUUIDs indicates an expected call of GetSecretBackendNamesWithUUIDs.
+func (mr *MockSecretBackendStateMockRecorder) GetSecretBackendNamesWithUUIDs(arg0 any) *MockSecretBackendStateGetSecretBackendNamesWithUUIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretBackendNamesWithUUIDs", reflect.TypeOf((*MockSecretBackendState)(nil).GetSecretBackendNamesWithUUIDs), arg0)
+	return &MockSecretBackendStateGetSecretBackendNamesWithUUIDsCall{Call: call}
+}
+
+// MockSecretBackendStateGetSecretBackendNamesWithUUIDsCall wrap *gomock.Call
+type MockSecretBackendStateGetSecretBackendNamesWithUUIDsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSecretBackendStateGetSecretBackendNamesWithUUIDsCall) Return(arg0 map[string]string, arg1 error) *MockSecretBackendStateGetSecretBackendNamesWithUUIDsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSecretBackendStateGetSecretBackendNamesWithUUIDsCall) Do(f func(context.Context) (map[string]string, error)) *MockSecretBackendStateGetSecretBackendNamesWithUUIDsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSecretBackendStateGetSecretBackendNamesWithUUIDsCall) DoAndReturn(f func(context.Context) (map[string]string, error)) *MockSecretBackendStateGetSecretBackendNamesWithUUIDsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ListSecretBackendsForModel mocks base method.
 func (m *MockSecretBackendState) ListSecretBackendsForModel(arg0 context.Context, arg1 model.UUID, arg2 bool) ([]*secretbackend.SecretBackend, error) {
 	m.ctrl.T.Helper()
