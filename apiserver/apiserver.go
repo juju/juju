@@ -691,7 +691,8 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	logStreamHandler := newLogStreamEndpointHandler(httpCtxt)
 	embeddedCLIHandler := newEmbeddedCLIHandler(httpCtxt)
 	var debuglogAuth httpcontext.CompositeAuthorizer = []httpcontext.Authorizer{
-		tagKindAuthorizer{names.MachineTagKind, names.ControllerAgentTagKind},
+		tagKindAuthorizer{names.ControllerAgentTagKind},
+		controllerAuthorizer{},
 		controllerAdminAuthorizer{
 			st: systemState,
 		},
