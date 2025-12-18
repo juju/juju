@@ -174,8 +174,22 @@ func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *tc.C) {
 func (s *serviceSuite) TestActivateImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().DeleteModelImportingStatus(gomock.Any()).Return(nil)
-	s.controllerState.EXPECT().DeleteModelImportingStatus(gomock.Any(), "test-model-uuid").Return(nil)
+	currentVersion := semversion.MustParse("4.0.0")
+	desiredVersion := semversion.MustParse("4.0.1")
+
+	mExp := s.modelState.EXPECT()
+	cExp := s.controllerState.EXPECT()
+
+	// These are expected to be called in order. The agent version must be
+	// updated before the model importing status is deleted. And we want the
+	// controller state to have the model importing status deleted last.
+	gomock.InOrder(
+		cExp.GetControllerTargetVersion(gomock.Any()).Return(desiredVersion, nil),
+		mExp.GetModelTargetAgentVersion(gomock.Any()).Return(currentVersion, nil),
+		mExp.SetModelTargetAgentVersion(gomock.Any(), currentVersion, desiredVersion).Return(nil),
+		mExp.DeleteModelImportingStatus(gomock.Any()).Return(nil),
+		cExp.DeleteModelImportingStatus(gomock.Any(), "test-model-uuid").Return(nil),
+	)
 
 	err := NewService(
 		s.controllerState,
@@ -187,10 +201,62 @@ func (s *serviceSuite) TestActivateImport(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 }
 
+func (s *serviceSuite) TestActivateImportSameVersion(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	currentVersion := semversion.MustParse("4.0.0")
+	desiredVersion := semversion.MustParse("4.0.0")
+
+	mExp := s.modelState.EXPECT()
+	cExp := s.controllerState.EXPECT()
+
+	// These are expected to be called in order. The agent version must be
+	// updated before the model importing status is deleted. And we want the
+	// controller state to have the model importing status deleted last.
+	gomock.InOrder(
+		cExp.GetControllerTargetVersion(gomock.Any()).Return(desiredVersion, nil),
+		mExp.GetModelTargetAgentVersion(gomock.Any()).Return(currentVersion, nil),
+		mExp.DeleteModelImportingStatus(gomock.Any()).Return(nil),
+		cExp.DeleteModelImportingStatus(gomock.Any(), "test-model-uuid").Return(nil),
+	)
+
+	err := NewService(
+		s.controllerState,
+		s.modelState,
+		"test-model-uuid",
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+	).ActivateImport(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestActivateImportControllerFails(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cExp := s.controllerState.EXPECT()
+
+	cExp.GetControllerTargetVersion(gomock.Any()).Return(semversion.Zero, errors.Errorf("front fell off"))
+
+	err := NewService(
+		s.controllerState,
+		s.modelState,
+		"test-model-uuid",
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+	).ActivateImport(c.Context())
+	c.Check(err, tc.ErrorMatches, ".*front fell off")
+}
+
 func (s *serviceSuite) TestActivateImportModelFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.modelState.EXPECT().DeleteModelImportingStatus(gomock.Any()).Return(errors.Errorf("front fell off"))
+	desiredVersion := semversion.MustParse("4.0.1")
+
+	mExp := s.modelState.EXPECT()
+	cExp := s.controllerState.EXPECT()
+
+	cExp.GetControllerTargetVersion(gomock.Any()).Return(desiredVersion, nil)
+	mExp.GetModelTargetAgentVersion(gomock.Any()).Return(semversion.Zero, errors.Errorf("front fell off"))
 
 	err := NewService(
 		s.controllerState,

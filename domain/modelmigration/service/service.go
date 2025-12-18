@@ -30,17 +30,16 @@ type InstanceProvider interface {
 // ResourceProvider describes a provider for managing cloud resources on behalf
 // of a model.
 type ResourceProvider interface {
-	// AdoptResources is called when the model is moved from one
-	// controller to another using model migration. Some providers tag
-	// instances, disks, and cloud storage with the controller UUID to
-	// aid in clean destruction. This method will be called on the
-	// environ for the target controller so it can update the
-	// controller tags for all of those things. For providers that do
-	// not track the controller UUID, a simple method returning nil
-	// will suffice. The version number of the source controller is
-	// provided for backwards compatibility - if the technique used to
-	// tag items changes, the version number can be used to decide how
-	// to remove the old tags correctly.
+	// AdoptResources is called when the model is moved from one controller to
+	// another using model migration. Some providers tag instances, disks, and
+	// cloud storage with the controller UUID to aid in clean destruction. This
+	// method will be called on the environ for the target controller so it can
+	// update the controller tags for all of those things. For providers that do
+	// not track the controller UUID, a simple method returning nil will
+	// suffice. The version number of the source controller is provided for
+	// backwards compatibility - if the technique used to tag items changes, the
+	// version number can be used to decide how to remove the old tags
+	// correctly.
 	AdoptResources(context.Context, string, semversion.Number) error
 }
 
@@ -61,9 +60,13 @@ type Service struct {
 	modelUUID       string
 }
 
-// ControllerState defines the interface required for accessing the underlying state of
-// the model during migration.
+// ControllerState defines the interface required for accessing the underlying
+// state of the model during migration.
 type ControllerState interface {
+	// GetControllerTargetVersion returns the target controller version in use
+	// by the cluster.
+	GetControllerTargetVersion(ctx context.Context) (semversion.Number, error)
+
 	// DeleteModelImportingStatus removes the entry from the model_migrating
 	// table in the model database, indicating that the model import has
 	// completed or been aborted.
@@ -79,14 +82,26 @@ type ModelState interface {
 	// GetAllInstanceIDs returns all instance IDs from the current model as
 	// juju/collections set.
 	GetAllInstanceIDs(ctx context.Context) (set.Strings, error)
+	// GetModelTargetAgentVersion returns the target agent version for this
+	// model.
+	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
+	// SetModelTargetAgentVersion is responsible for setting the current target
+	// agent version of the model. This function expects a precondition version
+	// to be supplied. The model's target version at the time the operation is
+	// applied must match the preCondition version or else an error is returned.
+	SetModelTargetAgentVersion(
+		ctx context.Context,
+		preCondition semversion.Number,
+		toVersion semversion.Number,
+	) error
 	// DeleteModelImportingStatus removes the entry from the model_migrating
 	// table in the model database, indicating that the model import has
 	// completed or been aborted.
 	DeleteModelImportingStatus(ctx context.Context) error
 }
 
-// NewService is responsible for constructing a new [Service] to handle model migration
-// tasks.
+// NewService is responsible for constructing a new [Service] to handle model
+// migration tasks.
 func NewService(
 	controllerState ControllerState,
 	modelState ModelState,
@@ -303,6 +318,41 @@ func (s *Service) MinionReports(ctx context.Context) (migration.MinionReports, e
 func (s *Service) ActivateImport(ctx context.Context) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	// Before we activate the model after the import, we need to update the
+	// agent version to match the current controller version. This ensures that
+	// all agents after a migration are running the correct version. This was
+	// done previously in two steps, and could cause a model after a migration
+	// to be in a state where it was running a very old agent version until the
+	// the operator manually upgraded the agents.
+
+	desiredTargetVersion, err := s.controllerState.GetControllerTargetVersion(ctx)
+	if err != nil {
+		return errors.Errorf("getting current controller agent version: %w", err)
+	} else if desiredTargetVersion.IsZero() {
+		// This shouldn't happen, and indicates a programming error somewhere.
+		return errors.Errorf("current controller agent version is not set")
+	}
+
+	currentTargetVersion, err := s.modelState.GetModelTargetAgentVersion(ctx)
+	if err != nil {
+		return errors.Errorf("getting current model agent version: %w", err)
+	}
+
+	// TODO (stickupkid): We should validate if we have all the binaries
+	// architectures for the desired target version here.
+
+	// If the current target version doesn't match the desired target version,
+	// we need to update it.
+	if currentTargetVersion != desiredTargetVersion {
+		// Update the model target agent version to match the controller's
+		// target agent version.
+		if err = s.modelState.SetModelTargetAgentVersion(
+			ctx, currentTargetVersion, desiredTargetVersion,
+		); err != nil {
+			return errors.Capture(err)
+		}
+	}
 
 	// Delete the migration importing status from the model database. This
 	// should ensure that the model is no longer considered to be importing.

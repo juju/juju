@@ -203,6 +203,45 @@ func (c *MockControllerStateDeleteModelImportingStatusCall) DoAndReturn(f func(c
 	return c
 }
 
+// GetControllerTargetVersion mocks base method.
+func (m *MockControllerState) GetControllerTargetVersion(arg0 context.Context) (semversion.Number, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetControllerTargetVersion", arg0)
+	ret0, _ := ret[0].(semversion.Number)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetControllerTargetVersion indicates an expected call of GetControllerTargetVersion.
+func (mr *MockControllerStateMockRecorder) GetControllerTargetVersion(arg0 any) *MockControllerStateGetControllerTargetVersionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerTargetVersion", reflect.TypeOf((*MockControllerState)(nil).GetControllerTargetVersion), arg0)
+	return &MockControllerStateGetControllerTargetVersionCall{Call: call}
+}
+
+// MockControllerStateGetControllerTargetVersionCall wrap *gomock.Call
+type MockControllerStateGetControllerTargetVersionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerStateGetControllerTargetVersionCall) Return(arg0 semversion.Number, arg1 error) *MockControllerStateGetControllerTargetVersionCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerStateGetControllerTargetVersionCall) Do(f func(context.Context) (semversion.Number, error)) *MockControllerStateGetControllerTargetVersionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerStateGetControllerTargetVersionCall) DoAndReturn(f func(context.Context) (semversion.Number, error)) *MockControllerStateGetControllerTargetVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockModelState is a mock of ModelState interface.
 type MockModelState struct {
 	ctrl     *gomock.Controller
@@ -338,6 +377,83 @@ func (c *MockModelStateGetControllerUUIDCall) Do(f func(context.Context) (string
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateGetControllerUUIDCall) DoAndReturn(f func(context.Context) (string, error)) *MockModelStateGetControllerUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetModelTargetAgentVersion mocks base method.
+func (m *MockModelState) GetModelTargetAgentVersion(arg0 context.Context) (semversion.Number, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelTargetAgentVersion", arg0)
+	ret0, _ := ret[0].(semversion.Number)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelTargetAgentVersion indicates an expected call of GetModelTargetAgentVersion.
+func (mr *MockModelStateMockRecorder) GetModelTargetAgentVersion(arg0 any) *MockModelStateGetModelTargetAgentVersionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelTargetAgentVersion", reflect.TypeOf((*MockModelState)(nil).GetModelTargetAgentVersion), arg0)
+	return &MockModelStateGetModelTargetAgentVersionCall{Call: call}
+}
+
+// MockModelStateGetModelTargetAgentVersionCall wrap *gomock.Call
+type MockModelStateGetModelTargetAgentVersionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetModelTargetAgentVersionCall) Return(arg0 semversion.Number, arg1 error) *MockModelStateGetModelTargetAgentVersionCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetModelTargetAgentVersionCall) Do(f func(context.Context) (semversion.Number, error)) *MockModelStateGetModelTargetAgentVersionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetModelTargetAgentVersionCall) DoAndReturn(f func(context.Context) (semversion.Number, error)) *MockModelStateGetModelTargetAgentVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetModelTargetAgentVersion mocks base method.
+func (m *MockModelState) SetModelTargetAgentVersion(arg0 context.Context, arg1, arg2 semversion.Number) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetModelTargetAgentVersion", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetModelTargetAgentVersion indicates an expected call of SetModelTargetAgentVersion.
+func (mr *MockModelStateMockRecorder) SetModelTargetAgentVersion(arg0, arg1, arg2 any) *MockModelStateSetModelTargetAgentVersionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModelTargetAgentVersion", reflect.TypeOf((*MockModelState)(nil).SetModelTargetAgentVersion), arg0, arg1, arg2)
+	return &MockModelStateSetModelTargetAgentVersionCall{Call: call}
+}
+
+// MockModelStateSetModelTargetAgentVersionCall wrap *gomock.Call
+type MockModelStateSetModelTargetAgentVersionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateSetModelTargetAgentVersionCall) Return(arg0 error) *MockModelStateSetModelTargetAgentVersionCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateSetModelTargetAgentVersionCall) Do(f func(context.Context, semversion.Number, semversion.Number) error) *MockModelStateSetModelTargetAgentVersionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateSetModelTargetAgentVersionCall) DoAndReturn(f func(context.Context, semversion.Number, semversion.Number) error) *MockModelStateSetModelTargetAgentVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
