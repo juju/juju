@@ -1463,7 +1463,7 @@ func (s *modelUpgradeSuite) TestRunPreUpgradeChecksToVersion(c *tc.C) {
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(true, nil)
 
 	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
-	version, err := svc.RunPreUpgradeChecksToVersion(c.Context(), desiredVersion)
+	version, err := svc.runPreUpgradeChecksToVersion(c.Context(), desiredVersion)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(version, tc.Equals, currentVersion)
 }
@@ -1520,7 +1520,7 @@ func (s *modelUpgradeSuite) TestRunPreUpgradeChecksToVersionGetAllMachinesWithBa
 	)
 
 	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
-	_, err := svc.RunPreUpgradeChecksToVersion(c.Context(), desiredVersion)
+	_, err := svc.runPreUpgradeChecksToVersion(c.Context(), desiredVersion)
 	c.Assert(err, tc.NotNil)
 	c.Check(err.Error(), tc.Matches, ".*getting machine bases from state.*")
 }
@@ -1572,7 +1572,7 @@ func (s *modelUpgradeSuite) TestRunPreUpgradeChecksToVersionEmptyMachines(c *tc.
 	s.agentBinaryFinder.EXPECT().HasBinariesForVersion(desiredVersion).Return(true, nil)
 
 	svc := NewService(s.agentBinaryFinder, s.modelState, s.controllerState)
-	version, err := svc.RunPreUpgradeChecksToVersion(c.Context(), desiredVersion)
+	version, err := svc.runPreUpgradeChecksToVersion(c.Context(), desiredVersion)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(version, tc.Equals, currentVersion)
 }

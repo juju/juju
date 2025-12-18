@@ -277,7 +277,7 @@ func (s *Service) UpgradeControllerToVersion(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	err := s.RunPreUpgradeChecksToVersion(ctx, desiredVersion)
+	err := s.runPreUpgradeChecksToVersion(ctx, desiredVersion)
 	if err != nil {
 		return err
 	}
@@ -500,7 +500,7 @@ func (s *Service) RunPreUpgradeChecks(ctx context.Context) (semversion.Number, e
 			"getting desired controller version to upgrade to: %w", err,
 		)
 	}
-	err = s.RunPreUpgradeChecksToVersion(ctx, desiredVersion)
+	err = s.runPreUpgradeChecksToVersion(ctx, desiredVersion)
 	if err != nil {
 		return semversion.Zero, err
 	}
@@ -508,22 +508,23 @@ func (s *Service) RunPreUpgradeChecks(ctx context.Context) (semversion.Number, e
 	return desiredVersion, nil
 }
 
-// RunPreUpgradeChecksToVersion determines whether the controller can be safely
-// upgraded to the specified version. It performs validation checks to ensure that
-// the target version is valid and that the upgrade can proceed. The method ensures
-// that the desired version is not the zero value, that the upgrade does not attempt
-// a downgrade or a non-patch version change, that all controller nodes are in a
-// consistent state and not blocking the upgrade, and that controller binaries exist
-// for the specified version and required architectures.
+// runPreUpgradeChecksToVersion determines whether the controller can be safely
+// upgraded to the specified version. It performs validation checks to ensure
+// that the target version is valid and that the upgrade can proceed. The method
+// ensures that the desired version is not the zero value, that the upgrade does
+// not attempt a downgrade or a non-patch version change, that all controller
+// nodes are in a consistent state and not blocking the upgrade, and that
+// controller binaries exist for the specified version and required
+// architectures.
 //
-// The following errors may be expected:
-// - [controllerupgradererrors.DowngradeNotSupported] if the requested version
-// being upgraded to would result in a downgrade of the controller.
-// - [controllerupgradererrors.VersionNotSupported] if the requested version
-// being upgraded to is more than a patch version upgrade.
-// - [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
+// The following errors may be expected: -
+// [controllerupgradererrors.DowngradeNotSupported] if the requested version
+// being upgraded to would result in a downgrade of the controller. -
+// [controllerupgradererrors.VersionNotSupported] if the requested version being
+// upgraded to is more than a patch version upgrade. -
+// [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
 // exists preventing a controller upgrade from proceeding.
-func (s *Service) RunPreUpgradeChecksToVersion(ctx context.Context, desiredVersion semversion.Number) error {
+func (s *Service) runPreUpgradeChecksToVersion(ctx context.Context, desiredVersion semversion.Number) error {
 	// We should not continue any further if the version is a zero value.
 	if desiredVersion == semversion.Zero {
 		return errors.New(
@@ -556,21 +557,23 @@ func (s *Service) RunPreUpgradeChecksToVersion(ctx context.Context, desiredVersi
 	return nil
 }
 
-// RunPreUpgradeChecksWithStream determines whether the controller can be upgraded
-// to the latest available patch version within the specified agent stream. It returns
-// the desired version that the controller can upgrade to if all validation checks pass.
+// RunPreUpgradeChecksWithStream determines whether the controller can be
+// upgraded to the latest available patch version within the specified agent
+// stream. It returns the desired version that the controller can upgrade to if
+// all validation checks pass.
 //
-// The method first ensures that the provided agent stream is valid, then retrieves the
-// highest available patch version for that stream. It validates that upgrading to the
-// retrieved version is supported and safe, and confirms that the required controller
-// binaries exist for the version, stream, and architectures.
+// The method first ensures that the provided agent stream is valid, then
+// retrieves the highest available patch version for that stream. It validates
+// that upgrading to the retrieved version is supported and safe, and confirms
+// that the required controller binaries exist for the version, stream, and
+// architectures.
 //
-// The following errors may be expected:
-// - [controllerupgradererrors.DowngradeNotSupported] if the requested version
-// being upgraded to would result in a downgrade of the controller.
-// - [controllerupgradererrors.VersionNotSupported] if the requested version
-// being upgraded to is more than a patch version upgrade.
-// - [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
+// The following errors may be expected: -
+// [controllerupgradererrors.DowngradeNotSupported] if the requested version
+// being upgraded to would result in a downgrade of the controller. -
+// [controllerupgradererrors.VersionNotSupported] if the requested version being
+// upgraded to is more than a patch version upgrade. -
+// [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
 // exists preventing a controller upgrade from proceeding.
 func (s *Service) RunPreUpgradeChecksWithStream(ctx context.Context, stream agentbinary.Stream) (semversion.Number, error) {
 	if !stream.IsValid() {
@@ -596,19 +599,20 @@ func (s *Service) RunPreUpgradeChecksWithStream(ctx context.Context, stream agen
 	return desiredVersion, nil
 }
 
-// RunPreUpgradeChecksToVersionWithStream determines whether the controller can be
-// safely upgraded to the specified version within the given agent stream. It verifies
-// that the desired version and stream are valid, ensures the upgrade does not attempt
-// a downgrade or a non-patch upgrade, checks that all controller nodes are in a
-// consistent state, and confirms that the necessary controller binaries exist for the
-// specified version, stream, and architectures.
+// RunPreUpgradeChecksToVersionWithStream determines whether the controller can
+// be safely upgraded to the specified version within the given agent stream. It
+// verifies that the desired version and stream are valid, ensures the upgrade
+// does not attempt a downgrade or a non-patch upgrade, checks that all
+// controller nodes are in a consistent state, and confirms that the necessary
+// controller binaries exist for the specified version, stream, and
+// architectures.
 //
-// The following errors may be expected:
-// - [controllerupgradererrors.DowngradeNotSupported] if the requested version
-// being upgraded to would result in a downgrade of the controller.
-// - [controllerupgradererrors.VersionNotSupported] if the requested version
-// being upgraded to is more than a patch version upgrade.
-// - [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
+// The following errors may be expected: -
+// [controllerupgradererrors.DowngradeNotSupported] if the requested version
+// being upgraded to would result in a downgrade of the controller. -
+// [controllerupgradererrors.VersionNotSupported] if the requested version being
+// upgraded to is more than a patch version upgrade. -
+// [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
 // exists preventing a controller upgrade from proceeding.
 func (s *Service) RunPreUpgradeChecksToVersionWithStream(ctx context.Context, desiredVersion semversion.Number, stream agentbinary.Stream) error {
 	// We should not continue any further if the version is a zero value.
