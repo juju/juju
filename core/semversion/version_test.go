@@ -20,32 +20,39 @@ func TestSuite(t *testing.T) {
 	tc.Run(t, &suite{})
 }
 
+func (*suite) TestZero(c *tc.C) {
+	var zero semversion.Number
+	c.Check(zero.IsZero(), tc.IsTrue)
+	nonZero := semversion.Number{Major: 1}
+	c.Check(nonZero.IsZero(), tc.IsFalse)
+}
+
 func (*suite) TestCompare(c *tc.C) {
 	cmpTests := []struct {
 		v1, v2  string
 		compare int
 	}{
-		{"1.0.0", "1.0.0", 0},
-		{"01.0.0", "1.0.0", 0},
-		{"10.0.0", "9.0.0", 1},
-		{"1.0.0", "1.0.1", -1},
-		{"1.0.1", "1.0.0", 1},
-		{"1.0.0", "1.1.0", -1},
-		{"1.1.0", "1.0.0", 1},
-		{"1.0.0", "2.0.0", -1},
-		{"1.2-alpha1", "1.2.0", -1},
-		{"1.2-alpha2", "1.2-alpha1", 1},
-		{"1.2-alpha2.1", "1.2-alpha2", 1},
-		{"1.2-alpha2.2", "1.2-alpha2.1", 1},
-		{"1.2-beta1", "1.2-alpha1", 1},
-		{"1.2-beta1", "1.2-alpha2.1", 1},
-		{"1.2-beta1", "1.2.0", -1},
-		{"1.2.1", "1.2.0", 1},
-		{"2.0.0", "1.0.0", 1},
-		{"2.0.0.0", "2.0.0", 0},
-		{"2.0.0.0", "2.0.0.0", 0},
-		{"2.0.0.1", "2.0.0.0", 1},
-		{"2.0.1.10", "2.0.0.0", 1},
+		{v1: "1.0.0", v2: "1.0.0", compare: 0},
+		{v1: "01.0.0", v2: "1.0.0", compare: 0},
+		{v1: "10.0.0", v2: "9.0.0", compare: 1},
+		{v1: "1.0.0", v2: "1.0.1", compare: -1},
+		{v1: "1.0.1", v2: "1.0.0", compare: 1},
+		{v1: "1.0.0", v2: "1.1.0", compare: -1},
+		{v1: "1.1.0", v2: "1.0.0", compare: 1},
+		{v1: "1.0.0", v2: "2.0.0", compare: -1},
+		{v1: "1.2-alpha1", v2: "1.2.0", compare: -1},
+		{v1: "1.2-alpha2", v2: "1.2-alpha1", compare: 1},
+		{v1: "1.2-alpha2.1", v2: "1.2-alpha2", compare: 1},
+		{v1: "1.2-alpha2.2", v2: "1.2-alpha2.1", compare: 1},
+		{v1: "1.2-beta1", v2: "1.2-alpha1", compare: 1},
+		{v1: "1.2-beta1", v2: "1.2-alpha2.1", compare: 1},
+		{v1: "1.2-beta1", v2: "1.2.0", compare: -1},
+		{v1: "1.2.1", v2: "1.2.0", compare: 1},
+		{v1: "2.0.0", v2: "1.0.0", compare: 1},
+		{v1: "2.0.0.0", v2: "2.0.0", compare: 0},
+		{v1: "2.0.0.0", v2: "2.0.0.0", compare: 0},
+		{v1: "2.0.0.1", v2: "2.0.0.0", compare: 1},
+		{v1: "2.0.1.10", v2: "2.0.0.0", compare: 1},
 	}
 
 	for i, test := range cmpTests {
@@ -68,27 +75,27 @@ func (*suite) TestCompareAfterPatched(c *tc.C) {
 		v1, v2  string
 		compare int
 	}{
-		{"1.0.0", "1.0.0", 0},
-		{"01.0.0", "1.0.0", 0},
-		{"10.0.0", "9.0.0", 1},
-		{"1.0.0", "1.0.1", -1},
-		{"1.0.1", "1.0.0", 1},
-		{"1.0.0", "1.1.0", -1},
-		{"1.1.0", "1.0.0", 1},
-		{"1.0.0", "2.0.0", -1},
-		{"1.2-alpha1", "1.2.0", -1},
-		{"1.2-alpha2", "1.2-alpha1", 1},
-		{"1.2-alpha2.1", "1.2-alpha2", 0},
-		{"1.2-alpha2.2", "1.2-alpha2.1", -1},
-		{"1.2-beta1", "1.2-alpha1", 1},
-		{"1.2-beta1", "1.2-alpha2.1", 1},
-		{"1.2-beta1", "1.2.0", -1},
-		{"1.2.1", "1.2.0", 1},
-		{"2.0.0", "1.0.0", 1},
-		{"2.0.0.0", "2.0.0", 0},
-		{"2.0.0.0", "2.0.0.0", 0},
-		{"2.0.0.1", "2.0.0.0", 0},
-		{"2.0.1.10", "2.0.0.0", 1},
+		{v1: "1.0.0", v2: "1.0.0", compare: 0},
+		{v1: "01.0.0", v2: "1.0.0", compare: 0},
+		{v1: "10.0.0", v2: "9.0.0", compare: 1},
+		{v1: "1.0.0", v2: "1.0.1", compare: -1},
+		{v1: "1.0.1", v2: "1.0.0", compare: 1},
+		{v1: "1.0.0", v2: "1.1.0", compare: -1},
+		{v1: "1.1.0", v2: "1.0.0", compare: 1},
+		{v1: "1.0.0", v2: "2.0.0", compare: -1},
+		{v1: "1.2-alpha1", v2: "1.2.0", compare: -1},
+		{v1: "1.2-alpha2", v2: "1.2-alpha1", compare: 1},
+		{v1: "1.2-alpha2.1", v2: "1.2-alpha2", compare: 0},
+		{v1: "1.2-alpha2.2", v2: "1.2-alpha2.1", compare: -1},
+		{v1: "1.2-beta1", v2: "1.2-alpha1", compare: 1},
+		{v1: "1.2-beta1", v2: "1.2-alpha2.1", compare: 1},
+		{v1: "1.2-beta1", v2: "1.2.0", compare: -1},
+		{v1: "1.2.1", v2: "1.2.0", compare: 1},
+		{v1: "2.0.0", v2: "1.0.0", compare: 1},
+		{v1: "2.0.0.0", v2: "2.0.0", compare: 0},
+		{v1: "2.0.0.0", v2: "2.0.0.0", compare: 0},
+		{v1: "2.0.0.1", v2: "2.0.0.0", compare: 0},
+		{v1: "2.0.1.10", v2: "2.0.0.0", compare: 1},
 	}
 
 	for i, test := range cmpTests {
@@ -320,13 +327,13 @@ var marshallers = []struct {
 	marshal   func(interface{}) ([]byte, error)
 	unmarshal func([]byte, interface{}) error
 }{{
-	"json",
-	json.Marshal,
-	json.Unmarshal,
+	name:      "json",
+	marshal:   json.Marshal,
+	unmarshal: json.Unmarshal,
 }, {
-	"yaml",
-	goyaml.Marshal,
-	goyaml.Unmarshal,
+	name:      "yaml",
+	marshal:   goyaml.Marshal,
+	unmarshal: goyaml.Unmarshal,
 }}
 
 func (*suite) TestBinaryMarshalUnmarshal(c *tc.C) {
@@ -357,7 +364,7 @@ func (*suite) TestNumberMarshalUnmarshal(c *tc.C) {
 		// Work around goyaml bug #1096149
 		// SetYAML is not called for non-pointer fields.
 		np := semversion.MustParse("1.2.3")
-		v := doc{&np}
+		v := doc{Version: &np}
 		data, err := m.marshal(&v)
 		c.Assert(err, tc.ErrorIsNil)
 		var nv doc

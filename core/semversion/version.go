@@ -20,6 +20,11 @@ type Number struct {
 	Build int
 }
 
+// IsZero returns whether the version is the zero value.
+func (n Number) IsZero() bool {
+	return n == Zero
+}
+
 // Zero is occasionally convenient and readable.
 // Please don't change its value.
 var Zero = Number{}

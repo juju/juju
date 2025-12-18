@@ -942,7 +942,7 @@ func (s *Service) validateModelCanBeUpgradedTo(
 	currentTargetVersion semversion.Number,
 	desiredTargetVersion semversion.Number,
 ) error {
-	if semversion.Zero == desiredTargetVersion {
+	if desiredTargetVersion.IsZero() {
 		return errors.New(
 			"invalid agent version supplied",
 		).Add(modelagenterrors.AgentVersionNotSupported)
