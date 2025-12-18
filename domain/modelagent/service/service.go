@@ -785,7 +785,7 @@ func (s *Service) UpgradeModelAgentToTargetVersion(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	currentTargetVersion, err := s.runPreUpgradeChecksToVersion(ctx, desiredTargetVersion)
+	currentTargetVersion, err := s.RunPreUpgradeChecksToVersion(ctx, desiredTargetVersion)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1045,7 +1045,7 @@ func (s *Service) RunPreUpgradeChecks(
 		return semversion.Zero, errors.Capture(err)
 	}
 
-	_, err = s.runPreUpgradeChecksToVersion(ctx, recommendedVersion)
+	_, err = s.RunPreUpgradeChecksToVersion(ctx, recommendedVersion)
 	if err != nil {
 		return semversion.Zero, err
 	}
@@ -1053,7 +1053,7 @@ func (s *Service) RunPreUpgradeChecks(
 	return recommendedVersion, nil
 }
 
-// runPreUpgradeChecksToVersion performs pre-upgrade validation checks
+// RunPreUpgradeChecksToVersion performs pre-upgrade validation checks
 // to ensure that the model can be safely upgraded to a specific desired
 // target agent version.
 //
@@ -1074,7 +1074,7 @@ func (s *Service) RunPreUpgradeChecks(
 //     the model preventing an upgrade.
 //
 // Returns the current model target version if validation passes.
-func (s *Service) runPreUpgradeChecksToVersion(
+func (s *Service) RunPreUpgradeChecksToVersion(
 	ctx context.Context,
 	desiredTargetVersion semversion.Number,
 ) (semversion.Number, error) {

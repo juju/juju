@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	domainagentbinary "github.com/juju/juju/domain/agentbinary"
@@ -266,4 +267,20 @@ func (s *migrationSuite) TestDeleteModelImportingStatusIdempotent(c *tc.C) {
 		s.modelUUID).Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
+}
+
+// TestSetModelTargetAgentVersion is a happy path test for
+// [State.SetModelTargetAgentVersion].
+func (s *migrationSuite) TestSetModelTargetAgentVersion(c *tc.C) {
+	toVersion, err := semversion.Parse("5.2.0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := New(s.TxnRunnerFactory(), s.modelUUID)
+
+	err = st.SetModelTargetAgentVersion(c.Context(), jujuversion.Current, toVersion)
+	c.Check(err, tc.ErrorIsNil)
+
+	ver, err := st.GetModelTargetAgentVersion(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(ver.String(), tc.Equals, "5.2.0")
 }

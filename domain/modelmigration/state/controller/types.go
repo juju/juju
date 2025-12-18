@@ -8,3 +8,9 @@ package controller
 type entityUUID struct {
 	UUID string `db:"uuid"`
 }
+
+// controllerTargetVersion represents the current target version set for the
+// controller.
+type controllerTargetVersion struct {
+	TargetVersion string `db:"target_version"`
+}

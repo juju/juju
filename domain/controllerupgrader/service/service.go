@@ -277,7 +277,7 @@ func (s *Service) UpgradeControllerToVersion(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	err := s.runPreUpgradeChecksToVersion(ctx, desiredVersion)
+	err := s.RunPreUpgradeChecksToVersion(ctx, desiredVersion)
 	if err != nil {
 		return err
 	}
@@ -500,7 +500,7 @@ func (s *Service) RunPreUpgradeChecks(ctx context.Context) (semversion.Number, e
 			"getting desired controller version to upgrade to: %w", err,
 		)
 	}
-	err = s.runPreUpgradeChecksToVersion(ctx, desiredVersion)
+	err = s.RunPreUpgradeChecksToVersion(ctx, desiredVersion)
 	if err != nil {
 		return semversion.Zero, err
 	}
@@ -508,7 +508,7 @@ func (s *Service) RunPreUpgradeChecks(ctx context.Context) (semversion.Number, e
 	return desiredVersion, nil
 }
 
-// runPreUpgradeChecksToVersion determines whether the controller can be safely
+// RunPreUpgradeChecksToVersion determines whether the controller can be safely
 // upgraded to the specified version. It performs validation checks to ensure
 // that the target version is valid and that the upgrade can proceed. The method
 // ensures that the desired version is not the zero value, that the upgrade does
@@ -524,7 +524,7 @@ func (s *Service) RunPreUpgradeChecks(ctx context.Context) (semversion.Number, e
 // upgraded to is more than a patch version upgrade. -
 // [controllerupgradererrors.ControllerUpgradeBlocker] describing a block that
 // exists preventing a controller upgrade from proceeding.
-func (s *Service) runPreUpgradeChecksToVersion(ctx context.Context, desiredVersion semversion.Number) error {
+func (s *Service) RunPreUpgradeChecksToVersion(ctx context.Context, desiredVersion semversion.Number) error {
 	// We should not continue any further if the version is a zero value.
 	if desiredVersion == semversion.Zero {
 		return errors.New(

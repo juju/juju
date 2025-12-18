@@ -9,6 +9,7 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/internal/errors"
 )
@@ -51,4 +52,45 @@ WHERE model_uuid = $entityUUID.uuid
 		}
 		return nil
 	})
+}
+
+// GetControllerTargetVersion returns the target controller version in use by the
+// cluster.
+func (s *State) GetControllerTargetVersion(ctx context.Context) (semversion.Number, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return semversion.Number{}, errors.Capture(err)
+	}
+
+	var versionValue controllerTargetVersion
+	stmt, err := s.Prepare(`
+SELECT &controllerTargetVersion.*
+FROM   controller
+`,
+		versionValue)
+	if err != nil {
+		return semversion.Number{}, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&versionValue)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.New("no controller target version has been previously set")
+		}
+		return err
+	})
+
+	if err != nil {
+		return semversion.Zero, errors.Capture(err)
+	}
+
+	rval, err := semversion.Parse(versionValue.TargetVersion)
+	if err != nil {
+		return semversion.Zero, errors.Errorf(
+			"parsing target version %q for controller: %w",
+			versionValue.TargetVersion, err,
+		)
+	}
+
+	return rval, nil
 }

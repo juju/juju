@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/internal/errors"
 )
@@ -133,4 +134,122 @@ WHERE model_uuid = $entityUUID.uuid
 		}
 		return nil
 	})
+}
+
+// GetModelTargetAgentVersion returns the target agent version currently set for
+// the model. This func expects that the target agent version for
+// the model has already been set.
+func (s *State) GetModelTargetAgentVersion(
+	ctx context.Context,
+) (semversion.Number, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return semversion.Zero, errors.Capture(err)
+	}
+
+	var currentVersion string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		currentVersion, err = s.getModelTargetAgentVersion(ctx, tx)
+		return err
+	})
+
+	if err != nil {
+		return semversion.Zero, errors.Capture(err)
+	}
+
+	rval, err := semversion.Parse(currentVersion)
+	if err != nil {
+		return semversion.Zero, errors.Errorf(
+			"parsing controller model target agent version %q: %w",
+			currentVersion, err,
+		)
+	}
+	return rval, nil
+}
+
+// SetModelTargetAgentVersion is responsible for setting the current target
+// agent version of the model. This function expects a precondition
+// version to be supplied. The model's target agent version at the time the
+// operation is applied must match the preCondition version or else an error is
+// returned.
+func (s *State) SetModelTargetAgentVersion(
+	ctx context.Context,
+	preCondition semversion.Number,
+	toVersion semversion.Number,
+) error {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	toVersionInput := setAgentVersionTarget{TargetVersion: toVersion.String()}
+	setAgentVersionStmt, err := s.Prepare(`
+UPDATE agent_version
+SET    target_version = $setAgentVersionTarget.target_version
+`,
+		toVersionInput,
+	)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	preConditionVersionStr := preCondition.String()
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		currentAgentVersion, err := s.getModelTargetAgentVersion(ctx, tx)
+		if err != nil {
+			return errors.Errorf(
+				"checking current target agent version for model to validate precondition: %w", err,
+			)
+		}
+
+		if currentAgentVersion != preConditionVersionStr {
+			return errors.Errorf(
+				"unable to set agent version for model. The agent version has changed to %q",
+				currentAgentVersion,
+			)
+		}
+
+		// If the current version is the same as the toVersion we don't need to
+		// perform the set operation. This avoids creating any churn in the
+		// change log.
+		if currentAgentVersion == toVersionInput.TargetVersion {
+			return nil
+		}
+
+		err = tx.Query(ctx, setAgentVersionStmt, toVersionInput).Run()
+		if err != nil {
+			return errors.Errorf(
+				"setting target agent version to %q for model: %w",
+				toVersion.String(), err,
+			)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+func (s *State) getModelTargetAgentVersion(
+	ctx context.Context,
+	tx *sqlair.TX,
+) (string, error) {
+	var dbVal agentVersionTarget
+	stmt, err := s.Prepare(
+		"SELECT &agentVersionTarget.* FROM agent_version",
+		dbVal,
+	)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt).Get(&dbVal)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", errors.New("no target agent version has previously been set for the controller's model")
+	}
+
+	return dbVal.TargetVersion, err
 }

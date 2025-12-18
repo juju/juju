@@ -19,3 +19,15 @@ type instanceID struct {
 type entityUUID struct {
 	UUID string `db:"uuid"`
 }
+
+// agentVersionTarget represents the target agent version column from the
+// agent_version table.
+type agentVersionTarget struct {
+	TargetVersion string `db:"target_version"`
+}
+
+// setAgentVersionTarget represents the set of update values required for
+// setting the model's target agent version.
+type setAgentVersionTarget struct {
+	TargetVersion string `db:"target_version"`
+}
