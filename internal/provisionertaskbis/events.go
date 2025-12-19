@@ -8,31 +8,22 @@ import (
 )
 
 // MachineEventType represents the type of event sent from the main loop to workers.
-type MachineEventType int
+type MachineEventType string
 
 const (
 	// EventLifeChanged indicates the machine's life value changed.
-	EventLifeChanged MachineEventType = iota
+	EventLifeChanged MachineEventType = "LifeChanged"
 
 	// EventZoneAssigned indicates the AZ Coordinator assigned a zone.
-	EventZoneAssigned
+	EventZoneAssigned MachineEventType = "ZoneAssigned"
 
 	// EventZoneRequestFailed indicates the zone request could not be fulfilled.
-	EventZoneRequestFailed
+	EventZoneRequestFailed MachineEventType = "ZoneRequestFailed"
 )
 
 // String returns a human-readable representation of the event type.
 func (t MachineEventType) String() string {
-	switch t {
-	case EventLifeChanged:
-		return "LifeChanged"
-	case EventZoneAssigned:
-		return "ZoneAssigned"
-	case EventZoneRequestFailed:
-		return "ZoneRequestFailed"
-	default:
-		return "Unknown"
-	}
+	return string(t)
 }
 
 // MachineEvent represents all events that can be sent to a machine worker.
@@ -44,31 +35,22 @@ type MachineEvent struct {
 }
 
 // WorkerRequestType represents the type of request sent from workers to the main loop.
-type WorkerRequestType int
+type WorkerRequestType string
 
 const (
 	// RequestZone asks the AZ Coordinator for a zone assignment.
-	RequestZone WorkerRequestType = iota
+	RequestZone WorkerRequestType = "RequestZone"
 
 	// RequestProvisionComplete notifies that provisioning finished.
-	RequestProvisionComplete
+	RequestProvisionComplete WorkerRequestType = "RequestProvisionComplete"
 
 	// RequestCancelZone cancels a pending zone request.
-	RequestCancelZone
+	RequestCancelZone WorkerRequestType = "RequestCancelZone"
 )
 
 // String returns a human-readable representation of the request type.
 func (t WorkerRequestType) String() string {
-	switch t {
-	case RequestZone:
-		return "RequestZone"
-	case RequestProvisionComplete:
-		return "RequestProvisionComplete"
-	case RequestCancelZone:
-		return "RequestCancelZone"
-	default:
-		return "Unknown"
-	}
+	return string(t)
 }
 
 // ZoneRequestPayload contains parameters for requesting a zone assignment.
