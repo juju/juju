@@ -165,7 +165,7 @@ func (s *ToolsCheckerSuite) TestUpdateToolsAvailability(c *tc.C) {
 		findTools: fakeToolFinder,
 	}
 
-	err = w.updateToolsAvailability(c.Context())
+	err = w.performCheck(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -194,6 +194,6 @@ func (s *ToolsCheckerSuite) TestUpdateToolsAvailabilityNoMatches(c *tc.C) {
 		findTools: fakeToolFinder,
 	}
 
-	err = w.updateToolsAvailability(c.Context())
+	err = w.performCheck(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }

@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/environs/tools"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -40,8 +41,9 @@ func (s *ManifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 				machine: s.mockMachineService,
 			}, nil
 		},
-		NewWorker: func(WorkerConfig) worker.Worker { return nil },
-		Logger:    loggertesting.WrapCheckLog(c),
+		ToolsFinder: tools.FindTools,
+		NewWorker:   func(WorkerConfig) worker.Worker { return nil },
+		Logger:      loggertesting.WrapCheckLog(c),
 	}
 }
 
@@ -84,6 +86,10 @@ func (s *ManifoldSuite) TestValidateConfig(c *tc.C) {
 
 	cfg = s.getConfig(c)
 	cfg.GetDomainServices = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
+	cfg.ToolsFinder = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)

@@ -35,6 +35,7 @@ import (
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/tools"
 	internalbootstrap "github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/charmhub"
 	containerbroker "github.com/juju/juju/internal/container/broker"
@@ -979,6 +980,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			DomainServicesName: domainServicesName,
 			GetModelUUID:       toolsversionchecker.GetModelUUID,
 			GetDomainServices:  toolsversionchecker.GetModelDomainServices,
+			ToolsFinder:        tools.FindTools,
 			NewWorker:          toolsversionchecker.New,
 			Logger:             internallogger.GetLogger("juju.worker.toolsversionchecker"),
 		})),

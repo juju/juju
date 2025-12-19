@@ -50,7 +50,7 @@ type WorkerConfig struct {
 
 	domainServices domainServices
 
-	findTools toolsFinder
+	findTools ToolsFinderFunc
 }
 
 // New returns a worker that periodically wakes up to try to find out and
@@ -63,24 +63,35 @@ func New(params WorkerConfig) worker.Worker {
 		findTools:      params.findTools,
 	}
 
-	f := func(ctx context.Context) error {
-		return w.doCheck(ctx)
-	}
-	return jworker.NewPeriodicWorker(f, params.checkInterval, jworker.NewTimer)
+	return jworker.NewPeriodicWorker(w.performCheck, params.checkInterval, jworker.NewTimer)
 }
 
 type toolsVersionWorker struct {
 	logger         logger.Logger
 	domainServices domainServices
 
-	findTools toolsFinder
+	findTools ToolsFinderFunc
 }
 
-type toolsFinder func(context.Context, tools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, coretools.Filter) (coretools.List, error)
+func (w *toolsVersionWorker) performCheck(ctx context.Context) error {
+	ver, err := w.checkToolsAvailability(ctx)
+	if errors.Is(err, errors.NotFound) {
+		// No newer tools, so exit silently.
+		return nil
+	} else if err != nil {
+		return errors.Annotate(err, "cannot get latest version")
+	} else if ver.IsZero() {
+		w.logger.Debugf(ctx, "The lookup of agent binaries returned version Zero. This should only happen during bootstrap.")
+		return nil
+	}
 
-func (w *toolsVersionWorker) doCheck(ctx context.Context) error {
-	err := w.updateToolsAvailability(ctx)
-	return errors.Annotate(err, "cannot update agent binaries information")
+	err = w.domainServices.agent.UpdateLatestAgentVersion(ctx, ver)
+	if errors.Is(err, modelagenterrors.LatestVersionDowngradeNotSupported) {
+		w.logger.Warningf(ctx, err.Error())
+	} else if err != nil {
+		return errors.Annotate(err, "updating latest agent version")
+	}
+	return nil
 }
 
 func (w *toolsVersionWorker) checkToolsAvailability(ctx context.Context) (semversion.Number, error) {
@@ -109,26 +120,4 @@ func (w *toolsVersionWorker) checkToolsAvailability(ctx context.Context) (semver
 	// newest version.
 	newest, _ := vers.Newest()
 	return newest, nil
-}
-
-func (w *toolsVersionWorker) updateToolsAvailability(ctx context.Context) error {
-	ver, err := w.checkToolsAvailability(ctx)
-	if errors.Is(err, errors.NotFound) {
-		// No newer tools, so exit silently.
-		return nil
-	} else if err != nil {
-		return errors.Annotate(err, "cannot get latest version")
-	}
-	if ver == semversion.Zero {
-		w.logger.Debugf(ctx, "The lookup of agent binaries returned version Zero. This should only happen during bootstrap.")
-		return nil
-	}
-
-	err = w.domainServices.agent.UpdateLatestAgentVersion(ctx, ver)
-	if errors.Is(err, modelagenterrors.LatestVersionDowngradeNotSupported) {
-		w.logger.Warningf(ctx, err.Error())
-	} else if err != nil {
-		return errors.Annotate(err, "updating latest agent version")
-	}
-	return nil
 }

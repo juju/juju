@@ -15,9 +15,26 @@ import (
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/services"
+	coretools "github.com/juju/juju/internal/tools"
 )
+
+// GetModelUUIDFunc is the type of function that returns the model UUID for the
+// agent running the manifold.
+type GetModelUUIDFunc func(context.Context, dependency.Getter, string) (model.UUID, error)
+
+// GetDomainServicesFunc is the type of function that returns the model domain
+// services for the given model UUID.
+type GetDomainServicesFunc func(context.Context, dependency.Getter, string, model.UUID) (domainServices, error)
+
+// ToolsFinderFunc is the type of function that finds available tools versions.
+type ToolsFinderFunc func(context.Context, tools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, coretools.Filter) (coretools.List, error)
+
+// NewWorkerFunc is the type of function that creates a new tools version
+// updater worker.
+type NewWorkerFunc func(WorkerConfig) worker.Worker
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
@@ -25,9 +42,10 @@ type ManifoldConfig struct {
 	DomainServicesName string
 	Logger             logger.Logger
 
-	GetModelUUID      func(context.Context, dependency.Getter, string) (model.UUID, error)
-	GetDomainServices func(context.Context, dependency.Getter, string, model.UUID) (domainServices, error)
-	NewWorker         func(WorkerConfig) worker.Worker
+	GetModelUUID      GetModelUUIDFunc
+	GetDomainServices GetDomainServicesFunc
+	ToolsFinder       ToolsFinderFunc
+	NewWorker         NewWorkerFunc
 }
 
 func (cfg ManifoldConfig) Validate() error {
@@ -45,6 +63,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.GetDomainServices == nil {
 		return errors.NotValidf("nil GetDomainServices")
+	}
+	if cfg.ToolsFinder == nil {
+		return errors.NotValidf("nil ToolsFinder")
 	}
 	if cfg.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -84,7 +105,7 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		checkInterval:  time.Hour * 6,
 		logger:         cfg.Logger,
 		domainServices: domainServices,
-		findTools:      tools.FindTools,
+		findTools:      cfg.ToolsFinder,
 	}), nil
 }
 
