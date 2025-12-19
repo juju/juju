@@ -14,14 +14,37 @@ import (
 	"github.com/juju/juju/core/semversion"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
 	coretools "github.com/juju/juju/internal/tools"
 	jworker "github.com/juju/juju/internal/worker"
 )
 
-// VersionCheckerParams holds params for the version checker worker..
-type VersionCheckerParams struct {
+// MachineService provides access to an environ for finding agent binaries.
+type MachineService interface {
+	// GetBootstrapEnviron returns the bootstrap environ.
+	GetBootstrapEnviron(ctx context.Context) (environs.BootstrapEnviron, error)
+}
+
+// ModelConfigService provides access to the model configuration.
+type ModelConfigService interface {
+	// ModelConfig returns the current config for the model.
+	ModelConfig(context.Context) (*config.Config, error)
+}
+
+// ModelAgentService provides access to the Juju agent version for the model.
+type ModelAgentService interface {
+	// GetModelTargetAgentVersion returns the target agent version for the
+	// entire model.
+	GetModelTargetAgentVersion(ctx context.Context) (semversion.Number, error)
+
+	// UpdateLatestAgentVersion persists the latest available agent version.
+	UpdateLatestAgentVersion(context.Context, semversion.Number) error
+}
+
+// WorkerConfig holds params for the version checker worker..
+type WorkerConfig struct {
 	checkInterval time.Duration
 	logger        logger.Logger
 
@@ -33,7 +56,7 @@ type VersionCheckerParams struct {
 // New returns a worker that periodically wakes up to try to find out and
 // record the latest version of the tools so the update possibility can be
 // displayed to the users on status.
-func New(params VersionCheckerParams) worker.Worker {
+func New(params WorkerConfig) worker.Worker {
 	w := &toolsVersionWorker{
 		logger:         params.logger,
 		domainServices: params.domainServices,

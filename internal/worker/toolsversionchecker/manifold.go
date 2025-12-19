@@ -27,7 +27,7 @@ type ManifoldConfig struct {
 
 	GetModelUUID      func(context.Context, dependency.Getter, string) (model.UUID, error)
 	GetDomainServices func(context.Context, dependency.Getter, string, model.UUID) (domainServices, error)
-	NewWorker         func(VersionCheckerParams) worker.Worker
+	NewWorker         func(WorkerConfig) worker.Worker
 }
 
 func (cfg ManifoldConfig) Validate() error {
@@ -79,14 +79,13 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		return nil, errors.Trace(err)
 	}
 
-	checkerParams := VersionCheckerParams{
+	return cfg.NewWorker(WorkerConfig{
 		// 4 times a day seems a decent enough amount of checks.
 		checkInterval:  time.Hour * 6,
 		logger:         cfg.Logger,
 		domainServices: domainServices,
 		findTools:      tools.FindTools,
-	}
-	return cfg.NewWorker(checkerParams), nil
+	}), nil
 }
 
 type domainServices struct {

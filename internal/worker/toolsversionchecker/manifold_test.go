@@ -40,7 +40,7 @@ func (s *ManifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 				machine: s.mockMachineService,
 			}, nil
 		},
-		NewWorker: func(VersionCheckerParams) worker.Worker { return nil },
+		NewWorker: func(WorkerConfig) worker.Worker { return nil },
 		Logger:    loggertesting.WrapCheckLog(c),
 	}
 }
