@@ -8,57 +8,40 @@ import (
 )
 
 // State represents the FSM state of a machine worker.
-type State int
+type State string
 
 const (
 	// StatePending is the initial state. Machine exists but has no instance.
 	// Worker is ready to begin provisioning.
-	StatePending State = iota
+	StatePending State = "Pending"
 
 	// StateRequestingZone indicates the worker has requested an availability zone
 	// from the AZ Coordinator and is waiting for the response.
-	StateRequestingZone
+	StateRequestingZone State = "RequestingZone"
 
 	// StateProvisioning indicates the worker has acquired a semaphore slot and is
 	// executing StartInstance followed by SetInstanceInfo. Both calls happen
 	// within this single state.
-	StateProvisioning
+	StateProvisioning State = "Provisioning"
 
 	// StateRunning indicates the instance is created and registered. Worker idles,
 	// waiting for the machine to die.
-	StateRunning
+	StateRunning State = "Running"
 
 	// StateStopping indicates the worker is executing StopInstances to terminate
 	// the instance.
-	StateStopping
+	StateStopping State = "Stopping"
 
 	// StateRemoving indicates the worker is removing the machine record from state.
-	StateRemoving
+	StateRemoving State = "Removing"
 
 	// StateDone is the terminal state. Worker exits cleanly.
-	StateDone
+	StateDone State = "Done"
 )
 
 // String returns a human-readable representation of the state.
 func (s State) String() string {
-	switch s {
-	case StatePending:
-		return "Pending"
-	case StateRequestingZone:
-		return "RequestingZone"
-	case StateProvisioning:
-		return "Provisioning"
-	case StateRunning:
-		return "Running"
-	case StateStopping:
-		return "Stopping"
-	case StateRemoving:
-		return "Removing"
-	case StateDone:
-		return "Done"
-	default:
-		return "Unknown"
-	}
+	return string(s)
 }
 
 // IsTerminal returns true if the state is a terminal state (Done).
