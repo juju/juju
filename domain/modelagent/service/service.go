@@ -397,6 +397,15 @@ func (s *Service) GetMachineTargetAgentVersion(
 	return s.modelSt.GetMachineTargetAgentVersion(ctx, uuid)
 }
 
+// GetMissingAgentTargetVersions returns missing architectures for the
+// target agent version.
+func (s *Service) GetMissingAgentTargetVersions(ctx context.Context) (semversion.Number, []string, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return semversion.Zero, nil, nil
+}
+
 // GetUnitsAgentBinaryMetadata returns the agent binary metadata that is running
 // for each unit in the model. This call expects that every unit in the model
 // has their agent binary version set and there exist agent binaries available

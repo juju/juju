@@ -15,8 +15,11 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/tools"
 	errors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
+	coretools "github.com/juju/juju/internal/tools"
 )
 
 // GetModelUUIDFunc is the type of function that returns the model UUID for the
@@ -26,6 +29,9 @@ type GetModelUUIDFunc func(context.Context, dependency.Getter, string) (model.UU
 // GetDomainServicesFunc is the type of function that returns the model domain
 // services for the given model UUID.
 type GetDomainServicesFunc func(context.Context, dependency.Getter, string, model.UUID) (domainServices, error)
+
+// ToolsFinderFunc is the type of function that finds available tools versions.
+type ToolsFinderFunc func(context.Context, tools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, coretools.Filter) (coretools.List, error)
 
 // NewWorkerFunc is the type of function that creates a new tools version
 // updater worker.
@@ -39,6 +45,7 @@ type ManifoldConfig struct {
 
 	GetModelUUID      GetModelUUIDFunc
 	GetDomainServices GetDomainServicesFunc
+	ToolsFinder       ToolsFinderFunc
 	NewWorker         NewWorkerFunc
 
 	Clock  clock.Clock
@@ -46,18 +53,27 @@ type ManifoldConfig struct {
 }
 
 // Validate validates the manifold configuration.
-func (c *ManifoldConfig) Validate() error {
-	if c.AgentName == "" {
+func (cfg *ManifoldConfig) Validate() error {
+	if cfg.AgentName == "" {
 		return errors.Errorf("empty AgentName").Add(coreerrors.NotValid)
 	}
-	if c.DomainServicesName == "" {
+	if cfg.DomainServicesName == "" {
 		return errors.Errorf("empty DomainServicesName").Add(coreerrors.NotValid)
 	}
-	if c.Clock == nil {
-		return errors.Errorf("nil Clock").Add(coreerrors.NotValid)
-	}
-	if c.Logger == nil {
+	if cfg.Logger == nil {
 		return errors.Errorf("nil Logger").Add(coreerrors.NotValid)
+	}
+	if cfg.GetModelUUID == nil {
+		return errors.Errorf("nil GetModelUUID").Add(coreerrors.NotValid)
+	}
+	if cfg.GetDomainServices == nil {
+		return errors.Errorf("nil GetDomainServices").Add(coreerrors.NotValid)
+	}
+	if cfg.ToolsFinder == nil {
+		return errors.Errorf("nil ToolsFinder").Add(coreerrors.NotValid)
+	}
+	if cfg.NewWorker == nil {
+		return errors.Errorf("nil NewWorker").Add(coreerrors.NotValid)
 	}
 	return nil
 }
@@ -84,6 +100,7 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 
 			return cfg.NewWorker(WorkerConfig{
 				DomainServices: domainServices,
+				FindTools:      cfg.ToolsFinder,
 				Clock:          cfg.Clock,
 				Logger:         cfg.Logger,
 			}), nil

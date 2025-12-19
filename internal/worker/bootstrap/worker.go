@@ -513,9 +513,6 @@ func (w *bootstrapWorker) seedAgentBinary(ctx context.Context, dataDir string) (
 		return nil, fmt.Errorf("failed to get object store: %w", err)
 	}
 
-	// Agent binary seeder will populate the tools for the agent.
-	// TODO (tlm) agentStore is a temprorary hook back into Mongo that will be
-	// removed soon.
 	cleanup, err := w.cfg.AgentBinaryUploader(
 		ctx,
 		dataDir,
