@@ -200,6 +200,15 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		containers[k] = container
 	}
 
+	scale := 0
+	// Only propagate the scale from provisioningInfo when it indicates an
+	// in-progress application storage update. This ensures we preserve the
+	// desired replica count if the StatefulSet is deleted as part of the
+	// storage update and later re-created.
+	if provisionInfo.IsUpdatingApplicationStorage {
+		scale = provisionInfo.Scale
+	}
+
 	// TODO(sidecar): container.Mounts[*].Path <= consolidate? => provisionInfo.Filesystems[*].Attachment.Path
 	config := caas.ApplicationConfig{
 		IsPrivateImageRepo:   provisionInfo.ImageDetails.IsPrivate(),
@@ -216,11 +225,8 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		Containers:           containers,
 		CharmModifiedVersion: provisionInfo.CharmModifiedVersion,
 		Trust:                provisionInfo.Trust,
-		// TODO(jneo8): Now units scaling from 0->N follow the same flow.
-		// The provisionInfo.Scale is no longer used, so in theory we
-		// could delete this field. Should investigate refactoring.
-		InitialScale:    0,
-		StorageUniqueID: provisionInfo.StorageUniqueID,
+		InitialScale:         scale,
+		StorageUniqueID:      provisionInfo.StorageUniqueID,
 	}
 	switch ch.Meta().CharmUser {
 	case charm.RunAsDefault:
@@ -245,6 +251,11 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		reason = "deployed"
 		if appState.Exists {
 			reason = "updated"
+		}
+		err = facade.SetIsUpdatingApplicationStorage(appName, false)
+		if err != nil {
+			return errors.Annotatef(err,
+				"setting application %q isUpdatingStorage to false", appName)
 		}
 	}
 	logger.Debugf("application %q was %q", appName, reason)
@@ -768,7 +779,21 @@ func reconcileApplicationStorage(appName string, app caas.Application, facade CA
 		return errors.Trace(err)
 	}
 
-	return app.ReconcileStorage(info.Filesystems, info.StorageUniqueID)
+	err = facade.SetIsUpdatingApplicationStorage(appName, true)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = app.ReconcileStorage(info.Filesystems, info.StorageUniqueID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = facade.SetIsUpdatingApplicationStorage(appName, false)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func setApplicationStatus(appName string, s status.Status, reason string, data map[string]interface{},
