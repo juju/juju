@@ -58,6 +58,8 @@ type ApplicationOps interface {
 
 	EnsureScale(appName string, app caas.Application, appLife life.Value,
 		facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) error
+
+	ReconcileApplicationStorage(appName string, app caas.Application, facade CAASProvisionerFacade, logger Logger) error
 }
 
 type applicationOps struct {
@@ -116,6 +118,10 @@ func (applicationOps) ReconcileDeadUnitScale(appName string, app caas.Applicatio
 func (applicationOps) EnsureScale(appName string, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) error {
 	return ensureScale(appName, app, appLife, facade, unitFacade, logger)
+}
+
+func (applicationOps) ReconcileApplicationStorage(appName string, app caas.Application, facade CAASProvisionerFacade, logger Logger) error {
+	return reconcileApplicationStorage(appName, app, facade, logger)
 }
 
 type Tomb interface {
@@ -751,6 +757,18 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 		return tryAgain
 	}
 	return nil
+}
+
+func reconcileApplicationStorage(appName string, app caas.Application, facade CAASProvisionerFacade, logger Logger) error {
+	logger.Debugf("reconciling application %q storage", appName)
+
+	// Get filesystem provisioning info.
+	info, err := facade.FilesystemProvisioningInfo(appName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return app.ReconcileStorage(info.Filesystems, info.StorageUniqueID)
 }
 
 func setApplicationStatus(appName string, s status.Status, reason string, data map[string]interface{},

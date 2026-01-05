@@ -59,6 +59,9 @@ type Application interface {
 		string,
 	) error
 
+	// ReconcileStorage reconciles the storage with the given filesystems.
+	ReconcileStorage([]storage.KubernetesFilesystemParams, string) error
+
 	ServiceInterface
 }
 
