@@ -187,6 +187,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	appUnitsChan := make(chan []string, 1)
 	appChan := make(chan struct{}, 1)
 	appReplicasChan := make(chan struct{}, 1)
+	storageConsChan := make(chan struct{}, 1)
 
 	ops.EXPECT().RefreshApplicationStatus("test", app, gomock.Any(), facade, s.logger).Return(nil).AnyTimes()
 
@@ -202,6 +203,8 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		unitFacade.EXPECT().WatchApplicationScale("test").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
 		unitFacade.EXPECT().WatchApplicationTrustHash("test").Return(watchertest.NewMockStringsWatcher(trustChan), nil),
 		facade.EXPECT().WatchUnits("test").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),
+
+		facade.EXPECT().WatchStorageConstraints("test").Return(watchertest.NewMockNotifyWatcher(storageConsChan), nil),
 
 		// handleChange
 		facade.EXPECT().Life("test").Return(life.Alive, nil),
@@ -244,8 +247,14 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		}),
 		// appReplicasChan fired
 		ops.EXPECT().UpdateState("test", app, gomock.Any(), broker, facade, unitFacade, s.logger).DoAndReturn(func(_, _, _, _, _, _, _ any) (map[string]status.StatusInfo, error) {
-			provisioningInfoChan <- struct{}{}
+			storageConsChan <- struct{}{}
 			return nil, nil
+		}),
+
+		// storageConsChan fired
+		ops.EXPECT().ReconcileApplicationStorage("test", app, facade, s.logger).DoAndReturn(func(_, _, _, _ any) error {
+			provisioningInfoChan <- struct{}{}
+			return nil
 		}),
 
 		// provisioningInfoChan fired
@@ -291,6 +300,7 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *gc.C) {
 	appUnitsChan := make(chan []string, 1)
 	appChan := make(chan struct{}, 1)
 	appReplicasChan := make(chan struct{}, 1)
+	storageConsChan := make(chan struct{}, 1)
 
 	ops.EXPECT().RefreshApplicationStatus("test", app, gomock.Any(), facade, s.logger).Return(nil).AnyTimes()
 
@@ -301,6 +311,7 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *gc.C) {
 		unitFacade.EXPECT().WatchApplicationScale("test").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
 		unitFacade.EXPECT().WatchApplicationTrustHash("test").Return(watchertest.NewMockStringsWatcher(trustChan), nil),
 		facade.EXPECT().WatchUnits("test").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),
+		facade.EXPECT().WatchStorageConstraints("test").Return(watchertest.NewMockNotifyWatcher(storageConsChan), nil),
 
 		// handleChange
 		facade.EXPECT().Life("test").Return(life.Alive, nil),
