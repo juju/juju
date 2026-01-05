@@ -187,15 +187,17 @@ func (s *ModelServices) AgentBinaryStore() *agentbinaryservice.AgentBinaryStore 
 
 // AgentBinary returns the model's [agentbinaryservice.AgentBinaryService].
 func (s *ModelServices) AgentBinary() *agentbinaryservice.AgentBinaryService {
+	controlleragentBinaryState := agentbinarystate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB))
+
 	return agentbinaryservice.NewAgentBinaryService(
 		providertracker.ProviderRunner[agentbinaryservice.ProviderForAgentBinaryFinder](
 			s.providerFactory, s.modelUUID.String(),
 		), envtools.PreferredStreams, envtools.FindTools,
-		agentbinarystate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		controlleragentBinaryState,
 		agentbinarystate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.AgentBinaryStore(),
 		agentbinaryservice.NewAgentBinaryStore(
-			agentbinarystate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+			controlleragentBinaryState,
 			s.logger.Child("controlleragentbinary"),
 			s.controllerObjectStoreGetter,
 		),

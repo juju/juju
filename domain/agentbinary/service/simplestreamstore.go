@@ -87,6 +87,11 @@ func getPreferredFallbackStreams(stream agentbinary.Stream) []string {
 	return []string{}
 }
 
+const (
+	gzipXContentType = "application/x-gzip"
+	gzipContentType  = "application/gzip"
+)
+
 // GetAgentBinaryWithSHA256 retrieves the agent binary corresponding to the given version
 // and stream from simple stream.
 // The caller is responsible for closing the returned reader.
@@ -124,9 +129,8 @@ func (s *SimpleStreamsAgentBinaryStore) GetAgentBinaryWithSHA256(
 	}
 
 	// We only accept gzip content types back.
-	const gzipxContentType = "application/x-gzip"
-	const gzipContentType = "application/gzip"
-	req.Header.Set(headerAccept, gzipxContentType+","+gzipContentType)
+
+	req.Header.Set(headerAccept, gzipXContentType+","+gzipContentType)
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
@@ -150,7 +154,7 @@ func (s *SimpleStreamsAgentBinaryStore) GetAgentBinaryWithSHA256(
 		closeOnErr()
 		return nil, 0, "", errors.Errorf(
 			"simplestreams url %q does not support expected content type %q",
-			toolURL, gzipxContentType,
+			toolURL, gzipXContentType,
 		)
 	}
 	if resp.StatusCode != http.StatusOK {
@@ -161,7 +165,7 @@ func (s *SimpleStreamsAgentBinaryStore) GetAgentBinaryWithSHA256(
 		)
 	}
 
-	if resp.Header.Get(headerContentType) != gzipxContentType &&
+	if resp.Header.Get(headerContentType) != gzipXContentType &&
 		resp.Header.Get(headerContentType) != gzipContentType {
 		return nil, 0, "", errors.Errorf(
 			"simplestreams url %q returned unexpected content type %q",

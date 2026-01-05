@@ -24,9 +24,6 @@ import (
 	coretools "github.com/juju/juju/internal/tools"
 )
 
-const gzipXContentType = "application/x-gzip"
-const gzipContentType = "application/gzip"
-
 type simplestreamStoreSuite struct {
 	testhelpers.IsolationSuite
 

@@ -24,12 +24,16 @@ import (
 	intobjectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
 )
 
+// AgentBinaryStore provides methods to manage agent binaries in the object
+// store and their metadata in the database.
 type AgentBinaryStore struct {
 	logger            logger.Logger
 	st                AgentBinaryStoreState
 	objectStoreGetter objectstore.NamespacedObjectStoreGetter
 }
 
+// AgentBinaryStoreState defines the methods required from the state layer
+// for managing agent binaries.
 type AgentBinaryStoreState interface {
 	// CheckAgentBinarySHA256Exists checks that the given sha256 sum exists as an agent
 	// binary in the object store. This sha256 sum could exist as an object in
@@ -85,7 +89,8 @@ func generatePath(version coreagentbinary.Version, sha384 string) string {
 	return fmt.Sprintf("agent-binaries/%s-%s-%s", numberStr, version.Arch, sha384)
 }
 
-// AddAgentBinaryWithSHA256 adds a new agent binary to the object store and saves its metadata to the database.
+// AddAgentBinaryWithSHA256 adds a new agent binary to the object store and
+// saves its metadata to the database.
 // The following errors can be returned:
 // - [coreerrors.NotSupported] if the architecture is not supported.
 // - [agentbinaryerrors.AlreadyExists] if an agent binary already exists for

@@ -37,7 +37,7 @@ func (c cleanupReader) Close() error {
 
 // newStrictCacher creates a new [io.ReaderCloser] over the supplied reader
 // caching the readers contents to a local temporary file. When the returned
-// closer is closed the temporary file will be removed.newStrictCacher
+// closer is closed the temporary file will be removed.
 //
 // Should the provided reader not contain the expected number of bytes Read
 // will return an error satisfying [ErrorReaderDesync].
