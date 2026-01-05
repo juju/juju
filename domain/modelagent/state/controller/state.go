@@ -5,12 +5,15 @@ package controller
 
 import (
 	"context"
+	"maps"
+	"slices"
 
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -70,4 +73,60 @@ GROUP  BY version
 	}
 
 	return versions, nil
+}
+
+// GetMissingMachineTargetAgentVersionByArches returns the missing
+// architectures that do not have agent binaries for the given target
+// version from the provided set of architectures.
+func (st *State) GetMissingMachineTargetAgentVersionByArches(
+	ctx context.Context,
+	version string,
+	arches map[architecture.Architecture]struct{},
+) (map[architecture.Architecture]struct{}, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	key := agentBinaryStore{
+		Version: version,
+	}
+	archIDs := architectures(slices.Collect(maps.Keys(arches)))
+
+	stmt, err := st.Prepare(`
+SELECT &agentBinaryStore.*
+FROM   agent_binary_store
+WHERE  version = $agentBinaryStore.version 
+AND    architecture_id IN ($architectures[:])
+`, key, archIDs)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var found []agentBinaryStore
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, key, archIDs).GetAll(&found)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Errorf(
+				"getting existing agent binaries for version %q: %w",
+				version, err,
+			)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Removed the found architectures from the input set. The resulting
+	// set is the missing architectures.
+	result := make(map[architecture.Architecture]struct{})
+	maps.Copy(result, arches)
+	for _, abs := range found {
+		delete(result, architecture.Architecture(abs.ArchitectureID))
+	}
+
+	return result, nil
 }

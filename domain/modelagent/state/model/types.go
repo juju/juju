@@ -7,6 +7,7 @@ import (
 	"database/sql"
 
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/life"
 )
 
@@ -38,6 +39,17 @@ type architectureMap struct {
 	ID   int    `db:"id"`
 	Name string `db:"name"`
 }
+
+type agentBinaryStore struct {
+	Version        string `db:"version"`
+	ArchitectureID int    `db:"architecture_id"`
+}
+
+type architectureID struct {
+	ID int `db:"id"`
+}
+
+type architectures []architecture.Architecture
 
 // machineAgentVersion represents a record from the reported machine agent
 // table.
@@ -150,9 +162,9 @@ type unitAgentBinaryMetadata struct {
 // unitAgentVersion represents a record from the reported unit agent
 // version table.
 type unitAgentVersion struct {
-	UnitUUID      string `db:"unit_uuid"`
-	Version       string `db:"version"`
-	ArchtectureID int    `db:"architecture_id"`
+	UnitUUID       string `db:"unit_uuid"`
+	Version        string `db:"version"`
+	ArchitectureID int    `db:"architecture_id"`
 }
 
 // unitAgentVersionInfo represents a record from the unit agent version table.

@@ -19,6 +19,7 @@ import (
 	semversion "github.com/juju/juju/core/semversion"
 	unit "github.com/juju/juju/core/unit"
 	agentbinary0 "github.com/juju/juju/domain/agentbinary"
+	architecture "github.com/juju/juju/domain/application/architecture"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -105,6 +106,45 @@ func NewMockModelState(ctrl *gomock.Controller) *MockModelState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModelState) EXPECT() *MockModelStateMockRecorder {
 	return m.recorder
+}
+
+// GetAllMachinesArchitectures mocks base method.
+func (m *MockModelState) GetAllMachinesArchitectures(arg0 context.Context) (map[architecture.Architecture]struct{}, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllMachinesArchitectures", arg0)
+	ret0, _ := ret[0].(map[architecture.Architecture]struct{})
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllMachinesArchitectures indicates an expected call of GetAllMachinesArchitectures.
+func (mr *MockModelStateMockRecorder) GetAllMachinesArchitectures(arg0 any) *MockModelStateGetAllMachinesArchitecturesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllMachinesArchitectures", reflect.TypeOf((*MockModelState)(nil).GetAllMachinesArchitectures), arg0)
+	return &MockModelStateGetAllMachinesArchitecturesCall{Call: call}
+}
+
+// MockModelStateGetAllMachinesArchitecturesCall wrap *gomock.Call
+type MockModelStateGetAllMachinesArchitecturesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetAllMachinesArchitecturesCall) Return(arg0 map[architecture.Architecture]struct{}, arg1 error) *MockModelStateGetAllMachinesArchitecturesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetAllMachinesArchitecturesCall) Do(f func(context.Context) (map[architecture.Architecture]struct{}, error)) *MockModelStateGetAllMachinesArchitecturesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetAllMachinesArchitecturesCall) DoAndReturn(f func(context.Context) (map[architecture.Architecture]struct{}, error)) *MockModelStateGetAllMachinesArchitecturesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // GetAllMachinesWithBase mocks base method.
@@ -376,6 +416,45 @@ func (c *MockModelStateGetMachinesNotAtTargetAgentVersionCall) Do(f func(context
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelStateGetMachinesNotAtTargetAgentVersionCall) DoAndReturn(f func(context.Context) ([]machine.Name, error)) *MockModelStateGetMachinesNotAtTargetAgentVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetMissingMachineTargetAgentVersionByArches mocks base method.
+func (m *MockModelState) GetMissingMachineTargetAgentVersionByArches(arg0 context.Context, arg1 string, arg2 map[architecture.Architecture]struct{}) (map[architecture.Architecture]struct{}, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMissingMachineTargetAgentVersionByArches", arg0, arg1, arg2)
+	ret0, _ := ret[0].(map[architecture.Architecture]struct{})
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMissingMachineTargetAgentVersionByArches indicates an expected call of GetMissingMachineTargetAgentVersionByArches.
+func (mr *MockModelStateMockRecorder) GetMissingMachineTargetAgentVersionByArches(arg0, arg1, arg2 any) *MockModelStateGetMissingMachineTargetAgentVersionByArchesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMissingMachineTargetAgentVersionByArches", reflect.TypeOf((*MockModelState)(nil).GetMissingMachineTargetAgentVersionByArches), arg0, arg1, arg2)
+	return &MockModelStateGetMissingMachineTargetAgentVersionByArchesCall{Call: call}
+}
+
+// MockModelStateGetMissingMachineTargetAgentVersionByArchesCall wrap *gomock.Call
+type MockModelStateGetMissingMachineTargetAgentVersionByArchesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateGetMissingMachineTargetAgentVersionByArchesCall) Return(arg0 map[architecture.Architecture]struct{}, arg1 error) *MockModelStateGetMissingMachineTargetAgentVersionByArchesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateGetMissingMachineTargetAgentVersionByArchesCall) Do(f func(context.Context, string, map[architecture.Architecture]struct{}) (map[architecture.Architecture]struct{}, error)) *MockModelStateGetMissingMachineTargetAgentVersionByArchesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateGetMissingMachineTargetAgentVersionByArchesCall) DoAndReturn(f func(context.Context, string, map[architecture.Architecture]struct{}) (map[architecture.Architecture]struct{}, error)) *MockModelStateGetMissingMachineTargetAgentVersionByArchesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -977,6 +1056,45 @@ func (c *MockControllerStateGetControllerAgentVersionsCall) Do(f func(context.Co
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockControllerStateGetControllerAgentVersionsCall) DoAndReturn(f func(context.Context) ([]semversion.Number, error)) *MockControllerStateGetControllerAgentVersionsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetMissingMachineTargetAgentVersionByArches mocks base method.
+func (m *MockControllerState) GetMissingMachineTargetAgentVersionByArches(arg0 context.Context, arg1 string, arg2 map[architecture.Architecture]struct{}) (map[architecture.Architecture]struct{}, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMissingMachineTargetAgentVersionByArches", arg0, arg1, arg2)
+	ret0, _ := ret[0].(map[architecture.Architecture]struct{})
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMissingMachineTargetAgentVersionByArches indicates an expected call of GetMissingMachineTargetAgentVersionByArches.
+func (mr *MockControllerStateMockRecorder) GetMissingMachineTargetAgentVersionByArches(arg0, arg1, arg2 any) *MockControllerStateGetMissingMachineTargetAgentVersionByArchesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMissingMachineTargetAgentVersionByArches", reflect.TypeOf((*MockControllerState)(nil).GetMissingMachineTargetAgentVersionByArches), arg0, arg1, arg2)
+	return &MockControllerStateGetMissingMachineTargetAgentVersionByArchesCall{Call: call}
+}
+
+// MockControllerStateGetMissingMachineTargetAgentVersionByArchesCall wrap *gomock.Call
+type MockControllerStateGetMissingMachineTargetAgentVersionByArchesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerStateGetMissingMachineTargetAgentVersionByArchesCall) Return(arg0 map[architecture.Architecture]struct{}, arg1 error) *MockControllerStateGetMissingMachineTargetAgentVersionByArchesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerStateGetMissingMachineTargetAgentVersionByArchesCall) Do(f func(context.Context, string, map[architecture.Architecture]struct{}) (map[architecture.Architecture]struct{}, error)) *MockControllerStateGetMissingMachineTargetAgentVersionByArchesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerStateGetMissingMachineTargetAgentVersionByArchesCall) DoAndReturn(f func(context.Context, string, map[architecture.Architecture]struct{}) (map[architecture.Architecture]struct{}, error)) *MockControllerStateGetMissingMachineTargetAgentVersionByArchesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

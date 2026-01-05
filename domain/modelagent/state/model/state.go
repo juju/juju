@@ -6,6 +6,8 @@ package model
 import (
 	"context"
 	"database/sql"
+	"maps"
+	"slices"
 
 	"github.com/canonical/sqlair"
 
@@ -18,6 +20,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	domainagentbinary "github.com/juju/juju/domain/agentbinary"
+	"github.com/juju/juju/domain/application/architecture"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -1526,7 +1529,7 @@ UPDATE SET version = excluded.version,
 			)
 		}
 
-		unitAgentVersion.ArchtectureID = archMap.ID
+		unitAgentVersion.ArchitectureID = archMap.ID
 		return tx.Query(ctx, upsertRunningVersionStmt, unitAgentVersion).Run()
 	})
 
@@ -1540,15 +1543,18 @@ UPDATE SET version = excluded.version,
 	return nil
 }
 
-// GetAllMachinesWithBase returns a map of machine UUIDs to their resolved platform base.
+// GetAllMachinesWithBase returns a map of machine UUIDs to their resolved
+// platform base.
 //
-// Machines for which the channel field is NULL are skipped and do not appear in the
-// returned map.
+// Machines for which the channel field is NULL are skipped and do not appear
+// in the returned map.
 //
-// Machines for which the OS and channel field are both empty will result in a corresponding zero value base returned.
+// Machines for which the OS and channel field are both empty will result in a
+// corresponding zero value base returned.
 //
 // This method may return the following errors:
-//   - [coreerrors.NotValid] if, for any machine, either the OS or channel field but not both is non-empty.
+//   - [coreerrors.NotValid] if, for any machine, either the OS or channel
+//     field but not both is non-empty.
 func (st *State) GetAllMachinesWithBase(ctx context.Context) (map[string]corebase.Base, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1599,4 +1605,100 @@ JOIN   os ON mp.os_id = os.id
 	}
 
 	return m, nil
+}
+
+// GetAllMachinesArchitectures returns a map of machine architectures that
+// are currently in use by machines in the model.
+func (st *State) GetAllMachinesArchitectures(
+	ctx context.Context,
+) (map[architecture.Architecture]struct{}, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT DISTINCT mp.architecture_id AS &architectureID.id
+FROM   machine_platform AS mp
+`, architectureID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	archs := []architectureID{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&archs)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Errorf(
+			"getting all machine architectures in model: %w", err,
+		)
+	}
+
+	result := make(map[architecture.Architecture]struct{})
+	for _, arch := range archs {
+		result[architecture.Architecture(arch.ID)] = struct{}{}
+	}
+
+	return result, nil
+}
+
+// GetMissingMachineTargetAgentVersionByArches returns the missing
+// architectures that do not have agent binaries for the given target
+// version from the provided set of architectures.
+func (st *State) GetMissingMachineTargetAgentVersionByArches(
+	ctx context.Context,
+	version string,
+	arches map[architecture.Architecture]struct{},
+) (map[architecture.Architecture]struct{}, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	key := agentBinaryStore{
+		Version: version,
+	}
+	archIDs := architectures(slices.Collect(maps.Keys(arches)))
+
+	stmt, err := st.Prepare(`
+SELECT &agentBinaryStore.*
+FROM   agent_binary_store
+WHERE  version = $agentBinaryStore.version 
+AND    architecture_id IN ($architectures[:])
+`, key, archIDs)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var found []agentBinaryStore
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, key, archIDs).GetAll(&found)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Errorf(
+				"getting existing agent binaries for version %q: %w",
+				version, err,
+			)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Removed the found architectures from the input set. The resulting
+	// set is the missing architectures.
+	result := make(map[architecture.Architecture]struct{})
+	maps.Copy(result, arches)
+	for _, abs := range found {
+		delete(result, architecture.Architecture(abs.ArchitectureID))
+	}
+
+	return result, nil
 }
