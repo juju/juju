@@ -162,7 +162,7 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 		for _, r := range revisionMetadata[i] {
 			backendName := r.BackendName
 			if backendName == nil {
-				name := juju.BackendName
+				name := juju.UnknownBackendName
 				backendName = &name
 			} else {
 				// We want to maintain the behavior that if the backend is kubernetes,

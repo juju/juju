@@ -21,6 +21,7 @@ import (
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/secrets/provider"
+	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -629,8 +630,10 @@ func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 		if err != nil {
 			return nil, nil, errors.Errorf("getting secrets by labels: %w", err)
 		}
+		defaultBackendName := juju.BackendName
 		for _, revisionsForOneSecret := range revisionsList {
 			for _, revision := range revisionsForOneSecret {
+				revision.BackendName = &defaultBackendName
 				if revision == nil || revision.ValueRef == nil {
 					continue
 				}
@@ -640,7 +643,6 @@ func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 				if exists {
 					revision.BackendName = &secretBackendName
 				}
-
 			}
 		}
 		return metadataList, revisionsList, nil

@@ -15,6 +15,8 @@ const (
 	BackendName = "internal"
 	// BackendType is the type of the Juju secrets backend.
 	BackendType = "controller"
+	// UnknownBackendName is the name of an unknown secrets backend.
+	UnknownBackendName = "unknown"
 )
 
 // NewProvider returns a Juju secrets provider.
