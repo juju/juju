@@ -613,15 +613,30 @@ func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 		return nil, nil, errors.Errorf("cannot specify both URI and labels")
 	}
 
+	secretBackendUUIDstoNames, err := s.secretBackendState.GetSecretBackendNamesWithUUIDs(ctx)
+	defaultBackendName := juju.BackendName
+
 	if uri != nil {
 		metadata, revisions, err := s.secretState.GetSecretByURI(ctx, *uri, revision)
 		if err != nil {
 			return nil, nil, errors.Errorf("getting secret by URI %q: %w", uri.ID, err)
 		}
+		// Ensure revision BackendName is populated similar to label-listing path.
+		if err != nil {
+			return nil, nil, errors.Errorf("getting secret backend names with UUIDs: %w", err)
+		}
+		for _, revision := range revisions {
+			revision.BackendName = &defaultBackendName
+			if revision == nil || revision.ValueRef == nil {
+				continue
+			}
+			if name, exists := secretBackendUUIDstoNames[revision.ValueRef.BackendID]; exists {
+				revision.BackendName = &name
+			}
+		}
 		return []*secrets.SecretMetadata{metadata}, [][]*secrets.SecretRevisionMetadata{revisions}, nil
 	}
 
-	secretBackendUUIDstoNames, err := s.secretBackendState.GetSecretBackendNamesWithUUIDs(ctx)
 	if err != nil {
 		return nil, nil, errors.Errorf("getting secret backend names with UUIDs: %w", err)
 	}
@@ -630,7 +645,6 @@ func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 		if err != nil {
 			return nil, nil, errors.Errorf("getting secrets by labels: %w", err)
 		}
-		defaultBackendName := juju.BackendName
 		for _, revisionsForOneSecret := range revisionsList {
 			for _, revision := range revisionsForOneSecret {
 				revision.BackendName = &defaultBackendName
