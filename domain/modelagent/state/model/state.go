@@ -341,7 +341,7 @@ WHERE     mav.name = $machineName.name
 // machine in the model is currently running. This is a bulk call to support
 // operations such as model export where it is expected that the state of a
 // model stays relatively static over the operation. This function will never
-// provide enough granuality into what machine fails as part of the checks.
+// provide enough granularity into what machine fails as part of the checks.
 //
 // The following errors can be expected:
 // - [modelagenterrors.AgentVersionNotSet] when one or more machines in

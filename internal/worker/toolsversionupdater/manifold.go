@@ -78,9 +78,11 @@ func (cfg *ManifoldConfig) Validate() error {
 	return nil
 }
 
+// Manifold returns a dependency manifold for the tools version updater worker.
 func Manifold(cfg ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
+			cfg.AgentName,
 			cfg.DomainServicesName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
