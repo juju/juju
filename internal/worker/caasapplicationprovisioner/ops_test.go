@@ -929,6 +929,42 @@ func (s *OpsSuite) TestAppDead(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *OpsSuite) TestReconcileApplicationStorage(c *gc.C) {
+	provisioningInfo := api.FilesystemProvisioningInfo{
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "data",
+			Size:        100,
+			Provider:    storage.ProviderType("kubernetes"),
+		}},
+		StorageUniqueID: "uniqueid",
+	}
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+
+	facade.EXPECT().FilesystemProvisioningInfo("test").Return(provisioningInfo, nil)
+	app.EXPECT().ReconcileStorage(provisioningInfo.Filesystems, provisioningInfo.StorageUniqueID).Return(nil)
+
+	err := caasapplicationprovisioner.AppOps.ReconcileApplicationStorage("test", app, facade, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *OpsSuite) TestReconcileApplicationStorageError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+
+	facade.EXPECT().FilesystemProvisioningInfo("test").Return(api.FilesystemProvisioningInfo{}, errors.New("something went wrong"))
+
+	err := caasapplicationprovisioner.AppOps.ReconcileApplicationStorage("test", app, facade, s.logger)
+	c.Assert(err, gc.ErrorMatches, "something went wrong")
+}
+
 func intPtr(i int) *int {
 	return &i
 }
