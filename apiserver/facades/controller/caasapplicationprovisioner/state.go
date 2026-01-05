@@ -76,6 +76,8 @@ type Application interface {
 	ProvisioningState() *state.ApplicationProvisioningState
 	SetProvisioningState(state.ApplicationProvisioningState) error
 	GetStorageUniqueID() string
+	GetIsUpdatingApplicationStorage() bool
+	SetIsUpdatingApplicationStorage(value bool) error
 }
 
 type Charm interface {
