@@ -207,6 +207,20 @@ func (mr *MockCAASProvisionerFacadeMockRecorder) RemoveUnit(arg0 any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUnit", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).RemoveUnit), arg0)
 }
 
+// SetIsUpdatingApplicationStorage mocks base method.
+func (m *MockCAASProvisionerFacade) SetIsUpdatingApplicationStorage(arg0 string, arg1 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetIsUpdatingApplicationStorage", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetIsUpdatingApplicationStorage indicates an expected call of SetIsUpdatingApplicationStorage.
+func (mr *MockCAASProvisionerFacadeMockRecorder) SetIsUpdatingApplicationStorage(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetIsUpdatingApplicationStorage", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).SetIsUpdatingApplicationStorage), arg0, arg1)
+}
+
 // SetOperatorStatus mocks base method.
 func (m *MockCAASProvisionerFacade) SetOperatorStatus(arg0 string, arg1 status.Status, arg2 string, arg3 map[string]any) error {
 	m.ctrl.T.Helper()
