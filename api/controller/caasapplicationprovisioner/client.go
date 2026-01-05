@@ -162,20 +162,21 @@ func (c *Client) WatchStorageConstraints(applicationName string) (watcher.Notify
 
 // ProvisioningInfo holds the info needed to provision an operator.
 type ProvisioningInfo struct {
-	Version              version.Number
-	APIAddresses         []string
-	CACert               string
-	Tags                 map[string]string
-	Constraints          constraints.Value
-	Filesystems          []storage.KubernetesFilesystemParams
-	Devices              []devices.KubernetesDeviceParams
-	Base                 corebase.Base
-	ImageDetails         resources.DockerImageDetails
-	CharmModifiedVersion int
-	CharmURL             *charm.URL
-	Trust                bool
-	Scale                int
-	StorageUniqueID      string
+	Version                      version.Number
+	APIAddresses                 []string
+	CACert                       string
+	Tags                         map[string]string
+	Constraints                  constraints.Value
+	Filesystems                  []storage.KubernetesFilesystemParams
+	Devices                      []devices.KubernetesDeviceParams
+	Base                         corebase.Base
+	ImageDetails                 resources.DockerImageDetails
+	CharmModifiedVersion         int
+	CharmURL                     *charm.URL
+	Trust                        bool
+	Scale                        int
+	StorageUniqueID              string
+	IsUpdatingApplicationStorage bool
 }
 
 // ProvisioningInfo returns the info needed to provision an operator for an application.
@@ -202,17 +203,18 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 		return ProvisioningInfo{}, errors.Trace(err)
 	}
 	info := ProvisioningInfo{
-		Version:              r.Version,
-		APIAddresses:         r.APIAddresses,
-		CACert:               r.CACert,
-		Tags:                 r.Tags,
-		Constraints:          r.Constraints,
-		Base:                 base,
-		ImageDetails:         params.ConvertDockerImageInfo(r.ImageRepo),
-		CharmModifiedVersion: r.CharmModifiedVersion,
-		Trust:                r.Trust,
-		Scale:                r.Scale,
-		StorageUniqueID:      r.StorageUniqueID,
+		Version:                      r.Version,
+		APIAddresses:                 r.APIAddresses,
+		CACert:                       r.CACert,
+		Tags:                         r.Tags,
+		Constraints:                  r.Constraints,
+		Base:                         base,
+		ImageDetails:                 params.ConvertDockerImageInfo(r.ImageRepo),
+		CharmModifiedVersion:         r.CharmModifiedVersion,
+		Trust:                        r.Trust,
+		Scale:                        r.Scale,
+		StorageUniqueID:              r.StorageUniqueID,
+		IsUpdatingApplicationStorage: r.IsUpdatingApplicationStorage,
 	}
 	for _, fs := range r.Filesystems {
 		f, err := filesystemFromParams(fs)
@@ -577,4 +579,26 @@ func filesystemProvisioningInfoFromParams(in params.CAASApplicationFilesystemPro
 	info.FilesystemUnitAttachments = fsUnitAttachments
 	info.StorageUniqueID = in.StorageUniqueID
 	return info, nil
+}
+
+func (c *Client) SetIsUpdatingApplicationStorage(
+	applicationName string,
+	isUpdating bool,
+) error {
+	args := params.CAASSetIsUpdatingApplicationStorageArg{
+		IsUpdating: isUpdating,
+		Application: params.Entity{
+			Tag: names.NewApplicationTag(applicationName).String(),
+		},
+	}
+	var result params.ErrorResult
+
+	err := c.facade.FacadeCall("SetIsUpdatingApplicationStorage", args, &result)
+	if err != nil {
+		return err
+	}
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
 }

@@ -125,6 +125,10 @@ type applicationDoc struct {
 	// and any k8s cluster resources have been fully cleaned up.
 	// Until then, the application must not be removed from the Juju model.
 	HasResources bool `bson:"has-resources,omitempty"`
+	// IsUpdatingApplicationStorage is set to true when an ongoing app storage is
+	// updated so that the statefulset replica follows the existing [DesiredScale]
+	// when reapplied. False on the contrary.
+	IsUpdatingApplicationStorage bool `bson:"is-updating-application-storage"`
 }
 
 // ApplicationProvisioningState is the CAAS application provisioning state for an
@@ -4284,4 +4288,35 @@ func (st *State) WatchApplicationsWithPendingCharms() StringsWatcher {
 // GetStorageUniqueID returns the storage unique ID for CAAS deployments.
 func (a *Application) GetStorageUniqueID() string {
 	return a.doc.StorageUniqueID
+}
+
+// GetIsUpdatingApplicationStorage returns the updating app storage flag for CAAS
+// deployments.
+func (a *Application) GetIsUpdatingApplicationStorage() bool {
+	return a.doc.IsUpdatingApplicationStorage
+}
+
+// SetIsUpdatingApplicationStorage sets the flag to
+// indicate whether or not an update storage is taking place.
+func (a *Application) SetIsUpdatingApplicationStorage(isUpdating bool) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := a.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		ops := []txn.Op{{
+			C:      applicationsC,
+			Id:     a.doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{
+				{"is-updating-application-storage", isUpdating},
+			}}},
+		}}
+		return ops, nil
+	}
+	if err := a.st.db().Run(buildTxn); err != nil {
+		return err
+	}
+	return a.Refresh()
 }

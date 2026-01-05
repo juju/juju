@@ -45,22 +45,23 @@ type CAASUnitTerminationResult struct {
 
 // CAASApplicationProvisioningInfo holds info needed to provision a caas application.
 type CAASApplicationProvisioningInfo struct {
-	Version              version.Number               `json:"version"`
-	APIAddresses         []string                     `json:"api-addresses"`
-	CACert               string                       `json:"ca-cert"`
-	Constraints          constraints.Value            `json:"constraints"`
-	Tags                 map[string]string            `json:"tags,omitempty"`
-	Filesystems          []KubernetesFilesystemParams `json:"filesystems,omitempty"`
-	Volumes              []KubernetesVolumeParams     `json:"volumes,omitempty"`
-	Devices              []KubernetesDeviceParams     `json:"devices,omitempty"`
-	Base                 Base                         `json:"base,omitempty"`
-	ImageRepo            DockerImageInfo              `json:"image-repo,omitempty"`
-	CharmModifiedVersion int                          `json:"charm-modified-version,omitempty"`
-	CharmURL             string                       `json:"charm-url,omitempty"`
-	Trust                bool                         `json:"trust,omitempty"`
-	Scale                int                          `json:"scale,omitempty"`
-	StorageUniqueID      string                       `json:"storage-unique-id"`
-	Error                *Error                       `json:"error,omitempty"`
+	Version                      version.Number               `json:"version"`
+	APIAddresses                 []string                     `json:"api-addresses"`
+	CACert                       string                       `json:"ca-cert"`
+	Constraints                  constraints.Value            `json:"constraints"`
+	Tags                         map[string]string            `json:"tags,omitempty"`
+	Filesystems                  []KubernetesFilesystemParams `json:"filesystems,omitempty"`
+	Volumes                      []KubernetesVolumeParams     `json:"volumes,omitempty"`
+	Devices                      []KubernetesDeviceParams     `json:"devices,omitempty"`
+	Base                         Base                         `json:"base,omitempty"`
+	ImageRepo                    DockerImageInfo              `json:"image-repo,omitempty"`
+	CharmModifiedVersion         int                          `json:"charm-modified-version,omitempty"`
+	CharmURL                     string                       `json:"charm-url,omitempty"`
+	Trust                        bool                         `json:"trust,omitempty"`
+	Scale                        int                          `json:"scale,omitempty"`
+	StorageUniqueID              string                       `json:"storage-unique-id"`
+	IsUpdatingApplicationStorage bool                         `json:"is-updating-application-storage,omitempty"`
+	Error                        *Error                       `json:"error,omitempty"`
 }
 
 // KubernetesFilesystemUnitAttachmentParams holds the parameters for
@@ -82,7 +83,7 @@ type CAASApplicationFilesystemProvisioningInfo struct {
 	FilesystemUnitAttachments map[string][]KubernetesFilesystemUnitAttachmentParams `json:"filesystem-unit-attachments,omitempty"`
 
 	// StorageUniqueID is used to construct the PVC name for an application.
-	StorageUniqueID string
+	StorageUniqueID string `json:"storage-unique-id"`
 }
 
 // DockerImageInfo holds the details for a Docker resource type.
@@ -219,4 +220,9 @@ type CAASApplicationProvisionerConfig struct {
 type CAASApplicationProvisionerConfigResult struct {
 	ProvisionerConfig *CAASApplicationProvisionerConfig `json:"provisioner-config,omitempty"`
 	Error             *Error                            `json:"error,omitempty"`
+}
+
+type CAASSetIsUpdatingApplicationStorageArg struct {
+	IsUpdating  bool   `json:"is-updating"`
+	Application Entity `json:"application"`
 }
