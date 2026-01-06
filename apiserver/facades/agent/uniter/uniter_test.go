@@ -3056,6 +3056,7 @@ func (s *commitHookChangesSuite) TestCommitHookChangesOneTxn(c *tc.C) {
 	// Arrange: SetUnitStateArg
 	arg := params.CommitHookChangesArg{
 		Tag: unitTag.String(),
+		UpdateNetworkInfo: true,
 		SetUnitState: &params.SetUnitStateArg{
 			Tag:        unitTag.String(),
 			CharmState: &map[string]string{"key": "value"},
@@ -3077,6 +3078,7 @@ func (s *commitHookChangesSuite) TestCommitHookChangesOneTxn(c *tc.C) {
 	// Arrange: CommitHookChanges service call
 	domainArg := unitstate.CommitHookChangesArg{
 		UnitName:   unitName,
+		UpdateNetworkInfo: true,
 		CharmState: arg.SetUnitState.CharmState,
 		ClosePorts: network.GroupedPortRanges{
 			"ep0": []network.PortRange{{
