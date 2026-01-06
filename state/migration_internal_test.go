@@ -404,6 +404,11 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 		// RelationCount is handled by the number of times the application name
 		// appears in relation endpoints.
 		"RelationCount",
+		// IsUpdatingApplicationStorage shouldn't be exported because it's value
+		// helps instruct to use [DesiredScale] for statefulset replica count
+		// when a statefulset is later re-applied for storage updates.
+		// It doesn't bring much value exporting it.
+		"IsUpdatingApplicationStorage",
 	)
 	migrated := set.NewStrings(
 		"Name",
