@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"sort"
 
 	"github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/arch"
@@ -397,7 +398,7 @@ func (s *Service) GetMissingAgentTargetVersions(ctx context.Context) (semversion
 	if err != nil {
 		return semversion.Zero, nil, errors.Errorf("getting missing agent target versions from model: %w", err)
 	} else if len(missingModelArches) == 0 {
-		return targetVersion, nil, nil
+		return semversion.Zero, nil, nil
 	}
 
 	// We've got some missing architectures from the model database, check
@@ -407,7 +408,7 @@ func (s *Service) GetMissingAgentTargetVersions(ctx context.Context) (semversion
 	if err != nil {
 		return semversion.Zero, nil, errors.Errorf("getting missing agent target versions from controller: %w", err)
 	} else if len(missingControllerArches) == 0 {
-		return targetVersion, nil, nil
+		return semversion.Zero, nil, nil
 	}
 
 	// Deduplicate the missing architectures from both model and controller
@@ -424,6 +425,7 @@ func (s *Service) GetMissingAgentTargetVersions(ctx context.Context) (semversion
 		}
 		arches = append(arches, archStr)
 	}
+	sort.Strings(arches)
 
 	// Still have some missing architectures.
 	return targetVersion, arches, nil
