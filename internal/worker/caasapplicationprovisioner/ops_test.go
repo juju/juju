@@ -871,6 +871,139 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 			c.Check(config, gc.DeepEquals, ensureParams)
 			return nil
 		}),
+		facade.EXPECT().SetIsUpdatingApplicationStorage("test", false),
+	)
+
+	err := caasapplicationprovisioner.AppOps.AppAlive("test", app, password, &lastApplied, facade, clk, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *OpsSuite) TestAppAliveNonZeroInitialScale(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+
+	clk := testclock.NewDilatedWallClock(coretesting.ShortWait)
+	password := "123456789"
+	lastApplied := caas.ApplicationConfig{}
+
+	pi := api.ProvisioningInfo{
+		CharmURL: charm.MustParseURL("ch:my-app"),
+		ImageDetails: resources.DockerImageDetails{
+			RegistryPath: "test-repo/jujud-operator:2.9.99",
+			ImageRepoDetails: docker.ImageRepoDetails{
+				Repository:    "test-repo",
+				ServerAddress: "registry.com",
+			},
+		},
+		Base: corebase.Base{
+			OS: "ubuntu",
+			Channel: corebase.Channel{
+				Track: "22.04",
+				Risk:  corebase.Stable,
+			},
+		},
+		Version:              version.MustParse("2.9.99"),
+		CharmModifiedVersion: 123,
+		APIAddresses:         []string{"1.2.3.1", "1.2.3.2", "1.2.3.3"},
+		CACert:               "CACERT",
+		Tags: map[string]string{
+			"tag": "tag-value",
+		},
+		Trust:                        true,
+		Scale:                        10,
+		IsUpdatingApplicationStorage: true,
+		Constraints:                  constraints.MustParse("mem=1G"),
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "data",
+			Size:        100,
+		}},
+		Devices: []devices.KubernetesDeviceParams{},
+	}
+	charmInfo := charmscommon.CharmInfo{
+		Meta: &charm.Meta{
+			Containers: map[string]charm.Container{
+				"mysql": {
+					Resource: "mysql-image",
+					Mounts: []charm.Mount{{
+						Storage:  "data",
+						Location: "/data",
+					}},
+				},
+				"rootless": {
+					Resource: "rootless-image",
+					Uid:      intPtr(5000),
+					Gid:      intPtr(5001),
+				},
+			},
+		},
+	}
+	ds := caas.DeploymentState{
+		Exists:      true,
+		Terminating: true,
+	}
+	oci := map[string]resources.DockerImageDetails{
+		"mysql-image": {
+			RegistryPath: "mysql/ubuntu:latest-22.04",
+		},
+		"rootless-image": {
+			RegistryPath: "rootless:foo-bar",
+		},
+	}
+	ensureParams := caas.ApplicationConfig{
+		AgentVersion:         version.Number{Major: 2, Minor: 9, Patch: 99},
+		AgentImagePath:       "test-repo/jujud-operator:2.9.99",
+		CharmBaseImagePath:   "test-repo/charm-base:ubuntu-22.04",
+		CharmModifiedVersion: 123,
+		Containers: map[string]caas.ContainerConfig{
+			"mysql": {
+				Name: "mysql",
+				Image: resources.DockerImageDetails{
+					RegistryPath: "mysql/ubuntu:latest-22.04",
+				},
+				Mounts: []caas.MountConfig{{
+					StorageName: "data",
+					Path:        "/data",
+				}},
+			},
+			"rootless": {
+				Name: "rootless",
+				Image: resources.DockerImageDetails{
+					RegistryPath: "rootless:foo-bar",
+				},
+				Uid: intPtr(5000),
+				Gid: intPtr(5001),
+			},
+		},
+		IntroductionSecret:   "123456789",
+		ControllerAddresses:  "1.2.3.1,1.2.3.2,1.2.3.3",
+		ControllerCertBundle: "CACERT",
+		ResourceTags: map[string]string{
+			"tag": "tag-value",
+		},
+		Constraints: constraints.MustParse("mem=1G"),
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "data",
+			Size:        100,
+		}},
+		Devices:      []devices.KubernetesDeviceParams{},
+		Trust:        true,
+		InitialScale: 10,
+		CharmUser:    caas.RunAsDefault,
+	}
+	gomock.InOrder(
+		facade.EXPECT().ProvisioningInfo("test").Return(pi, nil),
+		facade.EXPECT().CharmInfo("ch:my-app").Return(&charmInfo, nil),
+		app.EXPECT().Exists().Return(ds, nil),
+		app.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
+		facade.EXPECT().ApplicationOCIResources("test").Return(oci, nil),
+		app.EXPECT().Ensure(gomock.Any()).DoAndReturn(func(config caas.ApplicationConfig) error {
+			c.Check(config, gc.DeepEquals, ensureParams)
+			return nil
+		}),
+		facade.EXPECT().SetIsUpdatingApplicationStorage("test", false),
 	)
 
 	err := caasapplicationprovisioner.AppOps.AppAlive("test", app, password, &lastApplied, facade, clk, s.logger)
@@ -946,7 +1079,9 @@ func (s *OpsSuite) TestReconcileApplicationStorage(c *gc.C) {
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 
 	facade.EXPECT().FilesystemProvisioningInfo("test").Return(provisioningInfo, nil)
+	facade.EXPECT().SetIsUpdatingApplicationStorage("test", true)
 	app.EXPECT().ReconcileStorage(provisioningInfo.Filesystems, provisioningInfo.StorageUniqueID).Return(nil)
+	facade.EXPECT().SetIsUpdatingApplicationStorage("test", false)
 
 	err := caasapplicationprovisioner.AppOps.ReconcileApplicationStorage("test", app, facade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
