@@ -6,31 +6,15 @@ package toolsversionupdater
 import (
 	"context"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/tools"
-	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/domain/agentbinary/service"
 )
-
-// MachineService provides access to an environ for finding agent binaries.
-type MachineService interface {
-	// GetBootstrapEnviron returns the bootstrap environ.
-	GetBootstrapEnviron(ctx context.Context) (environs.BootstrapEnviron, error)
-}
-
-// ModelConfigService provides access to the model configuration.
-type ModelConfigService interface {
-	// ModelConfig returns the current config for the model.
-	ModelConfig(context.Context) (*config.Config, error)
-}
 
 // ModelAgentService provides access to the Juju agent version for the model.
 type ModelAgentService interface {
@@ -39,30 +23,42 @@ type ModelAgentService interface {
 	GetMissingAgentTargetVersions(ctx context.Context) (semversion.Number, []string, error)
 }
 
+// AgentBinaryService provides access to agent binaries stored in external
+// stores.
+type AgentBinaryService interface {
+	// RetrieveExternalAgentBinary attempts to retrieve the specified agent binary
+	// from one or more configured external stores. It validates the integrity of
+	// the fetched binary via SHA256 and SHA384 comparison, then caches and persists
+	// it into the local store for subsequent faster retrieval. If the binary cannot
+	// be found in any external store or fails hash verification, an appropriate
+	// error is returned. The returned reader provides the verified binary content
+	// along with its size and SHA384 checksum.
+	RetrieveExternalAgentBinary(ctx context.Context, ver coreagentbinary.Version) (*service.ComputedHashes, error)
+}
+
 // WorkerConfig holds parameters for the tools version updater worker.
 type WorkerConfig struct {
-	DomainServices domainServices
-	FindTools      ToolsFinderFunc
-	Clock          clock.Clock
-	Logger         logger.Logger
+	ModelAgentService  ModelAgentService
+	AgentBinaryService AgentBinaryService
+	Logger             logger.Logger
 }
 
 type updateWorker struct {
 	tomb tomb.Tomb
 
-	domainServices domainServices
-	findTools      ToolsFinderFunc
-	clock          clock.Clock
-	logger         logger.Logger
+	modelAgentService  ModelAgentService
+	agentBinaryService AgentBinaryService
+
+	logger logger.Logger
 }
 
 // New returns a worker that updates the tools version information for agents.
 func New(params WorkerConfig) worker.Worker {
 	w := &updateWorker{
-		domainServices: params.DomainServices,
-		findTools:      params.FindTools,
-		clock:          params.Clock,
-		logger:         params.Logger,
+		modelAgentService:  params.ModelAgentService,
+		agentBinaryService: params.AgentBinaryService,
+
+		logger: params.Logger,
 	}
 
 	w.tomb.Go(w.loop)
@@ -83,7 +79,7 @@ func (w *updateWorker) Wait() error {
 func (w *updateWorker) loop() error {
 	ctx := w.tomb.Context(context.Background())
 
-	targetVersion, arches, err := w.domainServices.agent.GetMissingAgentTargetVersions(ctx)
+	targetVersion, arches, err := w.modelAgentService.GetMissingAgentTargetVersions(ctx)
 	if err != nil {
 		return errors.Annotate(err, "getting agent version from service")
 	}
@@ -92,33 +88,16 @@ func (w *updateWorker) loop() error {
 		return nil
 	}
 
-	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
-	modelCfg, err := w.domainServices.config.ModelConfig(ctx)
-	if err != nil {
-		return errors.Annotate(err, "cannot get model config")
-	}
-
-	env, err := w.domainServices.machine.GetBootstrapEnviron(ctx)
-	if err != nil {
-		return errors.Annotatef(err, "cannot get cloud provider")
-	}
-
-	preferredStreams := tools.PreferredStreams(&targetVersion, modelCfg.Development(), modelCfg.AgentStream())
 	for _, arch := range arches {
-		versions, err := w.findTools(ctx, ss, env, targetVersion.Major, targetVersion.Minor, preferredStreams, coretools.Filter{
+		w.logger.Debugf(ctx, "fetching agent binary for version %q and architecture %q", targetVersion, arch)
+
+		_, err := w.agentBinaryService.RetrieveExternalAgentBinary(ctx, coreagentbinary.Version{
 			Number: targetVersion,
 			Arch:   arch,
 		})
 		if err != nil {
-			return errors.Annotatef(err, "cannot find available agent binaries")
-		} else if versions.Len() == 0 {
-			w.logger.Infof(ctx, "no agent binary found for version %s and architecture %s", targetVersion, arch)
-			continue
+			return errors.Annotatef(err, "retrieving external agent binary for version %q and architecture %q", targetVersion, arch)
 		}
-
-		// Ensure that we store the binaries that match the target version.
-		// It doesn't have to match exactly the full version, just the
-		// major/minor/patch, build can differ.
 	}
 
 	return nil

@@ -28,25 +28,6 @@ type ToolsCheckerSuite struct {
 	mockMachineService     *MockMachineService
 }
 
-func (s *ToolsCheckerSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.mockBootstrapEnviron = NewMockBootstrapEnviron(ctrl)
-	s.mockModelConfigService = NewMockModelConfigService(ctrl)
-	s.mockModelAgentService = NewMockModelAgentService(ctrl)
-	s.mockMachineService = NewMockMachineService(ctrl)
-
-	s.mockMachineService.EXPECT().GetBootstrapEnviron(gomock.Any()).Return(s.mockBootstrapEnviron, nil)
-
-	c.Cleanup(func() {
-		s.mockBootstrapEnviron = nil
-		s.mockModelConfigService = nil
-		s.mockModelAgentService = nil
-		s.mockMachineService = nil
-	})
-
-	return ctrl
-}
-
 func (s *ToolsCheckerSuite) TestCheckTools(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -196,4 +177,23 @@ func (s *ToolsCheckerSuite) TestUpdateToolsAvailabilityNoMatches(c *tc.C) {
 
 	err = w.performCheck(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *ToolsCheckerSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.mockBootstrapEnviron = NewMockBootstrapEnviron(ctrl)
+	s.mockModelConfigService = NewMockModelConfigService(ctrl)
+	s.mockModelAgentService = NewMockModelAgentService(ctrl)
+	s.mockMachineService = NewMockMachineService(ctrl)
+
+	s.mockMachineService.EXPECT().GetBootstrapEnviron(gomock.Any()).Return(s.mockBootstrapEnviron, nil)
+
+	c.Cleanup(func() {
+		s.mockBootstrapEnviron = nil
+		s.mockModelConfigService = nil
+		s.mockModelAgentService = nil
+		s.mockMachineService = nil
+	})
+
+	return ctrl
 }

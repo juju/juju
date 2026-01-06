@@ -6,7 +6,6 @@ package toolsversionupdater
 import (
 	"context"
 
-	"github.com/juju/clock"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
@@ -45,10 +44,8 @@ type ManifoldConfig struct {
 
 	GetModelUUID      GetModelUUIDFunc
 	GetDomainServices GetDomainServicesFunc
-	ToolsFinder       ToolsFinderFunc
 	NewWorker         NewWorkerFunc
 
-	Clock  clock.Clock
 	Logger logger.Logger
 }
 
@@ -68,9 +65,6 @@ func (cfg *ManifoldConfig) Validate() error {
 	}
 	if cfg.GetDomainServices == nil {
 		return errors.Errorf("nil GetDomainServices").Add(coreerrors.NotValid)
-	}
-	if cfg.ToolsFinder == nil {
-		return errors.Errorf("nil ToolsFinder").Add(coreerrors.NotValid)
 	}
 	if cfg.NewWorker == nil {
 		return errors.Errorf("nil NewWorker").Add(coreerrors.NotValid)
@@ -101,10 +95,9 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 			}
 
 			return cfg.NewWorker(WorkerConfig{
-				DomainServices: domainServices,
-				FindTools:      cfg.ToolsFinder,
-				Clock:          cfg.Clock,
-				Logger:         cfg.Logger,
+				ModelAgentService:  domainServices.modelAgent,
+				AgentBinaryService: domainServices.agentBinary,
+				Logger:             cfg.Logger,
 			}), nil
 		},
 	}
@@ -131,14 +124,12 @@ func GetModelDomainServices(ctx context.Context, getter dependency.Getter, domai
 		return domainServices{}, errors.Capture(err)
 	}
 	return domainServices{
-		config:  ds.Config(),
-		agent:   ds.Agent(),
-		machine: ds.Machine(),
+		modelAgent:  ds.Agent(),
+		agentBinary: ds.AgentBinary(),
 	}, nil
 }
 
 type domainServices struct {
-	config  ModelConfigService
-	agent   ModelAgentService
-	machine MachineService
+	modelAgent  ModelAgentService
+	agentBinary AgentBinaryService
 }

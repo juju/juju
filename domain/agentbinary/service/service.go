@@ -190,6 +190,26 @@ func (s *AgentBinaryService) GetAgentBinary(ctx context.Context, ver coreagentbi
 // is returned. The returned reader provides the verified binary content along
 // with its size and SHA384 checksum.
 func (s *AgentBinaryService) GetExternalAgentBinary(ctx context.Context, ver coreagentbinary.Version) (io.ReadCloser, int64, string, error) {
+	hashes, err := s.RetrieveExternalAgentBinary(ctx, ver)
+	if err != nil {
+		return nil, 0, "", errors.Capture(err)
+	}
+
+	sha256Calc := hashes.SHA256
+	sha384Calc := hashes.SHA384
+
+	r, size, err := s.store.GetAgentBinaryUsingSHA256(ctx, sha256Calc)
+	return r, size, sha384Calc, err
+}
+
+// RetrieveExternalAgentBinary attempts to retrieve the specified agent binary
+// from one or more configured external stores. It validates the integrity of
+// the fetched binary via SHA256 and SHA384 comparison, then caches and persists
+// it into the local store for subsequent faster retrieval. If the binary cannot
+// be found in any external store or fails hash verification, an appropriate
+// error is returned. The returned reader provides the verified binary content
+// along with its size and SHA384 checksum.
+func (s *AgentBinaryService) RetrieveExternalAgentBinary(ctx context.Context, ver coreagentbinary.Version) (*ComputedHashes, error) {
 	var (
 		extReader io.ReadCloser
 		extSize   int64
@@ -198,7 +218,7 @@ func (s *AgentBinaryService) GetExternalAgentBinary(ctx context.Context, ver cor
 
 	stream, err := s.modelState.GetAgentStream(ctx)
 	if err != nil {
-		return nil, 0, "", errors.Errorf(
+		return nil, errors.Errorf(
 			"getting agent stream from model state: %w",
 			err,
 		)
@@ -212,7 +232,7 @@ func (s *AgentBinaryService) GetExternalAgentBinary(ctx context.Context, ver cor
 			continue
 		} else if err != nil {
 			// Return any unknown err early since we are not sure if proceeding is safe.
-			return nil, 0, "", errors.Errorf(
+			return nil, errors.Errorf(
 				"attempted fetching agent binary %q from external store %d: %w",
 				ver, i, err,
 			)
@@ -221,7 +241,7 @@ func (s *AgentBinaryService) GetExternalAgentBinary(ctx context.Context, ver cor
 	}
 
 	if extReader == nil {
-		return nil, 0, "", errors.Errorf(
+		return nil, errors.Errorf(
 			"agent binary %q does not exist in external stores: %w",
 			ver, err,
 		)
@@ -233,34 +253,31 @@ func (s *AgentBinaryService) GetExternalAgentBinary(ctx context.Context, ver cor
 	cacheR, err := newStrictCacher(rSHA, extSize)
 
 	if errors.Is(err, ErrorReaderDesync) {
-		return nil, 0, "", errors.Errorf(
+		return nil, errors.Errorf(
 			"agent binary received from external store did not match the expected number of bytes %d",
 			extSize,
 		)
 	} else if err != nil {
-		return nil, 0, "", errors.Errorf(
+		return nil, errors.Errorf(
 			"caching agent binary from external store for processing: %w", err,
 		)
 	}
 	defer func() { _ = cacheR.Close() }()
 
-	sha256Calc, sha384Calc := shaCalc()
-	if sha256Calc != extSHA256 {
-		return nil, 0, "", errors.Errorf(
+	hashes := shaCalc()
+	if hashes.SHA256 != extSHA256 {
+		return nil, errors.Errorf(
 			"computed sha from external store does not match expected value",
 		).Add(domainagenterrors.HashMismatch)
 	}
 
 	// Add the external agent binary to our store for faster access next time.
-	err = s.store.AddAgentBinaryWithSHA384(ctx, cacheR, ver, extSize, sha384Calc)
-	if err != nil {
-		return nil, 0, "", errors.Errorf(
+	if err := s.store.AddAgentBinaryWithSHA384(ctx, cacheR, ver, extSize, hashes.SHA384); err != nil {
+		return nil, errors.Errorf(
 			"saving found agent binary from external store: %w", err,
 		)
 	}
-
-	r, size, err := s.store.GetAgentBinaryUsingSHA256(ctx, sha256Calc)
-	return r, size, sha384Calc, err
+	return &hashes, nil
 }
 
 // ListAgentBinaries lists all agent binaries in the controller and model stores.

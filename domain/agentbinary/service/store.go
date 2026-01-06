@@ -211,10 +211,11 @@ func (s *AgentBinaryStore) add(
 		agentbinaryerrors.AgentBinaryImmutable,
 		agentbinaryerrors.ObjectNotFound,
 		coreerrors.NotSupported) {
-		// We need to clean up the newly added binary from the object store.
-		// But we don't want to accidentally remove an existing binary if any unexpected errors occur.
-		// The best we can do is to clean up the binary for certain unknown errors.
-		// If there is a retry, the uploaded binary will be picked up again and recorded in the database.
+		// We need to clean up the newly added binary from the object store. But
+		// we don't want to accidentally remove an existing binary if any
+		// unexpected errors occur. The best we can do is to clean up the binary
+		// for certain unknown errors. If there is a retry, the uploaded binary
+		// will be picked up again and recorded in the database.
 		if err := objectStore.Remove(ctx, path); err != nil && !errors.Is(err, objectstoreerrors.ErrNotFound) {
 			s.logger.Errorf(ctx,
 				"saving agent binary metadata %q failed, removing the binary from object store: %v",
@@ -273,8 +274,8 @@ func (s *AgentBinaryStore) GetAgentBinaryUsingSHA256(
 	return reader, size, nil
 }
 
-// GetAgentBinaryWithSHA256 retrieves the agent binary corresponding to the given version
-// and stream from simple stream.
+// GetAgentBinaryWithSHA256 retrieves the agent binary corresponding to the
+// given version and stream from simple stream.
 // The caller is responsible for closing the returned reader.
 //
 // The following errors may be returned:
