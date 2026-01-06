@@ -581,6 +581,8 @@ func filesystemProvisioningInfoFromParams(in params.CAASApplicationFilesystemPro
 	return info, nil
 }
 
+// SetIsUpdatingApplicationStorage sets the isUpdatingApplicationStorage field
+// for the CAAS application.
 func (c *Client) SetIsUpdatingApplicationStorage(
 	applicationName string,
 	isUpdating bool,

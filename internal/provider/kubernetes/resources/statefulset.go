@@ -46,6 +46,8 @@ func NewStatefulSet(client v1.StatefulSetInterface, namespace string, name strin
 	return &StatefulSet{client, *in}
 }
 
+// NewStatefulSetWithOrphanDelete creates a new [StatefulSetWithOrphanDelete]
+// resource.
 func NewStatefulSetWithOrphanDelete(ss *StatefulSet) *StatefulSetWithOrphanDelete {
 	return &StatefulSetWithOrphanDelete{StatefulSet: ss,
 		interval: 1 * time.Second, timeout: 30 * time.Second}
@@ -142,6 +144,7 @@ func (ss *StatefulSet) ComputeStatus(ctx context.Context, now time.Time) (string
 	return "", status.Waiting, now, nil
 }
 
+// Delete resmoves the resource using an orphan propagation policy.
 func (s StatefulSetWithOrphanDelete) Delete(ctx context.Context) error {
 	err := s.client.Delete(ctx, s.Name, metav1.DeleteOptions{
 		PropagationPolicy: k8sconstants.DeletePropagationOrphan(),
