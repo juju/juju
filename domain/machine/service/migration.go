@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/machine"
 	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
@@ -64,7 +65,7 @@ func NewMigrationService(
 // CreateMachine creates the specified machine.
 // It returns a MachineAlreadyExists error if a machine with the same name
 // already exists.
-func (s *MigrationService) CreateMachine(ctx context.Context, machineName coremachine.Name, nonce *string) (coremachine.UUID, error) {
+func (s *MigrationService) CreateMachine(ctx context.Context, machineName coremachine.Name, nonce *string, platform deployment.Platform) (coremachine.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -83,6 +84,7 @@ func (s *MigrationService) CreateMachine(ctx context.Context, machineName corema
 		MachineUUID: machineUUID,
 		NetNodeUUID: netNodeUUID,
 		Nonce:       nonce,
+		Platform:    platform,
 	})
 	if err != nil {
 		return machineUUID, errors.Errorf("creating machine %q: %w", machineName, err)

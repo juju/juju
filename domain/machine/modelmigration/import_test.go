@@ -11,8 +11,11 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/domain/application/architecture"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -69,8 +72,13 @@ func (s *importSuite) TestImport(c *tc.C) {
 	model.AddMachine(description.MachineArgs{
 		Id:    "666",
 		Nonce: "nonce",
+		Base:  base.MakeDefaultBase("ubuntu", "24.04").String(),
 	})
-	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("666"), ptr("nonce")).Return(machine.UUID("uuid"), nil)
+	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("666"), ptr("nonce"), deployment.Platform{
+		OSType:       deployment.Ubuntu,
+		Channel:      "24.04/stable",
+		Architecture: architecture.AMD64,
+	}).Return(machine.UUID("uuid"), nil)
 
 	op := s.newImportOperation(c)
 	err := op.Execute(c.Context(), model)
@@ -84,9 +92,14 @@ func (s *importSuite) TestFailImportMachineWithoutCloudInstance(c *tc.C) {
 	model.AddMachine(description.MachineArgs{
 		Id:    "0",
 		Nonce: "nonce",
+		Base:  base.MakeDefaultBase("ubuntu", "24.04").String(),
 	})
 
-	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("0"), ptr("nonce")).Return(machine.UUID(""), errors.New("boom"))
+	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("0"), ptr("nonce"), deployment.Platform{
+		OSType:       deployment.Ubuntu,
+		Channel:      "24.04/stable",
+		Architecture: architecture.AMD64,
+	}).Return(machine.UUID(""), errors.New("boom"))
 
 	op := s.newImportOperation(c)
 	err := op.Execute(c.Context(), model)
@@ -100,6 +113,7 @@ func (s *importSuite) TestFailImportMachineWithCloudInstance(c *tc.C) {
 	machine0 := model.AddMachine(description.MachineArgs{
 		Id:    "0",
 		Nonce: "nonce",
+		Base:  base.MakeDefaultBase("ubuntu", "24.04").String(),
 	})
 	cloudInstanceArgs := description.CloudInstanceArgs{
 		InstanceId:       "inst-0",
@@ -117,7 +131,11 @@ func (s *importSuite) TestFailImportMachineWithCloudInstance(c *tc.C) {
 	machine0.SetInstance(cloudInstanceArgs)
 
 	expectedMachineUUID := machine.UUID("deadbeef-1bad-500d-9000-4b1d0d06f00d")
-	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("0"), ptr("nonce")).Return(expectedMachineUUID, nil)
+	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("0"), ptr("nonce"), deployment.Platform{
+		OSType:       deployment.Ubuntu,
+		Channel:      "24.04/stable",
+		Architecture: architecture.AMD64,
+	}).Return(expectedMachineUUID, nil)
 	expectedHardwareCharacteristics := &instance.HardwareCharacteristics{
 		Arch:             &cloudInstanceArgs.Architecture,
 		Mem:              &cloudInstanceArgs.Memory,
@@ -150,11 +168,12 @@ func (s *importSuite) TestImportMachineWithCloudInstance(c *tc.C) {
 	machine0 := model.AddMachine(description.MachineArgs{
 		Id:    "0",
 		Nonce: "nonce",
+		Base:  base.MakeDefaultBase("ubuntu", "24.04").String(),
 	})
 	cloudInstanceArgs := description.CloudInstanceArgs{
 		InstanceId:       "inst-0",
 		DisplayName:      "inst-0",
-		Architecture:     "amd64",
+		Architecture:     "arm64",
 		Memory:           1024,
 		RootDisk:         2048,
 		RootDiskSource:   "/",
@@ -167,7 +186,11 @@ func (s *importSuite) TestImportMachineWithCloudInstance(c *tc.C) {
 	machine0.SetInstance(cloudInstanceArgs)
 
 	expectedMachineUUID := machine.UUID("deadbeef-1bad-500d-9000-4b1d0d06f00d")
-	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("0"), ptr("nonce")).Return(expectedMachineUUID, nil)
+	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("0"), ptr("nonce"), deployment.Platform{
+		OSType:       deployment.Ubuntu,
+		Channel:      "24.04/stable",
+		Architecture: architecture.ARM64,
+	}).Return(expectedMachineUUID, nil)
 	expectedHardwareCharacteristics := &instance.HardwareCharacteristics{
 		Arch:             &cloudInstanceArgs.Architecture,
 		Mem:              &cloudInstanceArgs.Memory,

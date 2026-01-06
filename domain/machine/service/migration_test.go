@@ -14,6 +14,8 @@ import (
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/application/architecture"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainstatus "github.com/juju/juju/domain/status"
@@ -112,7 +114,9 @@ func (s *migrationServiceSuite) TestCreateMachine(c *tc.C) {
 
 	s.expectCreateMachineStatusHistory(c)
 
-	obtainedUUID, err := s.service.CreateMachine(c.Context(), "666", nil)
+	obtainedUUID, err := s.service.CreateMachine(c.Context(), "666", nil, deployment.Platform{
+		Architecture: architecture.AMD64,
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedUUID, tc.Equals, expectedUUID)
 }
@@ -131,7 +135,9 @@ func (s *migrationServiceSuite) TestCreateMachineSuccessNonce(c *tc.C) {
 
 	s.expectCreateMachineStatusHistory(c)
 
-	obtainedUUID, err := s.service.CreateMachine(c.Context(), "666", ptr("foo"))
+	obtainedUUID, err := s.service.CreateMachine(c.Context(), "666", ptr("foo"), deployment.Platform{
+		Architecture: architecture.AMD64,
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedUUID, tc.Equals, expectedUUID)
 }
@@ -144,7 +150,9 @@ func (s *migrationServiceSuite) TestCreateMachineError(c *tc.C) {
 	rErr := errors.New("boom")
 	s.state.EXPECT().InsertMigratingMachine(gomock.Any(), "666", gomock.Any()).Return(rErr)
 
-	_, err := s.service.CreateMachine(c.Context(), "666", nil)
+	_, err := s.service.CreateMachine(c.Context(), "666", nil, deployment.Platform{
+		Architecture: architecture.AMD64,
+	})
 	c.Assert(err, tc.ErrorIs, rErr)
 	c.Check(err, tc.ErrorMatches, `creating machine "666": boom`)
 }
@@ -158,7 +166,9 @@ func (s *migrationServiceSuite) TestCreateMachineAlreadyExists(c *tc.C) {
 
 	s.state.EXPECT().InsertMigratingMachine(gomock.Any(), "666", gomock.Any()).Return(machineerrors.MachineAlreadyExists)
 
-	_, err := s.service.CreateMachine(c.Context(), coremachine.Name("666"), nil)
+	_, err := s.service.CreateMachine(c.Context(), coremachine.Name("666"), nil, deployment.Platform{
+		Architecture: architecture.AMD64,
+	})
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineAlreadyExists)
 }
 
