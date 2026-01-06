@@ -770,6 +770,7 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 	return nil
 }
 
+// reconcileApplicationStorage recreates a statefulset with the new filesystems.
 func reconcileApplicationStorage(appName string, app caas.Application, facade CAASProvisionerFacade, logger Logger) error {
 	logger.Debugf("reconciling application %q storage", appName)
 
