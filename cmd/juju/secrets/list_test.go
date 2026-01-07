@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -156,4 +157,171 @@ func (s *ListSuite) TestListJSON(c *tc.C) {
 	c.Assert(out, tc.Equals, fmt.Sprintf(`
 {"%s":{"revision":2,"owner":"mariadb","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z"}}
 `[1:], uri.ID))
+}
+
+func (s *ListSuite) TestListWithOwnerUnitFilterYAML(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	ownerTag := names.NewUnitTag("traefik-k8s/0").String()
+	uri := coresecrets.NewURI()
+	backend := "alvinmini410model3-local"
+
+	s.secretsAPI.EXPECT().ListSecrets(
+		gomock.Any(),
+		false,
+		coresecrets.Filter{Owner: &coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "traefik-k8s/0"}},
+	).Return([]apisecrets.SecretDetails{
+		{
+			Metadata: coresecrets.SecretMetadata{
+				URI:            uri,
+				LatestRevision: 1,
+				RotatePolicy:   coresecrets.RotateNever,
+				Owner:          coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "traefik-k8s/0"},
+				Label:          "afd8c2bccf834997afce12c2706d2ede-private-key-0-certificates",
+			},
+			Revisions: []coresecrets.SecretRevisionMetadata{ // This type path aligns with coresecrets used in API details
+				{
+					Revision:    1,
+					BackendName: &backend,
+				},
+			},
+		},
+	}, nil)
+	s.secretsAPI.EXPECT().Close().Return(nil)
+
+	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--owner", ownerTag, "--format", "yaml")
+	c.Assert(err, tc.ErrorIsNil)
+	out := cmdtesting.Stdout(ctx)
+	c.Assert(out, tc.Equals, fmt.Sprintf(`%s:
+  revision: 1
+  rotation: never
+  owner: traefik-k8s/0
+  label: afd8c2bccf834997afce12c2706d2ede-private-key-0-certificates
+  created: 0001-01-01T00:00:00Z
+  updated: 0001-01-01T00:00:00Z
+  revisions:
+  - revision: 1
+    backend: alvinmini410model3-local
+    created: 0001-01-01T00:00:00Z
+    updated: 0001-01-01T00:00:00Z
+`, uri.ID))
+}
+
+func (s *ListSuite) TestListWithOwnerUnitFilterJSON(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	ownerTag := names.NewUnitTag("traefik-k8s/0").String()
+	uri := coresecrets.NewURI()
+	backend := "alvinmini410model3-local"
+
+	s.secretsAPI.EXPECT().ListSecrets(
+		gomock.Any(),
+		false,
+		coresecrets.Filter{Owner: &coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "traefik-k8s/0"}},
+	).Return([]apisecrets.SecretDetails{
+		{
+			Metadata: coresecrets.SecretMetadata{
+				URI:            uri,
+				LatestRevision: 1,
+				RotatePolicy:   coresecrets.RotateNever,
+				Owner:          coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "traefik-k8s/0"},
+				Label:          "afd8c2bccf834997afce12c2706d2ede-private-key-0-certificates",
+			},
+			Revisions: []coresecrets.SecretRevisionMetadata{
+				{
+					Revision:    1,
+					BackendName: &backend,
+				},
+			},
+		},
+	}, nil)
+	s.secretsAPI.EXPECT().Close().Return(nil)
+
+	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--owner", ownerTag, "--format", "json")
+	c.Assert(err, tc.ErrorIsNil)
+	out := cmdtesting.Stdout(ctx)
+	c.Assert(out, tc.Equals, fmt.Sprintf(`{"%s":{"revision":1,"rotation":"never","owner":"traefik-k8s/0","label":"afd8c2bccf834997afce12c2706d2ede-private-key-0-certificates","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z","revisions":[{"revision":1,"backend":"alvinmini410model3-local","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z"}]}}
+`, uri.ID))
+}
+
+func (s *ListSuite) TestListWithOwnerApplicationFilterYAML(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	ownerTag := names.NewApplicationTag("dummy-source").String()
+	uri := coresecrets.NewURI()
+	backend := "testmodel-local"
+
+	s.secretsAPI.EXPECT().ListSecrets(
+		gomock.Any(),
+		false,
+		coresecrets.Filter{Owner: &coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "dummy-source"}},
+	).Return([]apisecrets.SecretDetails{
+		{
+			Metadata: coresecrets.SecretMetadata{
+				URI:            uri,
+				LatestRevision: 1,
+				RotatePolicy:   coresecrets.RotateNever,
+				Owner:          coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "dummy-source"},
+			},
+			Revisions: []coresecrets.SecretRevisionMetadata{
+				{
+					Revision:    1,
+					BackendName: &backend,
+				},
+			},
+		},
+	}, nil)
+	s.secretsAPI.EXPECT().Close().Return(nil)
+
+	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--owner", ownerTag, "--format", "yaml")
+	c.Assert(err, tc.ErrorIsNil)
+	out := cmdtesting.Stdout(ctx)
+	c.Assert(out, tc.Equals, fmt.Sprintf(`%s:
+  revision: 1
+  rotation: never
+  owner: dummy-source
+  created: 0001-01-01T00:00:00Z
+  updated: 0001-01-01T00:00:00Z
+  revisions:
+  - revision: 1
+    backend: testmodel-local
+    created: 0001-01-01T00:00:00Z
+    updated: 0001-01-01T00:00:00Z
+`, uri.ID))
+}
+
+func (s *ListSuite) TestListWithOwnerApplicationFilterJSON(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	ownerTag := names.NewApplicationTag("dummy-source").String()
+	uri := coresecrets.NewURI()
+	backend := "testmodel-local"
+
+	s.secretsAPI.EXPECT().ListSecrets(
+		gomock.Any(),
+		false,
+		coresecrets.Filter{Owner: &coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "dummy-source"}},
+	).Return([]apisecrets.SecretDetails{
+		{
+			Metadata: coresecrets.SecretMetadata{
+				URI:            uri,
+				LatestRevision: 1,
+				RotatePolicy:   coresecrets.RotateNever,
+				Owner:          coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "dummy-source"},
+			},
+			Revisions: []coresecrets.SecretRevisionMetadata{
+				{
+					Revision:    1,
+					BackendName: &backend,
+				},
+			},
+		},
+	}, nil)
+	s.secretsAPI.EXPECT().Close().Return(nil)
+
+	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--owner", ownerTag, "--format", "json")
+	c.Assert(err, tc.ErrorIsNil)
+	out := cmdtesting.Stdout(ctx)
+	c.Assert(out, tc.Equals, fmt.Sprintf(`{"%s":{"revision":1,"rotation":"never","owner":"dummy-source","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z","revisions":[{"revision":1,"backend":"testmodel-local","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z"}]}}
+`, uri.ID))
 }

@@ -177,7 +177,7 @@ func (c *listSecretsCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	details := gatherSecretInfo(result, c.revealSecrets, false, false)
+	details := gatherSecretInfo(result, c.revealSecrets, true, false)
 	return c.out.Write(ctxt, details)
 }
 

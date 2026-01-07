@@ -105,7 +105,9 @@ func (s *SecretsSuite) assertListSecrets(c *tc.C, reveal bool) {
 	}}
 	revisions := [][]*coresecrets.SecretRevisionMetadata{
 		{{
-			// Empty backend ID does not return any backend, hence we expect the default backend name to be populated later.
+			// Revision backend name should have been populated in the service layer, even for defaults.
+			// If backend name has not been populated, it indicates a bug in the service layer and
+			// backend name will be set to "unknown" to indicate that.
 			Revision:   666,
 			CreateTime: now,
 			UpdateTime: now.Add(time.Second),
@@ -125,8 +127,10 @@ func (s *SecretsSuite) assertListSecrets(c *tc.C, reveal bool) {
 			UpdateTime:  now.Add(2 * time.Second),
 			ExpireTime:  ptr(now.Add(2 * time.Hour)),
 		}, {
+			// Revision backend name should have been populated in the service layer, even for defaults.
+			// If backend name has not been populated, it indicates a bug in the service layer and
+			// backend name will be set to "unknown" to indicate that.
 			Revision: 669,
-			// Invalid backend ID does not return any backend, hence we expect the default backend name to be populated later.
 			ValueRef: &coresecrets.ValueRef{
 				BackendID: "not-a-valid-backend-id",
 			},
@@ -134,7 +138,9 @@ func (s *SecretsSuite) assertListSecrets(c *tc.C, reveal bool) {
 			UpdateTime: now.Add(2 * time.Second),
 			ExpireTime: ptr(now.Add(2 * time.Hour)),
 		}, {
-			// Empty backend ID does not return any backend, hence we expect the default backend name to be populated later.
+			// Revision backend name should have been populated in the service layer, even for defaults.
+			// If backend name has not been populated, it indicates a bug in the service layer and
+			// backend name will be set to "unknown" to indicate that.
 			Revision:   670,
 			ValueRef:   &coresecrets.ValueRef{},
 			CreateTime: now,
@@ -190,7 +196,7 @@ func (s *SecretsSuite) assertListSecrets(c *tc.C, reveal bool) {
 			Value:                  valueResult,
 			Revisions: []params.SecretRevision{{
 				Revision:    666,
-				BackendName: ptr("internal"),
+				BackendName: ptr("unknown"),
 				CreateTime:  now,
 				UpdateTime:  now.Add(time.Second),
 				ExpireTime:  ptr(now.Add(time.Hour)),
@@ -208,13 +214,13 @@ func (s *SecretsSuite) assertListSecrets(c *tc.C, reveal bool) {
 				ExpireTime:  ptr(now.Add(2 * time.Hour)),
 			}, {
 				Revision:    669,
-				BackendName: ptr("internal"),
+				BackendName: ptr("unknown"),
 				CreateTime:  now,
 				UpdateTime:  now.Add(2 * time.Second),
 				ExpireTime:  ptr(now.Add(2 * time.Hour)),
 			}, {
 				Revision:    670,
-				BackendName: ptr("internal"),
+				BackendName: ptr("unknown"),
 				CreateTime:  now,
 				UpdateTime:  now.Add(2 * time.Second),
 				ExpireTime:  ptr(now.Add(2 * time.Hour)),

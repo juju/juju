@@ -1818,7 +1818,7 @@ func (p preparer) Prepare(query string, args ...any) (*sqlair.Statement, error) 
 	return sqlair.Prepare(query, args...)
 }
 
-func (s *stateSuite) TestGetSecretBackendNamesWithUUIDsMultiple(c *tc.C) {
+func (s *stateSuite) TestGetSecretBackendNamesWithUUIDs(c *tc.C) {
 	backends := map[string]string{
 		uuid.MustNewUUID().String(): "backend-one",
 		uuid.MustNewUUID().String(): "backend-two",

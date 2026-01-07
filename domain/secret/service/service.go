@@ -614,6 +614,9 @@ func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 	}
 
 	secretBackendUUIDstoNames, err := s.secretBackendState.GetSecretBackendNamesWithUUIDs(ctx)
+	if err != nil {
+		return nil, nil, errors.Errorf("getting secret backend names with UUIDs: %w", err)
+	}
 	defaultBackendName := juju.BackendName
 
 	if uri != nil {
@@ -621,13 +624,12 @@ func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 		if err != nil {
 			return nil, nil, errors.Errorf("getting secret by URI %q: %w", uri.ID, err)
 		}
-		// Ensure revision BackendName is populated similar to label-listing path.
-		if err != nil {
-			return nil, nil, errors.Errorf("getting secret backend names with UUIDs: %w", err)
-		}
 		for _, revision := range revisions {
+			if revision == nil {
+				continue
+			}
 			revision.BackendName = &defaultBackendName
-			if revision == nil || revision.ValueRef == nil {
+			if revision.ValueRef == nil {
 				continue
 			}
 			if name, exists := secretBackendUUIDstoNames[revision.ValueRef.BackendID]; exists {
@@ -647,8 +649,11 @@ func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 		}
 		for _, revisionsForOneSecret := range revisionsList {
 			for _, revision := range revisionsForOneSecret {
+				if revision == nil {
+					continue
+				}
 				revision.BackendName = &defaultBackendName
-				if revision == nil || revision.ValueRef == nil {
+				if revision.ValueRef == nil {
 					continue
 				}
 				secretBackendName, exists := secretBackendUUIDstoNames[revision.ValueRef.BackendID]
@@ -700,7 +705,36 @@ func (s *SecretService) ListCharmSecrets(
 	defer span.End()
 
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
-	return s.secretState.ListCharmSecrets(ctx, appOwners, unitOwners)
+	metadataList, revisionsList, err := s.secretState.ListCharmSecrets(ctx, appOwners, unitOwners)
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
+
+	secretBackendUUIDstoNames, err := s.secretBackendState.GetSecretBackendNamesWithUUIDs(ctx)
+	if err != nil {
+		return nil, nil, errors.Errorf("getting secret backend names with UUIDs: %w", err)
+	}
+	defaultBackendName := juju.BackendName
+
+	for _, revisionsForOneSecret := range revisionsList {
+		for _, revision := range revisionsForOneSecret {
+			if revision == nil {
+				continue
+			}
+			revision.BackendName = &defaultBackendName
+			if revision.ValueRef == nil {
+				continue
+			}
+			secretBackendName, exists := secretBackendUUIDstoNames[revision.ValueRef.BackendID]
+			// BackendUUID may not exist, eg. LXD model with no external vaults.
+			// In that case, we leave BackendName and there will be a default value set later.
+			if exists {
+				revision.BackendName = &secretBackendName
+			}
+		}
+	}
+
+	return metadataList, revisionsList, nil
 }
 
 // GetSecret returns the secret with the specified URI.
