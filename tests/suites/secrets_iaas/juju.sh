@@ -17,6 +17,10 @@ check_secrets() {
 	secret_owned_by_dummy_source=$(juju exec --unit dummy-source/0 -- secret-add owned-by=dummy-source-app)
 	secret_owned_by_dummy_source_id=${secret_owned_by_dummy_source##*/}
 
+	echo "Checking secrets' backend name"
+	check_contains "$(juju secrets --owner application-dummy-source --format json | jq ".${secret_owned_by_dummy_source_id}.revisions[0].backend")" 'internal'
+	check_contains "$(juju secrets --owner unit-dummy-source-0 --format json | jq ".${secret_owned_by_dummy_source_0_id}.revisions[0].backend")" 'internal'
+
 	echo "Set same content again for $secret_owned_by_dummy_source."
 	juju exec --unit dummy-source/0 -- secret-set "$secret_owned_by_dummy_source_id" owned-by=dummy-source-app
 
