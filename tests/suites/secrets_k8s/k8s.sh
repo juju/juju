@@ -176,6 +176,11 @@ run_user_secrets() {
 	secret_uri=$(juju --show-log add-secret mysecret owned-by="$model_name-1" --info "this is a user secret")
 	secret_short_uri=${secret_uri##*:}
 
+	# check user secret backend name.
+	check_contains "$(juju --show-log show-secret mysecret --revisions | yq -r ".${secret_short_uri}.revisions[0].backend")" "${model_name}-local"
+	check_contains "$(juju --show-log show-secret "$secret_short_uri" --revisions | yq -r ".${secret_short_uri}.revisions[0].backend")" "${model_name}-local"
+
+	# check user secret backend description.
 	check_contains "$(juju --show-log show-secret "$secret_uri" --revisions | yq ".${secret_short_uri}.description")" 'this is a user secret'
 
 	# create a new revision 2.
