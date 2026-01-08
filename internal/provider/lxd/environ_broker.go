@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -195,7 +197,16 @@ func (env *environ) getContainerSpec(
 	}
 	cSpec.ApplyConstraints(serverVersion, args.Constraints)
 
-	cloudCfg, err := cloudinit.New(args.InstanceConfig.Base.OS)
+	virtType := api.InstanceTypeContainer
+	if args.Constraints.HasVirtType() {
+		v, err := instance.ParseVirtType(*args.Constraints.VirtType)
+		if err != nil {
+			return lxd.ContainerSpec{}, errors.Trace(err)
+		}
+		virtType = v
+	}
+	cloudCfg, err := cloudinit.New(
+		args.InstanceConfig.Base.OS, cloudinit.WithNetplanMACMatch(virtType == api.InstanceTypeVM))
 	if err != nil {
 		return cSpec, errors.Trace(err)
 	}
@@ -238,7 +249,7 @@ func (env *environ) getContainerSpec(
 	// correctly.  It likely has to do with the HTTP transport, much
 	// as we have to b64encode the userdata for GCE.  Until that is
 	// resolved we simply pass the plain text.
-	//cfg[lxd.UserDataKey] = utils.Gzip(userData)
+	// cfg[lxd.UserDataKey] = utils.Gzip(userData)
 	cSpec.Config[lxd.UserDataKey] = string(userData)
 
 	for k, v := range args.InstanceConfig.Tags {
@@ -277,9 +288,8 @@ func (env *environ) assignContainerNICs(instStartParams environs.StartInstancePa
 	requestedNICNames := set.NewStrings()
 	for nicName, details := range assignedNICs {
 		requestedNICNames.Add(nicName)
-		if len(details) != 0 {
-			requestedHostBridges.Add(details["parent"])
-		}
+		netName := lxd.NetworkName(details)
+		requestedHostBridges.Add(netName)
 	}
 
 	// Assign any extra NICs required to satisfy the subnet requirements
@@ -322,10 +332,11 @@ func (env *environ) assignContainerNICs(instStartParams environs.StartInstancePa
 				}
 				break
 			}
-
+			hwaddr := corenetwork.GenerateVirtualMACAddress()
 			assignedNICs[devName] = map[string]string{
 				"name":    devName,
 				"type":    "nic",
+				"hwaddr":  hwaddr,
 				"nictype": "bridged",
 				"parent":  hostBridge,
 			}

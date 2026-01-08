@@ -24,6 +24,11 @@ type Nameservers struct {
 	Addresses []string `yaml:"addresses,omitempty,flow"`
 }
 
+// Overrides contains extra config for an interface.
+type Overrides struct {
+	UseRoutes bool `yaml:"use-routes"`
+}
+
 // Interface includes all the fields that are common between all interfaces (ethernet, wifi, bridge, bond)
 type Interface struct {
 	AcceptRA  *bool    `yaml:"accept-ra,omitempty"`
@@ -32,6 +37,7 @@ type Interface struct {
 	Critical bool `yaml:"critical,omitempty"`
 	// DHCP4 defaults to true, so we must use a pointer to know if it was specified as false
 	DHCP4          *bool         `yaml:"dhcp4,omitempty"`
+	DHCP4Overrides *Overrides    `yaml:"dhcp4-overrides,omitempty"`
 	DHCP6          *bool         `yaml:"dhcp6,omitempty"`
 	DHCPIdentifier string        `yaml:"dhcp-identifier,omitempty"` // "duid" or  "mac"
 	Gateway4       string        `yaml:"gateway4,omitempty"`

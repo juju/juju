@@ -207,6 +207,17 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *gc.C) {
 		// As the subnet IDs are map keys, the additional generated NIC
 		// indices depend on the key iteration order so we need to test
 		// both possible variants here.
+		// First check the hwaddr values. These are random with
+		// a fixed prefix.
+		for i := range 2 {
+			name := fmt.Sprintf("eth%d", i)
+			details, ok := spec.Devices[name]
+			c.Assert(ok, jc.IsTrue)
+			hwaddr := details["hwaddr"]
+			c.Assert(hwaddr, jc.HasPrefix, "00:16:3e:")
+			delete(details, "hwaddr")
+			spec.Devices[name] = details
+		}
 		matchedNICs := reflect.DeepEqual(spec.Devices, map[string]map[string]string{
 			"eno9": profileNICs["eno9"],
 			"eth0": {
