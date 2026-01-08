@@ -257,6 +257,10 @@ run_secret_drain() {
 
 	juju show-secret --reveal "$unit_owned_full_uri"
 	juju show-secret --reveal "$app_owned_full_uri"
+	
+	# check charm secret with vault backend name.
+	check_contains "$(juju show-secret "$app_owned_short_uri" --revisions | yq -r ".${app_owned_short_uri}.revisions[0].backend")" myvault
+	check_contains "$(juju show-secret "$unit_owned_short_uri" --revisions | yq -r ".${unit_owned_short_uri}.revisions[0].backend")" myvault
 
 	check_contains "$(microk8s kubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello')" "${unit_owned_short_uri}-1"
 	check_contains "$(microk8s kubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello')" "${app_owned_short_uri}-1"
@@ -320,6 +324,10 @@ run_user_secret_drain() {
 	secret_short_uri=${secret_uri##*:}
 
 	juju show-secret --reveal "$secret_uri"
+
+	# check user secret with vault backend name.
+	check_contains "$(juju show-secret mysecret --revisions | yq -r ".${secret_short_uri}.revisions[0].backend")" myvault
+	check_contains "$(juju show-secret "$secret_short_uri" --revisions | yq -r ".${secret_short_uri}.revisions[0].backend")" myvault
 
 	juju --show-log grant-secret "$secret_uri" hello
 	check_contains "$(juju exec --unit hello/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
