@@ -991,7 +991,7 @@ func (st *State) SetUnitResource(
 	unitResourceInput := unitResource{
 		ResourceUUID: resourceUUID.String(),
 		UnitUUID:     unitUUID.String(),
-		AddedAt:      st.clock.Now(),
+		AddedAt:      st.clock.Now().UTC(),
 	}
 	checkUnitResourceStmt, err := st.Prepare(`
 SELECT &unitResource.*
@@ -1386,7 +1386,7 @@ func (st *State) buildResourcesToAdd(
 ) ([]addPendingResource, []coreresource.UUID, error) {
 	resources := make([]addPendingResource, len(appResources))
 	result := make([]coreresource.UUID, len(appResources))
-	now := st.clock.Now()
+	now := st.clock.Now().UTC()
 	for i, r := range appResources {
 		uuid, err := coreresource.NewUUID()
 		if err != nil {
@@ -1447,7 +1447,7 @@ func (st *State) UpdateUploadResourceAndDeletePriorVersion(
 			Name:      resourceToUpdate.Name,
 			Origin:    charmresource.OriginUpload.String(),
 			State:     resource.StateAvailable.String(),
-			CreatedAt: st.clock.Now(),
+			CreatedAt: st.clock.Now().UTC(),
 		}
 		err = st.addResource(ctx, tx, res)
 		if err != nil {
@@ -1621,7 +1621,7 @@ func (st *State) UpdateResourceRevisionAndDeletePriorVersion(
 			Revision:  &args.Revision,
 			Origin:    charmresource.OriginStore.String(),
 			State:     resource.StateAvailable.String(),
-			CreatedAt: st.clock.Now(),
+			CreatedAt: st.clock.Now().UTC(),
 		}
 		err = st.addResource(ctx, tx, res)
 		if err != nil {
@@ -2052,7 +2052,7 @@ func (st *State) getResourceToSet(typeIDs typeIDs, charmID corecharm.ID, res res
 	}
 	createdAt := res.Timestamp
 	if createdAt.IsZero() {
-		createdAt = st.clock.Now()
+		createdAt = st.clock.Now().UTC()
 	}
 	return setResource{
 		UUID:         resourceUUID.String(),

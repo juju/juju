@@ -767,7 +767,7 @@ func AddUser(
 		DisplayName: displayName,
 		External:    external,
 		CreatorUUID: creatorUuid.String(),
-		CreatedAt:   time.Now(),
+		CreatedAt:   time.Now().UTC(),
 	}
 
 	addUserQuery := `

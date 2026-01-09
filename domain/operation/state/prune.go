@@ -85,7 +85,7 @@ func (st *State) getCompletedOperationUUIDsOlderThan(ctx context.Context, tx *sq
 
 	type operation uuid
 
-	expiresAt := expires{At: time.Now().Add(-age)}
+	expiresAt := expires{At: time.Now().UTC().Add(-age)}
 
 	stmt, err := st.Prepare(`
 	SELECT &operation.uuid 

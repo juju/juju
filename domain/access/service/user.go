@@ -375,7 +375,7 @@ func (s *UserService) UpdateLastModelLogin(ctx context.Context, name user.Name, 
 		return errors.Errorf("empty username: %w", accesserrors.UserNameNotValid)
 	}
 
-	if err := s.st.UpdateLastModelLogin(ctx, name, modelUUID, time.Now()); err != nil {
+	if err := s.st.UpdateLastModelLogin(ctx, name, modelUUID, time.Now().UTC()); err != nil {
 		return errors.Errorf("updating last login for user %q: %w", name, err)
 	}
 	return nil
