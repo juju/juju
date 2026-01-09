@@ -56,7 +56,7 @@ idle_condition() {
 
 	path=".units | .[\"$name/$unit_index\"]"
 
-	echo ".applications | pick(.\"$name\") | map_values(select(($path | .[\"juju-status\"] | .current == \"idle\") and ($path | .[\"workload-status\"] | .current != \"error\"))) | keys[0]"
+	echo ".applications | to_entries[] | select(.value | ($path | .[\"juju-status\"].current == \"idle\") and ($path | .[\"workload-status\"].current != \"error\")) | .key"
 }
 
 active_idle_condition() {
@@ -67,7 +67,7 @@ active_idle_condition() {
 
 	path=".units | .[\"$name/$unit_index\"]"
 
-	echo ".applications | pick(.\"$name\") | map_values(select(($path | .[\"juju-status\"] | .current == \"idle\") and ($path | .[\"workload-status\"] | .current == \"active\"))) | keys[0]"
+	echo ".applications | to_entries[] | select(.value | ($path | .[\"juju-status\"].current == \"idle\") and ($path | .[\"workload-status\"].current == \"active\")) | .key"
 }
 
 idle_subordinate_condition() {
