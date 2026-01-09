@@ -103,6 +103,10 @@ func (p *sessionTokenLoginProvider) printOutput(format string, params ...any) er
 	return err
 }
 
+func (p *sessionTokenLoginProvider) String() string {
+	return "SessionTokenLoginProvider"
+}
+
 func (p *sessionTokenLoginProvider) initiateDeviceLogin(ctx context.Context, caller base.APICaller) error {
 	type loginRequest struct{}
 

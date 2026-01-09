@@ -59,6 +59,10 @@ type legacyLoginProvider struct {
 	cookieURL    *url.URL
 }
 
+func (p *legacyLoginProvider) String() string {
+	return "LegacyLoginProvider"
+}
+
 // AuthHeader implements the [LoginProvider.AuthHeader] method.
 // Returns an HTTP header with basic auth if a user tag is provided.
 // The header will also include any macaroons as cookies.

@@ -198,6 +198,7 @@ type LoginProvider interface {
 	// can be performed.
 	// Other errors are also possible indicating an internal error in the provider.
 	AuthHeader() (http.Header, error)
+	String() string
 }
 
 // DialOpts holds configuration parameters that control the
