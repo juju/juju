@@ -179,8 +179,30 @@ prepare_vault() {
 	export VAULT_ADDR="https://${vault_public_addr}:8200"
 	mkdir -p ~/snap/vault/common/
 	TMP=$(mktemp -d ~/snap/vault/common/cacert-XXXXX)
-	cert_juju_secret_id=$(juju secrets --format=yaml | yq 'to_entries | .[] | select(.value.label == "self-signed-vault-ca-certificate") | .key')
-	juju show-secret "${cert_juju_secret_id}" --reveal --format=yaml | yq '.[].content.certificate' >"$TMP/vault.pem"
+	
+	# Wait for the certificate secret to be created by the vault charm
+	attempt=0
+	cert_juju_secret_id=""
+	until [[ -n "$cert_juju_secret_id" ]]; do
+		cert_juju_secret_id=$(juju secrets --format=yaml 2>/dev/null | yq 'to_entries | .[] | select(.value.label == "self-signed-vault-ca-certificate") | .key')
+		if [[ -z "$cert_juju_secret_id" ]]; then
+			if [[ ${attempt} -ge 30 ]]; then
+				red "vault certificate secret not found after 60 seconds."
+				exit 1
+			fi
+			echo "[+] Waiting for vault certificate secret (attempt ${attempt})"
+			sleep 2
+			attempt=$((attempt + 1))
+		fi
+	done
+	echo "[+] $(green 'Found vault certificate secret:') ${cert_juju_secret_id}"
+	
+	cert_content=$(juju show-secret "${cert_juju_secret_id}" --reveal --format=yaml | yq -r '.[] | .content.certificate')
+	if [[ -z "$cert_content" ]]; then
+		red "Failed to extract certificate from secret."
+		exit 1
+	fi
+	echo "$cert_content" >"$TMP/vault.pem"
 	export VAULT_CAPATH="$TMP/vault.pem"
 	vault status || true
 	vault_init_output=$(vault operator init -key-shares=5 -key-threshold=3 -format json)
