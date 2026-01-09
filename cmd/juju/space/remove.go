@@ -203,11 +203,11 @@ func buildRemoveErrorList(removeSpace RemoveSpace, currentModel string) []string
 	if len(removeSpace.Constraints) > 0 {
 		msg = "- %q is used as a constraint on: %v"
 		list = append(list, fmt.Sprintf(msg, spaceName, strings.Join(constraints, ", ")))
+	}
 
-		if removeSpace.HasModelConstraint {
-			msg = "- %q is used as a model constraint: %v"
-			list = append(list, fmt.Sprintf(msg, spaceName, currentModel))
-		}
+	if removeSpace.HasModelConstraint {
+		msg = "- %q is used as a model constraint: %v"
+		list = append(list, fmt.Sprintf(msg, spaceName, currentModel))
 	}
 	if len(removeSpace.Bindings) > 0 {
 		msg = "- %q is used as a binding on: %v"
