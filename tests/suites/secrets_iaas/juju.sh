@@ -1,4 +1,7 @@
 check_secrets() {
+	# Optional expected backend name (defaults to "internal")
+	expected_backend=${1:-internal}
+
 	juju --show-log deploy juju-qa-dummy-source
 	juju --show-log deploy juju-qa-dummy-sink
 	juju --show-log integrate dummy-sink dummy-source
@@ -17,9 +20,13 @@ check_secrets() {
 	secret_owned_by_dummy_source=$(juju exec --unit dummy-source/0 -- secret-add owned-by=dummy-source-app)
 	secret_owned_by_dummy_source_id=${secret_owned_by_dummy_source##*/}
 
-	echo "Checking secrets' backend name"
-	check_contains "$(juju secrets --owner application-dummy-source --format json | jq ".${secret_owned_by_dummy_source_id}.revisions[0].backend")" 'internal'
-	check_contains "$(juju secrets --owner unit-dummy-source-0 --format json | jq ".${secret_owned_by_dummy_source_0_id}.revisions[0].backend")" 'internal'
+	echo "Checking secrets' backend name with juju secrets --owner"
+	check_contains "$(juju secrets --owner application-dummy-source --format yaml | yq -r ".${secret_owned_by_dummy_source_id}.revisions[0].backend")" "${expected_backend}"
+	check_contains "$(juju secrets --owner unit-dummy-source-0 --format yaml | yq -r ".${secret_owned_by_dummy_source_0_id}.revisions[0].backend")" "${expected_backend}"
+
+	echo "Checking secrets' backend name with juju show-secret --revisions"
+	check_contains "$(juju --show-log show-secret "$secret_owned_by_dummy_source_id" --revisions --format yaml | yq -r ".${secret_owned_by_dummy_source_id}.revisions[0].backend")" "${expected_backend}"
+	check_contains "$(juju --show-log show-secret "$secret_owned_by_dummy_source_0_id" --revisions --format yaml | yq -r ".${secret_owned_by_dummy_source_0_id}.revisions[0].backend")" "${expected_backend}"
 
 	echo "Set same content again for $secret_owned_by_dummy_source."
 	juju exec --unit dummy-source/0 -- secret-set "$secret_owned_by_dummy_source_id" owned-by=dummy-source-app
@@ -137,11 +144,6 @@ run_user_secrets() {
 	secret_uri=$(juju --show-log add-secret mysecret owned-by="$model_name-1" --info "this is a user secret")
 	secret_short_uri=${secret_uri##*:}
 
-	# check user secret backend name.
-	check_contains "$(juju --show-log show-secret mysecret --revisions | yq ".${secret_short_uri}.revisions[0].backend")" 'internal'
-	check_contains "$(juju --show-log show-secret "$secret_short_uri" --revisions | yq ".${secret_short_uri}.revisions[0].backend")" 'internal'
-
-	# check user secret backend description.
 	check_contains "$(juju --show-log show-secret mysecret --revisions | yq ".${secret_short_uri}.description")" 'this is a user secret'
 
 	# set same content again for revision 1.

@@ -11,7 +11,7 @@ run_secrets_k8s() {
 	model_name='model-secrets-k8s-charm-owned'
 	add_model "$model_name"
 	juju --show-log model-secret-backend myk8s -m "$model_name"
-	check_secrets
+	check_secrets "${model_name}-local"
 	destroy_model "$model_name"
 
 	model_name='model-secrets-k8s-model-owned'

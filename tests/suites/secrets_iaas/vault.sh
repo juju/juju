@@ -12,7 +12,7 @@ run_secrets_vault() {
 	add_model "$model_name"
 	juju --show-log model-secret-backend myvault -m "$model_name"
 
-	check_secrets
+	check_secrets "myvault"
 	destroy_model "$model_name"
 
 	model_name='model-secrets-vault-model-owned'
@@ -31,7 +31,6 @@ run_secrets_vault() {
 	secret_uri=$(juju add-secret big --file "${TEST_DIR}/secret.txt")
 	secret_short_uri=${secret_uri##*:}
 	check_contains "$(juju show-secret big --reveal | yq ".${secret_short_uri}.content.data" | grep -o A | wc -l)" 749500
-	check_contains "$(juju show-secret big --revisions | yq -r ".${secret_short_uri}.revisions[0].backend")" myvault
 	check_contains "$(juju show-secret-backend myvault | yq -r .myvault.secrets)" 1
 	check_contains "$(juju list-secret-backends --format yaml | yq -r .myvault.secrets)" 1
 	check_contains "$(juju remove-secret-backend myvault 2>&1)" 'backend "myvault" still contains secret content'
