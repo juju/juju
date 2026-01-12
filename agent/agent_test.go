@@ -584,8 +584,9 @@ func (*suite) TestSetPassword(c *gc.C) {
 	addr := fmt.Sprintf("localhost:%d", servingInfo.StatePort)
 	expectStateInfo := &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  []string{addr},
-			CACert: attrParams.CACert,
+			Addrs:        []string{addr},
+			CACert:       attrParams.CACert,
+			CAPrivateKey: stateServingInfo().CAPrivateKey,
 		},
 		Tag:      attrParams.Tag,
 		Password: "",

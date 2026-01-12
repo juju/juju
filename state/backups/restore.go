@@ -67,8 +67,9 @@ func newDialInfo(privateAddr string, conf agent.Config) (*mgo.DialInfo, error) {
 		return nil, errors.Errorf("cannot get state serving info to dial")
 	}
 	info := mongo.Info{
-		Addrs:  []string{net.JoinHostPort(privateAddr, strconv.Itoa(ssi.StatePort))},
-		CACert: conf.CACert(),
+		Addrs:        []string{net.JoinHostPort(privateAddr, strconv.Itoa(ssi.StatePort))},
+		CACert:       conf.CACert(),
+		CAPrivateKey: ssi.CAPrivateKey,
 	}
 	dialInfo, err := mongo.DialInfo(info, dialOpts)
 	if err != nil {

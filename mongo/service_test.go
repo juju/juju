@@ -48,7 +48,7 @@ func (s *serviceSuite) TestNewConf24(c *gc.C) {
 
 	expectedArgs := set.NewStrings(
 		"--dbpath",
-		"--sslPEMKeyPassword=ignored",
+		"--tlsCertificateKeyFilePassword=ignored",
 		"--port",
 		"--syslog",
 		"--slowms",
@@ -60,7 +60,9 @@ func (s *serviceSuite) TestNewConf24(c *gc.C) {
 		"--auth",
 		"--sslOnNormalPorts",
 		"--keyFile",
-		"--sslPEMKeyFile",
+		"--tlsCAFile",
+		"--tlsCertificateKeyFile",
+		"--tlsAllowInvalidHostnames",
 		"--replSet",
 		// required when MongoDB 2.4 is deployed
 		"--noprealloc",
@@ -68,13 +70,14 @@ func (s *serviceSuite) TestNewConf24(c *gc.C) {
 	)
 
 	expectedKwArgs := map[string]string{
-		"--dbpath":        "'/var/lib/juju/db'",
-		"--sslPEMKeyFile": "'/var/lib/juju/server.pem'",
-		"--port":          "12345",
-		"--keyFile":       "'/var/lib/juju/shared-secret'",
-		"--oplogSize":     "10",
-		"--replSet":       "juju",
-		"--slowms":        "1000",
+		"--dbpath":                "'/var/lib/juju/db'",
+		"--tlsCAFile":             "'/var/lib/juju/ca.crt'",
+		"--tlsCertificateKeyFile": "'/var/lib/juju/server.pem'",
+		"--port":                  "12345",
+		"--keyFile":               "'/var/lib/juju/shared-secret'",
+		"--oplogSize":             "10",
+		"--replSet":               "juju",
+		"--slowms":                "1000",
 	}
 
 	c.Assert(conf.Desc, gc.Not(gc.Equals), "")
@@ -161,7 +164,7 @@ func (s *serviceSuite) TestNewConf32LowMem(c *gc.C) {
 
 	expectedArgs := set.NewStrings(
 		"--dbpath",
-		"--sslPEMKeyPassword=ignored",
+		"--tlsCertificateKeyFilePassword=ignored",
 		"--port",
 		"--syslog",
 		"--slowms",
@@ -172,24 +175,27 @@ func (s *serviceSuite) TestNewConf32LowMem(c *gc.C) {
 		"--ipv6",
 		"--auth",
 		"--keyFile",
-		"--sslPEMKeyFile",
+		"--tlsCAFile",
+		"--tlsCertificateKeyFile",
+		"--tlsAllowInvalidHostnames",
 		"--replSet",
 		// required when MongoDB 3.2 is deployed
 		"--storageEngine",
 		"--wiredTigerCacheSizeGB",
-		"--sslMode",
+		"--tlsMode",
 	)
 
 	expectedKwArgs := map[string]string{
 		"--dbpath":                "'/var/lib/juju/db'",
-		"--sslPEMKeyFile":         "'/var/lib/juju/server.pem'",
+		"--tlsCAFile":             "'/var/lib/juju/ca.crt'",
+		"--tlsCertificateKeyFile": "'/var/lib/juju/server.pem'",
 		"--port":                  "12345",
 		"--keyFile":               "'/var/lib/juju/shared-secret'",
 		"--oplogSize":             "10",
 		"--replSet":               "juju",
 		"--storageEngine":         "wiredTiger",
 		"--wiredTigerCacheSizeGB": "1",
-		"--sslMode":               "requireSSL",
+		"--tlsMode":               "requireTLS",
 		"--slowms":                "1000",
 	}
 
@@ -230,13 +236,14 @@ func (s *serviceSuite) TestNewConf36(c *gc.C) {
 		IPv6:                  true,
 		ReplicaSet:            "juju",
 		MemoryProfile:         mongo.MemoryProfileLow,
+		CACertFile:            "/var/lib/juju/ca.crt",
 		PEMKeyFile:            "/var/lib/juju/server.pem",
 		PEMKeyPassword:        "ignored",
 		AuthKeyFile:           "/var/lib/juju/shared-secret",
 		Syslog:                true,
 		Journal:               true,
 		Quiet:                 true,
-		SSLMode:               "requireSSL",
+		SSLMode:               "requireTLS",
 		WiredTigerCacheSizeGB: 0.25,
 		BindToAllIP:           true,
 	}
@@ -248,8 +255,10 @@ func (s *serviceSuite) TestNewConf36(c *gc.C) {
 		Timeout: 300,
 		ExecStart: "/usr/bin/mongod" +
 			" --dbpath '/var/lib/juju/db'" +
-			" --sslPEMKeyFile '/var/lib/juju/server.pem'" +
-			" --sslPEMKeyPassword=ignored" +
+			" --tlsCAFile '/var/lib/juju/ca.crt'" +
+			" --tlsCertificateKeyFile '/var/lib/juju/server.pem'" +
+			" --tlsCertificateKeyFilePassword=ignored" +
+			" --tlsAllowInvalidHostnames" +
 			" --port 12345" +
 			" --syslog" +
 			" --journal" +
@@ -259,7 +268,7 @@ func (s *serviceSuite) TestNewConf36(c *gc.C) {
 			" --ipv6" +
 			" --auth" +
 			" --keyFile '/var/lib/juju/shared-secret'" +
-			" --sslMode requireSSL" +
+			" --tlsMode requireTLS" +
 			" --storageEngine wiredTiger" +
 			" --wiredTigerCacheSizeGB 0.25" +
 			" --bind_ip_all",

@@ -61,6 +61,7 @@ const (
 var (
 	// TemplateFileNameServerPEM is the template server.pem file name.
 	TemplateFileNameServerPEM = "template-" + mongo.FileNameDBSSLKey
+	TemplateFileNameCACert    = "template-" + mongo.FileNameDBCACertKey
 )
 
 const (
@@ -140,6 +141,7 @@ type controllerStack struct {
 	fileNameSharedSecret, fileNameBootstrapParams,
 	fileNameSSLKey, fileNameSSLKeyMount,
 	fileNameAgentConf, fileNameAgentConfMount string
+	fileNameCACert, fileNameCACertMount string
 
 	resourceNameStatefulSet, resourceNameService,
 	resourceNameConfigMap, resourceNameSecret,
@@ -284,6 +286,8 @@ func newcontrollerStack(
 		fileNameSharedSecret:    mongo.SharedSecretFile,
 		fileNameSSLKey:          mongo.FileNameDBSSLKey,
 		fileNameSSLKeyMount:     TemplateFileNameServerPEM,
+		fileNameCACert:          mongo.FileNameDBCACertKey,
+		fileNameCACertMount:     TemplateFileNameCACert,
 		fileNameBootstrapParams: cloudconfig.FileNameBootstrapParams,
 		fileNameAgentConf:       agent.AgentConfigFilename,
 		fileNameAgentConfMount:  constants.TemplateFileNameAgentConf,
@@ -808,6 +812,7 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf() error {
 		return errors.Trace(err)
 	}
 	cm.Data[c.fileNameAgentConf] = string(agentConfigFileContent)
+	cm.Data[c.fileNameCACert] = c.agentConfig.CACert()
 
 	logger.Tracef("ensuring agent.conf configmap: \n%+v", cm)
 	cleanUp, err := c.broker.ensureConfigMap(cm)
@@ -1150,6 +1155,10 @@ func (c *controllerStack) buildStorageSpecForController(statefulset *apps.Statef
 						Key:  c.fileNameAgentConf,
 						Path: c.fileNameAgentConfMount,
 					},
+					{
+						Key:  c.fileNameCACert,
+						Path: c.fileNameCACertMount,
+					},
 				},
 			},
 		},
@@ -1188,23 +1197,26 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 		// TODO(bootstrap): refactor mongo package to make it usable for IAAS and CAAS,
 		// then generate mongo config from EnsureServerParams.
 		tlsPrivateKeyPath := c.pathJoin(c.pcfg.DataDir, c.fileNameSSLKey)
+		tlsCACertPath := c.pathJoin(c.pcfg.DataDir, c.fileNameCACert)
 		probCmds := &core.ExecAction{
 			Command: []string{
 				"mongo",
 				fmt.Sprintf("--port=%d", c.portMongoDB),
-				"--ssl",
-				"--sslAllowInvalidHostnames",
-				"--sslAllowInvalidCertificates",
-				fmt.Sprintf("--sslPEMKeyFile=%s", tlsPrivateKeyPath),
+				"--tls",
+				"--tlsAllowInvalidHostnames",
+				fmt.Sprintf("--tlsCertificateKeyFile=%s", tlsPrivateKeyPath),
+				fmt.Sprintf("--tlsCAFile=%s", tlsCACertPath),
 				"--eval",
 				"db.adminCommand('ping')",
 			},
 		}
 		args := []string{
 			fmt.Sprintf("--dbpath=%s", c.pathJoin(c.pcfg.DataDir, "db")),
-			fmt.Sprintf("--sslPEMKeyFile=%s", tlsPrivateKeyPath),
-			"--sslPEMKeyPassword=ignored",
-			"--sslMode=requireSSL",
+			fmt.Sprintf("--tlsCertificateKeyFile=%s", tlsPrivateKeyPath),
+			"--tlsCertificateKeyFilePassword=ignored",
+			fmt.Sprintf("--tlsCAFile=%s", tlsCACertPath),
+			"--tlsMode=requireTLS",
+			"--tlsAllowInvalidHostnames",
 			fmt.Sprintf("--port=%d", c.portMongoDB),
 			"--journal",
 			fmt.Sprintf("--replSet=%s", mongo.ReplicaSetName),

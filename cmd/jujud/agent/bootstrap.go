@@ -134,6 +134,11 @@ func (c *BootstrapCommand) ensureConfigFilesForCaas() error {
 			to:   filepath.Join(c.AgentConf.DataDir(), mongo.FileNameDBSSLKey),
 			from: filepath.Join(c.AgentConf.DataDir(), k8sprovider.TemplateFileNameServerPEM),
 		},
+		{
+			// ensure ca.crt
+			to:   filepath.Join(c.AgentConf.DataDir(), mongo.FileNameDBCACertKey),
+			from: filepath.Join(c.AgentConf.DataDir(), k8sprovider.TemplateFileNameCACert),
+		},
 	} {
 		if err := copyFileFromTemplate(v.to, v.from); err != nil {
 			return errors.Trace(err)

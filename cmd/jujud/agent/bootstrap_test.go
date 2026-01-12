@@ -316,9 +316,9 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []model.MachineJob, 
 		},
 	}
 	servingInfo := controller.StateServingInfo{
-		Cert:         "some cert",
-		PrivateKey:   "some key",
-		CAPrivateKey: "another key",
+		Cert:         testing.ServerCert,
+		PrivateKey:   testing.ServerKey,
+		CAPrivateKey: testing.CAKey,
 		APIPort:      3737,
 		StatePort:    mgotesting.MgoServer.Port(),
 	}
@@ -504,9 +504,10 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	// Check we can log in to mongo as admin.
 	info := mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:      []string{mgotesting.MgoServer.Addr()},
-			CACert:     testing.CACert,
-			DisableTLS: !mgotesting.MgoServer.SSLEnabled(),
+			Addrs:        []string{mgotesting.MgoServer.Addr()},
+			CACert:       testing.CACert,
+			CAPrivateKey: testing.CAKey,
+			DisableTLS:   !mgotesting.MgoServer.SSLEnabled(),
 		},
 		Tag:      nil, // admin user
 		Password: testPassword,

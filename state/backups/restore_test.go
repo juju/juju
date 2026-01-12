@@ -139,8 +139,8 @@ func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
 			APIPort:        1234,
 			StatePort:      statePort,
 			Cert:           coretesting.CACert,
-			CAPrivateKey:   "a ca key",
-			PrivateKey:     "a key",
+			CAPrivateKey:   coretesting.CAKey,
+			PrivateKey:     coretesting.ServerKey,
 			SharedSecret:   "a secret",
 			SystemIdentity: "an identity",
 		}

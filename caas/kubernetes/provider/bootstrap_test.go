@@ -593,16 +593,15 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		Command: []string{
 			"mongo",
 			fmt.Sprintf("--port=%d", s.controllerCfg.StatePort()),
-			"--ssl",
-			"--sslAllowInvalidHostnames",
-			"--sslAllowInvalidCertificates",
-			"--sslPEMKeyFile=/var/lib/juju/server.pem",
+			"--tls",
+			"--tlsAllowInvalidHostnames",
+			"--tlsCertificateKeyFile=/var/lib/juju/server.pem",
 			"--eval",
 			"db.adminCommand('ping')",
 		},
 	}
 	expectedArgs := []string{
-		`printf 'args="--dbpath=/var/lib/juju/db --sslPEMKeyFile=/var/lib/juju/server.pem --sslPEMKeyPassword=ignored --sslMode=requireSSL --port=1234 --journal --replSet=juju --quiet --oplogSize=1024 --auth --keyFile=/var/lib/juju/shared-secret --storageEngine=wiredTiger --bind_ip_all"`,
+		`printf 'args="--dbpath=/var/lib/juju/db --tlsCertificateKeyFile=/var/lib/juju/server.pem --tlsCertificateKeyFilePassword=ignored --tlsMode=requireTLS --port=1234 --journal --replSet=juju --quiet --oplogSize=1024 --auth --keyFile=/var/lib/juju/shared-secret --storageEngine=wiredTiger --bind_ip_all"`,
 		`ipv6Disabled=$(sysctl net.ipv6.conf.all.disable_ipv6 -n)`,
 		`if [ $ipv6Disabled -eq 0 ]; then`,
 		`  args="${args} --ipv6"`,

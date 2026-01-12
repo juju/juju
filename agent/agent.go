@@ -985,8 +985,9 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 	logger.Debugf("potential mongo addresses: %v", mongoAddrs)
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  mongoAddrs,
-			CACert: c.caCert,
+			Addrs:        mongoAddrs,
+			CACert:       c.caCert,
+			CAPrivateKey: ssi.CAPrivateKey,
 		},
 		Password: c.statePassword,
 		Tag:      c.tag,

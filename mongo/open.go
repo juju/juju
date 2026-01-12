@@ -17,6 +17,9 @@ import (
 	"github.com/juju/mgo/v2"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3/cert"
+
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/pki"
 )
 
 // SocketTimeout should be long enough that even a slow mongo server
@@ -89,8 +92,11 @@ type Info struct {
 	Addrs []string
 
 	// CACert holds the CA certificate that will be used
-	// to validate the controller's certificate, in PEM format.
+	// to mint a client certificate, in PEM format.
 	CACert string
+
+	// CAPrivateKey is the CA certificate private key.
+	CAPrivateKey string
 
 	// DisableTLS controls whether the connection to MongoDB servers
 	// is made using TLS (the default), or not.
@@ -129,12 +135,33 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 		if err != nil {
 			return nil, fmt.Errorf("cannot parse CA certificate: %v", err)
 		}
+
+		authority, err := pki.NewDefaultAuthorityPemCAKey(
+			[]byte(info.CACert), []byte(info.CAPrivateKey))
+		if err != nil {
+			return nil, errors.Annotate(err, "loading juju certificate authority")
+		}
+		leaf, err := authority.LeafRequestForGroup(pki.DefaultLeafGroup).
+			AddDNSNames(controller.DefaultDNSNames...).Commit()
+		if err != nil {
+			return nil, errors.Annotate(err, "making juju-db client certificate")
+		}
+		cert, key, err := leaf.ToPemParts()
+		if err != nil {
+			return nil, errors.Annotate(err, "encoding juju-db client certificate to pem")
+		}
+		clientCert, err := tls.X509KeyPair(cert, key)
+		if err != nil {
+			return nil, errors.Annotate(err, "parsing juju-db client certificate")
+		}
+
 		pool := x509.NewCertPool()
 		pool.AddCert(xcert)
 
 		tlsConfig = http.SecureTLSConfig()
 		tlsConfig.RootCAs = pool
 		tlsConfig.ServerName = "juju-mongodb"
+		tlsConfig.Certificates = []tls.Certificate{clientCert}
 
 		// TODO(natefinch): revisit this when are full-time on mongo 3.
 		// We have to add non-ECDHE suites because mongo doesn't support ECDHE.
