@@ -9,7 +9,6 @@ import (
 	"os"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
@@ -208,7 +207,7 @@ func (c *upgradeSeriesCommand) Init(args []string) error {
 
 	if c.subCommand == PrepareCommand {
 		seriesArg := args[2]
-		workloadSeries, err := series.WorkloadSeries(time.Now(), seriesArg, "")
+		workloadSeries, err := series.WorkloadSeries(seriesArg, "")
 		if err != nil {
 			return errors.Trace(err)
 		}

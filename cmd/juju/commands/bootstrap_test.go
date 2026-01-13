@@ -17,7 +17,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/clock/testclock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/collections/set"
@@ -73,7 +72,6 @@ type BootstrapSuite struct {
 	tw    loggo.TestWriter
 
 	bootstrapCmd bootstrapCommand
-	clock        *testclock.Clock
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
@@ -136,8 +134,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	})
 
-	s.clock = testclock.NewClock(time.Now())
-	s.bootstrapCmd = bootstrapCommand{clock: s.clock}
+	s.bootstrapCmd = bootstrapCommand{}
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
@@ -215,7 +212,7 @@ type bootstrapTest struct {
 func (s *BootstrapSuite) patchVersionAndSeries(c *gc.C, hostSeries string) {
 	resetJujuXDGDataHome(c)
 	s.PatchValue(&series.HostSeries, func() (string, error) { return hostSeries, nil })
-	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
+	s.PatchValue(&supportedJujuSeries, func(string, string) (set.Strings, error) {
 		return set.NewStrings(hostSeries).Union(defaultSupportedJujuSeries), nil
 	})
 	s.patchVersion(c)
@@ -1390,7 +1387,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
 	// so we can test that an upload is forced.
 	s.PatchValue(&jujuversion.Current, version.MustParse(vers))
 	s.PatchValue(&series.HostSeries, func() (string, error) { return ser, nil })
-	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
+	s.PatchValue(&supportedJujuSeries, func(string, string) (set.Strings, error) {
 		return set.NewStrings(ser).Union(defaultSupportedJujuSeries), nil
 	})
 

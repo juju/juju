@@ -5,7 +5,6 @@ package application
 
 import (
 	"runtime"
-	"time"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -30,7 +29,7 @@ func (s *UnexposeSuite) SetUpTest(c *gc.C) {
 		c.Skip("Mongo failures on macOS")
 	}
 	s.RepoSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
+	s.PatchValue(&supportedJujuSeries, func(string, string) (set.Strings, error) {
 		return defaultSupportedJujuSeries, nil
 	})
 	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)

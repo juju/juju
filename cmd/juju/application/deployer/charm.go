@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v8"
-	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -416,7 +415,6 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 type repositoryCharm struct {
 	deployCharm
 	userRequestedURL *charm.URL
-	clock            jujuclock.Clock
 }
 
 // String returns a string description of the deployer.
@@ -451,7 +449,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 	ctx.Verbosef("Preparing to deploy %q from the %s", userRequestedURL.Name, location)
 
-	modelCfg, workloadSeries, err := seriesSelectorRequirements(deployAPI, c.clock, userRequestedURL)
+	modelCfg, workloadSeries, err := seriesSelectorRequirements(deployAPI, userRequestedURL)
 	if err != nil {
 		return errors.Trace(err)
 	}

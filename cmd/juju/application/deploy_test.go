@@ -16,7 +16,6 @@ import (
 	"runtime"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
@@ -172,7 +171,7 @@ func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 		c.Skip("Mongo failures on macOS")
 	}
 	s.RepoSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
+	s.PatchValue(&supportedJujuSeries, func(string, string) (set.Strings, error) {
 		return defaultSupportedJujuSeries, nil
 	})
 	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
@@ -1032,7 +1031,7 @@ func (s *CAASDeploySuiteBase) expectDeployer(c *gc.C, cfg deployer.DeployerConfi
 
 func (s *CAASDeploySuiteBase) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
+	s.PatchValue(&supportedJujuSeries, func(string, string) (set.Strings, error) {
 		return defaultSupportedJujuSeries, nil
 	})
 	cookiesFile := filepath.Join(c.MkDir(), ".go-cookies")
@@ -1459,7 +1458,7 @@ func (s *DeploySuite) setupNonESMSeries(c *gc.C) (string, string) {
 	supportedNotEMS := supported.Difference(set.NewStrings(series.ESMSupportedJujuSeries()...))
 	c.Assert(supportedNotEMS.Size(), jc.GreaterThan, 0)
 
-	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
+	s.PatchValue(&supportedJujuSeries, func(string, string) (set.Strings, error) {
 		return supported, nil
 	})
 
@@ -2316,7 +2315,7 @@ var _ = gc.Suite(&DeployUnitTestSuite{})
 
 func (s *DeployUnitTestSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
+	s.PatchValue(&supportedJujuSeries, func(string, string) (set.Strings, error) {
 		return defaultSupportedJujuSeries, nil
 	})
 	cookiesFile := filepath.Join(c.MkDir(), ".go-cookies")

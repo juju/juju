@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
-	jujuclock "github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -42,7 +41,6 @@ var logger = loggo.GetLogger("juju.cmd.juju.application.deployer")
 // function dependencies required by every deployer.
 func NewDeployerFactory(dep DeployerDependencies) DeployerFactory {
 	d := &factory{
-		clock:                jujuclock.WallClock,
 		model:                dep.Model,
 		fileSystem:           dep.FileSystem,
 		charmReader:          dep.CharmReader,
@@ -189,9 +187,6 @@ type factory struct {
 	bundleMachines     map[string]string
 	trust              bool
 	flagSet            *gnuflag.FlagSet
-
-	// Private
-	clock jujuclock.Clock
 }
 
 func (d *factory) maybePredeployedLocalCharm() (Deployer, error) {
@@ -346,7 +341,7 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 		}
 
 		imageStream = modelCfg.ImageStream()
-		workloadSeries, err := supportedJujuSeries(d.clock.Now(), d.series, imageStream)
+		workloadSeries, err := supportedJujuSeries(d.series, imageStream)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -541,7 +536,6 @@ func (d *factory) repositoryCharm() (Deployer, error) {
 	return &repositoryCharm{
 		deployCharm:      deployCharm,
 		userRequestedURL: userRequestedURL,
-		clock:            d.clock,
 	}, nil
 }
 
@@ -581,7 +575,7 @@ func appsRequiringTrust(appSpecList map[string]*charm.ApplicationSpec) []string 
 	return tl
 }
 
-func seriesSelectorRequirements(api ModelConfigGetter, cl jujuclock.Clock, chURL *charm.URL) (*config.Config, set.Strings, error) {
+func seriesSelectorRequirements(api ModelConfigGetter, chURL *charm.URL) (*config.Config, set.Strings, error) {
 	// resolver.resolve potentially updates the series of anything
 	// passed in. Store this for use in seriesSelector.
 	userRequestedSeries := chURL.Series
@@ -592,7 +586,7 @@ func seriesSelectorRequirements(api ModelConfigGetter, cl jujuclock.Clock, chURL
 	}
 
 	imageStream := modelCfg.ImageStream()
-	workloadSeries, err := supportedJujuSeries(cl.Now(), userRequestedSeries, imageStream)
+	workloadSeries, err := supportedJujuSeries(userRequestedSeries, imageStream)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -615,7 +609,7 @@ func (d *factory) validateCharmSeries(seriesName string, imageStream string) err
 
 	// attempt to locate the charm series from the list of known juju series
 	// that we currently support.
-	workloadSeries, err := supportedJujuSeries(d.clock.Now(), seriesName, imageStream)
+	workloadSeries, err := supportedJujuSeries(seriesName, imageStream)
 	if err != nil {
 		return errors.Trace(err)
 	}

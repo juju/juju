@@ -6,7 +6,6 @@ package series
 import (
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -24,7 +23,7 @@ const (
 
 // ControllerSeries returns all the controller series available to it at the
 // execution time.
-func ControllerSeries(now time.Time, requestedSeries, imageStream string) (set.Strings, error) {
+func ControllerSeries(requestedSeries, imageStream string) (set.Strings, error) {
 	supported, err := seriesForTypes(requestedSeries, imageStream)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -34,7 +33,7 @@ func ControllerSeries(now time.Time, requestedSeries, imageStream string) (set.S
 
 // WorkloadSeries returns the supported workload series available to it at the
 // execution time.
-func WorkloadSeries(now time.Time, requestedSeries, imageStream string) (set.Strings, error) {
+func WorkloadSeries(requestedSeries, imageStream string) (set.Strings, error) {
 	supported, err := seriesForTypes(requestedSeries, imageStream)
 	if err != nil {
 		return nil, errors.Trace(err)
