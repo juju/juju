@@ -17,6 +17,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
+	"github.com/juju/juju/wrench"
 	"github.com/juju/loggo"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
@@ -207,7 +208,11 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		return errors.Annotate(err, "generating application podspec")
 	}
 
-	var handleVolume handleVolumeFunc = func(v corev1.Volume, mountPath string, readOnly bool) (*corev1.VolumeMount, error) {
+	var handleVolume handleVolumeFunc = func(
+		v corev1.Volume,
+		mountPath string,
+		readOnly bool,
+	) (*corev1.VolumeMount, error) {
 		if err := storage.PushUniqueVolume(podSpec, v, false); err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -217,7 +222,10 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			MountPath: mountPath,
 		}, nil
 	}
-	var handleVolumeMount handleVolumeMountFunc = func(storageName string, m corev1.VolumeMount) error {
+	var handleVolumeMount handleVolumeMountFunc = func(
+		storageName string,
+		m corev1.VolumeMount,
+	) error {
 		for i := range podSpec.Containers {
 			name := podSpec.Containers[i].Name
 			if name == constants.ApplicationCharmContainer {
@@ -236,7 +244,11 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		}
 		return nil
 	}
-	var handlePVCForStatelessResource handlePVCFunc = func(pvc corev1.PersistentVolumeClaim, mountPath string, readOnly bool) (*corev1.VolumeMount, error) {
+	var handlePVCForStatelessResource handlePVCFunc = func(
+		pvc corev1.PersistentVolumeClaim,
+		mountPath string,
+		readOnly bool,
+	) (*corev1.VolumeMount, error) {
 		// Ensure PVC.
 		r := resources.NewPersistentVolumeClaim(a.client.CoreV1().PersistentVolumeClaims(a.namespace), a.namespace, pvc.GetName(), &pvc)
 		applier.Apply(r)
@@ -253,7 +265,8 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		}
 		return handleVolume(vol, mountPath, readOnly)
 	}
-	storageClasses, err := resources.ListStorageClass(context.Background(), a.client.StorageV1().StorageClasses(), metav1.ListOptions{})
+	storageClasses, err := resources.ListStorageClass(context.Background(),
+		a.client.StorageV1().StorageClasses(), metav1.ListOptions{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -311,7 +324,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		}
 
 		var numPods *int32
-		if !exists {
+		if !exists || config.ShouldReconcileStorage {
 			numPods = pointer.Int32(int32(config.InitialScale))
 		}
 
@@ -321,7 +334,8 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				Namespace: a.namespace,
 				Labels:    a.labels(),
 				Annotations: a.annotations(config).
-					Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), config.StorageUniqueID),
+					Add(utils.AnnotationKeyApplicationUUID(a.labelVersion),
+						config.StorageUniqueID),
 			},
 			Spec: appsv1.StatefulSetSpec{
 				Replicas: numPods,
@@ -339,12 +353,55 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				ServiceName:         HeadlessServiceName(a.name),
 			},
 		}
-		statefulset := resources.NewStatefulSet(a.client.AppsV1().StatefulSets(a.namespace), a.namespace, a.name, sts)
+		statefulset := resources.NewStatefulSet(
+			a.client.AppsV1().StatefulSets(a.namespace), a.namespace,
+			a.name, sts)
+
+		if config.ShouldReconcileStorage {
+			if wrench.IsActive("application-storage", "reconcile-skip") {
+				logger.Infof("[adis] feature reconcile-skip is enabled...")
+				return nil
+			}
+
+			if wrench.IsActive("application-storage", "reconcile-fail") {
+				logger.Infof("[adis] feature reconcile-fail is enabled...")
+				return errors.New("[adis] reconcile-fail")
+			}
+		}
+
+		// A storage reconcile indicates that we must delete the existing
+		// statefulset so that we can apply a new statefulset with the new
+		// persistent volume claim templates. Recall that k8s doesn't
+		// allow us to update an existing statefulset with a different
+		// persistent volume claim template to the one already available.
+		if config.ShouldReconcileStorage && existingSts != nil {
+			// We can actually avoid unnecessary reconciling if we detect that
+			// there are no changes between the current volume claims and the
+			// new one.
+			currentClaims := existingSts.StatefulSet.Spec.VolumeClaimTemplates
+			newClaims := statefulset.StatefulSet.Spec.VolumeClaimTemplates
+			if a.volumeClaimTemplateMatch(currentClaims, newClaims) {
+				logger.Infof("[adis] a reconcile for app %q is not needed "+
+					"because there are no changes in storage.", a.name)
+				return nil
+			}
+
+			logger.Infof("[adis] reconcile gonna delete statefulset for app %q", a.name)
+
+			stsOrphanDelete := resources.
+				NewStatefulSetWithOrphanDelete(existingSts)
+			applier.Delete(stsOrphanDelete)
+		}
 
 		if err = configureStorage(
 			config.StorageUniqueID,
-			func(pvc corev1.PersistentVolumeClaim, mountPath string, readOnly bool) (*corev1.VolumeMount, error) {
-				if err := storage.PushUniqueVolumeClaimTemplate(&statefulset.Spec, pvc); err != nil {
+			func(pvc corev1.PersistentVolumeClaim,
+				mountPath string, readOnly bool,
+			) (*corev1.VolumeMount, error) {
+				if err := storage.PushUniqueVolumeClaimTemplate(
+					&statefulset.Spec,
+					pvc,
+				); err != nil {
 					return nil, errors.Trace(err)
 				}
 				return &corev1.VolumeMount{
@@ -355,6 +412,12 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			},
 		); err != nil {
 			return errors.Trace(err)
+		}
+
+		if statefulset.Spec.Replicas != nil {
+			logger.Infof("[adis][app][Ensure] reconcile storage %t going to reapply with replicas %d", config.ShouldReconcileStorage, *statefulset.Spec.Replicas)
+		} else {
+			logger.Infof("[adis][app][Ensure] reconcile storage %t going to reapply with replicas nil", config.ShouldReconcileStorage)
 		}
 
 		applier.Apply(statefulset)
