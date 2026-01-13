@@ -20,7 +20,7 @@ Let's use Juju to deploy, configure, and integrate some Kubernetes charms:
 
 You will need a cloud and Juju. The quickest way is to use a Multipass VM launched with the `charm-dev` blueprint.
 
-[Install Multipass](https://canonical.com/multipass/docs/install-multipass). On Linux:
+[Install Multipass](https://documentation.ubuntu.com/multipass/latest/how-to-guides/install-multipass/). On Linux:
 
 ```
 sudo snap install multipass
@@ -121,7 +121,7 @@ Delete your Multipass VM:
 multipass delete --purge tutorial-vm
 ```
 
-[Uninstall Multipass](https://canonical.com/multipass/docs/install-multipass). On Linux:
+[Uninstall Multipass](https://documentation.ubuntu.com/multipass/latest/how-to-guides/install-multipass/). On Linux:
 
 ```
 snap remove multipass
