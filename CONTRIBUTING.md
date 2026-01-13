@@ -95,8 +95,8 @@ git checkout -b 3.6-new-stuff # your feature branch
 
 8. Make the desired changes. Test changes locally.
 
+---
 
-----------------
 <details>
 
 <summary>Further info: Docs</summary>
@@ -130,24 +130,30 @@ errors, try `make clean`, then `make run` again. For other checks, see `make
 
 </details>
 
-----------------
+---
 
-----------------
 <details>
 
 <summary>Further info: Code</summary>
 
-### Installing Go
+### Dependencies
 
 `juju` is written in [Go](https://go.dev/). To install Go see [Go
 docs](https://golang.org/doc/install#install).
+
+Before building Juju, you also need to install system dependencies. On Ubuntu,
+install the required packages:
+
+```sh
+sudo apt install libsqlite3-dev
+```
 
 ### Building Juju and its dependencies
 
 Fork and clone the Juju repo, then navigate to the root directory and run `make
 install`:
 
-```
+```sh
 git clone https://github.com/<user>/juju.git
 cd juju
 make install
@@ -209,9 +215,7 @@ For more information see [CODING.md](CODING.md)
 
 </details>
 
-----------------
-
-
+---
 
 9. As you make your changes, ensure that you always remain in sync with the upstream:
 
