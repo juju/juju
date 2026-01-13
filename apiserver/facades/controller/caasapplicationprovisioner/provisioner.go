@@ -421,6 +421,16 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	if err != nil {
 		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
+	scale := 0
+	isUpdatingStorage := app.GetIsUpdatingApplicationStorage()
+	// Only propagate the scale from provisioningInfo when it indicates an
+	// in-progress application storage update. This ensures we preserve the
+	// desired replica count if the StatefulSet is deleted as part of the
+	// storage update and later re-created.
+	if isUpdatingStorage {
+		scale = app.GetScale()
+	}
+
 	return &params.CAASApplicationProvisioningInfo{
 		Version:                      vers,
 		APIAddresses:                 addrs,
@@ -434,7 +444,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		CharmModifiedVersion:         app.CharmModifiedVersion(),
 		CharmURL:                     *charmURL,
 		Trust:                        appConfig.GetBool(application.TrustConfigOptionName, false),
-		Scale:                        app.GetScale(),
+		Scale:                        scale,
 		StorageUniqueID:              app.GetStorageUniqueID(),
 		IsUpdatingApplicationStorage: app.GetIsUpdatingApplicationStorage(),
 	}, nil
@@ -1494,8 +1504,9 @@ func (a *API) ProvisioningState(args params.Entity) (params.CAASApplicationProvi
 	}
 
 	result.ProvisioningState = &params.CAASApplicationProvisioningState{
-		Scaling:     ps.Scaling,
-		ScaleTarget: ps.ScaleTarget,
+		ScaleTarget:      ps.ScaleTarget,
+		ReplicaCount:     ps.ReplicaCount,
+		CurrentOperation: ps.CurrentOperation,
 	}
 	return result, nil
 }
@@ -1517,8 +1528,9 @@ func (a *API) SetProvisioningState(args params.CAASApplicationProvisioningStateA
 	}
 
 	ps := state.ApplicationProvisioningState{
-		Scaling:     args.ProvisioningState.Scaling,
-		ScaleTarget: args.ProvisioningState.ScaleTarget,
+		ScaleTarget:      args.ProvisioningState.ScaleTarget,
+		ReplicaCount:     args.ProvisioningState.ReplicaCount,
+		CurrentOperation: args.ProvisioningState.CurrentOperation,
 	}
 	err = app.SetProvisioningState(ps)
 	if errors.Is(err, stateerrors.ProvisioningStateInconsistent) {

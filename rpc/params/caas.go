@@ -7,6 +7,7 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/docker"
@@ -192,8 +193,9 @@ type CAASUnitsResults struct {
 
 // CAASApplicationProvisioningState represents the provisioning state for a CAAS application.
 type CAASApplicationProvisioningState struct {
-	Scaling     bool `json:"scaling"`
-	ScaleTarget int  `json:"scale-target"`
+	ScaleTarget      int                                `json:"scale-target"`
+	ReplicaCount     int                                `json:"replica-count"`
+	CurrentOperation *application.ProvisioningOperation `json:"current-operation,omitempty"`
 }
 
 // CAASApplicationProvisioningStateResult represents the result of getting the

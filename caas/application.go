@@ -158,6 +158,8 @@ type ApplicationConfig struct {
 
 	// StorageUniqueID is used to construct the PVC name for an application.
 	StorageUniqueID string
+
+	ShouldReconcileStorage bool
 }
 
 // ContainerConfig describes a container that is deployed alonside the uniter/charm container.

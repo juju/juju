@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3"
@@ -202,16 +203,15 @@ func (a *appWorker) loop() error {
 	}
 
 	var (
-		done                   = false // done is true when the app is dead and cleaned up.
-		ready                  = false // ready is true when the k8s resources are created.
-		initial                = true
-		scaleChan              <-chan time.Time
-		scaleTries             int
-		trustChan              <-chan time.Time
-		trustTries             int
-		reconcileDeadChan      <-chan time.Time
-		stateAppChangedChan    <-chan time.Time
-		storageConstraintsChan <-chan time.Time
+		done                = false // done is true when the app is dead and cleaned up.
+		ready               = false // ready is true when the k8s resources are created.
+		initial             = true
+		scaleChan           <-chan time.Time
+		scaleTries          int
+		trustChan           <-chan time.Time
+		trustTries          int
+		reconcileDeadChan   <-chan time.Time
+		stateAppChangedChan <-chan time.Time
 	)
 	const (
 		maxRetries = 20
@@ -233,7 +233,8 @@ func (a *appWorker) loop() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if ps != nil && ps.Scaling {
+			if ps != nil && ps.CurrentOperation != nil &&
+				*ps.CurrentOperation == application.ScaleOperation {
 				if a.statusOnly {
 					// Clear provisioning state for status only app.
 					err = a.facade.SetProvisioningState(a.name, params.CAASApplicationProvisioningState{})
@@ -344,6 +345,7 @@ func (a *appWorker) loop() error {
 			}
 			err := a.ops.EnsureScale(a.name, app, a.life, a.facade, a.unitFacade, a.logger)
 			if errors.Is(err, errors.NotFound) {
+				a.logger.Infof("[adis][appWorker] retrying scaleChan because of err %s", err)
 				if scaleTries >= maxRetries {
 					return errors.Annotatef(err, "more than %d retries ensuring scale", maxRetries)
 				}
@@ -454,26 +456,11 @@ func (a *appWorker) loop() error {
 			if !ok {
 				return fmt.Errorf("application %q storage constraints watcher closed channel", a.name)
 			}
-			if storageConstraintsChan == nil {
-				storageConstraintsChan = a.clock.After(0)
+			if stateAppChangedChan == nil {
+				a.logger.Infof("[adis][appWorker] got an event to reconcile storage for app %q", a.name)
+				stateAppChangedChan = a.clock.After(0)
 			}
 			shouldRefresh = false
-		case <-storageConstraintsChan:
-			if a.statusOnly {
-				storageConstraintsChan = nil
-				break
-			}
-			err := a.ops.ReconcileApplicationStorage(a.name, app, a.facade, a.logger)
-			if err != nil {
-				// The statefulset is yet to be created so we retry again.
-				if errors.Is(err, errors.NotFound) {
-					storageConstraintsChan = a.clock.After(retryDelay)
-				} else {
-					return errors.Trace(err)
-				}
-			} else {
-				storageConstraintsChan = nil
-			}
 		case <-a.clock.After(10 * time.Second):
 		case <-refreshTimer.Chan():
 			// Force refresh of application status.
@@ -492,8 +479,9 @@ func (a *appWorker) loop() error {
 				"status-only":      a.statusOnly,
 				"application-life": a.life,
 				"scale-target":     ps.ScaleTarget,
-				"scaling":          ps.Scaling,
-				"report-error":     reportErrors,
+				"scaling": ps.CurrentOperation != nil &&
+					*ps.CurrentOperation == application.ScaleOperation,
+				"report-error": reportErrors,
 			}
 			select {
 			case reportChan <- report:
