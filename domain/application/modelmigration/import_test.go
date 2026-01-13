@@ -740,11 +740,11 @@ func (s *importSuite) TestImportCharmManifest(c *tc.C) {
 func (s *importSuite) TestImportCharmManifestWithInvalidBase(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Notice that we do allow centos here for now. We probably want to
+	// Notice that we do allow genericlinux here for now. We probably want to
 	// consider preventing a migration with anything other than ubuntu.
 
 	baseExp := s.charmBase.EXPECT()
-	baseExp.Name().Return("centos")
+	baseExp.Name().Return("genericlinux")
 	baseExp.Channel().Return("4.0/blah")
 
 	exp := s.charmManifest.EXPECT()

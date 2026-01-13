@@ -177,5 +177,5 @@ func (s *computedBaseSuite) TestOSIsCompatibleWithCharm(c *tc.C) {
 	}).AnyTimes()
 
 	c.Assert(OSIsCompatibleWithCharm("ubuntu", cm), tc.ErrorIsNil)
-	c.Assert(OSIsCompatibleWithCharm("centos", cm), tc.ErrorIs, coreerrors.NotSupported)
+	c.Assert(OSIsCompatibleWithCharm("genericlinux", cm), tc.ErrorIs, coreerrors.NotSupported)
 }

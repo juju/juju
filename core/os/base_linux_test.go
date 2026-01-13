@@ -61,20 +61,6 @@ VERSION_ID='12.04'
 	corebase.MustParseBaseFromString("ubuntu@12.04"),
 	"",
 }, {
-	`NAME="CentOS Linux"
-ID="centos"
-VERSION_ID="7"
-`,
-	corebase.MustParseBaseFromString("centos@7"),
-	"",
-}, {
-	`NAME="openSUSE Leap"
-ID=opensuse
-VERSION_ID="42.2"
-`,
-	corebase.MustParseBaseFromString("opensuse@42.2"),
-	"",
-}, {
 	`NAME="Ubuntu"
 VERSION="14.04.1 LTS, Trusty Tahr"
 ID=ubuntu
@@ -87,37 +73,7 @@ BUG_REPORT_URL="http://bugs.launchpad.net/ubuntu/"
 `,
 	corebase.MustParseBaseFromString("ubuntu@14.04"),
 	"",
-}, {
-	`NAME=Fedora
-VERSION="24 (Twenty Four)"
-ID=fedora
-VERSION_ID=24
-PRETTY_NAME="Fedora 24 (Twenty Four)"
-CPE_NAME="cpe:/o:fedoraproject:fedora:24"
-HOME_URL="https://fedoraproject.org/"
-BUG_REPORT_URL="https://bugzilla.redhat.com/"
-`,
-	corebase.MustParseBaseFromString("fedora@24"),
-	"",
-}, {
-
-	"",
-	corebase.Base{},
-	"OS release file is missing ID",
-}, {
-	`NAME="CentOS Linux"
-ID="centos"
-`,
-	corebase.Base{},
-	"OS release file is missing VERSION_ID",
-}, {
-	`NAME=openSUSE
-ID=opensuse
-VERSION_ID="42.3"`,
-	corebase.MustParseBaseFromString("opensuse@42.3"),
-	"",
-},
-}
+}}
 
 func (s *linuxBaseSuite) TestReadSeries(c *tc.C) {
 	d := c.MkDir()

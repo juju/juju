@@ -774,7 +774,7 @@ func (s *environSuite) TestBootstrapNoMatchingTools(c *tc.C) {
 	ctx := envtesting.BootstrapTestContext(c)
 	_, err := s.env.Bootstrap(ctx, environs.BootstrapParams{
 		ControllerConfig:        testing.FakeControllerConfig(),
-		AvailableTools:          makeToolsList("centos"),
+		AvailableTools:          makeToolsList("genericlinux"),
 		BootstrapBase:           base.MustParseBaseFromString("ubuntu@22.04"),
 		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 	})

@@ -1278,7 +1278,7 @@ func (s *modelUpgradeSuite) TestMachinesUsingSupportedBase(c *tc.C) {
 		},
 		// Should stay: different OS
 		"m4": {
-			OS: "centos",
+			OS: "genericlinux",
 			Channel: corebase.Channel{
 				Track: "24.04",
 				Risk:  "stable",
@@ -1311,7 +1311,7 @@ func (s *modelUpgradeSuite) TestMachinesUsingSupportedBase(c *tc.C) {
 			},
 		},
 		"m4": {
-			OS: "centos",
+			OS: "genericlinux",
 			Channel: corebase.Channel{
 				Track: "24.04",
 				Risk:  "stable",
@@ -1366,7 +1366,7 @@ func (s *modelUpgradeSuite) TestMachinesUsingSupportedBaseNilSupportedBases(c *t
 			},
 		},
 		"m4": {
-			OS: "centos",
+			OS: "genericlinux",
 			Channel: corebase.Channel{
 				Track: "24.04",
 				Risk:  "stable",
@@ -1417,7 +1417,7 @@ func (s *modelUpgradeSuite) TestMachinesUsingSupportedBaseNilSupportedBases(c *t
 			},
 		},
 		"m4": {
-			OS: "centos",
+			OS: "genericlinux",
 			Channel: corebase.Channel{
 				Track: "24.04",
 				Risk:  "stable",

@@ -1271,11 +1271,11 @@ func (s *selectNextBaseSuite) TestSelectNextBaseWithValidBases(c *tc.C) {
 	}})
 }
 
-func (s *selectNextBaseSuite) TestSelectNextBaseWithCentosBase(c *tc.C) {
+func (s *selectNextBaseSuite) TestSelectNextBaseWithGenericLinuxBase(c *tc.C) {
 	repo := new(CharmHubRepository)
 	platform, err := repo.selectNextBases([]transport.Base{{
 		Architecture: "amd64",
-		Name:         "centos",
+		Name:         "genericlinux",
 		Channel:      "7",
 	}}, corecharm.Origin{
 		Platform: corecharm.Platform{
@@ -1287,7 +1287,7 @@ func (s *selectNextBaseSuite) TestSelectNextBaseWithCentosBase(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(platform, tc.DeepEquals, []corecharm.Platform{{
 		Architecture: "amd64",
-		OS:           "centos",
+		OS:           "genericlinux",
 		Channel:      "7",
 	}})
 }
@@ -1475,7 +1475,7 @@ func (s *composeSuggestionsSuite) TestCentosSuggestion(c *tc.C) {
 	}
 	suggestions := repo.composeSuggestions(c.Context(), []transport.Release{{
 		Base: transport.Base{
-			Name:         "centos",
+			Name:         "genericlinux",
 			Channel:      "7",
 			Architecture: "c",
 		},
@@ -1486,7 +1486,7 @@ func (s *composeSuggestionsSuite) TestCentosSuggestion(c *tc.C) {
 		},
 	})
 	c.Assert(suggestions, tc.DeepEquals, []string{
-		`channel "latest/stable": available bases are: centos@7`,
+		`channel "latest/stable": available bases are: genericlinux@7`,
 	})
 }
 

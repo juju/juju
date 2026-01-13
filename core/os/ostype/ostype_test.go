@@ -16,15 +16,13 @@ func TestOsTypeSuite(t *testing.T) {
 }
 
 func (s *osTypeSuite) TestEquivalentTo(c *tc.C) {
-	c.Check(Ubuntu.EquivalentTo(CentOS), tc.IsTrue)
 	c.Check(Ubuntu.EquivalentTo(GenericLinux), tc.IsTrue)
 	c.Check(GenericLinux.EquivalentTo(Ubuntu), tc.IsTrue)
-	c.Check(CentOS.EquivalentTo(CentOS), tc.IsTrue)
+	c.Check(Ubuntu.EquivalentTo(Ubuntu), tc.IsTrue)
 }
 
 func (s *osTypeSuite) TestIsLinux(c *tc.C) {
 	c.Check(Ubuntu.IsLinux(), tc.IsTrue)
-	c.Check(CentOS.IsLinux(), tc.IsTrue)
 	c.Check(GenericLinux.IsLinux(), tc.IsTrue)
 
 	c.Check(Windows.IsLinux(), tc.IsFalse)
@@ -49,7 +47,6 @@ func (s *osTypeSuite) TestParseOSType(c *tc.C) {
 		{str: "uBuntu", t: Ubuntu},
 		{str: "winDOwS", t: Windows},
 		{str: "OSX", t: OSX},
-		{str: "CentOS", t: CentOS},
 		{str: "GenericLinux", t: GenericLinux},
 		{str: "Kubernetes", t: Kubernetes},
 	}

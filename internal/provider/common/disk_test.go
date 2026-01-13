@@ -24,7 +24,6 @@ func (s *DiskSuite) TestMinRootDiskSizeGiB(c *tc.C) {
 		expectedSize uint64
 	}{
 		{"ubuntu", 8},
-		{"centos", 8},
 	}
 	for _, t := range diskTests {
 		actualSize := common.MinRootDiskSizeGiB(ostype.OSTypeForName(t.osname))

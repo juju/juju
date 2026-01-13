@@ -37,20 +37,17 @@ func extend(lists ...tools.List) tools.List {
 var (
 	t100ubuntu   = mustParseTools("1.0.0-ubuntu-amd64")
 	t100ubuntu32 = mustParseTools("1.0.0-ubuntu-i386")
-	t100centos   = mustParseTools("1.0.0-centos-amd64")
 	t100all      = tools.List{
-		t100ubuntu, t100ubuntu32, t100centos,
+		t100ubuntu, t100ubuntu32,
 	}
 	t190ubuntu   = mustParseTools("1.9.0-ubuntu-amd64")
 	t190ubuntu32 = mustParseTools("1.9.0-ubuntu-i386")
-	t190centos   = mustParseTools("1.9.0-centos-amd64")
 	t190all      = tools.List{
-		t190ubuntu, t190ubuntu32, t190centos,
+		t190ubuntu, t190ubuntu32,
 	}
-	t200ubuntu   = mustParseTools("2.0.0-ubuntu-amd64")
-	t200centos32 = mustParseTools("2.0.0-centos-i386")
-	t200all      = tools.List{
-		t200ubuntu, t200centos32,
+	t200ubuntu = mustParseTools("2.0.0-ubuntu-amd64")
+	t200all    = tools.List{
+		t200ubuntu,
 	}
 	t2001ubuntu   = mustParseTools("2.0.0.1-ubuntu-amd64")
 	tAllBefore210 = extend(t100all, t190all, append(t200all, t2001ubuntu))
@@ -74,7 +71,7 @@ var releaseTests = []releaseTest{{
 	expect: []string{"ubuntu"},
 }, {
 	src:    tAllBefore210,
-	expect: []string{"centos", "ubuntu"},
+	expect: []string{"ubuntu"},
 }}
 
 func (s *ListSuite) TestReleases(c *tc.C) {
@@ -97,7 +94,7 @@ var archesTests = []archTest{{
 	src:    tools.List{t100ubuntu},
 	expect: "amd64",
 }, {
-	src:    tools.List{t100ubuntu, t100centos, t200ubuntu},
+	src:    tools.List{t100ubuntu, t200ubuntu},
 	expect: "amd64",
 }, {
 	src: tAllBefore210,
@@ -124,19 +121,14 @@ func (s *ListSuite) TestURLs(c *tc.C) {
 	empty := tools.List{}
 	c.Check(empty.URLs(), tc.DeepEquals, map[semversion.Binary][]string{})
 
-	alt := *t100centos
+	alt := *t2001ubuntu
 	alt.URL = strings.Replace(alt.URL, "testing.invalid", "testing.invalid2", 1)
 	full := tools.List{
 		t100ubuntu,
-		t190centos,
-		t100centos,
 		&alt,
-		t2001ubuntu,
 	}
 	c.Check(full.URLs(), tc.DeepEquals, map[semversion.Binary][]string{
 		t100ubuntu.Version:  {t100ubuntu.URL},
-		t100centos.Version:  {t100centos.URL, alt.URL},
-		t190centos.Version:  {t190centos.URL},
 		t2001ubuntu.Version: {t2001ubuntu.URL},
 	})
 }
@@ -276,10 +268,10 @@ var excludeTests = []struct {
 }, {
 	t100all,
 	tools.List{t100ubuntu},
-	tools.List{t100ubuntu32, t100centos},
+	tools.List{t100ubuntu32},
 }, {
 	t100all,
-	tools.List{t100ubuntu32, t100centos},
+	tools.List{t100ubuntu32},
 	tools.List{t100ubuntu},
 }, {
 	t100all, t190all, t100all,
@@ -320,28 +312,16 @@ var matchTests = []struct {
 	nil,
 }, {
 	tAllBefore210,
-	tools.Filter{OSType: "centos"},
-	tools.List{t100centos, t190centos, t200centos32},
-}, {
-	tAllBefore210,
 	tools.Filter{OSType: "opensuse"},
 	nil,
 }, {
 	tAllBefore210,
 	tools.Filter{Arch: "i386"},
-	tools.List{t100ubuntu32, t190ubuntu32, t200centos32},
+	tools.List{t100ubuntu32, t190ubuntu32},
 }, {
 	tAllBefore210,
 	tools.Filter{Arch: "arm"},
 	nil,
-}, {
-	tAllBefore210,
-	tools.Filter{
-		Number: semversion.MustParse("2.0.0"),
-		OSType: "centos",
-		Arch:   "i386",
-	},
-	tools.List{t200centos32},
 }}
 
 func (s *ListSuite) TestMatch(c *tc.C) {

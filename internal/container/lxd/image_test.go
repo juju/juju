@@ -260,11 +260,11 @@ func (s *imageSuite) TestFindImageRemoteServersNotFound(c *tc.C) {
 }
 
 func (s *imageSuite) TestConstructBaseRemoteAliasNotSupported(c *tc.C) {
-	_, err := lxd.ConstructBaseRemoteAlias(corebase.MakeDefaultBase("centos", "7"), "arm64")
-	c.Assert(err, tc.ErrorMatches, `base "centos@7" not supported`)
+	_, err := lxd.ConstructBaseRemoteAlias(corebase.MakeDefaultBase("genericlinux", "7"), "arm64")
+	c.Assert(err, tc.ErrorMatches, `base "genericlinux@7" not supported`)
 
-	_, err = lxd.ConstructBaseRemoteAlias(corebase.MakeDefaultBase("centos", "8"), "arm64")
-	c.Assert(err, tc.ErrorMatches, `base "centos@8" not supported`)
+	_, err = lxd.ConstructBaseRemoteAlias(corebase.MakeDefaultBase("genericlinux", "8"), "arm64")
+	c.Assert(err, tc.ErrorMatches, `base "genericlinux@8" not supported`)
 
 	_, err = lxd.ConstructBaseRemoteAlias(corebase.MakeDefaultBase("opensuse", "opensuse42"), "s390x")
 	c.Assert(err, tc.ErrorMatches, `base "opensuse@opensuse42" not supported`)

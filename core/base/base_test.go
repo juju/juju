@@ -67,11 +67,6 @@ func (s *BaseSuite) TestParseManifestBases(c *tc.C) {
 			Risk:  "stable",
 		},
 		Architectures: []string{"arm64"},
-	}, {
-		Name: "centos", Channel: charm.Channel{
-			Track: "9",
-			Risk:  "candidate",
-		},
 	}}
 	obtained, err := ParseManifestBases(manifestBases)
 	c.Assert(err, tc.ErrorIsNil)
@@ -79,7 +74,6 @@ func (s *BaseSuite) TestParseManifestBases(c *tc.C) {
 	expected := []Base{
 		{OS: "ubuntu", Channel: Channel{Track: "18.04", Risk: "stable"}},
 		{OS: "ubuntu", Channel: Channel{Track: "20.04", Risk: "edge"}},
-		{OS: "centos", Channel: Channel{Track: "9", Risk: "candidate"}},
 	}
 	c.Assert(obtained, tc.DeepEquals, expected)
 }
@@ -110,9 +104,6 @@ var nonUbuntuLTS = []Base{
 
 	MustParseBaseFromString("ubuntu@22.04-blah"),
 	MustParseBaseFromString("ubuntu@22.04.1234"),
-
-	MustParseBaseFromString("centos@7"),
-	MustParseBaseFromString("centos@20.04"),
 }
 
 func (s *BaseSuite) TestIsUbuntuLTSForNonLTSes(c *tc.C) {

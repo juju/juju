@@ -39,8 +39,6 @@ func updateOS(f string) (ostype.OSType, error) {
 	switch values["ID"] {
 	case strings.ToLower(ostype.Ubuntu.String()):
 		return ostype.Ubuntu, nil
-	case strings.ToLower(ostype.CentOS.String()):
-		return ostype.CentOS, nil
 	default:
 		return ostype.GenericLinux, nil
 	}

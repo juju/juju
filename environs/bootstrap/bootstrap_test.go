@@ -670,10 +670,10 @@ func (s *bootstrapSuite) TestBootstrapImageMetadataFromAllSources(c *tc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapLocalTools(c *tc.C) {
-	// Client host is CentOS system, wanting to bootstrap a trusty
+	// Client host is GenericLinux system, wanting to bootstrap a trusty
 	// controller. This is fine.
 
-	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.CentOS })
+	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.GenericLinux })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.PatchValue(bootstrap.FindTools, func(context.Context, envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")

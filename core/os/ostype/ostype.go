@@ -17,7 +17,6 @@ const (
 	Ubuntu
 	Windows
 	OSX
-	CentOS
 	GenericLinux
 	Kubernetes
 )
@@ -30,8 +29,6 @@ func (t OSType) String() string {
 		return "Windows"
 	case OSX:
 		return "OSX"
-	case CentOS:
-		return "CentOS"
 	case GenericLinux:
 		return "GenericLinux"
 	case Kubernetes:
@@ -52,7 +49,7 @@ func (t OSType) EquivalentTo(t2 OSType) bool {
 // IsLinux returns true if the OS type is a Linux variant.
 func (t OSType) IsLinux() bool {
 	switch t {
-	case Ubuntu, CentOS, GenericLinux:
+	case Ubuntu, GenericLinux:
 		return true
 	}
 	return false
@@ -62,7 +59,6 @@ var validOSTypeNames = map[string]OSType{
 	"ubuntu":       Ubuntu,
 	"windows":      Windows,
 	"osx":          OSX,
-	"centos":       CentOS,
 	"genericlinux": GenericLinux,
 	"kubernetes":   Kubernetes,
 }

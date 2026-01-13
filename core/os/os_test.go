@@ -30,7 +30,7 @@ func (s *osSuite) TestHostOS(c *tc.C) {
 		// TODO(mjs) - this should really do more by patching out
 		// osReleaseFile and testing the corner cases.
 		switch os {
-		case ostype.Ubuntu, ostype.CentOS, ostype.GenericLinux:
+		case ostype.Ubuntu, ostype.GenericLinux:
 		default:
 			c.Fatalf("unknown linux version: %v", os)
 		}

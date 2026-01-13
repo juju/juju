@@ -13,7 +13,6 @@ their current host. Alternatively in this workflow it is commonplace to want to 
 
 Examples of this would be:
 - ubuntu/amd64 -> ubuntu/s390x
-- ubuntu/amd64 -> centos/amd64
 - macos/amd64 -> ubuntu/amd64
 - macos/arm64 -> ubutnu/amd64
 

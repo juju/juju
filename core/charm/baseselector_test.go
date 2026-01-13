@@ -229,28 +229,6 @@ func (s *baseSelectorSuite) TestConfigureBaseSelector(c *tc.C) {
 	c.Check(obtained.supportedBases, tc.DeepEquals, []base.Base{jammy, focal})
 }
 
-func (s *baseSelectorSuite) TestConfigureBaseSelectorCentos(c *tc.C) {
-	defer s.setup(c).Finish()
-
-	s.cfg.EXPECT().DefaultBase()
-	c7 := base.MustParseBaseFromString("centos@7/stable")
-	c8 := base.MustParseBaseFromString("centos@8/stable")
-	c6 := base.MustParseBaseFromString("centos@6/stable")
-	cfg := SelectorConfig{
-		Config:              s.cfg,
-		Force:               false,
-		Logger:              s.logger,
-		RequestedBase:       base.Base{},
-		SupportedCharmBases: []base.Base{c6, c7, c8},
-		WorkloadBases:       []base.Base{c7, c8},
-		UsingImageID:        false,
-	}
-
-	obtained, err := ConfigureBaseSelector(cfg)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtained.supportedBases, tc.DeepEquals, []base.Base{c7, c8})
-}
-
 func (s *baseSelectorSuite) TestConfigureBaseSelectorDefaultBase(c *tc.C) {
 	defer s.setup(c).Finish()
 
