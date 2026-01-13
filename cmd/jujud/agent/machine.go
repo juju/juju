@@ -5,6 +5,7 @@ package agent
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"net/http"
@@ -954,10 +955,16 @@ func (a *MachineAgent) generateClientCert(caCert, caPrivateKey string) (*tls.Cer
 	a.mongoCertMutex.Lock()
 	defer a.mongoCertMutex.Unlock()
 
-	// TODO - check for cert validity and
-	//  generate a new one if needed.
 	if a.mongoClientCert != nil {
-		return a.mongoClientCert, nil
+		// Check whether cert is close to, or has, expired.
+		c, err := x509.ParseCertificate(a.mongoClientCert.Certificate[0])
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if time.Now().Before(c.NotAfter.Add(-1 * time.Minute)) {
+			return a.mongoClientCert, nil
+		}
+		logger.Debugf("mongo client certificate already expired")
 	}
 	cert, err := mongo.GenerateClientCert(caCert, caPrivateKey)
 	if err != nil {

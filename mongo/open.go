@@ -87,6 +87,11 @@ func DefaultDialOpts() DialOpts {
 	}
 }
 
+const (
+	mongoCertGroup            = "mongodb"
+	mongoCertValidityDuration = 15 * time.Minute
+)
+
 // GenerateClientCert issues a TLS certificate
 // from the supplied CA cert and key.
 func GenerateClientCert(caCert, caPrivateKey string) (*tls.Certificate, error) {
@@ -95,7 +100,9 @@ func GenerateClientCert(caCert, caPrivateKey string) (*tls.Certificate, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "loading juju certificate authority")
 	}
-	leaf, err := authority.LeafRequestForGroup(pki.DefaultLeafGroup).
+	// The default expiry time is 10 years, too long for a client cert.
+	authority.SetLeafValidityDuration(mongoCertValidityDuration)
+	leaf, err := authority.LeafRequestForGroup(mongoCertGroup).
 		AddDNSNames(controller.DefaultDNSNames...).Commit()
 	if err != nil {
 		return nil, errors.Annotate(err, "making juju-db client certificate")
@@ -163,7 +170,6 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 		if err != nil {
 			return nil, fmt.Errorf("cannot parse CA certificate: %v", err)
 		}
-
 		pool := x509.NewCertPool()
 		pool.AddCert(xcert)
 

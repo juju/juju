@@ -1303,6 +1303,12 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 					SubPath:   c.fileNameSharedSecret,
 					ReadOnly:  true,
 				},
+				{
+					Name:      c.resourceNameVolAgentConf,
+					MountPath: c.pathJoin(c.pcfg.DataDir, c.fileNameCACertMount),
+					SubPath:   c.fileNameCACertMount,
+					ReadOnly:  true,
+				},
 			},
 		})
 
@@ -1342,6 +1348,12 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 						c.fileNameAgentConfMount,
 					),
 					SubPath: c.fileNameAgentConfMount,
+				},
+				{
+					Name:      c.resourceNameVolAgentConf,
+					MountPath: c.pathJoin(c.pcfg.DataDir, c.fileNameCACertMount),
+					SubPath:   c.fileNameCACertMount,
+					ReadOnly:  true,
 				},
 				{
 					Name:      c.resourceNameVolSSLKey,
