@@ -61,7 +61,7 @@ check_contains() {
 
 	chk=$(echo "${input}" | grep "${value}" || true)
 	if [[ -z ${chk} ]]; then
-		printf "Expected \"%s\" not found\n\nObtained: %s\n" "${value}" "${input}" >&2
+		printf "Expected \"%s\" not found\n\n%s\n" "${value}" "${input}" >&2
 		return 1
 	else
 		echo "Success: \"${value}\" found" >&2

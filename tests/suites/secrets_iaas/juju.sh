@@ -20,6 +20,10 @@ check_secrets() {
 	secret_owned_by_dummy_source=$(juju exec --unit dummy-source/0 -- secret-add owned-by=dummy-source-app)
 	secret_owned_by_dummy_source_id=${secret_owned_by_dummy_source##*/}
 
+	echo "Checking secrets' backend name with juju secrets --revisions"
+	check_contains "$(juju secrets --revisions --format yaml | yq -r ".${secret_owned_by_dummy_source_id}.revisions[0].backend")" "${expected_backend}"
+	check_contains "$(juju secrets --revisions --format yaml | yq -r ".${secret_owned_by_dummy_source_0_id}.revisions[0].backend")" "${expected_backend}"
+
 	echo "Checking secrets' backend name with juju secrets --owner --revisions"
 	check_contains "$(juju secrets --owner application-dummy-source --revisions --format yaml | yq -r ".${secret_owned_by_dummy_source_id}.revisions[0].backend")" "${expected_backend}"
 	check_contains "$(juju secrets --owner unit-dummy-source-0 --revisions --format yaml | yq -r ".${secret_owned_by_dummy_source_0_id}.revisions[0].backend")" "${expected_backend}"
@@ -203,7 +207,7 @@ run_secrets_juju() {
 
 	model_name='model-secrets-juju'
 	add_model "$model_name"
-	check_secrets
+	check_secrets "internal"
 	run_user_secrets "$model_name"
 	destroy_model "$model_name"
 }

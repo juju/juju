@@ -617,25 +617,13 @@ func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 	if err != nil {
 		return nil, nil, errors.Errorf("getting secret backend names with UUIDs: %w", err)
 	}
-	defaultBackendName := juju.BackendName
 
 	if uri != nil {
 		metadata, revisions, err := s.secretState.GetSecretByURI(ctx, *uri, revision)
 		if err != nil {
 			return nil, nil, errors.Errorf("getting secret by URI %q: %w", uri.ID, err)
 		}
-		for _, revision := range revisions {
-			if revision == nil {
-				continue
-			}
-			revision.BackendName = &defaultBackendName
-			if revision.ValueRef == nil {
-				continue
-			}
-			if name, exists := secretBackendUUIDstoNames[revision.ValueRef.BackendID]; exists {
-				revision.BackendName = &name
-			}
-		}
+		s.populateRevisionBackendNames([][]*secrets.SecretRevisionMetadata{revisions}, secretBackendUUIDstoNames)
 		return []*secrets.SecretMetadata{metadata}, [][]*secrets.SecretRevisionMetadata{revisions}, nil
 	}
 
@@ -644,23 +632,7 @@ func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 		if err != nil {
 			return nil, nil, errors.Errorf("getting secrets by labels: %w", err)
 		}
-		for _, revisionsForOneSecret := range revisionsList {
-			for _, revision := range revisionsForOneSecret {
-				if revision == nil {
-					continue
-				}
-				revision.BackendName = &defaultBackendName
-				if revision.ValueRef == nil {
-					continue
-				}
-				secretBackendName, exists := secretBackendUUIDstoNames[revision.ValueRef.BackendID]
-				// BackendUUID may not exist, eg. LXD model with no external vaults.
-				// In that case, we leave BackendName and there will be a default value set later.
-				if exists {
-					revision.BackendName = &secretBackendName
-				}
-			}
-		}
+		s.populateRevisionBackendNames(revisionsList, secretBackendUUIDstoNames)
 		return metadataList, revisionsList, nil
 	}
 
@@ -674,24 +646,39 @@ func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 	if err != nil {
 		return nil, nil, errors.Errorf("listing all secrets: %w", err)
 	}
+	s.populateRevisionBackendNames(revisionsList, secretBackendUUIDstoNames)
+	return metadataList, revisionsList, nil
+}
+
+// populateRevisionBackendNames mutates the provided revisions by setting their
+// backend name based on the mapping of backend UUIDs to names, or sets a default
+// if no mapping exists.
+// Revisions are mutated in-place.
+func (s *SecretService) populateRevisionBackendNames(
+	revisionsList [][]*secrets.SecretRevisionMetadata,
+	secretBackendUUIDstoNames map[string]string,
+) {
+	defaultBackendName := juju.BackendName
+
 	for _, revisionsForOneSecret := range revisionsList {
 		for _, revision := range revisionsForOneSecret {
 			if revision == nil {
 				continue
 			}
 			revision.BackendName = &defaultBackendName
+			// ValueRef may not exist, eg. LXD model with no external vaults.
+			// In that case, we leave BackendName as the default value.
 			if revision.ValueRef == nil {
 				continue
 			}
 			secretBackendName, exists := secretBackendUUIDstoNames[revision.ValueRef.BackendID]
-			// BackendUUID may not exist, eg. LXD model with no external vaults.
-			// In that case, we leave BackendName and there will be a default value set later.
+			// BackendUUID may not exist, eg. if backend is deleted.
+			// In that case, we leave BackendName as the default value.
 			if exists {
 				revision.BackendName = &secretBackendName
 			}
 		}
 	}
-	return metadataList, revisionsList, nil
 }
 
 func splitCharmSecretOwners(owners ...domainsecret.CharmSecretOwner) (domainsecret.ApplicationOwners, domainsecret.UnitOwners) {
@@ -728,26 +715,8 @@ func (s *SecretService) ListCharmSecrets(
 	if err != nil {
 		return nil, nil, errors.Errorf("getting secret backend names with UUIDs: %w", err)
 	}
-	defaultBackendName := juju.BackendName
 
-	for _, revisionsForOneSecret := range revisionsList {
-		for _, revision := range revisionsForOneSecret {
-			if revision == nil {
-				continue
-			}
-			revision.BackendName = &defaultBackendName
-			if revision.ValueRef == nil {
-				continue
-			}
-			secretBackendName, exists := secretBackendUUIDstoNames[revision.ValueRef.BackendID]
-			// BackendUUID may not exist, eg. LXD model with no external vaults.
-			// In that case, we leave BackendName and there will be a default value set later.
-			if exists {
-				revision.BackendName = &secretBackendName
-			}
-		}
-	}
-
+	s.populateRevisionBackendNames(revisionsList, secretBackendUUIDstoNames)
 	return metadataList, revisionsList, nil
 }
 

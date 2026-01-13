@@ -159,7 +159,136 @@ func (s *ListSuite) TestListJSON(c *tc.C) {
 `[1:], uri.ID))
 }
 
-func (s *ListSuite) TestListWithOwnerUnitFilterYAML(c *tc.C) {
+func (s *ListSuite) TestListWithRevisionsUnitFilterYAML(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	uri1 := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+	backend := "alvinmini410model3-local"
+
+	s.secretsAPI.EXPECT().ListSecrets(
+		gomock.Any(),
+		false,
+		coresecrets.Filter{},
+	).Return([]apisecrets.SecretDetails{
+		{
+			Metadata: coresecrets.SecretMetadata{
+				URI:            uri1,
+				LatestRevision: 1,
+				RotatePolicy:   coresecrets.RotateNever,
+				Owner:          coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "traefik-k8s/0"},
+				Label:          "afd8c2bccf834997afce12c2706d2ede-private-key-0-certificates",
+			},
+			Revisions: []coresecrets.SecretRevisionMetadata{ // This type path aligns with coresecrets used in API details
+				{
+					Revision:    1,
+					BackendName: &backend,
+				},
+			},
+		},
+		{
+			Metadata: coresecrets.SecretMetadata{
+				URI:            uri2,
+				LatestRevision: 1,
+				RotatePolicy:   coresecrets.RotateNever,
+				Owner:          coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "traefik-k8s/1"},
+				Label:          "dsajnjsdandjwajwdnjwndjw-private-key-0-certificates",
+			},
+			Revisions: []coresecrets.SecretRevisionMetadata{ // This type path aligns with coresecrets used in API details
+				{
+					Revision:    1,
+					BackendName: &backend,
+				},
+			},
+		},
+	}, nil)
+	s.secretsAPI.EXPECT().Close().Return(nil)
+
+	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--revisions", "--format", "yaml")
+	c.Assert(err, tc.ErrorIsNil)
+	out := cmdtesting.Stdout(ctx)
+	c.Assert(out, tc.Equals, fmt.Sprintf(`%s:
+  revision: 1
+  rotation: never
+  owner: traefik-k8s/0
+  label: afd8c2bccf834997afce12c2706d2ede-private-key-0-certificates
+  created: 0001-01-01T00:00:00Z
+  updated: 0001-01-01T00:00:00Z
+  revisions:
+  - revision: 1
+    backend: alvinmini410model3-local
+    created: 0001-01-01T00:00:00Z
+    updated: 0001-01-01T00:00:00Z
+%s:
+  revision: 1
+  rotation: never
+  owner: traefik-k8s/1
+  label: dsajnjsdandjwajwdnjwndjw-private-key-0-certificates
+  created: 0001-01-01T00:00:00Z
+  updated: 0001-01-01T00:00:00Z
+  revisions:
+  - revision: 1
+    backend: alvinmini410model3-local
+    created: 0001-01-01T00:00:00Z
+    updated: 0001-01-01T00:00:00Z
+`, uri1.ID, uri2.ID))
+}
+
+func (s *ListSuite) TestListWithRevisionsApplicationFilterJSON(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	uri1 := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+	backend := "testmodel-local"
+
+	s.secretsAPI.EXPECT().ListSecrets(
+		gomock.Any(),
+		false,
+		coresecrets.Filter{},
+	).Return([]apisecrets.SecretDetails{
+		{
+			Metadata: coresecrets.SecretMetadata{
+				URI:            uri1,
+				LatestRevision: 1,
+				RotatePolicy:   coresecrets.RotateNever,
+				Owner:          coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "dummy-source"},
+			},
+			Revisions: []coresecrets.SecretRevisionMetadata{
+				{
+					Revision:    1,
+					BackendName: &backend,
+				},
+			},
+		},
+		{
+			Metadata: coresecrets.SecretMetadata{
+				URI:            uri2,
+				LatestRevision: 1,
+				RotatePolicy:   coresecrets.RotateNever,
+				Owner:          coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "not-dummy-source"},
+			},
+			Revisions: []coresecrets.SecretRevisionMetadata{
+				{
+					Revision:    1,
+					BackendName: &backend,
+				},
+			},
+		},
+	}, nil)
+	s.secretsAPI.EXPECT().Close().Return(nil)
+
+	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--revisions", "--format", "json")
+	c.Assert(err, tc.ErrorIsNil)
+	out := cmdtesting.Stdout(ctx)
+	c.Assert(out, tc.Equals, fmt.Sprintf(
+		`{"%s":{"revision":1,"rotation":"never","owner":"dummy-source","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z","revisions":[{"revision":1,"backend":"testmodel-local","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z"}]},"%s":{"revision":1,"rotation":"never","owner":"not-dummy-source","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z","revisions":[{"revision":1,"backend":"testmodel-local","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z"}]}}
+`,
+		uri1.ID,
+		uri2.ID,
+	))
+}
+
+func (s *ListSuite) TestListWithRevisionsAndOwnerUnitFilterYAML(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	ownerTag := names.NewUnitTag("traefik-k8s/0").String()
@@ -189,7 +318,7 @@ func (s *ListSuite) TestListWithOwnerUnitFilterYAML(c *tc.C) {
 	}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
-	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--owner", ownerTag, "--revisions", "--format", "yaml")
+	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--revisions", "--owner", ownerTag, "--format", "yaml")
 	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, tc.Equals, fmt.Sprintf(`%s:
@@ -207,7 +336,7 @@ func (s *ListSuite) TestListWithOwnerUnitFilterYAML(c *tc.C) {
 `, uri.ID))
 }
 
-func (s *ListSuite) TestListWithOwnerUnitFilterJSON(c *tc.C) {
+func (s *ListSuite) TestListWithRevisionsAndOwnerUnitFilterJSON(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	ownerTag := names.NewUnitTag("traefik-k8s/0").String()
@@ -237,14 +366,14 @@ func (s *ListSuite) TestListWithOwnerUnitFilterJSON(c *tc.C) {
 	}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
-	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--owner", ownerTag, "--format", "json")
+	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--revisions", "--owner", ownerTag, "--format", "json")
 	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, tc.Equals, fmt.Sprintf(`{"%s":{"revision":1,"rotation":"never","owner":"traefik-k8s/0","label":"afd8c2bccf834997afce12c2706d2ede-private-key-0-certificates","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z","revisions":[{"revision":1,"backend":"alvinmini410model3-local","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z"}]}}
 `, uri.ID))
 }
 
-func (s *ListSuite) TestListWithOwnerApplicationFilterYAML(c *tc.C) {
+func (s *ListSuite) TestListWithRevisionsAndOwnerApplicationFilterYAML(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	ownerTag := names.NewApplicationTag("dummy-source").String()
@@ -273,7 +402,7 @@ func (s *ListSuite) TestListWithOwnerApplicationFilterYAML(c *tc.C) {
 	}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
-	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--owner", ownerTag, "--revisions", "--format", "yaml")
+	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--revisions", "--owner", ownerTag, "--revisions", "--format", "yaml")
 	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, tc.Equals, fmt.Sprintf(`%s:
@@ -290,7 +419,7 @@ func (s *ListSuite) TestListWithOwnerApplicationFilterYAML(c *tc.C) {
 `, uri.ID))
 }
 
-func (s *ListSuite) TestListWithOwnerApplicationFilterJSON(c *tc.C) {
+func (s *ListSuite) TestListWithRevisionsAndOwnerApplicationFilterJSON(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	ownerTag := names.NewApplicationTag("dummy-source").String()
@@ -319,7 +448,7 @@ func (s *ListSuite) TestListWithOwnerApplicationFilterJSON(c *tc.C) {
 	}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
-	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--owner", ownerTag, "--format", "json")
+	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--revisions", "--owner", ownerTag, "--format", "json")
 	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, tc.Equals, fmt.Sprintf(`{"%s":{"revision":1,"rotation":"never","owner":"dummy-source","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z","revisions":[{"revision":1,"backend":"testmodel-local","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z"}]}}
