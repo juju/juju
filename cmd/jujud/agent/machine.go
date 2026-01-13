@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -397,6 +398,8 @@ type MachineAgent struct {
 
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
+	mongoCertMutex   sync.Mutex
+	mongoClientCert  *tls.Certificate
 
 	loopDeviceManager  looputil.LoopDeviceManager
 	prometheusRegistry *prometheus.Registry
@@ -829,6 +832,7 @@ func (a *MachineAgent) openStateForUpgrade() (*state.StatePool, error) {
 		mongo.DefaultDialOpts(),
 		agentConfig,
 		a.mongoDialCollector,
+		a.generateClientCert,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -927,6 +931,7 @@ func mongoDialOptions(
 	baseOpts mongo.DialOpts,
 	agentConfig agent.Config,
 	mongoDialCollector *mongometrics.DialCollector,
+	generateClientCert func(string, string) (*tls.Certificate, error),
 ) (mongo.DialOpts, error) {
 	dialOpts := baseOpts
 	if limitStr := agentConfig.Value("MONGO_SOCKET_POOL_LIMIT"); limitStr != "" {
@@ -941,7 +946,26 @@ func mongoDialOptions(
 		return mongo.DialOpts{}, errors.New("did not expect PostDialServer to be set")
 	}
 	dialOpts.PostDialServer = mongoDialCollector.PostDialServer
+	dialOpts.GenerateClientCertificate = generateClientCert
 	return dialOpts, nil
+}
+
+func (a *MachineAgent) generateClientCert(caCert, caPrivateKey string) (*tls.Certificate, error) {
+	a.mongoCertMutex.Lock()
+	defer a.mongoCertMutex.Unlock()
+
+	// TODO - check for cert validity and
+	//  generate a new one if needed.
+	if a.mongoClientCert != nil {
+		return a.mongoClientCert, nil
+	}
+	cert, err := mongo.GenerateClientCert(caCert, caPrivateKey)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	a.mongoClientCert = cert
+	return a.mongoClientCert, nil
 }
 
 func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, error) {
@@ -954,6 +978,7 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, er
 		stateWorkerDialOpts,
 		agentConfig,
 		a.mongoDialCollector,
+		a.generateClientCert,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -968,6 +993,9 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, er
 		a.mongoInitMutex.Lock()
 		a.mongoInitialized = false
 		a.mongoInitMutex.Unlock()
+		a.mongoCertMutex.Lock()
+		a.mongoClientCert = nil
+		a.mongoCertMutex.Unlock()
 		return nil, err
 	}
 	logger.Infof("juju database opened")

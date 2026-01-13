@@ -68,6 +68,10 @@ type DialOpts struct {
 
 	// PoolLimit defines the per-server socket pool limit
 	PoolLimit int
+
+	// GenerateClientCertificate returns a client TLS certificate
+	// issued from the supplied CA certificate and key.
+	GenerateClientCertificate func(cacert string, cakey string) (*tls.Certificate, error)
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
@@ -81,6 +85,30 @@ func DefaultDialOpts() DialOpts {
 		Timeout:       defaultDialTimeout,
 		SocketTimeout: SocketTimeout,
 	}
+}
+
+// GenerateClientCert issues a TLS certificate
+// from the supplied CA cert and key.
+func GenerateClientCert(caCert, caPrivateKey string) (*tls.Certificate, error) {
+	authority, err := pki.NewDefaultAuthorityPemCAKey(
+		[]byte(caCert), []byte(caPrivateKey))
+	if err != nil {
+		return nil, errors.Annotate(err, "loading juju certificate authority")
+	}
+	leaf, err := authority.LeafRequestForGroup(pki.DefaultLeafGroup).
+		AddDNSNames(controller.DefaultDNSNames...).Commit()
+	if err != nil {
+		return nil, errors.Annotate(err, "making juju-db client certificate")
+	}
+	cert, key, err := leaf.ToPemParts()
+	if err != nil {
+		return nil, errors.Annotate(err, "encoding juju-db client certificate to pem")
+	}
+	clientCert, err := tls.X509KeyPair(cert, key)
+	if err != nil {
+		return nil, errors.Annotate(err, "parsing juju-db client certificate")
+	}
+	return &clientCert, nil
 }
 
 // Info encapsulates information about cluster of
@@ -136,32 +164,21 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 			return nil, fmt.Errorf("cannot parse CA certificate: %v", err)
 		}
 
-		authority, err := pki.NewDefaultAuthorityPemCAKey(
-			[]byte(info.CACert), []byte(info.CAPrivateKey))
-		if err != nil {
-			return nil, errors.Annotate(err, "loading juju certificate authority")
-		}
-		leaf, err := authority.LeafRequestForGroup(pki.DefaultLeafGroup).
-			AddDNSNames(controller.DefaultDNSNames...).Commit()
-		if err != nil {
-			return nil, errors.Annotate(err, "making juju-db client certificate")
-		}
-		cert, key, err := leaf.ToPemParts()
-		if err != nil {
-			return nil, errors.Annotate(err, "encoding juju-db client certificate to pem")
-		}
-		clientCert, err := tls.X509KeyPair(cert, key)
-		if err != nil {
-			return nil, errors.Annotate(err, "parsing juju-db client certificate")
-		}
-
 		pool := x509.NewCertPool()
 		pool.AddCert(xcert)
 
 		tlsConfig = http.SecureTLSConfig()
 		tlsConfig.RootCAs = pool
 		tlsConfig.ServerName = "juju-mongodb"
-		tlsConfig.Certificates = []tls.Certificate{clientCert}
+		generateClientCert := opts.GenerateClientCertificate
+		if generateClientCert == nil {
+			generateClientCert = GenerateClientCert
+		}
+		clientCert, err := generateClientCert(info.CACert, info.CAPrivateKey)
+		if err != nil {
+			return nil, errors.Errorf("generating client certificate: %v", err)
+		}
+		tlsConfig.Certificates = []tls.Certificate{*clientCert}
 
 		// TODO(natefinch): revisit this when are full-time on mongo 3.
 		// We have to add non-ECDHE suites because mongo doesn't support ECDHE.
