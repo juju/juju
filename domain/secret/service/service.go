@@ -613,7 +613,7 @@ func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 		return nil, nil, errors.Errorf("cannot specify both URI and labels")
 	}
 
-	secretBackendUUIDstoNames, err := s.secretBackendState.GetSecretBackendNamesWithUUIDs(ctx)
+	secretBackendUUIDstoNames, err := s.secretBackendState.GetSecretBackendNamesByUUIDs(ctx)
 	if err != nil {
 		return nil, nil, errors.Errorf("getting secret backend names with UUIDs: %w", err)
 	}
@@ -639,9 +639,6 @@ func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 		return []*secrets.SecretMetadata{metadata}, [][]*secrets.SecretRevisionMetadata{revisions}, nil
 	}
 
-	if err != nil {
-		return nil, nil, errors.Errorf("getting secret backend names with UUIDs: %w", err)
-	}
 	if len(labels) > 0 {
 		metadataList, revisionsList, err := s.secretState.ListSecretsByLabels(ctx, labels, revision)
 		if err != nil {
@@ -673,11 +670,28 @@ func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 		return nil, nil, errors.Errorf("cannot specify revision without URI or labels")
 	}
 
-	metadataList, revisionList, err := s.secretState.ListAllSecrets(ctx)
+	metadataList, revisionsList, err := s.secretState.ListAllSecrets(ctx)
 	if err != nil {
 		return nil, nil, errors.Errorf("listing all secrets: %w", err)
 	}
-	return metadataList, revisionList, nil
+	for _, revisionsForOneSecret := range revisionsList {
+		for _, revision := range revisionsForOneSecret {
+			if revision == nil {
+				continue
+			}
+			revision.BackendName = &defaultBackendName
+			if revision.ValueRef == nil {
+				continue
+			}
+			secretBackendName, exists := secretBackendUUIDstoNames[revision.ValueRef.BackendID]
+			// BackendUUID may not exist, eg. LXD model with no external vaults.
+			// In that case, we leave BackendName and there will be a default value set later.
+			if exists {
+				revision.BackendName = &secretBackendName
+			}
+		}
+	}
+	return metadataList, revisionsList, nil
 }
 
 func splitCharmSecretOwners(owners ...domainsecret.CharmSecretOwner) (domainsecret.ApplicationOwners, domainsecret.UnitOwners) {
@@ -710,7 +724,7 @@ func (s *SecretService) ListCharmSecrets(
 		return nil, nil, errors.Capture(err)
 	}
 
-	secretBackendUUIDstoNames, err := s.secretBackendState.GetSecretBackendNamesWithUUIDs(ctx)
+	secretBackendUUIDstoNames, err := s.secretBackendState.GetSecretBackendNamesByUUIDs(ctx)
 	if err != nil {
 		return nil, nil, errors.Errorf("getting secret backend names with UUIDs: %w", err)
 	}

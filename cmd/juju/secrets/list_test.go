@@ -189,7 +189,7 @@ func (s *ListSuite) TestListWithOwnerUnitFilterYAML(c *tc.C) {
 	}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
-	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--owner", ownerTag, "--format", "yaml")
+	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--owner", ownerTag, "--revisions", "--format", "yaml")
 	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, tc.Equals, fmt.Sprintf(`%s:
@@ -273,7 +273,7 @@ func (s *ListSuite) TestListWithOwnerApplicationFilterYAML(c *tc.C) {
 	}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
-	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--owner", ownerTag, "--format", "yaml")
+	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--owner", ownerTag, "--revisions", "--format", "yaml")
 	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, tc.Equals, fmt.Sprintf(`%s:

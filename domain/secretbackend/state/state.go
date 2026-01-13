@@ -1274,9 +1274,9 @@ func (s *State) NamespaceForWatchModelSecretBackend() string {
 	return "model_secret_backend"
 }
 
-// GetSecretBackendNamesWithUUIDs returns a map of backend UUID to backend name for all backends.
+// GetSecretBackendNamesByUUIDs returns a map of backend UUID to backend name for all backends.
 // An empty map will be returned if there are no backends.
-func (s *State) GetSecretBackendNamesWithUUIDs(ctx context.Context) (map[string]string, error) {
+func (s *State) GetSecretBackendNamesByUUIDs(ctx context.Context) (map[string]string, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)

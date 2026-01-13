@@ -1818,7 +1818,7 @@ func (p preparer) Prepare(query string, args ...any) (*sqlair.Statement, error) 
 	return sqlair.Prepare(query, args...)
 }
 
-func (s *stateSuite) TestGetSecretBackendNamesWithUUIDs(c *tc.C) {
+func (s *stateSuite) TestGetSecretBackendNamesByUUIDs(c *tc.C) {
 	backends := map[string]string{
 		uuid.MustNewUUID().String(): "backend-one",
 		uuid.MustNewUUID().String(): "backend-two",
@@ -1835,13 +1835,13 @@ func (s *stateSuite) TestGetSecretBackendNamesWithUUIDs(c *tc.C) {
 		c.Assert(err, tc.IsNil)
 	}
 
-	res, err := s.state.GetSecretBackendNamesWithUUIDs(c.Context())
+	res, err := s.state.GetSecretBackendNamesByUUIDs(c.Context())
 	c.Assert(err, tc.IsNil)
 	c.Assert(res, tc.DeepEquals, backends)
 }
 
-func (s *stateSuite) TestGetSecretBackendNamesWithUUIDsEmpty(c *tc.C) {
-	names, err := s.state.GetSecretBackendNamesWithUUIDs(c.Context())
+func (s *stateSuite) TestGetSecretBackendNamesByUUIDsEmpty(c *tc.C) {
+	names, err := s.state.GetSecretBackendNamesByUUIDs(c.Context())
 	c.Assert(err, tc.IsNil)
 	c.Assert(names, tc.HasLen, 0)
 }

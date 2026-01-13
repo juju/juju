@@ -179,7 +179,7 @@ prepare_vault() {
 	mkdir -p ~/snap/vault/common/
 	TMP=$(mktemp -d ~/snap/vault/common/cacert-XXXXX)
 	
-	# Wait for the certificate secret to be created by the vault charm
+	# Wait for the certificate secret to be created by the vault charm.
 	attempt=0
 	cert_juju_secret_id=""
 	until [[ -n "$cert_juju_secret_id" ]]; do

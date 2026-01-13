@@ -29,6 +29,7 @@ type listSecretsCommand struct {
 	listSecretsAPIFunc func(ctx context.Context) (ListSecretsAPI, error)
 	revealSecrets      bool
 	owner              string
+	revisions          bool
 }
 
 var listSecretsDoc = `
@@ -38,6 +39,7 @@ Displays the secrets available for charms to use if granted access.
 const listSecretsExamples = `
     juju secrets
     juju secrets --format yaml
+    juju secrets --revisions --format yaml
 `
 
 // ListSecretsAPI is the secrets client API.
@@ -83,6 +85,7 @@ func (c *listSecretsCommand) Info() *cmd.Info {
 // SetFlags implements cmd.SetFlags.
 func (c *listSecretsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.owner, "owner", "", "Include secrets for the specified owner")
+	f.BoolVar(&c.revisions, "revisions", false, "Show the secret revisions metadata")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,
@@ -177,7 +180,7 @@ func (c *listSecretsCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	details := gatherSecretInfo(result, c.revealSecrets, true, false)
+	details := gatherSecretInfo(result, c.revealSecrets, c.revisions, false)
 	return c.out.Write(ctxt, details)
 }
 

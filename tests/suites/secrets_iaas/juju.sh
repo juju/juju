@@ -20,9 +20,9 @@ check_secrets() {
 	secret_owned_by_dummy_source=$(juju exec --unit dummy-source/0 -- secret-add owned-by=dummy-source-app)
 	secret_owned_by_dummy_source_id=${secret_owned_by_dummy_source##*/}
 
-	echo "Checking secrets' backend name with juju secrets --owner"
-	check_contains "$(juju secrets --owner application-dummy-source --format yaml | yq -r ".${secret_owned_by_dummy_source_id}.revisions[0].backend")" "${expected_backend}"
-	check_contains "$(juju secrets --owner unit-dummy-source-0 --format yaml | yq -r ".${secret_owned_by_dummy_source_0_id}.revisions[0].backend")" "${expected_backend}"
+	echo "Checking secrets' backend name with juju secrets --owner --revisions"
+	check_contains "$(juju secrets --owner application-dummy-source --revisions --format yaml | yq -r ".${secret_owned_by_dummy_source_id}.revisions[0].backend")" "${expected_backend}"
+	check_contains "$(juju secrets --owner unit-dummy-source-0 --revisions --format yaml | yq -r ".${secret_owned_by_dummy_source_0_id}.revisions[0].backend")" "${expected_backend}"
 
 	echo "Checking secrets' backend name with juju show-secret --revisions"
 	check_contains "$(juju --show-log show-secret "$secret_owned_by_dummy_source_id" --revisions --format yaml | yq -r ".${secret_owned_by_dummy_source_id}.revisions[0].backend")" "${expected_backend}"
