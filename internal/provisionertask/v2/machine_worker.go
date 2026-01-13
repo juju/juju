@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provisionertaskbis
+package provisionertask
 
 import (
 	"context"
@@ -138,11 +138,6 @@ func (w *MachineWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-// State returns the current FSM state (for testing).
-func (w *MachineWorker) State() State {
-	return w.fsm.State()
-}
-
 // transitionTo attempts to transition to the target state.
 // It logs the transition and returns an error if invalid.
 func (w *MachineWorker) transitionTo(ctx context.Context, target State) error {
@@ -161,10 +156,11 @@ func (w *MachineWorker) loop() error {
 
 	w.config.Logger.Debugf(ctx, "machine worker %s starting in state %s", w.config.MachineID, w.fsm.State())
 
+	defer w.stopRetryTimer()
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
-			w.stopRetryTimer()
 			return w.catacomb.ErrDying()
 
 		case event, ok := <-w.config.EventsChan:
@@ -320,7 +316,7 @@ func (w *MachineWorker) handleLifeChange(ctx context.Context, newLife life.Value
 	case StateStopping, StateRemoving:
 		// Already in terminal path, ignore life changes.
 
-	case StateDone:
+	case StateComplete, StateError:
 		// Terminal state, nothing to do.
 	}
 
@@ -364,7 +360,7 @@ func (w *MachineWorker) handleZoneRequestFailed(ctx context.Context, err error) 
 		if setErr := w.setProvisioningError(ctx, err); setErr != nil {
 			w.config.Logger.Errorf(ctx, "failed to set provisioning error: %v", setErr)
 		}
-		return w.transitionTo(ctx, StateDone)
+		return w.transitionTo(ctx, StateError)
 	}
 
 	// Go back to Pending and schedule a retry.
@@ -439,7 +435,7 @@ func (w *MachineWorker) doProvision(ctx context.Context) error {
 			if setErr := w.setProvisioningError(ctx, err); setErr != nil {
 				w.config.Logger.Errorf(ctx, "failed to set provisioning error: %v", setErr)
 			}
-			return w.transitionTo(ctx, StateDone)
+			return w.transitionTo(ctx, StateError)
 		}
 
 		// Go back to Pending and schedule a retry.
@@ -456,6 +452,10 @@ func (w *MachineWorker) doProvision(ctx context.Context) error {
 	w.config.Logger.Infof(ctx, "machine %s started instance %s", w.config.MachineID, w.instanceID)
 
 	// Call SetInstanceInfo.
+	// NOTE: There is a window between instance creation (above) and database
+	// registration (below) where a failure could leave an orphan instance.
+	// This must be minimized and carefully handled. If SetInstanceInfo fails,
+	// we roll back by stopping the instance.
 	err = w.config.InstanceInfoSetter.SetInstanceInfo(ctx, w.config.MachineID, w.instanceID, w.zoneName)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
@@ -483,7 +483,7 @@ func (w *MachineWorker) doProvision(ctx context.Context) error {
 			if setErr := w.setProvisioningError(ctx, err); setErr != nil {
 				w.config.Logger.Errorf(ctx, "failed to set provisioning error: %v", setErr)
 			}
-			return w.transitionTo(ctx, StateDone)
+			return w.transitionTo(ctx, StateError)
 		}
 
 		// Go back to Pending and schedule a retry.
@@ -594,5 +594,5 @@ func (w *MachineWorker) doRemove(ctx context.Context) error {
 
 	w.config.Logger.Infof(ctx, "machine %s removed", w.config.MachineID)
 
-	return w.transitionTo(ctx, StateDone)
+	return w.transitionTo(ctx, StateComplete)
 }

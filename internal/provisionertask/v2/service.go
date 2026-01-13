@@ -1,12 +1,13 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provisionertaskbis
+package provisionertask
 
 import (
 	"context"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 )
 
@@ -68,10 +69,4 @@ type ProviderSemaphore interface {
 }
 
 // Logger provides logging functionality for the worker.
-type Logger interface {
-	Tracef(ctx context.Context, msg string, args ...any)
-	Debugf(ctx context.Context, msg string, args ...any)
-	Infof(ctx context.Context, msg string, args ...any)
-	Warningf(ctx context.Context, msg string, args ...any)
-	Errorf(ctx context.Context, msg string, args ...any)
-}
+type Logger = logger.Logger

@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provisionertaskbis
+package provisionertask
 
 import (
 	"context"
@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 // Test suite runner.
@@ -334,17 +335,9 @@ func (s *fakeSemaphore) getReleased() int {
 	return s.released
 }
 
-// fakeLogger implements Logger for testing.
-type fakeLogger struct{}
-
-func (l *fakeLogger) Tracef(ctx context.Context, msg string, args ...any)   {}
-func (l *fakeLogger) Debugf(ctx context.Context, msg string, args ...any)   {}
-func (l *fakeLogger) Infof(ctx context.Context, msg string, args ...any)    {}
-func (l *fakeLogger) Warningf(ctx context.Context, msg string, args ...any) {}
-func (l *fakeLogger) Errorf(ctx context.Context, msg string, args ...any)   {}
-
 // workerTestHarness provides a test setup for MachineWorker tests.
 type workerTestHarness struct {
+	c           *tc.C
 	machine     *fakeMachine
 	broker      *fakeBroker
 	infoSetter  *fakeInstanceInfoSetter
@@ -357,8 +350,9 @@ type workerTestHarness struct {
 	retryDelay  time.Duration
 }
 
-func newWorkerTestHarness(machineID string) *workerTestHarness {
+func newWorkerTestHarness(c *tc.C, machineID string) *workerTestHarness {
 	return &workerTestHarness{
+		c:           c,
 		machine:     newFakeMachine(machineID),
 		broker:      newFakeBroker(),
 		infoSetter:  newFakeInstanceInfoSetter(),
@@ -377,7 +371,7 @@ func (h *workerTestHarness) config() MachineWorkerConfig {
 		Broker:             h.broker,
 		InstanceInfoSetter: h.infoSetter,
 		Semaphore:          h.semaphore,
-		Logger:             &fakeLogger{},
+		Logger:             loggertesting.WrapCheckLog(h.c),
 		EventsChan:         h.eventsChan,
 		RequestChan:        h.requestChan,
 		DistributionGroup:  h.distGroup,
@@ -408,7 +402,7 @@ func (h *workerTestHarness) tryReceiveRequest() (WorkerRequest, bool) {
 
 func (s *MachineWorkerSuite) TestHappyPathProvisioning(c *tc.C) {
 	// Test: Pending -> RequestingZone -> Provisioning -> Running.
-	h := newWorkerTestHarness("0")
+	h := newWorkerTestHarness(c, "0")
 	h.broker.setStartInstanceResult(StartInstanceResult{
 		InstanceID: "i-0",
 		ZoneName:   "zone-a",
@@ -419,7 +413,7 @@ func (s *MachineWorkerSuite) TestHappyPathProvisioning(c *tc.C) {
 	defer workertest.CleanKill(c, worker)
 
 	// Worker starts in Pending state.
-	c.Assert(worker.State(), tc.Equals, StatePending)
+	c.Assert(worker.fsm.State(), tc.Equals, StatePending)
 
 	// Send life=Alive to trigger provisioning.
 	h.sendEvent(MachineEvent{Type: EventLifeChanged, Life: life.Alive})
@@ -430,7 +424,7 @@ func (s *MachineWorkerSuite) TestHappyPathProvisioning(c *tc.C) {
 	c.Assert(req.MachineID, tc.Equals, "0")
 
 	// Worker should be in RequestingZone state.
-	c.Assert(worker.State(), tc.Equals, StateRequestingZone)
+	c.Assert(worker.fsm.State(), tc.Equals, StateRequestingZone)
 
 	// Send zone assignment.
 	h.sendEvent(MachineEvent{Type: EventZoneAssigned, Zone: "zone-a"})
@@ -444,7 +438,7 @@ func (s *MachineWorkerSuite) TestHappyPathProvisioning(c *tc.C) {
 	c.Assert(payload.ZoneName, tc.Equals, "zone-a")
 
 	// Worker should be in Running state.
-	c.Assert(worker.State(), tc.Equals, StateRunning)
+	c.Assert(worker.fsm.State(), tc.Equals, StateRunning)
 
 	// No StopInstances or Remove called.
 	c.Assert(h.broker.getStopInstancesCallCount(), tc.Equals, 0)
@@ -453,13 +447,13 @@ func (s *MachineWorkerSuite) TestHappyPathProvisioning(c *tc.C) {
 
 func (s *MachineWorkerSuite) TestPendingLifeDeadRemovesWithoutProvisioning(c *tc.C) {
 	// Test: Pending + life=Dead -> Removing -> Done.
-	h := newWorkerTestHarness("0")
+	h := newWorkerTestHarness(c, "0")
 
 	worker, err := NewMachineWorker(h.config())
 	c.Assert(err, tc.IsNil)
 	defer workertest.DirtyKill(c, worker)
 
-	c.Assert(worker.State(), tc.Equals, StatePending)
+	c.Assert(worker.fsm.State(), tc.Equals, StatePending)
 
 	// Send life=Dead.
 	h.sendEvent(MachineEvent{Type: EventLifeChanged, Life: life.Dead})
@@ -475,7 +469,7 @@ func (s *MachineWorkerSuite) TestPendingLifeDeadRemovesWithoutProvisioning(c *tc
 
 func (s *MachineWorkerSuite) TestRequestingZoneThenLifeDeadCancelsAndRemoves(c *tc.C) {
 	// Test: Drive worker to RequestingZone, then life=Dead.
-	h := newWorkerTestHarness("0")
+	h := newWorkerTestHarness(c, "0")
 
 	worker, err := NewMachineWorker(h.config())
 	c.Assert(err, tc.IsNil)
@@ -487,7 +481,7 @@ func (s *MachineWorkerSuite) TestRequestingZoneThenLifeDeadCancelsAndRemoves(c *
 	// Wait for zone request.
 	req := h.receiveRequest()
 	c.Assert(req.Type, tc.Equals, RequestZone)
-	c.Assert(worker.State(), tc.Equals, StateRequestingZone)
+	c.Assert(worker.fsm.State(), tc.Equals, StateRequestingZone)
 
 	// Send life=Dead before zone assignment.
 	h.sendEvent(MachineEvent{Type: EventLifeChanged, Life: life.Dead})
@@ -508,7 +502,7 @@ func (s *MachineWorkerSuite) TestRequestingZoneThenLifeDeadCancelsAndRemoves(c *
 
 func (s *MachineWorkerSuite) TestMachineDiesDuringProvisioning(c *tc.C) {
 	// Test: Provisioning blocked, life=Dead event queued, processed after unblock.
-	h := newWorkerTestHarness("0")
+	h := newWorkerTestHarness(c, "0")
 
 	// Set up blocking gate for StartInstance.
 	h.broker.startInstanceGate = make(chan struct{})
@@ -554,7 +548,7 @@ func (s *MachineWorkerSuite) TestMachineDiesDuringProvisioning(c *tc.C) {
 
 func (s *MachineWorkerSuite) TestRollbackOnSetInstanceInfoFailure(c *tc.C) {
 	// Test: StartInstance succeeds, SetInstanceInfo fails -> rollback StopInstances.
-	h := newWorkerTestHarness("0")
+	h := newWorkerTestHarness(c, "0")
 	h.maxRetries = 1
 	h.broker.setStartInstanceResult(StartInstanceResult{
 		InstanceID: "i-0",
@@ -592,7 +586,7 @@ func (s *MachineWorkerSuite) TestRollbackOnSetInstanceInfoFailure(c *tc.C) {
 	// Worker will automatically retry via timer and request zone again.
 	req = h.receiveRequest()
 	c.Assert(req.Type, tc.Equals, RequestZone)
-	c.Assert(worker.State(), tc.Equals, StateRequestingZone)
+	c.Assert(worker.fsm.State(), tc.Equals, StateRequestingZone)
 
 	h.sendEvent(MachineEvent{Type: EventZoneAssigned, Zone: "zone-a"})
 
@@ -602,12 +596,12 @@ func (s *MachineWorkerSuite) TestRollbackOnSetInstanceInfoFailure(c *tc.C) {
 	payload = req.Payload.(ProvisionResultPayload)
 	c.Assert(payload.Success, tc.IsTrue)
 
-	c.Assert(worker.State(), tc.Equals, StateRunning)
+	c.Assert(worker.fsm.State(), tc.Equals, StateRunning)
 }
 
 func (s *MachineWorkerSuite) TestRetryExhaustionSetsProvisioningError(c *tc.C) {
 	// Test: StartInstance fails repeatedly until retries exhausted.
-	h := newWorkerTestHarness("0")
+	h := newWorkerTestHarness(c, "0")
 	h.maxRetries = 1 // Only 2 attempts total (initial + 1 retry).
 	h.broker.setStartInstanceErr(errors.New("provider error"))
 
@@ -630,7 +624,7 @@ func (s *MachineWorkerSuite) TestRetryExhaustionSetsProvisioningError(c *tc.C) {
 	// Retry timer fires automatically and requests zone again.
 	req = h.receiveRequest()
 	c.Assert(req.Type, tc.Equals, RequestZone)
-	c.Assert(worker.State(), tc.Equals, StateRequestingZone)
+	c.Assert(worker.fsm.State(), tc.Equals, StateRequestingZone)
 	h.sendEvent(MachineEvent{Type: EventZoneAssigned, Zone: "zone-a"})
 
 	// Second failure -> retries exhausted.
@@ -653,7 +647,7 @@ func (s *MachineWorkerSuite) TestRetryExhaustionSetsProvisioningError(c *tc.C) {
 
 func (s *MachineWorkerSuite) TestKeepInstanceOnDeadWhileRunning(c *tc.C) {
 	// Test: Dead while Running + keep-instance=true -> no StopInstances.
-	h := newWorkerTestHarness("0")
+	h := newWorkerTestHarness(c, "0")
 	h.machine.setKeepInstance(true)
 	h.machine.setInstanceID("i-0") // Already has instance.
 
@@ -666,7 +660,7 @@ func (s *MachineWorkerSuite) TestKeepInstanceOnDeadWhileRunning(c *tc.C) {
 
 	// Give time for state transition.
 	time.Sleep(20 * time.Millisecond)
-	c.Assert(worker.State(), tc.Equals, StateRunning)
+	c.Assert(worker.fsm.State(), tc.Equals, StateRunning)
 
 	// Send life=Dead with keep-instance=true.
 	h.sendEvent(MachineEvent{Type: EventLifeChanged, Life: life.Dead})
@@ -684,7 +678,7 @@ func (s *MachineWorkerSuite) TestKeepInstanceOnDeadWhileRunning(c *tc.C) {
 
 func (s *MachineWorkerSuite) TestOrphanedDeadMachineCleanup(c *tc.C) {
 	// Test: Dead machine with no instance -> remove without StopInstances.
-	h := newWorkerTestHarness("0")
+	h := newWorkerTestHarness(c, "0")
 	// No instance ID set.
 
 	worker, err := NewMachineWorker(h.config())
@@ -703,10 +697,10 @@ func (s *MachineWorkerSuite) TestOrphanedDeadMachineCleanup(c *tc.C) {
 	h.sendEvent(MachineEvent{Type: EventZoneAssigned, Zone: "zone-a"})
 	req = h.receiveRequest()
 	c.Assert(req.Type, tc.Equals, RequestProvisionComplete)
-	c.Assert(worker.State(), tc.Equals, StateRunning)
+	c.Assert(worker.fsm.State(), tc.Equals, StateRunning)
 
 	// Create a new worker for an orphaned machine (no instance).
-	h2 := newWorkerTestHarness("1")
+	h2 := newWorkerTestHarness(c, "1")
 	worker2, err := NewMachineWorker(h2.config())
 	c.Assert(err, tc.IsNil)
 	defer workertest.DirtyKill(c, worker2)
@@ -727,7 +721,7 @@ func (s *MachineWorkerSuite) TestOrphanedDeadMachineCleanup(c *tc.C) {
 
 func (s *MachineWorkerSuite) TestSemaphoreAcquireRelease(c *tc.C) {
 	// Test: Semaphore is properly acquired and released during provisioning.
-	h := newWorkerTestHarness("0")
+	h := newWorkerTestHarness(c, "0")
 	h.broker.setStartInstanceResult(StartInstanceResult{
 		InstanceID: "i-0",
 		ZoneName:   "zone-a",
@@ -744,7 +738,7 @@ func (s *MachineWorkerSuite) TestSemaphoreAcquireRelease(c *tc.C) {
 	h.sendEvent(MachineEvent{Type: EventZoneAssigned, Zone: "zone-a"})
 	h.receiveRequest() // Provision complete.
 
-	c.Assert(worker.State(), tc.Equals, StateRunning)
+	c.Assert(worker.fsm.State(), tc.Equals, StateRunning)
 
 	// Semaphore should have been acquired and released once for provisioning.
 	c.Assert(h.semaphore.getAcquired(), tc.Equals, 1)
@@ -763,20 +757,20 @@ func (s *MachineWorkerSuite) TestSemaphoreAcquireRelease(c *tc.C) {
 
 func (s *MachineWorkerSuite) TestStaleZoneAssignedIgnored(c *tc.C) {
 	// Test: Zone assigned event in wrong state is ignored.
-	h := newWorkerTestHarness("0")
+	h := newWorkerTestHarness(c, "0")
 
 	worker, err := NewMachineWorker(h.config())
 	c.Assert(err, tc.IsNil)
 	defer workertest.CleanKill(c, worker)
 
 	// Worker is in Pending state.
-	c.Assert(worker.State(), tc.Equals, StatePending)
+	c.Assert(worker.fsm.State(), tc.Equals, StatePending)
 
 	// Send zone assigned without requesting zone first (stale event).
 	h.sendEvent(MachineEvent{Type: EventZoneAssigned, Zone: "zone-a"})
 
 	// Worker should still be in Pending state (event ignored).
-	c.Assert(worker.State(), tc.Equals, StatePending)
+	c.Assert(worker.fsm.State(), tc.Equals, StatePending)
 
 	// No requests should have been sent.
 	_, hasRequest := h.tryReceiveRequest()
@@ -785,25 +779,25 @@ func (s *MachineWorkerSuite) TestStaleZoneAssignedIgnored(c *tc.C) {
 
 func (s *MachineWorkerSuite) TestStaleZoneRequestFailedIgnored(c *tc.C) {
 	// Test: Zone request failed event in wrong state is ignored.
-	h := newWorkerTestHarness("0")
+	h := newWorkerTestHarness(c, "0")
 
 	worker, err := NewMachineWorker(h.config())
 	c.Assert(err, tc.IsNil)
 	defer workertest.CleanKill(c, worker)
 
 	// Worker is in Pending state.
-	c.Assert(worker.State(), tc.Equals, StatePending)
+	c.Assert(worker.fsm.State(), tc.Equals, StatePending)
 
 	// Send zone request failed without requesting zone first (stale event).
 	h.sendEvent(MachineEvent{Type: EventZoneRequestFailed, ZoneError: errors.New("stale error")})
 
 	// Worker should still be in Pending state (event ignored).
-	c.Assert(worker.State(), tc.Equals, StatePending)
+	c.Assert(worker.fsm.State(), tc.Equals, StatePending)
 }
 
 func (s *MachineWorkerSuite) TestConfigValidation(c *tc.C) {
 	// Test: Config validation catches invalid configurations.
-	h := newWorkerTestHarness("0")
+	h := newWorkerTestHarness(c, "0")
 
 	// Missing MachineID.
 	cfg := h.config()

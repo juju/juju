@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provisionertaskbis
+package provisionertask
 
 import (
 	"fmt"
@@ -35,8 +35,13 @@ const (
 	// StateRemoving indicates the worker is removing the machine record from state.
 	StateRemoving State = "Removing"
 
-	// StateDone is the terminal state. Worker exits cleanly.
-	StateDone State = "Done"
+	// StateComplete is a terminal state. Worker exits after successfully
+	// completing all operations (machine removed).
+	StateComplete State = "Complete"
+
+	// StateError is a terminal state. Worker exits after encountering
+	// unrecoverable errors (e.g., retries exhausted).
+	StateError State = "Error"
 )
 
 // String returns a human-readable representation of the state.
@@ -44,41 +49,44 @@ func (s State) String() string {
 	return string(s)
 }
 
-// IsTerminal returns true if the state is a terminal state (Done).
+// IsTerminal returns true if the state is a terminal state (Complete or Error).
 func (s State) IsTerminal() bool {
-	return s == StateDone
+	return s == StateComplete || s == StateError
 }
 
 // validTransitions defines all valid state transitions in the FSM.
 // The map key is the source state, and the value is a set of valid target states.
-var validTransitions = map[State]map[State]bool{
+var validTransitions = map[State]map[State]struct{}{
 	StatePending: {
-		StateRequestingZone: true, // Start provisioning.
-		StateRunning:        true, // Already has instance.
-		StateRemoving:       true, // Machine is dead (no instance).
+		StateRequestingZone: {}, // Start provisioning.
+		StateRunning:        {}, // Already has instance.
+		StateRemoving:       {}, // Machine is dead (no instance).
 	},
 	StateRequestingZone: {
-		StateProvisioning: true, // Zone assigned.
-		StatePending:      true, // Zone request failed, will retry.
-		StateRemoving:     true, // Machine died while requesting zone.
-		StateDone:         true, // Retries exhausted.
+		StateProvisioning: {}, // Zone assigned.
+		StatePending:      {}, // Zone request failed, will retry.
+		StateRemoving:     {}, // Machine died while requesting zone.
+		StateError:        {}, // Retries exhausted.
 	},
 	StateProvisioning: {
-		StateRunning: true, // Provisioning succeeded.
-		StatePending: true, // Provisioning failed, will retry on next life event.
-		StateDone:    true, // Retries exhausted.
+		StateRunning: {}, // Provisioning succeeded.
+		StatePending: {}, // Provisioning failed, will retry on next life event.
+		StateError:   {}, // Retries exhausted.
 	},
 	StateRunning: {
-		StateStopping: true, // Machine died, stopping instance.
-		StateRemoving: true, // Machine died with keep-instance=true.
+		StateStopping: {}, // Machine died, stopping instance.
+		StateRemoving: {}, // Machine died with keep-instance=true.
 	},
 	StateStopping: {
-		StateRemoving: true, // Instance stopped successfully.
+		StateRemoving: {}, // Instance stopped successfully.
 	},
 	StateRemoving: {
-		StateDone: true, // Machine record removed.
+		StateComplete: {}, // Machine record removed successfully.
 	},
-	StateDone: {
+	StateComplete: {
+		// Terminal state - no valid transitions.
+	},
+	StateError: {
 		// Terminal state - no valid transitions.
 	},
 }
@@ -90,7 +98,8 @@ func (s State) CanTransitionTo(target State) bool {
 	if !ok {
 		return false
 	}
-	return targets[target]
+	_, ok = targets[target]
+	return ok
 }
 
 // ValidTargets returns the list of valid target states from the current state.

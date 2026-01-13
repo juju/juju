@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provisionertaskbis
+package provisionertask
 
 // StartInstanceParams contains the parameters for starting an instance.
 // This is a simplified version for the FSM; real Juju uses environs.StartInstanceParams.
