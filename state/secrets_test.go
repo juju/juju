@@ -4083,3 +4083,23 @@ func (s *SecretsSuite) TestListSecretBackendIssuedTokenUntilForConsumer(c *gc.C)
 	tokenBefore.ExpireTime = tokenBefore.ExpireTime.Truncate(time.Second)
 	c.Assert(tokens[0], jc.DeepEquals, tokenBefore)
 }
+
+func (s *SecretsSuite) TestRemoveSecretBackendIssuedTokens(c *gc.C) {
+	token := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: s.Clock.Now().Add(time.Minute),
+		BackendID:  "backend-id",
+		Consumer:   s.owner.Tag(),
+	}
+	err := s.store.CreateSecretBackendIssuedToken(token)
+	c.Assert(err, jc.ErrorIsNil)
+
+	col, close := state.GetCollection(s.State, "secretBackendIssuedTokens")
+	defer close()
+	n, err := col.FindId(token.UUID).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 1)
+
+	err = s.store.RemoveSecretBackendIssuedTokens([]string{token.UUID})
+	c.Assert(err, jc.ErrorIsNil)
+}

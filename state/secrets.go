@@ -148,9 +148,15 @@ type SecretsStore interface {
 		until time.Time, consumer names.Tag,
 	) ([]SecretBackendIssuedToken, error)
 
+	// RemoveSecretBackendIssuedTokens removes the secret backend tokens for the
+	// given secret backend token UUIDs.
+	RemoveSecretBackendIssuedTokens(uuids []string) error
+
 	// RemoveSecretReservations removes all secret reservations that are held by
 	// the provided owner.
 	RemoveSecretReservations(owner names.Tag) ModelOperation
+
+	WatchSecretBackendIssuedTokenExpiry() StringsWatcher
 }
 
 // NewSecrets creates a new mongo backed secrets store.
@@ -4079,4 +4085,28 @@ func (s *secretsStore) listSecretBackendIssuedTokenUntil(
 	}
 
 	return res, nil
+}
+
+// RemoveSecretBackendIssuedTokens removes the secret backend tokens for the
+// given secret backend token UUIDs.
+func (s *secretsStore) RemoveSecretBackendIssuedTokens(uuids []string) error {
+	if len(uuids) == 0 {
+		return nil
+	}
+
+	ops := make([]txn.Op, 0, len(uuids))
+	for _, uuid := range uuids {
+		ops = append(ops, txn.Op{
+			C:      secretBackendIssuedTokensC,
+			Id:     uuid,
+			Remove: true,
+		})
+	}
+
+	err := s.st.db().RunTransaction(ops)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
