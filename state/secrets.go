@@ -127,6 +127,15 @@ func NewSecrets(st *State) *secretsStore {
 	return &secretsStore{st: st}
 }
 
+// secretReservationDoc is the bson representation for a secret reservation.
+type secretReservationDoc struct {
+	DocID string `bson:"_id"`
+
+	OwnerTag string `bson:"owner-tag"`
+
+	CreateTime time.Time `bson:"create-time"`
+}
+
 type secretMetadataDoc struct {
 	DocID string `bson:"_id"`
 
@@ -298,6 +307,92 @@ func (s *secretsStore) secretRevisionDoc(uri *secrets.URI, owner string, revisio
 		doc.ExpireTime = &expire
 	}
 	return doc
+}
+
+// ReserveSecret sets aside the provided secret id for the given owner. This
+// secret ID can then only be used by the given owner to create a secret. Future
+// versions of Juju should replace this with a token based approach to cease the
+// need for a database entry.
+func (s *secretsStore) ReserveSecret(uri *secrets.URI, owner names.Tag) error {
+	if uri == nil || owner == nil {
+		return errors.New("cannot reserve secret")
+	}
+	entity, scopeCollName, scopeDocID, err := s.st.findSecretEntity(owner)
+	if err != nil {
+		return errors.Annotate(err, "invalid owner reference")
+	}
+	if entity.Life() != Alive {
+		return errors.Errorf(
+			"cannot reserve secret for owner %q which is not alive", owner)
+	}
+
+	secretMetadataCollection, closer := s.st.db().GetCollection(secretMetadataC)
+	defer closer()
+	metadata := struct {
+		DocID string `bson:"_id"`
+	}{}
+	err = secretMetadataCollection.FindId(uri.ID).One(&metadata)
+	if err != nil && !errors.Is(err, mgo.ErrNotFound) {
+		return errors.Annotatef(
+			err, "checking existence of secret %q before reserving", uri.ID,
+		)
+	} else if err == nil {
+		return errors.AlreadyExistsf("secret %q", uri.ID)
+	}
+
+	doc := secretReservationDoc{
+		DocID:      uri.ID,
+		OwnerTag:   owner.String(),
+		CreateTime: s.st.nowToTheSecond(),
+	}
+	isOwnerAliveOp := txn.Op{
+		C:      scopeCollName,
+		Id:     scopeDocID,
+		Assert: isAliveDoc,
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		current, err := s.getSecretReservation(uri)
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return nil, err
+		} else if err == nil {
+			if current.OwnerTag == owner.String() {
+				return nil, jujutxn.ErrNoOperations
+			}
+			return nil, errors.BadRequestf(
+				"secret %q is already reserved", uri.ID,
+			)
+		}
+
+		err = secretMetadataCollection.FindId(uri.ID).One(&metadata)
+		if err != nil && !errors.Is(err, mgo.ErrNotFound) {
+			return nil, errors.Annotatef(
+				err, "checking existence of secret %q before reserving",
+				uri.ID,
+			)
+		} else if err == nil {
+			return nil, errors.AlreadyExistsf("secret %q", uri.ID)
+		}
+
+		ops := []txn.Op{
+			isOwnerAliveOp,
+		}
+		ops = append(ops, txn.Op{
+			C:      secretMetadataC,
+			Id:     uri.ID,
+			Assert: txn.DocMissing,
+		}, txn.Op{
+			C:      secretReservationsC,
+			Id:     uri.ID,
+			Assert: txn.DocMissing,
+			Insert: doc,
+		})
+		return ops, nil
+	}
+	err = s.st.db().Run(buildTxn)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // CreateSecret creates a new secret.

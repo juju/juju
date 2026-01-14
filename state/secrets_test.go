@@ -59,6 +59,24 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
+func (s *SecretsSuite) TestReserveSecret(c *gc.C) {
+	uri := secrets.NewURI()
+
+	err := s.store.ReserveSecret(uri, s.owner.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Idempotent
+	err = s.store.ReserveSecret(uri, s.owner.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Already reserved
+	verboten := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "someone-else",
+	})
+	err = s.store.ReserveSecret(uri, verboten.Tag())
+	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+}
+
 func (s *SecretsSuite) TestCreate(c *gc.C) {
 	uri := secrets.NewURI()
 	now := s.Clock.Now().Round(time.Second).UTC()
