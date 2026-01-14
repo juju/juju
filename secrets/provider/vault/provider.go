@@ -6,6 +6,7 @@ package vault
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 	"time"
@@ -185,6 +186,35 @@ func (p vaultProvider) CleanupSecrets(cfg *provider.ModelBackendConfig, tag name
 // a token to provide a restricted (delegated) config.
 func (p vaultProvider) IssuesTokens() bool {
 	return true
+}
+
+// CleanupIssuedTokens removes all ACLs/tokens related to the given issued
+// token UUIDs. It returns, even during error, the list of tokens it revoked
+// so far.
+func (p vaultProvider) CleanupIssuedTokens(
+	adminCfg *provider.ModelBackendConfig, issuedTokenUUIDs []string,
+) ([]string, error) {
+	// Get an admin backend client so we can set up the policies.
+	mountPath := modelPathPrefix(adminCfg.ModelName, adminCfg.ModelUUID)
+	backend, err := p.newBackend(mountPath, &adminCfg.BackendConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	sys := backend.client.Sys()
+	ctx := context.TODO()
+
+	for i, issuedTokenUUID := range issuedTokenUUIDs {
+		policyName := fmt.Sprintf("%s-%s", mountPath, issuedTokenUUID)
+		err := sys.DeletePolicyWithContext(ctx, policyName)
+		if err != nil && !isNotFound(err) {
+			// return the tokens deleted so far.
+			return issuedTokenUUIDs[:i], errors.New(
+				"removing vault secret backend issued tokens",
+			)
+		}
+	}
+
+	return issuedTokenUUIDs, nil
 }
 
 // RestrictedConfig returns the config needed to create a

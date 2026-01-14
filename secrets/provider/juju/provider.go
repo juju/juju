@@ -43,6 +43,13 @@ func (p jujuProvider) CleanupSecrets(cfg *provider.ModelBackendConfig, tag names
 	return nil
 }
 
+// CleanupIssuedTokens is not used.
+func (p jujuProvider) CleanupIssuedTokens(
+	_ *provider.ModelBackendConfig, issuedTokenUUIDs []string,
+) ([]string, error) {
+	return issuedTokenUUIDs, nil
+}
+
 // BuiltInConfig returns a minimal config for the Juju backend.
 func BuiltInConfig() provider.BackendConfig {
 	return provider.BackendConfig{BackendType: BackendType}
