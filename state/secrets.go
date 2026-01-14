@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/state/watcher"
 )
@@ -4109,4 +4111,103 @@ func (s *secretsStore) RemoveSecretBackendIssuedTokens(uuids []string) error {
 	}
 
 	return nil
+}
+
+func (s *secretsStore) WatchSecretBackendIssuedTokenExpiry() StringsWatcher {
+	return newSecretBackendIssuedTokenExpiryWatcher(s.st)
+}
+
+// secretBackendIssuedTokenExpiryWatcher reports expiry times of new issued
+// tokens as an RFC3339 timestamp string.
+type secretBackendIssuedTokenExpiryWatcher struct {
+	commonWatcher
+	coll func() (mongo.Collection, func())
+	out  chan []string
+}
+
+var _ Watcher = (*secretBackendIssuedTokenExpiryWatcher)(nil)
+
+// newSecretBackendIssuedTokenExpiryWatcher returns a state strings watcher that
+// is fired when there is new secret backend tokens that must expire at the
+// RFC3339 encoded timestamp in the string.
+func newSecretBackendIssuedTokenExpiryWatcher(st *State) StringsWatcher {
+	w := &secretBackendIssuedTokenExpiryWatcher{
+		commonWatcher: newCommonWatcher(st),
+		coll:          collFactory(st.db(), secretBackendIssuedTokensC),
+		out:           make(chan []string),
+	}
+	w.tomb.Go(func() error {
+		defer close(w.out)
+		return w.loop()
+	})
+	return w
+}
+
+// Changes returns the strings channel for the watcher.
+func (w *secretBackendIssuedTokenExpiryWatcher) Changes() <-chan []string {
+	return w.out
+}
+
+// initial returns the intial changes for the expiry watcher. Each string is an
+// RFC3339 encoded timestamp.
+func (w *secretBackendIssuedTokenExpiryWatcher) initial() ([]string, error) {
+	coll, closer := w.coll()
+	defer closer()
+	var expireTimes []time.Time
+	err := coll.Find(nil).Distinct("expire-time", &expireTimes)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var changes []string
+	for _, ts := range expireTimes {
+		changes = append(changes, ts.UTC().Format(time.RFC3339))
+	}
+	return changes, nil
+}
+
+// loop watches the secretBackendIssuedTokens collection for new expire-time
+// values and sends them on the watcher as RFC3339 encoded timestamps.
+func (w *secretBackendIssuedTokenExpiryWatcher) loop() error {
+	in := make(chan watcher.Change)
+
+	w.watcher.WatchCollection(secretBackendIssuedTokensC, in)
+	defer w.watcher.UnwatchCollection(secretBackendIssuedTokensC, in)
+
+	changes, err := w.initial()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	coll, closer := w.coll()
+	defer closer()
+
+	out := w.out
+	for {
+		select {
+		case <-w.watcher.Dead():
+			return stateWatcherDeadError(w.watcher.Err())
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case change := <-in:
+			if change.Revno < 0 {
+				continue
+			}
+			var doc struct {
+				ExpireTime time.Time `bson:"expire-time"`
+			}
+			err := coll.FindId(change.Id).One(&doc)
+			if errors.Is(err, mgo.ErrNotFound) {
+				continue
+			} else if err != nil {
+				return errors.Trace(err)
+			}
+			out = w.out
+			changes = append(changes, doc.ExpireTime.UTC().Format(time.RFC3339))
+			slices.Sort(changes)
+			changes = slices.Compact(changes)
+		case out <- changes:
+			out = nil
+			changes = nil
+		}
+	}
 }

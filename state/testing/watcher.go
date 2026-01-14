@@ -4,6 +4,8 @@
 package testing
 
 import (
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -396,6 +398,12 @@ func (c SecretsTriggerWatcherC) AssertChange(expect ...watcher.SecretTriggerChan
 			c.Assert(ok, jc.IsTrue)
 			received = append(received, actual...)
 			if len(received) >= len(expect) {
+				slices.SortFunc(received, func(a, b watcher.SecretTriggerChange) int {
+					return strings.Compare(a.URI.ID, b.URI.ID)
+				})
+				slices.SortFunc(expect, func(a, b watcher.SecretTriggerChange) int {
+					return strings.Compare(a.URI.ID, b.URI.ID)
+				})
 				mc := jc.NewMultiChecker()
 				mc.AddExpr(`_[_].NextTriggerTime`, jc.Almost, jc.ExpectedValue)
 				c.Assert(received, mc, expect)

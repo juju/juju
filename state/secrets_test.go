@@ -4103,3 +4103,69 @@ func (s *SecretsSuite) TestRemoveSecretBackendIssuedTokens(c *gc.C) {
 	err = s.store.RemoveSecretBackendIssuedTokens([]string{token.UUID})
 	c.Assert(err, jc.ErrorIsNil)
 }
+
+type SecretBackendIssuedTokenExpiryWatcherSuite struct {
+	testing.StateSuite
+	store state.SecretsStore
+}
+
+var _ = gc.Suite(&SecretBackendIssuedTokenExpiryWatcherSuite{})
+
+func (s *SecretBackendIssuedTokenExpiryWatcherSuite) SetUpTest(c *gc.C) {
+	s.StateSuite.SetUpTest(c)
+	s.store = state.NewSecrets(s.State)
+}
+
+func (s *SecretBackendIssuedTokenExpiryWatcherSuite) TestWatchInitialEvent(c *gc.C) {
+	ownerApp := s.Factory.MakeApplication(c, nil)
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(time.Minute).Round(time.Second).UTC()
+
+	err := s.store.CreateSecretBackendIssuedToken(state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: next,
+		BackendID:  "abc",
+		Consumer:   ownerApp.Tag(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := s.store.WatchSecretBackendIssuedTokenExpiry()
+	defer testing.AssertStop(c, w)
+
+	wc := testing.NewStringsWatcherC(c, w)
+	wc.AssertChange(next.Format(time.RFC3339))
+}
+
+func (s *SecretBackendIssuedTokenExpiryWatcherSuite) TestWatchUpdates(c *gc.C) {
+	ownerApp := s.Factory.MakeApplication(c, nil)
+	now := s.Clock.Now().Round(time.Second).UTC()
+	first := now.Add(time.Minute).Round(time.Second).UTC()
+
+	err := s.store.CreateSecretBackendIssuedToken(state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: first,
+		BackendID:  "abc",
+		Consumer:   ownerApp.Tag(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+
+	w := s.store.WatchSecretBackendIssuedTokenExpiry()
+	defer testing.AssertStop(c, w)
+
+	wc := testing.NewStringsWatcherC(c, w)
+	wc.AssertChange(first.Format(time.RFC3339))
+	wc.AssertNoChange()
+
+	next := now.Add(10 * time.Minute).Round(time.Second).UTC()
+	err = s.store.CreateSecretBackendIssuedToken(state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: next,
+		BackendID:  "abc",
+		Consumer:   ownerApp.Tag(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(next.Format(time.RFC3339))
+}
