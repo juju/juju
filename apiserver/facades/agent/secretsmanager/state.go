@@ -32,6 +32,7 @@ type SecretsConsumer interface {
 }
 
 type SecretsState interface {
+	ReserveSecret(*secrets.URI, names.Tag) error
 	CreateSecret(*secrets.URI, state.CreateSecretParams) (*secrets.SecretMetadata, error)
 	UpdateSecret(*secrets.URI, state.UpdateSecretParams) (*secrets.SecretMetadata, error)
 	DeleteSecret(*secrets.URI, ...int) ([]secrets.ValueRef, error)

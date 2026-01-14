@@ -228,6 +228,9 @@ func (s *SecretsManagerSuite) TestGetSecretBackendConfigsForDrain(c *gc.C) {
 func (s *SecretsManagerSuite) TestCreateSecretURIs(c *gc.C) {
 	defer s.setup(c).Finish()
 
+	s.secretsState.EXPECT().ReserveSecret(
+		gomock.Any(), s.authTag).Return(nil).Times(2)
+
 	results, err := s.facade.CreateSecretURIs(params.CreateSecretURIsArg{
 		Count: 2,
 	})

@@ -271,6 +271,20 @@ func (mr *MockSecretsStateMockRecorder) ListSecrets(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecrets", reflect.TypeOf((*MockSecretsState)(nil).ListSecrets), arg0)
 }
 
+// ReserveSecret mocks base method.
+func (m *MockSecretsState) ReserveSecret(arg0 *secrets.URI, arg1 names.Tag) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReserveSecret", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReserveSecret indicates an expected call of ReserveSecret.
+func (mr *MockSecretsStateMockRecorder) ReserveSecret(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReserveSecret", reflect.TypeOf((*MockSecretsState)(nil).ReserveSecret), arg0, arg1)
+}
+
 // SecretGrants mocks base method.
 func (m *MockSecretsState) SecretGrants(arg0 *secrets.URI, arg1 secrets.SecretRole) ([]secrets.AccessInfo, error) {
 	m.ctrl.T.Helper()
