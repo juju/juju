@@ -57,7 +57,9 @@ func (p jujuProvider) IssuesTokens() bool {
 // secrets backend client restricted to manage the specified
 // owned secrets and read shared secrets for the given entity tag.
 func (p jujuProvider) RestrictedConfig(
-	adminCfg *provider.ModelBackendConfig, sameController, forDrain bool, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
+	*provider.ModelBackendConfig,
+	bool, bool, string, names.Tag,
+	[]string, provider.SecretRevisions, provider.SecretRevisions,
 ) (*provider.BackendConfig, error) {
 	return &provider.BackendConfig{
 		BackendType: BackendType,
