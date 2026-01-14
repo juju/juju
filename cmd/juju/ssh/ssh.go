@@ -282,20 +282,26 @@ func (c *sshCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	var pty bool
+	return c.provider.ssh(ctx, c.enablePty(ctx), target)
+}
+
+// enablePty determines whether a pseudo-terminal should be allocated
+// for the SSH session, based on the --pty flag and terminal availability.
+func (c *sshCommand) enablePty(ctx *cmd.Context) bool {
 	if c.pty.b != nil {
-		pty = *c.pty.b
-	} else {
-		// Flag was not specified: create a pty
-		// on the remote side if this process
-		// has a terminal.
-		isTerminal := isTerminal
-		if c.isTerminal != nil {
-			isTerminal = c.isTerminal
-		}
-		pty = isTerminal(ctx.Stdin)
+		return *c.pty.b
 	}
-	return c.provider.ssh(ctx, pty, target)
+	// Flag was not specified.
+	// If a command is supplied, we shouldn't use a pty
+	// unless requested (which is handled above).
+	// If no command is supplied, we use a pty if we have a terminal.
+	if len(c.provider.getArgs()) > 0 {
+		return false
+	}
+	if c.isTerminal != nil {
+		return c.isTerminal(ctx.Stdin)
+	}
+	return isTerminal(ctx.Stdin)
 }
 
 // autoBoolValue is like gnuflag.boolValue, but remembers
