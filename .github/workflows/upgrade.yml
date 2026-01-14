@@ -30,7 +30,7 @@ jobs:
       UPGRADE_FLAGS_microk8s: --agent-stream=develop
       MODEL_TYPE_localhost: iaas
       MODEL_TYPE_microk8s: caas
-      JUJU_DB_VERSION: 4.0
+      JUJU_DB_VERSION: 4.4.30
 
     steps:
       - name: Checkout

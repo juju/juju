@@ -79,7 +79,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.cfg = cfg
 
 	s.controllerCfg = coretesting.FakeControllerConfig()
-	s.controllerCfg["juju-db-snap-channel"] = "4.4/stable"
+	s.controllerCfg["juju-db-snap-channel"] = "4.4.30/stable"
 	s.controllerCfg[controller.CAASImageRepo] = `
 {
     "serveraddress": "quay.io",
@@ -617,7 +617,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "mongodb",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "test-account/juju-db:4.4",
+			Image:           "test-account/juju-db:4.4.30",
 			Command: []string{
 				"/bin/sh",
 			},

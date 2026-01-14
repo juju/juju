@@ -461,7 +461,7 @@ endif
 endif
 
 WAIT_FOR_DPKG=bash -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
-JUJU_DB_VERSION=4.4
+JUJU_DB_VERSION=4.4.30
 JUJU_DB_CHANNEL=${JUJU_DB_VERSION}/stable
 
 .PHONY: install-mongo-dependencies

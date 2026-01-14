@@ -204,7 +204,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 			},
 		}, nil),
 		// - check mongo version;
-		s.statePool.EXPECT().MongoVersion().Return("4.4", nil),
+		s.statePool.EXPECT().MongoVersion().Return("4.4.30", nil),
 		// - check if the model has win machines;
 		ctrlState.EXPECT().MachineCountForSeries(
 			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",
@@ -372,7 +372,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c
 			},
 		}, nil),
 		// - check mongo version;
-		s.statePool.EXPECT().MongoVersion().Return("4.4", nil),
+		s.statePool.EXPECT().MongoVersion().Return("4.4.30", nil),
 		// - check if the model has win machines;
 		ctrlState.EXPECT().MachineCountForSeries(
 			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",

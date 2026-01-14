@@ -385,7 +385,7 @@ var attributeParams = agent.AgentConfigParams{
 	Nonce:                    "a nonce",
 	Controller:               testing.ControllerTag,
 	Model:                    testing.ModelTag,
-	JujuDBSnapChannel:        "4.4/stable",
+	JujuDBSnapChannel:        "4.4.30/stable",
 	NonSyncedWritesToRaftLog: false,
 	BatchRaftFSM:             false,
 	AgentLogfileMaxSizeMB:    150,
@@ -403,7 +403,7 @@ func (*suite) TestAttributes(c *gc.C) {
 	c.Assert(conf.Dir(), gc.Equals, "/data/dir/agents/machine-1")
 	c.Assert(conf.Nonce(), gc.Equals, "a nonce")
 	c.Assert(conf.UpgradedToVersion(), jc.DeepEquals, jujuversion.Current)
-	c.Assert(conf.JujuDBSnapChannel(), gc.Equals, "4.4/stable")
+	c.Assert(conf.JujuDBSnapChannel(), gc.Equals, "4.4.30/stable")
 	c.Assert(conf.NonSyncedWritesToRaftLog(), jc.IsFalse)
 	c.Assert(conf.BatchRaftFSM(), jc.IsFalse)
 	c.Assert(conf.AgentLogfileMaxSizeMB(), gc.Equals, 150)

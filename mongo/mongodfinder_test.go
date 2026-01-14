@@ -220,7 +220,7 @@ func (s *MongodFinderSuite) TestFindJujuMongodbFromSnap(c *gc.C) {
 	c.Check(version, gc.Equals, mongo.Version{
 		Major:         4,
 		Minor:         4,
-		Point:         10,
+		Point:         30,
 		StorageEngine: mongo.WiredTiger,
 	})
 }
@@ -300,7 +300,7 @@ build environment:
 
 // mongodb409Version is the output of 'mongodb --version' from the 4.4/stable snap.
 const mongodb409Version = `EXTRA CONTENT
-db version v4.4.10
+db version v4.4.30
 git version: fc525e2d9b0e4bceff5c2201457e564362909765
 OpenSSL version: OpenSSL 1.1.0g  2 Nov 2017
 allocator: tcmalloc
