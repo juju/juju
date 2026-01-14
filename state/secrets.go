@@ -141,6 +141,13 @@ type SecretsStore interface {
 		until time.Time,
 	) ([]SecretBackendIssuedToken, error)
 
+	// ListSecretBackendIssuedTokenUntilForConsumer returns the issued secret
+	// backend tokens for the given secret backend token consumer tag that are valid
+	// until the given time.
+	ListSecretBackendIssuedTokenUntilForConsumer(
+		until time.Time, consumer names.Tag,
+	) ([]SecretBackendIssuedToken, error)
+
 	// RemoveSecretReservations removes all secret reservations that are held by
 	// the provided owner.
 	RemoveSecretReservations(owner names.Tag) ModelOperation
@@ -4026,6 +4033,18 @@ func (s *secretsStore) ListSecretBackendIssuedTokenUntil(
 ) ([]SecretBackendIssuedToken, error) {
 	return s.listSecretBackendIssuedTokenUntil(bson.M{
 		"expire-time": bson.M{"$lte": until.UTC().Truncate(time.Second)},
+	})
+}
+
+// ListSecretBackendIssuedTokenUntilForConsumer returns the issued secret
+// backend tokens for the given secret backend token consumer tag that are valid
+// until the given time.
+func (s *secretsStore) ListSecretBackendIssuedTokenUntilForConsumer(
+	until time.Time, consumer names.Tag,
+) ([]SecretBackendIssuedToken, error) {
+	return s.listSecretBackendIssuedTokenUntil(bson.M{
+		"expire-time":  bson.M{"$lte": until.UTC().Truncate(time.Second)},
+		"consumer-tag": consumer.String(),
 	})
 }
 

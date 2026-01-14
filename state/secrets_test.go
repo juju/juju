@@ -4046,3 +4046,40 @@ func (s *SecretsSuite) TestListSecretBackendIssuedTokenUntil(c *gc.C) {
 	tokenBefore.ExpireTime = tokenBefore.ExpireTime.Truncate(time.Second)
 	c.Assert(tokens[0], jc.DeepEquals, tokenBefore)
 }
+
+func (s *SecretsSuite) TestListSecretBackendIssuedTokenUntilForConsumer(c *gc.C) {
+	now := s.Clock.Now()
+
+	tokenBefore := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: now.Add(-time.Minute),
+		BackendID:  "backend-id",
+		Consumer:   s.ownerUnit.Tag(),
+	}
+	err := s.store.CreateSecretBackendIssuedToken(tokenBefore)
+	c.Assert(err, jc.ErrorIsNil)
+
+	tokenBeforeOther := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: now.Add(-time.Minute),
+		BackendID:  "backend-id",
+		Consumer:   s.owner.Tag(),
+	}
+	err = s.store.CreateSecretBackendIssuedToken(tokenBeforeOther)
+	c.Assert(err, jc.ErrorIsNil)
+
+	tokenAfter := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: now.Add(time.Minute),
+		BackendID:  "backend-id",
+		Consumer:   s.ownerUnit.Tag(),
+	}
+	err = s.store.CreateSecretBackendIssuedToken(tokenAfter)
+	c.Assert(err, jc.ErrorIsNil)
+
+	tokens, err := s.store.ListSecretBackendIssuedTokenUntilForConsumer(now, s.ownerUnit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tokens, gc.HasLen, 1)
+	tokenBefore.ExpireTime = tokenBefore.ExpireTime.Truncate(time.Second)
+	c.Assert(tokens[0], jc.DeepEquals, tokenBefore)
+}
