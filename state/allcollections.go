@@ -641,7 +641,7 @@ func allCollections() CollectionSchema {
 		secretBackendsRotateC: {
 			global: true,
 			indexes: []mgo.Index{{
-				Key: []string{"model-uuid"},
+				Key: []string{"name"},
 			}},
 		},
 
