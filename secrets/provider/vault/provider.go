@@ -16,6 +16,7 @@ import (
 	"github.com/juju/names/v5"
 	vault "github.com/mittwald/vaultgo"
 
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/secrets/provider"
 )
 
@@ -190,9 +191,15 @@ func (p vaultProvider) IssuesTokens() bool {
 // secrets backend client restricted to manage the specified
 // owned secrets and read shared secrets for the given entity tag.
 func (p vaultProvider) RestrictedConfig(
-	adminCfg *provider.ModelBackendConfig, sameController, forDrain bool, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
+	adminCfg *provider.ModelBackendConfig,
+	sameController, forDrain bool,
+	issuedTokenUUID string,
+	consumer names.Tag,
+	owned []string,
+	ownedRevs provider.SecretRevisions,
+	readRevs provider.SecretRevisions,
 ) (*provider.BackendConfig, error) {
-	adminUser := tag == nil
+	adminUser := consumer == nil
 	// Get an admin backend client so we can set up the policies.
 	modelPath := modelPathPrefix(adminCfg.ModelName, adminCfg.ModelUUID)
 	backend, err := p.newBackend(modelPath, &adminCfg.BackendConfig)
@@ -201,69 +208,56 @@ func (p vaultProvider) RestrictedConfig(
 	}
 	mountPath := backend.mountPath
 	sys := backend.client.Sys()
+	ctx := context.TODO()
 
-	ctx := context.Background()
-	var policies []string
-	if forDrain {
-		// For drain worker, we need to be able to update a secret.
+	var rules []string
+	if forDrain && (adminUser || consumer.Kind() == names.ModelTagKind) {
+		// For controller drain worker, we need to be able to update a secret.
 		// Because we may run into a situation that the worker creates a secret in the vault but gets killed/restarted
 		// before it can update the secret to the new backend, we need to allow the worker to update the content
 		// after it's coming up again.
 		rule := fmt.Sprintf(`path "%s/*" {capabilities = ["update"]}`, mountPath)
-		policyName := mountPath + "-update"
-		err = sys.PutPolicyWithContext(ctx, policyName, rule)
-		if err != nil {
-			return nil, errors.Annotatef(err, "creating update policy for model %q for the drain worker", mountPath)
-		}
-		policies = append(policies, policyName)
+		rules = append(rules, rule)
 	}
 	if adminUser {
 		// For admin users, all secrets for the model can be read.
 		rule := fmt.Sprintf(`path "%s/*" {capabilities = ["read"]}`, mountPath)
-		policyName := mountPath + "-read"
-		err = sys.PutPolicyWithContext(ctx, policyName, rule)
-		if err != nil {
-			return nil, errors.Annotatef(err, "creating read policy for model %q", mountPath)
-		}
-		policies = append(policies, policyName)
-	} else {
-		// Agents can create new secrets in the model.
-		rule := fmt.Sprintf(`path "%s/*" {capabilities = ["create"]}`, mountPath)
-		policyName := mountPath + "-create"
-		err = sys.PutPolicyWithContext(ctx, policyName, rule)
-		if err != nil {
-			return nil, errors.Annotatef(err, "creating create policy for model %q", mountPath)
-		}
-		policies = append(policies, policyName)
+		rules = append(rules, rule)
 	}
+
 	// Any secrets owned by the agent can be updated/deleted etc.
 	logger.Debugf("owned secrets: %#v", owned)
-	for id := range owned {
+	for _, id := range owned {
 		rule := fmt.Sprintf(`path "%s/%s-*" {capabilities = ["create", "read", "update", "delete", "list"]}`, mountPath, id)
-		policyName := fmt.Sprintf("%s-%s-owner", mountPath, id)
-		err = sys.PutPolicyWithContext(ctx, policyName, rule)
-		if err != nil {
-			return nil, errors.Annotatef(err, "creating owner policy for %q", id)
-		}
-		policies = append(policies, policyName)
+		rules = append(rules, rule)
 	}
 
 	// Any secrets consumed by the agent can be read etc.
-	logger.Debugf("consumed secrets: %#v", read)
-	for id := range read {
-		rule := fmt.Sprintf(`path "%s/%s-*" {capabilities = ["read"]}`, mountPath, id)
-		policyName := fmt.Sprintf("%s-%s-read", mountPath, id)
-		err = sys.PutPolicyWithContext(ctx, policyName, rule)
-		if err != nil {
-			return nil, errors.Annotatef(err, "creating read policy for %q", id)
+	logger.Debugf("consumed secret revisions: %#v", readRevs)
+	for _, revs := range readRevs {
+		for _, revId := range revs.Values() {
+			rule := fmt.Sprintf(`path "%s/%s" {capabilities = ["read"]}`, mountPath, revId)
+			rules = append(rules, rule)
 		}
-		policies = append(policies, policyName)
 	}
-	logger.Tracef("policies: %#v", policies)
+
+	policyName := fmt.Sprintf("%s-%s", mountPath, issuedTokenUUID)
+	err = sys.PutPolicyWithContext(ctx, policyName, strings.Join(rules, "\n"))
+	if err != nil {
+		return nil, errors.Annotatef(err, "creating policy %q", policyName)
+	}
+	logger.Tracef("policy rules for %q: %#v", policyName, rules)
+
+	ttl := fmt.Sprintf(
+		"%dm", int(math.Ceil(coresecrets.IssuedTokenValidity.Minutes())),
+	)
 	s, err := backend.client.Auth().Token().Create(&api.TokenCreateRequest{
-		TTL:             "10m", // 10 minutes for now, can configure later.
+		TTL:             ttl,
 		NoDefaultPolicy: true,
-		Policies:        policies,
+		Policies:        []string{policyName},
+		Metadata: map[string]string{
+			"juju-issued-token-uuid": issuedTokenUUID,
+		},
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "creating secret access token")

@@ -83,10 +83,26 @@ type SecretBackendProvider interface {
 	// IssuesTokens returns true if this secret backend provider needs to issue
 	// a token to provide a restricted (delegated) config.
 	IssuesTokens() bool
+
+	// CleanupIssuedTokens removes all ACLs/tokens related to the given issued
+	// token UUIDs. It returns, even during error, the list of tokens it revoked
+	// so far.
+	CleanupIssuedTokens(
+		cfg *ModelBackendConfig, issuedTokenUUIDs []string,
+	) ([]string, error)
+
 	// RestrictedConfig returns the config needed to create a
 	// secrets backend client restricted to manage the specified
 	// owned secrets and read shared secrets for the given entity tag.
-	RestrictedConfig(adminCfg *ModelBackendConfig, sameController, forDrain bool, tag names.Tag, owned SecretRevisions, read SecretRevisions) (*BackendConfig, error)
+	RestrictedConfig(
+		adminCfg *ModelBackendConfig,
+		sameController, forDrain bool,
+		issuedTokenUUID string,
+		consumer names.Tag,
+		owned []string,
+		ownedRevs SecretRevisions,
+		readRevs SecretRevisions,
+	) (*BackendConfig, error)
 
 	// NewBackend creates a secrets backend client using the
 	// specified model config.
