@@ -645,6 +645,12 @@ func allCollections() CollectionSchema {
 			}},
 		},
 
+		secretBackendIssuedTokensC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "expire-time", "consumer-tag"},
+			}},
+		},
+
 		// virtualHostKeysC holds host keys that are used
 		// for proxying SSH connections through the Juju
 		// controller. They are virtual because they do not
@@ -779,6 +785,10 @@ const (
 	secretRotateC          = "secretRotate"
 	secretBackendsC        = "secretBackends"
 	secretBackendsRotateC  = "secretBackendsRotate"
+	// secretBackendIssuedTokensC define external token names, their expiry and
+	// which backend they originate from. Once these expire, they must be
+	// cleaned up, if they have not already been cleaned up.
+	secretBackendIssuedTokensC = "secretBackendIssuedTokens"
 	// secretReservationsC define pre-allocated secret IDs that a unit can use
 	// to create a secret. These must be recorded to ensure they are included in
 	// the issued token ACLs for external backends.
