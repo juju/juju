@@ -222,8 +222,6 @@ func (w *MachineWorker) scheduleRetry(ctx context.Context) {
 
 // handleRetryTimer handles the retry timer firing.
 func (w *MachineWorker) handleRetryTimer(ctx context.Context) error {
-	w.retryTimer = nil // Timer has fired, clear it.
-
 	// Only retry if we're in Pending state (waiting for retry).
 	if w.fsm.State() != StatePending {
 		w.config.Logger.Debugf(ctx, "machine %s ignoring retry timer in state %s",
@@ -295,7 +293,8 @@ func (w *MachineWorker) handleLifeChange(ctx context.Context, newLife life.Value
 		// Provisioning is a blocking operation. Life events are queued
 		// and processed after doProvision() returns. The event will be
 		// handled when we return to the event loop with a new state.
-		// Note: This is handled naturally by the event queue - no special flag needed.
+		// Note: This is handled naturally by the event queue - no special flag
+		// needed.
 
 	case StateRunning:
 		if newLife == life.Dead {
