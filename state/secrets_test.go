@@ -77,6 +77,43 @@ func (s *SecretsSuite) TestReserveSecret(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 }
 
+func (s *SecretsSuite) TestListReservedSecret(c *gc.C) {
+	uris := []*secrets.URI{
+		secrets.NewURI(),
+		secrets.NewURI(),
+		secrets.NewURI(),
+	}
+
+	otherApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "someone-else",
+	})
+
+	err := s.store.ReserveSecret(uris[0], s.owner.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.store.ReserveSecret(uris[1], s.ownerUnit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.store.ReserveSecret(uris[2], otherApp.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	reserved, err := s.store.ListReservedSecrets([]names.Tag{s.owner.Tag()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reserved, jc.SameContents, uris[0:1])
+
+	reserved, err = s.store.ListReservedSecrets([]names.Tag{s.ownerUnit.Tag()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reserved, jc.SameContents, uris[1:2])
+
+	reserved, err = s.store.ListReservedSecrets([]names.Tag{otherApp.Tag()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reserved, jc.SameContents, uris[2:3])
+
+	reserved, err = s.store.ListReservedSecrets([]names.Tag{
+		s.owner.Tag(), s.ownerUnit.Tag(), otherApp.Tag(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reserved, jc.SameContents, uris)
+}
+
 func (s *SecretsSuite) TestCreate(c *gc.C) {
 	uri := secrets.NewURI()
 	now := s.Clock.Now().Round(time.Second).UTC()

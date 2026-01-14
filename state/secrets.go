@@ -88,6 +88,7 @@ type SecretsStore interface {
 	DeleteSecret(*secrets.URI, ...int) ([]secrets.ValueRef, error)
 	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
 	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, *secrets.ValueRef, error)
+	ListReservedSecrets([]names.Tag) ([]*secrets.URI, error)
 	ListSecrets(SecretsFilter) ([]*secrets.SecretMetadata, error)
 	ListModelSecrets(bool) (map[string]set.Strings, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
@@ -393,6 +394,40 @@ func (s *secretsStore) ReserveSecret(uri *secrets.URI, owner names.Tag) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// ListReservedSecrets finds all reserved secret URIs for the provided owners.
+func (s *secretsStore) ListReservedSecrets(
+	ownerTags []names.Tag,
+) ([]*secrets.URI, error) {
+	if len(ownerTags) == 0 {
+		return nil, errors.NotValidf("no owner tags provided")
+	}
+
+	var wantTags []string
+	for _, v := range ownerTags {
+		wantTags = append(wantTags, v.String())
+	}
+
+	secretReservationColl, closer := s.st.db().GetCollection(secretReservationsC)
+	defer closer()
+
+	res := secretReservationColl.Find(bson.M{
+		"owner-tag": bson.M{"$in": wantTags},
+	}).Iter()
+
+	var secretURIs []*secrets.URI
+
+	var doc secretReservationDoc
+	for res.Next(&doc) {
+		uri, err := secrets.ParseURI(s.st.localID(doc.DocID))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		secretURIs = append(secretURIs, uri)
+	}
+
+	return secretURIs, errors.Trace(res.Close())
 }
 
 // CreateSecret creates a new secret.
