@@ -135,6 +135,12 @@ type SecretsStore interface {
 		token SecretBackendIssuedToken,
 	) error
 
+	// ListSecretBackendIssuedTokenUntil returns all the issued secret backend
+	// tokens that are valid until the given time.
+	ListSecretBackendIssuedTokenUntil(
+		until time.Time,
+	) ([]SecretBackendIssuedToken, error)
+
 	// RemoveSecretReservations removes all secret reservations that are held by
 	// the provided owner.
 	RemoveSecretReservations(owner names.Tag) ModelOperation
@@ -4011,4 +4017,47 @@ type SecretBackendIssuedToken struct {
 	// Consumer is a tag that represents the entity which the secret backend
 	// issued token was created for.
 	Consumer names.Tag
+}
+
+// ListSecretBackendIssuedTokenUntil returns all the issued secret backend
+// tokens that are valid until the given time.
+func (s *secretsStore) ListSecretBackendIssuedTokenUntil(
+	until time.Time,
+) ([]SecretBackendIssuedToken, error) {
+	return s.listSecretBackendIssuedTokenUntil(bson.M{
+		"expire-time": bson.M{"$lte": until.UTC().Truncate(time.Second)},
+	})
+}
+
+// listSecretBackendIssuedTokenUntil lists all the secret backend tokens up to
+// the given query, sorted by expire-time (oldest to newest).
+func (s *secretsStore) listSecretBackendIssuedTokenUntil(
+	query any,
+) ([]SecretBackendIssuedToken, error) {
+	collection, closer := s.st.db().GetCollection(secretBackendIssuedTokensC)
+	defer closer()
+
+	iter := collection.Find(query).Sort("expire-time").Iter()
+
+	var res []SecretBackendIssuedToken
+
+	var doc secretIssuedTokenDoc
+	for iter.Next(&doc) {
+		uuid := s.st.localID(doc.DocID)
+		consumerTag, err := names.ParseTag(doc.ConsumerTag)
+		if err != nil {
+			return nil, errors.Annotatef(
+				err, "invalid consumer tag for secret backend issued token %q",
+				uuid,
+			)
+		}
+		res = append(res, SecretBackendIssuedToken{
+			UUID:       uuid,
+			ExpireTime: doc.ExpireTime,
+			BackendID:  doc.BackendID,
+			Consumer:   consumerTag,
+		})
+	}
+
+	return res, nil
 }
