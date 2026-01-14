@@ -128,6 +128,13 @@ type SecretsStore interface {
 	// need for a database entry.
 	ReserveSecret(uri *secrets.URI, owner names.Tag) error
 
+	// CreateSecretBackendIssuedToken inserts the given secret backend issued token
+	// into state. An error is returned if the consumer's life is Dead or if the
+	// secret backend issued token already exists.
+	CreateSecretBackendIssuedToken(
+		token SecretBackendIssuedToken,
+	) error
+
 	// RemoveSecretReservations removes all secret reservations that are held by
 	// the provided owner.
 	RemoveSecretReservations(owner names.Tag) ModelOperation
@@ -3911,4 +3918,97 @@ func (w *secretsExpiryWatcher) loop() (err error) {
 			details = nil
 		}
 	}
+}
+
+type secretIssuedTokenDoc struct {
+	DocID string `bson:"_id"`
+
+	ConsumerTag string    `bson:"consumer-tag"`
+	ExpireTime  time.Time `bson:"expire-time"`
+	BackendID   string    `bson:"backend-id"`
+}
+
+// CreateSecretBackendIssuedToken inserts the given secret backend issued token
+// into state. An error is returned if the consumer's life is Dead or if the
+// secret backend issued token already exists.
+func (s *secretsStore) CreateSecretBackendIssuedToken(
+	token SecretBackendIssuedToken,
+) error {
+	if token.UUID == "" ||
+		token.ExpireTime.IsZero() ||
+		token.BackendID == "" ||
+		token.Consumer == nil {
+		return errors.New(
+			"creating secret backend issued token failed due to missing values",
+		)
+	}
+	entity, entityC, entityDocID, err := s.st.findSecretEntity(token.Consumer)
+	if err != nil {
+		return errors.Annotate(err, "invalid owner reference")
+	}
+	if entity.Life() == Dead {
+		return errors.New(
+			"creating secret backend issued token: consumer is dead",
+		)
+	}
+	doc := secretIssuedTokenDoc{
+		DocID:       token.UUID,
+		BackendID:   token.BackendID,
+		ExpireTime:  token.ExpireTime.UTC().Truncate(time.Second),
+		ConsumerTag: token.Consumer.String(),
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		var err error
+		if attempt > 0 {
+			entity, entityC, entityDocID, err = s.st.findSecretEntity(token.Consumer)
+			if err != nil {
+				return nil, errors.Annotatef(
+					err, "refreshing entity %s", token.Consumer,
+				)
+			}
+			if entity.Life() == Dead {
+				return nil, errors.New(
+					"creating secret backend issued token: consumer is dead",
+				)
+			}
+		}
+		ops := []txn.Op{{
+			C:      entityC,
+			Id:     entityDocID,
+			Assert: notDeadDoc,
+		}, {
+			C:      secretBackendIssuedTokensC,
+			Id:     doc.DocID,
+			Assert: txn.DocMissing,
+			Insert: doc,
+		}}
+		return ops, nil
+	}
+	err = s.st.db().Run(buildTxn)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// SecretBackendIssuedToken holds metadata about a secret backend authentication
+// token that was issued for a specific consumer. The token is not contained in
+// this metadata, but does have a unique identifier that was used when the token
+// was issued. This allows a secret backend provider to clean up issued tokens.
+type SecretBackendIssuedToken struct {
+	// UUID must be a random UUID that was used when the secret backend issued
+	// token was created, allowing the provider to find this token when it will
+	// expire.
+	UUID string
+
+	// ExpireTime is the point in the future where the token that was created by
+	// the secret backend will expire and needs to be cleaned up.
+	ExpireTime time.Time
+
+	// BackendID is the ID of the secret backend that this token was created by.
+	BackendID string
+
+	// Consumer is a tag that represents the entity which the secret backend
+	// issued token was created for.
+	Consumer names.Tag
 }

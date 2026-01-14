@@ -8,6 +8,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/juju/charm/v12"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -3999,4 +4000,21 @@ func (s *SecretsSuite) TestDeleteRevisionsMultiple(c *gc.C) {
 	// We want to make sure that we have only removed the first one.
 	_, _, err = s.store.GetSecretValue(uri, 18)
 	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *SecretsSuite) TestCreateSecretBackendIssuedToken(c *gc.C) {
+	token := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: s.Clock.Now().Add(time.Minute),
+		BackendID:  "backend-id",
+		Consumer:   s.owner.Tag(),
+	}
+	err := s.store.CreateSecretBackendIssuedToken(token)
+	c.Assert(err, jc.ErrorIsNil)
+
+	col, close := state.GetCollection(s.State, "secretBackendIssuedTokens")
+	defer close()
+	n, err := col.FindId(token.UUID).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 1)
 }
