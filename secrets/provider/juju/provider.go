@@ -48,6 +48,11 @@ func BuiltInConfig() provider.BackendConfig {
 	return provider.BackendConfig{BackendType: BackendType}
 }
 
+// IssuesTokens returns false since this provider does not create tokens.
+func (p jujuProvider) IssuesTokens() bool {
+	return false
+}
+
 // RestrictedConfig returns the config needed to create a
 // secrets backend client restricted to manage the specified
 // owned secrets and read shared secrets for the given entity tag.

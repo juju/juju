@@ -80,6 +80,9 @@ type SecretBackendProvider interface {
 	// associated with the model config.
 	CleanupModel(cfg *ModelBackendConfig) error
 
+	// IssuesTokens returns true if this secret backend provider needs to issue
+	// a token to provide a restricted (delegated) config.
+	IssuesTokens() bool
 	// RestrictedConfig returns the config needed to create a
 	// secrets backend client restricted to manage the specified
 	// owned secrets and read shared secrets for the given entity tag.
