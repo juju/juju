@@ -114,6 +114,39 @@ func (s *SecretsSuite) TestListReservedSecret(c *gc.C) {
 	c.Check(reserved, jc.SameContents, uris)
 }
 
+func (s *SecretsSuite) TestExchangeReservedSecret(c *gc.C) {
+	uri := secrets.NewURI()
+
+	err := s.store.ReserveSecret(uri, s.owner.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	reserved, err := s.store.ListReservedSecrets([]names.Tag{s.owner.Tag()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reserved, jc.SameContents, []*secrets.URI{uri})
+
+	_, err = s.store.CreateSecret(uri, state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:  &fakeToken{},
+			RotatePolicy: ptr(secrets.RotateNever),
+			Description:  ptr("my secret"),
+			Label:        ptr("foobar"),
+			Params:       nil,
+			Data:         map[string]string{"foo": "bar"},
+			Checksum:     "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.store.ReserveSecret(uri, s.owner.Tag())
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
+
+	reserved, err = s.store.ListReservedSecrets([]names.Tag{s.owner.Tag()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reserved, jc.SameContents, []*secrets.URI{})
+}
+
 func (s *SecretsSuite) TestCreate(c *gc.C) {
 	uri := secrets.NewURI()
 	now := s.Clock.Now().Round(time.Second).UTC()

@@ -121,6 +121,16 @@ type SecretsStore interface {
 	GetOwnedSecretRevisionsByIDAsLeaderUnit(
 		unit names.UnitTag, uri *secrets.URI,
 	) ([]int, error)
+
+	// ReserveSecret sets aside the provided secret id for the given owner. This
+	// secret ID can then only be used by the given owner to create a secret. Future
+	// versions of Juju should replace this with a token based approach to cease the
+	// need for a database entry.
+	ReserveSecret(uri *secrets.URI, owner names.Tag) error
+
+	// RemoveSecretReservations removes all secret reservations that are held by
+	// the provided owner.
+	RemoveSecretReservations(owner names.Tag) ModelOperation
 }
 
 // NewSecrets creates a new mongo backed secrets store.
@@ -430,6 +440,67 @@ func (s *secretsStore) ListReservedSecrets(
 	return secretURIs, errors.Trace(res.Close())
 }
 
+// getSecretReservation returns the secretReservationDoc for the given secret ID
+// if it is found, otherwise it returns an [errors.NotFound].
+func (s *secretsStore) getSecretReservation(uri *secrets.URI) (secretReservationDoc, error) {
+	var doc secretReservationDoc
+	secretReservationColl, closer := s.st.db().GetCollection(secretReservationsC)
+	defer closer()
+	err := secretReservationColl.FindId(uri.ID).One(&doc)
+	if errors.Is(err, mgo.ErrNotFound) {
+		return secretReservationDoc{}, errors.NotFound
+	} else if err != nil {
+		return secretReservationDoc{}, errors.Annotatef(err, "cannot get secret reservation %q", uri.ID)
+	}
+	return doc, nil
+}
+
+// removeSecretReservationsModelOp is a model operation for removing a secret
+// reservation.
+type removeSecretReservationsModelOp struct {
+	s     *secretsStore
+	owner names.Tag
+}
+
+// RemoveSecretReservations removes all secret reservations that are held by
+// the provided owner.
+func (s *secretsStore) RemoveSecretReservations(owner names.Tag) ModelOperation {
+	return &removeSecretReservationsModelOp{
+		s:     s,
+		owner: owner,
+	}
+}
+
+func (op *removeSecretReservationsModelOp) Build(attempt int) ([]txn.Op, error) {
+	return op.s.st.removeSecretReservationOps(op.owner)
+}
+
+func (op *removeSecretReservationsModelOp) Done(err error) error {
+	return err
+}
+
+// removeSecretReservationOps returns the mongo operations to remove all secret
+// reservations for the given owner.
+func (st *State) removeSecretReservationOps(owner names.Tag) ([]txn.Op, error) {
+	secretReservationColl, closer := st.db().GetCollection(secretReservationsC)
+	defer closer()
+
+	var ops []txn.Op
+	res := secretReservationColl.Find(bson.M{
+		"owner-tag": owner.String(),
+	}).Iter()
+	defer closer()
+	var doc secretReservationDoc
+	for res.Next(&doc) {
+		ops = append(ops, txn.Op{
+			C:      secretReservationsC,
+			Id:     doc.DocID,
+			Remove: true,
+		})
+	}
+	return ops, errors.Trace(res.Close())
+}
+
 // CreateSecret creates a new secret.
 func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*secrets.SecretMetadata, error) {
 	if len(p.Data) == 0 && p.ValueRef == nil {
@@ -456,6 +527,35 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 		Assert: isAliveDoc,
 	}
 
+	hasReservation := true
+	reservation, err := s.getSecretReservation(uri)
+	if errors.Is(err, errors.NotFound) {
+		hasReservation = false
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	} else {
+		reservationOwner, err := names.ParseTag(reservation.OwnerTag)
+		if err != nil {
+			return nil, errors.Annotate(err, "parsing secret reservation owner")
+		}
+		if owner.Kind() == "application" && reservationOwner.Kind() == "unit" {
+			// If a unit reserved a secret, we cannot determine it was expected
+			// to be used by an application secret or a unit secret.
+			app, _ := names.UnitApplication(reservationOwner.Id())
+			if app != owner.Id() {
+				return nil, errors.NotValidf(
+					"cannot create secret %q because %q has reserved it instead of %q",
+					uri.ID, reservation.OwnerTag, metadataDoc.OwnerTag,
+				)
+			}
+		} else if reservationOwner != owner {
+			return nil, errors.NotValidf(
+				"cannot create secret %q because %q has reserved it instead of %q",
+				uri.ID, reservation.OwnerTag, metadataDoc.OwnerTag,
+			)
+		}
+	}
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var ops []txn.Op
 		if p.Label != nil {
@@ -469,6 +569,26 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 			if _, _, err := s.getSecretValue(uri, revision, false); err == nil {
 				return nil, errors.AlreadyExistsf("secret value for %q", uri.String())
 			}
+			_, err = s.getSecretReservation(uri)
+			if errors.Is(err, errors.NotFound) {
+				hasReservation = false
+			} else if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		if hasReservation {
+			ops = append(ops, txn.Op{
+				C:      secretReservationsC,
+				Id:     metadataDoc.DocID,
+				Assert: txn.DocExists,
+				Remove: true,
+			})
+		} else {
+			ops = append(ops, txn.Op{
+				C:      secretReservationsC,
+				Id:     metadataDoc.DocID,
+				Assert: txn.DocMissing,
+			})
 		}
 		ops = append(ops, []txn.Op{
 			{
