@@ -3094,7 +3094,7 @@ FROM   secret_metadata sm
 JOIN   secret_revision rev ON rev.secret_id = sm.secret_id
 JOIN   secret_value_ref svr ON svr.revision_uuid = rev.uuid
 JOIN   v_secret_permission sp ON sp.secret_id = sm.secret_id
-WHERE  sp.role_id = $secretAccessor.role_id
+WHERE  sp.role_id >= $secretAccessor.role_id
 AND    svr.backend_uuid = $secretBackendID.id
 AND    (subject_type_id = $secretAccessorType.unit_type_id AND subject_id IN ($units[:])
         OR subject_type_id = $secretAccessorType.app_type_id AND subject_id IN ($applications[:])
