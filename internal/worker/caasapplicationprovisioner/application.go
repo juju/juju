@@ -159,6 +159,38 @@ func (a *appWorker) loop() error {
 		if err != nil {
 			return errors.Annotate(err, "failed to set application api passwords")
 		}
+
+		ps, err := a.facade.ProvisioningState(a.name)
+		if err != nil {
+			return errors.Annotatef(err, "getting provision state for %q", a.name)
+		}
+		if ps == nil {
+			ps = &params.CAASApplicationProvisioningState{}
+		}
+		currentOp := ""
+		if ps.CurrentOperation != nil {
+			currentOp = string(*ps.CurrentOperation)
+		}
+		a.logger.Infof("[adis][loop] got provision state %+v with current op %q", ps, currentOp)
+
+		// We have to resume the current operation (if one exists) on worker
+		// restart.
+		if ps.CurrentOperation != nil &&
+			*ps.CurrentOperation == application.StorageUpdateOperation {
+			a.logger.Infof("[adis][loop] gonna call ensure storage")
+			err := a.ops.EnsureStorage(a.name, app, &a.lastApplied, a.password,
+				a.facade, a.clock, a.logger)
+			if err != nil {
+				return errors.Annotatef(err, "ensuring storage for %q", a.name)
+			}
+		} else if ps.CurrentOperation != nil &&
+			*ps.CurrentOperation == application.ScaleOperation {
+			a.logger.Infof("[adis][loop] gonna call ensure storage scale")
+			err := a.ops.EnsureScale(a.name, app, a.life, a.facade, a.unitFacade, a.logger)
+			if err != nil && !errors.Is(err, tryAgain) && !errors.Is(err, errors.NotFound) {
+				return errors.Annotatef(err, "scaling app %q", a.name)
+			}
+		}
 	}
 
 	var appChanges watcher.NotifyChannel
@@ -212,6 +244,7 @@ func (a *appWorker) loop() error {
 		trustTries          int
 		reconcileDeadChan   <-chan time.Time
 		stateAppChangedChan <-chan time.Time
+		storageConstraintsChan <-chan time.Time
 	)
 	const (
 		maxRetries = 20
@@ -456,11 +489,27 @@ func (a *appWorker) loop() error {
 			if !ok {
 				return fmt.Errorf("application %q storage constraints watcher closed channel", a.name)
 			}
-			if stateAppChangedChan == nil {
+			if storageConstraintsChan == nil {
 				a.logger.Infof("[adis][appWorker] got an event to reconcile storage for app %q", a.name)
-				stateAppChangedChan = a.clock.After(0)
+				storageConstraintsChan = a.clock.After(0)
 			}
 			shouldRefresh = false
+		case <-storageConstraintsChan:
+			if a.statusOnly {
+				storageConstraintsChan = nil
+				break
+			}
+
+			err := a.ops.EnsureStorage(a.name, app, &a.lastApplied, a.password,
+				a.facade, a.clock, a.logger)
+			if errors.Is(err, tryAgain) || errors.Is(err, errors.NotProvisioned) {
+				storageConstraintsChan = a.clock.After(retryDelay)
+				shouldRefresh = false
+			} else if err != nil {
+				return errors.Trace(err)
+			} else {
+				storageConstraintsChan = nil
+			}
 		case <-a.clock.After(10 * time.Second):
 		case <-refreshTimer.Chan():
 			// Force refresh of application status.
