@@ -1059,7 +1059,7 @@ func (s *serviceSuite) TestListCharmSecrets(c *tc.C) {
 
 	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mysql"}, domainsecret.UnitOwners{"mysql/0"}).
 		Return(md, revs, nil)
-	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUIDs(gomock.Any()).Return(map[string]string{}, nil)
+	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(map[string]string{}, nil)
 
 	gotSecrets, gotRevisions, err := s.service.ListCharmSecrets(c.Context(), owners...)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1084,7 +1084,7 @@ func (s *serviceSuite) TestListSecretsByURI(c *tc.C) {
 	md := &coresecrets.SecretMetadata{URI: uri}
 	revs := []*coresecrets.SecretRevisionMetadata{{Revision: 7}}
 
-	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUIDs(gomock.Any()).Return(map[string]string{}, nil)
+	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(map[string]string{}, nil)
 	s.state.EXPECT().GetSecretByURI(gomock.Any(), *uri, (*int)(nil)).Return(md, revs, nil)
 
 	gotMDs, gotRevs, err := s.service.ListSecrets(c.Context(), uri, nil, nil)
@@ -1100,7 +1100,7 @@ func (s *serviceSuite) TestListSecretsByURIError(c *tc.C) {
 
 	uri := coresecrets.NewURI()
 
-	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUIDs(gomock.Any()).Return(map[string]string{}, nil)
+	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(map[string]string{}, nil)
 	s.state.EXPECT().GetSecretByURI(gomock.Any(), *uri, (*int)(nil)).Return(nil, nil, errors.New("boom"))
 
 	md, revs, err := s.service.ListSecrets(c.Context(), uri, nil, nil)
@@ -1132,7 +1132,7 @@ func (s *serviceSuite) TestListSecretsByURIWithBackendName(c *tc.C) {
 		backendUUID2: uuid.MustNewUUID().String(),
 	}
 
-	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUIDs(gomock.Any()).Return(secretBackendsWithUUIDs, nil)
+	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(secretBackendsWithUUIDs, nil)
 	s.state.EXPECT().GetSecretByURI(gomock.Any(), *uri, (*int)(nil)).Return(md, revs, nil)
 
 	expectedMDs := []*coresecrets.SecretMetadata{md}
@@ -1146,15 +1146,11 @@ func (s *serviceSuite) TestListSecretsByURIWithBackendName(c *tc.C) {
 	backend := gotRevs[0]
 	c.Assert(backend, tc.HasLen, 2)
 
-	c.Assert(backend[0].ValueRef, tc.NotNil)
 	backendID1 := backend[0].ValueRef.BackendID
-	c.Assert(backend[0].BackendName, tc.NotNil)
-	c.Assert(*backend[0].BackendName, tc.Equals, secretBackendsWithUUIDs[backendID1])
+	c.Assert(*backend[0].BackendName, tc.DeepEquals, secretBackendsWithUUIDs[backendID1])
 
-	c.Assert(backend[1].ValueRef, tc.NotNil)
 	backendID2 := backend[1].ValueRef.BackendID
-	c.Assert(backend[1].BackendName, tc.NotNil)
-	c.Assert(*backend[1].BackendName, tc.Equals, secretBackendsWithUUIDs[backendID2])
+	c.Assert(*backend[1].BackendName, tc.DeepEquals, secretBackendsWithUUIDs[backendID2])
 }
 
 func (s *serviceSuite) TestListSecretsByURIWithoutBackendName(c *tc.C) {
@@ -1173,7 +1169,7 @@ func (s *serviceSuite) TestListSecretsByURIWithoutBackendName(c *tc.C) {
 		},
 	}
 
-	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUIDs(gomock.Any()).Return(map[string]string{
+	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(map[string]string{
 		uuid.MustNewUUID().String(): "kubernetes",
 		uuid.MustNewUUID().String(): "internal",
 	}, nil)
@@ -1184,11 +1180,12 @@ func (s *serviceSuite) TestListSecretsByURIWithoutBackendName(c *tc.C) {
 	c.Assert(gotRevs, tc.HasLen, 1)
 	c.Assert(gotRevs[0], tc.HasLen, 3)
 
-	// As long as the revision is not nil, we should have a backend name (either resolved or default).
 	c.Assert(gotRevs[0][0], tc.IsNil)
+	// If revision is not nil but valueRef is nil, backend name should be internal.
 	defaultBackendName := juju.BackendName
 	c.Assert(gotRevs[0][1].BackendName, tc.DeepEquals, &defaultBackendName)
-	c.Assert(gotRevs[0][2].BackendName, tc.DeepEquals, &defaultBackendName)
+	// If valueRef is not nil but backendID does not map to any backend, backend name should be nil.
+	c.Assert(gotRevs[0][2].BackendName, tc.IsNil)
 }
 
 func (s *serviceSuite) TestListSecretsByURIWithRevision(c *tc.C) {
@@ -1204,7 +1201,7 @@ func (s *serviceSuite) TestListSecretsByURIWithRevision(c *tc.C) {
 		ValueRef: &coresecrets.ValueRef{BackendID: backendUUID},
 	}}
 
-	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUIDs(gomock.Any()).Return(map[string]string{
+	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(map[string]string{
 		backendUUID: "vault-one",
 	}, nil)
 	s.state.EXPECT().GetSecretByURI(gomock.Any(), *uri, &rev).Return(md, revs, nil)
@@ -1215,7 +1212,6 @@ func (s *serviceSuite) TestListSecretsByURIWithRevision(c *tc.C) {
 	c.Assert(gotMDs[0], tc.DeepEquals, md)
 	c.Assert(gotRevs, tc.HasLen, 1)
 	c.Assert(gotRevs[0], tc.HasLen, 1)
-	c.Assert(gotRevs[0][0].BackendName, tc.NotNil)
 	c.Assert(*gotRevs[0][0].BackendName, tc.Equals, "vault-one")
 }
 
@@ -1225,7 +1221,7 @@ func (s *serviceSuite) TestListSecretsByURIWithRevisionError(c *tc.C) {
 	uri := coresecrets.NewURI()
 	rev := 3
 
-	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUIDs(gomock.Any()).Return(map[string]string{}, nil)
+	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(map[string]string{}, nil)
 	s.state.EXPECT().GetSecretByURI(gomock.Any(), *uri, &rev).Return(nil, nil, errors.New("boom"))
 
 	md, revs, err := s.service.ListSecrets(c.Context(), uri, &rev, nil)
@@ -1258,7 +1254,7 @@ func (s *serviceSuite) TestListSecretsByLabels(c *tc.C) {
 		backendUUID2: uuid.MustNewUUID().String(),
 	}
 
-	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUIDs(gomock.Any()).Return(secretBackendsWithUUIDs, nil)
+	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(secretBackendsWithUUIDs, nil)
 	s.state.EXPECT().ListSecretsByLabels(gomock.Any(), labels, (*int)(nil)).Return(md, revs, nil)
 
 	gotMDs, gotRevs, err := s.service.ListSecrets(c.Context(), nil, nil, labels)
@@ -1268,10 +1264,8 @@ func (s *serviceSuite) TestListSecretsByLabels(c *tc.C) {
 
 	for _, backend := range gotRevs {
 		c.Assert(backend, tc.HasLen, 1)
-		c.Assert(backend[0].ValueRef, tc.NotNil)
 
 		backendID := backend[0].ValueRef.BackendID
-		c.Assert(backend[0].BackendName, tc.NotNil)
 		c.Assert(*backend[0].BackendName, tc.Equals, secretBackendsWithUUIDs[backendID])
 	}
 }
@@ -1292,7 +1286,7 @@ func (s *serviceSuite) TestListSecretsByLabelsWithoutBackendName(c *tc.C) {
 		}},
 	}
 
-	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUIDs(gomock.Any()).Return(map[string]string{
+	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(map[string]string{
 		uuid.MustNewUUID().String(): "kubernetes",
 		uuid.MustNewUUID().String(): "internal",
 	}, nil)
@@ -1301,12 +1295,13 @@ func (s *serviceSuite) TestListSecretsByLabelsWithoutBackendName(c *tc.C) {
 	_, gotRevs, err := s.service.ListSecrets(c.Context(), nil, nil, labels)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotRevs, tc.HasLen, 3)
-	defaultBackendName := juju.BackendName
 
-	// As long as the revision is not nil, we should have a backend name (either resolved or default).
 	c.Assert(gotRevs[0], tc.IsNil)
+	// If revision is not nil but valueRef is nil, backend name should be internal.
+	defaultBackendName := juju.BackendName
 	c.Assert(gotRevs[1][0].BackendName, tc.DeepEquals, &defaultBackendName)
-	c.Assert(gotRevs[2][0].BackendName, tc.DeepEquals, &defaultBackendName)
+	// If valueRef is not nil but backendID does not map to any backend, backend name should be nil.
+	c.Assert(gotRevs[2][0].BackendName, tc.IsNil)
 }
 
 func (s *serviceSuite) TestListSecretsByLabelsError(c *tc.C) {
@@ -1315,7 +1310,7 @@ func (s *serviceSuite) TestListSecretsByLabelsError(c *tc.C) {
 	labels := domainsecret.Labels{"tier"}
 
 	// Error getting secrets by labels from state.
-	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUIDs(gomock.Any()).Return(map[string]string{}, nil)
+	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(map[string]string{}, nil)
 	s.state.EXPECT().ListSecretsByLabels(gomock.Any(), labels, (*int)(nil)).Return(nil, nil, errors.New("ListSecretsByLabels err"))
 	md, revs, err := s.service.ListSecrets(c.Context(), nil, nil, labels)
 	c.Assert(md, tc.IsNil)
@@ -1323,9 +1318,9 @@ func (s *serviceSuite) TestListSecretsByLabelsError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "getting secrets by labels: ListSecretsByLabels err")
 
 	// Error getting backend names with UUIDs from state.
-	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUIDs(gomock.Any()).Return(nil, errors.New("GetSecretBackendNamesByUUIDs err"))
+	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(nil, errors.New("GetSecretBackendNamesByUUID err"))
 	_, _, err = s.service.ListSecrets(c.Context(), nil, nil, labels)
-	c.Assert(err, tc.ErrorMatches, "getting secret backend names with UUIDs: GetSecretBackendNamesByUUIDs err")
+	c.Assert(err, tc.ErrorMatches, "getting secret backend names with UUIDs: GetSecretBackendNamesByUUID err")
 }
 
 func (s *serviceSuite) TestListSecretsByLabelsWithRevision(c *tc.C) {
@@ -1343,7 +1338,7 @@ func (s *serviceSuite) TestListSecretsByLabelsWithRevision(c *tc.C) {
 		},
 	}}
 
-	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUIDs(gomock.Any()).Return(map[string]string{
+	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(map[string]string{
 		backendUUID: "vault-one",
 	}, nil)
 	s.state.EXPECT().ListSecretsByLabels(gomock.Any(), labels, &rev).Return(md, revs, nil)
@@ -1364,7 +1359,7 @@ func (s *serviceSuite) TestListSecretsByLabelsWithRevisionError(c *tc.C) {
 	labels := domainsecret.Labels{"owner"}
 	rev := 3
 
-	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUIDs(gomock.Any()).Return(map[string]string{}, nil)
+	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(map[string]string{}, nil)
 	s.state.EXPECT().ListSecretsByLabels(gomock.Any(), labels, &rev).Return(nil, nil, errors.New("boom"))
 
 	md, revs, err := s.service.ListSecrets(c.Context(), nil, &rev, labels)
@@ -1377,7 +1372,7 @@ func (s *serviceSuite) TestListSecretsErrOnRevisionOnly(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rev := 2
-	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUIDs(gomock.Any()).Return(map[string]string{}, nil)
+	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(map[string]string{}, nil)
 	_, _, err := s.service.ListSecrets(c.Context(), nil, &rev, nil)
 	c.Assert(err, tc.ErrorMatches, "cannot specify revision without URI or labels")
 }
@@ -1394,7 +1389,7 @@ func (s *serviceSuite) TestListSecretsAll(c *tc.C) {
 		},
 	}}
 
-	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUIDs(gomock.Any()).Return(map[string]string{
+	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(map[string]string{
 		backendUUID: "vault-all",
 	}, nil)
 	s.state.EXPECT().ListAllSecrets(gomock.Any()).Return(md, revs, nil)
@@ -1408,7 +1403,7 @@ func (s *serviceSuite) TestListSecretsAll(c *tc.C) {
 func (s *serviceSuite) TestListSecretsAllError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUIDs(gomock.Any()).Return(map[string]string{}, nil)
+	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(map[string]string{}, nil)
 	s.state.EXPECT().ListAllSecrets(gomock.Any()).Return(nil, nil, errors.New("boom"))
 
 	md, revs, err := s.service.ListSecrets(c.Context(), nil, nil, nil)
@@ -1429,7 +1424,7 @@ func (s *serviceSuite) TestListCharmJustApplication(c *tc.C) {
 
 	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mysql"}, domainsecret.NilUnitOwners).
 		Return(md, revs, nil)
-	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUIDs(gomock.Any()).Return(map[string]string{}, nil)
+	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(map[string]string{}, nil)
 
 	gotSecrets, gotRevisions, err := s.service.ListCharmSecrets(c.Context(), owners...)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1449,7 +1444,7 @@ func (s *serviceSuite) TestListCharmJustUnit(c *tc.C) {
 
 	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.NilApplicationOwners, domainsecret.UnitOwners{"mysql/0"}).
 		Return(md, revs, nil)
-	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUIDs(gomock.Any()).Return(map[string]string{}, nil)
+	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(map[string]string{}, nil)
 
 	gotSecrets, gotRevisions, err := s.service.ListCharmSecrets(c.Context(), owners...)
 	c.Assert(err, tc.ErrorIsNil)
@@ -2179,7 +2174,7 @@ func (s *serviceSuite) TestGetSecretConsumedRevisionSecretNotFound(c *tc.C) {
 
 	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/0"}).
 		Return(md, revs, nil)
-	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUIDs(gomock.Any()).Return(map[string]string{}, nil)
+	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(map[string]string{}, nil)
 
 	rev, err := s.service.GetConsumedRevision(c.Context(), uri, "mariadb/0", true, false, nil)
 	c.Assert(err, tc.ErrorIsNil)
@@ -2214,7 +2209,7 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelSecretUpdateLabel(c *t
 		RotatePolicy: ptr(domainsecret.RotateNever),
 		Label:        ptr("foo"),
 	}).Return(nil)
-	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUIDs(gomock.Any()).Return(nil, nil)
+	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(nil, nil)
 
 	gotURI, gotLabel, err := s.service.ProcessCharmSecretConsumerLabel(c.Context(), "mariadb/0", uri, "foo")
 	c.Assert(err, tc.ErrorIsNil)
@@ -2236,7 +2231,7 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelForUnitOwnedSecretLook
 	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/0"}).
 		Return(md, revs, nil)
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coremodel.UUID(coretesting.ModelTag.Id()), nil)
-	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUIDs(gomock.Any()).Return(nil, nil)
+	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(nil, nil)
 
 	gotURI, gotLabel, err := s.service.ProcessCharmSecretConsumerLabel(c.Context(), "mariadb/0", nil, "foo")
 	c.Assert(err, tc.ErrorIsNil)
@@ -2259,7 +2254,7 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelLookupURI(c *tc.C) {
 		Return(md, revs, nil)
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coremodel.UUID(coretesting.ModelTag.Id()), nil)
 	s.state.EXPECT().GetURIByConsumerLabel(gomock.Any(), "foo", unittesting.GenNewName(c, "mariadb/0")).Return(uri, nil)
-	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUIDs(gomock.Any()).Return(nil, nil)
+	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(nil, nil)
 
 	gotURI, gotLabel, err := s.service.ProcessCharmSecretConsumerLabel(c.Context(), "mariadb/0", nil, "foo")
 	c.Assert(err, tc.ErrorIsNil)
@@ -2282,7 +2277,7 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelUpdateLabel(c *tc.C) {
 	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/0"}).
 		Return(md, revs, nil)
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coremodel.UUID(coretesting.ModelTag.Id()), nil)
-	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUIDs(gomock.Any()).Return(nil, nil)
+	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(nil, nil)
 
 	gotURI, gotLabel, err := s.service.ProcessCharmSecretConsumerLabel(c.Context(), "mariadb/0", uri, "foo")
 	c.Assert(err, tc.ErrorIsNil)

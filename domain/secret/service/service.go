@@ -604,7 +604,11 @@ func (s *SecretService) createSecret(
 func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 	revision *int,
 	labels domainsecret.Labels,
-) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
+) (
+	metadataList []*secrets.SecretMetadata,
+	revisionsList [][]*secrets.SecretRevisionMetadata,
+	err error,
+) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -613,27 +617,37 @@ func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 		return nil, nil, errors.Errorf("cannot specify both URI and labels")
 	}
 
-	secretBackendUUIDstoNames, err := s.secretBackendState.GetSecretBackendNamesByUUIDs(ctx)
+	secretBackendUUIDstoNames, err := s.secretBackendState.GetSecretBackendNamesByUUID(ctx)
 	if err != nil {
 		return nil, nil, errors.Errorf("getting secret backend names with UUIDs: %w", err)
 	}
 
+	defer func() {
+		if err == nil && len(revisionsList) > 0 {
+			s.populateRevisionBackendNames(revisionsList, secretBackendUUIDstoNames)
+		}
+	}()
+
 	if uri != nil {
-		metadata, revisions, err := s.secretState.GetSecretByURI(ctx, *uri, revision)
+		var metadata *secrets.SecretMetadata
+		var revisions []*secrets.SecretRevisionMetadata
+
+		metadata, revisions, err = s.secretState.GetSecretByURI(ctx, *uri, revision)
 		if err != nil {
 			return nil, nil, errors.Errorf("getting secret by URI %q: %w", uri.ID, err)
 		}
-		s.populateRevisionBackendNames([][]*secrets.SecretRevisionMetadata{revisions}, secretBackendUUIDstoNames)
-		return []*secrets.SecretMetadata{metadata}, [][]*secrets.SecretRevisionMetadata{revisions}, nil
+
+		metadataList = []*secrets.SecretMetadata{metadata}
+		revisionsList = [][]*secrets.SecretRevisionMetadata{revisions}
+		return
 	}
 
 	if len(labels) > 0 {
-		metadataList, revisionsList, err := s.secretState.ListSecretsByLabels(ctx, labels, revision)
+		metadataList, revisionsList, err = s.secretState.ListSecretsByLabels(ctx, labels, revision)
 		if err != nil {
 			return nil, nil, errors.Errorf("getting secrets by labels: %w", err)
 		}
-		s.populateRevisionBackendNames(revisionsList, secretBackendUUIDstoNames)
-		return metadataList, revisionsList, nil
+		return
 	}
 
 	// If there is no URI or labels, we will list all secrets. In this case, a
@@ -642,12 +656,11 @@ func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 		return nil, nil, errors.Errorf("cannot specify revision without URI or labels")
 	}
 
-	metadataList, revisionsList, err := s.secretState.ListAllSecrets(ctx)
+	metadataList, revisionsList, err = s.secretState.ListAllSecrets(ctx)
 	if err != nil {
 		return nil, nil, errors.Errorf("listing all secrets: %w", err)
 	}
-	s.populateRevisionBackendNames(revisionsList, secretBackendUUIDstoNames)
-	return metadataList, revisionsList, nil
+	return
 }
 
 // populateRevisionBackendNames mutates the provided revisions by setting their
@@ -665,15 +678,15 @@ func (s *SecretService) populateRevisionBackendNames(
 			if revision == nil {
 				continue
 			}
-			revision.BackendName = &defaultBackendName
 			// ValueRef may not exist, eg. LXD model with no external vaults.
 			// In that case, we leave BackendName as the default value.
 			if revision.ValueRef == nil {
+				revision.BackendName = &defaultBackendName
 				continue
 			}
 			secretBackendName, exists := secretBackendUUIDstoNames[revision.ValueRef.BackendID]
 			// BackendUUID may not exist, eg. if backend is deleted.
-			// In that case, we leave BackendName as the default value.
+			// In that case, we leave BackendName as nil which would be set to unknown later.
 			if exists {
 				revision.BackendName = &secretBackendName
 			}
@@ -711,7 +724,7 @@ func (s *SecretService) ListCharmSecrets(
 		return nil, nil, errors.Capture(err)
 	}
 
-	secretBackendUUIDstoNames, err := s.secretBackendState.GetSecretBackendNamesByUUIDs(ctx)
+	secretBackendUUIDstoNames, err := s.secretBackendState.GetSecretBackendNamesByUUID(ctx)
 	if err != nil {
 		return nil, nil, errors.Errorf("getting secret backend names with UUIDs: %w", err)
 	}
