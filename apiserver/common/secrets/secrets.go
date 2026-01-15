@@ -7,7 +7,9 @@ import (
 	"context"
 	"encoding/json"
 	"sort"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -296,6 +298,24 @@ func backendConfigInfo(
 	}
 
 	issuedTokenUUID := ""
+	if p.IssuesTokens() {
+		v, err := uuid.NewRandom()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		issuedTokenUUID = v.String()
+
+		args := state.SecretBackendIssuedToken{
+			UUID:       issuedTokenUUID,
+			ExpireTime: time.Now().Add(coresecrets.IssuedTokenValidity),
+			BackendID:  backendID,
+			Consumer:   authTag,
+		}
+		err = secretsState.CreateSecretBackendIssuedToken(args)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 
 	logger.Debugf(
 		"secrets for %v:\nowned: %v\nowned revs: %v\nconsumed revs:%v",
