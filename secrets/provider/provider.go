@@ -29,6 +29,17 @@ func (nm SecretRevisions) Add(uri *secrets.URI, revisionIDs ...string) {
 	}
 }
 
+// Inserts all the secret revisions from one set into this one.
+func (nm SecretRevisions) Insert(other SecretRevisions) {
+	for id, revs := range other {
+		if v, ok := nm[id]; ok {
+			nm[id] = v.Union(revs)
+		} else {
+			nm[id] = set.NewStrings(revs.Values()...)
+		}
+	}
+}
+
 // RevisionIDs returns all the secret revisions.
 func (nm SecretRevisions) RevisionIDs() (result []string) {
 	for _, revisions := range nm {

@@ -259,30 +259,50 @@ func backendConfigInfo(
 		// Granted secrets can be consumed in application level for all units.
 		readFilter.ConsumerTags = append(readFilter.ConsumerTags, authApp)
 	case names.ApplicationTag:
+		// App Tag has access to application secrets.
 	case names.ModelTag:
-		// Model Tag is validate for user secrets.
+		// Model Tag has access to user secrets.
 	default:
 		return nil, errors.NotSupportedf("login as %q", authTag)
 	}
 
-	ownedRevisions := map[string]provider.SecretRevisions{}
-	if err := getExternalRevisions(secretsState, backendID, ownedFilter, ownedRevisions); err != nil {
+	ownedIDs, ownedRevs, err := getExternalRevisions(
+		secretsState, backendID, ownedFilter)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	readRevisions := map[string]provider.SecretRevisions{}
-	if err := getExternalRevisions(secretsState, backendID, readFilter, readRevisions); err != nil {
+	ownedReservedIDs, err := secretsState.ListReservedSecrets(ownedFilter.OwnerTags)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, reservedSecretID := range ownedReservedIDs {
+		ownedIDs = append(ownedIDs, reservedSecretID.ID)
+	}
+
+	_, readRevs, err := getExternalRevisions(
+		secretsState, backendID, readFilter)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	if len(readAppOwnedFilter.OwnerTags) > 0 {
-		if err := getExternalRevisions(secretsState, backendID, readAppOwnedFilter, readRevisions); err != nil {
+		_, appOwnedReadRevs, err := getExternalRevisions(
+			secretsState, backendID, readAppOwnedFilter)
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		readRevs.Insert(appOwnedReadRevs)
 	}
 
-	logger.Debugf("secrets for %v:\nowned: %v\nconsumed:%v", authTag.String(), ownedRevisions, readRevisions)
-	cfg, err := p.RestrictedConfig(adminCfg, sameController, forDrain, authTag, ownedRevisions[backendID], readRevisions[backendID])
+	issuedTokenUUID := ""
+
+	logger.Debugf(
+		"secrets for %v:\nowned: %v\nowned revs: %v\nconsumed revs:%v",
+		authTag.String(), ownedIDs, ownedRevs, readRevs)
+	cfg, err := p.RestrictedConfig(
+		adminCfg, sameController, forDrain, issuedTokenUUID, authTag, ownedIDs,
+		ownedRevs, readRevs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -295,29 +315,39 @@ func backendConfigInfo(
 	return info, nil
 }
 
-func getExternalRevisions(backend state.SecretsStore, backendID string, filter state.SecretsFilter, revisions map[string]provider.SecretRevisions) error {
+func getExternalRevisions(
+	backend state.SecretsStore,
+	backendID string,
+	filter state.SecretsFilter,
+) ([]string, provider.SecretRevisions, error) {
 	secrets, err := backend.ListSecrets(filter)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
+
+	revs := provider.SecretRevisions{}
+	ids := []string{}
 	for _, md := range secrets {
-		revs, err := backend.ListSecretRevisions(md.URI)
+		secretRevs, err := backend.ListSecretRevisions(md.URI)
 		if err != nil {
-			return errors.Annotatef(err, "cannot get revisions for secret %q", md.URI)
+			return nil, nil, errors.Annotatef(err,
+				"cannot get revisions for secret %q", md.URI)
 		}
-		for _, rev := range revs {
-			if rev.ValueRef == nil || rev.ValueRef.BackendID != backendID {
+
+		for _, secretRev := range secretRevs {
+			if secretRev.ValueRef == nil {
 				continue
 			}
-			revs, ok := revisions[rev.ValueRef.BackendID]
-			if !ok {
-				revs = provider.SecretRevisions{}
+			if secretRev.ValueRef.BackendID != backendID {
+				continue
 			}
-			revs.Add(md.URI, rev.ValueRef.RevisionID)
-			revisions[rev.ValueRef.BackendID] = revs
+			revs.Add(md.URI, secretRev.ValueRef.RevisionID)
 		}
+
+		ids = append(ids, md.URI.ID)
 	}
-	return nil
+
+	return ids, revs, nil
 }
 
 func cloudSpecForModel(m Model) (cloudspec.CloudSpec, error) {
