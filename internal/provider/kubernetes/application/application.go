@@ -17,7 +17,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/juju/wrench"
 	"github.com/juju/loggo"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
@@ -324,7 +323,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		}
 
 		var numPods *int32
-		if !exists || config.ShouldReconcileStorage {
+		if !exists {
 			numPods = pointer.Int32(int32(config.InitialScale))
 		}
 
@@ -357,42 +356,6 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			a.client.AppsV1().StatefulSets(a.namespace), a.namespace,
 			a.name, sts)
 
-		if config.ShouldReconcileStorage {
-			if wrench.IsActive("application-storage", "reconcile-skip") {
-				logger.Infof("[adis] feature reconcile-skip is enabled...")
-				return nil
-			}
-
-			if wrench.IsActive("application-storage", "reconcile-fail") {
-				logger.Infof("[adis] feature reconcile-fail is enabled...")
-				return errors.New("[adis] reconcile-fail")
-			}
-		}
-
-		// A storage reconcile indicates that we must delete the existing
-		// statefulset so that we can apply a new statefulset with the new
-		// persistent volume claim templates. Recall that k8s doesn't
-		// allow us to update an existing statefulset with a different
-		// persistent volume claim template to the one already available.
-		if config.ShouldReconcileStorage && existingSts != nil {
-			// We can actually avoid unnecessary reconciling if we detect that
-			// there are no changes between the current volume claims and the
-			// new one.
-			currentClaims := existingSts.StatefulSet.Spec.VolumeClaimTemplates
-			newClaims := statefulset.StatefulSet.Spec.VolumeClaimTemplates
-			if a.volumeClaimTemplateMatch(currentClaims, newClaims) {
-				logger.Infof("[adis] a reconcile for app %q is not needed "+
-					"because there are no changes in storage.", a.name)
-				return nil
-			}
-
-			logger.Infof("[adis] reconcile gonna delete statefulset for app %q", a.name)
-
-			stsOrphanDelete := resources.
-				NewStatefulSetWithOrphanDelete(existingSts)
-			applier.Delete(stsOrphanDelete)
-		}
-
 		if err = configureStorage(
 			config.StorageUniqueID,
 			func(pvc corev1.PersistentVolumeClaim,
@@ -413,13 +376,6 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		); err != nil {
 			return errors.Trace(err)
 		}
-
-		if statefulset.Spec.Replicas != nil {
-			logger.Infof("[adis][app][Ensure] reconcile storage %t going to reapply with replicas %d", config.ShouldReconcileStorage, *statefulset.Spec.Replicas)
-		} else {
-			logger.Infof("[adis][app][Ensure] reconcile storage %t going to reapply with replicas nil", config.ShouldReconcileStorage)
-		}
-
 		applier.Apply(statefulset)
 	case caas.DeploymentStateless:
 		exists := true
@@ -2529,17 +2485,53 @@ func (a *app) pvcNameGetter(pvcNames map[string]string, storageUniqueID string) 
 	}
 }
 
-// ReconcileStorage deletes the existing statefulset with DeletePropagationOrphan
-// policy.
-// It reconciles PVCs and reapplies a new statefulset.
-func (a *app) ReconcileStorage(
-	filesystems []jujustorage.KubernetesFilesystemParams,
-	storageUniqueID string,
+// EnsureStorage aims to reflect the updated storage to the app's statefulset.
+// It does so by deleting the existing statefulset with DeletePropagationOrphan
+// policy (so the existing pods are still running) and reapplies a new statefulset.
+func (a *app) EnsureStorage(
+	config caas.ApplicationConfig,
+	lastApplied *caas.ApplicationConfig,
+	saveReplicaCount func(
+		appName string,
+		replicaCount int) error,
+	setOperatorStatus func(appName string, status status.Status, message string,
+		data map[string]interface{}) error,
 ) error {
-	logger.Debugf("reconciling app %q with filesystems %+v", a.name, filesystems)
-	sts, getErr := a.getStatefulSetWithOrphanDelete()
-	if getErr != nil {
-		return errors.Trace(getErr)
+	logger.Infof("[adis] reconciling app %q with filesystems %+v", a.name, config.Filesystems)
+	var sts *resources.StatefulSetWithOrphanDelete
+	var err error
+
+	sts, err = a.getStatefulSetWithOrphanDelete()
+	exists := true
+	if k8serrors.IsNotFound(err) {
+		exists = false
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+
+	// We have to create a statefulset because it's missing.
+	// This may happen when a storage update occurs, we delete the statefulset,
+	// then crashes before we are able to reapply a new one. Hence, when we
+	// resume a storage update, we have to re-create the statefulset.
+	if !exists {
+		// TODO(sidecar): implement Equals method for caas.ApplicationConfig
+		if !reflect.DeepEqual(config, *lastApplied) {
+			logger.Infof("[adis][ReconcileStorage] sts %q doesn't exist so calling a.Ensure()", a.name)
+			if err = a.Ensure(config); err != nil {
+				_ = setOperatorStatus(a.name, status.Error, err.Error(), nil)
+				return errors.Annotatef(err, "[adis] ensuring application %q", a.name)
+			}
+			*lastApplied = config
+		}
+
+		sts, err = a.getStatefulSetWithOrphanDelete()
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	if sts == nil {
+		return errors.Annotatef(err, "existing %q statefulset is missing", a.name)
 	}
 
 	// The sts object fetched has unnecessary cruft generated by k8s that we
@@ -2572,12 +2564,12 @@ func (a *app) ReconcileStorage(
 	newStatefulset := resources.NewStatefulSet(
 		a.client.AppsV1().StatefulSets(a.namespace), a.namespace,
 		a.name, newSts)
-	pvcNames, err := a.pvcNames(storageUniqueID)
+	pvcNames, err := a.pvcNames(config.StorageUniqueID)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	pvcNameGetter := a.pvcNameGetter(pvcNames, storageUniqueID)
+	pvcNameGetter := a.pvcNameGetter(pvcNames, config.StorageUniqueID)
 
 	storageClasses, err := resources.ListStorageClass(context.Background(),
 		a.client.StorageV1().StorageClasses(), metav1.ListOptions{})
@@ -2591,7 +2583,7 @@ func (a *app) ReconcileStorage(
 
 	// Map filesystems to a pvc object so that we can add it to
 	// volumeClaimTemplate field in the sts.
-	for _, fs := range filesystems {
+	for _, fs := range config.Filesystems {
 		name := a.volumeName(fs.StorageName)
 		_, pvc, _, err := a.filesystemToVolumeInfo(name, fs, storageClassMap,
 			pvcNameGetter)
@@ -2605,6 +2597,10 @@ func (a *app) ReconcileStorage(
 		}
 	}
 
+	// Check whether the current state matches the desired state. Since this
+	// is a storage update, we compare the volume claim templates.
+	// If they match, then there is no need to do a storage update and we can
+	// return early here.
 	currentClaims := sts.StatefulSet.StatefulSet.Spec.VolumeClaimTemplates
 	newClaims := newStatefulset.StatefulSet.Spec.VolumeClaimTemplates
 	if a.volumeClaimTemplateMatch(currentClaims, newClaims) {
@@ -2612,6 +2608,21 @@ func (a *app) ReconcileStorage(
 			"is no change in storage. current claims: %+v, new claims: %+v",
 			a.name, currentClaims, newClaims)
 		return nil
+	}
+	// We save the statefulset replica count before deleting the storage update.
+	// This helps us if we succeed deleting the statefulset but fail to reapply,
+	// we can create a new statefulset following the replica count before the delete.
+	// It's not ideal to use the "desiredscale" field in the application doc
+	// because while the statefulset is missing, users could issue scale commands
+	// in which the "desiredscale" field gets updated on demand which won't reflect
+	// what we had originally.
+	replica := 0
+	if sts.Spec.Replicas != nil {
+		replica = int(*sts.Spec.Replicas)
+	}
+	err = saveReplicaCount(a.name, replica)
+	if err != nil {
+		return errors.Annotatef(err, "saving statefulset %s replica count", a.name)
 	}
 
 	applier := a.newApplier()
