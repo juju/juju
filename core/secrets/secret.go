@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -49,16 +50,27 @@ type URI struct {
 const (
 	idSnippet   = `[0-9a-z]{20}`
 	uuidSnippet = `[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`
+	revSnippet  = `[0-9]+`
 
 	// SecretScheme is the URL prefix for a secret.
 	SecretScheme = "secret"
 )
 
-var validUUID = regexp.MustCompile(uuidSnippet)
+var (
+	validUUID = regexp.MustCompile(uuidSnippet)
 
-var secretURIParse = regexp.MustCompile(`^` +
-	fmt.Sprintf(`((?P<source>%s)/)?(?P<id>%s)`, uuidSnippet, idSnippet) +
-	`$`)
+	secretURI = regexp.MustCompile(fmt.Sprintf(
+		`^((?P<source>%s)/)?(?P<id>%s)$`, uuidSnippet, idSnippet,
+	))
+	secretURISourceIdx = secretURI.SubexpIndex("source")
+	secretURIIdIdx     = secretURI.SubexpIndex("id")
+
+	secretRevision = regexp.MustCompile(fmt.Sprintf(
+		`^(?P<id>%s)-(?P<rev>%s)$`, idSnippet, revSnippet,
+	))
+	secretRevisionIdIdx  = secretRevision.SubexpIndex("id")
+	secretRevisionRevIdx = secretRevision.SubexpIndex("rev")
+)
 
 // ParseURI parses the specified string into a URI.
 func ParseURI(str string) (*URI, error) {
@@ -79,15 +91,16 @@ func ParseURI(str string) (*URI, error) {
 	if idStr == "" {
 		idStr = u.Opaque
 	}
-	valid := secretURIParse.MatchString(idStr)
-	if !valid {
+
+	matched := secretURI.FindStringSubmatch(idStr)
+	if len(matched) <= max(secretURIIdIdx, secretURISourceIdx) {
 		return nil, errors.NotValidf("secret URI %q", str)
 	}
-	sourceUUID := secretURIParse.ReplaceAllString(idStr, "$source")
+	sourceUUID := matched[secretURISourceIdx]
 	if sourceUUID == "" {
 		sourceUUID = u.Host
 	}
-	idPart := secretURIParse.ReplaceAllString(idStr, "$id")
+	idPart := matched[secretURIIdIdx]
 	id, err := xid.FromString(idPart)
 	if err != nil {
 		return nil, errors.NotValidf("secret URI %q", str)
@@ -125,9 +138,30 @@ func (u *URI) IsLocal(sourceUUID string) bool {
 	return u.SourceUUID == "" || u.SourceUUID == sourceUUID
 }
 
-// Name generates the secret name.
+// Name generates the secret revision name.
 func (u URI) Name(revision int) string {
-	return fmt.Sprintf("%s-%d", u.ID, revision)
+	return RevisionName(u.ID, revision)
+}
+
+// RevisionName generates the secret revision name.
+func RevisionName(secretID string, revision int) string {
+	return fmt.Sprintf("%s-%d", secretID, revision)
+}
+
+// ParseRevisionName parses the provided revision name, returning the secret ID
+// and the revision number, or an error.
+func ParseRevisionName(revisionName string) (string, int, error) {
+	matched := secretRevision.FindStringSubmatch(revisionName)
+	if len(matched) <= max(secretRevisionIdIdx, secretRevisionRevIdx) {
+		return "", 0, errors.NotValidf("secret revision %q", revisionName)
+	}
+	id := matched[secretRevisionIdIdx]
+	rev, err := strconv.Atoi(matched[secretRevisionRevIdx])
+	if err != nil {
+		return "", 0, errors.NotValidf("secret revision %q: %v",
+			revisionName, err)
+	}
+	return id, rev, nil
 }
 
 // String prints the URI as a string.
