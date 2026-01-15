@@ -506,12 +506,11 @@ VALUES ($secretID.id)`
 		return errors.Capture(err)
 	}
 
-	now := time.Now().UTC()
 	dbSecret := secretMetadata{
 		ID:         uri.ID,
 		Version:    version,
-		CreateTime: now,
-		UpdateTime: now,
+		CreateTime: secret.CreateTime.UTC(),
+		UpdateTime: secret.UpdateTime.UTC(),
 	}
 	updateSecretMetadataFromParams(secret, &dbSecret)
 	if err := st.upsertSecret(ctx, tx, dbSecret); err != nil {
@@ -522,7 +521,7 @@ VALUES ($secretID.id)`
 		ID:         *secret.RevisionID,
 		SecretID:   uri.ID,
 		Revision:   1,
-		CreateTime: now,
+		CreateTime: secret.UpdateTime.UTC(),
 	}
 
 	if err := st.upsertSecretRevision(ctx, tx, dbRevision); err != nil {
@@ -630,16 +629,14 @@ GROUP BY sm.secret_id`
 	existingOwner := dbsecretOwners[0]
 	latestRevisionUUID := dbSecrets[0].LatestRevisionUUID
 
-	now := time.Now().UTC()
 	dbSecret := secretMetadata{
 		ID:             dbSecrets[0].ID,
 		Version:        dbSecrets[0].Version,
 		Description:    dbSecrets[0].Description,
 		AutoPrune:      dbSecrets[0].AutoPrune,
 		RotatePolicyID: int(domainsecret.MarshallRotatePolicy(&existing.RotatePolicy)),
-		UpdateTime:     now,
+		UpdateTime:     secret.UpdateTime.UTC(),
 	}
-	dbSecret.UpdateTime = now
 	updateSecretMetadataFromParams(secret, &dbSecret)
 	if err := st.upsertSecret(ctx, tx, dbSecret); err != nil {
 		return errors.Errorf("updating secret %q: %w", uri, err)
@@ -683,7 +680,7 @@ GROUP BY sm.secret_id`
 			ID:         *secret.RevisionID,
 			SecretID:   uri.ID,
 			Revision:   nextRevision,
-			CreateTime: now,
+			CreateTime: secret.UpdateTime.UTC(),
 		}
 	}
 	if dbRevision != nil {

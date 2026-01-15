@@ -139,6 +139,7 @@ var modelPostPatchFilesByVersion = []struct {
 		"0040-operator-status.PATCH.sql",
 		"0041-offer.PATCH.sql",
 		"0042-model-config.PATCH.sql",
+		"0043-secret.PATCH.sql",
 	},
 }, {
 	version: semversion.MustParse("4.0.2"),

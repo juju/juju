@@ -226,7 +226,9 @@ func (s *SecretService) importSecretRevisions(
 ) error {
 	for i, rev := range revisions {
 		params := secret.UpsertSecretParams{
-			ValueRef: rev.ValueRef,
+			ValueRef:   rev.ValueRef,
+			CreateTime: md.CreateTime,
+			UpdateTime: md.UpdateTime,
 		}
 		if i == len(revisions)-1 {
 			params.Checksum = md.LatestRevisionChecksum
@@ -255,6 +257,7 @@ func (s *SecretService) importSecretRevisions(
 			return errors.Capture(err)
 		}
 		params.RevisionID = ptr(revisionID.String())
+		params.UpdateTime = rev.CreateTime
 
 		rollBack := func() error { return nil }
 		if params.ValueRef != nil || len(params.Data) != 0 {
@@ -274,6 +277,8 @@ func (s *SecretService) importSecretRevisions(
 	return nil
 }
 
+// createImportedSecret creates a secret in the model with the supplied parameters.
+// It handles secret import and rollback in case of errors.
 func (s *SecretService) createImportedSecret(
 	ctx context.Context, modelID coremodel.UUID, md *coresecrets.SecretMetadata, params secret.UpsertSecretParams,
 ) (errOut error) {

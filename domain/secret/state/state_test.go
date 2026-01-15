@@ -428,15 +428,14 @@ func (s *stateSuite) assertSecret(c *tc.C, st *State, uri *coresecrets.URI, sp d
 	} else {
 		c.Assert(*md.NextRotateTime, tc.Equals, sp.NextRotateTime.UTC())
 	}
-	now := time.Now()
-	c.Assert(md.CreateTime, tc.Almost, now)
-	c.Assert(md.UpdateTime, tc.Almost, now)
+	c.Assert(md.CreateTime, tc.Equals, sp.CreateTime.UTC())
+	c.Assert(md.UpdateTime, tc.Equals, sp.UpdateTime.UTC())
 
 	c.Assert(revs, tc.HasLen, 1)
 	rev := revs[0]
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rev.Revision, tc.Equals, revision)
-	c.Assert(rev.CreateTime, tc.Almost, now)
+	c.Assert(rev.CreateTime, tc.Equals, sp.UpdateTime.UTC())
 	if rev.ExpireTime == nil {
 		c.Assert(md.LatestExpireTime, tc.IsNil)
 	} else {
@@ -660,14 +659,13 @@ func (s *stateSuite) TestListAllSecrets(c *tc.C) {
 		c.Assert(md.LatestRevision, tc.Equals, 1)
 		c.Assert(md.AutoPrune, tc.Equals, value(sp[i].AutoPrune))
 		c.Assert(md.Owner, tc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: s.modelUUID})
-		now := time.Now()
-		c.Assert(md.CreateTime, tc.Almost, now)
-		c.Assert(md.UpdateTime, tc.Almost, now)
+		c.Assert(md.CreateTime, tc.Equals, sp[i].CreateTime.UTC())
+		c.Assert(md.UpdateTime, tc.Equals, sp[i].UpdateTime.UTC())
 
 		revs := revisions[i]
 		c.Assert(revs, tc.HasLen, 1)
 		c.Assert(revs[0].Revision, tc.Equals, 1)
-		c.Assert(revs[0].CreateTime, tc.Almost, now)
+		c.Assert(revs[0].CreateTime, tc.Equals, sp[i].UpdateTime.UTC())
 	}
 }
 
@@ -708,14 +706,13 @@ func (s *stateSuite) TestGetSecretByURI(c *tc.C) {
 	c.Assert(md.LatestRevision, tc.Equals, 1)
 	c.Assert(md.AutoPrune, tc.Equals, value(sp[0].AutoPrune))
 	c.Assert(md.Owner, tc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: s.modelUUID})
-	now := time.Now()
-	c.Assert(md.CreateTime, tc.Almost, now)
-	c.Assert(md.UpdateTime, tc.Almost, now)
+	c.Assert(md.CreateTime, tc.Equals, sp[0].CreateTime.UTC())
+	c.Assert(md.UpdateTime, tc.Equals, sp[0].UpdateTime.UTC())
 
 	revs := revisions
 	c.Assert(revs, tc.HasLen, 1)
 	c.Assert(revs[0].Revision, tc.Equals, 1)
-	c.Assert(revs[0].CreateTime, tc.Almost, now)
+	c.Assert(revs[0].CreateTime, tc.Equals, sp[0].UpdateTime.UTC())
 }
 
 func (s *stateSuite) TestGetSecretsByLabels(c *tc.C) {
@@ -757,14 +754,13 @@ func (s *stateSuite) TestGetSecretsByLabels(c *tc.C) {
 	c.Assert(md.LatestRevision, tc.Equals, 1)
 	c.Assert(md.AutoPrune, tc.Equals, value(sp[1].AutoPrune))
 	c.Assert(md.Owner, tc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: s.modelUUID})
-	now := time.Now()
-	c.Assert(md.CreateTime, tc.Almost, now)
-	c.Assert(md.UpdateTime, tc.Almost, now)
+	c.Assert(md.CreateTime, tc.Equals, sp[1].CreateTime.UTC())
+	c.Assert(md.UpdateTime, tc.Equals, sp[1].UpdateTime.UTC())
 
 	revs := revisions[0]
 	c.Assert(revs, tc.HasLen, 1)
 	c.Assert(revs[0].Revision, tc.Equals, 1)
-	c.Assert(revs[0].CreateTime, tc.Almost, now)
+	c.Assert(revs[0].CreateTime, tc.Equals, sp[1].UpdateTime.UTC())
 }
 
 func (s *stateSuite) setupApplication(c *tc.C, appName string) (string, string) {
@@ -1318,8 +1314,6 @@ func (s *stateSuite) TestListCharmSecretsByUnit(c *tc.C) {
 	c.Assert(len(secrets), tc.Equals, 1)
 	c.Assert(len(revisions), tc.Equals, 1)
 
-	now := time.Now()
-
 	md := secrets[0]
 	c.Assert(md.Version, tc.Equals, 1)
 	c.Assert(md.LatestRevisionChecksum, tc.Equals, sp[1].Checksum)
@@ -1328,8 +1322,8 @@ func (s *stateSuite) TestListCharmSecretsByUnit(c *tc.C) {
 	c.Assert(md.LatestRevision, tc.Equals, 1)
 	c.Assert(md.AutoPrune, tc.IsFalse)
 	c.Assert(md.Owner, tc.DeepEquals, coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mysql/0"})
-	c.Assert(md.CreateTime, tc.Almost, now)
-	c.Assert(md.UpdateTime, tc.Almost, now)
+	c.Assert(md.CreateTime, tc.Equals, sp[1].CreateTime.UTC())
+	c.Assert(md.UpdateTime, tc.Equals, sp[1].UpdateTime.UTC())
 
 	revs := revisions[0]
 	c.Assert(revs, tc.HasLen, 1)
@@ -1338,7 +1332,7 @@ func (s *stateSuite) TestListCharmSecretsByUnit(c *tc.C) {
 		BackendID:  "backend-id",
 		RevisionID: "revision-id",
 	})
-	c.Assert(revs[0].CreateTime, tc.Almost, now)
+	c.Assert(revs[0].CreateTime, tc.Equals, sp[1].UpdateTime.UTC())
 }
 
 func (s *stateSuite) TestListCharmSecretsByApplication(c *tc.C) {
@@ -1374,8 +1368,6 @@ func (s *stateSuite) TestListCharmSecretsByApplication(c *tc.C) {
 	c.Assert(len(secrets), tc.Equals, 1)
 	c.Assert(len(revisions), tc.Equals, 1)
 
-	now := time.Now()
-
 	md := secrets[0]
 	c.Assert(md.Version, tc.Equals, 1)
 	c.Assert(md.Label, tc.Equals, value(sp[1].Label))
@@ -1383,13 +1375,13 @@ func (s *stateSuite) TestListCharmSecretsByApplication(c *tc.C) {
 	c.Assert(md.LatestRevision, tc.Equals, 1)
 	c.Assert(md.AutoPrune, tc.IsFalse)
 	c.Assert(md.Owner, tc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"})
-	c.Assert(md.CreateTime, tc.Almost, now)
-	c.Assert(md.UpdateTime, tc.Almost, now)
+	c.Assert(md.CreateTime, tc.Equals, sp[1].CreateTime.UTC())
+	c.Assert(md.UpdateTime, tc.Equals, sp[1].UpdateTime.UTC())
 
 	revs := revisions[0]
 	c.Assert(revs, tc.HasLen, 1)
 	c.Assert(revs[0].Revision, tc.Equals, 1)
-	c.Assert(revs[0].CreateTime, tc.Almost, now)
+	c.Assert(revs[0].CreateTime, tc.Equals, sp[1].CreateTime.UTC())
 }
 
 func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *tc.C) {
@@ -1447,8 +1439,6 @@ func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *tc.C) {
 	c.Assert(len(secrets), tc.Equals, 2)
 	c.Assert(len(revisions), tc.Equals, 2)
 
-	now := time.Now()
-
 	first := 0
 	second := 1
 	if secrets[first].Label != value(sp[1].Label) {
@@ -1466,14 +1456,14 @@ func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *tc.C) {
 	c.Assert(*md.NextRotateTime, tc.Equals, rotateTime.UTC())
 	c.Assert(*md.LatestExpireTime, tc.Equals, expireTime.UTC())
 	c.Assert(md.Owner, tc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"})
-	c.Assert(md.CreateTime, tc.Almost, now)
-	c.Assert(md.UpdateTime, tc.Almost, now)
+	c.Assert(md.CreateTime, tc.Equals, sp[1].CreateTime.UTC())
+	c.Assert(md.UpdateTime, tc.Equals, sp[1].UpdateTime.UTC())
 
 	revs := revisions[first]
 	c.Assert(revs, tc.HasLen, 1)
 	c.Assert(revs[0].Revision, tc.Equals, 1)
 	c.Assert(*revs[0].ExpireTime, tc.Equals, expireTime.UTC())
-	c.Assert(revs[0].CreateTime, tc.Almost, now)
+	c.Assert(revs[0].CreateTime, tc.Equals, sp[1].UpdateTime.UTC())
 
 	md = secrets[second]
 	c.Assert(md.Version, tc.Equals, 1)
@@ -1483,14 +1473,14 @@ func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *tc.C) {
 	c.Assert(md.AutoPrune, tc.IsFalse)
 	c.Assert(md.RotatePolicy, tc.Equals, coresecrets.RotateNever)
 	c.Assert(md.Owner, tc.DeepEquals, coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mysql/0"})
-	c.Assert(md.CreateTime, tc.Almost, now)
-	c.Assert(md.UpdateTime, tc.Almost, now)
+	c.Assert(md.CreateTime, tc.Equals, sp[2].CreateTime.UTC())
+	c.Assert(md.UpdateTime, tc.Equals, sp[2].UpdateTime.UTC())
 
 	revs = revisions[second]
 	c.Assert(revs, tc.HasLen, 1)
 	c.Assert(revs[0].Revision, tc.Equals, 1)
 	c.Assert(revs[0].ExpireTime, tc.IsNil)
-	c.Assert(revs[0].CreateTime, tc.Almost, now)
+	c.Assert(revs[0].CreateTime, tc.Equals, sp[2].UpdateTime.UTC())
 }
 
 func (s *stateSuite) TestAllSecretConsumers(c *tc.C) {
@@ -2024,8 +2014,7 @@ func (s *stateSuite) TestUpdateUserSecretMetadataOnly(c *tc.C) {
 	c.Assert(md.Description, tc.Equals, value(sp2.Description))
 	c.Assert(md.LatestRevision, tc.Equals, 1)
 
-	now := time.Now()
-	c.Assert(md.UpdateTime, tc.Almost, now)
+	c.Assert(md.UpdateTime, tc.Equals, sp2.UpdateTime.UTC())
 }
 
 func (s *stateSuite) TestUpdateUserSecretFailedLabelAlreadyExists(c *tc.C) {
@@ -2090,8 +2079,7 @@ func (s *stateSuite) TestUpdateUserSecretExistingLabelSameID(c *tc.C) {
 	c.Assert(md.Description, tc.Equals, "updated")
 	c.Assert(md.LatestRevision, tc.Equals, 1)
 
-	now := time.Now()
-	c.Assert(md.UpdateTime, tc.Almost, now)
+	c.Assert(md.UpdateTime, tc.Equals, sp.UpdateTime.UTC())
 }
 
 func (s *stateSuite) TestUpdateUserSecretFailedRevisionIDMissing(c *tc.C) {
@@ -2146,8 +2134,7 @@ func (s *stateSuite) TestUpdateCharmApplicationSecretMetadataOnly(c *tc.C) {
 	c.Assert(md.Description, tc.Equals, value(sp2.Description))
 	c.Assert(md.LatestRevision, tc.Equals, 1)
 
-	now := time.Now()
-	c.Assert(md.UpdateTime, tc.Almost, now)
+	c.Assert(md.UpdateTime, tc.Equals, sp2.UpdateTime.UTC())
 }
 
 func (s *stateSuite) TestUpdateApplicationSecretFailedLabelAlreadyExists(c *tc.C) {
@@ -2216,9 +2203,7 @@ func (s *stateSuite) TestUpdateApplicationSecretExistingLabelSameID(c *tc.C) {
 	c.Assert(md.Label, tc.Equals, "dup")
 	c.Assert(md.Description, tc.Equals, "updated")
 	c.Assert(md.LatestRevision, tc.Equals, 1)
-
-	now := time.Now()
-	c.Assert(md.UpdateTime, tc.Almost, now)
+	c.Assert(md.UpdateTime, tc.Equals, sp.UpdateTime.UTC())
 }
 
 func (s *stateSuite) TestUpdateCharmUnitSecretMetadataOnly(c *tc.C) {
@@ -2251,8 +2236,7 @@ func (s *stateSuite) TestUpdateCharmUnitSecretMetadataOnly(c *tc.C) {
 	c.Assert(md.Description, tc.Equals, value(sp2.Description))
 	c.Assert(md.LatestRevision, tc.Equals, 1)
 
-	now := time.Now()
-	c.Assert(md.UpdateTime, tc.Almost, now)
+	c.Assert(md.UpdateTime, tc.Equals, sp2.UpdateTime.UTC())
 }
 
 func (s *stateSuite) TestUpdateUnitSecretFailedLabelAlreadyExists(c *tc.C) {
@@ -2322,8 +2306,7 @@ func (s *stateSuite) TestUpdateUnitSecretExistingLabelSameID(c *tc.C) {
 	c.Assert(md.Description, tc.Equals, "updated")
 	c.Assert(md.LatestRevision, tc.Equals, 1)
 
-	now := time.Now()
-	c.Assert(md.UpdateTime, tc.Almost, now)
+	c.Assert(md.UpdateTime, tc.Equals, sp.UpdateTime.UTC())
 }
 
 func fillDataForUpsertSecretParams(c *tc.C, p *domainsecret.UpsertSecretParams, data coresecrets.SecretData) {
@@ -2387,8 +2370,7 @@ func (s *stateSuite) TestUpdateSecretContent(c *tc.C) {
 	c.Assert(md.Description, tc.Equals, value(sp.Description))
 	c.Assert(md.LatestRevision, tc.Equals, 2)
 
-	now := time.Now()
-	c.Assert(md.UpdateTime, tc.Almost, now)
+	c.Assert(md.UpdateTime, tc.Equals, sp.UpdateTime.UTC())
 
 	c.Assert(revs, tc.HasLen, 1)
 	rev := revs[0]
@@ -2410,6 +2392,53 @@ func (s *stateSuite) TestUpdateSecretContent(c *tc.C) {
 	obsolete, pendingDelete = s.getObsolete(c, uri, 2)
 	c.Check(obsolete, tc.IsFalse)
 	c.Check(pendingDelete, tc.IsFalse)
+}
+
+func (s *stateSuite) TestUpdateSecretContentNonUTCInput(c *tc.C) {
+
+	s.setupUnits(c, "mysql")
+
+	// Force the input location to NOT BE UTC
+	loc, _ := time.LoadLocation("Australia/Brisbane")
+	expireTime := time.Now().Add(2 * time.Hour).In(loc)
+	sp := domainsecret.UpsertSecretParams{
+		RevisionID: ptr(uuid.MustNewUUID().String()),
+		CreateTime: time.Now().In(loc),
+		UpdateTime: time.Now().In(loc),
+		ExpireTime: &expireTime,
+	}
+	fillDataForUpsertSecretParams(c, &sp, coresecrets.SecretData{"foo": "bar", "hello": "world"})
+	uri := coresecrets.NewURI()
+	ctx := c.Context()
+	err := s.createCharmUnitSecret(c, 1, uri, "mysql/0", sp)
+	c.Assert(err, tc.ErrorIsNil)
+
+	sp2 := domainsecret.UpsertSecretParams{
+		RevisionID: ptr(uuid.MustNewUUID().String()),
+		UpdateTime: time.Now().In(loc),
+		ExpireTime: &expireTime,
+	}
+	fillDataForUpsertSecretParams(c, &sp2, coresecrets.SecretData{"foo2": "bar2", "hello": "world"})
+	err = s.state.UpdateSecret(c.Context(), uri, sp2)
+	c.Assert(err, tc.ErrorIsNil)
+
+	md, revs, err := s.state.GetSecretByURI(ctx, *uri, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(md.CreateTime, tc.Equals, sp.CreateTime.UTC())
+	c.Check(md.UpdateTime, tc.Equals, sp2.UpdateTime.UTC())
+
+	c.Assert(revs, tc.HasLen, 2)
+
+	if c.Check(revs[0].ExpireTime, tc.NotNil) {
+		c.Check(*revs[0].ExpireTime, tc.Equals, expireTime.UTC())
+	}
+	c.Check(revs[0].CreateTime, tc.Equals, sp.UpdateTime.UTC())
+
+	if c.Check(revs[1].ExpireTime, tc.NotNil) {
+		c.Check(*revs[1].ExpireTime, tc.Equals, expireTime.UTC())
+	}
+	c.Check(revs[1].CreateTime, tc.Equals, sp2.UpdateTime.UTC())
+
 }
 
 func (s *stateSuite) TestUpdateSecretContentObsolete(c *tc.C) {
@@ -2450,8 +2479,7 @@ func (s *stateSuite) TestUpdateSecretContentObsolete(c *tc.C) {
 	c.Assert(md.Description, tc.Equals, value(sp.Description))
 	c.Assert(md.LatestRevision, tc.Equals, 2)
 
-	now := time.Now()
-	c.Assert(md.UpdateTime, tc.Almost, now)
+	c.Assert(md.UpdateTime, tc.Equals, sp.UpdateTime.UTC())
 
 	c.Assert(revs, tc.HasLen, 1)
 	rev := revs[0]
@@ -2556,8 +2584,7 @@ func (s *stateSuite) TestUpdateSecretContentValueRef(c *tc.C) {
 	c.Assert(md.Description, tc.Equals, value(sp.Description))
 	c.Assert(md.LatestRevision, tc.Equals, 2)
 
-	now := time.Now()
-	c.Assert(md.UpdateTime, tc.Almost, now)
+	c.Assert(md.UpdateTime, tc.Equals, sp.UpdateTime.UTC())
 
 	c.Assert(revs, tc.HasLen, 1)
 	rev := revs[0]

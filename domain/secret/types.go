@@ -50,6 +50,9 @@ type UpsertSecretParams struct {
 	Label          *string
 	AutoPrune      *bool
 
+	CreateTime time.Time
+	UpdateTime time.Time
+
 	Data     secrets.SecretData
 	ValueRef *secrets.ValueRef
 	Checksum string
