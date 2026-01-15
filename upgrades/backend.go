@@ -24,6 +24,7 @@ type StateBackend interface {
 	SplitMigrationStatusMessages() error
 	PopulateApplicationStorageUniqueID() error
 	OpenControllerAPIPort() error
+	ConvertScalingToCurrentOperationEnumField() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -69,6 +70,12 @@ func (s stateBackend) PopulateApplicationStorageUniqueID() error {
 		newK8sClient,
 		jujukubernetes.NamespaceForModel),
 	)
+}
+
+// ConvertScalingToCurrentOperationEnumField runs an upgrade to convert
+// scaling field to an enum field.
+func (s stateBackend) ConvertScalingToCurrentOperationEnumField() error {
+	return state.ConvertScalingToCurrentOperationEnumField(s.pool)
 }
 
 // newK8sClient initializes a new k8s client for a given model.
