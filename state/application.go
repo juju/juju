@@ -135,9 +135,12 @@ type applicationDoc struct {
 // ApplicationProvisioningState is the CAAS application provisioning state for an
 // application.
 type ApplicationProvisioningState struct {
-	ScaleTarget      int `bson:"scale-target"`
-	ReplicaCount     int `bson:"replica-count"`
-	CurrentOperation *application.ProvisioningOperation
+	// Scaling -- TODO: remove and do an upgrade step to transform Scaling
+	// to CurrentOperation.
+	Scaling          bool                               `bson:"scaling"`
+	ScaleTarget      int                                `bson:"scale-target"`
+	ReplicaCount     int                                `bson:"replica-count"`
+	CurrentOperation *application.ProvisioningOperation `bson:"current-operation"`
 }
 
 func newApplication(st *State, doc *applicationDoc) *Application {
@@ -281,12 +284,9 @@ func (a *Application) SetProvisioningState(ps ApplicationProvisioningState) erro
 	if provisioningStateScaling {
 		switch life {
 		case Alive:
-			alreadyScaling := false
-			if a.doc.ProvisioningState != nil &&
+			alreadyScaling := a.doc.ProvisioningState != nil &&
 				a.doc.ProvisioningState.CurrentOperation != nil &&
-				*a.doc.ProvisioningState.CurrentOperation == application.ScaleOperation {
-				alreadyScaling = true
-			}
+				*a.doc.ProvisioningState.CurrentOperation == application.ScaleOperation
 			if !alreadyScaling && provisioningStateScaling {
 				// if starting a scale, ensure we are scaling to the same target.
 				assertions = append(assertions, bson.DocElem{
@@ -2257,7 +2257,7 @@ func (a *Application) ChangeScale(scaleChange int, attachStorage []names.Storage
 			// use different OrderedId check since the desired scale
 			// number hasn't been updated.
 			ps := a.ProvisioningState()
-			provisioningScaling := ps.CurrentOperation != nil &&
+			provisioningScaling := ps != nil && ps.CurrentOperation != nil &&
 				*ps.CurrentOperation == application.ScaleOperation
 			if ps != nil && provisioningScaling && a.doc.UnitCount != ps.ScaleTarget+1 {
 				return nil, errors.New("can not scale application because there's already a scaling operation in progress")
@@ -2923,7 +2923,7 @@ func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams) (*Unit, error) {
 
 		if unit == nil {
 			ps := a.ProvisioningState()
-			scaling := ps.CurrentOperation != nil &&
+			scaling := ps != nil && ps.CurrentOperation != nil &&
 				*ps.CurrentOperation == application.ScaleOperation
 			if args.OrderedId >= a.GetScale() ||
 				(ps != nil && scaling && args.OrderedId >= ps.ScaleTarget) {
@@ -3668,7 +3668,6 @@ func (a *Application) UpdateStorageConstraints(cons map[string]StorageConstraint
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		var ops []txn.Op
 		if attempt > 0 {
 			alive, err := isAlive(a.st, applicationsC, a.doc.DocID)
 			if err != nil {
@@ -3701,23 +3700,7 @@ func (a *Application) UpdateStorageConstraints(cons map[string]StorageConstraint
 		storageConstraintsOp := replaceStorageConstraintsOp(
 			storageConstraintsKey, currentCons,
 		)
-		ops = append(ops, storageConstraintsOp)
-		provisioningState := a.ProvisioningState()
-		if provisioningState == nil || provisioningState.CurrentOperation == nil {
-			ops = append(ops, txn.Op{
-				C:      applicationsC,
-				Id:     a.doc.DocID,
-				Assert: txn.DocExists,
-				Update: bson.D{{"$set", bson.D{
-					{
-						"provisioning-state.current-operation",
-						application.StorageUpdateOperation,
-					},
-				}}},
-			})
-		}
-
-		return ops, nil
+		return []txn.Op{storageConstraintsOp}, nil
 	}
 	if err := a.st.db().Run(buildTxn); err != nil {
 		return errors.Annotatef(err, "cannot update storage constraints")
@@ -4332,35 +4315,4 @@ func (st *State) WatchApplicationsWithPendingCharms() StringsWatcher {
 // GetStorageUniqueID returns the storage unique ID for CAAS deployments.
 func (a *Application) GetStorageUniqueID() string {
 	return a.doc.StorageUniqueID
-}
-
-// GetIsUpdatingApplicationStorage returns the updating app storage flag for CAAS
-// deployments.
-func (a *Application) GetIsUpdatingApplicationStorage() bool {
-	return a.doc.IsUpdatingApplicationStorage
-}
-
-// SetIsUpdatingApplicationStorage sets the flag to
-// indicate whether or not an update storage is taking place.
-func (a *Application) SetIsUpdatingApplicationStorage(isUpdating bool) error {
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := a.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-		ops := []txn.Op{{
-			C:      applicationsC,
-			Id:     a.doc.DocID,
-			Assert: txn.DocExists,
-			Update: bson.D{{"$set", bson.D{
-				{"is-updating-application-storage", isUpdating},
-			}}},
-		}}
-		return ops, nil
-	}
-	if err := a.st.db().Run(buildTxn); err != nil {
-		return err
-	}
-	return a.Refresh()
 }

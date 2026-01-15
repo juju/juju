@@ -68,7 +68,6 @@ type CAASProvisionerFacade interface {
 	ProvisioningState(string) (*params.CAASApplicationProvisioningState, error)
 	SetProvisioningState(string, params.CAASApplicationProvisioningState) error
 	ProvisionerConfig() (params.CAASApplicationProvisionerConfig, error)
-	SetIsUpdatingApplicationStorage(applicationName string, isUpdating bool) error
 }
 
 // CAASBroker exposes CAAS broker functionality to a worker.

@@ -421,32 +421,22 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	if err != nil {
 		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
-	scale := 0
-	isUpdatingStorage := app.GetIsUpdatingApplicationStorage()
-	// Only propagate the scale from provisioningInfo when it indicates an
-	// in-progress application storage update. This ensures we preserve the
-	// desired replica count if the StatefulSet is deleted as part of the
-	// storage update and later re-created.
-	if isUpdatingStorage {
-		scale = app.GetScale()
-	}
 
 	return &params.CAASApplicationProvisioningInfo{
-		Version:                      vers,
-		APIAddresses:                 addrs,
-		CACert:                       caCert,
-		Tags:                         resourceTags,
-		Filesystems:                  filesystemParams,
-		Devices:                      devices,
-		Constraints:                  mergedCons,
-		Base:                         params.Base{Name: base.OS, Channel: base.Channel},
-		ImageRepo:                    params.NewDockerImageInfo(imageRepoDetails, modelImagePath),
-		CharmModifiedVersion:         app.CharmModifiedVersion(),
-		CharmURL:                     *charmURL,
-		Trust:                        appConfig.GetBool(application.TrustConfigOptionName, false),
-		Scale:                        scale,
-		StorageUniqueID:              app.GetStorageUniqueID(),
-		IsUpdatingApplicationStorage: app.GetIsUpdatingApplicationStorage(),
+		Version:              vers,
+		APIAddresses:         addrs,
+		CACert:               caCert,
+		Tags:                 resourceTags,
+		Filesystems:          filesystemParams,
+		Devices:              devices,
+		Constraints:          mergedCons,
+		Base:                 params.Base{Name: base.OS, Channel: base.Channel},
+		ImageRepo:            params.NewDockerImageInfo(imageRepoDetails, modelImagePath),
+		CharmModifiedVersion: app.CharmModifiedVersion(),
+		CharmURL:             *charmURL,
+		Trust:                appConfig.GetBool(application.TrustConfigOptionName, false),
+		Scale:                app.GetScale(),
+		StorageUniqueID:      app.GetStorageUniqueID(),
 	}, nil
 }
 
@@ -1554,29 +1544,6 @@ func (a *API) ProvisionerConfig() (params.CAASApplicationProvisionerConfigResult
 			result.ProvisionerConfig.UnmanagedApplications.Entities,
 			params.Entity{Tag: names.NewApplicationTag(bootstrap.ControllerApplicationName).String()},
 		)
-	}
-	return result, nil
-}
-
-func (a *API) SetIsUpdatingApplicationStorage(
-	args params.CAASSetIsUpdatingApplicationStorageArg,
-) (params.ErrorResult, error) {
-	result := params.ErrorResult{}
-	appTag, err := names.ParseApplicationTag(args.Application.Tag)
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-
-	app, err := a.state.Application(appTag.Id())
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-	err = app.SetIsUpdatingApplicationStorage(args.IsUpdating)
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result, nil
 	}
 	return result, nil
 }
