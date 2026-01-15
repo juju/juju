@@ -4,6 +4,8 @@
 package secrets
 
 import (
+	"crypto/rand"
+	"encoding/base32"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -97,10 +99,17 @@ func ParseURI(str string) (*URI, error) {
 	return result, nil
 }
 
+var xidEncoding = base32.NewEncoding(
+	"0123456789abcdefghijklmnopqrstuv",
+).WithPadding(base32.NoPadding)
+
 // NewURI returns a new secret URI.
 func NewURI() *URI {
+	var r [12]byte
+	_, _ = rand.Read(r[:])
+	id := xidEncoding.EncodeToString(r[:])
 	return &URI{
-		ID: xid.New().String(),
+		ID: id,
 	}
 }
 
