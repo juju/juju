@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/storage"
 )
@@ -59,8 +60,16 @@ type Application interface {
 		string,
 	) error
 
-	// ReconcileStorage reconciles the storage with the given filesystems.
-	ReconcileStorage([]storage.KubernetesFilesystemParams, string) error
+	// EnsureStorage ensures that the storage updates are reflected for the app.
+	EnsureStorage(config ApplicationConfig,
+		lastApplied *ApplicationConfig,
+		saveReplicaCount func(
+			appName string,
+			replicaCount int,
+		) error,
+		setOperatorStatus func(appName string, status status.Status,
+			message string, data map[string]interface{}) error,
+	) error
 
 	ServiceInterface
 }
@@ -158,8 +167,6 @@ type ApplicationConfig struct {
 
 	// StorageUniqueID is used to construct the PVC name for an application.
 	StorageUniqueID string
-
-	ShouldReconcileStorage bool
 }
 
 // ContainerConfig describes a container that is deployed alonside the uniter/charm container.

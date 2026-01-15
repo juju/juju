@@ -61,7 +61,8 @@ type ApplicationOps interface {
 	EnsureScale(appName string, app caas.Application, appLife life.Value,
 		facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) error
 
-	ReconcileApplicationStorage(appName string, app caas.Application, facade CAASProvisionerFacade, logger Logger) error
+	EnsureStorage(appName string, app caas.Application, lastApplied *caas.ApplicationConfig,
+		password string, facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error
 }
 
 type applicationOps struct {
@@ -122,8 +123,10 @@ func (applicationOps) EnsureScale(appName string, app caas.Application, appLife 
 	return ensureScale(appName, app, appLife, facade, unitFacade, logger)
 }
 
-func (applicationOps) ReconcileApplicationStorage(appName string, app caas.Application, facade CAASProvisionerFacade, logger Logger) error {
-	return reconcileApplicationStorage(appName, app, facade, logger)
+func (applicationOps) EnsureStorage(appName string, app caas.Application,
+	lastApplied *caas.ApplicationConfig, password string,
+	facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
+	return ensureStorage(appName, app, lastApplied, password, facade, clk, logger)
 }
 
 type Tomb interface {
@@ -131,51 +134,47 @@ type Tomb interface {
 	ErrDying() error
 }
 
-// appAlive handles the life.Alive state for the CAAS application. It handles invoking the
-// CAAS broker to create the resources in the k8s cluster for this application.
-func appAlive(appName string, app caas.Application, password string, lastApplied *caas.ApplicationConfig,
-	facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
-	logger.Debugf("[adis] ensuring application %q exists", appName)
-
-	provisioningState, err := facade.ProvisioningState(appName)
-	if err != nil {
-		return errors.Annotate(err, "retrieving provisioning state")
-	}
-	if provisioningState == nil {
-		provisioningState = &params.CAASApplicationProvisioningState{}
-	}
-	if provisioningState.CurrentOperation != nil &&
-		*provisioningState.CurrentOperation != application.ScaleOperation {
-		return nil
-	}
+func appConfig(appName string, app caas.Application, password string,
+	facade CAASProvisionerFacade, clk clock.Clock) (
+	caas.ApplicationConfig, caas.DeploymentState, error,
+) {
+	emptyCfg := caas.ApplicationConfig{}
+	emptyState := caas.DeploymentState{}
 
 	provisionInfo, err := facade.ProvisioningInfo(appName)
 	if err != nil {
-		return errors.Annotate(err, "retrieving provisioning info")
+		return emptyCfg, emptyState,
+			errors.Annotate(err, "retrieving provisioning info")
 	}
+
 	if provisionInfo.CharmURL == nil {
-		return errors.Errorf("missing charm url in provision info")
+		return emptyCfg, emptyState,
+			errors.Errorf("missing charm url in provision info")
 	}
 
 	charmInfo, err := facade.CharmInfo(provisionInfo.CharmURL.String())
 	if err != nil {
-		return errors.Annotatef(err, "retrieving charm deployment info for %q", appName)
+		return emptyCfg, emptyState, errors.Annotatef(err, "retrieving "+
+			"charm deployment info for %q", appName)
 	}
 
 	appState, err := app.Exists()
 	if err != nil {
-		return errors.Annotatef(err, "retrieving application state for %q", appName)
+		return emptyCfg, emptyState, errors.Annotatef(err, "retrieving "+
+			"application state for %q", appName)
 	}
 
 	if appState.Exists && appState.Terminating {
 		if err := waitForTerminated(appName, app, clk); err != nil {
-			return errors.Annotatef(err, "%q was terminating and there was an error waiting for it to stop", appName)
+			return emptyCfg, emptyState, errors.Annotatef(err, "%q was "+
+				"terminating and there was an error waiting for it to stop", appName)
 		}
 	}
 
 	images, err := facade.ApplicationOCIResources(appName)
 	if err != nil {
-		return errors.Annotate(err, "getting OCI image resources")
+		return emptyCfg, emptyState, errors.Annotate(err, "getting OCI "+
+			"image resources")
 	}
 
 	ch := charmInfo.Charm()
@@ -187,7 +186,8 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		},
 	})
 	if err != nil {
-		return errors.Annotate(err, "getting image for base")
+		return emptyCfg, emptyState, errors.Annotate(err, "getting image "+
+			"for base")
 	}
 
 	containers := make(map[string]caas.ContainerConfig)
@@ -198,11 +198,13 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 			Gid:  v.Gid,
 		}
 		if v.Resource == "" {
-			return errors.NotValidf("empty container resource reference")
+			return emptyCfg, emptyState, errors.NotValidf("empty container " +
+				"resource reference")
 		}
 		image, ok := images[v.Resource]
 		if !ok {
-			return errors.NotFoundf("referenced charm base image resource %s", v.Resource)
+			return emptyCfg, emptyState, errors.NotFoundf("referenced charm "+
+				"base image resource %s", v.Resource)
 		}
 		container.Image = image
 		for _, m := range v.Mounts {
@@ -216,23 +218,22 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 
 	// TODO(sidecar): container.Mounts[*].Path <= consolidate? => provisionInfo.Filesystems[*].Attachment.Path
 	config := caas.ApplicationConfig{
-		IsPrivateImageRepo:     provisionInfo.ImageDetails.IsPrivate(),
-		IntroductionSecret:     password,
-		AgentVersion:           provisionInfo.Version,
-		AgentImagePath:         provisionInfo.ImageDetails.RegistryPath,
-		ControllerAddresses:    strings.Join(provisionInfo.APIAddresses, ","),
-		ControllerCertBundle:   provisionInfo.CACert,
-		ResourceTags:           provisionInfo.Tags,
-		Constraints:            provisionInfo.Constraints,
-		Filesystems:            provisionInfo.Filesystems,
-		Devices:                provisionInfo.Devices,
-		CharmBaseImagePath:     charmBaseImage,
-		Containers:             containers,
-		CharmModifiedVersion:   provisionInfo.CharmModifiedVersion,
-		Trust:                  provisionInfo.Trust,
-		InitialScale:           provisionInfo.Scale,
-		StorageUniqueID:        provisionInfo.StorageUniqueID,
-		ShouldReconcileStorage: provisionInfo.IsUpdatingApplicationStorage,
+		IsPrivateImageRepo:   provisionInfo.ImageDetails.IsPrivate(),
+		IntroductionSecret:   password,
+		AgentVersion:         provisionInfo.Version,
+		AgentImagePath:       provisionInfo.ImageDetails.RegistryPath,
+		ControllerAddresses:  strings.Join(provisionInfo.APIAddresses, ","),
+		ControllerCertBundle: provisionInfo.CACert,
+		ResourceTags:         provisionInfo.Tags,
+		Constraints:          provisionInfo.Constraints,
+		Filesystems:          provisionInfo.Filesystems,
+		Devices:              provisionInfo.Devices,
+		CharmBaseImagePath:   charmBaseImage,
+		Containers:           containers,
+		CharmModifiedVersion: provisionInfo.CharmModifiedVersion,
+		Trust:                provisionInfo.Trust,
+		InitialScale:         0,
+		StorageUniqueID:      provisionInfo.StorageUniqueID,
 	}
 	switch ch.Meta().CharmUser {
 	case charm.RunAsDefault:
@@ -244,7 +245,21 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 	case charm.RunAsNonRoot:
 		config.CharmUser = caas.RunAsNonRoot
 	default:
-		return errors.NotValidf("unknown RunAs for CharmUser: %q", ch.Meta().CharmUser)
+		return emptyCfg, emptyState, errors.NotValidf("unknown RunAs for "+
+			"CharmUser: %q", ch.Meta().CharmUser)
+	}
+	return config, appState, nil
+}
+
+// appAlive handles the life.Alive state for the CAAS application. It handles invoking the
+// CAAS broker to create the resources in the k8s cluster for this application.
+func appAlive(appName string, app caas.Application, password string, lastApplied *caas.ApplicationConfig,
+	facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
+	logger.Infof("[adis] ensuring application %q exists", appName)
+
+	config, appState, err := appConfig(appName, app, password, facade, clk)
+	if err != nil {
+		return errors.Annotatef(err, "building app %q config", appName)
 	}
 	reason := "unchanged"
 	// TODO(sidecar): implement Equals method for caas.ApplicationConfig
@@ -259,18 +274,6 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		if appState.Exists {
 			reason = "updated"
 		}
-		err = facade.SetIsUpdatingApplicationStorage(appName, false)
-		if err != nil {
-			return errors.Annotatef(err,
-				"setting application %q isUpdatingStorage to false", appName)
-		}
-	}
-	err = facade.SetProvisioningState(appName, params.CAASApplicationProvisioningState{
-		ScaleTarget:      provisioningState.ScaleTarget,
-		CurrentOperation: nil,
-	})
-	if err != nil {
-		return errors.Annotatef(err, "setting application %q provisioning state", appName)
 	}
 	logger.Debugf("application %q was %q", appName, reason)
 	return nil
@@ -737,9 +740,11 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 	if ps == nil {
 		ps = &params.CAASApplicationProvisioningState{}
 	}
-	if ps.CurrentOperation != nil &&
-		*ps.CurrentOperation != application.ScaleOperation {
-		return nil
+	anotherOpRunning := ps.CurrentOperation != nil &&
+		*ps.CurrentOperation != application.ScaleOperation
+	if anotherOpRunning {
+		logger.Infof("[adis][ensureScale] op is %q so trying again...", *ps.CurrentOperation)
+		return tryAgain
 	}
 
 	logger.Infof("[adis] updating application %q (life %q) scale to %d with provisioning state %+v", appName, appLife, desiredScale, *ps)
@@ -766,18 +771,6 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 
 		if appLife != life.Alive && errors.Is(err, errors.NotFound) {
 			logger.Infof("dying application %q is already removed", appName)
-			// TODO(adis): I don't think we need this anymore now that we have a way
-			// to run scale and update storage at one after the other.
-			//else if errors.Is(err, errors.NotFound) {
-			//	// Reset the provisioning state so that it doesn't become stuck
-			//	// with the old scaling and scaleTarget values when the next
-			//	// attempt occurs.
-			//	updateErr := updateProvisioningState(appName, false, 0, facade)
-			//	if updateErr != nil {
-			//		return updateErr
-			//	}
-			//	logger.Infof("[adis][ops][ensureScale] resetting provisioning state because it was not found err %s", err.Error())
-			//	return err }
 		} else if err != nil {
 			logger.Infof("[adis][ops][ensureScale] ensureScaleWithFsAttachments err %s", err.Error())
 			return err
@@ -810,39 +803,69 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 	return nil
 }
 
-// reconcileApplicationStorage recreates a statefulset with the new filesystems.
-func reconcileApplicationStorage(appName string, app caas.Application, facade CAASProvisionerFacade, logger Logger) error {
+// ensureStorage recreates a statefulset with the new filesystems.
+func ensureStorage(appName string, app caas.Application,
+	lastApplied *caas.ApplicationConfig, password string,
+	facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
 	logger.Infof("[adis] reconciling application %q storage", appName)
 
-	// Get filesystem provisioning info.
-	info, err := facade.FilesystemProvisioningInfo(appName)
+	provisioningState, err := facade.ProvisioningState(appName)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "retrieving provisioning state")
+	}
+	if provisioningState == nil {
+		provisioningState = &params.CAASApplicationProvisioningState{}
 	}
 
-	err = facade.SetIsUpdatingApplicationStorage(appName, true)
+	config, _, err := appConfig(appName, app, password, facade,
+		clk)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "creating app config %q", appName)
 	}
 
-	if wrench.IsActive("application-storage", "skip-reconcile") {
-		logger.Infof("[adis] feature skip-reconcile is enabled...")
-		return nil
+	op := provisioningState.CurrentOperation
+	if op != nil && *op != application.StorageUpdateOperation {
+		logger.Infof("[adis][ensureStorage] op is %q so trying again...", *op)
+		return tryAgain
 	}
 
-	if wrench.IsActive("application-storage", "reconcile-fail") {
+	updateOp := application.StorageUpdateOperation
+	err = facade.SetProvisioningState(appName, params.CAASApplicationProvisioningState{
+		ScaleTarget:      provisioningState.ScaleTarget,
+		ReplicaCount:     provisioningState.ReplicaCount,
+		CurrentOperation: &updateOp,
+	})
+	if err != nil {
+		return errors.Annotatef(err, "setting current operation to %q", updateOp)
+	}
+
+	if wrench.IsActive("application-storage", "storage-update-fail") {
 		logger.Infof("[adis] feature reconcile-fail is enabled...")
 		return errors.New("[adis] reconcile-fail")
 	}
 
-	err = app.ReconcileStorage(info.Filesystems, info.StorageUniqueID)
+	saveReplicaCount := func(appName string, replicaCount int) error {
+		params := params.CAASApplicationProvisioningState{
+			ScaleTarget:      provisioningState.ScaleTarget,
+			ReplicaCount:     replicaCount,
+			CurrentOperation: provisioningState.CurrentOperation,
+		}
+		return facade.SetProvisioningState(appName, params)
+	}
+
+	config.InitialScale = provisioningState.ReplicaCount
+	err = app.EnsureStorage(config, lastApplied, saveReplicaCount, facade.SetOperatorStatus)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	err = facade.SetIsUpdatingApplicationStorage(appName, false)
+	err = facade.SetProvisioningState(appName, params.CAASApplicationProvisioningState{
+		ScaleTarget:      provisioningState.ScaleTarget,
+		ReplicaCount:     0,
+		CurrentOperation: nil,
+	})
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "setting current operation to empty")
 	}
 	return nil
 }
