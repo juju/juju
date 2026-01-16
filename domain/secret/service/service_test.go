@@ -1184,8 +1184,9 @@ func (s *serviceSuite) TestListSecretsByURIWithoutBackendName(c *tc.C) {
 	// If revision is not nil but valueRef is nil, backend name should be internal.
 	defaultBackendName := juju.BackendName
 	c.Assert(gotRevs[0][1].BackendName, tc.DeepEquals, &defaultBackendName)
-	// If valueRef is not nil but backendID does not map to any backend, backend name should be nil.
-	c.Assert(gotRevs[0][2].BackendName, tc.IsNil)
+	// If valueRef is not nil but backendID does not map to any backend, backend name should be unknown.
+	unknownBackendName := juju.UnknownBackendName
+	c.Assert(gotRevs[0][2].BackendName, tc.DeepEquals, &unknownBackendName)
 }
 
 func (s *serviceSuite) TestListSecretsByURIWithRevision(c *tc.C) {
@@ -1300,8 +1301,9 @@ func (s *serviceSuite) TestListSecretsByLabelsWithoutBackendName(c *tc.C) {
 	// If revision is not nil but valueRef is nil, backend name should be internal.
 	defaultBackendName := juju.BackendName
 	c.Assert(gotRevs[1][0].BackendName, tc.DeepEquals, &defaultBackendName)
-	// If valueRef is not nil but backendID does not map to any backend, backend name should be nil.
-	c.Assert(gotRevs[2][0].BackendName, tc.IsNil)
+	// If valueRef is not nil but backendID does not map to any backend, backend name should be unknown.
+	unknownBackendName := juju.UnknownBackendName
+	c.Assert(gotRevs[2][0].BackendName, tc.DeepEquals, &unknownBackendName)
 }
 
 func (s *serviceSuite) TestListSecretsByLabelsError(c *tc.C) {

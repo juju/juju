@@ -19,7 +19,6 @@ import (
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/internal/secrets"
-	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/rpc/params"
 )
@@ -160,17 +159,17 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 			})
 		}
 		for _, r := range revisionMetadata[i] {
+			// We want to maintain the behavior that if the backend is kubernetes,
+			// we return the built-in name, even though the backend name is now populated.
+			// Backend name should always be non-nil here.
 			backendName := r.BackendName
 			if backendName == nil {
-				name := juju.UnknownBackendName
+				return params.ListSecretResults{}, errors.New("retrieving secret revision backend name for secret " + m.Label)
+			}
+			if *r.BackendName == kubernetes.BackendName {
+				name := kubernetes.BuiltInName(s.modelName)
 				backendName = &name
-			} else {
-				// We want to maintain the behavior that if the backend is kubernetes,
-				// we return the built-in name, even though the backend name is now populated.
-				if *backendName == kubernetes.BackendName {
-					name := kubernetes.BuiltInName(s.modelName)
-					backendName = &name
-				}
+
 			}
 			secretResult.Revisions = append(secretResult.Revisions, params.SecretRevision{
 				Revision:    r.Revision,

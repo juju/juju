@@ -667,6 +667,7 @@ func (s *SecretService) ListSecrets(ctx context.Context, uri *secrets.URI,
 // backend name based on the mapping of backend UUIDs to names, or sets a default
 // if no mapping exists.
 // Revisions are mutated in-place.
+// Backend name will be populated for all revisions.
 func (s *SecretService) populateRevisionBackendNames(
 	revisionsList [][]*secrets.SecretRevisionMetadata,
 	secretBackendUUIDstoNames map[string]string,
@@ -685,11 +686,14 @@ func (s *SecretService) populateRevisionBackendNames(
 				continue
 			}
 			secretBackendName, exists := secretBackendUUIDstoNames[revision.ValueRef.BackendID]
-			// BackendUUID may not exist, eg. if backend is deleted.
-			// In that case, we leave BackendName as nil which would be set to unknown later.
 			if exists {
 				revision.BackendName = &secretBackendName
+				continue
 			}
+			// BackendUUID may not exist, eg. if backend is deleted.
+			// In that case, we set BackendName as unknown.
+			unknown := juju.UnknownBackendName
+			revision.BackendName = &unknown
 		}
 	}
 }
