@@ -153,14 +153,19 @@ func (s *SecretService) ListGrantedSecretsForBackend(
 }
 
 // expandRolesToMatch returns a slice of roles that satisfy the requested role.
-// RoleManage implies RoleView, so requesting view access returns both view and manage.
+// The role hierarchy is: RoleManage > RoleRotate > RoleView.
+// Since RoleRotate is not stored in the database, only RoleManage can satisfy
+// rotate access queries. RoleManage implies both RoleRotate and RoleView.
 func expandRolesToMatch(role secrets.SecretRole) []domainsecret.Role {
 	switch role {
-	case secrets.RoleView:
-		// Manage implies view, so include both.
+	case secrets.RoleView, secrets.RoleRotate:
+		// Manage implies view and rotate (which isn't modelled in the domain),
+		// so include both view and manage.
 		return []domainsecret.Role{domainsecret.RoleView, domainsecret.RoleManage}
 	case secrets.RoleManage:
 		return []domainsecret.Role{domainsecret.RoleManage}
+	case secrets.RoleNone:
+		return nil
 	default:
 		return nil
 	}
