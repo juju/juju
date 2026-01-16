@@ -154,11 +154,22 @@ build_push_operator_image() {
     fi
 }
 
+seed_repository_jujudb() {
+  local JUJU_DB_VERSION
+  JUJU_DB_VERSION=$1
+
+  "$DOCKER_BIN" pull "ghcr.io/juju/juju-db:${JUJU_DB_VERSION}"
+  "$DOCKER_BIN" tag "ghcr.io/juju/juju-db:${JUJU_DB_VERSION}" "${OCI_REGISTRY_USERNAME}/juju-db:${JUJU_DB_VERSION}"
+  "$DOCKER_BIN" push "${OCI_REGISTRY_USERNAME}/juju-db:${JUJU_DB_VERSION}"
+}
+
 seed_repository() {
   set -x
-  "$DOCKER_BIN" pull "ghcr.io/juju/juju-db:${JUJU_DB_VERSION}"
-	"$DOCKER_BIN" tag "ghcr.io/juju/juju-db:${JUJU_DB_VERSION}" "${OCI_REGISTRY_USERNAME}/juju-db:${JUJU_DB_VERSION}"
-	"$DOCKER_BIN" push "${OCI_REGISTRY_USERNAME}/juju-db:${JUJU_DB_VERSION}"
+  # seed the juju-db image, maybe including the legacy 4.4 version.
+  seed_repository_jujudb "${JUJU_DB_VERSION}"
+  if [[ -n "${LEGACY_JUJU_DB_VERSION:-}" ]]; then
+    seed_repository_jujudb "${LEGACY_JUJU_DB_VERSION}"
+  fi
 
   # copy all the lts that are available
   for (( i = 18; ; i += 2 )); do

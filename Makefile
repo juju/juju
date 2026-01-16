@@ -574,7 +574,8 @@ push-release-operator-image: operator-image
 .PHONY: seed-repository
 seed-repository:
 ## seed-repository: Copy required juju images from oci repository
-	JUJU_DB_VERSION=$(JUJU_DB_VERSION) $(SEED_REPOSITORY)
+	LEGACY_JUJU_DB_VERSION=$(shell echo ${LEGACY_JUJU_DB_VERSION:-})
+	JUJU_DB_VERSION=$(JUJU_DB_VERSION) LEGACY_JUJU_DB_VERSION=$(LEGACY_JUJU_DB_VERSION) $(SEED_REPOSITORY)
 
 
 .PHONY: host-install
