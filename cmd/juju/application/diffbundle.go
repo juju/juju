@@ -307,7 +307,11 @@ func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APIC
 		Arch: &c.arch,
 	}, base, modelConstraints)
 	// We return early with local bundles, so here we know the bundle must be from charmhub
-	origin, err := utils.MakeOrigin(charm.CharmHub, bURL.Revision, c.channel, platform)
+	origin, err := utils.MakeOrigin(utils.CharmHub, bURL.Revision, utils.Channel{
+		Track:  c.channel.Track,
+		Risk:   c.channel.Risk.String(),
+		Branch: c.channel.Branch,
+	}, platform)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -10,22 +10,21 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/internal/charm"
 )
 
 // MakeOrigin creates an origin from a schema, revision, channel and a platform.
 // Depending on what the schema is, will then construct the correct
 // origin for that application.
-func MakeOrigin(schema charm.Schema, revision int, channel charm.Channel, platform corecharm.Platform) (commoncharm.Origin, error) {
+func MakeOrigin(schema Schema, revision int, channel Channel, platform corecharm.Platform) (commoncharm.Origin, error) {
 
 	var origin commoncharm.Origin
 	switch schema {
-	case charm.Local:
+	case Local:
 		origin = commoncharm.Origin{
 			Source:       commoncharm.OriginLocal,
 			Architecture: platform.Architecture,
 		}
-	case charm.CharmHub:
+	case CharmHub:
 		var track *string
 		if channel.Track != "" {
 			track = &channel.Track
@@ -36,7 +35,7 @@ func MakeOrigin(schema charm.Schema, revision int, channel charm.Channel, platfo
 		}
 		origin = commoncharm.Origin{
 			Source:       commoncharm.OriginCharmHub,
-			Risk:         string(channel.Risk),
+			Risk:         channel.Risk,
 			Track:        track,
 			Branch:       branch,
 			Architecture: platform.Architecture,

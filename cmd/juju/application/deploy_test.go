@@ -1668,7 +1668,7 @@ func withCharmDeployableWithDevicesAndStorage(
 ) {
 	deployURL := *url
 	platform := apputils.MakePlatform(constraints.Value{}, base, constraints.Value{})
-	origin, _ := apputils.MakeOrigin(charm.Schema(url.Schema), url.Revision, charm.Channel{}, platform)
+	origin, _ := apputils.MakeOrigin(apputils.Schema(url.Schema), url.Revision, apputils.Channel{}, platform)
 	fakeAPI.Call("AddCharm", &deployURL, origin, force).Returns(origin, error(nil))
 	fakeAPI.Call("CharmInfo", deployURL.String()).Returns(
 		&apicommoncharms.CharmInfo{

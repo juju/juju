@@ -108,7 +108,7 @@ func (s *BundleDeploySuite) setupCharmMaybeForce(c *tc.C, url, name string, abas
 					OS:           b.OS,
 					Channel:      b.Channel.Track,
 				}
-				origin, err := apputils.MakeOrigin(charm.Schema(url.Schema), url.Revision, charm.Channel{}, platform)
+				origin, err := apputils.MakeOrigin(apputils.Schema(url.Schema), url.Revision, apputils.Channel{}, platform)
 				c.Assert(err, tc.ErrorIsNil)
 
 				s.fakeAPI.Call("ResolveCharm", url, origin, false).Returns(
@@ -152,7 +152,7 @@ func (s *BundleDeploySuite) setupFakeBundle(c *tc.C, url string, allBase ...base
 	// Resolve a bundle with no revision and return a url with a version.  Ensure
 	// GetBundle expects the url with revision.
 	for _, b := range allBase {
-		origin, err := apputils.MakeOrigin(charm.Schema(bundleResolveURL.Schema), bundleResolveURL.Revision, charm.Channel{}, corecharm.Platform{
+		origin, err := apputils.MakeOrigin(apputils.Schema(bundleResolveURL.Schema), bundleResolveURL.Revision, apputils.Channel{}, corecharm.Platform{
 			OS: b.OS, Channel: b.Channel.Track})
 		c.Assert(err, tc.ErrorIsNil)
 		origin.Revision = nil
