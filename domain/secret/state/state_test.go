@@ -3501,7 +3501,7 @@ func (s *stateSuite) TestListGrantedSecrets(c *tc.C) {
 		SubjectTypeID: domainsecret.SubjectApplication,
 		SubjectID:     "mysql",
 	}}
-	result, err := s.state.ListGrantedSecretsForBackend(ctx, "backend-id", accessors, coresecrets.RoleView)
+	result, err := s.state.ListGrantedSecretsForBackend(ctx, "backend-id", accessors, []domainsecret.Role{domainsecret.RoleView})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.SameContents, []*coresecrets.SecretRevisionRef{{
 		URI:        uri2,
@@ -3512,13 +3512,11 @@ func (s *stateSuite) TestListGrantedSecrets(c *tc.C) {
 	}})
 }
 
-// TestListGrantedSecretsForBackendManageImpliesView verifies that secrets
-// granted with RoleManage are returned when querying for RoleView access. This
-// is important because:
-// - Application-owned secrets are granted RoleManage to the owner application
-// - Non-leader units query for RoleView to get readable secrets
-// - RoleManage should satisfy RoleView requirements (manage implies view)
-func (s *stateSuite) TestListGrantedSecretsForBackendManageImpliesView(c *tc.C) {
+// TestListGrantedSecretsForBackendWithMultipleRoles verifies that when
+// multiple roles are passed, secrets with any of those roles are returned.
+// The "manage implies view" business logic is in the service layer which
+// expands the requested role to include all satisfying roles.
+func (s *stateSuite) TestListGrantedSecretsForBackendWithMultipleRoles(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
 	ctx := c.Context()
@@ -3537,22 +3535,28 @@ func (s *stateSuite) TestListGrantedSecretsForBackendManageImpliesView(c *tc.C) 
 	err := s.createCharmApplicationSecret(c, 1, uri, "mysql", sp)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Query for secrets where the application has RoleView access.
-	// Since the application has RoleManage (which implies RoleView),
-	// the secret should be returned.
 	accessors := []domainsecret.AccessParams{{
 		SubjectTypeID: domainsecret.SubjectApplication,
 		SubjectID:     "mysql",
 	}}
-	result, err := s.state.ListGrantedSecretsForBackend(ctx, "backend-id", accessors, coresecrets.RoleView)
+
+	// Query with only RoleView - should NOT return the secret since the app
+	// has RoleManage, not RoleView.
+	result, err := s.state.ListGrantedSecretsForBackend(ctx, "backend-id", accessors, []domainsecret.Role{domainsecret.RoleView})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.HasLen, 0)
+
+	// Query with only RoleManage - should return the secret.
+	result, err = s.state.ListGrantedSecretsForBackend(ctx, "backend-id", accessors, []domainsecret.Role{domainsecret.RoleManage})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, []*coresecrets.SecretRevisionRef{{
 		URI:        uri,
 		RevisionID: "revision-id",
 	}})
 
-	// Also verify that querying for RoleManage returns the secret.
-	result, err = s.state.ListGrantedSecretsForBackend(ctx, "backend-id", accessors, coresecrets.RoleManage)
+	// Query with both RoleView and RoleManage (as the service layer would
+	// expand for a view request) - should return the secret.
+	result, err = s.state.ListGrantedSecretsForBackend(ctx, "backend-id", accessors, []domainsecret.Role{domainsecret.RoleView, domainsecret.RoleManage})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, []*coresecrets.SecretRevisionRef{{
 		URI:        uri,
@@ -3565,7 +3569,7 @@ func (s *stateSuite) TestListGrantedSecretsForBackendManageImpliesView(c *tc.C) 
 		SubjectTypeID: domainsecret.SubjectApplication,
 		SubjectID:     "mediawiki",
 	}}
-	result, err = s.state.ListGrantedSecretsForBackend(ctx, "backend-id", accessors2, coresecrets.RoleView)
+	result, err = s.state.ListGrantedSecretsForBackend(ctx, "backend-id", accessors2, []domainsecret.Role{domainsecret.RoleView, domainsecret.RoleManage})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.HasLen, 0)
 }

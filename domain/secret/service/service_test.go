@@ -161,7 +161,7 @@ func (s *serviceSuite) assertCreateUserSecret(c *tc.C, isInternal, finalStepFail
 			SubjectID:     s.modelID.String(),
 			SubjectTypeID: domainsecret.SubjectModel,
 		},
-	}, coresecrets.RoleManage).Return(
+	}, []domainsecret.Role{domainsecret.RoleManage}).Return(
 		[]*coresecrets.SecretRevisionRef{
 			{
 				URI:        existingOwnedURI,
@@ -296,7 +296,7 @@ func (s *serviceSuite) assertUpdateUserSecret(c *tc.C, isInternal, finalStepFail
 			SubjectID:     s.modelID.String(),
 			SubjectTypeID: domainsecret.SubjectModel,
 		},
-	}, coresecrets.RoleManage).Return(
+	}, []domainsecret.Role{domainsecret.RoleManage}).Return(
 		[]*coresecrets.SecretRevisionRef{
 			{
 				URI:        existingOwnedURI,
