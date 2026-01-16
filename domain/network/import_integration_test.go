@@ -203,12 +203,14 @@ func (s *importSuite) TestImportLinkLayerDevices(c *tc.C) {
 
 // TestImportCloudServices tests the import of cloud services for CAAS models
 // during model migration.
-// TODO(network): This test is currently skipped because the implementation
-// creates link layer devices with UnknownDevice type (empty string), which is
-// not handled by the import state layer. This needs to be fixed in the
-// implementation before this test can pass.
+// TODO(network): This test is currently skipped because the implementation in
+// domain/network/service/migration.go creates link layer devices with
+// UnknownDevice type (empty string) in getPlaceholderLinkLayerDevices, which
+// is not handled by the import state layer in domain/network/state/linklayer_import.go.
+// The state layer needs to be updated to handle UnknownDevice type or the
+// migration service should use a valid device type for placeholder devices.
 func (s *importSuite) TestImportCloudServices(c *tc.C) {
-	c.Skip("Cloud service import creates devices with UnknownDevice type which is not handled by state layer")
+	c.Skip("Skipping due to bug: placeholder devices use UnknownDevice type not handled by state layer (see TODO above)")
 	// First, set up prerequisite data: space, subnet, and application.
 	svc := s.setupService(c)
 
