@@ -150,7 +150,11 @@ func (d *factory) GetDeployer(ctx context.Context, cfg DeployerConfig, deployAPI
 
 		// Make the origin
 		platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
-		origin, err := utils.MakeOrigin(charm.CharmHub, revision, d.channel, platform)
+		origin, err := utils.MakeOrigin(utils.CharmHub, revision, utils.Channel{
+			Track:  d.channel.Track,
+			Risk:   d.channel.Risk.String(),
+			Branch: d.channel.Branch,
+		}, platform)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

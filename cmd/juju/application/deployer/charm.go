@@ -246,7 +246,7 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 
 	ctx.Infof("%s", formatLocatedText(d.userCharmURL, commoncharm.Origin{}))
 	platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
-	origin, err := utils.MakeOrigin(charm.Local, userCharmURL.Revision, charm.Channel{}, platform)
+	origin, err := utils.MakeOrigin(utils.Local, userCharmURL.Revision, utils.Channel{}, platform)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -288,7 +288,7 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 
 	platform := utils.MakePlatform(l.constraints, l.base, l.modelConstraints)
 	// Local charms don't need a channel.
-	origin, err := utils.MakeOrigin(charm.Local, curl.Revision, charm.Channel{}, platform)
+	origin, err := utils.MakeOrigin(utils.Local, curl.Revision, utils.Channel{}, platform)
 	if err != nil {
 		return errors.Trace(err)
 	}

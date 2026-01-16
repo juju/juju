@@ -26,6 +26,7 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
+	apputils "github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
@@ -2563,7 +2564,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOrigin(c *tc.C) {
 		Arch: &arch,
 	}
 
-	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(charm.CharmHub, -1, base, channel, cons)
+	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(apputils.CharmHub, -1, base, channel, cons)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resultChannel, tc.DeepEquals, corecharm.MustParseChannel("stable"))
 	c.Assert(resultOrigin, tc.DeepEquals, commoncharm.Origin{
@@ -2584,7 +2585,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginEmptyChannel(c *
 		Arch: &arch,
 	}
 
-	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(charm.CharmHub, -1, base, channel, cons)
+	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(apputils.CharmHub, -1, base, channel, cons)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(resultChannel, tc.DeepEquals, charm.Channel{})
 	c.Assert(resultOrigin, tc.DeepEquals, commoncharm.Origin{

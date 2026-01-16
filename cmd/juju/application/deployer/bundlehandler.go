@@ -349,7 +349,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints(ctx context.Context) error {
 		}
 
 		// We return early with local charms, so here we know the charm must be from charmhub.
-		channel, origin, err := h.constructChannelAndOrigin(charm.CharmHub, ch.Revision, base, spec.Channel, cons)
+		channel, origin, err := h.constructChannelAndOrigin(utils.CharmHub, ch.Revision, base, spec.Channel, cons)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -418,7 +418,7 @@ func (h *bundleHandler) resolveCharmChannelAndRevision(ctx context.Context, char
 	}
 
 	// We return early with local charms, so here we know the charm must be from charmhub.
-	_, origin, err := h.constructChannelAndOrigin(charm.CharmHub, ch.Revision, charmBase, charmChannel, cons)
+	_, origin, err := h.constructChannelAndOrigin(utils.CharmHub, ch.Revision, charmBase, charmChannel, cons)
 
 	if err != nil {
 		return "", -1, errors.Trace(err)
@@ -438,7 +438,7 @@ func (h *bundleHandler) resolveCharmChannelAndRevision(ctx context.Context, char
 // constructChannelAndOrigin attempts to construct a fully qualified channel
 // along with an origin that matches the hardware constraints and the charm url
 // source.
-func (h *bundleHandler) constructChannelAndOrigin(schema charm.Schema, revision int, charmBase corebase.Base, charmChannel string, cons constraints.Value) (charm.Channel, commoncharm.Origin, error) {
+func (h *bundleHandler) constructChannelAndOrigin(schema utils.Schema, revision int, charmBase corebase.Base, charmChannel string, cons constraints.Value) (charm.Channel, commoncharm.Origin, error) {
 	var channel charm.Channel
 	if charmChannel != "" {
 		var err error
@@ -448,7 +448,11 @@ func (h *bundleHandler) constructChannelAndOrigin(schema charm.Schema, revision 
 	}
 
 	platform := utils.MakePlatform(cons, charmBase, h.modelConstraints)
-	origin, err := utils.MakeOrigin(schema, revision, channel, platform)
+	origin, err := utils.MakeOrigin(schema, revision, utils.Channel{
+		Track:  channel.Track,
+		Risk:   channel.Risk.String(),
+		Branch: channel.Branch,
+	}, platform)
 	if err != nil {
 		return charm.Channel{}, commoncharm.Origin{}, errors.Trace(err)
 	}
@@ -626,7 +630,11 @@ func (h *bundleHandler) addCharm(ctx context.Context, change *bundlechanges.AddC
 
 	platform := utils.MakePlatform(cons, base, h.modelConstraints)
 	// We return early with local charms, so here we know the charm must be from charmhub.
-	origin, err := utils.MakeOrigin(charm.CharmHub, revision, channel, platform)
+	origin, err := utils.MakeOrigin(utils.CharmHub, revision, utils.Channel{
+		Track:  channel.Track,
+		Risk:   channel.Risk.String(),
+		Branch: channel.Branch,
+	}, platform)
 	if err != nil {
 		return errors.Trace(err)
 	}
