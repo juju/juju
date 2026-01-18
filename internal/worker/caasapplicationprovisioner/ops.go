@@ -853,7 +853,7 @@ func ensureStorage(appName string, app caas.Application,
 		params := params.CAASApplicationProvisioningState{
 			ScaleTarget:      provisioningState.ScaleTarget,
 			ReplicaCount:     replicaCount,
-			CurrentOperation: provisioningState.CurrentOperation,
+			CurrentOperation: &updateOp,
 		}
 		return facade.SetProvisioningState(appName, params)
 	}
