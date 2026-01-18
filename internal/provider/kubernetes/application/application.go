@@ -2498,7 +2498,7 @@ func (a *app) EnsureStorage(
 	setOperatorStatus func(appName string, status status.Status, message string,
 		data map[string]interface{}) error,
 ) error {
-	logger.Infof("[adis] reconciling app %q with filesystems %+v", a.name, config.Filesystems)
+	logger.Debugf("ensuring storage app %q", a.name)
 	var sts *resources.StatefulSetWithOrphanDelete
 	var err error
 
@@ -2517,10 +2517,10 @@ func (a *app) EnsureStorage(
 	if !exists {
 		// TODO(sidecar): implement Equals method for caas.ApplicationConfig
 		if !reflect.DeepEqual(config, *lastApplied) {
-			logger.Infof("[adis][ReconcileStorage] sts %q doesn't exist so calling a.Ensure()", a.name)
+			logger.Debugf("ensuring app %q because statefulset is missing", a.name)
 			if err = a.Ensure(config); err != nil {
 				_ = setOperatorStatus(a.name, status.Error, err.Error(), nil)
-				return errors.Annotatef(err, "[adis] ensuring application %q", a.name)
+				return errors.Annotatef(err, "ensuring application %q", a.name)
 			}
 			*lastApplied = config
 		}
@@ -2605,9 +2605,7 @@ func (a *app) EnsureStorage(
 	currentClaims := sts.StatefulSet.StatefulSet.Spec.VolumeClaimTemplates
 	newClaims := newStatefulset.StatefulSet.Spec.VolumeClaimTemplates
 	if a.volumeClaimTemplateMatch(currentClaims, newClaims) {
-		logger.Debugf("a reconcile for app %q is not needed because there "+
-			"is no change in storage. current claims: %+v, new claims: %+v",
-			a.name, currentClaims, newClaims)
+		logger.Debugf("no changes in storage for app %q", a.name)
 		return nil
 	}
 	// We save the statefulset replica count before deleting the storage update.

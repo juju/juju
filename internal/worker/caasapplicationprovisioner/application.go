@@ -167,17 +167,12 @@ func (a *appWorker) loop() error {
 		if ps == nil {
 			ps = &params.CAASApplicationProvisioningState{}
 		}
-		currentOp := ""
-		if ps.CurrentOperation != nil {
-			currentOp = string(*ps.CurrentOperation)
-		}
-		a.logger.Infof("[adis][loop] got provision state %+v with current op %q", ps, currentOp)
 
 		// We have to resume the current operation (if one exists) on worker
 		// restart.
 		if ps.CurrentOperation != nil &&
 			*ps.CurrentOperation == application.StorageUpdateOperation {
-			a.logger.Infof("[adis][loop] gonna call ensure storage")
+			a.logger.Debugf("resuming storage update operation")
 			err := a.ops.EnsureStorage(a.name, app, &a.lastApplied, a.password,
 				a.facade, a.clock, a.logger)
 			if err != nil {
@@ -185,7 +180,7 @@ func (a *appWorker) loop() error {
 			}
 		} else if ps.CurrentOperation != nil &&
 			*ps.CurrentOperation == application.ScaleOperation {
-			a.logger.Infof("[adis][loop] gonna call ensure storage scale")
+			a.logger.Debugf("resuming scale operation")
 			err := a.ops.EnsureScale(a.name, app, a.life, a.facade, a.unitFacade, a.logger)
 			if err != nil && !errors.Is(err, tryAgain) && !errors.Is(err, errors.NotFound) {
 				return errors.Annotatef(err, "scaling app %q", a.name)
@@ -378,7 +373,6 @@ func (a *appWorker) loop() error {
 			}
 			err := a.ops.EnsureScale(a.name, app, a.life, a.facade, a.unitFacade, a.logger)
 			if errors.Is(err, errors.NotFound) {
-				a.logger.Infof("[adis][appWorker] retrying scaleChan because of err %s", err)
 				if scaleTries >= maxRetries {
 					return errors.Annotatef(err, "more than %d retries ensuring scale", maxRetries)
 				}
@@ -490,7 +484,6 @@ func (a *appWorker) loop() error {
 				return fmt.Errorf("application %q storage constraints watcher closed channel", a.name)
 			}
 			if storageConstraintsChan == nil {
-				a.logger.Infof("[adis][appWorker] got an event to reconcile storage for app %q", a.name)
 				storageConstraintsChan = a.clock.After(0)
 			}
 			shouldRefresh = false

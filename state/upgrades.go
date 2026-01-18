@@ -397,11 +397,12 @@ func ConvertScalingToCurrentOperationEnumField(pool *StatePool) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		logger.Debugf("trying to convert scaling to current-operation field"+
-			" for apps in model %q", model.Name())
+		logger.Debugf("trying to convert scaling to current-operation field for apps in model %q",
+			model.Name())
 
 		if model.Type() != ModelTypeCAAS {
-			logger.Debugf("skipping because model %q is not a k8s model", model.Name())
+			logger.Debugf("skipping because model %q is not a k8s model",
+				model.Name())
 			return nil
 		}
 
