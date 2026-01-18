@@ -52,6 +52,7 @@ import (
 	k8swatcher "github.com/juju/juju/internal/provider/kubernetes/watcher"
 	"github.com/juju/juju/juju/osenv"
 	jujustorage "github.com/juju/juju/storage"
+	"github.com/juju/juju/wrench"
 )
 
 var logger = loggo.GetLogger("juju.kubernetes.provider.application")
@@ -2623,6 +2624,11 @@ func (a *app) EnsureStorage(
 	err = saveReplicaCount(a.name, replica)
 	if err != nil {
 		return errors.Annotatef(err, "saving statefulset %s replica count", a.name)
+	}
+
+	if wrench.IsActive("application-storage", "ensure-storage-fail") {
+		logger.Debugf("feature ensure-storage-fail is enabled for testing purposes")
+		return errors.Errorf("ensure-storage-fail app %q", a.name)
 	}
 
 	applier := a.newApplier()

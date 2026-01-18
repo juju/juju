@@ -766,6 +766,11 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 
 	logger.Infof("[adis][ops][ensureScale] number of units %d, with units %+v", len(units), units)
 
+	if wrench.IsActive("scale-application", "ensure-scale-fail") {
+		logger.Debugf("feature ensure-scale-fail is enabled for testing purposes")
+		return errors.Errorf("ensure-scale-fail app %q", appName)
+	}
+
 	if ps.ScaleTarget >= len(units) {
 		err := ensureScaleWithFsAttachments(appName, app, ps.ScaleTarget, facade, logger)
 
