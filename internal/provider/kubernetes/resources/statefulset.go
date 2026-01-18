@@ -33,7 +33,6 @@ type StatefulSet struct {
 type StatefulSetWithOrphanDelete struct {
 	*StatefulSet
 	interval time.Duration
-	timeout  time.Duration
 }
 
 // NewStatefulSet creates a new statefulset resource.
@@ -50,7 +49,7 @@ func NewStatefulSet(client v1.StatefulSetInterface, namespace string, name strin
 // resource.
 func NewStatefulSetWithOrphanDelete(ss *StatefulSet) *StatefulSetWithOrphanDelete {
 	return &StatefulSetWithOrphanDelete{StatefulSet: ss,
-		interval: 1 * time.Second, timeout: 30 * time.Second}
+		interval: 1 * time.Second}
 }
 
 // Clone returns a copy of the resource.
@@ -153,17 +152,20 @@ func (s StatefulSetWithOrphanDelete) Delete(ctx context.Context) error {
 		return errors.NewNotFound(err, "k8s statefulset for deletion")
 	}
 	// K8s doesn't delete the sts immediately. Block until it's deleted.
-	err = wait.PollUntilContextTimeout(ctx, s.interval, s.timeout, true,
+	err = wait.PollUntilContextCancel(ctx, s.interval, true,
 		func(ctx context.Context) (done bool, err error) {
 			logger.Debugf("waiting until sts %q is deleted", s.Name)
 			getErr := s.Get(ctx)
 			if errors.Is(getErr, errors.NotFound) {
 				return true, nil
-			} else if getErr != nil {
+			}
+			if getErr != nil {
 				return false, getErr
 			}
 			return false, nil
-		})
+		},
+	)
+
 	return errors.Trace(err)
 }
 
