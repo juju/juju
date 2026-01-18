@@ -247,7 +247,7 @@ func appConfig(appName string, app caas.Application, password string,
 // CAAS broker to create the resources in the k8s cluster for this application.
 func appAlive(appName string, app caas.Application, password string, lastApplied *caas.ApplicationConfig,
 	facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
-	logger.Infof("[adis] ensuring application %q exists", appName)
+	logger.Debugf("ensuring application %q exists", appName)
 
 	config, appState, err := appConfig(appName, app, password, facade, clk)
 	if err != nil {
@@ -256,10 +256,9 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 	reason := "unchanged"
 	// TODO(sidecar): implement Equals method for caas.ApplicationConfig
 	if !reflect.DeepEqual(config, *lastApplied) {
-		logger.Infof("[adis] gonna call app.Ensure()")
 		if err = app.Ensure(config); err != nil {
 			_ = setApplicationStatus(appName, status.Error, err.Error(), nil, facade, logger)
-			return errors.Annotatef(err, "[adis] ensuring application %q", appName)
+			return errors.Annotatef(err, "ensuring application %q", appName)
 		}
 		*lastApplied = config
 		reason = "deployed"
@@ -735,11 +734,11 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 	anotherOpRunning := ps.CurrentOperation != nil &&
 		*ps.CurrentOperation != application.ScaleOperation
 	if anotherOpRunning {
-		logger.Infof("[adis][ensureScale] op is %q so trying again...", *ps.CurrentOperation)
+		logger.Debugf("current operation is %q, try again", *ps.CurrentOperation)
 		return tryAgain
 	}
 
-	logger.Infof("[adis] updating application %q (life %q) scale to %d with provisioning state %+v", appName, appLife, desiredScale, *ps)
+	logger.Debugf("updating application %q scale to %d", appName, desiredScale)
 	if ps.CurrentOperation == nil || appLife != life.Alive {
 		op := application.ScaleOperation
 		err := updateProvisioningState(appName, desiredScale,
@@ -756,8 +755,6 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 		return err
 	}
 
-	logger.Infof("[adis][ops][ensureScale] number of units %d, with units %+v", len(units), units)
-
 	if wrench.IsActive("scale-application", "ensure-scale-fail") {
 		logger.Debugf("feature ensure-scale-fail is enabled for testing purposes")
 		return errors.Errorf("ensure-scale-fail app %q", appName)
@@ -769,7 +766,6 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 		if appLife != life.Alive && errors.Is(err, errors.NotFound) {
 			logger.Infof("dying application %q is already removed", appName)
 		} else if err != nil {
-			logger.Infof("[adis][ops][ensureScale] ensureScaleWithFsAttachments err %s", err.Error())
 			return err
 		}
 		return updateProvisioningState(appName, 0, nil, facade)
@@ -782,8 +778,6 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 		return fmt.Errorf("scaling application %q to desired scale %d: %w",
 			appName, ps.ScaleTarget, err)
 	}
-
-	logger.Infof("[adis][ensureScale] units to destroy %+v", unitsToDestroy)
 
 	if len(unitsToDestroy) > 0 {
 		if err := facade.DestroyUnits(unitsToDestroy); err != nil {
@@ -804,8 +798,6 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 func ensureStorage(appName string, app caas.Application,
 	lastApplied *caas.ApplicationConfig, password string,
 	facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
-	logger.Infof("[adis] reconciling application %q storage", appName)
-
 	provisioningState, err := facade.ProvisioningState(appName)
 	if err != nil {
 		return errors.Annotate(err, "retrieving provisioning state")
@@ -822,7 +814,7 @@ func ensureStorage(appName string, app caas.Application,
 
 	op := provisioningState.CurrentOperation
 	if op != nil && *op != application.StorageUpdateOperation {
-		logger.Infof("[adis][ensureStorage] op is %q so trying again...", *op)
+		logger.Debugf("current operation is %q, try again", *op)
 		return tryAgain
 	}
 
@@ -834,11 +826,6 @@ func ensureStorage(appName string, app caas.Application,
 	})
 	if err != nil {
 		return errors.Annotatef(err, "setting current operation to %q", updateOp)
-	}
-
-	if wrench.IsActive("application-storage", "storage-update-fail") {
-		logger.Infof("[adis] feature reconcile-fail is enabled...")
-		return errors.New("[adis] reconcile-fail")
 	}
 
 	saveReplicaCount := func(appName string, replicaCount int) error {
@@ -892,7 +879,7 @@ func updateProvisioningState(appName string, scaleTarget int,
 func ensureScaleWithFsAttachments(appName string, app caas.Application, scaleTarget int,
 	facade CAASProvisionerFacade, logger Logger,
 ) error {
-	logger.Infof("[adis][ops][ensureScaleWithFsAttachments] scaling application %q to desired scale %d", appName, scaleTarget)
+	logger.Infof("scaling application %q to desired scale %d", appName, scaleTarget)
 
 	// Get filesystem provisioning info.
 	info, err := facade.FilesystemProvisioningInfo(appName)
