@@ -500,6 +500,21 @@ func (a *appWorker) loop() error {
 				break
 			}
 
+			appLife, err = a.facade.Life(a.name)
+			if errors.Is(err, errors.NotFound) {
+				a.logger.Debugf("application %q no longer exists, skipping storage update", a.name)
+				storageConstraintsChan = nil
+				return nil
+			} else if err != nil {
+				return errors.Annotatef(err, "fetching life status for application %q", a.name)
+			}
+
+			if appLife != life.Alive {
+				a.logger.Debugf("application %q is not alive, skipping storage update", a.name)
+				return nil
+			}
+			a.life = appLife
+
 			err := a.ops.EnsureStorage(a.name, app, &a.lastApplied, a.password,
 				a.facade, a.clock, a.logger)
 			if errors.Is(err, tryAgain) || errors.Is(err, errors.NotProvisioned) {
