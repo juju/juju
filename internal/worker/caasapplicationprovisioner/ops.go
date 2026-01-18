@@ -154,27 +154,23 @@ func appConfig(appName string, app caas.Application, password string,
 
 	charmInfo, err := facade.CharmInfo(provisionInfo.CharmURL.String())
 	if err != nil {
-		return emptyCfg, emptyState, errors.Annotatef(err, "retrieving "+
-			"charm deployment info for %q", appName)
+		return emptyCfg, emptyState, errors.Annotatef(err, "retrieving charm deployment info for %q", appName)
 	}
 
 	appState, err := app.Exists()
 	if err != nil {
-		return emptyCfg, emptyState, errors.Annotatef(err, "retrieving "+
-			"application state for %q", appName)
+		return emptyCfg, emptyState, errors.Annotatef(err, "retrieving application state for %q", appName)
 	}
 
 	if appState.Exists && appState.Terminating {
 		if err := waitForTerminated(appName, app, clk); err != nil {
-			return emptyCfg, emptyState, errors.Annotatef(err, "%q was "+
-				"terminating and there was an error waiting for it to stop", appName)
+			return emptyCfg, emptyState, errors.Annotatef(err, "%q was terminating and there was an error waiting for it to stop", appName)
 		}
 	}
 
 	images, err := facade.ApplicationOCIResources(appName)
 	if err != nil {
-		return emptyCfg, emptyState, errors.Annotate(err, "getting OCI "+
-			"image resources")
+		return emptyCfg, emptyState, errors.Annotate(err, "getting OCI image resources")
 	}
 
 	ch := charmInfo.Charm()
@@ -186,8 +182,7 @@ func appConfig(appName string, app caas.Application, password string,
 		},
 	})
 	if err != nil {
-		return emptyCfg, emptyState, errors.Annotate(err, "getting image "+
-			"for base")
+		return emptyCfg, emptyState, errors.Annotate(err, "getting image for base")
 	}
 
 	containers := make(map[string]caas.ContainerConfig)
@@ -198,13 +193,11 @@ func appConfig(appName string, app caas.Application, password string,
 			Gid:  v.Gid,
 		}
 		if v.Resource == "" {
-			return emptyCfg, emptyState, errors.NotValidf("empty container " +
-				"resource reference")
+			return emptyCfg, emptyState, errors.NotValidf("empty container resource reference")
 		}
 		image, ok := images[v.Resource]
 		if !ok {
-			return emptyCfg, emptyState, errors.NotFoundf("referenced charm "+
-				"base image resource %s", v.Resource)
+			return emptyCfg, emptyState, errors.NotFoundf("referenced charm base image resource %s", v.Resource)
 		}
 		container.Image = image
 		for _, m := range v.Mounts {
@@ -245,8 +238,7 @@ func appConfig(appName string, app caas.Application, password string,
 	case charm.RunAsNonRoot:
 		config.CharmUser = caas.RunAsNonRoot
 	default:
-		return emptyCfg, emptyState, errors.NotValidf("unknown RunAs for "+
-			"CharmUser: %q", ch.Meta().CharmUser)
+		return emptyCfg, emptyState, errors.NotValidf("unknown RunAs for CharmUser: %q", ch.Meta().CharmUser)
 	}
 	return config, appState, nil
 }
