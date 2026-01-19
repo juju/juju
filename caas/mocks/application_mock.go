@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	caas "github.com/juju/juju/caas"
+	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
 	storage "github.com/juju/juju/storage"
 	gomock "go.uber.org/mock/gomock"
@@ -100,6 +101,20 @@ func (mr *MockApplicationMockRecorder) EnsurePVCs(arg0, arg1, arg2 any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsurePVCs", reflect.TypeOf((*MockApplication)(nil).EnsurePVCs), arg0, arg1, arg2)
 }
 
+// EnsureStorage mocks base method.
+func (m *MockApplication) EnsureStorage(arg0 caas.ApplicationConfig, arg1 *caas.ApplicationConfig, arg2 func(string, int) error, arg3 func(string, status.Status, string, map[string]any) error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureStorage", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsureStorage indicates an expected call of EnsureStorage.
+func (mr *MockApplicationMockRecorder) EnsureStorage(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureStorage", reflect.TypeOf((*MockApplication)(nil).EnsureStorage), arg0, arg1, arg2, arg3)
+}
+
 // Exists mocks base method.
 func (m *MockApplication) Exists() (caas.DeploymentState, error) {
 	m.ctrl.T.Helper()
@@ -113,20 +128,6 @@ func (m *MockApplication) Exists() (caas.DeploymentState, error) {
 func (mr *MockApplicationMockRecorder) Exists() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exists", reflect.TypeOf((*MockApplication)(nil).Exists))
-}
-
-// ReconcileStorage mocks base method.
-func (m *MockApplication) ReconcileStorage(arg0 []storage.KubernetesFilesystemParams, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReconcileStorage", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ReconcileStorage indicates an expected call of ReconcileStorage.
-func (mr *MockApplicationMockRecorder) ReconcileStorage(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReconcileStorage", reflect.TypeOf((*MockApplication)(nil).ReconcileStorage), arg0, arg1)
 }
 
 // Scale mocks base method.
