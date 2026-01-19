@@ -46,6 +46,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"cmd/containeragent/utils",
 		"cmd/output",
 		"controller",
+		"core/application",
 		"core/arch",
 		"core/base",
 		"core/charm/metrics",
