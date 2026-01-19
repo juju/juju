@@ -797,12 +797,12 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 func ensureStorage(appName string, app caas.Application,
 	lastApplied *caas.ApplicationConfig, password string,
 	facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
-	provisioningState, err := facade.ProvisioningState(appName)
+	ps, err := facade.ProvisioningState(appName)
 	if err != nil {
 		return errors.Annotate(err, "retrieving provisioning state")
 	}
-	if provisioningState == nil {
-		provisioningState = &params.CAASApplicationProvisioningState{}
+	if ps == nil {
+		ps = &params.CAASApplicationProvisioningState{}
 	}
 
 	config, _, err := appConfig(appName, app, password, facade,
@@ -819,8 +819,8 @@ func ensureStorage(appName string, app caas.Application,
 
 	updateOp := application.StorageUpdateOperation
 	err = facade.SetProvisioningState(appName, params.CAASApplicationProvisioningState{
-		ScaleTarget:      provisioningState.ScaleTarget,
-		ReplicaCount:     provisioningState.ReplicaCount,
+		ScaleTarget:      ps.ScaleTarget,
+		ReplicaCount:     ps.ReplicaCount,
 		CurrentOperation: updateOp,
 	})
 	if err != nil {
@@ -829,21 +829,21 @@ func ensureStorage(appName string, app caas.Application,
 
 	saveReplicaCount := func(appName string, replicaCount int) error {
 		params := params.CAASApplicationProvisioningState{
-			ScaleTarget:      provisioningState.ScaleTarget,
+			ScaleTarget:      ps.ScaleTarget,
 			ReplicaCount:     replicaCount,
 			CurrentOperation: updateOp,
 		}
 		return facade.SetProvisioningState(appName, params)
 	}
 
-	config.InitialScale = provisioningState.ReplicaCount
+	config.InitialScale = ps.ReplicaCount
 	err = app.EnsureStorage(config, lastApplied, saveReplicaCount, facade.SetOperatorStatus)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	err = facade.SetProvisioningState(appName, params.CAASApplicationProvisioningState{
-		ScaleTarget:      provisioningState.ScaleTarget,
+		ScaleTarget:      ps.ScaleTarget,
 		ReplicaCount:     0,
 		CurrentOperation: application.NoOperation,
 	})
