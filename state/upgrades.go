@@ -422,10 +422,9 @@ func ConvertScalingToCurrentOperationEnumField(pool *StatePool) error {
 			ps := app["provisioning-state"].(bson.M)
 			scaling := ps["scaling"].(bool)
 
-			var currentOp *string
+			currentOp := ""
 			if scaling {
-				op := "scale"
-				currentOp = &op
+				currentOp = "scale"
 			}
 
 			ops = append(ops, txn.Op{

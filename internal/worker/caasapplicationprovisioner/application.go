@@ -170,16 +170,14 @@ func (a *appWorker) loop() error {
 
 		// We have to resume the current operation (if one exists) on worker
 		// restart.
-		if ps.CurrentOperation != nil &&
-			*ps.CurrentOperation == application.StorageUpdateOperation {
+		if ps.CurrentOperation == application.StorageUpdateOperation {
 			a.logger.Debugf("resuming storage update operation")
 			err := a.ops.EnsureStorage(a.name, app, &a.lastApplied, a.password,
 				a.facade, a.clock, a.logger)
 			if err != nil {
 				return errors.Annotatef(err, "ensuring storage for %q", a.name)
 			}
-		} else if ps.CurrentOperation != nil &&
-			*ps.CurrentOperation == application.ScaleOperation {
+		} else if ps.CurrentOperation == application.ScaleOperation {
 			a.logger.Debugf("resuming scale operation")
 			err := a.ops.EnsureScale(a.name, app, a.life, a.facade, a.unitFacade, a.logger)
 			if err != nil && !errors.Is(err, tryAgain) && !errors.Is(err, errors.NotFound) {
@@ -261,8 +259,7 @@ func (a *appWorker) loop() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if ps != nil && ps.CurrentOperation != nil &&
-				*ps.CurrentOperation == application.ScaleOperation {
+			if ps != nil && ps.CurrentOperation == application.ScaleOperation {
 				if a.statusOnly {
 					// Clear provisioning state for status only app.
 					err = a.facade.SetProvisioningState(a.name, params.CAASApplicationProvisioningState{})

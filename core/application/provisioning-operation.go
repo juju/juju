@@ -6,6 +6,7 @@ package application
 type ProvisioningOperation string
 
 const (
+	NoOperation            ProvisioningOperation = ""
 	ScaleOperation         ProvisioningOperation = "scale"
 	StorageUpdateOperation ProvisioningOperation = "storage-update"
 )

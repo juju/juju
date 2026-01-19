@@ -6051,7 +6051,7 @@ func (s *ApplicationSuite) TestProvisioningState(c *gc.C) {
 	scaleOp := application.ScaleOperation
 
 	err := s.mysql.SetProvisioningState(state.ApplicationProvisioningState{
-		CurrentOperation: &scaleOp,
+		CurrentOperation: scaleOp,
 		ScaleTarget:      10,
 	})
 	c.Assert(errors.Is(err, stateerrors.ProvisioningStateInconsistent), jc.IsTrue)
@@ -6060,14 +6060,14 @@ func (s *ApplicationSuite) TestProvisioningState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.mysql.SetProvisioningState(state.ApplicationProvisioningState{
-		CurrentOperation: &scaleOp,
+		CurrentOperation: scaleOp,
 		ScaleTarget:      10,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ps = s.mysql.ProvisioningState()
 	c.Assert(ps, jc.DeepEquals, &state.ApplicationProvisioningState{
-		CurrentOperation: &scaleOp,
+		CurrentOperation: scaleOp,
 		ScaleTarget:      10,
 	})
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
@@ -252,10 +253,13 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		}),
 
 		// storageConsChan fired
-		ops.EXPECT().ReconcileApplicationStorage("test", app, facade, s.logger).DoAndReturn(func(_, _, _, _ any) error {
-			provisioningInfoChan <- struct{}{}
-			return nil
-		}),
+		// TODO: change the gomock.any
+		ops.EXPECT().EnsureStorage(gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_, _, _, _, _, _, _ any) error {
+				provisioningInfoChan <- struct{}{}
+				return nil
+			}),
 
 		// provisioningInfoChan fired
 		facade.EXPECT().Life("test").Return(life.Alive, nil),
@@ -303,6 +307,7 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *gc.C) {
 	storageConsChan := make(chan struct{}, 1)
 
 	ops.EXPECT().RefreshApplicationStatus("test", app, gomock.Any(), facade, s.logger).Return(nil).AnyTimes()
+	op := application.ScaleOperation
 
 	gomock.InOrder(
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
@@ -315,7 +320,9 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *gc.C) {
 
 		// handleChange
 		facade.EXPECT().Life("test").Return(life.Alive, nil),
-		facade.EXPECT().ProvisioningState("test").Return(&params.CAASApplicationProvisioningState{Scaling: true, ScaleTarget: 1}, nil),
+		facade.EXPECT().ProvisioningState("test").Return(
+			&params.CAASApplicationProvisioningState{CurrentOperation: op, ScaleTarget: 1},
+			nil),
 		facade.EXPECT().SetProvisioningState("test", params.CAASApplicationProvisioningState{}).Return(nil),
 		facade.EXPECT().WatchProvisioningInfo("test").Return(watchertest.NewMockNotifyWatcher(provisioningInfoChan), nil),
 		app.EXPECT().Watch().Return(watchertest.NewMockNotifyWatcher(appChan), nil),
