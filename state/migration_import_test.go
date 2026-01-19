@@ -23,7 +23,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
-	coreapp "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -3523,51 +3522,6 @@ func (s *MigrationImportSuite) TestDefaultSecretBackend(c *gc.C) {
 	importedCfg, err := m.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(importedCfg.SecretBackend(), gc.Equals, "auto")
-}
-
-func (s *MigrationImportSuite) TestApplicationWithProvisioningState(c *gc.C) {
-	caasSt := s.Factory.MakeCAASModel(c, nil)
-	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
-
-	cons := constraints.MustParse("arch=amd64 mem=8G")
-	platform := &state.Platform{
-		Architecture: arch.DefaultArchitecture,
-		OS:           "ubuntu",
-		Channel:      "20.04",
-	}
-	testCharm, application, _ := s.setupSourceApplications(c, caasSt, cons, platform, false)
-
-	err := application.SetScale(1, 0, true)
-	c.Assert(err, jc.ErrorIsNil)
-	scaleOp := coreapp.ScaleOperation
-	err = application.SetProvisioningState(state.ApplicationProvisioningState{
-		CurrentOperation: &scaleOp,
-		ScaleTarget:      1,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	allApplications, err := caasSt.AllApplications()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allApplications, gc.HasLen, 1)
-
-	newSt := s.importModel(c, caasSt)
-	defer func() { _ = newSt.Close() }()
-	// Manually copy across the charm from the old model
-	// as it's normally done later.
-	f := factory.NewFactory(newSt, s.StatePool)
-	f.MakeCharm(c, &factory.CharmParams{
-		Name:     "starsay", // it has resources
-		Series:   "kubernetes",
-		URL:      testCharm.URL(),
-		Revision: strconv.Itoa(testCharm.Revision()),
-	})
-	importedApplication, err := newSt.Application(application.Name())
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(importedApplication.ProvisioningState(), jc.DeepEquals, &state.ApplicationProvisioningState{
-		CurrentOperation: &scaleOp,
-		ScaleTarget:      1,
-	})
 }
 
 func (s *MigrationImportSuite) TestVirtualHostKeys(c *gc.C) {

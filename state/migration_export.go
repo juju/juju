@@ -19,7 +19,6 @@ import (
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
 
-	coreapp "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/container"
@@ -898,14 +897,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	}
 	if constraints, found := e.modelStorageConstraints[storageConstraintsKey]; found {
 		args.StorageDirectives = e.storageConstraints(constraints)
-	}
-
-	if ps := application.ProvisioningState(); ps != nil {
-		scaling := ps.CurrentOperation == coreapp.ScaleOperation
-		args.ProvisioningState = &description.ProvisioningStateArgs{
-			Scaling:     scaling,
-			ScaleTarget: ps.ScaleTarget,
-		}
 	}
 
 	// Include exposed endpoint details
