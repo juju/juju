@@ -119,23 +119,23 @@ func ProviderRunner[T any](providerFactory ProviderFactory, namespace string) fu
 // but instead created and discarded. Credential invalidation is not enforced
 // during the call to the provider. For that reason alone, a closure is returned
 // and the provider is created and discarded on each call.
-func EphemeralProviderRunnerFromConfig[T any](providerFactory ProviderFactory, getter EphemeralProviderConfigGetter) func(context.Context, func(context.Context, T) error) error {
-	return func(ctx context.Context, fn func(context.Context, T) error) error {
+func EphemeralProviderRunnerFromConfig[T any](providerFactory ProviderFactory, getter EphemeralProviderConfigGetter) func(context.Context) (T, error) {
+	var zero T
+	return func(ctx context.Context) (T, error) {
 		config, err := getter.GetEphemeralProviderConfig(ctx)
 		if err != nil {
-			return errors.Errorf(
+			return zero, errors.Errorf(
 				"getting epehemeral provider config: %w", err,
 			)
 		}
 		provider, err := providerFactory.EphemeralProviderFromConfig(ctx, config)
 		if err != nil {
-			return errors.Capture(err)
+			return zero, errors.Capture(err)
 		}
 		if v, ok := provider.(T); ok {
-			return fn(ctx, v)
+			return v, nil
 		}
 
-		var zero T
-		return errors.Errorf("provider type %T %w", zero, coreerrors.NotSupported)
+		return zero, errors.Errorf("provider type %T %w", zero, coreerrors.NotSupported)
 	}
 }
