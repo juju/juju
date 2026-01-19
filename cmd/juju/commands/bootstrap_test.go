@@ -472,11 +472,11 @@ var bootstrapTests = []bootstrapTest{{
 }, {
 	info: "missing storage pool name",
 	args: []string{"--storage-pool", "type=ebs"},
-	err:  `storage pool requires a name`,
+	err:  `storage pool requires a "name" key to be set not valid`,
 }, {
 	info: "missing storage pool type",
 	args: []string{"--storage-pool", "name=test"},
-	err:  `storage pool requires a type`,
+	err:  `storage pool requires a "type" key to be set not valid`,
 }}
 
 func (s *BootstrapSuite) TestRunCloudNameUnknown(c *tc.C) {
@@ -1901,20 +1901,20 @@ func (s *BootstrapSuite) TestBootstrapPrintClouds(c *tc.C) {
 You can bootstrap on these clouds. See '--regions <cloud>' for all regions.
 Cloud                            Credentials  Default Region
 aws                              fred         us-west-1
-                                 mary         
-aws-china                                     
-aws-gov                                       
-azure                                         
-azure-china                                   
-google                                        
-oracle                                        
+                                 mary
+aws-china
+aws-gov
+azure
+azure-china
+google
+oracle
 ?(localhost\s+)?(microk8s\s+)?
 dummy-cloud                      joe          home
-dummy-cloud-dummy-region-config               
-dummy-cloud-with-config                       
-dummy-cloud-with-region-config                
-dummy-cloud-without-regions                   
-many-credentials-no-auth-types                
+dummy-cloud-dummy-region-config
+dummy-cloud-with-config
+dummy-cloud-with-region-config
+dummy-cloud-without-regions
+many-credentials-no-auth-types
 
 You will need to have a credential if you want to bootstrap on a cloud, see
 'juju autoload-credentials' and 'juju add-credential'. The first credential
@@ -1959,19 +1959,19 @@ func (s *BootstrapSuite) TestBootstrapPrintCloudsInvalidCredential(c *tc.C) {
 You can bootstrap on these clouds. See '--regions <cloud>' for all regions.
 Cloud                            Credentials  Default Region
 aws                              fred         us-west-1
-                                 mary         
-aws-china                                     
-aws-gov                                       
-azure                                         
-azure-china                                   
-google                                        
-oracle                                        
+                                 mary
+aws-china
+aws-gov
+azure
+azure-china
+google
+oracle
 ?(localhost\s+)?(microk8s\s+)?
-dummy-cloud-dummy-region-config               
-dummy-cloud-with-config                       
-dummy-cloud-with-region-config                
-dummy-cloud-without-regions                   
-many-credentials-no-auth-types                
+dummy-cloud-dummy-region-config
+dummy-cloud-with-config
+dummy-cloud-with-region-config
+dummy-cloud-without-regions
+many-credentials-no-auth-types
 
 You will need to have a credential if you want to bootstrap on a cloud, see
 'juju autoload-credentials' and 'juju add-credential'. The first credential
