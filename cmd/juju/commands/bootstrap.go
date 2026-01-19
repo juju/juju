@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v8"
-	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
@@ -203,7 +202,6 @@ const (
 
 func newBootstrapCommand() cmd.Command {
 	command := &bootstrapCommand{}
-	command.clock = jujuclock.WallClock
 	command.CanClearCurrentModel = true
 	return modelcmd.Wrap(command,
 		modelcmd.WrapSkipModelFlags,
@@ -215,8 +213,6 @@ func newBootstrapCommand() cmd.Command {
 // environment, and setting up everything necessary to continue working.
 type bootstrapCommand struct {
 	modelcmd.ModelCommandBase
-
-	clock jujuclock.Clock
 
 	Constraints              constraints.Value
 	ConstraintsStr           string
@@ -733,8 +729,7 @@ to create a new model to deploy %sworkloads.
 	if cfg, ok := bootstrapCfg.bootstrapModel["image-stream"]; ok {
 		imageStream = cfg.(string)
 	}
-	now := c.clock.Now()
-	supportedBootstrapSeries, err := supportedJujuSeries(now, c.BootstrapSeries, imageStream)
+	supportedBootstrapSeries, err := supportedJujuSeries(c.BootstrapSeries, imageStream)
 	if err != nil {
 		return errors.Annotate(err, "error reading supported bootstrap series")
 	}

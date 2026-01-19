@@ -6,7 +6,6 @@ package series
 import (
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -24,7 +23,7 @@ const (
 
 // ControllerSeries returns all the controller series available to it at the
 // execution time.
-func ControllerSeries(now time.Time, requestedSeries, imageStream string) (set.Strings, error) {
+func ControllerSeries(requestedSeries, imageStream string) (set.Strings, error) {
 	supported, err := seriesForTypes(requestedSeries, imageStream)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -34,18 +33,17 @@ func ControllerSeries(now time.Time, requestedSeries, imageStream string) (set.S
 
 // WorkloadSeries returns the supported workload series available to it at the
 // execution time.
-func WorkloadSeries(now time.Time, requestedSeries, imageStream string) (set.Strings, error) {
+func WorkloadSeries(requestedSeries, imageStream string) (set.Strings, error) {
 	supported, err := seriesForTypes(requestedSeries, imageStream)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	result := set.NewStrings(workloadSeries(supported, false)...)
 	// Noble is opt in for 2.9 so remove it
 	// from the default choices. The user can
 	// still use --force if they want noble.
-	seriesVersionsMutex.Lock()
-	delete(supported, Noble)
-	seriesVersionsMutex.Unlock()
-	return set.NewStrings(workloadSeries(supported, false)...), nil
+	result.Remove(Noble.String())
+	return result, nil
 }
 
 // AllWorkloadSeries returns all the workload series (supported or not).

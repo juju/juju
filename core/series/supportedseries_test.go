@@ -4,8 +4,6 @@
 package series
 
 import (
-	"time"
-
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -188,7 +186,7 @@ func (s *SupportedSeriesSuite) TestUbuntuInvalidSeriesVersion(c *gc.C) {
 }
 
 func (s *SupportedSeriesSuite) TestWorkloadSeries(c *gc.C) {
-	series, err := WorkloadSeries(time.Time{}, "", "")
+	series, err := WorkloadSeries("", "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(series.SortedValues(), gc.DeepEquals, []string{
 		"bionic", "centos7", "centos8", "centos9", "focal", "genericlinux", "jammy", "kubernetes",

@@ -12,7 +12,6 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
-	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -407,7 +406,6 @@ func (s *deployerSuite) TestMaybeReadLocalCharmErrorWithApplicationName(c *gc.C)
 	s.charm.EXPECT().Meta().Return(&charm.Meta{Series: []string{"focal"}}).AnyTimes()
 
 	f := &factory{
-		clock:           clock.WallClock,
 		applicationName: "meshuggah",
 		charmOrBundle:   "local:meshuggah",
 		charmReader:     s.charmReader,
@@ -427,7 +425,6 @@ func (s *deployerSuite) TestMaybeReadLocalCharmErrorWithoutApplicationName(c *gc
 	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "meshuggah", Series: []string{"focal"}}).AnyTimes()
 
 	f := &factory{
-		clock:         clock.WallClock,
 		charmOrBundle: "local:meshuggah",
 		charmReader:   s.charmReader,
 		model:         s.modelCommand,

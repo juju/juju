@@ -8,7 +8,6 @@ import (
 	"math"
 	"net"
 	"reflect"
-	"time"
 
 	"github.com/juju/charm/v8"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
@@ -1466,7 +1465,7 @@ func (api *APIBase) applicationSetCharm(
 // default and falls back to the charm's series (no support for "--series",
 // series in charm URL, or default LTS).
 func sidecarUpgradeSeries(modelConfig *environsconfig.Config, supported []string) (string, error) {
-	supportedJuju, err := series.WorkloadSeries(time.Now(), "", modelConfig.ImageStream())
+	supportedJuju, err := series.WorkloadSeries("", modelConfig.ImageStream())
 	if err != nil {
 		return "", errors.Trace(err)
 	}

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
-	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/gnuflag"
@@ -86,7 +85,6 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRun(c *gc.C) {
 	repoCharm := &repositoryCharm{
 		deployCharm:      *dCharm,
 		userRequestedURL: s.url,
-		clock:            clock.WallClock,
 	}
 
 	err := repoCharm.PrepareAndDeploy(s.ctx, s.deployerAPI, s.resolver, nil)
@@ -110,7 +108,6 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *gc.C) 
 	repoCharm := &repositoryCharm{
 		deployCharm:      *dCharm,
 		userRequestedURL: s.url,
-		clock:            clock.WallClock,
 	}
 
 	stdOut := mocks.NewMockWriter(ctrl)

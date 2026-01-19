@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
-	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -111,8 +110,6 @@ type bundleHandler struct {
 	dryRun bool
 	force  bool
 	trust  bool
-
-	clock jujuclock.Clock
 
 	// bundleDir is the path where the bundle file is located for local bundles.
 	bundleDir string
@@ -224,9 +221,6 @@ func makeBundleHandler(defaultCharmSchema charm.Schema, bundleData *charm.Bundle
 		applications.Add(name)
 	}
 	return &bundleHandler{
-		// TODO (stickupkid): pass this through from the constructor.
-		clock: jujuclock.WallClock,
-
 		dryRun:               spec.dryRun,
 		force:                spec.force,
 		trust:                spec.trust,
@@ -714,7 +708,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	case url.Series == "bundle" || resolvedOrigin.Type == "bundle":
 		return errors.Errorf("expected charm, got bundle %q %v", ch.Name, resolvedOrigin)
 	case resolvedOrigin.Series == "":
-		modelCfg, workloadSeries, err := seriesSelectorRequirements(h.deployAPI, h.clock, url)
+		modelCfg, workloadSeries, err := seriesSelectorRequirements(h.deployAPI, url)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1063,7 +1057,7 @@ func (h *bundleHandler) selectedSeries(ch charm.CharmMeta, chID application.Char
 		supportedSeries = []string{chID.URL.Series}
 	}
 
-	workloadSeries, err := supportedJujuSeries(h.clock.Now(), chSeries, h.modelConfig.ImageStream())
+	workloadSeries, err := supportedJujuSeries(chSeries, h.modelConfig.ImageStream())
 	if err != nil {
 		return "", errors.Trace(err)
 	}
