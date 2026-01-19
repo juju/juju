@@ -641,8 +641,7 @@ func reconcileDeadUnitScale(appName string, app caas.Application,
 		return errors.Trace(err)
 	}
 	if ps == nil ||
-		(ps.CurrentOperation != nil &&
-			*ps.CurrentOperation != application.ScaleOperation) {
+		(ps.CurrentOperation != application.ScaleOperation) {
 		return nil
 	}
 
@@ -703,7 +702,7 @@ func reconcileDeadUnitScale(appName string, app caas.Application,
 	}
 
 	return updateProvisioningState(appName, 0,
-		nil, facade)
+		application.NoOperation, facade)
 }
 
 // ensureScale determines how and when to scale up or down based on
@@ -731,22 +730,21 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 	if ps == nil {
 		ps = &params.CAASApplicationProvisioningState{}
 	}
-	anotherOpRunning := ps.CurrentOperation != nil &&
-		*ps.CurrentOperation != application.ScaleOperation
+	anotherOpRunning := ps.CurrentOperation == application.StorageUpdateOperation
 	if anotherOpRunning {
-		logger.Debugf("current operation is %q, try again", *ps.CurrentOperation)
+		logger.Debugf("current operation is %q, try again", ps.CurrentOperation)
 		return tryAgain
 	}
 
 	logger.Debugf("updating application %q scale to %d", appName, desiredScale)
-	if ps.CurrentOperation == nil || appLife != life.Alive {
+	if ps.CurrentOperation == application.NoOperation || appLife != life.Alive {
 		op := application.ScaleOperation
 		err := updateProvisioningState(appName, desiredScale,
-			&op, facade)
+			op, facade)
 		if err != nil {
 			return err
 		}
-		ps.CurrentOperation = &op
+		ps.CurrentOperation = op
 		ps.ScaleTarget = desiredScale
 	}
 
@@ -768,7 +766,8 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 		} else if err != nil {
 			return err
 		}
-		return updateProvisioningState(appName, 0, nil, facade)
+		return updateProvisioningState(appName, 0,
+			application.NoOperation, facade)
 	}
 
 	unitsToDestroy, err := app.UnitsToRemove(context.TODO(), ps.ScaleTarget)
@@ -812,9 +811,9 @@ func ensureStorage(appName string, app caas.Application,
 		return errors.Annotatef(err, "creating app config %q", appName)
 	}
 
-	op := provisioningState.CurrentOperation
-	if op != nil && *op != application.StorageUpdateOperation {
-		logger.Debugf("current operation is %q, try again", *op)
+	anotherOpRunning := ps.CurrentOperation == application.ScaleOperation
+	if anotherOpRunning {
+		logger.Debugf("current operation is %q, try again", ps.CurrentOperation)
 		return tryAgain
 	}
 
@@ -822,7 +821,7 @@ func ensureStorage(appName string, app caas.Application,
 	err = facade.SetProvisioningState(appName, params.CAASApplicationProvisioningState{
 		ScaleTarget:      provisioningState.ScaleTarget,
 		ReplicaCount:     provisioningState.ReplicaCount,
-		CurrentOperation: &updateOp,
+		CurrentOperation: updateOp,
 	})
 	if err != nil {
 		return errors.Annotatef(err, "setting current operation to %q", updateOp)
@@ -832,7 +831,7 @@ func ensureStorage(appName string, app caas.Application,
 		params := params.CAASApplicationProvisioningState{
 			ScaleTarget:      provisioningState.ScaleTarget,
 			ReplicaCount:     replicaCount,
-			CurrentOperation: &updateOp,
+			CurrentOperation: updateOp,
 		}
 		return facade.SetProvisioningState(appName, params)
 	}
@@ -846,7 +845,7 @@ func ensureStorage(appName string, app caas.Application,
 	err = facade.SetProvisioningState(appName, params.CAASApplicationProvisioningState{
 		ScaleTarget:      provisioningState.ScaleTarget,
 		ReplicaCount:     0,
-		CurrentOperation: nil,
+		CurrentOperation: application.NoOperation,
 	})
 	if err != nil {
 		return errors.Annotate(err, "setting current operation to empty")
@@ -861,7 +860,7 @@ func setApplicationStatus(appName string, s status.Status, reason string, data m
 }
 
 func updateProvisioningState(appName string, scaleTarget int,
-	currentOperation *application.ProvisioningOperation, facade CAASProvisionerFacade) error {
+	currentOperation application.ProvisioningOperation, facade CAASProvisionerFacade) error {
 	newPs := params.CAASApplicationProvisioningState{
 		ScaleTarget:      scaleTarget,
 		CurrentOperation: currentOperation,

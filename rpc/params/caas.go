@@ -192,9 +192,9 @@ type CAASUnitsResults struct {
 
 // CAASApplicationProvisioningState represents the provisioning state for a CAAS application.
 type CAASApplicationProvisioningState struct {
-	ScaleTarget      int                                `json:"scale-target"`
-	ReplicaCount     int                                `json:"replica-count"`
-	CurrentOperation *application.ProvisioningOperation `json:"current-operation,omitempty"`
+	ScaleTarget      int                               `json:"scale-target"`
+	ReplicaCount     int                               `json:"replica-count"`
+	CurrentOperation application.ProvisioningOperation `json:"current-operation,omitempty"`
 }
 
 // CAASApplicationProvisioningStateResult represents the result of getting the

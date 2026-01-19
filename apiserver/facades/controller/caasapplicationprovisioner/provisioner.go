@@ -421,7 +421,6 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	if err != nil {
 		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
-
 	return &params.CAASApplicationProvisioningInfo{
 		Version:              vers,
 		APIAddresses:         addrs,

@@ -901,8 +901,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	}
 
 	if ps := application.ProvisioningState(); ps != nil {
-		scaling := ps.CurrentOperation != nil &&
-			*ps.CurrentOperation == coreapp.ScaleOperation
+		scaling := ps.CurrentOperation == coreapp.ScaleOperation
 		args.ProvisioningState = &description.ProvisioningStateArgs{
 			Scaling:     scaling,
 			ScaleTarget: ps.ScaleTarget,

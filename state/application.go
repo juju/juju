@@ -131,9 +131,9 @@ type applicationDoc struct {
 // ApplicationProvisioningState is the CAAS application provisioning state for an
 // application.
 type ApplicationProvisioningState struct {
-	ScaleTarget      int                                `bson:"scale-target"`
-	ReplicaCount     int                                `bson:"replica-count"`
-	CurrentOperation *application.ProvisioningOperation `bson:"current-operation"`
+	ScaleTarget      int                               `bson:"scale-target"`
+	ReplicaCount     int                               `bson:"replica-count,omitempty"`
+	CurrentOperation application.ProvisioningOperation `bson:"current-operation,omitempty"`
 }
 
 func newApplication(st *State, doc *applicationDoc) *Application {
@@ -272,14 +272,12 @@ func (a *Application) SetProvisioningState(ps ApplicationProvisioningState) erro
 		{"provisioning-state", a.doc.ProvisioningState},
 	}
 	sets := bson.D{{"provisioning-state", ps}}
-	provisioningStateScaling := ps.CurrentOperation != nil &&
-		*ps.CurrentOperation == application.ScaleOperation
+	provisioningStateScaling := ps.CurrentOperation == application.ScaleOperation
 	if provisioningStateScaling {
 		switch life {
 		case Alive:
 			alreadyScaling := a.doc.ProvisioningState != nil &&
-				a.doc.ProvisioningState.CurrentOperation != nil &&
-				*a.doc.ProvisioningState.CurrentOperation == application.ScaleOperation
+				a.doc.ProvisioningState.CurrentOperation == application.ScaleOperation
 			if !alreadyScaling && provisioningStateScaling {
 				// if starting a scale, ensure we are scaling to the same target.
 				assertions = append(assertions, bson.DocElem{
@@ -2250,8 +2248,8 @@ func (a *Application) ChangeScale(scaleChange int, attachStorage []names.Storage
 			// use different OrderedId check since the desired scale
 			// number hasn't been updated.
 			ps := a.ProvisioningState()
-			provisioningScaling := ps != nil && ps.CurrentOperation != nil &&
-				*ps.CurrentOperation == application.ScaleOperation
+			provisioningScaling := ps != nil &&
+				ps.CurrentOperation == application.ScaleOperation
 			if ps != nil && provisioningScaling && a.doc.UnitCount != ps.ScaleTarget+1 {
 				return nil, errors.New("can not scale application because there's already a scaling operation in progress")
 			}
@@ -2916,8 +2914,8 @@ func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams) (*Unit, error) {
 
 		if unit == nil {
 			ps := a.ProvisioningState()
-			scaling := ps != nil && ps.CurrentOperation != nil &&
-				*ps.CurrentOperation == application.ScaleOperation
+			scaling := ps != nil &&
+				ps.CurrentOperation == application.ScaleOperation
 			if args.OrderedId >= a.GetScale() ||
 				(ps != nil && scaling && args.OrderedId >= ps.ScaleTarget) {
 				return nil, errors.NotAssignedf("unrequired unit %s is", *args.UnitName)
