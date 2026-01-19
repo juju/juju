@@ -276,6 +276,44 @@ func (c *MockStateDeleteSubnetCall) DoAndReturn(f func(context.Context, string) 
 	return c
 }
 
+// EnsureAlphaSpaceAndSubnets mocks base method.
+func (m *MockState) EnsureAlphaSpaceAndSubnets(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureAlphaSpaceAndSubnets", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsureAlphaSpaceAndSubnets indicates an expected call of EnsureAlphaSpaceAndSubnets.
+func (mr *MockStateMockRecorder) EnsureAlphaSpaceAndSubnets(arg0 any) *MockStateEnsureAlphaSpaceAndSubnetsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureAlphaSpaceAndSubnets", reflect.TypeOf((*MockState)(nil).EnsureAlphaSpaceAndSubnets), arg0)
+	return &MockStateEnsureAlphaSpaceAndSubnetsCall{Call: call}
+}
+
+// MockStateEnsureAlphaSpaceAndSubnetsCall wrap *gomock.Call
+type MockStateEnsureAlphaSpaceAndSubnetsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateEnsureAlphaSpaceAndSubnetsCall) Return(arg0 error) *MockStateEnsureAlphaSpaceAndSubnetsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateEnsureAlphaSpaceAndSubnetsCall) Do(f func(context.Context) error) *MockStateEnsureAlphaSpaceAndSubnetsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateEnsureAlphaSpaceAndSubnetsCall) DoAndReturn(f func(context.Context) error) *MockStateEnsureAlphaSpaceAndSubnetsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetAllLinkLayerDevicesByNetNodeUUIDs mocks base method.
 func (m *MockState) GetAllLinkLayerDevicesByNetNodeUUIDs(arg0 context.Context) (map[string][]network0.NetInterface, error) {
 	m.ctrl.T.Helper()

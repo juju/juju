@@ -55,15 +55,17 @@ func (s *Service) AddSpace(ctx context.Context, space network.SpaceInfo) (networ
 func (s *Service) UpdateSpace(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
 	return errors.Capture(s.st.UpdateSpace(ctx, uuid, name))
 }
 
-// Space returns a space from state that matches the input ID. If the space is
-// not found, an error is returned matching
+// GetSpace returns a space from state that matches the input ID. If the space
+// is not found, an error is returned matching
 // [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-func (s *Service) Space(ctx context.Context, uuid network.SpaceUUID) (*network.SpaceInfo, error) {
+func (s *Service) GetSpace(ctx context.Context, uuid network.SpaceUUID) (*network.SpaceInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
 	sp, err := s.st.GetSpace(ctx, uuid)
 	if err != nil {
 		return nil, errors.Capture(err)

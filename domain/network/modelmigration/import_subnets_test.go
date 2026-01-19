@@ -104,7 +104,7 @@ func (s *importSubnetsSuite) TestImportSubnetAndSpaceNotLinked(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSubnetsSuite) TestImportSpaceWithSubnet(c *tc.C) {
+func (s *importSubnetsSuite) TestImportIAASSpaceWithSubnet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	spUUID := networktesting.GenSpaceUUID(c)
@@ -121,7 +121,57 @@ func (s *importSubnetsSuite) TestImportSpaceWithSubnet(c *tc.C) {
 	}
 	s.importService.EXPECT().AddSpace(gomock.Any(), spaceInfo).
 		Return(spUUID, nil)
-	s.importService.EXPECT().Space(gomock.Any(), spUUID).
+	s.importService.EXPECT().GetSpace(gomock.Any(), spUUID).
+		Return(&network.SpaceInfo{
+			ID:         spUUID,
+			Name:       "space-name",
+			ProviderId: network.Id("space-provider-id"),
+		}, nil)
+	model.AddSubnet(description.SubnetArgs{
+		ID:                "previous-subnet-id",
+		CIDR:              "192.0.2.0/24",
+		ProviderId:        "subnet-provider-id",
+		ProviderNetworkId: "subnet-provider-network-id",
+		VLANTag:           42,
+		AvailabilityZones: []string{"az1", "az2"},
+		SpaceID:           "previous-space-id",
+		SpaceName:         "space-name",
+		ProviderSpaceId:   "space-provider-id",
+	})
+	s.importService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{
+		CIDR:              "192.0.2.0/24",
+		ProviderId:        "subnet-provider-id",
+		ProviderNetworkId: "subnet-provider-network-id",
+		VLANTag:           42,
+		AvailabilityZones: []string{"az1", "az2"},
+		SpaceID:           spUUID,
+		SpaceName:         "space-name",
+		ProviderSpaceId:   "space-provider-id",
+	})
+
+	op := s.newImportOperation(c)
+	err := op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSubnetsSuite) TestImportCAASSpaceWithSubnet(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	spUUID := networktesting.GenSpaceUUID(c)
+
+	model := description.NewModel(description.ModelArgs{})
+	model.AddSpace(description.SpaceArgs{
+		Id:         "previous-space-id",
+		Name:       "space-name",
+		ProviderID: "space-provider-id",
+	})
+	spaceInfo := network.SpaceInfo{
+		Name:       "space-name",
+		ProviderId: "space-provider-id",
+	}
+	s.importService.EXPECT().AddSpace(gomock.Any(), spaceInfo).
+		Return(spUUID, nil)
+	s.importService.EXPECT().GetSpace(gomock.Any(), spUUID).
 		Return(&network.SpaceInfo{
 			ID:         spUUID,
 			Name:       "space-name",

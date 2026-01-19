@@ -163,7 +163,7 @@ func (s *spaceSuite) TestRetrieveSpaceByID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.st.EXPECT().GetSpace(gomock.Any(), network.AlphaSpaceId)
-	_, err := NewService(s.st, loggertesting.WrapCheckLog(c)).Space(c.Context(), network.AlphaSpaceId)
+	_, err := NewService(s.st, loggertesting.WrapCheckLog(c)).GetSpace(c.Context(), network.AlphaSpaceId)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -176,7 +176,7 @@ func (s *spaceSuite) TestRetrieveSpaceByIDNotFound(c *tc.C) {
 	spUUID := networktesting.GenSpaceUUID(c)
 	s.st.EXPECT().GetSpace(gomock.Any(), spUUID).
 		Return(nil, errors.Errorf("space %q: %w", spUUID, networkerrors.SpaceNotFound))
-	_, err := NewService(s.st, loggertesting.WrapCheckLog(c)).Space(c.Context(), spUUID)
+	_, err := NewService(s.st, loggertesting.WrapCheckLog(c)).GetSpace(c.Context(), spUUID)
 	c.Assert(err, tc.ErrorIs, networkerrors.SpaceNotFound)
 }
 

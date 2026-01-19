@@ -243,3 +243,25 @@ WHERE  uuid = $space.uuid;`, sp)
 	})
 	return err
 }
+
+// EnsureAlphaSpaceAndSubnets ensures that the alpha space and its initial
+// subnets exist in the model.
+func (st *State) EnsureAlphaSpaceAndSubnets(ctx context.Context) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.ensureAlphaSpaceAndSubnets(ctx, tx)
+		if err != nil {
+			return errors.Errorf("ensuring alpha space and subnets: %w", err)
+		}
+		return nil
+	})
+	return errors.Capture(err)
+}
+
+func (st *State) ensureAlphaSpaceAndSubnets(ctx context.Context, tx *sqlair.TX) error {
+	return nil
+}

@@ -26,9 +26,18 @@ func RegisterImportSubnets(coordinator Coordinator, logger logger.Logger) {
 // SubnetsImportService provides a subset of the network domain service
 // methods needed for spaces and subnets import.
 type SubnetsImportService interface {
+	// AddSpace adds a new space to the model and returns its UUID.
 	AddSpace(ctx context.Context, space corenetwork.SpaceInfo) (corenetwork.SpaceUUID, error)
-	Space(ctx context.Context, uuid corenetwork.SpaceUUID) (*corenetwork.SpaceInfo, error)
+
+	// GetSpace returns the space information for the given UUID.
+	GetSpace(ctx context.Context, uuid corenetwork.SpaceUUID) (*corenetwork.SpaceInfo, error)
+
+	// AddSubnet adds a new subnet to the model and returns its ID.
 	AddSubnet(ctx context.Context, args corenetwork.SubnetInfo) (corenetwork.Id, error)
+
+	// EnsureAlphaSpaceAndSubnets ensures that the alpha space and its
+	// initial subnets exist in the model.
+	EnsureAlphaSpaceAndSubnets(ctx context.Context) error
 }
 
 type importSubnetsOperation struct {
@@ -46,7 +55,7 @@ func (i *importSubnetsOperation) Name() string {
 // Setup implements Operation.
 func (i *importSubnetsOperation) Setup(scope modelmigration.Scope) error {
 	st := state.NewState(scope.ModelDB(), i.logger)
-	i.importService = service.NewService(
+	i.importService = service.NewMigrationService(
 		st,
 		i.logger,
 	)
@@ -55,6 +64,17 @@ func (i *importSubnetsOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute the import of the spaces and subnets contained in the model.
 func (i *importSubnetsOperation) Execute(ctx context.Context, model description.Model) error {
+	// Ensure that there is an alpha space, along with the initial ipv4 and
+	// ipv6 subnets.
+	if model.Type() == description.CAAS {
+		// For CAAS models coming from pre-4.0 controllers, the alpha space
+		// and its subnets may not exist, so ensure they are created.
+		if err := i.importService.EnsureAlphaSpaceAndSubnets(ctx); err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	}
+
 	spaceIDsMap, err := i.importSpaces(ctx, model.Spaces())
 	if err != nil {
 		return errors.Capture(err)
@@ -99,7 +119,6 @@ func (i *importSubnetsOperation) importSubnets(
 	modelSubnets []description.Subnet,
 	spaceIDsMap map[string]corenetwork.SpaceUUID,
 ) error {
-
 	for _, subnet := range modelSubnets {
 		subnetInfo := corenetwork.SubnetInfo{
 			ID:                corenetwork.Id(subnet.UUID()),
@@ -112,7 +131,7 @@ func (i *importSubnetsOperation) importSubnets(
 
 		importedSpaceID, ok := spaceIDsMap[subnet.SpaceID()]
 		if ok {
-			space, err := i.importService.Space(ctx, importedSpaceID)
+			space, err := i.importService.GetSpace(ctx, importedSpaceID)
 			if err != nil {
 				return errors.Errorf("retrieving space with ID %s to import subnet %s: %w", importedSpaceID, subnet.ID(), err)
 			}

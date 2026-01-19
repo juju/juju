@@ -119,41 +119,79 @@ func (c *MockSubnetsImportServiceAddSubnetCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
-// Space mocks base method.
-func (m *MockSubnetsImportService) Space(arg0 context.Context, arg1 network.SpaceUUID) (*network.SpaceInfo, error) {
+// EnsureAlphaSpaceAndSubnets mocks base method.
+func (m *MockSubnetsImportService) EnsureAlphaSpaceAndSubnets(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Space", arg0, arg1)
-	ret0, _ := ret[0].(*network.SpaceInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "EnsureAlphaSpaceAndSubnets", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
-// Space indicates an expected call of Space.
-func (mr *MockSubnetsImportServiceMockRecorder) Space(arg0, arg1 any) *MockSubnetsImportServiceSpaceCall {
+// EnsureAlphaSpaceAndSubnets indicates an expected call of EnsureAlphaSpaceAndSubnets.
+func (mr *MockSubnetsImportServiceMockRecorder) EnsureAlphaSpaceAndSubnets(arg0 any) *MockSubnetsImportServiceEnsureAlphaSpaceAndSubnetsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Space", reflect.TypeOf((*MockSubnetsImportService)(nil).Space), arg0, arg1)
-	return &MockSubnetsImportServiceSpaceCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureAlphaSpaceAndSubnets", reflect.TypeOf((*MockSubnetsImportService)(nil).EnsureAlphaSpaceAndSubnets), arg0)
+	return &MockSubnetsImportServiceEnsureAlphaSpaceAndSubnetsCall{Call: call}
 }
 
-// MockSubnetsImportServiceSpaceCall wrap *gomock.Call
-type MockSubnetsImportServiceSpaceCall struct {
+// MockSubnetsImportServiceEnsureAlphaSpaceAndSubnetsCall wrap *gomock.Call
+type MockSubnetsImportServiceEnsureAlphaSpaceAndSubnetsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockSubnetsImportServiceSpaceCall) Return(arg0 *network.SpaceInfo, arg1 error) *MockSubnetsImportServiceSpaceCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockSubnetsImportServiceEnsureAlphaSpaceAndSubnetsCall) Return(arg0 error) *MockSubnetsImportServiceEnsureAlphaSpaceAndSubnetsCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSubnetsImportServiceSpaceCall) Do(f func(context.Context, network.SpaceUUID) (*network.SpaceInfo, error)) *MockSubnetsImportServiceSpaceCall {
+func (c *MockSubnetsImportServiceEnsureAlphaSpaceAndSubnetsCall) Do(f func(context.Context) error) *MockSubnetsImportServiceEnsureAlphaSpaceAndSubnetsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSubnetsImportServiceSpaceCall) DoAndReturn(f func(context.Context, network.SpaceUUID) (*network.SpaceInfo, error)) *MockSubnetsImportServiceSpaceCall {
+func (c *MockSubnetsImportServiceEnsureAlphaSpaceAndSubnetsCall) DoAndReturn(f func(context.Context) error) *MockSubnetsImportServiceEnsureAlphaSpaceAndSubnetsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetSpace mocks base method.
+func (m *MockSubnetsImportService) GetSpace(arg0 context.Context, arg1 network.SpaceUUID) (*network.SpaceInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSpace", arg0, arg1)
+	ret0, _ := ret[0].(*network.SpaceInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSpace indicates an expected call of GetSpace.
+func (mr *MockSubnetsImportServiceMockRecorder) GetSpace(arg0, arg1 any) *MockSubnetsImportServiceGetSpaceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSpace", reflect.TypeOf((*MockSubnetsImportService)(nil).GetSpace), arg0, arg1)
+	return &MockSubnetsImportServiceGetSpaceCall{Call: call}
+}
+
+// MockSubnetsImportServiceGetSpaceCall wrap *gomock.Call
+type MockSubnetsImportServiceGetSpaceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSubnetsImportServiceGetSpaceCall) Return(arg0 *network.SpaceInfo, arg1 error) *MockSubnetsImportServiceGetSpaceCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSubnetsImportServiceGetSpaceCall) Do(f func(context.Context, network.SpaceUUID) (*network.SpaceInfo, error)) *MockSubnetsImportServiceGetSpaceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSubnetsImportServiceGetSpaceCall) DoAndReturn(f func(context.Context, network.SpaceUUID) (*network.SpaceInfo, error)) *MockSubnetsImportServiceGetSpaceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -8,11 +8,14 @@ import (
 	"fmt"
 	"strings"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/trace"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/names/v6"
 )
 
 // MigrationState describes methods required
@@ -36,6 +39,19 @@ type MigrationState interface {
 	// It creates the associated netnode and link it to the application
 	// through the provided application name.
 	CreateCloudServices(ctx context.Context, cloudservices []internal.ImportCloudService) error
+
+	// AddSpace creates a space.
+	AddSpace(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error
+
+	// GetSpace returns the space by UUID.
+	GetSpace(ctx context.Context, uuid network.SpaceUUID) (*network.SpaceInfo, error)
+
+	// AddSubnet creates a subnet.
+	AddSubnet(ctx context.Context, subnet network.SubnetInfo) error
+
+	// EnsureAlphaSpaceAndSubnets ensures that the alpha space and its initial
+	// subnets exist in the model.
+	EnsureAlphaSpaceAndSubnets(ctx context.Context) error
 }
 
 // MigrationService provides the API for model migration actions within
@@ -55,8 +71,8 @@ func NewMigrationService(st MigrationState, logger logger.Logger) *MigrationServ
 	}
 }
 
-// ImportLinkLayerDevices is part of the [modelmigration.MigrationService]
-// interface.
+// ImportLinkLayerDevices imports link layer devices into the model as part
+// of the migration process.
 func (s *MigrationService) ImportLinkLayerDevices(ctx context.Context, data []internal.ImportLinkLayerDevice) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -94,6 +110,61 @@ func (s *MigrationService) ImportLinkLayerDevices(ctx context.Context, data []in
 	return s.st.ImportLinkLayerDevices(ctx, useData)
 }
 
+// EnsureAlphaSpaceAndSubnets ensures that the alpha space and its initial
+// subnets exist in the model, so that other migration operations can rely on
+// their existence.
+func (s *MigrationService) EnsureAlphaSpaceAndSubnets(ctx context.Context) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.st.EnsureAlphaSpaceAndSubnets(ctx)
+}
+
+// AddSpace creates and returns a new space.
+func (s *MigrationService) AddSpace(ctx context.Context, space network.SpaceInfo) (network.SpaceUUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if !names.IsValidSpace(string(space.Name)) {
+		return "", errors.Errorf("space name %q not valid", space.Name).Add(networkerrors.SpaceNameNotValid)
+	}
+
+	subnetIDs := make([]string, len(space.Subnets))
+	for i, subnet := range space.Subnets {
+		subnetIDs[i] = subnet.ID.String()
+	}
+	if err := s.st.AddSpace(ctx, space.ID, space.Name, space.ProviderId, subnetIDs); err != nil {
+		return "", errors.Capture(err)
+	}
+	return space.ID, nil
+}
+
+// GetSpace returns a space from state that matches the input ID. If the space
+// is not found, an error is returned matching
+// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
+func (s *MigrationService) GetSpace(ctx context.Context, uuid network.SpaceUUID) (*network.SpaceInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	sp, err := s.st.GetSpace(ctx, uuid)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return sp, nil
+}
+
+// AddSubnet creates and returns a new subnet.
+func (s *MigrationService) AddSubnet(ctx context.Context, args network.SubnetInfo) (network.Id, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := s.st.AddSubnet(ctx, args); err != nil && !errors.Is(err, coreerrors.AlreadyExists) {
+		return "", errors.Capture(err)
+	}
+
+	return args.ID, nil
+}
+
 // transformImportLinkLayerDevice transforms an ImportLinkLayerDevice for
 // migration by setting net node UUID and transforming addresses.
 // It uses the mapping of names to UUIDs and subnet information for processing.
@@ -128,7 +199,8 @@ func (s *MigrationService) transformImportLinkLayerDevice(
 	return device, nil
 }
 
-// transformImportIPAddress transforms an ImportIPAddress by finding and setting its subnet UUID
+// transformImportIPAddress transforms an ImportIPAddress by finding and setting
+// its subnet UUID.
 func (s *MigrationService) transformImportIPAddress(
 	addr internal.ImportIPAddress,
 	subnets network.SubnetInfos,
@@ -168,14 +240,16 @@ func (s *MigrationService) ImportCloudServices(ctx context.Context, services []i
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// Convert services parameter in internal.ImportLinkLayerDevice with placeholder device to host addresses then call
+	// Convert services parameter in internal.ImportLinkLayerDevice with
+	// placeholder device to host addresses then call
 	//   st.ImportLinkLayerDevices
 	llds, err := s.getPlaceholderLinkLayerDevices(ctx, services)
 	if err != nil {
 		return errors.Errorf("converting services: %w", err)
 	}
 
-	// Create the k8s_services and nodes through a call to state (can take directly []ImportCloudService)
+	// Create the k8s_services and nodes through a call to state (can take
+	// directly []ImportCloudService)
 	err = s.st.CreateCloudServices(ctx, services)
 	if err != nil {
 		return errors.Errorf("creating cloud services: %w", err)
