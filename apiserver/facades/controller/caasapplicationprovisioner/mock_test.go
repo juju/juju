@@ -215,27 +215,26 @@ func (m *mockModel) WatchForModelConfigChanges() state.NotifyWatcher {
 type mockApplication struct {
 	testing.Stub
 	state.Authenticator
-	life                         state.Life
-	tag                          names.Tag
-	password                     string
-	base                         state.Base
-	charm                        caasapplicationprovisioner.Charm
-	units                        []*mockUnit
-	constraints                  constraints.Value
-	storageConstraints           map[string]state.StorageConstraints
-	deviceConstraints            map[string]state.DeviceConstraints
-	charmModifiedVersion         int
-	config                       coreconfig.ConfigAttributes
-	scale                        int
-	unitsWatcher                 *statetesting.MockStringsWatcher
-	unitsChanges                 chan []string
-	watcher                      *statetesting.MockNotifyWatcher
-	storageConstraintsWatcher    *statetesting.MockNotifyWatcher
-	charmPending                 bool
-	provisioningState            *state.ApplicationProvisioningState
-	unitAttachmentInfos          []state.UnitAttachmentInfo
-	storageUniqueID              string
-	isUpdatingApplicationStorage bool
+	life                      state.Life
+	tag                       names.Tag
+	password                  string
+	base                      state.Base
+	charm                     caasapplicationprovisioner.Charm
+	units                     []*mockUnit
+	constraints               constraints.Value
+	storageConstraints        map[string]state.StorageConstraints
+	deviceConstraints         map[string]state.DeviceConstraints
+	charmModifiedVersion      int
+	config                    coreconfig.ConfigAttributes
+	scale                     int
+	unitsWatcher              *statetesting.MockStringsWatcher
+	unitsChanges              chan []string
+	watcher                   *statetesting.MockNotifyWatcher
+	storageConstraintsWatcher *statetesting.MockNotifyWatcher
+	charmPending              bool
+	provisioningState         *state.ApplicationProvisioningState
+	unitAttachmentInfos       []state.UnitAttachmentInfo
+	storageUniqueID           string
 }
 
 func (a *mockApplication) CharmPendingToBeDownloaded() bool {
@@ -394,19 +393,6 @@ func (a *mockApplication) GetUnitAttachmentInfos() ([]state.UnitAttachmentInfo, 
 func (a *mockApplication) GetStorageUniqueID() string {
 	a.MethodCall(a, "GetStorageUniqueID")
 	return a.storageUniqueID
-}
-
-func (a *mockApplication) GetIsUpdatingApplicationStorage() bool {
-	a.MethodCall(a, "GetIsUpdatingApplicationStorage")
-	return a.isUpdatingApplicationStorage
-}
-
-func (a *mockApplication) SetIsUpdatingApplicationStorage(isUpdating bool) error {
-	err := a.NextErr()
-	if err == nil {
-		a.isUpdatingApplicationStorage = isUpdating
-	}
-	return err
 }
 
 type mockCharm struct {

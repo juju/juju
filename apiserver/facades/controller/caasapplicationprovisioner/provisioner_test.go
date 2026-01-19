@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas/mocks"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/resources"
 	jujuresource "github.com/juju/juju/core/resources"
@@ -719,8 +720,9 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningState(c *gc.C) {
 	setResult, err := s.api.SetProvisioningState(params.CAASApplicationProvisioningStateArg{
 		Application: params.Entity{Tag: "application-gitlab"},
 		ProvisioningState: params.CAASApplicationProvisioningState{
-			Scaling:     true,
-			ScaleTarget: 10,
+			CurrentOperation: application.ScaleOperation,
+			ScaleTarget:      10,
+			ReplicaCount:     0,
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -729,8 +731,9 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningState(c *gc.C) {
 	result, err = s.api.ProvisioningState(params.Entity{Tag: "application-gitlab"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.ProvisioningState, jc.DeepEquals, &params.CAASApplicationProvisioningState{
-		Scaling:     true,
-		ScaleTarget: 10,
+		CurrentOperation: application.ScaleOperation,
+		ScaleTarget:      10,
+		ReplicaCount:     0,
 	})
 
 	s.st.app.Stub.CheckCallNames(c, "ProvisioningState", "SetProvisioningState", "ProvisioningState")
