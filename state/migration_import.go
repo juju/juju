@@ -23,6 +23,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	coreapp "github.com/juju/juju/core/application"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -1405,9 +1406,13 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 	}
 
 	if ps := a.ProvisioningState(); ps != nil {
+		scaleOp := coreapp.ScaleOperation
 		appDoc.ProvisioningState = &ApplicationProvisioningState{
-			Scaling:     ps.Scaling(),
-			ScaleTarget: ps.ScaleTarget(),
+			ScaleTarget:      ps.ScaleTarget(),
+			CurrentOperation: nil,
+		}
+		if ps.Scaling() {
+			appDoc.ProvisioningState.CurrentOperation = &scaleOp
 		}
 	}
 

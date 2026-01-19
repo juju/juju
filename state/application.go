@@ -131,9 +131,6 @@ type applicationDoc struct {
 // ApplicationProvisioningState is the CAAS application provisioning state for an
 // application.
 type ApplicationProvisioningState struct {
-	// Scaling -- TODO: remove and do an upgrade step to transform Scaling
-	// to CurrentOperation.
-	Scaling          bool                               `bson:"scaling"`
 	ScaleTarget      int                                `bson:"scale-target"`
 	ReplicaCount     int                                `bson:"replica-count"`
 	CurrentOperation *application.ProvisioningOperation `bson:"current-operation"`

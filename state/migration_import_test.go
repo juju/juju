@@ -23,6 +23,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
+	coreapp "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -3538,9 +3539,10 @@ func (s *MigrationImportSuite) TestApplicationWithProvisioningState(c *gc.C) {
 
 	err := application.SetScale(1, 0, true)
 	c.Assert(err, jc.ErrorIsNil)
+	scaleOp := coreapp.ScaleOperation
 	err = application.SetProvisioningState(state.ApplicationProvisioningState{
-		Scaling:     true,
-		ScaleTarget: 1,
+		CurrentOperation: &scaleOp,
+		ScaleTarget:      1,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -3563,8 +3565,8 @@ func (s *MigrationImportSuite) TestApplicationWithProvisioningState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(importedApplication.ProvisioningState(), jc.DeepEquals, &state.ApplicationProvisioningState{
-		Scaling:     true,
-		ScaleTarget: 1,
+		CurrentOperation: &scaleOp,
+		ScaleTarget:      1,
 	})
 }
 
