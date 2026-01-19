@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/names/v6"
+
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
@@ -15,7 +17,6 @@ import (
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/names/v6"
 )
 
 // MigrationState describes methods required

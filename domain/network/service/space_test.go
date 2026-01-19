@@ -159,7 +159,7 @@ func (s *spaceSuite) TestUpdateSpaceNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, networkerrors.SpaceNotFound)
 }
 
-func (s *spaceSuite) TestRetrieveSpaceByID(c *tc.C) {
+func (s *spaceSuite) TestGetSpaceByID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.st.EXPECT().GetSpace(gomock.Any(), network.AlphaSpaceId)
@@ -167,10 +167,10 @@ func (s *spaceSuite) TestRetrieveSpaceByID(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestRetrieveSpaceByIDNotFound checks that if we try to call Service.Space on
+// TestGetSpaceByIDNotFound checks that if we try to call Service.Space on
 // a space that doesn't exist, an error is returned matching
 // networkerrors.SpaceNotFound.
-func (s *spaceSuite) TestRetrieveSpaceByIDNotFound(c *tc.C) {
+func (s *spaceSuite) TestGetSpaceByIDNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	spUUID := networktesting.GenSpaceUUID(c)
@@ -180,7 +180,7 @@ func (s *spaceSuite) TestRetrieveSpaceByIDNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, networkerrors.SpaceNotFound)
 }
 
-func (s *spaceSuite) TestRetrieveSpaceByName(c *tc.C) {
+func (s *spaceSuite) TestGetSpaceByName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.st.EXPECT().GetSpaceByName(gomock.Any(), network.AlphaSpaceName)
@@ -188,10 +188,10 @@ func (s *spaceSuite) TestRetrieveSpaceByName(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestRetrieveSpaceByNameNotFound checks that if we try to call
+// TestGetSpaceByNameNotFound checks that if we try to call
 // Service.SpaceByName on a space that doesn't exist, an error is returned
 // matching networkerrors.SpaceNotFound.
-func (s *spaceSuite) TestRetrieveSpaceByNameNotFound(c *tc.C) {
+func (s *spaceSuite) TestGetSpaceByNameNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.st.EXPECT().GetSpaceByName(gomock.Any(), network.SpaceName("unknown-space-name")).
@@ -200,7 +200,7 @@ func (s *spaceSuite) TestRetrieveSpaceByNameNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, networkerrors.SpaceNotFound)
 }
 
-func (s *spaceSuite) TestRetrieveAllSpaces(c *tc.C) {
+func (s *spaceSuite) TestGetAllSpaces(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.st.EXPECT().GetAllSpaces(gomock.Any())
