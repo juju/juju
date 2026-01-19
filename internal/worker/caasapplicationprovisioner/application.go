@@ -9,13 +9,13 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/application"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -493,7 +493,6 @@ func (a *appWorker) loop() error {
 			appLife, err = a.facade.Life(a.name)
 			if errors.Is(err, errors.NotFound) {
 				a.logger.Debugf("application %q no longer exists, skipping storage update", a.name)
-				storageConstraintsChan = nil
 				return nil
 			} else if err != nil {
 				return errors.Annotatef(err, "fetching life status for application %q", a.name)
