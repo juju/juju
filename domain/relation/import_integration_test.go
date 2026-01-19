@@ -326,6 +326,6 @@ func (s *importSuite) doImport(c *tc.C, desc description.Model) {
 	relationmodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	err := coordinator.Perform(c.Context(), modelmigration.NewScope(nil, s.TxnRunnerFactory(),
-		nil, model.UUID(s.ModelUUID())), desc)
+		nil, "deadbeef", model.UUID(s.ModelUUID())), desc)
 	c.Assert(err, tc.ErrorIsNil)
 }

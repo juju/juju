@@ -70,6 +70,7 @@ type Scope struct {
 	controllerDB           database.TxnRunnerFactory
 	modelDB                database.TxnRunnerFactory
 	modelObjectStoreGetter objectstore.ModelObjectStoreGetter
+	controllerUUID         string
 	modelUUID              model.UUID
 }
 
@@ -77,11 +78,18 @@ type Scope struct {
 type ScopeForModel func(modelUUID model.UUID) Scope
 
 // NewScope creates a new scope with the given database txn runners.
-func NewScope(controllerDB database.TxnRunnerFactory, modelDB database.TxnRunnerFactory, modelObjectStoreGetter objectstore.ModelObjectStoreGetter, modelUUID model.UUID) Scope {
+func NewScope(
+	controllerDB database.TxnRunnerFactory,
+	modelDB database.TxnRunnerFactory,
+	modelObjectStoreGetter objectstore.ModelObjectStoreGetter,
+	controllerUUID string,
+	modelUUID model.UUID,
+) Scope {
 	return Scope{
 		controllerDB:           controllerDB,
 		modelDB:                modelDB,
 		modelObjectStoreGetter: modelObjectStoreGetter,
+		controllerUUID:         controllerUUID,
 		modelUUID:              modelUUID,
 	}
 }
@@ -94,6 +102,11 @@ func (s Scope) ControllerDB() database.TxnRunnerFactory {
 // ModelDB returns the database txn runner for the model.
 func (s Scope) ModelDB() database.TxnRunnerFactory {
 	return s.modelDB
+}
+
+// ControllerUUID returns the UUID of the controller.
+func (s Scope) ControllerUUID() string {
+	return s.controllerUUID
 }
 
 // ModelUUID returns the UUID of the model being migrated.

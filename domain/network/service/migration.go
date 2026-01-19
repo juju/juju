@@ -13,6 +13,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/trace"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/network/internal"
@@ -65,7 +66,10 @@ type MigrationService struct {
 // NewMigrationService returns a new migration service reference wrapping
 // the input state. These methods are specific to migration only and not
 // intended to be used outside the domain.
-func NewMigrationService(st MigrationState, logger logger.Logger) *MigrationService {
+func NewMigrationService(
+	st MigrationState,
+	logger logger.Logger,
+) *MigrationService {
 	return &MigrationService{
 		st:     st,
 		logger: logger,
@@ -109,16 +113,6 @@ func (s *MigrationService) ImportLinkLayerDevices(ctx context.Context, data []in
 	}
 
 	return s.st.ImportLinkLayerDevices(ctx, useData)
-}
-
-// EnsureAlphaSpaceAndSubnets ensures that the alpha space and its initial
-// subnets exist in the model, so that other migration operations can rely on
-// their existence.
-func (s *MigrationService) EnsureAlphaSpaceAndSubnets(ctx context.Context) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	return s.st.EnsureAlphaSpaceAndSubnets(ctx)
 }
 
 // AddSpace creates and returns a new space.
@@ -352,4 +346,33 @@ func (s *MigrationService) ensureOneSubnet(subnets network.SubnetInfos) (string,
 	}
 
 	return subnets[0].ID.String(), nil
+}
+
+// ProviderMigrationService provides network migration operations that
+// require a provider with networking capabilities.
+type ProviderMigrationService struct {
+	*MigrationService
+}
+
+// NewProviderMigrationService returns a new ProviderMigrationService.
+func NewProviderMigrationService(
+	st MigrationState,
+	logger logger.Logger,
+) *ProviderMigrationService {
+	return &ProviderMigrationService{
+		MigrationService: NewMigrationService(st, logger),
+	}
+}
+
+// EnsureAlphaSpaceAndSubnets ensures that the alpha space and its initial
+// subnets exist in the model, so that other migration operations can rely on
+// their existence.
+func (s *ProviderMigrationService) EnsureAlphaSpaceAndSubnets(
+	ctx context.Context,
+	providerWithNetworking providertracker.ProviderGetter[ProviderWithNetworking],
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.st.EnsureAlphaSpaceAndSubnets(ctx)
 }

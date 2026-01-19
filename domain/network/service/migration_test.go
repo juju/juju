@@ -745,15 +745,6 @@ func (cloudServiceLLDMatcher) String() string {
 	return "matches args for ImportLinkLayerDevices"
 }
 
-func (s *migrationSuite) TestEnsureAlphaSpaceAndSubnets(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.st.EXPECT().EnsureAlphaSpaceAndSubnets(gomock.Any()).Return(nil)
-
-	err := s.migrationService(c).EnsureAlphaSpaceAndSubnets(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-}
-
 func (s *migrationSuite) TestAddSpaceInvalidNameEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

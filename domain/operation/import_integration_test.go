@@ -122,7 +122,7 @@ func (s *importSuite) TestImportApplicationOperation(c *tc.C) {
 	operationmodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	err := coordinator.Perform(c.Context(), modelmigration.NewScope(nil, s.TxnRunnerFactory(),
-		nil, model.UUID(s.ModelUUID())), desc)
+		nil, "deadbeef", model.UUID(s.ModelUUID())), desc)
 	c.Assert(err, tc.ErrorIsNil)
 
 	svc := s.setupService(c)
@@ -189,7 +189,7 @@ func (s *importSuite) TestImportMachineOperation(c *tc.C) {
 	operationmodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	err := coordinator.Perform(c.Context(), modelmigration.NewScope(nil, s.TxnRunnerFactory(),
-		nil, model.UUID(s.ModelUUID())), desc)
+		nil, "deadbeef", model.UUID(s.ModelUUID())), desc)
 	c.Assert(err, tc.ErrorIsNil)
 
 	svc := s.setupService(c)

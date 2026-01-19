@@ -61,7 +61,7 @@ func (s *importSuite) SetUpTest(c *tc.C) {
 		return s.ControllerTxnRunner(), nil
 	}
 
-	s.scope = coremodelmigration.NewScope(controllerFactory, nil, nil, s.modelUUID)
+	s.scope = coremodelmigration.NewScope(controllerFactory, nil, nil, "deadbeef", s.modelUUID)
 	s.svc = service.NewService(
 		state.NewState(controllerFactory, loggertesting.WrapCheckLog(c)),
 	)

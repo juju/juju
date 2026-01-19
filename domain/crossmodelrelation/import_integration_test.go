@@ -309,7 +309,7 @@ func (s *importSuite) setupCoordinatorScopeAndService(c *tc.C) (*coremodelmigrat
 		return modelRunner, nil
 	}
 
-	scope := coremodelmigration.NewScope(controllerFactory, modelFactory, nil, modelUUID)
+	scope := coremodelmigration.NewScope(controllerFactory, modelFactory, nil, "deadbeef", modelUUID)
 	srv := service.NewService(
 		controllerstate.NewState(controllerFactory, loggertesting.WrapCheckLog(c)),
 		modelstate.NewState(modelFactory, modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c)),

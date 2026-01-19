@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type migrationSuite struct {
@@ -126,7 +127,7 @@ func (s *migrationSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.txnRunner = NewMockTxnRunner(ctrl)
 	s.model = NewMockModel(ctrl)
 
-	s.scope = NewScope(nil, nil, nil, tc.Must0(c, model.NewUUID))
+	s.scope = NewScope(nil, nil, nil, tc.Must0(c, uuid.NewUUID).String(), tc.Must0(c, model.NewUUID))
 
 	return ctrl
 }

@@ -29,7 +29,7 @@ type EphemeralConfig struct {
 
 	// ControllerUUID is the UUID of the controller that the provider is
 	// associated with. This is currently only used for k8s providers.
-	ControllerUUID uuid.UUID
+	ControllerUUID string
 
 	// GetProviderForType returns a provider for the given model type.
 	GetProviderForType func(coremodel.ModelType) (GetProviderFunc, error)
@@ -43,7 +43,7 @@ func (config EphemeralConfig) Validate() error {
 	if err := config.CloudSpec.Validate(); err != nil {
 		return errors.NotValidf("CloudSpec: %v", err)
 	}
-	if !uuid.IsValidUUIDString(config.ControllerUUID.String()) {
+	if !uuid.IsValidUUIDString(config.ControllerUUID) {
 		return errors.NotValidf("ControllerUUID")
 	}
 	if config.GetProviderForType == nil {
@@ -80,12 +80,12 @@ func NewEphemeralProvider(ctx context.Context, config EphemeralConfig) (Provider
 type ephemeralProviderGetter struct {
 	modelConfig    *config.Config
 	cloudSpec      cloudspec.CloudSpec
-	controllerUUID uuid.UUID
+	controllerUUID string
 }
 
 // ControllerUUID returns the controller UUID.
 func (g ephemeralProviderGetter) ControllerUUID(context.Context) (string, error) {
-	return g.controllerUUID.String(), nil
+	return g.controllerUUID, nil
 }
 
 // ModelConfig returns the model config.

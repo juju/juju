@@ -49,7 +49,7 @@ func (s *importSuite) TestSetup(c *tc.C) {
 
 	// We don't currently need the model DB, so for this instance we can just
 	// pass nil.
-	err := op.Setup(modelmigration.NewScope(nil, nil, nil, tc.Must0(c, model.NewUUID)))
+	err := op.Setup(modelmigration.NewScope(nil, nil, nil, "deadbeef", tc.Must0(c, model.NewUUID)))
 	c.Assert(err, tc.ErrorIsNil)
 }
 

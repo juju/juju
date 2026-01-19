@@ -1004,7 +1004,7 @@ func (ctx *facadeContext) migrationScope(modelUUID model.UUID) coremodelmigratio
 		}),
 		modelObjectStore(func(stdCtx context.Context) (objectstore.ObjectStore, error) {
 			return ctx.r.objectStoreGetter.GetObjectStore(stdCtx, modelUUID.String())
-		}), modelUUID)
+		}), ctx.r.shared.controllerUUID, modelUUID)
 }
 
 // DomainServicesForModel returns the services factory for a given

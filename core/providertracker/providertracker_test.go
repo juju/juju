@@ -80,7 +80,7 @@ func (s *providerSuite) TestEphemeralProviderRunnerFromConfig(c *tc.C) {
 
 	configGetter := ephemeralProviderConfigGetter{
 		EphemeralProviderConfig: EphemeralProviderConfig{
-			ControllerUUID: uuid.MustNewUUID(),
+			ControllerUUID: tc.Must0(c, uuid.NewUUID).String(),
 		},
 	}
 
@@ -98,7 +98,7 @@ func (s *providerSuite) TestEphemeralProviderRunnerFromConfigSubsetType(c *tc.C)
 
 	configGetter := ephemeralProviderConfigGetter{
 		EphemeralProviderConfig: EphemeralProviderConfig{
-			ControllerUUID: uuid.MustNewUUID(),
+			ControllerUUID: tc.Must0(c, uuid.NewUUID).String(),
 		},
 	}
 
@@ -120,7 +120,7 @@ func (s *providerSuite) TestEphemeralProviderRunnerFromConfigIsNotSubsetType(c *
 
 	configGetter := ephemeralProviderConfigGetter{
 		EphemeralProviderConfig: EphemeralProviderConfig{
-			ControllerUUID: uuid.MustNewUUID(),
+			ControllerUUID: tc.Must0(c, uuid.NewUUID).String(),
 		},
 	}
 

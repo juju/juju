@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/uuid"
 )
 
 const (
@@ -65,7 +64,7 @@ type EphemeralProviderConfig struct {
 
 	// ControllerUUID is the UUID of the controller that the provider is
 	// associated with. This is currently only used for k8s providers.
-	ControllerUUID uuid.UUID
+	ControllerUUID string
 }
 
 // EphemeralProviderConfigGetter is an interface for late binding of the

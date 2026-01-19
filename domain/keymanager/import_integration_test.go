@@ -75,7 +75,7 @@ func (s *importSuite) TestImportFromModelConfig(c *tc.C) {
 
 	coordinator := modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
 	keymanagermodelmigration.RegisterImport(coordinator, loggertesting.WrapCheckLog(c))
-	err := coordinator.Perform(c.Context(), modelmigration.NewScope(s.TxnRunnerFactory(), nil, nil, s.modelUUID), desc)
+	err := coordinator.Perform(c.Context(), modelmigration.NewScope(s.TxnRunnerFactory(), nil, nil, "deadbeef", s.modelUUID), desc)
 	c.Assert(err, tc.ErrorIsNil)
 
 	svc := s.setupService(c)
@@ -111,7 +111,7 @@ func (s *importSuite) TestImportFromModelDescription(c *tc.C) {
 
 	coordinator := modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
 	keymanagermodelmigration.RegisterImport(coordinator, loggertesting.WrapCheckLog(c))
-	err := coordinator.Perform(c.Context(), modelmigration.NewScope(s.TxnRunnerFactory(), nil, nil, s.modelUUID), desc)
+	err := coordinator.Perform(c.Context(), modelmigration.NewScope(s.TxnRunnerFactory(), nil, nil, "deadbeef", s.modelUUID), desc)
 	c.Assert(err, tc.ErrorIsNil)
 
 	svc := s.setupService(c)
@@ -155,7 +155,7 @@ func (s *importSuite) TestImportThatFailsRollsback(c *tc.C) {
 	coordinator := modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
 	keymanagermodelmigration.RegisterImport(coordinator, loggertesting.WrapCheckLog(c))
 	migrationtesting.RegisterFailingImport(coordinator)
-	err := coordinator.Perform(c.Context(), modelmigration.NewScope(s.TxnRunnerFactory(), nil, nil, s.modelUUID), desc)
+	err := coordinator.Perform(c.Context(), modelmigration.NewScope(s.TxnRunnerFactory(), nil, nil, "deadbeef", s.modelUUID), desc)
 	c.Assert(err, tc.ErrorIs, migrationtesting.IntentionalImportFailure)
 
 	svc := s.setupService(c)

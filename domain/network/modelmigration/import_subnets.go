@@ -9,10 +9,13 @@ import (
 	"github.com/juju/description/v11"
 
 	"github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/domain/network/service"
 	"github.com/juju/juju/domain/network/state"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -37,14 +40,16 @@ type SubnetsImportService interface {
 
 	// EnsureAlphaSpaceAndSubnets ensures that the alpha space and its
 	// initial subnets exist in the model.
-	EnsureAlphaSpaceAndSubnets(ctx context.Context) error
+	EnsureAlphaSpaceAndSubnets(context.Context, providertracker.ProviderGetter[service.ProviderWithNetworking]) error
 }
 
 type importSubnetsOperation struct {
 	modelmigration.BaseOperation
 
-	importService SubnetsImportService
-	logger        logger.Logger
+	importService   SubnetsImportService
+	controllerUUID  string
+	providerFactory providertracker.ProviderFactory
+	logger          logger.Logger
 }
 
 // Name returns the name of this operation.
@@ -55,7 +60,8 @@ func (i *importSubnetsOperation) Name() string {
 // Setup implements Operation.
 func (i *importSubnetsOperation) Setup(scope modelmigration.Scope) error {
 	st := state.NewState(scope.ModelDB(), i.logger)
-	i.importService = service.NewMigrationService(
+	i.controllerUUID = scope.ControllerUUID()
+	i.importService = service.NewProviderMigrationService(
 		st,
 		i.logger,
 	)
@@ -69,7 +75,26 @@ func (i *importSubnetsOperation) Execute(ctx context.Context, model description.
 	if model.Type() == description.CAAS {
 		// For CAAS models coming from pre-4.0 controllers, the alpha space
 		// and its subnets may not exist, so ensure they are created.
-		if err := i.importService.EnsureAlphaSpaceAndSubnets(ctx); err != nil {
+
+		// This doesn't take into account the provider model defaults.
+		modelConfig, err := config.New(config.NoDefaults, model.Config())
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		provider := providertracker.EphemeralProviderRunnerFromConfig[service.ProviderWithNetworking](
+			i.providerFactory,
+			providerConfigGetter(func() providertracker.EphemeralProviderConfig {
+				return providertracker.EphemeralProviderConfig{
+					ModelType:   coremodel.ModelType(model.Type()),
+					ModelConfig: modelConfig,
+
+					ControllerUUID: i.controllerUUID,
+				}
+			}),
+		)
+
+		if err := i.importService.EnsureAlphaSpaceAndSubnets(ctx, provider); err != nil {
 			return errors.Capture(err)
 		}
 		return nil
@@ -146,4 +171,12 @@ func (i *importSubnetsOperation) importSubnets(
 		}
 	}
 	return nil
+}
+
+type providerConfigGetter func() providertracker.EphemeralProviderConfig
+
+func (fn providerConfigGetter) GetEphemeralProviderConfig(
+	_ context.Context,
+) (providertracker.EphemeralProviderConfig, error) {
+	return fn(), nil
 }
