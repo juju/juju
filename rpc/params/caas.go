@@ -222,10 +222,3 @@ type CAASApplicationProvisionerConfigResult struct {
 	ProvisionerConfig *CAASApplicationProvisionerConfig `json:"provisioner-config,omitempty"`
 	Error             *Error                            `json:"error,omitempty"`
 }
-
-// CAASSetIsUpdatingApplicationStorageArg holds the arguments for setting a
-// CAAS application's flag to indicate an ongoing storage update.
-type CAASSetIsUpdatingApplicationStorageArg struct {
-	IsUpdating  bool   `json:"is-updating"`
-	Application Entity `json:"application"`
-}

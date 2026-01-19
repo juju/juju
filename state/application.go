@@ -126,10 +126,6 @@ type applicationDoc struct {
 	// and any k8s cluster resources have been fully cleaned up.
 	// Until then, the application must not be removed from the Juju model.
 	HasResources bool `bson:"has-resources,omitempty"`
-	// IsUpdatingApplicationStorage is set to true when an ongoing app storage is
-	// updated so that the statefulset replica follows the existing [DesiredScale]
-	// when reapplied. False on the contrary.
-	IsUpdatingApplicationStorage bool `bson:"is-updating-application-storage"`
 }
 
 // ApplicationProvisioningState is the CAAS application provisioning state for an
