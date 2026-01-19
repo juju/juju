@@ -263,7 +263,10 @@ func (conf configArgsConverter) asCommandLineArguments() string {
 }
 
 func (conf configArgsConverter) asMongoDbConfigurationFileFormat() string {
-	pathArgs := set.NewStrings("dbpath", "logpath", "tlsCAFile", "tlsCertificateKeyFile", "keyFile")
+	pathArgs := set.NewStrings(
+		"dbpath", "logpath", "tlsCAFile", "tlsCertificateKeyFile", "keyFile",
+		"sslPEMKeyFile", // drop in 3.x, for compatibility with mongo 4.0
+	)
 	command := make([]string, 0, len(conf))
 	for key, value := range conf {
 		if len(key) == 0 {
@@ -276,7 +279,8 @@ func (conf configArgsConverter) asMongoDbConfigurationFileFormat() string {
 			value = "true"
 		}
 		line := fmt.Sprintf("%s = %s", key, value)
-		if strings.HasPrefix(key, "sslPEMKeyPassword") {
+		if strings.HasPrefix(key, "tlsCertificateKeyFilePassword") ||
+			strings.HasPrefix(key, "sslPEMKeyPassword") {
 			line = key
 		}
 		command = append(command, line)
@@ -306,25 +310,48 @@ func (mongoArgs *ConfigArgs) asMap() configArgsConverter {
 	if mongoArgs.BindToAllIP {
 		result["bind_ip_all"] = flagMarker
 	}
+	// The mongodb 4.0 SSL compatibility can be dropped in 3.x.
+	usingTLSArgs := mongoArgs.Version.Major == 4 && mongoArgs.Version.Minor >= 4
 	if mongoArgs.SSLMode != "" {
-		result["tlsMode"] = mongoArgs.SSLMode
+		if usingTLSArgs {
+			result["tlsMode"] = mongoArgs.SSLMode
+		} else {
+			result["sslMode"] = mongoArgs.SSLMode
+		}
 	}
 	if mongoArgs.SSLOnNormalPorts {
-		result["sslOnNormalPorts"] = flagMarker
+		if usingTLSArgs {
+			result["tlsOnNormalPorts"] = flagMarker
+		} else {
+			result["sslOnNormalPorts"] = flagMarker
+		}
 	}
 
 	// authn
 	if mongoArgs.PEMKeyFile != "" {
-		result["tlsCertificateKeyFile"] = utils.ShQuote(mongoArgs.PEMKeyFile)
-		//--tlsCertificateKeyFilePassword must be concatenated to the equals sign (lp:1581284)
-		pemPassword := mongoArgs.PEMKeyPassword
-		if pemPassword == "" {
-			pemPassword = "ignored"
+		if usingTLSArgs {
+			result["tlsCertificateKeyFile"] = utils.ShQuote(mongoArgs.PEMKeyFile)
+			// --tlsCertificateKeyFilePassword must be concatenated to the equals sign (lp:1581284)
+			pemPassword := mongoArgs.PEMKeyPassword
+			if pemPassword == "" {
+				pemPassword = "ignored"
+			}
+			result["tlsCertificateKeyFilePassword="+pemPassword] = flagMarker
+		} else {
+			result["sslPEMKeyFile"] = utils.ShQuote(mongoArgs.PEMKeyFile)
+			pemPassword := mongoArgs.PEMKeyPassword
+			if pemPassword == "" {
+				pemPassword = "ignored"
+			}
+			result["sslPEMKeyPassword="+pemPassword] = flagMarker
 		}
-		result["tlsCertificateKeyFilePassword="+pemPassword] = flagMarker
 	}
 	if mongoArgs.CACertFile != "" {
-		result["tlsCAFile"] = utils.ShQuote(mongoArgs.CACertFile)
+		if usingTLSArgs {
+			result["tlsCAFile"] = utils.ShQuote(mongoArgs.CACertFile)
+		} else {
+			result["sslCAFile"] = utils.ShQuote(mongoArgs.CACertFile)
+		}
 	}
 
 	if mongoArgs.AuthKeyFile != "" {
@@ -332,7 +359,11 @@ func (mongoArgs *ConfigArgs) asMap() configArgsConverter {
 		// Juju doesn't create or update certificates with
 		// the SANs set to the replica IP addresses/hostnames
 		// so we need to disable hostname verification.
-		result["tlsAllowInvalidHostnames"] = flagMarker
+		if usingTLSArgs {
+			result["tlsAllowInvalidHostnames"] = flagMarker
+		} else {
+			result["sslAllowInvalidHostnames"] = flagMarker
+		}
 		result["keyFile"] = utils.ShQuote(mongoArgs.AuthKeyFile)
 	} else {
 		logger.Warningf("configuring mongod  with --noauth flag enabled")
@@ -462,6 +493,7 @@ func generateConfig(mongoPath string, oplogSizeMB int, version Version, usingMon
 	usingMongo4orAbove := version.Major > 3
 	usingMongo36orAbove := usingMongo4orAbove || (version.Major == 3 && version.Minor >= 6)
 	usingMongo34orAbove := usingMongo36orAbove || (version.Major == 3 && version.Minor >= 4)
+	usingMongo44 := usingMongo4orAbove && version.Minor >= 4
 	useLowMemory := args.MemoryProfile == MemoryProfileLow
 
 	mongoArgs := &ConfigArgs{
@@ -507,8 +539,10 @@ func generateConfig(mongoPath string, oplogSizeMB int, version Version, usingMon
 
 	if usingMongo2 {
 		mongoArgs.SSLOnNormalPorts = true
-	} else {
+	} else if usingMongo44 {
 		mongoArgs.SSLMode = "requireTLS"
+	} else {
+		mongoArgs.SSLMode = "requireSSL"
 	}
 
 	if usingMongoFromSnap {

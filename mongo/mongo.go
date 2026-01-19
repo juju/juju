@@ -237,6 +237,12 @@ var (
 		Patch:         "",
 		StorageEngine: WiredTiger,
 	}
+	// Mongo44wt represents 'mongodb' at version 4.4 with WiredTiger
+	Mongo44wt = Version{Major: 4,
+		Minor:         4,
+		Patch:         "",
+		StorageEngine: WiredTiger,
+	}
 	// MongoUpgrade represents a special case where an upgrade is in
 	// progress.
 	MongoUpgrade = Version{Major: 0,
