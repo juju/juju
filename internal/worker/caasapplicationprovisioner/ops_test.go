@@ -18,6 +18,7 @@ import (
 	api "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"
+	"github.com/juju/juju/core/application"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -397,8 +398,8 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleNotScaling(c *gc.C) {
 
 	units := []params.CAASUnit{{Tag: names.NewUnitTag("test/0")}}
 	ps := params.CAASApplicationProvisioningState{
-		Scaling:     false, // Not scaling
-		ScaleTarget: 1,
+		CurrentOperation: nil, // Not scaling
+		ScaleTarget:      1,
 	}
 
 	gomock.InOrder(
@@ -444,9 +445,10 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleUp(c *gc.C) {
 		{Tag: names.NewUnitTag("test/0")},
 		{Tag: names.NewUnitTag("test/1")},
 	}
+	op := application.ScaleOperation
 	ps := params.CAASApplicationProvisioningState{
-		Scaling:     true,
-		ScaleTarget: 5, // Scale up to 5 units
+		CurrentOperation: &op,
+		ScaleTarget:      5, // Scale up to 5 units
 	}
 
 	gomock.InOrder(
@@ -476,9 +478,10 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownNotAllDead(c *gc.C) {
 		{Tag: names.NewUnitTag("test/2")}, // >= target
 		{Tag: names.NewUnitTag("test/3")}, // >= target
 	}
+	op := application.ScaleOperation
 	ps := params.CAASApplicationProvisioningState{
-		Scaling:     true,
-		ScaleTarget: 2, // Scale down to 2 units
+		CurrentOperation: &op,
+		ScaleTarget:      2, // Scale down to 2 units
 	}
 
 	gomock.InOrder(
@@ -510,16 +513,17 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownAllExcessDead(c *gc.C) {
 		{Tag: names.NewUnitTag("test/2")}, // >= target
 		{Tag: names.NewUnitTag("test/3")}, // >= target
 	}
+	op := application.ScaleOperation
 	ps := params.CAASApplicationProvisioningState{
-		Scaling:     true,
-		ScaleTarget: 2, // Scale down to 2 units
+		CurrentOperation: &op,
+		ScaleTarget:      2, // Scale down to 2 units
 	}
 	appState := caas.ApplicationState{
 		Replicas: []string{"a", "b"}, // Already at target scale
 	}
 	newPs := params.CAASApplicationProvisioningState{
-		Scaling:     false,
-		ScaleTarget: 0,
+		CurrentOperation: nil,
+		ScaleTarget:      0,
 	}
 
 	gomock.InOrder(
@@ -556,9 +560,10 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownNoExcessUnits(c *gc.C) {
 		{Tag: names.NewUnitTag("test/0")},
 		{Tag: names.NewUnitTag("test/1")},
 	}
+	op := application.ScaleOperation
 	ps := params.CAASApplicationProvisioningState{
-		Scaling:     true,
-		ScaleTarget: 2, // Already at target
+		CurrentOperation: &op,
+		ScaleTarget:      2, // Already at target
 	}
 
 	gomock.InOrder(
@@ -581,9 +586,10 @@ func (s *OpsSuite) TestEnsureScaleAlive(c *gc.C) {
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
 
+	op := application.ScaleOperation
 	ps := params.CAASApplicationProvisioningState{
-		Scaling:     true,
-		ScaleTarget: 1,
+		CurrentOperation: &op,
+		ScaleTarget:      1,
 	}
 	units := []params.CAASUnit{{
 		Tag: names.NewUnitTag("test/0"),
@@ -612,9 +618,10 @@ func (s *OpsSuite) TestEnsureScaleAliveRetry(c *gc.C) {
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
 
+	op := application.ScaleOperation
 	ps := params.CAASApplicationProvisioningState{
-		Scaling:     true,
-		ScaleTarget: 1,
+		CurrentOperation: &op,
+		ScaleTarget:      1,
 	}
 	units := []params.CAASUnit{{
 		Tag: names.NewUnitTag("test/0"),
@@ -642,9 +649,10 @@ func (s *OpsSuite) TestEnsureScaleDyingDead(c *gc.C) {
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
 
+	op := application.ScaleOperation
 	ps := params.CAASApplicationProvisioningState{
-		Scaling:     true,
-		ScaleTarget: 0,
+		CurrentOperation: &op,
+		ScaleTarget:      0,
 	}
 	units := []params.CAASUnit{{
 		Tag: names.NewUnitTag("test/0"),
@@ -673,9 +681,10 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorage(c *gc.C) {
 	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
 
 	// Test scenario where we need to scale up and have attached storage
+	op := application.ScaleOperation
 	ps := params.CAASApplicationProvisioningState{
-		Scaling:     true,
-		ScaleTarget: 2,
+		CurrentOperation: &op,
+		ScaleTarget:      2,
 	}
 
 	// Current units (less than scale target)
@@ -716,9 +725,10 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorageEnsurePVCsFails(c *gc.C) {
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
 
+	op := application.ScaleOperation
 	ps := params.CAASApplicationProvisioningState{
-		Scaling:     true,
-		ScaleTarget: 2,
+		CurrentOperation: &op,
+		ScaleTarget:      2,
 	}
 
 	units := []params.CAASUnit{{
@@ -871,7 +881,6 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 			c.Check(config, gc.DeepEquals, ensureParams)
 			return nil
 		}),
-		facade.EXPECT().SetIsUpdatingApplicationStorage("test", false),
 	)
 
 	err := caasapplicationprovisioner.AppOps.AppAlive("test", app, password, &lastApplied, facade, clk, s.logger)
@@ -912,10 +921,9 @@ func (s *OpsSuite) TestAppAliveNonZeroInitialScale(c *gc.C) {
 		Tags: map[string]string{
 			"tag": "tag-value",
 		},
-		Trust:                        true,
-		Scale:                        10,
-		IsUpdatingApplicationStorage: true,
-		Constraints:                  constraints.MustParse("mem=1G"),
+		Trust:       true,
+		Scale:       10,
+		Constraints: constraints.MustParse("mem=1G"),
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "data",
 			Size:        100,
@@ -1003,7 +1011,6 @@ func (s *OpsSuite) TestAppAliveNonZeroInitialScale(c *gc.C) {
 			c.Check(config, gc.DeepEquals, ensureParams)
 			return nil
 		}),
-		facade.EXPECT().SetIsUpdatingApplicationStorage("test", false),
 	)
 
 	err := caasapplicationprovisioner.AppOps.AppAlive("test", app, password, &lastApplied, facade, clk, s.logger)
@@ -1018,14 +1025,23 @@ func (s *OpsSuite) TestAppDying(c *gc.C) {
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	unitFacade := mocks.NewMockCAASUnitProvisionerFacade(ctrl)
 
+	op := application.ScaleOperation
 	gomock.InOrder(
 		facade.EXPECT().ProvisioningState("test").Return(nil, nil),
-		facade.EXPECT().SetProvisioningState("test", params.CAASApplicationProvisioningState{Scaling: true, ScaleTarget: 0}).Return(nil),
+		facade.EXPECT().SetProvisioningState("test", params.CAASApplicationProvisioningState{
+			CurrentOperation: &op,
+			ScaleTarget:      0,
+		}).Return(nil),
 		facade.EXPECT().Units("test").Return(nil, nil),
-		facade.EXPECT().FilesystemProvisioningInfo("test").Return(api.FilesystemProvisioningInfo{StorageUniqueID: "uniqueid"}, nil),
+		facade.EXPECT().FilesystemProvisioningInfo("test").Return(api.FilesystemProvisioningInfo{
+			StorageUniqueID: "uniqueid",
+		}, nil),
 		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), "uniqueid").Return(nil),
 		app.EXPECT().Scale(0).Return(nil),
-		facade.EXPECT().SetProvisioningState("test", params.CAASApplicationProvisioningState{Scaling: false, ScaleTarget: 0}).Return(nil),
+		facade.EXPECT().SetProvisioningState("test", params.CAASApplicationProvisioningState{
+			CurrentOperation: nil,
+			ScaleTarget:      0,
+		}).Return(nil),
 		facade.EXPECT().Units("test").Return(nil, nil),
 		facade.EXPECT().ProvisioningState("test").Return(nil, nil),
 	)
@@ -1062,7 +1078,7 @@ func (s *OpsSuite) TestAppDead(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *OpsSuite) TestReconcileApplicationStorage(c *gc.C) {
+func (s *OpsSuite) TestEnsureStorage(c *gc.C) {
 	provisioningInfo := api.FilesystemProvisioningInfo{
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "data",
@@ -1079,24 +1095,32 @@ func (s *OpsSuite) TestReconcileApplicationStorage(c *gc.C) {
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 
 	facade.EXPECT().FilesystemProvisioningInfo("test").Return(provisioningInfo, nil)
-	facade.EXPECT().SetIsUpdatingApplicationStorage("test", true)
-	app.EXPECT().ReconcileStorage(provisioningInfo.Filesystems, provisioningInfo.StorageUniqueID).Return(nil)
-	facade.EXPECT().SetIsUpdatingApplicationStorage("test", false)
+	// TODO: fix gomock.any()
+	app.EXPECT().EnsureStorage(gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any()).Return(nil)
 
-	err := caasapplicationprovisioner.AppOps.ReconcileApplicationStorage("test", app, facade, s.logger)
+	clk := testclock.NewDilatedWallClock(coretesting.ShortWait)
+
+	err := caasapplicationprovisioner.AppOps.EnsureStorage("test", app,
+		nil, "password", facade, clk, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *OpsSuite) TestReconcileApplicationStorageError(c *gc.C) {
+func (s *OpsSuite) TestEnsureStorageError(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 
-	facade.EXPECT().FilesystemProvisioningInfo("test").Return(api.FilesystemProvisioningInfo{}, errors.New("something went wrong"))
+	facade.EXPECT().FilesystemProvisioningInfo("test").Return(
+		api.FilesystemProvisioningInfo{},
+		errors.New("something went wrong"))
 
-	err := caasapplicationprovisioner.AppOps.ReconcileApplicationStorage("test", app, facade, s.logger)
+	clk := testclock.NewDilatedWallClock(coretesting.ShortWait)
+
+	err := caasapplicationprovisioner.AppOps.EnsureStorage("test", app,
+		nil, "password", facade, clk, s.logger)
 	c.Assert(err, gc.ErrorMatches, "something went wrong")
 }
 

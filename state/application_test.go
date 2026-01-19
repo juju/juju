@@ -22,6 +22,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	corearch "github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
@@ -6047,10 +6048,11 @@ func (s *ApplicationSuite) TestWatch(c *gc.C) {
 func (s *ApplicationSuite) TestProvisioningState(c *gc.C) {
 	ps := s.mysql.ProvisioningState()
 	c.Assert(ps, gc.IsNil)
+	scaleOp := application.ScaleOperation
 
 	err := s.mysql.SetProvisioningState(state.ApplicationProvisioningState{
-		Scaling:     true,
-		ScaleTarget: 10,
+		CurrentOperation: &scaleOp,
+		ScaleTarget:      10,
 	})
 	c.Assert(errors.Is(err, stateerrors.ProvisioningStateInconsistent), jc.IsTrue)
 
@@ -6058,15 +6060,15 @@ func (s *ApplicationSuite) TestProvisioningState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.mysql.SetProvisioningState(state.ApplicationProvisioningState{
-		Scaling:     true,
-		ScaleTarget: 10,
+		CurrentOperation: &scaleOp,
+		ScaleTarget:      10,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ps = s.mysql.ProvisioningState()
 	c.Assert(ps, jc.DeepEquals, &state.ApplicationProvisioningState{
-		Scaling:     true,
-		ScaleTarget: 10,
+		CurrentOperation: &scaleOp,
+		ScaleTarget:      10,
 	})
 }
 

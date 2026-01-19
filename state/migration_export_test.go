@@ -23,6 +23,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon.v2"
 
+	coreapp "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -491,9 +492,10 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 		c.Assert(err, jc.ErrorIsNil)
 
 		if isSidecar {
+			scaleOp := coreapp.ScaleOperation
 			err = application.SetProvisioningState(state.ApplicationProvisioningState{
-				Scaling:     true,
-				ScaleTarget: 3,
+				CurrentOperation: &scaleOp,
+				ScaleTarget:      3,
 			})
 			c.Assert(err, jc.ErrorIsNil)
 		}
