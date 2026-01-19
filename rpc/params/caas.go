@@ -83,7 +83,7 @@ type CAASApplicationFilesystemProvisioningInfo struct {
 	FilesystemUnitAttachments map[string][]KubernetesFilesystemUnitAttachmentParams `json:"filesystem-unit-attachments,omitempty"`
 
 	// StorageUniqueID is used to construct the PVC name for an application.
-	StorageUniqueID string `json:"storage-unique-id"`
+	StorageUniqueID string
 }
 
 // DockerImageInfo holds the details for a Docker resource type.
