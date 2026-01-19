@@ -639,10 +639,10 @@ func (s *spaceSuite) TestSaveProviderSpaces(c *tc.C) {
 	)
 
 	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
-	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
-	err := provider.saveSpaces(c.Context(), spaces)
+	ops := newSpaceOperations(providerService, loggertesting.WrapCheckLog(c))
+	err := ops.saveSpaces(c.Context(), spaces)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(provider.modelSpaceMap, tc.DeepEquals, map[network.Id]network.SpaceInfo{
+	c.Assert(ops.modelSpaceMap, tc.DeepEquals, map[network.Id]network.SpaceInfo{
 		network.Id("1"): res[0],
 	})
 }
@@ -684,7 +684,7 @@ func (s *spaceSuite) TestSaveProviderSpacesWithoutProviderId(c *tc.C) {
 	)
 
 	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
-	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
+	provider := newSpaceOperations(providerService, loggertesting.WrapCheckLog(c))
 	err := provider.saveSpaces(c.Context(), spaces)
 	c.Assert(err, tc.ErrorIsNil)
 	addedSpace := network.SpaceInfo{
@@ -702,7 +702,7 @@ func (s *spaceSuite) TestSaveProviderSpacesDeltaSpaces(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
-	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
+	provider := newSpaceOperations(providerService, loggertesting.WrapCheckLog(c))
 	c.Assert(provider.deltaSpaces(), tc.DeepEquals, network.MakeIDSet())
 }
 
@@ -738,7 +738,7 @@ func (s *spaceSuite) TestSaveProviderSpacesDeltaSpacesAfterNotUpdated(c *tc.C) {
 	)
 
 	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
-	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
+	provider := newSpaceOperations(providerService, loggertesting.WrapCheckLog(c))
 	err := provider.saveSpaces(c.Context(), spaces)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(provider.deltaSpaces(), tc.DeepEquals, network.MakeIDSet(network.Id("1")))
@@ -748,7 +748,7 @@ func (s *spaceSuite) TestDeleteProviderSpacesWithNoDeltas(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
-	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
+	provider := newSpaceOperations(providerService, loggertesting.WrapCheckLog(c))
 	warnings, err := provider.deleteSpaces(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(warnings, tc.DeepEquals, []string(nil))
@@ -762,7 +762,7 @@ func (s *spaceSuite) TestDeleteProviderSpaces(c *tc.C) {
 		Return(domainnetwork.RemoveSpaceViolations{}, nil)
 
 	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
-	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
+	provider := newSpaceOperations(providerService, loggertesting.WrapCheckLog(c))
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
 		network.Id("1"): {
 			ID:         spaceUUID,
@@ -780,7 +780,7 @@ func (s *spaceSuite) TestDeleteProviderSpacesMatchesAlphaSpace(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
-	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
+	provider := newSpaceOperations(providerService, loggertesting.WrapCheckLog(c))
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
 		network.Id("1"): {
 			ID:   "1",
@@ -801,7 +801,7 @@ func (s *spaceSuite) TestDeleteProviderSpacesMatchesDefaultBindingSpace(c *tc.C)
 	defer s.setupMocks(c).Finish()
 
 	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
-	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
+	provider := newSpaceOperations(providerService, loggertesting.WrapCheckLog(c))
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
 		network.Id("1"): {
 			ID:   "1",
@@ -820,7 +820,7 @@ func (s *spaceSuite) TestDeleteProviderSpacesContainsConstraintsSpace(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
-	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
+	provider := newSpaceOperations(providerService, loggertesting.WrapCheckLog(c))
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
 		network.Id("1"): {
 			ID:   "1",
@@ -878,7 +878,7 @@ func (s *spaceSuite) TestProviderSpacesRun(c *tc.C) {
 		Return(domainnetwork.RemoveSpaceViolations{}, nil)
 
 	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
-	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
+	provider := newSpaceOperations(providerService, loggertesting.WrapCheckLog(c))
 	err := provider.saveSpaces(c.Context(), spaces)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(provider.modelSpaceMap, tc.DeepEquals, map[network.Id]network.SpaceInfo{

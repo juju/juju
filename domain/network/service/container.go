@@ -14,7 +14,6 @@ import (
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/containermanager"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/trace"
@@ -70,50 +69,6 @@ func (s *Service) DevicesToBridge(
 
 	toBridge, err := s.devicesToBridge(ctx, hostUUID, spaceUUIDs, nics)
 	return toBridge, errors.Capture(err)
-}
-
-// AllocateContainerAddresses allocates a static address for each of the
-// container NICs in preparedInfo, hosted by the hostInstanceID, if the
-// provider supports it. Returns the network config including all allocated
-// addresses on success.
-// Returns [domainerrors.ContainerAddressesNotSupported] if the provider
-// does not support container addressing.
-func (s *ProviderService) AllocateContainerAddresses(ctx context.Context,
-	hostInstanceID instance.Id,
-	containerName string,
-	preparedInfo corenetwork.InterfaceInfos,
-) (corenetwork.InterfaceInfos, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	provider, err := s.providerWithNetworking(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	if !provider.SupportsContainerAddresses() {
-		return nil, domainerrors.ContainerAddressesNotSupported
-	}
-
-	newInfo, err := provider.AllocateContainerAddresses(ctx, hostInstanceID, containerName, preparedInfo)
-	return newInfo, errors.Capture(err)
-}
-
-// DevicesForGuest returns the network devices that should be configured in the
-// guest machine with the input UUID, based on the host machine's bridges.
-func (s *ProviderService) DevicesForGuest(
-	ctx context.Context, hostUUID, guestUUID machine.UUID,
-) ([]network.NetInterface, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	nodeUUID, spaceUUIDs, nics, err := s.spacesAndDevicesForMachine(ctx, guestUUID, hostUUID)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	guestDevices, err := s.guestDevices(ctx, hostUUID, nodeUUID, spaceUUIDs, nics)
-	return guestDevices, errors.Capture(err)
 }
 
 func (s *Service) spacesAndDevicesForMachine(
@@ -334,90 +289,4 @@ func bridgeNameForDevice(device string) string {
 		hash := crc32.Checksum([]byte(device), crc32.IEEETable) & 0xffffff
 		return fmt.Sprintf("b-%0.6x-%s", hash, device[len(device)-6:])
 	}
-}
-
-func (s *ProviderService) guestDevices(
-	ctx context.Context,
-	mUUID machine.UUID,
-	nodeUUID string,
-	spaceUUIDs []string,
-	nics map[string][]network.NetInterface,
-) ([]network.NetInterface, error) {
-	var (
-		guestDevices []network.NetInterface
-		deviceIndex  int
-	)
-	spacesToSatisfy := set.NewStrings(spaceUUIDs...)
-
-	networkingProvider, err := s.providerWithNetworking(ctx)
-	if err != nil {
-		return nil, errors.Errorf("retrieving networking provider: %w", err)
-	}
-
-	// In most cases, the container will rely on DHCP assigned addresses.
-	// If the provider supports allocating addresses to containers,
-	// each device's address will be obtained downstream, and we indicate
-	// that said address is configured statically.
-	configMethod := corenetwork.ConfigDHCP
-	if networkingProvider.SupportsContainerAddresses() {
-		configMethod = corenetwork.ConfigStatic
-	}
-
-	for spaceUUID, spaceNics := range nics {
-		if !spacesToSatisfy.Contains(spaceUUID) {
-			continue
-		}
-
-		s.logger.Debugf(ctx, "looking for bridges in space %q", spaceUUID)
-
-		var bridgeToUse *network.NetInterface
-		for _, nic := range spaceNics {
-			if nic.Type == corenetwork.BridgeDevice || nic.VirtualPortType == corenetwork.OvsPort {
-				bridgeToUse = &nic
-				break
-			}
-		}
-
-		if bridgeToUse == nil {
-			return nil, errors.Errorf(
-				"no bridge found in space %q for machine %q", spaceUUID, mUUID,
-			).Add(domainerrors.SpaceRequirementsUnsatisfiable)
-		}
-
-		s.logger.Debugf(ctx, "found bridge %q in space %q for machine %q", bridgeToUse.Name, spaceUUID, mUUID)
-
-		newDev := network.NetInterface{
-			Name: fmt.Sprintf("eth%d", deviceIndex),
-			// When using the Fan, we used to locate the VXLAN device
-			// associated with the bridge and use that MTU.
-			// We no longer support Fan networking, but this is worth being
-			// aware of in situations where the MTU set turns out to be
-			// incompatible with the bridged network.
-			MTU:              bridgeToUse.MTU,
-			Type:             corenetwork.EthernetDevice,
-			ParentDeviceName: bridgeToUse.Name,
-			VirtualPortType:  bridgeToUse.VirtualPortType,
-			IsEnabled:        true,
-			IsAutoStart:      true,
-		}
-
-		mac := corenetwork.GenerateVirtualMACAddress()
-		newDev.MACAddress = &mac
-
-		cidr, err := s.st.GetSubnetCIDRForDevice(ctx, nodeUUID, bridgeToUse.Name, spaceUUID)
-		if err != nil {
-			return nil, errors.Errorf(
-				"retrieving CIDR for device %q in space %q on machine %q: %w", bridgeToUse.Name, spaceUUID, mUUID, err)
-		}
-
-		newDev.Addrs = []network.NetAddr{{
-			AddressValue: cidr,
-			ConfigType:   configMethod,
-		}}
-
-		deviceIndex++
-		guestDevices = append(guestDevices, newDev)
-	}
-
-	return guestDevices, nil
 }

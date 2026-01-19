@@ -252,16 +252,20 @@ func (st *State) EnsureAlphaSpaceAndSubnets(ctx context.Context) error {
 		return errors.Capture(err)
 	}
 
+	sp := space{UUID: network.AlphaSpaceId, Name: network.AlphaSpaceName}
+	insertSpaceStmt, err := st.Prepare(`
+INSERT INTO space (uuid, name) 
+VALUES ($space.*)`, sp)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := st.ensureAlphaSpaceAndSubnets(ctx, tx)
-		if err != nil {
-			return errors.Errorf("ensuring alpha space and subnets: %w", err)
+		if err := tx.Query(ctx, insertSpaceStmt, sp).Run(); err != nil {
+			return errors.Capture(err)
 		}
+
 		return nil
 	})
 	return errors.Capture(err)
-}
-
-func (st *State) ensureAlphaSpaceAndSubnets(ctx context.Context, tx *sqlair.TX) error {
-	return nil
 }
