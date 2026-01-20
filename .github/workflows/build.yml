@@ -6,16 +6,21 @@ on:
 jobs:
   build:
     name: Build
-    runs-on: [self-hosted, linux, "${{ matrix.platform.host_arch }}", aws, large]
+    runs-on:
+      - self-hosted
+      - linux
+      - ${{ matrix.platform.host_arch }}
+      - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
+      - large
     strategy:
       fail-fast: false
       matrix:
         platform:
           - { os: linux, arch: amd64, host_arch: x64 }
           - { os: linux, arch: arm64, host_arch: arm64 }
-# Until we get rid of musl, lets just disable these to save build time.
-#          - { os: linux, arch: s390x }
-#          - { os: linux, arch: ppc64le }
+          # Until we get rid of musl, lets just disable these to save build time.
+          #          - { os: linux, arch: s390x }
+          #          - { os: linux, arch: ppc64le }
           - { os: darwin, arch: arm64, host_arch: arm64 }
 
     steps:

@@ -10,16 +10,21 @@ jobs:
   migrate:
     name: migrate from ${{ matrix.channel }} via ${{ matrix.client }} client
     timeout-minutes: 30
-    runs-on: [self-hosted, linux, arm64, aws, xlarge]
+    runs-on:
+      - self-hosted
+      - linux
+      - arm64
+      - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
+      - xlarge
     strategy:
       fail-fast: false
       matrix:
         # TODO: add microk8s tests
         cloud: ["lxd"]
         # TODO: migration from 2.9 is broken due to a bug in the series pre-checks
-        # needs a 2.9 fix 
-        channel: ["3.6/stable"] 
-        client: ['source', 'target']
+        # needs a 2.9 fix
+        channel: ["3.6/stable"]
+        client: ["source", "target"]
 
     steps:
       - name: Checkout code
@@ -28,7 +33,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
           cache: true
 
       - name: Set up Go env
@@ -85,9 +90,9 @@ jobs:
           if [[ ${{ matrix.client }} == 'source' ]]; then
             JUJU='/snap/bin/juju'
           fi
-          
+
           $JUJU switch source-controller
-          
+
           # Ensure application is fully deployed
           # We have to use the old client to speak to the new controller, as
           # this is blocked otherwise.
@@ -104,7 +109,7 @@ jobs:
         run: |
           set -x
           juju switch target-controller
-          
+
           # Wait for 'test-migrate' model to come through
           attempt=0
           while true; do
@@ -119,7 +124,7 @@ jobs:
               exit 1
             fi
           done
-          
+
           juju switch test-migrate
           juju wait-for application ubuntu
           

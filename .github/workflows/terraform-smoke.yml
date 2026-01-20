@@ -6,7 +6,12 @@ on:
 jobs:
   smoke:
     name: Terraform Smoke
-    runs-on: [self-hosted, linux, x64, aws, quad-xlarge]
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
+      - ${{ (github.repository_owner == 'juju' && 'quad-xlarge') || (github.repository_owner == 'canonical' && 'xlarge') }}
 
     steps:
       - name: Install Dependencies
@@ -22,7 +27,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
           cache: true
 
       - name: setup env
@@ -57,7 +62,7 @@ jobs:
       - name: Find terraform provider for juju latest release
         uses: actions/checkout@v4
         with:
-          repository: 'juju/terraform-provider-juju'
+          repository: "juju/terraform-provider-juju"
           #path: terraform-provider-juju
           fetch-depth: 0
 

@@ -9,14 +9,18 @@ on:
 jobs:
   smoke:
     name: Smoke
-    runs-on: [self-hosted, linux, arm64, aws, quad-xlarge]
+    runs-on:
+      - self-hosted
+      - linux
+      - arm64
+      - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
+      - ${{ (github.repository_owner == 'juju' && 'quad-xlarge') || (github.repository_owner == 'canonical' && 'xlarge') }}
     if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
       matrix:
         cloud: ["localhost", "microk8s"]
     steps:
-
       - name: Install Dependencies
         shell: bash
         run: |
@@ -41,6 +45,7 @@ jobs:
 
       - name: Setup Docker Mirror
         shell: bash
+        if: github.repository_owner == 'juju'
         run: |
           (cat /etc/docker/daemon.json 2> /dev/null || echo "{}") | yq -o json '.registry-mirrors += ["https://docker-cache.us-west-2.aws.jujuqa.com:443"]' | sudo tee /etc/docker/daemon.json
           sudo systemctl restart docker
@@ -52,7 +57,7 @@ jobs:
         with:
           channel: "1.34-strict/stable"
           addons: '["dns", "hostpath-storage", "rbac"]'
-          launch-configuration: "$GITHUB_WORKSPACE/.github/microk8s-launch-config-aws.yaml"
+          launch-configuration: ${{ github.repository_owner == 'juju' && '$GITHUB_WORKSPACE/.github/microk8s-launch-config-aws.yaml' || '' }}
 
       - name: Set up Go
         uses: actions/setup-go@v5

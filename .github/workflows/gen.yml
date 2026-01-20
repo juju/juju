@@ -6,7 +6,12 @@ on:
 jobs:
   generate:
     name: Check Generated Mocks
-    runs-on: [self-hosted, linux, arm64, aws, xxlarge]
+    runs-on:
+      - self-hosted
+      - linux
+      - arm64
+      - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
+      - ${{ (github.repository_owner == 'juju' && 'xxlarge') || (github.repository_owner == 'canonical' && 'xlarge') }}
 
     steps:
       - name: "Checkout"
