@@ -432,3 +432,102 @@ func (s *upgradesSuite) TestPopulateApplicationStorageUniqueID(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(app5["storage-unique-id"], gc.Equals, "uniqueid5")
 }
+
+func (s *upgradesSuite) TestConvertScalingToCurrentOperationEnumField(c *gc.C) {
+	state1 := s.makeModel(c, "m1", coretesting.Attrs{}, ModelArgs{Type: ModelTypeCAAS})
+	state2 := s.makeModel(c, "m2", coretesting.Attrs{}, ModelArgs{Type: ModelTypeIAAS})
+	defer func() {
+		_ = state1.Close()
+		_ = state2.Close()
+	}()
+
+	// Insert apps to model1 (CAAS model)
+	appColl1, closer := state1.db().GetRawCollection(applicationsC)
+	defer closer()
+
+	model1, err := state1.Model()
+	c.Assert(err, gc.IsNil)
+
+	err = appColl1.Insert(bson.M{
+		"_id":        ensureModelUUID(model1.UUID(), "app1"),
+		"name":       "app1",
+		"model-uuid": model1.UUID(),
+		"provisioning-state": bson.M{
+			"scaling": true,
+		},
+	})
+	c.Assert(err, gc.IsNil)
+	err = appColl1.Insert(bson.M{
+		"_id":        ensureModelUUID(model1.UUID(), "app2"),
+		"name":       "app2",
+		"model-uuid": model1.UUID(),
+		"provisioning-state": bson.M{
+			"scaling": false,
+		},
+	})
+	c.Assert(err, gc.IsNil)
+	err = appColl1.Insert(bson.M{
+		"_id":                ensureModelUUID(model1.UUID(), "app3"),
+		"name":               "app3",
+		"model-uuid":         model1.UUID(),
+		"provisioning-state": bson.M{},
+	})
+	c.Assert(err, gc.IsNil)
+	err = appColl1.Insert(bson.M{
+		"_id":        ensureModelUUID(model1.UUID(), "app4"),
+		"name":       "app4",
+		"model-uuid": model1.UUID(),
+	})
+	c.Assert(err, gc.IsNil)
+
+	appColl2, closer := state1.db().GetRawCollection(applicationsC)
+	defer closer()
+
+	// Insert apps to model2 (IAAS model)
+	model2, err := state1.Model()
+	c.Assert(err, gc.IsNil)
+
+	err = appColl2.Insert(bson.M{
+		"_id":        ensureModelUUID(model1.UUID(), "app5"),
+		"name":       "app5",
+		"model-uuid": model2.UUID(),
+	})
+	c.Assert(err, gc.IsNil)
+
+	err = ConvertScalingToCurrentOperationEnumField(s.pool)
+	c.Assert(err, gc.IsNil)
+
+	// app1 has current-operation set to scale because it's scaling field was true.
+	app1 := bson.M{}
+	err = appColl1.Find(bson.M{"name": "app1"}).One(&app1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(app1["provisioning-state"].(bson.M)["current-operation"], gc.Equals, "scale")
+	c.Assert(app1["provisioning-state"].(bson.M)["scaling"], gc.IsNil)
+
+	// app2 has an empty string current-operation.
+	app2 := bson.M{}
+	err = appColl1.Find(bson.M{"name": "app2"}).One(&app2)
+	c.Assert(err, gc.IsNil)
+	c.Assert(app2["provisioning-state"].(bson.M)["current-operation"], gc.Equals, "")
+	c.Assert(app2["provisioning-state"].(bson.M)["scaling"], gc.IsNil)
+
+	// app3 has a nil current-operation.
+	app3 := bson.M{}
+	err = appColl1.Find(bson.M{"name": "app3"}).One(&app3)
+	c.Assert(err, gc.IsNil)
+	c.Assert(app3["provisioning-state"].(bson.M)["current-operation"], gc.IsNil)
+	c.Assert(app3["provisioning-state"].(bson.M)["scaling"], gc.IsNil)
+
+	// app4 has a nil provisioning-state.
+	app4 := bson.M{}
+	err = appColl1.Find(bson.M{"name": "app4"}).One(&app4)
+	c.Assert(err, gc.IsNil)
+	c.Assert(app4["provisioning-state"], gc.IsNil)
+
+	// app5 has no provisioning-state because it's in an IAAS model, and it
+	// doesn't get converted.
+	app5 := bson.M{}
+	err = appColl2.Find(bson.M{"name": "app5"}).One(&app5)
+	c.Assert(err, gc.IsNil)
+	c.Assert(app5["provisioning-state"], gc.IsNil)
+}
