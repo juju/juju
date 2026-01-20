@@ -6,6 +6,7 @@ package model
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -456,10 +457,10 @@ LEFT JOIN machine m ON u.net_node_uuid=m.net_node_uuid
 // GetFilesystems returns all the filesystems for this model.
 func (st *ModelState) GetFilesystems(
 	ctx context.Context,
-) ([]status.Filesystem, error) {
+) ([]status.Filesystem, []error, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, nil, errors.Capture(err)
 	}
 
 	stmt, err := st.Prepare(`
@@ -474,7 +475,7 @@ LEFT JOIN storage_instance_volume siv ON siv.storage_instance_uuid=si.uuid
 LEFT JOIN storage_volume sv ON sv.uuid=siv.storage_volume_uuid
 `, filesystemStatusDetails{})
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, nil, errors.Capture(err)
 	}
 
 	var out []filesystemStatusDetails
@@ -486,19 +487,22 @@ LEFT JOIN storage_volume sv ON sv.uuid=siv.storage_volume_uuid
 		return nil
 	})
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, nil, errors.Capture(err)
 	}
 
-	return transform.SliceOrErr(out, func(v filesystemStatusDetails) (status.Filesystem, error) {
+	var result []status.Filesystem
+	var errs []error
+	for _, v := range out {
 		statusValue, err := status.DecodeStorageFilesystemStatus(v.StatusID)
 		if err != nil {
-			return status.Filesystem{}, errors.Capture(err)
+			errs = append(errs, fmt.Errorf("filesystem %q: %w", v.ID, err))
+			continue
 		}
 		var volumeID *string
 		if v.VolumeID.Valid {
 			volumeID = &v.VolumeID.String
 		}
-		return status.Filesystem{
+		result = append(result, status.Filesystem{
 			UUID: storageprovisioning.FilesystemUUID(v.UUID),
 			ID:   v.ID,
 			Life: life.Life(v.LifeID),
@@ -511,8 +515,9 @@ LEFT JOIN storage_volume sv ON sv.uuid=siv.storage_volume_uuid
 			VolumeID:   volumeID,
 			ProviderID: v.ProviderID,
 			SizeMiB:    v.SizeMiB,
-		}, nil
-	})
+		})
+	}
+	return result, errs, nil
 }
 
 // GetFilesystemAttachments returns all the filesystem attachments for this
@@ -576,10 +581,10 @@ LEFT JOIN unit u ON u.uuid=sa.unit_uuid
 // GetVolumes returns all the volumes for this model.
 func (st *ModelState) GetVolumes(
 	ctx context.Context,
-) ([]status.Volume, error) {
+) ([]status.Volume, []error, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, nil, errors.Capture(err)
 	}
 
 	stmt, err := st.Prepare(`
@@ -592,7 +597,7 @@ LEFT JOIN storage_instance_volume siv ON siv.storage_volume_uuid=sv.uuid
 LEFT JOIN storage_instance si ON si.uuid=siv.storage_instance_uuid
 `, volumeStatusDetails{})
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, nil, errors.Capture(err)
 	}
 
 	var out []volumeStatusDetails
@@ -604,15 +609,18 @@ LEFT JOIN storage_instance si ON si.uuid=siv.storage_instance_uuid
 		return nil
 	})
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, nil, errors.Capture(err)
 	}
 
-	return transform.SliceOrErr(out, func(v volumeStatusDetails) (status.Volume, error) {
+	var result []status.Volume
+	var errs []error
+	for _, v := range out {
 		statusValue, err := status.DecodeStorageVolumeStatus(v.StatusID)
 		if err != nil {
-			return status.Volume{}, errors.Capture(err)
+			errs = append(errs, fmt.Errorf("volume %q: %w", v.ID, err))
+			continue
 		}
-		return status.Volume{
+		result = append(result, status.Volume{
 			UUID: storageprovisioning.VolumeUUID(v.UUID),
 			ID:   v.ID,
 			Life: life.Life(v.LifeID),
@@ -627,8 +635,9 @@ LEFT JOIN storage_instance si ON si.uuid=siv.storage_instance_uuid
 			WWN:        v.WWN,
 			Persistent: v.Persistent,
 			SizeMiB:    v.SizeMiB,
-		}, nil
-	})
+		})
+	}
+	return result, errs, nil
 }
 
 // GetVolumeAttachments returns all the volume attachments for this model.

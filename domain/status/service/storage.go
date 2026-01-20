@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/juju/core/machine"
 	corestatus "github.com/juju/juju/core/status"
@@ -54,14 +55,14 @@ type StorageState interface {
 	GetStorageInstanceAttachments(ctx context.Context) ([]status.StorageAttachment, error)
 
 	// GetFilesystems returns all the filesystems for this model.
-	GetFilesystems(ctx context.Context) ([]status.Filesystem, error)
+	GetFilesystems(ctx context.Context) ([]status.Filesystem, []error, error)
 
 	// GetFilesystemAttachments returns all the filesystem attachments for this
 	// model.
 	GetFilesystemAttachments(ctx context.Context) ([]status.FilesystemAttachment, error)
 
 	// GetVolumes returns all the volumes for this model.
-	GetVolumes(ctx context.Context) ([]status.Volume, error)
+	GetVolumes(ctx context.Context) ([]status.Volume, []error, error)
 
 	// GetVolumeAttachments returns all the volume attachments for this model.
 	GetVolumeAttachments(ctx context.Context) ([]status.VolumeAttachment, error)
@@ -198,17 +199,17 @@ func (s *Service) GetStorageInstanceStatuses(
 }
 
 // GetFilesystemStatuses returns all the filesystem statuses for the model.
-func (s *Service) GetFilesystemStatuses(ctx context.Context) ([]Filesystem, error) {
+func (s *Service) GetFilesystemStatuses(ctx context.Context) ([]Filesystem, []error, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	filesystems, err := s.modelState.GetFilesystems(ctx)
+	filesystems, fsErrs, err := s.modelState.GetFilesystems(ctx)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, nil, errors.Capture(err)
 	}
 	filesystemAttachments, err := s.modelState.GetFilesystemAttachments(ctx)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, nil, errors.Capture(err)
 	}
 
 	fsMap := map[storageprovisioning.FilesystemUUID]*Filesystem{}
@@ -223,11 +224,13 @@ func (s *Service) GetFilesystemStatuses(ctx context.Context) ([]Filesystem, erro
 		var err error
 		fs.Life, err = dfs.Life.Value()
 		if err != nil {
-			return nil, errors.Capture(err)
+			fsErrs = append(fsErrs, fmt.Errorf("filesystem %q life: %w", dfs.ID, err))
+			continue
 		}
 		fs.Status, err = decodeFilesystemStatus(dfs.Status)
 		if err != nil {
-			return nil, errors.Capture(err)
+			fsErrs = append(fsErrs, fmt.Errorf("filesystem %q status: %w", dfs.ID, err))
+			continue
 		}
 		fsMap[dfs.UUID] = &fs
 	}
@@ -239,7 +242,7 @@ func (s *Service) GetFilesystemStatuses(ctx context.Context) ([]Filesystem, erro
 		var err error
 		fsa.Life, err = dfsa.Life.Value()
 		if err != nil {
-			return nil, errors.Capture(err)
+			return nil, nil, errors.Capture(err)
 		}
 		if fs, ok := fsMap[dfsa.FilesystemUUID]; ok {
 			if dfsa.Unit != nil {
@@ -261,21 +264,21 @@ func (s *Service) GetFilesystemStatuses(ctx context.Context) ([]Filesystem, erro
 	for _, v := range fsMap {
 		ret = append(ret, *v)
 	}
-	return ret, nil
+	return ret, fsErrs, nil
 }
 
 // GetVolumeStatuses returns all the volume statuses for the model.
-func (s *Service) GetVolumeStatuses(ctx context.Context) ([]Volume, error) {
+func (s *Service) GetVolumeStatuses(ctx context.Context) ([]Volume, []error, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	volumes, err := s.modelState.GetVolumes(ctx)
+	volumes, volErrs, err := s.modelState.GetVolumes(ctx)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, nil, errors.Capture(err)
 	}
 	volumeAttachments, err := s.modelState.GetVolumeAttachments(ctx)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, nil, errors.Capture(err)
 	}
 
 	volumeMap := map[storageprovisioning.VolumeUUID]*Volume{}
@@ -292,11 +295,13 @@ func (s *Service) GetVolumeStatuses(ctx context.Context) ([]Volume, error) {
 		var err error
 		v.Life, err = dv.Life.Value()
 		if err != nil {
-			return nil, errors.Capture(err)
+			volErrs = append(volErrs, fmt.Errorf("volume %q life: %w", dv.ID, err))
+			continue
 		}
 		v.Status, err = decodeVolumeStatus(dv.Status)
 		if err != nil {
-			return nil, errors.Capture(err)
+			volErrs = append(volErrs, fmt.Errorf("volume %q status: %w", dv.ID, err))
+			continue
 		}
 		volumeMap[dv.UUID] = &v
 	}
@@ -310,7 +315,7 @@ func (s *Service) GetVolumeStatuses(ctx context.Context) ([]Volume, error) {
 		var err error
 		va.Life, err = dva.Life.Value()
 		if err != nil {
-			return nil, errors.Capture(err)
+			return nil, nil, errors.Capture(err)
 		}
 		if dvap := dva.VolumeAttachmentPlan; dvap != nil {
 			vap := VolumeAttachmentPlan{
@@ -339,5 +344,5 @@ func (s *Service) GetVolumeStatuses(ctx context.Context) ([]Volume, error) {
 	for _, v := range volumeMap {
 		ret = append(ret, *v)
 	}
-	return ret, nil
+	return ret, volErrs, nil
 }

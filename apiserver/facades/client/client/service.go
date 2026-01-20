@@ -83,10 +83,10 @@ type StatusService interface {
 	GetStorageInstanceStatuses(ctx context.Context) ([]statusservice.StorageInstance, error)
 
 	// GetFilesystemStatuses returns all the filesystem statuses for the model.
-	GetFilesystemStatuses(ctx context.Context) ([]statusservice.Filesystem, error)
+	GetFilesystemStatuses(ctx context.Context) ([]statusservice.Filesystem, []error, error)
 
 	// GetVolumeStatuses returns all the volume statuses for the model.
-	GetVolumeStatuses(ctx context.Context) ([]statusservice.Volume, error)
+	GetVolumeStatuses(ctx context.Context) ([]statusservice.Volume, []error, error)
 }
 
 // BlockDeviceService instances can fetch block devices for a machine.

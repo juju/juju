@@ -1347,11 +1347,11 @@ func processStorage(
 		storageMap[v.ID] = &details
 	}
 
-	filesystems, err := statusService.GetFilesystemStatuses(ctx)
+	filesystems, fsErrs, err := statusService.GetFilesystemStatuses(ctx)
 	if err != nil {
 		return nil, nil, nil, internalerrors.Capture(err)
 	}
-	filesystemResult := make([]params.FilesystemDetails, 0, len(filesystems))
+	filesystemResult := make([]params.FilesystemDetails, 0, len(filesystems)+len(fsErrs))
 	for _, v := range filesystems {
 		details := params.FilesystemDetails{
 			FilesystemTag: names.NewFilesystemTag(v.ID).String(),
@@ -1417,14 +1417,43 @@ func processStorage(
 			}
 			details.Storage = storage
 		}
+
 		filesystemResult = append(filesystemResult, details)
 	}
+	for _, err := range fsErrs {
+		parts := strings.SplitN(err.Error(), "\"", 3)
+		if len(parts) >= 2 {
+			id := parts[1]
+			// Check if the error refers to a storage instance.
+			if st, ok := storageMap[id]; ok {
+				st.Status = params.EntityStatus{
+					Status: status.Error,
+					Info:   err.Error(),
+					Since:  &zeroTime,
+				}
+				continue
+			}
+			if !names.IsValidFilesystem(id) {
+				logger.Debugf(ctx, "skipping invalid filesystem id %q from error: %v", id, err)
+				continue
+			}
+			details := params.FilesystemDetails{
+				FilesystemTag: names.NewFilesystemTag(id).String(),
+				Status: params.EntityStatus{
+					Status: status.Error,
+					Info:   err.Error(),
+					Since:  &zeroTime,
+				},
+			}
+			filesystemResult = append(filesystemResult, details)
+		}
+	}
 
-	volumes, err := statusService.GetVolumeStatuses(ctx)
+	volumes, volErrs, err := statusService.GetVolumeStatuses(ctx)
 	if err != nil {
 		return nil, nil, nil, internalerrors.Capture(err)
 	}
-	volumeResult := make([]params.VolumeDetails, 0, len(volumes))
+	volumeResult := make([]params.VolumeDetails, 0, len(volumes)+len(volErrs))
 	for _, v := range volumes {
 		details := params.VolumeDetails{
 			VolumeTag: names.NewVolumeTag(v.ID).String(),
@@ -1530,6 +1559,33 @@ func processStorage(
 			details.Storage = storage
 		}
 		volumeResult = append(volumeResult, details)
+	}
+	for _, err := range volErrs {
+		parts := strings.SplitN(err.Error(), "\"", 3)
+		if len(parts) >= 2 {
+			id := parts[1]
+			if st, ok := storageMap[id]; ok {
+				st.Status = params.EntityStatus{
+					Status: status.Error,
+					Info:   err.Error(),
+					Since:  &zeroTime,
+				}
+				continue
+			}
+			if !names.IsValidVolume(id) {
+				logger.Debugf(ctx, "skipping invalid volume id %q from error: %v", id, err)
+				continue
+			}
+			details := params.VolumeDetails{
+				VolumeTag: names.NewVolumeTag(id).String(),
+				Status: params.EntityStatus{
+					Status: status.Error,
+					Info:   err.Error(),
+					Since:  &zeroTime,
+				},
+			}
+			volumeResult = append(volumeResult, details)
+		}
 	}
 
 	storageResult := make([]params.StorageDetails, 0, len(storageInstances))

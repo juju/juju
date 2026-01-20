@@ -14,6 +14,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -23,6 +24,8 @@ import (
 	"github.com/juju/juju/domain/crossmodelrelation"
 	domainnetwork "github.com/juju/juju/domain/network"
 	service "github.com/juju/juju/domain/status/service"
+	"github.com/juju/juju/domain/storage"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testhelpers"
 	internaluuid "github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
@@ -263,6 +266,103 @@ func (s *fullStatusSuite) TestFullStatusOffersNotIncluded(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Assert(output.Offers, tc.DeepEquals, map[string]params.ApplicationOfferStatus{})
+}
+
+// TestFullStatusStoragePartialFailure tests that storage processing continues
+// even when some storage instances fail (e.g. missing filesystem).
+func (s *fullStatusSuite) TestFullStatusStoragePartialFailure(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	client := s.client(false)
+	s.expectCheckCanRead(client, true)
+	// Not a model admin.
+	s.expectCheckIsAdmin(client, false)
+
+	s.modelInfoService.EXPECT().GetModelInfo(c.Context()).Return(model.ModelInfo{
+		Cloud:     "k8s",
+		CloudType: "k8s",
+		Type:      model.CAAS, // skip fetching machines
+	}, nil)
+	s.statusService.EXPECT().GetModelStatus(gomock.Any()).Return(status.StatusInfo{
+		Status:  status.Available,
+		Message: "testing",
+	}, nil)
+	s.expectEmptyModelModuloOffers(c)
+	s.applicationService.EXPECT().GetUnitsK8sPodInfo(gomock.Any()).Return(nil, nil)
+
+	// Mock Storage Instances
+	s.statusService.EXPECT().GetStorageInstanceStatuses(gomock.Any()).Return([]service.StorageInstance{
+		{
+			ID:   "pgdata/0",
+			Kind: storage.StorageKindFilesystem,
+			Life: life.Alive,
+		},
+		{
+			ID:   "pgdata/1",
+			Kind: storage.StorageKindFilesystem,
+			Life: life.Alive,
+		},
+	}, nil)
+
+	// Mock Filesystem Statuses with one error
+	s.statusService.EXPECT().GetFilesystemStatuses(gomock.Any()).Return(
+		// Filesystems
+		[]service.Filesystem{
+			{
+				ID:        "1",
+				StorageID: "pgdata/1",
+				Status:    status.StatusInfo{Status: status.Active},
+				Life:      life.Alive,
+			},
+		},
+		// Errors
+		[]error{
+			internalerrors.Errorf("filesystem for storage instance \"pgdata/0\" not found"),
+		},
+		nil,
+	)
+
+	// Mock Volume Statuses
+	s.statusService.EXPECT().GetVolumeStatuses(gomock.Any()).Return(nil, nil, nil)
+
+	// Act
+	output, err := client.FullStatus(c.Context(), params.StatusParams{
+		IncludeStorage: true,
+	})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+
+	// Verify that we got results for both storage instances
+	c.Assert(output.Storage, tc.HasLen, 2)
+
+	// pgdata/0 (the one that failed filesystem lookup) should be present but maybe unknown status
+	// The user wants it to have the ERROR message.
+	// We expect the code to map the filesystem error back to the storage instance.
+
+	var s0 params.StorageDetails
+	var s1 params.StorageDetails
+	for _, s := range output.Storage {
+		if s.StorageTag == "storage-pgdata-0" {
+			s0 = s
+		} else if s.StorageTag == "storage-pgdata-1" {
+			s1 = s
+		}
+	}
+
+	c.Assert(s0.StorageTag, tc.Equals, "storage-pgdata-0")
+	// s0 status should be Error because filesystem loop reported error for it.
+	c.Assert(s0.Status.Status, tc.Equals, status.Error)
+	c.Assert(s0.Status.Info, tc.Equals, "filesystem for storage instance \"pgdata/0\" not found")
+
+	c.Assert(s1.StorageTag, tc.Equals, "storage-pgdata-1")
+
+	c.Assert(s1.Status.Status, tc.Equals, status.Active) // linked to filesystem-1
+
+	// Verify Filesystem results
+	// We expect 1 valid filesystem. The error one is now handled on the storage instance.
+	c.Assert(output.Filesystems, tc.HasLen, 1)
 }
 
 func (s *fullStatusSuite) client(isControllerModel bool) *Client {
