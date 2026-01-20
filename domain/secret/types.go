@@ -125,6 +125,12 @@ type RotationExpiryInfo struct {
 	LatestRevision int
 }
 
+// ImportRevision holds information about a secret revision to be imported.
+type ImportRevision struct {
+	Revision int
+	Params   UpsertSecretParams
+}
+
 // RotationInfo holds information about the rotation of a secret.
 type RotationInfo struct {
 	URI             *secrets.URI

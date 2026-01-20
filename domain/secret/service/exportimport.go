@@ -10,7 +10,6 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/secret"
 	"github.com/juju/juju/internal/errors"
 )
@@ -163,7 +162,7 @@ func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretE
 	for _, md := range modelSecrets.Secrets {
 		revisions := modelSecrets.Revisions[md.URI.ID]
 		content := modelSecrets.Content[md.URI.ID]
-		if err := s.importSecretRevisions(ctx, modelID, md, revisions, content); err != nil {
+		if err := s.importSecretWithRevisions(ctx, modelID, md, revisions, content); err != nil {
 			return errors.Errorf("saving secret %q: %w", md.URI.ID, err)
 		}
 		for _, sc := range modelSecrets.Consumers[md.URI.ID] {
@@ -219,134 +218,132 @@ func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretE
 	return nil
 }
 
-func (s *SecretService) importSecretRevisions(
+func (s *SecretService) importSecretWithRevisions(
 	ctx context.Context, modelID coremodel.UUID, md *coresecrets.SecretMetadata,
 	revisions []*coresecrets.SecretRevisionMetadata,
 	content map[int]coresecrets.SecretData,
-) error {
+) (err error) {
+	// Create secret metadata first.
+	metaParams := secret.UpsertSecretParams{
+		CreateTime:     md.CreateTime,
+		UpdateTime:     md.UpdateTime,
+		NextRotateTime: md.NextRotateTime,
+		Description:    nilZeroPtr(md.Description),
+		Label:          nilZeroPtr(md.Label),
+		AutoPrune:      nilZeroPtr(md.AutoPrune),
+		Checksum:       md.LatestRevisionChecksum,
+		ExpireTime:     md.LatestExpireTime,
+	}
+	if md.RotatePolicy != "" && md.RotatePolicy != coresecrets.RotateNever {
+		policy := secret.MarshallRotatePolicy(&md.RotatePolicy)
+		metaParams.RotatePolicy = &policy
+	}
+
+	// Solve ownership.
+	owner, err := s.getOwner(ctx, md.Owner.Kind, md.Owner.ID)
+	if err != nil {
+		return errors.Errorf("getting owner: %w", err)
+	}
+
+	// Create secret revisions and backend references.
+	importRevisions := make([]secret.ImportRevision, len(revisions))
+	var rollbackReferences []func() error
+	defer func() {
+		if err != nil {
+			for _, rollBack := range rollbackReferences {
+				if err := rollBack(); err != nil {
+					s.logger.Warningf(ctx, "failed to roll back secret reference count: %v", err)
+				}
+			}
+		}
+	}()
 	for i, rev := range revisions {
-		params := secret.UpsertSecretParams{
-			ValueRef:   rev.ValueRef,
-			CreateTime: md.CreateTime,
-			UpdateTime: md.UpdateTime,
-		}
-		if i == len(revisions)-1 {
-			params.Checksum = md.LatestRevisionChecksum
-		}
-		if rev.ValueRef == nil {
-			if data, ok := content[rev.Revision]; ok {
-				params.Data = data
-			} else {
-				// Should never happen.
-				return errors.Errorf("missing content for secret %s/%d", md.URI.ID, rev.Revision)
-			}
-		}
-		// The expiry time of the most recent revision
-		// is included in the export.
-		if i == len(revisions)-1 {
-			params.ExpireTime = md.LatestExpireTime
-		}
-		if i == 0 {
-			if err := s.createImportedSecret(ctx, modelID, md, params); err != nil {
-				return errors.Errorf("cannot import secret %q: %w", md.URI.ID, err)
-			}
-			continue
-		}
 		revisionID, err := s.uuidGenerator()
 		if err != nil {
 			return errors.Capture(err)
 		}
-		params.RevisionID = ptr(revisionID.String())
-		params.UpdateTime = rev.CreateTime
+		params := secret.UpsertSecretParams{
+			ValueRef:   rev.ValueRef,
+			CreateTime: rev.CreateTime,
+			UpdateTime: rev.CreateTime,
+			RevisionID: ptr(revisionID.String()),
+		}
+		if i == len(revisions)-1 {
+			params.Checksum = md.LatestRevisionChecksum
+			params.ExpireTime = md.LatestExpireTime
+		}
 
-		rollBack := func() error { return nil }
-		if params.ValueRef != nil || len(params.Data) != 0 {
-			rollBack, err = s.secretBackendState.AddSecretBackendReference(ctx, params.ValueRef, modelID, revisionID.String())
-			if err != nil {
-				return errors.Capture(err)
+		if rev.ValueRef == nil {
+			if data, ok := content[rev.Revision]; ok {
+				params.Data = data
+			} else {
+				return errors.Errorf("missing content for secret %s/%d", md.URI.ID, rev.Revision)
 			}
 		}
-		err = s.secretState.UpdateSecret(ctx, md.URI, params)
+
+		rollBack, err := s.secretBackendState.AddSecretBackendReference(ctx, params.ValueRef, modelID,
+			revisionID.String())
 		if err != nil {
-			if err := rollBack(); err != nil {
-				s.logger.Warningf(ctx, "failed to roll back secret reference count: %v", err)
-			}
-			return errors.Errorf("cannot import secret %q revision %d: %w", md.URI.ID, rev.Revision, err)
+			return errors.Capture(err)
+		}
+		rollbackReferences = append(rollbackReferences, rollBack)
+
+		importRevisions[i] = secret.ImportRevision{
+			Revision: rev.Revision,
+			Params:   params,
 		}
 	}
+
+	if err = s.secretState.ImportSecretWithRevision(ctx, md.Version, md.URI,
+		owner,
+		metaParams,
+		importRevisions); err != nil {
+		return errors.Errorf("saving secret %q: %w", md.URI.ID, err)
+	}
+
 	return nil
-}
-
-// createImportedSecret creates a secret in the model with the supplied parameters.
-// It handles secret import and rollback in case of errors.
-func (s *SecretService) createImportedSecret(
-	ctx context.Context, modelID coremodel.UUID, md *coresecrets.SecretMetadata, params secret.UpsertSecretParams,
-) (errOut error) {
-	params.NextRotateTime = md.NextRotateTime
-	if md.RotatePolicy != "" && md.RotatePolicy != coresecrets.RotateNever {
-		policy := secret.MarshallRotatePolicy(&md.RotatePolicy)
-		params.RotatePolicy = &policy
-	}
-	if md.Description != "" {
-		params.Description = &md.Description
-	}
-	if md.Label != "" {
-		params.Label = &md.Label
-	}
-	if md.AutoPrune {
-		params.AutoPrune = &md.AutoPrune
-	}
-
-	revisionID, err := s.uuidGenerator()
-	if err != nil {
-		return errors.Capture(err)
-	}
-	params.RevisionID = ptr(revisionID.String())
-
-	rollBack, err := s.secretBackendState.AddSecretBackendReference(ctx, params.ValueRef, modelID, revisionID.String())
-	if err != nil {
-		return errors.Capture(err)
-	}
-	defer func() {
-		if errOut != nil {
-			if err := rollBack(); err != nil {
-				s.logger.Warningf(ctx, "failed to roll back secret reference count: %v", err)
-			}
-		}
-	}()
-
-	if err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return s.createSecret(ctx, md.Version, md.URI, md.Owner, params)
-	}); err != nil {
-		return errors.Errorf("cannot import secret %q with owner kind %q", md.URI.ID, md.Owner.Kind)
-	}
-	return err
 }
 
 func (s *SecretService) importRemoteSecrets(ctx context.Context, remoteSecrets []RemoteSecret) error {
-	remoteSecretLatest := make(map[*coresecrets.URI]int)
-	for _, rs := range remoteSecrets {
-		remoteSecretLatest[rs.URI] = rs.LatestRevision
-	}
-	// TODO(secrets) - move to crossmodelrelation domain
-	//for uri, latest := range remoteSecretLatest {
-	//	if err := s.secretState.UpdateRemoteSecretRevision(ctx, uri, latest); err != nil {
-	//		return errors.Errorf("saving remote secret reference for %q: %w", uri, err)
-	//	}
-	//}
-	//for _, rs := range remoteSecrets {
-	//	unitName, err := unit.NewName(rs.Accessor.ID)
-	//	if err != nil {
-	//		return errors.Errorf("invalid remote secret consumer: %w", err)
-	//	}
-	//	if err := s.secretState.SaveRemoteSecretConsumer(ctx, rs.URI, unitName, coresecrets.SecretConsumerMetadata{
-	//		Label:           rs.Label,
-	//		CurrentRevision: rs.CurrentRevision,
-	//	}); err != nil {
-	//		return errors.Errorf("saving remote consumer %s-%s for secret %q: %w",
-	//			rs.Accessor.Kind, rs.Accessor.ID, rs.URI.ID, err)
-	//
-	//	}
-	//}
 	return nil
+}
+
+func (s *SecretService) getOwner(ctx context.Context, kind coresecrets.OwnerKind, id string) (secret.Owner, error) {
+	switch kind {
+	case coresecrets.ModelOwner:
+		return secret.Owner{
+			Kind: kind,
+			UUID: id,
+		}, nil
+	case coresecrets.ApplicationOwner:
+		uuid, err := s.getApplicationUUIDByName(ctx, id)
+		if err != nil {
+			return secret.Owner{}, errors.Errorf("getting application uuid for %q: %w", id, err)
+		}
+		return secret.Owner{
+			Kind: kind,
+			UUID: uuid,
+		}, nil
+	case coresecrets.UnitOwner:
+		uuid, err := s.getUnitUUIDByName(ctx, id)
+		if err != nil {
+			return secret.Owner{}, errors.Errorf("getting unit uuid for %q: %w", id, err)
+		}
+		return secret.Owner{
+			Kind: kind,
+			UUID: uuid,
+		}, nil
+	}
+
+	return secret.Owner{}, errors.Errorf("unknown owner kind %q for id %q", kind, id)
+}
+
+// nilZeroPtr returns a pointer to the value if it is not the zero value,
+// otherwise returns nil.
+func nilZeroPtr[T comparable](v T) *T {
+	var zero T
+	if v == zero {
+		return nil
+	}
+	return &v
 }
