@@ -375,7 +375,7 @@ func (s *storageServiceSuite) TestGetFilesystemStatuses(c *tc.C) {
 			SizeMiB:    123,
 		},
 	}
-	s.modelState.EXPECT().GetFilesystems(gomock.Any()).Return(fs, nil)
+	s.modelState.EXPECT().GetFilesystems(gomock.Any()).Return(fs, nil, nil)
 	fa := []status.FilesystemAttachment{
 		{
 			FilesystemUUID: fsUUID,
@@ -388,7 +388,7 @@ func (s *storageServiceSuite) TestGetFilesystemStatuses(c *tc.C) {
 	}
 	s.modelState.EXPECT().GetFilesystemAttachments(gomock.Any()).Return(fa, nil)
 
-	res, err := s.service.GetFilesystemStatuses(c.Context())
+	res, _, err := s.service.GetFilesystemStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, []Filesystem{
 		{
@@ -451,7 +451,7 @@ func (s *storageServiceSuite) TestGetFilesystemStatusesMultiple(c *tc.C) {
 			SizeMiB:    456,
 		},
 	}
-	s.modelState.EXPECT().GetFilesystems(gomock.Any()).Return(fs, nil)
+	s.modelState.EXPECT().GetFilesystems(gomock.Any()).Return(fs, nil, nil)
 	fa := []status.FilesystemAttachment{
 		{
 			FilesystemUUID: fsUUID0,
@@ -479,7 +479,7 @@ func (s *storageServiceSuite) TestGetFilesystemStatusesMultiple(c *tc.C) {
 	}
 	s.modelState.EXPECT().GetFilesystemAttachments(gomock.Any()).Return(fa, nil)
 
-	res, err := s.service.GetFilesystemStatuses(c.Context())
+	res, _, err := s.service.GetFilesystemStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.UnorderedMatch[[]Filesystem](tc.DeepEquals), []Filesystem{
 		{
@@ -560,7 +560,7 @@ func (s *storageServiceSuite) TestGetVolumeStatuses(c *tc.C) {
 			Persistent: true,
 		},
 	}
-	s.modelState.EXPECT().GetVolumes(gomock.Any()).Return(vol, nil)
+	s.modelState.EXPECT().GetVolumes(gomock.Any()).Return(vol, nil, nil)
 	va := []status.VolumeAttachment{
 		{
 			VolumeUUID: volUUID,
@@ -581,7 +581,7 @@ func (s *storageServiceSuite) TestGetVolumeStatuses(c *tc.C) {
 	}
 	s.modelState.EXPECT().GetVolumeAttachments(gomock.Any()).Return(va, nil)
 
-	res, err := s.service.GetVolumeStatuses(c.Context())
+	res, _, err := s.service.GetVolumeStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, []Volume{
 		{

@@ -496,7 +496,7 @@ func (s *storageStatusSuite) TestGetStorageInstanceAttachments(c *tc.C) {
 
 func (s *storageStatusSuite) TestGetFilesystemsEmpty(c *tc.C) {
 	st := s.NewModelState(c)
-	res, err := st.GetFilesystems(c.Context())
+	res, _, err := st.GetFilesystems(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.HasLen, 0)
 }
@@ -532,7 +532,7 @@ func (s *storageStatusSuite) TestGetFilesystems(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	res, err := st.GetFilesystems(c.Context())
+	res, _, err := st.GetFilesystems(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.UnorderedMatch[[]status.Filesystem](tc.DeepEquals), []status.Filesystem{
 		{
@@ -622,7 +622,7 @@ func (s *storageStatusSuite) TestGetFilesystemAttachments(c *tc.C) {
 
 func (s *storageStatusSuite) TestGetVolumesEmpty(c *tc.C) {
 	st := s.NewModelState(c)
-	res, err := st.GetVolumes(c.Context())
+	res, _, err := st.GetVolumes(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.HasLen, 0)
 }
@@ -660,7 +660,7 @@ func (s *storageStatusSuite) TestGetVolumes(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	res, err := st.GetVolumes(c.Context())
+	res, _, err := st.GetVolumes(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.UnorderedMatch[[]status.Volume](tc.DeepEquals), []status.Volume{
 		{
