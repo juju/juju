@@ -1,0 +1,28 @@
+name: "Unit Tests"
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  build:
+    name: Build
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
+      - ${{ (github.repository_owner == 'juju' && 'xxlarge') || (github.repository_owner == 'canonical' && 'xlarge') }}
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      - name: "Set up Go"
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          cache: false
+
+      - name: "Test"
+        run: |
+          make race-test
