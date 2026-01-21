@@ -748,7 +748,7 @@ func (env *azureEnviron) createVirtualMachine(
 		return errors.Annotate(err, "creating OS profile")
 	}
 
-	storageAccountType := to.Ptr(armcompute.StorageAccountTypesStandardLRS)
+	storageAccountType := to.Ptr(armcompute.StorageAccountTypesStandardSSDLRS)
 	if args.RootDisk != nil {
 		if args.RootDisk.Attributes != nil {
 			if accountTypeVal, ok := args.RootDisk.Attributes[accountTypeAttr].(string); ok && accountTypeVal != "" {

@@ -1375,7 +1375,7 @@ func (s *environSuite) assertStartInstanceRequests(
 		})
 	}
 
-	storageAccountType := to.Ptr(armcompute.StorageAccountTypesStandardLRS)
+	storageAccountType := to.Ptr(armcompute.StorageAccountTypesStandardSSDLRS)
 	if args.storageAccountType != nil {
 		storageAccountType = (*armcompute.StorageAccountTypes)(args.storageAccountType)
 	}
