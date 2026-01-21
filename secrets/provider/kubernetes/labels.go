@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	labelJujuSecretModelName   = "secrets.juju.is/model-name"
-	labelJujuSecretModelUUID   = "secrets.juju.is/model-id"
-	labelJujuSecretConsumerTag = "secrets.juju.is/consumer-tag"
+	labelJujuSecretModelName = "secrets.juju.is/model-name"
+	labelJujuSecretModelUUID = "secrets.juju.is/model-id"
+	labelJujuSecretConsumer  = "secrets.juju.is/consumer"
 )
 
 const (
@@ -39,7 +39,7 @@ func labelsForServiceAccount(
 		labelJujuSecretModelUUID:     modelUUID,
 	}
 	if consumer != nil {
-		secretLabels[labelJujuSecretConsumerTag] = consumer.String()
+		secretLabels[labelJujuSecretConsumer] = consumer.String()
 	}
 	return utils.LabelsMerge(utils.LabelsJuju, secretLabels)
 }
