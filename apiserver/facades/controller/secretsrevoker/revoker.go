@@ -28,6 +28,9 @@ type SecretsRevokerAPI struct {
 	providerGetter      func(string) (secretsprovider.SecretBackendProvider, error)
 }
 
+// WatchIssuedTokenExpiry creates a secret backends issued token expiry watcher.
+// The watcher fires when a secret backend issued token is created, sending the
+// RFC3339 encoded timestamp when it will expire.
 func (api *SecretsRevokerAPI) WatchIssuedTokenExpiry() (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
 	watch := api.state.WatchSecretBackendIssuedTokenExpiry()
@@ -40,12 +43,15 @@ func (api *SecretsRevokerAPI) WatchIssuedTokenExpiry() (params.StringsWatchResul
 	return result, nil
 }
 
+// RevokeIssuedTokens revokes all issued tokens up until the specified time and
+// returning the time for the next revocation.
 func (api *SecretsRevokerAPI) RevokeIssuedTokens(
 	until time.Time,
-) (params.ErrorResult, error) {
-	result := params.ErrorResult{}
+) (params.RevokeIssuedTokensResult, error) {
+	result := params.RevokeIssuedTokensResult{}
 
-	err := api.revokeIssuedTokens(until)
+	var err error
+	result.Next, err = api.revokeIssuedTokens(until)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 	}
@@ -53,14 +59,20 @@ func (api *SecretsRevokerAPI) RevokeIssuedTokens(
 	return result, nil
 }
 
-func (api *SecretsRevokerAPI) revokeIssuedTokens(until time.Time) error {
+func (api *SecretsRevokerAPI) revokeIssuedTokens(
+	until time.Time,
+) (time.Time, error) {
 	issuedTokens, err := api.state.ListSecretBackendIssuedTokenUntil(until)
 	if err != nil {
-		return errors.Trace(err)
+		return time.Time{}, errors.Trace(err)
 	}
 
 	if len(issuedTokens) == 0 {
-		return nil
+		next, err := api.state.NextSecretBackendIssuedTokenExpiry()
+		if err != nil {
+			return time.Time{}, errors.Trace(err)
+		}
+		return next, nil
 	}
 
 	issuedTokensToBackend := map[string][]string{}
@@ -72,7 +84,7 @@ func (api *SecretsRevokerAPI) revokeIssuedTokens(until time.Time) error {
 
 	adminCfg, err := api.backendConfigGetter()
 	if err != nil {
-		return errors.Trace(err)
+		return time.Time{}, errors.Trace(err)
 	}
 
 	for backendID, issuedTokenUUIDs := range issuedTokensToBackend {
@@ -81,28 +93,33 @@ func (api *SecretsRevokerAPI) revokeIssuedTokens(until time.Time) error {
 			// If the backend doesn't exist. Discard the tokens.
 			err = api.state.RemoveSecretBackendIssuedTokens(issuedTokenUUIDs)
 			if err != nil {
-				return errors.Trace(err)
+				return time.Time{}, errors.Trace(err)
 			}
 			continue
 		}
 
 		p, err := api.providerGetter(backendCfg.BackendType)
 		if err != nil {
-			return errors.Trace(err)
+			return time.Time{}, errors.Trace(err)
 		}
 
 		removedUUIDs, cleanUpErr := p.CleanupIssuedTokens(
 			&backendCfg, issuedTokenUUIDs)
 		if len(removedUUIDs) > 0 {
-			err = api.state.RemoveSecretBackendIssuedTokens(issuedTokenUUIDs)
+			err = api.state.RemoveSecretBackendIssuedTokens(removedUUIDs)
 			if err != nil {
-				return errors.Trace(err)
+				return time.Time{}, errors.Trace(err)
 			}
 		}
 		if cleanUpErr != nil {
-			return errors.Trace(cleanUpErr)
+			return time.Time{}, errors.Trace(cleanUpErr)
 		}
 	}
 
-	return nil
+	next, err := api.state.NextSecretBackendIssuedTokenExpiry()
+	if err != nil {
+		return time.Time{}, errors.Trace(err)
+	}
+
+	return next, nil
 }

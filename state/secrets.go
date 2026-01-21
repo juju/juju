@@ -137,6 +137,10 @@ type SecretsStore interface {
 		token SecretBackendIssuedToken,
 	) error
 
+	// NextSecretBackendIssuedTokenExpiry returns the time of the next secret
+	// backend issued token expiry.
+	NextSecretBackendIssuedTokenExpiry() (time.Time, error)
+
 	// ListSecretBackendIssuedTokenUntil returns all the issued secret backend
 	// tokens that are valid until the given time.
 	ListSecretBackendIssuedTokenUntil(
@@ -3963,15 +3967,42 @@ func (s *secretsStore) CreateSecretBackendIssuedToken(
 			"creating secret backend issued token failed due to missing values",
 		)
 	}
-	entity, entityC, entityDocID, err := s.st.findSecretEntity(token.Consumer)
-	if err != nil {
-		return errors.Annotate(err, "invalid owner reference")
+	tokenColl, closer := s.st.db().GetCollection(secretBackendIssuedTokensC)
+	defer closer()
+
+	check := func() (string, string, error) {
+		entity, entityC, entityDocID, err := s.st.findSecretEntity(token.Consumer)
+		if err != nil {
+			return "", "", errors.Annotate(err, "invalid owner reference")
+		}
+		if entity.Life() == Dead {
+			return "", "", errors.New(
+				"creating secret backend issued token: consumer is dead",
+			)
+		}
+		existing := secretIssuedTokenDoc{}
+		err = tokenColl.FindId(token.UUID).One(&existing)
+		if errors.Is(err, mgo.ErrNotFound) {
+			return entityC, entityDocID, nil
+		} else if err != nil {
+			return "", "", errors.Annotate(
+				err, "checking existing secret issued backend token",
+			)
+		}
+		if existing.ConsumerTag != token.Consumer.String() {
+			return "", "", errors.Unauthorizedf(
+				"%s secret issued backend token", token.UUID,
+			)
+		}
+		return entityC, entityDocID, errors.AlreadyExists
 	}
-	if entity.Life() == Dead {
-		return errors.New(
-			"creating secret backend issued token: consumer is dead",
-		)
+	entityC, entityDocID, err := check()
+	if errors.Is(err, errors.AlreadyExists) {
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
 	}
+
 	doc := secretIssuedTokenDoc{
 		DocID:       token.UUID,
 		BackendID:   token.BackendID,
@@ -3981,16 +4012,11 @@ func (s *secretsStore) CreateSecretBackendIssuedToken(
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var err error
 		if attempt > 0 {
-			entity, entityC, entityDocID, err = s.st.findSecretEntity(token.Consumer)
-			if err != nil {
-				return nil, errors.Annotatef(
-					err, "refreshing entity %s", token.Consumer,
-				)
-			}
-			if entity.Life() == Dead {
-				return nil, errors.New(
-					"creating secret backend issued token: consumer is dead",
-				)
+			entityC, entityDocID, err = check()
+			if errors.Is(err, errors.AlreadyExists) {
+				return nil, jujutxn.ErrNoOperations
+			} else if err != nil {
+				return nil, errors.Trace(err)
 			}
 		}
 		ops := []txn.Op{{
@@ -4032,6 +4058,24 @@ type SecretBackendIssuedToken struct {
 	// Consumer is a tag that represents the entity which the secret backend
 	// issued token was created for.
 	Consumer names.Tag
+}
+
+// NextSecretBackendIssuedTokenExpiry returns the time of the next secret
+// backend issued token expiry.
+func (s *secretsStore) NextSecretBackendIssuedTokenExpiry() (time.Time, error) {
+	collection, closer := s.st.db().GetCollection(secretBackendIssuedTokensC)
+	defer closer()
+
+	var doc secretIssuedTokenDoc
+	err := collection.Find(nil).Sort("expire-time").One(&doc)
+	if errors.Is(err, mgo.ErrNotFound) {
+		return time.Time{}, nil
+	} else if err != nil {
+		return time.Time{}, errors.Annotate(
+			err, "getting next secret backend issued token expiry time",
+		)
+	}
+	return doc.ExpireTime, nil
 }
 
 // ListSecretBackendIssuedTokenUntil returns all the issued secret backend

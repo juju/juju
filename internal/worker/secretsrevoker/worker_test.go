@@ -32,7 +32,7 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *workerSuite) TestWorker(c *gc.C) {
+func (s *workerSuite) TestWorkerOnce(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	clk := testclock.NewDilatedWallClock(time.Millisecond)
@@ -46,10 +46,10 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	s.facade.EXPECT().WatchIssuedTokenExpiry().Return(expiryWatcher, nil)
 
 	done := make(chan struct{})
-	s.facade.EXPECT().RevokeIssuedTokens(gomock.Any()).DoAndReturn(func(until time.Time) error {
+	s.facade.EXPECT().RevokeIssuedTokens(gomock.Any()).DoAndReturn(func(until time.Time) (time.Time, error) {
 		close(done)
 		c.Assert(until, jc.After, last)
-		return nil
+		return time.Time{}, nil
 	})
 
 	w, err := secretsrevoker.NewWorker(secretsrevoker.Config{
@@ -62,5 +62,44 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	ch <- []string{last.Format(time.RFC3339)}
+	<-done
+}
+
+func (s *workerSuite) TestWorkerMore(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	clk := testclock.NewDilatedWallClock(time.Millisecond)
+	now := clk.Now().UTC()
+	first := now.Add(10 * time.Minute)
+	next := first.Add(10 * time.Minute)
+
+	ch := make(chan []string, 1)
+	ch <- []string(nil)
+	expiryWatcher := watchertest.NewMockStringsWatcher(ch)
+	defer workertest.CheckKilled(c, expiryWatcher)
+	s.facade.EXPECT().WatchIssuedTokenExpiry().Return(expiryWatcher, nil)
+
+	done := make(chan struct{})
+	s.facade.EXPECT().RevokeIssuedTokens(
+		gomock.Any(),
+	).DoAndReturn(func(until time.Time) (time.Time, error) {
+		if until.After(next) {
+			close(done)
+			return time.Time{}, nil
+		}
+		c.Assert(until, jc.After, first)
+		return next, nil
+	}).Times(2)
+
+	w, err := secretsrevoker.NewWorker(secretsrevoker.Config{
+		Facade: s.facade,
+		Logger: loggo.GetLogger("test"),
+		Clock:  clk,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(w, gc.NotNil)
+	defer workertest.CleanKill(c, w)
+
+	ch <- []string{first.Format(time.RFC3339)}
 	<-done
 }

@@ -612,3 +612,10 @@ type SecretRevisionArgs struct {
 	Unit       Entity   `json:"entity"`
 	SecretURIs []string `json:"secret-uris"`
 }
+
+// RevokeIssuedTokensResult holds the result of revoking issued tokens, with
+// optionally a time for the next revoke.
+type RevokeIssuedTokensResult struct {
+	Next  time.Time `json:"next"`
+	Error *Error    `json:"error,omitempty"`
+}

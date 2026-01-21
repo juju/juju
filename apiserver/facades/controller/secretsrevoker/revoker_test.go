@@ -61,14 +61,21 @@ func (s *facadeSuite) TestRevokeIssuedTokens(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	now := time.Now()
-	uuids := []string{uuid.NewString()}
+	next := now.Add(time.Hour)
+	uuids := []string{uuid.NewString(), uuid.NewString()}
 	tokens := []state.SecretBackendIssuedToken{{
 		UUID:       uuids[0],
 		ExpireTime: now.Add(-time.Second),
 		BackendID:  "some-backend",
 		Consumer:   names.NewUnitTag("app/0"),
+	}, {
+		UUID:       uuids[1],
+		ExpireTime: now.Add(-time.Second),
+		BackendID:  "some-backend",
+		Consumer:   names.NewUnitTag("app/0"),
 	}}
 	s.state.EXPECT().ListSecretBackendIssuedTokenUntil(now).Return(tokens, nil)
+	s.state.EXPECT().NextSecretBackendIssuedTokenExpiry().Return(next, nil)
 
 	backends := &secretsprovider.ModelBackendConfigInfo{
 		ActiveID: "some-backend",
@@ -83,12 +90,14 @@ func (s *facadeSuite) TestRevokeIssuedTokens(c *gc.C) {
 	s.getters.EXPECT().BackendConfigGetter().Return(backends, nil)
 
 	s.provider.EXPECT().CleanupIssuedTokens(
-		gomock.Any(), uuids).Return(uuids, nil)
-	s.state.EXPECT().RemoveSecretBackendIssuedTokens(uuids).Return(nil)
+		gomock.Any(), uuids).Return(uuids[:1], nil)
+	s.state.EXPECT().RemoveSecretBackendIssuedTokens(uuids[:1]).Return(nil)
 
 	res, err := s.facade.RevokeIssuedTokens(now)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, params.ErrorResult{})
+	c.Assert(res, gc.DeepEquals, params.RevokeIssuedTokensResult{
+		Next: next,
+	})
 }
 
 func (s *facadeSuite) TestWatchIssuedTokenExpiry(c *gc.C) {

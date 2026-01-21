@@ -115,11 +115,12 @@ func (m *MockSecretsRevokerFacade) EXPECT() *MockSecretsRevokerFacadeMockRecorde
 }
 
 // RevokeIssuedTokens mocks base method.
-func (m *MockSecretsRevokerFacade) RevokeIssuedTokens(arg0 time.Time) error {
+func (m *MockSecretsRevokerFacade) RevokeIssuedTokens(arg0 time.Time) (time.Time, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RevokeIssuedTokens", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(time.Time)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // RevokeIssuedTokens indicates an expected call of RevokeIssuedTokens.

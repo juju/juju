@@ -80,6 +80,45 @@ func (c *MockSecretsStateListSecretBackendIssuedTokenUntilCall) DoAndReturn(f fu
 	return c
 }
 
+// NextSecretBackendIssuedTokenExpiry mocks base method.
+func (m *MockSecretsState) NextSecretBackendIssuedTokenExpiry() (time.Time, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NextSecretBackendIssuedTokenExpiry")
+	ret0, _ := ret[0].(time.Time)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NextSecretBackendIssuedTokenExpiry indicates an expected call of NextSecretBackendIssuedTokenExpiry.
+func (mr *MockSecretsStateMockRecorder) NextSecretBackendIssuedTokenExpiry() *MockSecretsStateNextSecretBackendIssuedTokenExpiryCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NextSecretBackendIssuedTokenExpiry", reflect.TypeOf((*MockSecretsState)(nil).NextSecretBackendIssuedTokenExpiry))
+	return &MockSecretsStateNextSecretBackendIssuedTokenExpiryCall{Call: call}
+}
+
+// MockSecretsStateNextSecretBackendIssuedTokenExpiryCall wrap *gomock.Call
+type MockSecretsStateNextSecretBackendIssuedTokenExpiryCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSecretsStateNextSecretBackendIssuedTokenExpiryCall) Return(arg0 time.Time, arg1 error) *MockSecretsStateNextSecretBackendIssuedTokenExpiryCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSecretsStateNextSecretBackendIssuedTokenExpiryCall) Do(f func() (time.Time, error)) *MockSecretsStateNextSecretBackendIssuedTokenExpiryCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSecretsStateNextSecretBackendIssuedTokenExpiryCall) DoAndReturn(f func() (time.Time, error)) *MockSecretsStateNextSecretBackendIssuedTokenExpiryCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // RemoveSecretBackendIssuedTokens mocks base method.
 func (m *MockSecretsState) RemoveSecretBackendIssuedTokens(arg0 []string) error {
 	m.ctrl.T.Helper()

@@ -4019,6 +4019,32 @@ func (s *SecretsSuite) TestCreateSecretBackendIssuedToken(c *gc.C) {
 	c.Assert(n, gc.Equals, 1)
 }
 
+func (s *SecretsSuite) TestNextSecretBackendIssuedTokenExpiry(c *gc.C) {
+	now := s.Clock.Now()
+
+	tokenBefore := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: now.Add(-time.Minute),
+		BackendID:  "backend-id",
+		Consumer:   s.owner.Tag(),
+	}
+	err := s.store.CreateSecretBackendIssuedToken(tokenBefore)
+	c.Assert(err, jc.ErrorIsNil)
+
+	tokenAfter := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: now.Add(time.Minute),
+		BackendID:  "backend-id",
+		Consumer:   s.owner.Tag(),
+	}
+	err = s.store.CreateSecretBackendIssuedToken(tokenAfter)
+	c.Assert(err, jc.ErrorIsNil)
+
+	first, err := s.store.NextSecretBackendIssuedTokenExpiry()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(first, jc.DeepEquals, tokenBefore.ExpireTime.Truncate(time.Second))
+}
+
 func (s *SecretsSuite) TestListSecretBackendIssuedTokenUntil(c *gc.C) {
 	now := s.Clock.Now()
 

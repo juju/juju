@@ -45,15 +45,16 @@ func (c *Client) WatchIssuedTokenExpiry() (watcher.StringsWatcher, error) {
 }
 
 // RevokeIssuedTokens calls the SecretsRevoker facade to revoke all issued
-// tokens up until the specified time.
-func (c *Client) RevokeIssuedTokens(until time.Time) error {
-	var result params.ErrorResult
+// tokens up until the specified time and returns the time for the next
+// revocation.
+func (c *Client) RevokeIssuedTokens(until time.Time) (time.Time, error) {
+	var result params.RevokeIssuedTokensResult
 	err := c.facade.FacadeCall("RevokeIssuedTokens", until, &result)
 	if err != nil {
-		return errors.Trace(err)
+		return time.Time{}, errors.Trace(err)
 	}
 	if result.Error != nil {
-		return result.Error
+		return time.Time{}, result.Error
 	}
-	return nil
+	return result.Next, nil
 }

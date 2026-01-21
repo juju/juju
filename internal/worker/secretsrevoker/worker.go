@@ -19,14 +19,14 @@ const (
 )
 
 type Logger interface {
-	Debugf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Infof(string, ...interface{})
+	Debugf(string, ...any)
+	Warningf(string, ...any)
+	Infof(string, ...any)
 }
 
 type SecretsRevokerFacade interface {
 	WatchIssuedTokenExpiry() (watcher.StringsWatcher, error)
-	RevokeIssuedTokens(until time.Time) error
+	RevokeIssuedTokens(until time.Time) (time.Time, error)
 }
 
 type Config struct {
@@ -88,7 +88,6 @@ func (w *revoker) loop() (err error) {
 	var (
 		alarm clock.Alarm
 		next  time.Time
-		last  time.Time
 		fire  <-chan time.Time
 	)
 	for {
@@ -112,9 +111,6 @@ func (w *revoker) loop() (err error) {
 					next = tq
 					nextChanged = true
 				}
-				if last.Before(tq) {
-					last = tq
-				}
 			}
 			if nextChanged {
 				if alarm == nil {
@@ -126,17 +122,15 @@ func (w *revoker) loop() (err error) {
 			}
 		case <-fire:
 			nq := w.config.Clock.Now().Truncate(quantTerm).Add(quantTerm)
-			err := w.config.Facade.RevokeIssuedTokens(nq)
+			nextRevoke, err := w.config.Facade.RevokeIssuedTokens(nq)
 			if err != nil {
 				return errors.Annotate(err, "failed to revoke tokens")
 			}
-			next = nq.Add(quantTerm)
-			if next.After(last) {
-				next = time.Time{}
-				last = time.Time{}
-			} else {
-				alarm.Reset(next)
+			if nextRevoke.IsZero() {
+				continue
 			}
+			next = nextRevoke.Truncate(quantTerm).Add(quantTerm)
+			alarm.Reset(next)
 		}
 	}
 }
