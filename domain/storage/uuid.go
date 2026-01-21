@@ -20,7 +20,7 @@ type StorageAttachmentUUID baseUUID
 // StorageInstanceUUID uniquely identifies a storage instance in the model.
 type StorageInstanceUUID baseUUID
 
-// NewFilesystemUUID creates a new, valid storage Filesystem identifier.
+// NewStorageAttachmentUUID creates a new, valid Storage Attachment identifier.
 func NewStorageAttachmentUUID() (StorageAttachmentUUID, error) {
 	u, err := newUUID()
 	return StorageAttachmentUUID(u), err
@@ -47,8 +47,8 @@ func (u baseUUID) String() string {
 	return string(u)
 }
 
-// String returns the string representation of this StorageAttachment uuid. This
-// function satisfies the [fmt.Stringer] interface.
+// String returns the string representation of this [StorageAttachmentUUID].
+// This function satisfies the [fmt.Stringer] interface.
 func (u StorageAttachmentUUID) String() string {
 	return baseUUID(u).String()
 }
