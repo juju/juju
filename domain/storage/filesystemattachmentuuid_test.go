@@ -10,7 +10,7 @@ import (
 )
 
 // filesystemAttachmentUUIDSuite is a suite of tests for asserting the behaviour of
-// [VolumeAttachmentUUID].
+// [FilesystemAttachmentUUID].
 type filesystemAttachmentUUIDSuite struct{}
 
 // TestFilesystemAttachmentUUIDSuite runs all of the tests contained within
@@ -19,17 +19,17 @@ func TestFilesystemAttachmentUUIDSuite(t *testing.T) {
 	tc.Run(t, filesystemAttachmentUUIDSuite{})
 }
 
-// TestNew tests that constructing a new volumeattachment uuid suceeds with no
-// errors and the end result is valid.
+// TestNew tests that constructing a new [FilesystemAttachmentUUID] suceeds with
+// no errors and the end result is valid.
 func (filesystemAttachmentUUIDSuite) TestNew(c *tc.C) {
 	u, err := NewFilesystemAttachmentUUID()
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(u.Validate(), tc.ErrorIsNil)
 }
 
-// TestStringer asserts the [fmt.Stringer] interface of [VolumeAttachmentUUID]
-// by making sure the correct string representation of the uuid is returned to
-// the caller.
+// TestStringer asserts the [fmt.Stringer] interface of
+// [FilesystemAttachmentUUID] by making sure the correct string representation
+// of the uuid is returned to the caller.
 func (filesystemAttachmentUUIDSuite) TestStringer(c *tc.C) {
 	const validUUID = "0de7ed80-bfcf-49b1-876a-31462e940ca1"
 	c.Check(FilesystemAttachmentUUID(validUUID).String(), tc.Equals, validUUID)
