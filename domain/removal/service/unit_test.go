@@ -125,7 +125,7 @@ func (s *unitSuite) TestRemoveUnitCascadeStorage(c *tc.C) {
 	fsaUUID := tc.Must(c, storage.NewFilesystemAttachmentUUID)
 	volUUID := tc.Must(c, storage.NewVolumeUUID)
 	vaUUID := tc.Must(c, storage.NewVolumeAttachmentUUID)
-	vapUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID)
+	vapUUID := tc.Must(c, storage.NewVolumeAttachmentPlanUUID)
 
 	when := time.Now().UTC()
 	s.clock.EXPECT().Now().Return(when).AnyTimes()

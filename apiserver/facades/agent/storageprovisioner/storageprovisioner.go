@@ -1022,7 +1022,7 @@ func (s *StorageProvisionerAPI) getVolumeAttachmentPlanUUID(
 	ctx context.Context,
 	volumeTag names.VolumeTag,
 	machineUUID machine.UUID,
-) (storageprovisioning.VolumeAttachmentPlanUUID, error) {
+) (domainstorage.VolumeAttachmentPlanUUID, error) {
 	vapUUID, err := s.storageProvisioningService.GetVolumeAttachmentPlanUUIDForVolumeIDMachine(
 		ctx, volumeTag.Id(), machineUUID,
 	)

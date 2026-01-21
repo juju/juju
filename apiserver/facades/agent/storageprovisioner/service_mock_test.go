@@ -447,10 +447,10 @@ func (c *MockStorageProvisioningServiceCheckVolumeForIDExistsCall) DoAndReturn(f
 }
 
 // CreateVolumeAttachmentPlan mocks base method.
-func (m *MockStorageProvisioningService) CreateVolumeAttachmentPlan(arg0 context.Context, arg1 storage.VolumeAttachmentUUID, arg2 storageprovisioning.PlanDeviceType, arg3 map[string]string) (storageprovisioning.VolumeAttachmentPlanUUID, error) {
+func (m *MockStorageProvisioningService) CreateVolumeAttachmentPlan(arg0 context.Context, arg1 storage.VolumeAttachmentUUID, arg2 storageprovisioning.PlanDeviceType, arg3 map[string]string) (storage.VolumeAttachmentPlanUUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateVolumeAttachmentPlan", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(storageprovisioning.VolumeAttachmentPlanUUID)
+	ret0, _ := ret[0].(storage.VolumeAttachmentPlanUUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -468,19 +468,19 @@ type MockStorageProvisioningServiceCreateVolumeAttachmentPlanCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStorageProvisioningServiceCreateVolumeAttachmentPlanCall) Return(arg0 storageprovisioning.VolumeAttachmentPlanUUID, arg1 error) *MockStorageProvisioningServiceCreateVolumeAttachmentPlanCall {
+func (c *MockStorageProvisioningServiceCreateVolumeAttachmentPlanCall) Return(arg0 storage.VolumeAttachmentPlanUUID, arg1 error) *MockStorageProvisioningServiceCreateVolumeAttachmentPlanCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageProvisioningServiceCreateVolumeAttachmentPlanCall) Do(f func(context.Context, storage.VolumeAttachmentUUID, storageprovisioning.PlanDeviceType, map[string]string) (storageprovisioning.VolumeAttachmentPlanUUID, error)) *MockStorageProvisioningServiceCreateVolumeAttachmentPlanCall {
+func (c *MockStorageProvisioningServiceCreateVolumeAttachmentPlanCall) Do(f func(context.Context, storage.VolumeAttachmentUUID, storageprovisioning.PlanDeviceType, map[string]string) (storage.VolumeAttachmentPlanUUID, error)) *MockStorageProvisioningServiceCreateVolumeAttachmentPlanCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageProvisioningServiceCreateVolumeAttachmentPlanCall) DoAndReturn(f func(context.Context, storage.VolumeAttachmentUUID, storageprovisioning.PlanDeviceType, map[string]string) (storageprovisioning.VolumeAttachmentPlanUUID, error)) *MockStorageProvisioningServiceCreateVolumeAttachmentPlanCall {
+func (c *MockStorageProvisioningServiceCreateVolumeAttachmentPlanCall) DoAndReturn(f func(context.Context, storage.VolumeAttachmentUUID, storageprovisioning.PlanDeviceType, map[string]string) (storage.VolumeAttachmentPlanUUID, error)) *MockStorageProvisioningServiceCreateVolumeAttachmentPlanCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1188,7 +1188,7 @@ func (c *MockStorageProvisioningServiceGetVolumeAttachmentParamsCall) DoAndRetur
 }
 
 // GetVolumeAttachmentPlan mocks base method.
-func (m *MockStorageProvisioningService) GetVolumeAttachmentPlan(arg0 context.Context, arg1 storageprovisioning.VolumeAttachmentPlanUUID) (storageprovisioning.VolumeAttachmentPlan, error) {
+func (m *MockStorageProvisioningService) GetVolumeAttachmentPlan(arg0 context.Context, arg1 storage.VolumeAttachmentPlanUUID) (storageprovisioning.VolumeAttachmentPlan, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetVolumeAttachmentPlan", arg0, arg1)
 	ret0, _ := ret[0].(storageprovisioning.VolumeAttachmentPlan)
@@ -1215,22 +1215,22 @@ func (c *MockStorageProvisioningServiceGetVolumeAttachmentPlanCall) Return(arg0 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageProvisioningServiceGetVolumeAttachmentPlanCall) Do(f func(context.Context, storageprovisioning.VolumeAttachmentPlanUUID) (storageprovisioning.VolumeAttachmentPlan, error)) *MockStorageProvisioningServiceGetVolumeAttachmentPlanCall {
+func (c *MockStorageProvisioningServiceGetVolumeAttachmentPlanCall) Do(f func(context.Context, storage.VolumeAttachmentPlanUUID) (storageprovisioning.VolumeAttachmentPlan, error)) *MockStorageProvisioningServiceGetVolumeAttachmentPlanCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageProvisioningServiceGetVolumeAttachmentPlanCall) DoAndReturn(f func(context.Context, storageprovisioning.VolumeAttachmentPlanUUID) (storageprovisioning.VolumeAttachmentPlan, error)) *MockStorageProvisioningServiceGetVolumeAttachmentPlanCall {
+func (c *MockStorageProvisioningServiceGetVolumeAttachmentPlanCall) DoAndReturn(f func(context.Context, storage.VolumeAttachmentPlanUUID) (storageprovisioning.VolumeAttachmentPlan, error)) *MockStorageProvisioningServiceGetVolumeAttachmentPlanCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetVolumeAttachmentPlanUUIDForVolumeIDMachine mocks base method.
-func (m *MockStorageProvisioningService) GetVolumeAttachmentPlanUUIDForVolumeIDMachine(arg0 context.Context, arg1 string, arg2 machine.UUID) (storageprovisioning.VolumeAttachmentPlanUUID, error) {
+func (m *MockStorageProvisioningService) GetVolumeAttachmentPlanUUIDForVolumeIDMachine(arg0 context.Context, arg1 string, arg2 machine.UUID) (storage.VolumeAttachmentPlanUUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetVolumeAttachmentPlanUUIDForVolumeIDMachine", arg0, arg1, arg2)
-	ret0, _ := ret[0].(storageprovisioning.VolumeAttachmentPlanUUID)
+	ret0, _ := ret[0].(storage.VolumeAttachmentPlanUUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1248,19 +1248,19 @@ type MockStorageProvisioningServiceGetVolumeAttachmentPlanUUIDForVolumeIDMachine
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStorageProvisioningServiceGetVolumeAttachmentPlanUUIDForVolumeIDMachineCall) Return(arg0 storageprovisioning.VolumeAttachmentPlanUUID, arg1 error) *MockStorageProvisioningServiceGetVolumeAttachmentPlanUUIDForVolumeIDMachineCall {
+func (c *MockStorageProvisioningServiceGetVolumeAttachmentPlanUUIDForVolumeIDMachineCall) Return(arg0 storage.VolumeAttachmentPlanUUID, arg1 error) *MockStorageProvisioningServiceGetVolumeAttachmentPlanUUIDForVolumeIDMachineCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageProvisioningServiceGetVolumeAttachmentPlanUUIDForVolumeIDMachineCall) Do(f func(context.Context, string, machine.UUID) (storageprovisioning.VolumeAttachmentPlanUUID, error)) *MockStorageProvisioningServiceGetVolumeAttachmentPlanUUIDForVolumeIDMachineCall {
+func (c *MockStorageProvisioningServiceGetVolumeAttachmentPlanUUIDForVolumeIDMachineCall) Do(f func(context.Context, string, machine.UUID) (storage.VolumeAttachmentPlanUUID, error)) *MockStorageProvisioningServiceGetVolumeAttachmentPlanUUIDForVolumeIDMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageProvisioningServiceGetVolumeAttachmentPlanUUIDForVolumeIDMachineCall) DoAndReturn(f func(context.Context, string, machine.UUID) (storageprovisioning.VolumeAttachmentPlanUUID, error)) *MockStorageProvisioningServiceGetVolumeAttachmentPlanUUIDForVolumeIDMachineCall {
+func (c *MockStorageProvisioningServiceGetVolumeAttachmentPlanUUIDForVolumeIDMachineCall) DoAndReturn(f func(context.Context, string, machine.UUID) (storage.VolumeAttachmentPlanUUID, error)) *MockStorageProvisioningServiceGetVolumeAttachmentPlanUUIDForVolumeIDMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1653,7 +1653,7 @@ func (c *MockStorageProvisioningServiceSetFilesystemProvisionedInfoCall) DoAndRe
 }
 
 // SetVolumeAttachmentPlanProvisionedBlockDevice mocks base method.
-func (m *MockStorageProvisioningService) SetVolumeAttachmentPlanProvisionedBlockDevice(arg0 context.Context, arg1 storageprovisioning.VolumeAttachmentPlanUUID, arg2 blockdevice0.BlockDeviceUUID) error {
+func (m *MockStorageProvisioningService) SetVolumeAttachmentPlanProvisionedBlockDevice(arg0 context.Context, arg1 storage.VolumeAttachmentPlanUUID, arg2 blockdevice0.BlockDeviceUUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetVolumeAttachmentPlanProvisionedBlockDevice", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -1679,19 +1679,19 @@ func (c *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedBlockDe
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedBlockDeviceCall) Do(f func(context.Context, storageprovisioning.VolumeAttachmentPlanUUID, blockdevice0.BlockDeviceUUID) error) *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedBlockDeviceCall {
+func (c *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedBlockDeviceCall) Do(f func(context.Context, storage.VolumeAttachmentPlanUUID, blockdevice0.BlockDeviceUUID) error) *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedBlockDeviceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedBlockDeviceCall) DoAndReturn(f func(context.Context, storageprovisioning.VolumeAttachmentPlanUUID, blockdevice0.BlockDeviceUUID) error) *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedBlockDeviceCall {
+func (c *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedBlockDeviceCall) DoAndReturn(f func(context.Context, storage.VolumeAttachmentPlanUUID, blockdevice0.BlockDeviceUUID) error) *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedBlockDeviceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetVolumeAttachmentPlanProvisionedInfo mocks base method.
-func (m *MockStorageProvisioningService) SetVolumeAttachmentPlanProvisionedInfo(arg0 context.Context, arg1 storageprovisioning.VolumeAttachmentPlanUUID, arg2 storageprovisioning.VolumeAttachmentPlanProvisionedInfo) error {
+func (m *MockStorageProvisioningService) SetVolumeAttachmentPlanProvisionedInfo(arg0 context.Context, arg1 storage.VolumeAttachmentPlanUUID, arg2 storageprovisioning.VolumeAttachmentPlanProvisionedInfo) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetVolumeAttachmentPlanProvisionedInfo", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -1717,13 +1717,13 @@ func (c *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedInfoCal
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedInfoCall) Do(f func(context.Context, storageprovisioning.VolumeAttachmentPlanUUID, storageprovisioning.VolumeAttachmentPlanProvisionedInfo) error) *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedInfoCall {
+func (c *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedInfoCall) Do(f func(context.Context, storage.VolumeAttachmentPlanUUID, storageprovisioning.VolumeAttachmentPlanProvisionedInfo) error) *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedInfoCall) DoAndReturn(f func(context.Context, storageprovisioning.VolumeAttachmentPlanUUID, storageprovisioning.VolumeAttachmentPlanProvisionedInfo) error) *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedInfoCall {
+func (c *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedInfoCall) DoAndReturn(f func(context.Context, storage.VolumeAttachmentPlanUUID, storageprovisioning.VolumeAttachmentPlanProvisionedInfo) error) *MockStorageProvisioningServiceSetVolumeAttachmentPlanProvisionedInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2434,7 +2434,7 @@ func (c *MockRemovalServiceMarkVolumeAttachmentAsDeadCall) DoAndReturn(f func(co
 }
 
 // MarkVolumeAttachmentPlanAsDead mocks base method.
-func (m *MockRemovalService) MarkVolumeAttachmentPlanAsDead(arg0 context.Context, arg1 storageprovisioning.VolumeAttachmentPlanUUID) error {
+func (m *MockRemovalService) MarkVolumeAttachmentPlanAsDead(arg0 context.Context, arg1 storage.VolumeAttachmentPlanUUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MarkVolumeAttachmentPlanAsDead", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -2460,13 +2460,13 @@ func (c *MockRemovalServiceMarkVolumeAttachmentPlanAsDeadCall) Return(arg0 error
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemovalServiceMarkVolumeAttachmentPlanAsDeadCall) Do(f func(context.Context, storageprovisioning.VolumeAttachmentPlanUUID) error) *MockRemovalServiceMarkVolumeAttachmentPlanAsDeadCall {
+func (c *MockRemovalServiceMarkVolumeAttachmentPlanAsDeadCall) Do(f func(context.Context, storage.VolumeAttachmentPlanUUID) error) *MockRemovalServiceMarkVolumeAttachmentPlanAsDeadCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemovalServiceMarkVolumeAttachmentPlanAsDeadCall) DoAndReturn(f func(context.Context, storageprovisioning.VolumeAttachmentPlanUUID) error) *MockRemovalServiceMarkVolumeAttachmentPlanAsDeadCall {
+func (c *MockRemovalServiceMarkVolumeAttachmentPlanAsDeadCall) DoAndReturn(f func(context.Context, storage.VolumeAttachmentPlanUUID) error) *MockRemovalServiceMarkVolumeAttachmentPlanAsDeadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

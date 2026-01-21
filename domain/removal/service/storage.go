@@ -350,13 +350,13 @@ func (s *Service) RemoveStorageAttachment(
 		a := *cascade.VolumeAttachmentPlanUUID
 		if force && wait > 0 {
 			if _, err := s.volumeAttachmentPlanScheduleRemoval(
-				ctx, storageprovisioning.VolumeAttachmentPlanUUID(a), false, 0,
+				ctx, storage.VolumeAttachmentPlanUUID(a), false, 0,
 			); err != nil {
 				return "", errors.Capture(err)
 			}
 		}
 		if _, err := s.volumeAttachmentPlanScheduleRemoval(
-			ctx, storageprovisioning.VolumeAttachmentPlanUUID(a), force, wait,
+			ctx, storage.VolumeAttachmentPlanUUID(a), force, wait,
 		); err != nil {
 			return "", errors.Capture(err)
 		}
@@ -505,7 +505,7 @@ func (s *Service) processStorageAttachmentRemovalJob(ctx context.Context, job re
 		}
 
 		for _, vapUUID := range cascade.VolumeAttachmentPlanUUIDs {
-			uuid := storageprovisioning.VolumeAttachmentPlanUUID(vapUUID)
+			uuid := storage.VolumeAttachmentPlanUUID(vapUUID)
 			_, err := s.volumeAttachmentPlanScheduleRemoval(ctx, uuid, false, 0)
 			if err != nil {
 				return errors.Errorf(
@@ -606,7 +606,7 @@ func (s *Service) MarkStorageAttachmentAsDead(
 	}
 
 	for _, vapUUID := range cascade.VolumeAttachmentPlanUUIDs {
-		uuid := storageprovisioning.VolumeAttachmentPlanUUID(vapUUID)
+		uuid := storage.VolumeAttachmentPlanUUID(vapUUID)
 		_, err := s.volumeAttachmentPlanScheduleRemoval(ctx, uuid, false, 0)
 		if err != nil {
 			return errors.Errorf(
@@ -853,7 +853,7 @@ func (s *Service) MarkVolumeAttachmentAsDead(
 // attachment plan is not found.
 // - [removalerrors.EntityStillAlive] if the volume attachment plan is alive.
 func (s *Service) MarkVolumeAttachmentPlanAsDead(
-	ctx context.Context, uuid storageprovisioning.VolumeAttachmentPlanUUID,
+	ctx context.Context, uuid storage.VolumeAttachmentPlanUUID,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -1266,7 +1266,7 @@ func (s *Service) processStorageVolumeAttachmentRemovalJob(
 
 func (s *Service) volumeAttachmentPlanScheduleRemoval(
 	ctx context.Context,
-	vapUUID storageprovisioning.VolumeAttachmentPlanUUID,
+	vapUUID storage.VolumeAttachmentPlanUUID,
 	force bool, wait time.Duration,
 ) (removal.UUID, error) {
 	jobUUID, err := removal.NewUUID()

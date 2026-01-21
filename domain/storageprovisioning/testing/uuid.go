@@ -6,6 +6,7 @@ package testing
 import (
 	"github.com/juju/tc"
 
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
 )
 
@@ -19,8 +20,8 @@ func GenFilesystemUUID(c *tc.C) storageprovisioning.FilesystemUUID {
 
 // GenVolumeAttachmentPlanUUID generates a new
 // [storageprovisioning.VolumeAttachmentPlanUUID] for testing purposes.
-func GenVolumeAttachmentPlanUUID(c *tc.C) storageprovisioning.VolumeAttachmentPlanUUID {
-	uuid, err := storageprovisioning.NewVolumeAttachmentPlanUUID()
+func GenVolumeAttachmentPlanUUID(c *tc.C) domainstorage.VolumeAttachmentPlanUUID {
+	uuid, err := domainstorage.NewVolumeAttachmentPlanUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	return uuid
 }

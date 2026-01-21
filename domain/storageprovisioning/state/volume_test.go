@@ -1382,7 +1382,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentPlan(c *tc.C) {
 }
 
 func (s *volumeSuite) TestGetVolumeAttachmentPlanNotFound(c *tc.C) {
-	vapUUID := domaintesting.GenVolumeAttachmentPlanUUID(c)
+	vapUUID := tc.Must(c, domainstorage.NewVolumeAttachmentPlanUUID)
 
 	st := NewState(s.TxnRunnerFactory())
 
@@ -1395,7 +1395,7 @@ func (s *volumeSuite) TestCreateVolumeAttachmentPlan(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	volUUID, _ := s.newMachineVolume(c)
 	vaUUID := s.newModelVolumeAttachment(c, volUUID, netNodeUUID)
-	vapUUID := domaintesting.GenVolumeAttachmentPlanUUID(c)
+	vapUUID := tc.Must(c, domainstorage.NewVolumeAttachmentPlanUUID)
 
 	st := NewState(s.TxnRunnerFactory())
 
@@ -1421,7 +1421,7 @@ func (s *volumeSuite) TestCreateVolumeAttachmentPlanAlreadyExists(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	volUUID, _ := s.newMachineVolume(c)
 	vaUUID := s.newModelVolumeAttachment(c, volUUID, netNodeUUID)
-	vapUUID := domaintesting.GenVolumeAttachmentPlanUUID(c)
+	vapUUID := tc.Must(c, domainstorage.NewVolumeAttachmentPlanUUID)
 
 	st := NewState(s.TxnRunnerFactory())
 
@@ -1437,7 +1437,7 @@ func (s *volumeSuite) TestCreateVolumeAttachmentPlanAlreadyExists(c *tc.C) {
 		DeviceAttributes: nil,
 	})
 
-	vapUUID2 := domaintesting.GenVolumeAttachmentPlanUUID(c)
+	vapUUID2 := tc.Must(c, domainstorage.NewVolumeAttachmentPlanUUID)
 	err = st.CreateVolumeAttachmentPlan(c.Context(), vapUUID2, vaUUID,
 		domainstorageprovisioning.PlanDeviceTypeLocal, nil)
 	c.Assert(err, tc.ErrorIs,
@@ -1490,7 +1490,7 @@ func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedInfo(c *tc.C) {
 }
 
 func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedInfoNotFound(c *tc.C) {
-	vapUUID := domaintesting.GenVolumeAttachmentPlanUUID(c)
+	vapUUID := tc.Must(c, domainstorage.NewVolumeAttachmentPlanUUID)
 
 	st := NewState(s.TxnRunnerFactory())
 
@@ -1560,7 +1560,7 @@ func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedBlockDeviceNotFoundV
 func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedBlockDeviceNotFoundPlan(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	machineUUID, _ := s.newMachineWithNetNode(c, netNodeUUID)
-	vapUUID := domaintesting.GenVolumeAttachmentPlanUUID(c)
+	vapUUID := tc.Must(c, domainstorage.NewVolumeAttachmentPlanUUID)
 	bdUUID := s.newBlockDevice(c, machineUUID, "sda", "", "", []string{
 		"/dev/disk/by-id/mysda",
 	})
@@ -1781,7 +1781,7 @@ WHERE  uuid = ?
 // value of a volume attachment plan.
 func (s *volumeSuite) changeVolumeAttachmentPlanLife(
 	c *tc.C,
-	uuid domainstorageprovisioning.VolumeAttachmentPlanUUID,
+	uuid domainstorage.VolumeAttachmentPlanUUID,
 	life domainlife.Life,
 ) {
 	_, err := s.DB().Exec(`
