@@ -120,7 +120,7 @@ func (s *unitSuite) TestRemoveUnitCascadeStorage(c *tc.C) {
 
 	uUUID := unittesting.GenUnitUUID(c)
 	siUUID := tc.Must(c, storage.NewStorageInstanceUUID)
-	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	saUUID := tc.Must(c, storage.NewStorageAttachmentUUID)
 	fsUUID := tc.Must(c, storageprovisioning.NewFilesystemUUID)
 	fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
 	volUUID := tc.Must(c, storage.NewVolumeUUID)

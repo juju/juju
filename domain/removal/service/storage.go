@@ -258,7 +258,7 @@ type StorageState interface {
 // would violate the charm minimums required for the unit.
 func (s *Service) RemoveStorageAttachment(
 	ctx context.Context,
-	saUUID storageprovisioning.StorageAttachmentUUID,
+	saUUID storage.StorageAttachmentUUID,
 	force bool,
 	wait time.Duration,
 ) (removal.UUID, error) {
@@ -367,7 +367,7 @@ func (s *Service) RemoveStorageAttachment(
 
 func (s *Service) removeStorageAttachmentFromAliveUnit(
 	ctx context.Context,
-	saUUID storageprovisioning.StorageAttachmentUUID,
+	saUUID storage.StorageAttachmentUUID,
 	detachInfo internal.StorageAttachmentDetachInfo,
 ) (internal.CascadedStorageAttachmentLifeChildren, error) {
 	proposedNewFulfilment := detachInfo.CountFulfilment - 1
@@ -407,7 +407,7 @@ func (s *Service) removeStorageAttachmentFromAliveUnit(
 }
 
 func (s *Service) storageAttachmentScheduleRemoval(
-	ctx context.Context, saUUID storageprovisioning.StorageAttachmentUUID, force bool, wait time.Duration,
+	ctx context.Context, saUUID storage.StorageAttachmentUUID, force bool, wait time.Duration,
 ) (removal.UUID, error) {
 	jobUUID, err := removal.NewUUID()
 	if err != nil {
@@ -534,7 +534,7 @@ func (s *Service) processStorageAttachmentRemovalJob(ctx context.Context, job re
 // found.
 // - [removalerrors.EntityStillAlive] if the storage attachment is alive.
 func (s *Service) MarkStorageAttachmentAsDead(
-	ctx context.Context, uuid storageprovisioning.StorageAttachmentUUID,
+	ctx context.Context, uuid storage.StorageAttachmentUUID,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()

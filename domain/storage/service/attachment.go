@@ -11,7 +11,6 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -30,7 +29,7 @@ func (s *Service) GetStorageAttachmentUUIDForStorageInstanceAndUnit(
 	ctx context.Context,
 	uuid domainstorage.StorageInstanceUUID,
 	unitUUID coreunit.UUID,
-) (domainstorageprovisioning.StorageAttachmentUUID, error) {
+) (domainstorage.StorageAttachmentUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -61,7 +60,7 @@ func (s *Service) GetStorageAttachmentUUIDForStorageInstanceAndUnit(
 func (s *Service) GetStorageInstanceAttachments(
 	ctx context.Context,
 	uuid domainstorage.StorageInstanceUUID,
-) ([]domainstorageprovisioning.StorageAttachmentUUID, error) {
+) ([]domainstorage.StorageAttachmentUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

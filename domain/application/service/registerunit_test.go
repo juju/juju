@@ -65,7 +65,7 @@ func (s *registerCAASUnitSuite) makeStorageArg(
 						ProvisionScope: domainstorageprov.ProvisionScopeModel,
 						UUID:           tc.Must(c, domainstorageprov.NewFilesystemAttachmentUUID),
 					},
-					UUID:                tc.Must(c, domainstorageprov.NewStorageAttachmentUUID),
+					UUID:                tc.Must(c, domainstorage.NewStorageAttachmentUUID),
 					StorageInstanceUUID: storageInstUUID,
 				},
 			},

@@ -21,7 +21,6 @@ import (
 	domainremoval "github.com/juju/juju/domain/removal"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -41,7 +40,7 @@ type RemovalService interface {
 	// attachment would violate the charm minimums required for the unit.
 	RemoveStorageAttachment(
 		ctx context.Context,
-		uuid domainstorageprovisioning.StorageAttachmentUUID,
+		uuid domainstorage.StorageAttachmentUUID,
 		force bool,
 		wait time.Duration,
 	) (domainremoval.UUID, error)
@@ -74,7 +73,7 @@ type StorageService interface {
 		ctx context.Context,
 		uuid domainstorage.StorageInstanceUUID,
 		unitUUID coreunit.UUID,
-	) (domainstorageprovisioning.StorageAttachmentUUID, error)
+	) (domainstorage.StorageAttachmentUUID, error)
 
 	// GetStorageInstanceAttachments returns the set of attachments a storage
 	// instance has. If the storage instance has no attachments then an empty
@@ -86,7 +85,7 @@ type StorageService interface {
 	// the storage instance for the supplied uuid does not exist.
 	GetStorageInstanceAttachments(
 		context.Context, domainstorage.StorageInstanceUUID,
-	) ([]domainstorageprovisioning.StorageAttachmentUUID, error)
+	) ([]domainstorage.StorageAttachmentUUID, error)
 
 	// GetStorageInstanceUUIDForID returns the StorageInstanceUUID for the given
 	// storage ID.

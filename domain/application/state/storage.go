@@ -430,7 +430,7 @@ FROM (
 	)
 	for _, dbAttachmentVal := range dbAttachmentVals {
 		v := internal.StorageAttachmentComposition{
-			UUID: domainstorageprov.StorageAttachmentUUID(dbAttachmentVal.UUID),
+			UUID: domainstorage.StorageAttachmentUUID(dbAttachmentVal.UUID),
 			StorageInstanceUUID: domainstorage.StorageInstanceUUID(
 				dbAttachmentVal.StorageInstanceUUID,
 			),

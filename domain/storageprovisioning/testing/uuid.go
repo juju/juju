@@ -6,11 +6,12 @@ package testing
 import (
 	"github.com/juju/tc"
 
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
 )
 
-func GenStorageAttachmentUUID(c *tc.C) storageprovisioning.StorageAttachmentUUID {
-	uuid, err := storageprovisioning.NewStorageAttachmentUUID()
+func GenStorageAttachmentUUID(c *tc.C) domainstorage.StorageAttachmentUUID {
+	uuid, err := domainstorage.NewStorageAttachmentUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	return uuid
 }

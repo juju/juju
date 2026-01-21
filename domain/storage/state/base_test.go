@@ -20,7 +20,6 @@ import (
 	domainsequence "github.com/juju/juju/domain/sequence"
 	domainsequencestate "github.com/juju/juju/domain/sequence/state"
 	domainstorage "github.com/juju/juju/domain/storage"
-	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 )
 
 type baseSuite struct {
@@ -37,8 +36,8 @@ func (s *baseSuite) newStorageAttachment(
 	c *tc.C,
 	storageInstanceUUID domainstorage.StorageInstanceUUID,
 	unitUUID coreunit.UUID,
-) domainstorageprovisioning.StorageAttachmentUUID {
-	saUUID := tc.Must(c, domainstorageprovisioning.NewStorageAttachmentUUID)
+) domainstorage.StorageAttachmentUUID {
+	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 
 	_, err := s.DB().Exec(`
 INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)

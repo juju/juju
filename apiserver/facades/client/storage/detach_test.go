@@ -16,7 +16,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -310,7 +309,7 @@ func (s *storageDetachSuite) TestDetachStorageAttachmentNotFound(c *tc.C) {
 func (s *storageDetachSuite) TestDetachStorageAttachmentUnitStorageViolation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	storageAttachmentUUID := tc.Must(c, domainstorageprovisioning.NewStorageAttachmentUUID)
+	storageAttachmentUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	storageInstUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 
@@ -355,7 +354,7 @@ func (s *storageDetachSuite) TestDetachStorageAttachmentUnitStorageViolation(c *
 func (s *storageDetachSuite) TestDetachStorageAttachment(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	storageAttachmentUUID := tc.Must(c, domainstorageprovisioning.NewStorageAttachmentUUID)
+	storageAttachmentUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	storageInstUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 
@@ -396,7 +395,7 @@ func (s *storageDetachSuite) TestDetachStorageAttachment(c *tc.C) {
 func (s *storageDetachSuite) TestDetachStorageAttachmentWithForceAndWait(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	storageAttachmentUUID := tc.Must(c, domainstorageprovisioning.NewStorageAttachmentUUID)
+	storageAttachmentUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	storageInstUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 
@@ -445,8 +444,8 @@ func (s *storageDetachSuite) TestDetachStorageAttachmentWithForceAndWait(c *tc.C
 func (s *storageDetachSuite) TestDetachStorageAllAttachments(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	storageAttachmentUUID1 := tc.Must(c, domainstorageprovisioning.NewStorageAttachmentUUID)
-	storageAttachmentUUID2 := tc.Must(c, domainstorageprovisioning.NewStorageAttachmentUUID)
+	storageAttachmentUUID1 := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
+	storageAttachmentUUID2 := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	storageInstUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 
 	storageExp := s.storageService.EXPECT()
@@ -455,7 +454,7 @@ func (s *storageDetachSuite) TestDetachStorageAllAttachments(c *tc.C) {
 	).AnyTimes()
 	storageExp.GetStorageInstanceAttachments(
 		gomock.Any(), storageInstUUID,
-	).Return([]domainstorageprovisioning.StorageAttachmentUUID{
+	).Return([]domainstorage.StorageAttachmentUUID{
 		storageAttachmentUUID1, storageAttachmentUUID2,
 	}, nil)
 
@@ -498,7 +497,7 @@ func (s *storageDetachSuite) TestDetachStorageAllAttachmentsEmpty(c *tc.C) {
 	).AnyTimes()
 	storageExp.GetStorageInstanceAttachments(
 		gomock.Any(), storageInstUUID,
-	).Return([]domainstorageprovisioning.StorageAttachmentUUID{}, nil)
+	).Return([]domainstorage.StorageAttachmentUUID{}, nil)
 
 	api := s.makeTestAPI(c)
 	result, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{
