@@ -62,8 +62,6 @@ func (a *StorageAPI) CreatePool(
 	}
 
 	results := params.ErrorResults{
-		// Pre-allocate our results to the same size as the args as we are
-		// always going to return this many values.
 		Results: make([]params.ErrorResult, 0, len(p.Pools)),
 	}
 
