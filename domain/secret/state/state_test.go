@@ -436,6 +436,7 @@ func (s *stateSuite) assertSecret(c *tc.C, st *State, uri *coresecrets.URI, sp d
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rev.Revision, tc.Equals, revision)
 	c.Assert(rev.CreateTime, tc.Equals, sp.UpdateTime.UTC())
+	c.Assert(rev.UpdateTime, tc.Equals, sp.UpdateTime.UTC())
 	if rev.ExpireTime == nil {
 		c.Assert(md.LatestExpireTime, tc.IsNil)
 	} else {
@@ -666,6 +667,7 @@ func (s *stateSuite) TestListAllSecrets(c *tc.C) {
 		c.Assert(revs, tc.HasLen, 1)
 		c.Assert(revs[0].Revision, tc.Equals, 1)
 		c.Assert(revs[0].CreateTime, tc.Equals, sp[i].UpdateTime.UTC())
+		c.Assert(revs[0].UpdateTime, tc.Equals, sp[i].UpdateTime.UTC())
 	}
 }
 
@@ -713,6 +715,7 @@ func (s *stateSuite) TestGetSecretByURI(c *tc.C) {
 	c.Assert(revs, tc.HasLen, 1)
 	c.Assert(revs[0].Revision, tc.Equals, 1)
 	c.Assert(revs[0].CreateTime, tc.Equals, sp[0].UpdateTime.UTC())
+	c.Assert(revs[0].UpdateTime, tc.Equals, sp[0].UpdateTime.UTC())
 }
 
 func (s *stateSuite) TestGetSecretsByLabels(c *tc.C) {
@@ -761,6 +764,7 @@ func (s *stateSuite) TestGetSecretsByLabels(c *tc.C) {
 	c.Assert(revs, tc.HasLen, 1)
 	c.Assert(revs[0].Revision, tc.Equals, 1)
 	c.Assert(revs[0].CreateTime, tc.Equals, sp[1].UpdateTime.UTC())
+	c.Assert(revs[0].UpdateTime, tc.Equals, sp[1].UpdateTime.UTC())
 }
 
 func (s *stateSuite) setupApplication(c *tc.C, appName string) (string, string) {
@@ -1333,6 +1337,7 @@ func (s *stateSuite) TestListCharmSecretsByUnit(c *tc.C) {
 		RevisionID: "revision-id",
 	})
 	c.Assert(revs[0].CreateTime, tc.Equals, sp[1].UpdateTime.UTC())
+	c.Assert(revs[0].UpdateTime, tc.Equals, sp[1].UpdateTime.UTC())
 }
 
 func (s *stateSuite) TestListCharmSecretsByApplication(c *tc.C) {
@@ -1382,6 +1387,7 @@ func (s *stateSuite) TestListCharmSecretsByApplication(c *tc.C) {
 	c.Assert(revs, tc.HasLen, 1)
 	c.Assert(revs[0].Revision, tc.Equals, 1)
 	c.Assert(revs[0].CreateTime, tc.Equals, sp[1].CreateTime.UTC())
+	c.Assert(revs[0].UpdateTime, tc.Equals, sp[1].UpdateTime.UTC())
 }
 
 func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *tc.C) {
@@ -1464,6 +1470,7 @@ func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *tc.C) {
 	c.Assert(revs[0].Revision, tc.Equals, 1)
 	c.Assert(*revs[0].ExpireTime, tc.Equals, expireTime.UTC())
 	c.Assert(revs[0].CreateTime, tc.Equals, sp[1].UpdateTime.UTC())
+	c.Assert(revs[0].UpdateTime, tc.Equals, sp[1].UpdateTime.UTC())
 
 	md = secrets[second]
 	c.Assert(md.Version, tc.Equals, 1)
@@ -1481,6 +1488,7 @@ func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *tc.C) {
 	c.Assert(revs[0].Revision, tc.Equals, 1)
 	c.Assert(revs[0].ExpireTime, tc.IsNil)
 	c.Assert(revs[0].CreateTime, tc.Equals, sp[2].UpdateTime.UTC())
+	c.Assert(revs[0].UpdateTime, tc.Equals, sp[2].UpdateTime.UTC())
 }
 
 func (s *stateSuite) TestAllSecretConsumers(c *tc.C) {
@@ -2433,12 +2441,13 @@ func (s *stateSuite) TestUpdateSecretContentNonUTCInput(c *tc.C) {
 		c.Check(*revs[0].ExpireTime, tc.Equals, expireTime.UTC())
 	}
 	c.Check(revs[0].CreateTime, tc.Equals, sp.UpdateTime.UTC())
+	c.Check(revs[0].UpdateTime, tc.Equals, sp.UpdateTime.UTC())
 
 	if c.Check(revs[1].ExpireTime, tc.NotNil) {
 		c.Check(*revs[1].ExpireTime, tc.Equals, expireTime.UTC())
 	}
 	c.Check(revs[1].CreateTime, tc.Equals, sp2.UpdateTime.UTC())
-
+	c.Check(revs[1].UpdateTime, tc.Equals, sp2.UpdateTime.UTC())
 }
 
 func (s *stateSuite) TestUpdateSecretContentObsolete(c *tc.C) {

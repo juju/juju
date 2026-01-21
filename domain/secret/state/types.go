@@ -144,6 +144,7 @@ type secretRevisionObsolete struct {
 type secretRevisionExpire struct {
 	RevisionUUID string    `db:"revision_uuid"`
 	ExpireTime   time.Time `db:"expire_time"`
+	UpdateTime   time.Time `db:"update_time"`
 }
 
 type secretRevisionExpireChange struct {
@@ -372,10 +373,14 @@ func (rows secretRevisions) toSecretRevisions(
 			Revision:    row.Revision,
 			ValueRef:    nil,
 			CreateTime:  row.CreateTime,
+			UpdateTime:  row.CreateTime, // defaulted to CreateTime, unless overridden by expire info
 			BackendName: nil,
 		}
 		if tm := revExpire[i].ExpireTime; !tm.IsZero() {
 			result[i].ExpireTime = &tm
+		}
+		if tm := revExpire[i].UpdateTime; !tm.IsZero() {
+			result[i].UpdateTime = tm
 		}
 		if v := valueRefs[i]; v.BackendUUID != "" {
 			result[i].ValueRef = &coresecrets.ValueRef{

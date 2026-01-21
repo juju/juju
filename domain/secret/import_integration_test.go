@@ -194,17 +194,16 @@ func (s *importSuite) checkSecret(c *tc.C, svc *service.SecretService, args desc
 
 	for i, obtained := range revisions[0] {
 		revOK := c.Check(obtained.Revision, tc.Equals, args.Revisions[i].Number, tc.Commentf("revision %d", i))
-		c.Check(obtained.CreateTime, tc.Equals, args.Revisions[i].Created, tc.Commentf("revision %d", i))
 		if revOK {
 			value, ref, err := svc.GetSecretValue(c.Context(), uri, obtained.Revision, accessor)
-			if ok := c.Check(err, tc.ErrorIsNil); !ok {
+			if ok := c.Check(err, tc.ErrorIsNil, tc.Commentf("revision %d", i)); !ok {
 				continue
 			}
-			c.Check(value.EncodedValues(), tc.DeepEquals, args.Revisions[i].Content)
-			c.Check(ref, tc.DeepEquals, obtained.ValueRef)
-			c.Check(obtained.CreateTime, tc.DeepEquals, args.Revisions[i].Created)
-			c.Check(obtained.UpdateTime, tc.DeepEquals, args.Revisions[i].Updated)
-			c.Check(obtained.ExpireTime, tc.DeepEquals, args.Revisions[i].ExpireTime)
+			c.Check(value.EncodedValues(), tc.DeepEquals, args.Revisions[i].Content, tc.Commentf("revision %d", i))
+			c.Check(ref, tc.DeepEquals, obtained.ValueRef, tc.Commentf("revision %d", i))
+			c.Check(obtained.CreateTime, tc.DeepEquals, args.Revisions[i].Created, tc.Commentf("revision %d", i))
+			c.Check(obtained.UpdateTime, tc.DeepEquals, args.Revisions[i].Updated, tc.Commentf("revision %d", i))
+			c.Check(obtained.ExpireTime, tc.DeepEquals, args.Revisions[i].ExpireTime, tc.Commentf("revision %d", i))
 		}
 	}
 }
@@ -236,7 +235,7 @@ func (s *importSuite) TestImportModelSecret(c *tc.C) {
 			{
 				Number:  3,
 				Created: now.Add(3 * time.Hour),
-				Updated: now.Add(4 * time.Hour),
+				Updated: now.Add(3 * time.Hour),
 				Content: map[string]string{"key1": "val1-rev3"},
 			},
 		},

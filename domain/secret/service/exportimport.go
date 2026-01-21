@@ -265,12 +265,12 @@ func (s *SecretService) importSecretWithRevisions(
 		params := secret.UpsertSecretParams{
 			ValueRef:   rev.ValueRef,
 			CreateTime: rev.CreateTime,
-			UpdateTime: rev.CreateTime,
+			UpdateTime: rev.UpdateTime,
 			RevisionID: ptr(revisionID.String()),
+			ExpireTime: rev.ExpireTime,
 		}
 		if i == len(revisions)-1 {
 			params.Checksum = md.LatestRevisionChecksum
-			params.ExpireTime = md.LatestExpireTime
 		}
 
 		if rev.ValueRef == nil {
@@ -294,7 +294,7 @@ func (s *SecretService) importSecretWithRevisions(
 		}
 	}
 
-	if err = s.secretState.ImportSecretWithRevision(ctx, md.Version, md.URI,
+	if err = s.secretState.ImportSecretWithRevisions(ctx, md.Version, md.URI,
 		owner,
 		metaParams,
 		importRevisions); err != nil {

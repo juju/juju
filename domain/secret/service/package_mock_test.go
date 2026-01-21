@@ -1708,9 +1708,9 @@ func (c *MockStateGrantAccessCall) DoAndReturn(f func(context.Context, *secrets.
 }
 
 // ImportSecretWithRevision mocks base method.
-func (m *MockState) ImportSecretWithRevision(arg0 context.Context, arg1 int, arg2 *secrets.URI, arg3 secret.Owner, arg4 secret.UpsertSecretParams, arg5 []secret.ImportRevision) error {
+func (m *MockState) ImportSecretWithRevisions(arg0 context.Context, arg1 int, arg2 *secrets.URI, arg3 secret.Owner, arg4 secret.UpsertSecretParams, arg5 []secret.ImportRevision) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ImportSecretWithRevision", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret := m.ctrl.Call(m, "ImportSecretWithRevisions", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
@@ -1718,7 +1718,7 @@ func (m *MockState) ImportSecretWithRevision(arg0 context.Context, arg1 int, arg
 // ImportSecretWithRevision indicates an expected call of ImportSecretWithRevision.
 func (mr *MockStateMockRecorder) ImportSecretWithRevision(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockStateImportSecretWithRevisionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportSecretWithRevision", reflect.TypeOf((*MockState)(nil).ImportSecretWithRevision), arg0, arg1, arg2, arg3, arg4, arg5)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportSecretWithRevisions", reflect.TypeOf((*MockState)(nil).ImportSecretWithRevisions), arg0, arg1, arg2, arg3, arg4, arg5)
 	return &MockStateImportSecretWithRevisionCall{Call: call}
 }
 

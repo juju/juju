@@ -48,7 +48,7 @@ type State interface {
 	AtomicState
 
 	GetModelUUID(ctx context.Context) (coremodel.UUID, error)
-	ImportSecretWithRevision(ctx context.Context, version int, uri *secrets.URI,
+	ImportSecretWithRevisions(ctx context.Context, version int, uri *secrets.URI,
 		owner domainsecret.Owner,
 		metaParams domainsecret.UpsertSecretParams,
 		revisions []domainsecret.ImportRevision) error
