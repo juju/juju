@@ -7,11 +7,20 @@ package storage
 // FilesystemAttachment.
 type FilesystemAttachmentUUID baseUUID
 
+// FilesystemUUID represents the unique id for a storage Filesystem instance.
+type FilesystemUUID baseUUID
+
 // NewFilesystemAttachmentUUID creates a new, valid storage FilesystemAttachment
 // identifier.
 func NewFilesystemAttachmentUUID() (FilesystemAttachmentUUID, error) {
 	u, err := newUUID()
 	return FilesystemAttachmentUUID(u), err
+}
+
+// NewFilesystemUUID creates a new, valid storage Filesystem identifier.
+func NewFilesystemUUID() (FilesystemUUID, error) {
+	u, err := newUUID()
+	return FilesystemUUID(u), err
 }
 
 // String returns the string representation of this [FilesystemAttachmentUUID].
@@ -20,7 +29,18 @@ func (u FilesystemAttachmentUUID) String() string {
 	return baseUUID(u).String()
 }
 
+// String returns the string representation of this Filesystem uuid. This function
+// satisfies the [fmt.Stringer] interface.
+func (u FilesystemUUID) String() string {
+	return baseUUID(u).String()
+}
+
 // Validate returns an error if the [FilesystemAttachmentUUID] is not valid.
 func (u FilesystemAttachmentUUID) Validate() error {
+	return baseUUID(u).validate()
+}
+
+// Validate returns an error if the [FilesystemUUID] is not valid.
+func (u FilesystemUUID) Validate() error {
 	return baseUUID(u).validate()
 }
