@@ -399,7 +399,6 @@ type MachineAgent struct {
 
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
-	mongoCertMutex   sync.Mutex
 	mongoClientCert  *tls.Certificate
 
 	loopDeviceManager  looputil.LoopDeviceManager
@@ -951,17 +950,19 @@ func mongoDialOptions(
 	return dialOpts, nil
 }
 
-func (a *MachineAgent) generateClientCert(caCert, caPrivateKey string) (*tls.Certificate, error) {
-	a.mongoCertMutex.Lock()
-	defer a.mongoCertMutex.Unlock()
+const certGraceTime = -1 * time.Minute
 
-	if a.mongoClientCert != nil {
+func (a *MachineAgent) generateClientCert(caCert, caPrivateKey string) (*tls.Certificate, error) {
+	a.mongoInitMutex.Lock()
+	defer a.mongoInitMutex.Unlock()
+
+	if a.mongoClientCert != nil && len(a.mongoClientCert.Certificate) > 0 {
 		// Check whether cert is close to, or has, expired.
 		c, err := x509.ParseCertificate(a.mongoClientCert.Certificate[0])
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if time.Now().Before(c.NotAfter.Add(-1 * time.Minute)) {
+		if time.Now().Before(c.NotAfter.Add(certGraceTime)) {
 			return a.mongoClientCert, nil
 		}
 		logger.Debugf("mongo client certificate already expired")
@@ -999,10 +1000,8 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, er
 		// On error, force a mongo refresh.
 		a.mongoInitMutex.Lock()
 		a.mongoInitialized = false
-		a.mongoInitMutex.Unlock()
-		a.mongoCertMutex.Lock()
 		a.mongoClientCert = nil
-		a.mongoCertMutex.Unlock()
+		a.mongoInitMutex.Unlock()
 		return nil, err
 	}
 	logger.Infof("juju database opened")

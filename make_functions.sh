@@ -166,10 +166,10 @@ seed_repository_jujudb() {
 seed_repository() {
   set -x
   # seed the juju-db image, maybe including the legacy 4.4 version.
-  seed_repository_jujudb "${JUJU_DB_VERSION}"
   if [[ -n "${LEGACY_JUJU_DB_VERSION:-}" ]]; then
     seed_repository_jujudb "${LEGACY_JUJU_DB_VERSION}"
   fi
+  seed_repository_jujudb "${JUJU_DB_VERSION}"
 
   # copy all the lts that are available
   for (( i = 18; ; i += 2 )); do

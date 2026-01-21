@@ -30,6 +30,9 @@ func (cfg *ControllerPodConfig) GetControllerImagePath() (string, error) {
 func (cfg *ControllerPodConfig) mongoVersion() (*mongo.Version, error) {
 	snapChannel := cfg.Controller.JujuDBSnapChannel()
 	vers := strings.Split(snapChannel, "/")[0]
+	if len(strings.Split(vers, ".")) < 3 {
+		vers += ".0"
+	}
 	versionNum, err := version.Parse(vers)
 	if err != nil {
 		return nil, errors.Annotatef(err, "invalid mongo version %q in %q controller config", versionNum, controller.JujuDBSnapChannel)
@@ -37,7 +40,9 @@ func (cfg *ControllerPodConfig) mongoVersion() (*mongo.Version, error) {
 	mongoVersion := mongo.Mongo4xwt
 	mongoVersion.Major = versionNum.Major
 	mongoVersion.Minor = versionNum.Minor
-	mongoVersion.Point = versionNum.Patch
+	if versionNum.Patch > 0 {
+		mongoVersion.Point = versionNum.Patch
+	}
 	return &mongoVersion, nil
 }
 
@@ -52,7 +57,13 @@ func (cfg *ControllerPodConfig) GetJujuDbOCIImagePath() (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	tag := fmt.Sprintf("%d.%d.%d", mongoVers.Major, mongoVers.Minor, mongoVers.Point)
+
+	var tag string
+	if mongoVers.Point > 0 {
+		tag = fmt.Sprintf("%d.%d.%d", mongoVers.Major, mongoVers.Minor, mongoVers.Point)
+	} else {
+		tag = fmt.Sprintf("%d.%d", mongoVers.Major, mongoVers.Minor)
+	}
 	return tagImagePath(path, tag)
 }
 
