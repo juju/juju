@@ -16,23 +16,12 @@ type StorageAttachmentUUID uuid
 // in the model.
 type FilesystemUUID uuid
 
-// VolumeAttachmentPlanUUID represents the unique id for a storage volume
-// attachment plan in the model.
-type VolumeAttachmentPlanUUID uuid
-
 type uuid string
 
 // NewFilesystemUUID creates a new, valid storage filesystem identifier.
 func NewFilesystemUUID() (FilesystemUUID, error) {
 	u, err := newUUID()
 	return FilesystemUUID(u), err
-}
-
-// NewVolumeAttachmentPlanUUID creates a new, valid volume attachment plan
-// identifier.
-func NewVolumeAttachmentPlanUUID() (VolumeAttachmentPlanUUID, error) {
-	u, err := newUUID()
-	return VolumeAttachmentPlanUUID(u), err
 }
 
 // newUUID creates a new UUID using the internal uuid package.
@@ -52,9 +41,6 @@ func (u FilesystemUUID) String() string {
 
 // String returns the string representation of this uuid. This function
 // satisfies the [fmt.Stringer] interface.
-func (u VolumeAttachmentPlanUUID) String() string {
-	return uuid(u).String()
-}
 
 // String returns the string representation of this uuid. This function
 // satisfies the [fmt.Stringer] interface.
@@ -68,9 +54,6 @@ func (u FilesystemUUID) Validate() error {
 }
 
 // Validate returns an error if the [VolumeAttachmentUUID] is not valid.
-func (u VolumeAttachmentPlanUUID) Validate() error {
-	return uuid(u).validate()
-}
 
 // validate checks that [uuid] is a valid uuid returning an error if it is not.
 func (u uuid) validate() error {
