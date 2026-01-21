@@ -21,14 +21,14 @@ import (
 type workerSuite struct {
 	testing.LoggingSuite
 
-	facade *MockSecretsFacade
+	facade *MockSecretsRevokerFacade
 }
 
 var _ = gc.Suite(&workerSuite{})
 
 func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.facade = NewMockSecretsFacade(ctrl)
+	s.facade = NewMockSecretsRevokerFacade(ctrl)
 	return ctrl
 }
 

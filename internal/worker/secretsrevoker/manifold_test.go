@@ -83,7 +83,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	facade := NewMockSecretsFacade(ctrl)
+	facade := NewMockSecretsRevokerFacade(ctrl)
 	s.config.NewSecretsFacade = func(base.APICaller) secretsrevoker.SecretsRevokerFacade {
 		return facade
 	}

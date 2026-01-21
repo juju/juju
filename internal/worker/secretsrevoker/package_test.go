@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package secretsrevoker_test -destination mocks_test.go github.com/juju/juju/internal/worker/secretsrevoker Logger,SecretsFacade
+//go:generate go run go.uber.org/mock/mockgen -package secretsrevoker_test -destination mocks_test.go github.com/juju/juju/internal/worker/secretsrevoker Logger,SecretsRevokerFacade
 
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
