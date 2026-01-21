@@ -65,7 +65,7 @@ jobs:
         done
 
         sudo DEBIAN_FRONTEND=noninteractive apt update
-        sudo DEBIAN_FRONTEND=noninteractive apt install -y libssl-dev python3-setuptools
+        sudo DEBIAN_FRONTEND=noninteractive apt install -y libssl-dev python3-setuptools docker-buildx
         sudo usermod -a -G microk8s $USER
 
     - name: Build juju and operator image
