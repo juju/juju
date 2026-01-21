@@ -16,6 +16,7 @@ import (
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/domain/storageprovisioning/internal"
@@ -172,7 +173,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachment(c *tc.C) {
 }
 
 func (s *filesystemSuite) TestGetFilesystemAttachmentNotFound(c *tc.C) {
-	notFoundUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+	notFoundUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetFilesystemAttachment(
@@ -685,7 +686,7 @@ func (s *filesystemSuite) TestInitialWatchStatementModelProvisionedFilesystemAtt
 // attachment that doesn't exist returns to the caller an error satisfying
 // [storageprovisioningerrors.FilesystemAttachmentNotFound].
 func (s *filesystemSuite) TestGetFilesystemAttachmentLifeNotFound(c *tc.C) {
-	uuid := domaintesting.GenFilesystemAttachmentUUID(c)
+	uuid := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetFilesystemAttachmentLife(c.Context(), uuid)
@@ -877,7 +878,7 @@ func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfo(c *tc.C) {
 func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfoNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	uuid, err := storageprovisioning.NewFilesystemAttachmentUUID()
+	uuid, err := domainstorage.NewFilesystemAttachmentUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	info := storageprovisioning.FilesystemAttachmentProvisionedInfo{
@@ -1003,7 +1004,7 @@ func (s *filesystemSuite) TestGetFilesystemRemovalParamsWithObliterateTrue(c *tc
 // error satisfying [storageprovisioningerrors.FilesystemAttachmentNotFound].
 func (s *filesystemSuite) TestGetFilesystemAttachmentParamsNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	fsaUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+	fsaUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 
 	_, err := st.GetFilesystemAttachmentParams(c.Context(), fsaUUID)
 	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemAttachmentNotFound)
@@ -1292,7 +1293,7 @@ WHERE  uuid = ?
 // for a filesystem attachment.
 func (s *filesystemSuite) changeFilesystemAttachmentLife(
 	c *tc.C,
-	uuid storageprovisioning.FilesystemAttachmentUUID,
+	uuid domainstorage.FilesystemAttachmentUUID,
 	life domainlife.Life,
 ) {
 	_, err := s.DB().Exec(`
@@ -1338,8 +1339,8 @@ func (s *filesystemSuite) newMachineFilesystemAttachment(
 	c *tc.C,
 	fsUUID storageprovisioning.FilesystemUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
-) storageprovisioning.FilesystemAttachmentUUID {
-	attachmentUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+) domainstorage.FilesystemAttachmentUUID {
+	attachmentUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 
 	_, err := s.DB().ExecContext(
 		c.Context(),
@@ -1369,8 +1370,8 @@ func (s *filesystemSuite) newMachineFilesystemAttachmentWithMount(
 	netNodeUUID domainnetwork.NetNodeUUID,
 	mountPoint string,
 	readOnly bool,
-) storageprovisioning.FilesystemAttachmentUUID {
-	attachmentUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+) domainstorage.FilesystemAttachmentUUID {
+	attachmentUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 
 	_, err := s.DB().ExecContext(
 		c.Context(),
@@ -1405,8 +1406,8 @@ func (s *filesystemSuite) newModelFilesystemAttachment(
 	c *tc.C,
 	fsUUID storageprovisioning.FilesystemUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
-) storageprovisioning.FilesystemAttachmentUUID {
-	attachmentUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+) domainstorage.FilesystemAttachmentUUID {
+	attachmentUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 
 	_, err := s.DB().ExecContext(
 		c.Context(),

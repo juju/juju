@@ -119,7 +119,7 @@ type CreateUnitStorageFilesystemAttachmentArg struct {
 
 	// UUID is the unique identifier to give the filesystem attachment in the
 	// model.
-	UUID domainstorageprov.FilesystemAttachmentUUID
+	UUID domainstorage.FilesystemAttachmentUUID
 }
 
 // CreateUnitStorageInstanceArg describes a set of arguments that create a new
@@ -229,7 +229,7 @@ type RegisterUnitStorageArg struct {
 	// each filesystem attachment. This allows associating filesystem
 	// attachments that are being created with the provider's identifier for this
 	// storage.
-	FilesystemAttachmentProviderIDs map[domainstorageprov.FilesystemAttachmentUUID]string
+	FilesystemAttachmentProviderIDs map[domainstorage.FilesystemAttachmentUUID]string
 
 	// VolumeAttachmentProviderIDs defines the provider id value to set for
 	// each volume attachment. This allows associating volume attachments that
@@ -325,7 +325,7 @@ type StorageInstanceCompositionFilesystemAttachment struct {
 
 	// UUID is the unique id of the filesystem attachment that is associated
 	// with this storage instance.
-	UUID domainstorageprov.FilesystemAttachmentUUID
+	UUID domainstorage.FilesystemAttachmentUUID
 
 	// FilesystemUUID is the unique id of the filesystem that is associated
 	// with this filesystem attachment.

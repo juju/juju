@@ -1083,7 +1083,7 @@ func (s *watcherSuite) createAttachedFilesystem(
 	c *tc.C, machineUUID string,
 ) string {
 	fsUUID := tc.Must(c, storageprovisioning.NewFilesystemUUID).String()
-	faUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID).String()
+	faUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID).String()
 	txn := func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)

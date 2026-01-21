@@ -160,13 +160,13 @@ func (s *Service) RemoveApplication(
 	for _, a := range cascaded.FileSystemAttachmentUUIDs {
 		if force && wait > 0 {
 			if _, err := s.filesystemAttachmentScheduleRemoval(
-				ctx, storageprovisioning.FilesystemAttachmentUUID(a), false, 0,
+				ctx, storage.FilesystemAttachmentUUID(a), false, 0,
 			); err != nil {
 				return "", errors.Capture(err)
 			}
 		}
 		if _, err := s.filesystemAttachmentScheduleRemoval(
-			ctx, storageprovisioning.FilesystemAttachmentUUID(a), force, wait,
+			ctx, storage.FilesystemAttachmentUUID(a), force, wait,
 		); err != nil {
 			return "", errors.Capture(err)
 		}

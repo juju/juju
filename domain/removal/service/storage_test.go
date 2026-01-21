@@ -208,7 +208,7 @@ func (s *storageSuite) TestRemoveStorageAttachmentWithAliveUnitCascadedNoForceSu
 
 	saUUID := tc.Must(c, storage.NewStorageAttachmentUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID).String()
+	fsaUUID := tc.Must(c, storage.NewFilesystemAttachmentUUID).String()
 	vaUUID := tc.Must(c, storage.NewVolumeAttachmentUUID).String()
 	vapUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID).String()
 	cascaded := internal.CascadedStorageAttachmentLifeChildren{
@@ -260,7 +260,7 @@ func (s *storageSuite) TestRemoveStorageAttachmentWithDyingUnitCascadedNoForceSu
 
 	saUUID := tc.Must(c, storage.NewStorageAttachmentUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID).String()
+	fsaUUID := tc.Must(c, storage.NewFilesystemAttachmentUUID).String()
 	vaUUID := tc.Must(c, storage.NewVolumeAttachmentUUID).String()
 	vapUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID).String()
 	cascaded := internal.CascadedStorageAttachmentLifeChildren{
@@ -384,7 +384,7 @@ func (s *storageSuite) TestRemoveStorageAttachmentWithAliveUnitCascadedForceNoWa
 
 	saUUID := tc.Must(c, storage.NewStorageAttachmentUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID).String()
+	fsaUUID := tc.Must(c, storage.NewFilesystemAttachmentUUID).String()
 	vaUUID := tc.Must(c, storage.NewVolumeAttachmentUUID).String()
 	vapUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID).String()
 	cascaded := internal.CascadedStorageAttachmentLifeChildren{
@@ -436,7 +436,7 @@ func (s *storageSuite) TestRemoveStorageAttachmentWithDyingUnitCascadedForceNoWa
 
 	saUUID := tc.Must(c, storage.NewStorageAttachmentUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID).String()
+	fsaUUID := tc.Must(c, storage.NewFilesystemAttachmentUUID).String()
 	vaUUID := tc.Must(c, storage.NewVolumeAttachmentUUID).String()
 	vapUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID).String()
 	cascaded := internal.CascadedStorageAttachmentLifeChildren{
@@ -574,7 +574,7 @@ func (s *storageSuite) TestRemoveStorageAttachmentWithAliveUnitCascadedForceWait
 
 	saUUID := tc.Must(c, storage.NewStorageAttachmentUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID).String()
+	fsaUUID := tc.Must(c, storage.NewFilesystemAttachmentUUID).String()
 	vaUUID := tc.Must(c, storage.NewVolumeAttachmentUUID).String()
 	vapUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID).String()
 	cascaded := internal.CascadedStorageAttachmentLifeChildren{
@@ -657,7 +657,7 @@ func (s *storageSuite) TestRemoveStorageAttachmentWithDyingUnitCascadedForceWait
 
 	saUUID := tc.Must(c, storage.NewStorageAttachmentUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID).String()
+	fsaUUID := tc.Must(c, storage.NewFilesystemAttachmentUUID).String()
 	vaUUID := tc.Must(c, storage.NewVolumeAttachmentUUID).String()
 	vapUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID).String()
 	cascaded := internal.CascadedStorageAttachmentLifeChildren{
@@ -740,7 +740,7 @@ func (s *storageSuite) TestRemoveStorageAttachmentWithAliveUnitDyingAttachmentCa
 
 	saUUID := tc.Must(c, storage.NewStorageAttachmentUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID).String()
+	fsaUUID := tc.Must(c, storage.NewFilesystemAttachmentUUID).String()
 	vaUUID := tc.Must(c, storage.NewVolumeAttachmentUUID).String()
 	vapUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID).String()
 	cascaded := internal.CascadedStorageAttachmentLifeChildren{
@@ -878,8 +878,8 @@ func (s *storageSuite) TestMarkStorageAttachmentAsDeadCascade(c *tc.C) {
 	s.clock.EXPECT().Now().Return(now).AnyTimes()
 
 	uuid := tc.Must(c, storage.NewStorageAttachmentUUID)
-	fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
-	vaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	fsaUUID := tc.Must(c, storage.NewFilesystemAttachmentUUID)
+	vaUUID := tc.Must(c, storage.NewFilesystemAttachmentUUID)
 	vapUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID)
 
 	cascaded := internal.CascadedStorageProvisionedAttachmentLives{
@@ -1131,7 +1131,7 @@ func newStorageInstanceJob(c *tc.C) removal.Job {
 func (s *storageSuite) TestMarkFilesystemAttachmentAsDeadNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	uuid := tc.Must(c, storage.NewFilesystemAttachmentUUID)
 
 	s.modelState.EXPECT().GetFilesystemAttachmentLife(
 		gomock.Any(), uuid.String(),
@@ -1148,7 +1148,7 @@ func (s *storageSuite) TestMarkFilesystemAttachmentAsDeadNotFound(c *tc.C) {
 func (s *storageSuite) TestMarkFilesystemAttachmentAsDeadStillAlive(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	uuid := tc.Must(c, storage.NewFilesystemAttachmentUUID)
 
 	s.modelState.EXPECT().GetFilesystemAttachmentLife(
 		gomock.Any(), uuid.String(),
@@ -1164,7 +1164,7 @@ func (s *storageSuite) TestMarkFilesystemAttachmentAsDeadStillAlive(c *tc.C) {
 func (s *storageSuite) TestMarkFilesystemAttachmentAsDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	uuid := tc.Must(c, storage.NewFilesystemAttachmentUUID)
 
 	s.modelState.EXPECT().GetFilesystemAttachmentLife(
 		gomock.Any(), uuid.String(),
@@ -1311,7 +1311,7 @@ func newFilesystemAttachmentJob(c *tc.C) removal.Job {
 	jUUID, err := removal.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	fsUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	fsUUID := tc.Must(c, storage.NewFilesystemAttachmentUUID)
 	return removal.Job{
 		UUID:        jUUID,
 		RemovalType: removal.StorageFilesystemAttachmentJob,
@@ -1588,7 +1588,7 @@ func (s *storageSuite) TestExecuteJobForStorageAttachmentDyingForce(c *tc.C) {
 	j := newStorageAttachmentJob(c)
 	j.Force = true
 
-	fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	fsaUUID := tc.Must(c, storage.NewFilesystemAttachmentUUID)
 	vaUUID := tc.Must(c, storage.NewVolumeAttachmentUUID)
 	vapUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID)
 

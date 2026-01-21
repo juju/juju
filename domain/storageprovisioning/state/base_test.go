@@ -204,8 +204,8 @@ func (s *baseSuite) newModelFilesystemAttachmentWithMount(
 	netNodeUUID domainnetwork.NetNodeUUID,
 	mountPoint string,
 	readOnly bool,
-) storageprovisioning.FilesystemAttachmentUUID {
-	attachmentUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+) domainstorage.FilesystemAttachmentUUID {
+	attachmentUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 	_, err := s.DB().ExecContext(
 		c.Context(),
 		`

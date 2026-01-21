@@ -441,7 +441,7 @@ FROM (
 				ProvisionScope: domainstorageprov.ProvisionScope(
 					dbAttachmentVal.FilesystemAttachmentProvisionScope.V,
 				),
-				UUID: domainstorageprov.FilesystemAttachmentUUID(
+				UUID: domainstorage.FilesystemAttachmentUUID(
 					dbAttachmentVal.FilesystemAttachmentUUID.V,
 				),
 				FilesystemUUID: domainstorageprov.FilesystemUUID(
@@ -625,7 +625,7 @@ WHERE  uuid = $setStorageFilesystemProviderID.uuid
 
 func (st *State) setFilesystemAttachmentProviderIDs(
 	ctx context.Context, tx *sqlair.TX,
-	providerIDs map[domainstorageprov.FilesystemAttachmentUUID]string,
+	providerIDs map[domainstorage.FilesystemAttachmentUUID]string,
 ) error {
 	existsStmt, err := st.Prepare(`
 SELECT &entityUUID.*
