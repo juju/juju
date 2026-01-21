@@ -2324,6 +2324,34 @@ func fillDataForUpsertSecretParams(c *tc.C, p *domainsecret.UpsertSecretParams, 
 	p.Checksum = checksum
 }
 
+func (s *stateSuite) TestUpdateSecretChecksumPreserved(c *tc.C) {
+	ctx := c.Context()
+
+	// Create a user secret with a checksum.
+	uri := coresecrets.NewURI()
+	sp := domainsecret.UpsertSecretParams{
+		RevisionID:  ptr(uuid.MustNewUUID().String()),
+		Description: ptr("original description"),
+		Data:        coresecrets.SecretData{"k": "v"},
+		Checksum:    "original-checksum",
+	}
+	err := s.createUserSecret(c, 1, uri, sp)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Update only the description.
+	sp2 := domainsecret.UpsertSecretParams{
+		Description: ptr("updated description"),
+	}
+	err = s.state.UpdateSecret(ctx, uri, sp2)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify the checksum is still there.
+	md, err := s.state.GetSecret(ctx, uri)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(md.Description, tc.Equals, "updated description")
+	c.Assert(md.LatestRevisionChecksum, tc.Equals, "original-checksum")
+}
+
 func (s *stateSuite) TestUpdateSecretContentNoOpsIfNoContentChange(c *tc.C) {
 
 	s.setupUnits(c, "mysql")

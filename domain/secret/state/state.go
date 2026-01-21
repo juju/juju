@@ -812,11 +812,12 @@ GROUP BY sm.secret_id`
 	latestRevisionUUID := dbSecrets[0].LatestRevisionUUID
 
 	dbSecret := secretMetadata{
-		ID:             dbSecrets[0].ID,
-		Version:        dbSecrets[0].Version,
-		Description:    dbSecrets[0].Description,
-		AutoPrune:      dbSecrets[0].AutoPrune,
-		RotatePolicyID: int(domainsecret.MarshallRotatePolicy(&existing.RotatePolicy)),
+		ID:                     dbSecrets[0].ID,
+		Version:                dbSecrets[0].Version,
+		Description:            dbSecrets[0].Description,
+		AutoPrune:              dbSecrets[0].AutoPrune,
+		RotatePolicyID:         int(domainsecret.MarshallRotatePolicy(&existing.RotatePolicy)),
+		LatestRevisionChecksum: dbSecrets[0].LatestRevisionChecksum,
 	}
 	updateSecretMetadataFromParams(secret, &dbSecret)
 	if err := st.upsertSecret(ctx, tx, dbSecret); err != nil {
@@ -999,7 +1000,9 @@ func updateSecretMetadataFromParams(p domainsecret.UpsertSecretParams, md *secre
 	if p.RotatePolicy != nil {
 		md.RotatePolicyID = int(*p.RotatePolicy)
 	}
-	md.LatestRevisionChecksum = p.Checksum
+	if p.Checksum != "" {
+		md.LatestRevisionChecksum = p.Checksum
+	}
 	md.CreateTime = p.CreateTime.UTC()
 	md.UpdateTime = p.UpdateTime.UTC()
 }
