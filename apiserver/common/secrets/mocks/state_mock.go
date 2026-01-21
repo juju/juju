@@ -362,6 +362,21 @@ func (mr *MockSecretsStoreMockRecorder) ListUnusedSecretRevisions(arg0 any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListUnusedSecretRevisions", reflect.TypeOf((*MockSecretsStore)(nil).ListUnusedSecretRevisions), arg0)
 }
 
+// NextSecretBackendIssuedTokenExpiry mocks base method.
+func (m *MockSecretsStore) NextSecretBackendIssuedTokenExpiry() (time.Time, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NextSecretBackendIssuedTokenExpiry")
+	ret0, _ := ret[0].(time.Time)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NextSecretBackendIssuedTokenExpiry indicates an expected call of NextSecretBackendIssuedTokenExpiry.
+func (mr *MockSecretsStoreMockRecorder) NextSecretBackendIssuedTokenExpiry() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NextSecretBackendIssuedTokenExpiry", reflect.TypeOf((*MockSecretsStore)(nil).NextSecretBackendIssuedTokenExpiry))
+}
+
 // RemoveSecretBackendIssuedTokens mocks base method.
 func (m *MockSecretsStore) RemoveSecretBackendIssuedTokens(arg0 []string) error {
 	m.ctrl.T.Helper()
