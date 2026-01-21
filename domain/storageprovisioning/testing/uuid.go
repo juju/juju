@@ -6,7 +6,6 @@ package testing
 import (
 	"github.com/juju/tc"
 
-	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
 )
 
@@ -14,14 +13,6 @@ import (
 // testing purposes.
 func GenFilesystemUUID(c *tc.C) storageprovisioning.FilesystemUUID {
 	uuid, err := storageprovisioning.NewFilesystemUUID()
-	c.Assert(err, tc.ErrorIsNil)
-	return uuid
-}
-
-// GenFilesystemAttachmentUUID generates a new
-// [storageprovisioning.FilesystemAttachmentUUID] for testing purposes.
-func GenFilesystemAttachmentUUID(c *tc.C) domainstorage.FilesystemAttachmentUUID {
-	uuid, err := domainstorage.NewFilesystemAttachmentUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	return uuid
 }
