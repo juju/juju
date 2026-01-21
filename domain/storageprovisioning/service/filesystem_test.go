@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/domain/storageprovisioning/internal"
-	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -62,7 +61,7 @@ func (s *filesystemSuite) TestGetFilesystemForID(c *tc.C) {
 		ProviderID:   "fs-1234",
 		SizeMiB:      100,
 	}
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
 	s.state.EXPECT().GetFilesystemUUIDForID(c.Context(), "1234").Return(fsUUID, nil)
 	s.state.EXPECT().GetFilesystem(c.Context(), fsUUID).Return(fs, nil)
 
@@ -85,7 +84,7 @@ func (s *filesystemSuite) TestGetFilesystemForIDNotFound(c *tc.C) {
 func (s *filesystemSuite) TestGetFilesystemForIDNotFound2(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
 	s.state.EXPECT().GetFilesystemUUIDForID(c.Context(), "1234").Return(fsUUID, nil)
 	s.state.EXPECT().GetFilesystem(c.Context(), fsUUID).Return(
 		storageprovisioning.Filesystem{}, storageprovisioningerrors.FilesystemNotFound,
@@ -101,7 +100,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentForUnit(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
 	fsaUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -150,7 +149,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentForUnitAttachmentNotFound(c
 	unitUUID := unittesting.GenUnitUUID(c)
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
 	s.state.EXPECT().GetUnitNetNodeUUID(c.Context(), unitUUID).Return(netNodeUUID, nil).AnyTimes()
 	s.state.EXPECT().GetFilesystemUUIDForID(gomock.Any(), "1234").Return(fsUUID, nil).AnyTimes()
 	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
@@ -199,7 +198,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentForMachine(c *tc.C) {
 		MountPoint:   "/mnt/fs-1234",
 		ReadOnly:     true,
 	}
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
 	fsaUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 	s.state.EXPECT().GetMachineNetNodeUUID(c.Context(), machineUUID).Return(netNodeUUID, nil)
 	s.state.EXPECT().GetFilesystemUUIDForID(c.Context(), "1234").Return(fsUUID, nil)
@@ -224,7 +223,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentForMachineNotValid(c *tc.C)
 
 func (s *filesystemSuite) TestGetFilesystemAttachmentForMachineMachineNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
 	machineUUID := machinetesting.GenUUID(c)
 	s.state.EXPECT().GetFilesystemUUIDForID(c.Context(), "1234").Return(fsUUID, nil).AnyTimes()
 	s.state.EXPECT().GetMachineNetNodeUUID(c.Context(), machineUUID).Return("", machineerrors.MachineNotFound)
@@ -239,7 +238,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentForMachineAttachmentNotFoun
 	machineUUID := machinetesting.GenUUID(c)
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
 	s.state.EXPECT().GetMachineNetNodeUUID(c.Context(), machineUUID).Return(netNodeUUID, nil).AnyTimes()
 	s.state.EXPECT().GetFilesystemUUIDForID(c.Context(), "1234").Return(fsUUID, nil).AnyTimes()
 	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
@@ -710,7 +709,7 @@ func (s *filesystemSuite) TestSetFilesystemProvisionedInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	fsID := "123"
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
 	info := storageprovisioning.FilesystemProvisionedInfo{
 		ProviderID: "x",
 		SizeMiB:    100,
@@ -730,7 +729,7 @@ func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfoForMachine(c
 	defer s.setupMocks(c).Finish()
 
 	fsID := "123"
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
 	fsAttachmentUUID, err := domainstorage.NewFilesystemAttachmentUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	info := storageprovisioning.FilesystemAttachmentProvisionedInfo{
@@ -776,7 +775,7 @@ func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfoForUnit(c *t
 	defer s.setupMocks(c).Finish()
 
 	fsID := "123"
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
 	fsAttachmentUUID, err := domainstorage.NewFilesystemAttachmentUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	info := storageprovisioning.FilesystemAttachmentProvisionedInfo{
@@ -822,7 +821,7 @@ func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfoForUnitInval
 func (s *filesystemSuite) TestGetFilesystemParams(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
 
 	s.state.EXPECT().GetFilesystemParams(gomock.Any(), fsUUID).Return(
 		storageprovisioning.FilesystemParams{
@@ -855,7 +854,7 @@ func (s *filesystemSuite) TestGetFilesystemParams(c *tc.C) {
 func (s *filesystemSuite) TestGetFilesystemParamsNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
 
 	s.state.EXPECT().GetFilesystemParams(gomock.Any(), fsUUID).Return(
 		storageprovisioning.FilesystemParams{},
@@ -869,7 +868,7 @@ func (s *filesystemSuite) TestGetFilesystemParamsNotFound(c *tc.C) {
 func (s *filesystemSuite) TestGetFilesystemRemovalParams(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
 
 	s.state.EXPECT().GetFilesystemLife(gomock.Any(), fsUUID).Return(
 		domainlife.Dead, nil)
@@ -892,7 +891,7 @@ func (s *filesystemSuite) TestGetFilesystemRemovalParams(c *tc.C) {
 func (s *filesystemSuite) TestGetFilesystemRemovalParamsWithObliterate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
 
 	s.state.EXPECT().GetFilesystemLife(gomock.Any(), fsUUID).Return(
 		domainlife.Dead, nil)
@@ -916,7 +915,7 @@ func (s *filesystemSuite) TestGetFilesystemRemovalParamsWithObliterate(c *tc.C) 
 func (s *filesystemSuite) TestGetFilesystemRemovalParamsAlive(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
 
 	s.state.EXPECT().GetFilesystemLife(gomock.Any(), fsUUID).Return(
 		domainlife.Alive, nil)
@@ -928,7 +927,7 @@ func (s *filesystemSuite) TestGetFilesystemRemovalParamsAlive(c *tc.C) {
 func (s *filesystemSuite) TestGetFilesystemRemovalParamsDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
 
 	s.state.EXPECT().GetFilesystemLife(gomock.Any(), fsUUID).Return(
 		domainlife.Dying, nil)
@@ -940,7 +939,7 @@ func (s *filesystemSuite) TestGetFilesystemRemovalParamsDying(c *tc.C) {
 func (s *filesystemSuite) TestGetFilesystemRemovalParamsNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
 
 	s.state.EXPECT().GetFilesystemLife(gomock.Any(), fsUUID).Return(
 		domainlife.Dead, nil)
@@ -956,7 +955,7 @@ func (s *filesystemSuite) TestGetFilesystemRemovalParamsNotFound(c *tc.C) {
 func (s *filesystemSuite) TestGetFilesystemRemovalParamsNotFoundAtLife(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
 
 	s.state.EXPECT().GetFilesystemLife(gomock.Any(), fsUUID).Return(
 		0, storageprovisioningerrors.FilesystemNotFound)

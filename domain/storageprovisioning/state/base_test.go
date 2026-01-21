@@ -27,7 +27,6 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning"
-	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -178,9 +177,9 @@ VALUES (?, ?, ?, 0, 1)
 // newModelFilesystem creates a new filesystem in the model with model
 // provision scope. Return is the uuid and filesystem id of the entity.
 func (s *baseSuite) newModelFilesystem(c *tc.C) (
-	storageprovisioning.FilesystemUUID, string,
+	domainstorage.FilesystemUUID, string,
 ) {
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
 
 	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
 
@@ -200,7 +199,7 @@ VALUES (?, ?, 0, 0)
 // point and readonly attributes of the filesystem attachment.
 func (s *baseSuite) newModelFilesystemAttachmentWithMount(
 	c *tc.C,
-	fsUUID storageprovisioning.FilesystemUUID,
+	fsUUID domainstorage.FilesystemUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
 	mountPoint string,
 	readOnly bool,
@@ -436,7 +435,7 @@ VALUES (?, ?)`, instanceUUID.String(), volumeUUID.String())
 
 func (s *baseSuite) newStorageInstanceFilesystem(
 	c *tc.C, instanceUUID domainstorage.StorageInstanceUUID,
-	filesystemUUID storageprovisioning.FilesystemUUID,
+	filesystemUUID domainstorage.FilesystemUUID,
 ) {
 	ctx := c.Context()
 	_, err := s.DB().ExecContext(ctx, `

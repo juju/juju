@@ -117,7 +117,7 @@ type RemovalService interface {
 	// RemoveDeadFilesystem is to be called from the storage provisoner to
 	// finally remove a dead filesystem that it has been gracefully cleaned up.
 	RemoveDeadFilesystem(
-		ctx context.Context, uuid storageprovisioning.FilesystemUUID,
+		ctx context.Context, uuid domainstorage.FilesystemUUID,
 	) error
 
 	// RemoveDeadVolume is to be called from the storage provisoner to finally
@@ -147,7 +147,7 @@ type StorageProvisioningService interface {
 	// supplied id.
 	GetFilesystemUUIDForID(
 		ctx context.Context, filesystemID string,
-	) (storageprovisioning.FilesystemUUID, error)
+	) (domainstorage.FilesystemUUID, error)
 
 	// GetFilesystemAttachmentParams retrieves the attachment parameters for a
 	// given filesystem attachment.
@@ -158,18 +158,18 @@ type StorageProvisioningService interface {
 
 	// GetFilesystemLife returns the current life value for a filesystem UUID.
 	GetFilesystemLife(
-		ctx context.Context, uuid storageprovisioning.FilesystemUUID,
+		ctx context.Context, uuid domainstorage.FilesystemUUID,
 	) (domainlife.Life, error)
 
 	// GetFilesystemParams returns the filesystem params for the supplied uuid.
 	GetFilesystemParams(
-		ctx context.Context, uuid storageprovisioning.FilesystemUUID,
+		ctx context.Context, uuid domainstorage.FilesystemUUID,
 	) (storageprovisioning.FilesystemParams, error)
 
 	// GetFilesystemRemovalParams returns the filesystem removal params for the
 	// supplied uuid.
 	GetFilesystemRemovalParams(
-		ctx context.Context, uuid storageprovisioning.FilesystemUUID,
+		ctx context.Context, uuid domainstorage.FilesystemUUID,
 	) (storageprovisioning.FilesystemRemovalParams, error)
 
 	// CheckFilesystemForIDExists checks if a filesystem exists for the supplied

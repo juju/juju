@@ -669,7 +669,7 @@ func (s *Service) RemoveStorageInstance(
 	}
 
 	if cascaded.FileSystemUUID != nil {
-		fsUUID := storageprovisioning.FilesystemUUID(*cascaded.FileSystemUUID)
+		fsUUID := storage.FilesystemUUID(*cascaded.FileSystemUUID)
 		if force && wait > 0 {
 			if _, err := s.filesystemScheduleRemoval(ctx, fsUUID, false, 0); err != nil {
 				return errors.Capture(err)
@@ -897,7 +897,7 @@ func (s *Service) MarkVolumeAttachmentPlanAsDead(
 // - [storageprovisioningerrors.FilesystemNotDead] when the filesystem was found
 // but is either alive or dying, when it is expected to be dead.
 func (s *Service) RemoveDeadFilesystem(
-	ctx context.Context, uuid storageprovisioning.FilesystemUUID,
+	ctx context.Context, uuid storage.FilesystemUUID,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -930,7 +930,7 @@ func (s *Service) RemoveDeadFilesystem(
 
 func (s *Service) filesystemScheduleRemoval(
 	ctx context.Context,
-	fsUUID storageprovisioning.FilesystemUUID,
+	fsUUID storage.FilesystemUUID,
 	force bool, wait time.Duration,
 ) (removal.UUID, error) {
 	jobUUID, err := removal.NewUUID()

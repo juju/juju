@@ -32,7 +32,6 @@ import (
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
-	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -1148,7 +1147,7 @@ func (st *InsertIAASUnitState) insertMachineFilesystemOwnership(
 	ctx context.Context,
 	tx *sqlair.TX,
 	machineUUID coremachine.UUID,
-	filesystemsToOwn []domainstorageprov.FilesystemUUID,
+	filesystemsToOwn []domainstorage.FilesystemUUID,
 ) error {
 	args := makeInsertMachineFilesystemOwnerArgs(ctx, machineUUID,
 		filesystemsToOwn)

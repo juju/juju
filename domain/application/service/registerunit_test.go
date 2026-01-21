@@ -32,7 +32,7 @@ func TestRegisterCAASUnitSuite(t *testing.T) {
 func (s *registerCAASUnitSuite) makeStorageArg(
 	c *tc.C,
 ) internal.RegisterUnitStorageArg {
-	fsUUID := tc.Must(c, domainstorageprov.NewFilesystemUUID)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 	storageInstUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	storagePoolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 	rval := internal.RegisterUnitStorageArg{
@@ -71,7 +71,7 @@ func (s *registerCAASUnitSuite) makeStorageArg(
 			},
 			StorageToOwn: []domainstorage.StorageInstanceUUID{storageInstUUID},
 		},
-		FilesystemProviderIDs: map[domainstorageprov.FilesystemUUID]string{
+		FilesystemProviderIDs: map[domainstorage.FilesystemUUID]string{
 			fsUUID: "fs-providerid-1",
 		},
 	}

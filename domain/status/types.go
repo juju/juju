@@ -90,7 +90,7 @@ type StorageAttachment struct {
 
 // Filesystem represents the status of a filesystem.
 type Filesystem struct {
-	UUID       storageprovisioning.FilesystemUUID
+	UUID       storage.FilesystemUUID
 	ID         string
 	Life       life.Life
 	Status     StatusInfo[StorageFilesystemStatusType]
@@ -116,7 +116,7 @@ type Volume struct {
 
 // FilesystemAttachment represents the status of a filesystem attachment.
 type FilesystemAttachment struct {
-	FilesystemUUID storageprovisioning.FilesystemUUID
+	FilesystemUUID storage.FilesystemUUID
 	Life           life.Life
 	Unit           *unit.Name
 	Machine        *machine.Name

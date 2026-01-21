@@ -19,8 +19,6 @@ import (
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/domain/storage"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
-	"github.com/juju/juju/domain/storageprovisioning"
-	storageprovisioningtesting "github.com/juju/juju/domain/storageprovisioning/testing"
 )
 
 // baseStorageSuite defines a set of common test suite fixtures for common
@@ -75,9 +73,9 @@ VALUES (?, ?, ?, 0, 1, false)
 }
 
 func (s *baseStorageSuite) newFilesystem(c *tc.C) (
-	storageprovisioning.FilesystemUUID, string,
+	storage.FilesystemUUID, string,
 ) {
-	fsUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, storage.NewFilesystemUUIDUUID)
 
 	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
 
@@ -96,7 +94,7 @@ VALUES (?, ?, 0, 0)
 func (s *baseStorageSuite) newFilesystemWithStatus(
 	c *tc.C,
 	sType status.StorageFilesystemStatusType,
-) (storageprovisioning.FilesystemUUID, string) {
+) (storage.FilesystemUUID, string) {
 	fsUUID, fsID := s.newFilesystem(c)
 
 	_, err := s.DB().ExecContext(
@@ -170,7 +168,7 @@ VALUES (?, ?, ?, ?, ?, 0, 100, ?)
 func (s *baseStorageSuite) newStorageInstanceFilesystem(
 	c *tc.C,
 	instanceUUID storage.StorageInstanceUUID,
-	filesystemUUID storageprovisioning.FilesystemUUID,
+	filesystemUUID storage.FilesystemUUID,
 ) {
 	_, err := s.DB().ExecContext(
 		c.Context(),

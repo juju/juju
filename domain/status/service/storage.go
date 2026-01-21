@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -23,14 +22,14 @@ type StorageState interface {
 	// - [storageerrors.FilesystemNotFound] if the filesystem doesn't exist.
 	SetFilesystemStatus(
 		ctx context.Context,
-		filesystemUUID storageprovisioning.FilesystemUUID,
+		filesystemUUID storage.FilesystemUUID,
 		sts status.StatusInfo[status.StorageFilesystemStatusType],
 	) error
 
 	// GetFilesystemUUIDByID returns the filesystem UUID for the given
 	// filesystem unique id. If no filesystem is found, an error satisfying
 	// [storageerrors.FilesystemNotFound] is returned.
-	GetFilesystemUUIDByID(ctx context.Context, id string) (storageprovisioning.FilesystemUUID, error)
+	GetFilesystemUUIDByID(ctx context.Context, id string) (storage.FilesystemUUID, error)
 
 	// SetVolumeStatus sets the given volume status, overwriting any
 	// current status data. The following errors can be expected:
@@ -211,7 +210,7 @@ func (s *Service) GetFilesystemStatuses(ctx context.Context) ([]Filesystem, erro
 		return nil, errors.Capture(err)
 	}
 
-	fsMap := map[storageprovisioning.FilesystemUUID]*Filesystem{}
+	fsMap := map[storage.FilesystemUUID]*Filesystem{}
 	for _, dfs := range filesystems {
 		fs := Filesystem{
 			ID:         dfs.ID,

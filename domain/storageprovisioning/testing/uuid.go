@@ -11,8 +11,8 @@ import (
 
 // GenFilesystemUUID generates a new [storageprovisioning.FilesystemUUID] for
 // testing purposes.
-func GenFilesystemUUID(c *tc.C) storageprovisioning.FilesystemUUID {
-	uuid, err := storageprovisioning.NewFilesystemUUID()
+func GenFilesystemUUID(c *tc.C) domainstorage.FilesystemUUID {
+	uuid, err := domainstorage.NewFilesystemUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	return uuid
 }

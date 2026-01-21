@@ -20,7 +20,6 @@ import (
 	unit "github.com/juju/juju/core/unit"
 	status "github.com/juju/juju/domain/status"
 	storage "github.com/juju/juju/domain/storage"
-	storageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -632,10 +631,10 @@ func (c *MockModelStateGetFilesystemAttachmentsCall) DoAndReturn(f func(context.
 }
 
 // GetFilesystemUUIDByID mocks base method.
-func (m *MockModelState) GetFilesystemUUIDByID(ctx context.Context, id string) (storageprovisioning.FilesystemUUID, error) {
+func (m *MockModelState) GetFilesystemUUIDByID(ctx context.Context, id string) (storage.FilesystemUUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetFilesystemUUIDByID", ctx, id)
-	ret0, _ := ret[0].(storageprovisioning.FilesystemUUID)
+	ret0, _ := ret[0].(storage.FilesystemUUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -653,19 +652,19 @@ type MockModelStateGetFilesystemUUIDByIDCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelStateGetFilesystemUUIDByIDCall) Return(arg0 storageprovisioning.FilesystemUUID, arg1 error) *MockModelStateGetFilesystemUUIDByIDCall {
+func (c *MockModelStateGetFilesystemUUIDByIDCall) Return(arg0 storage.FilesystemUUID, arg1 error) *MockModelStateGetFilesystemUUIDByIDCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateGetFilesystemUUIDByIDCall) Do(f func(context.Context, string) (storageprovisioning.FilesystemUUID, error)) *MockModelStateGetFilesystemUUIDByIDCall {
+func (c *MockModelStateGetFilesystemUUIDByIDCall) Do(f func(context.Context, string) (storage.FilesystemUUID, error)) *MockModelStateGetFilesystemUUIDByIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateGetFilesystemUUIDByIDCall) DoAndReturn(f func(context.Context, string) (storageprovisioning.FilesystemUUID, error)) *MockModelStateGetFilesystemUUIDByIDCall {
+func (c *MockModelStateGetFilesystemUUIDByIDCall) DoAndReturn(f func(context.Context, string) (storage.FilesystemUUID, error)) *MockModelStateGetFilesystemUUIDByIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1569,7 +1568,7 @@ func (c *MockModelStateSetApplicationStatusCall) DoAndReturn(f func(context.Cont
 }
 
 // SetFilesystemStatus mocks base method.
-func (m *MockModelState) SetFilesystemStatus(ctx context.Context, filesystemUUID storageprovisioning.FilesystemUUID, sts status.StatusInfo[status.StorageFilesystemStatusType]) error {
+func (m *MockModelState) SetFilesystemStatus(ctx context.Context, filesystemUUID storage.FilesystemUUID, sts status.StatusInfo[status.StorageFilesystemStatusType]) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetFilesystemStatus", ctx, filesystemUUID, sts)
 	ret0, _ := ret[0].(error)
@@ -1595,13 +1594,13 @@ func (c *MockModelStateSetFilesystemStatusCall) Return(arg0 error) *MockModelSta
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateSetFilesystemStatusCall) Do(f func(context.Context, storageprovisioning.FilesystemUUID, status.StatusInfo[status.StorageFilesystemStatusType]) error) *MockModelStateSetFilesystemStatusCall {
+func (c *MockModelStateSetFilesystemStatusCall) Do(f func(context.Context, storage.FilesystemUUID, status.StatusInfo[status.StorageFilesystemStatusType]) error) *MockModelStateSetFilesystemStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateSetFilesystemStatusCall) DoAndReturn(f func(context.Context, storageprovisioning.FilesystemUUID, status.StatusInfo[status.StorageFilesystemStatusType]) error) *MockModelStateSetFilesystemStatusCall {
+func (c *MockModelStateSetFilesystemStatusCall) DoAndReturn(f func(context.Context, storage.FilesystemUUID, status.StatusInfo[status.StorageFilesystemStatusType]) error) *MockModelStateSetFilesystemStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

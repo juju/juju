@@ -267,7 +267,7 @@ FROM (
 		if dbVal.FilesystemUUID.Valid {
 			v.Filesystem = &internal.StorageInstanceCompositionFilesystem{
 				ProvisionScope: domainstorageprov.ProvisionScope(dbVal.FilesystemProvisionScope.V),
-				UUID:           domainstorageprov.FilesystemUUID(dbVal.FilesystemUUID.V),
+				UUID:           domainstorage.FilesystemUUID(dbVal.FilesystemUUID.V),
 			}
 		}
 
@@ -405,7 +405,7 @@ FROM (
 				ProvisionScope: domainstorageprov.ProvisionScope(
 					dbVal.FilesystemProvisionScope.V,
 				),
-				UUID: domainstorageprov.FilesystemUUID(
+				UUID: domainstorage.FilesystemUUID(
 					dbVal.FilesystemUUID.V,
 				),
 			}
@@ -444,7 +444,7 @@ FROM (
 				UUID: domainstorage.FilesystemAttachmentUUID(
 					dbAttachmentVal.FilesystemAttachmentUUID.V,
 				),
-				FilesystemUUID: domainstorageprov.FilesystemUUID(
+				FilesystemUUID: domainstorage.FilesystemUUID(
 					dbAttachmentVal.FilesystemUUID.V,
 				),
 			}
@@ -596,7 +596,7 @@ VALUES ($insertApplicationStorageDirective.*)
 
 func (st *State) setFilesystemProviderIDs(
 	ctx context.Context, tx *sqlair.TX,
-	providerIDs map[domainstorageprov.FilesystemUUID]string,
+	providerIDs map[domainstorage.FilesystemUUID]string,
 ) error {
 	stmt, err := st.Prepare(`
 UPDATE storage_filesystem
@@ -784,7 +784,7 @@ func makeInsertMachineVolumeOwnerArgs(
 func makeInsertMachineFilesystemOwnerArgs(
 	_ context.Context,
 	machineUUID coremachine.UUID,
-	filesystemsToOwn []domainstorageprov.FilesystemUUID,
+	filesystemsToOwn []domainstorage.FilesystemUUID,
 ) []insertFilesystemMachineOwner {
 	rval := make([]insertFilesystemMachineOwner, 0, len(filesystemsToOwn))
 	for _, uuid := range filesystemsToOwn {

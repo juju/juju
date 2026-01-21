@@ -21,7 +21,6 @@ import (
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning"
-	storageprovisioningtesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/statushistory"
@@ -77,7 +76,7 @@ func (s *storageServiceSuite) TestSetFilesystemStatus(c *tc.C) {
 
 	now := time.Now()
 
-	filesystemUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+	filesystemUUID := tc.Must(c, storage.NewFilesystemUUIDUUID)
 	s.modelState.EXPECT().GetFilesystemUUIDByID(gomock.Any(), "666").Return(filesystemUUID, nil)
 	s.modelState.EXPECT().SetFilesystemStatus(gomock.Any(), filesystemUUID, status.StatusInfo[status.StorageFilesystemStatusType]{
 		Status:  status.StorageFilesystemStatusTypeAttached,
@@ -119,7 +118,7 @@ func (s *storageServiceSuite) TestSetFilesystemStatusUUIDNotFound(c *tc.C) {
 func (s *storageServiceSuite) TestSetFilesystemStatusNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	filesystemUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+	filesystemUUID := tc.Must(c, storage.NewFilesystemUUIDUUID)
 	s.modelState.EXPECT().GetFilesystemUUIDByID(gomock.Any(), "666").Return(filesystemUUID, nil)
 	s.modelState.EXPECT().SetFilesystemStatus(gomock.Any(), filesystemUUID, status.StatusInfo[status.StorageFilesystemStatusType]{
 		Status: status.StorageFilesystemStatusTypeAttached,
@@ -359,7 +358,7 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatusesMultiple(c *tc.C) {
 func (s *storageServiceSuite) TestGetFilesystemStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	fsUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, storage.NewFilesystemUUIDUUID)
 	fs := []status.Filesystem{
 		{
 			UUID: fsUUID,
@@ -423,8 +422,8 @@ func (s *storageServiceSuite) TestGetFilesystemStatuses(c *tc.C) {
 func (s *storageServiceSuite) TestGetFilesystemStatusesMultiple(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	fsUUID0 := storageprovisioningtesting.GenFilesystemUUID(c)
-	fsUUID1 := storageprovisioningtesting.GenFilesystemUUID(c)
+	fsUUID0 := tc.Must(c, storage.NewFilesystemUUIDUUID)
+	fsUUID1 := tc.Must(c, storage.NewFilesystemUUIDUUID)
 	fs := []status.Filesystem{
 		{
 			UUID: fsUUID0,

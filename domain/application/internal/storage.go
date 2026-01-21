@@ -61,7 +61,7 @@ type CreateUnitStorageArg struct {
 type CreateIAASUnitStorageArg struct {
 	// FilesystemsToOwn defines filesystems that will be owned by the unit's
 	// machine.
-	FilesystemsToOwn []domainstorageprov.FilesystemUUID
+	FilesystemsToOwn []domainstorage.FilesystemUUID
 
 	// VolumesToOwn defines volumes that will be owned by the unit's machine.
 	VolumesToOwn []domainstorage.VolumeUUID
@@ -95,7 +95,7 @@ type CreateUnitStorageDirectiveArg = CreateStorageDirectiveArg
 type CreateUnitStorageFilesystemArg struct {
 	// UUID describes the unique identifier of the filesystem to
 	// create alongside the storage instance.
-	UUID domainstorageprov.FilesystemUUID
+	UUID domainstorage.FilesystemUUID
 
 	// ProvisionScope describes the provision scope to assign to the newly
 	// created filesystem.
@@ -107,7 +107,7 @@ type CreateUnitStorageFilesystemArg struct {
 // the model.
 type CreateUnitStorageFilesystemAttachmentArg struct {
 	// FilesystemUUID is the unique identifier of the filesystem to be attached.
-	FilesystemUUID domainstorageprov.FilesystemUUID
+	FilesystemUUID domainstorage.FilesystemUUID
 
 	// NetNodeUUID is the net node of the model entity that filesystem will be
 	// attached to.
@@ -218,7 +218,7 @@ type RegisterUnitStorageArg struct {
 	// FilesystemProviderIDs defines the provider id value to set for each
 	// filesystem. This allows associating new or existing filesystems with the
 	// provider's identifier for this storage.
-	FilesystemProviderIDs map[domainstorageprov.FilesystemUUID]string
+	FilesystemProviderIDs map[domainstorage.FilesystemUUID]string
 
 	// VolumeProviderIDs defines the provider id value to set for each volume.
 	// This allows associating new or existing volumes with the provider's
@@ -292,7 +292,7 @@ type StorageInstanceCompositionFilesystem struct {
 
 	// UUID is the unique id of the filesystem that is associated with
 	// this storage instance. If the value is nil then no filesystem exists.
-	UUID domainstorageprov.FilesystemUUID
+	UUID domainstorage.FilesystemUUID
 }
 
 // StorageInstanceCompositionVolume describes the volume information that is
@@ -329,7 +329,7 @@ type StorageInstanceCompositionFilesystemAttachment struct {
 
 	// FilesystemUUID is the unique id of the filesystem that is associated
 	// with this filesystem attachment.
-	FilesystemUUID domainstorageprov.FilesystemUUID
+	FilesystemUUID domainstorage.FilesystemUUID
 }
 
 // StorageInstanceCompositionVolumeAttachment describes the volume information

@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
-	storageprovisioningtesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -56,7 +55,7 @@ func (s *storageSuite) SetUpTest(c *tc.C) {
 
 func (s *storageSuite) assertFilesystemStatus(
 	c *tc.C,
-	filesystemUUID storageprovisioning.FilesystemUUID,
+	filesystemUUID storage.FilesystemUUID,
 	expected status.StatusInfo[status.StorageFilesystemStatusType],
 ) {
 	ctx := c.Context()
@@ -164,7 +163,7 @@ func (s *storageSuite) TestSetFilesystemStatusFilesystemNotFound(c *tc.C) {
 		Since:   ptr(now),
 	}
 
-	uuid := storageprovisioningtesting.GenFilesystemUUID(c)
+	uuid := tc.Must(c, storage.NewFilesystemUUIDUUID)
 	err := s.modelState.SetFilesystemStatus(c.Context(), uuid, expected)
 	c.Assert(err, tc.ErrorIs, storageerrors.FilesystemNotFound)
 }
@@ -869,7 +868,7 @@ func (s *storageStatusSuite) changeVolumeInfo(
 
 func (s *storageStatusSuite) changeFilesystemInfo(
 	c *tc.C,
-	uuid storageprovisioning.FilesystemUUID,
+	uuid storage.FilesystemUUID,
 	providerID string,
 	sizeMiB uint64,
 ) {
@@ -899,7 +898,7 @@ func (s *storageStatusSuite) changeFilesystemAttachmentInfo(
 // filesystem uuid and net node uuid.
 func (s *storageStatusSuite) newFilesystemAttachment(
 	c *tc.C,
-	fsUUID storageprovisioning.FilesystemUUID,
+	fsUUID storage.FilesystemUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
 ) storage.FilesystemAttachmentUUID {
 	attachmentUUID := tc.Must(c, storage.NewFilesystemAttachmentUUID)
