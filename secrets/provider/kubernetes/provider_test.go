@@ -19,10 +19,8 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
-	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 	k8s "k8s.io/client-go/kubernetes"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	k8srest "k8s.io/client-go/rest"
@@ -110,10 +108,6 @@ func (s *providerSuite) backendConfig() provider.BackendConfig {
 			"namespace": s.namespace,
 		},
 	}
-}
-
-func (s *providerSuite) k8sNotFoundError() *k8serrors.StatusError {
-	return k8serrors.NewNotFound(k8sschema.GroupResource{}, "test")
 }
 
 func (s *providerSuite) checkEnsureSecretAccessToken(c *gc.C, consumer, appNameLabel string, owned, read []string) {
@@ -297,10 +291,6 @@ func (s *providerSuite) TestRestrictedConfigWithTagWithControllerCloud(c *gc.C) 
 
 func (s *providerSuite) TestRestrictedConfigWithTagWithControllerCloudDifferentController(c *gc.C) {
 	s.assertRestrictedConfigWithTag(c, names.NewUnitTag("gitlab/0"), true, false)
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }
 
 func (s *providerSuite) TestCleanupModel(c *gc.C) {
@@ -549,6 +539,7 @@ func (s *providerSuite) TestSaveContent(c *gc.C) {
 
 	res, err := s.k8sClient.CoreV1().Secrets(s.namespace).List(
 		ctx, metav1.ListOptions{})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Items, gc.HasLen, 1)
 	secret := res.Items[0]
 	c.Check(secret.Name, gc.Equals, uri.Name(1))
@@ -594,6 +585,7 @@ func (s *providerSuite) TestDeleteContent(c *gc.C) {
 
 	res, err := s.k8sClient.CoreV1().Secrets(s.namespace).List(
 		ctx, metav1.ListOptions{})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Items, gc.HasLen, 0)
 }
 

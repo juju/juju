@@ -25,13 +25,11 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudspec"
@@ -972,11 +970,6 @@ func (k *kubernetesClient) createClusterRoleAndBinding(
 	}))
 }
 
-const (
-	maxResourceNameLength = 63
-	clusterResourcePrefix = "juju-secrets-"
-)
-
 // precreateSecretRevs ensures that a secret exists for a secret revision.
 func (k *kubernetesClient) precreateSecretRevs(
 	ctx context.Context, revs []string,
@@ -1221,115 +1214,6 @@ func (k *kubernetesClient) dropSecretAccess(
 		}
 	}
 	return nil
-}
-
-// ensureDisambiguatedClusterRole creates a cluster role with a disambiguated name.
-// cleanups contain funcs than can be run to delete any new resources on error.
-func (k *kubernetesClient) ensureDisambiguatedClusterRole(
-	ctx context.Context, baseName string, labels labels.Set, annotations map[string]string, rules []rbacv1.PolicyRule,
-) (_ *rbacv1.ClusterRole, cleanups []func(), _ error) {
-	listOps := v1.ListOptions{
-		LabelSelector: modelLabelSelector(k.modelName).String(),
-	}
-	existing, err := k.client.RbacV1().ClusterRoles().List(ctx, listOps)
-	if err != nil {
-		return nil, cleanups, errors.Trace(err)
-	}
-	for _, clusterRole := range existing.Items {
-		if clusterRole.Annotations[modelIdKey] != k.modelUUID {
-			continue
-		}
-		clusterRole.Rules = rules
-		result, err := k.updateClusterRole(ctx, &clusterRole)
-		if err != nil {
-			return nil, cleanups, errors.Trace(err)
-		}
-		return result, cleanups, nil
-	}
-
-	suffixLength := model.DefaultSuffixDigits
-	var proposedName string
-
-	for {
-		if proposedName, err = model.DisambiguateResourceNameWithSuffixLength(
-			k.modelUUID, baseName, maxResourceNameLength, suffixLength); err != nil {
-			return nil, cleanups, errors.Annotatef(err, "disambiguating cluster role name %q", baseName)
-		}
-		_, err = k.client.RbacV1().ClusterRoles().Get(ctx, proposedName, v1.GetOptions{})
-		if err == nil {
-			suffixLength = suffixLength + 1
-			continue
-		} else if !k8serrors.IsNotFound(err) {
-			return nil, cleanups, errors.Annotatef(err, "getting existing cluster role %q", proposedName)
-		}
-	}
-}
-
-// ensureDisambiguatedClusterRoleBinding ensures a cluster role binding with a
-// disambiguated name exists.
-// cleanups contain funcs than can be run to delete any new resources on error.
-func (k *kubernetesClient) ensureDisambiguatedClusterRoleBinding(
-	ctx context.Context, saName, baseName, roleName string, labels labels.Set, annotations map[string]string,
-) (_ *rbacv1.ClusterRoleBinding, cleanups []func(), _ error) {
-	listOps := v1.ListOptions{
-		LabelSelector: modelLabelSelector(k.modelName).String(),
-	}
-	existing, err := k.client.RbacV1().ClusterRoleBindings().List(ctx, listOps)
-	if err != nil {
-		return nil, cleanups, errors.Trace(err)
-	}
-	for _, clusterRoleBinding := range existing.Items {
-		if clusterRoleBinding.Annotations[modelIdKey] == k.modelUUID {
-			return &clusterRoleBinding, cleanups, nil
-		}
-	}
-
-	suffixLength := model.DefaultSuffixDigits
-	var proposedName string
-
-	for {
-		if proposedName, err = model.DisambiguateResourceNameWithSuffixLength(
-			k.modelUUID, baseName, maxResourceNameLength, suffixLength); err != nil {
-			return nil, cleanups, errors.Annotatef(err, "disambiguating cluster role name %q", baseName)
-		}
-		_, err = k.client.RbacV1().ClusterRoleBindings().Get(ctx, proposedName, v1.GetOptions{})
-		if err == nil {
-			suffixLength++
-			continue
-		} else if !k8serrors.IsNotFound(err) {
-			return nil, cleanups, errors.Annotatef(err, "getting existing cluster role binding %q", proposedName)
-		}
-		result, err := k.createClusterRoleBinding(ctx,
-			&rbacv1.ClusterRoleBinding{
-				ObjectMeta: v1.ObjectMeta{
-					Name:        proposedName,
-					Labels:      labels,
-					Annotations: annotations,
-				},
-				RoleRef: rbacv1.RoleRef{
-					APIGroup: "rbac.authorization.k8s.io",
-					Kind:     "ClusterRole",
-					Name:     roleName,
-				},
-				Subjects: []rbacv1.Subject{
-					{
-						Kind:      "ServiceAccount",
-						Name:      saName,
-						Namespace: k.namespace,
-					},
-				},
-			},
-		)
-		// someone might have created the cluster role binding
-		if errors.Is(err, errors.AlreadyExists) {
-			suffixLength++
-			continue
-		}
-		if err == nil {
-			cleanups = append(cleanups, func() { _ = k.deleteClusterRoleBinding(ctx, result.GetName(), result.GetUID()) })
-		}
-		return result, cleanups, errors.Trace(err)
-	}
 }
 
 var errNoNamespace = errors.ConstError("no namespace")

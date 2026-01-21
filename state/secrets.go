@@ -4148,7 +4148,7 @@ func (w *secretBackendIssuedTokenExpiryWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-// initial returns the intial changes for the expiry watcher. Each string is an
+// initial returns the initial changes for the expiry watcher. Each string is an
 // RFC3339 encoded timestamp.
 func (w *secretBackendIssuedTokenExpiryWatcher) initial() ([]string, error) {
 	coll, closer := w.coll()
