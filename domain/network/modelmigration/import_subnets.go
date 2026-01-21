@@ -55,11 +55,18 @@ func (i *importSubnetsOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute the import of the spaces and subnets contained in the model.
 func (i *importSubnetsOperation) Execute(ctx context.Context, model description.Model) error {
+	if model.Type() == description.CAAS {
+		// Kubernetes environments do not support spaces or subnets, though
+		// we do need to provide a fallback subnets. This is for RI purposes
+		// only.
+		return i.populateFallbackSubnets(ctx)
+	}
+
 	spaceIDsMap, err := i.importSpaces(ctx, model.Spaces())
 	if err != nil {
 		return errors.Capture(err)
 	}
-	if err := i.importSubnets(ctx, model.Subnets(), spaceIDsMap); err != nil {
+	if err := i.importIAASSubnets(ctx, model.Subnets(), spaceIDsMap); err != nil {
 		return errors.Capture(err)
 	}
 	return nil
@@ -94,7 +101,7 @@ func (i *importSubnetsOperation) importSpaces(ctx context.Context, modelSpaces [
 	return spaceIDsMap, nil
 }
 
-func (i *importSubnetsOperation) importSubnets(
+func (i *importSubnetsOperation) importIAASSubnets(
 	ctx context.Context,
 	modelSubnets []description.Subnet,
 	spaceIDsMap map[string]corenetwork.SpaceUUID,
@@ -124,6 +131,16 @@ func (i *importSubnetsOperation) importSubnets(
 		_, err := i.importService.AddSubnet(ctx, subnetInfo)
 		if err != nil {
 			return errors.Errorf("creating subnet %s: %w", subnet.CIDR(), err)
+		}
+	}
+	return nil
+}
+
+func (i *importSubnetsOperation) populateFallbackSubnets(ctx context.Context) error {
+	for _, subnet := range corenetwork.FallbackSubnetInfo {
+		_, err := i.importService.AddSubnet(ctx, subnet)
+		if err != nil {
+			return errors.Errorf("creating fallback subnet %s: %w", subnet.CIDR, err)
 		}
 	}
 	return nil

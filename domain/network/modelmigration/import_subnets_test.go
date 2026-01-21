@@ -42,10 +42,12 @@ func (s *importSubnetsSuite) newImportOperation(c *tc.C) *importSubnetsOperation
 	}
 }
 
-func (s *importSubnetsSuite) TestImportSubnetWithoutSpaces(c *tc.C) {
+func (s *importSubnetsSuite) TestImportIAASSubnetWithoutSpaces(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: description.IAAS,
+	})
 	model.AddSubnet(description.SubnetArgs{
 		ID:                "previousID",
 		CIDR:              "192.0.2.0/24",
@@ -69,10 +71,12 @@ func (s *importSubnetsSuite) TestImportSubnetWithoutSpaces(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSubnetsSuite) TestImportSubnetAndSpaceNotLinked(c *tc.C) {
+func (s *importSubnetsSuite) TestImportIAASSubnetAndSpaceNotLinked(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: description.IAAS,
+	})
 	model.AddSubnet(description.SubnetArgs{
 		ID:                "previous-subnet-id",
 		CIDR:              "192.0.2.0/24",
@@ -104,12 +108,14 @@ func (s *importSubnetsSuite) TestImportSubnetAndSpaceNotLinked(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSubnetsSuite) TestImportSpaceWithSubnet(c *tc.C) {
+func (s *importSubnetsSuite) TestImportIAASSpaceWithSubnet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	spUUID := networktesting.GenSpaceUUID(c)
 
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: description.IAAS,
+	})
 	model.AddSpace(description.SpaceArgs{
 		Id:         "previous-space-id",
 		Name:       "space-name",

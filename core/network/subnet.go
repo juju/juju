@@ -17,6 +17,16 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+var (
+	// FallbackSubnetInfo returns a catch-all subnet info covering all IPv4 and
+	// IPv6 addresses. This is used when the provider has a subpar networking
+	// implementation (k8s).
+	FallbackSubnetInfo = []SubnetInfo{
+		{CIDR: "0.0.0.0/0"},
+		{CIDR: "::/0"},
+	}
+)
+
 // SubnetInfo is a source-agnostic representation of a subnet.
 // It may originate from state, or from a provider.
 type SubnetInfo struct {
