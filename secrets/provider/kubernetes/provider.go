@@ -1047,7 +1047,7 @@ func (k *kubernetesClient) createSecretAccessToken(
 			constants.LabelKubernetesAppName: appName,
 		})
 
-	// Service Account name and all the ACLs for this SA are derrived from the
+	// Service Account name and all the ACLs for this SA are derived from the
 	// issued token UUID. This allows juju to revoke the issued token and
 	// perform cleanup of tokens.
 	serviceAccountName := fmt.Sprintf(

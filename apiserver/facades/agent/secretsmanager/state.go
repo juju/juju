@@ -31,6 +31,7 @@ type SecretsConsumer interface {
 	SecretAccess(uri *secrets.URI, subject names.Tag) (secrets.SecretRole, error)
 }
 
+// SecretsState provides the secrets manager agent facade access to secrets.
 type SecretsState interface {
 	ReserveSecret(*secrets.URI, names.Tag) error
 	CreateSecret(*secrets.URI, state.CreateSecretParams) (*secrets.SecretMetadata, error)
