@@ -140,6 +140,7 @@ jobs:
         run: |
           set -euxo pipefail
 
+          sudo DEBIAN_FRONTEND=noninteractive apt install -y skopeo
           # Shim in recognition for our CA to jujud-operator
           BUILD_TEMP=$(mktemp -d)
           cp ~/certs/ca.crt $BUILD_TEMP/
