@@ -437,6 +437,7 @@ func (st State) createSecretRevision(ctx context.Context, tx *sqlair.TX, uri *co
 		SecretID:   uri.ID,
 		Revision:   revision,
 		CreateTime: secret.CreateTime.UTC(),
+		UpdateTime: secret.UpdateTime.UTC(),
 	}
 
 	if err := st.upsertSecretRevision(ctx, tx, dbRevision); err != nil {
@@ -444,7 +445,7 @@ func (st State) createSecretRevision(ctx context.Context, tx *sqlair.TX, uri *co
 	}
 
 	if secret.ExpireTime != nil {
-		if err := st.upsertSecretRevisionExpiry(ctx, tx, dbRevision.ID, secret.UpdateTime, *secret.ExpireTime); err != nil {
+		if err := st.upsertSecretRevisionExpiry(ctx, tx, dbRevision.ID, *secret.ExpireTime); err != nil {
 			return errors.Errorf("inserting revision expiry for secret %q: %w", uri, err)
 		}
 	}
@@ -704,6 +705,7 @@ VALUES ($secretID.id)`
 		SecretID:   uri.ID,
 		Revision:   1,
 		CreateTime: secret.UpdateTime.UTC(),
+		UpdateTime: secret.UpdateTime.UTC(),
 	}
 
 	if err := st.upsertSecretRevision(ctx, tx, dbRevision); err != nil {
@@ -711,7 +713,7 @@ VALUES ($secretID.id)`
 	}
 
 	if secret.ExpireTime != nil {
-		if err := st.upsertSecretRevisionExpiry(ctx, tx, dbRevision.ID, secret.UpdateTime, *secret.ExpireTime); err != nil {
+		if err := st.upsertSecretRevisionExpiry(ctx, tx, dbRevision.ID, *secret.ExpireTime); err != nil {
 			return errors.Errorf("inserting revision expiry for secret %q: %w", uri, err)
 		}
 	}
@@ -852,29 +854,32 @@ GROUP BY sm.secret_id`
 	shouldCreateNewRevision := (len(secret.Data) > 0 || secret.ValueRef != nil) && (secret.Checksum != existing.LatestRevisionChecksum ||
 		// migrated charm-owned secrets from old models.
 		secret.Checksum == "" && existing.LatestRevisionChecksum == "")
+	dbRevision = &secretRevision{
+		ID:         latestRevisionUUID,
+		SecretID:   uri.ID,
+		Revision:   existing.LatestRevision,
+		UpdateTime: secret.UpdateTime.UTC(),
+	}
 	if shouldCreateNewRevision {
 		if secret.RevisionID == nil {
 			return errors.Errorf("revision ID must be provided")
 		}
 		latestRevisionUUID = *secret.RevisionID
-		nextRevision := existing.LatestRevision + 1
-		dbRevision = &secretRevision{
-			ID:         *secret.RevisionID,
-			SecretID:   uri.ID,
-			Revision:   nextRevision,
-			CreateTime: secret.UpdateTime.UTC(),
-		}
+		dbRevision.ID = latestRevisionUUID
+		dbRevision.Revision = existing.LatestRevision + 1
+		dbRevision.CreateTime = secret.UpdateTime.UTC()
 	}
-	if dbRevision != nil {
+	// upsert only if we need to create a new revision, or if the revision has been
+	// updated
+	if secret.ExpireTime != nil || shouldCreateNewRevision {
 		if err := st.upsertSecretRevision(ctx, tx, dbRevision); err != nil {
 			return errors.Errorf("inserting revision for secret %q: %w", uri, err)
 		}
 	}
 	if secret.ExpireTime != nil {
-		if err := st.upsertSecretRevisionExpiry(ctx, tx, latestRevisionUUID, secret.UpdateTime, *secret.ExpireTime); err != nil {
+		if err := st.upsertSecretRevisionExpiry(ctx, tx, latestRevisionUUID, *secret.ExpireTime); err != nil {
 			return errors.Errorf("inserting revision expiry for secret %q: %w", uri, err)
 		}
-
 	}
 
 	if len(secret.Data) > 0 && shouldCreateNewRevision {
@@ -1134,7 +1139,9 @@ func (st State) upsertSecretRevision(
 ) error {
 	insertQuery := `
 INSERT INTO secret_revision (*)
-VALUES ($secretRevision.*)`
+VALUES ($secretRevision.*)
+ON CONFLICT (uuid) DO UPDATE SET
+    update_time=excluded.update_time`
 
 	insertStmt, err := st.Prepare(insertQuery, secretRevision{})
 	if err != nil {
@@ -1149,16 +1156,14 @@ VALUES ($secretRevision.*)`
 	return nil
 }
 
-func (st State) upsertSecretRevisionExpiry(
-	ctx context.Context, tx *sqlair.TX, revisionUUID string, updateTime, expireTime time.Time,
-) error {
+func (st State) upsertSecretRevisionExpiry(ctx context.Context, tx *sqlair.TX, revisionUUID string, expireTime time.Time) error {
 	insertExpireTimeQuery := `
 INSERT INTO secret_revision_expire (*)
 VALUES ($secretRevisionExpire.*)
 ON CONFLICT(revision_uuid) DO UPDATE SET
     expire_time=excluded.expire_time`
 
-	expire := secretRevisionExpire{RevisionUUID: revisionUUID, ExpireTime: expireTime.UTC(), UpdateTime: updateTime.UTC()}
+	expire := secretRevisionExpire{RevisionUUID: revisionUUID, ExpireTime: expireTime.UTC()}
 	insertExpireTimeStmt, err := st.Prepare(insertExpireTimeQuery, expire)
 	if err != nil {
 		return errors.Capture(err)

@@ -9,6 +9,6 @@
   recreate it, but that would be a big pain.
  */
 
--- Secret revision have update time too. A revision is updated when the expiry time is updated, even if the revision
--- content is not changed.
- ALTER TABLE secret_revision_expire ADD COLUMN update_time DATETIME; -- NOT NULL should be added on merge
+-- Secret revisions have update time too. A revision is updated when one of its fields is updated, even
+-- if the revision content is not changed.
+ ALTER TABLE secret_revision ADD COLUMN update_time DATETIME; -- NOT NULL should be added on merge
