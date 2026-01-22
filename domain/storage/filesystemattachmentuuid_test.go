@@ -19,7 +19,7 @@ func TestFilesystemAttachmentUUIDSuite(t *testing.T) {
 	tc.Run(t, filesystemAttachmentUUIDSuite{})
 }
 
-// TestNew tests that constructing a new [FilesystemAttachmentUUID] suceeds with
+// TestNew tests that constructing a new [FilesystemAttachmentUUID] succeeds with
 // no errors and the end result is valid.
 func (filesystemAttachmentUUIDSuite) TestNew(c *tc.C) {
 	u, err := NewFilesystemAttachmentUUID()
