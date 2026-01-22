@@ -168,7 +168,7 @@ func (c *MockStateCheckVolumeForIDExistsCall) DoAndReturn(f func(context.Context
 }
 
 // CreateVolumeAttachmentPlan mocks base method.
-func (m *MockState) CreateVolumeAttachmentPlan(ctx context.Context, uuid storage.VolumeAttachmentPlanUUID, attachmentUUID storage.VolumeAttachmentUUID, deviceType storageprovisioning.PlanDeviceType, attrs map[string]string) error {
+func (m *MockState) CreateVolumeAttachmentPlan(ctx context.Context, uuid storage.VolumeAttachmentPlanUUID, attachmentUUID storage.VolumeAttachmentUUID, deviceType storage.VolumeDeviceType, attrs map[string]string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateVolumeAttachmentPlan", ctx, uuid, attachmentUUID, deviceType, attrs)
 	ret0, _ := ret[0].(error)
@@ -194,13 +194,13 @@ func (c *MockStateCreateVolumeAttachmentPlanCall) Return(arg0 error) *MockStateC
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCreateVolumeAttachmentPlanCall) Do(f func(context.Context, storage.VolumeAttachmentPlanUUID, storage.VolumeAttachmentUUID, storageprovisioning.PlanDeviceType, map[string]string) error) *MockStateCreateVolumeAttachmentPlanCall {
+func (c *MockStateCreateVolumeAttachmentPlanCall) Do(f func(context.Context, storage.VolumeAttachmentPlanUUID, storage.VolumeAttachmentUUID, storage.VolumeDeviceType, map[string]string) error) *MockStateCreateVolumeAttachmentPlanCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCreateVolumeAttachmentPlanCall) DoAndReturn(f func(context.Context, storage.VolumeAttachmentPlanUUID, storage.VolumeAttachmentUUID, storageprovisioning.PlanDeviceType, map[string]string) error) *MockStateCreateVolumeAttachmentPlanCall {
+func (c *MockStateCreateVolumeAttachmentPlanCall) DoAndReturn(f func(context.Context, storage.VolumeAttachmentPlanUUID, storage.VolumeAttachmentUUID, storage.VolumeDeviceType, map[string]string) error) *MockStateCreateVolumeAttachmentPlanCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

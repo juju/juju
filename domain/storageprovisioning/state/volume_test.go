@@ -1367,7 +1367,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentPlan(c *tc.C) {
 		"c": "z",
 	}
 	s.changeVolumeAttachmentPlanInfo(c, vapUUID,
-		domainstorageprovisioning.PlanDeviceTypeISCSI, attrs)
+		domainstorage.VolumeDeviceTypeISCSI, attrs)
 
 	st := NewState(s.TxnRunnerFactory())
 
@@ -1375,7 +1375,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentPlan(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, domainstorageprovisioning.VolumeAttachmentPlan{
 		Life:             domainlife.Alive,
-		DeviceType:       domainstorageprovisioning.PlanDeviceTypeISCSI,
+		DeviceType:       domainstorage.VolumeDeviceTypeISCSI,
 		DeviceAttributes: attrs,
 	})
 }
@@ -1404,14 +1404,14 @@ func (s *volumeSuite) TestCreateVolumeAttachmentPlan(c *tc.C) {
 		"c": "z",
 	}
 	err := st.CreateVolumeAttachmentPlan(c.Context(), vapUUID, vaUUID,
-		domainstorageprovisioning.PlanDeviceTypeISCSI, attrs)
+		domainstorage.VolumeDeviceTypeISCSI, attrs)
 	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := st.GetVolumeAttachmentPlan(c.Context(), vapUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, domainstorageprovisioning.VolumeAttachmentPlan{
 		Life:             domainlife.Alive,
-		DeviceType:       domainstorageprovisioning.PlanDeviceTypeISCSI,
+		DeviceType:       domainstorage.VolumeDeviceTypeISCSI,
 		DeviceAttributes: attrs,
 	})
 }
@@ -1425,20 +1425,20 @@ func (s *volumeSuite) TestCreateVolumeAttachmentPlanAlreadyExists(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	err := st.CreateVolumeAttachmentPlan(c.Context(), vapUUID, vaUUID,
-		domainstorageprovisioning.PlanDeviceTypeISCSI, nil)
+		domainstorage.VolumeDeviceTypeISCSI, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := st.GetVolumeAttachmentPlan(c.Context(), vapUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, domainstorageprovisioning.VolumeAttachmentPlan{
 		Life:             domainlife.Alive,
-		DeviceType:       domainstorageprovisioning.PlanDeviceTypeISCSI,
+		DeviceType:       domainstorage.VolumeDeviceTypeISCSI,
 		DeviceAttributes: nil,
 	})
 
 	vapUUID2 := tc.Must(c, domainstorage.NewVolumeAttachmentPlanUUID)
 	err = st.CreateVolumeAttachmentPlan(c.Context(), vapUUID2, vaUUID,
-		domainstorageprovisioning.PlanDeviceTypeLocal, nil)
+		domainstorage.VolumeDeviceTypeLocal, nil)
 	c.Assert(err, tc.ErrorIs,
 		storageprovisioningerrors.VolumeAttachmentPlanAlreadyExists)
 }
@@ -1450,7 +1450,7 @@ func (s *volumeSuite) TestCreateVolumeAttachmentPlanAttachmentNotFound(c *tc.C) 
 	st := NewState(s.TxnRunnerFactory())
 
 	err := st.CreateVolumeAttachmentPlan(c.Context(), vapUUID, vaUUID,
-		domainstorageprovisioning.PlanDeviceTypeISCSI, nil)
+		domainstorage.VolumeDeviceTypeISCSI, nil)
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.VolumeAttachmentNotFound)
 }
 
@@ -1464,12 +1464,12 @@ func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedInfo(c *tc.C) {
 		"c": "z",
 	}
 	s.changeVolumeAttachmentPlanInfo(c, vapUUID,
-		domainstorageprovisioning.PlanDeviceTypeISCSI, attrs)
+		domainstorage.VolumeDeviceTypeISCSI, attrs)
 
 	st := NewState(s.TxnRunnerFactory())
 
 	info := domainstorageprovisioning.VolumeAttachmentPlanProvisionedInfo{
-		DeviceType: domainstorageprovisioning.PlanDeviceTypeLocal,
+		DeviceType: domainstorage.VolumeDeviceTypeLocal,
 		DeviceAttributes: map[string]string{
 			"foo": "bar",
 		},
@@ -1481,7 +1481,7 @@ func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, domainstorageprovisioning.VolumeAttachmentPlan{
 		Life:       domainlife.Alive,
-		DeviceType: domainstorageprovisioning.PlanDeviceTypeLocal,
+		DeviceType: domainstorage.VolumeDeviceTypeLocal,
 		DeviceAttributes: map[string]string{
 			"foo": "bar",
 		},
@@ -1494,7 +1494,7 @@ func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedInfoNotFound(c *tc.C
 	st := NewState(s.TxnRunnerFactory())
 
 	info := domainstorageprovisioning.VolumeAttachmentPlanProvisionedInfo{
-		DeviceType: domainstorageprovisioning.PlanDeviceTypeLocal,
+		DeviceType: domainstorage.VolumeDeviceTypeLocal,
 		DeviceAttributes: map[string]string{
 			"foo": "bar",
 		},

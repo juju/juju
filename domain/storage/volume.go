@@ -58,7 +58,7 @@ func (u VolumeAttachmentUUID) String() string {
 }
 
 // String returns the string representation of [VolumeDeviceType].
-// This value is gauranteed to line up with the constants defined for
+// This value is guaranteed to line up with the constants defined for
 // [github.com/juju/juju/internal/storage.DeviceType].
 //
 // If the value of [VolumeDeviceType] is not known a zero value

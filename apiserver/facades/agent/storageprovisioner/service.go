@@ -426,7 +426,7 @@ type StorageProvisioningService interface {
 	CreateVolumeAttachmentPlan(
 		ctx context.Context,
 		attachmentUUID domainstorage.VolumeAttachmentUUID,
-		deviceType storageprovisioning.PlanDeviceType,
+		deviceType domainstorage.VolumeDeviceType,
 		attrs map[string]string,
 	) (domainstorage.VolumeAttachmentPlanUUID, error)
 

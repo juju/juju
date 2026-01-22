@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/domain/storageprovisioning"
 )
 
 // Application represents the status of an application.
@@ -160,7 +159,7 @@ type VolumeAttachment struct {
 
 // VolumeAttachmentPlan represents the status of a volume attachment plan.
 type VolumeAttachmentPlan struct {
-	DeviceType       storageprovisioning.PlanDeviceType
+	DeviceType       storage.VolumeDeviceType
 	DeviceAttributes map[string]string
 }
 

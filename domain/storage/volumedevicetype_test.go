@@ -22,7 +22,7 @@ func TestVolumeDeviceTypeSuite(t *testing.T) {
 }
 
 // TestStringAlignmentWithInternalStorage is concerned with makeing sure that
-// the values returned by [VolumeDeviceType.String] are equivelent to the
+// the values returned by [VolumeDeviceType.String] are equivalent to the
 // constants defined for [internalstorage.DeviceType].
 //
 // This allows [VolumeDeviceType] to be used as a replacement till the

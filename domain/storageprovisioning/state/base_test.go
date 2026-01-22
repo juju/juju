@@ -26,7 +26,6 @@ import (
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
-	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -647,7 +646,7 @@ func (s *baseSuite) changeVolumeAttachmentInfo(
 func (s *baseSuite) changeVolumeAttachmentPlanInfo(
 	c *tc.C,
 	uuid domainstorage.VolumeAttachmentPlanUUID,
-	deviceType storageprovisioning.PlanDeviceType,
+	deviceType domainstorage.VolumeDeviceType,
 	deviceAttrs map[string]string,
 ) {
 	_, err := s.DB().Exec(

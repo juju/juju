@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -691,7 +690,7 @@ LEFT JOIN storage_volume_attachment_plan_attr svapa ON svapa.attachment_plan_uui
 		vap := vaps[v.VolumeUUID]
 		if vap == nil {
 			vap = &status.VolumeAttachmentPlan{
-				DeviceType: storageprovisioning.PlanDeviceType(v.DeviceTypeID),
+				DeviceType: storage.VolumeDeviceType(v.DeviceTypeID),
 			}
 			vaps[v.VolumeUUID] = vap
 		}

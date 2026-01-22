@@ -3616,7 +3616,7 @@ func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *tc.C) {
 		BlockDeviceUUID: &bdUUID,
 	}
 	planInfo := storageprovisioning.VolumeAttachmentPlanProvisionedInfo{
-		DeviceType: storageprovisioning.PlanDeviceTypeISCSI,
+		DeviceType: domainstorage.VolumeDeviceTypeISCSI,
 		DeviceAttributes: map[string]string{
 			"a": "b",
 		},
@@ -3692,7 +3692,7 @@ func (s *provisionerSuite) TestGetVolumeAttachmentPlan(c *tc.C) {
 	}
 	vap := storageprovisioning.VolumeAttachmentPlan{
 		Life:             domainlife.Dying,
-		DeviceType:       storageprovisioning.PlanDeviceTypeISCSI,
+		DeviceType:       domainstorage.VolumeDeviceTypeISCSI,
 		DeviceAttributes: attrs,
 	}
 	svc := s.storageProvisioningService
@@ -3758,7 +3758,7 @@ func (s *provisionerSuite) TestCreateVolumeAttachmentPlan(c *tc.C) {
 	svc.EXPECT().CreateVolumeAttachmentPlan(
 		gomock.Any(),
 		volAttachUUID,
-		storageprovisioning.PlanDeviceTypeISCSI,
+		domainstorage.VolumeDeviceTypeISCSI,
 		attrs,
 	).Return(tc.Must(c, domainstorage.NewVolumeAttachmentPlanUUID), nil)
 

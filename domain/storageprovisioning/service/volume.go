@@ -232,7 +232,7 @@ type VolumeState interface {
 		ctx context.Context,
 		uuid domainstorage.VolumeAttachmentPlanUUID,
 		attachmentUUID domainstorage.VolumeAttachmentUUID,
-		deviceType storageprovisioning.PlanDeviceType,
+		deviceType domainstorage.VolumeDeviceType,
 		attrs map[string]string,
 	) error
 
@@ -1101,7 +1101,7 @@ func (s *Service) GetVolumeAttachmentPlan(
 func (s *Service) CreateVolumeAttachmentPlan(
 	ctx context.Context,
 	attachmentUUID domainstorage.VolumeAttachmentUUID,
-	deviceType storageprovisioning.PlanDeviceType,
+	deviceType domainstorage.VolumeDeviceType,
 	attrs map[string]string,
 ) (domainstorage.VolumeAttachmentPlanUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
