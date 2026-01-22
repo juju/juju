@@ -52,7 +52,7 @@ func TestStoragePoolSuite(t *testing.T) {
 // need to be updated to include new additions or breaking changes have been
 // made.
 func (storagePoolSuite) TestDefaultStoragePoolSkew(c *tc.C) {
-	c.Assert(getDefaultStoragePoolUUIDs(), tc.HasLen, len(knownDefaultProviderPools))
+	c.Assert(GetDefaultStoragePoolUUIDs(), tc.HasLen, len(knownDefaultProviderPools))
 }
 
 // TestDefaultProviderPoolUUIDs tests each of the default storage provider uuids
@@ -97,7 +97,7 @@ func (storagePoolSuite) TestGetProviderDefaultStoragePoolUUIDOrMakeNew(
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(uuid.String(), tc.IsNonZeroUUID)
 
-	defaultUUIDs := maps.Values(getDefaultStoragePoolUUIDs())
+	defaultUUIDs := maps.Values(GetDefaultStoragePoolUUIDs())
 	exists := slices.Contains(slices.Collect(defaultUUIDs), uuid)
 	c.Check(exists, tc.IsFalse)
 }
