@@ -18,6 +18,7 @@ reference/index
 explanation/index
 For contributors <contributor/index>
 releasenotes/index
+support/index
 ```
 
 Juju is an open source orchestration engine for software operators that enables the deployment, integration, and lifecycle management of applications in the cloud using special software operators called ‘charms’.
@@ -79,7 +80,8 @@ Whether you are a CIO or SysAdmin, DevOps engineer, or SRE, Juju helps you take 
 
 Juju is an open source project that warmly welcomes community projects, contributions, suggestions, fixes and constructive feedback.
 
-* [Roadmap & Releases](releasenotes/index.md)
+* [Release notes](releasenotes/index.md)
+* [Support guarantees](support/index.md)
 * [Code of Conduct ](https://ubuntu.com/community/code-of-conduct)
 * [Join our chat](https://matrix.to/#/#charmhub-juju:ubuntu.com)
 * [Join our forum ](https://discourse.charmhub.io/)
