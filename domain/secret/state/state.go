@@ -188,19 +188,6 @@ func (st State) ImportSecretWithRevisions(
 				return errors.Errorf("cannot import secret %q revision %d: %w", uri.ID, rev.Revision, err)
 			}
 		}
-
-		// Re-apply metaParams after revisions are created to ensure LatestRevisionChecksum
-		// and other metadata fields are correctly set if they were supposed to be updated
-		// by the last revision.
-		dbSecret := secretMetadata{
-			ID:      uri.ID,
-			Version: version,
-		}
-		updateSecretMetadataFromParams(metaParams, &dbSecret)
-		if err := st.upsertSecret(ctx, tx, dbSecret); err != nil {
-			return errors.Errorf("updating secret metadata %q after revisions: %w", uri, err)
-		}
-
 		return nil
 	})
 	return errors.Capture(err)
@@ -374,18 +361,8 @@ func (st State) createUserSecret(
 	if secret.Label != nil {
 		label = *secret.Label
 	}
-	dbSecretOwner := secretModelOwner{SecretID: uri.ID, Label: label}
-	if err := st.upsertSecretModelOwner(ctx, tx, dbSecretOwner); err != nil {
-		return errors.Errorf("inserting user secret record for secret %q: %w", uri, err)
-	}
-
-	modelUUID, err := st.getModelUUID(ctx, tx)
-	if err != nil {
-		return errors.Errorf("cannot get current model UUID for secret %q: %w", uri, err)
-	}
-
-	if err := st.grantSecretOwnerManage(ctx, tx, uri, modelUUID.String(), domainsecret.SubjectModel); err != nil {
-		return errors.Errorf("granting owner manage access for secret %q: %w", uri, err)
+	if err := st.setSecretModelOwner(ctx, tx, uri, label); err != nil {
+		return errors.Errorf("setting secret model owner for secret %q: %w", uri, err)
 	}
 	return nil
 }
@@ -538,24 +515,13 @@ func (st State) createCharmApplicationSecret(
 	if secret.Label != nil {
 		label = *secret.Label
 	}
-	dbSecretOwner := secretApplicationOwner{
-		SecretID:        uri.ID,
-		Label:           label,
-		ApplicationUUID: appUUID.String(),
-	}
 
 	if err := st.createSecret(ctx, tx, version, uri, secret); err != nil {
 		return errors.Errorf("inserting secret records for secret %q: %w", uri, err)
 	}
 
-	if err := st.upsertSecretApplicationOwner(ctx, tx, dbSecretOwner); err != nil {
-		return errors.Errorf("inserting application secret record for secret %q: %w", uri, err)
-	}
-
-	if err := st.grantSecretOwnerManage(
-		ctx, tx, uri, dbSecretOwner.ApplicationUUID, domainsecret.SubjectApplication,
-	); err != nil {
-		return errors.Errorf("granting owner manage access for secret %q: %w", uri, err)
+	if err := st.setSecretApplicationOwner(ctx, tx, uri, appUUID, label); err != nil {
+		return errors.Errorf("setting secret application owner for secret %q: %w", uri, err)
 	}
 	return nil
 }
@@ -586,21 +552,12 @@ func (st State) createCharmUnitSecret(
 	if secret.Label != nil {
 		label = *secret.Label
 	}
-	dbSecretOwner := secretUnitOwner{
-		SecretID: uri.ID,
-		Label:    label,
-		UnitUUID: unitUUID.String(),
-	}
 	if err := st.createSecret(ctx, tx, version, uri, secret); err != nil {
 		return errors.Errorf("inserting secret records for secret %q: %w", uri, err)
 	}
 
-	if err := st.upsertSecretUnitOwner(ctx, tx, dbSecretOwner); err != nil {
-		return errors.Errorf("inserting unit secret record for secret %q: %w", uri, err)
-	}
-
-	if err := st.grantSecretOwnerManage(ctx, tx, uri, dbSecretOwner.UnitUUID, domainsecret.SubjectUnit); err != nil {
-		return errors.Errorf("granting owner manage access for secret %q: %w", uri, err)
+	if err := st.setSecretUnitOwner(ctx, tx, uri, unitUUID, label); err != nil {
+		return errors.Errorf("setting secret unit owner for secret %q: %w", uri, err)
 	}
 	return nil
 }
@@ -671,70 +628,22 @@ func (st State) createSecret(
 	ctx context.Context, tx *sqlair.TX, version int, uri *coresecrets.URI,
 	secret domainsecret.UpsertSecretParams,
 ) error {
-	if len(secret.Data) == 0 && secret.ValueRef == nil {
-		return errors.Errorf("cannot create a secret %q without content", uri)
-	}
-	if secret.RevisionID == nil {
-		return errors.Errorf("revision ID must be provided")
-	}
-
-	insertQuery := `
-INSERT INTO secret (id)
-VALUES ($secretID.id)`
-
-	insertStmt, err := st.Prepare(insertQuery, secretID{})
-	if err != nil {
+	if err := st.createSecretMetadata(ctx, tx, version, uri, secret); err != nil {
 		return errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, insertStmt, secretID{ID: uri.ID}).Run()
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	dbSecret := secretMetadata{
-		ID:      uri.ID,
-		Version: version,
-	}
-	updateSecretMetadataFromParams(secret, &dbSecret)
-	if err := st.upsertSecret(ctx, tx, dbSecret); err != nil {
-		return errors.Errorf("creating user secret %q: %w", uri, err)
-	}
-
-	dbRevision := &secretRevision{
-		ID:         *secret.RevisionID,
-		SecretID:   uri.ID,
+	revParams := domainsecret.UpsertRevisionParams{
 		Revision:   1,
-		CreateTime: secret.UpdateTime.UTC(),
-		UpdateTime: secret.UpdateTime.UTC(),
+		RevisionID: secret.RevisionID,
+		Data:       secret.Data,
+		ValueRef:   secret.ValueRef,
+		ExpireTime: secret.ExpireTime,
+		CreateTime: secret.UpdateTime,
+		UpdateTime: secret.UpdateTime,
 	}
 
-	if err := st.upsertSecretRevision(ctx, tx, dbRevision); err != nil {
-		return errors.Errorf("inserting revision for secret %q: %w", uri, err)
-	}
-
-	if secret.ExpireTime != nil {
-		if err := st.upsertSecretRevisionExpiry(ctx, tx, dbRevision.ID, *secret.ExpireTime); err != nil {
-			return errors.Errorf("inserting revision expiry for secret %q: %w", uri, err)
-		}
-	}
-
-	if secret.NextRotateTime != nil {
-		if err := st.upsertSecretNextRotateTime(ctx, tx, uri, *secret.NextRotateTime); err != nil {
-			return errors.Errorf("inserting next rotate time for secret %q: %w", uri, err)
-		}
-	}
-
-	if len(secret.Data) > 0 {
-		if err := st.updateSecretContent(ctx, tx, dbRevision.ID, secret.Data); err != nil {
-			return errors.Errorf("updating content for secret %q: %w", uri, err)
-		}
-	}
-
-	if secret.ValueRef != nil {
-		if err := st.upsertSecretValueRef(ctx, tx, dbRevision.ID, secret.ValueRef); err != nil {
-			return errors.Errorf("updating backend value reference for secret %q: %w", uri, err)
-		}
+	if err := st.createSecretRevision(ctx, tx, uri, 1, revParams); err != nil {
+		return errors.Capture(err)
 	}
 	return nil
 }
