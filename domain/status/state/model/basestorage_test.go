@@ -75,7 +75,7 @@ VALUES (?, ?, ?, 0, 1, false)
 func (s *baseStorageSuite) newFilesystem(c *tc.C) (
 	storage.FilesystemUUID, string,
 ) {
-	fsUUID := tc.Must(c, storage.NewFilesystemUUIDUUID)
+	fsUUID := tc.Must(c, storage.NewFilesystemUUID)
 
 	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
 

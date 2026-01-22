@@ -1400,7 +1400,7 @@ func (s *watcherSuite) newMachineCloudInstance(
 // newMachineFilesystem creates a new filesystem in the model with machine
 // provision scope. Returned is the uuid and filesystem id of the entity.
 func (s *watcherSuite) newMachineFilesystem(c *tc.C) (domainstorage.FilesystemUUID, string) {
-	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
 

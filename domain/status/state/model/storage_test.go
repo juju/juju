@@ -163,7 +163,7 @@ func (s *storageSuite) TestSetFilesystemStatusFilesystemNotFound(c *tc.C) {
 		Since:   ptr(now),
 	}
 
-	uuid := tc.Must(c, storage.NewFilesystemUUIDUUID)
+	uuid := tc.Must(c, storage.NewFilesystemUUID)
 	err := s.modelState.SetFilesystemStatus(c.Context(), uuid, expected)
 	c.Assert(err, tc.ErrorIs, storageerrors.FilesystemNotFound)
 }

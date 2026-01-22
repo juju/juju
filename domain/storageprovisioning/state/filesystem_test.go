@@ -123,7 +123,7 @@ func (s *filesystemSuite) TestGetFilesystemWithoutBackingVolume(c *tc.C) {
 
 func (s *filesystemSuite) TestGetFilesystemNotFoundError(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	notFoundUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
+	notFoundUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	_, err := st.GetFilesystem(c.Context(), notFoundUUID)
 
@@ -727,7 +727,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForIDNetNode(c *tc.C) {
 // for an attachment using a filesystem uuid that does not exist in the model.
 func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForIDNetNodeFSNotFound(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
-	notFoundFS := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
+	notFoundFS := tc.Must(c, domainstorage.NewFilesystemUUID)
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetFilesystemAttachmentUUIDForFilesystemNetNode(
@@ -777,7 +777,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForIDNetNodeUnrelated(c
 // attachment that doesn't exist returns to the caller an error satisfying
 // [storageprovisioningerrors.FilesystemNotFound].
 func (s *filesystemSuite) TestGetFilesystemLifeNotFound(c *tc.C) {
-	uuid := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
+	uuid := tc.Must(c, domainstorage.NewFilesystemUUID)
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetFilesystemLife(c.Context(), uuid)
@@ -894,7 +894,7 @@ func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfoNotFound(c *
 // [storageprovisioningerrors.FilesystemNotFound].
 func (s *filesystemSuite) TestGetFilesystemParamsNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	_, err := st.GetFilesystemParams(c.Context(), fsUUID)
 	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
@@ -933,7 +933,7 @@ func (s *filesystemSuite) TestGetFilesystemParamsVolumeBacked(c *tc.C) {
 
 func (s *filesystemSuite) TestGetFilesystemRemovalParamsNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	_, err := st.GetFilesystemRemovalParams(c.Context(), fsUUID)
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
@@ -1318,7 +1318,7 @@ func (s *filesystemSuite) newMachineFilesystem(c *tc.C) (
 func (s *filesystemSuite) newMachineFilesystemWithSize(
 	c *tc.C, size uint64,
 ) (domainstorage.FilesystemUUID, string) {
-	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 	fsID := strconv.FormatUint(s.nextFilesystemSequenceNumber(c), 10)
 	_, err := s.DB().Exec(`
 INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, size_mib, provision_scope_id)
@@ -1459,7 +1459,7 @@ func (s *filesystemSuite) removeFilesystemWithObliterateValue(
 func (s *filesystemSuite) newModelFilesystem(c *tc.C) (
 	domainstorage.FilesystemUUID, string,
 ) {
-	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
 

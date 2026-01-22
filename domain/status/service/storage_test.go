@@ -76,7 +76,7 @@ func (s *storageServiceSuite) TestSetFilesystemStatus(c *tc.C) {
 
 	now := time.Now()
 
-	filesystemUUID := tc.Must(c, storage.NewFilesystemUUIDUUID)
+	filesystemUUID := tc.Must(c, storage.NewFilesystemUUID)
 	s.modelState.EXPECT().GetFilesystemUUIDByID(gomock.Any(), "666").Return(filesystemUUID, nil)
 	s.modelState.EXPECT().SetFilesystemStatus(gomock.Any(), filesystemUUID, status.StatusInfo[status.StorageFilesystemStatusType]{
 		Status:  status.StorageFilesystemStatusTypeAttached,
@@ -118,7 +118,7 @@ func (s *storageServiceSuite) TestSetFilesystemStatusUUIDNotFound(c *tc.C) {
 func (s *storageServiceSuite) TestSetFilesystemStatusNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	filesystemUUID := tc.Must(c, storage.NewFilesystemUUIDUUID)
+	filesystemUUID := tc.Must(c, storage.NewFilesystemUUID)
 	s.modelState.EXPECT().GetFilesystemUUIDByID(gomock.Any(), "666").Return(filesystemUUID, nil)
 	s.modelState.EXPECT().SetFilesystemStatus(gomock.Any(), filesystemUUID, status.StatusInfo[status.StorageFilesystemStatusType]{
 		Status: status.StorageFilesystemStatusTypeAttached,
@@ -358,7 +358,7 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatusesMultiple(c *tc.C) {
 func (s *storageServiceSuite) TestGetFilesystemStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	fsUUID := tc.Must(c, storage.NewFilesystemUUIDUUID)
+	fsUUID := tc.Must(c, storage.NewFilesystemUUID)
 	fs := []status.Filesystem{
 		{
 			UUID: fsUUID,
@@ -422,8 +422,8 @@ func (s *storageServiceSuite) TestGetFilesystemStatuses(c *tc.C) {
 func (s *storageServiceSuite) TestGetFilesystemStatusesMultiple(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	fsUUID0 := tc.Must(c, storage.NewFilesystemUUIDUUID)
-	fsUUID1 := tc.Must(c, storage.NewFilesystemUUIDUUID)
+	fsUUID0 := tc.Must(c, storage.NewFilesystemUUID)
+	fsUUID1 := tc.Must(c, storage.NewFilesystemUUID)
 	fs := []status.Filesystem{
 		{
 			UUID: fsUUID0,

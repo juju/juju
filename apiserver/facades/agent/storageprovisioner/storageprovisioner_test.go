@@ -1320,7 +1320,7 @@ func (s *provisionerSuite) TestFilesystemParamsNotFoundWithUUID(c *tc.C) {
 	s.disableAuthz(c)
 
 	tag := names.NewFilesystemTag("123")
-	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	s.storageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
 		gomock.Any(),
@@ -1346,7 +1346,7 @@ func (s *provisionerSuite) TestFilesystemParams(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
 	tag := names.NewFilesystemTag("123")
-	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	s.storageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
 		gomock.Any(),
@@ -1428,7 +1428,7 @@ func (s *provisionerSuite) TestRemoveFilesystemParamsNotFoundWithUUID(c *tc.C) {
 	s.disableAuthz(c)
 
 	tag := names.NewFilesystemTag("123")
-	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	s.storageProvisioningService.EXPECT().GetFilesystemUUIDForID(
 		gomock.Any(), tag.Id(),
@@ -1457,7 +1457,7 @@ func (s *provisionerSuite) TestRemoveFilesystemParamsNotDead(c *tc.C) {
 	s.disableAuthz(c)
 
 	tag := names.NewFilesystemTag("123")
-	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	s.storageProvisioningService.EXPECT().GetFilesystemUUIDForID(
 		gomock.Any(), tag.Id(),
@@ -1484,7 +1484,7 @@ func (s *provisionerSuite) TestRemoveFilesystemParams(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
 	tag := names.NewFilesystemTag("123")
-	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	s.storageProvisioningService.EXPECT().CheckFilesystemForIDExists(
 		gomock.Any(), tag.Id(),
@@ -1518,7 +1518,7 @@ func (s *provisionerSuite) TestRemoveFilesystemParamsWithObliterate(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
 	tag := names.NewFilesystemTag("123")
-	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	s.storageProvisioningService.EXPECT().CheckFilesystemForIDExists(
 		gomock.Any(), tag.Id(),
@@ -2699,7 +2699,7 @@ func (s *provisionerSuite) TestLifeForFilesystem(c *tc.C) {
 	defer ctrl.Finish()
 
 	tag := names.NewFilesystemTag("123")
-	filesystemUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
+	filesystemUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	s.storageProvisioningService.EXPECT().CheckFilesystemForIDExists(
 		gomock.Any(), tag.Id(),
@@ -2757,7 +2757,7 @@ func (s *provisionerSuite) TestLifeForFilesystemWithFilesystemNotFound(c *tc.C) 
 	s.disableAuthz(c)
 
 	tag := names.NewFilesystemTag("123")
-	filesystemUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
+	filesystemUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	s.storageProvisioningService.EXPECT().GetFilesystemUUIDForID(
 		gomock.Any(), tag.Id(),

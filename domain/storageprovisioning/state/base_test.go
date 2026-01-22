@@ -179,7 +179,7 @@ VALUES (?, ?, ?, 0, 1)
 func (s *baseSuite) newModelFilesystem(c *tc.C) (
 	domainstorage.FilesystemUUID, string,
 ) {
-	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
 
