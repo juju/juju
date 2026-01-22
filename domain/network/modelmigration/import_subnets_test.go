@@ -189,3 +189,27 @@ func (s *importSubnetsSuite) TestImportSpaces(c *tc.C) {
 	err := op.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
+
+func (s *importSubnetsSuite) TestImportCAASSubnet(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{
+		Type: description.CAAS,
+	})
+	model.AddSubnet(description.SubnetArgs{
+		CIDR: network.FallbackSubnetInfo[0].CIDR,
+	})
+	model.AddSubnet(description.SubnetArgs{
+		CIDR: network.FallbackSubnetInfo[1].CIDR,
+	})
+	s.importService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{
+		CIDR: network.FallbackSubnetInfo[0].CIDR,
+	})
+	s.importService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{
+		CIDR: network.FallbackSubnetInfo[1].CIDR,
+	})
+
+	op := s.newImportOperation(c)
+	err := op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}

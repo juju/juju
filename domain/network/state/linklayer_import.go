@@ -230,7 +230,8 @@ func transformImportData(
 	return llds, parents, providers, nil
 }
 
-func transformAddressesFromImportData(input []internal.ImportLinkLayerDevice,
+func transformAddressesFromImportData(
+	input []internal.ImportLinkLayerDevice,
 	typeMap map[network.AddressType]int,
 	configTypeMap map[network.AddressConfigType]int,
 	originTypeMap map[network.Origin]int,
@@ -241,7 +242,6 @@ func transformAddressesFromImportData(input []internal.ImportLinkLayerDevice,
 
 	for _, lld := range input {
 		for _, address := range lld.Addresses {
-
 			typeID, ok := typeMap[address.Type]
 			if !ok {
 				return nil, nil, errors.Errorf("unknown address type %q", address.Type)
