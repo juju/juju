@@ -19,7 +19,7 @@ func TestVolumeAttachmentPlanUUIDSuite(t *testing.T) {
 	tc.Run(t, volumeAttachmentPlanUUIDSuite{})
 }
 
-// TestNew tests that constructing a new VolumeAttachmentPlanUUID suceeds with
+// TestNew tests that constructing a new VolumeAttachmentPlanUUID succeeds with
 // no errors and the end result is valid.
 func (volumeAttachmentPlanUUIDSuite) TestNew(c *tc.C) {
 	u, err := NewVolumeAttachmentPlanUUID()
