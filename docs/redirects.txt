@@ -185,8 +185,8 @@ user/reference/juju-cli/list-of-juju-cli-commands/add-ssh-key reference/juju-cli
 user/reference/juju-cli/list-of-juju-cli-commands/add-storage reference/juju-cli/list-of-juju-cli-commands/add-storage
 user/reference/juju-cli/list-of-juju-cli-commands/add-unit reference/juju-cli/list-of-juju-cli-commands/add-unit
 user/reference/juju-cli/list-of-juju-cli-commands/add-user reference/juju-cli/list-of-juju-cli-commands/add-user
-user/reference/juju-cli/list-of-juju-cli-commands/agree reference/juju-cli/list-of-juju-cli-commands/agree
-user/reference/juju-cli/list-of-juju-cli-commands/agreements reference/juju-cli/list-of-juju-cli-commands/agreements
+user/reference/juju-cli/list-of-juju-cli-commands/agree reference/juju-cli/list-of-juju-cli-commands
+user/reference/juju-cli/list-of-juju-cli-commands/agreements reference/juju-cli/list-of-juju-cli-commands
 user/reference/juju-cli/list-of-juju-cli-commands/attach-resource reference/juju-cli/list-of-juju-cli-commands/attach-resource
 user/reference/juju-cli/list-of-juju-cli-commands/attach-storage reference/juju-cli/list-of-juju-cli-commands/attach-storage
 user/reference/juju-cli/list-of-juju-cli-commands/autoload-credentials reference/juju-cli/list-of-juju-cli-commands/autoload-credentials
