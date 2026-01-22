@@ -11,4 +11,4 @@
 
 -- Secret revisions have update time too. A revision is updated when one of its fields is updated, even
 -- if the revision content is not changed.
- ALTER TABLE secret_revision ADD COLUMN update_time DATETIME; -- NOT NULL should be added on merge
+ALTER TABLE secret_revision ADD COLUMN update_time DATETIME; -- NOT NULL should be added on merge
