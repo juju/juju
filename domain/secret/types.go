@@ -70,6 +70,18 @@ func (u *UpsertSecretParams) HasUpdate() bool {
 		u.AutoPrune != nil
 }
 
+// UpsertRevisionParams holds information about a secret revision to be inserted.
+type UpsertRevisionParams struct {
+	Revision   int
+	RevisionID *string
+	CreateTime time.Time
+	UpdateTime time.Time
+	ExpireTime *time.Time
+	ValueRef   *secrets.ValueRef
+	Data       secrets.SecretData
+	Checksum   string
+}
+
 // GrantParams are used when granting access to a secret.
 type GrantParams struct {
 	ScopeTypeID GrantScopeType
@@ -123,12 +135,6 @@ type RotationExpiryInfo struct {
 	LatestExpireTime *time.Time
 	// LatestRevision is the most recent secret revision.
 	LatestRevision int
-}
-
-// ImportRevision holds information about a secret revision to be imported.
-type ImportRevision struct {
-	Revision int
-	Params   UpsertSecretParams
 }
 
 // RotationInfo holds information about the rotation of a secret.

@@ -51,7 +51,7 @@ type State interface {
 	ImportSecretWithRevisions(ctx context.Context, version int, uri *secrets.URI,
 		owner domainsecret.Owner,
 		metaParams domainsecret.UpsertSecretParams,
-		revisions []domainsecret.ImportRevision) error
+		revisions []domainsecret.UpsertRevisionParams) error
 	DeleteSecret(ctx context.Context, uri *secrets.URI, revs []int) error
 	DeleteObsoleteUserSecretRevisions(ctx context.Context) ([]string, error)
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)

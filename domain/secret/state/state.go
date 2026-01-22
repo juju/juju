@@ -152,7 +152,7 @@ func (st State) ImportSecretWithRevisions(
 	uri *coresecrets.URI,
 	owner domainsecret.Owner,
 	metaParams domainsecret.UpsertSecretParams,
-	revisions []domainsecret.ImportRevision) error {
+	revisions []domainsecret.UpsertRevisionParams) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -184,7 +184,7 @@ func (st State) ImportSecretWithRevisions(
 		}
 
 		for _, rev := range revisions {
-			if err := st.createSecretRevision(ctx, tx, uri, rev.Revision, rev.Params); err != nil {
+			if err := st.createSecretRevision(ctx, tx, uri, rev.Revision, rev); err != nil {
 				return errors.Errorf("cannot import secret %q revision %d: %w", uri.ID, rev.Revision, err)
 			}
 		}
@@ -424,7 +424,8 @@ VALUES ($secretID.id)`
 	return nil
 }
 
-func (st State) createSecretRevision(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, revision int, secret domainsecret.UpsertSecretParams) error {
+func (st State) createSecretRevision(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, revision int,
+	secret domainsecret.UpsertRevisionParams) error {
 	if len(secret.Data) == 0 && secret.ValueRef == nil {
 		return errors.Errorf("cannot create a secret revision %q/%d without content", uri, revision)
 	}

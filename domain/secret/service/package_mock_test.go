@@ -1708,7 +1708,7 @@ func (c *MockStateGrantAccessCall) DoAndReturn(f func(context.Context, *secrets.
 }
 
 // ImportSecretWithRevision mocks base method.
-func (m *MockState) ImportSecretWithRevisions(arg0 context.Context, arg1 int, arg2 *secrets.URI, arg3 secret.Owner, arg4 secret.UpsertSecretParams, arg5 []secret.ImportRevision) error {
+func (m *MockState) ImportSecretWithRevisions(arg0 context.Context, arg1 int, arg2 *secrets.URI, arg3 secret.Owner, arg4 secret.UpsertSecretParams, arg5 []secret.UpsertRevisionParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ImportSecretWithRevisions", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(error)
@@ -1734,13 +1734,13 @@ func (c *MockStateImportSecretWithRevisionCall) Return(arg0 error) *MockStateImp
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateImportSecretWithRevisionCall) Do(f func(context.Context, int, *secrets.URI, secret.Owner, secret.UpsertSecretParams, []secret.ImportRevision) error) *MockStateImportSecretWithRevisionCall {
+func (c *MockStateImportSecretWithRevisionCall) Do(f func(context.Context, int, *secrets.URI, secret.Owner, secret.UpsertSecretParams, []secret.UpsertRevisionParams) error) *MockStateImportSecretWithRevisionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateImportSecretWithRevisionCall) DoAndReturn(f func(context.Context, int, *secrets.URI, secret.Owner, secret.UpsertSecretParams, []secret.ImportRevision) error) *MockStateImportSecretWithRevisionCall {
+func (c *MockStateImportSecretWithRevisionCall) DoAndReturn(f func(context.Context, int, *secrets.URI, secret.Owner, secret.UpsertSecretParams, []secret.UpsertRevisionParams) error) *MockStateImportSecretWithRevisionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

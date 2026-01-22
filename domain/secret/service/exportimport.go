@@ -246,7 +246,7 @@ func (s *SecretService) importSecretWithRevisions(
 	}
 
 	// Create secret revisions and backend references.
-	importRevisions := make([]secret.ImportRevision, len(revisions))
+	importRevisions := make([]secret.UpsertRevisionParams, len(revisions))
 	var rollbackReferences []func() error
 	defer func() {
 		if err != nil {
@@ -288,9 +288,15 @@ func (s *SecretService) importSecretWithRevisions(
 		}
 		rollbackReferences = append(rollbackReferences, rollBack)
 
-		importRevisions[i] = secret.ImportRevision{
-			Revision: rev.Revision,
-			Params:   params,
+		importRevisions[i] = secret.UpsertRevisionParams{
+			Revision:   rev.Revision,
+			RevisionID: params.RevisionID,
+			CreateTime: params.CreateTime,
+			UpdateTime: params.UpdateTime,
+			ExpireTime: params.ExpireTime,
+			ValueRef:   params.ValueRef,
+			Data:       params.Data,
+			Checksum:   params.Checksum,
 		}
 	}
 

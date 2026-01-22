@@ -237,29 +237,25 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 		RotatePolicy:   ptr(domainsecret.RotateHourly),
 		Checksum:       "checksum-1234",
 		ExpireTime:     ptr(expireTime),
-	}, []domainsecret.ImportRevision{
+	}, []domainsecret.UpsertRevisionParams{
 		{
-			Revision: 1,
-			Params: domainsecret.UpsertSecretParams{
-				CreateTime: revisions[0][0].CreateTime,
-				UpdateTime: revisions[0][0].UpdateTime,
-				RevisionID: ptr(s.fakeUUID.String()),
-				Data:       map[string]string{"foo": "bar"},
-			},
+			Revision:   1,
+			CreateTime: revisions[0][0].CreateTime,
+			UpdateTime: revisions[0][0].UpdateTime,
+			RevisionID: ptr(s.fakeUUID.String()),
+			Data:       map[string]string{"foo": "bar"},
 		},
 		{
-			Revision: 2,
-			Params: domainsecret.UpsertSecretParams{
-				CreateTime: revisions[0][1].CreateTime,
-				UpdateTime: revisions[0][1].UpdateTime,
-				RevisionID: ptr(s.fakeUUID.String()),
-				ValueRef: &coresecrets.ValueRef{
-					BackendID:  "backend-id",
-					RevisionID: "revision-id",
-				},
-				Checksum:   "checksum-1234",
-				ExpireTime: ptr(expireTime),
+			Revision:   2,
+			CreateTime: revisions[0][1].CreateTime,
+			UpdateTime: revisions[0][1].UpdateTime,
+			RevisionID: ptr(s.fakeUUID.String()),
+			ValueRef: &coresecrets.ValueRef{
+				BackendID:  "backend-id",
+				RevisionID: "revision-id",
 			},
+			Checksum:   "checksum-1234",
+			ExpireTime: ptr(expireTime),
 		},
 	}).Return(nil)
 
@@ -306,16 +302,14 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 		Description: ptr(secrets[1].Description),
 		AutoPrune:   ptr(secrets[1].AutoPrune),
 		Checksum:    "checksum-1234",
-	}, []domainsecret.ImportRevision{
+	}, []domainsecret.UpsertRevisionParams{
 		{
-			Revision: 5,
-			Params: domainsecret.UpsertSecretParams{
-				CreateTime: revisions[1][0].CreateTime,
-				UpdateTime: revisions[1][0].UpdateTime,
-				RevisionID: ptr(s.fakeUUID.String()),
-				Data:       map[string]string{"foo": "baz"},
-				Checksum:   "checksum-1234",
-			},
+			Revision:   5,
+			CreateTime: revisions[1][0].CreateTime,
+			UpdateTime: revisions[1][0].UpdateTime,
+			RevisionID: ptr(s.fakeUUID.String()),
+			Data:       map[string]string{"foo": "baz"},
+			Checksum:   "checksum-1234",
 		},
 	}).Return(nil)
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(
