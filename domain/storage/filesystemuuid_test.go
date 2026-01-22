@@ -18,8 +18,8 @@ func TestFilesystemUUIDSuite(t *testing.T) {
 	tc.Run(t, filesystemUUIDSuite{})
 }
 
-// TestNew tests that constructing a new filesystem uuid suceeds with no errors and
-// the end result is valid.
+// TestNew tests that constructing a new filesystem uuid succeeds with no errors
+// and the end result is valid.
 func (filesystemUUIDSuite) TestNew(c *tc.C) {
 	u, err := NewFilesystemUUID()
 	c.Check(err, tc.ErrorIsNil)
