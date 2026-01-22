@@ -5,6 +5,7 @@ package storage
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -29,7 +30,7 @@ import (
 )
 
 // BlockChecker defines the block-checking functionality required by
-// the application facade. This is implemented by
+// the storage facade. This is implemented by
 // apiserver/common.BlockChecker.
 type BlockChecker interface {
 	ChangeAllowed(context.Context) error
@@ -107,6 +108,9 @@ type StorageService interface {
 		ctx context.Context,
 		storageID string,
 	) (domainstorage.StorageInstanceUUID, error)
+
+	// GetStoragePoolUUID returns the UUID of the storage pool for the specified name.
+	GetStoragePoolUUID(context.Context, string) (domainstorage.StoragePoolUUID, error)
 
 	// ListStoragePools returns all the storage pools.
 	ListStoragePools(ctx context.Context) ([]domainstorage.StoragePool, error)
@@ -405,25 +409,63 @@ func (a *StorageAPI) addOneStorage(ctx context.Context, one params.StorageAddPar
 	unitUUID, err := a.applicationService.GetUnitUUID(ctx, unitName)
 	switch {
 	case errors.Is(err, coreunit.InvalidUnitName):
-		return nil, errors.Errorf("invalid unit name %q", unitName).Add(
-			coreerrors.NotValid,
-		)
+		return nil, errors.Errorf(
+			"invalid unit name %q", unitName).Add(coreerrors.NotValid)
 	case errors.Is(err, applicationerrors.UnitNotFound):
-		return nil, errors.Errorf("unit %q does not exist", unitName).Add(coreerrors.NotFound)
+		return nil, errors.Errorf(
+			"unit %q does not exist", unitName).Add(coreerrors.NotFound)
 	case err != nil:
 		return nil, errors.Errorf(
 			"getting unit uuid for unit name %q: %w", unitName, err,
 		)
 	}
 
+	var storagePoolUUID *domainstorage.StoragePoolUUID
+	if one.Directives.Pool != "" {
+		poolUUID, err := a.storageService.GetStoragePoolUUID(
+			ctx,
+			one.Directives.Pool,
+		)
+		switch {
+		case errors.Is(err, storageerrors.InvalidPoolNameError):
+			return nil, errors.Errorf(
+				"invalid storage pool name %q", one.Directives.Pool).Add(coreerrors.NotValid)
+		case errors.Is(err, storageerrors.PoolNotFoundError):
+			return nil, errors.Errorf(
+				"storage pool %q does not exist", one.Directives.Pool).Add(coreerrors.NotFound)
+		case err != nil:
+			return nil, errors.Errorf(
+				"getting storage pool uuid for %q: %w", one.Directives.Pool, err,
+			)
+		}
+		storagePoolUUID = &poolUUID
+	}
+
+	var storageCount *uint32
+	if one.Directives.Count != nil {
+		if *one.Directives.Count > math.MaxUint32 {
+			return nil, errors.Errorf(
+				"storage directive %s count %d too large", one.StorageName, *one.Directives.Count,
+			).Add(coreerrors.NotValid)
+		}
+		count := uint32(*one.Directives.Count)
+		storageCount = &count
+	}
+
 	result, err := a.applicationService.AddStorageForUnit(
 		ctx, corestorage.Name(one.StorageName), unitUUID, storage.AddUnitStorageArgs{
-			StorageName: corestorage.Name(one.StorageName),
-			SizeMiB:     one.Directives.SizeMiB,
-			Count:       one.Directives.Count,
+			StoragePoolUUID: storagePoolUUID,
+			SizeMiB:         one.Directives.SizeMiB,
+			Count:           storageCount,
 		},
 	)
 	switch {
+	case errors.Is(err, applicationerrors.UnitNotFound):
+		return nil, errors.Errorf(
+			"unit %q does not exist", unitName).Add(coreerrors.NotFound)
+	case errors.Is(err, storageerrors.PoolNotFoundError):
+		return nil, errors.Errorf(
+			"storage pool %q does not exist", one.Directives.Pool).Add(coreerrors.NotFound)
 	case errors.Is(err, corestorage.InvalidStorageName):
 		return nil, errors.Errorf("invalid storage name %q", one.StorageName).Add(
 			coreerrors.NotValid,

@@ -4,17 +4,17 @@
 package storage
 
 import (
-	corestorage "github.com/juju/juju/core/storage"
+	"github.com/juju/juju/domain/storage"
 )
 
 // AddUnitStorageArgs defines additional storage to add to a unit.
 type AddUnitStorageArgs struct {
-	// StorageName is the charm storage name.
-	StorageName corestorage.Name
+	// StoragePoolUUID is the storage pool UUID.
+	StoragePoolUUID *storage.StoragePoolUUID
 
 	// SizeMiB is the size of the storage instance, in MiB.
 	SizeMiB *uint64
 
 	// Count is the number of storage instances.
-	Count *uint64
+	Count *uint32
 }

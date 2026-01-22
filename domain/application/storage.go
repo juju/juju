@@ -61,15 +61,3 @@ type ApplicationStorageInfo struct {
 	// Count is the number of storage instances.
 	Count uint64
 }
-
-// UnitStorageInfo defines additional storage to add to a unit.
-type UnitStorageInfo struct {
-	// StorageName is the charm storage name.
-	StorageName string
-
-	// SizeMiB is the size of the storage instance, in MiB.
-	SizeMiB uint64
-
-	// Count is the number of storage instances.
-	Count uint64
-}

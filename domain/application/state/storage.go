@@ -910,7 +910,7 @@ AND si.uuid != $storageCount.uuid
 }
 
 func (st *State) AddStorageForUnit(
-	ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, storageInfo application.UnitStorageInfo,
+	ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, storageInfo internal.UnitStorageInfo,
 ) ([]corestorage.ID, error) {
 	//TODO implement me
 	return nil, errors.New("not implemented")
