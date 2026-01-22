@@ -160,7 +160,7 @@ func (st State) ImportSecretWithRevisions(
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.createSecretMetadata(ctx, tx, version, uri, metaParams); err != nil {
-			return errors.Errorf("cannot import secret metadata %q: %w", uri.ID, err)
+			return errors.Errorf("importing secret metadata: %w", err)
 		}
 
 		// Handle ownership.
@@ -171,21 +171,21 @@ func (st State) ImportSecretWithRevisions(
 		switch owner.Kind {
 		case coresecrets.ModelOwner:
 			if err := st.setSecretModelOwner(ctx, tx, uri, label); err != nil {
-				return errors.Errorf("setting model owner for secret %q: %w", uri.ID, err)
+				return errors.Capture(err)
 			}
 		case coresecrets.ApplicationOwner:
 			if err := st.setSecretApplicationOwner(ctx, tx, uri, coreapplication.UUID(owner.UUID), label); err != nil {
-				return errors.Errorf("setting application owner for secret %q: %w", uri.ID, err)
+				return errors.Capture(err)
 			}
 		case coresecrets.UnitOwner:
 			if err := st.setSecretUnitOwner(ctx, tx, uri, coreunit.UUID(owner.UUID), label); err != nil {
-				return errors.Errorf("setting unit owner for secret %q: %w", uri.ID, err)
+				return errors.Capture(err)
 			}
 		}
 
 		for _, rev := range revisions {
 			if err := st.createSecretRevision(ctx, tx, uri, rev.Revision, rev); err != nil {
-				return errors.Errorf("cannot import secret %q revision %d: %w", uri.ID, rev.Revision, err)
+				return errors.Errorf("importing revision %d: %w", rev.Revision, err)
 			}
 		}
 		return nil
@@ -354,7 +354,7 @@ func (st State) createUserSecret(
 	ctx context.Context, tx *sqlair.TX, version int, uri *coresecrets.URI, secret domainsecret.UpsertSecretParams,
 ) error {
 	if err := st.createSecret(ctx, tx, version, uri, secret); err != nil {
-		return errors.Errorf("inserting secret records for secret %q: %w", uri, err)
+		return errors.Errorf("inserting secret records: %w", err)
 	}
 
 	label := ""
@@ -362,7 +362,7 @@ func (st State) createUserSecret(
 		label = *secret.Label
 	}
 	if err := st.setSecretModelOwner(ctx, tx, uri, label); err != nil {
-		return errors.Errorf("setting secret model owner for secret %q: %w", uri, err)
+		return errors.Errorf("setting secret model owner: %w", err)
 	}
 	return nil
 }
@@ -390,12 +390,12 @@ VALUES ($secretID.id)`
 	}
 	updateSecretMetadataFromParams(secret, &dbSecret)
 	if err := st.upsertSecret(ctx, tx, dbSecret); err != nil {
-		return errors.Errorf("creating secret metadata %q: %w", uri, err)
+		return errors.Errorf("creating secret metadata: %w", err)
 	}
 
 	if secret.NextRotateTime != nil {
 		if err := st.upsertSecretNextRotateTime(ctx, tx, uri, *secret.NextRotateTime); err != nil {
-			return errors.Errorf("inserting next rotate time for secret %q: %w", uri, err)
+			return errors.Errorf("inserting next rotate time: %w", err)
 		}
 	}
 	return nil
@@ -404,7 +404,7 @@ VALUES ($secretID.id)`
 func (st State) createSecretRevision(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, revision int,
 	secret domainsecret.UpsertRevisionParams) error {
 	if len(secret.Data) == 0 && secret.ValueRef == nil {
-		return errors.Errorf("cannot create a secret revision %q/%d without content", uri, revision)
+		return errors.Errorf("cannot create a secret revision without content")
 	}
 	if secret.RevisionID == nil {
 		return errors.Errorf("revision ID must be provided")
@@ -419,24 +419,24 @@ func (st State) createSecretRevision(ctx context.Context, tx *sqlair.TX, uri *co
 	}
 
 	if err := st.upsertSecretRevision(ctx, tx, dbRevision); err != nil {
-		return errors.Errorf("inserting revision for secret %q: %w", uri, err)
+		return errors.Errorf("inserting revision: %w", err)
 	}
 
 	if secret.ExpireTime != nil {
 		if err := st.upsertSecretRevisionExpiry(ctx, tx, dbRevision.ID, *secret.ExpireTime); err != nil {
-			return errors.Errorf("inserting revision expiry for secret %q: %w", uri, err)
+			return errors.Errorf("inserting revision expiry: %w", err)
 		}
 	}
 
 	if len(secret.Data) > 0 {
 		if err := st.updateSecretContent(ctx, tx, dbRevision.ID, secret.Data); err != nil {
-			return errors.Errorf("updating content for secret %q: %w", uri, err)
+			return errors.Errorf("updating content: %w", err)
 		}
 	}
 
 	if secret.ValueRef != nil {
 		if err := st.upsertSecretValueRef(ctx, tx, dbRevision.ID, secret.ValueRef); err != nil {
-			return errors.Errorf("updating backend value reference for secret %q: %w", uri, err)
+			return errors.Errorf("updating backend value reference: %w", err)
 		}
 	}
 	return nil
@@ -445,16 +445,16 @@ func (st State) createSecretRevision(ctx context.Context, tx *sqlair.TX, uri *co
 func (st State) setSecretModelOwner(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, label string) error {
 	dbSecretOwner := secretModelOwner{SecretID: uri.ID, Label: label}
 	if err := st.upsertSecretModelOwner(ctx, tx, dbSecretOwner); err != nil {
-		return errors.Errorf("inserting user secret record for secret %q: %w", uri, err)
+		return errors.Errorf("inserting user secret record: %w", err)
 	}
 
 	modelUUID, err := st.getModelUUID(ctx, tx)
 	if err != nil {
-		return errors.Errorf("cannot get current model UUID for secret %q: %w", uri, err)
+		return errors.Errorf("getting model UUID: %w", err)
 	}
 
 	if err := st.grantSecretOwnerManage(ctx, tx, uri, modelUUID.String(), domainsecret.SubjectModel); err != nil {
-		return errors.Errorf("granting owner manage access for secret %q: %w", uri, err)
+		return errors.Errorf("granting owner manage access to model %q: %w", modelUUID.String(), err)
 	}
 	return nil
 }
@@ -466,11 +466,11 @@ func (st State) setSecretApplicationOwner(ctx context.Context, tx *sqlair.TX, ur
 		Label:           label,
 	}
 	if err := st.upsertSecretApplicationOwner(ctx, tx, dbSecretOwner); err != nil {
-		return errors.Errorf("inserting application secret owner record for secret %q: %w", uri, err)
+		return errors.Errorf("inserting application secret owner record: %w", err)
 	}
 
 	if err := st.grantSecretOwnerManage(ctx, tx, uri, appUUID.String(), domainsecret.SubjectApplication); err != nil {
-		return errors.Errorf("granting owner manage access for secret %q: %w", uri, err)
+		return errors.Errorf("granting owner manage access: %w", err)
 	}
 	return nil
 }
@@ -482,11 +482,11 @@ func (st State) setSecretUnitOwner(ctx context.Context, tx *sqlair.TX, uri *core
 		Label:    label,
 	}
 	if err := st.upsertSecretUnitOwner(ctx, tx, dbSecretOwner); err != nil {
-		return errors.Errorf("inserting unit secret owner record for secret %q: %w", uri, err)
+		return errors.Errorf("inserting unit secret owner record: %w", err)
 	}
 
 	if err := st.grantSecretOwnerManage(ctx, tx, uri, unitUUID.String(), domainsecret.SubjectUnit); err != nil {
-		return errors.Errorf("granting owner manage access for secret %q: %w", uri, err)
+		return errors.Errorf("granting owner manage access: %w", err)
 	}
 	return nil
 }
@@ -517,11 +517,11 @@ func (st State) createCharmApplicationSecret(
 	}
 
 	if err := st.createSecret(ctx, tx, version, uri, secret); err != nil {
-		return errors.Errorf("inserting secret records for secret %q: %w", uri, err)
+		return errors.Errorf("inserting secret records: %w", err)
 	}
 
 	if err := st.setSecretApplicationOwner(ctx, tx, uri, appUUID, label); err != nil {
-		return errors.Errorf("setting secret application owner for secret %q: %w", uri, err)
+		return errors.Errorf("setting secret application owner: %w", err)
 	}
 	return nil
 }
@@ -553,11 +553,11 @@ func (st State) createCharmUnitSecret(
 		label = *secret.Label
 	}
 	if err := st.createSecret(ctx, tx, version, uri, secret); err != nil {
-		return errors.Errorf("inserting secret records for secret %q: %w", uri, err)
+		return errors.Errorf("inserting secret records: %w", err)
 	}
 
 	if err := st.setSecretUnitOwner(ctx, tx, uri, unitUUID, label); err != nil {
-		return errors.Errorf("setting secret unit owner for secret %q: %w", uri, err)
+		return errors.Errorf("setting secret unit owner: %w", err)
 	}
 	return nil
 }
