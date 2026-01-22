@@ -19,7 +19,7 @@ func TestStorageAttachmentUUIDSuite(t *testing.T) {
 	tc.Run(t, storageAttachmentUUIDSuite{})
 }
 
-// TestNew tests that constructing a new [StorageAttachmentUUID] suceeds with no
+// TestNew tests that constructing a new [StorageAttachmentUUID] succeeds with no
 // errors and the end result is valid.
 func (storageAttachmentUUIDSuite) TestNew(c *tc.C) {
 	u, err := NewStorageAttachmentUUID()
