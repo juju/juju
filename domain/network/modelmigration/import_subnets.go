@@ -26,8 +26,13 @@ func RegisterImportSubnets(coordinator Coordinator, logger logger.Logger) {
 // SubnetsImportService provides a subset of the network domain service
 // methods needed for spaces and subnets import.
 type SubnetsImportService interface {
+	// AddSpace adds a new space to the model.
 	AddSpace(ctx context.Context, space corenetwork.SpaceInfo) (corenetwork.SpaceUUID, error)
+
+	// Space retrieves the space information for the given UUID.
 	Space(ctx context.Context, uuid corenetwork.SpaceUUID) (*corenetwork.SpaceInfo, error)
+
+	// AddSubnet adds a new subnet to the model.
 	AddSubnet(ctx context.Context, args corenetwork.SubnetInfo) (corenetwork.Id, error)
 }
 
