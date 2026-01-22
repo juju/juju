@@ -839,7 +839,6 @@ WHERE  storage_id = $storageInstance.storage_id
 // - [applicationerrors.StorageNotAlive]: when the storage is not alive.
 // - [applicationerrors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 // - [applicationerrors.InvalidStorageCount]: when the allowed attachment count would be violated.
-// - [applicationerrors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
 func (st *State) AttachStorage(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -910,7 +909,9 @@ AND si.uuid != $storageCount.uuid
 	return nil
 }
 
-func (st *State) AddStorageForUnit(ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, directive corestorage.Directive) ([]corestorage.ID, error) {
+func (st *State) AddStorageForUnit(
+	ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, storageInfo application.UnitStorageInfo,
+) ([]corestorage.ID, error) {
 	//TODO implement me
 	return nil, errors.New("not implemented")
 }

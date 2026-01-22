@@ -59,7 +59,6 @@ type State interface {
 	// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
 	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 	// - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
-	// - [github.com/juju/juju/domain/application/errors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
 	AttachStorage(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error
 
 	// AddStorageForUnit adds storage instances to given unit as specified.
@@ -74,9 +73,8 @@ type State interface {
 	// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
 	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 	// - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
-	// - [github.com/juju/juju/domain/application/errors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
 	AddStorageForUnit(
-		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, directive corestorage.Directive,
+		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, storageInfo application.UnitStorageInfo,
 	) ([]corestorage.ID, error)
 
 	// DetachStorageForUnit detaches the specified storage from the specified unit.
@@ -185,7 +183,6 @@ func NewService(st State, storagePoolProvider StoragePoolProvider, logger logger
 // - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
 // - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
-// - [github.com/juju/juju/domain/application/errors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
 func (s *Service) AttachStorage(
 	ctx context.Context, storageID corestorage.ID, unitName coreunit.Name,
 ) error {
@@ -196,7 +193,6 @@ func (s *Service) AttachStorage(
 // AddStorageForUnit adds storage instances to the given unit.
 // Missing storage constraints are populated based on model defaults.
 // The following error types can be expected:
-// - [github.com/juju/juju/core/unit.InvalidUnitName]: when the unit name is not valid.
 // - [github.com/juju/juju/core/storage.InvalidStorageName]: when the storage name is not valid.
 // - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
 // - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
@@ -204,9 +200,8 @@ func (s *Service) AttachStorage(
 // - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
 // - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
-// - [github.com/juju/juju/domain/application/errors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
 func (s *Service) AddStorageForUnit(
-	ctx context.Context, storageName corestorage.Name, unitName coreunit.Name, directive corestorage.Directive,
+	ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, arg AddUnitStorageArgs,
 ) ([]corestorage.ID, error) {
 	// TODO (tlm): re-implement in DQlite
 	return nil, errors.New("not implemented")

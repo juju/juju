@@ -7,6 +7,7 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/internal/errors"
@@ -47,6 +48,7 @@ func newStorageAPI(ctx facade.ModelContext) (*StorageAPI, error) {
 		ctx.ModelUUID(),
 		authorizer,
 		ctx.Logger().Child("storage"),
+		common.NewBlockChecker(domainServices.BlockCommand()),
 		domainServices.Application(),
 		domainServices.Removal(),
 		domainServices.Storage(),

@@ -17,6 +17,7 @@ import (
 // baseStorageSuite provides a base [tc] testing suite that establishes the
 // required dependencies of this facade for easier testing.
 type baseStorageSuite struct {
+	blockChecker       *MockBlockChecker
 	applicationService *MockApplicationService
 	removalService     *MockRemovalService
 	storageService     *MockStorageService
@@ -35,6 +36,7 @@ func (s *baseStorageSuite) makeTestAPI(c *tc.C) *StorageAPI {
 		s.modelUUID,
 		s.authorizer,
 		loggertesting.WrapCheckLog(c),
+		s.blockChecker,
 		s.applicationService,
 		s.removalService,
 		s.storageService,

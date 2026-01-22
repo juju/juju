@@ -27,12 +27,14 @@ import (
 	resourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
+	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	storage0 "github.com/juju/juju/domain/application/service/storage"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
@@ -629,7 +631,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 	c.Check(recievedUnitArgs[0].MachineUUID, tc.Equals, machineUUID)
 }
 
-//func (s *providerServiceSuite) TestCreateIAASApplicationWithDefaultStorage(c *tc.C) {
+// func (s *providerServiceSuite) TestCreateIAASApplicationWithDefaultStorage(c *tc.C) {
 //	defer s.setupMocks(c).Finish()
 //
 //	id := tc.Must(c, coreapplication.NewUUID)
@@ -776,9 +778,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 //		AddUnitArg: AddUnitArg{},
 //	})
 //	c.Assert(err, tc.ErrorIsNil)
-//}
+// }
 //
-//func (s *providerServiceSuite) TestCreateIAASApplicationWithExplicitStorage(c *tc.C) {
+// func (s *providerServiceSuite) TestCreateIAASApplicationWithExplicitStorage(c *tc.C) {
 //	defer s.setupMocks(c).Finish()
 //
 //	id := tc.Must(c, coreapplication.NewUUID)
@@ -937,7 +939,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 //		},
 //	})
 //	c.Assert(err, tc.ErrorIsNil)
-//}
+// }
 
 func (s *providerServiceSuite) TestCreateIAASApplicationPrecheckFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
@@ -1478,7 +1480,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `creating application "foo": boom`)
 }
 
-//func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C) {
+// func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C) {
 //	defer s.setupMocks(c).Finish()
 //
 //	id := tc.Must(c, coreapplication.NewUUID)
@@ -1635,11 +1637,11 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //		},
 //	}, AddIAASUnitArg{})
 //	c.Assert(err, tc.ErrorIsNil)
-//}
+// }
 
 // TODO (tlm): Add a case where a default block and or file system source cannot
 // be supplied. What happens then?
-//func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultSource(c *tc.C) {
+// func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultSource(c *tc.C) {
 //	defer s.setupMocks(c).Finish()
 
 //	id := tc.Must(c, coreapplication.NewUUID)
@@ -1803,9 +1805,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //		},
 //	}, AddIAASUnitArg{})
 //	c.Assert(err, tc.ErrorIsNil)
-//}
+// }
 
-//func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c *tc.C) {
+// func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c *tc.C) {
 //	defer s.setupMocks(c).Finish()
 //
 //	id := tc.Must(c, coreapplication.NewUUID)
@@ -1964,9 +1966,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //		},
 //	}, AddIAASUnitArg{})
 //	c.Assert(err, tc.ErrorIsNil)
-//}
+// }
 //
-//func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDefaultSource(c *tc.C) {
+// func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDefaultSource(c *tc.C) {
 //	defer s.setupMocks(c).Finish()
 //
 //	id := tc.Must(c, coreapplication.NewUUID)
@@ -2126,9 +2128,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //		},
 //	}, AddIAASUnitArg{})
 //	c.Assert(err, tc.ErrorIsNil)
-//}
+// }
 
-//func (s *providerServiceSuite) TestCreateIAASApplicationWithSharedStorage(c *tc.C) {
+// func (s *providerServiceSuite) TestCreateIAASApplicationWithSharedStorage(c *tc.C) {
 //	defer s.setupMocks(c).Finish()
 //
 //	id := tc.Must(c, coreapplication.NewUUID)
@@ -2242,7 +2244,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //		},
 //	}, AddIAASUnitArg{})
 //	c.Assert(err, tc.ErrorIsNil)
-//}
+// }
 
 func (s *providerServiceSuite) TestCreateIAASApplicationPlatformArchContradictsConstraints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
@@ -2286,7 +2288,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPlatformArchContradictsC
 }
 
 // TODO (tlm): Add this test back in.
-//func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageValidates(c *tc.C) {
+// func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageValidates(c *tc.C) {
 //	defer s.setupMocks(c).Finish()
 //
 //	s.charm.EXPECT().Meta().Return(&charm.Meta{
@@ -2318,7 +2320,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPlatformArchContradictsC
 //		},
 //	}, AddUnitArg{})
 //	c.Assert(err, tc.ErrorMatches, `.*invalid storage directives: charm "mine" has no store called "logs"`)
-//}
+// }
 
 func (s *providerServiceSuite) TestDeviceConstraintsValidateNotInCharmMeta(c *tc.C) {
 	deviceConstraints := map[string]devices.Constraints{
@@ -2524,7 +2526,7 @@ func (s *providerServiceSuite) TestSetConstraintsUnsupportedValues(c *tc.C) {
 
 	err := s.service.SetApplicationConstraints(c.Context(), id, coreconstraints.Value{Arch: ptr("amd64"), Mem: ptr(uint64(8))})
 	c.Assert(err, tc.ErrorIsNil)
-	//c.Check(c.GetTestLog(), tc.Contains, "unsupported constraints: arch,mem")
+	// c.Check(c.GetTestLog(), tc.Contains, "unsupported constraints: arch,mem")
 }
 
 func (s *providerServiceSuite) TestSetConstraints(c *tc.C) {
@@ -3057,4 +3059,25 @@ func (s *providerServiceSuite) expectFullConstraints(c *tc.C, unitUUID coreunit.
 
 	s.state.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(appConstraints, nil)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(modelConstraints, nil)
+}
+
+func (s *providerServiceSuite) TestAddStorageForUnit(c *tc.C) {
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
+	defer ctrl.Finish()
+
+	storageName := corestorage.Name("pgdata")
+	unitUUID := unittesting.GenUnitUUID(c)
+	arg := storage0.AddUnitStorageArgs{
+		StorageName: storageName,
+	}
+	result := []corestorage.ID{
+		tc.Must1(c, corestorage.ParseID, "pgdata/0"),
+	}
+
+	s.storageService.EXPECT().AddStorageForUnit(gomock.Any(), storageName, unitUUID, arg).Return(
+		result, nil)
+
+	got, err := s.service.AddStorageForUnit(c.Context(), storageName, unitUUID, arg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, result)
 }

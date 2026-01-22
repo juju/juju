@@ -16,14 +16,24 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	coreversion "github.com/juju/juju/core/version"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/service/storage"
 	domainremoval "github.com/juju/juju/domain/removal"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
+
+// BlockChecker defines the block-checking functionality required by
+// the application facade. This is implemented by
+// apiserver/common.BlockChecker.
+type BlockChecker interface {
+	ChangeAllowed(context.Context) error
+}
 
 // RemovalService defines the interface required for removing storage related
 // entities in the model on behalf of an API caller.
@@ -136,6 +146,13 @@ type ApplicationService interface {
 	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] if the
 	// unit doesn't exist.
 	GetUnitUUID(context.Context, coreunit.Name) (coreunit.UUID, error)
+
+	// AddStorageForUnit adds storage instances to the given unit.
+	// Missing storage directive attributes are populated
+	// based on model defaults.
+	AddStorageForUnit(
+		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, arg storage.AddUnitStorageArgs,
+	) ([]corestorage.ID, error)
 }
 
 // StorageAPIv6 provides the Storage API facade for version 6.
@@ -145,6 +162,7 @@ type StorageAPIv6 struct {
 
 // StorageAPI implements the latest version (v7) of the Storage API.
 type StorageAPI struct {
+	blockChecker       BlockChecker
 	applicationService ApplicationService
 	removalService     RemovalService
 	storageService     StorageService
@@ -160,11 +178,13 @@ func NewStorageAPI(
 	modelUUID coremodel.UUID,
 	authorizer facade.Authorizer,
 	logger corelogger.Logger,
+	blockChecker BlockChecker,
 	applicationService ApplicationService,
 	removalService RemovalService,
 	storageService StorageService,
 ) *StorageAPI {
 	return &StorageAPI{
+		blockChecker:       blockChecker,
 		applicationService: applicationService,
 		removalService:     removalService,
 		storageService:     storageService,
@@ -348,9 +368,84 @@ func (a *StorageAPI) ListFilesystems(ctx context.Context, filters params.Filesys
 // AddToUnit validates and creates additional storage instances for units.
 // A "CHANGE" block can block this operation.
 func (a *StorageAPI) AddToUnit(ctx context.Context, args params.StoragesAddParams) (params.AddStorageResults, error) {
-	return params.AddStorageResults{}, apiservererrors.ParamsErrorf(
-		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
+	if err := a.checkCanWrite(ctx); err != nil {
+		return params.AddStorageResults{}, errors.Capture(err)
+	}
+
+	// Check if changes are allowed and the operation may proceed.
+	if err := a.blockChecker.ChangeAllowed(ctx); err != nil {
+		return params.AddStorageResults{}, errors.Capture(err)
+	}
+
+	result := make([]params.AddStorageResult, len(args.Storages))
+	for i, one := range args.Storages {
+		storageIDs, err := a.addOneStorage(ctx, one)
+		if err != nil {
+			result[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		tagStrings := make([]string, len(storageIDs))
+		for i, id := range storageIDs {
+			tagStrings[i] = names.NewStorageTag(id.String()).String()
+		}
+		result[i].Result = &params.AddStorageDetails{
+			StorageTags: tagStrings,
+		}
+	}
+	return params.AddStorageResults{Results: result}, nil
+}
+
+func (a *StorageAPI) addOneStorage(ctx context.Context, one params.StorageAddParams) ([]corestorage.ID, error) {
+	u, err := names.ParseUnitTag(one.UnitTag)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	unitName := coreunit.Name(u.Id())
+	unitUUID, err := a.applicationService.GetUnitUUID(ctx, unitName)
+	switch {
+	case errors.Is(err, coreunit.InvalidUnitName):
+		return nil, errors.Errorf("invalid unit name %q", unitName).Add(
+			coreerrors.NotValid,
+		)
+	case errors.Is(err, applicationerrors.UnitNotFound):
+		return nil, errors.Errorf("unit %q does not exist", unitName).Add(coreerrors.NotFound)
+	case err != nil:
+		return nil, errors.Errorf(
+			"getting unit uuid for unit name %q: %w", unitName, err,
+		)
+	}
+
+	result, err := a.applicationService.AddStorageForUnit(
+		ctx, corestorage.Name(one.StorageName), unitUUID, storage.AddUnitStorageArgs{
+			StorageName: corestorage.Name(one.StorageName),
+			SizeMiB:     one.Directives.SizeMiB,
+			Count:       one.Directives.Count,
+		},
 	)
+	switch {
+	case errors.Is(err, corestorage.InvalidStorageName):
+		return nil, errors.Errorf("invalid storage name %q", one.StorageName).Add(
+			coreerrors.NotValid,
+		)
+	case errors.Is(err, applicationerrors.StorageNameNotSupported):
+		return nil, errors.Errorf("storage name %q not supported by charm", one.StorageName).Add(
+			coreerrors.NotSupported,
+		)
+	case errors.Is(err, applicationerrors.InvalidStorageCount):
+		count := uint64(0)
+		if one.Directives.Count != nil {
+			count = *one.Directives.Count
+		}
+		return nil, errors.Errorf("storage count %d not valid for storage %q", count, one.StorageName).Add(
+			coreerrors.NotValid,
+		)
+	case err != nil:
+		return nil, errors.Errorf(
+			"adding storage %q to unit name %q: %w", one.StorageName, unitName, err,
+		)
+	}
+	return result, nil
 }
 
 // Remove sets the specified storage entities to Dying, unless they are
