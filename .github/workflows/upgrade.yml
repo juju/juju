@@ -183,7 +183,8 @@ jobs:
             juju bootstrap microk8s c \
               --constraints "arch=$(go env GOARCH)" \
               --config caas-image-repo="${OCI_REGISTRY}/test-repo" \
-              --config features="[developer-mode]"
+              --config features="[developer-mode]" \
+              --config logging-config="<root>=DEBUG;juju.docker.registry=TRACE;juju.docker.registry.internal=TRACE;juju.apiserver.modelupgrader=TRACE"
           EOF
           juju version
 
@@ -256,8 +257,15 @@ jobs:
           set -euxo pipefail
 
           # Upgrade to the latest stable.
-          OUTPUT=$(juju upgrade-controller --debug ${UPGRADE_FLAGS_${{ matrix.cloud }}})
-          if [[ $OUTPUT == 'no upgrades available' ]]; then
+          OUTPUT=$(juju upgrade-controller --debug ${UPGRADE_FLAGS_${{ matrix.cloud }}} 2>&1)
+          if [[ $OUTPUT == *'no upgrades available'* ]]; then
+            echo $OUTPUT
+            juju debug-log --replay --no-tail -m controller
+
+            if [[ ${{ matrix.cloud }} == 'microk8s' ]]; then
+              sudo DEBIAN_FRONTEND=noninteractive apt install -y podman >/dev/null 2>&1
+              podman search --list-tags ${OCI_REGISTRY}/test-repo/jujud-operator
+            fi
             exit 1
           fi
           .github/verify-agent-version.sh ${MODEL_TYPE_${{ matrix.cloud }}} ${TARGET_JUJU_VERSION}
