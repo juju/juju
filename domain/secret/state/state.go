@@ -721,7 +721,6 @@ GROUP BY sm.secret_id`
 	}
 	existing := existingResult[0]
 	existingOwner := dbsecretOwners[0]
-	latestRevisionUUID := dbSecrets[0].LatestRevisionUUID
 
 	dbSecret := secretMetadata{
 		ID:                     dbSecrets[0].ID,
@@ -765,29 +764,25 @@ GROUP BY sm.secret_id`
 		// migrated charm-owned secrets from old models.
 		secret.Checksum == "" && existing.LatestRevisionChecksum == "")
 	dbRevision = &secretRevision{
-		ID:         latestRevisionUUID,
+		ID:         dbSecrets[0].LatestRevisionUUID,
 		SecretID:   uri.ID,
-		Revision:   existing.LatestRevision,
+		Revision:   existing.LatestRevision + 1,
+		CreateTime: secret.UpdateTime.UTC(),
+		// Note: if the revision is updated (no new ID), only the UpdateTime will be set
 		UpdateTime: secret.UpdateTime.UTC(),
 	}
 	if shouldCreateNewRevision {
 		if secret.RevisionID == nil {
 			return errors.Errorf("revision ID must be provided")
 		}
-		latestRevisionUUID = *secret.RevisionID
-		dbRevision.ID = latestRevisionUUID
-		dbRevision.Revision = existing.LatestRevision + 1
-		dbRevision.CreateTime = secret.UpdateTime.UTC()
+		dbRevision.ID = *secret.RevisionID
 	}
-	// upsert only if we need to create a new revision, or if the revision has been
-	// updated
-	if secret.ExpireTime != nil || shouldCreateNewRevision {
-		if err := st.upsertSecretRevision(ctx, tx, dbRevision); err != nil {
-			return errors.Errorf("inserting revision for secret %q: %w", uri, err)
-		}
+
+	if err := st.upsertSecretRevision(ctx, tx, dbRevision); err != nil {
+		return errors.Errorf("inserting revision for secret %q: %w", uri, err)
 	}
 	if secret.ExpireTime != nil {
-		if err := st.upsertSecretRevisionExpiry(ctx, tx, latestRevisionUUID, *secret.ExpireTime); err != nil {
+		if err := st.upsertSecretRevisionExpiry(ctx, tx, dbRevision.ID, *secret.ExpireTime); err != nil {
 			return errors.Errorf("inserting revision expiry for secret %q: %w", uri, err)
 		}
 	}
