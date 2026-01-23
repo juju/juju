@@ -5,10 +5,10 @@ package internal
 
 import (
 	"strings"
-
+	
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
-
+	
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry/image"
 	"github.com/juju/juju/tools"
