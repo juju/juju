@@ -19,6 +19,7 @@ type StoragePool struct {
 	Name     string
 	Provider string
 	Attrs    Attrs
+	OriginID int
 }
 
 // These type aliases are used to specify filter terms.
