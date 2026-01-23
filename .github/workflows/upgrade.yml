@@ -208,6 +208,8 @@ jobs:
           DEPLOY_FLAGS=''
           if [[ ${{ matrix.cloud }} == 'microk8s' ]]; then
             DEPLOY_FLAGS='--trust'
+          else
+            DEPLOY_FLAGS='--base ubuntu@20.04'
           fi
 
           juju deploy ${CHARM_${{ matrix.cloud }}} $DEPLOY_FLAGS
