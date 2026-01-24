@@ -589,6 +589,45 @@ func (c *MockStateGetMachineSpaceConstraintsCall) DoAndReturn(f func(context.Con
 	return c
 }
 
+// GetModelCloudType mocks base method.
+func (m *MockState) GetModelCloudType(arg0 context.Context) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelCloudType", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelCloudType indicates an expected call of GetModelCloudType.
+func (mr *MockStateMockRecorder) GetModelCloudType(arg0 any) *MockStateGetModelCloudTypeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelCloudType", reflect.TypeOf((*MockState)(nil).GetModelCloudType), arg0)
+	return &MockStateGetModelCloudTypeCall{Call: call}
+}
+
+// MockStateGetModelCloudTypeCall wrap *gomock.Call
+type MockStateGetModelCloudTypeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetModelCloudTypeCall) Return(arg0 string, arg1 error) *MockStateGetModelCloudTypeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetModelCloudTypeCall) Do(f func(context.Context) (string, error)) *MockStateGetModelCloudTypeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetModelCloudTypeCall) DoAndReturn(f func(context.Context) (string, error)) *MockStateGetModelCloudTypeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetNetNodeAddresses mocks base method.
 func (m *MockState) GetNetNodeAddresses(arg0 context.Context, arg1 string) (network.SpaceAddresses, error) {
 	m.ctrl.T.Helper()

@@ -42,16 +42,17 @@ func (s *importSubnetsSuite) newImportOperation(c *tc.C) *importSubnetsOperation
 	}
 }
 
-func (s *importSubnetsSuite) TestImportIAASSubnetWithoutSpaces(c *tc.C) {
+func (s *importSubnetsSuite) TestImportIAASSubnetWithoutSpacesNotLXD(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.importService.EXPECT().GetModelCloudType(c.Context()).Return("ec1", nil)
 	model := description.NewModel(description.ModelArgs{
 		Type: description.IAAS,
 	})
 	model.AddSubnet(description.SubnetArgs{
 		ID:                "previousID",
 		CIDR:              "192.0.2.0/24",
-		ProviderId:        "subnet-provider-id",
+		ProviderId:        "network-provider-id",
 		ProviderNetworkId: "subnet-provider-network-id",
 		VLANTag:           42,
 		AvailabilityZones: []string{"az1", "az2"},
@@ -60,8 +61,37 @@ func (s *importSubnetsSuite) TestImportIAASSubnetWithoutSpaces(c *tc.C) {
 	})
 	s.importService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{
 		CIDR:              "192.0.2.0/24",
-		ProviderId:        "subnet-provider-id",
+		ProviderId:        "network-provider-id",
 		ProviderNetworkId: "subnet-provider-network-id",
+		VLANTag:           42,
+		AvailabilityZones: []string{"az1", "az2"},
+	})
+
+	op := s.newImportOperation(c)
+	err := op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSubnetsSuite) TestImportIAASSubnetWithoutSpacesLXD(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.importService.EXPECT().GetModelCloudType(c.Context()).Return("lxd", nil)
+	model := description.NewModel(description.ModelArgs{
+		Type: description.IAAS,
+	})
+	model.AddSubnet(description.SubnetArgs{
+		ID:                "previousID",
+		CIDR:              "192.0.2.0/24",
+		ProviderId:        "subnet-docker0-192.0.2.0/24",
+		ProviderNetworkId: "net-docker",
+		VLANTag:           42,
+		AvailabilityZones: []string{"az1", "az2"},
+		FanLocalUnderlay:  "198.51.100.0/24",
+		FanOverlay:        "203.0.113.0/24",
+	})
+	s.importService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{
+		CIDR:              "192.0.2.0/24",
+		ProviderNetworkId: "docker",
 		VLANTag:           42,
 		AvailabilityZones: []string{"az1", "az2"},
 	})
@@ -77,6 +107,8 @@ func (s *importSubnetsSuite) TestImportIAASSubnetAndSpaceNotLinked(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{
 		Type: description.IAAS,
 	})
+
+	s.importService.EXPECT().GetModelCloudType(c.Context()).Return("ec2", nil)
 	model.AddSubnet(description.SubnetArgs{
 		ID:                "previous-subnet-id",
 		CIDR:              "192.0.2.0/24",
@@ -113,6 +145,7 @@ func (s *importSubnetsSuite) TestImportIAASSpaceWithSubnet(c *tc.C) {
 
 	spUUID := networktesting.GenSpaceUUID(c)
 
+	s.importService.EXPECT().GetModelCloudType(c.Context()).Return("ec2", nil)
 	model := description.NewModel(description.ModelArgs{
 		Type: description.IAAS,
 	})
@@ -165,6 +198,7 @@ func (s *importSubnetsSuite) TestImportSpaces(c *tc.C) {
 
 	spUUID := networktesting.GenSpaceUUID(c)
 
+	s.importService.EXPECT().GetModelCloudType(c.Context()).Return("ec2", nil)
 	model := description.NewModel(description.ModelArgs{})
 	model.AddSpace(description.SpaceArgs{
 		Id:         "0",

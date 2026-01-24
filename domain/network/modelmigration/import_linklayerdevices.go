@@ -37,6 +37,8 @@ func RegisterLinkLayerDevicesImport(coordinator Coordinator, logger logger.Logge
 // LinkLayerDevicesMigrationService defines methods needed to import
 // link layer devices as part of model migration.
 type LinkLayerDevicesMigrationService interface {
+	// GetModelCloudType returns the type of the cloud that is in use by this model.
+	GetModelCloudType(context.Context) (string, error)
 	// ImportLinkLayerDevices imports the given link layer device data into
 	// the model.
 	ImportLinkLayerDevices(ctx context.Context, data []internal.ImportLinkLayerDevice) error
@@ -92,6 +94,11 @@ func (i *importOperation) transformLinkLayerDevices(
 	addresses []description.IPAddress,
 ) ([]internal.ImportLinkLayerDevice, error) {
 	data := make([]internal.ImportLinkLayerDevice, len(modelLLD))
+
+	cloudType, err := i.migrationService.GetModelCloudType(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
 
 	// Temporary map to index llds by machine and name, to distribute addresses
 	type key struct {
@@ -156,6 +163,13 @@ func (i *importOperation) transformLinkLayerDevices(
 
 		addrType := corenetwork.DeriveAddressType(address.Value())
 
+		// The ProviderSubnetID is not required. The contrived values for LXD
+		// serve no purpose, remove them from the model data from 3.6.
+		var providerSubnetID string
+		if cloudType != "lxd" {
+			providerSubnetID = address.ProviderSubnetID()
+		}
+
 		device.Addresses = append(device.Addresses, internal.ImportIPAddress{
 			UUID:             addressUUID.String(),
 			Type:             addrType,
@@ -167,7 +181,7 @@ func (i *importOperation) transformLinkLayerDevices(
 			IsShadow:         address.IsShadow(),
 			Origin:           corenetwork.Origin(address.Origin()),
 			ProviderID:       nilZeroPtr(address.ProviderID()),
-			ProviderSubnetID: nilZeroPtr(address.ProviderSubnetID()),
+			ProviderSubnetID: nilZeroPtr(providerSubnetID),
 		})
 	}
 

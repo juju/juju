@@ -5,6 +5,7 @@ package application_test
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/juju/clock"
@@ -1153,6 +1154,8 @@ func (s *importSuite) TestApplicationEndpointBindings(c *tc.C) {
 		},
 	})
 
+	s.setModel(c, "lxd", model.IAAS.String())
+
 	networkmodelmigration.RegisterImportSubnets(s.coordinator, loggertesting.WrapCheckLog(c))
 	applicationmodelmigration.RegisterImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 
@@ -1234,6 +1237,8 @@ func (s *importSuite) TestApplicationExposedEndpoints(c *tc.C) {
 		},
 	})
 
+	s.setModel(c, "ec2", model.IAAS.String())
+
 	networkmodelmigration.RegisterImportSubnets(s.coordinator, loggertesting.WrapCheckLog(c))
 	applicationmodelmigration.RegisterImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 
@@ -1308,6 +1313,17 @@ func setupMinimalApplication(model description.Model) description.Application {
 		},
 	})
 	return app
+}
+
+func (s *importSuite) setModel(c *tc.C, cloudType, modelType string) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+			VALUES (?, ?, "test", "prod",  ?, "test-model", ?)
+		`, s.ModelUUID(), "controller-uuid", modelType, cloudType)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func ptr[T any](i T) *T {

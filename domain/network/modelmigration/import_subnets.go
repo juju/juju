@@ -5,6 +5,7 @@ package modelmigration
 
 import (
 	"context"
+	"strings"
 
 	"github.com/juju/description/v11"
 
@@ -26,14 +27,14 @@ func RegisterImportSubnets(coordinator Coordinator, logger logger.Logger) {
 // SubnetsImportService provides a subset of the network domain service
 // methods needed for spaces and subnets import.
 type SubnetsImportService interface {
-	// AddSpace adds a new space to the model.
+	// AddSpace creates and returns a new space.
 	AddSpace(ctx context.Context, space corenetwork.SpaceInfo) (corenetwork.SpaceUUID, error)
-
+	// AddSubnet creates and returns a new subnet.
+	AddSubnet(ctx context.Context, args corenetwork.SubnetInfo) (corenetwork.Id, error)
+	// GetModelCloudType returns the type of the cloud that is in use by this model.
+	GetModelCloudType(context.Context) (string, error)
 	// Space retrieves the space information for the given UUID.
 	Space(ctx context.Context, uuid corenetwork.SpaceUUID) (*corenetwork.SpaceInfo, error)
-
-	// AddSubnet adds a new subnet to the model.
-	AddSubnet(ctx context.Context, args corenetwork.SubnetInfo) (corenetwork.Id, error)
 }
 
 type importSubnetsOperation struct {
@@ -112,14 +113,28 @@ func (i *importSubnetsOperation) importIAASSubnets(
 	spaceIDsMap map[string]corenetwork.SpaceUUID,
 ) error {
 
+	cloudType, err := i.importService.GetModelCloudType(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	for _, subnet := range modelSubnets {
+		// Fix subnet data from 3.6 during import, net- is superfluous.
+		var providerID, providerNetworkID string
+		if cloudType == "lxd" {
+			providerNetworkID = strings.TrimPrefix(subnet.ProviderNetworkId(), "net-")
+		} else {
+			providerID = subnet.ProviderId()
+			providerNetworkID = subnet.ProviderNetworkId()
+		}
+
 		subnetInfo := corenetwork.SubnetInfo{
 			ID:                corenetwork.Id(subnet.UUID()),
 			CIDR:              subnet.CIDR(),
-			ProviderId:        corenetwork.Id(subnet.ProviderId()),
+			ProviderId:        corenetwork.Id(providerID),
 			VLANTag:           subnet.VLANTag(),
 			AvailabilityZones: subnet.AvailabilityZones(),
-			ProviderNetworkId: corenetwork.Id(subnet.ProviderNetworkId()),
+			ProviderNetworkId: corenetwork.Id(providerNetworkID),
 		}
 
 		importedSpaceID, ok := spaceIDsMap[subnet.SpaceID()]

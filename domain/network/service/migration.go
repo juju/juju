@@ -23,20 +23,23 @@ type MigrationState interface {
 	// net mode UUIDs in the model.
 	AllMachinesAndNetNodes(ctx context.Context) (map[string]string, error)
 
-	// ImportLinkLayerDevices adds link layer devices into the model as part
-	// of the migration import process.
-	ImportLinkLayerDevices(ctx context.Context, input []internal.ImportLinkLayerDevice) error
-
-	// GetAllSubnets returns all known subnets in the model.
-	GetAllSubnets(ctx context.Context) (corenetwork.SubnetInfos, error)
-
-	// GetAllSpaces returns all spaces for the model.
-	GetAllSpaces(ctx context.Context) (corenetwork.SpaceInfos, error)
-
 	// CreateCloudServices creates cloud service in state.
 	// It creates the associated netnode and link it to the application
 	// through the provided application name.
 	CreateCloudServices(ctx context.Context, cloudservices []internal.ImportCloudService) error
+
+	// GetAllSpaces returns all spaces for the model.
+	GetAllSpaces(ctx context.Context) (corenetwork.SpaceInfos, error)
+
+	// GetAllSubnets returns all known subnets in the model.
+	GetAllSubnets(ctx context.Context) (corenetwork.SubnetInfos, error)
+
+	// GetModelCloudType returns the type of the cloud that is in use by this model.
+	GetModelCloudType(context.Context) (string, error)
+
+	// ImportLinkLayerDevices adds link layer devices into the model as part
+	// of the migration import process.
+	ImportLinkLayerDevices(ctx context.Context, input []internal.ImportLinkLayerDevice) error
 }
 
 // MigrationService provides the API for model migration actions within
@@ -54,6 +57,14 @@ func NewMigrationService(st MigrationState, logger logger.Logger) *MigrationServ
 		st:     st,
 		logger: logger,
 	}
+}
+
+// GetModelCloudType returns the type of the cloud that is in use by this model.
+func (s *MigrationService) GetModelCloudType(ctx context.Context) (string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+	cloudType, err := s.st.GetModelCloudType(ctx)
+	return cloudType, errors.Capture(err)
 }
 
 // ImportLinkLayerDevices is part of the [modelmigration.MigrationService]
