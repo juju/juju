@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/api/client/resources"
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/cmd/modelcmd"
-	charmresource "github.com/juju/juju/internal/charm/resource"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 )
 
 // DeployResourcesFunc is the function type of DeployResources.

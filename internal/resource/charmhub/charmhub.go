@@ -11,7 +11,7 @@ import (
 	"github.com/kr/pretty"
 
 	corelogger "github.com/juju/juju/core/logger"
-	charmresource "github.com/juju/juju/internal/charm/resource"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/internal/errors"

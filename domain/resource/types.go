@@ -12,7 +12,7 @@ import (
 	coreresource "github.com/juju/juju/core/resource"
 	coreresourcestore "github.com/juju/juju/core/resource/store"
 	"github.com/juju/juju/domain/application/charm"
-	charmresource "github.com/juju/juju/internal/charm/resource"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 )
 
 // StateType indicates if a resource is available to be used on the

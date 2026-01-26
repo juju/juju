@@ -7,9 +7,8 @@ import (
 	"testing"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/tc"
-
-	"github.com/juju/juju/internal/charm/resource"
 )
 
 func TestMetaSuite(t *testing.T) {

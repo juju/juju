@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/resource"
-	charmresource "github.com/juju/juju/internal/charm/resource"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 )
 
 type charmResourcesFormatter struct {

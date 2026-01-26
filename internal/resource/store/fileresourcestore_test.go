@@ -17,7 +17,7 @@ import (
 	coreresource "github.com/juju/juju/core/resource"
 	resourcestore "github.com/juju/juju/core/resource/store"
 	resourcestesting "github.com/juju/juju/core/resource/testing"
-	charmresource "github.com/juju/juju/internal/charm/resource"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/internal/testhelpers"
 )
 

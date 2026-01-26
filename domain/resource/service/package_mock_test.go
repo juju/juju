@@ -17,8 +17,8 @@ import (
 	resource "github.com/juju/juju/core/resource"
 	store "github.com/juju/juju/core/resource/store"
 	unit "github.com/juju/juju/core/unit"
+	resource1 "github.com/juju/juju/domain/deployment/charm/resource"
 	resource0 "github.com/juju/juju/domain/resource"
-	resource1 "github.com/juju/juju/internal/charm/resource"
 	gomock "go.uber.org/mock/gomock"
 )
 

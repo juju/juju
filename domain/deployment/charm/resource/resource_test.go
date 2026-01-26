@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/domain/deployment/charm/resource"
 )
 
 var fingerprint = []byte("123456789012345678901234567890123456789012345678")

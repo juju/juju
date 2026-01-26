@@ -25,6 +25,7 @@ import (
 	applicationmodelmigration "github.com/juju/juju/domain/application/modelmigration"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
+	"github.com/juju/juju/domain/deployment/charm/resource"
 	machinemodelmigration "github.com/juju/juju/domain/machine/modelmigration"
 	migrationtesting "github.com/juju/juju/domain/modelmigration/testing"
 	networkmodelmigration "github.com/juju/juju/domain/network/modelmigration"
@@ -32,7 +33,6 @@ import (
 	domaintesting "github.com/juju/juju/domain/testing"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
-	"github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
