@@ -34,7 +34,7 @@ var (
 	NewTokenTransport                  = newTokenTransport
 	NewElasticContainerRegistryForTest = newElasticContainerRegistryForTest
 	NewAzureContainerRegistry          = newAzureContainerRegistry
-	GetArchitecture                    = getArchitecture
+	GetArchitectures                   = getArchitectures
 	UnwrapNetError                     = unwrapNetError
 )
 

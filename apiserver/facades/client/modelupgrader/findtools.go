@@ -10,6 +10,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/docker"
 	envtools "github.com/juju/juju/environs/tools"
@@ -143,7 +144,7 @@ func (m *ModelUpgraderAPI) toolVersionsForCAAS(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		imageRepoDetails = *repoDetails
+		imageRepoDetails = repoDetails
 	}
 	reg, err := m.registryAPIFunc(imageRepoDetails)
 	if err != nil {
@@ -154,6 +155,11 @@ func (m *ModelUpgraderAPI) toolVersionsForCAAS(
 	tags, err := reg.Tags(imageName)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	wantArch := archFilter
+	if wantArch == "" {
+		wantArch = arch.DefaultArchitecture
 	}
 	for _, tag := range tags {
 		number := tag.AgentVersion()
@@ -179,21 +185,21 @@ func (m *ModelUpgraderAPI) toolVersionsForCAAS(
 				continue
 			}
 		}
-		arch, err := reg.GetArchitecture(imageName, number.String())
+		arches, err := reg.GetArchitectures(imageName, number.String())
 		if errors.Is(err, errors.NotFound) {
 			continue
 		}
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot get architecture for %s:%s", imageName, number.String())
 		}
-		if archFilter != "" && arch != archFilter {
+		if !set.NewStrings(arches...).Contains(wantArch) {
 			continue
 		}
 		tools := coretools.Tools{
 			Version: version.Binary{
 				Number:  number,
 				Release: coreos.HostOSTypeName(),
-				Arch:    arch,
+				Arch:    wantArch,
 			},
 		}
 		result = append(result, &tools)

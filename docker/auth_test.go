@@ -48,7 +48,7 @@ func (s *authSuite) TestNewImageRepoDetailsReadFromFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	imageRepoDetails, err := docker.LoadImageRepoDetails(fullpath)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(imageRepoDetails, jc.DeepEquals, &docker.ImageRepoDetails{
+	c.Assert(imageRepoDetails, jc.DeepEquals, docker.ImageRepoDetails{
 		Repository:    "test-account",
 		ServerAddress: "quay.io",
 		BasicAuthConfig: docker.BasicAuthConfig{
@@ -60,7 +60,7 @@ func (s *authSuite) TestNewImageRepoDetailsReadFromFile(c *gc.C) {
 func (s *authSuite) TestNewImageRepoDetailsReadFromContent(c *gc.C) {
 	imageRepoDetails, err := docker.NewImageRepoDetails(quayContent)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(imageRepoDetails, jc.DeepEquals, &docker.ImageRepoDetails{
+	c.Assert(imageRepoDetails, jc.DeepEquals, docker.ImageRepoDetails{
 		Repository:    "test-account",
 		ServerAddress: "quay.io",
 		BasicAuthConfig: docker.BasicAuthConfig{
@@ -70,7 +70,7 @@ func (s *authSuite) TestNewImageRepoDetailsReadFromContent(c *gc.C) {
 
 	imageRepoDetails, err = docker.NewImageRepoDetails(ecrContent)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(imageRepoDetails, jc.DeepEquals, &docker.ImageRepoDetails{
+	c.Assert(imageRepoDetails, jc.DeepEquals, docker.ImageRepoDetails{
 		Repository:    "test-account",
 		ServerAddress: "66668888.dkr.ecr.eu-west-1.amazonaws.com",
 		Region:        "ap-southeast-2",
@@ -93,7 +93,7 @@ func (s *authSuite) TestNewImageRepoDetailsReadDefaultServerAddress(c *gc.C) {
 `[1:]
 	imageRepoDetails, err := docker.NewImageRepoDetails(data)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(imageRepoDetails, jc.DeepEquals, &docker.ImageRepoDetails{
+	c.Assert(imageRepoDetails, jc.DeepEquals, docker.ImageRepoDetails{
 		Repository: "qabot",
 		BasicAuthConfig: docker.BasicAuthConfig{
 			Auth: docker.NewToken("xxxxx=="),

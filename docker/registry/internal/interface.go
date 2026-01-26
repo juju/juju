@@ -16,7 +16,7 @@ import (
 type Registry interface {
 	String() string
 	Tags(string) (tools.Versions, error)
-	GetArchitecture(imageName, tag string) (string, error)
+	GetArchitectures(imageName, tag string) ([]string, error)
 	Close() error
 	Ping() error
 	ImageRepoDetails() docker.ImageRepoDetails

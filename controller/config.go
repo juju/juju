@@ -933,8 +933,8 @@ func (c Config) JujuManagementSpace() string {
 func (c Config) CAASOperatorImagePath() (o docker.ImageRepoDetails) {
 	str := c.asString(CAASOperatorImagePath)
 	repoDetails, err := docker.NewImageRepoDetails(str)
-	if repoDetails != nil {
-		return *repoDetails
+	if err == nil && !repoDetails.Empty() {
+		return repoDetails
 	}
 	// This should not happen since we have done validation in c.Valiate().
 	logger.Tracef("parsing controller config %q: %q, err %v", CAASOperatorImagePath, str, err)
@@ -952,7 +952,7 @@ func validateCAASImageRepo(imageRepo string) error {
 	if err = imageDetails.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	r, err := registry.New(*imageDetails)
+	r, err := registry.New(imageDetails)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -966,8 +966,8 @@ func validateCAASImageRepo(imageRepo string) error {
 func (c Config) CAASImageRepo() (o docker.ImageRepoDetails) {
 	str := c.asString(CAASImageRepo)
 	repoDetails, err := docker.NewImageRepoDetails(str)
-	if repoDetails != nil {
-		return *repoDetails
+	if err == nil && !repoDetails.Empty() {
+		return repoDetails
 	}
 	// This should not happen since we have done validation in c.Valiate().
 	logger.Tracef("parsing controller config %q: %q, err %v", CAASImageRepo, str, err)

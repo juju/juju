@@ -48,7 +48,7 @@ func fetchTagsV2(c tagFetcher, imageName string) (tools.Versions, error) {
 }
 
 // Tags fetches tags for an OCI image.
-func (c baseClient) Tags(imageName string) (tools.Versions, error) {
+func (c *baseClient) Tags(imageName string) (tools.Versions, error) {
 	switch c.APIVersion() {
 	case APIVersionV2:
 		return fetchTagsV2(c, imageName)
@@ -57,7 +57,7 @@ func (c baseClient) Tags(imageName string) (tools.Versions, error) {
 	}
 }
 
-func (c baseClient) fetchTags(url string, res tagsGetter) (versions tools.Versions, err error) {
+func (c *baseClient) fetchTags(url string, res tagsGetter) (versions tools.Versions, err error) {
 	pushVersions := func(tags []string) {
 		for _, tag := range tags {
 			v, err := version.Parse(tag)
@@ -69,9 +69,9 @@ func (c baseClient) fetchTags(url string, res tagsGetter) (versions tools.Versio
 		}
 	}
 	for {
-		logger.Tracef("fetching tags %q", url)
+		logger.Criticalf("fetching tags %q", url)
 		url, err = c.getPaginatedJSON(url, &res)
-		logger.Tracef("response %#v, err %v", res, err)
+		logger.Criticalf("response %#v, err %v", res, err)
 		switch err {
 		case errNoMorePages:
 			pushVersions(res.GetTags())

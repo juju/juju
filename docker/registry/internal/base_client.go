@@ -49,8 +49,8 @@ type baseClient struct {
 
 func newBase(
 	repoDetails docker.ImageRepoDetails, transport http.RoundTripper,
-	normalizeRepoDetails func(repoDetails *docker.ImageRepoDetails),
-) *baseClient {
+	normalizeRepoDetails func(repoDetails *docker.ImageRepoDetails) error,
+) (*baseClient, error) {
 	c := &baseClient{
 		baseURL:     &url.URL{},
 		repoDetails: &repoDetails,
@@ -59,14 +59,17 @@ func newBase(
 			Timeout:   defaultTimeout,
 		},
 	}
-	normalizeRepoDetails(c.repoDetails)
-	return c
+	err := normalizeRepoDetails(c.repoDetails)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c, nil
 }
 
 // normalizeRepoDetailsCommon pre-processes ImageRepoDetails before Match().
-func normalizeRepoDetailsCommon(repoDetails *docker.ImageRepoDetails) {
+func normalizeRepoDetailsCommon(repoDetails *docker.ImageRepoDetails) error {
 	if repoDetails.ServerAddress != "" {
-		return
+		return nil
 	}
 	// We have validated the repository in top level.
 	// It should not raise errors here.
@@ -75,6 +78,7 @@ func normalizeRepoDetailsCommon(repoDetails *docker.ImageRepoDetails) {
 	if domain != "" {
 		repoDetails.ServerAddress = domain
 	}
+	return nil
 }
 
 func (c *baseClient) String() string {
@@ -190,12 +194,12 @@ func commonURLGetter(version APIVersion, url url.URL, pathTemplate string, args 
 	return url.String()
 }
 
-func (c baseClient) url(pathTemplate string, args ...interface{}) string {
+func (c *baseClient) url(pathTemplate string, args ...interface{}) string {
 	return commonURLGetter(c.APIVersion(), *c.baseURL, pathTemplate, args...)
 }
 
 // Ping pings the baseClient endpoint.
-func (c baseClient) Ping() error {
+func (c *baseClient) Ping() error {
 	url := c.url("/")
 	logger.Debugf("baseClient ping %q", url)
 	resp, err := c.client.Get(url)
@@ -205,7 +209,7 @@ func (c baseClient) Ping() error {
 	return errors.Trace(unwrapNetError(err))
 }
 
-func (c baseClient) ImageRepoDetails() (o docker.ImageRepoDetails) {
+func (c *baseClient) ImageRepoDetails() (o docker.ImageRepoDetails) {
 	if c.repoDetails != nil {
 		return *c.repoDetails
 	}
@@ -220,9 +224,9 @@ func (c *baseClient) Close() error {
 	return nil
 }
 
-func (c baseClient) getPaginatedJSON(reqURL string, response interface{}) (string, error) {
+func (c *baseClient) getPaginatedJSON(reqURL string, response interface{}) (string, error) {
 	resp, err := c.client.Get(reqURL)
-	logger.Tracef("getPaginatedJSON for %q, err %v", reqURL, err)
+	logger.Criticalf("getPaginatedJSON for %q, err %v", reqURL, err)
 	if err != nil {
 		return "", errors.Trace(unwrapNetError(err))
 	}

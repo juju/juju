@@ -886,8 +886,8 @@ func (s *modelUpgradeSuite) TestFindToolsCAASReleased(c *gc.C) {
 			image.NewImageInfo(version.MustParse("2.9.11")),
 			image.NewImageInfo(version.MustParse("2.9.12")), // skip: it's not released in simplestream yet.
 		}, nil),
-		s.registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.10").Return("amd64", nil),
-		s.registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.11").Return("amd64", nil),
+		s.registryProvider.EXPECT().GetArchitectures("jujud-operator", "2.9.10").Return([]string{"amd64"}, nil),
+		s.registryProvider.EXPECT().GetArchitectures("jujud-operator", "2.9.11").Return([]string{"amd64"}, nil),
 		s.registryProvider.EXPECT().Close().Return(nil),
 	)
 
@@ -943,10 +943,10 @@ func (s *modelUpgradeSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 			image.NewImageInfo(version.MustParse("2.9.12")),
 			image.NewImageInfo(version.MustParse("2.9.13")), // skip: it's not released in simplestream yet.
 		}, nil),
-		s.registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.10.1").Return("amd64", nil),
-		s.registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.10").Return("amd64", nil),
-		s.registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.11").Return("amd64", nil),
-		s.registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.12").Return("", errors.NotFoundf("2.9.12")), // This can only happen on a non-official registry account.
+		s.registryProvider.EXPECT().GetArchitectures("jujud-operator", "2.9.10.1").Return([]string{"amd64", "arm64"}, nil),
+		s.registryProvider.EXPECT().GetArchitectures("jujud-operator", "2.9.10").Return([]string{"amd64", "arm64"}, nil),
+		s.registryProvider.EXPECT().GetArchitectures("jujud-operator", "2.9.11").Return([]string{"amd64", "arm64"}, nil),
+		s.registryProvider.EXPECT().GetArchitectures("jujud-operator", "2.9.12").Return(nil, errors.NotFoundf("2.9.12")), // This can only happen on a non-official registry account.
 		s.registryProvider.EXPECT().Close().Return(nil),
 	)
 
