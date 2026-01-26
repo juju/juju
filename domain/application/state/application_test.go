@@ -1057,7 +1057,7 @@ func (s *applicationStateSuite) TestGetApplicationDetailsByNameNotFound(c *tc.C)
 }
 
 func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAliveEmptyModel(c *tc.C) {
-	err := s.state.CheckAllApplicationsAndUnitsAreAlive(c.Context())
+	err := s.state.CheckApplicationsForMigration(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 }
 
@@ -1067,7 +1067,7 @@ func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAlive(c *tc.C
 	s.createIAASApplicationWithNUnits(c, "bar", life.Alive, 3)
 
 	// Act:
-	err := s.state.CheckAllApplicationsAndUnitsAreAlive(c.Context())
+	err := s.state.CheckApplicationsForMigration(c.Context())
 
 	// Assert:
 	c.Check(err, tc.ErrorIsNil)
@@ -1080,7 +1080,7 @@ func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAliveWithDyin
 	s.createIAASApplicationWithNUnits(c, "baz", life.Alive, 1)
 
 	// Act:
-	err := s.state.CheckAllApplicationsAndUnitsAreAlive(c.Context())
+	err := s.state.CheckApplicationsForMigration(c.Context())
 
 	// Assert: An error of correct type, mentioning the correct applications, is returned
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
@@ -1098,7 +1098,7 @@ func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAliveWithDyin
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act:
-	err = s.state.CheckAllApplicationsAndUnitsAreAlive(c.Context())
+	err = s.state.CheckApplicationsForMigration(c.Context())
 
 	// Assert: an error of correct type, mentioning the correct unit, is returned.
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotAlive)

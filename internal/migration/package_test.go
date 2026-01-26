@@ -95,11 +95,11 @@ func (s *precheckBaseSuite) expectNoModels() {
 }
 
 func (s *precheckBaseSuite) expectAllAppsAndUnitsAlive() {
-	s.applicationService.EXPECT().CheckAllApplicationsAndUnitsAreAlive(gomock.Any()).Return(nil)
+	s.applicationService.EXPECT().CheckApplicationsForMigration(gomock.Any()).Return(nil)
 }
 
 func (s *precheckBaseSuite) expectDeadAppsOrUnits(err error) {
-	s.applicationService.EXPECT().CheckAllApplicationsAndUnitsAreAlive(gomock.Any()).Return(err)
+	s.applicationService.EXPECT().CheckApplicationsForMigration(gomock.Any()).Return(err)
 }
 
 func (s *precheckBaseSuite) expectCheckRelation(rel fakeRelation) {

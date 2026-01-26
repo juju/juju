@@ -116,12 +116,14 @@ type ApplicationState interface {
 	// the application does not exist.
 	GetApplicationDetailsByName(ctx context.Context, name string) (application.ApplicationDetails, error)
 
-	// CheckAllApplicationsAndUnitsAreAlive checks that all applications and units
-	// in the model are alive, returning an error if any are not.
+	// CheckApplicationsForMigration checks that all applications are ready
+	// for migration. All applications and units in the model are alive and no
+	// units are in the process of upgrading.
 	// The following errors may be returned:
 	// - [applicationerrors.ApplicationNotAlive] if any applications are not alive.
 	// - [applicationerrors.UnitNotAlive] if any units are not alive.
-	CheckAllApplicationsAndUnitsAreAlive(context.Context) error
+	// - [applicationerrors.UnitUpgrading] if any units are still upgrading.
+	CheckApplicationsForMigration(context.Context) error
 
 	// SetApplicationScalingState sets the scaling details for the given caas
 	// application Scale is optional and is only set if not nil.
@@ -1018,16 +1020,18 @@ func (s *Service) GetApplicationDetails(ctx context.Context, appUUID coreapplica
 	return details, nil
 }
 
-// CheckAllApplicationsAndUnitsAreAlive checks that all applications and units
-// in the model are alive, returning an error if any are not.
+// CheckApplicationsForMigration checks that all applications are ready
+// for migration. All applications and units in the model are alive and no
+// units are in the process of upgrading.
 // The following errors may be returned:
 // - [applicationerrors.ApplicationNotAlive] if any applications are not alive.
 // - [applicationerrors.UnitNotAlive] if any units are not alive.
-func (s *Service) CheckAllApplicationsAndUnitsAreAlive(ctx context.Context) error {
+// - [applicationerrors.UnitUpgrading] if any units are still upgrading.
+func (s *Service) CheckApplicationsForMigration(ctx context.Context) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.st.CheckAllApplicationsAndUnitsAreAlive(ctx)
+	return s.st.CheckApplicationsForMigration(ctx)
 }
 
 // IsSubordinateApplication returns true if the application is a subordinate

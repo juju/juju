@@ -736,12 +736,14 @@ func (st *State) GetApplicationLifeByName(ctx context.Context, appName string) (
 	return coreapplication.UUID(app.UUID), app.LifeID, errors.Capture(err)
 }
 
-// CheckAllApplicationsAndUnitsAreAlive checks that all applications and units
-// in the model are alive, returning an error if any are not.
+// CheckApplicationsForMigration checks that all applications are ready
+// for migration. All applications and units in the model are alive and no
+// units are in the process of upgrading.
 // The following errors may be returned:
 // - [applicationerrors.ApplicationNotAlive] if any applications are not alive.
 // - [applicationerrors.UnitNotAlive] if any units are not alive.
-func (st *State) CheckAllApplicationsAndUnitsAreAlive(ctx context.Context) error {
+// - [applicationerrors.UnitUpgrading] if any units are still upgrading.
+func (st *State) CheckApplicationsForMigration(ctx context.Context) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
