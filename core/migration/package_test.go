@@ -36,7 +36,7 @@ func (*ImportTest) TestImports(c *tc.C) {
 		"core/trace",
 		"core/unit",
 		"core/user",
-		"internal/charm/resource",
+		"domain/deployment/charm/resource",
 		"internal/errors",
 		"internal/logger",
 		"internal/uuid",

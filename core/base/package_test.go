@@ -25,7 +25,7 @@ func (*ImportTest) TestImports(c *tc.C) {
 		"internal/charm",
 		"internal/charm/assumes",
 		"internal/charm/hooks",
-		"internal/charm/resource",
+		"domain/deployment/charm/resource",
 		"core/semversion",
 		"internal/errors",
 	})
