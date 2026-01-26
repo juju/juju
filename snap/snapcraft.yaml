@@ -227,7 +227,7 @@ parts:
       - libuv
       - libsqlite3
     source: https://github.com/canonical/dqlite.git
-    source-tag: v1.18.3-fixed
+    source-tag: v1.18.5
     source-type: git
     source-depth: 1
     plugin: nil
