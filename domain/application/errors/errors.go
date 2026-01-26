@@ -305,6 +305,10 @@ const (
 	// NetNodeNotFound describes an error that occurs when the net node being
 	// operated on does not exist.
 	NetNodeNotFound = errors.ConstError("net node not found")
+
+	// UnitsUpgrading describes an error where units are currently in the process
+	// of upgrading. This is relevant for model migration.
+	UnitsUpgrading = errors.ConstError("units upgrading")
 )
 
 const (
