@@ -225,7 +225,7 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 		Role:            charm.RoleProvider,
 	}).Return(relUUID.String(), nil)
 
-	s.state.EXPECT().ImportSecretWithRevision(gomock.Any(), 0, uri, domainsecret.Owner{
+	s.state.EXPECT().ImportSecretWithRevisions(gomock.Any(), 0, uri, domainsecret.Owner{
 		Kind: coresecrets.ApplicationOwner,
 		UUID: appUUID.String(),
 	}, domainsecret.UpsertSecretParams{
@@ -293,7 +293,7 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 		RoleID:        1,
 	})
 
-	s.state.EXPECT().ImportSecretWithRevision(gomock.Any(), 0, uri3, domainsecret.Owner{
+	s.state.EXPECT().ImportSecretWithRevisions(gomock.Any(), 0, uri3, domainsecret.Owner{
 		Kind: coresecrets.ModelOwner,
 		UUID: testing.ModelTag.Id(),
 	}, domainsecret.UpsertSecretParams{
@@ -504,7 +504,8 @@ func (s *serviceSuite) TestImportSecretsRollbackOnStateFailure(c *tc.C) {
 	)
 
 	// State import fails.
-	s.state.EXPECT().ImportSecretWithRevision(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
+	s.state.EXPECT().ImportSecretWithRevisions(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any()).Return(
 		fmt.Errorf("failed to import to state"),
 	)
 

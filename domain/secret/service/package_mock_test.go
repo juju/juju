@@ -1707,7 +1707,7 @@ func (c *MockStateGrantAccessCall) DoAndReturn(f func(context.Context, *secrets.
 	return c
 }
 
-// ImportSecretWithRevision mocks base method.
+// ImportSecretWithRevisions mocks base method.
 func (m *MockState) ImportSecretWithRevisions(arg0 context.Context, arg1 int, arg2 *secrets.URI, arg3 secret.Owner, arg4 secret.UpsertSecretParams, arg5 []secret.UpsertRevisionParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ImportSecretWithRevisions", arg0, arg1, arg2, arg3, arg4, arg5)
@@ -1715,32 +1715,32 @@ func (m *MockState) ImportSecretWithRevisions(arg0 context.Context, arg1 int, ar
 	return ret0
 }
 
-// ImportSecretWithRevision indicates an expected call of ImportSecretWithRevision.
-func (mr *MockStateMockRecorder) ImportSecretWithRevision(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockStateImportSecretWithRevisionCall {
+// ImportSecretWithRevisions indicates an expected call of ImportSecretWithRevisions.
+func (mr *MockStateMockRecorder) ImportSecretWithRevisions(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockStateImportSecretWithRevisionsCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportSecretWithRevisions", reflect.TypeOf((*MockState)(nil).ImportSecretWithRevisions), arg0, arg1, arg2, arg3, arg4, arg5)
-	return &MockStateImportSecretWithRevisionCall{Call: call}
+	return &MockStateImportSecretWithRevisionsCall{Call: call}
 }
 
-// MockStateImportSecretWithRevisionCall wrap *gomock.Call
-type MockStateImportSecretWithRevisionCall struct {
+// MockStateImportSecretWithRevisionsCall wrap *gomock.Call
+type MockStateImportSecretWithRevisionsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateImportSecretWithRevisionCall) Return(arg0 error) *MockStateImportSecretWithRevisionCall {
+func (c *MockStateImportSecretWithRevisionsCall) Return(arg0 error) *MockStateImportSecretWithRevisionsCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateImportSecretWithRevisionCall) Do(f func(context.Context, int, *secrets.URI, secret.Owner, secret.UpsertSecretParams, []secret.UpsertRevisionParams) error) *MockStateImportSecretWithRevisionCall {
+func (c *MockStateImportSecretWithRevisionsCall) Do(f func(context.Context, int, *secrets.URI, secret.Owner, secret.UpsertSecretParams, []secret.UpsertRevisionParams) error) *MockStateImportSecretWithRevisionsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateImportSecretWithRevisionCall) DoAndReturn(f func(context.Context, int, *secrets.URI, secret.Owner, secret.UpsertSecretParams, []secret.UpsertRevisionParams) error) *MockStateImportSecretWithRevisionCall {
+func (c *MockStateImportSecretWithRevisionsCall) DoAndReturn(f func(context.Context, int, *secrets.URI, secret.Owner, secret.UpsertSecretParams, []secret.UpsertRevisionParams) error) *MockStateImportSecretWithRevisionsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
