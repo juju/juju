@@ -6,9 +6,9 @@ package resource_test
 import (
 	"testing"
 
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/deployment/charm/resource"
 )
 
@@ -44,7 +44,7 @@ func (s *ResourceSuite) TestValidateZeroValue(c *tc.C) {
 	var res resource.Resource
 	err := res.Validate()
 
-	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *ResourceSuite) TestValidateBadMetadata(c *tc.C) {
@@ -61,7 +61,7 @@ func (s *ResourceSuite) TestValidateBadMetadata(c *tc.C) {
 	}
 	err = res.Validate()
 
-	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `bad metadata: .*`)
 }
 
@@ -83,7 +83,7 @@ func (s *ResourceSuite) TestValidateBadOrigin(c *tc.C) {
 	}
 	err = res.Validate()
 
-	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `bad origin: .*`)
 }
 
@@ -139,7 +139,7 @@ func (s *ResourceSuite) TestValidateBadRevision(c *tc.C) {
 	}
 	err = res.Validate()
 
-	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `bad revision: must be non-negative, got -1`)
 }
 
@@ -181,7 +181,7 @@ func (s *ResourceSuite) TestValidateMissingFingerprint(c *tc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `bad file info: missing fingerprint`)
 }
 
@@ -217,6 +217,6 @@ func (s *ResourceSuite) TestValidateBadSize(c *tc.C) {
 	}
 	err = res.Validate()
 
-	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `bad file info: negative size`)
 }

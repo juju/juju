@@ -6,9 +6,9 @@ package resource_test
 import (
 	"testing"
 
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/deployment/charm/resource"
 )
 
@@ -81,6 +81,6 @@ func (s *TypeSuite) TestTypeValidateUnknown(c *tc.C) {
 	var unknown resource.Type
 	err := unknown.Validate()
 
-	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `unknown resource type`)
 }

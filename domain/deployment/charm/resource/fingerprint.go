@@ -7,8 +7,9 @@ import (
 	stdhash "hash"
 	"io"
 
-	"github.com/juju/errors"
 	"github.com/juju/utils/v4/hash"
+
+	"github.com/juju/juju/internal/errors"
 )
 
 var newHash, validateSum = hash.SHA384()
@@ -23,7 +24,7 @@ type Fingerprint struct {
 func NewFingerprint(raw []byte) (Fingerprint, error) {
 	fp, err := hash.NewFingerprint(raw, validateSum)
 	if err != nil {
-		return Fingerprint{}, errors.Trace(err)
+		return Fingerprint{}, errors.Capture(err)
 	}
 	return Fingerprint{Fingerprint: fp}, nil
 }
@@ -33,7 +34,7 @@ func NewFingerprint(raw []byte) (Fingerprint, error) {
 func ParseFingerprint(raw string) (Fingerprint, error) {
 	fp, err := hash.ParseHexFingerprint(raw, validateSum)
 	if err != nil {
-		return Fingerprint{}, errors.Trace(err)
+		return Fingerprint{}, errors.Capture(err)
 	}
 	return Fingerprint{Fingerprint: fp}, nil
 }
@@ -42,7 +43,7 @@ func ParseFingerprint(raw string) (Fingerprint, error) {
 func GenerateFingerprint(reader io.Reader) (Fingerprint, error) {
 	fp, err := hash.GenerateFingerprint(reader, newHash)
 	if err != nil {
-		return Fingerprint{}, errors.Trace(err)
+		return Fingerprint{}, errors.Capture(err)
 	}
 	return Fingerprint{fp}, nil
 }

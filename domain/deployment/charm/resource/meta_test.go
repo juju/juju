@@ -6,9 +6,10 @@ package resource_test
 import (
 	"testing"
 
-	"github.com/juju/errors"
-	"github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/tc"
+
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/domain/deployment/charm/resource"
 )
 
 func TestMetaSuite(t *testing.T) {
@@ -33,7 +34,7 @@ func (s *MetaSuite) TestValidateZeroValue(c *tc.C) {
 	var res resource.Meta
 	err := res.Validate()
 
-	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *MetaSuite) TestValidateMissingName(c *tc.C) {
@@ -44,7 +45,7 @@ func (s *MetaSuite) TestValidateMissingName(c *tc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `resource missing name`)
 }
 
@@ -56,7 +57,7 @@ func (s *MetaSuite) TestValidateMissingType(c *tc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `resource missing type`)
 }
 
@@ -68,7 +69,7 @@ func (s *MetaSuite) TestValidateMissingPath(c *tc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `resource missing filename`)
 }
 
@@ -80,7 +81,7 @@ func (s *MetaSuite) TestValidateNestedPath(c *tc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `.*filename cannot contain "/" .*`)
 }
 
@@ -92,7 +93,7 @@ func (s *MetaSuite) TestValidateAbsolutePath(c *tc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `.*filename cannot contain "/" .*`)
 }
 
@@ -104,7 +105,7 @@ func (s *MetaSuite) TestValidateSuspectPath(c *tc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `.*filename cannot contain "/" .*`)
 }
 
