@@ -112,7 +112,9 @@ type callCheckContext struct {
 
 func (s *OSCallTest) parseDir(fset *token.FileSet, calls map[string]set.Strings, dir string) {
 	pkgs, err := parser.ParseDir(fset, dir, func(fi os.FileInfo) bool {
-		return !strings.HasSuffix(fi.Name(), "_test.go")
+		// Skip test files and gomock generated files
+		return !strings.HasSuffix(fi.Name(), "_test.go") &&
+			!strings.Contains(fi.Name(), "gomock_reflect_")
 	}, 0)
 	if err != nil {
 		return

@@ -67,7 +67,7 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleContentError(c *tc.C) {
 		BundleDataYAML: ":",
 	}
 	r, err := s.facade.GetChangesMapArgs(c.Context(), args)
-	c.Assert(err, tc.ErrorMatches, `cannot read bundle YAML: malformed bundle: bundle is empty not valid`)
+	c.Assert(err, tc.ErrorMatches, `cannot read bundle YAML: malformed bundle: bundle is empty`)
 	c.Assert(r, tc.DeepEquals, params.BundleChangesMapArgsResults{})
 }
 
@@ -92,7 +92,7 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleVerificationErrors(c *tc.C) {
 	c.Assert(r.Errors, tc.SameContents, []string{
 		`placement "1" refers to a machine not defined in this bundle`,
 		`too many units specified in unit placement for application "django"`,
-		`invalid charm URL in application "haproxy": cannot parse name and/or revision in URL "42": name "42" not valid`,
+		`invalid charm URL in application "haproxy": cannot parse name and/or revision in URL "42": name "42"`,
 		`negative number of units specified on application "haproxy"`,
 	})
 }
