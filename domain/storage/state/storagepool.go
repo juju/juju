@@ -23,8 +23,8 @@ func (st *State) checkStoragePoolExists(
 
 	checkQ := `
 SELECT &entityUUID.*
-FROM storage_pool
-WHERE uuid = $entityUUID.uuid
+FROM   storage_pool
+WHERE  uuid = $entityUUID.uuid
 `
 
 	checkStmt, err := st.Prepare(checkQ, inputUUID)
@@ -101,16 +101,14 @@ func (st *State) CreateStoragePool(
 		return errors.Capture(err)
 	}
 
-	var (
-		insertStoragePoolAttributes = make(
-			[]insertStoragePoolAttribute, 0, len(args.Attrs),
-		)
-		insertStoragePool = insertStoragePool{
-			OriginID: int(args.Origin),
-			Name:     args.Name,
-			Type:     args.ProviderType.String(),
-			UUID:     args.UUID.String(),
-		}
+	insertStoragePool := insertStoragePool{
+		OriginID: int(args.Origin),
+		Name:     args.Name,
+		Type:     args.ProviderType.String(),
+		UUID:     args.UUID.String(),
+	}
+	insertStoragePoolAttributes := make(
+		[]insertStoragePoolAttribute, 0, len(args.Attrs),
 	)
 
 	for k, v := range args.Attrs {
