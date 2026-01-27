@@ -25,8 +25,8 @@ func (providerTypeSuite) TestIsValid(c *tc.C) {
 		"A",
 		"aaaA",
 		"a12-12",
-		"multi-hypen--",
-		"vQhTnEwLaRkZpGmSdBfJuYrCiXoMtVeWsQpNzHdLgKtRfAyUmJcPoBxWnTsQeVdHrYlAuMfGbSkRpDnCxZoTwLsErVgHyJmPuNaQbWdXs",
+		"multi--hypen",
+		"a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z",
 	}
 
 	for _, validProviderType := range validProviderTypes {
@@ -41,11 +41,11 @@ func (providerTypeSuite) TestIsValid(c *tc.C) {
 // [ProviderType.IsValid] reports false for each of them.
 func (providerTypeSuite) TestIsNotValid(c *tc.C) {
 	invalidProviderTypes := []string{
-		"1a",  // cannot start with a number
+		"1a",  // Cannot start with a digit
 		"-aa", // cannot start with a hyphen
 		"",    // cannot be empty
-		// cannot be greater than 128 characters long
-		"vQhTnEwLaRkZpGmSdBfJuYrCiXoMtVeWsQpNzHdLgKtRfAyUmJcPoBxWnTsQeVdHrYlAuMfGbSkRpDnCxZoTwLsErVgHyJmPuNaQbWdXs123aabbbeeaffjffff445hou",
+		// cannot be greater than 63 characters long
+		"a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6fewffaeffewweffwwf",
 		"Mix日edÆ", // cannot have non-ASCII characters
 	}
 

@@ -11,6 +11,16 @@ import (
 // providers within a controller by common value.
 type ProviderType string
 
+const (
+	// maxProviderTypeLegnth is the maximum length a provider type can be. This
+	// conforms to RFC1035 label rules. See [validProviderTypeRegex].
+	maxProviderTypeLegnth = 63
+
+	// minProviderTypeLegnth is the minimum length a provider type can be. This
+	// conforms to RFC1035 label rules. See [validProviderTypeRegex].
+	minProviderTypeLegnth = 1
+)
+
 var (
 	// validProviderTypeRegex is a regular expression that checks if a provider
 	// type value is valid. This may seem odd as provider types are controlled
@@ -18,26 +28,20 @@ var (
 	// multiple interfaces. We need a safe way of validating what they have
 	// supplied before using it any further.
 	//
-	// The rules for a valid provider type are:
-	// - MUST start with an upper case or lower case ASCII character.
-	// - MUST be at least one character long.
-	// - After the first character, ASCII alphasnumeric characters are allowed
-	// including hyphens.
-	// - MUST not be greater than 128 characters.
-	validProviderTypeRegex = regexp.MustCompile("^[[:alpha:]][-[:alpha:][:digit:]]{0,127}$")
+	// The rules for a valid provider type must follow RFC1035 label rules.
+	validProviderTypeRegex = regexp.MustCompile("^[[:alpha:]][[:alnum:]-]{0,61}[[:alnum:]]$|^[[:alpha:]]$")
 )
 
 // IsValid exists to validate a supplied provider type value from an untrusted
 // source before using any further.
 //
-// The rules for a valid provider type are:
-// - MUST start with an upper case or lower case ASCII character.
-// - MUST be at least one character long.
-// - After the first character, ASCII alphasnumeric characters are allowed
-// including hyphens.
-// - MUST not be greater than 128 characters.
+// The rules for a valid provider type must follow RFC1035 label rules.
 func (p ProviderType) IsValid() bool {
-	return validProviderTypeRegex.MatchString(p.String())
+	str := p.String()
+	// Check length first before regex as it is a quicker failure path.
+	return len(str) >= minProviderTypeLegnth &&
+		len(str) <= maxProviderTypeLegnth &&
+		validProviderTypeRegex.MatchString(str)
 }
 
 // String returns the string representation of [ProviderType]. String implements
