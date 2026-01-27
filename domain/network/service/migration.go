@@ -265,6 +265,9 @@ func (s *MigrationService) transformCloudServiceAddress(
 	addressTypeSubnetUUID map[corenetwork.AddressType]string,
 ) (internal.ImportIPAddress, error) {
 	addressType := corenetwork.AddressType(addr.Type)
+	if err := addressType.Validate(); err != nil {
+		return internal.ImportIPAddress{}, err
+	}
 	subnetUUID, ok := addressTypeSubnetUUID[addressType]
 	if !ok {
 		return internal.ImportIPAddress{}, errors.Errorf("no subnet UUID found for address type %q", addr.Type)
