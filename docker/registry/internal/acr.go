@@ -18,27 +18,31 @@ type azureContainerRegistry struct {
 	*baseClient
 }
 
-func newAzureContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
-	c := newBase(repoDetails, transport, normalizeRepoDetailsAzure)
-	return &azureContainerRegistry{c}
+func newAzureContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) (RegistryInternal, error) {
+	c, err := newBase(repoDetails, transport, normalizeRepoDetailsAzure)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &azureContainerRegistry{c}, nil
 }
 
-func normalizeRepoDetailsAzure(repoDetails *docker.ImageRepoDetails) {
+func normalizeRepoDetailsAzure(repoDetails *docker.ImageRepoDetails) error {
 	if repoDetails.ServerAddress == "" {
 		repoDetails.ServerAddress = repoDetails.Repository
 	}
+	return nil
 }
 
-func (c *azureContainerRegistry) String() string {
+func (c azureContainerRegistry) String() string {
 	return "azurecr.io"
 }
 
 // Match checks if the repository details matches current provider format.
-func (c *azureContainerRegistry) Match() bool {
+func (c azureContainerRegistry) Match() bool {
 	return strings.Contains(c.repoDetails.ServerAddress, "azurecr.io")
 }
 
-func (c *azureContainerRegistry) WrapTransport(...TransportWrapper) error {
+func (c azureContainerRegistry) WrapTransport(...TransportWrapper) error {
 	if c.repoDetails.BasicAuthConfig.Empty() {
 		return errors.NewNotValid(nil, fmt.Sprintf(`username and password are required for registry %q`, c.repoDetails.Repository))
 	}
@@ -53,9 +57,9 @@ func (c azureContainerRegistry) Tags(imageName string) (versions tools.Versions,
 	return c.fetchTags(url, &response)
 }
 
-// GetArchitecture returns the architecture of the image for the specified tag.
-func (c azureContainerRegistry) GetArchitecture(imageName, tag string) (string, error) {
-	return getArchitecture(imageName, tag, c)
+// GetArchitectures returns the architectures of the image for the specified tag.
+func (c azureContainerRegistry) GetArchitectures(imageName, tag string) ([]string, error) {
+	return getArchitectures(imageName, tag, c)
 }
 
 // GetManifests returns the manifests of the image for the specified tag.

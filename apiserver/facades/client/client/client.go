@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/machinemanager"
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
@@ -865,7 +866,7 @@ func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersion
 		if err != nil {
 			return result, errors.Trace(err)
 		}
-		imageRepoDetails = *repoDetails
+		imageRepoDetails = repoDetails
 	}
 	reg, err := c.registryAPIFunc(imageRepoDetails)
 	if err != nil {
@@ -876,6 +877,11 @@ func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersion
 	tags, err := reg.Tags(imageName)
 	if err != nil {
 		return result, errors.Trace(err)
+	}
+
+	wantArch := args.Arch
+	if wantArch == "" {
+		wantArch = arch.DefaultArchitecture
 	}
 	for _, tag := range tags {
 		number := tag.AgentVersion()
@@ -901,21 +907,21 @@ func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersion
 				continue
 			}
 		}
-		arch, err := reg.GetArchitecture(imageName, number.String())
+		arches, err := reg.GetArchitectures(imageName, number.String())
 		if errors.IsNotFound(err) {
 			continue
 		}
 		if err != nil {
 			return result, errors.Annotatef(err, "cannot get architecture for %s:%s", imageName, number.String())
 		}
-		if args.Arch != "" && arch != args.Arch {
+		if !set.NewStrings(arches...).Contains(wantArch) {
 			continue
 		}
 		tools := tools.Tools{
 			Version: version.Binary{
 				Number:  number,
 				Release: coreos.HostOSTypeName(),
-				Arch:    arch,
+				Arch:    wantArch,
 			},
 		}
 		result.List = append(result.List, &tools)

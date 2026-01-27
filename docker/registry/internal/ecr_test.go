@@ -71,13 +71,14 @@ func (s *elasticContainerRegistrySuite) getRegistry(c *gc.C, ensureAsserts func(
 		}
 	}
 
-	reg := internal.NewElasticContainerRegistryForTest(
+	reg, err := internal.NewElasticContainerRegistryForTest(
 		s.imageRepoDetails, s.mockRoundTripper,
 		func(context.Context, string, string, string) (internal.ECRInterface, error) {
 			return s.mockECRAPI, nil
 		},
 	)
-	err := internal.InitProvider(reg)
+	c.Assert(err, jc.ErrorIsNil)
+	err = internal.InitProvider(reg)
 	if !s.imageRepoDetails.IsPrivate() {
 		c.Assert(err, gc.ErrorMatches, `empty credential for elastic container registry`)
 		return nil, ctrl
@@ -338,7 +339,7 @@ func (s *elasticContainerRegistrySuite) TestGetManifestsSchemaVersion1(c *gc.C) 
 { "schemaVersion": 1, "name": "jujuqa/jujud-operator", "tag": "2.9.13", "architecture": "amd64"}
 `[1:],
 		`application/vnd.docker.distribution.manifest.v1+prettyjws`,
-		&internal.ManifestsResult{Architecture: "amd64"},
+		&internal.ManifestsResult{Architectures: []string{"amd64"}},
 	)
 }
 

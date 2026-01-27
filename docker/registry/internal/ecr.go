@@ -68,22 +68,26 @@ type elasticContainerRegistry struct {
 	ECRClientFunc func(ctx context.Context, accessKeyID, secretAccessKey, region string) (ECRInterface, error)
 }
 
-func newElasticContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
+func newElasticContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) (RegistryInternal, error) {
 	return newElasticContainerRegistryForTest(repoDetails, transport, getECRClient)
 }
 
 func newElasticContainerRegistryForTest(
 	repoDetails docker.ImageRepoDetails, transport http.RoundTripper,
 	ECRClientFunc func(ctx context.Context, accessKeyID, secretAccessKey, region string) (ECRInterface, error),
-) RegistryInternal {
-	c := newBase(repoDetails, transport, normalizeRepoDetailsElasticContainerRegistry)
-	return &elasticContainerRegistry{baseClient: c, ECRClientFunc: ECRClientFunc}
+) (RegistryInternal, error) {
+	c, err := newBase(repoDetails, transport, normalizeRepoDetailsElasticContainerRegistry)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &elasticContainerRegistry{baseClient: c, ECRClientFunc: ECRClientFunc}, nil
 }
 
-func normalizeRepoDetailsElasticContainerRegistry(repoDetails *docker.ImageRepoDetails) {
+func normalizeRepoDetailsElasticContainerRegistry(repoDetails *docker.ImageRepoDetails) error {
 	if repoDetails.ServerAddress == "" {
 		repoDetails.ServerAddress = repoDetails.Repository
 	}
+	return nil
 }
 
 func (c *elasticContainerRegistry) String() string {
@@ -179,31 +183,31 @@ func (c *elasticContainerRegistry) WrapTransport(...TransportWrapper) (err error
 }
 
 // Ping pings the ecr endpoint.
-func (c elasticContainerRegistry) Ping() error {
+func (c *elasticContainerRegistry) Ping() error {
 	// No ping endpoint available for ecr.
 	return nil
 }
 
 // Tags fetches tags for an OCI image.
-func (c elasticContainerRegistry) Tags(imageName string) (versions tools.Versions, err error) {
+func (c *elasticContainerRegistry) Tags(imageName string) (versions tools.Versions, err error) {
 	url := c.url("/%s/tags/list", imageName)
 	var response tagsResponseV2
 	return c.fetchTags(url, &response)
 }
 
-// GetArchitecture returns the architecture of the image for the specified tag.
-func (c elasticContainerRegistry) GetArchitecture(imageName, tag string) (string, error) {
-	return getArchitecture(imageName, tag, c)
+// GetArchitectures returns the architectures of the image for the specified tag.
+func (c *elasticContainerRegistry) GetArchitectures(imageName, tag string) ([]string, error) {
+	return getArchitectures(imageName, tag, c)
 }
 
 // GetManifests returns the manifests of the image for the specified tag.
-func (c elasticContainerRegistry) GetManifests(imageName, tag string) (*ManifestsResult, error) {
+func (c *elasticContainerRegistry) GetManifests(imageName, tag string) (*ManifestsResult, error) {
 	url := c.url("/%s/manifests/%s", imageName, tag)
 	return c.GetManifestsCommon(url)
 }
 
 // GetBlobs gets the architecture of the image for the specified tag via blobs API.
-func (c elasticContainerRegistry) GetBlobs(imageName, digest string) (*BlobsResponse, error) {
+func (c *elasticContainerRegistry) GetBlobs(imageName, digest string) (*BlobsResponse, error) {
 	url := c.url("/%s/blobs/%s", imageName, digest)
 	return c.GetBlobsCommon(url)
 }
@@ -212,9 +216,12 @@ type elasticContainerRegistryPublic struct {
 	*baseClient
 }
 
-func newElasticContainerRegistryPublic(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
-	c := newBase(repoDetails, transport, normalizeRepoDetailsCommon)
-	return &elasticContainerRegistryPublic{c}
+func newElasticContainerRegistryPublic(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) (RegistryInternal, error) {
+	c, err := newBase(repoDetails, transport, normalizeRepoDetailsCommon)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &elasticContainerRegistryPublic{c}, nil
 }
 
 func (c *elasticContainerRegistryPublic) String() string {

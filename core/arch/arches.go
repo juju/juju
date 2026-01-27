@@ -4,6 +4,7 @@
 package arch
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -59,4 +60,39 @@ func ConstraintArch(cons constraints.Value, defaultCons *constraints.Value) stri
 		return *defaultCons.Arch
 	}
 	return DefaultArchitecture
+}
+
+// The following constants define the machine architectures supported by Juju.
+const (
+	AMD64   = "amd64"
+	ARM64   = "arm64"
+	PPC64EL = "ppc64el"
+	S390X   = "s390x"
+	RISCV64 = "riscv64"
+)
+
+// archREs maps regular expressions for matching
+// `uname -m` to architectures recognised by Juju.
+var archREs = []struct {
+	*regexp.Regexp
+	arch string
+}{
+	{Regexp: regexp.MustCompile("amd64|x86_64"), arch: AMD64},
+	{Regexp: regexp.MustCompile("aarch64"), arch: ARM64},
+	{Regexp: regexp.MustCompile("ppc64|ppc64el|ppc64le"), arch: PPC64EL},
+	{Regexp: regexp.MustCompile("s390x"), arch: S390X},
+	{Regexp: regexp.MustCompile("riscv64|risc$|risc-[vV]64"), arch: RISCV64},
+}
+
+// NormaliseArch returns the Juju architecture corresponding to a machine's
+// reported architecture. The Juju architecture is used to filter simple
+// streams lookup of tools and images.
+func NormaliseArch(rawArch string) string {
+	rawArch = strings.TrimSpace(rawArch)
+	for _, re := range archREs {
+		if re.Match([]byte(rawArch)) {
+			return re.arch
+		}
+	}
+	return rawArch
 }

@@ -94,8 +94,9 @@ func (s *azureContainerRegistrySuite) getRegistry(c *gc.C) (*internal.AzureConta
 		)
 	}
 
-	reg := internal.NewAzureContainerRegistry(s.imageRepoDetails, s.mockRoundTripper)
-	err := internal.InitProvider(reg)
+	reg, err := internal.NewAzureContainerRegistry(s.imageRepoDetails, s.mockRoundTripper)
+	c.Assert(err, jc.ErrorIsNil)
+	err = internal.InitProvider(reg)
 	if !s.imageRepoDetails.IsPrivate() {
 		c.Assert(err, gc.ErrorMatches, `username and password are required for registry "jujuqa.azurecr.io"`)
 		return nil, ctrl
@@ -296,7 +297,7 @@ func (s *azureContainerRegistrySuite) TestGetManifestsSchemaVersion1(c *gc.C) {
 { "schemaVersion": 1, "name": "jujuqa/jujud-operator", "tag": "2.9.13", "architecture": "amd64"}
 `[1:],
 		`application/vnd.docker.distribution.manifest.v1+prettyjws`,
-		&internal.ManifestsResult{Architecture: "amd64"},
+		&internal.ManifestsResult{Architectures: []string{"amd64"}},
 	)
 }
 

@@ -216,7 +216,7 @@ func (s *serverSuite) TestSetModelAgentVersionOldModels(c *gc.C) {
 	// TODO: (hml) 18-10-2022
 	// Change back when upgrades from 2.9 to 3.0 enabled again.
 	//	c.Assert(err, gc.ErrorMatches, `
-	//these models must first be upgraded to at least 2.9.35 before upgrading the controller:
+	// these models must first be upgraded to at least 2.9.35 before upgrading the controller:
 	// -admin/controller`[1:])
 	c.Assert(err, gc.ErrorMatches, `upgrade to \"3.0.0\" is not supported from \"2.8.0\"`)
 }
@@ -1186,8 +1186,8 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 			image.NewImageInfo(version.MustParse("2.9.11")),
 			image.NewImageInfo(version.MustParse("2.9.12")), // skip: it's not released in simplestream yet.
 		}, nil),
-		registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.10").Return("amd64", nil),
-		registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.11").Return("amd64", nil),
+		registryProvider.EXPECT().GetArchitectures("jujud-operator", "2.9.10").Return([]string{"amd64", "arm64"}, nil),
+		registryProvider.EXPECT().GetArchitectures("jujud-operator", "2.9.11").Return([]string{"amd64", "arm64"}, nil),
 		registryProvider.EXPECT().Close().Return(nil),
 	)
 
@@ -1270,10 +1270,10 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 			image.NewImageInfo(version.MustParse("2.9.12")),
 			image.NewImageInfo(version.MustParse("2.9.13")), // skip: it's not released in simplestream yet.
 		}, nil),
-		registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.10.1").Return("amd64", nil),
-		registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.10").Return("amd64", nil),
-		registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.11").Return("amd64", nil),
-		registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.12").Return("", errors.NotFoundf("2.9.12")), // This can only happen on a non-official registry account.
+		registryProvider.EXPECT().GetArchitectures("jujud-operator", "2.9.10.1").Return([]string{"amd64", "arm64"}, nil),
+		registryProvider.EXPECT().GetArchitectures("jujud-operator", "2.9.10").Return([]string{"amd64", "arm64"}, nil),
+		registryProvider.EXPECT().GetArchitectures("jujud-operator", "2.9.11").Return([]string{"amd64", "arm64"}, nil),
+		registryProvider.EXPECT().GetArchitectures("jujud-operator", "2.9.12").Return(nil, errors.NotFoundf("2.9.12")), // This can only happen on a non-official registry account.
 		registryProvider.EXPECT().Close().Return(nil),
 	)
 

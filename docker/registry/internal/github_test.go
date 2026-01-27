@@ -146,7 +146,10 @@ func (s *githubSuite) TestTagsPublicRegistry(c *gc.C) {
 	defer ctrl.Finish()
 
 	data := `
-{"name":"jujuqa/jujud-operator","tags":["2.9.10.1","2.9.10.2","2.9.10"]}
+{"name":"jujuqa/jujud-operator","tags":["2.9.10.1","2.9.10.2"]}
+`[1:]
+	data2 := `
+{"name":"jujuqa/jujud-operator","tags":["2.9.10"]}
 `[1:]
 
 	gomock.InOrder(
@@ -184,8 +187,19 @@ func (s *githubSuite) TestTagsPublicRegistry(c *gc.C) {
 			c.Assert(req.URL.String(), gc.Equals, `https://ghcr.io/v2/jujuqa/jujud-operator/tags/list`)
 			resps := &http.Response{
 				Request:    req,
+				Header:     http.Header{http.CanonicalHeaderKey("Link"): []string{`/v2/juju/jujud-operator/tags/list?last=2.9.10.2&n=0; rel="next"`}},
 				StatusCode: http.StatusOK,
 				Body:       ioutil.NopCloser(strings.NewReader(data)),
+			}
+			return resps, nil
+		}),
+		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+			c.Assert(req.Method, gc.Equals, `GET`)
+			c.Assert(req.URL.String(), gc.Equals, `https://ghcr.io/v2/juju/jujud-operator/tags/list?last=2.9.10.2&n=0`)
+			resps := &http.Response{
+				Request:    req,
+				StatusCode: http.StatusOK,
+				Body:       ioutil.NopCloser(strings.NewReader(data2)),
 			}
 			return resps, nil
 		}),

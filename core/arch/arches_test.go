@@ -45,3 +45,25 @@ func (s archSuite) TestConstraintArch(c *gc.C) {
 	a = arch.ConstraintArch(constraints.MustParse("arch=s390x"), &defaultCons)
 	c.Assert(a, gc.Equals, "s390x")
 }
+
+func (s *archSuite) TestNormaliseArch(c *gc.C) {
+	for _, test := range []struct {
+		raw  string
+		arch string
+	}{
+		{"amd64", "amd64"},
+		{"x86_64", "amd64"},
+		{"aarch64", "arm64"},
+		{"arm64", "arm64"},
+		{"ppc64el", "ppc64el"},
+		{"ppc64le", "ppc64el"},
+		{"s390x", "s390x"},
+		{"riscv64", "riscv64"},
+		{"risc", "riscv64"},
+		{"risc-v64", "riscv64"},
+		{"risc-V64", "riscv64"},
+	} {
+		arch := arch.NormaliseArch(test.raw)
+		c.Check(arch, gc.Equals, test.arch)
+	}
+}
