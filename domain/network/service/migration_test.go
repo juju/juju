@@ -210,7 +210,7 @@ func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProvider(c *tc.C
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProviderNoSubnet(c *tc.C) {
+func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProviderNoSubnetSlash32(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	netNodeUUID := uuid.MustNewUUID().String()
@@ -218,36 +218,46 @@ func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProviderNoSubnet
 		"88": netNodeUUID,
 	}
 
-	// Create a subnet with a different CIDR than the one in the address
-	subnetUUID := uuid.MustNewUUID().String()
+	s.st.EXPECT().AllMachinesAndNetNodes(gomock.Any()).Return(nameMap, nil)
+	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(nil, nil)
+
+	// Expect a /32 subnet to be created.
 	subnetInfo := corenetwork.SubnetInfo{
-		ID:   corenetwork.Id(subnetUUID),
-		CIDR: "198.51.100.0/24", // Different CIDR than the one in the address
+		CIDR: "192.0.2.0/32",
 	}
-	subnets := corenetwork.SubnetInfos{subnetInfo}
+	matcher := &spaceInfoAsArgMatcher{
+		c:        c,
+		expected: subnetInfo,
+	}
+	s.st.EXPECT().AddSubnet(gomock.Any(), matcher).Return(nil)
 
 	args := []internal.ImportLinkLayerDevice{
 		{
 			MachineID: "88",
-			Name:      "eth0",
+			Name:      "cillium_host",
 			Addresses: []internal.ImportIPAddress{
 				{
 					AddressValue: "192.0.2.10",
-					SubnetCIDR:   "192.0.2.0/24", // No matching subnet for this CIDR
+					SubnetCIDR:   "192.0.2.0/32", // No matching subnet for this CIDR
 				},
 			},
 		},
 	}
 
-	s.st.EXPECT().AllMachinesAndNetNodes(gomock.Any()).Return(nameMap, nil)
-	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(subnets, nil)
+	expectedArgs := make([]internal.ImportLinkLayerDevice, len(args))
+	copy(expectedArgs, args)
+	expectedArgs[0].NetNodeUUID = netNodeUUID
+	matcherTwo := &importLinkLayerDeviceArgMatcher{
+		c:        c,
+		expected: expectedArgs,
+	}
+	s.st.EXPECT().ImportLinkLayerDevices(gomock.Any(), matcherTwo).Return(nil)
 
 	// Act
 	err := s.migrationService(c).ImportLinkLayerDevices(c.Context(), args)
 
-	// Assert: error about no subnet found for CIDR
-	c.Assert(err, tc.ErrorMatches,
-		`converting device "eth0" on machine "88":.*converting address "192.0.2.10":.*no subnet found`)
+	// Assert: no error
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProviderTooMuchSubnet(c *tc.C) {
@@ -778,4 +788,65 @@ func (s *migrationSuite) TestSetMachineNetConfigBadUUIDError(c *tc.C) {
 
 	err := s.service(c).SetMachineNetConfig(c.Context(), mUUID, nil)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+type spaceInfoAsArgMatcher struct {
+	c        *tc.C
+	expected corenetwork.SubnetInfo
+}
+
+func (m spaceInfoAsArgMatcher) Matches(x interface{}) bool {
+	obtained, ok := x.(corenetwork.SubnetInfo)
+	m.c.Assert(ok, tc.IsTrue)
+	if !ok {
+		return false
+	}
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_.ID", tc.IsNonZeroUUID)
+	return m.c.Check(obtained, mc, m.expected)
+}
+
+func (m spaceInfoAsArgMatcher) String() string {
+	return "match the corenetwork.SubnetInfo modulo subnet uuid"
+}
+
+type importLinkLayerDeviceArgMatcher struct {
+	c        *tc.C
+	expected []internal.ImportLinkLayerDevice
+}
+
+func (m importLinkLayerDeviceArgMatcher) Matches(x interface{}) bool {
+	obtained, ok := x.([]internal.ImportLinkLayerDevice)
+	m.c.Assert(ok, tc.IsTrue)
+	if !ok {
+		return false
+	}
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_.Addresses", tc.Ignore)
+	if m.c.Check(
+		obtained,
+		tc.UnorderedMatch[[]internal.ImportLinkLayerDevice](mc),
+		m.expected,
+		tc.Commentf("top level fail"),
+	) == false {
+		return false
+	}
+
+	mc = tc.NewMultiChecker()
+	mc.AddExpr("_.SubnetUUID", tc.IsNonZeroUUID)
+	for i := range m.expected {
+		if m.c.Check(
+			obtained[i].Addresses,
+			tc.UnorderedMatch[[]internal.ImportIPAddress](mc),
+			m.expected[i].Addresses,
+			tc.Commentf("[%d].Addresses fail", i),
+		) == false {
+			return false
+		}
+	}
+	return true
+}
+
+func (m importLinkLayerDeviceArgMatcher) String() string {
+	return "match the internal.ImportLinkLayerDevice"
 }
