@@ -5,13 +5,16 @@ package charm
 
 import (
 	"bytes"
+	stderrors "errors"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
+
+	coreerrors "github.com/juju/juju/core/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // FieldPresenceMap indicates which keys of a parsed bundle yaml document were
@@ -83,26 +86,26 @@ func (s *resolvedBundleDataSource) ResolveInclude(path string) ([]byte, error) {
 		var err error
 		absPath, err = filepath.Abs(filepath.Clean(filepath.Join(s.basePath, absPath)))
 		if err != nil {
-			return nil, errors.Annotatef(err, "resolving relative include %q", path)
+			return nil, internalerrors.Errorf("resolving relative include %q: %w", path, err)
 		}
 	}
 
 	info, err := os.Stat(absPath)
 	if err != nil {
 		if isNotExistsError(err) {
-			return nil, errors.NotFoundf("include file %q", absPath)
+			return nil, internalerrors.Errorf("include file %q", absPath).Add(coreerrors.NotFound)
 		}
 
-		return nil, errors.Annotatef(err, "stat failed for %q", absPath)
+		return nil, internalerrors.Errorf("stat failed for %q: %w", absPath, err)
 	}
 
 	if info.IsDir() {
-		return nil, errors.Errorf("include path %q resolves to a folder", absPath)
+		return nil, internalerrors.Errorf("include path %q resolves to a folder", absPath)
 	}
 
 	data, err := os.ReadFile(absPath)
 	if err != nil {
-		return nil, errors.Annotatef(err, "reading include file at %q", absPath)
+		return nil, internalerrors.Errorf("reading include file at %q: %w", absPath, err)
 	}
 
 	return data, nil
@@ -115,10 +118,10 @@ func LocalBundleDataSource(path string) (BundleDataSource, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		if isNotExistsError(err) {
-			return nil, errors.NotFoundf("%q", path)
+			return nil, internalerrors.Errorf("%q", path).Add(coreerrors.NotFound)
 		}
 
-		return nil, errors.Annotatef(err, "stat failed for %q", path)
+		return nil, internalerrors.Errorf("stat failed for %q: %w", path, err)
 	}
 
 	// Treat as an exploded bundle archive directory
@@ -130,9 +133,9 @@ func LocalBundleDataSource(path string) (BundleDataSource, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		if isNotExistsError(err) {
-			return nil, errors.NotFoundf("%q", path)
+			return nil, internalerrors.Errorf("%q", path).Add(coreerrors.NotFound)
 		}
-		return nil, errors.Annotatef(err, "access bundle data at %q", path)
+		return nil, internalerrors.Errorf("access bundle data at %q: %w", path, err)
 	}
 	defer func() { _ = f.Close() }()
 
@@ -144,7 +147,7 @@ func LocalBundleDataSource(path string) (BundleDataSource, error) {
 	if pErr == nil {
 		absPath, err := filepath.Abs(path)
 		if err != nil {
-			return nil, errors.Annotatef(err, "resolve absolute path to %s", path)
+			return nil, internalerrors.Errorf("resolve absolute path to %s: %w", err, path)
 		}
 		return &resolvedBundleDataSource{
 			basePath:    filepath.Dir(absPath),
@@ -158,14 +161,14 @@ func LocalBundleDataSource(path string) (BundleDataSource, error) {
 	zrc, err := zo.openZip()
 	if err != nil {
 		// Not a zip file; return the original parse error
-		return nil, errors.NewNotValid(pErr, "cannot unmarshal bundle contents")
+		return nil, internalerrors.Errorf("cannot unmarshal bundle contents: %w", pErr).Add(coreerrors.NotValid)
 	}
 	defer func() { _ = zrc.Close() }()
 
 	r, err := zipOpenFile(zrc, "bundle.yaml")
 	if err != nil {
 		// It is a zip file but not one that contains a bundle.yaml
-		return nil, errors.NotFoundf("interpret bundle contents as a bundle archive: %v", err)
+		return nil, internalerrors.Errorf("interpret bundle contents as a bundle archive: %v", err).Add(coreerrors.NotFound)
 	}
 	defer func() { _ = r.Close() }()
 
@@ -181,7 +184,7 @@ func LocalBundleDataSource(path string) (BundleDataSource, error) {
 		}, nil
 	}
 
-	return nil, errors.NewNotValid(pErr, "cannot unmarshal bundle contents")
+	return nil, internalerrors.Errorf("cannot unmarshal bundle contents: %w", pErr).Add(coreerrors.NotValid)
 }
 
 func isNotExistsError(err error) bool {
@@ -206,7 +209,7 @@ func StreamBundleDataSource(r io.Reader, basePath string) (BundleDataSource, err
 	}
 	parts, err := parseBundleParts(b)
 	if err != nil {
-		return nil, errors.NotValidf("cannot unmarshal bundle contents: %v", err)
+		return nil, internalerrors.Errorf("cannot unmarshal bundle contents: %v", err)
 	}
 
 	return &resolvedBundleDataSource{parts: parts, bundleBytes: b, basePath: basePath}, nil
@@ -231,23 +234,23 @@ func parseBundleParts(b []byte) ([]*BundleDataPart, error) {
 		var part BundleDataPart
 
 		err := structDec.Decode(&part.Data)
-		if errors.Is(err, io.EOF) {
+		if stderrors.Is(err, io.EOF) {
 			break
 		} else if err != nil && !strings.HasPrefix(err.Error(), "yaml: unmarshal errors:") {
-			return nil, errors.Annotatef(err, "unmarshal document %d", docIdx)
+			return nil, internalerrors.Errorf("unmarshal document %d: %w", docIdx, err)
 		}
 
 		var data *BundleData
 		strictDec.SetStrict(true)
 		err = strictDec.Decode(&data)
-		if errors.Is(err, io.EOF) {
+		if stderrors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			if strings.HasPrefix(err.Error(), "yaml: unmarshal errors:") {
 				friendlyErrors := userFriendlyUnmarshalErrors(err)
-				part.UnmarshallError = errors.Annotatef(friendlyErrors, "unmarshal document %d", docIdx)
+				part.UnmarshallError = internalerrors.Errorf("unmarshal document %d: %v", docIdx, friendlyErrors)
 			} else {
-				return nil, errors.Annotatef(err, "unmarshal document %d", docIdx)
+				return nil, internalerrors.Errorf("unmarshal document %d: %w", docIdx, err)
 			}
 		}
 
@@ -266,5 +269,5 @@ func userFriendlyUnmarshalErrors(err error) error {
 	friendlyText = strings.ReplaceAll(friendlyText, "type charm.RelationSpec", "relations")
 	friendlyText = strings.ReplaceAll(friendlyText, "type charm.MachineSpec", "machines")
 	friendlyText = strings.ReplaceAll(friendlyText, "type charm.SaasSpec", "saas")
-	return errors.New(friendlyText)
+	return internalerrors.Errorf(friendlyText)
 }

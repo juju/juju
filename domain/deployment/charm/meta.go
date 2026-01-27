@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/schema"
 	"github.com/juju/utils/v4"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/charm/hooks"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // RelationScope describes the scope of a relation.
@@ -179,7 +179,7 @@ func (r Relation) ImplementedBy(meta *Meta) bool {
 	case RolePeer:
 		m = meta.Peers
 	default:
-		panic(errors.Errorf("unknown relation role %q", r.Role))
+		panic(internalerrors.Errorf("unknown relation role %q", r.Role))
 	}
 	rel, found := m[r.Name]
 	if !found {
@@ -192,7 +192,7 @@ func (r Relation) ImplementedBy(meta *Meta) bool {
 		case ScopeContainer:
 			return true
 		default:
-			panic(errors.Errorf("unknown relation scope %q", r.Scope))
+			panic(internalerrors.Errorf("unknown relation scope %q", r.Scope))
 		}
 	}
 	return false
@@ -336,17 +336,17 @@ type TermsId struct {
 func (t *TermsId) Validate() error {
 	if t.Tenant != "" && t.Tenant != "cs" {
 		if !validTermName.MatchString(t.Tenant) {
-			return errors.Errorf("wrong term tenant format %q", t.Tenant)
+			return internalerrors.Errorf("wrong term tenant format %q", t.Tenant)
 		}
 	}
 	if t.Owner != "" && !names.IsValidUser(t.Owner) {
-		return errors.Errorf("wrong owner format %q", t.Owner)
+		return internalerrors.Errorf("wrong owner format %q", t.Owner)
 	}
 	if !validTermName.MatchString(t.Name) {
-		return errors.Errorf("wrong term name format %q", t.Name)
+		return internalerrors.Errorf("wrong term name format %q", t.Name)
 	}
 	if t.Revision < 0 {
-		return errors.Errorf("negative term revision")
+		return internalerrors.Errorf("negative term revision")
 	}
 	return nil
 }
@@ -422,7 +422,7 @@ func ParseTerm(s string) (*TermsId, error) {
 	case 3: // owner/name/123
 		termRevision, err := strconv.Atoi(tokens[2])
 		if err != nil {
-			return nil, errors.Errorf("invalid revision number %q %v", tokens[2], err)
+			return nil, internalerrors.Errorf("invalid revision number %q %v", tokens[2], err)
 		}
 		term = TermsId{
 			Tenant:   tenant,
@@ -431,10 +431,10 @@ func ParseTerm(s string) (*TermsId, error) {
 			Revision: termRevision,
 		}
 	default:
-		return nil, errors.Errorf("unknown term id format %q", s)
+		return nil, internalerrors.Errorf("unknown term id format %q", s)
 	}
 	if err := term.Validate(); err != nil {
-		return nil, errors.Trace(err)
+		return nil, internalerrors.Capture(err)
 	}
 	return &term, nil
 }
@@ -469,7 +469,7 @@ func (meta *Meta) UnmarshalYAML(f func(interface{}) error) error {
 
 	v, err := charmSchema.Coerce(raw, nil)
 	if err != nil {
-		return errors.New("metadata: " + err.Error())
+		return internalerrors.Errorf("metadata: " + err.Error())
 	}
 
 	m := v.(map[string]interface{})
@@ -533,11 +533,11 @@ func parseMeta(m map[string]interface{}) (*Meta, error) {
 	// v2 parsing
 	meta.Containers, err = parseContainers(m["containers"], meta.Resources, meta.Storage)
 	if err != nil {
-		return nil, errors.Annotatef(err, "parsing containers")
+		return nil, internalerrors.Errorf("parsing containers: %w", err)
 	}
 	meta.CharmUser, err = parseCharmUser(m["charm-user"])
 	if err != nil {
-		return nil, errors.Annotatef(err, "parsing charm-user")
+		return nil, internalerrors.Errorf("parsing charm-user: %w", err)
 	}
 	return &meta, nil
 }
@@ -689,18 +689,18 @@ const (
 func (m Meta) Check(format Format, reasons ...FormatSelectionReason) error {
 	switch format {
 	case FormatV1:
-		return errors.NotValidf("charm metadata without bases in manifest")
+		return internalerrors.Errorf("charm metadata without bases in manifest")
 	case FormatV2:
 		err := m.checkV2(reasons)
 		if err != nil {
-			return errors.Trace(err)
+			return internalerrors.Capture(err)
 		}
 	default:
-		return errors.Errorf("unknown format %v", format)
+		return internalerrors.Errorf("unknown format %v", format)
 	}
 
 	if err := validateMetaExtraBindings(m); err != nil {
-		return errors.Errorf("charm %q has invalid extra bindings: %v", m.Name, err)
+		return internalerrors.Errorf("charm %q has invalid extra bindings: %v", m.Name, err)
 	}
 
 	// Subordinate charms must have at least one relation that
@@ -717,26 +717,26 @@ func (m Meta) Check(format Format, reasons ...FormatSelectionReason) error {
 			}
 		}
 		if !valid {
-			return errors.Errorf("subordinate charm %q lacks \"requires\" relation with container scope", m.Name)
+			return internalerrors.Errorf("subordinate charm %q lacks \"requires\" relation with container scope", m.Name)
 		}
 	}
 
 	names := make(map[string]bool)
 	for name, store := range m.Storage {
 		if store.Location != "" && store.Type != StorageFilesystem {
-			return errors.Errorf(`charm %q storage %q: location may not be specified for "type: %s"`, m.Name, name, store.Type)
+			return internalerrors.Errorf(`charm %q storage %q: location may not be specified for "type: %s"`, m.Name, name, store.Type)
 		}
 		if store.Type == "" {
-			return errors.Errorf("charm %q storage %q: type must be specified", m.Name, name)
+			return internalerrors.Errorf("charm %q storage %q: type must be specified", m.Name, name)
 		}
 		if store.CountMin < 0 {
-			return errors.Errorf("charm %q storage %q: invalid minimum count %d", m.Name, name, store.CountMin)
+			return internalerrors.Errorf("charm %q storage %q: invalid minimum count %d", m.Name, name, store.CountMin)
 		}
 		if store.CountMax == 0 || store.CountMax < -1 {
-			return errors.Errorf("charm %q storage %q: invalid maximum count %d", m.Name, name, store.CountMax)
+			return internalerrors.Errorf("charm %q storage %q: invalid maximum count %d", m.Name, name, store.CountMax)
 		}
 		if names[name] {
-			return errors.Errorf("charm %q storage %q: duplicated storage name", m.Name, name)
+			return internalerrors.Errorf("charm %q storage %q: duplicated storage name", m.Name, name)
 		}
 		names[name] = true
 	}
@@ -744,15 +744,15 @@ func (m Meta) Check(format Format, reasons ...FormatSelectionReason) error {
 	names = make(map[string]bool)
 	for name, device := range m.Devices {
 		if device.Type == "" {
-			return errors.Errorf("charm %q device %q: type must be specified", m.Name, name)
+			return internalerrors.Errorf("charm %q device %q: type must be specified", m.Name, name)
 		}
 		if device.CountMax >= 0 && device.CountMin >= 0 && device.CountMin > device.CountMax {
-			return errors.Errorf(
+			return internalerrors.Errorf(
 				"charm %q device %q: maximum count %d can not be smaller than minimum count %d",
 				m.Name, name, device.CountMax, device.CountMin)
 		}
 		if names[name] {
-			return errors.Errorf("charm %q device %q: duplicated device name", m.Name, name)
+			return internalerrors.Errorf("charm %q device %q: duplicated device name", m.Name, name)
 		}
 		names[name] = true
 	}
@@ -763,7 +763,7 @@ func (m Meta) Check(format Format, reasons ...FormatSelectionReason) error {
 
 	for _, term := range m.Terms {
 		if _, terr := ParseTerm(term); terr != nil {
-			return errors.Trace(terr)
+			return internalerrors.Capture(terr)
 		}
 	}
 
@@ -772,10 +772,10 @@ func (m Meta) Check(format Format, reasons ...FormatSelectionReason) error {
 
 func (m Meta) checkV2(reasons []FormatSelectionReason) error {
 	if len(reasons) == 0 {
-		return errors.NotValidf("metadata v2 without manifest.yaml")
+		return internalerrors.Errorf("metadata v2 without manifest.yaml")
 	}
 	if m.MinJujuVersion != semversion.Zero {
-		return errors.NotValidf("min-juju-version in metadata v2")
+		return internalerrors.Errorf("min-juju-version in metadata v2")
 	}
 	return nil
 }
@@ -985,9 +985,9 @@ func parseContainers(input interface{}, resources map[string]resource.Meta, stor
 		}
 		if container.Resource != "" {
 			if r, ok := resources[container.Resource]; !ok {
-				return nil, errors.NotFoundf("referenced resource %q", container.Resource)
+				return nil, internalerrors.Errorf("referenced resource %q", container.Resource)
 			} else if r.Type != resource.TypeContainerImage {
-				return nil, errors.Errorf("referenced resource %q is not a %s",
+				return nil, internalerrors.Errorf("referenced resource %q is not a %s",
 					container.Resource,
 					resource.TypeContainerImage.String())
 			}
@@ -995,14 +995,14 @@ func parseContainers(input interface{}, resources map[string]resource.Meta, stor
 
 		container.Mounts, err = parseMounts(containerMap["mounts"], storage)
 		if err != nil {
-			return nil, errors.Annotatef(err, "container %q", name)
+			return nil, internalerrors.Errorf("container %q: %w", err, name)
 		}
 
 		if value, ok := containerMap["uid"]; ok {
 			uid := int(value.(int64))
 			container.Uid = &uid
 			if uid >= 1000 && uid < 10000 {
-				return nil, errors.Errorf("container %q has invalid uid %d: uid cannot be in reserved range 1000-9999",
+				return nil, internalerrors.Errorf("container %q has invalid uid %d: uid cannot be in reserved range 1000-9999",
 					name, uid)
 			}
 		}
@@ -1010,7 +1010,7 @@ func parseContainers(input interface{}, resources map[string]resource.Meta, stor
 			gid := int(value.(int64))
 			container.Gid = &gid
 			if gid >= 1000 && gid < 10000 {
-				return nil, errors.Errorf("container %q has invalid gid %d: gid cannot be in reserved range 1000-9999",
+				return nil, internalerrors.Errorf("container %q has invalid gid %d: gid cannot be in reserved range 1000-9999",
 					name, gid)
 			}
 		}
@@ -1038,13 +1038,13 @@ func parseMounts(input interface{}, storage map[string]Storage) ([]Mount, error)
 			mount.Location = value
 		}
 		if mount.Storage == "" {
-			return nil, errors.Errorf("storage must be specified on mount")
+			return nil, internalerrors.Errorf("storage must be specified on mount")
 		}
 		if mount.Location == "" {
-			return nil, errors.Errorf("location must be specified on mount")
+			return nil, internalerrors.Errorf("location must be specified on mount")
 		}
 		if _, ok := storage[mount.Storage]; !ok {
-			return nil, errors.NotValidf("storage %q", mount.Storage)
+			return nil, internalerrors.Errorf("storage %q", mount.Storage)
 		}
 		mounts = append(mounts, mount)
 	}
@@ -1057,7 +1057,7 @@ func parseMinJujuVersion(value any) (semversion.Number, error) {
 	}
 	ver, err := semversion.Parse(value.(string))
 	if err != nil {
-		return semversion.Zero, errors.Annotate(err, "invalid min-juju-version")
+		return semversion.Zero, internalerrors.Errorf("invalid min-juju-version: %w", err)
 	}
 	return ver, nil
 }
@@ -1071,7 +1071,7 @@ func parseCharmUser(value any) (RunAs, error) {
 	case RunAsRoot, RunAsSudoer, RunAsNonRoot:
 		return v, nil
 	default:
-		return RunAsDefault, errors.Errorf("invalid charm-user %q expected one of %s, %s or %s", v,
+		return RunAsDefault, internalerrors.Errorf("invalid charm-user %q expected one of %s, %s or %s", v,
 			RunAsRoot, RunAsSudoer, RunAsNonRoot)
 	}
 }
@@ -1128,7 +1128,7 @@ func (c deviceCountC) Coerce(v interface{}, path []string) (interface{}, error) 
 			return m, nil
 		}
 	}
-	return 0, errors.Errorf("invalid device count %d", s)
+	return 0, internalerrors.Errorf("invalid device count %d", s)
 }
 
 type storageCountC struct{}
@@ -1144,13 +1144,13 @@ func (c storageCountC) Coerce(v interface{}, path []string) (newv interface{}, e
 		// We've got a count of the form "m": m represents
 		// both the minimum and maximum.
 		if m <= 0 {
-			return nil, errors.Errorf("%s: invalid count %v", strings.Join(path[1:], ""), m)
+			return nil, internalerrors.Errorf("%s: invalid count %v", strings.Join(path[1:], ""), m)
 		}
 		return [2]int{int(m), int(m)}, nil
 	}
 	match := storageCountRE.FindStringSubmatch(s.(string))
 	if match == nil {
-		return nil, errors.Errorf("%s: value %q does not match 'm', 'm-n', or 'm+'", strings.Join(path[1:], ""), s)
+		return nil, internalerrors.Errorf("%s: value %q does not match 'm', 'm-n', or 'm+'", strings.Join(path[1:], ""), s)
 	}
 	var m, n int
 	if m, err = strconv.Atoi(match[1]); err != nil {
@@ -1289,7 +1289,7 @@ func ensureUnambiguousFormat(raw map[interface{}]interface{}) error {
 		}
 	}
 	if mismatched != nil {
-		return errors.Errorf("ambiguous metadata: keys %s cannot be used with %s",
+		return internalerrors.Errorf("ambiguous metadata: keys %s cannot be used with %s",
 			`"`+strings.Join(mismatched, `", "`)+`"`,
 			`"`+strings.Join(matched, `", "`)+`"`)
 	}

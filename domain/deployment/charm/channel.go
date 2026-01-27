@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/errors"
+	coreerrors "github.com/juju/juju/core/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // Risk describes the type of risk in a current channel.
@@ -66,7 +67,7 @@ type Channel struct {
 // MakeChannel creates a core charm Channel from a set of component parts.
 func MakeChannel(track, risk, branch string) (Channel, error) {
 	if !isRisk(risk) {
-		return Channel{}, errors.NotValidf("risk %q", risk)
+		return Channel{}, internalerrors.Errorf("risk %q", risk).Add(coreerrors.NotValid)
 	}
 	return Channel{
 		Track:  track,
@@ -89,7 +90,7 @@ func MakePermissiveChannel(track, risk, branch string) Channel {
 // ParseChannel parses a string representing a store channel.
 func ParseChannel(s string) (Channel, error) {
 	if s == "" {
-		return Channel{}, errors.NotValidf("empty channel")
+		return Channel{}, internalerrors.Errorf("empty channel").Add(coreerrors.NotValid)
 	}
 
 	p := strings.Split(s, "/")
@@ -111,14 +112,14 @@ func ParseChannel(s string) (Channel, error) {
 	case 3:
 		track, risk, branch = &p[0], &p[1], &p[2]
 	default:
-		return Channel{}, errors.Errorf("channel is malformed and has too many components %q", s)
+		return Channel{}, internalerrors.Errorf("channel is malformed and has too many components %q", s)
 	}
 
 	ch := Channel{}
 
 	if risk != nil {
 		if !isRisk(*risk) {
-			return Channel{}, errors.NotValidf("risk in channel %q", s)
+			return Channel{}, internalerrors.Errorf("risk in channel %q", s).Add(coreerrors.NotValid)
 		}
 		// We can lift this into a risk, as we've validated prior to this to
 		// ensure it's a valid risk.
@@ -126,13 +127,13 @@ func ParseChannel(s string) (Channel, error) {
 	}
 	if track != nil {
 		if *track == "" {
-			return Channel{}, errors.NotValidf("track in channel %q", s)
+			return Channel{}, internalerrors.Errorf("track in channel %q", s).Add(coreerrors.NotValid)
 		}
 		ch.Track = *track
 	}
 	if branch != nil {
 		if *branch == "" {
-			return Channel{}, errors.NotValidf("branch in channel %q", s)
+			return Channel{}, internalerrors.Errorf("branch in channel %q", s).Add(coreerrors.NotValid)
 		}
 		ch.Branch = *branch
 	}
@@ -144,7 +145,7 @@ func ParseChannel(s string) (Channel, error) {
 func ParseChannelNormalize(s string) (Channel, error) {
 	ch, err := ParseChannel(s)
 	if err != nil {
-		return Channel{}, errors.Trace(err)
+		return Channel{}, internalerrors.Capture(err)
 	}
 	return ch.Normalize(), nil
 }

@@ -10,11 +10,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"gopkg.in/yaml.v2"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/deployment/charm"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -960,7 +961,7 @@ func (s srcWithFakeIncludeResolver) ResolveInclude(path string) ([]byte, error) 
 	}
 
 	if !found {
-		return nil, errors.NotFoundf(path)
+		return nil, internalerrors.Errorf("include path %q not found in test resolver", path).Add(coreerrors.NotFound)
 	}
 
 	return data, nil

@@ -14,8 +14,9 @@ import (
 	"strconv"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	ziputil "github.com/juju/utils/v4/zip"
+
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // CharmArchive type encapsulates access to data and operations
@@ -83,12 +84,12 @@ func readCharmArchive(zopen zipOpener) (archive *CharmArchive, err error) {
 	if _, ok := err.(*noCharmArchiveFile); ok {
 		b.manifest = nil
 	} else if err != nil {
-		return nil, errors.Annotatef(err, `opening "manifest.yaml" file`)
+		return nil, internalerrors.Errorf(`opening "manifest.yaml" file: %w`, err)
 	} else {
 		b.manifest, err = ReadManifest(reader)
 		_ = reader.Close()
 		if err != nil {
-			return nil, errors.Annotatef(err, `parsing "manifest.yaml" file`)
+			return nil, internalerrors.Errorf(`parsing "manifest.yaml" file: %w`, err)
 		}
 	}
 
@@ -126,7 +127,7 @@ func readCharmArchive(zopen zipOpener) (archive *CharmArchive, err error) {
 	} else {
 		_, err = fmt.Fscan(reader, &b.revision)
 		if err != nil {
-			return nil, errors.New("invalid revision file")
+			return nil, internalerrors.Errorf("invalid revision file")
 		}
 	}
 

@@ -6,10 +6,10 @@ package charm
 import (
 	"fmt"
 
-	"github.com/juju/errors"
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/domain/deployment/charm/resource"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 var resourceSchema = schema.FieldMap(
@@ -70,7 +70,7 @@ func parseResourceMeta(name string, data interface{}) (resource.Meta, error) {
 		var err error
 		meta.Type, err = resource.ParseType(val.(string))
 		if err != nil {
-			return meta, errors.Trace(err)
+			return meta, internalerrors.Capture(err)
 		}
 	}
 

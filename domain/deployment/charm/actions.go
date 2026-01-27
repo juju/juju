@@ -9,9 +9,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/juju/errors"
 	gjs "github.com/juju/gojsonschema"
 	"gopkg.in/yaml.v2"
+
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 var prohibitedSchemaKeys = map[string]bool{"$ref": true, "$schema": true}
@@ -77,7 +78,7 @@ func (spec *ActionSpec) ValidateParams(params map[string]interface{}) error {
 	for _, validationError := range results.Errors() {
 		errorStrings = append(errorStrings, validationError.String())
 	}
-	return errors.Errorf("validation failed: %s", strings.Join(errorStrings, "; "))
+	return internalerrors.Errorf("validation failed: %s", strings.Join(errorStrings, "; "))
 }
 
 // InsertDefaults inserts the schema's default values in target using
@@ -140,7 +141,7 @@ func ReadActionsYaml(charmName string, r io.Reader) (*Actions, error) {
 				// These fields must be strings.
 				typed, ok := value.(string)
 				if !ok {
-					return nil, errors.Errorf("value for schema key %q must be a string", key)
+					return nil, internalerrors.Errorf("value for schema key %q must be a string", key)
 				}
 				thisActionSchema[key] = typed
 				desc = typed
@@ -148,25 +149,25 @@ func ReadActionsYaml(charmName string, r io.Reader) (*Actions, error) {
 				// These fields must be strings.
 				typed, ok := value.(string)
 				if !ok {
-					return nil, errors.Errorf("value for schema key %q must be a string", key)
+					return nil, internalerrors.Errorf("value for schema key %q must be a string", key)
 				}
 				thisActionSchema[key] = typed
 			case "required":
 				typed, ok := value.([]interface{})
 				if !ok {
-					return nil, errors.Errorf("value for schema key %q must be a YAML list", key)
+					return nil, internalerrors.Errorf("value for schema key %q must be a YAML list", key)
 				}
 				thisActionSchema[key] = typed
 			case "parallel":
 				typed, ok := value.(bool)
 				if !ok {
-					return nil, errors.Errorf("value for schema key %q must be a bool", key)
+					return nil, internalerrors.Errorf("value for schema key %q must be a bool", key)
 				}
 				parallel = typed
 			case "execution-group":
 				typed, ok := value.(string)
 				if !ok {
-					return nil, errors.Errorf("value for schema key %q must be a string", key)
+					return nil, internalerrors.Errorf("value for schema key %q must be a string", key)
 				}
 				executionGroup = typed
 			case "params":
@@ -180,7 +181,7 @@ func ReadActionsYaml(charmName string, r io.Reader) (*Actions, error) {
 				// JSON-Schema must be a map
 				typed, ok := cleansedParams.(map[string]interface{})
 				if !ok {
-					return nil, errors.New("params failed to parse as a map")
+					return nil, internalerrors.Errorf("params failed to parse as a map")
 				}
 				thisActionSchema["properties"] = typed
 			default:
@@ -198,7 +199,7 @@ func ReadActionsYaml(charmName string, r io.Reader) (*Actions, error) {
 		schemaLoader := gjs.NewGoLoader(thisActionSchema)
 		_, err := gjs.NewSchema(schemaLoader)
 		if err != nil {
-			return nil, errors.Annotatef(err, "invalid params schema for action schema %s", name)
+			return nil, internalerrors.Errorf("invalid params schema for action schema %s: %w", name, err)
 		}
 
 		// Now assign the resulting schema to the final entry for the result.
@@ -239,7 +240,7 @@ func cleanse(input interface{}) (interface{}, error) {
 		for key, value := range typedInput {
 			typedKey, ok := key.(string)
 			if !ok {
-				return nil, errors.New("map keyed with non-string value")
+				return nil, internalerrors.Errorf("map keyed with non-string value")
 			}
 			newMap[typedKey] = value
 		}
@@ -251,7 +252,7 @@ func cleanse(input interface{}) (interface{}, error) {
 		for _, sliceValue := range typedInput {
 			newSliceValue, err := cleanse(sliceValue)
 			if err != nil {
-				return nil, errors.New("map keyed with non-string value")
+				return nil, internalerrors.Errorf("map keyed with non-string value")
 			}
 			newSlice = append(newSlice, newSliceValue)
 		}

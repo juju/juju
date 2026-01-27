@@ -6,9 +6,9 @@ package charm_test
 import (
 	"testing"
 
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -137,7 +137,7 @@ func (s *channelSuite) TestMakeChannel(c *tc.C) {
 		Risk      string
 		Branch    string
 		Expected  string
-		ErrorType func(err error) bool
+		ErrorType error
 	}{{
 		Name:      "track, risk, branch not normalized",
 		Track:     "latest",
@@ -150,7 +150,7 @@ func (s *channelSuite) TestMakeChannel(c *tc.C) {
 		Track:     "",
 		Risk:      "testme",
 		Branch:    "",
-		ErrorType: errors.IsNotValid,
+		ErrorType: coreerrors.NotValid,
 	}}
 	for k, test := range tests {
 		c.Logf("test %q at %d", test.Name, k)
@@ -163,7 +163,7 @@ func (s *channelSuite) TestMakeChannel(c *tc.C) {
 				Branch: test.Branch,
 			})
 		} else {
-			c.Assert(err, tc.ErrorIs, errors.NotValid)
+			c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 		}
 	}
 }

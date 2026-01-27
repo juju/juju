@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/errors"
+	coreerrors "github.com/juju/juju/core/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 
 	"github.com/juju/juju/core/arch"
 )
@@ -23,10 +24,10 @@ type Base struct {
 // Validate returns with no error when the Base is valid.
 func (b Base) Validate() error {
 	if b.Name == "" {
-		return errors.NotValidf("base without name")
+		return internalerrors.Errorf("base without name").Add(coreerrors.NotValid)
 	}
 	if b.Channel.Empty() {
-		return errors.NotValidf("channel")
+		return internalerrors.Errorf("channel").Add(coreerrors.NotValid)
 	}
 	return nil
 }
@@ -51,7 +52,7 @@ func ParseBase(s string, archs ...string) (Base, error) {
 
 	segments := strings.Split(s, "@")
 	if len(segments) != 2 {
-		return Base{}, errors.NotValidf("base string must contain exactly one @. %q", s)
+		return Base{}, internalerrors.Errorf("base string must contain exactly one @. %q", s).Add(coreerrors.NotValid)
 	}
 	base.Name = strings.ToLower(segments[0])
 	channelName := segments[1]
@@ -59,7 +60,7 @@ func ParseBase(s string, archs ...string) (Base, error) {
 	if channelName != "" {
 		base.Channel, err = ParseChannelNormalize(channelName)
 		if err != nil {
-			return Base{}, errors.Annotatef(err, "malformed channel in base string %q", s)
+			return Base{}, internalerrors.Errorf("malformed channel in base string %q: %w", s, err)
 		}
 	}
 
@@ -74,7 +75,7 @@ func ParseBase(s string, archs ...string) (Base, error) {
 		if len(base.Architectures) > 0 {
 			a = fmt.Sprintf(" with architectures %q", strings.Join(base.Architectures, ","))
 		}
-		return Base{}, errors.Annotatef(err, "invalid base string %q%s", s, a)
+		return Base{}, internalerrors.Errorf("invalid base string %q%s: %w", s, a, err)
 	}
 	return base, nil
 }

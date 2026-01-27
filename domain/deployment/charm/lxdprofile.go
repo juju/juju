@@ -9,8 +9,9 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
+
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // LXDProfiler defines a way to access a LXDProfile from a charm.
@@ -45,7 +46,7 @@ func ReadLXDProfile(r io.Reader) (*LXDProfile, error) {
 	}
 	profile := NewLXDProfile()
 	if err := yaml.Unmarshal(data, profile); err != nil {
-		return nil, errors.Annotate(err, "failed to unmarshall lxd-profile.yaml")
+		return nil, internalerrors.Errorf("failed to unmarshall lxd-profile.yaml: %w", err)
 	}
 	return profile, nil
 }

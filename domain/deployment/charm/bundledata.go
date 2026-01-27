@@ -15,11 +15,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4/keyvalues"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 const kubernetes = "kubernetes"
@@ -354,7 +354,7 @@ func ReadBaseFromMultidocBundle(b []byte) (*BundleData, bool, error) {
 	}
 
 	if len(parts) == 0 {
-		return nil, false, errors.NotValidf("empty bundle")
+		return nil, false, internalerrors.Errorf("empty bundle")
 	}
 
 	return parts[0].Data, len(parts) > 1, nil
@@ -587,13 +587,13 @@ func validateOfferURL(urlStr string) error {
 		applicationName = validOfferRegexp.ReplaceAllString(urlParts, "$application")
 	}
 	if !valid || strings.Contains(modelName, "/") || strings.Contains(applicationName, "/") {
-		return errors.Errorf("application offer URL has invalid form, must be [<qualifier/]<model>.<appname>: %q", urlStr)
+		return internalerrors.Errorf("application offer URL has invalid form, must be [<qualifier/]<model>.<appname>: %q", urlStr)
 	}
 	if modelName == "" {
-		return errors.Errorf("application offer URL is missing model")
+		return internalerrors.Errorf("application offer URL is missing model")
 	}
 	if applicationName == "" {
-		return errors.Errorf("application offer URL is missing application")
+		return internalerrors.Errorf("application offer URL is missing application")
 	}
 
 	// Application name part may contain a relation name part, so strip that bit out

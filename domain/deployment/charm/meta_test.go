@@ -12,10 +12,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"gopkg.in/yaml.v2"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/deployment/charm/resource"
@@ -1713,7 +1713,7 @@ func TestFormatMetaSuite(t *testing.T) {
 func (FormatMetaSuite) TestCheckV1Fails(c *tc.C) {
 	meta := charm.Meta{}
 	err := meta.Check(charm.FormatV1)
-	c.Assert(err, tc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Assert(err, tc.ErrorMatches, "charm metadata without bases in manifest not valid")
 }
 

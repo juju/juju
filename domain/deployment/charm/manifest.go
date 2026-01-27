@@ -6,11 +6,11 @@ package charm
 import (
 	"io"
 
-	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/arch"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // Manifest represents the recording of the building of the charm or bundle.
@@ -25,7 +25,7 @@ type Manifest struct {
 func (m *Manifest) Validate() error {
 	for _, b := range m.Bases {
 		if err := b.Validate(); err != nil {
-			return errors.Annotate(err, "validating manifest")
+			return internalerrors.Errorf("validating manifest: %w", err)
 		}
 	}
 	return nil
@@ -40,12 +40,12 @@ func (m *Manifest) UnmarshalYAML(f func(interface{}) error) error {
 
 	v, err := schema.List(baseSchema).Coerce(raw["bases"], nil)
 	if err != nil {
-		return errors.Annotatef(err, "coerce")
+		return internalerrors.Errorf("coerce: %w", err)
 	}
 
 	newV, ok := v.([]interface{})
 	if !ok {
-		return errors.Annotatef(err, "converting")
+		return internalerrors.Errorf("converting: %w", err)
 	}
 	bases, err := parseBases(newV)
 	if err != nil {
@@ -71,13 +71,13 @@ func parseBases(input interface{}) ([]Base, error) {
 		if value, ok := baseMap["channel"]; ok {
 			base.Channel, err = ParseChannelNormalize(value.(string))
 			if err != nil {
-				return nil, errors.Annotatef(err, "parsing channel %q", value.(string))
+				return nil, internalerrors.Errorf("parsing channel %q: %w", value.(string), err)
 			}
 		}
 		base.Architectures = parseArchitectureList(baseMap["architectures"])
 		err = base.Validate()
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, internalerrors.Capture(err)
 		}
 		res = append(res, base)
 	}
@@ -95,10 +95,10 @@ func ReadManifest(r io.Reader) (*Manifest, error) {
 	}
 	var manifest *Manifest
 	if err := yaml.Unmarshal(data, &manifest); err != nil {
-		return nil, errors.Annotatef(err, "manifest")
+		return nil, internalerrors.Errorf("manifest: %w", err)
 	}
 	if manifest == nil {
-		return nil, errors.Annotatef(err, "invalid base in manifest")
+		return nil, internalerrors.Errorf("invalid base in manifest: %w", err)
 	}
 	return manifest, nil
 }

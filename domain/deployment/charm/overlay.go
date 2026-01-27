@@ -11,8 +11,9 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/juju/errors"
 	"github.com/mohae/deepcopy"
+
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // ExtractBaseAndOverlayParts splits the bundle data into a base and
@@ -425,13 +426,13 @@ func ReadAndMergeBundleData(sources ...BundleDataSource) (*BundleData, error) {
 	}
 
 	if len(allParts) == 0 {
-		return nil, errors.NotValidf("malformed bundle: bundle is empty")
+		return nil, internalerrors.Errorf("malformed bundle: bundle is empty")
 	}
 
 	// Treat the first part as the base bundle
 	base := allParts[0]
 	if err := VerifyNoOverlayFieldsPresent(base.Data); err != nil {
-		return nil, errors.Trace(err)
+		return nil, internalerrors.Capture(err)
 	}
 
 	// Merge parts and resolve include directives
@@ -442,7 +443,7 @@ func ReadAndMergeBundleData(sources ...BundleDataSource) (*BundleData, error) {
 
 		if index != 0 {
 			if err := applyOverlay(base, part); err != nil {
-				return nil, errors.Trace(err)
+				return nil, internalerrors.Capture(err)
 			}
 		}
 
@@ -453,18 +454,18 @@ func ReadAndMergeBundleData(sources ...BundleDataSource) (*BundleData, error) {
 		basePath := sources[srcIndex].BasePath()
 		for app, appData := range base.Data.Applications {
 			if appData == nil {
-				return nil, errors.Errorf("base application %q has no body", app)
+				return nil, internalerrors.Errorf("base application %q has no body", app)
 			}
 			resolvedCharm, err := resolveRelativeCharmPath(basePath, appData.Charm)
 			if err != nil {
-				return nil, errors.Annotatef(err, "resolving relative charm path %q for application %q", appData.Charm, app)
+				return nil, internalerrors.Errorf("resolving relative charm path %q for application %q: %w", err, appData.Charm, app)
 			}
 			appData.Charm = resolvedCharm
 
 			for k, v := range appData.Options {
 				newV, changed, err := resolveIncludes(incResolver, v)
 				if err != nil {
-					return nil, errors.Annotatef(err, "processing option %q for application %q", k, app)
+					return nil, internalerrors.Errorf("processing option %q for application %q: %w", err, k, app)
 				}
 				if changed {
 					appData.Options[k] = newV
@@ -474,7 +475,7 @@ func ReadAndMergeBundleData(sources ...BundleDataSource) (*BundleData, error) {
 			for k, v := range appData.Annotations {
 				newV, changed, err := resolveIncludes(incResolver, v)
 				if err != nil {
-					return nil, errors.Annotatef(err, "processing annotation %q for application %q", k, app)
+					return nil, internalerrors.Errorf("processing annotation %q for application %q: %w", err, k, app)
 				}
 				if changed {
 					appData.Annotations[k] = newV
@@ -490,7 +491,7 @@ func ReadAndMergeBundleData(sources ...BundleDataSource) (*BundleData, error) {
 			for k, v := range machineData.Annotations {
 				newV, changed, err := resolveIncludes(incResolver, v)
 				if err != nil {
-					return nil, errors.Annotatef(err, "processing annotation %q for machine %q", k, machine)
+					return nil, internalerrors.Errorf("processing annotation %q for machine %q: %w", err, k, machine)
 				}
 				if changed {
 					machineData.Annotations[k] = newV
@@ -534,7 +535,7 @@ func applyOverlay(base, overlay *BundleDataPart) error {
 		return nil
 	}
 	if !overlay.PresenceMap.fieldPresent("applications") && len(overlay.Data.Applications) > 0 {
-		return errors.Errorf("bundle overlay file used deprecated 'services' key, this is not valid for bundle overlay files")
+		return internalerrors.Errorf("bundle overlay file used deprecated 'services' key, this is not valid for bundle overlay files")
 	}
 
 	// Merge applications
@@ -657,7 +658,7 @@ func mergeStructs(dstStruct, srcStruct interface{}, fpm FieldPresenceMap) {
 
 	// Sanity check
 	if typ.Kind() != reflect.Struct || typ != dstTyp {
-		panic(errors.Errorf("BUG: source/destination type mismatch; expected destination to be a %q; got %q", typ.Name(), dstTyp.Name()))
+		panic(internalerrors.Errorf("BUG: source/destination type mismatch; expected destination to be a %q; got %q", typ.Name(), dstTyp.Name()))
 	}
 
 	for i := 0; i < typ.NumField(); i++ {
@@ -756,7 +757,7 @@ func resolveIncludes(includeResolver func(path string) ([]byte, error), v interf
 		path := val[len(dir.directive):]
 		data, err := includeResolver(path)
 		if err != nil {
-			return "", false, errors.Annotatef(err, "resolving include %q", path)
+			return "", false, internalerrors.Errorf("resolving include %q: %w", err, path)
 		}
 
 		return dir.encoder(data), true, nil

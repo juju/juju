@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/core/arch"
+	coreerrors "github.com/juju/juju/core/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // Schema represents the different types of valid schemas.
@@ -77,7 +77,7 @@ func ValidateSchema(schema string) error {
 	case CharmHub.String(), Local.String():
 		return nil
 	}
-	return errors.NotValidf("schema %q", schema)
+	return internalerrors.Errorf("schema %q", schema).Add(coreerrors.NotValid)
 }
 
 // IsValidArchitecture reports whether the architecture is a valid architecture
@@ -91,7 +91,7 @@ func ValidateArchitecture(arch string) error {
 	if IsValidArchitecture(arch) {
 		return nil
 	}
-	return errors.NotValidf("architecture name %q", arch)
+	return internalerrors.Errorf("architecture name %q", arch).Add(coreerrors.NotValid)
 }
 
 // IsValidName reports whether name is a valid charm or bundle name.
@@ -104,7 +104,7 @@ func ValidateName(name string) error {
 	if IsValidName(name) {
 		return nil
 	}
-	return errors.NotValidf("name %q", name)
+	return internalerrors.Errorf("name %q", name).Add(coreerrors.NotValid)
 }
 
 // WithRevision returns a URL equivalent to url but with Revision set
@@ -139,10 +139,10 @@ func MustParseURL(url string) *URL {
 func ParseURL(url string) (*URL, error) {
 	u, err := gourl.Parse(url)
 	if err != nil {
-		return nil, errors.Errorf("cannot parse charm or bundle URL: %q", url)
+		return nil, internalerrors.Errorf("cannot parse charm or bundle URL: %q", url)
 	}
 	if u.RawQuery != "" || u.Fragment != "" || u.User != nil {
-		return nil, errors.Errorf("charm or bundle URL %q has unrecognized parts", url)
+		return nil, internalerrors.Errorf("charm or bundle URL %q has unrecognized parts", url)
 	}
 	var curl *URL
 	switch {
@@ -158,32 +158,32 @@ func ParseURL(url string) (*URL, error) {
 		curl, err = parseCharmhubURL(u)
 	}
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, internalerrors.Capture(err)
 	}
 	if curl.Schema == "" {
-		return nil, errors.Errorf("expected schema for charm or bundle URL: %q", url)
+		return nil, internalerrors.Errorf("expected schema for charm or bundle URL: %q", url)
 	}
 	return curl, nil
 }
 
 func parseLocalURL(url *gourl.URL, originalURL string) (*URL, error) {
 	if !Local.Matches(url.Scheme) {
-		return nil, errors.NotValidf("cannot parse URL %q: schema %q", url, url.Scheme)
+		return nil, internalerrors.Errorf("cannot parse URL %q: schema %q", url, url.Scheme).Add(coreerrors.NotValid)
 	}
 	r := URL{Schema: Local.String()}
 
 	parts := strings.Split(url.Path[0:], "/")
 	if len(parts) < 1 || len(parts) > 4 {
-		return nil, errors.Errorf("charm or bundle URL has invalid form: %q", originalURL)
+		return nil, internalerrors.Errorf("charm or bundle URL has invalid form: %q", originalURL)
 	}
 
 	// ~<username>
 	if strings.HasPrefix(parts[0], "~") {
-		return nil, errors.Errorf("local charm or bundle URL with user name: %q", originalURL)
+		return nil, internalerrors.Errorf("local charm or bundle URL with user name: %q", originalURL)
 	}
 
 	if len(parts) > 2 {
-		return nil, errors.Errorf("charm or bundle URL has invalid form: %q", originalURL)
+		return nil, internalerrors.Errorf("charm or bundle URL has invalid form: %q", originalURL)
 	}
 
 	// <series>
@@ -191,13 +191,13 @@ func parseLocalURL(url *gourl.URL, originalURL string) (*URL, error) {
 		r.series, parts = parts[0], parts[1:]
 	}
 	if len(parts) < 1 {
-		return nil, errors.Errorf("URL without charm or bundle name: %q", originalURL)
+		return nil, internalerrors.Errorf("URL without charm or bundle name: %q", originalURL)
 	}
 
 	// <name>[-<revision>]
 	r.Name, r.Revision = extractRevision(parts[0])
 	if err := ValidateName(r.Name); err != nil {
-		return nil, errors.Annotatef(err, "cannot parse URL %q", url)
+		return nil, internalerrors.Errorf("cannot parse URL %q: %w", url, err)
 	}
 	return &r, nil
 }
@@ -327,12 +327,12 @@ func parseCharmhubURL(url *gourl.URL) (*URL, error) {
 
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	if len(parts) == 0 || len(parts) > 3 {
-		return nil, errors.Errorf(`charm or bundle URL %q malformed`, url)
+		return nil, internalerrors.Errorf(`charm or bundle URL %q malformed`, url)
 	}
 
 	// ~<username>
 	if strings.HasPrefix(parts[0], "~") {
-		return nil, errors.NotValidf("charmhub charm or bundle URL with user name: %q", url)
+		return nil, internalerrors.Errorf("charmhub charm or bundle URL with user name: %q", url).Add(coreerrors.NotValid)
 	}
 
 	var nameRev string
@@ -341,7 +341,7 @@ func parseCharmhubURL(url *gourl.URL) (*URL, error) {
 		r.Architecture, r.series, nameRev = parts[0], parts[1], parts[2]
 
 		if err := ValidateArchitecture(r.Architecture); err != nil {
-			return nil, errors.Annotatef(err, "in URL %q", url)
+			return nil, internalerrors.Errorf("in URL %q: %w", url, err)
 		}
 	case 2:
 		// Since both the architecture and series are optional,
@@ -362,7 +362,7 @@ func parseCharmhubURL(url *gourl.URL) (*URL, error) {
 	// Mandatory
 	r.Name, r.Revision = extractRevision(nameRev)
 	if err := ValidateName(r.Name); err != nil {
-		return nil, errors.Annotatef(err, "cannot parse name and/or revision in URL %q", url)
+		return nil, internalerrors.Errorf("cannot parse name and/or revision in URL %q: %w", url, err)
 	}
 
 	return &r, nil
@@ -374,7 +374,7 @@ func parseCharmhubURL(url *gourl.URL) (*URL, error) {
 func EnsureSchema(url string, defaultSchema Schema) (string, error) {
 	u, err := gourl.Parse(url)
 	if err != nil {
-		return "", errors.Errorf("cannot parse charm or bundle URL: %q", url)
+		return "", internalerrors.Errorf("cannot parse charm or bundle URL: %q", url)
 	}
 	switch Schema(u.Scheme) {
 	case CharmHub, Local:
@@ -383,7 +383,7 @@ func EnsureSchema(url string, defaultSchema Schema) (string, error) {
 		// If the schema is empty, we fall back to the default schema.
 		return defaultSchema.Prefix(url), nil
 	default:
-		return "", errors.NotValidf("schema %q", u.Scheme)
+		return "", internalerrors.Errorf("schema %q", u.Scheme).Add(coreerrors.NotValid)
 	}
 }
 
