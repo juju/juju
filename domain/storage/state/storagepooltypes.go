@@ -43,7 +43,7 @@ type storagePool struct {
 	// Name is the unique name of the storage pool within the model.
 	Name string `db:"name"`
 
-	// Type is the provider type of the entity reseponsible for provisioning
+	// Type is the provider type of the entity responsible for provisioning
 	// storage created with this pool in the model.
 	Type string `db:"type"`
 

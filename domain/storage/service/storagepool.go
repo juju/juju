@@ -204,7 +204,6 @@ func validateNewStoragePoolConfig(
 ) error {
 	cfg, err := internalstorage.NewConfig(name, internalstorage.ProviderType(providerType), attrs)
 	if err != nil {
-		// We don't ever expect this to error.
 		return err
 	}
 
@@ -470,7 +469,7 @@ func (s *StoragePoolService) GetStoragePoolByName(ctx context.Context, name stri
 
 func (s *StoragePoolService) validatePoolListFilterTerms(ctx context.Context, names domainstorage.Names, providers domainstorage.Providers) error {
 	// Validating names MUST happen before provider type validation. This is
-	// because provider validation calls off to dependency's and we should
+	// because provider validation calls off to dependencyies and we should
 	// avoid expensive calls until as much of the basic criteria can be
 	// validated first.
 	if err := s.validateNameCriteria(names); err != nil {
