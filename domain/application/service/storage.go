@@ -139,8 +139,15 @@ type StorageService interface {
 		charmStorageDefs map[string]internalcharm.Storage,
 	) error
 
-	// AddStorageForUnit adds storage instances to the given unit.
-	AddStorageForUnit(
-		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, arg storage.AddUnitStorageArgs,
+	// AddStorageForIAASUnit adds storage instances to the given IAAS unit.
+	AddStorageForIAASUnit(
+		ctx context.Context, storageName corestorage.Name,
+		unitUUID coreunit.UUID, netNodeUUID domainnetwork.NetNodeUUID, arg storage.AddUnitStorageArgs,
+	) ([]corestorage.ID, error)
+
+	// AddStorageForCAASUnit adds storage instances to the given CAAS unit.
+	AddStorageForCAASUnit(
+		ctx context.Context, storageName corestorage.Name,
+		unitUUID coreunit.UUID, netNodeUUID domainnetwork.NetNodeUUID, arg storage.AddUnitStorageArgs,
 	) ([]corestorage.ID, error)
 }

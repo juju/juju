@@ -61,8 +61,7 @@ type State interface {
 	// - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
 	AttachStorage(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error
 
-	// AddStorageForUnit adds storage instances to given unit as specified.
-	// Missing storage constraints are populated based on model defaults.
+	// AddStorageForCAASUnit adds storage instances to given unit as specified.
 	// The specified storage name is used to retrieve existing storage instances.
 	// Combination of existing storage instances and anticipated additional storage
 	// instances is validated as specified in the unit's charm.
@@ -73,8 +72,25 @@ type State interface {
 	// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
 	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 	// - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
-	AddStorageForUnit(
-		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, storageInfo internal.AddUnitStorageArg,
+	AddStorageForCAASUnit(
+		ctx context.Context, unitUUID coreunit.UUID,
+		storageArg internal.CreateUnitStorageArg,
+	) ([]corestorage.ID, error)
+
+	// AddStorageForIAASUnit adds storage instances to given IAAS unit as specified.
+	// The specified storage name is used to retrieve existing storage instances.
+	// Combination of existing storage instances and anticipated additional storage
+	// instances is validated as specified in the unit's charm.
+	// The following error types can be expected:
+	// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
+	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
+	// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the unit is not alive.
+	// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
+	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
+	// - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
+	AddStorageForIAASUnit(
+		ctx context.Context, unitUUID coreunit.UUID,
+		storageArg internal.CreateUnitStorageArg, iaasStorageArgs internal.CreateIAASUnitStorageArg,
 	) ([]corestorage.ID, error)
 
 	// DetachStorageForUnit detaches the specified storage from the specified unit.
@@ -190,7 +206,7 @@ func (s *Service) AttachStorage(
 	return errors.New("not implemented")
 }
 
-// AddStorageForUnit adds storage instances to the given unit.
+// AddStorageForIAASUnit adds storage instances to the given IAAS unit.
 // The following error types can be expected:
 // - [github.com/juju/juju/core/storage.InvalidStorageName]: when the storage name is not valid.
 // - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
@@ -199,8 +215,26 @@ func (s *Service) AttachStorage(
 // - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
 // - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
-func (s *Service) AddStorageForUnit(
-	ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, arg AddUnitStorageArgs,
+func (s *Service) AddStorageForIAASUnit(
+	ctx context.Context, storageName corestorage.Name,
+	unitUUID coreunit.UUID, netNodeUUID domainnetwork.NetNodeUUID, arg AddUnitStorageArgs,
+) ([]corestorage.ID, error) {
+	// TODO (tlm): re-implement in DQlite
+	return nil, errors.New("not implemented")
+}
+
+// AddStorageForCAASUnit adds storage instances to the given CAAS unit.
+// The following error types can be expected:
+// - [github.com/juju/juju/core/storage.InvalidStorageName]: when the storage name is not valid.
+// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
+// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
+// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the unit is not alive.
+// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
+// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
+// - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
+func (s *Service) AddStorageForCAASUnit(
+	ctx context.Context, storageName corestorage.Name,
+	unitUUID coreunit.UUID, netNodeUUID domainnetwork.NetNodeUUID, arg AddUnitStorageArgs,
 ) ([]corestorage.ID, error) {
 	// TODO (tlm): re-implement in DQlite
 	return nil, errors.New("not implemented")

@@ -3300,6 +3300,45 @@ func (c *MockStateGetUnitNamesForNetNodeCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// GetUnitNetNode mocks base method.
+func (m *MockState) GetUnitNetNode(arg0 context.Context, arg1 unit.UUID) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitNetNode", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitNetNode indicates an expected call of GetUnitNetNode.
+func (mr *MockStateMockRecorder) GetUnitNetNode(arg0, arg1 any) *MockStateGetUnitNetNodeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitNetNode", reflect.TypeOf((*MockState)(nil).GetUnitNetNode), arg0, arg1)
+	return &MockStateGetUnitNetNodeCall{Call: call}
+}
+
+// MockStateGetUnitNetNodeCall wrap *gomock.Call
+type MockStateGetUnitNetNodeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitNetNodeCall) Return(arg0 string, arg1 error) *MockStateGetUnitNetNodeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitNetNodeCall) Do(f func(context.Context, unit.UUID) (string, error)) *MockStateGetUnitNetNodeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitNetNodeCall) DoAndReturn(f func(context.Context, unit.UUID) (string, error)) *MockStateGetUnitNetNodeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUnitNetNodesByName mocks base method.
 func (m *MockState) GetUnitNetNodesByName(arg0 context.Context, arg1 unit.Name) ([]string, error) {
 	m.ctrl.T.Helper()

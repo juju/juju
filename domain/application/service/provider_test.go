@@ -6,10 +6,10 @@ package service
 import (
 	"context"
 	"testing"
-
+	
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-
+	
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/assumes"
@@ -27,20 +27,17 @@ import (
 	resourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
-	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	servicestorage "github.com/juju/juju/domain/application/service/storage"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
-	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
@@ -3059,26 +3056,4 @@ func (s *providerServiceSuite) expectFullConstraints(c *tc.C, unitUUID coreunit.
 
 	s.state.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(appConstraints, nil)
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(modelConstraints, nil)
-}
-
-func (s *providerServiceSuite) TestAddStorageForUnit(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
-	defer ctrl.Finish()
-
-	storageName := corestorage.Name("pgdata")
-	unitUUID := tc.Must(c, coreunit.NewUUID)
-	poolUUID := tc.Must(c, storage.NewStoragePoolUUID)
-	arg := servicestorage.AddUnitStorageArgs{
-		StoragePoolUUID: &poolUUID,
-	}
-	result := []corestorage.ID{
-		tc.Must1(c, corestorage.ParseID, "pgdata/0"),
-	}
-
-	s.storageService.EXPECT().AddStorageForUnit(gomock.Any(), storageName, unitUUID, arg).Return(
-		result, nil)
-
-	got, err := s.service.AddStorageForUnit(c.Context(), storageName, unitUUID, arg)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(got, tc.DeepEquals, result)
 }

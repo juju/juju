@@ -351,15 +351,3 @@ type StorageInstanceCompositionVolumeAttachment struct {
 	// volume attachment.
 	VolumeUUID domainstorage.VolumeUUID
 }
-
-// AddUnitStorageArg defines additional storage to add to a unit.
-type AddUnitStorageArg struct {
-	// StoragePoolUUID is the storage pool uuid.
-	StoragePoolUUID string
-
-	// SizeMiB is the size of the storage instance, in MiB.
-	SizeMiB uint64
-
-	// Count is the number of storage instances.
-	Count uint64
-}

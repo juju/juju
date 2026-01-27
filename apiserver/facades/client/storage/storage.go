@@ -151,10 +151,13 @@ type ApplicationService interface {
 	// unit doesn't exist.
 	GetUnitUUID(context.Context, coreunit.Name) (coreunit.UUID, error)
 
-	// AddStorageForUnit adds storage instances to the given unit.
-	// Missing storage directive attributes are populated
-	// based on model defaults.
-	AddStorageForUnit(
+	// AddStorageForIAASUnit adds storage instances to the given unit.
+	AddStorageForIAASUnit(
+		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, arg storage.AddUnitStorageArgs,
+	) ([]corestorage.ID, error)
+
+	// AddStorageForCAASUnit adds storage instances to the given unit.
+	AddStorageForCAASUnit(
 		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, arg storage.AddUnitStorageArgs,
 	) ([]corestorage.ID, error)
 }
@@ -174,12 +177,14 @@ type StorageAPI struct {
 	authorizer     facade.Authorizer
 	controllerUUID string
 	modelUUID      coremodel.UUID
+	modelType      coremodel.ModelType
 	logger         corelogger.Logger
 }
 
 func NewStorageAPI(
 	controllerUUID string,
 	modelUUID coremodel.UUID,
+	modelType coremodel.ModelType,
 	authorizer facade.Authorizer,
 	logger corelogger.Logger,
 	blockChecker BlockChecker,
@@ -196,6 +201,7 @@ func NewStorageAPI(
 		authorizer:     authorizer,
 		controllerUUID: controllerUUID,
 		modelUUID:      modelUUID,
+		modelType:      modelType,
 		logger:         logger,
 	}
 }
@@ -452,13 +458,21 @@ func (a *StorageAPI) addOneStorage(ctx context.Context, one params.StorageAddPar
 		storageCount = &count
 	}
 
-	result, err := a.applicationService.AddStorageForUnit(
-		ctx, corestorage.Name(one.StorageName), unitUUID, storage.AddUnitStorageArgs{
-			StoragePoolUUID: storagePoolUUID,
-			SizeMiB:         one.Directives.SizeMiB,
-			Count:           storageCount,
-		},
-	)
+	args := storage.AddUnitStorageArgs{
+		StoragePoolUUID: storagePoolUUID,
+		SizeMiB:         one.Directives.SizeMiB,
+		Count:           storageCount,
+	}
+	var result []corestorage.ID
+	if a.modelType == coremodel.CAAS {
+		result, err = a.applicationService.AddStorageForCAASUnit(
+			ctx, corestorage.Name(one.StorageName), unitUUID, args,
+		)
+	} else {
+		result, err = a.applicationService.AddStorageForIAASUnit(
+			ctx, corestorage.Name(one.StorageName), unitUUID, args,
+		)
+	}
 	switch {
 	case errors.Is(err, applicationerrors.UnitNotFound):
 		return nil, errors.Errorf(

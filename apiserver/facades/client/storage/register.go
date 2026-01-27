@@ -16,16 +16,16 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Storage", 6, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newStorageAPIV6(ctx) // modify Remove to support force and maxWait;
+		return newStorageAPIV6(stdCtx, ctx) // modify Remove to support force and maxWait;
 	}, reflect.TypeOf((*StorageAPIv6)(nil)))
 
 	registry.MustRegister("Storage", 7, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newStorageAPI(ctx) // support force option on import-fileystem.
+		return newStorageAPI(stdCtx, ctx) // support force option on import-fileystem.
 	}, reflect.TypeOf((*StorageAPI)(nil)))
 }
 
-func newStorageAPIV6(ctx facade.ModelContext) (*StorageAPIv6, error) {
-	storageAPI, err := newStorageAPI(ctx)
+func newStorageAPIV6(stdCtx context.Context, ctx facade.ModelContext) (*StorageAPIv6, error) {
+	storageAPI, err := newStorageAPI(stdCtx, ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -35,7 +35,7 @@ func newStorageAPIV6(ctx facade.ModelContext) (*StorageAPIv6, error) {
 }
 
 // newStorageAPI returns a new storage API facade.
-func newStorageAPI(ctx facade.ModelContext) (*StorageAPI, error) {
+func newStorageAPI(stdCtx context.Context, ctx facade.ModelContext) (*StorageAPI, error) {
 	domainServices := ctx.DomainServices()
 
 	authorizer := ctx.Auth()
@@ -43,9 +43,15 @@ func newStorageAPI(ctx facade.ModelContext) (*StorageAPI, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
+	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)
+	if err != nil {
+		return nil, errors.Errorf("getting model info: %w", err)
+	}
+
 	return NewStorageAPI(
 		ctx.ControllerUUID(),
 		ctx.ModelUUID(),
+		modelInfo.Type,
 		authorizer,
 		ctx.Logger().Child("storage"),
 		common.NewBlockChecker(domainServices.BlockCommand()),

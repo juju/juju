@@ -909,8 +909,17 @@ AND si.uuid != $storageCount.uuid
 	return nil
 }
 
-func (st *State) AddStorageForUnit(
-	ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, storageInfo internal.AddUnitStorageArg,
+func (st *State) AddStorageForCAASUnit(
+	ctx context.Context, unitUUID coreunit.UUID,
+	storageArg internal.CreateUnitStorageArg,
+) ([]corestorage.ID, error) {
+	// TODO implement me
+	return nil, errors.New("not implemented")
+}
+
+func (st *State) AddStorageForIAASUnit(
+	ctx context.Context, unitUUID coreunit.UUID,
+	storageArg internal.CreateUnitStorageArg, iaasStorageArgs internal.CreateIAASUnitStorageArg,
 ) ([]corestorage.ID, error) {
 	// TODO implement me
 	return nil, errors.New("not implemented")

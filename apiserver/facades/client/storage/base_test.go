@@ -34,6 +34,7 @@ func (s *baseStorageSuite) makeTestAPI(c *tc.C) *StorageAPI {
 	return NewStorageAPI(
 		s.controllerUUID,
 		s.modelUUID,
+		coremodel.IAAS,
 		s.authorizer,
 		loggertesting.WrapCheckLog(c),
 		s.blockChecker,
