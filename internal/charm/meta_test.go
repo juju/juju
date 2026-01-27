@@ -17,8 +17,8 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/charm/resource"
 )
 
 func repoMeta(c *tc.C, name string) io.Reader {

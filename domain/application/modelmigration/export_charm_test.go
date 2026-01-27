@@ -12,9 +12,9 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/domain/deployment/charm/resource"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
-	"github.com/juju/juju/internal/charm/resource"
 )
 
 type exportCharmSuite struct {

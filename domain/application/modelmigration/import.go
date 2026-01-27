@@ -25,9 +25,9 @@ import (
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	constraintsmigration "github.com/juju/juju/domain/constraints/modelmigration"
+	"github.com/juju/juju/domain/deployment/charm/resource"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
-	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 )
 

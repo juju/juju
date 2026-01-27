@@ -4,7 +4,8 @@
 package resource
 
 import (
-	"github.com/juju/errors"
+	coreerrors "github.com/juju/juju/core/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // These are the valid resource types (except for unknown).
@@ -30,7 +31,7 @@ func ParseType(value string) (Type, error) {
 			return rt, nil
 		}
 	}
-	return typeUnknown, errors.Errorf("unsupported resource type %q", value)
+	return typeUnknown, internalerrors.Errorf("unsupported resource type %q", value)
 }
 
 // String returns the printable representation of the type.
@@ -44,7 +45,7 @@ func (rt Type) Validate() error {
 	// However, typedef'ing int means that the use of int literals
 	// could result in invalid Type values other than the zero value.
 	if _, ok := types[rt]; !ok {
-		return errors.NewNotValid(nil, "unknown resource type")
+		return internalerrors.Errorf("unknown resource type").Add(coreerrors.NotValid)
 	}
 	return nil
 }

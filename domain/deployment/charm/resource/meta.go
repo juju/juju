@@ -4,10 +4,10 @@
 package resource
 
 import (
-	"fmt"
 	"strings"
 
-	"github.com/juju/errors"
+	coreerrors "github.com/juju/juju/core/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // Meta holds the information about a resource, as stored
@@ -37,26 +37,24 @@ type Meta struct {
 // Validate checks the resource metadata to ensure the data is valid.
 func (meta Meta) Validate() error {
 	if meta.Name == "" {
-		return errors.NewNotValid(nil, "resource missing name")
+		return internalerrors.Errorf("resource missing name").Add(coreerrors.NotValid)
 	}
 
 	var typeUnknown Type
 	if meta.Type == typeUnknown {
-		return errors.NewNotValid(nil, "resource missing type")
+		return internalerrors.Errorf("resource missing type").Add(coreerrors.NotValid)
 	}
 	if err := meta.Type.Validate(); err != nil {
-		msg := fmt.Sprintf("invalid resource type %v: %v", meta.Type, err)
-		return errors.NewNotValid(nil, msg)
+		return internalerrors.Errorf("invalid resource type %v: %v", meta.Type, err).Add(coreerrors.NotValid)
 	}
 
 	if meta.Type == TypeFile && meta.Path == "" {
 		// TODO(ericsnow) change "filename" to "path"
-		return errors.NewNotValid(nil, "resource missing filename")
+		return internalerrors.Errorf("resource missing filename").Add(coreerrors.NotValid)
 	}
 	if meta.Type == TypeFile {
 		if strings.Contains(meta.Path, "/") {
-			msg := fmt.Sprintf(`filename cannot contain "/" (got %q)`, meta.Path)
-			return errors.NewNotValid(nil, msg)
+			return internalerrors.Errorf(`filename cannot contain "/" (got %q)`, meta.Path).Add(coreerrors.NotValid)
 		}
 		// TODO(ericsnow) Constrain Path to alphanumeric?
 	}

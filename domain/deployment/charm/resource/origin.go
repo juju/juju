@@ -4,7 +4,8 @@
 package resource
 
 import (
-	"github.com/juju/errors"
+	coreerrors "github.com/juju/juju/core/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // These are the valid resource origins.
@@ -30,7 +31,7 @@ func ParseOrigin(value string) (Origin, error) {
 			return o, nil
 		}
 	}
-	return originUnknown, errors.Errorf("unknown origin %q", value)
+	return originUnknown, internalerrors.Errorf("unknown origin %q", value)
 }
 
 // String returns the printable representation of the origin.
@@ -44,7 +45,7 @@ func (o Origin) Validate() error {
 	// However, typedef'ing int means that the use of int literals
 	// could result in invalid Type values other than the zero value.
 	if _, ok := origins[o]; !ok {
-		return errors.NewNotValid(nil, "unknown origin")
+		return internalerrors.Errorf("unknown origin").Add(coreerrors.NotValid)
 	}
 	return nil
 }

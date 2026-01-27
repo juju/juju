@@ -82,7 +82,7 @@ func (*importSuite) TestImports(c *tc.C) {
 		"internal/charm",
 		"internal/charm/assumes",
 		"internal/charm/hooks",
-		"internal/charm/resource",
+		"domain/deployment/charm/resource",
 		"internal/charmhub",
 		"internal/charmhub/path",
 		"internal/charmhub/transport",

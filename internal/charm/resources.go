@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 
-	"github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/domain/deployment/charm/resource"
 )
 
 var resourceSchema = schema.FieldMap(

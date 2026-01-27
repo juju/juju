@@ -7,7 +7,7 @@ import (
 	"io"
 
 	"github.com/juju/juju/core/charm"
-	charmresource "github.com/juju/juju/internal/charm/resource"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 )
 
 // ResourceData represents the response from store about a request for

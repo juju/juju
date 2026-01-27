@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/internal/charm/resource"
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/domain/deployment/charm/resource"
 )
 
 func newFingerprint(c *tc.C, data string) ([]byte, string) {
@@ -45,7 +45,7 @@ func (s *FingerprintSuite) TestNewFingerprintTooSmall(c *tc.C) {
 
 	_, err := resource.NewFingerprint(expected[:10])
 
-	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `.*too small.*`)
 }
 
@@ -54,7 +54,7 @@ func (s *FingerprintSuite) TestNewFingerprintTooBig(c *tc.C) {
 
 	_, err := resource.NewFingerprint(append(expected, 1, 2, 3))
 
-	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `.*too big.*`)
 }
 
@@ -139,6 +139,6 @@ func (s *FingerprintSuite) TestValidateZero(c *tc.C) {
 	var fp resource.Fingerprint
 	err := fp.Validate()
 
-	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `zero-value fingerprint not valid`)
 }

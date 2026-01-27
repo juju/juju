@@ -4,9 +4,8 @@
 package resource
 
 import (
-	"fmt"
-
-	"github.com/juju/errors"
+	coreerrors "github.com/juju/juju/core/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // Resource describes a charm's resource in the charm store.
@@ -29,20 +28,20 @@ type Resource struct {
 // Validate checks the payload class to ensure its data is valid.
 func (res Resource) Validate() error {
 	if err := res.Meta.Validate(); err != nil {
-		return errors.Annotate(err, "bad metadata")
+		return internalerrors.Errorf("bad metadata: %w", err)
 	}
 
 	if err := res.Origin.Validate(); err != nil {
-		return errors.Annotate(err, "bad origin")
+		return internalerrors.Errorf("bad origin: %w", err)
 	}
 
 	if err := res.validateRevision(); err != nil {
-		return errors.Annotate(err, "bad revision")
+		return internalerrors.Errorf("bad revision: %w", err)
 	}
 
 	if res.Type == TypeFile {
 		if err := res.validateFileInfo(); err != nil {
-			return errors.Annotate(err, "bad file info")
+			return internalerrors.Errorf("bad file info: %w", err)
 		}
 	}
 
@@ -57,7 +56,7 @@ func (res Resource) validateRevision() error {
 	}
 
 	if res.Revision < 0 && res.isFileAvailable() {
-		return errors.NewNotValid(nil, fmt.Sprintf("must be non-negative, got %d", res.Revision))
+		return internalerrors.Errorf("must be non-negative, got %d", res.Revision).Add(coreerrors.NotValid)
 	}
 
 	return nil
@@ -66,16 +65,16 @@ func (res Resource) validateRevision() error {
 func (res Resource) validateFileInfo() error {
 	if res.Fingerprint.IsZero() {
 		if res.Size > 0 {
-			return errors.NewNotValid(nil, "missing fingerprint")
+			return internalerrors.Errorf("missing fingerprint").Add(coreerrors.NotValid)
 		}
 	} else {
 		if err := res.Fingerprint.Validate(); err != nil {
-			return errors.Annotate(err, "bad fingerprint")
+			return internalerrors.Errorf("bad fingerprint: %w", err)
 		}
 	}
 
 	if res.Size < 0 {
-		return errors.NewNotValid(nil, "negative size")
+		return internalerrors.Errorf("negative size").Add(coreerrors.NotValid)
 	}
 
 	return nil

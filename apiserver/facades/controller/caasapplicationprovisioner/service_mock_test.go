@@ -26,10 +26,10 @@ import (
 	watcher "github.com/juju/juju/core/watcher"
 	charm0 "github.com/juju/juju/domain/application/charm"
 	service "github.com/juju/juju/domain/application/service"
+	resource "github.com/juju/juju/domain/deployment/charm/resource"
 	removal "github.com/juju/juju/domain/removal"
 	config "github.com/juju/juju/environs/config"
 	charm1 "github.com/juju/juju/internal/charm"
-	resource "github.com/juju/juju/internal/charm/resource"
 	gomock "go.uber.org/mock/gomock"
 )
 

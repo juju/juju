@@ -15,7 +15,7 @@ import (
 	reflect "reflect"
 
 	charm "github.com/juju/juju/core/charm"
-	resource "github.com/juju/juju/internal/charm/resource"
+	resource "github.com/juju/juju/domain/deployment/charm/resource"
 	charmhub "github.com/juju/juju/internal/charmhub"
 	gomock "go.uber.org/mock/gomock"
 )
