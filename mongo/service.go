@@ -289,6 +289,22 @@ func (conf configArgsConverter) asMongoDbConfigurationFileFormat() string {
 	return strings.Join(command, "\n")
 }
 
+var tlsArgMapping = map[string]string{
+	"tlsMode":                       "sslMode",
+	"tlsOnNormalPorts":              "sslOnNormalPorts",
+	"tlsCertificateKeyFile":         "sslPEMKeyFile",
+	"tlsCertificateKeyFilePassword": "sslPEMKeyPassword",
+	"tlsCAFile":                     "sslCAFile",
+	"tlsAllowInvalidHostnames":      "sslAllowInvalidHostnames",
+}
+
+func tlsArg(arg string, legacySSL bool) string {
+	if !legacySSL {
+		return arg
+	}
+	return tlsArgMapping[arg]
+}
+
 func (mongoArgs *ConfigArgs) asMap() configArgsConverter {
 	result := configArgsConverter{}
 	result["replSet"] = mongoArgs.ReplicaSet
@@ -311,47 +327,26 @@ func (mongoArgs *ConfigArgs) asMap() configArgsConverter {
 		result["bind_ip_all"] = flagMarker
 	}
 	// The mongodb 4.0 SSL compatibility can be dropped in 3.x.
-	usingTLSArgs := mongoArgs.Version.Major == 4 && mongoArgs.Version.Minor >= 4
+	usingSSLArgs := mongoArgs.Version.Major != 4 || mongoArgs.Version.Minor < 4
 	if mongoArgs.SSLMode != "" {
-		if usingTLSArgs {
-			result["tlsMode"] = mongoArgs.SSLMode
-		} else {
-			result["sslMode"] = mongoArgs.SSLMode
-		}
+		result[tlsArg("tlsMode", usingSSLArgs)] = mongoArgs.SSLMode
 	}
 	if mongoArgs.SSLOnNormalPorts {
-		if usingTLSArgs {
-			result["tlsOnNormalPorts"] = flagMarker
-		} else {
-			result["sslOnNormalPorts"] = flagMarker
-		}
+		result[tlsArg("tlsOnNormalPorts", usingSSLArgs)] = flagMarker
 	}
 
 	// authn
 	if mongoArgs.PEMKeyFile != "" {
-		if usingTLSArgs {
-			result["tlsCertificateKeyFile"] = utils.ShQuote(mongoArgs.PEMKeyFile)
-			// --tlsCertificateKeyFilePassword must be concatenated to the equals sign (lp:1581284)
-			pemPassword := mongoArgs.PEMKeyPassword
-			if pemPassword == "" {
-				pemPassword = "ignored"
-			}
-			result["tlsCertificateKeyFilePassword="+pemPassword] = flagMarker
-		} else {
-			result["sslPEMKeyFile"] = utils.ShQuote(mongoArgs.PEMKeyFile)
-			pemPassword := mongoArgs.PEMKeyPassword
-			if pemPassword == "" {
-				pemPassword = "ignored"
-			}
-			result["sslPEMKeyPassword="+pemPassword] = flagMarker
+		result[tlsArg("tlsCertificateKeyFile", usingSSLArgs)] = utils.ShQuote(mongoArgs.PEMKeyFile)
+		// --tlsCertificateKeyFilePassword must be concatenated to the equals sign (lp:1581284)
+		pemPassword := mongoArgs.PEMKeyPassword
+		if pemPassword == "" {
+			pemPassword = "ignored"
 		}
+		result[fmt.Sprintf("%s=%s", tlsArg("tlsCertificateKeyFilePassword", usingSSLArgs), pemPassword)] = flagMarker
 	}
 	if mongoArgs.CACertFile != "" {
-		if usingTLSArgs {
-			result["tlsCAFile"] = utils.ShQuote(mongoArgs.CACertFile)
-		} else {
-			result["sslCAFile"] = utils.ShQuote(mongoArgs.CACertFile)
-		}
+		result[tlsArg("tlsCAFile", usingSSLArgs)] = utils.ShQuote(mongoArgs.CACertFile)
 	}
 
 	if mongoArgs.AuthKeyFile != "" {
@@ -359,11 +354,7 @@ func (mongoArgs *ConfigArgs) asMap() configArgsConverter {
 		// Juju doesn't create or update certificates with
 		// the SANs set to the replica IP addresses/hostnames
 		// so we need to disable hostname verification.
-		if usingTLSArgs {
-			result["tlsAllowInvalidHostnames"] = flagMarker
-		} else {
-			result["sslAllowInvalidHostnames"] = flagMarker
-		}
+		result[tlsArg("tlsAllowInvalidHostnames", usingSSLArgs)] = flagMarker
 		result["keyFile"] = utils.ShQuote(mongoArgs.AuthKeyFile)
 	} else {
 		logger.Warningf("configuring mongod  with --noauth flag enabled")
@@ -517,7 +508,7 @@ func generateConfig(mongoPath string, oplogSizeMB int, version Version, usingMon
 		CACertFile:       caCertKeyPath(args.DataDir),
 		PEMKeyPassword:   "ignored", // used as boilerplate later
 		SSLOnNormalPorts: false,
-		//BindIP:                "127.0.0.1", // TODO(tsm): use machine's actual IP address via dialInfo
+		// BindIP:                "127.0.0.1", // TODO(tsm): use machine's actual IP address via dialInfo
 	}
 
 	if useLowMemory && usingWiredTiger {
