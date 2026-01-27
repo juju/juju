@@ -7,6 +7,8 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/juju/collections/set"
+
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/status"
@@ -549,12 +551,33 @@ func selectWorkloadOrK8sPodStatus(
 	}
 
 	if containerStatus.Status == status.K8sPodStatusRunning {
-		if workloadStatus.Status == status.WorkloadStatusWaiting {
-			return decodeK8sPodStatus(containerStatus)
+		if legacyIsStatusModified(workloadStatus) {
+			return decodeUnitWorkloadStatus(workloadStatus, present)
 		}
+		return decodeK8sPodStatus(containerStatus)
 	}
 
 	return decodeUnitWorkloadStatus(workloadStatus, present)
+}
+
+// legacyIsStatusModified returns true if workload status should be used and
+// false if the container status should be used for the unit status. This is legacy
+// behavior which users depend on.
+func legacyIsStatusModified(s status.StatusInfo[status.WorkloadStatusType]) bool {
+	if s.Status != status.WorkloadStatusUnset && s.Status != status.WorkloadStatusWaiting {
+		return true
+	}
+
+	// Replicate behaviour from Juju 3
+	if set.NewStrings(
+		corestatus.MessageWaitForContainer,
+		corestatus.MessageInitializingAgent,
+		corestatus.MessageInstallingAgent,
+	).Contains(s.Message) {
+		return false
+	}
+
+	return true
 }
 
 // statusSeverities holds status values with a severity measure.
