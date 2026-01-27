@@ -33,7 +33,10 @@ const (
 	// StoragePoolNameMinLength is the minimum supported length of a storage
 	// pool name.
 	StoragePoolNameMinLength = 1
+)
 
+// Constants related to [StoragePooolOrigin].
+const (
 	// StoragePoolOriginUser indicates that the storage pool was created by a
 	// user.
 	StoragePoolOriginUser StoragePoolOrigin = iota
