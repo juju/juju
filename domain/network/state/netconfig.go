@@ -16,6 +16,11 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+var (
+	errAddrSubnetMatchNone  = errors.ConstError("no matching subnet")
+	errAddrSubnetMatchMulti = errors.ConstError("multiple matching subnets")
+)
+
 // SetMachineNetConfig updates the network configuration for the machine with
 // the input net node UUID.
 //   - New devices and their addresses are inserted with origin = "machine".
@@ -378,24 +383,32 @@ func (st *State) reconcileNetConfigAddresses(
 			}
 
 			// If the address already has a subnet UUID, we use it.
+			if existingAddr.SubnetUUID.Valid && existingAddr.SubnetUUID.String != "" {
+				addrDML.SubnetUUID = &existingAddr.SubnetUUID.String
+				addrsDML = append(addrsDML, addrDML)
+				continue
+			}
+
 			// Otherwise, we try to find a subnet UUID by locating
 			// an existing subnet that contains the IP.
-			var subnetUUID string
-			if existingAddr.SubnetUUID.Valid && existingAddr.SubnetUUID.String != "" {
-				subnetUUID = existingAddr.SubnetUUID.String
-			} else {
-				subnetUUID, err = subs.subnetForIP(a.AddressValue)
+			ip, cidr, _ := net.ParseCIDR(a.AddressValue)
+			if ip == nil {
+				return nil, nil, errors.Errorf("invalid IP address %q", a.AddressValue)
 			}
-			if subnetUUID != "" {
+
+			var (
+				subnetUUID  string
+				subMatchErr error
+			)
+			if subnetUUID, subMatchErr = subs.subnetForIP(ip); subMatchErr == nil {
 				addrDML.SubnetUUID = &subnetUUID
 				addrsDML = append(addrsDML, addrDML)
 				continue
 			}
 
-			// If we got an error, we failed to find *any* matching subnet.
-			// If we are not adding discovered subnets progressively,
-			// there's nothing more we can do.
-			if err != nil && !addSubnets {
+			// If we found no match and are not adding discovered subnets
+			// progressively there's nothing more we can do.
+			if errors.Is(subMatchErr, errAddrSubnetMatchNone) && !addSubnets {
 				// TODO (manadart 2025-04-29): Figure out what to do with
 				// loopback addresses before making
 				// ip_address.subnet_uuid NOT NULL.
@@ -404,18 +417,13 @@ func (st *State) reconcileNetConfigAddresses(
 				continue
 			}
 
-			sUUID, uuidErr := network.NewSubnetUUID()
-			if uuidErr != nil {
-				return nil, nil, errors.Capture(uuidErr)
+			sUUID, err := network.NewSubnetUUID()
+			if err != nil {
+				return nil, nil, errors.Capture(err)
 			}
 			newSub := subnet{
 				UUID:      sUUID.String(),
 				SpaceUUID: corenetwork.AlphaSpaceId,
-			}
-
-			ip, cidr, _ := net.ParseCIDR(a.AddressValue)
-			if ip == nil {
-				return nil, nil, errors.Errorf("invalid IP address %q", a.AddressValue)
 			}
 
 			// If the address is associated by CIDR to multiple subnets,
@@ -424,8 +432,8 @@ func (st *State) reconcileNetConfigAddresses(
 			// The instance-poller will attempt to reconcile the real subnet
 			// using the provider subnet ID subsequently.
 			// Otherwise, we are adding newly discovered subnets and just
-			// determine it from the address.
-			if err == nil {
+			// use the one we determined from the address.
+			if errors.Is(subMatchErr, errAddrSubnetMatchMulti) {
 				suffix := "/32"
 				if a.AddressType == corenetwork.IPv6Address {
 					suffix = "/128"
