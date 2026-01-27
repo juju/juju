@@ -102,7 +102,7 @@ func (s *storageSuite) TestImportFilesystemValidate(c *tc.C) {
 		ProviderId:  "provider-id",
 		StorageName: "pgdata",
 	})
-	c.Check(err, tc.ErrorIs, storageerrors.InvalidPoolNameError)
+	c.Check(err, tc.ErrorIs, storageerrors.StoragePoolNameInvalid)
 
 	_, err = s.service(c).ImportFilesystem(c.Context(), ImportStorageParams{
 		Kind:        storage.StorageKindBlock,

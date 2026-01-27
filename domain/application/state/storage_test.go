@@ -285,7 +285,7 @@ WHERE application_uuid = ? AND charm_uuid = ?`, appUUID, charmUUID)
 
 // TestGetProviderTypeOfPoolNotFound tests that trying to get the provider type
 // for a pool that doesn't exist returns the caller an error satisfying
-// [storageerrors.PoolNotFoundError].
+// [storageerrors.StoragePoolNotFound].
 func (s *storageSuite) TestGetProviderTypeForPoolNotFound(c *tc.C) {
 	poolUUID, err := domainstorage.NewStoragePoolUUID()
 	c.Assert(err, tc.ErrorIsNil)
@@ -297,7 +297,7 @@ func (s *storageSuite) TestGetProviderTypeForPoolNotFound(c *tc.C) {
 	)
 
 	_, err = st.GetProviderTypeForPool(c.Context(), poolUUID)
-	c.Check(err, tc.ErrorIs, storageerrors.PoolNotFoundError)
+	c.Check(err, tc.ErrorIs, storageerrors.StoragePoolNotFound)
 }
 
 // TestGetProviderTypeOfPool checks that the provider type of a storage pool

@@ -4,12 +4,14 @@
 package storage
 
 import (
+	"regexp"
+
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
-// defaultStoragePoolLookup is the comparable type for which fixed storage pool uuids are
-// stored for.
+// defaultStoragePoolLookup is the comparable type for which fixed storage pool
+// uuids are stored for.
 type defaultStoragePoolLookup struct {
 	// N is the name of the storage pool.
 	N string
@@ -17,6 +19,56 @@ type defaultStoragePoolLookup struct {
 	// T is the provider type of the storage pool.
 	T string
 }
+
+// StoragePoolOrigin describes the origin source of a storage pool. The primary
+// purpose of this value is to distinguish between storage pools that are
+// created by users and those that exists within Juju.
+type StoragePoolOrigin int
+
+// StoragePoolUUID uniquely identifies a storage pool in the model.
+type StoragePoolUUID baseUUID
+
+const (
+	// StoragePoolNameMaxLength is the maximum supported length of a storage
+	// pool name.
+	StoragePoolNameMaxLength = 128
+
+	// StoragePoolNameMinLength is the minimum supported length of a storage
+	// pool name.
+	StoragePoolNameMinLength = 1
+)
+
+// Constants related to [StoragePooolOrigin].
+const (
+	// StoragePoolOriginUser indicates that the storage pool was created by a
+	// user.
+	StoragePoolOriginUser StoragePoolOrigin = iota
+
+	// StoragePoolOriginProviderDefault indicates that the storage pool is a
+	// default offered by the storage provider.
+	StoragePoolOriginProviderDefault
+)
+
+var (
+	// validStoragePoolNameRegex is the regex pattern used to validate storage
+	// pool names when they are being created or updated. A valid storage pool
+	// name MUST confirm to the rules of RFC1035 labels, with the exception that
+	// we permit and allow longer names up to 126 characters.
+	//
+	// NOTE: In juju versions prior to 4.0 we only supported the following
+	// regex '^[a-zA-Z]+[-?a-zA-Z0-9]*$'. This regex had no upper bounds and
+	// allowed for abuse. It also allowed for '?' characters which violate dns
+	// naming.
+	//
+	// It is important that with the change in supported regex the users
+	// understands that for storage pools being imported pre a 4.0 source may
+	// violate this regex. In this case the pool name should be validated
+	// against the old regex for sanity and accepted.
+	//
+	// See [validStoragePoolNameLegacyRegex] for the older validation regex of
+	// storage pool names.
+	validStoragePoolNameRegex = regexp.MustCompile("^[[:alpha:]][[:alnum:]-]{0,126}[[:alnum:]]$|^[[:alpha:]]$")
+)
 
 // getDefaultStoragePoolUUIDs returns the full set of fixed storage pool uuids
 // for the model.
@@ -97,4 +149,35 @@ func GenerateProviderDefaultStoragePoolUUIDWithDefaults(
 	}
 
 	return uuid, nil
+}
+
+// IsValidStoragePoolName checks a new or proposed updated storage pool name to
+// make sure that it is valid and can be used within a controller. This func
+// should only be used for validating storage pool names that are either new or
+// being updated. For existing storage pool names that are being imported into a
+// model or their history is unknown use [IsValidStoragePoolNameWithLegacy].
+//
+// For a storage pool name to be valid it MUST meet the rules of RFC1035 with
+// the exception that the length is allowed to be 128 characters long.
+func IsValidStoragePoolName(name string) bool {
+	return len(name) >= StoragePoolNameMinLength &&
+		len(name) <= StoragePoolNameMaxLength &&
+		validStoragePoolNameRegex.MatchString(name)
+}
+
+// NewStoragePoolUUID creates a new, valid storage pool identifier.
+func NewStoragePoolUUID() (StoragePoolUUID, error) {
+	u, err := newUUID()
+	return StoragePoolUUID(u), err
+}
+
+// String returns the string representation of this UUID. This function
+// satisfies the [fmt.Stringer] interface.
+func (u StoragePoolUUID) String() string {
+	return baseUUID(u).String()
+}
+
+// Validate returns an error if the [StoragePoolUUID] is not valid.
+func (u StoragePoolUUID) Validate() error {
+	return baseUUID(u).validate()
 }

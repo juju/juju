@@ -6,14 +6,7 @@ package storage
 import (
 	"github.com/juju/collections/set"
 
-	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
-)
-
-// Pool configuration attribute names.
-const (
-	StoragePoolName     = "name"
-	StorageProviderType = "type"
 )
 
 // Attrs defines storage attributes.
@@ -59,24 +52,6 @@ func (n Names) Values() []string {
 // Values returns the unique values of the Providers.
 func (p Providers) Values() []string {
 	return deduplicateNamesOrProviders(p)
-}
-
-// DefaultStoragePools returns the default storage pools to add to a new model
-// for a given provider registry.
-func DefaultStoragePools(registry storage.ProviderRegistry) ([]*storage.Config, error) {
-	var result []*storage.Config
-	providerTypes, err := registry.StorageProviderTypes()
-	if err != nil {
-		return nil, errors.Errorf("getting storage provider types: %w", err)
-	}
-	for _, providerType := range providerTypes {
-		p, err := registry.StorageProvider(providerType)
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-		result = append(result, p.DefaultPools()...)
-	}
-	return result, nil
 }
 
 // FilesystemInfo describes information about a filesystem.

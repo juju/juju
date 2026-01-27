@@ -47,6 +47,10 @@ func (a *StorageAPI) DetachStorage(
 	ctx context.Context,
 	args params.StorageDetachmentParams,
 ) (params.ErrorResults, error) {
+	if err := a.checkCanWrite(ctx); err != nil {
+		return params.ErrorResults{}, err
+	}
+
 	var (
 		force    bool
 		waitTime time.Duration

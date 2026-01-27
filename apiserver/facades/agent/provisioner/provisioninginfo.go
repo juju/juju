@@ -29,7 +29,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
-	storageerrors "github.com/juju/juju/domain/storage/errors"
+	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -363,7 +363,7 @@ func (api *ProvisionerAPI) machineRootDiskParams(
 
 	// The root disk source constraint might refer to a storage pool.
 	sp, err := api.storagePoolGetter.GetStoragePoolByName(ctx, *machineConstraints.RootDiskSource)
-	if err != nil && !errors.Is(err, storageerrors.PoolNotFoundError) {
+	if err != nil && !errors.Is(err, domainstorageerrors.StoragePoolNotFound) {
 		return nil, errors.Errorf("cannot load storage pool: %w", err)
 	} else if err != nil {
 		return nil, nil

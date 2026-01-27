@@ -11,13 +11,14 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
-type originSuite struct {
+type storagePoolOriginSuite struct {
 	schematesting.ModelSuite
 }
 
-// TestOriginSuite runs all of the tests located in the [originSuite].
-func TestOriginSuite(t *testing.T) {
-	tc.Run(t, &originSuite{})
+// TestStoragePoolOriginSuite runs all of the tests located in the
+// [storagePoolOriginSuite].
+func TestStoragePoolOriginSuite(t *testing.T) {
+	tc.Run(t, &storagePoolOriginSuite{})
 }
 
 // TestStoragePoolOriginValuesAligned asserts that the origin values that exist
@@ -26,7 +27,7 @@ func TestOriginSuite(t *testing.T) {
 // If this test fails it indicates that either a new value has been added to the
 // schema and a new enum needs to be created or a value has been modified or
 // removed that will result in a breaking change.
-func (s *originSuite) TestStoragePoolOriginValuesAligned(c *tc.C) {
+func (s *storagePoolOriginSuite) TestStoragePoolOriginValuesAligned(c *tc.C) {
 
 	rows, err := s.DB().QueryContext(
 		c.Context(),

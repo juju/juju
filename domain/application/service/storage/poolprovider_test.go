@@ -48,21 +48,21 @@ func (s *storagePoolProviderSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 // TestPoolSupportsCharmStorageNotFound tests that if no storage pool exists for
 // a given storage pool uuid the caller gets back an error satisfying
-// [storageerrors.PoolNotFoundError].
+// [storageerrors.StoragePoolNotFound].
 func (s *storagePoolProviderSuite) TestPoolSupportsCharmStorageNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 
 	s.state.EXPECT().GetProviderTypeForPool(gomock.Any(), poolUUID).Return(
-		"", storageerrors.PoolNotFoundError,
+		"", storageerrors.StoragePoolNotFound,
 	)
 
 	validator := NewStoragePoolProvider(s, s.state)
 	_, err := validator.CheckPoolSupportsCharmStorage(
 		c.Context(), poolUUID, charm.StorageFilesystem,
 	)
-	c.Check(err, tc.ErrorIs, storageerrors.PoolNotFoundError)
+	c.Check(err, tc.ErrorIs, storageerrors.StoragePoolNotFound)
 }
 
 // TestPoolSupportsCharmStorageFilesystem tests that the storage pool exists

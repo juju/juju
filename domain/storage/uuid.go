@@ -17,19 +17,10 @@ type baseUUID string
 // StorageInstanceUUID uniquely identifies a storage instance in the model.
 type StorageInstanceUUID baseUUID
 
-// StoragePoolUUID uniquely identifies a storage pool in the model.
-type StoragePoolUUID baseUUID
-
 // NewStorageInstanceUUID creates a new, valid storage instance identifier.
 func NewStorageInstanceUUID() (StorageInstanceUUID, error) {
 	u, err := newUUID()
 	return StorageInstanceUUID(u), err
-}
-
-// NewStoragePoolUUID creates a new, valid storage pool identifier.
-func NewStoragePoolUUID() (StoragePoolUUID, error) {
-	u, err := newUUID()
-	return StoragePoolUUID(u), err
 }
 
 // newUUID creates a new UUID using the internal uui package.
@@ -53,12 +44,6 @@ func (u StorageInstanceUUID) String() string {
 	return baseUUID(u).String()
 }
 
-// String returns the string representation of this UUID. This function
-// satisfies the [fmt.Stringer] interface.
-func (u StoragePoolUUID) String() string {
-	return baseUUID(u).String()
-}
-
 // validate checks that [uuid] is a valid uuid returning an error if it is not.
 func (u baseUUID) validate() error {
 	if u == "" {
@@ -73,10 +58,5 @@ func (u baseUUID) validate() error {
 
 // Validate returns an error if the [StorageInstanceUUID] is not valid.
 func (u StorageInstanceUUID) Validate() error {
-	return baseUUID(u).validate()
-}
-
-// Validate returns an error if the [StoragePoolUUID] is not valid.
-func (u StoragePoolUUID) Validate() error {
 	return baseUUID(u).validate()
 }
