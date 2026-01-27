@@ -14,6 +14,16 @@ type storageInstanceID struct {
 	ID string `db:"storage_id"`
 }
 
+// dbModelStoragePool represents a single row from the model_storage_pool table.
+type dbModelStoragePool struct {
+	StoragePoolUUID string `db:"storage_pool_uuid"`
+	StorageKindID   int    `db:"storage_kind_id"`
+}
+
+type dbAggregateCount struct {
+	Count int `db:"count"`
+}
+
 // storageInstanceUUID represents the UUID of a storage instance in the model.
 type storageInstanceUUID entityUUID
 

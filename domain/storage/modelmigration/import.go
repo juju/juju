@@ -52,8 +52,9 @@ func RegisterImport(coordinator Coordinator, storageRegistryGetter corestorage.M
 // service methods needed for storage pool import.
 type ImportService interface {
 	CreateStoragePool(ctx context.Context, UUID domainstorage.StoragePoolUUID,
-		name string, providerType storage.ProviderType, attrs service.PoolAttrs,
+		name string, providerType storage.ProviderType, attrs map[string]any,
 		originID domainstorage.StoragePoolOrigin) error
+	SetRecommendedStoragePools(ctx context.Context, pools []domainstorage.RecommendedStoragePoolParams) error
 }
 
 type importOperation struct {
@@ -116,12 +117,21 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 		providerDefaultPools := registry.DefaultPools()
 		for _, providerDefaultPool := range providerDefaultPools {
-			err := i.appendToPoolsForCreation(ctx, &poolsToCreate, providerDefaultPool)
+			providerDefault, err := i.poolSafeToCreate(ctx, poolsToCreate, providerDefaultPool)
 			if err != nil {
 				return err
 			}
+			if providerDefault != nil {
+				poolsToCreate = append(poolsToCreate, *providerDefault)
+			}
 		}
 	}
+
+	defaultPools, recommendedPools, err := i.getRecommendedStoragePools(poolsToCreate, modelStorageRegistry)
+	if err != nil {
+		return errors.Errorf("getting recommended storage pools: %w", err)
+	}
+	poolsToCreate = append(poolsToCreate, defaultPools...)
 
 	for _, pool := range poolsToCreate {
 		err := i.service.CreateStoragePool(ctx, pool.UUID, pool.Name, storage.ProviderType(pool.Type),
@@ -131,19 +141,24 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		}
 	}
 
+	err = i.service.SetRecommendedStoragePools(ctx, recommendedPools)
+	if err != nil {
+		return errors.Errorf("setting recommended storage")
+	}
+
 	return nil
 }
 
-func (i *importOperation) appendToPoolsForCreation(
+func (i *importOperation) poolSafeToCreate(
 	ctx context.Context,
-	existingPools *[]DefaultStoragePool,
-	config *storage.Config) error {
+	existingPools []DefaultStoragePool,
+	config *storage.Config) (*DefaultStoragePool, error) {
 	// A storage pool with a duplicate provider and name already exists.
 	// We skip adding it to the slice.
-	if slices.ContainsFunc(*existingPools, func(pool DefaultStoragePool) bool {
+	if slices.ContainsFunc(existingPools, func(pool DefaultStoragePool) bool {
 		return pool.Name == config.Name() && pool.Type == config.Provider().String()
 	}) {
-		return nil
+		return nil, nil
 	}
 	name := config.Name()
 	provider := config.Provider().String()
@@ -162,28 +177,29 @@ func (i *importOperation) appendToPoolsForCreation(
 			provider,
 			name,
 		)
-		return nil
+		return nil, nil
 	} else if err != nil {
-		return fmt.Errorf(
+		return nil, fmt.Errorf(
 			"getting storage pool uuid for default provider %q pool %q",
 			provider,
 			name,
 		)
 	}
-	// The built-in pool doesn't conflict with the user-defined pools, it's save
-	// to append for later creation.
-	*existingPools = append(*existingPools, DefaultStoragePool{
+	// The built-in pool doesn't conflict with the user-defined pools, it's saved
+	// to return it for creation.
+	return &DefaultStoragePool{
 		UUID:   uuid,
 		Name:   name,
 		Origin: domainstorage.StoragePoolOriginProviderDefault,
 		Type:   provider,
 		Attrs:  config.Attrs(),
-	})
-	return nil
+	}, nil
 }
 
-func getRecommendedStoragePools(existingPools *[]DefaultStoragePool, reg storage.ProviderRegistry) ([]ModelStoragePoolArg, error) {
-	recommendedVals := make([]ModelStoragePoolArg, 0)
+func (i *importOperation) getRecommendedStoragePools(existingPools []DefaultStoragePool,
+	reg storage.ProviderRegistry) ([]DefaultStoragePool, []domainstorage.RecommendedStoragePoolParams, error) {
+	poolsToCreate := make([]DefaultStoragePool, 0)
+	recommendedPools := make([]domainstorage.RecommendedStoragePoolParams, 0)
 	appendPool := func(cfg *storage.Config) (domainstorage.StoragePoolUUID, error) {
 		// Get the UUID of the given pool so that we can later
 		// check for duplication within [existingPools].
@@ -197,24 +213,24 @@ func getRecommendedStoragePools(existingPools *[]DefaultStoragePool, reg storage
 
 		// Duplication checking is performed on uuid and then name and provider
 		// type.
-		index := slices.IndexFunc(*existingPools, func(e DefaultStoragePool) bool {
+		index := slices.IndexFunc(existingPools, func(e DefaultStoragePool) bool {
 			return e.UUID == uuid
 		},
 		)
 		// The given pool exists in [existingPools]. We don't want to add a duplicate
 		// so return early.
 		if index != -1 {
-			return (*existingPools)[index].UUID, nil
+			return (existingPools)[index].UUID, nil
 		}
 		// We don't want to add it for creation if there exists an existing pool
 		// with duplicate name and provider. This may have been a user-defined
 		// pool from the source controller.
-		if slices.ContainsFunc(*existingPools, func(pool DefaultStoragePool) bool {
+		if slices.ContainsFunc(existingPools, func(pool DefaultStoragePool) bool {
 			return pool.Name == cfg.Name() && pool.Type == cfg.Provider().String()
 		}) {
 			return "", nil
 		}
-		*existingPools = append(*existingPools, DefaultStoragePool{
+		poolsToCreate = append(poolsToCreate, DefaultStoragePool{
 			UUID:   uuid,
 			Name:   cfg.Name(),
 			Origin: domainstorage.StoragePoolOriginProviderDefault,
@@ -227,13 +243,12 @@ func getRecommendedStoragePools(existingPools *[]DefaultStoragePool, reg storage
 	// Get filesystem recommendation.
 	poolCfg := reg.RecommendedPoolForKind(storage.StorageKindFilesystem)
 	if poolCfg != nil {
-
 		uuid, err := appendPool(poolCfg)
 		if err != nil {
-			return nil, errors.Capture(err)
+			return nil, nil, errors.Capture(err)
 		}
 		if uuid != "" {
-			recommendedVals = append(recommendedVals, ModelStoragePoolArg{
+			recommendedPools = append(recommendedPools, domainstorage.RecommendedStoragePoolParams{
 				StorageKind:     domainstorage.StorageKindFilesystem,
 				StoragePoolUUID: uuid,
 			})
@@ -245,15 +260,15 @@ func getRecommendedStoragePools(existingPools *[]DefaultStoragePool, reg storage
 	if poolCfg != nil {
 		uuid, err := appendPool(poolCfg)
 		if err != nil {
-			return nil, errors.Capture(err)
+			return nil, nil, errors.Capture(err)
 		}
 		if uuid != "" {
-			recommendedVals = append(recommendedVals, ModelStoragePoolArg{
+			recommendedPools = append(recommendedPools, domainstorage.RecommendedStoragePoolParams{
 				StorageKind:     domainstorage.StorageKindBlock,
 				StoragePoolUUID: uuid,
 			})
 		}
 	}
 
-	return recommendedVals, nil
+	return poolsToCreate, recommendedPools, nil
 }

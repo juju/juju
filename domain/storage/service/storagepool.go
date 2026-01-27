@@ -75,6 +75,8 @@ type StoragePoolState interface {
 	// The following errors can be expected:
 	// - [storageerrors.PoolNotFoundError] if a pool with the specified UUID does not exist.
 	GetStoragePool(ctx context.Context, poolUUID domainstorage.StoragePoolUUID) (domainstorage.StoragePool, error)
+
+	SetModelStoragePools(ctx context.Context, pools []domainstorage.RecommendedStoragePoolArg) error
 }
 
 // StoragePoolService defines a service for interacting with the underlying state.
@@ -511,4 +513,20 @@ func (s *StoragePoolService) validateProviderCriteria(ctx context.Context, provi
 		}
 	}
 	return nil
+}
+
+func (s *StoragePoolService) SetRecommendedStoragePools(ctx context.Context,
+	pools []domainstorage.RecommendedStoragePoolParams) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	poolArgs := make([]domainstorage.RecommendedStoragePoolArg, len(pools))
+	for i, pool := range pools {
+		poolArgs[i] = domainstorage.RecommendedStoragePoolArg{
+			StoragePoolUUID: pool.StoragePoolUUID,
+			StorageKind:     pool.StorageKind,
+		}
+	}
+
+	return s.st.SetModelStoragePools(ctx, poolArgs)
 }

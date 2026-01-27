@@ -61,3 +61,13 @@ type FilesystemInfo struct {
 	Pool          string
 	BackingVolume *storage.VolumeInfo
 }
+
+type RecommendedStoragePoolArg struct {
+	StoragePoolUUID StoragePoolUUID
+	StorageKind     StorageKind
+}
+
+type RecommendedStoragePoolParams struct {
+	StoragePoolUUID StoragePoolUUID
+	StorageKind     StorageKind
+}
