@@ -3,4 +3,4 @@
 
 package charmdownloader
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package charmdownloader -destination downloader_mock_test.go github.com/juju/juju/internal/charm/charmdownloader DownloadClient
+//go:generate go run go.uber.org/mock/mockgen -typed -package charmdownloader -destination downloader_mock_test.go github.com/juju/juju/domain/deployment/charm/charmdownloader DownloadClient
