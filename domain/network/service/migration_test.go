@@ -465,20 +465,7 @@ func (s *migrationSuite) TestImportCloudServicesCreateCloudServicesError(c *tc.C
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
-	ipv4SubnetUUID := uuid.MustNewUUID().String()
-	ipv6SubnetUUID := uuid.MustNewUUID().String()
-	subnets := corenetwork.SubnetInfos{
-		{
-			ID:   corenetwork.Id(ipv4SubnetUUID),
-			CIDR: corenetwork.FallbackSubnetInfo[0].CIDR,
-		},
-		{
-			ID:   corenetwork.Id(ipv6SubnetUUID),
-			CIDR: corenetwork.FallbackSubnetInfo[1].CIDR,
-		},
-	}
-
-	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(subnets, nil)
+	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(s.fallbackSubnetInfo(), nil)
 	s.st.EXPECT().CreateCloudServices(gomock.Any(), gomock.Any()).Return(errors.New("create services error"))
 	// No try to create LLD if creating cloud services fails
 
@@ -493,20 +480,7 @@ func (s *migrationSuite) TestImportCloudServicesImportLinkLayerDevicesError(c *t
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
-	ipv4SubnetUUID := uuid.MustNewUUID().String()
-	ipv6SubnetUUID := uuid.MustNewUUID().String()
-	subnets := corenetwork.SubnetInfos{
-		{
-			ID:   corenetwork.Id(ipv4SubnetUUID),
-			CIDR: corenetwork.FallbackSubnetInfo[0].CIDR,
-		},
-		{
-			ID:   corenetwork.Id(ipv6SubnetUUID),
-			CIDR: corenetwork.FallbackSubnetInfo[1].CIDR,
-		},
-	}
-
-	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(subnets, nil)
+	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(s.fallbackSubnetInfo(), nil)
 	s.st.EXPECT().CreateCloudServices(gomock.Any(), gomock.Any()).Return(nil)
 	s.st.EXPECT().ImportLinkLayerDevices(gomock.Any(), gomock.Any()).Return(errors.New("import devices error"))
 
@@ -534,20 +508,7 @@ func (s *migrationSuite) TestImportCloudServicesErrorGetSubnetNoSubnet(c *tc.C) 
 		},
 	}
 
-	ipv4SubnetUUID := uuid.MustNewUUID().String()
-	ipv6SubnetUUID := uuid.MustNewUUID().String()
-	subnets := corenetwork.SubnetInfos{
-		{
-			ID:   corenetwork.Id(ipv4SubnetUUID),
-			CIDR: corenetwork.FallbackSubnetInfo[0].CIDR,
-		},
-		{
-			ID:   corenetwork.Id(ipv6SubnetUUID),
-			CIDR: corenetwork.FallbackSubnetInfo[1].CIDR,
-		},
-	}
-
-	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(subnets, nil)
+	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(s.fallbackSubnetInfo(), nil)
 
 	err := s.migrationService(c).ImportCloudServices(c.Context(), services)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
@@ -587,18 +548,8 @@ func (s *migrationSuite) TestImportCloudServicesIPv4AndIPv6Success(c *tc.C) {
 	}
 
 	// Create subnet info for the test
-	ipv4SubnetUUID := uuid.MustNewUUID().String()
-	ipv6SubnetUUID := uuid.MustNewUUID().String()
-	subnets := corenetwork.SubnetInfos{
-		{
-			ID:   corenetwork.Id(ipv4SubnetUUID),
-			CIDR: corenetwork.FallbackSubnetInfo[0].CIDR,
-		},
-		{
-			ID:   corenetwork.Id(ipv6SubnetUUID),
-			CIDR: corenetwork.FallbackSubnetInfo[1].CIDR,
-		},
-	}
+	subnets := s.fallbackSubnetInfo()
+	c.Assert(subnets, tc.HasLen, 2)
 
 	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(subnets, nil)
 
@@ -614,8 +565,8 @@ func (s *migrationSuite) TestImportCloudServicesIPv4AndIPv6Success(c *tc.C) {
 		c:    c,
 		from: services,
 		subnetUUIDs: map[string]string{
-			"addr-uuid1": ipv4SubnetUUID,
-			"addr-uuid2": ipv6SubnetUUID,
+			"addr-uuid1": subnets[0].ID.String(),
+			"addr-uuid2": subnets[1].ID.String(),
 		},
 	}).Return(nil)
 
@@ -652,18 +603,8 @@ func (s *migrationSuite) TestImportCloudServicesIPv4Success(c *tc.C) {
 	}
 
 	// Create subnet info for the test
-	ipv4SubnetUUID := uuid.MustNewUUID().String()
-	ipv6SubnetUUID := uuid.MustNewUUID().String()
-	subnets := corenetwork.SubnetInfos{
-		{
-			ID:   corenetwork.Id(ipv4SubnetUUID),
-			CIDR: corenetwork.FallbackSubnetInfo[0].CIDR,
-		},
-		{
-			ID:   corenetwork.Id(ipv6SubnetUUID),
-			CIDR: corenetwork.FallbackSubnetInfo[1].CIDR,
-		},
-	}
+	subnets := s.fallbackSubnetInfo()
+	c.Assert(subnets, tc.HasLen, 2)
 
 	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(subnets, nil)
 
@@ -679,7 +620,7 @@ func (s *migrationSuite) TestImportCloudServicesIPv4Success(c *tc.C) {
 		c:    c,
 		from: services,
 		subnetUUIDs: map[string]string{
-			"addr-uuid": ipv4SubnetUUID,
+			"addr-uuid": subnets[0].ID.String(),
 		},
 	}).Return(nil)
 
@@ -716,18 +657,8 @@ func (s *migrationSuite) TestImportCloudServicesIPv6Success(c *tc.C) {
 	}
 
 	// Create subnet info for the test
-	ipv4SubnetUUID := uuid.MustNewUUID().String()
-	ipv6SubnetUUID := uuid.MustNewUUID().String()
-	subnets := corenetwork.SubnetInfos{
-		{
-			ID:   corenetwork.Id(ipv4SubnetUUID),
-			CIDR: corenetwork.FallbackSubnetInfo[0].CIDR,
-		},
-		{
-			ID:   corenetwork.Id(ipv6SubnetUUID),
-			CIDR: corenetwork.FallbackSubnetInfo[1].CIDR,
-		},
-	}
+	subnets := s.fallbackSubnetInfo()
+	c.Assert(subnets, tc.HasLen, 2)
 
 	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(subnets, nil)
 
@@ -743,7 +674,7 @@ func (s *migrationSuite) TestImportCloudServicesIPv6Success(c *tc.C) {
 		c:    c,
 		from: services,
 		subnetUUIDs: map[string]string{
-			"addr-uuid": ipv6SubnetUUID,
+			"addr-uuid": subnets[1].ID.String(),
 		},
 	}).Return(nil)
 
@@ -752,6 +683,19 @@ func (s *migrationSuite) TestImportCloudServicesIPv6Success(c *tc.C) {
 
 	// Assert: no error is returned
 	c.Assert(err, tc.IsNil)
+}
+
+func (s *migrationSuite) fallbackSubnetInfo() corenetwork.SubnetInfos {
+	return corenetwork.SubnetInfos{
+		{
+			ID:   corenetwork.Id(uuid.MustNewUUID().String()),
+			CIDR: corenetwork.FallbackSubnetInfo[0].CIDR,
+		},
+		{
+			ID:   corenetwork.Id(uuid.MustNewUUID().String()),
+			CIDR: corenetwork.FallbackSubnetInfo[1].CIDR,
+		},
+	}
 }
 
 type cloudServiceLLDMatcher struct {
