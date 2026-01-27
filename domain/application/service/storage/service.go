@@ -74,7 +74,7 @@ type State interface {
 	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 	// - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
 	AddStorageForUnit(
-		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, storageInfo internal.UnitStorageInfo,
+		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, storageInfo internal.AddUnitStorageArg,
 	) ([]corestorage.ID, error)
 
 	// DetachStorageForUnit detaches the specified storage from the specified unit.

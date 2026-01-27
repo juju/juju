@@ -140,7 +140,6 @@ type StorageService interface {
 	) error
 
 	// AddStorageForUnit adds storage instances to the given unit.
-	// Missing storage constraints are populated based on model defaults.
 	AddStorageForUnit(
 		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, arg storage.AddUnitStorageArgs,
 	) ([]corestorage.ID, error)

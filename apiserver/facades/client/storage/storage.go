@@ -474,12 +474,21 @@ func (a *StorageAPI) addOneStorage(ctx context.Context, one params.StorageAddPar
 		return nil, errors.Errorf("storage name %q not supported by charm", one.StorageName).Add(
 			coreerrors.NotSupported,
 		)
+	// TODO - these storag errors will evolve to use StorageCountLimitExceeded etc
 	case errors.Is(err, applicationerrors.InvalidStorageCount):
 		count := uint64(0)
 		if one.Directives.Count != nil {
 			count = *one.Directives.Count
 		}
 		return nil, errors.Errorf("storage count %d not valid for storage %q", count, one.StorageName).Add(
+			coreerrors.NotValid,
+		)
+	case errors.Is(err, applicationerrors.InvalidStorageSize):
+		size := uint64(0)
+		if one.Directives.SizeMiB != nil {
+			size = *one.Directives.SizeMiB
+		}
+		return nil, errors.Errorf("storage size %dMiB not valid for storage %q", size, one.StorageName).Add(
 			coreerrors.NotValid,
 		)
 	case err != nil:

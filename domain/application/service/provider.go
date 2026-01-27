@@ -24,7 +24,6 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
-	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -61,7 +60,6 @@ type CAASProvider interface {
 // model state.
 type ProviderService struct {
 	*Service
-	storageService StorageService
 
 	agentVersionGetter      AgentVersionGetter
 	provider                providertracker.ProviderGetter[Provider]
@@ -86,6 +84,7 @@ func NewProviderService(
 	return &ProviderService{
 		Service: NewService(
 			st,
+			storageSvc,
 			leaderEnsurer,
 			charmStore,
 			statusHistory,
@@ -93,7 +92,6 @@ func NewProviderService(
 			clock,
 			logger,
 		),
-		storageService:          storageSvc,
 		agentVersionGetter:      agentVersionGetter,
 		provider:                provider,
 		caasApplicationProvider: caasApplicationProvider,
@@ -109,14 +107,6 @@ func NewProviderService(
 // error is returned.
 func (s *ProviderService) GetApplicationStorageDirectivesInfo(ctx context.Context, uuid coreapplication.UUID) (map[string]application.ApplicationStorageInfo, error) {
 	return s.storageService.GetApplicationStorageDirectivesInfo(ctx, uuid)
-}
-
-// AddStorageForUnit adds storage instances to the given unit.
-// Missing storage constraints are populated based on model defaults.
-func (s *ProviderService) AddStorageForUnit(
-	ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, arg storage.AddUnitStorageArgs,
-) ([]corestorage.ID, error) {
-	return s.storageService.AddStorageForUnit(ctx, storageName, unitUUID, arg)
 }
 
 // CreateIAASApplication creates the specified IAAS application and units if

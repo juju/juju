@@ -14,15 +14,18 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
+	applicationservicestorage "github.com/juju/juju/domain/application/service/storage"
 	"github.com/juju/juju/domain/application/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domaintesting "github.com/juju/juju/domain/testing"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internalstorage "github.com/juju/juju/internal/storage"
 )
 
 type charmSuite struct {
@@ -119,9 +122,25 @@ func (s *charmSuite) setupService(c *tc.C) *service.Service {
 		return s.ModelTxnRunner(), nil
 	}
 	modelUUID := model.UUID(s.ModelUUID())
+	
+	st := state.NewState(modelDB, modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c))
+	
+	storageProviderRegistryGetter := corestorage.ConstModelStorageRegistry(
+		func() internalstorage.ProviderRegistry {
+			return internalstorage.NotImplementedProviderRegistry{}
+		},
+	)
+	storageSvc := applicationservicestorage.NewService(
+		st,
+		applicationservicestorage.NewStoragePoolProvider(
+			storageProviderRegistryGetter, st,
+		),
+		loggertesting.WrapCheckLog(c),
+	)
 
 	return service.NewService(
 		state.NewState(modelDB, modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c)),
+		storageSvc,
 		domaintesting.NoopLeaderEnsurer(),
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),

@@ -18,12 +18,14 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationmodelmigration "github.com/juju/juju/domain/application/modelmigration"
 	"github.com/juju/juju/domain/application/service"
+	applicationservicestorage "github.com/juju/juju/domain/application/service/storage"
 	"github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/deployment/charm/resource"
 	machinemodelmigration "github.com/juju/juju/domain/machine/modelmigration"
@@ -34,6 +36,7 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internalstorage "github.com/juju/juju/internal/storage"
 )
 
 type importSuite struct {
@@ -59,8 +62,24 @@ func (s *importSuite) SetUpTest(c *tc.C) {
 	modelDB := func(context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
+	st := state.NewState(modelDB, modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	storageProviderRegistryGetter := corestorage.ConstModelStorageRegistry(
+		func() internalstorage.ProviderRegistry {
+			return internalstorage.NotImplementedProviderRegistry{}
+		},
+	)
+	storageSvc := applicationservicestorage.NewService(
+		st,
+		applicationservicestorage.NewStoragePoolProvider(
+			storageProviderRegistryGetter, st,
+		),
+		loggertesting.WrapCheckLog(c),
+	)
+
 	s.svc = service.NewService(
-		state.NewState(modelDB, modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c)),
+		st,
+		storageSvc,
 		domaintesting.NoopLeaderEnsurer(),
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),

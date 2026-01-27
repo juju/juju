@@ -319,6 +319,10 @@ const (
 	// InvalidStorageCount describes an error that occurs when
 	// a storage attachment would violate charm expectations for cardinality.
 	InvalidStorageCount = errors.ConstError("invalid storage count")
+
+	// InvalidStorageSize describes an error that occurs when
+	// a storage size would violate the charm expectations.
+	InvalidStorageSize = errors.ConstError("invalid storage size")
 )
 
 // StorageCountLimitExceeded describes an error that occurs when an operation
