@@ -25,6 +25,9 @@ type defaultStoragePoolLookup struct {
 // created by users and those that exists within Juju.
 type StoragePoolOrigin int
 
+// StoragePoolUUID uniquely identifies a storage pool in the model.
+type StoragePoolUUID baseUUID
+
 const (
 	// StoragePoolNameMaxLength is the maximum supported length of a storage
 	// pool name.
@@ -160,4 +163,21 @@ func IsValidStoragePoolName(name string) bool {
 	return len(name) >= StoragePoolNameMinLength &&
 		len(name) <= StoragePoolNameMaxLength &&
 		validStoragePoolNameRegex.MatchString(name)
+}
+
+// NewStoragePoolUUID creates a new, valid storage pool identifier.
+func NewStoragePoolUUID() (StoragePoolUUID, error) {
+	u, err := newUUID()
+	return StoragePoolUUID(u), err
+}
+
+// String returns the string representation of this UUID. This function
+// satisfies the [fmt.Stringer] interface.
+func (u StoragePoolUUID) String() string {
+	return baseUUID(u).String()
+}
+
+// Validate returns an error if the [StoragePoolUUID] is not valid.
+func (u StoragePoolUUID) Validate() error {
+	return baseUUID(u).validate()
 }
