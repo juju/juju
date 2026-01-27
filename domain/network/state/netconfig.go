@@ -436,6 +436,8 @@ func (st *State) reconcileNetConfigAddresses(
 			}
 			newSubs = append(newSubs, newSub)
 
+			st.logger.Infof(ctx, "subnet %s will be added to the alpha space", newSub.CIDR)
+
 			addrDML.SubnetUUID = &newSub.UUID
 			addrsDML = append(addrsDML, addrDML)
 		}
