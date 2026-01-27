@@ -5,14 +5,15 @@ package assumes
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 
-	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/semversion"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 var (
@@ -49,7 +50,7 @@ func parseAssumesExpressionTree(rootExprList []interface{}) (Expression, error) 
 
 	for i, exprDecl := range rootExprList {
 		if rootExpr.SubExpressions[i], err = parseAssumesExpr(exprDecl); err != nil {
-			return nil, errors.Annotatef(err, `parsing expression %d in top level "assumes" block`, i+1)
+			return nil, internalerrors.Errorf(`parsing expression %d in top level "assumes" block: %w`, i+1, err)
 		}
 	}
 
@@ -70,7 +71,7 @@ func parseAssumesExpr(exprDecl interface{}) (Expression, error) {
 		for key, val := range exprAsMap {
 			keyStr, ok := key.(string)
 			if !ok {
-				return nil, errors.New(`malformed composite expression`)
+				return nil, internalerrors.New(`malformed composite expression`)
 			}
 			coercedMap[keyStr] = val
 		}
@@ -84,7 +85,7 @@ func parseAssumesExpr(exprDecl interface{}) (Expression, error) {
 		return parseFeatureExpr(exprAsString)
 	}
 
-	return nil, errors.New(`expected a feature, "any-of" or "all-of" expression`)
+	return nil, internalerrors.New(`expected a feature, "any-of" or "all-of" expression`)
 }
 
 // parseCompositeExpr extracts and returns a CompositeExpression from the
@@ -103,7 +104,7 @@ func parseAssumesExpr(exprDecl interface{}) (Expression, error) {
 // a value that is a slice of sub-expressions.
 func parseCompositeExpr(exprDecl map[string]interface{}) (CompositeExpression, error) {
 	if len(exprDecl) != 1 {
-		return CompositeExpression{}, errors.New("malformed composite expression")
+		return CompositeExpression{}, internalerrors.New("malformed composite expression")
 	}
 
 	var (
@@ -117,18 +118,18 @@ func parseCompositeExpr(exprDecl map[string]interface{}) (CompositeExpression, e
 	} else if subExprDecls = exprDecl["all-of"]; subExprDecls != nil {
 		compositeExpr.ExprType = AllOfExpression
 	} else {
-		return CompositeExpression{}, errors.New(`malformed composite expression; expected an "any-of" or "all-of" block`)
+		return CompositeExpression{}, internalerrors.New(`malformed composite expression; expected an "any-of" or "all-of" block`)
 	}
 
 	subExprDeclList, isList := subExprDecls.([]interface{})
 	if !isList {
-		return CompositeExpression{}, errors.Errorf(`malformed %q expression; expected a list of sub-expressions`, string(compositeExpr.ExprType))
+		return CompositeExpression{}, internalerrors.Errorf(`malformed %q expression; expected a list of sub-expressions`, string(compositeExpr.ExprType))
 	}
 
 	compositeExpr.SubExpressions = make([]Expression, len(subExprDeclList))
 	for i, subExprDecl := range subExprDeclList {
 		if compositeExpr.SubExpressions[i], err = parseAssumesExpr(subExprDecl); err != nil {
-			return CompositeExpression{}, errors.Annotatef(err, "parsing %q expression", string(compositeExpr.ExprType))
+			return CompositeExpression{}, internalerrors.Errorf("parsing %q expression: %w", string(compositeExpr.ExprType), err)
 		}
 	}
 	return compositeExpr, nil
@@ -158,7 +159,7 @@ func parseFeatureExpr(exprDecl string) (FeatureExpression, error) {
 		featName, constraint, versionStr := matches[0][1], matches[0][2], matches[0][3]
 		ver, err := semversion.ParseNonStrict(versionStr)
 		if err != nil {
-			return FeatureExpression{}, errors.Annotatef(err, "malformed feature expression %q", exprDecl)
+			return FeatureExpression{}, internalerrors.Errorf("malformed feature expression %q: %w", exprDecl, err)
 		}
 
 		return FeatureExpression{
@@ -169,7 +170,7 @@ func parseFeatureExpr(exprDecl string) (FeatureExpression, error) {
 		}, nil
 	}
 
-	return FeatureExpression{}, errors.Errorf("malformed feature expression %q", exprDecl)
+	return FeatureExpression{}, internalerrors.Errorf("malformed feature expression %q", exprDecl)
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
@@ -177,14 +178,14 @@ func (tree *ExpressionTree) UnmarshalYAML(unmarshalFn func(interface{}) error) e
 	var exprTree []interface{}
 	if err := unmarshalFn(&exprTree); err != nil {
 		if _, isTypeErr := err.(*yaml.TypeError); isTypeErr {
-			return errors.New(`malformed "assumes" block; expected an expression list`)
+			return internalerrors.New(`malformed "assumes" block; expected an expression list`)
 		}
-		return errors.Annotate(err, "decoding assumes block")
+		return internalerrors.Errorf("decoding assumes block: %w", err)
 	}
 
 	expr, err := parseAssumesExpressionTree(exprTree)
 	if err != nil {
-		return errors.Trace(err)
+		return internalerrors.Capture(err)
 	}
 	tree.Expression = expr
 	return nil
@@ -194,12 +195,12 @@ func (tree *ExpressionTree) UnmarshalYAML(unmarshalFn func(interface{}) error) e
 func (tree *ExpressionTree) UnmarshalJSON(data []byte) error {
 	var exprTree []interface{}
 	if err := json.Unmarshal(data, &exprTree); err != nil {
-		return errors.Annotate(err, "decoding assumes block")
+		return internalerrors.Errorf("decoding assumes block: %w", err)
 	}
 
 	expr, err := parseAssumesExpressionTree(exprTree)
 	if err != nil {
-		return errors.Trace(err)
+		return internalerrors.Capture(err)
 	}
 	tree.Expression = expr
 	return nil
@@ -222,7 +223,7 @@ func (tree *ExpressionTree) MarshalJSON() ([]byte, error) {
 
 	exprList, err := marshalAssumesExpressionTree(tree)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, internalerrors.Capture(err)
 	}
 	return json.Marshal(exprList)
 }
@@ -268,7 +269,7 @@ func marshalExpr(expr Expression) (interface{}, error) {
 	// This is a composite expression
 	compExpr, ok := expr.(CompositeExpression)
 	if !ok {
-		return nil, errors.Errorf("unexpected expression type %s", expr.Type())
+		return nil, internalerrors.Errorf("unexpected expression type %s", expr.Type())
 	}
 
 	var (

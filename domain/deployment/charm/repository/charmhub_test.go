@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/hash"
 	"go.uber.org/mock/gomock"
@@ -21,9 +20,10 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/deployment/charm"
-	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/domain/deployment/charm/repository/mocks"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/charmhub/transport"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -722,7 +722,8 @@ func (s *charmHubRepositorySuite) TestResolveResourcesNoMatchingRevision(c *tc.C
 		Revision: 1,
 		Size:     0,
 	}}, charmID())
-	c.Assert(err, tc.ErrorMatches, `charm resource "wal-e" at revision 1 not found`)
+	c.Assert(err, tc.ErrorMatches, `charm resource "wal-e" at revision 1`)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
 func (s *charmHubRepositorySuite) TestResolveResourcesUpload(c *tc.C) {
@@ -1221,7 +1222,9 @@ func (s *selectNextBaseSuite) TestSelectNextBaseWithInvalidBases(c *tc.C) {
 			Architecture: "amd64",
 		},
 	})
-	c.Assert(err, tc.ErrorMatches, `bases matching architecture "amd64" not found`)
+	c.Assert(err, tc.ErrorMatches, `bases matching architecture "amd64"`)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
+
 }
 
 func (s *selectNextBaseSuite) TestSelectNextBaseWithInvalidBaseChannel(c *tc.C) {
@@ -1234,7 +1237,7 @@ func (s *selectNextBaseSuite) TestSelectNextBaseWithInvalidBaseChannel(c *tc.C) 
 			OS:           "ubuntu",
 		},
 	})
-	c.Assert(err, tc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *selectNextBaseSuite) TestSelectNextBaseWithInvalidOS(c *tc.C) {
@@ -1247,7 +1250,7 @@ func (s *selectNextBaseSuite) TestSelectNextBaseWithInvalidOS(c *tc.C) {
 			OS:           "ubuntu",
 		},
 	})
-	c.Assert(err, tc.ErrorIs, errors.NotValid)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *selectNextBaseSuite) TestSelectNextBaseWithValidBases(c *tc.C) {
