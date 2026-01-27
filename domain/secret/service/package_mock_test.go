@@ -1707,6 +1707,44 @@ func (c *MockStateGrantAccessCall) DoAndReturn(f func(context.Context, *secrets.
 	return c
 }
 
+// ImportSecretWithRevisions mocks base method.
+func (m *MockState) ImportSecretWithRevisions(arg0 context.Context, arg1 int, arg2 *secrets.URI, arg3 secret.Owner, arg4 secret.UpsertSecretParams, arg5 []secret.UpsertRevisionParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ImportSecretWithRevisions", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ImportSecretWithRevisions indicates an expected call of ImportSecretWithRevisions.
+func (mr *MockStateMockRecorder) ImportSecretWithRevisions(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockStateImportSecretWithRevisionsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportSecretWithRevisions", reflect.TypeOf((*MockState)(nil).ImportSecretWithRevisions), arg0, arg1, arg2, arg3, arg4, arg5)
+	return &MockStateImportSecretWithRevisionsCall{Call: call}
+}
+
+// MockStateImportSecretWithRevisionsCall wrap *gomock.Call
+type MockStateImportSecretWithRevisionsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateImportSecretWithRevisionsCall) Return(arg0 error) *MockStateImportSecretWithRevisionsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateImportSecretWithRevisionsCall) Do(f func(context.Context, int, *secrets.URI, secret.Owner, secret.UpsertSecretParams, []secret.UpsertRevisionParams) error) *MockStateImportSecretWithRevisionsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateImportSecretWithRevisionsCall) DoAndReturn(f func(context.Context, int, *secrets.URI, secret.Owner, secret.UpsertSecretParams, []secret.UpsertRevisionParams) error) *MockStateImportSecretWithRevisionsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // InitialWatchStatementForConsumedRemoteSecretsChange mocks base method.
 func (m *MockState) InitialWatchStatementForConsumedRemoteSecretsChange(arg0 unit.Name) (string, eventsource.NamespaceQuery) {
 	m.ctrl.T.Helper()

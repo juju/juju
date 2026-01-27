@@ -63,7 +63,7 @@ func (s *serviceSuite) SetUpTest(c *tc.C) {
 	var err error
 	s.fakeUUID, err = uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	s.clock = testclock.NewClock(time.Time{})
+	s.clock = testclock.NewClock(time.Now().Truncate(24 * time.Hour))
 }
 
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -126,6 +126,8 @@ func (s *serviceSuite) assertCreateUserSecret(c *tc.C, isInternal, finalStepFail
 		AutoPrune:   ptr(true),
 		Checksum:    "checksum-1234",
 		RevisionID:  ptr(s.fakeUUID.String()),
+		CreateTime:  s.clock.Now(),
+		UpdateTime:  s.clock.Now(),
 	}
 	if isInternal {
 		params.Data = map[string]string{"foo": "bar"}
@@ -346,6 +348,7 @@ func (s *serviceSuite) assertUpdateUserSecret(c *tc.C, isInternal, finalStepFail
 		AutoPrune:   ptr(true),
 		Checksum:    "checksum-1234",
 		RevisionID:  ptr(s.fakeUUID.String()),
+		UpdateTime:  s.clock.Now(),
 	}
 	if isInternal {
 		params.Data = map[string]string{"foo": "bar"}
@@ -417,6 +420,8 @@ func (s *serviceSuite) TestCreateCharmUnitSecret(c *tc.C) {
 		ExpireTime:     ptr(exipreTime),
 		NextRotateTime: ptr(rotateTime),
 		RevisionID:     ptr(s.fakeUUID.String()),
+		CreateTime:     s.clock.Now(),
+		UpdateTime:     s.clock.Now(),
 	}
 	unitUUID, err := coreunit.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
@@ -519,6 +524,8 @@ func (s *serviceSuite) TestCreateCharmApplicationSecret(c *tc.C) {
 		ExpireTime:     ptr(exipreTime),
 		NextRotateTime: ptr(rotateTime),
 		RevisionID:     ptr(s.fakeUUID.String()),
+		CreateTime:     s.clock.Now(),
+		UpdateTime:     s.clock.Now(),
 	}
 
 	appUUID, err := coreapplication.NewUUID()
@@ -625,6 +632,7 @@ func (s *serviceSuite) TestUpdateCharmSecretNoRotate(c *tc.C) {
 		Checksum:     "checksum-1234",
 		ExpireTime:   ptr(expireTime),
 		RevisionID:   ptr(s.fakeUUID.String()),
+		UpdateTime:   s.clock.Now(),
 	}
 
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
@@ -707,6 +715,7 @@ func (s *serviceSuite) runRotatePolicyUpdateCase(c *tc.C, uri *coresecrets.URI, 
 		Data:         coresecrets.SecretData{"foo": "bar"},
 		RotatePolicy: ptr(domainsecret.MarshallRotatePolicy(newPol)),
 		RevisionID:   ptr(s.fakeUUID.String()),
+		UpdateTime:   s.clock.Now(),
 	}
 	var expectedNext *time.Time
 	if expectRecompute && newPol != nil && newPol.WillRotate() {
@@ -777,6 +786,7 @@ func (s *serviceSuite) TestUpdateCharmSecretDoNotRecomputeNextRotateTimeIfLessFr
 		Data:         coresecrets.SecretData{"foo": "bar"},
 		Checksum:     "checksum-1234",
 		RevisionID:   ptr(s.fakeUUID.String()),
+		UpdateTime:   s.clock.Now(),
 	}
 
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
@@ -825,6 +835,8 @@ func (s *serviceSuite) TestUpdateCharmSecret(c *tc.C) {
 		Checksum:       "checksum-1234",
 		NextRotateTime: ptr(s.clock.Now().AddDate(0, 0, 1)),
 		RevisionID:     ptr(s.fakeUUID.String()),
+		CreateTime:     s.clock.Now(),
+		UpdateTime:     s.clock.Now(),
 	}
 
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
@@ -849,6 +861,7 @@ func (s *serviceSuite) TestUpdateCharmSecret(c *tc.C) {
 		got.NextRotateTime = nil
 		want := p
 		want.NextRotateTime = nil
+		want.CreateTime = time.Time{} // Ignored on update.
 		c.Assert(got, tc.DeepEquals, want)
 		return nil
 	})
@@ -2210,6 +2223,7 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelSecretUpdateLabel(c *t
 	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, domainsecret.UpsertSecretParams{
 		RotatePolicy: ptr(domainsecret.RotateNever),
 		Label:        ptr("foo"),
+		UpdateTime:   s.clock.Now(),
 	}).Return(nil)
 	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(nil, nil)
 
