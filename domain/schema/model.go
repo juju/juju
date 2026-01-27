@@ -16,7 +16,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/blockdevice-triggers.gen.go -package=triggers -tables=block_device
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/model-triggers.gen.go -package=triggers -tables=model_config
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/secret-triggers.gen.go -package=triggers -tables=secret_metadata,secret_rotation,secret_revision,secret_revision_expire,secret_revision_obsolete,secret_reference,secret_deleted_value_ref
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/secret-triggers.gen.go -package=triggers -tables=secret_metadata,secret_rotation,secret_revision_expire,secret_revision_obsolete,secret_reference,secret_deleted_value_ref
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/network-triggers.gen.go -package=triggers -tables=subnet,ip_address
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-triggers.gen.go -package=triggers -tables=machine,machine_lxd_profile
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-cloud-instance-triggers.gen.go -package=triggers -tables=machine_cloud_instance
@@ -174,7 +174,7 @@ func ModelDDLForVersion(version semversion.Number) *schema.Schema {
 		triggers.ChangeLogTriggersForSecretRotation("secret_id", tableSecretRotation),
 		triggers.ChangeLogTriggersForSecretRevisionObsolete("revision_uuid", tableSecretRevisionObsolete),
 		triggers.ChangeLogTriggersForSecretRevisionExpire("revision_uuid", tableSecretRevisionExpire),
-		triggers.ChangeLogTriggersForSecretRevision("uuid", tableSecretRevision),
+		changeLogTriggersForSecretRevision("uuid", tableSecretRevision),
 		triggers.ChangeLogTriggersForSecretReference("secret_id", tableSecretReference),
 		triggers.ChangeLogTriggersForSubnet("uuid", tableSubnet),
 		triggers.ChangeLogTriggersForMachine("uuid", tableMachine),
