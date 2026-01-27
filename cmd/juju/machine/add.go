@@ -402,7 +402,7 @@ func (c *addCommand) tryManualProvision(ctx *cmd.Context, client manual.Provisio
 		return errNonManualScope
 	}
 
-	authKeys, err := common.ReadAuthorizedKeys(ctx, c.PublicKey)
+	authKeys, err := common.ReadAuthorizedKeys(c.PublicKey)
 	if err != nil {
 		return errors.Annotatef(err, "cannot reading authorized-keys")
 	}
