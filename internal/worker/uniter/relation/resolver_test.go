@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/deployment/charm"
-	"github.com/juju/juju/internal/charm/hooks"
+	"github.com/juju/juju/domain/deployment/charm/hooks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"

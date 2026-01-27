@@ -16,7 +16,7 @@ import (
 	charmscommon "github.com/juju/juju/apiserver/internal/charms"
 	corecharm "github.com/juju/juju/core/charm"
 	corehttp "github.com/juju/juju/core/http"
-	"github.com/juju/juju/internal/charm/repository"
+	"github.com/juju/juju/domain/deployment/charm/repository"
 )
 
 // Register is called to expose a package of facades onto a given registry.

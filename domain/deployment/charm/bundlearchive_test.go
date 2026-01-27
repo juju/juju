@@ -12,7 +12,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/deployment/charm"
-	charmtesting "github.com/juju/juju/internal/charm/testing"
+	charmtesting "github.com/juju/juju/domain/deployment/charm/testing"
 )
 
 func TestBundleArchiveSuite(t *testing.T) {

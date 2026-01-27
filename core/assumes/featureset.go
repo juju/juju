@@ -7,7 +7,7 @@ import (
 	"github.com/juju/collections/set"
 
 	"github.com/juju/juju/core/semversion"
-	chassumes "github.com/juju/juju/internal/charm/assumes"
+	chassumes "github.com/juju/juju/domain/deployment/charm/assumes"
 )
 
 // Feature identifies a particular piece of functionality provided by a Juju

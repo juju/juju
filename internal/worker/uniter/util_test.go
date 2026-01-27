@@ -42,7 +42,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	jujucharm "github.com/juju/juju/domain/deployment/charm"
-	charmtesting "github.com/juju/juju/internal/charm/testing"
+	charmtesting "github.com/juju/juju/domain/deployment/charm/testing"
 	"github.com/juju/juju/internal/downloader"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers/filetesting"

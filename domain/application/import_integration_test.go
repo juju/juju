@@ -26,13 +26,13 @@ import (
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
+	"github.com/juju/juju/domain/deployment/charm/assumes"
 	"github.com/juju/juju/domain/deployment/charm/resource"
 	machinemodelmigration "github.com/juju/juju/domain/machine/modelmigration"
 	migrationtesting "github.com/juju/juju/domain/modelmigration/testing"
 	networkmodelmigration "github.com/juju/juju/domain/network/modelmigration"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domaintesting "github.com/juju/juju/domain/testing"
-	"github.com/juju/juju/internal/charm/assumes"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 

@@ -14,7 +14,7 @@ import (
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/deployment/charm"
-	"github.com/juju/juju/internal/charm/hooks"
+	"github.com/juju/juju/domain/deployment/charm/hooks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/hook"

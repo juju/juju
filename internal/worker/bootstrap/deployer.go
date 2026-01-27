@@ -20,9 +20,9 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/domain/deployment/charm"
+	"github.com/juju/juju/domain/deployment/charm/charmdownloader"
+	"github.com/juju/juju/domain/deployment/charm/repository"
 	"github.com/juju/juju/internal/bootstrap"
-	"github.com/juju/juju/internal/charm/charmdownloader"
-	"github.com/juju/juju/internal/charm/repository"
 	"github.com/juju/juju/internal/charmhub"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 )

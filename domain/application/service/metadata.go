@@ -13,8 +13,8 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
+	"github.com/juju/juju/domain/deployment/charm/assumes"
 	"github.com/juju/juju/domain/deployment/charm/resource"
-	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/errors"
 )
 

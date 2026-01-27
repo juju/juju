@@ -26,10 +26,10 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/deployment/charm"
+	"github.com/juju/juju/domain/deployment/charm/charmdownloader"
+	charmtesting "github.com/juju/juju/domain/deployment/charm/testing"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/charm/charmdownloader"
-	charmtesting "github.com/juju/juju/internal/charm/testing"
 	"github.com/juju/juju/internal/testing"
 )
 
