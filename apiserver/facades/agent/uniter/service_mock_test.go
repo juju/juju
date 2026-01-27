@@ -28,6 +28,7 @@ import (
 	application0 "github.com/juju/juju/domain/application"
 	charm "github.com/juju/juju/domain/application/charm"
 	blockdevice0 "github.com/juju/juju/domain/blockdevice"
+	charm0 "github.com/juju/juju/domain/deployment/charm"
 	life0 "github.com/juju/juju/domain/life"
 	network0 "github.com/juju/juju/domain/network"
 	operation "github.com/juju/juju/domain/operation"
@@ -36,7 +37,6 @@ import (
 	resolve "github.com/juju/juju/domain/resolve"
 	storageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	unitstate "github.com/juju/juju/domain/unitstate"
-	charm0 "github.com/juju/juju/internal/charm"
 	gomock "go.uber.org/mock/gomock"
 )
 

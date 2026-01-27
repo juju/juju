@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/internal/testhelpers"
 )
 

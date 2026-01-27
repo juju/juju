@@ -35,12 +35,12 @@ import (
 	service "github.com/juju/juju/domain/application/service"
 	constraints0 "github.com/juju/juju/domain/constraints"
 	service0 "github.com/juju/juju/domain/crossmodelrelation/service"
+	charm1 "github.com/juju/juju/domain/deployment/charm"
 	relation0 "github.com/juju/juju/domain/relation"
 	removal "github.com/juju/juju/domain/removal"
 	resolve "github.com/juju/juju/domain/resolve"
 	storage "github.com/juju/juju/domain/storage"
 	config "github.com/juju/juju/environs/config"
-	charm1 "github.com/juju/juju/internal/charm"
 	params "github.com/juju/juju/rpc/params"
 	gomock "go.uber.org/mock/gomock"
 )

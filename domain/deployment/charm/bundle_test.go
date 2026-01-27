@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 )
 
 func checkWordpressBundle(c *tc.C, b *charm.BundleArchive, path string, bundleName string) {

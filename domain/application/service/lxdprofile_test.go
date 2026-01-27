@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/tc"
 
-	internalcharm "github.com/juju/juju/internal/charm"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/internal/testhelpers"
 )
 

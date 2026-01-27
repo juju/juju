@@ -12,7 +12,7 @@ import (
 	"github.com/juju/tc"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 	charmtesting "github.com/juju/juju/internal/charm/testing"
 	"github.com/juju/juju/internal/fs"
 )

@@ -33,8 +33,8 @@ import (
 	"github.com/juju/juju/core/watcher"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/storageprovisioning"
-	internalcharm "github.com/juju/juju/internal/charm"
 	internalworker "github.com/juju/juju/internal/worker"
 )
 

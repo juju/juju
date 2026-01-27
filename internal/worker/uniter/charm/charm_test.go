@@ -11,7 +11,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 
-	jujucharm "github.com/juju/juju/internal/charm"
+	jujucharm "github.com/juju/juju/domain/deployment/charm"
 	charmtesting "github.com/juju/juju/internal/charm/testing"
 	"github.com/juju/juju/internal/worker/uniter/charm"
 	"github.com/juju/juju/testcharms"

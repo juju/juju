@@ -10,7 +10,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 )
 
 // relatedUnitWatcherSuite is a test suite for checking functions used in

@@ -12,7 +12,7 @@ package state
 import (
 	reflect "reflect"
 
-	charm "github.com/juju/juju/internal/charm"
+	charm "github.com/juju/juju/domain/deployment/charm"
 	gomock "go.uber.org/mock/gomock"
 )
 

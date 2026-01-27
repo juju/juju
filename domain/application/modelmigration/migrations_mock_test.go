@@ -20,7 +20,7 @@ import (
 	application "github.com/juju/juju/domain/application"
 	charm0 "github.com/juju/juju/domain/application/charm"
 	service "github.com/juju/juju/domain/application/service"
-	charm1 "github.com/juju/juju/internal/charm"
+	charm1 "github.com/juju/juju/domain/deployment/charm"
 	gomock "go.uber.org/mock/gomock"
 )
 

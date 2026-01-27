@@ -17,8 +17,8 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
-	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 )
 

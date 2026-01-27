@@ -12,8 +12,8 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/application/service/storage"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	domainnetwork "github.com/juju/juju/domain/network"
-	internalcharm "github.com/juju/juju/internal/charm"
 )
 
 // StorageDirectiveOverrides represents override instructions for application

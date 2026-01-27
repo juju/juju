@@ -22,9 +22,9 @@ import (
 	"github.com/juju/juju/domain/application"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/controllernode"
+	"github.com/juju/juju/domain/deployment/charm"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 )
 

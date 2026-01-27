@@ -18,7 +18,7 @@ import (
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
 	secrets "github.com/juju/juju/core/secrets"
-	charm "github.com/juju/juju/internal/charm"
+	charm "github.com/juju/juju/domain/deployment/charm"
 	context0 "github.com/juju/juju/internal/worker/uniter/runner/context"
 	jujuc "github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	params "github.com/juju/juju/rpc/params"

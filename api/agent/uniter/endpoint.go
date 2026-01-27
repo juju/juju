@@ -4,7 +4,7 @@
 package uniter
 
 import (
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 )
 
 // Endpoint represents one endpoint of a relation. It is just a wrapper

@@ -12,8 +12,8 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	domainstorage "github.com/juju/juju/domain/storage"
-	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 )
 

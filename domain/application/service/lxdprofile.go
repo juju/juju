@@ -6,7 +6,7 @@ package service
 import (
 	"encoding/json"
 
-	internalcharm "github.com/juju/juju/internal/charm"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/internal/errors"
 )
 

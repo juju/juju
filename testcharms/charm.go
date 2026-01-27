@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 	jtesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/testcharms/repo"
 )

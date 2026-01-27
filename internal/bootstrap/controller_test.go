@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 )
 
 var (
