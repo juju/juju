@@ -21,7 +21,8 @@ type StoragePoolService interface {
 	// provider in the model. Returned is the unique uuid for the new storage
 	// pool.
 	//
-	// The following errors may be returned:
+	// An implementation is expected to return the following errors where
+	// required:
 	// - [github.com/juju/juju/domain/storage/errors.StoragePoolNameInvalid]
 	// when the supplied storage pool name is considered invalid or empty.
 	// - [github.com/juju/juju/domain/storage/errors.ProviderTypeInvalid] when
