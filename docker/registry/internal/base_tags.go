@@ -5,10 +5,10 @@ package internal
 
 import (
 	"strings"
-	
+
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
-	
+
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry/image"
 	"github.com/juju/juju/tools"
@@ -69,9 +69,9 @@ func (c *baseClient) fetchTags(url string, res tagsGetter) (versions tools.Versi
 		}
 	}
 	for {
-		logger.Criticalf("fetching tags %q", url)
+		logger.Tracef("fetching tags %q", url)
 		url, err = c.getPaginatedJSON(url, &res)
-		logger.Criticalf("response %#v, err %v", res, err)
+		logger.Tracef("response %#v, err %v", res, err)
 		switch err {
 		case errNoMorePages:
 			pushVersions(res.GetTags())

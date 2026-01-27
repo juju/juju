@@ -226,7 +226,7 @@ func (c *baseClient) Close() error {
 
 func (c *baseClient) getPaginatedJSON(reqURL string, response interface{}) (string, error) {
 	resp, err := c.client.Get(reqURL)
-	logger.Criticalf("getPaginatedJSON for %q, err %v", reqURL, err)
+	logger.Tracef("getPaginatedJSON for %q, err %v", reqURL, err)
 	if err != nil {
 		return "", errors.Trace(unwrapNetError(err))
 	}
