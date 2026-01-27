@@ -26,6 +26,14 @@ type defaultStoragePoolLookup struct {
 type StoragePoolOrigin int
 
 const (
+	// StoragePoolNameMaxLength is the maximum supported length of a storage
+	// pool name.
+	StoragePoolNameMaxLength = 128
+
+	// StoragePoolNameMinLength is the minimum supported length of a storage
+	// pool name.
+	StoragePoolNameMinLength = 1
+
 	// StoragePoolOriginUser indicates that the storage pool was created by a
 	// user.
 	StoragePoolOriginUser StoragePoolOrigin = iota
@@ -38,25 +46,22 @@ const (
 var (
 	// validStoragePoolNameRegex is the regex pattern used to validate storage
 	// pool names when they are being created or updated. A valid storage pool
-	// name MUST meet the following requirements:
-	// - MUST start with a unicode letter (category L).
-	// - MUST if the legnth is greater than 1 only be followed by unicode
-	// letters, numbers or a hyphen.
+	// name MUST confirm to the rules of RFC1035 labels, with the exception that
+	// we permit and allow longer names up to 126 characters.
 	//
 	// NOTE: In juju versions prior to 4.0 we only supported the following
 	// regex '^[a-zA-Z]+[-?a-zA-Z0-9]*$'. This regex had no upper bounds and
 	// allowed for abuse. It also allowed for '?' characters which violate dns
-	// naming. We want to maintain DNS name support as storage pools names can
-	// conceivably be conveyed outwards into clouds by Juju.
+	// naming.
 	//
 	// It is important that with the change in supported regex the users
-	// understands that for storage pools being imported a pre 4.0 source may
+	// understands that for storage pools being imported pre a 4.0 source may
 	// violate this regex. In this case the pool name should be validated
 	// against the old regex for sanity and accepted.
 	//
 	// See [validStoragePoolNameLegacyRegex] for the older validation regex of
 	// storage pool names.
-	validStoragePoolNameRegex = regexp.MustCompile("^\\p{L}[-\\p{L}\\p{N}]{0,127}$")
+	validStoragePoolNameRegex = regexp.MustCompile("^[[:alpha:]][[:alnum:]-]{0,126}[[:alnum:]]$|^[[:alpha:]]$")
 )
 
 // getDefaultStoragePoolUUIDs returns the full set of fixed storage pool uuids
@@ -146,12 +151,10 @@ func GenerateProviderDefaultStoragePoolUUIDWithDefaults(
 // being updated. For existing storage pool names that are being imported into a
 // model or their history is unknown use [IsValidStoragePoolNameWithLegacy].
 //
-// For a storage pool name to be valid it MUST meet the following requirements:
-// - MUST be between 1 and 128 runes long. This would make a maximum
-// permissible size of 512 bytes.
-// - MUST start with a unicode letter (category L).
-// - MUST if the legnth is greater than 1 only be followed by unicode
-// letters, numbers or a hyphen.
+// For a storage pool name to be valid it MUST meet the rules of RFC1035 with
+// the exception that the length is allowed to be 128 characters long.
 func IsValidStoragePoolName(name string) bool {
-	return validStoragePoolNameRegex.MatchString(name)
+	return len(name) >= StoragePoolNameMinLength &&
+		len(name) <= StoragePoolNameMaxLength &&
+		validStoragePoolNameRegex.MatchString(name)
 }

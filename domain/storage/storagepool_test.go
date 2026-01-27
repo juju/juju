@@ -109,14 +109,11 @@ func (storagePoolSuite) TestIsValidStoragePoolName(c *tc.C) {
 	validStoragePoolNames := []string{
 		"a",
 		"A",
-		"日",
-		"hyphenend-",
 		"hyphen-middle",
-		"hyphen-multiple-",
+		"hyphen--multiple",
 		"hyphen---manytogether",
 		"withNumber123",
 		"with123",
-		"Mix日edÆ",
 		// 128 runes long, max supported.
 		"ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQR",
 	}
@@ -137,6 +134,10 @@ func (storagePoolSuite) TestIsNotValidStoragePoolName(c *tc.C) {
 		"😬", // Emojis are not supported.
 		// Longer then 128 runes
 		"ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSaaaaaa",
+		// Cannot end witha  hyphen
+		"hyphenend-",
+		// Cannot start with a number
+		"1asd",
 		// Regression test to make sure we don't support question marks in
 		// storage pool names anymore.
 		"questionmark?notsupported",
