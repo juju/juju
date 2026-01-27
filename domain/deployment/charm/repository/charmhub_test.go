@@ -1623,7 +1623,7 @@ func (s *retryResolveWithRespBasesSuite) TestRetryResolveSortsBasesByTrackDescen
 	}
 
 	// Expect refresh with the highest track version.
-	cfg, err := charmhub.InstallOneFromChannel(context.Background(), "ubuntu-advantage", "stable", charmhub.RefreshBase{
+	cfg, err := charmhub.InstallOneFromChannel(c.Context(), "ubuntu-advantage", "stable", charmhub.RefreshBase{
 		Architecture: "amd64",
 		Name:         "ubuntu",
 		Channel:      "24.04",
@@ -1650,7 +1650,7 @@ func (s *retryResolveWithRespBasesSuite) TestRetryResolveSortsBasesByTrackDescen
 		},
 	}
 
-	result, err := repo.retryResolveWithRespBases(context.Background(), "ubuntu-advantage", origin, apiError)
+	result, err := repo.retryResolveWithRespBases(c.Context(), "ubuntu-advantage", origin, apiError)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.NotNil)
 
@@ -1686,7 +1686,7 @@ func (s *retryResolveWithRespBasesSuite) TestRetryResolveSortsBasesByRiskStabili
 	}
 
 	// Expect refresh with most stable risk.
-	cfg, err := charmhub.InstallOneFromChannel(context.Background(), "ubuntu-advantage", "stable", charmhub.RefreshBase{
+	cfg, err := charmhub.InstallOneFromChannel(c.Context(), "ubuntu-advantage", "stable", charmhub.RefreshBase{
 		Architecture: "amd64",
 		Name:         "ubuntu",
 		Channel:      "24.04/stable",
@@ -1713,7 +1713,7 @@ func (s *retryResolveWithRespBasesSuite) TestRetryResolveSortsBasesByRiskStabili
 		},
 	}
 
-	result, err := repo.retryResolveWithRespBases(context.Background(), "ubuntu-advantage", origin, apiError)
+	result, err := repo.retryResolveWithRespBases(c.Context(), "ubuntu-advantage", origin, apiError)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.NotNil)
 
@@ -1748,7 +1748,7 @@ func (s *retryResolveWithRespBasesSuite) TestRetryResolveSortsBasesTrackThenRisk
 	}
 
 	// Expect refresh with 24.04/stable (highest track, most stable risk).
-	cfg, err := charmhub.InstallOneFromChannel(context.Background(), "ubuntu-advantage", "stable", charmhub.RefreshBase{
+	cfg, err := charmhub.InstallOneFromChannel(c.Context(), "ubuntu-advantage", "stable", charmhub.RefreshBase{
 		Architecture: "amd64",
 		Name:         "ubuntu",
 		Channel:      "24.04/stable",
@@ -1775,7 +1775,7 @@ func (s *retryResolveWithRespBasesSuite) TestRetryResolveSortsBasesTrackThenRisk
 		},
 	}
 
-	result, err := repo.retryResolveWithRespBases(context.Background(), "ubuntu-advantage", origin, apiError)
+	result, err := repo.retryResolveWithRespBases(c.Context(), "ubuntu-advantage", origin, apiError)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.NotNil)
 
@@ -1811,7 +1811,7 @@ func (s *retryResolveWithRespBasesSuite) TestRetryResolveNoBases(c *tc.C) {
 		},
 	}
 
-	result, err := repo.retryResolveWithRespBases(context.Background(), "ubuntu-advantage", origin, apiError)
+	result, err := repo.retryResolveWithRespBases(c.Context(), "ubuntu-advantage", origin, apiError)
 	c.Assert(err, tc.ErrorMatches, `no bases available`)
 	c.Assert(result, tc.IsNil)
 }
@@ -1847,7 +1847,7 @@ func (s *retryResolveWithRespBasesSuite) TestRetryResolvePrefersLTSWhenNewerVers
 	}
 
 	// Expect refresh with supported LTS track.
-	cfg, err := charmhub.InstallOneFromChannel(context.Background(), "ubuntu-advantage", "stable", charmhub.RefreshBase{
+	cfg, err := charmhub.InstallOneFromChannel(c.Context(), "ubuntu-advantage", "stable", charmhub.RefreshBase{
 		Architecture: "amd64",
 		Name:         "ubuntu",
 		Channel:      supportedLTSTrack,
@@ -1874,7 +1874,7 @@ func (s *retryResolveWithRespBasesSuite) TestRetryResolvePrefersLTSWhenNewerVers
 		},
 	}
 
-	result, err := repo.retryResolveWithRespBases(context.Background(), "ubuntu-advantage", origin, apiError)
+	result, err := repo.retryResolveWithRespBases(c.Context(), "ubuntu-advantage", origin, apiError)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.NotNil)
 
