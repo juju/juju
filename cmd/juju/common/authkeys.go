@@ -11,8 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/ssh"
-
-	"github.com/juju/juju/internal/cmd"
 )
 
 // ErrNoAuthorizedKeys is returned by ReadAuthorizedKeys when no
@@ -33,7 +31,7 @@ var ErrNoAuthorizedKeys = errors.New("no public ssh keys found")
 //
 // If no SSH keys are found, ReadAuthorizedKeys returns
 // ErrNoAuthorizedKeys.
-func ReadAuthorizedKeys(ctx *cmd.Context, path string) (string, error) {
+func ReadAuthorizedKeys(path string) (string, error) {
 	files := ssh.PublicKeyFiles()
 	if path == "" {
 		files = append(files, "id_ed25519.pub", "id_ecdsa.pub", "id_rsa.pub", "identity.pub")
@@ -62,7 +60,6 @@ func ReadAuthorizedKeys(ctx *cmd.Context, path string) (string, error) {
 		}
 		keyData = append(keyData, bytes.Trim(data, "\n")...)
 		keyData = append(keyData, '\n')
-		ctx.Verbosef("Adding contents of %q to authorized-keys", f)
 	}
 	if len(keyData) == 0 {
 		if firstError == nil {
