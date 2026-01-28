@@ -13,8 +13,8 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -47,6 +47,10 @@ func (a *StorageAPI) DetachStorage(
 	ctx context.Context,
 	args params.StorageDetachmentParams,
 ) (params.ErrorResults, error) {
+	if err := a.checkCanWrite(ctx); err != nil {
+		return params.ErrorResults{}, err
+	}
+
 	var (
 		force    bool
 		waitTime time.Duration
@@ -121,7 +125,7 @@ func (a *StorageAPI) DetachStorage(
 // operation.
 func (a *StorageAPI) detachStorageAttachment(
 	ctx context.Context,
-	storageAttachment domainstorageprovisioning.StorageAttachmentUUID,
+	storageAttachment domainstorage.StorageAttachmentUUID,
 	force bool,
 	wait time.Duration,
 ) error {

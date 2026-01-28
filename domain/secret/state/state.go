@@ -145,6 +145,54 @@ WHERE name=$unit.name`, u)
 	return u.UUID, errors.Capture(err)
 }
 
+// ImportSecretWithRevision creates a secret with its metadata and revisions in a single transaction.
+func (st State) ImportSecretWithRevisions(
+	ctx context.Context,
+	version int,
+	uri *coresecrets.URI,
+	owner domainsecret.Owner,
+	metaParams domainsecret.UpsertSecretParams,
+	revisions []domainsecret.UpsertRevisionParams) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.createSecretMetadata(ctx, tx, version, uri, metaParams); err != nil {
+			return errors.Errorf("importing secret metadata: %w", err)
+		}
+
+		// Handle ownership.
+		label := ""
+		if metaParams.Label != nil {
+			label = *metaParams.Label
+		}
+		switch owner.Kind {
+		case coresecrets.ModelOwner:
+			if err := st.setSecretModelOwner(ctx, tx, uri, label); err != nil {
+				return errors.Capture(err)
+			}
+		case coresecrets.ApplicationOwner:
+			if err := st.setSecretApplicationOwner(ctx, tx, uri, coreapplication.UUID(owner.UUID), label); err != nil {
+				return errors.Capture(err)
+			}
+		case coresecrets.UnitOwner:
+			if err := st.setSecretUnitOwner(ctx, tx, uri, coreunit.UUID(owner.UUID), label); err != nil {
+				return errors.Capture(err)
+			}
+		}
+
+		for _, rev := range revisions {
+			if err := st.createSecretRevision(ctx, tx, uri, rev.Revision, rev); err != nil {
+				return errors.Errorf("importing revision %d: %w", rev.Revision, err)
+			}
+		}
+		return nil
+	})
+	return errors.Capture(err)
+}
+
 // CheckApplicationSecretLabelExists checks if a charm application secret with the given label already exists.
 func (st State) CheckApplicationSecretLabelExists(ctx domain.AtomicContext, appUUID coreapplication.UUID, label string) (bool, error) {
 	if label == "" {
@@ -306,25 +354,139 @@ func (st State) createUserSecret(
 	ctx context.Context, tx *sqlair.TX, version int, uri *coresecrets.URI, secret domainsecret.UpsertSecretParams,
 ) error {
 	if err := st.createSecret(ctx, tx, version, uri, secret); err != nil {
-		return errors.Errorf("inserting secret records for secret %q: %w", uri, err)
+		return errors.Errorf("inserting secret records: %w", err)
 	}
 
 	label := ""
 	if secret.Label != nil {
 		label = *secret.Label
 	}
+	if err := st.setSecretModelOwner(ctx, tx, uri, label); err != nil {
+		return errors.Errorf("setting secret model owner: %w", err)
+	}
+	return nil
+}
+
+// createSecretMetadata creates the records needed to store secret data
+// without any revision.
+func (st State) createSecretMetadata(ctx context.Context, tx *sqlair.TX, version int, uri *coresecrets.URI, secret domainsecret.UpsertSecretParams) error {
+	insertQuery := `
+INSERT INTO secret (id)
+VALUES ($secretID.id)`
+
+	insertStmt, err := st.Prepare(insertQuery, secretID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, insertStmt, secretID{ID: uri.ID}).Run()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	dbSecret := secretMetadata{
+		ID:      uri.ID,
+		Version: version,
+	}
+	updateSecretMetadataFromParams(secret, &dbSecret)
+	if err := st.upsertSecret(ctx, tx, dbSecret); err != nil {
+		return errors.Errorf("creating secret metadata: %w", err)
+	}
+
+	if secret.NextRotateTime != nil {
+		if err := st.upsertSecretNextRotateTime(ctx, tx, uri, *secret.NextRotateTime); err != nil {
+			return errors.Errorf("inserting next rotate time: %w", err)
+		}
+	}
+	return nil
+}
+
+func (st State) createSecretRevision(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, revision int,
+	secret domainsecret.UpsertRevisionParams) error {
+	if len(secret.Data) == 0 && secret.ValueRef == nil {
+		return errors.Errorf("cannot create a secret revision without content")
+	}
+	if secret.RevisionID == nil {
+		return errors.Errorf("revision ID must be provided")
+	}
+
+	dbRevision := &secretRevision{
+		ID:         *secret.RevisionID,
+		SecretID:   uri.ID,
+		Revision:   revision,
+		CreateTime: secret.CreateTime.UTC(),
+		UpdateTime: secret.UpdateTime.UTC(),
+	}
+
+	if err := st.upsertSecretRevision(ctx, tx, dbRevision); err != nil {
+		return errors.Errorf("inserting revision: %w", err)
+	}
+
+	if secret.ExpireTime != nil {
+		if err := st.upsertSecretRevisionExpiry(ctx, tx, dbRevision.ID, *secret.ExpireTime); err != nil {
+			return errors.Errorf("inserting revision expiry: %w", err)
+		}
+	}
+
+	if len(secret.Data) > 0 {
+		if err := st.updateSecretContent(ctx, tx, dbRevision.ID, secret.Data); err != nil {
+			return errors.Errorf("updating content: %w", err)
+		}
+	}
+
+	if secret.ValueRef != nil {
+		if err := st.upsertSecretValueRef(ctx, tx, dbRevision.ID, secret.ValueRef); err != nil {
+			return errors.Errorf("updating backend value reference: %w", err)
+		}
+	}
+	return nil
+}
+
+func (st State) setSecretModelOwner(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, label string) error {
 	dbSecretOwner := secretModelOwner{SecretID: uri.ID, Label: label}
 	if err := st.upsertSecretModelOwner(ctx, tx, dbSecretOwner); err != nil {
-		return errors.Errorf("inserting user secret record for secret %q: %w", uri, err)
+		return errors.Errorf("inserting user secret record: %w", err)
 	}
 
 	modelUUID, err := st.getModelUUID(ctx, tx)
 	if err != nil {
-		return errors.Errorf("cannot get current model UUID for secret %q: %w", uri, err)
+		return errors.Errorf("getting model UUID: %w", err)
 	}
 
 	if err := st.grantSecretOwnerManage(ctx, tx, uri, modelUUID.String(), domainsecret.SubjectModel); err != nil {
-		return errors.Errorf("granting owner manage access for secret %q: %w", uri, err)
+		return errors.Errorf("granting owner manage access to model %q: %w", modelUUID.String(), err)
+	}
+	return nil
+}
+
+func (st State) setSecretApplicationOwner(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, appUUID coreapplication.UUID, label string) error {
+	dbSecretOwner := secretApplicationOwner{
+		SecretID:        uri.ID,
+		ApplicationUUID: appUUID.String(),
+		Label:           label,
+	}
+	if err := st.upsertSecretApplicationOwner(ctx, tx, dbSecretOwner); err != nil {
+		return errors.Errorf("inserting application secret owner record: %w", err)
+	}
+
+	if err := st.grantSecretOwnerManage(ctx, tx, uri, appUUID.String(), domainsecret.SubjectApplication); err != nil {
+		return errors.Errorf("granting owner manage access: %w", err)
+	}
+	return nil
+}
+
+func (st State) setSecretUnitOwner(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, unitUUID coreunit.UUID, label string) error {
+	dbSecretOwner := secretUnitOwner{
+		SecretID: uri.ID,
+		UnitUUID: unitUUID.String(),
+		Label:    label,
+	}
+	if err := st.upsertSecretUnitOwner(ctx, tx, dbSecretOwner); err != nil {
+		return errors.Errorf("inserting unit secret owner record: %w", err)
+	}
+
+	if err := st.grantSecretOwnerManage(ctx, tx, uri, unitUUID.String(), domainsecret.SubjectUnit); err != nil {
+		return errors.Errorf("granting owner manage access: %w", err)
 	}
 	return nil
 }
@@ -353,24 +515,13 @@ func (st State) createCharmApplicationSecret(
 	if secret.Label != nil {
 		label = *secret.Label
 	}
-	dbSecretOwner := secretApplicationOwner{
-		SecretID:        uri.ID,
-		Label:           label,
-		ApplicationUUID: appUUID.String(),
-	}
 
 	if err := st.createSecret(ctx, tx, version, uri, secret); err != nil {
-		return errors.Errorf("inserting secret records for secret %q: %w", uri, err)
+		return errors.Errorf("inserting secret records: %w", err)
 	}
 
-	if err := st.upsertSecretApplicationOwner(ctx, tx, dbSecretOwner); err != nil {
-		return errors.Errorf("inserting application secret record for secret %q: %w", uri, err)
-	}
-
-	if err := st.grantSecretOwnerManage(
-		ctx, tx, uri, dbSecretOwner.ApplicationUUID, domainsecret.SubjectApplication,
-	); err != nil {
-		return errors.Errorf("granting owner manage access for secret %q: %w", uri, err)
+	if err := st.setSecretApplicationOwner(ctx, tx, uri, appUUID, label); err != nil {
+		return errors.Errorf("setting secret application owner: %w", err)
 	}
 	return nil
 }
@@ -401,21 +552,12 @@ func (st State) createCharmUnitSecret(
 	if secret.Label != nil {
 		label = *secret.Label
 	}
-	dbSecretOwner := secretUnitOwner{
-		SecretID: uri.ID,
-		Label:    label,
-		UnitUUID: unitUUID.String(),
-	}
 	if err := st.createSecret(ctx, tx, version, uri, secret); err != nil {
-		return errors.Errorf("inserting secret records for secret %q: %w", uri, err)
+		return errors.Errorf("inserting secret records: %w", err)
 	}
 
-	if err := st.upsertSecretUnitOwner(ctx, tx, dbSecretOwner); err != nil {
-		return errors.Errorf("inserting unit secret record for secret %q: %w", uri, err)
-	}
-
-	if err := st.grantSecretOwnerManage(ctx, tx, uri, dbSecretOwner.UnitUUID, domainsecret.SubjectUnit); err != nil {
-		return errors.Errorf("granting owner manage access for secret %q: %w", uri, err)
+	if err := st.setSecretUnitOwner(ctx, tx, uri, unitUUID, label); err != nil {
+		return errors.Errorf("setting secret unit owner: %w", err)
 	}
 	return nil
 }
@@ -460,7 +602,8 @@ func (st State) checkSecretLabelConflict(ctx context.Context, tx *sqlair.TX, uri
 	var labelExists bool
 	switch kind := owner.Kind; kind {
 	case domainsecret.ApplicationOwner:
-		labelExists, err = st.checkApplicationSecretLabelExists(ctx, tx, coreapplication.UUID(owner.UUID), label, uri.ID)
+		labelExists, err = st.checkApplicationSecretLabelExists(ctx, tx, coreapplication.UUID(owner.UUID), label,
+			uri.ID)
 	case domainsecret.UnitOwner:
 		labelExists, err = st.checkUnitSecretLabelExists(ctx, tx, coreunit.UUID(owner.UUID), label, uri.ID)
 	case domainsecret.ModelOwner:
@@ -485,72 +628,22 @@ func (st State) createSecret(
 	ctx context.Context, tx *sqlair.TX, version int, uri *coresecrets.URI,
 	secret domainsecret.UpsertSecretParams,
 ) error {
-	if len(secret.Data) == 0 && secret.ValueRef == nil {
-		return errors.Errorf("cannot create a secret %q without content", uri)
-	}
-	if secret.RevisionID == nil {
-		return errors.Errorf("revision ID must be provided")
-	}
-
-	insertQuery := `
-INSERT INTO secret (id)
-VALUES ($secretID.id)`
-
-	insertStmt, err := st.Prepare(insertQuery, secretID{})
-	if err != nil {
+	if err := st.createSecretMetadata(ctx, tx, version, uri, secret); err != nil {
 		return errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, insertStmt, secretID{ID: uri.ID}).Run()
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	now := time.Now().UTC()
-	dbSecret := secretMetadata{
-		ID:         uri.ID,
-		Version:    version,
-		CreateTime: now,
-		UpdateTime: now,
-	}
-	updateSecretMetadataFromParams(secret, &dbSecret)
-	if err := st.upsertSecret(ctx, tx, dbSecret); err != nil {
-		return errors.Errorf("creating user secret %q: %w", uri, err)
-	}
-
-	dbRevision := &secretRevision{
-		ID:         *secret.RevisionID,
-		SecretID:   uri.ID,
+	revParams := domainsecret.UpsertRevisionParams{
 		Revision:   1,
-		CreateTime: now,
+		RevisionID: secret.RevisionID,
+		Data:       secret.Data,
+		ValueRef:   secret.ValueRef,
+		ExpireTime: secret.ExpireTime,
+		CreateTime: secret.UpdateTime,
+		UpdateTime: secret.UpdateTime,
 	}
 
-	if err := st.upsertSecretRevision(ctx, tx, dbRevision); err != nil {
-		return errors.Errorf("inserting revision for secret %q: %w", uri, err)
-	}
-
-	if secret.ExpireTime != nil {
-		if err := st.upsertSecretRevisionExpiry(ctx, tx, dbRevision.ID, secret.ExpireTime); err != nil {
-			return errors.Errorf("inserting revision expiry for secret %q: %w", uri, err)
-		}
-	}
-
-	if secret.NextRotateTime != nil {
-		if err := st.upsertSecretNextRotateTime(ctx, tx, uri, *secret.NextRotateTime); err != nil {
-			return errors.Errorf("inserting next rotate time for secret %q: %w", uri, err)
-		}
-	}
-
-	if len(secret.Data) > 0 {
-		if err := st.updateSecretContent(ctx, tx, dbRevision.ID, secret.Data); err != nil {
-			return errors.Errorf("updating content for secret %q: %w", uri, err)
-		}
-	}
-
-	if secret.ValueRef != nil {
-		if err := st.upsertSecretValueRef(ctx, tx, dbRevision.ID, secret.ValueRef); err != nil {
-			return errors.Errorf("updating backend value reference for secret %q: %w", uri, err)
-		}
+	if err := st.createSecretRevision(ctx, tx, uri, 1, revParams); err != nil {
+		return errors.Capture(err)
 	}
 	return nil
 }
@@ -628,18 +721,15 @@ GROUP BY sm.secret_id`
 	}
 	existing := existingResult[0]
 	existingOwner := dbsecretOwners[0]
-	latestRevisionUUID := dbSecrets[0].LatestRevisionUUID
 
-	now := time.Now().UTC()
 	dbSecret := secretMetadata{
-		ID:             dbSecrets[0].ID,
-		Version:        dbSecrets[0].Version,
-		Description:    dbSecrets[0].Description,
-		AutoPrune:      dbSecrets[0].AutoPrune,
-		RotatePolicyID: int(domainsecret.MarshallRotatePolicy(&existing.RotatePolicy)),
-		UpdateTime:     now,
+		ID:                     dbSecrets[0].ID,
+		Version:                dbSecrets[0].Version,
+		Description:            dbSecrets[0].Description,
+		AutoPrune:              dbSecrets[0].AutoPrune,
+		RotatePolicyID:         int(domainsecret.MarshallRotatePolicy(&existing.RotatePolicy)),
+		LatestRevisionChecksum: dbSecrets[0].LatestRevisionChecksum,
 	}
-	dbSecret.UpdateTime = now
 	updateSecretMetadataFromParams(secret, &dbSecret)
 	if err := st.upsertSecret(ctx, tx, dbSecret); err != nil {
 		return errors.Errorf("updating secret %q: %w", uri, err)
@@ -673,29 +763,28 @@ GROUP BY sm.secret_id`
 	shouldCreateNewRevision := (len(secret.Data) > 0 || secret.ValueRef != nil) && (secret.Checksum != existing.LatestRevisionChecksum ||
 		// migrated charm-owned secrets from old models.
 		secret.Checksum == "" && existing.LatestRevisionChecksum == "")
+	dbRevision = &secretRevision{
+		ID:         dbSecrets[0].LatestRevisionUUID,
+		SecretID:   uri.ID,
+		Revision:   existing.LatestRevision + 1,
+		CreateTime: secret.UpdateTime.UTC(),
+		// Note: if the revision is updated (no new ID), only the UpdateTime will be set
+		UpdateTime: secret.UpdateTime.UTC(),
+	}
 	if shouldCreateNewRevision {
 		if secret.RevisionID == nil {
 			return errors.Errorf("revision ID must be provided")
 		}
-		latestRevisionUUID = *secret.RevisionID
-		nextRevision := existing.LatestRevision + 1
-		dbRevision = &secretRevision{
-			ID:         *secret.RevisionID,
-			SecretID:   uri.ID,
-			Revision:   nextRevision,
-			CreateTime: now,
-		}
+		dbRevision.ID = *secret.RevisionID
 	}
-	if dbRevision != nil {
-		if err := st.upsertSecretRevision(ctx, tx, dbRevision); err != nil {
-			return errors.Errorf("inserting revision for secret %q: %w", uri, err)
-		}
+
+	if err := st.upsertSecretRevision(ctx, tx, dbRevision); err != nil {
+		return errors.Errorf("inserting revision for secret %q: %w", uri, err)
 	}
 	if secret.ExpireTime != nil {
-		if err := st.upsertSecretRevisionExpiry(ctx, tx, latestRevisionUUID, secret.ExpireTime); err != nil {
+		if err := st.upsertSecretRevisionExpiry(ctx, tx, dbRevision.ID, *secret.ExpireTime); err != nil {
 			return errors.Errorf("inserting revision expiry for secret %q: %w", uri, err)
 		}
-
 	}
 
 	if len(secret.Data) > 0 && shouldCreateNewRevision {
@@ -821,7 +910,11 @@ func updateSecretMetadataFromParams(p domainsecret.UpsertSecretParams, md *secre
 	if p.RotatePolicy != nil {
 		md.RotatePolicyID = int(*p.RotatePolicy)
 	}
-	md.LatestRevisionChecksum = p.Checksum
+	if p.Checksum != "" {
+		md.LatestRevisionChecksum = p.Checksum
+	}
+	md.CreateTime = p.CreateTime.UTC()
+	md.UpdateTime = p.UpdateTime.UTC()
 }
 
 func (st State) upsertSecret(ctx context.Context, tx *sqlair.TX, dbSecret secretMetadata) error {
@@ -951,7 +1044,9 @@ func (st State) upsertSecretRevision(
 ) error {
 	insertQuery := `
 INSERT INTO secret_revision (*)
-VALUES ($secretRevision.*)`
+VALUES ($secretRevision.*)
+ON CONFLICT (uuid) DO UPDATE SET
+    update_time=excluded.update_time`
 
 	insertStmt, err := st.Prepare(insertQuery, secretRevision{})
 	if err != nil {
@@ -966,13 +1061,7 @@ VALUES ($secretRevision.*)`
 	return nil
 }
 
-func (st State) upsertSecretRevisionExpiry(
-	ctx context.Context, tx *sqlair.TX, revisionUUID string, expireTime *time.Time,
-) error {
-	if expireTime == nil {
-		return nil
-	}
-
+func (st State) upsertSecretRevisionExpiry(ctx context.Context, tx *sqlair.TX, revisionUUID string, expireTime time.Time) error {
 	insertExpireTimeQuery := `
 INSERT INTO secret_revision_expire (*)
 VALUES ($secretRevisionExpire.*)

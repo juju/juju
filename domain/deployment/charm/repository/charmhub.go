@@ -398,7 +398,7 @@ func (c *CharmHubRepository) retryResolveWithRespBases(ctx context.Context, char
 		return nil, internalerrors.Errorf("selecting next bases: %w", err)
 	}
 	if len(bases) == 0 {
-		ch := origin.Platform.Channel
+		ch := origin.Channel.String()
 		if ch == "" {
 			ch = "stable"
 		}

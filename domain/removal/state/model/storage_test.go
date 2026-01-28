@@ -1325,7 +1325,7 @@ func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDead(c *tc.C) {
 }
 
 func (s *storageSuite) TestGetDetachInfoForStorageAttachmentNotFound(c *tc.C) {
-	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	saUUID := tc.Must(c, storage.NewStorageAttachmentUUID)
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	_, err := st.GetDetachInfoForStorageAttachment(c.Context(), saUUID.String())
 	c.Check(err, tc.ErrorIs, storageerrors.StorageAttachmentNotFound)
@@ -1505,7 +1505,7 @@ func (s *storageSuite) TestEnsureStorageAttachmentNotAliveWithFulfilmentOnlyAliv
 // storage attachment does exist a [storageerrors.StorageAttachmentNotFound]
 // error is returned.
 func (s *storageSuite) TestEnsureStorageAttachmentNotAliveWithFulfilmentNotFound(c *tc.C) {
-	notFoundUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	notFoundUUID := tc.Must(c, storage.NewStorageAttachmentUUID)
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	_, err := st.EnsureStorageAttachmentNotAliveWithFulfilment(
 		c.Context(), notFoundUUID.String(), 100,
@@ -1614,7 +1614,7 @@ VALUES (?, 'testcharm', ?, 1, ?, 1, ?, 1024)
 		)
 		c.Assert(err, tc.ErrorIsNil)
 
-		saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+		saUUID := tc.Must(c, storage.NewStorageAttachmentUUID)
 		_, err = s.DB().ExecContext(
 			ctx,
 			`

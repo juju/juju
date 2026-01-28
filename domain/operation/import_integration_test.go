@@ -153,6 +153,69 @@ func (s *importSuite) TestImportApplicationOperation(c *tc.C) {
 	c.Check(task.Message, tc.Equals, "action completed")
 }
 
+func (s *importSuite) TestImportUnitOperation(c *tc.C) {
+	desc := description.NewModel(description.ModelArgs{
+		Type: string(model.IAAS),
+	})
+	desc.AddMachine(description.MachineArgs{
+		Id:   "0",
+		Base: "ubuntu@22.04",
+	})
+	// Add an application to link the operation too
+	appFoo := s.createApplication(desc, "foo")
+	appFoo.AddUnit(description.UnitArgs{
+		Name:    "foo/0",
+		Machine: "0",
+	})
+
+	now := time.Now().UTC().Truncate(time.Second)
+	desc.AddOperation(description.OperationArgs{
+		Id:        "op-1",
+		Summary:   "test juju-exec on unit",
+		Enqueued:  now.Add(-3 * time.Hour),
+		Started:   now.Add(-2 * time.Hour),
+		Completed: now.Add(-1 * time.Hour),
+		Status:    corestatus.Failed.String(),
+	})
+	desc.AddAction(description.ActionArgs{
+		Id:        "a-3",
+		Receiver:  "foo/0",
+		Name:      "juju-exec",
+		Operation: "op-1",
+		Enqueued:  now.Add(-3 * time.Hour),
+		Started:   now.Add(-2 * time.Hour),
+		Status:    corestatus.Failed.String(),
+		Parameters: map[string]any{
+			"command": "ls",
+		},
+	})
+
+	coordinator := modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
+	machinemodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
+	applicationmodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
+	operationmodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	err := coordinator.Perform(c.Context(), modelmigration.NewScope(nil, s.TxnRunnerFactory(),
+		nil, model.UUID(s.ModelUUID())), desc)
+	c.Assert(err, tc.ErrorIsNil)
+
+	svc := s.setupService(c)
+	ops, err := svc.GetOperations(c.Context(), operation.QueryArgs{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(ops.Operations, tc.HasLen, 1)
+	op := ops.Operations[0]
+	c.Check(op.Summary, tc.Equals, "test juju-exec on unit")
+	c.Check(op.Status, tc.Equals, corestatus.Failed)
+
+	c.Assert(op.Units, tc.HasLen, 1)
+	task := op.Units[0]
+	c.Check(task.ID, tc.Equals, "a-3")
+	c.Check(task.ReceiverName, tc.Equals, coreunit.Name("foo/0"))
+	c.Check(task.ActionName, tc.Equals, "juju-exec")
+	c.Check(task.Parameters, tc.DeepEquals, map[string]any{"command": "ls"})
+}
+
 func (s *importSuite) TestImportMachineOperation(c *tc.C) {
 	desc := description.NewModel(description.ModelArgs{
 		Type: string(model.IAAS),

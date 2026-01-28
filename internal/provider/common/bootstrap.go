@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
-	domainstorage "github.com/juju/juju/domain/storage"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -220,7 +220,7 @@ func BootstrapInstance(
 	if args.BootstrapConstraints.HasRootDiskSource() {
 		sp, ok := args.StoragePools[*args.BootstrapConstraints.RootDiskSource]
 		if ok {
-			pType, _ := sp[domainstorage.StorageProviderType].(string)
+			pType, _ := sp[corestorage.BootstrapStoragePoolTypeKey].(string)
 			startInstanceArgs.RootDisk = &storage.VolumeParams{
 				Provider:   storage.ProviderType(pType),
 				Attributes: sp,

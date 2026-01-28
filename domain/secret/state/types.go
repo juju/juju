@@ -133,6 +133,7 @@ type secretRevision struct {
 	SecretID   string    `db:"secret_id"`
 	Revision   int       `db:"revision"`
 	CreateTime time.Time `db:"create_time"`
+	UpdateTime time.Time `db:"update_time"`
 }
 
 type secretRevisionObsolete struct {
@@ -372,6 +373,7 @@ func (rows secretRevisions) toSecretRevisions(
 			Revision:    row.Revision,
 			ValueRef:    nil,
 			CreateTime:  row.CreateTime,
+			UpdateTime:  row.UpdateTime,
 			BackendName: nil,
 		}
 		if tm := revExpire[i].ExpireTime; !tm.IsZero() {

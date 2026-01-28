@@ -11,4 +11,5 @@ package export
 // the generation can be run repeatedly for the same version.
 var ExportVersions = []string{
 	"4.0.1",
+	"4.0.2",
 }

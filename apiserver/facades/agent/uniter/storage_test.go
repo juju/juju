@@ -24,7 +24,6 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
-	storageprovisioningtesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -255,7 +254,7 @@ func (s *storageSuite) TestStorageAttachmentsForVolume(c *tc.C) {
 	unitName, err := coreunit.NewName(unitTag.Id())
 	c.Assert(err, tc.ErrorIsNil)
 	unitUUID := unittesting.GenUnitUUID(c)
-	saUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
+	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	bdUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
 
 	blockDevice := coreblockdevice.BlockDevice{
@@ -310,7 +309,7 @@ func (s *storageSuite) TestStorageAttachmentsForVolumeWithNoBlockDevice(c *tc.C)
 	unitName, err := coreunit.NewName(unitTag.Id())
 	c.Assert(err, tc.ErrorIsNil)
 	unitUUID := unittesting.GenUnitUUID(c)
-	saUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
+	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 
 	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentUUIDForUnit(
@@ -346,7 +345,7 @@ func (s *storageSuite) TestStorageAttachmentsForFilesystem(c *tc.C) {
 	unitName, err := coreunit.NewName(unitTag.Id())
 	c.Assert(err, tc.ErrorIsNil)
 	unitUUID := unittesting.GenUnitUUID(c)
-	saUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
+	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 
 	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentUUIDForUnit(
@@ -473,7 +472,7 @@ func (s *storageSuite) TestStorageAttachmentsWithStorageAttachmentNotProvisioned
 	unitName, err := coreunit.NewName(unitTag.Id())
 	c.Assert(err, tc.ErrorIsNil)
 	unitUUID := unittesting.GenUnitUUID(c)
-	saUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
+	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 
 	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentUUIDForUnit(
@@ -764,7 +763,7 @@ func (s *storageSuite) TestWatchStorageAttachments(c *tc.C) {
 	unitName, err := coreunit.NewName(unitTag.Id())
 	c.Assert(err, tc.ErrorIsNil)
 	unitUUID := unittesting.GenUnitUUID(c)
-	storageAttachmentUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
+	storageAttachmentUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 
 	s.mockApplicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.mockStorageProvisioningService.EXPECT().GetStorageAttachmentUUIDForUnit(
@@ -908,7 +907,7 @@ func (s *storageSuite) TestRemoveStorageAttachments(c *tc.C) {
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	unitName := coreunit.Name("bar/0")
-	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 
 	s.mockApplicationService.EXPECT().GetUnitUUID(
 		gomock.Any(), unitName).Return(unitUUID, nil)
@@ -937,7 +936,7 @@ func (s *storageSuite) TestRemoveStorageAttachmentsNotFoundIgnored(c *tc.C) {
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	unitName := coreunit.Name("bar/0")
-	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 
 	s.mockApplicationService.EXPECT().GetUnitUUID(
 		gomock.Any(), unitName).Return(unitUUID, nil)
@@ -965,7 +964,7 @@ func (s *storageSuite) TestRemoveStorageAttachmentsNotFoundIgnoredLater(c *tc.C)
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	unitName := coreunit.Name("bar/0")
-	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 
 	s.mockApplicationService.EXPECT().GetUnitUUID(
 		gomock.Any(), unitName).Return(unitUUID, nil)

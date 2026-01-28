@@ -472,11 +472,11 @@ var bootstrapTests = []bootstrapTest{{
 }, {
 	info: "missing storage pool name",
 	args: []string{"--storage-pool", "type=ebs"},
-	err:  `storage pool requires a name`,
+	err:  `storage pool requires a "name" key to be set not valid`,
 }, {
 	info: "missing storage pool type",
 	args: []string{"--storage-pool", "name=test"},
-	err:  `storage pool requires a type`,
+	err:  `storage pool requires a "type" key to be set not valid`,
 }}
 
 func (s *BootstrapSuite) TestRunCloudNameUnknown(c *tc.C) {

@@ -608,7 +608,7 @@ func makeStorageAttachmentArgFromExistingStorageInstance(
 	netNodeUUID domainnetwork.NetNodeUUID,
 	storageInstance internal.StorageInstanceComposition,
 ) (internal.CreateUnitStorageAttachmentArg, error) {
-	uuid, err := domainstorageprov.NewStorageAttachmentUUID()
+	uuid, err := domainstorage.NewStorageAttachmentUUID()
 	if err != nil {
 		return internal.CreateUnitStorageAttachmentArg{}, errors.Errorf(
 			"generating new storage attachment uuid: %w", err,
@@ -665,7 +665,7 @@ func makeStorageAttachmentArgFromNewStorageInstance(
 	netNodeUUID domainnetwork.NetNodeUUID,
 	storageInstance internal.CreateUnitStorageInstanceArg,
 ) (internal.CreateUnitStorageAttachmentArg, error) {
-	uuid, err := domainstorageprov.NewStorageAttachmentUUID()
+	uuid, err := domainstorage.NewStorageAttachmentUUID()
 	if err != nil {
 		return internal.CreateUnitStorageAttachmentArg{}, errors.Errorf(
 			"generating new storage attachment uuid: %w", err,

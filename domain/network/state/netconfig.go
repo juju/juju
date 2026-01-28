@@ -16,6 +16,11 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+var (
+	errAddrSubnetMatchNone  = errors.ConstError("no matching subnet")
+	errAddrSubnetMatchMulti = errors.ConstError("multiple matching subnets")
+)
+
 // SetMachineNetConfig updates the network configuration for the machine with
 // the input net node UUID.
 //   - New devices and their addresses are inserted with origin = "machine".
@@ -34,7 +39,12 @@ import (
 //     or /128 (IPv6) subnet is created for it and the address is inserted with
 //     that subnet UUID. The instance-poller reconciliation will match it based
 //     on provider subnet ID if it can; see [SetProviderNetConfig].
-func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics []network.NetInterface) error {
+//   - If there is no matching subnet and addMissingSubnets is true, the
+//     address' subnet is inserted into the subnet table and matched to the
+//     address.
+func (st *State) SetMachineNetConfig(
+	ctx context.Context, nodeUUID string, nics []network.NetInterface, addMissingSubnets bool,
+) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -68,7 +78,7 @@ func (st *State) SetMachineNetConfig(ctx context.Context, nodeUUID string, nics 
 		st.logger.Debugf(ctx, "matching with subnet groups: %#v", subs)
 
 		addrsToInsert, newSubs, err :=
-			st.reconcileNetConfigAddresses(ctx, tx, nodeUUID, nics, nicNameToUUID, subs, lookups)
+			st.reconcileNetConfigAddresses(ctx, tx, nodeUUID, nics, nicNameToUUID, subs, lookups, addMissingSubnets)
 		if err != nil {
 			return errors.Errorf("reconciling incoming ip addresses: %w", err)
 		}
@@ -334,6 +344,7 @@ func (st *State) reconcileNetConfigAddresses(
 	nicNameToUUID map[string]string,
 	subs subnetGroups,
 	lookups netConfigLookups,
+	addMissingSubnets bool,
 ) ([]ipAddressDML, []subnet, error) {
 	var (
 		addrsDML []ipAddressDML
@@ -350,18 +361,9 @@ func (st *State) reconcileNetConfigAddresses(
 	for _, n := range nics {
 		devUUID := nicNameToUUID[n.Name]
 
-		addrToUUID := make(map[string]string, len(n.Addrs))
-		for _, a := range n.Addrs {
-			if existingAddr, ok := existingAddrs[a.AddressValue]; ok {
-				addrToUUID[a.AddressValue] = existingAddr.UUID
-				continue
-			}
-
-			addrUUID, err := network.NewAddressUUID()
-			if err != nil {
-				return nil, nil, errors.Capture(err)
-			}
-			addrToUUID[a.AddressValue] = addrUUID.String()
+		addrToUUID, err := addressUUIDsForNIC(n, existingAddrs)
+		if err != nil {
+			return nil, nil, errors.Capture(err)
 		}
 
 		for _, a := range n.Addrs {
@@ -373,54 +375,70 @@ func (st *State) reconcileNetConfigAddresses(
 			}
 
 			// If the address already has a subnet UUID, we use it.
-			// Otherwise, we try to find a subnet by locating an existing subnet
-			// that contains it.
-			// If we cannot find a *unique* subnet for the address,
+			if existingAddr.SubnetUUID.Valid && existingAddr.SubnetUUID.String != "" {
+				addrDML.SubnetUUID = &existingAddr.SubnetUUID.String
+				addrsDML = append(addrsDML, addrDML)
+				continue
+			}
+
+			// Otherwise, we try to find a subnet UUID by locating
+			// an existing subnet that contains the IP.
+			ip, cidr, _ := net.ParseCIDR(a.AddressValue)
+			if ip == nil {
+				return nil, nil, errors.Errorf("invalid IP address %q", a.AddressValue)
+			}
+
+			var (
+				subnetUUID  string
+				subMatchErr error
+			)
+			if subnetUUID, subMatchErr = subs.subnetForIP(ip); subMatchErr == nil {
+				addrDML.SubnetUUID = &subnetUUID
+				addrsDML = append(addrsDML, addrDML)
+				continue
+			}
+
+			// If we found no match and are not adding discovered subnets
+			// progressively there's nothing more we can do.
+			if errors.Is(subMatchErr, errAddrSubnetMatchNone) && !addMissingSubnets {
+				// TODO (manadart 2025-04-29): Figure out what to do with
+				// loopback addresses before making
+				// ip_address.subnet_uuid NOT NULL.
+				st.logger.Warningf(ctx, "determining subnet: %v", err)
+				addrsDML = append(addrsDML, addrDML)
+				continue
+			}
+
+			sUUID, err := network.NewSubnetUUID()
+			if err != nil {
+				return nil, nil, errors.Capture(err)
+			}
+			newSub := subnet{
+				UUID:      sUUID.String(),
+				SpaceUUID: corenetwork.AlphaSpaceId,
+			}
+
+			// If the address is associated by CIDR to multiple subnets,
 			// we create a new /32 or /128 subnet in the alpha space and
 			// link this address to it.
 			// The instance-poller will attempt to reconcile the real subnet
 			// using the provider subnet ID subsequently.
-			var subnetUUID string
-			if existingAddr.SubnetUUID.Valid && existingAddr.SubnetUUID.String != "" {
-				subnetUUID = existingAddr.SubnetUUID.String
-			} else {
-				subnetUUID, err = subs.subnetForIP(a.AddressValue)
-				if err != nil {
-					// TODO (manadart 2025-04-29): Figure out what to do with
-					// loopback addresses before making
-					// ip_address.subnet_uuid NOT NULL.
-					st.logger.Warningf(ctx, "determining subnet: %v", err)
-				}
-			}
-
-			if subnetUUID != "" {
-				addrDML.SubnetUUID = &subnetUUID
-			} else if err == nil {
-				ip, _, _ := net.ParseCIDR(a.AddressValue)
-				if ip == nil {
-					return nil, nil, errors.Errorf("invalid IP address %q", a.AddressValue)
-				}
-
+			// Otherwise, we are adding newly discovered subnets and just
+			// use the one we determined from the address.
+			if errors.Is(subMatchErr, errAddrSubnetMatchMulti) {
 				suffix := "/32"
 				if a.AddressType == corenetwork.IPv6Address {
 					suffix = "/128"
 				}
-
-				sUUID, err := network.NewSubnetUUID()
-				if err != nil {
-					return nil, nil, errors.Capture(err)
-				}
-				newSubUUID := sUUID.String()
-
-				newSub := subnet{
-					UUID:      newSubUUID,
-					CIDR:      ip.String() + suffix,
-					SpaceUUID: corenetwork.AlphaSpaceId,
-				}
-				newSubs = append(newSubs, newSub)
-				addrDML.SubnetUUID = &newSubUUID
+				newSub.CIDR = ip.String() + suffix
+			} else {
+				newSub.CIDR = cidr.String()
 			}
+			newSubs = append(newSubs, newSub)
 
+			st.logger.Infof(ctx, "subnet %s will be added to the alpha space", newSub.CIDR)
+
+			addrDML.SubnetUUID = &newSub.UUID
 			addrsDML = append(addrsDML, addrDML)
 		}
 	}
@@ -450,6 +468,23 @@ func (st *State) getCurrentAddresses(
 	return transform.SliceToMap(addrs, func(d ipAddressValue) (string, ipAddressValue) {
 		return d.Value, d
 	}), nil
+}
+
+func addressUUIDsForNIC(nic network.NetInterface, existingAddrs map[string]ipAddressValue) (map[string]string, error) {
+	addrToUUID := make(map[string]string, len(nic.Addrs))
+	for _, a := range nic.Addrs {
+		if existingAddr, ok := existingAddrs[a.AddressValue]; ok {
+			addrToUUID[a.AddressValue] = existingAddr.UUID
+			continue
+		}
+
+		addrUUID, err := network.NewAddressUUID()
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		addrToUUID[a.AddressValue] = addrUUID.String()
+	}
+	return addrToUUID, nil
 }
 
 func (st *State) insertSubnets(ctx context.Context, tx *sqlair.TX, subs []subnet) error {

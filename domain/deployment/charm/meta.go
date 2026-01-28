@@ -690,7 +690,7 @@ const (
 func (m Meta) Check(format Format, reasons ...FormatSelectionReason) error {
 	switch format {
 	case FormatV1:
-		return internalerrors.Errorf("charm metadata without bases in manifest")
+		return internalerrors.Errorf("charm metadata without bases in manifest not valid").Add(coreerrors.NotValid)
 	case FormatV2:
 		err := m.checkV2(reasons)
 		if err != nil {
@@ -773,10 +773,10 @@ func (m Meta) Check(format Format, reasons ...FormatSelectionReason) error {
 
 func (m Meta) checkV2(reasons []FormatSelectionReason) error {
 	if len(reasons) == 0 {
-		return internalerrors.Errorf("metadata v2 without manifest.yaml")
+		return internalerrors.Errorf("metadata v2 without manifest.yaml not valid").Add(coreerrors.NotValid)
 	}
 	if m.MinJujuVersion != semversion.Zero {
-		return internalerrors.Errorf("min-juju-version in metadata v2")
+		return internalerrors.Errorf("min-juju-version in metadata v2 not valid").Add(coreerrors.NotValid)
 	}
 	return nil
 }
@@ -986,7 +986,8 @@ func parseContainers(input interface{}, resources map[string]resource.Meta, stor
 		}
 		if container.Resource != "" {
 			if r, ok := resources[container.Resource]; !ok {
-				return nil, internalerrors.Errorf("referenced resource %q not found", container.Resource)
+				return nil, internalerrors.Errorf("referenced resource %q not found", container.Resource).
+					Add(coreerrors.NotFound)
 			} else if r.Type != resource.TypeContainerImage {
 				return nil, internalerrors.Errorf("referenced resource %q is not a %s",
 					container.Resource,

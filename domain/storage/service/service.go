@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	domainstorage "github.com/juju/juju/domain/storage"
-	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
@@ -34,7 +33,7 @@ type State interface {
 		context.Context,
 		domainstorage.StorageInstanceUUID,
 		coreunit.UUID,
-	) (domainstorageprovisioning.StorageAttachmentUUID, error)
+	) (domainstorage.StorageAttachmentUUID, error)
 
 	// GetStorageInstanceAttachments returns the set of attachments a storage
 	// instance has. If the storage instance has no attachments then an empty
@@ -46,7 +45,7 @@ type State interface {
 	GetStorageInstanceAttachments(
 		context.Context,
 		domainstorage.StorageInstanceUUID,
-	) ([]domainstorageprovisioning.StorageAttachmentUUID, error)
+	) ([]domainstorage.StorageAttachmentUUID, error)
 
 	// GetStorageInstanceUUIDByID retrieves the UUID of a storage instance by
 	// its ID.

@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	coreoperation "github.com/juju/juju/core/operation"
 	"github.com/juju/juju/domain/operation/internal"
 	"github.com/juju/juju/internal/errors"
 )
@@ -51,7 +52,9 @@ func (st *State) InsertMigratingOperations(ctx context.Context, args internal.Im
 			}
 
 			// Insert operation action if any
-			if ops.Application != "" {
+			// juju-exec actions are special system actions that don't require charm metadata,
+			// so we skip charm UUID retrieval for them.
+			if ops.Application != "" && !coreoperation.IsJujuExecAction(ops.ActionName) {
 				charmUUID, err := st.getCharmUUIDByApplication(ctx, tx, ops.Application)
 				if err != nil {
 					return errors.Errorf("getting charm UUID for application %q: %w", ops.Application, err)

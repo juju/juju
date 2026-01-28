@@ -65,7 +65,7 @@ func (i *importCloudServiceOperation) Execute(ctx context.Context, model descrip
 		return nil
 	}
 
-	cloudServices, err := i.collectServices(ctx, model)
+	cloudServices, err := i.encodeCloudServices(ctx, model)
 	if err != nil {
 		return errors.Errorf("collecting services and devices: %w", err)
 	}
@@ -77,7 +77,7 @@ func (i *importCloudServiceOperation) Execute(ctx context.Context, model descrip
 	return nil
 }
 
-func (i *importCloudServiceOperation) collectServices(
+func (i *importCloudServiceOperation) encodeCloudServices(
 	ctx context.Context,
 	model description.Model,
 ) ([]internal.ImportCloudService, error) {

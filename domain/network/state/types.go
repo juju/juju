@@ -652,30 +652,23 @@ type subnetGroup struct {
 
 type subnetGroups []subnetGroup
 
-// subnetForIP returns the subnet UUID for the input IP address in CIDR format
-// if one can be determined.
-// If the UUIDs for the CIDR are not unique, an empty string is returned.
-func (subs subnetGroups) subnetForIP(ip string) (string, error) {
-	netIP, _, _ := net.ParseCIDR(ip)
-	if netIP == nil {
-		return "", errors.Errorf("invalid IP address %q", ip)
-	}
-
+// subnetForIP returns the subnet UUID for the input IP address in
+// CIDR format if one can be determined.
+// Typed errors are returned for scenarios that do not result in a
+// unique subnet match.
+func (subs subnetGroups) subnetForIP(ip net.IP) (string, error) {
 	var matches []string
 	for _, s := range subs {
-		if s.ipNet.Contains(netIP) {
+		if s.ipNet.Contains(ip) {
 			matches = append(matches, s.uuids...)
 		}
 	}
 
 	if len(matches) == 0 {
-		return "", errors.Errorf("no subnet found for IP %q", ip)
+		return "", errAddrSubnetMatchNone
 	}
-
-	// If there are multiple subnets for the same CIDR,
-	// the caller must create a subnet for the IP address.
 	if len(matches) > 1 {
-		return "", nil
+		return "", errAddrSubnetMatchMulti
 	}
 	return matches[0], nil
 }

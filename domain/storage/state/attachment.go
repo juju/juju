@@ -12,7 +12,6 @@ import (
 	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
-	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -55,7 +54,7 @@ func (s *State) GetStorageAttachmentUUIDForStorageInstanceAndUnit(
 	ctx context.Context,
 	sUUID domainstorage.StorageInstanceUUID,
 	uUUID coreunit.UUID,
-) (domainstorageprovisioning.StorageAttachmentUUID, error) {
+) (domainstorage.StorageAttachmentUUID, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -112,7 +111,7 @@ AND    unit_uuid = $unitUUID.uuid`,
 		return "", errors.Capture(err)
 	}
 
-	return domainstorageprovisioning.StorageAttachmentUUID(dbVal.UUID), nil
+	return domainstorage.StorageAttachmentUUID(dbVal.UUID), nil
 }
 
 // GetStorageInstanceAttachments returns the set of attachments a storage
@@ -125,7 +124,7 @@ AND    unit_uuid = $unitUUID.uuid`,
 func (s *State) GetStorageInstanceAttachments(
 	ctx context.Context,
 	uuid domainstorage.StorageInstanceUUID,
-) ([]domainstorageprovisioning.StorageAttachmentUUID, error) {
+) ([]domainstorage.StorageAttachmentUUID, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -170,9 +169,9 @@ WHERE storage_instance_uuid = $storageInstanceUUID.uuid
 		return nil, errors.Capture(err)
 	}
 
-	rval := make([]domainstorageprovisioning.StorageAttachmentUUID, 0, len(dbVals))
+	rval := make([]domainstorage.StorageAttachmentUUID, 0, len(dbVals))
 	for _, dbVal := range dbVals {
-		rval = append(rval, domainstorageprovisioning.StorageAttachmentUUID(dbVal.UUID))
+		rval = append(rval, domainstorage.StorageAttachmentUUID(dbVal.UUID))
 	}
 	return rval, nil
 }

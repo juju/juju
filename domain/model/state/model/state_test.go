@@ -1180,7 +1180,7 @@ func (s *modelSuite) TestSetModelStoragePoolsOverwrite(c *tc.C) {
 
 // TestSetModelStoragePoolsPoolNotFound test that when setting a model storage
 // pool and the pool does not exist the caller gets back an error satisfying
-// [storageerrors.PoolNotFoundError].
+// [storageerrors.StoragePoolNotFound].
 func (s *modelSuite) TestSetModelStoragePoolsPoolNotFound(c *tc.C) {
 	poolUUID := tc.Must(c, storage.NewStoragePoolUUID)
 
@@ -1193,7 +1193,7 @@ func (s *modelSuite) TestSetModelStoragePoolsPoolNotFound(c *tc.C) {
 	}
 
 	err := st.SetModelStoragePools(c.Context(), setArgs)
-	c.Check(err, tc.ErrorIs, storageerrors.PoolNotFoundError)
+	c.Check(err, tc.ErrorIs, storageerrors.StoragePoolNotFound)
 }
 
 func (s *modelSuite) TestIsImportingModelNotImporting(c *tc.C) {

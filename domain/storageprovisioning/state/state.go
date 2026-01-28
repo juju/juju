@@ -629,7 +629,7 @@ WHERE  storage_id = $storageID.storage_id`, input, dbVal)
 // - [storageprovisioningerrors.StorageAttachmentNotFound] when the storage
 // attachment does not exist.
 func (st *State) GetStorageAttachmentInfo(
-	ctx context.Context, uuid storageprovisioning.StorageAttachmentUUID,
+	ctx context.Context, uuid storage.StorageAttachmentUUID,
 ) (storageprovisioning.StorageAttachmentInfo, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -772,7 +772,7 @@ func (st *State) GetStorageAttachmentUUIDForUnit(
 	ctx context.Context,
 	storageInstanceID string,
 	unitUUID coreunit.UUID,
-) (storageprovisioning.StorageAttachmentUUID, error) {
+) (storage.StorageAttachmentUUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -829,7 +829,7 @@ WHERE  si.storage_id = $storageID.storage_id AND sa.unit_uuid = $unitUUIDRef.uni
 			storageIDInput.ID, unitUUIDInput.UUID, err,
 		)
 	}
-	return storageprovisioning.StorageAttachmentUUID(dbVal.UUID), nil
+	return storage.StorageAttachmentUUID(dbVal.UUID), nil
 }
 
 // NamespaceForStorageAttachment returns the change stream namespace

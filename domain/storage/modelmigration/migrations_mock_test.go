@@ -15,8 +15,6 @@ import (
 
 	modelmigration "github.com/juju/juju/core/modelmigration"
 	storage "github.com/juju/juju/domain/storage"
-	service "github.com/juju/juju/domain/storage/service"
-	storage0 "github.com/juju/juju/internal/storage"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -103,11 +101,12 @@ func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 }
 
 // CreateStoragePool mocks base method.
-func (m *MockImportService) CreateStoragePool(arg0 context.Context, arg1 string, arg2 storage0.ProviderType, arg3 service.PoolAttrs) error {
+func (m *MockImportService) CreateStoragePool(arg0 context.Context, arg1 string, arg2 storage.ProviderType, arg3 map[string]any) (storage.StoragePoolUUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateStoragePool", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(storage.StoragePoolUUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateStoragePool indicates an expected call of CreateStoragePool.
@@ -123,19 +122,19 @@ type MockImportServiceCreateStoragePoolCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockImportServiceCreateStoragePoolCall) Return(arg0 error) *MockImportServiceCreateStoragePoolCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockImportServiceCreateStoragePoolCall) Return(arg0 storage.StoragePoolUUID, arg1 error) *MockImportServiceCreateStoragePoolCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockImportServiceCreateStoragePoolCall) Do(f func(context.Context, string, storage0.ProviderType, service.PoolAttrs) error) *MockImportServiceCreateStoragePoolCall {
+func (c *MockImportServiceCreateStoragePoolCall) Do(f func(context.Context, string, storage.ProviderType, map[string]any) (storage.StoragePoolUUID, error)) *MockImportServiceCreateStoragePoolCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockImportServiceCreateStoragePoolCall) DoAndReturn(f func(context.Context, string, storage0.ProviderType, service.PoolAttrs) error) *MockImportServiceCreateStoragePoolCall {
+func (c *MockImportServiceCreateStoragePoolCall) DoAndReturn(f func(context.Context, string, storage.ProviderType, map[string]any) (storage.StoragePoolUUID, error)) *MockImportServiceCreateStoragePoolCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

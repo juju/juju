@@ -430,7 +430,7 @@ FROM (
 	)
 	for _, dbAttachmentVal := range dbAttachmentVals {
 		v := internal.StorageAttachmentComposition{
-			UUID: domainstorageprov.StorageAttachmentUUID(dbAttachmentVal.UUID),
+			UUID: domainstorage.StorageAttachmentUUID(dbAttachmentVal.UUID),
 			StorageInstanceUUID: domainstorage.StorageInstanceUUID(
 				dbAttachmentVal.StorageInstanceUUID,
 			),
@@ -679,7 +679,7 @@ WHERE  uuid = $setStorageFilesystemAttachmentProviderID.uuid
 // given pool.
 //
 // The following error types can be expected:
-// - [storageerrors.PoolNotFoundError] when no storage pool exists for the
+// - [storageerrors.StoragePoolNotFound] when no storage pool exists for the
 // provided pool uuid.
 func (st *State) GetProviderTypeForPool(
 	ctx context.Context, poolUUID domainstorage.StoragePoolUUID,
@@ -710,7 +710,7 @@ WHERE  uuid = $storagePoolUUID.uuid
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"storage pool %q does not exist", poolUUID,
-			).Add(storageerrors.PoolNotFoundError)
+			).Add(storageerrors.StoragePoolNotFound)
 		}
 		return err
 	})
