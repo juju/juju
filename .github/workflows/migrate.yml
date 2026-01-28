@@ -63,7 +63,7 @@ jobs:
           /snap/bin/juju bootstrap lxd source-controller --constraints "arch=$(go env GOARCH)"
           /snap/bin/juju add-model test-migrate
           /snap/bin/juju set-model-constraints arch=$(go env GOARCH)
-          /snap/bin/juju deploy ubuntu
+          /snap/bin/juju deploy ubuntu --base ubuntu@20.04
 
       - name: Install target juju client
         run: |
@@ -123,5 +123,5 @@ jobs:
           juju switch test-migrate
           juju wait-for application ubuntu
           
-          juju deploy ubuntu yet-another-ubuntu
+          juju deploy ubuntu yet-another-ubuntu --base ubuntu@20.04
           juju wait-for application yet-another-ubuntu

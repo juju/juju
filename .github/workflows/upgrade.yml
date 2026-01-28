@@ -56,7 +56,7 @@ jobs:
       - name: Setup LXD
         if: matrix.cloud == 'localhost'
         uses: canonical/setup-lxd@2fa6235ef2dfd3288e0de09edac03f2ebf922968
-    
+
       - name: Wait for LXD
         if: matrix.cloud == 'localhost'
         run: |
@@ -148,6 +148,7 @@ jobs:
         run: |
           set -euxo pipefail
 
+          sudo DEBIAN_FRONTEND=noninteractive apt install -y skopeo
           # Shim in recognition for our CA to jujud-operator
           BUILD_TEMP=$(mktemp -d)
           cp ~/certs/ca.crt $BUILD_TEMP/
@@ -161,7 +162,7 @@ jobs:
           docker build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
           docker push ${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
           
-          OCI_REGISTRY_USERNAME=${OCI_REGISTRY}/test-repo make seed-repository
+          OCI_REGISTRY_USERNAME=${OCI_REGISTRY}/test-repo LEGACY_JUJU_DB_VERSION=4.4 make seed-repository
 
       - name: Bootstrap Juju - localhost
         if: matrix.cloud == 'localhost'
@@ -169,10 +170,10 @@ jobs:
         run: |
           set -euxo pipefail
 
+          juju version
           juju bootstrap localhost c \
             --model-default enable-os-upgrade=false \
             --constraints "arch=$(go env GOARCH)"
-          juju version
 
           juju add-model m
           juju set-model-constraints arch=$(go env GOARCH)
@@ -187,13 +188,14 @@ jobs:
         run: |
           set -euxo pipefail
 
+          juju version
           sg snap_microk8s <<EOF
             juju bootstrap microk8s c \
               --constraints "arch=$(go env GOARCH)" \
               --config caas-image-repo="${OCI_REGISTRY}/test-repo" \
-              --config features="[developer-mode]"
+              --config features="[developer-mode]" \
+              --config logging-config="<root>=DEBUG;juju.docker.registry=TRACE;juju.docker.registry.internal=TRACE;juju.apiserver.modelupgrader=TRACE"
           EOF
-          juju version
 
           juju add-model m
           juju set-model-constraints arch=$(go env GOARCH)
@@ -208,6 +210,8 @@ jobs:
           DEPLOY_FLAGS=''
           if [[ ${{ matrix.cloud }} == 'microk8s' ]]; then
             DEPLOY_FLAGS='--trust'
+          else
+            DEPLOY_FLAGS='--base ubuntu@20.04'
           fi
 
           juju deploy ${CHARM_${{ matrix.cloud }}} $DEPLOY_FLAGS
@@ -261,8 +265,16 @@ jobs:
         run: |
           set -euxo pipefail
 
-          OUTPUT=$(juju upgrade-controller --debug ${UPGRADE_FLAGS_${{ matrix.cloud }}})
-          if [[ $OUTPUT == 'no upgrades available' ]]; then
+          # Upgrade to the latest stable.
+          OUTPUT=$(juju upgrade-controller --debug ${UPGRADE_FLAGS_${{ matrix.cloud }}} 2>&1)
+          if [[ $OUTPUT == *'no upgrades available'* ]]; then
+            echo $OUTPUT
+            juju debug-log --replay --no-tail -m controller
+
+            if [[ ${{ matrix.cloud }} == 'microk8s' ]]; then
+              sudo DEBIAN_FRONTEND=noninteractive apt install -y podman >/dev/null 2>&1
+              podman search --list-tags ${OCI_REGISTRY}/test-repo/jujud-operator
+            fi
             exit 1
           fi
           .github/verify-agent-version.sh ${MODEL_TYPE_${{ matrix.cloud }}} ${TARGET_JUJU_VERSION}

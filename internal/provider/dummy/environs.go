@@ -141,9 +141,10 @@ func mongoInfo() mongo.MongoInfo {
 	addrs := []string{net.JoinHostPort("localhost", mongoPort)}
 	return mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:      addrs,
-			CACert:     testing.CACert,
-			DisableTLS: !mgotesting.MgoServer.SSLEnabled(),
+			Addrs:        addrs,
+			CACert:       testing.CACert,
+			CAPrivateKey: testing.CAKey,
+			DisableTLS:   !mgotesting.MgoServer.SSLEnabled(),
 		},
 	}
 }

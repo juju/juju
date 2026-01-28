@@ -80,6 +80,7 @@ func newEnsureMongoParams(agentConfig agent.Config) (mongo.EnsureServerParams, e
 		StatePort:      si.StatePort,
 		Cert:           si.Cert,
 		PrivateKey:     si.PrivateKey,
+		CACert:         agentConfig.CACert(),
 		CAPrivateKey:   si.CAPrivateKey,
 		SharedSecret:   si.SharedSecret,
 		SystemIdentity: si.SystemIdentity,

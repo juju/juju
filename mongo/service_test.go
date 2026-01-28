@@ -37,6 +37,7 @@ func (s *serviceSuite) TestNewConfSnap(c *gc.C) {
 		LogPath:               logPath,
 		ReplicaSet:            "juju",
 		MemoryProfile:         mongo.MemoryProfileLow,
+		CACertFile:            "/var/lib/juju/ca.crt",
 		PEMKeyFile:            "/var/lib/juju/server.pem",
 		PEMKeyPassword:        "ignored",
 		AuthKeyFile:           "/var/lib/juju/shared-secret",

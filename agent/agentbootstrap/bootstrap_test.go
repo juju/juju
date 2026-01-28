@@ -416,7 +416,8 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		APIPort:        5555,
 		StatePort:      s.mgoInst.Port(),
 		Cert:           testing.CACert,
-		PrivateKey:     testing.CAKey,
+		CAPrivateKey:   testing.CAKey,
+		PrivateKey:     testing.ServerKey,
 		SharedSecret:   "baz",
 		SystemIdentity: "qux",
 	})
@@ -498,8 +499,9 @@ func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
 func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, modelTag names.ModelTag, controllerTag names.ControllerTag, password string) {
 	session, err := mongo.DialWithInfo(mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  []string{s.mgoInst.Addr()},
-			CACert: testing.CACert,
+			Addrs:        []string{s.mgoInst.Addr()},
+			CACert:       testing.CACert,
+			CAPrivateKey: testing.CAKey,
 		},
 		Tag:      nil, // admin user
 		Password: password,

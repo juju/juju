@@ -402,7 +402,7 @@ func (*suite) TestAttributes(c *gc.C) {
 	c.Assert(conf.Dir(), gc.Equals, "/data/dir/agents/machine-1")
 	c.Assert(conf.Nonce(), gc.Equals, "a nonce")
 	c.Assert(conf.UpgradedToVersion(), jc.DeepEquals, jujuversion.Current)
-	c.Assert(conf.JujuDBSnapChannel(), gc.Equals, "4.4/stable")
+	c.Assert(conf.JujuDBSnapChannel(), gc.Equals, "4.4.30/stable")
 	c.Assert(conf.AgentLogfileMaxSizeMB(), gc.Equals, 150)
 	c.Assert(conf.AgentLogfileMaxBackups(), gc.Equals, 4)
 }
@@ -581,8 +581,9 @@ func (*suite) TestSetPassword(c *gc.C) {
 	addr := fmt.Sprintf("localhost:%d", servingInfo.StatePort)
 	expectStateInfo := &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  []string{addr},
-			CACert: attrParams.CACert,
+			Addrs:        []string{addr},
+			CACert:       attrParams.CACert,
+			CAPrivateKey: stateServingInfo().CAPrivateKey,
 		},
 		Tag:      attrParams.Tag,
 		Password: "",
