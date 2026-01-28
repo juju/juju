@@ -27,7 +27,7 @@ type Coordinator interface {
 	Add(modelmigration.Operation)
 }
 
-type DefaultStoragePool struct {
+type ImportStoragePool struct {
 	UUID   domainstorage.StoragePoolUUID
 	Name   string
 	Origin domainstorage.StoragePoolOrigin
@@ -51,9 +51,9 @@ func RegisterImport(coordinator Coordinator, storageRegistryGetter corestorage.M
 // ImportService provides a subset of the storage domain
 // service methods needed for storage pool import.
 type ImportService interface {
-	CreateStoragePool(ctx context.Context, UUID domainstorage.StoragePoolUUID,
-		name string, providerType storage.ProviderType, attrs map[string]any,
-		originID domainstorage.StoragePoolOrigin) error
+	ImportStoragePool(ctx context.Context, UUID domainstorage.StoragePoolUUID,
+		name string, providerType domainstorage.ProviderType,
+		originID domainstorage.StoragePoolOrigin, attrs map[string]any) error
 	SetRecommendedStoragePools(ctx context.Context, pools []domainstorage.RecommendedStoragePoolParams) error
 }
 
@@ -79,12 +79,12 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute the import on the storage pools contained in the model.
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
-	poolsToCreate := make([]DefaultStoragePool, 0)
+	poolsToCreate := make([]ImportStoragePool, 0)
 	// We first create the list of pools from the migrated models.
 	// This is to ensure that the user-defined pools from the import are chosen
 	// should the name conflicts with built-in pools.
 	for _, v := range model.StoragePools() {
-		poolsToCreate = append(poolsToCreate, DefaultStoragePool{
+		poolsToCreate = append(poolsToCreate, ImportStoragePool{
 			Name:   v.Name(),
 			Origin: domainstorage.StoragePoolOriginUser,
 			Type:   v.Provider(),
@@ -134,8 +134,8 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	poolsToCreate = append(poolsToCreate, defaultPools...)
 
 	for _, pool := range poolsToCreate {
-		err := i.service.CreateStoragePool(ctx, pool.UUID, pool.Name, storage.ProviderType(pool.Type),
-			pool.Attrs, pool.Origin)
+		err := i.service.ImportStoragePool(ctx, pool.UUID, pool.Name, domainstorage.ProviderType(pool.Type),
+			pool.Origin, pool.Attrs)
 		if err != nil {
 			return errors.Errorf("creating storage pool %q: %w", pool.Name, err)
 		}
@@ -151,11 +151,11 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 func (i *importOperation) poolSafeToCreate(
 	ctx context.Context,
-	existingPools []DefaultStoragePool,
-	config *storage.Config) (*DefaultStoragePool, error) {
+	existingPools []ImportStoragePool,
+	config *storage.Config) (*ImportStoragePool, error) {
 	// A storage pool with a duplicate provider and name already exists.
 	// We skip adding it to the slice.
-	if slices.ContainsFunc(existingPools, func(pool DefaultStoragePool) bool {
+	if slices.ContainsFunc(existingPools, func(pool ImportStoragePool) bool {
 		return pool.Name == config.Name() && pool.Type == config.Provider().String()
 	}) {
 		return nil, nil
@@ -185,9 +185,10 @@ func (i *importOperation) poolSafeToCreate(
 			name,
 		)
 	}
-	// The built-in pool doesn't conflict with the user-defined pools, it's saved
+
+	// The built-in pool doesn't conflict with the user-defined pools, it's safe
 	// to return it for creation.
-	return &DefaultStoragePool{
+	return &ImportStoragePool{
 		UUID:   uuid,
 		Name:   name,
 		Origin: domainstorage.StoragePoolOriginProviderDefault,
@@ -196,9 +197,9 @@ func (i *importOperation) poolSafeToCreate(
 	}, nil
 }
 
-func (i *importOperation) getRecommendedStoragePools(existingPools []DefaultStoragePool,
-	reg storage.ProviderRegistry) ([]DefaultStoragePool, []domainstorage.RecommendedStoragePoolParams, error) {
-	poolsToCreate := make([]DefaultStoragePool, 0)
+func (i *importOperation) getRecommendedStoragePools(existingPools []ImportStoragePool,
+	reg storage.ProviderRegistry) ([]ImportStoragePool, []domainstorage.RecommendedStoragePoolParams, error) {
+	poolsToCreate := make([]ImportStoragePool, 0)
 	recommendedPools := make([]domainstorage.RecommendedStoragePoolParams, 0)
 	appendPool := func(cfg *storage.Config) (domainstorage.StoragePoolUUID, error) {
 		// Get the UUID of the given pool so that we can later
@@ -213,7 +214,7 @@ func (i *importOperation) getRecommendedStoragePools(existingPools []DefaultStor
 
 		// Duplication checking is performed on uuid and then name and provider
 		// type.
-		index := slices.IndexFunc(existingPools, func(e DefaultStoragePool) bool {
+		index := slices.IndexFunc(existingPools, func(e ImportStoragePool) bool {
 			return e.UUID == uuid
 		},
 		)
@@ -225,12 +226,12 @@ func (i *importOperation) getRecommendedStoragePools(existingPools []DefaultStor
 		// We don't want to add it for creation if there exists an existing pool
 		// with duplicate name and provider. This may have been a user-defined
 		// pool from the source controller.
-		if slices.ContainsFunc(existingPools, func(pool DefaultStoragePool) bool {
+		if slices.ContainsFunc(existingPools, func(pool ImportStoragePool) bool {
 			return pool.Name == cfg.Name() && pool.Type == cfg.Provider().String()
 		}) {
 			return "", nil
 		}
-		poolsToCreate = append(poolsToCreate, DefaultStoragePool{
+		poolsToCreate = append(poolsToCreate, ImportStoragePool{
 			UUID:   uuid,
 			Name:   cfg.Name(),
 			Origin: domainstorage.StoragePoolOriginProviderDefault,

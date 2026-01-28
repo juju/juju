@@ -711,7 +711,7 @@ INSERT INTO model_storage_pool (*) VALUES ($dbModelStoragePool.*)
 		if !poolsExist {
 			return errors.New(
 				"one or more storage pools do not exist in the model",
-			).Add(storageerrors.PoolNotFoundError)
+			).Add(domainstorageerrors.StoragePoolNotFound)
 		}
 
 		err = tx.Query(ctx, deleteStmt).Run()

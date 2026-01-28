@@ -67,7 +67,8 @@ var (
 	//
 	// See [validStoragePoolNameLegacyRegex] for the older validation regex of
 	// storage pool names.
-	validStoragePoolNameRegex = regexp.MustCompile("^[[:alpha:]][[:alnum:]-]{0,126}[[:alnum:]]$|^[[:alpha:]]$")
+	validStoragePoolNameRegex       = regexp.MustCompile("^[[:alpha:]][[:alnum:]-]{0,126}[[:alnum:]]$|^[[:alpha:]]$")
+	validStoragePoolNameLegacyRegex = regexp.MustCompile("^[a-zA-Z]+[-?a-zA-Z0-9]*$")
 )
 
 // getDefaultStoragePoolUUIDs returns the full set of fixed storage pool uuids
@@ -163,6 +164,13 @@ func IsValidStoragePoolName(name string) bool {
 	return len(name) >= StoragePoolNameMinLength &&
 		len(name) <= StoragePoolNameMaxLength &&
 		validStoragePoolNameRegex.MatchString(name)
+}
+
+// IsValidStoragePoolNameWithLegacy is the old storage pool name validation used
+// in prior 4.0 versions. We maintain this to allow storage pool imports from prior
+// versions to 4.0.
+func IsValidStoragePoolNameWithLegacy(name string) bool {
+	return validStoragePoolNameLegacyRegex.MatchString(name)
 }
 
 // NewStoragePoolUUID creates a new, valid storage pool identifier.
