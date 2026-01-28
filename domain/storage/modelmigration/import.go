@@ -35,11 +35,6 @@ type ImportStoragePool struct {
 	Attrs  map[string]any
 }
 
-type ModelStoragePoolArg struct {
-	StorageKind     domainstorage.StorageKind
-	StoragePoolUUID domainstorage.StoragePoolUUID
-}
-
 // RegisterImport registers the import operations with the given coordinator.
 func RegisterImport(coordinator Coordinator, storageRegistryGetter corestorage.ModelStorageRegistryGetter, logger logger.Logger) {
 	coordinator.Add(&importOperation{
@@ -117,7 +112,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 		providerDefaultPools := registry.DefaultPools()
 		for _, providerDefaultPool := range providerDefaultPools {
-			providerDefault, err := i.poolSafeToCreate(ctx, poolsToCreate, providerDefaultPool)
+			providerDefault, err := i.defaultPoolForImport(ctx, poolsToCreate, providerDefaultPool)
 			if err != nil {
 				return err
 			}
@@ -149,7 +144,21 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	return nil
 }
 
-func (i *importOperation) poolSafeToCreate(
+// defaultPoolForImport determines whether a provider default storage pool
+// should be imported into the model.
+//
+// The function checks whether a storage pool with the same provider and name
+// already exists in existingPools. If so, the pool is skipped and (nil, nil)
+// is returned.
+//
+// It then attempts to resolve the UUID for the provider's default storage pool.
+// If the default pool is not recognised by the storage domain, the condition
+// is logged and the pool is skipped without failing the import.
+//
+// On success, it returns an ImportStoragePool describing the provider default
+// pool to be created. Any unexpected error while resolving the pool UUID is
+// returned.
+func (i *importOperation) defaultPoolForImport(
 	ctx context.Context,
 	existingPools []ImportStoragePool,
 	config *storage.Config) (*ImportStoragePool, error) {
@@ -197,6 +206,22 @@ func (i *importOperation) poolSafeToCreate(
 	}, nil
 }
 
+// getRecommendedStoragePools determines the recommended storage pools
+// for each supported storage kind and resolves which of them need to be
+// created during import.
+//
+// For each recommended pool provided by the registry, the function:
+//   - Resolves the pool's UUID using provider defaults
+//   - Checks for duplicates against existingPools using UUID, and then
+//     pool name and provider type
+//   - Appends a pool to the creation list only if it does not already exist
+//     and does not conflict with a user-defined pool
+//
+// The returned values are:
+//  1. A slice of [ImportStoragePool] describing provider default pools that
+//     should be created during import
+//  2. A slice of [RecommendedStoragePoolParams] mapping storage kinds to the
+//     resolved storage pool UUIDs, which may refer to pools of the provider.
 func (i *importOperation) getRecommendedStoragePools(existingPools []ImportStoragePool,
 	reg storage.ProviderRegistry) ([]ImportStoragePool, []domainstorage.RecommendedStoragePoolParams, error) {
 	poolsToCreate := make([]ImportStoragePool, 0)
