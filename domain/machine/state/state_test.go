@@ -872,7 +872,7 @@ func (s *stateSuite) TestCountMachinesInSpace(c *tc.C) {
 			Scope:            network.ScopeCloudLocal,
 			ProviderSubnetID: &subnetID,
 		}},
-	}})
+	}}, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	count, err := s.state.CountMachinesInSpace(c.Context(), spaceUUID.String())
@@ -924,7 +924,7 @@ func (s *stateSuite) TestCountMachinesInSpaceDoubleAddressSameMachine(c *tc.C) {
 				ProviderSubnetID: &subnetID,
 			},
 		},
-	}})
+	}}, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	count, err := s.state.CountMachinesInSpace(c.Context(), spaceUUID.String())
@@ -985,7 +985,7 @@ func (s *stateSuite) TestCountMachinesInSpaceMultipleSubnets(c *tc.C) {
 				Scope:            network.ScopeCloudLocal,
 				ProviderSubnetID: &subnetUUID0,
 			}},
-		}})
+		}}, false)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
