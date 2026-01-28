@@ -208,7 +208,7 @@ func StreamBundleDataSource(r io.Reader, basePath string) (BundleDataSource, err
 	}
 	parts, err := parseBundleParts(b)
 	if err != nil {
-		return nil, internalerrors.Errorf("cannot unmarshal bundle contents: %v", err)
+		return nil, internalerrors.Errorf("cannot unmarshal bundle contents: %v not valid", err).Add(coreerrors.NotValid)
 	}
 
 	return &resolvedBundleDataSource{parts: parts, bundleBytes: b, basePath: basePath}, nil
