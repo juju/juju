@@ -2288,7 +2288,7 @@ func (s *modelStateSuite) TestGetMachineFullStatuses(c *tc.C) {
 			Addrs: []domainnetwork.NetAddr{
 				{
 					InterfaceName:    "lo",
-					AddressValue:     "127.0.0.1",
+					AddressValue:     "127.0.0.1/8",
 					AddressType:      corenetwork.IPv4Address,
 					ConfigType:       corenetwork.ConfigLoopback,
 					Origin:           corenetwork.OriginMachine,
@@ -2298,7 +2298,7 @@ func (s *modelStateSuite) TestGetMachineFullStatuses(c *tc.C) {
 				},
 				{
 					InterfaceName:    "eth0",
-					AddressValue:     "10.0.0.154",
+					AddressValue:     "10.0.0.154/24",
 					AddressType:      corenetwork.IPv4Address,
 					ConfigType:       corenetwork.ConfigDHCP,
 					Origin:           corenetwork.OriginProvider,
@@ -2308,7 +2308,7 @@ func (s *modelStateSuite) TestGetMachineFullStatuses(c *tc.C) {
 				},
 				{
 					InterfaceName:    "eth1",
-					AddressValue:     "2.51.45.181",
+					AddressValue:     "2.51.45.181/24",
 					AddressType:      corenetwork.IPv4Address,
 					ConfigType:       corenetwork.ConfigDHCP,
 					Origin:           corenetwork.OriginProvider,

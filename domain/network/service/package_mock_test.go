@@ -1216,17 +1216,17 @@ func (c *MockStateRemoveSpaceCall) DoAndReturn(f func(context.Context, network.S
 }
 
 // SetMachineNetConfig mocks base method.
-func (m *MockState) SetMachineNetConfig(arg0 context.Context, arg1 string, arg2 []network0.NetInterface) error {
+func (m *MockState) SetMachineNetConfig(arg0 context.Context, arg1 string, arg2 []network0.NetInterface, arg3 bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetMachineNetConfig", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SetMachineNetConfig", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetMachineNetConfig indicates an expected call of SetMachineNetConfig.
-func (mr *MockStateMockRecorder) SetMachineNetConfig(arg0, arg1, arg2 any) *MockStateSetMachineNetConfigCall {
+func (mr *MockStateMockRecorder) SetMachineNetConfig(arg0, arg1, arg2, arg3 any) *MockStateSetMachineNetConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachineNetConfig", reflect.TypeOf((*MockState)(nil).SetMachineNetConfig), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachineNetConfig", reflect.TypeOf((*MockState)(nil).SetMachineNetConfig), arg0, arg1, arg2, arg3)
 	return &MockStateSetMachineNetConfigCall{Call: call}
 }
 
@@ -1242,13 +1242,13 @@ func (c *MockStateSetMachineNetConfigCall) Return(arg0 error) *MockStateSetMachi
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetMachineNetConfigCall) Do(f func(context.Context, string, []network0.NetInterface) error) *MockStateSetMachineNetConfigCall {
+func (c *MockStateSetMachineNetConfigCall) Do(f func(context.Context, string, []network0.NetInterface, bool) error) *MockStateSetMachineNetConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetMachineNetConfigCall) DoAndReturn(f func(context.Context, string, []network0.NetInterface) error) *MockStateSetMachineNetConfigCall {
+func (c *MockStateSetMachineNetConfigCall) DoAndReturn(f func(context.Context, string, []network0.NetInterface, bool) error) *MockStateSetMachineNetConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

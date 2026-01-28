@@ -75,7 +75,7 @@ func (s *netConfigSuite) TestSetMachineNetConfigSetCallError(c *tc.C) {
 
 	exp := s.st.EXPECT()
 	exp.GetMachineNetNodeUUID(gomock.Any(), mUUID.String()).Return(nUUID, nil)
-	exp.SetMachineNetConfig(gomock.Any(), nUUID, nics).Return(errors.New("boom"))
+	exp.SetMachineNetConfig(gomock.Any(), nUUID, nics, false).Return(errors.New("boom"))
 
 	err = s.service(c).SetMachineNetConfig(c.Context(), mUUID, nics)
 	c.Assert(err, tc.ErrorMatches, "setting net config for machine .* boom")
@@ -118,7 +118,7 @@ func (s *netConfigSuite) TestSetMachineNetConfig(c *tc.C) {
 
 	exp := s.st.EXPECT()
 	exp.GetMachineNetNodeUUID(gomock.Any(), mUUID.String()).Return(nUUID, nil)
-	exp.SetMachineNetConfig(gomock.Any(), nUUID, nics).Return(nil)
+	exp.SetMachineNetConfig(gomock.Any(), nUUID, nics, false).Return(nil)
 
 	err = s.service(c).SetMachineNetConfig(ctx, mUUID, nics)
 	c.Assert(err, tc.ErrorIsNil)
