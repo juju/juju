@@ -1372,19 +1372,3 @@ func handleAttachStorageToUnitError(err error, unitName coreunit.Name, storageID
 	}
 	return err
 }
-
-// Import imports existing storage into the model.
-// A "CHANGE" block can block this operation.
-func (a *StorageAPI) Import(ctx context.Context, args params.BulkImportStorageParamsV2) (params.ImportStorageResults, error) {
-	return params.ImportStorageResults{}, apiservererrors.ParamsErrorf(
-		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
-	)
-}
-
-// Import imports existing storage into the model.
-// A "CHANGE" block can block this operation.
-func (a *StorageAPIv6) Import(ctx context.Context, args params.BulkImportStorageParams) (params.ImportStorageResults, error) {
-	return params.ImportStorageResults{}, apiservererrors.ParamsErrorf(
-		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
-	)
-}
