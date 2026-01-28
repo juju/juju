@@ -399,27 +399,12 @@ func (s *importSuite) TestImportCloudServices(c *tc.C) {
 	s.createCAASApplication(c, "foo")
 	s.createCAASApplication(c, "bar")
 
-	space1UUID, err := s.svc.AddSpace(c.Context(), network.SpaceInfo{
-		Name: network.NewSpaceName("one"),
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, err = s.svc.AddSubnet(c.Context(), network.SubnetInfo{
-		CIDR:    "192.0.2.0/24",
-		SpaceID: space1UUID,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	space2UUID, err := s.svc.AddSpace(c.Context(), network.SpaceInfo{
-		Name: network.NewSpaceName("two"),
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.svc.AddSubnet(c.Context(), network.SubnetInfo{
-		CIDR:    "2001:db8::/64",
-		SpaceID: space2UUID,
-	})
-	c.Assert(err, tc.ErrorIsNil)
+	for _, subnet := range network.FallbackSubnetInfo {
+		_, err := s.svc.AddSubnet(c.Context(), network.SubnetInfo{
+			CIDR: subnet.CIDR,
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}
 
 	desc := description.NewModel(description.ModelArgs{
 		Type: string(model.CAAS),
@@ -430,18 +415,16 @@ func (s *importSuite) TestImportCloudServices(c *tc.C) {
 			ProviderId: "provider-service-1",
 			Addresses: []description.AddressArgs{
 				{
-					Value:   "192.0.2.1",
-					Type:    "ipv4",
-					Scope:   "public",
-					Origin:  "provider",
-					SpaceID: space1UUID.String(),
+					Value:  "192.0.2.1",
+					Type:   "ipv4",
+					Scope:  "public",
+					Origin: "provider",
 				},
 				{
-					Value:   "2001:db8::1",
-					Type:    "ipv6",
-					Scope:   "public",
-					Origin:  "provider",
-					SpaceID: space2UUID.String(),
+					Value:  "2001:db8::1",
+					Type:   "ipv6",
+					Scope:  "public",
+					Origin: "provider",
 				},
 			},
 		},
@@ -452,18 +435,17 @@ func (s *importSuite) TestImportCloudServices(c *tc.C) {
 			ProviderId: "provider-service-2",
 			Addresses: []description.AddressArgs{
 				{
-					Value:   "192.0.2.2",
-					Type:    "ipv4",
-					Scope:   "public",
-					Origin:  "provider",
-					SpaceID: space1UUID.String(),
+					Value:  "192.0.2.2",
+					Type:   "ipv4",
+					Scope:  "public",
+					Origin: "provider",
 				},
 			},
 		},
 	})
 
 	networkmodelmigration.RegisterImportCloudService(s.coordinator, loggertesting.WrapCheckLog(c))
-	err = s.coordinator.Perform(c.Context(), s.scope, desc)
+	err := s.coordinator.Perform(c.Context(), s.scope, desc)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkAddressExistsForServiceForApp(c, "foo", "192.0.2.1")
