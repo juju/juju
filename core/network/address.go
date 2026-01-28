@@ -72,6 +72,16 @@ const (
 	IPv6Address AddressType = "ipv6"
 )
 
+// Validate address type based on the sets.
+func (t AddressType) Validate() error {
+	switch t {
+	case HostName, IPv4Address, IPv6Address:
+		return nil
+	default:
+		return errors.Errorf("invalid address type: %q", t).Add(coreerrors.NotValid)
+	}
+}
+
 // Scope denotes the context a location may apply to. If a name or address can
 // be reached from the wider internet, it is considered public.
 // A private network address is either specific to the cloud or cloud subnet a
