@@ -433,10 +433,10 @@ func (a *StorageAPI) addOneStorage(ctx context.Context, one params.StorageAddPar
 			one.Directives.Pool,
 		)
 		switch {
-		case errors.Is(err, storageerrors.InvalidPoolNameError):
+		case errors.Is(err, storageerrors.StoragePoolNameInvalid):
 			return nil, errors.Errorf(
 				"invalid storage pool name %q", one.Directives.Pool).Add(coreerrors.NotValid)
-		case errors.Is(err, storageerrors.PoolNotFoundError):
+		case errors.Is(err, storageerrors.StoragePoolNotFound):
 			return nil, errors.Errorf(
 				"storage pool %q does not exist", one.Directives.Pool).Add(coreerrors.NotFound)
 		case err != nil:
@@ -478,7 +478,7 @@ func (a *StorageAPI) addOneStorage(ctx context.Context, one params.StorageAddPar
 	case errors.Is(err, applicationerrors.UnitNotFound):
 		return nil, errors.Errorf(
 			"unit %q does not exist", unitName).Add(coreerrors.NotFound)
-	case errors.Is(err, storageerrors.PoolNotFoundError):
+	case errors.Is(err, storageerrors.StoragePoolNotFound):
 		return nil, errors.Errorf(
 			"storage pool %q does not exist", one.Directives.Pool).Add(coreerrors.NotFound)
 	case errors.Is(err, corestorage.InvalidStorageName):
