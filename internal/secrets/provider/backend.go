@@ -17,7 +17,7 @@ type SecretsBackend interface {
 
 	// DeleteContent removes the specified content.
 	// It *must* return a NotFound error if the content does not exist.
-	// This is needed so that juju can handle the case where is secret
+	// This is needed so that juju can handle the case where a secret
 	// has been drained and added to a new active backend.
 	DeleteContent(_ context.Context, revisionId string) error
 }

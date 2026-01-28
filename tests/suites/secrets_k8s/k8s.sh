@@ -169,8 +169,6 @@ run_user_secrets() {
 
 	juju --show-log deploy snappass-test
 
-	wait_for "active" '.applications["hello-kubecon"] | ."application-status".current'
-
 	# create user secrets.
 	secret_uri=$(juju --show-log add-secret mysecret owned-by="$model_name-1" --info "this is a user secret")
 	secret_short_uri=${secret_uri##*:}
@@ -226,6 +224,8 @@ run_user_secrets() {
 
 	juju --show-log remove-secret $secret_uri
 	check_contains "$(juju --show-log secrets --format yaml | yq length)" '0'
+
+	attempt=0
 	until [[ -z $(microk8s kubectl -n "$model_name" get secrets -o json | jq -r '.items[].metadata.name | select(. == "'"${secret_short_uri}"'-1")') ]]; do
 		if [[ ${attempt} -ge 30 ]]; then
 			echo "Failed: user secret was not deleted."
