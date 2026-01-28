@@ -435,7 +435,7 @@ func (st *State) reconcileNetConfigAddresses(
 				// TODO (manadart 2025-04-29): Figure out what to do with
 				// loopback addresses before making
 				// ip_address.subnet_uuid NOT NULL.
-				st.logger.Warningf(ctx, "determining subnet: %v", err)
+				st.logger.Warningf(ctx, "no subnet found for IP %q", a.AddressValue)
 				addrsDML = append(addrsDML, addrDML)
 				continue
 			}
