@@ -42,7 +42,7 @@ func (s *storageDetachSuite) TestWithModelWritePermission(c *tc.C) {
 		Tag:         userTag,
 	}
 
-	storageAttachmentUUID := tc.Must(c, domainstorageprovisioning.NewStorageAttachmentUUID)
+	storageAttachmentUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	storageInstUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 
@@ -90,7 +90,7 @@ func (s *storageDetachSuite) TestWithModelAdminPermission(c *tc.C) {
 		Tag:      userTag,
 	}
 
-	storageAttachmentUUID := tc.Must(c, domainstorageprovisioning.NewStorageAttachmentUUID)
+	storageAttachmentUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	storageInstUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 
