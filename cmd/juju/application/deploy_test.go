@@ -166,7 +166,7 @@ func (s *DeploySuite) TestInvalidFileFormat(c *tc.C) {
 func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeries(c *tc.C) {
 	path := testcharms.RepoWithSeries("bionic").CharmArchivePath(c.MkDir(), "dummy-no-series")
 	err := s.runDeploy(c, path)
-	c.Assert(err, tc.ErrorMatches, ".*charm metadata without bases in manifest")
+	c.Assert(err, tc.ErrorMatches, ".*charm metadata without bases in manifest not valid")
 }
 
 func (s *DeploySuite) TestDeployFromPathRelativeDir(c *tc.C) {
