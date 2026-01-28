@@ -232,6 +232,189 @@ func (s *storagePoolStateSuite) TestReplaceStoragePoolNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, domainstorageerrors.StoragePoolNotFound)
 }
 
+// TestSetModelStoragePoolsEmptyArgs tests that supplying no arguments results
+// in a no-op with no error.
+func (s *storagePoolStateSuite) TestSetModelStoragePoolsEmptyArgs(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := c.Context()
+
+	err := st.SetModelStoragePools(ctx, nil)
+	c.Check(err, tc.ErrorIsNil)
+}
+
+// TestSetModelStoragePools tests that model storage pools are replaced with
+// the supplied recommended storage pools.
+func (s *storagePoolStateSuite) TestSetModelStoragePools(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := c.Context()
+
+	// Create storage pools first
+	uuid1 := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	uuid2 := tc.Must(c, domainstorage.NewStoragePoolUUID)
+
+	err := st.CreateStoragePool(ctx, domainstorageinternal.CreateStoragePool{
+		Name:         "pool-fs",
+		ProviderType: "ebs",
+		Origin:       domainstorage.StoragePoolOriginUser,
+		UUID:         uuid1,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.CreateStoragePool(ctx, domainstorageinternal.CreateStoragePool{
+		Name:         "pool-block",
+		ProviderType: "ebs",
+		Origin:       domainstorage.StoragePoolOriginUser,
+		UUID:         uuid2,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	args := []domainstorage.RecommendedStoragePoolArg{
+		{
+			StorageKind:     domainstorage.StorageKindFilesystem,
+			StoragePoolUUID: uuid1,
+		},
+		{
+			StorageKind:     domainstorage.StorageKindBlock,
+			StoragePoolUUID: uuid2,
+		},
+	}
+
+	err = st.SetModelStoragePools(ctx, args)
+	c.Assert(err, tc.ErrorIsNil)
+
+	modelStoragePools := s.getModelStoragePools(c)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(modelStoragePools, tc.SameContents, []dbModelStoragePool{
+		{
+			StoragePoolUUID: uuid2.String(),
+			StorageKindID:   int(domainstorage.StorageKindBlock),
+		},
+		{
+			StoragePoolUUID: uuid1.String(),
+			StorageKindID:   int(domainstorage.StorageKindFilesystem),
+		},
+	})
+}
+
+// TestSetModelStoragePoolsReplacesExisting tests that existing model storage
+// pools are deleted before inserting new ones.
+func (s *storagePoolStateSuite) TestSetModelStoragePoolsReplacesExisting(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := c.Context()
+
+	uuid1 := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	uuid2 := tc.Must(c, domainstorage.NewStoragePoolUUID)
+
+	for _, uuid := range []domainstorage.StoragePoolUUID{uuid1, uuid2} {
+		err := st.CreateStoragePool(ctx, domainstorageinternal.CreateStoragePool{
+			Name:         uuid.String(),
+			ProviderType: "ebs",
+			Origin:       domainstorage.StoragePoolOriginUser,
+			UUID:         uuid,
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	err := st.SetModelStoragePools(ctx, []domainstorage.RecommendedStoragePoolArg{
+		{
+			StorageKind:     domainstorage.StorageKindFilesystem,
+			StoragePoolUUID: uuid1,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.SetModelStoragePools(ctx, []domainstorage.RecommendedStoragePoolArg{
+		{
+			StorageKind:     domainstorage.StorageKindBlock,
+			StoragePoolUUID: uuid2,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	modelPools := s.getModelStoragePools(c)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(modelPools, tc.DeepEquals, []dbModelStoragePool{
+		{
+			StorageKindID:   int(domainstorage.StorageKindBlock),
+			StoragePoolUUID: uuid2.String(),
+		},
+	})
+}
+
+// TestSetModelStoragePoolsPoolNotFound tests that supplying a storage pool UUID
+// that does not exist returns [domainstorageerrors.StoragePoolNotFound].
+func (s *storagePoolStateSuite) TestSetModelStoragePoolsPoolNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := c.Context()
+
+	missingUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+
+	err := st.SetModelStoragePools(ctx, []domainstorage.RecommendedStoragePoolArg{
+		{
+			StorageKind:     domainstorage.StorageKindFilesystem,
+			StoragePoolUUID: missingUUID,
+		},
+	})
+	c.Check(err, tc.ErrorIs, domainstorageerrors.StoragePoolNotFound)
+}
+
+// TestSetModelStoragePoolsDeduplicatesUUIDs tests that duplicate storage pool
+// UUIDs do not cause existence checks to fail.
+func (s *storagePoolStateSuite) TestSetModelStoragePoolsDeduplicatesUUIDs(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := c.Context()
+
+	uuid := tc.Must(c, domainstorage.NewStoragePoolUUID)
+
+	err := st.CreateStoragePool(ctx, domainstorageinternal.CreateStoragePool{
+		Name:         "shared-pool",
+		ProviderType: "ebs",
+		Origin:       domainstorage.StoragePoolOriginUser,
+		UUID:         uuid,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.SetModelStoragePools(ctx, []domainstorage.RecommendedStoragePoolArg{
+		{
+			StorageKind:     domainstorage.StorageKindFilesystem,
+			StoragePoolUUID: uuid,
+		},
+		{
+			StorageKind: domainstorage.StorageKindBlock,
+			// This is a duplicate UUID.
+			StoragePoolUUID: uuid,
+		},
+	})
+	c.Check(err, tc.ErrorIsNil)
+}
+
+// getModelStoragePools is a helper method to fetch model storage pools from DB.
+func (s *storagePoolStateSuite) getModelStoragePools(
+	c *tc.C,
+) []dbModelStoragePool {
+	query := `
+SELECT storage_kind_id, storage_pool_uuid
+FROM model_storage_pool
+`
+	var result []dbModelStoragePool
+
+	rows, err := s.DB().Query(query)
+	c.Assert(err, tc.ErrorIsNil)
+	defer rows.Close()
+
+	for rows.Next() {
+		pool := dbModelStoragePool{}
+		err = rows.Scan(&pool.StorageKindID, &pool.StoragePoolUUID)
+		c.Assert(err, tc.ErrorIsNil)
+
+		result = append(result, pool)
+	}
+
+	return result
+}
+
 //func (s *storagePoolStateSuite) TestDeleteStoragePool(c *tc.C) {
 //	st := newStoragePoolState(s.TxnRunnerFactory())
 //
