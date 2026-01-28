@@ -71,7 +71,7 @@ type CreateIAASUnitStorageArg struct {
 // storage attachment.
 type CreateUnitStorageAttachmentArg struct {
 	// UUID is the unique identifier to associate with the storage attachment.
-	UUID domainstorageprov.StorageAttachmentUUID
+	UUID domainstorage.StorageAttachmentUUID
 
 	// FilesystemAttachment describes a filesystem to attach for the storage
 	// instance attachment.
@@ -264,7 +264,7 @@ type StorageInstanceComposition struct {
 // attachments this information is required.
 type StorageAttachmentComposition struct {
 	// UUID is the unique id of the storage attachment.
-	UUID domainstorageprov.StorageAttachmentUUID
+	UUID domainstorage.StorageAttachmentUUID
 
 	// StorageInstanceUUID is the unique id of the storage instance.
 	StorageInstanceUUID domainstorage.StorageInstanceUUID

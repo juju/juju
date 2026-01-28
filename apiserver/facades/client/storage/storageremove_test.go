@@ -12,7 +12,6 @@ import (
 
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -159,8 +158,8 @@ func (s *storageRemoveSuite) TestRemoveWithStorageAttachments(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
-	attachmentUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
-	attachmentUUIDS := []storageprovisioning.StorageAttachmentUUID{
+	attachmentUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
+	attachmentUUIDS := []domainstorage.StorageAttachmentUUID{
 		attachmentUUID,
 	}
 

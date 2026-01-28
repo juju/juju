@@ -14,8 +14,17 @@ import (
 // this domain.
 type baseUUID string
 
+// StorageAttachmentUUID represents the unique id for a storage attachment.
+type StorageAttachmentUUID baseUUID
+
 // StorageInstanceUUID uniquely identifies a storage instance in the model.
 type StorageInstanceUUID baseUUID
+
+// NewStorageAttachmentUUID creates a new, valid Storage Attachment identifier.
+func NewStorageAttachmentUUID() (StorageAttachmentUUID, error) {
+	u, err := newUUID()
+	return StorageAttachmentUUID(u), err
+}
 
 // NewStorageInstanceUUID creates a new, valid storage instance identifier.
 func NewStorageInstanceUUID() (StorageInstanceUUID, error) {
@@ -38,6 +47,12 @@ func (u baseUUID) String() string {
 	return string(u)
 }
 
+// String returns the string representation of this [StorageAttachmentUUID].
+// This function satisfies the [fmt.Stringer] interface.
+func (u StorageAttachmentUUID) String() string {
+	return baseUUID(u).String()
+}
+
 // String returns the string representation of this UUID. This function
 // satisfies the [fmt.Stringer] interface.
 func (u StorageInstanceUUID) String() string {
@@ -54,6 +69,11 @@ func (u baseUUID) validate() error {
 		return errors.Errorf("invalid uuid %q", u)
 	}
 	return nil
+}
+
+// Validate returns an error if the [StorageAttachmentUUID] is not valid.
+func (u StorageAttachmentUUID) Validate() error {
+	return baseUUID(u).validate()
 }
 
 // Validate returns an error if the [StorageInstanceUUID] is not valid.

@@ -947,7 +947,7 @@ func (c *MockStateGetStorageAttachmentIDsForUnitCall) DoAndReturn(f func(context
 }
 
 // GetStorageAttachmentInfo mocks base method.
-func (m *MockState) GetStorageAttachmentInfo(ctx context.Context, storageAttachmentUUID storageprovisioning.StorageAttachmentUUID) (storageprovisioning.StorageAttachmentInfo, error) {
+func (m *MockState) GetStorageAttachmentInfo(ctx context.Context, storageAttachmentUUID storage.StorageAttachmentUUID) (storageprovisioning.StorageAttachmentInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetStorageAttachmentInfo", ctx, storageAttachmentUUID)
 	ret0, _ := ret[0].(storageprovisioning.StorageAttachmentInfo)
@@ -974,13 +974,13 @@ func (c *MockStateGetStorageAttachmentInfoCall) Return(arg0 storageprovisioning.
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetStorageAttachmentInfoCall) Do(f func(context.Context, storageprovisioning.StorageAttachmentUUID) (storageprovisioning.StorageAttachmentInfo, error)) *MockStateGetStorageAttachmentInfoCall {
+func (c *MockStateGetStorageAttachmentInfoCall) Do(f func(context.Context, storage.StorageAttachmentUUID) (storageprovisioning.StorageAttachmentInfo, error)) *MockStateGetStorageAttachmentInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetStorageAttachmentInfoCall) DoAndReturn(f func(context.Context, storageprovisioning.StorageAttachmentUUID) (storageprovisioning.StorageAttachmentInfo, error)) *MockStateGetStorageAttachmentInfoCall {
+func (c *MockStateGetStorageAttachmentInfoCall) DoAndReturn(f func(context.Context, storage.StorageAttachmentUUID) (storageprovisioning.StorageAttachmentInfo, error)) *MockStateGetStorageAttachmentInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1064,10 +1064,10 @@ func (c *MockStateGetStorageAttachmentLifeForUnitCall) DoAndReturn(f func(contex
 }
 
 // GetStorageAttachmentUUIDForUnit mocks base method.
-func (m *MockState) GetStorageAttachmentUUIDForUnit(ctx context.Context, storageID string, unitUUID unit.UUID) (storageprovisioning.StorageAttachmentUUID, error) {
+func (m *MockState) GetStorageAttachmentUUIDForUnit(ctx context.Context, storageID string, unitUUID unit.UUID) (storage.StorageAttachmentUUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetStorageAttachmentUUIDForUnit", ctx, storageID, unitUUID)
-	ret0, _ := ret[0].(storageprovisioning.StorageAttachmentUUID)
+	ret0, _ := ret[0].(storage.StorageAttachmentUUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1085,19 +1085,19 @@ type MockStateGetStorageAttachmentUUIDForUnitCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetStorageAttachmentUUIDForUnitCall) Return(arg0 storageprovisioning.StorageAttachmentUUID, arg1 error) *MockStateGetStorageAttachmentUUIDForUnitCall {
+func (c *MockStateGetStorageAttachmentUUIDForUnitCall) Return(arg0 storage.StorageAttachmentUUID, arg1 error) *MockStateGetStorageAttachmentUUIDForUnitCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetStorageAttachmentUUIDForUnitCall) Do(f func(context.Context, string, unit.UUID) (storageprovisioning.StorageAttachmentUUID, error)) *MockStateGetStorageAttachmentUUIDForUnitCall {
+func (c *MockStateGetStorageAttachmentUUIDForUnitCall) Do(f func(context.Context, string, unit.UUID) (storage.StorageAttachmentUUID, error)) *MockStateGetStorageAttachmentUUIDForUnitCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetStorageAttachmentUUIDForUnitCall) DoAndReturn(f func(context.Context, string, unit.UUID) (storageprovisioning.StorageAttachmentUUID, error)) *MockStateGetStorageAttachmentUUIDForUnitCall {
+func (c *MockStateGetStorageAttachmentUUIDForUnitCall) DoAndReturn(f func(context.Context, string, unit.UUID) (storage.StorageAttachmentUUID, error)) *MockStateGetStorageAttachmentUUIDForUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

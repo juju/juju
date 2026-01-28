@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/resolve"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/environs/cloudspec"
@@ -584,7 +585,7 @@ type RemovalService interface {
 	// cascade removes the filesystem attachments, volume attachments and volume
 	// attachment plans.
 	MarkStorageAttachmentAsDead(
-		ctx context.Context, uuid storageprovisioning.StorageAttachmentUUID,
+		ctx context.Context, uuid domainstorage.StorageAttachmentUUID,
 	) error
 }
 
@@ -627,14 +628,14 @@ type StorageProvisioningService interface {
 	// the given storage attachment UUID.
 	GetUnitStorageAttachmentInfo(
 		ctx context.Context,
-		uuid storageprovisioning.StorageAttachmentUUID,
+		uuid domainstorage.StorageAttachmentUUID,
 	) (storageprovisioning.StorageAttachmentInfo, error)
 
 	// GetStorageAttachmentUUIDForUnit returns the UUID of the storage
 	// attachment for the given storage ID and unit UUID.
 	GetStorageAttachmentUUIDForUnit(
 		ctx context.Context, storageID string, unitUUID coreunit.UUID,
-	) (storageprovisioning.StorageAttachmentUUID, error)
+	) (domainstorage.StorageAttachmentUUID, error)
 
 	// WatchStorageAttachmentsForUnit returns a watcher that emits the storage
 	// IDs for the provided unit when the unit's storage attachments are
@@ -644,6 +645,6 @@ type StorageProvisioningService interface {
 	// WatchStorageAttachment returns a notification watcher for the storage
 	// attachment.
 	WatchStorageAttachment(
-		ctx context.Context, uuid storageprovisioning.StorageAttachmentUUID,
+		ctx context.Context, uuid domainstorage.StorageAttachmentUUID,
 	) (watcher.NotifyWatcher, error)
 }

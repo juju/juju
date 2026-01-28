@@ -105,7 +105,7 @@ func (s *machineSuite) TestRemoveMachineCascadeStorage(c *tc.C) {
 
 	mUUID := machinetesting.GenUUID(c)
 	siUUID := tc.Must(c, storage.NewStorageInstanceUUID)
-	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	saUUID := tc.Must(c, storage.NewStorageAttachmentUUID)
 	fsUUID := tc.Must(c, storageprovisioning.NewFilesystemUUID)
 	fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
 	volUUID := tc.Must(c, storage.NewVolumeUUID)
