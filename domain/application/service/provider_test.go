@@ -6,10 +6,10 @@ package service
 import (
 	"context"
 	"testing"
-	
+
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	
+
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/assumes"

@@ -71,7 +71,7 @@ type State interface {
 	// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the unit is not alive.
 	// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
 	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
-	// - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
+	// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded] when the requested storage falls outside of the bounds defined by the charm.
 	AddStorageForCAASUnit(
 		ctx context.Context, unitUUID coreunit.UUID,
 		storageArg internal.CreateUnitStorageArg,
@@ -87,7 +87,7 @@ type State interface {
 	// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the unit is not alive.
 	// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
 	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
-	// - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
+	// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded] when the requested storage falls outside of the bounds defined by the charm.
 	AddStorageForIAASUnit(
 		ctx context.Context, unitUUID coreunit.UUID,
 		storageArg internal.CreateUnitStorageArg, iaasStorageArgs internal.CreateIAASUnitStorageArg,
@@ -214,7 +214,7 @@ func (s *Service) AttachStorage(
 // - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the unit is not alive.
 // - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
 // - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
-// - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
+// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded] when the requested storage falls outside of the bounds defined by the charm.
 func (s *Service) AddStorageForIAASUnit(
 	ctx context.Context, storageName corestorage.Name,
 	unitUUID coreunit.UUID, netNodeUUID domainnetwork.NetNodeUUID, count uint32, arg AddUnitStorageOverride,
@@ -231,7 +231,7 @@ func (s *Service) AddStorageForIAASUnit(
 // - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the unit is not alive.
 // - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
 // - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
-// - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
+// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded] when the requested storage falls outside of the bounds defined by the charm.
 func (s *Service) AddStorageForCAASUnit(
 	ctx context.Context, storageName corestorage.Name,
 	unitUUID coreunit.UUID, netNodeUUID domainnetwork.NetNodeUUID, count uint32, arg AddUnitStorageOverride,

@@ -122,9 +122,9 @@ func (s *charmSuite) setupService(c *tc.C) *service.Service {
 		return s.ModelTxnRunner(), nil
 	}
 	modelUUID := model.UUID(s.ModelUUID())
-	
+
 	st := state.NewState(modelDB, modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c))
-	
+
 	storageProviderRegistryGetter := corestorage.ConstModelStorageRegistry(
 		func() internalstorage.ProviderRegistry {
 			return internalstorage.NotImplementedProviderRegistry{}

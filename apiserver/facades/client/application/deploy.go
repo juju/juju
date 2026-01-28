@@ -76,7 +76,7 @@ func handleApplicationDomainError(err error) error {
 		limitErr, _ := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
 		if limitErr.Requested < limitErr.Minimum {
 			return errors.Errorf(
-				"storage directive %q request count %d insufficient for the charms minimum count of %d",
+				"storage directive %q request count %d insufficient for the charm's minimum count of %d",
 				limitErr.StorageName, limitErr.Requested, limitErr.Minimum,
 			).Add(coreerrors.NotValid)
 		} else if limitErr.Maximum != nil && limitErr.Requested > *limitErr.Maximum {

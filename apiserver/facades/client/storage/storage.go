@@ -474,44 +474,44 @@ func (a *StorageAPI) addOneStorage(ctx context.Context, one params.StorageAddPar
 			ctx, corestorage.Name(one.StorageName), unitUUID, storageCount, args,
 		)
 	}
+	if err == nil {
+		return result, nil
+	}
+	err = handleApplicationDomainError(err, unitName, one)
+	return nil, errors.Capture(err)
+}
+
+// handleApplicationDomainError is a first low pass effort to start handling
+// some of the errors that will come out of the application domain. If a handler
+// does not exist then the original error will be returned.
+func handleApplicationDomainError(err error, unitName coreunit.Name, one params.StorageAddParams) error {
 	switch {
 	case errors.Is(err, applicationerrors.UnitNotFound):
-		return nil, errors.Errorf(
+		return errors.Errorf(
 			"unit %q does not exist", unitName).Add(coreerrors.NotFound)
 	case errors.Is(err, storageerrors.StoragePoolNotFound):
-		return nil, errors.Errorf(
+		return errors.Errorf(
 			"storage pool %q does not exist", one.Directives.Pool).Add(coreerrors.NotFound)
 	case errors.Is(err, corestorage.InvalidStorageName):
-		return nil, errors.Errorf("invalid storage name %q", one.StorageName).Add(
+		return errors.Errorf("invalid storage name %q", one.StorageName).Add(
 			coreerrors.NotValid,
 		)
 	case errors.Is(err, applicationerrors.StorageNameNotSupported):
-		return nil, errors.Errorf("storage name %q not supported by charm", one.StorageName).Add(
+		return errors.Errorf("storage name %q not supported by charm", one.StorageName).Add(
 			coreerrors.NotSupported,
 		)
-	// TODO - these storag errors will evolve to use StorageCountLimitExceeded etc
-	case errors.Is(err, applicationerrors.InvalidStorageCount):
-		count := uint64(0)
-		if one.Directives.Count != nil {
-			count = *one.Directives.Count
+		// When the supplied storage directive overrides violates the charm's
+		// storage.
+	case errors.HasType[applicationerrors.StorageCountLimitExceeded](err):
+		limitErr, _ := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
+		if limitErr.Maximum != nil && limitErr.Requested > *limitErr.Maximum {
+			return errors.Errorf(
+				"storage directive %q request count %d exceeds the charms maximum count of %d",
+				limitErr.StorageName, limitErr.Requested, *limitErr.Maximum,
+			).Add(coreerrors.NotValid)
 		}
-		return nil, errors.Errorf("storage count %d not valid for storage %q", count, one.StorageName).Add(
-			coreerrors.NotValid,
-		)
-	case errors.Is(err, applicationerrors.InvalidStorageSize):
-		size := uint64(0)
-		if one.Directives.SizeMiB != nil {
-			size = *one.Directives.SizeMiB
-		}
-		return nil, errors.Errorf("storage size %dMiB not valid for storage %q", size, one.StorageName).Add(
-			coreerrors.NotValid,
-		)
-	case err != nil:
-		return nil, errors.Errorf(
-			"adding storage %q to unit name %q: %w", one.StorageName, unitName, err,
-		)
 	}
-	return result, nil
+	return err
 }
 
 // Remove sets the specified storage entities to Dying, unless they are
