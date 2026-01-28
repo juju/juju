@@ -76,6 +76,13 @@ type StoragePoolState interface {
 	// - [storageerrors.PoolNotFoundError] if a pool with the specified UUID does not exist.
 	GetStoragePool(ctx context.Context, poolUUID domainstorage.StoragePoolUUID) (domainstorage.StoragePool, error)
 
+	// SetModelStoragePools replaces the model's recommended storage pools with the
+	// supplied set. All existing model storage pool mappings are removed before the
+	// new ones are inserted.
+	//
+	// If any referenced storage pool UUID does not exist in the model, this
+	// returns [domainstorageerrors.StoragePoolNotFound]. Supplying an empty slice
+	// results in a no-op.
 	SetModelStoragePools(ctx context.Context, pools []domainstorage.RecommendedStoragePoolArg) error
 }
 

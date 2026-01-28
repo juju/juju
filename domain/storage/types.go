@@ -62,11 +62,16 @@ type FilesystemInfo struct {
 	BackingVolume *storage.VolumeInfo
 }
 
+// RecommendedStoragePoolArg represents a recommended storage pool assignment
+// for the state layer to accept.
 type RecommendedStoragePoolArg struct {
 	StoragePoolUUID StoragePoolUUID
 	StorageKind     StorageKind
 }
 
+// RecommendedStoragePoolParams represents a recommended storage pool assignment
+// at the service layer boundary. It is accepted by services and translated into
+// state-layer arguments before being persisted.
 type RecommendedStoragePoolParams struct {
 	StoragePoolUUID StoragePoolUUID
 	StorageKind     StorageKind

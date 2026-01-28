@@ -7,11 +7,11 @@ import (
 	"testing"
 
 	"github.com/juju/description/v11"
-	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
 	corestorage "github.com/juju/juju/core/storage"
+	domainstorage "github.com/juju/juju/domain/storage"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 )

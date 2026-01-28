@@ -9,11 +9,11 @@ import (
 	"slices"
 
 	"github.com/canonical/sqlair"
-	internaldatabase "github.com/juju/juju/internal/database"
 
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	domainstorageinternal "github.com/juju/juju/domain/storage/internal"
+	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -664,6 +664,13 @@ WHERE storage_pool_uuid = $entityUUID.uuid
 	return retVal, nil
 }
 
+// SetModelStoragePools replaces the model's recommended storage pools with the
+// supplied set. All existing model storage pool mappings are removed before the
+// new ones are inserted.
+//
+// If any referenced storage pool UUID does not exist in the model, this
+// returns [domainstorageerrors.StoragePoolNotFound]. Supplying an empty slice
+// results in a no-op.
 func (st State) SetModelStoragePools(ctx context.Context, args []domainstorage.RecommendedStoragePoolArg) error {
 	if len(args) == 0 {
 		return nil

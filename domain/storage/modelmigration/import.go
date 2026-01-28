@@ -27,6 +27,8 @@ type Coordinator interface {
 	Add(modelmigration.Operation)
 }
 
+// ImportStoragePool represents a storage pool definition used when importing
+// storage pools into the model.
 type ImportStoragePool struct {
 	UUID   domainstorage.StoragePoolUUID
 	Name   string

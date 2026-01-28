@@ -20,6 +20,8 @@ type dbModelStoragePool struct {
 	StorageKindID   int    `db:"storage_kind_id"`
 }
 
+// dbAggregateCount is a type to store the result for counting the number of
+// rows returned by a select query.
 type dbAggregateCount struct {
 	Count int `db:"count"`
 }
