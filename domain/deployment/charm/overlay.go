@@ -459,14 +459,14 @@ func ReadAndMergeBundleData(sources ...BundleDataSource) (*BundleData, error) {
 			}
 			resolvedCharm, err := resolveRelativeCharmPath(basePath, appData.Charm)
 			if err != nil {
-				return nil, internalerrors.Errorf("resolving relative charm path %q for application %q: %w", err, appData.Charm, app)
+				return nil, internalerrors.Errorf("resolving relative charm path %q for application %q: %w", appData.Charm, app, err)
 			}
 			appData.Charm = resolvedCharm
 
 			for k, v := range appData.Options {
 				newV, changed, err := resolveIncludes(incResolver, v)
 				if err != nil {
-					return nil, internalerrors.Errorf("processing option %q for application %q: %w", err, k, app)
+					return nil, internalerrors.Errorf("processing option %q for application %q: %w", k, app, err)
 				}
 				if changed {
 					appData.Options[k] = newV
@@ -476,7 +476,7 @@ func ReadAndMergeBundleData(sources ...BundleDataSource) (*BundleData, error) {
 			for k, v := range appData.Annotations {
 				newV, changed, err := resolveIncludes(incResolver, v)
 				if err != nil {
-					return nil, internalerrors.Errorf("processing annotation %q for application %q: %w", err, k, app)
+					return nil, internalerrors.Errorf("processing annotation %q for application %q: %w", k, app, err)
 				}
 				if changed {
 					appData.Annotations[k] = newV
@@ -492,7 +492,7 @@ func ReadAndMergeBundleData(sources ...BundleDataSource) (*BundleData, error) {
 			for k, v := range machineData.Annotations {
 				newV, changed, err := resolveIncludes(incResolver, v)
 				if err != nil {
-					return nil, internalerrors.Errorf("processing annotation %q for machine %q: %w", err, k, machine)
+					return nil, internalerrors.Errorf("processing annotation %q for machine %q: %w", k, machine, err)
 				}
 				if changed {
 					machineData.Annotations[k] = newV
@@ -758,7 +758,7 @@ func resolveIncludes(includeResolver func(path string) ([]byte, error), v interf
 		path := val[len(dir.directive):]
 		data, err := includeResolver(path)
 		if err != nil {
-			return "", false, internalerrors.Errorf("resolving include %q: %w", err, path)
+			return "", false, internalerrors.Errorf("resolving include %q: %w", path, err)
 		}
 
 		return dir.encoder(data), true, nil

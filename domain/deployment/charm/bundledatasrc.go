@@ -146,7 +146,7 @@ func LocalBundleDataSource(path string) (BundleDataSource, error) {
 	if pErr == nil {
 		absPath, err := filepath.Abs(path)
 		if err != nil {
-			return nil, internalerrors.Errorf("resolve absolute path to %s: %w", err, path)
+			return nil, internalerrors.Errorf("resolve absolute path to %s: %w", path, err)
 		}
 		return &resolvedBundleDataSource{
 			basePath:    filepath.Dir(absPath),
@@ -208,7 +208,7 @@ func StreamBundleDataSource(r io.Reader, basePath string) (BundleDataSource, err
 	}
 	parts, err := parseBundleParts(b)
 	if err != nil {
-		return nil, internalerrors.Errorf("cannot unmarshal bundle contents: %v not valid", err).Add(coreerrors.NotValid)
+		return nil, internalerrors.Errorf("cannot unmarshal bundle contents: %w not valid", err).Add(coreerrors.NotValid)
 	}
 
 	return &resolvedBundleDataSource{parts: parts, bundleBytes: b, basePath: basePath}, nil
@@ -268,5 +268,5 @@ func userFriendlyUnmarshalErrors(err error) error {
 	friendlyText = strings.ReplaceAll(friendlyText, "type charm.RelationSpec", "relations")
 	friendlyText = strings.ReplaceAll(friendlyText, "type charm.MachineSpec", "machines")
 	friendlyText = strings.ReplaceAll(friendlyText, "type charm.SaasSpec", "saas")
-	return internalerrors.Errorf(friendlyText)
+	return internalerrors.New(friendlyText)
 }

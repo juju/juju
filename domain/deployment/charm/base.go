@@ -74,7 +74,7 @@ func ParseBase(s string, archs ...string) (Base, error) {
 		if len(base.Architectures) > 0 {
 			a = fmt.Sprintf(" with architectures %q", strings.Join(base.Architectures, ","))
 		}
-		return Base{}, internalerrors.Errorf("invalid base string %q%s: %w", s, a, err)
+		return Base{}, internalerrors.Errorf("invalid base string %q %s: %w", s, a, err)
 	}
 	return base, nil
 }

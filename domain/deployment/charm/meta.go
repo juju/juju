@@ -470,7 +470,7 @@ func (meta *Meta) UnmarshalYAML(f func(interface{}) error) error {
 
 	v, err := charmSchema.Coerce(raw, nil)
 	if err != nil {
-		return internalerrors.Errorf("metadata: " + err.Error())
+		return internalerrors.New("metadata: " + err.Error())
 	}
 
 	m := v.(map[string]interface{})
@@ -701,7 +701,7 @@ func (m Meta) Check(format Format, reasons ...FormatSelectionReason) error {
 	}
 
 	if err := validateMetaExtraBindings(m); err != nil {
-		return internalerrors.Errorf("charm %q has invalid extra bindings: %v", m.Name, err)
+		return internalerrors.Errorf("charm %q has invalid extra bindings: %w", m.Name, err)
 	}
 
 	// Subordinate charms must have at least one relation that
@@ -997,7 +997,7 @@ func parseContainers(input interface{}, resources map[string]resource.Meta, stor
 
 		container.Mounts, err = parseMounts(containerMap["mounts"], storage)
 		if err != nil {
-			return nil, internalerrors.Errorf("container %q: %w", err, name)
+			return nil, internalerrors.Errorf("container %q: %w", name, err)
 		}
 
 		if value, ok := containerMap["uid"]; ok {

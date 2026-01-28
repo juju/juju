@@ -624,25 +624,25 @@ func (c *CharmHubRepository) repositoryResources(ctx context.Context, id corecha
 		cfg, err = charmhub.DownloadOneFromChannel(ctx, origin.ID, origin.Channel.String(), refBase)
 		if err != nil {
 			c.logger.Errorf(ctx, "creating resources config for charm (%q, %q): %s", origin.ID, origin.Channel.String(), err)
-			return nil, internalerrors.Capture(err)
+			return nil, internalerrors.Errorf("creating resources config for charm %q: %w", curl.String(), err)
 		}
 	case origin.ID == "":
 		cfg, err = charmhub.DownloadOneFromChannelByName(ctx, curl.Name, origin.Channel.String(), refBase)
 		if err != nil {
 			c.logger.Errorf(ctx, "creating resources config for charm (%q, %q): %s", curl.Name, origin.Channel.String(), err)
-			return nil, internalerrors.Capture(err)
+			return nil, internalerrors.Errorf("creating resources config for charm %q: %w", curl.String(), err)
 		}
 	}
 	refreshResp, err := c.client.Refresh(ctx, cfg)
 	if err != nil {
-		return nil, internalerrors.Capture(err)
+		return nil, internalerrors.Errorf("refreshing resources for charm %q: %w", curl.String(), err)
 	}
 	if len(refreshResp) == 0 {
 		return nil, internalerrors.Errorf("no download refresh responses received")
 	}
 	resp := refreshResp[0]
 	if resp.Error != nil {
-		return nil, internalerrors.Capture(internalerrors.New(resp.Error.Message))
+		return nil, internalerrors.Errorf("listing resources for charm %q: %s", curl.String(), resp.Error.Message)
 	}
 	return resp.Entity.Resources, nil
 }
