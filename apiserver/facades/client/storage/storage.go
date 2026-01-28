@@ -74,6 +74,7 @@ type RemovalService interface {
 // StorageService defines apis on the storage service.
 type StorageService interface {
 	StoragePoolService
+	StorageImportService
 
 	// GetStorageAttachmentUUIDForStorageInstanceAndUnit returns the
 	// [storage.StorageAttachmentUUID] associated with the given storage
