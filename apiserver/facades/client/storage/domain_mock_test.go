@@ -705,6 +705,45 @@ func (m *MockStorageService) EXPECT() *MockStorageServiceMockRecorder {
 	return m.recorder
 }
 
+// AdoptFilesystem mocks base method.
+func (m *MockStorageService) AdoptFilesystem(arg0 context.Context, arg1 string, arg2 storage1.StoragePoolUUID, arg3 string, arg4 bool) (storage.ID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AdoptFilesystem", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(storage.ID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AdoptFilesystem indicates an expected call of AdoptFilesystem.
+func (mr *MockStorageServiceMockRecorder) AdoptFilesystem(arg0, arg1, arg2, arg3, arg4 any) *MockStorageServiceAdoptFilesystemCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AdoptFilesystem", reflect.TypeOf((*MockStorageService)(nil).AdoptFilesystem), arg0, arg1, arg2, arg3, arg4)
+	return &MockStorageServiceAdoptFilesystemCall{Call: call}
+}
+
+// MockStorageServiceAdoptFilesystemCall wrap *gomock.Call
+type MockStorageServiceAdoptFilesystemCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageServiceAdoptFilesystemCall) Return(arg0 storage.ID, arg1 error) *MockStorageServiceAdoptFilesystemCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageServiceAdoptFilesystemCall) Do(f func(context.Context, string, storage1.StoragePoolUUID, string, bool) (storage.ID, error)) *MockStorageServiceAdoptFilesystemCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageServiceAdoptFilesystemCall) DoAndReturn(f func(context.Context, string, storage1.StoragePoolUUID, string, bool) (storage.ID, error)) *MockStorageServiceAdoptFilesystemCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // CreateStoragePool mocks base method.
 func (m *MockStorageService) CreateStoragePool(arg0 context.Context, arg1 string, arg2 storage1.ProviderType, arg3 map[string]any) (storage1.StoragePoolUUID, error) {
 	m.ctrl.T.Helper()
