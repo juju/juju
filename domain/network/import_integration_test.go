@@ -42,7 +42,7 @@ type importSuite struct {
 	svc         *service.Service
 }
 
-func TestImportSubnetSuite(t *stdtesting.T) {
+func TestImportSuite(t *stdtesting.T) {
 	tc.Run(t, &importSuite{})
 }
 
@@ -65,6 +65,8 @@ func (s *importSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *importSuite) TestImportSpaces36(c *tc.C) {
+	s.setModel(c, "ec2", model.IAAS.String())
+
 	desc := description.NewModel(description.ModelArgs{
 		Type: string(model.IAAS),
 	})
@@ -107,6 +109,8 @@ func (s *importSuite) TestImportSpaces36(c *tc.C) {
 }
 
 func (s *importSuite) TestImportSpaces40(c *tc.C) {
+	s.setModel(c, "ec2", model.IAAS.String())
+
 	desc := description.NewModel(description.ModelArgs{
 		Type: string(model.IAAS),
 	})
@@ -152,6 +156,8 @@ func (s *importSuite) TestImportSpaces40(c *tc.C) {
 }
 
 func (s *importSuite) TestImportSpacesWithSubnets(c *tc.C) {
+	s.setModel(c, "ec2", model.IAAS.String())
+
 	desc := description.NewModel(description.ModelArgs{
 		Type: string(model.IAAS),
 	})
@@ -272,9 +278,109 @@ func (s *importSuite) TestImportSpacesWithSubnets(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(subnet3, tc.DeepEquals, &subnet3Info)
 }
+func (s *importSuite) TestImportSpacesWithSubnetsLXD(c *tc.C) {
+	s.setModel(c, "lxd", model.IAAS.String())
+
+	desc := description.NewModel(description.ModelArgs{
+		Type: string(model.IAAS),
+	})
+
+	space1UUID := tc.Must(c, network.NewSpaceUUID)
+	space2UUID := tc.Must(c, network.NewSpaceUUID)
+
+	subnet1UUID := tc.Must(c, domainnetwork.NewSubnetUUID)
+	subnet2UUID := tc.Must(c, domainnetwork.NewSubnetUUID)
+
+	desc.AddSpace(description.SpaceArgs{
+		UUID:       space1UUID.String(),
+		Name:       "space-one",
+		ProviderID: "space-provider-id-1",
+	})
+	desc.AddSpace(description.SpaceArgs{
+		UUID:       space2UUID.String(),
+		Name:       "space-two",
+		ProviderID: "space-provider-id-2",
+	})
+
+	desc.AddSubnet(description.SubnetArgs{
+		UUID:              subnet1UUID.String(),
+		CIDR:              "192.0.2.0/24",
+		ProviderNetworkId: "net-docker0",
+		ProviderId:        "subnet-docker0-192.0.2.0/24",
+		VLANTag:           42,
+		AvailabilityZones: []string{"az1"},
+		SpaceID:           space1UUID.String(),
+		SpaceName:         "space-one",
+		ProviderSpaceId:   "space-provider-id",
+	})
+	desc.AddSubnet(description.SubnetArgs{
+		UUID:              subnet2UUID.String(),
+		CIDR:              "192.0.3.0/24",
+		ProviderNetworkId: "net-lxdbr0",
+		ProviderId:        "subnet-lxdbr0-192.0.3.0/24",
+		VLANTag:           84,
+		AvailabilityZones: []string{"az2"},
+		SpaceID:           space2UUID.String(),
+		SpaceName:         "space-two",
+		ProviderSpaceId:   "space-provider-id-2",
+	})
+
+	networkmodelmigration.RegisterImportSubnets(s.coordinator, loggertesting.WrapCheckLog(c))
+	err := s.coordinator.Perform(c.Context(), s.scope, desc)
+	c.Assert(err, tc.ErrorIsNil)
+
+	subnet1Info := network.SubnetInfo{
+		ID:                network.Id(subnet1UUID.String()),
+		CIDR:              "192.0.2.0/24",
+		ProviderNetworkId: "docker0",
+		ProviderSpaceId:   network.Id("space-provider-id-1"),
+		VLANTag:           42,
+		AvailabilityZones: []string{"az1"},
+		SpaceID:           space1UUID,
+		SpaceName:         network.SpaceName("space-one"),
+	}
+	subnet2Info := network.SubnetInfo{
+		ID:                network.Id(subnet2UUID.String()),
+		CIDR:              "192.0.3.0/24",
+		ProviderNetworkId: "lxdbr0",
+		ProviderSpaceId:   network.Id("space-provider-id-2"),
+		VLANTag:           84,
+		AvailabilityZones: []string{"az2"},
+		SpaceID:           space2UUID,
+		SpaceName:         network.SpaceName("space-two"),
+	}
+
+	space1, err := s.svc.Space(c.Context(), space1UUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(space1.Name, tc.Equals, network.SpaceName("space-one"))
+	c.Check(space1.ProviderId, tc.Equals, network.Id("space-provider-id-1"))
+	c.Check(space1.ProviderId, tc.Equals, network.Id("space-provider-id-1"))
+	c.Check(space1.Subnets, tc.HasLen, 1)
+	c.Check(space1.Subnets[0], tc.DeepEquals, subnet1Info)
+
+	space2, err := s.svc.Space(c.Context(), space2UUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(space2.Name, tc.Equals, network.SpaceName("space-two"))
+	c.Check(space2.ProviderId, tc.Equals, network.Id("space-provider-id-2"))
+	c.Check(space2.ProviderId, tc.Equals, network.Id("space-provider-id-2"))
+	c.Check(space2.Subnets, tc.HasLen, 1)
+	c.Check(space2.Subnets[0], tc.DeepEquals, subnet2Info)
+
+	subnets, err := s.svc.GetAllSubnets(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets, tc.HasLen, 2)
+
+	subnet1, err := s.svc.Subnet(c.Context(), subnet1UUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(subnet1, tc.DeepEquals, &subnet1Info)
+
+	subnet2, err := s.svc.Subnet(c.Context(), subnet2UUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(subnet2, tc.DeepEquals, &subnet2Info)
+}
 
 func (s *importSuite) TestImportLinkLayerDevices(c *tc.C) {
-	s.setIAASModel(c)
+	s.setModel(c, "ec2", model.IAAS.String())
 
 	machineSvc := s.setupMachineService(c)
 	res, err := machineSvc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
@@ -319,7 +425,7 @@ func (s *importSuite) TestImportLinkLayerDevices(c *tc.C) {
 }
 
 func (s *importSuite) TestImportLinkLayerDevicesWithAddresses(c *tc.C) {
-	s.setIAASModel(c)
+	s.setModel(c, "ec2", model.IAAS.String())
 
 	machineSvc := s.setupMachineService(c)
 	res, err := machineSvc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
@@ -382,6 +488,87 @@ func (s *importSuite) TestImportLinkLayerDevicesWithAddresses(c *tc.C) {
 		MachineID:    res.MachineName.String(),
 		DeviceName:   "another-device",
 		ConfigMethod: string(network.ConfigDHCP),
+	})
+
+	networkmodelmigration.RegisterLinkLayerDevicesImport(s.coordinator, loggertesting.WrapCheckLog(c))
+	err = s.coordinator.Perform(c.Context(), s.scope, desc)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.checkLinkLayerDeviceExistsOnMachine(c, res.MachineName, "test-device")
+	s.checkLinkLayerDeviceExistsOnMachine(c, res.MachineName, "another-device")
+
+	s.checkAddressExistsForDeviceOnMachine(c, res.MachineName, "test-device", "192.168.0.1/24")
+	s.checkAddressExistsForDeviceOnMachine(c, res.MachineName, "another-device", "2001:db8::1/64")
+}
+
+func (s *importSuite) TestImportLinkLayerDevicesWithAddressesLXD(c *tc.C) {
+	s.setModel(c, "lxd", model.IAAS.String())
+
+	machineSvc := s.setupMachineService(c)
+	res, err := machineSvc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.svc.AddSubnet(c.Context(), network.SubnetInfo{
+		CIDR: "192.168.0.0/24",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.svc.AddSubnet(c.Context(), network.SubnetInfo{
+		CIDR: "2001:db8::/64",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	desc := description.NewModel(description.ModelArgs{
+		Type: string(model.IAAS),
+	})
+
+	desc.AddLinkLayerDevice(description.LinkLayerDeviceArgs{
+		Name:        "test-device",
+		MTU:         1500,
+		ProviderID:  "net-lxdbr0",
+		MachineID:   res.MachineName.String(),
+		Type:        "ethernet",
+		MACAddress:  "00:16:3e:ad:4e:01",
+		IsAutoStart: true,
+		IsUp:        true,
+	})
+	desc.AddLinkLayerDevice(description.LinkLayerDeviceArgs{
+		Name:        "another-device",
+		MTU:         900,
+		ProviderID:  "net-bridge0",
+		MachineID:   res.MachineName.String(),
+		Type:        "bridge",
+		MACAddress:  "00:16:3e:ad:4e:02",
+		IsAutoStart: false,
+		IsUp:        false,
+	})
+
+	desc.AddIPAddress(description.IPAddressArgs{
+		ProviderID:        "ip-address-1",
+		Value:             "192.168.0.1",
+		SubnetCIDR:        "192.168.0.0/24",
+		ProviderNetworkID: "net-lxdbr0",
+		ProviderSubnetID:  "subnet--192.168.0.0/24",
+		Origin:            "machine",
+		MachineID:         res.MachineName.String(),
+		DeviceName:        "test-device",
+		ConfigMethod:      string(network.ConfigStatic),
+	})
+	desc.AddIPAddress(description.IPAddressArgs{
+		ProviderID:        "ip-address-2",
+		Value:             "2001:db8::1",
+		SubnetCIDR:        "2001:db8::/64",
+		ProviderNetworkID: "net-docker0",
+		ProviderSubnetID:  "subnet--2001:db8::/64",
+		Origin:            "provider",
+		MachineID:         res.MachineName.String(),
+		DeviceName:        "another-device",
+		ConfigMethod:      string(network.ConfigDHCP),
 	})
 
 	networkmodelmigration.RegisterLinkLayerDevicesImport(s.coordinator, loggertesting.WrapCheckLog(c))
@@ -465,12 +652,12 @@ func (s *importSuite) setupMachineService(c *tc.C) *machineservice.ProviderServi
 	)
 }
 
-func (s *importSuite) setIAASModel(c *tc.C) {
+func (s *importSuite) setModel(c *tc.C, cloudType, modelType string) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "prod",  "iaas", "test-model", "ec2")
-		`, s.ModelUUID(), testing.ControllerTag.Id())
+			VALUES (?, ?, "test", "prod",  ?, "test-model", ?)
+		`, s.ModelUUID(), testing.ControllerTag.Id(), modelType, cloudType)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

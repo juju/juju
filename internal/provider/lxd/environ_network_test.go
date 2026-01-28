@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	lxdapi "github.com/canonical/lxd/shared/api"
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/provider/lxd"
 )
 
@@ -100,19 +100,20 @@ func (s *environNetSuite) TestSubnetsForClustered(c *tc.C) {
 	expSubnets := []network.SubnetInfo{
 		{
 			CIDR:              "10.55.158.0/24",
-			ProviderId:        "subnet-lxdbr0-10.55.158.0/24",
-			ProviderNetworkId: "net-lxdbr0",
+			ProviderId:        "10.55.158.0/24",
+			ProviderNetworkId: "lxdbr0",
 			AvailabilityZones: []string{"server0", "server1", "server2"},
 		},
 		{
 			CIDR:              "10.42.42.0/24",
-			ProviderId:        "subnet-lxdbr0-10.42.42.0/24",
-			ProviderNetworkId: "net-lxdbr0",
+			ProviderId:        "10.42.42.0/24",
+			ProviderNetworkId: "lxdbr0",
 			AvailabilityZones: []string{"server0", "server1", "server2"},
 		},
 	}
 	c.Assert(subnets, tc.DeepEquals, expSubnets)
 }
+
 func (s *environNetSuite) TestSubnetsForSubnetFiltering(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -155,14 +156,14 @@ func (s *environNetSuite) TestSubnetsForSubnetFiltering(c *tc.C) {
 
 	// Filter list so we only get a single subnet
 	ctx := c.Context()
-	subnets, err := env.Subnets(ctx, []network.Id{"subnet-lxdbr0-10.55.158.0/24"})
+	subnets, err := env.Subnets(ctx, []network.Id{"10.55.158.0/24"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	expSubnets := []network.SubnetInfo{
 		{
 			CIDR:              "10.55.158.0/24",
-			ProviderId:        "subnet-lxdbr0-10.55.158.0/24",
-			ProviderNetworkId: "net-lxdbr0",
+			ProviderId:        "10.55.158.0/24",
+			ProviderNetworkId: "lxdbr0",
 			AvailabilityZones: []string{"locutus"},
 		},
 	}
@@ -174,20 +175,6 @@ func (s *environNetSuite) TestNetworkInterfaces(c *tc.C) {
 	defer ctrl.Finish()
 
 	srv := lxd.NewMockServer(ctrl)
-	srv.EXPECT().GetInstance("woot").Return(&lxdapi.Instance{
-		ExpandedDevices: map[string]map[string]string{
-			"eth0": {
-				"name":    "eth0",
-				"network": "lxdbr0",
-				"type":    "nic",
-			},
-			"eth1": {
-				"name":    "eth1",
-				"network": "ovsbr0",
-				"type":    "nic",
-			},
-		},
-	}, "etag", nil)
 	srv.EXPECT().GetInstanceState("woot").Return(&lxdapi.InstanceState{
 		Network: map[string]lxdapi.InstanceStateNetwork{
 			"eth0": {
@@ -251,30 +238,28 @@ func (s *environNetSuite) TestNetworkInterfaces(c *tc.C) {
 	expInfos := []network.InterfaceInfos{
 		{
 			{
-				DeviceIndex:         0,
-				MACAddress:          "00:16:3e:19:29:cb",
-				MTU:                 1500,
-				InterfaceName:       "eth0",
-				ParentInterfaceName: "lxdbr0",
-				InterfaceType:       network.EthernetDevice,
-				Origin:              network.OriginProvider,
-				ProviderId:          "nic-00:16:3e:19:29:cb",
+				DeviceIndex:   0,
+				MACAddress:    "00:16:3e:19:29:cb",
+				MTU:           1500,
+				InterfaceName: "eth0",
+				//ParentInterfaceName: "lxdbr0",
+				InterfaceType: network.EthernetDevice,
+				Origin:        network.OriginProvider,
 				Addresses: network.ProviderAddresses{network.NewMachineAddress(
 					"10.55.158.99", network.WithCIDR("10.55.158.0/24"), network.WithConfigType(network.ConfigStatic),
-				).AsProviderAddress(network.WithProviderSubnetID("subnet-lxdbr0-10.55.158.0/24"))},
+				).AsProviderAddress()},
 			},
 			{
-				DeviceIndex:         1,
-				MACAddress:          "00:16:3e:fe:fe:fe",
-				MTU:                 1500,
-				InterfaceName:       "eth1",
-				ParentInterfaceName: "ovsbr0",
-				InterfaceType:       network.EthernetDevice,
-				Origin:              network.OriginProvider,
-				ProviderId:          "nic-00:16:3e:fe:fe:fe",
+				DeviceIndex:   1,
+				MACAddress:    "00:16:3e:fe:fe:fe",
+				MTU:           1500,
+				InterfaceName: "eth1",
+				//ParentInterfaceName: "ovsbr0",
+				InterfaceType: network.EthernetDevice,
+				Origin:        network.OriginProvider,
 				Addresses: network.ProviderAddresses{network.NewMachineAddress(
 					"10.42.42.99", network.WithCIDR("10.42.42.0/24"), network.WithConfigType(network.ConfigStatic),
-				).AsProviderAddress(network.WithProviderSubnetID("subnet-ovsbr0-10.42.42.0/24"))},
+				).AsProviderAddress()},
 			},
 		},
 	}
@@ -286,16 +271,7 @@ func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *tc.C) {
 	defer ctrl.Finish()
 
 	srv := lxd.NewMockServer(ctrl)
-	srv.EXPECT().GetInstance("woot").Return(&lxdapi.Instance{
-		ExpandedDevices: map[string]map[string]string{
-			"eth0": {
-				"name":    "eth0",
-				"network": "lxdbr0",
-				"type":    "nic",
-			},
-		},
-	}, "etag", nil)
-	srv.EXPECT().GetInstance("unknown").Return(nil, "", errors.New("not found"))
+	srv.EXPECT().GetInstanceState("unknown").Return(nil, "", errors.New("not found"))
 	srv.EXPECT().GetInstanceState("woot").Return(&lxdapi.InstanceState{
 		Network: map[string]lxdapi.InstanceStateNetwork{
 			"eth0": {
@@ -325,17 +301,16 @@ func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *tc.C) {
 	expInfos := []network.InterfaceInfos{
 		{
 			{
-				DeviceIndex:         0,
-				MACAddress:          "00:16:3e:19:29:cb",
-				MTU:                 1500,
-				InterfaceName:       "eth0",
-				ParentInterfaceName: "lxdbr0",
-				InterfaceType:       network.EthernetDevice,
-				Origin:              network.OriginProvider,
-				ProviderId:          "nic-00:16:3e:19:29:cb",
+				DeviceIndex:   0,
+				MACAddress:    "00:16:3e:19:29:cb",
+				MTU:           1500,
+				InterfaceName: "eth0",
+				//ParentInterfaceName: "lxdbr0",
+				InterfaceType: network.EthernetDevice,
+				Origin:        network.OriginProvider,
 				Addresses: network.ProviderAddresses{network.NewMachineAddress(
 					"10.55.158.99", network.WithCIDR("10.55.158.0/24"), network.WithConfigType(network.ConfigStatic),
-				).AsProviderAddress(network.WithProviderSubnetID("subnet-lxdbr0-10.55.158.0/24"))},
+				).AsProviderAddress()},
 			},
 		},
 		nil, // slot for second instance is nil as the container was not found
@@ -348,8 +323,8 @@ func (s *environNetSuite) TestNetworkInterfacesNoResults(c *tc.C) {
 	defer ctrl.Finish()
 
 	srv := lxd.NewMockServer(ctrl)
-	srv.EXPECT().GetInstance("unknown1").Return(nil, "", errors.New("not found"))
-	srv.EXPECT().GetInstance("unknown2").Return(nil, "", errors.New("not found"))
+	srv.EXPECT().GetInstanceState("unknown1").Return(nil, "", errors.New("not found"))
+	srv.EXPECT().GetInstanceState("unknown2").Return(nil, "", errors.New("not found"))
 
 	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
 

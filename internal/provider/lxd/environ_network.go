@@ -49,8 +49,8 @@ func (e *environ) Subnets(ctx context.Context, subnetIDs []network.Id) ([]networ
 	}
 
 	var (
-		subnets         []network.SubnetInfo
-		uniqueSubnetIDs = set.NewStrings()
+		subnets       []network.SubnetInfo
+		uniqueSubnets = set.NewStrings()
 	)
 	for _, networkDetails := range networks {
 		if networkDetails.Type != "bridge" {
@@ -77,45 +77,31 @@ func (e *environ) Subnets(ctx context.Context, subnetIDs []network.Id) ([]networ
 				continue
 			}
 
-			subnetID, cidr, err := makeSubnetIDForNetwork(networkName, stateAddr.Address, stateAddr.Netmask)
+			_, netCIDR, err := net.ParseCIDR(fmt.Sprintf("%s/%s", stateAddr.Address, stateAddr.Netmask))
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Annotatef(err, "calculating CIDR for  %q", stateAddr.Address)
+			}
+			cidr := netCIDR.String()
+
+			if uniqueSubnets.Contains(cidr) {
+				continue
+			} else if keepList != nil && !keepList.Contains(cidr) {
+				continue
 			}
 
-			if uniqueSubnetIDs.Contains(subnetID) {
-				continue
-			} else if keepList != nil && !keepList.Contains(subnetID) {
-				continue
-			}
-
-			uniqueSubnetIDs.Add(subnetID)
-			subnets = append(subnets, makeSubnetInfo(network.Id(subnetID), makeNetworkID(networkName), cidr, availabilityZones))
+			uniqueSubnets.Add(cidr)
+			subnets = append(subnets, makeSubnetInfo(cidr, networkName, availabilityZones))
 		}
 	}
 
 	return subnets, nil
 }
 
-func makeNetworkID(networkName string) network.Id {
-	return network.Id(fmt.Sprintf("net-%s", networkName))
-}
-
-func makeSubnetIDForNetwork(networkName, address, mask string) (string, string, error) {
-	_, netCIDR, err := net.ParseCIDR(fmt.Sprintf("%s/%s", address, mask))
-	if err != nil {
-		return "", "", errors.Annotatef(err, "calculating CIDR for network %q", networkName)
-	}
-
-	cidr := netCIDR.String()
-	subnetID := fmt.Sprintf("subnet-%s-%s", networkName, cidr)
-	return subnetID, cidr, nil
-}
-
-func makeSubnetInfo(subnetID network.Id, networkID network.Id, cidr string, availabilityZones network.AvailabilityZones) network.SubnetInfo {
+func makeSubnetInfo(cidr, networkName string, availabilityZones network.AvailabilityZones) network.SubnetInfo {
 	azNames := transform.Slice(availabilityZones, func(az network.AvailabilityZone) string { return az.Name() })
 	return network.SubnetInfo{
-		ProviderId:        subnetID,
-		ProviderNetworkId: networkID,
+		ProviderId:        network.Id(cidr),
+		ProviderNetworkId: network.Id(networkName),
 		CIDR:              cidr,
 		VLANTag:           0,
 		AvailabilityZones: azNames,
@@ -135,9 +121,9 @@ func (e *environ) NetworkInterfaces(_ context.Context, ids []instance.Id) ([]net
 	)
 
 	for instIdx, id := range ids {
-		container, state, err := getContainerDetails(srv, string(id))
+		state, _, err := srv.GetInstanceState(string(id))
 		if err != nil {
-			if errors.Is(err, errors.NotFound) {
+			if isErrNotFound(err) {
 				missing++
 				continue
 			}
@@ -148,22 +134,22 @@ func (e *environ) NetworkInterfaces(_ context.Context, ids []instance.Id) ([]net
 
 		// Sort interfaces by name to ensure consistent device indexes
 		// across calls when we iterate the container's network map.
-		guestNetworkNames := make([]string, 0, len(state.Network))
+		interfaceNames := make([]string, 0, len(state.Network))
 		for net := range state.Network {
-			guestNetworkNames = append(guestNetworkNames, net)
+			interfaceNames = append(interfaceNames, net)
 		}
-		sort.Strings(guestNetworkNames)
+		sort.Strings(interfaceNames)
 
 		var devIdx int
-		for _, guestNetworkName := range guestNetworkNames {
-			netInfo := state.Network[guestNetworkName]
+		for _, interfaceName := range interfaceNames {
+			netInfo := state.Network[interfaceName]
 
 			// Ignore loopback devices
 			if detectInterfaceType(netInfo.Type) == network.LoopbackDevice {
 				continue
 			}
 
-			ni, err := makeInterfaceInfo(container, guestNetworkName, netInfo)
+			ni, err := makeInterfaceInfo(interfaceName, netInfo)
 			if err != nil {
 				return nil, errors.Annotatef(err, "retrieving network interface info for instance %q", id)
 			} else if len(ni.Addresses) == 0 {
@@ -187,15 +173,13 @@ func (e *environ) NetworkInterfaces(_ context.Context, ids []instance.Id) ([]net
 	return res, nil
 }
 
-func makeInterfaceInfo(container *lxdapi.Instance, guestNetworkName string, netInfo lxdapi.InstanceStateNetwork) (network.InterfaceInfo, error) {
+func makeInterfaceInfo(interfaceName string, netInfo lxdapi.InstanceStateNetwork) (network.InterfaceInfo, error) {
 	var ni = network.InterfaceInfo{
-		MACAddress:          netInfo.Hwaddr,
-		MTU:                 netInfo.Mtu,
-		InterfaceName:       guestNetworkName,
-		ParentInterfaceName: hostNetworkForGuestNetwork(container, guestNetworkName),
-		InterfaceType:       detectInterfaceType(netInfo.Type),
-		Origin:              network.OriginProvider,
-		ProviderId:          network.Id(fmt.Sprintf("nic-%s", netInfo.Hwaddr)),
+		MACAddress:    netInfo.Hwaddr,
+		MTU:           netInfo.Mtu,
+		InterfaceName: interfaceName,
+		InterfaceType: detectInterfaceType(netInfo.Type),
+		Origin:        network.OriginProvider,
 	}
 
 	// We cannot tell from the API response whether the
@@ -216,16 +200,14 @@ func makeInterfaceInfo(container *lxdapi.Instance, guestNetworkName string, netI
 			continue
 		}
 
-		// Use the parent bridge name to match the subnet IDs reported
-		// by the Subnets() method.
-		subnetID, cidr, err := makeSubnetIDForNetwork(ni.ParentInterfaceName, addr.Address, addr.Netmask)
+		_, netCIDR, err := net.ParseCIDR(fmt.Sprintf("%s/%s", addr.Address, addr.Netmask))
 		if err != nil {
-			return network.InterfaceInfo{}, errors.Trace(err)
+			return network.InterfaceInfo{}, errors.Annotatef(err, "calculating CIDR for interface %q", interfaceName)
 		}
 
+		cidr := netCIDR.String()
 		netAddr.CIDR = cidr
 		netAddr.ConfigType = configType
-		netAddr.ProviderSubnetID = network.Id(subnetID)
 		ni.Addresses = append(ni.Addresses, netAddr)
 	}
 
@@ -243,43 +225,6 @@ func detectInterfaceType(lxdIfaceType string) network.LinkLayerDeviceType {
 	default:
 		return network.UnknownDevice
 	}
-}
-
-func hostNetworkForGuestNetwork(container *lxdapi.Instance, guestNetwork string) string {
-	if container.ExpandedDevices == nil {
-		return ""
-	}
-	devInfo, found := container.ExpandedDevices[guestNetwork]
-	if !found {
-		return ""
-	}
-
-	if name, found := devInfo["network"]; found { // lxd 4+
-		return name
-	} else if name, found := devInfo["parent"]; found { // lxd 3
-		return name
-	}
-	return ""
-}
-
-func getContainerDetails(srv Server, containerID string) (*lxdapi.Instance, *lxdapi.InstanceState, error) {
-	cont, _, err := srv.GetInstance(containerID)
-	if err != nil {
-		if isErrNotFound(err) {
-			return nil, nil, errors.NotFoundf("container %q", containerID)
-		}
-		return nil, nil, errors.Trace(err)
-	}
-
-	state, _, err := srv.GetInstanceState(containerID)
-	if err != nil {
-		if isErrNotFound(err) {
-			return nil, nil, errors.NotFoundf("container %q", containerID)
-		}
-		return nil, nil, errors.Trace(err)
-	}
-
-	return cont, state, nil
 }
 
 // isErrNotFound returns true if the LXD server returned back a "not found" error.
