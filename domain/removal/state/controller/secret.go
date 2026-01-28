@@ -353,6 +353,10 @@ func (rows secretBackendRows) toSecretBackends(ctx context.Context, logger logge
 
 // decodeConfigValue decodes the stored JSON string into an any value.
 func decodeConfigValue(storedStr string) (any, error) {
+	if storedStr == "" {
+		return nil, nil
+	}
+
 	var value any
 	err := json.Unmarshal([]byte(storedStr), &value)
 	if err != nil {

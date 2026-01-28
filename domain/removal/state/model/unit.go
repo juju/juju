@@ -5,6 +5,7 @@ package model
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
+	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -832,4 +834,55 @@ WHERE  uuid = $entityUUID.uuid`, appID)
 		return "", errors.Errorf("running charm UUID query: %w", err)
 	}
 	return result.UUID, nil
+}
+
+// IsUnitInErrorState returns whether the unit identified by the unit name
+// is in an error state.
+func (st *State) IsUnitInErrorState(ctx context.Context, name string) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	unitUUID := name{Name: uuid.String()}
+	getUnitStatusStmt, err := st.Prepare(`
+SELECT &presentStatusInfo.*
+FROM v_unit_workload_status
+WHERE unit_uuid = $unitUUID.uuid;
+`, presentStatusInfo{}, unitUUID)
+	if err != nil {
+		return status.UnitStatusInfo[status.WorkloadStatusType]{}, errors.Capture(err)
+	}
+
+	var unitStatusInfo presentStatusInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.checkUnitNotDead(ctx, tx, unitUUID)
+		if err != nil {
+			return errors.Errorf("checking unit %q exists: %w", uuid, err)
+		}
+
+		err = tx.Query(ctx, getUnitStatusStmt, unitUUID).Get(&unitStatusInfo)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("workload status for unit %q not found", unitUUID).Add(statuserrors.UnitStatusNotFound)
+		}
+		return err
+	})
+	if err != nil {
+		return status.UnitStatusInfo[status.WorkloadStatusType]{}, errors.Errorf("getting workload status for unit %q: %w", uuid, err)
+	}
+
+	statusID, err := status.DecodeWorkloadStatus(unitStatusInfo.StatusID)
+	if err != nil {
+		return status.UnitStatusInfo[status.WorkloadStatusType]{}, errors.Errorf("decoding workload status ID for unit %q: %w", uuid, err)
+	}
+
+	return status.UnitStatusInfo[status.WorkloadStatusType]{
+		StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
+			Status:  statusID,
+			Message: unitStatusInfo.Message,
+			Data:    unitStatusInfo.Data,
+			Since:   unitStatusInfo.UpdatedAt,
+		},
+		Present: unitStatusInfo.Present,
+	}, nil
 }

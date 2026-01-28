@@ -60,9 +60,13 @@ type UnitState interface {
 	// MarkUnitAsDead marks the unit with the input UUID as dead.
 	MarkUnitAsDead(ctx context.Context, unitUUID string) error
 
-	// GetCharmForUnit returns the charm UUID for the unit with the input unit UUID.
-	// If the unit does not exist, it returns an empty string.
+	// GetCharmForUnit returns the charm UUID for the unit with the input unit
+	// UUID. If the unit does not exist, it returns an empty string.
 	GetCharmForUnit(ctx context.Context, unitUUID string) (string, error)
+
+	// IsUnitInErrorState returns true if the unit with the input name
+	// is in an error state.
+	IsUnitInErrorState(ctx context.Context, unitName string) (bool, error)
 }
 
 // RemoveUnit checks if a unit with the input name exists.
