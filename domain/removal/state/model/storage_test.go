@@ -1646,7 +1646,7 @@ VALUES (?, ?)
 		)
 		c.Assert(err, tc.ErrorIsNil)
 
-		fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+		fsaUUID := tc.Must(c, storage.NewFilesystemAttachmentUUID)
 		_, err = s.DB().ExecContext(
 			ctx,
 			`

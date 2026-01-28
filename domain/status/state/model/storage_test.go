@@ -881,7 +881,7 @@ func (s *storageStatusSuite) changeFilesystemInfo(
 
 func (s *storageStatusSuite) changeFilesystemAttachmentInfo(
 	c *tc.C,
-	uuid storageprovisioning.FilesystemAttachmentUUID,
+	uuid storage.FilesystemAttachmentUUID,
 	mountPoint string,
 	readOnly bool,
 ) {
@@ -901,8 +901,8 @@ func (s *storageStatusSuite) newFilesystemAttachment(
 	c *tc.C,
 	fsUUID storageprovisioning.FilesystemUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
-) storageprovisioning.FilesystemAttachmentUUID {
-	attachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
+) storage.FilesystemAttachmentUUID {
+	attachmentUUID := tc.Must(c, storage.NewFilesystemAttachmentUUID)
 
 	_, err := s.DB().Exec(`
 INSERT INTO storage_filesystem_attachment (uuid,

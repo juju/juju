@@ -318,13 +318,13 @@ func (s *Service) RemoveStorageAttachment(
 		a := *cascade.FilesystemAttachmentUUID
 		if force && wait > 0 {
 			if _, err := s.filesystemAttachmentScheduleRemoval(
-				ctx, storageprovisioning.FilesystemAttachmentUUID(a), false, 0,
+				ctx, storage.FilesystemAttachmentUUID(a), false, 0,
 			); err != nil {
 				return "", errors.Capture(err)
 			}
 		}
 		if _, err := s.filesystemAttachmentScheduleRemoval(
-			ctx, storageprovisioning.FilesystemAttachmentUUID(a), force, wait,
+			ctx, storage.FilesystemAttachmentUUID(a), force, wait,
 		); err != nil {
 			return "", errors.Capture(err)
 		}
@@ -483,7 +483,7 @@ func (s *Service) processStorageAttachmentRemovalJob(ctx context.Context, job re
 		// them here, since these entities just went to Dying.
 
 		for _, fsaUUID := range cascade.FileSystemAttachmentUUIDs {
-			uuid := storageprovisioning.FilesystemAttachmentUUID(fsaUUID)
+			uuid := storage.FilesystemAttachmentUUID(fsaUUID)
 			_, err := s.filesystemAttachmentScheduleRemoval(ctx, uuid, false, 0)
 			if err != nil {
 				return errors.Errorf(
@@ -584,7 +584,7 @@ func (s *Service) MarkStorageAttachmentAsDead(
 	// them here, since these entities just went to Dying.
 
 	for _, fsaUUID := range cascade.FileSystemAttachmentUUIDs {
-		uuid := storageprovisioning.FilesystemAttachmentUUID(fsaUUID)
+		uuid := storage.FilesystemAttachmentUUID(fsaUUID)
 		_, err := s.filesystemAttachmentScheduleRemoval(ctx, uuid, false, 0)
 		if err != nil {
 			return errors.Errorf(
@@ -769,7 +769,7 @@ func (s *Service) processStorageInstanceRemovalJob(
 // attachment is not found.
 // - [removalerrors.EntityStillAlive] if the filesystem attachment is alive.
 func (s *Service) MarkFilesystemAttachmentAsDead(
-	ctx context.Context, uuid storageprovisioning.FilesystemAttachmentUUID,
+	ctx context.Context, uuid storage.FilesystemAttachmentUUID,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -1136,7 +1136,7 @@ func (s *Service) processStorageVolumeRemovalJob(
 
 func (s *Service) filesystemAttachmentScheduleRemoval(
 	ctx context.Context,
-	fsaUUID storageprovisioning.FilesystemAttachmentUUID,
+	fsaUUID storage.FilesystemAttachmentUUID,
 	force bool, wait time.Duration,
 ) (removal.UUID, error) {
 	jobUUID, err := removal.NewUUID()

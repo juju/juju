@@ -17,14 +17,6 @@ func GenFilesystemUUID(c *tc.C) storageprovisioning.FilesystemUUID {
 	return uuid
 }
 
-// GenFilesystemAttachmentUUID generates a new
-// [storageprovisioning.FilesystemAttachmentUUID] for testing purposes.
-func GenFilesystemAttachmentUUID(c *tc.C) storageprovisioning.FilesystemAttachmentUUID {
-	uuid, err := storageprovisioning.NewFilesystemAttachmentUUID()
-	c.Assert(err, tc.ErrorIsNil)
-	return uuid
-}
-
 // GenVolumeAttachmentPlanUUID generates a new
 // [storageprovisioning.VolumeAttachmentPlanUUID] for testing purposes.
 func GenVolumeAttachmentPlanUUID(c *tc.C) storageprovisioning.VolumeAttachmentPlanUUID {

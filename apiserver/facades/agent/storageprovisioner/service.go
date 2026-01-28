@@ -101,7 +101,7 @@ type ApplicationService interface {
 type RemovalService interface {
 	// MarkFilesystemAttachmentAsDead marks the filesystem attachment as dead.
 	MarkFilesystemAttachmentAsDead(
-		ctx context.Context, uuid storageprovisioning.FilesystemAttachmentUUID,
+		ctx context.Context, uuid domainstorage.FilesystemAttachmentUUID,
 	) error
 
 	// MarkVolumeAttachmentAsDead marks the volume attachment as dead.
@@ -153,7 +153,7 @@ type StorageProvisioningService interface {
 	// given filesystem attachment.
 	GetFilesystemAttachmentParams(
 		ctx context.Context,
-		filesystemUUID storageprovisioning.FilesystemAttachmentUUID,
+		filesystemUUID domainstorage.FilesystemAttachmentUUID,
 	) (storageprovisioning.FilesystemAttachmentParams, error)
 
 	// GetFilesystemLife returns the current life value for a filesystem UUID.
@@ -181,7 +181,7 @@ type StorageProvisioningService interface {
 	// unit.
 	GetFilesystemAttachmentUUIDForFilesystemIDUnit(
 		ctx context.Context, filesystemID string, unitUUID coreunit.UUID,
-	) (storageprovisioning.FilesystemAttachmentUUID, error)
+	) (domainstorage.FilesystemAttachmentUUID, error)
 
 	// GetFilesystemAttachmentUUIDForFilesystemIDMachine returns the filesystem
 	// attachment UUID for the supplied filesystem id which is attached to the
@@ -189,7 +189,7 @@ type StorageProvisioningService interface {
 	GetFilesystemAttachmentUUIDForFilesystemIDMachine(
 		ctx context.Context,
 		filesystemID string, machineUUID machine.UUID,
-	) (storageprovisioning.FilesystemAttachmentUUID, error)
+	) (domainstorage.FilesystemAttachmentUUID, error)
 
 	// GetFilesystemAttachmentForMachine retrieves the FilesystemAttachment
 	// for the supplied machine UUID and filesystem ID.
@@ -221,7 +221,7 @@ type StorageProvisioningService interface {
 	// GetFilesystemAttachmentLife returns the current life value for a
 	// filesystem attachment UUID.
 	GetFilesystemAttachmentLife(
-		ctx context.Context, uuid storageprovisioning.FilesystemAttachmentUUID,
+		ctx context.Context, uuid domainstorage.FilesystemAttachmentUUID,
 	) (domainlife.Life, error)
 
 	// GetStorageResourceTagsForModel returns the tags to apply to storage in

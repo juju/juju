@@ -8,9 +8,9 @@ import (
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
-// FilesystemAttachmentUUID represents the unique id for a storage filesystem
-// attachment in the model.
-type FilesystemAttachmentUUID uuid
+// StorageAttachmentUUID represents the unique id for a storage attachment
+// in the model.
+type StorageAttachmentUUID uuid
 
 // FilesystemUUID represents the unique id for a storage filesystem
 // in the model.
@@ -21,13 +21,6 @@ type FilesystemUUID uuid
 type VolumeAttachmentPlanUUID uuid
 
 type uuid string
-
-// NewFileystemAttachmentUUID creates a new, valid storage filesystem attachment
-// identifier.
-func NewFilesystemAttachmentUUID() (FilesystemAttachmentUUID, error) {
-	u, err := newUUID()
-	return FilesystemAttachmentUUID(u), err
-}
 
 // NewFilesystemUUID creates a new, valid storage filesystem identifier.
 func NewFilesystemUUID() (FilesystemUUID, error) {
@@ -53,12 +46,6 @@ func newUUID() (uuid, error) {
 
 // String returns the string representation of this uuid. This function
 // satisfies the [fmt.Stringer] interface.
-func (u FilesystemAttachmentUUID) String() string {
-	return uuid(u).String()
-}
-
-// String returns the string representation of this uuid. This function
-// satisfies the [fmt.Stringer] interface.
 func (u FilesystemUUID) String() string {
 	return uuid(u).String()
 }
@@ -73,11 +60,6 @@ func (u VolumeAttachmentPlanUUID) String() string {
 // satisfies the [fmt.Stringer] interface.
 func (u uuid) String() string {
 	return string(u)
-}
-
-// Validate returns an error if the [FilesystemAttachmentUUID] is not valid.
-func (u FilesystemAttachmentUUID) Validate() error {
-	return uuid(u).validate()
 }
 
 // Validate returns an error if the [FilesystemUUID] is not valid.

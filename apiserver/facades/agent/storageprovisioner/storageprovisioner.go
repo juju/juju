@@ -2646,7 +2646,7 @@ func (s *StorageProvisionerAPI) filesystemAttachmentLife(
 
 func (s *StorageProvisionerAPI) getFilesystemAttachmentUUID(
 	ctx context.Context, fsTag names.FilesystemTag, hostTag names.Tag,
-) (storageprovisioning.FilesystemAttachmentUUID, error) {
+) (domainstorage.FilesystemAttachmentUUID, error) {
 	errHandler := func(err error) error {
 		switch {
 		case errors.Is(err, applicationerrors.UnitNotFound):
@@ -2674,7 +2674,7 @@ func (s *StorageProvisionerAPI) getFilesystemAttachmentUUID(
 		return nil
 	}
 
-	var rval storageprovisioning.FilesystemAttachmentUUID
+	var rval domainstorage.FilesystemAttachmentUUID
 	switch tag := hostTag.(type) {
 	case names.MachineTag:
 		machineUUID, err := s.getMachineUUID(ctx, tag)

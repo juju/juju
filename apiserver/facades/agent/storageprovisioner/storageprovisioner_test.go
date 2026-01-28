@@ -1648,7 +1648,7 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *tc.C) {
 	tag := names.NewFilesystemTag("123")
 	unitTag := names.NewUnitTag("foo/123")
 	unitUUID := unittesting.GenUnitUUID(c)
-	fsaUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
+	fsaUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/123")).Return(
 		unitUUID, nil,
@@ -1698,7 +1698,7 @@ func (s *provisionerSuite) TestFilesystemAttachmentParamsCAASInstanceID(c *tc.C)
 	tag := names.NewFilesystemTag("123")
 	unitTag := names.NewUnitTag("foo/123")
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	fsaUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/123")).Return(
 		unitUUID, nil,
@@ -2784,7 +2784,7 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemMachine(c *tc.C) {
 
 	tag := names.NewFilesystemTag("123")
 	machineUUID := machinetesting.GenUUID(c)
-	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
+	filesystemAttachmentUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 
 	s.storageProvisioningService.EXPECT().CheckFilesystemForIDExists(
 		gomock.Any(), tag.Id()).Return(true, nil)
@@ -2911,7 +2911,7 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemMachineWithFilesystemA
 
 	tag := names.NewFilesystemTag("123")
 	machineUUID := machinetesting.GenUUID(c)
-	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
+	filesystemAttachmentUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 
 	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
@@ -2945,7 +2945,7 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemMachineWithFilesystemN
 
 	tag := names.NewFilesystemTag("123")
 	machineUUID := machinetesting.GenUUID(c)
-	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
+	filesystemAttachmentUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 
 	s.machineService.EXPECT().
 		GetMachineUUID(gomock.Any(), s.machineName).
@@ -2978,7 +2978,7 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemUnit(c *tc.C) {
 	tag := names.NewFilesystemTag("123")
 	unitTag := names.NewUnitTag("mysql/666")
 	unitUUID := unittesting.GenUnitUUID(c)
-	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
+	filesystemAttachmentUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
 	s.storageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
@@ -3069,7 +3069,7 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemUnitWithFilesystemNotF
 	tag := names.NewFilesystemTag("123")
 	unitTag := names.NewUnitTag("mysql/666")
 	unitUUID := unittesting.GenUnitUUID(c)
-	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
+	filesystemAttachmentUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
 	s.storageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
@@ -3102,7 +3102,7 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemUnitWithFilesystemAtta
 	tag := names.NewFilesystemTag("123")
 	unitTag := names.NewUnitTag("mysql/666")
 	unitUUID := unittesting.GenUnitUUID(c)
-	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
+	filesystemAttachmentUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
 	s.storageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
@@ -3135,7 +3135,7 @@ func (s *provisionerSuite) TestAttachmentLifeForFilesystemUnitWithFilesystemNotF
 	tag := names.NewFilesystemTag("123")
 	unitTag := names.NewUnitTag("mysql/666")
 	unitUUID := unittesting.GenUnitUUID(c)
-	filesystemAttachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
+	filesystemAttachmentUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("mysql/666")).Return(unitUUID, nil)
 	s.storageProvisioningService.EXPECT().GetFilesystemAttachmentUUIDForFilesystemIDUnit(
@@ -4385,7 +4385,7 @@ func (s *provisionerSuite) TestRemoveAttachmentWithFilesystemTagNotFoundUUID(c *
 
 	tag := names.NewFilesystemTag("123")
 	host := names.NewMachineTag("2")
-	uuid := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	uuid := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 	mUUID := tc.Must(c, machine.NewUUID)
 
 	svc := s.storageProvisioningService
@@ -4418,7 +4418,7 @@ func (s *provisionerSuite) TestRemoveAttachmentWithFilesystemTagStillAlive(c *tc
 
 	tag := names.NewFilesystemTag("123")
 	host := names.NewMachineTag("2")
-	uuid := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	uuid := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 	mUUID := tc.Must(c, machine.NewUUID)
 
 	svc := s.storageProvisioningService
@@ -4451,7 +4451,7 @@ func (s *provisionerSuite) TestRemoveAttachmentWithFilesystemTag(c *tc.C) {
 
 	tag := names.NewFilesystemTag("123")
 	host := names.NewMachineTag("2")
-	uuid := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	uuid := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 	mUUID := tc.Must(c, machine.NewUUID)
 
 	svc := s.storageProvisioningService
@@ -4516,7 +4516,7 @@ func (s *provisionerSuite) TestRemoveAttachmentWithFilesystemTagNotFoundUUIDToUn
 
 	tag := names.NewFilesystemTag("123")
 	host := names.NewUnitTag("app/2")
-	uuid := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	uuid := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 	uUUID := tc.Must(c, coreunit.NewUUID)
 
 	svc := s.storageProvisioningService
@@ -4549,7 +4549,7 @@ func (s *provisionerSuite) TestRemoveAttachmentWithFilesystemTagStillAliveToUnit
 
 	tag := names.NewFilesystemTag("123")
 	host := names.NewUnitTag("app/2")
-	uuid := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	uuid := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 	uUUID := tc.Must(c, coreunit.NewUUID)
 
 	svc := s.storageProvisioningService
@@ -4582,7 +4582,7 @@ func (s *provisionerSuite) TestRemoveAttachmentWithFilesystemTagToUnit(c *tc.C) 
 
 	tag := names.NewFilesystemTag("123")
 	host := names.NewUnitTag("app/2")
-	uuid := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	uuid := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 	uUUID := tc.Must(c, coreunit.NewUUID)
 
 	svc := s.storageProvisioningService
@@ -4740,7 +4740,7 @@ func (s *provisionerV5Suite) TestFilesystemAttachmentParams(c *tc.C) {
 	tag := names.NewFilesystemTag("123")
 	unitTag := names.NewUnitTag("foo/123")
 	unitUUID := unittesting.GenUnitUUID(c)
-	fsaUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
+	fsaUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/123")).Return(
 		unitUUID, nil,
