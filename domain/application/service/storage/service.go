@@ -217,7 +217,7 @@ func (s *Service) AttachStorage(
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
 func (s *Service) AddStorageForIAASUnit(
 	ctx context.Context, storageName corestorage.Name,
-	unitUUID coreunit.UUID, netNodeUUID domainnetwork.NetNodeUUID, arg AddUnitStorageArgs,
+	unitUUID coreunit.UUID, netNodeUUID domainnetwork.NetNodeUUID, count uint32, arg AddUnitStorageOverride,
 ) ([]corestorage.ID, error) {
 	// TODO (tlm): re-implement in DQlite
 	return nil, errors.New("not implemented")
@@ -234,7 +234,7 @@ func (s *Service) AddStorageForIAASUnit(
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
 func (s *Service) AddStorageForCAASUnit(
 	ctx context.Context, storageName corestorage.Name,
-	unitUUID coreunit.UUID, netNodeUUID domainnetwork.NetNodeUUID, arg AddUnitStorageArgs,
+	unitUUID coreunit.UUID, netNodeUUID domainnetwork.NetNodeUUID, count uint32, arg AddUnitStorageOverride,
 ) ([]corestorage.ID, error) {
 	// TODO (tlm): re-implement in DQlite
 	return nil, errors.New("not implemented")

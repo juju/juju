@@ -153,12 +153,12 @@ type ApplicationService interface {
 
 	// AddStorageForIAASUnit adds storage instances to the given unit.
 	AddStorageForIAASUnit(
-		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, arg storage.AddUnitStorageArgs,
+		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, count uint32, arg storage.AddUnitStorageOverride,
 	) ([]corestorage.ID, error)
 
 	// AddStorageForCAASUnit adds storage instances to the given unit.
 	AddStorageForCAASUnit(
-		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, arg storage.AddUnitStorageArgs,
+		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, count uint32, arg storage.AddUnitStorageOverride,
 	) ([]corestorage.ID, error)
 }
 
@@ -447,30 +447,31 @@ func (a *StorageAPI) addOneStorage(ctx context.Context, one params.StorageAddPar
 		storagePoolUUID = &poolUUID
 	}
 
-	var storageCount *uint32
-	if one.Directives.Count != nil {
+	var storageCount uint32
+	if one.Directives.Count == nil {
+		storageCount = 1
+	} else {
 		if *one.Directives.Count > math.MaxUint32 {
 			return nil, errors.Errorf(
 				"storage directive %s count %d too large", one.StorageName, *one.Directives.Count,
 			).Add(coreerrors.NotValid)
 		}
 		count := uint32(*one.Directives.Count)
-		storageCount = &count
+		storageCount = count
 	}
 
-	args := storage.AddUnitStorageArgs{
+	args := storage.AddUnitStorageOverride{
 		StoragePoolUUID: storagePoolUUID,
 		SizeMiB:         one.Directives.SizeMiB,
-		Count:           storageCount,
 	}
 	var result []corestorage.ID
 	if a.modelType == coremodel.CAAS {
 		result, err = a.applicationService.AddStorageForCAASUnit(
-			ctx, corestorage.Name(one.StorageName), unitUUID, args,
+			ctx, corestorage.Name(one.StorageName), unitUUID, storageCount, args,
 		)
 	} else {
 		result, err = a.applicationService.AddStorageForIAASUnit(
-			ctx, corestorage.Name(one.StorageName), unitUUID, args,
+			ctx, corestorage.Name(one.StorageName), unitUUID, storageCount, args,
 		)
 	}
 	switch {

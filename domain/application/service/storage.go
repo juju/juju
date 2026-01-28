@@ -142,12 +142,12 @@ type StorageService interface {
 	// AddStorageForIAASUnit adds storage instances to the given IAAS unit.
 	AddStorageForIAASUnit(
 		ctx context.Context, storageName corestorage.Name,
-		unitUUID coreunit.UUID, netNodeUUID domainnetwork.NetNodeUUID, arg storage.AddUnitStorageArgs,
+		unitUUID coreunit.UUID, netNodeUUID domainnetwork.NetNodeUUID, count uint32, arg storage.AddUnitStorageOverride,
 	) ([]corestorage.ID, error)
 
 	// AddStorageForCAASUnit adds storage instances to the given CAAS unit.
 	AddStorageForCAASUnit(
 		ctx context.Context, storageName corestorage.Name,
-		unitUUID coreunit.UUID, netNodeUUID domainnetwork.NetNodeUUID, arg storage.AddUnitStorageArgs,
+		unitUUID coreunit.UUID, netNodeUUID domainnetwork.NetNodeUUID, count uint32, arg storage.AddUnitStorageOverride,
 	) ([]corestorage.ID, error)
 }

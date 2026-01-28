@@ -634,6 +634,8 @@ func (s *unitServiceSuite) TestGetAllUnitCloudContainerIDsForApplicationInvalidA
 	c.Assert(err, tc.NotNil)
 }
 
+const one = uint32(1)
+
 func (s *unitServiceSuite) TestAddStorageForCAASUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -641,7 +643,7 @@ func (s *unitServiceSuite) TestAddStorageForCAASUnit(c *tc.C) {
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	poolUUID := tc.Must(c, storage.NewStoragePoolUUID)
-	arg := servicestorage.AddUnitStorageArgs{
+	arg := servicestorage.AddUnitStorageOverride{
 		StoragePoolUUID: &poolUUID,
 	}
 	result := []corestorage.ID{
@@ -649,10 +651,10 @@ func (s *unitServiceSuite) TestAddStorageForCAASUnit(c *tc.C) {
 	}
 
 	s.state.EXPECT().GetUnitNetNode(gomock.Any(), unitUUID).Return(netNodeUUID.String(), nil)
-	s.storageService.EXPECT().AddStorageForCAASUnit(gomock.Any(), storageName, unitUUID, netNodeUUID, arg).Return(
+	s.storageService.EXPECT().AddStorageForCAASUnit(gomock.Any(), storageName, unitUUID, netNodeUUID, one, arg).Return(
 		result, nil)
 
-	got, err := s.service.AddStorageForCAASUnit(c.Context(), storageName, unitUUID, arg)
+	got, err := s.service.AddStorageForCAASUnit(c.Context(), storageName, unitUUID, one, arg)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.DeepEquals, result)
 }
@@ -664,7 +666,7 @@ func (s *unitServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	poolUUID := tc.Must(c, storage.NewStoragePoolUUID)
-	arg := servicestorage.AddUnitStorageArgs{
+	arg := servicestorage.AddUnitStorageOverride{
 		StoragePoolUUID: &poolUUID,
 	}
 	result := []corestorage.ID{
@@ -672,10 +674,10 @@ func (s *unitServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 	}
 
 	s.state.EXPECT().GetUnitNetNode(gomock.Any(), unitUUID).Return(netNodeUUID.String(), nil)
-	s.storageService.EXPECT().AddStorageForIAASUnit(gomock.Any(), storageName, unitUUID, netNodeUUID, arg).Return(
+	s.storageService.EXPECT().AddStorageForIAASUnit(gomock.Any(), storageName, unitUUID, netNodeUUID, one, arg).Return(
 		result, nil)
 
-	got, err := s.service.AddStorageForIAASUnit(c.Context(), storageName, unitUUID, arg)
+	got, err := s.service.AddStorageForIAASUnit(c.Context(), storageName, unitUUID, one, arg)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.DeepEquals, result)
 }

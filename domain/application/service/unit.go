@@ -751,22 +751,26 @@ func (s *Service) GetAllUnitCloudContainerIDsForApplication(ctx context.Context,
 
 // AddStorageForIAASUnit adds storage instances to the given IAAS unit.
 func (s *Service) AddStorageForIAASUnit(
-	ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, arg storage.AddUnitStorageArgs,
+	ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID,
+	count uint32, arg storage.AddUnitStorageOverride,
 ) ([]corestorage.ID, error) {
 	unitNetNode, err := s.st.GetUnitNetNode(ctx, unitUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return s.storageService.AddStorageForIAASUnit(ctx, storageName, unitUUID, domainnetwork.NetNodeUUID(unitNetNode), arg)
+	return s.storageService.AddStorageForIAASUnit(
+		ctx, storageName, unitUUID, domainnetwork.NetNodeUUID(unitNetNode), count, arg)
 }
 
 // AddStorageForCAASUnit adds storage instances to the given CAAS unit.
 func (s *Service) AddStorageForCAASUnit(
-	ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, arg storage.AddUnitStorageArgs,
+	ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID,
+	count uint32, arg storage.AddUnitStorageOverride,
 ) ([]corestorage.ID, error) {
 	unitNetNode, err := s.st.GetUnitNetNode(ctx, unitUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return s.storageService.AddStorageForCAASUnit(ctx, storageName, unitUUID, domainnetwork.NetNodeUUID(unitNetNode), arg)
+	return s.storageService.AddStorageForCAASUnit(
+		ctx, storageName, unitUUID, domainnetwork.NetNodeUUID(unitNetNode), count, arg)
 }
