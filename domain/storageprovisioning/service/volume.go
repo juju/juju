@@ -21,7 +21,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
-	"github.com/juju/juju/domain/storage"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/domain/storageprovisioning/internal"
@@ -60,7 +60,7 @@ type VolumeState interface {
 
 	// GetVolume returns the volume information for the specified volume uuid.
 	GetVolume(
-		context.Context, storage.VolumeUUID,
+		context.Context, domainstorage.VolumeUUID,
 	) (storageprovisioning.Volume, error)
 
 	// GetVolumeAttachmentIDs returns the
@@ -91,7 +91,7 @@ type VolumeState interface {
 	// when no volume attachment exists for the provided uuid.
 	GetVolumeAttachmentLife(
 		context.Context,
-		storage.VolumeAttachmentUUID,
+		domainstorage.VolumeAttachmentUUID,
 	) (domainlife.Life, error)
 
 	// GetVolumeAttachmentLifeForNetNode returns a mapping of volume
@@ -124,16 +124,16 @@ type VolumeState interface {
 	// supplied uuid.
 	GetVolumeAttachmentUUIDForVolumeNetNode(
 		context.Context,
-		storage.VolumeUUID,
+		domainstorage.VolumeUUID,
 		domainnetwork.NetNodeUUID,
-	) (storage.VolumeAttachmentUUID, error)
+	) (domainstorage.VolumeAttachmentUUID, error)
 
 	// GetVolumeAttachmentPlanUUIDForVolumeNetNode returns the volume attachment
 	// uuid for the supplied volume uuid which is attached to the given net node
 	// uuid.
 	GetVolumeAttachmentPlanUUIDForVolumeNetNode(
 		context.Context,
-		storage.VolumeUUID,
+		domainstorage.VolumeUUID,
 		domainnetwork.NetNodeUUID,
 	) (storageprovisioning.VolumeAttachmentPlanUUID, error)
 
@@ -141,7 +141,7 @@ type VolumeState interface {
 	// attachment uuid.
 	GetVolumeAttachment(
 		context.Context,
-		storage.VolumeAttachmentUUID,
+		domainstorage.VolumeAttachmentUUID,
 	) (storageprovisioning.VolumeAttachment, error)
 
 	// GetVolumeLife returns the current life value for a volume uuid.
@@ -150,7 +150,7 @@ type VolumeState interface {
 	// - [storageprovisioningerrors.VolumeNotFound]
 	// when no volume exists for the provided volume uuid.
 	GetVolumeLife(
-		context.Context, storage.VolumeUUID,
+		context.Context, domainstorage.VolumeUUID,
 	) (domainlife.Life, error)
 
 	// GetVolumeLifeForNetNode returns a mapping of volume ID to current
@@ -168,7 +168,7 @@ type VolumeState interface {
 	// when no volume exists for the provided volume uuid.
 	GetVolumeUUIDForID(
 		context.Context, string,
-	) (storage.VolumeUUID, error)
+	) (domainstorage.VolumeUUID, error)
 
 	// GetVolumeParams returns the volume params for the supplied uuid.
 	//
@@ -176,7 +176,7 @@ type VolumeState interface {
 	// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for
 	// the uuid.
 	GetVolumeParams(
-		context.Context, storage.VolumeUUID,
+		context.Context, domainstorage.VolumeUUID,
 	) (storageprovisioning.VolumeParams, error)
 
 	// GetVolumeRemovalParams returns the volume removal params for the supplied
@@ -186,7 +186,7 @@ type VolumeState interface {
 	// - [storageprovisioningerrors.VolumeNotFound] when no volume exists for
 	// the uuid.
 	GetVolumeRemovalParams(
-		context.Context, storage.VolumeUUID,
+		context.Context, domainstorage.VolumeUUID,
 	) (storageprovisioning.VolumeRemovalParams, error)
 
 	// GetVolumeAttachmentParams retrieves the attachment params for the given
@@ -196,13 +196,13 @@ type VolumeState interface {
 	// - [storageprovisioningerrors.VolumeAttachmentNotFound] when no volume
 	// attachment exists for the supplied uuid.
 	GetVolumeAttachmentParams(
-		context.Context, storage.VolumeAttachmentUUID,
+		context.Context, domainstorage.VolumeAttachmentUUID,
 	) (storageprovisioning.VolumeAttachmentParams, error)
 
 	// SetVolumeProvisionedInfo sets the provisioned information for the given
 	// volume.
 	SetVolumeProvisionedInfo(
-		context.Context, storage.VolumeUUID,
+		context.Context, domainstorage.VolumeUUID,
 		storageprovisioning.VolumeProvisionedInfo,
 	) error
 
@@ -210,14 +210,14 @@ type VolumeState interface {
 	// information about the provisioned volume attachment.
 	SetVolumeAttachmentProvisionedInfo(
 		context.Context,
-		storage.VolumeAttachmentUUID,
+		domainstorage.VolumeAttachmentUUID,
 		storageprovisioning.VolumeAttachmentProvisionedInfo,
 	) error
 
 	// GetBlockDeviceForVolumeAttachment returns the uuid of the block device
 	// set for the specified volume attachment.
 	GetBlockDeviceForVolumeAttachment(
-		ctx context.Context, uuid storage.VolumeAttachmentUUID,
+		ctx context.Context, uuid domainstorage.VolumeAttachmentUUID,
 	) (blockdevice.BlockDeviceUUID, error)
 
 	// GetVolumeAttachmentPlan gets the volume attachment plan for the provided
@@ -231,7 +231,7 @@ type VolumeState interface {
 	CreateVolumeAttachmentPlan(
 		ctx context.Context,
 		uuid storageprovisioning.VolumeAttachmentPlanUUID,
-		attachmentUUID storage.VolumeAttachmentUUID,
+		attachmentUUID domainstorage.VolumeAttachmentUUID,
 		deviceType storageprovisioning.PlanDeviceType,
 		attrs map[string]string,
 	) error
@@ -439,7 +439,7 @@ func (s *Service) GetVolumeAttachmentIDs(
 // - [storageprovisioningerrors.VolumeNotFound] when no volume exists for the
 // supplied values.
 func (s *Service) GetVolumeParams(
-	ctx context.Context, uuid storage.VolumeUUID,
+	ctx context.Context, uuid domainstorage.VolumeUUID,
 ) (storageprovisioning.VolumeParams, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -463,7 +463,7 @@ func (s *Service) GetVolumeParams(
 // - [storageprovisioningerrors.VolumeNotDead] when the volume exists but was
 // expected to be dead but was not.
 func (s *Service) GetVolumeRemovalParams(
-	ctx context.Context, uuid storage.VolumeUUID,
+	ctx context.Context, uuid domainstorage.VolumeUUID,
 ) (storageprovisioning.VolumeRemovalParams, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -499,7 +499,7 @@ func (s *Service) GetVolumeRemovalParams(
 // attachment exists for the supplied values.
 func (s *Service) GetVolumeAttachmentParams(
 	ctx context.Context,
-	volumeAttachmentUUID storage.VolumeAttachmentUUID,
+	volumeAttachmentUUID domainstorage.VolumeAttachmentUUID,
 ) (storageprovisioning.VolumeAttachmentParams, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -522,7 +522,7 @@ func (s *Service) GetVolumeAttachmentParams(
 // when no volume attachment exists for the provided uuid.
 func (s *Service) GetVolumeAttachmentLife(
 	ctx context.Context,
-	uuid storage.VolumeAttachmentUUID,
+	uuid domainstorage.VolumeAttachmentUUID,
 ) (domainlife.Life, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -548,7 +548,7 @@ func (s *Service) GetVolumeAttachmentLife(
 // when no volume attachment exists for the provided uuid.
 func (s *Service) GetVolumeAttachment(
 	ctx context.Context,
-	uuid storage.VolumeAttachmentUUID,
+	uuid domainstorage.VolumeAttachmentUUID,
 ) (storageprovisioning.VolumeAttachment, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -631,7 +631,7 @@ func (s *Service) GetVolumeAttachmentUUIDForVolumeIDMachine(
 	ctx context.Context,
 	volumeID string,
 	machineUUID coremachine.UUID,
-) (storage.VolumeAttachmentUUID, error) {
+) (domainstorage.VolumeAttachmentUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -684,7 +684,7 @@ func (s *Service) GetVolumeAttachmentUUIDForVolumeIDUnit(
 	ctx context.Context,
 	volumeID string,
 	unitUUID coreunit.UUID,
-) (storage.VolumeAttachmentUUID, error) {
+) (domainstorage.VolumeAttachmentUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -730,7 +730,7 @@ func (s *Service) GetVolumeAttachmentUUIDForVolumeIDUnit(
 // provided volume uuid.
 func (s *Service) GetVolumeLife(
 	ctx context.Context,
-	uuid storage.VolumeUUID,
+	uuid domainstorage.VolumeUUID,
 ) (domainlife.Life, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -756,7 +756,7 @@ func (s *Service) GetVolumeLife(
 // provided volume uuid.
 func (s *Service) GetVolumeUUIDForID(
 	ctx context.Context, volumeID string,
-) (storage.VolumeUUID, error) {
+) (domainstorage.VolumeUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -803,7 +803,7 @@ func (s *Service) GetVolumeByID(
 // - [storageprovisioningerrors.VolumeAttachmentWithoutBlockDevice] when the
 // volume attachment does not yet have a block device.
 func (s *Service) GetBlockDeviceForVolumeAttachment(
-	ctx context.Context, uuid storage.VolumeAttachmentUUID,
+	ctx context.Context, uuid domainstorage.VolumeAttachmentUUID,
 ) (blockdevice.BlockDeviceUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -1027,7 +1027,7 @@ func (s *Service) SetVolumeProvisionedInfo(
 // given block device uuid.
 func (s *Service) SetVolumeAttachmentProvisionedInfo(
 	ctx context.Context,
-	volumeAttachmentUUID storage.VolumeAttachmentUUID,
+	volumeAttachmentUUID domainstorage.VolumeAttachmentUUID,
 	info storageprovisioning.VolumeAttachmentProvisionedInfo,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -1100,7 +1100,7 @@ func (s *Service) GetVolumeAttachmentPlan(
 // volume attachment plan already exists for the given volume attachnment.
 func (s *Service) CreateVolumeAttachmentPlan(
 	ctx context.Context,
-	attachmentUUID storage.VolumeAttachmentUUID,
+	attachmentUUID domainstorage.VolumeAttachmentUUID,
 	deviceType storageprovisioning.PlanDeviceType,
 	attrs map[string]string,
 ) (storageprovisioning.VolumeAttachmentPlanUUID, error) {
