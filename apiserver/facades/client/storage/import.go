@@ -9,6 +9,7 @@ import (
 	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	corestorage "github.com/juju/juju/core/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
@@ -29,7 +30,7 @@ type StorageAdoptionService interface {
 		pool domainstorage.StoragePoolUUID,
 		providerID string,
 		force bool,
-	) (string, error)
+	) (corestorage.ID, error)
 
 	// GetStoragePoolUUID returns the UUID of the storage pool for the specified
 	// name.
@@ -38,7 +39,7 @@ type StorageAdoptionService interface {
 	) (domainstorage.StoragePoolUUID, error)
 }
 
-// Import imports existing storage into the model.
+// Import adopts existing storage into the model.
 // A "CHANGE" block can block this operation.
 func (a *StorageAPI) Import(
 	ctx context.Context, args params.BulkImportStorageParamsV2,
@@ -70,7 +71,7 @@ func (a *StorageAPI) Import(
 
 		switch arg.Kind {
 		case params.StorageKindFilesystem:
-			inst, err := a.storageService.AdoptFilesystem(
+			id, err := a.storageService.AdoptFilesystem(
 				ctx, arg.StorageName, poolUUID, arg.ProviderId, arg.Force)
 			if errors.Is(err, domainstorageerrors.StoragePoolNotFound) {
 				return details, apiservererrors.ParamsErrorf(
@@ -85,7 +86,7 @@ func (a *StorageAPI) Import(
 					"adopting filesystem: %w", err,
 				)
 			}
-			details.StorageTag = names.NewStorageTag(inst).String()
+			details.StorageTag = names.NewStorageTag(id.String()).String()
 		case params.StorageKindBlock:
 			return details, apiservererrors.ParamsErrorf(
 				params.CodeNotSupported,
@@ -117,7 +118,7 @@ func (a *StorageAPI) Import(
 	return results, nil
 }
 
-// Import imports existing storage into the model.
+// Import adopts existing storage into the model.
 // A "CHANGE" block can block this operation.
 func (a *StorageAPIv6) Import(
 	ctx context.Context, args params.BulkImportStorageParams,
@@ -149,7 +150,7 @@ func (a *StorageAPIv6) Import(
 
 		switch arg.Kind {
 		case params.StorageKindFilesystem:
-			inst, err := a.storageService.AdoptFilesystem(
+			id, err := a.storageService.AdoptFilesystem(
 				ctx, arg.StorageName, poolUUID, arg.ProviderId, false)
 			if errors.Is(err, domainstorageerrors.StoragePoolNotFound) {
 				return details, apiservererrors.ParamsErrorf(
@@ -164,7 +165,7 @@ func (a *StorageAPIv6) Import(
 					"adopting filesystem: %w", err,
 				)
 			}
-			details.StorageTag = names.NewStorageTag(inst).String()
+			details.StorageTag = names.NewStorageTag(id.String()).String()
 		case params.StorageKindBlock:
 			return details, apiservererrors.ParamsErrorf(
 				params.CodeNotSupported,
