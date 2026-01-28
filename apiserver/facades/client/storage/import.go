@@ -15,15 +15,15 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// StorageImportService defines the interface required by this API for importing
-// storage.
-type StorageImportService interface {
-	// ImportFilesystem imports a filesystem by invoking the provider of the
+// StorageAdoptionService defines the interface required by this API for
+// adopting storage into a model from the storage provider.
+type StorageAdoptionService interface {
+	// AdoptFilesystem adopts a filesystem by invoking the provider of the
 	// given storage pool to identify the filesystem on the given natural entity
 	// specified by the provider ID (e.g. a filesystem on a volume or a file-
 	// system directly). The result of this call is the name of a new storage
 	// instance using the given storage name.
-	ImportFilesystem(
+	AdoptFilesystem(
 		ctx context.Context,
 		storageName string,
 		pool domainstorage.StoragePoolUUID,
@@ -70,7 +70,7 @@ func (a *StorageAPI) Import(
 
 		switch arg.Kind {
 		case params.StorageKindFilesystem:
-			inst, err := a.storageService.ImportFilesystem(
+			inst, err := a.storageService.AdoptFilesystem(
 				ctx, arg.StorageName, poolUUID, arg.ProviderId, arg.Force)
 			if errors.Is(err, domainstorageerrors.StoragePoolNotFound) {
 				return details, apiservererrors.ParamsErrorf(
@@ -82,14 +82,14 @@ func (a *StorageAPI) Import(
 				)
 			} else if err != nil {
 				return details, errors.Errorf(
-					"importing filesystem: %w", err,
+					"adopting filesystem: %w", err,
 				)
 			}
 			details.StorageTag = names.NewStorageTag(inst).String()
 		case params.StorageKindBlock:
 			return details, apiservererrors.ParamsErrorf(
 				params.CodeNotSupported,
-				"block device importing is not supported",
+				"adopting block storage is not supported",
 			)
 		default:
 			return details, apiservererrors.ParamsErrorf(
@@ -149,7 +149,7 @@ func (a *StorageAPIv6) Import(
 
 		switch arg.Kind {
 		case params.StorageKindFilesystem:
-			inst, err := a.storageService.ImportFilesystem(
+			inst, err := a.storageService.AdoptFilesystem(
 				ctx, arg.StorageName, poolUUID, arg.ProviderId, false)
 			if errors.Is(err, domainstorageerrors.StoragePoolNotFound) {
 				return details, apiservererrors.ParamsErrorf(
@@ -161,14 +161,14 @@ func (a *StorageAPIv6) Import(
 				)
 			} else if err != nil {
 				return details, errors.Errorf(
-					"importing filesystem: %w", err,
+					"adopting filesystem: %w", err,
 				)
 			}
 			details.StorageTag = names.NewStorageTag(inst).String()
 		case params.StorageKindBlock:
 			return details, apiservererrors.ParamsErrorf(
 				params.CodeNotSupported,
-				"block device importing is not supported",
+				"adopting block storage is not supported",
 			)
 		default:
 			return details, apiservererrors.ParamsErrorf(
