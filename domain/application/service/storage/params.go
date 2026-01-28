@@ -14,7 +14,4 @@ type AddUnitStorageOverride struct {
 
 	// SizeMiB is the size of the storage instance, in MiB.
 	SizeMiB *uint64
-
-	// Count is the number of storage instances.
-	Count *uint64
 }

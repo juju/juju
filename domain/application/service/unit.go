@@ -197,7 +197,7 @@ type UnitState interface {
 	GetUnitNetNode(ctx context.Context, uuid coreunit.UUID) (string, error)
 }
 
-func (s *ProviderService) makeIAASUnitArgs(
+func (s *Service) makeIAASUnitArgs(
 	ctx context.Context,
 	units []AddIAASUnitArg,
 	storageDirectives []application.StorageDirective,

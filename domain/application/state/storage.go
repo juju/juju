@@ -909,20 +909,158 @@ AND si.uuid != $storageCount.uuid
 	return nil
 }
 
+func (st *State) GetUnitStorageCount(
+	ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
+) (uint64, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	countQuery, err := st.Prepare(`
+SELECT count(*) AS &storageCount.count
+FROM  storage_instance si
+JOIN  storage_unit_owner suo ON si.uuid = suo.storage_instance_uuid
+WHERE suo.unit_uuid = $storageCount.unit_uuid
+AND   si.storage_name = $storageCount.storage_name
+`, storageCount{})
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	storageCount := storageCount{StorageName: storageName, UnitUUID: unitUUID}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, countQuery, storageCount).Get(&storageCount)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying storage count for storage %q on unit %q: %w", storageName, unitUUID, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+	return storageCount.Count, nil
+}
+
+func (st *State) addStorageForUnit(
+	ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, storageArg internal.CreateUnitStorageArg,
+) ([]string, error) {
+	// First to the basic life check for the unit.
+	unitLifeID, _, err := st.getUnitLifeAndNetNode(ctx, tx, unitUUID.String())
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	if unitLifeID != life.Alive {
+		return nil, errors.Errorf("unit %q is not alive", unitUUID).Add(applicationerrors.UnitNotAlive)
+	}
+
+	storageIDs, err := st.unitState.insertUnitStorageInstances(
+		ctx, tx, storageArg.StorageInstances,
+	)
+	if err != nil {
+		return nil, errors.Errorf(
+			"inserting storage instances for unit %q: %w", unitUUID, err,
+		)
+	}
+
+	err = st.unitState.insertUnitStorageAttachments(
+		ctx,
+		tx,
+		unitUUID.String(),
+		storageArg.StorageToAttach,
+	)
+	if err != nil {
+		return nil, errors.Errorf(
+			"creating storage attachments for unit %q: %w", unitUUID, err,
+		)
+	}
+
+	err = st.unitState.insertUnitStorageOwnership(ctx, tx, unitUUID.String(), storageArg.StorageToOwn)
+	if err != nil {
+		return nil, errors.Errorf(
+			"inserting storage ownership for unit %q: %w", unitUUID, err,
+		)
+	}
+	return storageIDs, nil
+}
+
+// AddStorageForCAASUnit adds storage instances to given CAAS unit as specified.
 func (st *State) AddStorageForCAASUnit(
 	ctx context.Context, unitUUID coreunit.UUID,
 	storageArg internal.CreateUnitStorageArg,
 ) ([]corestorage.ID, error) {
-	// TODO implement me
-	return nil, errors.New("not implemented")
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var storageIDs []string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		storageIDs, err = st.addStorageForUnit(ctx, tx, unitUUID, storageArg)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	result := make([]corestorage.ID, len(storageIDs))
+	for i, storageID := range storageIDs {
+		result[i] = corestorage.ID(storageID)
+	}
+
+	return result, nil
 }
 
+// AddStorageForIAASUnit adds storage instances to given IAAS unit as specified.
 func (st *State) AddStorageForIAASUnit(
 	ctx context.Context, unitUUID coreunit.UUID,
 	storageArg internal.CreateUnitStorageArg, iaasStorageArgs internal.CreateIAASUnitStorageArg,
 ) ([]corestorage.ID, error) {
-	// TODO implement me
-	return nil, errors.New("not implemented")
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	machineUUID, err := st.GetUnitMachineUUID(ctx, unitUUID.String())
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var storageIDs []string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		storageIDs, err = st.addStorageForUnit(ctx, tx, unitUUID, storageArg)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		err = st.unitState.insertMachineVolumeOwnership(ctx, tx, coremachine.UUID(machineUUID),
+			iaasStorageArgs.VolumesToOwn)
+		if err != nil {
+			return errors.Errorf(
+				"inserting volume ownership for machine %q: %w",
+				machineUUID, err,
+			)
+		}
+
+		err = st.unitState.insertMachineFilesystemOwnership(ctx, tx, coremachine.UUID(machineUUID),
+			iaasStorageArgs.FilesystemsToOwn)
+		if err != nil {
+			return errors.Errorf(
+				"inserting volume ownership for machine %q: %w",
+				machineUUID, err,
+			)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make([]corestorage.ID, len(storageIDs))
+	for i, storageID := range storageIDs {
+		result[i] = corestorage.ID(storageID)
+	}
+
+	return result, nil
 }
 
 func (st *State) DetachStorageForUnit(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error {

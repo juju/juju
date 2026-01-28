@@ -1620,6 +1620,66 @@ func (st *State) GetCharmByApplicationUUID(ctx context.Context, appUUID coreappl
 	return ch, nil
 }
 
+func (st *State) GetCharmStorageByUnitUUID(ctx context.Context, unitUUID coreunit.UUID, storageName string) (charm.Storage, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return charm.Storage{}, errors.Capture(err)
+	}
+
+	var chStorage []charmStorage
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		charmUUID, err := st.getCharmIDByUnitUUID(ctx, tx, unitUUID.String())
+		if err != nil {
+			return errors.Errorf("getting charm ID from unit UUID %q: %w", unitUUID, err)
+		}
+
+		chIdent := entityUUID{UUID: charmUUID}
+		chStorage, err = st.getCharmStorageByName(ctx, tx, chIdent, storageName)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting charm storage metadata for unit %q: %w", unitUUID, err)
+		}
+		return nil
+	}); err != nil {
+		return charm.Storage{}, errors.Capture(err)
+	}
+
+	allStorage, err := decodeStorage(chStorage)
+	if err != nil {
+		return charm.Storage{}, errors.Capture(err)
+	}
+	result, ok := allStorage[storageName]
+	if !ok {
+		return charm.Storage{}, errors.Errorf("charm storage %q not found", storageName).
+			Add(applicationerrors.StorageNameNotSupported)
+	}
+	return result, nil
+}
+
+func (s *State) getCharmStorageByName(ctx context.Context, tx *sqlair.TX, ident entityUUID, name string) ([]charmStorage, error) {
+	query := `
+SELECT &charmStorage.*
+FROM  v_charm_storage
+WHERE charm_uuid = $entityUUID.uuid
+AND   name = $charmStorage.name
+ORDER BY property_index ASC;
+`
+
+	stmt, err := s.Prepare(query, charmStorage{}, ident)
+	if err != nil {
+		return nil, errors.Errorf("preparing query: %w", err)
+	}
+
+	var result []charmStorage
+	if err := tx.Query(ctx, stmt, ident, charmStorage{Name: name}).GetAll(&result); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return result, nil
+		}
+		return nil, errors.Errorf("failed to select charm storage: %w", err)
+	}
+
+	return result, nil
+}
+
 // SetApplicationCharm sets a new charm for the specified application using
 // the provided parameters and validates changes.
 // Some validation needs to be transactional:
@@ -1668,7 +1728,7 @@ WHERE  uuid = $entityUUID.uuid
 			return errors.Capture(err)
 		}
 
-		//TODO(storage) - update storage directive for app
+		// TODO(storage) - update storage directive for app
 
 		bindings := transform.Map(params.EndpointBindings, func(k string, v network.SpaceName) (string, string) {
 			return k, v.String()

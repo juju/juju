@@ -1087,3 +1087,23 @@ WHERE uuid = $entityUUID.uuid;
 	}
 	return charmUUID.UUID, nil
 }
+
+func (s *State) getCharmIDByUnitUUID(ctx context.Context, tx *sqlair.TX, unitUUID string) (string, error) {
+	query := `
+SELECT charm_uuid AS &charmUUID.*
+FROM unit
+WHERE uuid = $entityUUID.uuid;
+`
+	ident := entityUUID{UUID: unitUUID}
+	stmt, err := s.Prepare(query, charmUUID{}, ident)
+	if err != nil {
+		return "", errors.Errorf("preparing query: %w", err)
+	}
+	var charmUUID charmUUID
+	if err := tx.Query(ctx, stmt, ident).Get(&charmUUID); errors.Is(err, sqlair.ErrNoRows) {
+		return "", applicationerrors.UnitNotFound
+	} else if err != nil {
+		return "", errors.Errorf("getting charm ID by unit UUID: %w", err)
+	}
+	return charmUUID.UUID, nil
+}

@@ -102,7 +102,7 @@ func (st *InsertIAASUnitState) InsertIAASUnit(
 		)
 	}
 
-	err = st.insertUnitStorageInstances(ctx, tx, args.StorageInstances)
+	_, err = st.insertUnitStorageInstances(ctx, tx, args.StorageInstances)
 	if err != nil {
 		return "", "", nil, errors.Errorf(
 			"creating storage instances for unit %q: %w", unitName, err,
@@ -917,17 +917,18 @@ INSERT INTO unit_storage_directive (*) VALUES ($insertUnitStorageDirective.*)
 
 // insertUnitStorageInstances is responsible for creating all of the needed
 // storage instances to satisfy the storage instance arguments supplied.
+// The IDs of the new storage instances are returned.
 func (st *InsertIAASUnitState) insertUnitStorageInstances(
 	ctx context.Context,
 	tx *sqlair.TX,
 	stArgs []internal.CreateUnitStorageInstanceArg,
-) error {
+) ([]string, error) {
 	storageInstArgs, err := st.makeInsertUnitStorageInstanceArgs(
 		ctx, tx, stArgs,
 	)
 	if err != nil {
-		return errors.Errorf(
-			"creating database input for makeing unit storage instances: %w",
+		return nil, errors.Errorf(
+			"creating database input for making unit storage instances: %w",
 			err,
 		)
 	}
@@ -936,8 +937,8 @@ func (st *InsertIAASUnitState) insertUnitStorageInstances(
 		ctx, tx, stArgs,
 	)
 	if err != nil {
-		return errors.Errorf(
-			"creating database input for makeing unit storage filesystems: %w",
+		return nil, errors.Errorf(
+			"creating database input for making unit storage filesystems: %w",
 			err,
 		)
 	}
@@ -946,8 +947,8 @@ func (st *InsertIAASUnitState) insertUnitStorageInstances(
 		ctx, tx, stArgs,
 	)
 	if err != nil {
-		return errors.Errorf(
-			"creating database input for makeing unit storage volumes: %w",
+		return nil, errors.Errorf(
+			"creating database input for making unit storage volumes: %w",
 			err,
 		)
 	}
@@ -957,7 +958,7 @@ INSERT INTO storage_instance (*) VALUES ($insertStorageInstance.*)
 `,
 		insertStorageInstance{})
 	if err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	insertStorageFilesystemStmt, err := st.Prepare(`
@@ -965,7 +966,7 @@ INSERT INTO storage_filesystem (*) VALUES ($insertStorageFilesystem.*)
 `,
 		insertStorageFilesystem{})
 	if err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	insertStorageFilesystemInstStmt, err := st.Prepare(`
@@ -973,7 +974,7 @@ INSERT INTO storage_instance_filesystem (*) VALUES ($insertStorageFilesystemInst
 `,
 		insertStorageFilesystemInstance{})
 	if err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	insertStorageFilesystemStatusStmt, err := st.Prepare(`
@@ -981,7 +982,7 @@ INSERT INTO storage_filesystem_status (*) VALUES ($insertStorageFilesystemStatus
 `,
 		insertStorageFilesystemStatus{})
 	if err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	insertStorageVolumeStmt, err := st.Prepare(`
@@ -989,7 +990,7 @@ INSERT INTO storage_volume (*) VALUES ($insertStorageVolume.*)
 `,
 		insertStorageVolume{})
 	if err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	insertStorageVolumeInstStmt, err := st.Prepare(`
@@ -997,7 +998,7 @@ INSERT INTO storage_instance_volume (*) VALUES ($insertStorageVolumeInstance.*)
 `,
 		insertStorageVolumeInstance{})
 	if err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	insertStorageVolumeStatusStmt, err := st.Prepare(`
@@ -1005,7 +1006,7 @@ INSERT INTO storage_volume_status (*) VALUES ($insertStorageVolumeStatus.*)
 `,
 		insertStorageVolumeStatus{})
 	if err != nil {
-		return errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	// We guard against zero length insert args below. This is because there is
@@ -1014,7 +1015,7 @@ INSERT INTO storage_volume_status (*) VALUES ($insertStorageVolumeStatus.*)
 	if len(storageInstArgs) != 0 {
 		err := tx.Query(ctx, insertStorageInstStmt, storageInstArgs).Run()
 		if err != nil {
-			return errors.Errorf(
+			return nil, errors.Errorf(
 				"creating %d storage instance(s): %w",
 				len(storageInstArgs), err,
 			)
@@ -1024,7 +1025,7 @@ INSERT INTO storage_volume_status (*) VALUES ($insertStorageVolumeStatus.*)
 	if len(fsArgs) != 0 {
 		err := tx.Query(ctx, insertStorageFilesystemStmt, fsArgs).Run()
 		if err != nil {
-			return errors.Errorf(
+			return nil, errors.Errorf(
 				"creating %d storage filesystems: %w",
 				len(fsArgs), err,
 			)
@@ -1034,7 +1035,7 @@ INSERT INTO storage_volume_status (*) VALUES ($insertStorageVolumeStatus.*)
 	if len(fsInstanceArgs) != 0 {
 		err := tx.Query(ctx, insertStorageFilesystemInstStmt, fsInstanceArgs).Run()
 		if err != nil {
-			return errors.Errorf(
+			return nil, errors.Errorf(
 				"setting storage filesystem to instance relationship for new filesystems: %w",
 				err,
 			)
@@ -1044,7 +1045,7 @@ INSERT INTO storage_volume_status (*) VALUES ($insertStorageVolumeStatus.*)
 	if len(fsStatusArgs) != 0 {
 		err := tx.Query(ctx, insertStorageFilesystemStatusStmt, fsStatusArgs).Run()
 		if err != nil {
-			return errors.Errorf(
+			return nil, errors.Errorf(
 				"setting newly create storage filesystem(s) status: %w",
 				err,
 			)
@@ -1054,7 +1055,7 @@ INSERT INTO storage_volume_status (*) VALUES ($insertStorageVolumeStatus.*)
 	if len(vArgs) != 0 {
 		err := tx.Query(ctx, insertStorageVolumeStmt, vArgs).Run()
 		if err != nil {
-			return errors.Errorf(
+			return nil, errors.Errorf(
 				"creating %d storage volumes: %w",
 				len(fsArgs), err,
 			)
@@ -1064,7 +1065,7 @@ INSERT INTO storage_volume_status (*) VALUES ($insertStorageVolumeStatus.*)
 	if len(vInstanceArgs) != 0 {
 		err := tx.Query(ctx, insertStorageVolumeInstStmt, vInstanceArgs).Run()
 		if err != nil {
-			return errors.Errorf(
+			return nil, errors.Errorf(
 				"setting storage volume to instance relationship for new volumes: %w",
 				err,
 			)
@@ -1074,14 +1075,18 @@ INSERT INTO storage_volume_status (*) VALUES ($insertStorageVolumeStatus.*)
 	if len(vStatusArgs) != 0 {
 		err := tx.Query(ctx, insertStorageVolumeStatusStmt, vStatusArgs).Run()
 		if err != nil {
-			return errors.Errorf(
+			return nil, errors.Errorf(
 				"setting newly create storage volume(s) status: %w",
 				err,
 			)
 		}
 	}
 
-	return nil
+	var result []string
+	for _, inst := range storageInstArgs {
+		result = append(result, inst.StorageID)
+	}
+	return result, nil
 }
 
 // insertUnitStorageOwnership is responsible setting unit ownership records for

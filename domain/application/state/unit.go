@@ -1064,7 +1064,7 @@ func (st *State) insertCAASUnitWithName(
 		)
 	}
 
-	err = st.unitState.insertUnitStorageInstances(
+	_, err = st.unitState.insertUnitStorageInstances(
 		ctx, tx, args.StorageInstances,
 	)
 	if err != nil {
@@ -1819,8 +1819,34 @@ WHERE n.name = $unitName.name
 
 // GetUnitNetNode returns the net node UUID for the specified unit.
 func (st *State) GetUnitNetNode(ctx context.Context, uuid coreunit.UUID) (string, error) {
-	// TODO - implement me
-	return "", errors.Errorf("not implemented yet")
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	ident := unitUUID{UnitUUID: uuid.String()}
+	stmt, err := st.Prepare(`
+SELECT &unitNetNodeUUID.*
+FROM unit u
+WHERE u.uuid = $unitUUID.uuid
+`, unitNetNodeUUID{}, ident)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var netNodeUUID unitNetNodeUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, ident).Get(&netNodeUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("%w: %s", applicationerrors.UnitNotFound, uuid)
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return netNodeUUID.NetNodeUUID, nil
 }
 
 // setK8sPodStatus saves the given k8s pod status, overwriting

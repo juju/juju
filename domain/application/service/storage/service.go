@@ -19,6 +19,7 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
+	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
@@ -66,10 +67,8 @@ type State interface {
 	// Combination of existing storage instances and anticipated additional storage
 	// instances is validated as specified in the unit's charm.
 	// The following error types can be expected:
-	// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
 	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
 	// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the unit is not alive.
-	// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
 	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 	// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded] when the requested storage falls outside of the bounds defined by the charm.
 	AddStorageForCAASUnit(
@@ -82,10 +81,8 @@ type State interface {
 	// Combination of existing storage instances and anticipated additional storage
 	// instances is validated as specified in the unit's charm.
 	// The following error types can be expected:
-	// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
 	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
 	// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the unit is not alive.
-	// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
 	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 	// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded] when the requested storage falls outside of the bounds defined by the charm.
 	AddStorageForIAASUnit(
@@ -175,6 +172,10 @@ type State interface {
 	GetUnitStorageDirectives(
 		context.Context, coreunit.UUID,
 	) ([]application.StorageDirective, error)
+
+	GetCharmStorageByUnitUUID(ctx context.Context, unitUUID coreunit.UUID, storageName string) (charm.Storage, error)
+
+	GetUnitStorageCount(ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name) (uint64, error)
 }
 
 // NewService returns a new application storage service for the model.
@@ -206,38 +207,132 @@ func (s *Service) AttachStorage(
 	return errors.New("not implemented")
 }
 
+func (s *Service) populateStorageArgs(
+	ctx context.Context,
+	storageName corestorage.Name,
+	unitUUID coreunit.UUID, netNodeUUID domainnetwork.NetNodeUUID, addCount uint32, arg AddUnitStorageOverride,
+) (internal.CreateUnitStorageArg, error) {
+	unitStorageDirective, err := s.GetUnitStorageDirectiveByName(ctx, unitUUID, storageName)
+	if err != nil {
+		return internal.CreateUnitStorageArg{}, errors.Errorf(
+			"getting unit %q storage directive: %w",
+			unitUUID, err,
+		)
+	}
+	charmStorage, err := s.st.GetCharmStorageByUnitUUID(ctx, unitUUID, storageName.String())
+	if err != nil {
+		return internal.CreateUnitStorageArg{}, errors.Errorf(
+			"getting unit %q charm storage %q: %w",
+			unitUUID, storageName, err,
+		)
+	}
+
+	charmStorageDefs := map[string]internalcharm.Storage{
+		storageName.String(): {
+			Name:        charmStorage.Name,
+			Description: charmStorage.Description,
+			Type:        internalcharm.StorageType(charmStorage.Type),
+			Shared:      charmStorage.Shared,
+			ReadOnly:    charmStorage.ReadOnly,
+			CountMin:    charmStorage.CountMin,
+			CountMax:    charmStorage.CountMax,
+			MinimumSize: charmStorage.MinimumSize,
+			Location:    charmStorage.Location,
+			Properties:  charmStorage.Properties,
+		},
+	}
+
+	storageDirective := unitStorageDirective
+	if arg.StoragePoolUUID != nil {
+		storageDirective.PoolUUID = *arg.StoragePoolUUID
+	}
+	if arg.SizeMiB != nil {
+		storageDirective.Size = *arg.SizeMiB
+	}
+	storageDirective.Count = addCount
+
+	existingCount, err := s.st.GetUnitStorageCount(ctx, unitUUID, storageName)
+	if err != nil {
+		return internal.CreateUnitStorageArg{}, errors.Errorf("getting unit %q existing storage count: %w", unitUUID, err)
+	}
+	wantCount := storageDirective.Count + uint32(existingCount)
+	toCheck := map[string]StorageDirectiveOverride{
+		storageName.String(): {
+			Count:    &wantCount,
+			PoolUUID: &storageDirective.PoolUUID,
+			Size:     &storageDirective.Size,
+		},
+	}
+	err = s.ValidateApplicationStorageDirectiveOverrides(ctx, charmStorageDefs, toCheck)
+	if err != nil {
+		return internal.CreateUnitStorageArg{}, errors.Errorf(
+			"invalid storage request: %w", err,
+		)
+	}
+
+	return s.MakeUnitStorageArgs(
+		ctx,
+		netNodeUUID,
+		[]application.StorageDirective{storageDirective},
+		nil,
+		nil,
+	)
+}
+
 // AddStorageForIAASUnit adds storage instances to the given IAAS unit.
 // The following error types can be expected:
 // - [github.com/juju/juju/core/storage.InvalidStorageName]: when the storage name is not valid.
-// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
 // - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
 // - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the unit is not alive.
-// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
 // - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 // - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded] when the requested storage falls outside of the bounds defined by the charm.
 func (s *Service) AddStorageForIAASUnit(
 	ctx context.Context, storageName corestorage.Name,
 	unitUUID coreunit.UUID, netNodeUUID domainnetwork.NetNodeUUID, count uint32, arg AddUnitStorageOverride,
 ) ([]corestorage.ID, error) {
-	// TODO (tlm): re-implement in DQlite
-	return nil, errors.New("not implemented")
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	unitStorageArgs, err := s.populateStorageArgs(ctx, storageName, unitUUID, netNodeUUID, count, arg)
+	if err != nil {
+		return nil, errors.Errorf(
+			"making storage arguments for unit: %w", err,
+		)
+	}
+
+	iassUnitStorageArgs, err := s.MakeIAASUnitStorageArgs(
+		ctx, unitStorageArgs)
+	if err != nil {
+		return nil, errors.Errorf(
+			"making IAAS storage arguments for IAAS unit: %w", err,
+		)
+	}
+
+	return s.st.AddStorageForIAASUnit(ctx, unitUUID, unitStorageArgs, iassUnitStorageArgs)
 }
 
 // AddStorageForCAASUnit adds storage instances to the given CAAS unit.
 // The following error types can be expected:
 // - [github.com/juju/juju/core/storage.InvalidStorageName]: when the storage name is not valid.
-// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
 // - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
 // - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the unit is not alive.
-// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
 // - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 // - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded] when the requested storage falls outside of the bounds defined by the charm.
 func (s *Service) AddStorageForCAASUnit(
 	ctx context.Context, storageName corestorage.Name,
 	unitUUID coreunit.UUID, netNodeUUID domainnetwork.NetNodeUUID, count uint32, arg AddUnitStorageOverride,
 ) ([]corestorage.ID, error) {
-	// TODO (tlm): re-implement in DQlite
-	return nil, errors.New("not implemented")
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	unitStorageArgs, err := s.populateStorageArgs(ctx, storageName, unitUUID, netNodeUUID, count, arg)
+	if err != nil {
+		return nil, errors.Errorf(
+			"making storage arguments for unit: %w", err,
+		)
+	}
+
+	return s.st.AddStorageForCAASUnit(ctx, unitUUID, unitStorageArgs)
 }
 
 // encodeStorageKindFromCharmStorageType provides a mapping from charm storage
@@ -770,7 +865,7 @@ func (s Service) MakeUnitStorageArgs(
 	rvalDirectives := make([]internal.CreateUnitStorageDirectiveArg, 0, len(storageDirectives))
 	rvalInstances := []internal.CreateUnitStorageInstanceArg{}
 	rvalToAttach := make([]internal.CreateUnitStorageAttachmentArg, 0, len(storageDirectives))
-	// rvalToOwn is the list of storage instance uuid's that the unit must own.
+	// rvalToOwn is the list of storage instance uuids that the unit must own.
 	rvalToOwn := make([]domainstorage.StorageInstanceUUID, 0, len(storageDirectives))
 
 	// We create a cahced storage pool provider for the scope of this operation.
