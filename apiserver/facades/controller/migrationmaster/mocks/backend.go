@@ -566,40 +566,40 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
 }
 
-// CheckAllApplicationsAndUnitsAreAlive mocks base method.
-func (m *MockApplicationService) CheckAllApplicationsAndUnitsAreAlive(arg0 context.Context) error {
+// CheckApplicationsForMigration mocks base method.
+func (m *MockApplicationService) CheckApplicationsForMigration(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckAllApplicationsAndUnitsAreAlive", arg0)
+	ret := m.ctrl.Call(m, "CheckApplicationsForMigration", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// CheckAllApplicationsAndUnitsAreAlive indicates an expected call of CheckAllApplicationsAndUnitsAreAlive.
-func (mr *MockApplicationServiceMockRecorder) CheckAllApplicationsAndUnitsAreAlive(arg0 any) *MockApplicationServiceCheckAllApplicationsAndUnitsAreAliveCall {
+// CheckApplicationsForMigration indicates an expected call of CheckApplicationsForMigration.
+func (mr *MockApplicationServiceMockRecorder) CheckApplicationsForMigration(arg0 any) *MockApplicationServiceCheckApplicationsForMigrationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAllApplicationsAndUnitsAreAlive", reflect.TypeOf((*MockApplicationService)(nil).CheckAllApplicationsAndUnitsAreAlive), arg0)
-	return &MockApplicationServiceCheckAllApplicationsAndUnitsAreAliveCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckApplicationsForMigration", reflect.TypeOf((*MockApplicationService)(nil).CheckApplicationsForMigration), arg0)
+	return &MockApplicationServiceCheckApplicationsForMigrationCall{Call: call}
 }
 
-// MockApplicationServiceCheckAllApplicationsAndUnitsAreAliveCall wrap *gomock.Call
-type MockApplicationServiceCheckAllApplicationsAndUnitsAreAliveCall struct {
+// MockApplicationServiceCheckApplicationsForMigrationCall wrap *gomock.Call
+type MockApplicationServiceCheckApplicationsForMigrationCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceCheckAllApplicationsAndUnitsAreAliveCall) Return(arg0 error) *MockApplicationServiceCheckAllApplicationsAndUnitsAreAliveCall {
+func (c *MockApplicationServiceCheckApplicationsForMigrationCall) Return(arg0 error) *MockApplicationServiceCheckApplicationsForMigrationCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceCheckAllApplicationsAndUnitsAreAliveCall) Do(f func(context.Context) error) *MockApplicationServiceCheckAllApplicationsAndUnitsAreAliveCall {
+func (c *MockApplicationServiceCheckApplicationsForMigrationCall) Do(f func(context.Context) error) *MockApplicationServiceCheckApplicationsForMigrationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceCheckAllApplicationsAndUnitsAreAliveCall) DoAndReturn(f func(context.Context) error) *MockApplicationServiceCheckAllApplicationsAndUnitsAreAliveCall {
+func (c *MockApplicationServiceCheckApplicationsForMigrationCall) DoAndReturn(f func(context.Context) error) *MockApplicationServiceCheckApplicationsForMigrationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

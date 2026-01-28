@@ -635,40 +635,40 @@ func (c *MockStateAddIAASUnitsCall) DoAndReturn(f func(context.Context, applicat
 	return c
 }
 
-// CheckAllApplicationsAndUnitsAreAlive mocks base method.
-func (m *MockState) CheckAllApplicationsAndUnitsAreAlive(arg0 context.Context) error {
+// CheckApplicationsForMigration mocks base method.
+func (m *MockState) CheckApplicationsForMigration(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckAllApplicationsAndUnitsAreAlive", arg0)
+	ret := m.ctrl.Call(m, "CheckApplicationsForMigration", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// CheckAllApplicationsAndUnitsAreAlive indicates an expected call of CheckAllApplicationsAndUnitsAreAlive.
-func (mr *MockStateMockRecorder) CheckAllApplicationsAndUnitsAreAlive(arg0 any) *MockStateCheckAllApplicationsAndUnitsAreAliveCall {
+// CheckApplicationsForMigration indicates an expected call of CheckApplicationsForMigration.
+func (mr *MockStateMockRecorder) CheckApplicationsForMigration(arg0 any) *MockStateCheckApplicationsForMigrationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAllApplicationsAndUnitsAreAlive", reflect.TypeOf((*MockState)(nil).CheckAllApplicationsAndUnitsAreAlive), arg0)
-	return &MockStateCheckAllApplicationsAndUnitsAreAliveCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckApplicationsForMigration", reflect.TypeOf((*MockState)(nil).CheckApplicationsForMigration), arg0)
+	return &MockStateCheckApplicationsForMigrationCall{Call: call}
 }
 
-// MockStateCheckAllApplicationsAndUnitsAreAliveCall wrap *gomock.Call
-type MockStateCheckAllApplicationsAndUnitsAreAliveCall struct {
+// MockStateCheckApplicationsForMigrationCall wrap *gomock.Call
+type MockStateCheckApplicationsForMigrationCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateCheckAllApplicationsAndUnitsAreAliveCall) Return(arg0 error) *MockStateCheckAllApplicationsAndUnitsAreAliveCall {
+func (c *MockStateCheckApplicationsForMigrationCall) Return(arg0 error) *MockStateCheckApplicationsForMigrationCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCheckAllApplicationsAndUnitsAreAliveCall) Do(f func(context.Context) error) *MockStateCheckAllApplicationsAndUnitsAreAliveCall {
+func (c *MockStateCheckApplicationsForMigrationCall) Do(f func(context.Context) error) *MockStateCheckApplicationsForMigrationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCheckAllApplicationsAndUnitsAreAliveCall) DoAndReturn(f func(context.Context) error) *MockStateCheckAllApplicationsAndUnitsAreAliveCall {
+func (c *MockStateCheckApplicationsForMigrationCall) DoAndReturn(f func(context.Context) error) *MockStateCheckApplicationsForMigrationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
