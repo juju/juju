@@ -57,7 +57,26 @@ func testPodLabels(c *gc.C, cfg *config.Config, jobs []model.MachineJob, expectT
 
 func (*podcfgSuite) TestOperatorImagesDefaultRepo(c *gc.C) {
 	cfg := testing.FakeControllerConfig()
-	cfg["juju-db-snap-channel"] = "4.4/stable"
+	cfg["juju-db-snap-channel"] = "4.4.30/stable"
+	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
+		cfg,
+		"controller-1",
+		"kubernetes",
+		constraints.Value{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	podConfig.JujuVersion = version.MustParse("6.6.6.666")
+	path, err := podConfig.GetControllerImagePath()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(path, gc.Equals, "jujusolutions/jujud-operator:6.6.6.666")
+	path, err = podConfig.GetJujuDbOCIImagePath()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(path, gc.Equals, "jujusolutions/juju-db:4.4.30")
+}
+
+func (*podcfgSuite) TestOperatorImagesOldMongoTrack(c *gc.C) {
+	cfg := testing.FakeControllerConfig()
+	cfg["juju-db-snap-channel"] = "4.4"
 	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 		cfg,
 		"controller-1",
@@ -77,7 +96,7 @@ func (*podcfgSuite) TestOperatorImagesDefaultRepo(c *gc.C) {
 func (*podcfgSuite) TestOperatorImagesCustomRepo(c *gc.C) {
 	cfg := testing.FakeControllerConfig()
 	cfg["caas-image-repo"] = "path/to/my/repo"
-	cfg["juju-db-snap-channel"] = "4.4"
+	cfg["juju-db-snap-channel"] = "4.4.30"
 	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
 		cfg,
 		"controller-1",
@@ -92,7 +111,7 @@ func (*podcfgSuite) TestOperatorImagesCustomRepo(c *gc.C) {
 	c.Assert(path, gc.Equals, "path/to/my/repo/jujud-operator:6.6.6.666")
 	path, err = podConfig.GetJujuDbOCIImagePath()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path, gc.Equals, "path/to/my/repo/juju-db:4.4")
+	c.Assert(path, gc.Equals, "path/to/my/repo/juju-db:4.4.30")
 }
 
 func (*podcfgSuite) TestBootstrapConstraints(c *gc.C) {

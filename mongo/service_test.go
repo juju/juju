@@ -60,7 +60,9 @@ func (s *serviceSuite) TestNewConf24(c *gc.C) {
 		"--auth",
 		"--sslOnNormalPorts",
 		"--keyFile",
+		"--sslCAFile",
 		"--sslPEMKeyFile",
+		"--sslAllowInvalidHostnames",
 		"--replSet",
 		// required when MongoDB 2.4 is deployed
 		"--noprealloc",
@@ -69,6 +71,7 @@ func (s *serviceSuite) TestNewConf24(c *gc.C) {
 
 	expectedKwArgs := map[string]string{
 		"--dbpath":        "'/var/lib/juju/db'",
+		"--sslCAFile":     "'/var/lib/juju/ca.crt'",
 		"--sslPEMKeyFile": "'/var/lib/juju/server.pem'",
 		"--port":          "12345",
 		"--keyFile":       "'/var/lib/juju/shared-secret'",
@@ -172,7 +175,9 @@ func (s *serviceSuite) TestNewConf32LowMem(c *gc.C) {
 		"--ipv6",
 		"--auth",
 		"--keyFile",
+		"--sslCAFile",
 		"--sslPEMKeyFile",
+		"--sslAllowInvalidHostnames",
 		"--replSet",
 		// required when MongoDB 3.2 is deployed
 		"--storageEngine",
@@ -182,6 +187,7 @@ func (s *serviceSuite) TestNewConf32LowMem(c *gc.C) {
 
 	expectedKwArgs := map[string]string{
 		"--dbpath":                "'/var/lib/juju/db'",
+		"--sslCAFile":             "'/var/lib/juju/ca.crt'",
 		"--sslPEMKeyFile":         "'/var/lib/juju/server.pem'",
 		"--port":                  "12345",
 		"--keyFile":               "'/var/lib/juju/shared-secret'",
@@ -230,6 +236,7 @@ func (s *serviceSuite) TestNewConf36(c *gc.C) {
 		IPv6:                  true,
 		ReplicaSet:            "juju",
 		MemoryProfile:         mongo.MemoryProfileLow,
+		CACertFile:            "/var/lib/juju/ca.crt",
 		PEMKeyFile:            "/var/lib/juju/server.pem",
 		PEMKeyPassword:        "ignored",
 		AuthKeyFile:           "/var/lib/juju/shared-secret",
@@ -248,8 +255,10 @@ func (s *serviceSuite) TestNewConf36(c *gc.C) {
 		Timeout: 300,
 		ExecStart: "/usr/bin/mongod" +
 			" --dbpath '/var/lib/juju/db'" +
+			" --sslCAFile '/var/lib/juju/ca.crt'" +
 			" --sslPEMKeyFile '/var/lib/juju/server.pem'" +
 			" --sslPEMKeyPassword=ignored" +
+			" --sslAllowInvalidHostnames" +
 			" --port 12345" +
 			" --syslog" +
 			" --journal" +
@@ -260,6 +269,64 @@ func (s *serviceSuite) TestNewConf36(c *gc.C) {
 			" --auth" +
 			" --keyFile '/var/lib/juju/shared-secret'" +
 			" --sslMode requireSSL" +
+			" --storageEngine wiredTiger" +
+			" --wiredTigerCacheSizeGB 0.25" +
+			" --bind_ip_all",
+	}
+	c.Check(strings.Fields(conf.ExecStart), jc.SameContents, strings.Fields(expected.ExecStart))
+}
+
+func (s *serviceSuite) TestNewConf44(c *gc.C) {
+	dataDir := "/var/lib/juju"
+	dbDir := dataDir + "/db"
+	mongodPath := "/usr/bin/mongod"
+	mongodVersion := mongo.Mongo44wt
+	port := 12345
+	oplogSizeMB := 10
+	confArgs := mongo.ConfigArgs{
+		DataDir:               dataDir,
+		DBDir:                 dbDir,
+		MongoPath:             mongodPath,
+		Port:                  port,
+		OplogSizeMB:           oplogSizeMB,
+		WantNUMACtl:           false,
+		Version:               mongodVersion,
+		IPv6:                  true,
+		ReplicaSet:            "juju",
+		MemoryProfile:         mongo.MemoryProfileLow,
+		CACertFile:            "/var/lib/juju/ca.crt",
+		PEMKeyFile:            "/var/lib/juju/server.pem",
+		PEMKeyPassword:        "ignored",
+		AuthKeyFile:           "/var/lib/juju/shared-secret",
+		Syslog:                true,
+		Journal:               true,
+		Quiet:                 true,
+		SSLMode:               "requireTLS",
+		WiredTigerCacheSizeGB: 0.25,
+		BindToAllIP:           true,
+	}
+	conf := mongo.NewConf(&confArgs)
+
+	expected := common.Conf{
+		Desc:    "juju state database",
+		Limit:   expectedLimits,
+		Timeout: 300,
+		ExecStart: "/usr/bin/mongod" +
+			" --dbpath '/var/lib/juju/db'" +
+			" --tlsCAFile '/var/lib/juju/ca.crt'" +
+			" --tlsCertificateKeyFile '/var/lib/juju/server.pem'" +
+			" --tlsCertificateKeyFilePassword=ignored" +
+			" --tlsAllowInvalidHostnames" +
+			" --port 12345" +
+			" --syslog" +
+			" --journal" +
+			" --replSet juju" +
+			" --quiet" +
+			" --oplogSize 10" +
+			" --ipv6" +
+			" --auth" +
+			" --keyFile '/var/lib/juju/shared-secret'" +
+			" --tlsMode requireTLS" +
 			" --storageEngine wiredTiger" +
 			" --wiredTigerCacheSizeGB 0.25" +
 			" --bind_ip_all",

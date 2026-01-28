@@ -133,9 +133,10 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.Controller {
 func NewMongoInfo() *mongo.MongoInfo {
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:      []string{mgotesting.MgoServer.Addr()},
-			CACert:     testing.CACert,
-			DisableTLS: !mgotesting.MgoServer.SSLEnabled(),
+			Addrs:        []string{mgotesting.MgoServer.Addr()},
+			CACert:       testing.CACert,
+			CAPrivateKey: testing.CAKey,
+			DisableTLS:   !mgotesting.MgoServer.SSLEnabled(),
 		},
 	}
 }

@@ -553,8 +553,8 @@ github.com/juju/lumberjack/v2 v2.0.2 h1:FlxrR62Vb7FfN7jwpSBqqereyq5bBQUF0LqOhZ2V
 github.com/juju/lumberjack/v2 v2.0.2/go.mod h1:BChCvBPxdUuWiy/d+Uw7tvbHjp1zXmoaz0atJ1RBYO0=
 github.com/juju/mgo/v2 v2.0.0-20210302023703-70d5d206e208/go.mod h1:0OChplkvPTZ174D2FYZXg4IB9hbEwyHkD+zT+/eK+Fg=
 github.com/juju/mgo/v2 v2.0.0-20220111072304-f200228f1090/go.mod h1:N614SE0a4e+ih2rg96Vi2PeC3cTpUOWgCTv3Cgk974c=
-github.com/juju/mgo/v2 v2.0.2 h1:ufYtW2OFNjniTuxOngecP3Mk5sSclo8Zl1mnmyGWUWA=
-github.com/juju/mgo/v2 v2.0.2/go.mod h1:Z2QbXIrR9JuJcSyankQOw31tINNA5p3qevW73oDoHsM=
+github.com/juju/mgo/v2 v2.0.3 h1:srSbVKwJlH5/D1+VUvXKxKrWyamfFjO9/kkSWwnKb2g=
+github.com/juju/mgo/v2 v2.0.3/go.mod h1:Z2QbXIrR9JuJcSyankQOw31tINNA5p3qevW73oDoHsM=
 github.com/juju/mgotest v1.0.1/go.mod h1:vTaDufYul+Ps8D7bgseHjq87X8eu0ivlKLp9mVc/Bfc=
 github.com/juju/mgotest v1.0.3 h1:3UIS2cOSzE6qz/dtiLAaQew5AKYw/bRb++/lsB522HI=
 github.com/juju/mgotest v1.0.3/go.mod h1:Dnzi6seljG9GoZpqFdTqRV3ybB3UcIj+H8iQqy1so1A=

@@ -4,6 +4,8 @@
 package agent
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"net/http"
@@ -397,6 +399,7 @@ type MachineAgent struct {
 
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
+	mongoClientCert  *tls.Certificate
 
 	loopDeviceManager  looputil.LoopDeviceManager
 	prometheusRegistry *prometheus.Registry
@@ -470,7 +473,7 @@ func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
 
 	si.Cert, si.PrivateKey = string(cert), string(privateKey)
 
-	if err := mongo.UpdateSSLKey(config.DataDir(), si.Cert, si.PrivateKey); err != nil {
+	if err := mongo.UpdateSSLKey(config.DataDir(), si.Cert, si.PrivateKey, config.CACert()); err != nil {
 		return err
 	}
 	config.SetStateServingInfo(si)
@@ -829,6 +832,7 @@ func (a *MachineAgent) openStateForUpgrade() (*state.StatePool, error) {
 		mongo.DefaultDialOpts(),
 		agentConfig,
 		a.mongoDialCollector,
+		a.generateClientCert,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -927,6 +931,7 @@ func mongoDialOptions(
 	baseOpts mongo.DialOpts,
 	agentConfig agent.Config,
 	mongoDialCollector *mongometrics.DialCollector,
+	generateClientCert func(string, string) (*tls.Certificate, error),
 ) (mongo.DialOpts, error) {
 	dialOpts := baseOpts
 	if limitStr := agentConfig.Value("MONGO_SOCKET_POOL_LIMIT"); limitStr != "" {
@@ -941,7 +946,34 @@ func mongoDialOptions(
 		return mongo.DialOpts{}, errors.New("did not expect PostDialServer to be set")
 	}
 	dialOpts.PostDialServer = mongoDialCollector.PostDialServer
+	dialOpts.GenerateClientCertificate = generateClientCert
 	return dialOpts, nil
+}
+
+const certGraceTime = -1 * time.Minute
+
+func (a *MachineAgent) generateClientCert(caCert, caPrivateKey string) (*tls.Certificate, error) {
+	a.mongoInitMutex.Lock()
+	defer a.mongoInitMutex.Unlock()
+
+	if a.mongoClientCert != nil && len(a.mongoClientCert.Certificate) > 0 {
+		// Check whether cert is close to, or has, expired.
+		c, err := x509.ParseCertificate(a.mongoClientCert.Certificate[0])
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if time.Now().Before(c.NotAfter.Add(certGraceTime)) {
+			return a.mongoClientCert, nil
+		}
+		logger.Debugf("mongo client certificate already expired")
+	}
+	cert, err := mongo.GenerateClientCert(caCert, caPrivateKey)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	a.mongoClientCert = cert
+	return a.mongoClientCert, nil
 }
 
 func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, error) {
@@ -954,6 +986,7 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, er
 		stateWorkerDialOpts,
 		agentConfig,
 		a.mongoDialCollector,
+		a.generateClientCert,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -967,6 +1000,7 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, er
 		// On error, force a mongo refresh.
 		a.mongoInitMutex.Lock()
 		a.mongoInitialized = false
+		a.mongoClientCert = nil
 		a.mongoInitMutex.Unlock()
 		return nil, err
 	}

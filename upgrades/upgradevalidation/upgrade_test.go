@@ -71,7 +71,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 			},
 		}, nil),
 		// - check mongo version;
-		statePool.EXPECT().MongoVersion().Return("4.4", nil),
+		statePool.EXPECT().MongoVersion().Return("4.4.30", nil),
 		// - check if the model has win machines;
 		ctrlState.EXPECT().MachineCountForSeries(
 			"win10", "win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2",

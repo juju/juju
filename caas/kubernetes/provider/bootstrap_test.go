@@ -79,7 +79,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.cfg = cfg
 
 	s.controllerCfg = coretesting.FakeControllerConfig()
-	s.controllerCfg["juju-db-snap-channel"] = "4.4/stable"
+	s.controllerCfg["juju-db-snap-channel"] = "4.4.30/stable"
 	s.controllerCfg[controller.CAASImageRepo] = `
 {
     "serveraddress": "quay.io",
@@ -593,16 +593,15 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		Command: []string{
 			"mongo",
 			fmt.Sprintf("--port=%d", s.controllerCfg.StatePort()),
-			"--ssl",
-			"--sslAllowInvalidHostnames",
-			"--sslAllowInvalidCertificates",
-			"--sslPEMKeyFile=/var/lib/juju/server.pem",
+			"--tls",
+			"--tlsAllowInvalidHostnames",
+			"--tlsCertificateKeyFile=/var/lib/juju/server.pem",
 			"--eval",
 			"db.adminCommand('ping')",
 		},
 	}
 	expectedArgs := []string{
-		`printf 'args="--dbpath=/var/lib/juju/db --sslPEMKeyFile=/var/lib/juju/server.pem --sslPEMKeyPassword=ignored --sslMode=requireSSL --port=1234 --journal --replSet=juju --quiet --oplogSize=1024 --auth --keyFile=/var/lib/juju/shared-secret --storageEngine=wiredTiger --bind_ip_all"`,
+		`printf 'args="--dbpath=/var/lib/juju/db --tlsCertificateKeyFile=/var/lib/juju/server.pem --tlsCertificateKeyFilePassword=ignored --tlsMode=requireTLS --port=1234 --journal --replSet=juju --quiet --oplogSize=1024 --auth --keyFile=/var/lib/juju/shared-secret --storageEngine=wiredTiger --bind_ip_all"`,
 		`ipv6Disabled=$(sysctl net.ipv6.conf.all.disable_ipv6 -n)`,
 		`if [ $ipv6Disabled -eq 0 ]; then`,
 		`  args="${args} --ipv6"`,
@@ -618,7 +617,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "mongodb",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "test-account/juju-db:4.4",
+			Image:           "test-account/juju-db:4.4.30",
 			Command: []string{
 				"/bin/sh",
 			},

@@ -461,7 +461,7 @@ endif
 endif
 
 WAIT_FOR_DPKG=bash -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
-JUJU_DB_VERSION=4.4
+JUJU_DB_VERSION=4.4.30
 JUJU_DB_CHANNEL=${JUJU_DB_VERSION}/stable
 
 .PHONY: install-mongo-dependencies
@@ -574,7 +574,8 @@ push-release-operator-image: operator-image
 .PHONY: seed-repository
 seed-repository:
 ## seed-repository: Copy required juju images from oci repository
-	JUJU_DB_VERSION=$(JUJU_DB_VERSION) $(SEED_REPOSITORY)
+	LEGACY_JUJU_DB_VERSION=$(shell echo ${LEGACY_JUJU_DB_VERSION:-})
+	JUJU_DB_VERSION=$(JUJU_DB_VERSION) LEGACY_JUJU_DB_VERSION=$(LEGACY_JUJU_DB_VERSION) $(SEED_REPOSITORY)
 
 
 .PHONY: host-install

@@ -53,6 +53,9 @@ const (
 
 	// FileNameDBSSLKey is the file name of db ssl key file name.
 	FileNameDBSSLKey = "server.pem"
+
+	// FileNameDBCACertKey is the file name of the CA cert.
+	FileNameDBCACertKey = "ca.crt"
 )
 
 var (
@@ -163,6 +166,10 @@ func sslKeyPath(dataDir string) string {
 	return filepath.Join(dataDir, FileNameDBSSLKey)
 }
 
+func caCertKeyPath(dataDir string) string {
+	return filepath.Join(dataDir, FileNameDBCACertKey)
+}
+
 func sharedSecretPath(dataDir string) string {
 	return filepath.Join(dataDir, SharedSecretFile)
 }
@@ -199,6 +206,7 @@ type ConfigArgs struct {
 	AuthKeyFile    string
 	PEMKeyFile     string
 	PEMKeyPassword string
+	CACertFile     string
 
 	// network params
 	IPv6             bool
@@ -255,7 +263,10 @@ func (conf configArgsConverter) asCommandLineArguments() string {
 }
 
 func (conf configArgsConverter) asMongoDbConfigurationFileFormat() string {
-	pathArgs := set.NewStrings("dbpath", "logpath", "sslPEMKeyFile", "keyFile")
+	pathArgs := set.NewStrings(
+		"dbpath", "logpath", "tlsCAFile", "tlsCertificateKeyFile", "keyFile",
+		"sslPEMKeyFile", // drop in 3.x, for compatibility with mongo 4.0
+	)
 	command := make([]string, 0, len(conf))
 	for key, value := range conf {
 		if len(key) == 0 {
@@ -268,13 +279,30 @@ func (conf configArgsConverter) asMongoDbConfigurationFileFormat() string {
 			value = "true"
 		}
 		line := fmt.Sprintf("%s = %s", key, value)
-		if strings.HasPrefix(key, "sslPEMKeyPassword") {
+		if strings.HasPrefix(key, "tlsCertificateKeyFilePassword") ||
+			strings.HasPrefix(key, "sslPEMKeyPassword") {
 			line = key
 		}
 		command = append(command, line)
 	}
 
 	return strings.Join(command, "\n")
+}
+
+var tlsArgMapping = map[string]string{
+	"tlsMode":                       "sslMode",
+	"tlsOnNormalPorts":              "sslOnNormalPorts",
+	"tlsCertificateKeyFile":         "sslPEMKeyFile",
+	"tlsCertificateKeyFilePassword": "sslPEMKeyPassword",
+	"tlsCAFile":                     "sslCAFile",
+	"tlsAllowInvalidHostnames":      "sslAllowInvalidHostnames",
+}
+
+func tlsArg(arg string, legacySSL bool) string {
+	if !legacySSL {
+		return arg
+	}
+	return tlsArgMapping[arg]
 }
 
 func (mongoArgs *ConfigArgs) asMap() configArgsConverter {
@@ -298,26 +326,35 @@ func (mongoArgs *ConfigArgs) asMap() configArgsConverter {
 	if mongoArgs.BindToAllIP {
 		result["bind_ip_all"] = flagMarker
 	}
+	// The mongodb 4.0 SSL compatibility can be dropped in 3.x.
+	usingSSLArgs := mongoArgs.Version.Major != 4 || mongoArgs.Version.Minor < 4
 	if mongoArgs.SSLMode != "" {
-		result["sslMode"] = mongoArgs.SSLMode
+		result[tlsArg("tlsMode", usingSSLArgs)] = mongoArgs.SSLMode
 	}
 	if mongoArgs.SSLOnNormalPorts {
-		result["sslOnNormalPorts"] = flagMarker
+		result[tlsArg("tlsOnNormalPorts", usingSSLArgs)] = flagMarker
 	}
 
 	// authn
 	if mongoArgs.PEMKeyFile != "" {
-		result["sslPEMKeyFile"] = utils.ShQuote(mongoArgs.PEMKeyFile)
-		//--sslPEMKeyPassword must be concatenated to the equals sign (lp:1581284)
+		result[tlsArg("tlsCertificateKeyFile", usingSSLArgs)] = utils.ShQuote(mongoArgs.PEMKeyFile)
+		// --tlsCertificateKeyFilePassword must be concatenated to the equals sign (lp:1581284)
 		pemPassword := mongoArgs.PEMKeyPassword
 		if pemPassword == "" {
 			pemPassword = "ignored"
 		}
-		result["sslPEMKeyPassword="+pemPassword] = flagMarker
+		result[fmt.Sprintf("%s=%s", tlsArg("tlsCertificateKeyFilePassword", usingSSLArgs), pemPassword)] = flagMarker
+	}
+	if mongoArgs.CACertFile != "" {
+		result[tlsArg("tlsCAFile", usingSSLArgs)] = utils.ShQuote(mongoArgs.CACertFile)
 	}
 
 	if mongoArgs.AuthKeyFile != "" {
 		result["auth"] = flagMarker
+		// Juju doesn't create or update certificates with
+		// the SANs set to the replica IP addresses/hostnames
+		// so we need to disable hostname verification.
+		result[tlsArg("tlsAllowInvalidHostnames", usingSSLArgs)] = flagMarker
 		result["keyFile"] = utils.ShQuote(mongoArgs.AuthKeyFile)
 	} else {
 		logger.Warningf("configuring mongod  with --noauth flag enabled")
@@ -447,6 +484,7 @@ func generateConfig(mongoPath string, oplogSizeMB int, version Version, usingMon
 	usingMongo4orAbove := version.Major > 3
 	usingMongo36orAbove := usingMongo4orAbove || (version.Major == 3 && version.Minor >= 6)
 	usingMongo34orAbove := usingMongo36orAbove || (version.Major == 3 && version.Minor >= 4)
+	usingMongo44 := usingMongo4orAbove && version.Minor >= 4
 	useLowMemory := args.MemoryProfile == MemoryProfileLow
 
 	mongoArgs := &ConfigArgs{
@@ -467,9 +505,10 @@ func generateConfig(mongoPath string, oplogSizeMB int, version Version, usingMon
 		ReplicaSet:       ReplicaSetName,
 		AuthKeyFile:      sharedSecretPath(args.DataDir),
 		PEMKeyFile:       sslKeyPath(args.DataDir),
+		CACertFile:       caCertKeyPath(args.DataDir),
 		PEMKeyPassword:   "ignored", // used as boilerplate later
 		SSLOnNormalPorts: false,
-		//BindIP:                "127.0.0.1", // TODO(tsm): use machine's actual IP address via dialInfo
+		// BindIP:                "127.0.0.1", // TODO(tsm): use machine's actual IP address via dialInfo
 	}
 
 	if useLowMemory && usingWiredTiger {
@@ -491,6 +530,8 @@ func generateConfig(mongoPath string, oplogSizeMB int, version Version, usingMon
 
 	if usingMongo2 {
 		mongoArgs.SSLOnNormalPorts = true
+	} else if usingMongo44 {
+		mongoArgs.SSLMode = "requireTLS"
 	} else {
 		mongoArgs.SSLMode = "requireSSL"
 	}

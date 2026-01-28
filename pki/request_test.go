@@ -7,6 +7,7 @@ import (
 	"crypto"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -33,7 +34,7 @@ func (r *RequestSigner) SetUpTest(c *gc.C) {
 }
 
 func (r *RequestSigner) TestDefaultRequestSigning(c *gc.C) {
-	requestSigner := pki.NewDefaultRequestSigner(r.ca, []*x509.Certificate{}, r.signer)
+	requestSigner := pki.NewDefaultRequestSigner(r.ca, []*x509.Certificate{}, r.signer, time.Minute)
 
 	leafSigner, err := pki.DefaultKeyProfile()
 	c.Assert(err, jc.ErrorIsNil)
@@ -47,8 +48,10 @@ func (r *RequestSigner) TestDefaultRequestSigning(c *gc.C) {
 		},
 	}
 
+	now := time.Now()
 	leafCert, _, err := requestSigner.SignCSR(&leafCSR)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(leafCert.DNSNames, gc.DeepEquals, dnsNames)
 	c.Assert(leafCert.Subject.CommonName, gc.Equals, "test")
+	c.Assert(leafCert.NotAfter, jc.Almost, now.Add(time.Minute))
 }

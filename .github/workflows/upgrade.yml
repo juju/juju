@@ -30,7 +30,7 @@ jobs:
       UPGRADE_FLAGS_microk8s: --agent-stream=develop
       MODEL_TYPE_localhost: iaas
       MODEL_TYPE_microk8s: caas
-      JUJU_DB_VERSION: 4.0
+      JUJU_DB_VERSION: 4.4.30
 
     steps:
       - name: Checkout
@@ -140,6 +140,7 @@ jobs:
         run: |
           set -euxo pipefail
 
+          sudo DEBIAN_FRONTEND=noninteractive apt install -y skopeo
           # Shim in recognition for our CA to jujud-operator
           BUILD_TEMP=$(mktemp -d)
           cp ~/certs/ca.crt $BUILD_TEMP/
@@ -153,7 +154,7 @@ jobs:
           docker build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
           docker push ${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
 
-          OCI_REGISTRY_USERNAME=${OCI_REGISTRY}/test-repo make seed-repository
+          OCI_REGISTRY_USERNAME=${OCI_REGISTRY}/test-repo LEGACY_JUJU_DB_VERSION=4.4 make seed-repository
 
       - name: Bootstrap Juju - localhost
         if: matrix.cloud == 'localhost'
