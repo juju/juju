@@ -21,6 +21,25 @@ func TestNetConfigSuite(t *testing.T) {
 	tc.Run(t, &netConfigSuite{})
 }
 
+func (s *netConfigSuite) TestIsMachineUnmanaged(c *tc.C) {
+	netNodeUUID := s.addNetNode(c)
+	machineUUID := s.addMachine(c, "0", netNodeUUID)
+	s.query(c, "INSERT INTO machine_manual (machine_uuid) VALUES (?)", machineUUID.String())
+
+	got, err := s.state.IsMachineUnmanaged(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.IsTrue)
+}
+
+func (s *netConfigSuite) TestIsMachineUnmanagedFalse(c *tc.C) {
+	netNodeUUID := s.addNetNode(c)
+	machineUUID := s.addMachine(c, "0", netNodeUUID)
+
+	got, err := s.state.IsMachineUnmanaged(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.IsFalse)
+}
+
 func (s *netConfigSuite) TestSetMachineNetConfig(c *tc.C) {
 	db := s.DB()
 

@@ -137,6 +137,10 @@ type NetConfigState interface {
 	// exist.
 	GetUnitUUIDByName(context.Context, coreunit.Name) (coreunit.UUID, error)
 
+	// IsMachineUnmanaged returns true if the machine
+	// with the input UUID is unmanaged.
+	IsMachineUnmanaged(ctx context.Context, machineUUID string) (bool, error)
+
 	// SetMachineNetConfig updates the network configuration for the machine
 	// with the input net node UUID.
 	// If addMissingSubnets is true and any addresses have subnets not yet in
