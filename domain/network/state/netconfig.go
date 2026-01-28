@@ -360,18 +360,9 @@ func (st *State) reconcileNetConfigAddresses(
 	for _, n := range nics {
 		devUUID := nicNameToUUID[n.Name]
 
-		addrToUUID := make(map[string]string, len(n.Addrs))
-		for _, a := range n.Addrs {
-			if existingAddr, ok := existingAddrs[a.AddressValue]; ok {
-				addrToUUID[a.AddressValue] = existingAddr.UUID
-				continue
-			}
-
-			addrUUID, err := network.NewAddressUUID()
-			if err != nil {
-				return nil, nil, errors.Capture(err)
-			}
-			addrToUUID[a.AddressValue] = addrUUID.String()
+		addrToUUID, err := addressUUIDsForNIC(n, existingAddrs)
+		if err != nil {
+			return nil, nil, errors.Capture(err)
 		}
 
 		for _, a := range n.Addrs {
@@ -476,6 +467,23 @@ func (st *State) getCurrentAddresses(
 	return transform.SliceToMap(addrs, func(d ipAddressValue) (string, ipAddressValue) {
 		return d.Value, d
 	}), nil
+}
+
+func addressUUIDsForNIC(nic network.NetInterface, existingAddrs map[string]ipAddressValue) (map[string]string, error) {
+	addrToUUID := make(map[string]string, len(nic.Addrs))
+	for _, a := range nic.Addrs {
+		if existingAddr, ok := existingAddrs[a.AddressValue]; ok {
+			addrToUUID[a.AddressValue] = existingAddr.UUID
+			continue
+		}
+
+		addrUUID, err := network.NewAddressUUID()
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		addrToUUID[a.AddressValue] = addrUUID.String()
+	}
+	return addrToUUID, nil
 }
 
 func (st *State) insertSubnets(ctx context.Context, tx *sqlair.TX, subs []subnet) error {
