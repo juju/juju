@@ -309,10 +309,10 @@ func (m *MockStorageService) EXPECT() *MockStorageServiceMockRecorder {
 }
 
 // CreateStoragePool mocks base method.
-func (m *MockStorageService) CreateStoragePool(arg0 context.Context, arg1 string, arg2 storage.ProviderType, arg3 map[string]any) (storage.StoragePoolUUID, error) {
+func (m *MockStorageService) CreateStoragePool(arg0 context.Context, arg1 string, arg2 storage1.ProviderType, arg3 map[string]any) (storage1.StoragePoolUUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateStoragePool", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(storage.StoragePoolUUID)
+	ret0, _ := ret[0].(storage1.StoragePoolUUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -330,19 +330,19 @@ type MockStorageServiceCreateStoragePoolCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStorageServiceCreateStoragePoolCall) Return(arg0 storage.StoragePoolUUID, arg1 error) *MockStorageServiceCreateStoragePoolCall {
+func (c *MockStorageServiceCreateStoragePoolCall) Return(arg0 storage1.StoragePoolUUID, arg1 error) *MockStorageServiceCreateStoragePoolCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageServiceCreateStoragePoolCall) Do(f func(context.Context, string, storage.ProviderType, map[string]any) (storage.StoragePoolUUID, error)) *MockStorageServiceCreateStoragePoolCall {
+func (c *MockStorageServiceCreateStoragePoolCall) Do(f func(context.Context, string, storage1.ProviderType, map[string]any) (storage1.StoragePoolUUID, error)) *MockStorageServiceCreateStoragePoolCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageServiceCreateStoragePoolCall) DoAndReturn(f func(context.Context, string, storage.ProviderType, map[string]any) (storage.StoragePoolUUID, error)) *MockStorageServiceCreateStoragePoolCall {
+func (c *MockStorageServiceCreateStoragePoolCall) DoAndReturn(f func(context.Context, string, storage1.ProviderType, map[string]any) (storage1.StoragePoolUUID, error)) *MockStorageServiceCreateStoragePoolCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
