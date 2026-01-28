@@ -755,3 +755,69 @@ func (s *storagePoolServiceSuite) TestImportStoragePoolStateError(c *tc.C) {
 	)
 	c.Check(err, tc.ErrorIs, stateErr)
 }
+
+// TestSetRecommendedStoragePools tests that the service correctly converts
+// recommended storage pool parameters into model arguments and delegates
+// persistence to the state layer without error.
+func (s *storagePoolServiceSuite) TestSetRecommendedStoragePools(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	uuid1 := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	uuid2 := tc.Must(c, domainstorage.NewStoragePoolUUID)
+
+	input := []domainstorage.RecommendedStoragePoolParams{
+		{
+			StorageKind:     domainstorage.StorageKindFilesystem,
+			StoragePoolUUID: uuid1,
+		},
+		{
+			StorageKind:     domainstorage.StorageKindBlock,
+			StoragePoolUUID: uuid2,
+		},
+	}
+
+	svc := StoragePoolService{
+		st: s.state,
+	}
+
+	s.state.EXPECT().SetModelStoragePools(gomock.Any(), []domainstorage.RecommendedStoragePoolArg{
+		{
+			StorageKind:     domainstorage.StorageKindFilesystem,
+			StoragePoolUUID: uuid1,
+		},
+		{
+			StorageKind:     domainstorage.StorageKindBlock,
+			StoragePoolUUID: uuid2,
+		},
+	})
+
+	err := svc.SetRecommendedStoragePools(c.Context(), input)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestSetRecommendedStoragePoolsPoolNotFound tests that the service propagates
+// a [domainstorageerrors.StoragePoolNotFound] error returned by the state layer
+// when a referenced storage pool does not exist.
+func (s *storagePoolServiceSuite) TestSetRecommendedStoragePoolsPropagatesError(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	expectedErr := domainstorageerrors.StoragePoolNotFound
+
+	svc := &StoragePoolService{
+		st: s.state,
+	}
+
+	s.state.EXPECT().SetModelStoragePools(gomock.Any(), gomock.Any()).Return(
+		domainstorageerrors.StoragePoolNotFound)
+
+	err := svc.SetRecommendedStoragePools(c.Context(), []domainstorage.RecommendedStoragePoolParams{
+		{
+			StorageKind:     domainstorage.StorageKindFilesystem,
+			StoragePoolUUID: tc.Must(c, domainstorage.NewStoragePoolUUID),
+		},
+	})
+
+	c.Check(err, tc.ErrorIs, expectedErr)
+}
