@@ -722,7 +722,7 @@ func (s *charmHubRepositorySuite) TestResolveResourcesNoMatchingRevision(c *tc.C
 		Revision: 1,
 		Size:     0,
 	}}, charmID())
-	c.Assert(err, tc.ErrorMatches, `charm resource "wal-e" at revision 1`)
+	c.Assert(err, tc.ErrorMatches, `charm resource "wal-e" at revision 1 not found`)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
@@ -1222,7 +1222,7 @@ func (s *selectNextBaseSuite) TestSelectNextBaseWithInvalidBases(c *tc.C) {
 			Architecture: "amd64",
 		},
 	})
-	c.Assert(err, tc.ErrorMatches, `bases matching architecture "amd64"`)
+	c.Assert(err, tc.ErrorMatches, `bases matching architecture "amd64" not found`)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 
 }

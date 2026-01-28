@@ -354,7 +354,7 @@ func ReadBaseFromMultidocBundle(b []byte) (*BundleData, bool, error) {
 	}
 
 	if len(parts) == 0 {
-		return nil, false, internalerrors.Errorf("empty bundle")
+		return nil, false, internalerrors.Errorf("empty bundle not valid").Add(coreerrors.NotValid)
 	}
 
 	return parts[0].Data, len(parts) > 1, nil

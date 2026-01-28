@@ -5,7 +5,6 @@ package assumes
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -239,12 +238,12 @@ func marshalAssumesExpressionTree(tree *ExpressionTree) (interface{}, error) {
 
 	rootMap, ok := root.(map[string]interface{})
 	if !ok {
-		return nil, errors.New(`unexpected serialized output for top-level "assumes" block`)
+		return nil, internalerrors.New(`unexpected serialized output for top-level "assumes" block`)
 	}
 
 	exprList, ok := rootMap[string(AllOfExpression)]
 	if !ok {
-		return nil, errors.New(`unexpected serialized output for top-level "assumes" block`)
+		return nil, internalerrors.New(`unexpected serialized output for top-level "assumes" block`)
 	}
 
 	return exprList, nil

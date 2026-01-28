@@ -13,6 +13,7 @@ import (
 
 	"github.com/mohae/deepcopy"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 )
 
@@ -426,7 +427,7 @@ func ReadAndMergeBundleData(sources ...BundleDataSource) (*BundleData, error) {
 	}
 
 	if len(allParts) == 0 {
-		return nil, internalerrors.Errorf("malformed bundle: bundle is empty")
+		return nil, internalerrors.Errorf("malformed bundle: bundle is empty not valid").Add(coreerrors.NotValid)
 	}
 
 	// Treat the first part as the base bundle

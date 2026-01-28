@@ -346,11 +346,11 @@ func (c *CharmHubRepository) validateOrigin(origin corecharm.Origin) (corecharm.
 	p := origin.Platform
 
 	if p.OS != "" && p.Channel == "" {
-		return corecharm.Origin{}, internalerrors.New("origin.Platform requires a Channel, if OS set").Add(coreerrors.BadRequest)
+		return corecharm.Origin{}, internalerrors.New("origin.Platform requires a Channel, if OS set bad request").Add(coreerrors.BadRequest)
 	}
 
 	if p.OS == "" && p.Channel != "" {
-		return corecharm.Origin{}, internalerrors.New("origin.Platform requires an OS, if channel set").Add(coreerrors.BadRequest)
+		return corecharm.Origin{}, internalerrors.New("origin.Platform requires an OS, if channel set bad request").Add(coreerrors.BadRequest)
 	}
 	return origin, nil
 }
@@ -411,7 +411,7 @@ func (c *CharmHubRepository) retryResolveWithRespBases(ctx context.Context, char
 	origin.Platform.Channel = base.Channel
 
 	if origin.Platform.Channel == "" {
-		return nil, internalerrors.Errorf("channel for %s", charmName).Add(coreerrors.NotValid)
+		return nil, internalerrors.Errorf("channel for %s not valid", charmName).Add(coreerrors.NotValid)
 	}
 	c.logger.Tracef(ctx, "Refresh again with %q %v", charmName, origin)
 	res, err := c.refreshOne(ctx, charmName, origin)
@@ -768,7 +768,8 @@ func (c *CharmHubRepository) resourceInfo(ctx context.Context, curl *charm.URL, 
 			}
 		}
 	}
-	return charmresource.Resource{}, internalerrors.Errorf("charm resource %q at revision %d", name, revision).Add(coreerrors.NotFound)
+	return charmresource.Resource{}, internalerrors.Errorf("charm resource %q at revision %d not found", name, revision).
+		Add(coreerrors.NotFound)
 }
 
 // EssentialMetadataFromResponse extracts the essential metadata from the
@@ -782,7 +783,9 @@ func EssentialMetadataFromResponse(charmName string, refreshResult transport.Ref
 	entity := refreshResult.Entity
 
 	if entity.MetadataYAML == "" {
-		return corecharm.EssentialMetadata{}, internalerrors.Errorf("charmhub refresh response for %q does not include the contents of metadata.yaml", charmName).Add(coreerrors.NotValid)
+		return corecharm.EssentialMetadata{},
+			internalerrors.Errorf("charmhub refresh response for %q does not include the contents of metadata.yaml not valid", charmName).
+				Add(coreerrors.NotValid)
 	}
 	chMeta, err := charm.ReadMeta(strings.NewReader(entity.MetadataYAML))
 	if err != nil {
@@ -942,7 +945,8 @@ func (c *CharmHubRepository) selectNextBases(bases []transport.Base, origin core
 		compatible = append(compatible, base)
 	}
 	if len(compatible) == 0 {
-		return nil, internalerrors.Errorf("bases matching architecture %q", origin.Platform.Architecture).Add(coreerrors.NotFound)
+		return nil, internalerrors.Errorf("bases matching architecture %q not found", origin.Platform.Architecture).
+			Add(coreerrors.NotFound)
 	}
 
 	// Serialize all the platforms into core entities.
@@ -1092,7 +1096,7 @@ func refreshConfig(ctx context.Context, charmName string, origin corecharm.Origi
 		// action for metric keeping on the CharmHub side.
 		cfg, err = charmhub.RefreshOne(ctx, origin.InstanceKey, origin.ID, rev, channel, base)
 	default:
-		return nil, internalerrors.Errorf("origin %v", origin).Add(coreerrors.NotValid)
+		return nil, internalerrors.Errorf("origin %v not valid", origin).Add(coreerrors.NotValid)
 	}
 	return cfg, err
 }

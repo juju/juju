@@ -77,7 +77,7 @@ func ValidateSchema(schema string) error {
 	case CharmHub.String(), Local.String():
 		return nil
 	}
-	return internalerrors.Errorf("schema %q", schema).Add(coreerrors.NotValid)
+	return internalerrors.Errorf("schema %q not valid", schema).Add(coreerrors.NotValid)
 }
 
 // IsValidArchitecture reports whether the architecture is a valid architecture
@@ -91,7 +91,7 @@ func ValidateArchitecture(arch string) error {
 	if IsValidArchitecture(arch) {
 		return nil
 	}
-	return internalerrors.Errorf("architecture name %q", arch).Add(coreerrors.NotValid)
+	return internalerrors.Errorf("architecture name %q not valid", arch).Add(coreerrors.NotValid)
 }
 
 // IsValidName reports whether name is a valid charm or bundle name.
@@ -104,7 +104,7 @@ func ValidateName(name string) error {
 	if IsValidName(name) {
 		return nil
 	}
-	return internalerrors.Errorf("name %q", name).Add(coreerrors.NotValid)
+	return internalerrors.Errorf("name %q not valid", name).Add(coreerrors.NotValid)
 }
 
 // WithRevision returns a URL equivalent to url but with Revision set
@@ -168,7 +168,7 @@ func ParseURL(url string) (*URL, error) {
 
 func parseLocalURL(url *gourl.URL, originalURL string) (*URL, error) {
 	if !Local.Matches(url.Scheme) {
-		return nil, internalerrors.Errorf("cannot parse URL %q: schema %q", url, url.Scheme).Add(coreerrors.NotValid)
+		return nil, internalerrors.Errorf("cannot parse URL %q: schema %q not valid", url, url.Scheme).Add(coreerrors.NotValid)
 	}
 	r := URL{Schema: Local.String()}
 
@@ -332,7 +332,7 @@ func parseCharmhubURL(url *gourl.URL) (*URL, error) {
 
 	// ~<username>
 	if strings.HasPrefix(parts[0], "~") {
-		return nil, internalerrors.Errorf("charmhub charm or bundle URL with user name: %q", url).Add(coreerrors.NotValid)
+		return nil, internalerrors.Errorf("charmhub charm or bundle URL with user name: %q not valid", url).Add(coreerrors.NotValid)
 	}
 
 	var nameRev string
@@ -383,7 +383,7 @@ func EnsureSchema(url string, defaultSchema Schema) (string, error) {
 		// If the schema is empty, we fall back to the default schema.
 		return defaultSchema.Prefix(url), nil
 	default:
-		return "", internalerrors.Errorf("schema %q", u.Scheme).Add(coreerrors.NotValid)
+		return "", internalerrors.Errorf("schema %q not valid", u.Scheme).Add(coreerrors.NotValid)
 	}
 }
 

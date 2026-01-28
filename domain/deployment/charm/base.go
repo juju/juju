@@ -23,10 +23,10 @@ type Base struct {
 // Validate returns with no error when the Base is valid.
 func (b Base) Validate() error {
 	if b.Name == "" {
-		return internalerrors.Errorf("base without name").Add(coreerrors.NotValid)
+		return internalerrors.Errorf("base without name not valid").Add(coreerrors.NotValid)
 	}
 	if b.Channel.Empty() {
-		return internalerrors.Errorf("channel").Add(coreerrors.NotValid)
+		return internalerrors.Errorf("channel not valid").Add(coreerrors.NotValid)
 	}
 	return nil
 }
@@ -51,7 +51,7 @@ func ParseBase(s string, archs ...string) (Base, error) {
 
 	segments := strings.Split(s, "@")
 	if len(segments) != 2 {
-		return Base{}, internalerrors.Errorf("base string must contain exactly one @. %q", s).Add(coreerrors.NotValid)
+		return Base{}, internalerrors.Errorf("base string must contain exactly one @. %q not valid", s).Add(coreerrors.NotValid)
 	}
 	base.Name = strings.ToLower(segments[0])
 	channelName := segments[1]

@@ -357,7 +357,7 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentBadConfig(c *tc.C) {
            - ["wordpress:db", "mysql:server"]
    `, wordpressPath, mysqlPath),
 		"--overlay", "missing-file")
-	c.Assert(err, tc.ErrorMatches, `cannot deploy bundle: unable to process overlays: "missing-file"`)
+	c.Assert(err, tc.ErrorMatches, `cannot deploy bundle: unable to process overlays: "missing-file" not found`)
 }
 
 func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentWithBundleOverlay(c *tc.C) {

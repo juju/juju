@@ -5,7 +5,6 @@ package charm
 
 import (
 	"bytes"
-	stderrors "errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -93,7 +92,7 @@ func (s *resolvedBundleDataSource) ResolveInclude(path string) ([]byte, error) {
 	info, err := os.Stat(absPath)
 	if err != nil {
 		if isNotExistsError(err) {
-			return nil, internalerrors.Errorf("include file %q", absPath).Add(coreerrors.NotFound)
+			return nil, internalerrors.Errorf("include file %q not found", absPath).Add(coreerrors.NotFound)
 		}
 
 		return nil, internalerrors.Errorf("stat failed for %q: %w", absPath, err)
@@ -118,7 +117,7 @@ func LocalBundleDataSource(path string) (BundleDataSource, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		if isNotExistsError(err) {
-			return nil, internalerrors.Errorf("%q", path).Add(coreerrors.NotFound)
+			return nil, internalerrors.Errorf("%q not found", path).Add(coreerrors.NotFound)
 		}
 
 		return nil, internalerrors.Errorf("stat failed for %q: %w", path, err)
@@ -133,7 +132,7 @@ func LocalBundleDataSource(path string) (BundleDataSource, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		if isNotExistsError(err) {
-			return nil, internalerrors.Errorf("%q", path).Add(coreerrors.NotFound)
+			return nil, internalerrors.Errorf("%q not found", path).Add(coreerrors.NotFound)
 		}
 		return nil, internalerrors.Errorf("access bundle data at %q: %w", path, err)
 	}
@@ -168,7 +167,7 @@ func LocalBundleDataSource(path string) (BundleDataSource, error) {
 	r, err := zipOpenFile(zrc, "bundle.yaml")
 	if err != nil {
 		// It is a zip file but not one that contains a bundle.yaml
-		return nil, internalerrors.Errorf("interpret bundle contents as a bundle archive: %v", err).Add(coreerrors.NotFound)
+		return nil, internalerrors.Errorf("interpret bundle contents as a bundle archive: %v not found", err).Add(coreerrors.NotFound)
 	}
 	defer func() { _ = r.Close() }()
 
@@ -234,7 +233,7 @@ func parseBundleParts(b []byte) ([]*BundleDataPart, error) {
 		var part BundleDataPart
 
 		err := structDec.Decode(&part.Data)
-		if stderrors.Is(err, io.EOF) {
+		if internalerrors.Is(err, io.EOF) {
 			break
 		} else if err != nil && !strings.HasPrefix(err.Error(), "yaml: unmarshal errors:") {
 			return nil, internalerrors.Errorf("unmarshal document %d: %w", docIdx, err)
@@ -243,12 +242,12 @@ func parseBundleParts(b []byte) ([]*BundleDataPart, error) {
 		var data *BundleData
 		strictDec.SetStrict(true)
 		err = strictDec.Decode(&data)
-		if stderrors.Is(err, io.EOF) {
+		if internalerrors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			if strings.HasPrefix(err.Error(), "yaml: unmarshal errors:") {
 				friendlyErrors := userFriendlyUnmarshalErrors(err)
-				part.UnmarshallError = internalerrors.Errorf("unmarshal document %d: %v", docIdx, friendlyErrors)
+				part.UnmarshallError = internalerrors.Errorf("unmarshal document %d: %w", docIdx, friendlyErrors)
 			} else {
 				return nil, internalerrors.Errorf("unmarshal document %d: %w", docIdx, err)
 			}

@@ -961,7 +961,7 @@ func (s srcWithFakeIncludeResolver) ResolveInclude(path string) ([]byte, error) 
 	}
 
 	if !found {
-		return nil, internalerrors.Errorf("include path %q not found in test resolver", path).Add(coreerrors.NotFound)
+		return nil, internalerrors.Errorf("%s not found", path).Add(coreerrors.NotFound)
 	}
 
 	return data, nil

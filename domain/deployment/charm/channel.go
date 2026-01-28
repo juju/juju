@@ -67,7 +67,7 @@ type Channel struct {
 // MakeChannel creates a core charm Channel from a set of component parts.
 func MakeChannel(track, risk, branch string) (Channel, error) {
 	if !isRisk(risk) {
-		return Channel{}, internalerrors.Errorf("risk %q", risk).Add(coreerrors.NotValid)
+		return Channel{}, internalerrors.Errorf("risk %q not valid", risk).Add(coreerrors.NotValid)
 	}
 	return Channel{
 		Track:  track,
@@ -90,7 +90,7 @@ func MakePermissiveChannel(track, risk, branch string) Channel {
 // ParseChannel parses a string representing a store channel.
 func ParseChannel(s string) (Channel, error) {
 	if s == "" {
-		return Channel{}, internalerrors.Errorf("empty channel").Add(coreerrors.NotValid)
+		return Channel{}, internalerrors.Errorf("empty channel not valid").Add(coreerrors.NotValid)
 	}
 
 	p := strings.Split(s, "/")
@@ -119,7 +119,7 @@ func ParseChannel(s string) (Channel, error) {
 
 	if risk != nil {
 		if !isRisk(*risk) {
-			return Channel{}, internalerrors.Errorf("risk in channel %q", s).Add(coreerrors.NotValid)
+			return Channel{}, internalerrors.Errorf("risk in channel %q not valid", s).Add(coreerrors.NotValid)
 		}
 		// We can lift this into a risk, as we've validated prior to this to
 		// ensure it's a valid risk.
@@ -127,13 +127,13 @@ func ParseChannel(s string) (Channel, error) {
 	}
 	if track != nil {
 		if *track == "" {
-			return Channel{}, internalerrors.Errorf("track in channel %q", s).Add(coreerrors.NotValid)
+			return Channel{}, internalerrors.Errorf("track in channel %q not valid", s).Add(coreerrors.NotValid)
 		}
 		ch.Track = *track
 	}
 	if branch != nil {
 		if *branch == "" {
-			return Channel{}, internalerrors.Errorf("branch in channel %q", s).Add(coreerrors.NotValid)
+			return Channel{}, internalerrors.Errorf("branch in channel %q not valid", s).Add(coreerrors.NotValid)
 		}
 		ch.Branch = *branch
 	}

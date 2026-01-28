@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/deployment/charm/assumes"
 	"github.com/juju/juju/domain/deployment/charm/hooks"
@@ -985,7 +986,7 @@ func parseContainers(input interface{}, resources map[string]resource.Meta, stor
 		}
 		if container.Resource != "" {
 			if r, ok := resources[container.Resource]; !ok {
-				return nil, internalerrors.Errorf("referenced resource %q", container.Resource)
+				return nil, internalerrors.Errorf("referenced resource %q not found", container.Resource)
 			} else if r.Type != resource.TypeContainerImage {
 				return nil, internalerrors.Errorf("referenced resource %q is not a %s",
 					container.Resource,
@@ -1044,7 +1045,7 @@ func parseMounts(input interface{}, storage map[string]Storage) ([]Mount, error)
 			return nil, internalerrors.Errorf("location must be specified on mount")
 		}
 		if _, ok := storage[mount.Storage]; !ok {
-			return nil, internalerrors.Errorf("storage %q", mount.Storage)
+			return nil, internalerrors.Errorf("storage %q not valid", mount.Storage).Add(coreerrors.NotValid)
 		}
 		mounts = append(mounts, mount)
 	}

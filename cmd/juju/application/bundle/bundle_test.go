@@ -221,7 +221,7 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleEmpty(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	obtained, _, err := ComposeAndVerifyBundle(ctx, s.bundleDataSource, nil)
-	c.Assert(err, tc.ErrorMatches, ".*bundle is empty")
+	c.Assert(err, tc.ErrorMatches, ".*bundle is empty not valid")
 	c.Assert(obtained, tc.IsNil)
 }
 
