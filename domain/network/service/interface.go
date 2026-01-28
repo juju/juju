@@ -139,9 +139,11 @@ type NetConfigState interface {
 
 	// SetMachineNetConfig updates the network configuration for the machine
 	// with the input net node UUID.
-	// If addSubnets is true and any addresses have subnets not yet in the
-	// database, those subnets will be inserted.
-	SetMachineNetConfig(ctx context.Context, nodeUUID string, nics []domainnetwork.NetInterface, addSubnets bool) error
+	// If addMissingSubnets is true and any addresses have subnets not yet in
+	// the database, those subnets will be inserted.
+	SetMachineNetConfig(
+		ctx context.Context, nodeUUID string, nics []domainnetwork.NetInterface, addMissingSubnets bool,
+	) error
 
 	// GetAllLinkLayerDevicesByNetNodeUUIDs retrieves all link-layer devices
 	// grouped by net node UUIDs from the persistence layer.

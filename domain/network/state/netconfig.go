@@ -39,10 +39,11 @@ var (
 //     or /128 (IPv6) subnet is created for it and the address is inserted with
 //     that subnet UUID. The instance-poller reconciliation will match it based
 //     on provider subnet ID if it can; see [SetProviderNetConfig].
-//   - If there is no matching subnet and addSubnets is true, the address'
-//     subnet is inserted into the subnet table and matched to the address.
+//   - If there is no matching subnet and addMissingSubnets is true, the
+//     address' subnet is inserted into the subnet table and matched to the
+//     address.
 func (st *State) SetMachineNetConfig(
-	ctx context.Context, nodeUUID string, nics []network.NetInterface, addSubnets bool,
+	ctx context.Context, nodeUUID string, nics []network.NetInterface, addMissingSubnets bool,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -77,7 +78,7 @@ func (st *State) SetMachineNetConfig(
 		st.logger.Debugf(ctx, "matching with subnet groups: %#v", subs)
 
 		addrsToInsert, newSubs, err :=
-			st.reconcileNetConfigAddresses(ctx, tx, nodeUUID, nics, nicNameToUUID, subs, lookups, addSubnets)
+			st.reconcileNetConfigAddresses(ctx, tx, nodeUUID, nics, nicNameToUUID, subs, lookups, addMissingSubnets)
 		if err != nil {
 			return errors.Errorf("reconciling incoming ip addresses: %w", err)
 		}
@@ -343,7 +344,7 @@ func (st *State) reconcileNetConfigAddresses(
 	nicNameToUUID map[string]string,
 	subs subnetGroups,
 	lookups netConfigLookups,
-	addSubnets bool,
+	addMissingSubnets bool,
 ) ([]ipAddressDML, []subnet, error) {
 	var (
 		addrsDML []ipAddressDML
@@ -399,7 +400,7 @@ func (st *State) reconcileNetConfigAddresses(
 
 			// If we found no match and are not adding discovered subnets
 			// progressively there's nothing more we can do.
-			if errors.Is(subMatchErr, errAddrSubnetMatchNone) && !addSubnets {
+			if errors.Is(subMatchErr, errAddrSubnetMatchNone) && !addMissingSubnets {
 				// TODO (manadart 2025-04-29): Figure out what to do with
 				// loopback addresses before making
 				// ip_address.subnet_uuid NOT NULL.
