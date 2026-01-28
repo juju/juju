@@ -79,7 +79,7 @@ if [ -z $target_socket ]; then
     cmd="find /var/lib/juju/ -type s -name '*.socketd' 2> /dev/null || true"
 
     # Run the command over SSH and capture the output
-    output=$(ssh -o StrictHostKeyChecking=no -i ${identity_key} "ubuntu@$remote_host" "$cmd")
+    output=$(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${identity_key} "ubuntu@$remote_host" "$cmd")
 
     # Capture the number of results
     result_count=$(echo "$output" | wc -l)
@@ -100,7 +100,7 @@ fi
 
 echo "Starting dlv proxy to ${target_model} (${remote_host}:${target_port}) - machine ${target_machine}"
 
-tunnel_cmd="ssh -N -o StrictHostKeyChecking=no -i ${identity_key} -L127.0.0.1:${target_port}:${target_socket} ubuntu@${remote_host}"
+tunnel_cmd="ssh -N -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${identity_key} -L127.0.0.1:${target_port}:${target_socket} ubuntu@${remote_host}"
 
 if [ -z $detach ]; then
     /usr/bin/bash -c "${tunnel_cmd}"
