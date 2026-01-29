@@ -34,11 +34,9 @@ func RegisterImport(coordinator Coordinator, storageRegistryGetter corestorage.M
 // ImportService provides a subset of the storage domain
 // service methods needed for storage pool import.
 type ImportService interface {
-	ImportStoragePool(ctx context.Context, UUID domainstorage.StoragePoolUUID,
-		name string, providerType domainstorage.ProviderType,
-		originID domainstorage.StoragePoolOrigin, attrs map[string]any) error
+	ImportStoragePools(ctx context.Context, pools []domainstorage.ImportStoragePoolParams) error
 	SetRecommendedStoragePools(ctx context.Context, pools []domainstorage.RecommendedStoragePoolParams) error
-	GetPoolsToImport(ctx context.Context, userPools []description.StoragePool) (
+	GetStoragePoolsToImport(ctx context.Context, userPools []description.StoragePool) (
 		[]domainstorage.ImportStoragePoolParams,
 		[]domainstorage.RecommendedStoragePoolParams,
 		error,
@@ -67,17 +65,14 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute the import on the storage pools contained in the model.
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
-	poolsToImport, recommendedPools, err := i.service.GetPoolsToImport(ctx, model.StoragePools())
+	poolsToImport, recommendedPools, err := i.service.GetStoragePoolsToImport(ctx, model.StoragePools())
 	if err != nil {
 		return errors.Errorf("getting pools to import: %w", err)
 	}
 
-	for _, pool := range poolsToImport {
-		err := i.service.ImportStoragePool(ctx, pool.UUID, pool.Name, domainstorage.ProviderType(pool.Type),
-			pool.Origin, pool.Attrs)
-		if err != nil {
-			return errors.Errorf("creating storage pool %q: %w", pool.Name, err)
-		}
+	err = i.service.ImportStoragePools(ctx, poolsToImport)
+	if err != nil {
+		return errors.Errorf("importing storage pools %+v: %w", poolsToImport, err)
 	}
 
 	err = i.service.SetRecommendedStoragePools(ctx, recommendedPools)

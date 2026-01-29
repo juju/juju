@@ -167,8 +167,8 @@ func (s *StoragePoolService) CreateStoragePool(
 	return uuid, nil
 }
 
-// ImportStoragePool creates a new storage pool with the given name and
-// provider in the model. This is slightly different to [CreateStoragePool] because:
+// ImportStoragePools creates new storage pools with the slice of [domainstorage.ImportStoragePoolParams]
+// . This is slightly different to [CreateStoragePools] because:
 //  1. the storage pool name validation uses a legacy regex and,
 //  2. we are inserting (a) provider default storage pools in which their UUIDs have been hardcoded
 //     and (b) user defined storage pools in which we have to generate their UUIDs.
@@ -184,52 +184,42 @@ func (s *StoragePoolService) CreateStoragePool(
 // supplied name already exists in the model.
 // - [domainstorageerrors.StoragePoolAttributeInvalid] when one of the supplied
 // storage pool attributes is invalid.
-func (s *StoragePoolService) ImportStoragePool(
+func (s *StoragePoolService) ImportStoragePools(
 	ctx context.Context,
-	uuid domainstorage.StoragePoolUUID,
-	name string,
-	providerType domainstorage.ProviderType,
-	originID domainstorage.StoragePoolOrigin,
-	attrs map[string]any,
+	pools []domainstorage.ImportStoragePoolParams,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	err := s.validateStoragePoolCreation(ctx, name, providerType, attrs,
-		domainstorage.IsValidStoragePoolNameWithLegacy)
-	if err != nil {
-		return err
-	}
-
-	coercedAttrs := transform.Map(
-		attrs,
-		func(k string, v any) (string, string) {
-			return k, fmt.Sprint(v)
-		},
-	)
-
-	// A user-defined pool has an empty UUID because we don't carry it over when
-	// exporting the model. Therefore, when importing we must generate a UUID
-	// before persisting them to the database. Provider default storage pools have their
-	// UUIDs hardcoded so there is no need to generate them.
-	if uuid == "" {
-		uuid, err = domainstorage.NewStoragePoolUUID()
+	for _, pool := range pools {
+		err := s.validateStoragePoolCreation(ctx, pool.Name, domainstorage.ProviderType(pool.Type),
+			pool.Attrs,
+			domainstorage.IsValidStoragePoolNameWithLegacy)
 		if err != nil {
-			return errors.Errorf(
-				"creating new storage pool %q uuid: %w", name, err,
-			)
+			return err
+		}
+
+		coercedAttrs := transform.Map(
+			pool.Attrs,
+			func(k string, v any) (string, string) {
+				return k, fmt.Sprint(v)
+			},
+		)
+
+		arg := domainstorageinternal.CreateStoragePool{
+			Attrs:        coercedAttrs,
+			Name:         pool.Name,
+			Origin:       pool.Origin,
+			ProviderType: domainstorage.ProviderType(pool.Type),
+			UUID:         pool.UUID,
+		}
+		err = s.st.CreateStoragePool(ctx, arg)
+		if err != nil {
+			return errors.Errorf("creating storage pool %q: %w", pool.Name, err)
 		}
 	}
 
-	arg := domainstorageinternal.CreateStoragePool{
-		Attrs:        coercedAttrs,
-		Name:         name,
-		Origin:       originID,
-		ProviderType: providerType,
-		UUID:         uuid,
-	}
-
-	return s.st.CreateStoragePool(ctx, arg)
+	return nil
 }
 
 func (s *StoragePoolService) validateStoragePoolCreation(
@@ -623,7 +613,7 @@ func (s *StoragePoolService) SetRecommendedStoragePools(ctx context.Context,
 	return s.st.SetModelStoragePools(ctx, poolArgs)
 }
 
-func (s *StoragePoolService) GetPoolsToImport(
+func (s *StoragePoolService) GetStoragePoolsToImport(
 	ctx context.Context,
 	userPools []description.StoragePool,
 ) (
