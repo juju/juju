@@ -5,6 +5,7 @@ package modelmigration
 
 import (
 	"context"
+	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v11"
@@ -81,6 +82,10 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return nil
 	}
 	for _, rel := range relations {
+		if isRemote(rel) {
+			continue
+		}
+
 		arg, err := i.createImportArg(rel)
 		if err != nil {
 			return errors.Errorf("setting up relation data for import %d: %w", rel.Id(), err)
@@ -93,6 +98,15 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return errors.Errorf("importing relations: %w", err)
 	}
 	return nil
+}
+
+func isRemote(rel description.Relation) bool {
+	for _, v := range rel.Endpoints() {
+		if strings.HasPrefix(v.ApplicationName(), "remote-") {
+			return true
+		}
+	}
+	return false
 }
 
 func (i *importOperation) createImportArg(rel description.Relation) (relation.ImportRelationArg, error) {

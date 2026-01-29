@@ -17,6 +17,8 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/status/service"
 	statecontroller "github.com/juju/juju/domain/status/state/controller"
 	statemodel "github.com/juju/juju/domain/status/state/model"
@@ -216,7 +218,11 @@ func (i *importOperation) importRelationStatus(
 
 	for _, relation := range model.Relations() {
 		relationStatus := i.importStatus(relation.Status())
-		if err := service.ImportRelationStatus(ctx, relation.Id(), relationStatus); err != nil {
+		// We ignore relation not found errors here, because if the relation
+		// hasn't been imported, it should be for a good reason. Any error should
+		// have been handled in the relation or crossmodelrelation domain.
+		if err := service.ImportRelationStatus(ctx, relation.Id(), relationStatus); err != nil &&
+			!errors.Is(err, relationerrors.RelationNotFound) {
 			return errors.Errorf("importing status for relation %d: %w", relation.Id(), err)
 		}
 	}
@@ -231,7 +237,11 @@ func (i *importOperation) importRemoteApplicationOffererStatus(
 ) error {
 	for _, remoteApp := range model.RemoteApplications() {
 		offererStatus := i.importStatus(remoteApp.Status())
-		if err := service.SetRemoteApplicationOffererStatus(ctx, remoteApp.Name(), offererStatus); err != nil {
+		// We ignore application not found errors here, because if the application
+		// hasn't been imported, it should be for a good reason. Any error should
+		// have been handled in the application or crossmodelrelation domain.
+		if err := service.SetRemoteApplicationOffererStatus(ctx, remoteApp.Name(),
+			offererStatus); err != nil && !errors.Is(err, applicationerrors.ApplicationNotFound) {
 			return errors.Errorf("setting offerer status for remote application %q: %w", remoteApp.Name(), err)
 		}
 	}

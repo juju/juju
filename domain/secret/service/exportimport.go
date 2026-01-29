@@ -10,6 +10,7 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/secret"
 	"github.com/juju/juju/internal/errors"
 )
@@ -204,6 +205,12 @@ func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretE
 				},
 				Role: access.Role,
 			})
+			// We ignore relation not found errors here, because if the relation
+			// hasn't been imported, it should be for a good reason. Any error should
+			// have been handled in the relation or crossmodelrelation domain.
+			if errors.Is(err, relationerrors.RelationNotFound) {
+				continue
+			}
 			if err != nil {
 				return errors.Capture(err)
 			}
