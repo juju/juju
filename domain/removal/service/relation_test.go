@@ -154,6 +154,37 @@ func (s *relationSuite) TestExecuteJobForRelationExistingScopes(c *tc.C) {
 	exp := s.modelState.EXPECT()
 	exp.GetRelationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.UnitNamesInScope(gomock.Any(), j.EntityUUID).Return([]string{"unit/0"}, nil)
+	exp.IsUnitInErrorState(gomock.All(), "unit/0").Return(false, nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *relationSuite) TestExecuteJobForRelationExistingScopesMultipleNames(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newRelationJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetRelationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.UnitNamesInScope(gomock.Any(), j.EntityUUID).Return([]string{"unit/0", "unit/1"}, nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *relationSuite) TestExecuteJobForRelationExistingScopesUnitInError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newRelationJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetRelationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.UnitNamesInScope(gomock.Any(), j.EntityUUID).Return([]string{"unit/0"}, nil)
+	exp.IsUnitInErrorState(gomock.All(), "unit/0").Return(true, nil)
+	exp.DeleteRelationUnits(c.Context(), j.EntityUUID).Return(nil)
+	exp.DeleteRelation(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIsNil)

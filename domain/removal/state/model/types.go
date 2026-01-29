@@ -85,6 +85,17 @@ type entityLife struct {
 	Life int `db:"life_id"`
 }
 
+// entityName holds an entity's name
+type entityName struct {
+	// Name is the name of the entity.
+	Name string `db:"name"`
+}
+
+// entityStatus holds an entity's status in integer
+type entityStatus struct {
+	StatusID int `db:"status_id"`
+}
+
 // unitUUID holds a unit UUID in string form.
 type unitUUID struct {
 	// UUID uniquely identifies a unit.
@@ -144,10 +155,6 @@ func (srs secretRevisions) split() (uuids, uuids) {
 	}
 
 	return revisionUUIDs, secretUUIDs.Values()
-}
-
-type status struct {
-	StatusID int `db:"status_id"`
 }
 
 type storageRemoval struct {

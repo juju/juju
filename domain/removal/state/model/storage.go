@@ -887,17 +887,17 @@ WHERE  uuid = $entityUUID.uuid
 	}
 
 	stmt, err := st.Prepare(`
-SELECT &status.*
+SELECT &entityStatus.*
 FROM   storage_volume_status
 WHERE  volume_uuid = $entityUUID.uuid
-`, inputUUID, status{})
+`, inputUUID, entityStatus{})
 	if err != nil {
 		return -1, errors.Errorf(
 			"preparing storage volume status query: %w", err,
 		)
 	}
 
-	var ret status
+	var ret entityStatus
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, existsStmt, inputUUID).Get(&inputUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -932,7 +932,7 @@ func (st *State) SetVolumeStatus(
 	}
 
 	inputUUID := entityUUID{UUID: volUUID}
-	inputStatus := status{StatusID: statusId}
+	inputStatus := entityStatus{StatusID: statusId}
 
 	existsStmt, err := st.Prepare(`
 SELECT &entityUUID.*
@@ -947,7 +947,7 @@ WHERE  uuid = $entityUUID.uuid
 
 	stmt, err := st.Prepare(`
 UPDATE storage_volume_status
-SET    status_id=$status.status_id,
+SET    status_id=$entityStatus.status_id,
        message='',
        updated_at=DATETIME('now')
 WHERE  volume_uuid = $entityUUID.uuid
@@ -1121,17 +1121,17 @@ WHERE  uuid = $entityUUID.uuid
 	}
 
 	stmt, err := st.Prepare(`
-SELECT &status.*
+SELECT &entityStatus.*
 FROM   storage_filesystem_status
 WHERE  filesystem_uuid = $entityUUID.uuid
-`, inputUUID, status{})
+`, inputUUID, entityStatus{})
 	if err != nil {
 		return -1, errors.Errorf(
 			"preparing storage filesystem status query: %w", err,
 		)
 	}
 
-	var ret status
+	var ret entityStatus
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, existsStmt, inputUUID).Get(&inputUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -1167,7 +1167,7 @@ func (st *State) SetFilesystemStatus(
 	}
 
 	inputUUID := entityUUID{UUID: fsUUID}
-	inputStatus := status{StatusID: statusId}
+	inputStatus := entityStatus{StatusID: statusId}
 
 	existsStmt, err := st.Prepare(`
 SELECT &entityUUID.*
@@ -1182,7 +1182,7 @@ WHERE  uuid = $entityUUID.uuid
 
 	stmt, err := st.Prepare(`
 UPDATE storage_filesystem_status
-SET    status_id=$status.status_id,
+SET    status_id=$entityStatus.status_id,
        message='',
        updated_at=DATETIME('now')
 WHERE  filesystem_uuid = $entityUUID.uuid

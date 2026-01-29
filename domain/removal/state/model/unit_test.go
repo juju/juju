@@ -1019,6 +1019,33 @@ func (s *unitSuite) TestGetApplicationNameAndUnitNameByUnitUUIDNotFound(c *tc.C)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
+func (s *unitSuite) TestIsUnitInErrorState(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	row := s.DB().QueryRowContext(c.Context(), "SELECT name FROM unit WHERE uuid = ?", unitUUID)
+	var unitName string
+	err := row.Scan(&unitName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	isError, err := st.IsUnitInErrorState(c.Context(), unitName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isError, tc.Equals, false)
+
+	_, err = s.DB().Exec("UPDATE unit_workload_status SET status_id = 7 WHERE unit_uuid = ?", unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	isError, err = st.IsUnitInErrorState(c.Context(), unitName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isError, tc.Equals, true)
+}
+
 func (s *unitSuite) expectK8sPodCount(c *tc.C, unitUUID unit.UUID, expected int) {
 	var count int
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
