@@ -14,9 +14,9 @@ import (
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
+	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/relation/internal"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testhelpers"
 )

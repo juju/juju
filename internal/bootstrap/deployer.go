@@ -28,10 +28,10 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/deployment/charm"
+	"github.com/juju/juju/domain/deployment/charm/charmdownloader"
+	"github.com/juju/juju/domain/deployment/charm/repository"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/charm/charmdownloader"
-	"github.com/juju/juju/internal/charm/repository"
 	"github.com/juju/juju/internal/errors"
 )
 

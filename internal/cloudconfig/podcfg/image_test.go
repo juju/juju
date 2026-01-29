@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/testing"
 )

@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/internal/charms/mocks"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/application/charm"
-	internalcharm "github.com/juju/juju/internal/charm"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/internal/testhelpers"
 	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"

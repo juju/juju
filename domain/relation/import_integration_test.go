@@ -18,12 +18,12 @@ import (
 	relationtesting "github.com/juju/juju/core/relation/testing"
 	applicationmodelmigration "github.com/juju/juju/domain/application/modelmigration"
 	applicationstate "github.com/juju/juju/domain/application/state"
+	"github.com/juju/juju/domain/deployment/charm"
 	migrationtesting "github.com/juju/juju/domain/modelmigration/testing"
 	relationmodelmigration "github.com/juju/juju/domain/relation/modelmigration"
 	"github.com/juju/juju/domain/relation/service"
 	"github.com/juju/juju/domain/relation/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 

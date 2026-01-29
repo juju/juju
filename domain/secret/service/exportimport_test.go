@@ -16,9 +16,9 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
+	"github.com/juju/juju/domain/deployment/charm"
 	domainsecret "github.com/juju/juju/domain/secret"
 	domaintesting "github.com/juju/juju/domain/testing"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/testing"
 )
 

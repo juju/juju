@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/internal/downloader"
 )
 

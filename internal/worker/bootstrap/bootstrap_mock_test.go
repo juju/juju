@@ -30,9 +30,9 @@ import (
 	application0 "github.com/juju/juju/domain/application"
 	service0 "github.com/juju/juju/domain/application/service"
 	controllernode "github.com/juju/juju/domain/controllernode"
+	charm0 "github.com/juju/juju/domain/deployment/charm"
 	storage "github.com/juju/juju/domain/storage"
 	config "github.com/juju/juju/environs/config"
-	charm0 "github.com/juju/juju/internal/charm"
 	gomock "go.uber.org/mock/gomock"
 )
 

@@ -7,7 +7,7 @@ package operation
 import (
 	"strings"
 
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 )
 
 // JujuExecActionName defines the action name used by juju-exec.

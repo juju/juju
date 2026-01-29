@@ -14,8 +14,8 @@ import (
 	"github.com/juju/juju/api/common/charms"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 )
 

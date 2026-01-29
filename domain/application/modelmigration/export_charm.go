@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/description/v11"
 
-	internalcharm "github.com/juju/juju/internal/charm"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/internal/errors"
 )
 

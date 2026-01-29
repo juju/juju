@@ -12,7 +12,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"

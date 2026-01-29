@@ -10,7 +10,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/internal/charm/hooks"
+	"github.com/juju/juju/domain/deployment/charm/hooks"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/storage"
 )

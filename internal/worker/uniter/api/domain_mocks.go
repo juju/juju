@@ -18,7 +18,7 @@ import (
 	relation "github.com/juju/juju/core/relation"
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
-	charm "github.com/juju/juju/internal/charm"
+	charm "github.com/juju/juju/domain/deployment/charm"
 	params "github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"

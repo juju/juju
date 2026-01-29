@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/utils"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 )
 
 // ErrExhausted reveals if a refresher was exhausted in it's task. If so, then

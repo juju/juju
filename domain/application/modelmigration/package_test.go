@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment"
-	internalcharm "github.com/juju/juju/internal/charm"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/internal/testhelpers"
 )
 

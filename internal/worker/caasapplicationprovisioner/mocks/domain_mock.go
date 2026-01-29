@@ -21,8 +21,8 @@ import (
 	watcher "github.com/juju/juju/core/watcher"
 	charm "github.com/juju/juju/domain/application/charm"
 	service "github.com/juju/juju/domain/application/service"
+	charm0 "github.com/juju/juju/domain/deployment/charm"
 	storageprovisioning "github.com/juju/juju/domain/storageprovisioning"
-	charm0 "github.com/juju/juju/internal/charm"
 	gomock "go.uber.org/mock/gomock"
 )
 

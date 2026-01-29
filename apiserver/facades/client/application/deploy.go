@@ -27,9 +27,9 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/deployment/charm"
+	"github.com/juju/juju/domain/deployment/charm/assumes"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/errors"
 )
 

@@ -12,7 +12,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	coresecrets "github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/internal/charm/hooks"
+	"github.com/juju/juju/domain/deployment/charm/hooks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	operationmocks "github.com/juju/juju/internal/worker/uniter/operation/mocks"

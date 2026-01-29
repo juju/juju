@@ -37,6 +37,7 @@ import (
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
+	"github.com/juju/juju/domain/deployment/charm"
 	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetork "github.com/juju/juju/domain/network"
@@ -46,7 +47,6 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	"github.com/juju/juju/domain/unitstate"
-	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )

@@ -30,9 +30,9 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/storage"
+	"github.com/juju/juju/domain/deployment/charm"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/charm"
 	internallogger "github.com/juju/juju/internal/logger"
 )
 

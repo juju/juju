@@ -17,7 +17,7 @@ import (
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/rpc/params"
 )
 

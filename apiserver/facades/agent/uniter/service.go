@@ -22,6 +22,7 @@ import (
 	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	domainblockdevice "github.com/juju/juju/domain/blockdevice"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/operation"
@@ -33,7 +34,6 @@ import (
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	internalcharm "github.com/juju/juju/internal/charm"
 )
 
 // Services represents all the services that the uniter facade requires.

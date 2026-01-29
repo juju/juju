@@ -12,7 +12,7 @@ import (
 
 	appcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
-	internalcharm "github.com/juju/juju/internal/charm"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
 

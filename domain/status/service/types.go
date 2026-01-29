@@ -17,9 +17,9 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
-	internalcharm "github.com/juju/juju/internal/charm"
 )
 
 // Application represents the status of an application.

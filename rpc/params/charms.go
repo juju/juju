@@ -4,8 +4,8 @@
 package params
 
 import (
-	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/charm/assumes"
+	"github.com/juju/juju/domain/deployment/charm"
+	"github.com/juju/juju/domain/deployment/charm/assumes"
 )
 
 // ApplicationCharmResults contains a set of ApplicationCharmResults.
