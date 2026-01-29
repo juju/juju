@@ -33,6 +33,12 @@ func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.service = NewMockImportService(ctrl)
 	s.modelDefaultsProvider = NewMockModelDefaultsProvider(ctrl)
 
+	c.Cleanup(func() {
+		s.coordinator = nil
+		s.service = nil
+		s.modelDefaultsProvider = nil
+	})
+
 	return ctrl
 }
 
@@ -66,12 +72,12 @@ func (s *importSuite) TestModelConfig(c *tc.C) {
 		"operator-storage": "otherstorage",
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	importedCOnfig := map[string]any{
+	importedConfig := map[string]any{
 		"logging-config":   "<root>=INFO",
 		"workload-storage": "mystorage",
 	}
 
-	s.service.EXPECT().SetModelConfig(gomock.Any(), importedCOnfig).Return(nil)
+	s.service.EXPECT().SetModelConfig(gomock.Any(), importedConfig).Return(nil)
 	s.modelDefaultsProvider.EXPECT().ModelDefaults(gomock.Any()).Return(modeldefaults.Defaults{
 		"logging-config":   modeldefaults.DefaultAttributeValue{},
 		"workload-storage": modeldefaults.DefaultAttributeValue{},
