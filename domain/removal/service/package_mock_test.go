@@ -3500,6 +3500,44 @@ func (c *MockModelDBStateMarkUnitAsDeadCall) DoAndReturn(f func(context.Context,
 	return c
 }
 
+// MarkUnitAsDeadWithNoEntities mocks base method.
+func (m *MockModelDBState) MarkUnitAsDeadWithNoEntities(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkUnitAsDeadWithNoEntities", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MarkUnitAsDeadWithNoEntities indicates an expected call of MarkUnitAsDeadWithNoEntities.
+func (mr *MockModelDBStateMockRecorder) MarkUnitAsDeadWithNoEntities(arg0, arg1 any) *MockModelDBStateMarkUnitAsDeadWithNoEntitiesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkUnitAsDeadWithNoEntities", reflect.TypeOf((*MockModelDBState)(nil).MarkUnitAsDeadWithNoEntities), arg0, arg1)
+	return &MockModelDBStateMarkUnitAsDeadWithNoEntitiesCall{Call: call}
+}
+
+// MockModelDBStateMarkUnitAsDeadWithNoEntitiesCall wrap *gomock.Call
+type MockModelDBStateMarkUnitAsDeadWithNoEntitiesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateMarkUnitAsDeadWithNoEntitiesCall) Return(arg0 error) *MockModelDBStateMarkUnitAsDeadWithNoEntitiesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateMarkUnitAsDeadWithNoEntitiesCall) Do(f func(context.Context, string) error) *MockModelDBStateMarkUnitAsDeadWithNoEntitiesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateMarkUnitAsDeadWithNoEntitiesCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateMarkUnitAsDeadWithNoEntitiesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MarkVolumeAttachmentAsDead mocks base method.
 func (m *MockModelDBState) MarkVolumeAttachmentAsDead(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()

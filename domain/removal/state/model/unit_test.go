@@ -18,6 +18,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/life"
+	domainrelation "github.com/juju/juju/domain/relation"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -545,6 +546,85 @@ func (s *unitSuite) TestMarkUnitAsDeadNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	err := st.MarkUnitAsDead(c.Context(), "abc")
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitSuite) TesMarkUnitAsDeadWithNoEntities(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.MarkUnitAsDeadWithNoEntities(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
+
+	_, err = s.DB().Exec("UPDATE unit SET life_id = 1 WHERE uuid = ?", unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.MarkUnitAsDeadWithNoEntities(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The unit should now be dead.
+	s.checkUnitLife(c, unitUUID.String(), life.Dead)
+}
+
+func (s *unitSuite) TestMarkUnitAsDeadWithNoEntitiesWithRelations(c *tc.C) {
+	appSvc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, appSvc, "app1", applicationservice.AddIAASUnitArg{})
+	s.createIAASApplication(c, appSvc, "app2", applicationservice.AddIAASUnitArg{})
+
+	relSvc := s.setupRelationService(c)
+	ep1, ep2, err := relSvc.AddRelation(c.Context(), "app1:foo", "app2:bar")
+	c.Assert(err, tc.ErrorIsNil)
+
+	relUUID, err := relSvc.GetRelationUUIDForRemoval(c.Context(), domainrelation.GetRelationUUIDForRemovalArgs{
+		Endpoints: []string{ep1.String(), ep2.String()},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	unitName0 := tc.Must2(c, unit.NewNameFromParts, "app1", 0)
+	err = relSvc.EnterScope(c.Context(), relUUID, unitName0, map[string]string{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	_, err = s.DB().Exec("UPDATE unit SET life_id = 1 WHERE uuid = ?", unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.MarkUnitAsDeadWithNoEntities(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
+
+	// The unit should still be dying, as it wasn't marked dead.
+	s.checkUnitLife(c, unitUUID.String(), life.Dying)
+
+	// Remove the unit from the relation scope.
+	row := s.DB().QueryRowContext(c.Context(), "SELECT uuid FROM relation_unit WHERE unit_uuid=?", unitUUID.String())
+	var ruUUID string
+	err = row.Scan(&ruUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.LeaveScope(c.Context(), ruUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.MarkUnitAsDeadWithNoEntities(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The unit should now be dead.
+	s.checkUnitLife(c, unitUUID.String(), life.Dead)
+}
+
+func (s *unitSuite) TesMarkUnitAsDeadWithNoEntitiesNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.MarkUnitAsDeadWithNoEntities(c.Context(), "abc")
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
