@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
-	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/internal"
@@ -138,16 +137,4 @@ type StorageService interface {
 		ctx context.Context,
 		charmStorageDefs map[string]internalcharm.Storage,
 	) error
-
-	// AddStorageForIAASUnit adds storage instances to the given IAAS unit.
-	AddStorageForIAASUnit(
-		ctx context.Context, storageName corestorage.Name,
-		unitUUID coreunit.UUID, netNodeUUID domainnetwork.NetNodeUUID, count uint32, arg storage.AddUnitStorageOverride,
-	) ([]corestorage.ID, error)
-
-	// AddStorageForCAASUnit adds storage instances to the given CAAS unit.
-	AddStorageForCAASUnit(
-		ctx context.Context, storageName corestorage.Name,
-		unitUUID coreunit.UUID, netNodeUUID domainnetwork.NetNodeUUID, count uint32, arg storage.AddUnitStorageOverride,
-	) ([]corestorage.ID, error)
 }

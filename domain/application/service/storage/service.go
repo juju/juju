@@ -206,40 +206,6 @@ func (s *Service) AttachStorage(
 	return errors.New("not implemented")
 }
 
-// AddStorageForIAASUnit adds storage instances to the given IAAS unit.
-// The following error types can be expected:
-// - [github.com/juju/juju/core/storage.InvalidStorageName]: when the storage name is not valid.
-// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
-// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
-// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the unit is not alive.
-// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
-// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
-// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded] when the requested storage falls outside of the bounds defined by the charm.
-func (s *Service) AddStorageForIAASUnit(
-	ctx context.Context, storageName corestorage.Name,
-	unitUUID coreunit.UUID, netNodeUUID domainnetwork.NetNodeUUID, count uint32, arg AddUnitStorageOverride,
-) ([]corestorage.ID, error) {
-	// TODO (tlm): re-implement in DQlite
-	return nil, errors.New("not implemented")
-}
-
-// AddStorageForCAASUnit adds storage instances to the given CAAS unit.
-// The following error types can be expected:
-// - [github.com/juju/juju/core/storage.InvalidStorageName]: when the storage name is not valid.
-// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
-// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
-// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the unit is not alive.
-// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
-// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
-// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded] when the requested storage falls outside of the bounds defined by the charm.
-func (s *Service) AddStorageForCAASUnit(
-	ctx context.Context, storageName corestorage.Name,
-	unitUUID coreunit.UUID, netNodeUUID domainnetwork.NetNodeUUID, count uint32, arg AddUnitStorageOverride,
-) ([]corestorage.ID, error) {
-	// TODO (tlm): re-implement in DQlite
-	return nil, errors.New("not implemented")
-}
-
 // encodeStorageKindFromCharmStorageType provides a mapping from charm storage
 // type to storage kind.
 func encodeStorageKindFromCharmStorageType(

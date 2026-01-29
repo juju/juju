@@ -60,6 +60,7 @@ type CAASProvider interface {
 // model state.
 type ProviderService struct {
 	*Service
+	storageService StorageService
 
 	agentVersionGetter      AgentVersionGetter
 	provider                providertracker.ProviderGetter[Provider]
@@ -84,7 +85,6 @@ func NewProviderService(
 	return &ProviderService{
 		Service: NewService(
 			st,
-			storageSvc,
 			leaderEnsurer,
 			charmStore,
 			statusHistory,
@@ -92,6 +92,7 @@ func NewProviderService(
 			clock,
 			logger,
 		),
+		storageService:          storageSvc,
 		agentVersionGetter:      agentVersionGetter,
 		provider:                provider,
 		caasApplicationProvider: caasApplicationProvider,

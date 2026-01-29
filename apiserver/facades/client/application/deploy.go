@@ -81,7 +81,7 @@ func handleApplicationDomainError(err error) error {
 			).Add(coreerrors.NotValid)
 		} else if limitErr.Maximum != nil && limitErr.Requested > *limitErr.Maximum {
 			return errors.Errorf(
-				"storage directive %q request count %d exceeds the charms maximum count of %d",
+				"storage directive %q request count %d exceeds the charm's maximum count of %d",
 				limitErr.StorageName, limitErr.Requested, *limitErr.Maximum,
 			).Add(coreerrors.NotValid)
 		}

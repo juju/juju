@@ -43,15 +43,15 @@ func newStorageAPI(stdCtx context.Context, ctx facade.ModelContext) (*StorageAPI
 		return nil, apiservererrors.ErrPerm
 	}
 
-	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)
+	modelType, err := domainServices.ModelInfo().GetModelType(stdCtx)
 	if err != nil {
-		return nil, errors.Errorf("getting model info: %w", err)
+		return nil, errors.Errorf("getting model type: %w", err)
 	}
 
 	return NewStorageAPI(
 		ctx.ControllerUUID(),
 		ctx.ModelUUID(),
-		modelInfo.Type,
+		modelType,
 		authorizer,
 		ctx.Logger().Child("storage"),
 		common.NewBlockChecker(domainServices.BlockCommand()),

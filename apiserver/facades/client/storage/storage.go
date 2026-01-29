@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -415,11 +414,11 @@ func (a *StorageAPI) addOneStorage(ctx context.Context, one params.StorageAddPar
 	unitUUID, err := a.applicationService.GetUnitUUID(ctx, unitName)
 	switch {
 	case errors.Is(err, coreunit.InvalidUnitName):
-		return nil, errors.Errorf(
-			"invalid unit name %q", unitName).Add(coreerrors.NotValid)
+		return nil, apiservererrors.ParamsErrorf(params.CodeNotValid,
+			"invalid unit name %q", unitName)
 	case errors.Is(err, applicationerrors.UnitNotFound):
-		return nil, errors.Errorf(
-			"unit %q does not exist", unitName).Add(coreerrors.NotFound)
+		return nil, apiservererrors.ParamsErrorf(params.CodeNotFound,
+			"unit %q does not exist", unitName)
 	case err != nil:
 		return nil, errors.Errorf(
 			"getting unit uuid for unit name %q: %w", unitName, err,
@@ -434,11 +433,11 @@ func (a *StorageAPI) addOneStorage(ctx context.Context, one params.StorageAddPar
 		)
 		switch {
 		case errors.Is(err, storageerrors.StoragePoolNameInvalid):
-			return nil, errors.Errorf(
-				"invalid storage pool name %q", one.Directives.Pool).Add(coreerrors.NotValid)
+			return nil, apiservererrors.ParamsErrorf(params.CodeNotValid,
+				"invalid storage pool name")
 		case errors.Is(err, storageerrors.StoragePoolNotFound):
-			return nil, errors.Errorf(
-				"storage pool %q does not exist", one.Directives.Pool).Add(coreerrors.NotFound)
+			return nil, apiservererrors.ParamsErrorf(params.CodeNotFound,
+				"storage pool %q does not exist", one.Directives.Pool)
 		case err != nil:
 			return nil, errors.Errorf(
 				"getting storage pool uuid for %q: %w", one.Directives.Pool, err,
@@ -447,17 +446,14 @@ func (a *StorageAPI) addOneStorage(ctx context.Context, one params.StorageAddPar
 		storagePoolUUID = &poolUUID
 	}
 
-	var storageCount uint32
-	if one.Directives.Count == nil {
-		storageCount = 1
-	} else {
+	var storageCount uint32 = 1
+	if one.Directives.Count != nil {
 		if *one.Directives.Count > math.MaxUint32 {
-			return nil, errors.Errorf(
+			return nil, apiservererrors.ParamsErrorf(params.CodeNotValid,
 				"storage directive %s count %d too large", one.StorageName, *one.Directives.Count,
-			).Add(coreerrors.NotValid)
+			)
 		}
-		count := uint32(*one.Directives.Count)
-		storageCount = count
+		storageCount = uint32(*one.Directives.Count)
 	}
 
 	args := storage.AddUnitStorageOverride{
@@ -477,38 +473,36 @@ func (a *StorageAPI) addOneStorage(ctx context.Context, one params.StorageAddPar
 	if err == nil {
 		return result, nil
 	}
-	err = handleApplicationDomainError(err, unitName, one)
+	err = handleUnitAddStorageError(err, unitName, one)
 	return nil, errors.Capture(err)
 }
 
-// handleApplicationDomainError is a first low pass effort to start handling
-// some of the errors that will come out of the application domain. If a handler
-// does not exist then the original error will be returned.
-func handleApplicationDomainError(err error, unitName coreunit.Name, one params.StorageAddParams) error {
+// handleUnitAddStorageError is a first low pass effort to start handling
+// some of the errors that will occur when adding unit storage.
+// If a handler does not exist then the original error will be returned.
+func handleUnitAddStorageError(err error, unitName coreunit.Name, one params.StorageAddParams) error {
 	switch {
 	case errors.Is(err, applicationerrors.UnitNotFound):
-		return errors.Errorf(
-			"unit %q does not exist", unitName).Add(coreerrors.NotFound)
+		return apiservererrors.ParamsErrorf(params.CodeNotFound,
+			"unit %q does not exist", unitName)
 	case errors.Is(err, storageerrors.StoragePoolNotFound):
-		return errors.Errorf(
-			"storage pool %q does not exist", one.Directives.Pool).Add(coreerrors.NotFound)
+		return apiservererrors.ParamsErrorf(params.CodeNotFound,
+			"storage pool %q does not exist", one.Directives.Pool)
 	case errors.Is(err, corestorage.InvalidStorageName):
-		return errors.Errorf("invalid storage name %q", one.StorageName).Add(
-			coreerrors.NotValid,
-		)
+		return apiservererrors.ParamsErrorf(params.CodeNotValid,
+			"invalid storage name %q", one.StorageName)
 	case errors.Is(err, applicationerrors.StorageNameNotSupported):
-		return errors.Errorf("storage name %q not supported by charm", one.StorageName).Add(
-			coreerrors.NotSupported,
-		)
+		return apiservererrors.ParamsErrorf(params.CodeNotSupported,
+			"storage name %q not supported by charm", one.StorageName)
 		// When the supplied storage directive overrides violates the charm's
 		// storage.
 	case errors.HasType[applicationerrors.StorageCountLimitExceeded](err):
 		limitErr, _ := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
 		if limitErr.Maximum != nil && limitErr.Requested > *limitErr.Maximum {
-			return errors.Errorf(
-				"storage directive %q request count %d exceeds the charms maximum count of %d",
+			return apiservererrors.ParamsErrorf(params.CodeNotValid,
+				"storage directive %q request count %d exceeds the charm's maximum count of %d",
 				limitErr.StorageName, limitErr.Requested, *limitErr.Maximum,
-			).Add(coreerrors.NotValid)
+			)
 		}
 	}
 	return err
@@ -527,7 +521,7 @@ func (a *StorageAPI) Remove(ctx context.Context, args params.RemoveStorage) (par
 	one := func(arg params.RemoveStorageInstance) error {
 		tag, err := names.ParseStorageTag(arg.Tag)
 		if err != nil {
-			return errors.New("invalid storage tag").Add(coreerrors.NotValid)
+			return apiservererrors.ParamsErrorf(params.CodeNotValid, "invalid storage tag")
 		}
 		return a.removeStorageInstance(ctx, tag, arg)
 	}
@@ -558,16 +552,14 @@ func (a *StorageAPI) removeStorageInstance(
 		wait = *arg.MaxWait
 	}
 	if wait < 0 {
-		return errors.Errorf(
+		return apiservererrors.ParamsErrorf(params.CodeNotValid,
 			"max wait time cannot be a negative number",
-		).Add(coreerrors.NotValid)
+		)
 	}
 
 	uuid, err := a.storageService.GetStorageInstanceUUIDForID(ctx, tag.Id())
 	if errors.Is(err, storageerrors.StorageInstanceNotFound) {
-		return errors.Errorf("storage %q does not exist", tag.Id()).Add(
-			coreerrors.NotFound,
-		)
+		return apiservererrors.ParamsErrorf(params.CodeNotFound, "storage %q does not exist", tag.Id())
 	} else if err != nil {
 		return errors.Errorf(
 			"getting storage instance uuid for storage id %q: %w",
@@ -579,9 +571,7 @@ func (a *StorageAPI) removeStorageInstance(
 		saUUIDs, err := a.storageService.GetStorageInstanceAttachments(
 			ctx, uuid)
 		if errors.Is(err, storageerrors.StorageInstanceNotFound) {
-			return errors.Errorf("storage %q does not exist", tag.Id()).Add(
-				coreerrors.NotFound,
-			)
+			return apiservererrors.ParamsErrorf(params.CodeNotFound, "storage %q does not exist", tag.Id())
 		} else if err != nil {
 			return errors.Errorf(
 				"getting attachments of storage instance %q: %w",
@@ -603,9 +593,7 @@ func (a *StorageAPI) removeStorageInstance(
 	err = a.removalService.RemoveStorageInstance(
 		ctx, uuid, force, wait, obliterate)
 	if errors.Is(err, storageerrors.StorageInstanceNotFound) {
-		return errors.Errorf("storage %q does not exist", tag.Id()).Add(
-			coreerrors.NotFound,
-		)
+		return apiservererrors.ParamsErrorf(params.CodeNotFound, "storage %q does not exist", tag.Id())
 	} else if err != nil {
 		return errors.Errorf("removing storage %q: %w", tag.Id(), err)
 	}

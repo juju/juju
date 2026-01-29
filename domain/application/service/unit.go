@@ -192,9 +192,6 @@ type UnitState interface {
 	//   - If the application is not found, [applicationerrors.ApplicationNotFound]
 	//     is returned.
 	GetAllUnitCloudContainerIDsForApplication(context.Context, coreapplication.UUID) (map[coreunit.Name]string, error)
-
-	// GetUnitNetNode returns the net node UUID for the specified unit.
-	GetUnitNetNode(ctx context.Context, uuid coreunit.UUID) (string, error)
 }
 
 func (s *ProviderService) makeIAASUnitArgs(
@@ -754,12 +751,8 @@ func (s *Service) AddStorageForIAASUnit(
 	ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID,
 	count uint32, arg storage.AddUnitStorageOverride,
 ) ([]corestorage.ID, error) {
-	unitNetNode, err := s.st.GetUnitNetNode(ctx, unitUUID)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return s.storageService.AddStorageForIAASUnit(
-		ctx, storageName, unitUUID, domainnetwork.NetNodeUUID(unitNetNode), count, arg)
+	// TODO: re-implement in DQlite
+	return nil, errors.New("not implemented")
 }
 
 // AddStorageForCAASUnit adds storage instances to the given CAAS unit.
@@ -767,10 +760,6 @@ func (s *Service) AddStorageForCAASUnit(
 	ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID,
 	count uint32, arg storage.AddUnitStorageOverride,
 ) ([]corestorage.ID, error) {
-	unitNetNode, err := s.st.GetUnitNetNode(ctx, unitUUID)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return s.storageService.AddStorageForCAASUnit(
-		ctx, storageName, unitUUID, domainnetwork.NetNodeUUID(unitNetNode), count, arg)
+	// TODO: re-implement in DQlite
+	return nil, errors.New("not implemented")
 }

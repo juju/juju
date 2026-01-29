@@ -32,7 +32,7 @@ func TestPoolCreateSuite(t *testing.T) {
 // pools in the facade.
 func (s *poolCreateSuite) TestCreateStoragePool(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 
 	storageEXP := s.storageService.EXPECT()
 	storageEXP.CreateStoragePool(
@@ -81,7 +81,7 @@ func (s *poolCreateSuite) TestCreateStoragePool(c *tc.C) {
 // result error. The other non failure storage pools are expected to be created.
 func (s *poolCreateSuite) TestCreateStoragePoolWithOneFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 
 	storageEXP := s.storageService.EXPECT()
 	storageEXP.CreateStoragePool(
@@ -158,7 +158,7 @@ func (s *poolCreateSuite) TestCreateStoragePoolWithNoPermissionFails(c *tc.C) {
 		},
 	}
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	res, err := api.CreatePool(c.Context(), apiArgs)
 	paramsErr, is := errors.AsType[*params.Error](err)
 	c.Assert(is, tc.IsTrue)
@@ -188,7 +188,7 @@ func (s *poolCreateSuite) TestCreateStoragePoolWithReadPermissionFails(c *tc.C) 
 		},
 	}
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	res, err := api.CreatePool(c.Context(), apiArgs)
 	paramsErr, is := errors.AsType[*params.Error](err)
 	c.Assert(is, tc.IsTrue)
@@ -225,7 +225,7 @@ func (s *poolCreateSuite) TestCreateStoragePoolWithWritePermission(c *tc.C) {
 		},
 	}
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	res, err := api.CreatePool(c.Context(), apiArgs)
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
@@ -261,7 +261,7 @@ func (s *poolCreateSuite) TestCreateStoragePoolWithAdminPermission(c *tc.C) {
 		},
 	}
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	res, err := api.CreatePool(c.Context(), apiArgs)
 	c.Check(err, tc.ErrorIsNil)
 	c.Assert(res.Results, tc.HasLen, 1)
@@ -276,7 +276,7 @@ func (s *poolCreateSuite) TestCreateStoragePoolWithAdminPermission(c *tc.C) {
 // [domainstorageerrors.StoragePoolNameInvalid] to a params error code.
 func (s *poolCreateSuite) TestCreateStoragePoolInvalidName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 
 	storageEXP := s.storageService.EXPECT()
 	storageEXP.CreateStoragePool(
@@ -310,7 +310,7 @@ func (s *poolCreateSuite) TestCreateStoragePoolInvalidName(c *tc.C) {
 // [domainstorageerrors.ProviderTypeInvalid] to a params error code.
 func (s *poolCreateSuite) TestCreateStoragePoolInvalidProviderType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 
 	storageEXP := s.storageService.EXPECT()
 	storageEXP.CreateStoragePool(
@@ -344,7 +344,7 @@ func (s *poolCreateSuite) TestCreateStoragePoolInvalidProviderType(c *tc.C) {
 // [domainstorageerrors.ProviderTypeNotFound] to a params error code.
 func (s *poolCreateSuite) TestCreateStoragePoolProviderTypeNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 
 	storageEXP := s.storageService.EXPECT()
 	storageEXP.CreateStoragePool(
@@ -378,7 +378,7 @@ func (s *poolCreateSuite) TestCreateStoragePoolProviderTypeNotFound(c *tc.C) {
 // [domainstorageerrors.StoragePoolAlreadyExists] to a params error code.
 func (s *poolCreateSuite) TestCreateStoragePoolAlreadyExists(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 
 	storageEXP := s.storageService.EXPECT()
 	storageEXP.CreateStoragePool(
@@ -412,7 +412,7 @@ func (s *poolCreateSuite) TestCreateStoragePoolAlreadyExists(c *tc.C) {
 // [domainstorageerrors.StoragePoolAlreadyExists] to a params error code.
 func (s *poolCreateSuite) TestCreateStoragePoolInvalidAttribute(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 
 	storageEXP := s.storageService.EXPECT()
 	storageEXP.CreateStoragePool(

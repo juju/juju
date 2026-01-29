@@ -18,17 +18,13 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
-	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	servicestorage "github.com/juju/juju/domain/application/service/storage"
 	"github.com/juju/juju/domain/life"
-	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
-	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -632,52 +628,4 @@ func (s *unitServiceSuite) TestGetAllUnitCloudContainerIDsForApplicationInvalidA
 	appID := coreapplication.UUID("$")
 	_, err := s.service.GetAllUnitCloudContainerIDsForApplication(c.Context(), appID)
 	c.Assert(err, tc.NotNil)
-}
-
-const one = uint32(1)
-
-func (s *unitServiceSuite) TestAddStorageForCAASUnit(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	storageName := corestorage.Name("pgdata")
-	unitUUID := tc.Must(c, coreunit.NewUUID)
-	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
-	poolUUID := tc.Must(c, storage.NewStoragePoolUUID)
-	arg := servicestorage.AddUnitStorageOverride{
-		StoragePoolUUID: &poolUUID,
-	}
-	result := []corestorage.ID{
-		tc.Must1(c, corestorage.ParseID, "pgdata/0"),
-	}
-
-	s.state.EXPECT().GetUnitNetNode(gomock.Any(), unitUUID).Return(netNodeUUID.String(), nil)
-	s.storageService.EXPECT().AddStorageForCAASUnit(gomock.Any(), storageName, unitUUID, netNodeUUID, one, arg).Return(
-		result, nil)
-
-	got, err := s.service.AddStorageForCAASUnit(c.Context(), storageName, unitUUID, one, arg)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(got, tc.DeepEquals, result)
-}
-
-func (s *unitServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	storageName := corestorage.Name("pgdata")
-	unitUUID := tc.Must(c, coreunit.NewUUID)
-	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
-	poolUUID := tc.Must(c, storage.NewStoragePoolUUID)
-	arg := servicestorage.AddUnitStorageOverride{
-		StoragePoolUUID: &poolUUID,
-	}
-	result := []corestorage.ID{
-		tc.Must1(c, corestorage.ParseID, "pgdata/0"),
-	}
-
-	s.state.EXPECT().GetUnitNetNode(gomock.Any(), unitUUID).Return(netNodeUUID.String(), nil)
-	s.storageService.EXPECT().AddStorageForIAASUnit(gomock.Any(), storageName, unitUUID, netNodeUUID, one, arg).Return(
-		result, nil)
-
-	got, err := s.service.AddStorageForIAASUnit(c.Context(), storageName, unitUUID, one, arg)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(got, tc.DeepEquals, result)
 }

@@ -7,7 +7,8 @@ import (
 	"github.com/juju/juju/domain/storage"
 )
 
-// AddUnitStorageOverride defines additional storage to add to a unit.
+// AddUnitStorageOverride defines a set of user overrides to change
+// storage defaults used when adding new storage to a unit.
 type AddUnitStorageOverride struct {
 	// StoragePoolUUID is the storage pool UUID.
 	StoragePoolUUID *storage.StoragePoolUUID

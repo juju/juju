@@ -65,8 +65,6 @@ type Service struct {
 	logger        logger.Logger
 	clock         clock.Clock
 
-	storageService StorageService
-
 	charmStore    CharmStore
 	statusHistory StatusHistory
 }
@@ -74,7 +72,6 @@ type Service struct {
 // NewService returns a new service reference wrapping the input state.
 func NewService(
 	st State,
-	storageService StorageService,
 	leaderEnsurer leadership.Ensurer,
 	charmStore CharmStore,
 	statusHistory StatusHistory,
@@ -83,14 +80,13 @@ func NewService(
 	logger logger.Logger,
 ) *Service {
 	return &Service{
-		st:             st,
-		storageService: storageService,
-		leaderEnsurer:  leaderEnsurer,
-		modelUUID:      modelUUID,
-		logger:         logger,
-		clock:          clock,
-		charmStore:     charmStore,
-		statusHistory:  statusHistory,
+		st:            st,
+		leaderEnsurer: leaderEnsurer,
+		modelUUID:     modelUUID,
+		logger:        logger,
+		clock:         clock,
+		charmStore:    charmStore,
+		statusHistory: statusHistory,
 	}
 }
 

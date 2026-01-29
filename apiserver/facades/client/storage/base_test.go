@@ -27,14 +27,18 @@ type baseStorageSuite struct {
 	modelUUID      coremodel.UUID
 }
 
-// makeTestAPI constructs a new [StorageAPI] with the mock dependencies
+// makeTestAPIForIAASModel constructs a new [StorageAPI] with the mock dependencies
 // contained in [baseStorageSuite]. This func expects the caller to have setup
 // mocks first with [baseStorageSuite.setupMocks]
-func (s *baseStorageSuite) makeTestAPI(c *tc.C) *StorageAPI {
+func (s *baseStorageSuite) makeTestAPIForIAASModel(c *tc.C) *StorageAPI {
+	return s.makeTestAPI(c, coremodel.IAAS)
+}
+
+func (s *baseStorageSuite) makeTestAPI(c *tc.C, modelType coremodel.ModelType) *StorageAPI {
 	return NewStorageAPI(
 		s.controllerUUID,
 		s.modelUUID,
-		coremodel.IAAS,
+		modelType,
 		s.authorizer,
 		loggertesting.WrapCheckLog(c),
 		s.blockChecker,

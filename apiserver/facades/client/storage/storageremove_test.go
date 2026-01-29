@@ -5,7 +5,7 @@ package storage
 
 import (
 	"testing"
-	time "time"
+	"time"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -28,7 +28,7 @@ func TestStorageRemoveSuite(t *testing.T) {
 func (s *storageRemoveSuite) TestNegativeMaxWaitTime(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	negativeMaxWait := time.Duration(-5)
 	res, err := api.Remove(c.Context(), params.RemoveStorage{
 		Storage: []params.RemoveStorageInstance{
@@ -50,7 +50,7 @@ func (s *storageRemoveSuite) TestRemoveNotFound(c *tc.C) {
 		gomock.Any(), "data/1",
 	).Return("", storageerrors.StorageInstanceNotFound)
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	res, err := api.Remove(c.Context(), params.RemoveStorage{
 		Storage: []params.RemoveStorageInstance{
 			{
@@ -78,7 +78,7 @@ func (s *storageRemoveSuite) TestRemove(c *tc.C) {
 		gomock.Any(), storageInstanceUUID, false, time.Duration(0), false,
 	).Return(nil)
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	res, err := api.Remove(c.Context(), params.RemoveStorage{
 		Storage: []params.RemoveStorageInstance{
 			{
@@ -106,7 +106,7 @@ func (s *storageRemoveSuite) TestRemoveWithDestroy(c *tc.C) {
 		gomock.Any(), storageInstanceUUID, false, time.Duration(0), true,
 	).Return(nil)
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	res, err := api.Remove(c.Context(), params.RemoveStorage{
 		Storage: []params.RemoveStorageInstance{
 			{
@@ -139,7 +139,7 @@ func (s *storageRemoveSuite) TestRemoveWithForceAndWait(c *tc.C) {
 		force = true
 		wait  = time.Minute
 	)
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	res, err := api.Remove(c.Context(), params.RemoveStorage{
 		Storage: []params.RemoveStorageInstance{
 			{
@@ -178,7 +178,7 @@ func (s *storageRemoveSuite) TestRemoveWithStorageAttachments(c *tc.C) {
 		gomock.Any(), storageInstanceUUID, false, time.Duration(0), false,
 	).Return(nil)
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	res, err := api.Remove(c.Context(), params.RemoveStorage{
 		Storage: []params.RemoveStorageInstance{
 			{

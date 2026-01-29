@@ -1817,12 +1817,6 @@ WHERE n.name = $unitName.name
 	return netNodeUUIDstrs, nil
 }
 
-// GetUnitNetNode returns the net node UUID for the specified unit.
-func (st *State) GetUnitNetNode(ctx context.Context, uuid coreunit.UUID) (string, error) {
-	// TODO - implement me
-	return "", errors.Errorf("not implemented yet")
-}
-
 // setK8sPodStatus saves the given k8s pod status, overwriting
 // any current status data. If returns an error satisfying
 // [applicationerrors.UnitNotFound] if the unit doesn't exist.

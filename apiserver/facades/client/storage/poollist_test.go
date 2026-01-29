@@ -55,7 +55,7 @@ func (s *poolListSuite) TestListPoolWithReadPermission(c *tc.C) {
 		},
 	}, nil)
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	results, err := api.ListPools(c.Context(), params.StoragePoolFilters{
 		Filters: []params.StoragePoolFilter{{
 			Names: []string{"testpool1"},
@@ -95,7 +95,7 @@ func (s *poolListSuite) TestListPoolWithWritePermission(c *tc.C) {
 		},
 	}, nil)
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	results, err := api.ListPools(c.Context(), params.StoragePoolFilters{
 		Filters: []params.StoragePoolFilter{{
 			Names: []string{"testpool1"},
@@ -135,7 +135,7 @@ func (s *poolListSuite) TestListPoolWithAdminPermission(c *tc.C) {
 		},
 	}, nil)
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	results, err := api.ListPools(c.Context(), params.StoragePoolFilters{
 		Filters: []params.StoragePoolFilter{{
 			Names: []string{"testpool1"},
@@ -164,7 +164,7 @@ func (s *poolListSuite) TestListPoolWithNoPermissionFails(c *tc.C) {
 		Tag: userTag,
 	}
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	res, err := api.ListPools(c.Context(), params.StoragePoolFilters{
 		Filters: []params.StoragePoolFilter{{
 			Names: []string{"testpool1"},
@@ -190,7 +190,7 @@ func (s *poolListSuite) TestListByNames(c *tc.C) {
 		},
 	}, nil)
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	results, err := api.ListPools(c.Context(), params.StoragePoolFilters{
 		Filters: []params.StoragePoolFilter{{
 			Names: []string{fmt.Sprintf("%v%v", tstName, 0)},
@@ -219,7 +219,7 @@ func (s *poolListSuite) TestListByProviders(c *tc.C) {
 		},
 	}, nil)
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	results, err := api.ListPools(c.Context(), params.StoragePoolFilters{
 		Filters: []params.StoragePoolFilter{{
 			Providers: []string{string(provider.LoopProviderType)},
@@ -250,7 +250,7 @@ func (s *poolListSuite) TestList(c *tc.C) {
 		},
 	}, nil)
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	results, err := api.ListPools(c.Context(), params.StoragePoolFilters{
 		Filters: []params.StoragePoolFilter{{
 			Names:     []string{fmt.Sprintf("%v%v", tstName, 0)},
@@ -281,7 +281,7 @@ func (s *poolListSuite) TestListAll(c *tc.C) {
 			},
 		}, nil)
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	results, err := api.ListPools(c.Context(), params.StoragePoolFilters{[]params.StoragePoolFilter{{}}})
 	c.Assert(err, tc.ErrorIsNil)
 	assertPoolNames(c, results.Results[0].Result, "testpool0", "testpool1")
@@ -301,7 +301,7 @@ func (s *poolListSuite) TestListNoPools(c *tc.C) {
 	s.storageService.EXPECT().ListStoragePools(gomock.Any()).
 		Return([]domainstorage.StoragePool{}, nil)
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	results, err := api.ListPools(c.Context(), params.StoragePoolFilters{[]params.StoragePoolFilter{{}}})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)

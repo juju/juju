@@ -5,7 +5,7 @@ package storage
 
 import (
 	"testing"
-	time "time"
+	"time"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -64,7 +64,7 @@ func (s *storageDetachSuite) TestWithModelWritePermission(c *tc.C) {
 		gomock.Any(), storageAttachmentUUID, false, time.Duration(0),
 	).Return("123", nil)
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	result, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{
 		StorageIds: params.StorageAttachmentIds{
 			Ids: []params.StorageAttachmentId{
@@ -112,7 +112,7 @@ func (s *storageDetachSuite) TestWithModelAdminPermission(c *tc.C) {
 		gomock.Any(), storageAttachmentUUID, false, time.Duration(0),
 	).Return("123", nil)
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	result, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{
 		StorageIds: params.StorageAttachmentIds{
 			Ids: []params.StorageAttachmentId{
@@ -139,7 +139,7 @@ func (s *storageDetachSuite) TestWithReadPermissionFails(c *tc.C) {
 		Tag:        userTag,
 	}
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	result, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{
 		StorageIds: params.StorageAttachmentIds{
 			Ids: []params.StorageAttachmentId{
@@ -166,7 +166,7 @@ func (s *storageDetachSuite) TestWithNoPermissionFails(c *tc.C) {
 		Tag: userTag,
 	}
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	result, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{
 		StorageIds: params.StorageAttachmentIds{
 			Ids: []params.StorageAttachmentId{
@@ -188,7 +188,7 @@ func (s *storageDetachSuite) TestWithNoPermissionFails(c *tc.C) {
 func (s *storageDetachSuite) TestNegativeMaxWaitTime(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	negativeMaxWait := time.Duration(-5)
 	_, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{
 		MaxWait: &negativeMaxWait,
@@ -203,7 +203,7 @@ func (s *storageDetachSuite) TestNegativeMaxWaitTime(c *tc.C) {
 func (s *storageDetachSuite) TestDetachStorageNoIDs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	result, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{})
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(result.Results, tc.HasLen, 0)
@@ -219,7 +219,7 @@ func (s *storageDetachSuite) TestDetachStorageUnitNotFound(c *tc.C) {
 		"", applicationerrors.UnitNotFound,
 	)
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	result, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{
 		StorageIds: params.StorageAttachmentIds{
 			Ids: []params.StorageAttachmentId{
@@ -250,7 +250,7 @@ func (s *storageDetachSuite) TestDetachStorageInstanceNotFound(c *tc.C) {
 		"", storageerrors.StorageInstanceNotFound,
 	)
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	result, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{
 		StorageIds: params.StorageAttachmentIds{
 			Ids: []params.StorageAttachmentId{
@@ -287,7 +287,7 @@ func (s *storageDetachSuite) TestDetachStorageAttachmentNotFound(c *tc.C) {
 		gomock.Any(), storageInstUUID, unitUUID,
 	).Return("", storageerrors.StorageAttachmentNotFound)
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	result, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{
 		StorageIds: params.StorageAttachmentIds{
 			Ids: []params.StorageAttachmentId{
@@ -335,7 +335,7 @@ func (s *storageDetachSuite) TestDetachStorageAttachmentUnitStorageViolation(c *
 		UnitUUID:         unitUUID.String(),
 	})
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	result, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{
 		StorageIds: params.StorageAttachmentIds{
 			Ids: []params.StorageAttachmentId{
@@ -376,7 +376,7 @@ func (s *storageDetachSuite) TestDetachStorageAttachment(c *tc.C) {
 		gomock.Any(), storageAttachmentUUID, false, time.Duration(0),
 	).Return("123", nil)
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	result, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{
 		StorageIds: params.StorageAttachmentIds{
 			Ids: []params.StorageAttachmentId{
@@ -421,7 +421,7 @@ func (s *storageDetachSuite) TestDetachStorageAttachmentWithForceAndWait(c *tc.C
 		force = true
 		wait  = time.Minute
 	)
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	result, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{
 		Force:   &force,
 		MaxWait: &wait,
@@ -467,7 +467,7 @@ func (s *storageDetachSuite) TestDetachStorageAllAttachments(c *tc.C) {
 		gomock.Any(), storageAttachmentUUID2, false, time.Duration(0),
 	).Return("124", nil)
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	result, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{
 		StorageIds: params.StorageAttachmentIds{
 			Ids: []params.StorageAttachmentId{
@@ -499,7 +499,7 @@ func (s *storageDetachSuite) TestDetachStorageAllAttachmentsEmpty(c *tc.C) {
 		gomock.Any(), storageInstUUID,
 	).Return([]domainstorage.StorageAttachmentUUID{}, nil)
 
-	api := s.makeTestAPI(c)
+	api := s.makeTestAPIForIAASModel(c)
 	result, err := api.DetachStorage(c.Context(), params.StorageDetachmentParams{
 		StorageIds: params.StorageAttachmentIds{
 			Ids: []params.StorageAttachmentId{
