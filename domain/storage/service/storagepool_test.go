@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/juju/description/v11"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -17,6 +16,7 @@ import (
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	domainstorageinternal "github.com/juju/juju/domain/storage/internal"
 	"github.com/juju/juju/internal/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
 

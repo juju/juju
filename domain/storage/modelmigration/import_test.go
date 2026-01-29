@@ -4,10 +4,10 @@
 package modelmigration
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/juju/description/v11"
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 

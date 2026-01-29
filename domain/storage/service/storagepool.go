@@ -612,6 +612,17 @@ func (s *StoragePoolService) SetRecommendedStoragePools(ctx context.Context,
 	return s.st.SetModelStoragePools(ctx, poolArgs)
 }
 
+// GetStoragePoolsToImport resolves the full set of storage pools to create during
+// model import.
+//
+// It starts with user-defined storage pools from the description model, ensuring
+// they take precedence over provider default pools on name and provider conflicts.
+// Provider default pools are then added where safe, followed by resolving any
+// recommended storage pools from the registry.
+//
+// The function returns:
+//  1. A slice of storage pools that should be created during import
+//  2. A slice of recommended storage pools referencing existing or newly created pools
 func (s *StoragePoolService) GetStoragePoolsToImport(
 	ctx context.Context,
 	userPools []description.StoragePool,
