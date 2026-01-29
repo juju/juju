@@ -92,7 +92,7 @@ that loses the address it needs to recover.
 * [fix: api remote caller reconnect on broken](https://github.com/juju/juju/pull/21385#top)
 * [fix: show a helpful error message when destroying a controller with live models](https://github.com/juju/juju/pull/21382#top)
 * [fix: persist controller node agent version](https://github.com/juju/juju/pull/21297#top)
-* [ix: handle empty credential for kill-controller](https://github.com/juju/juju/pull/21514#top)
+* [fix: handle empty credential for kill-controller](https://github.com/juju/juju/pull/21514#top)
 
 ### 🔎 Status/history/logging
 
@@ -107,7 +107,7 @@ status-log.
 * [fix: log all API requests not just RPC ones](https://github.com/juju/juju/pull/21102#top)
 * [fix(status): return the newest entry in GetStatusHistory](https://github.com/juju/juju/pull/21299#top)
 * [fix: application status history record](https://github.com/juju/juju/pull/21301#top)
-* [ix: show-status-log for applications](https://github.com/juju/juju/pull/21310#top)
+* [fix: show-status-log for applications](https://github.com/juju/juju/pull/21310#top)
 * [fix: set Since field on statuses on caas provisioning](https://github.com/juju/juju/pull/21281#top)
 
 ### 🌐 Networking, ports, firewalling, MAAS
