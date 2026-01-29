@@ -749,11 +749,9 @@ func (env *azureEnviron) createVirtualMachine(
 	}
 
 	storageAccountType := to.Ptr(armcompute.StorageAccountTypesStandardSSDLRS)
-	if args.RootDisk != nil {
-		if args.RootDisk.Attributes != nil {
-			if accountTypeVal, ok := args.RootDisk.Attributes[accountTypeAttr].(string); ok && accountTypeVal != "" {
-				storageAccountType = to.Ptr(armcompute.StorageAccountTypes(accountTypeVal))
-			}
+	if args.RootDisk != nil && args.RootDisk.Attributes != nil {
+		if accountTypeVal, ok := args.RootDisk.Attributes[accountTypeAttr].(string); ok && accountTypeVal != "" {
+			storageAccountType = to.Ptr(armcompute.StorageAccountTypes(accountTypeVal))
 		}
 	}
 

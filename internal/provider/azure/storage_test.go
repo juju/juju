@@ -188,7 +188,7 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 			Location: to.Ptr("westus"),
 			Tags:     tags,
 			SKU: &armcompute.DiskSKU{
-				Name: to.Ptr(armcompute.DiskStorageAccountTypesStandardLRS),
+				Name: to.Ptr(armcompute.DiskStorageAccountTypesStandardSSDLRS),
 			},
 			Properties: &armcompute.DiskProperties{
 				DiskSizeGB: to.Ptr(size),
@@ -274,7 +274,7 @@ func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *gc.C) {
 				},
 			},
 			SKU: &armcompute.DiskSKU{
-				Name: to.Ptr(armcompute.DiskStorageAccountTypesStandardLRS),
+				Name: to.Ptr(armcompute.DiskStorageAccountTypesStandardSSDLRS),
 			},
 		}
 	}
