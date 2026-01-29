@@ -625,7 +625,12 @@ func (s *StoragePoolService) GetStoragePoolsToImport(
 	// This is to ensure that the user-defined pools from the import are chosen
 	// should the name conflicts with provider default pools.
 	for _, v := range userPools {
+		uuid, err := domainstorage.NewStoragePoolUUID()
+		if err != nil {
+			return nil, nil, errors.Errorf("generating uuid for user pool %q: %w", v.Name(), err)
+		}
 		poolsToCreate = append(poolsToCreate, domainstorage.ImportStoragePoolParams{
+			UUID:   uuid,
 			Name:   v.Name(),
 			Origin: domainstorage.StoragePoolOriginUser,
 			Type:   v.Provider(),
@@ -774,20 +779,25 @@ func (s *StoragePoolService) getRecommendedStoragePools(
 			return "", errors.Capture(err)
 		}
 
-		// Duplication checking is performed on uuid and then name and provider
-		// type.
+		// Check if the UUID matches an existing pool that is NOT a user-defined pool.
+		// This means that we can recommend a provider default pool for the model.
 		index := slices.IndexFunc(existingPools, func(e domainstorage.ImportStoragePoolParams) bool {
 			return e.UUID == uuid
 		},
 		)
 		// The given pool exists in [existingPools]. We don't want to add a duplicate
 		// so return early.
-		if index != -1 {
+		if index != -1 &&
+			existingPools[index].Origin == domainstorage.StoragePoolOriginProviderDefault {
 			return (existingPools)[index].UUID, nil
+		} else if index != -1 &&
+			existingPools[index].Origin == domainstorage.StoragePoolOriginUser {
+			// The chances of a recommended provider default pool UUID matching a user-defined
+			// pool UUID is slim to none. But we add it here for defensive programming.
+			return "", nil
 		}
-		// We don't want to add it for creation if there exists an existing pool
-		// with duplicate name and provider. This may have been a user-defined
-		// pool from the source controller.
+
+		// We don't want to add a user-defined pool for recommendation and/or creation.
 		// We have no way of guaranteeing that a "foo" user-defined pool is the same
 		// "foo" provider default pool.
 		if slices.ContainsFunc(existingPools, func(pool domainstorage.ImportStoragePoolParams) bool {

@@ -7,6 +7,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/juju/description/v11"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -28,8 +30,11 @@ type registryGetter struct {
 // storagePoolServiceSuite is a set of tests to verify the functionality of the
 // [StoragePoolService] interface and contracts.
 type storagePoolServiceSuite struct {
-	registry internalstorage.StaticProviderRegistry
-	state    *MockStoragePoolState
+	registry                internalstorage.StaticProviderRegistry
+	state                   *MockStoragePoolState
+	storageProviderRegistry *MockProviderRegistry
+	storageRegistryGetter   *MockModelStorageRegistryGetter
+	storageProvider         *MockProvider
 }
 
 // TestStoragePoolServiceSuite runs all of the tests contained within
@@ -54,10 +59,16 @@ func (s *storagePoolServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 		Providers: map[internalstorage.ProviderType]internalstorage.Provider{},
 	}
 	s.state = NewMockStoragePoolState(ctrl)
+	s.storageProviderRegistry = NewMockProviderRegistry(ctrl)
+	s.storageRegistryGetter = NewMockModelStorageRegistryGetter(ctrl)
+	s.storageProvider = NewMockProvider(ctrl)
 
 	c.Cleanup(func() {
 		s.registry = internalstorage.StaticProviderRegistry{}
 		s.state = nil
+		s.storageProviderRegistry = nil
+		s.storageRegistryGetter = nil
+		s.storageProvider = nil
 	})
 
 	return ctrl
@@ -821,4 +832,474 @@ func (s *storagePoolServiceSuite) TestSetRecommendedStoragePoolsPropagatesError(
 	})
 
 	c.Check(err, tc.ErrorIs, expectedErr)
+}
+
+// TestImport tests that both user-defined storage pools and provider default
+// pools are returned and the recommended storage pools are returned accordingly.
+func (s *storagePoolServiceSuite) TestImport(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	cfg, err := internalstorage.NewConfig(
+		"lxd",
+		"lxd",
+		internalstorage.Attrs{"foo": "bar"},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	provider := NewMockProvider(ctrl)
+	provider.EXPECT().DefaultPools().Return([]*internalstorage.Config{cfg})
+
+	s.registry.Providers["lxd"] = provider
+	model := description.NewModel(description.ModelArgs{})
+	model.AddStoragePool(description.StoragePoolArgs{
+		Name:       "custom-pool",
+		Provider:   "lxd",
+		Attributes: nil,
+	})
+	svc := StoragePoolService{
+		registryGetter: registryGetter{s.registry},
+		logger:         loggertesting.WrapCheckLog(c),
+	}
+
+	pools, recommended, err := svc.GetStoragePoolsToImport(
+		c.Context(),
+		model.StoragePools(),
+	)
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_.UUID", tc.IsUUID)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(recommended, tc.HasLen, 0)
+	c.Assert(pools, tc.HasLen, 2)
+	c.Assert(pools[0], tc.Bind(mc, domainstorage.ImportStoragePoolParams{
+		Name:  "custom-pool",
+		Type:  "lxd",
+		Attrs: nil,
+	}))
+	c.Assert(pools[1], tc.DeepEquals, domainstorage.ImportStoragePoolParams{
+		UUID:   "16d8c090-8ef4-59b4-8e88-0bc64a0598a3",
+		Name:   "lxd",
+		Type:   "lxd",
+		Origin: domainstorage.StoragePoolOriginProviderDefault,
+		Attrs:  map[string]any{"foo": "bar"},
+	})
+}
+
+// TestGetStoragePoolsToImportUserPoolsOnly verifies that when only user-defined
+// storage pools are present and that there are no provider default pools, the
+// service returns them unchanged, generates UUIDs, and does not include provider default or
+// recommended pools.
+func (s *storagePoolServiceSuite) TestGetStoragePoolsToImportUserPoolsOnly(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	model.AddStoragePool(description.StoragePoolArgs{
+		Name:       "user-pool",
+		Provider:   "lxd",
+		Attributes: map[string]any{"foo": "bar"},
+	})
+
+	svc := StoragePoolService{
+		registryGetter: registryGetter{s.registry},
+		logger:         loggertesting.WrapCheckLog(c),
+	}
+
+	pools, recommended, err := svc.GetStoragePoolsToImport(
+		c.Context(),
+		model.StoragePools(),
+	)
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_.UUID", tc.IsUUID)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(recommended, tc.HasLen, 0)
+	c.Assert(pools, tc.HasLen, 1)
+	c.Assert(pools[0], tc.Bind(mc, domainstorage.ImportStoragePoolParams{
+		Name:   "user-pool",
+		Type:   "lxd",
+		Origin: domainstorage.StoragePoolOriginUser,
+		Attrs:  map[string]any{"foo": "bar"},
+	}))
+}
+
+// TestImportPickUserDefinedOnDuplicate ensures that when a user-defined storage
+// pool conflicts by name and provider with a provider default pool, the user-defined
+// pool is preferred and the conflicting default pool is skipped.
+func (s *storagePoolServiceSuite) TestImportPickUserDefinedOnDuplicate(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	cfg1, err := internalstorage.NewConfig(
+		"lxd-btrfs",
+		"lxd",
+		nil,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	cfg2, err := internalstorage.NewConfig(
+		"lxd-zfs",
+		"lxd",
+		nil,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	provider := NewMockProvider(ctrl)
+	provider.EXPECT().DefaultPools().Return([]*internalstorage.Config{cfg1, cfg2})
+
+	s.registry.Providers["lxd"] = provider
+
+	model := description.NewModel(description.ModelArgs{})
+	model.AddStoragePool(description.StoragePoolArgs{
+		Name:       "lxd-btrfs",
+		Provider:   "lxd",
+		Attributes: nil,
+	})
+	model.AddStoragePool(description.StoragePoolArgs{
+		Name:       "custom-pool",
+		Provider:   "lxd",
+		Attributes: nil,
+	})
+
+	svc := StoragePoolService{
+		registryGetter: registryGetter{s.registry},
+		logger:         loggertesting.WrapCheckLog(c),
+	}
+
+	pools, _, err := svc.GetStoragePoolsToImport(
+		c.Context(),
+		model.StoragePools(),
+	)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pools, tc.HasLen, 3)
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_.UUID", tc.IsUUID)
+
+	// User pool: lxd-btrfs.
+	c.Assert(pools[0], tc.Bind(mc, domainstorage.ImportStoragePoolParams{
+		Name:   "lxd-btrfs",
+		Type:   "lxd",
+		Origin: domainstorage.StoragePoolOriginUser,
+		Attrs:  nil,
+	}))
+
+	// User pool: custom-pool.
+	c.Assert(pools[1], tc.Bind(mc, domainstorage.ImportStoragePoolParams{
+		Name:   "custom-pool",
+		Type:   "lxd",
+		Origin: domainstorage.StoragePoolOriginUser,
+		Attrs:  nil,
+	}))
+
+	// Provider default (non-conflicting): lxd-zfs.
+	c.Assert(pools[2], tc.DeepEquals, domainstorage.ImportStoragePoolParams{
+		// Use the hardcoded UUID for this pool.
+		UUID:   "635f1873-be0b-5f07-b841-9fa02466a9f6",
+		Name:   "lxd-zfs",
+		Type:   "lxd",
+		Origin: domainstorage.StoragePoolOriginProviderDefault,
+		Attrs:  nil,
+	})
+}
+
+// TestGetStoragePoolsToImportReturnsRecommendedPools verifies that provider default
+// pools are added and recommended storage pools are returned when the registry
+// supplies recommendations for specific storage kinds.
+func (s *storagePoolServiceSuite) TestGetStoragePoolsToImportReturnsRecommendedPools(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	defaultPool, _ := internalstorage.NewConfig("lxd", "lxd", internalstorage.Attrs{})
+	zfsPool, _ := internalstorage.NewConfig("lxd-zfs", "lxd", internalstorage.Attrs{
+		"driver":        "zfs",
+		"lxd-pool":      "juju-zfs",
+		"zfs.pool_name": "juju-lxd",
+	})
+	btrfsPool, _ := internalstorage.NewConfig("lxd-btrfs", "lxd", internalstorage.Attrs{
+		"driver":   "btrfs",
+		"lxd-pool": "juju-btrfs",
+	})
+	recommendedPoolForBlock, _ := internalstorage.NewConfig("loop", "loop",
+		internalstorage.Attrs{})
+	lxdDefaultPools := []*internalstorage.Config{defaultPool, zfsPool, btrfsPool}
+
+	s.storageRegistryGetter.EXPECT().GetStorageRegistry(gomock.Any()).Return(
+		s.storageProviderRegistry, nil)
+	s.storageProviderRegistry.EXPECT().StorageProviderTypes().Return(
+		[]internalstorage.ProviderType{"lxd"}, nil,
+	)
+	s.storageProviderRegistry.EXPECT().StorageProvider(internalstorage.ProviderType("lxd")).
+		Return(s.storageProvider, nil)
+	s.storageProvider.EXPECT().DefaultPools().Return(lxdDefaultPools)
+	s.storageProviderRegistry.EXPECT().RecommendedPoolForKind(internalstorage.StorageKindFilesystem).
+		Return(defaultPool)
+	s.storageProviderRegistry.EXPECT().RecommendedPoolForKind(internalstorage.StorageKindBlock).
+		Return(recommendedPoolForBlock)
+
+	model := description.NewModel(description.ModelArgs{})
+	model.AddStoragePool(description.StoragePoolArgs{
+		Name:       "custom-pool",
+		Provider:   "lxd",
+		Attributes: map[string]any{"foo": "bar"},
+	})
+	svc := StoragePoolService{
+		registryGetter: s.storageRegistryGetter,
+		logger:         loggertesting.WrapCheckLog(c),
+	}
+	pools, recommended, err := svc.GetStoragePoolsToImport(
+		c.Context(),
+		model.StoragePools(),
+	)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(recommended, tc.SameContents, []domainstorage.RecommendedStoragePoolParams{
+		// This is a pool name: lxd and provider: lxd.
+		{
+			StoragePoolUUID: "16d8c090-8ef4-59b4-8e88-0bc64a0598a3",
+			StorageKind:     domainstorage.StorageKindFilesystem,
+		},
+		{
+			StoragePoolUUID: "baa26e04-b1f0-50d9-9bf8-4d5a78ffe6ad",
+			StorageKind:     domainstorage.StorageKindBlock,
+		},
+	})
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_.UUID", tc.IsUUID)
+
+	c.Assert(pools, tc.HasLen, 5)
+	// User pool. The UUID is generated by the service so we don't know the exact
+	// value, but we assert that it is a UUID.
+	c.Assert(pools[0], tc.Bind(mc, domainstorage.ImportStoragePoolParams{
+		Name:   "custom-pool",
+		Type:   "lxd",
+		Origin: domainstorage.StoragePoolOriginUser,
+		Attrs:  map[string]any{"foo": "bar"},
+	}))
+	// The rest are provider default pools.
+	c.Assert(pools[1:], tc.SameContents, []domainstorage.ImportStoragePoolParams{
+		{
+			UUID:   "16d8c090-8ef4-59b4-8e88-0bc64a0598a3",
+			Name:   "lxd",
+			Type:   "lxd",
+			Origin: domainstorage.StoragePoolOriginProviderDefault,
+			Attrs:  map[string]any{},
+		},
+		{
+			UUID:   "635f1873-be0b-5f07-b841-9fa02466a9f6",
+			Name:   "lxd-zfs",
+			Type:   "lxd",
+			Origin: domainstorage.StoragePoolOriginProviderDefault,
+			Attrs: map[string]any{
+				"driver":        "zfs",
+				"lxd-pool":      "juju-zfs",
+				"zfs.pool_name": "juju-lxd",
+			},
+		},
+		{
+			UUID:   "e1acb8b8-c978-5d53-bc22-2a0e7fd58734",
+			Name:   "lxd-btrfs",
+			Type:   "lxd",
+			Origin: domainstorage.StoragePoolOriginProviderDefault,
+			Attrs: map[string]any{
+				"driver":   "btrfs",
+				"lxd-pool": "juju-btrfs",
+			},
+		},
+		{
+			UUID:   "baa26e04-b1f0-50d9-9bf8-4d5a78ffe6ad",
+			Name:   "loop",
+			Type:   "loop",
+			Origin: domainstorage.StoragePoolOriginProviderDefault,
+			Attrs:  map[string]any{},
+		},
+	})
+}
+
+// TestGetStoragePoolsToImportExcludeConflictingUserPool tests that if there is a recommended provider default
+// pool with conflicting name with a user-defined pool, then that pool will not be included
+// in the recommended pools because we cannot guarantee they refer to the same pool.
+func (s *storagePoolServiceSuite) TestGetStoragePoolsToImportExcludeConflictingUserPool(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	defaultPool, _ := internalstorage.NewConfig("lxd", "lxd", internalstorage.Attrs{})
+	zfsPool, _ := internalstorage.NewConfig("lxd-zfs", "lxd", internalstorage.Attrs{
+		"driver":        "zfs",
+		"lxd-pool":      "juju-zfs",
+		"zfs.pool_name": "juju-lxd",
+	})
+	btrfsPool, _ := internalstorage.NewConfig("lxd-btrfs", "lxd", internalstorage.Attrs{
+		"driver":   "btrfs",
+		"lxd-pool": "juju-btrfs",
+	})
+	// This is the conflicting pool.
+	recommendedPoolForBlock, _ := internalstorage.NewConfig("loop", "loop",
+		internalstorage.Attrs{})
+	lxdDefaultPools := []*internalstorage.Config{defaultPool, zfsPool, btrfsPool}
+
+	s.storageRegistryGetter.EXPECT().GetStorageRegistry(gomock.Any()).Return(
+		s.storageProviderRegistry, nil)
+	s.storageProviderRegistry.EXPECT().StorageProviderTypes().Return(
+		[]internalstorage.ProviderType{"lxd"}, nil,
+	)
+	s.storageProviderRegistry.EXPECT().StorageProvider(internalstorage.ProviderType("lxd")).
+		Return(s.storageProvider, nil)
+	s.storageProvider.EXPECT().DefaultPools().Return(lxdDefaultPools)
+	s.storageProviderRegistry.EXPECT().RecommendedPoolForKind(internalstorage.StorageKindFilesystem).
+		Return(defaultPool)
+	s.storageProviderRegistry.EXPECT().RecommendedPoolForKind(internalstorage.StorageKindBlock).
+		Return(recommendedPoolForBlock)
+
+	model := description.NewModel(description.ModelArgs{})
+	// This has the same name as the provider loop pool but we cannot guarantee
+	// they are refer to the same instance.
+	model.AddStoragePool(description.StoragePoolArgs{
+		Name:       "loop",
+		Provider:   "loop",
+		Attributes: map[string]any{"foo": "bar"},
+	})
+	svc := StoragePoolService{
+		registryGetter: s.storageRegistryGetter,
+		logger:         loggertesting.WrapCheckLog(c),
+	}
+	pools, recommended, err := svc.GetStoragePoolsToImport(
+		c.Context(),
+		model.StoragePools(),
+	)
+
+	c.Assert(err, tc.ErrorIsNil)
+	// We assert that only the lxd pool is recommended.
+	c.Assert(recommended, tc.DeepEquals, []domainstorage.RecommendedStoragePoolParams{
+		// This is a pool name: lxd and provider: lxd.
+		{
+			StoragePoolUUID: "16d8c090-8ef4-59b4-8e88-0bc64a0598a3",
+			StorageKind:     domainstorage.StorageKindFilesystem,
+		},
+	})
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_.UUID", tc.IsUUID)
+
+	c.Assert(pools, tc.HasLen, 4)
+	// User pool. The UUID is generated by the service so we don't know the exact
+	// value, but we assert that it is a UUID.
+	c.Assert(pools[0], tc.Bind(mc, domainstorage.ImportStoragePoolParams{
+		Name:   "loop",
+		Type:   "loop",
+		Origin: domainstorage.StoragePoolOriginUser,
+		Attrs:  map[string]any{"foo": "bar"},
+	}))
+	// The rest are provider default pools.
+	c.Assert(pools[1:], tc.SameContents, []domainstorage.ImportStoragePoolParams{
+		{
+			UUID:   "16d8c090-8ef4-59b4-8e88-0bc64a0598a3",
+			Name:   "lxd",
+			Type:   "lxd",
+			Origin: domainstorage.StoragePoolOriginProviderDefault,
+			Attrs:  map[string]any{},
+		},
+		{
+			UUID:   "635f1873-be0b-5f07-b841-9fa02466a9f6",
+			Name:   "lxd-zfs",
+			Type:   "lxd",
+			Origin: domainstorage.StoragePoolOriginProviderDefault,
+			Attrs: map[string]any{
+				"driver":        "zfs",
+				"lxd-pool":      "juju-zfs",
+				"zfs.pool_name": "juju-lxd",
+			},
+		},
+		{
+			UUID:   "e1acb8b8-c978-5d53-bc22-2a0e7fd58734",
+			Name:   "lxd-btrfs",
+			Type:   "lxd",
+			Origin: domainstorage.StoragePoolOriginProviderDefault,
+			Attrs: map[string]any{
+				"driver":   "btrfs",
+				"lxd-pool": "juju-btrfs",
+			},
+		},
+	})
+}
+
+// TestGetStoragePoolsToImportRegistryGetterError asserts that an error propagated
+// correctly when the storage provider registry returns an error.
+func (s *storagePoolServiceSuite) TestGetStoragePoolsToImportRegistryGetterError(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	expectedErr := errors.New("registry down")
+
+	s.storageRegistryGetter.EXPECT().
+		GetStorageRegistry(gomock.Any()).
+		Return(nil, expectedErr)
+
+	svc := StoragePoolService{
+		registryGetter: s.storageRegistryGetter,
+		logger:         loggertesting.WrapCheckLog(c),
+	}
+
+	_, _, err := svc.GetStoragePoolsToImport(c.Context(), nil)
+
+	c.Assert(err, tc.ErrorMatches,
+		`getting storage provider registry for model: registry down`)
+}
+
+// TestGetStoragePoolsToImportProviderTypesError asserts that an error is propagated
+// correctly when fetching storage provider types returns an error.
+func (s *storagePoolServiceSuite) TestGetStoragePoolsToImportProviderTypesError(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.storageRegistryGetter.EXPECT().
+		GetStorageRegistry(gomock.Any()).
+		Return(s.storageProviderRegistry, nil)
+
+	s.storageProviderRegistry.EXPECT().
+		StorageProviderTypes().
+		Return(nil, errors.New("types boom"))
+
+	svc := StoragePoolService{
+		registryGetter: s.storageRegistryGetter,
+		logger:         loggertesting.WrapCheckLog(c),
+	}
+
+	_, _, err := svc.GetStoragePoolsToImport(c.Context(), nil)
+
+	c.Assert(err, tc.ErrorMatches,
+		`getting storage provider types for model storage registry: types boom`)
+}
+
+// TestGetStoragePoolsToImportStorageProviderError asserts that an error is propagated
+// correctly when fetching a specific storage provider returns an error.
+func (s *storagePoolServiceSuite) TestGetStoragePoolsToImportStorageProviderError(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.storageRegistryGetter.EXPECT().
+		GetStorageRegistry(gomock.Any()).
+		Return(s.storageProviderRegistry, nil)
+
+	s.storageProviderRegistry.EXPECT().
+		StorageProviderTypes().
+		Return([]internalstorage.ProviderType{"lxd"}, nil)
+
+	s.storageProviderRegistry.EXPECT().
+		StorageProvider(internalstorage.ProviderType("lxd")).
+		Return(nil, errors.New("provider boom"))
+
+	svc := StoragePoolService{
+		registryGetter: s.storageRegistryGetter,
+		logger:         loggertesting.WrapCheckLog(c),
+	}
+
+	_, _, err := svc.GetStoragePoolsToImport(c.Context(), nil)
+
+	c.Assert(err, tc.ErrorMatches,
+		`getting storage provider "lxd" from registry: provider boom`)
 }
