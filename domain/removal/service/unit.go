@@ -64,9 +64,9 @@ type UnitState interface {
 	// UUID. If the unit does not exist, it returns an empty string.
 	GetCharmForUnit(ctx context.Context, unitUUID string) (string, error)
 
-	// IsUnitInErrorState returns true if the unit with the input name
-	// is in an error state.
-	IsUnitInErrorState(ctx context.Context, unitName string) (bool, error)
+	// IsUnitInErrorOrBlockedState returns true if the unit with the input name
+	// is in an error or blocked state.
+	IsUnitInErrorOrBlockedState(ctx context.Context, unitName string) (bool, error)
 }
 
 // RemoveUnit checks if a unit with the input name exists.

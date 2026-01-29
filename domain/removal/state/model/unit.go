@@ -834,9 +834,9 @@ WHERE  uuid = $entityUUID.uuid`, appID)
 	return result.UUID, nil
 }
 
-// IsUnitInErrorState returns whether the unit identified by the unit name
-// is in an error state.
-func (st *State) IsUnitInErrorState(ctx context.Context, name string) (bool, error) {
+// IsUnitInErrorOrBlockedState returns whether the unit identified by the unit
+// name is in an error or blocked state.
+func (st *State) IsUnitInErrorOrBlockedState(ctx context.Context, name string) (bool, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
@@ -850,8 +850,9 @@ func (st *State) IsUnitInErrorState(ctx context.Context, name string) (bool, err
 	getUnitStatusStmt, err := st.Prepare(`
 SELECT 1 AS &result.result
 FROM   v_unit_workload_status
+JOIN   workload_status_value AS wsv ON v_unit_workload_status.status_id = wsv.id
 WHERE  unit_name = $entityName.name AND
-       status_id = 7;
+       (wsv.status = 'error' OR wsv.status = 'blocked');
 `, result{}, unitName)
 	if err != nil {
 		return false, errors.Capture(err)

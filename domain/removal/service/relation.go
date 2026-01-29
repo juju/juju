@@ -224,11 +224,11 @@ func (s *Service) processRelationInScopeUnits(ctx context.Context, job removal.J
 		return removalerrors.RemovalJobIncomplete
 	}
 
-	// We need to check if we're the remaining unit in scope and the unit
-	// is in an error state, we can just depart it automatically. This will
+	// We need to check if we're the remaining unit in scope and the unit is in
+	// an error or blocked state, we can just depart it automatically. This will
 	// short circuit the need for manual intervention to remove the relation.
 	unitName := inScope[0]
-	isError, err := s.modelState.IsUnitInErrorState(ctx, unitName)
+	isError, err := s.modelState.IsUnitInErrorOrBlockedState(ctx, unitName)
 	if err != nil {
 		return errors.Errorf("checking unit status %q: %w", unitName, err)
 	} else if isError {
