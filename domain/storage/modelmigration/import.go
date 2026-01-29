@@ -77,7 +77,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 	err = i.service.SetRecommendedStoragePools(ctx, recommendedPools)
 	if err != nil {
-		return errors.Errorf("setting recommended storage: %w", err)
+		return errors.Errorf("setting recommended storage pools: %w", err)
 	}
 
 	return nil

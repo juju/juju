@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/juju/description/v11"
+	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -65,66 +66,35 @@ func (s *importSuite) TestRegisterImport(c *tc.C) {
 	}), loggertesting.WrapCheckLog(c))
 }
 
-// TestNoUserDefinedStoragePools tests that when the model contains no
-// user-defined storage pools, all provider default pools are imported and
-// the provider's recommended pool is set on the model.
+// TestNoUserDefinedStoragePools tests that Execute imports provider default
+// storage pools and sets the recommended pool when the model contains no
+// user-defined storage pools.
 func (s *importSuite) TestNoUserDefinedStoragePools(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Empty model.
 	model := description.NewModel(description.ModelArgs{})
+	ctx := c.Context()
 
-	s.storageRegistryGetter.EXPECT().GetStorageRegistry(gomock.Any()).Return(
-		s.storageProviderRegistry, nil)
-	s.storageProviderRegistry.EXPECT().StorageProviderTypes().Return(
-		[]storage.ProviderType{"lxd"}, nil,
-	)
-
-	defaultPool, _ := storage.NewConfig("lxd", "lxd", storage.Attrs{})
-	zfsPool, _ := storage.NewConfig("lxd-zfs", "lxd", storage.Attrs{
-		"driver":        "zfs",
-		"lxd-pool":      "juju-zfs",
-		"zfs.pool_name": "juju-lxd",
-	})
-	btrfsPool, _ := storage.NewConfig("lxd-btrfs", "lxd", storage.Attrs{
-		"driver":   "btrfs",
-		"lxd-pool": "juju-btrfs",
-	})
-	lxdDefaultPools := []*storage.Config{defaultPool, zfsPool, btrfsPool}
-
-	gomock.InOrder(
-		s.storageProviderRegistry.EXPECT().StorageProvider(storage.ProviderType("lxd")).
-			Return(s.storageProvider, nil),
-		s.storageProvider.EXPECT().DefaultPools().Return(lxdDefaultPools),
-		s.storageProviderRegistry.EXPECT().RecommendedPoolForKind(storage.StorageKindFilesystem).
-			Return(defaultPool),
-		s.storageProviderRegistry.EXPECT().RecommendedPoolForKind(storage.StorageKindBlock).
-			Return(nil),
-
-		// Calls ImportStoragePool for 3 storage pools.
-		// There are no user-defined pools.
-		s.service.EXPECT().ImportStoragePool(gomock.Any(),
-			domainstorage.StoragePoolUUID("16d8c090-8ef4-59b4-8e88-0bc64a0598a3"),
-			"lxd", domainstorage.ProviderType("lxd"), domainstorage.StoragePoolOriginProviderDefault,
-			map[string]any{}),
-
-		s.service.EXPECT().ImportStoragePool(gomock.Any(),
-			domainstorage.StoragePoolUUID("635f1873-be0b-5f07-b841-9fa02466a9f6"),
-			"lxd-zfs",
-			domainstorage.ProviderType("lxd"), domainstorage.StoragePoolOriginProviderDefault,
-			map[string]any{
+	poolsToImport := []domainstorage.ImportStoragePoolParams{
+		{
+			UUID:   "16d8c090-8ef4-59b4-8e88-0bc64a0598a3",
+			Name:   "lxd",
+			Type:   "lxd",
+			Origin: domainstorage.StoragePoolOriginProviderDefault,
+			Attrs:  map[string]any{},
+		},
+		{
+			UUID:   "635f1873-be0b-5f07-b841-9fa02466a9f6",
+			Name:   "lxd-zfs",
+			Type:   "lxd",
+			Origin: domainstorage.StoragePoolOriginProviderDefault,
+			Attrs: map[string]any{
 				"driver":        "zfs",
 				"lxd-pool":      "juju-zfs",
 				"zfs.pool_name": "juju-lxd",
-			}),
-
-		s.service.EXPECT().ImportStoragePool(gomock.Any(), gomock.Any(), "lxd-btrfs",
-			domainstorage.ProviderType("lxd"), domainstorage.StoragePoolOriginProviderDefault,
-			map[string]any{
-				"driver":   "btrfs",
-				"lxd-pool": "juju-btrfs",
-			}),
-	)
+			},
+		},
+	}
 
 	recommendedPools := []domainstorage.RecommendedStoragePoolParams{
 		{
@@ -132,16 +102,28 @@ func (s *importSuite) TestNoUserDefinedStoragePools(c *tc.C) {
 			StorageKind:     domainstorage.StorageKindFilesystem,
 		},
 	}
-	s.service.EXPECT().SetRecommendedStoragePools(gomock.Any(), recommendedPools)
+
+	gomock.InOrder(
+		s.service.EXPECT().
+			GetStoragePoolsToImport(ctx, model.StoragePools()).
+			Return(poolsToImport, recommendedPools, nil),
+
+		s.service.EXPECT().
+			ImportStoragePools(ctx, poolsToImport).
+			Return(nil),
+
+		s.service.EXPECT().
+			SetRecommendedStoragePools(ctx, recommendedPools).
+			Return(nil),
+	)
 
 	op := s.newImportOperation()
-	err := op.Execute(c.Context(), model)
+	err := op.Execute(ctx, model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestImport tests that both user-defined storage pools and provider default
-// pools are imported into the model when no conflicts exist, and that the
-// recommended storage pool is set accordingly.
+// TestImport tests that Execute imports both user-defined and provider default
+// storage pools and sets the recommended pools.
 func (s *importSuite) TestImport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -152,62 +134,23 @@ func (s *importSuite) TestImport(c *tc.C) {
 		Attributes: map[string]any{"foo": "bar"},
 	})
 
-	s.storageRegistryGetter.EXPECT().GetStorageRegistry(gomock.Any()).Return(
-		s.storageProviderRegistry, nil)
-	s.storageProviderRegistry.EXPECT().StorageProviderTypes().Return(
-		[]storage.ProviderType{"lxd"}, nil,
-	)
+	ctx := c.Context()
 
-	defaultPool, _ := storage.NewConfig("lxd", "lxd", storage.Attrs{})
-	zfsPool, _ := storage.NewConfig("lxd-zfs", "lxd", storage.Attrs{
-		"driver":        "zfs",
-		"lxd-pool":      "juju-zfs",
-		"zfs.pool_name": "juju-lxd",
-	})
-	btrfsPool, _ := storage.NewConfig("lxd-btrfs", "lxd", storage.Attrs{
-		"driver":   "btrfs",
-		"lxd-pool": "juju-btrfs",
-	})
-	lxdDefaultPools := []*storage.Config{defaultPool, zfsPool, btrfsPool}
-
-	gomock.InOrder(
-		s.storageProviderRegistry.EXPECT().StorageProvider(storage.ProviderType("lxd")).
-			Return(s.storageProvider, nil),
-		s.storageProvider.EXPECT().DefaultPools().Return(lxdDefaultPools),
-		s.storageProviderRegistry.EXPECT().RecommendedPoolForKind(storage.StorageKindFilesystem).
-			Return(defaultPool),
-		s.storageProviderRegistry.EXPECT().RecommendedPoolForKind(storage.StorageKindBlock).
-			Return(nil),
-
-		// Calls ImportStoragePool for 4 storage pools.
-		// There are no duplicate pools.
-		s.service.EXPECT().ImportStoragePool(gomock.Any(), domainstorage.StoragePoolUUID(""),
-			"ebs-fast",
-			domainstorage.ProviderType("ebs"), domainstorage.StoragePoolOriginUser,
-			map[string]any{"foo": "bar"}),
-
-		s.service.EXPECT().ImportStoragePool(gomock.Any(),
-			domainstorage.StoragePoolUUID("16d8c090-8ef4-59b4-8e88-0bc64a0598a3"),
-			"lxd", domainstorage.ProviderType("lxd"), domainstorage.StoragePoolOriginProviderDefault,
-			map[string]any{}),
-
-		s.service.EXPECT().ImportStoragePool(gomock.Any(),
-			domainstorage.StoragePoolUUID("635f1873-be0b-5f07-b841-9fa02466a9f6"),
-			"lxd-zfs",
-			domainstorage.ProviderType("lxd"), domainstorage.StoragePoolOriginProviderDefault,
-			map[string]any{
-				"driver":        "zfs",
-				"lxd-pool":      "juju-zfs",
-				"zfs.pool_name": "juju-lxd",
-			}),
-
-		s.service.EXPECT().ImportStoragePool(gomock.Any(), gomock.Any(), "lxd-btrfs",
-			domainstorage.ProviderType("lxd"), domainstorage.StoragePoolOriginProviderDefault,
-			map[string]any{
-				"driver":   "btrfs",
-				"lxd-pool": "juju-btrfs",
-			}),
-	)
+	poolsToImport := []domainstorage.ImportStoragePoolParams{
+		{
+			Name:   "ebs-fast",
+			Type:   "ebs",
+			Origin: domainstorage.StoragePoolOriginUser,
+			Attrs:  map[string]any{"foo": "bar"},
+		},
+		{
+			UUID:   "16d8c090-8ef4-59b4-8e88-0bc64a0598a3",
+			Name:   "lxd",
+			Type:   "lxd",
+			Origin: domainstorage.StoragePoolOriginProviderDefault,
+			Attrs:  map[string]any{},
+		},
+	}
 
 	recommendedPools := []domainstorage.RecommendedStoragePoolParams{
 		{
@@ -215,84 +158,126 @@ func (s *importSuite) TestImport(c *tc.C) {
 			StorageKind:     domainstorage.StorageKindFilesystem,
 		},
 	}
-	s.service.EXPECT().SetRecommendedStoragePools(gomock.Any(), recommendedPools)
+
+	gomock.InOrder(
+		s.service.EXPECT().
+			GetStoragePoolsToImport(ctx, model.StoragePools()).
+			Return(poolsToImport, recommendedPools, nil),
+
+		s.service.EXPECT().
+			ImportStoragePools(ctx, poolsToImport).
+			Return(nil),
+
+		s.service.EXPECT().
+			SetRecommendedStoragePools(ctx, recommendedPools).
+			Return(nil),
+	)
 
 	op := s.newImportOperation()
-	err := op.Execute(c.Context(), model)
+	err := op.Execute(ctx, model)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestImportPickUserDefinedOnDuplicate tests that when a user-defined storage
-// pool has the same name and provider as a provider default pool, the
-// user-defined pool is preferred and the provider default pool is skipped.
-// Other non-conflicting default pools are still imported and recommendations
-// are set as expected.
-func (s *importSuite) TestImportPickUserDefinedOnDuplicate(c *tc.C) {
+// TestExecuteGetStoragePoolsToImportError tests that Execute fails fast if
+// GetStoragePoolsToImport returns an error, and that no further calls are made.
+func (s *importSuite) TestExecuteGetStoragePoolsToImportError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})
-	model.AddStoragePool(description.StoragePoolArgs{
-		Name:       "lxd-zfs",
-		Provider:   "lxd",
-		Attributes: map[string]any{"foo": "bar"},
-	})
+	expectedErr := errors.New("boom")
 
-	s.storageRegistryGetter.EXPECT().GetStorageRegistry(gomock.Any()).Return(
-		s.storageProviderRegistry, nil)
-	s.storageProviderRegistry.EXPECT().StorageProviderTypes().Return(
-		[]storage.ProviderType{"lxd"}, nil,
-	)
+	s.service.EXPECT().
+		GetStoragePoolsToImport(gomock.Any(), model.StoragePools()).
+		Return(nil, nil, expectedErr)
 
-	defaultPool, _ := storage.NewConfig("lxd", "lxd", storage.Attrs{})
-	zfsPool, _ := storage.NewConfig("lxd-zfs", "lxd", storage.Attrs{
-		"driver":        "zfs",
-		"lxd-pool":      "juju-zfs",
-		"zfs.pool_name": "juju-lxd",
-	})
-	btrfsPool, _ := storage.NewConfig("lxd-btrfs", "lxd", storage.Attrs{
-		"driver":   "btrfs",
-		"lxd-pool": "juju-btrfs",
-	})
-	lxdDefaultPools := []*storage.Config{defaultPool, zfsPool, btrfsPool}
+	op := s.newImportOperation()
+	err := op.Execute(c.Context(), model)
+
+	c.Assert(err, tc.ErrorMatches, "getting pools to import: .*boom")
+}
+
+// TestExecuteImportStoragePoolsError tests that Execute returns an error if
+// ImportStoragePools fails, and that recommended storage pools are not set.
+func (s *importSuite) TestExecuteImportStoragePoolsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	expectedErr := errors.New("import failed")
+
+	poolsToImport := []domainstorage.ImportStoragePoolParams{
+		{
+			UUID:   "pool-1",
+			Name:   "lxd",
+			Origin: domainstorage.StoragePoolOriginProviderDefault,
+			Type:   "lxd",
+			Attrs:  map[string]any{},
+		},
+	}
+
 	recommendedPools := []domainstorage.RecommendedStoragePoolParams{
 		{
-			StoragePoolUUID: "16d8c090-8ef4-59b4-8e88-0bc64a0598a3",
+			StoragePoolUUID: "pool-1",
 			StorageKind:     domainstorage.StorageKindFilesystem,
 		},
 	}
 
 	gomock.InOrder(
-		s.storageProviderRegistry.EXPECT().StorageProvider(storage.ProviderType("lxd")).
-			Return(s.storageProvider, nil),
-		s.storageProvider.EXPECT().DefaultPools().Return(lxdDefaultPools),
-		s.storageProviderRegistry.EXPECT().RecommendedPoolForKind(storage.StorageKindFilesystem).
-			Return(defaultPool),
-		s.storageProviderRegistry.EXPECT().RecommendedPoolForKind(storage.StorageKindBlock).
-			Return(nil),
+		s.service.EXPECT().
+			GetStoragePoolsToImport(gomock.Any(), model.StoragePools()).
+			Return(poolsToImport, recommendedPools, nil),
 
-		// Calls ImportStoragePool for 3 storage pools.
-		// This is storage pool has a duplicate name and provider, so we pick this
-		// over the default storage pool of the provider.
-		s.service.EXPECT().ImportStoragePool(gomock.Any(), domainstorage.StoragePoolUUID(""),
-			"lxd-zfs",
-			domainstorage.ProviderType("lxd"), domainstorage.StoragePoolOriginUser,
-			map[string]any{"foo": "bar"}),
-
-		s.service.EXPECT().ImportStoragePool(gomock.Any(),
-			domainstorage.StoragePoolUUID("16d8c090-8ef4-59b4-8e88-0bc64a0598a3"),
-			"lxd", domainstorage.ProviderType("lxd"), domainstorage.StoragePoolOriginProviderDefault,
-			map[string]any{}),
-
-		s.service.EXPECT().ImportStoragePool(gomock.Any(), gomock.Any(), "lxd-btrfs",
-			domainstorage.ProviderType("lxd"), domainstorage.StoragePoolOriginProviderDefault,
-			map[string]any{
-				"driver":   "btrfs",
-				"lxd-pool": "juju-btrfs",
-			}),
-		s.service.EXPECT().SetRecommendedStoragePools(gomock.Any(), recommendedPools),
+		s.service.EXPECT().
+			ImportStoragePools(gomock.Any(), poolsToImport).
+			Return(expectedErr),
 	)
 
 	op := s.newImportOperation()
 	err := op.Execute(c.Context(), model)
-	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(err, tc.ErrorMatches, "importing storage pools .*: .*import failed")
+}
+
+// TestExecuteSetRecommendedStoragePoolsError tests that Execute returns an error
+// if setting recommended storage pools fails, even when imports succeed.
+func (s *importSuite) TestExecuteSetRecommendedStoragePoolsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	expectedErr := errors.New("recommendation failed")
+
+	poolsToImport := []domainstorage.ImportStoragePoolParams{
+		{
+			UUID:   "pool-1",
+			Name:   "lxd",
+			Origin: domainstorage.StoragePoolOriginProviderDefault,
+			Type:   "lxd",
+			Attrs:  map[string]any{},
+		},
+	}
+
+	recommendedPools := []domainstorage.RecommendedStoragePoolParams{
+		{
+			StoragePoolUUID: "pool-1",
+			StorageKind:     domainstorage.StorageKindFilesystem,
+		},
+	}
+
+	gomock.InOrder(
+		s.service.EXPECT().
+			GetStoragePoolsToImport(gomock.Any(), model.StoragePools()).
+			Return(poolsToImport, recommendedPools, nil),
+
+		s.service.EXPECT().
+			ImportStoragePools(gomock.Any(), poolsToImport).
+			Return(nil),
+
+		s.service.EXPECT().
+			SetRecommendedStoragePools(gomock.Any(), recommendedPools).
+			Return(expectedErr),
+	)
+
+	op := s.newImportOperation()
+	err := op.Execute(c.Context(), model)
+
+	c.Assert(err, tc.ErrorMatches, "setting recommended storage pools: .*recommendation failed")
 }
