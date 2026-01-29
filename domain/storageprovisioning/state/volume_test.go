@@ -19,7 +19,6 @@ import (
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	domaininternal "github.com/juju/juju/domain/storageprovisioning/internal"
-	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
 )
 
 // volumeSuite provides a set of tests for asserting the state interface for
@@ -1446,7 +1445,7 @@ func (s *volumeSuite) TestCreateVolumeAttachmentPlanAlreadyExists(c *tc.C) {
 
 func (s *volumeSuite) TestCreateVolumeAttachmentPlanAttachmentNotFound(c *tc.C) {
 	vaUUID := tc.Must(c, domainstorage.NewVolumeAttachmentUUID)
-	vapUUID := domaintesting.GenVolumeAttachmentPlanUUID(c)
+	vapUUID := tc.Must(c, domainstorage.NewVolumeAttachmentPlanUUID)
 
 	st := NewState(s.TxnRunnerFactory())
 
