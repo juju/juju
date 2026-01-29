@@ -289,11 +289,6 @@ const (
 	// Deprecated Settings Attributes
 	//
 
-	// IgnoreMachineAddresses when true, will cause the
-	// machine worker not to discover any machine addresses
-	// on start up.
-	IgnoreMachineAddresses = "ignore-machine-addresses"
-
 	// TestModeKey is the key for identifying the model should be run in test
 	// mode.
 	TestModeKey = "test-mode"
@@ -446,7 +441,6 @@ var defaultConfigValues = map[string]any{
 	// Network.
 	"firewall-mode":              FwInstance,
 	"disable-network-management": false,
-	IgnoreMachineAddresses:       false,
 	SSLHostnameVerificationKey:   true,
 	"proxy-ssh":                  false,
 	DefaultSpaceKey:              "",
@@ -1480,13 +1474,6 @@ func (c *Config) DisableNetworkManagement() (bool, bool) {
 	return v, ok
 }
 
-// IgnoreMachineAddresses reports whether Juju will discover
-// and store machine addresses on startup.
-func (c *Config) IgnoreMachineAddresses() (bool, bool) {
-	v, ok := c.defined[IgnoreMachineAddresses].(bool)
-	return v, ok
-}
-
 // StorageDefaultBlockSource returns the default block storage
 // source for the model.
 func (c *Config) StorageDefaultBlockSource() (string, bool) {
@@ -1696,7 +1683,6 @@ var alwaysOptional = schema.Defaults{
 	SSLHostnameVerificationKey:      schema.Omit,
 	"proxy-ssh":                     schema.Omit,
 	"disable-network-management":    schema.Omit,
-	IgnoreMachineAddresses:          schema.Omit,
 	AutomaticallyRetryHooks:         schema.Omit,
 	TestModeKey:                     schema.Omit,
 	DisableTelemetryKey:             schema.Omit,
