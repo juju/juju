@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -629,7 +628,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 	c.Check(recievedUnitArgs[0].MachineUUID, tc.Equals, machineUUID)
 }
 
-//func (s *providerServiceSuite) TestCreateIAASApplicationWithDefaultStorage(c *tc.C) {
+// func (s *providerServiceSuite) TestCreateIAASApplicationWithDefaultStorage(c *tc.C) {
 //	defer s.setupMocks(c).Finish()
 //
 //	id := tc.Must(c, coreapplication.NewUUID)
@@ -776,9 +775,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 //		AddUnitArg: AddUnitArg{},
 //	})
 //	c.Assert(err, tc.ErrorIsNil)
-//}
+// }
 //
-//func (s *providerServiceSuite) TestCreateIAASApplicationWithExplicitStorage(c *tc.C) {
+// func (s *providerServiceSuite) TestCreateIAASApplicationWithExplicitStorage(c *tc.C) {
 //	defer s.setupMocks(c).Finish()
 //
 //	id := tc.Must(c, coreapplication.NewUUID)
@@ -937,7 +936,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 //		},
 //	})
 //	c.Assert(err, tc.ErrorIsNil)
-//}
+// }
 
 func (s *providerServiceSuite) TestCreateIAASApplicationPrecheckFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
@@ -1478,7 +1477,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `creating application "foo": boom`)
 }
 
-//func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C) {
+// func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlock(c *tc.C) {
 //	defer s.setupMocks(c).Finish()
 //
 //	id := tc.Must(c, coreapplication.NewUUID)
@@ -1635,11 +1634,11 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //		},
 //	}, AddIAASUnitArg{})
 //	c.Assert(err, tc.ErrorIsNil)
-//}
+// }
 
 // TODO (tlm): Add a case where a default block and or file system source cannot
 // be supplied. What happens then?
-//func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultSource(c *tc.C) {
+// func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageBlockDefaultSource(c *tc.C) {
 //	defer s.setupMocks(c).Finish()
 
 //	id := tc.Must(c, coreapplication.NewUUID)
@@ -1803,9 +1802,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //		},
 //	}, AddIAASUnitArg{})
 //	c.Assert(err, tc.ErrorIsNil)
-//}
+// }
 
-//func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c *tc.C) {
+// func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystem(c *tc.C) {
 //	defer s.setupMocks(c).Finish()
 //
 //	id := tc.Must(c, coreapplication.NewUUID)
@@ -1964,9 +1963,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //		},
 //	}, AddIAASUnitArg{})
 //	c.Assert(err, tc.ErrorIsNil)
-//}
+// }
 //
-//func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDefaultSource(c *tc.C) {
+// func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageFilesystemDefaultSource(c *tc.C) {
 //	defer s.setupMocks(c).Finish()
 //
 //	id := tc.Must(c, coreapplication.NewUUID)
@@ -2126,9 +2125,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //		},
 //	}, AddIAASUnitArg{})
 //	c.Assert(err, tc.ErrorIsNil)
-//}
+// }
 
-//func (s *providerServiceSuite) TestCreateIAASApplicationWithSharedStorage(c *tc.C) {
+// func (s *providerServiceSuite) TestCreateIAASApplicationWithSharedStorage(c *tc.C) {
 //	defer s.setupMocks(c).Finish()
 //
 //	id := tc.Must(c, coreapplication.NewUUID)
@@ -2242,7 +2241,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //		},
 //	}, AddIAASUnitArg{})
 //	c.Assert(err, tc.ErrorIsNil)
-//}
+// }
 
 func (s *providerServiceSuite) TestCreateIAASApplicationPlatformArchContradictsConstraints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
@@ -2286,7 +2285,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPlatformArchContradictsC
 }
 
 // TODO (tlm): Add this test back in.
-//func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageValidates(c *tc.C) {
+// func (s *providerServiceSuite) TestCreateIAASApplicationWithStorageValidates(c *tc.C) {
 //	defer s.setupMocks(c).Finish()
 //
 //	s.charm.EXPECT().Meta().Return(&charm.Meta{
@@ -2318,7 +2317,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPlatformArchContradictsC
 //		},
 //	}, AddUnitArg{})
 //	c.Assert(err, tc.ErrorMatches, `.*invalid storage directives: charm "mine" has no store called "logs"`)
-//}
+// }
 
 func (s *providerServiceSuite) TestDeviceConstraintsValidateNotInCharmMeta(c *tc.C) {
 	deviceConstraints := map[string]devices.Constraints{
@@ -2524,7 +2523,7 @@ func (s *providerServiceSuite) TestSetConstraintsUnsupportedValues(c *tc.C) {
 
 	err := s.service.SetApplicationConstraints(c.Context(), id, coreconstraints.Value{Arch: ptr("amd64"), Mem: ptr(uint64(8))})
 	c.Assert(err, tc.ErrorIsNil)
-	//c.Check(c.GetTestLog(), tc.Contains, "unsupported constraints: arch,mem")
+	// c.Check(c.GetTestLog(), tc.Contains, "unsupported constraints: arch,mem")
 }
 
 func (s *providerServiceSuite) TestSetConstraints(c *tc.C) {
@@ -2734,7 +2733,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
 	setAddUnitNoopStorageExpects(s.storageService)
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
 
 	now := ptr(s.clock.Now())
 	u := []application.AddCAASUnitArg{{
@@ -2815,7 +2814,7 @@ func (s *providerServiceSuite) TestAddIAASUnitsInvalidPlacement(c *tc.C) {
 	setAddUnitNoopStorageExpects(s.storageService)
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
-	unitUUID := unittesting.GenUnitUUID(c)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
 
 	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
