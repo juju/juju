@@ -76,3 +76,13 @@ type RecommendedStoragePoolParams struct {
 	StoragePoolUUID StoragePoolUUID
 	StorageKind     StorageKind
 }
+
+// ImportStoragePoolParams represents a storage pool definition used when importing
+// storage pools into the model.
+type ImportStoragePoolParams struct {
+	UUID   StoragePoolUUID
+	Name   string
+	Origin StoragePoolOrigin
+	Type   string
+	Attrs  map[string]any
+}
