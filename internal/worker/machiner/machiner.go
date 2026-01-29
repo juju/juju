@@ -5,7 +5,6 @@ package machiner
 
 import (
 	"context"
-	"net"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -16,7 +15,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/network"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/rpc/params"
 )
@@ -31,10 +29,6 @@ type Config struct {
 
 	// Tag is the machine's tag.
 	Tag names.MachineTag
-
-	// ClearMachineAddressesOnStart indicates whether or not to clear
-	// the machine's machine addresses when the worker starts.
-	ClearMachineAddressesOnStart bool
 }
 
 // Validate reports whether or not the configuration is valid.
@@ -87,93 +81,16 @@ func (mr *Machiner) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
 	}
 	mr.machine = m
 
-	switch {
-	case corelife.IsNotAlive(m.Life()):
-		// Can happen when the machiner is restarting after a failure in EnsureDead.
-		// Since we're dying or dead, no need handle the machine addresses.
+	if corelife.IsNotAlive(m.Life()) {
 		logger.Infof(ctx, "%q not alive", mr.config.Tag)
-		return m.Watch(ctx)
-	case mr.config.ClearMachineAddressesOnStart:
-		logger.Debugf(ctx, "machiner configured to reset machine %q addresses to empty", mr.config.Tag)
-		if err := m.SetMachineAddresses(ctx, nil); err != nil {
-			return nil, errors.Annotate(err, "resetting machine addresses")
+	} else {
+		if err := m.SetStatus(ctx, status.Started, "", nil); err != nil {
+			return nil, errors.Annotatef(err, "%s failed to set status started", mr.config.Tag)
 		}
-	default:
-		// Set the addresses in state to the host's addresses if the
-		// machine is alive.  No need to set addresses if the machine
-		// is dying or dead on a worker restart.
-		if err := setMachineAddresses(ctx, mr.config.Tag, m); err != nil {
-			return nil, errors.Annotate(err, "setting machine addresses")
-		}
+		logger.Infof(ctx, "%q started", mr.config.Tag)
 	}
-
-	// Mark the machine as started and log it.
-	if err := m.SetStatus(ctx, status.Started, "", nil); err != nil {
-		return nil, errors.Annotatef(err, "%s failed to set status started", mr.config.Tag)
-	}
-	logger.Infof(ctx, "%q started", mr.config.Tag)
 
 	return m.Watch(ctx)
-}
-
-var interfaceAddrs = net.InterfaceAddrs
-
-// setMachineAddresses sets the addresses for this machine to all of the
-// host's non-loopback interface IP addresses.
-func setMachineAddresses(ctx context.Context, tag names.MachineTag, m Machine) error {
-	addrs, err := interfaceAddrs()
-	if err != nil {
-		return err
-	}
-	var hostAddresses corenetwork.ProviderAddresses
-	for _, addr := range addrs {
-		var (
-			ip      net.IP
-			netmask net.IPMask
-		)
-
-		switch addr := addr.(type) {
-		case *net.IPAddr:
-			ip = addr.IP
-		case *net.IPNet:
-			ip = addr.IP
-			netmask = addr.Mask
-		default:
-			continue
-		}
-
-		// If we discovered a netmask for the address, include a CIDR
-		// when constructing the provider address.
-		var addrOpts []func(corenetwork.AddressMutator)
-		if cidr := corenetwork.NetworkCIDRFromIPAndMask(ip, netmask); cidr != "" {
-			addrOpts = append(addrOpts, corenetwork.WithCIDR(cidr))
-		}
-		address := corenetwork.NewMachineAddress(ip.String(), addrOpts...).AsProviderAddress()
-
-		// Filter out link-local addresses as we cannot reliably use them.
-		if address.Scope == corenetwork.ScopeLinkLocal {
-			continue
-		}
-		hostAddresses = append(hostAddresses, address)
-	}
-	if len(hostAddresses) == 0 {
-		return nil
-	}
-	// Filter out any LXC or LXD bridge addresses.
-	hostAddresses = network.FilterBridgeAddresses(ctx, hostAddresses)
-	logger.Infof(ctx, "setting addresses for %q to %v", tag, hostAddresses)
-
-	// TODO (manadart 2019-08-27): This needs refactoring.
-	// FilterBridgeAddresses takes a slice of ProviderAddress,
-	// so we create an initial slice of that type and extract the machine
-	// addresses after filtering.
-	// We should work in an appropriate indirection to achieve this logic.
-	machineAddresses := make([]corenetwork.MachineAddress, len(hostAddresses))
-	for i, addr := range hostAddresses {
-		machineAddresses[i] = addr.MachineAddress
-	}
-
-	return m.SetMachineAddresses(ctx, machineAddresses)
 }
 
 func (mr *Machiner) Handle(ctx context.Context) error {

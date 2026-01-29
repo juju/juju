@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/testhelpers"
@@ -50,11 +49,6 @@ func (m *mockMachine) Life() life.Value {
 
 func (m *mockMachine) EnsureDead(context.Context) error {
 	m.MethodCall(m, "EnsureDead")
-	return m.NextErr()
-}
-
-func (m *mockMachine) SetMachineAddresses(_ context.Context, addresses []network.MachineAddress) error {
-	m.MethodCall(m, "SetMachineAddresses", addresses)
 	return m.NextErr()
 }
 
