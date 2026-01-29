@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/api/agent/machiner"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -25,7 +24,6 @@ type Machine interface {
 	Refresh(context.Context) error
 	Life() life.Value
 	EnsureDead(context.Context) error
-	SetMachineAddresses(ctx context.Context, addresses []network.MachineAddress) error
 	SetStatus(ctx context.Context, machineStatus status.Status, info string, data map[string]interface{}) error
 	Watch(context.Context) (watcher.NotifyWatcher, error)
 	SetObservedNetworkConfig(ctx context.Context, netConfig []params.NetworkConfig) error

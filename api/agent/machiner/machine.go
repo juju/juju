@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -53,21 +52,6 @@ func (m *Machine) SetStatus(ctx context.Context, status status.Status, info stri
 		},
 	}
 	err := m.client.facade.FacadeCall(ctx, "SetStatus", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
-}
-
-// SetMachineAddresses sets the machine determined addresses of the machine.
-func (m *Machine) SetMachineAddresses(ctx context.Context, addresses []network.MachineAddress) error {
-	var result params.ErrorResults
-	args := params.SetMachinesAddresses{
-		MachineAddresses: []params.MachineAddresses{
-			{Tag: m.Tag().String(), Addresses: params.FromMachineAddresses(addresses...)},
-		},
-	}
-	err := m.client.facade.FacadeCall(ctx, "SetMachineAddresses", args, &result)
 	if err != nil {
 		return err
 	}

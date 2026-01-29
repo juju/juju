@@ -162,11 +162,6 @@ bridge.
 		Type:  configschema.Tbool,
 		Group: configschema.EnvironGroup,
 	},
-	IgnoreMachineAddresses: {
-		Description: "Whether the machine worker should discover machine addresses on startup",
-		Type:        configschema.Tbool,
-		Group:       configschema.EnvironGroup,
-	},
 	EnableOSRefreshUpdateKey: {
 		Description: `Whether newly provisioned instances should run their respective OS's update capability.`,
 		Documentation: `
