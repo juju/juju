@@ -353,11 +353,143 @@ func (a *StorageAPI) StorageDetails(ctx context.Context, entities params.Entitie
 	)
 }
 
-// ListStorageDetails returns storage matching a filter.
-func (a *StorageAPI) ListStorageDetails(ctx context.Context, filters params.StorageFilters) (params.StorageDetailsListResults, error) {
-	return params.StorageDetailsListResults{}, apiservererrors.ParamsErrorf(
-		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
-	)
+// ListStorageDetails returns detailed information for every storage instance
+// within the model. ListStorageDetails does not currently support any filtering
+// of the information returned.
+func (a *StorageAPI) ListStorageDetails(
+	ctx context.Context,
+	_ params.StorageFilters,
+) (params.StorageDetailsListResults, error) {
+	if err := a.checkCanRead(ctx); err != nil {
+		return params.StorageDetailsListResults{}, errors.Capture(err)
+	}
+
+	// processStorageInstance is responsible for taking a single storage
+	// instance representation in the model and building a
+	// [params.StorageDetails] struct to provide to the caller.
+	processStorageInstance := func(
+		si statusservice.StorageInstance,
+	) (params.StorageDetails, error) {
+		retVal := params.StorageDetails{}
+
+		storageInstTag, err := names.ParseStorageTag(si.Name + "/" + si.ID)
+		if err != nil {
+			return params.StorageDetails{}, errors.Errorf(
+				"generating storage instance %q tag from name %q and id %q: %w",
+				si.UUID.String(), si.Name, si.ID, err,
+			)
+		}
+		retVal.StorageTag = storageInstTag.String()
+
+		var ownerTag string
+		if si.Owner != nil {
+			unitOwnerTag, err := names.ParseUnitTag(si.Owner.String())
+			if err != nil {
+				return params.StorageDetails{}, errors.Errorf(
+					"generating storage instance %q unit owner tag from unit name %q: %w",
+					si.UUID.String(), si.Owner.String(), err,
+				)
+			}
+
+			ownerTag = unitOwnerTag.String()
+		}
+		retVal.OwnerTag = ownerTag
+
+		// Default storage kind when we can't translate to any other value.
+		storageKind := params.StorageKindUnknown
+		switch si.Kind {
+		case domainstorage.StorageKindBlock:
+			storageKind = params.StorageKindBlock
+		case domainstorage.StorageKindFilesystem:
+			storageKind = params.StorageKindFilesystem
+		}
+		retVal.Kind = storageKind
+
+		retVal.Life = si.Life
+		retVal.Status = params.EntityStatus{
+			Status: si.Status.Status,
+			Info:   si.Status.Message,
+			Data:   si.Status.Data,
+			Since:  si.Status.Since,
+		}
+		if si.Status.Since == nil {
+			// This prevents a panic in clients due to a storage instance after
+			// 4.0 possibly having no filesystem or volume to get a status from.
+			// This is poor API design anyway, since a storage instance does not
+			// have a status, instead, we've pulled one from the provisioned
+			// entities.
+			zeroTime := time.UnixMicro(0).UTC()
+			retVal.Status.Since = &zeroTime
+		}
+
+		for unitName, attachment := range si.Attachments {
+			unitTag, err := names.ParseUnitTag(unitName.String())
+			if err != nil {
+				return params.StorageDetails{}, errors.Errorf(
+					"generating storage instance %q attachment unit %q tag: %w",
+					si.UUID, unitName, err,
+				)
+			}
+
+			var machineTagStr string
+			if attachment.Machine != nil {
+				machineTag, err := names.ParseMachineTag(attachment.Machine.String())
+				if err != nil {
+					return params.StorageDetails{}, errors.Errorf(
+						"generating storage instance %q attachment machine %q tag: %w",
+						si.UUID, *attachment.Machine, err,
+					)
+				}
+				machineTagStr = machineTag.String()
+			}
+
+			sad := params.StorageAttachmentDetails{
+				Life:       attachment.Life,
+				Location:   attachment.Location,
+				MachineTag: machineTagStr,
+				StorageTag: storageInstTag.String(),
+				UnitTag:    unitTag.String(),
+			}
+
+			retVal.Attachments[unitTag.String()] = sad
+		}
+		return retVal, nil
+	}
+
+	// We don't support any storage filtering at the moment.
+	storageInstances, err := a.statusService.GetAllStorageInstanceStatuses(ctx)
+	if err != nil {
+		// We log the error instead of returning it to the caller. The contents
+		// are unknown and will reflect an internal server error.
+		a.logger.Errorf(
+			ctx,
+			"failed getting storage instance statuses for listing storage details: %s",
+			err.Error(),
+		)
+		return params.StorageDetailsListResults{}, errors.Errorf(
+			"failed getting available storage instances",
+		)
+	}
+
+	results := make([]params.StorageDetails, 0, len(storageInstances))
+	for _, storageInstance := range storageInstances {
+		storageDetails, err := processStorageInstance(storageInstance)
+		if err != nil {
+			return params.StorageDetailsListResults{
+				Results: []params.StorageDetailsListResult{{
+					Error: apiservererrors.ServerError(err),
+				}},
+			}, nil
+		}
+
+		results = append(results, storageDetails)
+	}
+
+	return params.StorageDetailsListResults{
+		Results: []params.StorageDetailsListResult{{
+			Result: results,
+		}},
+	}, nil
 }
 
 // ListVolumes lists volumes with the given filters. Each filter produces

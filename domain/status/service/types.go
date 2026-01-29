@@ -103,7 +103,9 @@ type StorageInstance struct {
 	Owner       *unit.Name
 	Kind        storage.StorageKind
 	Life        life.Value
+	Status      status.StatusInfo
 	Attachments map[unit.Name]StorageAttachment
+	Name        string
 }
 
 // StorageAttachment represents the status of a storage attachment.
