@@ -531,9 +531,9 @@ func (s *storagePoolServiceSuite) TestGetStoragePoolByNameInvalidName(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, domainstorageerrors.StoragePoolNameInvalid)
 }
 
-// TestImportStoragePool is a happy path test for
-// [StoragePoolService.ImportStoragePool] where the UUID is provided.
-func (s *storagePoolServiceSuite) TestImportStoragePool(c *tc.C) {
+// TestImportStoragePools tests the happy path where a single storage pool
+// is validated and created successfully.
+func (s *storagePoolServiceSuite) TestImportStoragePools(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -544,57 +544,18 @@ func (s *storagePoolServiceSuite) TestImportStoragePool(c *tc.C) {
 
 	uuid := domainstorage.StoragePoolUUID("123e4567-e89b-12d3-a456-426614174000")
 
-	arg := domainstorageinternal.CreateStoragePool{
+	createArg := domainstorageinternal.CreateStoragePool{
+		UUID:         uuid,
+		Name:         "my-pool",
+		ProviderType: domainstorage.ProviderType("storageprovider1"),
+		Origin:       domainstorage.StoragePoolOriginProviderDefault,
 		Attrs: map[string]string{
 			"key": "val",
 		},
-		Name:         "my-pool",
-		Origin:       domainstorage.StoragePoolOriginProviderDefault,
-		ProviderType: domainstorage.ProviderType("storageprovider1"),
-		UUID:         uuid,
 	}
-
-	s.state.EXPECT().CreateStoragePool(gomock.Any(), arg)
-
-	svc := StoragePoolService{
-		registryGetter: registryGetter{s.registry},
-		st:             s.state,
-	}
-
-	err := svc.ImportStoragePool(
-		c.Context(),
-		uuid,
-		"my-pool",
-		"storageprovider1",
-		domainstorage.StoragePoolOriginProviderDefault,
-		map[string]any{"key": "val"},
-	)
-	c.Check(err, tc.ErrorIsNil)
-}
-
-// TestImportStoragePoolGeneratesUUID tests that a UUID is generated when the
-// imported storage pool has an empty UUID.
-func (s *storagePoolServiceSuite) TestImportStoragePoolGeneratesUUID(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	provider := NewMockProvider(ctrl)
-	provider.EXPECT().ValidateConfig(gomock.Any())
-
-	s.registry.Providers["storageprovider1"] = provider
-
-	createArgsMC := tc.NewMultiChecker()
-	createArgsMC.AddExpr("_.UUID", tc.IsUUID)
 
 	s.state.EXPECT().
-		CreateStoragePool(gomock.Any(), tc.Bind(createArgsMC, domainstorageinternal.CreateStoragePool{
-			Attrs: map[string]string{
-				"key": "val",
-			},
-			Name:         "my-pool",
-			Origin:       domainstorage.StoragePoolOriginUser,
-			ProviderType: "storageprovider1",
-		})).
+		CreateStoragePool(gomock.Any(), createArg).
 		Return(nil)
 
 	svc := StoragePoolService{
@@ -602,20 +563,91 @@ func (s *storagePoolServiceSuite) TestImportStoragePoolGeneratesUUID(c *tc.C) {
 		st:             s.state,
 	}
 
-	err := svc.ImportStoragePool(
+	err := svc.ImportStoragePools(
 		c.Context(),
-		"",
-		"my-pool",
-		"storageprovider1",
-		domainstorage.StoragePoolOriginUser,
-		map[string]any{"key": "val"},
+		[]domainstorage.ImportStoragePoolParams{
+			{
+				UUID:   uuid,
+				Name:   "my-pool",
+				Type:   "storageprovider1",
+				Origin: domainstorage.StoragePoolOriginProviderDefault,
+				Attrs:  map[string]any{"key": "val"},
+			},
+		},
 	)
+
 	c.Check(err, tc.ErrorIsNil)
 }
 
-// TestImportStoragePoolWithInvalidProviderType tests that supplying an invalid
-// provider type returns [domainstorageerrors.ProviderTypeInvalid].
-func (s *storagePoolServiceSuite) TestImportStoragePoolWithInvalidProviderType(c *tc.C) {
+// TestImportStoragePoolsMultipleSuccess tests that multiple storage pools
+// are validated and created successfully when no errors occur.
+func (s *storagePoolServiceSuite) TestImportStoragePoolsMultipleSuccess(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	provider := NewMockProvider(ctrl)
+	// ValidateConfig should be called once per pool.
+	provider.EXPECT().ValidateConfig(gomock.Any()).Times(2)
+
+	s.registry.Providers["storageprovider1"] = provider
+
+	pool1UUID := domainstorage.StoragePoolUUID("111e4567-e89b-12d3-a456-426614174000")
+	pool2UUID := domainstorage.StoragePoolUUID("222e4567-e89b-12d3-a456-426614174000")
+
+	gomock.InOrder(
+		s.state.EXPECT().
+			CreateStoragePool(gomock.Any(), domainstorageinternal.CreateStoragePool{
+				UUID:         pool1UUID,
+				Name:         "pool-one",
+				ProviderType: domainstorage.ProviderType("storageprovider1"),
+				Origin:       domainstorage.StoragePoolOriginUser,
+				Attrs: map[string]string{
+					"a": "1",
+				},
+			}),
+		s.state.EXPECT().
+			CreateStoragePool(gomock.Any(), domainstorageinternal.CreateStoragePool{
+				UUID:         pool2UUID,
+				Name:         "pool-two",
+				ProviderType: domainstorage.ProviderType("storageprovider1"),
+				Origin:       domainstorage.StoragePoolOriginProviderDefault,
+				Attrs: map[string]string{
+					"b": "true",
+				},
+			}),
+	)
+
+	svc := StoragePoolService{
+		registryGetter: registryGetter{s.registry},
+		st:             s.state,
+	}
+
+	err := svc.ImportStoragePools(
+		c.Context(),
+		[]domainstorage.ImportStoragePoolParams{
+			{
+				UUID:   pool1UUID,
+				Name:   "pool-one",
+				Type:   "storageprovider1",
+				Origin: domainstorage.StoragePoolOriginUser,
+				Attrs:  map[string]any{"a": 1},
+			},
+			{
+				UUID:   pool2UUID,
+				Name:   "pool-two",
+				Type:   "storageprovider1",
+				Origin: domainstorage.StoragePoolOriginProviderDefault,
+				Attrs:  map[string]any{"b": true},
+			},
+		},
+	)
+
+	c.Check(err, tc.ErrorIsNil)
+}
+
+// TestImportStoragePoolsInvalidProviderType tests that an invalid provider type
+// returns [domainstorageerrors.ProviderTypeInvalid].
+func (s *storagePoolServiceSuite) TestImportStoragePoolsInvalidProviderType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	svc := StoragePoolService{
@@ -623,21 +655,24 @@ func (s *storagePoolServiceSuite) TestImportStoragePoolWithInvalidProviderType(c
 		st:             s.state,
 	}
 
-	err := svc.ImportStoragePool(
+	err := svc.ImportStoragePools(
 		c.Context(),
-		"",
-		"my-pool",
-		"-invalid-provider-",
-		domainstorage.StoragePoolOriginUser,
-		nil,
+		[]domainstorage.ImportStoragePoolParams{
+			{
+				Name:   "my-pool",
+				Type:   "-invalid-provider-",
+				Origin: domainstorage.StoragePoolOriginUser,
+			},
+		},
 	)
+
 	c.Check(err, tc.ErrorIs, domainstorageerrors.ProviderTypeInvalid)
 }
 
-// TestImportStoragePoolProviderTypeNotFound tests that importing a pool for a
-// provider not present in the registry returns
+// TestImportStoragePoolsProviderTypeNotFound tests that importing a storage
+// pool for a provider not present in the registry returns
 // [domainstorageerrors.ProviderTypeNotFound].
-func (s *storagePoolServiceSuite) TestImportStoragePoolProviderTypeNotFound(c *tc.C) {
+func (s *storagePoolServiceSuite) TestImportStoragePoolsProviderTypeNotFound(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -651,20 +686,55 @@ func (s *storagePoolServiceSuite) TestImportStoragePoolProviderTypeNotFound(c *t
 		st:             s.state,
 	}
 
-	err := svc.ImportStoragePool(
+	err := svc.ImportStoragePools(
 		c.Context(),
-		"",
-		"my-pool",
-		"storagep1",
-		domainstorage.StoragePoolOriginUser,
-		nil,
+		[]domainstorage.ImportStoragePoolParams{
+			{
+				Name:   "my-pool",
+				Type:   "storagep1",
+				Origin: domainstorage.StoragePoolOriginUser,
+			},
+		},
 	)
+
 	c.Check(err, tc.ErrorIs, domainstorageerrors.ProviderTypeNotFound)
 }
 
-// TestImportStoragePoolWithInvalidName tests that an invalid legacy name
-// results in [domainstorageerrors.StoragePoolNameInvalid].
-func (s *storagePoolServiceSuite) TestImportStoragePoolWithInvalidName(c *tc.C) {
+// TestImportStoragePoolsProviderRegistryError tests that unexpected
+// errors returned by the provider registry are propagated.
+func (s *storagePoolServiceSuite) TestImportStoragePoolsProviderRegistryError(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	registryErr := errors.New("registry failure")
+
+	registry := NewMockProviderRegistry(ctrl)
+	registry.EXPECT().
+		StorageProvider(internalstorage.ProviderType("storageprovider1")).
+		Return(nil, registryErr)
+
+	svc := StoragePoolService{
+		registryGetter: registryGetter{registry},
+		st:             s.state,
+	}
+
+	err := svc.ImportStoragePools(
+		c.Context(),
+		[]domainstorage.ImportStoragePoolParams{
+			{
+				Name:   "my-pool",
+				Type:   "storageprovider1",
+				Origin: domainstorage.StoragePoolOriginUser,
+			},
+		},
+	)
+
+	c.Check(err, tc.ErrorIs, registryErr)
+}
+
+// TestImportStoragePoolsInvalidName tests that an invalid legacy storage
+// pool name returns [domainstorageerrors.StoragePoolNameInvalid].
+func (s *storagePoolServiceSuite) TestImportStoragePoolsInvalidName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	svc := StoragePoolService{
@@ -672,88 +742,19 @@ func (s *storagePoolServiceSuite) TestImportStoragePoolWithInvalidName(c *tc.C) 
 		st:             s.state,
 	}
 
-	err := svc.ImportStoragePool(
+	err := svc.ImportStoragePools(
 		c.Context(),
-		"",
-		// It needs to start with a letter.
-		"66invalid",
-		"ebs",
-		domainstorage.StoragePoolOriginUser,
-		nil,
-	)
-	c.Check(err, tc.ErrorIs, domainstorageerrors.StoragePoolNameInvalid)
-}
-
-// TestImportStoragePoolProviderValidationFail tests that provider validation
-// errors are returned to the caller unchanged.
-func (s *storagePoolServiceSuite) TestImportStoragePoolProviderValidationFail(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	intPoolConfig, err := internalstorage.NewConfig(
-		"my-pool",
-		"storageprovider1",
-		internalstorage.Attrs{
-			"key": "val",
+		[]domainstorage.ImportStoragePoolParams{
+			{
+				// Must start with a letter.
+				Name:   "66invalid",
+				Type:   "ebs",
+				Origin: domainstorage.StoragePoolOriginUser,
+			},
 		},
 	)
-	c.Assert(err, tc.ErrorIsNil)
 
-	validationErr := errors.New("validation failed")
-
-	provider := NewMockProvider(ctrl)
-	provider.EXPECT().
-		ValidateConfig(intPoolConfig).
-		Return(validationErr)
-
-	s.registry.Providers["storageprovider1"] = provider
-
-	svc := StoragePoolService{
-		registryGetter: registryGetter{s.registry},
-		st:             s.state,
-	}
-
-	err = svc.ImportStoragePool(
-		c.Context(),
-		"",
-		"my-pool",
-		"storageprovider1",
-		domainstorage.StoragePoolOriginUser,
-		map[string]any{"key": "val"},
-	)
-	c.Check(err, tc.ErrorIs, validationErr)
-}
-
-// TestImportStoragePoolStateError tests that errors returned by the state
-// layer are propagated to the caller.
-func (s *storagePoolServiceSuite) TestImportStoragePoolStateError(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	provider := NewMockProvider(ctrl)
-	provider.EXPECT().ValidateConfig(gomock.Any())
-
-	s.registry.Providers["storageprovider1"] = provider
-
-	stateErr := errors.New("state failure")
-	s.state.EXPECT().
-		CreateStoragePool(gomock.Any(), gomock.Any()).
-		Return(stateErr)
-
-	svc := StoragePoolService{
-		registryGetter: registryGetter{s.registry},
-		st:             s.state,
-	}
-
-	err := svc.ImportStoragePool(
-		c.Context(),
-		"",
-		"my-pool",
-		"storageprovider1",
-		domainstorage.StoragePoolOriginUser,
-		nil,
-	)
-	c.Check(err, tc.ErrorIs, stateErr)
+	c.Check(err, tc.ErrorIs, domainstorageerrors.StoragePoolNameInvalid)
 }
 
 // TestSetRecommendedStoragePools tests that the service correctly converts

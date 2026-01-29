@@ -170,8 +170,7 @@ func (s *StoragePoolService) CreateStoragePool(
 // ImportStoragePools creates new storage pools with the slice of [domainstorage.ImportStoragePoolParams]
 // . This is slightly different to [CreateStoragePools] because:
 //  1. the storage pool name validation uses a legacy regex and,
-//  2. we are inserting (a) provider default storage pools in which their UUIDs have been hardcoded
-//     and (b) user defined storage pools in which we have to generate their UUIDs.
+//  2. the storage pools could be user-defined and provider default.
 //
 // The following errors may be returned:
 // - [domainstorageerrors.StoragePoolNameInvalid] when the supplied storage
