@@ -130,7 +130,7 @@ type Filesystem struct {
 
 // Volume represents the status of a volume.
 type Volume struct {
-	UUID               storageprovisioning.VolumeUUID
+	UUID               storage.VolumeUUID
 	StorageUUID        *storage.StorageInstanceUUID
 	ID                 string
 	Life               life.Value
