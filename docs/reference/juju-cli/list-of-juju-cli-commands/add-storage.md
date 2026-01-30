@@ -1,14 +1,19 @@
 (command-juju-add-storage)=
+
 # `juju add-storage`
+>
 > See also: [import-filesystem](#import-filesystem), [storage](#storage), [storage-pools](#storage-pools)
 
 ## Summary
+
 Adds storage to a unit after it has been deployed.
 
 ## Usage
+
 ```juju add-storage [options] <unit> <storage-directive>```
 
 ### Options
+
 | Flag | Default | Usage |
 | --- | --- | --- |
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
@@ -35,8 +40,6 @@ using the default count (`1`) and storage pool
 
     juju deploy postgresql --storage pgdata=100G
 
-
-
 ## Details
 
 Add storage to a pre-existing unit within a model.
@@ -46,7 +49,7 @@ a storage pool, using parameters provided within a "storage directive". (Use
 `juju deploy --storage=<storage-directive>` to provision storage during the
 deployment process.)
 
-	juju add-storage &lt;unit&gt; &lt;storage-directive&gt;
+    juju add-storage <unit> <storage-directive>
 
 `<unit>` is the ID of a unit that is already in the model.
 
@@ -83,3 +86,4 @@ by the charm, which can specify a maximum number of storage instances per unit.
 positive number, followed by a size suffix.  Valid suffixes include M, G, T,
 and P.  Defaults to "1024M", or the which can specify a minimum size required
 by the charm.
+
