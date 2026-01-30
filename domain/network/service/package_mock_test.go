@@ -1061,6 +1061,45 @@ func (c *MockStateImportLinkLayerDevicesCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// IsMachineUnmanaged mocks base method.
+func (m *MockState) IsMachineUnmanaged(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsMachineUnmanaged", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsMachineUnmanaged indicates an expected call of IsMachineUnmanaged.
+func (mr *MockStateMockRecorder) IsMachineUnmanaged(arg0, arg1 any) *MockStateIsMachineUnmanagedCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsMachineUnmanaged", reflect.TypeOf((*MockState)(nil).IsMachineUnmanaged), arg0, arg1)
+	return &MockStateIsMachineUnmanagedCall{Call: call}
+}
+
+// MockStateIsMachineUnmanagedCall wrap *gomock.Call
+type MockStateIsMachineUnmanagedCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateIsMachineUnmanagedCall) Return(arg0 bool, arg1 error) *MockStateIsMachineUnmanagedCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateIsMachineUnmanagedCall) Do(f func(context.Context, string) (bool, error)) *MockStateIsMachineUnmanagedCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateIsMachineUnmanagedCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockStateIsMachineUnmanagedCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MergeLinkLayerDevice mocks base method.
 func (m *MockState) MergeLinkLayerDevice(arg0 context.Context, arg1 string, arg2 []network0.NetInterface) error {
 	m.ctrl.T.Helper()

@@ -792,6 +792,38 @@ WHERE m.machine_uuid = ?
 	c.Check(azUuid, tc.Equals, expectedAzUUID.String())
 }
 
+func (s *placementSuite) TestCreateMachineWithNameIndicatesUnmanagedMachine(c *tc.C) {
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	machineUUID := machinetesting.GenUUID(c)
+	instanceID := instance.Id(domainmachine.ManualInstancePrefix + "10.0.0.1")
+
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		return CreateMachineWithName(
+			ctx,
+			tx,
+			s.st,
+			clock.WallClock,
+			"0",
+			CreateMachineArgs{
+				MachineUUID: machineUUID.String(),
+				NetNodeUUID: netNodeUUID.String(),
+				InstanceID:  &instanceID,
+			},
+		)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	var count int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT count(*) FROM machine_manual WHERE machine_uuid = ?",
+			machineUUID.String(),
+		).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 1)
+}
+
 func (s *placementSuite) checkSequenceForMachineNamespace(c *tc.C, expected int) {
 	var seq int
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

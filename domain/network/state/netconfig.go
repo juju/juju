@@ -21,6 +21,37 @@ var (
 	errAddrSubnetMatchMulti = errors.ConstError("multiple matching subnets")
 )
 
+// IsMachineUnmanaged returns true if the input machine UUID
+// is in the manual_machine table.
+func (st *State) IsMachineUnmanaged(ctx context.Context, machineUUID string) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	mUUID := entityUUID{UUID: machineUUID}
+
+	stmt, err := st.Prepare(`
+SELECT machine_uuid AS &entityUUID.uuid
+FROM   machine_manual
+WHERE  machine_uuid = $entityUUID.uuid`, mUUID)
+	if err != nil {
+		return false, errors.Errorf("preparing manual machine statement: %w", err)
+	}
+
+	var result bool
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, mUUID).Get(&mUUID)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying manual machine: %w", err)
+		}
+		result = err == nil
+		return nil
+	})
+
+	return result, errors.Capture(err)
+}
+
 // SetMachineNetConfig updates the network configuration for the machine with
 // the input net node UUID.
 //   - New devices and their addresses are inserted with origin = "machine".
@@ -404,7 +435,7 @@ func (st *State) reconcileNetConfigAddresses(
 				// TODO (manadart 2025-04-29): Figure out what to do with
 				// loopback addresses before making
 				// ip_address.subnet_uuid NOT NULL.
-				st.logger.Warningf(ctx, "determining subnet: %v", err)
+				st.logger.Warningf(ctx, "no subnet found for IP %q", a.AddressValue)
 				addrsDML = append(addrsDML, addrDML)
 				continue
 			}
