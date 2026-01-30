@@ -65,10 +65,6 @@ type count struct {
 	Count int `db:"count"`
 }
 
-type namespace struct {
-	Value string `db:"value"`
-}
-
 // unitMachineLifeSummary holds the counts of alive, not alive, and machine parent
 // entities associated with a unit identified by the UUID. It is used to
 // summarize the state of a unit in terms of its associated entities.
@@ -86,14 +82,6 @@ type unitMachineLifeSummary struct {
 
 // entityLife holds an entity's life in integer
 type entityLife struct {
-	Life int `db:"life_id"`
-}
-
-// entityNameLife holds an entity's name and life
-type entityNameLife struct {
-	// Name is the name of the entity.
-	Name string `db:"name"`
-	// Life is the life of the entity.
 	Life int `db:"life_id"`
 }
 

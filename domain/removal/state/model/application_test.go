@@ -518,7 +518,6 @@ func (s *applicationSuite) TestDeleteIAASApplicationWithUnits(c *tc.C) {
 	c.Check(exists, tc.Equals, false)
 
 	s.checkNoCharmsExist(c)
-	s.checkNoApplicationSequence(c, "some-app")
 }
 
 func (s *applicationSuite) TestDeleteIAASApplicationWithForce(c *tc.C) {
