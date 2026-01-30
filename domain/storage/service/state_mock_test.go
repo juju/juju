@@ -547,6 +547,44 @@ func (c *MockStateReplaceStoragePoolCall) DoAndReturn(f func(context.Context, st
 	return c
 }
 
+// SetModelStoragePools mocks base method.
+func (m *MockState) SetModelStoragePools(arg0 context.Context, arg1 []storage0.RecommendedStoragePoolArg) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetModelStoragePools", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetModelStoragePools indicates an expected call of SetModelStoragePools.
+func (mr *MockStateMockRecorder) SetModelStoragePools(arg0, arg1 any) *MockStateSetModelStoragePoolsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModelStoragePools", reflect.TypeOf((*MockState)(nil).SetModelStoragePools), arg0, arg1)
+	return &MockStateSetModelStoragePoolsCall{Call: call}
+}
+
+// MockStateSetModelStoragePoolsCall wrap *gomock.Call
+type MockStateSetModelStoragePoolsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSetModelStoragePoolsCall) Return(arg0 error) *MockStateSetModelStoragePoolsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSetModelStoragePoolsCall) Do(f func(context.Context, []storage0.RecommendedStoragePoolArg) error) *MockStateSetModelStoragePoolsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSetModelStoragePoolsCall) DoAndReturn(f func(context.Context, []storage0.RecommendedStoragePoolArg) error) *MockStateSetModelStoragePoolsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockStoragePoolState is a mock of StoragePoolState interface.
 type MockStoragePoolState struct {
 	ctrl     *gomock.Controller
@@ -914,6 +952,44 @@ func (c *MockStoragePoolStateReplaceStoragePoolCall) Do(f func(context.Context, 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStoragePoolStateReplaceStoragePoolCall) DoAndReturn(f func(context.Context, storage0.StoragePool) error) *MockStoragePoolStateReplaceStoragePoolCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetModelStoragePools mocks base method.
+func (m *MockStoragePoolState) SetModelStoragePools(arg0 context.Context, arg1 []storage0.RecommendedStoragePoolArg) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetModelStoragePools", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetModelStoragePools indicates an expected call of SetModelStoragePools.
+func (mr *MockStoragePoolStateMockRecorder) SetModelStoragePools(arg0, arg1 any) *MockStoragePoolStateSetModelStoragePoolsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModelStoragePools", reflect.TypeOf((*MockStoragePoolState)(nil).SetModelStoragePools), arg0, arg1)
+	return &MockStoragePoolStateSetModelStoragePoolsCall{Call: call}
+}
+
+// MockStoragePoolStateSetModelStoragePoolsCall wrap *gomock.Call
+type MockStoragePoolStateSetModelStoragePoolsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStoragePoolStateSetModelStoragePoolsCall) Return(arg0 error) *MockStoragePoolStateSetModelStoragePoolsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStoragePoolStateSetModelStoragePoolsCall) Do(f func(context.Context, []storage0.RecommendedStoragePoolArg) error) *MockStoragePoolStateSetModelStoragePoolsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStoragePoolStateSetModelStoragePoolsCall) DoAndReturn(f func(context.Context, []storage0.RecommendedStoragePoolArg) error) *MockStoragePoolStateSetModelStoragePoolsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

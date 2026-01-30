@@ -77,6 +77,7 @@ func NewService(
 		StoragePoolService: &StoragePoolService{
 			st:             st,
 			registryGetter: registryGetter,
+			logger:         logger,
 		},
 		StorageService: &StorageService{
 			st:             st,

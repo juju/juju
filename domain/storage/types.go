@@ -19,6 +19,7 @@ type StoragePool struct {
 	Name     string
 	Provider string
 	Attrs    Attrs
+	OriginID int
 }
 
 // These type aliases are used to specify filter terms.
@@ -59,4 +60,29 @@ type FilesystemInfo struct {
 	storage.FilesystemInfo
 	Pool          string
 	BackingVolume *storage.VolumeInfo
+}
+
+// RecommendedStoragePoolArg represents a recommended storage pool assignment
+// for the state layer to accept.
+type RecommendedStoragePoolArg struct {
+	StoragePoolUUID StoragePoolUUID
+	StorageKind     StorageKind
+}
+
+// RecommendedStoragePoolParams represents a recommended storage pool assignment
+// at the service layer boundary. It is accepted by services and translated into
+// state-layer arguments before being persisted.
+type RecommendedStoragePoolParams struct {
+	StoragePoolUUID StoragePoolUUID
+	StorageKind     StorageKind
+}
+
+// ImportStoragePoolParams represents a storage pool definition used when importing
+// storage pools into the model.
+type ImportStoragePoolParams struct {
+	UUID   StoragePoolUUID
+	Name   string
+	Origin StoragePoolOrigin
+	Type   string
+	Attrs  map[string]any
 }

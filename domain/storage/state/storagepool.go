@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"slices"
 
 	"github.com/canonical/sqlair"
 
@@ -659,4 +660,108 @@ WHERE storage_pool_uuid = $entityUUID.uuid
 	}
 
 	return retVal, nil
+}
+
+// SetModelStoragePools replaces the model's recommended storage pools with the
+// supplied set. All existing model storage pool mappings are removed before the
+// new ones are inserted.
+//
+// If any referenced storage pool UUID does not exist in the model, this
+// returns [domainstorageerrors.StoragePoolNotFound]. Supplying an empty slice
+// results in a no-op.
+func (st State) SetModelStoragePools(ctx context.Context, args []domainstorage.RecommendedStoragePoolArg) error {
+	if len(args) == 0 {
+		return nil
+	}
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteQuery := "DELETE FROM model_storage_pool"
+	deleteStmt, err := st.Prepare(deleteQuery)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertQuery := `
+INSERT INTO model_storage_pool (*) VALUES ($dbModelStoragePool.*)
+`
+	insertStmt, err := st.Prepare(insertQuery, dbModelStoragePool{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertVals := make([]dbModelStoragePool, 0, len(args))
+	poolUUIDs := make([]string, 0, len(args))
+	for _, a := range args {
+		insertVals = append(insertVals, dbModelStoragePool{
+			StoragePoolUUID: a.StoragePoolUUID.String(),
+			StorageKindID:   int(a.StorageKind),
+		})
+		poolUUIDs = append(poolUUIDs, a.StoragePoolUUID.String())
+	}
+	// We must deduplicate poolUUIDs
+	slices.Sort(poolUUIDs)
+	poolUUIDs = slices.Compact(poolUUIDs)
+
+	err = db.Txn(ctx, func(c context.Context, tx *sqlair.TX) error {
+		poolsExist, err := st.checkStoragePoolsExist(ctx, tx, poolUUIDs)
+		if err != nil {
+			return errors.Errorf(
+				"checking storage pool(s) exist in the model: %w", err,
+			)
+		}
+		if !poolsExist {
+			return errors.New(
+				"one or more storage pools do not exist in the model",
+			).Add(domainstorageerrors.StoragePoolNotFound)
+		}
+
+		err = tx.Query(ctx, deleteStmt).Run()
+		if err != nil {
+			return errors.Errorf("deleting existing model storage pools: %w", err)
+		}
+
+		err = tx.Query(ctx, insertStmt, insertVals).Run()
+		return err
+	})
+
+	return errors.Capture(err)
+}
+
+// checkStoragePoolsExist checks whether the supplied UUIDs exist in the DB.
+// It is expected that the caller of this func MUST de-duplicate the UUIDs.
+func (st State) checkStoragePoolsExist(
+	ctx context.Context,
+	tx *sqlair.TX,
+	storagePoolUUIDs []string,
+) (bool, error) {
+	if len(storagePoolUUIDs) == 0 {
+		return true, nil
+	}
+
+	type poolUUIDs []string
+	var (
+		dbVal dbAggregateCount
+		input = poolUUIDs(storagePoolUUIDs)
+	)
+
+	query := `
+SELECT COUNT(*) AS &dbAggregateCount.count
+FROM   storage_pool
+WHERE  uuid IN ($poolUUIDs[:])
+`
+	stmt, err := st.Prepare(query, dbVal, input)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, input).Get(&dbVal)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return len(storagePoolUUIDs) == dbVal.Count, nil
 }
