@@ -229,10 +229,11 @@ func (s *Service) processRelationInScopeUnits(ctx context.Context, job removal.J
 		return removalerrors.RemovalJobIncomplete
 	}
 
-	// We need to check if we're the remaining unit in scope and the unit is
-	// dying and the unit workload status is in an error or blocked state. If it
-	// is in blocked state, then we can just depart it automatically. This will
-	// short circuit the need for manual intervention to remove the relation.
+	// If a unit is the last in scope, there are no related counterparts to
+	// respond to its departure. If the unit is dying or dead, we don't care
+	// what actions it would otherwise take in response to leaving the relation.
+	// So if the unit is in a state preventing it leaving the scope, we force
+	// the departure.
 	unitName := inScope[0]
 	isBlocked, err := s.modelState.IsUnitDyingAndBlocked(ctx, unitName)
 	if err != nil {
