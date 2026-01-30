@@ -418,6 +418,8 @@ func (st *State) reconcileNetConfigAddresses(
 			if ip == nil {
 				return nil, nil, errors.Errorf("invalid IP address %q", a.AddressValue)
 			}
+			ones, bits := cidr.Mask.Size()
+			isSingleHostCIDR := ones == bits
 
 			var (
 				subnetUUID  string
@@ -430,8 +432,9 @@ func (st *State) reconcileNetConfigAddresses(
 			}
 
 			// If we found no match and are not adding discovered subnets
-			// progressively there's nothing more we can do.
-			if errors.Is(subMatchErr, errAddrSubnetMatchNone) && !addMissingSubnets {
+			// progressively, there's nothing more we can do, unless the
+			// address is a /32 or /128, which always gets its subnet added.
+			if errors.Is(subMatchErr, errAddrSubnetMatchNone) && !addMissingSubnets && !isSingleHostCIDR {
 				// TODO (manadart 2025-04-29): Figure out what to do with
 				// loopback addresses before making
 				// ip_address.subnet_uuid NOT NULL.
