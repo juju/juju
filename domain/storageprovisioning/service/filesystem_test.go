@@ -100,7 +100,6 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentForUnit(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUIDUUID)
 	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 	fsaUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -732,7 +731,6 @@ func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfoForMachine(c
 	fsID := "123"
 	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 	fsAttachmentUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
-	c.Assert(err, tc.ErrorIsNil)
 	info := storageprovisioning.FilesystemAttachmentProvisionedInfo{
 		MountPoint: "x",
 		ReadOnly:   true,
@@ -778,7 +776,6 @@ func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfoForUnit(c *t
 	fsID := "123"
 	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 	fsAttachmentUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
-	c.Assert(err, tc.ErrorIsNil)
 	info := storageprovisioning.FilesystemAttachmentProvisionedInfo{
 		MountPoint: "x",
 		ReadOnly:   true,

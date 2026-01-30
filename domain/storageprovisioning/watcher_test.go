@@ -27,7 +27,6 @@ import (
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
-	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/domain/storageprovisioning/service"
 	"github.com/juju/juju/domain/storageprovisioning/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
