@@ -32,7 +32,6 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
-	storageprovisioningtesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -1321,7 +1320,7 @@ func (s *provisionerSuite) TestFilesystemParamsNotFoundWithUUID(c *tc.C) {
 	s.disableAuthz(c)
 
 	tag := names.NewFilesystemTag("123")
-	fsUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	s.storageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
 		gomock.Any(),
@@ -1347,7 +1346,7 @@ func (s *provisionerSuite) TestFilesystemParams(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
 	tag := names.NewFilesystemTag("123")
-	fsUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	s.storageProvisioningService.EXPECT().GetStorageResourceTagsForModel(
 		gomock.Any(),
@@ -1429,7 +1428,7 @@ func (s *provisionerSuite) TestRemoveFilesystemParamsNotFoundWithUUID(c *tc.C) {
 	s.disableAuthz(c)
 
 	tag := names.NewFilesystemTag("123")
-	fsUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	s.storageProvisioningService.EXPECT().GetFilesystemUUIDForID(
 		gomock.Any(), tag.Id(),
@@ -1458,7 +1457,7 @@ func (s *provisionerSuite) TestRemoveFilesystemParamsNotDead(c *tc.C) {
 	s.disableAuthz(c)
 
 	tag := names.NewFilesystemTag("123")
-	fsUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	s.storageProvisioningService.EXPECT().GetFilesystemUUIDForID(
 		gomock.Any(), tag.Id(),
@@ -1485,7 +1484,7 @@ func (s *provisionerSuite) TestRemoveFilesystemParams(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
 	tag := names.NewFilesystemTag("123")
-	fsUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	s.storageProvisioningService.EXPECT().CheckFilesystemForIDExists(
 		gomock.Any(), tag.Id(),
@@ -1519,7 +1518,7 @@ func (s *provisionerSuite) TestRemoveFilesystemParamsWithObliterate(c *tc.C) {
 	defer s.setupAPI(c).Finish()
 
 	tag := names.NewFilesystemTag("123")
-	fsUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	s.storageProvisioningService.EXPECT().CheckFilesystemForIDExists(
 		gomock.Any(), tag.Id(),
@@ -2700,7 +2699,7 @@ func (s *provisionerSuite) TestLifeForFilesystem(c *tc.C) {
 	defer ctrl.Finish()
 
 	tag := names.NewFilesystemTag("123")
-	filesystemUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+	filesystemUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	s.storageProvisioningService.EXPECT().CheckFilesystemForIDExists(
 		gomock.Any(), tag.Id(),
@@ -2758,7 +2757,7 @@ func (s *provisionerSuite) TestLifeForFilesystemWithFilesystemNotFound(c *tc.C) 
 	s.disableAuthz(c)
 
 	tag := names.NewFilesystemTag("123")
-	filesystemUUID := storageprovisioningtesting.GenFilesystemUUID(c)
+	filesystemUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	s.storageProvisioningService.EXPECT().GetFilesystemUUIDForID(
 		gomock.Any(), tag.Id(),
@@ -4146,7 +4145,7 @@ func (s *provisionerSuite) TestRemoveWithFilesystemTagNotFoundUUID(c *tc.C) {
 	s.disableAuthz(c)
 
 	tag := names.NewFilesystemTag("123")
-	uuid := tc.Must(c, storageprovisioning.NewFilesystemUUID)
+	uuid := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	svc := s.storageProvisioningService
 	rsvc := s.removalService
@@ -4172,7 +4171,7 @@ func (s *provisionerSuite) TestRemoveWithFilesystemTagNotDead(c *tc.C) {
 	s.disableAuthz(c)
 
 	tag := names.NewFilesystemTag("123")
-	uuid := tc.Must(c, storageprovisioning.NewFilesystemUUID)
+	uuid := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	svc := s.storageProvisioningService
 	rsvc := s.removalService
@@ -4198,7 +4197,7 @@ func (s *provisionerSuite) TestRemoveWithFilesystemTag(c *tc.C) {
 	defer ctrl.Finish()
 
 	tag := names.NewFilesystemTag("123")
-	uuid := tc.Must(c, storageprovisioning.NewFilesystemUUID)
+	uuid := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	svc := s.storageProvisioningService
 	rsvc := s.removalService

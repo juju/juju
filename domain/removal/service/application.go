@@ -18,7 +18,6 @@ import (
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -205,13 +204,13 @@ func (s *Service) RemoveApplication(
 	for _, a := range cascaded.FileSystemUUIDs {
 		if force && wait > 0 {
 			if _, err := s.filesystemScheduleRemoval(
-				ctx, storageprovisioning.FilesystemUUID(a), false, 0,
+				ctx, storage.FilesystemUUID(a), false, 0,
 			); err != nil {
 				return "", errors.Capture(err)
 			}
 		}
 		if _, err := s.filesystemScheduleRemoval(
-			ctx, storageprovisioning.FilesystemUUID(a), force, wait,
+			ctx, storage.FilesystemUUID(a), force, wait,
 		); err != nil {
 			return "", errors.Capture(err)
 		}

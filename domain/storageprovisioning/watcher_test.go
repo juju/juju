@@ -27,10 +27,8 @@ import (
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
-	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/domain/storageprovisioning/service"
 	"github.com/juju/juju/domain/storageprovisioning/state"
-	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -67,7 +65,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedFilesystems(c *tc.C) {
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 	var (
-		fsOneUUID, fsTwoUUID storageprovisioning.FilesystemUUID
+		fsOneUUID, fsTwoUUID domainstorage.FilesystemUUID
 		fsOneID, fsTwoID     string
 		fsaTwoUUID           string
 	)
@@ -1400,8 +1398,8 @@ func (s *watcherSuite) newMachineCloudInstance(
 
 // newMachineFilesystem creates a new filesystem in the model with machine
 // provision scope. Returned is the uuid and filesystem id of the entity.
-func (s *watcherSuite) newMachineFilesystem(c *tc.C) (storageprovisioning.FilesystemUUID, string) {
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+func (s *watcherSuite) newMachineFilesystem(c *tc.C) (domainstorage.FilesystemUUID, string) {
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
 
@@ -1947,7 +1945,7 @@ VALUES (?, ?, ?, ?)
 
 func (s *watcherSuite) newStorageInstanceFilesystem(
 	c *tc.C, instanceUUID domainstorage.StorageInstanceUUID,
-	filesystemUUID storageprovisioning.FilesystemUUID,
+	filesystemUUID domainstorage.FilesystemUUID,
 ) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `

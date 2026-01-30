@@ -12,7 +12,6 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	coreunit "github.com/juju/juju/core/unit"
 	domainstorage "github.com/juju/juju/domain/storage"
-	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 )
 
 type dbGetter interface {
@@ -40,9 +39,9 @@ func (s *storageHelper) newStoragePool(c *tc.C,
 // the model backed by a filesystem with the given provider ID set.
 func (s *storageHelper) newStorageInstanceFilesysatemWithProviderID(
 	c *tc.C, storageName string, providerID string,
-) (domainstorage.StorageInstanceUUID, domainstorageprov.FilesystemUUID) {
+) (domainstorage.StorageInstanceUUID, domainstorage.FilesystemUUID) {
 	storageInstUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
-	storageFilesystemUUID := tc.Must(c, domainstorageprov.NewFilesystemUUID)
+	storageFilesystemUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 	storagePoolUUID := s.newStoragePool(c, storageInstUUID.String(), "lxd")
 
 	_, err := s.DB().ExecContext(
@@ -93,11 +92,11 @@ func (s *storageHelper) newStorageInstanceFilesystemBackedVolumeWithProviderID(
 	c *tc.C, storageName string, fsProviderID, vProviderID string,
 ) (
 	domainstorage.StorageInstanceUUID,
-	domainstorageprov.FilesystemUUID,
+	domainstorage.FilesystemUUID,
 	domainstorage.VolumeUUID,
 ) {
 	storageInstUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
-	storageFilesystemUUID := tc.Must(c, domainstorageprov.NewFilesystemUUID)
+	storageFilesystemUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 	storageVolumeUUID := tc.Must(c, domainstorage.NewVolumeUUID)
 	storagePoolUUID := s.newStoragePool(c, storageInstUUID.String(), "lxd")
 

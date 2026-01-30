@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/domain/storageprovisioning/internal"
-	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
 )
 
 // applicationContainerParams represents the type to add a new application
@@ -124,7 +123,7 @@ func (s *filesystemSuite) TestGetFilesystemWithoutBackingVolume(c *tc.C) {
 
 func (s *filesystemSuite) TestGetFilesystemNotFoundError(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	notFoundUUID := domaintesting.GenFilesystemUUID(c)
+	notFoundUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	_, err := st.GetFilesystem(c.Context(), notFoundUUID)
 
@@ -728,7 +727,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForIDNetNode(c *tc.C) {
 // for an attachment using a filesystem uuid that does not exist in the model.
 func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForIDNetNodeFSNotFound(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
-	notFoundFS := domaintesting.GenFilesystemUUID(c)
+	notFoundFS := tc.Must(c, domainstorage.NewFilesystemUUID)
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetFilesystemAttachmentUUIDForFilesystemNetNode(
@@ -778,7 +777,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentUUIDForIDNetNodeUnrelated(c
 // attachment that doesn't exist returns to the caller an error satisfying
 // [storageprovisioningerrors.FilesystemNotFound].
 func (s *filesystemSuite) TestGetFilesystemLifeNotFound(c *tc.C) {
-	uuid := domaintesting.GenFilesystemUUID(c)
+	uuid := tc.Must(c, domainstorage.NewFilesystemUUID)
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetFilesystemLife(c.Context(), uuid)
@@ -895,7 +894,7 @@ func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfoNotFound(c *
 // [storageprovisioningerrors.FilesystemNotFound].
 func (s *filesystemSuite) TestGetFilesystemParamsNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	_, err := st.GetFilesystemParams(c.Context(), fsUUID)
 	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
@@ -934,7 +933,7 @@ func (s *filesystemSuite) TestGetFilesystemParamsVolumeBacked(c *tc.C) {
 
 func (s *filesystemSuite) TestGetFilesystemRemovalParamsNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	_, err := st.GetFilesystemRemovalParams(c.Context(), fsUUID)
 	c.Assert(err, tc.ErrorIs, storageprovisioningerrors.FilesystemNotFound)
@@ -1277,7 +1276,7 @@ func (s *filesystemSuite) TestGetContainerMountsForApplicationMissingApplication
 // changeFilesystemLife is a utility function for updating the life value of a
 // filesystem.
 func (s *filesystemSuite) changeFilesystemLife(
-	c *tc.C, uuid storageprovisioning.FilesystemUUID, life domainlife.Life,
+	c *tc.C, uuid domainstorage.FilesystemUUID, life domainlife.Life,
 ) {
 	_, err := s.DB().Exec(`
 UPDATE storage_filesystem
@@ -1308,7 +1307,7 @@ WHERE  uuid = ?
 // newMachineFilesystem creates a new filesystem in the model with machine
 // provision scope. Returned is the uuid and filesystem id of the entity.
 func (s *filesystemSuite) newMachineFilesystem(c *tc.C) (
-	storageprovisioning.FilesystemUUID, string,
+	domainstorage.FilesystemUUID, string,
 ) {
 	return s.newMachineFilesystemWithSize(c, 100)
 }
@@ -1318,8 +1317,8 @@ func (s *filesystemSuite) newMachineFilesystem(c *tc.C) (
 // id of the entity.
 func (s *filesystemSuite) newMachineFilesystemWithSize(
 	c *tc.C, size uint64,
-) (storageprovisioning.FilesystemUUID, string) {
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+) (domainstorage.FilesystemUUID, string) {
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 	fsID := strconv.FormatUint(s.nextFilesystemSequenceNumber(c), 10)
 	_, err := s.DB().Exec(`
 INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, size_mib, provision_scope_id)
@@ -1337,7 +1336,7 @@ VALUES (?, ?, 0, ?, 1)
 // are set. Use [filesystemSuite.newMachineFilesystemAttachmentWithMount].
 func (s *filesystemSuite) newMachineFilesystemAttachment(
 	c *tc.C,
-	fsUUID storageprovisioning.FilesystemUUID,
+	fsUUID domainstorage.FilesystemUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
 ) domainstorage.FilesystemAttachmentUUID {
 	attachmentUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
@@ -1366,7 +1365,7 @@ VALUES (?, ?, ?, 0, 1)
 // provided filesystem and has its mount point and read only values set.
 func (s *filesystemSuite) newMachineFilesystemAttachmentWithMount(
 	c *tc.C,
-	fsUUID storageprovisioning.FilesystemUUID,
+	fsUUID domainstorage.FilesystemUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
 	mountPoint string,
 	readOnly bool,
@@ -1404,7 +1403,7 @@ VALUES (?, ?, ?, 0, ?, ?, 1)
 // mount point set.
 func (s *filesystemSuite) newModelFilesystemAttachment(
 	c *tc.C,
-	fsUUID storageprovisioning.FilesystemUUID,
+	fsUUID domainstorage.FilesystemUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
 ) domainstorage.FilesystemAttachmentUUID {
 	attachmentUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
@@ -1431,7 +1430,7 @@ VALUES (?, ?, ?, 0, false, 0)
 
 func (s *filesystemSuite) setFilesystemProviderID(
 	c *tc.C,
-	fsUUID storageprovisioning.FilesystemUUID,
+	fsUUID domainstorage.FilesystemUUID,
 	providerID string,
 ) {
 	_, err := s.DB().Exec(`
@@ -1446,7 +1445,7 @@ WHERE  uuid = ?
 
 func (s *filesystemSuite) removeFilesystemWithObliterateValue(
 	c *tc.C,
-	uuid storageprovisioning.FilesystemUUID,
+	uuid domainstorage.FilesystemUUID,
 	obliterateValue bool,
 ) {
 	_, err := s.DB().Exec(
@@ -1458,9 +1457,9 @@ func (s *filesystemSuite) removeFilesystemWithObliterateValue(
 // newModelFilesystem creates a new filesystem in the model with model
 // provision scope. Return is the uuid and filesystem id of the entity.
 func (s *filesystemSuite) newModelFilesystem(c *tc.C) (
-	storageprovisioning.FilesystemUUID, string,
+	domainstorage.FilesystemUUID, string,
 ) {
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
 

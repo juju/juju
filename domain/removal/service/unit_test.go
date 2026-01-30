@@ -19,7 +19,6 @@ import (
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/juju"
@@ -121,7 +120,7 @@ func (s *unitSuite) TestRemoveUnitCascadeStorage(c *tc.C) {
 	uUUID := unittesting.GenUnitUUID(c)
 	siUUID := tc.Must(c, storage.NewStorageInstanceUUID)
 	saUUID := tc.Must(c, storage.NewStorageAttachmentUUID)
-	fsUUID := tc.Must(c, storageprovisioning.NewFilesystemUUID)
+	fsUUID := tc.Must(c, storage.NewFilesystemUUID)
 	fsaUUID := tc.Must(c, storage.NewFilesystemAttachmentUUID)
 	volUUID := tc.Must(c, storage.NewVolumeUUID)
 	vaUUID := tc.Must(c, storage.NewVolumeAttachmentUUID)

@@ -445,12 +445,12 @@ func makeCAASStorageInstanceProviderIDAssociations(
 	unitStorageToCreate []internal.CreateUnitStorageInstanceArg,
 	unitStorageToAttach []internal.CreateUnitStorageAttachmentArg,
 ) (
-	map[domainstorageprov.FilesystemUUID]string,
+	map[domainstorage.FilesystemUUID]string,
 	map[domainstorage.VolumeUUID]string,
 	map[domainstorage.FilesystemAttachmentUUID]string,
 	map[domainstorage.VolumeAttachmentUUID]string,
 ) {
-	rvalFilesystemProviderIDs := map[domainstorageprov.FilesystemUUID]string{}
+	rvalFilesystemProviderIDs := map[domainstorage.FilesystemUUID]string{}
 	rvalVolumeProviderIDs := map[domainstorage.VolumeUUID]string{}
 	rvalFilesystemAttachmentProviderIDs := map[domainstorage.FilesystemAttachmentUUID]string{}
 	rvalVolumeAttachmentProviderIDs := map[domainstorage.VolumeAttachmentUUID]string{}
@@ -943,7 +943,7 @@ func makeUnitStorageInstancesFromDirective(
 		}
 
 		if composition.FilesystemRequired {
-			u, err := domainstorageprov.NewFilesystemUUID()
+			u, err := domainstorage.NewFilesystemUUID()
 			if err != nil {
 				return nil, errors.Errorf(
 					"generating new storage filesystem uuid: %w", err,

@@ -19,7 +19,6 @@ import (
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -979,7 +978,7 @@ func (s *storageSuite) TestRemoveStorageInstanceCascade(c *tc.C) {
 	s.clock.EXPECT().Now().Return(now).AnyTimes()
 
 	uuid := tc.Must(c, storage.NewStorageInstanceUUID)
-	fsUUID := tc.Must(c, storageprovisioning.NewFilesystemUUID).String()
+	fsUUID := tc.Must(c, storage.NewFilesystemUUID).String()
 	volUUID := tc.Must(c, storage.NewVolumeUUID).String()
 
 	cascaded := internal.CascadedStorageInstanceLifeChildren{
@@ -1011,7 +1010,7 @@ func (s *storageSuite) TestRemoveStorageInstanceCascadeForce(c *tc.C) {
 	s.clock.EXPECT().Now().Return(now).AnyTimes()
 
 	uuid := tc.Must(c, storage.NewStorageInstanceUUID)
-	fsUUID := tc.Must(c, storageprovisioning.NewFilesystemUUID).String()
+	fsUUID := tc.Must(c, storage.NewFilesystemUUID).String()
 	volUUID := tc.Must(c, storage.NewVolumeUUID).String()
 
 	cascaded := internal.CascadedStorageInstanceLifeChildren{
@@ -1649,7 +1648,7 @@ func newStorageAttachmentJob(c *tc.C) removal.Job {
 func (s *storageSuite) TestRemoveDeadFilesystemNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	fsUUID := tc.Must(c, storageprovisioning.NewFilesystemUUID)
+	fsUUID := tc.Must(c, storage.NewFilesystemUUID)
 
 	s.modelState.EXPECT().GetFilesystemLife(
 		gomock.Any(), fsUUID.String(),
@@ -1663,7 +1662,7 @@ func (s *storageSuite) TestRemoveDeadFilesystemNotFound(c *tc.C) {
 func (s *storageSuite) TestRemoveDeadFilesystemAlive(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	fsUUID := tc.Must(c, storageprovisioning.NewFilesystemUUID)
+	fsUUID := tc.Must(c, storage.NewFilesystemUUID)
 
 	s.modelState.EXPECT().GetFilesystemLife(
 		gomock.Any(), fsUUID.String(),
@@ -1677,7 +1676,7 @@ func (s *storageSuite) TestRemoveDeadFilesystemAlive(c *tc.C) {
 func (s *storageSuite) TestRemoveDeadFilesystemDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	fsUUID := tc.Must(c, storageprovisioning.NewFilesystemUUID)
+	fsUUID := tc.Must(c, storage.NewFilesystemUUID)
 
 	s.modelState.EXPECT().GetFilesystemLife(
 		gomock.Any(), fsUUID.String(),
@@ -1691,7 +1690,7 @@ func (s *storageSuite) TestRemoveDeadFilesystemDying(c *tc.C) {
 func (s *storageSuite) TestRemoveDeadFilesystem(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	fsUUID := tc.Must(c, storageprovisioning.NewFilesystemUUID)
+	fsUUID := tc.Must(c, storage.NewFilesystemUUID)
 
 	s.modelState.EXPECT().GetFilesystemLife(
 		gomock.Any(), fsUUID.String(),
@@ -1806,7 +1805,7 @@ func newStorageFilesystemJob(c *tc.C) removal.Job {
 	return removal.Job{
 		UUID:        jUUID,
 		RemovalType: removal.StorageFilesystemJob,
-		EntityUUID:  tc.Must(c, storageprovisioning.NewFilesystemUUID).String(),
+		EntityUUID:  tc.Must(c, storage.NewFilesystemUUID).String(),
 	}
 }
 

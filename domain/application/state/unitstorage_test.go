@@ -70,9 +70,9 @@ func (u *unitStorageSuite) newCharmWithStorage(
 // filesystem.
 func (u *unitStorageSuite) newStorageInstanceWithModelFilesystem(
 	c *tc.C,
-) (domainstorage.StorageInstanceUUID, domainstorageprov.FilesystemUUID) {
+) (domainstorage.StorageInstanceUUID, domainstorage.FilesystemUUID) {
 	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
-	filesystemUUID := tc.Must(c, domainstorageprov.NewFilesystemUUID)
+	filesystemUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	storagePoolUUID := u.newStoragePool(c, storageInstanceUUID.String(), "test-provider")
 

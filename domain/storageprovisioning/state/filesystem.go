@@ -174,7 +174,7 @@ WHERE  uuid = $filesystemAttachmentUUID.uuid
 func (st *State) checkFilesystemExists(
 	ctx context.Context,
 	tx *sqlair.TX,
-	uuid storageprovisioning.FilesystemUUID,
+	uuid domainstorage.FilesystemUUID,
 ) (bool, error) {
 	filesystemUUIDInput := filesystemUUID{UUID: uuid.String()}
 
@@ -250,7 +250,7 @@ WHERE  filesystem_id=$filesystemID.filesystem_id
 // exists for the provided filesystem uuid.
 func (st *State) GetFilesystem(
 	ctx context.Context,
-	uuid storageprovisioning.FilesystemUUID,
+	uuid domainstorage.FilesystemUUID,
 ) (storageprovisioning.Filesystem, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -692,7 +692,7 @@ SELECT &filesystemAttachmentParams.* FROM (
 // attachment exists for the supplied values.
 func (st *State) GetFilesystemAttachmentUUIDForFilesystemNetNode(
 	ctx context.Context,
-	fsUUID storageprovisioning.FilesystemUUID,
+	fsUUID domainstorage.FilesystemUUID,
 	nodeUUID domainnetwork.NetNodeUUID,
 ) (domainstorage.FilesystemAttachmentUUID, error) {
 	db, err := st.DB(ctx)
@@ -766,7 +766,7 @@ AND    net_node_uuid = $netNodeUUID.uuid
 // for the provided uuid.
 func (st *State) GetFilesystemLife(
 	ctx context.Context,
-	uuid storageprovisioning.FilesystemUUID,
+	uuid domainstorage.FilesystemUUID,
 ) (domainlife.Life, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -860,7 +860,7 @@ AND             sfa.net_node_uuid=$netNodeUUID.uuid
 }
 
 func (st *State) GetFilesystemParams(
-	ctx context.Context, uuid storageprovisioning.FilesystemUUID,
+	ctx context.Context, uuid domainstorage.FilesystemUUID,
 ) (storageprovisioning.FilesystemParams, error) {
 	// Warning (tlm): Potential issue in this implementation. A filesystem could
 	// become disassociated with a storage instance in the model. In that case
@@ -995,7 +995,7 @@ WHERE  sf.uuid = $filesystemUUID.uuid
 // - [storageprovisioningerrors.FilesystemNotFound] when no filesystem exists
 // for the provided uuid.
 func (st *State) GetFilesystemRemovalParams(
-	ctx context.Context, uuid storageprovisioning.FilesystemUUID,
+	ctx context.Context, uuid domainstorage.FilesystemUUID,
 ) (storageprovisioning.FilesystemRemovalParams, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1070,7 +1070,7 @@ SELECT &filesystemRemovalParams.* FROM (
 // for the provided filesystem id.
 func (st *State) GetFilesystemUUIDForID(
 	ctx context.Context, fsID string,
-) (storageprovisioning.FilesystemUUID, error) {
+) (domainstorage.FilesystemUUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -1105,7 +1105,7 @@ WHERE  filesystem_id = $filesystemID.filesystem_id
 		return "", errors.Capture(err)
 	}
 
-	return storageprovisioning.FilesystemUUID(dbVal.UUID), nil
+	return domainstorage.FilesystemUUID(dbVal.UUID), nil
 }
 
 // InitialWatchStatementMachineProvisionedFilesystems returns both the
@@ -1219,7 +1219,7 @@ WHERE  provision_scope_id=0
 // information about the provisioned filesystem.
 func (st *State) SetFilesystemProvisionedInfo(
 	ctx context.Context,
-	filesystemUUID storageprovisioning.FilesystemUUID,
+	filesystemUUID domainstorage.FilesystemUUID,
 	info storageprovisioning.FilesystemProvisionedInfo,
 ) error {
 	db, err := st.DB(ctx)

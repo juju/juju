@@ -153,7 +153,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitStorageArg(c *tc.C
 			StorageToAttach:   expectedStorageToAttach,
 			StorageToOwn:      expectedStorageToOwn,
 		},
-		FilesystemProviderIDs: map[domainstorageprov.FilesystemUUID]string{
+		FilesystemProviderIDs: map[domainstorage.FilesystemUUID]string{
 			arg.StorageInstances[0].Filesystem.UUID: "fs-1",
 		},
 	})
@@ -194,7 +194,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArg(c 
 			Filesystem: &internal.StorageInstanceCompositionFilesystem{
 				ProviderID:     "fs-1",
 				ProvisionScope: domainstorageprov.ProvisionScopeModel,
-				UUID:           tc.Must(c, domainstorageprov.NewFilesystemUUID),
+				UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
 			},
 			StorageName: "st1",
 			UUID:        tc.Must(c, domainstorage.NewStorageInstanceUUID),
@@ -203,7 +203,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArg(c 
 			Filesystem: &internal.StorageInstanceCompositionFilesystem{
 				ProviderID:     "fs-2",
 				ProvisionScope: domainstorageprov.ProvisionScopeModel,
-				UUID:           tc.Must(c, domainstorageprov.NewFilesystemUUID),
+				UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
 			},
 			StorageName: "st2",
 			UUID:        tc.Must(c, domainstorage.NewStorageInstanceUUID),
@@ -342,7 +342,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArgeEx
 			Filesystem: &internal.StorageInstanceCompositionFilesystem{
 				ProviderID:     "fs-1",
 				ProvisionScope: domainstorageprov.ProvisionScopeModel,
-				UUID:           tc.Must(c, domainstorageprov.NewFilesystemUUID),
+				UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
 			},
 			StorageName: "st1",
 			UUID:        tc.Must(c, domainstorage.NewStorageInstanceUUID),
@@ -353,7 +353,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArgeEx
 			Filesystem: &internal.StorageInstanceCompositionFilesystem{
 				ProviderID:     "fs-2",
 				ProvisionScope: domainstorageprov.ProvisionScopeModel,
-				UUID:           tc.Must(c, domainstorageprov.NewFilesystemUUID),
+				UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
 			},
 			StorageName: "st2",
 			UUID:        tc.Must(c, domainstorage.NewStorageInstanceUUID),
@@ -496,7 +496,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitWithExistingStorag
 			Filesystem: &internal.StorageInstanceCompositionFilesystem{
 				ProviderID:     "fs-1",
 				ProvisionScope: domainstorageprov.ProvisionScopeModel,
-				UUID:           tc.Must(c, domainstorageprov.NewFilesystemUUID),
+				UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
 			},
 			StorageName: "st1",
 			UUID:        tc.Must(c, domainstorage.NewStorageInstanceUUID),
@@ -505,7 +505,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitWithExistingStorag
 			Filesystem: &internal.StorageInstanceCompositionFilesystem{
 				ProviderID:     "fs-2",
 				ProvisionScope: domainstorageprov.ProvisionScopeModel,
-				UUID:           tc.Must(c, domainstorageprov.NewFilesystemUUID),
+				UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
 			},
 			StorageName: "st2",
 			UUID:        tc.Must(c, domainstorage.NewStorageInstanceUUID),
@@ -669,8 +669,8 @@ func (*registerCAASStorageSuite) TestMakeCAASStorageInstanceProviderIDAssociatio
 		},
 	}
 
-	fs1UUID := tc.Must(c, domainstorageprov.NewFilesystemUUID)
-	fs2UUID := tc.Must(c, domainstorageprov.NewFilesystemUUID)
+	fs1UUID := tc.Must(c, domainstorage.NewFilesystemUUID)
+	fs2UUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 	unitStorageToCreate := []internal.CreateUnitStorageInstanceArg{
 		{
 			Filesystem: &internal.CreateUnitStorageFilesystemArg{
@@ -691,7 +691,7 @@ func (*registerCAASStorageSuite) TestMakeCAASStorageInstanceProviderIDAssociatio
 			pFSInfo, existingProviderStorage, nil, nil, unitStorageToCreate, nil,
 		)
 
-	c.Check(fsAssociations, tc.DeepEquals, map[domainstorageprov.FilesystemUUID]string{
+	c.Check(fsAssociations, tc.DeepEquals, map[domainstorage.FilesystemUUID]string{
 		fs1UUID: "fs-1",
 		fs2UUID: "fs-3",
 	})

@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -1625,7 +1624,7 @@ VALUES (?, ?, ?, 0)
 		)
 		c.Assert(err, tc.ErrorIsNil)
 
-		fsUUID := tc.Must(c, storageprovisioning.NewFilesystemUUID)
+		fsUUID := tc.Must(c, storage.NewFilesystemUUID)
 		_, err = s.DB().ExecContext(
 			ctx,
 			`
