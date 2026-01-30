@@ -135,7 +135,7 @@ type VolumeState interface {
 		context.Context,
 		domainstorage.VolumeUUID,
 		domainnetwork.NetNodeUUID,
-	) (storageprovisioning.VolumeAttachmentPlanUUID, error)
+	) (domainstorage.VolumeAttachmentPlanUUID, error)
 
 	// GetVolumeAttachment returns the volume attachment for the supplied volume
 	// attachment uuid.
@@ -223,14 +223,14 @@ type VolumeState interface {
 	// GetVolumeAttachmentPlan gets the volume attachment plan for the provided
 	// uuid.
 	GetVolumeAttachmentPlan(
-		ctx context.Context, uuid storageprovisioning.VolumeAttachmentPlanUUID,
+		ctx context.Context, uuid domainstorage.VolumeAttachmentPlanUUID,
 	) (storageprovisioning.VolumeAttachmentPlan, error)
 
 	// CreateVolumeAttachmentPlan creates a volume attachment plan for the
 	// provided volume attachment uuid.
 	CreateVolumeAttachmentPlan(
 		ctx context.Context,
-		uuid storageprovisioning.VolumeAttachmentPlanUUID,
+		uuid domainstorage.VolumeAttachmentPlanUUID,
 		attachmentUUID domainstorage.VolumeAttachmentUUID,
 		deviceType storageprovisioning.PlanDeviceType,
 		attrs map[string]string,
@@ -240,7 +240,7 @@ type VolumeState interface {
 	// attachment plan information.
 	SetVolumeAttachmentPlanProvisionedInfo(
 		ctx context.Context,
-		uuid storageprovisioning.VolumeAttachmentPlanUUID,
+		uuid domainstorage.VolumeAttachmentPlanUUID,
 		info storageprovisioning.VolumeAttachmentPlanProvisionedInfo,
 	) error
 
@@ -248,7 +248,7 @@ type VolumeState interface {
 	// volume attachment plan the information about the provisioned block device.
 	SetVolumeAttachmentPlanProvisionedBlockDevice(
 		ctx context.Context,
-		uuid storageprovisioning.VolumeAttachmentPlanUUID,
+		uuid domainstorage.VolumeAttachmentPlanUUID,
 		blockDeviceUUID blockdevice.BlockDeviceUUID,
 	) error
 
@@ -581,7 +581,7 @@ func (s *Service) GetVolumeAttachmentPlanUUIDForVolumeIDMachine(
 	ctx context.Context,
 	volumeID string,
 	machineUUID coremachine.UUID,
-) (storageprovisioning.VolumeAttachmentPlanUUID, error) {
+) (domainstorage.VolumeAttachmentPlanUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1067,7 +1067,7 @@ func (s *Service) SetVolumeAttachmentProvisionedInfo(
 // - [storageprovisioningerrors.VolumeAttachmentNotPlanFound] when no volume
 // attachment plan exists for the provided uuid.
 func (s *Service) GetVolumeAttachmentPlan(
-	ctx context.Context, uuid storageprovisioning.VolumeAttachmentPlanUUID,
+	ctx context.Context, uuid domainstorage.VolumeAttachmentPlanUUID,
 ) (storageprovisioning.VolumeAttachmentPlan, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -1103,7 +1103,7 @@ func (s *Service) CreateVolumeAttachmentPlan(
 	attachmentUUID domainstorage.VolumeAttachmentUUID,
 	deviceType storageprovisioning.PlanDeviceType,
 	attrs map[string]string,
-) (storageprovisioning.VolumeAttachmentPlanUUID, error) {
+) (domainstorage.VolumeAttachmentPlanUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1114,7 +1114,7 @@ func (s *Service) CreateVolumeAttachmentPlan(
 		).Add(coreerrors.NotValid)
 	}
 
-	uuid, err := storageprovisioning.NewVolumeAttachmentPlanUUID()
+	uuid, err := domainstorage.NewVolumeAttachmentPlanUUID()
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -1138,7 +1138,7 @@ func (s *Service) CreateVolumeAttachmentPlan(
 // attachment plan exists for the provided uuid.
 func (s *Service) SetVolumeAttachmentPlanProvisionedInfo(
 	ctx context.Context,
-	uuid storageprovisioning.VolumeAttachmentPlanUUID,
+	uuid domainstorage.VolumeAttachmentPlanUUID,
 	info storageprovisioning.VolumeAttachmentPlanProvisionedInfo,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -1172,7 +1172,7 @@ func (s *Service) SetVolumeAttachmentPlanProvisionedInfo(
 // provided block device uuid.
 func (s *Service) SetVolumeAttachmentPlanProvisionedBlockDevice(
 	ctx context.Context,
-	uuid storageprovisioning.VolumeAttachmentPlanUUID,
+	uuid domainstorage.VolumeAttachmentPlanUUID,
 	blockDeviceUUID blockdevice.BlockDeviceUUID,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())

@@ -101,7 +101,7 @@ WHERE  uuid = $volumeAttachmentUUID.uuid
 func (st *State) checkVolumeAttachmentPlanExists(
 	ctx context.Context,
 	tx *sqlair.TX,
-	uuid storageprovisioning.VolumeAttachmentPlanUUID,
+	uuid domainstorage.VolumeAttachmentPlanUUID,
 ) (bool, error) {
 	io := entityUUID{UUID: uuid.String()}
 
@@ -489,7 +489,7 @@ func (st *State) GetVolumeAttachmentPlanUUIDForVolumeNetNode(
 	ctx context.Context,
 	vUUID domainstorage.VolumeUUID,
 	nodeUUID domainnetwork.NetNodeUUID,
-) (storageprovisioning.VolumeAttachmentPlanUUID, error) {
+) (domainstorage.VolumeAttachmentPlanUUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -551,7 +551,7 @@ AND    net_node_uuid = $netNodeUUID.uuid
 		return "", errors.Capture(err)
 	}
 
-	return storageprovisioning.VolumeAttachmentPlanUUID(dbVal.UUID), nil
+	return domainstorage.VolumeAttachmentPlanUUID(dbVal.UUID), nil
 }
 
 // GetVolumeAttachment returns the volume attachment for the supplied volume
@@ -1570,7 +1570,7 @@ SELECT &volumeAttachmentParams.* FROM (
 // attachment plan exists for the provided uuid.
 func (st *State) GetVolumeAttachmentPlan(
 	ctx context.Context,
-	uuid storageprovisioning.VolumeAttachmentPlanUUID,
+	uuid domainstorage.VolumeAttachmentPlanUUID,
 ) (storageprovisioning.VolumeAttachmentPlan, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1652,7 +1652,7 @@ WHERE  attachment_plan_uuid = $entityUUID.uuid
 // volume attachment plan already exists for the given volume attachnment.
 func (st *State) CreateVolumeAttachmentPlan(
 	ctx context.Context,
-	uuid storageprovisioning.VolumeAttachmentPlanUUID,
+	uuid domainstorage.VolumeAttachmentPlanUUID,
 	attachmentUUID domainstorage.VolumeAttachmentUUID,
 	deviceType storageprovisioning.PlanDeviceType,
 	attrs map[string]string,
@@ -1775,7 +1775,7 @@ VALUES      ($volumeAttachmentPlanAttr.*)
 // attachment plan exists for the provided uuid.
 func (st *State) SetVolumeAttachmentPlanProvisionedInfo(
 	ctx context.Context,
-	uuid storageprovisioning.VolumeAttachmentPlanUUID,
+	uuid domainstorage.VolumeAttachmentPlanUUID,
 	info storageprovisioning.VolumeAttachmentPlanProvisionedInfo,
 ) error {
 	db, err := st.DB(ctx)
@@ -1875,7 +1875,7 @@ VALUES      ($volumeAttachmentPlanAttr.*)
 // provided block device uuid.
 func (st *State) SetVolumeAttachmentPlanProvisionedBlockDevice(
 	ctx context.Context,
-	uuid storageprovisioning.VolumeAttachmentPlanUUID,
+	uuid domainstorage.VolumeAttachmentPlanUUID,
 	blockDeviceUUID domainblockdevice.BlockDeviceUUID,
 ) error {
 	db, err := st.DB(ctx)

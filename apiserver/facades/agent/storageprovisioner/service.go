@@ -111,7 +111,7 @@ type RemovalService interface {
 
 	// MarkVolumeAttachmentPlanAsDead marks the volume attachment plan as dead.
 	MarkVolumeAttachmentPlanAsDead(
-		ctx context.Context, uuid storageprovisioning.VolumeAttachmentPlanUUID,
+		ctx context.Context, uuid domainstorage.VolumeAttachmentPlanUUID,
 	) error
 
 	// RemoveDeadFilesystem is to be called from the storage provisoner to
@@ -409,7 +409,7 @@ type StorageProvisioningService interface {
 	// GetVolumeAttachmentPlan gets the volume attachment plan for the provided
 	// uuid.
 	GetVolumeAttachmentPlan(
-		ctx context.Context, uuid storageprovisioning.VolumeAttachmentPlanUUID,
+		ctx context.Context, uuid domainstorage.VolumeAttachmentPlanUUID,
 	) (storageprovisioning.VolumeAttachmentPlan, error)
 
 	// GetVolumeAttachmentPlanUUIDForVolumeIDMachine returns the volume attachment
@@ -418,7 +418,7 @@ type StorageProvisioningService interface {
 		ctx context.Context,
 		volumeID string,
 		machineUUID machine.UUID,
-	) (storageprovisioning.VolumeAttachmentPlanUUID, error)
+	) (domainstorage.VolumeAttachmentPlanUUID, error)
 
 	// CreateVolumeAttachmentPlan creates a volume attachment plan for the
 	// provided volume attachment uuid. Returned is the new uuid for the volume
@@ -428,13 +428,13 @@ type StorageProvisioningService interface {
 		attachmentUUID domainstorage.VolumeAttachmentUUID,
 		deviceType storageprovisioning.PlanDeviceType,
 		attrs map[string]string,
-	) (storageprovisioning.VolumeAttachmentPlanUUID, error)
+	) (domainstorage.VolumeAttachmentPlanUUID, error)
 
 	// SetVolumeAttachmentPlanProvisionedInfo sets on the provided volume the
 	// information about the provisioned volume attachment plan.
 	SetVolumeAttachmentPlanProvisionedInfo(
 		ctx context.Context,
-		uuid storageprovisioning.VolumeAttachmentPlanUUID,
+		uuid domainstorage.VolumeAttachmentPlanUUID,
 		info storageprovisioning.VolumeAttachmentPlanProvisionedInfo,
 	) error
 
@@ -442,7 +442,7 @@ type StorageProvisioningService interface {
 	// attachment plan the information about the provisioned block device.
 	SetVolumeAttachmentPlanProvisionedBlockDevice(
 		ctx context.Context,
-		uuid storageprovisioning.VolumeAttachmentPlanUUID,
+		uuid domainstorage.VolumeAttachmentPlanUUID,
 		blockDeviceUUID domainblockdevice.BlockDeviceUUID,
 	) error
 }

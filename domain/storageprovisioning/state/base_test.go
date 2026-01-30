@@ -488,8 +488,8 @@ func (s *baseSuite) newVolumeAttachmentPlan(
 	c *tc.C,
 	volumeUUID domainstorage.VolumeUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
-) storageprovisioning.VolumeAttachmentPlanUUID {
-	attachmentUUID := domaintesting.GenVolumeAttachmentPlanUUID(c)
+) domainstorage.VolumeAttachmentPlanUUID {
+	attachmentUUID := tc.Must(c, domainstorage.NewVolumeAttachmentPlanUUID)
 
 	_, err := s.DB().Exec(`
 INSERT INTO storage_volume_attachment_plan (uuid,
@@ -647,7 +647,7 @@ func (s *baseSuite) changeVolumeAttachmentInfo(
 
 func (s *baseSuite) changeVolumeAttachmentPlanInfo(
 	c *tc.C,
-	uuid storageprovisioning.VolumeAttachmentPlanUUID,
+	uuid domainstorage.VolumeAttachmentPlanUUID,
 	deviceType storageprovisioning.PlanDeviceType,
 	deviceAttrs map[string]string,
 ) {

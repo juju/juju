@@ -190,13 +190,13 @@ func (s *Service) RemoveApplication(
 	for _, a := range cascaded.VolumeAttachmentPlanUUIDs {
 		if force && wait > 0 {
 			if _, err := s.volumeAttachmentPlanScheduleRemoval(
-				ctx, storageprovisioning.VolumeAttachmentPlanUUID(a), false, 0,
+				ctx, storage.VolumeAttachmentPlanUUID(a), false, 0,
 			); err != nil {
 				return "", errors.Capture(err)
 			}
 		}
 		if _, err := s.volumeAttachmentPlanScheduleRemoval(
-			ctx, storageprovisioning.VolumeAttachmentPlanUUID(a), force, wait,
+			ctx, storage.VolumeAttachmentPlanUUID(a), force, wait,
 		); err != nil {
 			return "", errors.Capture(err)
 		}
