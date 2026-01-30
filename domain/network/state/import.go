@@ -14,8 +14,8 @@ import (
 )
 
 // GetModelCloudType returns the type of the cloud that is in use by this model.
-func (s *State) GetModelCloudType(ctx context.Context) (string, error) {
-	db, err := s.DB(ctx)
+func (st *State) GetModelCloudType(ctx context.Context) (string, error) {
+	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -25,7 +25,7 @@ func (s *State) GetModelCloudType(ctx context.Context) (string, error) {
 	}
 
 	m := cloud{}
-	stmt, err := s.Prepare(`SELECT &cloud.cloud_type FROM model`, m)
+	stmt, err := st.Prepare(`SELECT &cloud.cloud_type FROM model`, m)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
