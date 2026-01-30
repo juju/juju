@@ -48,7 +48,7 @@ type Service struct {
 // State describes retrieval and persistence methods for
 // storage related interactions.
 type State interface {
-	// AttachStorage attaches the specified storage to the specified unit.
+	// AttachStorageToUnit attaches the specified storage to the specified unit.
 	// The following error types can be expected:
 	// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
 	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
@@ -59,7 +59,7 @@ type State interface {
 	// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
 	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 	// - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
-	AttachStorage(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error
+	AttachStorageToUnit(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error
 
 	// AddStorageForCAASUnit adds storage instances to given unit as specified.
 	// The specified storage name is used to retrieve existing storage instances.
@@ -184,26 +184,6 @@ func NewService(st State, storagePoolProvider StoragePoolProvider, logger logger
 		st:                  st,
 		logger:              logger,
 	}
-}
-
-// AttachStorage attached the specified storage to the specified unit.
-// If the attachment already exists, the result is a no op.
-// The following error types can be expected:
-// - [github.com/juju/juju/core/unit.InvalidUnitName]: when the unit name is not valid.
-// - [github.com/juju/juju/core/storage.InvalidStorageID]: when the storage ID is not valid.
-// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
-// - [github.com/juju/juju/domain/application/errors.FilesystemAlreadyAttached]: when the filesystem is already attached.
-// - [github.com/juju/juju/domain/application/errors.VolumeAlreadyAttached]: when the volume is already attached.
-// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
-// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the unit is not alive.
-// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
-// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
-// - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
-func (s *Service) AttachStorage(
-	ctx context.Context, storageID corestorage.ID, unitName coreunit.Name,
-) error {
-	// TODO (tlm): re-implement in DQlite
-	return errors.New("not implemented")
 }
 
 // encodeStorageKindFromCharmStorageType provides a mapping from charm storage

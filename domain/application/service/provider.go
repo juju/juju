@@ -37,6 +37,7 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/password"
@@ -1021,4 +1022,20 @@ func encodeUnitPlacement(placement deployment.Placement) string {
 	}
 
 	return placement.Directive
+}
+
+// AttachStorageToUnit attached the specified storage to the specified unit.
+// If the attachment already exists, the result is a no op.
+// The following error types can be expected:
+// - [github.com/juju/juju/core/storage.InvalidStorageID]: when the storage ID is not valid.
+// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
+// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
+// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the unit is not alive.
+// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
+// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded] when the requested storage falls outside of the bounds defined by the charm.
+func (s *ProviderService) AttachStorageToUnit(
+	ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
+) error {
+	// TODO (tlm): re-implement in DQlite
+	return errors.New("not implemented")
 }

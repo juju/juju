@@ -159,6 +159,10 @@ type ApplicationService interface {
 	AddStorageForCAASUnit(
 		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, count uint32, arg storage.AddUnitStorageOverride,
 	) ([]corestorage.ID, error)
+
+	// AttachStorageToUnit attached the specified storage to the specified unit.
+	// If the attachment already exists, the result is a no op.
+	AttachStorageToUnit(ctx context.Context, storageID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error
 }
 
 // StorageAPIv6 provides the Storage API facade for version 6.
@@ -604,9 +608,87 @@ func (a *StorageAPI) removeStorageInstance(
 // Attach attaches existing storage instances to units.
 // A "CHANGE" block can block this operation.
 func (a *StorageAPI) Attach(ctx context.Context, args params.StorageAttachmentIds) (params.ErrorResults, error) {
-	return params.ErrorResults{}, apiservererrors.ParamsErrorf(
-		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
-	)
+	if err := a.checkCanWrite(ctx); err != nil {
+		return params.ErrorResults{}, errors.Capture(err)
+	}
+
+	// Check if changes are allowed and the operation may proceed.
+	if err := a.blockChecker.ChangeAllowed(ctx); err != nil {
+		return params.ErrorResults{}, errors.Capture(err)
+	}
+
+	result := make([]params.ErrorResult, len(args.Ids))
+	for i, one := range args.Ids {
+		err := a.attachOneStorage(ctx, one)
+		result[i].Error = apiservererrors.ServerError(err)
+	}
+	return params.ErrorResults{Results: result}, nil
+}
+
+func (a *StorageAPI) attachOneStorage(ctx context.Context, one params.StorageAttachmentId) error {
+	u, err := names.ParseUnitTag(one.UnitTag)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	unitName := coreunit.Name(u.Id())
+	unitUUID, err := a.applicationService.GetUnitUUID(ctx, unitName)
+	switch {
+	case errors.Is(err, coreunit.InvalidUnitName):
+		return apiservererrors.ParamsErrorf(params.CodeNotValid,
+			"invalid unit name %q", unitName)
+	case errors.Is(err, applicationerrors.UnitNotFound):
+		return apiservererrors.ParamsErrorf(params.CodeNotFound,
+			"unit %q does not exist", unitName)
+	case err != nil:
+		return errors.Errorf(
+			"getting unit uuid for unit name %q: %w", unitName, err,
+		)
+	}
+
+	storageTag, err := names.ParseStorageTag(one.StorageTag)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	storageUUID, err := a.storageService.GetStorageInstanceUUIDForID(ctx, storageTag.Id())
+	if errors.Is(err, storageerrors.StorageInstanceNotFound) {
+		return apiservererrors.ParamsErrorf(params.CodeNotFound, "storage %q does not exist", storageTag.Id())
+	} else if err != nil {
+		return errors.Errorf(
+			"getting storage instance uuid for storage id %q: %w",
+			storageTag.Id(), err,
+		)
+	}
+
+	err = a.applicationService.AttachStorageToUnit(ctx, storageUUID, unitUUID)
+	err = handleAttachStorageToUnitError(err, unitName, storageTag.Id())
+	return err
+}
+
+// handleAttachStorageToUnitError is a first low pass effort to start handling
+// some of the errors that will occur when attaching unit storage.
+// If a handler does not exist then the original error will be returned.
+func handleAttachStorageToUnitError(err error, unitName coreunit.Name, storageID string) error {
+	switch {
+	case errors.Is(err, applicationerrors.UnitNotFound):
+		return apiservererrors.ParamsErrorf(params.CodeNotFound,
+			"unit %q does not exist", unitName)
+	case errors.Is(err, storageerrors.StorageInstanceNotFound):
+		return apiservererrors.ParamsErrorf(params.CodeNotFound,
+			"storage %q not found", storageID)
+	case errors.Is(err, corestorage.InvalidStorageID):
+		return apiservererrors.ParamsErrorf(params.CodeNotValid,
+			"storage %q not value", storageID)
+	case errors.HasType[applicationerrors.StorageCountLimitExceeded](err):
+		limitErr, _ := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
+		if limitErr.Maximum != nil && limitErr.Requested > *limitErr.Maximum {
+			return apiservererrors.ParamsErrorf(params.CodeNotValid,
+				"storage attachment %q count %d would exceed the charm's maximum count of %d",
+				limitErr.StorageName, limitErr.Requested, *limitErr.Maximum,
+			)
+		}
+	}
+	return err
 }
 
 // Import imports existing storage into the model.
