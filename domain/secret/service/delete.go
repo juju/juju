@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/canonical/lxd/shared/logger"
 	errors2 "github.com/juju/errors"
 
 	"github.com/juju/juju/core/secrets"
@@ -38,39 +37,13 @@ func (s *SecretService) DeleteObsoleteUserSecretRevisions(ctx context.Context) e
 
 	s.logger.Infof(ctx, "%d obsolete revisions found for deletion", len(obsoleteRevs))
 
-	modelUUID, err := s.secretState.GetModelUUID(ctx)
-	if err != nil {
-		return errors.Errorf("getting model UUID: %w", err)
-	}
-	accessor := secret.SecretAccessor{
-		Kind: secret.ModelAccessor,
-		ID:   string(modelUUID),
-	}
-
-	backend, backendID, err := s.getBackendForUserSecrets(ctx, accessor)
-	if err != nil {
+	// Delete from backend
+	providersToCleanUp := make(map[string]provider.SecretRevisions)
+	if err = s.deleteObsoleteRevisionsFromBackend(ctx, obsoleteRevs, providersToCleanUp); err != nil {
 		return errors.Capture(err)
 	}
 
-	providersToCleanUp := make(map[string]provider.SecretRevisions)
-
-	// Delete from backend first
-	for _, item := range obsoleteRevs {
-		r := make([]*secrets.SecretRevisionMetadata, len(item.Revisions))
-		for i, v := range item.Revisions {
-			r[i] = &secrets.SecretRevisionMetadata{
-				Revision: v.Revision,
-				ValueRef: v.ValueRef,
-			}
-		}
-
-		err = s.deleteRevisionsFromBackend(ctx, item.URI, r, backend, backendID)
-		if err != nil {
-			return errors.Capture(err)
-		}
-	}
-
-	//TODO Delete backend references for deleted revisions
+	// TODO Delete backend references for deleted revisions
 	if len(providersToCleanUp) > 0 {
 		s.logger.Warningf(ctx, "provider cleanup needed for %d backend(s), but not yet implemented", len(providersToCleanUp))
 	}
@@ -85,7 +58,6 @@ func (s *SecretService) DeleteObsoleteUserSecretRevisions(ctx context.Context) e
 	if err = s.secretBackendState.RemoveSecretBackendReference(ctx, deletedRevisionIDs...); err != nil {
 		// We don't want to error out if we can't remove the backend reference.
 		s.logger.Errorf(ctx, "failed to remove secret backend reference for deleted obsolete user secret revisions: %v", err)
-		logger.Errorf("failed to remove secret backend reference for deleted obsolete user secret revisions: %v", err)
 	}
 
 	s.logger.Infof(ctx, "deleted %d obsolete user secret revision(s)", len(deletedRevisionIDs))
@@ -99,64 +71,23 @@ func (s *SecretService) DeleteSecret(ctx context.Context, uri *secrets.URI, para
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	s.logger.Debugf(ctx, "deleting secret %q", uri.ID)
-
 	backend, backendID, err := s.getBackendForUserSecrets(ctx, params.Accessor)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	var revs []*secrets.SecretRevisionMetadata
-
-	if len(params.Revisions) == 0 {
-		// Remove all revisions.
-		_, revs, err = s.secretState.GetSecretByURI(ctx, *uri, nil)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		s.logger.Debugf(ctx, "deleting all revisions for secret %q, found %d revisions", uri.ID, len(revs))
-		if len(revs) > 0 && revs[0].ValueRef != nil {
-			s.logger.Debugf(ctx, "read valueref for secret: %+v", *revs[0].ValueRef)
-		} else if len(revs) > 0 {
-			s.logger.Debugf(ctx, "no valueref for secret: %+v", *revs[0])
-		}
-	} else {
-		// Remove specified revisions.
-		revs = make([]*secrets.SecretRevisionMetadata, 0, len(params.Revisions))
-		for _, rev := range params.Revisions {
-			_, revsMeta, err := s.secretState.GetSecretByURI(ctx, *uri, &rev)
-			// TODO: ideally we'd both surface this error and continue to the next revision, but atm we bookkeep errors
-			//  on a per-secret basis, not per-revision basis, so we just skip the revision.
-			if errors.Is(err, secreterrors.SecretRevisionNotFound) {
-				continue
-			}
-			if err != nil {
-				return errors.Capture(err)
-			}
-			revs = append(revs, revsMeta...)
-		}
-
-		s.logger.Debugf(ctx, "deleting revisions %v for secret %q", params.Revisions, uri.ID)
-
-		if len(revs) == 0 {
-			// Similar to if ListSecretRevisions returns no revisions, we return NotFound if no revisions were found.
-			return errors2.NotFoundf("cannot delete any of revisions %v - revisions", params.Revisions)
-		}
+	revs, err := s.findRevisionsToDelete(ctx, uri, params)
+	if err != nil {
+		return errors.Capture(err)
 	}
 
-	ser := make([]secrets.SecretExternalRevision, 0, len(revs))
-	for _, rev := range revs {
-		ser = append(ser, secrets.SecretExternalRevision{
-			Revision: rev.Revision,
-			ValueRef: rev.ValueRef,
-		})
-	}
+	s.mapRevisions(revs)
 	err = s.deleteRevisionsFromBackend(ctx, uri, revs, backend, backendID)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	//TODO Implement cleanup secrets from service account role
+	// TODO Implement cleanup secrets from service account role
 
 	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor)
 	if err != nil {
@@ -171,7 +102,44 @@ func (s *SecretService) DeleteSecret(ctx context.Context, uri *secrets.URI, para
 		return nil
 	})
 
-	//TODO Delete backend references for deleted revisions
+	// TODO Delete backend references for deleted revisions
+}
+
+func (s *SecretService) findRevisionsToDelete(
+	ctx context.Context,
+	uri *secrets.URI,
+	params secret.DeleteSecretParams,
+) ([]*secrets.SecretRevisionMetadata, error) {
+	var revs []*secrets.SecretRevisionMetadata
+
+	if len(params.Revisions) == 0 {
+		// Remove all revisions
+		_, revs, err := s.secretState.GetSecretByURI(ctx, *uri, nil)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		s.logger.Tracef(ctx, "deleting all revisions for secret %q, found %d revisions", uri.ID, len(revs))
+	} else {
+		// Remove specified revisions
+		revs = make([]*secrets.SecretRevisionMetadata, 0, len(params.Revisions))
+		for _, rev := range params.Revisions {
+			_, revsMeta, err := s.secretState.GetSecretByURI(ctx, *uri, &rev)
+			if errors.Is(err, secreterrors.SecretRevisionNotFound) {
+				continue
+			}
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
+			revs = append(revs, revsMeta...)
+		}
+
+		s.logger.Debugf(ctx, "deleting revisions %v for secret %q", params.Revisions, uri.ID)
+
+		if len(revs) == 0 {
+			return nil, errors2.NotFoundf("cannot delete any of revisions %v - revisions", params.Revisions)
+		}
+	}
+	return revs, nil
 }
 
 // getObsoleteRevisionsForDeletion retrieves the metadata for obsolete revisions ready to be pruned.
@@ -181,7 +149,7 @@ func (s *SecretService) getObsoleteRevisionsForDeletion(ctx context.Context) ([]
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	logger.Infof("obsolete revisions ready to prune: %+v", obsoleteRevIDs)
+	s.logger.Tracef(ctx, "obsolete revisions ready to prune: %+v", obsoleteRevIDs)
 
 	if len(obsoleteRevIDs) == 0 {
 		return nil, nil
@@ -209,7 +177,6 @@ func (s *SecretService) getObsoleteRevisionsForDeletion(ctx context.Context) ([]
 		}
 		revisionsByURI[secretID] = append(revisionsByURI[secretID], revNum)
 	}
-	logger.Infof("revisions by URI: %+v", revisionsByURI)
 
 	// Fetch full metadata for each secret URI and its revisions.
 	var result []*secrets.SecretMetadataForDrain
@@ -251,21 +218,64 @@ func (s *SecretService) getObsoleteRevisionsForDeletion(ctx context.Context) ([]
 	return result, nil
 }
 
-func (s *SecretService) deleteRevisionsFromBackend(ctx context.Context, uri *secrets.URI, revisions []*secrets.SecretRevisionMetadata, backend provider.SecretsBackend, backendID string) error {
+func (s *SecretService) deleteObsoleteRevisionsFromBackend(
+	ctx context.Context,
+	obsoleteRevs []*secrets.SecretMetadataForDrain,
+	_ map[string]provider.SecretRevisions,
+) error {
+	modelUUID, err := s.secretState.GetModelUUID(ctx)
+	if err != nil {
+		return errors.Errorf("getting model UUID: %w", err)
+	}
+	accessor := secret.SecretAccessor{
+		Kind: secret.ModelAccessor,
+		ID:   string(modelUUID),
+	}
+
+	backend, backendID, err := s.getBackendForUserSecrets(ctx, accessor)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	for _, item := range obsoleteRevs {
+		r := make([]*secrets.SecretRevisionMetadata, len(item.Revisions))
+		for i, v := range item.Revisions {
+			r[i] = &secrets.SecretRevisionMetadata{
+				Revision: v.Revision,
+				ValueRef: v.ValueRef,
+			}
+		}
+
+		err = s.deleteRevisionsFromBackend(ctx, item.URI, r, backend, backendID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+	}
+
+	return nil
+}
+
+func (s *SecretService) deleteRevisionsFromBackend(
+	ctx context.Context,
+	uri *secrets.URI,
+	revisions []*secrets.SecretRevisionMetadata,
+	backend provider.SecretsBackend,
+	backendID string,
+) error {
 	var err error
 	providersToCleanUp := make(map[string]provider.SecretRevisions)
 
 	for _, rev := range revisions {
 		if rev.ValueRef == nil {
 			// Internal secret. Nothing to do here.
-			logger.Tracef("cannot delete internal secret revision %q", rev.ValueRef.RevisionID)
+			s.logger.Tracef(ctx, "cannot delete internal secret revision %q", rev.ValueRef.RevisionID)
 			continue
 		}
 
 		revisionId := rev.ValueRef.RevisionID
 
-		logger.Tracef("deleting revision %q for secret %q", revisionId, uri.ID)
-		logger.Tracef("deleting revision %+v", rev)
+		s.logger.Tracef(ctx, "deleting revision %q for secret %q", revisionId, uri.ID)
+		s.logger.Tracef(ctx, "deleting revision %+v", rev)
 
 		// Repeatedly attempt to delete the revision from the backend until one of:
 		// * deletion is successful
@@ -277,7 +287,7 @@ func (s *SecretService) deleteRevisionsFromBackend(ctx context.Context, uri *sec
 			}
 			err = backend.DeleteContent(context.TODO(), revisionId)
 			if err == nil {
-				logger.Infof("deleted revision %+v", rev)
+				s.logger.Debugf(ctx, "deleted revision %+v", rev)
 				// Deletion successful. Schedule this revision to be cleaned up in the provider and go to next revision.
 				if _, ok := providersToCleanUp[backendID]; !ok {
 					providersToCleanUp[backendID] = provider.SecretRevisions{}
@@ -289,7 +299,7 @@ func (s *SecretService) deleteRevisionsFromBackend(ctx context.Context, uri *sec
 				return errors2.Annotatef(err, "cannot remove revision %q from secret backend", revisionId)
 			}
 
-			logger.Infof("revision %q not found", revisionId)
+			s.logger.Tracef(ctx, "revision %q not found", revisionId)
 
 			// NotFound could be because:
 			// 1. The backend is draining and the secret was moved to the new backend before we accessed it.
@@ -318,4 +328,14 @@ func (s *SecretService) deleteRevisionsFromBackend(ctx context.Context, uri *sec
 		}
 	}
 	return nil
+}
+
+func (s *SecretService) mapRevisions(revs []*secrets.SecretRevisionMetadata) {
+	ser := make([]secrets.SecretExternalRevision, 0, len(revs))
+	for _, rev := range revs {
+		ser = append(ser, secrets.SecretExternalRevision{
+			Revision: rev.Revision,
+			ValueRef: rev.ValueRef,
+		})
+	}
 }
