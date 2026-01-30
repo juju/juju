@@ -483,6 +483,83 @@ func (s *relationSuite) TestLeaveScopeRelationUnitNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, relationerrors.RelationUnitNotFound)
 }
 
+func (s *relationSuite) TestIsUnitDyingAndBlocked(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	row := s.DB().QueryRowContext(c.Context(), "SELECT name FROM unit WHERE uuid = ?", unitUUID)
+	var unitName string
+	err := row.Scan(&unitName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	isBlocked, err := st.IsUnitDyingAndBlocked(c.Context(), unitName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isBlocked, tc.Equals, false)
+
+	const (
+		blockedStatus = 4
+		errorStatus   = 7
+	)
+	for _, status := range []int{blockedStatus, errorStatus} {
+		_, err = s.DB().Exec("UPDATE unit_workload_status SET status_id = ? WHERE unit_uuid = ?", status, unitUUID.String())
+		c.Assert(err, tc.ErrorIsNil)
+
+		isBlocked, err = st.IsUnitDyingAndBlocked(c.Context(), unitName)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(isBlocked, tc.Equals, false)
+	}
+
+	// Now check with the life set to dying.
+	s.advanceUnitLife(c, unitUUID, life.Dying)
+
+	for _, status := range []int{blockedStatus, errorStatus} {
+		_, err = s.DB().Exec("UPDATE unit_workload_status SET status_id = ? WHERE unit_uuid = ?", status, unitUUID.String())
+		c.Assert(err, tc.ErrorIsNil)
+
+		isBlocked, err = st.IsUnitDyingAndBlocked(c.Context(), unitName)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(isBlocked, tc.Equals, true)
+	}
+}
+
+func (s *relationSuite) TestIsUnitDyingAndBlockedDead(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	row := s.DB().QueryRowContext(c.Context(), "SELECT name FROM unit WHERE uuid = ?", unitUUID)
+	var unitName string
+	err := row.Scan(&unitName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Now check with the life set to dying.
+	s.advanceUnitLife(c, unitUUID, life.Dead)
+
+	const (
+		blockedStatus = 4
+		errorStatus   = 7
+	)
+	for _, status := range []int{blockedStatus, errorStatus} {
+		_, err = s.DB().Exec("UPDATE unit_workload_status SET status_id = ? WHERE unit_uuid = ?", status, unitUUID.String())
+		c.Assert(err, tc.ErrorIsNil)
+
+		isBlocked, err := st.IsUnitDyingAndBlocked(c.Context(), unitName)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(isBlocked, tc.Equals, true)
+	}
+}
+
 // addAppUnitRelationScope adds charm, application, unit and relation
 // infrastructure such that a single unit is in the scope of a single relation.
 // The relation, unit and relation-unit identifiers are returned.
