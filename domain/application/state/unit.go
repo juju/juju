@@ -20,12 +20,14 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
+	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -1064,7 +1066,7 @@ func (st *State) insertCAASUnitWithName(
 		)
 	}
 
-	err = st.unitState.insertUnitStorageInstances(
+	_, err = st.unitState.insertUnitStorageInstances(
 		ctx, tx, args.StorageInstances,
 	)
 	if err != nil {
@@ -1815,6 +1817,85 @@ WHERE n.name = $unitName.name
 	}
 
 	return netNodeUUIDstrs, nil
+}
+
+// GetUnitNetNodeUUID returns the net node UUID for the specified unit.
+// The following error types can be expected:
+// - [applicationerrors.UnitNotFound]: when the unit is not found.
+func (st *State) GetUnitNetNodeUUID(ctx context.Context, uuid coreunit.UUID) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	ident := unitUUID{UnitUUID: uuid.String()}
+	stmt, err := st.Prepare(`
+SELECT &unitNetNodeUUID.*
+FROM unit u
+WHERE u.uuid = $unitUUID.uuid
+`, unitNetNodeUUID{}, ident)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var netNodeUUID unitNetNodeUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, ident).Get(&netNodeUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("%w: %s", applicationerrors.UnitNotFound, uuid)
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return netNodeUUID.NetNodeUUID, nil
+}
+
+// GetCharmStorageAndInstanceCountByUnitUUID returns the metadata and how many
+// storage instances exist for the named storage on the specified unit.
+// The following error types can be expected:
+// - [applicationerrors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
+func (st *State) GetCharmStorageAndInstanceCountByUnitUUID(
+	ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
+) (internalcharm.Storage, uint64, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return internalcharm.Storage{}, 0, errors.Capture(err)
+	}
+
+	var (
+		chStorage charmStorage
+		count     uint64
+	)
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		chStorage, err = st.getUnitCharmStorageByName(ctx, tx, unitUUID, storageName)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("storage %q is not found", storageName).Add(applicationerrors.StorageNameNotSupported)
+		}
+		if err != nil {
+			return errors.Errorf("getting charm storage metadata for unit %q: %w", unitUUID, err)
+		}
+		count, err = st.getUnitStorageCount(ctx, tx, unitUUID, storageName)
+		if err != nil {
+			return errors.Errorf("getting storage count for unit %q storage %s: %w", unitUUID, storageName, err)
+		}
+		return nil
+	}); err != nil {
+		return internalcharm.Storage{}, 0, errors.Capture(err)
+	}
+	return internalcharm.Storage{
+		Name:        chStorage.Name,
+		Description: chStorage.Description,
+		Type:        internalcharm.StorageType(chStorage.Kind),
+		Shared:      chStorage.Shared,
+		ReadOnly:    chStorage.ReadOnly,
+		CountMin:    chStorage.CountMin,
+		CountMax:    chStorage.CountMax,
+		MinimumSize: chStorage.MinimumSize,
+		Location:    chStorage.Location,
+	}, count, nil
 }
 
 // setK8sPodStatus saves the given k8s pod status, overwriting

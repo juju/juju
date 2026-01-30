@@ -1529,6 +1529,29 @@ func (s *unitStateSuite) TestCheckCAASUnitRegistered(c *tc.C) {
 	c.Check(gotNetNodeUUID, tc.IsNonZeroUUID)
 }
 
+func (s *unitStateSuite) TestGetUnitNetNodeUUID(c *tc.C) {
+	_, unitUUID := s.createNamedIAASUnit(c)
+
+	var netNodeUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM unit WHERE uuid=?", unitUUID.String()).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := s.state.GetUnitNetNodeUUID(c.Context(), unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.Equals, netNodeUUID)
+}
+
+func (s *unitStateSuite) TestGetUnitNetNodeUUIDNotFound(c *tc.C) {
+	_, err := s.state.GetUnitNetNodeUUID(c.Context(), tc.Must(c, coreunit.NewUUID))
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
 type unitStateSubordinateSuite struct {
 	baseSuite
 

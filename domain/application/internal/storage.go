@@ -32,6 +32,37 @@ type CreateStorageDirectiveArg struct {
 	Size uint64
 }
 
+// UnitAddStorageArg represents the arguments required for add storage
+// to a unit. This will instantiate the instances and attachments for the unit.
+type UnitAddStorageArg struct {
+	// StorageInstances defines the new storage instances that must be created
+	// for the unit.
+	StorageInstances []CreateUnitStorageInstanceArg
+
+	// StorageToAttach defines the storage instances that should be attached to
+	// the unit. New storage instances defined in
+	// [CreateUnitStorageArg.StorageInstances] are not automatically attached to
+	// the unit and should be included in this list.
+	StorageToAttach []CreateUnitStorageAttachmentArg
+
+	// StorageToOwn defines the storage instances that should be owned by the
+	// unit.
+	StorageToOwn []domainstorage.StorageInstanceUUID
+}
+
+// IAASUnitAddStorageArg represents the arguments required for making storage
+// for am IASS unit. This complements [UnitAddStorageArg], allowing for an
+// IAAS unit to augment storage that is destined for a machine.
+type IAASUnitAddStorageArg struct {
+	UnitAddStorageArg
+	// FilesystemsToOwn defines filesystems that will be owned by the unit's
+	// machine.
+	FilesystemsToOwn []domainstorageprov.FilesystemUUID
+
+	// VolumesToOwn defines volumes that will be owned by the unit's machine.
+	VolumesToOwn []domainstorage.VolumeUUID
+}
+
 // CreateUnitStorageArg represents the arguments required for making storage
 // for a unit. This will create and set the unit's storage directives and then
 // instantiate the instances and attachments for the units.
