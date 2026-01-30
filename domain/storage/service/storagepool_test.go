@@ -656,6 +656,40 @@ func (s *storagePoolServiceSuite) TestImportStoragePoolsMultipleSuccess(c *tc.C)
 	c.Check(err, tc.ErrorIsNil)
 }
 
+// TestImportStoragePoolsInvalidUUID tests that an invalid pool UUID should return
+// an error.
+func (s *storagePoolServiceSuite) TestImportStoragePoolsInvalidUUID(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	provider := NewMockProvider(ctrl)
+	provider.EXPECT().ValidateConfig(gomock.Any())
+
+	s.registry.Providers["storageprovider1"] = provider
+
+	invalidUUID := domainstorage.StoragePoolUUID("123e4567")
+
+	svc := StoragePoolService{
+		registryGetter: registryGetter{s.registry},
+		st:             s.state,
+	}
+
+	err := svc.ImportStoragePools(
+		c.Context(),
+		[]domainstorage.ImportStoragePoolParams{
+			{
+				UUID:   invalidUUID,
+				Name:   "my-pool",
+				Type:   "storageprovider1",
+				Origin: domainstorage.StoragePoolOriginProviderDefault,
+				Attrs:  map[string]any{"key": "val"},
+			},
+		},
+	)
+
+	c.Check(err, tc.ErrorMatches, `storage pool "my-pool" UUID is not valid: invalid uuid "123e4567"`)
+}
+
 // TestImportStoragePoolsInvalidProviderType tests that an invalid provider type
 // returns [domainstorageerrors.ProviderTypeInvalid].
 func (s *storagePoolServiceSuite) TestImportStoragePoolsInvalidProviderType(c *tc.C) {

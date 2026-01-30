@@ -197,6 +197,10 @@ func (s *StoragePoolService) ImportStoragePools(
 		if err != nil {
 			return err
 		}
+		err = pool.UUID.Validate()
+		if err != nil {
+			return errors.Errorf("storage pool %q UUID is not valid: %w", pool.Name, err)
+		}
 
 		coercedAttrs := transform.Map(
 			pool.Attrs,
@@ -212,6 +216,7 @@ func (s *StoragePoolService) ImportStoragePools(
 			ProviderType: domainstorage.ProviderType(pool.Type),
 			UUID:         pool.UUID,
 		}
+		// TODO(adisazhar123): refactor opportunity. Bulk insert.
 		err = s.st.CreateStoragePool(ctx, arg)
 		if err != nil {
 			return errors.Errorf("creating storage pool %q: %w", pool.Name, err)
@@ -596,6 +601,8 @@ func (s *StoragePoolService) validateProviderCriteria(ctx context.Context, provi
 	return nil
 }
 
+// SetRecommendedStoragePools persists the set of recommended storage pools
+// that are to be used for a model.
 func (s *StoragePoolService) SetRecommendedStoragePools(ctx context.Context,
 	pools []domainstorage.RecommendedStoragePoolParams) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -724,7 +731,7 @@ func (s *StoragePoolService) defaultPoolForImport(
 		)
 		return nil, nil
 	} else if err != nil {
-		return nil, fmt.Errorf(
+		return nil, errors.Errorf(
 			"getting storage pool uuid for default provider %q pool %q",
 			provider,
 			name,

@@ -34,8 +34,14 @@ func RegisterImport(coordinator Coordinator, storageRegistryGetter corestorage.M
 // ImportService provides a subset of the storage domain
 // service methods needed for storage pool import.
 type ImportService interface {
+	// ImportStoragePools creates new storage pools with the slice
+	// of [domainstorage.ImportStoragePoolParams].
 	ImportStoragePools(ctx context.Context, pools []domainstorage.ImportStoragePoolParams) error
+	// SetRecommendedStoragePools persists the set of recommended storage pools
+	// that are to be used for a model.
 	SetRecommendedStoragePools(ctx context.Context, pools []domainstorage.RecommendedStoragePoolParams) error
+	// GetStoragePoolsToImport resolves the full set of storage pools to create during
+	// model import.
 	GetStoragePoolsToImport(ctx context.Context, userPools []description.StoragePool) (
 		[]domainstorage.ImportStoragePoolParams,
 		[]domainstorage.RecommendedStoragePoolParams,
@@ -65,6 +71,9 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute the import on the storage pools contained in the model.
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
+	// TODO(adisazhar123): refactor opportunity. GetStoragePoolsToImport func
+	// should just return the default pools and the merging / conflict resolution
+	// with user pools happens in this import layer.
 	poolsToImport, recommendedPools, err := i.service.GetStoragePoolsToImport(ctx, model.StoragePools())
 	if err != nil {
 		return errors.Errorf("getting pools to import: %w", err)

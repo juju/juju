@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"fmt"
 	"slices"
 
 	"github.com/canonical/sqlair"
@@ -13,7 +12,6 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	domainstorageinternal "github.com/juju/juju/domain/storage/internal"
-	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -727,17 +725,14 @@ INSERT INTO model_storage_pool (*) VALUES ($dbModelStoragePool.*)
 		}
 
 		err = tx.Query(ctx, insertStmt, insertVals).Run()
-		if internaldatabase.IsErrConstraintForeignKey(err) {
-			return fmt.Errorf(
-				"invalid storage kind id provider: %w", err,
-			)
-		}
 		return err
 	})
 
 	return errors.Capture(err)
 }
 
+// checkStoragePoolsExist checks whether the supplied UUIDs exist in the DB.
+// It is expected that the caller of this func MUST de-duplicate the UUIDs.
 func (st State) checkStoragePoolsExist(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -764,9 +759,7 @@ WHERE  uuid IN ($poolUUIDs[:])
 	}
 
 	err = tx.Query(ctx, stmt, input).Get(&dbVal)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return false, nil
-	} else if err != nil {
+	if err != nil {
 		return false, errors.Capture(err)
 	}
 
