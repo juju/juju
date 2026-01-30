@@ -110,9 +110,10 @@ type StorageInstance struct {
 
 // StorageAttachment represents the status of a storage attachment.
 type StorageAttachment struct {
-	Life    life.Value
-	Unit    unit.Name
-	Machine *machine.Name
+	Life     life.Value
+	Unit     unit.Name
+	Machine  *machine.Name
+	Location string
 }
 
 // Filesystem represents the status of a filesystem.

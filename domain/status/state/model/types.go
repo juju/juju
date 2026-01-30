@@ -17,6 +17,12 @@ import (
 	"github.com/juju/juju/domain/status"
 )
 
+type entityUUID struct {
+	UUID string `db:"uuid"`
+}
+
+type entityUUIDs []string
+
 type applicationUUID struct {
 	UUID string `db:"uuid"`
 }
@@ -279,20 +285,28 @@ type volumeStatusInfo struct {
 // storageInstanceStatusDetails is used to retrieve all required
 // information for a storage instance for status reporting.
 type storageInstanceStatusDetails struct {
-	UUID          string         `db:"uuid"`
-	ID            string         `db:"storage_id"`
-	OwnerUnitName sql.NullString `db:"owner_unit_name"`
-	KindID        int            `db:"storage_kind_id"`
-	LifeID        int            `db:"life_id"`
+	UUID                      string         `db:"uuid"`
+	ID                        string         `db:"storage_id"`
+	OwnerUnitName             sql.NullString `db:"owner_unit_name"`
+	KindID                    int            `db:"storage_kind_id"`
+	LifeID                    int            `db:"life_id"`
+	FilesystemStatusID        sql.Null[int]  `db:"filesystem_status_id"`
+	FilesystemStatusMessage   string         `db:"filesystem_status_message"`
+	FilesystemStatusUpdatedAt *time.Time     `db:"filesystem_status_updated_at"`
+	VolumeStatusID            sql.Null[int]  `db:"volume_status_id"`
+	VolumeStatusMessage       string         `db:"volume_status_message"`
+	VolumeStatusUpdatedAt     *time.Time     `db:"volume_status_updated_at"`
 }
 
 // storageAttachmentStatusDetails is used to retrieve all required
 // information for a storage attachment for status reporting.
 type storageAttachmentStatusDetails struct {
-	StorageInstanceUUID string         `db:"storage_instance_uuid"`
-	UnitName            string         `db:"unit_name"`
-	MachineName         sql.NullString `db:"machine_name"`
-	LifeID              int            `db:"life_id"`
+	StorageInstanceUUID   string         `db:"storage_instance_uuid"`
+	UnitName              string         `db:"unit_name"`
+	MachineName           sql.NullString `db:"machine_name"`
+	LifeID                int            `db:"life_id"`
+	FilesystemMountPoint  sql.NullString `db:"filesystem_mount_point"`
+	VolumeBlockDeviceUUID sql.NullString `db:"volume_block_device_uuid"`
 }
 
 // filesystemStatusDetails is used to retrieve all required information

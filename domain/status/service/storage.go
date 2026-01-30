@@ -6,10 +6,12 @@ package service
 import (
 	"context"
 
+	coreblockdevice "github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/machine"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
@@ -95,6 +97,17 @@ type StorageState interface {
 
 	// GetAllVolumeAttachments returns all the volume attachments for this model.
 	GetAllVolumeAttachments(ctx context.Context) ([]status.VolumeAttachment, error)
+
+	// GetBlockDevices returns the specified block devices.
+	GetBlockDevices(
+		ctx context.Context, uuids []blockdevice.BlockDeviceUUID,
+	) (map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice, error)
+
+	// GetAllAttachedBlockDevices returns all the block devices that are
+	// attached via a volume attachment.
+	GetAllAttachedBlockDevices(
+		ctx context.Context,
+	) (map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice, error)
 }
 
 // SetFilesystemStatus validates and sets the given filesystem status, overwriting any
@@ -191,9 +204,19 @@ func (s *Service) GetStorageInstanceStatuses(
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
+	var blockDeviceUUIDs []blockdevice.BlockDeviceUUID
+	for _, v := range storageAttachments {
+		if v.VolumeBlockDevice != nil {
+			blockDeviceUUIDs = append(blockDeviceUUIDs, *v.VolumeBlockDevice)
+		}
+	}
+	blockDevices, err := s.modelState.GetBlockDevices(ctx, blockDeviceUUIDs)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
 
 	return s.transformStorageInstanceResults(
-		storageInstances, storageAttachments)
+		storageInstances, storageAttachments, blockDevices)
 }
 
 // GetAllStorageInstanceStatuses returns all the storage instance statuses for
@@ -212,14 +235,19 @@ func (s *Service) GetAllStorageInstanceStatuses(
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
+	blockDevices, err := s.modelState.GetAllAttachedBlockDevices(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
 
 	return s.transformStorageInstanceResults(
-		storageInstances, storageAttachments)
+		storageInstances, storageAttachments, blockDevices)
 }
 
 func (s *Service) transformStorageInstanceResults(
 	storageInstances []status.StorageInstance,
 	storageAttachments []status.StorageAttachment,
+	blockDevices map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice,
 ) ([]StorageInstance, error) {
 	storageMap := map[storage.StorageInstanceUUID]*StorageInstance{}
 	for _, dsi := range storageInstances {
@@ -234,6 +262,22 @@ func (s *Service) transformStorageInstanceResults(
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
+		switch dsi.Kind {
+		case storage.StorageKindBlock:
+			si.Status, err = decodeVolumeStatus(dsi.VolumeStatus)
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
+		case storage.StorageKindFilesystem:
+			si.Status, err = decodeFilesystemStatus(dsi.FilesystemStatus)
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
+		default:
+			si.Status = corestatus.StatusInfo{
+				Status: corestatus.Unknown,
+			}
+		}
 		storageMap[dsi.UUID] = &si
 	}
 	for _, dsa := range storageAttachments {
@@ -247,6 +291,19 @@ func (s *Service) transformStorageInstanceResults(
 			return nil, errors.Capture(err)
 		}
 		if si, ok := storageMap[dsa.StorageInstanceUUID]; ok {
+			switch si.Kind {
+			case storage.StorageKindBlock:
+				if dsa.VolumeBlockDevice != nil {
+					blockDevice, ok := blockDevices[*dsa.VolumeBlockDevice]
+					if ok {
+						sa.Location = blockdevice.IDLink(blockDevice.DeviceLinks)
+					}
+				}
+			case storage.StorageKindFilesystem:
+				if dsa.FilesystemMountPoint != nil {
+					sa.Location = *dsa.FilesystemMountPoint
+				}
+			}
 			if si.Attachments == nil {
 				si.Attachments = map[unit.Name]StorageAttachment{}
 			}

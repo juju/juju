@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
@@ -72,11 +73,13 @@ type Machine struct {
 
 // StorageInstance represents the status of a storage instance.
 type StorageInstance struct {
-	UUID  storage.StorageInstanceUUID
-	ID    string
-	Kind  storage.StorageKind
-	Owner *unit.Name
-	Life  life.Life
+	UUID             storage.StorageInstanceUUID
+	ID               string
+	Kind             storage.StorageKind
+	Owner            *unit.Name
+	Life             life.Life
+	FilesystemStatus StatusInfo[StorageFilesystemStatusType]
+	VolumeStatus     StatusInfo[StorageVolumeStatusType]
 }
 
 // StorageAttachment represents the status of a storage attachment.
