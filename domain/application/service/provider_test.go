@@ -3184,6 +3184,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 		StorageInstances: []internal.CreateUnitStorageInstanceArg{{
 			Name: "pgdata",
 		}},
+		MaxCount: 656,
 	}
 	fsToOwn := []domainstorageprov.FilesystemUUID{tc.Must(c, domainstorageprov.NewFilesystemUUID)}
 	volToOwn := []domainstorage.VolumeUUID{tc.Must(c, domainstorage.NewVolumeUUID)}
@@ -3203,7 +3204,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 			VolumesToOwn:     volToOwn,
 		}, nil)
 
-	s.state.EXPECT().AddStorageForIAASUnit(gomock.Any(), unitUUID, internal.IAASUnitAddStorageArg{
+	s.state.EXPECT().AddStorageForIAASUnit(gomock.Any(), unitUUID, corestorage.Name("pgdata"), internal.IAASUnitAddStorageArg{
 		UnitAddStorageArg: unitStorageArgs,
 		FilesystemsToOwn:  fsToOwn,
 		VolumesToOwn:      volToOwn,
@@ -3337,6 +3338,7 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnit(c *tc.C) {
 		StorageInstances: []internal.CreateUnitStorageInstanceArg{{
 			Name: "pgdata",
 		}},
+		MaxCount: 656,
 	}
 
 	s.storageService.EXPECT().MakeUnitAddStorageArgs(gomock.Any(), unitUUID, application.StorageDirective{

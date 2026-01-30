@@ -1082,11 +1082,21 @@ func (s *ProviderService) populateAddStorageArgs(
 		return internal.UnitAddStorageArg{}, errors.Capture(err)
 	}
 
-	return s.storageService.MakeUnitAddStorageArgs(
+	args, err := s.storageService.MakeUnitAddStorageArgs(
 		ctx,
 		unitUUID,
 		storageDirective,
 	)
+	if err != nil {
+		return internal.UnitAddStorageArg{}, errors.Capture(err)
+	}
+	// Record the max allowed count precondition.
+	// This will be checked inside the transaction.
+	args.MaxCount = -1
+	if charmStorage.CountMax > 0 {
+		args.MaxCount = charmStorage.CountMax - int(addCount)
+	}
+	return args, nil
 }
 
 // AddStorageForIAASUnit adds storage instances to the given IAAS unit.
@@ -1115,11 +1125,20 @@ func (s *ProviderService) AddStorageForIAASUnit(
 		return nil, errors.Capture(err)
 	}
 
-	return s.st.AddStorageForIAASUnit(ctx, unitUUID, internal.IAASUnitAddStorageArg{
+	added, err := s.st.AddStorageForIAASUnit(ctx, unitUUID, storageName, internal.IAASUnitAddStorageArg{
 		UnitAddStorageArg: unitStorageArgs,
 		FilesystemsToOwn:  iassUnitStorageArgs.FilesystemsToOwn,
 		VolumesToOwn:      iassUnitStorageArgs.VolumesToOwn,
 	})
+	if errors.Is(err, internal.MaxStorageCountPreconditonFailed) {
+		maxCount := unitStorageArgs.MaxCount + int(count)
+		return nil, applicationerrors.StorageCountLimitExceeded{
+			Maximum:     &maxCount,
+			Requested:   int(count),
+			StorageName: storageName.String(),
+		}
+	}
+	return added, errors.Capture(err)
 }
 
 // AddStorageForCAASUnit adds storage instances to the given CAAS unit.

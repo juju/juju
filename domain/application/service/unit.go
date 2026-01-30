@@ -224,7 +224,7 @@ type UnitState interface {
 	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 	// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded] when the requested storage falls outside of the bounds defined by the charm.
 	AddStorageForIAASUnit(
-		ctx context.Context, unitUUID coreunit.UUID,
+		ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
 		storageArg internal.IAASUnitAddStorageArg,
 	) ([]corestorage.ID, error)
 }

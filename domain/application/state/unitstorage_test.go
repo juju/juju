@@ -403,7 +403,7 @@ func (u *unitStorageSuite) TestGetCharmStorageAndInstanceCountByUnitUUIDNotSuppo
 
 func (u *unitStorageSuite) TestAddStorageForIAASUnitNotFound(c *tc.C) {
 	uuid := tc.Must(c, coreunit.NewUUID)
-	_, err := u.state.AddStorageForIAASUnit(c.Context(), uuid, internal.IAASUnitAddStorageArg{})
+	_, err := u.state.AddStorageForIAASUnit(c.Context(), uuid, "st1", internal.IAASUnitAddStorageArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -416,7 +416,7 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnitNotAlive(c *tc.C) {
 	})
 	c.Assert(err, tc.IsNil)
 
-	_, err = u.state.AddStorageForIAASUnit(c.Context(), uuid, internal.IAASUnitAddStorageArg{})
+	_, err = u.state.AddStorageForIAASUnit(c.Context(), uuid, "st1", internal.IAASUnitAddStorageArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotAlive)
 }
 
@@ -478,7 +478,7 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnit(c *tc.C) {
 		},
 	}
 
-	gotIDs, err := u.state.AddStorageForIAASUnit(c.Context(), unitUUID, internal.IAASUnitAddStorageArg{
+	gotIDs, err := u.state.AddStorageForIAASUnit(c.Context(), unitUUID, "st1", internal.IAASUnitAddStorageArg{
 		UnitAddStorageArg: internal.UnitAddStorageArg{
 			StorageInstances: unitStorageToCreate,
 			StorageToAttach:  unitStorageToAttach,

@@ -1055,7 +1055,7 @@ func (st *State) AddStorageForCAASUnit(
 
 // AddStorageForIAASUnit adds storage instances to given IAAS unit as specified.
 func (st *State) AddStorageForIAASUnit(
-	ctx context.Context, unitUUID coreunit.UUID,
+	ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
 	storageArg internal.IAASUnitAddStorageArg,
 ) ([]corestorage.ID, error) {
 	db, err := st.DB(ctx)
@@ -1070,6 +1070,14 @@ func (st *State) AddStorageForIAASUnit(
 
 	var storageIDs []string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Ensure another update hasn't violated our preconditions.
+		currentCount, err := st.getUnitStorageCount(ctx, tx, unitUUID, storageName)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if storageArg.MaxCount > 0 && currentCount > uint64(storageArg.MaxCount) {
+			return internal.MaxStorageCountPreconditonFailed
+		}
 		storageIDs, err = st.addStorageForUnit(ctx, tx, unitUUID, storageArg.UnitAddStorageArg)
 		if err != nil {
 			return errors.Capture(err)

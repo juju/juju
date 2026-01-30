@@ -7,6 +7,7 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
+	"github.com/juju/juju/internal/errors"
 )
 
 // CreateApplicationStorageDirectiveArg defines an individual storage directive to be
@@ -32,6 +33,10 @@ type CreateStorageDirectiveArg struct {
 	Size uint64
 }
 
+// MaxStorageCountPreconditonFailed is used to signal a concurrent db operation
+// has occurred so that any pre-conditions for completing a storage add/attach are violated.
+const MaxStorageCountPreconditonFailed = errors.ConstError("max storage count precondiiton failed")
+
 // UnitAddStorageArg represents the arguments required for add storage
 // to a unit. This will instantiate the instances and attachments for the unit.
 type UnitAddStorageArg struct {
@@ -48,6 +53,10 @@ type UnitAddStorageArg struct {
 	// StorageToOwn defines the storage instances that should be owned by the
 	// unit.
 	StorageToOwn []domainstorage.StorageInstanceUUID
+
+	// MaxCount, if > 0,  is maximum storage count allowed at the time the add
+	// is performed in order for the add operation to be considered successful.
+	MaxCount int
 }
 
 // IAASUnitAddStorageArg represents the arguments required for making storage
