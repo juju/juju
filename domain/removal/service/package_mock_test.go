@@ -3156,41 +3156,41 @@ func (c *MockModelDBStateIsControllerModelCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
-// IsUnitInErrorOrBlockedState mocks base method.
-func (m *MockModelDBState) IsUnitInErrorOrBlockedState(arg0 context.Context, arg1 string) (bool, error) {
+// IsUnitDyingAndBlocked mocks base method.
+func (m *MockModelDBState) IsUnitDyingAndBlocked(arg0 context.Context, arg1 string) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsUnitInErrorOrBlockedState", arg0, arg1)
+	ret := m.ctrl.Call(m, "IsUnitDyingAndBlocked", arg0, arg1)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// IsUnitInErrorOrBlockedState indicates an expected call of IsUnitInErrorOrBlockedState.
-func (mr *MockModelDBStateMockRecorder) IsUnitInErrorOrBlockedState(arg0, arg1 any) *MockModelDBStateIsUnitInErrorOrBlockedStateCall {
+// IsUnitDyingAndBlocked indicates an expected call of IsUnitDyingAndBlocked.
+func (mr *MockModelDBStateMockRecorder) IsUnitDyingAndBlocked(arg0, arg1 any) *MockModelDBStateIsUnitDyingAndBlockedCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsUnitInErrorOrBlockedState", reflect.TypeOf((*MockModelDBState)(nil).IsUnitInErrorOrBlockedState), arg0, arg1)
-	return &MockModelDBStateIsUnitInErrorOrBlockedStateCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsUnitDyingAndBlocked", reflect.TypeOf((*MockModelDBState)(nil).IsUnitDyingAndBlocked), arg0, arg1)
+	return &MockModelDBStateIsUnitDyingAndBlockedCall{Call: call}
 }
 
-// MockModelDBStateIsUnitInErrorOrBlockedStateCall wrap *gomock.Call
-type MockModelDBStateIsUnitInErrorOrBlockedStateCall struct {
+// MockModelDBStateIsUnitDyingAndBlockedCall wrap *gomock.Call
+type MockModelDBStateIsUnitDyingAndBlockedCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelDBStateIsUnitInErrorOrBlockedStateCall) Return(arg0 bool, arg1 error) *MockModelDBStateIsUnitInErrorOrBlockedStateCall {
+func (c *MockModelDBStateIsUnitDyingAndBlockedCall) Return(arg0 bool, arg1 error) *MockModelDBStateIsUnitDyingAndBlockedCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDBStateIsUnitInErrorOrBlockedStateCall) Do(f func(context.Context, string) (bool, error)) *MockModelDBStateIsUnitInErrorOrBlockedStateCall {
+func (c *MockModelDBStateIsUnitDyingAndBlockedCall) Do(f func(context.Context, string) (bool, error)) *MockModelDBStateIsUnitDyingAndBlockedCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDBStateIsUnitInErrorOrBlockedStateCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockModelDBStateIsUnitInErrorOrBlockedStateCall {
+func (c *MockModelDBStateIsUnitDyingAndBlockedCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockModelDBStateIsUnitDyingAndBlockedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

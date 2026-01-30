@@ -1099,7 +1099,7 @@ func (s *unitSuite) TestGetApplicationNameAndUnitNameByUnitUUIDNotFound(c *tc.C)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-func (s *unitSuite) TestIsUnitInErrorOrBlockedState(c *tc.C) {
+func (s *unitSuite) TestIsUnitDyingAndBlocked(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 
@@ -1114,9 +1114,9 @@ func (s *unitSuite) TestIsUnitInErrorOrBlockedState(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	isError, err := st.IsUnitInErrorOrBlockedState(c.Context(), unitName)
+	isBlocked, err := st.IsUnitDyingAndBlocked(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(isError, tc.Equals, false)
+	c.Check(isBlocked, tc.Equals, false)
 
 	const (
 		blockedStatus = 4
@@ -1126,9 +1126,53 @@ func (s *unitSuite) TestIsUnitInErrorOrBlockedState(c *tc.C) {
 		_, err = s.DB().Exec("UPDATE unit_workload_status SET status_id = ? WHERE unit_uuid = ?", status, unitUUID.String())
 		c.Assert(err, tc.ErrorIsNil)
 
-		isError, err = st.IsUnitInErrorOrBlockedState(c.Context(), unitName)
+		isBlocked, err = st.IsUnitDyingAndBlocked(c.Context(), unitName)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(isError, tc.Equals, true)
+		c.Check(isBlocked, tc.Equals, false)
+	}
+
+	// Now check with the life set to dying.
+	s.advanceUnitLife(c, unitUUID, life.Dying)
+
+	for _, status := range []int{blockedStatus, errorStatus} {
+		_, err = s.DB().Exec("UPDATE unit_workload_status SET status_id = ? WHERE unit_uuid = ?", status, unitUUID.String())
+		c.Assert(err, tc.ErrorIsNil)
+
+		isBlocked, err = st.IsUnitDyingAndBlocked(c.Context(), unitName)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(isBlocked, tc.Equals, true)
+	}
+}
+
+func (s *unitSuite) TestIsUnitDyingAndBlockedDead(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	row := s.DB().QueryRowContext(c.Context(), "SELECT name FROM unit WHERE uuid = ?", unitUUID)
+	var unitName string
+	err := row.Scan(&unitName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Now check with the life set to dying.
+	s.advanceUnitLife(c, unitUUID, life.Dead)
+
+	const (
+		blockedStatus = 4
+		errorStatus   = 7
+	)
+	for _, status := range []int{blockedStatus, errorStatus} {
+		_, err = s.DB().Exec("UPDATE unit_workload_status SET status_id = ? WHERE unit_uuid = ?", status, unitUUID.String())
+		c.Assert(err, tc.ErrorIsNil)
+
+		isBlocked, err := st.IsUnitDyingAndBlocked(c.Context(), unitName)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(isBlocked, tc.Equals, true)
 	}
 }
 

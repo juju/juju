@@ -54,6 +54,11 @@ type RelationState interface {
 	// It archives the unit's relation settings, then deletes all associated
 	// relation unit records.
 	LeaveScope(ctx context.Context, relationUnitUUID string) error
+
+	// IsUnitDyingAndBlocked returns true if the unit with the input name
+	// is dying, or is in a blocked state. The blocked state indicated if the
+	// unit workload has an error or blocked status.
+	IsUnitDyingAndBlocked(ctx context.Context, unitName string) (bool, error)
 }
 
 // RemoveRelation checks if a relation with the input UUID exists.
@@ -224,15 +229,15 @@ func (s *Service) processRelationInScopeUnits(ctx context.Context, job removal.J
 		return removalerrors.RemovalJobIncomplete
 	}
 
-	// We need to check if we're the remaining unit in scope and the unit is in
-	// an error or blocked state, we can just depart it automatically. This will
+	// We need to check if we're the remaining unit in scope and the unit is
+	// dying and the unit workload status is in an error or blocked state. If it
+	// is in blocked state, then we can just depart it automatically. This will
 	// short circuit the need for manual intervention to remove the relation.
 	unitName := inScope[0]
-	isError, err := s.modelState.IsUnitInErrorOrBlockedState(ctx, unitName)
+	isBlocked, err := s.modelState.IsUnitDyingAndBlocked(ctx, unitName)
 	if err != nil {
 		return errors.Errorf("checking unit status %q: %w", unitName, err)
-	} else if isError {
-
+	} else if isBlocked {
 		s.logger.Infof(ctx, "removal job %q for relation %q auto-departing unit %q in error state",
 			job.UUID, job.EntityUUID, unitName)
 

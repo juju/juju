@@ -154,7 +154,7 @@ func (s *relationSuite) TestExecuteJobForRelationExistingScopes(c *tc.C) {
 	exp := s.modelState.EXPECT()
 	exp.GetRelationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.UnitNamesInScope(gomock.Any(), j.EntityUUID).Return([]string{"unit/0"}, nil)
-	exp.IsUnitInErrorOrBlockedState(gomock.All(), "unit/0").Return(false, nil)
+	exp.IsUnitDyingAndBlocked(gomock.All(), "unit/0").Return(false, nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIsNil)
@@ -181,7 +181,7 @@ func (s *relationSuite) TestExecuteJobForRelationExistingScopesUnitInError(c *tc
 	exp := s.modelState.EXPECT()
 	exp.GetRelationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.UnitNamesInScope(gomock.Any(), j.EntityUUID).Return([]string{"unit/0"}, nil)
-	exp.IsUnitInErrorOrBlockedState(gomock.All(), "unit/0").Return(true, nil)
+	exp.IsUnitDyingAndBlocked(gomock.All(), "unit/0").Return(true, nil)
 	exp.DeleteRelationUnits(c.Context(), j.EntityUUID).Return(nil)
 	exp.DeleteRelation(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)

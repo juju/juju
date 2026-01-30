@@ -920,9 +920,10 @@ WHERE  uuid = $entityUUID.uuid`, appID)
 	return result.UUID, nil
 }
 
-// IsUnitInErrorOrBlockedState returns whether the unit identified by the unit
-// name is in an error or blocked state.
-func (st *State) IsUnitInErrorOrBlockedState(ctx context.Context, name string) (bool, error) {
+// IsUnitDyingAndBlocked returns true if the unit with the input name is dying,
+// or is in a blocked state. The blocked state indicated if the unit workload
+// has an error or blocked status.
+func (st *State) IsUnitDyingAndBlocked(ctx context.Context, name string) (bool, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
@@ -936,8 +937,10 @@ func (st *State) IsUnitInErrorOrBlockedState(ctx context.Context, name string) (
 	getUnitStatusStmt, err := st.Prepare(`
 SELECT 1 AS &result.result
 FROM   v_unit_workload_status
+JOIN   unit AS u ON v_unit_workload_status.unit_uuid = u.uuid
 JOIN   workload_status_value AS wsv ON v_unit_workload_status.status_id = wsv.id
 WHERE  unit_name = $entityName.name AND
+       u.life_id > 0 AND
        (wsv.status = 'error' OR wsv.status = 'blocked');
 `, result{}, unitName)
 	if err != nil {
@@ -946,7 +949,8 @@ WHERE  unit_name = $entityName.name AND
 
 	var res result
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, getUnitStatusStmt, unitName).Get(&res); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		err := tx.Query(ctx, getUnitStatusStmt, unitName).Get(&res)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return err
 		}
 		return nil
