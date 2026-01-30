@@ -59,6 +59,14 @@ func (st *ModelState) SetFilesystemStatus(
 	return nil
 }
 
+func (st *ModelState) GetAllAttachedBlockDeviceLinks(
+	ctx context.Context,
+) (map[blockdevice.BlockDeviceUUID][]string, error) {
+	// TODO(tlm): implement
+	//
+	return map[blockdevice.BlockDeviceUUID][]string{}, nil
+}
+
 // getFilesystemstatus gets the status of the given filesystem
 // and a bool indicating if it is provisioned.
 // The following errors can be expected:
@@ -942,7 +950,7 @@ LEFT JOIN unit u ON u.uuid=sa.unit_uuid
 
 // GetVolumes returns the specified volumes if they exist.
 func (st *ModelState) GetVolumes(
-	ctx context.Context, uuids []storageprovisioning.VolumeUUID,
+	ctx context.Context, uuids []storage.VolumeUUID,
 ) ([]status.Volume, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -989,7 +997,7 @@ WHERE     sv.uuid IN ($entityUUIDs[:])
 			storageInstanceUUID = &siUUID
 		}
 		return status.Volume{
-			UUID: storageprovisioning.VolumeUUID(v.UUID),
+			UUID: storage.VolumeUUID(v.UUID),
 			ID:   v.ID,
 			Life: life.Life(v.LifeID),
 			Status: status.StatusInfo[status.StorageVolumeStatusType]{
@@ -1075,7 +1083,7 @@ LEFT JOIN storage_instance si ON si.uuid=siv.storage_instance_uuid
 
 // GetVolumeAttachments returns the specified volume attachments if they exist.
 func (st *ModelState) GetVolumeAttachments(
-	ctx context.Context, uuids []storageprovisioning.VolumeUUID,
+	ctx context.Context, uuids []storage.VolumeUUID,
 ) ([]status.VolumeAttachment, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1162,7 +1170,7 @@ LEFT JOIN storage_volume_attachment_plan_attr svapa ON svapa.attachment_plan_uui
 			unitName = &u
 		}
 		return status.VolumeAttachment{
-			VolumeUUID:           storageprovisioning.VolumeUUID(v.VolumeUUID),
+			VolumeUUID:           storage.VolumeUUID(v.VolumeUUID),
 			Life:                 life.Life(v.LifeID),
 			Unit:                 unitName,
 			Machine:              machineName,

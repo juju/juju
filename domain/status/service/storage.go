@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 
-	coreblockdevice "github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/machine"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
@@ -84,7 +83,7 @@ type StorageState interface {
 
 	// GetVolumes returns the specified volumes.
 	GetVolumes(
-		ctx context.Context, uuids []storageprovisioning.VolumeUUID,
+		ctx context.Context, uuids []storage.VolumeUUID,
 	) ([]status.Volume, error)
 
 	// GetAllVolumes returns all the volumes for this model.
@@ -92,22 +91,18 @@ type StorageState interface {
 
 	// GetVolumeAttachments returns the specified volume attachments.
 	GetVolumeAttachments(
-		ctx context.Context, uuids []storageprovisioning.VolumeUUID,
+		ctx context.Context, uuids []storage.VolumeUUID,
 	) ([]status.VolumeAttachment, error)
 
 	// GetAllVolumeAttachments returns all the volume attachments for this model.
 	GetAllVolumeAttachments(ctx context.Context) ([]status.VolumeAttachment, error)
 
-	// GetBlockDevices returns the specified block devices.
-	GetBlockDevices(
-		ctx context.Context, uuids []blockdevice.BlockDeviceUUID,
-	) (map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice, error)
-
-	// GetAllAttachedBlockDevices returns all the block devices that are
-	// attached via a volume attachment.
-	GetAllAttachedBlockDevices(
+	// GetAllAttachedBlockDeviceLinks returns all the block devices and their
+	// device links where the block device is associated with a volume
+	// attachment in the model.
+	GetAllAttachedBlockDeviceLinks(
 		ctx context.Context,
-	) (map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice, error)
+	) (map[blockdevice.BlockDeviceUUID][]string, error)
 }
 
 // SetFilesystemStatus validates and sets the given filesystem status, overwriting any
@@ -210,13 +205,13 @@ func (s *Service) GetStorageInstanceStatuses(
 			blockDeviceUUIDs = append(blockDeviceUUIDs, *v.VolumeBlockDevice)
 		}
 	}
-	blockDevices, err := s.modelState.GetBlockDevices(ctx, blockDeviceUUIDs)
+	blockDeviceLinks, err := s.modelState.GetAllAttachedBlockDeviceLinks(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	return s.transformStorageInstanceResults(
-		storageInstances, storageAttachments, blockDevices)
+		storageInstances, storageAttachments, blockDeviceLinks)
 }
 
 // GetAllStorageInstanceStatuses returns all the storage instance statuses for
@@ -235,19 +230,19 @@ func (s *Service) GetAllStorageInstanceStatuses(
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	blockDevices, err := s.modelState.GetAllAttachedBlockDevices(ctx)
+	blockDeviceLinks, err := s.modelState.GetAllAttachedBlockDeviceLinks(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	return s.transformStorageInstanceResults(
-		storageInstances, storageAttachments, blockDevices)
+		storageInstances, storageAttachments, blockDeviceLinks)
 }
 
 func (s *Service) transformStorageInstanceResults(
 	storageInstances []status.StorageInstance,
 	storageAttachments []status.StorageAttachment,
-	blockDevices map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice,
+	blockDeviceLinks map[blockdevice.BlockDeviceUUID][]string,
 ) ([]StorageInstance, error) {
 	storageMap := map[storage.StorageInstanceUUID]*StorageInstance{}
 	for _, dsi := range storageInstances {
@@ -294,10 +289,7 @@ func (s *Service) transformStorageInstanceResults(
 			switch si.Kind {
 			case storage.StorageKindBlock:
 				if dsa.VolumeBlockDevice != nil {
-					blockDevice, ok := blockDevices[*dsa.VolumeBlockDevice]
-					if ok {
-						sa.Location = blockdevice.IDLink(blockDevice.DeviceLinks)
-					}
+					sa.Location = blockdevice.IDLink(blockDeviceLinks[*dsa.VolumeBlockDevice])
 				}
 			case storage.StorageKindFilesystem:
 				if dsa.FilesystemMountPoint != nil {
@@ -420,7 +412,7 @@ func (s *Service) transformFilesystemResults(
 
 // GetVolumeStatuses returns the specified volume statuses.
 func (s *Service) GetVolumeStatuses(
-	ctx context.Context, uuids []storageprovisioning.VolumeUUID,
+	ctx context.Context, uuids []storage.VolumeUUID,
 ) ([]Volume, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -458,7 +450,7 @@ func (s *Service) transformVolumeResults(
 	volumes []status.Volume,
 	volumeAttachments []status.VolumeAttachment,
 ) ([]Volume, error) {
-	volumeMap := map[storageprovisioning.VolumeUUID]*Volume{}
+	volumeMap := map[storage.VolumeUUID]*Volume{}
 	for _, dv := range volumes {
 		v := Volume{
 			UUID:        dv.UUID,
