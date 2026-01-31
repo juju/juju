@@ -1505,6 +1505,89 @@ func (s *importSuite) TestApplicationImportSubordinate(c *tc.C) {
 	}})
 }
 
+// TestApplicationImportWithStorageUniqueID tests that the storage unique ID
+// and storage names are passed correctly in the args.
+func (s *importSuite) TestApplicationImportWithStorageUniqueID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.CAAS.String(),
+	})
+
+	storageDirectives := make(map[string]description.StorageDirectiveArgs)
+	storageDirectives["cert"] = description.StorageDirectiveArgs{
+		Pool:  "custompool",
+		Size:  100,
+		Count: 1,
+	}
+	storageDirectives["cache"] = description.StorageDirectiveArgs{
+		Pool:  "custompool",
+		Size:  150,
+		Count: 1,
+	}
+	appArgs := description.ApplicationArgs{
+		Name:              "prometheus",
+		CharmURL:          "ch:prometheus-1",
+		StorageUniqueID:   "uniqid",
+		StorageDirectives: storageDirectives,
+	}
+	app := model.AddApplication(appArgs)
+	app.AddUnit(description.UnitArgs{
+		Name:         "prometheus/0",
+		PasswordHash: "passwordhash",
+		CloudContainer: &description.CloudContainerArgs{
+			ProviderId: "provider-id",
+			Address: description.AddressArgs{
+				Value:   "10.6.6.6",
+				Type:    "ipv4",
+				Scope:   "local-machine",
+				Origin:  "provider",
+				SpaceID: "666",
+			},
+			Ports: []string{"6666"},
+		},
+	})
+	app.SetCharmMetadata(description.CharmMetadataArgs{
+		Name: "prometheus",
+	})
+	app.SetCharmManifest(description.CharmManifestArgs{
+		Bases: []description.CharmManifestBase{baseType{
+			name:          "ubuntu",
+			channel:       "24.04",
+			architectures: []string{"amd64"},
+		}},
+	})
+	app.SetCharmOrigin(description.CharmOriginArgs{
+		Source:   "charm-hub",
+		ID:       "1234",
+		Hash:     "deadbeef",
+		Revision: 1,
+		Channel:  "666/stable",
+		Platform: "arm64/ubuntu/24.04",
+	})
+
+	var importArgs service.ImportCAASApplicationArgs
+	s.importService.EXPECT().ImportCAASApplication(
+		gomock.Any(),
+		"prometheus",
+		gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, args service.ImportCAASApplicationArgs) error {
+		importArgs = args
+		return nil
+	})
+
+	importOp := importOperation{
+		service: s.importService,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+
+	err := importOp.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(importArgs.StorageUniqueID, tc.DeepEquals, "uniqid")
+	c.Assert(importArgs.StorageNames, tc.SameContents, []string{"cert", "cache"})
+}
+
 func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
