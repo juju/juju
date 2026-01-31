@@ -76,10 +76,10 @@ type ApplicationOps interface {
 		lastProvisioningInfo *ProvisioningInfo,
 		logger logger.Logger) (*ProvisioningInfo, error)
 
-	AppAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
-		app caas.Application, password string, lastApplied *caas.ApplicationConfig,
-		provisioningInfo *ProvisioningInfo, statusService StatusService,
-		clk clock.Clock, logger logger.Logger) error
+	AppAlive(ctx context.Context, appName string, appStorageUniqueID string,
+		appUUID coreapplication.UUID, app caas.Application, password string,
+		lastApplied *caas.ApplicationConfig, provisioningInfo *ProvisioningInfo,
+		statusService StatusService, clk clock.Clock, logger logger.Logger) error
 
 	AppDying(ctx context.Context, appName string, appUUID coreapplication.UUID,
 		app caas.Application, appLife life.Value, facade CAASProvisionerFacade,
@@ -134,12 +134,12 @@ func (applicationOps) ProvisioningInfo(
 
 func (applicationOps) AppAlive(
 	ctx context.Context,
-	appName string, appUUID coreapplication.UUID, app caas.Application,
-	password string, lastApplied *caas.ApplicationConfig,
+	appName string, appStorageUniqueID string, appUUID coreapplication.UUID,
+	app caas.Application, password string, lastApplied *caas.ApplicationConfig,
 	provisioningInfo *ProvisioningInfo, statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
 ) error {
-	return appAlive(ctx, appName, appUUID, app, password,
+	return appAlive(ctx, appName, appStorageUniqueID, appUUID, app, password,
 		lastApplied, provisioningInfo, statusService,
 		clk, logger)
 }
@@ -223,9 +223,9 @@ type Tomb interface {
 
 // appAlive handles the life.Alive state for the CAAS application. It handles invoking the
 // CAAS broker to create the resources in the k8s cluster for this application.
-func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
-	app caas.Application, password string, lastApplied *caas.ApplicationConfig,
-	pi *ProvisioningInfo, statusService StatusService,
+func appAlive(ctx context.Context, appName string, appStorageUniqueID string,
+	appUUID coreapplication.UUID, app caas.Application, password string,
+	lastApplied *caas.ApplicationConfig, pi *ProvisioningInfo, statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
 ) error {
 	logger.Debugf(ctx, "ensuring application %q exists", appName)
@@ -275,8 +275,6 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 		}
 		containers[k] = container
 	}
-
-	storageUniqueID := getStorageUniqueID(appUUID)
 
 	makeKubernetesFilesystemParams := func(
 		fst storageprovisioning.FilesystemTemplate,
@@ -336,7 +334,7 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 		// The provisionInfo.Scale is no longer used, so in theory we
 		// could delete this field. Should investigate refactoring.
 		InitialScale:    0,
-		StorageUniqueID: storageUniqueID,
+		StorageUniqueID: appStorageUniqueID,
 	}
 	switch pi.CharmMeta.CharmUser {
 	case charm.RunAsDefault:

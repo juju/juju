@@ -2792,6 +2792,42 @@ func (st *State) SetApplicationConstraints(ctx context.Context, appID coreapplic
 	})
 }
 
+func (st *State) GetApplicationProviderStorageID(ctx context.Context,
+	appID coreapplication.UUID) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	query := `
+SELECT * 
+FROM   application_provider_storage_id
+WHERE  application_uuid = $entityUUID.uuid
+LIMIT  1
+`
+	appUUID := entityUUID{UUID: appID.String()}
+	stmt, err := st.Prepare(query, appUUID)
+	if err != nil {
+		return "", errors.Errorf("preparing query for app %q storage unique id: %w", appID, err)
+	}
+
+	appProviderStorageID := applicationProviderStorageID{}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, appUUID).Get(&appProviderStorageID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Errorf("querying app %q storage unique id: %w", appID, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return appProviderStorageID.StorageUniqueID, nil
+}
+
 func (st *State) setApplicationConstraints(
 	ctx context.Context,
 	tx *sqlair.TX,

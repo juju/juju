@@ -439,6 +439,8 @@ type ApplicationState interface {
 	// GetMachinesForApplication returns the names of the machines which have a unit.
 	// of the specified application deployed to it.
 	GetMachinesForApplication(ctx context.Context, appUUID string) ([]string, error)
+
+	GetApplicationProviderStorageID(ctx context.Context, appUUID coreapplication.UUID) (string, error)
 }
 
 func validateCharmAndApplicationParams(
@@ -1689,6 +1691,30 @@ func (s *Service) GetMachinesForApplication(ctx context.Context, appName string)
 	return transform.Slice(machineNames, func(v string) coremachine.Name {
 		return coremachine.Name(v)
 	}), nil
+}
+
+func (s *Service) GetApplicationStorageUniqueID(
+	ctx context.Context,
+	appUUID coreapplication.UUID,
+) (string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	err := appUUID.Validate()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	storageUniqueID, err := s.st.GetApplicationProviderStorageID(ctx, appUUID)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	// If it's non-empty then it must've come from a migrated app. Return it.
+	if storageUniqueID != "" {
+		return storageUniqueID, nil
+	}
+
+	// This must've been a new deployed app. Use the short UUID of the app.
+	return appUUID.String()[:6], nil
 }
 
 func getTrustSettingFromConfig(cfg map[string]string) (*bool, error) {

@@ -108,6 +108,8 @@ type ApplicationService interface {
 	// GetCharmByApplicationUUID returns the charm for the specified application
 	// UUID.
 	GetCharmByApplicationUUID(context.Context, application.UUID) (internalcharm.Charm, applicationcharm.CharmLocator, error)
+
+	GetApplicationStorageUniqueID(context.Context, application.UUID) (string, error)
 }
 
 // CAASBroker exposes CAAS broker functionality to a worker.

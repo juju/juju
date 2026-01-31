@@ -284,7 +284,11 @@ func (a *appWorker) loop() error {
 				} else if err != nil {
 					return errors.Annotatef(err, "failed to get provisioning info for %q", name)
 				}
-				err = a.ops.AppAlive(ctx, name, a.appUUID, app, a.password,
+				appStorageUniqueID, err := a.applicationService.GetApplicationStorageUniqueID(ctx, a.appUUID)
+				if err != nil {
+					return errors.Annotatef(err, "failed to get application %q storage unique id", name)
+				}
+				err = a.ops.AppAlive(ctx, name, appStorageUniqueID, a.appUUID, app, a.password,
 					&a.lastApplied, a.provisioningInfo, a.statusService,
 					a.clock, a.logger)
 				if err != nil {
