@@ -93,6 +93,12 @@ type applicationScale struct {
 	ScaleTarget   int    `db:"scale_target"`
 }
 
+type applicationProviderStorageID struct {
+	ApplicationID   string `db:"application_uuid"`
+	Storage         string `db:"storage_name"`
+	StorageUniqueID string `db:"storage_unique_id"`
+}
+
 type architectureMap struct {
 	ID   int    `db:"id"`
 	Name string `db:"name"`

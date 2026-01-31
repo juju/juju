@@ -481,6 +481,13 @@ type InsertApplicationArgs struct {
 	// EndpointBindings is a map to bind application endpoint by name to a
 	// specific space. The default space is referenced by an empty key, if any.
 	EndpointBindings map[string]network.SpaceName
+
+	// StorageUniqueID is an identifier that is used to construct storage name
+	// specific to a storage provider.
+	StorageUniqueID string
+
+	// StorageNames is the set of storage names defined in the charm.
+	StorageNames []string
 }
 
 // SetCharmParams contains the parameters for updating

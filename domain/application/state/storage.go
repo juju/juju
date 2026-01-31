@@ -1100,6 +1100,27 @@ func ensureCharmStorageCountChange(charmStorage charmStorage, current, n uint64)
 	return nil
 }
 
+func (st *State) insertApplicationStorageUniqueID(ctx context.Context, tx *sqlair.TX,
+	appUUID, storageUniqueID string, storageNames []string) error {
+	createAppStorageUniqueID := `
+INSERT INTO application_provider_storage_id (*) VALUES ($applicationProviderStorageID.*)`
+	createAppStorageUniqueIDStmt, err := st.Prepare(createAppStorageUniqueID,
+		applicationProviderStorageID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	appStorageUniqueIDArgs := make([]applicationProviderStorageID, 0, len(storageNames))
+	for _, storageName := range storageNames {
+		appStorageUniqueIDArgs = append(appStorageUniqueIDArgs, applicationProviderStorageID{
+			ApplicationID:   appUUID,
+			Storage:         storageName,
+			StorageUniqueID: storageUniqueID,
+		})
+	}
+	return tx.Query(ctx, createAppStorageUniqueIDStmt, appStorageUniqueIDArgs).Run()
+}
+
 func (st *State) attachStorage(
 	ctx context.Context, tx *sqlair.TX, inst storageInstance, unitUUID coreunit.UUID, netNodeUUID string,
 	charmStorage charmStorage,

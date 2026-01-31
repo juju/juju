@@ -7,6 +7,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 
 	"github.com/juju/clock"
@@ -191,10 +193,14 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 				unitArgs = append(unitArgs, unitArg)
 			}
 
+			storageNames := slices.Collect(maps.Keys(app.StorageDirectives()))
+
 			err = i.service.ImportCAASApplication(ctx, app.Name(), service.ImportCAASApplicationArgs{
 				ImportApplicationArgs: args,
 				Units:                 unitArgs,
 				ScaleState:            scaleState,
+				StorageUniqueID:       app.StorageUniqueID(),
+				StorageNames:          storageNames,
 			})
 
 		case coremodel.IAAS:
