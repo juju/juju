@@ -45,6 +45,13 @@ type importSuite struct {
 	svc         *service.Service
 }
 
+// applicationProviderStorageID is used to represent an application's
+// storage id, used for testing its retrieval.
+type applicationProviderStorageID struct {
+	storage         string
+	storageUniqueID string
+}
+
 func TestImportSuite(t *testing.T) {
 	tc.Run(t, &importSuite{})
 }
@@ -1287,10 +1294,56 @@ func (s *importSuite) TestApplicationConstraints(c *tc.C) {
 	})
 }
 
+func (s *importSuite) TestImportApplicationStorageUniqueID(c *tc.C) {
+	// Arrange
+	desc := description.NewModel(description.ModelArgs{
+		Type: string(model.CAAS),
+	})
+	storageDirectives := make(map[string]description.StorageDirectiveArgs)
+	storageDirectives["cert"] = description.StorageDirectiveArgs{
+		Pool:  "custompool",
+		Size:  100,
+		Count: 1,
+	}
+	storageDirectives["cache"] = description.StorageDirectiveArgs{
+		Pool:  "custompool",
+		Size:  150,
+		Count: 1,
+	}
+	app := setupMinimalApplicationWithStorageDirectives(desc, storageDirectives)
+	app.SetDesiredScale(3)
+	app.SetStorageUniqueID("uniqid")
+
+	applicationmodelmigration.RegisterImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	// Act
+	err := s.coordinator.Perform(c.Context(), s.scope, desc)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert
+	appStorageUniqueIDs := s.getApplicationStorageUniqueIDs(c, app.Name())
+	c.Assert(appStorageUniqueIDs, tc.SameContents, []applicationProviderStorageID{
+		{
+			storage:         "cert",
+			storageUniqueID: "uniqid",
+		},
+		{
+			storage:         "cache",
+			storageUniqueID: "uniqid",
+		},
+	})
+}
+
 func setupMinimalApplication(model description.Model) description.Application {
+	return setupMinimalApplicationWithStorageDirectives(model, nil)
+}
+
+func setupMinimalApplicationWithStorageDirectives(model description.Model,
+	storageDirectives map[string]description.StorageDirectiveArgs) description.Application {
 	app := model.AddApplication(description.ApplicationArgs{
-		Name:     "foo",
-		CharmURL: "ch:foo-7",
+		Name:              "foo",
+		CharmURL:          "ch:foo-7",
+		StorageDirectives: storageDirectives,
 	})
 	app.SetCharmOrigin(description.CharmOriginArgs{
 		Source:   "charm-hub",
@@ -1324,6 +1377,35 @@ func (s *importSuite) setModel(c *tc.C, cloudType, modelType string) {
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+// getApplicationStorageUniqueIDs is a test helper that retrieve a slice of storage unique ids belonging
+// to an application.
+func (s *importSuite) getApplicationStorageUniqueIDs(c *tc.C, appName string) []applicationProviderStorageID {
+	vals := make([]applicationProviderStorageID, 0)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+			SELECT storage_name, storage_unique_id 
+			FROM   application_provider_storage_id
+			WHERE  application_uuid = (
+			 SELECT uuid FROM application
+			 WHERE  name = ?
+			)`, appName)
+		c.Assert(err, tc.ErrorIsNil)
+		defer rows.Close()
+
+		for rows.Next() {
+			row := applicationProviderStorageID{}
+			err = rows.Scan(&row.storage, &row.storageUniqueID)
+			c.Assert(err, tc.ErrorIsNil)
+			vals = append(vals, row)
+		}
+
+		c.Assert(rows.Err(), tc.ErrorIsNil)
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return vals
 }
 
 func ptr[T any](i T) *T {
