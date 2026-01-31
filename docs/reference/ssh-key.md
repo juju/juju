@@ -21,7 +21,7 @@ This means that a model creator will always be able to connect to any machine wi
 
 An **SSH key** is an access  key in the [SSH](https://www.ssh.com/academy/ssh-keys) protocol. In Juju it refers to a way of accessing a machine provisioned by Juju individually.
 
-Juju maintains a per-model cache of public SSH keys which it copies to each unit (including units already deployed). By default this includes the key of the user who created the model (assuming it is stored in the default location ~/.ssh/). You can also add further keys via `juju add-ssh-key` or `juju import-ssh-key`. Any key added to the model is placed on all machines (present and future) in the model.
+Juju maintains a per-model cache of public SSH keys which it copies to each machine (including machines already deployed). You can add keys via `juju add-ssh-key` or `juju import-ssh-key`. Any key added to the model is placed on all machines (present and future) in the model.
 
 Each Juju machine provides a user account named 'ubuntu' and it is to this account that public keys are added when using the Juju SSH commands `add-ssh-key` and `import-ssh-key`. Because this user is effectively the 'root' user (passwordless sudo privileges), the granting of SSH access must be done with due consideration.
 
