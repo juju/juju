@@ -584,7 +584,6 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 	password := "123456789"
 	lastApplied := caas.ApplicationConfig{}
 	appUUID := tc.Must(c, application.NewUUID)
-	storageUniqueID := appUUID.String()[:6]
 
 	pi := caasapplicationprovisioner.ProvisioningInfo{
 		ImageDetails: coreresource.DockerImageDetails{
@@ -713,7 +712,7 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 		Trust:           true,
 		InitialScale:    0,
 		CharmUser:       caas.RunAsDefault,
-		StorageUniqueID: storageUniqueID,
+		StorageUniqueID: "uniqid",
 	}
 	gomock.InOrder(
 		app.EXPECT().Exists().Return(ds, nil),
@@ -725,7 +724,8 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.AppAlive(c.Context(), "test",
-		appUUID, app, password, &lastApplied, &pi, statusService, clk, s.logger)
+		"uniqid", appUUID, app, password, &lastApplied, &pi, statusService,
+		clk, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

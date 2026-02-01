@@ -48,6 +48,7 @@ type appWorker struct {
 	lastApplied      caas.ApplicationConfig
 	provisioningInfo *ProvisioningInfo
 	life             life.Value
+	storageUniqueID  string
 
 	engineReportRequest chan chan<- map[string]any
 }
@@ -96,6 +97,7 @@ func NewAppWorker(config AppWorkerConfig) func(ctx context.Context) (worker.Work
 			changes:                    changes,
 			ops:                        ops,
 			engineReportRequest:        make(chan chan<- map[string]any),
+			storageUniqueID:            "",
 		}
 		err := catacomb.Invoke(catacomb.Plan{
 			Name: "caas-application-provisioner",
@@ -284,11 +286,14 @@ func (a *appWorker) loop() error {
 				} else if err != nil {
 					return errors.Annotatef(err, "failed to get provisioning info for %q", name)
 				}
-				appStorageUniqueID, err := a.applicationService.GetApplicationStorageUniqueID(ctx, a.appUUID)
-				if err != nil {
-					return errors.Annotatef(err, "failed to get application %q storage unique id", name)
+				if a.storageUniqueID == "" {
+					a.storageUniqueID, err = a.applicationService.GetApplicationStorageUniqueID(ctx, a.appUUID)
+					if err != nil {
+						return errors.Annotatef(err, "failed to get application %q storage unique id", name)
+					}
 				}
-				err = a.ops.AppAlive(ctx, name, appStorageUniqueID, a.appUUID, app, a.password,
+
+				err = a.ops.AppAlive(ctx, name, a.storageUniqueID, a.appUUID, app, a.password,
 					&a.lastApplied, a.provisioningInfo, a.statusService,
 					a.clock, a.logger)
 				if err != nil {
