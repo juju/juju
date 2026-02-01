@@ -4211,3 +4211,27 @@ func (s *applicationStateSuite) TestGetDefaultSpaceUUIDFromModelConfig(c *tc.C) 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.Equals, spaceUUID)
 }
+
+// TestGetApplicationProviderStorageID tests fetching storage id for apps that have them and that
+// don't have them.
+func (s *applicationStateSuite) TestGetApplicationProviderStorageID(c *tc.C) {
+	appUUID := s.createCAASApplication(c, "test", life.Alive)
+	ctx := c.Context()
+
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO application_provider_storage_id(application_uuid, storage_name, storage_unique_id) VALUES (?, ?, ?)", appUUID.String(), "web", "uniqid"); err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	id, err := s.state.GetApplicationProviderStorageID(ctx, appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(id, tc.Equals, "uniqid")
+
+	nonExistentAppUUID := tc.Must(c, coreapplication.NewUUID)
+	id, err = s.state.GetApplicationProviderStorageID(ctx, nonExistentAppUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(id, tc.Equals, "")
+}
