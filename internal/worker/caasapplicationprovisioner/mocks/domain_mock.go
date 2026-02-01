@@ -283,6 +283,45 @@ func (c *MockApplicationServiceGetApplicationScalingStateCall) DoAndReturn(f fun
 	return c
 }
 
+// GetApplicationStorageUniqueID mocks base method.
+func (m *MockApplicationService) GetApplicationStorageUniqueID(arg0 context.Context, arg1 application.UUID) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationStorageUniqueID", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationStorageUniqueID indicates an expected call of GetApplicationStorageUniqueID.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationStorageUniqueID(arg0, arg1 any) *MockApplicationServiceGetApplicationStorageUniqueIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationStorageUniqueID", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationStorageUniqueID), arg0, arg1)
+	return &MockApplicationServiceGetApplicationStorageUniqueIDCall{Call: call}
+}
+
+// MockApplicationServiceGetApplicationStorageUniqueIDCall wrap *gomock.Call
+type MockApplicationServiceGetApplicationStorageUniqueIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetApplicationStorageUniqueIDCall) Return(arg0 string, arg1 error) *MockApplicationServiceGetApplicationStorageUniqueIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetApplicationStorageUniqueIDCall) Do(f func(context.Context, application.UUID) (string, error)) *MockApplicationServiceGetApplicationStorageUniqueIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetApplicationStorageUniqueIDCall) DoAndReturn(f func(context.Context, application.UUID) (string, error)) *MockApplicationServiceGetApplicationStorageUniqueIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationTrustSetting mocks base method.
 func (m *MockApplicationService) GetApplicationTrustSetting(arg0 context.Context, arg1 string) (bool, error) {
 	m.ctrl.T.Helper()
