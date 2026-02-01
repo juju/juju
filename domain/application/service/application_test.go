@@ -1666,3 +1666,43 @@ func (s *applicationServiceSuite) TestGetApplicationDetailsInvalidAppUUID(c *tc.
 	_, err := s.service.GetApplicationDetails(c.Context(), "!!!")
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationUUIDNotValid)
 }
+
+// TestGetApplicationStorageUniqueIDDerivedFromAppUUID tests that the returned ID is from the
+// first 6 characters of the app UUID. This occurs because the application_provider_storage_id
+// is empty for the given app.
+func (s *applicationServiceSuite) TestGetApplicationStorageUniqueIDDerivedFromAppUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+
+	s.state.EXPECT().GetApplicationProviderStorageID(gomock.Any(), appUUID).Return("", nil)
+
+	id, err := s.service.GetApplicationStorageUniqueID(c.Context(), appUUID)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(id, tc.Equals, appUUID.String()[:6])
+}
+
+// TestGetApplicationStorageUniqueIDFromDB tests that the returned ID is from the
+// application_provider_storage_id table.
+func (s *applicationServiceSuite) TestGetApplicationStorageUniqueIDFromDB(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+
+	s.state.EXPECT().GetApplicationProviderStorageID(gomock.Any(), appUUID).Return("uniqid", nil)
+
+	id, err := s.service.GetApplicationStorageUniqueID(c.Context(), appUUID)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(id, tc.Equals, "uniqid")
+}
+
+// TestGetApplicationStorageUniqueIDInvalidUUID tests that a not valid error is returned if the
+// given app UUID is malformed.
+func (s *applicationServiceSuite) TestGetApplicationStorageUniqueIDInvalidUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id, err := s.service.GetApplicationStorageUniqueID(c.Context(), "!invalid!!")
+
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Assert(id, tc.Equals, "")
+}
