@@ -2792,6 +2792,10 @@ func (st *State) SetApplicationConstraints(ctx context.Context, appID coreapplic
 	})
 }
 
+// GetApplicationProviderStorageID returns an application's storage unique ID.
+// An empty row is a valid scenario in which we return an empty string value.
+// Should an empty string is returned, it's the caller's responsibility to
+// construct the storage unique ID from other means.
 func (st *State) GetApplicationProviderStorageID(ctx context.Context,
 	appID coreapplication.UUID) (string, error) {
 	db, err := st.DB(ctx)
@@ -2800,18 +2804,17 @@ func (st *State) GetApplicationProviderStorageID(ctx context.Context,
 	}
 
 	query := `
-SELECT * 
+SELECT &applicationProviderStorageID.* 
 FROM   application_provider_storage_id
 WHERE  application_uuid = $entityUUID.uuid
 LIMIT  1
 `
 	appUUID := entityUUID{UUID: appID.String()}
-	stmt, err := st.Prepare(query, appUUID)
+	appProviderStorageID := applicationProviderStorageID{}
+	stmt, err := st.Prepare(query, appUUID, appProviderStorageID)
 	if err != nil {
 		return "", errors.Errorf("preparing query for app %q storage unique id: %w", appID, err)
 	}
-
-	appProviderStorageID := applicationProviderStorageID{}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, appUUID).Get(&appProviderStorageID)
