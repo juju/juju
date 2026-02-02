@@ -109,6 +109,7 @@ type ApplicationService interface {
 	// UUID.
 	GetCharmByApplicationUUID(context.Context, application.UUID) (internalcharm.Charm, applicationcharm.CharmLocator, error)
 
+	// GetApplicationStorageUniqueID returns the app's storage unique id.
 	GetApplicationStorageUniqueID(context.Context, application.UUID) (string, error)
 }
 
