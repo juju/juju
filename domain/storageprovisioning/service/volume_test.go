@@ -1001,7 +1001,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentPlan(c *tc.C) {
 
 	vap := storageprovisioning.VolumeAttachmentPlan{
 		Life:       domainlife.Dying,
-		DeviceType: storageprovisioning.PlanDeviceTypeISCSI,
+		DeviceType: domainstorage.VolumeDeviceTypeISCSI,
 		DeviceAttributes: map[string]string{
 			"a": "x",
 		},
@@ -1045,7 +1045,7 @@ func (s *volumeSuite) TestCreateVolumeAttachmentPlan(c *tc.C) {
 
 	vaUUID := tc.Must(c, domainstorage.NewVolumeAttachmentUUID)
 
-	planType := storageprovisioning.PlanDeviceTypeISCSI
+	planType := domainstorage.VolumeDeviceTypeISCSI
 	attrs := map[string]string{
 		"a": "x",
 	}
@@ -1057,7 +1057,7 @@ func (s *volumeSuite) TestCreateVolumeAttachmentPlan(c *tc.C) {
 			_ context.Context,
 			vapUUID domainstorage.VolumeAttachmentPlanUUID,
 			_ domainstorage.VolumeAttachmentUUID,
-			_ storageprovisioning.PlanDeviceType,
+			_ domainstorage.VolumeDeviceType,
 			_ map[string]string) error {
 			gotUUID = vapUUID
 			return nil
@@ -1076,7 +1076,7 @@ func (s *volumeSuite) TestCreateVolumeAttachmentPlanNotFound(c *tc.C) {
 
 	vaUUID := tc.Must(c, domainstorage.NewVolumeAttachmentUUID)
 
-	planType := storageprovisioning.PlanDeviceTypeISCSI
+	planType := domainstorage.VolumeDeviceTypeISCSI
 	attrs := map[string]string{
 		"a": "x",
 	}
@@ -1095,7 +1095,7 @@ func (s *volumeSuite) TestCreateVolumeAttachmentPlanInvalidAttachmentUUID(c *tc.
 
 	vaUUID := domainstorage.VolumeAttachmentUUID("foo")
 
-	planType := storageprovisioning.PlanDeviceTypeISCSI
+	planType := domainstorage.VolumeDeviceTypeISCSI
 	attrs := map[string]string{
 		"a": "x",
 	}
@@ -1111,7 +1111,7 @@ func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedInfo(c *tc.C) {
 	vapUUID := tc.Must(c, domainstorage.NewVolumeAttachmentPlanUUID)
 
 	info := storageprovisioning.VolumeAttachmentPlanProvisionedInfo{
-		DeviceType: storageprovisioning.PlanDeviceTypeISCSI,
+		DeviceType: domainstorage.VolumeDeviceTypeISCSI,
 		DeviceAttributes: map[string]string{
 			"a": "x",
 		},
@@ -1131,7 +1131,7 @@ func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedInfoNotFound(c *tc.C
 	vapUUID := tc.Must(c, domainstorage.NewVolumeAttachmentPlanUUID)
 
 	info := storageprovisioning.VolumeAttachmentPlanProvisionedInfo{
-		DeviceType: storageprovisioning.PlanDeviceTypeISCSI,
+		DeviceType: domainstorage.VolumeDeviceTypeISCSI,
 		DeviceAttributes: map[string]string{
 			"a": "x",
 		},
@@ -1153,7 +1153,7 @@ func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedInfoInvalidUUID(c *t
 	vapUUID := domainstorage.VolumeAttachmentPlanUUID("foo")
 
 	info := storageprovisioning.VolumeAttachmentPlanProvisionedInfo{
-		DeviceType: storageprovisioning.PlanDeviceTypeISCSI,
+		DeviceType: domainstorage.VolumeDeviceTypeISCSI,
 		DeviceAttributes: map[string]string{
 			"a": "x",
 		},

@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
-	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/statushistory"
@@ -571,7 +570,7 @@ func (s *storageServiceSuite) TestGetVolumeStatuses(c *tc.C) {
 			DeviceLink: "/dev/link0",
 			BusAddress: "bus-addr0",
 			VolumeAttachmentPlan: &status.VolumeAttachmentPlan{
-				DeviceType: storageprovisioning.PlanDeviceTypeISCSI,
+				DeviceType: storage.VolumeDeviceTypeISCSI,
 				DeviceAttributes: map[string]string{
 					"foo": "bar",
 				},
@@ -604,7 +603,7 @@ func (s *storageServiceSuite) TestGetVolumeStatuses(c *tc.C) {
 					DeviceLink: "/dev/link0",
 					BusAddress: "bus-addr0",
 					VolumeAttachmentPlan: &VolumeAttachmentPlan{
-						DeviceType: storageprovisioning.PlanDeviceTypeISCSI,
+						DeviceType: storage.VolumeDeviceTypeISCSI,
 						DeviceAttributes: map[string]string{
 							"foo": "bar",
 						},
@@ -619,7 +618,7 @@ func (s *storageServiceSuite) TestGetVolumeStatuses(c *tc.C) {
 					DeviceLink: "/dev/link0",
 					BusAddress: "bus-addr0",
 					VolumeAttachmentPlan: &VolumeAttachmentPlan{
-						DeviceType: storageprovisioning.PlanDeviceTypeISCSI,
+						DeviceType: storage.VolumeDeviceTypeISCSI,
 						DeviceAttributes: map[string]string{
 							"foo": "bar",
 						},

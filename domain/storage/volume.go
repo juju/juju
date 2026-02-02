@@ -10,8 +10,20 @@ type VolumeAttachmentPlanUUID baseUUID
 // VolumeAttachmentUUID represents the unique id for a storage VolumeAttachment.
 type VolumeAttachmentUUID baseUUID
 
+// VolumeDeviceType defines what device a volume is indicating the method by
+// which it is attached to an entity.
+type VolumeDeviceType int
+
 // VolumeUUID represents the unique id for a storage volume instance.
 type VolumeUUID baseUUID
+
+const (
+	// VolumeDeviceTypeLocal indicates a local attachment.
+	VolumeDeviceTypeLocal VolumeDeviceType = iota
+
+	// VolumeDeviceTypeISCSI indicates an ISCSI attachment.
+	VolumeDeviceTypeISCSI
+)
 
 // NewVolumeAttachmentPlanUUID creates a new, valid storage VolumeAttachmentPlan
 // identifier.
@@ -43,6 +55,23 @@ func (u VolumeAttachmentPlanUUID) String() string {
 // This function satisfies the [fmt.Stringer] interface.
 func (u VolumeAttachmentUUID) String() string {
 	return baseUUID(u).String()
+}
+
+// String returns the string representation of [VolumeDeviceType].
+// This value is guaranteed to line up with the constants defined for
+// [github.com/juju/juju/internal/storage.DeviceType].
+//
+// If the value of [VolumeDeviceType] is not known a zero value
+// string will be returned.
+func (v VolumeDeviceType) String() string {
+	switch v {
+	case VolumeDeviceTypeLocal:
+		return "local"
+	case VolumeDeviceTypeISCSI:
+		return "iscsi"
+	default:
+		return ""
+	}
 }
 
 // String returns the string representation of this [VolumeUUID]. This function

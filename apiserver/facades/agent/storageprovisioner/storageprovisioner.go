@@ -1135,9 +1135,9 @@ func (s *StorageProvisionerAPI) volumeAttachmentPlan(
 
 	var deviceType storage.DeviceType
 	switch vap.DeviceType {
-	case storageprovisioning.PlanDeviceTypeISCSI:
+	case domainstorage.VolumeDeviceTypeISCSI:
 		deviceType = storage.DeviceTypeISCSI
-	case storageprovisioning.PlanDeviceTypeLocal:
+	case domainstorage.VolumeDeviceTypeLocal:
 		deviceType = storage.DeviceTypeLocal
 	default:
 		return params.VolumeAttachmentPlan{}, errors.Errorf(
@@ -2235,12 +2235,12 @@ func (s *StorageProvisionerAPI) createVolumeAttachmentPlan(
 	volumeTag names.VolumeTag,
 	planInfo params.VolumeAttachmentPlanInfo,
 ) error {
-	var planDeviceType storageprovisioning.PlanDeviceType
+	var planDeviceType domainstorage.VolumeDeviceType
 	switch planInfo.DeviceType {
 	case storage.DeviceTypeISCSI.String():
-		planDeviceType = storageprovisioning.PlanDeviceTypeISCSI
+		planDeviceType = domainstorage.VolumeDeviceTypeISCSI
 	case storage.DeviceTypeLocal.String():
-		planDeviceType = storageprovisioning.PlanDeviceTypeLocal
+		planDeviceType = domainstorage.VolumeDeviceTypeLocal
 	default:
 		return errors.Errorf(
 			"plan device type %q not valid", planInfo.DeviceType,
@@ -2494,9 +2494,9 @@ func (s *StorageProvisionerAPI) setVolumeAttachmentInfo(
 	}
 	switch vai.PlanInfo.DeviceType {
 	case storage.DeviceTypeLocal.String():
-		planInfo.DeviceType = storageprovisioning.PlanDeviceTypeLocal
+		planInfo.DeviceType = domainstorage.VolumeDeviceTypeLocal
 	case storage.DeviceTypeISCSI.String():
-		planInfo.DeviceType = storageprovisioning.PlanDeviceTypeISCSI
+		planInfo.DeviceType = domainstorage.VolumeDeviceTypeISCSI
 	}
 	err = s.storageProvisioningService.SetVolumeAttachmentPlanProvisionedInfo(
 		ctx, planUUID, planInfo,

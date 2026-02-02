@@ -25,7 +25,6 @@ import (
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/domain/storageprovisioning"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -751,7 +750,7 @@ func (s *storageStatusSuite) TestGetVolumeAttachments(c *tc.C) {
 	s.newStorageInstanceVolume(c, s3, v3)
 	s.newVolumeAttachment(c, v3, nn3)
 	s.newStorageVolumeAttachmentPlan(c, v3, nn3,
-		storageprovisioning.PlanDeviceTypeISCSI,
+		storage.VolumeDeviceTypeISCSI,
 		map[string]string{"a": "b", "c": "d"},
 	)
 
@@ -786,7 +785,7 @@ func (s *storageStatusSuite) TestGetVolumeAttachments(c *tc.C) {
 			Unit:       &u3n,
 			Machine:    &m3n,
 			VolumeAttachmentPlan: &status.VolumeAttachmentPlan{
-				DeviceType: storageprovisioning.PlanDeviceTypeISCSI,
+				DeviceType: storage.VolumeDeviceTypeISCSI,
 				DeviceAttributes: map[string]string{
 					"a": "b",
 					"c": "d",
@@ -800,7 +799,7 @@ func (s *storageStatusSuite) newStorageVolumeAttachmentPlan(
 	c *tc.C,
 	volumeUUID storage.VolumeUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
-	deviceTypeID storageprovisioning.PlanDeviceType,
+	deviceTypeID storage.VolumeDeviceType,
 	attrs map[string]string,
 ) string {
 	vapUUID := uuid.MustNewUUID().String()

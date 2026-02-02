@@ -1626,9 +1626,9 @@ WHERE  attachment_plan_uuid = $entityUUID.uuid
 	}
 	switch plan.DeviceTypeID {
 	case 0:
-		retVal.DeviceType = storageprovisioning.PlanDeviceTypeLocal
+		retVal.DeviceType = domainstorage.VolumeDeviceTypeLocal
 	case 1:
-		retVal.DeviceType = storageprovisioning.PlanDeviceTypeISCSI
+		retVal.DeviceType = domainstorage.VolumeDeviceTypeISCSI
 	}
 	if len(attrs) == 0 {
 		return retVal, nil
@@ -1654,7 +1654,7 @@ func (st *State) CreateVolumeAttachmentPlan(
 	ctx context.Context,
 	uuid domainstorage.VolumeAttachmentPlanUUID,
 	attachmentUUID domainstorage.VolumeAttachmentUUID,
-	deviceType storageprovisioning.PlanDeviceType,
+	deviceType domainstorage.VolumeDeviceType,
 	attrs map[string]string,
 ) error {
 	db, err := st.DB(ctx)
@@ -1667,9 +1667,9 @@ func (st *State) CreateVolumeAttachmentPlan(
 		Life: domainlife.Alive,
 	}
 	switch deviceType {
-	case storageprovisioning.PlanDeviceTypeLocal:
+	case domainstorage.VolumeDeviceTypeLocal:
 		vap.DeviceTypeID = 0
-	case storageprovisioning.PlanDeviceTypeISCSI:
+	case domainstorage.VolumeDeviceTypeISCSI:
 		vap.DeviceTypeID = 1
 	}
 	va := volumeAttachmentInfo{
@@ -1787,9 +1787,9 @@ func (st *State) SetVolumeAttachmentPlanProvisionedInfo(
 		UUID: uuid.String(),
 	}
 	switch info.DeviceType {
-	case storageprovisioning.PlanDeviceTypeLocal:
+	case domainstorage.VolumeDeviceTypeLocal:
 		vap.DeviceTypeID = 0
-	case storageprovisioning.PlanDeviceTypeISCSI:
+	case domainstorage.VolumeDeviceTypeISCSI:
 		vap.DeviceTypeID = 1
 	}
 
