@@ -160,7 +160,7 @@ jobs:
             RUN update-ca-certificates
           EOL
           docker build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
-          docker push ${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
+          docker push --format=v2s2 ${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
           
           OCI_REGISTRY_USERNAME=${OCI_REGISTRY}/test-repo LEGACY_JUJU_DB_VERSION=4.4 make seed-repository
 
@@ -249,7 +249,7 @@ jobs:
             RUN update-ca-certificates
           EOL
           docker build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}
-          docker push ${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}
+          docker push --format=v2s2 ${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}
 
       - name: Preflight
         shell: bash
