@@ -13,6 +13,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	coremachine "github.com/juju/juju/core/machine"
 	corenetwork "github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -29,6 +30,25 @@ type baseSuite struct {
 // preparer implements a testing [github.com/juju/juju/domain.Preparer] that
 // results in a proxied call to [sqlair.Prepare].
 type preparer struct{}
+
+// newMachine create a new machine in the model for testing with the given name.
+// Returned is the uuid of the new machine.
+func (s *baseSuite) newMachine(c *tc.C) coremachine.UUID {
+	uuid := tc.Must(c, coremachine.NewUUID)
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+
+	_, err := s.DB().Exec("INSERT INTO net_node VALUES (?)", netNodeUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().Exec(
+		`INSERT INTO machine (uuid, name, net_node_uuid, life_id)
+		VALUES (?, ?, ?, 0)`,
+		uuid.String(), uuid.String(), netNodeUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return uuid
+}
 
 // newStorageAttachment is responsible for establishing a new storage attachment
 // in the model between the provided storage instance and unit.
