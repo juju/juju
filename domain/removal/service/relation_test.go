@@ -160,7 +160,7 @@ func (s *relationSuite) TestExecuteJobForRelationExistingScopes(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *relationSuite) TestExecuteJobForRelationExistingScopesMultipleNames(c *tc.C) {
+func (s *relationSuite) TestExecuteJobForRelationExistingScopesMultipleUnits(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	j := newRelationJob(c)
