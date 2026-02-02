@@ -160,6 +160,10 @@ func (a *StorageAPIv6) Import(
 				return details, apiservererrors.ParamsErrorf(
 					params.CodeNotFound, "storage entity not found in pool",
 				)
+			} else if errors.Is(err, domainstorageerrors.AdoptionNotSupported) {
+				return details, apiservererrors.ParamsErrorf(
+					params.CodeNotSupported, "storage entity cannot be imported by this pool",
+				)
 			} else if err != nil {
 				return details, errors.Errorf(
 					"adopting filesystem: %w", err,
