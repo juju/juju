@@ -73,7 +73,7 @@ INSERT INTO offer (*) VALUES ($nameAndUUID.*)`, nameAndUUID{})
 // model that this model is consuming from other models. The offerer application
 // is the synthetic application created in the consumer model to represent the
 // remote application being offered.
-func (st *State) ImportRemoteApplicationOfferers(ctx context.Context, imports []crossmodelrelation.RemoteApplicationImport) error {
+func (st *State) ImportRemoteApplicationOfferers(ctx context.Context, imports []crossmodelrelation.RemoteApplicationOffererImport) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)

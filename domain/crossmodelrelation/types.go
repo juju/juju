@@ -135,10 +135,10 @@ type RemoteApplicationEndpoint struct {
 	Interface string
 }
 
-// RemoteApplicationImport contains details to import a remote application
-// (offerer) during migration. This represents a remote application that this
-// model is consuming from another model.
-type RemoteApplicationImport struct {
+// RemoteApplicationOffererImport contains details to import a remote
+// application offerer during migration. This represents a remote application
+// that this model is consuming from another model.
+type RemoteApplicationOffererImport struct {
 	// Name is the name of the remote application in this model.
 	Name string
 
@@ -153,6 +153,46 @@ type RemoteApplicationImport struct {
 
 	// Macaroon is the authentication macaroon for the offer.
 	Macaroon string
+
+	// SyntheticCharm is the synthetic charm built from the remote endpoints.
+	// This is created in the service layer from the Endpoints field.
+	SyntheticCharm charm.Charm
+
+	// Endpoints are the remote endpoints for creating the synthetic charm.
+	// This is kept for backwards compatibility and service layer processing.
+	Endpoints []RemoteApplicationEndpoint
+
+	// Bindings are the endpoint-to-space bindings.
+	Bindings map[string]string
+
+	// Units are the unit names for the remote application that need to be
+	// created as synthetic units. These are extracted from relation endpoints
+	// during migration import.
+	Units []string
+}
+
+// RemoteApplicationConsumerImport contains details to import a remote
+// application consumer during migration. This represents a remote application
+// that this model is offering from another model.
+type RemoteApplicationConsumerImport struct {
+	// Name is the name of the remote application in this model.
+	Name string
+
+	// OfferUUID is the UUID of the offer being consumed.
+	OfferUUID string
+
+	// URL is the offer URL.
+	URL string
+
+	// SourceModelUUID is the UUID of the model offering the application.
+	SourceModelUUID string
+
+	// Macaroon is the authentication macaroon for the offer.
+	Macaroon string
+
+	// SyntheticApplicationUUID is the UUID of the synthetic application
+	// representing the remote application.
+	SyntheticApplicationUUID string
 
 	// SyntheticCharm is the synthetic charm built from the remote endpoints.
 	// This is created in the service layer from the Endpoints field.

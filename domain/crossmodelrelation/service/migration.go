@@ -5,12 +5,17 @@ package service
 
 import (
 	"context"
+	"strings"
 
+	"github.com/juju/collections/transform"
+
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // ModelMigrationState describes persistence methods for migration of cross
@@ -21,7 +26,7 @@ type ModelMigrationState interface {
 
 	// ImportRemoteApplicationOfferers adds remote application offerers being migrated
 	// to the current model.
-	ImportRemoteApplicationOfferers(context.Context, []crossmodelrelation.RemoteApplicationImport) error
+	ImportRemoteApplicationOfferers(context.Context, []crossmodelrelation.RemoteApplicationOffererImport) error
 }
 
 // MigrationService provides the API for model migration actions within
@@ -94,62 +99,99 @@ func (s *MigrationService) ImportRemoteApplications(ctx context.Context, imports
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// Filter out consumer proxies and build synthetic charms for each
-	// remote application offerer in the service layer.
-	// Consumer proxies represent consumers on the offering side and are
-	// handled differently, so they should not be imported as remote offerers.
-	offerers := make([]crossmodelrelation.RemoteApplicationImport, 0, len(imports))
-	for _, imp := range imports {
-		// Skip consumer proxies
-		if imp.IsConsumerProxy {
+	var (
+		offerers  []crossmodelrelation.RemoteApplicationOffererImport
+		consumers []crossmodelrelation.RemoteApplicationConsumerImport
+	)
+
+	for _, rApp := range imports {
+		// Handle consumer proxies separately from regular offerers.
+		if !rApp.IsConsumerProxy {
+			offerer, err := s.constructApplicationOfferer(rApp)
+			if err != nil {
+				return errors.Errorf("constructing remote application offerer for %q: %w", rApp.Name, err)
+			}
+			offerers = append(offerers, offerer)
 			continue
 		}
 
-		offerers = append(offerers, crossmodelrelation.RemoteApplicationImport{
-			Name:            imp.Name,
-			OfferUUID:       imp.OfferUUID,
-			URL:             imp.URL,
-			SourceModelUUID: imp.SourceModelUUID,
-			Macaroon:        imp.Macaroon,
-			Endpoints:       imp.Endpoints,
-			Bindings:        imp.Bindings,
-			Units:           imp.Units,
-			SyntheticCharm:  buildSyntheticCharm(imp.Name, imp.Endpoints),
-		})
+		consumer, err := s.constructApplicationConsumer(rApp)
+		if err != nil {
+			return errors.Errorf("constructing remote application consumer for %q: %w", rApp.Name, err)
+		}
+		consumers = append(consumers, consumer)
 	}
 
 	return errors.Capture(s.modelState.ImportRemoteApplicationOfferers(ctx, offerers))
 }
 
-// buildSyntheticCharm creates a synthetic charm from the remote application's
-// endpoints. This is used during migration to recreate the charm that
-// represents a remote application.
-func buildSyntheticCharm(appName string, endpoints []crossmodelrelation.RemoteApplicationEndpoint) charm.Charm {
-	provides := make(map[string]charm.Relation)
-	requires := make(map[string]charm.Relation)
+func (s *MigrationService) constructApplicationOfferer(rApp RemoteApplicationImport) (crossmodelrelation.RemoteApplicationOffererImport, error) {
+	synthCharm, err := s.constructSyntheticCharm(rApp.Name, rApp.Endpoints)
+	if err != nil {
+		return crossmodelrelation.RemoteApplicationOffererImport{}, errors.Errorf(
+			"constructing synthetic charm for application offerer %q: %w", rApp.Name, err)
+	}
 
-	for _, ep := range endpoints {
-		rel := charm.Relation{
+	return crossmodelrelation.RemoteApplicationOffererImport{
+		Name:            rApp.Name,
+		OfferUUID:       rApp.OfferUUID,
+		URL:             rApp.URL,
+		SourceModelUUID: rApp.SourceModelUUID,
+		Macaroon:        rApp.Macaroon,
+		Endpoints:       rApp.Endpoints,
+		Bindings:        rApp.Bindings,
+		Units:           rApp.Units,
+		SyntheticCharm:  synthCharm,
+	}, nil
+}
+
+func (s *MigrationService) constructApplicationConsumer(rApp RemoteApplicationImport) (crossmodelrelation.RemoteApplicationConsumerImport, error) {
+	appUUID, err := parseRemoteApplicationUUID(rApp.Name)
+	if err != nil {
+		return crossmodelrelation.RemoteApplicationConsumerImport{}, errors.Errorf(
+			"parsing remote application UUID from name %q: %w", rApp.Name, err)
+	}
+
+	synthCharm, err := s.constructSyntheticCharm(rApp.Name, rApp.Endpoints)
+	if err != nil {
+		return crossmodelrelation.RemoteApplicationConsumerImport{}, errors.Errorf(
+			"constructing synthetic charm for remote application %q: %w", rApp.Name, err)
+	}
+
+	return crossmodelrelation.RemoteApplicationConsumerImport{
+		Name:            rApp.Name,
+		OfferUUID:       rApp.OfferUUID,
+		URL:             rApp.URL,
+		SourceModelUUID: rApp.SourceModelUUID,
+		Macaroon:        rApp.Macaroon,
+		Endpoints:       rApp.Endpoints,
+		Bindings:        rApp.Bindings,
+		Units:           rApp.Units,
+
+		SyntheticApplicationUUID: appUUID.String(),
+		SyntheticCharm:           synthCharm,
+	}, nil
+}
+
+func (s *MigrationService) constructSyntheticCharm(appName string, endpoints []crossmodelrelation.RemoteApplicationEndpoint) (charm.Charm, error) {
+	return constructSyntheticCharm(appName, transform.Slice(endpoints, func(ep crossmodelrelation.RemoteApplicationEndpoint) charm.Relation {
+		return charm.Relation{
 			Name:      ep.Name,
-			Role:      ep.Role,
 			Interface: ep.Interface,
-			Scope:     charm.ScopeGlobal,
+			Role:      ep.Role,
 		}
-		switch ep.Role {
-		case charm.RoleProvider:
-			provides[ep.Name] = rel
-		case charm.RoleRequirer:
-			requires[ep.Name] = rel
-		}
+	}))
+}
+
+func parseRemoteApplicationUUID(appName string) (coreapplication.UUID, error) {
+	if !strings.HasPrefix(appName, "remote-") {
+		return "", errors.Errorf(`missing "remote-" prefix`)
 	}
 
-	return charm.Charm{
-		Metadata: charm.Metadata{
-			Name:     appName,
-			Provides: provides,
-			Requires: requires,
-		},
-		Source:        charm.CMRSource,
-		ReferenceName: appName,
+	remoteAppUUID, err := uuid.UUIDFromEncodedString(appName[7:])
+	if err != nil {
+		return "", errors.Errorf("parsing UUID: %w", err)
 	}
+
+	return coreapplication.UUID(remoteAppUUID.String()), nil
 }

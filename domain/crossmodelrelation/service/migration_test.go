@@ -337,7 +337,7 @@ type syntheticCharmMatcher struct {
 }
 
 func (m syntheticCharmMatcher) Matches(x interface{}) bool {
-	actual, ok := x.([]crossmodelrelation.RemoteApplicationImport)
+	actual, ok := x.([]crossmodelrelation.RemoteApplicationOffererImport)
 	if !ok {
 		return false
 	}

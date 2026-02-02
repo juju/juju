@@ -225,7 +225,7 @@ func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferers(c *tc
 			Interface: "zookeeper",
 		},
 	}
-	args := []crossmodelrelation.RemoteApplicationImport{
+	args := []crossmodelrelation.RemoteApplicationOffererImport{
 		{
 			Name:            "remote-kafka",
 			OfferUUID:       internaluuid.MustNewUUID().String(),
@@ -289,7 +289,7 @@ func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferersWithUn
 			Interface: "mysql",
 		},
 	}
-	args := []crossmodelrelation.RemoteApplicationImport{
+	args := []crossmodelrelation.RemoteApplicationOffererImport{
 		{
 			Name:            "remote-mysql",
 			OfferUUID:       internaluuid.MustNewUUID().String(),
@@ -351,7 +351,7 @@ func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferersMultip
 			Interface: "pgsql",
 		},
 	}
-	args := []crossmodelrelation.RemoteApplicationImport{
+	args := []crossmodelrelation.RemoteApplicationOffererImport{
 		{
 			Name:            "remote-mysql",
 			OfferUUID:       internaluuid.MustNewUUID().String(),
@@ -389,7 +389,7 @@ func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferersMultip
 
 func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferersEmpty(c *tc.C) {
 	// Arrange
-	args := []crossmodelrelation.RemoteApplicationImport{}
+	args := []crossmodelrelation.RemoteApplicationOffererImport{}
 
 	// Act
 	err := s.state.ImportRemoteApplicationOfferers(c.Context(), args)
