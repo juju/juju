@@ -81,7 +81,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworks(c *tc.C) {
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.st.EXPECT().GetUnitEndpointNetworks(gomock.Any(), unitUUID.String(), endpointNames).Return(expectedInfos, nil)
 
-	service := NewService(s.st, loggertesting.WrapCheckLog(c))
+	service := NewProviderService(s.st, nil, nil, loggertesting.WrapCheckLog(c))
 	infos, err := service.GetUnitEndpointNetworks(c.Context(), unitName, endpointNames)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(infos, tc.DeepEquals, expectedInfos)
@@ -94,7 +94,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworksUnitNotFound(c *tc.C) {
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return("", errors.New("unit not found"))
 
-	service := NewService(s.st, loggertesting.WrapCheckLog(c))
+	service := NewProviderService(s.st, nil, nil, loggertesting.WrapCheckLog(c))
 	_, err := service.GetUnitEndpointNetworks(c.Context(), unitName, []string{"db"})
 	c.Assert(err, tc.ErrorMatches, "unit not found")
 }
@@ -110,7 +110,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworksStateError(c *tc.C) {
 	s.st.EXPECT().GetUnitEndpointNetworks(gomock.Any(), unitUUID.String(), endpointNames).Return(nil,
 		errors.New("state error"))
 
-	service := NewService(s.st, loggertesting.WrapCheckLog(c))
+	service := NewProviderService(s.st, nil, nil, loggertesting.WrapCheckLog(c))
 	_, err := service.GetUnitEndpointNetworks(c.Context(), unitName, endpointNames)
 	c.Assert(err, tc.ErrorMatches, "getting unit endpoint networks: state error")
 }
