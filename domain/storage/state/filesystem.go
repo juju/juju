@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	"github.com/canonical/sqlair"
+
 	coremachine "github.com/juju/juju/core/machine"
 	domainmachineerrors "github.com/juju/juju/domain/machine/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
