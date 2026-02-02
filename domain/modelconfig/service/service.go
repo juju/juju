@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -36,7 +37,18 @@ type ModelDefaultsProvider interface {
 // provider exists for the model's cloud type then a [coreerrors.NotFound]
 // error is returned. If the cloud type provider does not support model config
 // then a [coreerrors.NotSupported] error is returned.
-type ModelConfigProviderFunc func(context.Context) (environs.ModelConfigProvider, error)
+type ModelConfigProviderFunc func(ctx context.Context, cloudType string) (ModelConfigProvider, error)
+
+// ModelConfigProvider represents an interface that a [EnvironProvider] can
+// implement to provide opinions and defaults into a model's config.
+type ModelConfigProvider interface {
+	// ConfigSchema returns extra config attributes specific
+	// to this provider only.
+	ConfigSchema() schema.Fields
+
+	// Schema returns the configuration schema for an environment.
+	Schema() configschema.Fields
+}
 
 // State represents the state entity for accessing and setting per
 // model configuration values.
@@ -142,7 +154,7 @@ func (s *Service) getCoercedProviderConfig(ctx context.Context, m map[string]str
 		return stringMapToAny(m), nil
 	}
 
-	provider, err := s.modelConfigProviderGetterFunc(ctx)
+	provider, err := s.modelConfigProviderGetterFunc(ctx, cloudType)
 	if err != nil && !errors.Is(err, coreerrors.NotSupported) {
 		return nil, errors.Capture(err)
 	} else if provider == nil {
@@ -411,6 +423,26 @@ func (s *Service) UpdateModelConfig(
 	return nil
 }
 
+// GetModelConfigSchemaForCloudType returns the schema of the model config for
+// a given cloud provider
+func (s *Service) GetModelConfigSchemaForCloudType(ctx context.Context, cloudType string) (configschema.Fields, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	provider, err := s.modelConfigProviderGetterFunc(ctx, cloudType)
+	if err != nil && !errors.Is(err, coreerrors.NotSupported) {
+		return nil, errors.Capture(err)
+	}
+
+	if provider == nil {
+		// No provider or doesn't support model config schema. Return the default
+		// schema.
+		return config.Schema(nil)
+	}
+
+	return provider.Schema(), nil
+}
+
 // spaceValidator implements validators.SpaceProvider.
 type spaceValidator struct {
 	st SpaceValidatorState
@@ -565,29 +597,8 @@ func modelConfigMapper(st ProviderState, agentVersion, agentStream string) event
 // to get a ModelConfigProvider for the model. The function internally
 // determines the cloud type from the model config and caches the provider for
 // the lifetime of the function.
-func ProviderModelConfigGetter(st State) ModelConfigProviderFunc {
-	var (
-		cachedProvider environs.ModelConfigProvider
-		cached         bool
-	)
-
-	return func(ctx context.Context) (environs.ModelConfigProvider, error) {
-		// Return cached provider if available.
-		if cached {
-			return cachedProvider, nil
-		}
-
-		// Get the model config to determine cloud type.
-		cfg, err := st.ModelConfig(ctx)
-		if err != nil {
-			return nil, errors.Errorf("getting model config for provider lookup: %w", err)
-		}
-
-		cloudType, ok := cfg[config.TypeKey]
-		if !ok || cloudType == "" {
-			return nil, errors.Errorf("cloud type not found in model config").Add(coreerrors.NotFound)
-		}
-
+func ProviderModelConfigGetter() ModelConfigProviderFunc {
+	return func(ctx context.Context, cloudType string) (ModelConfigProvider, error) {
 		envProvider, err := environs.GlobalProviderRegistry().Provider(cloudType)
 		if errors.Is(err, coreerrors.NotFound) {
 			return nil, errors.Errorf(
@@ -598,16 +609,12 @@ func ProviderModelConfigGetter(st State) ModelConfigProviderFunc {
 			return nil, errors.Capture(err)
 		}
 
-		modelConfigProvider, supports := envProvider.(environs.ModelConfigProvider)
+		modelConfigProvider, supports := envProvider.(ModelConfigProvider)
 		if !supports {
 			return nil, errors.Errorf(
 				"model config provider not supported for cloud type %q", cloudType,
 			).Add(coreerrors.NotSupported)
 		}
-
-		// Cache the provider for subsequent calls.
-		cachedProvider = modelConfigProvider
-		cached = true
 
 		return modelConfigProvider, nil
 	}

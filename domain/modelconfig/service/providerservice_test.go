@@ -12,7 +12,6 @@ import (
 	gomock "go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -33,7 +32,7 @@ func (s *providerServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *providerServiceSuite) modelConfigProviderFunc(cloudType string) ModelConfigProviderFunc {
-	return func(context.Context) (environs.ModelConfigProvider, error) {
+	return func(context.Context, string) (ModelConfigProvider, error) {
 		// In tests, we don't need to fetch the cloud type from state,
 		// we just return the mock provider for the expected cloud type.
 		return s.mockModelConfigProvider, nil
@@ -129,7 +128,8 @@ func (s *providerServiceSuite) TestModelConfigWithProviderNotFound(c *tc.C) {
 		nil,
 	)
 
-	providerGetter := func(context.Context) (environs.ModelConfigProvider, error) {
+	providerGetter := func(ctx context.Context, cloudType string) (ModelConfigProvider, error) {
+		c.Check(cloudType, tc.Equals, "unknown")
 		return nil, errors.Errorf("unknown cloud type %q", "unknown").Add(coreerrors.NotFound)
 	}
 
@@ -213,7 +213,7 @@ func (s *providerServiceSuite) TestModelConfigWithProviderReturnsNotSupportedErr
 		nil,
 	)
 
-	providerGetter := func(context.Context) (environs.ModelConfigProvider, error) {
+	providerGetter := func(context.Context, string) (ModelConfigProvider, error) {
 		return nil, errors.Errorf("unsupported").Add(coreerrors.NotSupported)
 	}
 
@@ -236,7 +236,7 @@ func (s *providerServiceSuite) TestModelConfigWithProviderReturnsOtherError(c *t
 		nil,
 	)
 
-	providerGetter := func(context.Context) (environs.ModelConfigProvider, error) {
+	providerGetter := func(context.Context, string) (ModelConfigProvider, error) {
 		return nil, errors.Errorf("some other error")
 	}
 

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/domain/modelconfig/service"
 	"github.com/juju/juju/domain/modelconfig/state"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -43,6 +44,9 @@ type ImportService interface {
 		ctx context.Context,
 		cfg map[string]any,
 	) error
+
+	// GetModelConfigSchema returns the schema for the model config.
+	GetModelConfigSchemaForCloudType(ctx context.Context, cloudType string) (configschema.Fields, error)
 }
 
 type importOperation struct {
@@ -67,7 +71,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.service = service.NewService(
 		i.defaultsProvider,
 		config.NoControllerAttributesValidator(),
-		service.ProviderModelConfigGetter(st),
+		service.ProviderModelConfigGetter(),
 		st)
 	return nil
 }
@@ -82,20 +86,25 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return errors.Errorf("model config %w", coreerrors.NotValid)
 	}
 
+	cloudType, ok := attrs[config.TypeKey].(string)
+	if !ok {
+		return errors.Errorf("model config missing cloud type").Add(coreerrors.NotValid)
+	}
+
 	// Models imported from older controllers may contain config attributes
-	// which have since been removed from use. We filter these out by removing
-	// any incoming attributes not in the default list.
-	defaults, err := i.defaultsProvider.ModelDefaults(ctx)
+	// which have since been removed from use. Filter these out using the
+	// schema.
+	schema, err := i.service.GetModelConfigSchemaForCloudType(ctx, cloudType)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	defaultAttrs := set.NewStrings()
-	for k := range defaults {
-		defaultAttrs.Add(k)
+	schemaAttrs := set.NewStrings()
+	for k := range schema {
+		schemaAttrs.Add(k)
 	}
 
 	for k, v := range attrs {
-		if !defaultAttrs.Contains(k) {
+		if !schemaAttrs.Contains(k) {
 			i.logger.Debugf(ctx, "model config attribute %s=%v is removed on import", k, v)
 			delete(attrs, k)
 		}

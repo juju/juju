@@ -158,44 +158,6 @@ func (c *MockStateCloudTypeCall) DoAndReturn(f func(context.Context, cloud.UUID)
 	return c
 }
 
-// ConfigDefaults mocks base method.
-func (m *MockState) ConfigDefaults(arg0 context.Context) map[string]any {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConfigDefaults", arg0)
-	ret0, _ := ret[0].(map[string]any)
-	return ret0
-}
-
-// ConfigDefaults indicates an expected call of ConfigDefaults.
-func (mr *MockStateMockRecorder) ConfigDefaults(arg0 any) *MockStateConfigDefaultsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigDefaults", reflect.TypeOf((*MockState)(nil).ConfigDefaults), arg0)
-	return &MockStateConfigDefaultsCall{Call: call}
-}
-
-// MockStateConfigDefaultsCall wrap *gomock.Call
-type MockStateConfigDefaultsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateConfigDefaultsCall) Return(arg0 map[string]any) *MockStateConfigDefaultsCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateConfigDefaultsCall) Do(f func(context.Context) map[string]any) *MockStateConfigDefaultsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateConfigDefaultsCall) DoAndReturn(f func(context.Context) map[string]any) *MockStateConfigDefaultsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // DeleteCloudDefaults mocks base method.
 func (m *MockState) DeleteCloudDefaults(arg0 context.Context, arg1 cloud.UUID, arg2 []string) error {
 	m.ctrl.T.Helper()

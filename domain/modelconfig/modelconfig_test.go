@@ -31,9 +31,9 @@ import (
 	"github.com/juju/juju/domain/modelconfig/service"
 	"github.com/juju/juju/domain/modelconfig/state"
 	"github.com/juju/juju/domain/modeldefaults"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
+	"github.com/juju/juju/internal/configschema"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -145,7 +145,7 @@ func (s *modelConfigSuite) TestModelConfigService(c *tc.C) {
 	}
 
 	st := state.NewState(modelTxnRunnerFactory)
-	svc := service.NewService(defaults, config.ModelValidator(), func(ctx context.Context) (environs.ModelConfigProvider, error) {
+	svc := service.NewService(defaults, config.ModelValidator(), func(context.Context, string) (service.ModelConfigProvider, error) {
 		return modelConfigProvider{}, nil
 	}, st)
 
@@ -196,7 +196,7 @@ func (s *modelConfigSuite) TestModelConfigProviderService(c *tc.C) {
 	}
 
 	st := state.NewState(modelTxnRunnerFactory)
-	svc := service.NewProviderService(st, func(ctx context.Context) (environs.ModelConfigProvider, error) {
+	svc := service.NewProviderService(st, func(context.Context, string) (service.ModelConfigProvider, error) {
 		return modelConfigProvider{}, nil
 	})
 
@@ -335,7 +335,7 @@ func (s *modelConfigSuite) TestWatchModelConfigProviderService(c *tc.C) {
 	factory := domain.NewWatcherFactory(
 		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.modelID.String()),
 		loggertesting.WrapCheckLog(c))
-	svc := service.NewWatchableProviderService(st, func(ctx context.Context) (environs.ModelConfigProvider, error) {
+	svc := service.NewWatchableProviderService(st, func(context.Context, string) (service.ModelConfigProvider, error) {
 		return modelConfigProvider{}, nil
 	}, factory)
 
@@ -396,9 +396,13 @@ func (f modelDefaultsProviderFunc) ModelDefaults(
 }
 
 type modelConfigProvider struct {
-	environs.ModelConfigProvider
+	service.ModelConfigProvider
 }
 
 func (modelConfigProvider) ConfigSchema() schema.Fields {
+	return nil
+}
+
+func (modelConfigProvider) Schema() configschema.Fields {
 	return nil
 }

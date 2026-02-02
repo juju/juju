@@ -64,9 +64,17 @@ func (s *importSuite) SetUpTest(c *tc.C) {
 	s.svc = service.NewService(
 		defaultsProvider,
 		config.ModelValidator(),
-		service.ProviderModelConfigGetter(st),
+		service.ProviderModelConfigGetter(),
 		st,
 	)
+
+	// Initialise required model config entries.
+	err := st.UpdateModelConfig(c.Context(), map[string]string{
+		"name": "foo",
+		"uuid": s.modelUUID.String(),
+		"type": "dummy",
+	}, nil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Cleanup(func() {
 		s.coordinator = nil
@@ -77,12 +85,14 @@ func (s *importSuite) SetUpTest(c *tc.C) {
 
 func (s *importSuite) TestImportModelConfig(c *tc.C) {
 	cfg, err := config.New(config.NoDefaults, map[string]any{
-		"name":         "foo",
-		"uuid":         s.modelUUID.String(),
-		"type":         "dummy",
-		"nonsense":     42,
-		"image-stream": "beta",
-		"default-base": "ubuntu@20.04",
+		"name":          "foo",
+		"uuid":          s.modelUUID.String(),
+		"type":          "dummy",
+		"nonsense":      42,
+		"image-stream":  "beta",
+		"default-base":  "ubuntu@20.04",
+		"agent-version": "7.8.9",
+		"agent-stream":  "candidate",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -110,6 +120,12 @@ func (s *importSuite) TestImportModelConfig(c *tc.C) {
 
 	defaultBase, _ := storedConfig.DefaultBase()
 	c.Check(defaultBase, tc.Equals, "ubuntu@20.04")
+
+	agentVersion, _ := storedConfig.AgentVersion()
+	c.Check(agentVersion.String(), tc.Equals, "7.8.9")
+
+	agentStream := storedConfig.AgentStream()
+	c.Check(agentStream, tc.Equals, "candidate")
 
 	defaults := config.ConfigDefaults()
 

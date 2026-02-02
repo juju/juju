@@ -97,7 +97,7 @@ func (s *ProviderService) getCoercedProviderConfig(ctx context.Context, m map[st
 		return stringMapToAny(m), nil
 	}
 
-	provider, err := s.modelConfigProviderGetterFunc(ctx)
+	provider, err := s.modelConfigProviderGetterFunc(ctx, cloudType)
 	if err != nil && !errors.Is(err, coreerrors.NotSupported) {
 		return nil, errors.Capture(err)
 	} else if provider == nil {
@@ -105,8 +105,9 @@ func (s *ProviderService) getCoercedProviderConfig(ctx context.Context, m map[st
 		return nil, errors.New("provider not found or doesn't support config schema")
 	}
 
-	result := make(map[string]any, len(m))
 	fields := provider.ConfigSchema()
+
+	result := make(map[string]any, len(m))
 	for key, strVal := range m {
 		if field, ok := fields[key]; ok {
 			// This is a provider-specific attribute - coerce it to proper type.
