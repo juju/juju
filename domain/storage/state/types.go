@@ -29,6 +29,10 @@ type idAndKind struct {
 	Kind string `db:"kind"`
 }
 
+// machineUUIDs is a slice type of string representing machineUUIDs in the
+// model.
+type machineUUIDs []string
+
 // storageInstanceID represents the storage instance storage_id column for a
 // row in the storage_instance table.
 type storageInstanceID struct {
