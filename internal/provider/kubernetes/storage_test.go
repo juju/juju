@@ -164,8 +164,8 @@ func (s *storageSuite) TestImportFilesystem(c *tc.C) {
 	fc, err := prov.FilesystemSource(&storage.Config{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = fc.(storage.FilesystemImporter).
-		ImportFilesystem(c.Context(), fsId, make(map[string]string))
+	_, err = fc.(storage.FilesystemImporter).ImportFilesystem(
+		c.Context(), fsId, "mydata", make(map[string]string), false)
 	c.Check(err, tc.ErrorIsNil)
 }
 
@@ -187,8 +187,8 @@ func (s *storageSuite) TestImportFilesystemNotFound(c *tc.C) {
 	fc, err := prov.FilesystemSource(&storage.Config{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = fc.(storage.FilesystemImporter).
-		ImportFilesystem(c.Context(), fsId, make(map[string]string))
+	_, err = fc.(storage.FilesystemImporter).ImportFilesystem(
+		c.Context(), fsId, "mydata", make(map[string]string), false)
 	c.Check(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
@@ -210,8 +210,8 @@ func (s *storageSuite) TestImportFilesystemInvalidReclaimPolicy(c *tc.C) {
 	fc, err := prov.FilesystemSource(&storage.Config{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = fc.(storage.FilesystemImporter).
-		ImportFilesystem(c.Context(), fsId, make(map[string]string))
+	_, err = fc.(storage.FilesystemImporter).ImportFilesystem(
+		c.Context(), fsId, "mydata", make(map[string]string), false)
 	c.Check(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
@@ -236,8 +236,8 @@ func (s *storageSuite) TestImportFilesystemAlreadyBound(c *tc.C) {
 	fc, err := prov.FilesystemSource(&storage.Config{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = fc.(storage.FilesystemImporter).
-		ImportFilesystem(c.Context(), fsId, make(map[string]string))
+	_, err = fc.(storage.FilesystemImporter).ImportFilesystem(
+		c.Context(), fsId, "mydata", make(map[string]string), false)
 	c.Check(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
