@@ -149,6 +149,12 @@ type ApplicationPlatform struct {
 	ArchitectureID  int64   `db:"architecture_id"`
 }
 
+type ApplicationProviderStorageID struct {
+	ApplicationUUID string `db:"application_uuid"`
+	StorageName     string `db:"storage_name"`
+	StorageUniqueID string `db:"storage_unique_id"`
+}
+
 type ApplicationRemoteConsumer struct {
 	OfferConnectionUUID     string `db:"offer_connection_uuid"`
 	OffererApplicationUUID  string `db:"offerer_application_uuid"`
@@ -1598,6 +1604,7 @@ type ModelExport struct {
 	ApplicationExposedEndpointSpace          []ApplicationExposedEndpointSpace
 	ApplicationExtraEndpoint                 []ApplicationExtraEndpoint
 	ApplicationPlatform                      []ApplicationPlatform
+	ApplicationProviderStorageID             []ApplicationProviderStorageID
 	ApplicationRemoteConsumer                []ApplicationRemoteConsumer
 	ApplicationRemoteOfferer                 []ApplicationRemoteOfferer
 	ApplicationRemoteOffererRelationMacaroon []ApplicationRemoteOffererRelationMacaroon

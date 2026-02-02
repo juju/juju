@@ -1391,7 +1391,9 @@ func (s *importSuite) getApplicationStorageUniqueIDs(c *tc.C, appName string) []
 			 SELECT uuid FROM application
 			 WHERE  name = ?
 			)`, appName)
-		c.Assert(err, tc.ErrorIsNil)
+		if err != nil {
+			return err
+		}
 		defer rows.Close()
 
 		for rows.Next() {
@@ -1400,9 +1402,7 @@ func (s *importSuite) getApplicationStorageUniqueIDs(c *tc.C, appName string) []
 			c.Assert(err, tc.ErrorIsNil)
 			vals = append(vals, row)
 		}
-
-		c.Assert(rows.Err(), tc.ErrorIsNil)
-		return nil
+		return rows.Err()
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return vals

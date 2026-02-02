@@ -440,6 +440,10 @@ type ApplicationState interface {
 	// of the specified application deployed to it.
 	GetMachinesForApplication(ctx context.Context, appUUID string) ([]string, error)
 
+	// GetApplicationProviderStorageID returns an application's storage unique ID.
+	// An empty row is a valid scenario in which we return an empty string value.
+	// Should an empty string is returned, it's the caller's responsibility to
+	// construct the storage unique ID from other means
 	GetApplicationProviderStorageID(ctx context.Context, appUUID coreapplication.UUID) (string, error)
 }
 
