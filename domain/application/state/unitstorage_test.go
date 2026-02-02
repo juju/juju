@@ -425,9 +425,9 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnit(c *tc.C) {
 	netNodeUUID, err := u.state.GetUnitNetNodeUUID(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	fs1UUID := tc.Must(c, domainstorageprov.NewFilesystemUUID)
+	fs1UUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 	si1UUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
-	fs2UUID := tc.Must(c, domainstorageprov.NewFilesystemUUID)
+	fs2UUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 	si2UUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	unitStorageToCreate := []internal.CreateUnitStorageInstanceArg{
 		{
@@ -484,7 +484,7 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnit(c *tc.C) {
 			StorageToAttach:  unitStorageToAttach,
 			StorageToOwn:     []domainstorage.StorageInstanceUUID{si1UUID, si2UUID},
 		},
-		FilesystemsToOwn: []domainstorageprov.FilesystemUUID{fs1UUID, fs2UUID},
+		FilesystemsToOwn: []domainstorage.FilesystemUUID{fs1UUID, fs2UUID},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotIDs, tc.SameContents, []corestorage.ID{"st1/0", "st2/1"})

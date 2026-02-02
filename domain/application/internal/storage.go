@@ -66,7 +66,7 @@ type IAASUnitAddStorageArg struct {
 	UnitAddStorageArg
 	// FilesystemsToOwn defines filesystems that will be owned by the unit's
 	// machine.
-	FilesystemsToOwn []domainstorageprov.FilesystemUUID
+	FilesystemsToOwn []domainstorage.FilesystemUUID
 
 	// VolumesToOwn defines volumes that will be owned by the unit's machine.
 	VolumesToOwn []domainstorage.VolumeUUID

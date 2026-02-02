@@ -43,7 +43,6 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
-	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/errors"
 )
@@ -3186,7 +3185,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 		}},
 		MaxCount: 656,
 	}
-	fsToOwn := []domainstorageprov.FilesystemUUID{tc.Must(c, domainstorageprov.NewFilesystemUUID)}
+	fsToOwn := []domainstorage.FilesystemUUID{tc.Must(c, domainstorage.NewFilesystemUUID)}
 	volToOwn := []domainstorage.VolumeUUID{tc.Must(c, domainstorage.NewVolumeUUID)}
 
 	s.storageService.EXPECT().MakeUnitAddStorageArgs(gomock.Any(), unitUUID, application.StorageDirective{
