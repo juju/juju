@@ -45,13 +45,6 @@ type importSuite struct {
 	svc         *service.Service
 }
 
-// applicationProviderStorageID is used to represent an application's
-// storage id, used for testing its retrieval.
-type applicationProviderStorageID struct {
-	storage         string
-	storageUniqueID string
-}
-
 func TestImportSuite(t *testing.T) {
 	tc.Run(t, &importSuite{})
 }
