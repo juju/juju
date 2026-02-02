@@ -178,7 +178,7 @@ func (i *importOperation) importRemoteApplications(
 			})
 		}
 
-		imp := crossmodelrelation.RemoteApplicationImport{
+		input = append(input, crossmodelrelation.RemoteApplicationImport{
 			Name:            remoteApp.Name(),
 			OfferUUID:       remoteApp.OfferUUID(),
 			URL:             remoteApp.URL(),
@@ -188,8 +188,7 @@ func (i *importOperation) importRemoteApplications(
 			Bindings:        remoteApp.Bindings(),
 			IsConsumerProxy: remoteApp.IsConsumerProxy(),
 			Units:           remoteAppUnits[remoteApp.Name()],
-		}
-		input = append(input, imp)
+		})
 	}
 	if len(input) == 0 {
 		return nil

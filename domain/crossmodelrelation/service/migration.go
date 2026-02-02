@@ -19,9 +19,9 @@ type ModelMigrationState interface {
 	// ImportOffers adds offers being migrated to the current model.
 	ImportOffers(context.Context, []crossmodelrelation.OfferImport) error
 
-	// ImportRemoteApplications adds remote application offerers being migrated
+	// ImportRemoteApplicationOfferers adds remote application offerers being migrated
 	// to the current model.
-	ImportRemoteApplications(context.Context, []crossmodelrelation.RemoteApplicationImport) error
+	ImportRemoteApplicationOfferers(context.Context, []crossmodelrelation.RemoteApplicationImport) error
 }
 
 // MigrationService provides the API for model migration actions within
@@ -72,7 +72,7 @@ func (s *MigrationService) ImportRemoteApplications(ctx context.Context, imports
 		importsWithCharms = append(importsWithCharms, imp)
 	}
 
-	return errors.Capture(s.modelState.ImportRemoteApplications(ctx, importsWithCharms))
+	return errors.Capture(s.modelState.ImportRemoteApplicationOfferers(ctx, importsWithCharms))
 }
 
 // buildSyntheticCharm creates a synthetic charm from the remote application's

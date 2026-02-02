@@ -110,7 +110,7 @@ func (s *migrationSuite) TestImportRemoteApplications(c *tc.C) {
 		},
 	}
 	// Verify the service builds synthetic charms correctly
-	s.modelMigrationState.EXPECT().ImportRemoteApplications(
+	s.modelMigrationState.EXPECT().ImportRemoteApplicationOfferers(
 		gomock.Any(),
 		syntheticCharmMatcher{
 			expectedApps: input,
@@ -129,7 +129,7 @@ func (s *migrationSuite) TestImportRemoteApplicationsEmpty(c *tc.C) {
 
 	// Arrange
 	input := []crossmodelrelation.RemoteApplicationImport{}
-	s.modelMigrationState.EXPECT().ImportRemoteApplications(
+	s.modelMigrationState.EXPECT().ImportRemoteApplicationOfferers(
 		gomock.Any(),
 		syntheticCharmMatcher{
 			expectedApps: input,
@@ -164,7 +164,7 @@ func (s *migrationSuite) TestImportRemoteApplicationsFail(c *tc.C) {
 			IsConsumerProxy: false,
 		},
 	}
-	s.modelMigrationState.EXPECT().ImportRemoteApplications(
+	s.modelMigrationState.EXPECT().ImportRemoteApplicationOfferers(
 		gomock.Any(),
 		syntheticCharmMatcher{
 			expectedApps: input,
@@ -210,7 +210,7 @@ func (s *migrationSuite) TestImportRemoteApplicationsPeerIgnored(c *tc.C) {
 		},
 	}
 	// Verify the synthetic charm excludes peer endpoints
-	s.modelMigrationState.EXPECT().ImportRemoteApplications(
+	s.modelMigrationState.EXPECT().ImportRemoteApplicationOfferers(
 		gomock.Any(),
 		syntheticCharmMatcher{
 			expectedApps: input,
@@ -264,7 +264,7 @@ func (s *migrationSuite) TestImportRemoteApplicationsConsumerProxyFiltered(c *tc
 
 	// Expected: only the non-consumer-proxy should be passed to state
 	expectedToState := []crossmodelrelation.RemoteApplicationImport{input[1]}
-	s.modelMigrationState.EXPECT().ImportRemoteApplications(
+	s.modelMigrationState.EXPECT().ImportRemoteApplicationOfferers(
 		gomock.Any(),
 		syntheticCharmMatcher{
 			expectedApps: expectedToState,
@@ -316,7 +316,7 @@ func (s *migrationSuite) TestImportRemoteApplicationsAllConsumerProxiesFiltered(
 	}
 
 	// Expected: empty slice passed to state
-	s.modelMigrationState.EXPECT().ImportRemoteApplications(
+	s.modelMigrationState.EXPECT().ImportRemoteApplicationOfferers(
 		gomock.Any(),
 		syntheticCharmMatcher{
 			expectedApps: []crossmodelrelation.RemoteApplicationImport{},

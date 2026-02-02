@@ -207,11 +207,11 @@ type importRemoteApplicationSuite struct {
 	baseSuite
 }
 
-func TestImportRemoteApplicationSuite(t *testing.T) {
+func TestImportRemoteApplicationOfferersSuite(t *testing.T) {
 	tc.Run(t, &importRemoteApplicationSuite{})
 }
 
-func (s *importRemoteApplicationSuite) TestImportRemoteApplications(c *tc.C) {
+func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 	// Arrange - import a remote application with provider and requirer endpoints
 	endpoints := []crossmodelrelation.RemoteApplicationEndpoint{
 		{
@@ -240,7 +240,7 @@ func (s *importRemoteApplicationSuite) TestImportRemoteApplications(c *tc.C) {
 	}
 
 	// Act
-	err := s.state.ImportRemoteApplications(c.Context(), args)
+	err := s.state.ImportRemoteApplicationOfferers(c.Context(), args)
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -281,7 +281,7 @@ func (s *importRemoteApplicationSuite) TestImportRemoteApplications(c *tc.C) {
 	c.Check(endpointCount, tc.Equals, 2, tc.Commentf("Expected 2 user-defined endpoints"))
 }
 
-func (s *importRemoteApplicationSuite) TestImportRemoteApplicationsWithUnits(c *tc.C) {
+func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferersWithUnits(c *tc.C) {
 	// Arrange - import a remote application with synthetic units
 	endpoints := []crossmodelrelation.RemoteApplicationEndpoint{
 		{
@@ -305,7 +305,7 @@ func (s *importRemoteApplicationSuite) TestImportRemoteApplicationsWithUnits(c *
 	}
 
 	// Act
-	err := s.state.ImportRemoteApplications(c.Context(), args)
+	err := s.state.ImportRemoteApplicationOfferers(c.Context(), args)
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -337,7 +337,7 @@ func (s *importRemoteApplicationSuite) TestImportRemoteApplicationsWithUnits(c *
 	c.Check(unitNames, tc.DeepEquals, []string{"remote-mysql/0", "remote-mysql/1"})
 }
 
-func (s *importRemoteApplicationSuite) TestImportRemoteApplicationsMultiple(c *tc.C) {
+func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferersMultiple(c *tc.C) {
 	// Arrange - import multiple remote applications
 	endpoints1 := []crossmodelrelation.RemoteApplicationEndpoint{
 		{
@@ -377,7 +377,7 @@ func (s *importRemoteApplicationSuite) TestImportRemoteApplicationsMultiple(c *t
 	}
 
 	// Act
-	err := s.state.ImportRemoteApplications(c.Context(), args)
+	err := s.state.ImportRemoteApplicationOfferers(c.Context(), args)
 
 	// Assert
 	c.Assert(err, tc.IsNil)
@@ -391,12 +391,12 @@ func (s *importRemoteApplicationSuite) TestImportRemoteApplicationsMultiple(c *t
 	c.Check(count, tc.Equals, 2)
 }
 
-func (s *importRemoteApplicationSuite) TestImportRemoteApplicationsEmpty(c *tc.C) {
+func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferersEmpty(c *tc.C) {
 	// Arrange
 	args := []crossmodelrelation.RemoteApplicationImport{}
 
 	// Act
-	err := s.state.ImportRemoteApplications(c.Context(), args)
+	err := s.state.ImportRemoteApplicationOfferers(c.Context(), args)
 
 	// Assert - should succeed with no operations
 	c.Assert(err, tc.IsNil)
