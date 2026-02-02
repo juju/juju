@@ -690,7 +690,7 @@ SELECT &storageAttachmentStatusDetails.* FROM (
 
 // GetFilesystems returns the specified filesystems if they exist.
 func (st *ModelState) GetFilesystems(
-	ctx context.Context, uuids []storageprovisioning.FilesystemUUID,
+	ctx context.Context, uuids []storage.FilesystemUUID,
 ) ([]status.Filesystem, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -743,7 +743,7 @@ WHERE     sf.uuid IN ($entityUUIDs[:])
 			storageInstanceUUID = &siUUID
 		}
 		return status.Filesystem{
-			UUID: storageprovisioning.FilesystemUUID(v.UUID),
+			UUID: storage.FilesystemUUID(v.UUID),
 			ID:   v.ID,
 			Life: life.Life(v.LifeID),
 			Status: status.StatusInfo[status.StorageFilesystemStatusType]{
@@ -832,7 +832,7 @@ LEFT JOIN storage_volume sv ON sv.uuid=siv.storage_volume_uuid
 // GetFilesystemAttachments returns the specified filesystem attachments if they
 // exist.
 func (st *ModelState) GetFilesystemAttachments(
-	ctx context.Context, uuids []storageprovisioning.FilesystemUUID,
+	ctx context.Context, uuids []storage.FilesystemUUID,
 ) ([]status.FilesystemAttachment, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -880,7 +880,7 @@ WHERE     sfa.storage_filesystem_uuid IN ($entityUUIDs[:])
 			unitName = &u
 		}
 		return status.FilesystemAttachment{
-			FilesystemUUID: storageprovisioning.FilesystemUUID(v.FilesystemUUID),
+			FilesystemUUID: storage.FilesystemUUID(v.FilesystemUUID),
 			Life:           life.Life(v.LifeID),
 			Unit:           unitName,
 			Machine:        machineName,
@@ -1144,7 +1144,7 @@ LEFT JOIN storage_volume_attachment_plan_attr svapa ON svapa.attachment_plan_uui
 		vap := vaps[v.VolumeUUID]
 		if vap == nil {
 			vap = &status.VolumeAttachmentPlan{
-				DeviceType: storageprovisioning.PlanDeviceType(v.DeviceTypeID),
+				DeviceType: storage.VolumeDeviceType(v.DeviceTypeID),
 			}
 			vaps[v.VolumeUUID] = vap
 		}

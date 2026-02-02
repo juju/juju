@@ -408,8 +408,8 @@ func (s *storageServiceSuite) TestGetAllStorageInstanceStatusesMultiple(c *tc.C)
 func (s *storageServiceSuite) TestGetFilesystemStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuids := []storageprovisioning.FilesystemUUID{
-		tc.Must(c, storageprovisioning.NewFilesystemUUID),
+	uuids := []storage.FilesystemUUID{
+		tc.Must(c, storage.NewFilesystemUUID),
 	}
 	siUUID := tc.Must(c, storage.NewStorageInstanceUUID)
 	fs := []status.Filesystem{
@@ -673,8 +673,8 @@ func (s *storageServiceSuite) TestGetAllFilesystemStatusesMultiple(c *tc.C) {
 func (s *storageServiceSuite) TestGetVolumeStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuids := []storageprovisioning.VolumeUUID{
-		tc.Must(c, storageprovisioning.NewVolumeUUID),
+	uuids := []storage.VolumeUUID{
+		tc.Must(c, storage.NewVolumeUUID),
 	}
 	siUUID := tc.Must(c, storage.NewStorageInstanceUUID)
 	vol := []status.Volume{
@@ -707,7 +707,7 @@ func (s *storageServiceSuite) TestGetVolumeStatuses(c *tc.C) {
 			DeviceLink: "/dev/link0",
 			BusAddress: "bus-addr0",
 			VolumeAttachmentPlan: &status.VolumeAttachmentPlan{
-				DeviceType: storageprovisioning.PlanDeviceTypeISCSI,
+				DeviceType: storage.VolumeDeviceTypeISCSI,
 				DeviceAttributes: map[string]string{
 					"foo": "bar",
 				},
@@ -743,7 +743,7 @@ func (s *storageServiceSuite) TestGetVolumeStatuses(c *tc.C) {
 					DeviceLink: "/dev/link0",
 					BusAddress: "bus-addr0",
 					VolumeAttachmentPlan: &VolumeAttachmentPlan{
-						DeviceType: storageprovisioning.PlanDeviceTypeISCSI,
+						DeviceType: storage.VolumeDeviceTypeISCSI,
 						DeviceAttributes: map[string]string{
 							"foo": "bar",
 						},
@@ -758,7 +758,7 @@ func (s *storageServiceSuite) TestGetVolumeStatuses(c *tc.C) {
 					DeviceLink: "/dev/link0",
 					BusAddress: "bus-addr0",
 					VolumeAttachmentPlan: &VolumeAttachmentPlan{
-						DeviceType: storageprovisioning.PlanDeviceTypeISCSI,
+						DeviceType: storage.VolumeDeviceTypeISCSI,
 						DeviceAttributes: map[string]string{
 							"foo": "bar",
 						},

@@ -23,16 +23,13 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	coreversion "github.com/juju/juju/core/version"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/application/service/storage"
+	applicationstorageservice "github.com/juju/juju/domain/application/service/storage"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainremoval "github.com/juju/juju/domain/removal"
 	statusservice "github.com/juju/juju/domain/status/service"
-	"github.com/juju/juju/domain/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
-	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -79,8 +76,8 @@ type StorageService interface {
 	StoragePoolService
 
 	// GetStorageAttachmentUUIDForStorageInstanceAndUnit returns the
-	// [domainstorageprovisioning.StorageAttachmentUUID] associated with the
-	// given storage instance id and unit name.
+	// [storage.StorageAttachmentUUID] associated with the given storage
+	// instance id and unit name.
 	//
 	// The following errors may be returned:
 	// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] if the
@@ -156,7 +153,7 @@ type StorageService interface {
 	// by the specified machines.
 	GetFilesystemsByMachines(
 		ctx context.Context, uuids []coremachine.UUID,
-	) ([]storageprovisioning.FilesystemUUID, error)
+	) ([]domainstorage.FilesystemUUID, error)
 }
 
 // StatusService defines service methods required to perform bulk listing of
@@ -164,7 +161,7 @@ type StorageService interface {
 type StatusService interface {
 	// GetStorageInstanceStatuses returns the specified storage instance statuses.
 	GetStorageInstanceStatuses(
-		ctx context.Context, uuids []storage.StorageInstanceUUID,
+		ctx context.Context, uuids []domainstorage.StorageInstanceUUID,
 	) ([]statusservice.StorageInstance, error)
 
 	// GetAllStorageInstanceStatuses returns all the storage instance statuses for
@@ -173,7 +170,7 @@ type StatusService interface {
 
 	// GetFilesystemStatuses returns the specified filesystem statuses.
 	GetFilesystemStatuses(
-		ctx context.Context, uuids []storageprovisioning.FilesystemUUID,
+		ctx context.Context, uuids []domainstorage.FilesystemUUID,
 	) ([]statusservice.Filesystem, error)
 
 	// GetAllFilesystemStatuses returns all the filesystem statuses for the model.
@@ -181,7 +178,7 @@ type StatusService interface {
 
 	// GetVolumeStatuses returns the specified volume statuses.
 	GetVolumeStatuses(
-		ctx context.Context, uuids []storageprovisioning.VolumeUUID,
+		ctx context.Context, uuids []domainstorage.VolumeUUID,
 	) ([]statusservice.Volume, error)
 
 	// GetAllVolumeStatuses returns all the volume statuses for the model.
@@ -201,12 +198,20 @@ type ApplicationService interface {
 
 	// AddStorageForIAASUnit adds storage instances to the given unit.
 	AddStorageForIAASUnit(
-		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, count uint32, arg storage.AddUnitStorageOverride,
+		context.Context,
+		corestorage.Name,
+		coreunit.UUID,
+		uint32,
+		applicationstorageservice.AddUnitStorageOverride,
 	) ([]corestorage.ID, error)
 
 	// AddStorageForCAASUnit adds storage instances to the given unit.
 	AddStorageForCAASUnit(
-		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, count uint32, arg storage.AddUnitStorageOverride,
+		context.Context,
+		corestorage.Name,
+		coreunit.UUID,
+		uint32,
+		applicationstorageservice.AddUnitStorageOverride,
 	) ([]corestorage.ID, error)
 
 	// AttachStorageToUnit ensures the specified storage instance is attached to the specified unit.
@@ -683,9 +688,9 @@ func (a *StorageAPI) volumeDetails(
 			details.OwnerTag = names.NewUnitTag(v.Owner.String()).String()
 		}
 		switch v.Kind {
-		case storage.StorageKindBlock:
+		case domainstorage.StorageKindBlock:
 			details.Kind = params.StorageKindBlock
-		case storage.StorageKindFilesystem:
+		case domainstorage.StorageKindFilesystem:
 			details.Kind = params.StorageKindFilesystem
 		default:
 			details.Kind = params.StorageKindUnknown
@@ -741,16 +746,10 @@ func (a *StorageAPI) volumeDetails(
 				},
 			}
 			if vap := va.VolumeAttachmentPlan; vap != nil {
-				pi := params.VolumeAttachmentPlanInfo{
+				vad.VolumeAttachmentInfo.PlanInfo = &params.VolumeAttachmentPlanInfo{
 					DeviceAttributes: vap.DeviceAttributes,
+					DeviceType:       vap.DeviceType.String(),
 				}
-				switch vap.DeviceType {
-				case storageprovisioning.PlanDeviceTypeLocal:
-					pi.DeviceType = internalstorage.DeviceTypeLocal
-				case storageprovisioning.PlanDeviceTypeISCSI:
-					pi.DeviceType = internalstorage.DeviceTypeISCSI
-				}
-				vad.VolumeAttachmentInfo.PlanInfo = &pi
 			}
 			if details.UnitAttachments == nil {
 				details.UnitAttachments = map[string]params.VolumeAttachmentDetails{}
@@ -781,17 +780,10 @@ func (a *StorageAPI) volumeDetails(
 				},
 			}
 			if vap := va.VolumeAttachmentPlan; vap != nil {
-				pi := params.VolumeAttachmentPlanInfo{
+				vad.VolumeAttachmentInfo.PlanInfo = &params.VolumeAttachmentPlanInfo{
 					DeviceAttributes: vap.DeviceAttributes,
+					DeviceType:       vap.DeviceType.String(),
 				}
-
-				switch vap.DeviceType {
-				case storageprovisioning.PlanDeviceTypeLocal:
-					pi.DeviceType = internalstorage.DeviceTypeLocal.String()
-				case storageprovisioning.PlanDeviceTypeISCSI:
-					pi.DeviceType = internalstorage.DeviceTypeISCSI.String()
-				}
-				vad.VolumeAttachmentInfo.PlanInfo = &pi
 			}
 			if details.MachineAttachments == nil {
 				details.MachineAttachments = map[string]params.VolumeAttachmentDetails{}
@@ -946,9 +938,9 @@ func (a *StorageAPI) filesystemDetails(
 			details.OwnerTag = names.NewUnitTag(v.Owner.String()).String()
 		}
 		switch v.Kind {
-		case storage.StorageKindBlock:
+		case domainstorage.StorageKindBlock:
 			details.Kind = params.StorageKindBlock
-		case storage.StorageKindFilesystem:
+		case domainstorage.StorageKindFilesystem:
 			details.Kind = params.StorageKindFilesystem
 		default:
 			details.Kind = params.StorageKindUnknown
@@ -1127,7 +1119,7 @@ func (a *StorageAPI) addOneStorage(ctx context.Context, one params.StorageAddPar
 		storageCount = uint32(*one.Directives.Count)
 	}
 
-	args := storage.AddUnitStorageOverride{
+	args := applicationstorageservice.AddUnitStorageOverride{
 		StoragePoolUUID: storagePoolUUID,
 		SizeMiB:         one.Directives.SizeMiB,
 	}

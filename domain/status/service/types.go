@@ -118,7 +118,7 @@ type StorageAttachment struct {
 
 // Filesystem represents the status of a filesystem.
 type Filesystem struct {
-	UUID               storageprovisioning.FilesystemUUID
+	UUID               storage.FilesystemUUID
 	StorageUUID        *storage.StorageInstanceUUID
 	ID                 string
 	Life               life.Value

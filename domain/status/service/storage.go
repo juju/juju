@@ -66,7 +66,7 @@ type StorageState interface {
 
 	// GetFilesystems returns the specified filesystems for this model.
 	GetFilesystems(
-		ctx context.Context, uuids []storageprovisioning.FilesystemUUID,
+		ctx context.Context, uuids []storage.FilesystemUUID,
 	) ([]status.Filesystem, error)
 
 	// GetAllFilesystems returns all the filesystems for this model.
@@ -74,7 +74,7 @@ type StorageState interface {
 
 	// GetFilesystemAttachments returns the specifeid filesystem attachments.
 	GetFilesystemAttachments(
-		ctx context.Context, uuids []storageprovisioning.FilesystemUUID,
+		ctx context.Context, uuids []storage.FilesystemUUID,
 	) ([]status.FilesystemAttachment, error)
 
 	// GetAllFilesystemAttachments returns all the filesystem attachments for this
@@ -312,7 +312,7 @@ func (s *Service) transformStorageInstanceResults(
 
 // GetFilesystemStatuses returns the specified filesystem statuses.
 func (s *Service) GetFilesystemStatuses(
-	ctx context.Context, uuids []storageprovisioning.FilesystemUUID,
+	ctx context.Context, uuids []storage.FilesystemUUID,
 ) ([]Filesystem, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -355,7 +355,7 @@ func (s *Service) transformFilesystemResults(
 	filesystems []status.Filesystem,
 	filesystemAttachments []status.FilesystemAttachment,
 ) ([]Filesystem, error) {
-	fsMap := map[storageprovisioning.FilesystemUUID]*Filesystem{}
+	fsMap := map[storage.FilesystemUUID]*Filesystem{}
 	for _, dfs := range filesystems {
 		fs := Filesystem{
 			UUID:        dfs.UUID,
