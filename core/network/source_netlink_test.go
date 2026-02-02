@@ -76,6 +76,9 @@ func (s *sourceNetlinkSuite) TestNetlinkNICType(c *tc.C) {
 	link.linkType = "vxlan"
 	c.Check(nic.Type(), tc.Equals, VXLANDevice)
 
+	link.linkType = "veth"
+	c.Check(nic.Type(), tc.Equals, VirtualEthernetDevice)
+
 	// Infer loopback from flags.
 	link.linkType = ""
 	link.flags = net.FlagUp | net.FlagLoopback

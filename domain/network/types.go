@@ -89,6 +89,7 @@ const (
 	DeviceTypeBond
 	DeviceTypeBridge
 	DeviceTypeVXLAN
+	DeviceTypeVeth
 )
 
 // VirtualPortType represents the type of a link layer device port, as

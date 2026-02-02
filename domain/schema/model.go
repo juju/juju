@@ -145,6 +145,7 @@ var modelPostPatchFilesByVersion = []struct {
 	files: []string{
 		"0043-k8s-provider-id.PATCH.sql",
 		"0044-secret.PATCH.sql",
+		"0045-veth-nic-type.PATCH.sql",
 	},
 }}
 

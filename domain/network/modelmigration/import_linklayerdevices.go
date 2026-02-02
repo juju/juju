@@ -223,6 +223,10 @@ func encodeDeviceType(t string) (network.DeviceType, error) {
 		return network.DeviceTypeBridge, nil
 	case corenetwork.VXLANDevice.String():
 		return network.DeviceTypeVXLAN, nil
+	// This device type was never actually used in 3.6,
+	// but is added here for completeness.
+	case corenetwork.VirtualEthernetDevice.String():
+		return network.DeviceTypeVeth, nil
 	default:
 		return -1, errors.Errorf("unknown link layer device type: %q", t)
 	}

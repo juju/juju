@@ -64,6 +64,8 @@ func (n netlinkNIC) Type() LinkLayerDeviceType {
 		return BondDevice
 	case "vxlan":
 		return VXLANDevice
+	case "veth":
+		return VirtualEthernetDevice
 	}
 
 	if n.nic.Attrs().Flags&net.FlagLoopback > 0 {
