@@ -288,7 +288,7 @@ There are two ways you can connect to a Juju machine: via `juju ssh` or via a st
 First, make sure you have `admin` access to the model and your public SSH key has been added to the model.
 
 ```{important}
-If you are the model creator, your public SSH key is already known to `juju` and you already have `admin` access for the model. If you are not the model creator, see {ref}`manage-users` and {ref}`user-access-levels` for how to gain `admin` access to a model and {ref}`manage-ssh-keys` for how to add your SSH key to the model.
+If you are the model creator, you already have `admin` access for the model. If you are not the model creator, see {ref}`manage-users` and {ref}`user-access-levels` for how to gain `admin` access to a model and {ref}`manage-ssh-keys` for how to add your SSH key to the model.
 ```
 
 <!--
@@ -337,7 +337,7 @@ juju ssh 0 -i ~/.ssh/my-private-key
 First, make sure you've added a public SSH key for your user to the target model.
 
 ```{important}
-If you are the model creator, your public SSH key is already known to `juju` and you already have `admin` access for the model. If you are not the model creator, see {ref}`manage-users` and {ref}`user-access-levels` for how to gain `admin` access to a model and {ref}`manage-ssh-keys` for how to add your SSH key to the model.
+If you are the model creator, you already have `admin` access for the model. If you are not the model creator, see {ref}`manage-users` and {ref}`user-access-levels` for how to gain `admin` access to a model and {ref}`manage-ssh-keys` for how to add your SSH key to the model.
 ```
 
 Alternatively, for direct access using a standard SSH client, it is also possible to add the key to an individual machine using standard methods (manually copying a key to the `authorized_keys` file or by way of a command such as `ssh-import-id` in the case of Ubuntu).
