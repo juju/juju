@@ -17,10 +17,6 @@ import (
 	"github.com/juju/juju/domain/status"
 )
 
-type entityUUID struct {
-	UUID string `db:"uuid"`
-}
-
 type entityUUIDs []string
 
 type applicationUUID struct {
