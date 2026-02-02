@@ -3382,11 +3382,10 @@ func (st *State) getApplicationEndpointUUID(ctx context.Context, tx *sqlair.TX,
 	}
 
 	stmt, err := st.Prepare(`
-SELECT aeu.uuid AS &applicationEndpointUUID.uuid
-FROM   v_application_endpoint_uuid AS aeu
-JOIN   application a ON a.uuid = aeu.application_uuid
-WHERE  aeu.name = $endpointIdentifier.endpoint_name
-AND    a.name = $endpointIdentifier.application_name
+SELECT ae.application_endpoint_uuid AS &applicationEndpointUUID.uuid
+FROM   v_application_endpoint AS ae
+WHERE  ae.endpoint_name = $endpointIdentifier.endpoint_name
+AND    ae.application_name = $endpointIdentifier.application_name
 `, applicationEndpointUUID{}, endpointIdentifier{})
 	if err != nil {
 		return "", errors.Capture(err)
