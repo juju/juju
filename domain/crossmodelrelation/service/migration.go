@@ -51,10 +51,46 @@ func (s *MigrationService) ImportOffers(ctx context.Context, imports []crossmode
 	return errors.Capture(s.modelState.ImportOffers(ctx, imports))
 }
 
+// RemoteApplicationImport contains details to import a remote application
+// (offerer) during migration. This represents a remote application that this
+// model is consuming from another model.
+type RemoteApplicationImport struct {
+	// Name is the name of the remote application in this model.
+	Name string
+
+	// OfferUUID is the UUID of the offer being consumed.
+	OfferUUID string
+
+	// URL is the offer URL.
+	URL string
+
+	// SourceModelUUID is the UUID of the model offering the application.
+	SourceModelUUID string
+
+	// Macaroon is the authentication macaroon for the offer.
+	Macaroon string
+
+	// Endpoints are the remote endpoints for creating the synthetic charm.
+	// This is kept for backwards compatibility and service layer processing.
+	Endpoints []crossmodelrelation.RemoteApplicationEndpoint
+
+	// Bindings are the endpoint-to-space bindings.
+	Bindings map[string]string
+
+	// IsConsumerProxy indicates if this is a consumer proxy (on the offerer
+	// side) rather than a remote offerer (on the consumer side).
+	IsConsumerProxy bool
+
+	// Units are the unit names for the remote application that need to be
+	// created as synthetic units. These are extracted from relation endpoints
+	// during migration import.
+	Units []string
+}
+
 // ImportRemoteApplications adds remote application offerers being migrated to
 // the current model. These are applications that this model is consuming from
 // other models.
-func (s *MigrationService) ImportRemoteApplications(ctx context.Context, imports []crossmodelrelation.RemoteApplicationImport) error {
+func (s *MigrationService) ImportRemoteApplications(ctx context.Context, imports []RemoteApplicationImport) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -62,17 +98,27 @@ func (s *MigrationService) ImportRemoteApplications(ctx context.Context, imports
 	// remote application offerer in the service layer.
 	// Consumer proxies represent consumers on the offering side and are
 	// handled differently, so they should not be imported as remote offerers.
-	importsWithCharms := make([]crossmodelrelation.RemoteApplicationImport, 0, len(imports))
+	offerers := make([]crossmodelrelation.RemoteApplicationImport, 0, len(imports))
 	for _, imp := range imports {
 		// Skip consumer proxies
 		if imp.IsConsumerProxy {
 			continue
 		}
-		imp.SyntheticCharm = buildSyntheticCharm(imp.Name, imp.Endpoints)
-		importsWithCharms = append(importsWithCharms, imp)
+
+		offerers = append(offerers, crossmodelrelation.RemoteApplicationImport{
+			Name:            imp.Name,
+			OfferUUID:       imp.OfferUUID,
+			URL:             imp.URL,
+			SourceModelUUID: imp.SourceModelUUID,
+			Macaroon:        imp.Macaroon,
+			Endpoints:       imp.Endpoints,
+			Bindings:        imp.Bindings,
+			Units:           imp.Units,
+			SyntheticCharm:  buildSyntheticCharm(imp.Name, imp.Endpoints),
+		})
 	}
 
-	return errors.Capture(s.modelState.ImportRemoteApplicationOfferers(ctx, importsWithCharms))
+	return errors.Capture(s.modelState.ImportRemoteApplicationOfferers(ctx, offerers))
 }
 
 // buildSyntheticCharm creates a synthetic charm from the remote application's

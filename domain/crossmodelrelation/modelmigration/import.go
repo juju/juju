@@ -42,7 +42,7 @@ type ImportService interface {
 
 	// ImportRemoteApplications adds remote application offerers being migrated
 	// to the current model.
-	ImportRemoteApplications(context.Context, []crossmodelrelation.RemoteApplicationImport) error
+	ImportRemoteApplications(context.Context, []service.RemoteApplicationImport) error
 }
 
 type importOperation struct {
@@ -162,7 +162,7 @@ func (i *importOperation) importRemoteApplications(
 	remoteApps []description.RemoteApplication,
 	remoteAppUnits map[string][]string,
 ) error {
-	input := make([]crossmodelrelation.RemoteApplicationImport, 0, len(remoteApps))
+	input := make([]service.RemoteApplicationImport, 0, len(remoteApps))
 	for _, remoteApp := range remoteApps {
 		endpoints := make([]crossmodelrelation.RemoteApplicationEndpoint, 0, len(remoteApp.Endpoints()))
 		for _, ep := range remoteApp.Endpoints() {
@@ -178,7 +178,7 @@ func (i *importOperation) importRemoteApplications(
 			})
 		}
 
-		input = append(input, crossmodelrelation.RemoteApplicationImport{
+		input = append(input, service.RemoteApplicationImport{
 			Name:            remoteApp.Name(),
 			OfferUUID:       remoteApp.OfferUUID(),
 			URL:             remoteApp.URL(),

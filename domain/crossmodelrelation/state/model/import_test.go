@@ -235,7 +235,6 @@ func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferers(c *tc
 			Endpoints:       endpoints,
 			SyntheticCharm:  buildTestSyntheticCharm("remote-kafka", endpoints),
 			Bindings:        map[string]string{"client": "alpha", "zookeeper": "beta"},
-			IsConsumerProxy: false,
 		},
 	}
 
@@ -299,7 +298,6 @@ func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferersWithUn
 			Macaroon:        "test-macaroon",
 			Endpoints:       endpoints,
 			SyntheticCharm:  buildTestSyntheticCharm("remote-mysql", endpoints),
-			IsConsumerProxy: false,
 			Units:           []string{"remote-mysql/0", "remote-mysql/1"},
 		},
 	}
@@ -362,7 +360,6 @@ func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferersMultip
 			Macaroon:        "macaroon1",
 			Endpoints:       endpoints1,
 			SyntheticCharm:  buildTestSyntheticCharm("remote-mysql", endpoints1),
-			IsConsumerProxy: false,
 		},
 		{
 			Name:            "remote-postgres",
@@ -372,7 +369,6 @@ func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferersMultip
 			Macaroon:        "macaroon2",
 			Endpoints:       endpoints2,
 			SyntheticCharm:  buildTestSyntheticCharm("remote-postgres", endpoints2),
-			IsConsumerProxy: false,
 		},
 	}
 

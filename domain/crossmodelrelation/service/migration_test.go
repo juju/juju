@@ -75,7 +75,7 @@ func (s *migrationSuite) TestImportRemoteApplications(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	input := []crossmodelrelation.RemoteApplicationImport{
+	input := []RemoteApplicationImport{
 		{
 			Name:            "remote-app1",
 			OfferUUID:       uuid.MustNewUUID().String(),
@@ -128,7 +128,7 @@ func (s *migrationSuite) TestImportRemoteApplicationsEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	input := []crossmodelrelation.RemoteApplicationImport{}
+	input := []RemoteApplicationImport{}
 	s.modelMigrationState.EXPECT().ImportRemoteApplicationOfferers(
 		gomock.Any(),
 		syntheticCharmMatcher{
@@ -147,7 +147,7 @@ func (s *migrationSuite) TestImportRemoteApplicationsFail(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	input := []crossmodelrelation.RemoteApplicationImport{
+	input := []RemoteApplicationImport{
 		{
 			Name:            "remote-app",
 			OfferUUID:       uuid.MustNewUUID().String(),
@@ -182,7 +182,7 @@ func (s *migrationSuite) TestImportRemoteApplicationsPeerIgnored(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange - import with a peer endpoint to verify it's ignored in synthetic charm
-	input := []crossmodelrelation.RemoteApplicationImport{
+	input := []RemoteApplicationImport{
 		{
 			Name:            "remote-app",
 			OfferUUID:       uuid.MustNewUUID().String(),
@@ -229,7 +229,7 @@ func (s *migrationSuite) TestImportRemoteApplicationsConsumerProxyFiltered(c *tc
 
 	// Arrange - import both a consumer proxy and a regular remote app
 	// Consumer proxies should be filtered out by the service layer
-	input := []crossmodelrelation.RemoteApplicationImport{
+	input := []RemoteApplicationImport{
 		{
 			Name:            "remote-consumer-proxy",
 			OfferUUID:       uuid.MustNewUUID().String(),
@@ -263,7 +263,7 @@ func (s *migrationSuite) TestImportRemoteApplicationsConsumerProxyFiltered(c *tc
 	}
 
 	// Expected: only the non-consumer-proxy should be passed to state
-	expectedToState := []crossmodelrelation.RemoteApplicationImport{input[1]}
+	expectedToState := []RemoteApplicationImport{input[1]}
 	s.modelMigrationState.EXPECT().ImportRemoteApplicationOfferers(
 		gomock.Any(),
 		syntheticCharmMatcher{
@@ -282,7 +282,7 @@ func (s *migrationSuite) TestImportRemoteApplicationsAllConsumerProxiesFiltered(
 	defer s.setupMocks(c).Finish()
 
 	// Arrange - all imports are consumer proxies
-	input := []crossmodelrelation.RemoteApplicationImport{
+	input := []RemoteApplicationImport{
 		{
 			Name:            "remote-consumer-proxy-1",
 			OfferUUID:       uuid.MustNewUUID().String(),
@@ -319,7 +319,7 @@ func (s *migrationSuite) TestImportRemoteApplicationsAllConsumerProxiesFiltered(
 	s.modelMigrationState.EXPECT().ImportRemoteApplicationOfferers(
 		gomock.Any(),
 		syntheticCharmMatcher{
-			expectedApps: []crossmodelrelation.RemoteApplicationImport{},
+			expectedApps: []RemoteApplicationImport{},
 		},
 	).Return(nil)
 
@@ -333,7 +333,7 @@ func (s *migrationSuite) TestImportRemoteApplicationsAllConsumerProxiesFiltered(
 // syntheticCharmMatcher is a custom gomock matcher that verifies
 // RemoteApplicationImport slices have correctly built synthetic charms.
 type syntheticCharmMatcher struct {
-	expectedApps []crossmodelrelation.RemoteApplicationImport
+	expectedApps []RemoteApplicationImport
 }
 
 func (m syntheticCharmMatcher) Matches(x interface{}) bool {
@@ -354,8 +354,7 @@ func (m syntheticCharmMatcher) Matches(x interface{}) bool {
 			app.OfferUUID != expected.OfferUUID ||
 			app.URL != expected.URL ||
 			app.SourceModelUUID != expected.SourceModelUUID ||
-			app.Macaroon != expected.Macaroon ||
-			app.IsConsumerProxy != expected.IsConsumerProxy {
+			app.Macaroon != expected.Macaroon {
 			return false
 		}
 

@@ -165,10 +165,6 @@ type RemoteApplicationImport struct {
 	// Bindings are the endpoint-to-space bindings.
 	Bindings map[string]string
 
-	// IsConsumerProxy indicates if this is a consumer proxy (on the offerer
-	// side) rather than a remote offerer (on the consumer side).
-	IsConsumerProxy bool
-
 	// Units are the unit names for the remote application that need to be
 	// created as synthetic units. These are extracted from relation endpoints
 	// during migration import.

@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	"github.com/juju/juju/domain/crossmodelrelation/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -92,7 +93,7 @@ func (s *importSuite) TestImportRemoteApplications(c *tc.C) {
 		Interface: "mysql",
 	})
 
-	expected := []crossmodelrelation.RemoteApplicationImport{
+	expected := []service.RemoteApplicationImport{
 		{
 			Name:            "remote-mysql",
 			OfferUUID:       "offer-uuid-1234",
@@ -173,7 +174,7 @@ func (s *importSuite) TestImportRemoteApplicationsMultiple(c *tc.C) {
 		Interface: "admin",
 	})
 
-	expected := []crossmodelrelation.RemoteApplicationImport{
+	expected := []service.RemoteApplicationImport{
 		{
 			Name:            "remote-mysql",
 			OfferUUID:       "offer-uuid-1",
@@ -275,7 +276,7 @@ func (s *importSuite) TestImportRemoteApplicationsWithUnitsFromRelations(c *tc.C
 	s.importService.EXPECT().ImportRemoteApplications(
 		gomock.Any(),
 		gomock.Any(),
-	).DoAndReturn(func(ctx context.Context, imports []crossmodelrelation.RemoteApplicationImport) error {
+	).DoAndReturn(func(ctx context.Context, imports []service.RemoteApplicationImport) error {
 		c.Assert(imports, tc.HasLen, 1)
 		c.Check(imports[0].Name, tc.Equals, "remote-mysql")
 		// Units should be extracted from relation endpoint settings
