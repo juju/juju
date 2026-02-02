@@ -1199,18 +1199,18 @@ func (m *MockFilesystemImporter) EXPECT() *MockFilesystemImporterMockRecorder {
 }
 
 // ImportFilesystem mocks base method.
-func (m *MockFilesystemImporter) ImportFilesystem(arg0 context.Context, arg1 string, arg2 map[string]string) (storage.FilesystemInfo, error) {
+func (m *MockFilesystemImporter) ImportFilesystem(arg0 context.Context, arg1, arg2 string, arg3 map[string]string, arg4 bool) (storage.FilesystemInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ImportFilesystem", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ImportFilesystem", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(storage.FilesystemInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ImportFilesystem indicates an expected call of ImportFilesystem.
-func (mr *MockFilesystemImporterMockRecorder) ImportFilesystem(arg0, arg1, arg2 any) *MockFilesystemImporterImportFilesystemCall {
+func (mr *MockFilesystemImporterMockRecorder) ImportFilesystem(arg0, arg1, arg2, arg3, arg4 any) *MockFilesystemImporterImportFilesystemCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportFilesystem", reflect.TypeOf((*MockFilesystemImporter)(nil).ImportFilesystem), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportFilesystem", reflect.TypeOf((*MockFilesystemImporter)(nil).ImportFilesystem), arg0, arg1, arg2, arg3, arg4)
 	return &MockFilesystemImporterImportFilesystemCall{Call: call}
 }
 
@@ -1226,13 +1226,13 @@ func (c *MockFilesystemImporterImportFilesystemCall) Return(arg0 storage.Filesys
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFilesystemImporterImportFilesystemCall) Do(f func(context.Context, string, map[string]string) (storage.FilesystemInfo, error)) *MockFilesystemImporterImportFilesystemCall {
+func (c *MockFilesystemImporterImportFilesystemCall) Do(f func(context.Context, string, string, map[string]string, bool) (storage.FilesystemInfo, error)) *MockFilesystemImporterImportFilesystemCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFilesystemImporterImportFilesystemCall) DoAndReturn(f func(context.Context, string, map[string]string) (storage.FilesystemInfo, error)) *MockFilesystemImporterImportFilesystemCall {
+func (c *MockFilesystemImporterImportFilesystemCall) DoAndReturn(f func(context.Context, string, string, map[string]string, bool) (storage.FilesystemInfo, error)) *MockFilesystemImporterImportFilesystemCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
