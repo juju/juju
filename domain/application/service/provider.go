@@ -1024,10 +1024,9 @@ func encodeUnitPlacement(placement deployment.Placement) string {
 	return placement.Directive
 }
 
-// AttachStorageToUnit attached the specified storage to the specified unit.
+// AttachStorageToUnit ensures the specified storage instance is attached to the specified unit.
 // If the attachment already exists, the result is a no op.
 // The following error types can be expected:
-// - [github.com/juju/juju/core/storage.InvalidStorageID]: when the storage ID is not valid.
 // - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
 // - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
 // - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the unit is not alive.

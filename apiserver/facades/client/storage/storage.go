@@ -160,7 +160,7 @@ type ApplicationService interface {
 		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, count uint32, arg storage.AddUnitStorageOverride,
 	) ([]corestorage.ID, error)
 
-	// AttachStorageToUnit attached the specified storage to the specified unit.
+	// AttachStorageToUnit ensures the specified storage instance is attached to the specified unit.
 	// If the attachment already exists, the result is a no op.
 	AttachStorageToUnit(ctx context.Context, storageID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error
 }
@@ -676,9 +676,6 @@ func handleAttachStorageToUnitError(err error, unitName coreunit.Name, storageID
 	case errors.Is(err, storageerrors.StorageInstanceNotFound):
 		return apiservererrors.ParamsErrorf(params.CodeNotFound,
 			"storage %q not found", storageID)
-	case errors.Is(err, corestorage.InvalidStorageID):
-		return apiservererrors.ParamsErrorf(params.CodeNotValid,
-			"storage %q not value", storageID)
 	case errors.HasType[applicationerrors.StorageCountLimitExceeded](err):
 		limitErr, _ := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
 		if limitErr.Maximum != nil && limitErr.Requested > *limitErr.Maximum {
