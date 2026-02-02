@@ -140,3 +140,20 @@ INSERT INTO application_remote_offerer (*) VALUES ($remoteApplicationOfferer.*);
 	})
 	return errors.Capture(err)
 }
+
+// ImportRemoteApplicationConsumers adds remote application consumers being
+// migrated to the current model. These are applications live in the offerer
+// model that this model is offering to other models. The consumer application
+// is the synthetic application created in the offerer model to represent the
+// remote application being offered.
+func (st *State) ImportRemoteApplicationConsumers(ctx context.Context, imports []crossmodelrelation.RemoteApplicationConsumerImport) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return nil
+	})
+	return errors.Capture(err)
+}

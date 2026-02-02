@@ -24,8 +24,12 @@ type ModelMigrationState interface {
 	// ImportOffers adds offers being migrated to the current model.
 	ImportOffers(context.Context, []crossmodelrelation.OfferImport) error
 
-	// ImportRemoteApplicationOfferers adds remote application offerers being migrated
-	// to the current model.
+	// ImportRemoteApplicationConsumers adds remote application consumers being
+	// migrated to the current model.
+	ImportRemoteApplicationConsumers(context.Context, []crossmodelrelation.RemoteApplicationConsumerImport) error
+
+	// ImportRemoteApplicationOfferers adds remote application offerers being
+	// migrated to the current model.
 	ImportRemoteApplicationOfferers(context.Context, []crossmodelrelation.RemoteApplicationOffererImport) error
 }
 
@@ -105,7 +109,6 @@ func (s *MigrationService) ImportRemoteApplications(ctx context.Context, imports
 	)
 
 	for _, rApp := range imports {
-		// Handle consumer proxies separately from regular offerers.
 		if !rApp.IsConsumerProxy {
 			offerer, err := s.constructApplicationOfferer(rApp)
 			if err != nil {
@@ -122,7 +125,19 @@ func (s *MigrationService) ImportRemoteApplications(ctx context.Context, imports
 		consumers = append(consumers, consumer)
 	}
 
-	return errors.Capture(s.modelState.ImportRemoteApplicationOfferers(ctx, offerers))
+	if len(consumers) > 0 {
+		if err := s.modelState.ImportRemoteApplicationConsumers(ctx, consumers); err != nil {
+			return errors.Errorf("importing remote application consumers: %w", err)
+		}
+	}
+
+	if len(offerers) > 0 {
+		if err := s.modelState.ImportRemoteApplicationOfferers(ctx, offerers); err != nil {
+			return errors.Errorf("importing remote application offerers: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (s *MigrationService) constructApplicationOfferer(rApp RemoteApplicationImport) (crossmodelrelation.RemoteApplicationOffererImport, error) {
