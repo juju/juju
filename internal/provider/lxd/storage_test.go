@@ -605,10 +605,13 @@ func (s *storageSuite) TestImportFilesystem(c *tc.C) {
 		}},
 	}
 
-	info, err := importer.ImportFilesystem(c.Context(),
-		"foo:bar", map[string]string{
-			"baz": "qux",
-		})
+	info, err := importer.ImportFilesystem(
+		c.Context(),
+		"foo:bar",
+		"mydata",
+		map[string]string{"baz": "qux"},
+		false,
+	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(info, tc.DeepEquals, storage.FilesystemInfo{
 		ProviderId: "foo:bar",
@@ -638,10 +641,15 @@ func (s *storageSuite) TestImportFilesystemInvalidCredentialsGetPool(c *tc.C) {
 	c.Assert(source, tc.Implements, new(storage.FilesystemImporter))
 	importer := source.(storage.FilesystemImporter)
 
-	info, err := importer.ImportFilesystem(c.Context(),
-		"foo:bar", map[string]string{
+	info, err := importer.ImportFilesystem(
+		c.Context(),
+		"foo:bar",
+		"mydata",
+		map[string]string{
 			"baz": "qux",
-		})
+		},
+		false,
+	)
 	c.Assert(err, tc.ErrorMatches, ".*not authorized")
 	c.Assert(info, tc.DeepEquals, storage.FilesystemInfo{})
 }
@@ -666,10 +674,15 @@ func (s *storageSuite) TestImportFilesystemInvalidCredentialsUpdatePool(c *tc.C)
 		}},
 	}
 
-	info, err := importer.ImportFilesystem(c.Context(),
-		"foo:bar", map[string]string{
+	info, err := importer.ImportFilesystem(
+		c.Context(),
+		"foo:bar",
+		"mydata",
+		map[string]string{
 			"baz": "qux",
-		})
+		},
+		false,
+	)
 	c.Assert(err, tc.ErrorMatches, ".*not authorized")
 	c.Assert(info, tc.DeepEquals, storage.FilesystemInfo{})
 }
