@@ -706,7 +706,7 @@ func (m *MockStorageService) EXPECT() *MockStorageServiceMockRecorder {
 }
 
 // AdoptFilesystem mocks base method.
-func (m *MockStorageService) AdoptFilesystem(arg0 context.Context, arg1 string, arg2 storage1.StoragePoolUUID, arg3 string, arg4 bool) (storage.ID, error) {
+func (m *MockStorageService) AdoptFilesystem(arg0 context.Context, arg1 storage1.Name, arg2 storage1.StoragePoolUUID, arg3 string, arg4 bool) (storage.ID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AdoptFilesystem", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(storage.ID)
@@ -733,13 +733,13 @@ func (c *MockStorageServiceAdoptFilesystemCall) Return(arg0 storage.ID, arg1 err
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageServiceAdoptFilesystemCall) Do(f func(context.Context, string, storage1.StoragePoolUUID, string, bool) (storage.ID, error)) *MockStorageServiceAdoptFilesystemCall {
+func (c *MockStorageServiceAdoptFilesystemCall) Do(f func(context.Context, storage1.Name, storage1.StoragePoolUUID, string, bool) (storage.ID, error)) *MockStorageServiceAdoptFilesystemCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageServiceAdoptFilesystemCall) DoAndReturn(f func(context.Context, string, storage1.StoragePoolUUID, string, bool) (storage.ID, error)) *MockStorageServiceAdoptFilesystemCall {
+func (c *MockStorageServiceAdoptFilesystemCall) DoAndReturn(f func(context.Context, storage1.Name, storage1.StoragePoolUUID, string, bool) (storage.ID, error)) *MockStorageServiceAdoptFilesystemCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

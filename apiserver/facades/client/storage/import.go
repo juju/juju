@@ -26,7 +26,7 @@ type StorageAdoptionService interface {
 	// instance using the given storage name.
 	AdoptFilesystem(
 		ctx context.Context,
-		storageName string,
+		storageName domainstorage.Name,
 		pool domainstorage.StoragePoolUUID,
 		providerID string,
 		force bool,
@@ -72,7 +72,12 @@ func (a *StorageAPI) Import(
 		switch arg.Kind {
 		case params.StorageKindFilesystem:
 			id, err := a.storageService.AdoptFilesystem(
-				ctx, arg.StorageName, poolUUID, arg.ProviderId, arg.Force)
+				ctx,
+				domainstorage.Name(arg.StorageName),
+				poolUUID,
+				arg.ProviderId,
+				arg.Force,
+			)
 			if errors.Is(err, domainstorageerrors.StoragePoolNotFound) {
 				return details, apiservererrors.ParamsErrorf(
 					params.CodeNotFound, "storage pool not found",
@@ -151,7 +156,12 @@ func (a *StorageAPIv6) Import(
 		switch arg.Kind {
 		case params.StorageKindFilesystem:
 			id, err := a.storageService.AdoptFilesystem(
-				ctx, arg.StorageName, poolUUID, arg.ProviderId, false)
+				ctx,
+				domainstorage.Name(arg.StorageName),
+				poolUUID,
+				arg.ProviderId,
+				false,
+			)
 			if errors.Is(err, domainstorageerrors.StoragePoolNotFound) {
 				return details, apiservererrors.ParamsErrorf(
 					params.CodeNotFound, "storage pool not found",

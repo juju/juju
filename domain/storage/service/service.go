@@ -19,6 +19,7 @@ import (
 
 // State defines an interface for interacting with the underlying state.
 type State interface {
+	AdoptState
 	FilesystemState
 	StoragePoolState
 	VolumeState
