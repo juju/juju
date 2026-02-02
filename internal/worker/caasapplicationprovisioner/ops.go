@@ -77,9 +77,9 @@ type ApplicationOps interface {
 		logger logger.Logger) (*ProvisioningInfo, error)
 
 	AppAlive(ctx context.Context, appName string, appStorageUniqueID string,
-		appUUID coreapplication.UUID, app caas.Application, password string,
-		lastApplied *caas.ApplicationConfig, provisioningInfo *ProvisioningInfo,
-		statusService StatusService, clk clock.Clock, logger logger.Logger) error
+		app caas.Application, password string, lastApplied *caas.ApplicationConfig,
+		provisioningInfo *ProvisioningInfo, statusService StatusService, clk clock.Clock,
+		logger logger.Logger) error
 
 	AppDying(ctx context.Context, appName string, appUUID coreapplication.UUID,
 		app caas.Application, appLife life.Value, facade CAASProvisionerFacade,
@@ -134,12 +134,11 @@ func (applicationOps) ProvisioningInfo(
 
 func (applicationOps) AppAlive(
 	ctx context.Context,
-	appName string, appStorageUniqueID string, appUUID coreapplication.UUID,
-	app caas.Application, password string, lastApplied *caas.ApplicationConfig,
-	provisioningInfo *ProvisioningInfo, statusService StatusService,
-	clk clock.Clock, logger logger.Logger,
+	appName string, appStorageUniqueID string, app caas.Application, password string,
+	lastApplied *caas.ApplicationConfig, provisioningInfo *ProvisioningInfo,
+	statusService StatusService, clk clock.Clock, logger logger.Logger,
 ) error {
-	return appAlive(ctx, appName, appStorageUniqueID, appUUID, app, password,
+	return appAlive(ctx, appName, appStorageUniqueID, app, password,
 		lastApplied, provisioningInfo, statusService,
 		clk, logger)
 }
@@ -224,9 +223,8 @@ type Tomb interface {
 // appAlive handles the life.Alive state for the CAAS application. It handles invoking the
 // CAAS broker to create the resources in the k8s cluster for this application.
 func appAlive(ctx context.Context, appName string, appStorageUniqueID string,
-	appUUID coreapplication.UUID, app caas.Application, password string,
-	lastApplied *caas.ApplicationConfig, pi *ProvisioningInfo, statusService StatusService,
-	clk clock.Clock, logger logger.Logger,
+	app caas.Application, password string, lastApplied *caas.ApplicationConfig,
+	pi *ProvisioningInfo, statusService StatusService, clk clock.Clock, logger logger.Logger,
 ) error {
 	logger.Debugf(ctx, "ensuring application %q exists", appName)
 
