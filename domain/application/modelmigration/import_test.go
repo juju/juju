@@ -1506,7 +1506,7 @@ func (s *importSuite) TestApplicationImportSubordinate(c *tc.C) {
 }
 
 // TestApplicationImportWithStorageUniqueID tests that the storage unique ID
-// and storage names are passed correctly in the args.
+// is passed correctly in the args.
 func (s *importSuite) TestApplicationImportWithStorageUniqueID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1585,7 +1585,6 @@ func (s *importSuite) TestApplicationImportWithStorageUniqueID(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(importArgs.StorageUniqueID, tc.DeepEquals, "uniqid")
-	c.Assert(importArgs.StorageNames, tc.SameContents, []string{"cert", "cache"})
 }
 
 func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {

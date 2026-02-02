@@ -583,7 +583,6 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 	clk := testclock.NewDilatedWallClock(coretesting.ShortWait)
 	password := "123456789"
 	lastApplied := caas.ApplicationConfig{}
-	appUUID := tc.Must(c, application.NewUUID)
 
 	pi := caasapplicationprovisioner.ProvisioningInfo{
 		ImageDetails: coreresource.DockerImageDetails{
@@ -724,7 +723,7 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.AppAlive(c.Context(), "test",
-		"uniqid", appUUID, app, password, &lastApplied, &pi, statusService,
+		"uniqid", app, password, &lastApplied, &pi, statusService,
 		clk, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }

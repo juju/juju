@@ -1294,6 +1294,8 @@ func (s *importSuite) TestApplicationConstraints(c *tc.C) {
 	})
 }
 
+// TestImportApplicationStorageUniqueID tests that the sotrage unique id is
+// inserted correctly in the DB.
 func (s *importSuite) TestImportApplicationStorageUniqueID(c *tc.C) {
 	// Arrange
 	desc := description.NewModel(description.ModelArgs{
@@ -1321,17 +1323,8 @@ func (s *importSuite) TestImportApplicationStorageUniqueID(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert
-	appStorageUniqueIDs := s.getApplicationStorageUniqueIDs(c, app.Name())
-	c.Assert(appStorageUniqueIDs, tc.SameContents, []applicationProviderStorageID{
-		{
-			storage:         "cert",
-			storageUniqueID: "uniqid",
-		},
-		{
-			storage:         "cache",
-			storageUniqueID: "uniqid",
-		},
-	})
+	id := s.getApplicationStorageUniqueID(c, app.Name())
+	c.Assert(id, tc.Equals, "uniqid")
 }
 
 func setupMinimalApplication(model description.Model) description.Application {
@@ -1379,33 +1372,24 @@ func (s *importSuite) setModel(c *tc.C, cloudType, modelType string) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// getApplicationStorageUniqueIDs is a test helper that retrieve a slice of storage unique ids belonging
-// to an application.
-func (s *importSuite) getApplicationStorageUniqueIDs(c *tc.C, appName string) []applicationProviderStorageID {
-	vals := make([]applicationProviderStorageID, 0)
+// getApplicationStorageUniqueIDs is a test helper that retrieves an app's storage unique id.
+func (s *importSuite) getApplicationStorageUniqueID(c *tc.C, appName string) string {
+	var val string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `
-			SELECT storage_name, storage_unique_id 
-			FROM   application_provider_storage_id
+		row := tx.QueryRowContext(ctx, `
+			SELECT storage_unique_id 
+			FROM   application_storage_suffix
 			WHERE  application_uuid = (
 			 SELECT uuid FROM application
 			 WHERE  name = ?
 			)`, appName)
-		if err != nil {
-			return err
+		if row.Err() != nil {
+			return row.Err()
 		}
-		defer rows.Close()
-
-		for rows.Next() {
-			row := applicationProviderStorageID{}
-			err = rows.Scan(&row.storage, &row.storageUniqueID)
-			c.Assert(err, tc.ErrorIsNil)
-			vals = append(vals, row)
-		}
-		return rows.Err()
+		return row.Scan(&val)
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	return vals
+	return val
 }
 
 func ptr[T any](i T) *T {

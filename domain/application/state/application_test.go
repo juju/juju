@@ -4219,19 +4219,21 @@ func (s *applicationStateSuite) TestGetApplicationProviderStorageID(c *tc.C) {
 	ctx := c.Context()
 
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, "INSERT INTO application_provider_storage_id(application_uuid, storage_name, storage_unique_id) VALUES (?, ?, ?)", appUUID.String(), "web", "uniqid"); err != nil {
+		if _, err := tx.ExecContext(ctx,
+			"INSERT INTO application_storage_suffix (application_uuid, storage_unique_id) VALUES (?, ?)",
+			appUUID.String(), "uniqid"); err != nil {
 			return err
 		}
 		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	id, err := s.state.GetApplicationProviderStorageID(ctx, appUUID)
+	id, err := s.state.GetApplicationStorageSuffix(ctx, appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(id, tc.Equals, "uniqid")
 
 	nonExistentAppUUID := tc.Must(c, coreapplication.NewUUID)
-	id, err = s.state.GetApplicationProviderStorageID(ctx, nonExistentAppUUID)
+	id, err = s.state.GetApplicationStorageSuffix(ctx, nonExistentAppUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(id, tc.Equals, "")
 }

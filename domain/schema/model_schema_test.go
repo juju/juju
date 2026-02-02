@@ -93,7 +93,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"application_exposed_endpoint_cidr",
 		"application_exposed_endpoint_space",
 		"application_platform",
-		"application_provider_storage_id",
+		"application_storage_suffix",
 		"application_scale",
 		"application_setting",
 		"application_status",

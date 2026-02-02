@@ -1668,13 +1668,13 @@ func (s *applicationServiceSuite) TestGetApplicationDetailsInvalidAppUUID(c *tc.
 }
 
 // TestGetApplicationStorageUniqueIDDerivedFromAppUUID tests that the returned ID is from the
-// first 6 characters of the app UUID. This occurs because the application_provider_storage_id
+// first 6 characters of the app UUID. This occurs because the application_storage_suffix
 // is empty for the given app.
 func (s *applicationServiceSuite) TestGetApplicationStorageUniqueIDDerivedFromAppUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 
-	s.state.EXPECT().GetApplicationProviderStorageID(gomock.Any(), appUUID).Return("", nil)
+	s.state.EXPECT().GetApplicationStorageSuffix(gomock.Any(), appUUID).Return("", nil)
 
 	id, err := s.service.GetApplicationStorageUniqueID(c.Context(), appUUID)
 
@@ -1683,12 +1683,12 @@ func (s *applicationServiceSuite) TestGetApplicationStorageUniqueIDDerivedFromAp
 }
 
 // TestGetApplicationStorageUniqueIDFromDB tests that the returned ID is from the
-// application_provider_storage_id table.
+// application_storage_suffix table.
 func (s *applicationServiceSuite) TestGetApplicationStorageUniqueIDFromDB(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 
-	s.state.EXPECT().GetApplicationProviderStorageID(gomock.Any(), appUUID).Return("uniqid", nil)
+	s.state.EXPECT().GetApplicationStorageSuffix(gomock.Any(), appUUID).Return("uniqid", nil)
 
 	id, err := s.service.GetApplicationStorageUniqueID(c.Context(), appUUID)
 

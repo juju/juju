@@ -149,12 +149,6 @@ type ApplicationPlatform struct {
 	ArchitectureID  int64   `db:"architecture_id"`
 }
 
-type ApplicationProviderStorageID struct {
-	ApplicationUUID string `db:"application_uuid"`
-	StorageName     string `db:"storage_name"`
-	StorageUniqueID string `db:"storage_unique_id"`
-}
-
 type ApplicationRemoteConsumer struct {
 	OfferConnectionUUID     string `db:"offer_connection_uuid"`
 	OffererApplicationUUID  string `db:"offerer_application_uuid"`
@@ -219,6 +213,11 @@ type ApplicationStorageDirective struct {
 	StoragePoolUUID string `db:"storage_pool_uuid"`
 	SizeMib         int64  `db:"size_mib"`
 	Count           int64  `db:"count"`
+}
+
+type ApplicationStorageSuffix struct {
+	ApplicationUUID string `db:"application_uuid"`
+	StorageUniqueID string `db:"storage_unique_id"`
 }
 
 type ApplicationWorkloadVersion struct {
@@ -1604,7 +1603,6 @@ type ModelExport struct {
 	ApplicationExposedEndpointSpace          []ApplicationExposedEndpointSpace
 	ApplicationExtraEndpoint                 []ApplicationExtraEndpoint
 	ApplicationPlatform                      []ApplicationPlatform
-	ApplicationProviderStorageID             []ApplicationProviderStorageID
 	ApplicationRemoteConsumer                []ApplicationRemoteConsumer
 	ApplicationRemoteOfferer                 []ApplicationRemoteOfferer
 	ApplicationRemoteOffererRelationMacaroon []ApplicationRemoteOffererRelationMacaroon
@@ -1614,6 +1612,7 @@ type ModelExport struct {
 	ApplicationSetting                       []ApplicationSetting
 	ApplicationStatus                        []ApplicationStatus
 	ApplicationStorageDirective              []ApplicationStorageDirective
+	ApplicationStorageSuffix                 []ApplicationStorageSuffix
 	ApplicationWorkloadVersion               []ApplicationWorkloadVersion
 	Architecture                             []Architecture
 	AvailabilityZone                         []AvailabilityZone

@@ -110,6 +110,9 @@ func (s *ApplicationWorkerSuite) TestLifeNotFound(c *tc.C) {
 	done := make(chan struct{})
 
 	gomock.InOrder(
+		applicationService.EXPECT().GetApplicationStorageUniqueID(x, s.appUUID).
+			Return("uniqid", nil),
+
 		applicationService.EXPECT().GetApplicationName(x, s.appUUID).DoAndReturn(func(ctx context.Context, appID application.UUID) (string, error) {
 			close(done)
 			return "", applicationerrors.ApplicationNotFound
@@ -140,7 +143,9 @@ func (s *ApplicationWorkerSuite) TestLifeDead(c *tc.C) {
 
 	done := make(chan struct{})
 
-	gomock.InOrder(
+	gomock.InOrder(applicationService.EXPECT().GetApplicationStorageUniqueID(x, s.appUUID).
+		Return("uniqid", nil),
+
 		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("test", nil),
 		applicationService.EXPECT().IsControllerApplication(x, s.appUUID).Return(false, nil),
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
@@ -186,6 +191,9 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 	ops.EXPECT().RefreshApplicationStatus(x, "test", s.appUUID, app, x, x, x, x).Return(nil).AnyTimes()
 
 	gomock.InOrder(
+		applicationService.EXPECT().GetApplicationStorageUniqueID(x, s.appUUID).
+			Return("uniqid", nil),
+
 		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("test", nil),
 		applicationService.EXPECT().IsControllerApplication(x, s.appUUID).Return(false, nil),
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
@@ -202,9 +210,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 		applicationService.EXPECT().GetApplicationScalingState(x, "test").Return(applicationservice.ScalingState{}, nil),
 		facade.EXPECT().WatchProvisioningInfo(x, "test").Return(watchertest.NewMockNotifyWatcher(provisioningInfoChan), nil),
 		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
-		applicationService.EXPECT().GetApplicationStorageUniqueID(x, s.appUUID).
-			Return("uniqid", nil),
-		ops.EXPECT().AppAlive(x, "test", "uniqid", s.appUUID, app, x, x, x, x, x, x).Return(nil),
+		ops.EXPECT().AppAlive(x, "test", "uniqid", app, x, x, x, x, x, x).Return(nil),
 		app.EXPECT().Watch(x).Return(watchertest.NewMockNotifyWatcher(appChan), nil),
 		app.EXPECT().WatchReplicas().DoAndReturn(func() (watcher.NotifyWatcher, error) {
 			scaleChan <- struct{}{}
@@ -250,9 +256,9 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 			Return(life.Alive, nil),
 		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).
 			Return(&ProvisioningInfo{}, nil),
-		ops.EXPECT().AppAlive(x, "test", "uniqid", s.appUUID, app, x, x, x, x, x, x).
+		ops.EXPECT().AppAlive(x, "test", "uniqid", app, x, x, x, x, x, x).
 			DoAndReturn(func(ctx context.Context, s1 string, storageUniqueID string,
-				appUUID application.UUID, a caas.Application, s2 string, ac *caas.ApplicationConfig,
+				a caas.Application, s2 string, ac *caas.ApplicationConfig,
 				pi *ProvisioningInfo, ss StatusService, c clock.Clock, l logger.Logger,
 			) error {
 				provisioningInfoChan <- struct{}{}
@@ -305,6 +311,9 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 	ops.EXPECT().RefreshApplicationStatus(x, "con-troll-er", s.appUUID, app, x, x, x, x).Return(nil).AnyTimes()
 
 	gomock.InOrder(
+		applicationService.EXPECT().GetApplicationStorageUniqueID(x, s.appUUID).
+			Return("uniqid", nil),
+
 		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("con-troll-er", nil),
 		applicationService.EXPECT().IsControllerApplication(x, s.appUUID).Return(true, nil),
 		broker.EXPECT().Application("con-troll-er", caas.DeploymentStateful).Return(app),
@@ -386,6 +395,9 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 	ops.EXPECT().RefreshApplicationStatus(x, "test", s.appUUID, app, x, x, x, x).Return(nil).AnyTimes()
 
 	gomock.InOrder(
+		applicationService.EXPECT().GetApplicationStorageUniqueID(x, s.appUUID).
+			Return("uniqid", nil),
+
 		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("test", nil),
 		applicationService.EXPECT().IsControllerApplication(x, s.appUUID).Return(false, nil),
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
@@ -407,9 +419,7 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 		// retry handleChange
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
 		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
-		applicationService.EXPECT().GetApplicationStorageUniqueID(x, s.appUUID).
-			Return("uniqid", nil),
-		ops.EXPECT().AppAlive(x, "test", "uniqid", s.appUUID, app, x, x, x, x, x, x).Return(nil),
+		ops.EXPECT().AppAlive(x, "test", "uniqid", app, x, x, x, x, x, x).Return(nil),
 		app.EXPECT().Watch(x).Return(watchertest.NewMockNotifyWatcher(appChan), nil),
 		app.EXPECT().WatchReplicas().DoAndReturn(func() (watcher.NotifyWatcher, error) {
 			scaleChan <- struct{}{}
@@ -454,9 +464,9 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
 		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).
 			Return(&ProvisioningInfo{}, nil),
-		ops.EXPECT().AppAlive(x, "test", "uniqid", s.appUUID, app, x, x, x, x, x, x).
+		ops.EXPECT().AppAlive(x, "test", "uniqid", app, x, x, x, x, x, x).
 			DoAndReturn(func(ctx context.Context, s1 string, storageUniqueID string,
-				appUUID application.UUID, a caas.Application, s2 string, ac *caas.ApplicationConfig,
+				a caas.Application, s2 string, ac *caas.ApplicationConfig,
 				pi *ProvisioningInfo, ss StatusService, c clock.Clock, l logger.Logger,
 			) error {
 				provisioningInfoChan <- struct{}{}

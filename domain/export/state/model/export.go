@@ -113,10 +113,6 @@ func (st *State) ExportV4_0_2(ctx context.Context) (*v4_0_2.ModelExport, error) 
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationPlatform statement: %w", err)
 	}
-	stmtApplicationProviderStorageID, err := sqlair.Prepare(`SELECT &ApplicationProviderStorageID.* FROM "application_provider_storage_id"`, v4_0_2.ApplicationProviderStorageID{})
-	if err != nil {
-		return nil, fmt.Errorf("preparing ApplicationProviderStorageID statement: %w", err)
-	}
 	stmtApplicationRemoteConsumer, err := sqlair.Prepare(`SELECT &ApplicationRemoteConsumer.* FROM "application_remote_consumer"`, v4_0_2.ApplicationRemoteConsumer{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationRemoteConsumer statement: %w", err)
@@ -152,6 +148,10 @@ func (st *State) ExportV4_0_2(ctx context.Context) (*v4_0_2.ModelExport, error) 
 	stmtApplicationStorageDirective, err := sqlair.Prepare(`SELECT &ApplicationStorageDirective.* FROM "application_storage_directive"`, v4_0_2.ApplicationStorageDirective{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationStorageDirective statement: %w", err)
+	}
+	stmtApplicationStorageSuffix, err := sqlair.Prepare(`SELECT &ApplicationStorageSuffix.* FROM "application_storage_suffix"`, v4_0_2.ApplicationStorageSuffix{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing ApplicationStorageSuffix statement: %w", err)
 	}
 	stmtApplicationWorkloadVersion, err := sqlair.Prepare(`SELECT &ApplicationWorkloadVersion.* FROM "application_workload_version"`, v4_0_2.ApplicationWorkloadVersion{})
 	if err != nil {
@@ -1061,9 +1061,6 @@ func (st *State) ExportV4_0_2(ctx context.Context) (*v4_0_2.ModelExport, error) 
 		if err := tx.Query(ctx, stmtApplicationPlatform).GetAll(&modelExport.ApplicationPlatform); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApplicationPlatform (table application_platform): %w", err)
 		}
-		if err := tx.Query(ctx, stmtApplicationProviderStorageID).GetAll(&modelExport.ApplicationProviderStorageID); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("querying ApplicationProviderStorageID (table application_provider_storage_id): %w", err)
-		}
 		if err := tx.Query(ctx, stmtApplicationRemoteConsumer).GetAll(&modelExport.ApplicationRemoteConsumer); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApplicationRemoteConsumer (table application_remote_consumer): %w", err)
 		}
@@ -1090,6 +1087,9 @@ func (st *State) ExportV4_0_2(ctx context.Context) (*v4_0_2.ModelExport, error) 
 		}
 		if err := tx.Query(ctx, stmtApplicationStorageDirective).GetAll(&modelExport.ApplicationStorageDirective); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApplicationStorageDirective (table application_storage_directive): %w", err)
+		}
+		if err := tx.Query(ctx, stmtApplicationStorageSuffix).GetAll(&modelExport.ApplicationStorageSuffix); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying ApplicationStorageSuffix (table application_storage_suffix): %w", err)
 		}
 		if err := tx.Query(ctx, stmtApplicationWorkloadVersion).GetAll(&modelExport.ApplicationWorkloadVersion); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApplicationWorkloadVersion (table application_workload_version): %w", err)
