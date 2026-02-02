@@ -325,9 +325,8 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 
 		// Storage Unique ID is specific for CAAS apps. If we see that a storage unique ID exists
 		// for this app then we MUST insert it.
-		if args.StorageUniqueID != "" && len(args.StorageNames) > 0 {
-			err = st.insertApplicationStorageUniqueID(ctx, tx, appDetails.UUID, args.StorageUniqueID,
-				args.StorageNames)
+		if args.StorageUniqueID != "" {
+			err = st.insertApplicationStorageUniqueID(ctx, tx, appDetails.UUID, args.StorageUniqueID)
 			if err != nil {
 				return errors.Errorf("inserting storage unique id for application %q: %w", name, err)
 			}

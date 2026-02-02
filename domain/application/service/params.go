@@ -266,9 +266,6 @@ type ImportCAASApplicationArgs struct {
 	// StorageUniqueID is an identifier that is used to construct storage name
 	// specific to a storage provider.
 	StorageUniqueID string
-
-	// StorageNames is the set of storage names defined in the charm.
-	StorageNames []string
 }
 
 // ApplicationConfig represents the application config for the specified

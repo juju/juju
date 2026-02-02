@@ -485,9 +485,6 @@ type InsertApplicationArgs struct {
 	// StorageUniqueID is an identifier that is used to construct storage name
 	// specific to a storage provider.
 	StorageUniqueID string
-
-	// StorageNames is the set of storage names defined in the charm.
-	StorageNames []string
 }
 
 // SetCharmParams contains the parameters for updating

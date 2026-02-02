@@ -93,9 +93,8 @@ type applicationScale struct {
 	ScaleTarget   int    `db:"scale_target"`
 }
 
-type applicationProviderStorageID struct {
+type applicationStorageSuffix struct {
 	ApplicationID   string `db:"application_uuid"`
-	Storage         string `db:"storage_name"`
 	StorageUniqueID string `db:"storage_unique_id"`
 }
 

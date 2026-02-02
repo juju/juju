@@ -405,7 +405,6 @@ func (s *MigrationService) importCAASApplication(
 
 	appArg.Scale = len(args.Units)
 	appArg.StorageUniqueID = args.StorageUniqueID
-	appArg.StorageNames = args.StorageNames
 
 	appID, err := s.st.InsertMigratingApplication(ctx, name, appArg)
 	if err != nil {
