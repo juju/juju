@@ -17,8 +17,10 @@ import (
 
 // State defines an interface for interacting with the underlying state.
 type State interface {
+	FilesystemState
 	StoragePoolState
 	StorageImportState
+	VolumeState
 
 	// GetStorageAttachmentUUIDForStorageInstanceAndUnit returns the
 	// [domainstorageprovisioning.StorageAttachmentUUID] associated with the given
@@ -60,9 +62,11 @@ type State interface {
 
 // Service defines a service for interacting with the underlying state.
 type Service struct {
+	FilesystemService
 	*StoragePoolService
 	*StorageService
 	*StorageImportService
+	VolumeService
 
 	logger logger.Logger
 	st     State
@@ -75,6 +79,9 @@ func NewService(
 	registryGetter corestorage.ModelStorageRegistryGetter,
 ) *Service {
 	return &Service{
+		FilesystemService: FilesystemService{
+			st: st,
+		},
 		StoragePoolService: &StoragePoolService{
 			st:             st,
 			registryGetter: registryGetter,
@@ -88,6 +95,9 @@ func NewService(
 			registryGetter: registryGetter,
 			st:             st,
 			logger:         logger,
+		},
+		VolumeService: VolumeService{
+			st: st,
 		},
 		logger: logger,
 		st:     st,

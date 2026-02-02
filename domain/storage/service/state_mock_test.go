@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	machine "github.com/juju/juju/core/machine"
 	unit "github.com/juju/juju/core/unit"
 	storage "github.com/juju/juju/domain/storage"
 	internal "github.com/juju/juju/domain/storage/internal"
@@ -114,6 +115,45 @@ func (c *MockStateDeleteStoragePoolCall) Do(f func(context.Context, string) erro
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateDeleteStoragePoolCall) DoAndReturn(f func(context.Context, string) error) *MockStateDeleteStoragePoolCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetFilesystemUUIDsByMachines mocks base method.
+func (m *MockState) GetFilesystemUUIDsByMachines(arg0 context.Context, arg1 []machine.UUID) ([]storage.FilesystemUUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFilesystemUUIDsByMachines", arg0, arg1)
+	ret0, _ := ret[0].([]storage.FilesystemUUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFilesystemUUIDsByMachines indicates an expected call of GetFilesystemUUIDsByMachines.
+func (mr *MockStateMockRecorder) GetFilesystemUUIDsByMachines(arg0, arg1 any) *MockStateGetFilesystemUUIDsByMachinesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilesystemUUIDsByMachines", reflect.TypeOf((*MockState)(nil).GetFilesystemUUIDsByMachines), arg0, arg1)
+	return &MockStateGetFilesystemUUIDsByMachinesCall{Call: call}
+}
+
+// MockStateGetFilesystemUUIDsByMachinesCall wrap *gomock.Call
+type MockStateGetFilesystemUUIDsByMachinesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetFilesystemUUIDsByMachinesCall) Return(arg0 []storage.FilesystemUUID, arg1 error) *MockStateGetFilesystemUUIDsByMachinesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetFilesystemUUIDsByMachinesCall) Do(f func(context.Context, []machine.UUID) ([]storage.FilesystemUUID, error)) *MockStateGetFilesystemUUIDsByMachinesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetFilesystemUUIDsByMachinesCall) DoAndReturn(f func(context.Context, []machine.UUID) ([]storage.FilesystemUUID, error)) *MockStateGetFilesystemUUIDsByMachinesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -505,6 +545,45 @@ func (c *MockStateGetUnitUUIDsByNamesCall) Do(f func(context.Context, []string) 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetUnitUUIDsByNamesCall) DoAndReturn(f func(context.Context, []string) (map[string]string, error)) *MockStateGetUnitUUIDsByNamesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetVolumeUUIDsByMachines mocks base method.
+func (m *MockState) GetVolumeUUIDsByMachines(arg0 context.Context, arg1 []machine.UUID) ([]storage.VolumeUUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVolumeUUIDsByMachines", arg0, arg1)
+	ret0, _ := ret[0].([]storage.VolumeUUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVolumeUUIDsByMachines indicates an expected call of GetVolumeUUIDsByMachines.
+func (mr *MockStateMockRecorder) GetVolumeUUIDsByMachines(arg0, arg1 any) *MockStateGetVolumeUUIDsByMachinesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVolumeUUIDsByMachines", reflect.TypeOf((*MockState)(nil).GetVolumeUUIDsByMachines), arg0, arg1)
+	return &MockStateGetVolumeUUIDsByMachinesCall{Call: call}
+}
+
+// MockStateGetVolumeUUIDsByMachinesCall wrap *gomock.Call
+type MockStateGetVolumeUUIDsByMachinesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetVolumeUUIDsByMachinesCall) Return(arg0 []storage.VolumeUUID, arg1 error) *MockStateGetVolumeUUIDsByMachinesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetVolumeUUIDsByMachinesCall) Do(f func(context.Context, []machine.UUID) ([]storage.VolumeUUID, error)) *MockStateGetVolumeUUIDsByMachinesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetVolumeUUIDsByMachinesCall) DoAndReturn(f func(context.Context, []machine.UUID) ([]storage.VolumeUUID, error)) *MockStateGetVolumeUUIDsByMachinesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
