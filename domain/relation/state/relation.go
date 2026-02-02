@@ -1784,30 +1784,6 @@ WHERE  t.uuid = $getLife.uuid
 	return args.Life, nil
 }
 
-// getApplicationOfUnit returns the ID of the application associated with the
-// unit.
-func (st *State) getApplicationOfUnit(ctx context.Context, tx *sqlair.TX, unitUUID string) (string, error) {
-	args := getUnitApp{
-		UnitUUID: unitUUID,
-	}
-	stmt, err := st.Prepare(`
-SELECT &getUnitApp.*
-FROM   unit
-WHERE  uuid = $getUnitApp.uuid
-`, args)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	err = tx.Query(ctx, stmt, args).Get(&args)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", applicationerrors.UnitNotFound
-	} else if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	return args.ApplicationUUID, nil
-}
-
 // getApplicationsInRelation gets all the applications that are in the given
 // relation.
 func (st *State) getApplicationsInRelation(ctx context.Context, tx *sqlair.TX, uuid string) ([]string, error) {
@@ -1948,7 +1924,7 @@ func (st *State) checkUnitCanEnterScope(ctx context.Context, tx *sqlair.TX, rela
 	}
 
 	// Get the ID of the application for the unit trying to enter scope.
-	unitsAppID, err := st.getApplicationOfUnit(ctx, tx, unitUUID)
+	unitsAppID, err := st.getApplicationUUIDByUnitUUID(ctx, tx, unitUUID)
 	if err != nil {
 		return errors.Errorf("getting application of unit: %w", err)
 	}
@@ -2679,7 +2655,7 @@ func (st *State) GetPrincipalSubordinateApplicationUUIDs(
 			return errors.Errorf("getting principal application of unit: %w", err)
 		}
 
-		unitApplicationID, err := st.getApplicationIDByUnitUUID(ctx, tx, unitUUID.String())
+		unitApplicationID, err := st.getApplicationUUIDByUnitUUID(ctx, tx, unitUUID.String())
 		if err != nil {
 			return errors.Errorf("getting application of unit: %w", err)
 		}
@@ -3707,7 +3683,24 @@ AND    e2.endpoint_uuid = $endpoint2.application_endpoint_uuid
 	return errors.Capture(err)
 }
 
-func (st *State) getApplicationIDByUnitUUID(
+// GetApplicationUUIDByUnitUUID retrieves the application UUID associated with the given unit UUID.
+func (st *State) GetApplicationUUIDByUnitUUID(
+	ctx context.Context, unitUUID string,
+) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var appUUID string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		appUUID, err = st.getApplicationUUIDByUnitUUID(ctx, tx, unitUUID)
+		return errors.Capture(err)
+	})
+	return appUUID, errors.Capture(err)
+}
+
+func (st *State) getApplicationUUIDByUnitUUID(
 	ctx context.Context, tx *sqlair.TX, unitUUID string,
 ) (string, error) {
 	getApplication := getPrincipal{
