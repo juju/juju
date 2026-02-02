@@ -19,7 +19,9 @@ import (
 type baseStorageSuite struct {
 	blockChecker       *MockBlockChecker
 	applicationService *MockApplicationService
+	machineService     *MockMachineService
 	removalService     *MockRemovalService
+	statusService      *MockStatusService
 	storageService     *MockStorageService
 
 	authorizer     apiservertesting.FakeAuthorizer
@@ -45,6 +47,8 @@ func (s *baseStorageSuite) makeTestAPI(c *tc.C, modelType coremodel.ModelType) *
 		s.applicationService,
 		s.removalService,
 		s.storageService,
+		s.machineService,
+		s.statusService,
 	)
 }
 
@@ -54,18 +58,23 @@ func (s *baseStorageSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin"), Controller: true}
-	s.applicationService = NewMockApplicationService(ctrl)
-	s.removalService = NewMockRemovalService(ctrl)
-	s.storageService = NewMockStorageService(ctrl)
 	s.controllerUUID = uuid.MustNewUUID().String()
 	s.modelUUID = tc.Must0(c, coremodel.NewUUID)
+
+	s.applicationService = NewMockApplicationService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
+	s.removalService = NewMockRemovalService(ctrl)
+	s.statusService = NewMockStatusService(ctrl)
+	s.storageService = NewMockStorageService(ctrl)
 
 	c.Cleanup(func() {
 		s.authorizer = apiservertesting.FakeAuthorizer{}
 		s.applicationService = nil
 		s.controllerUUID = ""
+		s.machineService = nil
 		s.modelUUID = ""
 		s.removalService = nil
+		s.statusService = nil
 		s.storageService = nil
 	})
 
