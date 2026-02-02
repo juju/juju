@@ -5,6 +5,12 @@ package state
 
 import "database/sql"
 
+// count represents the result of performing an aggregate count operation in
+// sql.
+type count struct {
+	Count int `db:"count"`
+}
+
 // entityUUID represents the UUID of a storage entity in the model.
 type entityUUID struct {
 	UUID string `db:"uuid"`
@@ -32,6 +38,16 @@ type idAndKind struct {
 // machineUUIDs is a slice type of string representing machineUUIDs in the
 // model.
 type machineUUIDs []string
+
+// machineAndUnitNetNodeUUID represents names and net node uuid
+// for machine or unit combinations where the data is gathered in
+// a single query.
+type machineAndUnitNetNodeUUID struct {
+	MachineName        sql.NullString `db:"machine_name"`
+	MachineNetNodeUUID sql.NullString `db:"machine_net_node_uuid"`
+	UnitName           sql.NullString `db:"unit_name"`
+	UnitNetNodeUUID    sql.NullString `db:"unit_net_node_uuid"`
+}
 
 // storageInstanceID represents the storage instance storage_id column for a
 // row in the storage_instance table.
@@ -132,14 +148,4 @@ type importStorageVolume struct {
 type importStorageInstanceVolume struct {
 	StorageInstanceUUID string `db:"storage_instance_uuid"`
 	VolumeUUID          string `db:"storage_volume_uuid"`
-}
-
-// machineAndUnitNetNodeUUID represents names and net node uuid
-// for machine or unit combinations where the data is gathered in
-// a single query.
-type machineAndUnitNetNodeUUID struct {
-	MachineName        sql.NullString `db:"machine_name"`
-	MachineNetNodeUUID sql.NullString `db:"machine_net_node_uuid"`
-	UnitName           sql.NullString `db:"unit_name"`
-	UnitNetNodeUUID    sql.NullString `db:"unit_net_node_uuid"`
 }
