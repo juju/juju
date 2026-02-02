@@ -43,20 +43,21 @@ A **user secret** is a secret created by a {ref}`user <user>` with a {ref}`model
 
 ## Secret identification
 
-A secret can be identified by
+Secrets are identified by an automatically assigned URI (see more: {ref}`secret-uri`).
 
-- for user or charm secrets: a {ref}`secret URI <secret-uri>` and
-- for user secrets: a {ref}`secret name <secret-name>` and
-- for user or charm secrets: a {ref}`secret label <secret-label>`.
+The secret URI can always be used in any content to identify a secret. Additionally, users may give secrets they create names (see more: {ref}`secret-name`), and charms may choose to assign labels to secrets (see more: {ref}`secret-label`).
 
-The reason for having multiple ways to identify a secret is to maximize contextual relevance. For example:
-- (name vs. URI vs. label:) I as a user might create a secret with a name that makes sense to me, for example, `my-api-key`, and configure a charm to use it. In the background, Juju will assign to it a URI, for example, `9m4e2mr0ui3e8a215n4g`. Also in the background, the charm might give it a label, for example, `vault-api-token`.
-- (label vs. label:) Suppose you are a leader unit creating an application secret for peers units to consume -- you'd assign a label as an owner, and then when consuming the secret you'd assign another label as a consumer (because the first time you consume a secret you give it a label).
+In short, the same secret may end up being associated with multiple identifiers. For example:
+
+- (name vs. URI vs. label:) I as a user might create a secret with a name that makes sense to me, for example, `my-api-key`. In the background, Juju will assign to it a URI, for example, `9m4e2mr0ui3e8a215n4g`. When I then configure a charm to use it, the charm might give it a label, for example, `vault-api-token`.
+- (label vs. URI vs. label:) A leader unit create an application secret for peer units to consume, and assign to it a label in its capacity as the secret owner, for example ___________. In the background, Juju will assign to it a URI, e.g., `6k7n4ps1vj2d9b318x5w`. When consuming the secret, the leader unit and all other peer units might assign to the charm another label in capacity as secret consumers, for example ___________.
+
+The easo
 
 (secret-uri)=
 ### Secret URI
 
-In both {ref}`user secrets <user-secret>` and {ref}`charm secrets <user-secret>`, a secret URI is the URI assigned to a secret automatically by Juju when the secret is added to Juju.
+In both {ref}`user secrets <user-secret>` and {ref}`charm secrets <user-secret>`, a secret URI is the URI assigned to a secret automatically by Juju when the secret is added to Juju, either by a user through `juju add-user` (or its equivalent in other Juju clients) or by a charm via `secret-add`.
 
 (secret-name)=
 ### Secret name
@@ -68,13 +69,13 @@ Secret names must start with a lowercase letter, followed by a sequence of lette
 (secret-label)=
 ### Secret label
 
-In {ref}`user secrets <user-secret>` or {ref}` charm secrets <charm-secret>`, a secret label is the string identifier assigned to a secret by the secret owning and, respectively, the secret consuming charm for their own internal reference.
+In {ref}`user secrets <user-secret>` or {ref}` charm secrets <charm-secret>`, a secret label is a string identifier that may be assigned to a secret by the secret owning and, respectively, the secret consuming charm for their own internal reference.
 
 Not all secrets get labels -- only those that have been configured to support secret labels.
 
 ## Secret size
 
-The maximum secret size is `1MiB`.
+The maximum secret value size is `1MiB`.
 
 (secret-backend)=
 ## Secret backend
