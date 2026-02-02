@@ -83,6 +83,11 @@ func NewAppWorker(config AppWorkerConfig) func(ctx context.Context) (worker.Work
 	return func(ctx context.Context) (worker.Worker, error) {
 		changes := make(chan struct{}, 1)
 		changes <- struct{}{}
+		storageUniqueID, err := config.ApplicationService.
+			GetApplicationStorageUniqueID(ctx, config.AppID)
+		if err != nil {
+			return nil, err
+		}
 		a := &appWorker{
 			agentPasswordService:       config.AgentPasswordService,
 			applicationService:         config.ApplicationService,
@@ -97,9 +102,9 @@ func NewAppWorker(config AppWorkerConfig) func(ctx context.Context) (worker.Work
 			changes:                    changes,
 			ops:                        ops,
 			engineReportRequest:        make(chan chan<- map[string]any),
-			storageUniqueID:            "",
+			storageUniqueID:            storageUniqueID,
 		}
-		err := catacomb.Invoke(catacomb.Plan{
+		err = catacomb.Invoke(catacomb.Plan{
 			Name: "caas-application-provisioner",
 			Site: &a.catacomb,
 			Work: a.loop,
@@ -286,14 +291,8 @@ func (a *appWorker) loop() error {
 				} else if err != nil {
 					return errors.Annotatef(err, "failed to get provisioning info for %q", name)
 				}
-				if a.storageUniqueID == "" {
-					a.storageUniqueID, err = a.applicationService.GetApplicationStorageUniqueID(ctx, a.appUUID)
-					if err != nil {
-						return errors.Annotatef(err, "failed to get application %q storage unique id", name)
-					}
-				}
 
-				err = a.ops.AppAlive(ctx, name, a.storageUniqueID, a.appUUID, app, a.password,
+				err = a.ops.AppAlive(ctx, name, a.storageUniqueID, app, a.password,
 					&a.lastApplied, a.provisioningInfo, a.statusService,
 					a.clock, a.logger)
 				if err != nil {
