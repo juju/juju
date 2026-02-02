@@ -23,7 +23,7 @@ import (
 // populated before an upload (whether local or from the charm store).
 // In that case the following fields are not set:
 //
-//	UUID, Timestamp, RetrievedBy
+//	ID, Timestamp, RetrievedBy
 //
 // For "upload" placeholders, the following additional fields are
 // not set:
@@ -32,7 +32,10 @@ import (
 type Resource struct {
 	resource.Resource
 
-	UUID UUID
+	// ID is the unique identifier for this resource.
+	// ID is a UUID string in Juju 4.0 and later.
+	// ID is a string composed of <application-name>/<resource-name> in Juju 3.6.x.
+	ID string
 
 	// ApplicationName identifies the application name for the resource
 	ApplicationName string

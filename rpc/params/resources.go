@@ -83,12 +83,14 @@ type UploadResult struct {
 type Resource struct {
 	CharmResource
 
-	// UUID uniquely identifies a resource within the model.
+	// ID uniquely identifies a resource within the model.
 	// It shouldn't be used to fetch resources (use Application and resource
-	// names instead of this UUID).
-	// However, UUID can be useful to retrieve a resource in the DB for audit
+	// names instead of this ID).
+	// However, ID can be useful to retrieve a resource in the DB for audit
 	// purposes.
-	UUID string `json:"id"`
+	// ID is a UUID string in Juju 4.0 and later.
+	// ID is a string composed of <application-name>/<resource-name> in Juju 3.6.x.
+	ID string `json:"id"`
 
 	// PendingID identifies that this resource is pending and
 	// distinguishes it from other pending resources with the same model

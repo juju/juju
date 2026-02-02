@@ -931,7 +931,7 @@ func provisioningInfo(
 			return nil, errors.Trace(err)
 		}
 		pi.Images[v.Name] = rsc
-		err = ro.SetResourceUsed(ctx, opened.UUID)
+		err = ro.SetResourceUsed(ctx, coreresource.UUID(opened.ID))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

@@ -237,7 +237,7 @@ func (h *ResourceHandler) upload(service ResourceService, req *http.Request, use
 func encodeResource(res coreresource.Resource) params.Resource {
 	return params.Resource{
 		CharmResource:   api.CharmResource2API(res.Resource),
-		UUID:            res.UUID.String(),
+		ID:              res.ID,
 		ApplicationName: res.ApplicationName,
 		Username:        res.RetrievedBy,
 		Timestamp:       res.Timestamp,
@@ -294,7 +294,7 @@ func (h *ResourceHandler) getUploadedResource(
 
 	// Only attach a blob to a resource configured to be uploaded.
 	if res.Origin != charmresource.OriginUpload {
-		return nil, nil, errors.Errorf("resource %q is not of type upload", res.UUID)
+		return nil, nil, errors.Errorf("resource %q is not of type upload", res.ID)
 	}
 
 	switch res.Type {
@@ -312,7 +312,7 @@ func (h *ResourceHandler) getUploadedResource(
 	}
 
 	return reader, &uploadedResource{
-		uuid:            res.UUID,
+		uuid:            coreresource.UUID(res.ID),
 		applicationName: uReq.Application,
 		resourceName:    res.Resource.Name,
 		size:            uReq.Size,

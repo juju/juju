@@ -61,7 +61,7 @@ func FormatCharmResource(res charmresource.Resource) FormattedCharmResource {
 func FormatAppResource(res resource.Resource) FormattedAppResource {
 	used := !res.IsPlaceholder()
 	result := FormattedAppResource{
-		ID:               res.UUID.String(),
+		ID:               res.ID,
 		ApplicationID:    res.ApplicationName,
 		Name:             res.Name,
 		Type:             res.Type.String(),

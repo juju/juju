@@ -103,7 +103,7 @@ func newResource(c *tc.C, name, applicationName, username, content string, charm
 
 	res := resource.Resource{
 		Resource:        charmResourceFunc(c, name, content),
-		UUID:            uuid,
+		ID:              uuid.String(),
 		ApplicationName: applicationName,
 		RetrievedBy:     username,
 		Timestamp:       timestamp,

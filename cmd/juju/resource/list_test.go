@@ -273,7 +273,7 @@ func (s *ShowApplicationSuite) TestRunUnit(c *tc.C) {
 						Revision: 20,
 					},
 					Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
-					UUID:      "one",
+					ID:        "one",
 				},
 				{
 					Resource: charmresource.Resource{
@@ -286,7 +286,7 @@ func (s *ShowApplicationSuite) TestRunUnit(c *tc.C) {
 					},
 					RetrievedBy: "Bill User",
 					Timestamp:   time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
-					UUID:        "two",
+					ID:          "two",
 				},
 			},
 			UnitResources: []resource.UnitResources{{
@@ -302,7 +302,7 @@ func (s *ShowApplicationSuite) TestRunUnit(c *tc.C) {
 							Revision: 15, // Note revision is different to the application resource
 						},
 						Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
-						UUID:      "one",
+						ID:        "one",
 					},
 					{
 						Resource: charmresource.Resource{
@@ -314,7 +314,7 @@ func (s *ShowApplicationSuite) TestRunUnit(c *tc.C) {
 							Size:   15,
 						},
 						RetrievedBy: "Bill User",
-						UUID:        "two",
+						ID:          "two",
 						Timestamp:   time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 					},
 				},

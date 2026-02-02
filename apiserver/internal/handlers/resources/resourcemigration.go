@@ -82,7 +82,7 @@ func (h *resourcesMigrationUploadHandler) servePost(w http.ResponseWriter, r *ht
 		return internalerrors.Capture(err)
 	}
 	return internalhttp.SendStatusAndJSON(w, http.StatusOK, &params.ResourceUploadResult{
-		ID:        res.UUID.String(),
+		ID:        res.ID,
 		Timestamp: res.Timestamp,
 	})
 }

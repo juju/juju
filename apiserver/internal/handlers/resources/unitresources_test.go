@@ -122,10 +122,10 @@ func (s *UnitResourcesHandlerSuite) TestSuccess(c *tc.C) {
 	size := int64(len(body))
 	handler := s.newUnitResourceHander(c)
 
-	resourceUUID := coreresource.UUID(uuid.MustNewUUID().String())
+	resourceUUID := uuid.MustNewUUID().String()
 	opened := coreresource.Opened{
 		Resource: coreresource.Resource{
-			UUID: resourceUUID,
+			ID: resourceUUID,
 			Resource: charmresource.Resource{
 				Fingerprint: fp,
 				Size:        size,
@@ -134,7 +134,7 @@ func (s *UnitResourcesHandlerSuite) TestSuccess(c *tc.C) {
 		ReadCloser: io.NopCloser(strings.NewReader(body)),
 	}
 	s.opener.EXPECT().OpenResource(gomock.Any(), "blob").Return(opened, nil)
-	s.opener.EXPECT().SetResourceUsed(gomock.Any(), resourceUUID).Return(nil)
+	s.opener.EXPECT().SetResourceUsed(gomock.Any(), coreresource.UUID(resourceUUID)).Return(nil)
 
 	req, err := http.NewRequest("GET", s.urlStr, nil)
 	c.Assert(err, tc.ErrorIsNil)
