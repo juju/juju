@@ -22,19 +22,24 @@ func TestUuidSuite(t *testing.T) {
 func (*uuidSuite) TestUUID(c *tc.C) {
 	uuid, err := NewUUID()
 	c.Assert(err, tc.IsNil)
+
 	uuidCopy := uuid.Copy()
 	uuidRaw := uuid.Raw()
 	uuidStr := uuid.String()
+
 	c.Assert(uuidRaw, tc.HasLen, 16)
-	c.Assert(uuidStr, tc.Satisfies, IsValidUUIDString)
+	c.Check(uuidStr, tc.Satisfies, IsValidUUIDString)
+
 	uuid[0] = 0x00
 	uuidCopy[0] = 0xFF
 	c.Assert(uuid, tc.Not(tc.DeepEquals), uuidCopy)
+
 	uuidRaw[0] = 0xFF
 	c.Assert(uuid, tc.Not(tc.DeepEquals), uuidRaw)
+
 	nextUUID, err := NewUUID()
 	c.Assert(err, tc.IsNil)
-	c.Assert(uuid, tc.Not(tc.DeepEquals), nextUUID)
+	c.Check(uuid, tc.Not(tc.DeepEquals), nextUUID)
 }
 
 func (*uuidSuite) TestIsValidUUIDFailsWhenNotValid(c *tc.C) {
@@ -76,8 +81,21 @@ func (*uuidSuite) TestIsValidUUIDFailsWhenNotValid(c *tc.C) {
 func (*uuidSuite) TestUUIDFromString(c *tc.C) {
 	_, err := UUIDFromString("blah")
 	c.Assert(err, tc.ErrorMatches, `invalid UUID: "blah"`)
+
 	validUUID := "9f484882-2f18-4fd2-967d-db9663db7bea"
 	uuid, err := UUIDFromString(validUUID)
 	c.Assert(err, tc.IsNil)
-	c.Assert(uuid.String(), tc.Equals, validUUID)
+	c.Check(uuid.String(), tc.Equals, validUUID)
+}
+
+func (*uuidSuite) TestUUIDFromEncodedString(c *tc.C) {
+	_, err := UUIDFromEncodedString("blah")
+	c.Assert(err, tc.ErrorMatches, `invalid encoded UUID: "blah"`)
+
+	_, err = UUIDFromEncodedString("9f484882-2f18-4fd2-967d-db9663db7bea")
+	c.Assert(err, tc.ErrorMatches, `invalid encoded UUID: .*`)
+
+	uuid, err := UUIDFromEncodedString("9f4848822f184fd2967ddb9663db7bea")
+	c.Assert(err, tc.IsNil)
+	c.Check(uuid.String(), tc.Equals, "9f484882-2f18-4fd2-967d-db9663db7bea")
 }

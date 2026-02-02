@@ -26,15 +26,34 @@ var (
 	block4 = "[0-9a-f]{4}"
 	block5 = "[0-9a-f]{12}"
 
-	UUIDSnippet = block1 + "-" + block2 + "-" + block3 + "-" + block4 + "-" + block5
-	validUUID   = regexp.MustCompile("^" + UUIDSnippet + "$")
+	UUIDSnippet        = block1 + "-" + block2 + "-" + block3 + "-" + block4 + "-" + block5
+	UUIDEncodedSnippet = block1 + block2 + block3 + block4 + block5
+
+	validUUID        = regexp.MustCompile("^" + UUIDSnippet + "$")
+	validEncodedUUID = regexp.MustCompile("^" + UUIDEncodedSnippet + "$")
 )
 
+// UUIDFromString parses a UUID from its string representation.
 func UUIDFromString(s string) (UUID, error) {
 	if !IsValidUUIDString(s) {
 		return UUID{}, fmt.Errorf("invalid UUID: %q", s)
 	}
 	s = strings.Replace(s, "-", "", 4)
+	raw, err := hex.DecodeString(s)
+	if err != nil {
+		return UUID{}, err
+	}
+	var uuid UUID
+	copy(uuid[:], raw)
+	return uuid, nil
+}
+
+// UUIDFromEncodedString parses a UUID from its hexadecimal string
+// representation without separators.
+func UUIDFromEncodedString(s string) (UUID, error) {
+	if !validEncodedUUID.MatchString(s) {
+		return UUID{}, fmt.Errorf("invalid encoded UUID: %q", s)
+	}
 	raw, err := hex.DecodeString(s)
 	if err != nil {
 		return UUID{}, err
