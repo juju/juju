@@ -828,7 +828,7 @@ WHERE  storage_id = $storageInstance.storage_id
 	return inst.StorageUUID, nil
 }
 
-// AttachStorage attaches the specified storage to the specified unit.
+// AttachStorageToUnit attaches the specified storage to the specified unit.
 // The following error types can be expected:
 // - [storageerrors.StorageInstanceNotFound] when the storage doesn't exist.
 // - [applicationerrors.UnitNotFound]: when the unit does not exist.
@@ -839,7 +839,7 @@ WHERE  storage_id = $storageInstance.storage_id
 // - [applicationerrors.StorageNotAlive]: when the storage is not alive.
 // - [applicationerrors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 // - [applicationerrors.InvalidStorageCount]: when the allowed attachment count would be violated.
-func (st *State) AttachStorage(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error {
+func (st *State) AttachStorageToUnit(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
