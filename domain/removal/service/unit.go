@@ -60,8 +60,12 @@ type UnitState interface {
 	// MarkUnitAsDead marks the unit with the input UUID as dead.
 	MarkUnitAsDead(ctx context.Context, unitUUID string) error
 
-	// GetCharmForUnit returns the charm UUID for the unit with the input unit UUID.
-	// If the unit does not exist, it returns an empty string.
+	// MarkUnitAsDeadWithNoEntities marks the unit with the input UUID as dead
+	// only if there are no associated entities that are still alive.
+	MarkUnitAsDeadWithNoEntities(ctx context.Context, unitUUID string) error
+
+	// GetCharmForUnit returns the charm UUID for the unit with the input unit
+	// UUID. If the unit does not exist, it returns an empty string.
 	GetCharmForUnit(ctx context.Context, unitUUID string) (string, error)
 }
 
@@ -328,7 +332,11 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 	}
 
 	if l == life.Dying && !job.Force {
-		return errors.Errorf("unit %q is not dead", job.EntityUUID).Add(removalerrors.EntityNotDead)
+		// Can the unit be marked as dead? If the unit has any associated
+		// entities that are still alive, we cannot mark it as dead.
+		if err := s.modelState.MarkUnitAsDeadWithNoEntities(ctx, job.EntityUUID); err != nil {
+			return errors.Errorf("unit %q is not dead", job.EntityUUID).Add(removalerrors.EntityNotDead)
+		}
 	}
 
 	// If we made it here, the unit is either dead, or we are processing a
