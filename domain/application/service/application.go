@@ -440,11 +440,11 @@ type ApplicationState interface {
 	// of the specified application deployed to it.
 	GetMachinesForApplication(ctx context.Context, appUUID string) ([]string, error)
 
-	// GetApplicationProviderStorageID returns an application's storage unique ID.
+	// GetApplicationStorageSuffix returns an application's storage unique ID.
 	// An empty row is a valid scenario in which we return an empty string value.
 	// Should an empty string is returned, it's the caller's responsibility to
 	// construct the storage unique ID from other means
-	GetApplicationProviderStorageID(ctx context.Context, appUUID coreapplication.UUID) (string, error)
+	GetApplicationStorageSuffix(ctx context.Context, appUUID coreapplication.UUID) (string, error)
 }
 
 func validateCharmAndApplicationParams(
@@ -1697,6 +1697,15 @@ func (s *Service) GetMachinesForApplication(ctx context.Context, appName string)
 	}), nil
 }
 
+// GetApplicationStorageUniqueID returns the app's storage unique ID. The value can
+// come from one of two ways.
+//  1. It may be stored in the application_storage_suffix
+//
+// table in which we return the record if it's non-empty. A non-empty record indicates
+// that it's a migrated app.
+//  2. Otherwise, we can derive it from the first 6 characters of the app UUID.
+//
+// This indicates a newly deployed app.
 func (s *Service) GetApplicationStorageUniqueID(
 	ctx context.Context,
 	appUUID coreapplication.UUID,
@@ -1708,7 +1717,7 @@ func (s *Service) GetApplicationStorageUniqueID(
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	storageUniqueID, err := s.st.GetApplicationProviderStorageID(ctx, appUUID)
+	storageUniqueID, err := s.st.GetApplicationStorageSuffix(ctx, appUUID)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
