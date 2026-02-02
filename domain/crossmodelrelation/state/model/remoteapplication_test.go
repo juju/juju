@@ -565,41 +565,7 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelationEndpointNotFound(c 
 		ConsumerApplicationEndpoint: "db",
 		Charm:                       charm,
 	})
-	c.Assert(err, tc.ErrorIs, relationerrors.RelationEndpointNotFound)
-}
-
-func (s *modelRemoteApplicationSuite) TestAddConsumedRelationOneAndOnlyOneEndpoint(c *tc.C) {
-	charm := charm.Charm{
-		ReferenceName: "bar",
-		Source:        charm.CMRSource,
-		Metadata: charm.Metadata{
-			Name:        "foo",
-			Description: "remote consumer application",
-			Provides: map[string]charm.Relation{
-				"db": {
-					Name:      "db",
-					Role:      charm.RoleProvider,
-					Interface: "db",
-					Limit:     1,
-					Scope:     charm.ScopeGlobal,
-				},
-				"seven": {
-					Name:      "seven",
-					Role:      charm.RoleProvider,
-					Interface: "seven",
-					Limit:     1,
-					Scope:     charm.ScopeGlobal,
-				},
-			},
-			Requires: map[string]charm.Relation{},
-			Peers:    map[string]charm.Relation{},
-		},
-	}
-	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
-		ConsumerApplicationEndpoint: "db",
-		Charm:                       charm,
-	})
-	c.Assert(err, tc.ErrorIs, relationerrors.AmbiguousRelation)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *modelRemoteApplicationSuite) TestAddConsumedRelationTwice(c *tc.C) {

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/internal/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -189,13 +190,25 @@ func (s *MigrationService) constructApplicationConsumer(rApp RemoteApplicationIm
 }
 
 func (s *MigrationService) constructSyntheticCharm(appName string, endpoints []crossmodelrelation.RemoteApplicationEndpoint) (charm.Charm, error) {
-	return constructSyntheticCharm(appName, transform.Slice(endpoints, func(ep crossmodelrelation.RemoteApplicationEndpoint) charm.Relation {
+	syntheticCharm, err := constructSyntheticCharm(appName, transform.Slice(endpoints, func(ep crossmodelrelation.RemoteApplicationEndpoint) charm.Relation {
 		return charm.Relation{
 			Name:      ep.Name,
 			Interface: ep.Interface,
 			Role:      ep.Role,
 		}
 	}))
+	if err != nil {
+		return charm.Charm{}, errors.Errorf("constructing synthetic charm for %q: %w", appName, err)
+	}
+
+	// Check that the charm has only one endpoint. There can be multiple
+	// synthetic applications per offer, but only one endpoint per synthetic
+	// application. To do otherwise requires design and facade changes.
+	if err := synthCharmHasOnlyOneEndpoint("????", syntheticCharm); err != nil {
+		return charm.Charm{}, internalerrors.Errorf("adding consumed relation: %w", err)
+	}
+
+	return syntheticCharm, nil
 }
 
 func parseRemoteApplicationUUID(appName string) (coreapplication.UUID, error) {
