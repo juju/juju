@@ -80,65 +80,73 @@ func (st *State) ImportRemoteApplicationOfferers(ctx context.Context, imports []
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		for _, imp := range imports {
-			// Generate UUIDs for the application, charm, and remote app record.
-			applicationUUID, err := internaluuid.NewUUID()
-			if err != nil {
-				return errors.Errorf("generating application UUID for %q: %w", imp.Name, err)
-			}
-			charmUUID, err := internaluuid.NewUUID()
-			if err != nil {
-				return errors.Errorf("generating charm UUID for %q: %w", imp.Name, err)
-			}
-			remoteAppUUID, err := internaluuid.NewUUID()
-			if err != nil {
-				return errors.Errorf("generating remote app UUID for %q: %w", imp.Name, err)
-			}
-
-			// Insert the application (which also inserts the charm).
-			// The synthetic charm is pre-built in the service layer.
-			if err := st.insertApplication(ctx, tx, imp.Name, insertApplicationArgs{
-				ApplicationUUID: applicationUUID.String(),
-				CharmUUID:       charmUUID.String(),
-				Charm:           imp.SyntheticCharm,
-			}); err != nil {
-				return errors.Errorf("inserting application %q: %w", imp.Name, err)
-			}
-
-			// Create synthetic units for this remote application.
-			// These units are needed for relations to be imported successfully.
-			for _, unitName := range imp.Units {
-				if err := st.insertUnit(ctx, tx, unitName, applicationUUID.String(), charmUUID.String()); err != nil {
-					return errors.Errorf("inserting synthetic unit %q for application %q: %w",
-						unitName, imp.Name, err)
-				}
-			}
-
-			// Insert the remote application offerer record.
-			remoteApp := remoteApplicationOfferer{
-				UUID:             remoteAppUUID.String(),
-				LifeID:           life.Alive,
-				ApplicationUUID:  applicationUUID.String(),
-				OfferUUID:        imp.OfferUUID,
-				OfferURL:         imp.URL,
-				OffererModelUUID: imp.SourceModelUUID,
-				Macaroon:         []byte(imp.Macaroon),
-			}
-
-			insertRemoteAppStmt, err := st.Prepare(`
-INSERT INTO application_remote_offerer (*) VALUES ($remoteApplicationOfferer.*);`,
-				remoteApp)
-			if err != nil {
-				return errors.Errorf("preparing remote app insert for %q: %w", imp.Name, err)
-			}
-
-			if err := tx.Query(ctx, insertRemoteAppStmt, remoteApp).Run(); err != nil {
-				return errors.Errorf("inserting remote app offerer record for %q: %w", imp.Name, err)
+		for _, offerer := range imports {
+			if err := st.importRemoteApplicationOfferer(ctx, tx, offerer); err != nil {
+				return errors.Errorf("importing remote application offerer %q: %w", offerer.Name, err)
 			}
 		}
 		return nil
 	})
 	return errors.Capture(err)
+}
+
+func (st *State) importRemoteApplicationOfferer(ctx context.Context, tx *sqlair.TX, offerer crossmodelrelation.RemoteApplicationOffererImport) error {
+	// Generate UUIDs for the application, charm, and remote app record.
+	applicationUUID, err := internaluuid.NewUUID()
+	if err != nil {
+		return errors.Errorf("generating application UUID: %w", err)
+	}
+	charmUUID, err := internaluuid.NewUUID()
+	if err != nil {
+		return errors.Errorf("generating charm UUID: %w", err)
+	}
+	remoteAppUUID, err := internaluuid.NewUUID()
+	if err != nil {
+		return errors.Errorf("generating remote application UUID: %w", err)
+	}
+
+	// Insert the application (which also inserts the charm).
+	// The synthetic charm is pre-built in the service layer.
+	if err := st.insertApplication(ctx, tx, offerer.Name, insertApplicationArgs{
+		ApplicationUUID: applicationUUID.String(),
+		CharmUUID:       charmUUID.String(),
+		Charm:           offerer.SyntheticCharm,
+	}); err != nil {
+		return errors.Errorf("inserting application: %w", err)
+	}
+
+	// Create synthetic units for this remote application.
+	// These units are needed for relations to be offererorted successfully.
+	for _, unitName := range offerer.Units {
+		if err := st.insertUnit(ctx, tx, unitName, applicationUUID.String(), charmUUID.String()); err != nil {
+			return errors.Errorf("inserting synthetic unit %q: %w",
+				unitName, err)
+		}
+	}
+
+	// Insert the remote application offerer record.
+	remoteApp := remoteApplicationOfferer{
+		UUID:             remoteAppUUID.String(),
+		LifeID:           life.Alive,
+		ApplicationUUID:  applicationUUID.String(),
+		OfferUUID:        offerer.OfferUUID,
+		OfferURL:         offerer.URL,
+		OffererModelUUID: offerer.SourceModelUUID,
+		Macaroon:         []byte(offerer.Macaroon),
+	}
+
+	insertRemoteAppStmt, err := st.Prepare(`
+INSERT INTO application_remote_offerer (*) VALUES ($remoteApplicationOfferer.*);`,
+		remoteApp)
+	if err != nil {
+		return errors.Errorf("preparing remote query: %w", err)
+	}
+
+	if err := tx.Query(ctx, insertRemoteAppStmt, remoteApp).Run(); err != nil {
+		return errors.Errorf("inserting remote application offerer: %w", err)
+	}
+
+	return nil
 }
 
 // ImportRemoteApplicationConsumers adds remote application consumers being
