@@ -4,6 +4,7 @@
 package service
 
 import (
+	"context"
 	"math/rand/v2"
 	"testing"
 	"time"
@@ -35,9 +36,11 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/charm/store"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/deployment"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/life"
+	domainstorage "github.com/juju/juju/domain/storage"
 	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -1590,12 +1593,16 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithChannel(c *tc.C) {
 	}
 	channel, err := encodeChannel(params.CharmOrigin.Channel)
 	c.Assert(err, tc.ErrorIsNil)
-	paramsToExpect := application.SetCharmStateParams{
-		Channel: channel,
-	}
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appUUID, nil)
 	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
-	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, paramsToExpect).Return(nil)
+	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return([]application.StorageDirective{}, nil)
+	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(map[string]applicationcharm.Storage{}, nil)
+	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(internal.ModelStoragePools{}, nil)
+	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).
+		Do(func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) error {
+			c.Assert(params.Channel, tc.DeepEquals, channel)
+			return nil
+		})
 
 	err = s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1614,13 +1621,132 @@ func (s *applicationServiceSuite) TestSetApplicationCharmEmptyChannel(c *tc.C) {
 	params := application.SetCharmParams{
 		CharmOrigin: origin,
 	}
-	paramsToExpect := application.SetCharmStateParams{}
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appUUID, nil)
 	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
-	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, paramsToExpect).Return(nil)
+	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return([]application.StorageDirective{}, nil)
+	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(map[string]applicationcharm.Storage{}, nil)
+	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Return(nil)
+	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(internal.ModelStoragePools{}, nil)
 
 	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationCharmWithStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "foo"
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	charmID := charmtesting.GenCharmID(c)
+	modelStoragePools := makeModelStoragePools(c)
+
+	// Combination of: update storage count, update storage size, delete old storage, add new storage.
+	existingStorageDirectives := []application.StorageDirective{
+		// storage "data" size and count will be updated.
+		{
+			CharmStorageType: applicationcharm.StorageBlock,
+			Name:             "data",
+			Count:            1,   // Will be increased to 2
+			Size:             512, // Will be updated to 1024
+			PoolUUID:         *modelStoragePools.BlockDevicePoolUUID,
+		},
+		// storage "cache" will be deleted.
+		{
+			CharmStorageType: applicationcharm.StorageBlock,
+			Name:             "cache",
+			Count:            1,
+			Size:             256,
+			PoolUUID:         *modelStoragePools.BlockDevicePoolUUID,
+		},
+	}
+
+	newCharmStorages := map[string]applicationcharm.Storage{
+		"data": {
+			Type:        applicationcharm.StorageBlock,
+			CountMin:    2,
+			CountMax:    5,
+			MinimumSize: 1024,
+		},
+		// storage "logs" will be created.
+		"logs": {
+			Type:        applicationcharm.StorageFilesystem,
+			CountMin:    1,
+			CountMax:    3,
+			MinimumSize: 512,
+		},
+	}
+
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appUUID, nil)
+	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
+	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
+	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
+	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(modelStoragePools, nil)
+	// Expect complex changes: update data count, delete cache, add logs
+	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).
+		Do(func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) error {
+			c.Assert(params.StorageDirectivesToApply, tc.HasLen, 2)
+			c.Assert(params.StorageDirectivesToDelete, tc.HasLen, 1)
+			c.Assert(params.StorageDirectivesToDelete[0], tc.Equals, "cache")
+
+			// Check that we have both updated and new storage
+			var dataUpdate, logsCreate *internal.ApplyApplicationStorageDirectiveArg
+			for i := range params.StorageDirectivesToApply {
+				if string(params.StorageDirectivesToApply[i].Name) == "data" {
+					dataUpdate = &params.StorageDirectivesToApply[i]
+				} else if string(params.StorageDirectivesToApply[i].Name) == "logs" {
+					logsCreate = &params.StorageDirectivesToApply[i]
+				}
+			}
+
+			c.Assert(dataUpdate, tc.Not(tc.IsNil))
+			c.Assert(dataUpdate.Count, tc.Equals, uint32(2))
+			c.Assert(dataUpdate.Size, tc.Equals, uint64(1024))
+			c.Assert(dataUpdate.PoolUUID, tc.Equals, *modelStoragePools.BlockDevicePoolUUID)
+
+			c.Assert(logsCreate, tc.Not(tc.IsNil))
+			c.Assert(logsCreate.Count, tc.Equals, uint32(1))
+			c.Assert(logsCreate.Size, tc.Equals, uint64(512))
+			c.Assert(logsCreate.PoolUUID, tc.Equals, *modelStoragePools.FilesystemPoolUUID)
+			return nil
+		})
+
+	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	c.Assert(err, tc.IsNil)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageInvalidMinMaxCount(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "foo"
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	charmID := charmtesting.GenCharmID(c)
+
+	existingStorageDirectives := []application.StorageDirective{
+		{
+			CharmStorageType: applicationcharm.StorageBlock,
+			Name:             "data",
+			Count:            5,
+			Size:             1024,
+		},
+	}
+
+	// New charm storage count min is higher than max, this is invalid.
+	newCharmStorages := map[string]applicationcharm.Storage{
+		"data": {
+			Type:        applicationcharm.StorageBlock,
+			CountMin:    5,
+			CountMax:    3,
+			MinimumSize: 1024,
+		},
+	}
+
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appUUID, nil)
+	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
+	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
+	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
+
+	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	c.Assert(err, tc.ErrorMatches, `.*minimum count greater than maximum count.*`)
 }
 
 func (s *applicationServiceSuite) TestGetApplicationLife(c *tc.C) {
@@ -1665,4 +1791,13 @@ func (s *applicationServiceSuite) TestGetApplicationDetailsInvalidAppUUID(c *tc.
 
 	_, err := s.service.GetApplicationDetails(c.Context(), "!!!")
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationUUIDNotValid)
+}
+
+func makeModelStoragePools(c *tc.C) internal.ModelStoragePools {
+	fakeFilesytemPoolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	fakeBlockdevicePoolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	return internal.ModelStoragePools{
+		FilesystemPoolUUID:  &fakeFilesytemPoolUUID,
+		BlockDevicePoolUUID: &fakeBlockdevicePoolUUID,
+	}
 }
