@@ -181,6 +181,10 @@ type RemoteApplicationConsumerImport struct {
 	// OfferUUID is the UUID of the offer being consumed.
 	OfferUUID string
 
+	// RelationUUID is the UUID of the relation created for this remote
+	// application consumer.
+	RelationUUID string
+
 	// URL is the offer URL.
 	URL string
 

@@ -61,10 +61,10 @@ func (s *MigrationService) ImportOffers(ctx context.Context, imports []crossmode
 	return errors.Capture(s.modelState.ImportOffers(ctx, imports))
 }
 
-// RemoteApplicationImport contains details to import a remote application
-// (offerer) during migration. This represents a remote application that this
-// model is consuming from another model.
-type RemoteApplicationImport struct {
+// RemoteApplicationOffererImport contains details to import a remote
+// application offerer during migration. This represents a remote application
+// that this model is consuming from another model.
+type RemoteApplicationOffererImport struct {
 	// Name is the name of the remote application in this model.
 	Name string
 
@@ -87,9 +87,64 @@ type RemoteApplicationImport struct {
 	// Bindings are the endpoint-to-space bindings.
 	Bindings map[string]string
 
-	// IsConsumerProxy indicates if this is a consumer proxy (on the offerer
-	// side) rather than a remote offerer (on the consumer side).
-	IsConsumerProxy bool
+	// Units are the unit names for the remote application that need to be
+	// created as synthetic units. These are extracted from relation endpoints
+	// during migration import.
+	Units []string
+}
+
+// ImportRemoteApplicationOfferers adds remote application offerers being
+// migrated to the current model. These are applications that this model is
+// consuming from other models.
+func (s *MigrationService) ImportRemoteApplicationOfferers(ctx context.Context, imports []RemoteApplicationOffererImport) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	offerers := make([]crossmodelrelation.RemoteApplicationOffererImport, 0, len(imports))
+	for _, rApp := range imports {
+		offerer, err := s.constructApplicationOfferer(rApp)
+		if err != nil {
+			return errors.Errorf("constructing remote application offerer for %q: %w", rApp.Name, err)
+		}
+		offerers = append(offerers, offerer)
+	}
+
+	if err := s.modelState.ImportRemoteApplicationOfferers(ctx, offerers); err != nil {
+		return errors.Errorf("importing remote application offerers: %w", err)
+	}
+
+	return nil
+}
+
+// RemoteApplicationConsumerImport contains details to import a remote
+// application consumer during migration. This represents a remote application
+// that this model is offering from another model.
+type RemoteApplicationConsumerImport struct {
+	// Name is the name of the remote application in this model.
+	Name string
+
+	// OfferUUID is the UUID of the offer being consumed.
+	OfferUUID string
+
+	// RelationUUID is the UUID of the relation created for this remote
+	// application consumer.
+	RelationUUID string
+
+	// URL is the offer URL.
+	URL string
+
+	// SourceModelUUID is the UUID of the model offering the application.
+	SourceModelUUID string
+
+	// Macaroon is the authentication macaroon for the offer.
+	Macaroon string
+
+	// Endpoints are the remote endpoints for creating the synthetic charm.
+	// This is kept for backwards compatibility and service layer processing.
+	Endpoints []crossmodelrelation.RemoteApplicationEndpoint
+
+	// Bindings are the endpoint-to-space bindings.
+	Bindings map[string]string
 
 	// Units are the unit names for the remote application that need to be
 	// created as synthetic units. These are extracted from relation endpoints
@@ -101,28 +156,15 @@ type RemoteApplicationImport struct {
 	Username string
 }
 
-// ImportRemoteApplications adds remote application offerers being migrated to
-// the current model. These are applications that this model is consuming from
-// other models.
-func (s *MigrationService) ImportRemoteApplications(ctx context.Context, imports []RemoteApplicationImport) error {
+// ImportRemoteApplicationConsumers adds remote application consumers being
+// migrated to the current model. These are applications that this model is
+// offering from other models.
+func (s *MigrationService) ImportRemoteApplicationConsumers(ctx context.Context, imports []RemoteApplicationConsumerImport) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	var (
-		offerers  []crossmodelrelation.RemoteApplicationOffererImport
-		consumers []crossmodelrelation.RemoteApplicationConsumerImport
-	)
-
+	consumers := make([]crossmodelrelation.RemoteApplicationConsumerImport, 0, len(imports))
 	for _, rApp := range imports {
-		if !rApp.IsConsumerProxy {
-			offerer, err := s.constructApplicationOfferer(rApp)
-			if err != nil {
-				return errors.Errorf("constructing remote application offerer for %q: %w", rApp.Name, err)
-			}
-			offerers = append(offerers, offerer)
-			continue
-		}
-
 		consumer, err := s.constructApplicationConsumer(rApp)
 		if err != nil {
 			return errors.Errorf("constructing remote application consumer for %q: %w", rApp.Name, err)
@@ -130,22 +172,14 @@ func (s *MigrationService) ImportRemoteApplications(ctx context.Context, imports
 		consumers = append(consumers, consumer)
 	}
 
-	if len(consumers) > 0 {
-		if err := s.modelState.ImportRemoteApplicationConsumers(ctx, consumers); err != nil {
-			return errors.Errorf("importing remote application consumers: %w", err)
-		}
-	}
-
-	if len(offerers) > 0 {
-		if err := s.modelState.ImportRemoteApplicationOfferers(ctx, offerers); err != nil {
-			return errors.Errorf("importing remote application offerers: %w", err)
-		}
+	if err := s.modelState.ImportRemoteApplicationConsumers(ctx, consumers); err != nil {
+		return errors.Errorf("importing remote application consumers: %w", err)
 	}
 
 	return nil
 }
 
-func (s *MigrationService) constructApplicationOfferer(rApp RemoteApplicationImport) (crossmodelrelation.RemoteApplicationOffererImport, error) {
+func (s *MigrationService) constructApplicationOfferer(rApp RemoteApplicationOffererImport) (crossmodelrelation.RemoteApplicationOffererImport, error) {
 	synthCharm, err := s.constructSyntheticCharm(rApp.Name, rApp.Endpoints)
 	if err != nil {
 		return crossmodelrelation.RemoteApplicationOffererImport{}, errors.Errorf(
@@ -165,7 +199,7 @@ func (s *MigrationService) constructApplicationOfferer(rApp RemoteApplicationImp
 	}, nil
 }
 
-func (s *MigrationService) constructApplicationConsumer(rApp RemoteApplicationImport) (crossmodelrelation.RemoteApplicationConsumerImport, error) {
+func (s *MigrationService) constructApplicationConsumer(rApp RemoteApplicationConsumerImport) (crossmodelrelation.RemoteApplicationConsumerImport, error) {
 	appUUID, err := parseRemoteApplicationUUID(rApp.Name)
 	if err != nil {
 		return crossmodelrelation.RemoteApplicationConsumerImport{}, errors.Errorf(

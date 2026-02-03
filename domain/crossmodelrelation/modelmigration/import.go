@@ -41,9 +41,13 @@ type ImportService interface {
 	// ImportOffers adds offers being migrated to the current model.
 	ImportOffers(context.Context, []crossmodelrelation.OfferImport) error
 
-	// ImportRemoteApplications adds remote application offerers being migrated
-	// to the current model.
-	ImportRemoteApplications(context.Context, []service.RemoteApplicationImport) error
+	// ImportRemoteApplicationOfferers adds remote application offerers being
+	// migrated to the current model.
+	ImportRemoteApplicationOfferers(context.Context, []service.RemoteApplicationOffererImport) error
+
+	// ImportRemoteApplicationConsumers adds remote application consumers being
+	// migrated to the current model.
+	ImportRemoteApplicationConsumers(context.Context, []service.RemoteApplicationConsumerImport) error
 }
 
 type importOperation struct {
@@ -75,15 +79,31 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return errors.Errorf("importing offers: %w", err)
 	}
 
+	remoteApplications := model.RemoteApplications()
+	if len(remoteApplications) == 0 {
+		return nil
+	}
+
 	// Extract unit names for remote applications from relations.
 	// This is needed because synthetic units must be created before
 	// relations can be imported.
 	remoteAppUnits := i.extractRemoteAppUnits(model)
-	offerConnections := i.extractOfferConnections(model)
 
-	if err := i.importRemoteApplications(ctx, model.RemoteApplications(), remoteAppUnits, offerConnections); err != nil {
+	// Import remote application offerers, this will create the synthetic
+	// applications and units needed for relations.
+	if err := i.importRemoteApplicationOfferers(ctx, remoteApplications, remoteAppUnits); err != nil {
 		return errors.Errorf("importing remote applications: %w", err)
 	}
+
+	// Extract offer connections for remote application consumers. We'll
+	// need these to use the correct user when importing the consumers.
+	offerConnections := i.extractOfferConnections(model)
+
+	// Import remote application consumers.
+	if err := i.importRemoteApplicationConsumers(ctx, remoteApplications, remoteAppUnits, offerConnections); err != nil {
+		return errors.Errorf("importing remote application consumers: %w", err)
+	}
+
 	return nil
 }
 
@@ -179,13 +199,12 @@ func (i *importOperation) importOffers(ctx context.Context, apps []description.A
 	return i.importService.ImportOffers(ctx, input)
 }
 
-func (i *importOperation) importRemoteApplications(
+func (i *importOperation) importRemoteApplicationOfferers(
 	ctx context.Context,
 	remoteApps []description.RemoteApplication,
 	remoteAppUnits map[string][]string,
-	offerConnections map[string][]OfferConnection,
 ) error {
-	input := make([]service.RemoteApplicationImport, 0, len(remoteApps))
+	input := make([]service.RemoteApplicationOffererImport, 0, len(remoteApps))
 	for _, remoteApp := range remoteApps {
 		endpoints := make([]crossmodelrelation.RemoteApplicationEndpoint, 0, len(remoteApp.Endpoints()))
 		for _, ep := range remoteApp.Endpoints() {
@@ -202,6 +221,31 @@ func (i *importOperation) importRemoteApplications(
 		}
 
 		offerUUID := remoteApp.OfferUUID()
+
+		input = append(input, service.RemoteApplicationOffererImport{
+			Name:            remoteApp.Name(),
+			OfferUUID:       offerUUID,
+			URL:             remoteApp.URL(),
+			SourceModelUUID: remoteApp.SourceModelUUID(),
+			Macaroon:        remoteApp.Macaroon(),
+			Endpoints:       endpoints,
+			Bindings:        remoteApp.Bindings(),
+			Units:           remoteAppUnits[remoteApp.Name()],
+		})
+	}
+	return i.importService.ImportRemoteApplicationOfferers(ctx, input)
+}
+
+func (i *importOperation) importRemoteApplicationConsumers(
+	ctx context.Context,
+	remoteApps []description.RemoteApplication,
+	remoteAppUnits map[string][]string,
+	offerConnections map[string][]OfferConnection,
+) error {
+	input := make([]service.RemoteApplicationConsumerImport, 0, len(remoteApps))
+	for _, remoteApp := range remoteApps {
+		offerUUID := remoteApp.OfferUUID()
+
 		conns, ok := offerConnections[offerUUID]
 		if !ok {
 			return errors.Errorf("no offer connections found for remote application %q with offer uuid %q",
@@ -217,23 +261,20 @@ func (i *importOperation) importRemoteApplications(
 				remoteApp.Name(), err)
 		}
 
-		input = append(input, service.RemoteApplicationImport{
+		input = append(input, service.RemoteApplicationConsumerImport{
 			Name:            remoteApp.Name(),
 			OfferUUID:       offerUUID,
+			RelationUUID:    remoteApp.RelationUUID(),
 			URL:             remoteApp.URL(),
 			SourceModelUUID: remoteApp.SourceModelUUID(),
 			Macaroon:        remoteApp.Macaroon(),
-			Endpoints:       endpoints,
+			Endpoints:       remoteApp.Endpoints(),
 			Bindings:        remoteApp.Bindings(),
-			IsConsumerProxy: remoteApp.IsConsumerProxy(),
 			Units:           remoteAppUnits[remoteApp.Name()],
 			Username:        username,
 		})
 	}
-	if len(input) == 0 {
-		return nil
-	}
-	return i.importService.ImportRemoteApplications(ctx, input)
+	return i.importService.ImportRemoteApplicationConsumers(ctx, input)
 }
 
 func extractOfferConnectionUsername(appName string, conns []OfferConnection) (string, error) {
