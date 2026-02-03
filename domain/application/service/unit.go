@@ -205,10 +205,14 @@ type UnitState interface {
 	// Combination of existing storage instances and anticipated additional storage
 	// instances is validated as specified in the unit's charm.
 	// The following error types can be expected:
-	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
-	// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the unit is not alive.
-	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
-	// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded] when the requested storage falls outside of the bounds defined by the charm.
+	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the
+	// unit does not exist.
+	// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the
+	// unit is not alive.
+	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]:
+	// when storage name is not defined in charm metadata.
+	// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded]
+	// when the requested storage falls outside of the bounds defined by the charm.
 	AddStorageForCAASUnit(
 		ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
 		storageArg internal.UnitAddStorageArg,
@@ -219,10 +223,14 @@ type UnitState interface {
 	// Combination of existing storage instances and anticipated additional storage
 	// instances is validated as specified in the unit's charm.
 	// The following error types can be expected:
-	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
-	// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the unit is not alive.
-	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
-	// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded] when the requested storage falls outside of the bounds defined by the charm.
+	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the
+	// unit does not exist.
+	// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the
+	// unit is not alive.
+	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]:
+	// when storage name is not defined in charm metadata.
+	// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded]
+	// when the requested storage falls outside of the bounds defined by the charm.
 	AddStorageForIAASUnit(
 		ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
 		storageArg internal.IAASUnitAddStorageArg,

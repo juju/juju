@@ -60,7 +60,7 @@ type UnitAddStorageArg struct {
 }
 
 // IAASUnitAddStorageArg represents the arguments required for making storage
-// for an IASS unit. This complements [UnitAddStorageArg], allowing for an
+// for an IAAS unit. This complements [UnitAddStorageArg], allowing for an
 // IAAS unit to augment storage that is destined for a machine.
 type IAASUnitAddStorageArg struct {
 	UnitAddStorageArg
@@ -96,7 +96,7 @@ type CreateUnitStorageArg struct {
 }
 
 // CreateIAASUnitStorageArg represents the arguments required for making storage
-// for an IASS unit. This complements [CreateUnitStorageArg], allowing for an
+// for an IAAS unit. This complements [CreateUnitStorageArg], allowing for an
 // IAAS unit to augment storage that is destined for a machine.
 type CreateIAASUnitStorageArg struct {
 	// FilesystemsToOwn defines filesystems that will be owned by the unit's

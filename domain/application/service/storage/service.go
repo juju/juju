@@ -854,6 +854,8 @@ func (s Service) MakeIAASUnitStorageArgs(
 // but without processing existing storage.
 // The details of the new instances are calculated and all the
 // required storage attachments are added.
+// The directive provides storage defaults including count, but here the
+// caller is specifying the actual count to use.
 // This is a cut down version of [MakeUnitStorageArgs]. We may
 // choose to DRY things upa bit later.
 func (s Service) MakeUnitAddStorageArgs(
@@ -925,6 +927,8 @@ func (s Service) MakeUnitAddStorageArgs(
 // makeUnitStorageInstancesFromDirective is responsible for taking a storage
 // directive and creating a set of storage instance args that are capable of
 // fulfilling the requirements of the directive.
+// The directive provides storage defaults including count, but here the
+// caller is specifying the actual count to use.
 func makeUnitStorageInstancesFromDirective(
 	ctx context.Context,
 	count uint32,
