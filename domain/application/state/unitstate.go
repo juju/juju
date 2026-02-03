@@ -1205,7 +1205,7 @@ func (st *InsertIAASUnitState) makeInsertUnitFilesystemArgs(
 
 	// now that we have the set of filesystems we can generate the ids
 	fsIDS, err := sequencestate.NextNValues(
-		ctx, st, tx, uint64(len(argIndexes)), filesystemNamespace,
+		ctx, st, tx, uint64(len(argIndexes)), domainstorage.FilesystemSequenceNamespace,
 	)
 	if err != nil {
 		return nil, nil, nil, errors.Errorf(
@@ -1285,7 +1285,9 @@ func (st *InsertIAASUnitState) makeInsertUnitStorageInstanceArgs(
 	storageInstancesRval := make([]insertStorageInstance, 0, len(args))
 
 	for _, arg := range args {
-		id, err := sequencestate.NextValue(ctx, st, tx, storageNamespace)
+		id, err := sequencestate.NextValue(
+			ctx, st, tx, domainstorage.StorageInstanceSequenceNamespace,
+		)
 		if err != nil {
 			return nil, errors.Errorf(
 				"creating unique storage instance id: %w", err,
@@ -1339,7 +1341,7 @@ func (st *InsertIAASUnitState) makeInsertUnitVolumeArgs(
 
 	// now that we have the set of volumes we can generate the ids
 	fsIDS, err := sequencestate.NextNValues(
-		ctx, st, tx, uint64(len(argIndexes)), volumeNamespace,
+		ctx, st, tx, uint64(len(argIndexes)), domainstorage.VolumeSequenceNamespace,
 	)
 	if err != nil {
 		return nil, nil, nil, errors.Errorf(
