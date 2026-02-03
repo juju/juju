@@ -198,6 +198,58 @@ func (s *netConfigSuite) TestSetMachineNetConfigAddsUnknownSubnet(c *tc.C) {
 	c.Check(cidr, tc.Equals, "10.0.0.0/24")
 }
 
+func (s *netConfigSuite) TestSetMachineNetConfigAddsSingleHostSubnet(c *tc.C) {
+	db := s.DB()
+
+	// Arrange: no matching subnets exist.
+	nodeUUID := "net-node-uuid"
+	devName := "eth0"
+
+	ctx := c.Context()
+
+	_, err := db.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", nodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Ensure there are no pre-existing subnets that might match the address.
+	_, err = db.ExecContext(ctx, "DELETE FROM subnet")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: progressive subnet insertion is disabled.
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, []network.NetInterface{{
+		Name:            devName,
+		Type:            corenetwork.EthernetDevice,
+		VirtualPortType: corenetwork.NonVirtualPort,
+		IsAutoStart:     true,
+		IsEnabled:       true,
+		Addrs: []network.NetAddr{{
+			InterfaceName: devName,
+			AddressValue:  "10.0.0.5/32",
+			AddressType:   corenetwork.IPv4Address,
+			ConfigType:    corenetwork.ConfigDHCP,
+			Origin:        corenetwork.OriginMachine,
+			Scope:         corenetwork.ScopeCloudLocal,
+		}},
+	}}, false)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	var subnetUUID string
+	row := db.QueryRowContext(ctx, "SELECT subnet_uuid FROM ip_address WHERE address_value = ?", "10.0.0.5/32")
+	c.Assert(row.Err(), tc.ErrorIsNil)
+	err = row.Scan(&subnetUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var cidr string
+	row = db.QueryRowContext(ctx, "SELECT cidr FROM subnet WHERE uuid = ? AND space_uuid = ?",
+		subnetUUID, corenetwork.AlphaSpaceId)
+	c.Assert(row.Err(), tc.ErrorIsNil)
+	err = row.Scan(&cidr)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(cidr, tc.Equals, "10.0.0.5/32")
+}
+
 func (s *netConfigSuite) TestSetMachineNetConfigNoAddresses(c *tc.C) {
 	db := s.DB()
 
