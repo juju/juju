@@ -25,7 +25,7 @@ func (st *State) GetUnitEndpointNetworks(ctx context.Context, unitUUID string,
 	// Determine the set of unique spaces to which the endpoints are bound.
 	spaces, err := st.getAllSpacesForEndpoints(ctx, unitUUID, endpointNames)
 	if err != nil {
-		return nil, errors.Errorf("getting all spaces for endpoints: %w", err)
+		return nil, errors.Capture(err)
 	}
 	uniqueSpaces := set.NewStrings()
 	for _, space := range spaces {
@@ -196,26 +196,26 @@ func (st *State) getAllSpacesForEndpoints(
 	currentUnitUUID := entityUUID{UUID: unitUUID}
 	endpoints := names(endpointNames)
 	getSpacesStmt, err := st.Prepare(`
-SELECT epview.name AS &spaceEndpoint.endpoint_name,
-	   epview.space_uuid AS &spaceEndpoint.space_uuid
-FROM (
+WITH ep AS (
 	SELECT ae.application_uuid,
 		   cr.name,
-		   COALESCE(ae.space_uuid, a.space_uuid) AS space_uuid
+		   ae.space_uuid
 	FROM   application_endpoint ae
 	JOIN   charm_relation cr ON ae.charm_relation_uuid = cr.uuid
-	JOIN   application a ON ae.application_uuid = a.uuid
-	UNION
+	UNION ALL
 	SELECT aee.application_uuid,
 	       ceb.name,
-		   COALESCE(aee.space_uuid, a.space_uuid) AS space_uuid
+		   aee.space_uuid
 	FROM   application_extra_endpoint aee
 	JOIN   charm_extra_binding ceb ON aee.charm_extra_binding_uuid = ceb.uuid
-	JOIN   application a ON aee.application_uuid = a.uuid
-) as epview
-JOIN unit AS u ON epview.application_uuid = u.application_uuid
-WHERE u.uuid = $entityUUID.uuid
-AND epview.name IN ($names[:])
+)
+SELECT ep.name AS &spaceEndpoint.endpoint_name,
+	   IFNULL(ep.space_uuid, a.space_uuid) AS &spaceEndpoint.space_uuid
+FROM   ep 
+JOIN   unit AS u ON ep.application_uuid = u.application_uuid
+JOIN   application a ON u.application_uuid = a.uuid
+WHERE  u.uuid = $entityUUID.uuid
+AND    ep.name IN ($names[:])
 `, currentUnitUUID, endpoints, spaceEndpoint{})
 	if err != nil {
 		return nil, errors.Errorf("preparing select spaces for endpoints statement: %w", err)
