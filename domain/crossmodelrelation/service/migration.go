@@ -262,6 +262,10 @@ func (s *MigrationService) constructApplicationConsumer(rApp RemoteApplicationCo
 }
 
 func (s *MigrationService) constructSyntheticCharm(appName string, endpoints []crossmodelrelation.RemoteApplicationEndpoint) (charm.Charm, error) {
+	if len(endpoints) == 0 {
+		return charm.Charm{}, errors.Errorf("no endpoints provided for synthetic charm")
+	}
+
 	syntheticCharm, err := constructSyntheticCharm(appName, transform.Slice(endpoints, func(ep crossmodelrelation.RemoteApplicationEndpoint) charm.Relation {
 		return charm.Relation{
 			Name:      ep.Name,
@@ -276,7 +280,7 @@ func (s *MigrationService) constructSyntheticCharm(appName string, endpoints []c
 	// Check that the charm has only one endpoint. There can be multiple
 	// synthetic applications per offer, but only one endpoint per synthetic
 	// application. To do otherwise requires design and facade changes.
-	if err := synthCharmHasOnlyOneEndpoint("????", syntheticCharm); err != nil {
+	if err := synthCharmHasOnlyOneEndpoint(endpoints[0].Name, syntheticCharm); err != nil {
 		return charm.Charm{}, internalerrors.Errorf("adding consumed relation: %w", err)
 	}
 

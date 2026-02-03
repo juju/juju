@@ -100,7 +100,10 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 	// Extract offer connections for remote application consumers. We'll
 	// need these to use the correct user when importing the consumers.
-	offerConnections := extractOfferConnections(model)
+	offerConnections, err := extractOfferConnections(model)
+	if err != nil {
+		return errors.Errorf("extracting offer connections: %w", err)
+	}
 
 	// Extract remote entities for application and relation UUIDs, or commonly
 	// called tokens in prior Juju versions.
@@ -224,7 +227,7 @@ func (i *importOperation) importRemoteApplicationConsumers(
 	ctx context.Context,
 	remoteApps []description.RemoteApplication,
 	remoteAppUnits map[string][]string,
-	offerConnections map[string][]offerConnection,
+	offerConnections []offerConnection,
 	relationRemoteEntities []relationRemoteEntity,
 	applicationRemoteEntities map[string]string,
 ) error {
@@ -236,23 +239,19 @@ func (i *importOperation) importRemoteApplicationConsumers(
 				remoteApp.Name(), err)
 		}
 
-		offerUUID := remoteApp.OfferUUID()
-
-		conns, ok := offerConnections[offerUUID]
-		if !ok {
-			return errors.Errorf("no offer connections found for remote application %q with offer uuid %q",
-				remoteApp.Name(), remoteApp.OfferUUID())
-		}
+		// Note: we can't use the remoteApp.OfferUUID as it's not filled in for
+		// consumers, only offerers. This means that we have to go hunting for
+		// it in the offer connections.
 
 		// Extract the username from the offer connection, this should tell us
 		// who made the original offer connection request in the source model.
-		relationKey, username, err := findOfferConnection(remoteApp.Name(), conns)
+		offerConnection, err := findOfferConnection(offerConnections, remoteApp.Name(), remoteApp.SourceModelUUID())
 		if err != nil {
 			return errors.Errorf("extracting offer connection user name for remote application %q: %w",
 				remoteApp.Name(), err)
 		}
 
-		relationUUID, err := findRelationUUIDForKey(relationRemoteEntities, relationKey)
+		relationUUID, err := findRelationUUIDForKey(relationRemoteEntities, offerConnection.RelationKey)
 		if err != nil {
 			return errors.Errorf("finding relation UUID for remote application %q: %w",
 				remoteApp.Name(), err)
@@ -266,9 +265,9 @@ func (i *importOperation) importRemoteApplicationConsumers(
 
 		input = append(input, service.RemoteApplicationConsumerImport{
 			Name:                    remoteApp.Name(),
-			OfferUUID:               offerUUID,
+			OfferUUID:               offerConnection.OfferUUID,
 			RelationUUID:            relationUUID,
-			RelationKey:             relationKey,
+			RelationKey:             offerConnection.RelationKey,
 			URL:                     remoteApp.URL(),
 			ConsumerModelUUID:       remoteApp.SourceModelUUID(),
 			ConsumerApplicationUUID: consumerApplicationUUID,
@@ -276,30 +275,38 @@ func (i *importOperation) importRemoteApplicationConsumers(
 			Endpoints:               endpoints,
 			Bindings:                remoteApp.Bindings(),
 			Units:                   remoteAppUnits[remoteApp.Name()],
-			Username:                username,
+			Username:                offerConnection.UserName,
 		})
 	}
+
 	return i.importService.ImportRemoteApplicationConsumers(ctx, input)
 }
 
 type offerConnection struct {
-	RelationKey     string
+	OfferUUID       string
+	RelationKey     relation.Key
 	SourceModelUUID string
 	UserName        string
 }
 
-func extractOfferConnections(model description.Model) map[string][]offerConnection {
-	offerConnections := make(map[string][]offerConnection)
+func extractOfferConnections(model description.Model) ([]offerConnection, error) {
+	var offerConnections []offerConnection
 	for _, rel := range model.OfferConnections() {
 		offerUUID := rel.OfferUUID()
 
-		offerConnections[offerUUID] = append(offerConnections[offerUUID], offerConnection{
-			RelationKey:     rel.RelationKey(),
+		relationKey, err := relation.NewKeyFromString(rel.RelationKey())
+		if err != nil {
+			return nil, errors.Errorf("parsing relation key %q: %w", rel.RelationKey(), err)
+		}
+
+		offerConnections = append(offerConnections, offerConnection{
+			OfferUUID:       offerUUID,
+			RelationKey:     relationKey,
 			SourceModelUUID: rel.SourceModelUUID(),
 			UserName:        rel.UserName(),
 		})
 	}
-	return offerConnections
+	return offerConnections, nil
 }
 
 type relationRemoteEntity struct {
@@ -345,7 +352,7 @@ func extractApplicationUUIDFromRemoteEntities(model description.Model) (map[stri
 			continue
 		}
 
-		remoteEntities[remoteEntityID[len("application-"):]] = re.Token()
+		remoteEntities[remoteEntityID[12:]] = re.Token()
 	}
 	return remoteEntities, nil
 }
@@ -367,25 +374,24 @@ func extractRemoteEndpoints(remoteApp description.RemoteApplication) ([]crossmod
 	return endpoints, nil
 }
 
-func findOfferConnection(appName string, conns []offerConnection) (relation.Key, string, error) {
-	if len(conns) == 0 {
-		return nil, "", errors.Errorf("no offer connections for application %q", appName)
+func findOfferConnection(offerConns []offerConnection, appName, modelUUID string) (offerConnection, error) {
+	if len(offerConns) == 0 {
+		return offerConnection{}, errors.Errorf("no offer connections for application %q", appName)
 	}
 
-	for _, conn := range conns {
-		relationKey, err := relation.NewKeyFromString(conn.RelationKey)
-		if err != nil {
-			return nil, "", errors.Errorf("parsing relation key %q: %w", conn.RelationKey, err)
+	for _, conn := range offerConns {
+		if conn.SourceModelUUID != modelUUID {
+			continue
 		}
 
-		for _, key := range relationKey {
+		for _, key := range conn.RelationKey {
 			if key.ApplicationName == appName {
-				return relationKey, conn.UserName, nil
+				return conn, nil
 			}
 		}
 	}
 
-	return nil, "", errors.Errorf("no offer connection contains application %q", appName)
+	return offerConnection{}, errors.Errorf("no offer connection contains application %q", appName)
 }
 
 func findRelationUUIDForKey(remoteEntities []relationRemoteEntity, relationKey relation.Key) (string, error) {
