@@ -393,3 +393,27 @@ func (u UnitStorageMinViolation) Error() string {
 		u.UnitUUID, u.CharmStorageName, u.RequiredMinimum,
 	)
 }
+
+// CharmStorageTypeChanged describes an error that occurs when a charm's
+// storage type changes during a refresh for a named storage definition.
+// Example of this would be the previous charm's storage `foo` changing from
+// filesystem to block storage.
+type CharmStorageTypeChanged struct {
+	// StorageName is the name of the storage whose type was being changed in
+	// the operation.
+	StorageName string
+	// OldType is the existing storage type.
+	OldType string
+	// NewType is the new storage type that is different from the old type.
+	NewType string
+}
+
+// Error returns a string representation of the [CharmStorageTypeChanged] error
+// providing context of the storage name, old type and new type for the violation.
+// This func implements the [error] interface.
+func (s CharmStorageTypeChanged) Error() string {
+	return fmt.Sprintf(
+		"existing storage %q type changed from %q to %q",
+		s.StorageName, s.OldType, s.NewType,
+	)
+}

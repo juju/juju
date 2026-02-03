@@ -1696,7 +1696,7 @@ WHERE  uuid = $entityUUID.uuid
 			return errors.Capture(err)
 		}
 
-		//TODO(storage) - update storage directive for app
+		//TODO(storage) - upsert storage directive for app
 
 		bindings := transform.Map(params.EndpointBindings, func(k string, v network.SpaceName) (string, string) {
 			return k, v.String()

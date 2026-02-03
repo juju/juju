@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
+	"github.com/juju/juju/domain/application/service/storage"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
@@ -439,6 +440,12 @@ type ApplicationState interface {
 	// GetMachinesForApplication returns the names of the machines which have a unit.
 	// of the specified application deployed to it.
 	GetMachinesForApplication(ctx context.Context, appUUID string) ([]string, error)
+
+	// GetModelStoragePools returns the default storage pools
+	// that have been set for the model.
+	GetModelStoragePools(
+		context.Context,
+	) (internal.ModelStoragePools, error)
 }
 
 func validateCharmAndApplicationParams(
@@ -761,33 +768,6 @@ func makeResourcesArgs(resolvedResources ResolvedResources) []application.AddApp
 		})
 	}
 	return result
-}
-
-// SetApplicationCharm sets a new charm for the application, validating that aspects such
-// as storage are still viable with the new charm.
-func (s *Service) SetApplicationCharm(ctx context.Context, appName string, charmLocator charm.CharmLocator, params application.SetCharmParams) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	appUUID, err := s.st.GetApplicationUUIDByName(ctx, appName)
-	if err != nil {
-		return errors.Errorf("getting application UUID: %w", err)
-	}
-	charmID, err := s.st.GetCharmID(ctx, charmLocator.Name, charmLocator.Revision, charmLocator.Source)
-	if err != nil {
-		return errors.Errorf("getting charm ID: %w", err)
-	}
-
-	paramsState, err := makeSetCharmStateArg(params)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = s.st.SetApplicationCharm(ctx, appUUID, charmID, paramsState)
-	if err != nil {
-		return errors.Errorf("setting application %q charm: %w", appName, err)
-	}
-	return nil
 }
 
 // GetApplicationName returns the name of the specified application.
@@ -1689,6 +1669,68 @@ func (s *Service) GetMachinesForApplication(ctx context.Context, appName string)
 	return transform.Slice(machineNames, func(v string) coremachine.Name {
 		return coremachine.Name(v)
 	}), nil
+}
+
+// SetApplicationCharm sets a new charm for the application, validating that aspects such
+// as storage are still viable with the new charm. It reconciles existing application
+// storage directives with the new charm's storage requirements.
+func (s *ProviderService) SetApplicationCharm(ctx context.Context, appName string, charmLocator charm.CharmLocator, params application.SetCharmParams) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	appUUID, err := s.st.GetApplicationUUIDByName(ctx, appName)
+	if err != nil {
+		return errors.Errorf("getting application UUID: %w", err)
+	}
+	charmID, err := s.st.GetCharmID(ctx, charmLocator.Name, charmLocator.Revision, charmLocator.Source)
+	if err != nil {
+		return errors.Errorf("getting charm ID: %w", err)
+	}
+	// Retrieve the current storage directives for the application.
+	storageDirectives, err := s.storageService.GetApplicationStorageDirectives(ctx, appUUID)
+	if err != nil {
+		return errors.Errorf("getting application storage directives: %w", err)
+	}
+	// Get new charm's storage requirements.
+	charmMetadataStorage, err := s.st.GetCharmMetadataStorage(ctx, charmID)
+	if err != nil {
+		return errors.Errorf("getting charm storage metadata: %w", err)
+	}
+	// Decode charm storage to internal charm format.
+	newCharmStorage, err := decodeMetadataStorage(charmMetadataStorage)
+	if err != nil {
+		return errors.Errorf("decoding charm storage: %w", err)
+	}
+	// Initial validation for the new charm's storage requirements.
+	if err := validateCharmStorage(newCharmStorage); err != nil {
+		return errors.Errorf("validating charm storage: %w", err)
+	}
+	// Reconcile storage directives between existing and new charm storage.
+	modelStoragePools, err := s.st.GetModelStoragePools(ctx)
+	if err != nil {
+		return errors.Errorf("getting default storage provisioners for model: %w", err)
+	}
+	toApply, toDelete, err := storage.ReconcileUpdatedCharmStorageDirective(newCharmStorage, storageDirectives, modelStoragePools)
+	if err != nil {
+		return errors.Errorf("reconciling storage directives: %w", err)
+	}
+
+	// TODO: Override toApply with user provided storage directives in params.
+
+	// TODO: Validate storage directives in toApply against new charm requirements again.
+
+	paramsState, err := makeSetCharmStateArg(params)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	paramsState.StorageDirectivesToApply = toApply
+	paramsState.StorageDirectivesToDelete = toDelete
+
+	err = s.st.SetApplicationCharm(ctx, appUUID, charmID, paramsState)
+	if err != nil {
+		return errors.Errorf("setting application %q charm: %w", appName, err)
+	}
+	return nil
 }
 
 func getTrustSettingFromConfig(cfg map[string]string) (*bool, error) {

@@ -704,10 +704,9 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = api.applicationService.SetApplicationCharm(ctx, args.ApplicationName, newCharmLocator, application.SetCharmParams{
-		CharmOrigin: charmOrigin,
 
-		// Storage: args.StorageDirectives,
+	err = api.applicationService.SetApplicationCharm(ctx, args.ApplicationName, newCharmLocator, application.SetCharmParams{
+		CharmOrigin:         charmOrigin,
 		CharmUpgradeOnError: args.Force,
 		EndpointBindings:    transform.Map(args.EndpointBindings, func(k, v string) (string, network.SpaceName) { return k, network.SpaceName(v) }),
 	})
