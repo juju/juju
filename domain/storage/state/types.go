@@ -212,3 +212,11 @@ type importStorageVolumePlanAttribute struct {
 	Key      string `db:"key"`
 	Value    string `db:"value"`
 }
+
+// modelResourceTagInfo represents the information about model resource tag
+// information for storage.
+type modelResourceTagInfo struct {
+	ResourceTags   string `db:"resource_tags"`
+	ModelUUID      string `db:"uuid"`
+	ControllerUUID string `db:"controller_uuid"`
+}

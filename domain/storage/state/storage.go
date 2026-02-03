@@ -6,25 +6,99 @@ package state
 import (
 	"context"
 
-	"github.com/juju/juju/core/storage"
-	domainstorage "github.com/juju/juju/domain/storage"
+	"github.com/canonical/sqlair"
+
 	domainstorageinternal "github.com/juju/juju/domain/storage/internal"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
-func (s State) ImportFilesystem(ctx context.Context, name storage.Name, filesystem domainstorage.FilesystemInfo) (storage.ID, error) {
-	//TODO implement me
-	return "", errors.New("not implemented")
-}
-
 // GetStorageResourceTagInfoForModel retrieves the model based resource tag
 // information for storage entities.
-func (s *State) GetStorageResourceTagInfoForModel(
+func (st *State) GetStorageResourceTagInfoForModel(
 	ctx context.Context,
 	resourceTagModelConfigKey string,
 ) (domainstorageprovisioning.ModelResourceTagInfo, error) {
-	return domainstorageprovisioning.ModelResourceTagInfo{}, errors.New("GetStorageResourceTagInfoForModel not implemented")
+	db, err := st.DB(ctx)
+	if err != nil {
+		return domainstorageprovisioning.ModelResourceTagInfo{}, errors.Capture(err)
+	}
+
+	var rval domainstorageprovisioning.ModelResourceTagInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		rval, err = st.getStorageResourceTagInfoForModel(
+			ctx, tx, resourceTagModelConfigKey,
+		)
+		return err
+	})
+
+	if err != nil {
+		return domainstorageprovisioning.ModelResourceTagInfo{}, errors.Capture(err)
+	}
+
+	return rval, nil
+}
+
+// getStorageResourceTagInfoForModel retrieves the model based resource tag
+// information for storage entities.
+func (st *State) getStorageResourceTagInfoForModel(
+	ctx context.Context,
+	tx *sqlair.TX,
+	resourceTagModelConfigKey string,
+) (domainstorageprovisioning.ModelResourceTagInfo, error) {
+	type modelConfigKey struct {
+		Key string `db:"key"`
+	}
+
+	var (
+		modelConfigKeyInput = modelConfigKey{Key: resourceTagModelConfigKey}
+		dbVal               modelResourceTagInfo
+	)
+
+	resourceTagStmt, err := st.Prepare(`
+SELECT value AS &modelResourceTagInfo.resource_tags
+FROM   model_config
+WHERE  key = $modelConfigKey.key
+`,
+		dbVal, modelConfigKeyInput)
+	if err != nil {
+		return domainstorageprovisioning.ModelResourceTagInfo{}, errors.Capture(err)
+	}
+
+	modelInfoStmt, err := st.Prepare(`
+SELECT (uuid, controller_uuid) AS (&modelResourceTagInfo.*)
+FROM model
+`,
+		dbVal)
+	if err != nil {
+		return domainstorageprovisioning.ModelResourceTagInfo{}, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, resourceTagStmt, modelConfigKeyInput).Get(&dbVal)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return domainstorageprovisioning.ModelResourceTagInfo{}, errors.Errorf(
+			"getting model config value for key %q: %w",
+			resourceTagModelConfigKey, err,
+		)
+	}
+
+	err = tx.Query(ctx, modelInfoStmt).Get(&dbVal)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		// This must never happen, but we return an error that at least signals
+		// the problem correctly in case it does.
+		return domainstorageprovisioning.ModelResourceTagInfo{}, errors.New(
+			"model database has not had its information set",
+		)
+	} else if err != nil {
+		return domainstorageprovisioning.ModelResourceTagInfo{}, errors.Capture(err)
+	}
+
+	return domainstorageprovisioning.ModelResourceTagInfo{
+		BaseResourceTags: dbVal.ResourceTags,
+		ControllerUUID:   dbVal.ControllerUUID,
+		ModelUUID:        dbVal.ModelUUID,
+	}, nil
 }
 
 // CreateStorageInstanceWithExistingFilesystem creates a new storage
