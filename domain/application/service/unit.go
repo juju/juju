@@ -198,7 +198,7 @@ type UnitState interface {
 	// storage instances exist for the named storage on the specified unit.
 	// The following error types can be expected:
 	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
-	GetCharmStorageAndInstanceCountByUnitUUID(ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name) (internalcharm.Storage, uint64, error)
+	GetCharmStorageAndInstanceCountByUnitUUID(ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name) (internalcharm.Storage, uint32, error)
 
 	// AddStorageForCAASUnit adds storage instances to given unit as specified.
 	// The specified storage name is used to retrieve existing storage instances.
@@ -210,7 +210,7 @@ type UnitState interface {
 	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 	// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded] when the requested storage falls outside of the bounds defined by the charm.
 	AddStorageForCAASUnit(
-		ctx context.Context, unitUUID coreunit.UUID,
+		ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
 		storageArg internal.UnitAddStorageArg,
 	) ([]corestorage.ID, error)
 

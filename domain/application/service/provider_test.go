@@ -3183,15 +3183,15 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 		StorageInstances: []internal.CreateUnitStorageInstanceArg{{
 			Name: "pgdata",
 		}},
-		MaxCount: 656,
+		CountLessThanEqual: 656,
 	}
 	fsToOwn := []domainstorage.FilesystemUUID{tc.Must(c, domainstorage.NewFilesystemUUID)}
 	volToOwn := []domainstorage.VolumeUUID{tc.Must(c, domainstorage.NewVolumeUUID)}
 
-	s.storageService.EXPECT().MakeUnitAddStorageArgs(gomock.Any(), unitUUID, application.StorageDirective{
+	s.storageService.EXPECT().MakeUnitAddStorageArgs(gomock.Any(), unitUUID, uint32(10), application.StorageDirective{
 		Name:             "pgdata",
 		CharmStorageType: applicationcharm.StorageFilesystem,
-		Count:            10,
+		Count:            1,
 		MaxCount:         666,
 		PoolUUID:         poolUUID,
 		Size:             uint64(6),
@@ -3209,7 +3209,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 		VolumesToOwn:      volToOwn,
 	})
 
-	_, err := s.service.AddStorageForIAASUnit(c.Context(), "pgdata", unitUUID, 10, storage.AddUnitStorageOverride{
+	_, err := s.service.AddStorageForIAASUnit(c.Context(), "pgdata", unitUUID, uint32(10), storage.AddUnitStorageOverride{
 		SizeMiB:         ptr(uint64(6)),
 		StoragePoolUUID: ptr(poolUUID),
 	})
@@ -3337,20 +3337,19 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnit(c *tc.C) {
 		StorageInstances: []internal.CreateUnitStorageInstanceArg{{
 			Name: "pgdata",
 		}},
-		MaxCount: 656,
+		CountLessThanEqual: 656,
 	}
 
-	s.storageService.EXPECT().MakeUnitAddStorageArgs(gomock.Any(), unitUUID, application.StorageDirective{
+	s.storageService.EXPECT().MakeUnitAddStorageArgs(gomock.Any(), unitUUID, uint32(10), application.StorageDirective{
 		Name:             "pgdata",
 		CharmStorageType: applicationcharm.StorageFilesystem,
-		Count:            10,
+		Count:            1,
 		MaxCount:         666,
 		PoolUUID:         poolUUID,
 		Size:             uint64(6),
-	}).
-		Return(unitStorageArgs, nil)
+	}).Return(unitStorageArgs, nil)
 
-	s.state.EXPECT().AddStorageForCAASUnit(gomock.Any(), unitUUID, unitStorageArgs)
+	s.state.EXPECT().AddStorageForCAASUnit(gomock.Any(), unitUUID, corestorage.Name("pgdata"), unitStorageArgs)
 
 	_, err := s.service.AddStorageForCAASUnit(c.Context(), "pgdata", unitUUID, 10, storage.AddUnitStorageOverride{
 		SizeMiB:         ptr(uint64(6)),

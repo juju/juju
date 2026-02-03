@@ -740,10 +740,10 @@ func (s Service) MakeUnitStorageArgs(
 		}
 
 		toUse := min(len(existingStorageInstances), maxCount)
-		sd.Count -= min(sd.Count, uint32(toUse)) // We don't want count to underflow.
-
+		addCount := sd.Count - min(sd.Count, uint32(toUse)) // We don't want count to underflow.
 		instArgs, err := makeUnitStorageInstancesFromDirective(
 			ctx,
+			addCount,
 			storagePoolProvider,
 			sd,
 		)
@@ -859,6 +859,7 @@ func (s Service) MakeIAASUnitStorageArgs(
 func (s Service) MakeUnitAddStorageArgs(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
+	addCount uint32,
 	sd application.StorageDirective,
 ) (internal.UnitAddStorageArg, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -879,6 +880,7 @@ func (s Service) MakeUnitAddStorageArgs(
 
 	instArgs, err := makeUnitStorageInstancesFromDirective(
 		ctx,
+		addCount,
 		storagePoolProvider,
 		sd,
 	)
@@ -925,12 +927,13 @@ func (s Service) MakeUnitAddStorageArgs(
 // fulfilling the requirements of the directive.
 func makeUnitStorageInstancesFromDirective(
 	ctx context.Context,
+	count uint32,
 	storagePoolProvider StoragePoolProvider,
 	directive application.StorageDirective,
 ) ([]internal.CreateUnitStorageInstanceArg, error) {
 	// Early exit if no storage instances are to be created. Save's a lot of
 	// busy work that goes unused.
-	if directive.Count == 0 {
+	if count == 0 {
 		return nil, nil
 	}
 
@@ -958,8 +961,8 @@ func makeUnitStorageInstancesFromDirective(
 		)
 	}
 
-	rval := make([]internal.CreateUnitStorageInstanceArg, 0, directive.Count)
-	for range directive.Count {
+	rval := make([]internal.CreateUnitStorageInstanceArg, 0, count)
+	for range count {
 		uuid, err := domainstorage.NewStorageInstanceUUID()
 		if err != nil {
 			return nil, errors.Errorf(

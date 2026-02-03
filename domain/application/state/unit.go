@@ -1859,7 +1859,7 @@ WHERE u.uuid = $unitUUID.uuid
 // - [applicationerrors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 func (st *State) GetCharmStorageAndInstanceCountByUnitUUID(
 	ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
-) (internalcharm.Storage, uint64, error) {
+) (internalcharm.Storage, uint32, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return internalcharm.Storage{}, 0, errors.Capture(err)
@@ -1867,7 +1867,7 @@ func (st *State) GetCharmStorageAndInstanceCountByUnitUUID(
 
 	var (
 		chStorage charmStorage
-		count     uint64
+		count     uint32
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		chStorage, err = st.getUnitCharmStorageByName(ctx, tx, unitUUID, storageName)

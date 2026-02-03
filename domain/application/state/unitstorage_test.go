@@ -383,7 +383,7 @@ func (u *unitStorageSuite) TestGetCharmStorageAndInstanceCountByUnitUUID(c *tc.C
 
 	storageInfo, count, err := u.state.GetCharmStorageAndInstanceCountByUnitUUID(c.Context(), unitUUID, "st1")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(count, tc.Equals, uint64(2))
+	c.Check(count, tc.Equals, uint32(2))
 	c.Assert(storageInfo, tc.DeepEquals, internalcharm.Storage{
 		Name:        "st1",
 		Description: "st1",

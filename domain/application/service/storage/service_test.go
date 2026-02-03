@@ -317,7 +317,6 @@ func (s *serviceSuite) TestMakeUnitAddStorageArgs(c *tc.C) {
 	storageDirective := application.StorageDirective{
 		CharmMetadataName: "big-beautiful-charm",
 		CharmStorageType:  charm.StorageFilesystem,
-		Count:             2,
 		MaxCount:          3,
 		Name:              "st1",
 		PoolUUID:          poolUUID,
@@ -339,6 +338,7 @@ func (s *serviceSuite) TestMakeUnitAddStorageArgs(c *tc.C) {
 	arg, err := svc.MakeUnitAddStorageArgs(
 		c.Context(),
 		unitUUID,
+		2,
 		storageDirective,
 	)
 	c.Check(err, tc.ErrorIsNil)

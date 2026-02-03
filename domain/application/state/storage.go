@@ -986,7 +986,8 @@ AND si.uuid != $storageCount.uuid
 }
 
 func (st *State) addStorageForUnit(
-	ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, storageArg internal.UnitAddStorageArg,
+	ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID,
+	storageName corestorage.Name, storageArg internal.UnitAddStorageArg,
 ) ([]string, error) {
 	// First to the basic life check for the unit.
 	unitLifeID, _, err := st.getUnitLifeAndNetNode(ctx, tx, unitUUID.String())
@@ -995,6 +996,15 @@ func (st *State) addStorageForUnit(
 	}
 	if unitLifeID != life.Alive {
 		return nil, errors.Errorf("unit %q is not alive", unitUUID).Add(applicationerrors.UnitNotAlive)
+	}
+
+	// Ensure another update hasn't violated our preconditions.
+	currentCount, err := st.getUnitStorageCount(ctx, tx, unitUUID, storageName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	if currentCount > storageArg.CountLessThanEqual {
+		return nil, internal.MaxStorageCountPreconditonFailed
 	}
 
 	storageIDs, err := st.unitState.insertUnitStorageInstances(
@@ -1029,7 +1039,7 @@ func (st *State) addStorageForUnit(
 
 // AddStorageForCAASUnit adds storage instances to given CAAS unit as specified.
 func (st *State) AddStorageForCAASUnit(
-	ctx context.Context, unitUUID coreunit.UUID,
+	ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
 	storageArg internal.UnitAddStorageArg,
 ) ([]corestorage.ID, error) {
 	db, err := st.DB(ctx)
@@ -1039,7 +1049,7 @@ func (st *State) AddStorageForCAASUnit(
 
 	var storageIDs []string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		storageIDs, err = st.addStorageForUnit(ctx, tx, unitUUID, storageArg)
+		storageIDs, err = st.addStorageForUnit(ctx, tx, unitUUID, storageName, storageArg)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -1070,15 +1080,7 @@ func (st *State) AddStorageForIAASUnit(
 
 	var storageIDs []string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Ensure another update hasn't violated our preconditions.
-		currentCount, err := st.getUnitStorageCount(ctx, tx, unitUUID, storageName)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		if storageArg.MaxCount > 0 && currentCount > uint64(storageArg.MaxCount) {
-			return internal.MaxStorageCountPreconditonFailed
-		}
-		storageIDs, err = st.addStorageForUnit(ctx, tx, unitUUID, storageArg.UnitAddStorageArg)
+		storageIDs, err = st.addStorageForUnit(ctx, tx, unitUUID, storageName, storageArg.UnitAddStorageArg)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -1116,7 +1118,7 @@ func (st *State) AddStorageForIAASUnit(
 
 func (st *State) getUnitStorageCount(
 	ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, storageName corestorage.Name,
-) (uint64, error) {
+) (uint32, error) {
 	countQuery, err := st.Prepare(`
 SELECT count(*) AS &storageCount.count
 FROM  storage_instance si
@@ -1280,7 +1282,7 @@ SELECT &modelStoragePools.* FROM (
 // ensureCharmStorageCountChange checks that the charm storage can change by
 // the specified (positive or negative) increment. This is a backstop - the service
 // should already have performed the necessary validation.
-func ensureCharmStorageCountChange(charmStorage charmStorage, current, n uint64) error {
+func ensureCharmStorageCountChange(charmStorage charmStorage, current, n uint32) error {
 	action := "attach"
 	gerund := action + "ing"
 	pluralise := ""
@@ -1292,7 +1294,7 @@ func ensureCharmStorageCountChange(charmStorage charmStorage, current, n uint64)
 	if charmStorage.CountMin == 1 && charmStorage.CountMax == 1 && count != 1 {
 		return errors.Errorf("cannot %s, storage is singular", action)
 	}
-	if count < uint64(charmStorage.CountMin) {
+	if count < uint32(charmStorage.CountMin) {
 		return errors.Errorf(
 			"%s %d storage instance%s brings the total to %d, "+
 				"which is less than the minimum of %d",
@@ -1300,7 +1302,7 @@ func ensureCharmStorageCountChange(charmStorage charmStorage, current, n uint64)
 			charmStorage.CountMin,
 		).Add(applicationerrors.InvalidStorageCount)
 	}
-	if charmStorage.CountMax >= 0 && count > uint64(charmStorage.CountMax) {
+	if charmStorage.CountMax >= 0 && count > uint32(charmStorage.CountMax) {
 		return errors.Errorf(
 			"%s %d storage instance%s brings the total to %d, "+
 				"exceeding the maximum of %d",

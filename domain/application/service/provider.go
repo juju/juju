@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"math"
 	"strconv"
 	"strings"
 
@@ -1066,10 +1067,8 @@ func (s *ProviderService) populateAddStorageArgs(
 	if arg.SizeMiB != nil {
 		storageDirective.Size = *arg.SizeMiB
 	}
-	storageDirective.Count = addCount
 
-	// TODO - we need to account for concurrent updates.
-	wantCount := storageDirective.Count + uint32(existingCount)
+	wantCount := addCount + existingCount
 	toCheck := map[string]storage.StorageDirectiveOverride{
 		storageName.String(): {
 			Count:    &wantCount,
@@ -1085,6 +1084,7 @@ func (s *ProviderService) populateAddStorageArgs(
 	args, err := s.storageService.MakeUnitAddStorageArgs(
 		ctx,
 		unitUUID,
+		addCount,
 		storageDirective,
 	)
 	if err != nil {
@@ -1092,9 +1092,9 @@ func (s *ProviderService) populateAddStorageArgs(
 	}
 	// Record the max allowed count precondition.
 	// This will be checked inside the transaction.
-	args.MaxCount = -1
+	args.CountLessThanEqual = uint32(math.MaxUint32)
 	if charmStorage.CountMax > 0 {
-		args.MaxCount = charmStorage.CountMax - int(addCount)
+		args.CountLessThanEqual = uint32(charmStorage.CountMax) - addCount
 	}
 	return args, nil
 }
@@ -1131,7 +1131,7 @@ func (s *ProviderService) AddStorageForIAASUnit(
 		VolumesToOwn:      iassUnitStorageArgs.VolumesToOwn,
 	})
 	if errors.Is(err, internal.MaxStorageCountPreconditonFailed) {
-		maxCount := unitStorageArgs.MaxCount + int(count)
+		maxCount := int(unitStorageArgs.CountLessThanEqual + count)
 		return nil, applicationerrors.StorageCountLimitExceeded{
 			Maximum:     &maxCount,
 			Requested:   int(count),
@@ -1161,7 +1161,7 @@ func (s *ProviderService) AddStorageForCAASUnit(
 		return nil, errors.Capture(err)
 	}
 
-	return s.st.AddStorageForCAASUnit(ctx, unitUUID, unitStorageArgs)
+	return s.st.AddStorageForCAASUnit(ctx, unitUUID, storageName, unitStorageArgs)
 }
 
 // AttachStorageToUnit ensures the specified storage instance is attached to the specified unit.

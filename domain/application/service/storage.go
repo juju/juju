@@ -125,6 +125,7 @@ type StorageService interface {
 	MakeUnitAddStorageArgs(
 		ctx context.Context,
 		unitUUID coreunit.UUID,
+		addCount uint32,
 		storageDirectives application.StorageDirective,
 	) (internal.UnitAddStorageArg, error)
 
