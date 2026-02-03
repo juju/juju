@@ -5,9 +5,15 @@ package state
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/canonical/sqlair"
 
+	corestorage "github.com/juju/juju/core/storage"
+	"github.com/juju/juju/domain/life"
+	sequencestate "github.com/juju/juju/domain/sequence/state"
+	domainstorage "github.com/juju/juju/domain/storage"
+	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	domainstorageinternal "github.com/juju/juju/domain/storage/internal"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
@@ -104,17 +110,124 @@ FROM model
 // CreateStorageInstanceWithExistingFilesystem creates a new storage
 // instance, with a filesystem using existing provisioned filesystem
 // details. It returns the new storage ID for the created storage instance.
+//
+// The following errors can be expected:
+// - [domainstorageerrors.StoragePoolNotFound] if a pool with the specified UUID
+// does not exist.
 func (st *State) CreateStorageInstanceWithExistingFilesystem(
 	ctx context.Context,
 	args domainstorageinternal.CreateStorageInstanceWithExistingFilesystem,
 ) (string, error) {
-	return "", errors.New("CreateStorageInstanceWithExistingFilesystem not implemented")
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	storageInstance := insertStorageInstance{
+		UUID:             args.UUID.String(),
+		LifeID:           life.Alive,
+		StorageName:      args.Name.String(),
+		StorageKindID:    int(args.Kind),
+		StoragePoolUUID:  args.StoragePoolUUID.String(),
+		RequestedSizeMiB: args.RequestedSizeMiB,
+	}
+	insertStorageInstanceStmt, err := st.Prepare(`
+INSERT INTO storage_instance (*)
+VALUES ($insertStorageInstance.*)
+`, storageInstance)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	filesystem := insertStorageFilesystem{
+		UUID:             args.FilesystemUUID.String(),
+		LifeID:           life.Alive,
+		ProvisionScopeID: int(args.FilesystemProvisionScope),
+		ProviderID:       args.FilesystemProviderID,
+		SizeMiB:          args.FilesystemSize,
+	}
+	insertFilesystemStmt, err := st.Prepare(`
+INSERT INTO storage_filesystem (*)
+VALUES ($insertStorageFilesystem.*)
+`, filesystem)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	storageInstanceFilesystem := insertStorageInstanceFilesystem{
+		StorageInstanceUUID:   args.UUID.String(),
+		StorageFilesystemUUID: args.FilesystemUUID.String(),
+	}
+	insertLinkStmt, err := st.Prepare(`
+INSERT INTO storage_instance_filesystem (*)
+VALUES ($insertStorageInstanceFilesystem.*)
+`, storageInstanceFilesystem)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkStoragePoolExists(
+			ctx, tx, args.StoragePoolUUID.String())
+		if err != nil {
+			return errors.Errorf(
+				"checking if storage pool %q exists: %w",
+				args.StoragePoolUUID, err,
+			)
+		} else if !exists {
+			return errors.Errorf(
+				"storage pool %q does not exist", args.StoragePoolUUID,
+			).Add(domainstorageerrors.StoragePoolNotFound)
+		}
+
+		storageSeq, err := sequencestate.NextValue(
+			ctx, st, tx, domainstorage.StorageInstanceSequenceNamespace,
+		)
+		if err != nil {
+			return errors.Errorf("creating unique storage instance id: %w", err)
+		}
+		storageInstance.StorageID = corestorage.MakeID(
+			corestorage.Name(args.Name), storageSeq,
+		).String()
+
+		filesystemSeq, err := sequencestate.NextValue(
+			ctx, st, tx, domainstorage.FilesystemSequenceNamespace,
+		)
+		if err != nil {
+			return errors.Errorf("creating unique filesystem id: %w", err)
+		}
+		filesystem.FilesystemID = fmt.Sprintf("%d", filesystemSeq)
+
+		err = tx.Query(ctx, insertStorageInstanceStmt, storageInstance).Run()
+		if err != nil {
+			return errors.Errorf("inserting storage instance: %w", err)
+		}
+		err = tx.Query(ctx, insertFilesystemStmt, filesystem).Run()
+		if err != nil {
+			return errors.Errorf("inserting filesystem: %w", err)
+		}
+		err = tx.Query(ctx, insertLinkStmt, storageInstanceFilesystem).Run()
+		if err != nil {
+			return errors.Errorf("linking storage instance to filesystem: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return storageInstance.StorageID, nil
 }
 
 // CreateStorageInstanceWithExistingVolumeBackedFilesystem creates a new
 // storage instance, with a filesystem and volume using existing provisioned
 // volume details. It returns the new storage ID for the created storage
 // instance.
+//
+// The following errors can be expected:
+// - [domainstorageerrors.StoragePoolNotFound] if a pool with the specified UUID
+// does not exist.
 func (st *State) CreateStorageInstanceWithExistingVolumeBackedFilesystem(
 	ctx context.Context,
 	args domainstorageinternal.CreateStorageInstanceWithExistingVolumeBackedFilesystem,
