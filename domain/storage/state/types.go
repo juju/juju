@@ -252,3 +252,24 @@ type insertStorageInstanceFilesystem struct {
 	StorageInstanceUUID   string `db:"storage_instance_uuid"`
 	StorageFilesystemUUID string `db:"storage_filesystem_uuid"`
 }
+
+// insertStorageVolume represents the data needed to insert a new volume into
+// the storage_volume table.
+type insertStorageVolume struct {
+	UUID             string    `db:"uuid"`
+	VolumeID         string    `db:"volume_id"`
+	LifeID           life.Life `db:"life_id"`
+	ProvisionScopeID int       `db:"provision_scope_id"`
+	ProviderID       string    `db:"provider_id"`
+	SizeMiB          uint64    `db:"size_mib"`
+	HardwareID       string    `db:"hardware_id"`
+	WWN              string    `db:"wwn"`
+	Persistent       bool      `db:"persistent"`
+}
+
+// insertStorageInstanceVolume represents the data needed to link a storage
+// instance to a volume in the storage_instance_volume table.
+type insertStorageInstanceVolume struct {
+	StorageInstanceUUID string `db:"storage_instance_uuid"`
+	StorageVolumeUUID   string `db:"storage_volume_uuid"`
+}
