@@ -174,11 +174,11 @@ func (st *State) ImportRemoteApplicationConsumers(ctx context.Context, imports [
 	return errors.Capture(err)
 }
 
-func (st *State) importRemoteApplicationConsumer(ctx context.Context, tx *sqlair.TX, offerer crossmodelrelation.RemoteApplicationConsumerImport) error {
-	applicationName := offerer.Name
+func (st *State) importRemoteApplicationConsumer(ctx context.Context, tx *sqlair.TX, consumer crossmodelrelation.RemoteApplicationConsumerImport) error {
+	applicationName := consumer.Name
 
 	// Get the application UUID for which the offer UUID was created.
-	_, offerApplicationUUID, err := st.getApplicationNameAndUUIDByOfferUUID(ctx, tx, offerer.OfferUUID)
+	_, offerApplicationUUID, err := st.getApplicationNameAndUUIDByOfferUUID(ctx, tx, consumer.OfferUUID)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -189,7 +189,7 @@ func (st *State) importRemoteApplicationConsumer(ctx context.Context, tx *sqlair
 
 	// If the relation already exists, return an error. All relations are
 	// immutable, so we can only consume it once.
-	if err := st.checkConsumerRelationExists(ctx, tx, offerer.RelationUUID); err != nil {
+	if err := st.checkConsumerRelationExists(ctx, tx, consumer.RelationUUID); err != nil {
 		return errors.Capture(err)
 	}
 
@@ -205,31 +205,31 @@ func (st *State) importRemoteApplicationConsumer(ctx context.Context, tx *sqlair
 
 	// Insert the application, along with the associated charm.
 	if err := st.insertApplication(ctx, tx, applicationName, insertApplicationArgs{
-		ApplicationUUID: offerer.SyntheticApplicationUUID,
+		ApplicationUUID: consumer.SyntheticApplicationUUID,
 		CharmUUID:       charmUUID.String(),
-		Charm:           offerer.SyntheticCharm,
+		Charm:           consumer.SyntheticCharm,
 	}); err != nil {
 		return errors.Capture(err)
 	}
 
 	// Create the synthetic relation for this consumer.
-	if err := st.insertSyntheticRelation(ctx, tx, offerer.RelationUUID); err != nil {
+	if err := st.insertSyntheticRelation(ctx, tx, consumer.RelationUUID); err != nil {
 		return errors.Capture(err)
 	}
 
 	// Insert the joined status for the relation.
-	if err := st.insertNewRelationStatus(ctx, tx, offerer.RelationUUID); err != nil {
+	if err := st.insertNewRelationStatus(ctx, tx, consumer.RelationUUID); err != nil {
 		return errors.Capture(err)
 	}
 
 	// Create relation_Endpoints for the relation, maps relations to
 	// application_endpoints.
 	relEndpointArgs := addRelationEndpointArgs{
-		RelationUUID:       offerer.RelationUUID,
-		ApplicationOneUUID: offerer.SyntheticApplicationUUID,
-		EndpointOneName:    offerer.ConsumerApplicationEndpoint,
+		RelationUUID:       consumer.RelationUUID,
+		ApplicationOneUUID: consumer.SyntheticApplicationUUID,
+		EndpointOneName:    consumer.ConsumerApplicationEndpoint,
 		ApplicationTwoUUID: offerApplicationUUID,
-		EndpointTwoName:    offerer.OfferEndpointName,
+		EndpointTwoName:    consumer.OffererApplicationEndpoint,
 	}
 	if err := st.insertRelationEndpoints(ctx, tx, relEndpointArgs); err != nil {
 		return errors.Capture(err)
@@ -237,10 +237,10 @@ func (st *State) importRemoteApplicationConsumer(ctx context.Context, tx *sqlair
 
 	// Create an offer connection for this consumer.
 	offerConnectionUUID, err := st.insertOfferConnection(ctx, tx,
-		offerer.SyntheticApplicationUUID,
-		offerer.OfferUUID,
-		offerer.RelationUUID,
-		offerer.Username,
+		consumer.SyntheticApplicationUUID,
+		consumer.OfferUUID,
+		consumer.RelationUUID,
+		consumer.Username,
 	)
 	if err != nil {
 		return errors.Capture(err)
@@ -251,8 +251,8 @@ func (st *State) importRemoteApplicationConsumer(ctx context.Context, tx *sqlair
 	if err := st.insertRemoteApplicationConsumer(ctx, tx,
 		offerConnectionUUID,
 		offerApplicationUUID,
-		offerer.ConsumerApplicationUUID,
-		offerer.ConsumerModelUUID,
+		consumer.ConsumerApplicationUUID,
+		consumer.ConsumerModelUUID,
 	); err != nil {
 		return errors.Capture(err)
 	}

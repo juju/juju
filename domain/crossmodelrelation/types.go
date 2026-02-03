@@ -188,8 +188,19 @@ type RemoteApplicationConsumerImport struct {
 	// URL is the offer URL.
 	URL string
 
-	// SourceModelUUID is the UUID of the model offering the application.
-	SourceModelUUID string
+	// ConsumerModelUUID is the UUID of the model consuming the application.
+	ConsumerModelUUID string
+
+	// ConsumerApplicationUUID is the UUID of the consuming application UUID.
+	ConsumerApplicationUUID string
+
+	// ConsumerApplicationEndpoint is the relation endpoint name of the
+	// consuming application.
+	ConsumerApplicationEndpoint string
+
+	// OffererApplicationEndpoint is the relation endpoint name of the
+	// offering application.
+	OffererApplicationEndpoint string
 
 	// Macaroon is the authentication macaroon for the offer.
 	Macaroon string

@@ -11,6 +11,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
@@ -116,6 +117,26 @@ func (s *MigrationService) ImportRemoteApplicationOfferers(ctx context.Context, 
 	return nil
 }
 
+func (s *MigrationService) constructApplicationOfferer(rApp RemoteApplicationOffererImport) (crossmodelrelation.RemoteApplicationOffererImport, error) {
+	synthCharm, err := s.constructSyntheticCharm(rApp.Name, rApp.Endpoints)
+	if err != nil {
+		return crossmodelrelation.RemoteApplicationOffererImport{}, errors.Errorf(
+			"constructing synthetic charm for application offerer %q: %w", rApp.Name, err)
+	}
+
+	return crossmodelrelation.RemoteApplicationOffererImport{
+		Name:            rApp.Name,
+		OfferUUID:       rApp.OfferUUID,
+		URL:             rApp.URL,
+		SourceModelUUID: rApp.SourceModelUUID,
+		Macaroon:        rApp.Macaroon,
+		Endpoints:       rApp.Endpoints,
+		Bindings:        rApp.Bindings,
+		Units:           rApp.Units,
+		SyntheticCharm:  synthCharm,
+	}, nil
+}
+
 // RemoteApplicationConsumerImport contains details to import a remote
 // application consumer during migration. This represents a remote application
 // that this model is offering from another model.
@@ -130,11 +151,19 @@ type RemoteApplicationConsumerImport struct {
 	// application consumer.
 	RelationUUID string
 
+	// RelationKey is the key of the relation created for this remote
+	// application consumer.
+	RelationKey relation.Key
+
 	// URL is the offer URL.
 	URL string
 
-	// SourceModelUUID is the UUID of the model offering the application.
-	SourceModelUUID string
+	// ConsumerModelUUID is the UUID of the model consuming the application.
+	ConsumerModelUUID string
+
+	// ConsumerApplicationUUID is the synthetic application UUID created in the
+	// consumer model to represent this remote application.
+	ConsumerApplicationUUID string
 
 	// Macaroon is the authentication macaroon for the offer.
 	Macaroon string
@@ -179,48 +208,53 @@ func (s *MigrationService) ImportRemoteApplicationConsumers(ctx context.Context,
 	return nil
 }
 
-func (s *MigrationService) constructApplicationOfferer(rApp RemoteApplicationOffererImport) (crossmodelrelation.RemoteApplicationOffererImport, error) {
-	synthCharm, err := s.constructSyntheticCharm(rApp.Name, rApp.Endpoints)
-	if err != nil {
-		return crossmodelrelation.RemoteApplicationOffererImport{}, errors.Errorf(
-			"constructing synthetic charm for application offerer %q: %w", rApp.Name, err)
-	}
-
-	return crossmodelrelation.RemoteApplicationOffererImport{
-		Name:            rApp.Name,
-		OfferUUID:       rApp.OfferUUID,
-		URL:             rApp.URL,
-		SourceModelUUID: rApp.SourceModelUUID,
-		Macaroon:        rApp.Macaroon,
-		Endpoints:       rApp.Endpoints,
-		Bindings:        rApp.Bindings,
-		Units:           rApp.Units,
-		SyntheticCharm:  synthCharm,
-	}, nil
-}
-
 func (s *MigrationService) constructApplicationConsumer(rApp RemoteApplicationConsumerImport) (crossmodelrelation.RemoteApplicationConsumerImport, error) {
 	appUUID, err := parseRemoteApplicationUUID(rApp.Name)
 	if err != nil {
 		return crossmodelrelation.RemoteApplicationConsumerImport{}, errors.Errorf(
-			"parsing remote application UUID from name %q: %w", rApp.Name, err)
+			"parsing remote application UUID: %w", err)
 	}
 
 	synthCharm, err := s.constructSyntheticCharm(rApp.Name, rApp.Endpoints)
 	if err != nil {
 		return crossmodelrelation.RemoteApplicationConsumerImport{}, errors.Errorf(
-			"constructing synthetic charm for remote application %q: %w", rApp.Name, err)
+			"constructing synthetic charm: %w", err)
+	}
+
+	// We require exactly two entries in the relation key: one for the offering
+	// application endpoint, and one for the consuming application endpoint.
+	// Peer relations are not supported for cross model relations.
+	if len(rApp.RelationKey) != 2 {
+		return crossmodelrelation.RemoteApplicationConsumerImport{}, errors.Errorf(
+			"invalid relation key length %d: %w", len(rApp.RelationKey), rApp.Name)
+	}
+
+	// We can now extract the offering and consuming application endpoints
+	// from the relation key.
+	var (
+		offererApplicationEndpoint  string
+		consumerApplicationEndpoint string
+	)
+	for _, ep := range rApp.RelationKey {
+		if ep.ApplicationName == rApp.Name {
+			consumerApplicationEndpoint = ep.EndpointName
+		} else {
+			offererApplicationEndpoint = ep.EndpointName
+		}
 	}
 
 	return crossmodelrelation.RemoteApplicationConsumerImport{
-		Name:            rApp.Name,
-		OfferUUID:       rApp.OfferUUID,
-		URL:             rApp.URL,
-		SourceModelUUID: rApp.SourceModelUUID,
-		Macaroon:        rApp.Macaroon,
-		Endpoints:       rApp.Endpoints,
-		Bindings:        rApp.Bindings,
-		Units:           rApp.Units,
+		Name:                        rApp.Name,
+		OfferUUID:                   rApp.OfferUUID,
+		URL:                         rApp.URL,
+		ConsumerModelUUID:           rApp.ConsumerModelUUID,
+		ConsumerApplicationUUID:     rApp.ConsumerApplicationUUID,
+		ConsumerApplicationEndpoint: consumerApplicationEndpoint,
+		OffererApplicationEndpoint:  offererApplicationEndpoint,
+		Macaroon:                    rApp.Macaroon,
+		Endpoints:                   rApp.Endpoints,
+		Bindings:                    rApp.Bindings,
+		Units:                       rApp.Units,
 
 		SyntheticApplicationUUID: appUUID.String(),
 		SyntheticCharm:           synthCharm,
