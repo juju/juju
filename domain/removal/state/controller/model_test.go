@@ -249,6 +249,38 @@ func (s *modelSuite) TestDeleteModelDyingModel(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
 }
 
+func (s *modelSuite) TestDeleteMigratingModel(c *tc.C) {
+	modelUUID := s.getModelUUID(c)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, "UPDATE model SET life_id = 2 WHERE uuid = ?", modelUUID); err != nil {
+			return err
+		}
+
+		_, err := tx.ExecContext(ctx, "INSERT INTO model_migration_import (uuid, model_uuid) VALUES ('blah', ?)", modelUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err = st.DeleteModel(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Ensure the model is gone.
+	exists, err := st.ModelExists(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+
+	// Ensure the migration entry is also gone.
+	var count int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM model_migration_import WHERE model_uuid = ?", modelUUID).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
 func (s *modelSuite) getModelUUID(c *tc.C) string {
 	var modelUUID string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
