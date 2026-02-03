@@ -504,6 +504,7 @@ func (s *importSuite) TestImportLinkLayerDevicesWithAddresses(c *tc.C) {
 func (s *importSuite) TestImportLinkLayerDevicesWithAddressesLXD(c *tc.C) {
 	s.setModel(c, "lxd", model.IAAS.String())
 
+	// Arrange
 	machineSvc := s.setupMachineService(c)
 	res, err := machineSvc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
@@ -513,8 +514,10 @@ func (s *importSuite) TestImportLinkLayerDevicesWithAddressesLXD(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	// Arrange: add 2 subnets for 3 devices. Import will create the 3rd
+	// subnet
 	_, err = s.svc.AddSubnet(c.Context(), network.SubnetInfo{
-		CIDR: "192.168.0.0/24",
+		CIDR: "192.0.2.0/24",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -527,6 +530,7 @@ func (s *importSuite) TestImportLinkLayerDevicesWithAddressesLXD(c *tc.C) {
 		Type: string(model.IAAS),
 	})
 
+	// Arrange: 3 devices, 1 with no subnet in the model
 	desc.AddLinkLayerDevice(description.LinkLayerDeviceArgs{
 		Name:        "test-device",
 		MTU:         1500,
@@ -547,13 +551,23 @@ func (s *importSuite) TestImportLinkLayerDevicesWithAddressesLXD(c *tc.C) {
 		IsAutoStart: false,
 		IsUp:        false,
 	})
+	desc.AddLinkLayerDevice(description.LinkLayerDeviceArgs{
+		Name:        "cilium_host",
+		MTU:         1500,
+		MachineID:   res.MachineName.String(),
+		Type:        "ethernet",
+		MACAddress:  "42:d7:14:1e:32:58",
+		ProviderID:  "nic-42:d7:14:1e:32:58",
+		IsAutoStart: true,
+		IsUp:        true,
+	})
 
 	desc.AddIPAddress(description.IPAddressArgs{
 		ProviderID:        "ip-address-1",
-		Value:             "192.168.0.1",
-		SubnetCIDR:        "192.168.0.0/24",
+		Value:             "192.0.2.1",
+		SubnetCIDR:        "192.0.2.0/24",
 		ProviderNetworkID: "net-lxdbr0",
-		ProviderSubnetID:  "subnet--192.168.0.0/24",
+		ProviderSubnetID:  "subnet--192.0.2.0/24",
 		Origin:            "machine",
 		MachineID:         res.MachineName.String(),
 		DeviceName:        "test-device",
@@ -570,16 +584,38 @@ func (s *importSuite) TestImportLinkLayerDevicesWithAddressesLXD(c *tc.C) {
 		DeviceName:        "another-device",
 		ConfigMethod:      string(network.ConfigDHCP),
 	})
+	desc.AddIPAddress(description.IPAddressArgs{
+		Value:            "203.0.113.7",
+		SubnetCIDR:       "203.0.113.0/32",
+		ProviderSubnetID: "subnet--203.0.113.0/32",
+		Origin:           "machine",
+		MachineID:        res.MachineName.String(),
+		DeviceName:       "cilium_host",
+		ConfigMethod:     string(network.ConfigStatic),
+	})
 
 	networkmodelmigration.RegisterLinkLayerDevicesImport(s.coordinator, loggertesting.WrapCheckLog(c))
+
+	// Act
 	err = s.coordinator.Perform(c.Context(), s.scope, desc)
+
+	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkLinkLayerDeviceExistsOnMachine(c, res.MachineName, "test-device")
 	s.checkLinkLayerDeviceExistsOnMachine(c, res.MachineName, "another-device")
 
-	s.checkAddressExistsForDeviceOnMachine(c, res.MachineName, "test-device", "192.168.0.1/24")
+	// Assert the device with no subnet was added.
+	s.checkLinkLayerDeviceExistsOnMachine(c, res.MachineName, "cilium_host")
+
+	s.checkAddressExistsForDeviceOnMachine(c, res.MachineName, "test-device", "192.0.2.1/24")
 	s.checkAddressExistsForDeviceOnMachine(c, res.MachineName, "another-device", "2001:db8::1/64")
+
+	// Assert the ip address with no subnet was added.
+	s.checkAddressExistsForDeviceOnMachine(c, res.MachineName, "cilium_host", "203.0.113.7/32")
+
+	// Assert a new /32 subnet was created.
+	s.checkSubnetExists(c, "203.0.113.0/32")
 }
 
 func (s *importSuite) TestImportCloudServices(c *tc.C) {
@@ -687,7 +723,21 @@ func (s *importSuite) checkAddressExistsForDeviceOnMachine(c *tc.C, machineName 
 		`, machineName.String(), deviceName, addressValue).Scan(&count)
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(count, tc.Equals, 1, tc.Commentf("expected 1 ip address for machine %q, device %q with value %q", machineName, deviceName, addressValue))
+	if !c.Check(count, tc.Equals, 1, tc.Commentf("expected 1 ip address for machine %q, device %q with value %q", machineName, deviceName, addressValue)) {
+		s.DumpTable(c, "ip_address", "link_layer_device", "machine")
+	}
+}
+
+func (s *importSuite) checkSubnetExists(c *tc.C, subnetCIDR string) {
+	var count int
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+			SELECT COUNT(*) FROM subnet
+			WHERE cidr = ?
+		`, subnetCIDR).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 1, tc.Commentf("expected 1 subnet for cidr %q, got %d", subnetCIDR, count))
 }
 
 func (s *importSuite) checkAddressExistsForServiceForApp(c *tc.C, appName, addressValue string) {

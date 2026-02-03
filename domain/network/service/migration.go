@@ -6,19 +6,25 @@ package service
 import (
 	"context"
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/juju/juju/core/logger"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/network"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // MigrationState describes methods required
 // for migrating machine network configuration.
 type MigrationState interface {
+	// AddSubnet creates a subnet.
+	AddSubnet(ctx context.Context, subnet corenetwork.SubnetInfo) error
+
 	// AllMachinesAndNetNodes returns all machine names mapped to their
 	// net mode UUIDs in the model.
 	AllMachinesAndNetNodes(ctx context.Context) (map[string]string, error)
@@ -128,7 +134,7 @@ func (s *MigrationService) transformImportLinkLayerDevice(
 	if len(device.Addresses) > 0 {
 		transformedAddresses := make([]internal.ImportIPAddress, 0, len(device.Addresses))
 		for _, addr := range device.Addresses {
-			transformedAddr, err := s.transformImportIPAddress(addr, subnets, subnetByProviderId)
+			transformedAddr, err := s.transformImportIPAddress(ctx, addr, subnets, subnetByProviderId)
 			if err != nil {
 				return internal.ImportLinkLayerDevice{}, errors.Errorf("converting address %q: %w",
 					addr.AddressValue, err)
@@ -142,6 +148,7 @@ func (s *MigrationService) transformImportLinkLayerDevice(
 
 // transformImportIPAddress transforms an ImportIPAddress by finding and setting its subnet UUID
 func (s *MigrationService) transformImportIPAddress(
+	ctx context.Context,
 	addr internal.ImportIPAddress,
 	subnets corenetwork.SubnetInfos,
 	subnetByProviderId map[string]corenetwork.SubnetInfo,
@@ -171,7 +178,38 @@ func (s *MigrationService) transformImportIPAddress(
 	}
 	var err error
 	addr.SubnetUUID, err = s.ensureOneSubnet(candidateSubnets)
+	if errors.Is(err, networkerrors.SubnetNotFound) {
+		return s.maybeAddSubnet(ctx, addr)
+	}
 	return addr, errors.Capture(err)
+}
+
+// maybeAddSubnet creates a subnet if the address provided is a /32
+// or /128. Should only be called if an existing subnet does not match.
+func (s *MigrationService) maybeAddSubnet(ctx context.Context, addr internal.ImportIPAddress) (internal.ImportIPAddress, error) {
+	// Check to see if we have a /32 or /128 CIDR.
+	_, ipNet, err := net.ParseCIDR(addr.SubnetCIDR)
+	if err != nil {
+		return internal.ImportIPAddress{}, errors.Capture(err)
+	}
+	ones, bits := ipNet.Mask.Size()
+	if ones != bits && (bits == 32 || bits == 128) {
+		return internal.ImportIPAddress{}, errors.Errorf("no subnet found, nor created")
+	}
+
+	subnetUUID, err := uuid.NewUUID()
+	if err != nil {
+		return internal.ImportIPAddress{}, errors.Capture(err)
+	}
+	subnetInfo := corenetwork.SubnetInfo{
+		ID:   corenetwork.Id(subnetUUID.String()),
+		CIDR: addr.SubnetCIDR,
+	}
+	if err := s.st.AddSubnet(ctx, subnetInfo); err != nil {
+		return internal.ImportIPAddress{}, errors.Capture(err)
+	}
+	addr.SubnetUUID = subnetUUID.String()
+	return addr, nil
 }
 
 // ImportCloudServices is part of the [modelmigration.MigrationService]
@@ -299,7 +337,7 @@ func (s *MigrationService) transformCloudServiceAddress(
 func (s *MigrationService) ensureOneSubnet(subnets corenetwork.SubnetInfos) (string, error) {
 	// Check if we found any subnets
 	if len(subnets) == 0 {
-		return "", errors.Errorf("no subnet found")
+		return "", errors.Errorf("no subnet found").Add(networkerrors.SubnetNotFound)
 	}
 
 	// Check if we found too many subnets
