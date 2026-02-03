@@ -5,6 +5,8 @@ package state
 
 import (
 	"database/sql"
+
+	"github.com/juju/juju/domain/life"
 )
 
 // count represents the result of performing an aggregate count operation in
@@ -219,4 +221,34 @@ type modelResourceTagInfo struct {
 	ResourceTags   string `db:"resource_tags"`
 	ModelUUID      string `db:"uuid"`
 	ControllerUUID string `db:"controller_uuid"`
+}
+
+// insertStorageInstance represents the data needed to insert a new storage
+// instance into the storage_instance table.
+type insertStorageInstance struct {
+	UUID             string    `db:"uuid"`
+	StorageName      string    `db:"storage_name"`
+	StorageKindID    int       `db:"storage_kind_id"`
+	StorageID        string    `db:"storage_id"`
+	LifeID           life.Life `db:"life_id"`
+	StoragePoolUUID  string    `db:"storage_pool_uuid"`
+	RequestedSizeMiB uint64    `db:"requested_size_mib"`
+}
+
+// insertStorageFilesystem represents the data needed to insert a new
+// filesystem into the storage_filesystem table.
+type insertStorageFilesystem struct {
+	UUID             string    `db:"uuid"`
+	FilesystemID     string    `db:"filesystem_id"`
+	LifeID           life.Life `db:"life_id"`
+	ProvisionScopeID int       `db:"provision_scope_id"`
+	ProviderID       string    `db:"provider_id"`
+	SizeMiB          uint64    `db:"size_mib"`
+}
+
+// insertStorageInstanceFilesystem represents the data needed to link a storage
+// instance to a filesystem in the storage_instance_filesystem table.
+type insertStorageInstanceFilesystem struct {
+	StorageInstanceUUID   string `db:"storage_instance_uuid"`
+	StorageFilesystemUUID string `db:"storage_filesystem_uuid"`
 }
