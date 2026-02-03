@@ -95,6 +95,10 @@ type RemoteApplicationImport struct {
 	// created as synthetic units. These are extracted from relation endpoints
 	// during migration import.
 	Units []string
+
+	// Username is the name of the user who made the original offer connection
+	// request.
+	Username string
 }
 
 // ImportRemoteApplications adds remote application offerers being migrated to

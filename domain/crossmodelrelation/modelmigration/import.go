@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/crossmodelrelation/service"
@@ -78,8 +79,9 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	// This is needed because synthetic units must be created before
 	// relations can be imported.
 	remoteAppUnits := i.extractRemoteAppUnits(model)
+	offerConnections := i.extractOfferConnections(model)
 
-	if err := i.importRemoteApplications(ctx, model.RemoteApplications(), remoteAppUnits); err != nil {
+	if err := i.importRemoteApplications(ctx, model.RemoteApplications(), remoteAppUnits, offerConnections); err != nil {
 		return errors.Errorf("importing remote applications: %w", err)
 	}
 	return nil
@@ -126,6 +128,26 @@ func (i *importOperation) extractRemoteAppUnits(model description.Model) map[str
 	return result
 }
 
+type OfferConnection struct {
+	RelationKey     string
+	SourceModelUUID string
+	UserName        string
+}
+
+func (i *importOperation) extractOfferConnections(model description.Model) map[string][]OfferConnection {
+	offerConnections := make(map[string][]OfferConnection)
+	for _, rel := range model.OfferConnections() {
+		offerUUID := rel.OfferUUID()
+
+		offerConnections[offerUUID] = append(offerConnections[offerUUID], OfferConnection{
+			RelationKey:     rel.RelationKey(),
+			SourceModelUUID: rel.SourceModelUUID(),
+			UserName:        rel.UserName(),
+		})
+	}
+	return offerConnections
+}
+
 func (i *importOperation) importOffers(ctx context.Context, apps []description.Application) error {
 	input := make([]crossmodelrelation.OfferImport, 0)
 	for _, app := range apps {
@@ -161,6 +183,7 @@ func (i *importOperation) importRemoteApplications(
 	ctx context.Context,
 	remoteApps []description.RemoteApplication,
 	remoteAppUnits map[string][]string,
+	offerConnections map[string][]OfferConnection,
 ) error {
 	input := make([]service.RemoteApplicationImport, 0, len(remoteApps))
 	for _, remoteApp := range remoteApps {
@@ -178,9 +201,25 @@ func (i *importOperation) importRemoteApplications(
 			})
 		}
 
+		offerUUID := remoteApp.OfferUUID()
+		conns, ok := offerConnections[offerUUID]
+		if !ok {
+			return errors.Errorf("no offer connections found for remote application %q with offer uuid %q",
+				remoteApp.Name(), remoteApp.OfferUUID())
+		}
+
+		// Extract the username from the offer connection, this should tell
+		// us who made the original offer connection request in the source
+		// model.
+		username, err := extractOfferConnectionUsername(remoteApp.Name(), conns)
+		if err != nil {
+			return errors.Errorf("extracting offer connection user name for remote application %q: %w",
+				remoteApp.Name(), err)
+		}
+
 		input = append(input, service.RemoteApplicationImport{
 			Name:            remoteApp.Name(),
-			OfferUUID:       remoteApp.OfferUUID(),
+			OfferUUID:       offerUUID,
 			URL:             remoteApp.URL(),
 			SourceModelUUID: remoteApp.SourceModelUUID(),
 			Macaroon:        remoteApp.Macaroon(),
@@ -188,12 +227,34 @@ func (i *importOperation) importRemoteApplications(
 			Bindings:        remoteApp.Bindings(),
 			IsConsumerProxy: remoteApp.IsConsumerProxy(),
 			Units:           remoteAppUnits[remoteApp.Name()],
+			Username:        username,
 		})
 	}
 	if len(input) == 0 {
 		return nil
 	}
 	return i.importService.ImportRemoteApplications(ctx, input)
+}
+
+func extractOfferConnectionUsername(appName string, conns []OfferConnection) (string, error) {
+	if len(conns) == 0 {
+		return "", errors.Errorf("no offer connections for application %q", appName)
+	}
+
+	for _, conn := range conns {
+		parts, err := relation.NewKeyFromString(conn.RelationKey)
+		if err != nil {
+			return "", errors.Errorf("parsing relation key %q: %w", conn.RelationKey, err)
+		}
+
+		for _, part := range parts {
+			if part.ApplicationName == appName {
+				return conn.UserName, nil
+			}
+		}
+	}
+
+	return "", errors.Errorf("no offer connection contains application %q", appName)
 }
 
 // parseRelationRole parses a string role to a charm.RelationRole.
