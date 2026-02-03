@@ -772,7 +772,7 @@ func (s *resourceServiceSuite) TestOpenResource(c *tc.C) {
 			Fingerprint: fp,
 			Size:        size,
 		},
-		UUID: id,
+		ID: id.String(),
 	}
 
 	s.state.EXPECT().GetResource(gomock.Any(), id).Return(res, nil)

@@ -122,7 +122,7 @@ func (rv resourceView) toResource() (coreresource.Resource, error) {
 		return coreresource.Resource{}, errors.Capture(err)
 	}
 	return coreresource.Resource{
-		UUID:            coreresource.UUID(rv.UUID),
+		ID:              rv.UUID,
 		Resource:        charmRes,
 		ApplicationName: rv.ApplicationName,
 		RetrievedBy:     rv.RetrievedBy,

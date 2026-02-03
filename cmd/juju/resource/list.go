@@ -195,7 +195,7 @@ func (c *ListCommand) formatUnitResources(ctx *cmd.Context, unit, application st
 	resources := unitResources(unit, application, sr)
 	res := make([]FormattedAppResource, len(sr.Resources))
 	for i, r := range sr.Resources {
-		if unitResource, ok := resources[r.UUID.String()]; ok {
+		if unitResource, ok := resources[r.ID]; ok {
 			// Unit has this application resource,
 			// so use unit's version.
 			r = unitResource
@@ -224,7 +224,7 @@ func unitResources(unit, application string, sr coreresources.ApplicationResourc
 	}
 	unitResourcesById := make(map[string]coreresources.Resource)
 	for _, r := range res {
-		unitResourcesById[r.UUID.String()] = r
+		unitResourcesById[r.ID] = r
 	}
 	return unitResourcesById
 }

@@ -83,7 +83,7 @@ func (s *OpenerSuite) TestOpenUnitResource(c *tc.C) {
 		},
 		ApplicationName: "postgresql",
 		RetrievedBy:     unitName.String(),
-		UUID:            resourceUUID,
+		ID:              resourceUUID.String(),
 	}
 
 	charmOrigin := charm.Origin{
@@ -146,7 +146,7 @@ func (s *OpenerSuite) TestOpenUnitResource(c *tc.C) {
 				Fingerprint: s.resourceFingerprint,
 				Size:        s.resourceSize,
 			},
-			UUID: resourceUUID,
+			ID: resourceUUID.String(),
 		},
 	})
 }
@@ -178,7 +178,7 @@ func (s *OpenerSuite) TestOpenUnitResourceCacheMiss(c *tc.C) {
 		},
 		ApplicationName: "postgresql",
 		RetrievedBy:     unitName.String(),
-		UUID:            resourceUUID,
+		ID:              resourceUUID.String(),
 	}
 
 	charmOrigin := charm.Origin{
@@ -285,7 +285,7 @@ func (s *OpenerSuite) TestOpenUnitResourceCacheMiss(c *tc.C) {
 				Fingerprint: s.resourceFingerprint,
 				Size:        s.resourceSize,
 			},
-			UUID: resourceUUID,
+			ID: resourceUUID.String(),
 		},
 	})
 }

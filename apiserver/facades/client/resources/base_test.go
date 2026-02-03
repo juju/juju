@@ -63,7 +63,7 @@ func newResource(c *tc.C, name, username, data string) (coreresource.Resource, p
 			Fingerprint: res.Fingerprint.Bytes(),
 			Size:        res.Size,
 		},
-		UUID:            res.UUID.String(),
+		ID:              res.ID,
 		ApplicationName: res.ApplicationName,
 		Username:        username,
 		Timestamp:       res.Timestamp,

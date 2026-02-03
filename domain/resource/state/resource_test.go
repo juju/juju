@@ -639,7 +639,7 @@ func (s *resourceSuite) TestGetResource(c *tc.C) {
 			//Fingerprint: charmresource.Fingerprint{},
 			//Size:        0,
 		},
-		UUID:            resID,
+		ID:              resID.String(),
 		ApplicationName: s.constants.fakeApplicationName1,
 		RetrievedBy:     "johnDoe",
 		Timestamp:       now,
@@ -689,7 +689,7 @@ func (s *resourceSuite) TestGetResourcePending(c *tc.C) {
 			Revision: 42,
 			Origin:   charmresource.OriginUpload,
 		},
-		UUID:      resID,
+		ID:        resID.String(),
 		Timestamp: now,
 	}
 	input := resourceData{
@@ -731,7 +731,7 @@ func (s *resourceSuite) TestGetResourceWithStoredFile(c *tc.C) {
 			// origin is upload by default if not specified in test input value
 			Origin: charmresource.OriginUpload,
 		},
-		UUID:            resID,
+		ID:              resID.String(),
 		ApplicationName: s.constants.fakeApplicationName1,
 	}
 	input := resourceData{
@@ -771,7 +771,7 @@ func (s *resourceSuite) TestGetResourceWithStoredImage(c *tc.C) {
 			// origin is upload by default if not specified in test input value
 			Origin: charmresource.OriginUpload,
 		},
-		UUID:            resID,
+		ID:              resID.String(),
 		ApplicationName: s.constants.fakeApplicationName1,
 	}
 	input := resourceData{
@@ -2188,7 +2188,7 @@ func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionFile(c *t
 			// origin is upload by default if not specified in test input value
 			Origin: charmresource.OriginUpload,
 		},
-		UUID:            resID,
+		ID:              resID.String(),
 		ApplicationName: s.constants.fakeApplicationName1,
 	}
 	input := resourceData{
@@ -2255,7 +2255,7 @@ func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionImage(c *
 			// origin is upload by default if not specified in test input value
 			Origin: charmresource.OriginUpload,
 		},
-		UUID:            resID,
+		ID:              resID.String(),
 		ApplicationName: s.constants.fakeApplicationName1,
 	}
 	input := resourceData{
@@ -3399,7 +3399,7 @@ func (d resourceData) toCharmResource(c *tc.C) charmresource.Resource {
 func (d resourceData) toResource(s *resourceSuite, c *tc.C) coreresource.Resource {
 	return coreresource.Resource{
 		Resource:        d.toCharmResource(c),
-		UUID:            coreresource.UUID(d.UUID),
+		ID:              coreresource.UUID(d.UUID).String(),
 		ApplicationName: s.constants.applicationNameFromUUID[d.ApplicationUUID],
 		RetrievedBy:     d.RetrievedByName,
 		Timestamp:       d.CreatedAt,

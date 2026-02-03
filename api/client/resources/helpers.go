@@ -19,7 +19,7 @@ import (
 func Resource2API(res resource.Resource) params.Resource {
 	return params.Resource{
 		CharmResource:   CharmResource2API(res.Resource),
-		UUID:            res.UUID.String(),
+		ID:              res.ID,
 		ApplicationName: res.ApplicationName,
 		Username:        res.RetrievedBy,
 		Timestamp:       res.Timestamp,
@@ -90,14 +90,9 @@ func API2Resource(apiRes params.Resource) (resource.Resource, error) {
 		return res, errors.Trace(err)
 	}
 
-	uuid, err := resource.ParseUUID(apiRes.UUID)
-	if err != nil {
-		return res, errors.Trace(err)
-	}
-
 	res = resource.Resource{
 		Resource:        charmRes,
-		UUID:            uuid,
+		ID:              apiRes.ID,
 		ApplicationName: apiRes.ApplicationName,
 		RetrievedBy:     apiRes.Username,
 		Timestamp:       apiRes.Timestamp,
