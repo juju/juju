@@ -17,6 +17,7 @@ import (
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/modeldefaults/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/environs/config"
 	_ "github.com/juju/juju/internal/provider/dummy"
 )
 
@@ -47,7 +48,7 @@ func (*bootstrapSuite) TestBootstrapModelDefaults(c *tc.C) {
 	c.Check(defaults["controller"].Controller, tc.Equals, "some value")
 	c.Check(defaults["region"].Region, tc.Equals, "some value")
 
-	configDefaults := state.ConfigDefaults(c.Context())
+	configDefaults := config.ConfigDefaults()
 	for k, v := range configDefaults {
 		c.Check(defaults[k].Default, tc.Equals, v)
 	}

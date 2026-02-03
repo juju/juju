@@ -75,7 +75,7 @@ func (s *ProviderServices) Config() *modelconfigservice.WatchableProviderService
 	st := modelconfigstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB))
 	return modelconfigservice.NewWatchableProviderService(
 		st,
-		modelconfigservice.ProviderModelConfigGetter(st),
+		modelconfigservice.ProviderModelConfigGetter(),
 		s.modelWatcherFactory("modelconfig"),
 	)
 }

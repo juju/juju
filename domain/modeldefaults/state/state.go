@@ -35,16 +35,6 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 	}
 }
 
-// ConfigDefaults returns the default configuration values set in Juju.
-func ConfigDefaults(_ context.Context) map[string]any {
-	return config.ConfigDefaults()
-}
-
-// ConfigDefaults returns the default configuration values set in Juju.
-func (s *State) ConfigDefaults(ctx context.Context) map[string]any {
-	return ConfigDefaults(ctx)
-}
-
 // checkCloudExists checks if the cloud exists in the database as a helper func
 // for a transaction. [clouderrors.NotFound] is returned if the cloud does not
 // exist.
