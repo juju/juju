@@ -18,20 +18,11 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/life"
-	domainsequence "github.com/juju/juju/domain/sequence"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
-)
-
-// These consts are the sequence namespaces used to generate
-// monotonically increasing ints to use for storage entity IDs.
-const (
-	filesystemNamespace = domainsequence.StaticNamespace("filesystem")
-	volumeNamespace     = domainsequence.StaticNamespace("volume")
-	storageNamespace    = domainsequence.StaticNamespace("storage")
 )
 
 // GetApplicationStorageDirectivesInfo returns the storage directives set for an application,
