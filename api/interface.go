@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/rpc/params"
 )
@@ -89,7 +88,7 @@ type Info struct {
 
 	// Proxier describes a proxier to use to for establing an API connection
 	// A nil proxier means that it will not be used.
-	Proxier proxy.Proxier
+	Proxier Proxier
 }
 
 // Ports returns the unique ports for the api addresses.
@@ -374,7 +373,7 @@ type Connection interface {
 	// Proxy returns the Proxier used to establish the connection if one was
 	// used at all. If no Proxier was used then it's expected that returned
 	// Proxier will be nil. Use IsProxied() to test for the presence of a proxy.
-	Proxy() proxy.Proxier
+	Proxy() Proxier
 
 	// PublicDNSName returns the host name for which an officially
 	// signed certificate will be used for TLS connection to the server.

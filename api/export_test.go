@@ -12,7 +12,6 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
-	jujuproxy "github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/rpc/jsoncodec"
 )
 
@@ -60,7 +59,7 @@ type TestingConnectionParams struct {
 	RPCConnection  RPCConnection
 	Clock          clock.Clock
 	Broken, Closed chan struct{}
-	Proxier        jujuproxy.Proxier
+	Proxier        Proxier
 }
 
 // NewTestingConnection creates an api.Connection object that can be used for testing.
