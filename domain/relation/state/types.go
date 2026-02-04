@@ -121,11 +121,6 @@ type getLife struct {
 	Life life.Value `db:"value"`
 }
 
-type getUnitApp struct {
-	ApplicationUUID string `db:"application_uuid"`
-	UnitUUID        string `db:"uuid"`
-}
-
 type getUnitRelAndApp struct {
 	ApplicationUUID  string `db:"application_uuid"`
 	RelationUnitUUID string `db:"uuid"`

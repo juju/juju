@@ -43,6 +43,20 @@ func (st *State) InitialWatchRelatedUnits(
 		return nil, nil, nil, errors.Errorf("getting endpoints for relation %q: %w", relationUUID, err)
 	}
 
+	isPeerRelation := len(appByEndpoint) == 1
+
+	appUUID, err := st.GetApplicationUUIDByUnitUUID(ctx, unitUUID)
+	if err != nil {
+		return nil, nil, nil, errors.Errorf("getting application UUID for unit %q: %w", unitUUID, err)
+	}
+	var localEndpointUUID string
+	for endpointUUID, aUUID := range appByEndpoint {
+		if aUUID == appUUID {
+			localEndpointUUID = endpointUUID
+			break
+		}
+	}
+
 	return []string{relationApplicationSettingNamespace, relationUnitSettingNamespace, relationUnitNamespace},
 		// Initial query.
 		func(ctx context.Context, _ database.TxnRunner) ([]string, error) {
@@ -54,9 +68,14 @@ func (st *State) InitialWatchRelatedUnits(
 			// Exclude the input unit from the list of related units.
 			otherUnits := make([]string, 0, len(units)-1)
 			for _, u := range units {
-				if u.UnitUUID != unitUUID {
-					otherUnits = append(otherUnits, domainrelation.EncodeUnitUUID(u.UnitUUID))
+				if u.UnitUUID == unitUUID {
+					continue
 				}
+				// If we are not in a peer relation, we want to watch the remote side, so we exclude the local side too.
+				if !isPeerRelation && appUUID == appByEndpoint[u.RelationEndpointUUID] {
+					continue
+				}
+				otherUnits = append(otherUnits, domainrelation.EncodeUnitUUID(u.UnitUUID))
 			}
 			return otherUnits, nil
 		},
@@ -70,7 +89,6 @@ func (st *State) InitialWatchRelatedUnits(
 			// Populate data structures for convenient lookups.
 			// Exclude the input unit from the list of related units.
 			// Determine the endpoint to watch for application settings changes.
-			var localEndpointUUID string
 			endpointUUIDs := set.NewStrings()
 			unitByRelationUnit := make(map[string]string)
 			relatedUnits := set.NewStrings()
@@ -78,7 +96,10 @@ func (st *State) InitialWatchRelatedUnits(
 				endpointUUIDs.Add(u.RelationEndpointUUID)
 
 				if u.UnitUUID == unitUUID {
-					localEndpointUUID = u.RelationEndpointUUID
+					continue
+				}
+				// If we are not in a peer relation, we want to watch the remote side, so we exclude the local side too.
+				if !isPeerRelation && appUUID == appByEndpoint[u.RelationEndpointUUID] {
 					continue
 				}
 
