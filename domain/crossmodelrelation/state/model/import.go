@@ -251,6 +251,14 @@ func (st *State) importRemoteApplicationConsumer(ctx context.Context, tx *sqlair
 		return errors.Capture(err)
 	}
 
+	// Create synthetic units for this remote application.
+	for _, unitName := range consumer.Units {
+		if err := st.insertUnit(ctx, tx, unitName, consumer.ConsumerApplicationUUID, charmUUID.String()); err != nil {
+			return errors.Errorf("inserting synthetic unit %q: %w",
+				unitName, err)
+		}
+	}
+
 	return nil
 }
 
