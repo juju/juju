@@ -15,10 +15,10 @@ import (
 	url "net/url"
 	reflect "reflect"
 
+	api "github.com/juju/juju/api"
 	base "github.com/juju/juju/api/base"
 	network "github.com/juju/juju/core/network"
 	semversion "github.com/juju/juju/core/semversion"
-	proxy "github.com/juju/juju/internal/proxy"
 	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 	httprequest "gopkg.in/httprequest.v1"
@@ -775,10 +775,10 @@ func (c *MockConnectionModelTagCall) DoAndReturn(f func() (names.ModelTag, bool)
 }
 
 // Proxy mocks base method.
-func (m *MockConnection) Proxy() proxy.Proxier {
+func (m *MockConnection) Proxy() api.Proxier {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Proxy")
-	ret0, _ := ret[0].(proxy.Proxier)
+	ret0, _ := ret[0].(api.Proxier)
 	return ret0
 }
 
@@ -795,19 +795,19 @@ type MockConnectionProxyCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockConnectionProxyCall) Return(arg0 proxy.Proxier) *MockConnectionProxyCall {
+func (c *MockConnectionProxyCall) Return(arg0 api.Proxier) *MockConnectionProxyCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockConnectionProxyCall) Do(f func() proxy.Proxier) *MockConnectionProxyCall {
+func (c *MockConnectionProxyCall) Do(f func() api.Proxier) *MockConnectionProxyCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConnectionProxyCall) DoAndReturn(f func() proxy.Proxier) *MockConnectionProxyCall {
+func (c *MockConnectionProxyCall) DoAndReturn(f func() api.Proxier) *MockConnectionProxyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
