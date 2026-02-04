@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 
@@ -278,6 +279,11 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 
 	storageUniqueID := getStorageUniqueID(appUUID)
 
+	re, err := regexp.Compile(`^(.+)-` + regexp.QuoteMeta(appName) + `-\d+$`)
+	if err != nil {
+		return errors.Annotatef(err, "compiling regex to get pvc template name")
+	}
+
 	makeKubernetesFilesystemParams := func(
 		fst storageprovisioning.FilesystemTemplate,
 		attachments []storageprovisioning.FilesystemAttachmentTemplate,
@@ -288,11 +294,22 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 			len(attachments),
 		)
 
+		// The attachment provider ID is the fully qualified name of the
+		// PVC. It's suffixed with the pod ordinal. We just want to capture
+		// the prefix to get the PVC template name.
+		// For e.g. provider ID is <appname>-<storagename>-<uniqid>-<appname>-<ordinal>
+		// we just want <appname>-<storagename>-<uniqid>.
 		for i, attachment := range attachments {
+			var pvcTemplateName string
+			matches := re.FindStringSubmatch(attachment.ProviderID)
+			if len(matches) > 1 {
+				pvcTemplateName = matches[1]
+			}
 			k8sFileSystemParamAttachments[i] = internalstorage.KubernetesFilesystemAttachmentParams{
-				ReadOnly:      attachment.ReadOnly,
-				Path:          attachment.MountPoint,
-				ContainerName: attachment.ContainerKey,
+				ReadOnly:                          attachment.ReadOnly,
+				Path:                              attachment.MountPoint,
+				ContainerName:                     attachment.ContainerKey,
+				PersistentVolumeClaimTemplateName: pvcTemplateName,
 			}
 		}
 

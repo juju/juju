@@ -97,12 +97,22 @@ func (a *app) EnsurePVCs(
 ) error {
 	applier := a.newApplier()
 
-	pvcNames, err := a.pvcNames(storageUniqueID)
+	pvcAndStorageNames := make([]pvcAndStorageName, 0)
+	for _, fs := range filesystems {
+		for _, attachment := range fs.Attachments {
+			pvcAndStorageNames = append(pvcAndStorageNames, pvcAndStorageName{
+				pvc:     attachment.PersistentVolumeClaimTemplateName,
+				storage: fs.StorageName,
+			})
+		}
+	}
+
+	pvcTemplateNames, err := a.volumeNameToPVCTemplateNames(pvcAndStorageNames)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	pvcNameGetter := a.pvcNameGetter(pvcNames, storageUniqueID)
+	pvcNameGetter := a.pvcNameGetter(pvcTemplateNames, storageUniqueID)
 
 	storageClasses, err := resources.ListStorageClass(context.Background(), a.client.StorageV1().StorageClasses(), meta.ListOptions{})
 	if err != nil {

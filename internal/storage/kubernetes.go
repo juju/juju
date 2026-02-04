@@ -42,6 +42,10 @@ type KubernetesFilesystemAttachmentParams struct {
 	// ContainerName is the identifier of the container where this attachment
 	// should be mounted to.
 	ContainerName string
+
+	// PersistentVolumeClaimTemplateName is the PVC template name where this
+	// attachment is bound to.
+	PersistentVolumeClaimTemplateName string
 }
 
 // FilesystemAttachmentInfo describes a filesystem attachment.
