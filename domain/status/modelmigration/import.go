@@ -9,6 +9,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/description/v11"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
@@ -230,6 +231,11 @@ func (i *importOperation) importRemoteApplicationOffererStatus(
 	model description.Model,
 ) error {
 	for _, remoteApp := range model.RemoteApplications() {
+		// Skip remote applications, we only want offerers here.
+		if coreapplication.IsRemoteApplication(remoteApp.Name()) {
+			continue
+		}
+
 		offererStatus := i.importStatus(remoteApp.Status())
 		if err := service.SetRemoteApplicationOffererStatus(ctx, remoteApp.Name(), offererStatus); err != nil {
 			return errors.Errorf("setting offerer status for remote application %q: %w", remoteApp.Name(), err)
