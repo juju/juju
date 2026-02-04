@@ -92,8 +92,8 @@ VALUES (?, ?, 1, ?, ?, ?, 1024)
 	_, err = u.DB().ExecContext(
 		c.Context(),
 		`
-INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
-VALUES (?, ?, ?, 0)
+INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id, size_mib)
+VALUES (?, ?, ?, 0, 1024)
 	`,
 		filesystemUUID.String(),
 		filesystemUUID.String(),
