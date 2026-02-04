@@ -641,6 +641,7 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 				{
 					MountPoint: "/charm-defined-location/data/0",
 					ReadOnly:   false,
+					ProviderID: "test-data-uniqid123-test-0",
 				},
 			},
 			StorageName:  "data",
@@ -704,8 +705,9 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 			},
 			Attachments: []storage.KubernetesFilesystemAttachmentParams{
 				{
-					ReadOnly: false,
-					Path:     "/charm-defined-location/data/0",
+					ReadOnly:                          false,
+					Path:                              "/charm-defined-location/data/0",
+					PersistentVolumeClaimTemplateName: "test-data-uniqid123",
 				},
 			},
 		}},

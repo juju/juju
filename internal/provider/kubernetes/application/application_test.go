@@ -623,6 +623,113 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 	s.assertDelete(c, app)
 }
 
+// TestEnsureStatefulWithAttachmentProviderID tests that the PVC name uses what was supplied
+// in config.Filesystems[*].Attachments[*].PersistentVolumeClaimTemplateName.
+func (s *applicationSuite) TestEnsureStatefulWithAttachmentProviderID(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	s.assertEnsure(
+		c, app, false, constraints.Value{}, true, false, "", func(config *caas.ApplicationConfig) {
+			for i, fs := range config.Filesystems {
+				for j, _ := range fs.Attachments {
+					config.Filesystems[i].Attachments[j].PersistentVolumeClaimTemplateName =
+						fmt.Sprintf("gitlab-storage%d-uniqid", i)
+				}
+			}
+		}, func() {
+			svc, err := s.client.CoreV1().Services("test").Get(c.Context(), "gitlab-endpoints", metav1.GetOptions{})
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(svc, tc.DeepEquals, &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "gitlab-endpoints",
+					Namespace: "test",
+					Labels: map[string]string{
+						"app.kubernetes.io/name":       "gitlab",
+						"app.kubernetes.io/managed-by": "juju",
+					},
+					Annotations: map[string]string{
+						"juju.is/version": "3.5-beta1",
+						"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Selector:                 map[string]string{"app.kubernetes.io/name": "gitlab"},
+					Type:                     corev1.ServiceTypeClusterIP,
+					ClusterIP:                "None",
+					PublishNotReadyAddresses: true,
+				},
+			})
+
+			ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
+			c.Assert(err, tc.ErrorIsNil)
+			podSpec := getPodSpec31()
+			podSpec.Containers[0].VolumeMounts[8].Name = "gitlab-storage0-uniqid"
+			podSpec.Containers[1].VolumeMounts[2].Name = "gitlab-storage0-uniqid"
+			c.Assert(ss, tc.DeepEquals, &appsv1.StatefulSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "gitlab",
+					Namespace: "test",
+					Labels: map[string]string{
+						"app.kubernetes.io/name":       "gitlab",
+						"app.kubernetes.io/managed-by": "juju",
+					},
+					Annotations: map[string]string{
+						"juju.is/version":  "3.5-beta1",
+						"app.juju.is/uuid": "uniqid",
+					},
+				},
+				Spec: appsv1.StatefulSetSpec{
+					Replicas: pointer.Int32Ptr(3),
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/name": "gitlab",
+						},
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+							Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
+						},
+						Spec: podSpec,
+					},
+					VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "gitlab-storage0-uniqid",
+								Labels: map[string]string{
+									"storage.juju.is/name":         "database",
+									"app.kubernetes.io/managed-by": "juju",
+								},
+								Annotations: map[string]string{
+									"foo":                  "bar",
+									"storage.juju.is/name": "database",
+								}},
+							Spec: corev1.PersistentVolumeClaimSpec{
+								StorageClassName: pointer.StringPtr("test-workload-storage"),
+								AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+								Resources: corev1.VolumeResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceStorage: k8sresource.MustParse("100Mi"),
+									},
+								},
+							},
+						},
+					},
+					PodManagementPolicy: appsv1.ParallelPodManagement,
+					ServiceName:         "gitlab-endpoints",
+				},
+			})
+
+			// No pvc is created.
+			_, err = s.client.CoreV1().PersistentVolumeClaims("test").
+				Get(c.Context(), "gitlab-database-uniqid-gitlab-0",
+					metav1.GetOptions{})
+			c.Assert(err, tc.ErrorMatches,
+				"persistentvolumeclaims \"gitlab-database-uniqid-gitlab-0\" not found")
+		},
+	)
+	s.assertDelete(c, app)
+}
+
 func (s *applicationSuite) TestEnsureStatefulRootless35(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
