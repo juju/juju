@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/canonical/sqlair"
 
@@ -520,6 +521,83 @@ FROM (
 	}
 
 	return retInstComp, retAttachmentComp, nil
+}
+
+// GetUnitStorageAttachmentExists returns true if the storage is
+// attached to the specified unit.
+func (st *State) GetUnitStorageAttachmentExists(
+	ctx context.Context,
+	stUUID domainstorage.StorageInstanceUUID,
+	uUUID coreunit.UUID,
+) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	var result bool
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		result, err = st.getUnitStorageAttachmentExists(ctx, tx, stUUID, uUUID)
+		return errors.Capture(err)
+	})
+	return result, errors.Capture(err)
+}
+
+func (st *State) getUnitStorageAttachmentExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	stUUID domainstorage.StorageInstanceUUID,
+	uUUID coreunit.UUID,
+) (bool, error) {
+	unitUUID := unitUUID{UnitUUID: uUUID.String()}
+	storageUUID := entityUUID{UUID: stUUID.String()}
+
+	storageExistsStmt, err := st.Prepare(`
+SELECT &entityUUID.uuid
+FROM   storage_instance
+WHERE  uuid = $entityUUID.uuid
+`, storageUUID)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	attachStmt, err := st.Prepare(`
+SELECT count(*) AS &count.count
+FROM   storage_attachment sia
+JOIN   unit u ON sia.unit_uuid = u.uuid
+WHERE  u.uuid = $unitUUID.uuid
+AND    sia.storage_instance_uuid = $entityUUID.uuid
+`, unitUUID, storageUUID, count{})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	exists, err := st.checkUnitExists(ctx, tx, uUUID.String())
+	if err != nil {
+		return false, errors.Errorf(
+			"checking unit %q exists: %w", uUUID, err,
+		)
+	}
+	if !exists {
+		return false, errors.Errorf("unit %q does not exist", uUUID).Add(
+			applicationerrors.UnitNotFound,
+		)
+	}
+	err = tx.Query(ctx, storageExistsStmt, storageUUID).Get(&storageUUID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, errors.Errorf("storage %q does not exist", stUUID).
+			Add(storageerrors.StorageInstanceNotFound)
+	}
+	if err != nil {
+		return false, errors.Errorf("checking storage %q exists: %w", stUUID, err)
+	}
+
+	var result count
+	err = tx.Query(ctx, attachStmt, unitUUID, storageUUID).Get(&result)
+	if err != nil {
+		return false, errors.Errorf("checking storage %q is attached to unit %q: %w", stUUID, uUUID, err)
+	}
+	return result.Count > 0, nil
 }
 
 // GetUnitStorageDirectives returns the storage directives that are set for
@@ -1091,6 +1169,15 @@ func (st *State) attachStorageForUnit(
 	ctx context.Context, tx *sqlair.TX, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
 	storageArg internal.UnitAttachStorageArg,
 ) error {
+	// Already attached is a no-op.
+	attached, err := st.getUnitStorageAttachmentExists(ctx, tx, storageUUID, unitUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if attached {
+		return nil
+	}
+
 	// First to the basic life checks for the unit and storage.
 	unitLifeID, _, err := st.getUnitLifeAndNetNode(ctx, tx, unitUUID.String())
 	if err != nil {

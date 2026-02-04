@@ -286,6 +286,19 @@ type UnitState interface {
 	// construction of a context factory for a unit.
 	GetCAASUnitContext(ctx context.Context, unitName string) (applicationinternal.CAASUnitContext, error)
 
+	// GetUnitStorageAttachmentExists returns true if the storage is
+	// attached to the specified unit.
+	// The following error types can be expected:
+	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the
+	// unit does not exist.
+	// - [github.com/juju/juju/domain/application/errors.StorageInstanceNotFound]:
+	// when the storage instance does not exist.
+	GetUnitStorageAttachmentExists(
+		ctx context.Context,
+		stUUID domainstorage.StorageInstanceUUID,
+		uUUID coreunit.UUID,
+	) (bool, error)
+
 	// AttachStorageToCAASUnit attaches the storage instance to a CAAS unit.
 	// The following error types can be expected:
 	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the

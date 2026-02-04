@@ -457,7 +457,7 @@ func (s *serviceSuite) TestMakeUnitAttachStorageArgs(c *tc.C) {
 
 		if si.Filesystem != nil {
 			attachArg.FilesystemAttachment =
-				&internal.CreateUnitStorageFilesystemAttachmentArg{
+				&internal.UnitStorageFilesystemAttachmentArg{
 					FilesystemUUID: si.Filesystem.UUID,
 					NetNodeUUID:    attachNetNodeUUID,
 					ProvisionScope: si.Filesystem.ProvisionScope,
@@ -465,7 +465,7 @@ func (s *serviceSuite) TestMakeUnitAttachStorageArgs(c *tc.C) {
 		}
 		if si.Volume != nil {
 			attachArg.VolumeAttachment =
-				&internal.CreateUnitStorageVolumeAttachmentArg{
+				&internal.UnitStorageVolumeAttachmentArg{
 					VolumeUUID:     si.Volume.UUID,
 					NetNodeUUID:    attachNetNodeUUID,
 					ProvisionScope: si.Volume.ProvisionScope,
@@ -478,14 +478,14 @@ func (s *serviceSuite) TestMakeUnitAttachStorageArgs(c *tc.C) {
 		}
 		if si.Filesystem != nil {
 			instArg.Filesystem =
-				&internal.CreateUnitStorageFilesystemArg{
+				&internal.UnitStorageFilesystemArg{
 					UUID:           si.Filesystem.UUID,
 					ProvisionScope: si.Filesystem.ProvisionScope,
 				}
 		}
 		if si.Volume != nil {
 			instArg.Volume =
-				&internal.CreateUnitStorageVolumeArg{
+				&internal.UnitStorageVolumeArg{
 					UUID:           si.Volume.UUID,
 					ProvisionScope: si.Volume.ProvisionScope,
 				}

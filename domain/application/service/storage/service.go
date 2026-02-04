@@ -1054,13 +1054,13 @@ func (s Service) MakeUnitAttachStorageArgs(
 			UUID: storageInstanceUUID,
 		}
 		if inst.Filesystem != nil {
-			instArg.Filesystem = &internal.CreateUnitStorageFilesystemArg{
+			instArg.Filesystem = &internal.UnitStorageFilesystemArg{
 				UUID:           inst.Filesystem.UUID,
 				ProvisionScope: inst.Filesystem.ProvisionScope,
 			}
 		}
 		if inst.Volume != nil {
-			instArg.Volume = &internal.CreateUnitStorageVolumeArg{
+			instArg.Volume = &internal.UnitStorageVolumeArg{
 				UUID:           inst.Volume.UUID,
 				ProvisionScope: inst.Volume.ProvisionScope,
 			}

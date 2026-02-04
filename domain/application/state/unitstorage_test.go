@@ -670,7 +670,7 @@ func (u *unitStorageSuite) TestAttachStorageToIAASUnit(c *tc.C) {
 	unitStorageToAttach := []internal.UnitStorageAttachmentArg{
 		{
 			UUID: saUUID,
-			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
+			FilesystemAttachment: &internal.UnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: fsUUID,
 				NetNodeUUID:    domainnetwork.NetNodeUUID(netNodeUUID),
 				ProvisionScope: domainstorageprov.ProvisionScopeMachine,
@@ -679,6 +679,10 @@ func (u *unitStorageSuite) TestAttachStorageToIAASUnit(c *tc.C) {
 			StorageInstanceUUID: siUUID,
 		},
 	}
+
+	exists, err := u.state.GetUnitStorageAttachmentExists(c.Context(), siUUID, unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exists, tc.IsFalse)
 
 	err = u.state.AttachStorageToIAASUnit(c.Context(), siUUID, unitUUID, internal.IAASUnitAttachStorageArg{
 		UnitAttachStorageArg: internal.UnitAttachStorageArg{
@@ -711,6 +715,10 @@ func (u *unitStorageSuite) TestAttachStorageToIAASUnit(c *tc.C) {
 			},
 		},
 	})
+
+	exists, err = u.state.GetUnitStorageAttachmentExists(c.Context(), siUUID, unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exists, tc.IsTrue)
 }
 
 func (u *unitStorageSuite) TestGetStorageInstanceCompositionByUUIDNotFound(c *tc.C) {

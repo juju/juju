@@ -1261,13 +1261,6 @@ func (s *ProviderService) populateAttachStorageArgs(
 	storageUUID domainstorage.StorageInstanceUUID,
 	unitUUID coreunit.UUID,
 ) (internal.UnitAttachStorageArg, error) {
-	if storageUUID.Validate() != nil {
-		return internal.UnitAttachStorageArg{}, errors.New("storage uuid is not valid").Add(coreerrors.NotValid)
-	}
-	if unitUUID.Validate() != nil {
-		return internal.UnitAttachStorageArg{}, errors.New("unit uuid is not valid").Add(coreerrors.NotValid)
-	}
-
 	charmStorage, instInfo, err := s.st.GetCharmStorageAndInstanceInfoByUnitUUIDAndStorageUUID(ctx, unitUUID, storageUUID)
 	if err != nil {
 		return internal.UnitAttachStorageArg{}, errors.Errorf(
@@ -1329,48 +1322,62 @@ func (s *ProviderService) AttachStorageToIAASUnit(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// Unit UUID and storage UUID are validated in populateAttachStorageArgs.
-	unitStorageArgs, err := s.populateAttachStorageArgs(ctx, storageUUID, unitUUID)
+	if storageUUID.Validate() != nil {
+		return errors.New("storage uuid is not valid").Add(coreerrors.NotValid)
+	}
+	if unitUUID.Validate() != nil {
+		return errors.New("unit uuid is not valid").Add(coreerrors.NotValid)
+	}
+	exists, err := s.st.GetUnitStorageAttachmentExists(ctx, storageUUID, unitUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if exists {
+		return nil
+	}
+
+	unitAttachStorageArgs, err := s.populateAttachStorageArgs(ctx, storageUUID, unitUUID)
+
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	storageInst := transform.Slice(unitStorageArgs.StorageToAttach,
+	storageInst := transform.Slice(unitAttachStorageArgs.StorageToAttach,
 		func(in internal.UnitStorageAttachmentArg) internal.UnitStorageInstanceArg {
 			result := internal.UnitStorageInstanceArg{
 				UUID: in.StorageInstanceUUID,
 			}
 			if in.FilesystemAttachment != nil {
-				result.Filesystem = &internal.CreateUnitStorageFilesystemArg{
+				result.Filesystem = &internal.UnitStorageFilesystemArg{
 					UUID:           in.FilesystemAttachment.FilesystemUUID,
 					ProvisionScope: in.FilesystemAttachment.ProvisionScope,
 				}
 			}
 			if in.VolumeAttachment != nil {
-				result.Volume = &internal.CreateUnitStorageVolumeArg{
+				result.Volume = &internal.UnitStorageVolumeArg{
 					UUID:           in.VolumeAttachment.VolumeUUID,
 					ProvisionScope: in.VolumeAttachment.ProvisionScope,
 				}
 			}
 			return result
 		})
-	iassUnitStorageArgs, err := s.storageService.MakeIAASUnitStorageArgs(
+	iaasUnitStorageArgs, err := s.storageService.MakeIAASUnitStorageArgs(
 		storageInst)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	err = s.st.AttachStorageToIAASUnit(ctx, storageUUID, unitUUID, internal.IAASUnitAttachStorageArg{
-		UnitAttachStorageArg: unitStorageArgs,
-		FilesystemsToOwn:     iassUnitStorageArgs.FilesystemsToOwn,
-		VolumesToOwn:         iassUnitStorageArgs.VolumesToOwn,
+		UnitAttachStorageArg: unitAttachStorageArgs,
+		FilesystemsToOwn:     iaasUnitStorageArgs.FilesystemsToOwn,
+		VolumesToOwn:         iaasUnitStorageArgs.VolumesToOwn,
 	})
 	if errors.Is(err, internal.MaxStorageCountPreconditonFailed) {
-		maxCount := int(unitStorageArgs.CountLessThanEqual + 1)
+		maxCount := int(unitAttachStorageArgs.CountLessThanEqual + 1)
 		return applicationerrors.StorageCountLimitExceeded{
 			Maximum:     &maxCount,
 			Requested:   1,
-			StorageName: unitStorageArgs.StorageName,
+			StorageName: unitAttachStorageArgs.StorageName,
 		}
 	}
 	return errors.Capture(err)
@@ -1396,7 +1403,20 @@ func (s *ProviderService) AttachStorageToCAASUnit(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// Unit UUID and storage UUID are validated in populateAttachStorageArgs.
+	if storageUUID.Validate() != nil {
+		return errors.New("storage uuid is not valid").Add(coreerrors.NotValid)
+	}
+	if unitUUID.Validate() != nil {
+		return errors.New("unit uuid is not valid").Add(coreerrors.NotValid)
+	}
+	exists, err := s.st.GetUnitStorageAttachmentExists(ctx, storageUUID, unitUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if exists {
+		return nil
+	}
+
 	unitStorageArgs, err := s.populateAttachStorageArgs(ctx, storageUUID, unitUUID)
 	if err != nil {
 		return errors.Capture(err)

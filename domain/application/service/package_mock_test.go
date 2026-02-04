@@ -3921,6 +3921,13 @@ func (m *MockState) GetUnitStorageRefreshArgs(arg0 context.Context, arg1 unit.UU
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitStorageRefreshArgs", arg0, arg1, arg2)
 	ret0, _ := ret[0].(internal.UnitStorageRefreshArgs)
+}
+
+// GetUnitStorageAttachmentExists mocks base method.
+func (m *MockState) GetUnitStorageAttachmentExists(arg0 context.Context, arg1 storage0.StorageInstanceUUID, arg2 unit.UUID) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitStorageAttachmentExists", arg0, arg1, arg2)
+	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -3934,6 +3941,15 @@ func (mr *MockStateMockRecorder) GetUnitStorageRefreshArgs(arg0, arg1, arg2 any)
 
 // MockStateGetUnitStorageRefreshArgsCall wrap *gomock.Call
 type MockStateGetUnitStorageRefreshArgsCall struct {
+// GetUnitStorageAttachmentExists indicates an expected call of GetUnitStorageAttachmentExists.
+func (mr *MockStateMockRecorder) GetUnitStorageAttachmentExists(arg0, arg1, arg2 any) *MockStateGetUnitStorageAttachmentExistsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitStorageAttachmentExists", reflect.TypeOf((*MockState)(nil).GetUnitStorageAttachmentExists), arg0, arg1, arg2)
+	return &MockStateGetUnitStorageAttachmentExistsCall{Call: call}
+}
+
+// MockStateGetUnitStorageAttachmentExistsCall wrap *gomock.Call
+type MockStateGetUnitStorageAttachmentExistsCall struct {
 	*gomock.Call
 }
 
