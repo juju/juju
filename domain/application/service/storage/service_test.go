@@ -449,9 +449,9 @@ func (s *serviceSuite) TestMakeUnitAttachStorageArgs(c *tc.C) {
 	)
 	c.Check(err, tc.ErrorIsNil)
 
-	expectedStorageToAttach := make([]internal.CreateUnitStorageAttachmentArg, 0, len(instComposition))
+	expectedStorageToAttach := make([]internal.UnitStorageAttachmentArg, 0, len(instComposition))
 	for _, si := range instComposition {
-		attachArg := internal.CreateUnitStorageAttachmentArg{
+		attachArg := internal.UnitStorageAttachmentArg{
 			StorageInstanceUUID: si.UUID,
 		}
 

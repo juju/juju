@@ -1033,7 +1033,7 @@ func (s Service) MakeUnitAttachStorageArgs(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	rvalToAttach := make([]internal.CreateUnitStorageAttachmentArg, 0, 1)
+	rvalToAttach := make([]internal.UnitStorageAttachmentArg, 0, 1)
 
 	instComposition, err := s.st.GetStorageInstanceCompositionByUUID(ctx, storageInstanceUUID)
 	if err != nil {

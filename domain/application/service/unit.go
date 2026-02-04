@@ -408,11 +408,11 @@ func (s *ProviderService) makeIAASUnitArgs(
 				NetNodeUUID:   machineNetNodeUUID,
 				UnitStatusArg: s.makeIAASUnitStatusArgs(),
 			},
-			CreateIAASUnitStorageArg: iassUnitStorageArgs,
-			Platform:                 platform,
-			Nonce:                    u.Nonce,
-			MachineNetNodeUUID:       machineNetNodeUUID,
-			MachineUUID:              machineUUID,
+			IAASUnitStorageArg: iassUnitStorageArgs,
+			Platform:           platform,
+			Nonce:              u.Nonce,
+			MachineNetNodeUUID: machineNetNodeUUID,
+			MachineUUID:        machineUUID,
 		}
 		args[i] = arg
 	}
