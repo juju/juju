@@ -185,6 +185,10 @@ type FilesystemAttachmentTemplate struct {
 	// ContainerKey is the identifier of the container this attachment
 	// should be mounted to.
 	ContainerKey string
+
+	// ProviderID is the identifier the storage provider created for this
+	// attachment.
+	ProviderID string
 }
 
 // FilesystemProvisionedInfo is information set by the storage provisioner for

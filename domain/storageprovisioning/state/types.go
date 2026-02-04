@@ -447,3 +447,10 @@ type containerMount struct {
 	Storage           string `db:"storage"`
 	Location          string `db:"location"`
 }
+
+// storageAndProvider represents an attachment's storage name and its
+// provider ID.
+type storageAndProvider struct {
+	StorageName string `db:"storage_name"`
+	ProviderID  string `db:"provider_id"`
+}

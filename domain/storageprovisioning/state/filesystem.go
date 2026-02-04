@@ -1371,3 +1371,64 @@ WHERE  a.uuid = $entityUUID.uuid
 
 	return rvals, nil
 }
+
+// GetStorageFilesystemAttachmentProviderIDs returns the mapping of attachment
+// storage names to provider ID. If an attachment's mapping is not found, then
+// that entry won't be included in the map.
+// A [applicationerrors.ApplicationNotFound] error is expected if the application
+// does not exist.
+func (st *State) GetStorageFilesystemAttachmentProviderIDs(
+	ctx context.Context,
+	appUUID coreapplication.UUID,
+) (map[string]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	input := entityUUID{appUUID.String()}
+	stmt, err := st.Prepare(`
+SELECT (si.storage_name, sfa.provider_id) AS (&storageAndProvider.*)
+FROM   application a 
+JOIN   unit u ON a.uuid = u.application_uuid 
+JOIN   storage_unit_owner suo ON u.uuid = suo.unit_uuid 
+JOIN   storage_instance si ON suo.storage_instance_uuid = si.uuid 
+JOIN   storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid 
+JOIN   storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid 
+JOIN   storage_filesystem_attachment sfa ON sf.uuid = sfa.storage_filesystem_uuid 
+WHERE  a.uuid = $entityUUID.uuid
+`, storageAndProvider{}, input)
+
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var storagesAndProviders []storageAndProvider
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkApplicationExists(ctx, tx, appUUID)
+		if err != nil {
+			return err
+		} else if !exists {
+			return errors.Errorf(
+				"application %q does not exist", appUUID,
+			).Add(applicationerrors.ApplicationNotFound)
+		}
+		err = tx.Query(ctx, stmt, input).GetAll(&storagesAndProviders)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	rvals := make(map[string]string)
+	for _, s := range storagesAndProviders {
+		rvals[s.StorageName] = s.ProviderID
+	}
+
+	return rvals, nil
+}
