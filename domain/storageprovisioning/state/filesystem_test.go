@@ -665,8 +665,8 @@ func (s *filesystemSuite) TestInitialWatchStatementModelProvisionedFilesystemAtt
 	fsOneUUID, _ := s.newModelFilesystem(c)
 	fsTwoUUID, _ := s.newModelFilesystem(c)
 	fsThreeUUID, _ := s.newMachineFilesystem(c)
-	fsaOneUUID := s.newModelFilesystemAttachment(c, fsOneUUID, netNodeUUID)
-	fsaTwoUUID := s.newModelFilesystemAttachment(c, fsTwoUUID, netNodeUUID)
+	fsaOneUUID := s.newModelFilesystemAttachment(c, fsOneUUID, netNodeUUID, nil)
+	fsaTwoUUID := s.newModelFilesystemAttachment(c, fsTwoUUID, netNodeUUID, nil)
 	s.newMachineFilesystemAttachment(c, fsThreeUUID, netNodeUUID)
 
 	ns, ns2, initialQuery := st.InitialWatchStatementModelProvisionedFilesystemAttachments()
@@ -695,7 +695,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentLifeNotFound(c *tc.C) {
 func (s *filesystemSuite) TestGetFilesystemAttachmentLife(c *tc.C) {
 	fsUUID, _ := s.newModelFilesystem(c)
 	netNodeUUID := s.newNetNode(c)
-	uuid := s.newModelFilesystemAttachment(c, fsUUID, netNodeUUID)
+	uuid := s.newModelFilesystemAttachment(c, fsUUID, netNodeUUID, nil)
 	st := NewState(s.TxnRunnerFactory())
 
 	life, err := st.GetFilesystemAttachmentLife(c.Context(), uuid)
@@ -854,7 +854,7 @@ func (s *filesystemSuite) TestSetFilesystemAttachmentProvisionedInfo(c *tc.C) {
 	fsUUID, _ := s.newModelFilesystem(c)
 	netNodeUUID := s.newNetNode(c)
 	s.newMachineWithNetNode(c, netNodeUUID)
-	fsAttachmentUUID := s.newModelFilesystemAttachment(c, fsUUID, netNodeUUID)
+	fsAttachmentUUID := s.newModelFilesystemAttachment(c, fsUUID, netNodeUUID, nil)
 
 	info := storageprovisioning.FilesystemAttachmentProvisionedInfo{
 		MountPoint: "x/y/z",
@@ -1143,7 +1143,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentParamsUnitAttached(c *tc.C)
 	// Construct storage instance, filesystem, filesystem attachment
 	suuid, _ := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "keystore")
 	fsUUID, _ := s.newModelFilesystem(c)
-	fsaUUID := s.newModelFilesystemAttachment(c, fsUUID, netNodeUUID)
+	fsaUUID := s.newModelFilesystemAttachment(c, fsUUID, netNodeUUID, nil)
 	s.newStorageInstanceFilesystem(c, suuid, fsUUID)
 
 	// Attach the storage instance to the unit. This is what draws in all the
@@ -1271,6 +1271,65 @@ func (s *filesystemSuite) TestGetContainerMountsForApplicationMissingApplication
 
 	_, err := st.GetContainerMountsForApplication(c.Context(), appUUID)
 	c.Check(err, tc.ErrorIs, domainapplicationerrors.ApplicationNotFound)
+}
+
+// TestGetStorageFilesystemAttachmentProviderIDs tests fetching the storage name to
+// provider IDs mapping for a given application.
+func (s *filesystemSuite) TestGetStorageFilesystemAttachmentProviderIDs(c *tc.C) {
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	netNodeUUID := s.newNetNode(c)
+	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
+	fsUUID, _ := s.newModelFilesystem(c)
+	poolUUID := s.newStoragePool(c, "coolpool", "coolprovider", map[string]string{
+		"foo": "bar",
+	})
+	storageInstUUID, _ := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "config")
+	s.newStorageInstanceFilesystem(c, storageInstUUID, fsUUID)
+	s.newStorageOwner(c, storageInstUUID, unitUUID)
+	providerID := "provider-id-for-config"
+	s.newModelFilesystemAttachment(c, fsUUID, netNodeUUID, &providerID)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	storageToProviderIDs, err := st.GetStorageFilesystemAttachmentProviderIDs(c.Context(),
+		application.UUID(appUUID))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(storageToProviderIDs, tc.DeepEquals, map[string]string{
+		"config": "provider-id-for-config",
+	})
+}
+
+// TestGetStorageFilesystemAttachmentProviderIDs tests when the storage filesystem
+// attachment is not yet created, that entry in the map is excluded.
+func (s *filesystemSuite) TestGetStorageFilesystemAttachmentProviderIDsNotExist(c *tc.C) {
+	appUUID, charmUUID := s.newApplication(c, "foo")
+	netNodeUUID := s.newNetNode(c)
+	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
+	fsUUID, _ := s.newModelFilesystem(c)
+	poolUUID := s.newStoragePool(c, "coolpool", "coolprovider", map[string]string{
+		"foo": "bar",
+	})
+	storageInstUUID, _ := s.newStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "config")
+	s.newStorageInstanceFilesystem(c, storageInstUUID, fsUUID)
+	s.newStorageOwner(c, storageInstUUID, unitUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	storageToProviderIDs, err := st.GetStorageFilesystemAttachmentProviderIDs(c.Context(),
+		application.UUID(appUUID))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(storageToProviderIDs, tc.DeepEquals, map[string]string{})
+}
+
+// TestGetStorageFilesystemAttachmentProviderIDsApplicationNotExist fetching a non-existent
+// application returns an application not found error.
+func (s *filesystemSuite) TestGetStorageFilesystemAttachmentProviderIDsApplicationNotExist(c *tc.C) {
+	appUUID := tc.Must(c, application.NewUUID)
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetStorageFilesystemAttachmentProviderIDs(c.Context(),
+		appUUID)
+	c.Assert(err, tc.ErrorIs, domainapplicationerrors.ApplicationNotFound)
 }
 
 // changeFilesystemLife is a utility function for updating the life value of a
@@ -1405,6 +1464,7 @@ func (s *filesystemSuite) newModelFilesystemAttachment(
 	c *tc.C,
 	fsUUID domainstorage.FilesystemUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
+	providerID *string,
 ) domainstorage.FilesystemAttachmentUUID {
 	attachmentUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 
@@ -1416,12 +1476,14 @@ INSERT INTO storage_filesystem_attachment (uuid,
                                            net_node_uuid,
                                            life_id,
                                            read_only,
-                                           provision_scope_id)
-VALUES (?, ?, ?, 0, false, 0)
+                                           provision_scope_id,
+										   provider_id)
+VALUES (?, ?, ?, 0, false, 0, ?)
 `,
 		attachmentUUID.String(),
 		fsUUID,
 		netNodeUUID.String(),
+		providerID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
