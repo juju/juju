@@ -12,9 +12,11 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/crossmodelrelation/service"
+	deploymentcharm "github.com/juju/juju/domain/deployment/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -295,6 +297,125 @@ func (s *importSuite) TestImportRemoteApplicationsWithUnitsFromRelations(c *tc.C
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestExtractRelationUUIDFromRemoteEntities(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "relation-dummy-source.sink#remote-13ea27915e7840d888c5e9451444b45d.source",
+		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+
+	entities, err := extractRelationUUIDFromRemoteEntities(model)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(entities, tc.DeepEquals, []relationRemoteEntity{{
+		RelationKey: relation.Key{{
+			ApplicationName: "dummy-source",
+			EndpointName:    "sink",
+			Role:            deploymentcharm.RoleRequirer,
+		}, {
+			ApplicationName: "remote-13ea27915e7840d888c5e9451444b45d",
+			EndpointName:    "source",
+			Role:            deploymentcharm.RoleProvider,
+		}},
+		RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	}})
+}
+
+func (s *importSuite) TestExtractRelationUUIDFromRemoteEntitiesWithApplicationEntities(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "relation-dummy-source.sink#remote-13ea27915e7840d888c5e9451444b45d.source",
+		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "application-remote-13ea2791-5e78-40d8-88c5-e9451444b45d",
+		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+
+	entities, err := extractRelationUUIDFromRemoteEntities(model)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(entities, tc.DeepEquals, []relationRemoteEntity{{
+		RelationKey: relation.Key{{
+			ApplicationName: "dummy-source",
+			EndpointName:    "sink",
+			Role:            deploymentcharm.RoleRequirer,
+		}, {
+			ApplicationName: "remote-13ea27915e7840d888c5e9451444b45d",
+			EndpointName:    "source",
+			Role:            deploymentcharm.RoleProvider,
+		}},
+		RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	}})
+}
+
+func (s *importSuite) TestExtractRelationUUIDFromRemoteEntitiesNoEntities(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	entities, err := extractRelationUUIDFromRemoteEntities(model)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entities, tc.HasLen, 0)
+}
+
+func (s *importSuite) TestExtractApplicationUUIDFromRemoteEntities(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "application-remote-13ea2791-5e78-40d8-88c5-e9451444b45d",
+		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+
+	entities, err := extractApplicationUUIDFromRemoteEntities(model)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(entities, tc.DeepEquals, map[string]string{
+		"remote-13ea2791-5e78-40d8-88c5-e9451444b45d": "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+}
+
+func (s *importSuite) TestExtractApplicationUUIDFromRemoteEntitiesWithRelationEntities(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "relation-dummy-source.sink#remote-13ea27915e7840d888c5e9451444b45d.source",
+		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "application-remote-13ea2791-5e78-40d8-88c5-e9451444b45d",
+		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+
+	entities, err := extractApplicationUUIDFromRemoteEntities(model)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(entities, tc.DeepEquals, map[string]string{
+		"remote-13ea2791-5e78-40d8-88c5-e9451444b45d": "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+}
+
+func (s *importSuite) TestExtractApplicationUUIDFromRemoteEntitiesNoEntities(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	entities, err := extractApplicationUUIDFromRemoteEntities(model)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(entities, tc.HasLen, 0)
 }
 
 func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {

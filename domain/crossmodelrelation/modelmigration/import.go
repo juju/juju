@@ -319,16 +319,11 @@ func extractRelationUUIDFromRemoteEntities(model description.Model) ([]relationR
 	for _, re := range model.RemoteEntities() {
 		// Handle only remote entities that are relation UUIDs.
 		remoteEntityID := re.ID()
-		if !strings.HasPrefix(remoteEntityID, "remote-") {
+		if !strings.HasPrefix(remoteEntityID, "relation-") {
 			continue
 		}
 
-		tag, err := names.ParseRelationTag(remoteEntityID)
-		if err != nil {
-			return nil, errors.Errorf("parsing remote entity id %q: %w", remoteEntityID, err)
-		}
-
-		id, err := relation.ParseKeyFromTagString(tag.Id())
+		key, err := relation.ParseKeyFromTagString(relationTagSuffixToKey(remoteEntityID))
 		if err != nil {
 			return nil, errors.Errorf("parsing relation key from remote entity id %q: %w", remoteEntityID, err)
 		}
@@ -336,7 +331,7 @@ func extractRelationUUIDFromRemoteEntities(model description.Model) ([]relationR
 		// We shouldn't require the macaroon here, as no connections from the
 		// consumer side should be made to the offerer side.
 		remoteEntities = append(remoteEntities, relationRemoteEntity{
-			RelationKey:  id,
+			RelationKey:  key,
 			RelationUUID: re.Token(),
 		})
 	}
@@ -352,7 +347,12 @@ func extractApplicationUUIDFromRemoteEntities(model description.Model) (map[stri
 			continue
 		}
 
-		remoteEntities[remoteEntityID[12:]] = re.Token()
+		tag, err := names.ParseApplicationTag(remoteEntityID)
+		if err != nil {
+			return nil, errors.Errorf("parsing application tag from remote entity id %q: %w", remoteEntityID, err)
+		}
+
+		remoteEntities[tag.Id()] = re.Token()
 	}
 	return remoteEntities, nil
 }
@@ -407,6 +407,12 @@ func findRelationUUIDForKey(remoteEntities []relationRemoteEntity, relationKey r
 	}
 
 	return "", errors.Errorf("no relation UUID found for relation key %q", relationKey.String())
+}
+
+func relationTagSuffixToKey(s string) string {
+	// Replace both "." with ":" and the "#" with " ".
+	s = strings.Replace(s, ".", ":", 2)
+	return strings.Replace(s, "#", " ", 1)
 }
 
 func keysEqual(a, b relation.Key) bool {
