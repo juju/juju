@@ -1477,6 +1477,41 @@ WHERE  uuid = $storageInstance.uuid
 	return inst, nil
 }
 
+func (st *State) getStorageInstanceProvisionedInfo(ctx context.Context, tx *sqlair.TX, storageUUID domainstorage.StorageInstanceUUID) (storageInstanceProvisionedInfo, error) {
+	inst := storageInstance{StorageUUID: storageUUID}
+	query := `
+SELECT * AS &storageInstanceProvisionedInfo.* FROM (
+    SELECT    si.storage_name,
+              si.storage_pool_uuid,
+              (CASE
+                  WHEN sf.size_mib != 0 THEN sf.size_mib
+                  WHEN sv.size_mib != 0 THEN sv.size_mib
+                  WHEN sv.size_mib = 0 AND sf.size_mib = 0 THEN si.requested_size_mib
+              END) AS size_mib
+    FROM      storage_instance si
+    LEFT JOIN storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid
+    LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
+    LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
+    LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
+    WHERE     si.uuid = $storageInstance.uuid
+)
+`
+	queryStmt, err := st.Prepare(query, inst, storageInstanceProvisionedInfo{})
+	if err != nil {
+		return storageInstanceProvisionedInfo{}, errors.Capture(err)
+	}
+
+	var result storageInstanceProvisionedInfo
+	err = tx.Query(ctx, queryStmt, inst).Get(&result)
+	if err != nil {
+		if !errors.Is(err, sqlair.ErrNoRows) {
+			return storageInstanceProvisionedInfo{}, errors.Errorf("querying storage %q: %w", storageUUID, err)
+		}
+		return storageInstanceProvisionedInfo{}, errors.Errorf("%w: %s", storageerrors.StorageInstanceNotFound, storageUUID)
+	}
+	return result, nil
+}
+
 func (st *State) getUnitCharmStorageByName(ctx context.Context, tx *sqlair.TX, uuid coreunit.UUID, name corestorage.Name) (charmStorage, error) {
 	storageSpec := unitCharmStorage{
 		UnitUUID:    uuid,

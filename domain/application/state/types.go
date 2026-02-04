@@ -912,6 +912,12 @@ type storageInstance struct {
 	RequestedSizeMIB uint64                            `db:"requested_size_mib"`
 }
 
+type storageInstanceProvisionedInfo struct {
+	StorageName     corestorage.Name `db:"storage_name"`
+	StoragePoolUUID string           `db:"storage_pool_uuid"`
+	SizeMIB         uint64           `db:"size_mib"`
+}
+
 type unitCharmStorage struct {
 	UnitUUID    coreunit.UUID    `db:"uuid"`
 	StorageName corestorage.Name `db:"name"`

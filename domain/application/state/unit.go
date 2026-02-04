@@ -2422,18 +2422,18 @@ func (st *State) GetCharmStorageAndInstanceInfoByUnitUUIDAndStorageUUID(
 		return internalcharm.Storage{}, internal.StorageInstanceInfo{}, errors.Capture(err)
 	}
 	var (
-		chStorage        charmStorage
-		count            uint32
-		requestedSizeMiB uint64
-		poolUUID         string
+		chStorage charmStorage
+		count     uint32
+		sizeMiB   uint64
+		poolUUID  string
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		details, err := st.getStorageDetails(ctx, tx, storageUUID)
+		details, err := st.getStorageInstanceProvisionedInfo(ctx, tx, storageUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
 		poolUUID = details.StoragePoolUUID
-		requestedSizeMiB = details.RequestedSizeMIB
+		sizeMiB = details.SizeMIB
 		chStorage, err = st.getUnitCharmStorageByName(ctx, tx, unitUUID, details.StorageName)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			// Should never happen.
@@ -2462,7 +2462,7 @@ func (st *State) GetCharmStorageAndInstanceInfoByUnitUUIDAndStorageUUID(
 			Location:    chStorage.Location,
 		}, internal.StorageInstanceInfo{
 			AlreadyAttachedCount: count,
-			SizeMiB:              requestedSizeMiB,
+			SizeMiB:              sizeMiB,
 			PoolUUID:             domainstorage.StoragePoolUUID(poolUUID),
 		}, nil
 }
