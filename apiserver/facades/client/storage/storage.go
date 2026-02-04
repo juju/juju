@@ -439,7 +439,9 @@ func (a *StorageAPI) ListStorageDetails(
 	) (params.StorageDetails, error) {
 		retVal := params.StorageDetails{}
 
-		storageInstTag, err := names.ParseStorageTag(si.Name + "/" + si.ID)
+		storageInstTag, err := names.ParseStorageTag(
+			names.StorageTagKind + "-" + si.ID,
+		)
 		if err != nil {
 			return params.StorageDetails{}, errors.Errorf(
 				"generating storage instance %q tag from name %q and id %q: %w",
@@ -450,7 +452,9 @@ func (a *StorageAPI) ListStorageDetails(
 
 		var ownerTag string
 		if si.Owner != nil {
-			unitOwnerTag, err := names.ParseUnitTag(si.Owner.String())
+			unitOwnerTag, err := names.ParseUnitTag(
+				names.UnitTagKind + "-" + si.Owner.String(),
+			)
 			if err != nil {
 				return params.StorageDetails{}, errors.Errorf(
 					"generating storage instance %q unit owner tag from unit name %q: %w",
@@ -489,8 +493,13 @@ func (a *StorageAPI) ListStorageDetails(
 			retVal.Status.Since = &zeroTime
 		}
 
+		retVal.Attachments = make(
+			map[string]params.StorageAttachmentDetails, len(si.Attachments),
+		)
 		for unitName, attachment := range si.Attachments {
-			unitTag, err := names.ParseUnitTag(unitName.String())
+			unitTag, err := names.ParseUnitTag(
+				names.UnitTagKind + "-" + attachment.Unit.String(),
+			)
 			if err != nil {
 				return params.StorageDetails{}, errors.Errorf(
 					"generating storage instance %q attachment unit %q tag: %w",
@@ -500,7 +509,9 @@ func (a *StorageAPI) ListStorageDetails(
 
 			var machineTagStr string
 			if attachment.Machine != nil {
-				machineTag, err := names.ParseMachineTag(attachment.Machine.String())
+				machineTag, err := names.ParseMachineTag(
+					names.MachineTagKind + "-" + attachment.Machine.String(),
+				)
 				if err != nil {
 					return params.StorageDetails{}, errors.Errorf(
 						"generating storage instance %q attachment machine %q tag: %w",
