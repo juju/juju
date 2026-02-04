@@ -60,6 +60,28 @@ func TestImportSuite(t *testing.T) {
 	tc.Run(t, &importSuite{})
 }
 
+func (s *importSuite) TestRemoteApplicationsAreIgnored(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
+
+	appArgs := description.ApplicationArgs{
+		Name:     "remote-13ea27915e7840d888c5e9451444b45d",
+		CharmURL: "ch:prometheus-1",
+	}
+	model.AddApplication(appArgs)
+
+	importOp := importOperation{
+		service: s.importService,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+
+	err := importOp.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *importSuite) TestApplicationImportWithMinimalCharmForCAAS(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
