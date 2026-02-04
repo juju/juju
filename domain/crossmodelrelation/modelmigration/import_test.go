@@ -74,7 +74,7 @@ func (s *importSuite) TestImportOffers(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestImportRemoteApplications(c *tc.C) {
+func (s *importSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -93,7 +93,7 @@ func (s *importSuite) TestImportRemoteApplications(c *tc.C) {
 		Interface: "mysql",
 	})
 
-	expected := []service.RemoteApplicationImport{
+	expected := []service.RemoteApplicationOffererImport{
 		{
 			Name:            "remote-mysql",
 			OfferUUID:       "offer-uuid-1234",
@@ -107,39 +107,42 @@ func (s *importSuite) TestImportRemoteApplications(c *tc.C) {
 					Interface: "mysql",
 				},
 			},
-			Bindings:        map[string]string{"db": "alpha"},
-			IsConsumerProxy: false,
-			Units:           nil,
+			Bindings: map[string]string{"db": "alpha"},
+			Units:    nil,
 		},
 	}
-	s.importService.EXPECT().ImportRemoteApplications(
+	s.importService.EXPECT().ImportRemoteApplicationOfferers(
 		gomock.Any(),
 		expected,
 	).Return(nil)
 
 	// Act - no relations, so no units to extract
 	remoteAppUnits := make(map[string][]string)
-	err := s.newImportOperation(c).importRemoteApplications(c.Context(), model.RemoteApplications(), remoteAppUnits)
+	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(), model.RemoteApplications(), remoteAppUnits)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestImportRemoteApplicationsEmpty(c *tc.C) {
+func (s *importSuite) TestImportRemoteApplicationOfferersEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
 	model := description.NewModel(description.ModelArgs{})
+	s.importService.EXPECT().ImportRemoteApplicationOfferers(
+		gomock.Any(),
+		[]service.RemoteApplicationOffererImport{},
+	).Return(nil)
 
 	// Act - no remote applications, no mock expectations needed
 	remoteAppUnits := make(map[string][]string)
-	err := s.newImportOperation(c).importRemoteApplications(c.Context(), model.RemoteApplications(), remoteAppUnits)
+	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(), model.RemoteApplications(), remoteAppUnits)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestImportRemoteApplicationsMultiple(c *tc.C) {
+func (s *importSuite) TestImportRemoteApplicationOfferersMultiple(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -174,7 +177,7 @@ func (s *importSuite) TestImportRemoteApplicationsMultiple(c *tc.C) {
 		Interface: "admin",
 	})
 
-	expected := []service.RemoteApplicationImport{
+	expected := []service.RemoteApplicationOffererImport{
 		{
 			Name:            "remote-mysql",
 			OfferUUID:       "offer-uuid-1",
@@ -207,14 +210,14 @@ func (s *importSuite) TestImportRemoteApplicationsMultiple(c *tc.C) {
 			},
 		},
 	}
-	s.importService.EXPECT().ImportRemoteApplications(
+	s.importService.EXPECT().ImportRemoteApplicationOfferers(
 		gomock.Any(),
 		expected,
 	).Return(nil)
 
 	// Act
 	remoteAppUnits := make(map[string][]string)
-	err := s.newImportOperation(c).importRemoteApplications(c.Context(), model.RemoteApplications(), remoteAppUnits)
+	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(), model.RemoteApplications(), remoteAppUnits)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -273,10 +276,10 @@ func (s *importSuite) TestImportRemoteApplicationsWithUnitsFromRelations(c *tc.C
 	remoteEp.SetUnitSettings("remote-mysql/1", map[string]interface{}{"key": "value2"})
 
 	// The expected import should include the units extracted from relations
-	s.importService.EXPECT().ImportRemoteApplications(
+	s.importService.EXPECT().ImportRemoteApplicationOfferers(
 		gomock.Any(),
 		gomock.Any(),
-	).DoAndReturn(func(ctx context.Context, imports []service.RemoteApplicationImport) error {
+	).DoAndReturn(func(ctx context.Context, imports []service.RemoteApplicationOffererImport) error {
 		c.Assert(imports, tc.HasLen, 1)
 		c.Check(imports[0].Name, tc.Equals, "remote-mysql")
 		// Units should be extracted from relation endpoint settings
@@ -288,7 +291,7 @@ func (s *importSuite) TestImportRemoteApplicationsWithUnitsFromRelations(c *tc.C
 	// Act - use Execute which extracts units from relations
 	op := s.newImportOperation(c)
 	remoteAppUnits := op.extractRemoteAppUnits(model)
-	err := op.importRemoteApplications(c.Context(), model.RemoteApplications(), remoteAppUnits)
+	err := op.importRemoteApplicationOfferers(c.Context(), model.RemoteApplications(), remoteAppUnits)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
