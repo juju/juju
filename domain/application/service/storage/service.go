@@ -857,7 +857,7 @@ func (s Service) MakeIAASUnitStorageArgs(
 // The directive provides storage defaults including count, but here the
 // caller is specifying the actual count to use.
 // This is a cut down version of [MakeUnitStorageArgs]. We may
-// choose to DRY things upa bit later.
+// choose to DRY things up a bit later.
 func (s Service) MakeUnitAddStorageArgs(
 	ctx context.Context,
 	unitUUID coreunit.UUID,

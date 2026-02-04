@@ -588,7 +588,7 @@ SELECT &storageDirective.* FROM (
 		return application.StorageDirective{}, errors.Capture(err)
 	}
 
-	dbVals := []storageDirective{}
+	var dbVal storageDirective
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		exists, err := st.checkUnitExists(ctx, tx, unitUUID.String())
 		if err != nil {
@@ -602,7 +602,7 @@ SELECT &storageDirective.* FROM (
 			).Add(applicationerrors.UnitNotFound)
 		}
 
-		err = tx.Query(ctx, query, unitUUIDInput, storageDirectiveInput).GetAll(&dbVals)
+		err = tx.Query(ctx, query, unitUUIDInput, storageDirectiveInput).Get(&dbVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return applicationerrors.StorageNameNotSupported
 		}
@@ -613,15 +613,14 @@ SELECT &storageDirective.* FROM (
 		return application.StorageDirective{}, errors.Capture(err)
 	}
 
-	val := dbVals[0]
 	return application.StorageDirective{
-		CharmMetadataName: val.CharmMetadataName,
-		Count:             val.Count,
-		MaxCount:          val.CountMax,
-		Name:              domainstorage.Name(val.StorageName),
-		CharmStorageType:  charm.StorageType(val.CharmStorageKind),
-		PoolUUID:          domainstorage.StoragePoolUUID(val.StoragePoolUUID),
-		Size:              val.SizeMiB,
+		CharmMetadataName: dbVal.CharmMetadataName,
+		Count:             dbVal.Count,
+		MaxCount:          dbVal.CountMax,
+		Name:              domainstorage.Name(dbVal.StorageName),
+		CharmStorageType:  charm.StorageType(dbVal.CharmStorageKind),
+		PoolUUID:          domainstorage.StoragePoolUUID(dbVal.StoragePoolUUID),
+		Size:              dbVal.SizeMiB,
 	}, nil
 }
 
@@ -1121,10 +1120,10 @@ func (st *State) getUnitStorageCount(
 ) (uint32, error) {
 	countQuery, err := st.Prepare(`
 SELECT count(*) AS &storageCount.count
-FROM  storage_instance si
-JOIN  storage_unit_owner suo ON si.uuid = suo.storage_instance_uuid
-WHERE suo.unit_uuid = $storageCount.unit_uuid
-AND   si.storage_name = $storageCount.storage_name
+FROM   storage_instance si
+JOIN   storage_unit_owner suo ON si.uuid = suo.storage_instance_uuid
+WHERE  suo.unit_uuid = $storageCount.unit_uuid
+AND    si.storage_name = $storageCount.storage_name
 `, storageCount{})
 	if err != nil {
 		return 0, errors.Capture(err)
@@ -1132,7 +1131,7 @@ AND   si.storage_name = $storageCount.storage_name
 
 	storageCount := storageCount{StorageName: storageName, UnitUUID: unitUUID}
 	err = tx.Query(ctx, countQuery, storageCount).Get(&storageCount)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+	if err != nil {
 		return 0, errors.Errorf("querying storage count for storage %q on unit %q: %w", storageName, unitUUID, err)
 	}
 	return storageCount.Count, nil

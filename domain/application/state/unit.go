@@ -1831,8 +1831,8 @@ func (st *State) GetUnitNetNodeUUID(ctx context.Context, uuid coreunit.UUID) (st
 	ident := unitUUID{UnitUUID: uuid.String()}
 	stmt, err := st.Prepare(`
 SELECT &unitNetNodeUUID.*
-FROM unit u
-WHERE u.uuid = $unitUUID.uuid
+FROM   unit u
+WHERE  u.uuid = $unitUUID.uuid
 `, unitNetNodeUUID{}, ident)
 	if err != nil {
 		return "", errors.Capture(err)
