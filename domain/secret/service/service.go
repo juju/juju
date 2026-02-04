@@ -276,7 +276,7 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 		}
 	}()
 
-	if err := s.createSecret(ctx, params.Version, uri, secrets.Owner{Kind: secrets.ModelOwner}, p); err != nil {
+	if err := s.createModelSecret(ctx, params.Version, uri, p); err != nil {
 		return errors.Errorf("creating user secret %q: %w", uri.ID, err)
 	}
 	return nil
@@ -344,7 +344,8 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 			}
 		}
 	}()
-	if params.CharmOwner.Kind == domainsecret.ApplicationCharmSecretOwner {
+	switch params.CharmOwner.Kind {
+	case domainsecret.ApplicationCharmSecretOwner:
 		unitName, err := coreunit.NewName(params.Accessor.ID)
 		if err != nil {
 			return errors.Capture(err)
@@ -356,13 +357,15 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 			}
 			return errors.Capture(err)
 		}
-	}
-
-	if err := s.createSecret(ctx, params.Version, uri, secrets.Owner{
-		ID:   params.CharmOwner.ID,
-		Kind: secrets.OwnerKind(params.CharmOwner.Kind),
-	}, p); err != nil {
-		return errors.Errorf("cannot create charm secret %q: %w", uri.ID, err)
+		if err := s.createApplicationSecret(ctx, params.Version, uri, params.CharmOwner.ID, p); err != nil {
+			return errors.Errorf("cannot create charm secret %q: %w", uri.ID, err)
+		}
+	case domainsecret.UnitCharmSecretOwner:
+		if err := s.createUnitSecret(ctx, params.Version, uri, params.CharmOwner.ID, p); err != nil {
+			return errors.Errorf("cannot create charm secret %q: %w", uri.ID, err)
+		}
+	default:
+		return errors.Errorf("unexpected secret owner kind %q for secret %q", params.CharmOwner.Kind, uri.ID)
 	}
 	return nil
 }
@@ -544,33 +547,35 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 	})
 }
 
-func (s *SecretService) createSecret(ctx context.Context, version int, uri *secrets.URI, owner secrets.Owner,
-	params domainsecret.UpsertSecretParams) (err error) {
-	switch kind := owner.Kind; kind {
-	case secrets.ApplicationOwner:
-		appUUID, err := s.getApplicationUUIDByName(ctx, owner.ID)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		if err := s.secretState.CreateCharmApplicationSecret(ctx, version, uri, coreapplication.UUID(appUUID),
-			params); err != nil {
-			return errors.Errorf("cannot create application secret: %w", err)
-		}
-	case secrets.UnitOwner:
-		unitUUID, err := s.getUnitUUIDByName(ctx, owner.ID)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		if err := s.secretState.CreateCharmUnitSecret(ctx, version, uri, coreunit.UUID(unitUUID), params); err != nil {
-			return errors.Errorf("cannot create unit secret: %w", err)
-		}
-	case secrets.ModelOwner:
-		if err := s.secretState.CreateUserSecret(ctx, version, uri, params); err != nil {
-			return errors.Errorf("cannot create user secret: %w", err)
-		}
-	default:
-		// Should never happen.
-		return errors.Errorf("unexpected secret owner kind %q for secret %q", kind, uri.ID)
+func (s *SecretService) createApplicationSecret(ctx context.Context, version int, uri *secrets.URI, ownerID string,
+	params domainsecret.UpsertSecretParams) error {
+	appUUID, err := s.getApplicationUUIDByName(ctx, ownerID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := s.secretState.CreateCharmApplicationSecret(ctx, version, uri, coreapplication.UUID(appUUID),
+		params); err != nil {
+		return errors.Errorf("cannot create application secret: %w", err)
+	}
+	return nil
+}
+
+func (s *SecretService) createUnitSecret(ctx context.Context, version int, uri *secrets.URI, ownerID string,
+	params domainsecret.UpsertSecretParams) error {
+	unitUUID, err := s.getUnitUUIDByName(ctx, ownerID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := s.secretState.CreateCharmUnitSecret(ctx, version, uri, coreunit.UUID(unitUUID), params); err != nil {
+		return errors.Errorf("cannot create unit secret: %w", err)
+	}
+	return nil
+}
+
+func (s *SecretService) createModelSecret(ctx context.Context, version int, uri *secrets.URI,
+	params domainsecret.UpsertSecretParams) error {
+	if err := s.secretState.CreateUserSecret(ctx, version, uri, params); err != nil {
+		return errors.Errorf("cannot create user secret: %w", err)
 	}
 	return nil
 }
