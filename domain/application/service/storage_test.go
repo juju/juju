@@ -25,7 +25,7 @@ func setAddUnitNoopStorageExpects(
 		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 	).Return(internal.CreateUnitStorageArg{}, nil).AnyTimes()
 	storageService.EXPECT().MakeIAASUnitStorageArgs(
-		gomock.Any(), gomock.Any(),
+		gomock.Any(),
 	).Return(internal.CreateIAASUnitStorageArg{}, nil).AnyTimes()
 }
 
@@ -47,7 +47,7 @@ func setCreateApplicationNoopStorageExpects(
 		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 	).Return(internal.CreateUnitStorageArg{}, nil).AnyTimes()
 	storageService.EXPECT().MakeIAASUnitStorageArgs(
-		gomock.Any(), gomock.Any(),
+		gomock.Any(),
 	).Return(internal.CreateIAASUnitStorageArg{}, nil).AnyTimes()
 	storageService.EXPECT().ValidateCharmStorage(
 		gomock.Any(), gomock.Any(),

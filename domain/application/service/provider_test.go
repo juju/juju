@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -3119,7 +3120,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnitValidates(c *tc.C) {
 			CountMin:    1,
 			CountMax:    666,
 		}, 66, nil)
-	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), map[string]internalcharm.Storage{
+	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), map[string]internal.ValidateStorageArg{
 		"pgdata": {
 			Name:        "pgdata",
 			Type:        internalcharm.StorageFilesystem,
@@ -3164,7 +3165,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 			CountMin:    1,
 			CountMax:    666,
 		}, 66, nil)
-	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), map[string]internalcharm.Storage{
+	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), map[string]internal.ValidateStorageArg{
 		"pgdata": {
 			Name:        "pgdata",
 			Type:        internalcharm.StorageFilesystem,
@@ -3197,7 +3198,15 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 		Size:             uint64(6),
 	}).
 		Return(unitStorageArgs, nil)
-	s.storageService.EXPECT().MakeIAASUnitStorageArgs(gomock.Any(), unitStorageArgs.StorageInstances).
+	storageInst := transform.Slice(unitStorageArgs.StorageInstances,
+		func(in internal.CreateUnitStorageInstanceArg) internal.UnitStorageInstanceArg {
+			return internal.UnitStorageInstanceArg{
+				Filesystem: in.Filesystem,
+				Volume:     in.Volume,
+				UUID:       in.UUID,
+			}
+		})
+	s.storageService.EXPECT().MakeIAASUnitStorageArgs(storageInst).
 		Return(internal.CreateIAASUnitStorageArg{
 			FilesystemsToOwn: fsToOwn,
 			VolumesToOwn:     volToOwn,
@@ -3273,7 +3282,7 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnitValidates(c *tc.C) {
 			CountMin:    1,
 			CountMax:    666,
 		}, 66, nil)
-	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), map[string]internalcharm.Storage{
+	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), map[string]internal.ValidateStorageArg{
 		"pgdata": {
 			Name:        "pgdata",
 			Type:        internalcharm.StorageFilesystem,
@@ -3318,7 +3327,7 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnit(c *tc.C) {
 			CountMin:    1,
 			CountMax:    666,
 		}, 66, nil)
-	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), map[string]internalcharm.Storage{
+	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), map[string]internal.ValidateStorageArg{
 		"pgdata": {
 			Name:        "pgdata",
 			Type:        internalcharm.StorageFilesystem,

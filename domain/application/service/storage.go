@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/domain/application/service/storage"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	domainnetwork "github.com/juju/juju/domain/network"
+	domainstorage "github.com/juju/juju/domain/storage"
 )
 
 // StorageDirectiveOverrides represents override instructions for application
@@ -113,8 +114,7 @@ type StorageService interface {
 	// MakeIAASUnitStorageArgs returns [internal.CreateIAASUnitStorageArg] that
 	// complement the unit storage arguments provided for IAAS units.
 	MakeIAASUnitStorageArgs(
-		ctx context.Context,
-		storageInst []internal.CreateUnitStorageInstanceArg,
+		storageInst []internal.UnitStorageInstanceArg,
 	) (internal.CreateIAASUnitStorageArg, error)
 
 	// MakeUnitAddStorageArgs creates the storage arguments required to
@@ -134,7 +134,7 @@ type StorageService interface {
 	// storage definitions.
 	ValidateApplicationStorageDirectiveOverrides(
 		ctx context.Context,
-		charmStorageDefs map[string]internalcharm.Storage,
+		charmStorageDefs map[string]internal.ValidateStorageArg,
 		overrides map[string]storage.StorageDirectiveOverride,
 	) error
 
@@ -172,4 +172,30 @@ type StorageService interface {
 		toUpdate []internal.UpdateApplicationStorageDirectiveArg,
 		err error,
 	)
+
+	// ValidateAttachStorage checks that a storage instance from the specified
+	// pool can be attached to a unit with respect to the unit's charm storage
+	// definition.
+	//
+	// The following errors may be expected:
+	// - [applicationerrors.StorageCountLimitExceeded] when the requested storage
+	// falls outside of the bounds defined by the charm.
+	ValidateAttachStorage(
+		ctx context.Context,
+		charmStorageDef internal.ValidateStorageArg,
+		wantCount uint32,
+		storageSize uint64,
+		poolUUID domainstorage.StoragePoolUUID,
+	) error
+	
+	// MakeUnitAttachStorageArgs creates the storage arguments required to
+	// attach existing storage to a unit.
+	// The following errors may be expected:
+	// - [applicationerrors.StorageCountLimitExceeded] when the requested storage
+	// falls outside of the bounds defined by the charm.
+	MakeUnitAttachStorageArgs(
+		ctx context.Context,
+		unitUUID coreunit.UUID,
+		storageUUID domainstorage.StorageInstanceUUID,
+	) (internal.UnitAttachStorageArg, error)
 }

@@ -213,7 +213,7 @@ func MakeStorageDirectiveFromApplicationArg(
 // falls outside of the bounds defined by the charm.
 func (s *Service) ValidateApplicationStorageDirectiveOverrides(
 	ctx context.Context,
-	charmStorageDefs map[string]internalcharm.Storage,
+	charmStorageDefs map[string]internal.ValidateStorageArg,
 	overrides map[string]StorageDirectiveOverride,
 ) error {
 	for name, override := range overrides {
@@ -244,7 +244,7 @@ func (s *Service) ValidateApplicationStorageDirectiveOverrides(
 // falls outside of the bounds defined by the charm.
 func validateApplicationStorageDirectiveOverride(
 	ctx context.Context,
-	charmStorageDef internalcharm.Storage,
+	charmStorageDef internal.ValidateStorageArg,
 	override StorageDirectiveOverride,
 	poolProvider StoragePoolProvider,
 ) error {
@@ -314,6 +314,78 @@ func validateApplicationStorageDirectiveOverride(
 				*override.PoolUUID, charmStorageDef.Type,
 			)
 		}
+	}
+
+	return nil
+}
+
+// ValidateAttachStorage checks that a storage instance from the specified
+// pool can be attached to a unit with respect to the unit's charm storage
+// definition.
+func (s *Service) ValidateAttachStorage(
+	ctx context.Context,
+	charmStorageDef internal.ValidateStorageArg,
+	wantCount uint32,
+	storageSize uint64,
+	poolUUID domainstorage.StoragePoolUUID,
+) error {
+	return validateAttachStorage(ctx, charmStorageDef, wantCount, storageSize, poolUUID, s.storagePoolProvider)
+}
+
+func validateAttachStorage(
+	ctx context.Context,
+	charmStorageDef internal.ValidateStorageArg,
+	wantCount uint32,
+	storageSize uint64,
+	poolUUID domainstorage.StoragePoolUUID,
+	poolProvider StoragePoolProvider,
+) error {
+	var (
+		// hasMaxCount is true when the charm storage definition has
+		// indicated that there is a maximum value it will tolerate. When
+		// the charm specifies -1 the charm has no opinion what the maximum
+		// should be.
+		hasMaxCount bool
+		maxCount    uint32
+	)
+	if charmStorageDef.CountMax >= 0 {
+		maxCount = uint32(charmStorageDef.CountMax)
+		hasMaxCount = true
+	}
+
+	if hasMaxCount && wantCount > maxCount {
+		return applicationerrors.StorageCountLimitExceeded{
+			Maximum:     &charmStorageDef.CountMax,
+			Minimum:     charmStorageDef.CountMin,
+			Requested:   int(wantCount),
+			StorageName: charmStorageDef.Name,
+		}
+	}
+
+	if charmStorageDef.MinimumSize != 0 &&
+		storageSize < charmStorageDef.MinimumSize {
+		return errors.Errorf(
+			"storage directive size %d is less than the charm minimum requirement of %d",
+			storageSize, charmStorageDef.MinimumSize,
+		)
+	}
+
+	charmStorageType := charm.StorageType(charmStorageDef.Type)
+	supports, err := poolProvider.CheckPoolSupportsCharmStorage(
+		ctx, poolUUID, charmStorageType,
+	)
+	if err != nil {
+		return errors.Errorf(
+			"checking storage directive pool %q supports charm storage %q",
+			poolUUID, charmStorageDef.Type,
+		)
+	}
+
+	if !supports {
+		return errors.Errorf(
+			"storage directive pool %q does not support charm storage %q",
+			poolUUID, charmStorageDef.Type,
+		)
 	}
 
 	return nil
