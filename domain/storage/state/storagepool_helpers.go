@@ -24,11 +24,11 @@ func GetStoragePoolUUID(
 	preparer domain.Preparer,
 	name string,
 ) (domainstorage.StoragePoolUUID, error) {
-	inputArg := storagePoolIdentifiers{Name: name}
+	inputArg := nameAndUUID{Name: name}
 	stmt, err := preparer.Prepare(`
-SELECT &storagePoolIdentifiers.uuid
+SELECT &nameAndUUID.uuid
 FROM   storage_pool
-WHERE  name = $storagePoolIdentifiers.name`, inputArg)
+WHERE  name = $nameAndUUID.name`, inputArg)
 	if err != nil {
 		return "", errors.Capture(err)
 	}

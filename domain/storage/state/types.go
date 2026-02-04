@@ -8,6 +8,13 @@ type entityUUID struct {
 	UUID string `db:"uuid"`
 }
 
+// nameAndUUID is an agnostic container for a `name` and `uuid`
+// column combination.
+type nameAndUUID struct {
+	Name string `db:"name"`
+	UUID string `db:"uuid"`
+}
+
 // storageInstanceID represents the storage instance storage_id column for a
 // row in the storage_instance table.
 type storageInstanceID struct {
