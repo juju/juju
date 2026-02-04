@@ -49,12 +49,3 @@ func NewApplicationForTest(
 		controllerUUID,
 	)
 }
-
-func PVCNames(client kubernetes.Interface, namespace, appName, storagePrefix string) (map[string]string, error) {
-	a := &app{
-		name:      appName,
-		namespace: namespace,
-		client:    client,
-	}
-	return a.pvcNames(storagePrefix)
-}
