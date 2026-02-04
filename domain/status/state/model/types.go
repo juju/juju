@@ -285,6 +285,7 @@ type storageInstanceStatusDetails struct {
 	ID                        string         `db:"storage_id"`
 	OwnerUnitName             sql.NullString `db:"owner_unit_name"`
 	KindID                    int            `db:"storage_kind_id"`
+	StorageName               string         `db:"storage_name"`
 	LifeID                    int            `db:"life_id"`
 	FilesystemStatusID        sql.Null[int]  `db:"filesystem_status_id"`
 	FilesystemStatusMessage   string         `db:"filesystem_status_message"`

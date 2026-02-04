@@ -224,7 +224,9 @@ func (s *Service) GetAllStorageInstanceStatuses(
 
 	storageInstances, err := s.modelState.GetAllStorageInstances(ctx)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, errors.Errorf(
+			"getting all storage instances for model: %w", err,
+		)
 	}
 	storageAttachments, err := s.modelState.GetAllStorageInstanceAttachments(ctx)
 	if err != nil {
@@ -251,6 +253,7 @@ func (s *Service) transformStorageInstanceResults(
 			ID:    dsi.ID,
 			Kind:  dsi.Kind,
 			Owner: dsi.Owner,
+			Name:  dsi.Name,
 		}
 		var err error
 		si.Life, err = dsi.Life.Value()

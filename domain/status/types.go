@@ -76,6 +76,7 @@ type StorageInstance struct {
 	UUID             storage.StorageInstanceUUID
 	ID               string
 	Kind             storage.StorageKind
+	Name             string
 	Owner            *unit.Name
 	Life             life.Life
 	FilesystemStatus StatusInfo[StorageFilesystemStatusType]

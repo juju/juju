@@ -377,7 +377,11 @@ func (st *ModelState) GetStorageInstances(
 
 	stmt, err := st.Prepare(`
 SELECT &storageInstanceStatusDetails.* FROM (
-    SELECT    si.uuid, si.storage_id, si.life_id, si.storage_kind_id,
+    SELECT    si.uuid,
+              si.storage_id,
+              si.life_id,
+              si.storage_kind_id,
+              si.storage_name,
               u.name AS owner_unit_name,
               svs.status_id AS volume_status_id,
               svs.message AS volume_status_message,
@@ -402,10 +406,11 @@ SELECT &storageInstanceStatusDetails.* FROM (
 	var out []storageInstanceStatusDetails
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, ids).GetAll(&out)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return err
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// No rows just means that no StorageInstances exist in the model.
+			return nil
 		}
-		return nil
+		return err
 	})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -447,6 +452,7 @@ SELECT &storageInstanceStatusDetails.* FROM (
 			UUID:             storage.StorageInstanceUUID(v.UUID),
 			ID:               v.ID,
 			Kind:             storage.StorageKind(v.KindID),
+			Name:             v.StorageName,
 			Life:             life.Life(v.LifeID),
 			Owner:            owner,
 			FilesystemStatus: fsStatus,
@@ -466,7 +472,11 @@ func (st *ModelState) GetAllStorageInstances(
 
 	stmt, err := st.Prepare(`
 SELECT &storageInstanceStatusDetails.* FROM (
-    SELECT    si.uuid, si.storage_id, si.life_id, si.storage_kind_id,
+    SELECT    si.uuid,
+    		  si.storage_id,
+              si.life_id,
+              si.storage_kind_id,
+              si.storage_name,
               u.name AS owner_unit_name,
               svs.status_id AS volume_status_id,
               svs.message AS volume_status_message,
@@ -490,10 +500,11 @@ SELECT &storageInstanceStatusDetails.* FROM (
 	var out []storageInstanceStatusDetails
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).GetAll(&out)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return err
+		if errors.Is(err, sql.ErrNoRows) {
+			// No rows just means that no StorageInstances exist in the model.
+			return nil
 		}
-		return nil
+		return err
 	})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -535,6 +546,7 @@ SELECT &storageInstanceStatusDetails.* FROM (
 			UUID:             storage.StorageInstanceUUID(v.UUID),
 			ID:               v.ID,
 			Kind:             storage.StorageKind(v.KindID),
+			Name:             v.StorageName,
 			Life:             life.Life(v.LifeID),
 			Owner:            owner,
 			FilesystemStatus: fsStatus,
