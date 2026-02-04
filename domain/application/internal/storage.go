@@ -181,7 +181,7 @@ type UnitStorageAttachmentArg struct {
 
 	// FilesystemAttachment describes a filesystem to attach for the storage
 	// instance attachment.
-	FilesystemAttachment *CreateUnitStorageFilesystemAttachmentArg
+	FilesystemAttachment *UnitStorageFilesystemAttachmentArg
 
 	// StorageInstanceUUID is the unique identifier of the storage instance
 	// to attach to the unit.
@@ -189,16 +189,16 @@ type UnitStorageAttachmentArg struct {
 
 	// VolumeAttachment describes a volume to attach for the storage
 	// instance attachment.
-	VolumeAttachment *CreateUnitStorageVolumeAttachmentArg
+	VolumeAttachment *UnitStorageVolumeAttachmentArg
 }
 
 // CreateUnitStorageDirectiveArg describes the arguments required for making storage
 // directives on a unit.
 type CreateUnitStorageDirectiveArg = CreateStorageDirectiveArg
 
-// CreateUnitStorageFilesystemArg describes a set of arguments for a filesystem
-// that should be created as part of a unit's storage.
-type CreateUnitStorageFilesystemArg struct {
+// UnitStorageFilesystemArg describes a set of attributes describing
+// a filesystem that can exist as part of a unit's storage.
+type UnitStorageFilesystemArg struct {
 	// UUID describes the unique identifier of the filesystem to
 	// create alongside the storage instance.
 	UUID domainstorage.FilesystemUUID
@@ -208,10 +208,10 @@ type CreateUnitStorageFilesystemArg struct {
 	ProvisionScope domainstorageprov.ProvisionScope
 }
 
-// CreateUnitStorageFilesystemAttachmentArg describes a set of arguments for a
-// filesystem attachment that should be created alongside a unit's storage in
+// UnitStorageFilesystemAttachmentArg describes a set of arguments for a
+// filesystem attachment that should exist alongside a unit's storage in
 // the model.
-type CreateUnitStorageFilesystemAttachmentArg struct {
+type UnitStorageFilesystemAttachmentArg struct {
 	// FilesystemUUID is the unique identifier of the filesystem to be attached.
 	FilesystemUUID domainstorage.FilesystemUUID
 
@@ -239,7 +239,7 @@ type CreateUnitStorageInstanceArg struct {
 	// Filesystem describes the properties of a new filesystem to be created
 	// alongside the  storage instance. If this value is not nil a new
 	// filesystem will be created with the storage instance.
-	Filesystem *CreateUnitStorageFilesystemArg
+	Filesystem *UnitStorageFilesystemArg
 
 	// Kind defines the type of storage that is being created.
 	Kind domainstorage.StorageKind
@@ -260,15 +260,15 @@ type CreateUnitStorageInstanceArg struct {
 	// Volume describes the properties of a new volume to be created alongside
 	// the storage instance. If this value is not nil a new volume will be
 	// created with the storage instance.
-	Volume *CreateUnitStorageVolumeArg
+	Volume *UnitStorageVolumeArg
 
 	// UUID is the unique identifier to associate with the storage instance.
 	UUID domainstorage.StorageInstanceUUID
 }
 
-// CreateUnitStorageVolumeArg describes a set of arguments for a volume
-// that should be created as part of a unit's storage.
-type CreateUnitStorageVolumeArg struct {
+// UnitStorageVolumeArg describes a set of attributes describing
+// a volume that can exist as part of a unit's storage.
+type UnitStorageVolumeArg struct {
 	// UUID describes the unique identifier of the volume to
 	// create alongside the storage instance.
 	UUID domainstorage.VolumeUUID
@@ -278,10 +278,10 @@ type CreateUnitStorageVolumeArg struct {
 	ProvisionScope domainstorageprov.ProvisionScope
 }
 
-// CreateUnitStorageVolumeAttachmentArg describes a set of arguments for a
-// volume attachment that should be created alongside a unit's storage in
+// UnitStorageVolumeAttachmentArg describes a set of arguments for a
+// volume attachment that should exist alongside a unit's storage in
 // the model.
-type CreateUnitStorageVolumeAttachmentArg struct {
+type UnitStorageVolumeAttachmentArg struct {
 	// NetNodeUUID is the net node of the model entity that volume will be
 	// attached to.
 	NetNodeUUID domainnetwork.NetNodeUUID
@@ -307,12 +307,12 @@ type UnitStorageInstanceArg struct {
 	// Filesystem describes the properties of a new filesystem to be created
 	// alongside the  storage instance. If this value is not nil a new
 	// filesystem will be created with the storage instance.
-	Filesystem *CreateUnitStorageFilesystemArg
+	Filesystem *UnitStorageFilesystemArg
 
 	// Volume describes the properties of a new volume to be created alongside
 	// the storage instance. If this value is not nil a new volume will be
 	// created with the storage instance.
-	Volume *CreateUnitStorageVolumeArg
+	Volume *UnitStorageVolumeArg
 
 	// UUID is the unique identifier of the storage instance.
 	UUID domainstorage.StorageInstanceUUID

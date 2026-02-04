@@ -121,7 +121,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitStorageArg(c *tc.C
 	expectedStorageInstances := []internal.CreateUnitStorageInstanceArg{
 		{
 			CharmName: "big-beautiful-charm",
-			Filesystem: &internal.CreateUnitStorageFilesystemArg{
+			Filesystem: &internal.UnitStorageFilesystemArg{
 				ProvisionScope: domainstorageprov.ProvisionScopeModel,
 			},
 			Kind:            domainstorage.StorageKindFilesystem,
@@ -133,7 +133,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitStorageArg(c *tc.C
 
 	expectedStorageToAttach := []internal.UnitStorageAttachmentArg{
 		{
-			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
+			FilesystemAttachment: &internal.UnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: arg.StorageInstances[0].Filesystem.UUID,
 				NetNodeUUID:    attachNetNodeUUID,
 				ProvisionScope: domainstorageprov.ProvisionScopeModel,
@@ -275,7 +275,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArg(c 
 	// is to make sure the storage is attached.
 	expectedStorageToAttach := []internal.UnitStorageAttachmentArg{
 		{
-			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
+			FilesystemAttachment: &internal.UnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: unitOwnedStorage[0].Filesystem.UUID,
 				NetNodeUUID:    attachNetNodeUUID,
 				ProvisionScope: domainstorageprov.ProvisionScopeModel,
@@ -283,7 +283,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArg(c 
 			StorageInstanceUUID: unitOwnedStorage[0].UUID,
 		},
 		{
-			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
+			FilesystemAttachment: &internal.UnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: unitOwnedStorage[1].Filesystem.UUID,
 				NetNodeUUID:    attachNetNodeUUID,
 				ProvisionScope: domainstorageprov.ProvisionScopeModel,
@@ -425,7 +425,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArgeEx
 	// is to make sure the storage is attached.
 	expectedStorageToAttach := []internal.UnitStorageAttachmentArg{
 		{
-			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
+			FilesystemAttachment: &internal.UnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: unitOwnedStorage[0].Filesystem.UUID,
 				NetNodeUUID:    attachNetNodeUUID,
 				ProvisionScope: domainstorageprov.ProvisionScopeModel,
@@ -433,7 +433,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArgeEx
 			StorageInstanceUUID: unitOwnedStorage[0].UUID,
 		},
 		{
-			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
+			FilesystemAttachment: &internal.UnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: existingProviderStorage[0].Filesystem.UUID,
 				NetNodeUUID:    attachNetNodeUUID,
 				ProvisionScope: domainstorageprov.ProvisionScopeModel,
@@ -572,7 +572,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitWithExistingStorag
 	// is to make sure the storage is attached.
 	expectedStorageToAttach := []internal.UnitStorageAttachmentArg{
 		{
-			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
+			FilesystemAttachment: &internal.UnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: existingProviderStorage[0].Filesystem.UUID,
 				NetNodeUUID:    attachNetNodeUUID,
 				ProvisionScope: domainstorageprov.ProvisionScopeModel,
@@ -580,7 +580,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitWithExistingStorag
 			StorageInstanceUUID: existingProviderStorage[0].UUID,
 		},
 		{
-			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
+			FilesystemAttachment: &internal.UnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: existingProviderStorage[1].Filesystem.UUID,
 				NetNodeUUID:    attachNetNodeUUID,
 				ProvisionScope: domainstorageprov.ProvisionScopeModel,
@@ -673,13 +673,13 @@ func (*registerCAASStorageSuite) TestMakeCAASStorageInstanceProviderIDAssociatio
 	fs2UUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 	unitStorageToCreate := []internal.CreateUnitStorageInstanceArg{
 		{
-			Filesystem: &internal.CreateUnitStorageFilesystemArg{
+			Filesystem: &internal.UnitStorageFilesystemArg{
 				UUID: fs1UUID,
 			},
 			Name: "st1",
 		},
 		{
-			Filesystem: &internal.CreateUnitStorageFilesystemArg{
+			Filesystem: &internal.UnitStorageFilesystemArg{
 				UUID: fs2UUID,
 			},
 			Name: "st2",

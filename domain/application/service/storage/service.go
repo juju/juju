@@ -583,7 +583,7 @@ func makeStorageAttachmentArgFromExistingStorageInstance(
 			)
 		}
 
-		rval.FilesystemAttachment = &internal.CreateUnitStorageFilesystemAttachmentArg{
+		rval.FilesystemAttachment = &internal.UnitStorageFilesystemAttachmentArg{
 			FilesystemUUID: storageInstance.Filesystem.UUID,
 			NetNodeUUID:    netNodeUUID,
 			ProvisionScope: storageInstance.Filesystem.ProvisionScope,
@@ -599,7 +599,7 @@ func makeStorageAttachmentArgFromExistingStorageInstance(
 			)
 		}
 
-		rval.VolumeAttachment = &internal.CreateUnitStorageVolumeAttachmentArg{
+		rval.VolumeAttachment = &internal.UnitStorageVolumeAttachmentArg{
 			VolumeUUID:     storageInstance.Volume.UUID,
 			NetNodeUUID:    netNodeUUID,
 			ProvisionScope: storageInstance.Volume.ProvisionScope,
@@ -640,7 +640,7 @@ func makeStorageAttachmentArgFromNewStorageInstance(
 			)
 		}
 
-		rval.FilesystemAttachment = &internal.CreateUnitStorageFilesystemAttachmentArg{
+		rval.FilesystemAttachment = &internal.UnitStorageFilesystemAttachmentArg{
 			FilesystemUUID: storageInstance.Filesystem.UUID,
 			NetNodeUUID:    netNodeUUID,
 			ProvisionScope: storageInstance.Filesystem.ProvisionScope,
@@ -656,7 +656,7 @@ func makeStorageAttachmentArgFromNewStorageInstance(
 			)
 		}
 
-		rval.VolumeAttachment = &internal.CreateUnitStorageVolumeAttachmentArg{
+		rval.VolumeAttachment = &internal.UnitStorageVolumeAttachmentArg{
 			VolumeUUID:     storageInstance.Volume.UUID,
 			NetNodeUUID:    netNodeUUID,
 			ProvisionScope: storageInstance.Volume.ProvisionScope,
@@ -996,7 +996,7 @@ func makeUnitStorageInstancesFromDirective(
 				)
 			}
 
-			instArg.Filesystem = &internal.CreateUnitStorageFilesystemArg{
+			instArg.Filesystem = &internal.UnitStorageFilesystemArg{
 				UUID:           u,
 				ProvisionScope: composition.FilesystemProvisionScope,
 			}
@@ -1010,7 +1010,7 @@ func makeUnitStorageInstancesFromDirective(
 				)
 			}
 
-			instArg.Volume = &internal.CreateUnitStorageVolumeArg{
+			instArg.Volume = &internal.UnitStorageVolumeArg{
 				UUID:           u,
 				ProvisionScope: composition.VolumeProvisionScope,
 			}
@@ -1053,13 +1053,13 @@ func (s Service) MakeUnitAttachStorageArgs(
 			UUID: storageInstanceUUID,
 		}
 		if inst.Filesystem != nil {
-			instArg.Filesystem = &internal.CreateUnitStorageFilesystemArg{
+			instArg.Filesystem = &internal.UnitStorageFilesystemArg{
 				UUID:           inst.Filesystem.UUID,
 				ProvisionScope: inst.Filesystem.ProvisionScope,
 			}
 		}
 		if inst.Volume != nil {
-			instArg.Volume = &internal.CreateUnitStorageVolumeArg{
+			instArg.Volume = &internal.UnitStorageVolumeArg{
 				UUID:           inst.Volume.UUID,
 				ProvisionScope: inst.Volume.ProvisionScope,
 			}

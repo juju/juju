@@ -3617,6 +3617,45 @@ func (c *MockStateGetUnitRefreshAttributesCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// GetUnitStorageAttachmentExists mocks base method.
+func (m *MockState) GetUnitStorageAttachmentExists(arg0 context.Context, arg1 storage0.StorageInstanceUUID, arg2 unit.UUID) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitStorageAttachmentExists", arg0, arg1, arg2)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitStorageAttachmentExists indicates an expected call of GetUnitStorageAttachmentExists.
+func (mr *MockStateMockRecorder) GetUnitStorageAttachmentExists(arg0, arg1, arg2 any) *MockStateGetUnitStorageAttachmentExistsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitStorageAttachmentExists", reflect.TypeOf((*MockState)(nil).GetUnitStorageAttachmentExists), arg0, arg1, arg2)
+	return &MockStateGetUnitStorageAttachmentExistsCall{Call: call}
+}
+
+// MockStateGetUnitStorageAttachmentExistsCall wrap *gomock.Call
+type MockStateGetUnitStorageAttachmentExistsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitStorageAttachmentExistsCall) Return(arg0 bool, arg1 error) *MockStateGetUnitStorageAttachmentExistsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitStorageAttachmentExistsCall) Do(f func(context.Context, storage0.StorageInstanceUUID, unit.UUID) (bool, error)) *MockStateGetUnitStorageAttachmentExistsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitStorageAttachmentExistsCall) DoAndReturn(f func(context.Context, storage0.StorageInstanceUUID, unit.UUID) (bool, error)) *MockStateGetUnitStorageAttachmentExistsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUnitSubordinates mocks base method.
 func (m *MockState) GetUnitSubordinates(arg0 context.Context, arg1 unit.Name) ([]unit.Name, error) {
 	m.ctrl.T.Helper()
