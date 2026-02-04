@@ -3207,7 +3207,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 			}
 		})
 	s.storageService.EXPECT().MakeIAASUnitStorageArgs(storageInst).
-		Return(internal.CreateIAASUnitStorageArg{
+		Return(internal.IAASUnitStorageArg{
 			FilesystemsToOwn: fsToOwn,
 			VolumesToOwn:     volToOwn,
 		}, nil)

@@ -131,7 +131,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitStorageArg(c *tc.C
 		},
 	}
 
-	expectedStorageToAttach := []internal.CreateUnitStorageAttachmentArg{
+	expectedStorageToAttach := []internal.UnitStorageAttachmentArg{
 		{
 			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: arg.StorageInstances[0].Filesystem.UUID,
@@ -273,7 +273,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArg(c 
 
 	// We expect to see the existing storage come back in the attachments. This
 	// is to make sure the storage is attached.
-	expectedStorageToAttach := []internal.CreateUnitStorageAttachmentArg{
+	expectedStorageToAttach := []internal.UnitStorageAttachmentArg{
 		{
 			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: unitOwnedStorage[0].Filesystem.UUID,
@@ -423,7 +423,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterExistingCAASUnitStorageArgeEx
 
 	// We expect to see the existing storage come back in the attachments. This
 	// is to make sure the storage is attached.
-	expectedStorageToAttach := []internal.CreateUnitStorageAttachmentArg{
+	expectedStorageToAttach := []internal.UnitStorageAttachmentArg{
 		{
 			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: unitOwnedStorage[0].Filesystem.UUID,
@@ -570,7 +570,7 @@ func (s *registerCAASStorageSuite) TestMakeRegisterNewCAASUnitWithExistingStorag
 
 	// We expect to see the existing storage come back in the attachments. This
 	// is to make sure the storage is attached.
-	expectedStorageToAttach := []internal.CreateUnitStorageAttachmentArg{
+	expectedStorageToAttach := []internal.UnitStorageAttachmentArg{
 		{
 			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: existingProviderStorage[0].Filesystem.UUID,

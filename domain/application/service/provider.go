@@ -1276,7 +1276,7 @@ func (s *ProviderService) AttachStorageToIAASUnit(
 	}
 
 	storageInst := transform.Slice(unitStorageArgs.StorageToAttach,
-		func(in internal.CreateUnitStorageAttachmentArg) internal.UnitStorageInstanceArg {
+		func(in internal.UnitStorageAttachmentArg) internal.UnitStorageInstanceArg {
 			result := internal.UnitStorageInstanceArg{
 				UUID: in.StorageInstanceUUID,
 			}

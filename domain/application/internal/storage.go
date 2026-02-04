@@ -71,7 +71,7 @@ type UnitAddStorageArg struct {
 	// the unit. New storage instances defined in
 	// [CreateUnitStorageArg.StorageInstances] are not automatically attached to
 	// the unit and should be included in this list.
-	StorageToAttach []CreateUnitStorageAttachmentArg
+	StorageToAttach []UnitStorageAttachmentArg
 
 	// StorageToOwn defines the storage instances that should be owned by the
 	// unit.
@@ -100,7 +100,7 @@ type IAASUnitAddStorageArg struct {
 type UnitAttachStorageArg struct {
 	// StorageToAttach defines the storage instances that should be attached to
 	// the unit.
-	StorageToAttach []CreateUnitStorageAttachmentArg
+	StorageToAttach []UnitStorageAttachmentArg
 
 	// StorageName is the name of the storage being attached.
 	StorageName string
@@ -153,17 +153,18 @@ type CreateUnitStorageArg struct {
 	// the unit. New storage instances defined in
 	// [CreateUnitStorageArg.StorageInstances] are not automatically attached to
 	// the unit and should be included in this list.
-	StorageToAttach []CreateUnitStorageAttachmentArg
+	StorageToAttach []UnitStorageAttachmentArg
 
 	// StorageToOwn defines the storage instances that should be owned by the
 	// unit.
 	StorageToOwn []domainstorage.StorageInstanceUUID
 }
 
-// CreateIAASUnitStorageArg represents the arguments required for making storage
-// for an IAAS unit. This complements [CreateUnitStorageArg], allowing for an
+// IAASUnitStorageArg represents the arguments required to describe storage
+// for an IAAS unit. This complements base args [CreateUnitStorageArg],
+// [UnitAddStorageArg], or [UnitAttachStorageArg] allowing for an
 // IAAS unit to augment storage that is destined for a machine.
-type CreateIAASUnitStorageArg struct {
+type IAASUnitStorageArg struct {
 	// FilesystemsToOwn defines filesystems that will be owned by the unit's
 	// machine.
 	FilesystemsToOwn []domainstorage.FilesystemUUID
@@ -172,9 +173,9 @@ type CreateIAASUnitStorageArg struct {
 	VolumesToOwn []domainstorage.VolumeUUID
 }
 
-// CreateUnitStorageAttachmentArg describes the arguments required for creating a
+// UnitStorageAttachmentArg describes the arguments required for describing a
 // storage attachment.
-type CreateUnitStorageAttachmentArg struct {
+type UnitStorageAttachmentArg struct {
 	// UUID is the unique identifier to associate with the storage attachment.
 	UUID domainstorage.StorageAttachmentUUID
 

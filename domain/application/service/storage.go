@@ -111,11 +111,11 @@ type StorageService interface {
 		existingStorageAttachments []internal.StorageAttachmentComposition,
 	) (internal.CreateUnitStorageArg, error)
 
-	// MakeIAASUnitStorageArgs returns [internal.CreateIAASUnitStorageArg] that
+	// MakeIAASUnitStorageArgs returns [internal.IAASUnitStorageArg] that
 	// complement the unit storage arguments provided for IAAS units.
 	MakeIAASUnitStorageArgs(
 		storageInst []internal.UnitStorageInstanceArg,
-	) (internal.CreateIAASUnitStorageArg, error)
+	) (internal.IAASUnitStorageArg, error)
 
 	// MakeUnitAddStorageArgs creates the storage arguments required to
 	// add storage to a unit. This is similar to [MakeUnitStorageArgs]

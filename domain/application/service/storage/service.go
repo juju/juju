@@ -319,7 +319,7 @@ func (s Service) makeRegisterCAASUnitStorageArg(
 	for _, storageInstance := range existingProviderStorage {
 		attachmentIndex := slices.IndexFunc(
 			unitStorageArgs.StorageToAttach,
-			func(e internal.CreateUnitStorageAttachmentArg) bool {
+			func(e internal.UnitStorageAttachmentArg) bool {
 				return e.StorageInstanceUUID == storageInstance.UUID
 			},
 		)
@@ -404,7 +404,7 @@ func makeCAASStorageInstanceProviderIDAssociations(
 	existingUnitOwnedStorage []internal.StorageInstanceComposition,
 	existingUnitAttachments []internal.StorageAttachmentComposition,
 	unitStorageToCreate []internal.CreateUnitStorageInstanceArg,
-	unitStorageToAttach []internal.CreateUnitStorageAttachmentArg,
+	unitStorageToAttach []internal.UnitStorageAttachmentArg,
 ) (
 	map[domainstorage.FilesystemUUID]string,
 	map[domainstorage.VolumeUUID]string,
@@ -562,15 +562,15 @@ volumeAttachmentLoop:
 func makeStorageAttachmentArgFromExistingStorageInstance(
 	netNodeUUID domainnetwork.NetNodeUUID,
 	storageInstance internal.StorageInstanceComposition,
-) (internal.CreateUnitStorageAttachmentArg, error) {
+) (internal.UnitStorageAttachmentArg, error) {
 	uuid, err := domainstorage.NewStorageAttachmentUUID()
 	if err != nil {
-		return internal.CreateUnitStorageAttachmentArg{}, errors.Errorf(
+		return internal.UnitStorageAttachmentArg{}, errors.Errorf(
 			"generating new storage attachment uuid: %w", err,
 		)
 	}
 
-	rval := internal.CreateUnitStorageAttachmentArg{
+	rval := internal.UnitStorageAttachmentArg{
 		StorageInstanceUUID: storageInstance.UUID,
 		UUID:                uuid,
 	}
@@ -578,7 +578,7 @@ func makeStorageAttachmentArgFromExistingStorageInstance(
 	if storageInstance.Filesystem != nil {
 		uuid, err := domainstorage.NewFilesystemAttachmentUUID()
 		if err != nil {
-			return internal.CreateUnitStorageAttachmentArg{}, errors.Errorf(
+			return internal.UnitStorageAttachmentArg{}, errors.Errorf(
 				"generating new filesystem attachment uuid: %w", err,
 			)
 		}
@@ -594,7 +594,7 @@ func makeStorageAttachmentArgFromExistingStorageInstance(
 	if storageInstance.Volume != nil {
 		uuid, err := domainstorage.NewVolumeAttachmentUUID()
 		if err != nil {
-			return internal.CreateUnitStorageAttachmentArg{}, errors.Errorf(
+			return internal.UnitStorageAttachmentArg{}, errors.Errorf(
 				"generating new volume attachment uuid: %w", err,
 			)
 		}
@@ -619,15 +619,15 @@ func makeStorageAttachmentArgFromExistingStorageInstance(
 func makeStorageAttachmentArgFromNewStorageInstance(
 	netNodeUUID domainnetwork.NetNodeUUID,
 	storageInstance internal.UnitStorageInstanceArg,
-) (internal.CreateUnitStorageAttachmentArg, error) {
+) (internal.UnitStorageAttachmentArg, error) {
 	uuid, err := domainstorage.NewStorageAttachmentUUID()
 	if err != nil {
-		return internal.CreateUnitStorageAttachmentArg{}, errors.Errorf(
+		return internal.UnitStorageAttachmentArg{}, errors.Errorf(
 			"generating new storage attachment uuid: %w", err,
 		)
 	}
 
-	rval := internal.CreateUnitStorageAttachmentArg{
+	rval := internal.UnitStorageAttachmentArg{
 		StorageInstanceUUID: storageInstance.UUID,
 		UUID:                uuid,
 	}
@@ -635,7 +635,7 @@ func makeStorageAttachmentArgFromNewStorageInstance(
 	if storageInstance.Filesystem != nil {
 		uuid, err := domainstorage.NewFilesystemAttachmentUUID()
 		if err != nil {
-			return internal.CreateUnitStorageAttachmentArg{}, errors.Errorf(
+			return internal.UnitStorageAttachmentArg{}, errors.Errorf(
 				"generating new filesystem attachment uuid: %w", err,
 			)
 		}
@@ -651,7 +651,7 @@ func makeStorageAttachmentArgFromNewStorageInstance(
 	if storageInstance.Volume != nil {
 		uuid, err := domainstorage.NewVolumeAttachmentUUID()
 		if err != nil {
-			return internal.CreateUnitStorageAttachmentArg{}, errors.Errorf(
+			return internal.UnitStorageAttachmentArg{}, errors.Errorf(
 				"generating new volume attachment uuid: %w", err,
 			)
 		}
@@ -696,7 +696,7 @@ func (s Service) MakeUnitStorageArgs(
 
 	rvalDirectives := make([]internal.CreateUnitStorageDirectiveArg, 0, len(storageDirectives))
 	rvalInstances := []internal.CreateUnitStorageInstanceArg{}
-	rvalToAttach := make([]internal.CreateUnitStorageAttachmentArg, 0, len(storageDirectives))
+	rvalToAttach := make([]internal.UnitStorageAttachmentArg, 0, len(storageDirectives))
 	// rvalToOwn is the list of storage instance uuid's that the unit must own.
 	rvalToOwn := make([]domainstorage.StorageInstanceUUID, 0, len(storageDirectives))
 
@@ -810,12 +810,12 @@ func (s Service) MakeUnitStorageArgs(
 	}, nil
 }
 
-// MakeIAASUnitStorageArgs returns [internal.CreateIAASUnitStorageArg] that
+// MakeIAASUnitStorageArgs returns [internal.IAASUnitStorageArg] that
 // complement the unit storage arguments provided for IAAS units.
 func (s Service) MakeIAASUnitStorageArgs(
 	storageInst []internal.UnitStorageInstanceArg,
-) (internal.CreateIAASUnitStorageArg, error) {
-	var arg internal.CreateIAASUnitStorageArg
+) (internal.IAASUnitStorageArg, error) {
+	var arg internal.IAASUnitStorageArg
 	for _, v := range storageInst {
 		// TODO(storage): refactor this to use the storage instance composition
 		// calculated from the storageprovisioning domain.
@@ -831,7 +831,7 @@ func (s Service) MakeIAASUnitStorageArgs(
 		s, err := domainstorageprov.CalculateStorageInstanceOwnershipScope(
 			comp)
 		if err != nil {
-			return internal.CreateIAASUnitStorageArg{}, errors.Errorf(
+			return internal.IAASUnitStorageArg{}, errors.Errorf(
 				"calculating storage ownership for storage instance %q: %w",
 				v.UUID, err,
 			)
@@ -869,7 +869,7 @@ func (s Service) MakeUnitAddStorageArgs(
 	defer span.End()
 
 	var rvalInstances []internal.CreateUnitStorageInstanceArg
-	rvalToAttach := make([]internal.CreateUnitStorageAttachmentArg, 0, 1)
+	rvalToAttach := make([]internal.UnitStorageAttachmentArg, 0, 1)
 	// rvalToOwn is the list of storage instance UUIDs that the unit must own.
 	rvalToOwn := make([]domainstorage.StorageInstanceUUID, 0, 1)
 
@@ -1032,7 +1032,7 @@ func (s Service) MakeUnitAttachStorageArgs(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	rvalToAttach := make([]internal.CreateUnitStorageAttachmentArg, 0, 1)
+	rvalToAttach := make([]internal.UnitStorageAttachmentArg, 0, 1)
 
 	instComposition, err := s.st.GetStorageInstanceCompositionByUUID(ctx, storageInstanceUUID)
 	if err != nil {

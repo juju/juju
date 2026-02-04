@@ -166,7 +166,7 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 		},
 	}
 
-	expectedStorageToAttach := []internal.CreateUnitStorageAttachmentArg{
+	expectedStorageToAttach := []internal.UnitStorageAttachmentArg{
 		// Existing st1 storage
 		{
 			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
@@ -199,7 +199,7 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 	// attachment expectations.
 	expectedStorageToAttach = slices.Grow(expectedStorageToAttach, len(arg.StorageInstances))
 	for _, si := range arg.StorageInstances {
-		attachArg := internal.CreateUnitStorageAttachmentArg{
+		attachArg := internal.UnitStorageAttachmentArg{
 			StorageInstanceUUID: si.UUID,
 		}
 
@@ -366,12 +366,12 @@ func (s *serviceSuite) TestMakeUnitAddStorageArgs(c *tc.C) {
 		},
 	}
 
-	expectedStorageToAttach := make([]internal.CreateUnitStorageAttachmentArg, 0, len(arg.StorageInstances))
+	expectedStorageToAttach := make([]internal.UnitStorageAttachmentArg, 0, len(arg.StorageInstances))
 	// Loop through the new storage instances being created and set their
 	// attachment expectations.
 	expectedStorageToAttach = slices.Grow(expectedStorageToAttach, len(arg.StorageInstances))
 	for _, si := range arg.StorageInstances {
-		attachArg := internal.CreateUnitStorageAttachmentArg{
+		attachArg := internal.UnitStorageAttachmentArg{
 			StorageInstanceUUID: si.UUID,
 		}
 
@@ -451,9 +451,9 @@ func (s *serviceSuite) TestMakeUnitAttachStorageArgs(c *tc.C) {
 	)
 	c.Check(err, tc.ErrorIsNil)
 
-	expectedStorageToAttach := make([]internal.CreateUnitStorageAttachmentArg, 0, len(instComposition))
+	expectedStorageToAttach := make([]internal.UnitStorageAttachmentArg, 0, len(instComposition))
 	for _, si := range instComposition {
-		attachArg := internal.CreateUnitStorageAttachmentArg{
+		attachArg := internal.UnitStorageAttachmentArg{
 			StorageInstanceUUID: si.UUID,
 		}
 
