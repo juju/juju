@@ -13,28 +13,18 @@ import (
 	"github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
-	"github.com/juju/juju/domain"
 	domainsecret "github.com/juju/juju/domain/secret"
 	"github.com/juju/juju/domain/secretbackend"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/uuid"
 )
 
-// AtomicState describes retrieval and persistence methods for
-// secrets that require atomic transactions.
-type AtomicState interface {
-	domain.AtomicStateBase
-
-	GetApplicationUUID(ctx domain.AtomicContext, appName string) (coreapplication.UUID, error)
-	GetUnitUUID(ctx domain.AtomicContext, name coreunit.Name) (coreunit.UUID, error)
-}
-
 // State describes retrieval and persistence methods needed for
 // the secrets domain service.
 type State interface {
-	AtomicState
-
+	GetApplicationUUID(ctx context.Context, appName string) (coreapplication.UUID, error)
 	GetModelUUID(ctx context.Context) (coremodel.UUID, error)
+	GetUnitUUID(ctx context.Context, name coreunit.Name) (coreunit.UUID, error)
 	ImportSecretWithRevisions(ctx context.Context, version int, uri *secrets.URI,
 		owner domainsecret.Owner,
 		metaParams domainsecret.UpsertSecretParams,

@@ -27,11 +27,9 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/deployment/charm"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
-	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -73,10 +71,6 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.secretsBackendProvider = NewMockSecretBackendProvider(ctrl)
 	s.secretsBackend = NewMockSecretsBackend(ctrl)
 	s.ensurer = NewMockEnsurer(ctrl)
-
-	s.state.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(ctx domain.AtomicContext) error) error {
-		return fn(domaintesting.NewAtomicContext(ctx))
-	}).AnyTimes()
 
 	s.service = &SecretService{
 		secretState:        s.state,
@@ -427,7 +421,7 @@ func (s *serviceSuite) TestCreateCharmUnitSecret(c *tc.C) {
 	unitUUID, err := coreunit.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, unittesting.GenNewName(c, "mariadb/0")).Return(unitUUID, nil)
+	s.state.EXPECT().GetUnitUUID(c.Context(), unittesting.GenNewName(c, "mariadb/0")).Return(unitUUID, nil)
 	s.state.EXPECT().CreateCharmUnitSecret(c.Context(), 1, uri, unitUUID, gomock.AssignableToTypeOf(p)).
 		DoAndReturn(func(_ context.Context, _ int, _ *coresecrets.URI, _ coreunit.UUID, got domainsecret.UpsertSecretParams) error {
 			c.Assert(got.NextRotateTime, tc.NotNil)
@@ -477,7 +471,7 @@ func (s *serviceSuite) TestCreateCharmUnitSecretFailedLabelAlreadyExists(c *tc.C
 	unitUUID, err := coreunit.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, unittesting.GenNewName(c, "mariadb/0")).Return(unitUUID, nil)
+	s.state.EXPECT().GetUnitUUID(c.Context(), unittesting.GenNewName(c, "mariadb/0")).Return(unitUUID, nil)
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
 	rollbackCalled := false
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(func() error {
@@ -536,7 +530,7 @@ func (s *serviceSuite) TestCreateCharmApplicationSecret(c *tc.C) {
 
 	s.ensurer.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(goodToken{})
 
-	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mariadb").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationUUID(c.Context(), "mariadb").Return(appUUID, nil)
 	s.state.EXPECT().CreateCharmApplicationSecret(c.Context(), 1, uri, appUUID, gomock.AssignableToTypeOf(p)).
 		DoAndReturn(func(_ context.Context, _ int, _ *coresecrets.URI, _ coreapplication.UUID,
 			got domainsecret.UpsertSecretParams) error {
@@ -589,7 +583,7 @@ func (s *serviceSuite) TestCreateCharmApplicationSecretFailedLabelExists(c *tc.C
 
 	s.ensurer.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(goodToken{})
 
-	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mariadb").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationUUID(c.Context(), "mariadb").Return(appUUID, nil)
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
 	rollbackCalled := false
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(func() error {
@@ -1490,8 +1484,8 @@ func (s *serviceSuite) TestGrantSecretUnitAccess(c *tc.C) {
 	uri := coresecrets.NewURI()
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	unitUUID := unittesting.GenUnitUUID(c)
-	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mysql").Return(appUUID, nil)
-	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, coreunit.Name("mysql/0")).Return(unitUUID, nil)
+	s.state.EXPECT().GetApplicationUUID(c.Context(), "mysql").Return(appUUID, nil)
+	s.state.EXPECT().GetUnitUUID(c.Context(), coreunit.Name("mysql/0")).Return(unitUUID, nil)
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "another/0",
@@ -1527,7 +1521,7 @@ func (s *serviceSuite) TestGrantSecretApplicationAccess(c *tc.C) {
 
 	uri := coresecrets.NewURI()
 	appUUID := tc.Must(c, coreapplication.NewUUID)
-	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mysql").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationUUID(c.Context(), "mysql").Return(appUUID, nil)
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "another/0",
@@ -1593,7 +1587,7 @@ func (s *serviceSuite) TestGrantSecretRelationScope(c *tc.C) {
 
 	uri := coresecrets.NewURI()
 	appUUID := tc.Must(c, coreapplication.NewUUID)
-	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mysql").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationUUID(c.Context(), "mysql").Return(appUUID, nil)
 	relUUID := relationtesting.GenRelationUUID(c)
 	s.state.EXPECT().GetRegularRelationUUIDByEndpointIdentifiers(gomock.Any(), relation.EndpointIdentifier{
 		ApplicationName: "mediawiki",
@@ -1639,7 +1633,7 @@ func (s *serviceSuite) TestRevokeSecretUnitAccess(c *tc.C) {
 
 	uri := coresecrets.NewURI()
 	unitUUID := unittesting.GenUnitUUID(c)
-	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, coreunit.Name("another/0")).Return(unitUUID, nil)
+	s.state.EXPECT().GetUnitUUID(c.Context(), coreunit.Name("another/0")).Return(unitUUID, nil)
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mysql/0",
@@ -1667,7 +1661,7 @@ func (s *serviceSuite) TestRevokeSecretApplicationAccess(c *tc.C) {
 
 	uri := coresecrets.NewURI()
 	appUUID := tc.Must(c, coreapplication.NewUUID)
-	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "another").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationUUID(c.Context(), "another").Return(appUUID, nil)
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mysql/0",
@@ -1695,7 +1689,7 @@ func (s *serviceSuite) TestRevokeSecretModelAccess(c *tc.C) {
 
 	uri := coresecrets.NewURI()
 	appUUID := tc.Must(c, coreapplication.NewUUID)
-	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mysql").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationUUID(c.Context(), "mysql").Return(appUUID, nil)
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectTypeID: domainsecret.SubjectModel,
 		SubjectID:     "model-uuid",

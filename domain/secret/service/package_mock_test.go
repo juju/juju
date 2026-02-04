@@ -21,7 +21,6 @@ import (
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
-	domain "github.com/juju/juju/domain"
 	secret "github.com/juju/juju/domain/secret"
 	secretbackend "github.com/juju/juju/domain/secretbackend"
 	provider "github.com/juju/juju/internal/secrets/provider"
@@ -438,7 +437,7 @@ func (c *MockStateDeleteSecretCall) DoAndReturn(f func(context.Context, *secrets
 }
 
 // GetApplicationUUID mocks base method.
-func (m *MockState) GetApplicationUUID(arg0 domain.AtomicContext, arg1 string) (application.UUID, error) {
+func (m *MockState) GetApplicationUUID(arg0 context.Context, arg1 string) (application.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationUUID", arg0, arg1)
 	ret0, _ := ret[0].(application.UUID)
@@ -465,13 +464,13 @@ func (c *MockStateGetApplicationUUIDCall) Return(arg0 application.UUID, arg1 err
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetApplicationUUIDCall) Do(f func(domain.AtomicContext, string) (application.UUID, error)) *MockStateGetApplicationUUIDCall {
+func (c *MockStateGetApplicationUUIDCall) Do(f func(context.Context, string) (application.UUID, error)) *MockStateGetApplicationUUIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetApplicationUUIDCall) DoAndReturn(f func(domain.AtomicContext, string) (application.UUID, error)) *MockStateGetApplicationUUIDCall {
+func (c *MockStateGetApplicationUUIDCall) DoAndReturn(f func(context.Context, string) (application.UUID, error)) *MockStateGetApplicationUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1436,7 +1435,7 @@ func (c *MockStateGetURIByConsumerLabelCall) DoAndReturn(f func(context.Context,
 }
 
 // GetUnitUUID mocks base method.
-func (m *MockState) GetUnitUUID(arg0 domain.AtomicContext, arg1 unit.Name) (unit.UUID, error) {
+func (m *MockState) GetUnitUUID(arg0 context.Context, arg1 unit.Name) (unit.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitUUID", arg0, arg1)
 	ret0, _ := ret[0].(unit.UUID)
@@ -1463,13 +1462,13 @@ func (c *MockStateGetUnitUUIDCall) Return(arg0 unit.UUID, arg1 error) *MockState
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetUnitUUIDCall) Do(f func(domain.AtomicContext, unit.Name) (unit.UUID, error)) *MockStateGetUnitUUIDCall {
+func (c *MockStateGetUnitUUIDCall) Do(f func(context.Context, unit.Name) (unit.UUID, error)) *MockStateGetUnitUUIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetUnitUUIDCall) DoAndReturn(f func(domain.AtomicContext, unit.Name) (unit.UUID, error)) *MockStateGetUnitUUIDCall {
+func (c *MockStateGetUnitUUIDCall) DoAndReturn(f func(context.Context, unit.Name) (unit.UUID, error)) *MockStateGetUnitUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2170,44 +2169,6 @@ func (c *MockStateRevokeAccessCall) Do(f func(context.Context, *secrets.URI, sec
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateRevokeAccessCall) DoAndReturn(f func(context.Context, *secrets.URI, secret.RevokeParams) error) *MockStateRevokeAccessCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// RunAtomic mocks base method.
-func (m *MockState) RunAtomic(arg0 context.Context, arg1 func(domain.AtomicContext) error) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RunAtomic", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RunAtomic indicates an expected call of RunAtomic.
-func (mr *MockStateMockRecorder) RunAtomic(arg0, arg1 any) *MockStateRunAtomicCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunAtomic", reflect.TypeOf((*MockState)(nil).RunAtomic), arg0, arg1)
-	return &MockStateRunAtomicCall{Call: call}
-}
-
-// MockStateRunAtomicCall wrap *gomock.Call
-type MockStateRunAtomicCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateRunAtomicCall) Return(arg0 error) *MockStateRunAtomicCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateRunAtomicCall) Do(f func(context.Context, func(domain.AtomicContext) error) error) *MockStateRunAtomicCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateRunAtomicCall) DoAndReturn(f func(context.Context, func(domain.AtomicContext) error) error) *MockStateRunAtomicCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

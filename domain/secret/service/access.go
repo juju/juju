@@ -6,13 +6,11 @@ package service
 import (
 	"context"
 
-	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
@@ -161,13 +159,8 @@ func (s *SecretService) GrantSecretAccess(ctx context.Context, uri *secrets.URI,
 }
 
 func (s *SecretService) getApplicationUUIDByName(ctx context.Context, name string) (string, error) {
-	var uuid coreapplication.UUID
-	err := s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		var err error
-		uuid, err = s.secretState.GetApplicationUUID(ctx, name)
-		return errors.Capture(err)
-	})
-	return uuid.String(), errors.Capture(err)
+	appUUID, err := s.secretState.GetApplicationUUID(ctx, name)
+	return appUUID.String(), errors.Capture(err)
 }
 
 func (s *SecretService) getUnitUUIDByName(ctx context.Context, name string) (string, error) {
@@ -175,13 +168,8 @@ func (s *SecretService) getUnitUUIDByName(ctx context.Context, name string) (str
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	var uuid unit.UUID
-	err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		var err error
-		uuid, err = s.secretState.GetUnitUUID(ctx, unitName)
-		return errors.Capture(err)
-	})
-	return uuid.String(), errors.Capture(err)
+	unitUUID, err := s.secretState.GetUnitUUID(ctx, unitName)
+	return unitUUID.String(), errors.Capture(err)
 }
 
 func (s *SecretService) getRelationUUIDByKey(ctx context.Context, relationKey corerelation.Key) (string, error) {

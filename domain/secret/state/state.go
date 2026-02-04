@@ -84,10 +84,14 @@ func (st State) getModelUUID(ctx context.Context, tx *sqlair.TX) (coremodel.UUID
 
 // GetApplicationUUID returns the UUID of the application with the given name, returning an error satisfying
 // [applicationerrors.ApplicationNotFound] if the application does not exist.
-func (st State) GetApplicationUUID(ctx domain.AtomicContext, appName string) (coreapplication.UUID, error) {
+func (st State) GetApplicationUUID(ctx context.Context, appName string) (coreapplication.UUID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
 	var appUUID coreapplication.UUID
-	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		appUUID, err = st.getApplicationUUID(ctx, tx, appName)
 		return errors.Capture(err)
 	})
@@ -115,11 +119,15 @@ WHERE name=$application.name`, app)
 
 // GetUnitUUID returns the UUID of the unit with the given name, returning an error satisfying
 // [applicationerrors.UnitNotFound] if the unit does not exist.
-func (st State) GetUnitUUID(ctx domain.AtomicContext, unitName coreunit.Name) (coreunit.UUID, error) {
+func (st State) GetUnitUUID(ctx context.Context, name coreunit.Name) (coreunit.UUID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
 	var unitUUID coreunit.UUID
-	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		unitUUID, err = st.getUnitUUID(ctx, tx, unitName)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		unitUUID, err = st.getUnitUUID(ctx, tx, name)
 		return errors.Capture(err)
 	})
 	return unitUUID, errors.Capture(err)
