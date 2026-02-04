@@ -807,9 +807,18 @@ func (s *ProviderService) validateCreateApplicationArgs(
 		return AddApplicationArgs{}, errors.Errorf("invalid charm storage: %w", err)
 	}
 
+	charmStorageDef := transform.Map(charm.Meta().Storage, func(k string, v internalcharm.Storage) (string, internal.ValidateStorageArg) {
+		return k, internal.ValidateStorageArg{
+			Name:        v.Name,
+			Type:        v.Type,
+			CountMin:    v.CountMin,
+			CountMax:    v.CountMax,
+			MinimumSize: v.MinimumSize,
+		}
+	})
 	err = s.storageService.ValidateApplicationStorageDirectiveOverrides(
 		ctx,
-		charm.Meta().Storage,
+		charmStorageDef,
 		args.StorageDirectiveOverrides,
 	)
 	if err != nil {
@@ -1107,10 +1116,7 @@ func (s *ProviderService) populateAddStorageArgs(
 		)
 	}
 
-	// TODO - We only care about a subset of the attributes for validation.
-	//   Ideally the ValidateApplicationStorageDirectiveOverrides method
-	//   would take a bespoke arg type.
-	charmStorageDefs := map[string]internalcharm.Storage{
+	charmStorageDefs := map[string]internal.ValidateStorageArg{
 		storageName.String(): {
 			Name:        charmStorage.Name,
 			Type:        charmStorage.Type,
@@ -1184,16 +1190,23 @@ func (s *ProviderService) AddStorageForIAASUnit(
 		return nil, errors.Capture(err)
 	}
 
-	iassUnitStorageArgs, err := s.storageService.MakeIAASUnitStorageArgs(
-		ctx, unitStorageArgs.StorageInstances)
+	storageInst := transform.Slice(unitStorageArgs.StorageInstances,
+		func(in internal.CreateUnitStorageInstanceArg) internal.UnitStorageInstanceArg {
+			return internal.UnitStorageInstanceArg{
+				Filesystem: in.Filesystem,
+				Volume:     in.Volume,
+				UUID:       in.UUID,
+			}
+		})
+	iaasUnitStorageArgs, err := s.storageService.MakeIAASUnitStorageArgs(storageInst)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	added, err := s.st.AddStorageForIAASUnit(ctx, unitUUID, storageName, domainstorage.IAASUnitAddStorageArg{
 		UnitAddStorageArg: unitStorageArgs,
-		FilesystemsToOwn:  iassUnitStorageArgs.FilesystemsToOwn,
-		VolumesToOwn:      iassUnitStorageArgs.VolumesToOwn,
+		FilesystemsToOwn:  iaasUnitStorageArgs.FilesystemsToOwn,
+		VolumesToOwn:      iaasUnitStorageArgs.VolumesToOwn,
 	})
 	if errors.Is(err, storageerrors.MaxStorageCountPreconditionFailed) {
 		maxCount := int(unitStorageArgs.CountLessThanEqual + count)
@@ -1243,12 +1256,65 @@ func (s *ProviderService) AddStorageForCAASUnit(
 	return added, errors.Capture(err)
 }
 
-// AttachStorageToUnit ensures the specified storage instance is attached to the
-// specified unit.
+func (s *ProviderService) populateAttachStorageArgs(
+	ctx context.Context,
+	storageUUID domainstorage.StorageInstanceUUID,
+	unitUUID coreunit.UUID,
+) (internal.UnitAttachStorageArg, error) {
+	if storageUUID.Validate() != nil {
+		return internal.UnitAttachStorageArg{}, errors.New("storage uuid is not valid").Add(coreerrors.NotValid)
+	}
+	if unitUUID.Validate() != nil {
+		return internal.UnitAttachStorageArg{}, errors.New("unit uuid is not valid").Add(coreerrors.NotValid)
+	}
+
+	charmStorage, instInfo, err := s.st.GetCharmStorageAndInstanceInfoByUnitUUIDAndStorageUUID(ctx, unitUUID, storageUUID)
+	if err != nil {
+		return internal.UnitAttachStorageArg{}, errors.Errorf(
+			"getting unit %q charm storage and count for %q: %w",
+			unitUUID, storageUUID, err,
+		)
+	}
+
+	charmStorageDef := internal.ValidateStorageArg{
+		Name:        charmStorage.Name,
+		Type:        charmStorage.Type,
+		CountMin:    charmStorage.CountMin,
+		CountMax:    charmStorage.CountMax,
+		MinimumSize: charmStorage.MinimumSize,
+	}
+
+	wantCount := 1 + instInfo.AlreadyAttachedCount
+	err = s.storageService.ValidateAttachStorage(ctx, charmStorageDef, wantCount, instInfo.SizeMiB, instInfo.PoolUUID)
+	if err != nil {
+		return internal.UnitAttachStorageArg{}, errors.Capture(err)
+	}
+
+	args, err := s.storageService.MakeUnitAttachStorageArgs(
+		ctx,
+		unitUUID,
+		storageUUID,
+	)
+	if err != nil {
+		return internal.UnitAttachStorageArg{}, errors.Capture(err)
+	}
+	args.StorageName = charmStorage.Name
+
+	// Record the max allowed count precondition.
+	// This will be checked inside the transaction.
+	args.CountLessThanEqual = uint32(math.MaxUint32)
+	if charmStorage.CountMax > 0 {
+		args.CountLessThanEqual = uint32(charmStorage.CountMax) - 1
+	}
+	return args, nil
+}
+
+// AttachStorageToIAASUnit ensures the specified storage instance is attached to
+// the specified IAAS unit.
 // If the attachment already exists, the result is a no op.
 // The following error types can be expected:
-// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the
-// storage doesn't exist.
+// - [github.com/juju/juju/domain/storage/errors.StorageInstanceNotFound] when
+// the storage doesn't exist.
 // - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the
 // unit does not exist.
 // - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the
@@ -1257,9 +1323,93 @@ func (s *ProviderService) AddStorageForCAASUnit(
 // storage is not alive.
 // - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded]
 // when the requested storage falls outside of the bounds defined by the charm.
-func (s *ProviderService) AttachStorageToUnit(
+func (s *ProviderService) AttachStorageToIAASUnit(
 	ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
 ) error {
-	// TODO (tlm): re-implement in DQlite
-	return errors.New("not implemented")
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	// Unit UUID and storage UUID are validated in populateAttachStorageArgs.
+	unitStorageArgs, err := s.populateAttachStorageArgs(ctx, storageUUID, unitUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	storageInst := transform.Slice(unitStorageArgs.StorageToAttach,
+		func(in internal.CreateUnitStorageAttachmentArg) internal.UnitStorageInstanceArg {
+			result := internal.UnitStorageInstanceArg{
+				UUID: in.StorageInstanceUUID,
+			}
+			if in.FilesystemAttachment != nil {
+				result.Filesystem = &internal.CreateUnitStorageFilesystemArg{
+					UUID:           in.FilesystemAttachment.FilesystemUUID,
+					ProvisionScope: in.FilesystemAttachment.ProvisionScope,
+				}
+			}
+			if in.VolumeAttachment != nil {
+				result.Volume = &internal.CreateUnitStorageVolumeArg{
+					UUID:           in.VolumeAttachment.VolumeUUID,
+					ProvisionScope: in.VolumeAttachment.ProvisionScope,
+				}
+			}
+			return result
+		})
+	iassUnitStorageArgs, err := s.storageService.MakeIAASUnitStorageArgs(
+		storageInst)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = s.st.AttachStorageToIAASUnit(ctx, storageUUID, unitUUID, internal.IAASUnitAttachStorageArg{
+		UnitAttachStorageArg: unitStorageArgs,
+		FilesystemsToOwn:     iassUnitStorageArgs.FilesystemsToOwn,
+		VolumesToOwn:         iassUnitStorageArgs.VolumesToOwn,
+	})
+	if errors.Is(err, internal.MaxStorageCountPreconditonFailed) {
+		maxCount := int(unitStorageArgs.CountLessThanEqual + 1)
+		return applicationerrors.StorageCountLimitExceeded{
+			Maximum:     &maxCount,
+			Requested:   1,
+			StorageName: unitStorageArgs.StorageName,
+		}
+	}
+	return errors.Capture(err)
+}
+
+// AttachStorageToCAASUnit ensures the specified storage instance is attached to
+// the specified CAAS unit.
+// If the attachment already exists, the result is a no op.
+// The following error types can be expected:
+// - [github.com/juju/juju/domain/storage/errors.StorageInstanceNotFound] when
+// the storage doesn't exist.
+// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the
+// unit does not exist.
+// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the
+// unit is not alive.
+// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the
+// storage is not alive.
+// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded]
+// when the requested storage falls outside of the bounds defined by the charm.
+func (s *ProviderService) AttachStorageToCAASUnit(
+	ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	// Unit UUID and storage UUID are validated in populateAttachStorageArgs.
+	unitStorageArgs, err := s.populateAttachStorageArgs(ctx, storageUUID, unitUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = s.st.AttachStorageToCAASUnit(ctx, storageUUID, unitUUID, unitStorageArgs)
+	if errors.Is(err, internal.MaxStorageCountPreconditonFailed) {
+		maxCount := int(unitStorageArgs.CountLessThanEqual + 1)
+		return applicationerrors.StorageCountLimitExceeded{
+			Maximum:     &maxCount,
+			Requested:   1,
+			StorageName: unitStorageArgs.StorageName,
+		}
+	}
+	return errors.Capture(err)
 }

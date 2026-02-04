@@ -9,6 +9,8 @@ import (
 
 	"github.com/juju/proxy"
 
+	"github.com/juju/collections/transform"
+
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -22,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/internal"
 	applicationinternal "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
@@ -228,6 +231,17 @@ type UnitState interface {
 	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 	GetCharmStorageAndInstanceCountByUnitUUID(ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name) (internalcharm.Storage, uint32, error)
 
+	// GetCharmStorageAndInstanceInfoByUnitUUIDAndStorageUUID returns the metadata
+	// and select details for the storage instance on the specified unit.
+	// The details include how many existing instances of the same named storage
+	// already exist, the requested size, and the instance's storage pool.
+	// The following error types can be expected:
+	// - [applicationerrors.storageerrors.StorageInstanceNotFound]: when storage
+	// instance does not exist.
+	GetCharmStorageAndInstanceInfoByUnitUUIDAndStorageUUID(
+		ctx context.Context, unitUUID coreunit.UUID, storageUUID domainstorage.StorageInstanceUUID,
+	) (internalcharm.Storage, internal.StorageInstanceInfo, error)
+
 	// AddStorageForCAASUnit adds storage instances to given unit as specified.
 	// The specified storage name is used to retrieve existing storage instances.
 	// Combination of existing storage instances and anticipated additional storage
@@ -271,6 +285,38 @@ type UnitState interface {
 	// GetCAASUnitContext returns the CAAS context information required for the
 	// construction of a context factory for a unit.
 	GetCAASUnitContext(ctx context.Context, unitName string) (applicationinternal.CAASUnitContext, error)
+
+	// AttachStorageToCAASUnit attaches the storage instance to a CAAS unit.
+	// The following error types can be expected:
+	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the
+	// unit does not exist.
+	// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the
+	// unit is not alive.
+	// - [github.com/juju/juju/domain/application/errors.StorageInstanceNotFound]:
+	// when the storage instance does not exist.
+	// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when
+	// the storage instance is not alive.
+	// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded]:
+	// when the requested storage falls outside of the bounds defined by the charm.
+	AttachStorageToCAASUnit(
+		ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
+		storageArg internal.UnitAttachStorageArg) error
+
+	// AttachStorageToIAASUnit attaches the storage instance to an IAAS unit.
+	// The following error types can be expected:
+	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the
+	// unit does not exist.
+	// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the
+	// unit is not alive.
+	// - [github.com/juju/juju/domain/application/errors.StorageInstanceNotFound]:
+	// when the storage instance does not exist.
+	// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when
+	// the storage instance is not alive.
+	// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded]:
+	// when the requested storage falls outside of the bounds defined by the charm.
+	AttachStorageToIAASUnit(
+		ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
+		storageArg internal.IAASUnitAttachStorageArg) error
 }
 
 func (s *ProviderService) makeIAASUnitArgs(
@@ -338,8 +384,15 @@ func (s *ProviderService) makeIAASUnitArgs(
 				"making storage arguments for IAAS unit: %w", err,
 			)
 		}
-		iassUnitStorageArgs, err := s.storageService.MakeIAASUnitStorageArgs(
-			ctx, unitStorageArgs.StorageInstances)
+		storageInst := transform.Slice(unitStorageArgs.StorageInstances,
+			func(in internal.CreateUnitStorageInstanceArg) internal.UnitStorageInstanceArg {
+				return internal.UnitStorageInstanceArg{
+					Filesystem: in.Filesystem,
+					Volume:     in.Volume,
+					UUID:       in.UUID,
+				}
+			})
+		iassUnitStorageArgs, err := s.storageService.MakeIAASUnitStorageArgs(storageInst)
 		if err != nil {
 			return nil, errors.Errorf(
 				"making IAAS storage arguments for IAAS unit: %w", err,

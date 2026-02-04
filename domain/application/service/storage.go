@@ -136,7 +136,7 @@ type StorageService interface {
 	// storage definitions.
 	ValidateApplicationStorageDirectiveOverrides(
 		ctx context.Context,
-		charmStorageDefs map[string]internalcharm.Storage,
+		charmStorageDefs map[string]internal.ValidateStorageArg,
 		overrides map[string]storage.StorageDirectiveOverride,
 	) error
 
@@ -174,4 +174,30 @@ type StorageService interface {
 		toUpdate []domainstorage.DirectiveArg,
 		err error,
 	)
+
+	// ValidateAttachStorage checks that a storage instance from the specified
+	// pool can be attached to a unit with respect to the unit's charm storage
+	// definition.
+	//
+	// The following errors may be expected:
+	// - [applicationerrors.StorageCountLimitExceeded] when the requested storage
+	// falls outside of the bounds defined by the charm.
+	ValidateAttachStorage(
+		ctx context.Context,
+		charmStorageDef internal.ValidateStorageArg,
+		wantCount uint32,
+		storageSize uint64,
+		poolUUID domainstorage.StoragePoolUUID,
+	) error
+	
+	// MakeUnitAttachStorageArgs creates the storage arguments required to
+	// attach existing storage to a unit.
+	// The following errors may be expected:
+	// - [applicationerrors.StorageCountLimitExceeded] when the requested storage
+	// falls outside of the bounds defined by the charm.
+	MakeUnitAttachStorageArgs(
+		ctx context.Context,
+		unitUUID coreunit.UUID,
+		storageUUID domainstorage.StorageInstanceUUID,
+	) (internal.UnitAttachStorageArg, error)
 }

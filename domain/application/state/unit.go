@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/internal"
 	applicationinternal "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
@@ -2407,6 +2408,63 @@ LIMIT 1;
 		return nil, errors.Errorf("querying unit private address: %w", err)
 	}
 	return new(address.Value), nil
+}
+
+// GetCharmStorageAndInstanceInfoByUnitUUIDAndStorageUUID returns the metadata
+// and select details for the storage instance on the specified unit.
+// The details include how many existing instances of the same named storage
+// already exist, the requested size, and the instance's storage pool.
+func (st *State) GetCharmStorageAndInstanceInfoByUnitUUIDAndStorageUUID(
+	ctx context.Context, unitUUID coreunit.UUID, storageUUID domainstorage.StorageInstanceUUID,
+) (internalcharm.Storage, internal.StorageInstanceInfo, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return internalcharm.Storage{}, internal.StorageInstanceInfo{}, errors.Capture(err)
+	}
+	var (
+		chStorage        charmStorage
+		count            uint32
+		requestedSizeMiB uint64
+		poolUUID         string
+	)
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		details, err := st.getStorageDetails(ctx, tx, storageUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		poolUUID = details.StoragePoolUUID
+		requestedSizeMiB = details.RequestedSizeMIB
+		chStorage, err = st.getUnitCharmStorageByName(ctx, tx, unitUUID, details.StorageName)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// Should never happen.
+			return errors.Errorf("storage %q is not found", details.StorageName).Add(applicationerrors.StorageNameNotSupported)
+		}
+		if err != nil {
+			return errors.Errorf("getting charm storage metadata for unit %q: %w", unitUUID, err)
+		}
+		count, err = st.getUnitStorageCount(ctx, tx, unitUUID, details.StorageName)
+		if err != nil {
+			return errors.Errorf("getting storage count for unit %q storage %s: %w", unitUUID, details.StorageName, err)
+		}
+		return nil
+	}); err != nil {
+		return internalcharm.Storage{}, internal.StorageInstanceInfo{}, errors.Capture(err)
+	}
+	return internalcharm.Storage{
+			Name:        chStorage.Name,
+			Description: chStorage.Description,
+			Type:        internalcharm.StorageType(chStorage.Kind),
+			Shared:      chStorage.Shared,
+			ReadOnly:    chStorage.ReadOnly,
+			CountMin:    chStorage.CountMin,
+			CountMax:    chStorage.CountMax,
+			MinimumSize: chStorage.MinimumSize,
+			Location:    chStorage.Location,
+		}, internal.StorageInstanceInfo{
+			AlreadyAttachedCount: count,
+			SizeMiB:              requestedSizeMiB,
+			PoolUUID:             domainstorage.StoragePoolUUID(poolUUID),
+		}, nil
 }
 
 // setK8sPodStatus saves the given k8s pod status, overwriting

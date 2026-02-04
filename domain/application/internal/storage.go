@@ -7,6 +7,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	coremachine "github.com/juju/juju/core/machine"
 	domainapplicationcharm "github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
 )

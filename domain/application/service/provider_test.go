@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -3177,7 +3178,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnitValidates(c *tc.C) {
 			CountMin:    1,
 			CountMax:    666,
 		}, 66, nil)
-	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), map[string]internalcharm.Storage{
+	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), map[string]internal.ValidateStorageArg{
 		"pgdata": {
 			Name:        "pgdata",
 			Type:        internalcharm.StorageFilesystem,
@@ -3222,7 +3223,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 			CountMin:    1,
 			CountMax:    666,
 		}, 66, nil)
-	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), map[string]internalcharm.Storage{
+	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), map[string]internal.ValidateStorageArg{
 		"pgdata": {
 			Name:        "pgdata",
 			Type:        internalcharm.StorageFilesystem,
@@ -3331,7 +3332,7 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnitValidates(c *tc.C) {
 			CountMin:    1,
 			CountMax:    666,
 		}, 66, nil)
-	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), map[string]internalcharm.Storage{
+	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), map[string]internal.ValidateStorageArg{
 		"pgdata": {
 			Name:        "pgdata",
 			Type:        internalcharm.StorageFilesystem,
@@ -3376,7 +3377,7 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnit(c *tc.C) {
 			CountMin:    1,
 			CountMax:    666,
 		}, 66, nil)
-	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), map[string]internalcharm.Storage{
+	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), map[string]internal.ValidateStorageArg{
 		"pgdata": {
 			Name:        "pgdata",
 			Type:        internalcharm.StorageFilesystem,

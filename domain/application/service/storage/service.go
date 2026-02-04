@@ -48,19 +48,6 @@ type Service struct {
 // State describes retrieval and persistence methods for
 // storage related interactions.
 type State interface {
-	// AttachStorageToUnit attaches the specified storage to the specified unit.
-	// The following error types can be expected:
-	// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
-	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
-	// - [github.com/juju/juju/domain/application/errors.StorageAlreadyAttached]: when the attachment already exists.
-	// - [github.com/juju/juju/domain/application/errors.FilesystemAlreadyAttached]: when the filesystem is already attached.
-	// - [github.com/juju/juju/domain/application/errors.VolumeAlreadyAttached]: when the volume is already attached.
-	// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the unit is not alive.
-	// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
-	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
-	// - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
-	AttachStorageToUnit(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error
-
 	// DetachStorageForUnit detaches the specified storage from the specified unit.
 	// The following error types can be expected:
 	// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
@@ -158,6 +145,17 @@ type State interface {
 	// The following error types can be expected:
 	// - [applicationerrors.UnitNotFound]: when the unit is not found.
 	GetUnitNetNodeUUID(ctx context.Context, uuid coreunit.UUID) (string, error)
+
+	// GetStorageInstanceCompositionByUUID returns the storage compositions for
+	// the specified storage instance.
+	//
+	// The following errors can be expected:
+	// - [github.com/juju/juju/domain/storage/errors.StorageInstanceNotFound]
+	// when the storage doesn't exist.
+	GetStorageInstanceCompositionByUUID(
+		ctx context.Context,
+		storageInstanceUUID domainstorage.StorageInstanceUUID,
+	) ([]internal.StorageInstanceComposition, error)
 }
 
 // NewService returns a new application storage service for the model.
@@ -759,7 +757,11 @@ func (s *Service) MakeUnitStorageArgs(
 		rvalToOwn = slices.Grow(rvalToOwn, len(instArgs))
 		for _, inst := range instArgs {
 			storageAttachArg, err := makeStorageAttachmentArgFromNewStorageInstance(
-				attachNetNodeUUID, inst,
+				attachNetNodeUUID, internal.UnitStorageInstanceArg{
+					Filesystem: inst.Filesystem,
+					Volume:     inst.Volume,
+					UUID:       inst.UUID,
+				},
 			)
 
 			if err != nil {
@@ -903,7 +905,11 @@ func (s *Service) MakeUnitAddStorageArgs(
 	rvalToOwn = slices.Grow(rvalToOwn, len(instArgs))
 	for _, inst := range instArgs {
 		storageAttachArg, err := makeStorageAttachmentArgFromNewStorageInstance(
-			domainnetwork.NetNodeUUID(attachNetNodeUUID), inst,
+			domainnetwork.NetNodeUUID(attachNetNodeUUID), internal.UnitStorageInstanceArg{
+				Filesystem: inst.Filesystem,
+				Volume:     inst.Volume,
+				UUID:       inst.UUID,
+			},
 		)
 
 		if err != nil {
@@ -1015,4 +1021,62 @@ func makeUnitStorageInstancesFromDirective(
 	}
 
 	return rval, nil
+}
+
+// MakeUnitAttachStorageArgs creates the storage arguments required to
+// attach existing storage to a unit.
+func (s Service) MakeUnitAttachStorageArgs(
+	ctx context.Context,
+	unitUUID coreunit.UUID,
+	storageInstanceUUID domainstorage.StorageInstanceUUID,
+) (internal.UnitAttachStorageArg, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	rvalToAttach := make([]internal.CreateUnitStorageAttachmentArg, 0, 1)
+
+	instComposition, err := s.st.GetStorageInstanceCompositionByUUID(ctx, storageInstanceUUID)
+	if err != nil {
+		return internal.UnitAttachStorageArg{}, errors.Errorf(
+			"getting composition details for storage %q: %w", storageInstanceUUID, err,
+		)
+	}
+
+	attachNetNodeUUID, err := s.st.GetUnitNetNodeUUID(ctx, unitUUID)
+	if err != nil {
+		return internal.UnitAttachStorageArg{}, errors.Errorf("getting unit net node uuid: %w", err)
+	}
+
+	// Allocate capacity we know we are going to need.
+	rvalToAttach = slices.Grow(rvalToAttach, len(instComposition))
+	for _, inst := range instComposition {
+		instArg := internal.UnitStorageInstanceArg{
+			UUID: storageInstanceUUID,
+		}
+		if inst.Filesystem != nil {
+			instArg.Filesystem = &internal.CreateUnitStorageFilesystemArg{
+				UUID:           inst.Filesystem.UUID,
+				ProvisionScope: inst.Filesystem.ProvisionScope,
+			}
+		}
+		if inst.Volume != nil {
+			instArg.Volume = &internal.CreateUnitStorageVolumeArg{
+				UUID:           inst.Volume.UUID,
+				ProvisionScope: inst.Volume.ProvisionScope,
+			}
+		}
+		storageAttachArg, err := makeStorageAttachmentArgFromNewStorageInstance(
+			domainnetwork.NetNodeUUID(attachNetNodeUUID), instArg,
+		)
+		if err != nil {
+			return internal.UnitAttachStorageArg{}, errors.Errorf(
+				"making storage attachment arguments for new storage instance: %w", err,
+			)
+		}
+		rvalToAttach = append(rvalToAttach, storageAttachArg)
+	}
+
+	return internal.UnitAttachStorageArg{
+		StorageToAttach: rvalToAttach,
+	}, nil
 }
