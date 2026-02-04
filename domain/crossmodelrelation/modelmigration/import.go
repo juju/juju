@@ -412,7 +412,7 @@ func findRelationUUIDForKey(remoteEntities []relationRemoteEntity, relationKey r
 
 	for _, remoteEntity := range remoteEntities {
 		key := remoteEntity.RelationKey
-		if keysEqual(key, relationKey) {
+		if relationKeysEqual(key, relationKey) {
 			return remoteEntity.RelationUUID, nil
 		}
 	}
@@ -426,7 +426,9 @@ func relationTagSuffixToKey(s string) string {
 	return strings.Replace(s, "#", " ", 1)
 }
 
-func keysEqual(a, b relation.Key) bool {
+// relationKeysEqual compares two relation keys for equality, ignoring order.
+// Assumes both keys have exactly two endpoints and no scopes.
+func relationKeysEqual(a, b relation.Key) bool {
 	if len(a) != len(b) {
 		return false
 	}
@@ -438,7 +440,13 @@ func keysEqual(a, b relation.Key) bool {
 		return b[i].String() < b[j].String()
 	})
 
-	return a[0] == b[0] && a[1] == b[1]
+	// Note: we ignore scope here, as cross model relations do not have scopes
+	// when being imported.
+	return endpointEquals(a[0], b[0]) && endpointEquals(a[1], b[1])
+}
+
+func endpointEquals(a, b relation.EndpointIdentifier) bool {
+	return a.ApplicationName == b.ApplicationName && a.EndpointName == b.EndpointName
 }
 
 // parseRelationRole parses a string role to a charm.RelationRole.

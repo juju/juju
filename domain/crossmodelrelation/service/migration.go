@@ -214,6 +214,11 @@ func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rAp
 			"validating relation key: %w", err)
 	}
 
+	if err := relation.UUID(rApp.RelationUUID).Validate(); err != nil {
+		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
+			"validating relation UUID: %w", err)
+	}
+
 	// TODO (stickupkid): Validate all the things!
 
 	synthCharm, err := s.constructSyntheticCharm(rApp.Name, rApp.Endpoints)
@@ -260,6 +265,7 @@ func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rAp
 		Name:                        rApp.Name,
 		OfferUUID:                   rApp.OfferUUID,
 		URL:                         rApp.URL,
+		RelationUUID:                rApp.RelationUUID,
 		ConsumerModelUUID:           rApp.ConsumerModelUUID,
 		ConsumerApplicationUUID:     rApp.ConsumerApplicationUUID,
 		ConsumerApplicationEndpoint: consumerApplicationEndpoint,

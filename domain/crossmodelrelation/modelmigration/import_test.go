@@ -414,8 +414,56 @@ func (s *importSuite) TestExtractApplicationUUIDFromRemoteEntitiesNoEntities(c *
 
 	entities, err := extractApplicationUUIDFromRemoteEntities(model)
 	c.Assert(err, tc.ErrorIsNil)
-
 	c.Check(entities, tc.HasLen, 0)
+}
+
+func (s *importSuite) TestFindRelationUUIDForKey(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "relation-dummy-source.sink#remote-13ea27915e7840d888c5e9451444b45d.source",
+		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+
+	entities, err := extractRelationUUIDFromRemoteEntities(model)
+	c.Assert(err, tc.ErrorIsNil)
+
+	uuid, err := findRelationUUIDForKey(entities, relation.Key{
+		{ApplicationName: "dummy-source", EndpointName: "sink"},
+		{ApplicationName: "remote-13ea27915e7840d888c5e9451444b45d", EndpointName: "source"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuid, tc.Equals, "6049aa01-76c9-462d-8440-964a6e26aac2")
+}
+
+func (s *importSuite) TestFindRelationUUIDForKeyIgnoresOrder(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "relation-remote-13ea27915e7840d888c5e9451444b45d.source#dummy-source.sink",
+		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+
+	entities, err := extractRelationUUIDFromRemoteEntities(model)
+	c.Assert(err, tc.ErrorIsNil)
+
+	uuid, err := findRelationUUIDForKey(entities, relation.Key{
+		{ApplicationName: "dummy-source", EndpointName: "sink"},
+		{ApplicationName: "remote-13ea27915e7840d888c5e9451444b45d", EndpointName: "source"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuid, tc.Equals, "6049aa01-76c9-462d-8440-964a6e26aac2")
+
+	uuid, err = findRelationUUIDForKey(entities, relation.Key{
+		{ApplicationName: "remote-13ea27915e7840d888c5e9451444b45d", EndpointName: "source"},
+		{ApplicationName: "dummy-source", EndpointName: "sink"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuid, tc.Equals, "6049aa01-76c9-462d-8440-964a6e26aac2")
 }
 
 func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
