@@ -38,7 +38,7 @@ a storage pool, using parameters provided within a "storage directive". (Use
 ` + "`juju deploy --storage=<storage-directive>` " + `to provision storage during the
 deployment process.)
 
-	juju add-storage <unit> <storage-directive>
+    juju add-storage <unit> <storage-directive>
 
 ` + "`<unit>` " + `is the ID of a unit that is already in the model.
 
