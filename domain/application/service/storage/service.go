@@ -61,38 +61,6 @@ type State interface {
 	// - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
 	AttachStorageToUnit(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error
 
-	// AddStorageForCAASUnit adds storage instances to given unit as specified.
-	// The specified storage name is used to retrieve existing storage instances.
-	// Combination of existing storage instances and anticipated additional storage
-	// instances is validated as specified in the unit's charm.
-	// The following error types can be expected:
-	// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
-	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
-	// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the unit is not alive.
-	// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
-	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
-	// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded] when the requested storage falls outside of the bounds defined by the charm.
-	AddStorageForCAASUnit(
-		ctx context.Context, unitUUID coreunit.UUID,
-		storageArg internal.CreateUnitStorageArg,
-	) ([]corestorage.ID, error)
-
-	// AddStorageForIAASUnit adds storage instances to given IAAS unit as specified.
-	// The specified storage name is used to retrieve existing storage instances.
-	// Combination of existing storage instances and anticipated additional storage
-	// instances is validated as specified in the unit's charm.
-	// The following error types can be expected:
-	// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
-	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
-	// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the unit is not alive.
-	// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
-	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
-	// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded] when the requested storage falls outside of the bounds defined by the charm.
-	AddStorageForIAASUnit(
-		ctx context.Context, unitUUID coreunit.UUID,
-		storageArg internal.CreateUnitStorageArg, iaasStorageArgs internal.CreateIAASUnitStorageArg,
-	) ([]corestorage.ID, error)
-
 	// DetachStorageForUnit detaches the specified storage from the specified unit.
 	// The following error types can be expected:
 	// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
@@ -175,6 +143,21 @@ type State interface {
 	GetUnitStorageDirectives(
 		context.Context, coreunit.UUID,
 	) ([]application.StorageDirective, error)
+
+	// GetUnitStorageDirectiveByName returns the named storage directive that
+	// is set for a unit.
+	//
+	// The following errors can be expected:
+	// - [applicationerrors.UnitNotFound] when the unit no longer exists.
+	// - [applicationerrors.StorageNameNotSupported] if the named storage directive doesn't exist.
+	GetUnitStorageDirectiveByName(
+		context.Context, coreunit.UUID, string,
+	) (application.StorageDirective, error)
+
+	// GetUnitNetNodeUUID returns the net node UUID for the specified unit.
+	// The following error types can be expected:
+	// - [applicationerrors.UnitNotFound]: when the unit is not found.
+	GetUnitNetNodeUUID(ctx context.Context, uuid coreunit.UUID) (string, error)
 }
 
 // NewService returns a new application storage service for the model.
@@ -757,10 +740,10 @@ func (s Service) MakeUnitStorageArgs(
 		}
 
 		toUse := min(len(existingStorageInstances), maxCount)
-		sd.Count -= min(sd.Count, uint32(toUse)) // We don't want count to underflow.
-
+		addCount := sd.Count - min(sd.Count, uint32(toUse)) // We don't want count to underflow.
 		instArgs, err := makeUnitStorageInstancesFromDirective(
 			ctx,
+			addCount,
 			storagePoolProvider,
 			sd,
 		)
@@ -829,10 +812,10 @@ func (s Service) MakeUnitStorageArgs(
 // complement the unit storage arguments provided for IAAS units.
 func (s Service) MakeIAASUnitStorageArgs(
 	ctx context.Context,
-	unitStorageArg internal.CreateUnitStorageArg,
+	storageInst []internal.CreateUnitStorageInstanceArg,
 ) (internal.CreateIAASUnitStorageArg, error) {
 	var arg internal.CreateIAASUnitStorageArg
-	for _, v := range unitStorageArg.StorageInstances {
+	for _, v := range storageInst {
 		// TODO(storage): refactor this to use the storage instance composition
 		// calculated from the storageprovisioning domain.
 		var comp domainstorageprov.StorageInstanceComposition
@@ -866,17 +849,95 @@ func (s Service) MakeIAASUnitStorageArgs(
 	return arg, nil
 }
 
+// MakeUnitAddStorageArgs creates the storage arguments required to
+// add storage to a unit. This is similar to [MakeUnitStorageArgs]
+// but without processing existing storage.
+// The details of the new instances are calculated and all the
+// required storage attachments are added.
+// The directive provides storage defaults including count, but here the
+// caller is specifying the actual count to use.
+// This is a cut down version of [MakeUnitStorageArgs]. We may
+// choose to DRY things up a bit later.
+func (s Service) MakeUnitAddStorageArgs(
+	ctx context.Context,
+	unitUUID coreunit.UUID,
+	addCount uint32,
+	sd application.StorageDirective,
+) (internal.UnitAddStorageArg, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	var rvalInstances []internal.CreateUnitStorageInstanceArg
+	rvalToAttach := make([]internal.CreateUnitStorageAttachmentArg, 0, 1)
+	// rvalToOwn is the list of storage instance UUIDs that the unit must own.
+	rvalToOwn := make([]domainstorage.StorageInstanceUUID, 0, 1)
+
+	// We create a cached storage pool provider for the scope of this operation.
+	// This exists to reduce load on the controller potentially requesting the
+	// same storage pool provider over and over again.
+	storagePoolProvider := cachedStoragePoolProvider{
+		Cache:               map[domainstorage.StoragePoolUUID]storage.Provider{},
+		StoragePoolProvider: s.storagePoolProvider,
+	}
+
+	instArgs, err := makeUnitStorageInstancesFromDirective(
+		ctx,
+		addCount,
+		storagePoolProvider,
+		sd,
+	)
+	if err != nil {
+		return internal.UnitAddStorageArg{}, errors.Errorf(
+			"making new storage %q instance args: %w", sd.Name, err,
+		)
+	}
+
+	attachNetNodeUUID, err := s.st.GetUnitNetNodeUUID(ctx, unitUUID)
+	if err != nil {
+		return internal.UnitAddStorageArg{}, errors.Errorf("getting unit net node uuid: %w", err)
+	}
+
+	// Allocate capacity we know we are going to need.
+	rvalToAttach = slices.Grow(rvalToAttach, len(instArgs))
+	rvalInstances = slices.Grow(rvalInstances, len(instArgs))
+	rvalToOwn = slices.Grow(rvalToOwn, len(instArgs))
+	for _, inst := range instArgs {
+		storageAttachArg, err := makeStorageAttachmentArgFromNewStorageInstance(
+			domainnetwork.NetNodeUUID(attachNetNodeUUID), inst,
+		)
+
+		if err != nil {
+			return internal.UnitAddStorageArg{}, errors.Errorf(
+				"making storage attachment arguments for new storage instance: %w", err,
+			)
+		}
+
+		rvalToOwn = append(rvalToOwn, inst.UUID)
+		rvalToAttach = append(rvalToAttach, storageAttachArg)
+		rvalInstances = append(rvalInstances, inst)
+	}
+
+	return internal.UnitAddStorageArg{
+		StorageInstances: rvalInstances,
+		StorageToAttach:  rvalToAttach,
+		StorageToOwn:     rvalToOwn,
+	}, nil
+}
+
 // makeUnitStorageInstancesFromDirective is responsible for taking a storage
 // directive and creating a set of storage instance args that are capable of
 // fulfilling the requirements of the directive.
+// The directive provides storage defaults including count, but here the
+// caller is specifying the actual count to use.
 func makeUnitStorageInstancesFromDirective(
 	ctx context.Context,
+	count uint32,
 	storagePoolProvider StoragePoolProvider,
 	directive application.StorageDirective,
 ) ([]internal.CreateUnitStorageInstanceArg, error) {
 	// Early exit if no storage instances are to be created. Save's a lot of
 	// busy work that goes unused.
-	if directive.Count == 0 {
+	if count == 0 {
 		return nil, nil
 	}
 
@@ -904,8 +965,8 @@ func makeUnitStorageInstancesFromDirective(
 		)
 	}
 
-	rval := make([]internal.CreateUnitStorageInstanceArg, 0, directive.Count)
-	for range directive.Count {
+	rval := make([]internal.CreateUnitStorageInstanceArg, 0, count)
+	for range count {
 		uuid, err := domainstorage.NewStorageInstanceUUID()
 		if err != nil {
 			return nil, errors.Errorf(

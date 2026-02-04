@@ -10,6 +10,8 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
+	corestorage "github.com/juju/juju/core/storage"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -64,6 +66,25 @@ func (s *Service) GetApplicationStorageDirectives(
 		return nil, errors.New("application uuid is not valid").Add(coreerrors.NotValid)
 	}
 	return s.st.GetApplicationStorageDirectives(ctx, uuid)
+}
+
+// GetUnitStorageDirectiveByName returns the named storage directive for the unit.
+// The following errors may be expected:
+// - [coreerrors.NotValid] when the supplied unit uuid is not valid.
+// - [applicationerrors.StorageNameNotSupported] if the named storage does not exist.
+func (s *Service) GetUnitStorageDirectiveByName(
+	ctx context.Context,
+	uuid coreunit.UUID,
+	storageName corestorage.Name,
+) (application.StorageDirective, error) {
+	if uuid.Validate() != nil {
+		return application.StorageDirective{}, errors.New("unit uuid is not valid").Add(coreerrors.NotValid)
+	}
+	if err := storageName.Validate(); err != nil {
+		return application.StorageDirective{}, errors.Capture(err)
+	}
+
+	return s.st.GetUnitStorageDirectiveByName(ctx, uuid, storageName.String())
 }
 
 // GetApplicationStorageDirectivesInfo returns the storage directives set for an application,
@@ -209,7 +230,7 @@ func MakeStorageDirectiveFromApplicationArg(
 // storage definitions.
 //
 // The following errors may be expected:
-// - [applicationerrors.StorageCountLimitExceeded] the the requested storage
+// - [applicationerrors.StorageCountLimitExceeded] when the requested storage
 // falls outside of the bounds defined by the charm.
 func (s *Service) ValidateApplicationStorageDirectiveOverrides(
 	ctx context.Context,

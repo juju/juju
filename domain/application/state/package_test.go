@@ -224,6 +224,16 @@ func (s *baseSuite) createIAASApplicationWithNUnits(
 	l life.Life,
 	unitCount int,
 ) (coreapplication.UUID, []coreunit.UUID) {
+	return s.createIAASApplicationWithNUnitsAndStorage(c, name, l, unitCount, nil)
+}
+
+func (s *baseSuite) createIAASApplicationWithNUnitsAndStorage(
+	c *tc.C,
+	name string,
+	l life.Life,
+	unitCount int,
+	storage map[string]charm.Storage,
+) (coreapplication.UUID, []coreunit.UUID) {
 	state := NewState(s.TxnRunnerFactory(), s.modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c))
 	platform := deployment.Platform{
 		Channel:      "22.04/stable",
@@ -251,7 +261,8 @@ func (s *baseSuite) createIAASApplicationWithNUnits(
 			Channel:  channel,
 			Charm: charm.Charm{
 				Metadata: charm.Metadata{
-					Name: name,
+					Name:    name,
+					Storage: storage,
 					Provides: map[string]charm.Relation{
 						"endpoint": {
 							Name:  "endpoint",

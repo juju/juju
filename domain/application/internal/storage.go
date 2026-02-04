@@ -7,6 +7,7 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
+	"github.com/juju/juju/internal/errors"
 )
 
 // CreateApplicationStorageDirectiveArg defines an individual storage directive to be
@@ -36,6 +37,45 @@ type CreateStorageDirectiveArg struct {
 	Size uint64
 }
 
+// MaxStorageCountPreconditonFailed is used to signal a concurrent db operation
+// has occurred so that any pre-conditions for completing a storage add/attach are violated.
+const MaxStorageCountPreconditonFailed = errors.ConstError("max storage count precondiiton failed")
+
+// UnitAddStorageArg represents the arguments required for add storage
+// to a unit. This will instantiate the instances and attachments for the unit.
+type UnitAddStorageArg struct {
+	// StorageInstances defines the new storage instances that must be created
+	// for the unit.
+	StorageInstances []CreateUnitStorageInstanceArg
+
+	// StorageToAttach defines the storage instances that should be attached to
+	// the unit. New storage instances defined in
+	// [CreateUnitStorageArg.StorageInstances] are not automatically attached to
+	// the unit and should be included in this list.
+	StorageToAttach []CreateUnitStorageAttachmentArg
+
+	// StorageToOwn defines the storage instances that should be owned by the
+	// unit.
+	StorageToOwn []domainstorage.StorageInstanceUUID
+
+	// CountLessThanEqual is the maximum storage count allowed at the time
+	// the add is performed in order for the add operation to be considered successful.
+	CountLessThanEqual uint32
+}
+
+// IAASUnitAddStorageArg represents the arguments required for making storage
+// for an IAAS unit. This complements [UnitAddStorageArg], allowing for an
+// IAAS unit to augment storage that is destined for a machine.
+type IAASUnitAddStorageArg struct {
+	UnitAddStorageArg
+	// FilesystemsToOwn defines filesystems that will be owned by the unit's
+	// machine.
+	FilesystemsToOwn []domainstorage.FilesystemUUID
+
+	// VolumesToOwn defines volumes that will be owned by the unit's machine.
+	VolumesToOwn []domainstorage.VolumeUUID
+}
+
 // CreateUnitStorageArg represents the arguments required for making storage
 // for a unit. This will create and set the unit's storage directives and then
 // instantiate the instances and attachments for the units.
@@ -60,7 +100,7 @@ type CreateUnitStorageArg struct {
 }
 
 // CreateIAASUnitStorageArg represents the arguments required for making storage
-// for am IASS unit. This complements [CreateUnitStorageArg], allowing for an
+// for an IAAS unit. This complements [CreateUnitStorageArg], allowing for an
 // IAAS unit to augment storage that is destined for a machine.
 type CreateIAASUnitStorageArg struct {
 	// FilesystemsToOwn defines filesystems that will be owned by the unit's

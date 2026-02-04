@@ -26,6 +26,7 @@ import (
 	network "github.com/juju/juju/core/network"
 	semversion "github.com/juju/juju/core/semversion"
 	status "github.com/juju/juju/core/status"
+	storage "github.com/juju/juju/core/storage"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
@@ -35,6 +36,7 @@ import (
 	store "github.com/juju/juju/domain/application/charm/store"
 	internal "github.com/juju/juju/domain/application/internal"
 	constraints0 "github.com/juju/juju/domain/constraints"
+	charm1 "github.com/juju/juju/domain/deployment/charm"
 	life "github.com/juju/juju/domain/life"
 	network0 "github.com/juju/juju/domain/network"
 	environs "github.com/juju/juju/environs"
@@ -632,6 +634,84 @@ func (c *MockStateAddIAASUnitsCall) Do(f func(context.Context, application.UUID,
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateAddIAASUnitsCall) DoAndReturn(f func(context.Context, application.UUID, ...application0.AddIAASUnitArg) ([]unit.Name, []machine.Name, error)) *MockStateAddIAASUnitsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// AddStorageForCAASUnit mocks base method.
+func (m *MockState) AddStorageForCAASUnit(arg0 context.Context, arg1 unit.UUID, arg2 storage.Name, arg3 internal.UnitAddStorageArg) ([]storage.ID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddStorageForCAASUnit", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].([]storage.ID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddStorageForCAASUnit indicates an expected call of AddStorageForCAASUnit.
+func (mr *MockStateMockRecorder) AddStorageForCAASUnit(arg0, arg1, arg2, arg3 any) *MockStateAddStorageForCAASUnitCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddStorageForCAASUnit", reflect.TypeOf((*MockState)(nil).AddStorageForCAASUnit), arg0, arg1, arg2, arg3)
+	return &MockStateAddStorageForCAASUnitCall{Call: call}
+}
+
+// MockStateAddStorageForCAASUnitCall wrap *gomock.Call
+type MockStateAddStorageForCAASUnitCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateAddStorageForCAASUnitCall) Return(arg0 []storage.ID, arg1 error) *MockStateAddStorageForCAASUnitCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateAddStorageForCAASUnitCall) Do(f func(context.Context, unit.UUID, storage.Name, internal.UnitAddStorageArg) ([]storage.ID, error)) *MockStateAddStorageForCAASUnitCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateAddStorageForCAASUnitCall) DoAndReturn(f func(context.Context, unit.UUID, storage.Name, internal.UnitAddStorageArg) ([]storage.ID, error)) *MockStateAddStorageForCAASUnitCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// AddStorageForIAASUnit mocks base method.
+func (m *MockState) AddStorageForIAASUnit(arg0 context.Context, arg1 unit.UUID, arg2 storage.Name, arg3 internal.IAASUnitAddStorageArg) ([]storage.ID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddStorageForIAASUnit", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].([]storage.ID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddStorageForIAASUnit indicates an expected call of AddStorageForIAASUnit.
+func (mr *MockStateMockRecorder) AddStorageForIAASUnit(arg0, arg1, arg2, arg3 any) *MockStateAddStorageForIAASUnitCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddStorageForIAASUnit", reflect.TypeOf((*MockState)(nil).AddStorageForIAASUnit), arg0, arg1, arg2, arg3)
+	return &MockStateAddStorageForIAASUnitCall{Call: call}
+}
+
+// MockStateAddStorageForIAASUnitCall wrap *gomock.Call
+type MockStateAddStorageForIAASUnitCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateAddStorageForIAASUnitCall) Return(arg0 []storage.ID, arg1 error) *MockStateAddStorageForIAASUnitCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateAddStorageForIAASUnitCall) Do(f func(context.Context, unit.UUID, storage.Name, internal.IAASUnitAddStorageArg) ([]storage.ID, error)) *MockStateAddStorageForIAASUnitCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateAddStorageForIAASUnitCall) DoAndReturn(f func(context.Context, unit.UUID, storage.Name, internal.IAASUnitAddStorageArg) ([]storage.ID, error)) *MockStateAddStorageForIAASUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2711,6 +2791,46 @@ func (c *MockStateGetCharmModifiedVersionCall) Do(f func(context.Context, applic
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetCharmModifiedVersionCall) DoAndReturn(f func(context.Context, application.UUID) (int, error)) *MockStateGetCharmModifiedVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetCharmStorageAndInstanceCountByUnitUUID mocks base method.
+func (m *MockState) GetCharmStorageAndInstanceCountByUnitUUID(arg0 context.Context, arg1 unit.UUID, arg2 storage.Name) (charm1.Storage, uint32, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCharmStorageAndInstanceCountByUnitUUID", arg0, arg1, arg2)
+	ret0, _ := ret[0].(charm1.Storage)
+	ret1, _ := ret[1].(uint32)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetCharmStorageAndInstanceCountByUnitUUID indicates an expected call of GetCharmStorageAndInstanceCountByUnitUUID.
+func (mr *MockStateMockRecorder) GetCharmStorageAndInstanceCountByUnitUUID(arg0, arg1, arg2 any) *MockStateGetCharmStorageAndInstanceCountByUnitUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmStorageAndInstanceCountByUnitUUID", reflect.TypeOf((*MockState)(nil).GetCharmStorageAndInstanceCountByUnitUUID), arg0, arg1, arg2)
+	return &MockStateGetCharmStorageAndInstanceCountByUnitUUIDCall{Call: call}
+}
+
+// MockStateGetCharmStorageAndInstanceCountByUnitUUIDCall wrap *gomock.Call
+type MockStateGetCharmStorageAndInstanceCountByUnitUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetCharmStorageAndInstanceCountByUnitUUIDCall) Return(arg0 charm1.Storage, arg1 uint32, arg2 error) *MockStateGetCharmStorageAndInstanceCountByUnitUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetCharmStorageAndInstanceCountByUnitUUIDCall) Do(f func(context.Context, unit.UUID, storage.Name) (charm1.Storage, uint32, error)) *MockStateGetCharmStorageAndInstanceCountByUnitUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetCharmStorageAndInstanceCountByUnitUUIDCall) DoAndReturn(f func(context.Context, unit.UUID, storage.Name) (charm1.Storage, uint32, error)) *MockStateGetCharmStorageAndInstanceCountByUnitUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
