@@ -56,3 +56,10 @@ func (s *RemoteApplicationNameSuite) TestIsRemoteApplication(c *tc.C) {
 		c.Check(result, tc.Equals, test.expected)
 	}
 }
+
+func (s *RemoteApplicationNameSuite) TestRemoteApplicationNameFromUUID(c *tc.C) {
+	uuid := UUID("123e4567-e89b-12d3-a456-426655440000")
+	expectedName := "remote-123e4567e89b12d3a456426655440000"
+	generatedName := RemoteApplicationNameFromUUID(uuid)
+	c.Check(generatedName, tc.Equals, expectedName)
+}

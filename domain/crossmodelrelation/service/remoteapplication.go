@@ -5,12 +5,11 @@ package service
 
 import (
 	"context"
-	"strings"
-
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
+	"gopkg.in/macaroon.v2"
+
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/errors"
@@ -244,7 +243,7 @@ func (s *Service) AddConsumedRelation(ctx context.Context, args AddConsumedRelat
 
 	// The synthetic application name is prefixed with "remote-" to avoid
 	// name clashes with local applications.
-	synthApplicationName := "remote-" + strings.ReplaceAll(synthApplicationUUID.String(), "-", "")
+	synthApplicationName := coreapplication.RemoteApplicationNameFromUUID(synthApplicationUUID)
 	if !application.IsValidApplicationName(synthApplicationName) {
 		return applicationerrors.ApplicationNameNotValid
 	}

@@ -28,3 +28,9 @@ func IsRemoteApplication(appName string) bool {
 	_, err := uuid.UUIDFromEncodedString(parts[1])
 	return err == nil
 }
+
+// RemoteApplicationNameFromUUID generates a remote application name
+// from the given UUID.
+func RemoteApplicationNameFromUUID(uuid UUID) string {
+	return "remote-" + strings.ReplaceAll(uuid.String(), "-", "")
+}
