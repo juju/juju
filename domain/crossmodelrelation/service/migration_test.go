@@ -71,11 +71,11 @@ func (s *migrationSuite) TestImportOffersFail(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *migrationSuite) TestImportRemoteApplications(c *tc.C) {
+func (s *migrationSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	input := []RemoteApplicationImport{
+	input := []RemoteApplicationOffererImport{
 		{
 			Name:            "remote-app1",
 			OfferUUID:       uuid.MustNewUUID().String(),
@@ -89,8 +89,7 @@ func (s *migrationSuite) TestImportRemoteApplications(c *tc.C) {
 					Interface: "mysql",
 				},
 			},
-			Bindings:        map[string]string{"db": "alpha"},
-			IsConsumerProxy: false,
+			Bindings: map[string]string{"db": "alpha"},
 		},
 		{
 			Name:            "remote-app2",
@@ -105,8 +104,7 @@ func (s *migrationSuite) TestImportRemoteApplications(c *tc.C) {
 					Interface: "http",
 				},
 			},
-			Bindings:        map[string]string{"endpoint": "beta"},
-			IsConsumerProxy: false,
+			Bindings: map[string]string{"endpoint": "beta"},
 		},
 	}
 	// Verify the service builds synthetic charms correctly
@@ -118,17 +116,17 @@ func (s *migrationSuite) TestImportRemoteApplications(c *tc.C) {
 	).Return(nil)
 
 	// Act
-	err := s.service(c).ImportRemoteApplications(c.Context(), input)
+	err := s.service(c).ImportRemoteApplicationOfferers(c.Context(), input)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *migrationSuite) TestImportRemoteApplicationsEmpty(c *tc.C) {
+func (s *migrationSuite) TestImportRemoteApplicationOfferersEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	input := []RemoteApplicationImport{}
+	input := []RemoteApplicationOffererImport{}
 	s.modelMigrationState.EXPECT().ImportRemoteApplicationOfferers(
 		gomock.Any(),
 		syntheticCharmMatcher{
@@ -137,17 +135,17 @@ func (s *migrationSuite) TestImportRemoteApplicationsEmpty(c *tc.C) {
 	).Return(nil)
 
 	// Act
-	err := s.service(c).ImportRemoteApplications(c.Context(), input)
+	err := s.service(c).ImportRemoteApplicationOfferers(c.Context(), input)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *migrationSuite) TestImportRemoteApplicationsFail(c *tc.C) {
+func (s *migrationSuite) TestImportRemoteApplicationOfferersFail(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	input := []RemoteApplicationImport{
+	input := []RemoteApplicationOffererImport{
 		{
 			Name:            "remote-app",
 			OfferUUID:       uuid.MustNewUUID().String(),
@@ -161,7 +159,6 @@ func (s *migrationSuite) TestImportRemoteApplicationsFail(c *tc.C) {
 					Interface: "mysql",
 				},
 			},
-			IsConsumerProxy: false,
 		},
 	}
 	s.modelMigrationState.EXPECT().ImportRemoteApplicationOfferers(
@@ -172,17 +169,17 @@ func (s *migrationSuite) TestImportRemoteApplicationsFail(c *tc.C) {
 	).Return(applicationerrors.ApplicationNotFound)
 
 	// Act
-	err := s.service(c).ImportRemoteApplications(c.Context(), input)
+	err := s.service(c).ImportRemoteApplicationOfferers(c.Context(), input)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *migrationSuite) TestImportRemoteApplicationsPeerIgnored(c *tc.C) {
+func (s *migrationSuite) TestImportRemoteApplicationOfferersPeerIgnored(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange - import with a peer endpoint to verify it's ignored in synthetic charm
-	input := []RemoteApplicationImport{
+	input := []RemoteApplicationOffererImport{
 		{
 			Name:            "remote-app",
 			OfferUUID:       uuid.MustNewUUID().String(),
@@ -206,7 +203,6 @@ func (s *migrationSuite) TestImportRemoteApplicationsPeerIgnored(c *tc.C) {
 					Interface: "db",
 				},
 			},
-			IsConsumerProxy: false,
 		},
 	}
 	// Verify the synthetic charm excludes peer endpoints
@@ -218,122 +214,16 @@ func (s *migrationSuite) TestImportRemoteApplicationsPeerIgnored(c *tc.C) {
 	).Return(nil)
 
 	// Act
-	err := s.service(c).ImportRemoteApplications(c.Context(), input)
-
-	// Assert
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *migrationSuite) TestImportRemoteApplicationsConsumerProxyFiltered(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Arrange - import both a consumer proxy and a regular remote app
-	// Consumer proxies should be filtered out by the service layer
-	input := []RemoteApplicationImport{
-		{
-			Name:            "remote-consumer-proxy",
-			OfferUUID:       uuid.MustNewUUID().String(),
-			URL:             "ctrl:admin/model.app",
-			SourceModelUUID: uuid.MustNewUUID().String(),
-			Macaroon:        "macaroon-proxy",
-			Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
-				{
-					Name:      "endpoint",
-					Role:      "provider",
-					Interface: "http",
-				},
-			},
-			IsConsumerProxy: true, // Should be filtered out
-		},
-		{
-			Name:            "remote-normal",
-			OfferUUID:       uuid.MustNewUUID().String(),
-			URL:             "ctrl:admin/model.normal",
-			SourceModelUUID: uuid.MustNewUUID().String(),
-			Macaroon:        "macaroon-normal",
-			Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
-				{
-					Name:      "endpoint",
-					Role:      "provider",
-					Interface: "http",
-				},
-			},
-			IsConsumerProxy: false, // Should be imported
-		},
-	}
-
-	// Expected: only the non-consumer-proxy should be passed to state
-	expectedToState := []RemoteApplicationImport{input[1]}
-	s.modelMigrationState.EXPECT().ImportRemoteApplicationOfferers(
-		gomock.Any(),
-		syntheticCharmMatcher{
-			expectedApps: expectedToState,
-		},
-	).Return(nil)
-
-	// Act
-	err := s.service(c).ImportRemoteApplications(c.Context(), input)
-
-	// Assert
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *migrationSuite) TestImportRemoteApplicationsAllConsumerProxiesFiltered(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Arrange - all imports are consumer proxies
-	input := []RemoteApplicationImport{
-		{
-			Name:            "remote-consumer-proxy-1",
-			OfferUUID:       uuid.MustNewUUID().String(),
-			URL:             "ctrl:admin/model.app1",
-			SourceModelUUID: uuid.MustNewUUID().String(),
-			Macaroon:        "macaroon-1",
-			Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
-				{
-					Name:      "endpoint",
-					Role:      "provider",
-					Interface: "http",
-				},
-			},
-			IsConsumerProxy: true,
-		},
-		{
-			Name:            "remote-consumer-proxy-2",
-			OfferUUID:       uuid.MustNewUUID().String(),
-			URL:             "ctrl:admin/model.app2",
-			SourceModelUUID: uuid.MustNewUUID().String(),
-			Macaroon:        "macaroon-2",
-			Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
-				{
-					Name:      "endpoint",
-					Role:      "provider",
-					Interface: "http",
-				},
-			},
-			IsConsumerProxy: true,
-		},
-	}
-
-	// Expected: empty slice passed to state
-	s.modelMigrationState.EXPECT().ImportRemoteApplicationOfferers(
-		gomock.Any(),
-		syntheticCharmMatcher{
-			expectedApps: []RemoteApplicationImport{},
-		},
-	).Return(nil)
-
-	// Act
-	err := s.service(c).ImportRemoteApplications(c.Context(), input)
+	err := s.service(c).ImportRemoteApplicationOfferers(c.Context(), input)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 // syntheticCharmMatcher is a custom gomock matcher that verifies
-// RemoteApplicationImport slices have correctly built synthetic charms.
+// RemoteApplicationOffererImport slices have correctly built synthetic charms.
 type syntheticCharmMatcher struct {
-	expectedApps []RemoteApplicationImport
+	expectedApps []RemoteApplicationOffererImport
 }
 
 func (m syntheticCharmMatcher) Matches(x interface{}) bool {
@@ -410,7 +300,7 @@ func (m syntheticCharmMatcher) Matches(x interface{}) bool {
 }
 
 func (m syntheticCharmMatcher) String() string {
-	return "matches RemoteApplicationImport with correctly built synthetic charms"
+	return "matches RemoteApplicationOffererImport with correctly built synthetic charms"
 }
 
 func (s *migrationSuite) service(c *tc.C) *MigrationService {

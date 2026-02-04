@@ -13,6 +13,7 @@ import (
 	"github.com/juju/description/v11"
 	"github.com/juju/names/v6"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/relation"
@@ -203,6 +204,11 @@ func (i *importOperation) importRemoteApplicationOfferers(
 ) error {
 	input := make([]service.RemoteApplicationOffererImport, 0, len(remoteApps))
 	for _, remoteApp := range remoteApps {
+		// Ignore remote application consumers.
+		if coreapplication.IsRemoteApplication(remoteApp.Name()) {
+			continue
+		}
+
 		endpoints, err := extractRemoteEndpoints(remoteApp)
 		if err != nil {
 			return errors.Errorf("extracting endpoints for remote application %q: %w",
@@ -233,6 +239,11 @@ func (i *importOperation) importRemoteApplicationConsumers(
 ) error {
 	input := make([]service.RemoteApplicationConsumerImport, 0, len(remoteApps))
 	for _, remoteApp := range remoteApps {
+		// Ignore remote application offerers.
+		if !coreapplication.IsRemoteApplication(remoteApp.Name()) {
+			continue
+		}
+
 		endpoints, err := extractRemoteEndpoints(remoteApp)
 		if err != nil {
 			return errors.Errorf("extracting endpoints for remote application %q: %w",
@@ -275,7 +286,7 @@ func (i *importOperation) importRemoteApplicationConsumers(
 			Endpoints:               endpoints,
 			Bindings:                remoteApp.Bindings(),
 			Units:                   remoteAppUnits[remoteApp.Name()],
-			Username:                offerConnection.UserName,
+			UserName:                offerConnection.UserName,
 		})
 	}
 

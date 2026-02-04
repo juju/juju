@@ -177,13 +177,7 @@ func (st *State) ImportRemoteApplicationConsumers(ctx context.Context, imports [
 func (st *State) importRemoteApplicationConsumer(ctx context.Context, tx *sqlair.TX, consumer crossmodelrelation.RemoteApplicationConsumerImport) error {
 	applicationName := consumer.Name
 
-	// Get the application UUID for which the offer UUID was created.
-	_, offerApplicationUUID, err := st.getApplicationNameAndUUIDByOfferUUID(ctx, tx, consumer.OfferUUID)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	if err := st.checkApplicationNotDead(ctx, tx, offerApplicationUUID); err != nil {
+	if err := st.checkApplicationNotDead(ctx, tx, consumer.OffererApplicationUUID); err != nil {
 		return errors.Capture(err)
 	}
 
@@ -205,7 +199,7 @@ func (st *State) importRemoteApplicationConsumer(ctx context.Context, tx *sqlair
 
 	// Insert the application, along with the associated charm.
 	if err := st.insertApplication(ctx, tx, applicationName, insertApplicationArgs{
-		ApplicationUUID: consumer.SyntheticApplicationUUID,
+		ApplicationUUID: consumer.ConsumerApplicationUUID,
 		CharmUUID:       charmUUID.String(),
 		Charm:           consumer.SyntheticCharm,
 	}); err != nil {
@@ -226,9 +220,9 @@ func (st *State) importRemoteApplicationConsumer(ctx context.Context, tx *sqlair
 	// application_endpoints.
 	relEndpointArgs := addRelationEndpointArgs{
 		RelationUUID:       consumer.RelationUUID,
-		ApplicationOneUUID: consumer.SyntheticApplicationUUID,
+		ApplicationOneUUID: consumer.ConsumerApplicationUUID,
 		EndpointOneName:    consumer.ConsumerApplicationEndpoint,
-		ApplicationTwoUUID: offerApplicationUUID,
+		ApplicationTwoUUID: consumer.OffererApplicationUUID,
 		EndpointTwoName:    consumer.OffererApplicationEndpoint,
 	}
 	if err := st.insertRelationEndpoints(ctx, tx, relEndpointArgs); err != nil {
@@ -237,10 +231,10 @@ func (st *State) importRemoteApplicationConsumer(ctx context.Context, tx *sqlair
 
 	// Create an offer connection for this consumer.
 	offerConnectionUUID, err := st.insertOfferConnection(ctx, tx,
-		consumer.SyntheticApplicationUUID,
+		consumer.ConsumerApplicationUUID,
 		consumer.OfferUUID,
 		consumer.RelationUUID,
-		consumer.Username,
+		consumer.UserName,
 	)
 	if err != nil {
 		return errors.Capture(err)
@@ -250,7 +244,7 @@ func (st *State) importRemoteApplicationConsumer(ctx context.Context, tx *sqlair
 	// the synthetic application later.
 	if err := st.insertRemoteApplicationConsumer(ctx, tx,
 		offerConnectionUUID,
-		offerApplicationUUID,
+		consumer.OffererApplicationUUID,
 		consumer.ConsumerApplicationUUID,
 		consumer.ConsumerModelUUID,
 	); err != nil {
@@ -258,4 +252,24 @@ func (st *State) importRemoteApplicationConsumer(ctx context.Context, tx *sqlair
 	}
 
 	return nil
+}
+
+// GetApplicationUUIDByName returns the application UUID for the named
+// application.
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application does not exist
+func (st *State) GetApplicationUUIDByName(ctx context.Context, name string) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var id string
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		id, err = st.getApplicationUUID(ctx, tx, name)
+		return err
+	}); err != nil {
+		return "", errors.Capture(err)
+	}
+	return id, nil
 }

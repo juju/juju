@@ -198,16 +198,15 @@ type RemoteApplicationConsumerImport struct {
 	// consuming application.
 	ConsumerApplicationEndpoint string
 
+	// OffererApplicationUUID is the UUID of the offering application.
+	OffererApplicationUUID string
+
 	// OffererApplicationEndpoint is the relation endpoint name of the
 	// offering application.
 	OffererApplicationEndpoint string
 
 	// Macaroon is the authentication macaroon for the offer.
 	Macaroon string
-
-	// SyntheticApplicationUUID is the UUID of the synthetic application
-	// representing the remote application.
-	SyntheticApplicationUUID string
 
 	// SyntheticCharm is the synthetic charm built from the remote endpoints.
 	// This is created in the service layer from the Endpoints field.
@@ -225,9 +224,9 @@ type RemoteApplicationConsumerImport struct {
 	// during migration import.
 	Units []string
 
-	// Username is the name of the user who made the original offer connection
+	// UserName is the name of the user who made the original offer connection
 	// request.
-	Username string
+	UserName string
 }
 
 // RemoteApplicationConsumer represents a remote application
