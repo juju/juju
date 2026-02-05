@@ -299,6 +299,97 @@ func (s *importSuite) TestImportRemoteApplicationsWithUnitsFromRelations(c *tc.C
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *importSuite) TestImportRemoteApplicationConsumers(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	remoteApp := model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "remote-13ea27915e7840d888c5e9451444b45d",
+		OfferUUID:       "cfa46843-ebf2-4fff-8519-c1fb5a9816f3",
+		SourceModelUUID: "4ddd6454-931d-4278-8779-b0b7208994d9",
+		IsConsumerProxy: true,
+		ConsumeVersion:  1,
+		// URL is left blank as this is not filled in by the 3.6 model
+		// description export, so we have to be sure we can handle this case.
+		URL: "",
+	})
+	remoteApp.AddEndpoint(description.RemoteEndpointArgs{
+		Name:      "source",
+		Role:      "provider",
+		Interface: "dummy-token",
+	})
+
+	model.AddOfferConnection(description.OfferConnectionArgs{
+		// OfferUUID is intentionally left blank as this is not filled in by the
+		// 3.6 model description export, so we have to be sure we can handle
+		// this case.
+		OfferUUID:       "",
+		RelationID:      0,
+		RelationKey:     "dummy-source:sink remote-13ea27915e7840d888c5e9451444b45d:source",
+		SourceModelUUID: "4ddd6454-931d-4278-8779-b0b7208994d9",
+		UserName:        "admin",
+	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "application-remote-13ea27915e7840d888c5e9451444b45d",
+		Token: "13ea2791-5e78-40d8-88c5-e9451444b45d",
+	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "relation-dummy-source.sink#remote-13ea27915e7840d888c5e9451444b45d.source",
+		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "applicationoffer-cfa46843-ebf2-4fff-8519-c1fb5a9816f3",
+		Token: "ec7383b4-7ca1-49de-85d3-1ce8d9cf3d6e",
+	})
+
+	rel := model.AddRelation(description.RelationArgs{
+		Id:        0,
+		Key:       "dummy-source:sink remote-13ea27915e7840d888c5e9451444b45d:source",
+		Suspended: false,
+	})
+	ep0 := rel.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "dummy-source",
+		Name:            "sink",
+		Role:            "requirer",
+		Scope:           "global",
+		Interface:       "dummy-token",
+		Limit:           0,
+	})
+	ep0.SetUnitSettings("dummy-source/0", map[string]any{
+		"egress-subnets":  "10.232.51.213/32",
+		"ingress-address": "10.232.51.213",
+		"private-address": "10.232.51.213",
+		"token":           "foo",
+	})
+	ep1 := rel.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "remote-13ea27915e7840d888c5e9451444b45d",
+		Interface:       "dummy-token",
+		Name:            "source",
+		Role:            "provider",
+		Scope:           "",
+		Limit:           0,
+	})
+	ep1.SetUnitSettings("remote-13ea27915e7840d888c5e9451444b45d/0", map[string]any{
+		"egress-subnets":  "10.232.51.148/32",
+		"ingress-address": "10.232.51.148",
+		"private-address": "10.232.51.148",
+	})
+
+	expected := []service.RemoteApplicationConsumerImport{}
+
+	s.importService.EXPECT().ImportRemoteApplicationConsumers(
+		gomock.Any(),
+		expected,
+	).Return(nil)
+
+	op := s.newImportOperation(c)
+	err := op.Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *importSuite) TestExtractRelationUUIDFromRemoteEntities(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

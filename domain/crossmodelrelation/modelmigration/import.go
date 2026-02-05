@@ -13,7 +13,6 @@ import (
 	"github.com/juju/description/v11"
 	"github.com/juju/names/v6"
 
-	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/relation"
@@ -118,7 +117,13 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	}
 
 	// Import remote application consumers.
-	if err := i.importRemoteApplicationConsumers(ctx, remoteApplications, remoteAppUnits, offerConnections, relationRemoteEntities, applicationRemoteEntities); err != nil {
+	if err := i.importRemoteApplicationConsumers(ctx,
+		remoteApplications,
+		remoteAppUnits,
+		offerConnections,
+		relationRemoteEntities,
+		applicationRemoteEntities,
+	); err != nil {
 		return errors.Errorf("importing remote application consumers: %w", err)
 	}
 
@@ -205,7 +210,7 @@ func (i *importOperation) importRemoteApplicationOfferers(
 	input := make([]service.RemoteApplicationOffererImport, 0, len(remoteApps))
 	for _, remoteApp := range remoteApps {
 		// Ignore remote application consumers.
-		if coreapplication.IsRemoteApplication(remoteApp.Name()) {
+		if !remoteApp.IsConsumerProxy() {
 			continue
 		}
 
@@ -240,7 +245,7 @@ func (i *importOperation) importRemoteApplicationConsumers(
 	input := make([]service.RemoteApplicationConsumerImport, 0, len(remoteApps))
 	for _, remoteApp := range remoteApps {
 		// Ignore remote application offerers.
-		if !coreapplication.IsRemoteApplication(remoteApp.Name()) {
+		if remoteApp.IsConsumerProxy() {
 			continue
 		}
 
