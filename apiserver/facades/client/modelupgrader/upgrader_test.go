@@ -769,7 +769,10 @@ func (s *modelUpgradeSuite) TestFindToolsIAAS(c *gc.C) {
 	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
 		MajorVersion: 2, ModelType: state.ModelTypeIAAS}).Return(simpleStreams, nil)
 
-	result, err := api.FindAgents(common.FindAgentsParams{MajorVersion: 2, ModelType: state.ModelTypeIAAS})
+	result, err := api.FindAgents(
+		common.FindAgentsParams{MajorVersion: 2, ModelType: state.ModelTypeIAAS},
+		version.MustParse("2.9.5"),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, coretools.Versions{
 		&coretools.Tools{Version: version.MustParseBinary("2.9.6-ubuntu-amd64")},
@@ -824,8 +827,11 @@ func (s *modelUpgradeSuite) assertFindToolsCAASReleased(c *gc.C, wantArch, expec
 		s.registryProvider.EXPECT().Close().Return(nil),
 	)
 
-	result, err := api.FindAgents(common.FindAgentsParams{
-		MajorVersion: 2, MinorVersion: 9, ModelType: state.ModelTypeCAAS, Arch: wantArch})
+	result, err := api.FindAgents(
+		common.FindAgentsParams{
+			MajorVersion: 2, MinorVersion: 9, ModelType: state.ModelTypeCAAS, Arch: wantArch},
+		version.MustParse("2.9.8"),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, coretools.Versions{
 		&coretools.Tools{Version: version.MustParseBinary("2.9.9-ubuntu-" + expectArch)},
@@ -866,8 +872,11 @@ func (s *modelUpgradeSuite) TestFindToolsCAASReleasedExact(c *gc.C) {
 		s.registryProvider.EXPECT().Close().Return(nil),
 	)
 
-	result, err := api.FindAgents(common.FindAgentsParams{
-		Number: version.MustParse("2.9.10"), ModelType: state.ModelTypeCAAS})
+	result, err := api.FindAgents(
+		common.FindAgentsParams{
+			Number: version.MustParse("2.9.10"), ModelType: state.ModelTypeCAAS},
+		version.MustParse("2.9.8"),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, coretools.Versions{
 		&coretools.Tools{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
@@ -913,10 +922,13 @@ func (s *modelUpgradeSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 		s.registryProvider.EXPECT().Close().Return(nil),
 	)
 
-	result, err := api.FindAgents(common.FindAgentsParams{
-		MajorVersion: 2, MinorVersion: 9, AgentStream: envtools.DevelStream,
-		ModelType: state.ModelTypeCAAS,
-	})
+	result, err := api.FindAgents(
+		common.FindAgentsParams{
+			MajorVersion: 2, MinorVersion: 9, AgentStream: envtools.DevelStream,
+			ModelType: state.ModelTypeCAAS,
+		},
+		version.MustParse("2.9.7"),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, coretools.Versions{
 		&coretools.Tools{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},

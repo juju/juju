@@ -30,7 +30,7 @@ func (m *ModelUpgraderAPI) decideVersion(
 		return version.Zero, errUpToDate
 	}
 
-	streamVersions, err := m.findAgents(args)
+	streamVersions, err := m.findAgents(args, currentVersion)
 	if err != nil {
 		return version.Zero, errors.Trace(err)
 	}
@@ -70,6 +70,7 @@ func (m *ModelUpgraderAPI) decideVersion(
 
 func (m *ModelUpgraderAPI) findAgents(
 	args common.FindAgentsParams,
+	currentVersion version.Number,
 ) (coretools.Versions, error) {
 	list, err := m.toolsFinder.FindAgents(args)
 	if args.ModelType != state.ModelTypeCAAS {
@@ -79,7 +80,7 @@ func (m *ModelUpgraderAPI) findAgents(
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
-	return m.agentVersionsForCAAS(args, list)
+	return m.agentVersionsForCAAS(args, currentVersion, list)
 }
 
 // The default available agents come directly from streams metadata.
@@ -93,6 +94,7 @@ func toolListToVersions(streamsVersions coretools.List) coretools.Versions {
 
 func (m *ModelUpgraderAPI) agentVersionsForCAAS(
 	args common.FindAgentsParams,
+	currentVersion version.Number,
 	streamsAgents coretools.List,
 ) (coretools.Versions, error) {
 	result := coretools.Versions{}
@@ -145,6 +147,9 @@ func (m *ModelUpgraderAPI) agentVersionsForCAAS(
 	}
 	for _, tag := range tags {
 		number := tag.AgentVersion()
+		if number.Compare(currentVersion.ToPatch()) <= 0 {
+			continue
+		}
 		if args.MajorVersion > 0 {
 			if number.Major != args.MajorVersion {
 				continue
