@@ -46,8 +46,8 @@ CREATE TABLE secret_metadata (
     rotate_policy_id INT NOT NULL,
     auto_prune BOOLEAN NOT NULL DEFAULT (FALSE),
     latest_revision_checksum TEXT,
-    create_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
-    update_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
+    create_time DATETIME NOT NULL,
+    update_time DATETIME NOT NULL,
     CONSTRAINT fk_secret_id
     FOREIGN KEY (secret_id)
     REFERENCES secret (id),
@@ -106,7 +106,8 @@ CREATE TABLE secret_revision (
     uuid TEXT NOT NULL PRIMARY KEY,
     secret_id TEXT NOT NULL,
     revision INT NOT NULL,
-    create_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
+    create_time DATETIME NOT NULL,
+    update_time DATETIME NOT NULL,
     CONSTRAINT fk_secret_revision_secret_metadata_id
     FOREIGN KEY (secret_id)
     REFERENCES secret_metadata (secret_id)

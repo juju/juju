@@ -867,39 +867,3 @@ BEGIN
 END;`, namespaceID))
 	}
 }
-
-func changeLogTriggersForSecretRevision(columnName string, namespaceID int) func() schema.Patch {
-	return func() schema.Patch {
-		return schema.MakePatch(fmt.Sprintf(`
--- insert namespace for SecretRevision
-INSERT INTO change_log_namespace VALUES (%[2]d, 'secret_revision', 'SecretRevision changes based on %[1]s');
-
--- insert trigger for SecretRevision
-CREATE TRIGGER trg_log_secret_revision_insert
-AFTER INSERT ON secret_revision FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
-END;
-
--- update trigger for SecretRevision
-CREATE TRIGGER trg_log_secret_revision_update
-AFTER UPDATE ON secret_revision FOR EACH ROW
-WHEN 
-	NEW.uuid != OLD.uuid OR
-	NEW.secret_id != OLD.secret_id OR
-	NEW.revision != OLD.revision OR
-	NEW.create_time != OLD.create_time 
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
-END;
--- delete trigger for SecretRevision
-CREATE TRIGGER trg_log_secret_revision_delete
-AFTER DELETE ON secret_revision FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
-END;`, columnName, namespaceID))
-	}
-}
