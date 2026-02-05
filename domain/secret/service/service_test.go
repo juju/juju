@@ -242,7 +242,7 @@ func (s *serviceSuite) assertCreateUserSecret(c *tc.C, isInternal, finalStepFail
 		if labelExists {
 			c.Assert(err, tc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
 		} else {
-			c.Assert(err, tc.ErrorMatches, "creating user secret .*some error")
+			c.Assert(err, tc.ErrorMatches, "creating user secret.*some error")
 		}
 	} else {
 		c.Assert(err, tc.ErrorIsNil)

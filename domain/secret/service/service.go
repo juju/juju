@@ -276,7 +276,7 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 	}()
 
 	if err := s.secretState.CreateUserSecret(ctx, params.Version, uri, p); err != nil {
-		return errors.Errorf("cannot create user secret: %w", err)
+		return errors.Errorf("creating user secret: %w", err)
 	}
 	return nil
 }
@@ -357,11 +357,11 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 			return errors.Capture(err)
 		}
 		if err := s.createCharmApplicationSecret(ctx, params.Version, uri, params.CharmOwner.ID, p); err != nil {
-			return errors.Errorf("cannot create charm secret %q: %w", uri.ID, err)
+			return errors.Errorf("creating charm secret %q: %w", uri.ID, err)
 		}
 	case domainsecret.UnitCharmSecretOwner:
 		if err := s.createCharmUnitSecret(ctx, params.Version, uri, params.CharmOwner.ID, p); err != nil {
-			return errors.Errorf("cannot create charm secret %q: %w", uri.ID, err)
+			return errors.Errorf("creating charm secret %q: %w", uri.ID, err)
 		}
 	default:
 		return errors.Errorf("unexpected secret owner kind %q for secret %q", params.CharmOwner.Kind, uri.ID)
@@ -540,7 +540,7 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 
 		err := s.secretState.UpdateSecret(innerCtx, uri, p)
 		if err != nil {
-			return errors.Errorf("cannot update charm secret %q: %w", uri.ID, err)
+			return errors.Errorf("updating charm secret %q: %w", uri.ID, err)
 		}
 		return nil
 	})
@@ -554,7 +554,7 @@ func (s *SecretService) createCharmApplicationSecret(ctx context.Context, versio
 	}
 	if err := s.secretState.CreateCharmApplicationSecret(ctx, version, uri, appUUID,
 		params); err != nil {
-		return errors.Errorf("cannot create application secret: %w", err)
+		return errors.Errorf("creating application secret: %w", err)
 	}
 	return nil
 }
@@ -566,7 +566,7 @@ func (s *SecretService) createCharmUnitSecret(ctx context.Context, version int, 
 		return errors.Capture(err)
 	}
 	if err := s.secretState.CreateCharmUnitSecret(ctx, version, uri, unitUUID, params); err != nil {
-		return errors.Errorf("cannot create unit secret: %w", err)
+		return errors.Errorf("creating unit secret: %w", err)
 	}
 	return nil
 }

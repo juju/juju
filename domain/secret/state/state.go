@@ -328,7 +328,7 @@ func (st State) CreateUserSecret(
 			return errors.Capture(err)
 		}
 		if exists {
-			return errors.Errorf("secret with label %q is already exists",
+			return errors.Errorf("secret with label %q already exists",
 				*secret.Label).Add(secreterrors.SecretLabelAlreadyExists)
 		}
 		if err := st.createUserSecret(ctx, tx, version, uri, secret); err != nil {
@@ -503,7 +503,7 @@ func (st State) CreateCharmApplicationSecret(ctx context.Context, version int, u
 			return errors.Capture(err)
 		}
 		if exists {
-			return errors.Errorf("secret with label %q is already exists",
+			return errors.Errorf("secret with label %q already exists",
 				*secret.Label).Add(secreterrors.SecretLabelAlreadyExists)
 		}
 		if err := st.createCharmApplicationSecret(ctx, tx, version, uri, appUUID, secret); err != nil {
@@ -566,7 +566,7 @@ func (st State) CreateCharmUnitSecret(
 			return errors.Capture(err)
 		}
 		if exists {
-			return errors.Errorf("secret with label %q is already exists",
+			return errors.Errorf("secret with label %q already exists",
 				*secret.Label).Add(secreterrors.SecretLabelAlreadyExists)
 		}
 		if err := st.createCharmUnitSecret(ctx, tx, version, uri, unitUUID, secret); err != nil {
@@ -659,7 +659,7 @@ func (st State) checkSecretLabelConflict(ctx context.Context, tx *sqlair.TX, uri
 		return errors.Capture(err)
 	}
 	if labelExists {
-		return errors.Errorf("secret with label %q is already exists", label).Add(secreterrors.SecretLabelAlreadyExists)
+		return errors.Errorf("secret with label %q already exists", label).Add(secreterrors.SecretLabelAlreadyExists)
 	}
 	return nil
 }
