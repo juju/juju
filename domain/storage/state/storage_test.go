@@ -12,7 +12,6 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	domainstorageinternal "github.com/juju/juju/domain/storage/internal"
-	"github.com/juju/juju/domain/storageprovisioning"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -54,7 +53,7 @@ VALUES (?, ?, "", "", "", "", "")
 		c.Context(), "resource_tags",
 	)
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(resourceTags, tc.DeepEquals, storageprovisioning.ModelResourceTagInfo{
+	c.Check(resourceTags, tc.DeepEquals, domainstorageprov.ModelResourceTagInfo{
 		BaseResourceTags: "a=x b=y",
 		ModelUUID:        s.ModelUUID(),
 		ControllerUUID:   controllerUUID,
