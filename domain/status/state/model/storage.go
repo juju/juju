@@ -912,16 +912,31 @@ func (st *ModelState) GetAllFilesystemAttachments(
 		return nil, errors.Capture(err)
 	}
 
-	stmt, err := st.Prepare(`
-SELECT    (sfa.storage_filesystem_uuid, sfa.life_id, sfa.mount_point, sfa.read_only) AS (&filesystemAttachmentStatusDetails.*),
-          u.name AS &filesystemAttachmentStatusDetails.unit_name,
-          m.name AS &filesystemAttachmentStatusDetails.machine_name
-FROM      storage_filesystem_attachment sfa
-LEFT JOIN machine m ON sfa.net_node_uuid=m.net_node_uuid
-LEFT JOIN storage_instance_filesystem sif ON sif.storage_filesystem_uuid=sfa.storage_filesystem_uuid
-LEFT JOIN storage_attachment sa ON sa.storage_instance_uuid=sif.storage_instance_uuid
-LEFT JOIN unit u ON u.uuid=sa.unit_uuid
-`, filesystemAttachmentStatusDetails{})
+	// To satisfy the unit name column of this query a filesystem attachment
+	// must be for a net node uuid that is on a unit where that unit does not
+	// share a net node with a machine.
+	// If units are for machines they share a net node.
+
+	q := `
+SELECT DISTINCT &filesystemAttachmentStatusDetails.* FROM (
+    SELECT    sfa.storage_filesystem_uuid,
+              sfa.life_id,
+              sfa.mount_point,
+              sfa.read_only,
+              u.name As unit_name,
+              m.name AS machine_name
+    FROM      storage_filesystem_attachment sfa
+    LEFT JOIN machine m ON sfa.net_node_uuid=m.net_node_uuid
+    -- Only join units when there is no machine.
+    LEFT JOIN unit u
+        ON sfa.net_node_uuid = u.net_node_uuid
+        AND m.net_node_uuid IS NULL
+    LEFT JOIN storage_instance_filesystem sif ON sif.storage_filesystem_uuid=sfa.storage_filesystem_uuid
+    LEFT JOIN storage_attachment sa ON sa.storage_instance_uuid=sif.storage_instance_uuid
+)
+`
+
+	stmt, err := st.Prepare(q, filesystemAttachmentStatusDetails{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1204,21 +1219,30 @@ func (st *ModelState) GetAllVolumeAttachments(
 		return nil, errors.Capture(err)
 	}
 
+	// To satisfy the unit name column of this query a volume attachment
+	// must be for a net node uuid that is on a unit where that unit does not
+	// share a net node with a machine.
+	// If units are for machines they share a net node.
+
 	stmt, err := st.Prepare(`
-SELECT DISTINCT (sva.storage_volume_uuid, sva.life_id, sva.read_only) AS (&volumeAttachmentStatusDetails.*),
-                bd.name AS &volumeAttachmentStatusDetails.device_name,
-                bd.bus_address AS &volumeAttachmentStatusDetails.bus_address,
-                first_value(bdld.name) OVER bdld_first AS &volumeAttachmentStatusDetails.device_link,
-                u.name AS &volumeAttachmentStatusDetails.unit_name,
-                m.name AS &volumeAttachmentStatusDetails.machine_name
-FROM            storage_volume_attachment sva
-LEFT JOIN       block_device bd ON bd.uuid=sva.block_device_uuid
-LEFT JOIN       block_device_link_device bdld ON bdld.block_device_uuid=bd.uuid
-LEFT JOIN       machine m ON sva.net_node_uuid=m.net_node_uuid
-LEFT JOIN       storage_instance_volume siv ON siv.storage_volume_uuid=sva.storage_volume_uuid
-LEFT JOIN       storage_attachment sa ON sa.storage_instance_uuid=siv.storage_instance_uuid
-LEFT JOIN       unit u ON u.uuid=sa.unit_uuid
-WINDOW          bdld_first AS (PARTITION BY bdld.block_device_uuid ORDER BY bdld.name)
+SELECT DISTINCT &volumeAttachmentStatusDetails.* FROM (
+    SELECT    sva.storage_volume_uuid,
+              sva.life_id,
+              sva.read_only,
+              bd.name AS device_name,
+              bd.bus_address AS bus_address,
+              first_value(bdld.name) OVER bdld_first AS device_link,
+              u.name AS unit_name,
+              m.name AS machine_name
+    FROM      storage_volume_attachment sva
+    LEFT JOIN block_device bd ON bd.uuid=sva.block_device_uuid
+    LEFT JOIN block_device_link_device bdld ON bdld.block_device_uuid=bd.uuid
+    LEFT JOIN machine m ON sva.net_node_uuid=m.net_node_uuid
+    LEFT JOIN unit u
+        ON sva.net_node_uuid=u.net_node_uuid
+        AND m.net_node_uuid IS NULL
+    WINDOW    bdld_first AS (PARTITION BY bdld.block_device_uuid ORDER BY bdld.name)
+)
 `, volumeAttachmentStatusDetails{})
 	if err != nil {
 		return nil, errors.Capture(err)
