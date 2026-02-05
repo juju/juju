@@ -635,9 +635,6 @@ func (s *resourceSuite) TestGetResource(c *tc.C) {
 			},
 			Revision: 42,
 			Origin:   charmresource.OriginUpload,
-			// todo(gfouillet): handle size/fingerprint
-			//Fingerprint: charmresource.Fingerprint{},
-			//Size:        0,
 		},
 		ID:              resID.String(),
 		ApplicationName: s.constants.fakeApplicationName1,
