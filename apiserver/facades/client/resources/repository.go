@@ -7,7 +7,7 @@ import (
 	"context"
 
 	corecharm "github.com/juju/juju/core/charm"
-	charmresource "github.com/juju/juju/internal/charm/resource"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 )
 
 // NewCharmRepository defines methods required by the resources

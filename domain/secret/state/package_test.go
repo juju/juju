@@ -101,7 +101,7 @@ func (s *baseSuite) checkUserSecretLabelExists(c *tc.C, label string) (bool, err
 	var exists bool
 	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		exists, err = s.state.checkUserSecretLabelExists(ctx, tx, label, "")
+		exists, err = s.state.checkUserSecretLabelExists(ctx, tx, &label, "")
 		return err
 	})
 	return exists, err
@@ -112,7 +112,7 @@ func (s *baseSuite) checkApplicationSecretLabelExists(c *tc.C, appUUID coreappli
 	var exists bool
 	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		exists, err = s.state.checkApplicationSecretLabelExists(ctx, tx, appUUID, label, "")
+		exists, err = s.state.checkApplicationSecretLabelExists(ctx, tx, appUUID, &label, "")
 		return err
 	})
 	return exists, err
@@ -122,7 +122,7 @@ func (s *baseSuite) checkUnitSecretLabelExists(c *tc.C, unitUUID coreunit.UUID, 
 	var exists bool
 	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		exists, err = s.state.checkUnitSecretLabelExists(ctx, tx, unitUUID, label, "")
+		exists, err = s.state.checkUnitSecretLabelExists(ctx, tx, unitUUID, &label, "")
 		return err
 	})
 	return exists, err

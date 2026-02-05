@@ -15,6 +15,7 @@ import (
 
 	modelmigration "github.com/juju/juju/core/modelmigration"
 	config "github.com/juju/juju/environs/config"
+	configschema "github.com/juju/juju/internal/configschema"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -98,6 +99,45 @@ func NewMockImportService(ctrl *gomock.Controller) *MockImportService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 	return m.recorder
+}
+
+// GetModelConfigSchemaForCloudType mocks base method.
+func (m *MockImportService) GetModelConfigSchemaForCloudType(arg0 context.Context, arg1 string) (configschema.Fields, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelConfigSchemaForCloudType", arg0, arg1)
+	ret0, _ := ret[0].(configschema.Fields)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelConfigSchemaForCloudType indicates an expected call of GetModelConfigSchemaForCloudType.
+func (mr *MockImportServiceMockRecorder) GetModelConfigSchemaForCloudType(arg0, arg1 any) *MockImportServiceGetModelConfigSchemaForCloudTypeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelConfigSchemaForCloudType", reflect.TypeOf((*MockImportService)(nil).GetModelConfigSchemaForCloudType), arg0, arg1)
+	return &MockImportServiceGetModelConfigSchemaForCloudTypeCall{Call: call}
+}
+
+// MockImportServiceGetModelConfigSchemaForCloudTypeCall wrap *gomock.Call
+type MockImportServiceGetModelConfigSchemaForCloudTypeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockImportServiceGetModelConfigSchemaForCloudTypeCall) Return(arg0 configschema.Fields, arg1 error) *MockImportServiceGetModelConfigSchemaForCloudTypeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockImportServiceGetModelConfigSchemaForCloudTypeCall) Do(f func(context.Context, string) (configschema.Fields, error)) *MockImportServiceGetModelConfigSchemaForCloudTypeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockImportServiceGetModelConfigSchemaForCloudTypeCall) DoAndReturn(f func(context.Context, string) (configschema.Fields, error)) *MockImportServiceGetModelConfigSchemaForCloudTypeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // SetModelConfig mocks base method.

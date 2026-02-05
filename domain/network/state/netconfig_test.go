@@ -21,6 +21,25 @@ func TestNetConfigSuite(t *testing.T) {
 	tc.Run(t, &netConfigSuite{})
 }
 
+func (s *netConfigSuite) TestIsMachineUnmanaged(c *tc.C) {
+	netNodeUUID := s.addNetNode(c)
+	machineUUID := s.addMachine(c, "0", netNodeUUID)
+	s.query(c, "INSERT INTO machine_manual (machine_uuid) VALUES (?)", machineUUID.String())
+
+	got, err := s.state.IsMachineUnmanaged(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.IsTrue)
+}
+
+func (s *netConfigSuite) TestIsMachineUnmanagedFalse(c *tc.C) {
+	netNodeUUID := s.addNetNode(c)
+	machineUUID := s.addMachine(c, "0", netNodeUUID)
+
+	got, err := s.state.IsMachineUnmanaged(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.IsFalse)
+}
+
 func (s *netConfigSuite) TestSetMachineNetConfig(c *tc.C) {
 	db := s.DB()
 
@@ -55,7 +74,7 @@ func (s *netConfigSuite) TestSetMachineNetConfig(c *tc.C) {
 		}},
 		DNSSearchDomains: []string{"search.maas.net"},
 		DNSAddresses:     []string{"8.8.8.8"},
-	}})
+	}}, false)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -104,7 +123,7 @@ func (s *netConfigSuite) TestSetMachineNetConfigMultipleSubnetMatch(c *tc.C) {
 		}},
 		DNSSearchDomains: []string{"search.maas.net"},
 		DNSAddresses:     []string{"8.8.8.8"},
-	}})
+	}}, false)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -126,6 +145,111 @@ func (s *netConfigSuite) TestSetMachineNetConfigMultipleSubnetMatch(c *tc.C) {
 	checkScalarResult(c, db, "SELECT subnet_uuid FROM ip_address", newSubUUID)
 }
 
+func (s *netConfigSuite) TestSetMachineNetConfigAddsUnknownSubnet(c *tc.C) {
+	db := s.DB()
+
+	// Arrange: no matching subnets exist.
+	nodeUUID := "net-node-uuid"
+	devName := "eth0"
+
+	ctx := c.Context()
+
+	_, err := db.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", nodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Ensure there are no pre-existing subnets that might match the address.
+	_, err = db.ExecContext(ctx, "DELETE FROM subnet")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: enable progressive subnet insertion.
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, []network.NetInterface{{
+		Name:            devName,
+		Type:            corenetwork.EthernetDevice,
+		VirtualPortType: corenetwork.NonVirtualPort,
+		IsAutoStart:     true,
+		IsEnabled:       true,
+		Addrs: []network.NetAddr{{
+			InterfaceName: devName,
+			AddressValue:  "10.0.0.5/24",
+			AddressType:   corenetwork.IPv4Address,
+			ConfigType:    corenetwork.ConfigDHCP,
+			Origin:        corenetwork.OriginMachine,
+			Scope:         corenetwork.ScopeCloudLocal,
+		}},
+	}}, true)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The subnet should be inserted and linked to the address.
+	var subnetUUID string
+	row := db.QueryRowContext(ctx, "SELECT subnet_uuid FROM ip_address WHERE address_value = ?", "10.0.0.5/24")
+	c.Assert(row.Err(), tc.ErrorIsNil)
+	err = row.Scan(&subnetUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var cidr string
+	row = db.QueryRowContext(ctx, "SELECT cidr FROM subnet WHERE uuid = ? AND space_uuid = ?",
+		subnetUUID, corenetwork.AlphaSpaceId)
+	c.Assert(row.Err(), tc.ErrorIsNil)
+	err = row.Scan(&cidr)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(cidr, tc.Equals, "10.0.0.0/24")
+}
+
+func (s *netConfigSuite) TestSetMachineNetConfigAddsSingleHostSubnet(c *tc.C) {
+	db := s.DB()
+
+	// Arrange: no matching subnets exist.
+	nodeUUID := "net-node-uuid"
+	devName := "eth0"
+
+	ctx := c.Context()
+
+	_, err := db.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", nodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Ensure there are no pre-existing subnets that might match the address.
+	_, err = db.ExecContext(ctx, "DELETE FROM subnet")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: progressive subnet insertion is disabled.
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, []network.NetInterface{{
+		Name:            devName,
+		Type:            corenetwork.EthernetDevice,
+		VirtualPortType: corenetwork.NonVirtualPort,
+		IsAutoStart:     true,
+		IsEnabled:       true,
+		Addrs: []network.NetAddr{{
+			InterfaceName: devName,
+			AddressValue:  "10.0.0.5/32",
+			AddressType:   corenetwork.IPv4Address,
+			ConfigType:    corenetwork.ConfigDHCP,
+			Origin:        corenetwork.OriginMachine,
+			Scope:         corenetwork.ScopeCloudLocal,
+		}},
+	}}, false)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+
+	var subnetUUID string
+	row := db.QueryRowContext(ctx, "SELECT subnet_uuid FROM ip_address WHERE address_value = ?", "10.0.0.5/32")
+	c.Assert(row.Err(), tc.ErrorIsNil)
+	err = row.Scan(&subnetUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var cidr string
+	row = db.QueryRowContext(ctx, "SELECT cidr FROM subnet WHERE uuid = ? AND space_uuid = ?",
+		subnetUUID, corenetwork.AlphaSpaceId)
+	c.Assert(row.Err(), tc.ErrorIsNil)
+	err = row.Scan(&cidr)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(cidr, tc.Equals, "10.0.0.5/32")
+}
+
 func (s *netConfigSuite) TestSetMachineNetConfigNoAddresses(c *tc.C) {
 	db := s.DB()
 
@@ -145,7 +269,7 @@ func (s *netConfigSuite) TestSetMachineNetConfigNoAddresses(c *tc.C) {
 		VirtualPortType: corenetwork.NonVirtualPort,
 		IsAutoStart:     true,
 		IsEnabled:       true,
-	}})
+	}}, false)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -182,11 +306,11 @@ func (s *netConfigSuite) TestSetMachineNetConfigUpdatedNIC(c *tc.C) {
 		IsEnabled:       true,
 	}
 
-	err = s.state.SetMachineNetConfig(ctx, nodeUUID, []network.NetInterface{nic})
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, []network.NetInterface{nic}, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	nic.VLANTag = uint64(30)
-	err = s.state.SetMachineNetConfig(ctx, nodeUUID, []network.NetInterface{nic})
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, []network.NetInterface{nic}, false)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -223,7 +347,7 @@ func (s *netConfigSuite) TestSetMachineNetConfigWithParentDevices(c *tc.C) {
 			IsAutoStart:     true,
 			IsEnabled:       true,
 		},
-	})
+	}, false)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -275,11 +399,11 @@ func (s *netConfigSuite) TestSetMachineNetConfigUpdateConfigType(c *tc.C) {
 		DNSAddresses:     []string{"8.8.8.8"},
 	}}
 
-	err = s.state.SetMachineNetConfig(ctx, nodeUUID, netConfig)
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, netConfig, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	netConfig[0].Addrs[0].ConfigType = corenetwork.ConfigStatic
-	err = s.state.SetMachineNetConfig(ctx, nodeUUID, netConfig)
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, netConfig, false)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -324,7 +448,7 @@ func (s *netConfigSuite) TestSetMachineNetConfigUpdateProviderAddressMovesDevice
 		},
 	}
 
-	err = s.state.SetMachineNetConfig(ctx, nodeUUID, netConfig)
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, netConfig, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = db.ExecContext(ctx, "UPDATE ip_address SET origin_id = 1")
@@ -363,7 +487,7 @@ func (s *netConfigSuite) TestSetMachineNetConfigUpdateProviderAddressMovesDevice
 		},
 	}
 
-	err = s.state.SetMachineNetConfig(ctx, nodeUUID, netConfig)
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, netConfig, false)
 
 	// Assert: the address should be against the new bridge device.
 	c.Assert(err, tc.ErrorIsNil)
@@ -414,13 +538,13 @@ func (s *netConfigSuite) TestSetMachineNetConfigLinkedSubnetWithDifferentCIDRNot
 		DNSAddresses:     []string{"8.8.8.8"},
 	}}
 
-	err = s.state.SetMachineNetConfig(ctx, nodeUUID, netConfig)
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, netConfig, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = db.ExecContext(ctx, "UPDATE subnet SET cidr = '192.168.5.0/24'")
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.SetMachineNetConfig(ctx, nodeUUID, netConfig)
+	err = s.state.SetMachineNetConfig(ctx, nodeUUID, netConfig, false)
 
 	// Assert: address subnet is unchanged.
 	// This is contrived, but it ensures that an address already linked to a
@@ -465,7 +589,7 @@ func (s *netConfigSuite) TestSetMachineNetConfigDeleteAddressAndDevice(c *tc.C) 
 		}},
 		DNSSearchDomains: []string{"search.maas.net"},
 		DNSAddresses:     []string{"8.8.8.8"},
-	}})
+	}}, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act: send a different NIC with no addresses.
@@ -477,7 +601,7 @@ func (s *netConfigSuite) TestSetMachineNetConfigDeleteAddressAndDevice(c *tc.C) 
 		IsEnabled:        true,
 		DNSSearchDomains: []string{"search.maas.net"},
 		DNSAddresses:     []string{"8.8.8.8"},
-	}})
+	}}, false)
 
 	// Assert: the original device (and by implication its addresses) is gone.
 	c.Assert(err, tc.ErrorIsNil)
@@ -520,7 +644,7 @@ func (s *netConfigSuite) TestSetMachineNetConfigProviderAddressNotDeleted(c *tc.
 		}},
 		DNSSearchDomains: []string{"search.maas.net"},
 		DNSAddresses:     []string{"8.8.8.8"},
-	}})
+	}}, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = db.ExecContext(ctx, "UPDATE ip_address SET origin_id = 1 WHERE net_node_uuid = ?", nodeUUID)
@@ -535,7 +659,7 @@ func (s *netConfigSuite) TestSetMachineNetConfigProviderAddressNotDeleted(c *tc.
 		IsEnabled:        true,
 		DNSSearchDomains: []string{"search.maas.net"},
 		DNSAddresses:     []string{"8.8.8.8"},
-	}})
+	}}, false)
 
 	// Assert: the original device did not have its address deleted,
 	// and the device remains in the database.
@@ -582,7 +706,7 @@ func (s *netConfigSuite) TestSetMachineNetConfigParentNotDeleted(c *tc.C) {
 			DNSAddresses:     []string{"8.8.8.8"},
 			ParentDeviceName: parentDevName,
 		},
-	})
+	}, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = db.ExecContext(ctx, "UPDATE ip_address SET origin_id = 1 WHERE net_node_uuid = ?", nodeUUID)
@@ -598,7 +722,7 @@ func (s *netConfigSuite) TestSetMachineNetConfigParentNotDeleted(c *tc.C) {
 		DNSSearchDomains: []string{"search.maas.net"},
 		DNSAddresses:     []string{"8.8.8.8"},
 		ParentDeviceName: parentDevName,
-	}})
+	}}, false)
 
 	// Assert: the parent device, though not observed in the update,
 	// should not be deleted.

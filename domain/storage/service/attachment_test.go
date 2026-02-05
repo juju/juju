@@ -14,7 +14,6 @@ import (
 	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
-	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -132,7 +131,7 @@ func (s *attachmentSuite) TestGetStorageAttachmentUUIDForStorageInstanceAndUnitN
 func (s *attachmentSuite) TestGetStorageAttachmentUUIDForStorageInstanceAndUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	storageAttachmentUUID := tc.Must(c, domainstorageprovisioning.NewStorageAttachmentUUID)
+	storageAttachmentUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	stateExp := s.state.EXPECT()
@@ -188,12 +187,12 @@ func (s *attachmentSuite) TestGetStorageInstanceAttachments(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	siUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
-	saUUID1 := tc.Must(c, domainstorageprovisioning.NewStorageAttachmentUUID)
-	saUUID2 := tc.Must(c, domainstorageprovisioning.NewStorageAttachmentUUID)
+	saUUID1 := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
+	saUUID2 := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 
 	stExp := s.state.EXPECT()
 	stExp.GetStorageInstanceAttachments(gomock.Any(), siUUID).Return(
-		[]domainstorageprovisioning.StorageAttachmentUUID{
+		[]domainstorage.StorageAttachmentUUID{
 			saUUID1, saUUID2,
 		}, nil,
 	)
@@ -203,7 +202,7 @@ func (s *attachmentSuite) TestGetStorageInstanceAttachments(c *tc.C) {
 	)
 	attachments, err := svc.GetStorageInstanceAttachments(c.Context(), siUUID)
 	c.Check(err, tc.ErrorIsNil)
-	c.Check(attachments, tc.SameContents, []domainstorageprovisioning.StorageAttachmentUUID{
+	c.Check(attachments, tc.SameContents, []domainstorage.StorageAttachmentUUID{
 		saUUID2, saUUID1,
 	})
 }

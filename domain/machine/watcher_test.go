@@ -29,6 +29,8 @@ import (
 	applicationstorageservice "github.com/juju/juju/domain/application/service/storage"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/deployment"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/machine/service"
@@ -38,12 +40,9 @@ import (
 	removalstatecontroller "github.com/juju/juju/domain/removal/state/controller"
 	removalstatemodel "github.com/juju/juju/domain/removal/state/model"
 	domainstorage "github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/domain/storageprovisioning"
 	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/environs"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
-	internalcharm "github.com/juju/juju/internal/charm"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalstorage "github.com/juju/juju/internal/storage"
 	internaltesting "github.com/juju/juju/internal/testing"
@@ -978,7 +977,7 @@ DELETE FROM storage_volume WHERE uuid = ?
 func (s *watcherSuite) createMachineFilesystem(
 	c *tc.C, machineUUID string,
 ) string {
-	fsUUID := tc.Must(c, storageprovisioning.NewFilesystemUUID).String()
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID).String()
 	txn := func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id) VALUES (?, ?, ?, ?)
@@ -1082,8 +1081,8 @@ VALUES (?, ?, ?, ?, (SELECT net_node_uuid FROM machine WHERE uuid = ?))
 func (s *watcherSuite) createAttachedFilesystem(
 	c *tc.C, machineUUID string,
 ) string {
-	fsUUID := tc.Must(c, storageprovisioning.NewFilesystemUUID).String()
-	faUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID).String()
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID).String()
+	faUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID).String()
 	txn := func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)

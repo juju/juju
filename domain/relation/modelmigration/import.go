@@ -13,10 +13,10 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	corerelation "github.com/juju/juju/core/relation"
 	applicationstate "github.com/juju/juju/domain/application/state"
+	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/relation/service"
 	"github.com/juju/juju/domain/relation/state"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 )
 

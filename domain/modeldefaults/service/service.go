@@ -42,6 +42,10 @@ type ModelDefaultsProviderFunc func(context.Context) (modeldefaults.Defaults, er
 // support model config then a [coreerrors.NotSupported] error is returned.
 type ModelConfigProviderFunc func(string) (environs.ModelConfigProvider, error)
 
+// ConfigDefaultsFunc describes a function that returns a map of the core default
+// configuration values. It's intended to mask environs/config.ConfigDefaults
+type ConfigDefaultsFunc func() map[string]any
+
 // State is the model config state required by this service.
 type State interface {
 	// GetModelCloudUUID returns the cloud UUID for the given model.
@@ -74,9 +78,6 @@ type State interface {
 	// the given cloud region. It returns an error satisfying
 	// [clouderrors.NotFound] if the cloud region doesn't exist.
 	DeleteCloudRegionDefaults(ctx context.Context, cloudUID cloud.UUID, regionName string, attrs []string) error
-
-	// ConfigDefaults returns the default configuration values set in Juju.
-	ConfigDefaults(context.Context) map[string]any
 
 	// CloudDefaults returns the defaults associated with the given cloud. If
 	// no defaults are found then an empty map will be returned with a nil
@@ -117,6 +118,7 @@ type State interface {
 // configuration options of a model.
 type Service struct {
 	modelConfigProviderGetter ModelConfigProviderFunc
+	configDefaults            ConfigDefaultsFunc
 	st                        State
 }
 
@@ -134,6 +136,7 @@ func NewService(
 ) *Service {
 	return &Service{
 		modelConfigProviderGetter: modelConfigProviderGetter,
+		configDefaults:            config.ConfigDefaults,
 		st:                        st,
 	}
 }
@@ -495,7 +498,7 @@ func (s *Service) cloudDefaults(
 
 	defaults := modeldefaults.ModelCloudDefaultAttributes{}
 
-	jujuDefaults := s.st.ConfigDefaults(ctx)
+	jujuDefaults := s.configDefaults()
 	for k, v := range jujuDefaults {
 		defaults[k] = modeldefaults.CloudDefaultValues{
 			Default: v,

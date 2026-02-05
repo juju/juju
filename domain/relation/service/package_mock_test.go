@@ -19,9 +19,9 @@ import (
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
+	charm "github.com/juju/juju/domain/deployment/charm"
 	relation0 "github.com/juju/juju/domain/relation"
 	internal "github.com/juju/juju/domain/relation/internal"
-	charm "github.com/juju/juju/internal/charm"
 	statushistory "github.com/juju/juju/internal/statushistory"
 	gomock "go.uber.org/mock/gomock"
 )

@@ -70,7 +70,7 @@ func (s *stateSuite) TestModelMetadataDefaults(c *tc.C) {
 	c.Check(defaults, tc.DeepEquals, map[string]string{
 		config.NameKey: "test",
 		config.UUIDKey: uuid.String(),
-		config.TypeKey: "ec2",
+		config.TypeKey: "dummy",
 	})
 }
 

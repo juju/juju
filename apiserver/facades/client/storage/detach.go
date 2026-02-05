@@ -10,11 +10,10 @@ import (
 	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	coreerrors "github.com/juju/juju/core/errors"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -47,14 +46,18 @@ func (a *StorageAPI) DetachStorage(
 	ctx context.Context,
 	args params.StorageDetachmentParams,
 ) (params.ErrorResults, error) {
+	if err := a.checkCanWrite(ctx); err != nil {
+		return params.ErrorResults{}, err
+	}
+
 	var (
 		force    bool
 		waitTime time.Duration
 	)
 	if args.MaxWait != nil && *args.MaxWait < 0 {
-		err := errors.Errorf(
+		err := apiservererrors.ParamsErrorf(params.CodeNotValid,
 			"max wait time cannot be a negative number",
-		).Add(coreerrors.NotValid)
+		)
 		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	} else if args.MaxWait != nil {
 		waitTime = *args.MaxWait
@@ -69,9 +72,9 @@ func (a *StorageAPI) DetachStorage(
 	) error {
 		storageTag, err := names.ParseStorageTag(id.StorageTag)
 		if err != nil {
-			return errors.Errorf(
+			return apiservererrors.ParamsErrorf(params.CodeNotValid,
 				"invalid storage tag %q", id.StorageTag,
-			).Add(coreerrors.NotValid)
+			)
 		}
 
 		if id.UnitTag == "" {
@@ -85,9 +88,9 @@ func (a *StorageAPI) DetachStorage(
 		// instance for this unit. We see this value supplied in python-libjuju
 		unitTag, err := names.ParseUnitTag(id.UnitTag)
 		if err != nil {
-			return errors.Errorf(
+			return apiservererrors.ParamsErrorf(params.CodeNotValid,
 				"invalid unit tag %q", id.UnitTag,
-			).Add(coreerrors.NotValid)
+			)
 		}
 
 		return a.detachStorageInstanceFromUnit(
@@ -121,7 +124,7 @@ func (a *StorageAPI) DetachStorage(
 // operation.
 func (a *StorageAPI) detachStorageAttachment(
 	ctx context.Context,
-	storageAttachment domainstorageprovisioning.StorageAttachmentUUID,
+	storageAttachment domainstorage.StorageAttachmentUUID,
 	force bool,
 	wait time.Duration,
 ) error {
@@ -131,10 +134,10 @@ func (a *StorageAPI) detachStorageAttachment(
 	switch {
 	case errors.HasType[applicationerrors.UnitStorageMinViolation](err):
 		viErr, _ := errors.AsType[applicationerrors.UnitStorageMinViolation](err)
-		return errors.Errorf(
+		return apiservererrors.ParamsErrorf(params.CodeNotValid,
 			"removing storage from unit would violate charm storage %q requirements of having minimum %d storage instances",
 			viErr.CharmStorageName, viErr.RequiredMinimum,
-		).Add(coreerrors.NotValid)
+		)
 	case errors.Is(err, storageerrors.StorageAttachmentNotFound):
 		// The storage attachment has already been removed. We had already
 		// resolved that it existed above and so we can safely ignore this
@@ -164,11 +167,9 @@ func (a *StorageAPI) detachStorageInstanceFromUnit(
 	unitUUID, err := a.applicationService.GetUnitUUID(ctx, unitName)
 	switch {
 	case errors.Is(err, coreunit.InvalidUnitName):
-		return errors.Errorf("invalid unit name %q", unitName).Add(
-			coreerrors.NotValid,
-		)
+		return apiservererrors.ParamsErrorf(params.CodeNotValid, "invalid unit name %q", unitName)
 	case errors.Is(err, applicationerrors.UnitNotFound):
-		return errors.Errorf("unit %q does not exist", unitName).Add(coreerrors.NotFound)
+		return apiservererrors.ParamsErrorf(params.CodeNotFound, "unit %q does not exist", unitName)
 	case err != nil:
 		return errors.Errorf(
 			"getting unit uuid for unit name %q: %w", unitName, err,
@@ -180,9 +181,7 @@ func (a *StorageAPI) detachStorageInstanceFromUnit(
 	)
 	switch {
 	case errors.Is(err, storageerrors.StorageInstanceNotFound):
-		return errors.Errorf("storage %q does not exist", storageID).Add(
-			coreerrors.NotFound,
-		)
+		return apiservererrors.ParamsErrorf(params.CodeNotFound, "storage %q does not exist", storageID)
 	case err != nil:
 		return errors.Errorf(
 			"getting storage instance uuid for storage id %q: %w", storageID, err,
@@ -195,13 +194,14 @@ func (a *StorageAPI) detachStorageInstanceFromUnit(
 		)
 	switch {
 	case errors.Is(err, storageerrors.StorageInstanceNotFound):
-		return errors.Errorf("storage %q does not exist", storageID).Add(coreerrors.NotFound)
+		return apiservererrors.ParamsErrorf(params.CodeNotFound,
+			"storage %q does not exist", storageID)
 	case errors.Is(err, storageerrors.StorageAttachmentNotFound):
-		return errors.Errorf(
+		return apiservererrors.ParamsErrorf(params.CodeNotFound,
 			"storage %q is not attached to unit %q", storageID, unitName,
-		).Add(coreerrors.NotFound)
+		)
 	case errors.Is(err, applicationerrors.UnitNotFound):
-		return errors.Errorf("unit %q does not exist", unitName).Add(coreerrors.NotFound)
+		return apiservererrors.ParamsErrorf(params.CodeNotFound, "unit %q does not exist", unitName)
 	case err != nil:
 		return errors.Errorf(
 			"getting storage attachment uuid for storage %q attached to unit %q: %w",
@@ -236,9 +236,7 @@ func (a *StorageAPI) detatchStorageInstance(
 	)
 	switch {
 	case errors.Is(err, storageerrors.StorageInstanceNotFound):
-		return errors.Errorf("storage %q does not exist", storageID).Add(
-			coreerrors.NotFound,
-		)
+		return apiservererrors.ParamsErrorf(params.CodeNotFound, "storage %q does not exist", storageID)
 	case err != nil:
 		return errors.Errorf(
 			"getting storage instance uuid for storage id %q: %w", storageID, err,
@@ -252,7 +250,7 @@ func (a *StorageAPI) detatchStorageInstance(
 	// safely be considered valid.
 	switch {
 	case errors.Is(err, storageerrors.StorageInstanceNotFound):
-		return errors.Errorf("storage %q does not exist", storageID).Add(coreerrors.NotFound)
+		return apiservererrors.ParamsErrorf(params.CodeNotFound, "storage %q does not exist", storageID)
 	case err != nil:
 		return errors.Errorf(
 			"getting storage attachments for storage %q: %w",

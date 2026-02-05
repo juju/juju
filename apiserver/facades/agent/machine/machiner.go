@@ -122,13 +122,6 @@ type RemovalService interface {
 	MarkMachineAsDead(context.Context, machine.UUID) error
 }
 
-// ModelInfoService is the interface that is used to ask questions about the
-// current model.
-type ModelInfoService interface {
-	// GetModelCloudType returns the type of the cloud that is in use by this model.
-	GetModelCloudType(context.Context) (string, error)
-}
-
 // MachinerAPI implements the API used by the machiner worker.
 type MachinerAPI struct {
 	*common.LifeGetter

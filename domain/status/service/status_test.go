@@ -394,7 +394,7 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerWaitingDominatesA
 	})
 }
 
-func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerRunningDominatesWaitingWorkload(c *tc.C) {
+func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerRunningDominatesWaitingWorkloadForCertainMessages(c *tc.C) {
 	workloadStatus := status.StatusInfo[status.WorkloadStatusType]{
 		Status: status.WorkloadStatusWaiting,
 	}
@@ -406,11 +406,40 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerRunningDominatesW
 		Since:   &s.now,
 	}
 
+	for _, msg := range []string{
+		corestatus.MessageWaitForContainer,
+		corestatus.MessageInitializingAgent,
+		corestatus.MessageInstallingAgent,
+	} {
+		workloadStatus.Message = msg
+		info, err := selectWorkloadOrK8sPodStatus(workloadStatus, containerStatus, true)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(info, tc.DeepEquals, corestatus.StatusInfo{
+			Status:  corestatus.Running,
+			Message: "msg",
+			Data:    map[string]interface{}{"key": "value"},
+			Since:   &s.now,
+		})
+	}
+}
+
+func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerRunnerWorkloadDominatedForMiscMessages(c *tc.C) {
+	workloadStatus := status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusWaiting,
+		Message: "foo",
+		Data:    []byte(`{"key":"value"}`),
+		Since:   &s.now,
+	}
+
+	containerStatus := status.StatusInfo[status.K8sPodStatusType]{
+		Status: status.K8sPodStatusRunning,
+	}
+
 	info, err := selectWorkloadOrK8sPodStatus(workloadStatus, containerStatus, true)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(info, tc.DeepEquals, corestatus.StatusInfo{
-		Status:  corestatus.Running,
-		Message: "msg",
+	c.Check(info, tc.DeepEquals, corestatus.StatusInfo{
+		Status:  corestatus.Waiting,
+		Message: "foo",
 		Data:    map[string]interface{}{"key": "value"},
 		Since:   &s.now,
 	})

@@ -24,7 +24,7 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/internal/charm/hooks"
+	"github.com/juju/juju/domain/deployment/charm/hooks"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/uniter"

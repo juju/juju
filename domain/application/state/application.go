@@ -35,6 +35,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -42,7 +43,6 @@ import (
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/domain/status"
 	environsconfig "github.com/juju/juju/environs/config"
-	internalcharm "github.com/juju/juju/internal/charm"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -736,17 +736,28 @@ func (st *State) GetApplicationLifeByName(ctx context.Context, appName string) (
 	return coreapplication.UUID(app.UUID), app.LifeID, errors.Capture(err)
 }
 
-// CheckAllApplicationsAndUnitsAreAlive checks that all applications and units
-// in the model are alive, returning an error if any are not.
+// CheckApplicationsForMigration checks that all applications are ready
+// for migration. All applications and units in the model are alive and no
+// units are in the process of upgrading.
 // The following errors may be returned:
 // - [applicationerrors.ApplicationNotAlive] if any applications are not alive.
 // - [applicationerrors.UnitNotAlive] if any units are not alive.
-func (st *State) CheckAllApplicationsAndUnitsAreAlive(ctx context.Context) error {
+// - [applicationerrors.UnitUpgrading] if any units are still upgrading.
+func (st *State) CheckApplicationsForMigration(ctx context.Context) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkAllApplicationsAndUnitsAreAlive(ctx, tx); err != nil {
+			return err
+		}
+		return st.checkNoUnitsUpgrading(ctx, tx)
+	})
+}
+
+func (st *State) checkAllApplicationsAndUnitsAreAlive(ctx context.Context, tx *sqlair.TX) error {
 	checkApplicationsStmt, err := st.Prepare(`
 SELECT &applicationName.*
 FROM application
@@ -766,29 +777,46 @@ WHERE life_id != 0
 		return errors.Capture(err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var deadApps []applicationName
-		err := tx.Query(ctx, checkApplicationsStmt).GetAll(&deadApps)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Capture(err)
-		} else if err == nil {
-			names := transform.Slice(deadApps, func(app applicationName) string { return app.Name })
-			return errors.Errorf("application(s) %q are not alive", strings.Join(names, ", ")).Add(applicationerrors.ApplicationNotAlive)
-		}
-
-		var deadUnits []unitName
-		err = tx.Query(ctx, checkUnitsStmt).GetAll(&deadUnits)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Capture(err)
-		} else if err == nil {
-			names := transform.Slice(deadUnits, func(unit unitName) string { return unit.Name })
-			return errors.Errorf("unit(s) %q are not alive", strings.Join(names, ", ")).Add(applicationerrors.UnitNotAlive)
-		}
-		return nil
-	})
-	if err != nil {
-		return errors.Errorf("checking apps and units are alive: %w", err)
+	var deadApps []applicationName
+	err = tx.Query(ctx, checkApplicationsStmt).GetAll(&deadApps)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Capture(err)
+	} else if err == nil {
+		names := transform.Slice(deadApps, func(app applicationName) string { return app.Name })
+		return errors.Errorf("application(s) %q are not alive", strings.Join(names, ", ")).Add(applicationerrors.ApplicationNotAlive)
 	}
+
+	var deadUnits []unitName
+	err = tx.Query(ctx, checkUnitsStmt).GetAll(&deadUnits)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Capture(err)
+	} else if err == nil {
+		names := transform.Slice(deadUnits, func(unit unitName) string { return unit.Name })
+		return errors.Errorf("unit(s) %q are not alive", strings.Join(names, ", ")).Add(applicationerrors.UnitNotAlive)
+	}
+	return nil
+}
+
+func (st *State) checkNoUnitsUpgrading(ctx context.Context, tx *sqlair.TX) error {
+	checkUnitsStmt, err := st.Prepare(`
+SELECT u.name AS &unitName.*
+FROM unit AS u
+JOIN application AS a ON a.uuid = u.application_uuid
+WHERE u.charm_uuid != a.charm_uuid
+`, unitName{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var upgradingUnitNames []unitName
+	err = tx.Query(ctx, checkUnitsStmt).GetAll(&upgradingUnitNames)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Capture(err)
+	} else if err == nil {
+		names := transform.Slice(upgradingUnitNames, func(u unitName) string { return u.Name })
+		return errors.Errorf("unit(s) %q are upgrading", strings.Join(names, ", ")).Add(applicationerrors.UnitsUpgrading)
+	}
+
 	return nil
 }
 
@@ -1668,7 +1696,7 @@ WHERE  uuid = $entityUUID.uuid
 			return errors.Capture(err)
 		}
 
-		//TODO(storage) - update storage directive for app
+		//TODO(storage) - upsert storage directive for app
 
 		bindings := transform.Map(params.EndpointBindings, func(k string, v network.SpaceName) (string, string) {
 			return k, v.String()

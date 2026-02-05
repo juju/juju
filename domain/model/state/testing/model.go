@@ -82,7 +82,7 @@ func CreateTestModel(
 	cloudRegionUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	credId, err := corecredential.NewUUID()
+	credID, err := corecredential.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	userName := usertesting.GenNewName(c, "test-user"+name)
@@ -109,9 +109,18 @@ func CreateTestModel(
 		}
 
 		_, err = tx.ExecContext(ctx, `
+			INSERT INTO cloud_type (id, type)
+			VALUES (-1, "dummy")
+			ON CONFLICT (id) DO NOTHING
+		`)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
 			INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify)
-			VALUES (?, ?, ?, "", true)
-		`, cloudUUID.String(), name, 5)
+			VALUES (?, ?, -1, "", true)
+		`, cloudUUID.String(), name)
 		if err != nil {
 			return err
 		}
@@ -135,7 +144,7 @@ func CreateTestModel(
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO cloud_credential (uuid, cloud_uuid, auth_type_id, owner_uuid, name, revoked, invalid)
 			VALUES (?, ?, ?, ?, "foobar", false, false)
-		`, credId, cloudUUID.String(), 0, userUUID)
+		`, credID, cloudUUID.String(), 0, userUUID)
 		if err != nil {
 			return err
 		}

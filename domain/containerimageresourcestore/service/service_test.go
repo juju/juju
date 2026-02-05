@@ -16,7 +16,7 @@ import (
 	resourcestore "github.com/juju/juju/core/resource/store"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/domain/containerimageresourcestore"
-	charmresource "github.com/juju/juju/internal/charm/resource"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"

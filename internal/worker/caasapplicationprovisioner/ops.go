@@ -32,9 +32,9 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/deployment/charm"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/domain/storageprovisioning"
-	"github.com/juju/juju/internal/charm"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
 	internalstorage "github.com/juju/juju/internal/storage"
@@ -931,7 +931,7 @@ func provisioningInfo(
 			return nil, errors.Trace(err)
 		}
 		pi.Images[v.Name] = rsc
-		err = ro.SetResourceUsed(ctx, opened.UUID)
+		err = ro.SetResourceUsed(ctx, coreresource.UUID(opened.ID))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

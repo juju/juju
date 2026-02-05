@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"math"
 	"strconv"
 	"strings"
 
@@ -24,6 +25,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -32,12 +34,13 @@ import (
 	"github.com/juju/juju/domain/application/service/storage"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
-	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/password"
 )
@@ -1021,4 +1024,182 @@ func encodeUnitPlacement(placement deployment.Placement) string {
 	}
 
 	return placement.Directive
+}
+
+func (s *ProviderService) populateAddStorageArgs(
+	ctx context.Context,
+	storageName corestorage.Name,
+	unitUUID coreunit.UUID, addCount uint32, arg storage.AddUnitStorageOverride,
+) (internal.UnitAddStorageArg, error) {
+	unitStorageDirective, err := s.storageService.GetUnitStorageDirectiveByName(ctx, unitUUID, storageName)
+	if err != nil {
+		return internal.UnitAddStorageArg{}, errors.Errorf(
+			"getting unit %q storage directive: %w",
+			unitUUID, err,
+		)
+	}
+
+	charmStorage, existingCount, err := s.st.GetCharmStorageAndInstanceCountByUnitUUID(ctx, unitUUID, storageName)
+	if err != nil {
+		return internal.UnitAddStorageArg{}, errors.Errorf(
+			"getting unit %q charm storage %q and count: %w",
+			unitUUID, storageName, err,
+		)
+	}
+
+	// TODO - We only care about a subset of the attributes for validation.
+	//   Ideally the ValidateApplicationStorageDirectiveOverrides method
+	//   would take a bespoke arg type.
+	charmStorageDefs := map[string]internalcharm.Storage{
+		storageName.String(): {
+			Name:        charmStorage.Name,
+			Type:        charmStorage.Type,
+			CountMin:    charmStorage.CountMin,
+			CountMax:    charmStorage.CountMax,
+			MinimumSize: charmStorage.MinimumSize,
+		},
+	}
+
+	storageDirective := unitStorageDirective
+	if arg.StoragePoolUUID != nil {
+		storageDirective.PoolUUID = *arg.StoragePoolUUID
+	}
+	if arg.SizeMiB != nil {
+		storageDirective.Size = *arg.SizeMiB
+	}
+
+	wantCount := addCount + existingCount
+	toCheck := map[string]storage.StorageDirectiveOverride{
+		storageName.String(): {
+			Count:    &wantCount,
+			PoolUUID: &storageDirective.PoolUUID,
+			Size:     &storageDirective.Size,
+		},
+	}
+	err = s.storageService.ValidateApplicationStorageDirectiveOverrides(ctx, charmStorageDefs, toCheck)
+	if err != nil {
+		return internal.UnitAddStorageArg{}, errors.Capture(err)
+	}
+
+	args, err := s.storageService.MakeUnitAddStorageArgs(
+		ctx,
+		unitUUID,
+		addCount,
+		storageDirective,
+	)
+	if err != nil {
+		return internal.UnitAddStorageArg{}, errors.Capture(err)
+	}
+	// Record the max allowed count precondition.
+	// This will be checked inside the transaction.
+	args.CountLessThanEqual = uint32(math.MaxUint32)
+	if charmStorage.CountMax > 0 {
+		args.CountLessThanEqual = uint32(charmStorage.CountMax) - addCount
+	}
+	return args, nil
+}
+
+// AddStorageForIAASUnit adds storage instances to the given IAAS unit.
+// The following error types can be expected:
+// - [github.com/juju/juju/core/storage.InvalidStorageName]: when the storage
+// name is not valid.
+// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the
+// unit does not exist.
+// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the
+// unit is not alive.
+// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]:
+// when storage name is not defined in charm metadata.
+// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded]
+// when the requested storage falls outside of the bounds defined by the charm.
+func (s *ProviderService) AddStorageForIAASUnit(
+	ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID,
+	count uint32, arg storage.AddUnitStorageOverride,
+) ([]corestorage.ID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	// Unit UUID and storage name are validated in populateAddStorageArgs.
+	unitStorageArgs, err := s.populateAddStorageArgs(ctx, storageName, unitUUID, count, arg)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	iassUnitStorageArgs, err := s.storageService.MakeIAASUnitStorageArgs(
+		ctx, unitStorageArgs.StorageInstances)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	added, err := s.st.AddStorageForIAASUnit(ctx, unitUUID, storageName, internal.IAASUnitAddStorageArg{
+		UnitAddStorageArg: unitStorageArgs,
+		FilesystemsToOwn:  iassUnitStorageArgs.FilesystemsToOwn,
+		VolumesToOwn:      iassUnitStorageArgs.VolumesToOwn,
+	})
+	if errors.Is(err, internal.MaxStorageCountPreconditonFailed) {
+		maxCount := int(unitStorageArgs.CountLessThanEqual + count)
+		return nil, applicationerrors.StorageCountLimitExceeded{
+			Maximum:     &maxCount,
+			Requested:   int(count),
+			StorageName: storageName.String(),
+		}
+	}
+	return added, errors.Capture(err)
+}
+
+// AddStorageForCAASUnit adds storage instances to the given CAAS unit.
+// The following error types can be expected:
+// - [github.com/juju/juju/core/storage.InvalidStorageName]: when the storage
+// name is not valid.
+// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the
+// unit does not exist.
+// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the
+// unit is not alive.
+// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]:
+// when storage name is not defined in charm metadata.
+// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded]
+// when the requested storage falls outside of the bounds defined by the charm.
+func (s *ProviderService) AddStorageForCAASUnit(
+	ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID,
+	count uint32, arg storage.AddUnitStorageOverride,
+) ([]corestorage.ID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	// Unit UUID and storage name are validated in populateAddStorageArgs.
+	unitStorageArgs, err := s.populateAddStorageArgs(ctx, storageName, unitUUID, count, arg)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	added, err := s.st.AddStorageForCAASUnit(ctx, unitUUID, storageName, unitStorageArgs)
+	if errors.Is(err, internal.MaxStorageCountPreconditonFailed) {
+		maxCount := int(unitStorageArgs.CountLessThanEqual + count)
+		return nil, applicationerrors.StorageCountLimitExceeded{
+			Maximum:     &maxCount,
+			Requested:   int(count),
+			StorageName: storageName.String(),
+		}
+	}
+	return added, errors.Capture(err)
+}
+
+// AttachStorageToUnit ensures the specified storage instance is attached to the
+// specified unit.
+// If the attachment already exists, the result is a no op.
+// The following error types can be expected:
+// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the
+// storage doesn't exist.
+// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the
+// unit does not exist.
+// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the
+// unit is not alive.
+// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the
+// storage is not alive.
+// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded]
+// when the requested storage falls outside of the bounds defined by the charm.
+func (s *ProviderService) AttachStorageToUnit(
+	ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
+) error {
+	// TODO (tlm): re-implement in DQlite
+	return errors.New("not implemented")
 }

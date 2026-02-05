@@ -15,8 +15,9 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 )
 
-type storagePoolSuite struct {
-}
+// storagePoolSuite contains a set of tests for validating the interface on
+// offer by this package for storage pools.
+type storagePoolSuite struct{}
 
 var knownDefaultProviderPools = []struct {
 	Name         string
@@ -40,6 +41,8 @@ var knownDefaultProviderPools = []struct {
 	{Name: "tmpfs", ProviderType: "tmpfs"},
 }
 
+// TestStoragePoolSuite runs all of the tests contained within
+// [storagePoolSuite].
 func TestStoragePoolSuite(t *testing.T) {
 	tc.Run(t, storagePoolSuite{})
 }
@@ -97,4 +100,55 @@ func (storagePoolSuite) TestGetProviderDefaultStoragePoolUUIDOrMakeNew(
 	defaultUUIDs := maps.Values(getDefaultStoragePoolUUIDs())
 	exists := slices.Contains(slices.Collect(defaultUUIDs), uuid)
 	c.Check(exists, tc.IsFalse)
+}
+
+// TestIsValidStoragePoolName tests a set of well known storage pool names that
+// are considered valid to make sure [IsValidStoragePoolName] correctly
+// validates them as valid.
+func (storagePoolSuite) TestIsValidStoragePoolName(c *tc.C) {
+	validStoragePoolNames := []string{
+		"a",
+		"A",
+		"hyphen-middle",
+		"hyphen--multiple",
+		"hyphen---manytogether",
+		"withNumber123",
+		"with123",
+		// 128 runes long, max supported.
+		"ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQR",
+	}
+
+	for _, validName := range validStoragePoolNames {
+		c.Run(validName, func(c *testing.T) {
+			tc.Check(c, IsValidStoragePoolName(validName), tc.IsTrue)
+		})
+	}
+}
+
+// TestIsNotValidStoragePoolName tests a set of well known invalid storage pool
+// names that are considered invalid to make sure [IsValidStoragePoolName]
+// correctly validates them as invalid.
+func (storagePoolSuite) TestIsNotValidStoragePoolName(c *tc.C) {
+	invalidStoragePoolNames := []string{
+		"",  // Empty string must be a least 1 rune in length.
+		"😬", // Emojis are not supported.
+		// Longer then 128 runes
+		"ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSaaaaaa",
+		// Cannot end witha  hyphen
+		"hyphenend-",
+		// Cannot start with a number
+		"1asd",
+		// Regression test to make sure we don't support question marks in
+		// storage pool names anymore.
+		"questionmark?notsupported",
+		"-cannot-start-with-hyphen",
+		"0cannot-start-with-number",
+		"special-characters!@$#$",
+	}
+
+	for _, invalidName := range invalidStoragePoolNames {
+		c.Run(invalidName, func(c *testing.T) {
+			tc.Check(c, IsValidStoragePoolName(invalidName), tc.IsFalse)
+		})
+	}
 }

@@ -25,10 +25,10 @@ import (
 	coretesting "github.com/juju/juju/core/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	domainresource "github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
-	internalcharm "github.com/juju/juju/internal/charm"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/resource/charmhub"
 )
@@ -83,7 +83,7 @@ func (s *OpenerSuite) TestOpenUnitResource(c *tc.C) {
 		},
 		ApplicationName: "postgresql",
 		RetrievedBy:     unitName.String(),
-		UUID:            resourceUUID,
+		ID:              resourceUUID.String(),
 	}
 
 	charmOrigin := charm.Origin{
@@ -146,7 +146,7 @@ func (s *OpenerSuite) TestOpenUnitResource(c *tc.C) {
 				Fingerprint: s.resourceFingerprint,
 				Size:        s.resourceSize,
 			},
-			UUID: resourceUUID,
+			ID: resourceUUID.String(),
 		},
 	})
 }
@@ -178,7 +178,7 @@ func (s *OpenerSuite) TestOpenUnitResourceCacheMiss(c *tc.C) {
 		},
 		ApplicationName: "postgresql",
 		RetrievedBy:     unitName.String(),
-		UUID:            resourceUUID,
+		ID:              resourceUUID.String(),
 	}
 
 	charmOrigin := charm.Origin{
@@ -285,7 +285,7 @@ func (s *OpenerSuite) TestOpenUnitResourceCacheMiss(c *tc.C) {
 				Fingerprint: s.resourceFingerprint,
 				Size:        s.resourceSize,
 			},
-			UUID: resourceUUID,
+			ID: resourceUUID.String(),
 		},
 	})
 }

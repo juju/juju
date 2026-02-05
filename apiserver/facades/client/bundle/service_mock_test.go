@@ -15,7 +15,7 @@ import (
 
 	network "github.com/juju/juju/core/network"
 	charm "github.com/juju/juju/domain/application/charm"
-	charm0 "github.com/juju/juju/internal/charm"
+	charm0 "github.com/juju/juju/domain/deployment/charm"
 	gomock "go.uber.org/mock/gomock"
 )
 

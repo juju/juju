@@ -8,8 +8,8 @@ permissions:
 
 jobs:
   snap:
-    name: Build linux-arm64
-    runs-on: [self-hosted, linux, arm64, aws, quad-xlarge]
+    name: Build linux-amd64
+    runs-on: [self-hosted, linux, x64, aws, quad-xlarge]
 
     steps:
       - name: Install Dependencies

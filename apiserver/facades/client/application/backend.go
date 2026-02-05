@@ -5,7 +5,7 @@ package application
 
 import (
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 )
 
 // Bindings defines a subset of the functionality provided by the

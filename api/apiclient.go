@@ -37,7 +37,6 @@ import (
 	internalerrors "github.com/juju/juju/internal/errors"
 	jujuhttp "github.com/juju/juju/internal/http"
 	internallogger "github.com/juju/juju/internal/logger"
-	jujuproxy "github.com/juju/juju/internal/proxy"
 	proxy "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -518,7 +517,7 @@ type dialResult struct {
 	dialAddr *url.URL
 	// ipAddr represents the IP address that was dialed.
 	ipAddr    string
-	proxier   jujuproxy.Proxier
+	proxier   Proxier
 	tlsConfig *tls.Config
 }
 
@@ -590,7 +589,7 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 		logger.Debugf(ctx, "starting proxier for connection")
 
 		switch p := info.Proxier.(type) {
-		case jujuproxy.TunnelProxier:
+		case TunnelProxier:
 			logger.Debugf(ctx, "tunnel proxy in use at %s on port %s", p.Host(), p.Port())
 			addrs = []*url.URL{{
 				Scheme: apiScheme,
@@ -1352,7 +1351,7 @@ func (c *conn) IsProxied() bool {
 }
 
 // Proxy returns the proxy being used with this connection if one is being used.
-func (c *conn) Proxy() jujuproxy.Proxier {
+func (c *conn) Proxy() Proxier {
 	return c.proxier
 }
 

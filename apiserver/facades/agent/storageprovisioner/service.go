@@ -101,7 +101,7 @@ type ApplicationService interface {
 type RemovalService interface {
 	// MarkFilesystemAttachmentAsDead marks the filesystem attachment as dead.
 	MarkFilesystemAttachmentAsDead(
-		ctx context.Context, uuid storageprovisioning.FilesystemAttachmentUUID,
+		ctx context.Context, uuid domainstorage.FilesystemAttachmentUUID,
 	) error
 
 	// MarkVolumeAttachmentAsDead marks the volume attachment as dead.
@@ -111,13 +111,13 @@ type RemovalService interface {
 
 	// MarkVolumeAttachmentPlanAsDead marks the volume attachment plan as dead.
 	MarkVolumeAttachmentPlanAsDead(
-		ctx context.Context, uuid storageprovisioning.VolumeAttachmentPlanUUID,
+		ctx context.Context, uuid domainstorage.VolumeAttachmentPlanUUID,
 	) error
 
 	// RemoveDeadFilesystem is to be called from the storage provisoner to
 	// finally remove a dead filesystem that it has been gracefully cleaned up.
 	RemoveDeadFilesystem(
-		ctx context.Context, uuid storageprovisioning.FilesystemUUID,
+		ctx context.Context, uuid domainstorage.FilesystemUUID,
 	) error
 
 	// RemoveDeadVolume is to be called from the storage provisoner to finally
@@ -147,29 +147,29 @@ type StorageProvisioningService interface {
 	// supplied id.
 	GetFilesystemUUIDForID(
 		ctx context.Context, filesystemID string,
-	) (storageprovisioning.FilesystemUUID, error)
+	) (domainstorage.FilesystemUUID, error)
 
 	// GetFilesystemAttachmentParams retrieves the attachment parameters for a
 	// given filesystem attachment.
 	GetFilesystemAttachmentParams(
 		ctx context.Context,
-		filesystemUUID storageprovisioning.FilesystemAttachmentUUID,
+		filesystemUUID domainstorage.FilesystemAttachmentUUID,
 	) (storageprovisioning.FilesystemAttachmentParams, error)
 
 	// GetFilesystemLife returns the current life value for a filesystem UUID.
 	GetFilesystemLife(
-		ctx context.Context, uuid storageprovisioning.FilesystemUUID,
+		ctx context.Context, uuid domainstorage.FilesystemUUID,
 	) (domainlife.Life, error)
 
 	// GetFilesystemParams returns the filesystem params for the supplied uuid.
 	GetFilesystemParams(
-		ctx context.Context, uuid storageprovisioning.FilesystemUUID,
+		ctx context.Context, uuid domainstorage.FilesystemUUID,
 	) (storageprovisioning.FilesystemParams, error)
 
 	// GetFilesystemRemovalParams returns the filesystem removal params for the
 	// supplied uuid.
 	GetFilesystemRemovalParams(
-		ctx context.Context, uuid storageprovisioning.FilesystemUUID,
+		ctx context.Context, uuid domainstorage.FilesystemUUID,
 	) (storageprovisioning.FilesystemRemovalParams, error)
 
 	// CheckFilesystemForIDExists checks if a filesystem exists for the supplied
@@ -181,7 +181,7 @@ type StorageProvisioningService interface {
 	// unit.
 	GetFilesystemAttachmentUUIDForFilesystemIDUnit(
 		ctx context.Context, filesystemID string, unitUUID coreunit.UUID,
-	) (storageprovisioning.FilesystemAttachmentUUID, error)
+	) (domainstorage.FilesystemAttachmentUUID, error)
 
 	// GetFilesystemAttachmentUUIDForFilesystemIDMachine returns the filesystem
 	// attachment UUID for the supplied filesystem id which is attached to the
@@ -189,7 +189,7 @@ type StorageProvisioningService interface {
 	GetFilesystemAttachmentUUIDForFilesystemIDMachine(
 		ctx context.Context,
 		filesystemID string, machineUUID machine.UUID,
-	) (storageprovisioning.FilesystemAttachmentUUID, error)
+	) (domainstorage.FilesystemAttachmentUUID, error)
 
 	// GetFilesystemAttachmentForMachine retrieves the FilesystemAttachment
 	// for the supplied machine UUID and filesystem ID.
@@ -221,7 +221,7 @@ type StorageProvisioningService interface {
 	// GetFilesystemAttachmentLife returns the current life value for a
 	// filesystem attachment UUID.
 	GetFilesystemAttachmentLife(
-		ctx context.Context, uuid storageprovisioning.FilesystemAttachmentUUID,
+		ctx context.Context, uuid domainstorage.FilesystemAttachmentUUID,
 	) (domainlife.Life, error)
 
 	// GetStorageResourceTagsForModel returns the tags to apply to storage in
@@ -409,7 +409,7 @@ type StorageProvisioningService interface {
 	// GetVolumeAttachmentPlan gets the volume attachment plan for the provided
 	// uuid.
 	GetVolumeAttachmentPlan(
-		ctx context.Context, uuid storageprovisioning.VolumeAttachmentPlanUUID,
+		ctx context.Context, uuid domainstorage.VolumeAttachmentPlanUUID,
 	) (storageprovisioning.VolumeAttachmentPlan, error)
 
 	// GetVolumeAttachmentPlanUUIDForVolumeIDMachine returns the volume attachment
@@ -418,7 +418,7 @@ type StorageProvisioningService interface {
 		ctx context.Context,
 		volumeID string,
 		machineUUID machine.UUID,
-	) (storageprovisioning.VolumeAttachmentPlanUUID, error)
+	) (domainstorage.VolumeAttachmentPlanUUID, error)
 
 	// CreateVolumeAttachmentPlan creates a volume attachment plan for the
 	// provided volume attachment uuid. Returned is the new uuid for the volume
@@ -426,15 +426,15 @@ type StorageProvisioningService interface {
 	CreateVolumeAttachmentPlan(
 		ctx context.Context,
 		attachmentUUID domainstorage.VolumeAttachmentUUID,
-		deviceType storageprovisioning.PlanDeviceType,
+		deviceType domainstorage.VolumeDeviceType,
 		attrs map[string]string,
-	) (storageprovisioning.VolumeAttachmentPlanUUID, error)
+	) (domainstorage.VolumeAttachmentPlanUUID, error)
 
 	// SetVolumeAttachmentPlanProvisionedInfo sets on the provided volume the
 	// information about the provisioned volume attachment plan.
 	SetVolumeAttachmentPlanProvisionedInfo(
 		ctx context.Context,
-		uuid storageprovisioning.VolumeAttachmentPlanUUID,
+		uuid domainstorage.VolumeAttachmentPlanUUID,
 		info storageprovisioning.VolumeAttachmentPlanProvisionedInfo,
 	) error
 
@@ -442,7 +442,7 @@ type StorageProvisioningService interface {
 	// attachment plan the information about the provisioned block device.
 	SetVolumeAttachmentPlanProvisionedBlockDevice(
 		ctx context.Context,
-		uuid storageprovisioning.VolumeAttachmentPlanUUID,
+		uuid domainstorage.VolumeAttachmentPlanUUID,
 		blockDeviceUUID domainblockdevice.BlockDeviceUUID,
 	) error
 }

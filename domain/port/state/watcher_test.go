@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -40,8 +41,8 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 	modelUUID := tc.Must0(c, coremodel.NewUUID)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2")
+INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2")
 		`, modelUUID.String(), coretesting.ControllerTag.Id())
 		return err
 	})
@@ -92,13 +93,92 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 
 func (s *watcherSuite) TestFilterEndpointForApplication(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := c.Context()
 
-	filteredUnits, err := st.FilterUnitUUIDsForApplication(ctx, s.unitUUIDs[:], s.appUUIDs[0])
+	filteredUnits, err := st.FilterUnitUUIDsForApplication(c.Context(), s.unitUUIDs[:], s.appUUIDs[0])
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(filteredUnits, tc.DeepEquals, set.NewStrings(s.unitUUIDs[0].String()))
 
-	filteredUnits, err = st.FilterUnitUUIDsForApplication(ctx, s.unitUUIDs[:], s.appUUIDs[1])
+	filteredUnits, err = st.FilterUnitUUIDsForApplication(c.Context(), s.unitUUIDs[:], s.appUUIDs[1])
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(filteredUnits, tc.DeepEquals, set.NewStrings(s.unitUUIDs[1].String(), s.unitUUIDs[2].String()))
+}
+
+func (s *watcherSuite) TestInitialWatchOpenedPortsStatement(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	_, statement := st.InitialWatchOpenedPortsStatement()
+	s.assertUnits(c, statement, s.unitUUIDs[:])
+
+	// Create a unit that doesn't have an associated machine and assert that it
+	// isn't included in the results of the initial statement.
+
+	netNode := s.createNetNode(c)
+	appUUID := s.createApplicationWithRelations(c, "inferi", "ep0", "ep1", "ep2")
+	s.createUnitWithoutMachine(c, netNode, "inferi", appUUID.String())
+
+	// Notice that the results are unchanged, which implies that the unit
+	// without a machine is not included in the results of the initial
+	// statement.
+	s.assertUnits(c, statement, s.unitUUIDs[:])
+}
+
+func (s *watcherSuite) assertUnits(c *tc.C, stmt string, expected []coreunit.UUID) {
+	var unitUUIDs []string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, stmt)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var unitUUID string
+			if err := rows.Scan(&unitUUID); err != nil {
+				return err
+			}
+
+			unitUUIDs = append(unitUUIDs, unitUUID)
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(unitUUIDs, tc.SameContents, transform.Slice(expected, func(u coreunit.UUID) string {
+		return u.String()
+	}))
+}
+
+func (s *watcherSuite) createNetNode(c *tc.C) string {
+	netNodeUUID := tc.Must0(c, coreunit.NewUUID).String()
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO net_node (uuid) VALUES (?)`, netNodeUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return netNodeUUID
+}
+
+// createUnit creates a new unit in state and returns its UUID. The unit is assigned
+// to the net node with uuid `netNodeUUID` and application with name `appName`.
+func (s *watcherSuite) createUnitWithoutMachine(c *tc.C, netNodeUUID, appName, appUUID string) {
+	unitUUID := tc.Must0(c, coreunit.NewUUID).String()
+	unitName := appName + "/0"
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Get the charm UUID from the application name.
+		var charmUUID string
+		err := tx.QueryRowContext(ctx, `SELECT charm_uuid FROM application WHERE uuid = ?`, appUUID).Scan(&charmUUID)
+		if err != nil {
+			return err
+		}
+
+		// Insert the unit without an associated machine.
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO unit (uuid, name, application_uuid, net_node_uuid, life_id, charm_uuid)
+VALUES (?, ?, ?, ?, 0, ?)
+		`, unitUUID, unitName, appUUID, netNodeUUID, charmUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }

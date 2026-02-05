@@ -62,6 +62,7 @@ func (s *importSuite) TestImportLinkLayerDevices(c *tc.C) {
 	}
 	model.AddLinkLayerDevice(dArgs)
 
+	s.migrationService.EXPECT().GetModelCloudType(c.Context()).Return("ec2", nil)
 	args := []internal.ImportLinkLayerDevice{
 		{
 			IsAutoStart: dArgs.IsAutoStart,
@@ -165,6 +166,7 @@ func (s *importSuite) TestImportLinkLayerDevicesWithAddresses(c *tc.C) {
 		IsSecondary:  true,
 	})
 
+	s.migrationService.EXPECT().GetModelCloudType(c.Context()).Return("ec2", nil)
 	s.migrationService.EXPECT().ImportLinkLayerDevices(gomock.Any(), lldArgMatcher{c: c,
 		expected: []internal.ImportLinkLayerDevice{{
 			MachineID: "0",
@@ -257,6 +259,8 @@ func (s *importSuite) TestImportLinkLayerDevicesWithAddressesErrorNoDevice(c *tc
 		Value: "10.0.0.1",
 	})
 
+	s.migrationService.EXPECT().GetModelCloudType(c.Context()).Return("lxd", nil)
+
 	// Act
 	op := s.newImportOperation(c)
 	err := op.Execute(c.Context(), model)
@@ -282,30 +286,29 @@ func (s *importSuite) TestImportLinkLayerDevicesSkipsFanAddresses(c *tc.C) {
 		Value:        "240.0.0.1",
 	})
 	model.AddIPAddress(description.IPAddressArgs{
-		DeviceName: "eth0",
-		MachineID:  "0",
-
+		DeviceName:       "eth0",
+		MachineID:        "0",
 		ProviderID:       "address-10.0.0.1",
 		SubnetCIDR:       "10.0.0.0/24",
 		ConfigMethod:     string(corenetwork.ConfigStatic),
 		Value:            "10.0.0.1",
-		ProviderSubnetID: "subnet-10.0.0.0/24",
+		ProviderSubnetID: "subnet--10.0.0.0/24",
 		Origin:           "provider",
 	})
 
+	s.migrationService.EXPECT().GetModelCloudType(c.Context()).Return("lxd", nil)
 	s.migrationService.EXPECT().ImportLinkLayerDevices(gomock.Any(), lldArgMatcher{c: c,
 		expected: []internal.ImportLinkLayerDevice{{
 			MachineID: "0",
 			Name:      "eth0",
 			Addresses: []internal.ImportIPAddress{{
-				ProviderID:       ptr("address-10.0.0.1"),
-				SubnetCIDR:       "10.0.0.0/24",
-				ConfigType:       corenetwork.ConfigStatic,
-				AddressValue:     "10.0.0.1/24",
-				ProviderSubnetID: ptr("subnet-10.0.0.0/24"),
-				Origin:           "provider",
-				IsShadow:         false,
-				IsSecondary:      false,
+				ProviderID:   ptr("address-10.0.0.1"),
+				SubnetCIDR:   "10.0.0.0/24",
+				ConfigType:   corenetwork.ConfigStatic,
+				AddressValue: "10.0.0.1/24",
+				Origin:       "provider",
+				IsShadow:     false,
+				IsSecondary:  false,
 				// Resolved values
 				Type:  corenetwork.IPv4Address,
 				Scope: corenetwork.ScopeCloudLocal,
@@ -337,6 +340,8 @@ func (s *importSuite) TestImportLinkLayerDevicesWithAddressesErrorInvalidConfigM
 		Value:        "10.0.0.1",
 	})
 
+	s.migrationService.EXPECT().GetModelCloudType(c.Context()).Return("ec2", nil)
+
 	// Act
 	op := s.newImportOperation(c)
 	err := op.Execute(c.Context(), model)
@@ -360,6 +365,7 @@ func (s *importSuite) TestImportLinkLayerDevicesOptionalValues(c *tc.C) {
 	}
 	model.AddLinkLayerDevice(dArgs)
 
+	s.migrationService.EXPECT().GetModelCloudType(c.Context()).Return("ec2", nil)
 	args := []internal.ImportLinkLayerDevice{
 		{
 			IsAutoStart: dArgs.IsAutoStart,

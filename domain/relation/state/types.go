@@ -12,9 +12,9 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/deployment/charm"
 	domainlife "github.com/juju/juju/domain/life"
 	domainrelation "github.com/juju/juju/domain/relation"
-	"github.com/juju/juju/internal/charm"
 )
 
 // TODO (manadart 2025-07-08): entityUUID (type agnostic) should be used in
@@ -119,11 +119,6 @@ type getRelationUnit struct {
 type getLife struct {
 	UUID string     `db:"uuid"`
 	Life life.Value `db:"value"`
-}
-
-type getUnitApp struct {
-	ApplicationUUID string `db:"application_uuid"`
-	UnitUUID        string `db:"uuid"`
 }
 
 type getUnitRelAndApp struct {

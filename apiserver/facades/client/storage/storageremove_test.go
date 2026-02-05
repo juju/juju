@@ -5,14 +5,13 @@ package storage
 
 import (
 	"testing"
-	time "time"
+	"time"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -29,8 +28,9 @@ func TestStorageRemoveSuite(t *testing.T) {
 func (s *storageRemoveSuite) TestNegativeMaxWaitTime(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	api := s.makeTestAPIForIAASModel(c)
 	negativeMaxWait := time.Duration(-5)
-	res, err := s.api.Remove(c.Context(), params.RemoveStorage{
+	res, err := api.Remove(c.Context(), params.RemoveStorage{
 		Storage: []params.RemoveStorageInstance{
 			{
 				MaxWait: &negativeMaxWait,
@@ -50,7 +50,8 @@ func (s *storageRemoveSuite) TestRemoveNotFound(c *tc.C) {
 		gomock.Any(), "data/1",
 	).Return("", storageerrors.StorageInstanceNotFound)
 
-	res, err := s.api.Remove(c.Context(), params.RemoveStorage{
+	api := s.makeTestAPIForIAASModel(c)
+	res, err := api.Remove(c.Context(), params.RemoveStorage{
 		Storage: []params.RemoveStorageInstance{
 			{
 				Tag: "storage-data/1",
@@ -77,7 +78,8 @@ func (s *storageRemoveSuite) TestRemove(c *tc.C) {
 		gomock.Any(), storageInstanceUUID, false, time.Duration(0), false,
 	).Return(nil)
 
-	res, err := s.api.Remove(c.Context(), params.RemoveStorage{
+	api := s.makeTestAPIForIAASModel(c)
+	res, err := api.Remove(c.Context(), params.RemoveStorage{
 		Storage: []params.RemoveStorageInstance{
 			{
 				Tag: "storage-data/1",
@@ -104,7 +106,8 @@ func (s *storageRemoveSuite) TestRemoveWithDestroy(c *tc.C) {
 		gomock.Any(), storageInstanceUUID, false, time.Duration(0), true,
 	).Return(nil)
 
-	res, err := s.api.Remove(c.Context(), params.RemoveStorage{
+	api := s.makeTestAPIForIAASModel(c)
+	res, err := api.Remove(c.Context(), params.RemoveStorage{
 		Storage: []params.RemoveStorageInstance{
 			{
 				Tag:            "storage-data/1",
@@ -136,7 +139,8 @@ func (s *storageRemoveSuite) TestRemoveWithForceAndWait(c *tc.C) {
 		force = true
 		wait  = time.Minute
 	)
-	res, err := s.api.Remove(c.Context(), params.RemoveStorage{
+	api := s.makeTestAPIForIAASModel(c)
+	res, err := api.Remove(c.Context(), params.RemoveStorage{
 		Storage: []params.RemoveStorageInstance{
 			{
 				Force:   &force,
@@ -154,8 +158,8 @@ func (s *storageRemoveSuite) TestRemoveWithStorageAttachments(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
-	attachmentUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
-	attachmentUUIDS := []storageprovisioning.StorageAttachmentUUID{
+	attachmentUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
+	attachmentUUIDS := []domainstorage.StorageAttachmentUUID{
 		attachmentUUID,
 	}
 
@@ -174,7 +178,8 @@ func (s *storageRemoveSuite) TestRemoveWithStorageAttachments(c *tc.C) {
 		gomock.Any(), storageInstanceUUID, false, time.Duration(0), false,
 	).Return(nil)
 
-	res, err := s.api.Remove(c.Context(), params.RemoveStorage{
+	api := s.makeTestAPIForIAASModel(c)
+	res, err := api.Remove(c.Context(), params.RemoveStorage{
 		Storage: []params.RemoveStorageInstance{
 			{
 				Tag:                "storage-data/1",

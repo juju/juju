@@ -13,7 +13,7 @@ import (
 	"github.com/juju/retry"
 
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 )
 
 // ResourceRetryClient is a wrapper around a Juju repository client that

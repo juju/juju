@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/juju/cmd/juju/resource"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/internal/charm"
-	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/domain/deployment/charm"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/internal/testhelpers"
 )
 

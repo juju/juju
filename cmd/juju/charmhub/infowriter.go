@@ -14,7 +14,7 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/output"
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 )
 
 // Note:

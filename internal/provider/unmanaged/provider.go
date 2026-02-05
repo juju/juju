@@ -130,6 +130,7 @@ func (p UnmanagedProvider) Open(ctx context.Context, args environs.OpenParams, i
 	// Open.
 	envConfig := newModelConfig(args.Config, args.Config.UnknownAttrs())
 	host, user := args.Cloud.Endpoint, ""
+	host = strings.TrimPrefix(host, "ssh:")
 	if i := strings.IndexRune(host, '@'); i >= 0 {
 		user, host = host[:i], host[i+1:]
 	}

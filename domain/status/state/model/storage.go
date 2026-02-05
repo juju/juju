@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -29,7 +28,7 @@ const (
 // - [storageerrors.FilesystemNotFound] if the filesystem doesn't exist.
 func (st *ModelState) SetFilesystemStatus(
 	ctx context.Context,
-	filesystemUUID storageprovisioning.FilesystemUUID,
+	filesystemUUID storage.FilesystemUUID,
 	sts status.StatusInfo[status.StorageFilesystemStatusType],
 ) error {
 	db, err := st.DB(ctx)
@@ -66,7 +65,7 @@ func (st *ModelState) SetFilesystemStatus(
 func (st *ModelState) getFilesystemProvisioningStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
-	uuid storageprovisioning.FilesystemUUID,
+	uuid storage.FilesystemUUID,
 ) (status.StorageFilesystemStatusType, bool, error) {
 	id := filesystemUUID{
 		FilesystemUUID: uuid.String(),
@@ -106,7 +105,7 @@ WHERE     sf.uuid = $filesystemUUID.uuid
 // - [storageerrors.FilesystemNotFound] if the filesystem doesn't exist.
 func (st *ModelState) ImportFilesystemStatus(
 	ctx context.Context,
-	filesystemUUID storageprovisioning.FilesystemUUID,
+	filesystemUUID storage.FilesystemUUID,
 	sts status.StatusInfo[status.StorageFilesystemStatusType],
 ) error {
 	db, err := st.DB(ctx)
@@ -125,7 +124,7 @@ func (st *ModelState) ImportFilesystemStatus(
 func (st *ModelState) GetFilesystemUUIDByID(
 	ctx context.Context,
 	id string,
-) (storageprovisioning.FilesystemUUID, error) {
+) (storage.FilesystemUUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -152,13 +151,13 @@ WHERE  filesystem_id = $filesystemUUIDID.filesystem_id
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	return storageprovisioning.FilesystemUUID(arg.UUID), nil
+	return storage.FilesystemUUID(arg.UUID), nil
 }
 
 func (st *ModelState) updateFilesystemStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
-	filesystemUUID storageprovisioning.FilesystemUUID,
+	filesystemUUID storage.FilesystemUUID,
 	sts status.StatusInfo[status.StorageFilesystemStatusType],
 ) error {
 	statusID, err := status.EncodeStorageFilesystemStatus(sts.Status)
@@ -499,7 +498,7 @@ LEFT JOIN storage_volume sv ON sv.uuid=siv.storage_volume_uuid
 			volumeID = &v.VolumeID.String
 		}
 		return status.Filesystem{
-			UUID: storageprovisioning.FilesystemUUID(v.UUID),
+			UUID: storage.FilesystemUUID(v.UUID),
 			ID:   v.ID,
 			Life: life.Life(v.LifeID),
 			Status: status.StatusInfo[status.StorageFilesystemStatusType]{
@@ -563,7 +562,7 @@ LEFT JOIN unit u ON u.uuid=sa.unit_uuid
 			unitName = &u
 		}
 		return status.FilesystemAttachment{
-			FilesystemUUID: storageprovisioning.FilesystemUUID(v.FilesystemUUID),
+			FilesystemUUID: storage.FilesystemUUID(v.FilesystemUUID),
 			Life:           life.Life(v.LifeID),
 			Unit:           unitName,
 			Machine:        machineName,
@@ -691,7 +690,7 @@ LEFT JOIN storage_volume_attachment_plan_attr svapa ON svapa.attachment_plan_uui
 		vap := vaps[v.VolumeUUID]
 		if vap == nil {
 			vap = &status.VolumeAttachmentPlan{
-				DeviceType: storageprovisioning.PlanDeviceType(v.DeviceTypeID),
+				DeviceType: storage.VolumeDeviceType(v.DeviceTypeID),
 			}
 			vaps[v.VolumeUUID] = vap
 		}

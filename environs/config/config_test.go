@@ -54,7 +54,6 @@ var sampleConfig = testing.Attrs{
 	"development":                false,
 	"default-base":               jujuversion.DefaultSupportedLTSBase().String(),
 	"disable-network-management": false,
-	"ignore-machine-addresses":   false,
 	"automatically-retry-hooks":  true,
 	"proxy-ssh":                  false,
 	"resource-tags":              []string{},
@@ -173,25 +172,6 @@ var configTests = []configTest{
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"disable-network-management": true,
-		}),
-	}, {
-		about:       "Invalid ignore-machine-addresses flag",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"ignore-machine-addresses": "invalid",
-		}),
-		err: `ignore-machine-addresses: expected bool, got string\("invalid"\)`,
-	}, {
-		about:       "ignore-machine-addresses off",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"ignore-machine-addresses": false,
-		}),
-	}, {
-		about:       "ignore-machine-addresses on",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"ignore-machine-addresses": true,
 		}),
 	}, {
 		about:       "set-numa-control-policy on",
@@ -398,7 +378,6 @@ var configTests = []configTest{
 			"agent-version":              "1.13.2",
 			"firewall-mode":              "instance",
 			"disable-network-management": false,
-			"ignore-machine-addresses":   false,
 			"automatically-retry-hooks":  true,
 			"proxy-ssh":                  false,
 			"resource-tags":              []string{},
@@ -744,7 +723,6 @@ func (s *ConfigSuite) TestAllAttrs(c *tc.C) {
 		"ssl-hostname-verification":  true,
 		"default-base":               jujuversion.DefaultSupportedLTSBase().String(),
 		"disable-network-management": false,
-		"ignore-machine-addresses":   false,
 		"automatically-retry-hooks":  true,
 		"proxy-ssh":                  false,
 		"development":                false,

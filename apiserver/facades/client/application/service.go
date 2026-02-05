@@ -33,12 +33,12 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	domainconstraints "github.com/juju/juju/domain/constraints"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/resolve"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs/config"
-	internalcharm "github.com/juju/juju/internal/charm"
 )
 
 // Services represents all the services that the application facade requires.

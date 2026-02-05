@@ -19,8 +19,8 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/storage"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 	bundlechanges "github.com/juju/juju/internal/bundle/changes"
-	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )

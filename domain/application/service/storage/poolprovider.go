@@ -98,7 +98,7 @@ func NewStoragePoolProvider(
 // pool uuid can be used for provisioning a certain type of charm storage.
 //
 // The following errors may be expected:
-// - [storageerrors.PoolNotFoundError] when no storage pool exists for the
+// - [storageerrors.StoragePoolNotFound] when no storage pool exists for the
 // provided pool uuid.
 func (v *DefaultStoragePoolProvider) CheckPoolSupportsCharmStorage(
 	ctx context.Context,
@@ -133,7 +133,7 @@ func (v *DefaultStoragePoolProvider) CheckPoolSupportsCharmStorage(
 //
 // The following errors may be expected:
 // - [coreerrors.NotValid] if the provided pool uuid is not valid.
-// - [storageerrors.PoolNotFoundError] when no storage pool exists for the
+// - [storageerrors.StoragePoolNotFound] when no storage pool exists for the
 // provided pool uuid.
 func (c cachedStoragePoolProvider) GetProviderForPool(
 	ctx context.Context,
@@ -162,7 +162,7 @@ func (c cachedStoragePoolProvider) GetProviderForPool(
 //
 // The following errors may be expected:
 // - [coreerrors.NotValid] if the provided pool uuid is not valid.
-// - [storageerrors.PoolNotFoundError] when no storage pool exists for the
+// - [storageerrors.StoragePoolNotFound] when no storage pool exists for the
 // provided pool uuid.
 func (v *DefaultStoragePoolProvider) GetProviderForPool(
 	ctx context.Context,

@@ -17,9 +17,9 @@ import (
 	remoteapplicationtesting "github.com/juju/juju/core/remoteapplication/testing"
 	corestatus "github.com/juju/juju/core/status"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
-	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
 )

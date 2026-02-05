@@ -391,11 +391,9 @@ func (c *precheckModel) checkApplications(ctx context.Context) error {
 		return errors.Trace(err)
 	}
 
-	if err := c.applicationService.CheckAllApplicationsAndUnitsAreAlive(ctx); err != nil {
+	if err := c.applicationService.CheckApplicationsForMigration(ctx); err != nil {
 		return internalerrors.Errorf("pre-checking applications for migration: %w", err)
 	}
-
-	// TODO(aflynn): 2025-05-24 check if any units are mid-upgrade.
 
 	return nil
 }

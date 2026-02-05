@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"strconv"
+	"strings"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -374,7 +375,33 @@ VALUES ($instanceData.*);
 		return errors.Capture(err)
 	}
 
-	return tx.Query(ctx, setInstanceDataStmt, instData).Run()
+	if err := tx.Query(ctx, setInstanceDataStmt, instData).Run(); err != nil {
+		return errors.Capture(err)
+	}
+
+	if instanceID != nil && strings.HasPrefix(string(*instanceID), domainmachine.ManualInstancePrefix) {
+		if err := insertUnmanagedMachine(ctx, tx, preparer, mUUID); err != nil {
+			return errors.Capture(err)
+		}
+	}
+
+	return nil
+}
+
+func insertUnmanagedMachine(ctx context.Context, tx *sqlair.TX, preparer domain.Preparer, mUUID string) error {
+	setManualStmt, err := preparer.Prepare(`
+INSERT INTO machine_manual (machine_uuid)
+VALUES ($entityUUID.uuid)
+ON CONFLICT (machine_uuid) DO NOTHING
+`, entityUUID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, setManualStmt, entityUUID{UUID: mUUID}).Run(); err != nil {
+		return errors.Errorf("setting machine as unmanaged: %w", err)
+	}
+	return nil
 }
 
 func insertMachineStatus(

@@ -19,7 +19,6 @@ import (
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/juju"
@@ -120,12 +119,12 @@ func (s *unitSuite) TestRemoveUnitCascadeStorage(c *tc.C) {
 
 	uUUID := unittesting.GenUnitUUID(c)
 	siUUID := tc.Must(c, storage.NewStorageInstanceUUID)
-	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
-	fsUUID := tc.Must(c, storageprovisioning.NewFilesystemUUID)
-	fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+	saUUID := tc.Must(c, storage.NewStorageAttachmentUUID)
+	fsUUID := tc.Must(c, storage.NewFilesystemUUID)
+	fsaUUID := tc.Must(c, storage.NewFilesystemAttachmentUUID)
 	volUUID := tc.Must(c, storage.NewVolumeUUID)
 	vaUUID := tc.Must(c, storage.NewVolumeAttachmentUUID)
-	vapUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID)
+	vapUUID := tc.Must(c, storage.NewVolumeAttachmentPlanUUID)
 
 	when := time.Now().UTC()
 	s.clock.EXPECT().Now().Return(when).AnyTimes()
@@ -237,6 +236,38 @@ func (s *unitSuite) TestExecuteJobForUnitDeadDeleteUnit(c *tc.C) {
 
 	exp := s.modelState.EXPECT()
 	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
+	exp.GetRelationUnitsForUnit(gomock.Any(), j.EntityUUID).Return(nil, nil)
+	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
+	exp.GetCharmForUnit(gomock.Any(), j.EntityUUID).Return(tc.Must(c, unit.NewUUID).String(), nil)
+	exp.GetUnitOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
+	exp.DeleteUnitOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteUnit(gomock.Any(), j.EntityUUID, false).Return(nil)
+	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
+	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	sbCfg := &provider.ModelBackendConfig{
+		BackendConfig: provider.BackendConfig{
+			BackendType: vault.BackendType,
+		},
+	}
+	s.controllerState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).Return("", sbCfg, nil)
+	s.secretBackendProvider.EXPECT().Initialise(sbCfg).Return(nil)
+	s.secretBackendProvider.EXPECT().NewBackend(sbCfg).Return(s.secretBackend, nil)
+
+	s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *unitSuite) TestExecuteJobForUnitDeadDyingUnitWithNoEntities(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newUnitJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.MarkUnitAsDeadWithNoEntities(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.GetRelationUnitsForUnit(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), j.EntityUUID).Return("foo", "foo/0", nil)
 	exp.GetCharmForUnit(gomock.Any(), j.EntityUUID).Return(tc.Must(c, unit.NewUUID).String(), nil)
@@ -430,6 +461,7 @@ func (s *unitSuite) TestExecuteJobForUnitNotDeadError(c *tc.C) {
 
 	exp := s.modelState.EXPECT()
 	exp.GetUnitLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.MarkUnitAsDeadWithNoEntities(gomock.Any(), j.EntityUUID).Return(errors.Errorf("not dead"))
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIs, removalerrors.EntityNotDead)

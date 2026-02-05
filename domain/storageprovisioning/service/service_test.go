@@ -24,7 +24,6 @@ import (
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning"
-	storageprovisioningtesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -290,7 +289,7 @@ func (s *serviceSuite) TestGetStorageAttachmentUUIDForUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitUUID := unittesting.GenUnitUUID(c)
-	storageAttachmentUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
+	storageAttachmentUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 
 	s.state.EXPECT().GetStorageAttachmentUUIDForUnit(
 		gomock.Any(), "foo/1", unitUUID,
@@ -382,7 +381,7 @@ func (s *serviceSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 func (s *serviceSuite) TestWatchStorageAttachment(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	storageAttachmentUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
+	storageAttachmentUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 
 	s.state.EXPECT().NamespaceForStorageAttachment().Return("foo_namespace")
 	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(),
@@ -402,7 +401,7 @@ func (s *serviceSuite) TestWatchStorageAttachment(c *tc.C) {
 func (s *serviceSuite) TestGetUnitStorageAttachmentInfoForVolume(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	storageAttachmentUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
+	storageAttachmentUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	bdUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
 	info := storageprovisioning.StorageAttachmentInfo{
 		Kind:            domainstorage.StorageKindBlock,
@@ -426,7 +425,7 @@ func (s *serviceSuite) TestGetUnitStorageAttachmentInfoForVolume(c *tc.C) {
 func (s *serviceSuite) TestGetUnitStorageAttachmentInfoForFilesystem(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	storageAttachmentUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
+	storageAttachmentUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	info := storageprovisioning.StorageAttachmentInfo{
 		Kind:                 domainstorage.StorageKindFilesystem,
 		Life:                 domainlife.Alive,

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -211,11 +210,14 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 		return errors.Errorf("empty secret value %w", coreerrors.NotValid)
 	}
 
+	now := s.clock.Now()
 	p := domainsecret.UpsertSecretParams{
 		Description: params.Description,
 		Label:       params.Label,
 		AutoPrune:   params.AutoPrune,
 		Checksum:    params.Checksum,
+		CreateTime:  now,
+		UpdateTime:  now,
 	}
 	// Take a copy as we may set it to nil below
 	// if the content is saved to a backend.
@@ -273,10 +275,8 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 		}
 	}()
 
-	if err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return s.createSecret(ctx, params.Version, uri, secrets.Owner{Kind: secrets.ModelOwner}, p)
-	}); err != nil {
-		return errors.Errorf("creating user secret %q: %w", uri.ID, err)
+	if err := s.secretState.CreateUserSecret(ctx, params.Version, uri, p); err != nil {
+		return errors.Errorf("creating user secret: %w", err)
 	}
 	return nil
 }
@@ -299,11 +299,14 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 		return errors.New("must specify either content or a value reference but not both")
 	}
 
+	now := s.clock.Now()
 	p := domainsecret.UpsertSecretParams{
 		Description: params.Description,
 		Label:       params.Label,
 		ValueRef:    params.ValueRef,
 		Checksum:    params.Checksum,
+		CreateTime:  now,
+		UpdateTime:  now,
 	}
 	if len(params.Data) > 0 {
 		p.Data = make(map[string]string)
@@ -340,7 +343,8 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 			}
 		}
 	}()
-	if params.CharmOwner.Kind == domainsecret.ApplicationCharmSecretOwner {
+	switch params.CharmOwner.Kind {
+	case domainsecret.ApplicationCharmSecretOwner:
 		unitName, err := coreunit.NewName(params.Accessor.ID)
 		if err != nil {
 			return errors.Capture(err)
@@ -352,17 +356,15 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 			}
 			return errors.Capture(err)
 		}
-	}
-
-	err = s.secretState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		owner := secrets.Owner{
-			ID:   params.CharmOwner.ID,
-			Kind: secrets.OwnerKind(params.CharmOwner.Kind),
+		if err := s.createCharmApplicationSecret(ctx, params.Version, uri, params.CharmOwner.ID, p); err != nil {
+			return errors.Errorf("creating charm secret %q: %w", uri.ID, err)
 		}
-		return s.createSecret(ctx, params.Version, uri, owner, p)
-	})
-	if err != nil {
-		return errors.Errorf("cannot create charm secret %q: %w", uri.ID, err)
+	case domainsecret.UnitCharmSecretOwner:
+		if err := s.createCharmUnitSecret(ctx, params.Version, uri, params.CharmOwner.ID, p); err != nil {
+			return errors.Errorf("creating charm secret %q: %w", uri.ID, err)
+		}
+	default:
+		return errors.Errorf("unexpected secret owner kind %q for secret %q", params.CharmOwner.Kind, uri.ID)
 	}
 	return nil
 }
@@ -386,6 +388,7 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 		Label:       params.Label,
 		AutoPrune:   params.AutoPrune,
 		Checksum:    params.Checksum,
+		UpdateTime:  s.clock.Now(),
 	}
 
 	return withCaveat(ctx, func(innerCtx context.Context) (errOut error) {
@@ -488,6 +491,7 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 		ValueRef:    params.ValueRef,
 		ExpireTime:  params.ExpireTime,
 		Checksum:    params.Checksum,
+		UpdateTime:  s.clock.Now(),
 	}
 	rotatePolicy := domainsecret.MarshallRotatePolicy(params.RotatePolicy)
 	p.RotatePolicy = &rotatePolicy
@@ -536,68 +540,35 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 
 		err := s.secretState.UpdateSecret(innerCtx, uri, p)
 		if err != nil {
-			return errors.Errorf("cannot update charm secret %q: %w", uri.ID, err)
+			return errors.Errorf("updating charm secret %q: %w", uri.ID, err)
 		}
 		return nil
 	})
 }
 
-func (s *SecretService) createSecret(
-	ctx domain.AtomicContext, version int, uri *secrets.URI, owner secrets.Owner, params domainsecret.UpsertSecretParams,
-) (err error) {
-	defer func() {
-		if err != nil {
-			if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
-				err = errors.Errorf("secret with label %q is already being used: %w", *params.Label, secreterrors.SecretLabelAlreadyExists)
-			}
-		}
-	}()
-
-	var createSecret func() error
-	var (
-		labelExists bool
-		labelErr    error
-	)
-	switch kind := owner.Kind; kind {
-	case secrets.ApplicationOwner:
-		appUUID, err := s.secretState.GetApplicationUUID(ctx, owner.ID)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		if params.Label != nil && *params.Label != "" {
-			labelExists, labelErr = s.secretState.CheckApplicationSecretLabelExists(ctx, appUUID, *params.Label)
-		}
-		createSecret = func() error { return s.secretState.CreateCharmApplicationSecret(ctx, version, uri, appUUID, params) }
-	case secrets.UnitOwner:
-		unitName, err := coreunit.NewName(owner.ID)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		unitUUID, err := s.secretState.GetUnitUUID(ctx, unitName)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		if params.Label != nil && *params.Label != "" {
-			labelExists, labelErr = s.secretState.CheckUnitSecretLabelExists(ctx, unitUUID, *params.Label)
-		}
-		createSecret = func() error { return s.secretState.CreateCharmUnitSecret(ctx, version, uri, unitUUID, params) }
-	case secrets.ModelOwner:
-		if params.Label != nil && *params.Label != "" {
-			labelExists, labelErr = s.secretState.CheckUserSecretLabelExists(ctx, *params.Label)
-		}
-		createSecret = func() error { return s.secretState.CreateUserSecret(ctx, version, uri, params) }
-	default:
-		// Should never happen.
-		return errors.Errorf("unexpected secret owner kind %q for secret %q", kind, uri.ID)
-	}
-
-	if labelErr != nil {
+func (s *SecretService) createCharmApplicationSecret(ctx context.Context, version int, uri *secrets.URI, appName string,
+	params domainsecret.UpsertSecretParams) error {
+	appUUID, err := s.getApplicationUUIDByName(ctx, appName)
+	if err != nil {
 		return errors.Capture(err)
 	}
-	if labelExists {
-		return errors.Errorf("secret with label %q is already being used: %w", *params.Label, secreterrors.SecretLabelAlreadyExists)
+	if err := s.secretState.CreateCharmApplicationSecret(ctx, version, uri, appUUID,
+		params); err != nil {
+		return errors.Errorf("creating application secret: %w", err)
 	}
-	return errors.Capture(createSecret())
+	return nil
+}
+
+func (s *SecretService) createCharmUnitSecret(ctx context.Context, version int, uri *secrets.URI, unitName string,
+	params domainsecret.UpsertSecretParams) error {
+	unitUUID, err := s.getUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := s.secretState.CreateCharmUnitSecret(ctx, version, uri, unitUUID, params); err != nil {
+		return errors.Errorf("creating unit secret: %w", err)
+	}
+	return nil
 }
 
 // ListSecrets returns the secrets matching the specified terms.

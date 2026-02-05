@@ -14,7 +14,7 @@ import (
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/core/resource"
-	charmresource "github.com/juju/juju/internal/charm/resource"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -69,7 +69,7 @@ func (s *SvcFormatterSuite) TestFormatSvcResource(c *tc.C) {
 		},
 		RetrievedBy:     "Bill User",
 		Timestamp:       time.Now().Add(-1 * time.Hour * 24 * 365),
-		UUID:            "a-application/website",
+		ID:              "a-application/website",
 		ApplicationName: "a-application",
 	}
 
@@ -111,7 +111,7 @@ func (s *SvcFormatterSuite) TestFormatSvcResourceUpload(c *tc.C) {
 		},
 		RetrievedBy:     "vvgogh",
 		Timestamp:       time.Now().Add(-1 * time.Hour * 24 * 365),
-		UUID:            "a-application/website",
+		ID:              "a-application/website",
 		ApplicationName: "a-application",
 	}
 
@@ -201,7 +201,7 @@ func (s *DetailFormatterSuite) TestFormatDetail(c *tc.C) {
 		},
 		RetrievedBy:     "Bill User",
 		Timestamp:       time.Now().Add(-1 * time.Hour * 24 * 365),
-		UUID:            "a-application/website",
+		ID:              "a-application/website",
 		ApplicationName: "a-application",
 	}
 
@@ -223,7 +223,7 @@ func (s *DetailFormatterSuite) TestFormatDetail(c *tc.C) {
 		},
 		RetrievedBy:     "Bill User",
 		Timestamp:       time.Now(),
-		UUID:            "a-application/website",
+		ID:              "a-application/website",
 		ApplicationName: "a-application",
 	}
 	tag := names.NewUnitTag("a-application/55")
@@ -260,7 +260,7 @@ func (s *DetailFormatterSuite) TestFormatDetailEmpty(c *tc.C) {
 		},
 		RetrievedBy:     "Bill User",
 		Timestamp:       time.Now().Add(-1 * time.Hour * 24 * 365),
-		UUID:            "a-application/website",
+		ID:              "a-application/website",
 		ApplicationName: "a-application",
 	}
 

@@ -151,6 +151,10 @@ var (
 		From: semversion.MustParse("4.0.0"),
 		To:   semversion.MustParse("4.0.1"),
 	}
+	window_4_0_1_to_4_0_2 = VersionWindow{
+		From: semversion.MustParse("4.0.1"),
+		To:   semversion.MustParse("4.0.2"),
+	}
 )
 
 // UpgradeSteps returns the mapping of upgrade steps for the database upgrade
@@ -163,6 +167,9 @@ var (
 var UpgradeSteps = map[VersionWindow][]UpgradeStep{
 	window_4_0_0_to_4_0_1: {
 		upgradesteps.Step0001_PatchModelConfigCloudType,
+	},
+	window_4_0_1_to_4_0_2: {
+		upgradesteps.Step0002_RemoveLXDSubnetProviderID,
 	},
 }
 

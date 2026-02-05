@@ -27,10 +27,8 @@ import (
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
-	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/domain/storageprovisioning/service"
 	"github.com/juju/juju/domain/storageprovisioning/state"
-	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -67,7 +65,7 @@ func (s *watcherSuite) TestWatchMachineProvisionedFilesystems(c *tc.C) {
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 	var (
-		fsOneUUID, fsTwoUUID storageprovisioning.FilesystemUUID
+		fsOneUUID, fsTwoUUID domainstorage.FilesystemUUID
 		fsOneID, fsTwoID     string
 		fsaTwoUUID           string
 	)
@@ -731,9 +729,9 @@ func (s *watcherSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 	// Attach the three storage instances to the unit. This MUST create three
 	// events in the watcher each containing the id of the storage instance.
 	var (
-		storageAttachmentUUID1 storageprovisioning.StorageAttachmentUUID
-		storageAttachmentUUID2 storageprovisioning.StorageAttachmentUUID
-		storageAttachmentUUID3 storageprovisioning.StorageAttachmentUUID
+		storageAttachmentUUID1 domainstorage.StorageAttachmentUUID
+		storageAttachmentUUID2 domainstorage.StorageAttachmentUUID
+		storageAttachmentUUID3 domainstorage.StorageAttachmentUUID
 	)
 	harness.AddTest(c, func(c *tc.C) {
 		attachmenUUIDs := s.newStorageAttachmentsForInstances(
@@ -762,7 +760,7 @@ func (s *watcherSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 	harness.AddTest(c, func(c *tc.C) {
 		s.changeStorageAttachmentLives(
 			c,
-			map[storageprovisioning.StorageAttachmentUUID]domainlife.Life{
+			map[domainstorage.StorageAttachmentUUID]domainlife.Life{
 				storageAttachmentUUID1: domainlife.Dying,
 				storageAttachmentUUID2: domainlife.Dying,
 			},
@@ -781,7 +779,7 @@ func (s *watcherSuite) TestWatchStorageAttachmentsForUnit(c *tc.C) {
 	harness.AddTest(c, func(c *tc.C) {
 		s.changeStorageAttachmentLives(
 			c,
-			map[storageprovisioning.StorageAttachmentUUID]domainlife.Life{
+			map[domainstorage.StorageAttachmentUUID]domainlife.Life{
 				storageAttachmentUUID1: domainlife.Dead,
 				storageAttachmentUUID3: domainlife.Dying,
 			},
@@ -942,7 +940,7 @@ func (s *watcherSuite) TestWatchStorageAttachmentForFilesystem(c *tc.C) {
 // value of zero or more storage attachment uuids. This function is designed
 // to perform all of the changes within a single transaction.
 func (s *watcherSuite) changeStorageAttachmentLives(
-	c *tc.C, changes map[storageprovisioning.StorageAttachmentUUID]domainlife.Life,
+	c *tc.C, changes map[domainstorage.StorageAttachmentUUID]domainlife.Life,
 ) {
 	if len(changes) == 0 {
 		return
@@ -1400,8 +1398,8 @@ func (s *watcherSuite) newMachineCloudInstance(
 
 // newMachineFilesystem creates a new filesystem in the model with machine
 // provision scope. Returned is the uuid and filesystem id of the entity.
-func (s *watcherSuite) newMachineFilesystem(c *tc.C) (storageprovisioning.FilesystemUUID, string) {
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+func (s *watcherSuite) newMachineFilesystem(c *tc.C) (domainstorage.FilesystemUUID, string) {
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
 
@@ -1886,8 +1884,8 @@ func (s *watcherSuite) newStorageAttachment(
 	storageInstanceUUID domainstorage.StorageInstanceUUID,
 	unitUUID coreunit.UUID,
 	life domainlife.Life,
-) storageprovisioning.StorageAttachmentUUID {
-	saUUID := domaintesting.GenStorageAttachmentUUID(c)
+) domainstorage.StorageAttachmentUUID {
+	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
@@ -1909,14 +1907,14 @@ func (s *watcherSuite) newStorageAttachmentsForInstances(
 	c *tc.C,
 	unitUUID coreunit.UUID,
 	instances ...domainstorage.StorageInstanceUUID,
-) []storageprovisioning.StorageAttachmentUUID {
-	rval := make([]storageprovisioning.StorageAttachmentUUID, 0, len(instances))
+) []domainstorage.StorageAttachmentUUID {
+	rval := make([]domainstorage.StorageAttachmentUUID, 0, len(instances))
 
 	err := s.TxnRunner().StdTxn(
 		c.Context(),
 		func(ctx context.Context, tx *sql.Tx) error {
 			for _, instUUID := range instances {
-				attachmentUUID, err := storageprovisioning.NewStorageAttachmentUUID()
+				attachmentUUID, err := domainstorage.NewStorageAttachmentUUID()
 				if err != nil {
 					return err
 				}
@@ -1947,7 +1945,7 @@ VALUES (?, ?, ?, ?)
 
 func (s *watcherSuite) newStorageInstanceFilesystem(
 	c *tc.C, instanceUUID domainstorage.StorageInstanceUUID,
-	filesystemUUID storageprovisioning.FilesystemUUID,
+	filesystemUUID domainstorage.FilesystemUUID,
 ) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `

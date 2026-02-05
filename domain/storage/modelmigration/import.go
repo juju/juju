@@ -11,10 +11,10 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	corestorage "github.com/juju/juju/core/storage"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storage/service"
 	"github.com/juju/juju/domain/storage/state"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/storage"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -34,7 +34,19 @@ func RegisterImport(coordinator Coordinator, storageRegistryGetter corestorage.M
 // ImportService provides a subset of the storage domain
 // service methods needed for storage pool import.
 type ImportService interface {
-	CreateStoragePool(ctx context.Context, name string, providerType storage.ProviderType, attrs service.PoolAttrs) error
+	// ImportStoragePools creates new storage pools with the slice
+	// of [domainstorage.ImportStoragePoolParams].
+	ImportStoragePools(ctx context.Context, pools []domainstorage.ImportStoragePoolParams) error
+	// SetRecommendedStoragePools persists the set of recommended storage pools
+	// that are to be used for a model.
+	SetRecommendedStoragePools(ctx context.Context, pools []domainstorage.RecommendedStoragePoolParams) error
+	// GetStoragePoolsToImport resolves the full set of storage pools to create during
+	// model import.
+	GetStoragePoolsToImport(ctx context.Context, userPools []description.StoragePool) (
+		[]domainstorage.ImportStoragePoolParams,
+		[]domainstorage.RecommendedStoragePoolParams,
+		error,
+	)
 }
 
 type importOperation struct {
@@ -59,11 +71,23 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute the import on the storage pools contained in the model.
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
-	for _, pool := range model.StoragePools() {
-		err := i.service.CreateStoragePool(ctx, pool.Name(), storage.ProviderType(pool.Provider()), pool.Attributes())
-		if err != nil {
-			return errors.Errorf("creating storage pool %q: %w", pool.Name(), err)
-		}
+	// TODO(adisazhar123): refactor opportunity. GetStoragePoolsToImport func
+	// should just return the default pools and the merging / conflict resolution
+	// with user pools happens in this import layer.
+	poolsToImport, recommendedPools, err := i.service.GetStoragePoolsToImport(ctx, model.StoragePools())
+	if err != nil {
+		return errors.Errorf("getting pools to import: %w", err)
 	}
+
+	err = i.service.ImportStoragePools(ctx, poolsToImport)
+	if err != nil {
+		return errors.Errorf("importing storage pools %+v: %w", poolsToImport, err)
+	}
+
+	err = i.service.SetRecommendedStoragePools(ctx, recommendedPools)
+	if err != nil {
+		return errors.Errorf("setting recommended storage pools: %w", err)
+	}
+
 	return nil
 }

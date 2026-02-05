@@ -26,10 +26,10 @@ import (
 	coreresource "github.com/juju/juju/core/resource"
 	coreresourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/domain/application"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	domainlife "github.com/juju/juju/domain/life"
 	domainresource "github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
@@ -89,7 +89,7 @@ func (s *ResourcesHandlerSuite) SetUpTest(c *tc.C) {
 			Origin:      charmresource.OriginUpload,
 			Size:        int64(len(s.resourceContent)),
 		},
-		UUID:        s.resourceUUID,
+		ID:          s.resourceUUID.String(),
 		RetrievedBy: s.username,
 	}
 
@@ -285,7 +285,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccessAttachResource(c *tc.C) {
 	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(gomock.Any(), s.applicationName, s.resourceName).Return(s.resourceUUID, nil)
 	newResourceUUID := coreresourcetesting.GenResourceUUID(c)
 	s.resourceService.EXPECT().UpdateUploadResource(gomock.Any(), s.resourceUUID).Return(newResourceUUID, nil)
-	s.resource.UUID = newResourceUUID
+	s.resource.ID = newResourceUUID.String()
 	s.resourceService.EXPECT().GetResource(gomock.Any(), newResourceUUID).Return(
 		s.resource, nil,
 	)
@@ -323,7 +323,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccessAttachResource(c *tc.C) {
 	expected := mustMarshalJSON(&params.UploadResult{
 		Resource: params.Resource{
 			CharmResource: api.CharmResource2API(expectedResource.Resource),
-			UUID:          expectedResource.UUID.String(),
+			ID:            expectedResource.ID,
 			Username:      expectedResource.RetrievedBy,
 			Timestamp:     expectedResource.Timestamp,
 		},
@@ -381,7 +381,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccessDockerResource(c *tc.C) {
 
 	res := s.resource
 	res.Type = charmresource.TypeContainerImage
-	res.UUID = newResourceUUID
+	res.ID = newResourceUUID.String()
 	s.resourceService.EXPECT().GetResource(gomock.Any(), newResourceUUID).Return(
 		res, nil,
 	)
@@ -417,7 +417,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccessDockerResource(c *tc.C) {
 	expected := mustMarshalJSON(&params.UploadResult{
 		Resource: params.Resource{
 			CharmResource: api.CharmResource2API(expectedResource.Resource),
-			UUID:          expectedResource.UUID.String(),
+			ID:            expectedResource.ID,
 			Username:      expectedResource.RetrievedBy,
 			Timestamp:     expectedResource.Timestamp,
 		},
@@ -538,7 +538,7 @@ func (s *ResourcesHandlerSuite) TestPutWithPending(c *tc.C) {
 	expected := mustMarshalJSON(&params.UploadResult{
 		Resource: params.Resource{
 			CharmResource: api.CharmResource2API(expectedResource.Resource),
-			UUID:          expectedResource.UUID.String(),
+			ID:            expectedResource.ID,
 			Username:      expectedResource.RetrievedBy,
 			Timestamp:     expectedResource.Timestamp,
 		},

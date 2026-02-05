@@ -13,7 +13,7 @@ import (
 	utilexec "github.com/juju/utils/v4/exec"
 
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/internal/charm/hooks"
+	"github.com/juju/juju/domain/deployment/charm/hooks"
 	"github.com/juju/juju/internal/worker/uniter/runner"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 )

@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/annotation"
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/rpc/params"
 )
 

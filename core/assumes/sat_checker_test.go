@@ -11,7 +11,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/core/semversion"
-	chassumes "github.com/juju/juju/internal/charm/assumes"
+	chassumes "github.com/juju/juju/domain/deployment/charm/assumes"
 	"github.com/juju/juju/internal/testhelpers"
 )
 

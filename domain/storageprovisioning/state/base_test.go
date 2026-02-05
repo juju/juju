@@ -26,8 +26,6 @@ import (
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
-	"github.com/juju/juju/domain/storageprovisioning"
-	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -178,9 +176,9 @@ VALUES (?, ?, ?, 0, 1)
 // newModelFilesystem creates a new filesystem in the model with model
 // provision scope. Return is the uuid and filesystem id of the entity.
 func (s *baseSuite) newModelFilesystem(c *tc.C) (
-	storageprovisioning.FilesystemUUID, string,
+	domainstorage.FilesystemUUID, string,
 ) {
-	fsUUID := domaintesting.GenFilesystemUUID(c)
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 
 	fsID := fmt.Sprintf("foo/%s", fsUUID.String())
 
@@ -200,12 +198,12 @@ VALUES (?, ?, 0, 0)
 // point and readonly attributes of the filesystem attachment.
 func (s *baseSuite) newModelFilesystemAttachmentWithMount(
 	c *tc.C,
-	fsUUID storageprovisioning.FilesystemUUID,
+	fsUUID domainstorage.FilesystemUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
 	mountPoint string,
 	readOnly bool,
-) storageprovisioning.FilesystemAttachmentUUID {
-	attachmentUUID := domaintesting.GenFilesystemAttachmentUUID(c)
+) domainstorage.FilesystemAttachmentUUID {
+	attachmentUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 	_, err := s.DB().ExecContext(
 		c.Context(),
 		`
@@ -304,8 +302,8 @@ func (s *baseSuite) newStorageAttachment(
 	c *tc.C,
 	storageInstanceUUID domainstorage.StorageInstanceUUID,
 	unitUUID coreunit.UUID,
-) storageprovisioning.StorageAttachmentUUID {
-	saUUID := domaintesting.GenStorageAttachmentUUID(c)
+) domainstorage.StorageAttachmentUUID {
+	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	_, err := s.DB().Exec(`
 INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
 VALUES (?, ?, ?, ?)
@@ -436,7 +434,7 @@ VALUES (?, ?)`, instanceUUID.String(), volumeUUID.String())
 
 func (s *baseSuite) newStorageInstanceFilesystem(
 	c *tc.C, instanceUUID domainstorage.StorageInstanceUUID,
-	filesystemUUID storageprovisioning.FilesystemUUID,
+	filesystemUUID domainstorage.FilesystemUUID,
 ) {
 	ctx := c.Context()
 	_, err := s.DB().ExecContext(ctx, `
@@ -488,8 +486,8 @@ func (s *baseSuite) newVolumeAttachmentPlan(
 	c *tc.C,
 	volumeUUID domainstorage.VolumeUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
-) storageprovisioning.VolumeAttachmentPlanUUID {
-	attachmentUUID := domaintesting.GenVolumeAttachmentPlanUUID(c)
+) domainstorage.VolumeAttachmentPlanUUID {
+	attachmentUUID := tc.Must(c, domainstorage.NewVolumeAttachmentPlanUUID)
 
 	_, err := s.DB().Exec(`
 INSERT INTO storage_volume_attachment_plan (uuid,
@@ -647,8 +645,8 @@ func (s *baseSuite) changeVolumeAttachmentInfo(
 
 func (s *baseSuite) changeVolumeAttachmentPlanInfo(
 	c *tc.C,
-	uuid storageprovisioning.VolumeAttachmentPlanUUID,
-	deviceType storageprovisioning.PlanDeviceType,
+	uuid domainstorage.VolumeAttachmentPlanUUID,
+	deviceType domainstorage.VolumeDeviceType,
 	deviceAttrs map[string]string,
 ) {
 	_, err := s.DB().Exec(

@@ -3156,6 +3156,45 @@ func (c *MockModelDBStateIsControllerModelCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// IsUnitDyingAndBlocked mocks base method.
+func (m *MockModelDBState) IsUnitDyingAndBlocked(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsUnitDyingAndBlocked", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsUnitDyingAndBlocked indicates an expected call of IsUnitDyingAndBlocked.
+func (mr *MockModelDBStateMockRecorder) IsUnitDyingAndBlocked(arg0, arg1 any) *MockModelDBStateIsUnitDyingAndBlockedCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsUnitDyingAndBlocked", reflect.TypeOf((*MockModelDBState)(nil).IsUnitDyingAndBlocked), arg0, arg1)
+	return &MockModelDBStateIsUnitDyingAndBlockedCall{Call: call}
+}
+
+// MockModelDBStateIsUnitDyingAndBlockedCall wrap *gomock.Call
+type MockModelDBStateIsUnitDyingAndBlockedCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateIsUnitDyingAndBlockedCall) Return(arg0 bool, arg1 error) *MockModelDBStateIsUnitDyingAndBlockedCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateIsUnitDyingAndBlockedCall) Do(f func(context.Context, string) (bool, error)) *MockModelDBStateIsUnitDyingAndBlockedCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateIsUnitDyingAndBlockedCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockModelDBStateIsUnitDyingAndBlockedCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // LeaveScope mocks base method.
 func (m *MockModelDBState) LeaveScope(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -3457,6 +3496,44 @@ func (c *MockModelDBStateMarkUnitAsDeadCall) Do(f func(context.Context, string) 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelDBStateMarkUnitAsDeadCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateMarkUnitAsDeadCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MarkUnitAsDeadWithNoEntities mocks base method.
+func (m *MockModelDBState) MarkUnitAsDeadWithNoEntities(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkUnitAsDeadWithNoEntities", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MarkUnitAsDeadWithNoEntities indicates an expected call of MarkUnitAsDeadWithNoEntities.
+func (mr *MockModelDBStateMockRecorder) MarkUnitAsDeadWithNoEntities(arg0, arg1 any) *MockModelDBStateMarkUnitAsDeadWithNoEntitiesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkUnitAsDeadWithNoEntities", reflect.TypeOf((*MockModelDBState)(nil).MarkUnitAsDeadWithNoEntities), arg0, arg1)
+	return &MockModelDBStateMarkUnitAsDeadWithNoEntitiesCall{Call: call}
+}
+
+// MockModelDBStateMarkUnitAsDeadWithNoEntitiesCall wrap *gomock.Call
+type MockModelDBStateMarkUnitAsDeadWithNoEntitiesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateMarkUnitAsDeadWithNoEntitiesCall) Return(arg0 error) *MockModelDBStateMarkUnitAsDeadWithNoEntitiesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateMarkUnitAsDeadWithNoEntitiesCall) Do(f func(context.Context, string) error) *MockModelDBStateMarkUnitAsDeadWithNoEntitiesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateMarkUnitAsDeadWithNoEntitiesCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateMarkUnitAsDeadWithNoEntitiesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

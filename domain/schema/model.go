@@ -33,6 +33,13 @@ import (
 //go:embed model/sql/*.sql
 var modelSchemaDir embed.FS
 
+// ********************************************************************
+// ********************************************************************
+// DO NOT CHANGE THE ORDERING OF THE CONSTANTS IN PATCH RELEASES.
+// They are used to define the namespace IDs for changestream triggers.
+// ********************************************************************
+// ********************************************************************
+
 const (
 	customNamespaceUnitLifecycle tableNamespaceID = iota
 	customNamespaceMachineLifecycle

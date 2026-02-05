@@ -11,7 +11,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/resource"
-	charmresource "github.com/juju/juju/internal/charm/resource"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testhelpers/filetesting"
 )
@@ -103,7 +103,7 @@ func newResource(c *tc.C, name, applicationName, username, content string, charm
 
 	res := resource.Resource{
 		Resource:        charmResourceFunc(c, name, content),
-		UUID:            uuid,
+		ID:              uuid.String(),
 		ApplicationName: applicationName,
 		RetrievedBy:     username,
 		Timestamp:       timestamp,

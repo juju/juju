@@ -35,16 +35,6 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 	}
 }
 
-// ConfigDefaults returns the default configuration values set in Juju.
-func ConfigDefaults(_ context.Context) map[string]any {
-	return config.ConfigDefaults()
-}
-
-// ConfigDefaults returns the default configuration values set in Juju.
-func (s *State) ConfigDefaults(ctx context.Context) map[string]any {
-	return ConfigDefaults(ctx)
-}
-
 // checkCloudExists checks if the cloud exists in the database as a helper func
 // for a transaction. [clouderrors.NotFound] is returned if the cloud does not
 // exist.
@@ -525,7 +515,6 @@ ON CONFLICT(cloud_uuid, key) DO UPDATE
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		for k, v := range updateAttrs {
 			err := tx.Query(ctx, upsertStmt, cloudDefaultValue{UUID: cloudUUID.String(), Key: k, Value: v}).Run()
-			// The cloud UUID has previously been checked. This allows us to avoid having to use RunAtomic.
 			if database.IsErrConstraintForeignKey(err) {
 				return errors.Errorf("cloud %q not found", cloudUUID).Add(clouderrors.NotFound)
 			} else if err != nil {
@@ -625,7 +614,6 @@ ON CONFLICT(region_uuid, key) DO UPDATE
 
 		for k, v := range updateAttrs {
 			err := tx.Query(ctx, upsertStmt, cloudRegionDefaultValue{UUID: region.UUID, Key: k, Value: v}).Run()
-			// The cloud UUID has previously been checked. This allows us to avoid having to use RunAtomic.
 			if database.IsErrConstraintForeignKey(err) {
 				return errors.Errorf("cloud %q not found", cloudUUID).Add(clouderrors.NotFound)
 			} else if err != nil {

@@ -12,7 +12,6 @@ import (
 	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
-	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 )
 
 // attachmentSuite is a test suite for asserting the behaviour of storage
@@ -131,7 +130,7 @@ func (s *attachmentSuite) TestGetStorageInstanceAttachments(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(
 		attachments, tc.SameContents,
-		[]domainstorageprovisioning.StorageAttachmentUUID{
+		[]domainstorage.StorageAttachmentUUID{
 			storageAttachmentUUID2,
 			storageAttachmentUUID1,
 		},

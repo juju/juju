@@ -556,16 +556,6 @@ The HTTPS proxy value to configure on instances, in the `HTTPS_PROXY` environmen
 **Type:** string
 
 
-(model-config-ignore-machine-addresses)=
-## `ignore-machine-addresses`
-
-Whether the machine worker should discover machine addresses on startup.
-
-**Default value:** `false`
-
-**Type:** bool
-
-
 (model-config-image-metadata-defaults-disabled)=
 ## `image-metadata-defaults-disabled`
 

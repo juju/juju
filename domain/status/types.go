@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/domain/storageprovisioning"
 )
 
 // Application represents the status of an application.
@@ -90,7 +89,7 @@ type StorageAttachment struct {
 
 // Filesystem represents the status of a filesystem.
 type Filesystem struct {
-	UUID       storageprovisioning.FilesystemUUID
+	UUID       storage.FilesystemUUID
 	ID         string
 	Life       life.Life
 	Status     StatusInfo[StorageFilesystemStatusType]
@@ -116,7 +115,7 @@ type Volume struct {
 
 // FilesystemAttachment represents the status of a filesystem attachment.
 type FilesystemAttachment struct {
-	FilesystemUUID storageprovisioning.FilesystemUUID
+	FilesystemUUID storage.FilesystemUUID
 	Life           life.Life
 	Unit           *unit.Name
 	Machine        *machine.Name
@@ -139,7 +138,7 @@ type VolumeAttachment struct {
 
 // VolumeAttachmentPlan represents the status of a volume attachment plan.
 type VolumeAttachmentPlan struct {
-	DeviceType       storageprovisioning.PlanDeviceType
+	DeviceType       storage.VolumeDeviceType
 	DeviceAttributes map[string]string
 }
 

@@ -14,9 +14,9 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
+	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/network/errors"
-	"github.com/juju/juju/internal/charm"
 )
 
 const subordinate = true

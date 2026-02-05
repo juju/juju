@@ -25,9 +25,9 @@ import (
 	unit "github.com/juju/juju/core/unit"
 	application0 "github.com/juju/juju/domain/application"
 	service "github.com/juju/juju/domain/application/service"
+	charm0 "github.com/juju/juju/domain/deployment/charm"
+	charmdownloader "github.com/juju/juju/domain/deployment/charm/charmdownloader"
 	config "github.com/juju/juju/environs/config"
-	charm0 "github.com/juju/juju/internal/charm"
-	charmdownloader "github.com/juju/juju/internal/charm/charmdownloader"
 	gomock "go.uber.org/mock/gomock"
 )
 

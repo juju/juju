@@ -10,7 +10,7 @@ import (
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/internal/testhelpers"
 )
 

@@ -13,7 +13,7 @@ import (
 
 	jujucmd "github.com/juju/juju/cmd"
 	corebase "github.com/juju/juju/core/base"
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/cmd"
 )

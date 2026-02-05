@@ -14,7 +14,6 @@ import (
 	"github.com/juju/utils/v4/ssh"
 
 	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -45,11 +44,10 @@ func (s *AuthKeysSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *AuthKeysSuite) TestReadAuthorizedKeysErrors(c *tc.C) {
-	ctx := cmdtesting.Context(c)
-	_, err := common.ReadAuthorizedKeys(ctx, "")
+	_, err := common.ReadAuthorizedKeys("")
 	c.Assert(err, tc.ErrorMatches, "no public ssh keys found")
 	c.Assert(err, tc.Equals, common.ErrNoAuthorizedKeys)
-	_, err = common.ReadAuthorizedKeys(ctx, filepath.Join(s.dotssh, "notthere.pub"))
+	_, err = common.ReadAuthorizedKeys(filepath.Join(s.dotssh, "notthere.pub"))
 	c.Assert(err, tc.ErrorMatches, "no public ssh keys found")
 	c.Assert(err, tc.Equals, common.ErrNoAuthorizedKeys)
 }
@@ -60,22 +58,20 @@ func writeFile(c *tc.C, filename string, contents string) {
 }
 
 func (s *AuthKeysSuite) TestReadAuthorizedKeys(c *tc.C) {
-	ctx := cmdtesting.Context(c)
 	writeFile(c, filepath.Join(s.dotssh, "id_rsa.pub"), "id_rsa")
 	writeFile(c, filepath.Join(s.dotssh, "id_dsa.pub"), "id_dsa") // Check dsa is NOT loaded
 	writeFile(c, filepath.Join(s.dotssh, "id_ed25519.pub"), "id_ed25519")
 	writeFile(c, filepath.Join(s.dotssh, "identity.pub"), "identity")
 	writeFile(c, filepath.Join(s.dotssh, "test.pub"), "test")
-	keys, err := common.ReadAuthorizedKeys(ctx, "")
+	keys, err := common.ReadAuthorizedKeys("")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(keys, tc.Equals, "id_ed25519\nid_rsa\nidentity\n")
-	keys, err = common.ReadAuthorizedKeys(ctx, "test.pub") // relative to ~/.ssh
+	keys, err = common.ReadAuthorizedKeys("test.pub") // relative to ~/.ssh
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(keys, tc.Equals, "test\n")
 }
 
 func (s *AuthKeysSuite) TestReadAuthorizedKeysClientKeys(c *tc.C) {
-	ctx := cmdtesting.Context(c)
 	keydir := filepath.Join(s.dotssh, "juju")
 	err := ssh.LoadClientKeys(keydir) // auto-generates a key pair
 	c.Assert(err, tc.ErrorIsNil)
@@ -87,13 +83,13 @@ func (s *AuthKeysSuite) TestReadAuthorizedKeysClientKeys(c *tc.C) {
 
 	writeFile(c, filepath.Join(s.dotssh, "id_rsa.pub"), "id_rsa")
 	writeFile(c, filepath.Join(s.dotssh, "test.pub"), "test")
-	keys, err := common.ReadAuthorizedKeys(ctx, "")
+	keys, err := common.ReadAuthorizedKeys("")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(keys, tc.Equals, prefix+"id_rsa\n")
-	keys, err = common.ReadAuthorizedKeys(ctx, "test.pub")
+	keys, err = common.ReadAuthorizedKeys("test.pub")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(keys, tc.Equals, prefix+"test\n")
-	keys, err = common.ReadAuthorizedKeys(ctx, "notthere.pub")
+	keys, err = common.ReadAuthorizedKeys("notthere.pub")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(keys, tc.Equals, prefix)
 }

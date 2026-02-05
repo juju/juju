@@ -12,7 +12,7 @@ import (
 
 	coreresource "github.com/juju/juju/core/resource"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -63,7 +63,7 @@ func newResource(c *tc.C, name, username, data string) (coreresource.Resource, p
 			Fingerprint: res.Fingerprint.Bytes(),
 			Size:        res.Size,
 		},
-		UUID:            res.UUID.String(),
+		ID:              res.ID,
 		ApplicationName: res.ApplicationName,
 		Username:        username,
 		Timestamp:       res.Timestamp,

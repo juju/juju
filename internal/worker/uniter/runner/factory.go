@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/api/agent/uniter"
 	coreoperation "github.com/juju/juju/core/operation"
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"

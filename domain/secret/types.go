@@ -50,6 +50,9 @@ type UpsertSecretParams struct {
 	Label          *string
 	AutoPrune      *bool
 
+	CreateTime time.Time
+	UpdateTime time.Time
+
 	Data     secrets.SecretData
 	ValueRef *secrets.ValueRef
 	Checksum string
@@ -65,6 +68,18 @@ func (u *UpsertSecretParams) HasUpdate() bool {
 		len(u.Data) > 0 ||
 		u.ValueRef != nil ||
 		u.AutoPrune != nil
+}
+
+// UpsertRevisionParams holds information about a secret revision to be inserted.
+type UpsertRevisionParams struct {
+	Revision   int
+	RevisionID *string
+	CreateTime time.Time
+	UpdateTime time.Time
+	ExpireTime *time.Time
+	ValueRef   *secrets.ValueRef
+	Data       secrets.SecretData
+	Checksum   string
 }
 
 // GrantParams are used when granting access to a secret.

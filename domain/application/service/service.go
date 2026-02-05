@@ -34,9 +34,9 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
-	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -726,7 +726,7 @@ func (s *WatchableService) WatchUnitAddRemoveOnMachine(ctx context.Context, mach
 	)
 }
 
-// WatchApplication returns a watcher that emits application uuids when
+// WatchApplications returns a watcher that emits application uuids when
 // applications are added or removed.
 func (s *WatchableService) WatchApplications(ctx context.Context) (watcher.StringsWatcher, error) {
 	applicationNamespace, query := s.st.InitialWatchStatementApplications()

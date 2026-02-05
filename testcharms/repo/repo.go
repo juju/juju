@@ -16,8 +16,8 @@ import (
 
 	"github.com/juju/utils/v4/fs"
 
-	"github.com/juju/juju/internal/charm"
-	charmtesting "github.com/juju/juju/internal/charm/testing"
+	"github.com/juju/juju/domain/deployment/charm"
+	charmtesting "github.com/juju/juju/domain/deployment/charm/testing"
 )
 
 func check(err error) {

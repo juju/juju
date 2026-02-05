@@ -16,8 +16,8 @@ import (
 	model "github.com/juju/juju/core/model"
 	watcher "github.com/juju/juju/core/watcher"
 	charm "github.com/juju/juju/domain/application/charm"
+	charm0 "github.com/juju/juju/domain/deployment/charm"
 	operation "github.com/juju/juju/domain/operation"
-	charm0 "github.com/juju/juju/internal/charm"
 	gomock "go.uber.org/mock/gomock"
 )
 

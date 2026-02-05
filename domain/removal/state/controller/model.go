@@ -100,7 +100,8 @@ func (st *State) GetModelLife(ctx context.Context, mUUID string) (life.Life, err
 	return life, errors.Capture(err)
 }
 
-// IsMigratingModel returns whether the model with the input UUID is currently migrating.
+// IsMigratingModel returns whether the model with the input UUID is currently
+// migrating.
 func (st *State) IsMigratingModel(ctx context.Context, mUUID string) (bool, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -362,6 +363,7 @@ func (st *State) removeBasicModelData(ctx context.Context, tx *sqlair.TX, mUUID 
 		"DELETE FROM secret_backend_reference WHERE model_uuid = $entityUUID.uuid",
 		"DELETE FROM model_authorized_keys WHERE model_uuid = $entityUUID.uuid",
 		"DELETE FROM model_last_login WHERE model_uuid = $entityUUID.uuid",
+		"DELETE FROM model_migration_import WHERE model_uuid = $entityUUID.uuid",
 	}
 
 	for _, table := range tables {

@@ -7,11 +7,16 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
+	"github.com/juju/juju/internal/errors"
 )
 
 // CreateApplicationStorageDirectiveArg defines an individual storage directive to be
 // associated with an application.
 type CreateApplicationStorageDirectiveArg = CreateStorageDirectiveArg
+
+// ApplyApplicationStorageDirectiveArg defines the arguments required to
+// apply an existing storage directive associated with an application.
+type ApplyApplicationStorageDirectiveArg = CreateStorageDirectiveArg
 
 // CreateStorageDirectiveArg defines the arguments required to add a storage
 // directive to the model.
@@ -30,6 +35,45 @@ type CreateStorageDirectiveArg struct {
 
 	// Size defines the size of the storage directive in MiB.
 	Size uint64
+}
+
+// MaxStorageCountPreconditonFailed is used to signal a concurrent db operation
+// has occurred so that any pre-conditions for completing a storage add/attach are violated.
+const MaxStorageCountPreconditonFailed = errors.ConstError("max storage count precondiiton failed")
+
+// UnitAddStorageArg represents the arguments required for add storage
+// to a unit. This will instantiate the instances and attachments for the unit.
+type UnitAddStorageArg struct {
+	// StorageInstances defines the new storage instances that must be created
+	// for the unit.
+	StorageInstances []CreateUnitStorageInstanceArg
+
+	// StorageToAttach defines the storage instances that should be attached to
+	// the unit. New storage instances defined in
+	// [CreateUnitStorageArg.StorageInstances] are not automatically attached to
+	// the unit and should be included in this list.
+	StorageToAttach []CreateUnitStorageAttachmentArg
+
+	// StorageToOwn defines the storage instances that should be owned by the
+	// unit.
+	StorageToOwn []domainstorage.StorageInstanceUUID
+
+	// CountLessThanEqual is the maximum storage count allowed at the time
+	// the add is performed in order for the add operation to be considered successful.
+	CountLessThanEqual uint32
+}
+
+// IAASUnitAddStorageArg represents the arguments required for making storage
+// for an IAAS unit. This complements [UnitAddStorageArg], allowing for an
+// IAAS unit to augment storage that is destined for a machine.
+type IAASUnitAddStorageArg struct {
+	UnitAddStorageArg
+	// FilesystemsToOwn defines filesystems that will be owned by the unit's
+	// machine.
+	FilesystemsToOwn []domainstorage.FilesystemUUID
+
+	// VolumesToOwn defines volumes that will be owned by the unit's machine.
+	VolumesToOwn []domainstorage.VolumeUUID
 }
 
 // CreateUnitStorageArg represents the arguments required for making storage
@@ -56,12 +100,12 @@ type CreateUnitStorageArg struct {
 }
 
 // CreateIAASUnitStorageArg represents the arguments required for making storage
-// for am IASS unit. This complements [CreateUnitStorageArg], allowing for an
+// for an IAAS unit. This complements [CreateUnitStorageArg], allowing for an
 // IAAS unit to augment storage that is destined for a machine.
 type CreateIAASUnitStorageArg struct {
 	// FilesystemsToOwn defines filesystems that will be owned by the unit's
 	// machine.
-	FilesystemsToOwn []domainstorageprov.FilesystemUUID
+	FilesystemsToOwn []domainstorage.FilesystemUUID
 
 	// VolumesToOwn defines volumes that will be owned by the unit's machine.
 	VolumesToOwn []domainstorage.VolumeUUID
@@ -71,7 +115,7 @@ type CreateIAASUnitStorageArg struct {
 // storage attachment.
 type CreateUnitStorageAttachmentArg struct {
 	// UUID is the unique identifier to associate with the storage attachment.
-	UUID domainstorageprov.StorageAttachmentUUID
+	UUID domainstorage.StorageAttachmentUUID
 
 	// FilesystemAttachment describes a filesystem to attach for the storage
 	// instance attachment.
@@ -95,7 +139,7 @@ type CreateUnitStorageDirectiveArg = CreateStorageDirectiveArg
 type CreateUnitStorageFilesystemArg struct {
 	// UUID describes the unique identifier of the filesystem to
 	// create alongside the storage instance.
-	UUID domainstorageprov.FilesystemUUID
+	UUID domainstorage.FilesystemUUID
 
 	// ProvisionScope describes the provision scope to assign to the newly
 	// created filesystem.
@@ -107,7 +151,7 @@ type CreateUnitStorageFilesystemArg struct {
 // the model.
 type CreateUnitStorageFilesystemAttachmentArg struct {
 	// FilesystemUUID is the unique identifier of the filesystem to be attached.
-	FilesystemUUID domainstorageprov.FilesystemUUID
+	FilesystemUUID domainstorage.FilesystemUUID
 
 	// NetNodeUUID is the net node of the model entity that filesystem will be
 	// attached to.
@@ -119,7 +163,7 @@ type CreateUnitStorageFilesystemAttachmentArg struct {
 
 	// UUID is the unique identifier to give the filesystem attachment in the
 	// model.
-	UUID domainstorageprov.FilesystemAttachmentUUID
+	UUID domainstorage.FilesystemAttachmentUUID
 }
 
 // CreateUnitStorageInstanceArg describes a set of arguments that create a new
@@ -218,7 +262,7 @@ type RegisterUnitStorageArg struct {
 	// FilesystemProviderIDs defines the provider id value to set for each
 	// filesystem. This allows associating new or existing filesystems with the
 	// provider's identifier for this storage.
-	FilesystemProviderIDs map[domainstorageprov.FilesystemUUID]string
+	FilesystemProviderIDs map[domainstorage.FilesystemUUID]string
 
 	// VolumeProviderIDs defines the provider id value to set for each volume.
 	// This allows associating new or existing volumes with the provider's
@@ -229,7 +273,7 @@ type RegisterUnitStorageArg struct {
 	// each filesystem attachment. This allows associating filesystem
 	// attachments that are being created with the provider's identifier for this
 	// storage.
-	FilesystemAttachmentProviderIDs map[domainstorageprov.FilesystemAttachmentUUID]string
+	FilesystemAttachmentProviderIDs map[domainstorage.FilesystemAttachmentUUID]string
 
 	// VolumeAttachmentProviderIDs defines the provider id value to set for
 	// each volume attachment. This allows associating volume attachments that
@@ -264,7 +308,7 @@ type StorageInstanceComposition struct {
 // attachments this information is required.
 type StorageAttachmentComposition struct {
 	// UUID is the unique id of the storage attachment.
-	UUID domainstorageprov.StorageAttachmentUUID
+	UUID domainstorage.StorageAttachmentUUID
 
 	// StorageInstanceUUID is the unique id of the storage instance.
 	StorageInstanceUUID domainstorage.StorageInstanceUUID
@@ -292,7 +336,7 @@ type StorageInstanceCompositionFilesystem struct {
 
 	// UUID is the unique id of the filesystem that is associated with
 	// this storage instance. If the value is nil then no filesystem exists.
-	UUID domainstorageprov.FilesystemUUID
+	UUID domainstorage.FilesystemUUID
 }
 
 // StorageInstanceCompositionVolume describes the volume information that is
@@ -325,11 +369,11 @@ type StorageInstanceCompositionFilesystemAttachment struct {
 
 	// UUID is the unique id of the filesystem attachment that is associated
 	// with this storage instance.
-	UUID domainstorageprov.FilesystemAttachmentUUID
+	UUID domainstorage.FilesystemAttachmentUUID
 
 	// FilesystemUUID is the unique id of the filesystem that is associated
 	// with this filesystem attachment.
-	FilesystemUUID domainstorageprov.FilesystemUUID
+	FilesystemUUID domainstorage.FilesystemUUID
 }
 
 // StorageInstanceCompositionVolumeAttachment describes the volume information

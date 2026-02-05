@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	"github.com/juju/juju/domain/deployment"
+	"github.com/juju/juju/domain/deployment/charm"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainmodelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -42,8 +43,6 @@ import (
 	"github.com/juju/juju/domain/relation"
 	statusservice "github.com/juju/juju/domain/status/service"
 	"github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/domain/storageprovisioning"
-	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
@@ -1458,12 +1457,7 @@ func processStorage(
 				pi := params.VolumeAttachmentPlanInfo{
 					DeviceAttributes: vap.DeviceAttributes,
 				}
-				switch vap.DeviceType {
-				case storageprovisioning.PlanDeviceTypeLocal:
-					pi.DeviceType = internalstorage.DeviceTypeLocal.String()
-				case storageprovisioning.PlanDeviceTypeISCSI:
-					pi.DeviceType = internalstorage.DeviceTypeISCSI.String()
-				}
+				pi.DeviceType = vap.DeviceType.String()
 				vad.VolumeAttachmentInfo.PlanInfo = &pi
 			}
 			if details.UnitAttachments == nil {
@@ -1499,9 +1493,9 @@ func processStorage(
 					DeviceAttributes: vap.DeviceAttributes,
 				}
 				switch vap.DeviceType {
-				case storageprovisioning.PlanDeviceTypeLocal:
+				case storage.VolumeDeviceTypeLocal:
 					pi.DeviceType = internalstorage.DeviceTypeLocal.String()
-				case storageprovisioning.PlanDeviceTypeISCSI:
+				case storage.VolumeDeviceTypeISCSI:
 					pi.DeviceType = internalstorage.DeviceTypeISCSI.String()
 				}
 				vad.VolumeAttachmentInfo.PlanInfo = &pi
