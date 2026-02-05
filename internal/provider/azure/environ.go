@@ -747,9 +747,18 @@ func (env *azureEnviron) createVirtualMachine(
 	if err != nil {
 		return errors.Annotate(err, "creating OS profile")
 	}
+
+	storageAccountType := to.Ptr(armcompute.StorageAccountTypesStandardSSDLRS)
+	if args.RootDisk != nil && args.RootDisk.Attributes != nil {
+		if accountTypeVal, ok := args.RootDisk.Attributes[accountTypeAttr].(string); ok && accountTypeVal != "" {
+			storageAccountType = to.Ptr(armcompute.StorageAccountTypes(accountTypeVal))
+		}
+	}
+
 	storageProfile, err := newStorageProfile(
 		vmName,
 		instanceSpec,
+		storageAccountType,
 	)
 	if err != nil {
 		return errors.Annotate(err, "creating storage profile")
@@ -1122,6 +1131,7 @@ func availabilitySetName(
 func newStorageProfile(
 	vmName string,
 	instanceSpec *instances.InstanceSpec,
+	storageAccountType *armcompute.StorageAccountTypes,
 ) (*armcompute.StorageProfile, error) {
 	logger.Debugf("creating storage profile for %q", vmName)
 
@@ -1142,7 +1152,7 @@ func newStorageProfile(
 		Caching:      to.Ptr(armcompute.CachingTypesReadWrite),
 		DiskSizeGB:   to.Ptr(int32(osDiskSizeGB)),
 		ManagedDisk: &armcompute.ManagedDiskParameters{
-			StorageAccountType: to.Ptr(armcompute.StorageAccountTypesStandardLRS),
+			StorageAccountType: storageAccountType,
 		},
 	}
 

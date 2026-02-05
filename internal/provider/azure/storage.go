@@ -23,9 +23,10 @@ import (
 const (
 	azureStorageProviderType = "azure"
 
-	accountTypeAttr        = "account-type"
-	accountTypeStandardLRS = "Standard_LRS"
-	accountTypePremiumLRS  = "Premium_LRS"
+	accountTypeAttr           = "account-type"
+	accountTypeStandardLRS    = "Standard_LRS"
+	accountTypePremiumLRS     = "Premium_LRS"
+	accountTypeStandardSSDLRS = "StandardSSD_LRS"
 
 	// volumeSizeMaxGiB is the maximum disk size (in gibibytes) for Azure disks.
 	//
@@ -56,6 +57,7 @@ var _ storage.Provider = (*azureStorageProvider)(nil)
 var azureStorageConfigFields = schema.Fields{
 	accountTypeAttr: schema.OneOf(
 		schema.Const(accountTypeStandardLRS),
+		schema.Const(accountTypeStandardSSDLRS),
 		schema.Const(accountTypePremiumLRS),
 	),
 }
@@ -63,7 +65,7 @@ var azureStorageConfigFields = schema.Fields{
 var azureStorageConfigChecker = schema.FieldMap(
 	azureStorageConfigFields,
 	schema.Defaults{
-		accountTypeAttr: accountTypeStandardLRS,
+		accountTypeAttr: accountTypeStandardSSDLRS,
 	},
 )
 
