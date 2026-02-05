@@ -64,7 +64,7 @@ require (
 	github.com/juju/jsonschema-gen v1.0.0
 	github.com/juju/loggo v1.0.0
 	github.com/juju/lumberjack/v2 v2.0.2
-	github.com/juju/mgo/v3 v3.0.5
+	github.com/juju/mgo/v3 v3.0.8
 	github.com/juju/mutex/v2 v2.0.0
 	github.com/juju/names/v5 v5.0.0
 	github.com/juju/os/v2 v2.2.5

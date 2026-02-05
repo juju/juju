@@ -70,10 +70,12 @@ quiet = true
 replSet = juju
 storageEngine = wiredTiger
 syslog = true
+tlsAllowInvalidHostnames = true
+tlsCAFile = %s/ca.crt
 tlsCertificateKeyFile = %s/server.pem
 tlsCertificateKeyFilePassword=ignored
 tlsMode = requireTLS
-wiredTigerCacheSizeGB = 0.25`[1:], confArgs.Clock.Now().UTC().Format(time.RFC822), dataDir, dataDir, dataDir, dataDir)
+wiredTigerCacheSizeGB = 0.25`[1:], confArgs.Clock.Now().UTC().Format(time.RFC822), dataDir, dataDir, dataDir, dataDir, dataDir)
 
 	c.Assert(string(contents), jc.DeepEquals, expected)
 
