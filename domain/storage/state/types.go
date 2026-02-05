@@ -15,6 +15,18 @@ type nameAndUUID struct {
 	UUID string `db:"uuid"`
 }
 
+// name is an agnostic container for a `name` value.
+type name struct {
+	Name string `db:"name"`
+}
+
+// idAndKind represents an agnostic container for `id` and `kind`
+// column combination.
+type idAndKind struct {
+	ID   int    `db:"id"`
+	Kind string `db:"kind"`
+}
+
 // storageInstanceID represents the storage instance storage_id column for a
 // row in the storage_instance table.
 type storageInstanceID struct {
@@ -38,3 +50,21 @@ type storageInstanceUUID entityUUID
 
 // unitUUID represents the UUID of a unit in the model.
 type unitUUID entityUUID
+
+// importStorageInstance represents a storage_instance.
+type importStorageInstance struct {
+	UUID            string `db:"uuid"`
+	CharmName       string `db:"charm_name"`
+	StorageName     string `db:"storage_name"`
+	StorageID       string `db:"storage_id"`
+	StorageKindID   int    `db:"storage_kind_id"`
+	LifeID          int    `db:"life_id"`
+	StoragePoolUUID string `db:"storage_pool_uuid"`
+	RequestedSize   uint64 `db:"requested_size_mib"`
+}
+
+// importStorageUnitOwner represents a storage_unit_owner.
+type importStorageUnitOwner struct {
+	StorageInstanceUUID string `db:"storage_instance_uuid"`
+	UnitUUID            string `db:"unit_uuid"`
+}
