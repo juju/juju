@@ -24,7 +24,11 @@ func (*State) NamespaceForWatchOpenedPort() string {
 // that should be watched and the query to load the
 // initial event for the WatchOpenedPorts watcher
 func (*State) InitialWatchOpenedPortsStatement() (string, string) {
-	return "port_range", "SELECT uuid FROM unit"
+	// We only care about units that have an associate machine.
+	return "port_range", `
+SELECT u.uuid FROM unit AS u
+JOIN machine AS m ON u.net_node_uuid = m.net_node_uuid
+`
 }
 
 // FilterUnitUUIDsForApplication returns the subset of provided endpoint

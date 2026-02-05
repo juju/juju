@@ -82,14 +82,14 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 	modelUUID := tc.Must0(c, model.NewUUID)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2")
+INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2")
 		`, modelUUID.String(), coretesting.ControllerTag.Id())
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
+	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	netNodeUUID0, machineNames0, err := machineSt.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
@@ -199,6 +199,42 @@ func (s *watcherSuite) createUnit(c *tc.C, netNodeUUID, appName string) coreunit
 	return unitUUID
 }
 
+func (s *watcherSuite) createNetNode(c *tc.C) string {
+	netNodeUUID := tc.Must0(c, coreunit.NewUUID).String()
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO net_node (uuid) VALUES (?)`, netNodeUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return netNodeUUID
+}
+
+// createUnitWithoutMachine creates a new unit without an associated machine in
+// state and returns its UUID. The unit is assigned to the net node with uuid
+// `netNodeUUID` and application with name `appName`.
+func (s *watcherSuite) createUnitWithoutMachine(c *tc.C, netNodeUUID, appName, appUUID string) {
+	unitUUID := tc.Must0(c, coreunit.NewUUID).String()
+	unitName := appName + "/0"
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Get the charm UUID from the application name.
+		var charmUUID string
+		err := tx.QueryRowContext(ctx, `SELECT charm_uuid FROM application WHERE uuid = ?`, appUUID).Scan(&charmUUID)
+		if err != nil {
+			return err
+		}
+
+		// Insert the unit without an associated machine.
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO unit (uuid, name, application_uuid, net_node_uuid, life_id, charm_uuid)
+VALUES (?, ?, ?, ?, 0, ?)
+		`, unitUUID, unitName, appUUID, netNodeUUID, charmUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 // The following tests will run with the following context:
 // - 3 units are deployed (with uuids stored in s.unitUUIDs)
 // - 2 machines are deployed (with uuids stored in machineUUIDs)
@@ -294,6 +330,16 @@ func (s *watcherSuite) TestWatchOpenedPorts(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.StringSliceAssert(s.unitUUIDs[1].String(), s.unitUUIDs[2].String()))
+	})
+
+	// ensure that a unit without an associated machine doesn't attempt to
+	// trigger a watch update when ports are opened on it.
+	harness.AddTest(c, func(c *tc.C) {
+		netNode := s.createNetNode(c)
+		appUUID := s.createApplicationWithRelations(c, "inferi", "ep0", "ep1", "ep2")
+		s.createUnitWithoutMachine(c, netNode, "inferi", appUUID.String())
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
 	})
 
 	unitUUIDs := transform.Slice(s.unitUUIDs[:], func(u coreunit.UUID) string { return u.String() })
