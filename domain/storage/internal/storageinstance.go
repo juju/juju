@@ -210,6 +210,17 @@ type CreateStorageInstanceWithExistingFilesystem struct {
 
 	// FilesystemProviderID is provider's ID for the provisioned filesystem.
 	FilesystemProviderID string
+
+	// FilesystemStatusID is the value to set the storage filesystem status to.
+	FilesystemStatusID int
+
+	// FilesystemStatusMessage is the message to set the storage filesystem
+	// status to.
+	FilesystemStatusMessage string
+
+	// FilesystemStatusUpdatedAt is the time at which the storage filesystem
+	// status updated at should reflect.
+	FilesystemStatusUpdatedAt time.Time
 }
 
 // CreateStorageInstanceWithExistingVolumeBackedFilesystem is used to create a
@@ -241,4 +252,14 @@ type CreateStorageInstanceWithExistingVolumeBackedFilesystem struct {
 
 	// VolumePersistent is true if the volume is persistent.
 	VolumePersistent bool
+
+	// VolumeStatusID is the value to set the storage volume status to.
+	VolumeStatusID int
+
+	// VolumeStatusMessage is the message to set the storage volume status to.
+	VolumeStatusMessage string
+
+	// VolumeStatusUpdatedAt is the time at which the storage volume status
+	// updated at should reflect.
+	VolumeStatusUpdatedAt time.Time
 }

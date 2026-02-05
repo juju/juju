@@ -5,6 +5,7 @@ package state
 
 import (
 	"database/sql"
+	"time"
 
 	"github.com/juju/juju/domain/life"
 )
@@ -254,6 +255,15 @@ type insertStorageInstanceFilesystem struct {
 	StorageFilesystemUUID string `db:"storage_filesystem_uuid"`
 }
 
+// insertStorageFilesystemStatus represents data needed to set a filesystem's
+// status in the storage_filesystem_status table.
+type insertStorageFilesystemStatus struct {
+	StorageFilesystemUUID string    `db:"filesystem_uuid"`
+	StatusID              int       `db:"status_id"`
+	Message               string    `db:"message"`
+	UpdatedAt             time.Time `db:"updated_at"`
+}
+
 // insertStorageVolume represents the data needed to insert a new volume into
 // the storage_volume table.
 type insertStorageVolume struct {
@@ -273,4 +283,13 @@ type insertStorageVolume struct {
 type insertStorageInstanceVolume struct {
 	StorageInstanceUUID string `db:"storage_instance_uuid"`
 	StorageVolumeUUID   string `db:"storage_volume_uuid"`
+}
+
+// insertStorageVolumeStatus represents the data needed to set a volume's status
+// in the storage_volume_status table.
+type insertStorageVolumeStatus struct {
+	StorageVolumeUUID string    `db:"volume_uuid"`
+	StatusID          int       `db:"status_id"`
+	Message           string    `db:"message"`
+	UpdatedAt         time.Time `db:"updated_at"`
 }
