@@ -97,10 +97,10 @@ func (c *baseClient) GetManifestsCommon(url string) (*ManifestsResult, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	req.Header.Add("Accept", manifestContentTypeV1)
-	req.Header.Add("Accept", manifestContentTypeV2)
-	req.Header.Add("Accept", manifestContentTypeListV2)
-	req.Header.Add("Accept", manifestContentTypeOCIV1)
+	req.Header.Add("Accept", manifestContentTypeV1+"+json")
+	req.Header.Add("Accept", manifestContentTypeV2+"+json")
+	req.Header.Add("Accept", manifestContentTypeListV2+"+json")
+	req.Header.Add("Accept", manifestContentTypeOCIV1+"+json")
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, errors.Trace(unwrapNetError(err))

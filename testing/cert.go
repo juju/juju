@@ -28,6 +28,8 @@ var (
 
 	CACert, CAKey, ServerCert, ServerKey = chooseGeneratedCA()
 
+	CACertX509, CAKeyRSA = mustParseCertAndKey(CACert, CAKey)
+
 	ServerTLSCert = mustParseServerCert(ServerCert, ServerKey)
 
 	Certs = serverCerts()
@@ -78,7 +80,6 @@ func mustParseCertAndKey(certPEM, keyPEM string) (*x509.Certificate, *rsa.Privat
 }
 
 func serverCerts() *mgotesting.Certs {
-	CACertX509, _ := mustParseCertAndKey(CACert, CAKey)
 	serverCert, serverKey := mustParseCertAndKey(ServerCert, ServerKey)
 	return &mgotesting.Certs{
 		CACert:     CACertX509,

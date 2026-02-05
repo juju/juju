@@ -18,10 +18,10 @@ import (
 )
 
 var expectedManifestAcceptHeader = []string{
-	"application/vnd.docker.distribution.manifest.v1",
-	"application/vnd.docker.distribution.manifest.v2",
-	"application/vnd.docker.distribution.manifest.list.v2",
-	"application/vnd.oci.image.manifest.v1",
+	"application/vnd.docker.distribution.manifest.v1+json",
+	"application/vnd.docker.distribution.manifest.v2+json",
+	"application/vnd.docker.distribution.manifest.list.v2+json",
+	"application/vnd.oci.image.manifest.v1+json",
 }
 
 func (s *baseSuite) assertGetManifestsSchemaVersion1(c *gc.C, responseData, contentType string, statusCode int, f func(*internal.ManifestsResult, error)) {
