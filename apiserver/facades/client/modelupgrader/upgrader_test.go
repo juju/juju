@@ -381,7 +381,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c
 		},
 	}, nil)
 	// - check mongo version;
-	s.statePool.EXPECT().MongoVersion().Return("4.4", nil)
+	s.statePool.EXPECT().MongoVersion().Return("4.4.30", nil)
 	// - check if the model has win machines;
 	ctrlState.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
 	// - check if the model has deprecated ubuntu machines;

@@ -179,6 +179,9 @@ type EnsureServerParams struct {
 	// PrivateKey is the certificate's private key.
 	PrivateKey string
 
+	// CACert is the CA certificate.
+	CACert string
+
 	// CAPrivateKey is the CA certificate's private key.
 	CAPrivateKey string
 
@@ -368,7 +371,7 @@ func setupDataDirectory(args EnsureServerParams) error {
 	}
 
 	// TODO(fix): rather than copy, we should ln -s coz it could be changed later!!!
-	if err := UpdateSSLKey(args.MongoDataDir, args.Cert, args.PrivateKey); err != nil {
+	if err := UpdateSSLKey(args.MongoDataDir, args.Cert, args.PrivateKey, args.CACert); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -407,9 +410,13 @@ func tweakSysctlForMongo(editables map[string]string) {
 }
 
 // UpdateSSLKey writes a new SSL key used by mongo to validate connections from Juju controller(s)
-func UpdateSSLKey(dataDir, cert, privateKey string) error {
+func UpdateSSLKey(dataDir, cert, privateKey, cacert string) error {
 	err := utils.AtomicWriteFile(sslKeyPath(dataDir), []byte(GenerateSSLKey(cert, privateKey)), 0600)
-	return errors.Annotate(err, "cannot write SSL key")
+	if err != nil {
+		return errors.Annotate(err, "cannot write SSL key")
+	}
+	err = utils.AtomicWriteFile(caCertKeyPath(dataDir), []byte(cacert), 0600)
+	return errors.Annotate(err, "cannot write CA Cert")
 }
 
 // GenerateSSLKey combines cert and private key to generate the ssl key - server.pem.

@@ -17,6 +17,13 @@ import (
 	"github.com/juju/juju/docker/registry/internal/mocks"
 )
 
+var expectedManifestAcceptHeader = []string{
+	"application/vnd.docker.distribution.manifest.v1+json",
+	"application/vnd.docker.distribution.manifest.v2+json",
+	"application/vnd.docker.distribution.manifest.list.v2+json",
+	"application/vnd.oci.image.manifest.v1+json",
+}
+
 func (s *baseSuite) assertGetManifestsSchemaVersion1(c *gc.C, responseData, contentType string, statusCode int, f func(*internal.ManifestsResult, error)) {
 	// Use v2 for private repository.
 	s.isPrivate = true
@@ -25,7 +32,9 @@ func (s *baseSuite) assertGetManifestsSchemaVersion1(c *gc.C, responseData, cont
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{})
+			c.Assert(req.Header, jc.DeepEquals, http.Header{
+				"Accept": expectedManifestAcceptHeader,
+			})
 			c.Assert(req.Method, gc.Equals, `GET`)
 			c.Assert(req.URL.String(), gc.Equals, `https://example.com/v2/jujuqa/jujud-operator/manifests/2.9.10`)
 			return &http.Response{
@@ -53,7 +62,10 @@ func (s *baseSuite) assertGetManifestsSchemaVersion1(c *gc.C, responseData, cont
 			},
 		),
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
+			c.Assert(req.Header, jc.DeepEquals, http.Header{
+				"Authorization": []string{"Bearer jwt-token"},
+				"Accept":        expectedManifestAcceptHeader,
+			})
 			c.Assert(req.Method, gc.Equals, `GET`)
 			c.Assert(req.URL.String(), gc.Equals, `https://example.com/v2/jujuqa/jujud-operator/manifests/2.9.10`)
 			resps := &http.Response{

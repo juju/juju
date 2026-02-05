@@ -285,6 +285,7 @@ func (c *upgradeModelCommand) notifyControllerUpgrade(
 			return chosenVersion, block.ProcessBlockedError(err, block.BlockChange)
 		}
 	}
+	logger.Debugf("checking with controller for model upgrade for stream %s", c.AgentStream)
 	if chosenVersion, err = modelUpgrader.UpgradeModel(
 		modelTag.Id(), targetVersion, c.AgentStream, c.IgnoreAgentVersions, dryRun,
 	); err != nil {

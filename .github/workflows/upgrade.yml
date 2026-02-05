@@ -56,7 +56,7 @@ jobs:
       - name: Setup LXD
         if: matrix.cloud == 'localhost'
         uses: canonical/setup-lxd@2fa6235ef2dfd3288e0de09edac03f2ebf922968
-    
+
       - name: Wait for LXD
         if: matrix.cloud == 'localhost'
         run: |
@@ -111,6 +111,13 @@ jobs:
           addons: '["dns", "hostpath-storage"]'
           launch-configuration: "$GITHUB_WORKSPACE/.github/microk8s-launch-config-aws.yaml"
 
+      - name: Install k8s Dependencies
+        if: matrix.cloud == 'microk8s'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo DEBIAN_FRONTEND=noninteractive apt install -y podman >/dev/null 2>&1
+
       - name: Setup local caas registry
         if: matrix.cloud == 'microk8s'
         run: |
@@ -158,10 +165,10 @@ jobs:
 
             RUN update-ca-certificates
           EOL
-          docker build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
-          docker push ${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
+          podman build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
+          podman push -f v2s2 "${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}" "docker://${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}"
           
-          OCI_REGISTRY_USERNAME=${OCI_REGISTRY}/test-repo make seed-repository
+          OCI_REGISTRY_USERNAME=${OCI_REGISTRY}/test-repo LEGACY_JUJU_DB_VERSION=4.4 make seed-repository
 
       - name: Bootstrap Juju - localhost
         if: matrix.cloud == 'localhost'
@@ -169,10 +176,10 @@ jobs:
         run: |
           set -euxo pipefail
 
+          juju version
           juju bootstrap localhost c \
             --model-default enable-os-upgrade=false \
             --constraints "arch=$(go env GOARCH)"
-          juju version
 
           juju add-model m
           juju set-model-constraints arch=$(go env GOARCH)
@@ -187,13 +194,14 @@ jobs:
         run: |
           set -euxo pipefail
 
+          juju version
           sg snap_microk8s <<EOF
             juju bootstrap microk8s c \
               --constraints "arch=$(go env GOARCH)" \
               --config caas-image-repo="${OCI_REGISTRY}/test-repo" \
-              --config features="[developer-mode]"
+              --config features="[developer-mode]" \
+              --config logging-config="<root>=DEBUG;juju.docker.registry=TRACE;juju.docker.registry.internal=TRACE;juju.apiserver.modelupgrader=TRACE"
           EOF
-          juju version
 
           juju add-model m
           juju set-model-constraints arch=$(go env GOARCH)
@@ -246,8 +254,8 @@ jobs:
 
             RUN update-ca-certificates
           EOL
-          docker build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}
-          docker push ${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}
+          podman build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}
+          podman push -f v2s2 "${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}" "docker://${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}"          
 
       - name: Preflight
         shell: bash
@@ -263,8 +271,16 @@ jobs:
         run: |
           set -euxo pipefail
 
-          OUTPUT=$(juju upgrade-controller --debug ${UPGRADE_FLAGS_${{ matrix.cloud }}})
-          if [[ $OUTPUT == 'no upgrades available' ]]; then
+          # Upgrade to the latest stable.
+          OUTPUT=$(juju upgrade-controller --debug ${UPGRADE_FLAGS_${{ matrix.cloud }}} 2>&1)
+          if [[ $OUTPUT == *'no upgrades available'* ]]; then
+            echo $OUTPUT
+            juju debug-log --replay --no-tail -m controller
+
+            if [[ ${{ matrix.cloud }} == 'microk8s' ]]; then
+              sudo DEBIAN_FRONTEND=noninteractive apt install -y podman >/dev/null 2>&1
+              podman search --list-tags ${OCI_REGISTRY}/test-repo/jujud-operator
+            fi
             exit 1
           fi
           .github/verify-agent-version.sh ${MODEL_TYPE_${{ matrix.cloud }}} ${TARGET_JUJU_VERSION}

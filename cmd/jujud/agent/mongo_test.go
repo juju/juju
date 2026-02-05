@@ -52,8 +52,9 @@ func (s *mongoSuite) testStateWorkerDialSetsWriteMajority(c *gc.C, configureRepl
 
 	mongoInfo := mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  []string{inst.Addr()},
-			CACert: coretesting.CACert,
+			Addrs:        []string{inst.Addr()},
+			CACert:       coretesting.CACert,
+			CAPrivateKey: coretesting.CAKey,
 		},
 	}
 	session, err := mongo.DialWithInfo(mongoInfo, dialOpts)

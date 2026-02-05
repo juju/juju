@@ -19,6 +19,7 @@ while true; do
   attempt=$((attempt+1))
   if [ "$attempt" -eq 48 ]; then
       echo "Upgrade version check timed out"
+      juju debug-log --replay --no-tail -m controller
       exit 1
   fi
 done

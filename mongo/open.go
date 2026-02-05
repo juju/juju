@@ -17,6 +17,9 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v3/cert"
+
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/pki"
 )
 
 // SocketTimeout should be long enough that even a slow mongo server
@@ -65,6 +68,10 @@ type DialOpts struct {
 
 	// PoolLimit defines the per-server socket pool limit
 	PoolLimit int
+
+	// GenerateClientCertificate returns a client TLS certificate
+	// issued from the supplied CA certificate and key.
+	GenerateClientCertificate func(cacert string, cakey string) (*tls.Certificate, error)
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
@@ -80,6 +87,37 @@ func DefaultDialOpts() DialOpts {
 	}
 }
 
+const (
+	mongoCertGroup            = "mongodb"
+	mongoCertValidityDuration = 15 * time.Minute
+)
+
+// GenerateClientCert issues a TLS certificate
+// from the supplied CA cert and key.
+func GenerateClientCert(caCert, caPrivateKey string) (*tls.Certificate, error) {
+	authority, err := pki.NewDefaultAuthorityPemCAKey(
+		[]byte(caCert), []byte(caPrivateKey))
+	if err != nil {
+		return nil, errors.Annotate(err, "loading juju certificate authority")
+	}
+	// The default expiry time is 10 years, too long for a client cert.
+	authority.SetLeafValidityDuration(mongoCertValidityDuration)
+	leaf, err := authority.LeafRequestForGroup(mongoCertGroup).
+		AddDNSNames(controller.DefaultDNSNames...).Commit()
+	if err != nil {
+		return nil, errors.Annotate(err, "making juju-db client certificate")
+	}
+	cert, key, err := leaf.ToPemParts()
+	if err != nil {
+		return nil, errors.Annotate(err, "encoding juju-db client certificate to pem")
+	}
+	clientCert, err := tls.X509KeyPair(cert, key)
+	if err != nil {
+		return nil, errors.Annotate(err, "parsing juju-db client certificate")
+	}
+	return &clientCert, nil
+}
+
 // Info encapsulates information about cluster of
 // mongo servers and can be used to make a
 // connection to that cluster.
@@ -89,8 +127,11 @@ type Info struct {
 	Addrs []string
 
 	// CACert holds the CA certificate that will be used
-	// to validate the controller's certificate, in PEM format.
+	// to mint a client certificate, in PEM format.
 	CACert string
+
+	// CAPrivateKey is the CA certificate private key.
+	CAPrivateKey string
 
 	// DisableTLS controls whether the connection to MongoDB servers
 	// is made using TLS (the default), or not.
@@ -135,6 +176,15 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 		tlsConfig = http.SecureTLSConfig()
 		tlsConfig.RootCAs = pool
 		tlsConfig.ServerName = "juju-mongodb"
+		generateClientCert := opts.GenerateClientCertificate
+		if generateClientCert == nil {
+			generateClientCert = GenerateClientCert
+		}
+		clientCert, err := generateClientCert(info.CACert, info.CAPrivateKey)
+		if err != nil {
+			return nil, errors.Errorf("generating client certificate: %v", err)
+		}
+		tlsConfig.Certificates = []tls.Certificate{*clientCert}
 
 		// TODO(natefinch): revisit this when are full-time on mongo 3.
 		// We have to add non-ECDHE suites because mongo doesn't support ECDHE.

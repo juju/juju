@@ -244,7 +244,9 @@ func (s *azureContainerRegistrySuite) assertGetManifestsSchemaVersion1(c *gc.C, 
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{})
+			c.Assert(req.Header, jc.DeepEquals, http.Header{
+				"Accept": expectedManifestAcceptHeader,
+			})
 			c.Assert(req.Method, gc.Equals, `GET`)
 			c.Assert(req.URL.String(), gc.Equals, `https://jujuqa.azurecr.io/v2/jujud-operator/manifests/2.9.10`)
 			return &http.Response{
@@ -272,7 +274,10 @@ func (s *azureContainerRegistrySuite) assertGetManifestsSchemaVersion1(c *gc.C, 
 			},
 		),
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
+			c.Assert(req.Header, jc.DeepEquals, http.Header{
+				"Authorization": []string{"Bearer jwt-token"},
+				"Accept":        expectedManifestAcceptHeader,
+			})
 			c.Assert(req.Method, gc.Equals, `GET`)
 			c.Assert(req.URL.String(), gc.Equals, `https://jujuqa.azurecr.io/v2/jujud-operator/manifests/2.9.10`)
 			resps := &http.Response{

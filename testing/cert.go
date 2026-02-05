@@ -35,8 +35,7 @@ var (
 	Certs = serverCerts()
 
 	// Other valid test certs different from the default.
-	OtherCACert, OtherCAKey        = chooseGeneratedOtherCA()
-	OtherCACertX509, OtherCAKeyRSA = mustParseCertAndKey(OtherCACert, OtherCAKey)
+	OtherCACert, OtherCAKey = chooseGeneratedOtherCA()
 
 	// SSHServerHostKey for testing
 	SSHServerHostKey = mustGenerateSSHServerHostKey()

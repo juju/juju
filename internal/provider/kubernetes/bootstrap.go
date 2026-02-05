@@ -65,6 +65,8 @@ const (
 var (
 	// TemplateFileNameServerPEM is the template server.pem file name.
 	TemplateFileNameServerPEM = "template-" + mongo.FileNameDBSSLKey
+	// TemplateFileNameCACert is the template ca.crt file name.
+	TemplateFileNameCACert = "template-" + mongo.FileNameDBCACertKey
 )
 
 const (
@@ -833,6 +835,7 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf() error {
 	}
 	cm.Data[constants.ControllerAgentConfigFilename] = string(agentConfigFileContent)
 	cm.Data[constants.ControllerUnitAgentConfigFilename] = string(unitAgentConfigFileContent)
+	cm.Data[mongo.FileNameDBCACertKey] = c.agentConfig.CACert()
 
 	logger.Tracef("ensuring agent.conf configmap: \n%+v", cm)
 	cleanUp, err := c.broker.ensureConfigMap(cm)
@@ -1208,6 +1211,10 @@ func (c *controllerStack) buildStorageSpecForController(statefulset *apps.Statef
 						Key:  constants.ControllerUnitAgentConfigFilename,
 						Path: constants.ControllerUnitAgentConfigFilename,
 					},
+					{
+						Key:  mongo.FileNameDBCACertKey,
+						Path: TemplateFileNameCACert,
+					},
 				},
 			},
 		},
@@ -1243,6 +1250,7 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 	// TODO(bootstrap): refactor mongo package to make it usable for IAAS and CAAS,
 	// then generate mongo config from EnsureServerParams.
 	tlsPrivateKeyPath := c.pathJoin(c.pcfg.DataDir, mongo.FileNameDBSSLKey)
+	tlsCACertPath := c.pathJoin(c.pcfg.DataDir, mongo.FileNameDBCACertKey)
 	probeCmds := &core.ExecAction{
 		Command: []string{
 			"mongo",
@@ -1251,6 +1259,7 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 			"--tlsAllowInvalidHostnames",
 			"--tlsAllowInvalidCertificates",
 			fmt.Sprintf("--tlsCertificateKeyFile=%s", tlsPrivateKeyPath),
+			fmt.Sprintf("--tlsCAFile=%s", tlsCACertPath),
 			"--eval",
 			"db.adminCommand('ping')",
 		},
@@ -1259,7 +1268,9 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 		fmt.Sprintf("--dbpath=%s", c.pathJoin(c.pcfg.DataDir, "db")),
 		fmt.Sprintf("--tlsCertificateKeyFile=%s", tlsPrivateKeyPath),
 		"--tlsCertificateKeyFilePassword=ignored",
+		fmt.Sprintf("--tlsCAFile=%s", tlsCACertPath),
 		"--tlsMode=requireTLS",
+		"--tlsAllowInvalidHostnames",
 		fmt.Sprintf("--port=%d", c.portMongoDB),
 		"--journal",
 		fmt.Sprintf("--replSet=%s", mongo.ReplicaSetName),
@@ -1379,6 +1390,12 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 				SubPath:   mongo.SharedSecretFile,
 				ReadOnly:  true,
 			},
+			{
+				Name:      c.resourceNameVolAgentConf,
+				MountPath: c.pathJoin(c.pcfg.DataDir, TemplateFileNameCACert),
+				SubPath:   TemplateFileNameCACert,
+				ReadOnly:  true,
+			},
 		},
 	})
 
@@ -1489,6 +1506,12 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 				),
 				SubPath:  constants.ControllerAgentConfigFilename,
 				ReadOnly: true,
+			},
+			{
+				Name:      c.resourceNameVolAgentConf,
+				MountPath: c.pathJoin(c.pcfg.DataDir, TemplateFileNameCACert),
+				SubPath:   TemplateFileNameCACert,
+				ReadOnly:  true,
 			},
 			{
 				Name:      c.resourceNameVolSSLKey,
@@ -1673,7 +1696,7 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		Constraints:          c.pcfg.Bootstrap.BootstrapMachineConstraints,
 		ExistingContainers:   []string{apiServerContainerName},
 		// TODO(wallyworld) - use storage so the volumes don't need to be manually set up
-		//Filesystems: nil,
+		// Filesystems: nil,
 		CharmUser: caas.RunAsNonRoot,
 	}
 	spec, err := controllerApp.ApplicationPodSpec(cfg)

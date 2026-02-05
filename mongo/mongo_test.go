@@ -162,9 +162,11 @@ quiet = true
 replSet = juju
 slowms = 1000
 storageEngine = wiredTiger
+tlsAllowInvalidHostnames = true
+tlsCAFile = %s/ca.crt
 tlsCertificateKeyFile = %s/server.pem
 tlsCertificateKeyFilePassword=ignored
-tlsMode = requireTLS`, dataDir, dataDir, dataDir)
+tlsMode = requireTLS`, dataDir, dataDir, dataDir, dataDir)
 
 	c.Assert(string(contents), gc.Matches, part1+part2)
 }

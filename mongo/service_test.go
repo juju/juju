@@ -37,6 +37,7 @@ func (s *serviceSuite) TestNewConfSnap(c *gc.C) {
 		LogPath:               logPath,
 		ReplicaSet:            "juju",
 		MemoryProfile:         mongo.MemoryProfileLow,
+		CACertFile:            "/var/lib/juju/ca.crt",
 		PEMKeyFile:            "/var/lib/juju/server.pem",
 		PEMKeyPassword:        "ignored",
 		AuthKeyFile:           "/var/lib/juju/shared-secret",
@@ -69,10 +70,12 @@ quiet = true
 replSet = juju
 storageEngine = wiredTiger
 syslog = true
+tlsAllowInvalidHostnames = true
+tlsCAFile = %s/ca.crt
 tlsCertificateKeyFile = %s/server.pem
 tlsCertificateKeyFilePassword=ignored
 tlsMode = requireTLS
-wiredTigerCacheSizeGB = 0.25`[1:], confArgs.Clock.Now().UTC().Format(time.RFC822), dataDir, dataDir, dataDir, dataDir)
+wiredTigerCacheSizeGB = 0.25`[1:], confArgs.Clock.Now().UTC().Format(time.RFC822), dataDir, dataDir, dataDir, dataDir, dataDir)
 
 	c.Assert(string(contents), jc.DeepEquals, expected)
 

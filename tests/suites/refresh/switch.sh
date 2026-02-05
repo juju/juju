@@ -12,7 +12,7 @@ run_refresh_switch_local_to_ch_channel() {
 	ensure "${model_name}" "${file}"
 
 	juju download juju-qa-refresher --no-progress - >"${charm_name}"
-	juju deploy --channel=stable "${charm_name}"
+	juju deploy --channel=stable --base ubuntu@20.04 "${charm_name}"
 	wait_for "refresher" "$(idle_condition "refresher")"
 
 	OUT=$(juju refresh refresher --switch ch:juju-qa-refresher --channel edge 2>&1 || true)

@@ -33,7 +33,7 @@ run_charmstore_deploy() {
 
 	ensure "${model_name}" "${file}"
 
-	juju deploy jameinel-ubuntu-lite --revision 9 --channel stable
+	juju deploy jameinel-ubuntu-lite --base ubuntu@20.04 --revision 9 --channel stable
 	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
 	juju refresh ubuntu-lite
