@@ -28,6 +28,7 @@ func (*State) InitialWatchOpenedPortsStatement() (string, string) {
 	return "port_range", `
 SELECT u.uuid FROM unit AS u
 JOIN machine AS m ON u.net_node_uuid = m.net_node_uuid
+ORDER BY u.uuid
 `
 }
 
