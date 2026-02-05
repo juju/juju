@@ -143,7 +143,7 @@ func (s *watcherSuite) assertUnits(c *tc.C, stmt string, expected []coreunit.UUI
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(unitUUIDs, tc.DeepEquals, transform.Slice(expected, func(u coreunit.UUID) string {
+	c.Check(unitUUIDs, tc.SameContents, transform.Slice(expected, func(u coreunit.UUID) string {
 		return u.String()
 	}))
 }
