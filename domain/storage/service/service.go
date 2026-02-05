@@ -6,6 +6,8 @@ package service
 import (
 	"context"
 
+	"github.com/juju/clock"
+
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
@@ -82,6 +84,7 @@ type Service struct {
 func NewService(
 	st State,
 	logger logger.Logger,
+	clock clock.Clock,
 	registryGetter corestorage.ModelStorageRegistryGetter,
 ) *Service {
 	return &Service{
@@ -95,6 +98,7 @@ func NewService(
 		},
 		StorageService: StorageService{
 			st:             st,
+			clock:          clock,
 			registryGetter: registryGetter,
 		},
 		VolumeService: VolumeService{
@@ -110,6 +114,7 @@ func NewService(
 func NewImportService(
 	st StorageImportState,
 	logger logger.Logger,
+	clock clock.Clock,
 	registryGetter corestorage.ModelStorageRegistryGetter,
 	ephemeralProviderRunner providertracker.EphemeralProviderRunnerGetter[internalstorage.FilesystemModelMigration],
 ) *StorageImportService {
@@ -118,6 +123,7 @@ func NewImportService(
 		ephemeralProviderRunner: ephemeralProviderRunner,
 		st:                      st,
 		logger:                  logger,
+		clock:                   clock,
 	}
 }
 

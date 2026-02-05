@@ -7,6 +7,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/description/v11"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -70,6 +71,7 @@ func (s *importSuite) TestRegisterImport(c *tc.C) {
 			return s.storageProviderRegistry
 		}),
 		nil,
+		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
 }

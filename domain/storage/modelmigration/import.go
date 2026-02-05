@@ -6,6 +6,7 @@ package modelmigration
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/description/v11"
 
@@ -37,6 +38,7 @@ func RegisterImport(
 	coordinator.Add(&importOperation{
 		ephemeralProviderConfigGetter: ephemeralProviderConfigGetter,
 		storageRegistryGetter:         storageRegistryGetter,
+		clock:                         clock,
 		logger:                        logger,
 	})
 }
@@ -83,6 +85,7 @@ type importOperation struct {
 	storageRegistryGetter         corestorage.ModelStorageRegistryGetter
 
 	service ImportService
+	clock   clock.Clock
 	logger  logger.Logger
 }
 
@@ -96,6 +99,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.service = service.NewImportService(
 		state.NewState(scope.ModelDB()),
 		i.logger,
+		i.clock,
 		i.storageRegistryGetter,
 		providertracker.EphemeralProviderRunnerFromConfig[internalstorage.FilesystemModelMigration](
 			scope.EphemeralProviderFactory(), i.ephemeralProviderConfigGetter),

@@ -6,6 +6,7 @@ package service
 import (
 	"testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -69,7 +70,8 @@ func (s *adoptFilesystemSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *adoptFilesystemSuite) makeService() *StorageService {
 	return &StorageService{
-		st: s.state,
+		st:    s.state,
+		clock: clock.WallClock,
 		registryGetter: modelStorageRegistryGetter(
 			func() internalstorage.ProviderRegistry {
 				return s.registry
@@ -219,6 +221,8 @@ func (s *adoptFilesystemSuite) TestAdoptFilesystemSuccessFilesystem(c *tc.C) {
 		FilesystemProviderID:     providerID,
 		RequestedSizeMiB:         1024,
 		FilesystemProvisionScope: domainstorageprovisioning.ProvisionScopeModel,
+		FilesystemStatusID:       5,
+		FilesystemStatusMessage:  "filesystem imported",
 	}
 	mc := tc.NewMultiChecker()
 	mc.AddExpr(`_.UUID`, tc.IsNonZeroUUID)
@@ -291,6 +295,8 @@ func (s *adoptFilesystemSuite) TestAdoptFilesystemSuccessVolumeBacked(c *tc.C) {
 		FilesystemSize:           2048,
 		RequestedSizeMiB:         2048,
 		FilesystemProvisionScope: domainstorageprovisioning.ProvisionScopeMachine,
+		FilesystemStatusID:       5,
+		FilesystemStatusMessage:  "filesystem imported",
 	}
 	args := domainstorageinternal.CreateStorageInstanceWithExistingVolumeBackedFilesystem{
 		CreateStorageInstanceWithExistingFilesystem: fsArgs,
@@ -301,6 +307,8 @@ func (s *adoptFilesystemSuite) TestAdoptFilesystemSuccessVolumeBacked(c *tc.C) {
 		VolumeHardwareID:     "hw-id",
 		VolumeWWN:            "wwn-123",
 		VolumePersistent:     true,
+		VolumeStatusID:       5,
+		VolumeStatusMessage:  "volume imported",
 	}
 	mc := tc.NewMultiChecker()
 	mc.AddExpr(`_._.UUID`, tc.IsNonZeroUUID)
