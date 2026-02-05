@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"
@@ -158,18 +159,18 @@ func (s *SecretService) GrantSecretAccess(ctx context.Context, uri *secrets.URI,
 	})
 }
 
-func (s *SecretService) getApplicationUUIDByName(ctx context.Context, name string) (string, error) {
+func (s *SecretService) getApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error) {
 	appUUID, err := s.secretState.GetApplicationUUID(ctx, name)
-	return appUUID.String(), errors.Capture(err)
+	return appUUID, errors.Capture(err)
 }
 
-func (s *SecretService) getUnitUUIDByName(ctx context.Context, name string) (string, error) {
+func (s *SecretService) getUnitUUIDByName(ctx context.Context, name string) (unit.UUID, error) {
 	unitName, err := unit.NewName(name)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 	unitUUID, err := s.secretState.GetUnitUUID(ctx, unitName)
-	return unitUUID.String(), errors.Capture(err)
+	return unitUUID, errors.Capture(err)
 }
 
 func (s *SecretService) getRelationUUIDByKey(ctx context.Context, relationKey corerelation.Key) (string, error) {
@@ -203,9 +204,17 @@ func (s *SecretService) lookupSubjectUUID(
 ) (string, error) {
 	switch subjectKind {
 	case domainsecret.UnitAccessor:
-		return s.getUnitUUIDByName(ctx, subjectID)
+		unitUUID, err := s.getUnitUUIDByName(ctx, subjectID)
+		if err != nil {
+			return "", errors.Capture(err)
+		}
+		return unitUUID.String(), nil
 	case domainsecret.ApplicationAccessor:
-		return s.getApplicationUUIDByName(ctx, subjectID)
+		appUUID, err := s.getApplicationUUIDByName(ctx, subjectID)
+		if err != nil {
+			return "", errors.Capture(err)
+		}
+		return appUUID.String(), nil
 	case domainsecret.ModelAccessor:
 		// The model ID is the UUID.
 		return subjectID, nil
@@ -218,9 +227,17 @@ func (s *SecretService) lookupScopeUUID(
 ) (string, error) {
 	switch scopeKind {
 	case domainsecret.UnitAccessScope:
-		return s.getUnitUUIDByName(ctx, scopeID)
+		unitUUID, err := s.getUnitUUIDByName(ctx, scopeID)
+		if err != nil {
+			return "", errors.Capture(err)
+		}
+		return unitUUID.String(), nil
 	case domainsecret.ApplicationAccessScope:
-		return s.getApplicationUUIDByName(ctx, scopeID)
+		appUUID, err := s.getApplicationUUIDByName(ctx, scopeID)
+		if err != nil {
+			return "", errors.Capture(err)
+		}
+		return appUUID.String(), nil
 	case domainsecret.ModelAccessScope:
 		// The model ID is the UUID.
 		return scopeID, nil

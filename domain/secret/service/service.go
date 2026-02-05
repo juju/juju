@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 
-	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
@@ -553,7 +552,7 @@ func (s *SecretService) createApplicationSecret(ctx context.Context, version int
 	if err != nil {
 		return errors.Capture(err)
 	}
-	if err := s.secretState.CreateCharmApplicationSecret(ctx, version, uri, coreapplication.UUID(appUUID),
+	if err := s.secretState.CreateCharmApplicationSecret(ctx, version, uri, appUUID,
 		params); err != nil {
 		return errors.Errorf("cannot create application secret: %w", err)
 	}
@@ -566,7 +565,7 @@ func (s *SecretService) createUnitSecret(ctx context.Context, version int, uri *
 	if err != nil {
 		return errors.Capture(err)
 	}
-	if err := s.secretState.CreateCharmUnitSecret(ctx, version, uri, coreunit.UUID(unitUUID), params); err != nil {
+	if err := s.secretState.CreateCharmUnitSecret(ctx, version, uri, unitUUID, params); err != nil {
 		return errors.Errorf("cannot create unit secret: %w", err)
 	}
 	return nil
