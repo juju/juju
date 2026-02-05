@@ -192,15 +192,10 @@ func (st *State) importRemoteApplicationConsumer(ctx context.Context, tx *sqlair
 		return errors.Errorf("checking if application %q exists: %w", applicationName, err)
 	}
 
-	charmUUID, err := internaluuid.NewUUID()
-	if err != nil {
-		return errors.Errorf("generating charm UUID: %w", err)
-	}
-
 	// Insert the application, along with the associated charm.
 	if err := st.insertApplication(ctx, tx, applicationName, insertApplicationArgs{
 		ApplicationUUID: consumer.ConsumerApplicationUUID,
-		CharmUUID:       charmUUID.String(),
+		CharmUUID:       consumer.SyntheticCharmUUID,
 		Charm:           consumer.SyntheticCharm,
 	}); err != nil {
 		return errors.Capture(err)
@@ -253,7 +248,7 @@ func (st *State) importRemoteApplicationConsumer(ctx context.Context, tx *sqlair
 
 	// Create synthetic units for this remote application.
 	for _, unitName := range consumer.Units {
-		if err := st.insertUnit(ctx, tx, unitName, consumer.ConsumerApplicationUUID, charmUUID.String()); err != nil {
+		if err := st.insertUnit(ctx, tx, unitName, consumer.ConsumerApplicationUUID, consumer.SyntheticCharmUUID); err != nil {
 			return errors.Errorf("inserting synthetic unit %q: %w",
 				unitName, err)
 		}

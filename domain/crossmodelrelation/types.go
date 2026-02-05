@@ -205,6 +205,11 @@ type RemoteApplicationConsumerImport struct {
 	// UserName is the name of the user who made the original offer connection
 	// request.
 	UserName string
+
+	// SyntheticCharmUUID is the UUID to assign to the synthetic charm
+	// representing the remote application, on the consuming model. This is used
+	// to link the synthetic charm to the remote application consumer.
+	SyntheticCharmUUID string
 }
 
 // RemoteApplicationConsumer represents a remote application

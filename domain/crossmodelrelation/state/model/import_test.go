@@ -10,42 +10,12 @@ import (
 
 	"github.com/juju/tc"
 
+	coreapplication "github.com/juju/juju/core/application"
 	appcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
-
-// buildTestSyntheticCharm creates a synthetic charm from remote endpoints for testing.
-func buildTestSyntheticCharm(appName string, endpoints []crossmodelrelation.RemoteApplicationEndpoint) appcharm.Charm {
-	provides := make(map[string]appcharm.Relation)
-	requires := make(map[string]appcharm.Relation)
-
-	for _, ep := range endpoints {
-		rel := appcharm.Relation{
-			Name:      ep.Name,
-			Role:      ep.Role,
-			Interface: ep.Interface,
-			Scope:     appcharm.ScopeGlobal,
-		}
-		switch ep.Role {
-		case appcharm.RoleProvider:
-			provides[ep.Name] = rel
-		case appcharm.RoleRequirer:
-			requires[ep.Name] = rel
-		}
-	}
-
-	return appcharm.Charm{
-		Metadata: appcharm.Metadata{
-			Name:     appName,
-			Provides: provides,
-			Requires: requires,
-		},
-		Source:        appcharm.CMRSource,
-		ReferenceName: appName,
-	}
-}
 
 type importOfferSuite struct {
 	baseSuite
@@ -203,15 +173,15 @@ func (s *importOfferSuite) TestImportOffersMultipleApplications(c *tc.C) {
 	})
 }
 
-type importRemoteApplicationSuite struct {
+type importRemoteApplicationOfferersSuite struct {
 	baseSuite
 }
 
 func TestImportRemoteApplicationOfferersSuite(t *testing.T) {
-	tc.Run(t, &importRemoteApplicationSuite{})
+	tc.Run(t, &importRemoteApplicationOfferersSuite{})
 }
 
-func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
+func (s *importRemoteApplicationOfferersSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 	// Arrange - import a remote application with provider and requirer endpoints
 	endpoints := []crossmodelrelation.RemoteApplicationEndpoint{
 		{
@@ -282,7 +252,7 @@ func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferers(c *tc
 	c.Check(endpointCount, tc.Equals, 2, tc.Commentf("Expected 2 user-defined endpoints"))
 }
 
-func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferersWithUnits(c *tc.C) {
+func (s *importRemoteApplicationOfferersSuite) TestImportRemoteApplicationOfferersWithUnits(c *tc.C) {
 	// Arrange - import a remote application with synthetic units
 	endpoints := []crossmodelrelation.RemoteApplicationEndpoint{
 		{
@@ -339,7 +309,7 @@ func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferersWithUn
 	c.Check(unitNames, tc.DeepEquals, []string{"remote-mysql/0", "remote-mysql/1"})
 }
 
-func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferersMultiple(c *tc.C) {
+func (s *importRemoteApplicationOfferersSuite) TestImportRemoteApplicationOfferersMultiple(c *tc.C) {
 	// Arrange - import multiple remote applications
 	endpoints1 := []crossmodelrelation.RemoteApplicationEndpoint{
 		{
@@ -395,14 +365,10 @@ func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferersMultip
 	c.Check(count, tc.Equals, 2)
 }
 
-func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferersEmpty(c *tc.C) {
-	// Arrange
+func (s *importRemoteApplicationOfferersSuite) TestImportRemoteApplicationOfferersEmpty(c *tc.C) {
 	args := []crossmodelrelation.RemoteApplicationOffererImport{}
 
-	// Act
 	err := s.state.ImportRemoteApplicationOfferers(c.Context(), args)
-
-	// Assert - should succeed with no operations
 	c.Assert(err, tc.IsNil)
 
 	var count int
@@ -411,4 +377,99 @@ func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferersEmpty(
 	})
 	c.Assert(err, tc.IsNil)
 	c.Check(count, tc.Equals, 0)
+}
+
+type importRemoteApplicationConsumersSuite struct {
+	baseSuite
+}
+
+func TestImportRemoteApplicationConsumersSuite(t *testing.T) {
+	tc.Run(t, &importRemoteApplicationConsumersSuite{})
+}
+
+func (s *importRemoteApplicationConsumersSuite) TestImportRemoteApplicationConsumersEmpty(c *tc.C) {
+	args := []crossmodelrelation.RemoteApplicationConsumerImport{}
+
+	err := s.state.ImportRemoteApplicationConsumers(c.Context(), args)
+	c.Assert(err, tc.IsNil)
+
+	var count int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM application_remote_consumer").Scan(&count)
+	})
+	c.Assert(err, tc.IsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
+func (s *importRemoteApplicationConsumersSuite) TestImportRemoteApplicationConsumers(c *tc.C) {
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	relationUUID := tc.Must(c, internaluuid.NewUUID).String()
+	consumerModelUUID := tc.Must(c, internaluuid.NewUUID).String()
+	consumerApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	// Offer resources needed:
+	offerApplicationUUID := tc.Must(c, coreapplication.NewUUID)
+	offerCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	// Create an offer in the database.
+	s.createOffer(c, offerUUID)
+	// Create a charm in the database.
+	s.createCharm(c, offerCharmUUID)
+	charmRelationUUID := s.createCharmRelation(c, offerCharmUUID, "offer-endpoint")
+	// Create an application in the database.
+	s.createApplication(c, offerApplicationUUID, offerCharmUUID, offerUUID)
+	s.addApplicationEndpoint(c, offerApplicationUUID, charmRelationUUID)
+
+	charm := appcharm.Charm{
+		ReferenceName: "bar",
+		Source:        appcharm.CMRSource,
+		Metadata: appcharm.Metadata{
+			Name:        "foo",
+			Description: "remote consumer application",
+			Provides: map[string]appcharm.Relation{
+				"db": {
+					Name:      "db",
+					Role:      appcharm.RoleProvider,
+					Interface: "db",
+					Limit:     1,
+					Scope:     appcharm.ScopeGlobal,
+				},
+			},
+			Requires: map[string]appcharm.Relation{},
+			Peers:    map[string]appcharm.Relation{},
+		},
+	}
+	err := s.state.ImportRemoteApplicationConsumers(c.Context(), []crossmodelrelation.RemoteApplicationConsumerImport{{
+		RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
+			Name:           "foo",
+			OfferUUID:      offerUUID,
+			SyntheticCharm: charm,
+			Units:          []string{"foo/0"},
+		},
+		RelationUUID:                relationUUID,
+		ConsumerModelUUID:           consumerModelUUID,
+		ConsumerApplicationUUID:     consumerApplicationUUID,
+		ConsumerApplicationEndpoint: "db",
+		OffererApplicationUUID:      offerApplicationUUID.String(),
+		OffererApplicationEndpoint:  "offer-endpoint",
+		UserName:                    "consumer-user",
+		SyntheticCharmUUID:          charmUUID,
+	}})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.assertApplicationRemoteConsumer(c, consumerApplicationUUID)
+	s.assertApplication(c, consumerApplicationUUID)
+	s.assertCharmMetadata(c, consumerApplicationUUID, charmUUID, charm)
+
+	endpoints := s.fetchApplicationEndpoints(c, consumerApplicationUUID)
+	if c.Check(endpoints, tc.HasLen, 2) {
+		c.Check(endpoints[0].charmRelationName, tc.Equals, "db")
+		c.Check(endpoints[1].charmRelationName, tc.Equals, "juju-info")
+	}
+
+	// Check that the synthetic relation has been created with the expected
+	// UUID and ID 0 (the first relation created in the model).
+	s.assertRelation(c, relationUUID, 0)
+
+	s.assertRelationEndpoints(c, relationUUID, offerApplicationUUID.String(), consumerApplicationUUID)
 }

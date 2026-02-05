@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // ModelMigrationState describes persistence methods for migration of cross
@@ -261,6 +262,11 @@ func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rAp
 			"getting offerer application UUID by name %q: %w", offererApplicationName, err)
 	}
 
+	charmUUID, err := uuid.NewUUID()
+	if err != nil {
+		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf("generating charm UUID: %w", err)
+	}
+
 	return crossmodelrelation.RemoteApplicationConsumerImport{
 		RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
 			Name:           rApp.Name,
@@ -279,6 +285,7 @@ func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rAp
 		OffererApplicationUUID:      offererApplicationUUID,
 		OffererApplicationEndpoint:  offererApplicationEndpoint,
 		UserName:                    rApp.UserName,
+		SyntheticCharmUUID:          charmUUID.String(),
 	}, nil
 }
 
