@@ -328,7 +328,7 @@ func (s *SecretService) getOwner(ctx context.Context, kind coresecrets.OwnerKind
 		}
 		return secret.Owner{
 			Kind: kind,
-			UUID: uuid,
+			UUID: uuid.String(),
 		}, nil
 	case coresecrets.UnitOwner:
 		uuid, err := s.getUnitUUIDByName(ctx, id)
@@ -337,7 +337,7 @@ func (s *SecretService) getOwner(ctx context.Context, kind coresecrets.OwnerKind
 		}
 		return secret.Owner{
 			Kind: kind,
-			UUID: uuid,
+			UUID: uuid.String(),
 		}, nil
 	}
 

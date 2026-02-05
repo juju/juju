@@ -18,7 +18,6 @@ import (
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/deployment/charm"
 	domainsecret "github.com/juju/juju/domain/secret"
-	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -211,9 +210,9 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 	//})
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
-	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mysql").Return(appUUID, nil).AnyTimes()
+	s.state.EXPECT().GetApplicationUUID(c.Context(), "mysql").Return(appUUID, nil).AnyTimes()
 	unitUUID := unittesting.GenUnitUUID(c)
-	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, coreunit.Name("wordpress/0")).Return(unitUUID, nil)
+	s.state.EXPECT().GetUnitUUID(c.Context(), coreunit.Name("wordpress/0")).Return(unitUUID, nil)
 	relUUID := relationtesting.GenRelationUUID(c)
 	s.state.EXPECT().GetRegularRelationUUIDByEndpointIdentifiers(gomock.Any(), relation.EndpointIdentifier{
 		ApplicationName: "wordpress",
@@ -425,7 +424,7 @@ func (s *serviceSuite) TestImportSecretsRollbackOnFailure(c *tc.C) {
 	}
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
-	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mysql").Return(appUUID, nil).AnyTimes()
+	s.state.EXPECT().GetApplicationUUID(c.Context(), "mysql").Return(appUUID, nil).AnyTimes()
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
 
 	// First revision succeeds.
@@ -490,7 +489,7 @@ func (s *serviceSuite) TestImportSecretsRollbackOnStateFailure(c *tc.C) {
 	}
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
-	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mysql").Return(appUUID, nil).AnyTimes()
+	s.state.EXPECT().GetApplicationUUID(c.Context(), "mysql").Return(appUUID, nil).AnyTimes()
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
 
 	// Backend reference succeeds.
