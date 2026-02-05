@@ -32,8 +32,6 @@ type StateBase struct {
 	// statements is a cache of sqlair statements keyed by the query string.
 	statementMutex sync.RWMutex
 	statements     map[string]*sqlair.Statement
-
-	atomicPool sync.Pool
 }
 
 // NewStateBase returns a new StateBase.
@@ -41,11 +39,6 @@ func NewStateBase(getDB database.TxnRunnerFactory) *StateBase {
 	return &StateBase{
 		getDB:      getDB,
 		statements: make(map[string]*sqlair.Statement),
-		atomicPool: sync.Pool{
-			New: func() interface{} {
-				return &atomicContext{}
-			},
-		},
 	}
 }
 
@@ -116,96 +109,6 @@ func (st *StateBase) Prepare(query string, typeSamples ...any) (*sqlair.Statemen
 	return stmt, nil
 }
 
-// RunAtomic executes the closure function within the scope of a transaction.
-// The closure is passed a AtomicContext that can be passed on to state
-// functions, so that they can perform work within that same transaction. The
-// closure will be retried according to the transaction retry semantics, if the
-// transaction fails due to transient errors. The closure should only be used to
-// perform state changes and must not be used to execute queries outside of the
-// state scope. This includes performing goroutines or other async operations.
-func (st *StateBase) RunAtomic(ctx context.Context, fn func(AtomicContext) error) error {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return errors.Errorf("getting database: %w", err)
-	}
-
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// The atomicContext is created with the transaction and passed to the
-		// closure function. This ensures that the transaction is always
-		// available to the closure. Once the transaction is complete, the
-		// transaction is removed from the atomicContext. This is to prevent the
-		// transaction from being used outside of the transaction scope. This
-		// will prevent any references to the sqlair.TX from being held outside
-		// of the transaction scope.
-		txCtx := st.atomicPool.Get().(*atomicContext)
-		txCtx.ctx = ctx
-		txCtx.tx = tx
-
-		defer func() {
-			txCtx.close()
-			st.atomicPool.Put(txCtx)
-		}()
-
-		return fn(txCtx)
-	})
-}
-
-// AtomicStateBase is an interface that provides a method for executing a
-// closure within the scope of a transaction.
-//
-// Deprecated: Use the StateBase struct directly.
-type AtomicStateBase interface {
-	// RunAtomic executes the closure function within the scope of a
-	// transaction. The closure is passed a AtomicContext that can be passed on
-	// to state functions, so that they can perform work within that same
-	// transaction. The closure will be retried according to the transaction
-	// retry semantics, if the transaction fails due to transient errors. The
-	// closure should only be used to perform state changes and must not be used
-	// to execute queries outside of the state scope. This includes performing
-	// goroutines or other async operations.
-	//
-	// Deprecated: Use the StateBase struct directly.
-	RunAtomic(ctx context.Context, fn func(AtomicContext) error) error
-}
-
-// Run executes the closure function using the provided AtomicContext as the
-// transaction context. It is expected that the closure will perform state
-// changes within the transaction scope. Any errors returned from the closure
-// are coerced into a standard error to prevent sqlair errors from being
-// returned to the Service layer.
-//
-// Deprecated: Use state directly.
-func Run(ctx AtomicContext, fn func(context.Context, *sqlair.TX) error) error {
-	atomic, ok := ctx.(*atomicContext)
-	if !ok {
-		// If you're seeing this error, it means that the atomicContext was not
-		// created by RunAtomic. This is a programming error. Did you attempt to
-		// wrap the context in a custom context and pass it to Run?
-		return errors.Errorf("programmatic error: AtomicContext is not a *atomicContext: %T", ctx)
-	}
-
-	// Ensure that we can lock the context for the duration of the run function.
-	// This is to prevent the transaction from being removed from the context
-	// or the service layer from attempting to use the transaction outside of
-	// the transaction scope.
-	atomic.mu.Lock()
-	defer atomic.mu.Unlock()
-
-	tx := atomic.tx
-	if tx == nil {
-		// If you're seeing this error, it means that the AtomicContext was not
-		// created by RunAtomic. This is a programming error. Did you capture
-		// the AtomicContext from a RunAtomic closure and try to use it outside
-		// of the closure?
-		return errors.Errorf("programmatic error: AtomicContext does not have a transaction")
-	}
-
-	// Execute the function with the transaction.
-	// Coerce the error to ensure that no sql or sqlair errors are returned
-	// from the function and into the Service layer.
-	return CoerceError(fn(atomic.ctx, tx))
-}
-
 // txnRunner is a wrapper around a database.TxnRunner that implements the
 // database.TxnRunner interface.
 type txnRunner struct {
@@ -217,39 +120,4 @@ type txnRunner struct {
 // The input context can be used by the caller to cancel this process.
 func (r *txnRunner) Txn(ctx context.Context, fn func(context.Context, *sqlair.TX) error) error {
 	return CoerceError(r.runner.Txn(ctx, fn))
-}
-
-// AtomicContext is a typed context that provides access to the database transaction
-// for the duration of a transaction.
-type AtomicContext interface {
-	// Context returns the context that the transaction was created with.
-	Context() context.Context
-}
-
-// atomicContext is the concrete implementation of the AtomicContext interface.
-// The atomicContext ensures that a transaction is always available to during
-// the execution of a transaction. The atomicContext stores the sqlair.TX
-// directly on the struct to prevent the need to fork the context during the
-// transaction. The mutex prevents data-races when the transaction is removed
-// from the context.
-type atomicContext struct {
-	ctx context.Context
-
-	mu sync.Mutex
-	tx *sqlair.TX
-}
-
-// Context returns the context that the transaction was created with.
-func (c *atomicContext) Context() context.Context {
-	return c.ctx
-}
-
-// close removes the transaction from the atomicContext.
-// This prevents the transaction from being used outside of the transaction
-// scope.
-func (c *atomicContext) close() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	c.tx = nil
 }
