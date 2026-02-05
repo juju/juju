@@ -227,14 +227,16 @@ func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferers(c *tc
 	}
 	args := []crossmodelrelation.RemoteApplicationOffererImport{
 		{
-			Name:            "remote-kafka",
-			OfferUUID:       internaluuid.MustNewUUID().String(),
-			URL:             "ctrl:admin/prod.kafka",
-			SourceModelUUID: internaluuid.MustNewUUID().String(),
-			Macaroon:        "test-macaroon-data",
-			Endpoints:       endpoints,
-			SyntheticCharm:  buildTestSyntheticCharm("remote-kafka", endpoints),
-			Bindings:        map[string]string{"client": "alpha", "zookeeper": "beta"},
+			RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
+				Name:            "remote-kafka",
+				OfferUUID:       internaluuid.MustNewUUID().String(),
+				URL:             "ctrl:admin/prod.kafka",
+				SourceModelUUID: internaluuid.MustNewUUID().String(),
+				Macaroon:        "test-macaroon-data",
+				Endpoints:       endpoints,
+				SyntheticCharm:  buildTestSyntheticCharm("remote-kafka", endpoints),
+				Bindings:        map[string]string{"client": "alpha", "zookeeper": "beta"},
+			},
 		},
 	}
 
@@ -291,14 +293,16 @@ func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferersWithUn
 	}
 	args := []crossmodelrelation.RemoteApplicationOffererImport{
 		{
-			Name:            "remote-mysql",
-			OfferUUID:       internaluuid.MustNewUUID().String(),
-			URL:             "ctrl:admin/prod.mysql",
-			SourceModelUUID: internaluuid.MustNewUUID().String(),
-			Macaroon:        "test-macaroon",
-			Endpoints:       endpoints,
-			SyntheticCharm:  buildTestSyntheticCharm("remote-mysql", endpoints),
-			Units:           []string{"remote-mysql/0", "remote-mysql/1"},
+			RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
+				Name:            "remote-mysql",
+				OfferUUID:       internaluuid.MustNewUUID().String(),
+				URL:             "ctrl:admin/prod.mysql",
+				SourceModelUUID: internaluuid.MustNewUUID().String(),
+				Macaroon:        "test-macaroon",
+				Endpoints:       endpoints,
+				SyntheticCharm:  buildTestSyntheticCharm("remote-mysql", endpoints),
+				Units:           []string{"remote-mysql/0", "remote-mysql/1"},
+			},
 		},
 	}
 
@@ -353,22 +357,26 @@ func (s *importRemoteApplicationSuite) TestImportRemoteApplicationOfferersMultip
 	}
 	args := []crossmodelrelation.RemoteApplicationOffererImport{
 		{
-			Name:            "remote-mysql",
-			OfferUUID:       internaluuid.MustNewUUID().String(),
-			URL:             "ctrl:admin/model.mysql",
-			SourceModelUUID: internaluuid.MustNewUUID().String(),
-			Macaroon:        "macaroon1",
-			Endpoints:       endpoints1,
-			SyntheticCharm:  buildTestSyntheticCharm("remote-mysql", endpoints1),
+			RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
+				Name:            "remote-mysql",
+				OfferUUID:       internaluuid.MustNewUUID().String(),
+				URL:             "ctrl:admin/model.mysql",
+				SourceModelUUID: internaluuid.MustNewUUID().String(),
+				Macaroon:        "macaroon1",
+				Endpoints:       endpoints1,
+				SyntheticCharm:  buildTestSyntheticCharm("remote-mysql", endpoints1),
+			},
 		},
 		{
-			Name:            "remote-postgres",
-			OfferUUID:       internaluuid.MustNewUUID().String(),
-			URL:             "ctrl:admin/model.postgres",
-			SourceModelUUID: internaluuid.MustNewUUID().String(),
-			Macaroon:        "macaroon2",
-			Endpoints:       endpoints2,
-			SyntheticCharm:  buildTestSyntheticCharm("remote-postgres", endpoints2),
+			RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
+				Name:            "remote-postgres",
+				OfferUUID:       internaluuid.MustNewUUID().String(),
+				URL:             "ctrl:admin/model.postgres",
+				SourceModelUUID: internaluuid.MustNewUUID().String(),
+				Macaroon:        "macaroon2",
+				Endpoints:       endpoints2,
+				SyntheticCharm:  buildTestSyntheticCharm("remote-postgres", endpoints2),
+			},
 		},
 	}
 

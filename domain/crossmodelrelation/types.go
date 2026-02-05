@@ -135,10 +135,7 @@ type RemoteApplicationEndpoint struct {
 	Interface string
 }
 
-// RemoteApplicationOffererImport contains details to import a remote
-// application offerer during migration. This represents a remote application
-// that this model is consuming from another model.
-type RemoteApplicationOffererImport struct {
+type RemoteApplicationImport struct {
 	// Name is the name of the remote application in this model.
 	Name string
 
@@ -171,22 +168,22 @@ type RemoteApplicationOffererImport struct {
 	Units []string
 }
 
+// RemoteApplicationOffererImport contains details to import a remote
+// application offerer during migration. This represents a remote application
+// that this model is consuming from another model.
+type RemoteApplicationOffererImport struct {
+	RemoteApplicationImport
+}
+
 // RemoteApplicationConsumerImport contains details to import a remote
 // application consumer during migration. This represents a remote application
 // that this model is offering from another model.
 type RemoteApplicationConsumerImport struct {
-	// Name is the name of the remote application in this model.
-	Name string
-
-	// OfferUUID is the UUID of the offer being consumed.
-	OfferUUID string
+	RemoteApplicationImport
 
 	// RelationUUID is the UUID of the relation created for this remote
 	// application consumer.
 	RelationUUID string
-
-	// URL is the offer URL.
-	URL string
 
 	// ConsumerModelUUID is the UUID of the model consuming the application.
 	ConsumerModelUUID string
@@ -204,25 +201,6 @@ type RemoteApplicationConsumerImport struct {
 	// OffererApplicationEndpoint is the relation endpoint name of the
 	// offering application.
 	OffererApplicationEndpoint string
-
-	// Macaroon is the authentication macaroon for the offer.
-	Macaroon string
-
-	// SyntheticCharm is the synthetic charm built from the remote endpoints.
-	// This is created in the service layer from the Endpoints field.
-	SyntheticCharm charm.Charm
-
-	// Endpoints are the remote endpoints for creating the synthetic charm.
-	// This is kept for backwards compatibility and service layer processing.
-	Endpoints []RemoteApplicationEndpoint
-
-	// Bindings are the endpoint-to-space bindings.
-	Bindings map[string]string
-
-	// Units are the unit names for the remote application that need to be
-	// created as synthetic units. These are extracted from relation endpoints
-	// during migration import.
-	Units []string
 
 	// UserName is the name of the user who made the original offer connection
 	// request.

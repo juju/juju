@@ -227,14 +227,16 @@ func (i *importOperation) importRemoteApplicationOfferers(
 		}
 
 		input = append(input, service.RemoteApplicationOffererImport{
-			Name:            remoteApp.Name(),
-			OfferUUID:       remoteApp.OfferUUID(),
-			URL:             remoteApp.URL(),
-			SourceModelUUID: remoteApp.SourceModelUUID(),
-			Macaroon:        remoteApp.Macaroon(),
-			Endpoints:       endpoints,
-			Bindings:        remoteApp.Bindings(),
-			Units:           remoteAppUnits[remoteApp.Name()],
+			RemoteApplicationImport: service.RemoteApplicationImport{
+				Name:            remoteApp.Name(),
+				OfferUUID:       remoteApp.OfferUUID(),
+				URL:             remoteApp.URL(),
+				SourceModelUUID: remoteApp.SourceModelUUID(),
+				Macaroon:        remoteApp.Macaroon(),
+				Endpoints:       endpoints,
+				Bindings:        remoteApp.Bindings(),
+				Units:           remoteAppUnits[remoteApp.Name()],
+			},
 		})
 	}
 	if len(input) == 0 {
@@ -296,17 +298,19 @@ func (i *importOperation) importRemoteApplicationConsumers(
 		}
 
 		input = append(input, service.RemoteApplicationConsumerImport{
-			Name:                    remoteApp.Name(),
-			OfferUUID:               offerConnection.OfferUUID,
+			RemoteApplicationImport: service.RemoteApplicationImport{
+				Name:      remoteApp.Name(),
+				OfferUUID: offerConnection.OfferUUID,
+				URL:       remoteApp.URL(),
+				Macaroon:  remoteApp.Macaroon(),
+				Endpoints: endpoints,
+				Bindings:  remoteApp.Bindings(),
+				Units:     remoteAppUnits[remoteApp.Name()],
+			},
 			RelationUUID:            relationUUID,
 			RelationKey:             relationKey,
-			URL:                     remoteApp.URL(),
 			ConsumerModelUUID:       remoteApp.SourceModelUUID(),
 			ConsumerApplicationUUID: consumerApplicationUUID,
-			Macaroon:                remoteApp.Macaroon(),
-			Endpoints:               endpoints,
-			Bindings:                remoteApp.Bindings(),
-			Units:                   remoteAppUnits[remoteApp.Name()],
 			UserName:                offerConnection.UserName,
 		})
 	}

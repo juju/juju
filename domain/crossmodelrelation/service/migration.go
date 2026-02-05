@@ -8,7 +8,11 @@ import (
 
 	"github.com/juju/collections/transform"
 
+	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/application/charm"
@@ -62,10 +66,9 @@ func (s *MigrationService) ImportOffers(ctx context.Context, imports []crossmode
 	return internalerrors.Capture(s.modelState.ImportOffers(ctx, imports))
 }
 
-// RemoteApplicationOffererImport contains details to import a remote
-// application offerer during migration. This represents a remote application
-// that this model is consuming from another model.
-type RemoteApplicationOffererImport struct {
+// RemoteApplicationImport contains details to import a remote application
+// during migration.
+type RemoteApplicationImport struct {
 	// Name is the name of the remote application in this model.
 	Name string
 
@@ -94,6 +97,39 @@ type RemoteApplicationOffererImport struct {
 	Units []string
 }
 
+// RemoteApplicationOffererImport contains details to import a remote
+// application offerer during migration. This represents a remote application
+// that this model is consuming from another model.
+type RemoteApplicationOffererImport struct {
+	RemoteApplicationImport
+}
+
+// RemoteApplicationConsumerImport contains details to import a remote
+// application consumer during migration. This represents a remote application
+// that this model is offering from another model.
+type RemoteApplicationConsumerImport struct {
+	RemoteApplicationImport
+
+	// RelationUUID is the UUID of the relation created for this remote
+	// application consumer.
+	RelationUUID string
+
+	// RelationKey is the key of the relation created for this remote
+	// application consumer.
+	RelationKey relation.Key
+
+	// ConsumerModelUUID is the UUID of the model consuming the application.
+	ConsumerModelUUID string
+
+	// ConsumerApplicationUUID is the synthetic application UUID created in the
+	// consumer model to represent this remote application.
+	ConsumerApplicationUUID string
+
+	// UserName is the name of the user who made the original offer connection
+	// request.
+	UserName string
+}
+
 // ImportRemoteApplicationOfferers adds remote application offerers being
 // migrated to the current model. These are applications that this model is
 // consuming from other models.
@@ -118,71 +154,25 @@ func (s *MigrationService) ImportRemoteApplicationOfferers(ctx context.Context, 
 }
 
 func (s *MigrationService) constructApplicationOfferer(rApp RemoteApplicationOffererImport) (crossmodelrelation.RemoteApplicationOffererImport, error) {
-	synthCharm, err := s.constructSyntheticCharm(rApp.Name, rApp.Endpoints)
+	synthCharm, err := s.constructOffererSyntheticCharm(rApp.Name, rApp.Endpoints)
 	if err != nil {
 		return crossmodelrelation.RemoteApplicationOffererImport{}, internalerrors.Errorf(
-			"constructing synthetic charm for application offerer %q: %w", rApp.Name, err)
+			"constructing synthetic charm: %w", err)
 	}
 
 	return crossmodelrelation.RemoteApplicationOffererImport{
-		Name:            rApp.Name,
-		OfferUUID:       rApp.OfferUUID,
-		URL:             rApp.URL,
-		SourceModelUUID: rApp.SourceModelUUID,
-		Macaroon:        rApp.Macaroon,
-		Endpoints:       rApp.Endpoints,
-		Bindings:        rApp.Bindings,
-		Units:           rApp.Units,
-		SyntheticCharm:  synthCharm,
+		RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
+			Name:            rApp.Name,
+			OfferUUID:       rApp.OfferUUID,
+			URL:             rApp.URL,
+			SourceModelUUID: rApp.SourceModelUUID,
+			Macaroon:        rApp.Macaroon,
+			Endpoints:       rApp.Endpoints,
+			Bindings:        rApp.Bindings,
+			Units:           rApp.Units,
+			SyntheticCharm:  synthCharm,
+		},
 	}, nil
-}
-
-// RemoteApplicationConsumerImport contains details to import a remote
-// application consumer during migration. This represents a remote application
-// that this model is offering from another model.
-type RemoteApplicationConsumerImport struct {
-	// Name is the name of the remote application in this model.
-	Name string
-
-	// OfferUUID is the UUID of the offer being consumed.
-	OfferUUID string
-
-	// RelationUUID is the UUID of the relation created for this remote
-	// application consumer.
-	RelationUUID string
-
-	// RelationKey is the key of the relation created for this remote
-	// application consumer.
-	RelationKey relation.Key
-
-	// URL is the offer URL.
-	URL string
-
-	// ConsumerModelUUID is the UUID of the model consuming the application.
-	ConsumerModelUUID string
-
-	// ConsumerApplicationUUID is the synthetic application UUID created in the
-	// consumer model to represent this remote application.
-	ConsumerApplicationUUID string
-
-	// Macaroon is the authentication macaroon for the offer.
-	Macaroon string
-
-	// Endpoints are the remote endpoints for creating the synthetic charm.
-	// This is kept for backwards compatibility and service layer processing.
-	Endpoints []crossmodelrelation.RemoteApplicationEndpoint
-
-	// Bindings are the endpoint-to-space bindings.
-	Bindings map[string]string
-
-	// Units are the unit names for the remote application that need to be
-	// created as synthetic units. These are extracted from relation endpoints
-	// during migration import.
-	Units []string
-
-	// UserName is the name of the user who made the original offer connection
-	// request.
-	UserName string
 }
 
 // ImportRemoteApplicationConsumers adds remote application consumers being
@@ -211,17 +201,27 @@ func (s *MigrationService) ImportRemoteApplicationConsumers(ctx context.Context,
 func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rApp RemoteApplicationConsumerImport) (crossmodelrelation.RemoteApplicationConsumerImport, error) {
 	if err := rApp.RelationKey.Validate(); err != nil {
 		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
-			"validating relation key: %w", err)
+			"validating relation key: %w", err).Add(errors.NotValid)
 	}
 
 	if err := relation.UUID(rApp.RelationUUID).Validate(); err != nil {
 		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
-			"validating relation UUID: %w", err)
+			"validating relation UUID: %w", err).Add(errors.NotValid)
+	}
+	if err := offer.UUID(rApp.OfferUUID).Validate(); err != nil {
+		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
+			"validating offer UUID: %w", err).Add(errors.NotValid)
+	}
+	if err := model.UUID(rApp.ConsumerModelUUID).Validate(); err != nil {
+		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
+			"validating consumer model UUID: %w", err).Add(errors.NotValid)
+	}
+	if err := application.UUID(rApp.ConsumerApplicationUUID).Validate(); err != nil {
+		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
+			"validating consumer application UUID: %w", err).Add(errors.NotValid)
 	}
 
-	// TODO (stickupkid): Validate all the things!
-
-	synthCharm, err := s.constructSyntheticCharm(rApp.Name, rApp.Endpoints)
+	synthCharm, err := s.constructConsumedSyntheticCharm(rApp.Name, rApp.Endpoints)
 	if err != nil {
 		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
 			"constructing synthetic charm: %w", err)
@@ -262,25 +262,46 @@ func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rAp
 	}
 
 	return crossmodelrelation.RemoteApplicationConsumerImport{
-		Name:                        rApp.Name,
-		OfferUUID:                   rApp.OfferUUID,
-		URL:                         rApp.URL,
+		RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
+			Name:           rApp.Name,
+			OfferUUID:      rApp.OfferUUID,
+			URL:            rApp.URL,
+			Macaroon:       rApp.Macaroon,
+			Endpoints:      rApp.Endpoints,
+			Bindings:       rApp.Bindings,
+			Units:          rApp.Units,
+			SyntheticCharm: synthCharm,
+		},
 		RelationUUID:                rApp.RelationUUID,
 		ConsumerModelUUID:           rApp.ConsumerModelUUID,
 		ConsumerApplicationUUID:     rApp.ConsumerApplicationUUID,
 		ConsumerApplicationEndpoint: consumerApplicationEndpoint,
 		OffererApplicationUUID:      offererApplicationUUID,
 		OffererApplicationEndpoint:  offererApplicationEndpoint,
-		Macaroon:                    rApp.Macaroon,
-		Endpoints:                   rApp.Endpoints,
-		Bindings:                    rApp.Bindings,
-		Units:                       rApp.Units,
-		SyntheticCharm:              synthCharm,
 		UserName:                    rApp.UserName,
 	}, nil
 }
 
-func (s *MigrationService) constructSyntheticCharm(appName string, endpoints []crossmodelrelation.RemoteApplicationEndpoint) (charm.Charm, error) {
+func (s *MigrationService) constructOffererSyntheticCharm(appName string, endpoints []crossmodelrelation.RemoteApplicationEndpoint) (charm.Charm, error) {
+	if len(endpoints) == 0 {
+		return charm.Charm{}, internalerrors.Errorf("no endpoints provided for synthetic charm")
+	}
+
+	syntheticCharm, err := constructSyntheticCharm(appName, transform.Slice(endpoints, func(ep crossmodelrelation.RemoteApplicationEndpoint) charm.Relation {
+		return charm.Relation{
+			Name:      ep.Name,
+			Interface: ep.Interface,
+			Role:      ep.Role,
+		}
+	}))
+	if err != nil {
+		return charm.Charm{}, internalerrors.Errorf("constructing synthetic charm for %q: %w", appName, err)
+	}
+
+	return syntheticCharm, nil
+}
+
+func (s *MigrationService) constructConsumedSyntheticCharm(appName string, endpoints []crossmodelrelation.RemoteApplicationEndpoint) (charm.Charm, error) {
 	if len(endpoints) == 0 {
 		return charm.Charm{}, internalerrors.Errorf("no endpoints provided for synthetic charm")
 	}

@@ -97,20 +97,22 @@ func (s *importSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 
 	expected := []service.RemoteApplicationOffererImport{
 		{
-			Name:            "remote-mysql",
-			OfferUUID:       "offer-uuid-1234",
-			URL:             "ctrl:admin/model.mysql",
-			SourceModelUUID: "source-model-uuid",
-			Macaroon:        "macaroon-data",
-			Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
-				{
-					Name:      "db",
-					Role:      charm.RoleProvider,
-					Interface: "mysql",
+			RemoteApplicationImport: service.RemoteApplicationImport{
+				Name:            "remote-mysql",
+				OfferUUID:       "offer-uuid-1234",
+				URL:             "ctrl:admin/model.mysql",
+				SourceModelUUID: "source-model-uuid",
+				Macaroon:        "macaroon-data",
+				Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
+					{
+						Name:      "db",
+						Role:      charm.RoleProvider,
+						Interface: "mysql",
+					},
 				},
+				Bindings: map[string]string{"db": "alpha"},
+				Units:    nil,
 			},
-			Bindings: map[string]string{"db": "alpha"},
-			Units:    nil,
 		},
 	}
 	s.importService.EXPECT().ImportRemoteApplicationOfferers(
@@ -173,33 +175,37 @@ func (s *importSuite) TestImportRemoteApplicationOfferersMultiple(c *tc.C) {
 
 	expected := []service.RemoteApplicationOffererImport{
 		{
-			Name:            "remote-mysql",
-			OfferUUID:       "offer-uuid-1",
-			URL:             "ctrl:admin/model.mysql",
-			SourceModelUUID: "source-model-uuid-1",
-			Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
-				{
-					Name:      "db",
-					Role:      charm.RoleProvider,
-					Interface: "mysql",
+			RemoteApplicationImport: service.RemoteApplicationImport{
+				Name:            "remote-mysql",
+				OfferUUID:       "offer-uuid-1",
+				URL:             "ctrl:admin/model.mysql",
+				SourceModelUUID: "source-model-uuid-1",
+				Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
+					{
+						Name:      "db",
+						Role:      charm.RoleProvider,
+						Interface: "mysql",
+					},
 				},
 			},
 		},
 		{
-			Name:            "remote-postgresql",
-			OfferUUID:       "offer-uuid-2",
-			URL:             "ctrl:admin/model.postgresql",
-			SourceModelUUID: "source-model-uuid-2",
-			Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
-				{
-					Name:      "db",
-					Role:      charm.RoleProvider,
-					Interface: "pgsql",
-				},
-				{
-					Name:      "admin",
-					Role:      charm.RoleRequirer,
-					Interface: "admin",
+			RemoteApplicationImport: service.RemoteApplicationImport{
+				Name:            "remote-postgresql",
+				OfferUUID:       "offer-uuid-2",
+				URL:             "ctrl:admin/model.postgresql",
+				SourceModelUUID: "source-model-uuid-2",
+				Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
+					{
+						Name:      "db",
+						Role:      charm.RoleProvider,
+						Interface: "pgsql",
+					},
+					{
+						Name:      "admin",
+						Role:      charm.RoleRequirer,
+						Interface: "admin",
+					},
 				},
 			},
 		},
@@ -366,8 +372,21 @@ func (s *importSuite) TestImportRemoteApplicationConsumers(c *tc.C) {
 	})
 
 	expected := []service.RemoteApplicationConsumerImport{{
-		Name:         "remote-13ea27915e7840d888c5e9451444b45d",
-		OfferUUID:    "cfa46843-ebf2-4fff-8519-c1fb5a9816f3",
+		RemoteApplicationImport: service.RemoteApplicationImport{
+			Name:      "remote-13ea27915e7840d888c5e9451444b45d",
+			OfferUUID: "cfa46843-ebf2-4fff-8519-c1fb5a9816f3",
+			URL:       "",
+			Macaroon:  "",
+			Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
+				{
+					Name:      "source",
+					Role:      charm.RoleProvider,
+					Interface: "dummy-token",
+				},
+			},
+			Bindings: map[string]string(nil),
+			Units:    []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
+		},
 		RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
 		RelationKey: relation.Key{
 			relation.EndpointIdentifier{
@@ -381,20 +400,9 @@ func (s *importSuite) TestImportRemoteApplicationConsumers(c *tc.C) {
 				Role:            deploymentcharm.RoleProvider,
 			},
 		},
-		URL:                     "",
 		ConsumerModelUUID:       "4ddd6454-931d-4278-8779-b0b7208994d9",
 		ConsumerApplicationUUID: "13ea2791-5e78-40d8-88c5-e9451444b45d",
-		Macaroon:                "",
-		Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
-			{
-				Name:      "source",
-				Role:      charm.RoleProvider,
-				Interface: "dummy-token",
-			},
-		},
-		Bindings: map[string]string(nil),
-		Units:    []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
-		UserName: "admin",
+		UserName:                "admin",
 	}}
 
 	s.importService.EXPECT().ImportRemoteApplicationConsumers(
@@ -554,8 +562,21 @@ func (s *importSuite) TestImportRemoteApplicationConsumersMultipleRemoteApplicat
 	})
 
 	expected := []service.RemoteApplicationConsumerImport{{
-		Name:         "remote-13ea27915e7840d888c5e9451444b45d",
-		OfferUUID:    "cfa46843-ebf2-4fff-8519-c1fb5a9816f3",
+		RemoteApplicationImport: service.RemoteApplicationImport{
+			Name:      "remote-13ea27915e7840d888c5e9451444b45d",
+			OfferUUID: "cfa46843-ebf2-4fff-8519-c1fb5a9816f3",
+			URL:       "",
+			Macaroon:  "",
+			Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
+				{
+					Name:      "source",
+					Role:      charm.RoleProvider,
+					Interface: "dummy-token",
+				},
+			},
+			Bindings: map[string]string(nil),
+			Units:    []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
+		},
 		RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
 		RelationKey: relation.Key{
 			relation.EndpointIdentifier{
@@ -569,23 +590,25 @@ func (s *importSuite) TestImportRemoteApplicationConsumersMultipleRemoteApplicat
 				Role:            deploymentcharm.RoleProvider,
 			},
 		},
-		URL:                     "",
 		ConsumerModelUUID:       "4ddd6454-931d-4278-8779-b0b7208994d9",
 		ConsumerApplicationUUID: "13ea2791-5e78-40d8-88c5-e9451444b45d",
-		Macaroon:                "",
-		Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
-			{
-				Name:      "source",
-				Role:      charm.RoleProvider,
-				Interface: "dummy-token",
-			},
-		},
-		Bindings: map[string]string(nil),
-		Units:    []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
-		UserName: "admin",
+		UserName:                "admin",
 	}, {
-		Name:         "remote-a50f295556314aa4803f766a8802e33a",
-		OfferUUID:    "cfa46843-ebf2-4fff-8519-c1fb5a9816f3",
+		RemoteApplicationImport: service.RemoteApplicationImport{
+			Name:      "remote-a50f295556314aa4803f766a8802e33a",
+			OfferUUID: "cfa46843-ebf2-4fff-8519-c1fb5a9816f3",
+			URL:       "",
+			Macaroon:  "",
+			Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
+				{
+					Name:      "source",
+					Role:      charm.RoleProvider,
+					Interface: "dummy-token",
+				},
+			},
+			Bindings: map[string]string(nil),
+			Units:    []string{"remote-a50f295556314aa4803f766a8802e33a/0"},
+		},
 		RelationUUID: "ed736d84-0007-438c-8c0e-eac6e0d6dadd",
 		RelationKey: relation.Key{
 			relation.EndpointIdentifier{
@@ -599,20 +622,9 @@ func (s *importSuite) TestImportRemoteApplicationConsumersMultipleRemoteApplicat
 				Role:            deploymentcharm.RoleProvider,
 			},
 		},
-		URL:                     "",
 		ConsumerModelUUID:       "4ddd6454-931d-4278-8779-b0b7208994d9",
 		ConsumerApplicationUUID: "a50f2955-5631-4aa4-803f-766a8802e33a",
-		Macaroon:                "",
-		Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
-			{
-				Name:      "source",
-				Role:      charm.RoleProvider,
-				Interface: "dummy-token",
-			},
-		},
-		Bindings: map[string]string(nil),
-		Units:    []string{"remote-a50f295556314aa4803f766a8802e33a/0"},
-		UserName: "admin",
+		UserName:                "admin",
 	}}
 
 	s.importService.EXPECT().ImportRemoteApplicationConsumers(
