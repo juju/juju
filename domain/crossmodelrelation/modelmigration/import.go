@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/crossmodelrelation/service"
 	modelstate "github.com/juju/juju/domain/crossmodelrelation/state/model"
+	deploymentcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -115,6 +116,10 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	if err != nil {
 		return errors.Errorf("extracting application UUIDs from remote entities: %w", err)
 	}
+	relationEndpoints, err := extractRelationEndpoints(model)
+	if err != nil {
+		return errors.Errorf("extracting relation endpoints from relations: %w", err)
+	}
 
 	// Import remote application consumers.
 	if err := i.importRemoteApplicationConsumers(ctx,
@@ -122,6 +127,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		remoteAppUnits,
 		offerConnections,
 		relationRemoteEntities,
+		relationEndpoints,
 		applicationRemoteEntities,
 	); err != nil {
 		return errors.Errorf("importing remote application consumers: %w", err)
@@ -210,7 +216,7 @@ func (i *importOperation) importRemoteApplicationOfferers(
 	input := make([]service.RemoteApplicationOffererImport, 0, len(remoteApps))
 	for _, remoteApp := range remoteApps {
 		// Ignore remote application consumers.
-		if !remoteApp.IsConsumerProxy() {
+		if remoteApp.IsConsumerProxy() {
 			continue
 		}
 
@@ -231,6 +237,9 @@ func (i *importOperation) importRemoteApplicationOfferers(
 			Units:           remoteAppUnits[remoteApp.Name()],
 		})
 	}
+	if len(input) == 0 {
+		return nil
+	}
 	return i.importService.ImportRemoteApplicationOfferers(ctx, input)
 }
 
@@ -240,12 +249,13 @@ func (i *importOperation) importRemoteApplicationConsumers(
 	remoteAppUnits map[string][]string,
 	offerConnections []offerConnection,
 	relationRemoteEntities []relationRemoteEntity,
+	relationEndpoints map[string]relation.Key,
 	applicationRemoteEntities map[string]string,
 ) error {
 	input := make([]service.RemoteApplicationConsumerImport, 0, len(remoteApps))
 	for _, remoteApp := range remoteApps {
 		// Ignore remote application offerers.
-		if remoteApp.IsConsumerProxy() {
+		if !remoteApp.IsConsumerProxy() {
 			continue
 		}
 
@@ -279,11 +289,17 @@ func (i *importOperation) importRemoteApplicationConsumers(
 				remoteApp.Name())
 		}
 
+		relationKey, ok := relationEndpoints[offerConnection.RelationKeyStr]
+		if !ok {
+			return errors.Errorf("no relation endpoints found for relation key %q for remote application %q",
+				offerConnection.RelationKeyStr, remoteApp.Name())
+		}
+
 		input = append(input, service.RemoteApplicationConsumerImport{
 			Name:                    remoteApp.Name(),
 			OfferUUID:               offerConnection.OfferUUID,
 			RelationUUID:            relationUUID,
-			RelationKey:             offerConnection.RelationKey,
+			RelationKey:             relationKey,
 			URL:                     remoteApp.URL(),
 			ConsumerModelUUID:       remoteApp.SourceModelUUID(),
 			ConsumerApplicationUUID: consumerApplicationUUID,
@@ -294,13 +310,16 @@ func (i *importOperation) importRemoteApplicationConsumers(
 			UserName:                offerConnection.UserName,
 		})
 	}
-
+	if len(input) == 0 {
+		return nil
+	}
 	return i.importService.ImportRemoteApplicationConsumers(ctx, input)
 }
 
 type offerConnection struct {
 	OfferUUID       string
 	RelationKey     relation.Key
+	RelationKeyStr  string
 	SourceModelUUID string
 	UserName        string
 }
@@ -318,6 +337,7 @@ func extractOfferConnections(model description.Model) ([]offerConnection, error)
 		offerConnections = append(offerConnections, offerConnection{
 			OfferUUID:       offerUUID,
 			RelationKey:     relationKey,
+			RelationKeyStr:  rel.RelationKey(),
 			SourceModelUUID: rel.SourceModelUUID(),
 			UserName:        rel.UserName(),
 		})
@@ -388,6 +408,28 @@ func extractRemoteEndpoints(remoteApp description.RemoteApplication) ([]crossmod
 		})
 	}
 	return endpoints, nil
+}
+
+func extractRelationEndpoints(model description.Model) (map[string]relation.Key, error) {
+	relationEndpoints := make(map[string]relation.Key)
+	for _, rel := range model.Relations() {
+		var key relation.Key
+		for _, ep := range rel.Endpoints() {
+			role, err := parseRelationRole(ep.Role())
+			if err != nil {
+				return nil, errors.Errorf("parsing role for relation endpoint: %w", err)
+			}
+
+			key = append(key, relation.EndpointIdentifier{
+				ApplicationName: ep.ApplicationName(),
+				EndpointName:    ep.Name(),
+				Role:            deploymentcharm.RelationRole(role),
+			})
+		}
+
+		relationEndpoints[rel.Key()] = key
+	}
+	return relationEndpoints, nil
 }
 
 func findOfferConnection(offerConns []offerConnection, appName, modelUUID string) (offerConnection, error) {
