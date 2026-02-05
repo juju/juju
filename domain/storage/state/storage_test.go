@@ -5,6 +5,7 @@ package state
 
 import (
 	"testing"
+	"time"
 
 	"github.com/juju/tc"
 
@@ -65,17 +66,21 @@ func (s *storageSuite) TestCreateStorageInstanceWithExistingFilesystem(c *tc.C) 
 
 	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	filesystemUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
+	now := time.Now().UTC()
 
 	args := domainstorageinternal.CreateStorageInstanceWithExistingFilesystem{
-		UUID:                     storageInstanceUUID,
-		Name:                     domainstorage.Name("data"),
-		Kind:                     domainstorage.StorageKindFilesystem,
-		StoragePoolUUID:          poolUUID,
-		RequestedSizeMiB:         1024,
-		FilesystemUUID:           filesystemUUID,
-		FilesystemProvisionScope: domainstorageprov.ProvisionScopeModel,
-		FilesystemSize:           2048,
-		FilesystemProviderID:     "fs-12345",
+		UUID:                      storageInstanceUUID,
+		Name:                      domainstorage.Name("data"),
+		Kind:                      domainstorage.StorageKindFilesystem,
+		StoragePoolUUID:           poolUUID,
+		RequestedSizeMiB:          1024,
+		FilesystemUUID:            filesystemUUID,
+		FilesystemProvisionScope:  domainstorageprov.ProvisionScopeModel,
+		FilesystemSize:            2048,
+		FilesystemProviderID:      "fs-12345",
+		FilesystemStatusID:        1,
+		FilesystemStatusMessage:   "fs-ready",
+		FilesystemStatusUpdatedAt: now,
 	}
 
 	st := NewState(s.TxnRunnerFactory())
@@ -148,6 +153,26 @@ WHERE storage_instance_uuid = ?
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotLinkStorageUUID, tc.Equals, storageInstanceUUID.String())
 	c.Check(gotLinkFilesystemUUID, tc.Equals, filesystemUUID.String())
+
+	// Verify filesystem status was created
+	var (
+		gotFilesystemStatusID      int
+		gotFilesystemStatusMessage string
+		gotFilesystemStatusUpdated time.Time
+	)
+	err = s.DB().QueryRow(`
+SELECT status_id, message, updated_at
+FROM storage_filesystem_status
+WHERE filesystem_uuid = ?
+`, filesystemUUID.String()).Scan(
+		&gotFilesystemStatusID,
+		&gotFilesystemStatusMessage,
+		&gotFilesystemStatusUpdated,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotFilesystemStatusID, tc.Equals, 1)
+	c.Check(gotFilesystemStatusMessage, tc.Equals, "fs-ready")
+	c.Check(gotFilesystemStatusUpdated.Equal(now), tc.Equals, true)
 }
 
 // TestCreateStorageInstanceWithExistingFilesystemPoolNotFound asserts that
@@ -181,28 +206,35 @@ func (s *storageSuite) TestCreateStorageInstanceWithExistingVolumeBackedFilesyst
 	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	filesystemUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
 	volumeUUID := tc.Must(c, domainstorage.NewVolumeUUID)
+	now := time.Now().UTC()
 
 	fsArgs := domainstorageinternal.CreateStorageInstanceWithExistingFilesystem{
-		UUID:                     storageInstanceUUID,
-		Name:                     domainstorage.Name("disk"),
-		Kind:                     domainstorage.StorageKindBlock,
-		StoragePoolUUID:          poolUUID,
-		RequestedSizeMiB:         2048,
-		FilesystemUUID:           filesystemUUID,
-		FilesystemProvisionScope: domainstorageprov.ProvisionScopeMachine,
-		FilesystemSize:           4096,
-		FilesystemProviderID:     "fs-abc123",
+		UUID:                      storageInstanceUUID,
+		Name:                      domainstorage.Name("disk"),
+		Kind:                      domainstorage.StorageKindBlock,
+		StoragePoolUUID:           poolUUID,
+		RequestedSizeMiB:          2048,
+		FilesystemUUID:            filesystemUUID,
+		FilesystemProvisionScope:  domainstorageprov.ProvisionScopeMachine,
+		FilesystemSize:            4096,
+		FilesystemProviderID:      "fs-abc123",
+		FilesystemStatusID:        1,
+		FilesystemStatusMessage:   "fs-ready",
+		FilesystemStatusUpdatedAt: now,
 	}
 	args := domainstorageinternal.CreateStorageInstanceWithExistingVolumeBackedFilesystem{
 		CreateStorageInstanceWithExistingFilesystem: fsArgs,
 
-		VolumeUUID:           volumeUUID,
-		VolumeProvisionScope: domainstorageprov.ProvisionScopeModel,
-		VolumeSize:           4096,
-		VolumeProviderID:     "vol-xyz789",
-		VolumeHardwareID:     "hw-001",
-		VolumeWWN:            "wwn-002",
-		VolumePersistent:     true,
+		VolumeUUID:            volumeUUID,
+		VolumeProvisionScope:  domainstorageprov.ProvisionScopeModel,
+		VolumeSize:            4096,
+		VolumeProviderID:      "vol-xyz789",
+		VolumeHardwareID:      "hw-001",
+		VolumeWWN:             "wwn-002",
+		VolumePersistent:      true,
+		VolumeStatusID:        2,
+		VolumeStatusMessage:   "vol-ready",
+		VolumeStatusUpdatedAt: now,
 	}
 
 	st := NewState(s.TxnRunnerFactory())
@@ -324,6 +356,46 @@ WHERE storage_instance_uuid = ?
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotLinkStorageUUID2, tc.Equals, storageInstanceUUID.String())
 	c.Check(gotLinkVolumeUUID, tc.Equals, volumeUUID.String())
+
+	// Verify filesystem status was created
+	var (
+		gotFilesystemStatusID      int
+		gotFilesystemStatusMessage string
+		gotFilesystemStatusUpdated time.Time
+	)
+	err = s.DB().QueryRow(`
+SELECT status_id, message, updated_at
+FROM storage_filesystem_status
+WHERE filesystem_uuid = ?
+`, filesystemUUID.String()).Scan(
+		&gotFilesystemStatusID,
+		&gotFilesystemStatusMessage,
+		&gotFilesystemStatusUpdated,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotFilesystemStatusID, tc.Equals, 1)
+	c.Check(gotFilesystemStatusMessage, tc.Equals, "fs-ready")
+	c.Check(gotFilesystemStatusUpdated.Equal(now), tc.Equals, true)
+
+	// Verify volume status was created
+	var (
+		gotVolumeStatusID      int
+		gotVolumeStatusMessage string
+		gotVolumeStatusUpdated time.Time
+	)
+	err = s.DB().QueryRow(`
+SELECT status_id, message, updated_at
+FROM storage_volume_status
+WHERE volume_uuid = ?
+`, volumeUUID.String()).Scan(
+		&gotVolumeStatusID,
+		&gotVolumeStatusMessage,
+		&gotVolumeStatusUpdated,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotVolumeStatusID, tc.Equals, 2)
+	c.Check(gotVolumeStatusMessage, tc.Equals, "vol-ready")
+	c.Check(gotVolumeStatusUpdated.Equal(now), tc.Equals, true)
 }
 
 // TestCreateStorageInstanceWithExistingVolumeBackedFilesystemPoolNotFound

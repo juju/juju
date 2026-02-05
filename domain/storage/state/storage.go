@@ -166,6 +166,20 @@ VALUES ($insertStorageInstanceFilesystem.*)
 		return "", errors.Capture(err)
 	}
 
+	storageFilesystemStatus := insertStorageFilesystemStatus{
+		StorageFilesystemUUID: args.FilesystemUUID.String(),
+		StatusID:              args.FilesystemStatusID,
+		Message:               args.FilesystemStatusMessage,
+		UpdatedAt:             args.FilesystemStatusUpdatedAt,
+	}
+	insertFilesystemStatusStmt, err := st.Prepare(`
+INSERT INTO storage_filesystem_status (*)
+VALUES ($insertStorageFilesystemStatus.*)
+`, storageFilesystemStatus)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		exists, err := st.checkStoragePoolExists(
 			ctx, tx, args.StoragePoolUUID.String())
@@ -209,6 +223,10 @@ VALUES ($insertStorageInstanceFilesystem.*)
 		err = tx.Query(ctx, insertLinkStmt, storageInstanceFilesystem).Run()
 		if err != nil {
 			return errors.Errorf("linking storage instance to filesystem: %w", err)
+		}
+		err = tx.Query(ctx, insertFilesystemStatusStmt, storageFilesystemStatus).Run()
+		if err != nil {
+			return errors.Errorf("inserting storage filesystem status: %w", err)
 		}
 
 		return nil
@@ -280,6 +298,20 @@ VALUES ($insertStorageInstanceFilesystem.*)
 		return "", errors.Capture(err)
 	}
 
+	storageFilesystemStatus := insertStorageFilesystemStatus{
+		StorageFilesystemUUID: args.FilesystemUUID.String(),
+		StatusID:              args.FilesystemStatusID,
+		Message:               args.FilesystemStatusMessage,
+		UpdatedAt:             args.FilesystemStatusUpdatedAt,
+	}
+	insertFilesystemStatusStmt, err := st.Prepare(`
+INSERT INTO storage_filesystem_status (*)
+VALUES ($insertStorageFilesystemStatus.*)
+`, storageFilesystemStatus)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
 	volume := insertStorageVolume{
 		UUID:             args.VolumeUUID.String(),
 		LifeID:           life.Alive,
@@ -306,6 +338,20 @@ VALUES ($insertStorageVolume.*)
 INSERT INTO storage_instance_volume (*)
 VALUES ($insertStorageInstanceVolume.*)
 `, storageInstanceVolume)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	storageVolumeStatus := insertStorageVolumeStatus{
+		StorageVolumeUUID: args.VolumeUUID.String(),
+		StatusID:          args.VolumeStatusID,
+		Message:           args.VolumeStatusMessage,
+		UpdatedAt:         args.VolumeStatusUpdatedAt,
+	}
+	insertVolumeStatusStmt, err := st.Prepare(`
+INSERT INTO storage_volume_status (*)
+VALUES ($insertStorageVolumeStatus.*)
+`, storageVolumeStatus)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -364,6 +410,10 @@ VALUES ($insertStorageInstanceVolume.*)
 				"linking storage instance to filesystem: %w", err,
 			)
 		}
+		err = tx.Query(ctx, insertFilesystemStatusStmt, storageFilesystemStatus).Run()
+		if err != nil {
+			return errors.Errorf("inserting storage filesystem status: %w", err)
+		}
 		err = tx.Query(ctx, insertVolumeStmt, volume).Run()
 		if err != nil {
 			return errors.Errorf("inserting volume: %w", err)
@@ -371,6 +421,10 @@ VALUES ($insertStorageInstanceVolume.*)
 		err = tx.Query(ctx, insertVolumeLinkStmt, storageInstanceVolume).Run()
 		if err != nil {
 			return errors.Errorf("linking storage instance to volume: %w", err)
+		}
+		err = tx.Query(ctx, insertVolumeStatusStmt, storageVolumeStatus).Run()
+		if err != nil {
+			return errors.Errorf("inserting storage volume status: %w", err)
 		}
 
 		return nil

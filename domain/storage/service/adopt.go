@@ -11,6 +11,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
+	domainstatus "github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	domainstorageinternal "github.com/juju/juju/domain/storage/internal"
@@ -177,6 +178,7 @@ func (s *StorageService) AdoptFilesystem(
 		return "", errors.Capture(err)
 	}
 
+	updatedAt := s.clock.Now().UTC()
 	if ic.VolumeRequired {
 		src, err := sp.VolumeSource(poolConfig)
 		if err != nil {
@@ -209,25 +211,31 @@ func (s *StorageService) AdoptFilesystem(
 		}
 
 		fsArgs := domainstorageinternal.CreateStorageInstanceWithExistingFilesystem{
-			Kind:                     domainstorage.StorageKindFilesystem,
-			Name:                     storageName,
-			RequestedSizeMiB:         volInfo.Size,
-			StoragePoolUUID:          poolUUID,
-			UUID:                     storageInstanceUUID,
-			FilesystemUUID:           filesystemUUID,
-			FilesystemProvisionScope: ic.FilesystemProvisionScope,
-			FilesystemSize:           volInfo.Size,
-			FilesystemProviderID:     "",
+			Kind:                      domainstorage.StorageKindFilesystem,
+			Name:                      storageName,
+			RequestedSizeMiB:          volInfo.Size,
+			StoragePoolUUID:           poolUUID,
+			UUID:                      storageInstanceUUID,
+			FilesystemUUID:            filesystemUUID,
+			FilesystemProvisionScope:  ic.FilesystemProvisionScope,
+			FilesystemSize:            volInfo.Size,
+			FilesystemProviderID:      "",
+			FilesystemStatusID:        int(domainstatus.StorageFilesystemStatusTypeDetached),
+			FilesystemStatusMessage:   "filesystem imported",
+			FilesystemStatusUpdatedAt: updatedAt,
 		}
 		args := domainstorageinternal.CreateStorageInstanceWithExistingVolumeBackedFilesystem{
 			CreateStorageInstanceWithExistingFilesystem: fsArgs,
-			VolumeUUID:           volumeUUID,
-			VolumeProvisionScope: ic.VolumeProvisionScope,
-			VolumeSize:           volInfo.Size,
-			VolumeProviderID:     volInfo.VolumeId,
-			VolumeHardwareID:     volInfo.HardwareId,
-			VolumeWWN:            volInfo.WWN,
-			VolumePersistent:     volInfo.Persistent,
+			VolumeUUID:            volumeUUID,
+			VolumeProvisionScope:  ic.VolumeProvisionScope,
+			VolumeSize:            volInfo.Size,
+			VolumeProviderID:      volInfo.VolumeId,
+			VolumeHardwareID:      volInfo.HardwareId,
+			VolumeWWN:             volInfo.WWN,
+			VolumePersistent:      volInfo.Persistent,
+			VolumeStatusID:        int(domainstatus.StorageVolumeStatusTypeDetached),
+			VolumeStatusMessage:   "volume imported",
+			VolumeStatusUpdatedAt: updatedAt,
 		}
 
 		storageInstanceID, err := s.st.CreateStorageInstanceWithExistingVolumeBackedFilesystem(
@@ -269,15 +277,18 @@ func (s *StorageService) AdoptFilesystem(
 	}
 
 	args := domainstorageinternal.CreateStorageInstanceWithExistingFilesystem{
-		Kind:                     domainstorage.StorageKindFilesystem,
-		Name:                     storageName,
-		RequestedSizeMiB:         fsInfo.Size,
-		StoragePoolUUID:          poolUUID,
-		UUID:                     storageInstanceUUID,
-		FilesystemUUID:           filesystemUUID,
-		FilesystemProvisionScope: ic.FilesystemProvisionScope,
-		FilesystemSize:           fsInfo.Size,
-		FilesystemProviderID:     fsInfo.ProviderId,
+		Kind:                      domainstorage.StorageKindFilesystem,
+		Name:                      storageName,
+		RequestedSizeMiB:          fsInfo.Size,
+		StoragePoolUUID:           poolUUID,
+		UUID:                      storageInstanceUUID,
+		FilesystemUUID:            filesystemUUID,
+		FilesystemProvisionScope:  ic.FilesystemProvisionScope,
+		FilesystemSize:            fsInfo.Size,
+		FilesystemProviderID:      fsInfo.ProviderId,
+		FilesystemStatusID:        int(domainstatus.StorageFilesystemStatusTypeDetached),
+		FilesystemStatusMessage:   "filesystem imported",
+		FilesystemStatusUpdatedAt: updatedAt,
 	}
 
 	storageInstanceID, err := s.st.CreateStorageInstanceWithExistingFilesystem(
