@@ -530,7 +530,7 @@ SELECT &storageInstanceStatusDetails.* FROM (
 			}
 		}
 		var volStatus status.StatusInfo[status.StorageVolumeStatusType]
-		if v.FilesystemStatusID.Valid {
+		if v.VolumeStatusID.Valid {
 			statusValue, err := status.DecodeStorageVolumeStatus(
 				v.VolumeStatusID.V)
 			if err != nil {
