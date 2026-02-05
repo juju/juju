@@ -111,6 +111,13 @@ jobs:
           addons: '["dns", "hostpath-storage"]'
           launch-configuration: "$GITHUB_WORKSPACE/.github/microk8s-launch-config-aws.yaml"
 
+      - name: Install k8s Dependencies
+        if: matrix.cloud == 'microk8s'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo DEBIAN_FRONTEND=noninteractive apt install -y podman >/dev/null 2>&1
+
       - name: Setup local caas registry
         if: matrix.cloud == 'microk8s'
         run: |
@@ -148,7 +155,6 @@ jobs:
         run: |
           set -euxo pipefail
 
-          sudo DEBIAN_FRONTEND=noninteractive apt install -y skopeo
           # Shim in recognition for our CA to jujud-operator
           BUILD_TEMP=$(mktemp -d)
           cp ~/certs/ca.crt $BUILD_TEMP/
@@ -159,8 +165,8 @@ jobs:
 
             RUN update-ca-certificates
           EOL
-          docker build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
-          docker push --format=v2s2 ${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
+          podman build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
+          podman push -f v2s2 "${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}" "docker://${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}"
           
           OCI_REGISTRY_USERNAME=${OCI_REGISTRY}/test-repo LEGACY_JUJU_DB_VERSION=4.4 make seed-repository
 
@@ -248,8 +254,8 @@ jobs:
 
             RUN update-ca-certificates
           EOL
-          docker build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}
-          docker push --format=v2s2 ${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}
+          podman build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}
+          podman push -f v2s2 "${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}" "docker://${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}"          
 
       - name: Preflight
         shell: bash
