@@ -275,8 +275,8 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 		}
 	}()
 
-	if err := s.createUserSecret(ctx, params.Version, uri, p); err != nil {
-		return errors.Errorf("creating user secret %q: %w", uri.ID, err)
+	if err := s.secretState.CreateUserSecret(ctx, params.Version, uri, p); err != nil {
+		return errors.Errorf("cannot create user secret: %w", err)
 	}
 	return nil
 }
@@ -567,14 +567,6 @@ func (s *SecretService) createCharmUnitSecret(ctx context.Context, version int, 
 	}
 	if err := s.secretState.CreateCharmUnitSecret(ctx, version, uri, unitUUID, params); err != nil {
 		return errors.Errorf("cannot create unit secret: %w", err)
-	}
-	return nil
-}
-
-func (s *SecretService) createUserSecret(ctx context.Context, version int, uri *secrets.URI,
-	params domainsecret.UpsertSecretParams) error {
-	if err := s.secretState.CreateUserSecret(ctx, version, uri, params); err != nil {
-		return errors.Errorf("cannot create user secret: %w", err)
 	}
 	return nil
 }
