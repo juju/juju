@@ -29,7 +29,6 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
@@ -410,18 +409,21 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		Controller:        testing.ControllerTag,
 		Model:             testing.ModelTag,
 	}
-	cfg, err := agent.NewAgentConfig(configParams)
-	c.Assert(err, jc.ErrorIsNil)
-	cfg.SetStateServingInfo(controller.StateServingInfo{
-		APIPort:        5555,
-		StatePort:      s.mgoInst.Port(),
-		Cert:           testing.CACert,
-		CAPrivateKey:   testing.CAKey,
+	servingInfo := controller.StateServingInfo{
+		Cert:           testing.ServerCert,
 		PrivateKey:     testing.ServerKey,
-		SharedSecret:   "baz",
-		SystemIdentity: "qux",
-	})
-	modelAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
+		CAPrivateKey:   testing.CAKey,
+		APIPort:        1234,
+		StatePort:      s.mgoInst.Port(),
+		SystemIdentity: "def456",
+	}
+
+	cfg, err := agent.NewStateMachineConfig(configParams, servingInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, available := cfg.StateServingInfo()
+	c.Assert(available, jc.IsTrue)
+	modelAttrs := testing.FakeConfig().Merge(testing.Attrs{
 		"agent-version": jujuversion.Current.String(),
 		"charmhub-url":  charmhub.DefaultServerURL,
 	})
