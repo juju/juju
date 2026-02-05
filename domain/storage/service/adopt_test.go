@@ -5,6 +5,7 @@ package service
 
 import (
 	"testing"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -167,6 +168,8 @@ func (s *adoptFilesystemSuite) TestAdoptFilesystemSuccessFilesystem(c *tc.C) {
 	ctx := c.Context()
 	defer s.setupMocks(c).Finish()
 
+	now := time.Now().UTC()
+
 	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 	pool := domainstorage.StoragePool{
 		Name:     "pool1",
@@ -227,6 +230,7 @@ func (s *adoptFilesystemSuite) TestAdoptFilesystemSuccessFilesystem(c *tc.C) {
 	mc := tc.NewMultiChecker()
 	mc.AddExpr(`_.UUID`, tc.IsNonZeroUUID)
 	mc.AddExpr(`_.FilesystemUUID`, tc.IsNonZeroUUID)
+	mc.AddExpr(`_.FilesystemStatusUpdatedAt`, tc.Or(tc.After, tc.Equals), now)
 	s.state.EXPECT().CreateStorageInstanceWithExistingFilesystem(
 		gomock.Any(), tc.Bind(mc, args),
 	).Return("instance-1", nil)
@@ -243,6 +247,8 @@ func (s *adoptFilesystemSuite) TestAdoptFilesystemSuccessFilesystem(c *tc.C) {
 func (s *adoptFilesystemSuite) TestAdoptFilesystemSuccessVolumeBacked(c *tc.C) {
 	ctx := c.Context()
 	defer s.setupMocks(c).Finish()
+
+	now := time.Now().UTC()
 
 	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 	pool := domainstorage.StoragePool{
@@ -313,7 +319,9 @@ func (s *adoptFilesystemSuite) TestAdoptFilesystemSuccessVolumeBacked(c *tc.C) {
 	mc := tc.NewMultiChecker()
 	mc.AddExpr(`_._.UUID`, tc.IsNonZeroUUID)
 	mc.AddExpr(`_._.FilesystemUUID`, tc.IsNonZeroUUID)
+	mc.AddExpr(`_._.FilesystemStatusUpdatedAt`, tc.Or(tc.After, tc.Equals), now)
 	mc.AddExpr(`_.VolumeUUID`, tc.IsNonZeroUUID)
+	mc.AddExpr(`_.VolumeStatusUpdatedAt`, tc.Or(tc.After, tc.Equals), now)
 	s.state.EXPECT().CreateStorageInstanceWithExistingVolumeBackedFilesystem(
 		ctx, tc.Bind(mc, args),
 	).Return("instance-1", nil)
