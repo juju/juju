@@ -438,31 +438,12 @@ func (a *StorageAPI) ListStorageDetails(
 		si statusservice.StorageInstance,
 	) (params.StorageDetails, error) {
 		retVal := params.StorageDetails{}
-
-		storageInstTag, err := names.ParseStorageTag(
-			names.StorageTagKind + "-" + si.ID,
-		)
-		if err != nil {
-			return params.StorageDetails{}, errors.Errorf(
-				"generating storage instance %q tag from name %q and id %q: %w",
-				si.UUID.String(), si.Name, si.ID, err,
-			)
-		}
+		storageInstTag := names.NewStorageTag(si.ID)
 		retVal.StorageTag = storageInstTag.String()
 
 		var ownerTag string
 		if si.Owner != nil {
-			unitOwnerTag, err := names.ParseUnitTag(
-				names.UnitTagKind + "-" + si.Owner.String(),
-			)
-			if err != nil {
-				return params.StorageDetails{}, errors.Errorf(
-					"generating storage instance %q unit owner tag from unit name %q: %w",
-					si.UUID.String(), si.Owner.String(), err,
-				)
-			}
-
-			ownerTag = unitOwnerTag.String()
+			ownerTag = names.NewUnitTag(si.Owner.String()).String()
 		}
 		retVal.OwnerTag = ownerTag
 
@@ -496,29 +477,12 @@ func (a *StorageAPI) ListStorageDetails(
 		retVal.Attachments = make(
 			map[string]params.StorageAttachmentDetails, len(si.Attachments),
 		)
-		for unitName, attachment := range si.Attachments {
-			unitTag, err := names.ParseUnitTag(
-				names.UnitTagKind + "-" + attachment.Unit.String(),
-			)
-			if err != nil {
-				return params.StorageDetails{}, errors.Errorf(
-					"generating storage instance %q attachment unit %q tag: %w",
-					si.UUID, unitName, err,
-				)
-			}
-
+		for _, attachment := range si.Attachments {
+			unitTag := names.NewUnitTag(attachment.Unit.String())
 			var machineTagStr string
+
 			if attachment.Machine != nil {
-				machineTag, err := names.ParseMachineTag(
-					names.MachineTagKind + "-" + attachment.Machine.String(),
-				)
-				if err != nil {
-					return params.StorageDetails{}, errors.Errorf(
-						"generating storage instance %q attachment machine %q tag: %w",
-						si.UUID, *attachment.Machine, err,
-					)
-				}
-				machineTagStr = machineTag.String()
+				machineTagStr = names.NewMachineTag(attachment.Machine.String()).String()
 			}
 
 			sad := params.StorageAttachmentDetails{
@@ -828,7 +792,10 @@ func (a *StorageAPI) volumeDetails(
 // ListFilesystems returns a list of filesystems in the environment matching
 // the provided filter. Each result describes a filesystem in detail, including
 // the filesystem's attachments.
-func (a *StorageAPI) ListFilesystems(ctx context.Context, filters params.FilesystemFilters) (params.FilesystemDetailsListResults, error) {
+func (a *StorageAPI) ListFilesystems(
+	ctx context.Context,
+	filters params.FilesystemFilters,
+) (params.FilesystemDetailsListResults, error) {
 	if err := a.checkCanRead(ctx); err != nil {
 		return params.FilesystemDetailsListResults{}, errors.Capture(err)
 	}
