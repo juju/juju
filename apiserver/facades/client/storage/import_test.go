@@ -33,7 +33,9 @@ func (s *importSuite) TestImport(c *tc.C) {
 	s.storageService.EXPECT().GetStoragePoolUUID(
 		gomock.Any(), "mypool").Return(spUUID, nil)
 	s.storageService.EXPECT().AdoptFilesystem(
-		gomock.Any(), "pgdata", spUUID, "a-provider-id", true,
+		gomock.Any(),
+		domainstorage.Name("pgdata"),
+		spUUID, "a-provider-id", true,
 	).Return(storageID, nil)
 
 	apiArgs := params.BulkImportStorageParamsV2{
@@ -118,7 +120,9 @@ func (s *importSuite) TestImportLatePoolNotFound(c *tc.C) {
 	s.storageService.EXPECT().GetStoragePoolUUID(
 		gomock.Any(), "mypool").Return(spUUID, nil)
 	s.storageService.EXPECT().AdoptFilesystem(
-		gomock.Any(), "pgdata", spUUID, "a-provider-id", true,
+		gomock.Any(),
+		domainstorage.Name("pgdata"),
+		spUUID, "a-provider-id", true,
 	).Return("", domainstorageerrors.StoragePoolNotFound)
 
 	apiArgs := params.BulkImportStorageParamsV2{
@@ -149,7 +153,9 @@ func (s *importSuite) TestImportPooledStorageEntityNotFound(c *tc.C) {
 	s.storageService.EXPECT().GetStoragePoolUUID(
 		gomock.Any(), "mypool").Return(spUUID, nil)
 	s.storageService.EXPECT().AdoptFilesystem(
-		gomock.Any(), "pgdata", spUUID, "a-provider-id", true,
+		gomock.Any(),
+		domainstorage.Name("pgdata"),
+		spUUID, "a-provider-id", true,
 	).Return("", domainstorageerrors.PooledStorageEntityNotFound)
 
 	apiArgs := params.BulkImportStorageParamsV2{

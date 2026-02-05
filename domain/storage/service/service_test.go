@@ -6,6 +6,7 @@ package service
 import (
 	"testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -55,7 +56,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.storageRegistry = NewMockProviderRegistry(ctrl)
 
 	s.service = NewService(
-		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
 	)
 
 	c.Cleanup(func() {
