@@ -275,7 +275,7 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 		}
 	}()
 
-	if err := s.createModelSecret(ctx, params.Version, uri, p); err != nil {
+	if err := s.createUserSecret(ctx, params.Version, uri, p); err != nil {
 		return errors.Errorf("creating user secret %q: %w", uri.ID, err)
 	}
 	return nil
@@ -356,11 +356,11 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 			}
 			return errors.Capture(err)
 		}
-		if err := s.createApplicationSecret(ctx, params.Version, uri, params.CharmOwner.ID, p); err != nil {
+		if err := s.createCharmApplicationSecret(ctx, params.Version, uri, params.CharmOwner.ID, p); err != nil {
 			return errors.Errorf("cannot create charm secret %q: %w", uri.ID, err)
 		}
 	case domainsecret.UnitCharmSecretOwner:
-		if err := s.createUnitSecret(ctx, params.Version, uri, params.CharmOwner.ID, p); err != nil {
+		if err := s.createCharmUnitSecret(ctx, params.Version, uri, params.CharmOwner.ID, p); err != nil {
 			return errors.Errorf("cannot create charm secret %q: %w", uri.ID, err)
 		}
 	default:
@@ -546,9 +546,9 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 	})
 }
 
-func (s *SecretService) createApplicationSecret(ctx context.Context, version int, uri *secrets.URI, ownerID string,
+func (s *SecretService) createCharmApplicationSecret(ctx context.Context, version int, uri *secrets.URI, appName string,
 	params domainsecret.UpsertSecretParams) error {
-	appUUID, err := s.getApplicationUUIDByName(ctx, ownerID)
+	appUUID, err := s.getApplicationUUIDByName(ctx, appName)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -559,9 +559,9 @@ func (s *SecretService) createApplicationSecret(ctx context.Context, version int
 	return nil
 }
 
-func (s *SecretService) createUnitSecret(ctx context.Context, version int, uri *secrets.URI, ownerID string,
+func (s *SecretService) createCharmUnitSecret(ctx context.Context, version int, uri *secrets.URI, unitName string,
 	params domainsecret.UpsertSecretParams) error {
-	unitUUID, err := s.getUnitUUIDByName(ctx, ownerID)
+	unitUUID, err := s.getUnitUUIDByName(ctx, unitName)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -571,7 +571,7 @@ func (s *SecretService) createUnitSecret(ctx context.Context, version int, uri *
 	return nil
 }
 
-func (s *SecretService) createModelSecret(ctx context.Context, version int, uri *secrets.URI,
+func (s *SecretService) createUserSecret(ctx context.Context, version int, uri *secrets.URI,
 	params domainsecret.UpsertSecretParams) error {
 	if err := s.secretState.CreateUserSecret(ctx, version, uri, params); err != nil {
 		return errors.Errorf("cannot create user secret: %w", err)
