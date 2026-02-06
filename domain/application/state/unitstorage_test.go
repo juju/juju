@@ -75,14 +75,15 @@ func (u *unitStorageSuite) newStorageInstanceWithLifeAndWithModelFilesystem(
 		c.Context(),
 		`
 INSERT INTO storage_instance (uuid, storage_name, storage_kind_id, storage_id,
-                              life_id, storage_pool_uuid, requested_size_mib)
-VALUES (?, ?, 1, ?, ?, ?, 1024)
+                              life_id, storage_pool_uuid, charm_name, requested_size_mib)
+VALUES (?, ?, 1, ?, ?, ?, ?, 1024)
 `,
 		storageInstanceUUID.String(),
 		"st1",
 		storageInstanceUUID.String(),
 		life,
 		storagePoolUUID.String(),
+		"bar",
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -691,6 +692,14 @@ func (u *unitStorageSuite) TestAttachStorageToIAASUnit(c *tc.C) {
 		FilesystemsToOwn: []domainstorage.FilesystemUUID{fsUUID},
 	})
 	c.Assert(err, tc.ErrorIsNil)
+
+	var siCharmName string
+	err = u.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT charm_name FROM storage_instance WHERE uuid=?", siUUID).Scan(&siCharmName)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(siCharmName, tc.Equals, "foo")
 
 	inst, attach, err := u.state.GetUnitOwnedStorageInstances(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
