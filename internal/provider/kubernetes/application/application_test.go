@@ -630,7 +630,7 @@ func (s *applicationSuite) TestEnsureStatefulWithAttachmentProviderID(c *tc.C) {
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, true, false, "", func(config *caas.ApplicationConfig) {
 			for i, fs := range config.Filesystems {
-				for j, _ := range fs.Attachments {
+				for j := range fs.Attachments {
 					config.Filesystems[i].Attachments[j].PersistentVolumeClaimTemplateName =
 						fmt.Sprintf("gitlab-storage%d-uniqid", i)
 				}
