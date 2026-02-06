@@ -22,8 +22,8 @@ func TestAll(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }
 
-func (m *ModelUpgraderAPI) FindAgents(args common.FindAgentsParams) (coretools.Versions, error) {
-	return m.findAgents(args)
+func (m *ModelUpgraderAPI) FindAgents(args common.FindAgentsParams, currentVersion version.Number) (coretools.Versions, error) {
+	return m.findAgents(args, currentVersion)
 }
 
 func (m *ModelUpgraderAPI) DecideVersion(
