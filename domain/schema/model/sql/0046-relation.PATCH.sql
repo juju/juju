@@ -1,3 +1,4 @@
+-- noqa: disable=all
 CREATE TRIGGER trg_custom_relation_uuid_empty_constraint
 BEFORE INSERT ON relation FOR EACH ROW
 WHEN
