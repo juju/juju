@@ -12,6 +12,7 @@ package mocks
 import (
 	context "context"
 	reflect "reflect"
+	regexp "regexp"
 
 	clock "github.com/juju/clock"
 	caas "github.com/juju/juju/caas"
@@ -46,17 +47,17 @@ func (m *MockApplicationOps) EXPECT() *MockApplicationOpsMockRecorder {
 }
 
 // AppAlive mocks base method.
-func (m *MockApplicationOps) AppAlive(arg0 context.Context, arg1 string, arg2 application.UUID, arg3 caas.Application, arg4 string, arg5 *caas.ApplicationConfig, arg6 *caasapplicationprovisioner.ProvisioningInfo, arg7 caasapplicationprovisioner.StatusService, arg8 clock.Clock, arg9 logger.Logger) error {
+func (m *MockApplicationOps) AppAlive(arg0 context.Context, arg1 string, arg2 application.UUID, arg3 caas.Application, arg4 string, arg5 *caas.ApplicationConfig, arg6 *caasapplicationprovisioner.ProvisioningInfo, arg7 caasapplicationprovisioner.StatusService, arg8 *regexp.Regexp, arg9 clock.Clock, arg10 logger.Logger) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AppAlive", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
+	ret := m.ctrl.Call(m, "AppAlive", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AppAlive indicates an expected call of AppAlive.
-func (mr *MockApplicationOpsMockRecorder) AppAlive(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9 any) *MockApplicationOpsAppAliveCall {
+func (mr *MockApplicationOpsMockRecorder) AppAlive(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10 any) *MockApplicationOpsAppAliveCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppAlive", reflect.TypeOf((*MockApplicationOps)(nil).AppAlive), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppAlive", reflect.TypeOf((*MockApplicationOps)(nil).AppAlive), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10)
 	return &MockApplicationOpsAppAliveCall{Call: call}
 }
 
@@ -72,13 +73,13 @@ func (c *MockApplicationOpsAppAliveCall) Return(arg0 error) *MockApplicationOpsA
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationOpsAppAliveCall) Do(f func(context.Context, string, application.UUID, caas.Application, string, *caas.ApplicationConfig, *caasapplicationprovisioner.ProvisioningInfo, caasapplicationprovisioner.StatusService, clock.Clock, logger.Logger) error) *MockApplicationOpsAppAliveCall {
+func (c *MockApplicationOpsAppAliveCall) Do(f func(context.Context, string, application.UUID, caas.Application, string, *caas.ApplicationConfig, *caasapplicationprovisioner.ProvisioningInfo, caasapplicationprovisioner.StatusService, *regexp.Regexp, clock.Clock, logger.Logger) error) *MockApplicationOpsAppAliveCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationOpsAppAliveCall) DoAndReturn(f func(context.Context, string, application.UUID, caas.Application, string, *caas.ApplicationConfig, *caasapplicationprovisioner.ProvisioningInfo, caasapplicationprovisioner.StatusService, clock.Clock, logger.Logger) error) *MockApplicationOpsAppAliveCall {
+func (c *MockApplicationOpsAppAliveCall) DoAndReturn(f func(context.Context, string, application.UUID, caas.Application, string, *caas.ApplicationConfig, *caasapplicationprovisioner.ProvisioningInfo, caasapplicationprovisioner.StatusService, *regexp.Regexp, clock.Clock, logger.Logger) error) *MockApplicationOpsAppAliveCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

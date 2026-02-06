@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"regexp"
 	"testing"
 	"time"
 
@@ -585,6 +586,8 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 	lastApplied := caas.ApplicationConfig{}
 	appUUID := tc.Must(c, application.NewUUID)
 	storageUniqueID := appUUID.String()[:6]
+	reg, err := regexp.Compile(`^(.+)-` + regexp.QuoteMeta("test") + `-\d+$`)
+	c.Assert(err, tc.ErrorIsNil)
 
 	pi := caasapplicationprovisioner.ProvisioningInfo{
 		ImageDetails: coreresource.DockerImageDetails{
@@ -641,6 +644,7 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 				{
 					MountPoint: "/charm-defined-location/data/0",
 					ReadOnly:   false,
+					// This is the complete PVC name with the ordinal.
 					ProviderID: "test-data-uniqid123-test-0",
 				},
 			},
@@ -705,8 +709,11 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 			},
 			Attachments: []storage.KubernetesFilesystemAttachmentParams{
 				{
-					ReadOnly:                          false,
-					Path:                              "/charm-defined-location/data/0",
+					ReadOnly: false,
+					Path:     "/charm-defined-location/data/0",
+					// This is the prefix of the complete PVC name.
+					// We use it as the PVC template name. See that the ordinal
+					// is removed.
 					PersistentVolumeClaimTemplateName: "test-data-uniqid123",
 				},
 			},
@@ -726,8 +733,8 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 		}),
 	)
 
-	err := caasapplicationprovisioner.AppOps.AppAlive(c.Context(), "test",
-		appUUID, app, password, &lastApplied, &pi, statusService, clk, s.logger)
+	err = caasapplicationprovisioner.AppOps.AppAlive(c.Context(), "test",
+		appUUID, app, password, &lastApplied, &pi, statusService, reg, clk, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
