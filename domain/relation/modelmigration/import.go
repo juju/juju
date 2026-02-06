@@ -75,17 +75,28 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute the import of application resources.
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
+	// Get the remote applications so that we can filter out any remote consumer
+	// relations, which are not imported as part of the relation domain, but
+	// rather as part of the crossmodelrelation domain.
+	remoteApplications := model.RemoteApplications()
+
 	var args relation.ImportRelationsArgs
-	relations := model.Relations()
-	if len(relations) == 0 {
-		return nil
-	}
-	for _, rel := range relations {
+	for _, rel := range model.Relations() {
+		if isRemoteConsumerRelation(rel, remoteApplications) {
+			continue
+		}
+
 		arg, err := i.createImportArg(rel)
 		if err != nil {
 			return errors.Errorf("setting up relation data for import %d: %w", rel.Id(), err)
 		}
 		args = append(args, arg)
+	}
+
+	// If there are no relations to import, then we can skip calling the
+	// service method.
+	if len(args) == 0 {
+		return nil
 	}
 
 	err := i.service.ImportRelations(ctx, args)
@@ -102,23 +113,51 @@ func (i *importOperation) createImportArg(rel description.Relation) (relation.Im
 	}
 
 	arg := relation.ImportRelationArg{
-		Endpoints: []relation.ImportEndpoint{},
-		ID:        rel.Id(),
-		Key:       key,
-		Scope:     charm.ScopeGlobal,
+		ID:    rel.Id(),
+		Key:   key,
+		Scope: charm.ScopeGlobal,
 	}
 
 	for _, v := range rel.Endpoints() {
 		if v.Scope() == string(charm.ScopeContainer) {
 			arg.Scope = charm.ScopeContainer
 		}
-		endpoint := relation.ImportEndpoint{
+		arg.Endpoints = append(arg.Endpoints, relation.ImportEndpoint{
 			ApplicationName:     v.ApplicationName(),
 			EndpointName:        v.Name(),
 			ApplicationSettings: v.ApplicationSettings(),
 			UnitSettings:        v.AllSettings(),
-		}
-		arg.Endpoints = append(arg.Endpoints, endpoint)
+		})
 	}
 	return arg, nil
+}
+
+func isRemoteConsumerRelation(rel description.Relation, remoteApps []description.RemoteApplication) bool {
+	// If there are no remote applications, then there can't be any remote
+	// relations.
+	if len(remoteApps) == 0 {
+		return false
+	}
+
+	// The only way to really know if a relation is a remote relation is to
+	// cross reference the relation endpoints with the remote applications. If
+	// any of the relation endpoints belong to a remote application, that is
+	// a consumer proxy remote application, then we return true.
+	remoteConsumers := make(map[string]struct{})
+	for _, app := range remoteApps {
+		if !app.IsConsumerProxy() {
+			continue
+		}
+
+		remoteConsumers[app.Name()] = struct{}{}
+	}
+
+	for _, endpoint := range rel.Endpoints() {
+		appName := endpoint.ApplicationName()
+		if _, ok := remoteConsumers[appName]; ok {
+			return true
+		}
+	}
+
+	return false
 }
