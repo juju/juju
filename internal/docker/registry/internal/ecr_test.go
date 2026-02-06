@@ -315,7 +315,10 @@ func (s *elasticContainerRegistrySuite) assertGetManifestsSchemaVersion1(c *tc.C
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic xxxx==="}})
+			c.Assert(req.Header, tc.DeepEquals, http.Header{
+				"Authorization": []string{"Basic xxxx==="},
+				"Accept":        expectedManifestAcceptHeader,
+			})
 			c.Assert(req.Method, tc.Equals, `GET`)
 			c.Assert(req.URL.String(), tc.Equals, `https://66668888.dkr.ecr.eu-west-1.amazonaws.com/v2/jujud-operator/manifests/2.9.10`)
 			resps := &http.Response{

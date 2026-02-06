@@ -15,6 +15,7 @@ import (
 	x509 "crypto/x509"
 	net "net"
 	reflect "reflect"
+	time "time"
 
 	pki "github.com/juju/juju/internal/pki"
 	gomock "go.uber.org/mock/gomock"
@@ -267,6 +268,42 @@ func (c *MockAuthorityLeafRequestForGroupCall) Do(f func(string) pki.LeafRequest
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockAuthorityLeafRequestForGroupCall) DoAndReturn(f func(string) pki.LeafRequest) *MockAuthorityLeafRequestForGroupCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetLeafValidityDuration mocks base method.
+func (m *MockAuthority) SetLeafValidityDuration(arg0 time.Duration) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetLeafValidityDuration", arg0)
+}
+
+// SetLeafValidityDuration indicates an expected call of SetLeafValidityDuration.
+func (mr *MockAuthorityMockRecorder) SetLeafValidityDuration(arg0 any) *MockAuthoritySetLeafValidityDurationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLeafValidityDuration", reflect.TypeOf((*MockAuthority)(nil).SetLeafValidityDuration), arg0)
+	return &MockAuthoritySetLeafValidityDurationCall{Call: call}
+}
+
+// MockAuthoritySetLeafValidityDurationCall wrap *gomock.Call
+type MockAuthoritySetLeafValidityDurationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAuthoritySetLeafValidityDurationCall) Return() *MockAuthoritySetLeafValidityDurationCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAuthoritySetLeafValidityDurationCall) Do(f func(time.Duration)) *MockAuthoritySetLeafValidityDurationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAuthoritySetLeafValidityDurationCall) DoAndReturn(f func(time.Duration)) *MockAuthoritySetLeafValidityDurationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
