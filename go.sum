@@ -393,8 +393,8 @@ github.com/juju/collections v0.0.0-20220203020748-febd7cad8a7a/go.mod h1:JWeZdyt
 github.com/juju/collections v1.0.0/go.mod h1:JWeZdyttIEbkR51z2S13+J+aCuHVe0F6meRy+P0YGDo=
 github.com/juju/collections v1.0.4 h1:GjL+aN512m2rVDqhPII7P6qB0e+iYFubz8sqBhZaZtk=
 github.com/juju/collections v1.0.4/go.mod h1:hVrdB0Zwq9wIU1Fl6ItD2+UETeNeOEs+nGvJufVe+0c=
-github.com/juju/description/v11 v11.0.0-20260115203504-e19a7ca61eb3 h1:5u7WACJ2dZ39G/oMTNhcf3QHBk29qmGt23SDjVCqgZo=
-github.com/juju/description/v11 v11.0.0-20260115203504-e19a7ca61eb3/go.mod h1:7O7UhXGw29sIx7AoACdKSGq8rmwXkqfGinpCOn0fprE=
+github.com/juju/description/v11 v11.0.0-20260205224702-ea6d3105b20c h1:+s0h1if4nz5/ZmePcUgFahcxv+vnDGBuHSduOvYnBMY=
+github.com/juju/description/v11 v11.0.0-20260205224702-ea6d3105b20c/go.mod h1:7O7UhXGw29sIx7AoACdKSGq8rmwXkqfGinpCOn0fprE=
 github.com/juju/errors v0.0.0-20150916125642-1b5e39b83d18/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
 github.com/juju/errors v0.0.0-20200330140219-3fe23663418f/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
 github.com/juju/errors v0.0.0-20210818161939-5560c4c073ff/go.mod h1:i1eL7XREII6aHpQ2gApI/v6FkVUDEBremNkcBCKYAcY=

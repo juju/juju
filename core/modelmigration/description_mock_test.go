@@ -2611,6 +2611,42 @@ func (c *MockModelSetMeterStatusCall) DoAndReturn(f func(string, string) descrip
 	return c
 }
 
+// SetOwner mocks base method.
+func (m *MockModel) SetOwner(arg0 string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetOwner", arg0)
+}
+
+// SetOwner indicates an expected call of SetOwner.
+func (mr *MockModelMockRecorder) SetOwner(arg0 any) *MockModelSetOwnerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetOwner", reflect.TypeOf((*MockModel)(nil).SetOwner), arg0)
+	return &MockModelSetOwnerCall{Call: call}
+}
+
+// MockModelSetOwnerCall wrap *gomock.Call
+type MockModelSetOwnerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelSetOwnerCall) Return() *MockModelSetOwnerCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelSetOwnerCall) Do(f func(string)) *MockModelSetOwnerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelSetOwnerCall) DoAndReturn(f func(string)) *MockModelSetOwnerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetSLA mocks base method.
 func (m *MockModel) SetSLA(arg0, arg1, arg2 string) description.SLA {
 	m.ctrl.T.Helper()
@@ -2681,6 +2717,42 @@ func (c *MockModelSetSequenceCall) Do(f func(string, int)) *MockModelSetSequence
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelSetSequenceCall) DoAndReturn(f func(string, int)) *MockModelSetSequenceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetUsers mocks base method.
+func (m *MockModel) SetUsers(arg0 []description.UserArgs) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetUsers", arg0)
+}
+
+// SetUsers indicates an expected call of SetUsers.
+func (mr *MockModelMockRecorder) SetUsers(arg0 any) *MockModelSetUsersCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUsers", reflect.TypeOf((*MockModel)(nil).SetUsers), arg0)
+	return &MockModelSetUsersCall{Call: call}
+}
+
+// MockModelSetUsersCall wrap *gomock.Call
+type MockModelSetUsersCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelSetUsersCall) Return() *MockModelSetUsersCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelSetUsersCall) Do(f func([]description.UserArgs)) *MockModelSetUsersCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelSetUsersCall) DoAndReturn(f func([]description.UserArgs)) *MockModelSetUsersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

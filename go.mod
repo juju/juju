@@ -1,6 +1,6 @@
 module github.com/juju/juju
 
-go 1.25.6
+go 1.25.7
 
 require (
 	cloud.google.com/go/compute v1.44.0
@@ -55,7 +55,7 @@ require (
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/clock v1.1.1
 	github.com/juju/collections v1.0.4
-	github.com/juju/description/v11 v11.0.0-20260115203504-e19a7ca61eb3
+	github.com/juju/description/v11 v11.0.0-20260205224702-ea6d3105b20c
 	github.com/juju/errors v1.0.0
 	github.com/juju/gnuflag v1.0.0
 	github.com/juju/gojsonschema v1.0.0
