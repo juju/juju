@@ -110,8 +110,7 @@ func (s *importSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 						Interface: "mysql",
 					},
 				},
-				Bindings: map[string]string{"db": "alpha"},
-				Units:    nil,
+				Units: nil,
 			},
 		},
 	}
@@ -384,8 +383,7 @@ func (s *importSuite) TestImportRemoteApplicationConsumers(c *tc.C) {
 					Interface: "dummy-token",
 				},
 			},
-			Bindings: map[string]string(nil),
-			Units:    []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
+			Units: []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
 		},
 		RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
 		RelationKey: relation.Key{
@@ -574,8 +572,7 @@ func (s *importSuite) TestImportRemoteApplicationConsumersMultipleRemoteApplicat
 					Interface: "dummy-token",
 				},
 			},
-			Bindings: map[string]string(nil),
-			Units:    []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
+			Units: []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
 		},
 		RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
 		RelationKey: relation.Key{
@@ -606,8 +603,7 @@ func (s *importSuite) TestImportRemoteApplicationConsumersMultipleRemoteApplicat
 					Interface: "dummy-token",
 				},
 			},
-			Bindings: map[string]string(nil),
-			Units:    []string{"remote-a50f295556314aa4803f766a8802e33a/0"},
+			Units: []string{"remote-a50f295556314aa4803f766a8802e33a/0"},
 		},
 		RelationUUID: "ed736d84-0007-438c-8c0e-eac6e0d6dadd",
 		RelationKey: relation.Key{

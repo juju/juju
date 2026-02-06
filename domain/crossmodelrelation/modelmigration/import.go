@@ -233,9 +233,8 @@ func (i *importOperation) importRemoteApplicationOfferers(
 				URL:             remoteApp.URL(),
 				SourceModelUUID: remoteApp.SourceModelUUID(),
 				Macaroon:        remoteApp.Macaroon(),
-				Endpoints:       endpoints,
-				Bindings:        remoteApp.Bindings(),
 				Units:           remoteAppUnits[remoteApp.Name()],
+				Endpoints:       endpoints,
 			},
 		})
 	}
@@ -304,7 +303,6 @@ func (i *importOperation) importRemoteApplicationConsumers(
 				URL:       remoteApp.URL(),
 				Macaroon:  remoteApp.Macaroon(),
 				Endpoints: endpoints,
-				Bindings:  remoteApp.Bindings(),
 				Units:     remoteAppUnits[remoteApp.Name()],
 			},
 			RelationUUID:            relationUUID,
