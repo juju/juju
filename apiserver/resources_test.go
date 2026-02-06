@@ -15,7 +15,6 @@ import (
 	"time"
 
 	charmresource "github.com/juju/charm/v8/resource"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -61,11 +60,11 @@ func (s *ResourcesHandlerSuite) SetUpTest(c *gc.C) {
 	s.req = req
 	s.recorder = httptest.NewRecorder()
 	s.uploadHandler = &apiserver.ResourcesUploadHandler{
-		StateFunc:         s.stateUpload,
+		StateFunc:         s.stateFunc,
 		ChangeAllowedFunc: func(*http.Request) error { return nil },
 	}
 	s.downloadHandler = &apiserver.ResourcesDownloadHandler{
-		StateAuthFunc: s.authStateDownload,
+		StateFunc: s.stateFunc,
 	}
 }
 
@@ -80,7 +79,7 @@ func (s *ResourcesHandlerSuite) authStateDownload(req *http.Request, tagKinds ..
 	return s.backend, ph, nil
 }
 
-func (s *ResourcesHandlerSuite) stateUpload(req *http.Request) (
+func (s *ResourcesHandlerSuite) stateFunc(req *http.Request) (
 	apiserver.ResourcesBackend, state.PoolHelper, names.Tag, error,
 ) {
 	if s.stateAuthErr != nil {
@@ -92,24 +91,16 @@ func (s *ResourcesHandlerSuite) stateUpload(req *http.Request) (
 	return s.backend, ph, tag, nil
 }
 
-func (s *ResourcesHandlerSuite) TestExpectedAuthTags(c *gc.C) {
-	expectedTags := set.NewStrings(names.UserTagKind, names.MachineTagKind, names.ControllerAgentTagKind, names.ApplicationTagKind)
+func (s *ResourcesHandlerSuite) TestDownloadStateAuthFailure(c *gc.C) {
+	failure, expected := apiFailure("<failure>", "")
+	s.stateAuthErr = failure
 
-	s.downloadHandler.StateAuthFunc = func(req *http.Request, tagKinds ...string) (apiserver.ResourcesBackend, state.PoolHelper, error) {
-		gotTags := set.NewStrings(tagKinds...)
-		if gotTags.Difference(expectedTags).Size() != 0 || expectedTags.Difference(gotTags).Size() != 0 {
-			c.Fatalf("unexpected tag kinds %v", tagKinds)
-			return nil, nil, errors.NotValidf("tag kinds %v", tagKinds)
-		}
-		ph := apiservertesting.StubPoolHelper{StubRelease: func() bool { return false }}
-		return s.backend, ph, nil
-	}
-	s.req.Method = "GET"
 	s.downloadHandler.ServeHTTP(s.recorder, s.req)
-	s.checkResp(c, http.StatusOK, "application/octet-stream", resourceBody)
+
+	s.checkResp(c, http.StatusInternalServerError, "application/json", expected)
 }
 
-func (s *ResourcesHandlerSuite) TestStateAuthFailure(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestUploadStateAuthFailure(c *gc.C) {
 	failure, expected := apiFailure("<failure>", "")
 	s.stateAuthErr = failure
 

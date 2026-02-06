@@ -50,12 +50,12 @@ type ResourcesUploadHandler struct {
 // ResourcesDownloadHandler is the HTTP handler for client
 // downloads of resources.
 type ResourcesDownloadHandler struct {
-	StateAuthFunc func(*http.Request, ...string) (ResourcesBackend, state.PoolHelper, error)
+	StateFunc func(*http.Request) (ResourcesBackend, state.PoolHelper, names.Tag, error)
 }
 
 // ServeHTTP implements http.Handler.
 func (h *ResourcesDownloadHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	backend, poolhelper, err := h.StateAuthFunc(req, names.UserTagKind, names.MachineTagKind, names.ControllerAgentTagKind, names.ApplicationTagKind)
+	backend, poolhelper, _, err := h.StateFunc(req)
 	if err != nil {
 		if err := sendError(resp, err); err != nil {
 			logger.Errorf("%v", err)

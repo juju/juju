@@ -118,17 +118,30 @@ func (s *resourcesAuthSuite) TestAuthRejectsNonsUser(c *gc.C) {
 	resp.Body.Close()
 }
 
-func (s *resourcesAuthSuite) TestAuthRejectsUserWithoutPermission(c *gc.C) {
-	u := s.Factory.MakeUser(c, &factory.UserParams{
+func (s *resourcesAuthSuite) TestUploadAuthRejectsUserWithoutPermission(c *gc.C) {
+	s.Factory.MakeUser(c, &factory.UserParams{
 		Name:     "oryx",
 		Password: "gardener",
 		Access:   permission.ReadAccess,
 	})
+	s.assertAuthRejectsUserWithoutPermission(c, "PUT")
+}
+
+func (s *resourcesAuthSuite) TestDownloadAuthRejectsUserWithoutPermission(c *gc.C) {
+	s.Factory.MakeUser(c, &factory.UserParams{
+		Name:        "oryx",
+		Password:    "gardener",
+		NoModelUser: true,
+	})
+	s.assertAuthRejectsUserWithoutPermission(c, "GET")
+}
+
+func (s *resourcesAuthSuite) assertAuthRejectsUserWithoutPermission(c *gc.C, method string) {
 
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
-		Tag:      u.Tag().String(),
+		Tag:      "user-oryx",
 		Password: "gardener",
-		Method:   "PUT",
+		Method:   method,
 		URL:      s.resourcesURL("tomcat", "jdk").String(),
 	})
 	defer resp.Body.Close()

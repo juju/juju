@@ -793,14 +793,24 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			return nil
 		},
 	}
+	var resourcesDownloadAuthorizer httpcontext.CompositeAuthorizer = []httpcontext.Authorizer{
+		controllerAdminAuthorizer{
+			st: systemState,
+		},
+		modelPermissionAuthorizer{
+			userAccess: systemState.UserPermission,
+			perm:       permission.ReadAccess,
+		},
+		tagKindAuthorizer{names.ControllerAgentTagKind, names.MachineTagKind, names.ApplicationTagKind},
+	}
 	resourceDownloadHandler := &ResourcesDownloadHandler{
-		StateAuthFunc: func(req *http.Request, tagKinds ...string) (ResourcesBackend, state.PoolHelper, error) {
-			st, _, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
+		StateFunc: func(req *http.Request) (ResourcesBackend, state.PoolHelper, names.Tag, error) {
+			st, entity, err := httpCtxt.stateForRequestAuthenticated(req)
 			if err != nil {
-				return nil, nil, errors.Trace(err)
+				return nil, nil, nil, errors.Trace(err)
 			}
 			rst := st.Resources()
-			return rst, st, nil
+			return rst, st, entity.Tag(), nil
 		},
 	}
 	unitResourcesHandler := &UnitResourcesHandler{
@@ -906,9 +916,10 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		handler:         modelToolsDownloadHandler,
 		unauthenticated: true,
 	}, {
-		pattern: modelRoutePrefix + "/applications/:application/resources/:resource",
-		methods: []string{"GET"},
-		handler: resourceDownloadHandler,
+		pattern:    modelRoutePrefix + "/applications/:application/resources/:resource",
+		methods:    []string{"GET"},
+		handler:    resourceDownloadHandler,
+		authorizer: resourcesDownloadAuthorizer,
 	}, {
 		pattern:    modelRoutePrefix + "/applications/:application/resources/:resource",
 		methods:    []string{"PUT"},
