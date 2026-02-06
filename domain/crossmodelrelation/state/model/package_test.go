@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/status"
-	"github.com/juju/juju/internal/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internaluuid "github.com/juju/juju/internal/uuid"
@@ -84,12 +83,12 @@ func (s *baseSuite) query(c *tc.C, query string, args ...any) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, query, args...)
 		if err != nil {
-			return errors.Errorf("%w: query: %s (args: %s)", err, query, args)
+			return internalerrors.Errorf("%w: query: %s (args: %s)", err, query, args)
 		}
 		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) populate DB: %v",
-		errors.ErrorStack(err)))
+		internalerrors.ErrorStack(err)))
 }
 
 // addApplication adds a new application to the database with the specified
@@ -446,15 +445,15 @@ FROM relation WHERE relation_id=?
 		}
 		return nil
 	})
-	if c.Check(err, tc.ErrorIsNil) {
-		c.Check(gotUUID, tc.Equals, relationUUID)
-		c.Check(gotID, tc.Equals, relationID)
-		c.Check(gotLifID, tc.Equals, 0)   // life.Alive
-		c.Check(gotScopeID, tc.Equals, 0) // scope.Global
-		c.Check(gotSuspended, tc.Equals, false)
-		c.Check(gotSuspendedReason.V, tc.Equals, "")
-	}
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotUUID, tc.Equals, relationUUID)
+	c.Check(gotID, tc.Equals, relationID)
+	c.Check(gotLifID, tc.Equals, 0)   // life.Alive
+	c.Check(gotScopeID, tc.Equals, 0) // scope.Global
+	c.Check(gotSuspended, tc.Equals, false)
+	c.Check(gotSuspendedReason.V, tc.Equals, "")
 }
+
 func (s *baseSuite) assertRelationEndpoints(c *tc.C, relationUUID, app1UUID, app2UUID string) {
 	c.Helper()
 
@@ -484,7 +483,7 @@ WHERE  relation_uuid = ?
 		}
 		return nil
 	})
-	c.Check(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(appUUIDs.IsEmpty(), tc.Equals, true, tc.Commentf("relation_endpoint with app %q, not found", appUUIDs.SortedValues()))
 }
 
