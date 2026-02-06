@@ -80,7 +80,7 @@ type ApplicationOps interface {
 	AppAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 		app caas.Application, password string, lastApplied *caas.ApplicationConfig,
 		provisioningInfo *ProvisioningInfo, statusService StatusService,
-		clk clock.Clock, logger logger.Logger) error
+		pvcNamePrefixReg *regexp.Regexp, clk clock.Clock, logger logger.Logger) error
 
 	AppDying(ctx context.Context, appName string, appUUID coreapplication.UUID,
 		app caas.Application, appLife life.Value, facade CAASProvisionerFacade,
@@ -138,10 +138,10 @@ func (applicationOps) AppAlive(
 	appName string, appUUID coreapplication.UUID, app caas.Application,
 	password string, lastApplied *caas.ApplicationConfig,
 	provisioningInfo *ProvisioningInfo, statusService StatusService,
-	clk clock.Clock, logger logger.Logger,
+	pvcNamePrefixReg *regexp.Regexp, clk clock.Clock, logger logger.Logger,
 ) error {
 	return appAlive(ctx, appName, appUUID, app, password,
-		lastApplied, provisioningInfo, statusService,
+		lastApplied, provisioningInfo, statusService, pvcNamePrefixReg,
 		clk, logger)
 }
 
@@ -226,7 +226,7 @@ type Tomb interface {
 // CAAS broker to create the resources in the k8s cluster for this application.
 func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 	app caas.Application, password string, lastApplied *caas.ApplicationConfig,
-	pi *ProvisioningInfo, statusService StatusService,
+	pi *ProvisioningInfo, statusService StatusService, pvcNamePrefixReg *regexp.Regexp,
 	clk clock.Clock, logger logger.Logger,
 ) error {
 	logger.Debugf(ctx, "ensuring application %q exists", appName)
@@ -278,59 +278,13 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 	}
 
 	storageUniqueID := getStorageUniqueID(appUUID)
-
-	re, err := regexp.Compile(`^(.+)-` + regexp.QuoteMeta(appName) + `-\d+$`)
-	if err != nil {
-		return errors.Annotatef(err, "compiling regex to get pvc template name")
-	}
-
-	makeKubernetesFilesystemParams := func(
-		fst storageprovisioning.FilesystemTemplate,
-		attachments []storageprovisioning.FilesystemAttachmentTemplate,
-		forWorkload bool,
-	) internalstorage.KubernetesFilesystemParams {
-		k8sFileSystemParamAttachments := make(
-			[]internalstorage.KubernetesFilesystemAttachmentParams,
-			len(attachments),
-		)
-
-		// The attachment provider ID is the fully qualified name of the
-		// PVC. It's suffixed with the pod ordinal. We just want to capture
-		// the prefix to get the PVC template name.
-		// For e.g. provider ID is <appname>-<storagename>-<uniqid>-<appname>-<ordinal>
-		// we just want <appname>-<storagename>-<uniqid>.
-		for i, attachment := range attachments {
-			var pvcTemplateName string
-			matches := re.FindStringSubmatch(attachment.ProviderID)
-			if len(matches) > 1 {
-				pvcTemplateName = matches[1]
-			}
-			k8sFileSystemParamAttachments[i] = internalstorage.KubernetesFilesystemAttachmentParams{
-				ReadOnly:                          attachment.ReadOnly,
-				Path:                              attachment.MountPoint,
-				ContainerName:                     attachment.ContainerKey,
-				PersistentVolumeClaimTemplateName: pvcTemplateName,
-			}
-		}
-
-		return internalstorage.KubernetesFilesystemParams{
-			StorageName: fst.StorageName,
-			Size:        fst.SizeMiB,
-			Provider:    internalstorage.ProviderType(fst.ProviderType),
-			Attributes: transform.Map(fst.Attributes, func(k, v string) (string, any) {
-				return k, v
-			}),
-			Attachments:  k8sFileSystemParamAttachments,
-			ResourceTags: pi.StorageResourceTags,
-		}
-	}
-
 	filesystems := []internalstorage.KubernetesFilesystemParams{}
 	for _, fst := range pi.FilesystemTemplates {
 		filesystems = append(filesystems, makeKubernetesFilesystemParams(
 			fst,
 			fst.Attachments,
-			false,
+			pi.StorageResourceTags,
+			pvcNamePrefixReg,
 		))
 	}
 
@@ -382,6 +336,54 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 	}
 	logger.Debugf(ctx, "application %q was %q", appName, reason)
 	return nil
+}
+
+func makeKubernetesFilesystemParams(
+	fst storageprovisioning.FilesystemTemplate,
+	attachments []storageprovisioning.FilesystemAttachmentTemplate,
+	storageResourceTags map[string]string,
+	pvcNamePrefixReg *regexp.Regexp,
+) internalstorage.KubernetesFilesystemParams {
+	k8sFileSystemParamAttachments := make(
+		[]internalstorage.KubernetesFilesystemAttachmentParams,
+		len(attachments),
+	)
+
+	for i, attachment := range attachments {
+		k8sFileSystemParamAttachments[i] = internalstorage.KubernetesFilesystemAttachmentParams{
+			ReadOnly:                          attachment.ReadOnly,
+			Path:                              attachment.MountPoint,
+			ContainerName:                     attachment.ContainerKey,
+			PersistentVolumeClaimTemplateName: getPVCTemplateName(pvcNamePrefixReg, attachment.ProviderID),
+		}
+	}
+
+	return internalstorage.KubernetesFilesystemParams{
+		StorageName: fst.StorageName,
+		Size:        fst.SizeMiB,
+		Provider:    internalstorage.ProviderType(fst.ProviderType),
+		Attributes: transform.Map(fst.Attributes, func(k, v string) (string, any) {
+			return k, v
+		}),
+		Attachments:  k8sFileSystemParamAttachments,
+		ResourceTags: storageResourceTags,
+	}
+}
+
+// getPvcTemplateName receives a regexp prefix of the PVC name and a complete PVC name.
+// It returns a prefix of the complete PVC name which will be used as the PVC template name.
+// The completePVCName is suffixed with the ordinal.
+// e.g. <appname>-<storagename>-<uniqid>-<appname>-<ordinal>
+// We just want to capture the prefix to get the PVC template name.
+// e.g. <appname>-<storagename>-<uniqid>.
+// It returns an empty string if it cannot capture the prefix.
+func getPVCTemplateName(pvcNamePrefixReg *regexp.Regexp, completePVCName string) string {
+	var pvcTemplateName string
+	matches := pvcNamePrefixReg.FindStringSubmatch(completePVCName)
+	if len(matches) > 1 {
+		pvcTemplateName = matches[1]
+	}
+	return pvcTemplateName
 }
 
 // appDying handles the life.Dying state for the CAAS application. It deals with scaling down

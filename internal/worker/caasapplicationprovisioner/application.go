@@ -6,6 +6,7 @@ package caasapplicationprovisioner
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/juju/clock"
@@ -42,12 +43,13 @@ type appWorker struct {
 	logger logger.Logger
 	ops    ApplicationOps
 
-	appUUID          coreapplication.UUID
-	changes          chan struct{}
-	password         string
-	lastApplied      caas.ApplicationConfig
-	provisioningInfo *ProvisioningInfo
-	life             life.Value
+	appUUID             coreapplication.UUID
+	changes             chan struct{}
+	password            string
+	lastApplied         caas.ApplicationConfig
+	provisioningInfo    *ProvisioningInfo
+	life                life.Value
+	pvcNamePrefixRegexp *regexp.Regexp
 
 	engineReportRequest chan chan<- map[string]any
 }
@@ -79,6 +81,7 @@ func NewAppWorker(config AppWorkerConfig) func(ctx context.Context) (worker.Work
 	if ops == nil {
 		ops = &applicationOps{}
 	}
+
 	return func(ctx context.Context) (worker.Worker, error) {
 		changes := make(chan struct{}, 1)
 		changes <- struct{}{}
@@ -134,6 +137,12 @@ func (a *appWorker) loop() error {
 	} else if err != nil {
 		return errors.Annotatef(err, "fetching info for application %q", a.appUUID)
 	}
+
+	re, err := regexp.Compile(`^(.+)-` + regexp.QuoteMeta(name) + `-\d+$`)
+	if err != nil {
+		return errors.Annotatef(err, "compiling regex to get pvc template name")
+	}
+	a.pvcNamePrefixRegexp = re
 
 	// If the application is the Juju controller, only provide updates on the
 	// status of the application.
@@ -286,7 +295,7 @@ func (a *appWorker) loop() error {
 				}
 				err = a.ops.AppAlive(ctx, name, a.appUUID, app, a.password,
 					&a.lastApplied, a.provisioningInfo, a.statusService,
-					a.clock, a.logger)
+					a.pvcNamePrefixRegexp, a.clock, a.logger)
 				if err != nil {
 					return errors.Trace(err)
 				}
