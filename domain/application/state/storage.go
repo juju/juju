@@ -1151,12 +1151,57 @@ func (st *State) attachStorageForUnit(
 		)
 	}
 
+	err = st.updateStorageInstanceForUnit(ctx, tx, unitUUID, storageUUID)
+	if err != nil {
+		return errors.Errorf(
+			"updating storage instance %q for unit %q: %w", storageUUID, unitUUID, err,
+		)
+	}
+
 	err = st.unitState.insertUnitStorageOwnership(ctx, tx, unitUUID.String(), []domainstorage.StorageInstanceUUID{storageUUID})
 	if err != nil {
 		return errors.Errorf(
 			"inserting storage ownership for unit %q: %w", unitUUID, err,
 		)
 	}
+	return nil
+}
+
+// updateStorageInstanceForUnit updates the storage instance to reflect
+// that it's now attached to the specified unit.
+// Currently this just entails updating the storage instance
+// charm name to match that of the unit's charm.
+func (st *State) updateStorageInstanceForUnit(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitUUID coreunit.UUID,
+	storageUUID domainstorage.StorageInstanceUUID,
+) error {
+	uUUID := entityUUID{UUID: unitUUID.String()}
+	storageInst := storageInstance{StorageUUID: storageUUID}
+
+	updateStorageCharmStmt, err := st.Prepare(`
+UPDATE storage_instance
+SET charm_name = (
+    SELECT cm.name
+    FROM charm_metadata cm
+    JOIN UNIT u ON cm.charm_uuid = u.charm_uuid
+    WHERE u.uuid = $entityUUID.uuid
+)
+WHERE storage_instance.uuid = $storageInstance.uuid
+`,
+		uUUID, storageInst)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, updateStorageCharmStmt, uUUID, storageInst).Run()
+	if err != nil {
+		return errors.Errorf(
+			"setting storage instance charm name: %w", err,
+		)
+	}
+
 	return nil
 }
 
