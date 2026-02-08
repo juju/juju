@@ -3562,14 +3562,34 @@ func (s *stateSuite) TestListGrantedSecretsForBackendWithMultipleRoles(c *tc.C) 
 		URI:        uri,
 		RevisionID: "revision-id",
 	}})
+}
 
-	// Verify that a different application without any grants gets no results.
+// TestListGrantedSecretsForBackendNoGrants verifies that an application
+// without any grants gets no results.
+func (s *stateSuite) TestListGrantedSecretsForBackendNoGrants(c *tc.C) {
+	s.setupUnits(c, "mysql")
 	s.setupUnits(c, "mediawiki")
-	accessors2 := []domainsecret.AccessParams{{
+
+	ctx := c.Context()
+
+	// Create a secret owned by mysql.
+	sp := domainsecret.UpsertSecretParams{
+		RevisionID: ptr(uuid.MustNewUUID().String()),
+		ValueRef: &coresecrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "revision-id",
+		},
+	}
+	uri := coresecrets.NewURI()
+	err := s.createCharmApplicationSecret(c, 1, uri, "mysql", sp)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Query as mediawiki which has no grants to any secrets.
+	accessors := []domainsecret.AccessParams{{
 		SubjectTypeID: domainsecret.SubjectApplication,
 		SubjectID:     "mediawiki",
 	}}
-	result, err = s.state.ListGrantedSecretsForBackend(ctx, "backend-id", accessors2, []domainsecret.Role{domainsecret.RoleView, domainsecret.RoleManage})
+	result, err := s.state.ListGrantedSecretsForBackend(ctx, "backend-id", accessors, []domainsecret.Role{domainsecret.RoleView, domainsecret.RoleManage})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.HasLen, 0)
 }

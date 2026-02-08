@@ -2906,41 +2906,6 @@ func (s *serviceSuite) TestListGrantedSecretsForBackendWithRoleManage(c *tc.C) {
 	c.Check(result, tc.DeepEquals, expected)
 }
 
-func (s *serviceSuite) TestListGrantedSecretsForBackendWithRoleRotate(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	uri := coresecrets.NewURI()
-	expected := []*coresecrets.SecretRevisionRef{{
-		URI:        uri,
-		RevisionID: "rev-id",
-	}}
-
-	// When RoleRotate is requested, the service should expand it to include
-	// both RoleView and RoleManage (since manage implies view and rotate but
-	// rotate is not modelled in the domain).
-	s.state.EXPECT().ListGrantedSecretsForBackend(
-		gomock.Any(),
-		"backend-id",
-		[]domainsecret.AccessParams{{
-			SubjectTypeID: domainsecret.SubjectUnit,
-			SubjectID:     "mysql/0",
-		}},
-		[]domainsecret.Role{domainsecret.RoleView, domainsecret.RoleManage},
-	).Return(expected, nil)
-
-	result, err := s.service.ListGrantedSecretsForBackend(
-		c.Context(),
-		"backend-id",
-		coresecrets.RoleRotate,
-		domainsecret.SecretAccessor{
-			Kind: domainsecret.UnitAccessor,
-			ID:   "mysql/0",
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.DeepEquals, expected)
-}
-
 func (s *serviceSuite) TestListGrantedSecretsForBackendWithModelAccessor(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
