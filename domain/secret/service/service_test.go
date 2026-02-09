@@ -161,7 +161,7 @@ func (s *serviceSuite) assertCreateUserSecret(c *tc.C, isInternal, finalStepFail
 			SubjectID:     s.modelID.String(),
 			SubjectTypeID: domainsecret.SubjectModel,
 		},
-	}, coresecrets.RoleManage).Return(
+	}, []domainsecret.Role{domainsecret.RoleManage}).Return(
 		[]*coresecrets.SecretRevisionRef{
 			{
 				URI:        existingOwnedURI,
@@ -296,7 +296,7 @@ func (s *serviceSuite) assertUpdateUserSecret(c *tc.C, isInternal, finalStepFail
 			SubjectID:     s.modelID.String(),
 			SubjectTypeID: domainsecret.SubjectModel,
 		},
-	}, coresecrets.RoleManage).Return(
+	}, []domainsecret.Role{domainsecret.RoleManage}).Return(
 		[]*coresecrets.SecretRevisionRef{
 			{
 				URI:        existingOwnedURI,
@@ -2836,4 +2836,150 @@ func (s *serviceSuite) TestWatchSecretRevisionsExpiryChanges(c *tc.C) {
 		},
 	)
 	wC.AssertNoChange()
+}
+
+func (s *serviceSuite) TestListGrantedSecretsForBackendWithRoleView(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	expected := []*coresecrets.SecretRevisionRef{{
+		URI:        uri,
+		RevisionID: "rev-id",
+	}}
+
+	// When RoleView is requested, the service should expand it to include
+	// both RoleView and RoleManage (since manage implies view).
+	s.state.EXPECT().ListGrantedSecretsForBackend(
+		gomock.Any(),
+		"backend-id",
+		[]domainsecret.AccessParams{{
+			SubjectTypeID: domainsecret.SubjectApplication,
+			SubjectID:     "mysql",
+		}},
+		[]domainsecret.Role{domainsecret.RoleView, domainsecret.RoleManage},
+	).Return(expected, nil)
+
+	result, err := s.service.ListGrantedSecretsForBackend(
+		c.Context(),
+		"backend-id",
+		coresecrets.RoleView,
+		domainsecret.SecretAccessor{
+			Kind: domainsecret.ApplicationAccessor,
+			ID:   "mysql",
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, expected)
+}
+
+func (s *serviceSuite) TestListGrantedSecretsForBackendWithRoleManage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	expected := []*coresecrets.SecretRevisionRef{{
+		URI:        uri,
+		RevisionID: "rev-id",
+	}}
+
+	// When RoleManage is requested, only RoleManage should be passed
+	// (no expansion needed since manage is the highest role).
+	s.state.EXPECT().ListGrantedSecretsForBackend(
+		gomock.Any(),
+		"backend-id",
+		[]domainsecret.AccessParams{{
+			SubjectTypeID: domainsecret.SubjectUnit,
+			SubjectID:     "mysql/0",
+		}},
+		[]domainsecret.Role{domainsecret.RoleManage},
+	).Return(expected, nil)
+
+	result, err := s.service.ListGrantedSecretsForBackend(
+		c.Context(),
+		"backend-id",
+		coresecrets.RoleManage,
+		domainsecret.SecretAccessor{
+			Kind: domainsecret.UnitAccessor,
+			ID:   "mysql/0",
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, expected)
+}
+
+func (s *serviceSuite) TestListGrantedSecretsForBackendWithModelAccessor(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	expected := []*coresecrets.SecretRevisionRef{{
+		URI:        uri,
+		RevisionID: "rev-id",
+	}}
+
+	s.state.EXPECT().ListGrantedSecretsForBackend(
+		gomock.Any(),
+		"backend-id",
+		[]domainsecret.AccessParams{{
+			SubjectTypeID: domainsecret.SubjectModel,
+			SubjectID:     "model-uuid",
+		}},
+		[]domainsecret.Role{domainsecret.RoleManage},
+	).Return(expected, nil)
+
+	result, err := s.service.ListGrantedSecretsForBackend(
+		c.Context(),
+		"backend-id",
+		coresecrets.RoleManage,
+		domainsecret.SecretAccessor{
+			Kind: domainsecret.ModelAccessor,
+			ID:   "model-uuid",
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, expected)
+}
+
+func (s *serviceSuite) TestListGrantedSecretsForBackendWithMultipleAccessors(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri1 := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+	expected := []*coresecrets.SecretRevisionRef{
+		{URI: uri1, RevisionID: "rev-id-1"},
+		{URI: uri2, RevisionID: "rev-id-2"},
+	}
+
+	s.state.EXPECT().ListGrantedSecretsForBackend(
+		gomock.Any(),
+		"backend-id",
+		[]domainsecret.AccessParams{
+			{SubjectTypeID: domainsecret.SubjectUnit, SubjectID: "mysql/0"},
+			{SubjectTypeID: domainsecret.SubjectApplication, SubjectID: "mysql"},
+		},
+		[]domainsecret.Role{domainsecret.RoleView, domainsecret.RoleManage},
+	).Return(expected, nil)
+
+	result, err := s.service.ListGrantedSecretsForBackend(
+		c.Context(),
+		"backend-id",
+		coresecrets.RoleView,
+		domainsecret.SecretAccessor{Kind: domainsecret.UnitAccessor, ID: "mysql/0"},
+		domainsecret.SecretAccessor{Kind: domainsecret.ApplicationAccessor, ID: "mysql"},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, expected)
+}
+
+func (s *serviceSuite) TestListGrantedSecretsForBackendInvalidAccessorKind(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.ListGrantedSecretsForBackend(
+		c.Context(),
+		"backend-id",
+		coresecrets.RoleView,
+		domainsecret.SecretAccessor{
+			Kind: "invalid-kind",
+			ID:   "some-id",
+		},
+	)
+	c.Assert(err, tc.ErrorMatches, `consumer kind "invalid-kind" not valid`)
 }

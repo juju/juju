@@ -58,7 +58,7 @@ type State interface {
 	GetRelationEndpoints(ctx context.Context, relationUUID string) ([]corerelation.EndpointIdentifier, error)
 	GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]domainsecret.GrantDetails, error)
 	ListGrantedSecretsForBackend(
-		ctx context.Context, backendID string, accessors []domainsecret.AccessParams, role secrets.SecretRole,
+		ctx context.Context, backendID string, accessors []domainsecret.AccessParams, roles []domainsecret.Role,
 	) ([]*secrets.SecretRevisionRef, error)
 	ListCharmSecretsToDrain(
 		ctx context.Context,

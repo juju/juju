@@ -1942,7 +1942,7 @@ func (c *MockStateListCharmSecretsToDrainCall) DoAndReturn(f func(context.Contex
 }
 
 // ListGrantedSecretsForBackend mocks base method.
-func (m *MockState) ListGrantedSecretsForBackend(arg0 context.Context, arg1 string, arg2 []secret.AccessParams, arg3 secrets.SecretRole) ([]*secrets.SecretRevisionRef, error) {
+func (m *MockState) ListGrantedSecretsForBackend(arg0 context.Context, arg1 string, arg2 []secret.AccessParams, arg3 []secret.Role) ([]*secrets.SecretRevisionRef, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListGrantedSecretsForBackend", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].([]*secrets.SecretRevisionRef)
@@ -1969,13 +1969,13 @@ func (c *MockStateListGrantedSecretsForBackendCall) Return(arg0 []*secrets.Secre
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateListGrantedSecretsForBackendCall) Do(f func(context.Context, string, []secret.AccessParams, secrets.SecretRole) ([]*secrets.SecretRevisionRef, error)) *MockStateListGrantedSecretsForBackendCall {
+func (c *MockStateListGrantedSecretsForBackendCall) Do(f func(context.Context, string, []secret.AccessParams, []secret.Role) ([]*secrets.SecretRevisionRef, error)) *MockStateListGrantedSecretsForBackendCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateListGrantedSecretsForBackendCall) DoAndReturn(f func(context.Context, string, []secret.AccessParams, secrets.SecretRole) ([]*secrets.SecretRevisionRef, error)) *MockStateListGrantedSecretsForBackendCall {
+func (c *MockStateListGrantedSecretsForBackendCall) DoAndReturn(f func(context.Context, string, []secret.AccessParams, []secret.Role) ([]*secrets.SecretRevisionRef, error)) *MockStateListGrantedSecretsForBackendCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
