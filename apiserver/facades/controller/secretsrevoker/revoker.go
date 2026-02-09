@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -15,8 +14,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	secretsprovider "github.com/juju/juju/secrets/provider"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.secretsrevoker")
 
 // SecretsRevokerAPI is the implementation for the SecretsRevoker facade.
 type SecretsRevokerAPI struct {

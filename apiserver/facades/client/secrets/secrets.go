@@ -293,7 +293,7 @@ func (s *SecretsAPI) CreateSecrets(args params.CreateSecretArgs) (params.StringR
 	secretOwner := names.NewModelTag(s.modelUUID)
 	uris := make([]*coresecrets.URI, len(args.Args))
 	// Generate secret URIs
-	for i, _ := range args.Args {
+	for i := range args.Args {
 		if result.Results[i].Error != nil {
 			continue
 		}
