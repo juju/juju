@@ -444,7 +444,7 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnit(c *tc.C) {
 	si2UUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	unitStorageToCreate := []internal.CreateUnitStorageInstanceArg{
 		{
-			Filesystem: &internal.UnitStorageFilesystemArg{
+			Filesystem: &internal.CreateUnitStorageFilesystemArg{
 				UUID: fs1UUID,
 			},
 			Name:            "st1",
@@ -454,7 +454,7 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnit(c *tc.C) {
 			RequestSizeMiB:  1024,
 		},
 		{
-			Filesystem: &internal.UnitStorageFilesystemArg{
+			Filesystem: &internal.CreateUnitStorageFilesystemArg{
 				UUID: fs2UUID,
 			},
 			Name:            "st2",
@@ -469,10 +469,10 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnit(c *tc.C) {
 	fsa1UUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 	sa2UUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	fsa2UUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
-	unitStorageToAttach := []internal.UnitStorageAttachmentArg{
+	unitStorageToAttach := []internal.CreateUnitStorageAttachmentArg{
 		{
 			UUID: sa1UUID,
-			FilesystemAttachment: &internal.UnitStorageFilesystemAttachmentArg{
+			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: fs1UUID,
 				NetNodeUUID:    domainnetwork.NetNodeUUID(netNodeUUID),
 				ProvisionScope: domainstorageprov.ProvisionScopeMachine,
@@ -481,7 +481,7 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnit(c *tc.C) {
 			StorageInstanceUUID: si1UUID,
 		}, {
 			UUID: sa2UUID,
-			FilesystemAttachment: &internal.UnitStorageFilesystemAttachmentArg{
+			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: fs2UUID,
 				NetNodeUUID:    domainnetwork.NetNodeUUID(netNodeUUID),
 				ProvisionScope: domainstorageprov.ProvisionScopeModel,
@@ -587,10 +587,10 @@ func (u *unitStorageSuite) TestAttachStorageToIAASUnit(c *tc.C) {
 	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	fsaUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 
-	unitStorageToAttach := []internal.UnitStorageAttachmentArg{
+	unitStorageToAttach := []internal.CreateUnitStorageAttachmentArg{
 		{
 			UUID: saUUID,
-			FilesystemAttachment: &internal.UnitStorageFilesystemAttachmentArg{
+			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: fsUUID,
 				NetNodeUUID:    domainnetwork.NetNodeUUID(netNodeUUID),
 				ProvisionScope: domainstorageprov.ProvisionScopeMachine,

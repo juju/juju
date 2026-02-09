@@ -3465,9 +3465,9 @@ func (s *providerServiceSuite) TestAttachStorageForIAASUnit(c *tc.C) {
 		Return(nil)
 
 	unitStorageArgs := internal.UnitAttachStorageArg{
-		StorageToAttach: []internal.UnitStorageAttachmentArg{{
+		StorageToAttach: []internal.CreateUnitStorageAttachmentArg{{
 			UUID: saUUID,
-			FilesystemAttachment: &internal.UnitStorageFilesystemAttachmentArg{
+			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: fsUUID,
 				ProvisionScope: 1,
 			},
@@ -3482,7 +3482,7 @@ func (s *providerServiceSuite) TestAttachStorageForIAASUnit(c *tc.C) {
 	s.storageService.EXPECT().MakeUnitAttachStorageArgs(gomock.Any(), unitUUID, siUUID).
 		Return(unitStorageArgs, nil)
 	storageInst := []internal.UnitStorageInstanceArg{{
-		Filesystem: &internal.UnitStorageFilesystemArg{
+		Filesystem: &internal.CreateUnitStorageFilesystemArg{
 			UUID:           fsUUID,
 			ProvisionScope: 1,
 		},
@@ -3601,8 +3601,8 @@ func (s *providerServiceSuite) TestAttachStorageForCAASUnit(c *tc.C) {
 
 	unitStorageArgs := internal.UnitAttachStorageArg{
 		// UUID
-		StorageToAttach: []internal.UnitStorageAttachmentArg{{
-			FilesystemAttachment: &internal.UnitStorageFilesystemAttachmentArg{
+		StorageToAttach: []internal.CreateUnitStorageAttachmentArg{{
+			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: fsUUUID,
 				ProvisionScope: 1,
 			},

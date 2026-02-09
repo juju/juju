@@ -999,7 +999,7 @@ WHERE  uuid = $storagePoolUUID.uuid
 func makeInsertUnitStorageAttachmentArgs(
 	_ context.Context,
 	unitUUID string,
-	storageToAttach []internal.UnitStorageAttachmentArg,
+	storageToAttach []internal.CreateUnitStorageAttachmentArg,
 ) []insertStorageInstanceAttachment {
 	rval := make([]insertStorageInstanceAttachment, 0, len(storageToAttach))
 	for _, sa := range storageToAttach {

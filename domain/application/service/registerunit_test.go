@@ -48,7 +48,7 @@ func (s *registerCAASUnitSuite) makeStorageArg(
 			StorageInstances: []internal.CreateUnitStorageInstanceArg{
 				{
 					CharmName: "foo",
-					Filesystem: &internal.UnitStorageFilesystemArg{
+					Filesystem: &internal.CreateUnitStorageFilesystemArg{
 						UUID:           fsUUID,
 						ProvisionScope: domainstorageprov.ProvisionScopeModel,
 					},
@@ -58,9 +58,9 @@ func (s *registerCAASUnitSuite) makeStorageArg(
 					UUID:            storageInstUUID,
 				},
 			},
-			StorageToAttach: []internal.UnitStorageAttachmentArg{
+			StorageToAttach: []internal.CreateUnitStorageAttachmentArg{
 				{
-					FilesystemAttachment: &internal.UnitStorageFilesystemAttachmentArg{
+					FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
 						FilesystemUUID: fsUUID,
 						ProvisionScope: domainstorageprov.ProvisionScopeModel,
 						UUID:           tc.Must(c, domainstorage.NewFilesystemAttachmentUUID),
