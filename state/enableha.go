@@ -320,6 +320,11 @@ func (st *State) addControllerUnitOps(attempt int, controllerApp *Application, p
 
 	pcp := machinePorts.ForUnit(unitName)
 	pcp.Open("", network.PortRange{
+		FromPort: config.APIPort(),
+		ToPort:   config.APIPort(),
+		Protocol: "tcp",
+	})
+	pcp.Open("", network.PortRange{
 		FromPort: config.SSHServerPort(),
 		ToPort:   config.SSHServerPort(),
 		Protocol: "tcp",

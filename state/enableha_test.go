@@ -674,7 +674,7 @@ func (s *EnableHASuite) TestRemoveControllerMachineRace(c *gc.C) {
 	c.Check(m0.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobHostUnits, state.JobManageModel})
 }
 
-func (s *EnableHASuite) TestEnableHAOpensSSHProxyPort(c *gc.C) {
+func (s *EnableHASuite) TestEnableHAOpensExpectedPorts(c *gc.C) {
 	state.AddTestingApplicationForBase(c, s.State, state.UbuntuBase("20.04"), "controller",
 		state.AddTestingCharmMultiSeries(c, s.State, "juju-controller"))
 	changes, err := s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("18.04"), nil)
@@ -690,21 +690,25 @@ func (s *EnableHASuite) TestEnableHAOpensSSHProxyPort(c *gc.C) {
 
 	config, err := s.State.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedPort := config.SSHServerPort()
+	expectedAPIPort := config.APIPort()
+	expectedSSHPort := config.SSHServerPort()
 
 	for _, unit := range units {
 		ports, err := unit.OpenedPortRanges()
 		c.Assert(err, jc.ErrorIsNil)
 		openPorts := ports.UniquePortRanges()
 
+		foundAPIPort := false
 		foundSSHProxyPort := false
 		for _, portRange := range openPorts {
-			if portRange.FromPort <= expectedPort && portRange.ToPort >= expectedPort {
-				foundSSHProxyPort = true
+			foundAPIPort = foundAPIPort || portRange.FromPort <= expectedAPIPort && portRange.ToPort >= expectedAPIPort
+			foundSSHProxyPort = foundSSHProxyPort || portRange.FromPort <= expectedSSHPort && portRange.ToPort >= expectedSSHPort
+			if foundAPIPort && foundSSHProxyPort {
 				break
 			}
 		}
 
+		c.Check(foundAPIPort, jc.IsTrue)
 		c.Assert(foundSSHProxyPort, jc.IsTrue)
 	}
 }

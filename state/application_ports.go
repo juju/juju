@@ -483,6 +483,13 @@ func updateAppPortRangesDocOps(
 }
 
 func removeApplicationPortsForUnitOps(st *State, unit *Unit) ([]txn.Op, error) {
+	// We never delete a controller unit.
+	// During controller teardown, we always want
+	// controller ports to remain open.
+	if unit.ApplicationName() == controllerAppName {
+		return nil, nil
+	}
+
 	unitName := unit.Name()
 	appPortRanges, err := getApplicationPortRanges(st, unit.ApplicationName())
 	if err != nil {

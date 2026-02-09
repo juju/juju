@@ -374,6 +374,7 @@ func (s *firewallerBaseSuite) addUnit(c *gc.C, ctrl *gomock.Controller, app *moc
 	s.firewaller.EXPECT().Unit(unitTag).Return(u, nil).AnyTimes()
 	u.EXPECT().Life().Return(life.Alive)
 	u.EXPECT().Tag().Return(unitTag).AnyTimes()
+	u.EXPECT().Name().Return(unitTag.Id()).AnyTimes()
 	u.EXPECT().Application().Return(app, nil).AnyTimes()
 	u.EXPECT().AssignedMachine().Return(m.Tag(), nil).AnyTimes()
 
@@ -1096,6 +1097,36 @@ func (s *InstanceModeSuite) TestRemoveUnit(c *gc.C) {
 	})
 }
 
+func (s *InstanceModeSuite) TestControllerUnit(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
+
+	fw := s.newFirewaller(c)
+	defer workertest.CleanKill(c, fw)
+
+	app, _ := s.addApplication(ctrl, "controller", true)
+	u1, m1, unitsCh := s.addUnit(c, ctrl, app)
+	s.startInstance(c, ctrl, m1)
+
+	s.mustOpenPortRanges(c, u1, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("17070/tcp"),
+	})
+
+	s.assertIngressRules(c, m1.Tag().Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("17070/tcp"), firewall.AllNetworksIPV4CIDR),
+	})
+
+	// Remove unit.
+	unitsCh <- []string{u1.Tag().Id()}
+
+	// Ingress rules remain.
+	s.assertIngressRules(c, m1.Tag().Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("17070/tcp"), firewall.AllNetworksIPV4CIDR),
+	})
+}
+
 func (s *InstanceModeSuite) TestRemoveApplication(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -1781,7 +1812,7 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ctrl *gomock.Controller,
 	s.remoteRelCh <- []string{"remote-wordpress:db mysql:server"}
 	localIngressCh <- ingress
 
-	//Ports opened.
+	// Ports opened.
 	s.assertIngressRules(c, m.Tag().Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("3306/tcp"), expected...),
 	})

@@ -303,12 +303,10 @@ func (s *BootstrapSuite) testBootstrapWithSubstrateWithIPV6Support(c *gc.C, supp
 	if supportsIPv6 {
 		rules = firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), "0.0.0.0/0", "::/0"),
-			firewall.NewIngressRule(network.MustParsePortRange("17777/tcp"), "0.0.0.0/0", "::/0"),
 		}
 	} else {
 		rules = firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), "0.0.0.0/0"),
-			firewall.NewIngressRule(network.MustParsePortRange("17777/tcp"), "0.0.0.0/0"),
 		}
 	}
 	c.Assert(env.modelRules.EqualTo(rules), jc.IsTrue)
