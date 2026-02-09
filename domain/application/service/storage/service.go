@@ -1033,7 +1033,7 @@ func (s Service) MakeUnitAttachStorageArgs(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	rvalToAttach := make([]internal.UnitStorageAttachmentArg, 0, 1)
+	rvalToAttach := make([]internal.CreateUnitStorageAttachmentArg, 0, 1)
 
 	instComposition, err := s.st.GetStorageInstanceCompositionByUUID(ctx, storageInstanceUUID)
 	if err != nil {
@@ -1054,13 +1054,13 @@ func (s Service) MakeUnitAttachStorageArgs(
 			UUID: storageInstanceUUID,
 		}
 		if inst.Filesystem != nil {
-			instArg.Filesystem = &internal.UnitStorageFilesystemArg{
+			instArg.Filesystem = &internal.CreateUnitStorageFilesystemArg{
 				UUID:           inst.Filesystem.UUID,
 				ProvisionScope: inst.Filesystem.ProvisionScope,
 			}
 		}
 		if inst.Volume != nil {
-			instArg.Volume = &internal.UnitStorageVolumeArg{
+			instArg.Volume = &internal.CreateUnitStorageVolumeArg{
 				UUID:           inst.Volume.UUID,
 				ProvisionScope: inst.Volume.ProvisionScope,
 			}

@@ -668,10 +668,10 @@ func (u *unitStorageSuite) TestAttachStorageToIAASUnit(c *tc.C) {
 	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	fsaUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 
-	unitStorageToAttach := []internal.UnitStorageAttachmentArg{
+	unitStorageToAttach := []internal.CreateUnitStorageAttachmentArg{
 		{
 			UUID: saUUID,
-			FilesystemAttachment: &internal.UnitStorageFilesystemAttachmentArg{
+			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
 				FilesystemUUID: fsUUID,
 				NetNodeUUID:    domainnetwork.NetNodeUUID(netNodeUUID),
 				ProvisionScope: domainstorageprov.ProvisionScopeMachine,

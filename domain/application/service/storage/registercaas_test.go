@@ -677,11 +677,7 @@ func (*registerCAASStorageSuite) TestMakeCAASStorageInstanceProviderIDAssociatio
 			Name: "st1",
 		},
 		{
-<<<<<<< HEAD
 			Filesystem: &domainstorage.CreateUnitStorageFilesystemArg{
-=======
-			Filesystem: &internal.UnitStorageFilesystemArg{
->>>>>>> e41df33270 (feat: add check for existing attachment)
 				UUID: fs2UUID,
 			},
 			Name: "st2",

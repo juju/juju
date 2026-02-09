@@ -1343,18 +1343,18 @@ func (s *ProviderService) AttachStorageToIAASUnit(
 	}
 
 	storageInst := transform.Slice(unitAttachStorageArgs.StorageToAttach,
-		func(in internal.UnitStorageAttachmentArg) internal.UnitStorageInstanceArg {
+		func(in internal.CreateUnitStorageAttachmentArg) internal.UnitStorageInstanceArg {
 			result := internal.UnitStorageInstanceArg{
 				UUID: in.StorageInstanceUUID,
 			}
 			if in.FilesystemAttachment != nil {
-				result.Filesystem = &internal.UnitStorageFilesystemArg{
+				result.Filesystem = &internal.CreateUnitStorageFilesystemArg{
 					UUID:           in.FilesystemAttachment.FilesystemUUID,
 					ProvisionScope: in.FilesystemAttachment.ProvisionScope,
 				}
 			}
 			if in.VolumeAttachment != nil {
-				result.Volume = &internal.UnitStorageVolumeArg{
+				result.Volume = &internal.CreateUnitStorageVolumeArg{
 					UUID:           in.VolumeAttachment.VolumeUUID,
 					ProvisionScope: in.VolumeAttachment.ProvisionScope,
 				}
