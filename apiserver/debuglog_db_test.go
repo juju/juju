@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/websocket/websockettest"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -97,9 +98,10 @@ func (s *debugLogDBSuite) TestUserLoginRejected(c *gc.C) {
 	websockettest.AssertWebsocketClosed(c, conn)
 }
 
-func (s *debugLogDBSuite) TestMachineLoginsAccepted(c *gc.C) {
+func (s *debugLogDBSuite) TestControllerMachineLoginsAccepted(c *gc.C) {
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: "foo-nonce",
+		Jobs:  []state.MachineJob{state.JobManageModel},
 	})
 	header := jujuhttp.BasicAuthHeader(m.Tag().String(), password)
 	header.Add(params.MachineNonceHeader, "foo-nonce")
@@ -109,6 +111,20 @@ func (s *debugLogDBSuite) TestMachineLoginsAccepted(c *gc.C) {
 
 	result := websockettest.ReadJSONErrorLine(c, conn)
 	c.Assert(result.Error, gc.IsNil)
+}
+
+func (s *debugLogDBSuite) TestNonControllerMachineLoginsRejected(c *gc.C) {
+	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Nonce: "foo-nonce",
+	})
+	header := jujuhttp.BasicAuthHeader(m.Tag().String(), password)
+	header.Add(params.MachineNonceHeader, "foo-nonce")
+	conn, _, err := s.dialWebsocketInternal(c, noResultsPlease, header) //nolint:bodyclose // WebSocket library handles response body closure
+	c.Assert(err, jc.ErrorIsNil)
+	defer conn.Close()
+
+	websockettest.AssertJSONError(c, conn, "authorization failed: permission denied")
+	websockettest.AssertWebsocketClosed(c, conn)
 }
 
 func (s *debugLogDBSuite) logURL(scheme string, queryParams url.Values) *url.URL {
