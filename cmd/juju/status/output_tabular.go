@@ -26,8 +26,8 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/charm/hooks"
+	"github.com/juju/juju/domain/deployment/charm"
+	"github.com/juju/juju/domain/deployment/charm/hooks"
 	"github.com/juju/juju/internal/naturalsort"
 )
 

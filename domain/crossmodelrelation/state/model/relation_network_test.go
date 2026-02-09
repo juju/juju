@@ -11,8 +11,8 @@ import (
 	"github.com/juju/tc"
 
 	corerelation "github.com/juju/juju/core/relation"
+	"github.com/juju/juju/domain/deployment/charm"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
-	"github.com/juju/juju/internal/charm"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
 

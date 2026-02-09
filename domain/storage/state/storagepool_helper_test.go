@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"database/sql"
 	stdtesting "testing"
 
 	"github.com/canonical/sqlair"
@@ -13,7 +12,8 @@ import (
 
 	"github.com/juju/juju/domain/schema/testing"
 	domainstorage "github.com/juju/juju/domain/storage"
-	storageerrors "github.com/juju/juju/domain/storage/errors"
+	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
+	domainstorageinternal "github.com/juju/juju/domain/storage/internal"
 )
 
 type storagePoolHelperSuite struct {
@@ -25,28 +25,21 @@ func TestStoragePoolHelperSuite(t *stdtesting.T) {
 }
 
 func (s *storagePoolHelperSuite) TestGetStoragePoolUUID(c *tc.C) {
-	st := newStoragePoolState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory())
 
-	sp := domainstorage.StoragePool{
-		Name:     "ebs-fast",
-		Provider: "ebs",
+	storagePoolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	sp := domainstorageinternal.CreateStoragePool{
 		Attrs: map[string]string{
 			"foo": "foo val",
 			"bar": "bar val",
 		},
+		Name:         "ebs-fast",
+		ProviderType: domainstorage.ProviderType("ebs"),
+		UUID:         storagePoolUUID,
 	}
 
 	ctx := c.Context()
 	err := st.CreateStoragePool(ctx, sp)
-	c.Assert(err, tc.ErrorIsNil)
-
-	var poolUUIDStr string
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, `
-SELECT sp.uuid
-FROM   storage_pool sp
-WHERE  sp.name = ?`, "ebs-fast").Scan(&poolUUIDStr)
-	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	db, err := st.DB(ctx)
@@ -58,11 +51,11 @@ WHERE  sp.name = ?`, "ebs-fast").Scan(&poolUUIDStr)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(poolUUID.String(), tc.Equals, poolUUIDStr)
+	c.Assert(poolUUID.String(), tc.Equals, storagePoolUUID.String())
 }
 
 func (s *storagePoolHelperSuite) TestGetStoragePoolUUIDNotFound(c *tc.C) {
-	st := newStoragePoolState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory())
 
 	db, err := st.DB(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -71,52 +64,43 @@ func (s *storagePoolHelperSuite) TestGetStoragePoolUUIDNotFound(c *tc.C) {
 		_, err := GetStoragePoolUUID(ctx, tx, st, "non-existent-pool")
 		return err
 	})
-	c.Assert(err, tc.ErrorIs, storageerrors.PoolNotFoundError)
+	c.Assert(err, tc.ErrorIs, domainstorageerrors.StoragePoolNotFound)
 }
 
 func (s *storagePoolHelperSuite) TestGetStoragePool(c *tc.C) {
-	st := newStoragePoolState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory())
 
-	sp := domainstorage.StoragePool{
-		Name:     "ebs-fast",
-		Provider: "ebs",
+	storagePoolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	sp := domainstorageinternal.CreateStoragePool{
 		Attrs: map[string]string{
 			"foo": "foo val",
 			"bar": "bar val",
 		},
+		Name:         "ebs-fast",
+		ProviderType: domainstorage.ProviderType("ebs"),
+		UUID:         storagePoolUUID,
 	}
 
 	ctx := c.Context()
 	err := st.CreateStoragePool(ctx, sp)
 	c.Assert(err, tc.ErrorIsNil)
 
-	poolUUID, err := st.GetStoragePoolUUID(ctx, "ebs-fast")
+	pool, err := st.GetStoragePool(ctx, storagePoolUUID)
 	c.Assert(err, tc.ErrorIsNil)
-
-	db, err := st.DB(ctx)
-	c.Assert(err, tc.ErrorIsNil)
-
-	var pool domainstorage.StoragePool
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		pool, err = GetStoragePool(ctx, tx, st, poolUUID)
-		return err
+	c.Assert(pool, tc.DeepEquals, domainstorage.StoragePool{
+		UUID:     storagePoolUUID.String(),
+		Name:     "ebs-fast",
+		Provider: "ebs",
+		Attrs: map[string]string{
+			"foo": "foo val",
+			"bar": "bar val",
+		},
 	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(pool, tc.DeepEquals, sp)
 }
 
 func (s *storagePoolHelperSuite) TestGetStoragePoolNotFound(c *tc.C) {
-	st := newStoragePoolState(s.TxnRunnerFactory())
-
-	poolUUID, err := domainstorage.NewStoragePoolUUID()
-	c.Assert(err, tc.ErrorIsNil)
-
-	db, err := st.DB(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, err := GetStoragePool(ctx, tx, st, poolUUID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIs, storageerrors.PoolNotFoundError)
+	st := NewState(s.TxnRunnerFactory())
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	_, err := st.GetStoragePool(c.Context(), poolUUID)
+	c.Check(err, tc.ErrorIs, domainstorageerrors.StoragePoolNotFound)
 }

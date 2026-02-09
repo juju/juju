@@ -54,6 +54,11 @@ type RelationState interface {
 	// It archives the unit's relation settings, then deletes all associated
 	// relation unit records.
 	LeaveScope(ctx context.Context, relationUnitUUID string) error
+
+	// IsUnitDyingAndBlocked returns true if the unit with the input name
+	// is dying, or is in a blocked state. The blocked state indicated if the
+	// unit workload has an error or blocked status.
+	IsUnitDyingAndBlocked(ctx context.Context, unitName string) (bool, error)
 }
 
 // RemoveRelation checks if a relation with the input UUID exists.
@@ -184,26 +189,64 @@ func (s *Service) processRelationRemovalJob(ctx context.Context, job removal.Job
 		return errors.Capture(err)
 	}
 
-	if len(inScope) > 0 {
-		// If this is a regular removal, we just exit and wait for
-		// the job to be scheduled again for a later check.
-		if !job.Force {
-			s.logger.Infof(ctx, "removal job %q for relation %q is waiting for units to leave scope: %v",
-				job.UUID, job.EntityUUID, inScope)
-
-			return removalerrors.RemovalJobIncomplete
+	if len(inScope) == 0 {
+		if err := s.modelState.DeleteRelation(ctx, job.EntityUUID); err != nil {
+			return errors.Errorf("deleting relation %q: %w", job.EntityUUID, err)
 		}
+		return nil
+	}
 
-		s.logger.Infof(ctx, "removal job %q for relation %q forcefully removing units from scope",
-			job.UUID, job.EntityUUID)
-
-		if err := s.modelState.DeleteRelationUnits(ctx, job.EntityUUID); err != nil {
-			return errors.Errorf("departing units from relation %q scope: %w", job.EntityUUID, err)
+	// If this is a regular removal, we just exit and wait for the job to be
+	// scheduled again for a later check.
+	if !job.Force {
+		if err := s.processRelationInScopeUnits(ctx, job, inScope); err != nil {
+			return errors.Capture(err)
 		}
+	}
+
+	s.logger.Infof(ctx, "removal job %q for relation %q forcefully removing units from scope",
+		job.UUID, job.EntityUUID)
+
+	if err := s.modelState.DeleteRelationUnits(ctx, job.EntityUUID); err != nil {
+		return errors.Errorf("departing units from relation %q scope: %w", job.EntityUUID, err)
 	}
 
 	if err := s.modelState.DeleteRelation(ctx, job.EntityUUID); err != nil {
 		return errors.Errorf("deleting relation %q: %w", job.EntityUUID, err)
 	}
+
 	return nil
+}
+
+func (s *Service) processRelationInScopeUnits(ctx context.Context, job removal.Job, inScope []string) error {
+	// If there are still multiple units in scope, we cannot proceed. We'll need
+	// to either wait for them to depart normally, or the last unit to error
+	// out.
+	if len(inScope) > 1 {
+		s.logger.Infof(ctx, "removal job %q for relation %q is waiting for units to leave scope: %v",
+			job.UUID, job.EntityUUID, inScope)
+
+		return removalerrors.RemovalJobIncomplete
+	}
+
+	// If a unit is the last in scope, there are no related counterparts to
+	// respond to its departure. If the unit is dying or dead, we don't care
+	// what actions it would otherwise take in response to leaving the relation.
+	// So if the unit is in a state preventing it leaving the scope, we force
+	// the departure.
+	unitName := inScope[0]
+	isBlocked, err := s.modelState.IsUnitDyingAndBlocked(ctx, unitName)
+	if err != nil {
+		return errors.Errorf("checking unit status %q: %w", unitName, err)
+	} else if isBlocked {
+		s.logger.Infof(ctx, "removal job %q for relation %q auto-departing unit %q in error state",
+			job.UUID, job.EntityUUID, unitName)
+
+		return nil
+	}
+
+	s.logger.Infof(ctx, "removal job %q for relation %q is waiting for unit %q to leave scope",
+		job.UUID, job.EntityUUID, unitName)
+
+	return removalerrors.RemovalJobIncomplete
 }

@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/rpc/params"
 )
 

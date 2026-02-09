@@ -14,22 +14,22 @@ import (
 // this domain.
 type baseUUID string
 
+// StorageAttachmentUUID represents the unique id for a storage attachment.
+type StorageAttachmentUUID baseUUID
+
 // StorageInstanceUUID uniquely identifies a storage instance in the model.
 type StorageInstanceUUID baseUUID
 
-// StoragePoolUUID uniquely identifies a storage pool in the model.
-type StoragePoolUUID baseUUID
+// NewStorageAttachmentUUID creates a new, valid Storage Attachment identifier.
+func NewStorageAttachmentUUID() (StorageAttachmentUUID, error) {
+	u, err := newUUID()
+	return StorageAttachmentUUID(u), err
+}
 
 // NewStorageInstanceUUID creates a new, valid storage instance identifier.
 func NewStorageInstanceUUID() (StorageInstanceUUID, error) {
 	u, err := newUUID()
 	return StorageInstanceUUID(u), err
-}
-
-// NewStoragePoolUUID creates a new, valid storage pool identifier.
-func NewStoragePoolUUID() (StoragePoolUUID, error) {
-	u, err := newUUID()
-	return StoragePoolUUID(u), err
 }
 
 // newUUID creates a new UUID using the internal uui package.
@@ -47,15 +47,15 @@ func (u baseUUID) String() string {
 	return string(u)
 }
 
-// String returns the string representation of this UUID. This function
-// satisfies the [fmt.Stringer] interface.
-func (u StorageInstanceUUID) String() string {
+// String returns the string representation of this [StorageAttachmentUUID].
+// This function satisfies the [fmt.Stringer] interface.
+func (u StorageAttachmentUUID) String() string {
 	return baseUUID(u).String()
 }
 
 // String returns the string representation of this UUID. This function
 // satisfies the [fmt.Stringer] interface.
-func (u StoragePoolUUID) String() string {
+func (u StorageInstanceUUID) String() string {
 	return baseUUID(u).String()
 }
 
@@ -71,12 +71,12 @@ func (u baseUUID) validate() error {
 	return nil
 }
 
-// Validate returns an error if the [StorageInstanceUUID] is not valid.
-func (u StorageInstanceUUID) Validate() error {
+// Validate returns an error if the [StorageAttachmentUUID] is not valid.
+func (u StorageAttachmentUUID) Validate() error {
 	return baseUUID(u).validate()
 }
 
-// Validate returns an error if the [StoragePoolUUID] is not valid.
-func (u StoragePoolUUID) Validate() error {
+// Validate returns an error if the [StorageInstanceUUID] is not valid.
+func (u StorageInstanceUUID) Validate() error {
 	return baseUUID(u).validate()
 }

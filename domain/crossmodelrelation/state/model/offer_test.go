@@ -18,8 +18,8 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
+	"github.com/juju/juju/domain/deployment/charm"
 	domainstatus "github.com/juju/juju/domain/status"
-	"github.com/juju/juju/internal/charm"
 )
 
 type modelOfferSuite struct {

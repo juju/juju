@@ -11,7 +11,7 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/resource"
-	charmresource "github.com/juju/juju/internal/charm/resource"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -26,7 +26,7 @@ func TestResourceSuite(t *testing.T) {
 func (s *ResourceSuite) TestValidateUploadUsed(c *tc.C) {
 	res := resource.Resource{
 		Resource:        newFullCharmResource(c, "spam"),
-		UUID:            "a-application/spam",
+		ID:              "a-application/spam",
 		ApplicationName: "a-application",
 		RetrievedBy:     "a-user",
 		Timestamp:       time.Now(),
@@ -40,7 +40,7 @@ func (s *ResourceSuite) TestValidateUploadUsed(c *tc.C) {
 func (s *ResourceSuite) TestValidateUploadNotUsed(c *tc.C) {
 	res := resource.Resource{
 		Resource:        newFullCharmResource(c, "spam"),
-		UUID:            "a-application/spam",
+		ID:              "a-application/spam",
 		ApplicationName: "a-application",
 	}
 
@@ -88,7 +88,7 @@ func (s *ResourceSuite) TestValidateMissingID(c *tc.C) {
 func (s *ResourceSuite) TestValidateMissingApplicationName(c *tc.C) {
 	res := resource.Resource{
 		Resource:    newFullCharmResource(c, "spam"),
-		UUID:        "a-application/spam",
+		ID:          "a-application/spam",
 		RetrievedBy: "a-user",
 		Timestamp:   time.Now(),
 	}
@@ -102,7 +102,7 @@ func (s *ResourceSuite) TestValidateMissingApplicationName(c *tc.C) {
 func (s *ResourceSuite) TestValidateMissingUsername(c *tc.C) {
 	res := resource.Resource{
 		Resource:        newFullCharmResource(c, "spam"),
-		UUID:            "a-application/spam",
+		ID:              "a-application/spam",
 		ApplicationName: "a-application",
 		RetrievedBy:     "",
 		Timestamp:       time.Now(),
@@ -116,7 +116,7 @@ func (s *ResourceSuite) TestValidateMissingUsername(c *tc.C) {
 func (s *ResourceSuite) TestValidateMissingTimestamp(c *tc.C) {
 	res := resource.Resource{
 		Resource:        newFullCharmResource(c, "spam"),
-		UUID:            "a-application/spam",
+		ID:              "a-application/spam",
 		ApplicationName: "a-application",
 		RetrievedBy:     "a-user",
 		Timestamp:       time.Time{},

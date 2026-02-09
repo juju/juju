@@ -3,7 +3,7 @@
 
 package charm
 
-import "github.com/juju/juju/internal/charm"
+import "github.com/juju/juju/domain/deployment/charm"
 
 func NewCharmInfoAdaptor(meta EssentialMetadata) charmInfoAdaptor {
 	return charmInfoAdaptor{meta: meta}

@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
-	internalcharm "github.com/juju/juju/internal/charm"
 )
 
 // ValidateCharmStorage is responsible for iterating over all of a charms

@@ -24,10 +24,10 @@ func (*importSuite) TestImports(c *tc.C) {
 	c.Assert(found, tc.SameContents, []string{
 		"core/arch",
 		"core/semversion",
-		"internal/charm",
-		"internal/charm/assumes",
-		"internal/charm/hooks",
-		"internal/charm/resource",
+		"domain/deployment/charm",
+		"domain/deployment/charm/assumes",
+		"domain/deployment/charm/hooks",
+		"domain/deployment/charm/resource",
 		"internal/errors",
 		"core/errors",
 	})

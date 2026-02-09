@@ -51,7 +51,7 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 		// no-op provider.
 		noopModelDefaultsProvider{},
 		config.ModelValidator(),
-		service.ProviderModelConfigGetter(st),
+		service.ProviderModelConfigGetter(),
 		st)
 	return nil
 }

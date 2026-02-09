@@ -22,12 +22,7 @@ type environNetworking struct {
 
 // Subnets is part of the [environs.Networking] interface.
 func (environNetworking) Subnets(_ context.Context, _ []network.Id) ([]network.SubnetInfo, error) {
-	// Respond with place holder subnets for RI in dqlite until networking
-	// in Kubernetes is improved.
-	return []network.SubnetInfo{
-		{CIDR: "0.0.0.0/0"},
-		{CIDR: "::/0"},
-	}, nil
+	return network.FallbackSubnetInfo, nil
 }
 
 // NetworkInterfaces is part of the [environs.Networking] interface.

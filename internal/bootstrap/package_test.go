@@ -13,8 +13,8 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
 	network "github.com/juju/juju/core/network"
-	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/charm/repository"
+	"github.com/juju/juju/domain/deployment/charm"
+	"github.com/juju/juju/domain/deployment/charm/repository"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
@@ -23,7 +23,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStore,ControllerCharmDeployer,HTTPClient,ApplicationService,IAASApplicationService,CAASApplicationService,ModelConfigService,Downloader,AgentPasswordService,ServiceManager
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination core_charm_mock_test.go github.com/juju/juju/core/charm Repository
-//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination internal_charm_mock_test.go github.com/juju/juju/internal/charm Charm
+//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination internal_charm_mock_test.go github.com/juju/juju/domain/deployment/charm Charm
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination clock_mock_test.go github.com/juju/clock Clock
 
 type baseSuite struct {

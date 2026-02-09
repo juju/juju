@@ -153,7 +153,7 @@ type VolumeAttachment struct {
 // attachment plan.
 type VolumeAttachmentPlan struct {
 	Life             life.Life
-	DeviceType       PlanDeviceType
+	DeviceType       domainstorage.VolumeDeviceType
 	DeviceAttributes map[string]string
 }
 
@@ -167,7 +167,7 @@ type VolumeAttachmentProvisionedInfo struct {
 // VolumeAttachmentPlanProvisionedInfo is information set by the storage
 // provisioner for volume attachments it has provisioned.
 type VolumeAttachmentPlanProvisionedInfo struct {
-	DeviceType       PlanDeviceType
+	DeviceType       domainstorage.VolumeDeviceType
 	DeviceAttributes map[string]string
 }
 

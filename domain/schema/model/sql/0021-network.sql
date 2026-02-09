@@ -17,7 +17,8 @@ INSERT INTO link_layer_device_type VALUES
 (3, '802.1q'),
 (4, 'bond'),
 (5, 'bridge'),
-(6, 'vxlan');
+(6, 'vxlan'),
+(7, 'veth');
 
 CREATE TABLE virtual_port_type (
     id INT PRIMARY KEY,

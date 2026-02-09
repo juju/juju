@@ -13,8 +13,8 @@ import (
 
 	coreresouces "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/deployment/charm/resource"
 	domainresource "github.com/juju/juju/domain/resource"
-	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/testhelpers"
 )
 

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource/store"
-	"github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/internal/errors"
 )
 

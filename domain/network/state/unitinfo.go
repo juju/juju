@@ -246,7 +246,7 @@ AND space_uuid IN ($uuids[:])
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, ident, uuids(spaceUUIDs)).GetAll(&address)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("querying addresses for unit %q (and it's services): %w", unitUUID, err)
+			return errors.Errorf("querying addresses for unit %q (and its services): %w", unitUUID, err)
 		}
 		return nil
 	})

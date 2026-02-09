@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -45,6 +46,7 @@ func (s *secretSchemaSuite) TestControllerChangeLogTriggersForSecretBackends(c *
 
 func (s *secretSchemaSuite) TestModelChangeLogTriggersForSecretTables(c *tc.C) {
 	s.applyDDL(c, ModelDDL())
+	now := time.Now().UTC()
 
 	// secret table triggers.
 	s.assertChangeLogCount(c, 1, tableSecretMetadataAutoPrune, 0)
@@ -53,7 +55,10 @@ func (s *secretSchemaSuite) TestModelChangeLogTriggersForSecretTables(c *tc.C) {
 
 	secretURI := coresecrets.NewURI()
 	s.assertExecSQL(c, `INSERT INTO secret (id) VALUES (?);`, secretURI.ID)
-	s.assertExecSQL(c, `INSERT INTO secret_metadata (secret_id, version, description, rotate_policy_id) VALUES (?, 1, 'mySecret', 0);`, secretURI.ID)
+	s.assertExecSQL(c, `
+INSERT INTO secret_metadata (secret_id, version, description, rotate_policy_id, create_time, update_time) 
+VALUES (?, 1, 'mySecret', 0, ?, ?);`,
+		secretURI.ID, now, now)
 	s.assertExecSQL(c, `UPDATE secret_metadata SET auto_prune = true WHERE secret_id = ?;`, secretURI.ID)
 	s.assertExecSQL(c, `DELETE FROM secret_metadata WHERE secret_id = ?;`, secretURI.ID)
 
@@ -66,7 +71,9 @@ func (s *secretSchemaSuite) TestModelChangeLogTriggersForSecretTables(c *tc.C) {
 	s.assertChangeLogCount(c, 2, tableSecretRotation, 0)
 	s.assertChangeLogCount(c, 4, tableSecretRotation, 0)
 
-	s.assertExecSQL(c, `INSERT INTO secret_metadata (secret_id, version, description, rotate_policy_id) VALUES (?, 1, 'mySecret', 0);`, secretURI.ID)
+	s.assertExecSQL(c, `
+INSERT INTO secret_metadata (secret_id, version, description, rotate_policy_id,create_time,update_time) 
+VALUES (?, 1, 'mySecret', 0, ?, ?);`, secretURI.ID, now, now)
 	s.assertExecSQL(c, `INSERT INTO secret_rotation (secret_id, next_rotation_time) VALUES (?, datetime('now', '+1 day'));`, secretURI.ID)
 	s.assertExecSQL(c, `UPDATE secret_rotation SET next_rotation_time = datetime('now', '+2 day') WHERE secret_id = ?;`, secretURI.ID)
 	s.assertExecSQL(c, `DELETE FROM secret_rotation WHERE secret_id = ?;`, secretURI.ID)
@@ -81,7 +88,10 @@ func (s *secretSchemaSuite) TestModelChangeLogTriggersForSecretTables(c *tc.C) {
 	s.assertChangeLogCount(c, 2, tableSecretRevisionObsolete, 0)
 	s.assertChangeLogCount(c, 4, tableSecretRevisionObsolete, 0)
 
-	s.assertExecSQL(c, `INSERT INTO secret_revision (uuid, secret_id, revision) VALUES (?, ?, 1);`, revisionUUID, secretURI.ID)
+	s.assertExecSQL(c, `
+INSERT INTO secret_revision (uuid, secret_id, revision, create_time, update_time) 
+VALUES (?, ?, 1, ?, ?);`,
+		revisionUUID, secretURI.ID, now, now)
 	s.assertExecSQL(c, `INSERT INTO secret_revision_obsolete (revision_uuid) VALUES (?);`, revisionUUID)
 	s.assertExecSQL(c, `UPDATE secret_revision_obsolete SET obsolete = true WHERE revision_uuid = ?;`, revisionUUID)
 	s.assertExecSQL(c, `DELETE FROM secret_revision_obsolete WHERE revision_uuid = ?;`, revisionUUID)
@@ -96,7 +106,9 @@ func (s *secretSchemaSuite) TestModelChangeLogTriggersForSecretTables(c *tc.C) {
 	s.assertChangeLogCount(c, 2, tableSecretRevisionExpire, 0)
 	s.assertChangeLogCount(c, 4, tableSecretRevisionExpire, 0)
 
-	s.assertExecSQL(c, `INSERT INTO secret_revision (uuid, secret_id, revision) VALUES (?, ?, 1);`, revisionUUID, secretURI.ID)
+	s.assertExecSQL(c, `
+INSERT INTO secret_revision (uuid, secret_id, revision, create_time, update_time) VALUES (?, ?, 1, ?, ?);`,
+		revisionUUID, secretURI.ID, now, now)
 	s.assertExecSQL(c, `INSERT INTO secret_revision_expire (revision_uuid, expire_time) VALUES (?, datetime('now', '+1 day'));`, revisionUUID)
 	s.assertExecSQL(c, `UPDATE secret_revision_expire SET expire_time = datetime('now', '+2 day') WHERE revision_uuid = ?;`, revisionUUID)
 	s.assertExecSQL(c, `DELETE FROM secret_revision_expire WHERE revision_uuid = ?;`, revisionUUID)
@@ -111,7 +123,9 @@ func (s *secretSchemaSuite) TestModelChangeLogTriggersForSecretTables(c *tc.C) {
 	s.assertChangeLogCount(c, 2, tableSecretRevision, 0)
 	s.assertChangeLogCount(c, 4, tableSecretRevision, 2)
 
-	s.assertExecSQL(c, `INSERT INTO secret_revision (uuid, secret_id, revision) VALUES (?, ?, 1);`, revisionUUID, secretURI.ID)
+	s.assertExecSQL(c, `
+INSERT INTO secret_revision (uuid, secret_id, revision, create_time, update_time) VALUES (?, ?, 1, ?, ?);`,
+		revisionUUID, secretURI.ID, now, now)
 	s.assertExecSQL(c, `DELETE FROM secret_revision WHERE uuid = ?;`, revisionUUID)
 
 	s.assertChangeLogCount(c, 1, tableSecretRevision, 3)

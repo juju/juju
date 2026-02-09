@@ -110,7 +110,6 @@ func (s *MachineSuite) TestStub(c *tc.C) {
  - Test the machine agent includes the machine storage worker
  - Test the machine agent is running correct workers when not migrating
  - Test upgrade is not triggered if not required
- - Test config ignore-machine-addresses is not ignored for machines and containers
  - Creating a machine agent with successfully parsed CLI arguments.
  - Starting and stopping a basic machine agent.
 `)

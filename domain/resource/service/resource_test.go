@@ -24,9 +24,9 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	containerimageresourcestoreerrors "github.com/juju/juju/domain/containerimageresourcestore/errors"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
@@ -772,7 +772,7 @@ func (s *resourceServiceSuite) TestOpenResource(c *tc.C) {
 			Fingerprint: fp,
 			Size:        size,
 		},
-		UUID: id,
+		ID: id.String(),
 	}
 
 	s.state.EXPECT().GetResource(gomock.Any(), id).Return(res, nil)

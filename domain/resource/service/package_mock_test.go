@@ -17,8 +17,8 @@ import (
 	resource "github.com/juju/juju/core/resource"
 	store "github.com/juju/juju/core/resource/store"
 	unit "github.com/juju/juju/core/unit"
-	resource0 "github.com/juju/juju/domain/resource"
-	resource1 "github.com/juju/juju/internal/charm/resource"
+	resource0 "github.com/juju/juju/domain/deployment/charm/resource"
+	resource1 "github.com/juju/juju/domain/resource"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -46,7 +46,7 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // AddResourcesBeforeApplication mocks base method.
-func (m *MockState) AddResourcesBeforeApplication(arg0 context.Context, arg1 resource0.AddResourcesBeforeApplicationArgs) ([]resource.UUID, error) {
+func (m *MockState) AddResourcesBeforeApplication(arg0 context.Context, arg1 resource1.AddResourcesBeforeApplicationArgs) ([]resource.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddResourcesBeforeApplication", arg0, arg1)
 	ret0, _ := ret[0].([]resource.UUID)
@@ -73,13 +73,13 @@ func (c *MockStateAddResourcesBeforeApplicationCall) Return(arg0 []resource.UUID
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAddResourcesBeforeApplicationCall) Do(f func(context.Context, resource0.AddResourcesBeforeApplicationArgs) ([]resource.UUID, error)) *MockStateAddResourcesBeforeApplicationCall {
+func (c *MockStateAddResourcesBeforeApplicationCall) Do(f func(context.Context, resource1.AddResourcesBeforeApplicationArgs) ([]resource.UUID, error)) *MockStateAddResourcesBeforeApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAddResourcesBeforeApplicationCall) DoAndReturn(f func(context.Context, resource0.AddResourcesBeforeApplicationArgs) ([]resource.UUID, error)) *MockStateAddResourcesBeforeApplicationCall {
+func (c *MockStateAddResourcesBeforeApplicationCall) DoAndReturn(f func(context.Context, resource1.AddResourcesBeforeApplicationArgs) ([]resource.UUID, error)) *MockStateAddResourcesBeforeApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -199,10 +199,10 @@ func (c *MockStateDeleteUnitResourcesCall) DoAndReturn(f func(context.Context, u
 }
 
 // ExportResources mocks base method.
-func (m *MockState) ExportResources(arg0 context.Context, arg1 string) (resource0.ExportedResources, error) {
+func (m *MockState) ExportResources(arg0 context.Context, arg1 string) (resource1.ExportedResources, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExportResources", arg0, arg1)
-	ret0, _ := ret[0].(resource0.ExportedResources)
+	ret0, _ := ret[0].(resource1.ExportedResources)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -220,25 +220,25 @@ type MockStateExportResourcesCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateExportResourcesCall) Return(arg0 resource0.ExportedResources, arg1 error) *MockStateExportResourcesCall {
+func (c *MockStateExportResourcesCall) Return(arg0 resource1.ExportedResources, arg1 error) *MockStateExportResourcesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateExportResourcesCall) Do(f func(context.Context, string) (resource0.ExportedResources, error)) *MockStateExportResourcesCall {
+func (c *MockStateExportResourcesCall) Do(f func(context.Context, string) (resource1.ExportedResources, error)) *MockStateExportResourcesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateExportResourcesCall) DoAndReturn(f func(context.Context, string) (resource0.ExportedResources, error)) *MockStateExportResourcesCall {
+func (c *MockStateExportResourcesCall) DoAndReturn(f func(context.Context, string) (resource1.ExportedResources, error)) *MockStateExportResourcesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetApplicationResourceID mocks base method.
-func (m *MockState) GetApplicationResourceID(arg0 context.Context, arg1 resource0.GetApplicationResourceIDArgs) (resource.UUID, error) {
+func (m *MockState) GetApplicationResourceID(arg0 context.Context, arg1 resource1.GetApplicationResourceIDArgs) (resource.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationResourceID", arg0, arg1)
 	ret0, _ := ret[0].(resource.UUID)
@@ -265,13 +265,13 @@ func (c *MockStateGetApplicationResourceIDCall) Return(arg0 resource.UUID, arg1 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetApplicationResourceIDCall) Do(f func(context.Context, resource0.GetApplicationResourceIDArgs) (resource.UUID, error)) *MockStateGetApplicationResourceIDCall {
+func (c *MockStateGetApplicationResourceIDCall) Do(f func(context.Context, resource1.GetApplicationResourceIDArgs) (resource.UUID, error)) *MockStateGetApplicationResourceIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetApplicationResourceIDCall) DoAndReturn(f func(context.Context, resource0.GetApplicationResourceIDArgs) (resource.UUID, error)) *MockStateGetApplicationResourceIDCall {
+func (c *MockStateGetApplicationResourceIDCall) DoAndReturn(f func(context.Context, resource1.GetApplicationResourceIDArgs) (resource.UUID, error)) *MockStateGetApplicationResourceIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -316,10 +316,10 @@ func (c *MockStateGetResourceCall) DoAndReturn(f func(context.Context, resource.
 }
 
 // GetResourceType mocks base method.
-func (m *MockState) GetResourceType(arg0 context.Context, arg1 resource.UUID) (resource1.Type, error) {
+func (m *MockState) GetResourceType(arg0 context.Context, arg1 resource.UUID) (resource0.Type, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetResourceType", arg0, arg1)
-	ret0, _ := ret[0].(resource1.Type)
+	ret0, _ := ret[0].(resource0.Type)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -337,19 +337,19 @@ type MockStateGetResourceTypeCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetResourceTypeCall) Return(arg0 resource1.Type, arg1 error) *MockStateGetResourceTypeCall {
+func (c *MockStateGetResourceTypeCall) Return(arg0 resource0.Type, arg1 error) *MockStateGetResourceTypeCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetResourceTypeCall) Do(f func(context.Context, resource.UUID) (resource1.Type, error)) *MockStateGetResourceTypeCall {
+func (c *MockStateGetResourceTypeCall) Do(f func(context.Context, resource.UUID) (resource0.Type, error)) *MockStateGetResourceTypeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetResourceTypeCall) DoAndReturn(f func(context.Context, resource.UUID) (resource1.Type, error)) *MockStateGetResourceTypeCall {
+func (c *MockStateGetResourceTypeCall) DoAndReturn(f func(context.Context, resource.UUID) (resource0.Type, error)) *MockStateGetResourceTypeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -433,7 +433,7 @@ func (c *MockStateGetResourcesByApplicationUUIDCall) DoAndReturn(f func(context.
 }
 
 // ImportResources mocks base method.
-func (m *MockState) ImportResources(arg0 context.Context, arg1 resource0.ImportResourcesArgs) error {
+func (m *MockState) ImportResources(arg0 context.Context, arg1 resource1.ImportResourcesArgs) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ImportResources", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -459,13 +459,13 @@ func (c *MockStateImportResourcesCall) Return(arg0 error) *MockStateImportResour
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateImportResourcesCall) Do(f func(context.Context, resource0.ImportResourcesArgs) error) *MockStateImportResourcesCall {
+func (c *MockStateImportResourcesCall) Do(f func(context.Context, resource1.ImportResourcesArgs) error) *MockStateImportResourcesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateImportResourcesCall) DoAndReturn(f func(context.Context, resource0.ImportResourcesArgs) error) *MockStateImportResourcesCall {
+func (c *MockStateImportResourcesCall) DoAndReturn(f func(context.Context, resource1.ImportResourcesArgs) error) *MockStateImportResourcesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -510,7 +510,7 @@ func (c *MockStateListResourcesCall) DoAndReturn(f func(context.Context, applica
 }
 
 // RecordStoredResource mocks base method.
-func (m *MockState) RecordStoredResource(arg0 context.Context, arg1 resource0.RecordStoredResourceArgs) error {
+func (m *MockState) RecordStoredResource(arg0 context.Context, arg1 resource1.RecordStoredResourceArgs) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RecordStoredResource", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -536,19 +536,19 @@ func (c *MockStateRecordStoredResourceCall) Return(arg0 error) *MockStateRecordS
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateRecordStoredResourceCall) Do(f func(context.Context, resource0.RecordStoredResourceArgs) error) *MockStateRecordStoredResourceCall {
+func (c *MockStateRecordStoredResourceCall) Do(f func(context.Context, resource1.RecordStoredResourceArgs) error) *MockStateRecordStoredResourceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateRecordStoredResourceCall) DoAndReturn(f func(context.Context, resource0.RecordStoredResourceArgs) error) *MockStateRecordStoredResourceCall {
+func (c *MockStateRecordStoredResourceCall) DoAndReturn(f func(context.Context, resource1.RecordStoredResourceArgs) error) *MockStateRecordStoredResourceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetRepositoryResources mocks base method.
-func (m *MockState) SetRepositoryResources(arg0 context.Context, arg1 resource0.SetRepositoryResourcesArgs) error {
+func (m *MockState) SetRepositoryResources(arg0 context.Context, arg1 resource1.SetRepositoryResourcesArgs) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetRepositoryResources", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -574,13 +574,13 @@ func (c *MockStateSetRepositoryResourcesCall) Return(arg0 error) *MockStateSetRe
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetRepositoryResourcesCall) Do(f func(context.Context, resource0.SetRepositoryResourcesArgs) error) *MockStateSetRepositoryResourcesCall {
+func (c *MockStateSetRepositoryResourcesCall) Do(f func(context.Context, resource1.SetRepositoryResourcesArgs) error) *MockStateSetRepositoryResourcesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetRepositoryResourcesCall) DoAndReturn(f func(context.Context, resource0.SetRepositoryResourcesArgs) error) *MockStateSetRepositoryResourcesCall {
+func (c *MockStateSetRepositoryResourcesCall) DoAndReturn(f func(context.Context, resource1.SetRepositoryResourcesArgs) error) *MockStateSetRepositoryResourcesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -624,7 +624,7 @@ func (c *MockStateSetUnitResourceCall) DoAndReturn(f func(context.Context, resou
 }
 
 // UpdateResourceRevisionAndDeletePriorVersion mocks base method.
-func (m *MockState) UpdateResourceRevisionAndDeletePriorVersion(arg0 context.Context, arg1 resource0.UpdateResourceRevisionArgs, arg2 resource1.Type) (resource.UUID, error) {
+func (m *MockState) UpdateResourceRevisionAndDeletePriorVersion(arg0 context.Context, arg1 resource1.UpdateResourceRevisionArgs, arg2 resource0.Type) (resource.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateResourceRevisionAndDeletePriorVersion", arg0, arg1, arg2)
 	ret0, _ := ret[0].(resource.UUID)
@@ -651,19 +651,19 @@ func (c *MockStateUpdateResourceRevisionAndDeletePriorVersionCall) Return(arg0 r
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpdateResourceRevisionAndDeletePriorVersionCall) Do(f func(context.Context, resource0.UpdateResourceRevisionArgs, resource1.Type) (resource.UUID, error)) *MockStateUpdateResourceRevisionAndDeletePriorVersionCall {
+func (c *MockStateUpdateResourceRevisionAndDeletePriorVersionCall) Do(f func(context.Context, resource1.UpdateResourceRevisionArgs, resource0.Type) (resource.UUID, error)) *MockStateUpdateResourceRevisionAndDeletePriorVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpdateResourceRevisionAndDeletePriorVersionCall) DoAndReturn(f func(context.Context, resource0.UpdateResourceRevisionArgs, resource1.Type) (resource.UUID, error)) *MockStateUpdateResourceRevisionAndDeletePriorVersionCall {
+func (c *MockStateUpdateResourceRevisionAndDeletePriorVersionCall) DoAndReturn(f func(context.Context, resource1.UpdateResourceRevisionArgs, resource0.Type) (resource.UUID, error)) *MockStateUpdateResourceRevisionAndDeletePriorVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // UpdateUploadResourceAndDeletePriorVersion mocks base method.
-func (m *MockState) UpdateUploadResourceAndDeletePriorVersion(arg0 context.Context, arg1 resource0.StateUpdateUploadResourceArgs) (resource.UUID, error) {
+func (m *MockState) UpdateUploadResourceAndDeletePriorVersion(arg0 context.Context, arg1 resource1.StateUpdateUploadResourceArgs) (resource.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateUploadResourceAndDeletePriorVersion", arg0, arg1)
 	ret0, _ := ret[0].(resource.UUID)
@@ -690,13 +690,13 @@ func (c *MockStateUpdateUploadResourceAndDeletePriorVersionCall) Return(arg0 res
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpdateUploadResourceAndDeletePriorVersionCall) Do(f func(context.Context, resource0.StateUpdateUploadResourceArgs) (resource.UUID, error)) *MockStateUpdateUploadResourceAndDeletePriorVersionCall {
+func (c *MockStateUpdateUploadResourceAndDeletePriorVersionCall) Do(f func(context.Context, resource1.StateUpdateUploadResourceArgs) (resource.UUID, error)) *MockStateUpdateUploadResourceAndDeletePriorVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpdateUploadResourceAndDeletePriorVersionCall) DoAndReturn(f func(context.Context, resource0.StateUpdateUploadResourceArgs) (resource.UUID, error)) *MockStateUpdateUploadResourceAndDeletePriorVersionCall {
+func (c *MockStateUpdateUploadResourceAndDeletePriorVersionCall) DoAndReturn(f func(context.Context, resource1.StateUpdateUploadResourceArgs) (resource.UUID, error)) *MockStateUpdateUploadResourceAndDeletePriorVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -725,7 +725,7 @@ func (m *MockResourceStoreGetter) EXPECT() *MockResourceStoreGetterMockRecorder 
 }
 
 // GetResourceStore mocks base method.
-func (m *MockResourceStoreGetter) GetResourceStore(arg0 context.Context, arg1 resource1.Type) (store.ResourceStore, error) {
+func (m *MockResourceStoreGetter) GetResourceStore(arg0 context.Context, arg1 resource0.Type) (store.ResourceStore, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetResourceStore", arg0, arg1)
 	ret0, _ := ret[0].(store.ResourceStore)
@@ -752,13 +752,13 @@ func (c *MockResourceStoreGetterGetResourceStoreCall) Return(arg0 store.Resource
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResourceStoreGetterGetResourceStoreCall) Do(f func(context.Context, resource1.Type) (store.ResourceStore, error)) *MockResourceStoreGetterGetResourceStoreCall {
+func (c *MockResourceStoreGetterGetResourceStoreCall) Do(f func(context.Context, resource0.Type) (store.ResourceStore, error)) *MockResourceStoreGetterGetResourceStoreCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResourceStoreGetterGetResourceStoreCall) DoAndReturn(f func(context.Context, resource1.Type) (store.ResourceStore, error)) *MockResourceStoreGetterGetResourceStoreCall {
+func (c *MockResourceStoreGetterGetResourceStoreCall) DoAndReturn(f func(context.Context, resource0.Type) (store.ResourceStore, error)) *MockResourceStoreGetterGetResourceStoreCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

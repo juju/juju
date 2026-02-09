@@ -31,9 +31,6 @@ func (s *MachineSuite) TestStub(c *tc.C) {
 - Test that machine agent runs the disk manager worker (this could be generalised for all known workers)
 - Test that certificate DNS names are updated when the agent starts
 - Test that certificate DNS names are updated when the agent starts with an invalid private key
-- Test that the agent ignores addresses when ignore-machine-addresses is set to true
-- Test that the agent does not ignore addresses when ignore-machine-addresses is set to false
-- Test that the agent ignores addresses when running in a container
 - Test that all machine workers are started
 `)
 }

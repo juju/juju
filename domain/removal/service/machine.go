@@ -17,7 +17,6 @@ import (
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -137,13 +136,13 @@ func (s *Service) RemoveMachine(
 	for _, a := range cascaded.StorageAttachmentUUIDs {
 		if force && wait > 0 {
 			if _, err := s.storageAttachmentScheduleRemoval(
-				ctx, storageprovisioning.StorageAttachmentUUID(a), false, 0,
+				ctx, storage.StorageAttachmentUUID(a), false, 0,
 			); err != nil {
 				return "", errors.Capture(err)
 			}
 		}
 		if _, err := s.storageAttachmentScheduleRemoval(
-			ctx, storageprovisioning.StorageAttachmentUUID(a), force, wait,
+			ctx, storage.StorageAttachmentUUID(a), force, wait,
 		); err != nil {
 			return "", errors.Capture(err)
 		}
@@ -152,13 +151,13 @@ func (s *Service) RemoveMachine(
 	for _, a := range cascaded.FileSystemAttachmentUUIDs {
 		if force && wait > 0 {
 			if _, err := s.filesystemAttachmentScheduleRemoval(
-				ctx, storageprovisioning.FilesystemAttachmentUUID(a), false, 0,
+				ctx, storage.FilesystemAttachmentUUID(a), false, 0,
 			); err != nil {
 				return "", errors.Capture(err)
 			}
 		}
 		if _, err := s.filesystemAttachmentScheduleRemoval(
-			ctx, storageprovisioning.FilesystemAttachmentUUID(a), force, wait,
+			ctx, storage.FilesystemAttachmentUUID(a), force, wait,
 		); err != nil {
 			return "", errors.Capture(err)
 		}
@@ -182,13 +181,13 @@ func (s *Service) RemoveMachine(
 	for _, a := range cascaded.VolumeAttachmentPlanUUIDs {
 		if force && wait > 0 {
 			if _, err := s.volumeAttachmentPlanScheduleRemoval(
-				ctx, storageprovisioning.VolumeAttachmentPlanUUID(a), false, 0,
+				ctx, storage.VolumeAttachmentPlanUUID(a), false, 0,
 			); err != nil {
 				return "", errors.Capture(err)
 			}
 		}
 		if _, err := s.volumeAttachmentPlanScheduleRemoval(
-			ctx, storageprovisioning.VolumeAttachmentPlanUUID(a), force, wait,
+			ctx, storage.VolumeAttachmentPlanUUID(a), force, wait,
 		); err != nil {
 			return "", errors.Capture(err)
 		}
@@ -197,13 +196,13 @@ func (s *Service) RemoveMachine(
 	for _, a := range cascaded.FileSystemUUIDs {
 		if force && wait > 0 {
 			if _, err := s.filesystemScheduleRemoval(
-				ctx, storageprovisioning.FilesystemUUID(a), false, 0,
+				ctx, storage.FilesystemUUID(a), false, 0,
 			); err != nil {
 				return "", errors.Capture(err)
 			}
 		}
 		if _, err := s.filesystemScheduleRemoval(
-			ctx, storageprovisioning.FilesystemUUID(a), force, wait,
+			ctx, storage.FilesystemUUID(a), force, wait,
 		); err != nil {
 			return "", errors.Capture(err)
 		}

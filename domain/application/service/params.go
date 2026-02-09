@@ -18,8 +18,8 @@ import (
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	apperrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/service/storage"
-	internalcharm "github.com/juju/juju/internal/charm"
-	charmresource "github.com/juju/juju/internal/charm/resource"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/internal/errors"
 )
 

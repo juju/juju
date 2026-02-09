@@ -25,8 +25,6 @@ import (
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/domain/storageprovisioning"
-	storageprovisioningtesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -56,7 +54,7 @@ func (s *storageSuite) SetUpTest(c *tc.C) {
 
 func (s *storageSuite) assertFilesystemStatus(
 	c *tc.C,
-	filesystemUUID storageprovisioning.FilesystemUUID,
+	filesystemUUID storage.FilesystemUUID,
 	expected status.StatusInfo[status.StorageFilesystemStatusType],
 ) {
 	ctx := c.Context()
@@ -164,7 +162,7 @@ func (s *storageSuite) TestSetFilesystemStatusFilesystemNotFound(c *tc.C) {
 		Since:   ptr(now),
 	}
 
-	uuid := storageprovisioningtesting.GenFilesystemUUID(c)
+	uuid := tc.Must(c, storage.NewFilesystemUUID)
 	err := s.modelState.SetFilesystemStatus(c.Context(), uuid, expected)
 	c.Assert(err, tc.ErrorIs, storageerrors.FilesystemNotFound)
 }
@@ -752,7 +750,7 @@ func (s *storageStatusSuite) TestGetVolumeAttachments(c *tc.C) {
 	s.newStorageInstanceVolume(c, s3, v3)
 	s.newVolumeAttachment(c, v3, nn3)
 	s.newStorageVolumeAttachmentPlan(c, v3, nn3,
-		storageprovisioning.PlanDeviceTypeISCSI,
+		storage.VolumeDeviceTypeISCSI,
 		map[string]string{"a": "b", "c": "d"},
 	)
 
@@ -787,7 +785,7 @@ func (s *storageStatusSuite) TestGetVolumeAttachments(c *tc.C) {
 			Unit:       &u3n,
 			Machine:    &m3n,
 			VolumeAttachmentPlan: &status.VolumeAttachmentPlan{
-				DeviceType: storageprovisioning.PlanDeviceTypeISCSI,
+				DeviceType: storage.VolumeDeviceTypeISCSI,
 				DeviceAttributes: map[string]string{
 					"a": "b",
 					"c": "d",
@@ -801,7 +799,7 @@ func (s *storageStatusSuite) newStorageVolumeAttachmentPlan(
 	c *tc.C,
 	volumeUUID storage.VolumeUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
-	deviceTypeID storageprovisioning.PlanDeviceType,
+	deviceTypeID storage.VolumeDeviceType,
 	attrs map[string]string,
 ) string {
 	vapUUID := uuid.MustNewUUID().String()
@@ -869,7 +867,7 @@ func (s *storageStatusSuite) changeVolumeInfo(
 
 func (s *storageStatusSuite) changeFilesystemInfo(
 	c *tc.C,
-	uuid storageprovisioning.FilesystemUUID,
+	uuid storage.FilesystemUUID,
 	providerID string,
 	sizeMiB uint64,
 ) {
@@ -881,7 +879,7 @@ func (s *storageStatusSuite) changeFilesystemInfo(
 
 func (s *storageStatusSuite) changeFilesystemAttachmentInfo(
 	c *tc.C,
-	uuid storageprovisioning.FilesystemAttachmentUUID,
+	uuid storage.FilesystemAttachmentUUID,
 	mountPoint string,
 	readOnly bool,
 ) {
@@ -899,10 +897,10 @@ func (s *storageStatusSuite) changeFilesystemAttachmentInfo(
 // filesystem uuid and net node uuid.
 func (s *storageStatusSuite) newFilesystemAttachment(
 	c *tc.C,
-	fsUUID storageprovisioning.FilesystemUUID,
+	fsUUID storage.FilesystemUUID,
 	netNodeUUID domainnetwork.NetNodeUUID,
-) storageprovisioning.FilesystemAttachmentUUID {
-	attachmentUUID := storageprovisioningtesting.GenFilesystemAttachmentUUID(c)
+) storage.FilesystemAttachmentUUID {
+	attachmentUUID := tc.Must(c, storage.NewFilesystemAttachmentUUID)
 
 	_, err := s.DB().Exec(`
 INSERT INTO storage_filesystem_attachment (uuid,
@@ -1016,7 +1014,7 @@ VALUES (?, ?)
 }
 
 func (s *storageStatusSuite) newStorageAttachment(c *tc.C, storageInstanceUUID storage.StorageInstanceUUID, unitUUID unit.UUID) {
-	saUUID := storageprovisioningtesting.GenStorageAttachmentUUID(c)
+	saUUID := tc.Must(c, storage.NewStorageAttachmentUUID)
 	_, err := s.DB().Exec(`
 INSERT INTO storage_attachment(uuid, storage_instance_uuid, unit_uuid, life_id)
 VALUES (?, ?, ?, 0)

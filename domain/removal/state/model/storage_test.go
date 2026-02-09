@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -1325,7 +1324,7 @@ func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDead(c *tc.C) {
 }
 
 func (s *storageSuite) TestGetDetachInfoForStorageAttachmentNotFound(c *tc.C) {
-	saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	saUUID := tc.Must(c, storage.NewStorageAttachmentUUID)
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	_, err := st.GetDetachInfoForStorageAttachment(c.Context(), saUUID.String())
 	c.Check(err, tc.ErrorIs, storageerrors.StorageAttachmentNotFound)
@@ -1505,7 +1504,7 @@ func (s *storageSuite) TestEnsureStorageAttachmentNotAliveWithFulfilmentOnlyAliv
 // storage attachment does exist a [storageerrors.StorageAttachmentNotFound]
 // error is returned.
 func (s *storageSuite) TestEnsureStorageAttachmentNotAliveWithFulfilmentNotFound(c *tc.C) {
-	notFoundUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+	notFoundUUID := tc.Must(c, storage.NewStorageAttachmentUUID)
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	_, err := st.EnsureStorageAttachmentNotAliveWithFulfilment(
 		c.Context(), notFoundUUID.String(), 100,
@@ -1614,7 +1613,7 @@ VALUES (?, 'testcharm', ?, 1, ?, 1, ?, 1024)
 		)
 		c.Assert(err, tc.ErrorIsNil)
 
-		saUUID := tc.Must(c, storageprovisioning.NewStorageAttachmentUUID)
+		saUUID := tc.Must(c, storage.NewStorageAttachmentUUID)
 		_, err = s.DB().ExecContext(
 			ctx,
 			`
@@ -1625,7 +1624,7 @@ VALUES (?, ?, ?, 0)
 		)
 		c.Assert(err, tc.ErrorIsNil)
 
-		fsUUID := tc.Must(c, storageprovisioning.NewFilesystemUUID)
+		fsUUID := tc.Must(c, storage.NewFilesystemUUID)
 		_, err = s.DB().ExecContext(
 			ctx,
 			`
@@ -1646,7 +1645,7 @@ VALUES (?, ?)
 		)
 		c.Assert(err, tc.ErrorIsNil)
 
-		fsaUUID := tc.Must(c, storageprovisioning.NewFilesystemAttachmentUUID)
+		fsaUUID := tc.Must(c, storage.NewFilesystemAttachmentUUID)
 		_, err = s.DB().ExecContext(
 			ctx,
 			`
@@ -1689,7 +1688,7 @@ VALUES (?, ?, ?, 0, ?)
 		)
 		c.Assert(err, tc.ErrorIsNil)
 
-		vapUUID := tc.Must(c, storageprovisioning.NewVolumeAttachmentPlanUUID)
+		vapUUID := tc.Must(c, storage.NewVolumeAttachmentPlanUUID)
 		_, err = s.DB().ExecContext(
 			ctx,
 			`

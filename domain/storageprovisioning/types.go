@@ -23,16 +23,6 @@ type ModelResourceTagInfo struct {
 	ControllerUUID   string
 }
 
-// PlanDeviceType defines what type of storage attachment plan is required.
-type PlanDeviceType int
-
-const (
-	// PlanDeviceTypeLocal indicates a local attachment.
-	PlanDeviceTypeLocal PlanDeviceType = iota
-	// PlanDeviceTypeISCSI indicates an iscsi attachment.
-	PlanDeviceTypeISCSI
-)
-
 // StorageAttachmentInfo represents information about a storage attachment.
 type StorageAttachmentInfo struct {
 	Kind                 storage.StorageKind

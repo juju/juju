@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
-	jujucharm "github.com/juju/juju/internal/charm"
+	jujucharm "github.com/juju/juju/domain/deployment/charm"
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/rpc/params"
 )

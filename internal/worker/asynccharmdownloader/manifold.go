@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/core/application"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/internal/charm/charmdownloader"
+	"github.com/juju/juju/domain/deployment/charm/charmdownloader"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"

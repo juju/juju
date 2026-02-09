@@ -65,12 +65,8 @@ type count struct {
 	Count int `db:"count"`
 }
 
-type namespace struct {
-	Value string `db:"value"`
-}
-
-// unitMachineLifeSummary holds the counts of alive, not alive, and machine parent
-// entities associated with a unit identified by the UUID. It is used to
+// unitMachineLifeSummary holds the counts of alive, not alive, and machine
+// parent entities associated with a unit identified by the UUID. It is used to
 // summarize the state of a unit in terms of its associated entities.
 type unitMachineLifeSummary struct {
 	// UUID uniquely identifies a associated domain entity.
@@ -84,17 +80,20 @@ type unitMachineLifeSummary struct {
 	MachineParentCount int `db:"machine_parent_count"`
 }
 
-// entityLife holds an entity's life in integer
+// entityLife holds an entity's life in integer.
 type entityLife struct {
 	Life int `db:"life_id"`
 }
 
-// entityNameLife holds an entity's name and life
-type entityNameLife struct {
+// entityName holds an entity's name.
+type entityName struct {
 	// Name is the name of the entity.
 	Name string `db:"name"`
-	// Life is the life of the entity.
-	Life int `db:"life_id"`
+}
+
+// entityStatus holds an entity's status in integer.
+type entityStatus struct {
+	StatusID int `db:"status_id"`
 }
 
 // unitUUID holds a unit UUID in string form.
@@ -156,10 +155,6 @@ func (srs secretRevisions) split() (uuids, uuids) {
 	}
 
 	return revisionUUIDs, secretUUIDs.Values()
-}
-
-type status struct {
-	StatusID int `db:"status_id"`
 }
 
 type storageRemoval struct {

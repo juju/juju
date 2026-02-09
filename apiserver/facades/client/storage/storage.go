@@ -5,6 +5,7 @@ package storage
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/juju/names/v6"
@@ -12,19 +13,27 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	coreversion "github.com/juju/juju/core/version"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/service/storage"
 	domainremoval "github.com/juju/juju/domain/removal"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
+
+// BlockChecker defines the block-checking functionality required by
+// the storage facade. This is implemented by
+// apiserver/common.BlockChecker.
+type BlockChecker interface {
+	ChangeAllowed(context.Context) error
+}
 
 // RemovalService defines the interface required for removing storage related
 // entities in the model on behalf of an API caller.
@@ -41,7 +50,7 @@ type RemovalService interface {
 	// attachment would violate the charm minimums required for the unit.
 	RemoveStorageAttachment(
 		ctx context.Context,
-		uuid domainstorageprovisioning.StorageAttachmentUUID,
+		uuid domainstorage.StorageAttachmentUUID,
 		force bool,
 		wait time.Duration,
 	) (domainremoval.UUID, error)
@@ -59,6 +68,8 @@ type RemovalService interface {
 
 // StorageService defines apis on the storage service.
 type StorageService interface {
+	StoragePoolService
+
 	// GetStorageAttachmentUUIDForStorageInstanceAndUnit returns the
 	// [domainstorageprovisioning.StorageAttachmentUUID] associated with the
 	// given storage instance id and unit name.
@@ -72,7 +83,7 @@ type StorageService interface {
 		ctx context.Context,
 		uuid domainstorage.StorageInstanceUUID,
 		unitUUID coreunit.UUID,
-	) (domainstorageprovisioning.StorageAttachmentUUID, error)
+	) (domainstorage.StorageAttachmentUUID, error)
 
 	// GetStorageInstanceAttachments returns the set of attachments a storage
 	// instance has. If the storage instance has no attachments then an empty
@@ -84,7 +95,7 @@ type StorageService interface {
 	// the storage instance for the supplied uuid does not exist.
 	GetStorageInstanceAttachments(
 		context.Context, domainstorage.StorageInstanceUUID,
-	) ([]domainstorageprovisioning.StorageAttachmentUUID, error)
+	) ([]domainstorage.StorageAttachmentUUID, error)
 
 	// GetStorageInstanceUUIDForID returns the StorageInstanceUUID for the given
 	// storage ID.
@@ -96,6 +107,9 @@ type StorageService interface {
 		ctx context.Context,
 		storageID string,
 	) (domainstorage.StorageInstanceUUID, error)
+
+	// GetStoragePoolUUID returns the UUID of the storage pool for the specified name.
+	GetStoragePoolUUID(context.Context, string) (domainstorage.StoragePoolUUID, error)
 
 	// ListStoragePools returns all the storage pools.
 	ListStoragePools(ctx context.Context) ([]domainstorage.StoragePool, error)
@@ -135,6 +149,20 @@ type ApplicationService interface {
 	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] if the
 	// unit doesn't exist.
 	GetUnitUUID(context.Context, coreunit.Name) (coreunit.UUID, error)
+
+	// AddStorageForIAASUnit adds storage instances to the given unit.
+	AddStorageForIAASUnit(
+		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, count uint32, arg storage.AddUnitStorageOverride,
+	) ([]corestorage.ID, error)
+
+	// AddStorageForCAASUnit adds storage instances to the given unit.
+	AddStorageForCAASUnit(
+		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, count uint32, arg storage.AddUnitStorageOverride,
+	) ([]corestorage.ID, error)
+
+	// AttachStorageToUnit ensures the specified storage instance is attached to the specified unit.
+	// If the attachment already exists, the result is a no op.
+	AttachStorageToUnit(ctx context.Context, storageID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error
 }
 
 // StorageAPIv6 provides the Storage API facade for version 6.
@@ -144,6 +172,7 @@ type StorageAPIv6 struct {
 
 // StorageAPI implements the latest version (v7) of the Storage API.
 type StorageAPI struct {
+	blockChecker       BlockChecker
 	applicationService ApplicationService
 	removalService     RemovalService
 	storageService     StorageService
@@ -151,19 +180,23 @@ type StorageAPI struct {
 	authorizer     facade.Authorizer
 	controllerUUID string
 	modelUUID      coremodel.UUID
+	modelType      coremodel.ModelType
 	logger         corelogger.Logger
 }
 
 func NewStorageAPI(
 	controllerUUID string,
 	modelUUID coremodel.UUID,
+	modelType coremodel.ModelType,
 	authorizer facade.Authorizer,
 	logger corelogger.Logger,
+	blockChecker BlockChecker,
 	applicationService ApplicationService,
 	removalService RemovalService,
 	storageService StorageService,
 ) *StorageAPI {
 	return &StorageAPI{
+		blockChecker:       blockChecker,
 		applicationService: applicationService,
 		removalService:     removalService,
 		storageService:     storageService,
@@ -171,24 +204,144 @@ func NewStorageAPI(
 		authorizer:     authorizer,
 		controllerUUID: controllerUUID,
 		modelUUID:      modelUUID,
+		modelType:      modelType,
 		logger:         logger,
 	}
 }
 
-func (a *StorageAPI) checkCanRead(ctx context.Context) error {
-	err := a.authorizer.HasPermission(ctx, permission.SuperuserAccess, names.NewControllerTag(a.controllerUUID))
-	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
-		return errors.Capture(err)
+// checkHasModelPermission checks to see if the authenticated entity has the
+// supplied permission on the model returning true or false. Any errors
+// encountered performing the check are returned with false.
+func (a *StorageAPI) checkHasModelPermission(
+	ctx context.Context, perm permission.Access,
+) (bool, error) {
+	err := a.authorizer.HasPermission(
+		ctx, perm, names.NewModelTag(a.modelUUID.String()),
+	)
+	if errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return false, nil
+	} else if err != nil {
+		return false, err
 	}
 
-	if err == nil {
-		return nil
-	}
-	return a.authorizer.HasPermission(ctx, permission.ReadAccess, names.NewModelTag(a.modelUUID.String()))
+	return true, nil
 }
 
-func (a *StorageAPI) checkCanWrite(ctx context.Context) error {
-	return a.authorizer.HasPermission(ctx, permission.WriteAccess, names.NewModelTag(a.modelUUID.String()))
+// checkHasSuperUserAccess checks to see if the authenticated entity has super
+// user access on the controller. Any errors encountered performing the check
+// are returned with false.
+func (a *StorageAPI) checkHasSuperUserAccess(ctx context.Context) (bool, error) {
+	err := a.authorizer.HasPermission(
+		ctx,
+		permission.SuperuserAccess,
+		names.NewControllerTag(a.controllerUUID),
+	)
+	if errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		// Subject doesn't have superuser access on the controller
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+// checkCanRead checks that the caller of the facade has read permissions on
+// the model or super user access on the controller. If the caller does not have
+// read permissions then a [params.Error] value is returned with the code set to
+// [apiservererrors.CodeUnauthorized].
+//
+// NOTE: this is a slight change in patterns from how this type of authorisation
+// check would be performed in a facade. We explicitly return a params error
+// here that has the unauthorized code check so that the facade contracts are
+// strict and can be tested within the facade.
+//
+// By returning any error out of this func and subsequently out of the facade
+// func we are relying on a catch all handler at the api root to perform the
+// last transformation. Relying on this means the facades contracts can not be
+// tested.
+//
+// Errors encountered checking permissions will be logged at warning level with a
+// params error returned and the code set to [apiservererrors.CodeUnauthorized].
+func (a *StorageAPI) checkCanRead(ctx context.Context) *params.Error {
+	hasSuperUser, err := a.checkHasSuperUserAccess(ctx)
+	if err != nil {
+		a.logger.Warningf(
+			ctx,
+			"checking for super user access on entity %q: %s",
+			a.authorizer.GetAuthTag().String(),
+			err.Error(),
+		)
+		return apiservererrors.ParamsErrorf(
+			params.CodeUnauthorized, "not authorized for request",
+		)
+	}
+
+	if hasSuperUser {
+		// authenticated entity has super user access on the controller.
+		return nil
+	}
+
+	hasModelRead, err := a.checkHasModelPermission(ctx, permission.ReadAccess)
+	if err != nil {
+		a.logger.Warningf(
+			ctx,
+			"checking for read access on entity %q: %s",
+			a.authorizer.GetAuthTag().String(),
+			err.Error(),
+		)
+		return apiservererrors.ParamsErrorf(
+			params.CodeUnauthorized, "not authorized for request",
+		)
+	}
+
+	if hasModelRead {
+		return nil
+	}
+
+	return apiservererrors.ParamsErrorf(
+		params.CodeUnauthorized, "not authorized for request",
+	)
+}
+
+// checkCanWrite checks that the caller of the facade has write permissions on
+// the model. If the caller does not have write permissions then a
+// [params.Error] value is returned with the code set to
+// [apiservererrors.CodeUnauthorized].
+//
+// NOTE: this is a slight change in patterns from how this type of authorisation
+// check would be performed in a facade. We explicitly return a params error
+// here that has the unauthorized code check so that the facade contracts are
+// strict and can be tested within the facade.
+//
+// By returning any error out of this func and subsequently out of the facade
+// func we are relying on a catch all handler at the api root to perform the
+// last transformation. Relying on this means the facades contracts can not be
+// tested.
+//
+// Errors encountered checking permissions will be logged at warning level with a
+// params error returned and the code set to [apiservererrors.CodeUnauthorized].
+func (a *StorageAPI) checkCanWrite(ctx context.Context) *params.Error {
+	hasModelWrite, err := a.checkHasModelPermission(ctx, permission.WriteAccess)
+	if err != nil {
+		a.logger.Warningf(
+			ctx,
+			"checking for write access on entity %q: %s",
+			a.authorizer.GetAuthTag().String(),
+			err.Error(),
+		)
+		return apiservererrors.ParamsErrorf(
+			params.CodeUnauthorized, "not authorized for request",
+		)
+	}
+
+	if hasModelWrite {
+		return nil
+	}
+
+	return apiservererrors.ParamsErrorf(
+		params.CodeUnauthorized, "not authorized for request",
+	)
 }
 
 // StorageDetails retrieves and returns detailed information about desired
@@ -203,78 +356,6 @@ func (a *StorageAPI) StorageDetails(ctx context.Context, entities params.Entitie
 // ListStorageDetails returns storage matching a filter.
 func (a *StorageAPI) ListStorageDetails(ctx context.Context, filters params.StorageFilters) (params.StorageDetailsListResults, error) {
 	return params.StorageDetailsListResults{}, apiservererrors.ParamsErrorf(
-		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
-	)
-}
-
-// ListPools returns a list of pools.
-// If filter is provided, returned list only contains pools that match
-// the filter.
-// Pools can be filtered on names and provider types.
-// If both names and types are provided as filter,
-// pools that match either are returned.
-// This method lists union of pools and environment provider types.
-// If no filter is provided, all pools are returned.
-func (a *StorageAPI) ListPools(
-	ctx context.Context,
-	filters params.StoragePoolFilters,
-) (params.StoragePoolsResults, error) {
-	if err := a.checkCanRead(ctx); err != nil {
-		return params.StoragePoolsResults{}, errors.Capture(err)
-	}
-
-	results := params.StoragePoolsResults{
-		Results: make([]params.StoragePoolsResult, len(filters.Filters)),
-	}
-	for i, filter := range filters.Filters {
-		pools, err := a.listPools(ctx, filter)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		results.Results[i].Result = pools
-	}
-	return results, nil
-}
-
-func (a *StorageAPI) listPools(ctx context.Context, filter params.StoragePoolFilter) ([]params.StoragePool, error) {
-	var (
-		pools []domainstorage.StoragePool
-		err   error
-	)
-	if len(filter.Names) == 0 && len(filter.Providers) == 0 {
-		pools, err = a.storageService.ListStoragePools(ctx)
-	} else if len(filter.Names) != 0 && len(filter.Providers) != 0 {
-		pools, err = a.storageService.ListStoragePoolsByNamesAndProviders(ctx, filter.Names, filter.Providers)
-	} else if len(filter.Names) != 0 {
-		pools, err = a.storageService.ListStoragePoolsByNames(ctx, filter.Names)
-	} else {
-		pools, err = a.storageService.ListStoragePoolsByProviders(ctx, filter.Providers)
-	}
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	results := make([]params.StoragePool, len(pools))
-	for i, p := range pools {
-		pool := params.StoragePool{
-			Name:     p.Name,
-			Provider: p.Provider,
-		}
-		if len(p.Attrs) > 0 {
-			pool.Attrs = make(map[string]any, len(p.Attrs))
-			for k, v := range p.Attrs {
-				pool.Attrs[k] = v
-			}
-		}
-		results[i] = pool
-
-	}
-	return results, nil
-}
-
-// CreatePool creates a new pool with specified parameters.
-func (a *StorageAPI) CreatePool(ctx context.Context, p params.StoragePoolArgs) (params.ErrorResults, error) {
-	return params.ErrorResults{}, apiservererrors.ParamsErrorf(
 		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
 	)
 }
@@ -300,9 +381,135 @@ func (a *StorageAPI) ListFilesystems(ctx context.Context, filters params.Filesys
 // AddToUnit validates and creates additional storage instances for units.
 // A "CHANGE" block can block this operation.
 func (a *StorageAPI) AddToUnit(ctx context.Context, args params.StoragesAddParams) (params.AddStorageResults, error) {
-	return params.AddStorageResults{}, apiservererrors.ParamsErrorf(
-		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
-	)
+	if err := a.checkCanWrite(ctx); err != nil {
+		return params.AddStorageResults{}, errors.Capture(err)
+	}
+
+	// Check if changes are allowed and the operation may proceed.
+	if err := a.blockChecker.ChangeAllowed(ctx); err != nil {
+		return params.AddStorageResults{}, errors.Capture(err)
+	}
+
+	result := make([]params.AddStorageResult, len(args.Storages))
+	for i, one := range args.Storages {
+		storageIDs, err := a.addOneStorage(ctx, one)
+		if err != nil {
+			result[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		tagStrings := make([]string, len(storageIDs))
+		for i, id := range storageIDs {
+			tagStrings[i] = names.NewStorageTag(id.String()).String()
+		}
+		result[i].Result = &params.AddStorageDetails{
+			StorageTags: tagStrings,
+		}
+	}
+	return params.AddStorageResults{Results: result}, nil
+}
+
+func (a *StorageAPI) addOneStorage(ctx context.Context, one params.StorageAddParams) ([]corestorage.ID, error) {
+	u, err := names.ParseUnitTag(one.UnitTag)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	unitName := coreunit.Name(u.Id())
+	unitUUID, err := a.applicationService.GetUnitUUID(ctx, unitName)
+	switch {
+	case errors.Is(err, coreunit.InvalidUnitName):
+		return nil, apiservererrors.ParamsErrorf(params.CodeNotValid,
+			"invalid unit name %q", unitName)
+	case errors.Is(err, applicationerrors.UnitNotFound):
+		return nil, apiservererrors.ParamsErrorf(params.CodeNotFound,
+			"unit %q does not exist", unitName)
+	case err != nil:
+		return nil, errors.Errorf(
+			"getting unit uuid for unit name %q: %w", unitName, err,
+		)
+	}
+
+	var storagePoolUUID *domainstorage.StoragePoolUUID
+	if one.Directives.Pool != "" {
+		poolUUID, err := a.storageService.GetStoragePoolUUID(
+			ctx,
+			one.Directives.Pool,
+		)
+		switch {
+		case errors.Is(err, storageerrors.StoragePoolNameInvalid):
+			return nil, apiservererrors.ParamsErrorf(params.CodeNotValid,
+				"invalid storage pool name")
+		case errors.Is(err, storageerrors.StoragePoolNotFound):
+			return nil, apiservererrors.ParamsErrorf(params.CodeNotFound,
+				"storage pool %q does not exist", one.Directives.Pool)
+		case err != nil:
+			return nil, errors.Errorf(
+				"getting storage pool uuid for %q: %w", one.Directives.Pool, err,
+			)
+		}
+		storagePoolUUID = &poolUUID
+	}
+
+	var storageCount uint32 = 1
+	if one.Directives.Count != nil {
+		if *one.Directives.Count > math.MaxUint32 {
+			return nil, apiservererrors.ParamsErrorf(params.CodeNotValid,
+				"storage directive %s count %d too large", one.StorageName, *one.Directives.Count,
+			)
+		}
+		storageCount = uint32(*one.Directives.Count)
+	}
+
+	args := storage.AddUnitStorageOverride{
+		StoragePoolUUID: storagePoolUUID,
+		SizeMiB:         one.Directives.SizeMiB,
+	}
+	var result []corestorage.ID
+	if a.modelType == coremodel.CAAS {
+		result, err = a.applicationService.AddStorageForCAASUnit(
+			ctx, corestorage.Name(one.StorageName), unitUUID, storageCount, args,
+		)
+	} else {
+		result, err = a.applicationService.AddStorageForIAASUnit(
+			ctx, corestorage.Name(one.StorageName), unitUUID, storageCount, args,
+		)
+	}
+	if err == nil {
+		return result, nil
+	}
+	err = handleUnitAddStorageError(err, unitName, one)
+	return nil, errors.Capture(err)
+}
+
+// handleUnitAddStorageError is a first low pass effort to start handling
+// some of the errors that will occur when adding unit storage.
+// If a handler does not exist then the original error will be returned.
+func handleUnitAddStorageError(err error, unitName coreunit.Name, one params.StorageAddParams) error {
+	switch {
+	case errors.Is(err, applicationerrors.UnitNotFound):
+		return apiservererrors.ParamsErrorf(params.CodeNotFound,
+			"unit %q does not exist", unitName)
+	case errors.Is(err, storageerrors.StoragePoolNotFound):
+		return apiservererrors.ParamsErrorf(params.CodeNotFound,
+			"storage pool %q does not exist", one.Directives.Pool)
+	case errors.Is(err, corestorage.InvalidStorageName):
+		return apiservererrors.ParamsErrorf(params.CodeNotValid,
+			"invalid storage name %q", one.StorageName)
+	case errors.Is(err, applicationerrors.StorageNameNotSupported):
+		return apiservererrors.ParamsErrorf(params.CodeNotSupported,
+			"storage name %q not supported by charm", one.StorageName)
+		// When the supplied storage directive overrides violates the charm's
+		// storage.
+	case errors.HasType[applicationerrors.StorageCountLimitExceeded](err):
+		limitErr, _ := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
+		if limitErr.Maximum != nil && limitErr.Requested > *limitErr.Maximum {
+			return apiservererrors.ParamsErrorf(params.CodeNotValid,
+				"storage directive %q request count %d exceeds the charm's maximum count of %d",
+				limitErr.StorageName, limitErr.Requested, *limitErr.Maximum,
+			)
+		}
+	}
+	return err
 }
 
 // Remove sets the specified storage entities to Dying, unless they are
@@ -318,7 +525,7 @@ func (a *StorageAPI) Remove(ctx context.Context, args params.RemoveStorage) (par
 	one := func(arg params.RemoveStorageInstance) error {
 		tag, err := names.ParseStorageTag(arg.Tag)
 		if err != nil {
-			return errors.New("invalid storage tag").Add(coreerrors.NotValid)
+			return apiservererrors.ParamsErrorf(params.CodeNotValid, "invalid storage tag")
 		}
 		return a.removeStorageInstance(ctx, tag, arg)
 	}
@@ -349,16 +556,14 @@ func (a *StorageAPI) removeStorageInstance(
 		wait = *arg.MaxWait
 	}
 	if wait < 0 {
-		return errors.Errorf(
+		return apiservererrors.ParamsErrorf(params.CodeNotValid,
 			"max wait time cannot be a negative number",
-		).Add(coreerrors.NotValid)
+		)
 	}
 
 	uuid, err := a.storageService.GetStorageInstanceUUIDForID(ctx, tag.Id())
 	if errors.Is(err, storageerrors.StorageInstanceNotFound) {
-		return errors.Errorf("storage %q does not exist", tag.Id()).Add(
-			coreerrors.NotFound,
-		)
+		return apiservererrors.ParamsErrorf(params.CodeNotFound, "storage %q does not exist", tag.Id())
 	} else if err != nil {
 		return errors.Errorf(
 			"getting storage instance uuid for storage id %q: %w",
@@ -370,9 +575,7 @@ func (a *StorageAPI) removeStorageInstance(
 		saUUIDs, err := a.storageService.GetStorageInstanceAttachments(
 			ctx, uuid)
 		if errors.Is(err, storageerrors.StorageInstanceNotFound) {
-			return errors.Errorf("storage %q does not exist", tag.Id()).Add(
-				coreerrors.NotFound,
-			)
+			return apiservererrors.ParamsErrorf(params.CodeNotFound, "storage %q does not exist", tag.Id())
 		} else if err != nil {
 			return errors.Errorf(
 				"getting attachments of storage instance %q: %w",
@@ -394,9 +597,7 @@ func (a *StorageAPI) removeStorageInstance(
 	err = a.removalService.RemoveStorageInstance(
 		ctx, uuid, force, wait, obliterate)
 	if errors.Is(err, storageerrors.StorageInstanceNotFound) {
-		return errors.Errorf("storage %q does not exist", tag.Id()).Add(
-			coreerrors.NotFound,
-		)
+		return apiservererrors.ParamsErrorf(params.CodeNotFound, "storage %q does not exist", tag.Id())
 	} else if err != nil {
 		return errors.Errorf("removing storage %q: %w", tag.Id(), err)
 	}
@@ -407,9 +608,84 @@ func (a *StorageAPI) removeStorageInstance(
 // Attach attaches existing storage instances to units.
 // A "CHANGE" block can block this operation.
 func (a *StorageAPI) Attach(ctx context.Context, args params.StorageAttachmentIds) (params.ErrorResults, error) {
-	return params.ErrorResults{}, apiservererrors.ParamsErrorf(
-		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
-	)
+	if err := a.checkCanWrite(ctx); err != nil {
+		return params.ErrorResults{}, errors.Capture(err)
+	}
+
+	// Check if changes are allowed and the operation may proceed.
+	if err := a.blockChecker.ChangeAllowed(ctx); err != nil {
+		return params.ErrorResults{}, errors.Capture(err)
+	}
+
+	result := make([]params.ErrorResult, len(args.Ids))
+	for i, one := range args.Ids {
+		err := a.attachOneStorage(ctx, one)
+		result[i].Error = apiservererrors.ServerError(err)
+	}
+	return params.ErrorResults{Results: result}, nil
+}
+
+func (a *StorageAPI) attachOneStorage(ctx context.Context, one params.StorageAttachmentId) error {
+	u, err := names.ParseUnitTag(one.UnitTag)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	unitName := coreunit.Name(u.Id())
+	unitUUID, err := a.applicationService.GetUnitUUID(ctx, unitName)
+	switch {
+	case errors.Is(err, coreunit.InvalidUnitName):
+		return apiservererrors.ParamsErrorf(params.CodeNotValid,
+			"invalid unit name %q", unitName)
+	case errors.Is(err, applicationerrors.UnitNotFound):
+		return apiservererrors.ParamsErrorf(params.CodeNotFound,
+			"unit %q does not exist", unitName)
+	case err != nil:
+		return errors.Errorf(
+			"getting unit uuid for unit name %q: %w", unitName, err,
+		)
+	}
+
+	storageTag, err := names.ParseStorageTag(one.StorageTag)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	storageUUID, err := a.storageService.GetStorageInstanceUUIDForID(ctx, storageTag.Id())
+	if errors.Is(err, storageerrors.StorageInstanceNotFound) {
+		return apiservererrors.ParamsErrorf(params.CodeNotFound, "storage %q does not exist", storageTag.Id())
+	} else if err != nil {
+		return errors.Errorf(
+			"getting storage instance uuid for storage id %q: %w",
+			storageTag.Id(), err,
+		)
+	}
+
+	err = a.applicationService.AttachStorageToUnit(ctx, storageUUID, unitUUID)
+	err = handleAttachStorageToUnitError(err, unitName, storageTag.Id())
+	return err
+}
+
+// handleAttachStorageToUnitError is a first low pass effort to start handling
+// some of the errors that will occur when attaching unit storage.
+// If a handler does not exist then the original error will be returned.
+func handleAttachStorageToUnitError(err error, unitName coreunit.Name, storageID string) error {
+	switch {
+	case errors.Is(err, applicationerrors.UnitNotFound):
+		return apiservererrors.ParamsErrorf(params.CodeNotFound,
+			"unit %q does not exist", unitName)
+	case errors.Is(err, storageerrors.StorageInstanceNotFound):
+		return apiservererrors.ParamsErrorf(params.CodeNotFound,
+			"storage %q not found", storageID)
+	case errors.HasType[applicationerrors.StorageCountLimitExceeded](err):
+		limitErr, _ := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
+		if limitErr.Maximum != nil && limitErr.Requested > *limitErr.Maximum {
+			return apiservererrors.ParamsErrorf(params.CodeNotValid,
+				"storage attachment %q count %d would exceed the charm's maximum count of %d",
+				limitErr.StorageName, limitErr.Requested, *limitErr.Maximum,
+			)
+		}
+	}
+	return err
 }
 
 // Import imports existing storage into the model.
@@ -424,20 +700,6 @@ func (a *StorageAPI) Import(ctx context.Context, args params.BulkImportStoragePa
 // A "CHANGE" block can block this operation.
 func (a *StorageAPIv6) Import(ctx context.Context, args params.BulkImportStorageParams) (params.ImportStorageResults, error) {
 	return params.ImportStorageResults{}, apiservererrors.ParamsErrorf(
-		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
-	)
-}
-
-// RemovePool deletes the named pool
-func (a *StorageAPI) RemovePool(ctx context.Context, p params.StoragePoolDeleteArgs) (params.ErrorResults, error) {
-	return params.ErrorResults{}, apiservererrors.ParamsErrorf(
-		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
-	)
-}
-
-// UpdatePool deletes the named pool
-func (a *StorageAPI) UpdatePool(ctx context.Context, p params.StoragePoolArgs) (params.ErrorResults, error) {
-	return params.ErrorResults{}, apiservererrors.ParamsErrorf(
 		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
 	)
 }

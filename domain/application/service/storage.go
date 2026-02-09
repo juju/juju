@@ -8,12 +8,13 @@ import (
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
+	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/application/service/storage"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	domainnetwork "github.com/juju/juju/domain/network"
-	internalcharm "github.com/juju/juju/internal/charm"
 )
 
 // StorageDirectiveOverrides represents override instructions for application
@@ -113,8 +114,20 @@ type StorageService interface {
 	// complement the unit storage arguments provided for IAAS units.
 	MakeIAASUnitStorageArgs(
 		ctx context.Context,
-		unitStorageArg internal.CreateUnitStorageArg,
+		storageInst []internal.CreateUnitStorageInstanceArg,
 	) (internal.CreateIAASUnitStorageArg, error)
+
+	// MakeUnitAddStorageArgs creates the storage arguments required to
+	// add storage to a unit. This is similar to [MakeUnitStorageArgs]
+	// but without processing existing storage.
+	// The details of the new instances are calculated and all the
+	// required storage attachments are added.
+	MakeUnitAddStorageArgs(
+		ctx context.Context,
+		unitUUID coreunit.UUID,
+		addCount uint32,
+		storageDirectives application.StorageDirective,
+	) (internal.UnitAddStorageArg, error)
 
 	// ValidateApplicationStorageDirectiveOverrides checks a set of storage
 	// directive overrides to make sure they are valid with respect to the charms
@@ -137,4 +150,14 @@ type StorageService interface {
 		ctx context.Context,
 		charmStorageDefs map[string]internalcharm.Storage,
 	) error
+
+	// GetUnitStorageDirectiveByName returns the named storage directive for the unit.
+	// The following errors may be expected:
+	// - [coreerrors.NotValid] when the supplied unit uuid is not valid.
+	// - [applicationerrors.StorageNameNotSupported] if the named storage does not exist.
+	GetUnitStorageDirectiveByName(
+		ctx context.Context,
+		uuid coreunit.UUID,
+		storageName corestorage.Name,
+	) (application.StorageDirective, error)
 }

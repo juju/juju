@@ -520,9 +520,6 @@ Model configuration keys (affecting the controller model):
       type: string
       description: The HTTPS proxy value to configure on instances, in the `HTTPS_PROXY`
         environment variable
-    ignore-machine-addresses:
-      type: bool
-      description: Whether the machine worker should discover machine addresses on startup
     image-metadata-defaults-disabled:
       type: bool
       description: Whether default simplestreams sources are used for image metadata.

@@ -11,13 +11,16 @@ import (
 	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	corestatus "github.com/juju/juju/core/status"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
@@ -190,6 +193,48 @@ type UnitState interface {
 	//   - If the application is not found, [applicationerrors.ApplicationNotFound]
 	//     is returned.
 	GetAllUnitCloudContainerIDsForApplication(context.Context, coreapplication.UUID) (map[coreunit.Name]string, error)
+
+	// GetCharmStorageAndInstanceCountByUnitUUID returns the metadata and how many
+	// storage instances exist for the named storage on the specified unit.
+	// The following error types can be expected:
+	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
+	GetCharmStorageAndInstanceCountByUnitUUID(ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name) (internalcharm.Storage, uint32, error)
+
+	// AddStorageForCAASUnit adds storage instances to given unit as specified.
+	// The specified storage name is used to retrieve existing storage instances.
+	// Combination of existing storage instances and anticipated additional storage
+	// instances is validated as specified in the unit's charm.
+	// The following error types can be expected:
+	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the
+	// unit does not exist.
+	// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the
+	// unit is not alive.
+	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]:
+	// when storage name is not defined in charm metadata.
+	// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded]
+	// when the requested storage falls outside of the bounds defined by the charm.
+	AddStorageForCAASUnit(
+		ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
+		storageArg internal.UnitAddStorageArg,
+	) ([]corestorage.ID, error)
+
+	// AddStorageForIAASUnit adds storage instances to given IAAS unit as specified.
+	// The specified storage name is used to retrieve existing storage instances.
+	// Combination of existing storage instances and anticipated additional storage
+	// instances is validated as specified in the unit's charm.
+	// The following error types can be expected:
+	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the
+	// unit does not exist.
+	// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the
+	// unit is not alive.
+	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]:
+	// when storage name is not defined in charm metadata.
+	// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded]
+	// when the requested storage falls outside of the bounds defined by the charm.
+	AddStorageForIAASUnit(
+		ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
+		storageArg internal.IAASUnitAddStorageArg,
+	) ([]corestorage.ID, error)
 }
 
 func (s *ProviderService) makeIAASUnitArgs(
@@ -258,7 +303,7 @@ func (s *ProviderService) makeIAASUnitArgs(
 			)
 		}
 		iassUnitStorageArgs, err := s.storageService.MakeIAASUnitStorageArgs(
-			ctx, unitStorageArgs)
+			ctx, unitStorageArgs.StorageInstances)
 		if err != nil {
 			return nil, errors.Errorf(
 				"making IAAS storage arguments for IAAS unit: %w", err,

@@ -536,6 +536,92 @@ AND    life_id = 1`, unitUUID)
 	}))
 }
 
+// MarkUnitAsDeadWithNoEntities marks the unit with the input UUID as dead,
+// if there are no associated entities that are still found.
+func (st *State) MarkUnitAsDeadWithNoEntities(ctx context.Context, uUUID string) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	unitUUID := entityAssociationCount{UUID: uUUID}
+	updateStmt, err := st.Prepare(`
+UPDATE unit
+SET    life_id = 2
+WHERE  uuid = $entityAssociationCount.uuid
+AND    life_id = 1`, unitUUID)
+	if err != nil {
+		return errors.Errorf("preparing unit life update: %w", err)
+	}
+
+	// The following statements check for associated entities that would
+	// prevent the unit from being marked as dead. As long as there are no
+	// relations, storage attachments, or storage directives associated
+	// with the unit, we can mark it as dead.
+
+	relationStmt, err := st.Prepare(`
+SELECT count(*) AS &entityAssociationCount.count
+FROM   relation_unit
+WHERE  unit_uuid = $entityAssociationCount.uuid
+`, unitUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	storageAttachmentStmt, err := st.Prepare(`
+SELECT count(*) AS &entityAssociationCount.count
+FROM   storage_attachment
+WHERE  unit_uuid = $entityAssociationCount.uuid
+`, unitUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	storageDirectiveStmt, err := st.Prepare(`
+SELECT count(*) AS &entityAssociationCount.count
+FROM   unit_storage_directive
+WHERE  unit_uuid = $entityAssociationCount.uuid
+`, unitUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if l, err := st.getUnitLife(ctx, tx, uUUID); err != nil {
+			return errors.Errorf("getting unit life: %w", err)
+		} else if l == life.Dead {
+			return nil
+		} else if l == life.Alive {
+			return removalerrors.EntityStillAlive
+		}
+
+		var counter entityAssociationCount
+		if err := tx.Query(ctx, relationStmt, unitUUID).Get(&counter); err != nil {
+			return errors.Errorf("getting relation unit count: %w", err)
+		} else if counter.Count > 0 {
+			return removalerrors.EntityStillAlive
+		}
+
+		if err := tx.Query(ctx, storageAttachmentStmt, unitUUID).Get(&counter); err != nil {
+			return errors.Errorf("getting storage attachment count: %w", err)
+		} else if counter.Count > 0 {
+			return removalerrors.EntityStillAlive
+		}
+
+		if err := tx.Query(ctx, storageDirectiveStmt, unitUUID).Get(&counter); err != nil {
+			return errors.Errorf("getting storage directive count: %w", err)
+		} else if counter.Count > 0 {
+			return removalerrors.EntityStillAlive
+		}
+
+		if err := tx.Query(ctx, updateStmt, unitUUID).Run(); err != nil {
+			return errors.Errorf("marking unit as dead: %w", err)
+		}
+
+		return nil
+	}))
+}
+
 // DeleteUnit removes a unit from the database completely.
 func (st *State) DeleteUnit(ctx context.Context, unitUUID string, force bool) error {
 	db, err := st.DB(ctx)

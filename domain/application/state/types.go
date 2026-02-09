@@ -929,7 +929,7 @@ type storageCount struct {
 	StorageUUID domainstorage.StorageInstanceUUID `db:"uuid"`
 	StorageName corestorage.Name                  `db:"storage_name"`
 	UnitUUID    coreunit.UUID                     `db:"unit_uuid"`
-	Count       uint64                            `db:"count"`
+	Count       uint32                            `db:"count"`
 }
 
 // dbConstraint represents a single row within the v_model_constraint view.

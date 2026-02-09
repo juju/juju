@@ -33,13 +33,13 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	removalstatemodel "github.com/juju/juju/domain/removal/state/model"
 	"github.com/juju/juju/domain/resource"
 	"github.com/juju/juju/domain/status"
 	statusstate "github.com/juju/juju/domain/status/state/model"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -1056,38 +1056,59 @@ func (s *applicationStateSuite) TestGetApplicationDetailsByNameNotFound(c *tc.C)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAliveEmptyModel(c *tc.C) {
-	err := s.state.CheckAllApplicationsAndUnitsAreAlive(c.Context())
+func (s *applicationStateSuite) TestCheckApplicationsForMigrationEmptyModel(c *tc.C) {
+	err := s.state.CheckApplicationsForMigration(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAlive(c *tc.C) {
+func (s *applicationStateSuite) TestCheckApplicationsForMigration(c *tc.C) {
 	// Arrange: Some apps with units
 	s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 3)
 	s.createIAASApplicationWithNUnits(c, "bar", life.Alive, 3)
 
 	// Act:
-	err := s.state.CheckAllApplicationsAndUnitsAreAlive(c.Context())
+	err := s.state.CheckApplicationsForMigration(c.Context())
 
 	// Assert:
 	c.Check(err, tc.ErrorIsNil)
 }
+func (s *applicationStateSuite) TestCheckApplicationsForMigrationUnitUpgrading(c *tc.C) {
+	// Arrange: Some apps with units, add a new charm and update one
+	// application's charm with it.
+	appUUID, _ := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 2)
+	s.createIAASApplicationWithNUnits(c, "bar", life.Alive, 3)
+	charmID, err := s.state.GetCharmIDByApplicationName(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+	charmT, _, err := s.state.GetCharm(c.Context(), charmID)
+	c.Assert(err, tc.ErrorIsNil)
+	charmT.Revision = charmT.Revision + 1
+	newCharmID, _, err := s.state.AddCharm(c.Context(), charmT, nil, false)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.SetApplicationCharm(c.Context(), appUUID, newCharmID, application.SetCharmStateParams{})
+	c.Assert(err, tc.ErrorIsNil)
 
-func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAliveWithDyingApplications(c *tc.C) {
+	// Act:
+	err = s.state.CheckApplicationsForMigration(c.Context())
+
+	// Assert:
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitsUpgrading)
+}
+
+func (s *applicationStateSuite) TestCheckApplicationsForMigrationWithDyingApplications(c *tc.C) {
 	// Arrange: Some apps with units, where some are dying
 	s.createIAASApplicationWithNUnits(c, "foo", life.Dying, 1)
 	s.createIAASApplicationWithNUnits(c, "bar", life.Dying, 1)
 	s.createIAASApplicationWithNUnits(c, "baz", life.Alive, 1)
 
 	// Act:
-	err := s.state.CheckAllApplicationsAndUnitsAreAlive(c.Context())
+	err := s.state.CheckApplicationsForMigration(c.Context())
 
 	// Assert: An error of correct type, mentioning the correct applications, is returned
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
 	c.Check(err, tc.ErrorMatches, `.*application\(s\) "(bar, foo|foo, bar)" are not alive`)
 }
 
-func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAliveWithDyingUnits(c *tc.C) {
+func (s *applicationStateSuite) TestCheckApplicationsForMigrationAliveWithDyingUnits(c *tc.C) {
 	// Arrange: an application with some dying units
 	_, units := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 3)
 
@@ -1098,7 +1119,7 @@ func (s *applicationStateSuite) TestCheckAllApplicationsAndUnitsAreAliveWithDyin
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act:
-	err = s.state.CheckAllApplicationsAndUnitsAreAlive(c.Context())
+	err = s.state.CheckApplicationsForMigration(c.Context())
 
 	// Assert: an error of correct type, mentioning the correct unit, is returned.
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotAlive)

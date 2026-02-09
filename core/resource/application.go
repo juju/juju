@@ -5,7 +5,7 @@ package resource
 
 import (
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/domain/deployment/charm/resource"
 )
 
 // ApplicationResources contains the list of resources for the application and all its

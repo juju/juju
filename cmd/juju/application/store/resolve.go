@@ -6,7 +6,7 @@ package store
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 )
 
 // ResolvedBundle decorates a charm.Bundle instance with a type that implements

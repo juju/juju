@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	jworker "github.com/juju/juju/internal/worker"
@@ -44,9 +43,6 @@ func (s *MachinerSuite) SetUpTest(c *tc.C) {
 		&net.IPAddr{IP: net.IPv4bcast},
 		&net.IPAddr{IP: net.IPv4zero},
 	}
-	s.PatchValue(machiner.InterfaceAddrs, func() ([]net.Addr, error) {
-		return s.addresses, nil
-	})
 
 	s.PatchValue(&machiner.GetObservedNetworkConfig, func(_ corenetwork.ConfigSource) (corenetwork.InterfaceInfos, error) {
 		return nil, nil
@@ -77,9 +73,7 @@ func (s *MachinerSuite) TestMachinerSetUpMachineNotFound(c *tc.C) {
 	s.accessor.SetErrors(
 		&params.Error{Code: params.CodeNotFound}, // Machine
 	)
-	w, err := machiner.NewMachiner(machiner.Config{
-		s.accessor, s.machineTag, false,
-	})
+	w, err := machiner.NewMachiner(machiner.Config{s.accessor, s.machineTag})
 	c.Assert(err, tc.ErrorIsNil)
 	err = stopWorker(w)
 	c.Assert(errors.Cause(err), tc.Equals, jworker.ErrTerminateAgent)
@@ -97,14 +91,11 @@ func (s *MachinerSuite) testMachinerMachineRefreshNotFoundOrUnauthorized(c *tc.C
 	// Accessing the machine initially yields "not found or unauthorized".
 	// We don't know which, so we don't report that the machine is dead.
 	s.accessor.machine.SetErrors(
-		nil,                       // SetMachineAddresses
 		nil,                       // SetStatus
 		nil,                       // Watch
 		&params.Error{Code: code}, // Refresh
 	)
-	w, err := machiner.NewMachiner(machiner.Config{
-		s.accessor, s.machineTag, false,
-	})
+	w, err := machiner.NewMachiner(machiner.Config{s.accessor, s.machineTag})
 	c.Assert(err, tc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(w)
@@ -322,85 +313,37 @@ func (s *MachinerSuite) TestMachinerTryAgain(c *tc.C) {
 }
 
 func (s *MachinerSuite) TestRunStop(c *tc.C) {
-	mr := s.makeMachiner(c, false)
+	mr := s.makeMachiner(c)
 	c.Assert(worker.Stop(mr), tc.ErrorIsNil)
 	s.accessor.machine.CheckCallNames(c,
 		"Life",
-		"SetMachineAddresses",
 		"SetStatus",
 		"Watch",
 	)
 }
 
 func (s *MachinerSuite) TestStartSetsStatus(c *tc.C) {
-	mr := s.makeMachiner(c, false)
+	mr := s.makeMachiner(c)
 	err := stopWorker(mr)
 	c.Assert(err, tc.ErrorIsNil)
 	s.accessor.machine.CheckCallNames(c,
 		"Life",
-		"SetMachineAddresses",
 		"SetStatus",
 		"Watch",
 	)
 	s.accessor.machine.CheckCall(
-		c, 2, "SetStatus",
+		c, 1, "SetStatus",
 		status.Started, "", map[string]interface{}(nil),
 	)
 }
 
 func (s *MachinerSuite) TestSetDead(c *tc.C) {
 	s.accessor.machine.life = life.Dying
-	mr := s.makeMachiner(c, false)
+	mr := s.makeMachiner(c)
 	s.accessor.machine.watcher.changes <- struct{}{}
 
 	err := stopWorker(mr)
 	c.Assert(err, tc.ErrorIs, jworker.ErrTerminateAgent)
-}
-
-func (s *MachinerSuite) TestSetMachineAddresses(c *tc.C) {
-	s.addresses = []net.Addr{
-		&net.IPAddr{IP: net.IPv4(10, 0, 0, 1)},
-		&net.IPAddr{IP: net.IPv4(127, 0, 0, 1)},
-		&net.IPAddr{IP: net.IPv6loopback},
-		&net.UnixAddr{}, // not IP, ignored
-		&net.IPNet{IP: net.ParseIP("2001:db8::1")},
-		&net.IPAddr{IP: net.IPv4(169, 254, 1, 20)}, // LinkLocal Ignored
-		&net.IPNet{IP: net.ParseIP("fe80::1")},     // LinkLocal Ignored
-	}
-
-	s.PatchValue(&network.AddressesForInterfaceName, func(name string) ([]string, error) {
-		if name == network.DefaultLXDBridge {
-			return []string{
-				"10.0.4.1",
-				"10.0.4.4",
-			}, nil
-		}
-		c.Fatalf("unknown bridge in testing: %v", name)
-		return nil, nil
-	})
-
-	mr := s.makeMachiner(c, false)
-	c.Assert(stopWorker(mr), tc.ErrorIsNil)
-	s.accessor.machine.CheckCall(c, 1, "SetMachineAddresses", []corenetwork.MachineAddress{
-		corenetwork.NewMachineAddress("10.0.0.1", corenetwork.WithScope(corenetwork.ScopeCloudLocal)),
-		corenetwork.NewMachineAddress("127.0.0.1", corenetwork.WithScope(corenetwork.ScopeMachineLocal)),
-		corenetwork.NewMachineAddress("::1", corenetwork.WithScope(corenetwork.ScopeMachineLocal)),
-		corenetwork.NewMachineAddress("2001:db8::1"),
-	})
-}
-
-func (s *MachinerSuite) TestSetMachineAddressesEmpty(c *tc.C) {
-	s.addresses = []net.Addr{}
-	mr := s.makeMachiner(c, false)
-	c.Assert(stopWorker(mr), tc.ErrorIsNil)
-	// No call to SetMachineAddresses
-	s.accessor.machine.CheckCallNames(c, "Life", "SetStatus", "Watch")
-}
-
-func (s *MachinerSuite) TestMachineAddressesWithClearFlag(c *tc.C) {
-	mr := s.makeMachiner(c, true)
-	c.Assert(stopWorker(mr), tc.ErrorIsNil)
-	s.accessor.machine.CheckCall(c, 1, "SetMachineAddresses", []corenetwork.MachineAddress(nil))
 }
 
 func (s *MachinerSuite) TestGetObservedNetworkConfigEmpty(c *tc.C) {
@@ -408,13 +351,12 @@ func (s *MachinerSuite) TestGetObservedNetworkConfigEmpty(c *tc.C) {
 		return corenetwork.InterfaceInfos{}, nil
 	})
 
-	mr := s.makeMachiner(c, false)
+	mr := s.makeMachiner(c)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	c.Assert(stopWorker(mr), tc.ErrorIsNil)
 
 	s.accessor.machine.CheckCallNames(c,
 		"Life",
-		"SetMachineAddresses",
 		"SetStatus",
 		"Watch",
 		"Refresh",
@@ -427,13 +369,12 @@ func (s *MachinerSuite) TestSetObservedNetworkConfig(c *tc.C) {
 		return corenetwork.InterfaceInfos{{}}, nil
 	})
 
-	mr := s.makeMachiner(c, false)
+	mr := s.makeMachiner(c)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	c.Assert(stopWorker(mr), tc.ErrorIsNil)
 
 	s.accessor.machine.CheckCallNames(c,
 		"Life",
-		"SetMachineAddresses",
 		"SetStatus",
 		"Watch",
 		"Refresh",
@@ -447,13 +388,12 @@ func (s *MachinerSuite) TestAliveErrorGetObservedNetworkConfig(c *tc.C) {
 		return nil, errors.New("no config!")
 	})
 
-	mr := s.makeMachiner(c, false)
+	mr := s.makeMachiner(c)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	c.Assert(stopWorker(mr), tc.ErrorMatches, "cannot discover observed network config: no config!")
 
 	s.accessor.machine.CheckCallNames(c,
 		"Life",
-		"SetMachineAddresses",
 		"SetStatus",
 		"Watch",
 		"Refresh",
@@ -461,14 +401,10 @@ func (s *MachinerSuite) TestAliveErrorGetObservedNetworkConfig(c *tc.C) {
 	)
 }
 
-func (s *MachinerSuite) makeMachiner(
-	c *tc.C,
-	ignoreAddresses bool,
-) worker.Worker {
+func (s *MachinerSuite) makeMachiner(c *tc.C) worker.Worker {
 	w, err := machiner.NewMachiner(machiner.Config{
-		MachineAccessor:              s.accessor,
-		Tag:                          s.machineTag,
-		ClearMachineAddressesOnStart: ignoreAddresses,
+		MachineAccessor: s.accessor,
+		Tag:             s.machineTag,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return w

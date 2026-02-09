@@ -104,9 +104,9 @@ type SubnetState interface {
 // working with link-layer devices and IP addresses.
 type NetConfigState interface {
 	// GetUnitAndK8sServiceAddresses returns the addresses of the specified unit.
-	// The addresses are taken by unioning the net node UUIDs of the cloud service
-	// (if any) and the net node UUIDs of the unit, where each net node has an
-	// associated address.
+	// The addresses are taken by unioning the net node UUIDs of the cloud
+	// service (if any) and the net node UUIDs of the unit, where each net node
+	// has an associated address.
 	// This approach allows us to get the addresses regardless of the substrate
 	// (k8s or machines).
 	//
@@ -137,9 +137,17 @@ type NetConfigState interface {
 	// exist.
 	GetUnitUUIDByName(context.Context, coreunit.Name) (coreunit.UUID, error)
 
-	// SetMachineNetConfig updates the network configuration for the machine with
-	// the input net node UUID.
-	SetMachineNetConfig(ctx context.Context, nodeUUID string, nics []domainnetwork.NetInterface) error
+	// IsMachineUnmanaged returns true if the machine
+	// with the input UUID is unmanaged.
+	IsMachineUnmanaged(ctx context.Context, machineUUID string) (bool, error)
+
+	// SetMachineNetConfig updates the network configuration for the machine
+	// with the input net node UUID.
+	// If addMissingSubnets is true and any addresses have subnets not yet in
+	// the database, those subnets will be inserted.
+	SetMachineNetConfig(
+		ctx context.Context, nodeUUID string, nics []domainnetwork.NetInterface, addMissingSubnets bool,
+	) error
 
 	// GetAllLinkLayerDevicesByNetNodeUUIDs retrieves all link-layer devices
 	// grouped by net node UUIDs from the persistence layer.

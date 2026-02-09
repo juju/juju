@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/domain/storageprovisioning/internal"
-	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
@@ -538,7 +537,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentPlanUUIDForVolumeIDMachine(c *tc.C)
 	netNodeUUID, err := domainnetwork.NewNetNodeUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	volumeUUID := tc.Must(c, domainstorage.NewVolumeUUID)
-	vapUUID := domaintesting.GenVolumeAttachmentPlanUUID(c)
+	vapUUID := tc.Must(c, domainstorage.NewVolumeAttachmentPlanUUID)
 
 	s.state.EXPECT().GetMachineNetNodeUUID(c.Context(), machineUUID).Return(netNodeUUID, nil)
 	s.state.EXPECT().GetVolumeUUIDForID(c.Context(), "666").Return(volumeUUID, nil)
@@ -998,11 +997,11 @@ func (s *volumeSuite) TestSetVolumeAttachmentProvisionedInfoInvalidBlockDeviceUU
 func (s *volumeSuite) TestGetVolumeAttachmentPlan(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	vapUUID := domaintesting.GenVolumeAttachmentPlanUUID(c)
+	vapUUID := tc.Must(c, domainstorage.NewVolumeAttachmentPlanUUID)
 
 	vap := storageprovisioning.VolumeAttachmentPlan{
 		Life:       domainlife.Dying,
-		DeviceType: storageprovisioning.PlanDeviceTypeISCSI,
+		DeviceType: domainstorage.VolumeDeviceTypeISCSI,
 		DeviceAttributes: map[string]string{
 			"a": "x",
 		},
@@ -1019,7 +1018,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentPlan(c *tc.C) {
 func (s *volumeSuite) TestGetVolumeAttachmentPlanNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	vapUUID := domaintesting.GenVolumeAttachmentPlanUUID(c)
+	vapUUID := tc.Must(c, domainstorage.NewVolumeAttachmentPlanUUID)
 
 	s.state.EXPECT().GetVolumeAttachmentPlan(gomock.Any(), vapUUID).Return(
 		storageprovisioning.VolumeAttachmentPlan{},
@@ -1034,7 +1033,7 @@ func (s *volumeSuite) TestGetVolumeAttachmentPlanNotFound(c *tc.C) {
 func (s *volumeSuite) TestGetVolumeAttachmentPlanInvalidUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	vapUUID := storageprovisioning.VolumeAttachmentPlanUUID("foo")
+	vapUUID := domainstorage.VolumeAttachmentPlanUUID("foo")
 
 	_, err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
 		GetVolumeAttachmentPlan(c.Context(), vapUUID)
@@ -1046,19 +1045,19 @@ func (s *volumeSuite) TestCreateVolumeAttachmentPlan(c *tc.C) {
 
 	vaUUID := tc.Must(c, domainstorage.NewVolumeAttachmentUUID)
 
-	planType := storageprovisioning.PlanDeviceTypeISCSI
+	planType := domainstorage.VolumeDeviceTypeISCSI
 	attrs := map[string]string{
 		"a": "x",
 	}
 
-	var gotUUID storageprovisioning.VolumeAttachmentPlanUUID
+	var gotUUID domainstorage.VolumeAttachmentPlanUUID
 	s.state.EXPECT().CreateVolumeAttachmentPlan(gomock.Any(), gomock.Any(),
 		vaUUID, planType, attrs).DoAndReturn(
 		func(
 			_ context.Context,
-			vapUUID storageprovisioning.VolumeAttachmentPlanUUID,
+			vapUUID domainstorage.VolumeAttachmentPlanUUID,
 			_ domainstorage.VolumeAttachmentUUID,
-			_ storageprovisioning.PlanDeviceType,
+			_ domainstorage.VolumeDeviceType,
 			_ map[string]string) error {
 			gotUUID = vapUUID
 			return nil
@@ -1077,7 +1076,7 @@ func (s *volumeSuite) TestCreateVolumeAttachmentPlanNotFound(c *tc.C) {
 
 	vaUUID := tc.Must(c, domainstorage.NewVolumeAttachmentUUID)
 
-	planType := storageprovisioning.PlanDeviceTypeISCSI
+	planType := domainstorage.VolumeDeviceTypeISCSI
 	attrs := map[string]string{
 		"a": "x",
 	}
@@ -1096,7 +1095,7 @@ func (s *volumeSuite) TestCreateVolumeAttachmentPlanInvalidAttachmentUUID(c *tc.
 
 	vaUUID := domainstorage.VolumeAttachmentUUID("foo")
 
-	planType := storageprovisioning.PlanDeviceTypeISCSI
+	planType := domainstorage.VolumeDeviceTypeISCSI
 	attrs := map[string]string{
 		"a": "x",
 	}
@@ -1109,10 +1108,10 @@ func (s *volumeSuite) TestCreateVolumeAttachmentPlanInvalidAttachmentUUID(c *tc.
 func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	vapUUID := domaintesting.GenVolumeAttachmentPlanUUID(c)
+	vapUUID := tc.Must(c, domainstorage.NewVolumeAttachmentPlanUUID)
 
 	info := storageprovisioning.VolumeAttachmentPlanProvisionedInfo{
-		DeviceType: storageprovisioning.PlanDeviceTypeISCSI,
+		DeviceType: domainstorage.VolumeDeviceTypeISCSI,
 		DeviceAttributes: map[string]string{
 			"a": "x",
 		},
@@ -1129,10 +1128,10 @@ func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedInfo(c *tc.C) {
 func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedInfoNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	vapUUID := domaintesting.GenVolumeAttachmentPlanUUID(c)
+	vapUUID := tc.Must(c, domainstorage.NewVolumeAttachmentPlanUUID)
 
 	info := storageprovisioning.VolumeAttachmentPlanProvisionedInfo{
-		DeviceType: storageprovisioning.PlanDeviceTypeISCSI,
+		DeviceType: domainstorage.VolumeDeviceTypeISCSI,
 		DeviceAttributes: map[string]string{
 			"a": "x",
 		},
@@ -1151,10 +1150,10 @@ func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedInfoNotFound(c *tc.C
 func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedInfoInvalidUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	vapUUID := storageprovisioning.VolumeAttachmentPlanUUID("foo")
+	vapUUID := domainstorage.VolumeAttachmentPlanUUID("foo")
 
 	info := storageprovisioning.VolumeAttachmentPlanProvisionedInfo{
-		DeviceType: storageprovisioning.PlanDeviceTypeISCSI,
+		DeviceType: domainstorage.VolumeDeviceTypeISCSI,
 		DeviceAttributes: map[string]string{
 			"a": "x",
 		},
@@ -1168,7 +1167,7 @@ func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedInfoInvalidUUID(c *t
 func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedBlockDevice(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	vapUUID := domaintesting.GenVolumeAttachmentPlanUUID(c)
+	vapUUID := tc.Must(c, domainstorage.NewVolumeAttachmentPlanUUID)
 	bdUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
 
 	s.state.EXPECT().SetVolumeAttachmentPlanProvisionedBlockDevice(gomock.Any(),
@@ -1183,7 +1182,7 @@ func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedBlockDevice(c *tc.C)
 func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedBlockDeviceNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	vapUUID := domaintesting.GenVolumeAttachmentPlanUUID(c)
+	vapUUID := tc.Must(c, domainstorage.NewVolumeAttachmentPlanUUID)
 	bdUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
 
 	s.state.EXPECT().SetVolumeAttachmentPlanProvisionedBlockDevice(gomock.Any(),
@@ -1198,7 +1197,7 @@ func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedBlockDeviceNotFound(
 func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedBlockDeviceInvalidBlockDeviceUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	vapUUID := domaintesting.GenVolumeAttachmentPlanUUID(c)
+	vapUUID := tc.Must(c, domainstorage.NewVolumeAttachmentPlanUUID)
 	bdUUID := blockdevice.BlockDeviceUUID("foo")
 
 	err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).
@@ -1210,7 +1209,7 @@ func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedBlockDeviceInvalidBl
 func (s *volumeSuite) TestSetVolumeAttachmentPlanProvisionedBlockDeviceInvalidPlanUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	vapUUID := storageprovisioning.VolumeAttachmentPlanUUID("foo")
+	vapUUID := domainstorage.VolumeAttachmentPlanUUID("foo")
 	bdUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
 
 	err := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c)).

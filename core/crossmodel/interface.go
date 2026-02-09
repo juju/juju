@@ -7,7 +7,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/rpc/params"
 )
 

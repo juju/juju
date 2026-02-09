@@ -30,14 +30,14 @@ import (
 	usertesting "github.com/juju/juju/core/user/testing"
 	accessservice "github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/domain/controllernode"
+	"github.com/juju/juju/domain/deployment/charm"
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/bootstrap"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -309,7 +309,12 @@ func (s *workerSuite) TestSeedStoragePools(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectSeedDefaultStoragePools()
-	s.storageService.EXPECT().CreateStoragePool(gomock.Any(), "loop-pool", provider.LoopProviderType, map[string]any{"foo": "bar"})
+	s.storageService.EXPECT().CreateStoragePool(
+		gomock.Any(),
+		"loop-pool",
+		domainstorage.ProviderType("loop"),
+		map[string]any{"foo": "bar"},
+	)
 
 	w := &bootstrapWorker{
 		internalStates: s.states,

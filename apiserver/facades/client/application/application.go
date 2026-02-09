@@ -50,13 +50,13 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
+	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/configschema"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -704,10 +704,9 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = api.applicationService.SetApplicationCharm(ctx, args.ApplicationName, newCharmLocator, application.SetCharmParams{
-		CharmOrigin: charmOrigin,
 
-		// Storage: args.StorageDirectives,
+	err = api.applicationService.SetApplicationCharm(ctx, args.ApplicationName, newCharmLocator, application.SetCharmParams{
+		CharmOrigin:         charmOrigin,
 		CharmUpgradeOnError: args.Force,
 		EndpointBindings:    transform.Map(args.EndpointBindings, func(k, v string) (string, network.SpaceName) { return k, network.SpaceName(v) }),
 	})

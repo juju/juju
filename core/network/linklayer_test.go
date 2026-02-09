@@ -28,6 +28,7 @@ func (s *linkLayerSuite) TestIsValidLinkLayerDeviceTypeValid(c *tc.C) {
 		BondDevice,
 		BridgeDevice,
 		VXLANDevice,
+		VirtualEthernetDevice,
 	}
 
 	for _, value := range validTypes {

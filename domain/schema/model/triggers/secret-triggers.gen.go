@@ -148,7 +148,8 @@ WHEN
 	NEW.uuid != OLD.uuid OR
 	NEW.secret_id != OLD.secret_id OR
 	NEW.revision != OLD.revision OR
-	NEW.create_time != OLD.create_time 
+	NEW.create_time != OLD.create_time OR
+	(NEW.update_time != OLD.update_time OR (NEW.update_time IS NOT NULL AND OLD.update_time IS NULL) OR (NEW.update_time IS NULL AND OLD.update_time IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));

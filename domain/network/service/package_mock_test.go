@@ -589,6 +589,45 @@ func (c *MockStateGetMachineSpaceConstraintsCall) DoAndReturn(f func(context.Con
 	return c
 }
 
+// GetModelCloudType mocks base method.
+func (m *MockState) GetModelCloudType(arg0 context.Context) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelCloudType", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelCloudType indicates an expected call of GetModelCloudType.
+func (mr *MockStateMockRecorder) GetModelCloudType(arg0 any) *MockStateGetModelCloudTypeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelCloudType", reflect.TypeOf((*MockState)(nil).GetModelCloudType), arg0)
+	return &MockStateGetModelCloudTypeCall{Call: call}
+}
+
+// MockStateGetModelCloudTypeCall wrap *gomock.Call
+type MockStateGetModelCloudTypeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetModelCloudTypeCall) Return(arg0 string, arg1 error) *MockStateGetModelCloudTypeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetModelCloudTypeCall) Do(f func(context.Context) (string, error)) *MockStateGetModelCloudTypeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetModelCloudTypeCall) DoAndReturn(f func(context.Context) (string, error)) *MockStateGetModelCloudTypeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetNetNodeAddresses mocks base method.
 func (m *MockState) GetNetNodeAddresses(arg0 context.Context, arg1 string) (network.SpaceAddresses, error) {
 	m.ctrl.T.Helper()
@@ -1022,6 +1061,45 @@ func (c *MockStateImportLinkLayerDevicesCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// IsMachineUnmanaged mocks base method.
+func (m *MockState) IsMachineUnmanaged(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsMachineUnmanaged", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsMachineUnmanaged indicates an expected call of IsMachineUnmanaged.
+func (mr *MockStateMockRecorder) IsMachineUnmanaged(arg0, arg1 any) *MockStateIsMachineUnmanagedCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsMachineUnmanaged", reflect.TypeOf((*MockState)(nil).IsMachineUnmanaged), arg0, arg1)
+	return &MockStateIsMachineUnmanagedCall{Call: call}
+}
+
+// MockStateIsMachineUnmanagedCall wrap *gomock.Call
+type MockStateIsMachineUnmanagedCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateIsMachineUnmanagedCall) Return(arg0 bool, arg1 error) *MockStateIsMachineUnmanagedCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateIsMachineUnmanagedCall) Do(f func(context.Context, string) (bool, error)) *MockStateIsMachineUnmanagedCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateIsMachineUnmanagedCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockStateIsMachineUnmanagedCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MergeLinkLayerDevice mocks base method.
 func (m *MockState) MergeLinkLayerDevice(arg0 context.Context, arg1 string, arg2 []network0.NetInterface) error {
 	m.ctrl.T.Helper()
@@ -1216,17 +1294,17 @@ func (c *MockStateRemoveSpaceCall) DoAndReturn(f func(context.Context, network.S
 }
 
 // SetMachineNetConfig mocks base method.
-func (m *MockState) SetMachineNetConfig(arg0 context.Context, arg1 string, arg2 []network0.NetInterface) error {
+func (m *MockState) SetMachineNetConfig(arg0 context.Context, arg1 string, arg2 []network0.NetInterface, arg3 bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetMachineNetConfig", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SetMachineNetConfig", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetMachineNetConfig indicates an expected call of SetMachineNetConfig.
-func (mr *MockStateMockRecorder) SetMachineNetConfig(arg0, arg1, arg2 any) *MockStateSetMachineNetConfigCall {
+func (mr *MockStateMockRecorder) SetMachineNetConfig(arg0, arg1, arg2, arg3 any) *MockStateSetMachineNetConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachineNetConfig", reflect.TypeOf((*MockState)(nil).SetMachineNetConfig), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachineNetConfig", reflect.TypeOf((*MockState)(nil).SetMachineNetConfig), arg0, arg1, arg2, arg3)
 	return &MockStateSetMachineNetConfigCall{Call: call}
 }
 
@@ -1242,13 +1320,13 @@ func (c *MockStateSetMachineNetConfigCall) Return(arg0 error) *MockStateSetMachi
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetMachineNetConfigCall) Do(f func(context.Context, string, []network0.NetInterface) error) *MockStateSetMachineNetConfigCall {
+func (c *MockStateSetMachineNetConfigCall) Do(f func(context.Context, string, []network0.NetInterface, bool) error) *MockStateSetMachineNetConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetMachineNetConfigCall) DoAndReturn(f func(context.Context, string, []network0.NetInterface) error) *MockStateSetMachineNetConfigCall {
+func (c *MockStateSetMachineNetConfigCall) DoAndReturn(f func(context.Context, string, []network0.NetInterface, bool) error) *MockStateSetMachineNetConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

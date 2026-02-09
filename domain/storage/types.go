@@ -6,14 +6,7 @@ package storage
 import (
 	"github.com/juju/collections/set"
 
-	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
-)
-
-// Pool configuration attribute names.
-const (
-	StoragePoolName     = "name"
-	StorageProviderType = "type"
 )
 
 // Attrs defines storage attributes.
@@ -26,6 +19,7 @@ type StoragePool struct {
 	Name     string
 	Provider string
 	Attrs    Attrs
+	OriginID int
 }
 
 // These type aliases are used to specify filter terms.
@@ -61,27 +55,34 @@ func (p Providers) Values() []string {
 	return deduplicateNamesOrProviders(p)
 }
 
-// DefaultStoragePools returns the default storage pools to add to a new model
-// for a given provider registry.
-func DefaultStoragePools(registry storage.ProviderRegistry) ([]*storage.Config, error) {
-	var result []*storage.Config
-	providerTypes, err := registry.StorageProviderTypes()
-	if err != nil {
-		return nil, errors.Errorf("getting storage provider types: %w", err)
-	}
-	for _, providerType := range providerTypes {
-		p, err := registry.StorageProvider(providerType)
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-		result = append(result, p.DefaultPools()...)
-	}
-	return result, nil
-}
-
 // FilesystemInfo describes information about a filesystem.
 type FilesystemInfo struct {
 	storage.FilesystemInfo
 	Pool          string
 	BackingVolume *storage.VolumeInfo
+}
+
+// RecommendedStoragePoolArg represents a recommended storage pool assignment
+// for the state layer to accept.
+type RecommendedStoragePoolArg struct {
+	StoragePoolUUID StoragePoolUUID
+	StorageKind     StorageKind
+}
+
+// RecommendedStoragePoolParams represents a recommended storage pool assignment
+// at the service layer boundary. It is accepted by services and translated into
+// state-layer arguments before being persisted.
+type RecommendedStoragePoolParams struct {
+	StoragePoolUUID StoragePoolUUID
+	StorageKind     StorageKind
+}
+
+// ImportStoragePoolParams represents a storage pool definition used when importing
+// storage pools into the model.
+type ImportStoragePoolParams struct {
+	UUID   StoragePoolUUID
+	Name   string
+	Origin StoragePoolOrigin
+	Type   string
+	Attrs  map[string]any
 }

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/tc"
 
-	charmresource "github.com/juju/juju/internal/charm/resource"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 )
 
 func newFingerprint(c *tc.C, data string) charmresource.Fingerprint {

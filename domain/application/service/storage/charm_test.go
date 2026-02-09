@@ -10,7 +10,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
-	internalcharm "github.com/juju/juju/internal/charm"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )

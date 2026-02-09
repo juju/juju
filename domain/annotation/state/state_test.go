@@ -16,9 +16,9 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/annotation"
 	annotationerrors "github.com/juju/juju/domain/annotation/errors"
+	"github.com/juju/juju/domain/deployment/charm"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
-	"github.com/juju/juju/internal/charm"
 )
 
 type stateSuite struct {

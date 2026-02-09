@@ -1022,7 +1022,7 @@ func (s *StorageProvisionerAPI) getVolumeAttachmentPlanUUID(
 	ctx context.Context,
 	volumeTag names.VolumeTag,
 	machineUUID machine.UUID,
-) (storageprovisioning.VolumeAttachmentPlanUUID, error) {
+) (domainstorage.VolumeAttachmentPlanUUID, error) {
 	vapUUID, err := s.storageProvisioningService.GetVolumeAttachmentPlanUUIDForVolumeIDMachine(
 		ctx, volumeTag.Id(), machineUUID,
 	)
@@ -1135,9 +1135,9 @@ func (s *StorageProvisionerAPI) volumeAttachmentPlan(
 
 	var deviceType storage.DeviceType
 	switch vap.DeviceType {
-	case storageprovisioning.PlanDeviceTypeISCSI:
+	case domainstorage.VolumeDeviceTypeISCSI:
 		deviceType = storage.DeviceTypeISCSI
-	case storageprovisioning.PlanDeviceTypeLocal:
+	case domainstorage.VolumeDeviceTypeLocal:
 		deviceType = storage.DeviceTypeLocal
 	default:
 		return params.VolumeAttachmentPlan{}, errors.Errorf(
@@ -2235,12 +2235,12 @@ func (s *StorageProvisionerAPI) createVolumeAttachmentPlan(
 	volumeTag names.VolumeTag,
 	planInfo params.VolumeAttachmentPlanInfo,
 ) error {
-	var planDeviceType storageprovisioning.PlanDeviceType
+	var planDeviceType domainstorage.VolumeDeviceType
 	switch planInfo.DeviceType {
 	case storage.DeviceTypeISCSI.String():
-		planDeviceType = storageprovisioning.PlanDeviceTypeISCSI
+		planDeviceType = domainstorage.VolumeDeviceTypeISCSI
 	case storage.DeviceTypeLocal.String():
-		planDeviceType = storageprovisioning.PlanDeviceTypeLocal
+		planDeviceType = domainstorage.VolumeDeviceTypeLocal
 	default:
 		return errors.Errorf(
 			"plan device type %q not valid", planInfo.DeviceType,
@@ -2494,9 +2494,9 @@ func (s *StorageProvisionerAPI) setVolumeAttachmentInfo(
 	}
 	switch vai.PlanInfo.DeviceType {
 	case storage.DeviceTypeLocal.String():
-		planInfo.DeviceType = storageprovisioning.PlanDeviceTypeLocal
+		planInfo.DeviceType = domainstorage.VolumeDeviceTypeLocal
 	case storage.DeviceTypeISCSI.String():
-		planInfo.DeviceType = storageprovisioning.PlanDeviceTypeISCSI
+		planInfo.DeviceType = domainstorage.VolumeDeviceTypeISCSI
 	}
 	err = s.storageProvisioningService.SetVolumeAttachmentPlanProvisionedInfo(
 		ctx, planUUID, planInfo,
@@ -2646,7 +2646,7 @@ func (s *StorageProvisionerAPI) filesystemAttachmentLife(
 
 func (s *StorageProvisionerAPI) getFilesystemAttachmentUUID(
 	ctx context.Context, fsTag names.FilesystemTag, hostTag names.Tag,
-) (storageprovisioning.FilesystemAttachmentUUID, error) {
+) (domainstorage.FilesystemAttachmentUUID, error) {
 	errHandler := func(err error) error {
 		switch {
 		case errors.Is(err, applicationerrors.UnitNotFound):
@@ -2674,7 +2674,7 @@ func (s *StorageProvisionerAPI) getFilesystemAttachmentUUID(
 		return nil
 	}
 
-	var rval storageprovisioning.FilesystemAttachmentUUID
+	var rval domainstorage.FilesystemAttachmentUUID
 	switch tag := hostTag.(type) {
 	case names.MachineTag:
 		machineUUID, err := s.getMachineUUID(ctx, tag)

@@ -146,6 +146,9 @@ VALUES ($insert.provider_id, $insert.device_uuid)
 		return errors.Capture(err)
 	}
 	for providerID, deviceUUID := range providerIDToDeviceUUID {
+		if providerID == "" {
+			continue
+		}
 		insert := insert{
 			ProviderID: providerID,
 			DeviceUUID: deviceUUID,
@@ -496,7 +499,7 @@ func (st *State) computeMergeLinkLayerDeviceChanges(
 	return lldChanges
 }
 
-// findMatchingAddresses finds the matching address in the seachPool addresses
+// findMatchingAddresses finds the matching address in the searchPool addresses
 // that matches the lookFor address.
 //
 // It returns the matching address and a boolean indicating if the address

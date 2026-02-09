@@ -76,6 +76,7 @@ func ImportOperations(
 	network.RegisterImportSubnets(coordinator, logger.Child("subnets"))
 	machine.RegisterImport(coordinator, clock, logger.Child("machine"))
 	network.RegisterLinkLayerDevicesImport(coordinator, logger.Child("linklayerdevices"))
+	storage.RegisterImport(coordinator, storageRegistryGetter, logger.Child("storage"))
 	application.RegisterImport(coordinator, clock, logger.Child("application"))
 	network.RegisterImportCloudService(coordinator, logger.Child("cloudservice"))
 	agentpassword.RegisterImport(coordinator)
@@ -86,8 +87,6 @@ func ImportOperations(
 	resource.RegisterImport(coordinator, clock, logger.Child("resource"))
 	port.RegisterImport(coordinator, logger.Child("port"))
 	blockdevice.RegisterImport(coordinator, logger.Child("blockdevice"))
-	// TODO(storage) - we need to break out storage pools and import BEFORE applications.
-	storage.RegisterImport(coordinator, storageRegistryGetter, logger.Child("storage"))
 	secret.RegisterImport(coordinator, logger.Child("secret"))
 	cloudimagemetadata.RegisterImport(coordinator, logger.Child("cloudimagemetadata"), clock)
 	unitstate.RegisterImport(coordinator, logger.Child("unitstate"))

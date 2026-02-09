@@ -14,8 +14,8 @@ import (
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	"github.com/juju/juju/core/logger"
 	coreresource "github.com/juju/juju/core/resource"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/domain/resource"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -82,7 +82,7 @@ func (h *resourcesMigrationUploadHandler) servePost(w http.ResponseWriter, r *ht
 		return internalerrors.Capture(err)
 	}
 	return internalhttp.SendStatusAndJSON(w, http.StatusOK, &params.ResourceUploadResult{
-		ID:        res.UUID.String(),
+		ID:        res.ID,
 		Timestamp: res.Timestamp,
 	})
 }

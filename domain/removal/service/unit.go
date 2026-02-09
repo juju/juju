@@ -17,7 +17,6 @@ import (
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -61,8 +60,12 @@ type UnitState interface {
 	// MarkUnitAsDead marks the unit with the input UUID as dead.
 	MarkUnitAsDead(ctx context.Context, unitUUID string) error
 
-	// GetCharmForUnit returns the charm UUID for the unit with the input unit UUID.
-	// If the unit does not exist, it returns an empty string.
+	// MarkUnitAsDeadWithNoEntities marks the unit with the input UUID as dead
+	// only if there are no associated entities that are still alive.
+	MarkUnitAsDeadWithNoEntities(ctx context.Context, unitUUID string) error
+
+	// GetCharmForUnit returns the charm UUID for the unit with the input unit
+	// UUID. If the unit does not exist, it returns an empty string.
 	GetCharmForUnit(ctx context.Context, unitUUID string) (string, error)
 }
 
@@ -140,13 +143,13 @@ func (s *Service) RemoveUnit(
 	for _, a := range cascaded.StorageAttachmentUUIDs {
 		if force && wait > 0 {
 			if _, err := s.storageAttachmentScheduleRemoval(
-				ctx, storageprovisioning.StorageAttachmentUUID(a), false, 0,
+				ctx, storage.StorageAttachmentUUID(a), false, 0,
 			); err != nil {
 				return "", errors.Capture(err)
 			}
 		}
 		if _, err := s.storageAttachmentScheduleRemoval(
-			ctx, storageprovisioning.StorageAttachmentUUID(a), force, wait,
+			ctx, storage.StorageAttachmentUUID(a), force, wait,
 		); err != nil {
 			return "", errors.Capture(err)
 		}
@@ -155,13 +158,13 @@ func (s *Service) RemoveUnit(
 	for _, a := range cascaded.FileSystemAttachmentUUIDs {
 		if force && wait > 0 {
 			if _, err := s.filesystemAttachmentScheduleRemoval(
-				ctx, storageprovisioning.FilesystemAttachmentUUID(a), false, 0,
+				ctx, storage.FilesystemAttachmentUUID(a), false, 0,
 			); err != nil {
 				return "", errors.Capture(err)
 			}
 		}
 		if _, err := s.filesystemAttachmentScheduleRemoval(
-			ctx, storageprovisioning.FilesystemAttachmentUUID(a), force, wait,
+			ctx, storage.FilesystemAttachmentUUID(a), force, wait,
 		); err != nil {
 			return "", errors.Capture(err)
 		}
@@ -185,13 +188,13 @@ func (s *Service) RemoveUnit(
 	for _, a := range cascaded.VolumeAttachmentPlanUUIDs {
 		if force && wait > 0 {
 			if _, err := s.volumeAttachmentPlanScheduleRemoval(
-				ctx, storageprovisioning.VolumeAttachmentPlanUUID(a), false, 0,
+				ctx, storage.VolumeAttachmentPlanUUID(a), false, 0,
 			); err != nil {
 				return "", errors.Capture(err)
 			}
 		}
 		if _, err := s.volumeAttachmentPlanScheduleRemoval(
-			ctx, storageprovisioning.VolumeAttachmentPlanUUID(a), force, wait,
+			ctx, storage.VolumeAttachmentPlanUUID(a), force, wait,
 		); err != nil {
 			return "", errors.Capture(err)
 		}
@@ -200,13 +203,13 @@ func (s *Service) RemoveUnit(
 	for _, a := range cascaded.FileSystemUUIDs {
 		if force && wait > 0 {
 			if _, err := s.filesystemScheduleRemoval(
-				ctx, storageprovisioning.FilesystemUUID(a), false, 0,
+				ctx, storage.FilesystemUUID(a), false, 0,
 			); err != nil {
 				return "", errors.Capture(err)
 			}
 		}
 		if _, err := s.filesystemScheduleRemoval(
-			ctx, storageprovisioning.FilesystemUUID(a), force, wait,
+			ctx, storage.FilesystemUUID(a), force, wait,
 		); err != nil {
 			return "", errors.Capture(err)
 		}
@@ -329,7 +332,11 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 	}
 
 	if l == life.Dying && !job.Force {
-		return errors.Errorf("unit %q is not dead", job.EntityUUID).Add(removalerrors.EntityNotDead)
+		// Can the unit be marked as dead? If the unit has any associated
+		// entities that are still alive, we cannot mark it as dead.
+		if err := s.modelState.MarkUnitAsDeadWithNoEntities(ctx, job.EntityUUID); err != nil {
+			return errors.Errorf("unit %q is not dead", job.EntityUUID).Add(removalerrors.EntityNotDead)
+		}
 	}
 
 	// If we made it here, the unit is either dead, or we are processing a

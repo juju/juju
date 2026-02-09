@@ -2226,7 +2226,7 @@ func (st *State) GetDeadModels(ctx context.Context) ([]coremodel.UUID, error) {
 	stmt, err := st.Prepare(`
 SELECT &modelUUID.*
 FROM   model
-WHERE  activated=1 AND life_id = 2
+WHERE  life_id = 2
 `, modelUUID{})
 
 	if err != nil {

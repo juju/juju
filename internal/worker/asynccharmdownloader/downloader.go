@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/internal/charm/charmdownloader"
+	"github.com/juju/juju/domain/deployment/charm/charmdownloader"
 	"github.com/juju/juju/internal/errors"
 )
 

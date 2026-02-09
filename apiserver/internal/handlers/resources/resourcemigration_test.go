@@ -20,8 +20,8 @@ import (
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/core/resource"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	domainresource "github.com/juju/juju/domain/resource"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -189,7 +189,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationStoreResourceError(c *t
 	).Return("res-uuid", nil)
 	s.resourceService.EXPECT().StoreResource(gomock.Any(), gomock.Any()).Return(errors.New("cannot store resource"))
 	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
-		UUID: "res-uuid",
+		ID: "res-uuid",
 		Resource: charmresource.Resource{
 			Origin:   s.origin,
 			Revision: s.revision,
@@ -288,7 +288,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplication(c *tc.C) {
 		Size:            s.size,
 	}).Return(nil)
 	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
-		UUID: "res-uuid",
+		ID: "res-uuid",
 		Resource: charmresource.Resource{
 			Origin:   s.origin,
 			Revision: s.revision,
@@ -344,7 +344,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUser(c *tc.C
 		Size:            s.size,
 	}).Return(nil)
 	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
-		UUID: "res-uuid",
+		ID: "res-uuid",
 		Resource: charmresource.Resource{
 			Origin:   charmresource.OriginUpload,
 			Revision: -1,
@@ -389,7 +389,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByApplication(
 		Size:            s.size,
 	}).Return(nil)
 	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
-		UUID: "res-uuid",
+		ID: "res-uuid",
 		Resource: charmresource.Resource{
 			Origin:   s.origin,
 			Revision: s.revision,
@@ -433,7 +433,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUnit(c *tc.C
 		Size:            s.size,
 	}).Return(nil)
 	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
-		UUID: "res-uuid",
+		ID: "res-uuid",
 		Resource: charmresource.Resource{
 			Origin:   s.origin,
 			Revision: s.revision,

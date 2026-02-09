@@ -19,9 +19,9 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domaintesting "github.com/juju/juju/domain/testing"
-	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 

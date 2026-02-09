@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/cmd/juju/application/utils/mocks"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/resource"
-	"github.com/juju/juju/internal/charm"
-	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/domain/deployment/charm"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 )
 
 type utilsSuite struct{}

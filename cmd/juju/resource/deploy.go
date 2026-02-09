@@ -11,7 +11,7 @@ import (
 
 	apiresources "github.com/juju/juju/api/client/resources"
 	"github.com/juju/juju/cmd/modelcmd"
-	charmresource "github.com/juju/juju/internal/charm/resource"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 )
 
 // DeployClient exposes the functionality of the resources API needed

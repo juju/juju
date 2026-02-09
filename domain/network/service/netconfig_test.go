@@ -75,10 +75,28 @@ func (s *netConfigSuite) TestSetMachineNetConfigSetCallError(c *tc.C) {
 
 	exp := s.st.EXPECT()
 	exp.GetMachineNetNodeUUID(gomock.Any(), mUUID.String()).Return(nUUID, nil)
-	exp.SetMachineNetConfig(gomock.Any(), nUUID, nics).Return(errors.New("boom"))
+	exp.IsMachineUnmanaged(gomock.Any(), mUUID.String()).Return(false, nil)
+	exp.SetMachineNetConfig(gomock.Any(), nUUID, nics, false).Return(errors.New("boom"))
 
 	err = s.service(c).SetMachineNetConfig(c.Context(), mUUID, nics)
 	c.Assert(err, tc.ErrorMatches, "setting net config for machine .* boom")
+}
+
+func (s *netConfigSuite) TestSetMachineNetConfigUnmanagedCheckError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	nUUID := "set-node-uuid"
+	mUUID, err := machine.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	nics := []network.NetInterface{{Name: "eth0"}}
+
+	exp := s.st.EXPECT()
+	exp.GetMachineNetNodeUUID(gomock.Any(), mUUID.String()).Return(nUUID, nil)
+	exp.IsMachineUnmanaged(gomock.Any(), mUUID.String()).Return(false, errors.New("boom"))
+
+	err = s.service(c).SetMachineNetConfig(c.Context(), mUUID, nics)
+	c.Assert(err, tc.ErrorMatches, "checking machine .* unmanaged status: boom")
 }
 
 func (s *netConfigSuite) TestSetMachineNetConfigEmpty(c *tc.C) {
@@ -118,7 +136,28 @@ func (s *netConfigSuite) TestSetMachineNetConfig(c *tc.C) {
 
 	exp := s.st.EXPECT()
 	exp.GetMachineNetNodeUUID(gomock.Any(), mUUID.String()).Return(nUUID, nil)
-	exp.SetMachineNetConfig(gomock.Any(), nUUID, nics).Return(nil)
+	exp.IsMachineUnmanaged(gomock.Any(), mUUID.String()).Return(false, nil)
+	exp.SetMachineNetConfig(gomock.Any(), nUUID, nics, false).Return(nil)
+
+	err = s.service(c).SetMachineNetConfig(ctx, mUUID, nics)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *netConfigSuite) TestSetMachineNetConfigUnmanagedAddsMissingSubnets(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ctx := c.Context()
+
+	nUUID := "set-node-uuid"
+	mUUID, err := machine.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	nics := []network.NetInterface{{Name: "eth0"}}
+
+	exp := s.st.EXPECT()
+	exp.GetMachineNetNodeUUID(gomock.Any(), mUUID.String()).Return(nUUID, nil)
+	exp.IsMachineUnmanaged(gomock.Any(), mUUID.String()).Return(true, nil)
+	exp.SetMachineNetConfig(gomock.Any(), nUUID, nics, true).Return(nil)
 
 	err = s.service(c).SetMachineNetConfig(ctx, mUUID, nics)
 	c.Assert(err, tc.ErrorIsNil)

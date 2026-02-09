@@ -187,9 +187,6 @@ func (c *Client) ListFilesystems(ctx context.Context, machines []string) ([]para
 }
 
 // AddToUnit adds specified storage to desired units.
-//
-// NOTE(axw) for old controllers, the results will only
-// contain errors.
 func (c *Client) AddToUnit(ctx context.Context, storages []params.StorageAddParams) ([]params.AddStorageResult, error) {
 	out := params.AddStorageResults{}
 	in := params.StoragesAddParams{Storages: storages}

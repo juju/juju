@@ -17,7 +17,7 @@ import (
 	application "github.com/juju/juju/core/application"
 	watcher "github.com/juju/juju/core/watcher"
 	application0 "github.com/juju/juju/domain/application"
-	charmdownloader "github.com/juju/juju/internal/charm/charmdownloader"
+	charmdownloader "github.com/juju/juju/domain/deployment/charm/charmdownloader"
 	gomock "go.uber.org/mock/gomock"
 )
 

@@ -236,7 +236,7 @@ func (s *ModelServices) Config() *modelconfigservice.WatchableService {
 	return modelconfigservice.NewWatchableService(
 		defaultsProvider,
 		config.ModelValidator(),
-		modelconfigservice.ProviderModelConfigGetter(st),
+		modelconfigservice.ProviderModelConfigGetter(),
 		st,
 		s.modelWatcherFactory("modelconfig"),
 	)

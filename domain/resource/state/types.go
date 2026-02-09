@@ -9,7 +9,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/charm"
 	coreresource "github.com/juju/juju/core/resource"
-	charmresource "github.com/juju/juju/internal/charm/resource"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -122,7 +122,7 @@ func (rv resourceView) toResource() (coreresource.Resource, error) {
 		return coreresource.Resource{}, errors.Capture(err)
 	}
 	return coreresource.Resource{
-		UUID:            coreresource.UUID(rv.UUID),
+		ID:              rv.UUID,
 		Resource:        charmRes,
 		ApplicationName: rv.ApplicationName,
 		RetrievedBy:     rv.RetrievedBy,

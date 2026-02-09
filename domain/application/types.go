@@ -13,18 +13,17 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource"
-	"github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
-	internalcharm "github.com/juju/juju/internal/charm"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
 
@@ -488,13 +487,6 @@ type InsertApplicationArgs struct {
 type SetCharmParams struct {
 	// CharmOrigin contains the origin information for the new charm.
 	CharmOrigin charm.Origin
-	// Storage contains the storage directives to add or update when
-	// upgrading the charm.
-	//
-	// Any existing storage instances for the named stores will be
-	// unaffected; the storage directives will only be used for
-	// provisioning new storage instances.
-	Storage map[string]storage.Directive
 
 	// CharmUpgradeOnError indicates whether the charm must be upgraded
 	// even when on error.
@@ -515,6 +507,18 @@ type SetCharmStateParams struct {
 	// EndpointBindings is an operator-defined map of endpoint names to
 	// space names that should be merged with any existing bindings.
 	EndpointBindings map[string]network.SpaceName
+
+	// StorageDirectivesToApply contains storage directives that need to be
+	// applied based on the new charm's storage requirements.
+	StorageDirectivesToApply []internal.ApplyApplicationStorageDirectiveArg
+
+	// StorageDirectivesToDelete contains the names of storage directives that
+	// should be removed because the storage is no longer in the charm.
+	// These are tracked separately from StorageDirectivesToApply because the
+	// apply list may not contain the complete set of storage directives.
+	// Splitting them this way avoids unnecessary database churn and watcher
+	// events that would occur if we replaced all directives on every update.
+	StorageDirectivesToDelete []string
 }
 
 // ApplicationDetails contains details about an application.

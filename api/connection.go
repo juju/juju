@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/api/agent/keyupdater"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
-	jujuproxy "github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/rpc/jsoncodec"
 )
 
@@ -114,7 +113,7 @@ type conn struct {
 	// proxier is the proxier used for this connection when not nil. If's expected
 	// the proxy has already been started when placing in this var. This struct
 	// will take the responsibility of closing the proxy.
-	proxier jujuproxy.Proxier
+	proxier Proxier
 }
 
 // Login implements the Login method of the Connection interface providing authentication

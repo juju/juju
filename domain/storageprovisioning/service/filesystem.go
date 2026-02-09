@@ -22,6 +22,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/domain/storageprovisioning/internal"
@@ -44,7 +45,7 @@ type FilesystemState interface {
 	// exists for the provided filesystem UUID.
 	GetFilesystem(
 		context.Context,
-		storageprovisioning.FilesystemUUID,
+		domainstorage.FilesystemUUID,
 	) (storageprovisioning.Filesystem, error)
 
 	// GetFilesystemAttachment retrieves the
@@ -55,7 +56,7 @@ type FilesystemState interface {
 	// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem
 	// exists for the provided filesystem UUID.
 	GetFilesystemAttachment(
-		context.Context, storageprovisioning.FilesystemAttachmentUUID,
+		context.Context, domainstorage.FilesystemAttachmentUUID,
 	) (storageprovisioning.FilesystemAttachment, error)
 
 	// GetFilesystemAttachmentIDs returns the
@@ -84,7 +85,7 @@ type FilesystemState interface {
 	// when no filesystem attachment exists for the provided UUID.
 	GetFilesystemAttachmentLife(
 		context.Context,
-		storageprovisioning.FilesystemAttachmentUUID,
+		domainstorage.FilesystemAttachmentUUID,
 	) (domainlife.Life, error)
 
 	// GetFilesystemAttachmentLifeForNetNode returns a mapping of filesystem
@@ -100,7 +101,7 @@ type FilesystemState interface {
 	// - [storageprovisioningerrors.FilesystemAttachmentNotFound] when no
 	// filesystem attachment exists for the supplied uuid.
 	GetFilesystemAttachmentParams(
-		context.Context, storageprovisioning.FilesystemAttachmentUUID,
+		context.Context, domainstorage.FilesystemAttachmentUUID,
 	) (storageprovisioning.FilesystemAttachmentParams, error)
 
 	// GetFilesystemAttachmentUUIDForFilesystemNetNode returns the filesystem
@@ -116,9 +117,9 @@ type FilesystemState interface {
 	// when no filesystem attachment exists for the supplied values.
 	GetFilesystemAttachmentUUIDForFilesystemNetNode(
 		context.Context,
-		storageprovisioning.FilesystemUUID,
+		domainstorage.FilesystemUUID,
 		domainnetwork.NetNodeUUID,
-	) (storageprovisioning.FilesystemAttachmentUUID, error)
+	) (domainstorage.FilesystemAttachmentUUID, error)
 
 	// GetFilesystemLife returns the current life value for a filesystem UUID.
 	//
@@ -126,7 +127,7 @@ type FilesystemState interface {
 	// - [github.com/juju/juju/domain/storageprovisioning/errors.FilesystemNotFound]
 	// when no filesystem exists for the provided filesystem UUID.
 	GetFilesystemLife(
-		context.Context, storageprovisioning.FilesystemUUID,
+		context.Context, domainstorage.FilesystemUUID,
 	) (domainlife.Life, error)
 
 	// GetFilesystemLifeForNetNode returns a mapping of filesystem IDs to current
@@ -140,7 +141,7 @@ type FilesystemState interface {
 	// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem
 	// exists for the uuid.
 	GetFilesystemParams(
-		context.Context, storageprovisioning.FilesystemUUID,
+		context.Context, domainstorage.FilesystemUUID,
 	) (storageprovisioning.FilesystemParams, error)
 
 	// GetFilesystemRemovalParams returns the filesystem removal params for the
@@ -150,7 +151,7 @@ type FilesystemState interface {
 	// - [storageprovisioningerrors.FilesystemNotFound] when no filesystem
 	// exists for the uuid.
 	GetFilesystemRemovalParams(
-		context.Context, storageprovisioning.FilesystemUUID,
+		context.Context, domainstorage.FilesystemUUID,
 	) (storageprovisioning.FilesystemRemovalParams, error)
 
 	// GetFilesystemUUIDForID returns the UUID for a filesystem with the
@@ -161,7 +162,7 @@ type FilesystemState interface {
 	// when no filesystem exists for the provided filesystem UUID.
 	GetFilesystemUUIDForID(
 		context.Context, string,
-	) (storageprovisioning.FilesystemUUID, error)
+	) (domainstorage.FilesystemUUID, error)
 
 	// InitialWatchStatementMachineProvisionedFilesystems returns both the
 	// namespace for watching filesystem life changes where the filesystem is
@@ -202,11 +203,11 @@ type FilesystemState interface {
 
 	// SetFilesystemProvisionedInfo sets on the provided filesystem the information
 	// about the provisioned filesystem.
-	SetFilesystemProvisionedInfo(ctx context.Context, filesystemUUID storageprovisioning.FilesystemUUID, info storageprovisioning.FilesystemProvisionedInfo) error
+	SetFilesystemProvisionedInfo(ctx context.Context, filesystemUUID domainstorage.FilesystemUUID, info storageprovisioning.FilesystemProvisionedInfo) error
 
 	// SetFilesystemAttachmentProvisionedInfo sets on the provided filesystem
 	// attachment information about the provisoned filesystem attachment.
-	SetFilesystemAttachmentProvisionedInfo(ctx context.Context, filesystemAttachmentUUID storageprovisioning.FilesystemAttachmentUUID, info storageprovisioning.FilesystemAttachmentProvisionedInfo) error
+	SetFilesystemAttachmentProvisionedInfo(ctx context.Context, filesystemAttachmentUUID domainstorage.FilesystemAttachmentUUID, info storageprovisioning.FilesystemAttachmentProvisionedInfo) error
 }
 
 // CharmState defines the methods required to fetch the mount points for charm
@@ -327,7 +328,7 @@ func (s *Service) GetFilesystemAttachmentIDs(
 // attachment exists for the provided UUID.
 func (s *Service) GetFilesystemAttachmentLife(
 	ctx context.Context,
-	uuid storageprovisioning.FilesystemAttachmentUUID,
+	uuid domainstorage.FilesystemAttachmentUUID,
 ) (domainlife.Life, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -356,7 +357,7 @@ func (s *Service) GetFilesystemAttachmentLife(
 // attachment exists for the supplied uuid.
 func (s *Service) GetFilesystemAttachmentParams(
 	ctx context.Context,
-	uuid storageprovisioning.FilesystemAttachmentUUID,
+	uuid domainstorage.FilesystemAttachmentUUID,
 ) (storageprovisioning.FilesystemAttachmentParams, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -499,7 +500,7 @@ func (s *Service) GetFilesystemAttachmentUUIDForFilesystemIDMachine(
 	ctx context.Context,
 	filesystemID string,
 	machineUUID coremachine.UUID,
-) (storageprovisioning.FilesystemAttachmentUUID, error) {
+) (domainstorage.FilesystemAttachmentUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -552,7 +553,7 @@ func (s *Service) GetFilesystemAttachmentUUIDForFilesystemIDUnit(
 	ctx context.Context,
 	filesystemID string,
 	unitUUID coreunit.UUID,
-) (storageprovisioning.FilesystemAttachmentUUID, error) {
+) (domainstorage.FilesystemAttachmentUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -624,7 +625,7 @@ func (s *Service) GetFilesystemForID(
 // when no filesystem exists for the provided filesystem UUID.
 func (s *Service) GetFilesystemLife(
 	ctx context.Context,
-	uuid storageprovisioning.FilesystemUUID,
+	uuid domainstorage.FilesystemUUID,
 ) (domainlife.Life, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -650,7 +651,7 @@ func (s *Service) GetFilesystemLife(
 // for the uuid.
 func (s *Service) GetFilesystemParams(
 	ctx context.Context,
-	uuid storageprovisioning.FilesystemUUID,
+	uuid domainstorage.FilesystemUUID,
 ) (storageprovisioning.FilesystemParams, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -674,7 +675,7 @@ func (s *Service) GetFilesystemParams(
 // - [storageprovisioningerrors.FilesystemNotDead] when the filesystem was found
 // but is either alive or dying, when it is expected to be dead.
 func (s *Service) GetFilesystemRemovalParams(
-	ctx context.Context, uuid storageprovisioning.FilesystemUUID,
+	ctx context.Context, uuid domainstorage.FilesystemUUID,
 ) (storageprovisioning.FilesystemRemovalParams, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -709,7 +710,7 @@ func (s *Service) GetFilesystemRemovalParams(
 // when no filesystem exists for the provided filesystem UUID.
 func (s *Service) GetFilesystemUUIDForID(
 	ctx context.Context, filesystemID string,
-) (storageprovisioning.FilesystemUUID, error) {
+) (domainstorage.FilesystemUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

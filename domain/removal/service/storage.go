@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -258,7 +257,7 @@ type StorageState interface {
 // would violate the charm minimums required for the unit.
 func (s *Service) RemoveStorageAttachment(
 	ctx context.Context,
-	saUUID storageprovisioning.StorageAttachmentUUID,
+	saUUID storage.StorageAttachmentUUID,
 	force bool,
 	wait time.Duration,
 ) (removal.UUID, error) {
@@ -318,13 +317,13 @@ func (s *Service) RemoveStorageAttachment(
 		a := *cascade.FilesystemAttachmentUUID
 		if force && wait > 0 {
 			if _, err := s.filesystemAttachmentScheduleRemoval(
-				ctx, storageprovisioning.FilesystemAttachmentUUID(a), false, 0,
+				ctx, storage.FilesystemAttachmentUUID(a), false, 0,
 			); err != nil {
 				return "", errors.Capture(err)
 			}
 		}
 		if _, err := s.filesystemAttachmentScheduleRemoval(
-			ctx, storageprovisioning.FilesystemAttachmentUUID(a), force, wait,
+			ctx, storage.FilesystemAttachmentUUID(a), force, wait,
 		); err != nil {
 			return "", errors.Capture(err)
 		}
@@ -350,13 +349,13 @@ func (s *Service) RemoveStorageAttachment(
 		a := *cascade.VolumeAttachmentPlanUUID
 		if force && wait > 0 {
 			if _, err := s.volumeAttachmentPlanScheduleRemoval(
-				ctx, storageprovisioning.VolumeAttachmentPlanUUID(a), false, 0,
+				ctx, storage.VolumeAttachmentPlanUUID(a), false, 0,
 			); err != nil {
 				return "", errors.Capture(err)
 			}
 		}
 		if _, err := s.volumeAttachmentPlanScheduleRemoval(
-			ctx, storageprovisioning.VolumeAttachmentPlanUUID(a), force, wait,
+			ctx, storage.VolumeAttachmentPlanUUID(a), force, wait,
 		); err != nil {
 			return "", errors.Capture(err)
 		}
@@ -367,7 +366,7 @@ func (s *Service) RemoveStorageAttachment(
 
 func (s *Service) removeStorageAttachmentFromAliveUnit(
 	ctx context.Context,
-	saUUID storageprovisioning.StorageAttachmentUUID,
+	saUUID storage.StorageAttachmentUUID,
 	detachInfo internal.StorageAttachmentDetachInfo,
 ) (internal.CascadedStorageAttachmentLifeChildren, error) {
 	proposedNewFulfilment := detachInfo.CountFulfilment - 1
@@ -407,7 +406,7 @@ func (s *Service) removeStorageAttachmentFromAliveUnit(
 }
 
 func (s *Service) storageAttachmentScheduleRemoval(
-	ctx context.Context, saUUID storageprovisioning.StorageAttachmentUUID, force bool, wait time.Duration,
+	ctx context.Context, saUUID storage.StorageAttachmentUUID, force bool, wait time.Duration,
 ) (removal.UUID, error) {
 	jobUUID, err := removal.NewUUID()
 	if err != nil {
@@ -483,7 +482,7 @@ func (s *Service) processStorageAttachmentRemovalJob(ctx context.Context, job re
 		// them here, since these entities just went to Dying.
 
 		for _, fsaUUID := range cascade.FileSystemAttachmentUUIDs {
-			uuid := storageprovisioning.FilesystemAttachmentUUID(fsaUUID)
+			uuid := storage.FilesystemAttachmentUUID(fsaUUID)
 			_, err := s.filesystemAttachmentScheduleRemoval(ctx, uuid, false, 0)
 			if err != nil {
 				return errors.Errorf(
@@ -505,7 +504,7 @@ func (s *Service) processStorageAttachmentRemovalJob(ctx context.Context, job re
 		}
 
 		for _, vapUUID := range cascade.VolumeAttachmentPlanUUIDs {
-			uuid := storageprovisioning.VolumeAttachmentPlanUUID(vapUUID)
+			uuid := storage.VolumeAttachmentPlanUUID(vapUUID)
 			_, err := s.volumeAttachmentPlanScheduleRemoval(ctx, uuid, false, 0)
 			if err != nil {
 				return errors.Errorf(
@@ -534,7 +533,7 @@ func (s *Service) processStorageAttachmentRemovalJob(ctx context.Context, job re
 // found.
 // - [removalerrors.EntityStillAlive] if the storage attachment is alive.
 func (s *Service) MarkStorageAttachmentAsDead(
-	ctx context.Context, uuid storageprovisioning.StorageAttachmentUUID,
+	ctx context.Context, uuid storage.StorageAttachmentUUID,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -584,7 +583,7 @@ func (s *Service) MarkStorageAttachmentAsDead(
 	// them here, since these entities just went to Dying.
 
 	for _, fsaUUID := range cascade.FileSystemAttachmentUUIDs {
-		uuid := storageprovisioning.FilesystemAttachmentUUID(fsaUUID)
+		uuid := storage.FilesystemAttachmentUUID(fsaUUID)
 		_, err := s.filesystemAttachmentScheduleRemoval(ctx, uuid, false, 0)
 		if err != nil {
 			return errors.Errorf(
@@ -606,7 +605,7 @@ func (s *Service) MarkStorageAttachmentAsDead(
 	}
 
 	for _, vapUUID := range cascade.VolumeAttachmentPlanUUIDs {
-		uuid := storageprovisioning.VolumeAttachmentPlanUUID(vapUUID)
+		uuid := storage.VolumeAttachmentPlanUUID(vapUUID)
 		_, err := s.volumeAttachmentPlanScheduleRemoval(ctx, uuid, false, 0)
 		if err != nil {
 			return errors.Errorf(
@@ -669,7 +668,7 @@ func (s *Service) RemoveStorageInstance(
 	}
 
 	if cascaded.FileSystemUUID != nil {
-		fsUUID := storageprovisioning.FilesystemUUID(*cascaded.FileSystemUUID)
+		fsUUID := storage.FilesystemUUID(*cascaded.FileSystemUUID)
 		if force && wait > 0 {
 			if _, err := s.filesystemScheduleRemoval(ctx, fsUUID, false, 0); err != nil {
 				return errors.Capture(err)
@@ -769,7 +768,7 @@ func (s *Service) processStorageInstanceRemovalJob(
 // attachment is not found.
 // - [removalerrors.EntityStillAlive] if the filesystem attachment is alive.
 func (s *Service) MarkFilesystemAttachmentAsDead(
-	ctx context.Context, uuid storageprovisioning.FilesystemAttachmentUUID,
+	ctx context.Context, uuid storage.FilesystemAttachmentUUID,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -853,7 +852,7 @@ func (s *Service) MarkVolumeAttachmentAsDead(
 // attachment plan is not found.
 // - [removalerrors.EntityStillAlive] if the volume attachment plan is alive.
 func (s *Service) MarkVolumeAttachmentPlanAsDead(
-	ctx context.Context, uuid storageprovisioning.VolumeAttachmentPlanUUID,
+	ctx context.Context, uuid storage.VolumeAttachmentPlanUUID,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -897,7 +896,7 @@ func (s *Service) MarkVolumeAttachmentPlanAsDead(
 // - [storageprovisioningerrors.FilesystemNotDead] when the filesystem was found
 // but is either alive or dying, when it is expected to be dead.
 func (s *Service) RemoveDeadFilesystem(
-	ctx context.Context, uuid storageprovisioning.FilesystemUUID,
+	ctx context.Context, uuid storage.FilesystemUUID,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -930,7 +929,7 @@ func (s *Service) RemoveDeadFilesystem(
 
 func (s *Service) filesystemScheduleRemoval(
 	ctx context.Context,
-	fsUUID storageprovisioning.FilesystemUUID,
+	fsUUID storage.FilesystemUUID,
 	force bool, wait time.Duration,
 ) (removal.UUID, error) {
 	jobUUID, err := removal.NewUUID()
@@ -1136,7 +1135,7 @@ func (s *Service) processStorageVolumeRemovalJob(
 
 func (s *Service) filesystemAttachmentScheduleRemoval(
 	ctx context.Context,
-	fsaUUID storageprovisioning.FilesystemAttachmentUUID,
+	fsaUUID storage.FilesystemAttachmentUUID,
 	force bool, wait time.Duration,
 ) (removal.UUID, error) {
 	jobUUID, err := removal.NewUUID()
@@ -1266,7 +1265,7 @@ func (s *Service) processStorageVolumeAttachmentRemovalJob(
 
 func (s *Service) volumeAttachmentPlanScheduleRemoval(
 	ctx context.Context,
-	vapUUID storageprovisioning.VolumeAttachmentPlanUUID,
+	vapUUID storage.VolumeAttachmentPlanUUID,
 	force bool, wait time.Duration,
 ) (removal.UUID, error) {
 	jobUUID, err := removal.NewUUID()

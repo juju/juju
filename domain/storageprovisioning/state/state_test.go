@@ -22,7 +22,6 @@ import (
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning"
-	domaintesting "github.com/juju/juju/domain/storageprovisioning/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -545,7 +544,7 @@ func (s *stateSuite) TestGetStorageAttachmentInfoBlockDevice(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetStorageAttachmentInfoWithStorageAttachmentNotFound(c *tc.C) {
-	saUUID := domaintesting.GenStorageAttachmentUUID(c)
+	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetStorageAttachmentInfo(c.Context(), saUUID)

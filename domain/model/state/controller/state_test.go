@@ -2051,6 +2051,39 @@ func (m *stateSuite) TestGetDeadModels(c *tc.C) {
 	c.Check(deadModels[0], tc.Equals, m.uuid)
 }
 
+func (m *stateSuite) TestGetDeadModelsUnactivated(c *tc.C) {
+	m.createControllerModelWithoutActivation(c, m.controllerModelUUID, m.userUUID)
+	m.createModelWithoutActivation(c, "my-test-model", m.uuid, m.userUUID)
+
+	// Test no input model UUIDs.
+	deadModels, err := m.modelState.GetDeadModels(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(deadModels, tc.HasLen, 0)
+
+	err = m.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Insert a dying model.
+		_, err := tx.ExecContext(ctx, `UPDATE model SET life_id = 1 WHERE uuid = ?`, m.uuid.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	deadModels, err = m.modelState.GetDeadModels(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(deadModels, tc.HasLen, 0)
+
+	err = m.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// Insert a dead model.
+		_, err := tx.ExecContext(ctx, `UPDATE model SET life_id = 2 WHERE uuid = ?`, m.uuid.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	deadModels, err = m.modelState.GetDeadModels(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(deadModels, tc.HasLen, 1)
+	c.Check(deadModels[0], tc.Equals, m.uuid)
+}
+
 func (m *stateSuite) TestGetModelLife(c *tc.C) {
 	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
 
@@ -2280,6 +2313,36 @@ func (m *stateSuite) createControllerModel(c *tc.C, controllerModelUUID coremode
 
 		activator := GetActivator()
 		return activator(ctx, preparer{}, tx, controllerModelUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	u, err := uuid.UUIDFromString(m.SeedControllerTable(c, controllerModelUUID))
+	c.Assert(err, tc.ErrorIsNil)
+	return u
+}
+
+// createControllerModel creates a the database for use in tests.
+func (m *stateSuite) createControllerModelWithoutActivation(c *tc.C, controllerModelUUID coremodel.UUID, userUUID user.UUID) uuid.UUID {
+	// Before we can create the model, we need to create a controller model.
+	// This ensures that we
+	err := m.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		err := Create(c.Context(), preparer{}, tx, controllerModelUUID, coremodel.IAAS, model.GlobalModelCreationArgs{
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: usertesting.GenNewName(c, "test-user"),
+				Name:  "foobar",
+			},
+			Name:          "controller",
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{userUUID},
+			SecretBackend: juju.BackendName,
+		})
+		if err != nil {
+			return err
+		}
+		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
