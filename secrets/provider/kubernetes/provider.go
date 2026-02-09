@@ -1003,7 +1003,7 @@ func (k *kubernetesClient) precreateSecretRevs(
 		_, err := client.Create(ctx, tmpl, v1.CreateOptions{
 			FieldManager: resources.JujuFieldManager,
 		})
-		if err != nil {
+		if err != nil && !k8serrors.IsAlreadyExists(err) {
 			return errors.Trace(err)
 		}
 	}
@@ -1197,7 +1197,9 @@ func (k *kubernetesClient) dropSecretAccess(
 		clusterRole.Rules = filterRemovedSecretsPolicyRules(
 			clusterRole.Rules, removed)
 		_, err := k.updateClusterRole(ctx, &clusterRole)
-		if err != nil {
+		if errors.Is(err, errors.NotFound) {
+			continue
+		} else if err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -1209,7 +1211,9 @@ func (k *kubernetesClient) dropSecretAccess(
 	for _, role := range roles.Items {
 		role.Rules = filterRemovedSecretsPolicyRules(role.Rules, removed)
 		_, err := k.updateRole(ctx, &role)
-		if err != nil {
+		if errors.Is(err, errors.NotFound) {
+			continue
+		} else if err != nil {
 			return errors.Trace(err)
 		}
 	}
