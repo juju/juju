@@ -358,6 +358,9 @@ func handleErrorResponse(ctx context.Context, resp *http.Response) (*http.Respon
 	case http.StatusUnauthorized:
 		errNew = errors.Unauthorizedf
 	case http.StatusNotFound:
+		// Status code 404 can include a response body with a root cause included.
+		// Log here so any potential issue is surfaced.
+		logger.Errorf(context.TODO(), "url %q, body=%q", resp.Request.URL.String(), body)
 		errNew = errors.NotFoundf
 	}
 	return nil, errNew(errMsg)

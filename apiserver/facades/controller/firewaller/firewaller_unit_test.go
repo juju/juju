@@ -34,9 +34,9 @@ func (s *RemoteFirewallerSuite) TestStub(c *tc.C) {
 	c.Skip(`
 This suite is missing tests for the following scenarios:
 - Watch for changes to ingress addresses of remote peer in a cross-model relation.
-- Set the status of a cross-model relation, for instance to suspend a relation 
+- Set the status of a cross-model relation, for instance to suspend a relation
   with an informational message.
-- Generate an authentication macaroon for a cross-model relation to secure 
+- Generate an authentication macaroon for a cross-model relation to secure
   communication between models.
 `)
 }

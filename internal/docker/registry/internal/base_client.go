@@ -183,8 +183,11 @@ func (c *baseClient) DecideBaseURL() error {
 }
 
 func commonURLGetter(version APIVersion, url url.URL, pathTemplate string, args ...interface{}) string {
-	pathSuffix := fmt.Sprintf(pathTemplate, args...)
 	ver := version.String()
+	pathSuffix := fmt.Sprintf(pathTemplate, args...)
+	// Ensure we don't double up the version in the final URL.
+	pathSuffix = strings.TrimLeft(pathSuffix, ver+"/")
+
 	if !strings.HasSuffix(strings.TrimRight(url.Path, "/"), ver) {
 		url.Path = path.Join(url.Path, ver)
 	}
@@ -225,9 +228,9 @@ func (c *baseClient) Close() error {
 	return nil
 }
 
-func (c *baseClient) getPaginatedJSON(url string, response interface{}) (string, error) {
-	resp, err := c.client.Get(url)
-	logger.Tracef(context.TODO(), "getPaginatedJSON for %q, err %v", url, err)
+func (c *baseClient) getPaginatedJSON(reqURL string, response interface{}) (string, error) {
+	resp, err := c.client.Get(reqURL)
+	logger.Tracef(context.TODO(), "getPaginatedJSON for %q, err %v", reqURL, err)
 	if err != nil {
 		return "", errors.Trace(unwrapNetError(err))
 	}
@@ -238,7 +241,19 @@ func (c *baseClient) getPaginatedJSON(url string, response interface{}) (string,
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return getNextLink(resp)
+	link, err := getNextLink(resp)
+	if err != nil {
+		// We need to return errNoMorePages directly.
+		return "", err
+	}
+	logger.Tracef(context.TODO(), "paginatedJSON link %q", link)
+	linkURL, err := url.Parse(link)
+	if err != nil {
+		return "", errors.Annotatef(err, "invalid link URL %q", link)
+	}
+	nextURL := c.url("%s", linkURL.Path)
+	nextURL += "?" + linkURL.RawQuery
+	return nextURL, nil
 }
 
 var (

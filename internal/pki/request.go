@@ -24,6 +24,7 @@ type DefaultRequestSigner struct {
 	authority *x509.Certificate
 	chain     []*x509.Certificate
 	privKey   interface{}
+	validity  time.Duration
 }
 
 const (
@@ -43,12 +44,13 @@ var (
 func NewDefaultRequestSigner(
 	authority *x509.Certificate,
 	chain []*x509.Certificate,
-	privKey interface{}) *DefaultRequestSigner {
-
+	privKey interface{},
+	validity time.Duration) *DefaultRequestSigner {
 	return &DefaultRequestSigner{
 		authority: authority,
 		chain:     chain,
 		privKey:   privKey,
+		validity:  validity,
 	}
 }
 
@@ -66,7 +68,14 @@ func (d *DefaultRequestSigner) SignCSR(csr *x509.CertificateRequest) (*x509.Cert
 
 	now := time.Now()
 	template.NotBefore = now.Add(NotBeforeJitter)
-	template.NotAfter = now.AddDate(DefaultValidityYears, 0, 0)
+	var expiry time.Time
+	if d.validity > 0 {
+		expiry = now.Add(d.validity)
+	} else {
+		expiry = now.AddDate(DefaultValidityYears, 0, 0)
+	}
+	template.NotAfter = expiry
+
 	der, err := x509.CreateCertificate(rand.Reader, template, d.authority,
 		csr.PublicKey, d.privKey)
 	if err != nil {

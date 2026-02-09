@@ -9,7 +9,6 @@ JUJUD_BIN_DIR=${JUJUD_BIN_DIR:-${BUILD_DIR}/bin}
 
 # Versioning variables
 JUJU_BUILD_NUMBER=${JUJU_BUILD_NUMBER:-}
-JUJU_DB_VERSION=${JUJU_DB_VERSION:-}
 
 # OCI variables
 OCI_BUILDER=${OCI_BUILDER:-docker}
@@ -156,7 +155,7 @@ build_push_operator_image() {
 
 seed_repository() {
   set -x
-  # copy all the lts that are available
+  # Copy all the lts that are available
   for (( i = 18; ; i += 2 )); do
     if "$DOCKER_BIN" pull "ghcr.io/juju/charm-base:ubuntu-$i.04" ; then
       "$DOCKER_BIN" tag "ghcr.io/juju/charm-base:ubuntu-$i.04" "${OCI_REGISTRY_USERNAME}/charm-base:ubuntu-$i.04"
@@ -164,7 +163,7 @@ seed_repository() {
     else
       break
     fi
-  done	
+  done
 }
 
 wait_for_dpkg() {

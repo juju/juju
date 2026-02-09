@@ -13,7 +13,8 @@ test_cloud_azure() {
 
 	echo "==> Checking for dependencies"
 
-	check_dependencies juju az jq
+	check_dependencies juju az yq
 
 	test_managed_identity
+	test_storage_account_type
 }
