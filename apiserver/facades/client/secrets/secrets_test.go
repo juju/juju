@@ -326,13 +326,19 @@ func (s *SecretsSuite) assertCreateSecrets(c *gc.C, isInternal bool, finalStepFa
 	s.expectAuthClient()
 	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil)
 
-	uri := coresecrets.NewURI()
-	uriStrPtr := ptr(uri.String())
+	var uri *coresecrets.URI
+	s.secretsState.EXPECT().ReserveSecret(
+		gomock.Any(), coretesting.ModelTag,
+	).DoAndReturn(func(arg1 *coresecrets.URI, owner names.Tag) error {
+		uri = arg1
+		return nil
+	})
+
 	if isInternal {
-		s.secretsBackend.EXPECT().SaveContent(gomock.Any(), uri, 1, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
+		s.secretsBackend.EXPECT().SaveContent(gomock.Any(), gomock.Any(), 1, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
 			Return("", errors.NotSupportedf("not supported"))
 	} else {
-		s.secretsBackend.EXPECT().SaveContent(gomock.Any(), uri, 1, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
+		s.secretsBackend.EXPECT().SaveContent(gomock.Any(), gomock.Any(), 1, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
 			Return("rev-id", nil)
 	}
 	s.secretsState.EXPECT().CreateSecret(gomock.Any(), gomock.Any()).DoAndReturn(func(arg1 *coresecrets.URI, params state.CreateSecretParams) (*coresecrets.SecretMetadata, error) {
@@ -381,7 +387,6 @@ func (s *SecretsSuite) assertCreateSecrets(c *gc.C, isInternal bool, finalStepFa
 		Args: []params.CreateSecretArg{
 			{
 				OwnerTag: coretesting.ModelTag.Id(),
-				URI:      uriStrPtr,
 				UpsertSecretArg: params.UpsertSecretArg{
 					Description: ptr("this is a user secret."),
 					Label:       ptr("label"),
