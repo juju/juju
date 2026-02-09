@@ -22,9 +22,9 @@ import (
 	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/cmd/juju/action"
 	coreoperation "github.com/juju/juju/core/operation"
+	"github.com/juju/juju/core/testing"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
-	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -229,25 +229,27 @@ func (s *RunSuite) TestInit(c *tc.C) {
 
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
-			wrappedCommand, command := action.NewRunCommandForTest(s.store, testClock(), nil)
-			c.Logf("test %d: should %s:\n$ juju run (action) %s\n", i,
-				t.should, strings.Join(t.args, " "))
-			args := append([]string{modelFlag, "admin"}, t.args...)
-			err := cmdtesting.InitCommand(wrappedCommand, args)
-			if t.expectError == "" {
-				c.Check(command.UnitNames(), tc.DeepEquals, t.expectUnits)
-				c.Check(command.ActionName(), tc.Equals, t.expectAction)
-				c.Check(command.ParamsYAML().Path, tc.Equals, t.expectParamsYamlPath)
-				c.Check(command.Args(), tc.DeepEquals, t.expectKVArgs)
-				c.Check(command.ParseStrings(), tc.Equals, t.expectParseStrings)
-				if t.expectWait != 0 {
-					c.Check(command.Wait(), tc.Equals, t.expectWait)
+			c.T.Run(t.should, func(_ *stdtesting.T) {
+				wrappedCommand, command := action.NewRunCommandForTest(s.store, testClock(), nil)
+				c.Logf("test %d: should %s:\n$ juju run (action) %s\n", i,
+					t.should, strings.Join(t.args, " "))
+				args := append([]string{modelFlag, "admin"}, t.args...)
+				err := cmdtesting.InitCommand(wrappedCommand, args)
+				if t.expectError == "" {
+					c.Check(command.UnitNames(), tc.DeepEquals, t.expectUnits)
+					c.Check(command.ActionName(), tc.Equals, t.expectAction)
+					c.Check(command.ParamsYAML().Path, tc.Equals, t.expectParamsYamlPath)
+					c.Check(command.Args(), tc.DeepEquals, t.expectKVArgs)
+					c.Check(command.ParseStrings(), tc.Equals, t.expectParseStrings)
+					if t.expectWait != 0 {
+						c.Check(command.Wait(), tc.Equals, t.expectWait)
+					} else {
+						c.Check(command.Wait(), tc.Equals, 60*time.Second)
+					}
 				} else {
-					c.Check(command.Wait(), tc.Equals, 60*time.Second)
+					c.Check(err, tc.ErrorMatches, t.expectError)
 				}
-			} else {
-				c.Check(err, tc.ErrorMatches, t.expectError)
-			}
+			})
 		}
 	}
 }
@@ -274,8 +276,10 @@ func (s *RunSuite) TestRun(c *tc.C) {
 	}, {
 		should:   "fail with API error",
 		withArgs: []string{validUnitId, "some-action"},
-		withActionResults: []actionapi.ActionResult{{
-			Action: &actionapi.Action{ID: validActionId}},
+		withActionResults: []actionapi.ActionResult{
+			{
+				Action: &actionapi.Action{ID: validActionId},
+			},
 		},
 		withAPIErr:  errors.New("something wrong in API"),
 		expectedErr: "something wrong in API",
@@ -291,19 +295,22 @@ Operation 1 failed to schedule any tasks:
 database error`[1:],
 	}, {
 		should: "fail with missing file passed",
-		withArgs: []string{validUnitId, "some-action",
+		withArgs: []string{
+			validUnitId, "some-action",
 			"--params", s.dir + "/" + "missing.yml",
 		},
 		expectedErr: "open .*missing.yml: " + utils.NoSuchFileErrRegexp,
 	}, {
 		should: "fail with invalid yaml in file",
-		withArgs: []string{validUnitId, "some-action",
+		withArgs: []string{
+			validUnitId, "some-action",
 			"--params", s.dir + "/" + "invalidParams.yml",
 		},
 		expectedErr: "yaml: line 4: mapping values are not allowed in this context",
 	}, {
 		should: "fail with invalid UTF in file",
-		withArgs: []string{validUnitId, "some-action",
+		withArgs: []string{
+			validUnitId, "some-action",
 			"--params", s.dir + "/" + "invalidUTF.yml",
 		},
 		expectedErr: "yaml: invalid leading UTF-8 octet",
@@ -322,7 +329,7 @@ database error`[1:],
 		}},
 		expectedActionEnqueued: []actionapi.Action{{
 			Name:       "some-action",
-			Parameters: map[string]interface{}{},
+			Parameters: map[string]any{},
 			Receiver:   names.NewUnitTag(validUnitId).String(),
 		}},
 	}, {
@@ -335,9 +342,9 @@ database error`[1:],
 				Name:     "some-action",
 			},
 			Status: "completed",
-			Output: map[string]interface{}{
+			Output: map[string]any{
 				"outcome": "success",
-				"result-map": map[string]interface{}{
+				"result-map": map[string]any{
 					"message": "hello",
 				},
 			},
@@ -347,7 +354,7 @@ database error`[1:],
 		}},
 		expectedActionEnqueued: []actionapi.Action{{
 			Name:       "some-action",
-			Parameters: map[string]interface{}{},
+			Parameters: map[string]any{},
 			Receiver:   names.NewUnitTag(validUnitId).String(),
 		}},
 		expectedOutput: `
@@ -364,14 +371,14 @@ result-map:
 				Name:     "some-action",
 			},
 			Status: "completed",
-			Output: map[string]interface{}{
+			Output: map[string]any{
 				"return-code":     0,
 				"stdout":          "hello",
 				"stderr":          "world",
 				"stdout-encoding": "utf-8",
 				"stderr-encoding": "utf-8",
 				"outcome":         "success",
-				"result-map": map[string]interface{}{
+				"result-map": map[string]any{
 					"message": "hello",
 				},
 			},
@@ -381,7 +388,7 @@ result-map:
 		}},
 		expectedActionEnqueued: []actionapi.Action{{
 			Name:       "some-action",
-			Parameters: map[string]interface{}{},
+			Parameters: map[string]any{},
 			Receiver:   names.NewUnitTag(validUnitId).String(),
 		}},
 		expectedOutput: `
@@ -401,14 +408,14 @@ world`[1:],
 				Name:     "some-action",
 			},
 			Status: "completed",
-			Output: map[string]interface{}{
+			Output: map[string]any{
 				"return-code":     0,
 				"stdout":          "hello",
 				"stderr":          "world",
 				"stdout-encoding": "utf-8",
 				"stderr-encoding": "utf-8",
 				"outcome":         "success",
-				"result-map": map[string]interface{}{
+				"result-map": map[string]any{
 					"message": "hello",
 				},
 			},
@@ -418,7 +425,7 @@ world`[1:],
 		}},
 		expectedActionEnqueued: []actionapi.Action{{
 			Name:       "some-action",
-			Parameters: map[string]interface{}{},
+			Parameters: map[string]any{},
 			Receiver:   names.NewUnitTag(validUnitId).String(),
 		}},
 		expectedOutput: `
@@ -449,14 +456,14 @@ mysql/0:
 				Name:     "some-action",
 			},
 			Status: "completed",
-			Output: map[string]interface{}{
+			Output: map[string]any{
 				"return-code":     0,
 				"stdout":          "hello",
 				"stderr":          "world",
 				"stdout-encoding": "utf-8",
 				"stderr-encoding": "utf-8",
 				"outcome":         "success",
-				"result-map": map[string]interface{}{
+				"result-map": map[string]any{
 					"message": "hello",
 				},
 			},
@@ -466,7 +473,7 @@ mysql/0:
 		}},
 		expectedActionEnqueued: []actionapi.Action{{
 			Name:       "some-action",
-			Parameters: map[string]interface{}{},
+			Parameters: map[string]any{},
 			Receiver:   names.NewUnitTag(validUnitId).String(),
 		}},
 		expectedLogs: []string{"log line 1", "log line 2"},
@@ -494,14 +501,14 @@ world`[1:],
 				Message:   "log line 2",
 			}},
 			Status: "completed",
-			Output: map[string]interface{}{
+			Output: map[string]any{
 				"return-code":     0,
 				"stdout":          "hello",
 				"stderr":          "world",
 				"stdout-encoding": "utf-8",
 				"stderr-encoding": "utf-8",
 				"outcome":         "success",
-				"result-map": map[string]interface{}{
+				"result-map": map[string]any{
 					"message": "hello",
 				},
 			},
@@ -511,7 +518,7 @@ world`[1:],
 		}},
 		expectedActionEnqueued: []actionapi.Action{{
 			Name:       "some-action",
-			Parameters: map[string]interface{}{},
+			Parameters: map[string]any{},
 			Receiver:   names.NewUnitTag(validUnitId).String(),
 		}},
 		expectedLogs: []string{"log line 1", "log line 2"},
@@ -547,16 +554,16 @@ mysql/0:
 			},
 			Status:  params.ActionFailed,
 			Message: "action failed msg",
-			Output: map[string]interface{}{
+			Output: map[string]any{
 				"outcome": "fail",
-				"result-map": map[string]interface{}{
+				"result-map": map[string]any{
 					"message": "failed :'(",
 				},
 			},
 		}},
 		expectedActionEnqueued: []actionapi.Action{{
 			Name:       "some-action",
-			Parameters: map[string]interface{}{},
+			Parameters: map[string]any{},
 			Receiver:   names.NewUnitTag(validUnitId).String(),
 		}},
 		expectedOutput: `
@@ -574,9 +581,9 @@ result-map:
 				Name:     "some-action",
 			},
 			Status: "completed",
-			Output: map[string]interface{}{
+			Output: map[string]any{
 				"outcome": "success",
-				"result-map": map[string]interface{}{
+				"result-map": map[string]any{
 					"message": "hello",
 				},
 			},
@@ -590,9 +597,9 @@ result-map:
 				Name:     "some-action",
 			},
 			Status: "completed",
-			Output: map[string]interface{}{
+			Output: map[string]any{
 				"outcome": "success",
-				"result-map": map[string]interface{}{
+				"result-map": map[string]any{
 					"message": "hello2",
 				},
 			},
@@ -602,11 +609,11 @@ result-map:
 		}},
 		expectedActionEnqueued: []actionapi.Action{{
 			Name:       "some-action",
-			Parameters: map[string]interface{}{},
+			Parameters: map[string]any{},
 			Receiver:   names.NewUnitTag(validUnitId).String(),
 		}, {
 			Name:       "some-action",
-			Parameters: map[string]interface{}{},
+			Parameters: map[string]any{},
 			Receiver:   names.NewUnitTag(validUnitId2).String(),
 		}},
 		expectedOutput: `
@@ -644,9 +651,9 @@ mysql/1:
 				Name:     "some-action",
 			},
 			Status: "completed",
-			Output: map[string]interface{}{
+			Output: map[string]any{
 				"outcome": "success",
-				"result-map": map[string]interface{}{
+				"result-map": map[string]any{
 					"message": "hello",
 				},
 			},
@@ -657,20 +664,20 @@ mysql/1:
 				Name:     "some-action",
 			},
 			Status: params.ActionCompleted,
-			Output: map[string]interface{}{
+			Output: map[string]any{
 				"outcome": "success",
-				"result-map": map[string]interface{}{
+				"result-map": map[string]any{
 					"message": "hello2",
 				},
 			},
 		}},
 		expectedActionEnqueued: []actionapi.Action{{
 			Name:       "some-action",
-			Parameters: map[string]interface{}{},
+			Parameters: map[string]any{},
 			Receiver:   names.NewUnitTag(validUnitId).String(),
 		}, {
 			Name:       "some-action",
-			Parameters: map[string]interface{}{},
+			Parameters: map[string]any{},
 			Receiver:   names.NewUnitTag(validUnitId2).String(),
 		}},
 		expectedOutput: `
@@ -699,9 +706,9 @@ mysql/1:
 			},
 			Status:  params.ActionFailed,
 			Message: "action failed msg",
-			Output: map[string]interface{}{
+			Output: map[string]any{
 				"outcome": "fail",
-				"result-map": map[string]interface{}{
+				"result-map": map[string]any{
 					"message": "failed :'(",
 				},
 			},
@@ -713,20 +720,20 @@ mysql/1:
 			},
 			Status:  params.ActionFailed,
 			Message: "action failed msg 2",
-			Output: map[string]interface{}{
+			Output: map[string]any{
 				"outcome": "fail",
-				"result-map": map[string]interface{}{
+				"result-map": map[string]any{
 					"message": "failed2 :'(",
 				},
 			},
 		}},
 		expectedActionEnqueued: []actionapi.Action{{
 			Name:       "some-action",
-			Parameters: map[string]interface{}{},
+			Parameters: map[string]any{},
 			Receiver:   names.NewUnitTag(validUnitId).String(),
 		}, {
 			Name:       "some-action",
-			Parameters: map[string]interface{}{},
+			Parameters: map[string]any{},
 			Receiver:   names.NewUnitTag(validUnitId2).String(),
 		}},
 		expectedOutput: `
@@ -757,9 +764,9 @@ mysql/1:
 			},
 			Status:  params.ActionFailed,
 			Message: "action failed msg",
-			Output: map[string]interface{}{
+			Output: map[string]any{
 				"outcome": "fail",
-				"result-map": map[string]interface{}{
+				"result-map": map[string]any{
 					"message": "failed :'(",
 				},
 			},
@@ -770,20 +777,20 @@ mysql/1:
 				Name:     "some-action",
 			},
 			Status: params.ActionCompleted,
-			Output: map[string]interface{}{
+			Output: map[string]any{
 				"outcome": "success",
-				"result-map": map[string]interface{}{
+				"result-map": map[string]any{
 					"message": "pass",
 				},
 			},
 		}},
 		expectedActionEnqueued: []actionapi.Action{{
 			Name:       "some-action",
-			Parameters: map[string]interface{}{},
+			Parameters: map[string]any{},
 			Receiver:   names.NewUnitTag(validUnitId).String(),
 		}, {
 			Name:       "some-action",
-			Parameters: map[string]interface{}{},
+			Parameters: map[string]any{},
 			Receiver:   names.NewUnitTag(validUnitId2).String(),
 		}},
 		expectedOutput: `
@@ -804,7 +811,8 @@ mysql/1:
   status: completed`[1:],
 	}, {
 		should: "enqueue an action with some explicit params",
-		withArgs: []string{validUnitId, "some-action", "--background",
+		withArgs: []string{
+			validUnitId, "some-action", "--background",
 			"out.name=bar",
 			"out.kind=tmpfs",
 			"out.num=3",
@@ -819,8 +827,8 @@ mysql/1:
 		expectedActionEnqueued: []actionapi.Action{{
 			Name:     "some-action",
 			Receiver: names.NewUnitTag(validUnitId).String(),
-			Parameters: map[string]interface{}{
-				"out": map[string]interface{}{
+			Parameters: map[string]any{
+				"out": map[string]any{
 					"name":    "bar",
 					"kind":    "tmpfs",
 					"num":     3,
@@ -830,7 +838,8 @@ mysql/1:
 		}},
 	}, {
 		should: "enqueue an action with some raw string params",
-		withArgs: []string{validUnitId, "some-action", "--background", "--string-args",
+		withArgs: []string{
+			validUnitId, "some-action", "--background", "--string-args",
 			"out.name=bar",
 			"out.kind=tmpfs",
 			"out.num=3",
@@ -845,8 +854,8 @@ mysql/1:
 		expectedActionEnqueued: []actionapi.Action{{
 			Name:     "some-action",
 			Receiver: names.NewUnitTag(validUnitId).String(),
-			Parameters: map[string]interface{}{
-				"out": map[string]interface{}{
+			Parameters: map[string]any{
+				"out": map[string]any{
 					"name":    "bar",
 					"kind":    "tmpfs",
 					"num":     "3",
@@ -856,7 +865,8 @@ mysql/1:
 		}},
 	}, {
 		should: "enqueue an action with file params plus CLI args",
-		withArgs: []string{validUnitId, "some-action", "--background",
+		withArgs: []string{
+			validUnitId, "some-action", "--background",
 			"--params", s.dir + "/" + "validParams.yml",
 			"compression.kind=gz",
 			"compression.fast=true",
@@ -870,9 +880,9 @@ mysql/1:
 		expectedActionEnqueued: []actionapi.Action{{
 			Name:     "some-action",
 			Receiver: names.NewUnitTag(validUnitId).String(),
-			Parameters: map[string]interface{}{
+			Parameters: map[string]any{
 				"out": "name",
-				"compression": map[string]interface{}{
+				"compression": map[string]any{
 					"kind":    "gz",
 					"quality": "high",
 					"fast":    true,
@@ -881,7 +891,8 @@ mysql/1:
 		}},
 	}, {
 		should: "enqueue an action with file params and explicit params",
-		withArgs: []string{validUnitId, "some-action", "--background",
+		withArgs: []string{
+			validUnitId, "some-action", "--background",
 			"out.name=bar",
 			"out.kind=tmpfs",
 			"compression.quality.speed=high",
@@ -897,20 +908,40 @@ mysql/1:
 		expectedActionEnqueued: []actionapi.Action{{
 			Name:     "some-action",
 			Receiver: names.NewUnitTag(validUnitId).String(),
-			Parameters: map[string]interface{}{
-				"out": map[string]interface{}{
+			Parameters: map[string]any{
+				"out": map[string]any{
 					"name": "bar",
 					"kind": "tmpfs",
 				},
-				"compression": map[string]interface{}{
+				"compression": map[string]any{
 					"kind": "xz",
-					"quality": map[string]interface{}{
+					"quality": map[string]any{
 						"speed": "high",
 						"size":  "small",
 					},
 				},
 			},
 		}},
+	}, {
+		should:   "enqueue action fails with incorrect params",
+		withArgs: []string{validUnitId, "some-action", "dry-run=abc"},
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{
+				ID:         validActionId,
+				Receiver:   names.NewUnitTag(validUnitId).String(),
+				Name:       "some-action",
+				Parameters: map[string]any{},
+			},
+			Status:  params.ActionError,
+			Message: "cannot run some-action action: validation failed",
+			Output:  nil,
+		}},
+		expectedActionEnqueued: []actionapi.Action{{
+			Name:       "some-action",
+			Parameters: map[string]any{"dry-run": "abc"},
+			Receiver:   names.NewUnitTag(validUnitId).String(),
+		}},
+		expectedOutput: "Action id 1 failed: cannot run some-action action: validation failed",
 	}, {
 		should:   "enqueue a basic action on the leader",
 		withArgs: []string{"mysql/leader", "some-action", "--background"},
@@ -920,41 +951,44 @@ mysql/1:
 				Receiver: names.NewUnitTag(validUnitId).String(),
 			},
 		}},
-		expectedActionEnqueued: []actionapi.Action{{
-			Name:       "some-action",
-			Parameters: map[string]interface{}{},
-			Receiver:   "mysql/leader",
+		expectedActionEnqueued: []actionapi.Action{
+			{
+				Name:       "some-action",
+				Parameters: map[string]any{},
+				Receiver:   "mysql/leader",
+			},
 		},
-		}},
-	}
+	}}
 
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
-			c.Logf("test %d: should %s:\n$ juju actions do %s\n", i, t.should, strings.Join(t.withArgs, " "))
-			s.clock = testClock()
+			c.T.Run(t.should, func(_ *stdtesting.T) {
+				c.Logf("test %d: should %s:\n$ juju actions do %s\n", i, t.should, strings.Join(t.withArgs, " "))
+				s.clock = testClock()
 
-			fakeClient := &fakeAPIClient{
-				actionResults: t.withActionResults,
-				logMessageCh:  make(chan []string, len(t.expectedLogs)),
-			}
+				fakeClient := &fakeAPIClient{
+					actionResults: t.withActionResults,
+					logMessageCh:  make(chan []string, len(t.expectedLogs)),
+				}
 
-			if len(t.expectedLogs) > 0 {
-				fakeClient.waitForResults = make(chan bool)
-			}
-			if t.clientSetup != nil {
-				t.clientSetup(fakeClient)
-			}
-			fakeClient.apiErr = t.withAPIErr
-			fakeClient.actionResults = t.withActionResults
+				if len(t.expectedLogs) > 0 {
+					fakeClient.waitForResults = make(chan bool)
+				}
+				if t.clientSetup != nil {
+					t.clientSetup(fakeClient)
+				}
+				fakeClient.apiErr = t.withAPIErr
+				fakeClient.actionResults = t.withActionResults
 
-			s.testRunHelper(c,
-				fakeClient,
-				t.expectedErr,
-				t.expectedOutput,
-				modelFlag,
-				t.withArgs,
-				t.expectedActionEnqueued,
-				t.expectedLogs)
+				s.testRunHelper(c,
+					fakeClient,
+					t.expectedErr,
+					t.expectedOutput,
+					modelFlag,
+					t.withArgs,
+					t.expectedActionEnqueued,
+					t.expectedLogs)
+			})
 		}
 	}
 }
@@ -1003,34 +1037,36 @@ hello
 			Receiver: names.NewUnitTag(validUnitId).String(),
 			Name:     "some-action",
 		},
-		Output: map[string]interface{}{
+		Output: map[string]any{
 			"stdout": "hello",
 		},
 	}}
 
 	for i, t := range tests {
-		c.Logf("test %d: %s", i, t.about)
+		c.T.Run(t.about, func(_ *stdtesting.T) {
+			c.Logf("test %d: %s", i, t.about)
 
-		// Set up context
-		output := bytes.Buffer{}
-		ctx := &cmd.Context{
-			Context: c.Context(),
-			Stdout:  &output,
-			Stderr:  &output,
-		}
-		log := cmd.Log{
-			Verbose: t.verbose,
-			Quiet:   t.quiet,
-		}
-		log.Start(ctx) // sets the verbose/quiet options in `ctx`
+			// Set up context
+			output := bytes.Buffer{}
+			ctx := &cmd.Context{
+				Context: c.Context(),
+				Stdout:  &output,
+				Stderr:  &output,
+			}
+			log := cmd.Log{
+				Verbose: t.verbose,
+				Quiet:   t.quiet,
+			}
+			_ = log.Start(ctx) // sets the verbose/quiet options in `ctx`
 
-		// Run command
-		runCmd, _ := action.NewRunCommandForTest(s.store, s.clock, nil)
-		err := cmdtesting.InitCommand(runCmd, []string{"-m", "admin", validUnitId, "some-action"})
-		c.Assert(err, tc.ErrorIsNil)
-		err = runCmd.Run(ctx)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Check(output.String(), tc.Equals, t.output)
+			// Run command
+			runCmd, _ := action.NewRunCommandForTest(s.store, s.clock, nil)
+			err := cmdtesting.InitCommand(runCmd, []string{"-m", "admin", validUnitId, "some-action"})
+			c.Assert(err, tc.ErrorIsNil)
+			err = runCmd.Run(ctx)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(output.String(), tc.Equals, t.output)
+		})
 	}
 }
 
