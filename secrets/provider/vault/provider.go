@@ -89,10 +89,13 @@ func (p vaultProvider) Initialise(cfg *provider.ModelBackendConfig) error {
 // CleanupModel deletes all secrets and policies associated with the model.
 func (p vaultProvider) CleanupModel(cfg *provider.ModelBackendConfig) (err error) {
 	defer func() {
-		if err != nil && strings.HasSuffix(err.Error(), "no route to host") {
+		if err == nil {
+			return
+		} else if strings.HasSuffix(err.Error(), "no route to host") ||
+			strings.HasSuffix(err.Error(), "connection refused") {
 			// There is nothing we can do now, so just log the error and continue.
-			err = nil
 			logger.Warningf("failed to cleanup secrets for model %q: %v", cfg.ModelUUID, err)
+			err = nil
 		}
 	}()
 
