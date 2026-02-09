@@ -938,6 +938,15 @@ func (s *applicationSuite) TestBlockChangesApplicationUnexpose(c *gc.C) {
 	s.assertApplicationUnexposeBlocked(c, app, "TestBlockChangesApplicationUnexpose")
 }
 
+func (s *applicationSuite) TestControllerApplicationUnexposeNotAllowed(c *gc.C) {
+	charm := s.AddTestingCharm(c, "juju-controller")
+	s.AddTestingApplication(c, "controller", charm)
+	err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{
+		ApplicationName: "controller",
+	})
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+}
+
 var applicationDestroyTests = []struct {
 	about       string
 	application string

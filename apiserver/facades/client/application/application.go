@@ -1439,6 +1439,14 @@ func (api *APIBase) Unexpose(args params.ApplicationUnexpose) error {
 		return err
 	}
 
+	ch, _, err := app.Charm()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if ch.Meta().Name == bootstrap.ControllerCharmName {
+		return errors.NotSupportedf("unexposing the controller application")
+	}
+
 	// No endpoints specified; unexpose application
 	if len(args.ExposedEndpoints) == 0 {
 		return app.ClearExposed()

@@ -173,6 +173,8 @@ func (p *machinePortRanges) removeOps() []txn.Op {
 	}}
 }
 
+const controllerAppName = "controller"
+
 // removePortsForUnitOps returns the ops needed to remove all opened
 // ports for the given unit on its assigned machine.
 func removePortsForUnitOps(st *State, unit *Unit) ([]txn.Op, error) {
@@ -187,6 +189,13 @@ func removePortsForUnitOps(st *State, unit *Unit) ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	} else if !machinePortRanges.docExists {
 		// Machine is removed, so there won't be a ports doc for it.
+		return nil, nil
+	}
+
+	// We never delete a controller unit.
+	// During controller teardown, we always want
+	// controller ports to remain open.
+	if unit.ApplicationName() == controllerAppName {
 		return nil, nil
 	}
 

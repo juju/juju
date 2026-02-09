@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/worker/common"
@@ -1239,7 +1240,14 @@ func (fw *Firewaller) forgetUnit(unitd *unitData) {
 
 	// Clean up after stopping.
 	delete(fw.unitds, unitd.tag)
-	delete(machined.unitds, unitd.tag)
+	// Controller units are always removed because the machine is being removed.
+	// We want to keep the ports open until the machine is gone.
+	app, _ := names.UnitApplication(unitd.unit.Name())
+	if app == bootstrap.ControllerApplicationName {
+		fw.logger.Debugf("skipping unit removal for %s", unitd.tag.Id())
+	} else {
+		delete(machined.unitds, unitd.tag)
+	}
 	delete(applicationd.unitds, unitd.tag)
 	fw.logger.Debugf("stopped watching %q", unitd.tag)
 	if stoppedApplication {
