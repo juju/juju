@@ -383,6 +383,10 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 			return errors.Errorf("deleting application resources: %w", err)
 		}
 
+		if err := st.deleteApplicationRelations(ctx, tx, aUUID); err != nil {
+			return errors.Errorf("deleting application relations: %w", err)
+		}
+
 		if err := st.deleteApplicationUnits(ctx, tx, aUUID, force); err != nil {
 			return errors.Errorf("deleting application units: %w", err)
 		}
@@ -625,6 +629,35 @@ WHERE  uuid = $entityUUID.uuid`, appID)
 
 	if err := tx.Query(ctx, deleteApplicationAnnotationStmt, appID).Run(); err != nil {
 		return errors.Errorf("removing application annotations: %w", err)
+	}
+	return nil
+}
+
+func (st *State) deleteApplicationRelations(ctx context.Context, tx *sqlair.TX, aUUID string) error {
+	appID := entityUUID{UUID: aUUID}
+
+	getRelationUUIDsStmt, err := st.Prepare(`
+SELECT DISTINCT re.relation_uuid AS &entityUUID.uuid
+FROM   relation_endpoint AS re
+JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+WHERE  ae.application_uuid = $entityUUID.uuid
+`, entityUUID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var relationUUIDs []entityUUID
+	if err := tx.Query(ctx, getRelationUUIDsStmt, appID).GetAll(&relationUUIDs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("getting application relation UUIDs: %w", err)
+	}
+
+	for _, rel := range relationUUIDs {
+		if err := st.deleteRelationUnitsForRelation(ctx, tx, rel); err != nil {
+			return errors.Errorf("deleting relation units for relation %q: %w", rel.UUID, err)
+		}
+		if err := st.deleteRelation(ctx, tx, rel); err != nil {
+			return errors.Errorf("deleting relation %q: %w", rel.UUID, err)
+		}
 	}
 	return nil
 }

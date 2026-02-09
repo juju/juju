@@ -1112,6 +1112,58 @@ func (s *unitSuite) expectK8sPodCount(c *tc.C, unitUUID unit.UUID, expected int)
 	c.Check(count, tc.Equals, expected)
 }
 
+// TestDeleteUnitWithRelationUnit verifies that DeleteUnit succeeds when
+// the unit has relation_unit records, which previously caused FK constraint
+// failures.
+func (s *unitSuite) TestDeleteUnitWithRelationUnit(c *tc.C) {
+	appSvc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, appSvc, "app1", applicationservice.AddIAASUnitArg{})
+	s.createIAASApplication(c, appSvc, "app2", applicationservice.AddIAASUnitArg{})
+
+	relSvc := s.setupRelationService(c)
+	ep1, ep2, err := relSvc.AddRelation(c.Context(), "app1:foo", "app2:bar")
+	c.Assert(err, tc.ErrorIsNil)
+
+	relUUID, err := relSvc.GetRelationUUIDForRemoval(c.Context(), domainrelation.GetRelationUUIDForRemovalArgs{
+		Endpoints: []string{ep1.String(), ep2.String()},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Enter the unit into the relation scope.
+	unitName0 := tc.Must2(c, unit.NewNameFromParts, "app1", 0)
+	err = relSvc.EnterScope(c.Context(), relUUID, unitName0, map[string]string{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	// Verify the unit is in scope.
+	var ruCount int
+	row := s.DB().QueryRow("SELECT COUNT(*) FROM relation_unit WHERE unit_uuid = ?", unitUUID.String())
+	err = row.Scan(&ruCount)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ruCount, tc.Equals, 1)
+
+	s.advanceUnitLife(c, unitUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// This previously failed with "FOREIGN KEY constraint failed".
+	err = st.DeleteUnit(c.Context(), unitUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exists, err := st.UnitExists(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+
+	// The relation_unit should be cleaned up.
+	row = s.DB().QueryRow("SELECT COUNT(*) FROM relation_unit WHERE unit_uuid = ?", unitUUID.String())
+	err = row.Scan(&ruCount)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(ruCount, tc.Equals, 0)
+}
+
 func (s *unitSuite) getCharmUUIDForUnit(c *tc.C, unitUUID string) string {
 	row := s.DB().QueryRow("SELECT charm_uuid FROM unit WHERE uuid = ?", unitUUID)
 	var charmUUID string

@@ -869,6 +869,9 @@ func (st *State) deleteForeignKeyUnitReferences(ctx context.Context, tx *sqlair.
 		"DELETE FROM unit_storage_directive WHERE unit_uuid = $entityUUID.uuid",
 		"DELETE FROM unit_agent_presence WHERE unit_uuid = $entityUUID.uuid",
 		"DELETE FROM secret_unit_consumer WHERE unit_uuid = $entityUUID.uuid",
+		"DELETE FROM relation_unit_setting WHERE relation_unit_uuid IN (SELECT uuid FROM relation_unit WHERE unit_uuid = $entityUUID.uuid)",
+		"DELETE FROM relation_unit_settings_hash WHERE relation_unit_uuid IN (SELECT uuid FROM relation_unit WHERE unit_uuid = $entityUUID.uuid)",
+		"DELETE FROM relation_unit WHERE unit_uuid = $entityUUID.uuid",
 	} {
 		deleteUnitReferenceStmt, err := st.Prepare(table, unitUUIDRec)
 		if err != nil {

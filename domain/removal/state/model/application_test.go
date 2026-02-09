@@ -1142,6 +1142,63 @@ func (s *applicationSuite) getCharmUUIDForApplication(c *tc.C, appUUID string) s
 	return charmUUID
 }
 
+// TestDeleteIAASApplicationWithUnitsAndRelationsWithForce verifies that
+// a forced application deletion succeeds when the application has both
+// units and relations. This is a regression test for the FK constraint
+// failure that occurred because deleteApplicationRelations was not called
+// before deleteSimpleApplicationReferences, causing relation_endpoint
+// records to block application_endpoint deletion.
+func (s *applicationSuite) TestDeleteIAASApplicationWithUnitsAndRelationsWithForce(c *tc.C) {
+	appSvc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, appSvc, "app1",
+		applicationservice.AddIAASUnitArg{},
+	)
+	s.createIAASApplication(c, appSvc, "app2")
+
+	relSvc := s.setupRelationService(c)
+	ep1, ep2, err := relSvc.AddRelation(c.Context(), "app1:foo", "app2:bar")
+	c.Assert(err, tc.ErrorIsNil)
+
+	relUUID, err := relSvc.GetRelationUUIDForRemoval(c.Context(), relation.GetRelationUUIDForRemovalArgs{
+		Endpoints: []string{ep1.String(), ep2.String()},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Enter the unit into the relation scope.
+	unitName0 := tc.Must2(c, unit.NewNameFromParts, "app1", 0)
+	err = relSvc.EnterScope(c.Context(), relUUID, unitName0, map[string]string{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(unitUUIDs, tc.HasLen, 1)
+
+	s.advanceUnitLife(c, unitUUIDs[0], life.Dead)
+	s.advanceApplicationLife(c, appUUID, life.Dead)
+	s.advanceRelationLife(c, relUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// This should fail without force because there are units and relations.
+	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+
+	// Forced deletion should succeed, cleaning up relations and units.
+	err = st.DeleteApplication(c.Context(), appUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The application should be gone.
+	exists, err := st.ApplicationExists(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+
+	// The relation should be gone.
+	var relCount int
+	row := s.DB().QueryRow("SELECT COUNT(*) FROM relation WHERE uuid = ?", relUUID.String())
+	err = row.Scan(&relCount)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(relCount, tc.Equals, 0)
+}
+
 func removeDuplicates[T comparable](uuids []T) []T {
 	unique := make(map[T]struct{}, len(uuids))
 	for _, uuid := range uuids {

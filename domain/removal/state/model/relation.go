@@ -302,6 +302,42 @@ AND    scope_uuid = $entityUUID.uuid`, relationUUID)
 		return errors.Errorf("preparing relation secret permission deletion: %w", err)
 	}
 
+	networkIngressStmt, err := st.Prepare(`
+DELETE FROM relation_network_ingress 
+WHERE relation_uuid = $entityUUID.uuid`, relationUUID)
+	if err != nil {
+		return errors.Errorf("preparing relation network ingress deletion: %w", err)
+	}
+
+	networkEgressStmt, err := st.Prepare(`
+DELETE FROM relation_network_egress 
+WHERE relation_uuid = $entityUUID.uuid`, relationUUID)
+	if err != nil {
+		return errors.Errorf("preparing relation network egress deletion: %w", err)
+	}
+
+	macaroonStmt, err := st.Prepare(`
+DELETE FROM application_remote_offerer_relation_macaroon 
+WHERE relation_uuid = $entityUUID.uuid`, relationUUID)
+	if err != nil {
+		return errors.Errorf("preparing relation macaroon deletion: %w", err)
+	}
+
+	remoteConsumerStmt, err := st.Prepare(`
+DELETE FROM application_remote_consumer
+WHERE  offer_connection_uuid IN (
+    SELECT uuid FROM offer_connection WHERE remote_relation_uuid = $entityUUID.uuid
+)`, relationUUID)
+	if err != nil {
+		return errors.Errorf("preparing remote consumer deletion: %w", err)
+	}
+
+	offerConnectionStmt, err := st.Prepare(
+		"DELETE FROM offer_connection WHERE remote_relation_uuid = $entityUUID.uuid", relationUUID)
+	if err != nil {
+		return errors.Errorf("preparing offer connection deletion: %w", err)
+	}
+
 	relStmt, err := st.Prepare("DELETE FROM relation WHERE uuid = $entityUUID.uuid ", relationUUID)
 	if err != nil {
 		return errors.Errorf("preparing relation deletion: %w", err)
@@ -338,6 +374,31 @@ AND    scope_uuid = $entityUUID.uuid`, relationUUID)
 	err = tx.Query(ctx, secretPermissionStmt, relationUUID).Run()
 	if err != nil {
 		return errors.Errorf("running relation secret permission deletion: %w", err)
+	}
+
+	err = tx.Query(ctx, networkIngressStmt, relationUUID).Run()
+	if err != nil {
+		return errors.Errorf("running relation network ingress deletion: %w", err)
+	}
+
+	err = tx.Query(ctx, networkEgressStmt, relationUUID).Run()
+	if err != nil {
+		return errors.Errorf("running relation network egress deletion: %w", err)
+	}
+
+	err = tx.Query(ctx, macaroonStmt, relationUUID).Run()
+	if err != nil {
+		return errors.Errorf("running relation macaroon deletion: %w", err)
+	}
+
+	err = tx.Query(ctx, remoteConsumerStmt, relationUUID).Run()
+	if err != nil {
+		return errors.Errorf("running remote consumer deletion: %w", err)
+	}
+
+	err = tx.Query(ctx, offerConnectionStmt, relationUUID).Run()
+	if err != nil {
+		return errors.Errorf("running offer connection deletion: %w", err)
 	}
 
 	err = tx.Query(ctx, relStmt, relationUUID).Run()
