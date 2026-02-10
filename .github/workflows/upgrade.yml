@@ -114,7 +114,7 @@ jobs:
         with:
           channel: "1.34-strict/stable"
           addons: '["dns", "hostpath-storage"]'
-          launch-configuration: ${{ github.repository_owner == 'juju' && '$GITHUB_WORKSPACE/.github/microk8s-launch-config-aws.yaml' || '' }}
+          launch-configuration: ${{ github.repository_owner == 'juju' && '$GITHUB_WORKSPACE/.github/microk8s-launch-config-aws.yaml' || '$GITHUB_WORKSPACE/.github/microk8s-launch-config.yaml' }}
 
       - name: Install k8s Dependencies
         if: matrix.cloud == 'microk8s'
@@ -172,7 +172,7 @@ jobs:
           EOL
           podman build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
           podman push -f v2s2 "${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}" "docker://${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}"
-          
+
           OCI_REGISTRY_USERNAME=${OCI_REGISTRY}/test-repo LEGACY_JUJU_DB_VERSION=4.4 make seed-repository
 
       - name: Bootstrap Juju - localhost
@@ -260,7 +260,7 @@ jobs:
             RUN update-ca-certificates
           EOL
           podman build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}
-          podman push -f v2s2 "${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}" "docker://${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}"          
+          podman push -f v2s2 "${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}" "docker://${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}"
 
       - name: Preflight
         shell: bash
