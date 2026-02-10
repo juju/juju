@@ -4195,3 +4195,31 @@ func (s *SecretBackendIssuedTokenExpiryWatcherSuite) TestWatchUpdates(c *gc.C) {
 
 	wc.AssertChange(next.Format(time.RFC3339))
 }
+
+func (s *SecretBackendIssuedTokenExpiryWatcherSuite) TestWatchNoDeletion(c *gc.C) {
+	ownerApp := s.Factory.MakeApplication(c, nil)
+	now := s.Clock.Now().Round(time.Second).UTC()
+	first := now.Add(time.Minute).Round(time.Second).UTC()
+	firstUUID := uuid.NewString()
+
+	err := s.store.CreateSecretBackendIssuedToken(state.SecretBackendIssuedToken{
+		UUID:       firstUUID,
+		ExpireTime: first,
+		BackendID:  "abc",
+		Consumer:   ownerApp.Tag(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+
+	w := s.store.WatchSecretBackendIssuedTokenExpiry()
+	defer testing.AssertStop(c, w)
+
+	wc := testing.NewStringsWatcherC(c, w)
+	wc.AssertChange(first.Format(time.RFC3339))
+	wc.AssertNoChange()
+
+	err = s.store.RemoveSecretBackendIssuedTokens([]string{firstUUID})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+}

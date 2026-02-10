@@ -4228,6 +4228,8 @@ func (w *secretBackendIssuedTokenExpiryWatcher) loop() error {
 	coll, closer := w.coll()
 	defer closer()
 
+	// out is not-nil when a notification should be sent, it is set to the
+	// output initially to ensure an initial notification is sent.
 	out := w.out
 	for {
 		select {
