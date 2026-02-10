@@ -94,6 +94,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		mc := jc.NewMultiChecker()
 		mc.AddExpr(`_.Logger`, gc.NotNil)
 		mc.AddExpr(`_.Clock`, gc.NotNil)
+		mc.AddExpr(`_.QuantiseTime`, gc.NotNil)
 		c.Check(config, mc, secretsrevoker.Config{Facade: facade})
 		return nil, nil
 	}

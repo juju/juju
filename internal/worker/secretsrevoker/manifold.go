@@ -70,9 +70,10 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 	}
 
 	worker, err := cfg.NewWorker(Config{
-		Facade: cfg.NewSecretsFacade(apiCaller),
-		Logger: cfg.Logger,
-		Clock:  cfg.Clock,
+		Facade:       cfg.NewSecretsFacade(apiCaller),
+		Logger:       cfg.Logger,
+		Clock:        cfg.Clock,
+		QuantiseTime: DefaultQuantiseTime,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

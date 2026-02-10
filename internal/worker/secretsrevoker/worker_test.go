@@ -55,9 +55,10 @@ func (s *workerSuite) TestWorkerWithSingleRevoke(c *gc.C) {
 	})
 
 	w, err := secretsrevoker.NewWorker(secretsrevoker.Config{
-		Facade: s.facade,
-		Logger: loggo.GetLogger("test"),
-		Clock:  clk,
+		Facade:       s.facade,
+		Logger:       loggo.GetLogger("test"),
+		Clock:        clk,
+		QuantiseTime: secretsrevoker.DefaultQuantiseTime,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
@@ -94,9 +95,10 @@ func (s *workerSuite) TestWorkerWithMoreToRevoke(c *gc.C) {
 	}).Times(2)
 
 	w, err := secretsrevoker.NewWorker(secretsrevoker.Config{
-		Facade: s.facade,
-		Logger: loggo.GetLogger("test"),
-		Clock:  clk,
+		Facade:       s.facade,
+		Logger:       loggo.GetLogger("test"),
+		Clock:        clk,
+		QuantiseTime: secretsrevoker.DefaultQuantiseTime,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
@@ -118,9 +120,10 @@ func (s *workerSuite) TestWorkerWithBreaks(c *gc.C) {
 	s.facade.EXPECT().WatchIssuedTokenExpiry().Return(expiryWatcher, nil)
 
 	w, err := secretsrevoker.NewWorker(secretsrevoker.Config{
-		Facade: s.facade,
-		Logger: loggo.GetLogger("test"),
-		Clock:  clk,
+		Facade:       s.facade,
+		Logger:       loggo.GetLogger("test"),
+		Clock:        clk,
+		QuantiseTime: secretsrevoker.DefaultQuantiseTime,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)

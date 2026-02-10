@@ -29,10 +29,13 @@ type SecretsRevokerFacade interface {
 	RevokeIssuedTokens(until time.Time) (time.Time, error)
 }
 
+type QuantiseTimeFunc func(time.Time) time.Time
+
 type Config struct {
-	Facade SecretsRevokerFacade
-	Logger Logger
-	Clock  clock.Clock
+	Facade       SecretsRevokerFacade
+	Logger       Logger
+	Clock        clock.Clock
+	QuantiseTime QuantiseTimeFunc
 }
 
 func (config Config) Validate() error {
@@ -45,7 +48,14 @@ func (config Config) Validate() error {
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
+	if config.QuantiseTime == nil {
+		return errors.NotValidf("nil QuantiseTime")
+	}
 	return nil
+}
+
+func DefaultQuantiseTime(t time.Time) time.Time {
+	return t.Truncate(quantTerm).Add(quantTerm)
 }
 
 func NewWorker(config Config) (worker.Worker, error) {
@@ -79,6 +89,7 @@ func (w *revoker) Wait() error {
 func (w *revoker) loop() (err error) {
 	logger := w.config.Logger
 	clk := w.config.Clock
+	quantiseTime := w.config.QuantiseTime
 
 	watcher, err := w.config.Facade.WatchIssuedTokenExpiry()
 	if err != nil {
@@ -109,7 +120,7 @@ func (w *revoker) loop() (err error) {
 					logger.Warningf("invalid issued token expiry time: %v", err)
 					continue
 				}
-				tq := ts.Truncate(quantTerm).Add(quantTerm)
+				tq := quantiseTime(ts)
 				if next.IsZero() || next.After(tq) {
 					next = tq
 					nextChanged = true
@@ -125,7 +136,7 @@ func (w *revoker) loop() (err error) {
 				}
 			}
 		case <-fire:
-			nq := clk.Now().Truncate(quantTerm).Add(quantTerm)
+			nq := quantiseTime(clk.Now())
 			logger.Debugf("revoking issued tokens until %v", nq)
 			nextRevoke, err := w.config.Facade.RevokeIssuedTokens(nq)
 			if err != nil {
@@ -136,7 +147,7 @@ func (w *revoker) loop() (err error) {
 				next = time.Time{}
 				continue
 			}
-			next = nextRevoke.Truncate(quantTerm).Add(quantTerm)
+			next = quantiseTime(nextRevoke)
 			logger.Debugf("scheduling revoke at %v", next)
 			alarm.Reset(next)
 		}
