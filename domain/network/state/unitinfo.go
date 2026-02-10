@@ -53,6 +53,11 @@ func (st *State) GetUnitEndpointNetworks(ctx context.Context, unitUUID string,
 		var ingressAddresses network.SpaceAddresses
 
 		for _, addr := range addrs {
+			// The purpose of the method is to get connectivity information for
+			// the unit. Skip loopback addresses to focus on external connectivity.
+			if addr.IP().IsLoopback() {
+				continue
+			}
 			devInfo, ok := byDevice[addr.Device]
 			if !ok {
 				devInfo.Name = addr.Device
