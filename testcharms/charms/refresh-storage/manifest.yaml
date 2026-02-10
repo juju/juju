@@ -1,0 +1,13 @@
+charmcraft-version: 3.5.3
+charmcraft-started-at: '2026-01-27T05:08:02.778559+00:00'
+bases:
+- name: ubuntu
+  channel: '24.04'
+  architectures:
+  - amd64
+analysis:
+  attributes:
+  - name: language
+    result: unknown
+  - name: framework
+    result: unknown

@@ -1,0 +1,8 @@
+#!/bin/bash
+set -x
+
+awesome_fs=$(storage-list awesome-fs)
+
+echo "awesome fs: $awesome_fs"
+
+status-set active "OK" || true

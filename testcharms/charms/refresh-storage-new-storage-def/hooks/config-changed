@@ -1,0 +1,8 @@
+#!/bin/bash
+set -x
+
+storages=$(storage-list)
+
+echo "storages: $storages"
+
+status-set active "OK" || true
