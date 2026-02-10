@@ -4,6 +4,7 @@
 package secretsrevoker_test
 
 import (
+	"math/rand"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -170,4 +171,78 @@ func (s *workerSuite) TestWorkerWithBreaks(c *gc.C) {
 		return time.Time{}, nil
 	})
 	<-done
+}
+
+func (s *workerSuite) TestWorkerQuantisedSchedule(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	const iterations = 100
+	clk := testclock.NewDilatedWallClock(50 * time.Microsecond)
+	now := clk.Now().UTC().Truncate(time.Second)
+	times := map[time.Time]time.Time{}
+	first := time.Time{}
+	for i := range iterations {
+		next := now.Add(time.Duration(rand.Intn(600)) * time.Second)
+		nextQ := secretsrevoker.DefaultQuantiseTime(next)
+		times[next] = nextQ
+		if i == 0 {
+			first = next
+		} else {
+			s.facade.EXPECT().RevokeIssuedTokens(times[now]).Return(next, nil)
+		}
+		now = next
+	}
+
+	done := make(chan struct{})
+	s.facade.EXPECT().RevokeIssuedTokens(
+		times[now],
+	).DoAndReturn(func(_ time.Time) (time.Time, error) {
+		defer close(done)
+		return time.Time{}, nil
+	})
+
+	ch := make(chan []string, 1)
+	ch <- []string(nil)
+	expiryWatcher := watchertest.NewMockStringsWatcher(ch)
+	defer workertest.CheckKilled(c, expiryWatcher)
+	s.facade.EXPECT().WatchIssuedTokenExpiry().Return(expiryWatcher, nil)
+
+	quantiseTime := func(x time.Time) time.Time {
+		for k, v := range times {
+			if k.Equal(x) {
+				return v
+			}
+		}
+		c.Errorf("unexpected time %q", x)
+		return x
+	}
+	w, err := secretsrevoker.NewWorker(secretsrevoker.Config{
+		Facade:       s.facade,
+		Logger:       loggo.GetLogger("test"),
+		Clock:        clk,
+		QuantiseTime: quantiseTime,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(w, gc.NotNil)
+	defer workertest.CleanKill(c, w)
+
+	ch <- []string{first.Format(time.RFC3339)}
+	<-done
+}
+
+// TestDefaultQuantiseTimeFunction checks that the default time quantisation
+// function creates minute buckets.
+func (s *workerSuite) TestDefaultQuantiseTimeFunction(c *gc.C) {
+	unique := 0
+	last := time.Time{}.Add(time.Minute)
+	accum := time.Time{}
+	for range 60 {
+		accum = accum.Add(10 * time.Second)
+		accumQuant := secretsrevoker.DefaultQuantiseTime(accum)
+		if last != accumQuant {
+			unique++
+			last = accumQuant
+		}
+	}
+	c.Assert(unique, gc.Equals, 10)
 }
