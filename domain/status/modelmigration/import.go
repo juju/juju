@@ -9,7 +9,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/description/v11"
 
-	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
@@ -214,14 +213,19 @@ func (i *importOperation) importRelationStatus(
 	service ImportService,
 	model description.Model,
 ) error {
-
+	remoteApplications := model.RemoteApplications()
 	for _, relation := range model.Relations() {
+		if isRemoteConsumerRelation(relation, remoteApplications) {
+			// Remote consumer relations are imported as part of the
+			// crossmodelrelation domain, so we skip them here.
+			continue
+		}
+
 		relationStatus := i.importStatus(relation.Status())
 		if err := service.ImportRelationStatus(ctx, relation.Id(), relationStatus); err != nil {
 			return errors.Errorf("importing status for relation %d: %w", relation.Id(), err)
 		}
 	}
-
 	return nil
 }
 
@@ -232,7 +236,7 @@ func (i *importOperation) importRemoteApplicationOffererStatus(
 ) error {
 	for _, remoteApp := range model.RemoteApplications() {
 		// Skip remote applications, we only want offerers here.
-		if coreapplication.IsRemoteApplication(remoteApp.Name()) {
+		if remoteApp.IsConsumerProxy() {
 			continue
 		}
 
@@ -292,6 +296,36 @@ func (i *importOperation) importStatus(s description.Status) corestatus.StatusIn
 		Data:    s.Data(),
 		Since:   ptr(s.Updated()),
 	}
+}
+
+func isRemoteConsumerRelation(rel description.Relation, remoteApps []description.RemoteApplication) bool {
+	// If there are no remote applications, then there can't be any remote
+	// relations.
+	if len(remoteApps) == 0 {
+		return false
+	}
+
+	// The only way to really know if a relation is a remote relation is to
+	// cross reference the relation endpoints with the remote applications. If
+	// any of the relation endpoints belong to a remote application, that is
+	// a consumer proxy remote application, then we return true.
+	remoteConsumers := make(map[string]struct{})
+	for _, app := range remoteApps {
+		if !app.IsConsumerProxy() {
+			continue
+		}
+
+		remoteConsumers[app.Name()] = struct{}{}
+	}
+
+	for _, endpoint := range rel.Endpoints() {
+		appName := endpoint.ApplicationName()
+		if _, ok := remoteConsumers[appName]; ok {
+			return true
+		}
+	}
+
+	return false
 }
 
 func ptr[T any](v T) *T {
