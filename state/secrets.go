@@ -562,16 +562,18 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 		Assert: isAliveDoc,
 	}
 
-	hasReservation := true
-	reservation, err := s.getSecretReservation(uri)
-	if errors.Is(err, errors.NotFound) {
-		hasReservation = false
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	} else {
+	// checkReservation ensures that if a reservation exists, the secret is
+	// being created by the reservation owner.
+	checkReservation := func() (bool, any, error) {
+		reservation, err := s.getSecretReservation(uri)
+		if errors.Is(err, errors.NotFound) {
+			return false, txn.DocMissing, nil
+		} else if err != nil {
+			return false, nil, errors.Trace(err)
+		}
 		reservationOwner, err := names.ParseTag(reservation.OwnerTag)
 		if err != nil {
-			return nil, errors.Annotate(err, "parsing secret reservation owner")
+			return false, nil, errors.Annotate(err, "parsing secret reservation owner")
 		}
 		if owner.Kind() == names.ApplicationTagKind &&
 			reservationOwner.Kind() == names.UnitTagKind {
@@ -579,17 +581,22 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 			// to be used by an application secret or a unit secret.
 			app, _ := names.UnitApplication(reservationOwner.Id())
 			if app != owner.Id() {
-				return nil, errors.NotValidf(
+				return false, nil, errors.NotValidf(
 					"cannot create secret %q because %q has reserved it instead of %q",
 					uri.ID, reservation.OwnerTag, metadataDoc.OwnerTag,
 				)
 			}
 		} else if reservationOwner != owner {
-			return nil, errors.NotValidf(
+			return false, nil, errors.NotValidf(
 				"cannot create secret %q because %q has reserved it instead of %q",
 				uri.ID, reservation.OwnerTag, metadataDoc.OwnerTag,
 			)
 		}
+		return true, bson.D{{"owner-tag", reservation.OwnerTag}}, nil
+	}
+	hasReservation, reservationAssertion, err := checkReservation()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -605,29 +612,18 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 			if _, _, err := s.getSecretValue(uri, revision, false); err == nil {
 				return nil, errors.AlreadyExistsf("secret value for %q", uri.String())
 			}
-			_, err = s.getSecretReservation(uri)
-			if errors.Is(err, errors.NotFound) {
-				hasReservation = false
-			} else if err != nil {
+			hasReservation, reservationAssertion, err = checkReservation()
+			if err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
-		if hasReservation {
-			ops = append(ops, txn.Op{
-				C:      secretReservationsC,
-				Id:     metadataDoc.DocID,
-				Assert: txn.DocExists,
-				Remove: true,
-			})
-		} else {
-			ops = append(ops, txn.Op{
-				C:      secretReservationsC,
-				Id:     metadataDoc.DocID,
-				Assert: txn.DocMissing,
-			})
-		}
 		ops = append(ops, []txn.Op{
 			{
+				C:      secretReservationsC,
+				Id:     metadataDoc.DocID,
+				Assert: reservationAssertion,
+				Remove: hasReservation,
+			}, {
 				C:      secretMetadataC,
 				Id:     metadataDoc.DocID,
 				Assert: txn.DocMissing,
