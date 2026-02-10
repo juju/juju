@@ -50,6 +50,14 @@ Define resource tags in a cloud <define-resource-tags-in-a-cloud>
 Get a quick sense of how to do things in Juju, from preparing your deployment environment and setting up a basic deployment through hardening and upgrading your deployment all the way to troubleshooting procedures and steps to take your deployment offline.
 
 - {ref}`Manage your deployment <manage-your-deployment>`
+- {ref}`Set up your deployment <set-up-your-deployment>`
+- {ref}`Set up your deployment -- local testing and development <set-things-up>`
+- {ref}`Set up your deployment -- offline <take-your-deployment-offline>`
+- {ref}`Harden your deployment <harden-your-deployment>`
+- {ref}`Troubleshoot your deployment <troubleshoot-your-deployment>`
+- {ref}`Upgrade your deployment <upgrade-your-deployment>`
+- {ref}`Upgrade your deployment from 3.6 to 4.0 <upgrade-your-deployment-from-3.5-to-4.0>`
+- {ref}`Tear down your deployment -- local testing and development <tear-things-down>`
 
 ## Set up Juju
 
