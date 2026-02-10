@@ -109,7 +109,7 @@ require (
 	golang.org/x/net v0.49.0
 	golang.org/x/oauth2 v0.34.0
 	golang.org/x/sync v0.19.0
-	golang.org/x/sys v0.40.0
+	golang.org/x/sys v0.41.0
 	golang.org/x/tools v0.41.0
 	google.golang.org/api v0.256.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
