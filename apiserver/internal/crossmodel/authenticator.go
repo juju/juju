@@ -35,6 +35,11 @@ func (a *Authenticator) CheckOfferMacaroons(ctx context.Context, offeringModelUU
 	if err != nil {
 		return nil, internalerrors.Errorf("getting required values for offer access: %w", err)
 	}
+
+	if a.logger.IsLevelEnabled(logger.TRACE) {
+		a.logger.Tracef(ctx, "check offer macaroons with required values: %v", requiredValues)
+	}
+
 	return a.checkMacaroons(ctx, mac, version, crossModelConsumeOp(offerUUID), requiredValues)
 }
 
@@ -44,6 +49,11 @@ func (a *Authenticator) CheckRelationMacaroons(ctx context.Context, sourceModelU
 	if err != nil {
 		return internalerrors.Errorf("getting required values for relation access: %w", err)
 	}
+
+	if a.logger.IsLevelEnabled(logger.TRACE) {
+		a.logger.Tracef(ctx, "check relation macaroons with required values: %v", requiredValues)
+	}
+
 	_, err = a.checkMacaroons(ctx, mac, version, crossModelRelateOp(relationTag.Id()), requiredValues)
 	return err
 }
@@ -72,24 +82,20 @@ func (a *Authenticator) checkMacaroons(
 		if err = a.checkMacaroonCaveats(op, declared); err == nil {
 			a.logger.Debugf(ctx, "ok macaroon check ok, attr: %v, conditions: %v", declared, conditions)
 			return declared.AsMap(), nil
-		} else if errors.Is(err, coreerrors.NotValid) {
+		} else if errors.Is(err, coreerrors.Unauthorized) {
 			a.logger.Tracef(ctx, "macaroon verification error: %v", err)
 			return nil, apiservererrors.ErrPerm
 		}
-	} else if err == nil {
-		// There are no conditions, so the macaroon is not valid.
-		a.logger.Tracef(ctx, "no macaroon conditions, expected at least one")
-		err = ErrInvalidMacaroon
 	}
 
 	cause := err
-	a.logger.Debugf(ctx, "generating discharge macaroon because: %v", cause)
-
-	// Double check all the required caveats exist before we
-	// generate the discharge macaroon.
-	if err := a.checkMacaroonRequiredCaveats(op, declared); err != nil {
-		return nil, errors.Trace(err)
+	if cause == nil {
+		// There are no conditions, so the macaroon is not valid.
+		a.logger.Tracef(ctx, "no macaroon conditions, expected at least one")
+		cause = ErrInvalidMacaroon
 	}
+
+	a.logger.Debugf(ctx, "generating discharge macaroon err: %v, cause: %v", err, cause)
 
 	m, err := a.bakery.CreateDischargeMacaroon(ctx, username, requiredValues, declared, op, version)
 	if err != nil {
@@ -104,50 +110,29 @@ func (a *Authenticator) checkMacaroons(
 	}
 }
 
-func (a *Authenticator) checkMacaroonRequiredCaveats(op bakery.Op, declared crossmodelbakery.DeclaredValues) error {
-	switch op.Action {
-	case consumeOp:
-		if declared.SourceModelUUID() == "" {
-			return internalerrors.New("missing source model UUID").Add(coreerrors.NotValid)
-		}
-		offerUUID := declared.OfferUUID()
-		if offerUUID == "" {
-			return internalerrors.New("missing offer UUID").Add(coreerrors.NotValid)
-		}
-	case relateOp:
-		relationKey := declared.RelationKey()
-		if relationKey == "" {
-			return internalerrors.New("missing relation").Add(coreerrors.NotValid)
-		}
-	default:
-		return internalerrors.Errorf("invalid action %q", op.Action).Add(coreerrors.NotValid)
-	}
-	return nil
-}
-
 func (a *Authenticator) checkMacaroonCaveats(op bakery.Op, declared crossmodelbakery.DeclaredValues) error {
 	var entity string
 
 	switch op.Action {
 	case consumeOp:
 		if declared.SourceModelUUID() == "" {
-			return internalerrors.New("missing source model UUID").Add(coreerrors.NotValid)
+			return internalerrors.New("missing source model UUID")
 		}
 		offerUUID := declared.OfferUUID()
 		if offerUUID == "" {
-			return internalerrors.New("missing offer UUID").Add(coreerrors.NotValid)
+			return internalerrors.New("missing offer UUID")
 		}
 		entity = offerUUID
 
 	case relateOp:
 		relationKey := declared.RelationKey()
 		if relationKey == "" {
-			return internalerrors.New("missing relation").Add(coreerrors.NotValid)
+			return internalerrors.New("missing relation")
 		}
 		entity = relationKey
 
 	default:
-		return internalerrors.Errorf("invalid action %q", op.Action).Add(coreerrors.NotValid)
+		return internalerrors.Errorf("invalid action %q", op.Action).Add(coreerrors.Unauthorized)
 	}
 
 	if entity != op.Entity {
