@@ -107,26 +107,34 @@ func (w *revoker) loop() (err error) {
 	for {
 		select {
 		case <-w.catacomb.Dying():
-			logger.Warningf("revoker dying with scheduled token revocations")
+			if !next.IsZero() {
+				logger.Warningf("revoker dying with scheduled token revocations")
+			}
 			return errors.Trace(w.catacomb.ErrDying())
 		case changes, ok := <-watcher.Changes():
 			if !ok {
 				return errors.New("secret issued token expiry watcher closed")
 			}
-			nextChanged := false
+			if len(changes) == 0 {
+				continue
+			}
+			earliest := next
 			for _, v := range changes {
 				ts, err := time.Parse(time.RFC3339, v)
 				if err != nil {
 					logger.Warningf("invalid issued token expiry time: %v", err)
 					continue
 				}
-				tq := quantiseTime(ts)
-				if next.IsZero() || next.After(tq) {
-					next = tq
-					nextChanged = true
+				if earliest.IsZero() || earliest.After(ts) {
+					earliest = ts
 				}
 			}
-			if nextChanged {
+			if earliest.IsZero() {
+				continue
+			}
+			earliestQuantised := quantiseTime(earliest)
+			if !next.Equal(earliestQuantised) {
+				next = earliestQuantised
 				logger.Debugf("scheduling revoke at %v", next)
 				if alarm == nil {
 					alarm = clk.NewAlarm(next)
@@ -136,9 +144,8 @@ func (w *revoker) loop() (err error) {
 				}
 			}
 		case <-fire:
-			nq := quantiseTime(clk.Now())
-			logger.Debugf("revoking issued tokens until %v", nq)
-			nextRevoke, err := w.config.Facade.RevokeIssuedTokens(nq)
+			logger.Debugf("revoking issued tokens until %v", next)
+			nextRevoke, err := w.config.Facade.RevokeIssuedTokens(next)
 			if err != nil {
 				return errors.Annotate(err, "failed to revoke tokens")
 			}
