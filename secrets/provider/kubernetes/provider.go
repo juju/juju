@@ -282,7 +282,7 @@ func (p k8sProvider) CleanupIssuedTokens(
 	for i, uuid := range issuedTokenUUIDs {
 		err = broker.revokeSecretAccessToken(ctx, uuid)
 		if err != nil {
-			// return the tokens deleted so far.
+			// Return the tokens deleted so far.
 			return issuedTokenUUIDs[:i], errors.New(
 				"removing k8s secret backend issued tokens",
 			)

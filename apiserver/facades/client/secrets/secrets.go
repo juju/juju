@@ -271,7 +271,7 @@ func (s *SecretsAPI) CreateSecrets(args params.CreateSecretArgs) (params.StringR
 		return result, errors.Trace(err)
 	}
 
-	// Validate secrets before generating a secret URI
+	// Validate secrets before generating a secret URI.
 	for i, arg := range args.Args {
 		var err error
 		if arg.URI != nil {

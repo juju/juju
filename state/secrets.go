@@ -162,6 +162,9 @@ type SecretsStore interface {
 	// the provided owner.
 	RemoveSecretReservations(owner names.Tag) ModelOperation
 
+	// WatchSecretBackendIssuedTokenExpiry returns a state strings watcher that
+	// is fired when there is new secret backend tokens that must expire at the
+	// RFC3339 encoded timestamp in the string.
 	WatchSecretBackendIssuedTokenExpiry() StringsWatcher
 }
 
@@ -570,7 +573,8 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 		if err != nil {
 			return nil, errors.Annotate(err, "parsing secret reservation owner")
 		}
-		if owner.Kind() == "application" && reservationOwner.Kind() == "unit" {
+		if owner.Kind() == names.ApplicationTagKind &&
+			reservationOwner.Kind() == names.UnitTagKind {
 			// If a unit reserved a secret, we cannot determine it was expected
 			// to be used by an application secret or a unit secret.
 			app, _ := names.UnitApplication(reservationOwner.Id())
@@ -4157,6 +4161,9 @@ func (s *secretsStore) RemoveSecretBackendIssuedTokens(uuids []string) error {
 	return nil
 }
 
+// WatchSecretBackendIssuedTokenExpiry returns a state strings watcher that
+// is fired when there is new secret backend tokens that must expire at the
+// RFC3339 encoded timestamp in the string.
 func (s *secretsStore) WatchSecretBackendIssuedTokenExpiry() StringsWatcher {
 	return newSecretBackendIssuedTokenExpiryWatcher(s.st)
 }

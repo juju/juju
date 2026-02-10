@@ -28,22 +28,26 @@ func (p jujuProvider) Type() string {
 	return BackendType
 }
 
-// Initialise is not used.
+// Initialise is not used because this provider does not have any external
+// interactions outside the model.
 func (p jujuProvider) Initialise(*provider.ModelBackendConfig) error {
 	return nil
 }
 
-// CleanupModel is not used.
+// CleanupModel is not used because this provider does not have any resources
+// that exist outside of the model.
 func (p jujuProvider) CleanupModel(*provider.ModelBackendConfig) error {
 	return nil
 }
 
-// CleanupSecrets is not used.
+// CleanupSecrets is not used because this provider does not store secrets
+// externally to the model.
 func (p jujuProvider) CleanupSecrets(cfg *provider.ModelBackendConfig, tag names.Tag, removed provider.SecretRevisions) error {
 	return nil
 }
 
-// CleanupIssuedTokens is not used.
+// CleanupIssuedTokens is not used because this provider does not issue backend
+// tokens.
 func (p jujuProvider) CleanupIssuedTokens(
 	_ *provider.ModelBackendConfig, issuedTokenUUIDs []string,
 ) ([]string, error) {

@@ -15,22 +15,30 @@ import (
 )
 
 const (
+	// quantTerm is the default quantisation term used in the default time
+	// quantisation function.
 	quantTerm = time.Minute
 )
 
+// Logger is a logger interface.
 type Logger interface {
 	Debugf(string, ...any)
 	Warningf(string, ...any)
 	Infof(string, ...any)
 }
 
+// SecretsRevokerFacade is used by the secrets revoker to watch and act on the
+// expiry of secret backend issued tokens.
 type SecretsRevokerFacade interface {
 	WatchIssuedTokenExpiry() (watcher.StringsWatcher, error)
 	RevokeIssuedTokens(until time.Time) (time.Time, error)
 }
 
+// QuantiseTimeFunc is used to pass the secrets revoker worker a quantisation
+// function for time.
 type QuantiseTimeFunc func(time.Time) time.Time
 
+// Config is the configuration for the secrets revoker worker.
 type Config struct {
 	Facade       SecretsRevokerFacade
 	Logger       Logger
@@ -38,6 +46,7 @@ type Config struct {
 	QuantiseTime QuantiseTimeFunc
 }
 
+// Validate returns an error when the config is invalid.
 func (config Config) Validate() error {
 	if config.Facade == nil {
 		return errors.NotValidf("nil Facade")
@@ -54,10 +63,14 @@ func (config Config) Validate() error {
 	return nil
 }
 
+// DefaultQuantiseTime is the default time quantisation function for the secret
+// revoker worker's scheduler.
 func DefaultQuantiseTime(t time.Time) time.Time {
 	return t.Truncate(quantTerm).Add(quantTerm)
 }
 
+// NewWorker returns a new secrets revoker worker that is responsible for
+// revoking secret backend issued tokens when they expire.
 func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -71,6 +84,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	return w, errors.Trace(err)
 }
 
+// revoker is the secrets revoker worker.
 type revoker struct {
 	catacomb catacomb.Catacomb
 	config   Config
@@ -86,6 +100,9 @@ func (w *revoker) Wait() error {
 	return w.catacomb.Wait()
 }
 
+// loop handles watching for the expiry of secret backend issued tokens and
+// scheduling in the future a time when to attempt to revoke those secret
+// backend issued tokens.
 func (w *revoker) loop() (err error) {
 	logger := w.config.Logger
 	clk := w.config.Clock

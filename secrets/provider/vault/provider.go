@@ -210,7 +210,7 @@ func (p vaultProvider) CleanupIssuedTokens(
 		policyName := fmt.Sprintf("%s-%s", mountPath, issuedTokenUUID)
 		err := sys.DeletePolicyWithContext(ctx, policyName)
 		if err != nil && !isNotFound(err) {
-			// return the tokens deleted so far.
+			// Return the tokens deleted so far.
 			return issuedTokenUUIDs[:i], errors.New(
 				"removing vault secret backend issued tokens",
 			)
