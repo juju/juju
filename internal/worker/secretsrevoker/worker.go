@@ -77,6 +77,9 @@ func (w *revoker) Wait() error {
 }
 
 func (w *revoker) loop() (err error) {
+	logger := w.config.Logger
+	clk := w.config.Clock
+
 	watcher, err := w.config.Facade.WatchIssuedTokenExpiry()
 	if err != nil {
 		return errors.Trace(err)
@@ -93,6 +96,7 @@ func (w *revoker) loop() (err error) {
 	for {
 		select {
 		case <-w.catacomb.Dying():
+			logger.Warningf("revoker dying with scheduled token revocations")
 			return errors.Trace(w.catacomb.ErrDying())
 		case changes, ok := <-watcher.Changes():
 			if !ok {
@@ -102,8 +106,7 @@ func (w *revoker) loop() (err error) {
 			for _, v := range changes {
 				ts, err := time.Parse(time.RFC3339, v)
 				if err != nil {
-					w.config.Logger.Warningf(
-						"invalid issued token expiry time: %v", err)
+					logger.Warningf("invalid issued token expiry time: %v", err)
 					continue
 				}
 				tq := ts.Truncate(quantTerm).Add(quantTerm)
@@ -113,23 +116,28 @@ func (w *revoker) loop() (err error) {
 				}
 			}
 			if nextChanged {
+				logger.Debugf("scheduling revoke at %v", next)
 				if alarm == nil {
-					alarm = w.config.Clock.NewAlarm(next)
+					alarm = clk.NewAlarm(next)
 					fire = alarm.Chan()
 				} else {
 					alarm.Reset(next)
 				}
 			}
 		case <-fire:
-			nq := w.config.Clock.Now().Truncate(quantTerm).Add(quantTerm)
+			nq := clk.Now().Truncate(quantTerm).Add(quantTerm)
+			logger.Debugf("revoking issued tokens until %v", nq)
 			nextRevoke, err := w.config.Facade.RevokeIssuedTokens(nq)
 			if err != nil {
 				return errors.Annotate(err, "failed to revoke tokens")
 			}
 			if nextRevoke.IsZero() {
+				logger.Debugf("sleeping until token expiry trigger")
+				next = time.Time{}
 				continue
 			}
 			next = nextRevoke.Truncate(quantTerm).Add(quantTerm)
+			logger.Debugf("scheduling revoke at %v", next)
 			alarm.Reset(next)
 		}
 	}
