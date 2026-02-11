@@ -2127,6 +2127,45 @@ func (m *MockModelMigrationState) EXPECT() *MockModelMigrationStateMockRecorder 
 	return m.recorder
 }
 
+// GetApplicationUUIDByName mocks base method.
+func (m *MockModelMigrationState) GetApplicationUUIDByName(arg0 context.Context, arg1 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationUUIDByName", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationUUIDByName indicates an expected call of GetApplicationUUIDByName.
+func (mr *MockModelMigrationStateMockRecorder) GetApplicationUUIDByName(arg0, arg1 any) *MockModelMigrationStateGetApplicationUUIDByNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationUUIDByName", reflect.TypeOf((*MockModelMigrationState)(nil).GetApplicationUUIDByName), arg0, arg1)
+	return &MockModelMigrationStateGetApplicationUUIDByNameCall{Call: call}
+}
+
+// MockModelMigrationStateGetApplicationUUIDByNameCall wrap *gomock.Call
+type MockModelMigrationStateGetApplicationUUIDByNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelMigrationStateGetApplicationUUIDByNameCall) Return(arg0 string, arg1 error) *MockModelMigrationStateGetApplicationUUIDByNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelMigrationStateGetApplicationUUIDByNameCall) Do(f func(context.Context, string) (string, error)) *MockModelMigrationStateGetApplicationUUIDByNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelMigrationStateGetApplicationUUIDByNameCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockModelMigrationStateGetApplicationUUIDByNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ImportOffers mocks base method.
 func (m *MockModelMigrationState) ImportOffers(arg0 context.Context, arg1 []crossmodelrelation.OfferImport) error {
 	m.ctrl.T.Helper()
@@ -2165,40 +2204,78 @@ func (c *MockModelMigrationStateImportOffersCall) DoAndReturn(f func(context.Con
 	return c
 }
 
-// ImportRemoteApplications mocks base method.
-func (m *MockModelMigrationState) ImportRemoteApplications(arg0 context.Context, arg1 []crossmodelrelation.RemoteApplicationImport) error {
+// ImportRemoteApplicationConsumers mocks base method.
+func (m *MockModelMigrationState) ImportRemoteApplicationConsumers(arg0 context.Context, arg1 []crossmodelrelation.RemoteApplicationConsumerImport) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ImportRemoteApplications", arg0, arg1)
+	ret := m.ctrl.Call(m, "ImportRemoteApplicationConsumers", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// ImportRemoteApplications indicates an expected call of ImportRemoteApplications.
-func (mr *MockModelMigrationStateMockRecorder) ImportRemoteApplications(arg0, arg1 any) *MockModelMigrationStateImportRemoteApplicationsCall {
+// ImportRemoteApplicationConsumers indicates an expected call of ImportRemoteApplicationConsumers.
+func (mr *MockModelMigrationStateMockRecorder) ImportRemoteApplicationConsumers(arg0, arg1 any) *MockModelMigrationStateImportRemoteApplicationConsumersCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportRemoteApplications", reflect.TypeOf((*MockModelMigrationState)(nil).ImportRemoteApplications), arg0, arg1)
-	return &MockModelMigrationStateImportRemoteApplicationsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportRemoteApplicationConsumers", reflect.TypeOf((*MockModelMigrationState)(nil).ImportRemoteApplicationConsumers), arg0, arg1)
+	return &MockModelMigrationStateImportRemoteApplicationConsumersCall{Call: call}
 }
 
-// MockModelMigrationStateImportRemoteApplicationsCall wrap *gomock.Call
-type MockModelMigrationStateImportRemoteApplicationsCall struct {
+// MockModelMigrationStateImportRemoteApplicationConsumersCall wrap *gomock.Call
+type MockModelMigrationStateImportRemoteApplicationConsumersCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelMigrationStateImportRemoteApplicationsCall) Return(arg0 error) *MockModelMigrationStateImportRemoteApplicationsCall {
+func (c *MockModelMigrationStateImportRemoteApplicationConsumersCall) Return(arg0 error) *MockModelMigrationStateImportRemoteApplicationConsumersCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelMigrationStateImportRemoteApplicationsCall) Do(f func(context.Context, []crossmodelrelation.RemoteApplicationImport) error) *MockModelMigrationStateImportRemoteApplicationsCall {
+func (c *MockModelMigrationStateImportRemoteApplicationConsumersCall) Do(f func(context.Context, []crossmodelrelation.RemoteApplicationConsumerImport) error) *MockModelMigrationStateImportRemoteApplicationConsumersCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelMigrationStateImportRemoteApplicationsCall) DoAndReturn(f func(context.Context, []crossmodelrelation.RemoteApplicationImport) error) *MockModelMigrationStateImportRemoteApplicationsCall {
+func (c *MockModelMigrationStateImportRemoteApplicationConsumersCall) DoAndReturn(f func(context.Context, []crossmodelrelation.RemoteApplicationConsumerImport) error) *MockModelMigrationStateImportRemoteApplicationConsumersCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ImportRemoteApplicationOfferers mocks base method.
+func (m *MockModelMigrationState) ImportRemoteApplicationOfferers(arg0 context.Context, arg1 []crossmodelrelation.RemoteApplicationOffererImport) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ImportRemoteApplicationOfferers", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ImportRemoteApplicationOfferers indicates an expected call of ImportRemoteApplicationOfferers.
+func (mr *MockModelMigrationStateMockRecorder) ImportRemoteApplicationOfferers(arg0, arg1 any) *MockModelMigrationStateImportRemoteApplicationOfferersCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportRemoteApplicationOfferers", reflect.TypeOf((*MockModelMigrationState)(nil).ImportRemoteApplicationOfferers), arg0, arg1)
+	return &MockModelMigrationStateImportRemoteApplicationOfferersCall{Call: call}
+}
+
+// MockModelMigrationStateImportRemoteApplicationOfferersCall wrap *gomock.Call
+type MockModelMigrationStateImportRemoteApplicationOfferersCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelMigrationStateImportRemoteApplicationOfferersCall) Return(arg0 error) *MockModelMigrationStateImportRemoteApplicationOfferersCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelMigrationStateImportRemoteApplicationOfferersCall) Do(f func(context.Context, []crossmodelrelation.RemoteApplicationOffererImport) error) *MockModelMigrationStateImportRemoteApplicationOfferersCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelMigrationStateImportRemoteApplicationOfferersCall) DoAndReturn(f func(context.Context, []crossmodelrelation.RemoteApplicationOffererImport) error) *MockModelMigrationStateImportRemoteApplicationOfferersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -317,6 +317,16 @@ func (s *importSuite) TestImportRemoteApplicationOffererStatus(c *tc.C) {
 		Updated: now,
 	})
 
+	remoteApp3 := model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name: "remote-123e4567e89b12d3a456426655440000",
+	})
+	remoteApp3.SetStatus(description.StatusArgs{
+		Value:   "blocked",
+		Message: "bar2",
+		Data:    map[string]any{"baz2": "qux2"},
+		Updated: now,
+	})
+
 	s.importService.EXPECT().SetRemoteApplicationOffererStatus(gomock.Any(), "remote-app", corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "bar",

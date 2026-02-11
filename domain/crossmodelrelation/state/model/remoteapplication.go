@@ -8,8 +8,6 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/set"
-	"github.com/juju/collections/transform"
 	"gopkg.in/macaroon.v2"
 
 	coredatabase "github.com/juju/juju/core/database"
@@ -120,13 +118,6 @@ func (st *State) AddConsumedRelation(
 		return errors.Capture(err)
 	}
 
-	// Check that the charm has only one endpoint. There can be multiple
-	// synthetic applications per offer, but only one endpoint per synthetic
-	// application. To do otherwise requires design and facade changes.
-	if err := synthCharmHasOnlyOneEndpoint(args.ConsumerApplicationEndpoint, args.Charm); err != nil {
-		return errors.Errorf("adding consumed relation: %w", err)
-	}
-
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Get the application UUID for which the offer UUID was created.
 		_, offerApplicationUUID, err := st.getApplicationNameAndUUIDByOfferUUID(ctx, tx, args.OfferUUID)
@@ -209,24 +200,6 @@ func (st *State) AddConsumedRelation(
 	}
 
 	return nil
-}
-
-func synthCharmHasOnlyOneEndpoint(endpoint string, ch charm.Charm) error {
-	provides := transform.MapToSlice(ch.Metadata.Provides, func(k string, _ charm.Relation) []string {
-		return []string{k}
-	})
-	requires := transform.MapToSlice(ch.Metadata.Requires, func(k string, _ charm.Relation) []string {
-		return []string{k}
-	})
-	providesSet := set.NewStrings(provides...)
-	requiresSet := set.NewStrings(requires...)
-	cnt := providesSet.Size() + requiresSet.Size()
-	if providesSet.Union(requiresSet).Contains(endpoint) && cnt == 1 {
-		return nil
-	} else if cnt > 1 {
-		return errors.Errorf("application in relation has more than one potential endpoint").Add(relationerrors.AmbiguousRelation)
-	}
-	return errors.Errorf("endpoint %q", endpoint).Add(relationerrors.RelationEndpointNotFound)
 }
 
 // GetRemoteApplicationOfferers returns all the current non-dead remote

@@ -1581,6 +1581,19 @@ func (s *modelSuite) TestRelationLifeSuspendedTriggerSuspendedChange(c *tc.C) {
 	)
 }
 
+func (s *modelSuite) TestRelationEmptyUUID(c *tc.C) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.Exec(`
+INSERT INTO relation (uuid, relation_id, life_id, scope_id)
+SELECT ?, ?, id, 0
+FROM life
+WHERE value = ?
+`, "", 7, life.Alive)
+		return err
+	})
+	c.Assert(err, tc.ErrorMatches, `relation.uuid cannot be NULL or empty`)
+}
+
 func (s *modelSuite) insertRelation(c *tc.C) string {
 	relationUUID := tc.Must(c, corerelation.NewUUID).String()
 

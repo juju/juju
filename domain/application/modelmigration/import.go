@@ -96,6 +96,10 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	// subordinate units can refer to the principal ones.
 	var principals, subordinates []description.Application
 	for _, app := range model.Applications() {
+		if coreapplication.IsRemoteApplication(app.Name()) {
+			continue
+		}
+
 		if app.Subordinate() {
 			subordinates = append(subordinates, app)
 		} else {
