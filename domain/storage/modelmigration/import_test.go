@@ -11,6 +11,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	corestorage "github.com/juju/juju/core/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -280,4 +281,78 @@ func (s *importSuite) TestExecuteSetRecommendedStoragePoolsError(c *tc.C) {
 	err := op.Execute(c.Context(), model)
 
 	c.Assert(err, tc.ErrorMatches, "setting recommended storage pools: .*recommendation failed")
+}
+
+func (s *importSuite) TestImportStorageInstances(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	expected := []domainstorage.ImportStorageInstanceParams{
+		{
+			PoolName:         "testpool",
+			RequestedSizeMiB: uint64(1024),
+			StorageID:        "multi-fs/1",
+			StorageKind:      "block",
+			StorageName:      "multi-fs",
+			UnitName:         "unit/3",
+		},
+	}
+	s.service.EXPECT().ImportStorageInstances(gomock.Any(), expected).Return(nil)
+	model := description.NewModel(description.ModelArgs{})
+	model.AddStorage(description.StorageArgs{
+		ID:          "multi-fs/1",
+		Kind:        "block",
+		UnitOwner:   "unit/3",
+		Name:        "multi-fs",
+		Attachments: nil,
+		Constraints: &description.StorageInstanceConstraints{
+			Pool: "testpool",
+			Size: 1024,
+		},
+	})
+
+	// Act
+	op := s.newImportOperation()
+	err := op.importStorageInstances(c.Context(), model.Storages())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportStorageInstancesValidate(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	model := description.NewModel(description.ModelArgs{})
+	model.AddStorage(description.StorageArgs{
+		Kind:        "block",
+		UnitOwner:   "unit/3",
+		Name:        "multi-fs",
+		Attachments: nil,
+		Constraints: &description.StorageInstanceConstraints{
+			Pool: "testpool",
+			Size: 1024,
+		},
+	})
+
+	// Act
+	op := s.newImportOperation()
+	err := op.importStorageInstances(c.Context(), model.Storages())
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *importSuite) TestImportStorageInstancesZeroLength(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	model := description.NewModel(description.ModelArgs{})
+
+	// Act
+	op := s.newImportOperation()
+	err := op.importStorageInstances(c.Context(), model.Storages())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
 }

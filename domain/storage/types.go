@@ -6,6 +6,8 @@ package storage
 import (
 	"github.com/juju/collections/set"
 
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -85,4 +87,24 @@ type ImportStoragePoolParams struct {
 	Origin StoragePoolOrigin
 	Type   string
 	Attrs  map[string]any
+}
+
+// ImportStorageInstanceParams represents data to import a storage instance
+// and its owner.
+type ImportStorageInstanceParams struct {
+	StorageName      string
+	StorageKind      string
+	StorageID        string
+	RequestedSizeMiB uint64
+	PoolName         string
+	UnitName         string
+}
+
+// Validate returns NotValid if the params have an empty StorageID or
+// PoolName or RequestedSizeMiB.
+func (i ImportStorageInstanceParams) Validate() error {
+	if i.PoolName == "" || i.RequestedSizeMiB == 0 || i.StorageID == "" {
+		return errors.New("empty PoolName, RequestedSizeMiB, or StorageID not valid").Add(coreerrors.NotValid)
+	}
+	return nil
 }

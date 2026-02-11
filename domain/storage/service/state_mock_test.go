@@ -353,6 +353,44 @@ func (c *MockStateImportFilesystemCall) DoAndReturn(f func(context.Context, stor
 	return c
 }
 
+// ImportStorageInstances mocks base method.
+func (m *MockState) ImportStorageInstances(arg0 context.Context, arg1 []internal.ImportStorageInstanceArgs) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ImportStorageInstances", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ImportStorageInstances indicates an expected call of ImportStorageInstances.
+func (mr *MockStateMockRecorder) ImportStorageInstances(arg0, arg1 any) *MockStateImportStorageInstancesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportStorageInstances", reflect.TypeOf((*MockState)(nil).ImportStorageInstances), arg0, arg1)
+	return &MockStateImportStorageInstancesCall{Call: call}
+}
+
+// MockStateImportStorageInstancesCall wrap *gomock.Call
+type MockStateImportStorageInstancesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateImportStorageInstancesCall) Return(arg0 error) *MockStateImportStorageInstancesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateImportStorageInstancesCall) Do(f func(context.Context, []internal.ImportStorageInstanceArgs) error) *MockStateImportStorageInstancesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateImportStorageInstancesCall) DoAndReturn(f func(context.Context, []internal.ImportStorageInstanceArgs) error) *MockStateImportStorageInstancesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ListStoragePools mocks base method.
 func (m *MockState) ListStoragePools(arg0 context.Context) ([]storage0.StoragePool, error) {
 	m.ctrl.T.Helper()

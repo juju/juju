@@ -6,6 +6,7 @@ package modelmigration
 import (
 	"context"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/description/v11"
 
 	"github.com/juju/juju/core/logger"
@@ -34,12 +35,6 @@ func RegisterImport(coordinator Coordinator, storageRegistryGetter corestorage.M
 // ImportService provides a subset of the storage domain
 // service methods needed for storage pool import.
 type ImportService interface {
-	// ImportStoragePools creates new storage pools with the slice
-	// of [domainstorage.ImportStoragePoolParams].
-	ImportStoragePools(ctx context.Context, pools []domainstorage.ImportStoragePoolParams) error
-	// SetRecommendedStoragePools persists the set of recommended storage pools
-	// that are to be used for a model.
-	SetRecommendedStoragePools(ctx context.Context, pools []domainstorage.RecommendedStoragePoolParams) error
 	// GetStoragePoolsToImport resolves the full set of storage pools to create during
 	// model import.
 	GetStoragePoolsToImport(ctx context.Context, userPools []description.StoragePool) (
@@ -47,6 +42,15 @@ type ImportService interface {
 		[]domainstorage.RecommendedStoragePoolParams,
 		error,
 	)
+	// ImportStorageInstances creates new storage instances and storage unit
+	// owners. Storage unit owners are created if the unit name is provided.
+	ImportStorageInstances(ctx context.Context, params []domainstorage.ImportStorageInstanceParams) error
+	// ImportStoragePools creates new storage pools with the slice
+	// of [domainstorage.ImportStoragePoolParams].
+	ImportStoragePools(ctx context.Context, pools []domainstorage.ImportStoragePoolParams) error
+	// SetRecommendedStoragePools persists the set of recommended storage pools
+	// that are to be used for a model.
+	SetRecommendedStoragePools(ctx context.Context, pools []domainstorage.RecommendedStoragePoolParams) error
 }
 
 type importOperation struct {
@@ -89,5 +93,43 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return errors.Errorf("setting recommended storage pools: %w", err)
 	}
 
+	if err := i.importStorageInstances(ctx, model.Storages()); err != nil {
+		return errors.Errorf("importing storage instances: %w", err)
+	}
+
 	return nil
+}
+
+func (i *importOperation) importStorageInstances(ctx context.Context, instances []description.Storage) error {
+	if instances == nil {
+		return nil
+	}
+
+	args, err := transform.SliceOrErr(instances, func(in description.Storage) (domainstorage.ImportStorageInstanceParams, error) {
+		if err := in.Validate(); err != nil {
+			return domainstorage.ImportStorageInstanceParams{}, err
+		}
+		owner, _ := in.UnitOwner()
+		var pool string
+		var size uint64
+		constraints, ok := in.Constraints()
+		if ok {
+			pool = constraints.Pool
+			size = constraints.Size
+		}
+		return domainstorage.ImportStorageInstanceParams{
+			StorageName:      in.Name(),
+			StorageKind:      in.Kind(),
+			StorageID:        in.ID(),
+			UnitName:         owner,
+			RequestedSizeMiB: size,
+			PoolName:         pool,
+		}, nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return i.service.ImportStorageInstances(ctx, args)
 }

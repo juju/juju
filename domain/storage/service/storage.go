@@ -9,6 +9,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/domain/storage/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -18,6 +19,9 @@ type StorageState interface {
 	// with a new storage instance (and storage pool) in a model.
 	ImportFilesystem(ctx context.Context, name corestorage.Name,
 		filesystem storage.FilesystemInfo) (corestorage.ID, error)
+	// ImportStorageInstances creates new storage instances and storage unit
+	// owners. Storage unit owners are created if the unit name is provided.
+	ImportStorageInstances(ctx context.Context, args []internal.ImportStorageInstanceArgs) error
 }
 
 // StorageService defines a service for storage related behaviour.
