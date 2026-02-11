@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
@@ -110,6 +111,30 @@ AND removed = false
 	return nil
 }
 
+// extractCleanPublicKey extracts the clean SSH public key without comment.
+// SSH key format: <type> <base64-key> [optional-comment]
+// Uses ssh.ParseAuthorizedKey to properly parse the key and MarshalAuthorizedKey to reconstruct it.
+func extractCleanPublicKey(fullKey string) (string, error) {
+	pubKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(fullKey))
+	if err != nil {
+		return "", err
+	}
+
+	// MarshalAuthorizedKey returns "<type> <base64>\n"
+	clean := ssh.MarshalAuthorizedKey(pubKey)
+
+	// Trim the newline that MarshalAuthorizedKey adds
+	return string(clean[:len(clean)-1]), nil
+}
+
+// addCommentToKey reconstructs an SSH key with an optional comment appended.
+func addCommentToKey(cleanKey, comment string) string {
+	if comment == "" {
+		return cleanKey
+	}
+	return cleanKey + " " + comment
+}
+
 // ensureUserPublicKey ensures that a public key exists for a user returning the
 // unique id to represent that key within the database.
 func (s *State) ensureUserPublicKey(
@@ -117,14 +142,22 @@ func (s *State) ensureUserPublicKey(
 	key userPublicKeyInsert,
 	tx *sqlair.TX,
 ) (int64, error) {
+	// Store only the clean key without comment
+	cleanKey, err := extractCleanPublicKey(key.PublicKey)
+	if err != nil {
+		return 0, errors.Errorf(
+			"parsing public key for user %q: %w",
+			key.UserId, err,
+		)
+	}
+	key.PublicKey = cleanKey
+
 	insertStmt, err := s.Prepare(`
-INSERT INTO user_public_ssh_key (comment,
-                                 fingerprint,
+INSERT INTO user_public_ssh_key (fingerprint,
 						         public_key,
                                  user_uuid,
                                  fingerprint_hash_algorithm_id)
-SELECT $userPublicKeyInsert.comment,
-       $userPublicKeyInsert.fingerprint,
+SELECT $userPublicKeyInsert.fingerprint,
        $userPublicKeyInsert.public_key,
        $userPublicKeyInsert.user_uuid,
        s.id	
@@ -240,7 +273,6 @@ INSERT INTO model_authorized_keys (*) VALUES ($modelAuthorizedKey.*)
 		keyIds := []int64{}
 		for i, publicKey := range publicKeys {
 			row := userPublicKeyInsert{
-				Comment:                  publicKey.Comment,
 				FingerprintHashAlgorithm: publicKey.FingerprintHash.String(),
 				Fingerprint:              publicKey.Fingerprint,
 				PublicKey:                publicKey.Key,
@@ -262,9 +294,10 @@ INSERT INTO model_authorized_keys (*) VALUES ($modelAuthorizedKey.*)
 			row := modelAuthorizedKey{
 				UserPublicSSHKeyId: keyId,
 				ModelUUID:          modelUUID.String(),
+				Comment:            publicKeys[i].Comment,
 			}
 			err := tx.Query(ctx, insertModelAuthorisedKeyStmt, row).Run()
-			if jujudb.IsErrConstraintPrimaryKey(err) {
+			if jujudb.IsErrConstraintPrimaryKey(err) || jujudb.IsErrConstraintUnique(err) {
 				return errors.Errorf(
 					"adding key %d for user %q to model %q, key already exists",
 					i, userUUID, modelUUID,
@@ -342,7 +375,6 @@ ON CONFLICT DO NOTHING
 		// considered a hot path.
 		for i, publicKey := range publicKeys {
 			row := userPublicKeyInsert{
-				Comment:                  publicKey.Comment,
 				FingerprintHashAlgorithm: publicKey.FingerprintHash.String(),
 				Fingerprint:              publicKey.Fingerprint,
 				PublicKey:                publicKey.Key,
@@ -363,6 +395,7 @@ ON CONFLICT DO NOTHING
 			row := modelAuthorizedKey{
 				UserPublicSSHKeyId: keyId,
 				ModelUUID:          modelUUID.String(),
+				Comment:            publicKeys[i].Comment,
 			}
 
 			err := tx.Query(ctx, insertModelAuthorisedKeyStmt, row).Run()
@@ -463,7 +496,7 @@ func (s *State) GetPublicKeysForUser(
 	userUUIDVal := userUUIDValue{UUID: userUUID.String()}
 
 	stmt, err := s.Prepare(`
-SELECT &publicKey.*
+SELECT (upsk.fingerprint, upsk.public_key, m.comment) AS (&publicKey.*)
 FROM user_public_ssh_key AS upsk
 JOIN model_authorized_keys AS m ON upsk.id = m.user_public_ssh_key_id
 WHERE user_uuid = $userUUIDValue.user_uuid
@@ -510,9 +543,11 @@ AND model_uuid = $modelUUIDValue.model_uuid
 
 	rval := make([]coressh.PublicKey, 0, len(publicKeys))
 	for _, pk := range publicKeys {
+		// Reconstruct full key with model-specific comment
+		fullKey := addCommentToKey(pk.PublicKey, pk.Comment)
 		rval = append(rval, coressh.PublicKey{
 			Fingerprint: pk.Fingerprint,
-			Key:         pk.PublicKey,
+			Key:         fullKey,
 		})
 	}
 	return rval, nil
@@ -537,7 +572,7 @@ func (s *State) GetPublicKeysDataForUser(
 	modelUUIDVal := modelUUIDValue{modelUUID.String()}
 
 	stmt, err := s.Prepare(`
-SELECT &publicKeyData.public_key
+SELECT (upsk.public_key, m.comment) AS (&publicKeyData.*)
 FROM user_public_ssh_key AS upsk
 JOIN model_authorized_keys AS m ON upsk.id = m.user_public_ssh_key_id
 WHERE user_uuid = $userUUIDValue.user_uuid
@@ -585,7 +620,9 @@ AND model_uuid = $modelUUIDValue.model_uuid
 
 	rval := make([]string, 0, len(publicKeys))
 	for _, pk := range publicKeys {
-		rval = append(rval, pk.PublicKey)
+		// Reconstruct full key with model-specific comment
+		fullKey := addCommentToKey(pk.PublicKey, pk.Comment)
+		rval = append(rval, fullKey)
 	}
 	return rval, nil
 }
@@ -610,6 +647,19 @@ func (s *State) DeletePublicKeysForUser(
 	userUUIDVal := userUUIDValue{UUID: userUUID.String()}
 	modelUUIDVal := modelUUIDValue{UUID: modelUUID.String()}
 
+	// Clean public keys before searching, since we store only the key part without comment
+	cleanedKeyIds := make(sqlair.S, 0, len(keyIds))
+	for _, keyId := range keyIds {
+		clean, err := extractCleanPublicKey(keyId)
+		if err != nil {
+			// If parsing fails, still add original for comment/fingerprint fallback
+			cleanedKeyIds = append(cleanedKeyIds, keyId)
+			continue
+		}
+		cleanedKeyIds = append(cleanedKeyIds, clean)
+	}
+
+	// Also keep original for fingerprint and comment searches
 	input := make(sqlair.S, 0, len(keyIds))
 	for _, keyId := range keyIds {
 		input = append(input, keyId)
@@ -619,13 +669,36 @@ func (s *State) DeletePublicKeysForUser(
 SELECT &userPublicKeyId.*
 FROM user_public_ssh_key
 WHERE user_uuid = $userUUIDValue.user_uuid
-AND (comment IN ($S[:])
-  OR fingerprint IN ($S[:])
-  OR public_key IN ($S[:]))
+AND fingerprint IN ($S[:])
 `, userUUIDVal, userPublicKeyId{}, input)
 	if err != nil {
 		return errors.Errorf(
-			"preparing find keys statement when deleting public keys for user %q on model %q: %w",
+			"preparing find keys by fingerprint statement when deleting public keys for user %q on model %q: %w",
+			userUUID, modelUUID, err,
+		)
+	}
+
+	findKeysPublicKeyStmt, err := s.Prepare(`
+SELECT &userPublicKeyId.*
+FROM user_public_ssh_key
+WHERE user_uuid = $userUUIDValue.user_uuid
+AND public_key IN ($S[:])
+`, userUUIDVal, userPublicKeyId{}, cleanedKeyIds)
+	if err != nil {
+		return errors.Errorf(
+			"preparing find keys by public key statement when deleting public keys for user %q on model %q: %w",
+			userUUID, modelUUID, err,
+		)
+	}
+
+	deleteByCommentStmt, err := s.Prepare(`
+DELETE FROM model_authorized_keys
+WHERE model_uuid = $modelUUIDValue.model_uuid
+AND comment IN ($S[:])
+`, modelUUIDVal, input)
+	if err != nil {
+		return errors.Errorf(
+			"preparing delete by comment statement when deleting public keys for user %q on model %q: %w",
 			userUUID, modelUUID, err,
 		)
 	}
@@ -661,7 +734,6 @@ AND id IN (SELECT id
 		)
 	}
 
-	foundKeyIds := userPublicKeyIds{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := s.checkUserExists(ctx, userUUID, tx)
 		if err != nil {
@@ -679,17 +751,48 @@ AND id IN (SELECT id
 			)
 		}
 
-		err = tx.Query(ctx, findKeysStmt, userUUIDVal, input).GetAll(&foundKeyIds)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			// Nothing was found so we can safely bail out and give this
-			// transaction back to the pool early.
-			return nil
-		}
-		if err != nil {
+		// First, delete by comment directly from model_authorized_keys
+		err = tx.Query(ctx, deleteByCommentStmt, modelUUIDVal, input).Run()
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
-				"finding public keys to delete for user %q on model %q: %w",
+				"deleting public keys by comment for user %q on model %q: %w",
 				userUUID, modelUUID, err,
 			)
+		}
+
+		// Then find keys by fingerprint
+		foundKeyIdsByFingerprint := userPublicKeyIds{}
+		err = tx.Query(ctx, findKeysStmt, userUUIDVal, input).GetAll(&foundKeyIdsByFingerprint)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"finding public keys by fingerprint to delete for user %q on model %q: %w",
+				userUUID, modelUUID, err,
+			)
+		}
+
+		// Find keys by public key
+		foundKeyIdsByPublicKey := userPublicKeyIds{}
+		err = tx.Query(ctx, findKeysPublicKeyStmt, userUUIDVal, cleanedKeyIds).GetAll(&foundKeyIdsByPublicKey)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"finding public keys by public key to delete for user %q on model %q: %w",
+				userUUID, modelUUID, err,
+			)
+		}
+
+		// Combine the results
+		foundKeyIds := append(foundKeyIdsByFingerprint, foundKeyIdsByPublicKey...)
+
+		if len(foundKeyIds) == 0 {
+			// Nothing was found, proceed to cleanup
+			err = tx.Query(ctx, deleteUnusedUserKeys, userUUIDVal).Run()
+			if err != nil {
+				return errors.Errorf(
+					"deleting unused public keys for user %q: %w",
+					userUUID, err,
+				)
+			}
+			return nil
 		}
 
 		err = tx.Query(ctx, deleteFromModelStmt, modelUUIDVal, foundKeyIds).Run()

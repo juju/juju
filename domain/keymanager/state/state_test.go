@@ -685,3 +685,186 @@ func (s *stateSuite) TestGetAllUsersPublicKeysOnNonActivatedModel(c *tc.C) {
 	c.Check(len(allKeys), tc.Equals, 1)
 	c.Check(allKeys[s.userName], tc.HasLen, len(testingPublicKeys))
 }
+
+// TestSameKeyDifferentModelsWithDifferentComments is asserting that the same SSH
+// key can be added to multiple models with different comments.
+func (s *stateSuite) TestSameKeyDifferentModelsWithDifferentComments(c *tc.C) {
+	state := NewState(s.TxnRunnerFactory())
+
+	parsedKey, err := ssh.ParsePublicKey(testingPublicKeys[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	keyWithCommentA := keymanager.PublicKey{
+		Comment:         "comment-a",
+		FingerprintHash: keymanager.FingerprintHashAlgorithmSHA256,
+		Fingerprint:     parsedKey.Fingerprint(),
+		Key:             testingPublicKeys[0],
+	}
+
+	keyWithCommentB := keymanager.PublicKey{
+		Comment:         "comment-b",
+		FingerprintHash: keymanager.FingerprintHashAlgorithmSHA256,
+		Fingerprint:     parsedKey.Fingerprint(),
+		Key:             testingPublicKeys[0],
+	}
+
+	// Add key with comment A to model 1.
+	err = state.AddPublicKeysForUser(c.Context(), s.modelId, s.userId, []keymanager.PublicKey{keyWithCommentA})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Create a second model.
+	modelId2 := statemodeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "keys2")
+
+	// Add the same key with comment B to model 2.
+	err = state.AddPublicKeysForUser(c.Context(), modelId2, s.userId, []keymanager.PublicKey{keyWithCommentB})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify model 1 has the key with comment A.
+	keys1, err := state.GetPublicKeysDataForUser(c.Context(), s.modelId, s.userId)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(keys1, tc.HasLen, 1)
+	c.Check(strings.HasSuffix(keys1[0], "comment-a"), tc.IsTrue, tc.Commentf("Expected key to end with 'comment-a', got: %s", keys1[0]))
+
+	// Verify model 2 has the key with comment B.
+	keys2, err := state.GetPublicKeysDataForUser(c.Context(), modelId2, s.userId)
+	c.Assert(err, tc.ErrorIsNil)
+	// Expect len 1.
+	c.Assert(keys2, tc.HasLen, 1)
+	c.Check(strings.HasSuffix(keys2[0], "comment-b"), tc.IsTrue, tc.Commentf("Expected key to end with 'comment-b', got: %s", keys2[0]))
+}
+
+// TestSameKeyDifferentModelsWithAndWithoutComment is asserting that the same SSH
+// key can be added to one model with a comment and another model without a comment.
+func (s *stateSuite) TestSameKeyDifferentModelsWithAndWithoutComment(c *tc.C) {
+	state := NewState(s.TxnRunnerFactory())
+
+	parsedKey, err := ssh.ParsePublicKey(testingPublicKeys[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	keyWithComment := keymanager.PublicKey{
+		Comment:         "my-comment",
+		FingerprintHash: keymanager.FingerprintHashAlgorithmSHA256,
+		Fingerprint:     parsedKey.Fingerprint(),
+		Key:             testingPublicKeys[0],
+	}
+
+	keyWithoutComment := keymanager.PublicKey{
+		Comment:         "",
+		FingerprintHash: keymanager.FingerprintHashAlgorithmSHA256,
+		Fingerprint:     parsedKey.Fingerprint(),
+		Key:             testingPublicKeys[0],
+	}
+
+	// Add key with comment to model 1.
+	err = state.AddPublicKeysForUser(c.Context(), s.modelId, s.userId, []keymanager.PublicKey{keyWithComment})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Create a second model.
+	modelId2 := statemodeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "keys2")
+
+	// Add the same key without comment to model 2.
+	err = state.AddPublicKeysForUser(c.Context(), modelId2, s.userId, []keymanager.PublicKey{keyWithoutComment})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify model 1 has the key with comment.
+	keys1, err := state.GetPublicKeysDataForUser(c.Context(), s.modelId, s.userId)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(keys1, tc.HasLen, 1)
+	c.Check(strings.HasSuffix(keys1[0], "my-comment"), tc.IsTrue)
+
+	// Verify model 2 has the key without comment (should just be the clean key).
+	keys2, err := state.GetPublicKeysDataForUser(c.Context(), modelId2, s.userId)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(keys2, tc.HasLen, 1)
+	c.Check(strings.HasSuffix(keys2[0], "my-comment"), tc.IsFalse)
+}
+
+// TestSameKeyNoComment is asserting that a key can be added without any comment.
+func (s *stateSuite) TestSameKeyNoComment(c *tc.C) {
+	state := NewState(s.TxnRunnerFactory())
+
+	parsedKey, err := ssh.ParsePublicKey(testingPublicKeys[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	keyWithoutComment := keymanager.PublicKey{
+		Comment:         "",
+		FingerprintHash: keymanager.FingerprintHashAlgorithmSHA256,
+		Fingerprint:     parsedKey.Fingerprint(),
+		Key:             testingPublicKeys[0],
+	}
+
+	err = state.AddPublicKeysForUser(c.Context(), s.modelId, s.userId, []keymanager.PublicKey{keyWithoutComment})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify the key was added without comment.
+	keys, err := state.GetPublicKeysDataForUser(c.Context(), s.modelId, s.userId)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(keys, tc.HasLen, 1)
+	// The key should not have any extra comment appended.
+	c.Check(strings.Contains(keys[0], "ecdsa-sha2-nistp256"), tc.IsTrue)
+}
+
+// TestSameKeySameModelSameCommentTwice is asserting that adding the same key
+// with the same comment to the same model twice results in a
+// PublicKeyAlreadyExists error.
+func (s *stateSuite) TestSameKeySameModelSameCommentTwice(c *tc.C) {
+	state := NewState(s.TxnRunnerFactory())
+
+	parsedKey, err := ssh.ParsePublicKey(testingPublicKeys[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	keyWithComment := keymanager.PublicKey{
+		Comment:         "my-comment",
+		FingerprintHash: keymanager.FingerprintHashAlgorithmSHA256,
+		Fingerprint:     parsedKey.Fingerprint(),
+		Key:             testingPublicKeys[0],
+	}
+
+	// Add key first time.
+	err = state.AddPublicKeysForUser(c.Context(), s.modelId, s.userId, []keymanager.PublicKey{keyWithComment})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Try to add the same key with same comment again.
+	err = state.AddPublicKeysForUser(c.Context(), s.modelId, s.userId, []keymanager.PublicKey{keyWithComment})
+	c.Check(err, tc.ErrorIs, keyerrors.PublicKeyAlreadyExists)
+}
+
+// TestSameKeySameModelDifferentComments is asserting that adding the same key
+// with different comments to the same model results in a PublicKeyAlreadyExists error.
+// This is the critical test: comments are per-model metadata, not part of the key identity.
+func (s *stateSuite) TestSameKeySameModelDifferentComments(c *tc.C) {
+	state := NewState(s.TxnRunnerFactory())
+
+	parsedKey, err := ssh.ParsePublicKey(testingPublicKeys[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	keyWithCommentA := keymanager.PublicKey{
+		Comment:         "comment-a",
+		FingerprintHash: keymanager.FingerprintHashAlgorithmSHA256,
+		Fingerprint:     parsedKey.Fingerprint(),
+		Key:             testingPublicKeys[0],
+	}
+
+	keyWithCommentB := keymanager.PublicKey{
+		Comment:         "comment-b",
+		FingerprintHash: keymanager.FingerprintHashAlgorithmSHA256,
+		Fingerprint:     parsedKey.Fingerprint(),
+		Key:             testingPublicKeys[0],
+	}
+
+	// Add key with comment A.
+	err = state.AddPublicKeysForUser(c.Context(), s.modelId, s.userId, []keymanager.PublicKey{keyWithCommentA})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Try to add the same key with comment B to the same model.
+	err = state.AddPublicKeysForUser(c.Context(), s.modelId, s.userId, []keymanager.PublicKey{keyWithCommentB})
+	// Expect this to fail as we don't wanna allow adding the same key twice
+	// even if the comment id different.
+	c.Check(err, tc.ErrorIs, keyerrors.PublicKeyAlreadyExists)
+
+	// Verify the original comment A is still there.
+	keys, err := state.GetPublicKeysDataForUser(c.Context(), s.modelId, s.userId)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(keys, tc.HasLen, 1)
+	c.Check(strings.HasSuffix(keys[0], "comment-a"), tc.IsTrue)
+}
