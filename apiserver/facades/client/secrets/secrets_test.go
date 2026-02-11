@@ -68,8 +68,8 @@ func adminBackendConfigGetter() (*provider.ModelBackendConfigInfo, error) {
 	}, nil
 }
 
-func backendConfigGetterForUserSecretsWrite(c *gc.C) func(backendID string) (*provider.ModelBackendConfigInfo, error) {
-	return func(backendID string) (*provider.ModelBackendConfigInfo, error) {
+func backendConfigGetterForUserSecretsWrite(c *gc.C) func(string, []*coresecrets.URI) (*provider.ModelBackendConfigInfo, error) {
+	return func(backendID string, _ []*coresecrets.URI) (*provider.ModelBackendConfigInfo, error) {
 		c.Assert(backendID, gc.Equals, "backend-id")
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id",
@@ -430,7 +430,7 @@ func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, uri *coresecrets.URI, isInte
 		existingLabel = "my-secret"
 		uri = coresecrets.NewURI()
 		s.secretsState.EXPECT().ListSecrets(state.SecretsFilter{
-			Label:     ptr("my-secret"),
+			Labels:    []string{"my-secret"},
 			OwnerTags: []names.Tag{coretesting.ModelTag},
 		}).Return([]*coresecrets.SecretMetadata{{
 			URI: uri,
@@ -852,7 +852,7 @@ func (s *SecretsSuite) TestGrantSecretByName(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	s.secretsState.EXPECT().ListSecrets(state.SecretsFilter{
-		Label:     ptr("my-secret"),
+		Labels:    []string{"my-secret"},
 		OwnerTags: []names.Tag{coretesting.ModelTag},
 	}).Return([]*coresecrets.SecretMetadata{{
 		URI: uri,

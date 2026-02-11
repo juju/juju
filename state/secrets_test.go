@@ -5,7 +5,9 @@ package state_test
 
 import (
 	"fmt"
+	"slices"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -584,7 +586,7 @@ func (s *SecretsSuite) TestListByURI(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	list, err := s.store.ListSecrets(state.SecretsFilter{
-		URI: uri,
+		URIs: []*secrets.URI{uri},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	mc := jc.NewMultiChecker()
@@ -601,6 +603,90 @@ func (s *SecretsSuite) TestListByURI(c *gc.C) {
 		OwnerTag:               s.owner.Tag().String(),
 		Description:            "my secret",
 		Label:                  "foobar",
+		CreateTime:             now,
+		UpdateTime:             now,
+	}})
+}
+
+func (s *SecretsSuite) TestListByURIs(c *gc.C) {
+	uris := []*secrets.URI{secrets.NewURI(), secrets.NewURI(), secrets.NewURI()}
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(time.Minute).Round(time.Second).UTC()
+	expire := now.Add(time.Hour).Round(time.Second).UTC()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(next),
+			Description:    ptr("my secret"),
+			Label:          ptr("foobar"),
+			ExpireTime:     ptr(expire),
+			Params:         nil,
+			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		},
+	}
+	for i, uri := range uris {
+		p.UpdateSecretParams.Label = ptr(fmt.Sprintf("foobar%d", i))
+		_, err := s.store.CreateSecret(uri, p)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	// Create another secret to ensure it is excluded.
+	uri2 := secrets.NewURI()
+	p.Owner = names.NewApplicationTag("wordpress")
+	_, err := s.store.CreateSecret(uri2, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	list, err := s.store.ListSecrets(state.SecretsFilter{
+		URIs: uris,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	slices.SortFunc(list, func(a *secrets.SecretMetadata, b *secrets.SecretMetadata) int {
+		return strings.Compare(a.Label, b.Label)
+	})
+	c.Assert(list, mc, []*secrets.SecretMetadata{{
+		URI:                    uris[0],
+		RotatePolicy:           secrets.RotateDaily,
+		NextRotateTime:         ptr(next),
+		LatestRevision:         1,
+		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		LatestExpireTime:       ptr(expire),
+		Version:                1,
+		OwnerTag:               s.owner.Tag().String(),
+		Description:            "my secret",
+		Label:                  "foobar0",
+		CreateTime:             now,
+		UpdateTime:             now,
+	}, {
+		URI:                    uris[1],
+		RotatePolicy:           secrets.RotateDaily,
+		NextRotateTime:         ptr(next),
+		LatestRevision:         1,
+		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		LatestExpireTime:       ptr(expire),
+		Version:                1,
+		OwnerTag:               s.owner.Tag().String(),
+		Description:            "my secret",
+		Label:                  "foobar1",
+		CreateTime:             now,
+		UpdateTime:             now,
+	}, {
+		URI:                    uris[2],
+		RotatePolicy:           secrets.RotateDaily,
+		NextRotateTime:         ptr(next),
+		LatestRevision:         1,
+		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		LatestExpireTime:       ptr(expire),
+		Version:                1,
+		OwnerTag:               s.owner.Tag().String(),
+		Description:            "my secret",
+		Label:                  "foobar2",
 		CreateTime:             now,
 		UpdateTime:             now,
 	}})
@@ -636,7 +722,7 @@ func (s *SecretsSuite) TestListByLabel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	list, err := s.store.ListSecrets(state.SecretsFilter{
-		Label: ptr("foobar"),
+		Labels: []string{"foobar"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	mc := jc.NewMultiChecker()
@@ -653,6 +739,91 @@ func (s *SecretsSuite) TestListByLabel(c *gc.C) {
 		OwnerTag:               s.owner.Tag().String(),
 		Description:            "my secret",
 		Label:                  "foobar",
+		CreateTime:             now,
+		UpdateTime:             now,
+	}})
+}
+
+func (s *SecretsSuite) TestListByLabels(c *gc.C) {
+	uris := []*secrets.URI{secrets.NewURI(), secrets.NewURI(), secrets.NewURI()}
+	labels := []string{"foobar0", "foobar1", "foobar2"}
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(time.Minute).Round(time.Second).UTC()
+	expire := now.Add(time.Hour).Round(time.Second).UTC()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(next),
+			Description:    ptr("my secret"),
+			Label:          ptr("foobar"),
+			ExpireTime:     ptr(expire),
+			Params:         nil,
+			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		},
+	}
+	for i, uri := range uris {
+		p.UpdateSecretParams.Label = ptr(labels[i])
+		_, err := s.store.CreateSecret(uri, p)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	// Create another secret to ensure it is excluded.
+	uri2 := secrets.NewURI()
+	p.Label = ptr("another")
+	_, err := s.store.CreateSecret(uri2, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	list, err := s.store.ListSecrets(state.SecretsFilter{
+		Labels: labels,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	slices.SortFunc(list, func(a *secrets.SecretMetadata, b *secrets.SecretMetadata) int {
+		return strings.Compare(a.Label, b.Label)
+	})
+	c.Assert(list, mc, []*secrets.SecretMetadata{{
+		URI:                    uris[0],
+		RotatePolicy:           secrets.RotateDaily,
+		NextRotateTime:         ptr(next),
+		LatestRevision:         1,
+		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		LatestExpireTime:       ptr(expire),
+		Version:                1,
+		OwnerTag:               s.owner.Tag().String(),
+		Description:            "my secret",
+		Label:                  "foobar0",
+		CreateTime:             now,
+		UpdateTime:             now,
+	}, {
+		URI:                    uris[1],
+		RotatePolicy:           secrets.RotateDaily,
+		NextRotateTime:         ptr(next),
+		LatestRevision:         1,
+		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		LatestExpireTime:       ptr(expire),
+		Version:                1,
+		OwnerTag:               s.owner.Tag().String(),
+		Description:            "my secret",
+		Label:                  "foobar1",
+		CreateTime:             now,
+		UpdateTime:             now,
+	}, {
+		URI:                    uris[2],
+		RotatePolicy:           secrets.RotateDaily,
+		NextRotateTime:         ptr(next),
+		LatestRevision:         1,
+		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		LatestExpireTime:       ptr(expire),
+		Version:                1,
+		OwnerTag:               s.owner.Tag().String(),
+		Description:            "my secret",
+		Label:                  "foobar2",
 		CreateTime:             now,
 		UpdateTime:             now,
 	}})

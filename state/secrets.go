@@ -77,8 +77,8 @@ type ChangeSecretBackendParams struct {
 
 // SecretsFilter holds attributes to match when listing secrets.
 type SecretsFilter struct {
-	URI          *secrets.URI
-	Label        *string
+	URIs         []*secrets.URI
+	Labels       []string
 	OwnerTags    []names.Tag
 	ConsumerTags []names.Tag
 }
@@ -1248,11 +1248,15 @@ func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetad
 
 	var docs []secretMetadataDoc
 	q := bson.D{}
-	if filter.URI != nil {
-		q = append(q, bson.DocElem{"_id", filter.URI.ID})
+	if len(filter.URIs) != 0 {
+		ids := make([]string, 0, len(filter.URIs))
+		for _, uri := range filter.URIs {
+			ids = append(ids, uri.ID)
+		}
+		q = append(q, bson.DocElem{"_id", bson.D{{"$in", ids}}})
 	}
-	if filter.Label != nil {
-		q = append(q, bson.DocElem{"label", *filter.Label})
+	if len(filter.Labels) != 0 {
+		q = append(q, bson.DocElem{"label", bson.D{{"$in", filter.Labels}}})
 	}
 	if len(filter.OwnerTags) > 0 {
 		owners := make([]string, len(filter.OwnerTags))

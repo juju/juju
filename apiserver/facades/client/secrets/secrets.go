@@ -41,7 +41,7 @@ type SecretsAPI struct {
 	secretsConsumer SecretsConsumer
 
 	adminBackendConfigGetter               func() (*provider.ModelBackendConfigInfo, error)
-	backendConfigGetterForUserSecretsWrite func(backendID string) (*provider.ModelBackendConfigInfo, error)
+	backendConfigGetterForUserSecretsWrite func(backendID string, only []*coresecrets.URI) (*provider.ModelBackendConfigInfo, error)
 	backendGetter                          func(*provider.ModelBackendConfig) (provider.SecretsBackend, error)
 }
 
@@ -81,17 +81,16 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 			return result, errors.Trace(err)
 		}
 	}
-	var uri *coresecrets.URI
+	filter := state.SecretsFilter{}
 	if arg.Filter.URI != nil {
-		var err error
-		uri, err = coresecrets.ParseURI(*arg.Filter.URI)
+		uri, err := coresecrets.ParseURI(*arg.Filter.URI)
 		if err != nil {
 			return params.ListSecretResults{}, errors.Trace(err)
 		}
+		filter.URIs = append(filter.URIs, uri)
 	}
-	filter := state.SecretsFilter{
-		URI:   uri,
-		Label: arg.Filter.Label,
+	if arg.Filter.Label != nil {
+		filter.Labels = append(filter.Labels, *arg.Filter.Label)
 	}
 	if arg.Filter.OwnerTag != nil {
 		tag, err := names.ParseTag(*arg.Filter.OwnerTag)
@@ -241,13 +240,18 @@ func (s *SecretsAPI) secretContentFromBackend(uri *coresecrets.URI, rev int) (co
 	}
 }
 
-func (s *SecretsAPI) getBackendForUserSecretsWrite() (provider.SecretsBackend, error) {
+// getBackendForUserSecretsWrite returns the secret backend for user secrets,
+// optionally limited to the list of secrets if a non-zero number is supplied.
+func (s *SecretsAPI) getBackendForUserSecretsWrite(
+	only []*coresecrets.URI,
+) (provider.SecretsBackend, error) {
 	if s.activeBackendID == "" {
 		if err := s.getBackendInfo(); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
-	cfgInfo, err := s.backendConfigGetterForUserSecretsWrite(s.activeBackendID)
+	cfgInfo, err := s.backendConfigGetterForUserSecretsWrite(
+		s.activeBackendID, only)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -307,7 +311,7 @@ func (s *SecretsAPI) CreateSecrets(args params.CreateSecretArgs) (params.StringR
 		uris[i] = uri
 	}
 
-	backend, err := s.getBackendForUserSecretsWrite()
+	backend, err := s.getBackendForUserSecretsWrite(uris)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -428,12 +432,26 @@ func (s *SecretsAPI) UpdateSecrets(args params.UpdateUserSecretArgs) (params.Err
 	if err := s.checkCanWrite(); err != nil {
 		return result, errors.Trace(err)
 	}
-	backend, err := s.getBackendForUserSecretsWrite()
+
+	uris := make([]*coresecrets.URI, len(args.Args))
+	for i, arg := range args.Args {
+		var err error
+		if arg.URI != "" {
+			uris[i], err = coresecrets.ParseURI(arg.URI)
+		} else {
+			uris[i], err = s.getSecretURI(s.modelUUID, arg.ExistingLabel)
+		}
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+		}
+	}
+
+	backend, err := s.getBackendForUserSecretsWrite(uris)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Args {
-		err := s.updateSecret(backend, arg)
+		err := s.updateSecret(backend, arg, uris[i])
 		if errors.Is(err, state.LabelExists) {
 			err = errors.AlreadyExistsf("secret with name %q", *arg.Label)
 		}
@@ -442,20 +460,12 @@ func (s *SecretsAPI) UpdateSecrets(args params.UpdateUserSecretArgs) (params.Err
 	return result, nil
 }
 
-func (s *SecretsAPI) updateSecret(backend provider.SecretsBackend, arg params.UpdateUserSecretArg) (errOut error) {
+func (s *SecretsAPI) updateSecret(
+	backend provider.SecretsBackend,
+	arg params.UpdateUserSecretArg,
+	uri *coresecrets.URI,
+) (errOut error) {
 	if err := arg.Validate(); err != nil {
-		return errors.Trace(err)
-	}
-	var (
-		uri *coresecrets.URI
-		err error
-	)
-	if arg.URI != "" {
-		uri, err = coresecrets.ParseURI(arg.URI)
-	} else {
-		uri, err = s.getSecretURI(s.modelUUID, arg.ExistingLabel)
-	}
-	if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -585,7 +595,7 @@ type grantRevokeFunc func(*coresecrets.URI, state.SecretAccessParams) error
 
 func (s *SecretsAPI) getSecretURI(modelUUID, label string) (*coresecrets.URI, error) {
 	results, err := s.secretsState.ListSecrets(state.SecretsFilter{
-		Label:     &label,
+		Labels:    []string{label},
 		OwnerTags: []names.Tag{names.NewModelTag(modelUUID)},
 	})
 	if err != nil {

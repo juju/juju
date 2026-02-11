@@ -322,7 +322,7 @@ func (s *secretsSuite) TestBackendConfigInfoLeaderUnit(c *gc.C) {
 		ownedIDs, ownedRevs, readRevs,
 	).Return(&adminCfg.BackendConfig, nil)
 
-	info, err := secrets.BackendConfigInfo(model, true, backendIDs, false, unitTag, leadershipChecker)
+	info, err := secrets.BackendConfigInfo(model, true, backendIDs, false, unitTag, leadershipChecker, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id",
@@ -439,7 +439,7 @@ func (s *secretsSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
 		ownedIDs, ownedRevs, readRevs,
 	).Return(&adminCfg.BackendConfig, nil)
 
-	info, err := secrets.BackendConfigInfo(model, true, []string{"backend-id"}, false, unitTag, leadershipChecker)
+	info, err := secrets.BackendConfigInfo(model, true, []string{"backend-id"}, false, unitTag, leadershipChecker, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id",
@@ -694,7 +694,7 @@ func (s *secretsSuite) TestBackendConfigInfoAppTagLogin(c *gc.C) {
 		ownedIDs, ownedRevs, readRevs,
 	).Return(&adminCfg.BackendConfig, nil)
 
-	info, err := secrets.BackendConfigInfo(model, true, []string{"backend-id"}, false, appTag, leadershipChecker)
+	info, err := secrets.BackendConfigInfo(model, true, []string{"backend-id"}, false, appTag, leadershipChecker, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id",
@@ -744,7 +744,7 @@ func (s *secretsSuite) TestBackendConfigInfoFailedInvalidAuthTag(c *gc.C) {
 	}}, nil)
 	p.EXPECT().Initialise(gomock.Any()).Return(nil)
 
-	_, err := secrets.BackendConfigInfo(model, true, []string{"some-id"}, false, badTag, leadershipChecker)
+	_, err := secrets.BackendConfigInfo(model, true, []string{"some-id"}, false, badTag, leadershipChecker, nil)
 	c.Assert(err, gc.ErrorMatches, `login as "user-foo" not supported`)
 }
 
@@ -958,7 +958,7 @@ func (s *secretsSuite) TestRemoveSecretsByLabel(c *gc.C) {
 	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return mockprovider, nil })
 
 	removeState.EXPECT().ListSecrets(state.SecretsFilter{
-		Label:     ptr("my-secret"),
+		Labels:    []string{"my-secret"},
 		OwnerTags: []names.Tag{coretesting.ModelTag},
 	}).Return([]*coresecrets.SecretMetadata{{
 		URI: uri,
@@ -1458,7 +1458,7 @@ func (s *secretsSuite) TestBackendConfigInfoIssuesToken(c *gc.C) {
 		return &adminCfg.BackendConfig, nil
 	})
 
-	info, err := secrets.BackendConfigInfo(model, true, backendIDs, false, unitTag, leadershipChecker)
+	info, err := secrets.BackendConfigInfo(model, true, backendIDs, false, unitTag, leadershipChecker, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id",
@@ -1564,7 +1564,7 @@ func (s *secretsSuite) TestBackendConfigInfoIssuesTokenWithReservedSecrets(c *gc
 		return &adminCfg.BackendConfig, nil
 	})
 
-	info, err := secrets.BackendConfigInfo(model, true, backendIDs, false, unitTag, leadershipChecker)
+	info, err := secrets.BackendConfigInfo(model, true, backendIDs, false, unitTag, leadershipChecker, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id",
