@@ -453,13 +453,13 @@ func (s *Service) processStorageAttachmentRemovalJob(ctx context.Context, job re
 		return errors.Errorf(
 			"storage attachment %q is alive", job.EntityUUID,
 		).Add(removalerrors.EntityStillAlive)
-	} else if !job.Force && l == life.Dying {
-		return errors.Errorf(
-			"storage attachment %q is not dead", job.EntityUUID,
-		).Add(removalerrors.EntityNotDead)
 	}
 
-	if job.Force && l == life.Dying {
+	if l == life.Dying {
+		// Mark the storage attachment as dead, cascading to any child
+		// filesystem/volume attachments. This handles the case where the
+		// storage provisioner is not running (e.g. the machine never
+		// reached a running status) and cannot advance the lifecycle.
 		cascade, err := s.modelState.EnsureStorageAttachmentDeadCascade(
 			ctx, job.EntityUUID)
 		if errors.Is(err, storageerrors.StorageAttachmentNotFound) {
@@ -473,14 +473,12 @@ func (s *Service) processStorageAttachmentRemovalJob(ctx context.Context, job re
 			)
 		}
 
-		// NOTE: filesystem attachments, volume attachments and volume attachment
-		// plans have their removal jobs already scheduled when the storage
-		// attachment goes to Dying.
-		//
-		// Since these entities do not go to Dying when the storage attachment
-		// goes to Dying, it is within the removal domain's pattern to schedule
-		// them here, since these entities just went to Dying.
-
+		// Schedule removal jobs for any child entities that were
+		// cascaded to dying. When force is used, the children may not
+		// have had removal jobs scheduled yet. For non-force removals,
+		// the children already have removal jobs from the initial
+		// application/unit removal cascade, but scheduling again is
+		// safe (idempotent).
 		for _, fsaUUID := range cascade.FileSystemAttachmentUUIDs {
 			uuid := storage.FilesystemAttachmentUUID(fsaUUID)
 			_, err := s.filesystemAttachmentScheduleRemoval(ctx, uuid, false, 0)
@@ -1182,10 +1180,21 @@ func (s *Service) processStorageFilesystemAttachmentRemovalJob(
 		return errors.Errorf(
 			"filesystem attachment %q is alive", job.EntityUUID,
 		).Add(removalerrors.EntityStillAlive)
-	} else if !job.Force && l == life.Dying {
-		return errors.Errorf(
-			"filesystem attachment %q is not dead", job.EntityUUID,
-		).Add(removalerrors.EntityNotDead)
+	}
+
+	// If the filesystem attachment is dying, mark it as dead before
+	// deletion. This handles the case where the storage provisioner is not
+	// running (e.g. the machine never reached a running status) and cannot
+	// advance the lifecycle itself.
+	if l == life.Dying {
+		if err := s.modelState.MarkFilesystemAttachmentAsDead(
+			ctx, job.EntityUUID,
+		); err != nil {
+			return errors.Errorf(
+				"marking filesystem attachment %q as dead: %w",
+				job.EntityUUID, err,
+			)
+		}
 	}
 
 	err = s.modelState.DeleteFilesystemAttachment(ctx, job.EntityUUID)
@@ -1247,10 +1256,21 @@ func (s *Service) processStorageVolumeAttachmentRemovalJob(
 		return errors.Errorf(
 			"volume attachment %q is alive", job.EntityUUID,
 		).Add(removalerrors.EntityStillAlive)
-	} else if !job.Force && l == life.Dying {
-		return errors.Errorf(
-			"volume attachment %q is not dead", job.EntityUUID,
-		).Add(removalerrors.EntityNotDead)
+	}
+
+	// If the volume attachment is dying, mark it as dead before deletion.
+	// This handles the case where the storage provisioner is not running
+	// (e.g. the machine never reached a running status) and cannot advance
+	// the lifecycle itself.
+	if l == life.Dying {
+		if err := s.modelState.MarkVolumeAttachmentAsDead(
+			ctx, job.EntityUUID,
+		); err != nil {
+			return errors.Errorf(
+				"marking volume attachment %q as dead: %w",
+				job.EntityUUID, err,
+			)
+		}
 	}
 
 	err = s.modelState.DeleteVolumeAttachment(ctx, job.EntityUUID)
