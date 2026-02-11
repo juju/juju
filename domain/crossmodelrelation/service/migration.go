@@ -178,7 +178,7 @@ func (s *MigrationService) constructApplicationOfferer(rApp RemoteApplicationOff
 
 // ImportRemoteApplicationConsumers adds remote application consumers being
 // migrated to the current model. These are applications that this model is
-// offering from other models.
+// offering to other models.
 func (s *MigrationService) ImportRemoteApplicationConsumers(ctx context.Context, imports []RemoteApplicationConsumerImport) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
