@@ -943,10 +943,6 @@ func (s *secretsSuite) TestRemoveSecretsForSecretOwners(c *gc.C) {
 	})
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *secretsSuite) TestRemoveSecretsByLabel(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

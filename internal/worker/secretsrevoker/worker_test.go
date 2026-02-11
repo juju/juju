@@ -130,47 +130,45 @@ func (s *workerSuite) TestWorkerWithBreaks(c *gc.C) {
 	c.Assert(w, gc.NotNil)
 	defer workertest.CleanKill(c, w)
 
-	t := clk.Now().Add(30 * time.Second)
+	t0 := clk.Now().Add(30 * time.Second)
+	t1 := t0.Add(10 * time.Minute)
 	s.facade.EXPECT().RevokeIssuedTokens(
 		gomock.Any(),
 	).DoAndReturn(func(until time.Time) (time.Time, error) {
-		c.Assert(until, jc.After, t)
-		t = clk.Now().Add(10 * time.Minute)
-		return t, nil
+		c.Assert(until, jc.After, t0)
+		return t1, nil
 	})
-	ch <- []string{t.Format(time.RFC3339)}
-
 	done := make(chan struct{})
 	s.facade.EXPECT().RevokeIssuedTokens(
 		gomock.Any(),
 	).DoAndReturn(func(until time.Time) (time.Time, error) {
 		defer close(done)
-		c.Assert(until, jc.After, t)
+		c.Assert(until, jc.After, t1)
 		return time.Time{}, nil
 	})
+	ch <- []string{t0.Format(time.RFC3339)}
 	<-done
 
 	// Break until a new send on the watcher.
 
-	t = clk.Now().Add(30 * time.Second)
+	t2 := clk.Now().Add(30 * time.Second)
+	t3 := t2.Add(10 * time.Minute)
 	s.facade.EXPECT().RevokeIssuedTokens(
 		gomock.Any(),
 	).DoAndReturn(func(until time.Time) (time.Time, error) {
-		c.Assert(until, jc.After, t)
-		t = clk.Now().Add(10 * time.Minute)
-		return t, nil
+		c.Assert(until, jc.After, t2)
+		return t3, nil
 	})
-	ch <- []string{t.Format(time.RFC3339)}
-
-	done = make(chan struct{})
+	done2 := make(chan struct{})
 	s.facade.EXPECT().RevokeIssuedTokens(
 		gomock.Any(),
 	).DoAndReturn(func(until time.Time) (time.Time, error) {
-		defer close(done)
-		c.Assert(until, jc.After, t)
+		defer close(done2)
+		c.Assert(until, jc.After, t3)
 		return time.Time{}, nil
 	})
-	<-done
+	ch <- []string{t2.Format(time.RFC3339)}
+	<-done2
 }
 
 func (s *workerSuite) TestWorkerQuantisedSchedule(c *gc.C) {
