@@ -537,7 +537,7 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelation(c *tc.C) {
 	s.assertRelationStatusJoining(c, relationUUID)
 }
 
-func (s *modelRemoteApplicationSuite) TestAddConsumedRelationEndpointNotFound(c *tc.C) {
+func (s *modelRemoteApplicationSuite) TestAddConsumedRelationApplicationNotFound(c *tc.C) {
 	charm := charm.Charm{
 		ReferenceName: "bar",
 		Source:        charm.CMRSource,
