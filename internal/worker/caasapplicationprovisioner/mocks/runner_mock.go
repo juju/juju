@@ -51,6 +51,20 @@ func (mr *MockRunnerMockRecorder) Kill() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Kill", reflect.TypeOf((*MockRunner)(nil).Kill))
 }
 
+// Report mocks base method.
+func (m *MockRunner) Report() map[string]any {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Report")
+	ret0, _ := ret[0].(map[string]any)
+	return ret0
+}
+
+// Report indicates an expected call of Report.
+func (mr *MockRunnerMockRecorder) Report() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Report", reflect.TypeOf((*MockRunner)(nil).Report))
+}
+
 // StartWorker mocks base method.
 func (m *MockRunner) StartWorker(arg0 string, arg1 func() (worker.Worker, error)) error {
 	m.ctrl.T.Helper()
