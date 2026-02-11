@@ -4762,6 +4762,40 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 	c.Assert(info.LatestRevision, gc.Equals, 2)
 }
 
+func (s *uniterSuite) TestCommitHookChangesRemovesSecretReservations(c *gc.C) {
+	store := state.NewSecrets(s.State)
+
+	// Reserve some secrets for the unit.
+	for range 10 {
+		u := secrets.NewURI()
+		err := store.ReserveSecret(u, s.wordpressUnit.Tag())
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	reserved, err := store.ListReservedSecrets([]names.Tag{
+		s.wordpressUnit.Tag(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reserved, gc.HasLen, 10)
+
+	// Commit the hook changes.
+	b := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag())
+	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
+	req, _ := b.Build()
+
+	result, err := s.uniter.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+
+	// Check all the secret reservations were removed.
+	reserved, err = store.ListReservedSecrets([]names.Tag{s.wordpressUnit.Tag()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(reserved, gc.HasLen, 0)
+}
+
 func (s *uniterSuite) TestCommitHookChangesExpiresSecretBackendTokens(c *gc.C) {
 	store := state.NewSecrets(s.State)
 	now := time.Now()
