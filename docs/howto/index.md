@@ -56,7 +56,7 @@ Get a quick sense of how to do things in Juju, from preparing your deployment en
 - {ref}`Harden your deployment <harden-your-deployment>`
 - {ref}`Troubleshoot your deployment <troubleshoot-your-deployment>`
 - {ref}`Upgrade your deployment <upgrade-your-deployment>`
-- {ref}`Upgrade your deployment from 3.6 to 4.0 <upgrade-your-deployment-from-3.5-to-4.0>`
+- {ref}`Upgrade your deployment from 3.6 to 4.0 <upgrade-your-deployment-from-36-to-40>`
 - {ref}`Tear down your deployment -- local testing and development <tear-things-down>`
 
 ## Set up Juju

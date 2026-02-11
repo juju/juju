@@ -5,7 +5,6 @@ myst:
 ---
 
 (upgrade-your-deployment-from-36-to-40)=
-
 # Upgrade your Juju deployment from `3.6` to `4.0`
 
 > **Disclaimer:** this is v1 of the document. We will update it with more details and examples over time.

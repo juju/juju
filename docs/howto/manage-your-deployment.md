@@ -20,7 +20,7 @@ manage-your-juju-deployment/set-up-your-juju-deployment-offline
 manage-your-juju-deployment/harden-your-juju-deployment
 manage-your-juju-deployment/troubleshoot-your-juju-deployment
 manage-your-juju-deployment/upgrade-your-juju-deployment
-manage-your-juju-deployment/upgrade-juju-36-to-40
+manage-your-juju-deployment/upgrade-your-juju-deployment-from-36-to-40
 manage-your-juju-deployment/tear-down-your-juju-deployment-local-testing-and-development
 
 ```
