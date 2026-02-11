@@ -299,6 +299,7 @@ func (s *MigrationService) constructOffererSyntheticCharm(appName string, endpoi
 			Name:      ep.Name,
 			Interface: ep.Interface,
 			Role:      ep.Role,
+			Scope:     charm.ScopeGlobal,
 		}
 	}))
 	if err != nil {
