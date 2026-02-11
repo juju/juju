@@ -72,17 +72,6 @@ func (api *BaseAPI) modelForName(modelName, ownerName string) (Model, string, bo
 	return model, modelPath, model != nil, nil
 }
 
-func (api *BaseAPI) userDisplayName(backend Backend, userTag names.UserTag) (string, error) {
-	var displayName string
-	user, err := backend.User(userTag)
-	if err != nil && !errors.IsNotFound(err) {
-		return "", errors.Trace(err)
-	} else if err == nil {
-		displayName = user.DisplayName()
-	}
-	return displayName, nil
-}
-
 // applicationOffersFromModel gets details about remote applications that match given filters.
 func (api *BaseAPI) applicationOffersFromModel(
 	modelUUID string,
@@ -114,7 +103,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		return nil, errors.Trace(err)
 	}
 
-	apiUserDisplayName, err := api.userDisplayName(backend, user)
+	u, err := backend.User(user)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -142,7 +131,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		}
 		offerParams.Users = []params.OfferUserDetails{{
 			UserName:    user.Id(),
-			DisplayName: apiUserDisplayName,
+			DisplayName: u.DisplayName(),
 			Access:      string(userAccess),
 		}}
 		offer := params.ApplicationOfferAdminDetailsV5{
@@ -194,7 +183,7 @@ func (api *BaseAPI) getOfferAdminDetails(user names.UserTag, backend Backend, ap
 			Since:  relStatus.Since,
 		}
 		relIngress, err := backend.IngressNetworks(oc.RelationKey())
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 		if err == nil {
@@ -208,18 +197,14 @@ func (api *BaseAPI) getOfferAdminDetails(user names.UserTag, backend Backend, ap
 		return errors.Trace(err)
 	}
 
-	for userName, access := range offerUsers {
+	for userName, userAccess := range offerUsers {
 		if userName == user.Id() {
 			continue
 		}
-		displayName, err := api.userDisplayName(backend, names.NewUserTag(userName))
-		if err != nil {
-			return errors.Trace(err)
-		}
 		offer.Users = append(offer.Users, params.OfferUserDetails{
 			UserName:    userName,
-			DisplayName: displayName,
-			Access:      string(access),
+			DisplayName: userAccess.DisplayName,
+			Access:      string(userAccess.Access),
 		})
 	}
 	return nil

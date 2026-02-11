@@ -13,6 +13,15 @@ import (
 	"github.com/juju/juju/core/permission"
 )
 
+// OfferUserAccess represents the access details for a user on an offer.
+type OfferUserAccess struct {
+	// Access represents the level of access subject has over the object.
+	Access permission.Access
+
+	// DisplayName is the name we are showing for this user.
+	DisplayName string
+}
+
 // GetOfferAccess gets the access permission for the specified user on an offer.
 func (st *State) GetOfferAccess(offerUUID string, user names.UserTag) (permission.Access, error) {
 	perm, err := st.userPermission(applicationOfferKey(offerUUID), userGlobalKey(userAccessID(user)))
@@ -22,15 +31,29 @@ func (st *State) GetOfferAccess(offerUUID string, user names.UserTag) (permissio
 	return perm.access(), nil
 }
 
-// GetOfferUsers gets the access permissions on an offer.
-func (st *State) GetOfferUsers(offerUUID string) (map[string]permission.Access, error) {
+// GetOfferUsers gets the access permissions on an offer and filters out
+// deleted users.
+func (st *State) GetOfferUsers(offerUUID string) (map[string]OfferUserAccess, error) {
 	perms, err := st.usersPermissions(applicationOfferKey(offerUUID))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make(map[string]permission.Access)
+	result := make(map[string]OfferUserAccess)
 	for _, p := range perms {
-		result[userIDFromGlobalKey(p.doc.SubjectGlobalKey)] = p.access()
+		u := userIDFromGlobalKey(p.doc.SubjectGlobalKey)
+		var udoc userDoc
+		err := st.getUser(u, &udoc)
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return nil, errors.Annotatef(err, "fetching user %q for offer", u)
+		}
+		if udoc.Deleted {
+			continue
+		}
+		userAccess := OfferUserAccess{
+			Access:      p.access(),
+			DisplayName: udoc.DisplayName,
+		}
+		result[u] = userAccess
 	}
 	return result, nil
 }

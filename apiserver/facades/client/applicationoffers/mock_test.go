@@ -357,7 +357,7 @@ func (m *mockState) KeyRelation(key string) (crossmodel.Relation, error) {
 	return rel, nil
 }
 
-func (m *mockState) OfferConnections(offerUUID string) ([]applicationoffers.OfferConnection, error) {
+func (m *mockState) OfferConnections(_ string) ([]applicationoffers.OfferConnection, error) {
 	return m.connections, nil
 }
 
@@ -434,13 +434,17 @@ func (m *mockState) RemoveOfferAccess(offer names.ApplicationOfferTag, user name
 	return nil
 }
 
-func (m *mockState) GetOfferUsers(offerUUID string) (map[string]permission.Access, error) {
-	result := make(map[string]permission.Access)
+func (m *mockState) GetOfferUsers(offerUUID string) (map[string]state.OfferUserAccess, error) {
+	result := make(map[string]state.OfferUserAccess)
 	for offerAccess, access := range m.accessPerms {
 		if offerAccess.offerUUID != offerUUID {
 			continue
 		}
-		result[offerAccess.user.Id()] = access
+		userAccess := state.OfferUserAccess{
+			Access:      access,
+			DisplayName: m.users[offerAccess.user.Id()].DisplayName(),
+		}
+		result[offerAccess.user.Id()] = userAccess
 	}
 	return result, nil
 }

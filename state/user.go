@@ -71,7 +71,6 @@ func (st *State) AddUserWithSecretKey(name, displayName, creator string) (*User,
 }
 
 func (st *State) addUser(name, displayName, password, creator string, secretKey []byte) (*User, error) {
-
 	if !names.IsValidUserName(name) {
 		return nil, errors.Errorf("invalid user name %q", name)
 	}
@@ -275,6 +274,9 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 
 		// remove the user from the controller
 		ops = append(ops, removeControllerUserOps(st.ControllerUUID(), tag)...)
+
+		// remove the all user permissions
+		ops = append(ops, removeAllSubjectPermissionsOp(userGlobalKey(userAccessID(tag))))
 
 		// new entry in the removal log
 		newRemovalLogEntry := userRemovedLogEntry{
