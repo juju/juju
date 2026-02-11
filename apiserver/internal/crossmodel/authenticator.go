@@ -7,6 +7,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -37,7 +38,7 @@ func (a *Authenticator) CheckOfferMacaroons(ctx context.Context, offeringModelUU
 	}
 
 	if a.logger.IsLevelEnabled(logger.TRACE) {
-		a.logger.Tracef(ctx, "check offer macaroons with required values: %v", requiredValues)
+		a.logger.Tracef(ctx, "check offer macaroons with required values: %v", requiredValues, spew.Sdump(mac))
 	}
 
 	return a.checkMacaroons(ctx, mac, version, crossModelConsumeOp(offerUUID), requiredValues)
@@ -51,7 +52,7 @@ func (a *Authenticator) CheckRelationMacaroons(ctx context.Context, sourceModelU
 	}
 
 	if a.logger.IsLevelEnabled(logger.TRACE) {
-		a.logger.Tracef(ctx, "check relation macaroons with required values: %v", requiredValues)
+		a.logger.Tracef(ctx, "check relation macaroons with required values: %v", requiredValues, spew.Sdump(mac))
 	}
 
 	_, err = a.checkMacaroons(ctx, mac, version, crossModelRelateOp(relationTag.Id()), requiredValues)
