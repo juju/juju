@@ -4,5 +4,5 @@ BEFORE INSERT ON relation FOR EACH ROW
 WHEN
     (NEW.uuid = '')
 BEGIN
-    SELECT RAISE(FAIL, "relation.uuid cannot be NULL or empty");
+    SELECT RAISE(FAIL, 'relation.uuid cannot be NULL or empty');
 END;
