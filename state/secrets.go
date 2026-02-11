@@ -158,6 +158,11 @@ type SecretsStore interface {
 	// given secret backend token UUIDs.
 	RemoveSecretBackendIssuedTokens(uuids []string) error
 
+	// ExpireSecretBackendIssuedTokensForConsumer returns a ModelOperation that
+	// sets the expire time of all currently non-expired secret backend issued
+	// tokens for the given consumer to now.
+	ExpireSecretBackendIssuedTokensForConsumer(consumer names.Tag) ModelOperation
+
 	// RemoveSecretReservations removes all secret reservations that are held by
 	// the provided owner.
 	RemoveSecretReservations(owner names.Tag) ModelOperation
@@ -4259,4 +4264,62 @@ func (w *secretBackendIssuedTokenExpiryWatcher) loop() error {
 			changes = nil
 		}
 	}
+}
+
+// expireSecretBackendIssuedTokensModelOp is a model operation for expiring all
+// secret backend issued tokens for the given consumer.
+type expireSecretBackendIssuedTokensModelOp struct {
+	s        *secretsStore
+	consumer names.Tag
+}
+
+// ExpireSecretBackendIssuedTokensForConsumer returns a ModelOperation that
+// sets the expire time of all currently non-expired secret backend issued
+// tokens for the given consumer to now.
+func (s *secretsStore) ExpireSecretBackendIssuedTokensForConsumer(
+	consumer names.Tag,
+) ModelOperation {
+	return &expireSecretBackendIssuedTokensModelOp{
+		s:        s,
+		consumer: consumer,
+	}
+}
+
+func (op *expireSecretBackendIssuedTokensModelOp) Build(
+	attempt int,
+) ([]txn.Op, error) {
+	return op.s.expireSecretBackendIssuedTokensOps(op.consumer)
+}
+
+func (op *expireSecretBackendIssuedTokensModelOp) Done(err error) error {
+	return err
+}
+
+// expireSecretBackendIssuedTokensOps returns the operations to remove all the
+// currently known secret backend issued tokens.
+func (s *secretsStore) expireSecretBackendIssuedTokensOps(
+	consumer names.Tag,
+) ([]txn.Op, error) {
+	coll, closer := s.st.db().GetCollection(secretBackendIssuedTokensC)
+	defer closer()
+
+	now := s.st.clock().Now().UTC().Truncate(time.Second)
+
+	var ops []txn.Op
+	res := coll.Find(bson.M{
+		"consumer-tag": consumer.String(),
+	}).Iter()
+	defer closer()
+	var doc secretIssuedTokenDoc
+	for res.Next(&doc) {
+		if doc.ExpireTime.Before(now) {
+			continue
+		}
+		ops = append(ops, txn.Op{
+			C:      secretBackendIssuedTokensC,
+			Id:     doc.DocID,
+			Update: bson.D{{"$set", bson.D{{"expire-time", now}}}},
+		})
+	}
+	return ops, errors.Trace(res.Close())
 }

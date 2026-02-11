@@ -4130,6 +4130,85 @@ func (s *SecretsSuite) TestRemoveSecretBackendIssuedTokens(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *SecretsSuite) TestExpireSecretBackendIssuedTokensForConsumer(c *gc.C) {
+	now := s.Clock.Now()
+
+	// Create a token that expires in the future.
+	tokenFuture := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: now.Add(time.Hour),
+		BackendID:  "backend-id",
+		Consumer:   s.ownerUnit.Tag(),
+	}
+	err := s.store.CreateSecretBackendIssuedToken(tokenFuture)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create a token that is already expired.
+	tokenPast := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: now,
+		BackendID:  "backend-id",
+		Consumer:   s.ownerUnit.Tag(),
+	}
+	err = s.store.CreateSecretBackendIssuedToken(tokenPast)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check there is only one expired token.
+	tokens, err := s.store.ListSecretBackendIssuedTokenUntilForConsumer(
+		now, s.ownerUnit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(tokens, gc.HasLen, 1)
+
+	op := s.store.ExpireSecretBackendIssuedTokensForConsumer(s.ownerUnit.Tag())
+	err = s.State.ApplyOperation(op)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check there is now two expired tokens.
+	tokens, err = s.store.ListSecretBackendIssuedTokenUntilForConsumer(
+		s.Clock.Now(), s.ownerUnit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(tokens, gc.HasLen, 2)
+}
+
+func (s *SecretsSuite) TestExpireSecretBackendIssuedTokensForConsumerOnlyTargetConsumer(c *gc.C) {
+	now := s.Clock.Now()
+
+	// Create a token.
+	tokenUnit := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: now.Add(time.Hour),
+		BackendID:  "backend-id",
+		Consumer:   s.ownerUnit.Tag(),
+	}
+	err := s.store.CreateSecretBackendIssuedToken(tokenUnit)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create a token for a different consumer.
+	tokenApp := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: now.Add(time.Hour),
+		BackendID:  "backend-id",
+		Consumer:   s.owner.Tag(),
+	}
+	err = s.store.CreateSecretBackendIssuedToken(tokenApp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	op := s.store.ExpireSecretBackendIssuedTokensForConsumer(s.ownerUnit.Tag())
+	err = s.State.ApplyOperation(op)
+	c.Assert(err, jc.ErrorIsNil)
+
+	tokens, err := s.store.ListSecretBackendIssuedTokenUntilForConsumer(
+		s.Clock.Now(), s.ownerUnit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tokens, gc.HasLen, 1)
+
+	// The token for the different consumer should not be expired.
+	tokens, err = s.store.ListSecretBackendIssuedTokenUntilForConsumer(
+		s.Clock.Now(), s.owner.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(tokens, gc.HasLen, 0)
+}
+
 type SecretBackendIssuedTokenExpiryWatcherSuite struct {
 	testing.StateSuite
 	store state.SecretsStore
