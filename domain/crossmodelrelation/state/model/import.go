@@ -69,10 +69,10 @@ INSERT INTO offer (*) VALUES ($nameAndUUID.*)`, nameAndUUID{})
 }
 
 // ImportRemoteApplicationOfferers adds remote application offerers being
-// migrated to the current model. These are applications live in the consumer
-// model that this model is consuming from other models. The offerer application
-// is the synthetic application created in the consumer model to represent the
-// remote application being offered.
+// migrated to the current model. These are applications that live in the
+// consumer model standing in for applications from other models. The offerer
+// application is the synthetic application created in the consumer model to
+// represent the remote application being offered.
 func (st *State) ImportRemoteApplicationOfferers(ctx context.Context, imports []crossmodelrelation.RemoteApplicationOffererImport) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -152,10 +152,10 @@ VALUES ($remoteApplicationOfferer.*);
 }
 
 // ImportRemoteApplicationConsumers adds remote application consumers being
-// migrated to the current model. These are applications live in the offerer
-// model that this model is offering to other models. The consumer application
-// is the synthetic application created in the offerer model to represent the
-// remote application being offered.
+// migrated to the current model. These are applications that live in the
+// offerer model standing in for application from other models actively
+// consuming the offer. The consumer application is the synthetic application
+// created in the offerer model to represent the remote consuming application.
 func (st *State) ImportRemoteApplicationConsumers(ctx context.Context, imports []crossmodelrelation.RemoteApplicationConsumerImport) error {
 	db, err := st.DB(ctx)
 	if err != nil {

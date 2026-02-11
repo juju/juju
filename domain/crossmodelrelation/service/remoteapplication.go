@@ -647,10 +647,10 @@ func synthCharmHasOnlyOneEndpoint(endpoint string, ch charm.Charm) error {
 	providesSet := set.NewStrings(provides...)
 	requiresSet := set.NewStrings(requires...)
 	cnt := providesSet.Size() + requiresSet.Size()
-	if providesSet.Union(requiresSet).Contains(endpoint) && cnt == 1 {
-		return nil
-	} else if cnt > 1 {
+	if cnt > 1 {
 		return internalerrors.Errorf("application in relation has more than one potential endpoint").Add(relationerrors.AmbiguousRelation)
+	} else if providesSet.Union(requiresSet).Contains(endpoint) && cnt == 1 {
+		return nil
 	}
 	return internalerrors.Errorf("endpoint %q", endpoint).Add(relationerrors.RelationEndpointNotFound)
 }
