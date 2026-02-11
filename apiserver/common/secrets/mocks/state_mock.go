@@ -106,6 +106,20 @@ func (mr *MockSecretsStoreMockRecorder) DeleteSecret(arg0 any, arg1 ...any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecret", reflect.TypeOf((*MockSecretsStore)(nil).DeleteSecret), varargs...)
 }
 
+// ExpireSecretBackendIssuedTokensForConsumer mocks base method.
+func (m *MockSecretsStore) ExpireSecretBackendIssuedTokensForConsumer(arg0 names.Tag) state.ModelOperation {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExpireSecretBackendIssuedTokensForConsumer", arg0)
+	ret0, _ := ret[0].(state.ModelOperation)
+	return ret0
+}
+
+// ExpireSecretBackendIssuedTokensForConsumer indicates an expected call of ExpireSecretBackendIssuedTokensForConsumer.
+func (mr *MockSecretsStoreMockRecorder) ExpireSecretBackendIssuedTokensForConsumer(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExpireSecretBackendIssuedTokensForConsumer", reflect.TypeOf((*MockSecretsStore)(nil).ExpireSecretBackendIssuedTokensForConsumer), arg0)
+}
+
 // GetOwnedSecretMetadataAsApp mocks base method.
 func (m *MockSecretsStore) GetOwnedSecretMetadataAsApp(arg0 names.ApplicationTag, arg1 *secrets.URI) (*secrets.SecretMetadataOwnerIdent, error) {
 	m.ctrl.T.Helper()
