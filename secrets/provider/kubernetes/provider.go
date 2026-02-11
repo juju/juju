@@ -1161,11 +1161,23 @@ func (k *kubernetesClient) revokeSecretAccessToken(
 }
 
 // filterRemovedSecretsPolicyRules removes from the given rules access to the
-// specified secret revisions.
+// specified secret revisions. When the second return value is false, the policy
+// is already up to date.
 func filterRemovedSecretsPolicyRules(
 	rules []rbacv1.PolicyRule, removed []string,
-) []rbacv1.PolicyRule {
+) ([]rbacv1.PolicyRule, bool) {
 	toRemove := set.NewStrings(removed...)
+	needChange := false
+	for _, rule := range rules {
+		if slices.Contains(rule.Resources, "secrets") &&
+			slices.ContainsFunc(rule.ResourceNames, toRemove.Contains) {
+			needChange = true
+			break
+		}
+	}
+	if !needChange {
+		return nil, false
+	}
 	var out []rbacv1.PolicyRule
 	for _, rule := range rules {
 		if slices.Contains(rule.Resources, "secrets") {
@@ -1177,7 +1189,7 @@ func filterRemovedSecretsPolicyRules(
 		}
 		out = append(out, rule)
 	}
-	return out
+	return out, true
 }
 
 func (k *kubernetesClient) dropSecretAccess(
@@ -1194,8 +1206,12 @@ func (k *kubernetesClient) dropSecretAccess(
 		return errors.Trace(err)
 	}
 	for _, clusterRole := range clusterRoles.Items {
-		clusterRole.Rules = filterRemovedSecretsPolicyRules(
+		var changed bool
+		clusterRole.Rules, changed = filterRemovedSecretsPolicyRules(
 			clusterRole.Rules, removed)
+		if !changed {
+			continue
+		}
 		_, err := k.updateClusterRole(ctx, &clusterRole)
 		if errors.Is(err, errors.NotFound) {
 			continue
@@ -1209,7 +1225,11 @@ func (k *kubernetesClient) dropSecretAccess(
 		return errors.Trace(err)
 	}
 	for _, role := range roles.Items {
-		role.Rules = filterRemovedSecretsPolicyRules(role.Rules, removed)
+		var changed bool
+		role.Rules, changed = filterRemovedSecretsPolicyRules(role.Rules, removed)
+		if !changed {
+			continue
+		}
 		_, err := k.updateRole(ctx, &role)
 		if errors.Is(err, errors.NotFound) {
 			continue

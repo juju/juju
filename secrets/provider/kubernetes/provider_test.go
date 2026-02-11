@@ -330,6 +330,181 @@ func (s *providerSuite) TestCleanupSecrets(c *gc.C) {
 	s.checkEnsureSecretAccessToken(c, consumer, "gitlab", nil, nil)
 }
 
+func (s *providerSuite) TestCleanupSecretsOnlyUpdatesAffectedRoles(c *gc.C) {
+	defer s.setupK8s(c)()
+	ctx := context.Background()
+
+	matchingLabels := map[string]string{
+		"app.kubernetes.io/managed-by": "juju",
+		"model.juju.is/name":           "fred",
+		"secrets.juju.is/model-name":   "fred",
+		"secrets.juju.is/model-id":     coretesting.ModelTag.Id(),
+	}
+
+	// Create a role that references revisions to be removed (and one to keep).
+	_, err := s.k8sClient.RbacV1().Roles(s.namespace).Create(ctx, &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "affected-role",
+			Namespace: s.namespace,
+			Labels:    matchingLabels,
+		},
+		Rules: []rbacv1.PolicyRule{{
+			Verbs:         []string{"get"},
+			APIGroups:     []string{"*"},
+			Resources:     []string{"secrets"},
+			ResourceNames: []string{"rev-1", "rev-2", "rev-keep"},
+		}},
+	}, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create a role that does NOT reference any revisions to be removed.
+	_, err = s.k8sClient.RbacV1().Roles(s.namespace).Create(ctx, &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "unaffected-role",
+			Namespace: s.namespace,
+			Labels:    matchingLabels,
+		},
+		Rules: []rbacv1.PolicyRule{{
+			Verbs:         []string{"get"},
+			APIGroups:     []string{"*"},
+			Resources:     []string{"secrets"},
+			ResourceNames: []string{"rev-3", "rev-4"},
+		}},
+	}, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Clear recorded actions from setup, this is required to make sure that no
+	// call was made to patch the unaffected roles.
+	s.k8sClient.ClearActions()
+
+	tag := names.NewUnitTag("gitlab/0")
+	p, err := provider.Provider(kubernetes.BackendType)
+	c.Assert(err, jc.ErrorIsNil)
+	adminCfg := &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig:  s.backendConfig(),
+	}
+
+	err = p.CleanupSecrets(adminCfg, tag, provider.SecretRevisions{
+		"secret-1": set.NewStrings("rev-1", "rev-2"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that only one role had a call to patch it.
+	for _, action := range s.k8sClient.Actions() {
+		if !action.Matches("patch", "roles") {
+			continue
+		}
+		patched := action.(k8stesting.PatchAction)
+		c.Check(patched.GetName(), gc.Equals, "affected-role")
+	}
+
+	// Check that the role now has the right resource names.
+	res, err := s.k8sClient.RbacV1().Roles(s.namespace).Get(
+		ctx, "affected-role", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Rules, gc.HasLen, 1)
+	c.Check(res.Rules[0].ResourceNames, jc.DeepEquals, []string{"rev-keep"})
+
+	// Verify unaffected role is unchanged.
+	unaffectedRole, err := s.k8sClient.RbacV1().Roles(s.namespace).Get(
+		ctx, "unaffected-role", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unaffectedRole.Rules, gc.HasLen, 1)
+	c.Check(unaffectedRole.Rules[0].ResourceNames, jc.DeepEquals, []string{
+		"rev-3", "rev-4",
+	})
+}
+
+func (s *providerSuite) TestCleanupSecretsOnlyUpdatesAffectedClusterRoles(c *gc.C) {
+	defer s.setupK8s(c)()
+	ctx := context.Background()
+
+	matchingLabels := map[string]string{
+		"app.kubernetes.io/managed-by": "juju",
+		"model.juju.is/name":           "fred",
+		"secrets.juju.is/model-name":   "fred",
+		"secrets.juju.is/model-id":     coretesting.ModelTag.Id(),
+	}
+
+	// Create a cluster role that references the revisions to be removed.
+	_, err := s.k8sClient.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "affected-cluster-role",
+			Labels: matchingLabels,
+		},
+		Rules: []rbacv1.PolicyRule{{
+			Verbs:         []string{"get"},
+			APIGroups:     []string{"*"},
+			Resources:     []string{"secrets"},
+			ResourceNames: []string{"rev-1", "rev-2", "rev-keep"},
+		}},
+	}, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create a cluster role that does NOT reference any revisions to be removed.
+	_, err = s.k8sClient.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "unaffected-cluster-role",
+			Labels: matchingLabels,
+		},
+		Rules: []rbacv1.PolicyRule{{
+			Verbs:         []string{"get"},
+			APIGroups:     []string{"*"},
+			Resources:     []string{"secrets"},
+			ResourceNames: []string{"rev-3", "rev-4"},
+		}},
+	}, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Clear recorded actions from setup, this is required to make sure that no
+	// call was made to patch the unaffected roles.
+	s.k8sClient.ClearActions()
+
+	tag := names.NewUnitTag("gitlab/0")
+	p, err := provider.Provider(kubernetes.BackendType)
+	c.Assert(err, jc.ErrorIsNil)
+	adminCfg := &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig:  s.backendConfig(),
+	}
+
+	err = p.CleanupSecrets(adminCfg, tag, provider.SecretRevisions{
+		"secret-1": set.NewStrings("rev-1", "rev-2"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that only one role had a call to patch it.
+	for _, action := range s.k8sClient.Actions() {
+		if !action.Matches("patch", "clusterroles") {
+			continue
+		}
+		patched := action.(k8stesting.PatchAction)
+		c.Check(patched.GetName(), gc.Equals, "affected-cluster-role")
+	}
+
+	// Check that the role now has the right resource names.
+	res, err := s.k8sClient.RbacV1().ClusterRoles().Get(
+		ctx, "affected-cluster-role", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Rules, gc.HasLen, 1)
+	c.Check(res.Rules[0].ResourceNames, jc.DeepEquals, []string{"rev-keep"})
+
+	// Check the other role is unchanged.
+	other, err := s.k8sClient.RbacV1().ClusterRoles().Get(
+		ctx, "unaffected-cluster-role", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(other.Rules, gc.HasLen, 1)
+	c.Check(other.Rules[0].ResourceNames, jc.DeepEquals, []string{
+		"rev-3",
+		"rev-4",
+	})
+}
+
 func (s *providerSuite) TestNewBackend(c *gc.C) {
 	defer s.setupK8s(c)()
 
