@@ -2919,6 +2919,12 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 	// CreateSecretURIs.
 	modelOps = append(modelOps, u.secrets.RemoveSecretReservations(unitTag))
 
+	// Expire any secret issued backend tokens that, by this point, should no
+	// longer be used by this agent.
+	modelOps = append(
+		modelOps, u.secrets.ExpireSecretBackendIssuedTokensForConsumer(unitTag),
+	)
+
 	// Apply all changes in a single transaction.
 	return u.st.ApplyOperation(state.ComposeModelOperations(modelOps...))
 }
