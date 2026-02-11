@@ -117,7 +117,7 @@ func (st *State) importRemoteApplicationOfferer(ctx context.Context, tx *sqlair.
 	}
 
 	// Create synthetic units for this remote application.
-	// These units are needed for relations to be offererorted successfully.
+	// These units are needed for relations to be imported successfully.
 	for _, unitName := range offerer.Units {
 		if err := st.insertUnit(ctx, tx, unitName, applicationUUID.String(), charmUUID.String()); err != nil {
 			return errors.Errorf("inserting synthetic unit %q: %w",

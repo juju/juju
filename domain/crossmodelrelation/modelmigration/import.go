@@ -484,16 +484,21 @@ func relationKeysEqual(a, b relation.Key) bool {
 		return false
 	}
 
-	sort.Slice(a, func(i, j int) bool {
-		return a[i].String() < a[j].String()
+	// Make defensive copies so that sorting does not mutate the caller's
+	// slices.
+	aCopy := append(relation.Key(nil), a...)
+	bCopy := append(relation.Key(nil), b...)
+
+	sort.Slice(aCopy, func(i, j int) bool {
+		return aCopy[i].String() < aCopy[j].String()
 	})
-	sort.Slice(b, func(i, j int) bool {
-		return b[i].String() < b[j].String()
+	sort.Slice(bCopy, func(i, j int) bool {
+		return bCopy[i].String() < bCopy[j].String()
 	})
 
 	// Note: we ignore scope here, as cross model relations do not have scopes
 	// when being imported.
-	return endpointEquals(a[0], b[0]) && endpointEquals(a[1], b[1])
+	return endpointEquals(aCopy[0], bCopy[0]) && endpointEquals(aCopy[1], bCopy[1])
 }
 
 func endpointEquals(a, b relation.EndpointIdentifier) bool {
