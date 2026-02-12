@@ -4,7 +4,6 @@
 package charms_test
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"strings"
@@ -37,7 +36,6 @@ func (s *charmDownloaderSuite) TestCharmOpener(c *gc.C) {
 		Doer:    mockHttpDoer,
 	}
 
-	mockCaller.EXPECT().Context().Return(context.TODO()).MinTimes(1)
 	mockCaller.EXPECT().HTTPClient().Return(reqClient, nil).MinTimes(1)
 
 	charmData := "charmdatablob"

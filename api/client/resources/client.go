@@ -4,6 +4,7 @@
 package resources
 
 import (
+	"context"
 	"io"
 	"strings"
 
@@ -114,7 +115,8 @@ func (c Client) Upload(application, name, filename, pendingID string, reader io.
 	}
 
 	var response params.UploadResult // ignored
-	if err := c.httpClient.Do(c.facade.RawAPICaller().Context(), req, &response); err != nil {
+	ctx := context.TODO()
+	if err := c.httpClient.Do(ctx, req, &response); err != nil {
 		return errors.Trace(err)
 	}
 

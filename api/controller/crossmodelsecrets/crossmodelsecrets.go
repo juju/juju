@@ -4,6 +4,7 @@
 package crossmodelsecrets
 
 import (
+	"context"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -60,7 +61,8 @@ func (c *Client) handleDischargeError(apiErr error) (macaroon.Slice, error) {
 	}
 
 	m := info.BakeryMacaroon
-	ms, err := c.facade.RawAPICaller().BakeryClient().DischargeAll(c.facade.RawAPICaller().Context(), m)
+	ctx := context.TODO()
+	ms, err := c.facade.RawAPICaller().BakeryClient().DischargeAll(ctx, m)
 	if err == nil && logger.IsTraceEnabled() {
 		logger.Tracef("discharge macaroon ids:")
 		for _, m := range ms {

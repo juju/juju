@@ -4,6 +4,7 @@
 package backups
 
 import (
+	"context"
 	"io"
 	"net/http"
 
@@ -27,8 +28,9 @@ func (c *Client) Download(filename string) (io.ReadCloser, error) {
 	}
 
 	var resp *http.Response
+	ctx := context.TODO()
 	err = httpClient.Call(
-		c.st.Context(),
+		ctx,
 		&downloadParams{
 			Body: params.BackupsDownloadArgs{
 				ID: filename,

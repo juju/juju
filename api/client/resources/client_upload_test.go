@@ -57,7 +57,6 @@ func (s *UploadSuite) TestUpload(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	ctx := context.TODO()
-	s.mockAPICaller.EXPECT().Context().Return(ctx)
 
 	data := "<data>"
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
@@ -129,7 +128,6 @@ func (s *UploadSuite) TestUploadFailed(c *gc.C) {
 	req.ContentLength = int64(len(data))
 
 	ctx := context.TODO()
-	s.mockAPICaller.EXPECT().Context().Return(ctx)
 	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any()).Return(errors.New("boom"))
 	err = s.client.Upload("a-application", "spam", "foo.zip", "", strings.NewReader(data))
 	c.Assert(err, gc.ErrorMatches, "boom")
@@ -207,7 +205,6 @@ func (s *UploadSuite) TestUploadPendingResource(c *gc.C) {
 	req.Header.Set("Content-Disposition", "form-data; filename=file.zip")
 
 	ctx := context.TODO()
-	s.mockAPICaller.EXPECT().Context().Return(ctx)
 	s.mockFacadeCaller.EXPECT().FacadeCall("AddPendingResources", &args, gomock.Any()).SetArg(2, results).Return(nil)
 	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any())
 
@@ -273,7 +270,6 @@ func (s *UploadSuite) TestUploadPendingResourceFailed(c *gc.C) {
 	req.Header.Set("Content-Disposition", "form-data; filename=file.zip")
 
 	ctx := context.TODO()
-	s.mockAPICaller.EXPECT().Context().Return(ctx)
 	s.mockFacadeCaller.EXPECT().FacadeCall("AddPendingResources", &args, gomock.Any()).SetArg(2, results).Return(nil)
 	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any()).Return(errors.New("boom"))
 

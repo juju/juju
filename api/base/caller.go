@@ -53,9 +53,6 @@ type APICaller interface {
 	// BakeryClient returns the bakery client for this connection.
 	BakeryClient() MacaroonDischarger
 
-	// Context returns the standard context for this connection.
-	Context() context.Context
-
 	StreamConnector
 	ControllerStreamConnector
 }

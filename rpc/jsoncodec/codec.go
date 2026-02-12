@@ -115,7 +115,7 @@ func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 	var m json.RawMessage
 	var version int
 	if err := c.conn.Receive(&m); err != nil {
-		if logger.IsLevelEnabled(loggo.TRACE) {
+		if logger.IsTraceEnabled() {
 			logger.Tracef("<- error: %v (closing %v)", err, c.isClosing())
 		}
 
@@ -127,7 +127,7 @@ func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 		return errors.Annotate(err, "receiving message")
 	}
 
-	if logger.IsLevelEnabled(loggo.TRACE) {
+	if logger.IsTraceEnabled() {
 		logger.Tracef("<- %s", m)
 	}
 	var err error
@@ -224,7 +224,7 @@ func (c *Codec) WriteMessage(hdr *rpc.Header, body interface{}) error {
 	if err != nil {
 		return errors.Annotate(err, "writing message")
 	}
-	if logger.IsLevelEnabled(loggo.TRACE) {
+	if logger.IsTraceEnabled() {
 		data, err := json.Marshal(msg)
 		if err != nil {
 			logger.Tracef("-> marshal error: %v", err)

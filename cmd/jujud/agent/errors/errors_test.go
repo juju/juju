@@ -4,6 +4,7 @@
 package errors_test
 
 import (
+	"context"
 	stderrors "errors"
 	"fmt"
 
@@ -178,7 +179,7 @@ type testConn struct {
 	broken bool
 }
 
-func (c *testConn) IsBroken() bool {
+func (c *testConn) IsBroken(_ context.Context) bool {
 	return c.broken
 }
 

@@ -60,13 +60,12 @@ func (s *ResourcesFacadeClientSuite) TestUnitDoer(c *gc.C) {
 	req, err := http.NewRequest("GET", "/resources/eggs", body)
 	c.Assert(err, jc.ErrorIsNil)
 	var resp *http.Response
-	doer := uniter.NewUnitHTTPClient(context.Background(), s.api, "spam/1")
+	doer := uniter.NewUnitHTTPClient(s.api, "spam/1")
 
 	err = doer.Do(context.Background(), req, &resp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Do")
-	//s.stub.CheckCall(c, 0, "Do", expected, body, resp)
 	c.Check(req.URL.Path, gc.Equals, "/units/spam/1/resources/eggs")
 }
 
@@ -99,9 +98,7 @@ func (s *stubAPI) BestFacadeVersion(_ string) int {
 }
 
 func (s *stubAPI) HTTPClient() (*httprequest.Client, error) {
-	return &httprequest.Client{
-		//Doer: func,
-	}, nil
+	return &httprequest.Client{}, nil
 }
 
 func (s *stubAPI) APICall(objType string, version int, id, request string, args, response interface{}) error {

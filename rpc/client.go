@@ -84,14 +84,14 @@ func (conn *Conn) send(call *Call) uint64 {
 	if conn.dead == nil {
 		call.Error = errors.New("rpc: call made when connection not started")
 		conn.mutex.Unlock()
-		call.done(conn.context)
+		call.done()
 		return 0
 	}
 	if conn.closing || conn.shutdown {
 		call.Error = errors.Annotate(ErrShutdown,
 			"connection is shutdown before send")
 		conn.mutex.Unlock()
-		call.done(conn.context)
+		call.done()
 		return 0
 	}
 	conn.reqId++
@@ -117,7 +117,7 @@ func (conn *Conn) send(call *Call) uint64 {
 		conn.mutex.Unlock()
 		if call != nil {
 			call.Error = err
-			call.done(conn.context)
+			call.done()
 		}
 	}
 
@@ -177,18 +177,15 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 			Info:    hdr.ErrorInfo,
 		}
 		err = conn.readBody(nil, false)
-		call.done(conn.context)
+		call.done()
 	default:
 		err = conn.readBody(call.Response, false)
-		call.done(conn.context)
+		call.done()
 	}
-	if err != nil {
-		return errors.Annotatef(err, "error handling response")
-	}
-	return nil
+	return errors.Annotatef(err, "error handling response")
 }
 
-func (call *Call) done(ctx context.Context) {
+func (call *Call) done() {
 	select {
 	case call.Done <- call:
 		// ok

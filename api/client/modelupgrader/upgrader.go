@@ -4,6 +4,7 @@
 package modelupgrader
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -86,7 +87,8 @@ func (c *Client) UploadTools(r io.ReadSeeker, vers version.Binary) (tools.List, 
 		return nil, errors.Trace(err)
 	}
 
-	if err := httpClient.Do(c.facade.RawAPICaller().Context(), req, &resp); err != nil {
+	ctx := context.TODO()
+	if err := httpClient.Do(ctx, req, &resp); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return resp.ToolsList, nil

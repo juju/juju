@@ -201,7 +201,6 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 	}
 
 	st := &state{
-		ctx:                 context.Background(),
 		client:              client,
 		conn:                dialResult.conn,
 		clock:               opts.Clock,
@@ -316,11 +315,6 @@ func (t *hostSwitchingTransport) RoundTrip(req *http.Request) (*http.Response, e
 	return t.fallback.RoundTrip(req)
 }
 
-// Context returns the context associated with this state.
-func (st *state) Context() context.Context {
-	return st.ctx
-}
-
 // ConnectStream implements StreamConnector.ConnectStream. The stream
 // returned will apply a 30-second write deadline, so WriteJSON should
 // only be called from one goroutine.
@@ -329,7 +323,8 @@ func (st *state) ConnectStream(path string, attrs url.Values) (base.Stream, erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	conn, err := st.connectStreamWithRetry(path, attrs, nil)
+	ctx := context.TODO()
+	conn, err := st.connectStreamWithRetry(ctx, path, attrs, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -348,14 +343,15 @@ func (st *state) ConnectControllerStream(path string, attrs url.Values, headers 
 	if strings.HasPrefix(path, modelRoot) {
 		return nil, errors.Errorf("path %q is model-specific", path)
 	}
-	conn, err := st.connectStreamWithRetry(path, attrs, headers)
+	ctx := context.TODO()
+	conn, err := st.connectStreamWithRetry(ctx, path, attrs, headers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return conn, nil
 }
 
-func (st *state) connectStreamWithRetry(path string, attrs url.Values, headers http.Header) (base.Stream, error) {
+func (st *state) connectStreamWithRetry(ctx context.Context, path string, attrs url.Values, headers http.Header) (base.Stream, error) {
 	if !st.isLoggedIn() {
 		return nil, errors.New("cannot use ConnectStream without logging in")
 	}
@@ -372,7 +368,7 @@ func (st *state) connectStreamWithRetry(path string, attrs url.Values, headers h
 	if params.ErrCode(err) != params.CodeDischargeRequired {
 		return nil, errors.Trace(err)
 	}
-	if err := st.bakeryClient.HandleError(st.ctx, st.cookieURL, bakeryError(err)); err != nil {
+	if err := st.bakeryClient.HandleError(ctx, st.cookieURL, bakeryError(err)); err != nil {
 		return nil, errors.Trace(err)
 	}
 	// Try again with the discharged macaroon.
@@ -1238,9 +1234,7 @@ func isX509Error(err error) bool {
 // object id, and the specific RPC method. It marshalls the Arguments, and will
 // unmarshall the result into the response object that is supplied.
 func (s *state) APICall(facade string, vers int, id, method string, args, response interface{}) error {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
+	ctx := context.TODO()
 	err := s.client.Call(ctx, rpc.Request{
 		Type:    facade,
 		Version: vers,

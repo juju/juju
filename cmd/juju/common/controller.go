@@ -33,11 +33,6 @@ var (
 	bootstrapReadyPollCount = 60
 )
 
-type listBlocksAPI interface {
-	List() ([]params.Block, error)
-	Close() error
-}
-
 // TryAPI attempts to open the API.
 func TryAPI(c *modelcmd.ModelCommandBase) error {
 	dialOpts := api.DefaultDialOpts()
@@ -149,8 +144,8 @@ func WaitForAgentInitialisation(
 	case !errors.Is(err, unknownError):
 		err = retry.LastError(err)
 	}
-	return errors.Errorf(
-		"unable to contact api server after %d attempts: %w", apiAttempts, err,
+	return errors.Annotatef(err,
+		"unable to contact api server after %d attempts", apiAttempts,
 	)
 }
 

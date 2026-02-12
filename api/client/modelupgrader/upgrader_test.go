@@ -4,6 +4,7 @@
 package modelupgrader_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -85,7 +86,6 @@ func (s *UpgradeModelSuite) TestUploadTools(c *gc.C) {
 	defer ctrl.Finish()
 	apiCaller := mocks.NewMockAPICallCloser(ctrl)
 	doer := mocks.NewMockDoer(ctrl)
-	ctx := mocks.NewMockContext(ctrl)
 
 	req, err := http.NewRequest(
 		"POST",
@@ -96,7 +96,7 @@ func (s *UpgradeModelSuite) TestUploadTools(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	req.Header.Set("Content-Type", "application/x-tar-gz")
-	req = req.WithContext(ctx)
+	req = req.WithContext(context.TODO())
 
 	resp := &http.Response{
 		Request:    req,
@@ -109,7 +109,6 @@ func (s *UpgradeModelSuite) TestUploadTools(c *gc.C) {
 	gomock.InOrder(
 		apiCaller.EXPECT().BestFacadeVersion("ModelUpgrader").Return(1),
 		apiCaller.EXPECT().HTTPClient().Return(&httprequest.Client{Doer: doer}, nil),
-		apiCaller.EXPECT().Context().Return(ctx),
 		doer.EXPECT().Do(req).Return(resp, nil),
 	)
 

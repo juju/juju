@@ -40,13 +40,13 @@ type CharmOpener interface {
 }
 
 type charmOpener struct {
-	ctx        context.Context
 	httpClient http.HTTPDoer
 }
 
 func (s *charmOpener) OpenCharm(curl string) (io.ReadCloser, error) {
 	uri, query := openCharmArgs(curl)
-	return http.OpenURI(s.ctx, s.httpClient, uri, query)
+	ctx := context.TODO()
+	return http.OpenURI(ctx, s.httpClient, uri, query)
 }
 
 // NewCharmOpener returns a charm opener for the specified caller.
@@ -56,7 +56,6 @@ func NewCharmOpener(apiConn base.APICaller) (CharmOpener, error) {
 		return nil, errors.Trace(err)
 	}
 	return &charmOpener{
-		ctx:        apiConn.Context(),
 		httpClient: httpClient,
 	}, nil
 }

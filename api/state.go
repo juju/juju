@@ -26,7 +26,6 @@ import (
 
 // state is the internal implementation of the Connection interface.
 type state struct {
-	ctx    context.Context
 	client rpcConnection
 	conn   jsoncodec.JSONConn
 	clock  clock.Clock

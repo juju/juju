@@ -4,6 +4,7 @@
 package migrationtarget
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -125,7 +126,8 @@ func (c *Client) UploadCharm(modelUUID string, curl string, charmRef string, con
 	headers := map[string]string{
 		"Juju-Curl": curl,
 	}
-	if err := c.httpPut(modelUUID, content, apiURI.String(), contentType, headers, &resp); err != nil {
+	ctx := context.TODO()
+	if err := c.httpPut(ctx, modelUUID, content, apiURI.String(), contentType, headers, &resp); err != nil {
 		return "", errors.Trace(err)
 	}
 
@@ -142,7 +144,8 @@ func (c *Client) UploadTools(modelUUID string, r io.ReadSeeker, vers version.Bin
 	endpoint := fmt.Sprintf("/migrate/tools?binaryVersion=%s", vers)
 	contentType := "application/x-tar-gz"
 	var resp params.ToolsResult
-	if err := c.httpPost(modelUUID, r, endpoint, contentType, nil, &resp); err != nil {
+	ctx := context.TODO()
+	if err := c.httpPost(ctx, modelUUID, r, endpoint, contentType, nil, &resp); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return resp.ToolsList, nil
@@ -152,7 +155,8 @@ func (c *Client) UploadTools(modelUUID string, r io.ReadSeeker, vers version.Bin
 func (c *Client) UploadResource(modelUUID string, res resources.Resource, r io.ReadSeeker) error {
 	args := makeResourceArgs(res)
 	args.Add("application", res.ApplicationID)
-	err := c.resourcePost(modelUUID, args, r)
+	ctx := context.TODO()
+	err := c.resourcePost(ctx, modelUUID, args, r)
 	return errors.Trace(err)
 }
 
@@ -160,7 +164,8 @@ func (c *Client) UploadResource(modelUUID string, res resources.Resource, r io.R
 func (c *Client) SetPlaceholderResource(modelUUID string, res resources.Resource) error {
 	args := makeResourceArgs(res)
 	args.Add("application", res.ApplicationID)
-	err := c.resourcePost(modelUUID, args, nil)
+	ctx := context.TODO()
+	err := c.resourcePost(ctx, modelUUID, args, nil)
 	return errors.Trace(err)
 }
 
@@ -168,14 +173,15 @@ func (c *Client) SetPlaceholderResource(modelUUID string, res resources.Resource
 func (c *Client) SetUnitResource(modelUUID, unit string, res resources.Resource) error {
 	args := makeResourceArgs(res)
 	args.Add("unit", unit)
-	err := c.resourcePost(modelUUID, args, nil)
+	ctx := context.TODO()
+	err := c.resourcePost(ctx, modelUUID, args, nil)
 	return errors.Trace(err)
 }
 
-func (c *Client) resourcePost(modelUUID string, args url.Values, r io.ReadSeeker) error {
+func (c *Client) resourcePost(ctx context.Context, modelUUID string, args url.Values, r io.ReadSeeker) error {
 	uri := "/migrate/resources?" + args.Encode()
 	contentType := "application/octet-stream"
-	err := c.httpPost(modelUUID, r, uri, contentType, nil, nil)
+	err := c.httpPost(ctx, modelUUID, r, uri, contentType, nil, nil)
 	return errors.Trace(err)
 }
 
@@ -198,15 +204,15 @@ func makeResourceArgs(res resources.Resource) url.Values {
 	return args
 }
 
-func (c *Client) httpPost(modelUUID string, content io.ReadSeeker, endpoint, contentType string, headers map[string]string, response interface{}) error {
-	return c.http("POST", modelUUID, content, endpoint, contentType, headers, response)
+func (c *Client) httpPost(ctx context.Context, modelUUID string, content io.ReadSeeker, endpoint, contentType string, headers map[string]string, response interface{}) error {
+	return c.http(ctx, "POST", modelUUID, content, endpoint, contentType, headers, response)
 }
 
-func (c *Client) httpPut(modelUUID string, content io.ReadSeeker, endpoint, contentType string, headers map[string]string, response interface{}) error {
-	return c.http("PUT", modelUUID, content, endpoint, contentType, headers, response)
+func (c *Client) httpPut(ctx context.Context, modelUUID string, content io.ReadSeeker, endpoint, contentType string, headers map[string]string, response interface{}) error {
+	return c.http(ctx, "PUT", modelUUID, content, endpoint, contentType, headers, response)
 }
 
-func (c *Client) http(method, modelUUID string, content io.ReadSeeker, endpoint, contentType string, headers map[string]string, response interface{}) error {
+func (c *Client) http(ctx context.Context, method, modelUUID string, content io.ReadSeeker, endpoint, contentType string, headers map[string]string, response interface{}) error {
 	req, err := http.NewRequest(method, endpoint, content)
 	if err != nil {
 		return errors.Annotate(err, "cannot create upload request")
@@ -223,7 +229,7 @@ func (c *Client) http(method, modelUUID string, content io.ReadSeeker, endpoint,
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(httpClient.Do(c.caller.RawAPICaller().Context(), req, response))
+	return errors.Trace(httpClient.Do(ctx, req, response))
 }
 
 // OpenLogTransferStream connects to the migration logtransfer
