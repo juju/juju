@@ -4622,3 +4622,33 @@ func (s *stateSuite) TestChangeSecretBackendFailed(c *tc.C) {
 	err = s.state.ChangeSecretBackend(ctx, uuid.MustNewUUID(), valueRefInput, dataInput)
 	c.Assert(err, tc.ErrorMatches, "both valueRef and data cannot be set")
 }
+
+func (s *stateSuite) TestUpdateSecretContentWithEmptyValues(c *tc.C) {
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		RevisionID: ptr(uuid.MustNewUUID().String()),
+	}
+	fillDataForUpsertSecretParams(c, &sp, coresecrets.SecretData{"foo": "bar", "empty": ""})
+	uri := coresecrets.NewURI()
+	ctx := c.Context()
+	err := s.createCharmUnitSecret(c, 1, uri, "mysql/0", sp)
+	c.Assert(err, tc.ErrorIsNil)
+
+	content, _, err := s.state.GetSecretValue(ctx, uri, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(content, tc.DeepEquals, coresecrets.SecretData{"foo": "bar", "empty": ""})
+
+	// Now update it, providing an empty value for an existing key and a new key.
+	sp2 := domainsecret.UpsertSecretParams{
+		RevisionID: ptr(uuid.MustNewUUID().String()),
+	}
+	fillDataForUpsertSecretParams(c, &sp2, coresecrets.SecretData{"foo": "", "new": "value", "another_empty": ""})
+	err = s.state.UpdateSecret(ctx, uri, sp2)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify that only "new" is in the second revision.
+	content, _, err = s.state.GetSecretValue(ctx, uri, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(content, tc.DeepEquals, coresecrets.SecretData{"foo": "", "new": "value", "another_empty": ""})
+}
