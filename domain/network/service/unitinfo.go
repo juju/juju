@@ -56,6 +56,8 @@ func (s *ProviderService) GetUnitRelationNetwork(ctx context.Context, unitName c
 // It returns exactly one info for each endpoint names passed in argument,
 // but doesn't enforce the order. Each info has an endpoint name that should
 // match one of the endpoint names, one info for each endpoint names.
+// If the provider does not support spaces, we choose the best candidate from
+// all unit addresses and return it for all the input endpoints.
 //
 // The following errors may be returned:
 // - [applicationerrors.UnitNotFound] if the unit does not exist
@@ -70,6 +72,25 @@ func (s *ProviderService) GetUnitEndpointNetworks(
 	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
 		return nil, internalerrors.Capture(err)
+	}
+
+	supportsNetworking, err := s.supportsNetworking(ctx)
+	if err != nil {
+		return nil, internalerrors.Errorf("checking provider networking support: %w", err)
+	}
+
+	if !supportsNetworking {
+		info, err := s.st.GetUnitNetwork(ctx, unitUUID.String())
+		if err != nil {
+			return nil, internalerrors.Errorf("getting unit network: %w", err)
+		}
+
+		infos := make([]network.UnitNetwork, len(endpointNames))
+		for i, endpointName := range endpointNames {
+			infos[i] = info
+			infos[i].EndpointName = endpointName
+		}
+		return infos, nil
 	}
 
 	result, err := s.st.GetUnitEndpointNetworks(ctx, unitUUID.String(), endpointNames)

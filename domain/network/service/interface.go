@@ -171,4 +171,10 @@ type NetworkInfoState interface {
 	// Returns if retrieval fails, or an empty list if the unit is not found or
 	// endpoints are inconsistent.
 	GetUnitEndpointNetworks(ctx context.Context, unitUUID string, endpointNames []string) ([]domainnetwork.UnitNetwork, error)
+
+	// GetUnitNetwork retrieves network information for the specified unit by
+	// selecting the best candidate from *all* unit addresses.
+	// This is used on providers that do not support spaces, and therefore can
+	// not factor endpoint bindings.
+	GetUnitNetwork(ctx context.Context, unitUUID string) (domainnetwork.UnitNetwork, error)
 }
