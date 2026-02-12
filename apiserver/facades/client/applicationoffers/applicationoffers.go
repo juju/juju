@@ -173,7 +173,7 @@ func (api *OffersAPI) Offer(ctx context.Context, all params.AddApplicationOffers
 		return handleErr(err), nil
 	}
 
-	err = crossModelRelationService.Offer(ctx, applicationOfferArgs)
+	err = crossModelRelationService.CreateOffer(ctx, applicationOfferArgs)
 	if errors.Is(err, crossmodelrelationerrors.OfferAlreadyExists) {
 		// We don't support updating offers via this API, so return an
 		// appropriate error.
