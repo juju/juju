@@ -58,6 +58,13 @@ type storageInstanceUUID entityUUID
 // unitUUID represents the UUID of a unit in the model.
 type unitUUID entityUUID
 
+// nameAndNetNodeUUID represents a pairing of a name and
+// net node uuid.
+type nameAndNetNodeUUID struct {
+	Name        string `db:"name"`
+	NetNodeUUID string `db:"net_node_uuid"`
+}
+
 // importStorageInstance represents a storage_instance.
 type importStorageInstance struct {
 	UUID            string `db:"uuid"`

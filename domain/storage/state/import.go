@@ -6,10 +6,15 @@ package state
 import (
 	"context"
 	"database/sql"
+	"strings"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/storage/internal"
 	"github.com/juju/juju/internal/errors"
 )
@@ -197,4 +202,90 @@ WHERE  u.name = $name.name`, name{}, nameAndUUID{})
 		return "", "", errors.Errorf("finding charm name and unit uuid for %q: %w", unitName, err)
 	}
 	return output.Name, output.UUID, nil
+}
+
+// GetNetNodeUUIDsByMachineOrUnitID returns net node UUIDs for all machine or
+// and unit names provided.
+//
+// The following errors may be returned:
+// - [applicationerrors.UnitNotFound] if not all net node UUIDs are found for the given units.
+// - [machineerrors.MachineNotFound] if not all net node UUIDs are found for the given machines.
+func (st *State) GetNetNodeUUIDsByMachineOrUnitName(ctx context.Context, machines []string, units []string) (map[string]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Remove duplicates and empty strings from the search
+	machineNames := set.NewStrings(machines...)
+	machineNames.Remove("")
+	unitNames := set.NewStrings(units...)
+	unitNames.Remove("")
+
+	if machineNames.Size() == 0 && unitNames.Size() == 0 {
+		return map[string]string{}, nil
+	}
+
+	type names []string
+	machineNetNodeStmt, err := st.Prepare(`
+SELECT (name, net_node_uuid) AS (&nameAndNetNodeUUID.*)
+FROM   machine
+WHERE  name IN ($names[:])
+`, names{}, nameAndNetNodeUUID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	unitNetNodeStmt, err := st.Prepare(`
+SELECT (name, net_node_uuid) AS (&nameAndNetNodeUUID.*)
+FROM   unit
+WHERE  name IN ($names[:])
+`, names{}, nameAndNetNodeUUID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var machineNetNodes, unitNetNodes []nameAndNetNodeUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if len(machineNames) > 0 {
+			tx.Query(ctx, machineNetNodeStmt, names(machineNames.Values())).GetAll(&machineNetNodes)
+			if errors.Is(err, sql.ErrNoRows) {
+				return errors.Errorf("machine(s) %q not found", strings.Join(machineNames.Values(), ", ")).Add(machineerrors.MachineNotFound)
+			} else if err != nil {
+				return errors.Errorf("getting machine net node UUIDs: %w", err)
+			}
+		}
+		if len(unitNames) == 0 {
+			return nil
+		}
+		tx.Query(ctx, unitNetNodeStmt, names(unitNames.Values())).GetAll(&unitNetNodes)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("units(s) %q not found", strings.Join(machineNames.Values(), ", ")).Add(applicationerrors.UnitNotFound)
+		} else if err != nil {
+			return errors.Errorf("getting unit net node UUIDs: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	if machineNames.Size() != len(machineNetNodes) {
+		missing := missingNames(machineNames, machineNetNodes)
+		return nil, errors.Errorf("machines(s) with names(s) %s not found", strings.Join(missing, ", ")).
+			Add(machineerrors.MachineNotFound)
+	}
+	if unitNames.Size() != len(unitNetNodes) {
+		missing := missingNames(unitNames, unitNetNodes)
+		return nil, errors.Errorf("units(s) with names(s) %s not found", strings.Join(missing, ", ")).
+			Add(applicationerrors.UnitNotFound)
+	}
+	return transform.SliceToMap(append(machineNetNodes, unitNetNodes...), func(in nameAndNetNodeUUID) (string, string) {
+		return in.Name, in.NetNodeUUID
+	}), nil
+}
+
+func missingNames(names set.Strings, data []nameAndNetNodeUUID) []string {
+	return names.
+		Difference(set.NewStrings(transform.Slice(data, func(in nameAndNetNodeUUID) string { return in.Name })...)).
+		SortedValues()
 }
