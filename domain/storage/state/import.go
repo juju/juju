@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"slices"
 
 	"github.com/canonical/sqlair"
 
@@ -197,4 +198,71 @@ WHERE  u.name = $name.name`, name{}, nameAndUUID{})
 		return "", "", errors.Errorf("finding charm name and unit uuid for %q: %w", unitName, err)
 	}
 	return output.Name, output.UUID, nil
+}
+
+// GetNetNodeUUIDsByMachineOrUnitID returns net node UUIDs for all machine or
+// and unit names provided. If a machine name or unit name is not found then it
+// is excluded from the result.
+func (st *State) GetNetNodeUUIDsByMachineOrUnitName(ctx context.Context, machines []string, units []string) (map[string]string, map[string]string, error) {
+	if len(machines)+len(units) == 0 {
+		return nil, nil, nil
+	}
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
+	slices.Sort(machines)
+	machines = slices.Compact(machines)
+	slices.Sort(units)
+	units = slices.Compact(units)
+
+	type machineNames []string
+	type unitNames []string
+	var (
+		machineNameInput = machineNames(machines)
+		unitNameInput    = unitNames(units)
+	)
+	stmt, err := st.Prepare(`
+SELECT &machineAndUnitNetNodeUUID.*
+FROM (
+    SELECT name AS machine_name,
+           net_node_uuid AS machine_net_node_uuid,
+           NULL AS unit_name,
+           NULL AS unit_net_node_uuid
+    FROM   machine
+    WHERE  name IN ($machineNames[:])
+    UNION
+    SELECT NULL AS machine_name,
+           NULL AS machine_net_node_uuid,
+           name AS unit_name,
+           net_node_uuid AS unit_net_node_uuid
+    FROM   unit
+    WHERE  name IN ($unitNames[:])
+) 
+`, machineNameInput, unitNameInput, machineAndUnitNetNodeUUID{})
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
+	var netNodeUUIDs []machineAndUnitNetNodeUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, machineNameInput, unitNameInput).GetAll(&netNodeUUIDs)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
+	machineMap := make(map[string]string, len(machineNameInput))
+	unitMap := make(map[string]string, len(unitNameInput))
+	for _, dbVal := range netNodeUUIDs {
+		if dbVal.MachineName.Valid {
+			machineMap[dbVal.MachineName.String] = dbVal.MachineNetNodeUUID.String
+		}
+		if dbVal.UnitName.Valid {
+			unitMap[dbVal.UnitName.String] = dbVal.UnitNetNodeUUID.String
+		}
+	}
+	return machineMap, unitMap, nil
 }
