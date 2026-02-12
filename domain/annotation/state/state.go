@@ -205,7 +205,6 @@ func (st *State) SetAnnotations(
 		return st.setAnnotationsForModel(ctx, unsetValues)
 	}
 	return st.setAnnotationsForID(ctx, id, unsetValues)
-
 }
 
 // setAnnotationsForID associates key/value pairs with the given ID.
