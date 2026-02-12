@@ -187,15 +187,24 @@ WHERE uuid = $annotationUUID.uuid`, tableName)
 // If an annotation already exists for the given ID, then it will be updated
 // with the given value. First all annotations are deleted, then the given pairs
 // are inserted, so unsetting an annotation is implicit.
+// Empty string values are treated as removed keys.
 func (st *State) SetAnnotations(
 	ctx context.Context,
 	id annotations.ID,
 	values map[string]string,
 ) error {
-	if id.Kind == annotations.KindModel {
-		return st.setAnnotationsForModel(ctx, values)
+	// Remain compatible with 3.6 by removing keys with empty values
+	unsetValues := map[string]string{}
+	for k, v := range values {
+		if v != "" {
+			unsetValues[k] = v
+		}
 	}
-	return st.setAnnotationsForID(ctx, id, values)
+
+	if id.Kind == annotations.KindModel {
+		return st.setAnnotationsForModel(ctx, unsetValues)
+	}
+	return st.setAnnotationsForID(ctx, id, unsetValues)
 
 }
 

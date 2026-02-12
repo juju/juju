@@ -251,6 +251,34 @@ func (s *stateSuite) TestSetAnnotationsUnset(c *tc.C) {
 	c.Assert(annotations2, tc.HasLen, 0)
 }
 
+// TestSetAnnotationsEmptyUnset asserts the 3.6 compatibility path
+func (s *stateSuite) TestSetAnnotationsEmptyUnset(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add a machine into the TABLE machine and an annotation (to be updated)
+	s.ensureMachine(c, "my-machine", "123")
+	s.ensureAnnotation(c, "machine", "123", "foo", "5")
+
+	id := annotations.ID{
+		Kind: annotations.KindMachine,
+		Name: "my-machine",
+	}
+
+	// Check that we only have the foo:5
+	annotations1, err := st.GetAnnotations(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(annotations1, tc.DeepEquals, map[string]string{"foo": "5"})
+
+	// Unset foo
+	err = st.SetAnnotations(c.Context(), id, map[string]string{"foo": ""})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Check the final annotation set
+	annotations2, err := st.GetAnnotations(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(annotations2, tc.HasLen, 0)
+}
+
 // TestSetAnnotationsUnsetModel asserts the happy path, unsets some annotations
 // in the DB for a model ID.
 func (s *stateSuite) TestSetAnnotationsUnsetModel(c *tc.C) {
@@ -264,6 +292,27 @@ func (s *stateSuite) TestSetAnnotationsUnsetModel(c *tc.C) {
 
 	// Unset foo
 	err := st.SetAnnotations(c.Context(), id, map[string]string{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Check the final annotation set
+	annotations2, err := st.GetAnnotations(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(annotations2, tc.HasLen, 0)
+}
+
+// TestSetAnnotationsEmptyUnsetModel asserts the 3.6 compatibility path
+// in the DB for a model ID.
+func (s *stateSuite) TestSetAnnotationsEmptyUnsetModel(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	s.ensureAnnotation(c, "model", "", "foo", "5")
+
+	id := annotations.ID{
+		Kind: annotations.KindModel,
+	}
+
+	// Unset foo
+	err := st.SetAnnotations(c.Context(), id, map[string]string{"foo": ""})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the final annotation set
