@@ -75,7 +75,7 @@ func (s *offerSuite) TestOffer(c *tc.C) {
 		Endpoints:       map[string]string{"db": "db"},
 		OwnerName:       user.NameFromTag(apiUserTag),
 	}
-	s.crossModelRelationService.EXPECT().Offer(gomock.Any(), createOfferArgs).Return(nil)
+	s.crossModelRelationService.EXPECT().CreateOffer(gomock.Any(), createOfferArgs).Return(nil)
 
 	one := params.AddApplicationOffer{
 		ModelTag:        modelTag.String(),
@@ -148,7 +148,7 @@ func (s *offerSuite) TestOfferOwnerViaArgs(c *tc.C) {
 		Endpoints:       map[string]string{"db": "db"},
 		OwnerName:       user.NameFromTag(offerOwnerTag),
 	}
-	s.crossModelRelationService.EXPECT().Offer(gomock.Any(), createOfferArgs).Return(nil)
+	s.crossModelRelationService.EXPECT().CreateOffer(gomock.Any(), createOfferArgs).Return(nil)
 
 	one := params.AddApplicationOffer{
 		ModelTag:        modelTag.String(),
@@ -197,7 +197,7 @@ func (s *offerSuite) TestOfferModelViaArgs(c *tc.C) {
 		Endpoints:       map[string]string{"db": "db"},
 		OwnerName:       user.NameFromTag(userTag),
 	}
-	s.crossModelRelationService.EXPECT().Offer(gomock.Any(), createOfferArgs).Return(nil)
+	s.crossModelRelationService.EXPECT().CreateOffer(gomock.Any(), createOfferArgs).Return(nil)
 
 	one := params.AddApplicationOffer{
 		ModelTag:        offerModelTag.String(),
@@ -234,7 +234,7 @@ func (s *offerSuite) TestOfferError(c *tc.C) {
 		Endpoints:       map[string]string{"db": "db"},
 		OwnerName:       user.NameFromTag(userTag),
 	}
-	s.crossModelRelationService.EXPECT().Offer(gomock.Any(), createOfferArgs).Return(errors.Errorf("boom"))
+	s.crossModelRelationService.EXPECT().CreateOffer(gomock.Any(), createOfferArgs).Return(errors.Errorf("boom"))
 
 	one := params.AddApplicationOffer{
 		ModelTag:        modelTag.String(),
