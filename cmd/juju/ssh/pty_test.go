@@ -6,12 +6,13 @@ import (
 	"testing"
 
 	"github.com/juju/cmd/v3"
-	"github.com/juju/juju/api/client/client"
-	jujussh "github.com/juju/juju/network/ssh"
-	"github.com/juju/juju/rpc/params"
 	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/api/client/client"
+	jujussh "github.com/juju/juju/network/ssh"
+	"github.com/juju/juju/rpc/params"
 )
 
 type PTYSuite struct{}
