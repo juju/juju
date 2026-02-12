@@ -142,8 +142,8 @@ func WaitForAgentInitialisation(
 	case !errors.Is(err, unknownError):
 		err = retry.LastError(err)
 	}
-	return errors.Errorf(
-		"unable to contact api server after %d attempts: %w", apiAttempts, err,
+	return errors.Annotatef(err,
+		"unable to contact api server after %d attempts", apiAttempts,
 	)
 }
 
