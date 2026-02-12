@@ -30,6 +30,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: "Squid"
+        run: ./.github/squid.sh
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -82,7 +85,7 @@ jobs:
             --model-default enable-os-upgrade=false
           juju switch controller
           juju wait-for application controller
-          
+
       - name: Migrate model to target controller
         run: |
           # Determine which Juju client to use
@@ -127,6 +130,6 @@ jobs:
 
           juju switch test-migrate
           juju wait-for application ubuntu
-          
+
           juju deploy ubuntu yet-another-ubuntu --base ubuntu@20.04
           juju wait-for application yet-another-ubuntu

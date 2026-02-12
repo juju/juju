@@ -17,6 +17,9 @@ jobs:
       - name: "Checkout"
         uses: actions/checkout@v4
 
+      - name: "Squid"
+        run: ./.github/squid.sh
+
       - name: "Set up Go"
         uses: actions/setup-go@v5
         with:

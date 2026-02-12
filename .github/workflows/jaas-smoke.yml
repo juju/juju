@@ -24,6 +24,9 @@ jobs:
       - name: Set up Docker Compose
         uses: docker/setup-compose-action@v1
 
+      - name: "Squid"
+        run: ./.github/squid.sh
+
       - name: Install Dependencies
         shell: bash
         run: |

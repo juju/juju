@@ -52,6 +52,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: "Squid"
+        run: ./.github/squid.sh
+
       - name: Remove LXD
         if: env.RUN_TEST == 'RUN'
         run: |
@@ -76,6 +79,8 @@ jobs:
 
           sourceJujuVersion=$(snap info juju | yq ".channels[\"${{ needs.setup.outputs.channel }}\"]" | cut -d' ' -f1)
           echo "source-juju-version=${sourceJujuVersion}" >> $GITHUB_OUTPUT
+
+          cat /home/ubuntu/actions-runner/pre-job.sh
         id: vars
 
       - name: Set up Go
@@ -101,12 +106,13 @@ jobs:
           echo "/snap/bin" >> $GITHUB_PATH
 
       - name: Setup Docker Mirror
-        if: matrix.cloud == 'microk8s' && github.repository_owner == 'juju'
+        if: matrix.cloud == 'microk8s' && env.DOCKERHUB_MIRROR != ''
         shell: bash
         run: |
-          (cat /etc/docker/daemon.json 2> /dev/null || echo "{}") | yq -o json '.registry-mirrors += ["https://docker-cache.us-west-2.aws.jujuqa.com:443"]' | sudo tee /etc/docker/daemon.json
+          (cat /etc/docker/daemon.json 2> /dev/null || echo "{}") | yq -o json ".registry-mirrors += [\"${DOCKERHUB_MIRROR}\"]" | sudo tee /etc/docker/daemon.json
           sudo systemctl restart docker
           docker system info
+          envsubst < $GITHUB_WORKSPACE/.github/microk8s-launch-config-mirror.yaml > $GITHUB_WORKSPACE/.github/microk8s-launch-config.yaml
 
       - name: Setup k8s
         if: matrix.cloud == 'microk8s'
@@ -114,7 +120,7 @@ jobs:
         with:
           channel: "1.34-strict/stable"
           addons: '["dns", "hostpath-storage"]'
-          launch-configuration: ${{ github.repository_owner == 'juju' && '$GITHUB_WORKSPACE/.github/microk8s-launch-config-aws.yaml' || '$GITHUB_WORKSPACE/.github/microk8s-launch-config.yaml' }}
+          launch-configuration: $GITHUB_WORKSPACE/.github/microk8s-launch-config.yaml
 
       - name: Install k8s Dependencies
         if: matrix.cloud == 'microk8s'
