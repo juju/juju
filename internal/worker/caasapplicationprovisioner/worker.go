@@ -85,6 +85,7 @@ type Runner interface {
 	Worker(id string, abort <-chan struct{}) (worker.Worker, error)
 	StartWorker(id string, startFunc func() (worker.Worker, error)) error
 	StopAndRemoveWorker(id string, abort <-chan struct{}) error
+	Report() map[string]any
 	worker.Worker
 }
 
@@ -229,4 +230,10 @@ func (p *provisioner) loop() error {
 			}
 		}
 	}
+}
+
+// Report calls onto the runner give back information about each application
+// worker for an engine report.
+func (p *provisioner) Report() map[string]any {
+	return p.runner.Report()
 }

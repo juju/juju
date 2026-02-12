@@ -42,6 +42,8 @@ type appWorker struct {
 	lastApplied caas.ApplicationConfig
 	life        life.Value
 	statusOnly  bool
+
+	engineReportRequest chan chan<- map[string]any
 }
 
 type AppWorkerConfig struct {
@@ -69,16 +71,17 @@ func NewAppWorker(config AppWorkerConfig) func() (worker.Worker, error) {
 		changes := make(chan struct{}, 1)
 		changes <- struct{}{}
 		a := &appWorker{
-			name:       config.Name,
-			facade:     config.Facade,
-			broker:     config.Broker,
-			modelTag:   config.ModelTag,
-			clock:      config.Clock,
-			logger:     config.Logger,
-			changes:    changes,
-			unitFacade: config.UnitFacade,
-			ops:        ops,
-			statusOnly: config.StatusOnly,
+			name:                config.Name,
+			facade:              config.Facade,
+			broker:              config.Broker,
+			modelTag:            config.ModelTag,
+			clock:               config.Clock,
+			logger:              config.Logger,
+			changes:             changes,
+			unitFacade:          config.UnitFacade,
+			ops:                 ops,
+			statusOnly:          config.StatusOnly,
+			engineReportRequest: make(chan chan<- map[string]any),
 		}
 		err := catacomb.Invoke(catacomb.Plan{
 			Site: &a.catacomb,
@@ -187,9 +190,9 @@ func (a *appWorker) loop() error {
 		return errors.Annotatef(err, "failed to watch for application %q units changes", a.name)
 	}
 
-	done := false
-
 	var (
+		done                = false // done is true when the app is dead and cleaned up.
+		ready               = false // ready is true when the k8s resources are created.
 		initial             = true
 		scaleChan           <-chan time.Time
 		scaleTries          int
@@ -273,6 +276,8 @@ func (a *appWorker) loop() error {
 				}
 				replicaChanges = replicaWatcher.Changes()
 			}
+			a.logger.Debugf("application %q is ready", a.name)
+			ready = true
 		case life.Dying:
 			if !a.statusOnly {
 				err = a.ops.AppDying(a.name, app, a.life, a.facade, a.unitFacade, a.logger)
@@ -280,6 +285,7 @@ func (a *appWorker) loop() error {
 					return errors.Trace(err)
 				}
 			}
+			ready = false
 		case life.Dead:
 			if !a.statusOnly {
 				err = a.ops.AppDying(a.name, app, a.life, a.facade, a.unitFacade, a.logger)
@@ -292,6 +298,7 @@ func (a *appWorker) loop() error {
 				}
 			}
 			done = true
+			ready = false
 			return nil
 		default:
 			return errors.NotImplementedf("unknown life %q", a.life)
@@ -299,6 +306,8 @@ func (a *appWorker) loop() error {
 		return nil
 	}
 
+	refreshTimer := a.clock.NewTimer(10 * time.Second)
+	defer refreshTimer.Stop()
 	for {
 		shouldRefresh := true
 		select {
@@ -314,6 +323,11 @@ func (a *appWorker) loop() error {
 		case <-scaleChan:
 			if a.statusOnly {
 				scaleChan = nil
+				break
+			}
+			if !ready {
+				scaleChan = a.clock.After(retryDelay)
+				shouldRefresh = false
 				break
 			}
 			err := a.ops.EnsureScale(a.name, app, a.life, a.facade, a.unitFacade, a.logger)
@@ -344,6 +358,11 @@ func (a *appWorker) loop() error {
 		case <-trustChan:
 			if a.statusOnly {
 				trustChan = nil
+				break
+			}
+			if !ready {
+				trustChan = a.clock.After(retryDelay)
+				shouldRefresh = false
 				break
 			}
 			err := a.ops.EnsureTrust(a.name, app, a.unitFacade, a.logger)
@@ -419,8 +438,32 @@ func (a *appWorker) loop() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-		case <-a.clock.After(10 * time.Second):
+		case <-refreshTimer.Chan():
 			// Force refresh of application status.
+		case reportChan := <-a.engineReportRequest:
+			// Respond to engine reports.
+			var reportErrors []string
+			ps, err := a.facade.ProvisioningState(a.name)
+			if err != nil {
+				reportErrors = append(reportErrors, err.Error())
+			}
+			if ps == nil {
+				ps = &params.CAASApplicationProvisioningState{}
+			}
+			report := map[string]any{
+				"application-name": a.name,
+				"status-only":      a.statusOnly,
+				"application-life": a.life,
+				"scale-target":     ps.ScaleTarget,
+				"scaling":          ps.Scaling,
+				"report-error":     reportErrors,
+			}
+			select {
+			case reportChan <- report:
+			case <-a.catacomb.Dying():
+				return a.catacomb.ErrDying()
+			}
+			shouldRefresh = false
 		}
 		if done {
 			return nil
@@ -430,5 +473,21 @@ func (a *appWorker) loop() error {
 				return errors.Annotatef(err, "refreshing application status for %q", a.name)
 			}
 		}
+	}
+}
+
+// Report returns a report about this application provisioner.
+func (a *appWorker) Report() map[string]any {
+	reportChan := make(chan map[string]any)
+	select {
+	case a.engineReportRequest <- reportChan:
+	case <-a.catacomb.Dying():
+		return nil
+	}
+	select {
+	case report := <-reportChan:
+		return report
+	case <-a.catacomb.Dying():
+		return nil
 	}
 }
