@@ -49,9 +49,9 @@ func (st *State) GetFilesystemUUIDsByMachines(
 	// It is possible that a filesystem is attached to more then one machine.
 	// For that reason we MUST make sure we only return the Filesystem UUID once.
 	selectQ := `
-SELECT DISTINCT sf.uuid AS (&entityUUID.uuid)
+SELECT DISTINCT sf.uuid AS &entityUUID.uuid
 FROM   storage_filesystem sf
-JOIN   storage_filesystem_attachment sfa ON sf.uuid = sfa.filesystem_uuid
+JOIN   storage_filesystem_attachment sfa ON sf.uuid = sfa.storage_filesystem_uuid
 JOIN   machine m ON sfa.net_node_uuid = m.net_node_uuid
 WHERE  m.uuid IN ($machineUUIDs[:])
 `

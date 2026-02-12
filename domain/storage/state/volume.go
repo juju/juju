@@ -49,9 +49,9 @@ func (st *State) GetVolumeUUIDsByMachines(
 	// It is possible that a volume is attached to more then one machine.
 	// For that reason we MUST make sure we only return the Volume UUID once.
 	selectQ := `
-SELECT DISTINCT sv.uuid AS (&entityUUID.uuid)
+SELECT DISTINCT sv.uuid AS &entityUUID.uuid
 FROM   storage_volume sv
-JOIN   storage_volume_attachment sva ON sv.uuid = sva.volume_uuid
+JOIN   storage_volume_attachment sva ON sv.uuid = sva.storage_volume_uuid
 JOIN   machine m ON sva.net_node_uuid = m.net_node_uuid
 WHERE  m.uuid IN ($machineUUIDs[:])
 `
