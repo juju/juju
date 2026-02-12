@@ -390,6 +390,103 @@ func (s *storagePoolStateSuite) TestSetModelStoragePoolsDeduplicatesUUIDs(c *tc.
 	c.Check(err, tc.ErrorIsNil)
 }
 
+func (s *storagePoolStateSuite) TestGetStoragePoolNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	_, err := st.GetStoragePool(c.Context(), poolUUID)
+	c.Check(err, tc.ErrorIs, domainstorageerrors.StoragePoolNotFound)
+}
+
+func (s *storagePoolStateSuite) TestGetStoragePoolProvidersByNames(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Arrange
+	err := st.CreateStoragePool(c.Context(), domainstorageinternal.CreateStoragePool{
+		Name:         "foo",
+		ProviderType: domainstorage.ProviderType("bar"),
+		UUID:         tc.Must(c, domainstorage.NewStoragePoolUUID),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.CreateStoragePool(c.Context(), domainstorageinternal.CreateStoragePool{
+		Name:         "bar",
+		ProviderType: domainstorage.ProviderType("foo"),
+		UUID:         tc.Must(c, domainstorage.NewStoragePoolUUID),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	providers, err := st.GetStoragePoolProvidersByNames(c.Context(), []string{"foo", "bar"})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(providers, tc.DeepEquals, map[string]string{
+		"foo": "bar",
+		"bar": "foo",
+	})
+}
+
+func (s *storagePoolStateSuite) TestGetStoragePoolProvidersByNamesDuplicateNames(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Arrange
+	err := st.CreateStoragePool(c.Context(), domainstorageinternal.CreateStoragePool{
+		Name:         "foo",
+		ProviderType: domainstorage.ProviderType("bar"),
+		UUID:         tc.Must(c, domainstorage.NewStoragePoolUUID),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.CreateStoragePool(c.Context(), domainstorageinternal.CreateStoragePool{
+		Name:         "bar",
+		ProviderType: domainstorage.ProviderType("foo"),
+		UUID:         tc.Must(c, domainstorage.NewStoragePoolUUID),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	providers, err := st.GetStoragePoolProvidersByNames(c.Context(), []string{"foo", "bar", "bar"})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(providers, tc.DeepEquals, map[string]string{
+		"foo": "bar",
+		"bar": "foo",
+	})
+}
+
+func (s *storagePoolStateSuite) TestGetStoragePoolProvidersByNamesMiss(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Arrange
+	err := st.CreateStoragePool(c.Context(), domainstorageinternal.CreateStoragePool{
+		Name:         "foo",
+		ProviderType: domainstorage.ProviderType("bar"),
+		UUID:         tc.Must(c, domainstorage.NewStoragePoolUUID),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.CreateStoragePool(c.Context(), domainstorageinternal.CreateStoragePool{
+		Name:         "bar",
+		ProviderType: domainstorage.ProviderType("foo"),
+		UUID:         tc.Must(c, domainstorage.NewStoragePoolUUID),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	_, err = st.GetStoragePoolProvidersByNames(c.Context(), []string{"foo", "bar", "baz", "qux"})
+
+	// Assert
+	c.Check(err, tc.ErrorIs, domainstorageerrors.StoragePoolNotFound)
+}
+
+func (s *storagePoolStateSuite) TestGetStoragePoolProvidersByNamesNoPools(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.GetStoragePoolProvidersByNames(c.Context(), []string{"foo", "bar"})
+
+	c.Check(err, tc.ErrorIs, domainstorageerrors.StoragePoolNotFound)
+}
+
 // getModelStoragePools is a helper method to fetch model storage pools from DB.
 func (s *storagePoolStateSuite) getModelStoragePools(
 	c *tc.C,

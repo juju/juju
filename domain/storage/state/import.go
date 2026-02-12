@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// ImportStorageInstances creates new storage instances and storage unit
+// ImportStorageInstances imports storage instances and storage unit
 // owners. Storage unit owners are created if the unit name is provided.
 func (st *State) ImportStorageInstances(ctx context.Context, args []internal.ImportStorageInstanceArgs) error {
 	db, err := st.DB(ctx)
@@ -48,6 +48,70 @@ INSERT INTO storage_unit_owner (*) VALUES ($importStorageUnitOwner.*)`, importSt
 		err = tx.Query(ctx, insertUnitOwnerStmt, storageUnitOwners).Run()
 		if err != nil {
 			return errors.Errorf("inserting storage unit owner rows: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+// ImportFilesystems imports filesystems from the provided parameters.
+func (st *State) ImportFilesystems(ctx context.Context, args []internal.ImportFilesystemArgs) error {
+	if len(args) == 0 {
+		return nil
+	}
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertStorageFilesystemStmt, err := st.Prepare(`
+	INSERT INTO storage_filesystem (*) VALUES ($importStorageFilesystem.*)`, importStorageFilesystem{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertStorageInstanceFilesystemStmt, err := st.Prepare(`
+	INSERT INTO storage_instance_filesystem (*) VALUES ($importStorageInstanceFilesystem.*)`, importStorageInstanceFilesystem{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	fsArgs := make([]importStorageFilesystem, len(args))
+	fsInstanceArgs := make([]importStorageInstanceFilesystem, 0, len(args))
+	for i, arg := range args {
+		fsArgs[i] = importStorageFilesystem{
+			UUID:       arg.UUID,
+			ID:         arg.ID,
+			LifeID:     int(arg.Life),
+			ScopeID:    int(arg.Scope),
+			ProviderID: arg.ProviderID,
+			SizeInMiB:  arg.SizeInMiB,
+		}
+		if arg.StorageInstanceUUID != "" {
+			fsInstanceArgs = append(fsInstanceArgs, importStorageInstanceFilesystem{
+				StorageInstanceUUID: arg.StorageInstanceUUID,
+				FilesystemUUID:      arg.UUID,
+			})
+		}
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, insertStorageFilesystemStmt, fsArgs).Run()
+		if err != nil {
+			return errors.Errorf("inserting storage filesystem rows: %w", err)
+		}
+
+		if len(fsInstanceArgs) > 0 {
+			err := tx.Query(ctx, insertStorageInstanceFilesystemStmt, fsInstanceArgs).Run()
+			if err != nil {
+				return errors.Errorf("inserting storage instance filesystem rows: %w", err)
+			}
 		}
 
 		return nil

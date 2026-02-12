@@ -170,6 +170,9 @@ func IsValidStoragePoolName(name string) bool {
 // in prior 4.0 versions. We maintain this to allow storage pool imports from prior
 // versions to 4.0.
 func IsValidStoragePoolNameWithLegacy(name string) bool {
+	if name == "" {
+		return false
+	}
 	return validStoragePoolNameLegacyRegex.MatchString(name)
 }
 

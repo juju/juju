@@ -63,6 +63,11 @@ type storagePoolName struct {
 	Name string `db:"name"`
 }
 
+type storagePoolNameAndType struct {
+	Name string `db:"name"`
+	Type string `db:"type"`
+}
+
 type storagePoolNames []string
 
 type storageProviderTypes []string

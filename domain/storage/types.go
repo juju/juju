@@ -7,6 +7,7 @@ import (
 	"github.com/juju/collections/set"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
@@ -106,5 +107,33 @@ func (i ImportStorageInstanceParams) Validate() error {
 	if i.PoolName == "" || i.RequestedSizeMiB == 0 || i.StorageID == "" {
 		return errors.New("empty PoolName, RequestedSizeMiB, or StorageID not valid").Add(coreerrors.NotValid)
 	}
+	return nil
+}
+
+// ImportFilesystemParams represents data to import a filesystem.
+type ImportFilesystemParams struct {
+	ID                string
+	SizeInMiB         uint64
+	ProviderID        string
+	PoolName          string
+	StorageInstanceID string
+}
+
+// Validate returns NotValid if the params are not valid
+func (p ImportFilesystemParams) Validate() error {
+	if p.ID == "" {
+		return errors.Errorf("empty ID not valid").Add(coreerrors.NotValid)
+	}
+
+	if !IsValidStoragePoolNameWithLegacy(p.PoolName) {
+		return errors.Errorf("invalid PoolName %q", p.PoolName).Add(coreerrors.NotValid)
+	}
+
+	if p.StorageInstanceID != "" {
+		if err := corestorage.ID(p.StorageInstanceID).Validate(); err != nil {
+			return errors.Errorf("invalid StorageInstanceID %q: %w", p.StorageInstanceID, err).Add(coreerrors.NotValid)
+		}
+	}
+
 	return nil
 }

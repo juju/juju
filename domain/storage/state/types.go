@@ -33,6 +33,13 @@ type storageInstanceID struct {
 	ID string `db:"storage_id"`
 }
 
+type storageInstanceUUIDAndID struct {
+	UUID string `db:"uuid"`
+	ID   string `db:"storage_id"`
+}
+
+type storageInstanceIDs []string
+
 // dbModelStoragePool represents a single row from the model_storage_pool table.
 type dbModelStoragePool struct {
 	StoragePoolUUID string `db:"storage_pool_uuid"`
@@ -67,4 +74,18 @@ type importStorageInstance struct {
 type importStorageUnitOwner struct {
 	StorageInstanceUUID string `db:"storage_instance_uuid"`
 	UnitUUID            string `db:"unit_uuid"`
+}
+
+type importStorageFilesystem struct {
+	UUID       string `db:"uuid"`
+	ID         string `db:"filesystem_id"`
+	LifeID     int    `db:"life_id"`
+	ScopeID    int    `db:"provision_scope_id"`
+	ProviderID string `db:"provider_id"`
+	SizeInMiB  uint64 `db:"size_mib"`
+}
+
+type importStorageInstanceFilesystem struct {
+	StorageInstanceUUID string `db:"storage_instance_uuid"`
+	FilesystemUUID      string `db:"storage_filesystem_uuid"`
 }
