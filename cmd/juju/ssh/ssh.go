@@ -14,9 +14,6 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/retry"
-	"github.com/mattn/go-isatty"
-
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/client"
 	apiclient "github.com/juju/juju/api/client/client"
@@ -26,6 +23,8 @@ import (
 	"github.com/juju/juju/jujuclient"
 	jujussh "github.com/juju/juju/network/ssh"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/retry"
+	"github.com/mattn/go-isatty"
 )
 
 var usageSSHSummary = `
