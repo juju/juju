@@ -465,6 +465,93 @@ func (s *infoSuite) TestGetUnitEndpointNetworksWithEgressSubnets(c *tc.C) {
 	c.Check(networks[0].IngressAddresses, tc.DeepEquals, []string{expectedAddr})
 }
 
+// TestGetUnitEndpointNetworksIgnoresLoopbackAddresses ensures loopback IPs are filtered out from device and ingress info.
+func (s *infoSuite) TestGetUnitEndpointNetworksIgnoresLoopbackAddresses(c *tc.C) {
+	// Arrange
+	nodeUUID := s.addNetNode(c)
+	deviceUUID := s.addLinkLayerDevice(c, nodeUUID, "eth0", "00:11:22:33:44:55", corenetwork.EthernetDevice)
+	spaceUUID := s.addSpace(c)
+
+	// Normal subnet and address
+	normalCIDR := "10.0.0.0/24"
+	normalSubnetUUID := s.addSubnet(c, normalCIDR, spaceUUID)
+	normalAddr := "10.0.0.1"
+	s.addIPAddressWithSubnetAndScope(c, deviceUUID, nodeUUID, normalSubnetUUID, normalAddr, corenetwork.ScopeCloudLocal)
+
+	// Loopback subnet and address (should be ignored)
+	loopCIDR := "127.0.0.0/8"
+	loopSubnetUUID := s.addSubnet(c, loopCIDR, spaceUUID)
+	loopAddr := "127.0.0.1"
+	s.addIPAddressWithSubnetAndScope(c, deviceUUID, nodeUUID, loopSubnetUUID, loopAddr, corenetwork.ScopeMachineLocal)
+
+	// Loopback subnet and address (should be ignored)
+	loopIpv6CIDR := "::1/128"
+	loopIpv6SubnetUUID := s.addSubnet(c, loopIpv6CIDR, spaceUUID)
+	loopIpv6Addr := "::1"
+	s.addIPAddressWithSubnetAndScope(c, deviceUUID, nodeUUID, loopIpv6SubnetUUID, loopIpv6Addr, corenetwork.ScopeMachineLocal)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	// Endpoint bound to app default space
+	endpointName := "endpoint1"
+	s.addApplicationEndpoint(c, appUUID, charmUUID, endpointName, "")
+
+	// Act
+	networks, err := s.state.GetUnitEndpointNetworks(c.Context(), string(unitUUID), []string{endpointName})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(networks, tc.HasLen, 1)
+	c.Assert(networks[0].EndpointName, tc.Equals, endpointName)
+
+	// Only the non-loopback address should appear
+	c.Assert(networks[0].IngressAddresses, tc.DeepEquals, []string{normalAddr})
+	c.Assert(networks[0].DeviceInfos, tc.HasLen, 1)
+	c.Assert(networks[0].DeviceInfos[0].Name, tc.Equals, "eth0")
+	c.Assert(networks[0].DeviceInfos[0].MACAddress, tc.Equals, "00:11:22:33:44:55")
+	c.Assert(networks[0].DeviceInfos[0].Addresses, tc.DeepEquals, []network.AddressInfo{{
+		Hostname: normalAddr,
+		Value:    normalAddr,
+		CIDR:     normalCIDR,
+	}})
+}
+
+// TestGetUnitEndpointNetworksOnlyLoopbackIgnored ensures that when only loopback IPs exist, result is empty.
+func (s *infoSuite) TestGetUnitEndpointNetworksOnlyLoopbackIgnored(c *tc.C) {
+	// Arrange
+	nodeUUID := s.addNetNode(c)
+	deviceUUID := s.addLinkLayerDevice(c, nodeUUID, "lo", "00:00:00:00:00:00", corenetwork.LoopbackDevice)
+	spaceUUID := s.addSpace(c)
+	loopCIDR := "127.0.0.0/8"
+	loopSubnetUUID := s.addSubnet(c, loopCIDR, spaceUUID)
+	loopAddr := "127.0.0.2"
+	s.addIPAddressWithSubnetAndScope(c, deviceUUID, nodeUUID, loopSubnetUUID, loopAddr, corenetwork.ScopeMachineLocal)
+
+	// Loopback subnet and address (should be ignored)
+	loopIpv6CIDR := "::1/8"
+	loopIpv6SubnetUUID := s.addSubnet(c, loopIpv6CIDR, spaceUUID)
+	loopIpv6Addr := "::1"
+	s.addIPAddressWithSubnetAndScope(c, deviceUUID, nodeUUID, loopIpv6SubnetUUID, loopIpv6Addr, corenetwork.ScopeMachineLocal)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+	endpointName := "endpoint1"
+	s.addApplicationEndpoint(c, appUUID, charmUUID, endpointName, "")
+
+	// Act
+	networks, err := s.state.GetUnitEndpointNetworks(c.Context(), string(unitUUID), []string{endpointName})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(networks, tc.HasLen, 1)
+	c.Assert(networks[0].EndpointName, tc.Equals, endpointName)
+	c.Assert(networks[0].IngressAddresses, tc.HasLen, 0)
+	c.Assert(networks[0].DeviceInfos, tc.HasLen, 0)
+}
+
 // Helper methods
 
 // addApplicationEndpoint creates a charm relation and an application endpoint

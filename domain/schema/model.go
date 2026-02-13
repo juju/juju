@@ -147,6 +147,7 @@ var modelPostPatchFilesByVersion = []struct {
 		"0044-secret.PATCH.sql",
 		"0045-veth-nic-type.PATCH.sql",
 		"0046-relation.PATCH.sql",
+		"0047-secret.PATCH.sql",
 	},
 }}
 
