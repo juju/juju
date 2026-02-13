@@ -85,6 +85,12 @@ http {
     server {
         listen 10.255.255.1:8999;
         server_name _;
+        error_page 500 502 503 504 =410 /410;
+        location /410 {
+            internal;
+            default_type text/plain;
+            return 410 "Gone";
+        }
         location / {
             proxy_pass https://goproxy;
             proxy_ssl_server_name on;
@@ -92,6 +98,7 @@ http {
             proxy_set_header Host proxy.golang.org;
             proxy_http_version 1.1;
             proxy_set_header Connection "";
+            proxy_intercept_errors on;
             proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
             proxy_next_upstream_tries 15;
             proxy_next_upstream_timeout 600s;
@@ -108,4 +115,4 @@ sudo nginx -t
 sudo systemctl enable nginx
 sudo systemctl restart nginx
 
-echo "GOPROXY=http://10.255.255.1:8999,direct" >> "$GITHUB_ENV"
+echo "GOPROXY=http://10.255.255.1:8999/cached-only,direct" >> "$GITHUB_ENV"
