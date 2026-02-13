@@ -277,11 +277,38 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			return errors.Annotatef(err, "creating or updating headless service for %q %q", a.deploymentType, a.name)
 		}
 		exists := true
-		_, getErr := a.getStatefulSet()
+		existingSts, getErr := a.getStatefulSet()
 		if errors.IsNotFound(getErr) {
 			exists = false
 		} else if getErr != nil {
 			return errors.Trace(getErr)
+		}
+
+		// If the existing StatefulSet has a different storage unique ID,
+		// it is an orphan from a previous deployment. Kubernetes does not
+		// allow updating volumeClaimTemplates on an existing StatefulSet,
+		// so we must delete and recreate it to avoid a PVC name mismatch.
+		// See https://github.com/juju/juju/issues/21722.
+		if exists {
+			annKey := utils.AnnotationKeyApplicationUUID(a.labelVersion)
+			existingUID := existingSts.GetAnnotations()[annKey]
+			if existingUID != "" && config.StorageUniqueID != "" && existingUID != config.StorageUniqueID &&
+				a.isStatefulSetOwnedByJuju(existingSts) {
+				logger.Infof("deleting orphaned statefulset %q (storage UID %q does not match expected %q)", a.name, existingUID, config.StorageUniqueID)
+				if delErr := existingSts.Delete(context.Background()); delErr != nil && !errors.IsNotFound(delErr) {
+					return errors.Annotatef(delErr, "deleting orphaned statefulset %q", a.name)
+				}
+				// Wait for the StatefulSet to be fully removed.
+				// Kubernetes foreground deletion is async — the resource
+				// persists with a deletionTimestamp until dependents are gone.
+				if err := a.waitForStatefulSetDeletion(); err != nil {
+					return errors.Trace(err)
+				}
+				// Keep exists=true so that numPods stays nil below.
+				// With nil Replicas, Kubernetes defaults to 1 replica
+				// on creation. The provisioner's EnsureScale will
+				// correct the replica count if needed.
+			}
 		}
 
 		var numPods *int32
@@ -858,6 +885,43 @@ func (a *app) getStatefulSet() (*resources.StatefulSet, error) {
 		return nil, err
 	}
 	return ss, nil
+}
+
+// waitForStatefulSetDeletion polls until the StatefulSet for this application
+// is fully removed from Kubernetes. This is needed because foreground deletion
+// is async — the resource persists with a deletionTimestamp until all
+// dependents (pods) are terminated.
+func (a *app) waitForStatefulSetDeletion() error {
+	timeout := a.clock.After(2 * time.Minute)
+	for {
+		select {
+		case <-timeout:
+			return errors.Errorf("timed out waiting for orphaned statefulset %q to be deleted", a.name)
+		case <-a.clock.After(3 * time.Second):
+		}
+		_, err := a.getStatefulSet()
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+}
+
+// isStatefulSetOwnedByJuju checks that the StatefulSet is managed by Juju
+// and belongs to the current model before allowing deletion.
+func (a *app) isStatefulSetOwnedByJuju(sts *resources.StatefulSet) bool {
+	stsLabels := sts.GetLabels()
+	if stsLabels[constants.LabelKubernetesAppManaged] != "juju" {
+		return false
+	}
+	stsAnnotations := sts.GetAnnotations()
+	modelUUIDKey := utils.AnnotationModelUUIDKey(a.labelVersion)
+	if stsAnnotations[modelUUIDKey] != a.modelUUID {
+		return false
+	}
+	return true
 }
 
 func (a *app) getDeployment() (*resources.Deployment, error) {
