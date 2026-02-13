@@ -194,17 +194,16 @@ func (st *State) SetAnnotations(
 	values map[string]string,
 ) error {
 	// Remain compatible with 3.6 by removing keys with empty values
-	unsetValues := map[string]string{}
+	nonEmptyValues := map[string]string{}
 	for k, v := range values {
 		if v != "" {
-			unsetValues[k] = v
+			nonEmptyValues[k] = v
 		}
 	}
-
 	if id.Kind == annotations.KindModel {
-		return st.setAnnotationsForModel(ctx, unsetValues)
+		return st.setAnnotationsForModel(ctx, nonEmptyValues)
 	}
-	return st.setAnnotationsForID(ctx, id, unsetValues)
+	return st.setAnnotationsForID(ctx, id, nonEmptyValues)
 }
 
 // setAnnotationsForID associates key/value pairs with the given ID.
