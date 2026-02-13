@@ -121,7 +121,8 @@ func (s *importSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 
 	// Act - no relations, so no units to extract
 	remoteAppUnits := make(map[string][]string)
-	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(), model.RemoteApplications(), remoteAppUnits)
+	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(),
+		model.RemoteApplications(), model.Relations(), remoteAppUnits)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -133,7 +134,8 @@ func (s *importSuite) TestImportRemoteApplicationOfferersEmpty(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	remoteAppUnits := make(map[string][]string)
-	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(), model.RemoteApplications(), remoteAppUnits)
+	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(),
+		model.RemoteApplications(), model.Relations(), remoteAppUnits)
 
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -215,7 +217,8 @@ func (s *importSuite) TestImportRemoteApplicationOfferersMultiple(c *tc.C) {
 	).Return(nil)
 
 	remoteAppUnits := make(map[string][]string)
-	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(), model.RemoteApplications(), remoteAppUnits)
+	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(),
+		model.RemoteApplications(), model.Relations(), remoteAppUnits)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -287,7 +290,7 @@ func (s *importSuite) TestImportRemoteApplicationsWithUnitsFromRelations(c *tc.C
 	// Act - use Execute which extracts units from relations
 	op := s.newImportOperation(c)
 	remoteAppUnits := op.extractRemoteAppUnits(model)
-	err := op.importRemoteApplicationOfferers(c.Context(), model.RemoteApplications(), remoteAppUnits)
+	err := op.importRemoteApplicationOfferers(c.Context(), model.RemoteApplications(), model.Relations(), remoteAppUnits)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)

@@ -10,16 +10,16 @@ const (
 	// to relate two application
 	AmbiguousRelation = errors.ConstError("ambiguous relation")
 
-	// ApplicationNotFoundForRelation indicates that the application is not part of
-	// the relation.
+	// ApplicationNotFoundForRelation indicates that the application is not part
+	// of the relation.
 	ApplicationNotFoundForRelation = errors.ConstError("application not found in relation")
 
 	// BothEndpointsRemote describes an error that occurs when attempting to
 	// create a relation where both endpoints are remote (CMR) applications.
 	BothEndpointsRemote = errors.ConstError("both endpoints are remote applications")
 
-	// CompatibleEndpointsNotFound is returned when no matching relation is found when trying
-	// to relate two application
+	// CompatibleEndpointsNotFound is returned when no matching relation is
+	// found when trying to relate two application
 	CompatibleEndpointsNotFound = errors.ConstError("no compatible endpoints found between applications")
 
 	// EndpointQuotaLimitExceeded is returned when an operation fails due to
@@ -56,8 +56,8 @@ const (
 	// relation endpoint does not exist.
 	RelationEndpointNotFound = errors.ConstError("relation endpoint not found")
 
-	// RelationAlreadyExists indicates an error when attempting to create a relation
-	// that already exists between applications.
+	// RelationAlreadyExists indicates an error when attempting to create a
+	// relation that already exists between applications.
 	RelationAlreadyExists = errors.ConstError("already exists")
 
 	// RelationNotAlive describes an error that occurs when trying to update a
@@ -95,4 +95,8 @@ const (
 	// UnitNotInRelation describes an error when the unit specified is not in
 	// the relation specified.
 	UnitNotInRelation = errors.ConstError("unit not in relation")
+
+	// ApplicationEndpointNotFound describes an error that occurs when the
+	// specified application endpoint does not exist.
+	ApplicationEndpointNotFound = errors.ConstError("application endpoint not found")
 )
