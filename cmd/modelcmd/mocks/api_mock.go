@@ -190,20 +190,6 @@ func (mr *MockConnectionMockRecorder) ConnectStream(arg0, arg1 any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectStream", reflect.TypeOf((*MockConnection)(nil).ConnectStream), arg0, arg1)
 }
 
-// Context mocks base method.
-func (m *MockConnection) Context() context.Context {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Context")
-	ret0, _ := ret[0].(context.Context)
-	return ret0
-}
-
-// Context indicates an expected call of Context.
-func (mr *MockConnectionMockRecorder) Context() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockConnection)(nil).Context))
-}
-
 // ControllerAccess mocks base method.
 func (m *MockConnection) ControllerAccess() string {
 	m.ctrl.T.Helper()
@@ -276,17 +262,17 @@ func (mr *MockConnectionMockRecorder) IPAddr() *gomock.Call {
 }
 
 // IsBroken mocks base method.
-func (m *MockConnection) IsBroken() bool {
+func (m *MockConnection) IsBroken(arg0 context.Context) bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsBroken")
+	ret := m.ctrl.Call(m, "IsBroken", arg0)
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
 // IsBroken indicates an expected call of IsBroken.
-func (mr *MockConnectionMockRecorder) IsBroken() *gomock.Call {
+func (mr *MockConnectionMockRecorder) IsBroken(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsBroken", reflect.TypeOf((*MockConnection)(nil).IsBroken))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsBroken", reflect.TypeOf((*MockConnection)(nil).IsBroken), arg0)
 }
 
 // IsProxied mocks base method.

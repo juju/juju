@@ -86,7 +86,7 @@ func (r *multiReaderSeeker) Read(buf []byte) (int, error) {
 		return 0, io.EOF
 	}
 	n, err := r.readers[r.index].Read(buf)
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		r.index++
 		err = nil
 	}
@@ -126,7 +126,7 @@ func Get(req *http.Request, metaResult interface{}) (io.ReadCloser, error) {
 	// Extract the metadata.
 	part, err := reader.NextPart()
 	if err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil, errors.New("missing metadata")
 		}
 		return nil, errors.Trace(err)
@@ -142,7 +142,7 @@ func Get(req *http.Request, metaResult interface{}) (io.ReadCloser, error) {
 	// Extract the archive.
 	part, err = reader.NextPart()
 	if err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil, errors.New("missing archive")
 		}
 		return nil, errors.Trace(err)

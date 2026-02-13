@@ -55,7 +55,9 @@ func (conn *wsJSONConn) Receive(msg interface{}) error {
 			websocket.CloseGoingAway,
 			websocket.CloseNoStatusReceived,
 			websocket.CloseAbnormalClosure) {
-			err = errors.Wrap(err, io.EOF)
+			err = errors.Annotatef(io.EOF,
+				"reading json message: %v", err,
+			)
 		}
 	}
 	return err

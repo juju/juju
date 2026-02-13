@@ -822,7 +822,7 @@ type unitSetter struct {
 // Read implements io.Reader.
 func (u *unitSetter) Read(p []byte) (n int, err error) {
 	n, err = u.ReadCloser.Read(p)
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		// record that the unit is now using this version of the resource
 		if err := u.persist.setUnitResourceProgress(u.unitName, u.resource, nil); err != nil {
 			msg := "Failed to record that unit %q is using resource %q revision %v"

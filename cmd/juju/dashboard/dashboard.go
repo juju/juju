@@ -257,7 +257,7 @@ func tunnelSSHRunner(
 
 func tunnelProxyRunner(p proxy.TunnelProxier) connectionRunner {
 	return func(ctx context.Context, callBack urlCallBack) error {
-		if err := p.Start(); err != nil {
+		if err := p.Start(ctx); err != nil {
 			return errors.Annotate(err, "starting tunnel proxy")
 		}
 		defer p.Stop()

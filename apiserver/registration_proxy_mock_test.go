@@ -10,6 +10,7 @@
 package apiserver_test
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "go.uber.org/mock/gomock"
@@ -81,17 +82,17 @@ func (mr *MockProxierMockRecorder) RawConfig() *gomock.Call {
 }
 
 // Start mocks base method.
-func (m *MockProxier) Start() error {
+func (m *MockProxier) Start(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Start")
+	ret := m.ctrl.Call(m, "Start", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Start indicates an expected call of Start.
-func (mr *MockProxierMockRecorder) Start() *gomock.Call {
+func (mr *MockProxierMockRecorder) Start(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockProxier)(nil).Start))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockProxier)(nil).Start), arg0)
 }
 
 // Stop mocks base method.

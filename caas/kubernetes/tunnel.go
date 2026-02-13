@@ -95,12 +95,12 @@ func (t *Tunnel) findSuitablePodForService() (*corev1.Pod, error) {
 	return &pods.Items[rand.Intn(podCount-1)], nil
 }
 
-func (t *Tunnel) ForwardPort() error {
+func (t *Tunnel) ForwardPort(ctx context.Context) error {
 	if !t.IsValidTunnelKind() {
 		return fmt.Errorf("invalid tunnel kind %s", t.Kind)
 	}
 
-	ctx, cancelFunc := context.WithTimeout(context.Background(), ForwardPortTimeout)
+	ctx, cancelFunc := context.WithTimeout(ctx, ForwardPortTimeout)
 	defer cancelFunc()
 
 	podName := t.Target

@@ -4,6 +4,8 @@
 package crossmodelrelations
 
 import (
+	"context"
+
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -68,7 +70,8 @@ func (c *Client) handleError(apiErr error) (macaroon.Slice, error) {
 			return nil, errors.Wrap(apiErr, err)
 		}
 	}
-	ms, err := c.facade.RawAPICaller().BakeryClient().DischargeAll(c.facade.RawAPICaller().Context(), m)
+	ctx := context.TODO()
+	ms, err := c.facade.RawAPICaller().BakeryClient().DischargeAll(ctx, m)
 	if err == nil && logger.IsTraceEnabled() {
 		logger.Tracef("discharge macaroon ids:")
 		for _, m := range ms {

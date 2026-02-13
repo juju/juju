@@ -10,7 +10,6 @@
 package mocks
 
 import (
-	context "context"
 	http "net/http"
 	url "net/url"
 	reflect "reflect"
@@ -114,20 +113,6 @@ func (m *MockAPICaller) ConnectStream(arg0 string, arg1 url.Values) (base.Stream
 func (mr *MockAPICallerMockRecorder) ConnectStream(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectStream", reflect.TypeOf((*MockAPICaller)(nil).ConnectStream), arg0, arg1)
-}
-
-// Context mocks base method.
-func (m *MockAPICaller) Context() context.Context {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Context")
-	ret0, _ := ret[0].(context.Context)
-	return ret0
-}
-
-// Context indicates an expected call of Context.
-func (mr *MockAPICallerMockRecorder) Context() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockAPICaller)(nil).Context))
 }
 
 // HTTPClient mocks base method.

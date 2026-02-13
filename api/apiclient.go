@@ -18,6 +18,7 @@ import (
 	gopath "path"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -28,7 +29,6 @@ import (
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/parallel"
 	"gopkg.in/retry.v1"
 
@@ -43,27 +43,37 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-// PingPeriod defines how often the internal connection health check
-// will run.
-const PingPeriod = 1 * time.Minute
+const (
+	// ConnectionOpenTimedOut is returned when the api connection failed to open
+	// within the specified time.
+	ConnectionOpenTimedOut = errors.ConstError("api connection open timed out")
 
-// pingTimeout defines how long a health check can take before we
-// consider it to have failed.
-const pingTimeout = 30 * time.Second
+	// ConnectionDialTimedOut is returned when the api connection failed to open
+	// within the specified time.
+	ConnectionDialTimedOut = errors.ConstError("api connection dial timed out")
 
-// modelRoot is the prefix that all model API paths begin with.
-const modelRoot = "/model/"
+	// PingPeriod defines how often the internal connection health check
+	// will run.
+	PingPeriod = 1 * time.Minute
 
-// apiScheme is the default scheme used for connecting to the websocket API.
-const apiScheme = "wss"
+	// pingTimeout defines how long a health check can take before we
+	// consider it to have failed.
+	pingTimeout = 30 * time.Second
 
-// serverScheme is the default scheme used for HTTP requests.
-const serverScheme = "https"
+	// modelRoot is the prefix that all model API paths begin with.
+	modelRoot = "/model/"
+
+	// apiScheme is the default scheme used for connecting to the websocket API.
+	apiScheme = "wss"
+
+	// serverScheme is the default scheme used for HTTP requests.
+	serverScheme = "https"
+)
 
 var logger = loggo.GetLogger("juju.api")
 
 type rpcConnection interface {
-	Call(req rpc.Request, params, response interface{}) error
+	Call(ctx context.Context, req rpc.Request, params, response interface{}) error
 	Dead() <-chan struct{}
 	Close() error
 }
@@ -112,16 +122,26 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 	if opts.Clock == nil {
 		opts.Clock = clock.WallClock
 	}
-	ctx := context.Background()
-	dialCtx := ctx
-	if opts.Timeout > 0 {
-		ctx1, cancel := utils.ContextWithTimeout(dialCtx, opts.Clock, opts.Timeout)
-		defer cancel()
-		dialCtx = ctx1
+	ctx, timeoutCancel := context.WithCancelCause(context.TODO())
+	errorDone := func() {
+		timeoutCancel(nil)
 	}
-
-	dialResult, err := dialAPI(dialCtx, info, opts)
-	if err != nil {
+	if opts.Timeout > 0 {
+		openTimer := opts.Clock.AfterFunc(opts.Timeout, func() {
+			timeoutCancel(ConnectionOpenTimedOut)
+		})
+		errorDone = func() {
+			_ = openTimer.Stop()
+			timeoutCancel(nil)
+		}
+		defer openTimer.Stop()
+	}
+	dialResult, err := dialAPI(ctx, info, opts)
+	if errors.Is(err, context.Canceled) {
+		errorDone()
+		return nil, errors.Trace(context.Cause(ctx))
+	} else if err != nil {
+		errorDone()
 		return nil, errors.Trace(err)
 	}
 
@@ -166,6 +186,7 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 
 	pingerFacadeVersions := facadeVersions["Pinger"]
 	if len(pingerFacadeVersions) == 0 {
+		errorDone()
 		return nil, errors.Errorf("pinger facade version is required")
 	}
 
@@ -180,7 +201,6 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 	}
 
 	st := &state{
-		ctx:                 context.Background(),
 		client:              client,
 		conn:                dialResult.conn,
 		clock:               opts.Clock,
@@ -197,16 +217,21 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		bakeryClient:  bakeryClient,
 		modelTag:      info.ModelTag,
 		proxier:       dialResult.proxier,
+		closed:        make(chan struct{}),
 	}
 	if !info.SkipLogin {
-		if err := loginWithContext(dialCtx, st, loginProvider); err != nil {
-			dialResult.conn.Close()
+		err := loginWithContext(ctx, st, loginProvider)
+		if errors.Is(err, context.Canceled) {
+			errorDone()
+			st.Close()
+			return nil, errors.Trace(context.Cause(ctx))
+		} else if err != nil {
+			errorDone()
+			st.Close()
 			return nil, errors.Trace(err)
 		}
 	}
-
 	st.broken = make(chan struct{})
-	st.closed = make(chan struct{})
 
 	go (&monitor{
 		clock:       opts.Clock,
@@ -266,7 +291,7 @@ func loginWithContext(ctx context.Context, st *state, loginProvider LoginProvide
 	case err := <-result:
 		return errors.Trace(err)
 	case <-ctx.Done():
-		return errors.Annotatef(ctx.Err(), "cannot log in")
+		return errors.Annotatef(context.Cause(ctx), "cannot log in")
 	}
 }
 
@@ -290,11 +315,6 @@ func (t *hostSwitchingTransport) RoundTrip(req *http.Request) (*http.Response, e
 	return t.fallback.RoundTrip(req)
 }
 
-// Context returns the context associated with this state.
-func (st *state) Context() context.Context {
-	return st.ctx
-}
-
 // ConnectStream implements StreamConnector.ConnectStream. The stream
 // returned will apply a 30-second write deadline, so WriteJSON should
 // only be called from one goroutine.
@@ -303,7 +323,8 @@ func (st *state) ConnectStream(path string, attrs url.Values) (base.Stream, erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	conn, err := st.connectStreamWithRetry(path, attrs, nil)
+	ctx := context.TODO()
+	conn, err := st.connectStreamWithRetry(ctx, path, attrs, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -322,14 +343,15 @@ func (st *state) ConnectControllerStream(path string, attrs url.Values, headers 
 	if strings.HasPrefix(path, modelRoot) {
 		return nil, errors.Errorf("path %q is model-specific", path)
 	}
-	conn, err := st.connectStreamWithRetry(path, attrs, headers)
+	ctx := context.TODO()
+	conn, err := st.connectStreamWithRetry(ctx, path, attrs, headers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return conn, nil
 }
 
-func (st *state) connectStreamWithRetry(path string, attrs url.Values, headers http.Header) (base.Stream, error) {
+func (st *state) connectStreamWithRetry(ctx context.Context, path string, attrs url.Values, headers http.Header) (base.Stream, error) {
 	if !st.isLoggedIn() {
 		return nil, errors.New("cannot use ConnectStream without logging in")
 	}
@@ -346,7 +368,7 @@ func (st *state) connectStreamWithRetry(path string, attrs url.Values, headers h
 	if params.ErrCode(err) != params.CodeDischargeRequired {
 		return nil, errors.Trace(err)
 	}
-	if err := st.bakeryClient.HandleError(st.ctx, st.cookieURL, bakeryError(err)); err != nil {
+	if err := st.bakeryClient.HandleError(ctx, st.cookieURL, bakeryError(err)); err != nil {
 		return nil, errors.Trace(err)
 	}
 	// Try again with the discharged macaroon.
@@ -465,7 +487,9 @@ func apiPath(model, path string) (string, error) {
 // dialResult holds a dialed connection, the URL
 // and TLS configuration used to connect to it.
 type dialResult struct {
-	conn jsoncodec.JSONConn
+	// cancelSubContext is called when this connection is being thrown away.
+	cancelSubContext func()
+	conn             jsoncodec.JSONConn
 	// controllerRootAddr represents the controller's root address
 	// e.g. wss://controller.com/foo
 	controllerRootAddr *url.URL
@@ -483,6 +507,7 @@ type dialResult struct {
 // connection. It is implemented so that a *dialResult
 // value can be used as the result of a parallel.Try.
 func (c *dialResult) Close() error {
+	c.cancelSubContext()
 	return c.conn.Close()
 }
 
@@ -540,7 +565,7 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 	}
 
 	if info.Proxier != nil {
-		if err := info.Proxier.Start(); err != nil {
+		if err := info.Proxier.Start(ctx); err != nil {
 			return nil, errors.Annotate(err, "starting proxy for api connection")
 		}
 		logger.Debugf("starting proxier for connection")
@@ -550,7 +575,13 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 			logger.Debugf("tunnel proxy in use at %s on port %s", p.Host(), p.Port())
 			addrs = []*url.URL{{
 				Scheme: apiScheme,
-				Host:   net.JoinHostPort(p.Host(), p.Port()),
+				// NOTE: There is a bug in the k8s proxier where if one of the
+				// connections going through the proxier closes, it shuts down
+				// the whole proxier. For now, this is the best we can do, but
+				// in the future, we should not implement a local listening
+				// proxier, instead we should implement a Dialer that can be
+				// passed down that proxies the connection in process.
+				Host: net.JoinHostPort("127.0.0.1", p.Port()),
 			}}
 		default:
 			info.Proxier.Stop()
@@ -592,19 +623,39 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 	// Encourage load balancing by shuffling controller addresses.
 	rand.Shuffle(len(addrs), func(i, j int) { addrs[i], addrs[j] = addrs[j], addrs[i] })
 
+	ctx, timeoutCancel := context.WithCancelCause(ctx)
+	errorDone := func() {
+		timeoutCancel(nil)
+	}
+	if opts.DialTimeout > 0 {
+		openTimer := opts.Clock.AfterFunc(opts.DialTimeout, func() {
+			timeoutCancel(ConnectionDialTimedOut)
+		})
+		errorDone = func() {
+			_ = openTimer.Stop()
+			timeoutCancel(nil)
+		}
+		defer openTimer.Stop()
+	}
+
 	if opts.VerifyCA != nil {
-		if err := verifyCAMulti(ctx, addrs, &opts); err != nil {
-			return nil, err
+		err := verifyCAMulti(ctx, addrs, &opts)
+		if errors.Is(err, context.Canceled) {
+			errorDone()
+			return nil, errors.Trace(context.Cause(ctx))
+		} else if err != nil {
+			errorDone()
+			return nil, errors.Trace(err)
 		}
 	}
 
-	if opts.DialTimeout > 0 {
-		ctx1, cancel := utils.ContextWithTimeout(ctx, opts.Clock, opts.DialTimeout)
-		defer cancel()
-		ctx = ctx1
-	}
 	dialInfo, err := dialWebsocketMulti(ctx, addrs, path, opts)
-	if err != nil {
+	if errors.Is(err, context.Canceled) ||
+		errors.Is(err, parallel.ErrStopped) {
+		errorDone()
+		return nil, errors.Trace(context.Cause(ctx))
+	} else if err != nil {
+		errorDone()
 		return nil, errors.Trace(err)
 	}
 	logger.Infof("connection established to %q", dialInfo.dialAddr.String())
@@ -776,13 +827,6 @@ func (caRetrieveRes) Close() error { return nil }
 // apart from the initial TLS handshake with the remote server, no other data
 // is exchanged with the remote server.
 func verifyCAMulti(ctx context.Context, addrs []*url.URL, opts *dialOpts) error {
-	dOpts := opts.DialOpts
-	if dOpts.DialTimeout > 0 {
-		ctx1, cancel := utils.ContextWithTimeout(ctx, dOpts.Clock, dOpts.DialTimeout)
-		defer cancel()
-		ctx = ctx1
-	}
-
 	try := parallel.NewTry(0, nil)
 	defer try.Kill()
 
@@ -805,7 +849,7 @@ func verifyCAMulti(ctx context.Context, addrs []*url.URL, opts *dialOpts) error 
 
 	for {
 		resolvedAddr, err := addrProvider.next(ctx)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			recordTryError(try, err)
@@ -820,7 +864,7 @@ func verifyCAMulti(ctx context.Context, addrs []*url.URL, opts *dialOpts) error 
 		}
 
 		select {
-		case <-opts.Clock.After(dOpts.DialAddressInterval):
+		case <-opts.Clock.After(opts.DialAddressInterval):
 		case <-try.Dead():
 		}
 	}
@@ -912,19 +956,11 @@ func dialWebsocketMulti(ctx context.Context, addrs []*url.URL, apiPath string, o
 	// Dial all addresses at reasonable intervals.
 	try := parallel.NewTry(0, combine)
 	defer try.Kill()
-	// Make a context that's cancelled when the try
-	// completes so that (for example) a slow DNS
-	// query will be cancelled if a previous try succeeds.
-	ctx, cancel := context.WithCancel(ctx)
-	go func() {
-		<-try.Dead()
-		cancel()
-	}()
 	tried := make(map[string]bool)
 	addrProvider := newAddressProvider(addrs, opts.DNSCache, opts.IPAddrResolver)
 	for {
 		resolvedAddr, err := addrProvider.next(ctx)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			recordTryError(try, err)
@@ -1049,13 +1085,33 @@ type dialer struct {
 // dial implements the function value expected by Try.Start
 // by dialing the websocket as specified in d and retrying
 // when appropriate.
-func (d dialer) dial(_ <-chan struct{}) (io.Closer, error) {
-	a := retry.StartWithCancel(d.openAttempt, d.opts.Clock, d.ctx.Done())
+func (d dialer) dial(done <-chan struct{}) (io.Closer, error) {
+	var (
+		cancelMutex sync.Mutex
+		cancel      func()
+	)
+	go func() {
+		<-done
+		cancelMutex.Lock()
+		defer cancelMutex.Unlock()
+		if cancel != nil {
+			cancel()
+		}
+	}()
+	a := retry.StartWithCancel(d.openAttempt, d.opts.Clock, done)
 	var lastErr error = nil
 	for a.Next() {
-		conn, tlsConfig, err := d.dial1()
+		ctx, ctxCancel := context.WithCancel(d.ctx)
+		cancelMutex.Lock()
+		cancel = ctxCancel
+		cancelMutex.Unlock()
+		conn, tlsConfig, err := d.dial1(ctx)
+		cancelMutex.Lock()
+		cancel = nil
+		cancelMutex.Unlock()
 		if err == nil {
 			return &dialResult{
+				cancelSubContext:   ctxCancel,
 				conn:               conn,
 				dialAddr:           d.addr,
 				controllerRootAddr: d.controllerRoot,
@@ -1063,28 +1119,28 @@ func (d dialer) dial(_ <-chan struct{}) (io.Closer, error) {
 				tlsConfig:          tlsConfig,
 			}, nil
 		}
-		if isX509Error(err) || !a.More() {
-			// certificate errors don't improve with retries.
-			return nil, errors.Annotatef(err, "unable to connect to API")
-		}
+		ctxCancel()
 		lastErr = err
+		if isX509Error(err) {
+			break
+		}
 	}
-	if lastErr == nil {
-		logger.Debugf("no error, but not connected, probably cancelled before we started")
-		return nil, parallel.ErrStopped
+	if lastErr != nil {
+		return nil, errors.Annotatef(lastErr, "unable to connect to API")
 	}
-	return nil, errors.Trace(lastErr)
+	logger.Debugf("no error, but not connected, probably cancelled before we started")
+	return nil, parallel.ErrStopped
 }
 
 // dial1 makes a single dial attempt.
-func (d dialer) dial1() (jsoncodec.JSONConn, *tls.Config, error) {
+func (d dialer) dial1(ctx context.Context) (jsoncodec.JSONConn, *tls.Config, error) {
 	tlsConfig := NewTLSConfig(d.opts.certPool)
 	tlsConfig.InsecureSkipVerify = d.opts.InsecureSkipVerify
 	if d.opts.certPool == nil {
 		tlsConfig.ServerName = d.serverName
 	}
 	logger.Tracef("dialing: %q %v", d.addr.String(), d.ipAddr)
-	conn, err := d.opts.DialWebsocket(d.ctx, d.addr.String(), tlsConfig, d.ipAddr)
+	conn, err := d.opts.DialWebsocket(ctx, d.addr.String(), tlsConfig, d.ipAddr)
 	if err == nil {
 		logger.Debugf("successfully dialed %q", d.addr.String())
 		return conn, tlsConfig, nil
@@ -1111,7 +1167,7 @@ func (d dialer) dial1() (jsoncodec.JSONConn, *tls.Config, error) {
 	// CA certificate, so retry immediately with the public one.
 	tlsConfig.RootCAs = nil
 	tlsConfig.ServerName = d.serverName
-	conn, rootCAErr := d.opts.DialWebsocket(d.ctx, d.addr.String(), tlsConfig, d.ipAddr)
+	conn, rootCAErr := d.opts.DialWebsocket(ctx, d.addr.String(), tlsConfig, d.ipAddr)
 	if rootCAErr != nil {
 		logger.Debugf("failed to dial websocket using fallback public CA: %v", rootCAErr)
 		// We return the original error as it's usually more meaningful.
@@ -1178,7 +1234,8 @@ func isX509Error(err error) bool {
 // object id, and the specific RPC method. It marshalls the Arguments, and will
 // unmarshall the result into the response object that is supplied.
 func (s *state) APICall(facade string, vers int, id, method string, args, response interface{}) error {
-	err := s.client.Call(rpc.Request{
+	ctx := context.TODO()
+	err := s.client.Call(ctx, rpc.Request{
 		Type:    facade,
 		Version: vers,
 		Id:      id,
@@ -1192,6 +1249,12 @@ func (s *state) APICall(facade string, vers int, id, method string, args, respon
 }
 
 func (s *state) Close() error {
+	s.closeMutex.Lock()
+	defer s.closeMutex.Unlock()
+	if s.done {
+		return nil
+	}
+
 	// The bakery client for Macaroons uses a round-tripper, so it is not a
 	// connection in its own right, but we can get it to close any connections
 	// from completed requests that are still open.
@@ -1200,15 +1263,17 @@ func (s *state) Close() error {
 	s.bakeryClient.Client.CloseIdleConnections()
 
 	err := s.client.Close()
-	select {
-	case <-s.closed:
-	default:
+	if s.closed != nil {
 		close(s.closed)
 	}
-	<-s.broken
+	if s.broken != nil {
+		<-s.broken
+	}
 	if s.proxier != nil {
 		s.proxier.Stop()
 	}
+
+	s.done = true
 	return err
 }
 
@@ -1235,9 +1300,12 @@ func (s *state) Broken() <-chan struct{} {
 }
 
 // IsBroken implements api.Connection.
-func (s *state) IsBroken() bool {
+func (s *state) IsBroken(ctx context.Context) bool {
 	select {
 	case <-s.broken:
+		return true
+	case <-ctx.Done():
+		logger.Debugf("connection ping context expired")
 		return true
 	default:
 	}

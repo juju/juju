@@ -251,8 +251,9 @@ func (c *Client) OpenResource(application, name string) (io.ReadCloser, error) {
 
 	uri := fmt.Sprintf("/applications/%s/resources/%s", application, name)
 	var resp *http.Response
+	ctx := context.TODO()
 	if err := httpClient.Get(
-		c.caller.RawAPICaller().Context(),
+		ctx,
 		uri, &resp); err != nil {
 		return nil, errors.Annotate(err, "unable to retrieve resource")
 	}

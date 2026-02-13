@@ -10,7 +10,6 @@
 package mocks
 
 import (
-	context "context"
 	http "net/http"
 	url "net/url"
 	reflect "reflect"
@@ -273,20 +272,6 @@ func (m *MockDeployerAPI) Consume(arg0 crossmodel.ConsumeApplicationArgs) (strin
 func (mr *MockDeployerAPIMockRecorder) Consume(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Consume", reflect.TypeOf((*MockDeployerAPI)(nil).Consume), arg0)
-}
-
-// Context mocks base method.
-func (m *MockDeployerAPI) Context() context.Context {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Context")
-	ret0, _ := ret[0].(context.Context)
-	return ret0
-}
-
-// Context indicates an expected call of Context.
-func (mr *MockDeployerAPIMockRecorder) Context() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockDeployerAPI)(nil).Context))
 }
 
 // Deploy mocks base method.

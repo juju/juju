@@ -952,7 +952,7 @@ func (s *apiclientSuite) TestOpenTimesOutOnLogin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	select {
 	case err := <-done:
-		c.Assert(err, gc.ErrorMatches, `cannot log in: context deadline exceeded`)
+		c.Assert(err, gc.ErrorMatches, `cannot log in: api connection open timed out`)
 	case <-time.After(time.Second):
 		c.Fatalf("timed out waiting for api.Open timeout")
 	}
@@ -992,7 +992,7 @@ func (s *apiclientSuite) TestOpenTimeoutAffectsDial(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	select {
 	case err := <-done:
-		c.Assert(err, gc.ErrorMatches, `unable to connect to API: context deadline exceeded`)
+		c.Assert(err, gc.ErrorMatches, `api connection open timed out`)
 	case <-time.After(time.Second):
 		c.Fatalf("timed out waiting for api.Open timeout")
 	}
@@ -1033,7 +1033,7 @@ func (s *apiclientSuite) TestOpenDialTimeoutAffectsDial(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	select {
 	case err := <-done:
-		c.Assert(err, gc.ErrorMatches, `unable to connect to API: context deadline exceeded`)
+		c.Assert(err, gc.ErrorMatches, `api connection dial timed out`)
 	case <-time.After(time.Second):
 		c.Fatalf("timed out waiting for api.Open timeout")
 	}
@@ -1189,7 +1189,7 @@ func (s *apiclientSuite) TestIsBrokenOk(c *gc.C) {
 		RPCConnection: newRPCConnection(),
 		Clock:         new(fakeClock),
 	})
-	c.Assert(conn.IsBroken(), jc.IsFalse)
+	c.Assert(conn.IsBroken(context.Background()), jc.IsFalse)
 }
 
 func (s *apiclientSuite) TestIsBrokenChannelClosed(c *gc.C) {
@@ -1200,7 +1200,7 @@ func (s *apiclientSuite) TestIsBrokenChannelClosed(c *gc.C) {
 		Clock:         new(fakeClock),
 		Broken:        broken,
 	})
-	c.Assert(conn.IsBroken(), jc.IsTrue)
+	c.Assert(conn.IsBroken(context.Background()), jc.IsTrue)
 }
 
 func (s *apiclientSuite) TestIsBrokenPingFailed(c *gc.C) {
@@ -1208,7 +1208,7 @@ func (s *apiclientSuite) TestIsBrokenPingFailed(c *gc.C) {
 		RPCConnection: newRPCConnection(errors.New("no biscuit")),
 		Clock:         new(fakeClock),
 	})
-	c.Assert(conn.IsBroken(), jc.IsTrue)
+	c.Assert(conn.IsBroken(context.Background()), jc.IsTrue)
 }
 
 func (s *apiclientSuite) TestLoginCapturesCLIArgs(c *gc.C) {
@@ -1487,7 +1487,7 @@ func (f *fakeRPCConnection) Close() error {
 	return nil
 }
 
-func (f *fakeRPCConnection) Call(req rpc.Request, params, response interface{}) error {
+func (f *fakeRPCConnection) Call(_ context.Context, req rpc.Request, params, response interface{}) error {
 	f.stub.AddCall(req.Type+"."+req.Action, req.Version, params)
 	if f.response != nil {
 		rv := reflect.ValueOf(response)
