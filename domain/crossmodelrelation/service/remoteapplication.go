@@ -94,10 +94,10 @@ type ModelRemoteApplicationState interface {
 	// UUID for the given offer UUID.
 	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, string, error)
 
-	// GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID returns the
+	// GetSyntheticApplicationUUIDByRemoteToken returns the
 	// synthetic application UUID for the given offer UUID and remote relation
 	// UUID.
-	GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(ctx context.Context, offerUUID string, remoteRelationUUID string) (string, error)
+	GetSyntheticApplicationUUIDByRemoteToken(ctx context.Context, offerUUID string, remoteRelationUUID string) (string, error)
 
 	// EnsureUnitsExist ensures that the given synthetic units exist in the
 	// local model.
@@ -454,9 +454,9 @@ func (s *Service) GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offe
 	return appName, coreapplication.UUID(appUUID), nil
 }
 
-// GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID returns the
+// GetSyntheticApplicationUUIDByRemoteToken returns the
 // synthetic application UUID for the given offer UUID and remote relation UUID.
-func (s *Service) GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(ctx context.Context, offerUUID offer.UUID, remoteRelationUUID corerelation.UUID) (coreapplication.UUID, error) {
+func (s *Service) GetSyntheticApplicationUUIDByRemoteToken(ctx context.Context, offerUUID offer.UUID, remoteRelationUUID corerelation.UUID) (coreapplication.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -468,7 +468,7 @@ func (s *Service) GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(ct
 		return "", internalerrors.Errorf("validating remote relation UUID: %w", err)
 	}
 
-	appUUID, err := s.modelState.GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(ctx, offerUUID.String(), remoteRelationUUID.String())
+	appUUID, err := s.modelState.GetSyntheticApplicationUUIDByRemoteToken(ctx, offerUUID.String(), remoteRelationUUID.String())
 	if err != nil {
 		return "", internalerrors.Capture(err)
 	}

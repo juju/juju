@@ -931,11 +931,11 @@ func (st *State) GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offer
 	return applicationName, applicationUUID, nil
 }
 
-// GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID returns the
+// GetSyntheticApplicationUUIDByRemoteToken returns the
 // synthetic application UUID for the given offer UUID and the remote relation
 // UUID. Returns [applicationerrors.ApplicationNotFound] if the offer or
 // associated synthetic application is not found.
-func (st *State) GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(ctx context.Context, offerOrAppToken string, remRelationUUID string) (string, error) {
+func (st *State) GetSyntheticApplicationUUIDByRemoteToken(ctx context.Context, offerOrAppToken string, remRelationUUID string) (string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)

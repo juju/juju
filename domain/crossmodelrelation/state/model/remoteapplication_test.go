@@ -851,7 +851,7 @@ func (s *modelRemoteApplicationSuite) TestGetApplicationUUIDByOfferUUIDNotExists
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDNoOfferConnection(c *tc.C) {
+func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByRemoteTokenNoOfferConnection(c *tc.C) {
 	// Create application, charm and offer first
 	applicationUUID := tc.Must(c, coreapplication.NewUUID)
 	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
@@ -862,11 +862,11 @@ func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByOfferUUID
 	s.createApplication(c, applicationUUID, charmUUID, offerUUID)
 
 	// Retrieve application UUID by offer UUID - should return the correct UUID
-	_, err := s.state.GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(c.Context(), offerUUID, remRelationUUID)
+	_, err := s.state.GetSyntheticApplicationUUIDByRemoteToken(c.Context(), offerUUID, remRelationUUID)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDWithApplicationUUIDNotFound(c *tc.C) {
+func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByRemoteTokenWithApplicationUUIDNotFound(c *tc.C) {
 	// Create application, charm and offer first
 	applicationUUID := tc.Must(c, coreapplication.NewUUID)
 	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
@@ -877,7 +877,7 @@ func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByOfferUUID
 	s.createApplication(c, applicationUUID, charmUUID, offerUUID)
 
 	// Retrieve application UUID by offer UUID - should return the correct UUID
-	_, err := s.state.GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(c.Context(), applicationUUID.String(), remRelationUUID)
+	_, err := s.state.GetSyntheticApplicationUUIDByRemoteToken(c.Context(), applicationUUID.String(), remRelationUUID)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -919,29 +919,29 @@ VALUES (?, ?, ?, ?, 0)`,
 	return offUUID, relUUID, realApplicationUUID.String(), synthApplicationUUID.String(), consumerApplicationUUID
 }
 
-func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDWithOfferConnection(c *tc.C) {
+func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByRemoteTokenWithOfferConnection(c *tc.C) {
 	offerUUID, relUUID, _, synthApplicationUUID, _ := s.setupRemoteApplicationConsumer(c)
 
 	// Retrieve application UUID by offer UUID and remote relation UUID - should return the correct UUID
-	uuid, err := s.state.GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(c.Context(), offerUUID, relUUID)
+	uuid, err := s.state.GetSyntheticApplicationUUIDByRemoteToken(c.Context(), offerUUID, relUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(uuid, tc.Equals, synthApplicationUUID)
 }
 
-func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDWithApplication(c *tc.C) {
+func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByRemoteTokenWithApplication(c *tc.C) {
 	_, relUUID, _, synthApplicationUUID, consumeAppUUID := s.setupRemoteApplicationConsumer(c)
 	// Retrieve application UUID by offer UUID and remote relation UUID - should return the correct UUID
-	uuid, err := s.state.GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(c.Context(), consumeAppUUID, relUUID)
+	uuid, err := s.state.GetSyntheticApplicationUUIDByRemoteToken(c.Context(), consumeAppUUID, relUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(uuid, tc.Equals, synthApplicationUUID)
 }
 
-func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDNotFound(c *tc.C) {
+func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByRemoteTokenNotFound(c *tc.C) {
 	// Test with non-existing offer UUID - should return application not found
 	// (no linked application)
 	nonExistentOfferUUID := tc.Must(c, internaluuid.NewUUID).String()
 	nonExistentRelationUUID := tc.Must(c, internaluuid.NewUUID).String()
-	_, err := s.state.GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(c.Context(), nonExistentOfferUUID, nonExistentRelationUUID)
+	_, err := s.state.GetSyntheticApplicationUUIDByRemoteToken(c.Context(), nonExistentOfferUUID, nonExistentRelationUUID)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
