@@ -255,6 +255,44 @@ func (c *MockImportServiceImportStoragePoolsCall) DoAndReturn(f func(context.Con
 	return c
 }
 
+// ImportVolumes mocks base method.
+func (m *MockImportService) ImportVolumes(arg0 context.Context, arg1 storage.ImportVolumeParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ImportVolumes", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ImportVolumes indicates an expected call of ImportVolumes.
+func (mr *MockImportServiceMockRecorder) ImportVolumes(arg0, arg1 any) *MockImportServiceImportVolumesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportVolumes", reflect.TypeOf((*MockImportService)(nil).ImportVolumes), arg0, arg1)
+	return &MockImportServiceImportVolumesCall{Call: call}
+}
+
+// MockImportServiceImportVolumesCall wrap *gomock.Call
+type MockImportServiceImportVolumesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockImportServiceImportVolumesCall) Return(arg0 error) *MockImportServiceImportVolumesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockImportServiceImportVolumesCall) Do(f func(context.Context, storage.ImportVolumeParams) error) *MockImportServiceImportVolumesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockImportServiceImportVolumesCall) DoAndReturn(f func(context.Context, storage.ImportVolumeParams) error) *MockImportServiceImportVolumesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetRecommendedStoragePools mocks base method.
 func (m *MockImportService) SetRecommendedStoragePools(arg0 context.Context, arg1 []storage.RecommendedStoragePoolParams) error {
 	m.ctrl.T.Helper()

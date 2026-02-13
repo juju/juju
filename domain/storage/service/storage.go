@@ -46,18 +46,18 @@ func (s *StorageService) ImportFilesystem(ctx context.Context, arg ImportStorage
 	// 	// TODO(axw) implement support for volumes.
 	// 	return "", errors.Errorf("storage kind %q not supported", arg.Kind.String()).Add(coreerrors.NotSupported)
 	// }
-	// if !internalstorage.IsValidPoolName(arg.Pool) {
-	// 	return "", errors.Errorf("pool name %q not valid", arg.Pool).Add(storageerrors.InvalidPoolNameError)
+	// if !internalstorage.IsValidPoolName(arg.PoolUUID) {
+	// 	return "", errors.Errorf("pool name %q not valid", arg.PoolUUID).Add(storageerrors.InvalidPoolNameError)
 	// }
 	// if err := arg.StorageName.Validate(); err != nil {
 	// 	return "", errors.Capture(err)
 	// }
 
-	// poolDetails, err := s.st.GetStoragePoolByName(ctx, arg.Pool)
+	// poolDetails, err := s.st.GetStoragePoolByName(ctx, arg.PoolUUID)
 	// if errors.Is(err, storageerrors.PoolNotFoundError) {
 	// 	poolDetails = storage.StoragePool{
-	// 		Name:     arg.Pool,
-	// 		Provider: arg.Pool,
+	// 		Name:     arg.PoolUUID,
+	// 		Provider: arg.PoolUUID,
 	// 		Attrs:    map[string]string{},
 	// 	}
 	// } else if err != nil {
@@ -130,7 +130,7 @@ func (s *StorageService) ImportFilesystem(ctx context.Context, arg ImportStorage
 // 		return nil, errors.Errorf("importing filesystem: %w", err)
 // 	}
 // 	filesystemInfo := &storage.FilesystemInfo{
-// 		Pool: cfg.Name(),
+// 		PoolUUID: cfg.Name(),
 // 		FilesystemInfo: internalstorage.FilesystemInfo{
 // 			FilesystemId: info.FilesystemId,
 // 			Size:         info.Size,
@@ -159,7 +159,7 @@ func (s *StorageService) ImportFilesystem(ctx context.Context, arg ImportStorage
 // 		return nil, errors.Errorf("importing volume: %w", err)
 // 	}
 // 	filesystemInfo := &storage.FilesystemInfo{
-// 		Pool: cfg.Name(),
+// 		PoolUUID: cfg.Name(),
 // 		FilesystemInfo: internalstorage.FilesystemInfo{
 // 			Size: info.Size,
 // 		},

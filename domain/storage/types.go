@@ -134,6 +134,43 @@ func (p ImportFilesystemParams) Validate() error {
 			return errors.Errorf("invalid StorageInstanceID %q: %w", p.StorageInstanceID, err).Add(coreerrors.NotValid)
 		}
 	}
+	return nil
+}
 
+type ImportVolumeParams []ImportVolumeParam
+
+// ImportVolumeParam represents a volume definition used when importing
+// volumes into the model.
+type ImportVolumeParam struct {
+	ID          string
+	StorageID   string
+	Provisioned bool
+	SizeMiB     uint64
+	Pool        string
+	HardwareID  string
+	WWN         string
+	ProviderID  string
+	Persistent  bool
+}
+
+// Validate runs validate for the slice items and returns
+// a combined error.
+func (i ImportVolumeParams) Validate() error {
+	var errs []error
+	for _, arg := range i {
+		errs = append(errs, arg.Validate())
+	}
+	return errors.Join(errs...)
+}
+
+// Validate returns an NotValid if the ImportVolumeParam does not contain
+// an ID nor SizeMiB.
+func (i ImportVolumeParam) Validate() error {
+	if i.ID == "" {
+		return errors.New("volume missing id not valid").Add(coreerrors.NotValid)
+	}
+	if i.SizeMiB == 0 {
+		return errors.Errorf("volume %q missing size not valid", i.ID).Add(coreerrors.NotValid)
+	}
 	return nil
 }

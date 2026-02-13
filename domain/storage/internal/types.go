@@ -31,3 +31,20 @@ type ImportFilesystemArgs struct {
 	StorageInstanceUUID string
 	Scope               storageprovisioning.ProvisionScope
 }
+
+// ImportVolumeArgs represents a volume definition used when importing
+// volumes into the model.
+type ImportVolumeArgs struct {
+	UUID                string
+	ID                  string
+	LifeID              life.Life
+	StorageInstanceUUID string
+	StorageID           string
+	Provisioned         bool
+	ProvisionScopeID    storageprovisioning.ProvisionScope
+	SizeMiB             uint64
+	HardwareID          string
+	WWN                 string
+	ProviderID          string
+	Persistent          bool
+}

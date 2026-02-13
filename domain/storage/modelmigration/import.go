@@ -43,7 +43,6 @@ type ImportService interface {
 		[]domainstorage.RecommendedStoragePoolParams,
 		error,
 	)
-
 	// ImportStoragePools creates new storage pools with the slice
 	// of [domainstorage.ImportStoragePoolParams].
 	ImportStoragePools(ctx context.Context, pools []domainstorage.ImportStoragePoolParams) error
@@ -58,6 +57,11 @@ type ImportService interface {
 
 	// ImportFilesystems imports filesystems from the provided parameters.
 	ImportFilesystems(ctx context.Context, args []domainstorage.ImportFilesystemParams) error
+
+	// ImportVolumes associates a volume (either native or volume backed) hosted by a cloud provider
+	// with a new storage instance (and storage pool) in a model.
+	// The following error types can be expected:
+	ImportVolumes(ctx context.Context, arg domainstorage.ImportVolumeParams) error
 }
 
 type importOperation struct {
@@ -110,6 +114,11 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		if err := i.importFilesystems(ctx, model.Filesystems()); err != nil {
 			return errors.Errorf("importing filesystems: %w", err)
 		}
+	}
+
+	if err := i.importVolumes(ctx, model.Volumes()); err != nil {
+		return errors.Errorf("setting volumes: %w", err)
+
 	}
 
 	return nil
@@ -165,4 +174,28 @@ func (i *importOperation) importFilesystems(ctx context.Context, filesystems []d
 	})
 
 	return i.service.ImportFilesystems(ctx, args)
+}
+
+func (i *importOperation) importVolumes(ctx context.Context, volumes []description.Volume) error {
+	if len(volumes) == 0 {
+		return nil
+	}
+
+	args := make(domainstorage.ImportVolumeParams, len(volumes))
+	for i, volume := range volumes {
+		vol := domainstorage.ImportVolumeParam{
+			ID:          volume.ID(),
+			StorageID:   volume.Storage(),
+			Provisioned: volume.Provisioned(),
+			SizeMiB:     volume.Size(),
+			Pool:        volume.Pool(),
+			HardwareID:  volume.HardwareID(),
+			WWN:         volume.WWN(),
+			ProviderID:  volume.VolumeID(),
+			Persistent:  volume.Persistent(),
+		}
+		args[i] = vol
+	}
+
+	return i.service.ImportVolumes(ctx, args)
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storage/internal"
 	storagetesting "github.com/juju/juju/domain/storage/testing"
+	"github.com/juju/juju/domain/storageprovisioning"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -156,10 +157,8 @@ func (s *importSuite) TestImportFilesystems(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory())
 
-	// Act
 	err := st.ImportFilesystems(c.Context(), args)
 
-	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 	obtainedFs, obtainedFsInstances := s.getFilesystems(c)
 	c.Check(obtainedFs, tc.SameContents, []importStorageFilesystem{{
@@ -191,6 +190,54 @@ func (s *importSuite) TestImportFilesystems(c *tc.C) {
 		StorageInstanceUUID: gceInstanceUUID.String(),
 		FilesystemUUID:      gceFsUUID.String(),
 	}})
+}
+
+func (s *importSuite) TestImportVolumes(c *tc.C) {
+	// Arrange
+	ebsPoolUUID := s.newStoragePool(c, "ebs", "fspool")
+
+	ebsInstanceUUID := s.newStorageInstance(c, "ebs", "1", ebsPoolUUID).String()
+
+	args := []internal.ImportVolumeArgs{
+		{
+			UUID:                tc.Must(c, storage.NewVolumeUUID).String(),
+			ID:                  "0",
+			ProviderID:          "vol-0f2829d7e5c4c0140",
+			LifeID:              life.Alive,
+			ProvisionScopeID:    storageprovisioning.ProvisionScopeMachine,
+			WWN:                 "uuid.c2f9e696-7b12-5368-b274-0510bf1feade",
+			Persistent:          true,
+			SizeMiB:             1024,
+			StorageInstanceUUID: ebsInstanceUUID,
+		},
+	}
+	st := NewState(s.TxnRunnerFactory())
+
+	// Act
+	err := st.ImportVolumes(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	obtained := s.getStorageVolumes(c)
+	c.Check(obtained, tc.SameContents, []importStorageVolume{
+		{
+			UUID:             args[0].UUID,
+			VolumeID:         args[0].ID,
+			ProviderID:       args[0].ProviderID,
+			LifeID:           int(args[0].LifeID),
+			ProvisionScopeID: int(args[0].ProvisionScopeID),
+			WWN:              args[0].WWN,
+			Persistent:       true,
+			SizeMiB:          args[0].SizeMiB,
+		},
+	})
+	obtainedInstances := s.getStorageInstanceVolumes(c)
+	c.Check(obtainedInstances, tc.SameContents, []importStorageInstanceVolume{
+		{
+			StorageInstanceUUID: ebsInstanceUUID,
+			VolumeUUID:          args[0].UUID,
+		},
+	})
 }
 
 func (s *importSuite) TestGetNetNodeUUIDsByMachineOrUnitName(c *tc.C) {
@@ -285,6 +332,65 @@ FROM storage_instance`)
 				StorageID:       storageID,
 				LifeID:          life,
 				RequestedSize:   size,
+			})
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return result
+}
+
+func (s *importSuite) getStorageVolumes(c *tc.C) []importStorageVolume {
+	var result []importStorageVolume
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(c.Context(), `
+SELECT uuid, volume_id, life_id, provision_scope_id, provider_id, size_mib, wwn, persistent 
+FROM storage_volume`)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var uuid, volumeID, providerID, wwn, persistent string
+			var sizeMIB, scope, life int
+			if err := rows.Scan(&uuid, &volumeID, &life, &scope, &providerID, &sizeMIB, &wwn, &persistent); err != nil {
+				return err
+			}
+			result = append(result, importStorageVolume{
+				UUID:             uuid,
+				VolumeID:         volumeID,
+				ProviderID:       providerID,
+				LifeID:           life,
+				ProvisionScopeID: scope,
+				WWN:              wwn,
+				Persistent:       true,
+				SizeMiB:          uint64(sizeMIB),
+			})
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return result
+}
+
+func (s *importSuite) getStorageInstanceVolumes(c *tc.C) []importStorageInstanceVolume {
+	var result []importStorageInstanceVolume
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(c.Context(), `
+SELECT storage_instance_uuid, storage_volume_uuid 
+FROM storage_instance_volume`)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var storage_instanceuuid, storage_volume_uuid string
+			if err := rows.Scan(&storage_instanceuuid, &storage_volume_uuid); err != nil {
+				return err
+			}
+			result = append(result, importStorageInstanceVolume{
+				StorageInstanceUUID: storage_instanceuuid,
+				VolumeUUID:          storage_volume_uuid,
 			})
 		}
 		return rows.Err()

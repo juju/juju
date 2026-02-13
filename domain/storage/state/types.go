@@ -96,3 +96,24 @@ type importStorageInstanceFilesystem struct {
 	StorageInstanceUUID string `db:"storage_instance_uuid"`
 	FilesystemUUID      string `db:"storage_filesystem_uuid"`
 }
+
+// importStorageVolume represents the data contained in a
+// storage volume which may be inserted on model import.
+type importStorageVolume struct {
+	UUID             string `db:"uuid"`
+	VolumeID         string `db:"volume_id"`
+	LifeID           int    `db:"life_id"`
+	ProvisionScopeID int    `db:"provision_scope_id"`
+	ProviderID       string `db:"provider_id"`
+	SizeMiB          uint64 `db:"size_mib"`
+	HardwareID       string `db:"hardware_id"`
+	WWN              string `db:"wwn"`
+	Persistent       bool   `db:"persistent"`
+}
+
+// importStorageInstanceVolume represents a pairing of a storage
+// instance and a volume on model import.
+type importStorageInstanceVolume struct {
+	StorageInstanceUUID string `db:"storage_instance_uuid"`
+	VolumeUUID          string `db:"storage_volume_uuid"`
+}
