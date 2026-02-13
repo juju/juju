@@ -271,7 +271,10 @@ func (s *State) FindMetadata(ctx context.Context, criteria cloudimagemetadata.Me
 	// clauses will collect all required clauses to build the final WHERE ... AND ... clause
 	clauses := []string{
 		// Ignores expired metadata in case of non custom source.
-		`source = $inputMetadata.source OR cloud_image_metadata.created_at >=  $ttl.expires_at`,
+		// The parentheses are critical: without them, SQL operator
+		// precedence causes custom-source rows to bypass all subsequent filter
+		// clauses (version, region, etc).
+		`(source = $inputMetadata.source OR cloud_image_metadata.created_at >= $ttl.expires_at)`,
 	}
 
 	// declareEqualsClause is an helper function to add a sqlair clause with the format cloud_image_metadata.<field> = $metadataFilter.<field>,

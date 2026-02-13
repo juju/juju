@@ -434,6 +434,58 @@ VALUES
 	})
 }
 
+// TestFindMetadataCustomSourceFilteredByVersion verifies that custom-source
+// metadata is correctly filtered by version. This is a regression test for a
+// SQL operator precedence bug where the OR in
+// "source = 'custom' OR created_at >= ..." was not parenthesised, causing
+// all custom-source rows to bypass subsequent AND filters (version, region, etc).
+func (s *stateSuite) TestFindMetadataCustomSourceFilteredByVersion(c *tc.C) {
+	// Arrange: insert custom metadata for multiple versions.
+	err := s.runQuery(c, `
+INSERT INTO cloud_image_metadata (uuid,created_at,source,stream,region,version,architecture_id,virt_type,root_storage_type,priority,image_id)
+VALUES
+('a',datetime('now','localtime'), 'custom', 'released', 'region1', '20.04', 0, 'kvm', 'ssd', 50, 'img-focal'),
+('b',datetime('now','localtime'), 'custom', 'released', 'region1', '22.04', 0, 'kvm', 'ssd', 50, 'img-jammy'),
+('c',datetime('now','localtime'), 'custom', 'released', 'region1', '24.04', 0, 'kvm', 'ssd', 50, 'img-noble');
+`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: query for version 24.04 only.
+	obtained, err := s.state.FindMetadata(c.Context(), cloudimagemetadata.MetadataFilter{
+		Versions: []string{"24.04"},
+	})
+
+	// Assert: only the 24.04 entry should be returned.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.HasLen, 1)
+	c.Check(obtained[0].Version, tc.Equals, "24.04")
+	c.Check(obtained[0].ImageID, tc.Equals, "img-noble")
+}
+
+// TestFindMetadataCustomSourceFilteredByRegion verifies that custom-source
+// metadata is correctly filtered by region.
+func (s *stateSuite) TestFindMetadataCustomSourceFilteredByRegion(c *tc.C) {
+	// Arrange: insert custom metadata for multiple regions.
+	err := s.runQuery(c, `
+INSERT INTO cloud_image_metadata (uuid,created_at,source,stream,region,version,architecture_id,virt_type,root_storage_type,priority,image_id)
+VALUES
+('a',datetime('now','localtime'), 'custom', 'released', 'us-east-1', '24.04', 0, 'kvm', 'ssd', 50, 'img-us-east'),
+('b',datetime('now','localtime'), 'custom', 'released', 'eu-west-1', '24.04', 0, 'kvm', 'ssd', 50, 'img-eu-west');
+`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: query for region eu-west-1 only.
+	obtained, err := s.state.FindMetadata(c.Context(), cloudimagemetadata.MetadataFilter{
+		Region: "eu-west-1",
+	})
+
+	// Assert: only the eu-west-1 entry should be returned.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.HasLen, 1)
+	c.Check(obtained[0].Region, tc.Equals, "eu-west-1")
+	c.Check(obtained[0].ImageID, tc.Equals, "img-eu-west")
+}
+
 // TestAllCloudImageMetadata tests the retrieval of all cloud image metadata from the database,
 // except expired one.
 func (s *stateSuite) TestAllCloudImageMetadata(c *tc.C) {
