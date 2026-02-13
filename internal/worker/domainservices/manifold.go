@@ -85,6 +85,7 @@ type ModelDomainServicesFn func(
 	lease.ModelLeaseManagerGetter,
 	coredatabase.ClusterDescriber,
 	corehttp.HTTPClient,
+	bool,
 	string,
 	clock.Clock,
 	logger.Logger,
@@ -286,6 +287,7 @@ func NewProviderTrackerModelDomainServices(
 	leaseManager lease.ModelLeaseManagerGetter,
 	clusterDescriber coredatabase.ClusterDescriber,
 	simpleStreamsHTTPClient corehttp.HTTPClient,
+	supportsNetworking bool,
 	logDir string,
 	clock clock.Clock,
 	logger logger.Logger,
@@ -304,6 +306,7 @@ func NewProviderTrackerModelDomainServices(
 		simpleStreamsHTTPClient,
 		logDir,
 		clock,
+		supportsNetworking,
 		logger,
 	)
 }

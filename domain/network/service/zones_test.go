@@ -62,7 +62,7 @@ func (s *zonesSuite) TestGetProviderAvailabilityZones(c *tc.C) {
 	zones := network.AvailabilityZones{}
 	s.providerWithZones.EXPECT().AvailabilityZones(gomock.Any()).Return(zones, nil)
 
-	providerService := NewProviderService(s.st, s.notSupportedNetworkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
+	providerService := NewProviderService(s.st, s.notSupportedNetworkProviderGetter, s.zoneProviderGetter, true, loggertesting.WrapCheckLog(c))
 
 	got, err := providerService.GetProviderAvailabilityZones(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -72,7 +72,7 @@ func (s *zonesSuite) TestGetProviderAvailabilityZones(c *tc.C) {
 func (s *zonesSuite) TestGetProviderAvailabilityZonesNotSupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	providerService := NewProviderService(s.st, s.networkProviderGetter, s.notSupportedZoneProviderGetter, loggertesting.WrapCheckLog(c))
+	providerService := NewProviderService(s.st, s.networkProviderGetter, s.notSupportedZoneProviderGetter, true, loggertesting.WrapCheckLog(c))
 
 	zones, err := providerService.GetProviderAvailabilityZones(c.Context())
 	c.Assert(err, tc.ErrorIsNil)

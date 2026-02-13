@@ -346,6 +346,7 @@ func noopModelDomainServices(
 	lease.ModelLeaseManagerGetter,
 	database.ClusterDescriber,
 	corehttp.HTTPClient,
+	bool,
 	string,
 	clock.Clock,
 	logger.Logger,

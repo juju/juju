@@ -47,6 +47,7 @@ type WatchableService struct {
 func NewWatchableService(st State,
 	providerWithNetworking providertracker.ProviderGetter[ProviderWithNetworking],
 	providerWithZones providertracker.ProviderGetter[ProviderWithZones],
+	supportsNetworking bool,
 	watcherFactory WatcherFactory, logger logger.Logger) *WatchableService {
 	return &WatchableService{
 		ProviderService: ProviderService{
@@ -56,6 +57,7 @@ func NewWatchableService(st State,
 			},
 			providerWithNetworking: providerWithNetworking,
 			providerWithZones:      providerWithZones,
+			supportsNetworking:     supportsNetworking,
 		},
 		watcherFactory: watcherFactory,
 	}

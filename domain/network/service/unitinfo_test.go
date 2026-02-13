@@ -10,7 +10,6 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	coreerrors "github.com/juju/juju/core/errors"
 	coreunit "github.com/juju/juju/core/unit"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
@@ -21,11 +20,9 @@ import (
 type infoSuite struct {
 	testhelpers.IsolationSuite
 
-	st                         *MockState
-	providerWithNetworking     *MockProviderWithNetworking
-	networkProviderGetter      func(context.Context) (ProviderWithNetworking, error)
-	notSupportedProviderGetter func(context.Context) (ProviderWithNetworking, error)
-	genericErrorProviderGetter func(context.Context) (ProviderWithNetworking, error)
+	st                     *MockState
+	providerWithNetworking *MockProviderWithNetworking
+	networkProviderGetter  func(context.Context) (ProviderWithNetworking, error)
 }
 
 func TestInfoSuite(t *testing.T) {
@@ -38,12 +35,6 @@ func (s *infoSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.providerWithNetworking = NewMockProviderWithNetworking(ctrl)
 	s.networkProviderGetter = func(context.Context) (ProviderWithNetworking, error) {
 		return s.providerWithNetworking, nil
-	}
-	s.notSupportedProviderGetter = func(context.Context) (ProviderWithNetworking, error) {
-		return nil, errors.Errorf("provider %w", coreerrors.NotSupported)
-	}
-	s.genericErrorProviderGetter = func(context.Context) (ProviderWithNetworking, error) {
-		return nil, errors.New("boom")
 	}
 	return ctrl
 }
@@ -97,7 +88,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworks(c *tc.C) {
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.st.EXPECT().GetUnitEndpointNetworks(gomock.Any(), unitUUID.String(), endpointNames).Return(expectedInfos, nil)
 
-	service := NewProviderService(s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c))
+	service := NewProviderService(s.st, s.networkProviderGetter, nil, true, loggertesting.WrapCheckLog(c))
 	infos, err := service.GetUnitEndpointNetworks(c.Context(), unitName, endpointNames)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(infos, tc.DeepEquals, expectedInfos)
@@ -110,7 +101,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworksUnitNotFound(c *tc.C) {
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return("", errors.New("unit not found"))
 
-	service := NewProviderService(s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c))
+	service := NewProviderService(s.st, s.networkProviderGetter, nil, true, loggertesting.WrapCheckLog(c))
 	_, err := service.GetUnitEndpointNetworks(c.Context(), unitName, []string{"db"})
 	c.Assert(err, tc.ErrorMatches, "unit not found")
 }
@@ -126,12 +117,12 @@ func (s *infoSuite) TestGetUnitEndpointNetworksStateError(c *tc.C) {
 	s.st.EXPECT().GetUnitEndpointNetworks(gomock.Any(), unitUUID.String(), endpointNames).Return(nil,
 		errors.New("state error"))
 
-	service := NewProviderService(s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c))
+	service := NewProviderService(s.st, s.networkProviderGetter, nil, true, loggertesting.WrapCheckLog(c))
 	_, err := service.GetUnitEndpointNetworks(c.Context(), unitName, endpointNames)
 	c.Assert(err, tc.ErrorMatches, "getting unit endpoint networks: state error")
 }
 
-func (s *infoSuite) TestGetUnitEndpointNetworksNotSupportedUsesUnitNetwork(c *tc.C) {
+func (s *infoSuite) TestGetUnitEndpointNetworksWithoutNetworkingSupportUsesUnitNetwork(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("mysql/0")
@@ -148,7 +139,8 @@ func (s *infoSuite) TestGetUnitEndpointNetworksNotSupportedUsesUnitNetwork(c *tc
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.st.EXPECT().GetUnitNetwork(gomock.Any(), unitUUID.String()).Return(info, nil)
 
-	service := NewProviderService(s.st, s.notSupportedProviderGetter, nil, loggertesting.WrapCheckLog(c))
+	service := NewProviderService(s.st, s.networkProviderGetter, nil, true, loggertesting.WrapCheckLog(c))
+	service.supportsNetworking = false
 	infos, err := service.GetUnitEndpointNetworks(c.Context(), unitName, endpointNames)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(infos, tc.DeepEquals, []domainnetwork.UnitNetwork{
@@ -167,15 +159,18 @@ func (s *infoSuite) TestGetUnitEndpointNetworksNotSupportedUsesUnitNetwork(c *tc
 	})
 }
 
-func (s *infoSuite) TestGetUnitEndpointNetworksSupportsNetworkingError(c *tc.C) {
+func (s *infoSuite) TestGetUnitEndpointNetworksWithoutNetworkingSupportUnitNetworkError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("mysql/0")
 	unitUUID := coreunit.UUID("unit-uuid-123")
+	errBoom := errors.New("boom")
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.st.EXPECT().GetUnitNetwork(gomock.Any(), unitUUID.String()).Return(domainnetwork.UnitNetwork{}, errBoom)
 
-	service := NewProviderService(s.st, s.genericErrorProviderGetter, nil, loggertesting.WrapCheckLog(c))
+	service := NewProviderService(s.st, s.networkProviderGetter, nil, true, loggertesting.WrapCheckLog(c))
+	service.supportsNetworking = false
 	_, err := service.GetUnitEndpointNetworks(c.Context(), unitName, []string{"db"})
-	c.Assert(err, tc.ErrorMatches, "checking provider networking support: boom")
+	c.Assert(err, tc.ErrorMatches, "getting unit network: boom")
 }

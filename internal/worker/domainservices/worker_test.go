@@ -151,6 +151,7 @@ func (s *workerSuite) getConfig(c *tc.C) Config {
 			lease.ModelLeaseManagerGetter,
 			database.ClusterDescriber,
 			corehttp.HTTPClient,
+			bool,
 			string,
 			clock.Clock,
 			logger.Logger,

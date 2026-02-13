@@ -180,6 +180,7 @@ func NewModelDomainServices(
 		simpleStreamsClient,
 		logDir,
 		clock,
+		false,
 		logger,
 	)
 }
