@@ -142,14 +142,10 @@ func (h *ResourceHandler) download(service ResourceService, req *http.Request) (
 	}
 
 	appDetails, err := appService.GetApplicationDetailsByName(req.Context(), application)
-	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return nil, 0, jujuerrors.NotFoundf("application %s", application)
-	} else if err != nil {
+	if err != nil && !errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil, 0, jujuerrors.Trace(err)
-	}
-
-	// Reject synthetic (SAAS) applications - they don't support resource operations
-	if appDetails.IsApplicationSynthetic {
+	} else if appDetails.IsApplicationSynthetic {
+		// Reject synthetic (SAAS) applications - they don't support resource operations
 		return nil, 0, jujuerrors.NotFoundf("application %s", application)
 	}
 
@@ -184,15 +180,11 @@ func (h *ResourceHandler) upload(service ResourceService, req *http.Request, use
 	}
 
 	appDetails, err := appService.GetApplicationDetailsByName(req.Context(), application)
-	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return nil, jujuerrors.NotFoundf("application %s", application)
-	} else if err != nil {
+	if err != nil && !errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil, jujuerrors.Trace(err)
-	}
-
-	// Reject synthetic (SAAS) applications - they don't support resource operations
-	if appDetails.IsApplicationSynthetic {
-		return nil, jujuerrors.NotFoundf("application %s", application)
+	} else if appDetails.IsApplicationSynthetic {
+		// Reject synthetic (SAAS) applications - they don't support resource operations
+		return nil, jujuerrors.NotFoundf("application %q", application)
 	}
 
 	reader, uploaded, err := h.getUploadedResource(service, req)
