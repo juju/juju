@@ -187,7 +187,7 @@ WHERE uuid = $annotationUUID.uuid`, tableName)
 // If an annotation already exists for the given ID, then it will be updated
 // with the given value.
 // Annotation keys not included will be left unchaged.
-// Annotation keys with empty string values will have the key removed.
+// Annotation keys with empty string values will be removed.
 func (st *State) SetAnnotations(
 	ctx context.Context,
 	id annotations.ID,
