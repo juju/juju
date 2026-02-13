@@ -698,14 +698,14 @@ func (s *storageServiceSuite) TestGetVolumeStatuses(c *tc.C) {
 	s.modelState.EXPECT().GetVolumes(gomock.Any(), uuids).Return(vol, nil)
 	va := []status.VolumeAttachment{
 		{
-			VolumeUUID: uuids[0],
-			Life:       life.Alive,
-			Unit:       ptr(unit.Name("foo/0")),
-			Machine:    ptr(machine.Name("0")),
-			ReadOnly:   true,
-			DeviceName: "dvname0",
-			DeviceLink: "/dev/link0",
-			BusAddress: "bus-addr0",
+			VolumeUUID:  uuids[0],
+			Life:        life.Alive,
+			Unit:        ptr(unit.Name("foo/0")),
+			Machine:     ptr(machine.Name("0")),
+			ReadOnly:    true,
+			DeviceName:  "dvname0",
+			DeviceLinks: []string{"/dev/link0"},
+			BusAddress:  "bus-addr0",
 			VolumeAttachmentPlan: &status.VolumeAttachmentPlan{
 				DeviceType: storage.VolumeDeviceTypeISCSI,
 				DeviceAttributes: map[string]string{
@@ -795,14 +795,14 @@ func (s *storageServiceSuite) TestGetAllVolumeStatuses(c *tc.C) {
 	s.modelState.EXPECT().GetAllVolumes(gomock.Any()).Return(vol, nil)
 	va := []status.VolumeAttachment{
 		{
-			VolumeUUID: volUUID,
-			Life:       life.Alive,
-			Unit:       ptr(unit.Name("foo/0")),
-			Machine:    ptr(machine.Name("0")),
-			ReadOnly:   true,
-			DeviceName: "dvname0",
-			DeviceLink: "/dev/link0",
-			BusAddress: "bus-addr0",
+			VolumeUUID:  volUUID,
+			Life:        life.Alive,
+			Unit:        ptr(unit.Name("foo/0")),
+			Machine:     ptr(machine.Name("0")),
+			ReadOnly:    true,
+			DeviceName:  "dvname0",
+			DeviceLinks: []string{"/dev/link0"},
+			BusAddress:  "bus-addr0",
 			VolumeAttachmentPlan: &status.VolumeAttachmentPlan{
 				DeviceType: storage.VolumeDeviceTypeISCSI,
 				DeviceAttributes: map[string]string{
