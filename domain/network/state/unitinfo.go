@@ -62,13 +62,13 @@ func (st *State) GetUnitEndpointNetworks(ctx context.Context, unitUUID string,
 		return endpoint.EndpointName, endpoint.SpaceUUID
 	})
 	infos, _ := transform.SliceOrErr(endpointNames, func(name string) (domainnetwork.UnitNetwork, error) {
-		spaceUUID := spaceEp[name]
-		info := infoBySpaces[spaceUUID]
-		return addEgressSubnets(domainnetwork.UnitNetwork{
+		info := infoBySpaces[spaceEp[name]]
+		return domainnetwork.UnitNetwork{
 			EndpointName:     name,
 			DeviceInfos:      info.DeviceInfos,
 			IngressAddresses: info.IngressAddresses,
-		}, egressCIDRs), nil
+			EgressSubnets:    egressCIDRs,
+		}, nil
 	})
 
 	return infos, nil
@@ -90,12 +90,11 @@ func (st *State) GetUnitNetwork(ctx context.Context, unitUUID string) (domainnet
 	}
 
 	info := buildUnitNetworkFromAddresses(addresses, isCaas)
-	egressCIDRs, err := st.getUnitEgressSubnets(ctx, unitUUID)
+	info.EgressSubnets, err = st.getUnitEgressSubnets(ctx, unitUUID)
 	if err != nil {
 		return domainnetwork.UnitNetwork{}, errors.Errorf("getting unit egress subnets: %w", err)
 	}
-
-	return addEgressSubnets(info, egressCIDRs), nil
+	return info, nil
 }
 
 func buildUnitNetworkFromAddresses(addresses []unitAddress, isCaas bool) domainnetwork.UnitNetwork {
@@ -136,11 +135,6 @@ func buildUnitNetworkFromAddresses(addresses []unitAddress, isCaas bool) domainn
 		DeviceInfos:      slices.Collect(maps.Values(byDevice)),
 		IngressAddresses: sortedIngressAddresses,
 	}
-}
-
-func addEgressSubnets(info domainnetwork.UnitNetwork, egressCIDRs []string) domainnetwork.UnitNetwork {
-	info.EgressSubnets = egressCIDRs
-	return info
 }
 
 func (st *State) getUnitEgressSubnets(ctx context.Context, unitUUID string) ([]string, error) {
