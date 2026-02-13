@@ -29,6 +29,17 @@ func (nm SecretRevisions) Add(uri *secrets.URI, revisionIDs ...string) {
 	}
 }
 
+// Insert all the secret revisions from one set into this one.
+func (nm SecretRevisions) Insert(other SecretRevisions) {
+	for id, revs := range other {
+		if v, ok := nm[id]; ok {
+			nm[id] = v.Union(revs)
+		} else {
+			nm[id] = set.NewStrings(revs.Values()...)
+		}
+	}
+}
+
 // RevisionIDs returns all the secret revisions.
 func (nm SecretRevisions) RevisionIDs() (result []string) {
 	for _, revisions := range nm {
@@ -80,10 +91,29 @@ type SecretBackendProvider interface {
 	// associated with the model config.
 	CleanupModel(cfg *ModelBackendConfig) error
 
+	// IssuesTokens returns true if this secret backend provider needs to issue
+	// a token to provide a restricted (delegated) config.
+	IssuesTokens() bool
+
+	// CleanupIssuedTokens removes all ACLs/tokens related to the given issued
+	// token UUIDs. It returns, even during error, the list of tokens it revoked
+	// so far.
+	CleanupIssuedTokens(
+		cfg *ModelBackendConfig, issuedTokenUUIDs []string,
+	) ([]string, error)
+
 	// RestrictedConfig returns the config needed to create a
 	// secrets backend client restricted to manage the specified
 	// owned secrets and read shared secrets for the given entity tag.
-	RestrictedConfig(adminCfg *ModelBackendConfig, sameController, forDrain bool, tag names.Tag, owned SecretRevisions, read SecretRevisions) (*BackendConfig, error)
+	RestrictedConfig(
+		adminCfg *ModelBackendConfig,
+		sameController, forDrain bool,
+		issuedTokenUUID string,
+		consumer names.Tag,
+		owned []string,
+		ownedRevs SecretRevisions,
+		readRevs SecretRevisions,
+	) (*BackendConfig, error)
 
 	// NewBackend creates a secrets backend client using the
 	// specified model config.

@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/state/watcher"
 )
@@ -75,8 +77,8 @@ type ChangeSecretBackendParams struct {
 
 // SecretsFilter holds attributes to match when listing secrets.
 type SecretsFilter struct {
-	URI          *secrets.URI
-	Label        *string
+	URIs         []*secrets.URI
+	Labels       []string
 	OwnerTags    []names.Tag
 	ConsumerTags []names.Tag
 }
@@ -88,6 +90,7 @@ type SecretsStore interface {
 	DeleteSecret(*secrets.URI, ...int) ([]secrets.ValueRef, error)
 	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
 	GetSecretValue(*secrets.URI, int) (secrets.SecretValue, *secrets.ValueRef, error)
+	ListReservedSecrets([]names.Tag) ([]*secrets.URI, error)
 	ListSecrets(SecretsFilter) ([]*secrets.SecretMetadata, error)
 	ListModelSecrets(bool) (map[string]set.Strings, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
@@ -120,11 +123,68 @@ type SecretsStore interface {
 	GetOwnedSecretRevisionsByIDAsLeaderUnit(
 		unit names.UnitTag, uri *secrets.URI,
 	) ([]int, error)
+
+	// ReserveSecret sets aside the provided secret id for the given owner. This
+	// secret ID can then only be used by the given owner to create a secret. Future
+	// versions of Juju should replace this with a token based approach to cease the
+	// need for a database entry.
+	ReserveSecret(uri *secrets.URI, owner names.Tag) error
+
+	// CreateSecretBackendIssuedToken inserts the given secret backend issued token
+	// into state. An error is returned if the consumer's life is Dead or if the
+	// secret backend issued token already exists.
+	CreateSecretBackendIssuedToken(
+		token SecretBackendIssuedToken,
+	) error
+
+	// NextSecretBackendIssuedTokenExpiry returns the time of the next secret
+	// backend issued token expiry.
+	NextSecretBackendIssuedTokenExpiry() (time.Time, error)
+
+	// ListSecretBackendIssuedTokenUntil returns all the issued secret backend
+	// tokens that are valid until the given time.
+	ListSecretBackendIssuedTokenUntil(
+		until time.Time,
+	) ([]SecretBackendIssuedToken, error)
+
+	// ListSecretBackendIssuedTokenUntilForConsumer returns the issued secret
+	// backend tokens for the given secret backend token consumer tag that are valid
+	// until the given time.
+	ListSecretBackendIssuedTokenUntilForConsumer(
+		until time.Time, consumer names.Tag,
+	) ([]SecretBackendIssuedToken, error)
+
+	// RemoveSecretBackendIssuedTokens removes the secret backend tokens for the
+	// given secret backend token UUIDs.
+	RemoveSecretBackendIssuedTokens(uuids []string) error
+
+	// ExpireSecretBackendIssuedTokensForConsumer returns a ModelOperation that
+	// sets the expire time of all currently non-expired secret backend issued
+	// tokens for the given consumer to now.
+	ExpireSecretBackendIssuedTokensForConsumer(consumer names.Tag) ModelOperation
+
+	// RemoveSecretReservations removes all secret reservations that are held by
+	// the provided owner.
+	RemoveSecretReservations(owner names.Tag) ModelOperation
+
+	// WatchSecretBackendIssuedTokenExpiry returns a state strings watcher that
+	// is fired when there is new secret backend tokens that must expire at the
+	// RFC3339 encoded timestamp in the string.
+	WatchSecretBackendIssuedTokenExpiry() StringsWatcher
 }
 
 // NewSecrets creates a new mongo backed secrets store.
 func NewSecrets(st *State) *secretsStore {
 	return &secretsStore{st: st}
+}
+
+// secretReservationDoc is the bson representation for a secret reservation.
+type secretReservationDoc struct {
+	DocID string `bson:"_id"`
+
+	OwnerTag string `bson:"owner-tag"`
+
+	CreateTime time.Time `bson:"create-time"`
 }
 
 type secretMetadataDoc struct {
@@ -300,6 +360,187 @@ func (s *secretsStore) secretRevisionDoc(uri *secrets.URI, owner string, revisio
 	return doc
 }
 
+// ReserveSecret sets aside the provided secret id for the given owner. This
+// secret ID can then only be used by the given owner to create a secret. Future
+// versions of Juju should replace this with a token based approach to cease the
+// need for a database entry.
+func (s *secretsStore) ReserveSecret(uri *secrets.URI, owner names.Tag) error {
+	if uri == nil || owner == nil {
+		return errors.New("cannot reserve secret")
+	}
+	entity, scopeCollName, scopeDocID, err := s.st.findSecretEntity(owner)
+	if err != nil {
+		return errors.Annotate(err, "invalid owner reference")
+	}
+	if entity.Life() != Alive {
+		return errors.Errorf(
+			"cannot reserve secret for owner %q which is not alive", owner)
+	}
+
+	secretMetadataCollection, closer := s.st.db().GetCollection(secretMetadataC)
+	defer closer()
+	metadata := struct {
+		DocID string `bson:"_id"`
+	}{}
+	err = secretMetadataCollection.FindId(uri.ID).One(&metadata)
+	if err != nil && !errors.Is(err, mgo.ErrNotFound) {
+		return errors.Annotatef(
+			err, "checking existence of secret %q before reserving", uri.ID,
+		)
+	} else if err == nil {
+		return errors.AlreadyExistsf("secret %q", uri.ID)
+	}
+
+	doc := secretReservationDoc{
+		DocID:      uri.ID,
+		OwnerTag:   owner.String(),
+		CreateTime: s.st.nowToTheSecond(),
+	}
+	isOwnerAliveOp := txn.Op{
+		C:      scopeCollName,
+		Id:     scopeDocID,
+		Assert: isAliveDoc,
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		current, err := s.getSecretReservation(uri)
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return nil, err
+		} else if err == nil {
+			if current.OwnerTag == owner.String() {
+				return nil, jujutxn.ErrNoOperations
+			}
+			return nil, errors.BadRequestf(
+				"secret %q is already reserved", uri.ID,
+			)
+		}
+
+		err = secretMetadataCollection.FindId(uri.ID).One(&metadata)
+		if err != nil && !errors.Is(err, mgo.ErrNotFound) {
+			return nil, errors.Annotatef(
+				err, "checking existence of secret %q before reserving",
+				uri.ID,
+			)
+		} else if err == nil {
+			return nil, errors.AlreadyExistsf("secret %q", uri.ID)
+		}
+
+		ops := []txn.Op{
+			isOwnerAliveOp,
+		}
+		ops = append(ops, txn.Op{
+			C:      secretMetadataC,
+			Id:     uri.ID,
+			Assert: txn.DocMissing,
+		}, txn.Op{
+			C:      secretReservationsC,
+			Id:     uri.ID,
+			Assert: txn.DocMissing,
+			Insert: doc,
+		})
+		return ops, nil
+	}
+	err = s.st.db().Run(buildTxn)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// ListReservedSecrets finds all reserved secret URIs for the provided owners.
+func (s *secretsStore) ListReservedSecrets(
+	ownerTags []names.Tag,
+) ([]*secrets.URI, error) {
+	if len(ownerTags) == 0 {
+		return nil, errors.NotValidf("no owner tags provided")
+	}
+
+	var wantTags []string
+	for _, v := range ownerTags {
+		wantTags = append(wantTags, v.String())
+	}
+
+	secretReservationColl, closer := s.st.db().GetCollection(secretReservationsC)
+	defer closer()
+
+	res := secretReservationColl.Find(bson.M{
+		"owner-tag": bson.M{"$in": wantTags},
+	}).Iter()
+
+	var secretURIs []*secrets.URI
+
+	var doc secretReservationDoc
+	for res.Next(&doc) {
+		uri, err := secrets.ParseURI(s.st.localID(doc.DocID))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		secretURIs = append(secretURIs, uri)
+	}
+
+	return secretURIs, errors.Trace(res.Close())
+}
+
+// getSecretReservation returns the secretReservationDoc for the given secret ID
+// if it is found, otherwise it returns an [errors.NotFound].
+func (s *secretsStore) getSecretReservation(uri *secrets.URI) (secretReservationDoc, error) {
+	var doc secretReservationDoc
+	secretReservationColl, closer := s.st.db().GetCollection(secretReservationsC)
+	defer closer()
+	err := secretReservationColl.FindId(uri.ID).One(&doc)
+	if errors.Is(err, mgo.ErrNotFound) {
+		return secretReservationDoc{}, errors.NotFound
+	} else if err != nil {
+		return secretReservationDoc{}, errors.Annotatef(err, "cannot get secret reservation %q", uri.ID)
+	}
+	return doc, nil
+}
+
+// removeSecretReservationsModelOp is a model operation for removing a secret
+// reservation.
+type removeSecretReservationsModelOp struct {
+	s     *secretsStore
+	owner names.Tag
+}
+
+// RemoveSecretReservations removes all secret reservations that are held by
+// the provided owner.
+func (s *secretsStore) RemoveSecretReservations(owner names.Tag) ModelOperation {
+	return &removeSecretReservationsModelOp{
+		s:     s,
+		owner: owner,
+	}
+}
+
+func (op *removeSecretReservationsModelOp) Build(attempt int) ([]txn.Op, error) {
+	return op.s.st.removeSecretReservationOps(op.owner)
+}
+
+func (op *removeSecretReservationsModelOp) Done(err error) error {
+	return err
+}
+
+// removeSecretReservationOps returns the mongo operations to remove all secret
+// reservations for the given owner.
+func (st *State) removeSecretReservationOps(owner names.Tag) ([]txn.Op, error) {
+	secretReservationColl, closer := st.db().GetCollection(secretReservationsC)
+	defer closer()
+
+	var ops []txn.Op
+	res := secretReservationColl.Find(bson.M{
+		"owner-tag": owner.String(),
+	}).Iter()
+	defer closer()
+	var doc secretReservationDoc
+	for res.Next(&doc) {
+		ops = append(ops, txn.Op{
+			C:      secretReservationsC,
+			Id:     doc.DocID,
+			Remove: true,
+		})
+	}
+	return ops, errors.Trace(res.Close())
+}
+
 // CreateSecret creates a new secret.
 func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*secrets.SecretMetadata, error) {
 	if len(p.Data) == 0 && p.ValueRef == nil {
@@ -326,6 +567,43 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 		Assert: isAliveDoc,
 	}
 
+	// checkReservation ensures that if a reservation exists, the secret is
+	// being created by the reservation owner.
+	checkReservation := func() (bool, any, error) {
+		reservation, err := s.getSecretReservation(uri)
+		if errors.Is(err, errors.NotFound) {
+			return false, txn.DocMissing, nil
+		} else if err != nil {
+			return false, nil, errors.Trace(err)
+		}
+		reservationOwner, err := names.ParseTag(reservation.OwnerTag)
+		if err != nil {
+			return false, nil, errors.Annotate(err, "parsing secret reservation owner")
+		}
+		if owner.Kind() == names.ApplicationTagKind &&
+			reservationOwner.Kind() == names.UnitTagKind {
+			// If a unit reserved a secret, we cannot determine it was expected
+			// to be used by an application secret or a unit secret.
+			app, _ := names.UnitApplication(reservationOwner.Id())
+			if app != owner.Id() {
+				return false, nil, errors.NotValidf(
+					"cannot create secret %q because %q has reserved it instead of %q",
+					uri.ID, reservation.OwnerTag, metadataDoc.OwnerTag,
+				)
+			}
+		} else if reservationOwner != owner {
+			return false, nil, errors.NotValidf(
+				"cannot create secret %q because %q has reserved it instead of %q",
+				uri.ID, reservation.OwnerTag, metadataDoc.OwnerTag,
+			)
+		}
+		return true, bson.D{{"owner-tag", reservation.OwnerTag}}, nil
+	}
+	hasReservation, reservationAssertion, err := checkReservation()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var ops []txn.Op
 		if p.Label != nil {
@@ -339,9 +617,18 @@ func (s *secretsStore) CreateSecret(uri *secrets.URI, p CreateSecretParams) (*se
 			if _, _, err := s.getSecretValue(uri, revision, false); err == nil {
 				return nil, errors.AlreadyExistsf("secret value for %q", uri.String())
 			}
+			hasReservation, reservationAssertion, err = checkReservation()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
 		ops = append(ops, []txn.Op{
 			{
+				C:      secretReservationsC,
+				Id:     metadataDoc.DocID,
+				Assert: reservationAssertion,
+				Remove: hasReservation,
+			}, {
 				C:      secretMetadataC,
 				Id:     metadataDoc.DocID,
 				Assert: txn.DocMissing,
@@ -961,11 +1248,15 @@ func (s *secretsStore) ListSecrets(filter SecretsFilter) ([]*secrets.SecretMetad
 
 	var docs []secretMetadataDoc
 	q := bson.D{}
-	if filter.URI != nil {
-		q = append(q, bson.DocElem{"_id", filter.URI.ID})
+	if len(filter.URIs) != 0 {
+		ids := make([]string, 0, len(filter.URIs))
+		for _, uri := range filter.URIs {
+			ids = append(ids, uri.ID)
+		}
+		q = append(q, bson.DocElem{"_id", bson.D{{"$in", ids}}})
 	}
-	if filter.Label != nil {
-		q = append(q, bson.DocElem{"label", *filter.Label})
+	if len(filter.Labels) != 0 {
+		q = append(q, bson.DocElem{"label", bson.D{{"$in", filter.Labels}}})
 	}
 	if len(filter.OwnerTags) > 0 {
 		owners := make([]string, len(filter.OwnerTags))
@@ -3661,4 +3952,378 @@ func (w *secretsExpiryWatcher) loop() (err error) {
 			details = nil
 		}
 	}
+}
+
+type secretIssuedTokenDoc struct {
+	DocID string `bson:"_id"`
+
+	ConsumerTag string    `bson:"consumer-tag"`
+	ExpireTime  time.Time `bson:"expire-time"`
+	BackendID   string    `bson:"backend-id"`
+}
+
+// CreateSecretBackendIssuedToken inserts the given secret backend issued token
+// into state. An error is returned if the consumer's life is Dead or if the
+// secret backend issued token already exists.
+func (s *secretsStore) CreateSecretBackendIssuedToken(
+	token SecretBackendIssuedToken,
+) error {
+	if token.UUID == "" ||
+		token.ExpireTime.IsZero() ||
+		token.BackendID == "" ||
+		token.Consumer == nil {
+		return errors.New(
+			"creating secret backend issued token failed due to missing values",
+		)
+	}
+	tokenColl, closer := s.st.db().GetCollection(secretBackendIssuedTokensC)
+	defer closer()
+
+	check := func() (string, string, error) {
+		entity, entityC, entityDocID, err := s.st.findSecretEntity(token.Consumer)
+		if err != nil {
+			return "", "", errors.Annotate(err, "invalid owner reference")
+		}
+		if entity.Life() == Dead {
+			return "", "", errors.New(
+				"creating secret backend issued token: consumer is dead",
+			)
+		}
+		existing := secretIssuedTokenDoc{}
+		err = tokenColl.FindId(token.UUID).One(&existing)
+		if errors.Is(err, mgo.ErrNotFound) {
+			return entityC, entityDocID, nil
+		} else if err != nil {
+			return "", "", errors.Annotate(
+				err, "checking existing secret issued backend token",
+			)
+		}
+		if existing.ConsumerTag != token.Consumer.String() {
+			return "", "", errors.Unauthorizedf(
+				"%s secret issued backend token", token.UUID,
+			)
+		}
+		return entityC, entityDocID, errors.AlreadyExists
+	}
+	entityC, entityDocID, err := check()
+	if errors.Is(err, errors.AlreadyExists) {
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+
+	doc := secretIssuedTokenDoc{
+		DocID:       token.UUID,
+		BackendID:   token.BackendID,
+		ExpireTime:  token.ExpireTime.UTC().Truncate(time.Second),
+		ConsumerTag: token.Consumer.String(),
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		var err error
+		if attempt > 0 {
+			entityC, entityDocID, err = check()
+			if errors.Is(err, errors.AlreadyExists) {
+				return nil, jujutxn.ErrNoOperations
+			} else if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		ops := []txn.Op{{
+			C:      entityC,
+			Id:     entityDocID,
+			Assert: notDeadDoc,
+		}, {
+			C:      secretBackendIssuedTokensC,
+			Id:     doc.DocID,
+			Assert: txn.DocMissing,
+			Insert: doc,
+		}}
+		return ops, nil
+	}
+	err = s.st.db().Run(buildTxn)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// SecretBackendIssuedToken holds metadata about a secret backend authentication
+// token that was issued for a specific consumer. The token is not contained in
+// this metadata, but does have a unique identifier that was used when the token
+// was issued. This allows a secret backend provider to clean up issued tokens.
+type SecretBackendIssuedToken struct {
+	// UUID must be a random UUID that was used when the secret backend issued
+	// token was created, allowing the provider to find this token when it will
+	// expire.
+	UUID string
+
+	// ExpireTime is the point in the future where the token that was created by
+	// the secret backend will expire and needs to be cleaned up.
+	ExpireTime time.Time
+
+	// BackendID is the ID of the secret backend that this token was created by.
+	BackendID string
+
+	// Consumer is a tag that represents the entity which the secret backend
+	// issued token was created for.
+	Consumer names.Tag
+}
+
+// NextSecretBackendIssuedTokenExpiry returns the time of the next secret
+// backend issued token expiry.
+func (s *secretsStore) NextSecretBackendIssuedTokenExpiry() (time.Time, error) {
+	collection, closer := s.st.db().GetCollection(secretBackendIssuedTokensC)
+	defer closer()
+
+	var doc secretIssuedTokenDoc
+	err := collection.Find(nil).Sort("expire-time").One(&doc)
+	if errors.Is(err, mgo.ErrNotFound) {
+		return time.Time{}, nil
+	} else if err != nil {
+		return time.Time{}, errors.Annotate(
+			err, "getting next secret backend issued token expiry time",
+		)
+	}
+	return doc.ExpireTime, nil
+}
+
+// ListSecretBackendIssuedTokenUntil returns all the issued secret backend
+// tokens that are valid until the given time.
+func (s *secretsStore) ListSecretBackendIssuedTokenUntil(
+	until time.Time,
+) ([]SecretBackendIssuedToken, error) {
+	return s.listSecretBackendIssuedTokenUntil(bson.M{
+		"expire-time": bson.M{"$lte": until.UTC().Truncate(time.Second)},
+	})
+}
+
+// ListSecretBackendIssuedTokenUntilForConsumer returns the issued secret
+// backend tokens for the given secret backend token consumer tag that are valid
+// until the given time.
+func (s *secretsStore) ListSecretBackendIssuedTokenUntilForConsumer(
+	until time.Time, consumer names.Tag,
+) ([]SecretBackendIssuedToken, error) {
+	return s.listSecretBackendIssuedTokenUntil(bson.M{
+		"expire-time":  bson.M{"$lte": until.UTC().Truncate(time.Second)},
+		"consumer-tag": consumer.String(),
+	})
+}
+
+// listSecretBackendIssuedTokenUntil lists all the secret backend tokens up to
+// the given query, sorted by expire-time (oldest to newest).
+func (s *secretsStore) listSecretBackendIssuedTokenUntil(
+	query any,
+) ([]SecretBackendIssuedToken, error) {
+	collection, closer := s.st.db().GetCollection(secretBackendIssuedTokensC)
+	defer closer()
+
+	iter := collection.Find(query).Sort("expire-time").Iter()
+
+	var res []SecretBackendIssuedToken
+
+	var doc secretIssuedTokenDoc
+	for iter.Next(&doc) {
+		uuid := s.st.localID(doc.DocID)
+		consumerTag, err := names.ParseTag(doc.ConsumerTag)
+		if err != nil {
+			return nil, errors.Annotatef(
+				err, "invalid consumer tag for secret backend issued token %q",
+				uuid,
+			)
+		}
+		res = append(res, SecretBackendIssuedToken{
+			UUID:       uuid,
+			ExpireTime: doc.ExpireTime,
+			BackendID:  doc.BackendID,
+			Consumer:   consumerTag,
+		})
+	}
+
+	return res, nil
+}
+
+// RemoveSecretBackendIssuedTokens removes the secret backend tokens for the
+// given secret backend token UUIDs.
+func (s *secretsStore) RemoveSecretBackendIssuedTokens(uuids []string) error {
+	if len(uuids) == 0 {
+		return nil
+	}
+
+	ops := make([]txn.Op, 0, len(uuids))
+	for _, uuid := range uuids {
+		ops = append(ops, txn.Op{
+			C:      secretBackendIssuedTokensC,
+			Id:     uuid,
+			Remove: true,
+		})
+	}
+
+	err := s.st.db().RunTransaction(ops)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+// WatchSecretBackendIssuedTokenExpiry returns a state strings watcher that
+// is fired when there is new secret backend tokens that must expire at the
+// RFC3339 encoded timestamp in the string.
+func (s *secretsStore) WatchSecretBackendIssuedTokenExpiry() StringsWatcher {
+	return newSecretBackendIssuedTokenExpiryWatcher(s.st)
+}
+
+// secretBackendIssuedTokenExpiryWatcher reports expiry times of new issued
+// tokens as an RFC3339 timestamp string.
+type secretBackendIssuedTokenExpiryWatcher struct {
+	commonWatcher
+	coll func() (mongo.Collection, func())
+	out  chan []string
+}
+
+var _ Watcher = (*secretBackendIssuedTokenExpiryWatcher)(nil)
+
+// newSecretBackendIssuedTokenExpiryWatcher returns a state strings watcher that
+// is fired when there is new secret backend tokens that must expire at the
+// RFC3339 encoded timestamp in the string.
+func newSecretBackendIssuedTokenExpiryWatcher(st *State) StringsWatcher {
+	w := &secretBackendIssuedTokenExpiryWatcher{
+		commonWatcher: newCommonWatcher(st),
+		coll:          collFactory(st.db(), secretBackendIssuedTokensC),
+		out:           make(chan []string),
+	}
+	w.tomb.Go(func() error {
+		defer close(w.out)
+		return w.loop()
+	})
+	return w
+}
+
+// Changes returns the strings channel for the watcher.
+func (w *secretBackendIssuedTokenExpiryWatcher) Changes() <-chan []string {
+	return w.out
+}
+
+// initial returns the initial changes for the expiry watcher. Each string is an
+// RFC3339 encoded timestamp.
+func (w *secretBackendIssuedTokenExpiryWatcher) initial() ([]string, error) {
+	coll, closer := w.coll()
+	defer closer()
+	var expireTimes []time.Time
+	err := coll.Find(nil).Distinct("expire-time", &expireTimes)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var changes []string
+	for _, ts := range expireTimes {
+		changes = append(changes, ts.UTC().Format(time.RFC3339))
+	}
+	return changes, nil
+}
+
+// loop watches the secretBackendIssuedTokens collection for new expire-time
+// values and sends them on the watcher as RFC3339 encoded timestamps.
+func (w *secretBackendIssuedTokenExpiryWatcher) loop() error {
+	in := make(chan watcher.Change)
+
+	w.watcher.WatchCollection(secretBackendIssuedTokensC, in)
+	defer w.watcher.UnwatchCollection(secretBackendIssuedTokensC, in)
+
+	changes, err := w.initial()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	coll, closer := w.coll()
+	defer closer()
+
+	// out is not-nil when a notification should be sent, it is set to the
+	// output initially to ensure an initial notification is sent.
+	out := w.out
+	for {
+		select {
+		case <-w.watcher.Dead():
+			return stateWatcherDeadError(w.watcher.Err())
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case change := <-in:
+			if change.Revno < 0 {
+				continue
+			}
+			var doc struct {
+				ExpireTime time.Time `bson:"expire-time"`
+			}
+			err := coll.FindId(change.Id).One(&doc)
+			if errors.Is(err, mgo.ErrNotFound) {
+				continue
+			} else if err != nil {
+				return errors.Trace(err)
+			}
+			out = w.out
+			changes = append(changes, doc.ExpireTime.UTC().Format(time.RFC3339))
+			slices.Sort(changes)
+			changes = slices.Compact(changes)
+		case out <- changes:
+			out = nil
+			changes = nil
+		}
+	}
+}
+
+// expireSecretBackendIssuedTokensModelOp is a model operation for expiring all
+// secret backend issued tokens for the given consumer.
+type expireSecretBackendIssuedTokensModelOp struct {
+	s        *secretsStore
+	consumer names.Tag
+}
+
+// ExpireSecretBackendIssuedTokensForConsumer returns a ModelOperation that
+// sets the expire time of all currently non-expired secret backend issued
+// tokens for the given consumer to now.
+func (s *secretsStore) ExpireSecretBackendIssuedTokensForConsumer(
+	consumer names.Tag,
+) ModelOperation {
+	return &expireSecretBackendIssuedTokensModelOp{
+		s:        s,
+		consumer: consumer,
+	}
+}
+
+func (op *expireSecretBackendIssuedTokensModelOp) Build(
+	attempt int,
+) ([]txn.Op, error) {
+	return op.s.expireSecretBackendIssuedTokensOps(op.consumer)
+}
+
+func (op *expireSecretBackendIssuedTokensModelOp) Done(err error) error {
+	return err
+}
+
+// expireSecretBackendIssuedTokensOps returns the operations to remove all the
+// currently known secret backend issued tokens.
+func (s *secretsStore) expireSecretBackendIssuedTokensOps(
+	consumer names.Tag,
+) ([]txn.Op, error) {
+	coll, closer := s.st.db().GetCollection(secretBackendIssuedTokensC)
+	defer closer()
+
+	now := s.st.clock().Now().UTC().Truncate(time.Second)
+
+	var ops []txn.Op
+	res := coll.Find(bson.M{
+		"consumer-tag": consumer.String(),
+	}).Iter()
+	defer closer()
+	var doc secretIssuedTokenDoc
+	for res.Next(&doc) {
+		if doc.ExpireTime.Before(now) {
+			continue
+		}
+		ops = append(ops, txn.Op{
+			C:      secretBackendIssuedTokensC,
+			Id:     doc.DocID,
+			Update: bson.D{{"$set", bson.D{{"expire-time", now}}}},
+		})
+	}
+	return ops, errors.Trace(res.Close())
 }

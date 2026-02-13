@@ -68,8 +68,8 @@ func adminBackendConfigGetter() (*provider.ModelBackendConfigInfo, error) {
 	}, nil
 }
 
-func backendConfigGetterForUserSecretsWrite(c *gc.C) func(backendID string) (*provider.ModelBackendConfigInfo, error) {
-	return func(backendID string) (*provider.ModelBackendConfigInfo, error) {
+func backendConfigGetterForUserSecretsWrite(c *gc.C) func(string, []*coresecrets.URI) (*provider.ModelBackendConfigInfo, error) {
+	return func(backendID string, _ []*coresecrets.URI) (*provider.ModelBackendConfigInfo, error) {
 		c.Assert(backendID, gc.Equals, "backend-id")
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id",
@@ -326,13 +326,19 @@ func (s *SecretsSuite) assertCreateSecrets(c *gc.C, isInternal bool, finalStepFa
 	s.expectAuthClient()
 	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil)
 
-	uri := coresecrets.NewURI()
-	uriStrPtr := ptr(uri.String())
+	var uri *coresecrets.URI
+	s.secretsState.EXPECT().ReserveSecret(
+		gomock.Any(), coretesting.ModelTag,
+	).DoAndReturn(func(arg1 *coresecrets.URI, owner names.Tag) error {
+		uri = arg1
+		return nil
+	})
+
 	if isInternal {
-		s.secretsBackend.EXPECT().SaveContent(gomock.Any(), uri, 1, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
+		s.secretsBackend.EXPECT().SaveContent(gomock.Any(), gomock.Any(), 1, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
 			Return("", errors.NotSupportedf("not supported"))
 	} else {
-		s.secretsBackend.EXPECT().SaveContent(gomock.Any(), uri, 1, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
+		s.secretsBackend.EXPECT().SaveContent(gomock.Any(), gomock.Any(), 1, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
 			Return("rev-id", nil)
 	}
 	s.secretsState.EXPECT().CreateSecret(gomock.Any(), gomock.Any()).DoAndReturn(func(arg1 *coresecrets.URI, params state.CreateSecretParams) (*coresecrets.SecretMetadata, error) {
@@ -381,7 +387,6 @@ func (s *SecretsSuite) assertCreateSecrets(c *gc.C, isInternal bool, finalStepFa
 		Args: []params.CreateSecretArg{
 			{
 				OwnerTag: coretesting.ModelTag.Id(),
-				URI:      uriStrPtr,
 				UpsertSecretArg: params.UpsertSecretArg{
 					Description: ptr("this is a user secret."),
 					Label:       ptr("label"),
@@ -425,7 +430,7 @@ func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, uri *coresecrets.URI, isInte
 		existingLabel = "my-secret"
 		uri = coresecrets.NewURI()
 		s.secretsState.EXPECT().ListSecrets(state.SecretsFilter{
-			Label:     ptr("my-secret"),
+			Labels:    []string{"my-secret"},
 			OwnerTags: []names.Tag{coretesting.ModelTag},
 		}).Return([]*coresecrets.SecretMetadata{{
 			URI: uri,
@@ -847,7 +852,7 @@ func (s *SecretsSuite) TestGrantSecretByName(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	s.secretsState.EXPECT().ListSecrets(state.SecretsFilter{
-		Label:     ptr("my-secret"),
+		Labels:    []string{"my-secret"},
 		OwnerTags: []names.Tag{coretesting.ModelTag},
 	}).Return([]*coresecrets.SecretMetadata{{
 		URI: uri,

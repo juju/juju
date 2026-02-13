@@ -22,6 +22,8 @@ type SecretsBackendState interface {
 	GetSecretBackendByID(ID string) (*secrets.SecretBackend, error)
 }
 
+// SecretsState provides the secrets backends client facade access to list model
+// secrets.
 type SecretsState interface {
 	ListModelSecrets(all bool) (map[string]set.Strings, error)
 }

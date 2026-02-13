@@ -22,11 +22,16 @@ jobs:
           snap info juju > snap-info.txt
           channel=$(awk -F':' -v ver=$majmin 'NR == 1, /channels/ {next} {gsub(/ /, "", $1); gsub(/ /, "", $2); if (!match($1,ver)) next; if ($2 == "--") next; print $1; exit}' snap-info.txt)
           echo "version=$version" >> $GITHUB_OUTPUT 
-          echo "channel=$channel" >> $GITHUB_OUTPUT 
+          echo "channel=$channel" >> $GITHUB_OUTPUT
 
   upgrade:
     name: Upgrade Smoke
-    runs-on: [self-hosted, linux, x64, aws, quad-xlarge]
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
+      - ${{ (github.repository_owner == 'juju' && 'quad-xlarge') || (github.repository_owner == 'canonical' && 'xlarge') }}
     timeout-minutes: 30
     needs: setup
     if: needs.setup.outputs.channel != ''
@@ -46,6 +51,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: "Squid"
+        run: ./.github/squid.sh
 
       - name: Remove LXD
         if: env.RUN_TEST == 'RUN'
@@ -68,9 +76,11 @@ jobs:
       - name: Set some variables
         run: |
           set -euxo pipefail
-          
+
           sourceJujuVersion=$(snap info juju | yq ".channels[\"${{ needs.setup.outputs.channel }}\"]" | cut -d' ' -f1)
           echo "source-juju-version=${sourceJujuVersion}" >> $GITHUB_OUTPUT
+
+          cat /home/ubuntu/actions-runner/pre-job.sh
         id: vars
 
       - name: Set up Go
@@ -96,12 +106,13 @@ jobs:
           echo "/snap/bin" >> $GITHUB_PATH
 
       - name: Setup Docker Mirror
-        if: matrix.cloud == 'microk8s'
+        if: matrix.cloud == 'microk8s' && env.DOCKERHUB_MIRROR != ''
         shell: bash
         run: |
-          (cat /etc/docker/daemon.json 2> /dev/null || echo "{}") | yq -o json '.registry-mirrors += ["https://docker-cache.us-west-2.aws.jujuqa.com:443"]' | sudo tee /etc/docker/daemon.json
+          (cat /etc/docker/daemon.json 2> /dev/null || echo "{}") | yq -o json ".registry-mirrors += [\"${DOCKERHUB_MIRROR}\"]" | sudo tee /etc/docker/daemon.json
           sudo systemctl restart docker
           docker system info
+          envsubst < $GITHUB_WORKSPACE/.github/microk8s-launch-config-mirror.yaml > $GITHUB_WORKSPACE/.github/microk8s-launch-config.yaml
 
       - name: Setup k8s
         if: matrix.cloud == 'microk8s'
@@ -109,7 +120,7 @@ jobs:
         with:
           channel: "1.34-strict/stable"
           addons: '["dns", "hostpath-storage"]'
-          launch-configuration: "$GITHUB_WORKSPACE/.github/microk8s-launch-config-aws.yaml"
+          launch-configuration: $GITHUB_WORKSPACE/.github/microk8s-launch-config.yaml
 
       - name: Install k8s Dependencies
         if: matrix.cloud == 'microk8s'
@@ -160,14 +171,14 @@ jobs:
           cp ~/certs/ca.crt $BUILD_TEMP/
           cat >$BUILD_TEMP/Dockerfile <<EOL
             FROM ghcr.io/juju/jujud-operator:${SOURCE_JUJU_VERSION}
-          
+
             COPY ca.crt /usr/local/share/ca-certificates/ca.crt
 
             RUN update-ca-certificates
           EOL
           podman build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
           podman push -f v2s2 "${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}" "docker://${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}"
-          
+
           OCI_REGISTRY_USERNAME=${OCI_REGISTRY}/test-repo LEGACY_JUJU_DB_VERSION=4.4 make seed-repository
 
       - name: Bootstrap Juju - localhost
@@ -255,7 +266,7 @@ jobs:
             RUN update-ca-certificates
           EOL
           podman build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}
-          podman push -f v2s2 "${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}" "docker://${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}"          
+          podman push -f v2s2 "${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}" "docker://${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}"
 
       - name: Preflight
         shell: bash
@@ -284,7 +295,7 @@ jobs:
             exit 1
           fi
           .github/verify-agent-version.sh ${MODEL_TYPE_${{ matrix.cloud }}} ${TARGET_JUJU_VERSION}
-          
+
           PANIC=$(juju debug-log --replay --no-tail -m controller | grep "panic" || true)
           if [ "$PANIC" != "" ]; then
               echo "Panic found:"

@@ -1,0 +1,39 @@
+name: "Unit Tests"
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  test:
+    name: Test
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
+      - ${{ (github.repository_owner == 'juju' && 'xxlarge') || (github.repository_owner == 'canonical' && 'xlarge') }}
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      - name: "Squid"
+        run: ./.github/squid.sh
+
+      - name: "Set up Go"
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          cache: false
+
+      - name: Setup LXD
+        uses: canonical/setup-lxd@4e959f8e0d9c5feb27d44c5e4d9a330a782edee0
+
+      - name: "Set up MongoDB"
+        run: |
+          sudo snap install juju-db --channel=4.4/stable
+          echo "/snap/bin" >> $GITHUB_PATH
+
+      - name: "Test"
+        run: |
+          make race-test

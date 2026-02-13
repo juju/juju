@@ -3020,6 +3020,10 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
+	secretReservationOps, err := a.st.removeSecretReservationOps(u.Tag())
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	}
 
 	observedFieldsMatch := bson.D{
 		{"charmurl", u.doc.CharmURL},
@@ -3049,6 +3053,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	ops = append(ops, secretConsumerPermissionsOps...)
 	ops = append(ops, secretOwnerLabelOps...)
 	ops = append(ops, secretConsumerLabelOps...)
+	ops = append(ops, secretReservationOps...)
 
 	m, err := a.st.Model()
 	if err != nil {

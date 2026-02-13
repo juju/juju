@@ -55,6 +55,7 @@ type UniterAPI struct {
 	lxdProfileAPI       *LXDProfileAPIv2
 	m                   *state.Model
 	st                  *state.State
+	secrets             state.SecretsStore
 	clock               clock.Clock
 	cancel              <-chan struct{}
 	auth                facade.Authorizer
@@ -2912,6 +2913,17 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 			return errors.Annotate(err, "removing secrets")
 		}
 	}
+
+	// Remove any secret reservations that, by this point, have not been
+	// turned into a secret. Secrets are reserved by the uniter in a call to
+	// CreateSecretURIs.
+	modelOps = append(modelOps, u.secrets.RemoveSecretReservations(unitTag))
+
+	// Expire any secret issued backend tokens that, by this point, should no
+	// longer be used by this agent.
+	modelOps = append(
+		modelOps, u.secrets.ExpireSecretBackendIssuedTokensForConsumer(unitTag),
+	)
 
 	// Apply all changes in a single transaction.
 	return u.st.ApplyOperation(state.ComposeModelOperations(modelOps...))

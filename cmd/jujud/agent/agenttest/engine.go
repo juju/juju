@@ -201,9 +201,9 @@ func AssertManifoldsDependencies(c *gc.C, manifolds dependency.Manifolds, expect
 	names := set.NewStrings(keys(dependencies)...)
 	expectedNames := set.NewStrings(keys(expected)...)
 	// Unexpected names...
-	c.Assert(names.Difference(expectedNames), gc.DeepEquals, empty)
+	c.Check(names.Difference(expectedNames), gc.DeepEquals, empty)
 	// Missing names...
-	c.Assert(expectedNames.Difference(names), gc.DeepEquals, empty)
+	c.Check(expectedNames.Difference(names), gc.DeepEquals, empty)
 
 	for _, n := range manifoldNames.SortedValues() {
 		c.Check(dependencies[n], jc.SameContents, expected[n], gc.Commentf("mismatched dependencies for worker %q", n))

@@ -240,14 +240,19 @@ func (s *SecretsManagerAPI) getBackend(backendID string) (*secretsprovider.Model
 // CreateSecretURIs creates new secret URIs.
 func (s *SecretsManagerAPI) CreateSecretURIs(arg params.CreateSecretURIsArg) (params.StringResults, error) {
 	if arg.Count <= 0 {
-		return params.StringResults{}, errors.NotValidf("secret URi count %d", arg.Count)
+		return params.StringResults{}, errors.NotValidf("secret URI count %d", arg.Count)
 	}
 	result := params.StringResults{
 		Results: make([]params.StringResult, arg.Count),
 	}
 	for i := 0; i < arg.Count; i++ {
 		uri := coresecrets.NewURI().WithSource(s.modelUUID)
-		result.Results[i] = params.StringResult{Result: uri.String()}
+		err := s.secretsState.ReserveSecret(uri, s.authTag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+		} else {
+			result.Results[i] = params.StringResult{Result: uri.String()}
+		}
 	}
 	return result, nil
 }

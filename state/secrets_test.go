@@ -5,9 +5,12 @@ package state_test
 
 import (
 	"fmt"
+	"slices"
 	"sort"
+	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/juju/charm/v12"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -57,6 +60,94 @@ func (s *SecretsSuite) SetUpTest(c *gc.C) {
 
 func ptr[T any](v T) *T {
 	return &v
+}
+
+func (s *SecretsSuite) TestReserveSecret(c *gc.C) {
+	uri := secrets.NewURI()
+
+	err := s.store.ReserveSecret(uri, s.owner.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Idempotent
+	err = s.store.ReserveSecret(uri, s.owner.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Already reserved
+	verboten := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "someone-else",
+	})
+	err = s.store.ReserveSecret(uri, verboten.Tag())
+	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+}
+
+func (s *SecretsSuite) TestListReservedSecret(c *gc.C) {
+	uris := []*secrets.URI{
+		secrets.NewURI(),
+		secrets.NewURI(),
+		secrets.NewURI(),
+	}
+
+	otherApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "someone-else",
+	})
+
+	err := s.store.ReserveSecret(uris[0], s.owner.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.store.ReserveSecret(uris[1], s.ownerUnit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.store.ReserveSecret(uris[2], otherApp.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	reserved, err := s.store.ListReservedSecrets([]names.Tag{s.owner.Tag()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reserved, jc.SameContents, uris[0:1])
+
+	reserved, err = s.store.ListReservedSecrets([]names.Tag{s.ownerUnit.Tag()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reserved, jc.SameContents, uris[1:2])
+
+	reserved, err = s.store.ListReservedSecrets([]names.Tag{otherApp.Tag()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reserved, jc.SameContents, uris[2:3])
+
+	reserved, err = s.store.ListReservedSecrets([]names.Tag{
+		s.owner.Tag(), s.ownerUnit.Tag(), otherApp.Tag(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reserved, jc.SameContents, uris)
+}
+
+func (s *SecretsSuite) TestExchangeReservedSecret(c *gc.C) {
+	uri := secrets.NewURI()
+
+	err := s.store.ReserveSecret(uri, s.owner.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	reserved, err := s.store.ListReservedSecrets([]names.Tag{s.owner.Tag()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reserved, jc.SameContents, []*secrets.URI{uri})
+
+	_, err = s.store.CreateSecret(uri, state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:  &fakeToken{},
+			RotatePolicy: ptr(secrets.RotateNever),
+			Description:  ptr("my secret"),
+			Label:        ptr("foobar"),
+			Params:       nil,
+			Data:         map[string]string{"foo": "bar"},
+			Checksum:     "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.store.ReserveSecret(uri, s.owner.Tag())
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
+
+	reserved, err = s.store.ListReservedSecrets([]names.Tag{s.owner.Tag()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reserved, jc.SameContents, []*secrets.URI{})
 }
 
 func (s *SecretsSuite) TestCreate(c *gc.C) {
@@ -495,7 +586,7 @@ func (s *SecretsSuite) TestListByURI(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	list, err := s.store.ListSecrets(state.SecretsFilter{
-		URI: uri,
+		URIs: []*secrets.URI{uri},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	mc := jc.NewMultiChecker()
@@ -512,6 +603,90 @@ func (s *SecretsSuite) TestListByURI(c *gc.C) {
 		OwnerTag:               s.owner.Tag().String(),
 		Description:            "my secret",
 		Label:                  "foobar",
+		CreateTime:             now,
+		UpdateTime:             now,
+	}})
+}
+
+func (s *SecretsSuite) TestListByURIs(c *gc.C) {
+	uris := []*secrets.URI{secrets.NewURI(), secrets.NewURI(), secrets.NewURI()}
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(time.Minute).Round(time.Second).UTC()
+	expire := now.Add(time.Hour).Round(time.Second).UTC()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(next),
+			Description:    ptr("my secret"),
+			Label:          ptr("foobar"),
+			ExpireTime:     ptr(expire),
+			Params:         nil,
+			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		},
+	}
+	for i, uri := range uris {
+		p.UpdateSecretParams.Label = ptr(fmt.Sprintf("foobar%d", i))
+		_, err := s.store.CreateSecret(uri, p)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	// Create another secret to ensure it is excluded.
+	uri2 := secrets.NewURI()
+	p.Owner = names.NewApplicationTag("wordpress")
+	_, err := s.store.CreateSecret(uri2, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	list, err := s.store.ListSecrets(state.SecretsFilter{
+		URIs: uris,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	slices.SortFunc(list, func(a *secrets.SecretMetadata, b *secrets.SecretMetadata) int {
+		return strings.Compare(a.Label, b.Label)
+	})
+	c.Assert(list, mc, []*secrets.SecretMetadata{{
+		URI:                    uris[0],
+		RotatePolicy:           secrets.RotateDaily,
+		NextRotateTime:         ptr(next),
+		LatestRevision:         1,
+		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		LatestExpireTime:       ptr(expire),
+		Version:                1,
+		OwnerTag:               s.owner.Tag().String(),
+		Description:            "my secret",
+		Label:                  "foobar0",
+		CreateTime:             now,
+		UpdateTime:             now,
+	}, {
+		URI:                    uris[1],
+		RotatePolicy:           secrets.RotateDaily,
+		NextRotateTime:         ptr(next),
+		LatestRevision:         1,
+		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		LatestExpireTime:       ptr(expire),
+		Version:                1,
+		OwnerTag:               s.owner.Tag().String(),
+		Description:            "my secret",
+		Label:                  "foobar1",
+		CreateTime:             now,
+		UpdateTime:             now,
+	}, {
+		URI:                    uris[2],
+		RotatePolicy:           secrets.RotateDaily,
+		NextRotateTime:         ptr(next),
+		LatestRevision:         1,
+		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		LatestExpireTime:       ptr(expire),
+		Version:                1,
+		OwnerTag:               s.owner.Tag().String(),
+		Description:            "my secret",
+		Label:                  "foobar2",
 		CreateTime:             now,
 		UpdateTime:             now,
 	}})
@@ -547,7 +722,7 @@ func (s *SecretsSuite) TestListByLabel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	list, err := s.store.ListSecrets(state.SecretsFilter{
-		Label: ptr("foobar"),
+		Labels: []string{"foobar"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	mc := jc.NewMultiChecker()
@@ -564,6 +739,91 @@ func (s *SecretsSuite) TestListByLabel(c *gc.C) {
 		OwnerTag:               s.owner.Tag().String(),
 		Description:            "my secret",
 		Label:                  "foobar",
+		CreateTime:             now,
+		UpdateTime:             now,
+	}})
+}
+
+func (s *SecretsSuite) TestListByLabels(c *gc.C) {
+	uris := []*secrets.URI{secrets.NewURI(), secrets.NewURI(), secrets.NewURI()}
+	labels := []string{"foobar0", "foobar1", "foobar2"}
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(time.Minute).Round(time.Second).UTC()
+	expire := now.Add(time.Hour).Round(time.Second).UTC()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(next),
+			Description:    ptr("my secret"),
+			Label:          ptr("foobar"),
+			ExpireTime:     ptr(expire),
+			Params:         nil,
+			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		},
+	}
+	for i, uri := range uris {
+		p.UpdateSecretParams.Label = ptr(labels[i])
+		_, err := s.store.CreateSecret(uri, p)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	// Create another secret to ensure it is excluded.
+	uri2 := secrets.NewURI()
+	p.Label = ptr("another")
+	_, err := s.store.CreateSecret(uri2, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	list, err := s.store.ListSecrets(state.SecretsFilter{
+		Labels: labels,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	slices.SortFunc(list, func(a *secrets.SecretMetadata, b *secrets.SecretMetadata) int {
+		return strings.Compare(a.Label, b.Label)
+	})
+	c.Assert(list, mc, []*secrets.SecretMetadata{{
+		URI:                    uris[0],
+		RotatePolicy:           secrets.RotateDaily,
+		NextRotateTime:         ptr(next),
+		LatestRevision:         1,
+		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		LatestExpireTime:       ptr(expire),
+		Version:                1,
+		OwnerTag:               s.owner.Tag().String(),
+		Description:            "my secret",
+		Label:                  "foobar0",
+		CreateTime:             now,
+		UpdateTime:             now,
+	}, {
+		URI:                    uris[1],
+		RotatePolicy:           secrets.RotateDaily,
+		NextRotateTime:         ptr(next),
+		LatestRevision:         1,
+		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		LatestExpireTime:       ptr(expire),
+		Version:                1,
+		OwnerTag:               s.owner.Tag().String(),
+		Description:            "my secret",
+		Label:                  "foobar1",
+		CreateTime:             now,
+		UpdateTime:             now,
+	}, {
+		URI:                    uris[2],
+		RotatePolicy:           secrets.RotateDaily,
+		NextRotateTime:         ptr(next),
+		LatestRevision:         1,
+		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		LatestExpireTime:       ptr(expire),
+		Version:                1,
+		OwnerTag:               s.owner.Tag().String(),
+		Description:            "my secret",
+		Label:                  "foobar2",
 		CreateTime:             now,
 		UpdateTime:             now,
 	}})
@@ -3911,4 +4171,305 @@ func (s *SecretsSuite) TestDeleteRevisionsMultiple(c *gc.C) {
 	// We want to make sure that we have only removed the first one.
 	_, _, err = s.store.GetSecretValue(uri, 18)
 	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *SecretsSuite) TestCreateSecretBackendIssuedToken(c *gc.C) {
+	token := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: s.Clock.Now().Add(time.Minute),
+		BackendID:  "backend-id",
+		Consumer:   s.owner.Tag(),
+	}
+	err := s.store.CreateSecretBackendIssuedToken(token)
+	c.Assert(err, jc.ErrorIsNil)
+
+	col, close := state.GetCollection(s.State, "secretBackendIssuedTokens")
+	defer close()
+	n, err := col.FindId(token.UUID).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 1)
+}
+
+func (s *SecretsSuite) TestNextSecretBackendIssuedTokenExpiry(c *gc.C) {
+	now := s.Clock.Now()
+
+	tokenBefore := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: now.Add(-time.Minute),
+		BackendID:  "backend-id",
+		Consumer:   s.owner.Tag(),
+	}
+	err := s.store.CreateSecretBackendIssuedToken(tokenBefore)
+	c.Assert(err, jc.ErrorIsNil)
+
+	tokenAfter := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: now.Add(time.Minute),
+		BackendID:  "backend-id",
+		Consumer:   s.owner.Tag(),
+	}
+	err = s.store.CreateSecretBackendIssuedToken(tokenAfter)
+	c.Assert(err, jc.ErrorIsNil)
+
+	first, err := s.store.NextSecretBackendIssuedTokenExpiry()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(first, jc.DeepEquals, tokenBefore.ExpireTime.Truncate(time.Second))
+}
+
+func (s *SecretsSuite) TestListSecretBackendIssuedTokenUntil(c *gc.C) {
+	now := s.Clock.Now()
+
+	tokenBefore := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: now.Add(-time.Minute),
+		BackendID:  "backend-id",
+		Consumer:   s.owner.Tag(),
+	}
+	err := s.store.CreateSecretBackendIssuedToken(tokenBefore)
+	c.Assert(err, jc.ErrorIsNil)
+
+	tokenAfter := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: now.Add(time.Minute),
+		BackendID:  "backend-id",
+		Consumer:   s.owner.Tag(),
+	}
+	err = s.store.CreateSecretBackendIssuedToken(tokenAfter)
+	c.Assert(err, jc.ErrorIsNil)
+
+	tokens, err := s.store.ListSecretBackendIssuedTokenUntil(now)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tokens, gc.HasLen, 1)
+	tokenBefore.ExpireTime = tokenBefore.ExpireTime.Truncate(time.Second)
+	c.Assert(tokens[0], jc.DeepEquals, tokenBefore)
+}
+
+func (s *SecretsSuite) TestListSecretBackendIssuedTokenUntilForConsumer(c *gc.C) {
+	now := s.Clock.Now()
+
+	tokenBefore := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: now.Add(-time.Minute),
+		BackendID:  "backend-id",
+		Consumer:   s.ownerUnit.Tag(),
+	}
+	err := s.store.CreateSecretBackendIssuedToken(tokenBefore)
+	c.Assert(err, jc.ErrorIsNil)
+
+	tokenBeforeOther := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: now.Add(-time.Minute),
+		BackendID:  "backend-id",
+		Consumer:   s.owner.Tag(),
+	}
+	err = s.store.CreateSecretBackendIssuedToken(tokenBeforeOther)
+	c.Assert(err, jc.ErrorIsNil)
+
+	tokenAfter := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: now.Add(time.Minute),
+		BackendID:  "backend-id",
+		Consumer:   s.ownerUnit.Tag(),
+	}
+	err = s.store.CreateSecretBackendIssuedToken(tokenAfter)
+	c.Assert(err, jc.ErrorIsNil)
+
+	tokens, err := s.store.ListSecretBackendIssuedTokenUntilForConsumer(now, s.ownerUnit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tokens, gc.HasLen, 1)
+	tokenBefore.ExpireTime = tokenBefore.ExpireTime.Truncate(time.Second)
+	c.Assert(tokens[0], jc.DeepEquals, tokenBefore)
+}
+
+func (s *SecretsSuite) TestRemoveSecretBackendIssuedTokens(c *gc.C) {
+	token := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: s.Clock.Now().Add(time.Minute),
+		BackendID:  "backend-id",
+		Consumer:   s.owner.Tag(),
+	}
+	err := s.store.CreateSecretBackendIssuedToken(token)
+	c.Assert(err, jc.ErrorIsNil)
+
+	col, close := state.GetCollection(s.State, "secretBackendIssuedTokens")
+	defer close()
+	n, err := col.FindId(token.UUID).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 1)
+
+	err = s.store.RemoveSecretBackendIssuedTokens([]string{token.UUID})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *SecretsSuite) TestExpireSecretBackendIssuedTokensForConsumer(c *gc.C) {
+	now := s.Clock.Now()
+
+	// Create a token that expires in the future.
+	tokenFuture := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: now.Add(time.Hour),
+		BackendID:  "backend-id",
+		Consumer:   s.ownerUnit.Tag(),
+	}
+	err := s.store.CreateSecretBackendIssuedToken(tokenFuture)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create a token that is already expired.
+	tokenPast := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: now,
+		BackendID:  "backend-id",
+		Consumer:   s.ownerUnit.Tag(),
+	}
+	err = s.store.CreateSecretBackendIssuedToken(tokenPast)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check there is only one expired token.
+	tokens, err := s.store.ListSecretBackendIssuedTokenUntilForConsumer(
+		now, s.ownerUnit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(tokens, gc.HasLen, 1)
+
+	op := s.store.ExpireSecretBackendIssuedTokensForConsumer(s.ownerUnit.Tag())
+	err = s.State.ApplyOperation(op)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check there is now two expired tokens.
+	tokens, err = s.store.ListSecretBackendIssuedTokenUntilForConsumer(
+		s.Clock.Now(), s.ownerUnit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(tokens, gc.HasLen, 2)
+}
+
+func (s *SecretsSuite) TestExpireSecretBackendIssuedTokensForConsumerOnlyTargetConsumer(c *gc.C) {
+	now := s.Clock.Now()
+
+	// Create a token.
+	tokenUnit := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: now.Add(time.Hour),
+		BackendID:  "backend-id",
+		Consumer:   s.ownerUnit.Tag(),
+	}
+	err := s.store.CreateSecretBackendIssuedToken(tokenUnit)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create a token for a different consumer.
+	tokenApp := state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: now.Add(time.Hour),
+		BackendID:  "backend-id",
+		Consumer:   s.owner.Tag(),
+	}
+	err = s.store.CreateSecretBackendIssuedToken(tokenApp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	op := s.store.ExpireSecretBackendIssuedTokensForConsumer(s.ownerUnit.Tag())
+	err = s.State.ApplyOperation(op)
+	c.Assert(err, jc.ErrorIsNil)
+
+	tokens, err := s.store.ListSecretBackendIssuedTokenUntilForConsumer(
+		s.Clock.Now(), s.ownerUnit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tokens, gc.HasLen, 1)
+
+	// The token for the different consumer should not be expired.
+	tokens, err = s.store.ListSecretBackendIssuedTokenUntilForConsumer(
+		s.Clock.Now(), s.owner.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(tokens, gc.HasLen, 0)
+}
+
+type SecretBackendIssuedTokenExpiryWatcherSuite struct {
+	testing.StateSuite
+	store state.SecretsStore
+}
+
+var _ = gc.Suite(&SecretBackendIssuedTokenExpiryWatcherSuite{})
+
+func (s *SecretBackendIssuedTokenExpiryWatcherSuite) SetUpTest(c *gc.C) {
+	s.StateSuite.SetUpTest(c)
+	s.store = state.NewSecrets(s.State)
+}
+
+func (s *SecretBackendIssuedTokenExpiryWatcherSuite) TestWatchInitialEvent(c *gc.C) {
+	ownerApp := s.Factory.MakeApplication(c, nil)
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(time.Minute).Round(time.Second).UTC()
+
+	err := s.store.CreateSecretBackendIssuedToken(state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: next,
+		BackendID:  "abc",
+		Consumer:   ownerApp.Tag(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := s.store.WatchSecretBackendIssuedTokenExpiry()
+	defer testing.AssertStop(c, w)
+
+	wc := testing.NewStringsWatcherC(c, w)
+	wc.AssertChange(next.Format(time.RFC3339))
+}
+
+func (s *SecretBackendIssuedTokenExpiryWatcherSuite) TestWatchUpdates(c *gc.C) {
+	ownerApp := s.Factory.MakeApplication(c, nil)
+	now := s.Clock.Now().Round(time.Second).UTC()
+	first := now.Add(time.Minute).Round(time.Second).UTC()
+
+	err := s.store.CreateSecretBackendIssuedToken(state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: first,
+		BackendID:  "abc",
+		Consumer:   ownerApp.Tag(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+
+	w := s.store.WatchSecretBackendIssuedTokenExpiry()
+	defer testing.AssertStop(c, w)
+
+	wc := testing.NewStringsWatcherC(c, w)
+	wc.AssertChange(first.Format(time.RFC3339))
+	wc.AssertNoChange()
+
+	next := now.Add(10 * time.Minute).Round(time.Second).UTC()
+	err = s.store.CreateSecretBackendIssuedToken(state.SecretBackendIssuedToken{
+		UUID:       uuid.NewString(),
+		ExpireTime: next,
+		BackendID:  "abc",
+		Consumer:   ownerApp.Tag(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(next.Format(time.RFC3339))
+}
+
+func (s *SecretBackendIssuedTokenExpiryWatcherSuite) TestWatchNoDeletion(c *gc.C) {
+	ownerApp := s.Factory.MakeApplication(c, nil)
+	now := s.Clock.Now().Round(time.Second).UTC()
+	first := now.Add(time.Minute).Round(time.Second).UTC()
+	firstUUID := uuid.NewString()
+
+	err := s.store.CreateSecretBackendIssuedToken(state.SecretBackendIssuedToken{
+		UUID:       firstUUID,
+		ExpireTime: first,
+		BackendID:  "abc",
+		Consumer:   ownerApp.Tag(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+
+	w := s.store.WatchSecretBackendIssuedTokenExpiry()
+	defer testing.AssertStop(c, w)
+
+	wc := testing.NewStringsWatcherC(c, w)
+	wc.AssertChange(first.Format(time.RFC3339))
+	wc.AssertNoChange()
+
+	err = s.store.RemoveSecretBackendIssuedTokens([]string{firstUUID})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
 }

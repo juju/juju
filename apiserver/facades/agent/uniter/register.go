@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
+	"github.com/juju/juju/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -130,6 +131,7 @@ func newUniterAPI(context facade.Context) (*UniterAPI, error) {
 
 		m:                 m,
 		st:                st,
+		secrets:           state.NewSecrets(st),
 		clock:             aClock,
 		cancel:            context.Cancel(),
 		cacheModel:        cacheModel,

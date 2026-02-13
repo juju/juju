@@ -5,6 +5,8 @@ package secrets_test
 
 import (
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/juju/cmd/v3/cmdtesting"
 	jujutesting "github.com/juju/testing"
@@ -81,13 +83,19 @@ ID                    Name       Owner    Rotation  Revision  Last updated
 func (s *ListSuite) TestListYAML(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	uri := coresecrets.NewURI()
-	uri2 := coresecrets.NewURI()
-	uri3 := coresecrets.NewURI()
+	// Sorted list for test output stability.
+	uris := []*coresecrets.URI{
+		coresecrets.NewURI(),
+		coresecrets.NewURI(),
+		coresecrets.NewURI(),
+	}
+	slices.SortFunc(uris, func(a *coresecrets.URI, b *coresecrets.URI) int {
+		return strings.Compare(a.ID, b.ID)
+	})
 	s.secretsAPI.EXPECT().ListSecrets(false, coresecrets.Filter{}).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
-				URI: uri, RotatePolicy: coresecrets.RotateHourly,
+				URI: uris[0], RotatePolicy: coresecrets.RotateHourly,
 				Version: 1, LatestRevision: 2,
 				Description: "my secret",
 				OwnerTag:    "application-mysql",
@@ -96,12 +104,12 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 		}, {
 			Metadata: coresecrets.SecretMetadata{
-				URI: uri2, Version: 1, LatestRevision: 1, OwnerTag: "application-mariadb",
+				URI: uris[1], Version: 1, LatestRevision: 1, OwnerTag: "application-mariadb",
 			},
 			Error: "boom",
 		}, {
 			Metadata: coresecrets.SecretMetadata{
-				URI: uri3, Version: 1, LatestRevision: 1,
+				URI: uris[2], Version: 1, LatestRevision: 1,
 				Label: "my-secret", OwnerTag: coretesting.ModelTag.String(),
 			},
 		}}, nil)
@@ -131,7 +139,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
   name: my-secret
   created: 0001-01-01T00:00:00Z
   updated: 0001-01-01T00:00:00Z
-`[1:], uri.ID, uri2.ID, uri3.ID))
+`[1:], uris[0].ID, uris[1].ID, uris[2].ID))
 }
 
 func (s *ListSuite) TestListJSON(c *gc.C) {

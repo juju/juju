@@ -7,7 +7,7 @@ run_secrets() {
 	# k8s secrets are stored in an external backend.
 	# These checks ensure the secrets are deleted when the units and app are deleted.
 	echo "deploy an app and create an app owned secret and a unit owned secret"
-	juju --show-log deploy alertmanager-k8s
+	juju --show-log deploy alertmanager-k8s --trust
 	wait_for "alertmanager-k8s" "$(active_idle_condition "alertmanager-k8s" 0 0)"
 	wait_for "active" '.applications["alertmanager-k8s"] | ."application-status".current'
 	full_uri1=$(juju exec --unit alertmanager-k8s/0 -- secret-add foo=bar)
@@ -63,13 +63,9 @@ run_secrets() {
 		attempt=$((attempt + 1))
 	done
 
-	juju --show-log deploy alertmanager-k8s hello
-	# TODO(anvial): remove the revision flag once we update alertmanager-k8s charm
-	#  (https://discourse.charmhub.io/t/old-ingress-relation-removal/12944)
-	#  or we choose an alternative pair of charms to integrate.
-	juju --show-log deploy nginx-ingress-integrator nginx --channel=latest/stable --revision=83
+	juju --show-log deploy alertmanager-k8s hello --trust
+	juju --show-log deploy nginx-ingress-integrator nginx --trust --config service-hostname=hello.test
 	juju --show-log integrate nginx hello
-	juju --show-log trust nginx --scope=cluster
 
 	# create user secrets.
 	juju --show-log add-secret mysecret owned-by="$model_name" --info "this is a user secret"
@@ -100,18 +96,18 @@ run_secrets() {
 	check_contains "$(juju exec --unit hello/0 -- secret-get $unit_owned_full_uri)" 'owned-by: hello/0'
 	check_contains "$(juju exec --unit hello/0 -- secret-get $app_owned_full_uri)" 'owned-by: hello-app'
 
-	echo "Checking: secret-get by URI - metadata"
-	check_contains "$(juju exec --unit hello/0 -- secret-info-get $unit_owned_full_uri --format json | jq .${unit_owned_short_uri}.owner)" unit
-	check_contains "$(juju exec --unit hello/0 -- secret-info-get $app_owned_full_uri --format json | jq .${app_owned_short_uri}.owner)" application
+	echo "Checking: secret-info-get by URI - metadata"
+	check_contains "$(juju exec --unit hello/0 -- secret-info-get $unit_owned_full_uri --format json | yq ".${unit_owned_short_uri}.owner")" unit
+	check_contains "$(juju exec --unit hello/0 -- secret-info-get $app_owned_full_uri --format json | yq ".${app_owned_short_uri}.owner")" application
 
 	echo "Checking: secret-get by label or consumer label - content"
 	check_contains "$(juju exec --unit hello/0 -- secret-get --label=hello_0)" 'owned-by: hello/0'
 	check_contains "$(juju exec --unit hello/0 -- secret-get --label=hello-app)" 'owned-by: hello-app'
 
-	echo "Checking: secret-get by label - metadata"
-	check_contains "$(juju exec --unit hello/0 -- secret-info-get --label=hello_0 --format json | jq ".${unit_owned_short_uri}.label")" hello_0
+	echo "Checking: secret-info-get by label - metadata"
+	check_contains "$(juju exec --unit hello/0 -- secret-info-get --label=hello_0 --format json | yq ".${unit_owned_short_uri}.label")" hello_0
 
-	relation_id=$(juju --show-log show-unit hello/0 --format json | jq '."hello/0"."relation-info"[0]."relation-id"')
+	relation_id=$(juju --show-log show-unit hello/0 --format json | yq '."hello/0"."relation-info"[0]."relation-id"')
 	juju exec --unit hello/0 -- secret-grant "$unit_owned_full_uri" -r "$relation_id"
 	juju exec --unit hello/0 -- secret-grant "$app_owned_full_uri" -r "$relation_id"
 
@@ -124,15 +120,6 @@ run_secrets() {
 
 	check_contains "$(juju exec --unit nginx/0 -- secret-get --label=consumer_label_secret_owned_by_hello_0)" 'owned-by: hello/0'
 	check_contains "$(juju exec --unit nginx/0 -- secret-get --label=consumer_label_secret_owned_by_hello)" 'owned-by: hello-app'
-
-	echo "Check owner unit's k8s role rules to ensure we are using the k8s secret provider"
-	check_contains "$(microk8s kubectl -n "$model_name" get roles/unit-hello-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${unit_owned_short_uri}-1\") ) | .verbs[0] ")" '*'
-	check_contains "$(microk8s kubectl -n "$model_name" get roles/unit-hello-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${app_owned_short_uri}-1\") ) | .verbs[0] ")" '*'
-
-	# Check consumer unit's k8s role rules to ensure we are using the k8s secret provider.
-	check_contains "$(microk8s kubectl -n "$model_name" get roles/unit-nginx-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${unit_owned_short_uri}-1\") ) | .verbs[0] ")" 'get'
-	check_contains "$(microk8s kubectl -n "$model_name" get roles/unit-nginx-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${app_owned_short_uri}-1\") ) | .verbs[0] ")" 'get'
-
 	check_contains "$(microk8s kubectl -n "$model_name" get "secrets/${unit_owned_short_uri}-1" -o json | jq -r '.data["owned-by"]' | base64 -d)" "hello/0"
 	check_contains "$(microk8s kubectl -n "$model_name" get "secrets/${app_owned_short_uri}-1" -o json | jq -r '.data["owned-by"]' | base64 -d)" "hello-app"
 

@@ -28,19 +28,30 @@ func (p jujuProvider) Type() string {
 	return BackendType
 }
 
-// Initialise is not used.
+// Initialise is not used because this provider does not have any external
+// interactions outside the model.
 func (p jujuProvider) Initialise(*provider.ModelBackendConfig) error {
 	return nil
 }
 
-// CleanupModel is not used.
+// CleanupModel is not used because this provider does not have any resources
+// that exist outside of the model.
 func (p jujuProvider) CleanupModel(*provider.ModelBackendConfig) error {
 	return nil
 }
 
-// CleanupSecrets is not used.
+// CleanupSecrets is not used because this provider does not store secrets
+// externally to the model.
 func (p jujuProvider) CleanupSecrets(cfg *provider.ModelBackendConfig, tag names.Tag, removed provider.SecretRevisions) error {
 	return nil
+}
+
+// CleanupIssuedTokens is not used because this provider does not issue backend
+// tokens.
+func (p jujuProvider) CleanupIssuedTokens(
+	_ *provider.ModelBackendConfig, issuedTokenUUIDs []string,
+) ([]string, error) {
+	return issuedTokenUUIDs, nil
 }
 
 // BuiltInConfig returns a minimal config for the Juju backend.
@@ -48,11 +59,18 @@ func BuiltInConfig() provider.BackendConfig {
 	return provider.BackendConfig{BackendType: BackendType}
 }
 
+// IssuesTokens returns false since this provider does not create tokens.
+func (p jujuProvider) IssuesTokens() bool {
+	return false
+}
+
 // RestrictedConfig returns the config needed to create a
 // secrets backend client restricted to manage the specified
 // owned secrets and read shared secrets for the given entity tag.
 func (p jujuProvider) RestrictedConfig(
-	adminCfg *provider.ModelBackendConfig, sameController, forDrain bool, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
+	*provider.ModelBackendConfig,
+	bool, bool, string, names.Tag,
+	[]string, provider.SecretRevisions, provider.SecretRevisions,
 ) (*provider.BackendConfig, error) {
 	return &provider.BackendConfig{
 		BackendType: BackendType,

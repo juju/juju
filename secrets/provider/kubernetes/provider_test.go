@@ -5,100 +5,104 @@ package kubernetes_test
 
 import (
 	"context"
+	"crypto/rand"
 	"net"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
-	core "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
-	kubernetes2 "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	k8s "k8s.io/client-go/kubernetes"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
+	k8srest "k8s.io/client-go/rest"
+	k8stesting "k8s.io/client-go/testing"
 
 	"github.com/juju/juju/core/secrets"
-	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/secrets/provider"
 	_ "github.com/juju/juju/secrets/provider/all"
 	"github.com/juju/juju/secrets/provider/kubernetes"
-	"github.com/juju/juju/secrets/provider/kubernetes/mocks"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type providerSuite struct {
-	testing.IsolationSuite
+	testing.CleanupSuite
 
-	k8sClient               *mocks.MockInterface
-	mockDiscovery           *mocks.MockDiscoveryInterface
-	mockSecrets             *mocks.MockSecretInterface
-	mockRbacV1              *mocks.MockRbacV1Interface
-	mockNamespaces          *mocks.MockNamespaceInterface
-	mockServiceAccounts     *mocks.MockServiceAccountInterface
-	mockRoles               *mocks.MockRoleInterface
-	mockClusterRoles        *mocks.MockClusterRoleInterface
-	mockRoleBindings        *mocks.MockRoleBindingInterface
-	mockClusterRoleBindings *mocks.MockClusterRoleBindingInterface
+	k8sClient *k8sfake.Clientset
 
 	namespace string
+	tokens    []string
 }
 
 var _ = gc.Suite(&providerSuite{})
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
-	s.namespace = "test"
-	s.PatchValue(&kubernetes.NewK8sClient, func(config *rest.Config) (kubernetes2.Interface, error) {
+	s.PatchValue(&kubernetes.NewK8sClient, func(config *k8srest.Config) (k8s.Interface, error) {
 		return s.k8sClient, nil
 	})
 }
 
-func (s *providerSuite) setupController(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
+func (s *providerSuite) setupK8s(c *gc.C) func() {
+	ctx := context.Background()
+	s.k8sClient = k8sfake.NewSimpleClientset()
+	if s.namespace == "" {
+		s.namespace = "test"
+	}
+	s.k8sClient.PrependReactor("create", "serviceaccounts", s.tokenReactor)
+	_, err := s.k8sClient.CoreV1().Namespaces().Create(ctx, &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: s.namespace,
+		},
+	}, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	return func() {
+		s.k8sClient = nil
+		s.namespace = ""
+		s.tokens = nil
+	}
+}
 
-	s.k8sClient = mocks.NewMockInterface(ctrl)
-
-	s.mockDiscovery = mocks.NewMockDiscoveryInterface(ctrl)
-	s.k8sClient.EXPECT().Discovery().AnyTimes().Return(s.mockDiscovery)
-
-	mockCoreV1 := mocks.NewMockCoreV1Interface(ctrl)
-	s.k8sClient.EXPECT().CoreV1().AnyTimes().Return(mockCoreV1)
-	s.mockNamespaces = mocks.NewMockNamespaceInterface(ctrl)
-	mockCoreV1.EXPECT().Namespaces().AnyTimes().Return(s.mockNamespaces)
-
-	s.mockServiceAccounts = mocks.NewMockServiceAccountInterface(ctrl)
-	mockCoreV1.EXPECT().ServiceAccounts(s.namespace).AnyTimes().Return(s.mockServiceAccounts)
-
-	s.mockSecrets = mocks.NewMockSecretInterface(ctrl)
-	mockCoreV1.EXPECT().Secrets(s.namespace).AnyTimes().Return(s.mockSecrets)
-
-	s.mockRbacV1 = mocks.NewMockRbacV1Interface(ctrl)
-	s.k8sClient.EXPECT().RbacV1().AnyTimes().Return(s.mockRbacV1)
-
-	s.mockRoles = mocks.NewMockRoleInterface(ctrl)
-	s.mockRbacV1.EXPECT().Roles(s.namespace).AnyTimes().Return(s.mockRoles)
-	s.mockClusterRoles = mocks.NewMockClusterRoleInterface(ctrl)
-	s.mockRbacV1.EXPECT().ClusterRoles().AnyTimes().Return(s.mockClusterRoles)
-	s.mockRoleBindings = mocks.NewMockRoleBindingInterface(ctrl)
-	s.mockRbacV1.EXPECT().RoleBindings(s.namespace).AnyTimes().Return(s.mockRoleBindings)
-	s.mockClusterRoleBindings = mocks.NewMockClusterRoleBindingInterface(ctrl)
-	s.mockRbacV1.EXPECT().ClusterRoleBindings().AnyTimes().Return(s.mockClusterRoleBindings)
-
-	return ctrl
+// tokenReactor creates service account tokens to test against
+func (s *providerSuite) tokenReactor(
+	action k8stesting.Action,
+) (handled bool, ret k8sruntime.Object, err error) {
+	if action.GetSubresource() != "token" {
+		return
+	}
+	createAction, ok := action.(k8stesting.CreateActionImpl)
+	if !ok {
+		return
+	}
+	if createAction.Object == nil {
+		return
+	}
+	req, ok := createAction.Object.(*authenticationv1.TokenRequest)
+	if !ok {
+		return
+	}
+	_, err = s.k8sClient.Tracker().Get(
+		createAction.Resource, createAction.Namespace, createAction.Name)
+	if err != nil {
+		return false, nil, err
+	}
+	res := *req
+	res.Status.Token = rand.Text()
+	s.tokens = append(s.tokens, res.Status.Token)
+	return true, &res, nil
 }
 
 func (s *providerSuite) backendConfig() provider.BackendConfig {
 	return provider.BackendConfig{
 		BackendType: kubernetes.BackendType,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"ca-certs":  []string{"cert-data"},
 			"endpoint":  "http://nowhere",
 			"namespace": s.namespace,
@@ -106,249 +110,46 @@ func (s *providerSuite) backendConfig() provider.BackendConfig {
 	}
 }
 
-func (s *providerSuite) k8sNotFoundError() *k8serrors.StatusError {
-	return k8serrors.NewNotFound(schema.GroupResource{}, "test")
-}
-
-func (s *providerSuite) expectEnsureSecretAccessToken(consumer, appNameLabel string, owned, read []string) {
-	objMeta := v1.ObjectMeta{
-		Name: consumer,
-		Labels: map[string]string{
-			"app.kubernetes.io/managed-by": "juju",
-			"app.kubernetes.io/name":       appNameLabel,
-			"model.juju.is/name":           "fred",
-			"secrets.juju.is/model-name":   "fred",
-			"secrets.juju.is/model-id":     coretesting.ModelTag.Id(),
-		},
-		Annotations: map[string]string{
-			"model.juju.is/id":      coretesting.ModelTag.Id(),
-			"controller.juju.is/id": coretesting.ControllerTag.Id(),
-		},
-		Namespace: s.namespace,
-	}
-
-	sa := &core.ServiceAccount{
-		TypeMeta:                     v1.TypeMeta{},
-		ObjectMeta:                   objMeta,
-		AutomountServiceAccountToken: ptr(true),
-	}
-	role := &rbacv1.Role{
-		ObjectMeta: objMeta,
-		Rules: []rbacv1.PolicyRule{
-			{
-				Verbs:     []string{"create", "patch"},
-				APIGroups: []string{"*"},
-				Resources: []string{"secrets"},
-			},
-			{
-				Verbs:         []string{"get", "list"},
-				APIGroups:     []string{"*"},
-				Resources:     []string{"namespaces"},
-				ResourceNames: []string{s.namespace},
-			},
-		},
-	}
-	for _, rName := range owned {
-		role.Rules = append(role.Rules, rbacv1.PolicyRule{
-			APIGroups:     []string{rbacv1.APIGroupAll},
-			Resources:     []string{"secrets"},
-			Verbs:         []string{rbacv1.VerbAll},
-			ResourceNames: []string{rName},
-		})
-	}
-	for _, rName := range read {
-		role.Rules = append(role.Rules, rbacv1.PolicyRule{
-			APIGroups:     []string{rbacv1.APIGroupAll},
-			Resources:     []string{"secrets"},
-			Verbs:         []string{"get"},
-			ResourceNames: []string{rName},
-		})
-	}
-
-	roleBinding := &rbacv1.RoleBinding{
-		ObjectMeta: objMeta,
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "Role",
-			Name:     role.Name,
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:      "ServiceAccount",
-				Name:      sa.Name,
-				Namespace: sa.Namespace,
-			},
-		},
-	}
-
-	treq := &authenticationv1.TokenRequest{
-		Spec: authenticationv1.TokenRequestSpec{
-			ExpirationSeconds: ptr(int64(600)),
-		},
-	}
-
-	gomock.InOrder(
-		s.mockServiceAccounts.EXPECT().List(gomock.Any(), v1.ListOptions{
-			LabelSelector: "model.juju.is/name=fred",
-		}).Return(&core.ServiceAccountList{}, nil),
-		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), consumer, v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), sa, v1.CreateOptions{FieldManager: "juju"}).Return(sa, nil),
-		s.mockRoles.EXPECT().Create(gomock.Any(), role, v1.CreateOptions{FieldManager: "juju"}).Return(role, nil),
-		s.mockRoleBindings.EXPECT().Create(gomock.Any(), roleBinding, v1.CreateOptions{FieldManager: "juju"}).Return(roleBinding, nil),
-		s.mockRoleBindings.EXPECT().Get(gomock.Any(), consumer, v1.GetOptions{}).Return(roleBinding, nil),
-		s.mockServiceAccounts.EXPECT().CreateToken(gomock.Any(), consumer, treq, v1.CreateOptions{FieldManager: "juju"}).
-			Return(&authenticationv1.TokenRequest{
-				Status: authenticationv1.TokenRequestStatus{Token: "token"},
-			}, nil).AnyTimes(),
-	)
+func (s *providerSuite) checkEnsureSecretAccessToken(c *gc.C, consumer, appNameLabel string, owned, read []string) {
+	ctx := context.Background()
+	roles, err := s.k8sClient.RbacV1().Roles(s.namespace).List(
+		ctx, metav1.ListOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(roles.Items, gc.HasLen, 0)
+	roleBindings, err := s.k8sClient.RbacV1().RoleBindings(s.namespace).List(
+		ctx, metav1.ListOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(roleBindings.Items, gc.HasLen, 0)
 }
 
 func (s *providerSuite) expectEnsureControllerModelSecretAccessToken(unit string, owned, read []string, roleAlreadyExists bool) {
-	objMeta := v1.ObjectMeta{
-		Name: unit + "-06f00d",
-		Labels: map[string]string{
-			"app.kubernetes.io/managed-by": "juju",
-			"app.kubernetes.io/name":       "gitlab",
-			"model.juju.is/name":           "controller",
-			"secrets.juju.is/model-name":   "controller",
-			"secrets.juju.is/model-id":     coretesting.ModelTag.Id(),
-		},
-		Annotations: map[string]string{
-			"model.juju.is/id":      coretesting.ModelTag.Id(),
-			"controller.juju.is/id": coretesting.ControllerTag.Id(),
-		},
-		Namespace: s.namespace,
-	}
-	automountServiceAccountToken := true
-	sa := &core.ServiceAccount{
-		ObjectMeta:                   objMeta,
-		AutomountServiceAccountToken: &automountServiceAccountToken,
-	}
 
-	name := "juju-secrets-" + unit + "-06f00d"
-	objMeta.Name = name
-	objMeta.Namespace = ""
-	clusterRole := &rbacv1.ClusterRole{
-		ObjectMeta: objMeta,
-		Rules: []rbacv1.PolicyRule{
-			{
-				Verbs:     []string{"create", "patch"},
-				APIGroups: []string{"*"},
-				Resources: []string{"secrets"},
-			},
-			{
-				Verbs:     []string{"get", "list"},
-				APIGroups: []string{"*"},
-				Resources: []string{"namespaces"},
-			},
-		},
-	}
-	for _, rName := range owned {
-		clusterRole.Rules = append(clusterRole.Rules, rbacv1.PolicyRule{
-			APIGroups:     []string{rbacv1.APIGroupAll},
-			Resources:     []string{"secrets"},
-			Verbs:         []string{rbacv1.VerbAll},
-			ResourceNames: []string{rName},
-		})
-	}
-	for _, rName := range read {
-		clusterRole.Rules = append(clusterRole.Rules, rbacv1.PolicyRule{
-			APIGroups:     []string{rbacv1.APIGroupAll},
-			Resources:     []string{"secrets"},
-			Verbs:         []string{"get"},
-			ResourceNames: []string{rName},
-		})
-	}
-
-	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
-		ObjectMeta: objMeta,
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "ClusterRole",
-			Name:     clusterRole.Name,
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:      "ServiceAccount",
-				Name:      sa.Name,
-				Namespace: sa.Namespace,
-			},
-		},
-	}
-	expiresInSeconds := int64(60 * 10)
-	treq := &authenticationv1.TokenRequest{
-		Spec: authenticationv1.TokenRequestSpec{
-			ExpirationSeconds: &expiresInSeconds,
-		},
-	}
-
-	args := []any{
-		s.mockNamespaces.EXPECT().Get(gomock.Any(), s.namespace, v1.GetOptions{}).Return(&core.Namespace{
-			ObjectMeta: v1.ObjectMeta{Name: s.namespace},
-		}, nil),
-		s.mockServiceAccounts.EXPECT().List(gomock.Any(), v1.ListOptions{
-			LabelSelector: "model.juju.is/name=controller",
-		}).Return(&core.ServiceAccountList{}, nil),
-		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), sa.Name, v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), sa, v1.CreateOptions{FieldManager: "juju"}).
-			Return(sa, nil),
-	}
-	if roleAlreadyExists {
-		args = append(args,
-			s.mockClusterRoles.EXPECT().List(gomock.Any(), v1.ListOptions{
-				LabelSelector: "model.juju.is/name=controller",
-			}).Return(&rbacv1.ClusterRoleList{Items: []rbacv1.ClusterRole{*clusterRole}}, nil),
-			s.mockClusterRoles.EXPECT().Patch(gomock.Any(), clusterRole.Name, types.StrategicMergePatchType,
-				gomock.Any(), v1.PatchOptions{FieldManager: "juju"}).Return(clusterRole, nil).AnyTimes(),
-		)
-	} else {
-		args = append(args,
-			s.mockClusterRoles.EXPECT().List(gomock.Any(), v1.ListOptions{
-				LabelSelector: "model.juju.is/name=controller",
-			}).Return(&rbacv1.ClusterRoleList{}, nil),
-			s.mockClusterRoles.EXPECT().Get(gomock.Any(), name, v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
-			s.mockClusterRoles.EXPECT().Create(gomock.Any(), clusterRole, v1.CreateOptions{FieldManager: "juju"}).Return(clusterRole, nil),
-		)
-	}
-	args = append(args,
-		s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{
-			LabelSelector: "model.juju.is/name=controller",
-		}).Return(&rbacv1.ClusterRoleBindingList{}, nil),
-		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), name, v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
-		s.mockClusterRoleBindings.EXPECT().Create(gomock.Any(), clusterRoleBinding, v1.CreateOptions{FieldManager: "juju"}).Return(clusterRoleBinding, nil),
-		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), name, v1.GetOptions{}).Return(clusterRoleBinding, nil),
-		s.mockServiceAccounts.EXPECT().CreateToken(gomock.Any(), sa.Name, treq, v1.CreateOptions{FieldManager: "juju"}).Return(
-			&authenticationv1.TokenRequest{Status: authenticationv1.TokenRequestStatus{Token: "token"}}, nil,
-		),
-	)
-	gomock.InOrder(args...)
 }
 
 func (s *providerSuite) assertRestrictedConfigWithTag(c *gc.C, tag names.Tag, isControllerCloud, sameController bool) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
+	defer s.setupK8s(c)()
+	ctx := context.Background()
 
 	appNameLabel := "gitlab"
-	consumer := tag.String() + "-06f00d"
+	consumer := tag.String()
 	if tag.Kind() == names.ModelTagKind {
-		consumer = "model-fred-06f00d"
+		consumer = coretesting.ModelTag.String()
 		appNameLabel = coretesting.ModelTag.Id()
 	}
-	s.expectEnsureSecretAccessToken(consumer, appNameLabel, []string{"owned-rev-1"}, []string{"read-rev-1", "read-rev-2"})
+	ownedURI := secrets.NewURI()
+	readURI := secrets.NewURI()
 
-	s.PatchValue(&kubernetes.InClusterConfig, func() (*rest.Config, error) {
+	s.PatchValue(&kubernetes.InClusterConfig, func() (*k8srest.Config, error) {
 		host, port := os.Getenv("KUBERNETES_SERVICE_HOST"), os.Getenv("KUBERNETES_SERVICE_PORT")
 		if len(host) == 0 || len(port) == 0 {
-			return nil, rest.ErrNotInCluster
+			return nil, k8srest.ErrNotInCluster
 		}
 
-		tlsClientConfig := rest.TLSClientConfig{
+		tlsClientConfig := k8srest.TLSClientConfig{
 			CAFile: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
 		}
 
-		return &rest.Config{
+		return &k8srest.Config{
 			Host:            "https://" + net.JoinHostPort(host, port),
 			TLSClientConfig: tlsClientConfig,
 			BearerToken:     "token",
@@ -370,25 +171,110 @@ func (s *providerSuite) assertRestrictedConfigWithTag(c *gc.C, tag names.Tag, is
 		ModelName:      "fred",
 		BackendConfig:  cfg,
 	}
-
-	backendCfg, err := p.RestrictedConfig(adminCfg, sameController, false, tag,
-		provider.SecretRevisions{"owned-a": set.NewStrings("owned-rev-1")},
-		provider.SecretRevisions{"read-b": set.NewStrings("read-rev-1", "read-rev-2")},
+	issuedTokenUUID := "some-uuid"
+	backendCfg, err := p.RestrictedConfig(
+		adminCfg, sameController, false,
+		issuedTokenUUID, tag,
+		[]string{ownedURI.ID},
+		provider.SecretRevisions{ownedURI.ID: set.NewStrings(ownedURI.Name(1))},
+		provider.SecretRevisions{readURI.ID: set.NewStrings(readURI.Name(1), readURI.Name(2))},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.tokens, gc.HasLen, 1)
 	expected := &provider.BackendConfig{
 		BackendType: kubernetes.BackendType,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"ca-certs":  []string{"cert-data"},
 			"endpoint":  "http://nowhere",
 			"namespace": s.namespace,
-			"token":     "token",
+			"token":     s.tokens[0],
 		},
 	}
 	if isControllerCloud && sameController {
 		expected.Config["endpoint"] = "https://8.6.8.6:8888"
 	}
 	c.Assert(backendCfg, jc.DeepEquals, expected)
+
+	roles, err := s.k8sClient.RbacV1().Roles(s.namespace).List(
+		ctx, metav1.ListOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_[_].ObjectMeta.Annotations["secrets.juju.is/expire-at"]`, jc.Satisfies, func(s string) bool {
+		i, err := strconv.Atoi(s)
+		if !c.Check(err, jc.ErrorIsNil) {
+			return false
+		}
+		return i > int(time.Now().Unix())
+	})
+	c.Check(roles.Items, mc, []rbacv1.Role{{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "juju-secret-consumer-" + issuedTokenUUID,
+			Namespace: s.namespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "juju",
+				"app.kubernetes.io/name":       appNameLabel,
+				"model.juju.is/name":           "fred",
+				"secrets.juju.is/consumer":     consumer,
+				"secrets.juju.is/model-id":     coretesting.ModelTag.Id(),
+				"secrets.juju.is/model-name":   "fred",
+			},
+			Annotations: map[string]string{
+				"controller.juju.is/id":     coretesting.ControllerTag.Id(),
+				"model.juju.is/id":          coretesting.ModelTag.Id(),
+				"secrets.juju.is/expire-at": "",
+			},
+		},
+		Rules: []rbacv1.PolicyRule{{
+			Verbs:         []string{"get", "list"},
+			APIGroups:     []string{"*"},
+			Resources:     []string{"namespaces"},
+			ResourceNames: []string{"test"},
+		}, {
+			Verbs:         []string{"get", "patch", "update", "replace", "delete"},
+			APIGroups:     []string{"*"},
+			Resources:     []string{"secrets"},
+			ResourceNames: []string{ownedURI.Name(1), ownedURI.Name(2)},
+		}, {
+			Verbs:         []string{"get"},
+			APIGroups:     []string{"*"},
+			Resources:     []string{"secrets"},
+			ResourceNames: []string{readURI.Name(1), readURI.Name(2)},
+		}},
+	}})
+
+	roleBindings, err := s.k8sClient.RbacV1().RoleBindings(s.namespace).List(
+		ctx, metav1.ListOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(roleBindings.Items, mc, []rbacv1.RoleBinding{{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "juju-secret-consumer-" + issuedTokenUUID,
+			Namespace: s.namespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "juju",
+				"app.kubernetes.io/name":       appNameLabel,
+				"model.juju.is/name":           "fred",
+				"secrets.juju.is/consumer":     consumer,
+				"secrets.juju.is/model-id":     coretesting.ModelTag.Id(),
+				"secrets.juju.is/model-name":   "fred",
+			},
+			Annotations: map[string]string{
+				"controller.juju.is/id":     coretesting.ControllerTag.Id(),
+				"model.juju.is/id":          coretesting.ModelTag.Id(),
+				"secrets.juju.is/expire-at": "",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Name:     "juju-secret-consumer-" + issuedTokenUUID,
+			Kind:     "Role",
+		},
+		Subjects: []rbacv1.Subject{{
+			Kind:      "ServiceAccount",
+			Name:      "juju-secret-consumer-" + issuedTokenUUID,
+			Namespace: s.namespace,
+		}},
+	}})
 }
 
 func (s *providerSuite) TestRestrictedConfigWithUnitTag(c *gc.C) {
@@ -407,58 +293,8 @@ func (s *providerSuite) TestRestrictedConfigWithTagWithControllerCloudDifferentC
 	s.assertRestrictedConfigWithTag(c, names.NewUnitTag("gitlab/0"), true, false)
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *providerSuite) TestCleanupModel(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	selector := "model.juju.is/name=fred"
-	s.mockServiceAccounts.EXPECT().List(gomock.Any(), v1.ListOptions{
-		LabelSelector: selector,
-	}).Return(&core.ServiceAccountList{}, nil)
-	s.mockRoles.EXPECT().List(gomock.Any(), v1.ListOptions{
-		LabelSelector: selector,
-	}).Return(&rbacv1.RoleList{}, nil)
-	s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{
-		LabelSelector: selector,
-	}).Return(&rbacv1.RoleBindingList{}, nil)
-	s.mockClusterRoles.EXPECT().List(gomock.Any(), v1.ListOptions{
-		LabelSelector: selector,
-	}).Return(&rbacv1.ClusterRoleList{Items: []rbacv1.ClusterRole{{
-		ObjectMeta: v1.ObjectMeta{Name: "juju-secrets-role", Annotations: map[string]string{
-			"model.juju.is/id": coretesting.ModelTag.Id(),
-		}},
-	}, {
-		ObjectMeta: v1.ObjectMeta{Name: "other-role"},
-	}}}, nil)
-	s.mockClusterRoles.EXPECT().Delete(gomock.Any(), "juju-secrets-role", v1.DeleteOptions{
-		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
-	})
-	s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{
-		LabelSelector: selector,
-	}).Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{{
-		ObjectMeta: v1.ObjectMeta{Name: "juju-secrets-rolebinding", Annotations: map[string]string{
-			"model.juju.is/id": coretesting.ModelTag.Id(),
-		}},
-	}, {
-		ObjectMeta: v1.ObjectMeta{Name: "other-rolebinding"},
-	}}}, nil)
-	s.mockClusterRoleBindings.EXPECT().Delete(gomock.Any(), "juju-secrets-rolebinding", v1.DeleteOptions{
-		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
-	})
-	s.mockSecrets.EXPECT().List(gomock.Any(), v1.ListOptions{
-		LabelSelector: selector,
-	}).Return(&core.SecretList{Items: []core.Secret{{
-		ObjectMeta: v1.ObjectMeta{Name: "some-secret", Annotations: map[string]string{
-			"model.juju.is/id": coretesting.ModelTag.Id(),
-		}},
-	}}}, nil)
-	s.mockSecrets.EXPECT().Delete(gomock.Any(), "some-secret", v1.DeleteOptions{
-		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
-	})
+	defer s.setupK8s(c)()
 
 	p, err := provider.Provider(kubernetes.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
@@ -474,12 +310,10 @@ func (s *providerSuite) TestCleanupModel(c *gc.C) {
 }
 
 func (s *providerSuite) TestCleanupSecrets(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
+	defer s.setupK8s(c)()
 
 	tag := names.NewUnitTag("gitlab/0")
 	consumer := tag.String() + "-06f00d"
-	s.expectEnsureSecretAccessToken(consumer, "gitlab", nil, nil)
 
 	p, err := provider.Provider(kubernetes.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
@@ -492,13 +326,196 @@ func (s *providerSuite) TestCleanupSecrets(c *gc.C) {
 
 	err = p.CleanupSecrets(adminCfg, tag, provider.SecretRevisions{"removed": set.NewStrings("rev-1", "rev-2")})
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.checkEnsureSecretAccessToken(c, consumer, "gitlab", nil, nil)
+}
+
+func (s *providerSuite) TestCleanupSecretsOnlyUpdatesAffectedRoles(c *gc.C) {
+	defer s.setupK8s(c)()
+	ctx := context.Background()
+
+	matchingLabels := map[string]string{
+		"app.kubernetes.io/managed-by": "juju",
+		"model.juju.is/name":           "fred",
+		"secrets.juju.is/model-name":   "fred",
+		"secrets.juju.is/model-id":     coretesting.ModelTag.Id(),
+	}
+
+	// Create a role that references revisions to be removed (and one to keep).
+	_, err := s.k8sClient.RbacV1().Roles(s.namespace).Create(ctx, &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "affected-role",
+			Namespace: s.namespace,
+			Labels:    matchingLabels,
+		},
+		Rules: []rbacv1.PolicyRule{{
+			Verbs:         []string{"get"},
+			APIGroups:     []string{"*"},
+			Resources:     []string{"secrets"},
+			ResourceNames: []string{"rev-1", "rev-2", "rev-keep"},
+		}},
+	}, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create a role that does NOT reference any revisions to be removed.
+	_, err = s.k8sClient.RbacV1().Roles(s.namespace).Create(ctx, &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "unaffected-role",
+			Namespace: s.namespace,
+			Labels:    matchingLabels,
+		},
+		Rules: []rbacv1.PolicyRule{{
+			Verbs:         []string{"get"},
+			APIGroups:     []string{"*"},
+			Resources:     []string{"secrets"},
+			ResourceNames: []string{"rev-3", "rev-4"},
+		}},
+	}, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Clear recorded actions from setup, this is required to make sure that no
+	// call was made to patch the unaffected roles.
+	s.k8sClient.ClearActions()
+
+	tag := names.NewUnitTag("gitlab/0")
+	p, err := provider.Provider(kubernetes.BackendType)
+	c.Assert(err, jc.ErrorIsNil)
+	adminCfg := &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig:  s.backendConfig(),
+	}
+
+	err = p.CleanupSecrets(adminCfg, tag, provider.SecretRevisions{
+		"secret-1": set.NewStrings("rev-1", "rev-2"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that only one role had a call to patch it.
+	for _, action := range s.k8sClient.Actions() {
+		if !action.Matches("patch", "roles") {
+			continue
+		}
+		patched := action.(k8stesting.PatchAction)
+		c.Check(patched.GetName(), gc.Equals, "affected-role")
+	}
+
+	// Check that the role now has the right resource names.
+	res, err := s.k8sClient.RbacV1().Roles(s.namespace).Get(
+		ctx, "affected-role", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Rules, gc.HasLen, 1)
+	c.Check(res.Rules[0].ResourceNames, jc.DeepEquals, []string{"rev-keep"})
+
+	// Verify unaffected role is unchanged.
+	unaffectedRole, err := s.k8sClient.RbacV1().Roles(s.namespace).Get(
+		ctx, "unaffected-role", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unaffectedRole.Rules, gc.HasLen, 1)
+	c.Check(unaffectedRole.Rules[0].ResourceNames, jc.DeepEquals, []string{
+		"rev-3", "rev-4",
+	})
+}
+
+func (s *providerSuite) TestCleanupSecretsOnlyUpdatesAffectedClusterRoles(c *gc.C) {
+	defer s.setupK8s(c)()
+	ctx := context.Background()
+
+	matchingLabels := map[string]string{
+		"app.kubernetes.io/managed-by": "juju",
+		"model.juju.is/name":           "fred",
+		"secrets.juju.is/model-name":   "fred",
+		"secrets.juju.is/model-id":     coretesting.ModelTag.Id(),
+	}
+
+	// Create a cluster role that references the revisions to be removed.
+	_, err := s.k8sClient.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "affected-cluster-role",
+			Labels: matchingLabels,
+		},
+		Rules: []rbacv1.PolicyRule{{
+			Verbs:         []string{"get"},
+			APIGroups:     []string{"*"},
+			Resources:     []string{"secrets"},
+			ResourceNames: []string{"rev-1", "rev-2", "rev-keep"},
+		}},
+	}, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create a cluster role that does NOT reference any revisions to be removed.
+	_, err = s.k8sClient.RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "unaffected-cluster-role",
+			Labels: matchingLabels,
+		},
+		Rules: []rbacv1.PolicyRule{{
+			Verbs:         []string{"get"},
+			APIGroups:     []string{"*"},
+			Resources:     []string{"secrets"},
+			ResourceNames: []string{"rev-3", "rev-4"},
+		}},
+	}, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Clear recorded actions from setup, this is required to make sure that no
+	// call was made to patch the unaffected roles.
+	s.k8sClient.ClearActions()
+
+	tag := names.NewUnitTag("gitlab/0")
+	p, err := provider.Provider(kubernetes.BackendType)
+	c.Assert(err, jc.ErrorIsNil)
+	adminCfg := &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig:  s.backendConfig(),
+	}
+
+	err = p.CleanupSecrets(adminCfg, tag, provider.SecretRevisions{
+		"secret-1": set.NewStrings("rev-1", "rev-2"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that only one role had a call to patch it.
+	for _, action := range s.k8sClient.Actions() {
+		if !action.Matches("patch", "clusterroles") {
+			continue
+		}
+		patched := action.(k8stesting.PatchAction)
+		c.Check(patched.GetName(), gc.Equals, "affected-cluster-role")
+	}
+
+	// Check that the role now has the right resource names.
+	res, err := s.k8sClient.RbacV1().ClusterRoles().Get(
+		ctx, "affected-cluster-role", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Rules, gc.HasLen, 1)
+	c.Check(res.Rules[0].ResourceNames, jc.DeepEquals, []string{"rev-keep"})
+
+	// Check the other role is unchanged.
+	other, err := s.k8sClient.RbacV1().ClusterRoles().Get(
+		ctx, "unaffected-cluster-role", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(other.Rules, gc.HasLen, 1)
+	c.Check(other.Rules[0].ResourceNames, jc.DeepEquals, []string{
+		"rev-3",
+		"rev-4",
+	})
 }
 
 func (s *providerSuite) TestNewBackend(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
+	defer s.setupK8s(c)()
 
-	s.mockDiscovery.EXPECT().ServerVersion().Return(nil, errors.New("boom"))
+	cfg := provider.BackendConfig{
+		BackendType: kubernetes.BackendType,
+		Config: map[string]any{
+			"ca-certs":  []string{"cert-data"},
+			"endpoint":  "http://nowhere",
+			"namespace": "missing-namespace",
+		},
+	}
 
 	p, err := provider.Provider(kubernetes.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
@@ -506,20 +523,26 @@ func (s *providerSuite) TestNewBackend(c *gc.C) {
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
 		ModelName:      "fred",
-		BackendConfig:  s.backendConfig(),
+		BackendConfig:  cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = b.Ping()
-	c.Assert(err, gc.ErrorMatches, "backend not reachable: boom")
+	c.Assert(err, gc.ErrorMatches,
+		`backend not reachable: checking secrets namespace: `+
+			`namespaces "missing-namespace" not found`,
+	)
 }
 
 func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelCreate(c *gc.C) {
 	s.namespace = "juju-secrets"
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
+	defer s.setupK8s(c)()
+
+	ownedURI := secrets.NewURI()
+	readURI := secrets.NewURI()
 
 	s.expectEnsureControllerModelSecretAccessToken(
-		"unit-gitlab-0", []string{"owned-rev-1"}, []string{"read-rev-1", "read-rev-2"}, false)
+		"unit-gitlab-0", []string{ownedURI.Name(1)},
+		[]string{readURI.Name(1), readURI.Name(2)}, false)
 
 	p, err := provider.Provider(kubernetes.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
@@ -531,18 +554,23 @@ func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelCreate(c *gc.C
 	}
 
 	tag := names.NewUnitTag("gitlab/0")
-	backendCfg, err := p.RestrictedConfig(adminCfg, false, false, tag,
-		provider.SecretRevisions{"owned-a": set.NewStrings("owned-rev-1")},
-		provider.SecretRevisions{"read-b": set.NewStrings("read-rev-1", "read-rev-2")},
+	issuedTokenUUID := "some-uuid"
+	backendCfg, err := p.RestrictedConfig(
+		adminCfg, false, false,
+		issuedTokenUUID, tag,
+		[]string{ownedURI.ID},
+		provider.SecretRevisions{ownedURI.ID: set.NewStrings(ownedURI.Name(1))},
+		provider.SecretRevisions{readURI.ID: set.NewStrings(readURI.Name(1), readURI.Name(2))},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.tokens, gc.HasLen, 1)
 	expected := &provider.BackendConfig{
 		BackendType: kubernetes.BackendType,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"ca-certs":  []string{"cert-data"},
 			"endpoint":  "http://nowhere",
 			"namespace": s.namespace,
-			"token":     "token",
+			"token":     s.tokens[0],
 		},
 	}
 	c.Assert(backendCfg, jc.DeepEquals, expected)
@@ -550,85 +578,11 @@ func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelCreate(c *gc.C
 }
 
 func (s *providerSuite) TestEnsureSecretAccessTokenUpdate(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
+	defer s.setupK8s(c)()
 
 	tag := names.NewUnitTag("gitlab/0")
-	name := tag.String() + "-06f00d"
-	objMeta := v1.ObjectMeta{
-		Name: name,
-		Labels: map[string]string{
-			"app.kubernetes.io/managed-by": "juju",
-			"app.kubernetes.io/name":       "gitlab",
-			"model.juju.is/name":           "fred",
-			"secrets.juju.is/model-name":   "fred",
-			"secrets.juju.is/model-id":     coretesting.ModelTag.Id(),
-		},
-		Annotations: map[string]string{
-			"model.juju.is/id":      coretesting.ModelTag.Id(),
-			"controller.juju.is/id": coretesting.ControllerTag.Id(),
-		},
-		Namespace: s.namespace,
-	}
-	automountServiceAccountToken := true
-	sa := &core.ServiceAccount{
-		ObjectMeta:                   objMeta,
-		AutomountServiceAccountToken: &automountServiceAccountToken,
-	}
-	role := &rbacv1.Role{
-		ObjectMeta: objMeta,
-		Rules: []rbacv1.PolicyRule{
-			{
-				Verbs:     []string{"create", "patch"},
-				APIGroups: []string{"*"},
-				Resources: []string{"secrets"},
-			},
-			{
-				Verbs:         []string{"get", "list"},
-				APIGroups:     []string{"*"},
-				Resources:     []string{"namespaces"},
-				ResourceNames: []string{"test"},
-			},
-		},
-	}
-	roleBinding := &rbacv1.RoleBinding{
-		ObjectMeta: objMeta,
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "Role",
-			Name:     role.Name,
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:      "ServiceAccount",
-				Name:      sa.Name,
-				Namespace: sa.Namespace,
-			},
-		},
-	}
-	expiresInSeconds := int64(60 * 10)
-	treq := &authenticationv1.TokenRequest{
-		Spec: authenticationv1.TokenRequestSpec{
-			ExpirationSeconds: &expiresInSeconds,
-		},
-	}
-	gomock.InOrder(
-		s.mockServiceAccounts.EXPECT().List(gomock.Any(), v1.ListOptions{
-			LabelSelector: "model.juju.is/name=fred",
-		}).Return(&core.ServiceAccountList{}, nil),
-		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), name, v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), sa, v1.CreateOptions{FieldManager: "juju"}).
-			Return(sa, nil),
-		s.mockRoles.EXPECT().Create(gomock.Any(), gomock.Any(), v1.CreateOptions{FieldManager: "juju"}).Return(nil, errors.AlreadyExists),
-		s.mockRoles.EXPECT().Get(gomock.Any(), name, v1.GetOptions{}).Return(role, nil),
-		s.mockRoles.EXPECT().Patch(gomock.Any(), role.Name, types.StrategicMergePatchType, gomock.Any(), v1.PatchOptions{FieldManager: "juju"}).Return(role, nil),
-		s.mockRoleBindings.EXPECT().Create(gomock.Any(), roleBinding, v1.CreateOptions{FieldManager: "juju"}).Return(roleBinding, nil),
-		s.mockRoleBindings.EXPECT().Get(gomock.Any(), roleBinding.Name, v1.GetOptions{}).Return(roleBinding, nil),
-		s.mockServiceAccounts.EXPECT().CreateToken(gomock.Any(), name, treq, v1.CreateOptions{FieldManager: "juju"}).Return(
-			&authenticationv1.TokenRequest{Status: authenticationv1.TokenRequestStatus{Token: "token"}}, nil,
-		),
-	)
+	ownedURI := secrets.NewURI()
+	readURI := secrets.NewURI()
 
 	p, err := provider.Provider(kubernetes.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
@@ -639,18 +593,23 @@ func (s *providerSuite) TestEnsureSecretAccessTokenUpdate(c *gc.C) {
 		BackendConfig:  s.backendConfig(),
 	}
 
-	backendCfg, err := p.RestrictedConfig(adminCfg, false, false, tag,
-		provider.SecretRevisions{"owned-a": set.NewStrings("owned-rev-1")},
-		provider.SecretRevisions{"read-b": set.NewStrings("read-rev-1", "read-rev-2")},
+	issuedTokenUUID := "some-uuid"
+	backendCfg, err := p.RestrictedConfig(
+		adminCfg, false, false,
+		issuedTokenUUID, tag,
+		[]string{ownedURI.ID},
+		provider.SecretRevisions{ownedURI.ID: set.NewStrings(ownedURI.Name(1))},
+		provider.SecretRevisions{readURI.ID: set.NewStrings(readURI.Name(1), readURI.Name(2))},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.tokens, gc.HasLen, 1)
 	expected := &provider.BackendConfig{
 		BackendType: kubernetes.BackendType,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"ca-certs":  []string{"cert-data"},
 			"endpoint":  "http://nowhere",
 			"namespace": s.namespace,
-			"token":     "token",
+			"token":     s.tokens[0],
 		},
 	}
 	c.Assert(backendCfg, jc.DeepEquals, expected)
@@ -658,11 +617,15 @@ func (s *providerSuite) TestEnsureSecretAccessTokenUpdate(c *gc.C) {
 }
 
 func (s *providerSuite) TestEnsureSecretAccessTokeControllerModelUpdate(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
+	defer s.setupK8s(c)()
+
+	ownedURI := secrets.NewURI()
+	readURI := secrets.NewURI()
 
 	s.expectEnsureControllerModelSecretAccessToken(
-		"unit-gitlab-0", []string{"owned-rev-1"}, []string{"read-rev-1", "read-rev-2"}, true)
+		"unit-gitlab-0", []string{ownedURI.Name(1)},
+		[]string{readURI.Name(1), readURI.Name(2)}, true,
+	)
 
 	p, err := provider.Provider(kubernetes.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
@@ -674,18 +637,23 @@ func (s *providerSuite) TestEnsureSecretAccessTokeControllerModelUpdate(c *gc.C)
 	}
 
 	tag := names.NewUnitTag("gitlab/0")
-	backendCfg, err := p.RestrictedConfig(adminCfg, false, false, tag,
-		provider.SecretRevisions{"owned-a": set.NewStrings("owned-rev-1")},
-		provider.SecretRevisions{"read-b": set.NewStrings("read-rev-1", "read-rev-2")},
+	issuedTokenUUID := "some-uuid"
+	backendCfg, err := p.RestrictedConfig(
+		adminCfg, false, false,
+		issuedTokenUUID, tag,
+		[]string{ownedURI.ID},
+		provider.SecretRevisions{ownedURI.ID: set.NewStrings(ownedURI.Name(1))},
+		provider.SecretRevisions{readURI.ID: set.NewStrings(readURI.Name(1), readURI.Name(2))},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.tokens, gc.HasLen, 1)
 	expected := &provider.BackendConfig{
 		BackendType: kubernetes.BackendType,
-		Config: map[string]interface{}{
+		Config: map[string]any{
 			"ca-certs":  []string{"cert-data"},
 			"endpoint":  "http://nowhere",
 			"namespace": s.namespace,
-			"token":     "token",
+			"token":     s.tokens[0],
 		},
 	}
 	c.Assert(backendCfg, jc.DeepEquals, expected)
@@ -693,21 +661,20 @@ func (s *providerSuite) TestEnsureSecretAccessTokeControllerModelUpdate(c *gc.C)
 }
 
 func (s *providerSuite) TestGetContent(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
+	defer s.setupK8s(c)()
+	ctx := context.Background()
 
 	uri := secrets.NewURI()
-	secret := &core.Secret{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      uri.ID + "-1",
-			Namespace: s.namespace,
+
+	_, err := s.k8sClient.CoreV1().Secrets(s.namespace).Create(ctx, &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: uri.Name(1),
 		},
-		Type: core.SecretTypeOpaque,
 		Data: map[string][]byte{
 			"foo": []byte("bar"),
 		},
-	}
-	s.mockSecrets.EXPECT().Get(gomock.Any(), uri.ID+"-1", v1.GetOptions{}).Return(secret, nil)
+	}, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
 
 	p, err := provider.Provider(kubernetes.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
@@ -719,36 +686,16 @@ func (s *providerSuite) TestGetContent(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	content, err := b.GetContent(context.Background(), uri.ID+"-1")
+	content, err := b.GetContent(context.Background(), uri.Name(1))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(content.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "YmFy"})
 }
 
 func (s *providerSuite) TestSaveContent(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
+	ctx := context.Background()
+	defer s.setupK8s(c)()
 
 	uri := secrets.NewURI()
-	secret := &core.Secret{
-		ObjectMeta: v1.ObjectMeta{
-			Name: uri.ID + "-1",
-			Labels: map[string]string{
-				"app.kubernetes.io/managed-by": "juju",
-				"model.juju.is/name":           "fred",
-				"secrets.juju.is/model-name":   "fred",
-				"secrets.juju.is/model-id":     coretesting.ModelTag.Id(),
-			},
-			Namespace: s.namespace,
-		},
-		Type: core.SecretTypeOpaque,
-		StringData: map[string]string{
-			"foo": "bar",
-		},
-	}
-	s.mockSecrets.EXPECT().Create(gomock.Any(), secret, v1.CreateOptions{FieldManager: "juju"}).Return(secret, nil)
-	s.mockSecrets.EXPECT().Patch(
-		gomock.Any(), uri.ID+"-1", types.StrategicMergePatchType, gomock.Any(), v1.PatchOptions{FieldManager: "juju"}).
-		Return(nil, s.k8sNotFoundError())
 
 	p, err := provider.Provider(kubernetes.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
@@ -760,25 +707,43 @@ func (s *providerSuite) TestSaveContent(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	name, err := b.SaveContent(context.Background(), uri, 1, secrets.NewSecretValue(map[string]string{"foo": "YmFy"}))
+	sv := secrets.NewSecretValue(map[string]string{"foo": "YmFy"})
+	name, err := b.SaveContent(ctx, uri, 1, sv)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(name, gc.Equals, uri.ID+"-1")
+	c.Assert(name, gc.Equals, uri.Name(1))
+
+	res, err := s.k8sClient.CoreV1().Secrets(s.namespace).List(
+		ctx, metav1.ListOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Items, gc.HasLen, 1)
+	secret := res.Items[0]
+	c.Check(secret.Name, gc.Equals, uri.Name(1))
+	c.Check(secret.Labels, gc.DeepEquals, map[string]string{
+		"app.kubernetes.io/managed-by": "juju",
+		"secrets.juju.is/model-id":     coretesting.ModelTag.Id(),
+		"model.juju.is/name":           "fred",
+		"secrets.juju.is/model-name":   "fred",
+	})
+	c.Check(secret.StringData, gc.DeepEquals, map[string]string{
+		"foo": "bar",
+	})
 }
 
 func (s *providerSuite) TestDeleteContent(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
+	ctx := context.Background()
+	defer s.setupK8s(c)()
 
 	uri := secrets.NewURI()
-	secret := &core.Secret{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      uri.ID + "-1",
-			Namespace: s.namespace,
+
+	_, err := s.k8sClient.CoreV1().Secrets(s.namespace).Create(ctx,
+		&v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: uri.Name(1),
+			},
 		},
-	}
-	s.mockSecrets.EXPECT().Get(gomock.Any(), uri.ID+"-1", v1.GetOptions{}).Return(secret, nil)
-	s.mockSecrets.EXPECT().Delete(gomock.Any(), uri.ID+"-1", v1.DeleteOptions{
-		PropagationPolicy: k8sconstants.DefaultPropagationPolicy()})
+		metav1.CreateOptions{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	p, err := provider.Provider(kubernetes.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
@@ -790,23 +755,26 @@ func (s *providerSuite) TestDeleteContent(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = b.DeleteContent(context.Background(), uri.ID+"-1")
+	err = b.DeleteContent(context.Background(), uri.Name(1))
 	c.Assert(err, jc.ErrorIsNil)
+
+	res, err := s.k8sClient.CoreV1().Secrets(s.namespace).List(
+		ctx, metav1.ListOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Items, gc.HasLen, 0)
 }
 
 func (s *providerSuite) TestRefreshAuth(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
+	defer s.setupK8s(c)()
+	ctx := context.Background()
 
-	treq := &authenticationv1.TokenRequest{
-		Spec: authenticationv1.TokenRequestSpec{
-			ExpirationSeconds: ptr(int64(3600)),
-		},
-	}
-	s.mockServiceAccounts.EXPECT().CreateToken(gomock.Any(), "default", treq, v1.CreateOptions{FieldManager: "juju"}).
-		Return(&authenticationv1.TokenRequest{
-			Status: authenticationv1.TokenRequestStatus{Token: "token2"},
-		}, nil)
+	_, err := s.k8sClient.CoreV1().ServiceAccounts(s.namespace).Create(ctx,
+		&v1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "default",
+			},
+		}, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
 
 	p, err := provider.Provider(kubernetes.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
@@ -824,5 +792,6 @@ func (s *providerSuite) TestRefreshAuth(c *gc.C) {
 		BackendConfig:  cfg,
 	}, validFor)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newCfg.Config["token"], gc.Equals, "token2")
+	c.Assert(s.tokens, gc.HasLen, 1)
+	c.Assert(newCfg.Config["token"], gc.Equals, s.tokens[0])
 }

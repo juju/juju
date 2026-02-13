@@ -276,6 +276,9 @@ func cleanupSecretBackendRefCountAfterModelMigrationDone(st *State) error {
 			ops = append(ops, refOps...)
 		}
 	}
+	if len(ops) == 0 {
+		return nil
+	}
 	return st.db().RunTransaction(ops)
 }
 

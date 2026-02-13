@@ -213,6 +213,15 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// sshConnRequestsC is a new collection and doesn't need to be
 		// migrated.
 		sshConnRequestsC,
+
+		// secretBackendIssuedTokensC does not need to be migrated as the units
+		// using the tokens will only be migrated after they have been quiesced.
+		secretBackendIssuedTokensC,
+
+		// secretReservationsC does not need to be migrated as the reservations
+		// are only valid for the duration of a hook call, units are not running
+		// a hook when they are quiesced for migration.
+		secretReservationsC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
