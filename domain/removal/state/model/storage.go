@@ -271,6 +271,251 @@ SELECT &storageAttachmentDetachInfo.* FROM (
 	}, nil
 }
 
+// GetStorageAttachmentHookInfo returns the unit life status, storage ID,
+// and raw storage state YAML for a storage attachment. Used by the
+// service layer to determine if a dying storage attachment can safely
+// advance to dead.
+//
+// The following errors may be returned:
+// - [storageerrors.StorageAttachmentNotFound] if the storage attachment
+// no longer exists in the model.
+func (st *State) GetStorageAttachmentHookInfo(
+	ctx context.Context, saUUID string,
+) (internal.StorageAttachmentHookInfo, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return internal.StorageAttachmentHookInfo{}, errors.Capture(err)
+	}
+
+	var (
+		dbVal     storageAttachmentUnitInfo
+		uuidInput = entityUUID{UUID: saUUID}
+	)
+
+	q := `
+SELECT u.life_id AS &storageAttachmentUnitInfo.unit_life_id,
+       si.storage_id AS &storageAttachmentUnitInfo.storage_id,
+       COALESCE(us.storage_state, '') AS &storageAttachmentUnitInfo.storage_state
+FROM   storage_attachment sa
+JOIN   unit u ON sa.unit_uuid = u.uuid
+JOIN   storage_instance si ON sa.storage_instance_uuid = si.uuid
+LEFT JOIN unit_state us ON sa.unit_uuid = us.unit_uuid
+WHERE  sa.uuid = $entityUUID.uuid
+`
+
+	stmt, err := st.Prepare(q, uuidInput, dbVal)
+	if err != nil {
+		return internal.StorageAttachmentHookInfo{}, errors.Errorf(
+			"preparing storage attachment hook info query: %w", err,
+		)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkStorageAttachmentExists(ctx, tx, saUUID)
+		if err != nil {
+			return errors.Errorf(
+				"checking if storage attachment exists: %w", err,
+			)
+		}
+		if !exists {
+			return errors.Errorf(
+				"storage attachment %q does not exist in the model", saUUID,
+			).Add(storageerrors.StorageAttachmentNotFound)
+		}
+
+		return tx.Query(ctx, stmt, uuidInput).Get(&dbVal)
+	})
+	if err != nil {
+		return internal.StorageAttachmentHookInfo{}, errors.Capture(err)
+	}
+
+	return internal.StorageAttachmentHookInfo{
+		UnitDead:     dbVal.UnitLifeID == int(life.Dead),
+		StorageID:    dbVal.StorageID,
+		StorageState: dbVal.StorageState,
+	}, nil
+}
+
+// GetFilesystemAttachmentAdvanceInfo returns the provisioned attachment
+// advance information for the filesystem attachment identified by the input
+// UUID. This information is used by the service layer to determine if
+// the attachment can safely advance from dying to dead.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.FilesystemAttachmentNotFound] if the
+// filesystem attachment no longer exists in the model.
+func (st *State) GetFilesystemAttachmentAdvanceInfo(
+	ctx context.Context, fsaUUID string,
+) (internal.ProvisionedAttachmentAdvanceInfo, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return internal.ProvisionedAttachmentAdvanceInfo{}, errors.Capture(err)
+	}
+
+	var (
+		dbVal     provisionedAttachmentAdvanceInfo
+		uuidInput = entityUUID{UUID: fsaUUID}
+	)
+
+	existsStmt, err := st.Prepare(`
+SELECT &entityUUID.uuid
+FROM   storage_filesystem_attachment
+WHERE  uuid = $entityUUID.uuid`, uuidInput)
+	if err != nil {
+		return internal.ProvisionedAttachmentAdvanceInfo{}, errors.Errorf(
+			"preparing filesystem attachment exists query: %w", err,
+		)
+	}
+
+	q := `
+SELECT sf.provision_scope_id AS &provisionedAttachmentAdvanceInfo.provision_scope_id,
+       COALESCE(sa.life_id, -1) AS &provisionedAttachmentAdvanceInfo.storage_attachment_life_id,
+       CASE WHEN mf.machine_uuid IS NULL THEN 1
+            WHEN m.uuid IS NULL THEN 1
+            ELSE 0
+       END AS &provisionedAttachmentAdvanceInfo.machine_gone
+FROM   storage_filesystem_attachment sfa
+JOIN   storage_filesystem sf ON sfa.storage_filesystem_uuid = sf.uuid
+LEFT JOIN storage_instance_filesystem sif ON sf.uuid = sif.storage_filesystem_uuid
+LEFT JOIN storage_attachment sa ON sif.storage_instance_uuid = sa.storage_instance_uuid
+LEFT JOIN machine_filesystem mf ON sf.uuid = mf.filesystem_uuid
+LEFT JOIN machine m ON mf.machine_uuid = m.uuid
+WHERE  sfa.uuid = $entityUUID.uuid
+`
+
+	stmt, err := st.Prepare(q, uuidInput, dbVal)
+	if err != nil {
+		return internal.ProvisionedAttachmentAdvanceInfo{}, errors.Errorf(
+			"preparing filesystem attachment advance info query: %w", err,
+		)
+	}
+
+	var result internal.ProvisionedAttachmentAdvanceInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, existsStmt, uuidInput).Get(&uuidInput)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"filesystem attachment %q not found", fsaUUID,
+			).Add(storageprovisioningerrors.FilesystemAttachmentNotFound)
+		} else if err != nil {
+			return errors.Errorf(
+				"running filesystem attachment exists query: %w", err,
+			)
+		}
+
+		err = tx.Query(ctx, stmt, uuidInput).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Errorf(
+				"running filesystem attachment advance info query: %w", err,
+			)
+		}
+
+		result = internal.ProvisionedAttachmentAdvanceInfo{
+			MachineScopeProvisioned:     dbVal.ProvisionScopeID == 1,
+			StorageAttachmentDeadOrGone: dbVal.StorageAttachmentLifeID == int(life.Dead) || dbVal.StorageAttachmentLifeID == -1,
+			MachineGone:                 dbVal.MachineGone == 1,
+		}
+		return nil
+	})
+	if err != nil {
+		return internal.ProvisionedAttachmentAdvanceInfo{}, errors.Capture(err)
+	}
+
+	return result, nil
+}
+
+// GetVolumeAttachmentAdvanceInfo returns the provisioned attachment advance
+// information for the volume attachment identified by the input UUID. This
+// information is used by the service layer to determine if the attachment
+// can safely advance from dying to dead.
+//
+// The following errors may be returned:
+// - [storageprovisioningerrors.VolumeAttachmentNotFound] if the volume
+// attachment no longer exists in the model.
+func (st *State) GetVolumeAttachmentAdvanceInfo(
+	ctx context.Context, vaUUID string,
+) (internal.ProvisionedAttachmentAdvanceInfo, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return internal.ProvisionedAttachmentAdvanceInfo{}, errors.Capture(err)
+	}
+
+	var (
+		dbVal     provisionedAttachmentAdvanceInfo
+		uuidInput = entityUUID{UUID: vaUUID}
+	)
+
+	existsStmt, err := st.Prepare(`
+SELECT &entityUUID.uuid
+FROM   storage_volume_attachment
+WHERE  uuid = $entityUUID.uuid`, uuidInput)
+	if err != nil {
+		return internal.ProvisionedAttachmentAdvanceInfo{}, errors.Errorf(
+			"preparing volume attachment exists query: %w", err,
+		)
+	}
+
+	q := `
+SELECT sv.provision_scope_id AS &provisionedAttachmentAdvanceInfo.provision_scope_id,
+       COALESCE(sa.life_id, -1) AS &provisionedAttachmentAdvanceInfo.storage_attachment_life_id,
+       CASE WHEN mv.machine_uuid IS NULL THEN 1
+            WHEN m.uuid IS NULL THEN 1
+            ELSE 0
+       END AS &provisionedAttachmentAdvanceInfo.machine_gone
+FROM   storage_volume_attachment sva
+JOIN   storage_volume sv ON sva.storage_volume_uuid = sv.uuid
+LEFT JOIN storage_instance_volume siv ON sv.uuid = siv.storage_volume_uuid
+LEFT JOIN storage_attachment sa ON siv.storage_instance_uuid = sa.storage_instance_uuid
+LEFT JOIN machine_volume mv ON sv.uuid = mv.volume_uuid
+LEFT JOIN machine m ON mv.machine_uuid = m.uuid
+WHERE  sva.uuid = $entityUUID.uuid
+`
+
+	stmt, err := st.Prepare(q, uuidInput, dbVal)
+	if err != nil {
+		return internal.ProvisionedAttachmentAdvanceInfo{}, errors.Errorf(
+			"preparing volume attachment advance info query: %w", err,
+		)
+	}
+
+	var result internal.ProvisionedAttachmentAdvanceInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, existsStmt, uuidInput).Get(&uuidInput)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"volume attachment %q not found", vaUUID,
+			).Add(storageprovisioningerrors.VolumeAttachmentNotFound)
+		} else if err != nil {
+			return errors.Errorf(
+				"running volume attachment exists query: %w", err,
+			)
+		}
+
+		err = tx.Query(ctx, stmt, uuidInput).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Errorf(
+				"running volume attachment advance info query: %w", err,
+			)
+		}
+
+		result = internal.ProvisionedAttachmentAdvanceInfo{
+			MachineScopeProvisioned:     dbVal.ProvisionScopeID == 1,
+			StorageAttachmentDeadOrGone: dbVal.StorageAttachmentLifeID == int(life.Dead) || dbVal.StorageAttachmentLifeID == -1,
+			MachineGone:                 dbVal.MachineGone == 1,
+		}
+		return nil
+	})
+	if err != nil {
+		return internal.ProvisionedAttachmentAdvanceInfo{}, errors.Capture(err)
+	}
+
+	return result, nil
+}
+
 // StorageAttachmentScheduleRemoval schedules a removal job for the storage
 // attachment with the input UUID, qualified with the input force boolean.
 // We don't care if the attachment does not exist at this point because:

@@ -120,6 +120,18 @@ type linkLayerDevice struct {
 // decision if a given storage attachment can be detached from a unit safely.
 // This information assumes the case where the unit will continue to run after
 // the attachment is removed.
+type storageAttachmentUnitInfo struct {
+	UnitLifeID   int    `db:"unit_life_id"`
+	StorageID    string `db:"storage_id"`
+	StorageState string `db:"storage_state"`
+}
+
+type provisionedAttachmentAdvanceInfo struct {
+	ProvisionScopeID        int `db:"provision_scope_id"`
+	StorageAttachmentLifeID int `db:"storage_attachment_life_id"`
+	MachineGone             int `db:"machine_gone"`
+}
+
 type storageAttachmentDetachInfo struct {
 	CharmStorageName string `db:"charm_storage_name"`
 	CountFulfilment  int    `db:"count_fulfilment"`

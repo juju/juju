@@ -253,6 +253,40 @@ type CascadedRelationWithRemoteConsumerLives struct {
 	SyntheticRelationUnitUUIDs []string
 }
 
+// StorageAttachmentHookInfo contains the information required to determine
+// if a dying storage attachment can be safely advanced to dead.
+type StorageAttachmentHookInfo struct {
+	// UnitDead is true when the unit the storage is attached to is dead.
+	UnitDead bool
+
+	// StorageID is the storage instance identifier (e.g. "data/0"),
+	// used to look up the hook state in StorageState.
+	StorageID string
+
+	// StorageState is the raw YAML-serialized map[string]bool from the
+	// unit_state.storage_state column, written by the uniter's storage
+	// worker when storage-attached hooks fire.
+	StorageState string
+}
+
+// ProvisionedAttachmentAdvanceInfo contains the information required to
+// determine if a dying filesystem or volume attachment can be safely
+// advanced to dead.
+type ProvisionedAttachmentAdvanceInfo struct {
+	// MachineScopeProvisioned is true when the filesystem/volume was
+	// provisioned with machine scope (provision_scope_id == 1).
+	MachineScopeProvisioned bool
+
+	// StorageAttachmentDeadOrGone is true when the associated storage
+	// attachment is dead or no longer exists.
+	StorageAttachmentDeadOrGone bool
+
+	// MachineGone is true when the machine owning the filesystem/volume
+	// via machine_filesystem/machine_volume is gone (no row or the
+	// machine itself no longer exists).
+	MachineGone bool
+}
+
 // StorageAttachmentDetachInfo contains the information required to establish
 // if a storage attachment in the model can be detached.
 type StorageAttachmentDetachInfo struct {

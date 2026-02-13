@@ -1264,9 +1264,37 @@ func (s *storageSuite) TestExecuteJobForFilesystemAttachmentDying(c *tc.C) {
 
 	j := newFilesystemAttachmentJob(c)
 
-	s.modelState.EXPECT().GetFilesystemAttachmentLife(
+	exp := s.modelState.EXPECT()
+	exp.GetFilesystemAttachmentLife(
 		gomock.Any(), j.EntityUUID,
 	).Return(life.Dying, nil)
+	exp.GetFilesystemAttachmentAdvanceInfo(
+		gomock.Any(), j.EntityUUID,
+	).Return(internal.ProvisionedAttachmentAdvanceInfo{
+		MachineScopeProvisioned:     true,
+		StorageAttachmentDeadOrGone: true,
+		MachineGone:                 true,
+	}, nil)
+	exp.MarkFilesystemAttachmentAsDead(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteFilesystemAttachment(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestExecuteJobForFilesystemAttachmentDyingCannotAdvance(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newFilesystemAttachmentJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetFilesystemAttachmentLife(
+		gomock.Any(), j.EntityUUID,
+	).Return(life.Dying, nil)
+	exp.GetFilesystemAttachmentAdvanceInfo(
+		gomock.Any(), j.EntityUUID,
+	).Return(internal.ProvisionedAttachmentAdvanceInfo{}, nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIs, removalerrors.EntityNotDead)
@@ -1281,6 +1309,9 @@ func (s *storageSuite) TestExecuteJobForFilesystemAttachmentDyingForce(c *tc.C) 
 	s.modelState.EXPECT().GetFilesystemAttachmentLife(
 		gomock.Any(), j.EntityUUID,
 	).Return(life.Dying, nil)
+	s.modelState.EXPECT().MarkFilesystemAttachmentAsDead(
+		gomock.Any(), j.EntityUUID,
+	).Return(nil)
 	s.modelState.EXPECT().DeleteFilesystemAttachment(
 		gomock.Any(), j.EntityUUID,
 	).Return(nil)
@@ -1288,6 +1319,30 @@ func (s *storageSuite) TestExecuteJobForFilesystemAttachmentDyingForce(c *tc.C) 
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestExecuteJobForFilesystemAttachmentDyingMarkAsDeadError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newFilesystemAttachmentJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetFilesystemAttachmentLife(
+		gomock.Any(), j.EntityUUID,
+	).Return(life.Dying, nil)
+	exp.GetFilesystemAttachmentAdvanceInfo(
+		gomock.Any(), j.EntityUUID,
+	).Return(internal.ProvisionedAttachmentAdvanceInfo{
+		MachineScopeProvisioned:     true,
+		StorageAttachmentDeadOrGone: true,
+		MachineGone:                 true,
+	}, nil)
+	exp.MarkFilesystemAttachmentAsDead(
+		gomock.Any(), j.EntityUUID,
+	).Return(errors.Errorf("the front fell off"))
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorMatches, ".*the front fell off")
 }
 
 func (s *storageSuite) TestExecuteJobForFilesystemAttachmentSuccess(c *tc.C) {
@@ -1351,9 +1406,37 @@ func (s *storageSuite) TestExecuteJobForVolumeAttachmentDying(c *tc.C) {
 
 	j := newVolumeAttachmentJob(c)
 
-	s.modelState.EXPECT().GetVolumeAttachmentLife(
+	exp := s.modelState.EXPECT()
+	exp.GetVolumeAttachmentLife(
 		gomock.Any(), j.EntityUUID,
 	).Return(life.Dying, nil)
+	exp.GetVolumeAttachmentAdvanceInfo(
+		gomock.Any(), j.EntityUUID,
+	).Return(internal.ProvisionedAttachmentAdvanceInfo{
+		MachineScopeProvisioned:     true,
+		StorageAttachmentDeadOrGone: true,
+		MachineGone:                 true,
+	}, nil)
+	exp.MarkVolumeAttachmentAsDead(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteVolumeAttachment(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestExecuteJobForVolumeAttachmentDyingCannotAdvance(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newVolumeAttachmentJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetVolumeAttachmentLife(
+		gomock.Any(), j.EntityUUID,
+	).Return(life.Dying, nil)
+	exp.GetVolumeAttachmentAdvanceInfo(
+		gomock.Any(), j.EntityUUID,
+	).Return(internal.ProvisionedAttachmentAdvanceInfo{}, nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIs, removalerrors.EntityNotDead)
@@ -1368,6 +1451,9 @@ func (s *storageSuite) TestExecuteJobForVolumeAttachmentDyingForce(c *tc.C) {
 	s.modelState.EXPECT().GetVolumeAttachmentLife(
 		gomock.Any(), j.EntityUUID,
 	).Return(life.Dying, nil)
+	s.modelState.EXPECT().MarkVolumeAttachmentAsDead(
+		gomock.Any(), j.EntityUUID,
+	).Return(nil)
 	s.modelState.EXPECT().DeleteVolumeAttachment(
 		gomock.Any(), j.EntityUUID,
 	).Return(nil)
@@ -1375,6 +1461,30 @@ func (s *storageSuite) TestExecuteJobForVolumeAttachmentDyingForce(c *tc.C) {
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestExecuteJobForVolumeAttachmentDyingMarkAsDeadError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newVolumeAttachmentJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetVolumeAttachmentLife(
+		gomock.Any(), j.EntityUUID,
+	).Return(life.Dying, nil)
+	exp.GetVolumeAttachmentAdvanceInfo(
+		gomock.Any(), j.EntityUUID,
+	).Return(internal.ProvisionedAttachmentAdvanceInfo{
+		MachineScopeProvisioned:     true,
+		StorageAttachmentDeadOrGone: true,
+		MachineGone:                 true,
+	}, nil)
+	exp.MarkVolumeAttachmentAsDead(
+		gomock.Any(), j.EntityUUID,
+	).Return(errors.Errorf("the front fell off"))
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorMatches, ".*the front fell off")
 }
 
 func (s *storageSuite) TestExecuteJobForVolumeAttachmentSuccess(c *tc.C) {
@@ -1565,17 +1675,149 @@ func (s *storageSuite) TestExecuteJobForStorageAttachmentStillAlive(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
 }
 
-func (s *storageSuite) TestExecuteJobForStorageAttachmentDying(c *tc.C) {
+func (s *storageSuite) TestExecuteJobForStorageAttachmentDyingHookNeverFired(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	when := time.Now().UTC()
+	s.clock.EXPECT().Now().Return(when).AnyTimes()
+
+	j := newStorageAttachmentJob(c)
+
+	fsaUUID := tc.Must(c, storage.NewFilesystemAttachmentUUID)
+	vaUUID := tc.Must(c, storage.NewVolumeAttachmentUUID)
+	vapUUID := tc.Must(c, storage.NewVolumeAttachmentPlanUUID)
+
+	cascaded := internal.CascadedStorageProvisionedAttachmentLives{
+		FileSystemAttachmentUUIDs: []string{fsaUUID.String()},
+		VolumeAttachmentUUIDs:     []string{vaUUID.String()},
+		VolumeAttachmentPlanUUIDs: []string{vapUUID.String()},
+	}
+
+	exp := s.modelState.EXPECT()
+	exp.GetStorageAttachmentLife(
+		gomock.Any(), j.EntityUUID,
+	).Return(life.Dying, nil)
+	exp.GetStorageAttachmentHookInfo(
+		gomock.Any(), j.EntityUUID,
+	).Return(internal.StorageAttachmentHookInfo{
+		UnitDead:     false,
+		StorageID:    "data/0",
+		StorageState: "",
+	}, nil)
+	exp.EnsureStorageAttachmentDeadCascade(
+		gomock.Any(), j.EntityUUID,
+	).Return(cascaded, nil)
+	exp.FilesystemAttachmentScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), fsaUUID.String(), false, when,
+	).Return(nil)
+	exp.VolumeAttachmentScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), vaUUID.String(), false, when,
+	).Return(nil)
+	exp.VolumeAttachmentPlanScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), vapUUID.String(), false, when,
+	).Return(nil)
+	exp.DeleteStorageAttachment(
+		gomock.Any(), j.EntityUUID,
+	).Return(nil)
+	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestExecuteJobForStorageAttachmentDyingUnitDead(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	when := time.Now().UTC()
+	s.clock.EXPECT().Now().Return(when).AnyTimes()
+
+	j := newStorageAttachmentJob(c)
+
+	fsaUUID := tc.Must(c, storage.NewFilesystemAttachmentUUID)
+	vaUUID := tc.Must(c, storage.NewVolumeAttachmentUUID)
+	vapUUID := tc.Must(c, storage.NewVolumeAttachmentPlanUUID)
+
+	cascaded := internal.CascadedStorageProvisionedAttachmentLives{
+		FileSystemAttachmentUUIDs: []string{fsaUUID.String()},
+		VolumeAttachmentUUIDs:     []string{vaUUID.String()},
+		VolumeAttachmentPlanUUIDs: []string{vapUUID.String()},
+	}
+
+	exp := s.modelState.EXPECT()
+	exp.GetStorageAttachmentLife(
+		gomock.Any(), j.EntityUUID,
+	).Return(life.Dying, nil)
+	exp.GetStorageAttachmentHookInfo(
+		gomock.Any(), j.EntityUUID,
+	).Return(internal.StorageAttachmentHookInfo{
+		UnitDead:     true,
+		StorageID:    "data/0",
+		StorageState: "data/0: true\n",
+	}, nil)
+	exp.EnsureStorageAttachmentDeadCascade(
+		gomock.Any(), j.EntityUUID,
+	).Return(cascaded, nil)
+	exp.FilesystemAttachmentScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), fsaUUID.String(), false, when,
+	).Return(nil)
+	exp.VolumeAttachmentScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), vaUUID.String(), false, when,
+	).Return(nil)
+	exp.VolumeAttachmentPlanScheduleRemoval(
+		gomock.Any(), tc.Bind(tc.IsNonZeroUUID), vapUUID.String(), false, when,
+	).Return(nil)
+	exp.DeleteStorageAttachment(
+		gomock.Any(), j.EntityUUID,
+	).Return(nil)
+	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestExecuteJobForStorageAttachmentDyingHookFiredUnitNotDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	j := newStorageAttachmentJob(c)
 
-	s.modelState.EXPECT().GetStorageAttachmentLife(
+	exp := s.modelState.EXPECT()
+	exp.GetStorageAttachmentLife(
 		gomock.Any(), j.EntityUUID,
 	).Return(life.Dying, nil)
+	exp.GetStorageAttachmentHookInfo(
+		gomock.Any(), j.EntityUUID,
+	).Return(internal.StorageAttachmentHookInfo{
+		UnitDead:     false,
+		StorageID:    "data/0",
+		StorageState: "data/0: true\n",
+	}, nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIs, removalerrors.EntityNotDead)
+}
+
+func (s *storageSuite) TestExecuteJobForStorageAttachmentDyingCascadeError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newStorageAttachmentJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetStorageAttachmentLife(
+		gomock.Any(), j.EntityUUID,
+	).Return(life.Dying, nil)
+	exp.GetStorageAttachmentHookInfo(
+		gomock.Any(), j.EntityUUID,
+	).Return(internal.StorageAttachmentHookInfo{
+		UnitDead:     true,
+		StorageID:    "data/0",
+		StorageState: "",
+	}, nil)
+	exp.EnsureStorageAttachmentDeadCascade(
+		gomock.Any(), j.EntityUUID,
+	).Return(internal.CascadedStorageProvisionedAttachmentLives{}, errors.Errorf("cascade boom"))
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorMatches, ".*cascade boom")
 }
 
 func (s *storageSuite) TestExecuteJobForStorageAttachmentDyingForce(c *tc.C) {

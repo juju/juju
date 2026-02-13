@@ -2376,6 +2376,45 @@ func (c *MockModelDBStateGetDetachInfoForStorageAttachmentCall) DoAndReturn(f fu
 	return c
 }
 
+// GetFilesystemAttachmentAdvanceInfo mocks base method.
+func (m *MockModelDBState) GetFilesystemAttachmentAdvanceInfo(arg0 context.Context, arg1 string) (internal.ProvisionedAttachmentAdvanceInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFilesystemAttachmentAdvanceInfo", arg0, arg1)
+	ret0, _ := ret[0].(internal.ProvisionedAttachmentAdvanceInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFilesystemAttachmentAdvanceInfo indicates an expected call of GetFilesystemAttachmentAdvanceInfo.
+func (mr *MockModelDBStateMockRecorder) GetFilesystemAttachmentAdvanceInfo(arg0, arg1 any) *MockModelDBStateGetFilesystemAttachmentAdvanceInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilesystemAttachmentAdvanceInfo", reflect.TypeOf((*MockModelDBState)(nil).GetFilesystemAttachmentAdvanceInfo), arg0, arg1)
+	return &MockModelDBStateGetFilesystemAttachmentAdvanceInfoCall{Call: call}
+}
+
+// MockModelDBStateGetFilesystemAttachmentAdvanceInfoCall wrap *gomock.Call
+type MockModelDBStateGetFilesystemAttachmentAdvanceInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateGetFilesystemAttachmentAdvanceInfoCall) Return(arg0 internal.ProvisionedAttachmentAdvanceInfo, arg1 error) *MockModelDBStateGetFilesystemAttachmentAdvanceInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateGetFilesystemAttachmentAdvanceInfoCall) Do(f func(context.Context, string) (internal.ProvisionedAttachmentAdvanceInfo, error)) *MockModelDBStateGetFilesystemAttachmentAdvanceInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateGetFilesystemAttachmentAdvanceInfoCall) DoAndReturn(f func(context.Context, string) (internal.ProvisionedAttachmentAdvanceInfo, error)) *MockModelDBStateGetFilesystemAttachmentAdvanceInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetFilesystemAttachmentLife mocks base method.
 func (m *MockModelDBState) GetFilesystemAttachmentLife(arg0 context.Context, arg1 string) (life.Life, error) {
 	m.ctrl.T.Helper()
@@ -2805,6 +2844,45 @@ func (c *MockModelDBStateGetRemoteApplicationOffererUUIDByApplicationUUIDCall) D
 	return c
 }
 
+// GetStorageAttachmentHookInfo mocks base method.
+func (m *MockModelDBState) GetStorageAttachmentHookInfo(arg0 context.Context, arg1 string) (internal.StorageAttachmentHookInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStorageAttachmentHookInfo", arg0, arg1)
+	ret0, _ := ret[0].(internal.StorageAttachmentHookInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStorageAttachmentHookInfo indicates an expected call of GetStorageAttachmentHookInfo.
+func (mr *MockModelDBStateMockRecorder) GetStorageAttachmentHookInfo(arg0, arg1 any) *MockModelDBStateGetStorageAttachmentHookInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageAttachmentHookInfo", reflect.TypeOf((*MockModelDBState)(nil).GetStorageAttachmentHookInfo), arg0, arg1)
+	return &MockModelDBStateGetStorageAttachmentHookInfoCall{Call: call}
+}
+
+// MockModelDBStateGetStorageAttachmentHookInfoCall wrap *gomock.Call
+type MockModelDBStateGetStorageAttachmentHookInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateGetStorageAttachmentHookInfoCall) Return(arg0 internal.StorageAttachmentHookInfo, arg1 error) *MockModelDBStateGetStorageAttachmentHookInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateGetStorageAttachmentHookInfoCall) Do(f func(context.Context, string) (internal.StorageAttachmentHookInfo, error)) *MockModelDBStateGetStorageAttachmentHookInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateGetStorageAttachmentHookInfoCall) DoAndReturn(f func(context.Context, string) (internal.StorageAttachmentHookInfo, error)) *MockModelDBStateGetStorageAttachmentHookInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetStorageAttachmentLife mocks base method.
 func (m *MockModelDBState) GetStorageAttachmentLife(arg0 context.Context, arg1 string) (life.Life, error) {
 	m.ctrl.T.Helper()
@@ -2957,6 +3035,45 @@ func (c *MockModelDBStateGetUnitOwnedSecretRevisionRefsCall) Do(f func(context.C
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelDBStateGetUnitOwnedSecretRevisionRefsCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockModelDBStateGetUnitOwnedSecretRevisionRefsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetVolumeAttachmentAdvanceInfo mocks base method.
+func (m *MockModelDBState) GetVolumeAttachmentAdvanceInfo(arg0 context.Context, arg1 string) (internal.ProvisionedAttachmentAdvanceInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVolumeAttachmentAdvanceInfo", arg0, arg1)
+	ret0, _ := ret[0].(internal.ProvisionedAttachmentAdvanceInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVolumeAttachmentAdvanceInfo indicates an expected call of GetVolumeAttachmentAdvanceInfo.
+func (mr *MockModelDBStateMockRecorder) GetVolumeAttachmentAdvanceInfo(arg0, arg1 any) *MockModelDBStateGetVolumeAttachmentAdvanceInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVolumeAttachmentAdvanceInfo", reflect.TypeOf((*MockModelDBState)(nil).GetVolumeAttachmentAdvanceInfo), arg0, arg1)
+	return &MockModelDBStateGetVolumeAttachmentAdvanceInfoCall{Call: call}
+}
+
+// MockModelDBStateGetVolumeAttachmentAdvanceInfoCall wrap *gomock.Call
+type MockModelDBStateGetVolumeAttachmentAdvanceInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateGetVolumeAttachmentAdvanceInfoCall) Return(arg0 internal.ProvisionedAttachmentAdvanceInfo, arg1 error) *MockModelDBStateGetVolumeAttachmentAdvanceInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateGetVolumeAttachmentAdvanceInfoCall) Do(f func(context.Context, string) (internal.ProvisionedAttachmentAdvanceInfo, error)) *MockModelDBStateGetVolumeAttachmentAdvanceInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateGetVolumeAttachmentAdvanceInfoCall) DoAndReturn(f func(context.Context, string) (internal.ProvisionedAttachmentAdvanceInfo, error)) *MockModelDBStateGetVolumeAttachmentAdvanceInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -1323,6 +1323,281 @@ func (s *storageSuite) TestMarkVolumeAttachmentPlanAsDead(c *tc.C) {
 	c.Check(lifeID, tc.Equals, 2)
 }
 
+// TestGetStorageAttachmentHookInfoNotFound verifies that the method returns
+// StorageAttachmentNotFound when the storage attachment does not exist.
+func (s *storageSuite) TestGetStorageAttachmentHookInfoNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	_, err := st.GetStorageAttachmentHookInfo(c.Context(), "nonexistent-uuid")
+	c.Check(err, tc.ErrorIs, storageerrors.StorageAttachmentNotFound)
+}
+
+// TestGetStorageAttachmentHookInfoNoUnitState verifies that when no unit_state
+// row exists, StorageState is returned as empty string.
+func (s *storageSuite) TestGetStorageAttachmentHookInfoNoUnitState(c *tc.C) {
+	_, saUUID := s.addAppUnitStorage(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	info, err := st.GetStorageAttachmentHookInfo(c.Context(), saUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.UnitDead, tc.Equals, false) // unit is alive (life_id=0)
+	c.Check(info.StorageState, tc.Equals, "")
+	// storage_id is populated from storage_instance
+	c.Check(info.StorageID, tc.Not(tc.Equals), "")
+}
+
+// TestGetStorageAttachmentHookInfoWithStorageState verifies that when a
+// unit_state row has storage_state YAML, it is returned verbatim.
+func (s *storageSuite) TestGetStorageAttachmentHookInfoWithStorageState(c *tc.C) {
+	_, saUUID := s.addAppUnitStorage(c)
+
+	ctx := c.Context()
+	_, err := s.DB().ExecContext(ctx,
+		"INSERT INTO unit_state (unit_uuid, storage_state) VALUES ('some-unit-uuid', 'data/0: true\n')")
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	info, err := st.GetStorageAttachmentHookInfo(ctx, saUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.UnitDead, tc.Equals, false)
+	c.Check(info.StorageState, tc.Equals, "data/0: true\n")
+}
+
+// TestGetStorageAttachmentHookInfoUnitDead verifies that UnitDead is true
+// when the unit's life is dead.
+func (s *storageSuite) TestGetStorageAttachmentHookInfoUnitDead(c *tc.C) {
+	_, saUUID := s.addAppUnitStorage(c)
+
+	ctx := c.Context()
+	_, err := s.DB().ExecContext(ctx,
+		"UPDATE unit SET life_id = 2 WHERE uuid = 'some-unit-uuid'")
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	info, err := st.GetStorageAttachmentHookInfo(ctx, saUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.UnitDead, tc.Equals, true)
+}
+
+// TestGetFilesystemAttachmentAdvanceInfoNotFound verifies that the method
+// returns FilesystemAttachmentNotFound when the attachment doesn't exist.
+func (s *storageSuite) TestGetFilesystemAttachmentAdvanceInfoNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	_, err := st.GetFilesystemAttachmentAdvanceInfo(c.Context(), "nonexistent-uuid")
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.FilesystemAttachmentNotFound)
+}
+
+// TestGetFilesystemAttachmentAdvanceInfoAllConditionsMet verifies that when
+// the filesystem is machine-scoped, the storage attachment is dead, and the
+// machine is gone, all conditions are met.
+func (s *storageSuite) TestGetFilesystemAttachmentAdvanceInfoAllConditionsMet(c *tc.C) {
+	ctx := c.Context()
+
+	// Create a machine-scoped filesystem with attachment.
+	netNode := "advance-net-node"
+	_, err := s.DB().ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", netNode)
+	c.Assert(err, tc.ErrorIsNil)
+
+	fsUUID := "advance-fs-uuid"
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id) VALUES (?, ?, 0, 1)",
+		fsUUID, "advance-fs")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem_status (filesystem_uuid, status_id) VALUES (?, 0)", fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	fsaUUID := "advance-fsa-uuid"
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem_attachment (uuid, storage_filesystem_uuid, net_node_uuid, life_id, provision_scope_id) VALUES (?, ?, ?, 0, 1)",
+		fsaUUID, fsUUID, netNode)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// No storage_instance_filesystem link (storage attachment gone),
+	// no machine_filesystem link (machine gone).
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	info, err := st.GetFilesystemAttachmentAdvanceInfo(ctx, fsaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.MachineScopeProvisioned, tc.Equals, true)
+	c.Check(info.StorageAttachmentDeadOrGone, tc.Equals, true)
+	c.Check(info.MachineGone, tc.Equals, true)
+}
+
+// TestGetFilesystemAttachmentAdvanceInfoStorageAttachmentAlive verifies that
+// StorageAttachmentDeadOrGone is false when the storage attachment is alive.
+func (s *storageSuite) TestGetFilesystemAttachmentAdvanceInfoStorageAttachmentAlive(c *tc.C) {
+	ctx := c.Context()
+
+	// Use addAppUnitStorage to create a full storage setup with an alive
+	// storage attachment.
+	siUUID, _ := s.addAppUnitStorage(c)
+
+	// Create a machine-scoped filesystem linked to the storage instance.
+	fsUUID := "advance-fs-alive-uuid"
+	_, err := s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id) VALUES (?, ?, 0, 1)",
+		fsUUID, "advance-fs-alive")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem_status (filesystem_uuid, status_id) VALUES (?, 0)", fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
+
+	fsaUUID := "advance-fsa-alive-uuid"
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem_attachment (uuid, storage_filesystem_uuid, net_node_uuid, life_id, provision_scope_id) VALUES (?, ?, 'some-net-node-uuid', 0, 1)",
+		fsaUUID, fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	info, err := st.GetFilesystemAttachmentAdvanceInfo(ctx, fsaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.MachineScopeProvisioned, tc.Equals, true)
+	c.Check(info.StorageAttachmentDeadOrGone, tc.Equals, false) // alive
+	c.Check(info.MachineGone, tc.Equals, true)                  // no machine_filesystem
+}
+
+// TestGetFilesystemAttachmentAdvanceInfoModelScoped verifies that
+// MachineScopeProvisioned is false when the filesystem is model-scoped.
+func (s *storageSuite) TestGetFilesystemAttachmentAdvanceInfoModelScoped(c *tc.C) {
+	ctx := c.Context()
+
+	netNode := "advance-model-net-node"
+	_, err := s.DB().ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", netNode)
+	c.Assert(err, tc.ErrorIsNil)
+
+	fsUUID := "advance-model-fs-uuid"
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id) VALUES (?, ?, 0, 0)",
+		fsUUID, "advance-model-fs")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem_status (filesystem_uuid, status_id) VALUES (?, 0)", fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	fsaUUID := "advance-model-fsa-uuid"
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem_attachment (uuid, storage_filesystem_uuid, net_node_uuid, life_id, provision_scope_id) VALUES (?, ?, ?, 0, 0)",
+		fsaUUID, fsUUID, netNode)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	info, err := st.GetFilesystemAttachmentAdvanceInfo(ctx, fsaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.MachineScopeProvisioned, tc.Equals, false) // model-scoped
+}
+
+// TestGetFilesystemAttachmentAdvanceInfoMachineExists verifies that
+// MachineGone is false when the machine still exists.
+func (s *storageSuite) TestGetFilesystemAttachmentAdvanceInfoMachineExists(c *tc.C) {
+	ctx := c.Context()
+
+	netNode := "advance-machine-net-node"
+	_, err := s.DB().ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", netNode)
+	c.Assert(err, tc.ErrorIsNil)
+
+	fsUUID := "advance-machine-fs-uuid"
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id) VALUES (?, ?, 0, 1)",
+		fsUUID, "advance-machine-fs")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem_status (filesystem_uuid, status_id) VALUES (?, 0)", fsUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	fsaUUID := "advance-machine-fsa-uuid"
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_filesystem_attachment (uuid, storage_filesystem_uuid, net_node_uuid, life_id, provision_scope_id) VALUES (?, ?, ?, 0, 1)",
+		fsaUUID, fsUUID, netNode)
+	c.Assert(err, tc.ErrorIsNil)
+
+	machineUUID := s.addMachine(c)
+	s.addMachineFilesystem(c, machineUUID, fsUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	info, err := st.GetFilesystemAttachmentAdvanceInfo(ctx, fsaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.MachineScopeProvisioned, tc.Equals, true)
+	c.Check(info.MachineGone, tc.Equals, false) // machine still exists
+}
+
+// TestGetVolumeAttachmentAdvanceInfoNotFound verifies that the method returns
+// VolumeAttachmentNotFound when the attachment doesn't exist.
+func (s *storageSuite) TestGetVolumeAttachmentAdvanceInfoNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	_, err := st.GetVolumeAttachmentAdvanceInfo(c.Context(), "nonexistent-uuid")
+	c.Check(err, tc.ErrorIs, storageprovisioningerrors.VolumeAttachmentNotFound)
+}
+
+// TestGetVolumeAttachmentAdvanceInfoAllConditionsMet verifies the case where
+// all conditions for advancement are met.
+func (s *storageSuite) TestGetVolumeAttachmentAdvanceInfoAllConditionsMet(c *tc.C) {
+	ctx := c.Context()
+
+	netNode := "advance-vol-net-node"
+	_, err := s.DB().ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", netNode)
+	c.Assert(err, tc.ErrorIsNil)
+
+	volUUID := "advance-vol-uuid"
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id) VALUES (?, ?, 0, 1)",
+		volUUID, "advance-vol")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_volume_status (volume_uuid, status_id) VALUES (?, 0)", volUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	vaUUID := "advance-va-uuid"
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_volume_attachment (uuid, storage_volume_uuid, net_node_uuid, life_id, provision_scope_id) VALUES (?, ?, ?, 0, 1)",
+		vaUUID, volUUID, netNode)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// No storage_instance_volume link, no machine_volume link.
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	info, err := st.GetVolumeAttachmentAdvanceInfo(ctx, vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.MachineScopeProvisioned, tc.Equals, true)
+	c.Check(info.StorageAttachmentDeadOrGone, tc.Equals, true)
+	c.Check(info.MachineGone, tc.Equals, true)
+}
+
+// TestGetVolumeAttachmentAdvanceInfoMachineExists verifies that MachineGone
+// is false when the machine still exists.
+func (s *storageSuite) TestGetVolumeAttachmentAdvanceInfoMachineExists(c *tc.C) {
+	ctx := c.Context()
+
+	netNode := "advance-vol-machine-net-node"
+	_, err := s.DB().ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", netNode)
+	c.Assert(err, tc.ErrorIsNil)
+
+	volUUID := "advance-vol-machine-uuid"
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id) VALUES (?, ?, 0, 1)",
+		volUUID, "advance-vol-machine")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_volume_status (volume_uuid, status_id) VALUES (?, 0)", volUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	vaUUID := "advance-va-machine-uuid"
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO storage_volume_attachment (uuid, storage_volume_uuid, net_node_uuid, life_id, provision_scope_id) VALUES (?, ?, ?, 0, 1)",
+		vaUUID, volUUID, netNode)
+	c.Assert(err, tc.ErrorIsNil)
+
+	machineUUID := s.addMachine(c)
+	s.addMachineVolume(c, machineUUID, volUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	info, err := st.GetVolumeAttachmentAdvanceInfo(ctx, vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.MachineScopeProvisioned, tc.Equals, true)
+	c.Check(info.MachineGone, tc.Equals, false)
+}
+
 func (s *storageSuite) TestGetDetachInfoForStorageAttachmentNotFound(c *tc.C) {
 	saUUID := tc.Must(c, storage.NewStorageAttachmentUUID)
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))

@@ -19,6 +19,7 @@ import (
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
 	"github.com/juju/juju/internal/errors"
+	"gopkg.in/yaml.v3"
 )
 
 // StorageState describes retrieval and persistence
@@ -84,6 +85,26 @@ type StorageState interface {
 	// database completely. If the unit attached to the storage was its owner,
 	// then that record is deleted too.
 	DeleteStorageAttachment(ctx context.Context, rUUID string) error
+
+	// GetStorageAttachmentHookInfo returns the unit life status, storage ID,
+	// and raw storage state YAML for a storage attachment. Used by the
+	// service layer to determine if a dying storage attachment can safely
+	// advance to dead.
+	GetStorageAttachmentHookInfo(
+		ctx context.Context, saUUID string,
+	) (internal.StorageAttachmentHookInfo, error)
+
+	// GetFilesystemAttachmentAdvanceInfo returns provisioned attachment
+	// advance information for a filesystem attachment.
+	GetFilesystemAttachmentAdvanceInfo(
+		ctx context.Context, fsaUUID string,
+	) (internal.ProvisionedAttachmentAdvanceInfo, error)
+
+	// GetVolumeAttachmentAdvanceInfo returns provisioned attachment advance
+	// information for a volume attachment.
+	GetVolumeAttachmentAdvanceInfo(
+		ctx context.Context, vaUUID string,
+	) (internal.ProvisionedAttachmentAdvanceInfo, error)
 
 	// EnsureStorageInstanceNotAliveCascade ensures that there is no storage
 	// instance identified by the input UUID, that is still alive.
@@ -453,13 +474,34 @@ func (s *Service) processStorageAttachmentRemovalJob(ctx context.Context, job re
 		return errors.Errorf(
 			"storage attachment %q is alive", job.EntityUUID,
 		).Add(removalerrors.EntityStillAlive)
-	} else if !job.Force && l == life.Dying {
-		return errors.Errorf(
-			"storage attachment %q is not dead", job.EntityUUID,
-		).Add(removalerrors.EntityNotDead)
 	}
 
-	if job.Force && l == life.Dying {
+	if l == life.Dying {
+		// When not forced, only advance dying -> dead if the unit is
+		// dead or the storage-attached hook never fired. This prevents
+		// unconditionally advancing the lifecycle when the provisioner
+		// may still be responsible for it.
+		if !job.Force {
+			hookInfo, err := s.modelState.GetStorageAttachmentHookInfo(
+				ctx, job.EntityUUID)
+			if errors.Is(err, storageerrors.StorageAttachmentNotFound) {
+				return nil
+			} else if err != nil {
+				return errors.Errorf(
+					"getting storage attachment %q hook info: %w",
+					job.EntityUUID, err,
+				)
+			}
+
+			if !hookInfo.UnitDead && storageAttachedHookFired(hookInfo.StorageID, hookInfo.StorageState) {
+				return errors.Errorf(
+					"storage attachment %q is not dead", job.EntityUUID,
+				).Add(removalerrors.EntityNotDead)
+			}
+		}
+
+		// Mark the storage attachment as dead, cascading to any child
+		// filesystem/volume attachments.
 		cascade, err := s.modelState.EnsureStorageAttachmentDeadCascade(
 			ctx, job.EntityUUID)
 		if errors.Is(err, storageerrors.StorageAttachmentNotFound) {
@@ -1182,10 +1224,39 @@ func (s *Service) processStorageFilesystemAttachmentRemovalJob(
 		return errors.Errorf(
 			"filesystem attachment %q is alive", job.EntityUUID,
 		).Add(removalerrors.EntityStillAlive)
-	} else if !job.Force && l == life.Dying {
-		return errors.Errorf(
-			"filesystem attachment %q is not dead", job.EntityUUID,
-		).Add(removalerrors.EntityNotDead)
+	}
+
+	// If the filesystem attachment is dying, mark it as dead before
+	// deletion.
+	// NOTE: When not forced, ONLY ADVANCE IF CONDITIONS ARE SAFE.
+	if l == life.Dying {
+		if !job.Force {
+			info, err := s.modelState.GetFilesystemAttachmentAdvanceInfo(
+				ctx, job.EntityUUID)
+			if errors.Is(err, storageprovisioningerrors.FilesystemAttachmentNotFound) {
+				return nil
+			} else if err != nil {
+				return errors.Errorf(
+					"getting filesystem attachment %q advance info: %w",
+					job.EntityUUID, err,
+				)
+			}
+			if !canAdvanceProvisionedAttachment(info) {
+				return errors.Errorf(
+					"filesystem attachment %q is not dead",
+					job.EntityUUID,
+				).Add(removalerrors.EntityNotDead)
+			}
+		}
+
+		if err := s.modelState.MarkFilesystemAttachmentAsDead(
+			ctx, job.EntityUUID,
+		); err != nil {
+			return errors.Errorf(
+				"marking filesystem attachment %q as dead: %w",
+				job.EntityUUID, err,
+			)
+		}
 	}
 
 	err = s.modelState.DeleteFilesystemAttachment(ctx, job.EntityUUID)
@@ -1247,10 +1318,38 @@ func (s *Service) processStorageVolumeAttachmentRemovalJob(
 		return errors.Errorf(
 			"volume attachment %q is alive", job.EntityUUID,
 		).Add(removalerrors.EntityStillAlive)
-	} else if !job.Force && l == life.Dying {
-		return errors.Errorf(
-			"volume attachment %q is not dead", job.EntityUUID,
-		).Add(removalerrors.EntityNotDead)
+	}
+
+	// If the volume attachment is dying, mark it as dead before deletion.
+	// When not forced, only advance if conditions are safe.
+	if l == life.Dying {
+		if !job.Force {
+			info, err := s.modelState.GetVolumeAttachmentAdvanceInfo(
+				ctx, job.EntityUUID)
+			if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
+				return nil
+			} else if err != nil {
+				return errors.Errorf(
+					"getting volume attachment %q advance info: %w",
+					job.EntityUUID, err,
+				)
+			}
+			if !canAdvanceProvisionedAttachment(info) {
+				return errors.Errorf(
+					"volume attachment %q is not dead",
+					job.EntityUUID,
+				).Add(removalerrors.EntityNotDead)
+			}
+		}
+
+		if err := s.modelState.MarkVolumeAttachmentAsDead(
+			ctx, job.EntityUUID,
+		); err != nil {
+			return errors.Errorf(
+				"marking volume attachment %q as dead: %w",
+				job.EntityUUID, err,
+			)
+		}
 	}
 
 	err = s.modelState.DeleteVolumeAttachment(ctx, job.EntityUUID)
@@ -1326,4 +1425,29 @@ func (s *Service) processStorageVolumeAttachmentPlanRemovalJob(
 	}
 
 	return nil
+}
+
+// storageAttachedHookFired returns true if the storage-attached hook has
+// been recorded as fired for the given storage ID. The storageStateYAML is
+// the YAML-serialized map[string]bool from the unit_state.storage_state
+// column, written by the uniter's storage worker on hook commit.
+func storageAttachedHookFired(storageID, storageStateYAML string) bool {
+	if storageStateYAML == "" {
+		return false
+	}
+	var state map[string]bool
+	if err := yaml.Unmarshal([]byte(storageStateYAML), &state); err != nil {
+		return false
+	}
+	attached, ok := state[storageID]
+	return ok && attached
+}
+
+// canAdvanceProvisionedAttachment returns true if a provisioned filesystem
+// or volume attachment can safely advance from dying to dead based on the
+// provided advance info.
+func canAdvanceProvisionedAttachment(info internal.ProvisionedAttachmentAdvanceInfo) bool {
+	return info.MachineScopeProvisioned &&
+		info.StorageAttachmentDeadOrGone &&
+		info.MachineGone
 }
