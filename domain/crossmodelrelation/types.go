@@ -135,6 +135,8 @@ type RemoteApplicationEndpoint struct {
 	Interface string
 }
 
+// RemoteApplicationImport contains details to import a remote application
+// during migration.
 type RemoteApplicationImport struct {
 	// Name is the name of the remote application in this model.
 	Name string
