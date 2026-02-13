@@ -5,10 +5,8 @@ package state
 
 import (
 	"context"
-	"fmt"
 	"maps"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -259,65 +257,40 @@ func (s *State) FindMetadata(ctx context.Context, criteria cloudimagemetadata.Me
 		RootStorageType: criteria.RootStorageType,
 	}
 
-	// Injection of the expiration time
 	expirationTime := ttl{
 		ExpiresAt: s.clock.Now().Add(-ExpirationDelay),
 	}
 	customSource := inputMetadata{
 		Source: cloudimagemetadata.CustomSource,
 	}
-	inputArgs := []any{expirationTime, customSource}
-
-	// clauses will collect all required clauses to build the final WHERE ... AND ... clause
-	clauses := []string{
-		// Ignores expired metadata in case of non custom source.
-		// The parentheses are critical: without them, SQL operator
-		// precedence causes custom-source rows to bypass all subsequent filter
-		// clauses (version, region, etc).
-		`(source = $inputMetadata.source OR cloud_image_metadata.created_at >= $ttl.expires_at)`,
-	}
-
-	// declareEqualsClause is an helper function to add a sqlair clause with the format cloud_image_metadata.<field> = $metadataFilter.<field>,
-	// only if the corresponding field isn't empty
-	hasFilter := false
-	declareEqualsClause := func(field, value string) {
-		if value != "" {
-			hasFilter = true
-			clauses = append(clauses, fmt.Sprintf(`cloud_image_metadata.%s = $metadataFilter.%s`, field, field))
-		}
-	}
-	declareEqualsClause("region", filter.Region)
-	declareEqualsClause("stream", filter.Stream)
-	declareEqualsClause("virt_type", filter.VirtType)
-	declareEqualsClause("root_storage_type", filter.RootStorageType)
-
-	if hasFilter {
-		inputArgs = append(inputArgs, filter)
-	}
-
-	// Handle  IN clauses, which is are bit different than equals clauses.
+	flags := findFlags{}
 	if len(filter.Versions) > 0 {
-		clauses = append(clauses, `cloud_image_metadata.version IN ($versions[:])`)
-		inputArgs = append(inputArgs, filter.Versions)
+		flags.HasVersions = 1
 	}
 	if len(filter.Arches) > 0 {
-		clauses = append(clauses, `arch.architecture_name IN ($arches[:])`)
-		inputArgs = append(inputArgs, filter.Arches)
+		flags.HasArches = 1
 	}
 
-	findMetadataQuery := fmt.Sprintf(`
+	findMetadataStmt, err := sqlair.Prepare(`
 WITH arch(id, architecture_name) AS (
 	SELECT id, name FROM architecture
 )
-SELECT &outputMetadata.* 
+SELECT &outputMetadata.*
 FROM cloud_image_metadata
 JOIN arch ON cloud_image_metadata.architecture_id = arch.id
-WHERE %s;`, strings.Join(clauses, ` AND `))
-
-	findMetadataStmt, err := sqlair.Prepare(findMetadataQuery, append([]any{outputMetadata{}}, inputArgs...)...)
+WHERE (source = $inputMetadata.source OR cloud_image_metadata.created_at >= $ttl.expires_at)
+AND ($metadataFilter.region = '' OR cloud_image_metadata.region = $metadataFilter.region)
+AND ($metadataFilter.stream = '' OR cloud_image_metadata.stream = $metadataFilter.stream)
+AND ($metadataFilter.virt_type = '' OR cloud_image_metadata.virt_type = $metadataFilter.virt_type)
+AND ($metadataFilter.root_storage_type = '' OR cloud_image_metadata.root_storage_type = $metadataFilter.root_storage_type)
+AND ($findFlags.has_versions = 0 OR cloud_image_metadata.version IN ($versions[:]))
+AND ($findFlags.has_arches = 0 OR arch.architecture_name IN ($arches[:]));
+`, outputMetadata{}, inputMetadata{}, ttl{}, metadataFilter{}, findFlags{}, versions{}, arches{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
+
+	inputArgs := []any{expirationTime, customSource, filter, flags, filter.Versions, filter.Arches}
 
 	var metadata []outputMetadata
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
