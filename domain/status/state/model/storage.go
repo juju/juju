@@ -1335,7 +1335,6 @@ FROM  (
    FROM      storage_volume_attachment sva
    JOIN      block_device bd ON bd.uuid=sva.block_device_uuid
    JOIN      block_device_link_device bdld ON bdld.block_device_uuid=bd.uuid
-   WHERE     sva.storage_volume_uuid IN ($entityUUIDs[:])
 )
 `
 
