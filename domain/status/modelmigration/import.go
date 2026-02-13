@@ -17,6 +17,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
+	domainmodelmigration "github.com/juju/juju/domain/modelmigration/modelmigration"
 	"github.com/juju/juju/domain/status/service"
 	statecontroller "github.com/juju/juju/domain/status/state/controller"
 	statemodel "github.com/juju/juju/domain/status/state/model"
@@ -215,7 +216,7 @@ func (i *importOperation) importRelationStatus(
 ) error {
 	remoteApplications := model.RemoteApplications()
 	for _, relation := range model.Relations() {
-		if isRemoteConsumerRelation(relation, remoteApplications) {
+		if domainmodelmigration.IsRemoteConsumerRelation(relation, remoteApplications) {
 			// Remote consumer relations are imported as part of the
 			// crossmodelrelation domain, so we skip them here.
 			continue
@@ -296,36 +297,6 @@ func (i *importOperation) importStatus(s description.Status) corestatus.StatusIn
 		Data:    s.Data(),
 		Since:   ptr(s.Updated()),
 	}
-}
-
-func isRemoteConsumerRelation(rel description.Relation, remoteApps []description.RemoteApplication) bool {
-	// If there are no remote applications, then there can't be any remote
-	// relations.
-	if len(remoteApps) == 0 {
-		return false
-	}
-
-	// The only way to really know if a relation is a remote relation is to
-	// cross reference the relation endpoints with the remote applications. If
-	// any of the relation endpoints belong to a remote application, that is
-	// a consumer proxy remote application, then we return true.
-	remoteConsumers := make(map[string]struct{})
-	for _, app := range remoteApps {
-		if !app.IsConsumerProxy() {
-			continue
-		}
-
-		remoteConsumers[app.Name()] = struct{}{}
-	}
-
-	for _, endpoint := range rel.Endpoints() {
-		appName := endpoint.ApplicationName()
-		if _, ok := remoteConsumers[appName]; ok {
-			return true
-		}
-	}
-
-	return false
 }
 
 func ptr[T any](v T) *T {

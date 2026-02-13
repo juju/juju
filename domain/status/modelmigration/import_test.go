@@ -318,7 +318,8 @@ func (s *importSuite) TestImportRemoteApplicationOffererStatus(c *tc.C) {
 	})
 
 	remoteApp3 := model.AddRemoteApplication(description.RemoteApplicationArgs{
-		Name: "remote-123e4567e89b12d3a456426655440000",
+		Name:            "remote-123e4567e89b12d3a456426655440000",
+		IsConsumerProxy: true,
 	})
 	remoteApp3.SetStatus(description.StatusArgs{
 		Value:   "blocked",
