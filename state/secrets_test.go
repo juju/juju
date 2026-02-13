@@ -11,6 +11,7 @@ import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -2017,6 +2018,53 @@ func (s *SecretsSuite) TestSaveSecretConsumer(c *gc.C) {
 	c.Assert(s.State.IsSecretRevisionObsolete(c, uri, 2), jc.IsFalse)
 }
 
+func (s *SecretsSuite) TestSaveSecretConsumerRevisionMismatch(c *gc.C) {
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		},
+	}
+	uri := secrets.NewURI()
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cmd := &secrets.SecretConsumerMetadata{
+		CurrentRevision: md.LatestRevision,
+		LatestRevision:  md.LatestRevision,
+	}
+	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), cmd)
+	c.Assert(err, jc.ErrorIsNil)
+
+	md, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar", "baz": "qux"},
+		Checksum:    "deadbeef",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md.LatestRevision, gc.Equals, 2)
+	c.Assert(s.State.IsSecretRevisionObsolete(c, uri, 1), jc.IsFalse)
+	c.Assert(s.State.IsSecretRevisionObsolete(c, uri, 2), jc.IsFalse)
+
+	// consumer current revision ++, then obsolete.
+	cmd.CurrentRevision = md.LatestRevision
+	cmd.LatestRevision = md.LatestRevision
+
+	// Delete revision 2 behind Juju's back.
+	secretRevisions, closer := state.GetCollection(s.State, state.SecretRevisionsC)
+	defer closer()
+	err = secretRevisions.Writeable().Remove(bson.D{{"revision", 2}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure SaveSecretConsumer still works.
+	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), cmd)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.State.IsSecretRevisionObsolete(c, uri, 1), jc.IsTrue)
+}
+
 func (s *SecretsSuite) TestSaveSecretConsumerConcurrent(c *gc.C) {
 	cp := state.CreateSecretParams{
 		Version: 1,
@@ -2043,6 +2091,104 @@ func (s *SecretsSuite) TestSaveSecretConsumerConcurrent(c *gc.C) {
 	md2, err := s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md2, jc.DeepEquals, md)
+}
+
+func (s *SecretsSuite) TestSaveSecretConsumerConcurrentUpdate(c *gc.C) {
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "checksum-1",
+		},
+	}
+	uri := secrets.NewURI()
+	_, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	consumer := names.NewUnitTag("mariadb/0")
+	err = s.State.SaveSecretConsumer(uri, consumer, &secrets.SecretConsumerMetadata{
+		Label:           "test-consumer",
+		CurrentRevision: 1,
+		LatestRevision:  1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar2"},
+		Checksum:    "checksum-2",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	state.SetBeforeHooks(c, s.State, func() {
+		_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar3"},
+			Checksum:    "checksum-3",
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	})
+	err = s.State.SaveSecretConsumer(uri, consumer, &secrets.SecretConsumerMetadata{
+		Label:           "foobar",
+		CurrentRevision: 2,
+		LatestRevision:  2,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	revs, err := s.store.ListUnusedSecretRevisions(uri)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(revs, jc.SameContents, []int{1})
+}
+
+func (s *SecretsSuite) TestUpdateConcurrentSaveSecretConsumer(c *gc.C) {
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "checksum-1",
+		},
+	}
+	uri := secrets.NewURI()
+	_, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	consumer := names.NewUnitTag("mariadb/0")
+	err = s.State.SaveSecretConsumer(uri, consumer, &secrets.SecretConsumerMetadata{
+		Label:           "test-consumer",
+		CurrentRevision: 1,
+		LatestRevision:  1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar2"},
+		Checksum:    "checksum-2",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	state.SetBeforeHooks(c, s.State, func() {
+		err = s.State.SaveSecretConsumer(uri, consumer, &secrets.SecretConsumerMetadata{
+			Label:           "foobar",
+			CurrentRevision: 2,
+			LatestRevision:  2,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	})
+	_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar3"},
+		Checksum:    "checksum-3",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	revs, err := s.store.ListUnusedSecretRevisions(uri)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(revs, jc.SameContents, []int{1})
 }
 
 func (s *SecretsSuite) TestSaveSecretConsumerDifferentModel(c *gc.C) {
@@ -3499,6 +3645,7 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchObsoleteRevisions(c *gc.C) {
 
 	err := s.State.SaveSecretConsumer(uri, names.NewApplicationTag("foo"), &secrets.SecretConsumerMetadata{
 		CurrentRevision: 1,
+		LatestRevision:  1,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
@@ -3514,6 +3661,7 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchObsoleteRevisions(c *gc.C) {
 
 	err = s.State.SaveSecretConsumer(uri, names.NewApplicationTag("foo2"), &secrets.SecretConsumerMetadata{
 		CurrentRevision: 2,
+		LatestRevision:  2,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
@@ -3521,6 +3669,7 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchObsoleteRevisions(c *gc.C) {
 	// The previous consumer of rev 1 now uses rev 2; rev 1 is orphaned.
 	err = s.State.SaveSecretConsumer(uri, names.NewApplicationTag("foo"), &secrets.SecretConsumerMetadata{
 		CurrentRevision: 2,
+		LatestRevision:  2,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(uri.String() + "/1")
@@ -3572,6 +3721,7 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchObsoleteRevisionsToPrune(c *gc.C)
 	// The previous consumer of rev 1 now uses rev 2; rev 1 is orphaned.
 	err = s.State.SaveSecretConsumer(uri, names.NewApplicationTag("foo"), &secrets.SecretConsumerMetadata{
 		CurrentRevision: 2,
+		LatestRevision:  2,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	// No change because AutoPrune is not turned on.
@@ -3602,6 +3752,7 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchObsoleteRevisionsToPrune(c *gc.C)
 	// The previous consumer of rev 1 now uses rev 3; rev 2 is orphaned.
 	err = s.State.SaveSecretConsumer(uri, names.NewApplicationTag("foo"), &secrets.SecretConsumerMetadata{
 		CurrentRevision: 4,
+		LatestRevision:  4,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(uri.String() + "/2")
@@ -3646,7 +3797,6 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchOwnedDeleted(c *gc.C) {
 
 	_, err = s.store.DeleteSecret(uri)
 	c.Assert(err, jc.ErrorIsNil)
-	//wc.AssertChange(uri.String())
 	wc.AssertNoChange()
 
 	_, err = s.store.DeleteSecret(uri2)
@@ -3655,7 +3805,7 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchOwnedDeleted(c *gc.C) {
 
 	_, err = s.store.DeleteSecret(uri3)
 	c.Assert(err, jc.ErrorIsNil)
-	//wc.AssertChange(uri3.String())
+	// wc.AssertChange(uri3.String())
 	wc.AssertNoChange()
 }
 
@@ -3681,6 +3831,7 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchDeletedSupercedesObsolete(c *gc.C
 
 	err = s.State.SaveSecretConsumer(uri, names.NewApplicationTag("foo2"), &secrets.SecretConsumerMetadata{
 		CurrentRevision: 2,
+		LatestRevision:  2,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
@@ -3688,13 +3839,13 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchDeletedSupercedesObsolete(c *gc.C
 	// The previous consumer of rev 1 now uses rev 2; rev 1 is orphaned.
 	err = s.State.SaveSecretConsumer(uri, names.NewApplicationTag("foo"), &secrets.SecretConsumerMetadata{
 		CurrentRevision: 2,
+		LatestRevision:  2,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Deleting the secret removes any pending orphaned changes.
 	_, err = s.store.DeleteSecret(uri)
 	c.Assert(err, jc.ErrorIsNil)
-	//wc.AssertChange(uri.String())
 	wc.AssertNoChange()
 }
 
