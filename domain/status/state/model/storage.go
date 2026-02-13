@@ -1133,81 +1133,138 @@ func (st *ModelState) GetVolumeAttachments(
 	// must be for a net node uuid that is on a unit where that unit does not
 	// share a net node with a machine.
 	// If units are for machines they share a net node.
-	q := `
-SELECT DISTINCT &volumeAttachmentStatusDetails.* FROM (
-    SELECT    sva.storage_volume_uuid,
+	volumeAttachmentQuery := `
+SELECT &volumeAttachmentStatusDetails.*
+FROM (
+    SELECT    sva.uuid,
+              sva.storage_volume_uuid,
               sva.life_id,
               sva.read_only,
               bd.name AS device_name,
               bd.bus_address AS bus_address,
-              first_value(bdld.name) OVER bdld_first AS device_link,
               u.name AS unit_name,
               m.name AS machine_name
     FROM      storage_volume_attachment sva
     LEFT JOIN block_device bd ON bd.uuid=sva.block_device_uuid
-    LEFT JOIN block_device_link_device bdld ON bdld.block_device_uuid=bd.uuid
     LEFT JOIN machine m ON sva.net_node_uuid=m.net_node_uuid
     LEFT JOIN unit u
         ON sva.net_node_uuid=u.net_node_uuid
         AND m.net_node_uuid IS NULL
-    WINDOW    bdld_first AS (PARTITION BY bdld.block_device_uuid ORDER BY bdld.name)
     WHERE sva.storage_volume_uuid IN ($entityUUIDs[:])
 )
 `
 
-	ids := IDs[entityUUIDs](uuids)
-	stmt, err := st.Prepare(q, volumeAttachmentStatusDetails{}, ids)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
+	// Query to get all device links for volume attachments.
+	deviceLinksQuery := `
+SELECT &volumeAttachmentDeviceLink.*
+FROM  (
+    SELECT    sva.uuid,
+              bdld.name AS device_link
+    FROM      storage_volume_attachment sva
+    JOIN      block_device bd ON bd.uuid=sva.block_device_uuid
+    JOIN      block_device_link_device bdld ON bdld.block_device_uuid=bd.uuid
+    WHERE     sva.storage_volume_uuid IN ($entityUUIDs[:])
+)
+`
 
-	volPlanStmt, err := st.Prepare(`
+	volumeAttachmentPlanQuery := `
 SELECT    &volumeAttachmentPlanStatusDetails.*
 FROM      storage_volume_attachment_plan svap
 LEFT JOIN storage_volume_attachment_plan_attr svapa ON svapa.attachment_plan_uuid=svap.uuid
+ORDER BY  svap.uuid
+`
 
-`, volumeAttachmentPlanStatusDetails{})
+	ids := IDs[entityUUIDs](uuids)
+	stmt, err := st.Prepare(volumeAttachmentQuery, volumeAttachmentStatusDetails{}, ids)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, errors.Errorf(
+			"preparing volume attachment status query: %w", err,
+		)
 	}
 
-	var out []volumeAttachmentStatusDetails
-	var vapOut []volumeAttachmentPlanStatusDetails
+	deviceLinksStmt, err := st.Prepare(
+		deviceLinksQuery, volumeAttachmentDeviceLink{}, ids,
+	)
+	if err != nil {
+		return nil, errors.Errorf(
+			"preparing volume attachment device links query: %w", err,
+		)
+	}
+
+	volAttachmentPlanStmt, err := st.Prepare(
+		volumeAttachmentPlanQuery, volumeAttachmentPlanStatusDetails{},
+	)
+	if err != nil {
+		return nil, errors.Errorf(
+			"preparing volume attachment plan query: %w", err,
+		)
+	}
+
+	var (
+		volAttachmentDetailsOut     []volumeAttachmentStatusDetails
+		volAttachmentDeviceLinksOut []volumeAttachmentDeviceLink
+		volAttachmentPlanOut        []volumeAttachmentPlanStatusDetails
+	)
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, ids).GetAll(&out)
+		err := tx.Query(ctx, stmt, ids).GetAll(&volAttachmentDetailsOut)
+		if errors.Is(err, sql.ErrNoRows) {
+			// If no volumes exists there is nothing more to do. Cannot have
+			// device links or plans without an attachment.
+			return nil
+		} else if err != nil {
+			return err
+		}
+
+		err = tx.Query(ctx, deviceLinksStmt, ids).GetAll(&volAttachmentDeviceLinksOut)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return err
 		}
-		err = tx.Query(ctx, volPlanStmt).GetAll(&vapOut)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return err
+
+		err = tx.Query(ctx, volAttachmentPlanStmt).GetAll(&volAttachmentPlanOut)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
 		}
-		return nil
+		return err
 	})
+
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	vaps := map[string]*status.VolumeAttachmentPlan{}
-	for _, v := range vapOut {
-		vap := vaps[v.VolumeUUID]
-		if vap == nil {
-			vap = &status.VolumeAttachmentPlan{
-				DeviceType: storage.VolumeDeviceType(v.DeviceTypeID),
-			}
-			vaps[v.VolumeUUID] = vap
-		}
-		if v.DeviceAttributeKey.Valid && v.DeviceAttributeValue.Valid {
-			key := v.DeviceAttributeKey.String
-			value := v.DeviceAttributeValue.String
-			if vap.DeviceAttributes == nil {
-				vap.DeviceAttributes = map[string]string{}
-			}
-			vap.DeviceAttributes[key] = value
-		}
+	// Group device links by VolumeAttachmentUUID
+	attachmentDeviceLinks := make(map[string][]string)
+	for _, dl := range volAttachmentDeviceLinksOut {
+		attachmentDeviceLinks[dl.UUID] = append(
+			attachmentDeviceLinks[dl.UUID], dl.DeviceLink,
+		)
 	}
 
-	return transform.Slice(out, func(v volumeAttachmentStatusDetails) status.VolumeAttachment {
+	// Organise volume attachment plans on volume uuid.
+	vaps := map[string]status.VolumeAttachmentPlan{}
+	var (
+		processingPlanAttributes map[string]string
+		processingVolumeUUID     string
+	)
+	for _, v := range volAttachmentPlanOut {
+		if v.VolumeUUID != processingVolumeUUID {
+			processingPlanAttributes = map[string]string{}
+			processingVolumeUUID = v.VolumeUUID
+			vaps[processingVolumeUUID] = status.VolumeAttachmentPlan{
+				DeviceAttributes: processingPlanAttributes,
+				DeviceType:       storage.VolumeDeviceType(v.DeviceTypeID),
+			}
+		}
+
+		if !v.DeviceAttributeKey.Valid && !v.DeviceAttributeValue.Valid {
+			// if there is no attribute to process continue
+			continue
+		}
+
+		processingPlanAttributes[v.DeviceAttributeKey.String] = v.DeviceAttributeValue.String
+	}
+
+	return transform.Slice(volAttachmentDetailsOut, func(v volumeAttachmentStatusDetails) status.VolumeAttachment {
 		var machineName *machine.Name
 		if v.MachineName.Valid {
 			m := machine.Name(v.MachineName.String)
@@ -1218,16 +1275,21 @@ LEFT JOIN storage_volume_attachment_plan_attr svapa ON svapa.attachment_plan_uui
 			u := unit.Name(v.UnitName.String)
 			unitName = &u
 		}
+
+		var vapPtr *status.VolumeAttachmentPlan
+		if vap, exists := vaps[v.VolumeUUID]; exists {
+			vapPtr = &vap
+		}
 		return status.VolumeAttachment{
 			VolumeUUID:           storage.VolumeUUID(v.VolumeUUID),
 			Life:                 life.Life(v.LifeID),
 			Unit:                 unitName,
 			Machine:              machineName,
 			DeviceName:           v.DeviceName,
-			DeviceLink:           v.DeviceLink,
+			DeviceLinks:          attachmentDeviceLinks[v.UUID],
 			BusAddress:           v.BusAddress,
 			ReadOnly:             v.ReadOnly,
-			VolumeAttachmentPlan: vaps[v.VolumeUUID],
+			VolumeAttachmentPlan: vapPtr,
 		}
 	}), nil
 }
@@ -1246,77 +1308,134 @@ func (st *ModelState) GetAllVolumeAttachments(
 	// share a net node with a machine.
 	// If units are for machines they share a net node.
 	q := `
-SELECT DISTINCT &volumeAttachmentStatusDetails.* FROM (
-    SELECT    sva.storage_volume_uuid,
+SELECT &volumeAttachmentStatusDetails.*
+FROM (
+    SELECT    sva.uuid,
+              sva.storage_volume_uuid,
               sva.life_id,
               sva.read_only,
               bd.name AS device_name,
               bd.bus_address AS bus_address,
-              first_value(bdld.name) OVER bdld_first AS device_link,
               u.name AS unit_name,
               m.name AS machine_name
     FROM      storage_volume_attachment sva
     LEFT JOIN block_device bd ON bd.uuid=sva.block_device_uuid
-    LEFT JOIN block_device_link_device bdld ON bdld.block_device_uuid=bd.uuid
     LEFT JOIN machine m ON sva.net_node_uuid=m.net_node_uuid
     LEFT JOIN unit u
         ON sva.net_node_uuid=u.net_node_uuid
         AND m.net_node_uuid IS NULL
-    WINDOW    bdld_first AS (PARTITION BY bdld.block_device_uuid ORDER BY bdld.name)
 )
+`
+
+	deviceLinksQuery := `
+SELECT &volumeAttachmentDeviceLink.*
+FROM  (
+   SELECT    sva.uuid,
+             bdld.name AS device_link
+   FROM      storage_volume_attachment sva
+   JOIN      block_device bd ON bd.uuid=sva.block_device_uuid
+   JOIN      block_device_link_device bdld ON bdld.block_device_uuid=bd.uuid
+   WHERE     sva.storage_volume_uuid IN ($entityUUIDs[:])
+)
+`
+
+	volumeAttachmentPlanQuery := `
+SELECT    &volumeAttachmentPlanStatusDetails.*
+FROM      storage_volume_attachment_plan svap
+LEFT JOIN storage_volume_attachment_plan_attr svapa ON svapa.attachment_plan_uuid=svap.uuid
+ORDER BY  svap.uuid
 `
 
 	stmt, err := st.Prepare(q, volumeAttachmentStatusDetails{})
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, errors.Errorf(
+			"preparing volume attachment status query: %w", err,
+		)
 	}
 
-	volPlanStmt, err := st.Prepare(`
-SELECT    &volumeAttachmentPlanStatusDetails.*
-FROM      storage_volume_attachment_plan svap
-LEFT JOIN storage_volume_attachment_plan_attr svapa ON svapa.attachment_plan_uuid=svap.uuid
-`, volumeAttachmentPlanStatusDetails{})
+	deviceLinksStmt, err := st.Prepare(
+		deviceLinksQuery, volumeAttachmentDeviceLink{},
+	)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, errors.Errorf(
+			"preparing volume attachment device links query: %w", err,
+		)
 	}
 
-	var out []volumeAttachmentStatusDetails
-	var vapOut []volumeAttachmentPlanStatusDetails
+	volAttachmentPlanStmt, err := st.Prepare(
+		volumeAttachmentPlanQuery, volumeAttachmentPlanStatusDetails{},
+	)
+	if err != nil {
+		return nil, errors.Errorf(
+			"preparing volume attachment plan query: %w", err,
+		)
+	}
+
+	var (
+		volAttachmentDetailsOut     []volumeAttachmentStatusDetails
+		volAttachmentDeviceLinksOut []volumeAttachmentDeviceLink
+		volAttachmentPlanOut        []volumeAttachmentPlanStatusDetails
+	)
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt).GetAll(&out)
+		err := tx.Query(ctx, stmt).GetAll(&volAttachmentDetailsOut)
+		if errors.Is(err, sql.ErrNoRows) {
+			// If no volumes exists there is nothing more to do. Cannot have
+			// device links or plans without an attachment.
+			return nil
+		} else if err != nil {
+			return err
+		}
+
+		err = tx.Query(ctx, deviceLinksStmt).GetAll(&volAttachmentDeviceLinksOut)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return err
 		}
-		err = tx.Query(ctx, volPlanStmt).GetAll(&vapOut)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return err
+
+		err = tx.Query(ctx, volAttachmentPlanStmt).GetAll(&volAttachmentPlanOut)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
 		}
-		return nil
+		return err
 	})
+
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	vaps := map[string]*status.VolumeAttachmentPlan{}
-	for _, v := range vapOut {
-		vap := vaps[v.VolumeUUID]
-		if vap == nil {
-			vap = &status.VolumeAttachmentPlan{
-				DeviceType: storage.VolumeDeviceType(v.DeviceTypeID),
-			}
-			vaps[v.VolumeUUID] = vap
-		}
-		if v.DeviceAttributeKey.Valid && v.DeviceAttributeValue.Valid {
-			key := v.DeviceAttributeKey.String
-			value := v.DeviceAttributeValue.String
-			if vap.DeviceAttributes == nil {
-				vap.DeviceAttributes = map[string]string{}
-			}
-			vap.DeviceAttributes[key] = value
-		}
+	// Group device links by VolumeAttachmentUUID
+	attachmentDeviceLinks := make(map[string][]string)
+	for _, dl := range volAttachmentDeviceLinksOut {
+		attachmentDeviceLinks[dl.UUID] = append(
+			attachmentDeviceLinks[dl.UUID], dl.DeviceLink,
+		)
 	}
 
-	return transform.Slice(out, func(v volumeAttachmentStatusDetails) status.VolumeAttachment {
+	// Organise volume attachment plans on volume uuid.
+	vaps := map[string]status.VolumeAttachmentPlan{}
+	var (
+		processingPlanAttributes map[string]string
+		processingVolumeUUID     string
+	)
+	for _, v := range volAttachmentPlanOut {
+		if v.VolumeUUID != processingVolumeUUID {
+			processingPlanAttributes = map[string]string{}
+			processingVolumeUUID = v.VolumeUUID
+			vaps[processingVolumeUUID] = status.VolumeAttachmentPlan{
+				DeviceAttributes: processingPlanAttributes,
+				DeviceType:       storage.VolumeDeviceType(v.DeviceTypeID),
+			}
+		}
+
+		if !v.DeviceAttributeKey.Valid && !v.DeviceAttributeValue.Valid {
+			// if there is no attribute to process continue
+			continue
+		}
+
+		processingPlanAttributes[v.DeviceAttributeKey.String] = v.DeviceAttributeValue.String
+	}
+
+	return transform.Slice(volAttachmentDetailsOut, func(v volumeAttachmentStatusDetails) status.VolumeAttachment {
 		var machineName *machine.Name
 		if v.MachineName.Valid {
 			m := machine.Name(v.MachineName.String)
@@ -1327,16 +1446,21 @@ LEFT JOIN storage_volume_attachment_plan_attr svapa ON svapa.attachment_plan_uui
 			u := unit.Name(v.UnitName.String)
 			unitName = &u
 		}
+
+		var vapPtr *status.VolumeAttachmentPlan
+		if vap, exists := vaps[v.VolumeUUID]; exists {
+			vapPtr = &vap
+		}
 		return status.VolumeAttachment{
 			VolumeUUID:           storage.VolumeUUID(v.VolumeUUID),
 			Life:                 life.Life(v.LifeID),
 			Unit:                 unitName,
 			Machine:              machineName,
 			DeviceName:           v.DeviceName,
-			DeviceLink:           v.DeviceLink,
+			DeviceLinks:          attachmentDeviceLinks[v.UUID],
 			BusAddress:           v.BusAddress,
 			ReadOnly:             v.ReadOnly,
-			VolumeAttachmentPlan: vaps[v.VolumeUUID],
+			VolumeAttachmentPlan: vapPtr,
 		}
 	}), nil
 }

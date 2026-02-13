@@ -355,6 +355,15 @@ type volumeStatusDetails struct {
 	Persistent          bool           `db:"persistent"`
 }
 
+// volumeAttachmentDeviceLink represents a single device link for a volume
+// attachment.
+type volumeAttachmentDeviceLink struct {
+	DeviceLink string `db:"device_link"`
+
+	// UUID is the storage volume attachment uuid
+	UUID string `db:"uuid"`
+}
+
 // volumeAttachmentStatusDetails is used to retrieve all required
 // information for a volume attachment for status reporting.
 type volumeAttachmentStatusDetails struct {
@@ -363,9 +372,9 @@ type volumeAttachmentStatusDetails struct {
 	UnitName    sql.NullString `db:"unit_name"`
 	MachineName sql.NullString `db:"machine_name"`
 	DeviceName  string         `db:"device_name"`
-	DeviceLink  string         `db:"device_link"`
 	BusAddress  string         `db:"bus_address"`
 	ReadOnly    bool           `db:"read_only"`
+	UUID        string         `db:"uuid"`
 }
 
 // volumeAttachmentPlanStatusDetails is used to retrieve all required

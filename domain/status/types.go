@@ -138,7 +138,7 @@ type VolumeAttachment struct {
 	Unit                 *unit.Name
 	Machine              *machine.Name
 	DeviceName           string
-	DeviceLink           string
+	DeviceLinks          []string
 	BusAddress           string
 	ReadOnly             bool
 	VolumeAttachmentPlan *VolumeAttachmentPlan

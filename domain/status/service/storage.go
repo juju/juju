@@ -480,7 +480,7 @@ func (s *Service) transformVolumeResults(
 	for _, dva := range volumeAttachments {
 		va := VolumeAttachment{
 			DeviceName: dva.DeviceName,
-			DeviceLink: dva.DeviceLink,
+			DeviceLink: blockdevice.IDLink(dva.DeviceLinks),
 			BusAddress: dva.BusAddress,
 			ReadOnly:   dva.ReadOnly,
 		}
