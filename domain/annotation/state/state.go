@@ -185,9 +185,9 @@ WHERE uuid = $annotationUUID.uuid`, tableName)
 
 // SetAnnotations associates key/value annotation pairs with a given ID.
 // If an annotation already exists for the given ID, then it will be updated
-// with the given value. First all annotations are deleted, then the given pairs
-// are inserted, so unsetting an annotation is implicit.
-// Empty string values are treated as removed keys.
+// with the given value.
+// Annotation keys not included will be left unchaged.
+// Annotation keys with empty string values will have the key removed.
 func (st *State) SetAnnotations(
 	ctx context.Context,
 	id annotations.ID,
@@ -283,7 +283,7 @@ WHERE uuid = $annotationUUID.uuid AND key = $Annotation.key`, tableName)
 // annotations per model, so we don't need to try to find the uuid of the given
 // id (the model).
 func (st *State) setAnnotationsForModel(ctx context.Context,
-	toInsert map[string]string,
+	annotations map[string]string,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -306,7 +306,7 @@ WHERE key = $Annotation.key`, Annotation{})
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var annotationParam Annotation
-		for key, value := range toInsert {
+		for key, value := range annotations {
 			annotationParam.Key = key
 			annotationParam.Value = value
 
