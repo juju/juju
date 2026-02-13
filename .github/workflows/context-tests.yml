@@ -27,10 +27,33 @@ jobs:
       check-generate: ${{ steps.filter-files.outputs.check-generate }}
       check-docs: ${{ steps.filter-files.outputs.check-docs }}
     steps:
+      - name: Checkout
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@v4
+
+      - name: Calculate Refs
+        id: refs
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "head_ref=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+            echo "base_ref=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            echo "head_ref=${{ github.event.push.after }}" >> "$GITHUB_OUTPUT"
+            echo "base_ref=${{ github.event.push.before }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "merge_group" ]; then
+            echo "head_ref=${{ github.event.merge_group.head_sha }}" >> "$GITHUB_OUTPUT"
+            echo "base_ref=${{ github.event.merge_group.base_sha }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "head_ref=${{ github.event.ref }}" >> "$GITHUB_OUTPUT"
+            echo "base_ref=${{ github.event.ref }}~" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Filter Files
         id: filter-files
         uses: dorny/paths-filter@v3
         with:
+          ref: ${{ steps.refs.outputs.head_ref }}
+          base: ${{ steps.refs.outputs.base_ref }}
           filters: |
             check-build:
               - '**.go'
