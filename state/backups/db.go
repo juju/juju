@@ -201,13 +201,23 @@ func NewDBDumper(info *DBInfo) (DBDumper, error) {
 func (md *mongoDumper) options(dumpDir string) []string {
 	options := []string{
 		"--ssl",
-		"--sslAllowInvalidCertificates",
 		"--authenticationDatabase", "admin",
 		"--host", md.Address,
 		"--username", md.Username,
 		"--password", md.Password,
 		"--out", dumpDir,
 		"--oplog",
+	}
+	if md.MongoVersion.NewerThan(mongo.Version{
+		Major: 4,
+		Minor: 4,
+		Point: 30,
+	}) >= 0 {
+		options = append(options,
+			"--sslCAFile", "/var/snap/juju-db/common/ca.crt",
+			"--sslPEMKeyFile", "/var/snap/juju-db/common/server.pem",
+			"--sslPEMKeyPassword", "ignore",
+		)
 	}
 	return options
 }
