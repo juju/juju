@@ -86,7 +86,9 @@ func (s *applicationSuite) TestEnsurePVCs(c *tc.C) {
 		},
 	}
 
-	err := app.EnsurePVCs(filesystems, filesystemUnitAttachments, "uniqid")
+	var existingAttachments []storage.KubernetesFilesystemAttachment
+
+	err := app.EnsurePVCs(filesystems, filesystemUnitAttachments, existingAttachments, "uniqid")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Verify PVC was created
