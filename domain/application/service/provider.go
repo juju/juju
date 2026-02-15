@@ -56,7 +56,7 @@ type Provider interface {
 // underlying provider for CAAS applications.
 type CAASProvider interface {
 	environs.SupportedFeatureEnumerator
-	Application(string, caas.DeploymentType) caas.Application
+	Application(string, caas.DeploymentType) (caas.Application, error)
 }
 
 // ProviderService defines a service for interacting with the underlying
@@ -439,7 +439,10 @@ func (s *ProviderService) CAASUnitTerminating(ctx context.Context, unitNameStr s
 
 	// We currently only support statefulset.
 	restart := true
-	caasApp := caasApplicationProvider.Application(appName, caas.DeploymentStateful)
+	caasApp, err := caasApplicationProvider.Application(appName, caas.DeploymentStateful)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
 	appState, err := caasApp.State()
 	if err != nil {
 		return false, errors.Capture(err)
@@ -535,7 +538,10 @@ func (s *ProviderService) RegisterCAASUnit(
 	if err != nil {
 		return "", "", errors.Errorf("registering k8s units for application %q: %w", appName, err)
 	}
-	caasApp := caasApplicationProvider.Application(appName, caas.DeploymentStateful)
+	caasApp, err := caasApplicationProvider.Application(appName, caas.DeploymentStateful)
+	if err != nil {
+		return "", "", errors.Errorf("getting caas app %q: %w", appName, err)
+	}
 	pods, err := caasApp.Units()
 	if err != nil {
 		return "", "", errors.Errorf("finding k8s units for application %q: %w", appName, err)

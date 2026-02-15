@@ -9,7 +9,7 @@ import (
 
 // CAASBroker exposes CAAS broker functionality to a worker.
 type CAASBroker interface {
-	Application(string, caas.DeploymentType) caas.Application
+	Application(string, caas.DeploymentType) (caas.Application, error)
 }
 
 // PortMutator describes the required interface for mutating the ports of an

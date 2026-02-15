@@ -211,7 +211,7 @@ type Broker interface {
 // individual applications and watching their units.
 type ApplicationBroker interface {
 	// Application returns the broker interface for an Application
-	Application(string, DeploymentType) Application
+	Application(string, DeploymentType) (Application, error)
 
 	// Units returns all units and any associated filesystems
 	// of the specified application. Filesystems are mounted

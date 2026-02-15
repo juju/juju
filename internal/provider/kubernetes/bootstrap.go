@@ -1329,7 +1329,7 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		return nil, errors.Trace(err)
 	}
 
-	controllerApp := application.NewApplication(
+	controllerApp, err := application.NewApplication(
 		environsbootstrap.ControllerApplicationName,
 		c.broker.namespace,
 		c.broker.ModelUUID(),
@@ -1343,6 +1343,9 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		c.broker.clock,
 		c.broker.controllerUUID,
 	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	defaultBase := version.DefaultSupportedLTSBase()
 	repo, err := docker.NewImageRepoDetails(c.pcfg.Controller.CAASImageRepo())
