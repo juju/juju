@@ -525,8 +525,6 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 // FilesystemProvisioningInfo returns the filesystem info needed to provision a caas application.
 func (a *API) FilesystemProvisioningInfo(ctx context.Context, args params.Entity) (params.CAASApplicationFilesystemProvisioningInfo, error) {
 	// TODO(storage) - implement and test
-	// Upon implementing this, an attachment provider ID must be added in the
-	// filesystems[*].attachments[*]
 	return params.CAASApplicationFilesystemProvisioningInfo{}, nil
 }
 
