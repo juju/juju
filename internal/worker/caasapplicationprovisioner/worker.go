@@ -112,7 +112,7 @@ type ApplicationService interface {
 
 // CAASBroker exposes CAAS broker functionality to a worker.
 type CAASBroker interface {
-	Application(string, caas.DeploymentType) caas.Application
+	Application(string, caas.DeploymentType) (caas.Application, error)
 	AnnotateUnit(ctx context.Context, appName string, podName string, unit names.UnitTag) error
 	Units(ctx context.Context, appName string) ([]caas.Unit, error)
 }
@@ -151,6 +151,11 @@ type StorageProvisioningService interface {
 	// the given application. These tags are used when creating a resource in an
 	// environ.
 	GetStorageResourceTagsForApplication(ctx context.Context, appID application.UUID) (map[string]string, error)
+
+	// GetFileSystemAttachmentsForApplication retrieves the realized filesystem
+	// attachments for a given application.
+	GetFileSystemAttachmentsForApplication(ctx context.Context,
+		appID application.UUID) ([]storageprovisioning.RealizedFilesystemAttachment, error)
 }
 
 // ResourceOpenerGetter provides a way to get a resource opener for an

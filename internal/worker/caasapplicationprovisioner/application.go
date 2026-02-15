@@ -155,7 +155,10 @@ func (a *appWorker) loop() error {
 	}
 
 	// TODO(sidecar): support more than statefulset
-	app := a.broker.Application(name, caas.DeploymentStateful)
+	app, err := a.broker.Application(name, caas.DeploymentStateful)
+	if err != nil {
+		return errors.Annotatef(err, "getting caas app")
+	}
 
 	// If the application no longer exists, return immediately. If it's in
 	// Dead state, ensure it's deleted and terminated.
@@ -170,7 +173,8 @@ func (a *appWorker) loop() error {
 	if appLife == life.Dead {
 		if !statusOnly {
 			err = a.ops.AppDying(ctx, name, a.appUUID, app, a.life, a.facade,
-				a.applicationService, a.statusService, a.logger)
+				a.applicationService, a.statusService, a.logger,
+				a.storageProvisioningService)
 			if err != nil {
 				return errors.Annotatef(err, "deleting application %q", name)
 			}
@@ -325,7 +329,8 @@ func (a *appWorker) loop() error {
 		case life.Dying:
 			if !statusOnly {
 				err = a.ops.AppDying(ctx, name, a.appUUID, app, a.life,
-					a.facade, a.applicationService, a.statusService, a.logger)
+					a.facade, a.applicationService, a.statusService, a.logger,
+					a.storageProvisioningService)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -334,7 +339,8 @@ func (a *appWorker) loop() error {
 		case life.Dead:
 			if !statusOnly {
 				err = a.ops.AppDying(ctx, name, a.appUUID, app, a.life,
-					a.facade, a.applicationService, a.statusService, a.logger)
+					a.facade, a.applicationService, a.statusService, a.logger,
+					a.storageProvisioningService)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -378,7 +384,8 @@ func (a *appWorker) loop() error {
 				break
 			}
 			err := a.ops.EnsureScale(ctx, name, a.appUUID, app, a.life, a.facade,
-				a.applicationService, a.statusService, a.logger)
+				a.applicationService, a.statusService, a.logger,
+				a.storageProvisioningService)
 			if errors.Is(err, errors.NotFound) {
 				if scaleTries >= maxRetries {
 					return errors.Annotatef(err, "more than %d retries ensuring scale", maxRetries)
@@ -440,7 +447,8 @@ func (a *appWorker) loop() error {
 				break
 			}
 			err := a.ops.ReconcileDeadUnitScale(ctx, name, a.appUUID, app,
-				a.facade, a.applicationService, a.statusService, a.logger)
+				a.facade, a.applicationService, a.statusService, a.logger,
+				a.storageProvisioningService)
 			if errors.Is(err, errors.NotFound) {
 				reconcileDeadChan = a.clock.After(retryDelay)
 				shouldRefresh = false
