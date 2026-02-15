@@ -1119,7 +1119,18 @@ func (s *InstanceModeSuite) TestControllerUnit(c *gc.C) {
 	})
 
 	// Remove unit.
+	removed1 := make(chan bool)
+	u1.EXPECT().Life().DoAndReturn(func() life.Value {
+		close(removed1)
+		return life.Dead
+	})
 	unitsCh <- []string{u1.Tag().Id()}
+
+	select {
+	case <-removed1:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for unit removal")
+	}
 
 	// Ingress rules remain.
 	s.assertIngressRules(c, m1.Tag().Id(), firewall.IngressRules{
