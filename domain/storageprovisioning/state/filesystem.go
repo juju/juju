@@ -1372,63 +1372,67 @@ WHERE  a.uuid = $entityUUID.uuid
 	return rvals, nil
 }
 
-// GetStorageFilesystemAttachmentProviderIDs returns the mapping of attachment
-// storage names to provider ID. If an attachment's mapping is not found, then
-// that entry won't be included in the map.
-// A [applicationerrors.ApplicationNotFound] error is expected if the application
-// does not exist.
-func (st *State) GetStorageFilesystemAttachmentProviderIDs(
+// GetFilesystemAttachments returns the realized filesystem attachments for the
+// given application UUID. It returns an error satisfying
+// [applicationerrors.ApplicationNotFound] if the application does not exist.
+func (st *State) GetFilesystemAttachments(
 	ctx context.Context,
-	appUUID coreapplication.UUID,
-) (map[string]string, error) {
+	uuid coreapplication.UUID,
+) ([]storageprovisioning.RealizedFilesystemAttachment, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-
-	input := entityUUID{appUUID.String()}
+	input := entityUUID{uuid.String()}
 	stmt, err := st.Prepare(`
-SELECT (si.storage_name, sfa.provider_id) AS (&storageAndProvider.*)
-FROM   application a 
-JOIN   unit u ON a.uuid = u.application_uuid 
-JOIN   storage_unit_owner suo ON u.uuid = suo.unit_uuid 
-JOIN   storage_instance si ON suo.storage_instance_uuid = si.uuid 
-JOIN   storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid 
-JOIN   storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid 
-JOIN   storage_filesystem_attachment sfa ON sf.uuid = sfa.storage_filesystem_uuid 
-WHERE  a.uuid = $entityUUID.uuid
-`, storageAndProvider{}, input)
+SELECT (sfa.uuid,
+       si.storage_name,
+       sfa.provider_id,
+       sfa.mount_point,
+       ccm.charm_container_key) AS (&existingFilesystemAttachment.*)
+FROM   storage_filesystem_attachment AS sfa
+JOIN   storage_filesystem AS sf ON sfa.storage_filesystem_uuid = sf.uuid
+JOIN   unit AS u ON sfa.net_node_uuid = u.net_node_uuid
+JOIN   storage_instance_filesystem AS sif ON sf.uuid = sif.storage_filesystem_uuid
+JOIN   storage_instance AS si ON sif.storage_instance_uuid = si.uuid
+JOIN   application AS a ON u.application_uuid = a.uuid
+JOIN   charm_container_mount AS ccm ON a.charm_uuid = ccm.charm_uuid AND 
+	   si.storage_name = ccm.storage
+WHERE  u.application_uuid = $entityUUID.uuid`, existingFilesystemAttachment{}, input)
 
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-
-	var storagesAndProviders []storageAndProvider
+	var existingAttachments []existingFilesystemAttachment
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		exists, err := st.checkApplicationExists(ctx, tx, appUUID)
+		exists, err := st.checkApplicationExists(ctx, tx, uuid)
 		if err != nil {
 			return err
 		} else if !exists {
 			return errors.Errorf(
-				"application %q does not exist", appUUID,
+				"application %q does not exist", uuid,
 			).Add(applicationerrors.ApplicationNotFound)
 		}
-		err = tx.Query(ctx, stmt, input).GetAll(&storagesAndProviders)
+		err = tx.Query(ctx, stmt, input).GetAll(&existingAttachments)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return err
 		}
 		return nil
 	})
-
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	rvals := make(map[string]string)
-	for _, s := range storagesAndProviders {
-		rvals[s.StorageName] = s.ProviderID
+	attachments := make([]storageprovisioning.RealizedFilesystemAttachment, 0, len(existingAttachments))
+	for _, attachment := range existingAttachments {
+		attachments = append(attachments, storageprovisioning.RealizedFilesystemAttachment{
+			AttachmentUUID: attachment.AttachmentUUID,
+			StorageName:    attachment.StorageName,
+			ProviderID:     attachment.ProviderID,
+			MountPoint:     attachment.MountPoint,
+			TargetKey:      attachment.CharmContainerKey,
+		})
 	}
-
-	return rvals, nil
+	return attachments, nil
 }

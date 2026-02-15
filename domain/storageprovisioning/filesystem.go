@@ -185,10 +185,6 @@ type FilesystemAttachmentTemplate struct {
 	// ContainerKey is the identifier of the container this attachment
 	// should be mounted to.
 	ContainerKey string
-
-	// ProviderID is the identifier the storage provider created for this
-	// attachment.
-	ProviderID string
 }
 
 // FilesystemProvisionedInfo is information set by the storage provisioner for
@@ -209,4 +205,20 @@ type FilesystemAttachmentProvisionedInfo struct {
 
 	// ReadOnly is true if the filesystem is mounted read-only.
 	ReadOnly bool
+}
+
+// RealizedFilesystemAttachment represents the details of a filesystem attachment
+// that has been realized in the model.
+type RealizedFilesystemAttachment struct {
+	// AttachmentUUID is the unique identifier for the filesystem attachment.
+	AttachmentUUID string
+	// StorageName is the name of the storage as defined in the charm for this attachment.
+	StorageName string
+	// ProviderID is the identifier of the attachment from the storage provider.
+	ProviderID string
+	// MountPoint is the path where the filesystem is mounted on the machine.
+	MountPoint string
+	// TargetKey is the identifier of the target (container or machine) where the
+	// filesystem attachment is mounted.
+	TargetKey string
 }

@@ -448,9 +448,11 @@ type containerMount struct {
 	Location          string `db:"location"`
 }
 
-// storageAndProvider represents an attachment's storage name and its
-// provider ID.
-type storageAndProvider struct {
-	StorageName string `db:"storage_name"`
-	ProviderID  string `db:"provider_id"`
+// existingFilesystemAttachment represents a realized filesystem attachment.
+type existingFilesystemAttachment struct {
+	AttachmentUUID    string `db:"uuid"`
+	StorageName       string `db:"storage_name"`
+	ProviderID        string `db:"provider_id"`
+	MountPoint        string `db:"mount_point"`
+	CharmContainerKey string `db:"charm_container_key"`
 }
