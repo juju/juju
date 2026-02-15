@@ -144,9 +144,9 @@ func (s *ApplicationWorkerSuite) TestLifeDead(c *tc.C) {
 	gomock.InOrder(
 		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("test", nil),
 		applicationService.EXPECT().IsControllerApplication(x, s.appUUID).Return(false, nil),
-		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
+		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app, nil),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Dead, nil),
-		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dead, x, x, x, x).Return(nil),
+		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dead, x, x, x, x, storageProvisioningService).Return(nil),
 		ops.EXPECT().AppDead(x, "test", s.appUUID, app, broker, applicationService, statusService, clk, s.logger).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, CAASBroker, ApplicationService, StatusService, clock.Clock, logger.Logger) error {
 			close(done)
 			return nil
@@ -189,7 +189,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 	gomock.InOrder(
 		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("test", nil),
 		applicationService.EXPECT().IsControllerApplication(x, s.appUUID).Return(false, nil),
-		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
+		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app, nil),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
 
 		agentPasswordService.EXPECT().SetApplicationPassword(x, s.appUUID, x).Return(nil),
@@ -211,12 +211,19 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 		}),
 
 		// scaleChan fired
-		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).Return(errors.NotFound),
-		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).Return(errors.ConstError("try again")),
-		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).DoAndReturn(func(ctx context.Context, s string, i application.UUID, a caas.Application, v life.Value, cf CAASProvisionerFacade, as ApplicationService, ss StatusService, l logger.Logger) error {
-			settingsChan <- struct{}{}
-			return nil
-		}),
+		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x,
+			storageProvisioningService).Return(errors.NotFound),
+		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x,
+			storageProvisioningService).Return(errors.ConstError("try again")),
+		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x,
+			storageProvisioningService).
+			DoAndReturn(func(ctx context.Context, s string, i application.UUID,
+				a caas.Application, v life.Value, cf CAASProvisionerFacade,
+				as ApplicationService, ss StatusService, l logger.Logger,
+				sps StorageProvisioningService) error {
+				settingsChan <- struct{}{}
+				return nil
+			}),
 
 		// trustChan fired
 		ops.EXPECT().EnsureTrust(x, "test", app, x, x).Return(errors.NotFound),
@@ -226,12 +233,18 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 		}),
 
 		// appUnitsChan fired
-		ops.EXPECT().ReconcileDeadUnitScale(x, "test", s.appUUID, app, x, x, x, x).Return(errors.NotFound),
-		ops.EXPECT().ReconcileDeadUnitScale(x, "test", s.appUUID, app, x, x, x, x).Return(errors.ConstError("try again")),
-		ops.EXPECT().ReconcileDeadUnitScale(x, "test", s.appUUID, app, x, x, x, x).DoAndReturn(func(ctx context.Context, s string, i application.UUID, a caas.Application, cf CAASProvisionerFacade, as ApplicationService, ss StatusService, l logger.Logger) error {
-			appChan <- struct{}{}
-			return nil
-		}),
+		ops.EXPECT().ReconcileDeadUnitScale(x, "test", s.appUUID, app, x, x, x, x,
+			storageProvisioningService).Return(errors.NotFound),
+		ops.EXPECT().ReconcileDeadUnitScale(x, "test", s.appUUID, app, x, x, x, x,
+			storageProvisioningService).Return(errors.ConstError("try again")),
+		ops.EXPECT().ReconcileDeadUnitScale(x, "test", s.appUUID, app, x, x, x, x,
+			storageProvisioningService).
+			DoAndReturn(func(ctx context.Context, s string, i application.UUID, a caas.Application,
+				cf CAASProvisionerFacade, as ApplicationService, ss StatusService, l logger.Logger,
+				sps StorageProvisioningService) error {
+				appChan <- struct{}{}
+				return nil
+			}),
 
 		// appChan fired
 		ops.EXPECT().UpdateState(x, "test", s.appUUID, app, x, x, x, x, x, x).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, UpdateStatusState, CAASBroker, ApplicationService, StatusService, clock.Clock, logger.Logger) (UpdateStatusState, error) {
@@ -259,12 +272,17 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 				return nil
 			}),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Dying, nil),
-		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dying, x, x, x, x).DoAndReturn(func(ctx context.Context, s string, i application.UUID, a caas.Application, v life.Value, cf CAASProvisionerFacade, as ApplicationService, ss StatusService, l logger.Logger) error {
-			provisioningInfoChan <- struct{}{}
-			return nil
-		}),
+		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dying, x, x, x, x,
+			storageProvisioningService).
+			DoAndReturn(func(ctx context.Context, s string, i application.UUID, a caas.Application,
+				v life.Value, cf CAASProvisionerFacade, as ApplicationService, ss StatusService,
+				l logger.Logger, sps StorageProvisioningService) error {
+				provisioningInfoChan <- struct{}{}
+				return nil
+			}),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Dead, nil),
-		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dead, x, x, x, x).Return(nil),
+		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dead, x, x, x, x,
+			storageProvisioningService).Return(nil),
 		ops.EXPECT().AppDead(x, "test", s.appUUID, app, x, x, x, x, x).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, CAASBroker, ApplicationService, StatusService, clock.Clock, logger.Logger) error {
 			close(done)
 			return nil
@@ -307,7 +325,7 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 	gomock.InOrder(
 		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("con-troll-er", nil),
 		applicationService.EXPECT().IsControllerApplication(x, s.appUUID).Return(true, nil),
-		broker.EXPECT().Application("con-troll-er", caas.DeploymentStateful).Return(app),
+		broker.EXPECT().Application("con-troll-er", caas.DeploymentStateful).Return(app, nil),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
 
 		applicationService.EXPECT().WatchApplicationScale(x, "con-troll-er").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
@@ -388,7 +406,7 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 	gomock.InOrder(
 		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("test", nil),
 		applicationService.EXPECT().IsControllerApplication(x, s.appUUID).Return(false, nil),
-		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
+		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app, nil),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
 
 		agentPasswordService.EXPECT().SetApplicationPassword(x, s.appUUID, x).Return(nil),
@@ -415,9 +433,14 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 		}),
 
 		// scaleChan fired
-		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).Return(errors.NotFound),
-		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).Return(errors.ConstError("try again")),
-		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).DoAndReturn(func(ctx context.Context, s string, i application.UUID, a caas.Application, v life.Value, cf CAASProvisionerFacade, as ApplicationService, ss StatusService, l logger.Logger) error {
+		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x,
+			storageProvisioningService).Return(errors.NotFound),
+		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x,
+			storageProvisioningService).Return(errors.ConstError("try again")),
+		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x,
+			storageProvisioningService).DoAndReturn(func(ctx context.Context, s string,
+			i application.UUID, a caas.Application, v life.Value, cf CAASProvisionerFacade,
+			as ApplicationService, ss StatusService, l logger.Logger, sps StorageProvisioningService) error {
 			settingsChan <- struct{}{}
 			return nil
 		}),
@@ -430,12 +453,18 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 		}),
 
 		// appUnitsChan fired
-		ops.EXPECT().ReconcileDeadUnitScale(x, "test", s.appUUID, app, x, x, x, x).Return(errors.NotFound),
-		ops.EXPECT().ReconcileDeadUnitScale(x, "test", s.appUUID, app, x, x, x, x).Return(errors.ConstError("try again")),
-		ops.EXPECT().ReconcileDeadUnitScale(x, "test", s.appUUID, app, x, x, x, x).DoAndReturn(func(ctx context.Context, s string, i application.UUID, a caas.Application, cf CAASProvisionerFacade, as ApplicationService, ss StatusService, l logger.Logger) error {
-			appChan <- struct{}{}
-			return nil
-		}),
+		ops.EXPECT().ReconcileDeadUnitScale(x, "test", s.appUUID, app, x, x, x, x,
+			storageProvisioningService).Return(errors.NotFound),
+		ops.EXPECT().ReconcileDeadUnitScale(x, "test", s.appUUID, app, x, x, x, x,
+			storageProvisioningService).Return(errors.ConstError("try again")),
+		ops.EXPECT().ReconcileDeadUnitScale(x, "test", s.appUUID, app, x, x, x, x,
+			storageProvisioningService).
+			DoAndReturn(func(ctx context.Context, s string, i application.UUID, a caas.Application,
+				cf CAASProvisionerFacade, as ApplicationService, ss StatusService, l logger.Logger,
+				sps StorageProvisioningService) error {
+				appChan <- struct{}{}
+				return nil
+			}),
 
 		// appChan fired
 		ops.EXPECT().UpdateState(x, "test", s.appUUID, app, x, x, x, x, x, x).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, UpdateStatusState, CAASBroker, ApplicationService, StatusService, clock.Clock, logger.Logger) (UpdateStatusState, error) {
@@ -462,12 +491,17 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 				return nil
 			}),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Dying, nil),
-		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dying, x, x, x, x).DoAndReturn(func(ctx context.Context, s string, i application.UUID, a caas.Application, v life.Value, cf CAASProvisionerFacade, as ApplicationService, ss StatusService, l logger.Logger) error {
-			provisioningInfoChan <- struct{}{}
-			return nil
-		}),
+		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dying, x, x, x, x,
+			storageProvisioningService).
+			DoAndReturn(func(ctx context.Context, s string, i application.UUID, a caas.Application,
+				v life.Value, cf CAASProvisionerFacade, as ApplicationService, ss StatusService,
+				l logger.Logger, sps StorageProvisioningService) error {
+				provisioningInfoChan <- struct{}{}
+				return nil
+			}),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Dead, nil),
-		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dead, x, x, x, x).Return(nil),
+		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dead, x, x, x, x,
+			storageProvisioningService).Return(nil),
 		ops.EXPECT().AppDead(x, "test", s.appUUID, app, x, x, x, x, x).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, CAASBroker, ApplicationService, StatusService, clock.Clock, logger.Logger) error {
 			close(done)
 			return nil
