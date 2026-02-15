@@ -299,7 +299,7 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumLessThanScale(c *tc.C) {
 	app.EXPECT().State().Return(caas.ApplicationState{
 		DesiredReplicas: 6,
 	}, nil)
-	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app, nil)
 
 	willRestart, err := s.svc.CAASUnitTerminating(c.Context(), "foo/1")
 	c.Assert(err, tc.ErrorIsNil)
@@ -316,7 +316,7 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanScale(c *tc.C) {
 	app.EXPECT().State().Return(caas.ApplicationState{
 		DesiredReplicas: 1,
 	}, nil)
-	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app, nil)
 
 	willRestart, err := s.svc.CAASUnitTerminating(c.Context(), "foo/2")
 	c.Assert(err, tc.ErrorIsNil)
@@ -352,7 +352,7 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumLessThanDesired(c *tc.C) {
 	app.EXPECT().State().Return(caas.ApplicationState{
 		DesiredReplicas: 6,
 	}, nil)
-	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app, nil)
 	willRestart, err := s.svc.CAASUnitTerminating(c.Context(), "foo/2")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(willRestart, tc.IsTrue)
@@ -370,7 +370,7 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanDesired(c *tc.C)
 	app.EXPECT().State().Return(caas.ApplicationState{
 		DesiredReplicas: 1,
 	}, nil)
-	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app, nil)
 
 	willRestart, err := s.svc.CAASUnitTerminating(c.Context(), "foo/2")
 	c.Assert(err, tc.ErrorIsNil)

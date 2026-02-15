@@ -1179,8 +1179,8 @@ func (appProvider) ConstraintsValidator(ctx context.Context) (constraints.Valida
 	return constraints.NewValidator(), nil
 }
 
-func (appProvider) Application(string, caas.DeploymentType) caas.Application {
-	return &caasApplication{}
+func (appProvider) Application(string, caas.DeploymentType) (caas.Application, error) {
+	return &caasApplication{}, nil
 }
 
 type caasApplication struct {

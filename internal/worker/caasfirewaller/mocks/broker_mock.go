@@ -40,11 +40,12 @@ func (m *MockCAASBroker) EXPECT() *MockCAASBrokerMockRecorder {
 }
 
 // Application mocks base method.
-func (m *MockCAASBroker) Application(arg0 string, arg1 caas.DeploymentType) caas.Application {
+func (m *MockCAASBroker) Application(arg0 string, arg1 caas.DeploymentType) (caas.Application, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Application", arg0, arg1)
 	ret0, _ := ret[0].(caas.Application)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Application indicates an expected call of Application.
@@ -60,19 +61,19 @@ type MockCAASBrokerApplicationCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCAASBrokerApplicationCall) Return(arg0 caas.Application) *MockCAASBrokerApplicationCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockCAASBrokerApplicationCall) Return(arg0 caas.Application, arg1 error) *MockCAASBrokerApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCAASBrokerApplicationCall) Do(f func(string, caas.DeploymentType) caas.Application) *MockCAASBrokerApplicationCall {
+func (c *MockCAASBrokerApplicationCall) Do(f func(string, caas.DeploymentType) (caas.Application, error)) *MockCAASBrokerApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCAASBrokerApplicationCall) DoAndReturn(f func(string, caas.DeploymentType) caas.Application) *MockCAASBrokerApplicationCall {
+func (c *MockCAASBrokerApplicationCall) DoAndReturn(f func(string, caas.DeploymentType) (caas.Application, error)) *MockCAASBrokerApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

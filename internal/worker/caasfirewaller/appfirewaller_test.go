@@ -122,7 +122,7 @@ func (s *appFirewallerSuite) TestWorkerCleanShutdownOnApplicationRemoval(c *tc.C
 
 	brokerExp := s.broker.EXPECT()
 	brokerExp.Application(appName, caas.DeploymentStateful).Return(
-		s.brokerApp).AnyTimes()
+		s.brokerApp, nil).AnyTimes()
 
 	brokerAppExp := s.brokerApp.EXPECT()
 	// 1st change event port update
@@ -190,7 +190,7 @@ func (s *appFirewallerSuite) TestWorkerPropogatesBrokerNotFoundError(c *tc.C) {
 
 	brokerExp := s.broker.EXPECT()
 	brokerExp.Application(appName, caas.DeploymentStateful).Return(
-		s.brokerApp).AnyTimes()
+		s.brokerApp, nil).AnyTimes()
 
 	brokerAppExp := s.brokerApp.EXPECT()
 	// 1st change event port update
@@ -270,7 +270,7 @@ func (s *appFirewallerSuite) TestWorkerPortChanges(c *tc.C) {
 	).Return(gpr2, nil)
 
 	brokerExp := s.broker.EXPECT()
-	brokerExp.Application(appName, caas.DeploymentStateful).Return(s.brokerApp)
+	brokerExp.Application(appName, caas.DeploymentStateful).Return(s.brokerApp, nil)
 
 	brokerAppExp := s.brokerApp.EXPECT()
 	// 1st watcher change

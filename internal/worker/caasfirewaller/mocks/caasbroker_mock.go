@@ -205,11 +205,12 @@ func (c *MockExtCAASBrokerAnnotateUnitCall) DoAndReturn(f func(context.Context, 
 }
 
 // Application mocks base method.
-func (m *MockExtCAASBroker) Application(arg0 string, arg1 caas.DeploymentType) caas.Application {
+func (m *MockExtCAASBroker) Application(arg0 string, arg1 caas.DeploymentType) (caas.Application, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Application", arg0, arg1)
 	ret0, _ := ret[0].(caas.Application)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Application indicates an expected call of Application.
@@ -225,19 +226,19 @@ type MockExtCAASBrokerApplicationCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockExtCAASBrokerApplicationCall) Return(arg0 caas.Application) *MockExtCAASBrokerApplicationCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockExtCAASBrokerApplicationCall) Return(arg0 caas.Application, arg1 error) *MockExtCAASBrokerApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockExtCAASBrokerApplicationCall) Do(f func(string, caas.DeploymentType) caas.Application) *MockExtCAASBrokerApplicationCall {
+func (c *MockExtCAASBrokerApplicationCall) Do(f func(string, caas.DeploymentType) (caas.Application, error)) *MockExtCAASBrokerApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockExtCAASBrokerApplicationCall) DoAndReturn(f func(string, caas.DeploymentType) caas.Application) *MockExtCAASBrokerApplicationCall {
+func (c *MockExtCAASBrokerApplicationCall) DoAndReturn(f func(string, caas.DeploymentType) (caas.Application, error)) *MockExtCAASBrokerApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
