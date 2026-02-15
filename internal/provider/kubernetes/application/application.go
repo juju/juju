@@ -354,7 +354,6 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			},
 		}
 		statefulset := resources.NewStatefulSet(a.client.AppsV1().StatefulSets(a.namespace), a.namespace, a.name, sts)
-		logger.Infof(context.TODO(), "[adis] app %q has sts %+v", a.name, statefulset.Spec)
 		applier.Apply(statefulset)
 	case caas.DeploymentStateless:
 		exists := true
