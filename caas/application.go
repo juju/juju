@@ -55,6 +55,7 @@ type Application interface {
 	EnsurePVCs(
 		[]storage.KubernetesFilesystemParams,
 		map[string][]storage.KubernetesFilesystemUnitAttachmentParams,
+		[]storage.KubernetesFilesystemAttachment,
 		string,
 	) error
 
@@ -138,6 +139,11 @@ type ApplicationConfig struct {
 
 	// Filesystems is a set of parameters for filesystems that should be created.
 	Filesystems []storage.KubernetesFilesystemParams
+
+	// RealizedAttachments is a list of filesystem attachments that have been
+	// realized for the application. Each attachment contains details about
+	// the associated PVCs.
+	RealizedAttachments []storage.KubernetesFilesystemAttachment
 
 	// Devices is a set of parameters for Devices that is required.
 	Devices []devices.KubernetesDeviceParams

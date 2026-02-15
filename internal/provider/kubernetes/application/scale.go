@@ -93,15 +93,32 @@ func (a *app) UnitsToRemove(ctx context.Context, desiredScale int) ([]string, er
 func (a *app) EnsurePVCs(
 	filesystems []storage.KubernetesFilesystemParams,
 	filesystemUnitAttachments map[string][]storage.KubernetesFilesystemUnitAttachmentParams,
+	realizedAttachments []storage.KubernetesFilesystemAttachment,
 	storageUniqueID string,
 ) error {
 	applier := a.newApplier()
 
+	// Group realized attachments to extract PVC template name prefixes.
+	// Since all PVCs for the same container+storage combination share the same
+	// template name prefix (only differing by ordinal suffix), we only need one
+	// representative attachment per container+storage pair to extract the prefix.
+	// The grouping key format is "{containerName}:{storageName}".
+	// See [getPVCTemplateName] for how the prefix is extracted from the full PVC name.
+	attachments := a.groupAttachments(realizedAttachments, func(attachment storage.KubernetesFilesystemAttachment) string {
+		return fmt.Sprintf("%s:%s", attachment.ContainerName, attachment.StorageName)
+	})
+
 	pvcAndStorageNames := make([]pvcAndStorageName, 0)
 	for _, fs := range filesystems {
-		for _, attachment := range fs.Attachments {
+		for _, attachmentToFind := range fs.Attachments {
+			attachment := a.findAttachment(attachments, attachmentToFind, fs.StorageName)
+			// If attachment is nil then it means the PVC ("attachment") has not been
+			// created yet. We skip this attachment because we don't have the PVC name.
+			if attachment == nil {
+				continue
+			}
 			pvcAndStorageNames = append(pvcAndStorageNames, pvcAndStorageName{
-				pvc:     attachment.PersistentVolumeClaimTemplateName,
+				pvc:     attachment.PVCName,
 				storage: fs.StorageName,
 			})
 		}
