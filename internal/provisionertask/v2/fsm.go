@@ -7,56 +7,56 @@ import (
 	"fmt"
 )
 
-// State represents the FSM state of a machine worker.
-type State string
+// MachineState represents the FSM state of a machine worker.
+type MachineState string
 
 const (
 	// StatePending is the initial state. Machine exists but has no instance.
 	// Worker is ready to begin provisioning.
-	StatePending State = "Pending"
+	StatePending MachineState = "pending"
 
 	// StateRequestingZone indicates the worker has requested an availability zone
 	// from the AZ Coordinator and is waiting for the response.
-	StateRequestingZone State = "RequestingZone"
+	StateRequestingZone MachineState = "requesting zone"
 
 	// StateProvisioning indicates the worker has acquired a semaphore slot and is
 	// executing StartInstance followed by SetInstanceInfo. Both calls happen
 	// within this single state.
-	StateProvisioning State = "Provisioning"
+	StateProvisioning MachineState = "provisioning"
 
 	// StateRunning indicates the instance is created and registered. Worker idles,
 	// waiting for the machine to die.
-	StateRunning State = "Running"
+	StateRunning MachineState = "running"
 
 	// StateStopping indicates the worker is executing StopInstances to terminate
 	// the instance.
-	StateStopping State = "Stopping"
+	StateStopping MachineState = "stopping"
 
 	// StateRemoving indicates the worker is removing the machine record from state.
-	StateRemoving State = "Removing"
+	StateRemoving MachineState = "removing"
 
 	// StateComplete is a terminal state. Worker exits after successfully
 	// completing all operations (machine removed).
-	StateComplete State = "Complete"
+	StateComplete MachineState = "complete"
 
 	// StateError is a terminal state. Worker exits after encountering
 	// unrecoverable errors (e.g., retries exhausted).
-	StateError State = "Error"
+	StateError MachineState = "error"
 )
 
 // String returns a human-readable representation of the state.
-func (s State) String() string {
+func (s MachineState) String() string {
 	return string(s)
 }
 
 // IsTerminal returns true if the state is a terminal state (Complete or Error).
-func (s State) IsTerminal() bool {
+func (s MachineState) IsTerminal() bool {
 	return s == StateComplete || s == StateError
 }
 
 // validTransitions defines all valid state transitions in the FSM.
 // The map key is the source state, and the value is a set of valid target states.
-var validTransitions = map[State]map[State]struct{}{
+var validTransitions = map[MachineState]map[MachineState]struct{}{
 	StatePending: {
 		StateRequestingZone: {}, // Start provisioning.
 		StateRunning:        {}, // Already has instance.
@@ -64,7 +64,7 @@ var validTransitions = map[State]map[State]struct{}{
 	},
 	StateRequestingZone: {
 		StateProvisioning: {}, // Zone assigned.
-		StatePending:      {}, // Zone request failed, will retry.
+		StatePending:      {}, // Zone request failed or machine dying, will retry.
 		StateRemoving:     {}, // Machine died while requesting zone.
 		StateError:        {}, // Retries exhausted.
 	},
@@ -93,7 +93,7 @@ var validTransitions = map[State]map[State]struct{}{
 
 // CanTransitionTo returns true if transitioning from the current state to
 // the target state is valid according to the FSM rules.
-func (s State) CanTransitionTo(target State) bool {
+func (s MachineState) CanTransitionTo(target MachineState) bool {
 	targets, ok := validTransitions[s]
 	if !ok {
 		return false
@@ -103,12 +103,12 @@ func (s State) CanTransitionTo(target State) bool {
 }
 
 // ValidTargets returns the list of valid target states from the current state.
-func (s State) ValidTargets() []State {
+func (s MachineState) ValidTargets() []MachineState {
 	targets, ok := validTransitions[s]
 	if !ok {
 		return nil
 	}
-	result := make([]State, 0, len(targets))
+	result := make([]MachineState, 0, len(targets))
 	for target := range targets {
 		result = append(result, target)
 	}
@@ -118,7 +118,7 @@ func (s State) ValidTargets() []State {
 // FSM encapsulates the finite state machine logic for a machine worker.
 // It tracks the current state and enforces valid transitions.
 type FSM struct {
-	state State
+	state MachineState
 }
 
 // NewFSM creates a new FSM starting in StatePending.
@@ -127,13 +127,13 @@ func NewFSM() *FSM {
 }
 
 // State returns the current state.
-func (f *FSM) State() State {
+func (f *FSM) State() MachineState {
 	return f.state
 }
 
 // TransitionTo attempts to transition to the target state.
 // Returns an error if the transition is invalid.
-func (f *FSM) TransitionTo(target State) error {
+func (f *FSM) TransitionTo(target MachineState) error {
 	if !f.state.CanTransitionTo(target) {
 		return fmt.Errorf("invalid state transition from %s to %s (valid targets: %v)",
 			f.state, target, f.state.ValidTargets())

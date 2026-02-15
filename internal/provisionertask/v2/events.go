@@ -12,13 +12,13 @@ type MachineEventType string
 
 const (
 	// EventLifeChanged indicates the machine's life value changed.
-	EventLifeChanged MachineEventType = "LifeChanged"
+	EventLifeChanged MachineEventType = "life changed"
 
 	// EventZoneAssigned indicates the AZ Coordinator assigned a zone.
-	EventZoneAssigned MachineEventType = "ZoneAssigned"
+	EventZoneAssigned MachineEventType = "zone assigned"
 
 	// EventZoneRequestFailed indicates the zone request could not be fulfilled.
-	EventZoneRequestFailed MachineEventType = "ZoneRequestFailed"
+	EventZoneRequestFailed MachineEventType = "zone request failed"
 )
 
 // String returns a human-readable representation of the event type.
@@ -34,22 +34,19 @@ type MachineEvent struct {
 	ZoneError error      // For ZoneRequestFailed events.
 }
 
-// WorkerRequestType represents the type of request sent from workers to the main loop.
-type WorkerRequestType string
+// WorkerMessageType represents the type of message sent from workers to the main loop.
+type WorkerMessageType string
 
 const (
-	// RequestZone asks the AZ Coordinator for a zone assignment.
-	RequestZone WorkerRequestType = "RequestZone"
+	// MessageRequestZone asks the AZ Coordinator for a zone assignment.
+	MessageRequestZone WorkerMessageType = "request zone"
 
-	// RequestProvisionComplete notifies that provisioning finished.
-	RequestProvisionComplete WorkerRequestType = "RequestProvisionComplete"
-
-	// RequestCancelZone cancels a pending zone request.
-	RequestCancelZone WorkerRequestType = "RequestCancelZone"
+	// MessageProvisionComplete notifies that provisioning finished.
+	MessageProvisionComplete WorkerMessageType = "provision complete"
 )
 
-// String returns a human-readable representation of the request type.
-func (t WorkerRequestType) String() string {
+// String returns a human-readable representation of the message type.
+func (t WorkerMessageType) String() string {
 	return string(t)
 }
 
@@ -65,25 +62,23 @@ type ProvisionResultPayload struct {
 	MachineID  string
 	InstanceID string
 	ZoneName   string
-	Success    bool
-	Error      error // Only set if Success is false.
+	Error      error
 }
 
-// WorkerRequest represents requests from machine workers to the main loop.
-type WorkerRequest struct {
-	Type      WorkerRequestType
+// WorkerMessage represents messages from machine workers to the main loop.
+type WorkerMessage struct {
+	Type      WorkerMessageType
 	MachineID string
-	// Payload contains the request-specific data.
-	// For RequestZone: ZoneRequestPayload.
-	// For RequestProvisionComplete: ProvisionResultPayload.
-	// For RequestCancelZone: nil (MachineID is sufficient).
+	// Payload contains the message-specific data.
+	// For MessageRequestZone: ZoneRequestPayload.
+	// For MessageProvisionComplete: ProvisionResultPayload.
 	Payload any
 }
 
-// NewZoneRequest creates a new WorkerRequest for requesting a zone.
-func NewZoneRequest(machineID string, distGroup []string, constraints []string) WorkerRequest {
-	return WorkerRequest{
-		Type:      RequestZone,
+// NewZoneRequestMessage creates a new WorkerMessage for requesting a zone.
+func NewZoneRequestMessage(machineID string, distGroup []string, constraints []string) WorkerMessage {
+	return WorkerMessage{
+		Type:      MessageRequestZone,
 		MachineID: machineID,
 		Payload: ZoneRequestPayload{
 			MachineID:         machineID,
@@ -93,25 +88,16 @@ func NewZoneRequest(machineID string, distGroup []string, constraints []string) 
 	}
 }
 
-// NewProvisionCompleteRequest creates a new WorkerRequest for reporting provision completion.
-func NewProvisionCompleteRequest(machineID, instanceID, zoneName string, success bool, err error) WorkerRequest {
-	return WorkerRequest{
-		Type:      RequestProvisionComplete,
+// NewProvisionCompleteMessage creates a new WorkerMessage for reporting provision completion.
+func NewProvisionCompleteMessage(machineID, instanceID, zoneName string, err error) WorkerMessage {
+	return WorkerMessage{
+		Type:      MessageProvisionComplete,
 		MachineID: machineID,
 		Payload: ProvisionResultPayload{
 			MachineID:  machineID,
 			InstanceID: instanceID,
 			ZoneName:   zoneName,
-			Success:    success,
 			Error:      err,
 		},
-	}
-}
-
-// NewCancelZoneRequest creates a new WorkerRequest for canceling a zone request.
-func NewCancelZoneRequest(machineID string) WorkerRequest {
-	return WorkerRequest{
-		Type:      RequestCancelZone,
-		MachineID: machineID,
 	}
 }

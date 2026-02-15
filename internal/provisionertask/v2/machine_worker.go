@@ -37,8 +37,8 @@ type MachineWorkerConfig struct {
 	// EventsChan receives events from the main loop.
 	EventsChan <-chan MachineEvent
 
-	// RequestChan sends requests to the main loop.
-	RequestChan chan<- WorkerRequest
+	// MessageChan sends messages to the main loop.
+	MessageChan chan<- WorkerMessage
 
 	// DistributionGroup is the list of machine IDs in the same distribution group.
 	DistributionGroup []string
@@ -76,8 +76,8 @@ func (c MachineWorkerConfig) Validate() error {
 	if c.EventsChan == nil {
 		return errors.NotValidf("nil EventsChan")
 	}
-	if c.RequestChan == nil {
-		return errors.NotValidf("nil RequestChan")
+	if c.MessageChan == nil {
+		return errors.NotValidf("nil MessageChan")
 	}
 	if c.MaxRetries < 0 {
 		return errors.NotValidf("negative MaxRetries")
@@ -140,7 +140,7 @@ func (w *MachineWorker) Wait() error {
 
 // transitionTo attempts to transition to the target state.
 // It logs the transition and returns an error if invalid.
-func (w *MachineWorker) transitionTo(ctx context.Context, target State) error {
+func (w *MachineWorker) transitionTo(ctx context.Context, target MachineState) error {
 	from := w.fsm.State()
 	if err := w.fsm.TransitionTo(target); err != nil {
 		w.config.Logger.Errorf(ctx, "machine %s invalid state transition: %v", w.config.MachineID, err)
@@ -246,12 +246,22 @@ func (w *MachineWorker) handleEvent(ctx context.Context, event MachineEvent) err
 	case EventZoneRequestFailed:
 		return w.handleZoneRequestFailed(ctx, event.ZoneError)
 	default:
-		w.config.Logger.Warningf(ctx, "machine %s received unknown event type %d", w.config.MachineID, event.Type)
+		w.config.Logger.Warningf(ctx, "machine %s received unknown event type %s", w.config.MachineID, event.Type)
 		return nil
 	}
 }
 
 // handleLifeChange handles lifecycle changes from the main loop.
+//
+// Life value semantics for the provisioner:
+//   - Dying: the machine's workers in the machine agent manifold are still
+//     running and handling shutdown. The provisioner must not provision or
+//     de-provision; it waits for the machine to go dead.
+//   - Dead: the machine's workers have completed their shutdown. The
+//     provisioner can now de-provision the instance and mark the machine
+//     for removal.
+//   - The removal worker then looks for a dead machine with a dead or absent
+//     instance to actually delete the machine record.
 func (w *MachineWorker) handleLifeChange(ctx context.Context, newLife life.Value) error {
 	w.config.Logger.Debugf(ctx, "machine %s handling life change to %s in state %s",
 		w.config.MachineID, newLife, w.fsm.State())
@@ -267,9 +277,14 @@ func (w *MachineWorker) handleLifeChange(ctx context.Context, newLife life.Value
 			}
 			return w.doRemove(ctx)
 		}
+		if newLife == life.Dying {
+			// Machine is shutting down; don't provision but wait for dead.
+			w.config.Logger.Debugf(ctx, "machine %s is dying, waiting for dead", w.config.MachineID)
+			return nil
+		}
 		// life.Alive - check if already provisioned.
 		if w.instanceID != "" {
-			w.config.Logger.Debugf(ctx, "machine %s already has instance %s, transitioning to Running",
+			w.config.Logger.Debugf(ctx, "machine %s already has instance %s, transitioning to running",
 				w.config.MachineID, w.instanceID)
 			return w.transitionTo(ctx, StateRunning)
 		}
@@ -281,11 +296,17 @@ func (w *MachineWorker) handleLifeChange(ctx context.Context, newLife life.Value
 
 	case StateRequestingZone:
 		if newLife == life.Dead {
-			w.cancelZoneRequest(ctx)
 			if err := w.transitionTo(ctx, StateRemoving); err != nil {
 				return err
 			}
 			return w.doRemove(ctx)
+		}
+		if newLife == life.Dying {
+			// Machine is shutting down; abort the zone request and go
+			// back to pending. The stale zone response will be ignored
+			// when it arrives since we'll no longer be in RequestingZone.
+			w.config.Logger.Debugf(ctx, "machine %s is dying while requesting zone, returning to pending", w.config.MachineID)
+			return w.transitionTo(ctx, StatePending)
 		}
 		// Still alive, waiting for zone response.
 
@@ -293,8 +314,6 @@ func (w *MachineWorker) handleLifeChange(ctx context.Context, newLife life.Value
 		// Provisioning is a blocking operation. Life events are queued
 		// and processed after doProvision() returns. The event will be
 		// handled when we return to the event loop with a new state.
-		// Note: This is handled naturally by the event queue - no special flag
-		// needed.
 
 	case StateRunning:
 		if newLife == life.Dead {
@@ -311,6 +330,7 @@ func (w *MachineWorker) handleLifeChange(ctx context.Context, newLife life.Value
 			}
 			return w.doStop(ctx)
 		}
+		// Dying: machine agent workers are still shutting down; wait for dead.
 
 	case StateStopping, StateRemoving:
 		// Already in terminal path, ignore life changes.
@@ -372,26 +392,14 @@ func (w *MachineWorker) handleZoneRequestFailed(ctx context.Context, err error) 
 
 // requestZone sends a zone request to the main loop.
 func (w *MachineWorker) requestZone(ctx context.Context) error {
-	req := NewZoneRequest(w.config.MachineID, w.config.DistributionGroup, w.config.Constraints)
+	msg := NewZoneRequestMessage(w.config.MachineID, w.config.DistributionGroup, w.config.Constraints)
 
 	select {
-	case w.config.RequestChan <- req:
+	case w.config.MessageChan <- msg:
 		w.config.Logger.Debugf(ctx, "machine %s sent zone request", w.config.MachineID)
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
-	}
-}
-
-// cancelZoneRequest cancels a pending zone request.
-func (w *MachineWorker) cancelZoneRequest(ctx context.Context) {
-	req := NewCancelZoneRequest(w.config.MachineID)
-
-	select {
-	case w.config.RequestChan <- req:
-		w.config.Logger.Debugf(ctx, "machine %s sent cancel zone request", w.config.MachineID)
-	case <-ctx.Done():
-		w.config.Logger.Warningf(ctx, "machine %s failed to send cancel zone request: context done", w.config.MachineID)
 	}
 }
 
@@ -504,10 +512,10 @@ func (w *MachineWorker) doProvision(ctx context.Context) error {
 
 // notifyProvisionFailed sends a failure notification to the main loop.
 func (w *MachineWorker) notifyProvisionFailed(ctx context.Context, err error) {
-	req := NewProvisionCompleteRequest(w.config.MachineID, "", w.zoneName, false, err)
+	msg := NewProvisionCompleteMessage(w.config.MachineID, "", w.zoneName, err)
 
 	select {
-	case w.config.RequestChan <- req:
+	case w.config.MessageChan <- msg:
 	case <-ctx.Done():
 		w.config.Logger.Warningf(ctx, "machine %s failed to send provision failure notification", w.config.MachineID)
 	}
@@ -515,10 +523,10 @@ func (w *MachineWorker) notifyProvisionFailed(ctx context.Context, err error) {
 
 // notifyProvisionSuccess sends a success notification to the main loop.
 func (w *MachineWorker) notifyProvisionSuccess(ctx context.Context) {
-	req := NewProvisionCompleteRequest(w.config.MachineID, w.instanceID, w.zoneName, true, nil)
+	msg := NewProvisionCompleteMessage(w.config.MachineID, w.instanceID, w.zoneName, nil)
 
 	select {
-	case w.config.RequestChan <- req:
+	case w.config.MessageChan <- msg:
 	case <-ctx.Done():
 		w.config.Logger.Warningf(ctx, "machine %s failed to send provision success notification", w.config.MachineID)
 	}
