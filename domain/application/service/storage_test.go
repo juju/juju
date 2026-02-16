@@ -26,7 +26,7 @@ func setAddUnitNoopStorageExpects(
 	).Return(internal.CreateUnitStorageArg{}, nil).AnyTimes()
 	storageService.EXPECT().MakeIAASUnitStorageArgs(
 		gomock.Any(),
-	).Return(internal.IAASUnitStorageArg{}, nil).AnyTimes()
+	).Return(internal.CreateIAASUnitStorageArg{}, nil).AnyTimes()
 }
 
 // setCreateApplicationNoopStorageExpects sets on the storage service mock a set
@@ -48,7 +48,7 @@ func setCreateApplicationNoopStorageExpects(
 	).Return(internal.CreateUnitStorageArg{}, nil).AnyTimes()
 	storageService.EXPECT().MakeIAASUnitStorageArgs(
 		gomock.Any(),
-	).Return(internal.IAASUnitStorageArg{}, nil).AnyTimes()
+	).Return(internal.CreateIAASUnitStorageArg{}, nil).AnyTimes()
 	storageService.EXPECT().ValidateCharmStorage(
 		gomock.Any(), gomock.Any(),
 	).Return(nil).AnyTimes()

@@ -329,17 +329,6 @@ func (s *Service) ValidateAttachStorage(
 	storageSize uint64,
 	poolUUID domainstorage.StoragePoolUUID,
 ) error {
-	return validateAttachStorage(ctx, charmStorageDef, wantCount, storageSize, poolUUID, s.storagePoolProvider)
-}
-
-func validateAttachStorage(
-	ctx context.Context,
-	charmStorageDef internal.ValidateStorageArg,
-	wantCount uint32,
-	storageSize uint64,
-	poolUUID domainstorage.StoragePoolUUID,
-	poolProvider StoragePoolProvider,
-) error {
 	var (
 		// hasMaxCount is true when the charm storage definition has
 		// indicated that there is a maximum value it will tolerate. When
@@ -371,7 +360,7 @@ func validateAttachStorage(
 	}
 
 	charmStorageType := charm.StorageType(charmStorageDef.Type)
-	supports, err := poolProvider.CheckPoolSupportsCharmStorage(
+	supports, err := s.storagePoolProvider.CheckPoolSupportsCharmStorage(
 		ctx, poolUUID, charmStorageType,
 	)
 	if err != nil {

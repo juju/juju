@@ -1102,7 +1102,7 @@ WHERE  storage_id = $storageInstance.storage_id
 
 func (st *State) attachStorageForUnit(
 	ctx context.Context, tx *sqlair.TX, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
-	storageArg internal.UnitAttachStorageArg,
+	storageArg internal.AttachStorageToUnitArg,
 ) error {
 	// Already attached is a no-op.
 	attached, err := st.getUnitStorageAttachmentExists(ctx, tx, storageUUID, unitUUID)
@@ -1208,7 +1208,7 @@ WHERE storage_instance.uuid = $storageInstance.uuid
 // AttachStorageToCAASUnit attaches the storage instance to a CAAS unit.
 func (st *State) AttachStorageToCAASUnit(
 	ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
-	storageArg internal.UnitAttachStorageArg,
+	storageArg internal.AttachStorageToUnitArg,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1241,7 +1241,7 @@ func (st *State) AttachStorageToIAASUnit(
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := st.attachStorageForUnit(ctx, tx, storageUUID, unitUUID, storageArg.UnitAttachStorageArg)
+		err := st.attachStorageForUnit(ctx, tx, storageUUID, unitUUID, storageArg.AttachStorageToUnitArg)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -1274,7 +1274,7 @@ func (st *State) AttachStorageToIAASUnit(
 
 func (st *State) addStorageForUnit(
 	ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID,
-	storageName corestorage.Name, storageArg internal.UnitAddStorageArg,
+	storageName corestorage.Name, storageArg internal.AddStorageToUnitArg,
 ) ([]string, error) {
 	// First to the basic life check for the unit.
 	unitLifeID, _, err := st.getUnitLifeAndNetNode(ctx, tx, unitUUID.String())
@@ -1327,7 +1327,7 @@ func (st *State) addStorageForUnit(
 // AddStorageForCAASUnit adds storage instances to given CAAS unit as specified.
 func (st *State) AddStorageForCAASUnit(
 	ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
-	storageArg internal.UnitAddStorageArg,
+	storageArg internal.AddStorageToUnitArg,
 ) ([]corestorage.ID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1367,7 +1367,7 @@ func (st *State) AddStorageForIAASUnit(
 
 	var storageIDs []string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		storageIDs, err = st.addStorageForUnit(ctx, tx, unitUUID, storageName, storageArg.UnitAddStorageArg)
+		storageIDs, err = st.addStorageForUnit(ctx, tx, unitUUID, storageName, storageArg.AddStorageToUnitArg)
 		if err != nil {
 			return errors.Capture(err)
 		}

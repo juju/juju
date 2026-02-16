@@ -44,7 +44,7 @@ const MaxStorageCountPreconditonFailed = errors.ConstError("max storage count pr
 
 // ValidateStorageArg holds attributes used to validate storage.
 type ValidateStorageArg struct {
-	// Name is the name of the store.
+	// Name is the name of the storage.
 	Name string
 
 	// Type is the storage type: filesystem or block-device.
@@ -60,9 +60,9 @@ type ValidateStorageArg struct {
 	MinimumSize uint64
 }
 
-// UnitAddStorageArg represents the arguments required for add storage
+// AddStorageToUnitArg represents the arguments required for add storage
 // to a unit. This will instantiate the instances and attachments for the unit.
-type UnitAddStorageArg struct {
+type AddStorageToUnitArg struct {
 	// StorageInstances defines the new storage instances that must be created
 	// for the unit.
 	StorageInstances []CreateUnitStorageInstanceArg
@@ -83,10 +83,10 @@ type UnitAddStorageArg struct {
 }
 
 // IAASUnitAddStorageArg represents the arguments required for making storage
-// for an IAAS unit. This complements [UnitAddStorageArg], allowing for an
+// for an IAAS unit. This complements [AddStorageToUnitArg], allowing for an
 // IAAS unit to augment storage that is destined for a machine.
 type IAASUnitAddStorageArg struct {
-	UnitAddStorageArg
+	AddStorageToUnitArg
 	// FilesystemsToOwn defines filesystems that will be owned by the unit's
 	// machine.
 	FilesystemsToOwn []domainstorage.FilesystemUUID
@@ -95,9 +95,9 @@ type IAASUnitAddStorageArg struct {
 	VolumesToOwn []domainstorage.VolumeUUID
 }
 
-// UnitAttachStorageArg represents the arguments required to attach storage
+// AttachStorageToUnitArg represents the arguments required to attach storage
 // to a unit.
-type UnitAttachStorageArg struct {
+type AttachStorageToUnitArg struct {
 	// StorageToAttach defines the storage instances that should be attached to
 	// the unit.
 	StorageToAttach []CreateUnitStorageAttachmentArg
@@ -111,10 +111,10 @@ type UnitAttachStorageArg struct {
 }
 
 // IAASUnitAttachStorageArg represents the arguments required for attaching storage
-// to an IASS unit. This complements [UnitAttachStorageArg], allowing for an
+// to an IASS unit. This complements [AttachStorageToUnitArg], allowing for an
 // IAAS unit to augment storage that is destined for a machine.
 type IAASUnitAttachStorageArg struct {
-	UnitAttachStorageArg
+	AttachStorageToUnitArg
 	// FilesystemsToOwn defines filesystems that will be owned by the unit's
 	// machine.
 	FilesystemsToOwn []domainstorage.FilesystemUUID
@@ -160,11 +160,11 @@ type CreateUnitStorageArg struct {
 	StorageToOwn []domainstorage.StorageInstanceUUID
 }
 
-// IAASUnitStorageArg represents the arguments required to describe storage
+// CreateIAASUnitStorageArg represents the arguments required to describe storage
 // for an IAAS unit. This complements base args [CreateUnitStorageArg],
-// [UnitAddStorageArg], or [UnitAttachStorageArg] allowing for an
+// [AddStorageToUnitArg], or [AttachStorageToUnitArg] allowing for an
 // IAAS unit to augment storage that is destined for a machine.
-type IAASUnitStorageArg struct {
+type CreateIAASUnitStorageArg struct {
 	// FilesystemsToOwn defines filesystems that will be owned by the unit's
 	// machine.
 	FilesystemsToOwn []domainstorage.FilesystemUUID

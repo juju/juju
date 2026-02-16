@@ -13,10 +13,13 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
@@ -399,7 +402,7 @@ func (s *serviceSuite) TestMakeUnitAddStorageArgs(c *tc.C) {
 		expectedStorageToOwn = append(expectedStorageToOwn, si.UUID)
 	}
 
-	c.Check(arg, createUnitStorageArgChecker(), internal.UnitAddStorageArg{
+	c.Check(arg, createUnitStorageArgChecker(), internal.AddStorageToUnitArg{
 		StorageInstances: expectedStorageInstances,
 		StorageToAttach:  expectedStorageToAttach,
 		StorageToOwn:     expectedStorageToOwn,
@@ -444,7 +447,7 @@ func (s *serviceSuite) TestMakeUnitAttachStorageArgs(c *tc.C) {
 
 	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
 
-	arg, err := svc.MakeUnitAttachStorageArgs(
+	attachArg, err := svc.MakeUnitAttachStorageArgs(
 		c.Context(),
 		unitUUID,
 		storageUUID,
@@ -494,7 +497,38 @@ func (s *serviceSuite) TestMakeUnitAttachStorageArgs(c *tc.C) {
 		}
 	}
 
-	c.Check(arg, createUnitStorageArgChecker(), internal.UnitAttachStorageArg{
+	arg := internal.AttachStorageToUnitArg{
+		StorageToAttach: attachArg,
+	}
+	c.Check(arg, createUnitStorageArgChecker(), internal.AttachStorageToUnitArg{
 		StorageToAttach: expectedStorageToAttach,
+	})
+}
+
+func (s *serviceSuite) TestValidateAttachStorageExceedMax(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	charmStorageDef := internal.ValidateStorageArg{
+		CountMin:    0,
+		CountMax:    2,
+		Name:        "st1",
+		MinimumSize: 1024,
+		Type:        internalcharm.StorageBlock,
+	}
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+
+	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
+	err := svc.ValidateAttachStorage(
+		c.Context(), charmStorageDef, 3, 1024, poolUUID,
+	)
+
+	errVal, is := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
+	c.Check(is, tc.IsTrue)
+	c.Check(errVal, tc.DeepEquals, applicationerrors.StorageCountLimitExceeded{
+		Maximum:     ptr(2),
+		Minimum:     0,
+		Requested:   3,
+		StorageName: "st1",
 	})
 }

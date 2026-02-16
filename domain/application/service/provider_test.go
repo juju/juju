@@ -3181,7 +3181,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 			Size:     ptr(uint64(6)),
 		},
 	})
-	unitStorageArgs := internal.UnitAddStorageArg{
+	unitStorageArgs := internal.AddStorageToUnitArg{
 		StorageInstances: []internal.CreateUnitStorageInstanceArg{{
 			Name: "pgdata",
 		}},
@@ -3208,15 +3208,15 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 			}
 		})
 	s.storageService.EXPECT().MakeIAASUnitStorageArgs(storageInst).
-		Return(internal.IAASUnitStorageArg{
+		Return(internal.CreateIAASUnitStorageArg{
 			FilesystemsToOwn: fsToOwn,
 			VolumesToOwn:     volToOwn,
 		}, nil)
 
 	s.state.EXPECT().AddStorageForIAASUnit(gomock.Any(), unitUUID, corestorage.Name("pgdata"), internal.IAASUnitAddStorageArg{
-		UnitAddStorageArg: unitStorageArgs,
-		FilesystemsToOwn:  fsToOwn,
-		VolumesToOwn:      volToOwn,
+		AddStorageToUnitArg: unitStorageArgs,
+		FilesystemsToOwn:    fsToOwn,
+		VolumesToOwn:        volToOwn,
 	})
 
 	_, err := s.service.AddStorageForIAASUnit(c.Context(), "pgdata", unitUUID, uint32(10), storage.AddUnitStorageOverride{
@@ -3343,7 +3343,7 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnit(c *tc.C) {
 			Size:     ptr(uint64(6)),
 		},
 	})
-	unitStorageArgs := internal.UnitAddStorageArg{
+	unitStorageArgs := internal.AddStorageToUnitArg{
 		StorageInstances: []internal.CreateUnitStorageInstanceArg{{
 			Name: "pgdata",
 		}},
@@ -3464,23 +3464,19 @@ func (s *providerServiceSuite) TestAttachStorageForIAASUnit(c *tc.C) {
 	}, uint32(67), uint64(6), poolUUID).
 		Return(nil)
 
-	unitStorageArgs := internal.UnitAttachStorageArg{
-		StorageToAttach: []internal.CreateUnitStorageAttachmentArg{{
-			UUID: saUUID,
-			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
-				FilesystemUUID: fsUUID,
-				ProvisionScope: 1,
-			},
-			StorageInstanceUUID: siUUID,
-		}},
-		StorageName:        "pgdata",
-		CountLessThanEqual: 665,
-	}
+	storageToAttach := []internal.CreateUnitStorageAttachmentArg{{
+		UUID: saUUID,
+		FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
+			FilesystemUUID: fsUUID,
+			ProvisionScope: 1,
+		},
+		StorageInstanceUUID: siUUID,
+	}}
 	fsToOwn := []domainstorage.FilesystemUUID{tc.Must(c, domainstorage.NewFilesystemUUID)}
 	volToOwn := []domainstorage.VolumeUUID{tc.Must(c, domainstorage.NewVolumeUUID)}
 
 	s.storageService.EXPECT().MakeUnitAttachStorageArgs(gomock.Any(), unitUUID, siUUID).
-		Return(unitStorageArgs, nil)
+		Return(storageToAttach, nil)
 	storageInst := []internal.UnitStorageInstanceArg{{
 		Filesystem: &internal.CreateUnitStorageFilesystemArg{
 			UUID:           fsUUID,
@@ -3489,15 +3485,20 @@ func (s *providerServiceSuite) TestAttachStorageForIAASUnit(c *tc.C) {
 		UUID: siUUID,
 	}}
 	s.storageService.EXPECT().MakeIAASUnitStorageArgs(storageInst).
-		Return(internal.IAASUnitStorageArg{
+		Return(internal.CreateIAASUnitStorageArg{
 			FilesystemsToOwn: fsToOwn,
 			VolumesToOwn:     volToOwn,
 		}, nil)
 
+	unitStorageArgs := internal.AttachStorageToUnitArg{
+		StorageToAttach:    storageToAttach,
+		StorageName:        "pgdata",
+		CountLessThanEqual: 665,
+	}
 	s.state.EXPECT().AttachStorageToIAASUnit(gomock.Any(), siUUID, unitUUID, internal.IAASUnitAttachStorageArg{
-		UnitAttachStorageArg: unitStorageArgs,
-		FilesystemsToOwn:     fsToOwn,
-		VolumesToOwn:         volToOwn,
+		AttachStorageToUnitArg: unitStorageArgs,
+		FilesystemsToOwn:       fsToOwn,
+		VolumesToOwn:           volToOwn,
 	})
 
 	err := s.service.AttachStorageToIAASUnit(c.Context(), siUUID, unitUUID)
@@ -3599,21 +3600,22 @@ func (s *providerServiceSuite) TestAttachStorageForCAASUnit(c *tc.C) {
 	}, uint32(67), uint64(6), poolUUID).
 		Return(nil)
 
-	unitStorageArgs := internal.UnitAttachStorageArg{
+	storageToAttach := []internal.CreateUnitStorageAttachmentArg{{
+		FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
+			FilesystemUUID: fsUUUID,
+			ProvisionScope: 1,
+		},
+		StorageInstanceUUID: siUUID,
+	}}
+	unitStorageArgs := internal.AttachStorageToUnitArg{
 		// UUID
-		StorageToAttach: []internal.CreateUnitStorageAttachmentArg{{
-			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
-				FilesystemUUID: fsUUUID,
-				ProvisionScope: 1,
-			},
-			StorageInstanceUUID: siUUID,
-		}},
+		StorageToAttach:    storageToAttach,
 		StorageName:        "pgdata",
 		CountLessThanEqual: 665,
 	}
 
 	s.storageService.EXPECT().MakeUnitAttachStorageArgs(gomock.Any(), unitUUID, siUUID).
-		Return(unitStorageArgs, nil)
+		Return(storageToAttach, nil)
 	s.state.EXPECT().AttachStorageToCAASUnit(gomock.Any(), siUUID, unitUUID, unitStorageArgs)
 
 	err := s.service.AttachStorageToCAASUnit(c.Context(), siUUID, unitUUID)

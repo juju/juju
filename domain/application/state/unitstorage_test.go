@@ -492,7 +492,7 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnit(c *tc.C) {
 	}
 
 	gotIDs, err := u.state.AddStorageForIAASUnit(c.Context(), unitUUID, "st1", internal.IAASUnitAddStorageArg{
-		UnitAddStorageArg: internal.UnitAddStorageArg{
+		AddStorageToUnitArg: internal.AddStorageToUnitArg{
 			StorageInstances: unitStorageToCreate,
 			StorageToAttach:  unitStorageToAttach,
 			StorageToOwn:     []domainstorage.StorageInstanceUUID{si1UUID, si2UUID},
@@ -605,7 +605,7 @@ func (u *unitStorageSuite) TestAttachStorageToIAASUnit(c *tc.C) {
 	c.Assert(exists, tc.IsFalse)
 
 	err = u.state.AttachStorageToIAASUnit(c.Context(), siUUID, unitUUID, internal.IAASUnitAttachStorageArg{
-		UnitAttachStorageArg: internal.UnitAttachStorageArg{
+		AttachStorageToUnitArg: internal.AttachStorageToUnitArg{
 			StorageToAttach: unitStorageToAttach,
 		},
 		FilesystemsToOwn: []domainstorage.FilesystemUUID{fsUUID},

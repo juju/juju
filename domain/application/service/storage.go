@@ -111,11 +111,11 @@ type StorageService interface {
 		existingStorageAttachments []internal.StorageAttachmentComposition,
 	) (internal.CreateUnitStorageArg, error)
 
-	// MakeIAASUnitStorageArgs returns [internal.IAASUnitStorageArg] that
+	// MakeIAASUnitStorageArgs returns [internal.CreateIAASUnitStorageArg] that
 	// complement the unit storage arguments provided for IAAS units.
 	MakeIAASUnitStorageArgs(
 		storageInst []internal.UnitStorageInstanceArg,
-	) (internal.IAASUnitStorageArg, error)
+	) (internal.CreateIAASUnitStorageArg, error)
 
 	// MakeUnitAddStorageArgs creates the storage arguments required to
 	// add storage to a unit. This is similar to [MakeUnitStorageArgs]
@@ -127,7 +127,7 @@ type StorageService interface {
 		unitUUID coreunit.UUID,
 		addCount uint32,
 		storageDirectives application.StorageDirective,
-	) (internal.UnitAddStorageArg, error)
+	) (internal.AddStorageToUnitArg, error)
 
 	// ValidateApplicationStorageDirectiveOverrides checks a set of storage
 	// directive overrides to make sure they are valid with respect to the charms
@@ -197,5 +197,5 @@ type StorageService interface {
 		ctx context.Context,
 		unitUUID coreunit.UUID,
 		storageUUID domainstorage.StorageInstanceUUID,
-	) (internal.UnitAttachStorageArg, error)
+	) ([]internal.CreateUnitStorageAttachmentArg, error)
 }

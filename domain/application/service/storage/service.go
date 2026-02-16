@@ -810,12 +810,12 @@ func (s Service) MakeUnitStorageArgs(
 	}, nil
 }
 
-// MakeIAASUnitStorageArgs returns [internal.IAASUnitStorageArg] that
+// MakeIAASUnitStorageArgs returns [internal.CreateIAASUnitStorageArg] that
 // complement the unit storage arguments provided for IAAS units.
 func (s Service) MakeIAASUnitStorageArgs(
 	storageInst []internal.UnitStorageInstanceArg,
-) (internal.IAASUnitStorageArg, error) {
-	var arg internal.IAASUnitStorageArg
+) (internal.CreateIAASUnitStorageArg, error) {
+	var arg internal.CreateIAASUnitStorageArg
 	for _, v := range storageInst {
 		// TODO(storage): refactor this to use the storage instance composition
 		// calculated from the storageprovisioning domain.
@@ -831,7 +831,7 @@ func (s Service) MakeIAASUnitStorageArgs(
 		s, err := domainstorageprov.CalculateStorageInstanceOwnershipScope(
 			comp)
 		if err != nil {
-			return internal.IAASUnitStorageArg{}, errors.Errorf(
+			return internal.CreateIAASUnitStorageArg{}, errors.Errorf(
 				"calculating storage ownership for storage instance %q: %w",
 				v.UUID, err,
 			)
@@ -864,7 +864,7 @@ func (s Service) MakeUnitAddStorageArgs(
 	unitUUID coreunit.UUID,
 	addCount uint32,
 	sd application.StorageDirective,
-) (internal.UnitAddStorageArg, error) {
+) (internal.AddStorageToUnitArg, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -888,14 +888,14 @@ func (s Service) MakeUnitAddStorageArgs(
 		sd,
 	)
 	if err != nil {
-		return internal.UnitAddStorageArg{}, errors.Errorf(
+		return internal.AddStorageToUnitArg{}, errors.Errorf(
 			"making new storage %q instance args: %w", sd.Name, err,
 		)
 	}
 
 	attachNetNodeUUID, err := s.st.GetUnitNetNodeUUID(ctx, unitUUID)
 	if err != nil {
-		return internal.UnitAddStorageArg{}, errors.Errorf("getting unit net node uuid: %w", err)
+		return internal.AddStorageToUnitArg{}, errors.Errorf("getting unit net node uuid: %w", err)
 	}
 
 	// Allocate capacity we know we are going to need.
@@ -912,7 +912,7 @@ func (s Service) MakeUnitAddStorageArgs(
 		)
 
 		if err != nil {
-			return internal.UnitAddStorageArg{}, errors.Errorf(
+			return internal.AddStorageToUnitArg{}, errors.Errorf(
 				"making storage attachment arguments for new storage instance: %w", err,
 			)
 		}
@@ -922,7 +922,7 @@ func (s Service) MakeUnitAddStorageArgs(
 		rvalInstances = append(rvalInstances, inst)
 	}
 
-	return internal.UnitAddStorageArg{
+	return internal.AddStorageToUnitArg{
 		StorageInstances: rvalInstances,
 		StorageToAttach:  rvalToAttach,
 		StorageToOwn:     rvalToOwn,
@@ -1028,7 +1028,7 @@ func (s Service) MakeUnitAttachStorageArgs(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
 	storageInstanceUUID domainstorage.StorageInstanceUUID,
-) (internal.UnitAttachStorageArg, error) {
+) ([]internal.CreateUnitStorageAttachmentArg, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1036,14 +1036,14 @@ func (s Service) MakeUnitAttachStorageArgs(
 
 	instComposition, err := s.st.GetStorageInstanceCompositionByUUID(ctx, storageInstanceUUID)
 	if err != nil {
-		return internal.UnitAttachStorageArg{}, errors.Errorf(
+		return nil, errors.Errorf(
 			"getting composition details for storage %q: %w", storageInstanceUUID, err,
 		)
 	}
 
 	attachNetNodeUUID, err := s.st.GetUnitNetNodeUUID(ctx, unitUUID)
 	if err != nil {
-		return internal.UnitAttachStorageArg{}, errors.Errorf("getting unit net node uuid: %w", err)
+		return nil, errors.Errorf("getting unit net node uuid: %w", err)
 	}
 
 	// Allocate capacity we know we are going to need.
@@ -1068,14 +1068,12 @@ func (s Service) MakeUnitAttachStorageArgs(
 			domainnetwork.NetNodeUUID(attachNetNodeUUID), instArg,
 		)
 		if err != nil {
-			return internal.UnitAttachStorageArg{}, errors.Errorf(
+			return nil, errors.Errorf(
 				"making storage attachment arguments for new storage instance: %w", err,
 			)
 		}
 		rvalToAttach = append(rvalToAttach, storageAttachArg)
 	}
 
-	return internal.UnitAttachStorageArg{
-		StorageToAttach: rvalToAttach,
-	}, nil
+	return rvalToAttach, nil
 }

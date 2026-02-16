@@ -229,7 +229,7 @@ type UnitState interface {
 	// when the requested storage falls outside of the bounds defined by the charm.
 	AddStorageForCAASUnit(
 		ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
-		storageArg internal.UnitAddStorageArg,
+		storageArg internal.AddStorageToUnitArg,
 	) ([]corestorage.ID, error)
 
 	// AddStorageForIAASUnit adds storage instances to given IAAS unit as specified.
@@ -277,7 +277,7 @@ type UnitState interface {
 	// when the requested storage falls outside of the bounds defined by the charm.
 	AttachStorageToCAASUnit(
 		ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
-		storageArg internal.UnitAttachStorageArg) error
+		storageArg internal.AttachStorageToUnitArg) error
 
 	// AttachStorageToIAASUnit attaches the storage instance to an IAAS unit.
 	// The following error types can be expected:
@@ -385,11 +385,11 @@ func (s *ProviderService) makeIAASUnitArgs(
 				NetNodeUUID:   machineNetNodeUUID,
 				UnitStatusArg: s.makeIAASUnitStatusArgs(),
 			},
-			IAASUnitStorageArg: iassUnitStorageArgs,
-			Platform:           platform,
-			Nonce:              u.Nonce,
-			MachineNetNodeUUID: machineNetNodeUUID,
-			MachineUUID:        machineUUID,
+			CreateIAASUnitStorageArg: iassUnitStorageArgs,
+			Platform:                 platform,
+			Nonce:                    u.Nonce,
+			MachineNetNodeUUID:       machineNetNodeUUID,
+			MachineUUID:              machineUUID,
 		}
 		args[i] = arg
 	}

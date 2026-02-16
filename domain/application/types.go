@@ -209,7 +209,7 @@ type AddUnitArg struct {
 
 // AddIAASUnitArg contains parameters for adding a IAAS unit to state.
 type AddIAASUnitArg struct {
-	internal.IAASUnitStorageArg
+	internal.CreateIAASUnitStorageArg
 	AddUnitArg
 	Platform deployment.Platform
 
@@ -272,7 +272,7 @@ type SubordinateUnitArg struct {
 
 type SubordinateIAASUnitArg struct {
 	SubordinateUnitArg
-	internal.IAASUnitStorageArg
+	internal.CreateIAASUnitStorageArg
 }
 
 // UpdateCAASUnitParams contains parameters for updating a CAAS unit.
