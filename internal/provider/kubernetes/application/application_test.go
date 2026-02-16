@@ -639,21 +639,21 @@ func (s *applicationSuite) TestEnsureStatefulDeletesOrphanedStatefulSet(c *gc.C)
 		},
 	}
 	_, err := s.client.AppsV1().StatefulSets(s.namespace).Create(
-		context.TODO(), orphanSts, metav1.CreateOptions{},
+		context.Background(), orphanSts, metav1.CreateOptions{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Advance the clock in a goroutine to unblock waitForStatefulSetDeletion.
-	// The wait loop creates two timers: a 2-minute timeout and a 3-second poll.
-	go func() {
-		err := s.clock.WaitAdvance(3*time.Second, 10*time.Second, 2)
-		c.Check(err, jc.ErrorIsNil)
-	}()
+	// Set up a mock watcher so waitForStatefulSetDeletion can proceed.
+	// The fake client deletes synchronously, so by the time the watcher's
+	// initial event fires and getStatefulSet is called, the StatefulSet
+	// is already gone.
+	w, _ := k8swatchertest.NewKubernetesTestWatcher()
+	s.k8sWatcherFn = k8swatchertest.NewKubernetesTestWatcherFunc(w)
 
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, true, false, "", func() {
 			ss, err := s.client.AppsV1().StatefulSets(s.namespace).Get(
-				context.TODO(), s.appName, metav1.GetOptions{},
+				context.Background(), s.appName, metav1.GetOptions{},
 			)
 			c.Assert(err, jc.ErrorIsNil)
 
@@ -706,7 +706,7 @@ func (s *applicationSuite) TestEnsureStatefulSkipsOrphanNotOwnedByJuju(c *gc.C) 
 		},
 	}
 	_, err := s.client.AppsV1().StatefulSets(s.namespace).Create(
-		context.TODO(), orphanSts, metav1.CreateOptions{},
+		context.Background(), orphanSts, metav1.CreateOptions{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -715,7 +715,7 @@ func (s *applicationSuite) TestEnsureStatefulSkipsOrphanNotOwnedByJuju(c *gc.C) 
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, true, false, "", func() {
 			ss, err := s.client.AppsV1().StatefulSets(s.namespace).Get(
-				context.TODO(), s.appName, metav1.GetOptions{},
+				context.Background(), s.appName, metav1.GetOptions{},
 			)
 			c.Assert(err, jc.ErrorIsNil)
 
@@ -758,7 +758,7 @@ func (s *applicationSuite) TestEnsureStatefulSkipsOrphanFromDifferentModel(c *gc
 		},
 	}
 	_, err := s.client.AppsV1().StatefulSets(s.namespace).Create(
-		context.TODO(), orphanSts, metav1.CreateOptions{},
+		context.Background(), orphanSts, metav1.CreateOptions{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -767,7 +767,7 @@ func (s *applicationSuite) TestEnsureStatefulSkipsOrphanFromDifferentModel(c *gc
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, true, false, "", func() {
 			ss, err := s.client.AppsV1().StatefulSets(s.namespace).Get(
-				context.TODO(), s.appName, metav1.GetOptions{},
+				context.Background(), s.appName, metav1.GetOptions{},
 			)
 			c.Assert(err, jc.ErrorIsNil)
 

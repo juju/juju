@@ -289,26 +289,21 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		// allow updating volumeClaimTemplates on an existing StatefulSet,
 		// so we must delete and recreate it to avoid a PVC name mismatch.
 		// See https://github.com/juju/juju/issues/21722.
-		if exists {
-			annKey := utils.AnnotationKeyApplicationUUID(a.labelVersion)
-			existingUID := existingSts.GetAnnotations()[annKey]
-			if existingUID != "" && config.StorageUniqueID != "" && existingUID != config.StorageUniqueID &&
-				a.isStatefulSetOwnedByJuju(existingSts) {
-				logger.Infof("deleting orphaned statefulset %q (storage UID %q does not match expected %q)", a.name, existingUID, config.StorageUniqueID)
-				if delErr := existingSts.Delete(context.Background()); delErr != nil && !errors.IsNotFound(delErr) {
-					return errors.Annotatef(delErr, "deleting orphaned statefulset %q", a.name)
-				}
-				// Wait for the StatefulSet to be fully removed.
-				// Kubernetes foreground deletion is async — the resource
-				// persists with a deletionTimestamp until dependents are gone.
-				if err := a.waitForStatefulSetDeletion(); err != nil {
-					return errors.Trace(err)
-				}
-				// Keep exists=true so that numPods stays nil below.
-				// With nil Replicas, Kubernetes defaults to 1 replica
-				// on creation. The provisioner's EnsureScale will
-				// correct the replica count if needed.
+		if exists && a.shouldDeleteExistingStatefulSet(existingSts, config.StorageUniqueID) {
+			logger.Infof("deleting orphaned statefulset %q", a.name)
+			if delErr := existingSts.Delete(context.TODO()); delErr != nil && !errors.IsNotFound(delErr) {
+				return errors.Annotatef(delErr, "deleting orphaned statefulset %q", a.name)
 			}
+			// Wait for the StatefulSet to be fully removed.
+			// Kubernetes foreground deletion is async — the resource
+			// persists with a deletionTimestamp until dependents are gone.
+			if err := a.waitForStatefulSetDeletion(); err != nil {
+				return errors.Trace(err)
+			}
+			// Keep exists=true so that numPods stays nil below.
+			// With nil Replicas, Kubernetes defaults to 1 replica
+			// on creation. The provisioner's EnsureScale will
+			// correct the replica count if needed.
 		}
 
 		var numPods *int32
@@ -887,40 +882,84 @@ func (a *app) getStatefulSet() (*resources.StatefulSet, error) {
 	return ss, nil
 }
 
-// waitForStatefulSetDeletion polls until the StatefulSet for this application
+// watchStatefulSet returns a watcher that fires on changes to this
+// application's StatefulSet.
+func (a *app) watchStatefulSet() (k8swatcher.KubernetesNotifyWatcher, error) {
+	factory := informers.NewSharedInformerFactoryWithOptions(a.client, 0,
+		informers.WithNamespace(a.namespace),
+		informers.WithTweakListOptions(func(o *metav1.ListOptions) {
+			o.FieldSelector = a.fieldSelector()
+		}),
+	)
+	return a.newWatcher(factory.Apps().V1().StatefulSets().Informer(), a.name, a.clock)
+}
+
+// waitForStatefulSetDeletion watches until the StatefulSet for this application
 // is fully removed from Kubernetes. This is needed because foreground deletion
 // is async — the resource persists with a deletionTimestamp until all
 // dependents (pods) are terminated.
 func (a *app) waitForStatefulSetDeletion() error {
+	// Check before starting the watcher in case it's already gone.
+	_, err := a.getStatefulSet()
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	w, err := a.watchStatefulSet()
+	if err != nil {
+		return errors.Annotatef(err, "watching statefulset %q for deletion", a.name)
+	}
+	defer w.Kill()
+
 	timeout := a.clock.After(2 * time.Minute)
 	for {
 		select {
 		case <-timeout:
 			return errors.Errorf("timed out waiting for orphaned statefulset %q to be deleted", a.name)
-		case <-a.clock.After(3 * time.Second):
-		}
-		_, err := a.getStatefulSet()
-		if errors.IsNotFound(err) {
-			return nil
-		}
-		if err != nil {
-			return errors.Trace(err)
+		case _, ok := <-w.Changes():
+			if !ok {
+				return errors.Errorf("statefulset watcher closed unexpectedly for %q", a.name)
+			}
+			_, err := a.getStatefulSet()
+			if errors.IsNotFound(err) {
+				return nil
+			}
+			if err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 }
 
-// isStatefulSetOwnedByJuju checks that the StatefulSet is managed by Juju
-// and belongs to the current model before allowing deletion.
-func (a *app) isStatefulSetOwnedByJuju(sts *resources.StatefulSet) bool {
+// shouldDeleteExistingStatefulSet checks whether the existing StatefulSet is an
+// orphan from a previous deployment that must be deleted before recreating.
+// It compares the storage unique ID annotation, verifies Juju ownership, and
+// confirms the StatefulSet belongs to the current model.
+func (a *app) shouldDeleteExistingStatefulSet(sts *resources.StatefulSet, expectedStorageUID string) bool {
+	if expectedStorageUID == "" {
+		return false
+	}
+	stsAnnotations := sts.GetAnnotations()
+	annKey := utils.AnnotationKeyApplicationUUID(a.labelVersion)
+	existingUID := stsAnnotations[annKey]
+	if existingUID == "" || existingUID == expectedStorageUID {
+		return false
+	}
+	// Only delete if the StatefulSet is managed by Juju and belongs to
+	// the current model, to avoid deleting resources we don't own.
 	stsLabels := sts.GetLabels()
 	if stsLabels[constants.LabelKubernetesAppManaged] != "juju" {
 		return false
 	}
-	stsAnnotations := sts.GetAnnotations()
 	modelUUIDKey := utils.AnnotationModelUUIDKey(a.labelVersion)
 	if stsAnnotations[modelUUIDKey] != a.modelUUID {
 		return false
 	}
+	logger.Infof("detected orphaned statefulset %q: storage UID %q does not match expected %q",
+		a.name, existingUID, expectedStorageUID)
 	return true
 }
 
