@@ -441,9 +441,7 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 		}
 		currentLatestRevision := metadataDoc.LatestRevision
 		if err := s.updateSecretMetadataDoc(&metadataDoc, &p); err != nil {
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+			return nil, errors.Trace(err)
 		}
 		ops = append(ops, []txn.Op{
 			{
@@ -1982,6 +1980,8 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 
 	var doc secretConsumerDoc
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		var ops []txn.Op
+
 		var currentLatestRevision int
 		if localSecret {
 			var metadataDoc secretMetadataDoc
@@ -1993,14 +1993,17 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 				return nil, errors.Trace(err)
 			}
 			currentLatestRevision = metadataDoc.LatestRevision
+			ops = append(ops, txn.Op{
+				C:      secretMetadataC,
+				Id:     metadataDoc.DocID,
+				Assert: bson.D{{"latest-revision", currentLatestRevision}},
+			})
 		}
 		err := secretConsumersCollection.FindId(key).One(&doc)
 		if err != nil && err != mgo.ErrNotFound {
 			return nil, errors.Trace(err)
 		}
 		create := err != nil
-
-		var ops []txn.Op
 
 		if metadata.Label != "" && (create || metadata.Label != doc.Label) {
 			uniqueLabelOps, err := st.uniqueSecretConsumerLabelOps(consumer, metadata.Label)
@@ -2166,7 +2169,7 @@ func (st *State) secretUpdateConsumersOps(coll string, uri *secrets.URI, newRevi
 		ops = append(ops, txn.Op{
 			C:      coll,
 			Id:     doc.DocID,
-			Assert: txn.DocExists,
+			Assert: bson.D{{"current-revision", doc.CurrentRevision}},
 			Update: bson.M{"$set": bson.M{"latest-revision": newRevision}},
 		})
 	}

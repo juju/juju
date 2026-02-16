@@ -2097,6 +2097,8 @@ func (s *SecretsSuite) TestSaveSecretConsumerConcurrent(c *gc.C) {
 }
 
 func (s *SecretsSuite) TestSaveSecretConsumerConcurrentUpdate(c *gc.C) {
+	defer state.SetBeforeHooks(c, s.State, nil)
+
 	cp := state.CreateSecretParams{
 		Version: 1,
 		Owner:   s.owner.Tag(),
@@ -2146,7 +2148,8 @@ func (s *SecretsSuite) TestSaveSecretConsumerConcurrentUpdate(c *gc.C) {
 }
 
 func (s *SecretsSuite) TestUpdateConcurrentSaveSecretConsumer(c *gc.C) {
-	c.Skip("TODO - this condition cannot yet be detected")
+	defer state.SetBeforeHooks(c, s.State, nil)
+
 	cp := state.CreateSecretParams{
 		Version: 1,
 		Owner:   s.owner.Tag(),
@@ -2181,7 +2184,7 @@ func (s *SecretsSuite) TestUpdateConcurrentSaveSecretConsumer(c *gc.C) {
 			CurrentRevision: 2,
 			LatestRevision:  2,
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Check(err, jc.ErrorIsNil)
 	})
 	_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
