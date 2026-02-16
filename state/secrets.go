@@ -439,17 +439,15 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 			}
 			ops = append(ops, uniqueLabelOps...)
 		}
-		currentRevision := metadataDoc.LatestRevision
+		currentLatestRevision := metadataDoc.LatestRevision
 		if err := s.updateSecretMetadataDoc(&metadataDoc, &p); err != nil {
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+			return nil, errors.Trace(err)
 		}
 		ops = append(ops, []txn.Op{
 			{
 				C:      secretMetadataC,
 				Id:     metadataDoc.DocID,
-				Assert: bson.D{{"latest-revision", currentRevision}},
+				Assert: bson.D{{"latest-revision", currentLatestRevision}},
 				Update: bson.M{"$set": metadataDoc},
 			},
 		}...)
@@ -497,7 +495,7 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 
 			// Saving a new revision might result in the previous latest revision
 			// being obsolete if it had not been read yet.
-			obsoleteOps, err := s.st.markObsoleteRevisionOps(uri, "", revisionDoc.Revision)
+			obsoleteOps, err := s.st.markObsoleteRevisionOps(uri, "", revisionDoc.Revision, currentLatestRevision)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1974,24 +1972,38 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 	key := st.secretConsumerKey(uri, consumer.String())
 	secretConsumersCollection, closer := st.db().GetCollection(secretConsumersC)
 	defer closer()
+	secretMetadataCollection, closer := st.db().GetCollection(secretMetadataC)
+	defer closer()
 
 	// Cross model secrets do not exist in this model.
 	localSecret := uri.IsLocal(st.ModelUUID())
 
 	var doc secretConsumerDoc
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		var ops []txn.Op
+
+		var currentLatestRevision int
 		if localSecret {
-			if err := st.checkExists(uri); err != nil {
+			var metadataDoc secretMetadataDoc
+			err := secretMetadataCollection.FindId(uri.ID).One(&metadataDoc)
+			if err == mgo.ErrNotFound {
+				return nil, errors.NotFoundf("secret %q", uri.String())
+			}
+			if err != nil {
 				return nil, errors.Trace(err)
 			}
+			currentLatestRevision = metadataDoc.LatestRevision
+			ops = append(ops, txn.Op{
+				C:      secretMetadataC,
+				Id:     metadataDoc.DocID,
+				Assert: bson.D{{"latest-revision", currentLatestRevision}},
+			})
 		}
 		err := secretConsumersCollection.FindId(key).One(&doc)
 		if err != nil && err != mgo.ErrNotFound {
 			return nil, errors.Trace(err)
 		}
 		create := err != nil
-
-		var ops []txn.Op
 
 		if metadata.Label != "" && (create || metadata.Label != doc.Label) {
 			uniqueLabelOps, err := st.uniqueSecretConsumerLabelOps(consumer, metadata.Label)
@@ -2001,20 +2013,21 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 			ops = append(ops, uniqueLabelOps...)
 		}
 		if create {
-			ops = append(ops, txn.Op{
-				C:      secretConsumersC,
-				Id:     key,
-				Assert: txn.DocMissing,
-				Insert: secretConsumerDoc{
-					DocID:           key,
-					ConsumerTag:     consumer.String(),
-					Label:           metadata.Label,
-					CurrentRevision: metadata.CurrentRevision,
-					LatestRevision:  metadata.LatestRevision,
-				},
-			})
-
+			// For remote secrets, LatestRevision is passed in from the
+			// offering model, and for local secrets, it is loaded from the
+			// secret metadata document.
+			// In both cases, we want to set it to the current latest
+			// revision when creating the consumer document, so that the
+			// consumer watcher can be triggered correctly.
+			consumerDoc := secretConsumerDoc{
+				DocID:           key,
+				ConsumerTag:     consumer.String(),
+				Label:           metadata.Label,
+				CurrentRevision: metadata.CurrentRevision,
+				LatestRevision:  metadata.LatestRevision,
+			}
 			if localSecret {
+				consumerDoc.LatestRevision = currentLatestRevision
 				// Increment the consumer count, ensuring no new consumers
 				// are added while update is in progress.
 				countRefOps, err := st.checkConsumerCountOps(uri, 1)
@@ -2023,8 +2036,15 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 				}
 				ops = append(ops, countRefOps...)
 			}
-		} else {
 			ops = append(ops, txn.Op{
+				C:      secretConsumersC,
+				Id:     key,
+				Assert: txn.DocMissing,
+				Insert: consumerDoc,
+			})
+
+		} else {
+			updateOp := txn.Op{
 				C:      secretConsumersC,
 				Id:     key,
 				Assert: txn.DocExists,
@@ -2032,11 +2052,17 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 					"label":            metadata.Label,
 					"current-revision": metadata.CurrentRevision,
 				}},
-			})
+			}
+			// For local secrets, ensure a new latest revision is not created
+			// by another txn when we update the consumer document.
+			if localSecret {
+				updateOp.Assert = bson.D{{"latest-revision", currentLatestRevision}}
+			}
+			ops = append(ops, updateOp)
 			if localSecret && metadata.CurrentRevision > doc.CurrentRevision {
 				// The consumer is tracking a new revision, which might result in the
 				// previous revision becoming obsolete.
-				obsoleteOps, err := st.markObsoleteRevisionOps(uri, consumer.String(), metadata.CurrentRevision)
+				obsoleteOps, err := st.markObsoleteRevisionOps(uri, consumer.String(), metadata.CurrentRevision, currentLatestRevision)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -2055,13 +2081,25 @@ func (st *State) SaveSecretRemoteConsumer(uri *secrets.URI, consumer names.Tag, 
 	key := st.secretConsumerKey(uri, consumer.String())
 	secretConsumersCollection, closer := st.db().GetCollection(secretRemoteConsumersC)
 	defer closer()
+	secretMetadataCollection, closer := st.db().GetCollection(secretMetadataC)
+	defer closer()
 
 	var doc secretRemoteConsumerDoc
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		var metadataDoc secretMetadataDoc
+		err := secretMetadataCollection.FindId(uri.ID).One(&metadataDoc)
+		if err == mgo.ErrNotFound {
+			return nil, errors.NotFoundf("secret %q", uri.String())
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		currentLatestRevision := metadataDoc.LatestRevision
+
 		if err := st.checkExists(uri); err != nil {
 			return nil, errors.Trace(err)
 		}
-		err := secretConsumersCollection.FindId(key).One(&doc)
+		err = secretConsumersCollection.FindId(key).One(&doc)
 		if err != nil && err != mgo.ErrNotFound {
 			return nil, errors.Trace(err)
 		}
@@ -2101,7 +2139,7 @@ func (st *State) SaveSecretRemoteConsumer(uri *secrets.URI, consumer names.Tag, 
 			if metadata.CurrentRevision > doc.CurrentRevision {
 				// The consumer is tracking a new revision, which might result in the
 				// previous revision becoming obsolete.
-				obsoleteOps, err := st.markObsoleteRevisionOps(uri, consumer.String(), metadata.CurrentRevision)
+				obsoleteOps, err := st.markObsoleteRevisionOps(uri, consumer.String(), metadata.CurrentRevision, currentLatestRevision)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -2131,7 +2169,7 @@ func (st *State) secretUpdateConsumersOps(coll string, uri *secrets.URI, newRevi
 		ops = append(ops, txn.Op{
 			C:      coll,
 			Id:     doc.DocID,
-			Assert: txn.DocExists,
+			Assert: bson.D{{"current-revision", doc.CurrentRevision}},
 			Update: bson.M{"$set": bson.M{"latest-revision": newRevision}},
 		})
 	}
@@ -2817,9 +2855,16 @@ func (w *deletedSecretsWatcher) loop() (err error) {
 
 // markObsoleteRevisionOps returns ops for marking any revisions which are currently
 // not being tracked by any consumers as obsolete.
-func (st *State) markObsoleteRevisionOps(uri *secrets.URI, exceptForConsumer string, exceptForRev int) ([]txn.Op, error) {
+func (st *State) markObsoleteRevisionOps(uri *secrets.URI, exceptForConsumer string, exceptForRev int, metadataLatest int) ([]txn.Op, error) {
 	var obsoleteOps []txn.Op
-	revs, latest, err := st.getNewlyOrphanedSecretRevisions(uri, exceptForConsumer, exceptForRev)
+	// A concurrent secret update may have resulted in a new latest revision,
+	// which we need to exclude when determining which revisions are
+	// now obsolete.
+	exceptFor := []int{exceptForRev}
+	if exceptForRev < metadataLatest {
+		exceptFor = append(exceptFor, metadataLatest)
+	}
+	revs, err := st.getNewlyOrphanedSecretRevisions(uri, exceptForConsumer, exceptFor...)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting orphaned secret revisions")
 	}
@@ -2834,12 +2879,24 @@ func (st *State) markObsoleteRevisionOps(uri *secrets.URI, exceptForConsumer str
 			}},
 		})
 	}
+	// A concurrent secret update may have marked the exceptForRev as obsolete.
+	// We need to reverse that here.
+	if exceptForRev < metadataLatest {
+		obsoleteOps = append(obsoleteOps, txn.Op{
+			C:      secretRevisionsC,
+			Id:     secretRevisionKey(uri, exceptForRev),
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{
+				"obsolete": false,
+			}},
+		})
+	}
 	// Ensure that no concurrent revision updates can happen.
 	if len(obsoleteOps) > 0 {
 		obsoleteOps = append(obsoleteOps, txn.Op{
 			C:      secretMetadataC,
 			Id:     uri.ID,
-			Assert: bson.D{{"latest-revision", latest}},
+			Assert: bson.D{{"latest-revision", metadataLatest}},
 		})
 	}
 	return obsoleteOps, nil
@@ -2848,7 +2905,7 @@ func (st *State) markObsoleteRevisionOps(uri *secrets.URI, exceptForConsumer str
 // getNewlyOrphanedSecretRevisions returns revisions which are not being tracked by any consumer,
 // and which have not yet been marked as orphaned, excluding the specified consumer and/or revision.
 // The result includes the current latest revision, for the specified secret
-func (st *State) getNewlyOrphanedSecretRevisions(uri *secrets.URI, exceptForConsumer string, exceptForRev int) ([]int, int, error) {
+func (st *State) getNewlyOrphanedSecretRevisions(uri *secrets.URI, exceptForConsumer string, exceptForRev ...int) ([]int, error) {
 	secretRevisionCollection, closer := st.db().GetCollection(secretRevisionsC)
 	defer closer()
 
@@ -2859,29 +2916,27 @@ func (st *State) getNewlyOrphanedSecretRevisions(uri *secrets.URI, exceptForCons
 
 	var doc secretRevisionDoc
 	allUnorphanedRevisions := set.NewInts()
-	latest := 0
 	iter := secretRevisionCollection.Find(q).Select(bson.D{{"revision", 1}}).Iter()
 	for iter.Next(&doc) {
 		allUnorphanedRevisions.Add(doc.Revision)
-		if doc.Revision > latest {
-			latest = doc.Revision
-		}
 	}
 	if err := iter.Close(); err != nil {
-		return nil, 0, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	allUnorphanedRevisions.Remove(exceptForRev)
 
 	consumedRevs, err := st.getInUseSecretRevisions(secretConsumersC, uri, exceptForConsumer)
 	if err != nil {
-		return nil, 0, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	remoteConsumedRevs, err := st.getInUseSecretRevisions(secretRemoteConsumersC, uri, exceptForConsumer)
 	if err != nil {
-		return nil, 0, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	usedRevisions := consumedRevs.Union(remoteConsumedRevs)
-	return allUnorphanedRevisions.Difference(usedRevisions).Values(), latest, nil
+	for _, rev := range exceptForRev {
+		usedRevisions.Add(rev)
+	}
+	return allUnorphanedRevisions.Difference(usedRevisions).Values(), nil
 }
 
 func (st *State) getInUseSecretRevisions(collName string, uri *secrets.URI, exceptForConsumer string) (set.Ints, error) {
