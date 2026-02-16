@@ -42,6 +42,9 @@ type DBInfo struct {
 	Targets set.Strings
 	// ApproxSizeMB is the storage needed to back up the database.
 	ApproxSizeMB int
+	// BuildInfo holds version information to guide how to perform the database
+	// backup.
+	BuildInfo mgo.BuildInfo
 }
 
 // ignoredDatabases is the list of databases that should not be
@@ -57,6 +60,7 @@ var ignoredDatabases = set.NewStrings(
 type DBSession interface {
 	DatabaseNames() ([]string, error)
 	DB(name string) Database
+	BuildInfo() (info mgo.BuildInfo, err error)
 }
 
 // Database is a subset of mgo.Database.
@@ -90,11 +94,19 @@ func NewDBInfo(mgoInfo *mongo.MongoInfo, session DBSession) (*DBInfo, error) {
 		totalDataSize += dataSize
 	}
 
+	buildInfo, err := session.BuildInfo()
+	if err != nil {
+		return nil, errors.Errorf(
+			"getting mongod build info for backup: %w", err,
+		)
+	}
+
 	info := DBInfo{
 		Address:      mgoInfo.Addrs[0],
 		Password:     mgoInfo.Password,
 		Targets:      targets,
 		ApproxSizeMB: int(totalDataSize),
+		BuildInfo:    buildInfo,
 	}
 
 	// TODO(dfc) Backup should take a Tag.
@@ -185,13 +197,22 @@ func NewDBDumper(info *DBInfo) (DBDumper, error) {
 func (md *mongoDumper) options(dumpDir string) []string {
 	options := []string{
 		"--ssl",
-		"--tlsInsecure",
 		"--authenticationDatabase", "admin",
 		"--host", md.Address,
 		"--username", md.Username,
 		"--password", md.Password,
 		"--out", dumpDir,
 		"--oplog",
+	}
+	if md.DBInfo.BuildInfo.VersionAtLeast(4, 4, 30) {
+		logger.Infof("using mongo v4.4.30+ arguments for mongodump")
+		options = append(options,
+			"--sslCAFile", "/var/snap/juju-db/common/ca.crt",
+			"--sslPEMKeyFile", "/var/snap/juju-db/common/server.pem",
+			"--sslPEMKeyPassword", "ignore",
+		)
+	} else {
+		options = append(options, "--tlsInsecure")
 	}
 	return options
 }

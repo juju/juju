@@ -22,7 +22,7 @@ jobs:
           snap info juju > snap-info.txt
           channel=$(awk -F':' -v ver=$majmin 'NR == 1, /channels/ {next} {gsub(/ /, "", $1); gsub(/ /, "", $2); if (!match($1,ver)) next; if ($2 == "--") next; print $1; exit}' snap-info.txt)
           echo "version=$version" >> $GITHUB_OUTPUT 
-          echo "channel=$channel" >> $GITHUB_OUTPUT 
+          echo "channel=$channel" >> $GITHUB_OUTPUT
 
   upgrade:
     name: Upgrade Smoke
@@ -68,7 +68,7 @@ jobs:
       - name: Set some variables
         run: |
           set -euxo pipefail
-          
+
           sourceJujuVersion=$(snap info juju | yq ".channels[\"${{ needs.setup.outputs.channel }}\"]" | cut -d' ' -f1)
           echo "source-juju-version=${sourceJujuVersion}" >> $GITHUB_OUTPUT
         id: vars
@@ -160,14 +160,13 @@ jobs:
           cp ~/certs/ca.crt $BUILD_TEMP/
           cat >$BUILD_TEMP/Dockerfile <<EOL
             FROM ghcr.io/juju/jujud-operator:${SOURCE_JUJU_VERSION}
-          
+
             COPY ca.crt /usr/local/share/ca-certificates/ca.crt
 
             RUN update-ca-certificates
           EOL
           podman build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
           podman push -f v2s2 "${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}" "docker://${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}"
-          
           OCI_REGISTRY_USERNAME=${OCI_REGISTRY}/test-repo LEGACY_JUJU_DB_VERSION=4.4 make seed-repository
 
       - name: Bootstrap Juju - localhost
@@ -255,7 +254,7 @@ jobs:
             RUN update-ca-certificates
           EOL
           podman build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}
-          podman push -f v2s2 "${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}" "docker://${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}"          
+          podman push -f v2s2 "${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}" "docker://${OCI_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}"
 
       - name: Preflight
         shell: bash
@@ -284,7 +283,7 @@ jobs:
             exit 1
           fi
           .github/verify-agent-version.sh ${MODEL_TYPE_${{ matrix.cloud }}} ${TARGET_JUJU_VERSION}
-          
+
           PANIC=$(juju debug-log --replay --no-tail -m controller | grep "panic" || true)
           if [ "$PANIC" != "" ]; then
               echo "Panic found:"
