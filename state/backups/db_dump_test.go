@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/mgo/v3"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -33,7 +34,12 @@ func (s *dumpSuite) SetUpTest(c *gc.C) {
 	s.dbInfo = &backups.DBInfo{
 		Address: "a", Username: "b", Password: "c",
 		Targets:      targets,
-		ApproxSizeMB: 100}
+		ApproxSizeMB: 100,
+		BuildInfo: mgo.BuildInfo{
+			Version:      "4.4.30",
+			VersionArray: []int{4, 4, 30, 0},
+		},
+	}
 	s.targets = targets
 	s.dumpDir = c.MkDir()
 }
@@ -141,5 +147,20 @@ func (s *dumpSuite) TestDumpNothingIgnored(c *gc.C) {
 	err := dumper.Dump(s.dumpDir)
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.checkDBs(c, "juju", "admin")
+}
+
+func (s *dumpSuite) TestDumpOlderVersion(c *gc.C) {
+	s.dbInfo.BuildInfo = mgo.BuildInfo{
+		Version:      "4.4.22",
+		VersionArray: []int{4, 4, 22, 0},
+	}
+	s.patch(c)
+	dumper := s.prep(c, "juju", "admin")
+
+	err := dumper.Dump(s.dumpDir)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(s.ranCommand, jc.IsTrue)
 	s.checkDBs(c, "juju", "admin")
 }
