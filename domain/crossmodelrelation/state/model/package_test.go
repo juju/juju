@@ -116,13 +116,17 @@ VALUES (?, ?, ?, ?)
 
 // addCharm inserts a new charm into the database and returns the UUID.
 func (s *baseSuite) addCharm(c *tc.C) corecharm.ID {
+	return s.addCharmWithReferenceName(c, corecharmtesting.GenCharmID(c).String())
+}
+
+// addCharmWithReferenceName inserts a new charm into the database with the
+// specified reference name and returns the UUID.
+func (s *baseSuite) addCharmWithReferenceName(c *tc.C, referenceName string) corecharm.ID {
 	charmUUID := corecharmtesting.GenCharmID(c)
-	// The UUID is also used as the reference_name as there is a unique
-	// constraint on the reference_name, revision.
 	s.query(c, `
 INSERT INTO charm (uuid, reference_name, revision)
 VALUES (?, ?, 42)
-`, charmUUID, charmUUID)
+`, charmUUID, referenceName)
 	return charmUUID
 }
 

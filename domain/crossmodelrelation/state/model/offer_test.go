@@ -520,8 +520,11 @@ func (s *modelOfferSuite) TestGetConsumeDetailsNotFound(c *tc.C) {
 
 // setupForGetOfferDetails
 func (s *modelOfferSuite) setupForGetOfferDetails(c *tc.C) []*crossmodelrelation.OfferDetail {
-	// Create an offer with one endpoint
-	charmUUID := s.addCharm(c)
+	// Create an offer with one endpoint.
+	// Use a distinct reference_name vs charm_metadata.name to ensure
+	// the view returns reference_name (the correct charm name).
+	charmReferenceName := "test-charm"
+	charmUUID := s.addCharmWithReferenceName(c, charmReferenceName)
 	description := "testing application"
 	s.addCharmMetadataWithDescription(c, charmUUID, description)
 	relation := charm.Relation{
@@ -560,7 +563,7 @@ func (s *modelOfferSuite) setupForGetOfferDetails(c *tc.C) []*crossmodelrelation
 			ApplicationName:        appName,
 			ApplicationDescription: description,
 			CharmLocator: domaincharm.CharmLocator{
-				Name:         charmUUID.String(),
+				Name:         charmReferenceName,
 				Revision:     42,
 				Source:       domaincharm.CharmHubSource,
 				Architecture: architecture.AMD64,
@@ -579,10 +582,13 @@ func (s *modelOfferSuite) setupForGetOfferDetails(c *tc.C) []*crossmodelrelation
 	}
 }
 
-// setupForGetOfferDetails
+// setupOfferWithInterface
 func (s *modelOfferSuite) setupOfferWithInterface(c *tc.C, interfaceName string) []*crossmodelrelation.OfferDetail {
-	// Create an offer with one endpoint
-	charmUUID := s.addCharm(c)
+	// Create an offer with one endpoint.
+	// Use a distinct reference_name vs charm_metadata.name to ensure
+	// the view returns reference_name (the correct charm name).
+	charmReferenceName := "second-charm"
+	charmUUID := s.addCharmWithReferenceName(c, charmReferenceName)
 	description := "second testing application"
 	s.addCharmMetadataWithDescription(c, charmUUID, description)
 	relation := charm.Relation{
@@ -606,7 +612,7 @@ func (s *modelOfferSuite) setupOfferWithInterface(c *tc.C, interfaceName string)
 			ApplicationName:        appName,
 			ApplicationDescription: description,
 			CharmLocator: domaincharm.CharmLocator{
-				Name:         charmUUID.String(),
+				Name:         charmReferenceName,
 				Revision:     42,
 				Source:       domaincharm.CharmHubSource,
 				Architecture: architecture.AMD64,
