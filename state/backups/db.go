@@ -96,8 +96,8 @@ func NewDBInfo(mgoInfo *mongo.MongoInfo, session DBSession) (*DBInfo, error) {
 
 	buildInfo, err := session.BuildInfo()
 	if err != nil {
-		return nil, errors.Errorf(
-			"getting mongod build info for backup: %w", err,
+		return nil, errors.Annotate(
+			err, "getting mongod build info for backup",
 		)
 	}
 
