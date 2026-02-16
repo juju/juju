@@ -1005,6 +1005,7 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevisionConcurrentAdd(c *
 	cmd := &secrets.SecretConsumerMetadata{
 		Label:           "foobar",
 		CurrentRevision: 1,
+		LatestRevision:  1,
 	}
 	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), cmd)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1896,7 +1897,8 @@ func (s *SecretsSuite) TestGetSecretConsumerAndGetSecretConsumerURI(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	md := &secrets.SecretConsumerMetadata{
 		Label:           "consumer-label",
-		CurrentRevision: 666,
+		CurrentRevision: 1,
+		LatestRevision:  1,
 	}
 	err = s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), md)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2080,7 +2082,8 @@ func (s *SecretsSuite) TestSaveSecretConsumerConcurrent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	md := &secrets.SecretConsumerMetadata{
 		Label:           "foobar",
-		CurrentRevision: 666,
+		CurrentRevision: 1,
+		LatestRevision:  1,
 	}
 	state.SetBeforeHooks(c, s.State, func() {
 		err := s.State.SaveSecretConsumer(uri, names.NewUnitTag("mariadb/0"), &secrets.SecretConsumerMetadata{CurrentRevision: 668})

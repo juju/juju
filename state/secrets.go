@@ -2010,20 +2010,21 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 			ops = append(ops, uniqueLabelOps...)
 		}
 		if create {
-			ops = append(ops, txn.Op{
-				C:      secretConsumersC,
-				Id:     key,
-				Assert: txn.DocMissing,
-				Insert: secretConsumerDoc{
-					DocID:           key,
-					ConsumerTag:     consumer.String(),
-					Label:           metadata.Label,
-					CurrentRevision: metadata.CurrentRevision,
-					LatestRevision:  metadata.LatestRevision,
-				},
-			})
-
+			// For remote secrets, LatestRevision is passed in from the
+			// offering model, and for local secrets, it is loaded from the
+			// secret metadata document.
+			// In both cases, we want to set it to the current latest
+			// revision when creating the consumer document, so that the
+			// consumer watcher can be triggered correctly.
+			consumerDoc := secretConsumerDoc{
+				DocID:           key,
+				ConsumerTag:     consumer.String(),
+				Label:           metadata.Label,
+				CurrentRevision: metadata.CurrentRevision,
+				LatestRevision:  metadata.LatestRevision,
+			}
 			if localSecret {
+				consumerDoc.LatestRevision = currentLatestRevision
 				// Increment the consumer count, ensuring no new consumers
 				// are added while update is in progress.
 				countRefOps, err := st.checkConsumerCountOps(uri, 1)
@@ -2032,8 +2033,15 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 				}
 				ops = append(ops, countRefOps...)
 			}
-		} else {
 			ops = append(ops, txn.Op{
+				C:      secretConsumersC,
+				Id:     key,
+				Assert: txn.DocMissing,
+				Insert: consumerDoc,
+			})
+
+		} else {
+			updateOp := txn.Op{
 				C:      secretConsumersC,
 				Id:     key,
 				Assert: txn.DocExists,
@@ -2041,7 +2049,13 @@ func (st *State) SaveSecretConsumer(uri *secrets.URI, consumer names.Tag, metada
 					"label":            metadata.Label,
 					"current-revision": metadata.CurrentRevision,
 				}},
-			})
+			}
+			// For local secrets, ensure a new latest revision is not created
+			// by another txn when we update the consumer document.
+			if localSecret {
+				updateOp.Assert = bson.D{{"latest-revision", currentLatestRevision}}
+			}
+			ops = append(ops, updateOp)
 			if localSecret && metadata.CurrentRevision > doc.CurrentRevision {
 				// The consumer is tracking a new revision, which might result in the
 				// previous revision becoming obsolete.
