@@ -111,7 +111,7 @@ show_help() {
 	echo "¯¯¯¯¯¯"
 	echo "Flags should appear $(red 'before') arguments."
 	echo ""
-	echo "cmd [-h] [-v] [-A] [-s test] [-a file] [-x file] [-r] [-l controller] [-p provider type <lxd|aws|google|azure|manual|microk8s|vsphere|maas>]"
+	echo "cmd [-h] [-v] [-A] [-s test] [-a file] [-x file] [-r] [-l controller] [-p provider type <lxd|aws|google|azure|manual|k8s|vsphere|maas>]"
 	echo ""
 	echo "    $(green './main.sh -h')        Display this help message"
 	echo "    $(green './main.sh -v')        Verbose and debug messages"

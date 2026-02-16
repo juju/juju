@@ -90,7 +90,7 @@ bootstrap() {
 		fi
 		;;
 	"k8s")
-		cloud="${BOOTSTRAP_CLOUD:-microk8s}"
+		cloud="${BOOTSTRAP_CLOUD:-$(default_k8s)}"
 		;;
 	"manual")
 		manual_name=${1}

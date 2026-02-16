@@ -13,7 +13,7 @@ run_deploy_kubeflow() {
 	echo "==> Checking kubeflow deployment"
 	num_apps=$(juju status --format json | jq '.applications | length')
 	wait_for "training-operator" "$(active_idle_condition "training-operator" $((num_apps - 1)))" 1800
-	jupyter_ip=$(microk8s kubectl -n kubeflow get svc istio-ingressgateway-workload -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+	jupyter_ip=$(kubectl -n kubeflow get svc istio-ingressgateway-workload -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
 	attempt=0
 	# shellcheck disable=SC2046,SC2143,SC2091,SC2086
