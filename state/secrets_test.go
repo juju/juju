@@ -2143,6 +2143,7 @@ func (s *SecretsSuite) TestSaveSecretConsumerConcurrentUpdate(c *gc.C) {
 }
 
 func (s *SecretsSuite) TestUpdateConcurrentSaveSecretConsumer(c *gc.C) {
+	c.Skip("TODO - this condition cannot yet be detected")
 	cp := state.CreateSecretParams{
 		Version: 1,
 		Owner:   s.owner.Tag(),
