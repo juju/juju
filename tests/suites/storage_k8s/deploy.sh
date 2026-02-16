@@ -20,7 +20,7 @@ test_deploy_attach_storage() {
 	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
 
 	# Capture the provisioned PersistentVolume ID.
-	PV=$(juju storage --format json | jq -r '.volumes["0"]."provider-id"')
+	PV=$(juju storage --format json | yq -r '.volumes["0"]."provider-id"')
 
 	# Clean up: remove the application and associated storage (retain PV).
 	juju remove-application postgresql-k8s --no-prompt
@@ -44,31 +44,31 @@ test_deploy_attach_storage() {
 	juju deploy postgresql-k8s --channel 14/stable --trust --attach-storage pgdata/0 psql-k8s
 	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
 
-	OUT=$(kubectl get pv "${PV}" -o json | jq '.status.phase')
+	OUT=$(kubectl get pv "${PV}" -o json | yq '.status.phase')
 	echo "${OUT}" | check "Bound"
 
 	# Make sure new PV/PVC is used by the postgresql-k8s charm
 	NEW_PVC=$(kubectl get pv "${PV}" -o jsonpath='{.spec.claimRef.name}')
 	OUT=$(
 		kubectl get pvc -n "${second_model_name}" "${NEW_PVC}" -o json |
-			jq '.metadata.labels."storage.juju.is/name"'
+			yq '.metadata.labels."storage.juju.is/name"'
 	)
 	echo "${OUT}" | check "pgdata"
 
 	OUT=$(
 		kubectl get pvc -n "${second_model_name}" "${NEW_PVC}" -o json |
-			jq '.metadata.labels."app.kubernetes.io/managed-by"'
+			yq '.metadata.labels."app.kubernetes.io/managed-by"'
 	)
 	echo "${OUT}" | check "juju"
 	OUT=$(
 		kubectl get pvc -n "${second_model_name}" "${NEW_PVC}" -o json |
-			jq '.metadata.annotations."juju-storage-owner"'
+			yq '.metadata.annotations."juju-storage-owner"'
 	)
 	echo "${OUT}" | check "psql-k8s"
 
 	# Make sure pv name have been update in volumes.
 	OUT=$(
-		juju storage --format json | jq '.volumes."0"."provider-id"'
+		juju storage --format json | yq '.volumes."0"."provider-id"'
 	)
 	echo "${OUT}" | check "${PV}"
 

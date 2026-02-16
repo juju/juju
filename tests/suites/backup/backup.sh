@@ -33,8 +33,8 @@ run_basic_backup_restore() {
 	echo "Deploy a workload (1 machine)"
 	juju deploy jameinel-ubuntu-lite
 	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
-	juju status --format json | jq '.machines | length' | check 1
-	id0=$(juju status --format json | jq -r '.machines["0"]["instance-id"]')
+	juju status --format json | yq '.machines | length' | check 1
+	id0=$(juju status --format json | yq -r '.machines["0"]["instance-id"]')
 
 	echo "Create a backup"
 	juju switch controller # create-backup only works from controller model
@@ -44,8 +44,8 @@ run_basic_backup_restore() {
 	juju switch test-basic-backup-restore
 	juju add-unit ubuntu-lite
 	wait_for_machine_agent_status "1" "started"
-	juju status --format json | jq '.machines | length' | check 2
-	id1=$(juju status --format json | jq -r '.machines["1"]["instance-id"]')
+	juju status --format json | yq '.machines | length' | check 2
+	id1=$(juju status --format json | yq -r '.machines["1"]["instance-id"]')
 
 	echo "Restore the backup"
 	juju switch controller
@@ -56,13 +56,13 @@ run_basic_backup_restore() {
 	echo "Ensure there's only one machine (state before the backup)"
 	juju switch test-basic-backup-restore
 	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
-	juju status --format json | jq '.machines | length' | check 1
+	juju status --format json | yq '.machines | length' | check 1
 
 	# Only do this check if provider is LXD (too hard to do for all providers)
 	if [ "${BOOTSTRAP_PROVIDER}" == "lxd" ]; then
 		echo "Ensure that both instances are running (restore shouldn't terminate machines)"
-		lxc list --format json | jq --arg name "${id0}" -r '.[] | select(.name==$name) | .state.status' | check Running
-		lxc list --format json | jq --arg name "${id1}" -r '.[] | select(.name==$name) | .state.status' | check Running
+		lxc list --format json | yq --arg name "${id0}" -r '.[] | select(.name==$name) | .state.status' | check Running
+		lxc list --format json | yq --arg name "${id1}" -r '.[] | select(.name==$name) | .state.status' | check Running
 	fi
 
 	destroy_model "test-basic-backup-restore"

@@ -21,9 +21,9 @@ test_add_unit_attach_storage() {
 	wait_for_storage "attached" '.storage["pgdata/2"]["status"].current'
 
 	# Capture the provisioned PersistentVolume ID.
-	PV_0=$(juju storage --format json | jq -r '.volumes["0"]."provider-id"')
-	PV_1=$(juju storage --format json | jq -r '.volumes["1"]."provider-id"')
-	PV_2=$(juju storage --format json | jq -r '.volumes["2"]."provider-id"')
+	PV_0=$(juju storage --format json | yq -r '.volumes["0"]."provider-id"')
+	PV_1=$(juju storage --format json | yq -r '.volumes["1"]."provider-id"')
+	PV_2=$(juju storage --format json | yq -r '.volumes["2"]."provider-id"')
 
 	# Clean up: remove the application and associated storage (retain PV).
 	juju remove-application postgresql-k8s --no-prompt --force
@@ -65,15 +65,15 @@ test_add_unit_attach_storage() {
 		NEW_PVC=$(kubectl get pv "${pv}" -o jsonpath='{.spec.claimRef.name}')
 		PVC_JSON=$(kubectl get pvc -n "${second_model_name}" "${NEW_PVC}" -o json)
 
-		echo "${PVC_JSON}" | jq '.metadata.labels."storage.juju.is/name"' | check "pgdata"
-		echo "${PVC_JSON}" | jq '.metadata.labels."app.kubernetes.io/managed-by"' | check "juju"
-		echo "${PVC_JSON}" | jq '.metadata.annotations."juju-storage-owner"' | check "psql-k8s"
+		echo "${PVC_JSON}" | yq '.metadata.labels."storage.juju.is/name"' | check "pgdata"
+		echo "${PVC_JSON}" | yq '.metadata.labels."app.kubernetes.io/managed-by"' | check "juju"
+		echo "${PVC_JSON}" | yq '.metadata.annotations."juju-storage-owner"' | check "psql-k8s"
 	done
 
 	# Verify volume provider IDs match the original PVs
 	for i in 0 1 2; do
 		eval "expected_pv=\$PV_${i}"
-		OUT=$(juju storage --format json | jq ".volumes.\"${i}\".\"provider-id\"")
+		OUT=$(juju storage --format json | yq ".volumes.\"${i}\".\"provider-id\"")
 		# shellcheck disable=SC2154
 		echo "${OUT}" | check "${expected_pv}"
 	done
@@ -167,9 +167,9 @@ test_add_unit_attach_storage_scaling_race_condition() {
 	wait_for_storage "attached" '.storage["pgdata/2"]["status"].current'
 
 	# Capture the provisioned PersistentVolume ID.
-	PV_0=$(juju storage --format json | jq -r '.volumes["0"]."provider-id"')
-	PV_1=$(juju storage --format json | jq -r '.volumes["1"]."provider-id"')
-	PV_2=$(juju storage --format json | jq -r '.volumes["2"]."provider-id"')
+	PV_0=$(juju storage --format json | yq -r '.volumes["0"]."provider-id"')
+	PV_1=$(juju storage --format json | yq -r '.volumes["1"]."provider-id"')
+	PV_2=$(juju storage --format json | yq -r '.volumes["2"]."provider-id"')
 
 	# Clean up: remove the application and associated storage (retain PV).
 	juju remove-application postgresql-k8s --no-prompt --force

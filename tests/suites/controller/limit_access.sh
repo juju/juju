@@ -4,16 +4,16 @@ verify_model_network_tag() {
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"ec2")
 		sg="$(aws ec2 describe-security-groups --filters Name=group-name,Values="$network_tag")"
-		jq -r ".SecurityGroups[] |.IpPermissions[] | select(.FromPort == 22) | .IpRanges[0].CidrIp" <<<"${sg}" | check "${sourceRange}"
+		yq -r ".SecurityGroups[] |.IpPermissions[] | select(.FromPort == 22) | .IpRanges[0].CidrIp" <<<"${sg}" | check "${sourceRange}"
 		;;
 	"gce")
 		# Ensure only one allowed item, which is ssh port
 		default_rule=$(gcloud compute firewall-rules list \
 			--filter="targetTags.list():${network_tag}" \
 			--format=json)
-		echo "${default_rule}" | jq -r '.[0].allowed[0].ports | length' | check "1"
-		echo "${default_rule}" | jq -r '.[0].allowed[0].ports[0]' | check "22"
-		echo "${default_rule}" | jq -r '.[0].sourceRanges[0]' | check "${sourceRange}"
+		echo "${default_rule}" | yq -r '.[0].allowed[0].ports | length' | check "1"
+		echo "${default_rule}" | yq -r '.[0].allowed[0].ports[0]' | check "22"
+		echo "${default_rule}" | yq -r '.[0].sourceRanges[0]' | check "${sourceRange}"
 		;;
 	*)
 		echo "Aborting, we shouldn't be here"
@@ -29,17 +29,17 @@ verify_instance_network_tag() {
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"ec2")
 		sg="$(aws ec2 describe-security-groups --filters Name=group-name,Values="$network_tag")"
-		jq -r ".SecurityGroups[] |.IpPermissions[] | select(.FromPort == 17070) | .IpRanges[0].CidrIp" <<<"${sg}" | check "${sourceRange}"
-		jq -r ".SecurityGroups[] |.IpPermissions[] | select(.FromPort == 17022) | .IpRanges[0].CidrIp" <<<"${sg}" | check "${sourceRange}"
+		yq -r ".SecurityGroups[] |.IpPermissions[] | select(.FromPort == 17070) | .IpRanges[0].CidrIp" <<<"${sg}" | check "${sourceRange}"
+		yq -r ".SecurityGroups[] |.IpPermissions[] | select(.FromPort == 17022) | .IpRanges[0].CidrIp" <<<"${sg}" | check "${sourceRange}"
 		;;
 	"gce")
 		default_rule=$(gcloud compute firewall-rules list \
 			--filter="targetTags.list():${network_tag}" \
 			--format=json)
-		echo "${default_rule}" | jq -r '.[0].allowed[0].ports | length' | check "2"
-		echo "${default_rule}" | jq -r '.[0].allowed[0].ports[0]' | check "17022"
-		echo "${default_rule}" | jq -r '.[0].allowed[0].ports[1]' | check "17070"
-		echo "${default_rule}" | jq -r '.[0].sourceRanges[0]' | check "${sourceRange}"
+		echo "${default_rule}" | yq -r '.[0].allowed[0].ports | length' | check "2"
+		echo "${default_rule}" | yq -r '.[0].allowed[0].ports[0]' | check "17022"
+		echo "${default_rule}" | yq -r '.[0].allowed[0].ports[1]' | check "17070"
+		echo "${default_rule}" | yq -r '.[0].sourceRanges[0]' | check "${sourceRange}"
 		;;
 	*)
 		echo "Unexpected bootstrap provider (${BOOTSTRAP_PROVIDER})."
@@ -59,9 +59,9 @@ run_limit_access() {
 	wait_for_machine_agent_status "0" "started"
 
 	machine_info="$(juju list-machines -m controller --format=json)"
-	instance_id="$(jq -r '.machines["0"]."instance-id"' <<<"$machine_info")"
+	instance_id="$(yq -r '.machines["0"]."instance-id"' <<<"$machine_info")"
 	region_or_az=$(region_or_availability_zone)
-	model_uuid=$(juju show-model controller --format json | jq -r '.["controller"]["model-uuid"]')
+	model_uuid=$(juju show-model controller --format json | yq -r '.["controller"]["model-uuid"]')
 	model_network_tag="juju-${model_uuid}"
 	verify_model_network_tag "${model_network_tag}" "0.0.0.0/0"
 

@@ -11,7 +11,7 @@ run_deploy_kubeflow() {
 	juju deploy kubeflow --trust --channel 1.9
 
 	echo "==> Checking kubeflow deployment"
-	num_apps=$(juju status --format json | jq '.applications | length')
+	num_apps=$(juju status --format json | yq '.applications | length')
 	wait_for "training-operator" "$(active_idle_condition "training-operator" $((num_apps - 1)))" 1800
 	jupyter_ip=$(kubectl -n kubeflow get svc istio-ingressgateway-workload -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 

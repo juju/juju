@@ -7,9 +7,9 @@ add_multi_nic_machine() {
 	hotplug_nic_id=$1
 
 	# Ensure machine is deployed to the same az as our nic
-	az=$(aws ec2 describe-network-interfaces --filters Name=network-interface-id,Values="$hotplug_nic_id" | jq -r ".NetworkInterfaces[0].AvailabilityZone")
+	az=$(aws ec2 describe-network-interfaces --filters Name=network-interface-id,Values="$hotplug_nic_id" | yq -r ".NetworkInterfaces[0].AvailabilityZone")
 	juju add-machine --constraints zones="${az}"
-	juju_machine_id=$(juju show-machine --format json | jq -r '.["machines"] | keys[0]')
+	juju_machine_id=$(juju show-machine --format json | yq -r '.["machines"] | keys[0]')
 	echo "[+] waiting for machine ${juju_machine_id} to start..."
 
 	wait_for_machine_agent_status "$juju_machine_id" "started"
@@ -19,7 +19,7 @@ add_multi_nic_machine() {
 	# shellcheck disable=SC2046,SC2086
 	aws ec2 attach-network-interface --device-index 1 \
 		--network-interface-id ${hotplug_nic_id} \
-		--instance-id $(juju show-machine --format json | jq -r ".[\"machines\"] | .[\"${juju_machine_id}\"] | .[\"instance-id\"]")
+		--instance-id $(juju show-machine --format json | yq -r ".[\"machines\"] | .[\"${juju_machine_id}\"] | .[\"instance-id\"]")
 
 	# Wait until the new NIC is UP
 	timeout=${3:-600} # default timeout: 600s = 10m

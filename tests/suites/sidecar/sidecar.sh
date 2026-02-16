@@ -60,7 +60,7 @@ test_deploy_and_force_remove_application() {
 check_snappass() {
 	attempt=1
 	while true; do
-		address=$(juju status --format=json | jq -r '.applications["snappass-test"].units["snappass-test/0"].address')
+		address=$(juju status --format=json | yq -r '.applications["snappass-test"].units["snappass-test/0"].address')
 		if curl "http://${address}:5000" | grep Snappass; then
 			break
 		fi

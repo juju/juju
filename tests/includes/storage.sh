@@ -4,7 +4,7 @@ assert_storage() {
 	name=${1:?"name is missing"}
 	query=${2:?"query is missing"}
 
-	juju storage --format json | jq "${query}" | check "${name}"
+	juju storage --format json | yq "${query}" | check "${name}"
 }
 
 # life_status checks for the life status for a given application storage. Uses a combination of the storage name and its unit index to query.
@@ -59,7 +59,7 @@ unit_state() {
 unit_exist() {
 	local name
 	name=${1}
-	juju storage --format json | jq "any(paths; .[-1] == \"${name}\")"
+	juju storage --format json | yq "any(paths; .[-1] == \"${name}\")"
 }
 
 # filesystem_status used to check for the current status of the given volume for a filesystem matched by the volume number and volume index combination e.g 0/0, 2/1, 3/1

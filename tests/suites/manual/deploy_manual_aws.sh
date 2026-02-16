@@ -75,39 +75,39 @@ run_deploy_manual_aws() {
 
 	local vpc_id igw_id sg_id subnet_id
 
-	OUT=$(aws ec2 describe-vpcs | jq '.Vpcs[] | select(.Tags[]? | select((.Key=="Name") and (.Value=="manual-deploy")))' || true)
+	OUT=$(aws ec2 describe-vpcs | yq '.Vpcs[] | select(.Tags[]? | select((.Key=="Name") and (.Value=="manual-deploy")))' || true)
 	if [[ -z ${OUT} ]]; then
 		vpc_id=$(create_vpc)
 		echo "===> Created vpc $vpc_id"
 	else
-		vpc_id=$(echo "${OUT}" | jq -r '.VpcId' || true)
+		vpc_id=$(echo "${OUT}" | yq -r '.VpcId' || true)
 		echo "===> Re-using vpc $vpc_id"
 	fi
 
-	OUT=$(aws ec2 describe-internet-gateways | jq ".InternetGateways[] | select(.Attachments[0].VpcId == \"${vpc_id}\")")
+	OUT=$(aws ec2 describe-internet-gateways | yq ".InternetGateways[] | select(.Attachments[0].VpcId == \"${vpc_id}\")")
 	if [[ -z ${OUT} ]]; then
 		igw_id=$(create_igw)
 		echo "===> Created igw $igw_id"
 	else
-		igw_id=$(echo "${OUT}" | jq -r '.InternetGatewayId')
+		igw_id=$(echo "${OUT}" | yq -r '.InternetGatewayId')
 		echo "===> Re-using igw $igw_id"
 	fi
 
-	OUT=$(aws ec2 describe-subnets | jq ".Subnets[] | select(.VpcId == \"${vpc_id}\")" || true)
+	OUT=$(aws ec2 describe-subnets | yq ".Subnets[] | select(.VpcId == \"${vpc_id}\")" || true)
 	if [[ -z ${OUT} ]]; then
 		subnet_id=$(create_subnet)
 		echo "===> Created subnet $subnet_id"
 	else
-		subnet_id=$(echo "${OUT}" | jq -r '.SubnetId')
+		subnet_id=$(echo "${OUT}" | yq -r '.SubnetId')
 		echo "===> Re-using subnet $subnet_id"
 	fi
 
-	OUT=$(aws ec2 describe-security-groups | jq ".SecurityGroups[] | select(.VpcId==\"${vpc_id}\" and .GroupName==\"ci-manual-deploy\")" || true)
+	OUT=$(aws ec2 describe-security-groups | yq ".SecurityGroups[] | select(.VpcId==\"${vpc_id}\" and .GroupName==\"ci-manual-deploy\")" || true)
 	if [[ -z ${OUT} ]]; then
 		sg_id=$(create_secgroup)
 		echo "===> Created secgroup $sg_id"
 	else
-		sg_id=$(echo "${OUT}" | jq -r '.GroupId')
+		sg_id=$(echo "${OUT}" | yq -r '.GroupId')
 		echo "===> Re-using secgroup $sg_id"
 	fi
 

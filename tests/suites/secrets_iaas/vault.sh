@@ -62,10 +62,10 @@ run_secret_drain() {
 
 	juju model-config secret-backend="$vault_backend_name"
 
-	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
+	model_uuid=$(juju show-model $model_name --format json | yq -r ".[\"${model_name}\"][\"model-uuid\"]")
 
 	attempt=0
-	until [[ $(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length) -eq 2 ]]; do
+	until [[ $(vault kv list -format json "${model_name}-${model_uuid: -6}" | yq length) -eq 2 ]]; do
 		if [[ ${attempt} -ge 30 ]]; then
 			echo "Failed: expected all secrets get drained to vault."
 			exit 1
@@ -77,7 +77,7 @@ run_secret_drain() {
 	juju model-config secret-backend=auto
 
 	attempt=0
-	until [[ $(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length) -eq 0 ]]; do
+	until [[ $(vault kv list -format json "${model_name}-${model_uuid: -6}" | yq length) -eq 0 ]]; do
 		if [[ ${attempt} -ge 30 ]]; then
 			echo "Failed: expected all secrets get drained back to juju controller."
 			exit 1
@@ -104,7 +104,7 @@ run_user_secret_drain() {
 	model_name='model-user-secrets-drain'
 	add_model "$model_name"
 	juju --show-log model-config secret-backend="$vault_backend_name" -m "$model_name"
-	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
+	model_uuid=$(juju show-model $model_name --format json | yq -r ".[\"${model_name}\"][\"model-uuid\"]")
 
 	juju --show-log deploy ubuntu-lite
 	wait_for "active" '.applications["ubuntu-lite"] | ."application-status".current'
@@ -114,7 +114,7 @@ run_user_secret_drain() {
 	secret_short_uri=${secret_uri##*:}
 
 	juju show-secret --reveal "$secret_uri"
-	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length)" 1
+	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | yq length)" 1
 
 	juju --show-log grant-secret "$secret_uri" ubuntu-lite
 	check_contains "$(juju exec --unit ubuntu-lite/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
@@ -127,7 +127,7 @@ run_user_secret_drain() {
 
 	# ensure the user secrets are all in internal backend, no secret in vault.
 	attempt=0
-	until [[ $(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length) -eq 0 ]]; do
+	until [[ $(vault kv list -format json "${model_name}-${model_uuid: -6}" | yq length) -eq 0 ]]; do
 		if [[ ${attempt} -ge 30 ]]; then
 			echo "Failed: expected all secrets get drained back to juju controller."
 			exit 1
@@ -141,7 +141,7 @@ run_user_secret_drain() {
 
 	# ensure the user secrets are in the vault backend.
 	attempt=0
-	until [[ $(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length) -eq 2 ]]; do
+	until [[ $(vault kv list -format json "${model_name}-${model_uuid: -6}" | yq length) -eq 2 ]]; do
 		if [[ ${attempt} -ge 30 ]]; then
 			echo "Failed: expected all secrets get drained to vault."
 			exit 1
@@ -173,7 +173,7 @@ prepare_vault() {
 	juju --show-log expose vault
 
 	wait_for "blocked" "$(workload_status vault 0).current"
-	vault_public_addr=$(juju status --format json | jq -r '.applications.vault.units."vault/0"."public-address"')
+	vault_public_addr=$(juju status --format json | yq -r '.applications.vault.units."vault/0"."public-address"')
 	export VAULT_ADDR="https://${vault_public_addr}:8200"
 	mkdir -p ~/snap/vault/common/
 	TMP=$(mktemp -d ~/snap/vault/common/cacert-XXXXX)
@@ -202,11 +202,11 @@ prepare_vault() {
 	export VAULT_CAPATH="$TMP/vault.pem"
 	vault status || true
 	vault_init_output=$(vault operator init -key-shares=5 -key-threshold=3 -format json)
-	vault_token=$(echo "$vault_init_output" | jq -r .root_token)
+	vault_token=$(echo "$vault_init_output" | yq -r .root_token)
 	export VAULT_TOKEN="$vault_token"
-	unseal_key0=$(echo "$vault_init_output" | jq -r '.unseal_keys_b64[0]')
-	unseal_key1=$(echo "$vault_init_output" | jq -r '.unseal_keys_b64[1]')
-	unseal_key2=$(echo "$vault_init_output" | jq -r '.unseal_keys_b64[2]')
+	unseal_key0=$(echo "$vault_init_output" | yq -r '.unseal_keys_b64[0]')
+	unseal_key1=$(echo "$vault_init_output" | yq -r '.unseal_keys_b64[1]')
+	unseal_key2=$(echo "$vault_init_output" | yq -r '.unseal_keys_b64[2]')
 
 	vault operator unseal "$unseal_key0"
 	vault operator unseal "$unseal_key1"

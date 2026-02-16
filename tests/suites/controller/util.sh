@@ -71,10 +71,10 @@ remove_access_to_api_port() {
 region_or_availability_zone() {
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"ec2")
-		juju show-model controller --format json | jq -r '.["controller"]["region"]'
+		juju show-model controller --format json | yq -r '.["controller"]["region"]'
 		;;
 	"gce")
-		juju show-machine -m controller 0 --format=json | jq -r '.["machines"]["0"]["hardware"]' | grep -oP 'availability-zone=\K\S+'
+		juju show-machine -m controller 0 --format=json | yq -r '.["machines"]["0"]["hardware"]' | grep -oP 'availability-zone=\K\S+'
 		;;
 	*)
 		echo "Unexpected bootstrap provider (${BOOTSTRAP_PROVIDER})."
@@ -89,12 +89,12 @@ region_or_availability_zone() {
 instance_network_tag_or_group() {
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"ec2")
-		model_uuid=$(juju show-model controller --format json | jq -r '.["controller"]["model-uuid"]')
+		model_uuid=$(juju show-model controller --format json | yq -r '.["controller"]["model-uuid"]')
 		echo "juju-${model_uuid}-0"
 		;;
 	"gce")
 		machine_info="$(juju list-machines -m controller --format=json)"
-		echo "$(jq -r '.machines["0"]."instance-id"' <<<"$machine_info")"
+		echo "$(yq -r '.machines["0"]."instance-id"' <<<"$machine_info")"
 		;;
 	*)
 		echo "Unexpected bootstrap provider (${BOOTSTRAP_PROVIDER})."

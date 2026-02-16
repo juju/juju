@@ -19,7 +19,7 @@ test_import_filesystem() {
 	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
 
 	# Capture the provisioned PersistentVolume ID.
-	PV=$(juju storage --format json | jq -r '.volumes["0"]."provider-id"')
+	PV=$(juju storage --format json | yq -r '.volumes["0"]."provider-id"')
 
 	# Clean up: remove the application and associated storage (retain PV).
 	juju remove-application postgresql-k8s --no-prompt
@@ -80,7 +80,7 @@ test_force_import_filesystem() {
 	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
 
 	# Capture the provisioned PersistentVolume ID.
-	PV=$(juju storage --format json | jq -r '.volumes["0"]."provider-id"')
+	PV=$(juju storage --format json | yq -r '.volumes["0"]."provider-id"')
 
 	# Clean up: remove the application and associated storage (retain PV).
 	juju remove-application postgresql-k8s --no-prompt

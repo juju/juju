@@ -32,18 +32,18 @@ check_secrets() {
 	check_contains "$(juju exec --unit dummy-source/0 -- secret-get "$secret_owned_by_dummy_source")" 'owned-by: dummy-source-app'
 
 	echo "Checking: secret-get by URI - metadata"
-	check_contains "$(juju exec --unit dummy-source/0 -- secret-info-get "$secret_owned_by_dummy_source_0" --format json | jq ".${secret_owned_by_dummy_source_0_id}.owner")" 'unit'
-	check_contains "$(juju exec --unit dummy-source/0 -- secret-info-get "$secret_owned_by_dummy_source" --format json | jq ".${secret_owned_by_dummy_source_id}.owner")" 'application'
-	check_contains "$(juju exec --unit dummy-source/0 -- secret-info-get "$secret_owned_by_dummy_source" --format json | jq ".${secret_owned_by_dummy_source_id}.revision")" '1'
+	check_contains "$(juju exec --unit dummy-source/0 -- secret-info-get "$secret_owned_by_dummy_source_0" --format json | yq ".${secret_owned_by_dummy_source_0_id}.owner")" 'unit'
+	check_contains "$(juju exec --unit dummy-source/0 -- secret-info-get "$secret_owned_by_dummy_source" --format json | yq ".${secret_owned_by_dummy_source_id}.owner")" 'application'
+	check_contains "$(juju exec --unit dummy-source/0 -- secret-info-get "$secret_owned_by_dummy_source" --format json | yq ".${secret_owned_by_dummy_source_id}.revision")" '1'
 
 	echo "Checking: secret-get by label or consumer label - content"
 	check_contains "$(juju exec --unit dummy-source/0 -- secret-get --label=dummy-source_0)" 'owned-by: dummy-source/0'
 	check_contains "$(juju exec --unit dummy-source/0 -- secret-get --label=dummy-source-app)" 'owned-by: dummy-source-app'
 
 	echo "Checking: secret-get by label - metadata"
-	check_contains "$(juju exec --unit dummy-source/0 -- secret-info-get --label=dummy-source_0 --format json | jq ".${secret_owned_by_dummy_source_0_id}.label")" 'dummy-source_0'
+	check_contains "$(juju exec --unit dummy-source/0 -- secret-info-get --label=dummy-source_0 --format json | yq ".${secret_owned_by_dummy_source_0_id}.label")" 'dummy-source_0'
 
-	relation_id=$(juju --show-log show-unit dummy-source/0 --format json | jq '."dummy-source/0"."relation-info"[0]."relation-id"')
+	relation_id=$(juju --show-log show-unit dummy-source/0 --format json | yq '."dummy-source/0"."relation-info"[0]."relation-id"')
 	juju exec --unit dummy-source/0 -- secret-grant "$secret_owned_by_dummy_source_0" -r "$relation_id"
 	juju exec --unit dummy-source/0 -- secret-grant "$secret_owned_by_dummy_source" -r "$relation_id"
 
@@ -67,7 +67,7 @@ check_secrets() {
 
 	echo "Set different content for $secret_owned_by_dummy_source."
 	juju exec --unit dummy-source/0 -- secret-set "$secret_owned_by_dummy_source_id" foo=bar
-	check_contains "$(juju exec --unit dummy-source/0 -- secret-info-get "$secret_owned_by_dummy_source" --format json | jq ".${secret_owned_by_dummy_source_id}.revision")" '2'
+	check_contains "$(juju exec --unit dummy-source/0 -- secret-info-get "$secret_owned_by_dummy_source" --format json | yq ".${secret_owned_by_dummy_source_id}.revision")" '2'
 	check_contains "$(juju exec --unit dummy-source/0 -- secret-get --refresh "$secret_owned_by_dummy_source")" 'foo: bar'
 
 	echo "Checking: secret-revoke by relation ID"
@@ -80,13 +80,13 @@ check_secrets() {
 
 	echo "Checking secret rotate"
 	juju exec --unit dummy-source/0 -- secret-set "$secret_owned_by_dummy_source_0" --rotate daily
-	check_contains "$(juju show-secret "$secret_owned_by_dummy_source_0" --format json | jq ".[].rotation")" "daily"
-	original_rotate_time="$(juju show-secret "$secret_owned_by_dummy_source_0" --format json | jq ".[].rotates")"
+	check_contains "$(juju show-secret "$secret_owned_by_dummy_source_0" --format json | yq ".[].rotation")" "daily"
+	original_rotate_time="$(juju show-secret "$secret_owned_by_dummy_source_0" --format json | yq ".[].rotates")"
 	# We set a new rotate time into the future and we need to retain
 	# the current next rotate time.
 	juju exec --unit dummy-source/0 -- secret-set "$secret_owned_by_dummy_source_0" --rotate monthly
-	check_contains "$(juju show-secret "$secret_owned_by_dummy_source_0" --format json | jq ".[].rotation")" "monthly"
-	next_rotate_time="$(juju show-secret "$secret_owned_by_dummy_source_0" --format json | jq ".[].rotates")"
+	check_contains "$(juju show-secret "$secret_owned_by_dummy_source_0" --format json | yq ".[].rotation")" "monthly"
+	next_rotate_time="$(juju show-secret "$secret_owned_by_dummy_source_0" --format json | yq ".[].rotates")"
 	if [[ $original_rotate_time != "$next_rotate_time" ]]; then
 		echo "secret next rotate time was updated in error"
 		exit 1
@@ -94,8 +94,8 @@ check_secrets() {
 	# We set a new rotate time sooner than the current rotate time so we need to
 	# update the next rotate time.
 	juju exec --unit dummy-source/0 -- secret-set "$secret_owned_by_dummy_source_0" --rotate hourly
-	check_contains "$(juju show-secret "$secret_owned_by_dummy_source_0" --format json | jq ".[].rotation")" "hourly"
-	next_rotate_time="$(juju show-secret "$secret_owned_by_dummy_source_0" --format json | jq ".[].rotates")"
+	check_contains "$(juju show-secret "$secret_owned_by_dummy_source_0" --format json | yq ".[].rotation")" "hourly"
+	next_rotate_time="$(juju show-secret "$secret_owned_by_dummy_source_0" --format json | yq ".[].rotates")"
 	if [[ $original_rotate_time == "$next_rotate_time" ]]; then
 		echo "secret next rotate time was not updated"
 		exit 1
@@ -243,7 +243,7 @@ run_obsolete_revisions() {
 	# Check that the secret-remove hook is run for the 10 obsolete revisions.
 	attempt=0
 	while true; do
-		num_hooks=$(juju show-status-log juju-qa-test/0 --format json -n 100 | jq -r "[.[] | select(.message != null) | select(.message | contains(\"running secret-remove hook\") and contains(\"${secret_id}\"))] | length")
+		num_hooks=$(juju show-status-log juju-qa-test/0 --format json -n 100 | yq -r "[.[] | select(.message != null) | select(.message | contains(\"running secret-remove hook\") and contains(\"${secret_id}\"))] | length")
 		if [ "$num_hooks" -eq 10 ]; then
 			break
 		fi

@@ -29,6 +29,6 @@ setup_gcloudcli_credential() {
 
 	gcloud auth activate-service-account --key-file "$key_json_file_path"
 
-	project_id=$(jq -r .project_id "$key_json_file_path")
+	project_id=$(yq -r .project_id "$key_json_file_path")
 	gcloud config set project "$project_id"
 }

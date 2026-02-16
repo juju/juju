@@ -130,7 +130,7 @@ bootstrap() {
 	fi
 	if [[ ${BOOTSTRAP_REUSE} == "true" && ${BOOTSTRAP_PROVIDER} != "k8s" ]]; then
 		# juju show-machine not supported with k8s controllers
-		OUT=$(juju show-machine -m "${bootstrapped_name}":controller --format=json | jq -r ".machines | .[] | .series")
+		OUT=$(juju show-machine -m "${bootstrapped_name}":controller --format=json | yq -r ".machines | .[] | .series")
 		if [[ -n ${OUT} ]]; then
 			OUT=$(echo "${OUT}" | grep -oh "${BOOTSTRAP_SERIES}" || true)
 			if [[ ${OUT} != "${BOOTSTRAP_SERIES}" ]]; then
@@ -146,7 +146,7 @@ bootstrap() {
 	if [[ ${BOOTSTRAP_REUSE} == "true" ]]; then
 		echo "====> Reusing bootstrapped juju ($(green "${version}:${cloud}"))"
 
-		OUT=$(juju models -c "${bootstrapped_name}" --format=json 2>/dev/null | jq -r ".models[] | .[\"short-name\"] | select(. == \"${model}\")" || true)
+		OUT=$(juju models -c "${bootstrapped_name}" --format=json 2>/dev/null | yq -r ".models[] | .[\"short-name\"] | select(. == \"${model}\")" || true)
 		if [[ -n ${OUT} ]]; then
 			echo "${model} already exists. Use the following to clean up the environment:"
 			echo "    juju switch ${bootstrapped_name}"
@@ -156,9 +156,9 @@ bootstrap() {
 
 		juju_add_model "${model}" "${cloud}" "${bootstrapped_name}" "${output}"
 		name="${bootstrapped_name}"
-		BOOTSTRAPPED_CLOUD=$(juju show-model controller --format json | jq -r '.[] | .cloud')
+		BOOTSTRAPPED_CLOUD=$(juju show-model controller --format json | yq -r '.[] | .cloud')
 		export BOOTSTRAPPED_CLOUD
-		BOOTSTRAPPED_CLOUD_REGION=$(juju show-model controller --format json | jq -r '.[] | (.cloud + "/" + .region)')
+		BOOTSTRAPPED_CLOUD_REGION=$(juju show-model controller --format json | yq -r '.[] | (.cloud + "/" + .region)')
 		export BOOTSTRAPPED_CLOUD_REGION
 	else
 		local cloud_region
@@ -190,7 +190,7 @@ juju_add_model() {
 	controller=${3}
 	output=${4}
 
-	OUT=$(juju controllers --format=json | jq '.controllers | .["${bootstrapped_name}"] | .cloud' | grep "${cloud}" || true)
+	OUT=$(juju controllers --format=json | yq '.controllers | .["${bootstrapped_name}"] | .cloud' | grep "${cloud}" || true)
 	if [[ -n ${OUT} ]]; then
 		juju add-model --show-log -c "${controller}" "${model}" 2>&1 | OUTPUT "${output}"
 	else
@@ -231,7 +231,7 @@ setup_vsphere_simplestreams() {
 		mkdir "${dir}" || true
 	fi
 
-	cloud_endpoint=$(juju clouds --client --format=json | jq -r ".[\"$BOOTSTRAP_CLOUD\"] | .endpoint")
+	cloud_endpoint=$(juju clouds --client --format=json | yq -r ".[\"$BOOTSTRAP_CLOUD\"] | .endpoint")
 	# pipe output to test dir, otherwise becomes part of the return value.
 	juju metadata generate-image -i juju-ci-root/templates/"${series}"-test-template -r "${BOOTSTRAP_REGION}" -d "${dir}" -u "${cloud_endpoint}" -s "${series}" >>"${TEST_DIR}"/simplestreams 2>&1
 }
@@ -418,7 +418,7 @@ destroy_model() {
 	shift
 
 	# shellcheck disable=SC2034
-	OUT=$(juju models --format=json | jq '.models | .[] | .["short-name"]' | grep "${name}" || true)
+	OUT=$(juju models --format=json | yq '.models | .[] | .["short-name"]' | grep "${name}" || true)
 	# shellcheck disable=SC2181
 	if [[ -z ${OUT} ]]; then
 		return
@@ -450,10 +450,10 @@ destroy_controller() {
 	shift
 
 	# shellcheck disable=SC2034
-	OUT=$(juju controllers --format=json | jq '.controllers | keys[]' | grep "${name}" || true)
+	OUT=$(juju controllers --format=json | yq '.controllers | keys[]' | grep "${name}" || true)
 	# shellcheck disable=SC2181
 	if [[ -z ${OUT} ]]; then
-		OUT=$(juju models --format=json | jq -r '.models | .[] | .["short-name"]' | grep "^${name}$" || true)
+		OUT=$(juju models --format=json | yq -r '.models | .[] | .["short-name"]' | grep "^${name}$" || true)
 		if [[ -z ${OUT} ]]; then
 			echo "====> ERROR Destroy controller/model. Unable to locate $(red "${name}")"
 			exit 1
@@ -529,7 +529,7 @@ introspect_controller() {
 		return
 	fi
 
-	idents=$(juju machines -m "${name}:controller" --format=json | jq ".machines | keys | .[]")
+	idents=$(juju machines -m "${name}:controller" --format=json | yq ".machines | keys | .[]")
 	if [[ -z ${idents} ]]; then
 		return
 	fi
@@ -543,10 +543,10 @@ remove_controller_offers() {
 
 	name=${1}
 
-	OUT=$(juju models -c "${name}" --format=json | jq -r '.["models"] | .[] | select(.["is-controller"] == false) | .name' || true)
+	OUT=$(juju models -c "${name}" --format=json | yq -r '.["models"] | .[] | select(.["is-controller"] == false) | .name' || true)
 	if [[ -n ${OUT} ]]; then
 		echo "${OUT}" | while read -r model; do
-			OUT=$(juju offers -m "${name}:${model}" --format=json | jq -r '.[] | .["offer-url"]' || true)
+			OUT=$(juju offers -m "${name}:${model}" --format=json | yq -r '.[] | .["offer-url"]' || true)
 			echo "${OUT}" | while read -r offer; do
 				if [[ -n ${offer} ]]; then
 					juju remove-offer --force -y -c "${name}" "${offer}"

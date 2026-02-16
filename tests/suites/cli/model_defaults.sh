@@ -25,9 +25,9 @@ EOF
 run_model_defaults_boolean() {
 	echo
 
-	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" automatically-retry-hooks --format=json | jq '."automatically-retry-hooks"."default"' | grep '^true$'
+	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" automatically-retry-hooks --format=json | yq '."automatically-retry-hooks"."default"' | grep '^true$'
 	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" automatically-retry-hooks=false
-	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" automatically-retry-hooks --format=json | jq '."automatically-retry-hooks"."controller"' | grep '^false$'
+	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" automatically-retry-hooks --format=json | yq '."automatically-retry-hooks"."controller"' | grep '^false$'
 	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" | grep -E 'automatically-retry-hooks +true +false'
 	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" automatically-retry-hooks --format=yaml | grep 'default: true'
 	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" automatically-retry-hooks --format=yaml | grep 'controller: false'
@@ -36,10 +36,10 @@ run_model_defaults_boolean() {
 run_model_defaults_region_aws() {
 	echo
 
-	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" --format=json test-mode | jq '."test-mode"."default"'
+	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" --format=json test-mode | yq '."test-mode"."default"'
 	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" --format=yaml aws/ca-central-1 test-mode=true
-	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" --format=json aws/ca-central-1 test-mode | jq '."test-mode".regions[0].value' | grep '^true$'
-	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" --format=json test-mode | jq '."test-mode".regions[]|select(.name=="ca-central-1").value' | grep '^true$'
+	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" --format=json aws/ca-central-1 test-mode | yq '."test-mode".regions[0].value' | grep '^true$'
+	juju model-defaults --cloud "${BOOTSTRAPPED_CLOUD}" --format=json test-mode | yq '."test-mode".regions[]|select(.name=="ca-central-1").value' | grep '^true$'
 }
 
 test_model_defaults() {

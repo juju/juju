@@ -104,7 +104,7 @@ run_deploy_caas_workload() {
 	model_name="test-${name}"
 	file="${TEST_DIR}/${model_name}.log"
 
-	controller_name=$(juju controllers --format json | jq -r '.controllers | keys[0]')
+	controller_name=$(juju controllers --format json | yq -r '.controllers | keys[0]')
 	juju add-k8s "${k8s_cloud_name}" --storage "${storage}" --controller "${controller_name}" 2>&1 | OUTPUT "${file}"
 
 	juju_add_model "${model_name}" "${k8s_cloud_name}" "${controller_name}" "${file}"

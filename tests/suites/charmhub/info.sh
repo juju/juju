@@ -36,7 +36,7 @@ run_charmhub_info_config() {
 
 run_charmhub_info_json() {
 	echo
-	output=$(juju info ubuntu --format json | jq .charm.config.Options.hostname.Type)
+	output=$(juju info ubuntu --format json | yq .charm.config.Options.hostname.Type)
 	check_contains "${output}" "string"
 }
 

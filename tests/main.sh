@@ -199,8 +199,8 @@ while getopts "hH?vAs:a:x:rl:p:c:R:S:V" opt; do
 		export BOOTSTRAP_REUSE_LOCAL="${OPTARG}"
 		export BOOTSTRAP_REUSE="true"
 
-		CLOUD=$(juju show-controller "${OPTARG}" --format=json 2>/dev/null | jq -r ".[\"${OPTARG}\"] | .details | .cloud")
-		PROVIDER=$(juju clouds --client --all --format=json 2>/dev/null | jq -r ".[\"${CLOUD}\"] | .type")
+		CLOUD=$(juju show-controller "${OPTARG}" --format=json 2>/dev/null | yq -r ".[\"${OPTARG}\"] | .details | .cloud")
+		PROVIDER=$(juju clouds --client --all --format=json 2>/dev/null | yq -r ".[\"${CLOUD}\"] | .type")
 		export BOOTSTRAP_PROVIDER="${PROVIDER}"
 		export BOOTSTRAP_CLOUD="${CLOUD}"
 		;;
@@ -208,7 +208,7 @@ while getopts "hH?vAs:a:x:rl:p:c:R:S:V" opt; do
 		export BOOTSTRAP_PROVIDER="${OPTARG}"
 		;;
 	c)
-		PROVIDER=$(juju clouds --client --all --format=json 2>/dev/null | jq -r ".[\"${OPTARG}\"] | .type")
+		PROVIDER=$(juju clouds --client --all --format=json 2>/dev/null | yq -r ".[\"${OPTARG}\"] | .type")
 		export BOOTSTRAP_PROVIDER="${PROVIDER}"
 		CLOUD="${OPTARG}"
 		export BOOTSTRAP_CLOUD="${CLOUD}"
@@ -245,7 +245,7 @@ fi
 echo ""
 
 echo "==> Checking for dependencies"
-check_dependencies curl jq yq shellcheck expect
+check_dependencies curl yq shellcheck expect
 
 if [[ ${USER:-'root'} == "root" ]]; then
 	echo "The testsuite must not be run as root." >&2

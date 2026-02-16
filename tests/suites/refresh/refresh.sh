@@ -100,7 +100,7 @@ run_refresh_channel_no_new_revision() {
 	juju deploy juju-qa-fixed-rev
 	wait_for "juju-qa-fixed-rev" "$(idle_condition "juju-qa-fixed-rev")"
 	# get revision to ensure it doesn't change
-	cs_revision=$(juju status --format json | jq -S '.applications | .["juju-qa-fixed-rev"] | .["charm-rev"]')
+	cs_revision=$(juju status --format json | yq -S '.applications | .["juju-qa-fixed-rev"] | .["charm-rev"]')
 
 	juju refresh juju-qa-fixed-rev --channel edge
 

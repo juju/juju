@@ -35,7 +35,7 @@ run_network_health() {
 check_default_routes() {
 	echo "[+] checking default routes"
 
-	for machine in $(juju machines --format=json | jq -r ".machines | keys | .[]"); do
+	for machine in $(juju machines --format=json | yq -r ".machines | keys | .[]"); do
 		default=$(juju exec --machine "$machine" -- ip route show | grep default)
 		if [ -z "$default" ]; then
 			echo "No default route detected for machine ${machine}"
@@ -49,7 +49,7 @@ check_accessibility() {
 
 	for net_health_unit in "network-health-focal/0" "network-health-jammy/0"; do
 
-		ip="$(juju show-unit $net_health_unit --format json | jq -r ".[\"$net_health_unit\"] | .[\"public-address\"]")"
+		ip="$(juju show-unit $net_health_unit --format json | yq -r ".[\"$net_health_unit\"] | .[\"public-address\"]")"
 
 		curl_cmd="curl -s http://${ip}:8039"
 
@@ -76,8 +76,8 @@ run_ip_address_change() {
 
 	wait_for "juju-qa-test" "$(active_condition "juju-qa-test" 0)"
 
-	instance_0="$(juju show-machine 0 --format json | jq '.machines["0"] | .["instance-id"]' -r)"
-	instance_1="$(juju show-machine 1 --format json | jq '.machines["1"] | .["instance-id"]' -r)"
+	instance_0="$(juju show-machine 0 --format json | yq '.machines["0"] | .["instance-id"]' -r)"
+	instance_1="$(juju show-machine 1 --format json | yq '.machines["1"] | .["instance-id"]' -r)"
 
 	old_ip_instance_0="$(lxc exec "${instance_0}" -- hostname -i)"
 	old_ip_instance_1="$(lxc exec "${instance_1}" -- hostname -i)"

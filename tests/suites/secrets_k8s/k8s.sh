@@ -152,7 +152,7 @@ run_user_secrets() {
 
 	model_name='model-user-secrets-k8s'
 	juju --show-log add-model "$model_name" --config secret-backend=auto
-	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
+	model_uuid=$(juju show-model $model_name --format json | yq -r ".[\"${model_name}\"][\"model-uuid\"]")
 
 	juju --show-log deploy snappass-test
 
@@ -252,8 +252,8 @@ run_secret_drain() {
 		attempt=$((attempt + 1))
 	done
 
-	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
-	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length)" 2
+	model_uuid=$(juju show-model $model_name --format json | yq -r ".[\"${model_name}\"][\"model-uuid\"]")
+	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | yq length)" 2
 
 	juju model-config secret-backend=auto
 
@@ -277,7 +277,7 @@ run_secret_drain() {
 		attempt=$((attempt + 1))
 	done
 
-	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length)" 0
+	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | yq length)" 0
 
 	destroy_model "$model_name"
 }
@@ -285,7 +285,7 @@ run_secret_drain() {
 run_user_secret_drain() {
 	model_name='model-user-secrets-k8s-drain'
 	juju --show-log add-model "$model_name"
-	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
+	model_uuid=$(juju show-model $model_name --format json | yq -r ".[\"${model_name}\"][\"model-uuid\"]")
 
 	prepare_vault
 	vault_backend_name='user-secret-drain-vault-backend'
@@ -318,9 +318,9 @@ run_user_secret_drain() {
 		attempt=$((attempt + 1))
 	done
 
-	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
+	model_uuid=$(juju show-model $model_name --format json | yq -r ".[\"${model_name}\"][\"model-uuid\"]")
 	# ensure the user secret is in vault backend.
-	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length)" 1
+	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | yq length)" 1
 	# ensure the application can still read the user secret.
 	check_contains "$(juju exec --unit hello/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
 
@@ -338,7 +338,7 @@ run_user_secret_drain() {
 	done
 
 	# ensure the user secret is removed from vault backend.
-	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length)" 0
+	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | yq length)" 0
 	# ensure the application can still read the user secret.
 	check_contains "$(juju exec --unit hello/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
 
@@ -352,8 +352,6 @@ run_test_add_multiple_secrets_parallel() {
 	model_log_file="${TEST_DIR}/${model_name}.log"
 
 	cleanup_resources() {
-		# Remove files in this test in case other k8s test uses the same file names.
-		rm -f "$ctrl_log_file" "$model_log_file"
 		export KILL_CONTROLLER=true
 	}
 	trap cleanup_resources EXIT HUP INT TERM
@@ -387,9 +385,7 @@ run_test_add_multiple_secrets_parallel() {
 	verify_secrets_exist "$ctrl_log_file"
 
 	# Remove all secrets that were added to controller.
-	for i in $(seq 1 100); do
-		juju remove-secret "test${i}"
-	done
+	seq 1 100 | xargs -P5 -I{} juju remove-secret "test{}"
 
 	juju add-model "$model_name"
 	# Check logs during juju add-secret in non-controller model for any errors.

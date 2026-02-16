@@ -6,7 +6,7 @@ run_serviceaccount_credential() {
 	export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --bootstrap-constraints=instance-role=auto"
 	bootstrap "test-serviceaccount-gce" "${file}"
 
-	projectServiceAccount=$(gcloud compute project-info describe --format json | jq -r .defaultServiceAccount)
+	projectServiceAccount=$(gcloud compute project-info describe --format json | yq -r .defaultServiceAccount)
 	if [[ $projectServiceAccount == null ]]; then
 		projectInfo=$(gcloud compute project-info describe)
 		printf "Could not find project default service account:\n%s" "${projectInfo}" >&2
@@ -38,7 +38,7 @@ run_serviceaccount_credential() {
 		instId=$(juju show-machine $m | yq '.machines .'"$m"' .instance-id')
 		echo "Checking service account for machine ${m} with inst id ${instId}"
 		az=$(juju show-machine $m | yq '.machines .'"$m"' .hardware' | awk '{ delete vars; for(i = 1; i <= NF; ++i) { n = index($i, "="); if(n) { vars[substr($i, 1, n - 1)] = substr($i, n + 1) } } az = vars["availability-zone"] } { print az }')
-		instServiceAccount=$(gcloud compute instances describe --zone "${az}" "${instId}" --format json | jq -r '.serviceAccounts[0].email')
+		instServiceAccount=$(gcloud compute instances describe --zone "${az}" "${instId}" --format json | yq -r '.serviceAccounts[0].email')
 		if [[ $instServiceAccount == null ]]; then
 			instInfo=$(gcloud compute instances describe --zone "${az}" "${instId}")
 			printf "Could not find instance %s service account:\n%s" "${instId}" "${instInfo}" >&2

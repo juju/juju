@@ -21,7 +21,7 @@ run_deploy_local_charm_revision() {
 	juju deploy .
 
 	wait_for "ubuntu-plus" ".applications | keys[0]"
-	CURRENT_CHARM_SHA=$(juju status --format=json | jq '.applications."ubuntu-plus"."charm-version"')
+	CURRENT_CHARM_SHA=$(juju status --format=json | yq '.applications."ubuntu-plus"."charm-version"')
 
 	if [ "${SHA_OF_UBUNTU_PLUS}" != "${CURRENT_CHARM_SHA}" ]; then
 		echo "The expected sha does not equal the ntp SHA"
@@ -72,7 +72,7 @@ run_deploy_local_charm_revision_no_vcs_but_version_file() {
 	OUTPUT=$(juju deploy --debug . 2>&1)
 
 	wait_for "ubuntu-plus" ".applications | keys[0]"
-	CURRENT_CHARM_SHA=$(juju status --format=json | jq '.applications."ubuntu-plus"."charm-version"')
+	CURRENT_CHARM_SHA=$(juju status --format=json | yq '.applications."ubuntu-plus"."charm-version"')
 
 	if [ "${VERSION_OUTPUT}" != "${CURRENT_CHARM_SHA}" ]; then
 		echo "The expected sha does not equal the ubuntu-plus SHA. Current sha: ${CURRENT_CHARM_SHA} expected sha: ${VERSION_OUTPUT}"
@@ -117,7 +117,7 @@ run_deploy_local_charm_revision_relative_path() {
 	wait_for "ubuntu-plus" ".applications | keys[0]"
 
 	# We still expect the SHA to be the one from the place we deploy and not the CWD, which in this case has no SHA
-	CURRENT_CHARM_SHA=$(juju status --format=json | jq '.applications."ubuntu-plus"."charm-version"')
+	CURRENT_CHARM_SHA=$(juju status --format=json | yq '.applications."ubuntu-plus"."charm-version"')
 
 	if [ "${SHA_OF_TMP}" = "${CURRENT_CHARM_SHA}" ]; then
 		echo "The expected sha should not equal the tmp SHA. Current sha: ${CURRENT_CHARM_SHA}"
@@ -160,7 +160,7 @@ run_deploy_local_charm_revision_invalid_git() {
 
 	wait_for "ubuntu-plus" ".applications | keys[0]"
 	# We still expect the SHA to be the one from the place we deploy and not the CWD, which in this case has no SHA.
-	CURRENT_CHARM_SHA=$(juju status --format=json | jq '.applications."ubuntu-plus"."charm-version"')
+	CURRENT_CHARM_SHA=$(juju status --format=json | yq '.applications."ubuntu-plus"."charm-version"')
 	if [ "${WANTED_CHARM_SHA}" != "${CURRENT_CHARM_SHA}" ]; then
 		echo "The expected sha does not equal the ubuntu-plus SHA. Current sha: ${CURRENT_CHARM_SHA} expected sha: ${WANTED_CHARM_SHA}"
 		exit 1

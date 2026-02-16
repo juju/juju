@@ -46,7 +46,7 @@ manual_deploy() {
 	juju enable-ha --to "1,2" 2>&1 | tee "${TEST_DIR}/enable-ha.log"
 	wait_for "controller" "$(active_condition "controller" 0)"
 
-	machine_base=$(juju machines --format=json | jq -r '.machines | .["0"] | (.base.name+"@"+.base.channel)')
+	machine_base=$(juju machines --format=json | yq -r '.machines | .["0"] | (.base.name+"@"+.base.channel)')
 
 	if [[ -z ${machine_base} ]]; then
 		echo "machine 0 has invalid base"

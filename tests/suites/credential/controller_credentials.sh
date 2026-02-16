@@ -3,7 +3,7 @@ run_controller_credentials() {
 
 	juju show-cloud --controller "${BOOTSTRAPPED_JUJU_CTRL_NAME}" aws 2>/dev/null || juju add-cloud --controller "${BOOTSTRAPPED_JUJU_CTRL_NAME}" aws --force
 	juju add-credential aws -f "./tests/suites/credential/credentials-data/fake-credentials.yaml" --controller "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
-	OUT=$(juju credentials --controller "${BOOTSTRAPPED_JUJU_CTRL_NAME}" --format=json 2>/dev/null | jq '.[].aws."cloud-credentials"')
+	OUT=$(juju credentials --controller "${BOOTSTRAPPED_JUJU_CTRL_NAME}" --format=json 2>/dev/null | yq '.[].aws."cloud-credentials"')
 
 	EXPECTED=$(
 		cat <<'EOF'
@@ -21,7 +21,7 @@ EOF
 		exit 1
 	fi
 
-	OUT=$(juju credentials --controller ${BOOTSTRAPPED_JUJU_CTRL_NAME} --show-secrets --format=json 2>/dev/null | jq '.[].aws."cloud-credentials"')
+	OUT=$(juju credentials --controller ${BOOTSTRAPPED_JUJU_CTRL_NAME} --show-secrets --format=json 2>/dev/null | yq '.[].aws."cloud-credentials"')
 	EXPECTED=$(
 		cat <<'EOF'
   "fake-credential-name": {

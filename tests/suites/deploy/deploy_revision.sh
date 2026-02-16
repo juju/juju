@@ -11,7 +11,7 @@ run_deploy_revision() {
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 23)"
 
 	# check resource revision per channel specified.
-	got=$(juju resources juju-qa-test --format json | jq -S '.resources[0] | .["revision"] == "1"')
+	got=$(juju resources juju-qa-test --format json | yq -S '.resources[0] | .["revision"] == "1"')
 	check_contains "${got}" "true"
 
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
@@ -20,7 +20,7 @@ run_deploy_revision() {
 	wait_for "resource line one: testing one." "$(workload_status juju-qa-test 0).message"
 
 	# check resource revision again per channel specified.
-	juju resources juju-qa-test --format json | jq -S '.resources[0] | .[ "revision"] == "1"'
+	juju resources juju-qa-test --format json | yq -S '.resources[0] | .[ "revision"] == "1"'
 
 	destroy_model "${model_name}"
 }
@@ -38,7 +38,7 @@ run_deploy_revision_resource() {
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 23)"
 
 	# check resource revision as specified in command.
-	got=$(juju resources juju-qa-test --format json | jq -S '.resources[0] | .["revision"] == "4"')
+	got=$(juju resources juju-qa-test --format json | yq -S '.resources[0] | .["revision"] == "4"')
 	check_contains "${got}" "true"
 
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
@@ -47,7 +47,7 @@ run_deploy_revision_resource() {
 	wait_for "resource line one: testing four." "$(workload_status juju-qa-test 0).message"
 
 	# check resource revision again per channel specified.
-	juju resources juju-qa-test --format json | jq -S '.resources[0] | .[ "revision"] == "4"'
+	juju resources juju-qa-test --format json | yq -S '.resources[0] | .[ "revision"] == "4"'
 
 	destroy_model "${model_name}"
 }

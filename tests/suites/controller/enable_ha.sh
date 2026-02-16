@@ -3,7 +3,7 @@ wait_for_controller_machines_tear_down() {
 
 	attempt=0
 	# shellcheck disable=SC2143
-	until [[ "$(juju machines -m controller --format=json | jq -r '.machines | .[] | .["juju-status"] | select(.current == "started") | .current' | wc -l | grep "${amount}")" ]]; do
+	until [[ "$(juju machines -m controller --format=json | yq -r '.machines | .[] | .["juju-status"] | select(.current == "started") | .current' | wc -l | grep "${amount}")" ]]; do
 		echo "[+] (attempt ${attempt}) polling started machines during ha tear down"
 		juju machines -m controller 2>&1 | sed 's/^/    | /g' || true
 		sleep "${SHORT_TIMEOUT}"
@@ -17,7 +17,7 @@ wait_for_controller_machines_tear_down() {
 
 	attempt=0
 	# shellcheck disable=SC2143
-	until [[ "$(juju machines -m controller --format=json | jq -r '.machines | .[] | .["juju-status"] | select(.current == "stopped") | .current' | wc -l | grep 0)" ]]; do
+	until [[ "$(juju machines -m controller --format=json | yq -r '.machines | .[] | .["juju-status"] | select(.current == "stopped") | .current' | wc -l | grep 0)" ]]; do
 		echo "[+] (attempt ${attempt}) polling stopped machines during ha tear down"
 		juju machines -m controller 2>&1 | sed 's/^/    | /g' || true
 		sleep "${SHORT_TIMEOUT}"
@@ -29,7 +29,7 @@ wait_for_controller_machines_tear_down() {
 		fi
 	done
 
-	if [[ "$(juju machines -m controller --format=json | jq -r '.machines | .[] | .["juju-status"] | select(.current == "error") | .current' | wc -l)" -gt 0 ]]; then
+	if [[ "$(juju machines -m controller --format=json | yq -r '.machines | .[] | .["juju-status"] | select(.current == "error") | .current' | wc -l)" -gt 0 ]]; then
 		echo "machine in controller model with error during ha tear down"
 		juju machines -m controller 2>&1 | sed 's/^/    | /g' || true
 		exit 1
@@ -61,7 +61,7 @@ run_controller_limit_access_in_ha() {
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"ec2" | "gce")
 		machine_info="$(juju list-machines -m controller --format=json)"
-		instance_id="$(jq -r '.machines["0"]."instance-id"' <<<"$machine_info")"
+		instance_id="$(yq -r '.machines["0"]."instance-id"' <<<"$machine_info")"
 		region_or_az=$(region_or_availability_zone)
 		network_tag_or_group=$(instance_network_tag_or_group)
 
@@ -121,7 +121,7 @@ run_enable_ha() {
 	wait_for_controller_machines_tear_down 1
 
 	# Ensure that we have no ha enabled machines.
-	juju show-controller --format=json | jq -r '.[] | .["controller-machines"] |  reduce(.[] | select(.["instance-id"] == null)) as $i (0;.+=1)' | grep 0
+	juju show-controller --format=json | yq -r '.[] | .["controller-machines"] |  reduce(.[] | select(.["instance-id"] == null)) as $i (0;.+=1)' | grep 0
 
 	wait_for_controller_leader
 

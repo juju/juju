@@ -51,8 +51,8 @@ run_deploy_centos7() {
 	#
 	juju deploy ./tests/suites/deploy/charms/centos-dummy-sink --base centos@7 --constraints instance-type=t3.medium
 
-	juju status --format=json | jq '.applications."dummy-sink".base.name' | check "centos"
-	juju status --format=json | jq '.applications."dummy-sink".base.channel' | check "7"
+	juju status --format=json | yq '.applications."dummy-sink".base.name' | check "centos"
+	juju status --format=json | yq '.applications."dummy-sink".base.channel' | check "7"
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
@@ -83,8 +83,8 @@ run_deploy_centos9() {
 	#
 	juju deploy ./tests/suites/deploy/charms/centos-dummy-sink --base centos@9 --constraints root-disk=10G
 
-	juju status --format=json | jq '.applications."dummy-sink".base.name' | check "centos"
-	juju status --format=json | jq '.applications."dummy-sink".base.channel' | check "9"
+	juju status --format=json | yq '.applications."dummy-sink".base.name' | check "centos"
+	juju status --format=json | yq '.applications."dummy-sink".base.channel' | check "9"
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 

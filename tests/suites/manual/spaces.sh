@@ -51,17 +51,17 @@ run_spaces_manual_aws() {
 	image_id="${OUT}"
 
 	echo "===> Ensure at least 3 default subnets exists"
-	check_ge "$(aws ec2 describe-availability-zones | jq -r ".AvailabilityZones | length")" 3
+	check_ge "$(aws ec2 describe-availability-zones | yq -r ".AvailabilityZones | length")" 3
 	aws ec2 create-default-subnet --availability-zone "${BOOTSTRAP_REGION}a" 2>/dev/null || true
 	aws ec2 create-default-subnet --availability-zone "${BOOTSTRAP_REGION}b" 2>/dev/null || true
 	aws ec2 create-default-subnet --availability-zone "${BOOTSTRAP_REGION}c" 2>/dev/null || true
 
-	sub1=$(aws ec2 describe-subnets | jq -r '.Subnets[] | select(.DefaultForAz==true and .CidrBlock=="172.31.0.0/20") | .SubnetId')
-	sub2=$(aws ec2 describe-subnets | jq -r '.Subnets[] | select(.DefaultForAz==true and .CidrBlock=="172.31.16.0/20") | .SubnetId')
-	sub3=$(aws ec2 describe-subnets | jq -r '.Subnets[] | select(.DefaultForAz==true and .CidrBlock=="172.31.32.0/20") | .SubnetId')
+	sub1=$(aws ec2 describe-subnets | yq -r '.Subnets[] | select(.DefaultForAz==true and .CidrBlock=="172.31.0.0/20") | .SubnetId')
+	sub2=$(aws ec2 describe-subnets | yq -r '.Subnets[] | select(.DefaultForAz==true and .CidrBlock=="172.31.16.0/20") | .SubnetId')
+	sub3=$(aws ec2 describe-subnets | yq -r '.Subnets[] | select(.DefaultForAz==true and .CidrBlock=="172.31.32.0/20") | .SubnetId')
 
 	# Ensure we have a security group allowing SSH and controller access.
-	OUT=$(aws ec2 describe-security-groups | jq '.SecurityGroups[] | select(.GroupName=="ci-spaces-manual-ssh")' || true)
+	OUT=$(aws ec2 describe-security-groups | yq '.SecurityGroups[] | select(.GroupName=="ci-spaces-manual-ssh")' || true)
 	if [[ -z ${OUT} ]]; then
 		sg_id=$(aws ec2 create-security-group --group-name "ci-spaces-manual-ssh" --description "SSH access for manual spaces test" --query 'GroupId' --output text)
 		aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol tcp --port 22 --cidr 0.0.0.0/0
@@ -76,7 +76,7 @@ run_spaces_manual_aws() {
 		aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol tcp --port 0-65535 --source-group "${sg_id}"
 		aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol udp --port 0-65535 --source-group "${sg_id}"
 	else
-		sg_id=$(echo "${OUT}" | jq -r '.GroupId')
+		sg_id=$(echo "${OUT}" | yq -r '.GroupId')
 	fi
 
 	# Create a key-pair so that we can provision machines via SSH.

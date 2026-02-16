@@ -2,7 +2,7 @@ run_user_register() {
 	echo
 
 	echo "Check that current user is admin"
-	juju whoami --format=json | jq -r '."user"' | check "admin"
+	juju whoami --format=json | yq -r '."user"' | check "admin"
 
 	echo "Add user with read rights"
 	juju remove-user -y bob 2>/dev/null || true

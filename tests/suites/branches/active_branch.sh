@@ -12,7 +12,7 @@ run_indicate_active_branch_no_active() {
 
 	check_not_contains "$(juju status)" "Branch"
 
-	if [ "$(juju status --format=json | jq '.branches')" != null ]; then
+	if [ "$(juju status --format=json | yq '.branches')" != null ]; then
 		echo "The status shows branches even though we do not use them yet"
 		exit 1
 	fi
@@ -35,7 +35,7 @@ run_indicate_active_branch_active() {
 
 	check_contains "$(juju status)" "bla\*"
 
-	if [ "$(juju status --format=json | jq '.branches.bla.active')" != true ]; then
+	if [ "$(juju status --format=json | yq '.branches.bla.active')" != true ]; then
 		echo "The status does not show active branch"
 		exit 1
 	fi
@@ -49,8 +49,8 @@ run_indicate_active_branch_active() {
 	check_contains "$(juju status)" "testtest\*"
 	check_not_contains "$(juju status)" "bla\*"
 
-	STATUS_UNACTIVE=$(juju status --format=json | jq '.branches.bla.active')
-	STATUS_ACTIVE=$(juju status --format=json | jq '.branches.testtest.active')
+	STATUS_UNACTIVE=$(juju status --format=json | yq '.branches.bla.active')
+	STATUS_ACTIVE=$(juju status --format=json | yq '.branches.testtest.active')
 
 	if [ "${STATUS_UNACTIVE}" != null ]; then
 		echo "The status shows active branch"

@@ -32,21 +32,21 @@ test_spaces_gce() {
 ensure_subnets() {
 	local network_name=$1
 	local region=$2
-	existing_network=$(gcloud compute networks list --format json | jq -r '.[] | select(.name=="'"${network_name}"'") | .name')
+	existing_network=$(gcloud compute networks list --format json | yq -r '.[] | select(.name=="'"${network_name}"'") | .name')
 	if [ "$existing_network" == "" ]; then
 		echo "Creating VPC ${network_name} in region ${region}"
 		gcloud compute networks create "$network_name" --subnet-mode="custom" --description "test vpc for juju qa"
 	fi
 
 	icmp_rule_name="juju-qa-test-allow-icmp"
-	existing_icmp_firewall=$(gcloud compute firewall-rules list --format json | jq -r '.[] | select(.network | endswith("networks/'"${network_name}"'")) | select(.name == "'"${icmp_rule_name}"'") | .name')
+	existing_icmp_firewall=$(gcloud compute firewall-rules list --format json | yq -r '.[] | select(.network | endswith("networks/'"${network_name}"'")) | select(.name == "'"${icmp_rule_name}"'") | .name')
 	if [ "$existing_icmp_firewall" == "" ]; then
 		echo "Creating ICMP rule ${icmp_rule_name}"
 		gcloud compute firewall-rules create "$icmp_rule_name" --network "${network_name}" --allow="icmp" --source-ranges="0.0.0.0/0"
 	fi
 
 	ssh_rule_name="juju-qa-test-allow-ssh"
-	existing_ssh_firewall=$(gcloud compute firewall-rules list --format json | jq -r '.[] | select(.network | endswith("networks/'"${network_name}"'")) | select(.name == "'"${ssh_rule_name}"'") | .name')
+	existing_ssh_firewall=$(gcloud compute firewall-rules list --format json | yq -r '.[] | select(.network | endswith("networks/'"${network_name}"'")) | select(.name == "'"${ssh_rule_name}"'") | .name')
 	if [ "$existing_ssh_firewall" == "" ]; then
 		echo "Creating SSH rule ${ssh_rule_name}"
 		gcloud compute firewall-rules create "$ssh_rule_name" --network "${network_name}" --allow="tcp:22" --source-ranges="0.0.0.0/0"
@@ -54,7 +54,7 @@ ensure_subnets() {
 
 	for i in "subnet1 10.104.0.0/20" "subnet2 10.142.0.0/20"; do
 		set -- $i
-		existing_range=$(gcloud compute networks subnets list --regions "${region}" --format json | jq -r '.[] | select(.network | endswith("networks/'"${network_name}"'")) | select(.ipCidrRange=="'"${2}"'") | .ipCidrRange')
+		existing_range=$(gcloud compute networks subnets list --regions "${region}" --format json | yq -r '.[] | select(.network | endswith("networks/'"${network_name}"'")) | select(.ipCidrRange=="'"${2}"'") | .ipCidrRange')
 		if [ "$existing_range" == "" ]; then
 			echo "Creating subnet $1 with CIDR range $2"
 			gcloud compute networks subnets create "${1}" --region "${region}" --network "${network_name}" --range "${2}"
