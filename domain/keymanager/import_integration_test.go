@@ -6,6 +6,7 @@ package keymanager_test
 import (
 	"testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/description/v11"
 	"github.com/juju/tc"
 
@@ -38,7 +39,7 @@ func TestImportSuite(t *testing.T) {
 func (s *importSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
-	accessState := accessstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	accessState := accessstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	s.adminUserUUID = tc.Must(c, user.NewUUID)
 	err := accessState.AddUser(
 		c.Context(),
@@ -74,7 +75,7 @@ func (s *importSuite) TestImportFromModelConfig(c *tc.C) {
 	})
 
 	coordinator := modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
-	keymanagermodelmigration.RegisterImport(coordinator, loggertesting.WrapCheckLog(c))
+	keymanagermodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 	err := coordinator.Perform(c.Context(), modelmigration.NewScope(s.TxnRunnerFactory(), nil, nil, s.modelUUID), desc)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -110,7 +111,7 @@ func (s *importSuite) TestImportFromModelDescription(c *tc.C) {
 	})
 
 	coordinator := modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
-	keymanagermodelmigration.RegisterImport(coordinator, loggertesting.WrapCheckLog(c))
+	keymanagermodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 	err := coordinator.Perform(c.Context(), modelmigration.NewScope(s.TxnRunnerFactory(), nil, nil, s.modelUUID), desc)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -153,7 +154,7 @@ func (s *importSuite) TestImportThatFailsRollsback(c *tc.C) {
 	})
 
 	coordinator := modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
-	keymanagermodelmigration.RegisterImport(coordinator, loggertesting.WrapCheckLog(c))
+	keymanagermodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 	migrationtesting.RegisterFailingImport(coordinator)
 	err := coordinator.Perform(c.Context(), modelmigration.NewScope(s.TxnRunnerFactory(), nil, nil, s.modelUUID), desc)
 	c.Assert(err, tc.ErrorIs, migrationtesting.IntentionalImportFailure)

@@ -7,6 +7,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/clock"
+
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -210,9 +212,9 @@ type Service struct {
 
 // NewService returns a new Service for interacting with the underlying access
 // state.
-func NewService(st State) *Service {
+func NewService(st State, clock clock.Clock) *Service {
 	return &Service{
-		UserService:       NewUserService(st),
+		UserService:       NewUserService(st, clock),
 		PermissionService: NewPermissionService(st),
 	}
 }

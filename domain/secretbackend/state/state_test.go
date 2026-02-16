@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -162,7 +163,7 @@ func (s *stateSuite) createModelWithName(c *tc.C, modelType coremodel.ModelType,
 	userUUID, err := user.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	userName := usertesting.GenNewName(c, "test-user")
-	userState := userstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	userState := userstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	err = userState.AddUserWithPermission(
 		c.Context(),
 		userUUID,

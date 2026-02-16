@@ -7,6 +7,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/juju/clock"
 	"github.com/juju/description/v11"
 
 	"github.com/juju/juju/core/logger"
@@ -65,8 +66,9 @@ type UserService interface {
 
 // RegisterImport register's a new model authorized keys importer into the
 // supplied coordinator.
-func RegisterImport(coordinator Coordinator, logger logger.Logger) {
+func RegisterImport(coordinator Coordinator, clock clock.Clock, logger logger.Logger) {
 	coordinator.Add(&importOperation{
+		clock:  clock,
 		logger: logger,
 	})
 }
@@ -80,7 +82,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 			state.NewState(scope.ControllerDB()),
 		)
 	}
-	i.userService = accessservice.NewUserService(accessstate.NewUserState(scope.ControllerDB()))
+	i.userService = accessservice.NewUserService(accessstate.NewUserState(scope.ControllerDB(), i.clock), i.clock)
 	return nil
 }
 
@@ -89,9 +91,11 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 type importOperation struct {
 	modelmigration.BaseOperation
 
-	logger        logger.Logger
 	serviceGetter importServiceGetterFunc
 	userService   UserService
+
+	clock  clock.Clock
+	logger logger.Logger
 }
 
 // Execute the import of the model description authorized keys.

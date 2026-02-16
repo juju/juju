@@ -4,6 +4,8 @@
 package state
 
 import (
+	"github.com/juju/clock"
+
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 )
@@ -17,9 +19,9 @@ type State struct {
 }
 
 // NewState returns a new State for interacting with the underlying state.
-func NewState(factory database.TxnRunnerFactory, logger logger.Logger) *State {
+func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logger.Logger) *State {
 	return &State{
-		UserState:       NewUserState(factory),
-		PermissionState: NewPermissionState(factory, logger),
+		UserState:       NewUserState(factory, clock),
+		PermissionState: NewPermissionState(factory, clock, logger),
 	}
 }

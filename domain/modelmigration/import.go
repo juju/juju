@@ -64,15 +64,15 @@ func ImportOperations(
 	lease.RegisterImport(coordinator, logger.Child("lease"))
 	externalcontroller.RegisterImport(coordinator)
 	credential.RegisterImport(coordinator, logger.Child("credential"))
-	model.RegisterModelImport(coordinator, logger.Child("model"))
+	model.RegisterModelImport(coordinator, clock, logger.Child("model"))
 
 	// Domain services is available for all the following services, but only
 	// after the model has been imported and activated.
 
 	sequence.RegisterImport(coordinator)
-	keymanager.RegisterImport(coordinator, logger.Child("keymanager"))
+	keymanager.RegisterImport(coordinator, clock, logger.Child("keymanager"))
 	modelconfig.RegisterImport(coordinator, modelDefaultsProvider, logger.Child("modelconfig"))
-	access.RegisterImport(coordinator, logger.Child("access"))
+	access.RegisterImport(coordinator, clock, logger.Child("access"))
 	network.RegisterImportSubnets(coordinator, logger.Child("subnets"))
 	machine.RegisterImport(coordinator, clock, logger.Child("machine"))
 	network.RegisterLinkLayerDevicesImport(coordinator, logger.Child("linklayerdevices"))
@@ -82,7 +82,7 @@ func ImportOperations(
 	agentpassword.RegisterImport(coordinator)
 	crossmodelrelation.RegisterImport(coordinator, clock, logger.Child("crossmodelrelation"))
 	relation.RegisterImport(coordinator, clock, logger.Child("relation"))
-	access.RegisterOfferAccessImport(coordinator, logger.Child("offeraccess"))
+	access.RegisterOfferAccessImport(coordinator, clock, logger.Child("offeraccess"))
 	status.RegisterImport(coordinator, clock, logger.Child("status"))
 	resource.RegisterImport(coordinator, clock, logger.Child("resource"))
 	port.RegisterImport(coordinator, logger.Child("port"))

@@ -7,6 +7,7 @@ import (
 	"context"
 	stdtesting "testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -49,7 +50,7 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	controllerUUID := s.SeedControllerUUID(c)
 	userID, err := coreuser.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	accessState := accessstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	accessState := accessstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	err = accessState.AddUserWithPermission(
 		c.Context(), userID,
 		coreuser.AdminUserName,

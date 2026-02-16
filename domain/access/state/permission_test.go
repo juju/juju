@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/credential"
@@ -57,7 +58,7 @@ func (s *permissionStateSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *permissionStateSuite) TestCreatePermissionModel(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	name := usertesting.GenNewName(c, "bob")
 	spec := corepermission.UserAccessSpec{
@@ -85,7 +86,7 @@ func (s *permissionStateSuite) TestCreatePermissionModel(c *tc.C) {
 }
 
 func (s *permissionStateSuite) TestCreatePermissionCloud(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	name := usertesting.GenNewName(c, "bob")
 	spec := corepermission.UserAccessSpec{
@@ -113,7 +114,7 @@ func (s *permissionStateSuite) TestCreatePermissionCloud(c *tc.C) {
 }
 
 func (s *permissionStateSuite) TestCreatePermissionController(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	name := usertesting.GenNewName(c, "bob")
 	spec := corepermission.UserAccessSpec{
@@ -141,7 +142,7 @@ func (s *permissionStateSuite) TestCreatePermissionController(c *tc.C) {
 }
 
 func (s *permissionStateSuite) TestCreatePermissionForModelWithBadInfo(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	// model "foo-bar" is not created in this test suite, thus invalid.
 	name := usertesting.GenNewName(c, "bob")
@@ -159,7 +160,7 @@ func (s *permissionStateSuite) TestCreatePermissionForModelWithBadInfo(c *tc.C) 
 }
 
 func (s *permissionStateSuite) TestCreatePermissionForControllerWithBadInfo(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	// The only valid key for an object type of Controller is
 	// the controller UUID.
@@ -203,7 +204,7 @@ AND    grant_on = ?
 }
 
 func (s *permissionStateSuite) TestCreatePermissionErrorNoUser(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	name := usertesting.GenNewName(c, "testme")
 	_, err := st.CreatePermission(c.Context(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
 		User: name,
@@ -219,7 +220,7 @@ func (s *permissionStateSuite) TestCreatePermissionErrorNoUser(c *tc.C) {
 }
 
 func (s *permissionStateSuite) TestCreatePermissionErrorDuplicate(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	name := usertesting.GenNewName(c, "bob")
 	spec := corepermission.UserAccessSpec{
@@ -266,7 +267,7 @@ WHERE access_type_id = 1 AND object_type_id = 2
 }
 
 func (s *permissionStateSuite) TestDeletePermission(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	name := usertesting.GenNewName(c, "bob")
 	target := corepermission.ID{
@@ -299,7 +300,7 @@ func (s *permissionStateSuite) TestDeletePermission(c *tc.C) {
 }
 
 func (s *permissionStateSuite) TestDeletePermissionDoesNotExist(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	target := corepermission.ID{
 		Key:        s.modelUUID.String(),
@@ -312,7 +313,7 @@ func (s *permissionStateSuite) TestDeletePermissionDoesNotExist(c *tc.C) {
 }
 
 func (s *permissionStateSuite) TestReadUserAccessForTarget(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	name := usertesting.GenNewName(c, "bob")
 	target := corepermission.ID{
@@ -350,7 +351,7 @@ WHERE grant_to = 123
 }
 
 func (s *permissionStateSuite) TestReadUserAccessForTargetExternalUser(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	jimUserName := usertesting.GenNewName(c, "jim@juju")
 
 	s.ensureUser(c, "777", jimUserName.Name(), "42", true)
@@ -404,7 +405,7 @@ func (s *permissionStateSuite) TestReadUserAccessForTargetExternalUser(c *tc.C) 
 }
 
 func (s *permissionStateSuite) TestReadUserAccessForTargetUserNotFound(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	target := corepermission.ID{
 		Key:        s.controllerUUID,
@@ -415,7 +416,7 @@ func (s *permissionStateSuite) TestReadUserAccessForTargetUserNotFound(c *tc.C) 
 }
 
 func (s *permissionStateSuite) TestReadUserAccessForTargetPermissionNotFound(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	target := corepermission.ID{
 		Key:        s.controllerUUID,
@@ -427,7 +428,7 @@ func (s *permissionStateSuite) TestReadUserAccessForTargetPermissionNotFound(c *
 }
 
 func (s *permissionStateSuite) TestReadUserAccessLevelForTarget(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	name := usertesting.GenNewName(c, "bob")
 	target := corepermission.ID{
@@ -450,7 +451,7 @@ func (s *permissionStateSuite) TestReadUserAccessLevelForTarget(c *tc.C) {
 }
 
 func (s *permissionStateSuite) TestReadUserAccessLevelForTargetExternalUser(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	jimUserName := usertesting.GenNewName(c, "jim@juju")
 	s.ensureUser(c, "777", jimUserName.Name(), "42", true)
@@ -501,7 +502,7 @@ func (s *permissionStateSuite) TestReadUserAccessLevelForTargetExternalUser(c *t
 }
 
 func (s *permissionStateSuite) TestEnsureExternalUserIfAuthorized(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	jimUserName := usertesting.GenNewName(c, "jim@juju")
 
@@ -522,7 +523,7 @@ func (s *permissionStateSuite) TestEnsureExternalUserIfAuthorized(c *tc.C) {
 	err = st.EnsureExternalUserIfAuthorized(c.Context(), jimUserName, target)
 	c.Assert(err, tc.ErrorIsNil)
 
-	userSt := NewUserState(s.TxnRunnerFactory())
+	userSt := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 	// Check that jim has now been added as a user with no permissions.
 	jim, err := userSt.GetUserByName(c.Context(), jimUserName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -535,7 +536,7 @@ func (s *permissionStateSuite) TestEnsureExternalUserIfAuthorized(c *tc.C) {
 // TestEnsureExternalUserIfAuthorizedNoNewUser checks that no error is returned if the user
 // already exists.
 func (s *permissionStateSuite) TestEnsureExternalUserIfAuthorizedNoNewUser(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	jimUserName := usertesting.GenNewName(c, "jim@juju")
 	s.ensureUser(c, "777", jimUserName.Name(), "42", true)
@@ -552,7 +553,7 @@ func (s *permissionStateSuite) TestEnsureExternalUserIfAuthorizedNoNewUser(c *tc
 // TestEnsureExternalUserIfAuthorized checks that no error is returned if the
 // user does not exist and does not have access.
 func (s *permissionStateSuite) TestEnsureExternalUserIfAuthorizedNoAccess(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	jimUserName := usertesting.GenNewName(c, "jim@juju")
 
@@ -564,13 +565,13 @@ func (s *permissionStateSuite) TestEnsureExternalUserIfAuthorizedNoAccess(c *tc.
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the user has not been added.
-	userSt := NewUserState(s.TxnRunnerFactory())
+	userSt := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 	_, err = userSt.GetUserByName(c.Context(), jimUserName)
 	c.Assert(err, tc.ErrorIs, accesserrors.UserNotFound)
 }
 
 func (s *permissionStateSuite) TestReadAllUserAccessForUser(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	s.setupForRead(c, st)
 
@@ -586,7 +587,7 @@ func (s *permissionStateSuite) TestReadAllUserAccessForUser(c *tc.C) {
 }
 
 func (s *permissionStateSuite) TestReadAllUserAccessForUserExternalUser(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	jimUserName := usertesting.GenNewName(c, "jim@juju")
 	s.ensureUser(c, "777", jimUserName.Name(), "42", true)
@@ -682,14 +683,14 @@ func (s *permissionStateSuite) TestReadAllUserAccessForUserExternalUser(c *tc.C)
 }
 
 func (s *permissionStateSuite) TestReadAllUserAccessForUserUserNotFound(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	_, err := st.ReadAllUserAccessForUser(c.Context(), usertesting.GenNewName(c, "dave"))
 	c.Assert(err, tc.ErrorIs, accesserrors.UserNotFound)
 }
 
 func (s *permissionStateSuite) TestReadAllUserAccessPermissionNotFound(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	s.ensureUser(c, "777", "dave", "42", true)
 
@@ -698,7 +699,7 @@ func (s *permissionStateSuite) TestReadAllUserAccessPermissionNotFound(c *tc.C) 
 }
 
 func (s *permissionStateSuite) TestReadAllUserAccessForTarget(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	s.setupForRead(c, st)
 	targetCloud := corepermission.ID{
@@ -720,7 +721,7 @@ func (s *permissionStateSuite) TestReadAllUserAccessForTarget(c *tc.C) {
 }
 
 func (s *permissionStateSuite) TestReadAllUserAccessForTargetExternalUser(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	jimUserName := usertesting.GenNewName(c, "jim@juju")
 	johnUserName := usertesting.GenNewName(c, "john@juju")
@@ -806,7 +807,7 @@ func (s *permissionStateSuite) TestReadAllUserAccessForTargetExternalUser(c *tc.
 }
 
 func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeCloud(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	s.setupForRead(c, st)
 
@@ -833,7 +834,7 @@ func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeCloud(c *tc.
 }
 
 func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeModel(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	s.setupForRead(c, st)
 
@@ -861,7 +862,7 @@ func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeModel(c *tc.
 }
 
 func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeController(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	s.setupForRead(c, st)
 
@@ -877,7 +878,7 @@ func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeController(c
 }
 
 func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeNotFound(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	jimUserName := usertesting.GenNewName(c, "jim@juju")
 	s.ensureUser(c, "777", jimUserName.Name(), "42", true)
 
@@ -889,7 +890,7 @@ func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeNotFound(c *
 }
 
 func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeExternalUser(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	jimUserName := usertesting.GenNewName(c, "jim@juju")
 	s.ensureUser(c, "777", jimUserName.Name(), "42", true)
@@ -984,7 +985,7 @@ func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeExternalUser
 }
 
 func (s *permissionStateSuite) TestUpdatePermissionGrantNewExternalUser(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	adminName := usertesting.GenNewName(c, "admin")
 	_, err := st.CreatePermission(c.Context(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
 		User: adminName,
@@ -1036,7 +1037,7 @@ func (s *permissionStateSuite) TestUpdatePermissionGrantNewExternalUser(c *tc.C)
 }
 
 func (s *permissionStateSuite) TestUpdatePermissionGrantExistingUser(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	// Bob starts with Write access on "default-model"
 	s.setupForRead(c, st)
 
@@ -1063,7 +1064,7 @@ func (s *permissionStateSuite) TestUpdatePermissionGrantExistingUser(c *tc.C) {
 }
 
 func (s *permissionStateSuite) TestUpdatePermissionGrantLessAccess(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	// Bob starts with Write access on "default-model"
 	s.setupForRead(c, st)
 
@@ -1085,7 +1086,7 @@ func (s *permissionStateSuite) TestUpdatePermissionGrantLessAccess(c *tc.C) {
 }
 
 func (s *permissionStateSuite) TestUpdatePermissionRevokeRemovePerm(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	s.setupForRead(c, st)
 	// Bob starts with Admin access on "default-model".
 	// Revoke of Read yields permission removed on the model.
@@ -1110,7 +1111,7 @@ func (s *permissionStateSuite) TestUpdatePermissionRevokeRemovePerm(c *tc.C) {
 }
 
 func (s *permissionStateSuite) TestUpdatePermissionRevoke(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	// Sue starts with Admin access on "test-cloud".
 	// Revoke of Admin yields AddModel on clouds.
 	s.setupForRead(c, st)
@@ -1138,7 +1139,7 @@ func (s *permissionStateSuite) TestUpdatePermissionRevoke(c *tc.C) {
 }
 
 func (s *permissionStateSuite) TestUpdatePermissionRevokeLastAdmin(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	modelUUID := tc.Must(c, uuid.NewUUID).String()
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -1182,7 +1183,7 @@ func (s *permissionStateSuite) TestUpdatePermissionRevokeLastAdmin(c *tc.C) {
 }
 
 func (s *permissionStateSuite) TestModelAccessForCloudCredential(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	ctx := c.Context()
 
 	modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "model-access")
@@ -1200,7 +1201,7 @@ func (s *permissionStateSuite) TestModelAccessForCloudCredential(c *tc.C) {
 }
 
 func (s *permissionStateSuite) TestImportOfferAccess(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	// Arrange
 	offerUUID := uuid.MustNewUUID()
@@ -1233,7 +1234,7 @@ func (s *permissionStateSuite) TestImportOfferAccess(c *tc.C) {
 // TestImportOfferAccessEveryOneOnce tests that if Everyone is included in the
 // import data, we do not attempt to added it again.
 func (s *permissionStateSuite) TestImportOfferAccessEveryOneOnce(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	// Arrange
 	offerUUID := uuid.MustNewUUID()
@@ -1257,7 +1258,7 @@ func (s *permissionStateSuite) TestImportOfferAccessEveryOneOnce(c *tc.C) {
 }
 
 func (s *permissionStateSuite) TestDeletePermissionsByGrantOnUUID(c *tc.C) {
-	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	// Arrange
 	offerUUID := tc.Must(c, offer.NewUUID).String()

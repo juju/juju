@@ -2052,7 +2052,7 @@ func (st *State) getResourceToSet(typeIDs typeIDs, charmID corecharm.ID, res res
 	}
 	createdAt := res.Timestamp
 	if createdAt.IsZero() {
-		createdAt = st.clock.Now().UTC()
+		createdAt = st.clock.Now()
 	}
 	return setResource{
 		UUID:         resourceUUID.String(),
@@ -2061,7 +2061,7 @@ func (st *State) getResourceToSet(typeIDs typeIDs, charmID corecharm.ID, res res
 		Revision:     revision,
 		OriginTypeId: originID,
 		StateID:      typeIDs.stateAvailableID,
-		CreatedAt:    createdAt,
+		CreatedAt:    createdAt.UTC(),
 	}, resourceUUID, nil
 }
 

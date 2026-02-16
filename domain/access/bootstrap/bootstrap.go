@@ -5,6 +5,7 @@ package bootstrap
 
 import (
 	"context"
+	"time"
 
 	"github.com/canonical/sqlair"
 
@@ -24,7 +25,8 @@ import (
 //
 // If the username passed to this function is invalid an error satisfying
 // [github.com/juju/juju/domain/access/errors.UsernameNotValid] is returned.
-func AddUserWithPassword(name user.Name, password auth.Password, access permission.AccessSpec) (user.UUID, internaldatabase.BootstrapOpt) {
+func AddUserWithPassword(name user.Name, password auth.Password, access permission.AccessSpec,
+	createdAt time.Time) (user.UUID, internaldatabase.BootstrapOpt) {
 	defer password.Destroy()
 
 	if name.IsZero() {
@@ -61,6 +63,7 @@ func AddUserWithPassword(name user.Name, password auth.Password, access permissi
 				uuid,
 				access,
 				pwHash, salt,
+				createdAt,
 			); err != nil {
 				return errors.Errorf("adding bootstrap user %q with password: %w",
 					name, err)

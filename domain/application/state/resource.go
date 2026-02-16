@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"database/sql"
-	"time"
 
 	"github.com/canonical/sqlair"
 
@@ -277,7 +276,7 @@ WHERE  r.uuid IN ($uuids[:])`, uuids{}, resourceToAdd{},
 		}
 		potentialUUIDs[i] = newUUID.String()
 		potentialResources[i].UUID = newUUID.String()
-		potentialResources[i].CreatedAt = time.Now().UTC()
+		potentialResources[i].CreatedAt = st.clock.Now().UTC()
 		potentialResources[i].State = coreresource.StatePotential.String()
 	}
 

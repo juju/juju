@@ -71,7 +71,7 @@ func (e *Exporter) ExportOperations(registry corestorage.ModelStorageRegistryGet
 	sequence.RegisterExport(e.coordinator)
 	blockcommand.RegisterExport(e.coordinator, e.logger.Child("blockcommand"))
 	modelconfig.RegisterExport(e.coordinator)
-	access.RegisterExport(e.coordinator, e.logger.Child("access"))
+	access.RegisterExport(e.coordinator, e.clock, e.logger.Child("access"))
 	keymanager.RegisterExport(e.coordinator)
 	credential.RegisterExport(e.coordinator, e.logger.Child("credential"))
 	network.RegisterExport(e.coordinator, e.logger.Child("network"))

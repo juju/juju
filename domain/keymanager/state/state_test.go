@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/model"
@@ -479,7 +480,7 @@ func (s *stateSuite) TestGetAllUsersPublicKeys(c *tc.C) {
 
 	secondUserId := usertesting.GenUserUUID(c)
 	secondUserName := usertesting.GenNewName(c, "tlm")
-	userSt := accessstate.NewUserState(s.TxnRunnerFactory())
+	userSt := accessstate.NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 	err = userSt.AddUser(
 		c.Context(),
 		secondUserId,

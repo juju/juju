@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -1226,7 +1225,7 @@ func (st *InsertIAASUnitState) makeInsertUnitFilesystemArgs(
 	fsRval := make([]insertStorageFilesystem, 0, len(argIndexes))
 	fsInstanceRval := make([]insertStorageFilesystemInstance, 0, len(argIndexes))
 	fsStatusRval := make([]insertStorageFilesystemStatus, 0, len(argIndexes))
-	statusTime := time.Now().UTC()
+	statusTime := st.clock.Now().UTC()
 	for i, argIndex := range argIndexes {
 		instArg := args[argIndex]
 		fsRval = append(fsRval, insertStorageFilesystem{
@@ -1360,7 +1359,7 @@ func (st *InsertIAASUnitState) makeInsertUnitVolumeArgs(
 	vRval := make([]insertStorageVolume, 0, len(argIndexes))
 	vInstanceRval := make([]insertStorageVolumeInstance, 0, len(argIndexes))
 	vStatusRval := make([]insertStorageVolumeStatus, 0, len(argIndexes))
-	statusTime := time.Now().UTC()
+	statusTime := st.clock.Now().UTC()
 	for i, argIndex := range argIndexes {
 		instArg := args[argIndex]
 		vRval = append(vRval, insertStorageVolume{
