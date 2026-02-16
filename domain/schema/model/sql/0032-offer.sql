@@ -36,7 +36,7 @@ SELECT
     o.name AS offer_name,
     a.name AS application_name,
     cm.description AS application_description,
-    c.reference_name AS charm_name,
+    cm.name AS charm_name,
     c.revision AS charm_revision,
     cs.name AS charm_source,
     c.architecture_id AS charm_architecture,

@@ -518,7 +518,6 @@ func (s *modelOfferSuite) TestGetConsumeDetailsNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferNotFound)
 }
 
-// setupForGetOfferDetails
 func (s *modelOfferSuite) setupForGetOfferDetails(c *tc.C) []*crossmodelrelation.OfferDetail {
 	// Create an offer with one endpoint.
 	// Use a distinct reference_name vs charm_metadata.name to ensure
@@ -582,7 +581,6 @@ func (s *modelOfferSuite) setupForGetOfferDetails(c *tc.C) []*crossmodelrelation
 	}
 }
 
-// setupOfferWithInterface
 func (s *modelOfferSuite) setupOfferWithInterface(c *tc.C, interfaceName string) []*crossmodelrelation.OfferDetail {
 	// Create an offer with one endpoint.
 	// Use a distinct reference_name vs charm_metadata.name to ensure
