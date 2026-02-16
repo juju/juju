@@ -386,22 +386,6 @@ func makeKubernetesFilesystemParams(
 	}
 }
 
-// getPvcTemplateName receives a regexp prefix of the PVC name and a complete PVC name.
-// It returns a prefix of the complete PVC name which will be used as the PVC template name.
-// The completePVCName is suffixed with the ordinal.
-// e.g. <appname>-<storagename>-<uniqid>-<appname>-<ordinal>
-// We just want to capture the prefix to get the PVC template name.
-// e.g. <appname>-<storagename>-<uniqid>.
-// It returns an empty string if it cannot capture the prefix.
-func getPVCTemplateName(pvcNamePrefixReg *regexp.Regexp, completePVCName string) string {
-	var pvcTemplateName string
-	matches := pvcNamePrefixReg.FindStringSubmatch(completePVCName)
-	if len(matches) > 1 {
-		pvcTemplateName = matches[1]
-	}
-	return pvcTemplateName
-}
-
 // appDying handles the life.Dying state for the CAAS application. It deals with scaling down
 // the application and removing units.
 func appDying(
