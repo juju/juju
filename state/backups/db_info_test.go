@@ -6,6 +6,7 @@ package backups_test
 import (
 	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -23,8 +24,9 @@ type dbInfoSuite struct {
 }
 
 type fakeSession struct {
-	dbNames []string
-	db      *fakeDatabase
+	dbNames   []string
+	db        *fakeDatabase
+	buildInfo mgo.BuildInfo
 }
 
 type fakeDatabase struct {
@@ -37,6 +39,10 @@ func (f *fakeSession) DatabaseNames() ([]string, error) {
 
 func (f *fakeSession) DB(name string) backups.Database {
 	return f.db
+}
+
+func (f *fakeSession) BuildInfo() (mgo.BuildInfo, error) {
+	return f.buildInfo, nil
 }
 
 func (f *fakeDatabase) Run(cmd interface{}, result interface{}) error {
@@ -59,7 +65,12 @@ func (s *dbInfoSuite) TestNewDBInfoOkay(c *gc.C) {
 		dbNames: []string{"juju"},
 		db: &fakeDatabase{
 			result: bson.M{"dataSize": 666.0},
-		}}
+		},
+		buildInfo: mgo.BuildInfo{
+			Version:      "4.4.30",
+			VersionArray: []int{4, 4, 30, 0},
+		},
+	}
 
 	tag, err := names.ParseTag("machine-0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -80,7 +91,12 @@ func (s *dbInfoSuite) TestNewDBInfoOkay(c *gc.C) {
 }
 
 func (s *dbInfoSuite) TestNewDBInfoMissingTag(c *gc.C) {
-	session := fakeSession{}
+	session := fakeSession{
+		buildInfo: mgo.BuildInfo{
+			Version:      "4.4.30",
+			VersionArray: []int{4, 4, 30, 0},
+		},
+	}
 
 	mgoInfo := &mongo.MongoInfo{
 		Info: mongo.Info{

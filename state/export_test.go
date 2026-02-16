@@ -47,7 +47,6 @@ const (
 	MachinesC         = machinesC
 	ModelEntityRefsC  = modelEntityRefsC
 	ApplicationsC     = applicationsC
-	OfferConnectionsC = offerConnectionsC
 	EndpointBindingsC = endpointBindingsC
 	ControllersC      = controllersC
 	UsersC            = usersC
@@ -56,8 +55,8 @@ const (
 	GlobalSettingsC   = globalSettingsC
 	SettingsC         = settingsC
 	UnitsC            = unitsC
-	VirtualHostKeysC  = virtualHostKeysC
 	SSHConnRequestsC  = sshConnRequestsC
+	SecretRevisionsC  = secretRevisionsC
 )
 
 var (
