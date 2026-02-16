@@ -406,7 +406,7 @@ prepare_vault() {
 
 	ip=$(hostname -I | awk '{print $1}')
 	root_token='root'
-	timeout 45m vault server -dev -dev-listen-address="${ip}:8200" -dev-root-token-id="$root_token" &
+	daemon vault server -dev -dev-listen-address="${ip}:8200" -dev-root-token-id="$root_token"
 
 	export VAULT_ADDR="http://${ip}:8200"
 	export VAULT_TOKEN="$root_token"

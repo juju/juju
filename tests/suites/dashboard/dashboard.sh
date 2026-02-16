@@ -36,12 +36,11 @@ test_dashboard_deploy() {
 }
 
 open_dashboard() {
-	juju dashboard &
-	PID=$!
+	push_daemon_scope
+	trap 'pop_daemon_scope' RETURN
+	
+	daemon juju dashboard
 	sleep 10
 	# TODO: capture url from dashboard output
 	curl -L http://localhost:31666 | grep "Juju Dashboard"
-	kill -SIGINT "$PID"
-	# TODO: why isn't this killing the child ssh process?
-	#   lsof -n -i | grep 31666
 }

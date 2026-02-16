@@ -12,7 +12,6 @@ run_simplestream_metadata() {
 		--prevent-fallback \
 		-d "./tests/suites/bootstrap/streams/"
 
-	add_clean_func "kill_server"
 	start_server "./tests/suites/bootstrap/streams/tools"
 
 	# Find a routable address to the server that isn't the loopback address.
