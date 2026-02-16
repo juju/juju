@@ -1260,10 +1260,10 @@ func (s *ProviderService) populateAttachStorageArgs(
 	ctx context.Context,
 	storageUUID domainstorage.StorageInstanceUUID,
 	unitUUID coreunit.UUID,
-) (internal.UnitAttachStorageArg, error) {
+) (internal.AttachStorageToUnitArg, error) {
 	charmStorage, instInfo, err := s.st.GetCharmStorageAndInstanceInfoByUnitUUIDAndStorageUUID(ctx, unitUUID, storageUUID)
 	if err != nil {
-		return internal.UnitAttachStorageArg{}, errors.Errorf(
+		return internal.AttachStorageToUnitArg{}, errors.Errorf(
 			"getting unit %q charm storage and count for %q: %w",
 			unitUUID, storageUUID, err,
 		)
@@ -1280,22 +1280,25 @@ func (s *ProviderService) populateAttachStorageArgs(
 	wantCount := 1 + instInfo.AlreadyAttachedCount
 	err = s.storageService.ValidateAttachStorage(ctx, charmStorageDef, wantCount, instInfo.SizeMiB, instInfo.PoolUUID)
 	if err != nil {
-		return internal.UnitAttachStorageArg{}, errors.Capture(err)
+		return internal.AttachStorageToUnitArg{}, errors.Capture(err)
 	}
 
-	args, err := s.storageService.MakeUnitAttachStorageArgs(
+	attachArgs, err := s.storageService.MakeUnitAttachStorageArgs(
 		ctx,
 		unitUUID,
 		storageUUID,
 	)
 	if err != nil {
-		return internal.UnitAttachStorageArg{}, errors.Capture(err)
+		return internal.AttachStorageToUnitArg{}, errors.Capture(err)
 	}
-	args.StorageName = charmStorage.Name
+	args := internal.AttachStorageToUnitArg{
+		StorageToAttach:    attachArgs,
+		StorageName:        charmStorage.Name,
+		CountLessThanEqual: uint32(math.MaxUint32),
+	}
 
 	// Record the max allowed count precondition.
 	// This will be checked inside the transaction.
-	args.CountLessThanEqual = uint32(math.MaxUint32)
 	if charmStorage.CountMax > 0 {
 		args.CountLessThanEqual = uint32(charmStorage.CountMax) - 1
 	}
@@ -1368,9 +1371,9 @@ func (s *ProviderService) AttachStorageToIAASUnit(
 	}
 
 	err = s.st.AttachStorageToIAASUnit(ctx, storageUUID, unitUUID, internal.IAASUnitAttachStorageArg{
-		UnitAttachStorageArg: unitAttachStorageArgs,
-		FilesystemsToOwn:     iaasUnitStorageArgs.FilesystemsToOwn,
-		VolumesToOwn:         iaasUnitStorageArgs.VolumesToOwn,
+		AttachStorageToUnitArg: unitAttachStorageArgs,
+		FilesystemsToOwn:       iaasUnitStorageArgs.FilesystemsToOwn,
+		VolumesToOwn:           iaasUnitStorageArgs.VolumesToOwn,
 	})
 	if errors.Is(err, internal.MaxStorageCountPreconditonFailed) {
 		maxCount := int(unitAttachStorageArgs.CountLessThanEqual + 1)

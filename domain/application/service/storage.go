@@ -199,5 +199,5 @@ type StorageService interface {
 		ctx context.Context,
 		unitUUID coreunit.UUID,
 		storageUUID domainstorage.StorageInstanceUUID,
-	) (internal.UnitAttachStorageArg, error)
+	) ([]internal.CreateUnitStorageAttachmentArg, error)
 }

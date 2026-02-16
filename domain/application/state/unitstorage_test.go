@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/domain/storage/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -686,7 +687,7 @@ func (u *unitStorageSuite) TestAttachStorageToIAASUnit(c *tc.C) {
 	c.Assert(exists, tc.IsFalse)
 
 	err = u.state.AttachStorageToIAASUnit(c.Context(), siUUID, unitUUID, internal.IAASUnitAttachStorageArg{
-		UnitAttachStorageArg: internal.UnitAttachStorageArg{
+		AttachStorageToUnitArg: internal.AttachStorageToUnitArg{
 			StorageToAttach: unitStorageToAttach,
 		},
 		FilesystemsToOwn: []domainstorage.FilesystemUUID{fsUUID},

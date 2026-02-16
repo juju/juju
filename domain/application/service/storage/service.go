@@ -1029,7 +1029,7 @@ func (s Service) MakeUnitAttachStorageArgs(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
 	storageInstanceUUID domainstorage.StorageInstanceUUID,
-) (internal.UnitAttachStorageArg, error) {
+) ([]internal.CreateUnitStorageAttachmentArg, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1037,14 +1037,14 @@ func (s Service) MakeUnitAttachStorageArgs(
 
 	instComposition, err := s.st.GetStorageInstanceCompositionByUUID(ctx, storageInstanceUUID)
 	if err != nil {
-		return internal.UnitAttachStorageArg{}, errors.Errorf(
+		return nil, errors.Errorf(
 			"getting composition details for storage %q: %w", storageInstanceUUID, err,
 		)
 	}
 
 	attachNetNodeUUID, err := s.st.GetUnitNetNodeUUID(ctx, unitUUID)
 	if err != nil {
-		return internal.UnitAttachStorageArg{}, errors.Errorf("getting unit net node uuid: %w", err)
+		return nil, errors.Errorf("getting unit net node uuid: %w", err)
 	}
 
 	// Allocate capacity we know we are going to need.
@@ -1069,14 +1069,12 @@ func (s Service) MakeUnitAttachStorageArgs(
 			domainnetwork.NetNodeUUID(attachNetNodeUUID), instArg,
 		)
 		if err != nil {
-			return internal.UnitAttachStorageArg{}, errors.Errorf(
+			return nil, errors.Errorf(
 				"making storage attachment arguments for new storage instance: %w", err,
 			)
 		}
 		rvalToAttach = append(rvalToAttach, storageAttachArg)
 	}
 
-	return internal.UnitAttachStorageArg{
-		StorageToAttach: rvalToAttach,
-	}, nil
+	return rvalToAttach, nil
 }
