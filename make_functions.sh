@@ -158,12 +158,6 @@ seed_repository_jujudb() {
   local JUJU_DB_VERSION
   JUJU_DB_VERSION=$1
 
-  # Check if skopeo is available
-  if command -v skopeo >/dev/null 2>&1; then
-    skopeo copy "docker://ghcr.io/juju/juju-db:${JUJU_DB_VERSION}" "docker://${OCI_REGISTRY_USERNAME}/juju-db:${JUJU_DB_VERSION}"
-    return
-  fi
-  # Fallback to docker pull/tag/push
   "$DOCKER_BIN" pull "ghcr.io/juju/juju-db:${JUJU_DB_VERSION}"
   "$DOCKER_BIN" tag "ghcr.io/juju/juju-db:${JUJU_DB_VERSION}" "${OCI_REGISTRY_USERNAME}/juju-db:${JUJU_DB_VERSION}"
   "$DOCKER_BIN" push "${OCI_REGISTRY_USERNAME}/juju-db:${JUJU_DB_VERSION}"
@@ -178,19 +172,6 @@ seed_repository() {
   seed_repository_jujudb "${JUJU_DB_VERSION}"
 
   # Copy all the lts that are available
-  # Check if skopeo is available
-  if command -v skopeo >/dev/null 2>&1; then
-    for (( i = 18; ; i += 2 )); do
-      if skopeo copy "docker://ghcr.io/juju/charm-base:ubuntu-$i.04" "docker://${OCI_REGISTRY_USERNAME}/charm-base:ubuntu-$i.04" ; then
-        :
-      else
-        break
-      fi
-    done
-    return
-  fi
-
-  # Fallback to docker pull/tag/push
   for (( i = 18; ; i += 2 )); do
     if "$DOCKER_BIN" pull "ghcr.io/juju/charm-base:ubuntu-$i.04" ; then
       "$DOCKER_BIN" tag "ghcr.io/juju/charm-base:ubuntu-$i.04" "${OCI_REGISTRY_USERNAME}/charm-base:ubuntu-$i.04"
