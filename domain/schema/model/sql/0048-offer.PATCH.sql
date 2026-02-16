@@ -1,16 +1,33 @@
+-- Add indexes for efficient view queries.
+CREATE INDEX IF NOT EXISTS idx_offer_connection_offer_uuid
+    ON offer_connection (offer_uuid);
+
+CREATE INDEX IF NOT EXISTS idx_offer_connection_remote_relation_offer
+    ON offer_connection (remote_relation_uuid, offer_uuid);
+
+CREATE INDEX IF NOT EXISTS idx_relation_status_type_relation
+    ON relation_status (relation_status_type_id, relation_uuid);
+
 DROP VIEW v_offer_detail;
 
 CREATE VIEW v_offer_detail AS
-WITH conn AS (
-    SELECT offer_uuid FROM offer_connection
+WITH total_conn AS (
+    SELECT
+        offer_uuid,
+        COUNT(*) AS total_connections
+    FROM offer_connection
+    GROUP BY offer_uuid
 ),
-
 active_conn AS (
-    SELECT oc.offer_uuid FROM offer_connection AS oc
-    JOIN relation_status AS rs ON oc.remote_relation_uuid = rs.relation_uuid
-    WHERE rs.relation_status_type_id = 1
+    SELECT
+        oc.offer_uuid,
+        COUNT(*) AS total_active_connections
+    FROM offer_connection AS oc
+    JOIN relation_status AS rs
+      ON rs.relation_uuid = oc.remote_relation_uuid
+     AND rs.relation_status_type_id = 1
+    GROUP BY oc.offer_uuid
 )
-
 SELECT
     o.uuid AS offer_uuid,
     o.name AS offer_name,
@@ -24,8 +41,8 @@ SELECT
     crr.name AS endpoint_role,
     cr.interface AS endpoint_interface,
     cr.capacity AS endpoint_limit,
-    (SELECT COUNT(*) FROM conn AS c WHERE o.uuid = c.offer_uuid) AS total_connections,
-    (SELECT COUNT(*) FROM active_conn AS ac WHERE o.uuid = ac.offer_uuid) AS total_active_connections
+    COALESCE(tc.total_connections, 0) AS total_connections,
+    COALESCE(ac.total_active_connections, 0) AS total_active_connections
 FROM offer AS o
 JOIN offer_endpoint AS oe ON o.uuid = oe.offer_uuid
 JOIN application_endpoint AS ae ON oe.endpoint_uuid = ae.uuid
@@ -34,4 +51,6 @@ JOIN charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
 JOIN charm_relation_role AS crr ON cr.role_id = crr.id
 JOIN charm AS c ON a.charm_uuid = c.uuid
 JOIN charm_source AS cs ON c.source_id = cs.id
-JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid;
+JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid
+LEFT JOIN total_conn AS tc ON tc.offer_uuid = o.uuid
+LEFT JOIN active_conn AS ac ON ac.offer_uuid = o.uuid;
