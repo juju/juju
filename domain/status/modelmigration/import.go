@@ -9,7 +9,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/description/v11"
 
-	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
@@ -18,6 +17,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
+	domainmodelmigration "github.com/juju/juju/domain/modelmigration/modelmigration"
 	"github.com/juju/juju/domain/status/service"
 	statecontroller "github.com/juju/juju/domain/status/state/controller"
 	statemodel "github.com/juju/juju/domain/status/state/model"
@@ -214,14 +214,19 @@ func (i *importOperation) importRelationStatus(
 	service ImportService,
 	model description.Model,
 ) error {
-
+	remoteApplications := domainmodelmigration.GetUniqueRemoteConsumersNames(model.RemoteApplications())
 	for _, relation := range model.Relations() {
+		if domainmodelmigration.IsRelationInApplicationsName(relation, remoteApplications) {
+			// Remote consumer relations are imported as part of the
+			// crossmodelrelation domain, so we skip them here.
+			continue
+		}
+
 		relationStatus := i.importStatus(relation.Status())
 		if err := service.ImportRelationStatus(ctx, relation.Id(), relationStatus); err != nil {
 			return errors.Errorf("importing status for relation %d: %w", relation.Id(), err)
 		}
 	}
-
 	return nil
 }
 
@@ -232,7 +237,7 @@ func (i *importOperation) importRemoteApplicationOffererStatus(
 ) error {
 	for _, remoteApp := range model.RemoteApplications() {
 		// Skip remote applications, we only want offerers here.
-		if coreapplication.IsRemoteApplication(remoteApp.Name()) {
+		if remoteApp.IsConsumerProxy() {
 			continue
 		}
 

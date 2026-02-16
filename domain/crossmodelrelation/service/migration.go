@@ -89,9 +89,6 @@ type RemoteApplicationImport struct {
 	// This is kept for backwards compatibility and service layer processing.
 	Endpoints []crossmodelrelation.RemoteApplicationEndpoint
 
-	// Bindings are the endpoint-to-space bindings.
-	Bindings map[string]string
-
 	// Units are the unit names for the remote application that need to be
 	// created as synthetic units. These are extracted from relation endpoints
 	// during migration import.
@@ -168,8 +165,6 @@ func (s *MigrationService) constructApplicationOfferer(rApp RemoteApplicationOff
 			URL:             rApp.URL,
 			SourceModelUUID: rApp.SourceModelUUID,
 			Macaroon:        rApp.Macaroon,
-			Endpoints:       rApp.Endpoints,
-			Bindings:        rApp.Bindings,
 			Units:           rApp.Units,
 			SyntheticCharm:  synthCharm,
 		},
@@ -273,8 +268,6 @@ func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rAp
 			OfferUUID:      rApp.OfferUUID,
 			URL:            rApp.URL,
 			Macaroon:       rApp.Macaroon,
-			Endpoints:      rApp.Endpoints,
-			Bindings:       rApp.Bindings,
 			Units:          rApp.Units,
 			SyntheticCharm: synthCharm,
 		},

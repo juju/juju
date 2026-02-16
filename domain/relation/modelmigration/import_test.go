@@ -71,6 +71,122 @@ func (s *importSuite) TestImportRelationsWithContainerScope(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 }
 
+func (s *importSuite) TestImportSkipsConsumerRemoteRelations(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	key := relationtesting.GenNewKey(c, "ubuntu:juju-info ntp:juju-info")
+
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
+
+	rel := model.AddRelation(description.RelationArgs{
+		Id:  1,
+		Key: key.String(),
+	})
+
+	eps := key.EndpointIdentifiers()
+	for _, ep := range eps {
+		rel.AddEndpoint(description.EndpointArgs{
+			ApplicationName: ep.ApplicationName,
+			Name:            ep.EndpointName,
+			Role:            string(ep.Role),
+			Scope:           string(charm.ScopeGlobal),
+		})
+	}
+
+	model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "ubuntu",
+		IsConsumerProxy: true,
+	})
+
+	importOp := importOperation{
+		service: s.service,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+
+	// Act
+	err := importOp.Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+}
+
+func (s *importSuite) TestImportSkipsConsumerRemoteRelationsWithOtherRelations(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	key0 := relationtesting.GenNewKey(c, "ubuntu:juju-info ntp:juju-info")
+	key1 := relationtesting.GenNewKey(c, "mysql:db ntp:juju-info")
+
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
+
+	rel0 := model.AddRelation(description.RelationArgs{
+		Id:  1,
+		Key: key0.String(),
+	})
+	for _, ep := range key0.EndpointIdentifiers() {
+		rel0.AddEndpoint(description.EndpointArgs{
+			ApplicationName: ep.ApplicationName,
+			Name:            ep.EndpointName,
+			Role:            string(ep.Role),
+			Scope:           string(charm.ScopeGlobal),
+		})
+	}
+	model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "ubuntu",
+		IsConsumerProxy: true,
+	})
+
+	rel1 := model.AddRelation(description.RelationArgs{
+		Id:  2,
+		Key: key1.String(),
+	})
+	for _, ep := range key1.EndpointIdentifiers() {
+		rel1.AddEndpoint(description.EndpointArgs{
+			ApplicationName: ep.ApplicationName,
+			Name:            ep.EndpointName,
+			Role:            string(ep.Role),
+			Scope:           string(charm.ScopeGlobal),
+		})
+	}
+	model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "mysql",
+		IsConsumerProxy: false,
+	})
+
+	s.service.EXPECT().ImportRelations(gomock.Any(), []relation.ImportRelationArg{{
+		ID:  2,
+		Key: key1,
+		Endpoints: []relation.ImportEndpoint{{
+			ApplicationName:     "mysql",
+			EndpointName:        "db",
+			ApplicationSettings: map[string]interface{}{},
+			UnitSettings:        map[string]map[string]interface{}{},
+		}, {
+			ApplicationName:     "ntp",
+			EndpointName:        "juju-info",
+			ApplicationSettings: map[string]interface{}{},
+			UnitSettings:        map[string]map[string]interface{}{},
+		}},
+		Scope: charm.ScopeGlobal,
+	}}).Return(nil)
+
+	importOp := importOperation{
+		service: s.service,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+
+	// Act
+	err := importOp.Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+}
+
 func (s *importSuite) TestImportNoRelations(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c)

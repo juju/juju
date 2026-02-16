@@ -97,7 +97,6 @@ func (s *migrationSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 						Interface: "mysql",
 					},
 				},
-				Bindings: map[string]string{"db": "alpha"},
 			},
 		},
 		{
@@ -114,7 +113,6 @@ func (s *migrationSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 						Interface: "http",
 					},
 				},
-				Bindings: map[string]string{"endpoint": "beta"},
 			},
 		},
 	}
@@ -261,8 +259,7 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumers(c *tc.C) {
 						Interface: "dummy-token",
 					},
 				},
-				Bindings: map[string]string(nil),
-				Units:    []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
+				Units: []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
 			},
 			RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
 			RelationKey: relation.Key{
@@ -294,8 +291,7 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumers(c *tc.C) {
 						Interface: "dummy-token",
 					},
 				},
-				Bindings: map[string]string(nil),
-				Units:    []string{"remote-a50f295556314aa4803f766a8802e33a/0"},
+				Units: []string{"remote-a50f295556314aa4803f766a8802e33a/0"},
 			},
 			RelationUUID: "ed736d84-0007-438c-8c0e-eac6e0d6dadd",
 			RelationKey: relation.Key{
@@ -370,8 +366,7 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumersApplicationError(c 
 						Interface: "dummy-token",
 					},
 				},
-				Bindings: map[string]string(nil),
-				Units:    []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
+				Units: []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
 			},
 			RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
 			RelationKey: relation.Key{
@@ -416,8 +411,7 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumerInvalidRelationKey(c
 						Interface: "dummy-token",
 					},
 				},
-				Bindings: map[string]string(nil),
-				Units:    []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
+				Units: []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
 			},
 			RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
 			RelationKey: relation.Key{
@@ -454,8 +448,7 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumerInvalidRelationUUID(
 						Interface: "dummy-token",
 					},
 				},
-				Bindings: map[string]string(nil),
-				Units:    []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
+				Units: []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
 			},
 			RelationUUID: "!!6049aa01-76c9-462d-8440-964a6e26aac2",
 			RelationKey: relation.Key{
@@ -497,8 +490,7 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumerInvalidOfferUUID(c *
 						Interface: "dummy-token",
 					},
 				},
-				Bindings: map[string]string(nil),
-				Units:    []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
+				Units: []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
 			},
 			RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
 			RelationKey: relation.Key{
@@ -540,8 +532,7 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumerInvalidConsumerModel
 						Interface: "dummy-token",
 					},
 				},
-				Bindings: map[string]string(nil),
-				Units:    []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
+				Units: []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
 			},
 			RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
 			RelationKey: relation.Key{
@@ -583,8 +574,7 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumerInvalidConsumerAppli
 						Interface: "dummy-token",
 					},
 				},
-				Bindings: map[string]string(nil),
-				Units:    []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
+				Units: []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
 			},
 			RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
 			RelationKey: relation.Key{
@@ -644,18 +634,6 @@ func (m syntheticCharmMatcher) Matches(x interface{}) bool {
 			app.SourceModelUUID != expected.SourceModelUUID ||
 			app.Macaroon != expected.Macaroon {
 			return false
-		}
-
-		// Verify endpoints match
-		if len(app.Endpoints) != len(expected.Endpoints) {
-			return false
-		}
-		for j, ep := range app.Endpoints {
-			if ep.Name != expected.Endpoints[j].Name ||
-				ep.Role != expected.Endpoints[j].Role ||
-				ep.Interface != expected.Endpoints[j].Interface {
-				return false
-			}
 		}
 
 		// Verify synthetic charm was built correctly

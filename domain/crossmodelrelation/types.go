@@ -135,6 +135,8 @@ type RemoteApplicationEndpoint struct {
 	Interface string
 }
 
+// RemoteApplicationImport contains details to import a remote application
+// during migration.
 type RemoteApplicationImport struct {
 	// Name is the name of the remote application in this model.
 	Name string
@@ -154,13 +156,6 @@ type RemoteApplicationImport struct {
 	// SyntheticCharm is the synthetic charm built from the remote endpoints.
 	// This is created in the service layer from the Endpoints field.
 	SyntheticCharm charm.Charm
-
-	// Endpoints are the remote endpoints for creating the synthetic charm.
-	// This is kept for backwards compatibility and service layer processing.
-	Endpoints []RemoteApplicationEndpoint
-
-	// Bindings are the endpoint-to-space bindings.
-	Bindings map[string]string
 
 	// Units are the unit names for the remote application that need to be
 	// created as synthetic units. These are extracted from relation endpoints

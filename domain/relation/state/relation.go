@@ -3209,14 +3209,14 @@ func (st *State) getAllNonSyntheticRelationsWithDetails(ctx context.Context, tx 
 	var result []relationWithDetails
 
 	stmt, err := st.Prepare(`
-SELECT r.uuid AS &relationWithDetails.uuid,
-       r.relation_id AS &relationWithDetails.relation_id,
-       l.value AS &relationWithDetails.life,
-       r.suspended AS &relationWithDetails.suspended
-FROM   relation r
-JOIN   life l ON r.life_id = l.id
+SELECT    r.uuid AS &relationWithDetails.uuid,
+          r.relation_id AS &relationWithDetails.relation_id,
+          l.value AS &relationWithDetails.life,
+          r.suspended AS &relationWithDetails.suspended
+FROM      relation r
+JOIN      life l ON r.life_id = l.id
 LEFT JOIN offer_connection oc ON r.uuid = oc.remote_relation_uuid
-WHERE  oc.remote_relation_uuid IS NULL
+WHERE     oc.remote_relation_uuid IS NULL
 `, relationWithDetails{})
 	if err != nil {
 		return nil, errors.Capture(err)

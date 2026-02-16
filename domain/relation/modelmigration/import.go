@@ -14,6 +14,7 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/deployment/charm"
+	domainmodelmigration "github.com/juju/juju/domain/modelmigration/modelmigration"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/relation/service"
 	"github.com/juju/juju/domain/relation/state"
@@ -75,17 +76,28 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute the import of application resources.
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
+	// Get the remote applications so that we can filter out any remote consumer
+	// relations, which are not imported as part of the relation domain, but
+	// rather as part of the crossmodelrelation domain.
+	remoteApplications := domainmodelmigration.GetUniqueRemoteConsumersNames(model.RemoteApplications())
+
 	var args relation.ImportRelationsArgs
-	relations := model.Relations()
-	if len(relations) == 0 {
-		return nil
-	}
-	for _, rel := range relations {
+	for _, rel := range model.Relations() {
+		if domainmodelmigration.IsRelationInApplicationsName(rel, remoteApplications) {
+			continue
+		}
+
 		arg, err := i.createImportArg(rel)
 		if err != nil {
 			return errors.Errorf("setting up relation data for import %d: %w", rel.Id(), err)
 		}
 		args = append(args, arg)
+	}
+
+	// If there are no relations to import, then we can skip calling the
+	// service method.
+	if len(args) == 0 {
+		return nil
 	}
 
 	err := i.service.ImportRelations(ctx, args)
@@ -102,23 +114,21 @@ func (i *importOperation) createImportArg(rel description.Relation) (relation.Im
 	}
 
 	arg := relation.ImportRelationArg{
-		Endpoints: []relation.ImportEndpoint{},
-		ID:        rel.Id(),
-		Key:       key,
-		Scope:     charm.ScopeGlobal,
+		ID:    rel.Id(),
+		Key:   key,
+		Scope: charm.ScopeGlobal,
 	}
 
 	for _, v := range rel.Endpoints() {
 		if v.Scope() == string(charm.ScopeContainer) {
 			arg.Scope = charm.ScopeContainer
 		}
-		endpoint := relation.ImportEndpoint{
+		arg.Endpoints = append(arg.Endpoints, relation.ImportEndpoint{
 			ApplicationName:     v.ApplicationName(),
 			EndpointName:        v.Name(),
 			ApplicationSettings: v.ApplicationSettings(),
 			UnitSettings:        v.AllSettings(),
-		}
-		arg.Endpoints = append(arg.Endpoints, endpoint)
+		})
 	}
 	return arg, nil
 }
