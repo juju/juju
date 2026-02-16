@@ -77,10 +77,11 @@ var txnOpLogger = logger.Child("txn.op")
 // collections will be modified to ensure correct interaction with
 // these collections.
 func (r *multiModelRunner) Run(transactions jujutxn.TransactionSource) error {
-	return r.rawRunner.Run(func(attempt int) ([]txn.Op, error) {
+	var lastOps []txn.Op
+	err := r.rawRunner.Run(func(attempt int) ([]txn.Op, error) {
 		ops, err := transactions(attempt)
 		if err != nil {
-			// Don't use Trace here as jujutxn doens't use juju/errors
+			// Don't use Trace here as jujutxn doesn't use juju/errors
 			// and won't deal correctly with some returned errors.
 			return nil, err
 		}
@@ -89,13 +90,17 @@ func (r *multiModelRunner) Run(transactions jujutxn.TransactionSource) error {
 			return nil, errors.Trace(err)
 		}
 
-		if txnOpLogger.IsTraceEnabled() {
-			txnOpLogger.Tracef(string(debug.Stack()))
-			txnOpLogger.Tracef(
-				strings.Join(transform.Slice(ops, func(op txn.Op) string { return fmt.Sprintf("%#v", op) }), "\n"))
-		}
+		lastOps = ops
 		return newOps, nil
 	})
+	if errors.Is(err, jujutxn.ErrExcessiveContention) {
+		txnOpLogger.Warningf(string(debug.Stack()))
+		if len(lastOps) > 0 {
+			txnOpLogger.Warningf(
+				strings.Join(transform.Slice(lastOps, func(op txn.Op) string { return fmt.Sprintf("%#v", op) }), "\n"))
+		}
+	}
+	return err
 }
 
 // ResumeTransactions is part of the jujutxn.Runner interface.
