@@ -20,7 +20,7 @@ func TestRelationSuite(t *testing.T) {
 	tc.Run(t, &relationSuite{})
 }
 
-func (s *relationSuite) TestIsRemoteConsumerRelation(c *tc.C) {
+func (s *relationSuite) TestMatchRelationEndpointByApplications(c *tc.C) {
 
 	tests := []struct {
 		name     string
@@ -82,7 +82,7 @@ func (s *relationSuite) TestIsRemoteConsumerRelation(c *tc.C) {
 		c.Logf("Test case: %s", test.name)
 
 		relation, remoteApps := test.setup()
-		result := IsRemoteConsumerRelation(relation, remoteApps)
+		result := IsRelationInApplicationsName(relation, GetUniqueRemoteConsumersNames(remoteApps))
 
 		c.Assert(result, tc.Equals, test.expected)
 	}

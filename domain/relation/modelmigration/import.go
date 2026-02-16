@@ -79,11 +79,11 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	// Get the remote applications so that we can filter out any remote consumer
 	// relations, which are not imported as part of the relation domain, but
 	// rather as part of the crossmodelrelation domain.
-	remoteApplications := model.RemoteApplications()
+	remoteApplications := domainmodelmigration.GetUniqueRemoteConsumersNames(model.RemoteApplications())
 
 	var args relation.ImportRelationsArgs
 	for _, rel := range model.Relations() {
-		if domainmodelmigration.IsRemoteConsumerRelation(rel, remoteApplications) {
+		if domainmodelmigration.IsRelationInApplicationsName(rel, remoteApplications) {
 			continue
 		}
 

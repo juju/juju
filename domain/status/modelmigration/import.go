@@ -214,9 +214,9 @@ func (i *importOperation) importRelationStatus(
 	service ImportService,
 	model description.Model,
 ) error {
-	remoteApplications := model.RemoteApplications()
+	remoteApplications := domainmodelmigration.GetUniqueRemoteConsumersNames(model.RemoteApplications())
 	for _, relation := range model.Relations() {
-		if domainmodelmigration.IsRemoteConsumerRelation(relation, remoteApplications) {
+		if domainmodelmigration.IsRelationInApplicationsName(relation, remoteApplications) {
 			// Remote consumer relations are imported as part of the
 			// crossmodelrelation domain, so we skip them here.
 			continue
