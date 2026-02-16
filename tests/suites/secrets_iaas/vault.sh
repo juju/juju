@@ -47,7 +47,7 @@ run_secret_drain() {
 	model_name='model-secrets-drain'
 	add_model "$model_name"
 
-	vault_backend_name='myvault'
+	vault_backend_name='model-secrets-drain-vault-backend'
 	juju add-secret-backend "$vault_backend_name" vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN" ca-cert="$(cat "$VAULT_CAPATH")"
 
 	juju --show-log deploy jameinel-ubuntu-lite
@@ -98,7 +98,7 @@ run_user_secret_drain() {
 
 	prepare_vault
 
-	vault_backend_name='myvault'
+	vault_backend_name='user-secrets-drain-vault-backend'
 	juju add-secret-backend "$vault_backend_name" vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN" ca-cert="$(cat "$VAULT_CAPATH")"
 
 	model_name='model-user-secrets-drain'

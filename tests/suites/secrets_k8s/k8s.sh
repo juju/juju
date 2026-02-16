@@ -222,7 +222,7 @@ run_secret_drain() {
 	juju --show-log add-model "$model_name"
 
 	prepare_vault
-	vault_backend_name='myvault'
+	vault_backend_name='secret-drain-vault-backend'
 	juju add-secret-backend "$vault_backend_name" vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN"
 
 	juju --show-log deploy snappass-test hello
@@ -288,7 +288,7 @@ run_user_secret_drain() {
 	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
 
 	prepare_vault
-	vault_backend_name='myvault'
+	vault_backend_name='user-secret-drain-vault-backend'
 	juju add-secret-backend "$vault_backend_name" vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN"
 
 	juju --show-log deploy snappass-test hello
