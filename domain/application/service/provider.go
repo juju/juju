@@ -1276,8 +1276,8 @@ func (s *ProviderService) populateAttachStorageArgs(
 		MinimumSize: storageAttachInfo.MinimumSize,
 	}
 
-	wantCount := 1 + storageAttachInfo.AlreadyAttachedCount
-	err = s.storageService.ValidateAttachStorage(charmStorageDef, wantCount, storageAttachInfo.SizeMiB)
+	err = s.storageService.ValidateAttachStorage(
+		charmStorageDef, storageAttachInfo.AlreadyAttachedCount, storageAttachInfo.SizeMiB)
 	if err != nil {
 		return internal.AttachStorageToUnitArg{}, errors.Capture(err)
 	}

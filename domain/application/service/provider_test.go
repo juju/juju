@@ -3473,7 +3473,7 @@ func (s *providerServiceSuite) TestAttachStorageForIAASUnitValidates(c *tc.C) {
 		CountMin:    1,
 		CountMax:    66,
 		MinimumSize: 10,
-	}, uint32(67), uint64(6)).
+	}, uint32(66), uint64(6)).
 		Return(applicationerrors.StorageCountLimitExceeded{})
 
 	err := s.service.AttachStorageToIAASUnit(c.Context(), siUUID, unitUUID)
@@ -3505,7 +3505,7 @@ func (s *providerServiceSuite) TestAttachStorageForIAASUnit(c *tc.C) {
 		CountMin:    1,
 		CountMax:    666,
 		MinimumSize: 10,
-	}, uint32(67), uint64(6)).
+	}, uint32(66), uint64(6)).
 		Return(nil)
 
 	storageToAttach := internal.CreateUnitStorageAttachmentArg{
@@ -3600,7 +3600,7 @@ func (s *providerServiceSuite) TestAttachStorageForCAASUnitValidates(c *tc.C) {
 		CountMin:    1,
 		CountMax:    66,
 		MinimumSize: 10,
-	}, uint32(67), uint64(6)).
+	}, uint32(66), uint64(6)).
 		Return(applicationerrors.StorageCountLimitExceeded{})
 
 	err := s.service.AttachStorageToCAASUnit(c.Context(), siUUID, unitUUID)
@@ -3631,7 +3631,7 @@ func (s *providerServiceSuite) TestAttachStorageForCAASUnit(c *tc.C) {
 		CountMin:    1,
 		CountMax:    666,
 		MinimumSize: 10,
-	}, uint32(67), uint64(6)).
+	}, uint32(66), uint64(6)).
 		Return(nil)
 
 	storageToAttach := internal.CreateUnitStorageAttachmentArg{

@@ -500,7 +500,7 @@ func (s *serviceSuite) TestValidateAttachStorageExceedMax(c *tc.C) {
 
 	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
 	err := svc.ValidateAttachStorage(
-		charmStorageDef, 3, 1024,
+		charmStorageDef, 2, 1024,
 	)
 
 	errVal, is := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)

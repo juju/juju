@@ -184,7 +184,7 @@ type StorageService interface {
 	// falls outside of the bounds defined by the charm.
 	ValidateAttachStorage(
 		charmStorageDef internal.ValidateStorageArg,
-		wantCount uint32,
+		existingCount uint32,
 		storageSize uint64,
 	) error
 	
