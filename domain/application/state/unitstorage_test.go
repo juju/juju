@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
-	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -468,7 +467,7 @@ func (u *unitStorageSuite) TestGetUnitStorageDirectiveByName(c *tc.C) {
 	})
 }
 
-func (u *unitStorageSuite) TestGetCharmStorageAndInstanceCountByUnitUUID(c *tc.C) {
+func (u *unitStorageSuite) TestGetStorageAddInfoByUnitUUID(c *tc.C) {
 	unitUUID, _ := u.newUnitWithStorageDirectives(c)
 
 	st1UUID, _ := u.newStorageInstanceWithModelFilesystem(c)
@@ -476,23 +475,22 @@ func (u *unitStorageSuite) TestGetCharmStorageAndInstanceCountByUnitUUID(c *tc.C
 	u.newStorageUnitOwner(c, st1UUID, unitUUID)
 	u.newStorageUnitOwner(c, st2UUID, unitUUID)
 
-	storageInfo, count, err := u.state.GetCharmStorageAndInstanceCountByUnitUUID(c.Context(), unitUUID, "st1")
+	storageInfo, err := u.state.GetStorageAddInfoByUnitUUID(c.Context(), unitUUID, "st1")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(count, tc.Equals, uint32(2))
-	c.Assert(storageInfo, tc.DeepEquals, internalcharm.Storage{
-		Name:        "st1",
-		Description: "st1",
-		Type:        "filesystem",
-		CountMin:    1,
-		CountMax:    10,
-		MinimumSize: 1024,
+	c.Assert(storageInfo, tc.DeepEquals, internal.StorageInfoForAdd{
+		Name:                 "st1",
+		Type:                 "filesystem",
+		CountMin:             1,
+		CountMax:             10,
+		MinimumSize:          1024,
+		AlreadyAttachedCount: uint32(2),
 	})
 }
 
-func (u *unitStorageSuite) TestGetCharmStorageAndInstanceCountByUnitUUIDNotSupported(c *tc.C) {
+func (u *unitStorageSuite) TestGetStorageAddInfoByUnitUUIDNotSupported(c *tc.C) {
 	unitUUID, _ := u.newUnitWithStorageDirectives(c)
 
-	_, _, err := u.state.GetCharmStorageAndInstanceCountByUnitUUID(c.Context(), unitUUID, "st666")
+	_, err := u.state.GetStorageAddInfoByUnitUUID(c.Context(), unitUUID, "st666")
 	c.Assert(err, tc.ErrorIs, applicationerrors.StorageNameNotSupported)
 }
 
@@ -764,15 +762,15 @@ func (u *unitStorageSuite) TestGetStorageInstanceCompositionByUUID(c *tc.C) {
 	c.Check(result, mc, expected)
 }
 
-func (u *unitStorageSuite) TestGetCharmStorageAndInstanceInfoByUnitUUIDAndStorageUUIDNotFound(c *tc.C) {
+func (u *unitStorageSuite) TestGetStorageAttachInfoByUnitUUIDAndStorageUUIDNotFound(c *tc.C) {
 	unitUUID, _ := u.newUnitWithStorageDirectives(c)
 	stUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 
-	_, _, err := u.state.GetCharmStorageAndInstanceInfoByUnitUUIDAndStorageUUID(c.Context(), unitUUID, stUUID)
+	_, err := u.state.GetStorageAttachInfoByUnitUUIDAndStorageUUID(c.Context(), unitUUID, stUUID)
 	c.Assert(err, tc.ErrorIs, errors.StorageInstanceNotFound)
 }
 
-func (u *unitStorageSuite) TestGetCharmStorageAndInstanceInfoByUnitUUIDAndStorageUUID(c *tc.C) {
+func (u *unitStorageSuite) TestGetStorageAttachInfoByUnitUUIDAndStorageUUID(c *tc.C) {
 	unitUUID, _ := u.newUnitWithStorageDirectives(c)
 
 	st1UUID, _ := u.newStorageInstanceWithModelFilesystem(c)
@@ -780,24 +778,22 @@ func (u *unitStorageSuite) TestGetCharmStorageAndInstanceInfoByUnitUUIDAndStorag
 	u.newStorageUnitOwner(c, st1UUID, unitUUID)
 	u.newStorageUnitOwner(c, st2UUID, unitUUID)
 
-	storageInfo, instInfo, err := u.state.GetCharmStorageAndInstanceInfoByUnitUUIDAndStorageUUID(c.Context(), unitUUID, st1UUID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(storageInfo, tc.DeepEquals, internalcharm.Storage{
-		Name:        "st1",
-		Description: "st1",
-		Type:        "filesystem",
-		CountMin:    1,
-		CountMax:    10,
-		MinimumSize: 1024,
-	})
-
 	var poolUUID string
-	err = u.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err := u.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT uuid FROM storage_pool WHERE name=?", st1UUID).Scan(&poolUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(instInfo, tc.DeepEquals, internal.StorageInstanceInfo{
+
+	storageInfo, err := u.state.GetStorageAttachInfoByUnitUUIDAndStorageUUID(c.Context(), unitUUID, st1UUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(storageInfo, tc.DeepEquals, internal.StorageInfoForAttach{
+		Name:                 "st1",
+		Type:                 "filesystem",
+		CountMin:             1,
+		CountMax:             10,
+		MinimumSize:          1024,
 		AlreadyAttachedCount: 2,
 		SizeMiB:              1024,
 		PoolUUID:             domainstorage.StoragePoolUUID(poolUUID),

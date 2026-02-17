@@ -2029,26 +2029,25 @@ WHERE  u.uuid = $unitUUID.uuid
 	return netNodeUUID.NetNodeUUID, nil
 }
 
-// GetCharmStorageAndInstanceCountByUnitUUID returns the metadata and how many
+// GetStorageAddInfoByUnitUUID returns the deploy metadata and how many
 // storage instances exist for the named storage on the specified unit.
 //
 // The following error types can be expected:
-//   - [applicationerrors.StorageNameNotSupported]: when storage name is not
-//     defined in charm metadata.
-func (st *State) GetCharmStorageAndInstanceCountByUnitUUID(
+// - [applicationerrors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
+func (st *State) GetStorageAddInfoByUnitUUID(
 	ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
-) (internalcharm.Storage, uint32, error) {
+) (internal.StorageInfoForAdd, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return internalcharm.Storage{}, 0, errors.Capture(err)
+		return internal.StorageInfoForAdd{}, errors.Capture(err)
 	}
 
 	var (
-		chStorage charmStorage
+		chStorage storageInfoForAdd
 		count     uint32
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		chStorage, err = st.getUnitCharmStorageByName(ctx, tx, unitUUID, storageName)
+		chStorage, err = st.getStorageInstanceInfoForAdd(ctx, tx, unitUUID, storageName)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("storage %q is not found", storageName).Add(applicationerrors.StorageNameNotSupported)
 		}
@@ -2061,19 +2060,16 @@ func (st *State) GetCharmStorageAndInstanceCountByUnitUUID(
 		}
 		return nil
 	}); err != nil {
-		return internalcharm.Storage{}, 0, errors.Capture(err)
+		return internal.StorageInfoForAdd{}, errors.Capture(err)
 	}
-	return internalcharm.Storage{
-		Name:        chStorage.Name,
-		Description: chStorage.Description,
-		Type:        internalcharm.StorageType(chStorage.Kind),
-		Shared:      chStorage.Shared,
-		ReadOnly:    chStorage.ReadOnly,
-		CountMin:    chStorage.CountMin,
-		CountMax:    chStorage.CountMax,
-		MinimumSize: chStorage.MinimumSize,
-		Location:    chStorage.Location,
-	}, count, nil
+	return internal.StorageInfoForAdd{
+		Name:                 chStorage.Name,
+		Type:                 internalcharm.StorageType(chStorage.Kind),
+		CountMin:             chStorage.CountMin,
+		CountMax:             chStorage.CountMax,
+		MinimumSize:          chStorage.MinimumSize,
+		AlreadyAttachedCount: count,
+	}, nil
 }
 
 // GetIAASUnitContext returns IAAS context information required for the
@@ -2411,60 +2407,49 @@ LIMIT 1;
 }
 
 // GetCharmStorageAndInstanceInfoByUnitUUIDAndStorageUUID returns the metadata
+// GetStorageAttachInfoByUnitUUIDAndStorageUUID returns the metadata
 // and select details for the storage instance on the specified unit.
 // The details include how many existing instances of the same named storage
 // already exist, the requested size, and the instance's storage pool.
-func (st *State) GetCharmStorageAndInstanceInfoByUnitUUIDAndStorageUUID(
+func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 	ctx context.Context, unitUUID coreunit.UUID, storageUUID domainstorage.StorageInstanceUUID,
-) (internalcharm.Storage, internal.StorageInstanceInfo, error) {
+) (internal.StorageInfoForAttach, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return internalcharm.Storage{}, internal.StorageInstanceInfo{}, errors.Capture(err)
+		return internal.StorageInfoForAttach{}, errors.Capture(err)
 	}
 	var (
-		chStorage charmStorage
+		chStorage storageInfoForAttach
 		count     uint32
 		sizeMiB   uint64
 		poolUUID  string
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		details, err := st.getStorageInstanceProvisionedInfo(ctx, tx, storageUUID)
+		var err error
+		chStorage, err = st.getStorageInstanceInfoForAttach(ctx, tx, unitUUID, storageUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		poolUUID = details.StoragePoolUUID
-		sizeMiB = details.SizeMIB
-		chStorage, err = st.getUnitCharmStorageByName(ctx, tx, unitUUID, details.StorageName)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			// Should never happen.
-			return errors.Errorf("storage %q is not found", details.StorageName).Add(applicationerrors.StorageNameNotSupported)
-		}
+		poolUUID = chStorage.StoragePoolUUID
+		sizeMiB = chStorage.SizeMIB
+		count, err = st.getUnitStorageCount(ctx, tx, unitUUID, chStorage.StorageName)
 		if err != nil {
-			return errors.Errorf("getting charm storage metadata for unit %q: %w", unitUUID, err)
-		}
-		count, err = st.getUnitStorageCount(ctx, tx, unitUUID, details.StorageName)
-		if err != nil {
-			return errors.Errorf("getting storage count for unit %q storage %s: %w", unitUUID, details.StorageName, err)
+			return errors.Errorf("getting storage count for unit %q storage %s: %w", unitUUID, chStorage.StorageName, err)
 		}
 		return nil
 	}); err != nil {
-		return internalcharm.Storage{}, internal.StorageInstanceInfo{}, errors.Capture(err)
+		return internal.StorageInfoForAttach{}, errors.Capture(err)
 	}
-	return internalcharm.Storage{
-			Name:        chStorage.Name,
-			Description: chStorage.Description,
-			Type:        internalcharm.StorageType(chStorage.Kind),
-			Shared:      chStorage.Shared,
-			ReadOnly:    chStorage.ReadOnly,
-			CountMin:    chStorage.CountMin,
-			CountMax:    chStorage.CountMax,
-			MinimumSize: chStorage.MinimumSize,
-			Location:    chStorage.Location,
-		}, internal.StorageInstanceInfo{
-			AlreadyAttachedCount: count,
-			SizeMiB:              sizeMiB,
-			PoolUUID:             domainstorage.StoragePoolUUID(poolUUID),
-		}, nil
+	return internal.StorageInfoForAttach{
+		Name:                 chStorage.StorageName.String(),
+		Type:                 internalcharm.StorageType(chStorage.Kind),
+		CountMin:             chStorage.CountMin,
+		CountMax:             chStorage.CountMax,
+		MinimumSize:          chStorage.MinimumSize,
+		AlreadyAttachedCount: count,
+		SizeMiB:              sizeMiB,
+		PoolUUID:             domainstorage.StoragePoolUUID(poolUUID),
+	}, nil
 }
 
 // setK8sPodStatus saves the given k8s pod status, overwriting

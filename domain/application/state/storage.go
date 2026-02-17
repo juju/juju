@@ -1522,49 +1522,65 @@ WHERE  uuid = $storageInstance.uuid
 	return inst, nil
 }
 
-func (st *State) getStorageInstanceProvisionedInfo(ctx context.Context, tx *sqlair.TX, storageUUID domainstorage.StorageInstanceUUID) (storageInstanceProvisionedInfo, error) {
+func (st *State) getStorageInstanceInfoForAttach(
+	ctx context.Context, tx *sqlair.TX, uuid coreunit.UUID,
+	storageUUID domainstorage.StorageInstanceUUID,
+) (storageInfoForAttach, error) {
 	inst := storageInstance{StorageUUID: storageUUID}
+	unit := unitUUID{
+		UnitUUID: uuid.String(),
+	}
 	query := `
-SELECT * AS &storageInstanceProvisionedInfo.* FROM (
+SELECT * AS &storageInfoForAttach.* FROM (
     SELECT    si.storage_name,
               si.storage_pool_uuid,
               (CASE
                   WHEN sf.size_mib != 0 THEN sf.size_mib
                   WHEN sv.size_mib != 0 THEN sv.size_mib
                   WHEN sv.size_mib = 0 AND sf.size_mib = 0 THEN si.requested_size_mib
-              END) AS size_mib
+              END) AS size_mib,
+              cs.count_max,
+              cs.count_min,
+              cs.kind,
+              cs.minimum_size_mib
     FROM      storage_instance si
+    JOIN      storage_unit_owner suo ON si.uuid = suo.storage_instance_uuid
+    JOIN      unit ON suo.unit_uuid = unit.uuid
+    JOIN      v_charm_storage cs ON unit.charm_uuid = cs.charm_uuid
     LEFT JOIN storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid
     LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
     LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
     LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
     WHERE     si.uuid = $storageInstance.uuid
+    AND       suo.unit_uuid = $unitUUID.uuid
 )
 `
-	queryStmt, err := st.Prepare(query, inst, storageInstanceProvisionedInfo{})
+	queryStmt, err := st.Prepare(query, inst, unit, storageInfoForAttach{})
 	if err != nil {
-		return storageInstanceProvisionedInfo{}, errors.Capture(err)
+		return storageInfoForAttach{}, errors.Capture(err)
 	}
 
-	var result storageInstanceProvisionedInfo
-	err = tx.Query(ctx, queryStmt, inst).Get(&result)
+	var result storageInfoForAttach
+	err = tx.Query(ctx, queryStmt, inst, unit).Get(&result)
 	if err != nil {
 		if !errors.Is(err, sqlair.ErrNoRows) {
-			return storageInstanceProvisionedInfo{}, errors.Errorf("querying storage %q: %w", storageUUID, err)
+			return storageInfoForAttach{}, errors.Errorf("querying storage %q: %w", storageUUID, err)
 		}
-		return storageInstanceProvisionedInfo{}, errors.Errorf("%w: %s", storageerrors.StorageInstanceNotFound, storageUUID)
+		return storageInfoForAttach{}, errors.Errorf("%w: %s", storageerrors.StorageInstanceNotFound, storageUUID)
 	}
 	return result, nil
 }
 
-func (st *State) getUnitCharmStorageByName(ctx context.Context, tx *sqlair.TX, uuid coreunit.UUID, name corestorage.Name) (charmStorage, error) {
+func (st *State) getStorageInstanceInfoForAdd(
+	ctx context.Context, tx *sqlair.TX, uuid coreunit.UUID, name corestorage.Name,
+) (storageInfoForAdd, error) {
 	storageSpec := unitCharmStorage{
 		UnitUUID:    uuid,
 		StorageName: name,
 	}
-	var result charmStorage
+	var result storageInfoForAdd
 	stmt, err := st.Prepare(`
-SELECT cs.* AS &charmStorage.*
+SELECT cs.* AS &storageInfoForAdd.*
 FROM   v_charm_storage cs
 JOIN   unit ON unit.charm_uuid = cs.charm_uuid
 WHERE  unit.uuid = $unitCharmStorage.uuid
