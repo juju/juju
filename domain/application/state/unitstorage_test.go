@@ -669,7 +669,7 @@ func (u *unitStorageSuite) TestGetStorageInstanceCompositionByUUID(c *tc.C) {
 			UUID:           fs1UUID,
 		},
 		StorageName: "st1",
-		UUID: st1UUID,
+		UUID:        st1UUID,
 	}
 
 	mc := tc.NewMultiChecker()

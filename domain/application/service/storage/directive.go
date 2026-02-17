@@ -324,7 +324,7 @@ func validateApplicationStorageDirectiveOverride(
 // definition.
 func (s *Service) ValidateAttachStorage(
 	charmStorageDef internal.ValidateStorageArg,
-	wantCount uint32,
+	existingCount uint32,
 	storageSize uint64,
 ) error {
 	var (
@@ -340,6 +340,7 @@ func (s *Service) ValidateAttachStorage(
 		hasMaxCount = true
 	}
 
+	wantCount := existingCount + 1
 	if hasMaxCount && wantCount > maxCount {
 		return applicationerrors.StorageCountLimitExceeded{
 			Maximum:     &charmStorageDef.CountMax,
