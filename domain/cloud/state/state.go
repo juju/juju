@@ -641,7 +641,8 @@ func dbCloudFromCloud(ctx context.Context, tx *sqlair.TX, cloudUUID string, clou
 	return cld, nil
 }
 
-// DeleteCloud removes a cloud credential with the given name.
+// DeleteCloud removes a cloud and its associated credentials with the given
+// name. If any model references the cloud, the deletion is refused.
 func (st *State) DeleteCloud(ctx context.Context, name string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -649,43 +650,82 @@ func (st *State) DeleteCloud(ctx context.Context, name string) error {
 	}
 
 	cloudName := dbCloudName{Name: name}
-	// TODO(wallyworld) - also check model reference
+
+	modelCountStmt, err := st.Prepare(`
+WITH target_cloud AS (
+    SELECT uuid FROM cloud WHERE cloud.name = $dbCloudName.name
+)
+SELECT COUNT(*) AS &countResult.count
+FROM model
+WHERE cloud_uuid IN (SELECT uuid FROM target_cloud)
+`, countResult{}, cloudName)
+	if err != nil {
+		return errors.Errorf("preparing model count statement: %w", err)
+	}
+
+	credAttrDeleteStmt, err := st.Prepare(`
+WITH target_cloud AS (
+    SELECT uuid FROM cloud WHERE cloud.name = $dbCloudName.name
+),
+target_credentials AS (
+    SELECT cc.uuid
+    FROM cloud_credential AS cc
+    JOIN target_cloud AS c ON cc.cloud_uuid = c.uuid
+)
+DELETE FROM cloud_credential_attribute
+WHERE cloud_credential_uuid IN (SELECT uuid FROM target_credentials)
+`, cloudName)
+	if err != nil {
+		return errors.Errorf("preparing delete from cloud credential attribute statement: %w", err)
+	}
+
+	credDeleteStmt, err := st.Prepare(`
+WITH target_cloud AS (
+    SELECT uuid FROM cloud WHERE cloud.name = $dbCloudName.name
+)
+DELETE FROM cloud_credential
+WHERE cloud_uuid IN (SELECT uuid FROM target_cloud)
+`, cloudName)
+	if err != nil {
+		return errors.Errorf("preparing delete from cloud credential statement: %w", err)
+	}
+
 	cloudDeleteStmt, err := st.Prepare(`
 DELETE FROM cloud
-WHERE  cloud.name = $dbCloudName.name
-AND cloud.uuid NOT IN (
-    SELECT cloud_uuid FROM cloud_credential
-)
+WHERE cloud.name = $dbCloudName.name
 `, cloudName)
 	if err != nil {
 		return errors.Errorf("preparing delete from cloud statement: %w", err)
 	}
 
 	cloudRegionDeleteStmt, err := st.Prepare(`
+WITH target_cloud AS (
+    SELECT uuid FROM cloud WHERE cloud.name = $dbCloudName.name
+)
 DELETE FROM cloud_region
-    WHERE cloud_uuid IN (
-        SELECT uuid FROM cloud WHERE cloud.name = $dbCloudName.name
-    )
+WHERE cloud_uuid IN (SELECT uuid FROM target_cloud)
 `, cloudName)
 	if err != nil {
 		return errors.Errorf("preparing delete from cloud region statement: %w", err)
 	}
 
 	cloudCACertDeleteStmt, err := st.Prepare(`
+WITH target_cloud AS (
+    SELECT uuid FROM cloud WHERE cloud.name = $dbCloudName.name
+)
 DELETE FROM cloud_ca_cert
-    WHERE cloud_uuid IN (
-        SELECT uuid FROM cloud WHERE cloud.name = $dbCloudName.name
-    )
+WHERE cloud_uuid IN (SELECT uuid FROM target_cloud)
 `, cloudName)
 	if err != nil {
 		return errors.Errorf("preparing delete from cloud ca cert statement: %w", err)
 	}
 
 	cloudAuthTypeDeleteStmt, err := st.Prepare(`
+WITH target_cloud AS (
+    SELECT uuid FROM cloud WHERE cloud.name = $dbCloudName.name
+)
 DELETE FROM cloud_auth_type
-    WHERE cloud_uuid IN (
-        SELECT uuid FROM cloud WHERE cloud.name = $dbCloudName.name
-    )
+WHERE cloud_uuid IN (SELECT uuid FROM target_cloud)
 `, cloudName)
 	if err != nil {
 		return errors.Errorf("preparing delete from cloud auth type statement: %w", err)
@@ -700,7 +740,27 @@ WHERE  grant_on = $dbCloudName.name
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, cloudRegionDeleteStmt, cloudName).Run()
+		// Check if any model references this cloud.
+		var count countResult
+		err := tx.Query(ctx, modelCountStmt, cloudName).Get(&count)
+		if err != nil {
+			return errors.Errorf("checking model references: %w", err)
+		}
+		if count.Count > 0 {
+			return errors.Errorf("deleting cloud").Add(clouderrors.CloudStillInUse)
+		}
+
+		// Cascade-delete credentials and their attributes.
+		err = tx.Query(ctx, credAttrDeleteStmt, cloudName).Run()
+		if err != nil {
+			return errors.Errorf("deleting cloud credential attributes: %w", err)
+		}
+		err = tx.Query(ctx, credDeleteStmt, cloudName).Run()
+		if err != nil {
+			return errors.Errorf("deleting cloud credentials: %w", err)
+		}
+
+		err = tx.Query(ctx, cloudRegionDeleteStmt, cloudName).Run()
 		if err != nil {
 			return errors.Errorf("deleting cloud regions: %w", err)
 		}
