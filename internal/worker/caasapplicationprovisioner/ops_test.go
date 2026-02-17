@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"regexp"
 	"testing"
 	"time"
 
@@ -628,8 +627,6 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 	appUUID := tc.Must(c, application.NewUUID)
 	attachmentUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 	storageUniqueID := appUUID.String()[:6]
-	reg, err := regexp.Compile(`^(.+)-` + regexp.QuoteMeta("test") + `-\d+$`)
-	c.Assert(err, tc.ErrorIsNil)
 
 	pi := caasapplicationprovisioner.ProvisioningInfo{
 		ImageDetails: coreresource.DockerImageDetails{
@@ -786,8 +783,8 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 		}),
 	)
 
-	err = caasapplicationprovisioner.AppOps.AppAlive(c.Context(), "test",
-		appUUID, app, password, &lastApplied, &pi, statusService, reg, clk, s.logger)
+	err := caasapplicationprovisioner.AppOps.AppAlive(c.Context(), "test",
+		appUUID, app, password, &lastApplied, &pi, statusService, clk, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
