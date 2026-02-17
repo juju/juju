@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"regexp"
 	"strings"
 	"time"
 
@@ -81,7 +80,7 @@ type ApplicationOps interface {
 	AppAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 		app caas.Application, password string, lastApplied *caas.ApplicationConfig,
 		provisioningInfo *ProvisioningInfo, statusService StatusService,
-		pvcNamePrefixReg *regexp.Regexp, clk clock.Clock, logger logger.Logger) error
+		clk clock.Clock, logger logger.Logger) error
 
 	AppDying(ctx context.Context, appName string, appUUID coreapplication.UUID,
 		app caas.Application, appLife life.Value, facade CAASProvisionerFacade,
@@ -139,11 +138,10 @@ func (applicationOps) AppAlive(
 	appName string, appUUID coreapplication.UUID, app caas.Application,
 	password string, lastApplied *caas.ApplicationConfig,
 	provisioningInfo *ProvisioningInfo, statusService StatusService,
-	pvcNamePrefixReg *regexp.Regexp, clk clock.Clock, logger logger.Logger,
+	clk clock.Clock, logger logger.Logger,
 ) error {
 	return appAlive(ctx, appName, appUUID, app, password,
-		lastApplied, provisioningInfo, statusService, pvcNamePrefixReg,
-		clk, logger)
+		lastApplied, provisioningInfo, statusService, clk, logger)
 }
 
 func (applicationOps) AppDying(
@@ -233,7 +231,7 @@ type Tomb interface {
 // CAAS broker to create the resources in the k8s cluster for this application.
 func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 	app caas.Application, password string, lastApplied *caas.ApplicationConfig,
-	pi *ProvisioningInfo, statusService StatusService, pvcNamePrefixReg *regexp.Regexp,
+	pi *ProvisioningInfo, statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
 ) error {
 	logger.Debugf(ctx, "ensuring application %q exists", appName)
