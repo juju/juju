@@ -652,33 +652,39 @@ func (st *State) DeleteCloud(ctx context.Context, name string) error {
 	cloudName := dbCloudName{Name: name}
 
 	modelCountStmt, err := st.Prepare(`
-SELECT COUNT(*) AS &countResult.count
-FROM model
-WHERE cloud_uuid IN (
+WITH target_cloud AS (
     SELECT uuid FROM cloud WHERE cloud.name = $dbCloudName.name
 )
+SELECT COUNT(*) AS &countResult.count
+FROM model
+WHERE cloud_uuid IN (SELECT uuid FROM target_cloud)
 `, countResult{}, cloudName)
 	if err != nil {
 		return errors.Errorf("preparing model count statement: %w", err)
 	}
 
 	credAttrDeleteStmt, err := st.Prepare(`
-DELETE FROM cloud_credential_attribute
-WHERE cloud_credential_uuid IN (
-    SELECT cc.uuid FROM cloud_credential AS cc
-    JOIN cloud AS c ON cc.cloud_uuid = c.uuid
-    WHERE c.name = $dbCloudName.name
+WITH target_cloud AS (
+    SELECT uuid FROM cloud WHERE cloud.name = $dbCloudName.name
+),
+target_credentials AS (
+    SELECT cc.uuid
+    FROM cloud_credential AS cc
+    JOIN target_cloud AS c ON cc.cloud_uuid = c.uuid
 )
+DELETE FROM cloud_credential_attribute
+WHERE cloud_credential_uuid IN (SELECT uuid FROM target_credentials)
 `, cloudName)
 	if err != nil {
 		return errors.Errorf("preparing delete from cloud credential attribute statement: %w", err)
 	}
 
 	credDeleteStmt, err := st.Prepare(`
-DELETE FROM cloud_credential
-WHERE cloud_uuid IN (
+WITH target_cloud AS (
     SELECT uuid FROM cloud WHERE cloud.name = $dbCloudName.name
 )
+DELETE FROM cloud_credential
+WHERE cloud_uuid IN (SELECT uuid FROM target_cloud)
 `, cloudName)
 	if err != nil {
 		return errors.Errorf("preparing delete from cloud credential statement: %w", err)
@@ -693,30 +699,33 @@ WHERE cloud.name = $dbCloudName.name
 	}
 
 	cloudRegionDeleteStmt, err := st.Prepare(`
+WITH target_cloud AS (
+    SELECT uuid FROM cloud WHERE cloud.name = $dbCloudName.name
+)
 DELETE FROM cloud_region
-    WHERE cloud_uuid IN (
-        SELECT uuid FROM cloud WHERE cloud.name = $dbCloudName.name
-    )
+WHERE cloud_uuid IN (SELECT uuid FROM target_cloud)
 `, cloudName)
 	if err != nil {
 		return errors.Errorf("preparing delete from cloud region statement: %w", err)
 	}
 
 	cloudCACertDeleteStmt, err := st.Prepare(`
+WITH target_cloud AS (
+    SELECT uuid FROM cloud WHERE cloud.name = $dbCloudName.name
+)
 DELETE FROM cloud_ca_cert
-    WHERE cloud_uuid IN (
-        SELECT uuid FROM cloud WHERE cloud.name = $dbCloudName.name
-    )
+WHERE cloud_uuid IN (SELECT uuid FROM target_cloud)
 `, cloudName)
 	if err != nil {
 		return errors.Errorf("preparing delete from cloud ca cert statement: %w", err)
 	}
 
 	cloudAuthTypeDeleteStmt, err := st.Prepare(`
+WITH target_cloud AS (
+    SELECT uuid FROM cloud WHERE cloud.name = $dbCloudName.name
+)
 DELETE FROM cloud_auth_type
-    WHERE cloud_uuid IN (
-        SELECT uuid FROM cloud WHERE cloud.name = $dbCloudName.name
-    )
+WHERE cloud_uuid IN (SELECT uuid FROM target_cloud)
 `, cloudName)
 	if err != nil {
 		return errors.Errorf("preparing delete from cloud auth type statement: %w", err)
