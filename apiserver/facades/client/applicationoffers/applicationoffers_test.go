@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	corecrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
-	offer "github.com/juju/juju/core/offer"
+	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
@@ -620,6 +620,10 @@ func (s *offerSuite) TestListApplicationOffers(c *tc.C) {
 		UUID:      tc.Must0(c, model.NewUUID),
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
+	s.authorizer.EXPECT().
+		HasPermission(gomock.Any(), permission.AdminAccess, names.NewModelTag(foundModel.UUID.String())).
+		Return(nil).
+		Times(2)
 
 	domainFilters := []crossmodelrelationservice.OfferFilter{
 		{
@@ -819,6 +823,10 @@ func (s *offerSuite) TestFindApplicationOffers(c *tc.C) {
 		UUID:      tc.Must0(c, model.NewUUID),
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
+	s.authorizer.EXPECT().
+		HasPermission(gomock.Any(), permission.AdminAccess, names.NewModelTag(foundModel.UUID.String())).
+		Return(nil).
+		Times(2)
 
 	domainFilters := []crossmodelrelationservice.OfferFilter{
 		{
@@ -853,7 +861,11 @@ func (s *offerSuite) TestFindApplicationOffers(c *tc.C) {
 			Endpoints: []crossmodelrelation.OfferEndpoint{
 				{Name: "endpoint"},
 			},
-			OfferUsers: []crossmodelrelation.OfferUser{{Name: "admin", Access: permission.AdminAccess}},
+			OfferUsers: []crossmodelrelation.OfferUser{{
+				Name:        "admin",
+				DisplayName: "fred smith",
+				Access:      permission.AdminAccess,
+			}},
 		},
 	}
 	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
@@ -888,6 +900,7 @@ func (s *offerSuite) TestFindApplicationOffers(c *tc.C) {
 			ApplicationDescription: "testing application",
 			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 			Users: []params.OfferUserDetails{
+				{UserName: "george", Access: "consume"},
 				{UserName: "admin", DisplayName: "fred smith", Access: "admin"},
 			}},
 		ApplicationName: "test-app",
@@ -929,6 +942,10 @@ func (s *offerSuite) TestFindApplicationOffersAllOffers(c *tc.C) {
 	}
 	s.modelService.EXPECT().GetAllModels(gomock.Any()).Return([]model.Model{foundModel}, nil)
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
+	s.authorizer.EXPECT().
+		HasPermission(gomock.Any(), permission.AdminAccess, names.NewModelTag(foundModel.UUID.String())).
+		Return(nil).
+		Times(2)
 
 	charmLocator := charm.CharmLocator{
 		Name:         "app",
@@ -956,7 +973,11 @@ func (s *offerSuite) TestFindApplicationOffersAllOffers(c *tc.C) {
 			Endpoints: []crossmodelrelation.OfferEndpoint{
 				{Name: "endpoint"},
 			},
-			OfferUsers: []crossmodelrelation.OfferUser{{Name: "admin", Access: permission.AdminAccess}},
+			OfferUsers: []crossmodelrelation.OfferUser{{
+				Name:        "admin",
+				DisplayName: "fred smith",
+				Access:      permission.AdminAccess,
+			}},
 		},
 	}
 	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), []crossmodelrelationservice.OfferFilter{{}}).Return(offerDetails, nil)
@@ -979,6 +1000,7 @@ func (s *offerSuite) TestFindApplicationOffersAllOffers(c *tc.C) {
 			ApplicationDescription: "testing application",
 			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 			Users: []params.OfferUserDetails{
+				{UserName: "george", Access: "consume"},
 				{UserName: "admin", DisplayName: "fred smith", Access: "admin"},
 			}},
 		ApplicationName: "test-app",
@@ -1173,6 +1195,10 @@ func (s *offerSuite) TestApplicationOffers(c *tc.C) {
 		UUID:      tc.Must0(c, model.NewUUID),
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
+	s.authorizer.EXPECT().
+		HasPermission(gomock.Any(), permission.AdminAccess, names.NewModelTag(foundModel.UUID.String())).
+		Return(nil).
+		Times(2)
 
 	domainFilters := []crossmodelrelationservice.OfferFilter{
 		{
@@ -1207,7 +1233,11 @@ func (s *offerSuite) TestApplicationOffers(c *tc.C) {
 			Endpoints: []crossmodelrelation.OfferEndpoint{
 				{Name: "endpoint"},
 			},
-			OfferUsers: []crossmodelrelation.OfferUser{{Name: "admin", Access: permission.AdminAccess}},
+			OfferUsers: []crossmodelrelation.OfferUser{{
+				Name:        "admin",
+				DisplayName: "fred smith",
+				Access:      permission.AdminAccess,
+			}},
 		},
 	}
 	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
@@ -1231,6 +1261,7 @@ func (s *offerSuite) TestApplicationOffers(c *tc.C) {
 			ApplicationDescription: "testing application",
 			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 			Users: []params.OfferUserDetails{
+				{UserName: "george", DisplayName: "", Access: "consume"},
 				{UserName: "admin", DisplayName: "fred smith", Access: "admin"},
 			}},
 		ApplicationName: "test-app",
@@ -1274,6 +1305,9 @@ func (s *offerSuite) TestApplicationOffersMixSuccessAndFail(c *tc.C) {
 		UUID:      tc.Must0(c, model.NewUUID),
 	}
 	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), modelName, foundModel.Qualifier).Return(foundModel, nil)
+	s.authorizer.EXPECT().
+		HasPermission(gomock.Any(), permission.AdminAccess, names.NewModelTag(foundModel.UUID.String())).
+		Return(nil)
 
 	domainFilters := []crossmodelrelationservice.OfferFilter{
 		{
@@ -1296,7 +1330,11 @@ func (s *offerSuite) TestApplicationOffersMixSuccessAndFail(c *tc.C) {
 			Endpoints: []crossmodelrelation.OfferEndpoint{
 				{Name: "endpoint"},
 			},
-			OfferUsers: []crossmodelrelation.OfferUser{{Name: "admin", Access: permission.AdminAccess}},
+			OfferUsers: []crossmodelrelation.OfferUser{{
+				Name:        "admin",
+				DisplayName: "fred smith",
+				Access:      permission.AdminAccess,
+			}},
 		},
 	}
 	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
@@ -1355,7 +1393,7 @@ func (s *offerSuite) TestApplicationOffersNotFound(c *tc.C) {
 			OfferName: "testing",
 		},
 	}
-	offerDetails := []*crossmodelrelation.OfferDetail{}
+	var offerDetails []*crossmodelrelation.OfferDetail
 	s.crossModelRelationService.EXPECT().GetOffers(gomock.Any(), domainFilters).Return(offerDetails, nil)
 	args := params.OfferURLs{
 		OfferURLs: []string{"fred-external/test-model.testing"},
@@ -1813,7 +1851,7 @@ func (s *offerSuite) expectEntityHasPermissionMissingPermission(userTag names.Us
 	s.authorizer.EXPECT().EntityHasPermission(gomock.Any(), userTag, access, matcher).Return(authentication.ErrorEntityMissingPermission)
 }
 
-func (s *offerSuite) offerAPI(c *tc.C) *OffersAPI {
+func (s *offerSuite) offerAPI(_ *tc.C) *OffersAPI {
 	return &OffersAPI{
 		controllerUUID:        s.controllerUUID,
 		modelUUID:             s.modelUUID,
