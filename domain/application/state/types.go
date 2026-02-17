@@ -908,8 +908,20 @@ type storageInstance struct {
 	RequestedSizeMIB uint64                            `db:"requested_size_mib"`
 }
 
-type storageInstanceProvisionedInfo struct {
+type storageInfoForAdd struct {
+	Name        string `db:"name"`
+	Kind        string `db:"kind"`
+	CountMin    int    `db:"count_min"`
+	CountMax    int    `db:"count_max"`
+	MinimumSize uint64 `db:"minimum_size_mib"`
+}
+
+type storageInfoForAttach struct {
 	StorageName     corestorage.Name `db:"storage_name"`
+	Kind            string           `db:"kind"`
+	CountMin        int              `db:"count_min"`
+	CountMax        int              `db:"count_max"`
+	MinimumSize     uint64           `db:"minimum_size_mib"`
 	StoragePoolUUID string           `db:"storage_pool_uuid"`
 	SizeMIB         uint64           `db:"size_mib"`
 }

@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
-	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
@@ -197,22 +196,22 @@ type UnitState interface {
 	//     is returned.
 	GetAllUnitCloudContainerIDsForApplication(context.Context, coreapplication.UUID) (map[coreunit.Name]string, error)
 
-	// GetCharmStorageAndInstanceCountByUnitUUID returns the metadata and how many
+	// GetStorageAddInfoByUnitUUID returns the deploy metadata and how many
 	// storage instances exist for the named storage on the specified unit.
 	// The following error types can be expected:
 	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
-	GetCharmStorageAndInstanceCountByUnitUUID(ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name) (internalcharm.Storage, uint32, error)
+	GetStorageAddInfoByUnitUUID(ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name) (internal.StorageInfoForAdd, error)
 
-	// GetCharmStorageAndInstanceInfoByUnitUUIDAndStorageUUID returns the metadata
+	// GetStorageAttachInfoByUnitUUIDAndStorageUUID returns the metadata
 	// and select details for the storage instance on the specified unit.
 	// The details include how many existing instances of the same named storage
 	// already exist, the requested size, and the instance's storage pool.
 	// The following error types can be expected:
 	// - [applicationerrors.storageerrors.StorageInstanceNotFound]: when storage
 	// instance does not exist.
-	GetCharmStorageAndInstanceInfoByUnitUUIDAndStorageUUID(
+	GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		ctx context.Context, unitUUID coreunit.UUID, storageUUID domainstorage.StorageInstanceUUID,
-	) (internalcharm.Storage, internal.StorageInstanceInfo, error)
+	) (internal.StorageInfoForAttach, error)
 
 	// AddStorageForCAASUnit adds storage instances to given unit as specified.
 	// The specified storage name is used to retrieve existing storage instances.

@@ -123,9 +123,59 @@ type IAASUnitAttachStorageArg struct {
 	VolumesToOwn []domainstorage.VolumeUUID
 }
 
-// StorageInstanceInfo holds the current number of storage instances of the
-// same named storage already attached to a unit, and the pool of an instance.
-type StorageInstanceInfo struct {
+type StorageInfoForAdd struct {
+	// Name is the name of the storage.
+	Name string
+
+	// Type is the storage type: filesystem or block-device.
+	Type charm.StorageType
+
+	// CountMin is the number of storage instances that must be attached
+	// to the charm for it to be useful; the charm will not install until
+	// this number has been satisfied. This must be a non-negative number.
+	CountMin int
+
+	// CountMax is the largest number of storage instances that can be
+	// attached to the charm. If CountMax is -1, then there is no upper
+	// bound.
+	CountMax int
+
+	// MinimumSize is the minimum size of store that the charm needs to
+	// work at all. This is not a recommended size or a comfortable size
+	// or a will-work-well size, just a bare minimum below which the charm
+	// is going to break.
+	// MinimumSize requires a unit, one of MGTPEZY, and is stored as MiB.
+	MinimumSize uint64
+
+	// AlreadyAttachedCount is the count of attached instances of the same
+	// underlying storage name already attached.
+	AlreadyAttachedCount uint32
+}
+
+type StorageInfoForAttach struct {
+	// Name is the name of the storage.
+	Name string
+
+	// Type is the storage type: filesystem or block-device.
+	Type charm.StorageType
+
+	// CountMin is the number of storage instances that must be attached
+	// to the charm for it to be useful; the charm will not install until
+	// this number has been satisfied. This must be a non-negative number.
+	CountMin int
+
+	// CountMax is the largest number of storage instances that can be
+	// attached to the charm. If CountMax is -1, then there is no upper
+	// bound.
+	CountMax int
+
+	// MinimumSize is the minimum size of store that the charm needs to
+	// work at all. This is not a recommended size or a comfortable size
+	// or a will-work-well size, just a bare minimum below which the charm
+	// is going to break.
+	// MinimumSize requires a unit, one of MGTPEZY, and is stored as MiB.
+	MinimumSize uint64
+
 	// AlreadyAttachedCount is the count of attached instances of the same
 	// underlying storage name already attached.
 	AlreadyAttachedCount uint32

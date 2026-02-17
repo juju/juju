@@ -1048,7 +1048,7 @@ func (s *ProviderService) populateAddStorageArgs(
 		)
 	}
 
-	charmStorage, existingCount, err := s.st.GetCharmStorageAndInstanceCountByUnitUUID(ctx, unitUUID, storageName)
+	storageAddInfo, err := s.st.GetStorageAddInfoByUnitUUID(ctx, unitUUID, storageName)
 	if err != nil {
 		return internal.AddStorageToUnitArg{}, errors.Errorf(
 			"getting unit %q charm storage %q and count: %w",
@@ -1058,11 +1058,11 @@ func (s *ProviderService) populateAddStorageArgs(
 
 	charmStorageDefs := map[string]internal.ValidateStorageArg{
 		storageName.String(): {
-			Name:        charmStorage.Name,
-			Type:        charmStorage.Type,
-			CountMin:    charmStorage.CountMin,
-			CountMax:    charmStorage.CountMax,
-			MinimumSize: charmStorage.MinimumSize,
+			Name:        storageAddInfo.Name,
+			Type:        storageAddInfo.Type,
+			CountMin:    storageAddInfo.CountMin,
+			CountMax:    storageAddInfo.CountMax,
+			MinimumSize: storageAddInfo.MinimumSize,
 		},
 	}
 
@@ -1074,7 +1074,7 @@ func (s *ProviderService) populateAddStorageArgs(
 		storageDirective.Size = *arg.SizeMiB
 	}
 
-	wantCount := addCount + existingCount
+	wantCount := addCount + storageAddInfo.AlreadyAttachedCount
 	toCheck := map[string]storage.StorageDirectiveOverride{
 		storageName.String(): {
 			Count:    &wantCount,
@@ -1099,8 +1099,8 @@ func (s *ProviderService) populateAddStorageArgs(
 	// Record the max allowed count precondition.
 	// This will be checked inside the transaction.
 	args.CountLessThanEqual = uint32(math.MaxUint32)
-	if charmStorage.CountMax > 0 {
-		args.CountLessThanEqual = uint32(charmStorage.CountMax) - addCount
+	if storageAddInfo.CountMax > 0 {
+		args.CountLessThanEqual = uint32(storageAddInfo.CountMax) - addCount
 	}
 	return args, nil
 }
@@ -1201,7 +1201,7 @@ func (s *ProviderService) populateAttachStorageArgs(
 	storageUUID domainstorage.StorageInstanceUUID,
 	unitUUID coreunit.UUID,
 ) (internal.AttachStorageToUnitArg, error) {
-	charmStorage, instInfo, err := s.st.GetCharmStorageAndInstanceInfoByUnitUUIDAndStorageUUID(ctx, unitUUID, storageUUID)
+	storageAttachInfo, err := s.st.GetStorageAttachInfoByUnitUUIDAndStorageUUID(ctx, unitUUID, storageUUID)
 	if err != nil {
 		return internal.AttachStorageToUnitArg{}, errors.Errorf(
 			"getting unit %q charm storage and count for %q: %w",
@@ -1210,15 +1210,15 @@ func (s *ProviderService) populateAttachStorageArgs(
 	}
 
 	charmStorageDef := internal.ValidateStorageArg{
-		Name:        charmStorage.Name,
-		Type:        charmStorage.Type,
-		CountMin:    charmStorage.CountMin,
-		CountMax:    charmStorage.CountMax,
-		MinimumSize: charmStorage.MinimumSize,
+		Name:        storageAttachInfo.Name,
+		Type:        storageAttachInfo.Type,
+		CountMin:    storageAttachInfo.CountMin,
+		CountMax:    storageAttachInfo.CountMax,
+		MinimumSize: storageAttachInfo.MinimumSize,
 	}
 
-	wantCount := 1 + instInfo.AlreadyAttachedCount
-	err = s.storageService.ValidateAttachStorage(ctx, charmStorageDef, wantCount, instInfo.SizeMiB, instInfo.PoolUUID)
+	wantCount := 1 + storageAttachInfo.AlreadyAttachedCount
+	err = s.storageService.ValidateAttachStorage(ctx, charmStorageDef, wantCount, storageAttachInfo.SizeMiB, storageAttachInfo.PoolUUID)
 	if err != nil {
 		return internal.AttachStorageToUnitArg{}, errors.Capture(err)
 	}
@@ -1233,14 +1233,14 @@ func (s *ProviderService) populateAttachStorageArgs(
 	}
 	args := internal.AttachStorageToUnitArg{
 		StorageToAttach:    attachArgs,
-		StorageName:        charmStorage.Name,
+		StorageName:        storageAttachInfo.Name,
 		CountLessThanEqual: uint32(math.MaxUint32),
 	}
 
 	// Record the max allowed count precondition.
 	// This will be checked inside the transaction.
-	if charmStorage.CountMax > 0 {
-		args.CountLessThanEqual = uint32(charmStorage.CountMax) - 1
+	if storageAttachInfo.CountMax > 0 {
+		args.CountLessThanEqual = uint32(storageAttachInfo.CountMax) - 1
 	}
 	return args, nil
 }
