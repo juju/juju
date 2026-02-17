@@ -323,11 +323,9 @@ func validateApplicationStorageDirectiveOverride(
 // pool can be attached to a unit with respect to the unit's charm storage
 // definition.
 func (s *Service) ValidateAttachStorage(
-	ctx context.Context,
 	charmStorageDef internal.ValidateStorageArg,
 	wantCount uint32,
 	storageSize uint64,
-	poolUUID domainstorage.StoragePoolUUID,
 ) error {
 	var (
 		// hasMaxCount is true when the charm storage definition has
@@ -358,25 +356,6 @@ func (s *Service) ValidateAttachStorage(
 			storageSize, charmStorageDef.Name, charmStorageDef.MinimumSize,
 		)
 	}
-
-	charmStorageType := charm.StorageType(charmStorageDef.Type)
-	supports, err := s.storagePoolProvider.CheckPoolSupportsCharmStorage(
-		ctx, poolUUID, charmStorageType,
-	)
-	if err != nil {
-		return errors.Errorf(
-			"checking storage directive pool %q supports charm storage %q",
-			poolUUID, charmStorageDef.Type,
-		)
-	}
-
-	if !supports {
-		return errors.Errorf(
-			"storage directive pool %q does not support charm storage %q",
-			poolUUID, charmStorageDef.Type,
-		)
-	}
-
 	return nil
 }
 

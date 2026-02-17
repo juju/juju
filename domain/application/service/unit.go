@@ -209,6 +209,8 @@ type UnitState interface {
 	// The following error types can be expected:
 	// - [applicationerrors.storageerrors.StorageInstanceNotFound]: when storage
 	// instance does not exist.
+	// - [applicationerrors.StorageNameNotSupported]: when the storage instance
+	//  name is not defined in charm metadata.
 	GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		ctx context.Context, unitUUID coreunit.UUID, storageUUID domainstorage.StorageInstanceUUID,
 	) (internal.StorageInfoForAttach, error)

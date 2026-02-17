@@ -156,9 +156,6 @@ type StorageInfoForAttach struct {
 	// Name is the name of the storage.
 	Name string
 
-	// Type is the storage type: filesystem or block-device.
-	Type charm.StorageType
-
 	// CountMin is the number of storage instances that must be attached
 	// to the charm for it to be useful; the charm will not install until
 	// this number has been satisfied. This must be a non-negative number.
@@ -179,9 +176,6 @@ type StorageInfoForAttach struct {
 	// AlreadyAttachedCount is the count of attached instances of the same
 	// underlying storage name already attached.
 	AlreadyAttachedCount uint32
-
-	// PoolUUID is the storage pool UUID of the instance.
-	PoolUUID domainstorage.StoragePoolUUID
 
 	// SizeMiB is the size of the storage.
 	SizeMiB uint64

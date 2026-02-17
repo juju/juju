@@ -696,24 +696,15 @@ func (u *unitStorageSuite) TestGetStorageAttachInfoByUnitUUIDAndStorageUUID(c *t
 	u.newStorageUnitOwner(c, st1UUID, unitUUID)
 	u.newStorageUnitOwner(c, st2UUID, unitUUID)
 
-	var poolUUID string
-	err := u.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT uuid FROM storage_pool WHERE name=?", st1UUID).Scan(&poolUUID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
 	storageInfo, err := u.state.GetStorageAttachInfoByUnitUUIDAndStorageUUID(c.Context(), unitUUID, st1UUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(storageInfo, tc.DeepEquals, internal.StorageInfoForAttach{
 		Name:                 "st1",
-		Type:                 "filesystem",
 		CountMin:             1,
 		CountMax:             10,
 		MinimumSize:          1024,
 		AlreadyAttachedCount: 2,
 		SizeMiB:              1024,
-		PoolUUID:             domainstorage.StoragePoolUUID(poolUUID),
 	})
 }

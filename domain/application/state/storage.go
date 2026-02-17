@@ -1457,18 +1457,53 @@ WHERE  uuid = $storageInstance.uuid
 	return inst, nil
 }
 
+func (st *State) checkStorageInstanceExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	storageUUID string,
+) (bool, error) {
+	uuidInput := entityUUID{UUID: storageUUID}
+
+	checkStmt, err := st.Prepare(`
+SELECT &entityUUID.*
+FROM   storage_instance
+WHERE  uuid = $entityUUID.uuid
+	`,
+		uuidInput,
+	)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, checkStmt, uuidInput).Get(&uuidInput)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+	return true, nil
+}
+
 func (st *State) getStorageInstanceInfoForAttach(
-	ctx context.Context, tx *sqlair.TX, uuid coreunit.UUID,
+	ctx context.Context, tx *sqlair.TX,
 	storageUUID domainstorage.StorageInstanceUUID,
 ) (storageInfoForAttach, error) {
-	inst := storageInstance{StorageUUID: storageUUID}
-	unit := unitUUID{
-		UnitUUID: uuid.String(),
+	exists, err := st.checkStorageInstanceExists(ctx, tx, storageUUID.String())
+	if err != nil {
+		return storageInfoForAttach{}, errors.Errorf(
+			"checking storage instance %q exists: %w", storageUUID, err,
+		)
 	}
+	if !exists {
+		return storageInfoForAttach{}, errors.Errorf("storage instance %q does not exist", storageUUID).Add(
+			storageerrors.StorageInstanceNotFound,
+		)
+	}
+
+	inst := storageInstance{StorageUUID: storageUUID}
 	query := `
 SELECT * AS &storageInfoForAttach.* FROM (
     SELECT    si.storage_name,
-              si.storage_pool_uuid,
               (CASE
                   WHEN sf.size_mib != 0 THEN sf.size_mib
                   WHEN sv.size_mib != 0 THEN sv.size_mib
@@ -1476,32 +1511,28 @@ SELECT * AS &storageInfoForAttach.* FROM (
               END) AS size_mib,
               cs.count_max,
               cs.count_min,
-              cs.kind,
               cs.minimum_size_mib
     FROM      storage_instance si
-    JOIN      storage_unit_owner suo ON si.uuid = suo.storage_instance_uuid
-    JOIN      unit ON suo.unit_uuid = unit.uuid
-    JOIN      v_charm_storage cs ON unit.charm_uuid = cs.charm_uuid
+    JOIN      v_charm_storage cs ON si.storage_name = cs.name
     LEFT JOIN storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid
     LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
     LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
     LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
     WHERE     si.uuid = $storageInstance.uuid
-    AND       suo.unit_uuid = $unitUUID.uuid
 )
 `
-	queryStmt, err := st.Prepare(query, inst, unit, storageInfoForAttach{})
+	queryStmt, err := st.Prepare(query, inst, storageInfoForAttach{})
 	if err != nil {
 		return storageInfoForAttach{}, errors.Capture(err)
 	}
 
 	var result storageInfoForAttach
-	err = tx.Query(ctx, queryStmt, inst, unit).Get(&result)
+	err = tx.Query(ctx, queryStmt, inst).Get(&result)
 	if err != nil {
 		if !errors.Is(err, sqlair.ErrNoRows) {
 			return storageInfoForAttach{}, errors.Errorf("querying storage %q: %w", storageUUID, err)
 		}
-		return storageInfoForAttach{}, errors.Errorf("%w: %s", storageerrors.StorageInstanceNotFound, storageUUID)
+		return storageInfoForAttach{}, errors.Errorf("%w: %s", applicationerrors.StorageNameNotSupported, storageUUID)
 	}
 	return result, nil
 }
