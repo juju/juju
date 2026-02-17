@@ -98,9 +98,9 @@ type IAASUnitAddStorageArg struct {
 // AttachStorageToUnitArg represents the arguments required to attach storage
 // to a unit.
 type AttachStorageToUnitArg struct {
-	// StorageToAttach defines the storage instances that should be attached to
+	// StorageToAttach defines the storage instance that should be attached to
 	// the unit.
-	StorageToAttach []CreateUnitStorageAttachmentArg
+	StorageToAttach CreateUnitStorageAttachmentArg
 
 	// StorageName is the name of the storage being attached.
 	StorageName string

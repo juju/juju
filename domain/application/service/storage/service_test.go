@@ -417,20 +417,15 @@ func (s *serviceSuite) TestMakeUnitAttachStorageArgs(c *tc.C) {
 	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	instComposition := []internal.StorageInstanceComposition{
-		{
-			UUID: storageUUID,
-			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
-				ProvisionScope: domainstorageprov.ProvisionScopeMachine,
-			},
+	instComposition := internal.StorageInstanceComposition{
+		UUID: storageUUID,
+		Filesystem: &internal.StorageInstanceCompositionFilesystem{
+			UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
+			ProvisionScope: domainstorageprov.ProvisionScopeMachine,
 		},
-		{
-			UUID: storageUUID,
-			Volume: &internal.StorageInstanceCompositionVolume{
-				UUID:           tc.Must(c, domainstorage.NewVolumeUUID),
-				ProvisionScope: domainstorageprov.ProvisionScopeMachine,
-			},
+		Volume: &internal.StorageInstanceCompositionVolume{
+			UUID:           tc.Must(c, domainstorage.NewVolumeUUID),
+			ProvisionScope: domainstorageprov.ProvisionScopeMachine,
 		},
 	}
 
@@ -454,53 +449,40 @@ func (s *serviceSuite) TestMakeUnitAttachStorageArgs(c *tc.C) {
 	)
 	c.Check(err, tc.ErrorIsNil)
 
-	expectedStorageToAttach := make([]internal.CreateUnitStorageAttachmentArg, 0, len(instComposition))
-	for _, si := range instComposition {
-		attachArg := internal.CreateUnitStorageAttachmentArg{
-			StorageInstanceUUID: si.UUID,
-		}
-
-		if si.Filesystem != nil {
-			attachArg.FilesystemAttachment =
-				&internal.CreateUnitStorageFilesystemAttachmentArg{
-					FilesystemUUID: si.Filesystem.UUID,
-					NetNodeUUID:    attachNetNodeUUID,
-					ProvisionScope: si.Filesystem.ProvisionScope,
-				}
-		}
-		if si.Volume != nil {
-			attachArg.VolumeAttachment =
-				&internal.CreateUnitStorageVolumeAttachmentArg{
-					VolumeUUID:     si.Volume.UUID,
-					NetNodeUUID:    attachNetNodeUUID,
-					ProvisionScope: si.Volume.ProvisionScope,
-				}
-		}
-		expectedStorageToAttach = append(expectedStorageToAttach, attachArg)
-
-		instArg := internal.UnitStorageInstanceArg{
-			UUID: si.UUID,
-		}
-		if si.Filesystem != nil {
-			instArg.Filesystem =
-				&internal.CreateUnitStorageFilesystemArg{
-					UUID:           si.Filesystem.UUID,
-					ProvisionScope: si.Filesystem.ProvisionScope,
-				}
-		}
-		if si.Volume != nil {
-			instArg.Volume =
-				&internal.CreateUnitStorageVolumeArg{
-					UUID:           si.Volume.UUID,
-					ProvisionScope: si.Volume.ProvisionScope,
-				}
-		}
+	expectedStorageToAttach := internal.CreateUnitStorageAttachmentArg{
+		StorageInstanceUUID: instComposition.UUID,
+	}
+	if instComposition.Filesystem != nil {
+		expectedStorageToAttach.FilesystemAttachment =
+			&internal.CreateUnitStorageFilesystemAttachmentArg{
+				FilesystemUUID: instComposition.Filesystem.UUID,
+				NetNodeUUID:    attachNetNodeUUID,
+				ProvisionScope: instComposition.Filesystem.ProvisionScope,
+			}
+	}
+	if instComposition.Volume != nil {
+		expectedStorageToAttach.VolumeAttachment =
+			&internal.CreateUnitStorageVolumeAttachmentArg{
+				VolumeUUID:     instComposition.Volume.UUID,
+				NetNodeUUID:    attachNetNodeUUID,
+				ProvisionScope: instComposition.Volume.ProvisionScope,
+			}
 	}
 
+	c.Assert(attachArg.UUID, tc.Not(tc.Equals), "")
+	attachArg.UUID = ""
+	if instComposition.Filesystem != nil {
+		c.Assert(attachArg.FilesystemAttachment.UUID, tc.Not(tc.Equals), "")
+		attachArg.FilesystemAttachment.UUID = ""
+	}
+	if instComposition.Volume != nil {
+		c.Assert(attachArg.VolumeAttachment.UUID, tc.Not(tc.Equals), "")
+		attachArg.VolumeAttachment.UUID = ""
+	}
 	arg := internal.AttachStorageToUnitArg{
 		StorageToAttach: attachArg,
 	}
-	c.Check(arg, createUnitStorageArgChecker(), internal.AttachStorageToUnitArg{
+	c.Check(arg, tc.DeepEquals, internal.AttachStorageToUnitArg{
 		StorageToAttach: expectedStorageToAttach,
 	})
 }

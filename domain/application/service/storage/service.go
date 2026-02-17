@@ -155,7 +155,7 @@ type State interface {
 	GetStorageInstanceCompositionByUUID(
 		ctx context.Context,
 		storageInstanceUUID domainstorage.StorageInstanceUUID,
-	) ([]internal.StorageInstanceComposition, error)
+	) (internal.StorageInstanceComposition, error)
 }
 
 // NewService returns a new application storage service for the model.
@@ -1028,52 +1028,44 @@ func (s Service) MakeUnitAttachStorageArgs(
 	ctx context.Context,
 	unitUUID coreunit.UUID,
 	storageInstanceUUID domainstorage.StorageInstanceUUID,
-) ([]internal.CreateUnitStorageAttachmentArg, error) {
+) (internal.CreateUnitStorageAttachmentArg, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	rvalToAttach := make([]internal.CreateUnitStorageAttachmentArg, 0, 1)
-
 	instComposition, err := s.st.GetStorageInstanceCompositionByUUID(ctx, storageInstanceUUID)
 	if err != nil {
-		return nil, errors.Errorf(
+		return internal.CreateUnitStorageAttachmentArg{}, errors.Errorf(
 			"getting composition details for storage %q: %w", storageInstanceUUID, err,
 		)
 	}
 
 	attachNetNodeUUID, err := s.st.GetUnitNetNodeUUID(ctx, unitUUID)
 	if err != nil {
-		return nil, errors.Errorf("getting unit net node uuid: %w", err)
+		return internal.CreateUnitStorageAttachmentArg{}, errors.Errorf("getting unit net node uuid: %w", err)
 	}
 
-	// Allocate capacity we know we are going to need.
-	rvalToAttach = slices.Grow(rvalToAttach, len(instComposition))
-	for _, inst := range instComposition {
-		instArg := internal.UnitStorageInstanceArg{
-			UUID: storageInstanceUUID,
+	instArg := internal.UnitStorageInstanceArg{
+		UUID: storageInstanceUUID,
+	}
+	if instComposition.Filesystem != nil {
+		instArg.Filesystem = &internal.CreateUnitStorageFilesystemArg{
+			UUID:           instComposition.Filesystem.UUID,
+			ProvisionScope: instComposition.Filesystem.ProvisionScope,
 		}
-		if inst.Filesystem != nil {
-			instArg.Filesystem = &internal.CreateUnitStorageFilesystemArg{
-				UUID:           inst.Filesystem.UUID,
-				ProvisionScope: inst.Filesystem.ProvisionScope,
-			}
+	}
+	if instComposition.Volume != nil {
+		instArg.Volume = &internal.CreateUnitStorageVolumeArg{
+			UUID:           instComposition.Volume.UUID,
+			ProvisionScope: instComposition.Volume.ProvisionScope,
 		}
-		if inst.Volume != nil {
-			instArg.Volume = &internal.CreateUnitStorageVolumeArg{
-				UUID:           inst.Volume.UUID,
-				ProvisionScope: inst.Volume.ProvisionScope,
-			}
-		}
-		storageAttachArg, err := makeStorageAttachmentArgFromNewStorageInstance(
-			domainnetwork.NetNodeUUID(attachNetNodeUUID), instArg,
+	}
+	storageAttachArg, err := makeStorageAttachmentArgFromNewStorageInstance(
+		domainnetwork.NetNodeUUID(attachNetNodeUUID), instArg,
+	)
+	if err != nil {
+		return internal.CreateUnitStorageAttachmentArg{}, errors.Errorf(
+			"making storage attachment arguments for new storage instance: %w", err,
 		)
-		if err != nil {
-			return nil, errors.Errorf(
-				"making storage attachment arguments for new storage instance: %w", err,
-			)
-		}
-		rvalToAttach = append(rvalToAttach, storageAttachArg)
 	}
-
-	return rvalToAttach, nil
+	return storageAttachArg, nil
 }

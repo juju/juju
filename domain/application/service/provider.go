@@ -1284,27 +1284,22 @@ func (s *ProviderService) AttachStorageToIAASUnit(
 		return errors.Capture(err)
 	}
 
-	storageInst := transform.Slice(unitAttachStorageArgs.StorageToAttach,
-		func(in internal.CreateUnitStorageAttachmentArg) internal.UnitStorageInstanceArg {
-			result := internal.UnitStorageInstanceArg{
-				UUID: in.StorageInstanceUUID,
-			}
-			if in.FilesystemAttachment != nil {
-				result.Filesystem = &internal.CreateUnitStorageFilesystemArg{
-					UUID:           in.FilesystemAttachment.FilesystemUUID,
-					ProvisionScope: in.FilesystemAttachment.ProvisionScope,
-				}
-			}
-			if in.VolumeAttachment != nil {
-				result.Volume = &internal.CreateUnitStorageVolumeArg{
-					UUID:           in.VolumeAttachment.VolumeUUID,
-					ProvisionScope: in.VolumeAttachment.ProvisionScope,
-				}
-			}
-			return result
-		})
-	iaasUnitStorageArgs, err := s.storageService.MakeIAASUnitStorageArgs(
-		storageInst)
+	arg := internal.UnitStorageInstanceArg{
+		UUID: unitAttachStorageArgs.StorageToAttach.StorageInstanceUUID,
+	}
+	if unitAttachStorageArgs.StorageToAttach.FilesystemAttachment != nil {
+		arg.Filesystem = &internal.CreateUnitStorageFilesystemArg{
+			UUID:           unitAttachStorageArgs.StorageToAttach.FilesystemAttachment.FilesystemUUID,
+			ProvisionScope: unitAttachStorageArgs.StorageToAttach.FilesystemAttachment.ProvisionScope,
+		}
+	}
+	if unitAttachStorageArgs.StorageToAttach.VolumeAttachment != nil {
+		arg.Volume = &internal.CreateUnitStorageVolumeArg{
+			UUID:           unitAttachStorageArgs.StorageToAttach.VolumeAttachment.VolumeUUID,
+			ProvisionScope: unitAttachStorageArgs.StorageToAttach.VolumeAttachment.ProvisionScope,
+		}
+	}
+	iaasUnitStorageArgs, err := s.storageService.MakeIAASUnitStorageArgs([]internal.UnitStorageInstanceArg{arg})
 	if err != nil {
 		return errors.Capture(err)
 	}
