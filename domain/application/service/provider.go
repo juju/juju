@@ -1271,14 +1271,13 @@ func (s *ProviderService) populateAttachStorageArgs(
 
 	charmStorageDef := internal.ValidateStorageArg{
 		Name:        storageAttachInfo.Name,
-		Type:        storageAttachInfo.Type,
 		CountMin:    storageAttachInfo.CountMin,
 		CountMax:    storageAttachInfo.CountMax,
 		MinimumSize: storageAttachInfo.MinimumSize,
 	}
 
 	wantCount := 1 + storageAttachInfo.AlreadyAttachedCount
-	err = s.storageService.ValidateAttachStorage(ctx, charmStorageDef, wantCount, storageAttachInfo.SizeMiB, storageAttachInfo.PoolUUID)
+	err = s.storageService.ValidateAttachStorage(charmStorageDef, wantCount, storageAttachInfo.SizeMiB)
 	if err != nil {
 		return internal.AttachStorageToUnitArg{}, errors.Capture(err)
 	}

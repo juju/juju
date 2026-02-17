@@ -1370,6 +1370,9 @@ func handleAttachStorageToUnitError(err error, unitName coreunit.Name, storageID
 	case errors.Is(err, storageerrors.StorageInstanceNotFound):
 		return apiservererrors.ParamsErrorf(params.CodeNotFound,
 			"storage %q not found", storageID)
+	case errors.Is(err, applicationerrors.StorageNameNotSupported):
+		return apiservererrors.ParamsErrorf(params.CodeNotSupported,
+			"storage %q not supported by the charm", storageID)
 	case errors.HasType[applicationerrors.StorageCountLimitExceeded](err):
 		limitErr, _ := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
 		if limitErr.Maximum != nil && limitErr.Requested > *limitErr.Maximum {

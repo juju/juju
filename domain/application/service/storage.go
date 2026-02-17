@@ -183,11 +183,9 @@ type StorageService interface {
 	// - [applicationerrors.StorageCountLimitExceeded] when the requested storage
 	// falls outside of the bounds defined by the charm.
 	ValidateAttachStorage(
-		ctx context.Context,
 		charmStorageDef internal.ValidateStorageArg,
 		wantCount uint32,
 		storageSize uint64,
-		poolUUID domainstorage.StoragePoolUUID,
 	) error
 	
 	// MakeUnitAttachStorageArgs creates the storage arguments required to

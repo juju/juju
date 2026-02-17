@@ -3456,28 +3456,24 @@ func (s *providerServiceSuite) TestAttachStorageForIAASUnitValidates(c *tc.C) {
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	siUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
-	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 
 	s.state.EXPECT().GetUnitStorageAttachmentExists(gomock.Any(), siUUID, unitUUID).
 		Return(false, nil)
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(gomock.Any(), unitUUID, siUUID).
 		Return(internal.StorageInfoForAttach{
 			Name:                 "pgdata",
-			Type:                 internalcharm.StorageFilesystem,
 			CountMin:             1,
 			CountMax:             66,
 			MinimumSize:          10,
 			AlreadyAttachedCount: 66,
-			PoolUUID:             poolUUID,
 			SizeMiB:              6,
 		}, nil)
-	s.storageService.EXPECT().ValidateAttachStorage(gomock.Any(), internal.ValidateStorageArg{
+	s.storageService.EXPECT().ValidateAttachStorage(internal.ValidateStorageArg{
 		Name:        "pgdata",
-		Type:        internalcharm.StorageFilesystem,
 		CountMin:    1,
 		CountMax:    66,
 		MinimumSize: 10,
-	}, uint32(67), uint64(6), poolUUID).
+	}, uint32(67), uint64(6)).
 		Return(applicationerrors.StorageCountLimitExceeded{})
 
 	err := s.service.AttachStorageToIAASUnit(c.Context(), siUUID, unitUUID)
@@ -3492,28 +3488,24 @@ func (s *providerServiceSuite) TestAttachStorageForIAASUnit(c *tc.C) {
 	siUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
-	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 
 	s.state.EXPECT().GetUnitStorageAttachmentExists(gomock.Any(), siUUID, unitUUID).
 		Return(false, nil)
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(gomock.Any(), unitUUID, siUUID).
 		Return(internal.StorageInfoForAttach{
 			Name:                 "pgdata",
-			Type:                 internalcharm.StorageFilesystem,
 			CountMin:             1,
 			CountMax:             666,
 			MinimumSize:          10,
 			AlreadyAttachedCount: 66,
-			PoolUUID:             poolUUID,
 			SizeMiB:              6,
 		}, nil)
-	s.storageService.EXPECT().ValidateAttachStorage(gomock.Any(), internal.ValidateStorageArg{
+	s.storageService.EXPECT().ValidateAttachStorage(internal.ValidateStorageArg{
 		Name:        "pgdata",
-		Type:        internalcharm.StorageFilesystem,
 		CountMin:    1,
 		CountMax:    666,
 		MinimumSize: 10,
-	}, uint32(67), uint64(6), poolUUID).
+	}, uint32(67), uint64(6)).
 		Return(nil)
 
 	storageToAttach := []internal.CreateUnitStorageAttachmentArg{{
@@ -3591,28 +3583,24 @@ func (s *providerServiceSuite) TestAttachStorageForCAASUnitValidates(c *tc.C) {
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	siUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
-	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 
 	s.state.EXPECT().GetUnitStorageAttachmentExists(gomock.Any(), siUUID, unitUUID).
 		Return(false, nil)
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(gomock.Any(), unitUUID, siUUID).
 		Return(internal.StorageInfoForAttach{
 			Name:                 "pgdata",
-			Type:                 internalcharm.StorageFilesystem,
 			CountMin:             1,
 			CountMax:             66,
 			MinimumSize:          10,
 			AlreadyAttachedCount: 66,
-			PoolUUID:             poolUUID,
 			SizeMiB:              6,
 		}, nil)
-	s.storageService.EXPECT().ValidateAttachStorage(gomock.Any(), internal.ValidateStorageArg{
+	s.storageService.EXPECT().ValidateAttachStorage(internal.ValidateStorageArg{
 		Name:        "pgdata",
-		Type:        internalcharm.StorageFilesystem,
 		CountMin:    1,
 		CountMax:    66,
 		MinimumSize: 10,
-	}, uint32(67), uint64(6), poolUUID).
+	}, uint32(67), uint64(6)).
 		Return(applicationerrors.StorageCountLimitExceeded{})
 
 	err := s.service.AttachStorageToCAASUnit(c.Context(), siUUID, unitUUID)
@@ -3626,28 +3614,24 @@ func (s *providerServiceSuite) TestAttachStorageForCAASUnit(c *tc.C) {
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	siUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	fsUUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
-	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 
 	s.state.EXPECT().GetUnitStorageAttachmentExists(gomock.Any(), siUUID, unitUUID).
 		Return(false, nil)
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(gomock.Any(), unitUUID, siUUID).
 		Return(internal.StorageInfoForAttach{
 			Name:                 "pgdata",
-			Type:                 internalcharm.StorageFilesystem,
 			CountMin:             1,
 			CountMax:             666,
 			MinimumSize:          10,
 			AlreadyAttachedCount: 66,
-			PoolUUID:             poolUUID,
 			SizeMiB:              6,
 		}, nil)
-	s.storageService.EXPECT().ValidateAttachStorage(gomock.Any(), internal.ValidateStorageArg{
+	s.storageService.EXPECT().ValidateAttachStorage(internal.ValidateStorageArg{
 		Name:        "pgdata",
-		Type:        internalcharm.StorageFilesystem,
 		CountMin:    1,
 		CountMax:    666,
 		MinimumSize: 10,
-	}, uint32(67), uint64(6), poolUUID).
+	}, uint32(67), uint64(6)).
 		Return(nil)
 
 	storageToAttach := []internal.CreateUnitStorageAttachmentArg{{

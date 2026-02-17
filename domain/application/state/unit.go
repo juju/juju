@@ -2421,17 +2421,13 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 	var (
 		attachInfo storageInfoForAttach
 		count      uint32
-		sizeMiB   uint64
-		poolUUID  string
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		attachInfo, err = st.getStorageInstanceInfoForAttach(ctx, tx, unitUUID, storageUUID)
+		attachInfo, err = st.getStorageInstanceInfoForAttach(ctx, tx, storageUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		poolUUID = attachInfo.StoragePoolUUID
-		sizeMiB = attachInfo.SizeMIB
 		count, err = st.getUnitStorageCount(ctx, tx, unitUUID, attachInfo.StorageName)
 		if err != nil {
 			return errors.Errorf("getting storage count for unit %q storage %s: %w", unitUUID, attachInfo.StorageName, err)
@@ -2442,13 +2438,11 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 	}
 	return internal.StorageInfoForAttach{
 		Name:                 attachInfo.StorageName.String(),
-		Type:                 internalcharm.StorageType(attachInfo.Kind),
 		CountMin:             attachInfo.CountMin,
 		CountMax:             attachInfo.CountMax,
 		MinimumSize:          attachInfo.MinimumSize,
+		SizeMiB:              attachInfo.SizeMIB,
 		AlreadyAttachedCount: count,
-		SizeMiB:              sizeMiB,
-		PoolUUID:             domainstorage.StoragePoolUUID(poolUUID),
 	}, nil
 }
 
