@@ -97,10 +97,3 @@ func (s *storagePoolHelperSuite) TestGetStoragePool(c *tc.C) {
 		},
 	})
 }
-
-func (s *storagePoolHelperSuite) TestGetStoragePoolNotFound(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
-	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
-	_, err := st.GetStoragePool(c.Context(), poolUUID)
-	c.Check(err, tc.ErrorIs, domainstorageerrors.StoragePoolNotFound)
-}

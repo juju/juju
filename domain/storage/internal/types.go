@@ -3,6 +3,11 @@
 
 package internal
 
+import (
+	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/storageprovisioning"
+)
+
 // ImportStorageInstanceArgs represents data to import a storage instance
 // and its owner.
 type ImportStorageInstanceArgs struct {
@@ -14,4 +19,15 @@ type ImportStorageInstanceArgs struct {
 	StorageKind      string
 	StorageID        string
 	UnitName         string
+}
+
+// ImportFilesystemArgs represents data to import a filesystem.
+type ImportFilesystemArgs struct {
+	UUID                string
+	ID                  string
+	Life                life.Life
+	SizeInMiB           uint64
+	ProviderID          string
+	StorageInstanceUUID string
+	Scope               storageprovisioning.ProvisionScope
 }

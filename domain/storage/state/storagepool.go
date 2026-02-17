@@ -6,8 +6,11 @@ package state
 import (
 	"context"
 	"slices"
+	"strings"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
@@ -660,6 +663,59 @@ WHERE storage_pool_uuid = $entityUUID.uuid
 	}
 
 	return retVal, nil
+}
+
+// GetStoragePoolProvidersByNames returns a map of storage pool names to their
+// provider types for the specified storage pool names.
+//
+// The following errors may be returned:
+// - [domainstorageerrors.StoragePoolNotFound] when any of the specified
+// storage pools do not exist.
+func (st State) GetStoragePoolProvidersByNames(ctx context.Context, names []string) (map[string]string, error) {
+	if len(names) == 0 {
+		return map[string]string{}, nil
+	}
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	storagePoolNames := storagePoolNames(set.NewStrings(names...).Values())
+	query := `
+SELECT &storagePoolNameAndType.*
+FROM storage_pool
+WHERE name IN ($storagePoolNames[:])`
+	stmt, err := st.Prepare(query, storagePoolNameAndType{}, storagePoolNames)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	res := []storagePoolNameAndType{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, storagePoolNames).GetAll(&res)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting storage pool providers by names: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	if len(res) != len(storagePoolNames) {
+		// This indicates some of the pool names provided did not hit any results.
+		missingName := set.NewStrings(names...).
+			Difference(set.NewStrings(transform.Slice(res, func(r storagePoolNameAndType) string { return r.Name })...)).
+			Values()
+		return nil, errors.Errorf("storage pool(s) with name(s) %s not found", strings.Join(missingName, ", ")).
+			Add(domainstorageerrors.StoragePoolNotFound)
+	}
+
+	providers := make(map[string]string, len(res))
+	for _, r := range res {
+		providers[r.Name] = r.Type
+	}
+	return providers, nil
 }
 
 // SetModelStoragePools replaces the model's recommended storage pools with the

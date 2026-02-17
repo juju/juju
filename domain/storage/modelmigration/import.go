@@ -10,6 +10,7 @@ import (
 	"github.com/juju/description/v11"
 
 	"github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	corestorage "github.com/juju/juju/core/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -42,15 +43,21 @@ type ImportService interface {
 		[]domainstorage.RecommendedStoragePoolParams,
 		error,
 	)
-	// ImportStorageInstances creates new storage instances and storage unit
-	// owners. Storage unit owners are created if the unit name is provided.
-	ImportStorageInstances(ctx context.Context, params []domainstorage.ImportStorageInstanceParams) error
+
 	// ImportStoragePools creates new storage pools with the slice
 	// of [domainstorage.ImportStoragePoolParams].
 	ImportStoragePools(ctx context.Context, pools []domainstorage.ImportStoragePoolParams) error
+
 	// SetRecommendedStoragePools persists the set of recommended storage pools
 	// that are to be used for a model.
 	SetRecommendedStoragePools(ctx context.Context, pools []domainstorage.RecommendedStoragePoolParams) error
+
+	// ImportStorageInstances imports storage instances and storage unit
+	// unit owners if the unit name is provided.
+	ImportStorageInstances(ctx context.Context, params []domainstorage.ImportStorageInstanceParams) error
+
+	// ImportFilesystems imports filesystems from the provided parameters.
+	ImportFilesystems(ctx context.Context, args []domainstorage.ImportFilesystemParams) error
 }
 
 type importOperation struct {
@@ -75,9 +82,9 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute the import on the storage pools contained in the model.
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
-	// TODO(adisazhar123): refactor opportunity. GetStoragePoolsToImport func
-	// should just return the default pools and the merging / conflict resolution
-	// with user pools happens in this import layer.
+	// TODO: Combine the storage pool import calls into a single service call,
+	// and stop passing through a description entity into the service layer.
+	// This must be done ASAP
 	poolsToImport, recommendedPools, err := i.service.GetStoragePoolsToImport(ctx, model.StoragePools())
 	if err != nil {
 		return errors.Errorf("getting pools to import: %w", err)
@@ -97,11 +104,19 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return errors.Errorf("importing storage instances: %w", err)
 	}
 
+	// Filesystems need to be handled differently for CAAS models. So until
+	// this is implemented skip the import step.
+	if model.Type() == coremodel.IAAS.String() {
+		if err := i.importFilesystems(ctx, model.Filesystems()); err != nil {
+			return errors.Errorf("importing filesystems: %w", err)
+		}
+	}
+
 	return nil
 }
 
 func (i *importOperation) importStorageInstances(ctx context.Context, instances []description.Storage) error {
-	if instances == nil {
+	if len(instances) == 0 {
 		return nil
 	}
 
@@ -132,4 +147,22 @@ func (i *importOperation) importStorageInstances(ctx context.Context, instances 
 	}
 
 	return i.service.ImportStorageInstances(ctx, args)
+}
+
+func (i *importOperation) importFilesystems(ctx context.Context, filesystems []description.Filesystem) error {
+	if len(filesystems) == 0 {
+		return nil
+	}
+
+	args := transform.Slice(filesystems, func(in description.Filesystem) domainstorage.ImportFilesystemParams {
+		return domainstorage.ImportFilesystemParams{
+			ID:                in.ID(),
+			SizeInMiB:         in.Size(),
+			ProviderID:        in.FilesystemID(),
+			PoolName:          in.Pool(),
+			StorageInstanceID: in.Storage(),
+		}
+	})
+
+	return i.service.ImportFilesystems(ctx, args)
 }
