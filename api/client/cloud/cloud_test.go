@@ -213,6 +213,33 @@ func (s *cloudSuite) TestUserCredentials(c *gc.C) {
 	})
 }
 
+func (s *cloudSuite) TestCheckCredentialsModels(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.TaggedCredentials{Credentials: []params.TaggedCredential{testTaggedCredential}}
+	res := new(params.UpdateCredentialResults)
+	resSuccess := new(params.UpdateCredentialResults)
+	results := params.UpdateCredentialResults{
+		Results: []params.UpdateCredentialResult{{}},
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	gomock.InOrder(
+		mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).Return(errors.New("boom")),
+		mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, resSuccess).SetArg(2, results).Return(nil),
+	)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
+	result, err := client.CheckCredentialsModels(args)
+	c.Assert(result, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "boom")
+
+	result, err = client.CheckCredentialsModels(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, results.Results)
+}
+
 func (s *cloudSuite) TestUpdateCredential(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -360,6 +387,16 @@ var (
 		"username": "admin",
 		"password": "adm1n",
 	})
+	testTaggedCredential = params.TaggedCredential{
+		Tag: testCredentialTag.String(),
+		Credential: params.CloudCredential{
+			AuthType: "userpass",
+			Attributes: map[string]string{
+				"username": "admin",
+				"password": "adm1n",
+			},
+		},
+	}
 )
 
 func (s *cloudSuite) TestRevokeCredential(c *gc.C) {
