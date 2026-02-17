@@ -101,7 +101,7 @@ func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 }
 
 // ImportSecrets mocks base method.
-func (m *MockImportService) ImportSecrets(arg0 context.Context, arg1 *service.SecretExport) error {
+func (m *MockImportService) ImportSecrets(arg0 context.Context, arg1 *service.SecretImport) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ImportSecrets", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -127,13 +127,13 @@ func (c *MockImportServiceImportSecretsCall) Return(arg0 error) *MockImportServi
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockImportServiceImportSecretsCall) Do(f func(context.Context, *service.SecretExport) error) *MockImportServiceImportSecretsCall {
+func (c *MockImportServiceImportSecretsCall) Do(f func(context.Context, *service.SecretImport) error) *MockImportServiceImportSecretsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockImportServiceImportSecretsCall) DoAndReturn(f func(context.Context, *service.SecretExport) error) *MockImportServiceImportSecretsCall {
+func (c *MockImportServiceImportSecretsCall) DoAndReturn(f func(context.Context, *service.SecretImport) error) *MockImportServiceImportSecretsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

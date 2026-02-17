@@ -57,8 +57,24 @@ type SecretAccess struct {
 	Role    secrets.SecretRole
 }
 
+// SecretImport defines all the secret data from a model
+// which is imported as part of model migration, except for CMR
+// secrets which are imported in CMR domain.
+type SecretImport struct {
+	// Secrets is a slice of the core secret metadata.
+	Secrets []*secrets.SecretMetadata
+	// Revisions are the secret revisions keyed by secret ID.
+	Revisions map[string][]*secrets.SecretRevisionMetadata
+	// Content are the locally stored secret content keyed by secret ID.
+	Content map[string]map[int]secrets.SecretData
+	// Consumers are the secret consumers keyed by secret ID.
+	Consumers map[string][]ConsumerInfo
+	// Access are the secret access details keyed by secret ID.
+	Access map[string][]SecretAccess
+}
+
 // SecretExport defines all the secret data from a model
-// which is exported/imported as part of model migration.
+// which is exported as part of model migration.
 type SecretExport struct {
 	// Secrets is a slice of the core secret metadata.
 	Secrets []*secrets.SecretMetadata

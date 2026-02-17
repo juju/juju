@@ -146,13 +146,9 @@ func (s *SecretService) GetSecretsForExport(ctx context.Context) (*SecretExport,
 }
 
 // ImportSecrets saves the supplied secret details to the model.
-func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretExport) error {
+func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretImport) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
-
-	if err := s.importRemoteSecrets(ctx, modelSecrets.RemoteSecrets); err != nil {
-		return errors.Errorf("importing remote secrets: %w", err)
-	}
 
 	modelID, err := s.secretState.GetModelUUID(ctx)
 	if err != nil {
@@ -177,20 +173,6 @@ func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretE
 				return errors.Errorf("saving secret consumer %q for %q: %w", sc.Accessor.ID, md.URI.ID, err)
 			}
 		}
-
-		// TODO(secrets) - move to crossmodelrelation domain
-		//for _, rc := range modelSecrets.RemoteConsumers[md.URI.ID] {
-		//	unitName, err := unit.NewName(rc.Accessor.ID)
-		//	if err != nil {
-		//		return errors.Errorf("invalid remote secret consumer: %w", err)
-		//	}
-		//	if err := s.secretState.SaveSecretRemoteConsumer(ctx, md.URI, unitName, &coresecrets.SecretConsumerMetadata{
-		//		Label:           rc.Label,
-		//		CurrentRevision: rc.CurrentRevision,
-		//	}); err != nil {
-		//		return errors.Errorf("saving secret remote consumer %q for %q: %w", rc.Accessor.ID, md.URI.ID, err)
-		//	}
-		//}
 
 		for _, access := range modelSecrets.Access[md.URI.ID] {
 			p, err := s.grantParams(ctx, secret.SecretAccessParams{
@@ -307,10 +289,6 @@ func (s *SecretService) importSecretWithRevisions(
 		return errors.Errorf("saving secret %q: %w", md.URI.ID, err)
 	}
 
-	return nil
-}
-
-func (s *SecretService) importRemoteSecrets(ctx context.Context, remoteSecrets []RemoteSecret) error {
 	return nil
 }
 

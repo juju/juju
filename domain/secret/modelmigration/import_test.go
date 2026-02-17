@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/secrets"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
+	"github.com/juju/juju/domain/secret/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 )
@@ -258,7 +259,13 @@ func (s *importSuite) TestImport(c *tc.C) {
 
 	s.backendService.EXPECT().ListBackendIDs(gomock.Any()).Return([]string{"backend-id"}, nil)
 	forImport := backendSecrets(uri, uri2, uri3, uri4, nextRotate, expire, timestamp)
-	s.service.EXPECT().ImportSecrets(gomock.Any(), forImport)
+	s.service.EXPECT().ImportSecrets(gomock.Any(), &service.SecretImport{
+		Secrets:   forImport.Secrets,
+		Revisions: forImport.Revisions,
+		Content:   forImport.Content,
+		Consumers: forImport.Consumers,
+		Access:    forImport.Access,
+	})
 
 	op := s.newImportOperation(c)
 	err = op.Execute(c.Context(), dst)
