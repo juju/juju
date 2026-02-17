@@ -354,8 +354,8 @@ func (s *Service) ValidateAttachStorage(
 	if charmStorageDef.MinimumSize != 0 &&
 		storageSize < charmStorageDef.MinimumSize {
 		return errors.Errorf(
-			"storage directive size %d is less than the charm minimum requirement of %d",
-			storageSize, charmStorageDef.MinimumSize,
+			"storage instance size %d for charm storage %s does not meet minimum requirements of %d",
+			storageSize, charmStorageDef.Name, charmStorageDef.MinimumSize,
 		)
 	}
 
