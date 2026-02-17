@@ -33,13 +33,13 @@ type Logger interface {
 type Client struct {
 	base.ClientFacade
 	facade base.FacadeCaller
-	conn   api.Connection
+	conn   base.APICallCloser
 	logger Logger
 }
 
 // NewClient returns an object that can be used to access client-specific
 // functionality.
-func NewClient(c api.Connection, logger Logger) *Client {
+func NewClient(c base.APICallCloser, logger Logger) *Client {
 	frontend, backend := base.NewClientFacade(c, "Client")
 	return &Client{
 		ClientFacade: frontend,
