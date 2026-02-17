@@ -134,7 +134,6 @@ type ModelServices struct {
 	simpleStreamsClient         http.HTTPClient
 	logDir                      string
 	clock                       clock.Clock
-	supportsNetworking          bool
 }
 
 // NewModelServices returns a new registry which uses the provided modelDB
@@ -153,7 +152,6 @@ func NewModelServices(
 	simpleStreamsClient http.HTTPClient,
 	logDir string,
 	clock clock.Clock,
-	supportsNetworking bool,
 	logger logger.Logger,
 ) *ModelServices {
 	return &ModelServices{
@@ -174,7 +172,6 @@ func NewModelServices(
 		simpleStreamsClient:         simpleStreamsClient,
 		logDir:                      logDir,
 		clock:                       clock,
-		supportsNetworking:          supportsNetworking,
 		controllerObjectStoreGetter: controllerObjectStoreGetter,
 	}
 }
@@ -369,7 +366,6 @@ func (s *ModelServices) Network() *networkservice.WatchableService {
 		networkstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
 		providertracker.ProviderRunner[networkservice.ProviderWithNetworking](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[networkservice.ProviderWithZones](s.providerFactory, s.modelUUID.String()),
-		s.supportsNetworking,
 		s.modelWatcherFactory("network"),
 		log,
 	)

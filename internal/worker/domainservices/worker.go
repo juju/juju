@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
@@ -21,7 +20,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/storage"
-	networkservice "github.com/juju/juju/domain/network/service"
 	domainservices "github.com/juju/juju/domain/services"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
@@ -229,16 +227,10 @@ type domainServicesGetter struct {
 
 // ServicesForModel returns the domain services for the given model uuid.
 // This will late bind the model domain services to the actual domain services.
-func (s *domainServicesGetter) ServicesForModel(
-	ctx context.Context, modelUUID coremodel.UUID) (services.DomainServices, error,
-) {
+func (s *domainServicesGetter) ServicesForModel(ctx context.Context, modelUUID coremodel.UUID) (services.DomainServices, error) {
 	loggerContext, err := s.loggerContextGetter.GetLoggerContext(ctx, modelUUID)
 	if err != nil {
 		return nil, internalerrors.Errorf("getting logger context: %w", err)
-	}
-	supportsNetworking, err := providerSupportsNetworking(ctx, s.providerFactory, modelUUID)
-	if err != nil {
-		return nil, internalerrors.Errorf("determining provider networking support: %w", err)
 	}
 
 	return &domainServices{
@@ -264,32 +256,11 @@ func (s *domainServicesGetter) ServicesForModel(
 			},
 			s.clusterDescriber,
 			s.simpleStreamsHTTPClient,
-			supportsNetworking,
 			s.logDir,
 			s.clock,
 			loggerContext.GetLogger("juju.services"),
 		),
 	}, nil
-}
-
-func providerSupportsNetworking(
-	ctx context.Context, providerFactory providertracker.ProviderFactory, modelUUID coremodel.UUID,
-) (bool, error) {
-	if providerFactory == nil {
-		return false, nil
-	}
-
-	providerWithNetworking, err := providertracker.ProviderRunner[networkservice.ProviderWithNetworking](
-		providerFactory, modelUUID.String(),
-	)(ctx)
-	if err != nil {
-		if internalerrors.Is(err, coreerrors.NotSupported) {
-			return false, nil
-		}
-		return false, internalerrors.Capture(err)
-	}
-
-	return providerWithNetworking != nil, nil
 }
 
 // modelObjectStoreGetter is an object store getter that returns a singular

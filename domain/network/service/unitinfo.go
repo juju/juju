@@ -74,7 +74,12 @@ func (s *ProviderService) GetUnitEndpointNetworks(
 		return nil, internalerrors.Capture(err)
 	}
 
-	if !s.supportsNetworking {
+	supportsNetworking, err := s.supportsNetworking(ctx)
+	if err != nil {
+		return nil, internalerrors.Errorf("checking provider networking support: %w", err)
+	}
+
+	if !supportsNetworking {
 		info, err := s.st.GetUnitNetwork(ctx, unitUUID.String())
 		if err != nil {
 			return nil, internalerrors.Errorf("getting unit network: %w", err)

@@ -34,7 +34,7 @@ func (s *watcherSuite) TestWatchWithAdd(c *tc.C) {
 
 	svc := service.NewWatchableService(
 		state.NewState(func(ctx context.Context) (database.TxnRunner, error) { return factory(ctx) }, loggertesting.WrapCheckLog(c)),
-		nil, nil, true,
+		nil, nil,
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),
@@ -65,7 +65,7 @@ func (s *watcherSuite) TestWatchWithDelete(c *tc.C) {
 
 	svc := service.NewWatchableService(
 		state.NewState(func(ctx context.Context) (database.TxnRunner, error) { return factory(ctx) }, loggertesting.WrapCheckLog(c)),
-		nil, nil, true,
+		nil, nil,
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),

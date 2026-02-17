@@ -35,7 +35,6 @@ import (
 	modelbootstrap "github.com/juju/juju/domain/model/bootstrap"
 	modelconfigbootstrap "github.com/juju/juju/domain/modelconfig/bootstrap"
 	modeldefaultsbootstrap "github.com/juju/juju/domain/modeldefaults/bootstrap"
-	networkservice "github.com/juju/juju/domain/network/service"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	backendbootstrap "github.com/juju/juju/domain/secretbackend/bootstrap"
 	domainservices "github.com/juju/juju/domain/services"
@@ -274,13 +273,6 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *tc.C, o
 		if providerFactory == nil {
 			providerFactory = &stubProviderFactory{}
 		}
-		supportsNetworking := false
-		providerWithNetworking, err := providertracker.ProviderRunner[networkservice.ProviderWithNetworking](
-			providerFactory, modelUUID.String(),
-		)(c.Context())
-		if err == nil {
-			supportsNetworking = providerWithNetworking != nil
-		}
 		controllerServices := domainservices.NewControllerServices(
 			databasetesting.ConstFactory(s.TxnRunner()),
 			modelObjectStoreGetter(func(ctx context.Context) (objectstore.ObjectStore, error) {
@@ -314,7 +306,6 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *tc.C, o
 			&http.Client{},
 			c.MkDir(),
 			clock,
-			supportsNetworking,
 			logger,
 		)
 		return &domainServices{

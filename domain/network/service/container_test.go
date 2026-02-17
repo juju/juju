@@ -481,7 +481,6 @@ func (s *containerSuite) setupServiceAndMachines(c *tc.C) {
 		s.st,
 		func(ctx context.Context) (ProviderWithNetworking, error) { return s.providerWithNetworking, nil },
 		nil, // No provider with zones needed for this suite.
-		true,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Cleanup(func() { s.svc = nil })
@@ -492,7 +491,6 @@ func (s *containerSuite) setupService(c *tc.C) {
 		s.st,
 		func(ctx context.Context) (ProviderWithNetworking, error) { return s.providerWithNetworking, nil },
 		nil, // No provider with zones needed for this suite.
-		true,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Cleanup(func() { s.svc = nil })
