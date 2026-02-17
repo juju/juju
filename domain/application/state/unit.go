@@ -2043,11 +2043,11 @@ func (st *State) GetStorageAddInfoByUnitUUID(
 	}
 
 	var (
-		chStorage storageInfoForAdd
-		count     uint32
+		addInfo storageInfoForAdd
+		count   uint32
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		chStorage, err = st.getStorageInstanceInfoForAdd(ctx, tx, unitUUID, storageName)
+		addInfo, err = st.getStorageInstanceInfoForAdd(ctx, tx, unitUUID, storageName)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("storage %q is not found", storageName).Add(applicationerrors.StorageNameNotSupported)
 		}
@@ -2063,11 +2063,11 @@ func (st *State) GetStorageAddInfoByUnitUUID(
 		return internal.StorageInfoForAdd{}, errors.Capture(err)
 	}
 	return internal.StorageInfoForAdd{
-		Name:                 chStorage.Name,
-		Type:                 internalcharm.StorageType(chStorage.Kind),
-		CountMin:             chStorage.CountMin,
-		CountMax:             chStorage.CountMax,
-		MinimumSize:          chStorage.MinimumSize,
+		Name:                 addInfo.Name,
+		Type:                 internalcharm.StorageType(addInfo.Kind),
+		CountMin:             addInfo.CountMin,
+		CountMax:             addInfo.CountMax,
+		MinimumSize:          addInfo.MinimumSize,
 		AlreadyAttachedCount: count,
 	}, nil
 }
@@ -2419,33 +2419,33 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		return internal.StorageInfoForAttach{}, errors.Capture(err)
 	}
 	var (
-		chStorage storageInfoForAttach
-		count     uint32
+		attachInfo storageInfoForAttach
+		count      uint32
 		sizeMiB   uint64
 		poolUUID  string
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		chStorage, err = st.getStorageInstanceInfoForAttach(ctx, tx, unitUUID, storageUUID)
+		attachInfo, err = st.getStorageInstanceInfoForAttach(ctx, tx, unitUUID, storageUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		poolUUID = chStorage.StoragePoolUUID
-		sizeMiB = chStorage.SizeMIB
-		count, err = st.getUnitStorageCount(ctx, tx, unitUUID, chStorage.StorageName)
+		poolUUID = attachInfo.StoragePoolUUID
+		sizeMiB = attachInfo.SizeMIB
+		count, err = st.getUnitStorageCount(ctx, tx, unitUUID, attachInfo.StorageName)
 		if err != nil {
-			return errors.Errorf("getting storage count for unit %q storage %s: %w", unitUUID, chStorage.StorageName, err)
+			return errors.Errorf("getting storage count for unit %q storage %s: %w", unitUUID, attachInfo.StorageName, err)
 		}
 		return nil
 	}); err != nil {
 		return internal.StorageInfoForAttach{}, errors.Capture(err)
 	}
 	return internal.StorageInfoForAttach{
-		Name:                 chStorage.StorageName.String(),
-		Type:                 internalcharm.StorageType(chStorage.Kind),
-		CountMin:             chStorage.CountMin,
-		CountMax:             chStorage.CountMax,
-		MinimumSize:          chStorage.MinimumSize,
+		Name:                 attachInfo.StorageName.String(),
+		Type:                 internalcharm.StorageType(attachInfo.Kind),
+		CountMin:             attachInfo.CountMin,
+		CountMax:             attachInfo.CountMax,
+		MinimumSize:          attachInfo.MinimumSize,
 		AlreadyAttachedCount: count,
 		SizeMiB:              sizeMiB,
 		PoolUUID:             domainstorage.StoragePoolUUID(poolUUID),
