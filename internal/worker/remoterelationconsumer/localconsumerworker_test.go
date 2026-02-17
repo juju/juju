@@ -587,6 +587,8 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerRelationChange(c *tc.C) {
 	}
 
 	s.waitForAllWorkersStarted(c)
+
+	s.allowShutdownPublish()
 }
 
 func (s *localConsumerWorkerSuite) TestHandleConsumerRelationChangeApplicationNotFound(c *tc.C) {
@@ -1014,6 +1016,19 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationFailedToSaveMacar
 		SaveMacaroonForRelation(gomock.Any(), consumingRelationUUID, mac).
 		Return(internalerrors.Errorf("front fell off"))
 
+	// When SaveMacaroonForRelation fails, the worker should immediately
+	// notify the offering model to clean up the offer_connection that was
+	// just created by RegisterRemoteRelations.
+	s.remoteModelRelationClient.EXPECT().
+		PublishRelationChange(gomock.Any(), params.RemoteRelationChangeEvent{
+			RelationToken:           consumingRelationUUID.String(),
+			Life:                    life.Dying,
+			ApplicationOrOfferToken: s.offerUUID,
+			Macaroons:               macaroon.Slice{mac},
+			BakeryVersion:           bakery.LatestVersion,
+			ForceCleanup:            ptr(true),
+		}).Return(nil)
+
 	w := s.newLocalConsumerWorker(c)
 	defer workertest.DirtyKill(c, w)
 
@@ -1038,6 +1053,121 @@ func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationFailedToSaveMacar
 		"db",
 	)
 	c.Assert(err, tc.ErrorMatches, `.*front fell off.*`)
+}
+
+// TestRegisterConsumerRelationSaveMacaroonFailsNotifiesOfferingModel tests the
+// main fix for https://github.com/juju/juju/issues/21771.
+// When the local removal worker deletes a relation WHILE the localConsumerWorker
+// is registering it on the offering side, RegisterRemoteRelations succeeds
+// (creating the offer_connection) but SaveMacaroonForRelation fails (FK
+// constraint). The worker must immediately notify the offering model to clean up
+// the orphaned offer_connection.
+func (s *localConsumerWorkerSuite) TestRegisterConsumerRelationSaveMacaroonFailsNotifiesOfferingModel(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := s.expectWorkerStartup()
+
+	consumingRelationUUID := tc.Must(c, relation.NewUUID)
+	consumingApplicationUUID := tc.Must(c, application.NewUUID)
+	offeredAppToken := tc.Must(c, uuid.NewUUID).String()
+	mac := newMacaroon(c, "test")
+
+	s.crossModelService.EXPECT().
+		GetApplicationUUIDByName(gomock.Any(), "bar").
+		Return(consumingApplicationUUID, nil)
+
+	s.remoteModelRelationClient.EXPECT().
+		RegisterRemoteRelations(gomock.Any(), params.RegisterConsumingRelationArg{
+			ConsumerApplicationToken: consumingApplicationUUID.String(),
+			SourceModelTag:           names.NewModelTag(s.consumerModelUUID.String()).String(),
+			RelationToken:            consumingRelationUUID.String(),
+			OfferUUID:                s.offerUUID,
+			Macaroons:                macaroon.Slice{s.macaroon},
+			ConsumerApplicationEndpoint: params.RemoteEndpoint{
+				Name:      "blog",
+				Role:      charm.RoleRequirer,
+				Interface: "blog",
+			},
+			OfferEndpointName: "db",
+			ConsumeVersion:    1,
+			BakeryVersion:     bakery.LatestVersion,
+		}).
+		Return([]params.RegisterConsumingRelationResult{{
+			Result: &params.ConsumingRelationDetails{
+				Token:         offeredAppToken,
+				Macaroon:      mac,
+				BakeryVersion: bakery.LatestVersion,
+			},
+		}}, nil)
+
+	// SaveMacaroonForRelation fails with FK constraint because the relation
+	// has been deleted by the removal worker during registration.
+	s.crossModelService.EXPECT().
+		SaveMacaroonForRelation(gomock.Any(), consumingRelationUUID, mac).
+		Return(internalerrors.Errorf("FOREIGN KEY constraint failed"))
+
+	// Expect the worker to immediately notify the offering model to clean
+	// up the offer_connection that was just created.
+	publishDone := make(chan struct{})
+	s.remoteModelRelationClient.EXPECT().
+		PublishRelationChange(gomock.Any(), params.RemoteRelationChangeEvent{
+			RelationToken:           consumingRelationUUID.String(),
+			Life:                    life.Dying,
+			ApplicationOrOfferToken: s.offerUUID,
+			Macaroons:               macaroon.Slice{mac},
+			BakeryVersion:           bakery.LatestVersion,
+			ForceCleanup:            ptr(true),
+		}).DoAndReturn(func(ctx context.Context, evt params.RemoteRelationChangeEvent) error {
+		defer close(publishDone)
+		return nil
+	})
+
+	s.crossModelService.EXPECT().GetRelationDetails(gomock.Any(), consumingRelationUUID).Return(domainrelation.RelationDetails{
+		UUID: consumingRelationUUID,
+		Life: life.Alive,
+		ID:   1,
+		Key:  corerelationtesting.GenNewKey(c, "blog:blog foo:db"),
+		Endpoints: []domainrelation.Endpoint{{
+			ApplicationName: "foo",
+			Relation: charm.Relation{
+				Name:      "db",
+				Role:      charm.RoleProvider,
+				Interface: "db",
+			},
+		}, {
+			ApplicationName: "bar",
+			Relation: charm.Relation{
+				Name:      "blog",
+				Role:      charm.RoleRequirer,
+				Interface: "blog",
+			},
+		}},
+		Suspended: false,
+	}, nil)
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	// Send the alive event. The worker will register the relation on the
+	// offering side, but SaveMacaroonForRelation will fail.
+	select {
+	case s.relationLifeChanges <- []string{consumingRelationUUID.String()}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out sending relation change")
+	}
+
+	// Verify PublishRelationChange was called with ForceCleanup.
+	select {
+	case <-publishDone:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for PublishRelationChange to be called")
+	}
 }
 
 func (s *localConsumerWorkerSuite) TestHandleRelationConsumption(c *tc.C) {
@@ -1095,6 +1225,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumption(c *tc.C) {
 		"consumer-unit-relation:" + consumingRelationUUID.String(),
 	})
 
+	s.allowShutdownPublish()
 	workertest.CleanKill(c, w)
 }
 
@@ -1176,6 +1307,7 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionEnsureSingular(c
 		"consumer-unit-relation:" + consumingRelationUUID.String(),
 	})
 
+	s.allowShutdownPublish()
 	workertest.CleanKill(c, w)
 }
 
@@ -1449,6 +1581,8 @@ func (s *localConsumerWorkerSuite) TestHandleSecretRevisionChange(c *tc.C) {
 	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for secret to be updated")
 	}
+
+	s.allowShutdownPublish()
 	workertest.CleanKill(c, w)
 }
 
@@ -1809,6 +1943,7 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeAlreadyDeadWithNo
 	names = w.runner.WorkerNames()
 	c.Assert(names, tc.HasLen, 0)
 
+	s.allowShutdownPublish()
 	workertest.CleanKill(c, w)
 }
 
@@ -2777,6 +2912,18 @@ func (s *localConsumerWorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
+// allowShutdownPublish registers a catch-all PublishRelationChange expectation
+// so that the notifyOfferingModelOnShutdown cleanup during worker kill doesn't
+// cause unexpected mock call failures. Must be called AFTER all test-specific
+// PublishRelationChange expectations have been registered so that gomock matches
+// specific expectations first (FIFO order).
+func (s *localConsumerWorkerSuite) allowShutdownPublish() {
+	s.remoteModelRelationClient.EXPECT().
+		PublishRelationChange(gomock.Any(), gomock.Any()).
+		Return(nil).
+		AnyTimes()
+}
+
 func (s *localConsumerWorkerSuite) waitForAllWorkersStarted(c *tc.C) {
 	select {
 	case <-s.consumerUnitRelationsWorkerStarted:
@@ -2833,4 +2980,257 @@ func (s *localConsumerWorkerSuite) waitForWorkerStarted(c *tc.C, runner *worker.
 			c.Fatalf("timed out waiting for worker %q to be gone", names)
 		}
 	}
+}
+
+// TestRelationRemovedNotifiesOfferingModel tests the fix for
+// https://github.com/juju/juju/issues/21771.
+// When the local removal worker deletes a CMR relation before the
+// localConsumerWorker can send the dying notification via the normal path,
+// the worker should use the cached macaroon to notify the offering model.
+func (s *localConsumerWorkerSuite) TestRelationRemovedNotifiesOfferingModel(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := s.expectWorkerStartup()
+	consumingRelationUUID := s.expectRegisterRemoteRelation(c)
+
+	// First event: relation is alive. This triggers registerConsumerRelation
+	// which caches the macaroon.
+	s.crossModelService.EXPECT().GetRelationDetails(gomock.Any(), consumingRelationUUID).Return(domainrelation.RelationDetails{
+		UUID: consumingRelationUUID,
+		Life: life.Alive,
+		ID:   1,
+		Key:  corerelationtesting.GenNewKey(c, "blog:blog foo:db"),
+		Endpoints: []domainrelation.Endpoint{{
+			ApplicationName: "foo",
+			Relation: charm.Relation{
+				Name:      "db",
+				Role:      charm.RoleProvider,
+				Interface: "db",
+			},
+		}, {
+			ApplicationName: "bar",
+			Relation: charm.Relation{
+				Name:      "blog",
+				Role:      charm.RoleRequirer,
+				Interface: "blog",
+			},
+		}},
+		Suspended: false,
+	}, nil)
+
+	// Second event: relation is gone (removal worker won the race).
+	// Expect the worker to publish dying with ForceCleanup to the offering model.
+	publishDone := make(chan struct{})
+	s.remoteModelRelationClient.EXPECT().
+		PublishRelationChange(gomock.Any(), params.RemoteRelationChangeEvent{
+			RelationToken:           consumingRelationUUID.String(),
+			Life:                    life.Dying,
+			ApplicationOrOfferToken: s.offerUUID,
+			Macaroons:               macaroon.Slice{newMacaroon(c, "test")},
+			BakeryVersion:           bakery.LatestVersion,
+			ForceCleanup:            ptr(true),
+		}).DoAndReturn(func(ctx context.Context, evt params.RemoteRelationChangeEvent) error {
+		defer close(publishDone)
+		return nil
+	})
+
+	s.crossModelService.EXPECT().GetRelationDetails(gomock.Any(), consumingRelationUUID).Return(
+		domainrelation.RelationDetails{}, relationerrors.RelationNotFound,
+	)
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	// Send the first event (relation alive) to cache the macaroon.
+	select {
+	case s.relationLifeChanges <- []string{consumingRelationUUID.String()}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out sending first relation change")
+	}
+
+	s.waitForAllWorkersStarted(c)
+
+	// Send the second event (relation gone) to trigger the notification.
+	select {
+	case s.relationLifeChanges <- []string{consumingRelationUUID.String()}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out sending second relation change")
+	}
+
+	// Verify that PublishRelationChange was called with ForceCleanup.
+	select {
+	case <-publishDone:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for PublishRelationChange to be called")
+	}
+
+	workertest.CleanKill(c, w)
+}
+
+// TestRelationRemovedWithoutCachedMacaroon tests that when a relation is
+// removed and no macaroon was cached (e.g. worker restarted), the worker
+// gracefully handles the situation without trying to notify the offering model.
+func (s *localConsumerWorkerSuite) TestRelationRemovedWithoutCachedMacaroon(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := tc.Must(c, relation.NewUUID)
+	done := make(chan struct{})
+
+	ch := make(chan []string)
+	s.crossModelService.EXPECT().
+		WatchRelationsLifeSuspendedStatusForApplication(gomock.Any(), s.applicationUUID).
+		DoAndReturn(func(ctx context.Context, i application.UUID) (watcher.StringsWatcher, error) {
+			return watchertest.NewMockStringsWatcher(ch), nil
+		})
+	s.remoteRelationClientGetter.EXPECT().
+		GetRemoteRelationClient(gomock.Any(), s.offererModelUUID).
+		Return(s.remoteModelRelationClient, nil)
+
+	s.remoteModelRelationClient.EXPECT().
+		WatchOfferStatus(gomock.Any(), params.OfferArg{
+			OfferUUID:     s.offerUUID,
+			Macaroons:     macaroon.Slice{s.macaroon},
+			BakeryVersion: bakery.LatestVersion,
+		}).
+		DoAndReturn(func(ctx context.Context, oa params.OfferArg) (watcher.OfferStatusWatcher, error) {
+			ch := make(chan []watcher.OfferStatusChange)
+			return watchertest.NewMockWatcher(ch), nil
+		})
+
+	// Relation is already gone. No PublishRelationChange expected because
+	// no macaroon was cached.
+	s.crossModelService.EXPECT().
+		GetRelationDetails(gomock.Any(), relationUUID).
+		DoAndReturn(func(ctx context.Context, u relation.UUID) (domainrelation.RelationDetails, error) {
+			close(done)
+			return domainrelation.RelationDetails{}, relationerrors.RelationNotFound
+		})
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	// Force the creation of the workers so handleRelationRemoved has
+	// something to clean up.
+	w.runner.StartWorker(c.Context(), consumerUnitRelationWorkerName(relationUUID), func(ctx context.Context) (worker.Worker, error) {
+		return newErrWorker(nil), nil
+	})
+	w.runner.StartWorker(c.Context(), offererUnitRelationWorkerName(relationUUID), func(ctx context.Context) (worker.Worker, error) {
+		return newErrWorker(nil), nil
+	})
+
+	s.waitForWorkerStarted(c, w.runner,
+		consumerUnitRelationWorkerName(relationUUID),
+		offererUnitRelationWorkerName(relationUUID),
+	)
+
+	select {
+	case ch <- []string{relationUUID.String()}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting to send on application status channel")
+	}
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for GetRelationDetails to be called")
+	}
+
+	// Workers should be cleaned up.
+	s.waitUntilWorkerIsGone(c, w.runner,
+		consumerUnitRelationWorkerName(relationUUID),
+		offererUnitRelationWorkerName(relationUUID),
+	)
+
+	err := workertest.CheckKill(c, w)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestWorkerShutdownNotifiesOfferingModel tests that when the worker is
+// killed (e.g. during model destruction), it sends ForceCleanup notifications
+// for all relations that still have cached macaroons.
+// This is the main fix for https://github.com/juju/juju/issues/21771.
+func (s *localConsumerWorkerSuite) TestWorkerShutdownNotifiesOfferingModel(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := s.expectWorkerStartup()
+	consumingRelationUUID := s.expectRegisterRemoteRelation(c)
+
+	// Relation is alive. This triggers registerConsumerRelation which
+	// caches the macaroon.
+	s.crossModelService.EXPECT().GetRelationDetails(gomock.Any(), consumingRelationUUID).Return(domainrelation.RelationDetails{
+		UUID: consumingRelationUUID,
+		Life: life.Alive,
+		ID:   1,
+		Key:  corerelationtesting.GenNewKey(c, "blog:blog foo:db"),
+		Endpoints: []domainrelation.Endpoint{{
+			ApplicationName: "foo",
+			Relation: charm.Relation{
+				Name:      "db",
+				Role:      charm.RoleProvider,
+				Interface: "db",
+			},
+		}, {
+			ApplicationName: "bar",
+			Relation: charm.Relation{
+				Name:      "blog",
+				Role:      charm.RoleRequirer,
+				Interface: "blog",
+			},
+		}},
+		Suspended: false,
+	}, nil)
+
+	// Expect the shutdown notification with ForceCleanup=true when the
+	// worker is killed.
+	publishDone := make(chan struct{})
+	s.remoteModelRelationClient.EXPECT().
+		PublishRelationChange(gomock.Any(), params.RemoteRelationChangeEvent{
+			RelationToken:           consumingRelationUUID.String(),
+			Life:                    life.Dying,
+			ApplicationOrOfferToken: s.offerUUID,
+			Macaroons:               macaroon.Slice{newMacaroon(c, "test")},
+			BakeryVersion:           bakery.LatestVersion,
+			ForceCleanup:            ptr(true),
+		}).DoAndReturn(func(ctx context.Context, evt params.RemoteRelationChangeEvent) error {
+		defer close(publishDone)
+		return nil
+	})
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	// Send the alive event to cache the macaroon.
+	select {
+	case s.relationLifeChanges <- []string{consumingRelationUUID.String()}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out sending relation change")
+	}
+
+	s.waitForAllWorkersStarted(c)
+
+	// Kill the worker (simulating model destruction).
+	// The shutdown path should notify the offering model.
+	w.Kill()
+
+	// Verify PublishRelationChange was called with ForceCleanup on shutdown.
+	select {
+	case <-publishDone:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for shutdown PublishRelationChange to be called")
+	}
+
+	err := workertest.CheckKill(c, w)
+	c.Assert(err, tc.ErrorIsNil)
 }
