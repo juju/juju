@@ -65,7 +65,7 @@ type Backend interface {
 	CreateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
 	UpdateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
 	RemoveOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) error
-	GetOfferUsers(offerUUID string) (map[string]permission.Access, error)
+	GetOfferUsers(offerUUID string) (map[string]state.OfferUserAccess, error)
 
 	// GetModelCallContext gets everything that is needed to make cloud calls on behalf of the state current model.
 	GetModelCallContext() context.ProviderCallContext
@@ -101,7 +101,7 @@ func (s stateShim) RemoveOfferAccess(offer names.ApplicationOfferTag, user names
 	return s.st.RemoveOfferAccess(offer, user)
 }
 
-func (s stateShim) GetOfferUsers(offerUUID string) (map[string]permission.Access, error) {
+func (s stateShim) GetOfferUsers(offerUUID string) (map[string]state.OfferUserAccess, error) {
 	return s.st.GetOfferUsers(offerUUID)
 }
 

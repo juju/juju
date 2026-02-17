@@ -934,8 +934,8 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		var acl map[string]string
 		if len(userMap) != 0 {
 			acl = make(map[string]string, len(userMap))
-			for user, access := range userMap {
-				acl[user] = accessToString(access)
+			for user, userAccess := range userMap {
+				acl[user] = accessToString(userAccess.Access)
 			}
 		}
 

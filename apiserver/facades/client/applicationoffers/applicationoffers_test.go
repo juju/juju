@@ -415,6 +415,7 @@ func (s *applicationOffersSuite) TestShow(c *gc.C) {
 	s.assertShow(c, "fred@external/prod.hosted-db2", offerUUID, expected)
 	// Again with an unqualified model path.
 	s.mockState.AdminTag = names.NewUserTag("fred@external")
+	s.mockState.users["fred@external"] = &mockUser{""}
 	s.authorizer.AdminTag = s.mockState.AdminTag
 	s.authorizer.Tag = s.mockState.AdminTag
 	expected[0].Result.Users[0].UserName = "fred@external"
@@ -516,6 +517,7 @@ func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
 	s.mockStatePool.st["uuid2"] = &mockState{
 		modelUUID: "uuid2",
 		model:     anotherModel,
+		users:     s.mockState.users,
 	}
 	s.mockState.allmodels = []applicationoffers.Model{s.mockState.model, anotherModel}
 
@@ -1326,17 +1328,14 @@ func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
 }
 
 func (s *consumeSuite) TestDestroyOffersNoForceV2(c *gc.C) {
-	s.assertDestroyOffersNoForce(c, s.api)
+	s.assertDestroyOffersNoForce(c)
 }
 
-type destroyOffers interface {
-	DestroyOffers(args params.DestroyApplicationOffers) (params.ErrorResults, error)
-}
-
-func (s *consumeSuite) assertDestroyOffersNoForce(c *gc.C, api destroyOffers) {
+func (s *consumeSuite) assertDestroyOffersNoForce(c *gc.C) {
 	s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
+	st.(*mockState).users["admin"] = &mockUser{"admin"}
 	st.(*mockState).connections = []applicationoffers.OfferConnection{
 		&mockOfferConnection{
 			username:    "fred@external",
@@ -1371,6 +1370,7 @@ func (s *consumeSuite) TestDestroyOffersForce(c *gc.C) {
 	s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
+	st.(*mockState).users["admin"] = &mockUser{"admin"}
 	st.(*mockState).connections = []applicationoffers.OfferConnection{
 		&mockOfferConnection{
 			username:    "fred@external",

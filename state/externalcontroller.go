@@ -95,8 +95,8 @@ type externalControllers struct {
 }
 
 // NewExternalControllers creates an external controllers instance backed by a state.
-func (s *State) NewExternalControllers() ExternalControllers {
-	return NewExternalControllers(s)
+func (st *State) NewExternalControllers() ExternalControllers {
+	return NewExternalControllers(st)
 }
 
 // NewExternalControllers creates an external controllers instance backed by a state.

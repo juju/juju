@@ -79,11 +79,10 @@ func (s *ApplicationOfferUserSuite) TestGetOfferAccess(c *gc.C) {
 	offerUUID := s.assertAddOffer(c, permission.ConsumeAccess)
 	users, err := s.State.GetOfferUsers(offerUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(users, jc.DeepEquals, map[string]permission.Access{
-		"everyone@external": permission.ReadAccess,
-		"test-admin":        permission.AdminAccess,
-		"validusername":     permission.ConsumeAccess,
-	})
+	c.Assert(users, gc.HasLen, 3)
+	c.Assert(users["everyone@external"].Access, gc.Equals, permission.ReadAccess)
+	c.Assert(users["test-admin"].Access, gc.Equals, permission.AdminAccess)
+	c.Assert(users["validusername"].Access, gc.Equals, permission.ConsumeAccess)
 }
 
 func (s *ApplicationOfferUserSuite) TestAddAdminModelUser(c *gc.C) {
@@ -187,6 +186,38 @@ func (s *ApplicationOfferUserSuite) TestCreateOfferAccessNoUserFails(c *gc.C) {
 		names.NewApplicationOfferTag("f47ac10b-58cc-4372-a567-0e02b2c3d479"),
 		names.NewUserTag("validusername"), permission.ReadAccess)
 	c.Assert(err, gc.ErrorMatches, `user "validusername" does not exist locally: user "validusername" not found`)
+}
+
+func (s *ApplicationOfferUserSuite) TestGetOfferAccessWithDeletedUser(c *gc.C) {
+	offer, _ := s.makeOffer(c, permission.ConsumeAccess)
+
+	user := s.Factory.MakeUser(c,
+		&factory.UserParams{
+			Name:   "deleted-user",
+			Access: permission.ReadAccess,
+		})
+	err := s.State.CreateOfferAccess(names.NewApplicationOfferTag(offer.OfferUUID), user.UserTag(), permission.ReadAccess)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// validate before user removal
+	users, err := s.State.GetOfferUsers(offer.OfferUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(users, gc.HasLen, 4)
+	c.Assert(users["everyone@external"].Access, gc.Equals, permission.ReadAccess)
+	c.Assert(users["test-admin"].Access, gc.Equals, permission.AdminAccess)
+	c.Assert(users["validusername"].Access, gc.Equals, permission.ConsumeAccess)
+	c.Assert(users["deleted-user"].Access, gc.Equals, permission.ReadAccess)
+
+	err = s.State.RemoveUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// validate after user removal
+	users, err = s.State.GetOfferUsers(offer.OfferUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(users, gc.HasLen, 3)
+	c.Assert(users["everyone@external"].Access, gc.Equals, permission.ReadAccess)
+	c.Assert(users["test-admin"].Access, gc.Equals, permission.AdminAccess)
+	c.Assert(users["validusername"].Access, gc.Equals, permission.ConsumeAccess)
 }
 
 func (s *ApplicationOfferUserSuite) TestRemoveOfferAccess(c *gc.C) {
