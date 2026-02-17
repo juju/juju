@@ -39,9 +39,9 @@ type CrossModelRelationService interface {
 	// UUID for the given offer UUID.
 	GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID offer.UUID) (string, coreapplication.UUID, error)
 
-	// GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID returns the synthetic application
+	// GetSyntheticApplicationUUIDByRemoteToken returns the synthetic application
 	// UUID for the given offer UUID and remote relation UUID.
-	GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(ctx context.Context, offerUUID offer.UUID, remoteRelationUUID corerelation.UUID) (coreapplication.UUID, error)
+	GetSyntheticApplicationUUIDByRemoteToken(ctx context.Context, offerUUID offer.UUID, remoteRelationUUID corerelation.UUID) (coreapplication.UUID, error)
 
 	// GetOfferingApplicationToken returns the offering application token (uuid)
 	// for the given relation UUID.

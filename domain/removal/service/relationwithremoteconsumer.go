@@ -39,8 +39,8 @@ type RelationWithRemoteConsumer interface {
 	DeleteRelationWithRemoteConsumer(ctx context.Context, rUUID string) error
 }
 
-// RemoveRelationWithRemoteConsumer checks if a relation with the input UUID exists.
-// If it does, the relation is guaranteed after this call to be:
+// RemoveRelationWithRemoteConsumer checks if a relation with the input UUID
+// exists. If it does, the relation is guaranteed after this call to be:
 // - No longer alive.
 // - Removed or scheduled to be removed with the input force qualification.
 // The input wait duration is the time that we will give for the normal

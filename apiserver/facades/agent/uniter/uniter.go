@@ -2099,7 +2099,7 @@ func (u *UniterAPI) watchOneRelationUnit(
 			internalerrors.Capture(internalerrors.Errorf("starting related units watcher: %w", err))
 	}
 
-	id, changes, err := internal.EnsureRegisterWatcher[params.RelationUnitsChange](
+	id, changes, err := internal.EnsureRegisterWatcher(
 		ctx,
 		u.watcherRegistry,
 		watch,
