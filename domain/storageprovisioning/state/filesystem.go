@@ -1406,10 +1406,15 @@ WHERE  u.application_uuid = $entityUUID.uuid`, existingFilesystemAttachment{}, i
 	var existingAttachments []existingFilesystemAttachment
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Reset existingAttachments should the transaction retries because
+		// GetAll func appends to the slice. By doing this we can avoid duplicate
+		// elements in existingAttachments.
+		existingAttachments = nil
 		exists, err := st.checkApplicationExists(ctx, tx, uuid)
 		if err != nil {
 			return err
-		} else if !exists {
+		}
+		if !exists {
 			return errors.Errorf(
 				"application %q does not exist", uuid,
 			).Add(applicationerrors.ApplicationNotFound)
