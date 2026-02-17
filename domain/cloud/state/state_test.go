@@ -445,7 +445,7 @@ func (s *stateSuite) TestDeleteCloudInUse(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.DeleteCloud(c.Context(), "fluffy")
-	c.Assert(err, tc.ErrorMatches, "cannot delete cloud as it is still in use")
+	c.Assert(err, tc.ErrorIs, clouderrors.CloudStillInUse)
 
 	cld, err := st.Cloud(c.Context(), "fluffy")
 	c.Assert(err, tc.ErrorIsNil)
@@ -539,7 +539,7 @@ SELECT ?, 'default', uuid, 1, ? FROM cloud WHERE cloud.name = ?
 
 	// Deletion should fail because a model references the cloud.
 	err = st.DeleteCloud(c.Context(), "fluffy")
-	c.Assert(err, tc.ErrorMatches, "cannot delete cloud as it is still in use")
+	c.Assert(err, tc.ErrorIs, clouderrors.CloudStillInUse)
 
 	cld, err := st.Cloud(c.Context(), "fluffy")
 	c.Assert(err, tc.ErrorIsNil)

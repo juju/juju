@@ -747,7 +747,7 @@ WHERE  grant_on = $dbCloudName.name
 			return errors.Errorf("checking model references: %w", err)
 		}
 		if count.Count > 0 {
-			return errors.Errorf("cannot delete cloud as it is still in use")
+			return errors.Errorf("deleting cloud").Add(clouderrors.CloudStillInUse)
 		}
 
 		// Cascade-delete credentials and their attributes.

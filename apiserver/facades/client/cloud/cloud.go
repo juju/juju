@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
+	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/environs"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -663,6 +664,9 @@ func (api *CloudAPI) RemoveClouds(ctx context.Context, args params.Entities) (pa
 			}
 		}
 		err = api.cloudService.DeleteCloud(ctx, tag.Id())
+		if err != nil && errors.Is(err, clouderrors.CloudStillInUse) {
+			err = errors.Errorf("cannot delete cloud %q as it is still referenced by models", tag.Id())
+		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
