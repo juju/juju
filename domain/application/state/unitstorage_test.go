@@ -667,17 +667,15 @@ func (u *unitStorageSuite) TestAttachStorageToIAASUnit(c *tc.C) {
 	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	fsaUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 
-	unitStorageToAttach := []internal.CreateUnitStorageAttachmentArg{
-		{
-			UUID: saUUID,
-			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
-				FilesystemUUID: fsUUID,
-				NetNodeUUID:    domainnetwork.NetNodeUUID(netNodeUUID),
-				ProvisionScope: domainstorageprov.ProvisionScopeMachine,
-				UUID:           fsaUUID,
-			},
-			StorageInstanceUUID: siUUID,
+	unitStorageToAttach := internal.CreateUnitStorageAttachmentArg{
+		UUID: saUUID,
+		FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
+			FilesystemUUID: fsUUID,
+			NetNodeUUID:    domainnetwork.NetNodeUUID(netNodeUUID),
+			ProvisionScope: domainstorageprov.ProvisionScopeMachine,
+			UUID:           fsaUUID,
 		},
+		StorageInstanceUUID: siUUID,
 	}
 
 	exists, err := u.state.GetUnitStorageAttachmentExists(c.Context(), siUUID, unitUUID)
@@ -747,14 +745,13 @@ func (u *unitStorageSuite) TestGetStorageInstanceCompositionByUUID(c *tc.C) {
 	result, err := u.state.GetStorageInstanceCompositionByUUID(c.Context(), st1UUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	expected := []internal.StorageInstanceComposition{
-		{
-			Filesystem: &internal.StorageInstanceCompositionFilesystem{
-				ProvisionScope: domainstorageprov.ProvisionScopeModel,
-				UUID:           fs1UUID,
-			},
-			UUID: st1UUID,
+	expected := internal.StorageInstanceComposition{
+		Filesystem: &internal.StorageInstanceCompositionFilesystem{
+			ProvisionScope: domainstorageprov.ProvisionScopeModel,
+			UUID:           fs1UUID,
 		},
+		StorageName: "st1",
+		UUID: st1UUID,
 	}
 
 	mc := tc.NewMultiChecker()

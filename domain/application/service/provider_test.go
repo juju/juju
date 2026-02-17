@@ -3508,14 +3508,14 @@ func (s *providerServiceSuite) TestAttachStorageForIAASUnit(c *tc.C) {
 	}, uint32(67), uint64(6)).
 		Return(nil)
 
-	storageToAttach := []internal.CreateUnitStorageAttachmentArg{{
+	storageToAttach := internal.CreateUnitStorageAttachmentArg{
 		UUID: saUUID,
 		FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
 			FilesystemUUID: fsUUID,
 			ProvisionScope: 1,
 		},
 		StorageInstanceUUID: siUUID,
-	}}
+	}
 	fsToOwn := []domainstorage.FilesystemUUID{tc.Must(c, domainstorage.NewFilesystemUUID)}
 	volToOwn := []domainstorage.VolumeUUID{tc.Must(c, domainstorage.NewVolumeUUID)}
 
@@ -3634,13 +3634,13 @@ func (s *providerServiceSuite) TestAttachStorageForCAASUnit(c *tc.C) {
 	}, uint32(67), uint64(6)).
 		Return(nil)
 
-	storageToAttach := []internal.CreateUnitStorageAttachmentArg{{
+	storageToAttach := internal.CreateUnitStorageAttachmentArg{
 		FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
 			FilesystemUUID: fsUUUID,
 			ProvisionScope: 1,
 		},
 		StorageInstanceUUID: siUUID,
-	}}
+	}
 	unitStorageArgs := internal.AttachStorageToUnitArg{
 		// UUID
 		StorageToAttach:    storageToAttach,

@@ -303,10 +303,10 @@ func (c *MockStateGetModelStoragePoolsCall) DoAndReturn(f func(context.Context) 
 }
 
 // GetStorageInstanceCompositionByUUID mocks base method.
-func (m *MockState) GetStorageInstanceCompositionByUUID(arg0 context.Context, arg1 storage0.StorageInstanceUUID) ([]internal.StorageInstanceComposition, error) {
+func (m *MockState) GetStorageInstanceCompositionByUUID(arg0 context.Context, arg1 storage0.StorageInstanceUUID) (internal.StorageInstanceComposition, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetStorageInstanceCompositionByUUID", arg0, arg1)
-	ret0, _ := ret[0].([]internal.StorageInstanceComposition)
+	ret0, _ := ret[0].(internal.StorageInstanceComposition)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -324,19 +324,19 @@ type MockStateGetStorageInstanceCompositionByUUIDCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetStorageInstanceCompositionByUUIDCall) Return(arg0 []internal.StorageInstanceComposition, arg1 error) *MockStateGetStorageInstanceCompositionByUUIDCall {
+func (c *MockStateGetStorageInstanceCompositionByUUIDCall) Return(arg0 internal.StorageInstanceComposition, arg1 error) *MockStateGetStorageInstanceCompositionByUUIDCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetStorageInstanceCompositionByUUIDCall) Do(f func(context.Context, storage0.StorageInstanceUUID) ([]internal.StorageInstanceComposition, error)) *MockStateGetStorageInstanceCompositionByUUIDCall {
+func (c *MockStateGetStorageInstanceCompositionByUUIDCall) Do(f func(context.Context, storage0.StorageInstanceUUID) (internal.StorageInstanceComposition, error)) *MockStateGetStorageInstanceCompositionByUUIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetStorageInstanceCompositionByUUIDCall) DoAndReturn(f func(context.Context, storage0.StorageInstanceUUID) ([]internal.StorageInstanceComposition, error)) *MockStateGetStorageInstanceCompositionByUUIDCall {
+func (c *MockStateGetStorageInstanceCompositionByUUIDCall) DoAndReturn(f func(context.Context, storage0.StorageInstanceUUID) (internal.StorageInstanceComposition, error)) *MockStateGetStorageInstanceCompositionByUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

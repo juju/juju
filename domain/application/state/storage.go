@@ -181,12 +181,12 @@ func (st *State) GetStorageInstanceCompositionByUUID(
 	ctx context.Context,
 	storageInstanceUUID domainstorage.StorageInstanceUUID,
 ) (
-	[]internal.StorageInstanceComposition,
+	internal.StorageInstanceComposition,
 	error,
 ) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return internal.StorageInstanceComposition{}, errors.Capture(err)
 	}
 	storageInstanceUUIDInput := entityUUID{UUID: storageInstanceUUID.String()}
 	compositionQ := `
@@ -213,12 +213,12 @@ FROM (
 		storageInstanceComposition{},
 	)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return internal.StorageInstanceComposition{}, errors.Capture(err)
 	}
 
-	var dbVals []storageInstanceComposition
+	var dbVal storageInstanceComposition
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, storageInstanceUUIDInput).GetAll(&dbVals)
+		err := tx.Query(ctx, stmt, storageInstanceUUIDInput).Get(&dbVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("storage instance %q not found", storageInstanceUUID).
 				Add(storageerrors.StorageInstanceNotFound)
@@ -226,10 +226,10 @@ FROM (
 		return err
 	})
 	if err != nil {
-		return nil, errors.Capture(err)
+		return internal.StorageInstanceComposition{}, errors.Capture(err)
 	}
 
-	rval := makeStorageInstanceComposition(dbVals)
+	rval := makeStorageInstanceComposition(dbVal)
 	return rval, nil
 }
 
@@ -305,35 +305,39 @@ FROM (
 		return nil, errors.Capture(err)
 	}
 
-	rval := makeStorageInstanceComposition(dbVals)
+	rval := makeStorageInstanceCompositions(dbVals)
 	return rval, nil
 }
 
-func makeStorageInstanceComposition(dbVals []storageInstanceComposition) []internal.StorageInstanceComposition {
+func makeStorageInstanceCompositions(dbVals []storageInstanceComposition) []internal.StorageInstanceComposition {
 	rval := make([]internal.StorageInstanceComposition, 0, len(dbVals))
 	for _, dbVal := range dbVals {
-		v := internal.StorageInstanceComposition{
-			StorageName: domainstorage.Name(dbVal.StorageName),
-			UUID:        domainstorage.StorageInstanceUUID(dbVal.UUID),
-		}
-
-		if dbVal.FilesystemUUID.Valid {
-			v.Filesystem = &internal.StorageInstanceCompositionFilesystem{
-				ProvisionScope: domainstorage.ProvisionScope(dbVal.FilesystemProvisionScope.V),
-				UUID:           domainstorage.FilesystemUUID(dbVal.FilesystemUUID.V),
-			}
-		}
-
-		if dbVal.VolumeUUID.Valid {
-			v.Volume = &internal.StorageInstanceCompositionVolume{
-				ProvisionScope: domainstorage.ProvisionScope(dbVal.VolumeProvisionScope.V),
-				UUID:           domainstorage.VolumeUUID(dbVal.VolumeUUID.V),
-			}
-		}
-
+		v := makeStorageInstanceComposition(dbVal)
 		rval = append(rval, v)
 	}
 	return rval
+}
+
+func makeStorageInstanceComposition(dbVal storageInstanceComposition) internal.StorageInstanceComposition {
+	v := internal.StorageInstanceComposition{
+		StorageName: domainstorage.Name(dbVal.StorageName),
+		UUID:        domainstorage.StorageInstanceUUID(dbVal.UUID),
+	}
+
+	if dbVal.FilesystemUUID.Valid {
+		v.Filesystem = &internal.StorageInstanceCompositionFilesystem{
+			ProvisionScope: domainstorageprov.ProvisionScope(dbVal.FilesystemProvisionScope.V),
+			UUID:           domainstorage.FilesystemUUID(dbVal.FilesystemUUID.V),
+		}
+	}
+
+	if dbVal.VolumeUUID.Valid {
+		v.Volume = &internal.StorageInstanceCompositionVolume{
+			ProvisionScope: domainstorageprov.ProvisionScope(dbVal.VolumeProvisionScope.V),
+			UUID:           domainstorage.VolumeUUID(dbVal.VolumeUUID.V),
+		}
+	}
+	return v
 }
 
 // GetUnitOwnedStorageInstances returns the storage compositions for all
@@ -1208,7 +1212,7 @@ func (st *State) attachStorageForUnit(
 		ctx,
 		tx,
 		unitUUID.String(),
-		storageArg.StorageToAttach,
+		[]internal.CreateUnitStorageAttachmentArg{storageArg.StorageToAttach},
 	)
 	if err != nil {
 		return errors.Errorf(
