@@ -82,7 +82,7 @@ func (s *relationSuite) TestMatchRelationEndpointByApplications(c *tc.C) {
 		c.Logf("Test case: %s", test.name)
 
 		relation, remoteApps := test.setup()
-		result := IsRelationInApplicationsName(relation, GetUniqueRemoteConsumersNames(remoteApps))
+		result := ContainsRelationEndpointApplicationName(relation, GetUniqueRemoteConsumersNames(remoteApps))
 
 		c.Assert(result, tc.Equals, test.expected)
 	}

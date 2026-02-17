@@ -76,17 +76,43 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute the import of application resources.
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
+	var (
+		relations          = model.Relations()
+		remoteApplications = model.RemoteApplications()
+
+		consumerRemoteApplications = domainmodelmigration.GetUniqueRemoteConsumersNames(remoteApplications)
+	)
+
 	// Get the remote applications so that we can filter out any remote consumer
 	// relations, which are not imported as part of the relation domain, but
 	// rather as part of the crossmodelrelation domain.
-	remoteApplications := domainmodelmigration.GetUniqueRemoteConsumersNames(model.RemoteApplications())
+	unique, err := domainmodelmigration.UniqueRemoteOfferApplications(remoteApplications, relations)
+	if err != nil {
+		return err
+	}
 
 	var args relation.ImportRelationsArgs
 	for _, rel := range model.Relations() {
-		if domainmodelmigration.IsRelationInApplicationsName(rel, remoteApplications) {
+		// If the relation is a remote consumer relation we skip it.
+		if domainmodelmigration.ContainsRelationEndpointApplicationName(rel, consumerRemoteApplications) {
 			continue
 		}
 
+		// If the relation is a remote offer relation, we need to work out
+		// if we need to re-write the relation endpoints, along with the
+		// relation key, to ensure that the relation is correctly imported if
+		// it has any remote applications that have be de-duplicated as part of
+		// the import in cross model relation domain.
+		if remoteApp, ok := matchesRemoteAppEndpoint(rel, unique); ok {
+			arg, err := i.createRemoteImportArg(rel, remoteApp)
+			if err != nil {
+				return errors.Errorf("setting up remote relation data for import %d: %w", rel.Id(), err)
+			}
+			args = append(args, arg)
+			continue
+		}
+
+		// This is a standard relation that we can import as is.
 		arg, err := i.createImportArg(rel)
 		if err != nil {
 			return errors.Errorf("setting up relation data for import %d: %w", rel.Id(), err)
@@ -100,8 +126,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return nil
 	}
 
-	err := i.service.ImportRelations(ctx, args)
-	if err != nil {
+	if err := i.service.ImportRelations(ctx, args); err != nil {
 		return errors.Errorf("importing relations: %w", err)
 	}
 	return nil
@@ -131,4 +156,20 @@ func (i *importOperation) createImportArg(rel description.Relation) (relation.Im
 		})
 	}
 	return arg, nil
+}
+
+func (i *importOperation) createRemoteImportArg(rel description.Relation, remoteApp description.RemoteApplication) (relation.ImportRelationArg, error) {
+
+}
+
+func matchesRemoteAppEndpoint(rel description.Relation, remoteApps map[string]description.RemoteApplication) (description.RemoteApplication, bool) {
+	for _, endpoint := range rel.Endpoints() {
+		appName := endpoint.ApplicationName()
+		for _, remoteApp := range remoteApps {
+			if remoteApp.Name() == appName {
+				return remoteApp, true
+			}
+		}
+	}
+	return nil, false
 }

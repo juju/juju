@@ -5,7 +5,6 @@ package modelmigration
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"strings"
 
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/domain/crossmodelrelation/service"
 	modelstate "github.com/juju/juju/domain/crossmodelrelation/state/model"
 	deploymentcharm "github.com/juju/juju/domain/deployment/charm"
+	domainmodelmigration "github.com/juju/juju/domain/modelmigration/modelmigration"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -215,13 +215,16 @@ func (i *importOperation) importRemoteApplicationOfferers(
 	relations []description.Relation,
 	remoteAppUnits map[string][]string,
 ) error {
-	unique, err := UniqueRemoteOfferApplications(remoteApps, relations)
+	// Import remote application offerers. These are remote applications that
+	// life in the consuming model, but represent applications in the offering
+	// model.
+	uniqueRemoteApps, err := domainmodelmigration.UniqueRemoteOfferApplications(remoteApps, relations)
 	if err != nil {
 		return err
 	}
 
-	input := make([]service.RemoteApplicationOffererImport, 0, len(remoteApps))
-	for _, remoteApp := range unique {
+	input := make([]service.RemoteApplicationOffererImport, 0, len(uniqueRemoteApps))
+	for _, remoteApp := range uniqueRemoteApps {
 		endpoints, err := extractRemoteEndpoints(remoteApp)
 		if err != nil {
 			return errors.Errorf("extracting endpoints for remote application %q: %w",
@@ -517,94 +520,4 @@ func parseRelationRole(role string) (charm.RelationRole, error) {
 	default:
 		return "", errors.Errorf("unknown relation role %q", role)
 	}
-}
-
-// UniqueRemoteOfferApplications de-duplicates remote applications based on
-// offer UUID and endpoints, and verifies that there are no conflicting remote
-// applications with the same offer UUID.
-func UniqueRemoteOfferApplications(remoteApps []description.RemoteApplication, relations []description.Relation) (map[string]description.RemoteApplication, error) {
-	// In 3.x it's possible to have multiple remote applications with the same
-	// offer UUID and endpoints, but have different names. In this case, we need
-	// to merge and de-duplicate these remote applications when importing them.
-	// 4.x doesn't allow to have multiple remote applications with the same
-	// offer UUID.
-	unique := map[string]description.RemoteApplication{}
-	for _, remoteApp := range remoteApps {
-		// We don't care about remove application consumers, so duplications
-		// here don't matter.
-		if remoteApp.IsConsumerProxy() {
-			continue
-		}
-
-		// If the remote application is not used by a relation, then we can
-		// ignore it as well.
-		if !remoteAppUsedByRelation(remoteApp, relations) {
-			continue
-		}
-
-		// Verify that if there are multiple remote application offerers with
-		// the same offer UUID, they also have the same source model UUID and
-		// endpoints, otherwise the import would be ambiguous.
-		offerUUID := remoteApp.OfferUUID()
-		if existing, ok := unique[offerUUID]; ok {
-			if existing.SourceModelUUID() != remoteApp.SourceModelUUID() {
-				return nil, errors.Errorf("multiple remote application offerers with the same offer UUID %q, but different source model UUIDs: %q and %q",
-					offerUUID, existing.SourceModelUUID(), remoteApp.SourceModelUUID())
-			}
-			if !remoteEndpointsEqual(existing.Endpoints(), remoteApp.Endpoints()) {
-				return nil, errors.Errorf("multiple remote application offerers with the same offer UUID %q, but different endpoints: %v and %v",
-					offerUUID, remoteEndpointString(existing.Endpoints()), remoteEndpointString(remoteApp.Endpoints()))
-			}
-		}
-
-		unique[offerUUID] = remoteApp
-	}
-
-	return unique, nil
-}
-
-func remoteAppUsedByRelation(remoteApp description.RemoteApplication, relations []description.Relation) bool {
-	for _, rel := range relations {
-		for _, ep := range rel.Endpoints() {
-			if ep.ApplicationName() == remoteApp.Name() {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-func remoteEndpointsEqual(a, b []description.RemoteEndpoint) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	aCopy := append([]description.RemoteEndpoint(nil), a...)
-	bCopy := append([]description.RemoteEndpoint(nil), b...)
-
-	sort.Slice(aCopy, func(i, j int) bool {
-		return aCopy[i].Name() < aCopy[j].Name()
-	})
-	sort.Slice(bCopy, func(i, j int) bool {
-		return bCopy[i].Name() < bCopy[j].Name()
-	})
-
-	for i := range aCopy {
-		if aCopy[i].Name() != bCopy[i].Name() ||
-			aCopy[i].Role() != bCopy[i].Role() ||
-			aCopy[i].Interface() != bCopy[i].Interface() {
-			return false
-		}
-	}
-
-	return true
-}
-
-func remoteEndpointString(eps []description.RemoteEndpoint) string {
-	var parts []string
-	for _, ep := range eps {
-		parts = append(parts, fmt.Sprintf("%s:%s", ep.Interface(), ep.Name()))
-	}
-	return strings.Join(parts, " ")
 }
