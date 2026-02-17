@@ -54,5 +54,5 @@ JOIN charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
 JOIN charm_relation_role AS crr ON cr.role_id = crr.id
 JOIN charm_source AS cs ON c.source_id = cs.id
 JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid
-LEFT JOIN total_conn AS tc ON tc.offer_uuid = o.uuid
-LEFT JOIN active_conn AS ac ON ac.offer_uuid = o.uuid;
+LEFT JOIN total_conn AS tc ON o.uuid = tc.offer_uuid
+LEFT JOIN active_conn AS ac ON o.uuid = ac.offer_uuid
