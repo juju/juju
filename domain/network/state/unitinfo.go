@@ -22,71 +22,34 @@ import (
 func (st *State) GetUnitEndpointNetworks(ctx context.Context, unitUUID string,
 	endpointNames []string) ([]domainnetwork.UnitNetwork, error) {
 
-	isCaas, err := st.isCaasUnit(ctx, unitUUID)
-	if err != nil {
-		return nil, errors.Errorf("checking if unit is caas: %w", err)
-	}
-	// get all spaces for all endpoints
+	// Determine the set of unique spaces to which the endpoints are bound.
 	spaces, err := st.getAllSpacesForEndpoints(ctx, unitUUID, endpointNames)
 	if err != nil {
-		return nil, errors.Errorf("getting all spaces for endpoints: %w", err)
+		return nil, errors.Capture(err)
 	}
-
-	// Unique spaces
 	uniqueSpaces := set.NewStrings()
 	for _, space := range spaces {
 		uniqueSpaces.Add(space.SpaceUUID)
 	}
 
-	// Get all addresses for spaces
+	// Then get the unit's addresses in those spaces.
 	addresses, err := st.getAllUnitAddressesInSpaces(ctx, unitUUID, uniqueSpaces.Values())
 	if err != nil {
 		return nil, errors.Errorf("getting all unit addresses in spaces: %w", err)
 	}
 
+	isCaas, err := st.isCaasUnit(ctx, unitUUID)
+	if err != nil {
+		return nil, errors.Errorf("checking if unit is caas: %w", err)
+	}
 	addressesBySpace, _ := accumulateToMap(addresses, func(address unitAddress) (string, unitAddress, error) {
 		return address.SpaceID.String(), address, nil
 	})
-	infoBySpaces := transform.Map(addressesBySpace, func(spaceUUID string, addrs []unitAddress) (string,
-		domainnetwork.UnitNetwork) {
-		byDevice := map[string]domainnetwork.DeviceInfo{}
-		var ingressAddresses network.SpaceAddresses
-
-		for _, addr := range addrs {
-			// The purpose of the method is to get connectivity information for
-			// the unit. Skip loopback addresses to focus on external connectivity.
-			if addr.IP().IsLoopback() {
-				continue
-			}
-			devInfo, ok := byDevice[addr.Device]
-			if !ok {
-				devInfo.Name = addr.Device
-				devInfo.MACAddress = addr.MAC
-			}
-
-			if !isCaas || addr.Scope == network.ScopeMachineLocal {
-				devInfo.Addresses = append(devInfo.Addresses, domainnetwork.AddressInfo{
-					Hostname: addr.Host(),
-					Value:    addr.IP().String(),
-					CIDR:     addr.AddressCIDR(),
-				})
-			}
-			if !isCaas || addr.Scope != network.ScopeMachineLocal {
-				ingressAddresses = append(ingressAddresses, addr.SpaceAddress)
-			}
-
-			byDevice[addr.Device] = devInfo
-		}
-
-		// We use the same sorting algorithm than in GetUnitAddresses (this is
-		// very important, otherwise the unit may use different valid IP
-		// addresses in different places)
-		sortedIngressAddresses := ingressAddresses.AllMatchingScope(network.ScopeMatchCloudLocal).Values()
-		return spaceUUID, domainnetwork.UnitNetwork{
-			DeviceInfos:      slices.Collect(maps.Values(byDevice)),
-			IngressAddresses: sortedIngressAddresses,
-		}
-	})
+	infoBySpaces := transform.Map(
+		addressesBySpace,
+		func(spaceUUID string, addrs []unitAddress) (string, domainnetwork.UnitNetwork) {
+			return spaceUUID, buildUnitNetworkFromAddresses(addrs, isCaas)
+		})
 
 	// All endpoints of the unit will have the same egress subnet.
 	egressCIDRs, err := st.getUnitEgressSubnets(ctx, unitUUID)
@@ -94,13 +57,12 @@ func (st *State) GetUnitEndpointNetworks(ctx context.Context, unitUUID string,
 		return nil, errors.Errorf("getting unit egress subnets: %w", err)
 	}
 
+	// Transform in order to dispatch info by endpoint.
 	spaceEp := transform.SliceToMap(spaces, func(endpoint spaceEndpoint) (string, string) {
 		return endpoint.EndpointName, endpoint.SpaceUUID
 	})
-	// reformate to dispatch info by endpoint.
 	infos, _ := transform.SliceOrErr(endpointNames, func(name string) (domainnetwork.UnitNetwork, error) {
-		spaceUUID := spaceEp[name]
-		info := infoBySpaces[spaceUUID]
+		info := infoBySpaces[spaceEp[name]]
 		return domainnetwork.UnitNetwork{
 			EndpointName:     name,
 			DeviceInfos:      info.DeviceInfos,
@@ -112,6 +74,69 @@ func (st *State) GetUnitEndpointNetworks(ctx context.Context, unitUUID string,
 	return infos, nil
 }
 
+// GetUnitNetwork retrieves network information for the specified unit by
+// selecting the best candidate from *all* unit addresses.
+// This is used on providers that do not support spaces, and therefore can
+// not factor endpoint bindings.
+func (st *State) GetUnitNetwork(ctx context.Context, unitUUID string) (domainnetwork.UnitNetwork, error) {
+	isCaas, err := st.isCaasUnit(ctx, unitUUID)
+	if err != nil {
+		return domainnetwork.UnitNetwork{}, errors.Errorf("checking if unit is caas: %w", err)
+	}
+
+	addresses, err := st.getAllUnitAddresses(ctx, unitUUID)
+	if err != nil {
+		return domainnetwork.UnitNetwork{}, errors.Errorf("getting all unit addresses: %w", err)
+	}
+
+	info := buildUnitNetworkFromAddresses(addresses, isCaas)
+	info.EgressSubnets, err = st.getUnitEgressSubnets(ctx, unitUUID)
+	if err != nil {
+		return domainnetwork.UnitNetwork{}, errors.Errorf("getting unit egress subnets: %w", err)
+	}
+	return info, nil
+}
+
+func buildUnitNetworkFromAddresses(addresses []unitAddress, isCaas bool) domainnetwork.UnitNetwork {
+	byDevice := map[string]domainnetwork.DeviceInfo{}
+	var ingressAddresses network.SpaceAddresses
+	for _, addr := range addresses {
+		// The purpose of the method is to get connectivity information for
+		// the unit. Skip loopback addresses to focus on external connectivity.
+		if addr.IP().IsLoopback() {
+			continue
+		}
+
+		devInfo, ok := byDevice[addr.Device]
+		if !ok {
+			devInfo.Name = addr.Device
+			devInfo.MACAddress = addr.MAC
+		}
+
+		if !isCaas || addr.Scope == network.ScopeMachineLocal {
+			devInfo.Addresses = append(devInfo.Addresses, domainnetwork.AddressInfo{
+				Hostname: addr.Host(),
+				Value:    addr.IP().String(),
+				CIDR:     addr.AddressCIDR(),
+			})
+		}
+		if !isCaas || addr.Scope != network.ScopeMachineLocal {
+			ingressAddresses = append(ingressAddresses, addr.SpaceAddress)
+		}
+
+		byDevice[addr.Device] = devInfo
+	}
+
+	// We use the same sorting algorithm as in GetUnitAddresses.
+	// It is important that the selected address is the same every time for a
+	// given set of bindings/devices/addresses.
+	sortedIngressAddresses := ingressAddresses.AllMatchingScope(network.ScopeMatchCloudLocal).Values()
+	return domainnetwork.UnitNetwork{
+		DeviceInfos:      slices.Collect(maps.Values(byDevice)),
+		IngressAddresses: sortedIngressAddresses,
+	}
+}
+
 func (st *State) getUnitEgressSubnets(ctx context.Context, unitUUID string) ([]string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -121,11 +146,11 @@ func (st *State) getUnitEgressSubnets(ctx context.Context, unitUUID string) ([]s
 	ident := entityUUID{UUID: unitUUID}
 	stmt, err := st.Prepare(`
 SELECT DISTINCT rne.cidr AS &egressCIDR.cidr
-FROM relation_network_egress AS rne
-JOIN relation AS r ON rne.relation_uuid = r.uuid
-JOIN relation_endpoint AS re ON r.uuid = re.relation_uuid
-JOIN relation_unit AS ru ON re.uuid = ru.relation_endpoint_uuid
-WHERE ru.unit_uuid = $entityUUID.uuid
+FROM   relation_network_egress AS rne
+JOIN   relation AS r ON rne.relation_uuid = r.uuid
+JOIN   relation_endpoint AS re ON r.uuid = re.relation_uuid
+JOIN   relation_unit AS ru ON re.uuid = ru.relation_endpoint_uuid
+WHERE  ru.unit_uuid = $entityUUID.uuid
 `, egressCIDR{}, entityUUID{})
 	if err != nil {
 		return nil, errors.Errorf("preparing select egress subnets statement: %w", err)
@@ -146,9 +171,7 @@ WHERE ru.unit_uuid = $entityUUID.uuid
 	if len(cidrs) == 0 {
 		return nil, nil
 	}
-	return transform.Slice(cidrs, func(c egressCIDR) string {
-		return c.CIDR
-	}), nil
+	return transform.Slice(cidrs, func(c egressCIDR) string { return c.CIDR }), nil
 }
 
 // getAllSpacesForEndpoints retrieves all spaces matching with every endpoint
@@ -167,35 +190,26 @@ func (st *State) getAllSpacesForEndpoints(
 	currentUnitUUID := entityUUID{UUID: unitUUID}
 	endpoints := names(endpointNames)
 	getSpacesStmt, err := st.Prepare(`
-SELECT  
-    epview.name AS &spaceEndpoint.endpoint_name,
-	epview.space_uuid AS &spaceEndpoint.space_uuid
-FROM (
-	SELECT 
-		ae.application_uuid,
-		cr.name,
-		COALESCE(ae.space_uuid, a.space_uuid) AS space_uuid
-	FROM 
-		application_endpoint ae
-	JOIN 
-		charm_relation cr ON ae.charm_relation_uuid = cr.uuid
-	JOIN 
-		application a ON ae.application_uuid = a.uuid
-	UNION
-	SELECT 
-		aee.application_uuid,
-		ceb.name,
-		COALESCE(aee.space_uuid, a.space_uuid) AS space_uuid
-	FROM 
-		application_extra_endpoint aee
-	JOIN 
-		charm_extra_binding ceb ON aee.charm_extra_binding_uuid = ceb.uuid
-	JOIN 
-		application a ON aee.application_uuid = a.uuid
-) as epview
-JOIN unit AS u ON epview.application_uuid = u.application_uuid
-WHERE u.uuid = $entityUUID.uuid
-AND epview.name IN ($names[:])
+WITH ep AS (
+	SELECT ae.application_uuid,
+		   cr.name,
+		   ae.space_uuid
+	FROM   application_endpoint ae
+	JOIN   charm_relation cr ON ae.charm_relation_uuid = cr.uuid
+	UNION ALL
+	SELECT aee.application_uuid,
+	       ceb.name,
+		   aee.space_uuid
+	FROM   application_extra_endpoint aee
+	JOIN   charm_extra_binding ceb ON aee.charm_extra_binding_uuid = ceb.uuid
+)
+SELECT ep.name AS &spaceEndpoint.endpoint_name,
+	   IFNULL(ep.space_uuid, a.space_uuid) AS &spaceEndpoint.space_uuid
+FROM   ep 
+JOIN   unit AS u ON ep.application_uuid = u.application_uuid
+JOIN   application a ON u.application_uuid = a.uuid
+WHERE  u.uuid = $entityUUID.uuid
+AND    ep.name IN ($names[:])
 `, currentUnitUUID, endpoints, spaceEndpoint{})
 	if err != nil {
 		return nil, errors.Errorf("preparing select spaces for endpoints statement: %w", err)
@@ -213,6 +227,58 @@ AND epview.name IN ($names[:])
 		return nil, errors.Errorf("querying spaces for endpoints: %w", err)
 	}
 	return spaces, nil
+}
+
+// getAllUnitAddresses retrieves all unit addresses tied to a specific unit
+// from the database.
+func (st *State) getAllUnitAddresses(
+	ctx context.Context,
+	unitUUID string,
+) ([]unitAddress, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// This is a trick to embed unexported spaceAddress to fetch through SQLAIR
+	type InSpaceAddress spaceAddress
+	type allUnitAddressWithDevice struct {
+		InSpaceAddress
+		Device string `db:"name"`
+		MAC    string `db:"mac_address"`
+	}
+
+	var address []allUnitAddressWithDevice
+	ident := entityUUID{UUID: unitUUID}
+	stmt, err := st.Prepare(`
+SELECT &allUnitAddressWithDevice.*
+FROM   v_all_unit_address AS ua
+JOIN   link_layer_device AS lld ON ua.device_uuid = lld.uuid
+WHERE  ua.unit_uuid = $entityUUID.uuid
+`, allUnitAddressWithDevice{}, entityUUID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, ident).GetAll(&address)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying addresses for unit %q (and its services): %w", unitUUID, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return transform.SliceOrErr(address, func(f allUnitAddressWithDevice) (unitAddress, error) {
+		encodedIP, err := encodeIPAddress(spaceAddress(f.InSpaceAddress))
+		return unitAddress{
+			SpaceAddress: encodedIP,
+			Device:       f.Device,
+			MAC:          f.MAC,
+		}, err
+	})
 }
 
 // getAllUnitAddressesInSpaces retrieves all unit addresses tied to a specific
@@ -239,10 +305,10 @@ func (st *State) getAllUnitAddressesInSpaces(
 	ident := entityUUID{UUID: unitUUID}
 	stmt, err := st.Prepare(`
 SELECT &spaceAddressWithDevice.*
-FROM v_all_unit_address AS ua
-JOIN link_layer_device AS lld ON ua.device_uuid = lld.uuid
-WHERE     ua.unit_uuid = $entityUUID.uuid
-AND space_uuid IN ($uuids[:])
+FROM   v_all_unit_address AS ua
+JOIN   link_layer_device AS lld ON ua.device_uuid = lld.uuid
+WHERE  ua.unit_uuid = $entityUUID.uuid
+AND    space_uuid IN ($uuids[:])
 `, spaceAddressWithDevice{}, entityUUID{}, uuids{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -280,9 +346,9 @@ func (st *State) isCaasUnit(ctx context.Context, uuid string) (bool, error) {
 
 	stmt, err := st.Prepare(`
 SELECT u.uuid AS &entityUUID.uuid
-FROM k8s_service AS ks
-JOIN unit AS u ON ks.application_uuid = u.application_uuid
-WHERE u.uuid = $entityUUID.uuid`, entityUUID{})
+FROM   k8s_service AS ks
+JOIN   unit AS u ON ks.application_uuid = u.application_uuid
+WHERE  u.uuid = $entityUUID.uuid`, entityUUID{})
 	if err != nil {
 		return false, errors.Errorf("preparing query: %w", err)
 	}

@@ -193,6 +193,80 @@ func (s *infoSuite) TestGetUnitEndpointNetworksNoAddresses(c *tc.C) {
 	}})
 }
 
+func (s *infoSuite) TestGetUnitNetwork(c *tc.C) {
+	// Arrange
+	nodeUUID := s.addNetNode(c)
+	deviceUUID := s.addLinkLayerDevice(c, nodeUUID, "eth0", "00:11:22:33:44:55", corenetwork.EthernetDevice)
+	spaceUUID := corenetwork.AlphaSpaceId.String()
+	cidr := "10.0.0.0/24"
+	subnetUUID := s.addSubnet(c, cidr, spaceUUID)
+	expectedAddr := "10.0.0.1"
+	s.addIPAddressWithSubnetAndScope(c, deviceUUID, nodeUUID, subnetUUID, expectedAddr, corenetwork.ScopeCloudLocal)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	// Act
+	info, err := s.state.GetUnitNetwork(c.Context(), string(unitUUID))
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, network.UnitNetwork{
+		DeviceInfos: []network.DeviceInfo{{
+			Name:       "eth0",
+			MACAddress: "00:11:22:33:44:55",
+			Addresses: []network.AddressInfo{{
+				Hostname: expectedAddr,
+				Value:    expectedAddr,
+				CIDR:     cidr,
+			}},
+		}},
+		IngressAddresses: []string{expectedAddr},
+	})
+}
+
+func (s *infoSuite) TestGetUnitNetworkCaasUnit(c *tc.C) {
+	// Arrange
+	podNodeUUID := s.addNetNode(c)
+	svcNodeUUID := s.addNetNode(c)
+	deviceUUID := s.addLinkLayerDevice(c, podNodeUUID, "eth0", "00:11:22:33:44:55", corenetwork.EthernetDevice)
+	spaceUUID := s.addSpace(c)
+	cidr := "10.0.0.0/24"
+	subnetUUID := s.addSubnet(c, cidr, spaceUUID)
+
+	// Add pod address (machine local).
+	s.addIPAddressWithSubnetAndScope(c, deviceUUID, podNodeUUID, subnetUUID, "10.0.0.1", corenetwork.ScopeMachineLocal)
+
+	// Add service address (public).
+	svcDeviceUUID := s.addLinkLayerDevice(c, svcNodeUUID, "eth1", "00:11:22:33:44:66", corenetwork.EthernetDevice)
+	s.addIPAddressWithSubnetAndScope(c, svcDeviceUUID, svcNodeUUID, subnetUUID, "10.0.0.2", corenetwork.ScopeCloudLocal)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, podNodeUUID)
+	s.addK8sService(c, svcNodeUUID, appUUID)
+
+	// Act
+	info, err := s.state.GetUnitNetwork(c.Context(), string(unitUUID))
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	devices := transform.SliceToMap(info.DeviceInfos, func(d network.DeviceInfo) (string, network.DeviceInfo) {
+		return d.Name, d
+	})
+	c.Assert(devices, tc.HasLen, 2)
+	c.Assert(devices["eth0"].Addresses, tc.SameContents, []network.AddressInfo{{
+		Hostname: "10.0.0.1",
+		Value:    "10.0.0.1",
+		CIDR:     "10.0.0.0/24",
+	}})
+	c.Assert(devices["eth0"].MACAddress, tc.Equals, "00:11:22:33:44:55")
+	c.Assert(devices["eth1"].Addresses, tc.HasLen, 0)
+	c.Assert(devices["eth0"].MACAddress, tc.Equals, "00:11:22:33:44:55")
+	c.Assert(info.IngressAddresses, tc.DeepEquals, []string{"10.0.0.2"})
+}
+
 // TestGetAllSpacesForEndpoints tests retrieving space information for endpoints
 func (s *infoSuite) TestGetAllSpacesForEndpoints(c *tc.C) {
 	// Arrange

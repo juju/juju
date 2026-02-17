@@ -10,8 +10,6 @@ import (
 	"net"
 	"sort"
 
-	"github.com/juju/collections/set"
-
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -842,28 +840,6 @@ func ScopeMatchCloudLocal(addr Address) ScopeMatch {
 		return secondFallbackScope
 	}
 	return invalidScope
-}
-
-// MergedAddresses provides a single list of addresses without duplicates
-// suitable for returning as an address list for a machine.
-// TODO (cherylj) Add explicit unit tests - tracked with bug #1544158
-func MergedAddresses(machineAddresses, providerAddresses []SpaceAddress) []SpaceAddress {
-	merged := make([]SpaceAddress, 0, len(providerAddresses)+len(machineAddresses))
-	providerValues := set.NewStrings()
-	for _, address := range providerAddresses {
-		// Older versions of Juju may have stored an empty address so ignore it here.
-		if address.Value == "" || providerValues.Contains(address.Value) {
-			continue
-		}
-		providerValues.Add(address.Value)
-		merged = append(merged, address)
-	}
-	for _, address := range machineAddresses {
-		if !providerValues.Contains(address.Value) {
-			merged = append(merged, address)
-		}
-	}
-	return merged
 }
 
 // CIDRAddressType returns back an AddressType to indicate whether the supplied
