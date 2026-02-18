@@ -61,6 +61,13 @@ func UniqueRemoteOfferApplications(remoteApps []description.RemoteApplication, r
 	// to merge and de-duplicate these remote applications when importing them.
 	// 4.x doesn't allow to have multiple remote applications with the same
 	// offer UUID.
+	relByAppName := map[string]struct{}{}
+	for _, rel := range relations {
+		for _, ep := range rel.Endpoints() {
+			relByAppName[ep.ApplicationName()] = struct{}{}
+		}
+	}
+
 	unique := map[string][]description.RemoteApplication{}
 	for _, remoteApp := range remoteApps {
 		// We don't care about remove application consumers, so duplications
@@ -71,7 +78,7 @@ func UniqueRemoteOfferApplications(remoteApps []description.RemoteApplication, r
 
 		// If the remote application is not used by a relation, then we can
 		// ignore it as well.
-		if !remoteAppUsedByRelation(remoteApp, relations) {
+		if _, ok := relByAppName[remoteApp.Name()]; !ok {
 			continue
 		}
 
@@ -96,18 +103,6 @@ func UniqueRemoteOfferApplications(remoteApps []description.RemoteApplication, r
 	}
 
 	return unique, nil
-}
-
-func remoteAppUsedByRelation(remoteApp description.RemoteApplication, relations []description.Relation) bool {
-	for _, rel := range relations {
-		for _, ep := range rel.Endpoints() {
-			if ep.ApplicationName() == remoteApp.Name() {
-				return true
-			}
-		}
-	}
-
-	return false
 }
 
 func remoteEndpointsEqual(a, b []description.RemoteEndpoint) bool {
