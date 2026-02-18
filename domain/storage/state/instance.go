@@ -104,9 +104,7 @@ WHERE  storage_id IN ($storageInstanceIDs[:])`,
 
 	if len(dbVals) != len(storageInstanceIDs) {
 		// This indicates some of the provided storage IDs did not hit any results.
-		missingIDs := set.NewStrings(storageIDs...).
-			Difference(set.NewStrings(transform.Slice(dbVals, func(val storageInstanceUUIDAndID) string { return val.ID })...)).
-			Values()
+		missingIDs := missingIDs(storageIDs, dbVals)
 		return nil, errors.Errorf("storage instance(s) with ID(s) %s not found", strings.Join(missingIDs, ", ")).
 			Add(domainstorageerrors.StorageInstanceNotFound)
 	}
@@ -117,4 +115,10 @@ WHERE  storage_id IN ($storageInstanceIDs[:])`,
 	}
 
 	return result, nil
+}
+
+func missingIDs(ids []string, data []storageInstanceUUIDAndID) []string {
+	return set.NewStrings(ids...).
+		Difference(set.NewStrings(transform.Slice(data, func(val storageInstanceUUIDAndID) string { return val.ID })...)).
+		Values()
 }

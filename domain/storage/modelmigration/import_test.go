@@ -443,6 +443,64 @@ func (s *importSuite) TestImportFilesystems(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *importSuite) TestImportVolumes(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
+	model.AddVolume(description.VolumeArgs{
+		ID:          "0",
+		Storage:     "multi-fs/0",
+		Provisioned: true,
+		Persistent:  true,
+		Pool:        "ebs",
+		Size:        1024,
+		VolumeID:    "vol-0f2829d7e5c4c0140",
+		WWN:         "uuid.c2f9e696-7b12-5368-b274-0510bf1feade",
+	})
+
+	expected := []domainstorage.ImportVolumeParams{
+		{
+			ID:          "0",
+			StorageID:   "multi-fs/0",
+			Provisioned: true,
+			Persistent:  true,
+			Pool:        "ebs",
+			SizeMiB:     1024,
+			ProviderID:  "vol-0f2829d7e5c4c0140",
+			WWN:         "uuid.c2f9e696-7b12-5368-b274-0510bf1feade",
+		},
+	}
+	s.service.EXPECT().ImportVolumes(gomock.Any(), expected).Return(nil)
+	s.noopStoragePoolImport()
+
+	// Act
+	op := s.newImportOperation()
+	err := op.Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportVolumesZeroLength(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
+	s.noopStoragePoolImport()
+
+	// Act
+	op := s.newImportOperation()
+	err := op.Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *importSuite) noopStoragePoolImport() {
 	s.service.EXPECT().GetStoragePoolsToImport(gomock.Any(), gomock.Any()).Return(nil, nil, nil)
 	s.service.EXPECT().ImportStoragePools(gomock.Any(), gomock.Any()).Return(nil)

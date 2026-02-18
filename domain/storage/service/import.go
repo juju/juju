@@ -34,9 +34,13 @@ type StorageImportState interface {
 		units []string,
 	) (map[string]string, map[string]string, error)
 
-	// ImportStorageInstances imports storage instances and storage unit
-	// unit owners if the unit name is provided.
-	ImportStorageInstances(ctx context.Context, args []internal.ImportStorageInstanceArgs) error
+	// GetStorageInstanceUUIDsByIDs retrieves the UUIDs of storage instances by
+	// their IDs.
+	GetStorageInstanceUUIDsByIDs(ctx context.Context, storageIDs []string) (map[string]string, error)
+
+	// GetStoragePoolProvidersByNames returns a map of storage pool names to their
+	// provider types for the specified storage pool names.
+	GetStoragePoolProvidersByNames(ctx context.Context, names []string) (map[string]string, error)
 
 	// ImportFilesystemsIAAS imports filesystems from the provided parameters
 	// for IAAS models.
@@ -46,13 +50,12 @@ type StorageImportState interface {
 		attachmentArgs []internal.ImportFilesystemAttachmentIAASArgs,
 	) error
 
-	// GetStoragePoolProvidersByNames returns a map of storage pool names to their
-	// provider types for the specified storage pool names.
-	GetStoragePoolProvidersByNames(ctx context.Context, names []string) (map[string]string, error)
+	// ImportStorageInstances creates new storage instances and storage
+	// unit owners if the unit name is provided.
+	ImportStorageInstances(ctx context.Context, args []internal.ImportStorageInstanceArgs) error
 
-	// GetStorageInstanceUUIDsByIDs retrieves the UUIDs of storage instances by
-	// their IDs.
-	GetStorageInstanceUUIDsByIDs(ctx context.Context, storageIDs []string) (map[string]string, error)
+	// ImportVolumes creates new storage volumes and related database structures.
+	ImportVolumes(ctx context.Context, args []internal.ImportVolumeArgs) error
 }
 
 // StorageImportService defines a service for importing storage entities during
@@ -153,7 +156,7 @@ func (s *StorageImportService) ImportFilesystemsIAAS(ctx context.Context, params
 		}
 	}
 
-	poolScopes, err := s.retrieveFilesystemProviderScopesForPools(ctx, poolNames)
+	poolScopes, err := s.retrieveProviderScopesForPools(ctx, domainstorage.StorageKindFilesystem, poolNames)
 	if err != nil {
 		return errors.Errorf("getting provider scopes of filesystems: %w", err)
 	}
@@ -245,8 +248,10 @@ func (s *StorageImportService) ImportFilesystemsIAAS(ctx context.Context, params
 	return s.st.ImportFilesystemsIAAS(ctx, fsArgs, attachmentArgs)
 }
 
-func (s *StorageImportService) retrieveFilesystemProviderScopesForPools(
-	ctx context.Context, poolNames []string,
+// retrieveProviderScopesForPools gets the provider scopes for the given
+// pool based on the provided storage kind.
+func (s *StorageImportService) retrieveProviderScopesForPools(
+	ctx context.Context, kind domainstorage.StorageKind, poolNames []string,
 ) (map[string]domainstorageprovisioning.ProvisionScope, error) {
 	providerScopes := make(map[string]domainstorageprovisioning.ProvisionScope)
 
@@ -274,7 +279,7 @@ func (s *StorageImportService) retrieveFilesystemProviderScopesForPools(
 		}
 
 		ic, err := domainstorageprovisioning.CalculateStorageInstanceComposition(
-			domainstorage.StorageKindFilesystem, storageProvider)
+			kind, storageProvider)
 		if err != nil {
 			return nil, errors.Errorf(
 				"calculating storage instance composition for pool %q: %w",
@@ -282,8 +287,92 @@ func (s *StorageImportService) retrieveFilesystemProviderScopesForPools(
 			)
 		}
 
-		providerScopes[poolName] = ic.FilesystemProvisionScope
+		switch kind {
+		case domainstorage.StorageKindFilesystem:
+			providerScopes[poolName] = ic.FilesystemProvisionScope
+		case domainstorage.StorageKindBlock:
+			providerScopes[poolName] = ic.VolumeProvisionScope
+		}
 	}
 
 	return providerScopes, nil
+}
+
+// ImportVolumes creates new volumes and storage instance volumes.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when any of the args did not pass validation.
+// - [domainstorageerrors.ProviderTypeNotFound] if storage provider was not found.
+// - [domainstorageerrors.StorageInstanceNotFound] if the storage ID was not found.
+// - [domainstorageerrors.StoragePoolNotFound] if any of the storage pools do not exist.
+func (s *StorageImportService) ImportVolumes(ctx context.Context, params []domainstorage.ImportVolumeParams) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if len(params) == 0 {
+		return nil
+	}
+	for i, param := range params {
+		if err := param.Validate(); err != nil {
+			return errors.Errorf("validating import volume params %d: %w", i, err)
+		}
+	}
+
+	args, err := s.transformImportVolumeArgs(ctx, params)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return s.st.ImportVolumes(ctx, args)
+}
+
+func (s *StorageImportService) transformImportVolumeArgs(
+	ctx context.Context,
+	params []domainstorage.ImportVolumeParams,
+) ([]internal.ImportVolumeArgs, error) {
+	poolNames := transform.Slice(params, func(in domainstorage.ImportVolumeParams) string {
+		return in.Pool
+	})
+	poolNamesToSP, err := s.retrieveProviderScopesForPools(ctx, domainstorage.StorageKindBlock, poolNames)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	instanceIDs := transform.Slice(params, func(in domainstorage.ImportVolumeParams) string {
+		return in.StorageID
+	})
+	instanceUUIDsByIDs, err := s.st.GetStorageInstanceUUIDsByIDs(ctx, instanceIDs)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return transform.SliceOrErr(params, func(in domainstorage.ImportVolumeParams) (internal.ImportVolumeArgs, error) {
+		volumeUUID, err := domainstorage.NewVolumeUUID()
+		if err != nil {
+			return internal.ImportVolumeArgs{}, errors.Errorf("generating volume uuid for %s: %w", in.ProviderID, err)
+		}
+		provisionScope, ok := poolNamesToSP[in.Pool]
+		if !ok {
+			return internal.ImportVolumeArgs{}, errors.Errorf("storage pool %q not found",
+				in.Pool).Add(domainstorageerrors.StoragePoolNotFound)
+		}
+		storageInstanceUUID, ok := instanceUUIDsByIDs[in.StorageID]
+		if !ok {
+			return internal.ImportVolumeArgs{}, errors.Errorf("storage instance %q not found",
+				in.StorageID).Add(domainstorageerrors.StorageInstanceNotFound)
+		}
+		return internal.ImportVolumeArgs{
+			UUID:                volumeUUID.String(),
+			ID:                  in.ID,
+			LifeID:              life.Alive,
+			StorageInstanceUUID: storageInstanceUUID,
+			Provisioned:         in.Provisioned,
+			ProvisionScopeID:    provisionScope,
+			SizeMiB:             in.SizeMiB,
+			HardwareID:          in.HardwareID,
+			WWN:                 in.WWN,
+			ProviderID:          in.ProviderID,
+			Persistent:          in.Persistent,
+		}, nil
+	})
 }

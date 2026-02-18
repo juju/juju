@@ -61,7 +61,6 @@ func (s *importSuite) TestImportStorageInstances(c *tc.C) {
 			PoolName:         "ebs",
 		},
 	}
-
 	mc := tc.NewMultiChecker()
 	mc.AddExpr(`_[_].UUID`, tc.IsNonZeroUUID)
 	s.state.EXPECT().ImportStorageInstances(gomock.Any(), tc.Bind(mc, expected)).Return(nil)
@@ -350,6 +349,65 @@ func (s *importSuite) TestImportFilesystemsValidate(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
+func (s *importSuite) TestImportVolumes(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Arrange
+	storageInstanceUUID := tc.Must(c, domainstorage.NewStoragePoolUUID).String()
+	s.state.EXPECT().GetStorageInstanceUUIDsByIDs(gomock.Any(), []string{"multi-fs/0"}).
+		Return(map[string]string{
+			"multi-fs/0": storageInstanceUUID,
+		}, nil)
+
+	s.state.EXPECT().GetStoragePoolProvidersByNames(gomock.Any(), []string{"ebs"}).Return(map[string]string{
+		"ebs": "ebs",
+	}, nil)
+
+	// Arrange: CalculateStorageInstanceComposition
+	ebsProvider := NewMockProvider(ctrl)
+	ebsProvider.EXPECT().Scope().Return(internalstorage.ScopeEnviron).AnyTimes()
+	ebsProvider.EXPECT().Supports(internalstorage.StorageKindBlock).Return(true).AnyTimes()
+	ebsProvider.EXPECT().Supports(internalstorage.StorageKindFilesystem).Return(false).AnyTimes()
+	s.registry.Providers["ebs"] = ebsProvider
+
+	// Arrange: state call
+	expected := []internal.ImportVolumeArgs{
+		{
+			ID:                  "multi-vol/0",
+			LifeID:              life.Alive,
+			ProvisionScopeID:    domainstorageprovisioning.ProvisionScopeModel,
+			StorageInstanceUUID: storageInstanceUUID,
+			SizeMiB:             4048,
+			HardwareID:          "hardware",
+			ProviderID:          "vol-0f2829d7e5c4c0140",
+			WWN:                 "uuid.06eba00f-72a0-5af0-9e94-891d7542e96c",
+		},
+	}
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].UUID`, tc.IsNonZeroUUID)
+	s.state.EXPECT().ImportVolumes(gomock.Any(), tc.Bind(mc, expected)).Return(nil)
+
+	// Arrange: input
+	params := []domainstorage.ImportVolumeParams{
+		{
+			ID:         "multi-vol/0",
+			Pool:       "ebs",
+			StorageID:  "multi-fs/0",
+			SizeMiB:    4048,
+			HardwareID: "hardware",
+			ProviderID: "vol-0f2829d7e5c4c0140",
+			WWN:        "uuid.06eba00f-72a0-5af0-9e94-891d7542e96c",
+		},
+	}
+
+	// Act
+	err := s.service.ImportVolumes(c.Context(), params)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -363,6 +421,7 @@ func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	)
 
 	c.Cleanup(func() {
+		s.registry = internalstorage.StaticProviderRegistry{}
 		s.state = nil
 		s.service = nil
 	})
