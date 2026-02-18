@@ -41,6 +41,9 @@ type ApplicationOfferDetails struct {
 
 	// Users are the users able to access the offer.
 	Users []OfferUserDetails
+
+	// OfferUUID is the UUID of the offer.
+	OfferUUID string
 }
 
 // OfferUserDetails holds the details about a user's access to an offer.
