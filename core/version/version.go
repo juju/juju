@@ -19,7 +19,7 @@ import (
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
-const version = "4.0.2"
+const version = "4.0.3"
 
 // UserAgentVersion defines a user agent version used for communication for
 // outside resources.
