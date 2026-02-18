@@ -61,7 +61,7 @@ Respect Juju layering. Never create new cross-layer dependencies.
 ## Worker Boundaries
 
 - Workers must be restartable, deterministic, and cancellation-aware.
-- Manage worker main loops with `tomb.Tomb` or `worker.Catacomb`.
+- Manage worker main loops with `tomb.Tomb` or `catacomb.Catacomb`.
 
 ## Change Discipline
 
