@@ -103,8 +103,8 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		// relation key, to ensure that the relation is correctly imported if
 		// it has any remote applications that have be de-duplicated as part of
 		// the import in cross model relation domain.
-		if remoteApp, ok := matchesRemoteAppEndpoint(rel, unique); ok {
-			arg, err := i.createRemoteImportArg(rel, remoteApp)
+		if remoteApps, ok := getRemoteRelation(rel, unique); ok {
+			arg, err := i.createRemoteImportArg(rel, remoteApps)
 			if err != nil {
 				return errors.Errorf("setting up remote relation data for import %d: %w", rel.Id(), err)
 			}
@@ -158,16 +158,89 @@ func (i *importOperation) createImportArg(rel description.Relation) (relation.Im
 	return arg, nil
 }
 
-func (i *importOperation) createRemoteImportArg(rel description.Relation, remoteApp description.RemoteApplication) (relation.ImportRelationArg, error) {
+// createRemoteImportArg creates the import argument for a relation that has
+// remote applications, which may have been de-duplicated as part of the cross
+// model relation import. This involves re-writing the relation endpoints to use
+// the remote application names, and also re-writing the relation key to ensure
+// that it is unique across the model if there are multiple relations with
+// remote applications that have been de-duplicated to have the same offer UUID.
+func (i *importOperation) createRemoteImportArg(rel description.Relation, remoteApps []description.RemoteApplication) (relation.ImportRelationArg, error) {
+	if len(remoteApps) == 0 {
+		// This is a programmatic error, as this function should only be called
+		// for relations that have remote applications, so we return an error if
+		// there are no remote applications provided.
+		return relation.ImportRelationArg{}, errors.New("no remote applications provided for remote relation")
+	}
 
+	// The first remote application name is the primary name.
+	primaryApplicationName := remoteApps[0].Name()
+
+	key, err := corerelation.NewKeyFromString(rel.Key())
+	if err != nil {
+		return relation.ImportRelationArg{}, err
+	}
+
+	// Re-write the relation key to use the remote application names, which are
+	// unique across the model, instead of the original application names, which
+	// may not be unique if there are multiple remote applications with the same
+	// offer UUID that have been de-duplicated.
+	for _, ident := range key.EndpointIdentifiers() {
+		for _, remoteApp := range remoteApps {
+			if ident.ApplicationName == remoteApp.Name() {
+				// Re-write the relation key to use the remote application name,
+				// which is unique across the model, instead of the original
+				// application name, which may not be unique if there are
+				// multiple remote applications with the same offer UUID that
+				// have been de-duplicated.
+				ident.ApplicationName = primaryApplicationName
+				break
+			}
+		}
+	}
+
+	arg := relation.ImportRelationArg{
+		ID:    rel.Id(),
+		Key:   key,
+		Scope: charm.ScopeGlobal,
+	}
+
+	for _, v := range rel.Endpoints() {
+		if v.Scope() == string(charm.ScopeContainer) {
+			arg.Scope = charm.ScopeContainer
+		}
+
+		applicationName := v.ApplicationName()
+		// Re-write the relation endpoints to use the remote application names,
+		// which are unique across the model, instead of the original
+		// application names, which may not be unique if there are multiple
+		// remote applications with the same offer UUID that have been
+		// de-duplicated.
+		for _, remoteApp := range remoteApps {
+			if v.ApplicationName() == remoteApp.Name() {
+				applicationName = primaryApplicationName
+				break
+			}
+		}
+
+		arg.Endpoints = append(arg.Endpoints, relation.ImportEndpoint{
+			ApplicationName:     applicationName,
+			EndpointName:        v.Name(),
+			ApplicationSettings: v.ApplicationSettings(),
+			UnitSettings:        v.AllSettings(),
+		})
+	}
+
+	return arg, nil
 }
 
-func matchesRemoteAppEndpoint(rel description.Relation, remoteApps map[string]description.RemoteApplication) (description.RemoteApplication, bool) {
+func getRemoteRelation(rel description.Relation, remoteApps map[string][]description.RemoteApplication) ([]description.RemoteApplication, bool) {
 	for _, endpoint := range rel.Endpoints() {
 		appName := endpoint.ApplicationName()
 		for _, remoteApp := range remoteApps {
-			if remoteApp.Name() == appName {
-				return remoteApp, true
+			for _, app := range remoteApp {
+				if app.Name() == appName {
+					return remoteApp, true
+				}
 			}
 		}
 	}

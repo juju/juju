@@ -55,13 +55,13 @@ func GetUniqueRemoteConsumersNames(remoteApps []description.RemoteApplication) s
 // UniqueRemoteOfferApplications de-duplicates remote applications based on
 // offer UUID and endpoints, and verifies that there are no conflicting remote
 // applications with the same offer UUID.
-func UniqueRemoteOfferApplications(remoteApps []description.RemoteApplication, relations []description.Relation) (map[string]description.RemoteApplication, error) {
+func UniqueRemoteOfferApplications(remoteApps []description.RemoteApplication, relations []description.Relation) (map[string][]description.RemoteApplication, error) {
 	// In 3.x it's possible to have multiple remote applications with the same
 	// offer UUID and endpoints, but have different names. In this case, we need
 	// to merge and de-duplicate these remote applications when importing them.
 	// 4.x doesn't allow to have multiple remote applications with the same
 	// offer UUID.
-	unique := map[string]description.RemoteApplication{}
+	unique := map[string][]description.RemoteApplication{}
 	for _, remoteApp := range remoteApps {
 		// We don't care about remove application consumers, so duplications
 		// here don't matter.
@@ -80,17 +80,19 @@ func UniqueRemoteOfferApplications(remoteApps []description.RemoteApplication, r
 		// endpoints, otherwise the import would be ambiguous.
 		offerUUID := remoteApp.OfferUUID()
 		if existing, ok := unique[offerUUID]; ok {
-			if existing.SourceModelUUID() != remoteApp.SourceModelUUID() {
-				return nil, errors.Errorf("multiple remote application offerers with the same offer UUID %q, but different source model UUIDs: %q and %q",
-					offerUUID, existing.SourceModelUUID(), remoteApp.SourceModelUUID())
-			}
-			if !remoteEndpointsEqual(existing.Endpoints(), remoteApp.Endpoints()) {
-				return nil, errors.Errorf("multiple remote application offerers with the same offer UUID %q, but different endpoints: %v and %v",
-					offerUUID, remoteEndpointString(existing.Endpoints()), remoteEndpointString(remoteApp.Endpoints()))
+			for _, existingApp := range existing {
+				if existingApp.SourceModelUUID() != remoteApp.SourceModelUUID() {
+					return nil, errors.Errorf("multiple remote application offerers with the same offer UUID %q, but different source model UUIDs: %q and %q",
+						offerUUID, existingApp.SourceModelUUID(), remoteApp.SourceModelUUID())
+				}
+				if !remoteEndpointsEqual(existingApp.Endpoints(), remoteApp.Endpoints()) {
+					return nil, errors.Errorf("multiple remote application offerers with the same offer UUID %q, but different endpoints: %v and %v",
+						offerUUID, remoteEndpointString(existingApp.Endpoints()), remoteEndpointString(remoteApp.Endpoints()))
+				}
 			}
 		}
 
-		unique[offerUUID] = remoteApp
+		unique[offerUUID] = append(unique[offerUUID], remoteApp)
 	}
 
 	return unique, nil

@@ -224,7 +224,12 @@ func (i *importOperation) importRemoteApplicationOfferers(
 	}
 
 	input := make([]service.RemoteApplicationOffererImport, 0, len(uniqueRemoteApps))
-	for _, remoteApp := range uniqueRemoteApps {
+	for _, remoteApps := range uniqueRemoteApps {
+		if len(remoteApps) == 0 {
+			continue
+		}
+
+		remoteApp := remoteApps[0]
 		endpoints, err := extractRemoteEndpoints(remoteApp)
 		if err != nil {
 			return errors.Errorf("extracting endpoints for remote application %q: %w",
