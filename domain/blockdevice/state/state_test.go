@@ -429,3 +429,39 @@ func (s *stateSuite) TestUpdateBlockDevicesUpdates(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, updated)
 }
+
+func (s *stateSuite) TestGetMachineUUIDByName(c *tc.C) {
+	// Arrange
+	st := NewState(s.TxnRunnerFactory())
+	expectedUUID := s.createMachine(c, "42")
+
+	// Act
+	obtainedUUID, err := st.GetMachineUUIDByName(c.Context(), "42")
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedUUID, tc.Equals, expectedUUID)
+}
+
+func (s *stateSuite) TestGetMachineUUIDByNameNotFound(c *tc.C) {
+	// Arrange
+	st := NewState(s.TxnRunnerFactory())
+
+	// Act
+	_, err := st.GetMachineUUIDByName(c.Context(), "42")
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *stateSuite) TestGetMachineUUIDByNameDead(c *tc.C) {
+	// Arrange
+	st := NewState(s.TxnRunnerFactory())
+	s.createMachineWithLife(c, "42", life.Dead)
+
+	// Act
+	_, err := st.GetMachineUUIDByName(c.Context(), "42")
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineIsDead)
+}
