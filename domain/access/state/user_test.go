@@ -707,7 +707,7 @@ func (s *userStateSuite) TestGetUserByAuthDoesNotExist(c *tc.C) {
 // TestRemoveUser asserts that we can remove a user from the database.
 func (s *userStateSuite) TestRemoveUser(c *tc.C) {
 	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
-	ps := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	ps := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
