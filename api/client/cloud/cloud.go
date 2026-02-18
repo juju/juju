@@ -152,7 +152,7 @@ func (c *Client) UserCredentials(user names.UserTag, cloud names.CloudTag) ([]na
 // there will be detailed validation errors per model.
 func (c *Client) CheckCredentialsModels(args params.TaggedCredentials) ([]params.UpdateCredentialResult, error) {
 	var results params.UpdateCredentialResults
-	if err := c.facade.FacadeCall("UpdateCredentialsCheckModels", args, &results); err != nil {
+	if err := c.facade.FacadeCall("CheckCredentialsModels", args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return results.Results, nil

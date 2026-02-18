@@ -226,8 +226,8 @@ func (s *cloudSuite) TestCheckCredentialsModels(c *gc.C) {
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	gomock.InOrder(
-		mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).Return(errors.New("boom")),
-		mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, resSuccess).SetArg(2, results).Return(nil),
+		mockFacadeCaller.EXPECT().FacadeCall("CheckCredentialsModels", args, res).Return(errors.New("boom")),
+		mockFacadeCaller.EXPECT().FacadeCall("CheckCredentialsModels", args, resSuccess).SetArg(2, results).Return(nil),
 	)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
