@@ -13,7 +13,7 @@
     - **CAAS**: Targets existing Kubernetes clusters.
 - **Application**: A deployed charm with configuration and scale.
 - **Unit**: A running instance of an application (e.g. mysql/0, mysql/1).
-- **Machine**: A compute resource (IAAS only). Can nest containers (e.g., 0/lxd/1).
+- **Machine**: A compute resource (IAAS only). Can nest containers or VMs (e.g. 0/lxd/1).
 - **Charm**: An operator package that defines how to deploy and manage an application.
 - **Relation** (aka Integration): A typed connection between two applications that exchanges data.
 - **Cloud**: A substrate provider (AWS, GCE, LXD, MicroK8s, etc.).
@@ -44,7 +44,7 @@
 
 - `NotifyWatcher` is used for single-subject change streams with `struct{}` notifications.
 - `StringsWatcher` is used for collection change streams with `[]string` changed identifiers.
-- Notifications communicate that change happened rather than carrying full entity state.
+- Notifications communicate that change happened rather than transmitting entity state.
 - Collection watchers report initial collection members and then deltas.
 - Collection notifications carry only changed identifiers relevant to the watcher concern.
 - Coalesced notifications are expected: multiple changes between reads may
@@ -69,3 +69,4 @@
   external backends (e.g., Vault) are configurable per model.
 - Secret content is versioned by revision. Consumers track their current revision
   and must explicitly refresh to see newer revisions.
+- Secrets content can be migrated from one backend to another, also known as draining.
