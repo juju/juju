@@ -14,7 +14,9 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -132,6 +134,72 @@ type RemoteApplicationConsumerImport struct {
 	// UserName is the name of the user who made the original offer connection
 	// request.
 	UserName string
+}
+
+// GrantedSecretConsumerImport contains details to import a granted secret
+// consumer during migration. These are used to track down which unit has access
+// to which revision of a granted secret.
+type GrantedSecretConsumerImport struct {
+	// Unit is the unit name of the consuming unit.
+	Unit unit.Name
+
+	// Revision is the revision of the secret that the unit is consuming.
+	CurrentRevision int
+}
+
+// GrantedSecretACLImport contains details to import a granted secret ACL during
+// migration.
+type GrantedSecretACLImport struct {
+	// ApplicationName is the name of the application to which the secret is
+	// granted.
+	ApplicationName string
+
+	// RelationKey represents the unique identifier of a relation
+	// through which the secret is granted.
+	RelationKey relation.Key
+
+	// Role defines the access role for a secret within the permissions of
+	// a granted secret ACL.
+	Role secrets.SecretRole
+}
+
+// GrantedSecretImport contains details to import a granted secret during
+// migration. These secrets are secrets granted by offerer applications to
+// consumer applications in the offerer model.
+type GrantedSecretImport struct {
+	// SecretID is the ID of the secret being granted.
+	SecretID string
+
+	// ACLs is a list of applications that have access to the
+	// secret through a relation.
+	ACLs []GrantedSecretACLImport
+
+	// Consumers is a list of units that actually consumes the secret.
+	Consumers []GrantedSecretConsumerImport
+}
+
+// RemoteSecretImport contains details to import a remote secret during
+// migration. These secrets are secrets granted by offerer applications to
+// consumer applications in the consumer model.
+type RemoteSecretImport struct {
+
+	// SecretID is the ID of the remote secret
+	SecretID string
+
+	// SourceUUID is the UUID of the application offering the secret
+	SourceUUID string
+
+	// Label is the label of the remote secret
+	Label string
+
+	// ConsumerUnit is the unit name of the consumer unit
+	ConsumerUnit unit.Name
+
+	// CurrentRevision is the consumed revision of the remote secret
+	CurrentRevision int
+
+	// LatestRevision is the latest revision of the remote secret
+	LatestRevision int
 }
 
 // ImportRemoteApplicationOfferers adds remote application offerers being
@@ -333,4 +401,16 @@ func (s *MigrationService) constructConsumedSyntheticCharm(appName string, endpo
 	}
 
 	return syntheticCharm, nil
+}
+
+// ImportGrantedSecrets imports secrets granted by offerer applications to
+// consumer applications in the offerer model.
+func (s *MigrationService) ImportGrantedSecrets(ctx context.Context, grantedSecrets []GrantedSecretImport) error {
+	return nil
+}
+
+// ImportRemoteSecrets imports secrets granted by offerer applications to
+// consumer applications in the consumer model.
+func (s *MigrationService) ImportRemoteSecrets(ctx context.Context, remoteSecrets []RemoteSecretImport) error {
+	return nil
 }
