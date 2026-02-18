@@ -94,6 +94,16 @@ func (s *importSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 		Role:      "provider",
 		Interface: "mysql",
 	})
+	relation := model.AddRelation(description.RelationArgs{
+		Id:  0,
+		Key: "remote-mysql:db foo:db",
+	})
+	relation.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "remote-mysql",
+	})
+	relation.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "foo",
+	})
 
 	expected := []service.RemoteApplicationOffererImport{
 		{
@@ -157,6 +167,17 @@ func (s *importSuite) TestImportRemoteApplicationOfferersMultiple(c *tc.C) {
 		Interface: "mysql",
 	})
 
+	relation1 := model.AddRelation(description.RelationArgs{
+		Id:  0,
+		Key: "remote-mysql:db foo:db",
+	})
+	relation1.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "remote-mysql",
+	})
+	relation1.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "foo",
+	})
+
 	remoteApp2 := model.AddRemoteApplication(description.RemoteApplicationArgs{
 		Name:            "remote-postgresql",
 		OfferUUID:       "offer-uuid-2",
@@ -172,6 +193,17 @@ func (s *importSuite) TestImportRemoteApplicationOfferersMultiple(c *tc.C) {
 		Name:      "admin",
 		Role:      "requirer",
 		Interface: "admin",
+	})
+
+	relation2 := model.AddRelation(description.RelationArgs{
+		Id:  0,
+		Key: "remote-postgresql:db foo:db",
+	})
+	relation2.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "remote-postgresql",
+	})
+	relation2.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "foo",
 	})
 
 	expected := []service.RemoteApplicationOffererImport{
