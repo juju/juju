@@ -295,8 +295,9 @@ run_deploy_lxd_profile_bundle() {
 		wait_for "ubuntu" "$(idle_condition "ubuntu" 1 "${i}")"
 	done
 
-	short_uuid=$(juju models --format json |
-		yq -r --arg name "${model_name}" '.models[] | select(.["short-name"]==$name) | ."model-uuid"[0:6]')
+	full_uuid=$(juju models --format json |
+		name="${model_name}" yq -r '.models[] | select(.["short-name"]==env(name)) | ."model-uuid"')
+	short_uuid="${full_uuid:0:6}"
 	lxd_profile_name="juju-${model_name}-${short_uuid}-lxd-profile"
 
 	for i in 0 1 2 3; do

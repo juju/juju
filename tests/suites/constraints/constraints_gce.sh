@@ -32,17 +32,17 @@ test_gce_pro_image() {
 	juju add-machine --base "ubuntu@${release_version}" --constraints "image-id=${image_id}"
 
 	machine_info="$(juju list-machines --format=json)"
-	machine_id=$(yq -r --arg ch "$release_version" \
-		'.machines | to_entries[] | select(.value.base.channel==$ch) | .key' <<<"$machine_info")
+	machine_id=$(ch="$release_version" yq -r \
+		'.machines | to_entries[] | select(.value.base.channel==env(ch)) | .key' <<<"$machine_info")
 
 	wait_for_machine_agent_status "$machine_id" "started"
 
 	# Refresh machine info and verify the actual instance uses the expected image
 	machine_info="$(juju list-machines --format=json)"
-	instance_id="$(yq -r --arg id "$machine_id" '.machines[$id]."instance-id"' <<<"$machine_info")"
+	instance_id="$(id="$machine_id" yq -r '.machines[env(id)]."instance-id"' <<<"$machine_info")"
 	source_image_id=$(gcloud compute disks list \
 		--filter="name=$instance_id" \
-		--format="json" | yq -r '.[0].sourceImage | split("/")[-1]')
+		--format="json" | yq -r '.[0].sourceImage | split("/") | .[-1]')
 
 	test "$image_id" = "$source_image_id"
 }

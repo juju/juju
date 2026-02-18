@@ -79,20 +79,19 @@ EOF
 	)
 
 	echo "${CLOUDS}" >>"${TEST_DIR}/juju/clouds.yaml"
-	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json | yq -S 'with_entries(select(
+	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json | yq 'with_entries(select(
 	                                                  .value.defined != "built-in")) | with_entries((select(.value.defined == "local")
-	                                                  | del(.value.defined) |  del(.value.description)))')
-	EXPECTED=$(echo "${CLOUDS}" | yq -o=json | yq -S '.[] | del(.clouds) | .[] |= ({endpoint} as $endpoint | .[] |= walk(
-                                                  (objects | select(contains($endpoint))) |= del(.endpoint)
-                                                ))')
+	                                                  | del(.value.defined) |  del(.value.description))) | sort_keys(..)')
+	EXPECTED=$(echo "${CLOUDS}" | yq -o=json | yq '.[] | del(.clouds) | .[] |= (.endpoint as $ep
+	                                                  | del(.regions[].endpoint | select(. == $ep))) | sort_keys(..)')
 	if [ "${CLOUD_LIST}" != "${EXPECTED}" ]; then
 		echo "expected ${EXPECTED}, got ${CLOUD_LIST}"
 		exit 1
 	fi
 
-	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju show-cloud finfolk-vmaas --format json --client | yq -S '.[] | with_entries((select(.value!= null)))')
+	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju show-cloud finfolk-vmaas --format json --client | yq '.[] | with_entries((select(.value!= null))) | sort_keys(..)')
 	EXPECTED=$(
-		cat <<'EOF' | yq -S
+		cat <<'EOF' | yq 'sort_keys(..)'
 	{
     "auth-types": [
       "oauth1"

@@ -104,8 +104,9 @@ run_deploy_lxd_profile_charm() {
 	juju deploy juju-qa-lxd-profile-without-devices --series jammy
 	wait_for "lxd-profile-without-devices" "$(idle_condition "lxd-profile-without-devices")"
 
-	short_uuid=$(juju models --format json |
-		yq -r --arg name "${model_name}" '.models[] | select(.["short-name"]==$name) | ."model-uuid"[0:6]')
+	full_uuid=$(juju models --format json |
+		name="${model_name}" yq -r '.models[] | select(.["short-name"]==env(name)) | ."model-uuid"')
+	short_uuid="${full_uuid:0:6}"
 	lxd_profile="juju-test-deploy-lxd-profile-${short_uuid}-lxd-profile"
 
 	juju status --format=json | yq '.machines | .["0"] | .["lxd-profiles"] | keys[0]' | check "${lxd_profile}"
@@ -127,8 +128,9 @@ run_deploy_lxd_profile_charm_container() {
 	juju deploy juju-qa-lxd-profile-without-devices --to lxd --series jammy
 	wait_for "lxd-profile-without-devices" "$(idle_condition "lxd-profile-without-devices")"
 
-	short_uuid=$(juju models --format json |
-		yq -r --arg name "${model_name}" '.models[] | select(.["short-name"]==$name) | ."model-uuid"[0:6]')
+	full_uuid=$(juju models --format json |
+		name="${model_name}" yq -r '.models[] | select(.["short-name"]==env(name)) | ."model-uuid"')
+	short_uuid="${full_uuid:0:6}"
 	lxd_profile="juju-test-deploy-lxd-profile-container-${short_uuid}-lxd-profile"
 
 	juju status --format=json | yq '.machines | .["0"] | .containers | .["0/lxd/0"] | .["lxd-profiles"] | keys[0]' |
@@ -170,8 +172,9 @@ run_deploy_local_lxd_profile_charm() {
 	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
 	wait_for "lxd-profile-subordinate" ".applications | keys[1]"
 
-	short_uuid=$(juju models --format json |
-		yq -r --arg name "${model_name}" '.models[] | select(.["short-name"]==$name) | ."model-uuid"[0:6]')
+	full_uuid=$(juju models --format json |
+		name="${model_name}" yq -r '.models[] | select(.["short-name"]==env(name)) | ."model-uuid"')
+	short_uuid="${full_uuid:0:6}"
 
 	lxd_profile_name="juju-test-deploy-local-lxd-profile-${short_uuid}-lxd-profile"
 	lxd_profile_sub_name="juju-test-deploy-local-lxd-profile-${short_uuid}-lxd-profile-subordinate"
@@ -214,8 +217,9 @@ run_deploy_lxd_to_machine() {
 
 	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 
-	short_uuid=$(juju models --format json |
-		yq -r --arg name "${model_name}" '.models[] | select(.["short-name"]==$name) | ."model-uuid"[0:6]')
+	full_uuid=$(juju models --format json |
+		name="${model_name}" yq -r '.models[] | select(.["short-name"]==env(name)) | ."model-uuid"')
+	short_uuid="${full_uuid:0:6}"
 
 	lxd_profile_0="juju-test-deploy-lxd-machine-${short_uuid}-lxd-profile-alt-0"
 	lxd_profile_1="juju-test-deploy-lxd-machine-${short_uuid}-lxd-profile-alt-1"
@@ -289,8 +293,9 @@ run_deploy_lxd_to_container() {
 	machine_0="$(machine_container_path 0 0/lxd/0)"
 	wait_for "lxd-profile-subordinate" "${machine_0}"
 
-	short_uuid=$(juju models --format json |
-		yq -r --arg name "${model_name}" '.models[] | select(.["short-name"]==$name) | ."model-uuid"[0:6]')
+	full_uuid=$(juju models --format json |
+		name="${model_name}" yq -r '.models[] | select(.["short-name"]==env(name)) | ."model-uuid"')
+	short_uuid="${full_uuid:0:6}"
 
 	lxd_profile_name="juju-test-deploy-lxd-container-${short_uuid}-lxd-profile-alt"
 	lxd_profile_sub_name="juju-test-deploy-lxd-container-${short_uuid}-lxd-profile-subordinate"

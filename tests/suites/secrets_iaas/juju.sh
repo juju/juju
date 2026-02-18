@@ -243,7 +243,7 @@ run_obsolete_revisions() {
 	# Check that the secret-remove hook is run for the 10 obsolete revisions.
 	attempt=0
 	while true; do
-		num_hooks=$(juju show-status-log juju-qa-test/0 --format json -n 100 | yq -r "[.[] | select(.message != null) | select(.message | contains(\"running secret-remove hook\") and contains(\"${secret_id}\"))] | length")
+		num_hooks=$(juju show-status-log juju-qa-test/0 --format json -n 100 | yq -r "[.[] | select(.message != null) | select(.message | contains(\"running secret-remove hook\") and .message | contains(\"${secret_id}\"))] | length")
 		if [ "$num_hooks" -eq 10 ]; then
 			break
 		fi

@@ -21,7 +21,7 @@ wait_for() {
 	attempt=0
 	start_time="$(date -u +%s)"
 	# shellcheck disable=SC2046,SC2143
-	until [[ "$(juju status --format=json 2>/dev/null | yq -S "${query}" | grep "${name}")" ]]; do
+	until [[ "$(juju status --format=json 2>/dev/null | yq "${query}" | grep "${name}")" ]]; do
 		echo "[+] (attempt ${attempt}) polling status for" "${query} => ${name}"
 		juju status --relations 2>&1 | sed 's/^/    | /g'
 		sleep "${SHORT_TIMEOUT}"
@@ -229,7 +229,6 @@ wait_for_machine_netif_count() {
 		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))
 	done
-
 }
 
 # wait_for_subordinate_count blocks until the number of subordinates

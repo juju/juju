@@ -121,7 +121,7 @@ run_enable_ha() {
 	wait_for_controller_machines_tear_down 1
 
 	# Ensure that we have no ha enabled machines.
-	juju show-controller --format=json | yq -r '.[] | .["controller-machines"] |  reduce(.[] | select(.["instance-id"] == null)) as $i (0;.+=1)' | grep 0
+	juju show-controller --format=json | yq -r '.[] | .["controller-machines"] | (.[] | select(.["instance-id"] == null)) as $i ireduce (0; . + 1)' | grep 0
 
 	wait_for_controller_leader
 
