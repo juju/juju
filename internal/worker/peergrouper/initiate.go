@@ -43,23 +43,25 @@ func InitiateMongoServer(p InitiateMongoParams) error {
 	}
 	p.DialInfo.Direct = true
 
+	const attempts = 3
 	// Initiate may fail while mongo is initialising, so we retry until
 	// we successfully populate the replicaset config.
 	retryCallArgs := retry.CallArgs{
 		Clock:       clock.WallClock,
-		MaxDuration: 60 * time.Second,
+		Attempts:    attempts,
 		Delay:       5 * time.Second,
+		MaxDuration: attempts * (mongo.SocketTimeout + p.DialInfo.Timeout + p.DialInfo.SyncTimeout),
 		Func: func() error {
 			return attemptInitiateMongoServer(p.DialInfo, p.MemberHostPort)
 		},
 		NotifyFunc: func(lastError error, attempt int) {
-			logger.Debugf("replica set initiation attempt %d failed: %v", attempt, lastError)
+			logger.Warningf("replica set initiation attempt %d failed: %v", attempt, lastError)
 		},
 	}
 	err := retry.Call(retryCallArgs)
 	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
 		err = retry.LastError(err)
-		logger.Debugf("replica set initiation failed: %v", err)
+		logger.Errorf("replica set initiation failed: %v", err)
 	}
 	if err == nil {
 		logger.Infof("replica set initiated")
