@@ -582,6 +582,33 @@ WHERE uuid = $machine.uuid;
 			return errors.Errorf("getting net node: %w", err)
 		}
 
+		// Before proceeding, check that no units (including dead ones) still
+		// reference this machine's net node. Dead units that have not yet been
+		// deleted from the DB hold a FK reference to net_node, so attempting to
+		// delete the net_node while they exist will cause a constraint violation.
+		// Return RemovalJobIncomplete so the machine removal job retries once
+		// the unit removal job has finished.
+		if !force {
+			// Use the populated node variable as the sqlair sample value since
+			// "var node node" shadows the type name after this point.
+			countUnitsOnNetNodeStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM   unit
+WHERE  net_node_uuid = $node.uuid`, count{}, node)
+			if err != nil {
+				return errors.Capture(err)
+			}
+			var unitNodeCount count
+			if err := tx.Query(ctx, countUnitsOnNetNodeStmt, node).Get(&unitNodeCount); err != nil {
+				return errors.Errorf("checking units on net node: %w", err)
+			} else if unitNodeCount.Count > 0 {
+				return errors.Errorf(
+					"machine net node still referenced by %d unit(s), waiting for unit removal",
+					unitNodeCount.Count,
+				).Add(removalerrors.RemovalJobIncomplete)
+			}
+		}
+
 		// Remove the machine entry
 		if err := tx.Query(ctx, deleteMachineStmt, machine(machineUUIDParam)).Run(); err != nil {
 			return errors.Errorf("deleting machine: %w", err)
@@ -795,6 +822,27 @@ WHERE  net_node_uuid = $node.uuid`
 
 		if err := tx.Query(ctx, stmt, llDevicesToDelete).Run(); err != nil {
 			removeErr := errors.Errorf("deleting reference to machine network in query %q: %w", query, err)
+			if database.IsErrConstraintForeignKey(err) {
+				removeErr = removeErr.Add(removalerrors.RemovalJobIncomplete)
+			}
+			return removeErr
+		}
+	}
+
+	// Delete the net node fqdn and hostname addresses before deleting the net node.
+	deleteNetNodeAddresses := []string{
+		"DELETE FROM net_node_fqdn_address WHERE net_node_uuid = $node.uuid",
+		"DELETE FROM net_node_hostname_address WHERE net_node_uuid = $node.uuid",
+	}
+
+	for _, query := range deleteNetNodeAddresses {
+		stmt, err := st.Prepare(query, node{})
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		if err := tx.Query(ctx, stmt, netNodeUUIDRec).Run(); err != nil {
+			removeErr := errors.Errorf("deleting net node addresses in query %q: %w", query, err)
 			if database.IsErrConstraintForeignKey(err) {
 				removeErr = removeErr.Add(removalerrors.RemovalJobIncomplete)
 			}
