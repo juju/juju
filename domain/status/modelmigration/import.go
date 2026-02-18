@@ -235,12 +235,19 @@ func (i *importOperation) importRemoteApplicationOffererStatus(
 	service ImportService,
 	model description.Model,
 ) error {
-	for _, remoteApp := range model.RemoteApplications() {
-		// Skip remote applications, we only want offerers here.
-		if remoteApp.IsConsumerProxy() {
+	remoteOfferApps, err := domainmodelmigration.UniqueRemoteOfferApplications(model.RemoteApplications(), model.Relations())
+	if err != nil {
+		return errors.Errorf("getting unique remote offer applications: %w", err)
+	}
+	for _, remoteApps := range remoteOfferApps {
+		// We only need the first of the remote offer applications as the rest
+		// are de-duplicated copies of the same remote application, and will
+		// have the same status.
+		if len(remoteApps) == 0 {
 			continue
 		}
 
+		remoteApp := remoteApps[0]
 		offererStatus := i.importStatus(remoteApp.Status())
 		if err := service.SetRemoteApplicationOffererStatus(ctx, remoteApp.Name(), offererStatus); err != nil {
 			return errors.Errorf("setting offerer status for remote application %q: %w", remoteApp.Name(), err)
