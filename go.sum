@@ -126,8 +126,8 @@ github.com/canonical/lxd v0.0.0-20251125210512-b190d213bd11 h1:QOyXTFkf5zh/UezMu
 github.com/canonical/lxd v0.0.0-20251125210512-b190d213bd11/go.mod h1:vE1tA6TE1rvEzMcFKUfqh7BMhGH0vlkhYDy4YzeLHbM=
 github.com/canonical/pebble v1.26.0 h1:jsPJmHe/E5PU6epAoq8QC/U2itPsMX947/oP4zcsWCA=
 github.com/canonical/pebble v1.26.0/go.mod h1:HtGFWX2hq+/jxXHvN3ibXUAqFGCRXmT2e4jYkpZi/O0=
-github.com/canonical/sqlair v0.0.0-20250120155751-a83645b9a121 h1:6weWVME/J1xtVyUDGHfDXhQji3/IdRdFqEEQo0yA6lg=
-github.com/canonical/sqlair v0.0.0-20250120155751-a83645b9a121/go.mod h1:T+40I2sXshY3KRxx0QQpqqn6hCibSKJ2KHzjBvJj8T4=
+github.com/canonical/sqlair v0.0.0-20260218132926-bd54c4999dea h1:m9TQ00PXBFNgp11bl7CFz7vnywKEcmWd+o325Ff7PfY=
+github.com/canonical/sqlair v0.0.0-20260218132926-bd54c4999dea/go.mod h1:odcb8D8AbEICcCVrHjzQg9i2rmWoFMyRTd0bt2dOGUQ=
 github.com/canonical/x-go v0.0.0-20230522092633-7947a7587f5b h1:Da2fardddn+JDlVEYtrzBLTtyzoyU3nIS0Cf0GvjmwU=
 github.com/canonical/x-go v0.0.0-20230522092633-7947a7587f5b/go.mod h1:upTK9n6rlqITN9rCN69hdreI37dRDFUk2thlGGD5Cg8=
 github.com/cenkalti/backoff/v3 v3.0.0 h1:ske+9nBpD9qZsTBoF41nW5L+AIuFBKMeze18XQ3eG1c=
