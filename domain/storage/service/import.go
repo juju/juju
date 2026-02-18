@@ -9,8 +9,6 @@ import (
 	"slices"
 
 	"github.com/juju/collections/transform"
-	"github.com/juju/description/v11"
-
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	corestorage "github.com/juju/juju/core/storage"
@@ -239,7 +237,126 @@ func (s *StorageImportService) retrieveFilesystemProviderScopesForPools(
 	return providerScopes, nil
 }
 
-// GetStoragePoolsToImport resolves the full set of storage pools to create during
+// ImportStoragePools creates new storage pools with the slice of [domainstorage.ImportStoragePoolParams]
+// . This is slightly different to [CreateStoragePools] because:
+//  1. the storage pool name validation uses a legacy regex and,
+//  2. the storage pools could be user-defined and provider default.
+//
+// The following errors may be returned:
+// - [domainstorageerrors.StoragePoolNameInvalid] when the supplied storage
+// pool name is considered invalid or empty.
+// - [domainstorageerrors.ProviderTypeInvalid] when the supplied provider
+// type value is invalid for further use.
+// - [domainstorageerrors.ProviderTypeNotFound] when the supplied provider
+// type is not known to the controller.
+// - [domainstorageerrors.StoragePoolAlreadyExists] when a storage pool for the
+// supplied name already exists in the model.
+// - [domainstorageerrors.StoragePoolAttributeInvalid] when one of the supplied
+// storage pool attributes is invalid.
+func (s *StorageImportService) ImportStoragePools(
+	ctx context.Context,
+	userPools []domainstorage.UserStoragePoolParams,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	pools, recommendedPools, err := s.getStoragePoolsToImport(ctx, userPools)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	for _, pool := range pools {
+		err := s.validateStoragePoolCreation(ctx, pool.Name, domainstorage.ProviderType(pool.Type),
+			pool.Attrs,
+			domainstorage.IsValidStoragePoolNameWithLegacy)
+		if err != nil {
+			return err
+		}
+		err = pool.UUID.Validate()
+		if err != nil {
+			return errors.Errorf("storage pool %q UUID is not valid: %w", pool.Name, err)
+		}
+
+		coercedAttrs := transform.Map(
+			pool.Attrs,
+			func(k string, v any) (string, string) {
+				return k, fmt.Sprint(v)
+			},
+		)
+
+		arg := domainstorageinternal.CreateStoragePool{
+			Attrs:        coercedAttrs,
+			Name:         pool.Name,
+			Origin:       pool.Origin,
+			ProviderType: domainstorage.ProviderType(pool.Type),
+			UUID:         pool.UUID,
+		}
+		// TODO(adisazhar123): refactor opportunity. Bulk insert.
+		err = s.st.CreateStoragePool(ctx, arg)
+		if err != nil {
+			return errors.Errorf("creating storage pool %q: %w", pool.Name, err)
+		}
+	}
+
+	err = s.setRecommendedStoragePools(ctx, recommendedPools)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+func (s *StorageImportService) validateStoragePoolCreation(
+	ctx context.Context,
+	name string,
+	providerType domainstorage.ProviderType,
+	attrs map[string]any,
+	isValidStoragePoolName func(string) bool,
+) error {
+	if !isValidStoragePoolName(name) {
+		return errors.New("new storage pool name is not valid").Add(
+			domainstorageerrors.StoragePoolNameInvalid,
+		)
+	}
+	if !providerType.IsValid() {
+		// We don't include the invalid storage provider type on purpose. It's
+		// contents are unknown and so we would shouldn't process the occupied
+		// memory any further.
+		return errors.New("storage provider type is not valid").Add(
+			domainstorageerrors.ProviderTypeInvalid,
+		)
+	}
+
+	providerRegistry, err := s.registryGetter.GetStorageRegistry(ctx)
+	if err != nil {
+		return errors.Errorf("getting storage provider registry: %w", err)
+	}
+
+	storageProvider, err := providerRegistry.StorageProvider(
+		internalstorage.ProviderType(providerType),
+	)
+	if errors.Is(err, coreerrors.NotFound) {
+		return errors.Errorf(
+			"storage provider %q does not exist in the model",
+			providerType.String(),
+		).Add(domainstorageerrors.ProviderTypeNotFound)
+	} else if err != nil {
+		return errors.Errorf(
+			"getting storage provider %q: %w", providerType.String(), err,
+		)
+	}
+
+	// NOTE (tlm): We need to create better long term support with storage
+	// providers around their error contract for validation. They should return
+	// a better typed error describing the attribute key that failed and the
+	// reasons for this. Having this will allow this service func to give better
+	// context to the caller and in returned the user.
+	return validateNewStoragePoolConfig(
+		ctx, storageProvider, name, providerType, attrs,
+	)
+}
+
+// getStoragePoolsToImport resolves the full set of storage pools to create during
 // model import.
 //
 // It starts with user-defined storage pools from the description model, ensuring
@@ -250,9 +367,9 @@ func (s *StorageImportService) retrieveFilesystemProviderScopesForPools(
 // The function returns:
 //  1. A slice of storage pools that should be created during import
 //  2. A slice of recommended storage pools referencing existing or newly created pools
-func (s *StorageImportService) GetStoragePoolsToImport(
+func (s *StorageImportService) getStoragePoolsToImport(
 	ctx context.Context,
-	userPools []description.StoragePool,
+	userPools []domainstorage.UserStoragePoolParams,
 ) (
 	[]domainstorage.ImportStoragePoolParams,
 	[]domainstorage.RecommendedStoragePoolParams,
@@ -265,14 +382,14 @@ func (s *StorageImportService) GetStoragePoolsToImport(
 	for _, v := range userPools {
 		uuid, err := domainstorage.NewStoragePoolUUID()
 		if err != nil {
-			return nil, nil, errors.Errorf("generating uuid for user pool %q: %w", v.Name(), err)
+			return nil, nil, errors.Errorf("generating uuid for user pool %q: %w", v.Name, err)
 		}
 		poolsToCreate = append(poolsToCreate, domainstorage.ImportStoragePoolParams{
 			UUID:   uuid,
-			Name:   v.Name(),
+			Name:   v.Name,
 			Origin: domainstorage.StoragePoolOriginUser,
-			Type:   v.Provider(),
-			Attrs:  v.Attributes(),
+			Type:   v.Provider,
+			Attrs:  v.Attributes,
 		})
 	}
 
@@ -291,7 +408,7 @@ func (s *StorageImportService) GetStoragePoolsToImport(
 	}
 
 	for _, providerType := range providerTypes {
-		registry, err := modelStorageRegistry.StorageProvider(providerType)
+		provider, err := modelStorageRegistry.StorageProvider(providerType)
 		if err != nil {
 			return nil, nil, errors.Errorf(
 				"getting storage provider %q from registry: %w",
@@ -299,7 +416,7 @@ func (s *StorageImportService) GetStoragePoolsToImport(
 			)
 		}
 
-		providerDefaultPools := registry.DefaultPools()
+		providerDefaultPools := provider.DefaultPools()
 		for _, providerDefaultPool := range providerDefaultPools {
 			providerDefault, err := s.defaultPoolForImport(ctx, poolsToCreate, providerDefaultPool)
 			if err != nil {
@@ -320,9 +437,9 @@ func (s *StorageImportService) GetStoragePoolsToImport(
 	return poolsToCreate, recommendedPools, nil
 }
 
-// SetRecommendedStoragePools persists the set of recommended storage pools
+// setRecommendedStoragePools persists the set of recommended storage pools
 // that are to be used for a model.
-func (s *StorageImportService) SetRecommendedStoragePools(ctx context.Context,
+func (s *StorageImportService) setRecommendedStoragePools(ctx context.Context,
 	pools []domainstorage.RecommendedStoragePoolParams) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -504,113 +621,4 @@ func (s *StorageImportService) getRecommendedStoragePools(
 	}
 
 	return poolsToCreate, recommendedPools, nil
-}
-
-// ImportStoragePools creates new storage pools with the slice of [domainstorage.ImportStoragePoolParams]
-// . This is slightly different to [CreateStoragePools] because:
-//  1. the storage pool name validation uses a legacy regex and,
-//  2. the storage pools could be user-defined and provider default.
-//
-// The following errors may be returned:
-// - [domainstorageerrors.StoragePoolNameInvalid] when the supplied storage
-// pool name is considered invalid or empty.
-// - [domainstorageerrors.ProviderTypeInvalid] when the supplied provider
-// type value is invalid for further use.
-// - [domainstorageerrors.ProviderTypeNotFound] when the supplied provider
-// type is not known to the controller.
-// - [domainstorageerrors.StoragePoolAlreadyExists] when a storage pool for the
-// supplied name already exists in the model.
-// - [domainstorageerrors.StoragePoolAttributeInvalid] when one of the supplied
-// storage pool attributes is invalid.
-func (s *StorageImportService) ImportStoragePools(
-	ctx context.Context,
-	pools []domainstorage.ImportStoragePoolParams,
-) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	for _, pool := range pools {
-		err := s.validateStoragePoolCreation(ctx, pool.Name, domainstorage.ProviderType(pool.Type),
-			pool.Attrs,
-			domainstorage.IsValidStoragePoolNameWithLegacy)
-		if err != nil {
-			return err
-		}
-		err = pool.UUID.Validate()
-		if err != nil {
-			return errors.Errorf("storage pool %q UUID is not valid: %w", pool.Name, err)
-		}
-
-		coercedAttrs := transform.Map(
-			pool.Attrs,
-			func(k string, v any) (string, string) {
-				return k, fmt.Sprint(v)
-			},
-		)
-
-		arg := domainstorageinternal.CreateStoragePool{
-			Attrs:        coercedAttrs,
-			Name:         pool.Name,
-			Origin:       pool.Origin,
-			ProviderType: domainstorage.ProviderType(pool.Type),
-			UUID:         pool.UUID,
-		}
-		// TODO(adisazhar123): refactor opportunity. Bulk insert.
-		err = s.st.CreateStoragePool(ctx, arg)
-		if err != nil {
-			return errors.Errorf("creating storage pool %q: %w", pool.Name, err)
-		}
-	}
-
-	return nil
-}
-
-func (s *StorageImportService) validateStoragePoolCreation(
-	ctx context.Context,
-	name string,
-	providerType domainstorage.ProviderType,
-	attrs map[string]any,
-	isValidStoragePoolName func(string) bool,
-) error {
-	if !isValidStoragePoolName(name) {
-		return errors.New("new storage pool name is not valid").Add(
-			domainstorageerrors.StoragePoolNameInvalid,
-		)
-	}
-	if !providerType.IsValid() {
-		// We don't include the invalid storage provider type on purpose. It's
-		// contents are unknown and so we would shouldn't process the occupied
-		// memory any further.
-		return errors.New("storage provider type is not valid").Add(
-			domainstorageerrors.ProviderTypeInvalid,
-		)
-	}
-
-	providerRegistry, err := s.registryGetter.GetStorageRegistry(ctx)
-	if err != nil {
-		return errors.Errorf("getting storage provider registry: %w", err)
-	}
-
-	storageProvider, err := providerRegistry.StorageProvider(
-		internalstorage.ProviderType(providerType),
-	)
-	if errors.Is(err, coreerrors.NotFound) {
-		return errors.Errorf(
-			"storage provider %q does not exist in the model",
-			providerType.String(),
-		).Add(domainstorageerrors.ProviderTypeNotFound)
-	} else if err != nil {
-		return errors.Errorf(
-			"getting storage provider %q: %w", providerType.String(), err,
-		)
-	}
-
-	// NOTE (tlm): We need to create better long term support with storage
-	// providers around their error contract for validation. They should return
-	// a better typed error describing the attribute key that failed and the
-	// reasons for this. Having this will allow this service func to give better
-	// context to the caller and in returned the user.
-	return validateNewStoragePoolConfig(
-		ctx, storageProvider, name, providerType, attrs,
-	)
 }

@@ -137,3 +137,10 @@ func (p ImportFilesystemParams) Validate() error {
 
 	return nil
 }
+
+// UserStoragePoolParams represents the user storage pools data from model description.
+type UserStoragePoolParams struct {
+	Name       string
+	Provider   string
+	Attributes map[string]interface{}
+}
