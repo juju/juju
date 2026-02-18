@@ -228,7 +228,6 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 
 	var noStatus params.FullStatus
 	var context statusContext
-	context.cachedModel = c.modelCache
 	context.appCharmCache = map[string]string{}
 
 	m, err := c.stateAccessor.Model()
@@ -678,7 +677,6 @@ type applicationStatusInfo struct {
 
 type statusContext struct {
 	providerType string
-	cachedModel  *cache.Model
 	model        *state.Model
 	status       *state.ModelStatus
 	presence     common.ModelPresenceContext
@@ -1417,21 +1415,64 @@ func (context *statusContext) processApplication(application *state.Application)
 		return processedStatus
 	}
 	units := context.allAppsUnitsCharmBindings.units[application.Name()]
-	if application.IsPrincipal() {
-		expectWorkload, err := state.CheckApplicationExpectsWorkload(context.model, application.Name())
-		if err != nil {
-			return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
+
+	expectWorkload := false
+	if context.model.Type() == state.ModelTypeCAAS {
+		if charm.MetaFormat(applicationCharm) == charm.FormatV1 {
+			cm, err := context.model.CAASModel()
+			if err != nil {
+				processedStatus.Err = apiservererrors.ServerError(err)
+				return processedStatus
+			}
+			_, err = cm.PodSpec(application.ApplicationTag())
+			if err != nil && !errors.Is(err, errors.NotFound) {
+				processedStatus.Err = apiservererrors.ServerError(err)
+				return processedStatus
+			}
+			expectWorkload = err == nil
 		}
-		processedStatus.Units = context.processUnits(units, applicationCharm.URL(), expectWorkload)
+	}
+	if application.IsPrincipal() {
+		processedStatus.Units = context.processUnits(
+			units, applicationCharm.URL(), expectWorkload)
 	}
 
-	// If for whatever reason the application isn't yet in the cache,
-	// we have an unknown status.
-	applicationStatus := status.StatusInfo{Status: status.Unknown}
-	cachedApp, err := context.cachedModel.Application(application.Name())
-	if err == nil {
-		applicationStatus = cachedApp.DisplayStatus()
+	applicationStatus, err := application.Status()
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		processedStatus.Err = apiservererrors.ServerError(err)
+		return processedStatus
 	}
+	if applicationStatus.Status == status.Unset {
+		// Derive the application status from the non-presence affected unit
+		// workload status
+		statuses := make([]status.StatusInfo, 0, len(units))
+		for unitName := range units {
+			status, err := context.status.UnitWorkload(unitName, expectWorkload)
+			if errors.Is(err, errors.NotFound) {
+				continue
+			} else if err != nil {
+				processedStatus.Err = apiservererrors.ServerError(err)
+				return processedStatus
+			}
+			statuses = append(statuses, status)
+		}
+		derivedApplicationStatus := status.DeriveStatus(statuses)
+		if derivedApplicationStatus.Since == nil {
+			derivedApplicationStatus.Since = applicationStatus.Since
+		}
+		applicationStatus = derivedApplicationStatus
+	}
+
+	if context.model.Type() == state.ModelTypeCAAS {
+		operatorStatus, err := application.OperatorStatus()
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			processedStatus.Err = apiservererrors.ServerError(err)
+			return processedStatus
+		}
+		applicationStatus = status.ApplicationDisplayStatus(
+			applicationStatus, operatorStatus, expectWorkload)
+	}
+
 	processedStatus.Status.Status = applicationStatus.Status.String()
 	processedStatus.Status.Info = applicationStatus.Message
 	processedStatus.Status.Data = applicationStatus.Data
