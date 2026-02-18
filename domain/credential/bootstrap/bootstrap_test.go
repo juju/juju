@@ -6,6 +6,7 @@ package bootstrap
 import (
 	"testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -40,7 +41,7 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *tc.C) {
 	userUUID, err := user.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	userState := userstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	userState := userstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	err = userState.AddUserWithPermission(
 		c.Context(), userUUID,
 		usertesting.GenNewName(c, "fred"),

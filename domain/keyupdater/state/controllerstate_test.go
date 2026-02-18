@@ -9,6 +9,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/controller"
@@ -130,7 +131,7 @@ func (s *controllerStateSuite) TestGetUserAuthorizedKeysForModel(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 
 	secondUserId := usertesting.GenUserUUID(c)
-	userSt := userstate.NewUserState(s.TxnRunnerFactory())
+	userSt := userstate.NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 	err = userSt.AddUser(
 		c.Context(),
 		secondUserId,

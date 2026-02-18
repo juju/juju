@@ -54,7 +54,7 @@
 //
 //	func(s *Service) DoWork(ctx context.Context, p WorkParams) error {
 //	    args := foo.ProgressArgs{
-//	        StartedAt: time.Now(),
+//	        StartedAt: s.clock.Now(),
 //	    }
 //	    return s.st.RecordStart(ctx, args)
 //	}

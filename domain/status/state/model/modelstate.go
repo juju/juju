@@ -1113,7 +1113,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 
 		presence := unitPresence{
 			UnitUUID: uuid.UnitUUID,
-			LastSeen: st.clock.Now(),
+			LastSeen: st.clock.Now().UTC(),
 		}
 
 		if err := tx.Query(ctx, recordUnitStmt, presence).Run(); err != nil {
@@ -1197,7 +1197,7 @@ ON CONFLICT(machine_uuid) DO UPDATE SET
 
 		presence := machinePresence{
 			MachineUUID: uuid.UUID,
-			LastSeen:    st.clock.Now(),
+			LastSeen:    st.clock.Now().UTC(),
 		}
 
 		if err := tx.Query(ctx, recordMachineStmt, presence).Run(); err != nil {

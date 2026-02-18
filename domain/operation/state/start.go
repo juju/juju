@@ -129,7 +129,7 @@ func (st *State) AddActionOperation(ctx context.Context,
 			UUID:           operationUUID.String(),
 			OperationID:    strconv.FormatUint(operationID, 10),
 			Summary:        fmt.Sprintf("action %q", args.ActionName),
-			EnqueuedAt:     time.Now().UTC(),
+			EnqueuedAt:     st.clock.Now().UTC(),
 			Parallel:       args.IsParallel,
 			ExecutionGroup: args.ExecutionGroup,
 		})
@@ -206,7 +206,7 @@ func (st *State) addExecOperation(
 		return operation.RunResult{}, errors.Errorf("generating operation ID: %w", err)
 	}
 
-	now := time.Now().UTC()
+	now := st.clock.Now().UTC()
 	// Insert the operation first.
 	err = st.insertOperation(ctx, tx, insertOperation{
 		UUID:           operationUUID,
@@ -519,7 +519,7 @@ func (st *State) addMachineTaskWithID(
 	operationUUID string,
 	machineName machine.Name,
 ) operation.MachineTaskResult {
-	now := time.Now().UTC()
+	now := st.clock.Now().UTC()
 
 	// Since the insert of task doesn't fail the transaction, we need to cleanup
 	// the task if any of its inserts fail.
@@ -575,7 +575,7 @@ func (st *State) addUnitTask(ctx context.Context, tx *sqlair.TX, operationUUID s
 }
 
 func (st *State) addUnitTaskWithID(ctx context.Context, tx *sqlair.TX, taskID string, taskUUID string, operationUUID string, unitName coreunit.Name) operation.UnitTaskResult {
-	now := time.Now().UTC()
+	now := st.clock.Now().UTC()
 
 	// Since the insert of task doesn't fail the transaction, we need to cleanup
 	// the task if any of its inserts fail.
@@ -633,7 +633,7 @@ func (st *State) insertOperationTaskStatus(ctx context.Context, tx *sqlair.TX, t
 		TaskUUID:  taskUUID,
 		Status:    string(status),
 		Message:   message,
-		UpdatedAt: time.Now().UTC(),
+		UpdatedAt: st.clock.Now().UTC(),
 	}
 
 	query := `

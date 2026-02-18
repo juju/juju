@@ -596,7 +596,7 @@ func (s *Service) SetSSHHostKeys(ctx context.Context, mUUID machine.UUID, keys [
 func recordCreateMachineStatusHistory(ctx context.Context, statusHistory StatusHistory, machineName machine.Name, clock clock.Clock) error {
 	info := status.StatusInfo{
 		Status: status.Pending,
-		Since:  ptr(clock.Now()),
+		Since:  ptr(clock.Now().UTC()),
 	}
 
 	if err := statusHistory.RecordStatus(ctx, domainstatus.MachineNamespace.WithID(machineName.String()), info); err != nil {

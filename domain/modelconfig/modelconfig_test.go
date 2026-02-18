@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	stdtesting "testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/schema"
 	"github.com/juju/tc"
 
@@ -55,7 +56,7 @@ func (s *modelConfigSuite) SetUpTest(c *tc.C) {
 
 	userID, err := coreuser.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	accessState := accessstate.NewState(s.ControllerSuite.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	accessState := accessstate.NewState(s.ControllerSuite.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	err = accessState.AddUserWithPermission(
 		c.Context(), userID,
 		coreuser.AdminUserName,

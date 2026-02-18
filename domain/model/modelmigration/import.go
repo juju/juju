@@ -6,6 +6,7 @@ package modelmigration
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/description/v11"
 	"github.com/juju/names/v6"
 
@@ -39,9 +40,10 @@ type Coordinator interface {
 
 // RegisterModelImport register's a new model migration importer into the
 // supplied coordinator.
-func RegisterModelImport(coordinator Coordinator, logger logger.Logger) {
+func RegisterModelImport(coordinator Coordinator, clock clock.Clock, logger logger.Logger) {
 	// The model import operation must always come first!
 	coordinator.Add(&importModelOperation{
+		clock:  clock,
 		logger: logger,
 	})
 	coordinator.Add(&importModelConstraintsOperation{
@@ -127,6 +129,7 @@ type importModelOperation struct {
 	modelDetailServiceFunc ModelDetailServiceFunc
 	userService            UserService
 
+	clock  clock.Clock
 	logger logger.Logger
 }
 
@@ -161,7 +164,7 @@ func (i *importModelOperation) Setup(scope modelmigration.Scope) error {
 	)
 
 	i.modelDetailServiceFunc = modelDetailServiceGetter(scope, i.logger)
-	i.userService = accessservice.NewService(accessstate.NewState(scope.ControllerDB(), i.logger))
+	i.userService = accessservice.NewService(accessstate.NewState(scope.ControllerDB(), i.clock, i.logger), i.clock)
 	return nil
 }
 

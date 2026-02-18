@@ -174,9 +174,8 @@ func (s *ControllerServices) Flag() *flagservice.Service {
 
 // Access returns the access service, this includes users and permissions.
 func (s *ControllerServices) Access() *accessservice.Service {
-	return accessservice.NewService(
-		accessstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), s.logger.Child("access")),
-	)
+	return accessservice.NewService(accessstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB),
+		s.clock, s.logger.Child("access")), s.clock)
 }
 
 func (s *ControllerServices) SecretBackend() *secretbackendservice.WatchableService {

@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"database/sql"
-	"time"
 
 	"github.com/canonical/sqlair"
 
@@ -44,7 +43,7 @@ func (st *State) buildResourcesToAdd(
 	appResources []application.AddApplicationResourceArg,
 ) ([]resourceToAdd, error) {
 	var resources []resourceToAdd
-	now := st.clock.Now()
+	now := st.clock.Now().UTC()
 	for _, r := range appResources {
 		// Available resources are resources actually available for use to the
 		// related application.
@@ -277,7 +276,7 @@ WHERE  r.uuid IN ($uuids[:])`, uuids{}, resourceToAdd{},
 		}
 		potentialUUIDs[i] = newUUID.String()
 		potentialResources[i].UUID = newUUID.String()
-		potentialResources[i].CreatedAt = time.Now()
+		potentialResources[i].CreatedAt = st.clock.Now().UTC()
 		potentialResources[i].State = coreresource.StatePotential.String()
 	}
 

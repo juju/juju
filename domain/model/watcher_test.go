@@ -50,7 +50,7 @@ func TestWatcherSuite(t *stdtesting.T) {
 
 func insertModelDependencies(c *tc.C, dbTxnRunnerFactory database.TxnRunnerFactory,
 	dbTxnRunner database.TxnRunner, userUUID user.UUID, userName user.Name) coremodel.UUID {
-	accessState := accessstate.NewState(dbTxnRunnerFactory, loggertesting.WrapCheckLog(c))
+	accessState := accessstate.NewState(dbTxnRunnerFactory, clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	// Add a user so we can set model owner.
 	err := accessState.AddUser(

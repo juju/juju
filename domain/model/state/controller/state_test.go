@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -82,7 +83,7 @@ func (m *stateSuite) SetUpTest(c *tc.C) {
 	// owner.
 	m.uuid = tc.Must(c, coremodel.NewUUID)
 	m.userName = usertesting.GenNewName(c, "test-user")
-	accessState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	accessState := accessstate.NewState(m.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	m.userUUID = usertesting.GenUserUUID(c)
 	err := accessState.AddUser(
@@ -678,7 +679,7 @@ func (m *stateSuite) TestCreateModelWithRemovedOwner(c *tc.C) {
 	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
 	m.createModel(c, m.uuid, m.userUUID)
 
-	accessState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	accessState := accessstate.NewState(m.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	someUser := usertesting.GenNewName(c, "test-someuser")
 	userUUID := usertesting.GenUserUUID(c)
@@ -741,7 +742,7 @@ func (m *stateSuite) TestCreateModelVerifyPermissionSet(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	accessSt := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	accessSt := accessstate.NewState(m.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	access, err := accessSt.ReadUserAccessLevelForTarget(ctx, m.userName, permission.ID{
 		ObjectType: permission.Model,
 		Key:        m.uuid.String(),
@@ -1171,7 +1172,7 @@ func (m *stateSuite) TestListUserModelUUIDs(c *tc.C) {
 	// Make test user to use for the final check.
 	user2UUID := usertesting.GenUserUUID(c)
 	user2Name := usertesting.GenNewName(c, "foo")
-	accessState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	accessState := accessstate.NewState(m.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	err = accessState.AddUser(
 		c.Context(),
 		user2UUID,
@@ -1564,7 +1565,7 @@ func (m *stateSuite) TestGetUserModelSummary(c *tc.C) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
 	m.createModel(c, modelUUID, m.userUUID)
 	expectedLoginTime := time.Now().Truncate(time.Minute).UTC()
-	accessState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	accessState := accessstate.NewState(m.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	err := accessState.UpdateLastModelLogin(c.Context(), m.userName, modelUUID, expectedLoginTime)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1619,7 +1620,7 @@ func (m *stateSuite) TestGetUserModelSummaryNoAccess(c *tc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	userUUID := usertesting.GenUserUUID(c)
 	userName := usertesting.GenNewName(c, "tlm")
-	accessSt := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	accessSt := accessstate.NewState(m.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	err := accessSt.AddUser(
 		c.Context(),
 		userUUID,
@@ -1665,7 +1666,7 @@ func (m *stateSuite) TestGetModelUsers(c *tc.C) {
 	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
 	m.createModel(c, m.uuid, m.userUUID)
 
-	accessState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	accessState := accessstate.NewState(m.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	// Add test users.
 	jimName := usertesting.GenNewName(c, "jim")
 	bobName := usertesting.GenNewName(c, "bob")
@@ -2218,7 +2219,7 @@ func (m *stateSuite) TestHasValidCredentialFalse(c *tc.C) {
 
 func (m *stateSuite) TestDefaultCloudCredentialLabelForOwner(c *tc.C) {
 
-	accessState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	accessState := accessstate.NewState(m.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	user := usertesting.GenNewName(c, "alice")
 	userUUID := usertesting.GenUserUUID(c)
@@ -2558,7 +2559,7 @@ func (m *stateSuite) TestImportModelVerifyPermissionSet(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Verify admin permissions were set
-	accessSt := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	accessSt := accessstate.NewState(m.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	access, err := accessSt.ReadUserAccessLevelForTarget(ctx, m.userName, permission.ID{
 		ObjectType: permission.Model,
 		Key:        testUUID.String(),

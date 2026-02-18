@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/juju/clock"
 	"golang.org/x/crypto/nacl/secretbox"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -22,14 +23,16 @@ import (
 
 // UserService provides the API for working with users.
 type UserService struct {
-	st UserState
+	st    UserState
+	clock clock.Clock
 }
 
 // NewUserService returns a new UserService for interacting with the underlying user
 // state.
-func NewUserService(st UserState) *UserService {
+func NewUserService(st UserState, clock clock.Clock) *UserService {
 	return &UserService{
-		st: st,
+		st:    st,
+		clock: clock,
 	}
 }
 
@@ -375,7 +378,7 @@ func (s *UserService) UpdateLastModelLogin(ctx context.Context, name user.Name, 
 		return errors.Errorf("empty username: %w", accesserrors.UserNameNotValid)
 	}
 
-	if err := s.st.UpdateLastModelLogin(ctx, name, modelUUID, time.Now()); err != nil {
+	if err := s.st.UpdateLastModelLogin(ctx, name, modelUUID, s.clock.Now().UTC()); err != nil {
 		return errors.Errorf("updating last login for user %q: %w", name, err)
 	}
 	return nil

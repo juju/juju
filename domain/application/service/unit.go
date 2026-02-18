@@ -388,7 +388,7 @@ func (s *Service) makeCAASUnitStatusArgs() application.UnitStatusArg {
 }
 
 func (s *Service) makeUnitStatusArgs(workloadMessage string) application.UnitStatusArg {
-	now := ptr(s.clock.Now())
+	now := ptr(s.clock.Now().UTC())
 	return application.UnitStatusArg{
 		AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 			Status: status.UnitAgentStatusAllocating,

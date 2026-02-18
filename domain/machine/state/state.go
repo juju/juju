@@ -750,7 +750,7 @@ func (st *State) SetMachineHostname(ctx context.Context, mUUID string, hostname 
 
 	currentMachineHostName := machineHostName{
 		Hostname:       nullableHostname,
-		AgentStartedAt: st.clock.Now(),
+		AgentStartedAt: st.clock.Now().UTC(),
 	}
 	updateQuery := `
 UPDATE machine

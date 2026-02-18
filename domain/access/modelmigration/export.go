@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/description/v11"
 
 	"github.com/juju/juju/core/logger"
@@ -21,8 +22,9 @@ import (
 )
 
 // RegisterExport registers the export operations with the given coordinator.
-func RegisterExport(coordinator Coordinator, logger logger.Logger) {
+func RegisterExport(coordinator Coordinator, clock clock.Clock, logger logger.Logger) {
 	coordinator.Add(&exportOperation{
+		clock:  clock,
 		logger: logger,
 	})
 }
@@ -52,8 +54,10 @@ type ExportService interface {
 type exportOperation struct {
 	modelmigration.BaseOperation
 
-	logger  logger.Logger
 	service ExportService
+
+	clock  clock.Clock
+	logger logger.Logger
 }
 
 // Name returns the name of this operation.
@@ -63,9 +67,7 @@ func (e *exportOperation) Name() string {
 
 // Setup implements Operation.
 func (e *exportOperation) Setup(scope modelmigration.Scope) error {
-	e.service = service.NewService(
-		state.NewState(scope.ControllerDB(), e.logger),
-	)
+	e.service = service.NewService(state.NewState(scope.ControllerDB(), e.clock, e.logger), e.clock)
 	return nil
 }
 

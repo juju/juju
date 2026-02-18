@@ -9,6 +9,7 @@ import (
 	"regexp"
 	stdtesting "testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -542,7 +543,7 @@ func (s *credentialSuite) TestGetCloudCredentialNonExistent(c *tc.C) {
 func (s *credentialSuite) addOwner(c *tc.C, name user.Name) user.UUID {
 	userUUID, err := user.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	userState := userstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	userState := userstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	err = userState.AddUserWithPermission(
 		c.Context(),
 		userUUID,

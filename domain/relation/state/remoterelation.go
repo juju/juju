@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
@@ -444,7 +443,7 @@ func (st *State) updateRelationStatus(
 		return errors.Capture(err)
 	}
 
-	now := time.Now().UTC()
+	now := st.clock.Now().UTC()
 
 	statusInfo := relationStatus{
 		RelationUUID: relationUUID,

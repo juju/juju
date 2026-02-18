@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/clock"
 	"github.com/juju/description/v11"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -63,7 +64,7 @@ func (s *importSuite) SetUpTest(c *tc.C) {
 
 	s.scope = coremodelmigration.NewScope(controllerFactory, nil, nil, s.modelUUID)
 	s.svc = service.NewService(
-		state.NewState(controllerFactory, loggertesting.WrapCheckLog(c)),
+		state.NewState(controllerFactory, clock.WallClock, loggertesting.WrapCheckLog(c)), clock.WallClock,
 	)
 
 	adminUserName, _ := user.NewName("admin")
@@ -89,7 +90,7 @@ func (s *importSuite) SetUpTest(c *tc.C) {
 
 func (s *importSuite) TestOfferPermissionImport(c *tc.C) {
 	// Arrange
-	modelmigration.RegisterOfferAccessImport(s.coordinator, loggertesting.WrapCheckLog(c))
+	modelmigration.RegisterOfferAccessImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	// Arrange: add users on which offer permissions are set.
 	joeUserUUID := s.addUserToController(c, "joe", permission.LoginAccess)
@@ -148,7 +149,7 @@ func (s *importSuite) TestOfferPermissionImport(c *tc.C) {
 
 func (s *importSuite) TestOfferPermissionRollback(c *tc.C) {
 	// Arrange:
-	modelmigration.RegisterOfferAccessImport(s.coordinator, loggertesting.WrapCheckLog(c))
+	modelmigration.RegisterOfferAccessImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 	migrationtesting.RegisterFailingImport(s.coordinator)
 
 	// Arrange: add users on which offer permissions are set.
@@ -201,7 +202,7 @@ func (s *importSuite) TestOfferPermissionRollback(c *tc.C) {
 func (s *importSuite) TestPermissionImport(c *tc.C) {
 	// Arrange
 	s.seedModel(c)
-	modelmigration.RegisterImport(s.coordinator, loggertesting.WrapCheckLog(c))
+	modelmigration.RegisterImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	// Arrange: add users on which model permissions are set.
 	joeUserUUID := s.addUserToController(c, "joe", permission.LoginAccess)

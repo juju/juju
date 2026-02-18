@@ -75,6 +75,7 @@ type AgentBootstrap struct {
 
 	stateInitializationParams instancecfg.StateInitializationParams
 
+	clock clock.Clock
 	// StorageProviderRegistry is used to determine and store the
 	// details of the default storage pools.
 	logger logger.Logger
@@ -132,6 +133,7 @@ func NewAgentBootstrap(args AgentBootstrapArgs) (*AgentBootstrap, error) {
 		adminUser:                 args.AdminUser,
 		agentConfig:               args.AgentConfig,
 		bootstrapDqlite:           args.BootstrapDqlite,
+		clock:                     clock.WallClock,
 		logger:                    args.Logger,
 		stateInitializationParams: args.StateInitializationParams,
 	}, nil
@@ -179,6 +181,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 				Key:        controllerUUID.String(),
 			},
 		},
+		b.clock.Now().UTC(),
 	)
 
 	controllerModelArgs := modeldomain.GlobalModelCreationArgs{
@@ -246,7 +249,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	if !isCAAS {
 		databaseBootstrapOptions = append(databaseBootstrapOptions,
 			cloudimagemetadatabootstrap.AddCustomImageMetadata(
-				clock.WallClock, stateParams.ControllerModelConfig.ImageStream(), stateParams.CustomImageMetadata),
+				b.clock, stateParams.ControllerModelConfig.ImageStream(), stateParams.CustomImageMetadata),
 		)
 	}
 

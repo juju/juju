@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/description/v11"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -50,7 +51,7 @@ func (s *importSuite) TestRegisterImport(c *tc.C) {
 
 	s.coordinator.EXPECT().Add(gomock.Any())
 
-	RegisterImport(s.coordinator, loggertesting.WrapCheckLog(c))
+	RegisterImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 }
 
 func (s *importSuite) TestNoModelUserPermissions(c *tc.C) {

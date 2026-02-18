@@ -5,6 +5,7 @@ package bootstrap
 
 import (
 	"testing"
+	"time"
 
 	"github.com/juju/tc"
 
@@ -37,7 +38,7 @@ func (s *bootstrapSuite) TestAddUserWithPassword(c *tc.C) {
 			ObjectType: permission.Controller,
 			Key:        s.controllerUUID,
 		},
-	})
+	}, time.Now())
 	err := addAdminUser(ctx, s.TxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(uuid.Validate(), tc.ErrorIsNil)

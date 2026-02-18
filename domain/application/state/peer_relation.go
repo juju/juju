@@ -181,7 +181,7 @@ func (st *State) insertNewRelationStatus(ctx context.Context, tx *sqlair.TX, uui
 	status := setRelationStatus{
 		RelationUUID: uuid,
 		Status:       corestatus.Joining,
-		UpdatedAt:    st.clock.Now(),
+		UpdatedAt:    st.clock.Now().UTC(),
 	}
 
 	stmt, err := st.Prepare(`

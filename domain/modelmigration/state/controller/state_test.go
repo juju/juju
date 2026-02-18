@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -62,7 +63,7 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 	// owner.
 	s.modelUUID = tc.Must(c, coremodel.NewUUID)
 	s.userName = usertesting.GenNewName(c, "test-user")
-	accessState := accessstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	accessState := accessstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	s.userUUID = usertesting.GenUserUUID(c)
 	err := accessState.AddUser(
