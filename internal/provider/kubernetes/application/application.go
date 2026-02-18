@@ -291,14 +291,17 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		// See https://github.com/juju/juju/issues/21722.
 		if exists && a.shouldDeleteExistingStatefulSet(existingSts, config.StorageUniqueID) {
 			logger.Infof("deleting orphaned statefulset %q", a.name)
-			if delErr := existingSts.Delete(context.TODO()); delErr != nil && !errors.IsNotFound(delErr) {
+			delErr := existingSts.Delete(context.TODO())
+			if delErr != nil && !errors.IsNotFound(delErr) {
 				return errors.Annotatef(delErr, "deleting orphaned statefulset %q", a.name)
 			}
 			// Wait for the StatefulSet to be fully removed.
 			// Kubernetes foreground deletion is async — the resource
 			// persists with a deletionTimestamp until dependents are gone.
-			if err := a.waitForStatefulSetDeletion(); err != nil {
-				return errors.Trace(err)
+			if delErr == nil {
+				if err := a.waitForStatefulSetDeletion(); err != nil {
+					return errors.Trace(err)
+				}
 			}
 			// Keep exists=true so that numPods stays nil below.
 			// With nil Replicas, Kubernetes defaults to 1 replica
@@ -938,28 +941,28 @@ func (a *app) waitForStatefulSetDeletion() error {
 // orphan from a previous deployment that must be deleted before recreating.
 // It compares the storage unique ID annotation, verifies Juju ownership, and
 // confirms the StatefulSet belongs to the current model.
-func (a *app) shouldDeleteExistingStatefulSet(sts *resources.StatefulSet, expectedStorageUID string) bool {
-	if expectedStorageUID == "" {
+func (a *app) shouldDeleteExistingStatefulSet(sts *resources.StatefulSet, expectedStorageUUID string) bool {
+	if expectedStorageUUID == "" {
 		return false
 	}
 	stsAnnotations := sts.GetAnnotations()
 	annKey := utils.AnnotationKeyApplicationUUID(a.labelVersion)
-	existingUID := stsAnnotations[annKey]
-	if existingUID == "" || existingUID == expectedStorageUID {
+	existingUUID := stsAnnotations[annKey]
+	if existingUUID == "" || existingUUID == expectedStorageUUID {
 		return false
 	}
 	// Only delete if the StatefulSet is managed by Juju and belongs to
 	// the current model, to avoid deleting resources we don't own.
 	stsLabels := sts.GetLabels()
-	if stsLabels[constants.LabelKubernetesAppManaged] != "juju" {
+	if stsLabels[constants.LabelKubernetesAppManaged] != resources.JujuFieldManager {
 		return false
 	}
 	modelUUIDKey := utils.AnnotationModelUUIDKey(a.labelVersion)
 	if stsAnnotations[modelUUIDKey] != a.modelUUID {
 		return false
 	}
-	logger.Infof("detected orphaned statefulset %q: storage UID %q does not match expected %q",
-		a.name, existingUID, expectedStorageUID)
+	logger.Infof("detected orphaned statefulset %q: storage UUID %q does not match expected %q",
+		a.name, existingUUID, expectedStorageUUID)
 	return true
 }
 
