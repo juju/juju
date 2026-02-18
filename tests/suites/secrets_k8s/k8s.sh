@@ -26,12 +26,13 @@ run_secrets() {
 
 	echo "remove a unit and check only its secret is removed"
 	juju --show-log scale-application alertmanager-k8s 1
+	wait_for_unit_count "alertmanager-k8s" 1
 	check_contains "$(microk8s kubectl -n "$model_name" get secrets -o json | jq -r '.items[].metadata.name | select(. == "'"${short_uri1}"'-1")')" "${short_uri1}-1"
 	check_contains "$(microk8s kubectl -n "$model_name" get secrets -o json | jq -r '.items[].metadata.name | select(. == "'"${short_uri2}"'-1")')" "${short_uri2}-1"
 	attempt=0
 	until [[ -z $(microk8s kubectl -n "$model_name" get secrets -o json | jq -r '.items[].metadata.name | select(. == "'"${short_uri3}"'-1")') ]]; do
 		if [[ ${attempt} -ge 30 ]]; then
-			echo "Failed: secrets were not deleted on unit removal."
+			echo "Failed: secrets were not deleted on unit 1 removal."
 			exit 1
 		fi
 		sleep 2
@@ -40,11 +41,12 @@ run_secrets() {
 
 	echo "remove the last unit and check only the app owned secret remains"
 	juju --show-log scale-application alertmanager-k8s 0
+	wait_for_unit_count "alertmanager-k8s" 0
 	check_contains "$(microk8s kubectl -n "$model_name" get secrets -o json | jq -r '.items[].metadata.name | select(. == "'"${short_uri1}"'-1")')" "${short_uri1}-1"
 	attempt=0
 	until [[ -z $(microk8s kubectl -n "$model_name" get secrets -o json | jq -r '.items[].metadata.name | select(. == "'"${short_uri2}"'-1")') ]]; do
 		if [[ ${attempt} -ge 30 ]]; then
-			echo "Failed: secrets were not deleted on unit removal."
+			echo "Failed: secrets were not deleted on unit 0 removal."
 			exit 1
 		fi
 		sleep 2
@@ -56,7 +58,7 @@ run_secrets() {
 	attempt=0
 	until [[ -z $(microk8s kubectl -n "$model_name" get secrets -o json | jq -r '.items[].metadata.name | select(. == "'"${short_uri1}"'-1")') ]]; do
 		if [[ ${attempt} -ge 30 ]]; then
-			echo "Failed: secrets were not deleted on app removal."
+			echo "Failed: application owned secrets were not deleted on app removal."
 			exit 1
 		fi
 		sleep 2
