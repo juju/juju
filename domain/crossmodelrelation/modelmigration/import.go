@@ -96,7 +96,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 	// Import remote application offerers, this will create the synthetic
 	// applications and units needed for relations.
-	if err := i.importRemoteApplicationOfferers(ctx, remoteApplications, model.Relations(), remoteAppUnits); err != nil {
+	if err := i.importRemoteApplicationOfferers(ctx, remoteApplications, remoteAppUnits); err != nil {
 		return errors.Errorf("importing remote applications: %w", err)
 	}
 
@@ -212,13 +212,12 @@ func (i *importOperation) importOffers(ctx context.Context, apps []description.A
 func (i *importOperation) importRemoteApplicationOfferers(
 	ctx context.Context,
 	remoteApps []description.RemoteApplication,
-	relations []description.Relation,
 	remoteAppUnits map[string][]string,
 ) error {
 	// Import remote application offerers. These are remote applications that
 	// life in the consuming model, but represent applications in the offering
 	// model.
-	uniqueRemoteApps, err := domainmodelmigration.UniqueRemoteOfferApplications(remoteApps, relations)
+	uniqueRemoteApps, err := domainmodelmigration.UniqueRemoteOfferApplications(remoteApps)
 	if err != nil {
 		return err
 	}

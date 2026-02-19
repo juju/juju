@@ -235,7 +235,7 @@ func (i *importOperation) importRemoteApplicationOffererStatus(
 	service ImportService,
 	model description.Model,
 ) error {
-	remoteOfferApps, err := domainmodelmigration.UniqueRemoteOfferApplications(model.RemoteApplications(), model.Relations())
+	remoteOfferApps, err := domainmodelmigration.UniqueRemoteOfferApplications(model.RemoteApplications())
 	if err != nil {
 		return errors.Errorf("getting unique remote offer applications: %w", err)
 	}

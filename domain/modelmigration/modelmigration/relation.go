@@ -55,30 +55,12 @@ func GetUniqueRemoteConsumersNames(remoteApps []description.RemoteApplication) s
 // UniqueRemoteOfferApplications de-duplicates remote applications based on
 // offer UUID and endpoints, and verifies that there are no conflicting remote
 // applications with the same offer UUID.
-func UniqueRemoteOfferApplications(remoteApps []description.RemoteApplication, relations []description.Relation) (map[string][]description.RemoteApplication, error) {
-	// In 3.x it's possible to have multiple remote applications with the same
-	// offer UUID and endpoints, but have different names. In this case, we need
-	// to merge and de-duplicate these remote applications when importing them.
-	// 4.x doesn't allow to have multiple remote applications with the same
-	// offer UUID.
-	relByAppName := map[string]struct{}{}
-	for _, rel := range relations {
-		for _, ep := range rel.Endpoints() {
-			relByAppName[ep.ApplicationName()] = struct{}{}
-		}
-	}
-
+func UniqueRemoteOfferApplications(remoteApps []description.RemoteApplication) (map[string][]description.RemoteApplication, error) {
 	unique := map[string][]description.RemoteApplication{}
 	for _, remoteApp := range remoteApps {
 		// We don't care about remove application consumers, so duplications
 		// here don't matter.
 		if remoteApp.IsConsumerProxy() {
-			continue
-		}
-
-		// If the remote application is not used by a relation, then we can
-		// ignore it as well.
-		if _, ok := relByAppName[remoteApp.Name()]; !ok {
 			continue
 		}
 

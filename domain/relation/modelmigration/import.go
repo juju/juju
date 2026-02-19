@@ -77,7 +77,6 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 // Execute the import of application resources.
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
 	var (
-		relations          = model.Relations()
 		remoteApplications = model.RemoteApplications()
 
 		consumerRemoteApplications = domainmodelmigration.GetUniqueRemoteConsumersNames(remoteApplications)
@@ -86,7 +85,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	// Get the remote applications so that we can filter out any remote consumer
 	// relations, which are not imported as part of the relation domain, but
 	// rather as part of the crossmodelrelation domain.
-	unique, err := domainmodelmigration.UniqueRemoteOfferApplications(remoteApplications, relations)
+	unique, err := domainmodelmigration.UniqueRemoteOfferApplications(remoteApplications)
 	if err != nil {
 		return err
 	}
