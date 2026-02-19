@@ -38,6 +38,11 @@ func (_ *typesSuite) TestAgentBinaryCompactOnVersion(c *tc.C) {
 			Version:      version1,
 		},
 		{
+			Architecture: AMD64,
+			Stream:       AgentStreamDevel,
+			Version:      version3,
+		},
+		{
 			Architecture: ARM64,
 			Stream:       AgentStreamReleased,
 			Version:      version1,
@@ -58,14 +63,15 @@ func (_ *typesSuite) TestAgentBinaryCompactOnVersion(c *tc.C) {
 			Version:      version3,
 		},
 	}
+	slices.SortFunc(agentBinaries, AgentBinaryCompareOnVersion)
 	agentBinaries = slices.CompactFunc(agentBinaries, AgentBinaryCompactOnVersion)
 
 	mc := tc.NewMultiChecker()
 	mc.AddExpr("_[_].Architecture", tc.Ignore)
 	mc.AddExpr("_[_].Stream", tc.Ignore)
 	c.Check(agentBinaries, mc, []AgentBinary{
-		{Version: version1},
 		{Version: version2},
+		{Version: version1},
 		{Version: version3},
 	})
 }

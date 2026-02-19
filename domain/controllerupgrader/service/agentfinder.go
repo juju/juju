@@ -304,6 +304,7 @@ func (a *StreamAgentBinaryFinder) HasBinariesForVersionStreamAndArchitectures(
 		return false, nil
 	}
 	// Dedupe architectures.
+	slices.Sort(architectures)
 	architectures = slices.Compact(architectures)
 
 	modelBinaries, err := a.modelSt.GetAllAgentStoreBinariesForStream(ctx, stream)
@@ -438,9 +439,11 @@ func (a *StreamAgentBinaryFinder) GetHighestPatchVersionAvailableForStream(
 		)
 	}
 
+	slices.SortFunc(storeBinaries, agentbinary.AgentBinaryCompareOnVersion)
 	storeBinaries = slices.CompactFunc(
 		storeBinaries, agentbinary.AgentBinaryCompactOnVersion,
 	)
+	slices.SortFunc(ssBinaries, agentbinary.AgentBinaryCompareOnVersion)
 	ssBinaries = slices.CompactFunc(
 		ssBinaries, agentbinary.AgentBinaryCompactOnVersion,
 	)
