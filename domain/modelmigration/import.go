@@ -77,6 +77,10 @@ func ImportOperations(
 	machine.RegisterImport(coordinator, clock, logger.Child("machine"))
 	network.RegisterLinkLayerDevicesImport(coordinator, logger.Child("linklayerdevices"))
 	application.RegisterImport(coordinator, clock, logger.Child("application"))
+	// BlockDevice requires machines to be imported first.
+	blockdevice.RegisterImport(coordinator, logger.Child("blockdevice"))
+	// Storage requires machines and units (via the application domain) to be
+	// imported first. Volumes require block devices to be imported first.
 	storage.RegisterImport(coordinator, storageRegistryGetter, logger.Child("storage"))
 	network.RegisterImportCloudService(coordinator, logger.Child("cloudservice"))
 	agentpassword.RegisterImport(coordinator)
@@ -86,7 +90,6 @@ func ImportOperations(
 	status.RegisterImport(coordinator, clock, logger.Child("status"))
 	resource.RegisterImport(coordinator, clock, logger.Child("resource"))
 	port.RegisterImport(coordinator, logger.Child("port"))
-	blockdevice.RegisterImport(coordinator, logger.Child("blockdevice"))
 	secret.RegisterImport(coordinator, logger.Child("secret"))
 	cloudimagemetadata.RegisterImport(coordinator, logger.Child("cloudimagemetadata"), clock)
 	unitstate.RegisterImport(coordinator, logger.Child("unitstate"))
