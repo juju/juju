@@ -97,7 +97,7 @@ func (sf *statusFormatter) Format() (formattedStatus, error) {
 		out.Applications[name] = sf.formatApplication(name, app)
 	}
 	for name, app := range sf.status.RemoteApplicationOfferers {
-		out.RemoteApplications[name] = sf.formatRemoteApplication(name, app)
+		out.RemoteApplications[name] = sf.formatRemoteApplication(app)
 	}
 	for name, offer := range sf.status.Offers {
 		out.Offers[name] = sf.formatOffer(name, offer)
@@ -295,7 +295,7 @@ func (sf *statusFormatter) findRelationStatus(appName, relName, theOtherSideAppN
 			}
 			return &rel
 		} else {
-			if endpointsMactch(appName, relName, theOtherSideAppName, rel.Endpoints) {
+			if endpointsMatch(appName, relName, theOtherSideAppName, rel.Endpoints) {
 				return &rel
 			}
 		}
@@ -303,7 +303,7 @@ func (sf *statusFormatter) findRelationStatus(appName, relName, theOtherSideAppN
 	return nil
 }
 
-func endpointsMactch(appName, relName, theOtherSideAppName string, eps []params.EndpointStatus) (equal bool) {
+func endpointsMatch(appName, relName, theOtherSideAppName string, eps []params.EndpointStatus) (equal bool) {
 	if len(eps) != 2 {
 		return false
 	}
@@ -318,7 +318,7 @@ func endpointsMactch(appName, relName, theOtherSideAppName string, eps []params.
 	return false
 }
 
-func (sf *statusFormatter) formatRemoteApplication(name string, application params.RemoteApplicationStatus) remoteApplicationStatus {
+func (sf *statusFormatter) formatRemoteApplication(application params.RemoteApplicationStatus) remoteApplicationStatus {
 	out := remoteApplicationStatus{
 		Err:        typedNilCheck(application.Err),
 		OfferURL:   application.OfferURL,
