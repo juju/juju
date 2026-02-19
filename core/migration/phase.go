@@ -103,6 +103,18 @@ func (p Phase) IsRunning() bool {
 	}
 }
 
+// IsPostSuccess returns true if the phase is one of the post SUCCESS phases,
+// which allow the migration to complete successfully. They phases won't include
+// ABORT or ABORTDONE, which are used for failed migrations.
+func (p Phase) IsPostSuccess() bool {
+	switch p {
+	case LOGTRANSFER, REAP, REAPFAILED, DONE:
+		return true
+	default:
+		return false
+	}
+}
+
 // Define all possible phase transitions.
 //
 // The keys are the "from" states and the values enumerate the
