@@ -126,7 +126,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	}
 
 	if err := i.service.ImportRelations(ctx, args); err != nil {
-		return errors.Errorf("importing relations: %w", err)
+		return errors.Capture(err)
 	}
 	return nil
 }
@@ -183,7 +183,7 @@ func (i *importOperation) createRemoteImportArg(rel description.Relation, remote
 	// unique across the model, instead of the original application names, which
 	// may not be unique if there are multiple remote applications with the same
 	// offer UUID that have been de-duplicated.
-	for _, ident := range key.EndpointIdentifiers() {
+	for i, ident := range key.EndpointIdentifiers() {
 		for _, remoteApp := range remoteApps {
 			if ident.ApplicationName == remoteApp.Name() {
 				// Re-write the relation key to use the remote application name,
@@ -192,6 +192,7 @@ func (i *importOperation) createRemoteImportArg(rel description.Relation, remote
 				// multiple remote applications with the same offer UUID that
 				// have been de-duplicated.
 				ident.ApplicationName = primaryApplicationName
+				key[i] = ident
 				break
 			}
 		}
