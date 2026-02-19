@@ -1,7 +1,10 @@
 name: "Unit Tests"
 on:
-  workflow_dispatch:
   workflow_call:
+    inputs:
+      base:
+        required: true
+        type: string
 
 jobs:
   test:
@@ -16,6 +19,8 @@ jobs:
     steps:
       - name: "Checkout"
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: "Squid"
         run: ./.github/squid.sh
@@ -34,6 +39,21 @@ jobs:
           sudo snap install juju-db --channel=4.4/stable
           echo "/snap/bin" >> $GITHUB_PATH
 
+      - name: "Setup Gochanged"
+        if: inputs.base
+        run: |
+          go install github.com/hpidcock/gochanged@latest
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: "Calculate Test Packages"
+        if: inputs.base
+        run: |
+          TEST_PACKAGE_LIST=$(mktemp)
+          gochanged -b "${{ inputs.base }}" | sort | tee "${TEST_PACKAGE_LIST}"
+          if [ -z "$(grep -F './...' ${TEST_PACKAGE_LIST})" ]; then
+            echo "TEST_PACKAGE_LIST=${TEST_PACKAGE_LIST}" >> $GITHUB_ENV
+          fi
+
       - name: "Test"
         run: |
-          make race-test
+          make race-test TEST_PACKAGE_LIST="${TEST_PACKAGE_LIST}"

@@ -3716,6 +3716,16 @@ func (a *Application) Status() (status.StatusInfo, error) {
 	return info, nil
 }
 
+// OperatorStatus returns the status of the application's operator, which is
+// only used on CAAS models.
+func (a *Application) OperatorStatus() (status.StatusInfo, error) {
+	info, err := getStatus(a.st.db(), a.globalKey(), "operator")
+	if err != nil {
+		return status.StatusInfo{}, errors.Trace(err)
+	}
+	return info, nil
+}
+
 // CheckApplicationExpectsWorkload checks if the application expects workload or not.
 func CheckApplicationExpectsWorkload(m *Model, appName string) (bool, error) {
 	cm, err := m.CAASModel()

@@ -264,6 +264,37 @@ wait_for_subordinate_count() {
 	fi
 }
 
+# wait_for_unit_count blocks until the number of units for the application
+# becomes equal to the desired value.
+#
+# ```
+# wait_for_unit_count <application name> <count>
+#
+# example:
+# wait_for_unit_count mysql 3
+# ```
+wait_for_unit_count() {
+	local name count
+
+	name=${1}
+	count=${2:-0}
+
+	attempt=0
+	# shellcheck disable=SC2046,SC2143
+	until [ $(juju status --format json | yq -r ".applications | .[\"${name}\"] | .units | length" | grep "${count}") ]; do
+		# shellcheck disable=SC2046,SC2143
+		echo "[+] (attempt ${attempt}) unit count ${name} = "$(juju status --format json | yq -r ".applications | .[\"${name}\"] | .units | length")
+		sleep "${SHORT_TIMEOUT}"
+		attempt=$((attempt + 1))
+	done
+
+	if [[ ${attempt} -gt 0 ]]; then
+		echo "[+] $(green 'Completed polling status')"
+		juju status 2>&1 | sed 's/^/    | /g'
+		sleep "${SHORT_TIMEOUT}"
+	fi
+}
+
 # wait_for_model blocks until a model appears
 # interfaces for the requested machine instance ID becomes equal to the desired
 # value.

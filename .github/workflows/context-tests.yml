@@ -26,6 +26,8 @@ jobs:
       check-snap: ${{ steps.filter-files.outputs.check-snap }}
       check-generate: ${{ steps.filter-files.outputs.check-generate }}
       check-docs: ${{ steps.filter-files.outputs.check-docs }}
+      ref: ${{ steps.refs.outputs.head_ref }}
+      base: ${{ steps.refs.outputs.base_ref }}
     steps:
       - name: Checkout
         if: github.event_name != 'pull_request'
@@ -45,7 +47,7 @@ jobs:
             echo "base_ref=${{ github.event.merge_group.base_sha }}" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "head_ref=${{ github.event.ref }}" >> "$GITHUB_OUTPUT"
-            echo "base_ref=${{ github.event.ref }}~" >> "$GITHUB_OUTPUT"
+            echo "base_ref=$(git log --max-parents=0 --first-parent --format=%H)" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Filter Files
@@ -118,6 +120,8 @@ jobs:
     name: Unit Tests
     if: github.event.pull_request.draft == false && needs.changed-files.outputs.check-unit-tests == 'true'
     uses: ./.github/workflows/unit-tests.yml
+    with:
+      base: ${{ needs.changed-files.outputs.base }}
 
   snap:
     needs: [changed-files]
