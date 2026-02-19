@@ -10,7 +10,12 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	coreblockdevice "github.com/juju/juju/core/blockdevice"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/domain/blockdevice"
+	"github.com/juju/juju/domain/life"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/storage/internal"
 	"github.com/juju/juju/internal/errors"
 )
@@ -377,4 +382,189 @@ func makeInsertVolumeArgs(args []internal.ImportVolumeArgs) ([]importStorageVolu
 	}
 
 	return out, outInstance
+}
+
+// GetBlockDevicesForMachine returns the BlockDevices for the specified machine.
+//
+// The following errors may be returned:
+// - [machineerrors.MachineNotFound] when the machine is not found.
+// - [machineerrors.MachineIsDead] when the machine is dead.
+func (st *State) GetBlockDevicesForMachine(
+	ctx context.Context, machineUUID machine.UUID,
+) (map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.checkMachineNotDead(ctx, tx, machineUUID)
+		if err != nil {
+			return err
+		}
+		result, err = st.loadBlockDevices(ctx, tx, machineUUID)
+		return errors.Capture(err)
+	})
+	return result, errors.Capture(err)
+}
+
+func (st *State) loadBlockDevices(
+	ctx context.Context, tx *sqlair.TX, machineUUID machine.UUID,
+) (map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice, error) {
+	input := entityUUID{
+		UUID: machineUUID.String(),
+	}
+
+	blockDeviceStmt, err := st.Prepare(`
+SELECT &blockDevice.*
+FROM   block_device
+WHERE  machine_uuid = $entityUUID.uuid
+`, input, blockDevice{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	blockDeviceLinkStmt, err := st.Prepare(`
+SELECT &deviceLink.*
+FROM   block_device_link_device
+WHERE  machine_uuid = $entityUUID.uuid
+`, input, deviceLink{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var blockDevices []blockDevice
+	err = tx.Query(ctx, blockDeviceStmt, input).GetAll(&blockDevices)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Errorf(
+			"loading block devices for machine %q: %w",
+			machineUUID, err,
+		)
+	}
+
+	var devLinks []deviceLink
+	err = tx.Query(ctx, blockDeviceLinkStmt, input).GetAll(&devLinks)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf(
+			"loading block device dev links for machine %q: %w",
+			machineUUID, err,
+		)
+	}
+
+	retVal := make(
+		map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice,
+		len(blockDevices),
+	)
+	for _, bd := range blockDevices {
+		uuid := blockdevice.BlockDeviceUUID(bd.UUID)
+		retVal[uuid] = coreblockdevice.BlockDevice{
+			DeviceName:      bd.Name.V,
+			FilesystemLabel: bd.FilesystemLabel,
+			FilesystemUUID:  bd.HostFilesystemUUID,
+			HardwareId:      bd.HardwareId,
+			WWN:             bd.WWN,
+			BusAddress:      bd.BusAddress,
+			SizeMiB:         bd.SizeMiB,
+			FilesystemType:  bd.FilesystemType,
+			InUse:           bd.InUse,
+			MountPoint:      bd.MountPoint,
+			SerialId:        bd.SerialId,
+		}
+	}
+	for _, dl := range devLinks {
+		uuid := blockdevice.BlockDeviceUUID(dl.BlockDeviceUUID)
+		r, ok := retVal[uuid]
+		if !ok {
+			continue
+		}
+		r.DeviceLinks = append(r.DeviceLinks, dl.Name)
+		retVal[uuid] = r
+	}
+
+	return retVal, nil
+}
+
+func (st *State) checkMachineNotDead(
+	ctx context.Context, tx *sqlair.TX, machineUUID machine.UUID,
+) error {
+	io := entityLife{
+		UUID: machineUUID.String(),
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &entityLife.*
+FROM   machine
+WHERE  uuid = $entityLife.uuid`, io)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, io).Get(&io)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf(
+			"machine %q not found",
+			machineUUID,
+		).Add(machineerrors.MachineNotFound)
+	} else if err != nil {
+		return errors.Capture(err)
+	}
+
+	if io.Life == life.Dead {
+		return errors.Errorf(
+			"machine %q is dead",
+			machineUUID,
+		).Add(machineerrors.MachineIsDead)
+	}
+	return nil
+}
+
+// GetMachineUUIDByName gets the uuid for the named machine.
+//
+// The following errors may be returned:
+// - [machineerrors.MachineNotFound] when the machine is not found.
+// - [machineerrors.MachineIsDead] when the machine is dead.
+func (st *State) GetMachineUUIDByName(
+	ctx context.Context, machineName string,
+) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	in := name{
+		Name: machineName,
+	}
+	out := entityLife{}
+
+	stmt, err := st.Prepare(`
+SELECT &entityLife.*
+FROM   machine
+WHERE  name = $name.name`, in, out)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, in).Get(&out)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"machine %q not found",
+				machineName,
+			).Add(machineerrors.MachineNotFound)
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		if out.Life == life.Dead {
+			return errors.Errorf(
+				"machine %q is dead",
+				machineName,
+			).Add(machineerrors.MachineIsDead)
+		}
+		return nil
+	})
+
+	return out.UUID, err
 }

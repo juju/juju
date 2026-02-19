@@ -3,11 +3,22 @@
 
 package state
 
-import "database/sql"
+import (
+	"database/sql"
+
+	"github.com/juju/juju/domain/life"
+)
 
 // entityUUID represents the UUID of a storage entity in the model.
 type entityUUID struct {
 	UUID string `db:"uuid"`
+}
+
+// entityLife represents the UUID of a storage entity and its Life
+// value in the model.
+type entityLife struct {
+	UUID string    `db:"uuid"`
+	Life life.Life `db:"life_id"`
 }
 
 // nameAndUUID is an agnostic container for a `name` and `uuid`
@@ -131,4 +142,29 @@ type machineAndUnitNetNodeUUID struct {
 	MachineNetNodeUUID sql.NullString `db:"machine_net_node_uuid"`
 	UnitName           sql.NullString `db:"unit_name"`
 	UnitNetNodeUUID    sql.NullString `db:"unit_net_node_uuid"`
+}
+
+type blockDevice struct {
+	UUID        string `db:"uuid"`
+	MachineUUID string `db:"machine_uuid"`
+
+	Name sql.Null[string] `db:"name"`
+
+	HardwareId string `db:"hardware_id"`
+	WWN        string `db:"wwn"`
+	BusAddress string `db:"bus_address"`
+	SerialId   string `db:"serial_id"`
+
+	SizeMiB            uint64 `db:"size_mib"`
+	FilesystemLabel    string `db:"filesystem_label"`
+	HostFilesystemUUID string `db:"host_filesystem_uuid"`
+	FilesystemType     string `db:"filesystem_type"`
+	InUse              bool   `db:"in_use"`
+	MountPoint         string `db:"mount_point"`
+}
+
+type deviceLink struct {
+	BlockDeviceUUID string `db:"block_device_uuid"`
+	MachineUUID     string `db:"machine_uuid"`
+	Name            string `db:"name"`
 }

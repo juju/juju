@@ -11,9 +11,13 @@ import (
 
 	"github.com/juju/tc"
 
+	coreblockdevice "github.com/juju/juju/core/blockdevice"
 	charmtesting "github.com/juju/juju/core/charm/testing"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/domain/life"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/storage"
@@ -408,6 +412,133 @@ func (s *importSuite) TestGetNetNodeUUIDsByMachineOrUnitNameNoInput(c *tc.C) {
 	c.Check(obtainedUnits, tc.HasLen, 0)
 }
 
+func (s *importSuite) TestGetMachineUUIDByName(c *tc.C) {
+	// Arrange
+	st := NewState(s.TxnRunnerFactory())
+	expectedUUID := s.newMachine(c, "42", s.newNetNode(c))
+
+	// Act
+	obtainedUUID, err := st.GetMachineUUIDByName(c.Context(), "42")
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedUUID, tc.Equals, expectedUUID)
+}
+
+func (s *importSuite) TestGetMachineUUIDByNameNotFound(c *tc.C) {
+	// Arrange
+	st := NewState(s.TxnRunnerFactory())
+
+	// Act
+	_, err := st.GetMachineUUIDByName(c.Context(), "42")
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *importSuite) TestGetMachineUUIDByNameDead(c *tc.C) {
+	// Arrange
+	st := NewState(s.TxnRunnerFactory())
+	s.newMachineWithLife(c, "42", s.newNetNode(c), life.Dead)
+
+	// Act
+	_, err := st.GetMachineUUIDByName(c.Context(), "42")
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineIsDead)
+}
+
+func (s *importSuite) TestGetBlockDevicesForMachineMany(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	netNodeUUID := s.newNetNode(c)
+	machineUUID := s.newMachine(c, "666", netNodeUUID)
+
+	bd1 := coreblockdevice.BlockDevice{
+		DeviceName:      "name-666",
+		FilesystemLabel: "label-666",
+		FilesystemUUID:  "device-666",
+		HardwareId:      "hardware-666",
+		WWN:             "wwn-666",
+		BusAddress:      "bus-666",
+		SizeMiB:         666,
+		FilesystemType:  "btrfs",
+		InUse:           true,
+		MountPoint:      "mount-666",
+		SerialId:        "serial-666",
+	}
+	bd2 := coreblockdevice.BlockDevice{
+		DeviceName:      "name-667",
+		DeviceLinks:     []string{"dev_link1", "dev_link2"},
+		FilesystemLabel: "label-667",
+		FilesystemUUID:  "device-667",
+		HardwareId:      "hardware-667",
+		WWN:             "wwn-667",
+		BusAddress:      "bus-667",
+		SizeMiB:         667,
+		FilesystemType:  "btrfs",
+		MountPoint:      "mount-667",
+		SerialId:        "serial-667",
+	}
+	blockDevice1UUID := s.newBlockDevice(c, machineUUID, bd1)
+	blockDevice2UUID := s.newBlockDevice(c, machineUUID, bd2)
+
+	result, err := st.GetBlockDevicesForMachine(c.Context(), machine.UUID(machineUUID))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals,
+		map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{
+			blockdevice.BlockDeviceUUID(blockDevice1UUID): bd1,
+			blockdevice.BlockDeviceUUID(blockDevice2UUID): bd2,
+		},
+	)
+}
+
+func (s *importSuite) TestGetBlockDevicesForMachineOnMachine(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	netNodeUUID1 := s.newNetNode(c)
+	machine1UUID := s.newMachine(c, "666", netNodeUUID1)
+	netNodeUUID2 := s.newNetNode(c)
+	machine2UUID := s.newMachine(c, "667", netNodeUUID2)
+
+	bd1 := coreblockdevice.BlockDevice{
+		DeviceName:      "name-666",
+		FilesystemLabel: "label-666",
+		FilesystemUUID:  "device-666",
+		HardwareId:      "hardware-666",
+		WWN:             "wwn-666",
+		BusAddress:      "bus-666",
+		SizeMiB:         666,
+		FilesystemType:  "btrfs",
+		InUse:           true,
+		MountPoint:      "mount-666",
+		SerialId:        "serial-666",
+	}
+	bd2 := coreblockdevice.BlockDevice{
+		DeviceName:      "name-667",
+		DeviceLinks:     []string{"dev_link1", "dev_link2"},
+		FilesystemLabel: "label-667",
+		FilesystemUUID:  "device-667",
+		HardwareId:      "hardware-667",
+		WWN:             "wwn-667",
+		BusAddress:      "bus-667",
+		SizeMiB:         667,
+		FilesystemType:  "btrfs",
+		MountPoint:      "mount-667",
+		SerialId:        "serial-667",
+	}
+	s.newBlockDevice(c, machine1UUID, bd1)
+	blockDevice2UUID := s.newBlockDevice(c, machine2UUID, bd2)
+
+	result, err := st.GetBlockDevicesForMachine(c.Context(), machine.UUID(machine2UUID))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals,
+		map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{
+			blockdevice.BlockDeviceUUID(blockDevice2UUID): bd2,
+		},
+	)
+}
+
 func (s *importSuite) getStorageInstances(c *tc.C) []importStorageInstance {
 	var result []importStorageInstance
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -624,16 +755,20 @@ VALUES (?, ?, ?, ?, ?, 0)
 	return unit, unitName
 }
 
-func (s *importSuite) newMachine(c *tc.C, name, netNodeUUID string) string {
+func (s *importSuite) newMachineWithLife(c *tc.C, name, netNodeUUID string, life life.Life) string {
 	machineUUID := tc.Must(c, uuid.NewUUID).String()
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 		INSERT INTO machine (uuid, net_node_uuid, name, life_id)
-		VALUES (?, ?, ?, "0")`, machineUUID, netNodeUUID, name)
+		VALUES (?, ?, ?, ?)`, machineUUID, netNodeUUID, name, life)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return machineUUID
+}
+
+func (s *importSuite) newMachine(c *tc.C, name, netNodeUUID string) string {
+	return s.newMachineWithLife(c, name, netNodeUUID, life.Alive)
 }
 
 func (s *importSuite) getFilesystems(c *tc.C) ([]importStorageFilesystem, []importStorageInstanceFilesystem) {
@@ -745,4 +880,31 @@ VALUES (?, "foo", ?, 1, ?, 0, ?, 4048)`, siUUID, name, fullID, poolUUID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return siUUID
+}
+
+func (s *importSuite) newBlockDevice(c *tc.C, machineUUID string, bd coreblockdevice.BlockDevice) string {
+	blockDeviceUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID).String()
+	inUse := 0
+	if bd.InUse {
+		inUse = 1
+	}
+	_, err := s.DB().Exec(`
+INSERT INTO block_device (
+	uuid, machine_uuid, name, filesystem_label,
+	host_filesystem_uuid, hardware_id, wwn, bus_address, serial_id,
+	mount_point, filesystem_type, size_mib, in_use)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`, blockDeviceUUID, machineUUID, bd.DeviceName, bd.FilesystemLabel,
+		bd.FilesystemUUID, bd.HardwareId, bd.WWN, bd.BusAddress, bd.SerialId,
+		bd.MountPoint, bd.FilesystemType, bd.SizeMiB, inUse)
+	c.Assert(err, tc.ErrorIsNil)
+
+	for _, link := range bd.DeviceLinks {
+		_, err = s.DB().Exec(`
+INSERT INTO block_device_link_device (block_device_uuid, machine_uuid, name)
+VALUES (?, ?, ?)
+`, blockDeviceUUID, machineUUID, link)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+	return blockDeviceUUID
 }
