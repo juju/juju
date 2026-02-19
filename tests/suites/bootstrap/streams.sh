@@ -26,6 +26,11 @@ run_simplestream_metadata() {
 
 	name="test-bootstrap-stream"
 
+	local extra_opts
+	if [[ ${JUJUD_VERSION} == "3.6.14" ]]; then
+		extra_opts="--config juju-db-snap-channel=4.4/stable"
+	fi
+
 	file="${TEST_DIR}/test-bootstrap-stream.log"
 	juju bootstrap "lxd" "${name}" \
 		--show-log \
@@ -33,7 +38,7 @@ run_simplestream_metadata() {
 		--config test-mode=true \
 		--add-model=default \
 		--bootstrap-series="${BOOTSTRAP_SERIES}" \
-		--agent-version="${JUJUD_VERSION}" 2>&1 | OUTPUT "${file}"
+		--agent-version="${JUJUD_VERSION}" ${extra_opts} 2>&1 | OUTPUT "${file}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
 
 	juju deploy jameinel-ubuntu-lite

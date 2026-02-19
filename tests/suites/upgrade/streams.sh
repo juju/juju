@@ -72,12 +72,17 @@ exec_simplestream_metadata() {
 
 	name="test-upgrade-${test_name}-stream"
 
+	local extra_opts
+	if [[ ${stable_version} == "3.6.14" ]]; then
+		extra_opts="--config juju-db-snap-channel=4.4/stable"
+	fi
+
 	file="${TEST_DIR}/test-upgrade-${test_name}-stream.log"
 	${bootstrap_juju_client} bootstrap "lxd" "${name}" \
 		--show-log \
 		--agent-version="${stable_version}" \
 		--bootstrap-series="${BOOTSTRAP_SERIES}" \
-		--config agent-metadata-url="http://${server_address}:8666/" 2>&1 | OUTPUT "${file}"
+		--config agent-metadata-url="http://${server_address}:8666/" ${extra_opts} 2>&1 | OUTPUT "${file}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
 
 	juju add-model test-upgrade-"${test_name}"
