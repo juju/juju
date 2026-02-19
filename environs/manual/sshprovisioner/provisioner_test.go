@@ -9,7 +9,6 @@ import (
 	"os"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/shell"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	jujuversion "github.com/juju/juju/version"
@@ -193,6 +193,6 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	removeLogFile := "rm -f '/var/log/cloud-init-output.log'\n"
-	expectedScript := removeLogFile + shell.DumpFileOnErrorScript("/var/log/cloud-init-output.log") + provisioningScript
+	expectedScript := removeLogFile + common.DumpOnErrorScript("/var/log/cloud-init-output.log") + provisioningScript
 	c.Assert(script, gc.Equals, expectedScript)
 }

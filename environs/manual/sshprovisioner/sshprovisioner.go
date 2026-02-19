@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/shell"
 	"github.com/juju/utils/v3/ssh"
 
 	"github.com/juju/juju/cloudconfig"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/service"
 )
@@ -334,7 +334,7 @@ func ProvisioningScript(icfg *instancecfg.InstanceConfig) (string, error) {
 	// Always remove the cloud-init-output.log file first, if it exists.
 	fmt.Fprintf(&buf, "rm -f %s\n", utils.ShQuote(icfg.CloudInitOutputLog))
 	// If something goes wrong, dump cloud-init-output.log to stderr.
-	buf.WriteString(shell.DumpFileOnErrorScript(icfg.CloudInitOutputLog))
+	buf.WriteString(common.DumpOnErrorScript(icfg.CloudInitOutputLog))
 	buf.WriteString(configScript)
 	return buf.String(), nil
 }
