@@ -135,6 +135,9 @@ func associateDNSConfig(nics corenetwork.InterfaceInfos, dns *corenetwork.DNSCon
 				if ipNet.Contains(dnsIP) {
 					// Make sure we only add the nameserver to this device once.
 					nsAddr := dns.Nameservers[j].Value
+					// Either we've already seen this nameserver,
+					// or we're adding it now
+					dnsUsed[j] = true
 					if nameservers.Contains(nsAddr) {
 						continue
 					}
@@ -142,7 +145,6 @@ func associateDNSConfig(nics corenetwork.InterfaceInfos, dns *corenetwork.DNSCon
 					logger.Infof("setting DNS address %q for interface %q", nsAddr, nic.InterfaceName)
 					nic.DNSServers = append(nic.DNSServers, dns.Nameservers[j])
 					nameservers.Add(nsAddr)
-					dnsUsed[j] = true
 				}
 			}
 		}
@@ -157,12 +159,34 @@ func associateDNSConfig(nics corenetwork.InterfaceInfos, dns *corenetwork.DNSCon
 		if used {
 			continue
 		}
-		for j := range results {
-			results[j].DNSServers = append(results[j].DNSServers, dns.Nameservers[i])
-		}
+		addFallbackDNS(results, dns.Nameservers[i])
 	}
 
 	return results
+}
+
+// Apply fallback DNS for any unused nameservers
+func addFallbackDNS(results corenetwork.InterfaceInfos, dnsServer corenetwork.ProviderAddress) {
+	for j := range results {
+		// Skip adding this DNS server if it’s already configured.
+		alreadyPresent := false
+		for _, nameserver := range results[j].DNSServers {
+			if nameserver.Value == dnsServer.Value {
+				alreadyPresent = true
+				logger.Debugf(
+					"nameserver %q already present for interface %q during fallback; skipping",
+					nameserver.Value,
+					results[j].InterfaceName,
+				)
+				break
+			}
+		}
+		if alreadyPresent {
+			continue
+		}
+		results[j].DNSServers = append(results[j].DNSServers, dnsServer)
+		logger.Debugf("Fallback DNS added: %q to NIC %q", dnsServer.Value, results[j].InterfaceName)
+	}
 }
 
 // findDNSServerConfig is a heuristic method to find an adequate DNS
