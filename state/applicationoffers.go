@@ -918,7 +918,8 @@ func (s *applicationOffers) filterOffersByAllowedConsumer(
 			return nil, errors.Trace(err)
 		}
 		for _, username := range users {
-			if offerUsers[username].EqualOrGreaterOfferAccessThan(permission.ConsumeAccess) {
+			userAccess, ok := offerUsers[username]
+			if ok && userAccess.Access.EqualOrGreaterOfferAccessThan(permission.ConsumeAccess) {
 				out = append(out, doc)
 				break
 			}

@@ -117,6 +117,7 @@ func offerParamsToDetails(offer params.ApplicationOfferAdminDetailsV5) (*crossmo
 		OfferName:              offer.OfferName,
 		CharmURL:               offer.CharmURL,
 		OfferURL:               offer.OfferURL,
+		OfferUUID:              offer.OfferUUID,
 		Endpoints:              eps,
 	}
 	for _, oc := range offer.Connections {

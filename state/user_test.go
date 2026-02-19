@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -156,7 +157,8 @@ func (s *UserSuite) TestAllUsersSkipsDeletedUsers(c *gc.C) {
 	}
 	c.Check(got, jc.SameContents, []string{"test-admin", "one", "two", "three"})
 
-	s.State.RemoveUser(user.UserTag())
+	err = s.State.RemoveUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
 
 	all, err = s.State.AllUsers(true)
 	got = nil
@@ -166,7 +168,6 @@ func (s *UserSuite) TestAllUsersSkipsDeletedUsers(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(len(all), jc.DeepEquals, 3)
 	c.Check(got, jc.SameContents, []string{"test-admin", "two", "three"})
-
 }
 
 func (s *UserSuite) TestRemoveUser(c *gc.C) {
@@ -284,6 +285,33 @@ func (s *UserSuite) TestRemoveUserRemovesUserAccess(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("user %q is permanently deleted", user.UserTag().Name()))
 }
 
+func (s *UserSuite) TestRemoveUserRemovesUserPermissions(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "so sekrit"})
+
+	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	offers := state.NewApplicationOffers(s.State)
+	offer, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "someoffer",
+		ApplicationName: "mysql",
+		Owner:           "test-admin",
+		HasRead:         []string{"everyone@external"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.CreateOfferAccess(names.NewApplicationOfferTag(offer.OfferUUID), user.UserTag(), permission.ReadAccess)
+	c.Assert(err, jc.ErrorIsNil)
+
+	oa, err := s.State.GetOfferAccess(offer.OfferUUID, user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(oa, gc.Equals, permission.ReadAccess)
+
+	// Remove the user.
+	err = s.State.RemoveUser(user.UserTag())
+	c.Check(err, jc.ErrorIsNil)
+
+	_, err = s.State.GetOfferAccess(offer.OfferUUID, user.UserTag())
+	c.Check(err, gc.ErrorMatches, fmt.Sprintf("user permission for \"us#%s\" on \"ao#%s\" not found", user.UserTag().Id(), offer.OfferUUID))
+}
+
 func (s *UserSuite) TestRecreatedUsersResetPermissions(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "so sekrit"})
 
@@ -313,7 +341,8 @@ func (s *UserSuite) TestRecreatedUsersResetPermissions(c *gc.C) {
 	// Add the user again with other password and access
 	userRecreated := s.Factory.MakeUser(c, &factory.UserParams{
 		Password: "otherpassword",
-		Access:   permission.ReadAccess})
+		Access:   permission.ReadAccess,
+	})
 
 	// Assert user exists and can authenticate.
 	c.Assert(userRecreated.PasswordValid("otherpassword"), jc.IsTrue)

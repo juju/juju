@@ -1111,10 +1111,8 @@ func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
 	users, err := newSt.GetOfferUsers(stOffer.OfferUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(users, gc.HasLen, 2)
-	c.Assert(users, gc.DeepEquals, map[string]permission.Access{
-		"admin": "admin",
-		"foo":   "consume",
-	})
+	c.Assert(users["admin"].Access, gc.Equals, permission.Access("admin"))
+	c.Assert(users["foo"].Access, gc.Equals, permission.Access("consume"))
 }
 
 func (s *MigrationImportSuite) TestExternalControllers(c *gc.C) {

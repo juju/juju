@@ -62,6 +62,8 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 		relationNetworks:  &mockRelationNetworks{},
 	}
 	s.mockStatePool = &mockStatePool{map[string]applicationoffers.Backend{s.mockState.modelUUID: s.mockState}}
+	s.mockState.users["admin"] = &mockUser{""}
+	s.mockState.users["read"] = &mockUser{""}
 }
 
 func (s *baseSuite) addApplication(c *gc.C, name string) jujucrossmodel.ApplicationOffer {

@@ -34,9 +34,9 @@ type QueryDetails struct {
 // just using a string.Contains check. We may want to extend this
 // functionality at some state to use regex, or support multiple
 // matches.
-func (s *State) TrackQueries(method string) QueryTracker {
+func (st *State) TrackQueries(method string) QueryTracker {
 	tracker := &queryTracker{method: method}
-	s.database.(*database).setTracker(tracker)
+	st.database.(*database).setTracker(tracker)
 	return tracker
 }
 

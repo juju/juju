@@ -111,8 +111,18 @@ func removePermissionOp(objectGlobalKey, subjectGlobalKey string) txn.Op {
 		Assert: txn.DocExists,
 		Remove: true,
 	}
-
 }
+
+func removeAllSubjectPermissionsOp(subjectGlobalKey string) txn.Op {
+	findExpr := fmt.Sprintf(".*#%s$", subjectGlobalKey)
+	return txn.Op{
+		C:      permissionsC,
+		Id:     bson.D{{"$regex", findExpr}},
+		Assert: txn.DocExists,
+		Remove: true,
+	}
+}
+
 func createPermissionOp(objectGlobalKey, subjectGlobalKey string, access permission.Access) txn.Op {
 	doc := makePermissionDoc(objectGlobalKey, subjectGlobalKey, access)
 	return txn.Op{
