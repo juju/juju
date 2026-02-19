@@ -309,14 +309,14 @@ func (api *OffersAPI) getModelFilters(ctx context.Context, apiUser names.UserTag
 		)
 		if modelUUID, ok = modelUUIDs[f.ModelName]; !ok {
 			var err error
-			model, err := api.modelForName(ctx, f.ModelName, modelQualifier)
+			m, err := api.modelForName(ctx, f.ModelName, modelQualifier)
 			if err != nil {
 				return nil, nil, errors.Capture(err)
 			}
 			// Record the UUID and model for next time.
-			modelUUID = model.UUID.String()
+			modelUUID = m.UUID.String()
 			modelUUIDs[f.ModelName] = modelUUID
-			models[modelUUID] = model
+			models[modelUUID] = m
 		}
 
 		// Record the filter and model details against the model UUID.
@@ -366,12 +366,13 @@ func (api *OffersAPI) applicationOffersFromModel(
 	// Process data.
 	var results []params.ApplicationOfferAdminDetailsV5
 	for _, appOffer := range offers {
+		isAdminUser := api.authorizer.HasPermission(ctx, permission.AdminAccess, names.NewModelTag(modelUUID)) == nil
 		offerParams := api.makeOfferParams(
 			model.UUID(modelUUID),
 			appOffer,
 			apiUser,
 			apiUserDisplayName,
-			requiredAccess,
+			isAdminUser,
 		)
 
 		charmURL, err := charms.CharmURLFromLocator(appOffer.CharmLocator.Name, appOffer.CharmLocator)
@@ -392,7 +393,7 @@ func (api *OffersAPI) makeOfferParams(
 	offer *crossmodelrelation.OfferDetail,
 	apiUser names.UserTag,
 	apiUserDisplayName string,
-	apiUserAccess permission.Access,
+	isAdminUser bool,
 ) *params.ApplicationOfferDetailsV5 {
 	if offer == nil {
 		return nil
@@ -414,7 +415,7 @@ func (api *OffersAPI) makeOfferParams(
 	}
 
 	// All OfferUsers only provided if apiUserAccess if Admin.
-	if apiUserAccess != permission.AdminAccess {
+	if !isAdminUser {
 		result.Users = append(result.Users, params.OfferUserDetails{
 			UserName:    apiUser.Id(),
 			DisplayName: apiUserDisplayName,
@@ -1035,7 +1036,7 @@ func (api *OffersAPI) getConsumeDetails(
 
 // RemoteApplicationInfo returns information about the requested remote application.
 // This call currently has no client side API, only there for the Dashboard at this stage.
-func (api *OffersAPI) RemoteApplicationInfo(ctx context.Context, args params.OfferURLs) (params.RemoteApplicationInfoResults, error) {
+func (api *OffersAPI) RemoteApplicationInfo(_ context.Context, _ params.OfferURLs) (params.RemoteApplicationInfoResults, error) {
 	return params.RemoteApplicationInfoResults{}, nil
 }
 

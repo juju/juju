@@ -37,8 +37,8 @@ run_offer_consume() {
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
-	 echo "Check find-offer output"
-	 juju find-offers --format=json | jq -r "has(\"${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-offer.dummy-offer\")" | check true
+	echo "Check find-offers output"
+	juju find-offers --format=json | jq -r "has(\"${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-offer.dummy-offer\")" | check true
 
 	echo "Relate workload in consume model with offer"
 	juju consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-offer.dummy-offer"

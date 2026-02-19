@@ -478,6 +478,11 @@ WHERE user_public_ssh_key_id IN (SELECT id
 		return errors.Errorf("preparing activation key deletion query: %w", err)
 	}
 
+	deletePermStmt, err := st.Prepare("DELETE FROM permission WHERE grant_to = $M.uuid", m)
+	if err != nil {
+		return errors.Errorf("preparing permission deletion query: %w", err)
+	}
+
 	setRemovedStmt, err := st.Prepare("UPDATE user SET removed = true WHERE uuid = $M.uuid", m)
 	if err != nil {
 		return errors.Errorf("preparing password deletion query: %w", err)
@@ -509,6 +514,10 @@ WHERE user_public_ssh_key_id IN (SELECT id
 
 		if err := tx.Query(ctx, deleteKeyStmt, m).Run(); err != nil {
 			return errors.Errorf("deleting key for %q: %w", name, err)
+		}
+
+		if err := tx.Query(ctx, deletePermStmt, m).Run(); err != nil {
+			return errors.Errorf("deleting permission for %q: %w", name, err)
 		}
 
 		if err := tx.Query(ctx, setRemovedStmt, m).Run(); err != nil {

@@ -707,6 +707,7 @@ func (s *userStateSuite) TestGetUserByAuthDoesNotExist(c *tc.C) {
 // TestRemoveUser asserts that we can remove a user from the database.
 func (s *userStateSuite) TestRemoveUser(c *tc.C) {
 	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
+	ps := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
@@ -735,6 +736,23 @@ func (s *userStateSuite) TestRemoveUser(c *tc.C) {
 		s.controllerLoginAccess(),
 	)
 	c.Assert(err, tc.ErrorIsNil)
+
+	// Create permission for an offer
+	offerID := uuid.MustNewUUID()
+	_, err = ps.CreatePermission(c.Context(), uuid.MustNewUUID(), permission.UserAccessSpec{
+		AccessSpec: permission.AccessSpec{
+			Target: permission.ID{ObjectType: permission.Offer, Key: offerID.String()},
+			Access: permission.ReadAccess,
+		},
+		User: userToRemoveName,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	accesses, err := ps.ReadAllAccessForUserAndObjectType(c.Context(), userToRemoveName, permission.Offer)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(accesses, tc.HasLen, 1)
+	c.Check(accesses[0].UserID, tc.Equals, userToRemoveUUID.String())
+	c.Check(accesses[0].Object.Key, tc.Equals, offerID.String())
 
 	// Remove userToRemove.
 	err = st.RemoveUser(c.Context(), userToRemoveName)
@@ -775,6 +793,9 @@ WHERE uuid = ?
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(removed, tc.Equals, true)
 
+	// Check permission was removed
+	_, err = ps.ReadAllAccessForUserAndObjectType(c.Context(), userToRemoveName, permission.Offer)
+	c.Assert(err, tc.ErrorIs, usererrors.PermissionNotFound)
 }
 
 func (s *userStateSuite) TestRemoveUserLastAdmin(c *tc.C) {

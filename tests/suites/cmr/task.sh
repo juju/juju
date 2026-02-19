@@ -14,6 +14,7 @@ test_cmr() {
 	bootstrap "test-cmr" "${file}"
 
 	test_offer_consume
+	test_offer_permissions
 
 	destroy_controller "test-cmr"
 }
