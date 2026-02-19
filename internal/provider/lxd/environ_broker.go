@@ -223,7 +223,8 @@ func (env *environ) getContainerSpec(
 		return cSpec, errors.Trace(err)
 	}
 
-	if !(len(nics) == 1 && nics["eth0"] != nil) {
+	nonDefaultNic := !(len(nics) == 1 && nics["eth0"] != nil)
+	if len(args.SubnetsToZones) > 0 || nonDefaultNic {
 		logger.Debugf("generating custom cloud-init networking")
 
 		cSpec.Config[lxd.NetworkConfigKey] = cloudinit.CloudInitNetworkConfigDisabled
@@ -267,33 +268,24 @@ func (env *environ) getContainerSpec(
 }
 
 func (env *environ) assignContainerNICs(instStartParams environs.StartInstanceParams) (map[string]map[string]string, error) {
-	// First, include any nics explicitly requested by the default profile.
-	assignedNICs, err := env.server().GetNICsFromProfile("default")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// No additional NICs required.
 	if len(instStartParams.SubnetsToZones) == 0 {
+		// No space requirements, just use the default profile NICs.
+		assignedNICs, err := env.server().GetNICsFromProfile("default")
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		return assignedNICs, nil
-	}
-
-	if assignedNICs == nil {
-		assignedNICs = make(map[string]map[string]string)
 	}
 
 	// We use two sets to de-dup the required NICs and ensure that each
 	// additional NIC gets assigned a sequential ethX name.
 	requestedHostBridges := set.NewStrings()
 	requestedNICNames := set.NewStrings()
-	for nicName, details := range assignedNICs {
-		requestedNICNames.Add(nicName)
-		netName := lxd.NetworkName(details)
-		requestedHostBridges.Add(netName)
-	}
 
-	// Assign any extra NICs required to satisfy the subnet requirements
+	// Assign any NICs required to satisfy the subnet requirements
 	// for this instance.
+	assignedNICs := make(map[string]map[string]string)
+
 	var nextIndex int
 	for _, subnetList := range instStartParams.SubnetsToZones {
 		for providerSubnetID := range subnetList {

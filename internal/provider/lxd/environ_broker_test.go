@@ -184,28 +184,73 @@ func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *gc.C) {
 	c.Assert(*res.Hardware.AvailabilityZone, jc.DeepEquals, "node01")
 }
 
-func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *gc.C) {
+// TestStartInstanceWithSingleSubnetsInSpace tests that if there is one space-related
+// constraint, then none of the NICs from the default profile are used, and
+// instead we generate NICs based only on the subnets to zone mapping.
+func (s *environBrokerSuite) TestStartInstanceWithSingleSubnetsInSpace(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
 
-	profileNICs := map[string]map[string]string{
-		"eno9": {
-			"name":    "eno9",
-			"mtu":     "9000",
-			"nictype": "bridged",
-			"parent":  "lxdbr0",
-			"hwaddr":  "00:00:00:00:00",
+	// Check that the non-standard devices were passed explicitly,
+	// And that we have disabled the standard network config.
+	check := func(spec containerlxd.ContainerSpec) bool {
+		details, ok := spec.Devices["eth0"]
+		c.Assert(ok, jc.IsTrue)
+		hwaddr := details["hwaddr"]
+		c.Assert(hwaddr, jc.HasPrefix, "00:16:3e:")
+		delete(details, "hwaddr")
+		spec.Devices["eth0"] = details
+		matchedNICs := reflect.DeepEqual(spec.Devices, map[string]map[string]string{
+			"eth0": {
+				"name":    "eth0",
+				"type":    "nic",
+				"nictype": "bridged",
+				"parent":  "virbr0",
+			},
+		})
+		c.Assert(matchedNICs, jc.IsTrue, gc.Commentf("the expected NICs for space-related subnets were not injected; got %v", spec.Devices))
+
+		return spec.Config[containerlxd.NetworkConfigKey] == cloudinit.CloudInitNetworkConfigDisabled
+	}
+
+	exp := svr.EXPECT()
+	gomock.InOrder(
+		exp.HostArch().Return(arch.AMD64),
+		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.ServerVersion().Return("3.10.0"),
+		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{
+			Instance: api.Instance{Location: "node01"},
+		}, nil),
+		exp.HostArch().Return(arch.AMD64),
+	)
+
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{})
+	startArgs := s.GetStartInstanceArgs(c)
+	startArgs.SubnetsToZones = []map[network.Id][]string{
+		{
+			"subnet-virbr0-10.42.0.0/24": {"locutus"},
 		},
 	}
+	res, err := env.StartInstance(s.callCtx, startArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.NotNil)
+	c.Assert(*res.Hardware.AvailabilityZone, jc.DeepEquals, "node01")
+}
+
+// TestStartInstanceWithManySubnetsInSpace tests that if there are space-related
+// constraints, then none of the NICs from the default profile are used, and
+// instead we generate NICs based only on the subnets to zone mapping.
+func (s *environBrokerSuite) TestStartInstanceWithManySubnetsInSpace(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	svr := lxd.NewMockServer(ctrl)
 
 	// Check that the non-standard devices were passed explicitly,
 	// And that we have disabled the standard network config.
 	check := func(spec containerlxd.ContainerSpec) bool {
-		c.Assert(spec.Devices["eno9"], gc.DeepEquals, profileNICs["eno9"], gc.Commentf("expected NIC from profile to be included"))
-
-		// As the subnet IDs are map keys, the additional generated NIC
-		// indices depend on the key iteration order so we need to test
+		// As the subnet IDs are map keys, the generated NIC indices
+		// depend on the key iteration order so we need to test
 		// both possible variants here.
 		// First check the hwaddr values. These are random with
 		// a fixed prefix.
@@ -219,7 +264,6 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *gc.C) {
 			spec.Devices[name] = details
 		}
 		matchedNICs := reflect.DeepEqual(spec.Devices, map[string]map[string]string{
-			"eno9": profileNICs["eno9"],
 			"eth0": {
 				"name":    "eth0",
 				"type":    "nic",
@@ -233,7 +277,6 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *gc.C) {
 				"parent":  "virbr0",
 			},
 		}) || reflect.DeepEqual(spec.Devices, map[string]map[string]string{
-			"eno9": profileNICs["eno9"],
 			"eth0": {
 				"name":    "eth0",
 				"type":    "nic",
@@ -257,7 +300,6 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *gc.C) {
 		exp.HostArch().Return(arch.AMD64),
 		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
-		exp.GetNICsFromProfile("default").Return(profileNICs, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{
 			Instance: api.Instance{Location: "node01"},
 		}, nil),
@@ -279,9 +321,6 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *gc.C) {
 			"subnet-virbr0-10.42.0.0/24": {"locutus"},
 			// Bridge name with dashes
 			"subnet-ovs-br0-10.0.0.0/24": {"locutus"},
-			// Should be ignored as the default profile already
-			// specifies a device bridged to lxdbr0
-			"subnet-lxdbr0-10.99.0.0/24": {"locutus"},
 		},
 	}
 	res, err := env.StartInstance(s.callCtx, startArgs)
