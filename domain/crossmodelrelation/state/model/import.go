@@ -10,7 +10,9 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/errors"
 	internaluuid "github.com/juju/juju/internal/uuid"
@@ -270,4 +272,34 @@ func (st *State) GetApplicationUUIDByName(ctx context.Context, name string) (str
 		return "", errors.Capture(err)
 	}
 	return id, nil
+}
+
+// GetRelationUUIDByRelationKey retrieves the UUID of a relation using its relation key.
+func (st *State) GetRelationUUIDByRelationKey(ctx context.Context, key corerelation.Key) (string, error) {
+	// TODO: Implement relation key lookup in the state
+	return "", errors.Errorf("relation key %q not found", key)
+}
+
+// ImportRemoteApplicationSecretGrants imports secrets granted by offerer applications
+// to consumer applications in the offerer model.
+func (st *State) ImportRemoteApplicationSecretGrants(ctx context.Context,
+	values []internal.RemoteApplicationSecretGrant) error {
+	return errors.Errorf("not implemented")
+}
+
+// ImportRemoteSecretConsumers imports secret consumers in the consumer model that
+// consume secrets granted by offerer applications in the offerer model.
+func (st *State) ImportRemoteSecretConsumers(ctx context.Context,
+	values []internal.RemoteUnitConsumer) error {
+	return errors.Errorf("not implemented")
+}
+
+// GetUnitUUIDByName returns the unit UUID for the named unit in the named application.
+func (st *State) GetUnitUUIDByName(ctx context.Context, unitName string) (string, error) {
+	return "", errors.Errorf("not implemented")
+}
+
+// ImportRemoteSecret imports a remote secret on the consumer model.
+func (st *State) ImportRemoteSecret(ctx context.Context, secret internal.RemoteSecret) error {
+	return errors.Errorf("not implemented")
 }

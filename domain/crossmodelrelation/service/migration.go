@@ -5,6 +5,8 @@ package service
 
 import (
 	"context"
+	"maps"
+	"slices"
 
 	"github.com/juju/collections/transform"
 
@@ -19,6 +21,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -37,9 +40,26 @@ type ModelMigrationState interface {
 	// migrated to the current model.
 	ImportRemoteApplicationOfferers(context.Context, []crossmodelrelation.RemoteApplicationOffererImport) error
 
-	// GetApplicationUUIDByName returns nil if the application exists.
-	// Otherwise, it returns an error.
+	// GetApplicationUUIDByName returns the UUID of an application using its name.
 	GetApplicationUUIDByName(ctx context.Context, name string) (string, error)
+
+	// GetRelationUUIDByRelationKey retrieves the UUID of a relation using its
+	// relation key.
+	GetRelationUUIDByRelationKey(ctx context.Context, key relation.Key) (string, error)
+
+	// ImportRemoteApplicationSecretGrants imports secrets granted by offerer applications
+	// to consumer applications in the offerer model.
+	ImportRemoteApplicationSecretGrants(ctx context.Context, values []internal.RemoteApplicationSecretGrant) error
+
+	// ImportRemoteSecretConsumers imports secret consumers in the consumer model that
+	// consume secrets granted by offerer applications in the offerer model.
+	ImportRemoteSecretConsumers(ctx context.Context, values []internal.RemoteUnitConsumer) error
+
+	// ImportRemoteSecret imports a remote secret on the consumer model.
+	ImportRemoteSecret(ctx context.Context, secret internal.RemoteSecret) error
+
+	// GetUnitUUID returns the unit UUID for the specified unit.
+	GetUnitUUID(ctx context.Context, unitName string) (string, error)
 }
 
 // MigrationService provides the API for model migration actions within
@@ -406,11 +426,99 @@ func (s *MigrationService) constructConsumedSyntheticCharm(appName string, endpo
 // ImportGrantedSecrets imports secrets granted by offerer applications to
 // consumer applications in the offerer model.
 func (s *MigrationService) ImportGrantedSecrets(ctx context.Context, grantedSecrets []GrantedSecretImport) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	for _, secret := range grantedSecrets {
+		if err := s.importGrantedSecret(ctx, secret); err != nil {
+			return internalerrors.Errorf("importing granted secret with ID %q: %w", secret.SecretID, err)
+		}
+	}
 	return nil
 }
 
 // ImportRemoteSecrets imports secrets granted by offerer applications to
 // consumer applications in the consumer model.
 func (s *MigrationService) ImportRemoteSecrets(ctx context.Context, remoteSecrets []RemoteSecretImport) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	for _, secret := range remoteSecrets {
+		if err := s.importRemoteSecret(ctx, secret); err != nil {
+			return internalerrors.Errorf("importing remote secret with ID %q: %w", secret.SecretID, err)
+		}
+	}
+
+	return nil
+}
+
+func (s *MigrationService) importGrantedSecret(ctx context.Context, secret GrantedSecretImport) error {
+
+	// Fetch application and relation UUIDs.
+	grantByApplications := make(map[string]internal.RemoteApplicationSecretGrant, len(secret.ACLs))
+	for _, acl := range secret.ACLs {
+		if acl.Role != secrets.RoleView {
+			return internalerrors.Errorf("unsupported role %q for remote secret %q", acl.Role, secret.SecretID)
+		}
+		appUUID, err := s.modelState.GetApplicationUUIDByName(ctx, acl.ApplicationName)
+		if err != nil {
+			return internalerrors.Errorf("getting application UUID by name %q: %w", acl.ApplicationName, err)
+		}
+		relUUID, err := s.modelState.GetRelationUUIDByRelationKey(ctx, acl.RelationKey)
+		if err != nil {
+			return internalerrors.Errorf("getting relation UUID by relation key %q: %w", acl.RelationKey, err)
+		}
+		grantByApplications[acl.ApplicationName] = internal.RemoteApplicationSecretGrant{
+			SecretID:        secret.SecretID,
+			ApplicationName: acl.ApplicationName,
+			ApplicationUUID: appUUID,
+			RelationKey:     acl.RelationKey.String(),
+			RelationUUID:    relUUID,
+		}
+	}
+
+	// Verify that every consumer has a grant for the application.
+	var grantedConsumers []internal.RemoteUnitConsumer
+	for _, consumer := range secret.Consumers {
+		if _, ok := grantByApplications[consumer.Unit.Application()]; !ok {
+			return internalerrors.Errorf("grant for application %q not found for remote secret %q", consumer.Unit.Application(), secret.SecretID)
+		}
+		grantedConsumers = append(grantedConsumers, internal.RemoteUnitConsumer{
+			SecretID:        secret.SecretID,
+			Unit:            consumer.Unit.String(),
+			CurrentRevision: consumer.CurrentRevision,
+		})
+	}
+
+	if err := s.modelState.ImportRemoteApplicationSecretGrants(ctx,
+		slices.Collect(maps.Values(grantByApplications))); err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	if err := s.modelState.ImportRemoteSecretConsumers(ctx, grantedConsumers); err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	return nil
+}
+
+func (s *MigrationService) importRemoteSecret(ctx context.Context, secret RemoteSecretImport) error {
+
+	unitUUID, err := s.modelState.GetUnitUUID(ctx, secret.ConsumerUnit.String())
+	if err != nil {
+		return internalerrors.Errorf("getting unit UUID by name %q: %w", secret.ConsumerUnit.String(), err)
+	}
+
+	if err := s.modelState.ImportRemoteSecret(ctx, internal.RemoteSecret{
+		SecretID:        secret.SecretID,
+		SourceModelUUID: secret.SourceUUID,
+		UnitUUID:        unitUUID,
+		Label:           secret.Label,
+		CurrentRevision: secret.CurrentRevision,
+		LatestRevision:  secret.LatestRevision,
+	}); err != nil {
+		return internalerrors.Capture(err)
+	}
+
 	return nil
 }
