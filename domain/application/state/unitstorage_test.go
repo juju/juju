@@ -53,13 +53,22 @@ func (u *unitStorageSuite) SetUpTest(c *tc.C) {
 	)
 }
 
-// newStorageInstanceWithModelFilesystem is a helper function to create a new
-// storage instance in the model with an associated model provisioned
-// filesystem.
-func (u *unitStorageSuite) newStorageInstanceWithModelFilesystem(
+// newDyingStorageInstanceWithModelFilesystem is a helper function to
+// create a new storage instance with life Dying in the model with an
+// associated model provisioned filesystem.
+func (u *unitStorageSuite) newDyingStorageInstanceWithModelFilesystem(
 	c *tc.C,
 ) (domainstorage.StorageInstanceUUID, domainstorage.FilesystemUUID) {
 	return u.newStorageInstanceWithLifeAndWithModelFilesystem(c, life.Dying)
+}
+
+// newAliveStorageInstanceWithModelFilesystem is a helper function to
+// create a new storage instance with life Dying in the model with an
+// associated model provisioned filesystem.
+func (u *unitStorageSuite) newAliveStorageInstanceWithModelFilesystem(
+	c *tc.C,
+) (domainstorage.StorageInstanceUUID, domainstorage.FilesystemUUID) {
+	return u.newStorageInstanceWithLifeAndWithModelFilesystem(c, life.Alive)
 }
 
 // newStorageInstanceWithModelFilesystem is a helper function to create a new
@@ -142,8 +151,8 @@ func (u *unitStorageSuite) TestGetUnitOwnedStorageInstances(c *tc.C) {
 	_, unitUUIDs := u.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
 	unitUUID := unitUUIDs[0]
 
-	st1UUID, fs1UUID := u.newStorageInstanceWithModelFilesystem(c)
-	st2UUID, fs2UUID := u.newStorageInstanceWithModelFilesystem(c)
+	st1UUID, fs1UUID := u.newDyingStorageInstanceWithModelFilesystem(c)
+	st2UUID, fs2UUID := u.newDyingStorageInstanceWithModelFilesystem(c)
 	u.newStorageUnitOwner(c, st1UUID, unitUUID)
 	u.newStorageUnitOwner(c, st2UUID, unitUUID)
 
@@ -388,8 +397,8 @@ func (u *unitStorageSuite) TestGetUnitStorageDirectiveByName(c *tc.C) {
 func (u *unitStorageSuite) TestGetStorageAddInfoByUnitUUID(c *tc.C) {
 	unitUUID, _ := u.newUnitWithStorageDirectives(c)
 
-	st1UUID, _ := u.newStorageInstanceWithModelFilesystem(c)
-	st2UUID, _ := u.newStorageInstanceWithModelFilesystem(c)
+	st1UUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
+	st2UUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
 	u.newStorageUnitOwner(c, st1UUID, unitUUID)
 	u.newStorageUnitOwner(c, st2UUID, unitUUID)
 
@@ -542,7 +551,7 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnit(c *tc.C) {
 
 func (u *unitStorageSuite) TestAttachStorageToIAASUnitNotFound(c *tc.C) {
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	stUUID, _ := u.newStorageInstanceWithModelFilesystem(c)
+	stUUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
 	err := u.state.AttachStorageToIAASUnit(c.Context(), stUUID, unitUUID, internal.IAASUnitAttachStorageArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
@@ -556,7 +565,7 @@ func (u *unitStorageSuite) TestAttachStorageToIAASUnitStorageNotFound(c *tc.C) {
 
 func (u *unitStorageSuite) TestAttachStorageToIAASUnitNotAlive(c *tc.C) {
 	_, unitUUID := u.createNamedIAASUnit(c)
-	stUUID, _ := u.newStorageInstanceWithLifeAndWithModelFilesystem(c, life.Alive)
+	stUUID, _ := u.newAliveStorageInstanceWithModelFilesystem(c)
 
 	err := u.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE uuid = ?", unitUUID.String())
@@ -570,7 +579,7 @@ func (u *unitStorageSuite) TestAttachStorageToIAASUnitNotAlive(c *tc.C) {
 
 func (u *unitStorageSuite) TestAttachStorageToIAASUnitStorageNotAlive(c *tc.C) {
 	_, unitUUID := u.createNamedIAASUnit(c)
-	stUUID, _ := u.newStorageInstanceWithModelFilesystem(c)
+	stUUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
 
 	err := u.state.AttachStorageToIAASUnit(c.Context(), stUUID, unitUUID, internal.IAASUnitAttachStorageArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.StorageNotAlive)
@@ -581,7 +590,7 @@ func (u *unitStorageSuite) TestAttachStorageToIAASUnit(c *tc.C) {
 	netNodeUUID, err := u.state.GetUnitNetNodeUUID(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	siUUID, fsUUID := u.newStorageInstanceWithLifeAndWithModelFilesystem(c, life.Alive)
+	siUUID, fsUUID := u.newAliveStorageInstanceWithModelFilesystem(c)
 	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	fsaUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 
@@ -655,8 +664,8 @@ func (u *unitStorageSuite) TestGetStorageInstanceCompositionByUUID(c *tc.C) {
 	_, unitUUIDs := u.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
 	unitUUID := unitUUIDs[0]
 
-	st1UUID, fs1UUID := u.newStorageInstanceWithModelFilesystem(c)
-	st2UUID, _ := u.newStorageInstanceWithModelFilesystem(c)
+	st1UUID, fs1UUID := u.newDyingStorageInstanceWithModelFilesystem(c)
+	st2UUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
 	u.newStorageUnitOwner(c, st1UUID, unitUUID)
 	u.newStorageUnitOwner(c, st2UUID, unitUUID)
 
@@ -688,8 +697,8 @@ func (u *unitStorageSuite) TestGetStorageAttachInfoByUnitUUIDAndStorageUUIDNotFo
 func (u *unitStorageSuite) TestGetStorageAttachInfoByUnitUUIDAndStorageUUID(c *tc.C) {
 	unitUUID, _ := u.newUnitWithStorageDirectives(c)
 
-	st1UUID, _ := u.newStorageInstanceWithModelFilesystem(c)
-	st2UUID, _ := u.newStorageInstanceWithModelFilesystem(c)
+	st1UUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
+	st2UUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
 	u.newStorageUnitOwner(c, st1UUID, unitUUID)
 	u.newStorageUnitOwner(c, st2UUID, unitUUID)
 
