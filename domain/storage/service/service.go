@@ -63,9 +63,9 @@ type State interface {
 // Service defines a service for interacting with the underlying state.
 type Service struct {
 	FilesystemService
-	*StoragePoolService
-	*StorageService
-	*StorageImportService
+	StoragePoolService
+	StorageService
+	StorageImportService
 	VolumeService
 
 	logger logger.Logger
@@ -82,16 +82,16 @@ func NewService(
 		FilesystemService: FilesystemService{
 			st: st,
 		},
-		StoragePoolService: &StoragePoolService{
+		StoragePoolService: StoragePoolService{
 			st:             st,
 			registryGetter: registryGetter,
 			logger:         logger,
 		},
-		StorageService: &StorageService{
+		StorageService: StorageService{
 			st:             st,
 			registryGetter: registryGetter,
 		},
-		StorageImportService: &StorageImportService{
+		StorageImportService: StorageImportService{
 			registryGetter: registryGetter,
 			st:             st,
 			logger:         logger,
