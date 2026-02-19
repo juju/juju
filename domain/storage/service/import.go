@@ -5,21 +5,30 @@ package service
 
 import (
 	"context"
+	"maps"
+	"slices"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 
+	coreblockdevice "github.com/juju/juju/core/blockdevice"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/blockdevice"
+	blockdeviceerrors "github.com/juju/juju/domain/blockdevice/errors"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/storage/internal"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
+	uniterrors "github.com/juju/juju/domain/unitstate/errors"
 	"github.com/juju/juju/internal/errors"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
@@ -27,18 +36,25 @@ import (
 // StorageImportState defines an interface for interacting with the underlying
 // state for storage import operations.
 type StorageImportState interface {
-	// GetNetNodeUUIDsByMachineOrUnitID returns net node UUIDs for all machine or
+	// GetBlockDevicesForMachinesByNetNodeUUIDs returns the BlockDevices for the
+	// specified machines. If a machine is not found or dead then it is excluded
+	// from the result.
+	GetBlockDevicesForMachinesByNetNodeUUIDs(
+		ctx context.Context, netNodeUUIDs []network.NetNodeUUID,
+	) (map[network.NetNodeUUID][]internal.BlockDevice, error)
+
+	// GetNetNodeUUIDsByMachineOrUnitName returns net node UUIDs for all machine or
 	// and unit names provided. If a machine name or unit name is not found then it
 	// is excluded from the result.
 	GetNetNodeUUIDsByMachineOrUnitName(
 		ctx context.Context,
-		machines []string,
-		units []string,
-	) (map[string]string, map[string]string, error)
+		machines []machine.Name,
+		units []unit.Name,
+	) (map[machine.Name]network.NetNodeUUID, map[unit.Name]network.NetNodeUUID, error)
 
 	// GetStorageInstanceUUIDsByIDs retrieves the UUIDs of storage instances by
 	// their IDs.
-	GetStorageInstanceUUIDsByIDs(ctx context.Context, storageIDs []string) (map[string]string, error)
+	GetStorageInstanceUUIDsByIDs(ctx context.Context, storageIDs []string) (map[string]domainstorage.StorageInstanceUUID, error)
 
 	// GetStoragePoolProvidersByNames returns a map of storage pool names to their
 	// provider types for the specified storage pool names.
@@ -56,7 +72,7 @@ type StorageImportState interface {
 		attachmentArgs []internal.ImportFilesystemAttachmentIAASArgs,
 	) error
 
-	// ImportStorageInstances imports storage instances, storage attachments and
+	// ImportStorageInstances imports storage instances, storage attachments, and
 	// storage unit owners if the unit name is provided.
 	ImportStorageInstances(
 		ctx context.Context,
@@ -228,9 +244,15 @@ func (s *StorageImportService) ImportFilesystemsIAAS(ctx context.Context, params
 		return errors.Errorf("retrieving storage instance UUIDs by IDs: %w", err)
 	}
 
-	var machineNodes, unitNodes map[string]string
+	var (
+		machineNodes map[machine.Name]network.NetNodeUUID
+		unitNodes    map[unit.Name]network.NetNodeUUID
+	)
 	if len(machines)+len(units) > 0 {
-		machineNodes, unitNodes, err = s.st.GetNetNodeUUIDsByMachineOrUnitName(ctx, machines.Values(), units.Values())
+		machineNodes, unitNodes, err = s.st.GetNetNodeUUIDsByMachineOrUnitName(ctx,
+			transform.Slice(machines.Values(), func(in string) machine.Name { return machine.Name(in) }),
+			transform.Slice(units.Values(), func(in string) unit.Name { return unit.Name(in) }),
+		)
 		if err != nil {
 			return errors.Errorf("retrieving net node UUIDs by machine or unit names: %w", err)
 		}
@@ -245,7 +267,7 @@ func (s *StorageImportService) ImportFilesystemsIAAS(ctx context.Context, params
 				Add(domainstorageerrors.StoragePoolNotFound)
 		}
 
-		var storageInstanceUUID string
+		var storageInstanceUUID domainstorage.StorageInstanceUUID
 		if arg.StorageInstanceID != "" {
 			var ok bool
 			storageInstanceUUID, ok = storageInstanceUUIDsByID[arg.StorageInstanceID]
@@ -266,7 +288,7 @@ func (s *StorageImportService) ImportFilesystemsIAAS(ctx context.Context, params
 			Life:                life.Alive,
 			SizeInMiB:           arg.SizeInMiB,
 			ProviderID:          arg.ProviderID,
-			StorageInstanceUUID: storageInstanceUUID,
+			StorageInstanceUUID: storageInstanceUUID.String(),
 			Scope:               providerScope,
 		}
 
@@ -276,27 +298,20 @@ func (s *StorageImportService) ImportFilesystemsIAAS(ctx context.Context, params
 				return errors.Errorf("generating UUID for filesystem attachment of filesystem %q: %w", arg.ID, err)
 			}
 
-			var netNodeUUID string
-			if attachment.HostUnitName != "" {
-				var ok bool
-				netNodeUUID, ok = unitNodes[attachment.HostUnitName]
-				if !ok {
-					return errors.Errorf("net node for host unit %q not found", attachment.HostUnitName).
-						Add(applicationerrors.UnitNotFound)
-				}
-			} else {
-				var ok bool
-				netNodeUUID, ok = machineNodes[attachment.HostMachineName]
-				if !ok {
-					return errors.Errorf("net node for host machine %q not found", attachment.HostMachineName).
-						Add(machineerrors.MachineNotFound)
-				}
+			netNodeUUID, err := getAttachmentNetNodeUUID(
+				machine.Name(attachment.HostMachineName),
+				unit.Name(attachment.HostUnitName),
+				machineNodes,
+				unitNodes,
+			)
+			if err != nil {
+				return errors.Errorf("getting net node UUID for filesystem attachment of filesystem %q: %w", arg.ID, err)
 			}
 
 			attachmentArgs = append(attachmentArgs, internal.ImportFilesystemAttachmentIAASArgs{
 				UUID:           attachmentUUID.String(),
 				FilesystemUUID: fsUUID.String(),
-				NetNodeUUID:    netNodeUUID,
+				NetNodeUUID:    netNodeUUID.String(),
 				Scope:          providerScope,
 				Life:           life.Alive,
 				MountPoint:     attachment.MountPoint,
@@ -365,6 +380,10 @@ func (s *StorageImportService) retrieveProviderScopesForPools(
 // - [domainstorageerrors.ProviderTypeNotFound] if storage provider was not found.
 // - [domainstorageerrors.StorageInstanceNotFound] if the storage ID was not found.
 // - [domainstorageerrors.StoragePoolNotFound] if any of the storage pools do not exist.
+// - [applicationerrors.UnitNotFound] when a host unit name is provided but not
+// found in the model.
+// - [machineerrors.MachineNotFound] when a host machine name is provided but not
+// found in the model.
 func (s *StorageImportService) ImportVolumes(ctx context.Context, params []domainstorage.ImportVolumeParams) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -372,6 +391,7 @@ func (s *StorageImportService) ImportVolumes(ctx context.Context, params []domai
 	if len(params) == 0 {
 		return nil
 	}
+
 	for i, param := range params {
 		if err := param.Validate(); err != nil {
 			return errors.Errorf("validating import volume params %d: %w", i, err)
@@ -390,18 +410,32 @@ func (s *StorageImportService) transformImportVolumeArgs(
 	ctx context.Context,
 	params []domainstorage.ImportVolumeParams,
 ) ([]internal.ImportVolumeArgs, error) {
-	poolNames := transform.Slice(params, func(in domainstorage.ImportVolumeParams) string {
-		return in.Pool
-	})
+	var poolNames []string
+	for _, v := range params {
+		if index, seen := slices.BinarySearch(poolNames, v.Pool); !seen {
+			poolNames = slices.Insert(poolNames, index, v.Pool)
+		}
+	}
 	poolNamesToSP, err := s.retrieveProviderScopesForPools(ctx, domainstorage.StorageKindBlock, poolNames)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	instanceIDs := transform.Slice(params, func(in domainstorage.ImportVolumeParams) string {
-		return in.StorageID
+		return in.StorageInstanceID
 	})
 	instanceUUIDsByIDs, err := s.st.GetStorageInstanceUUIDsByIDs(ctx, instanceIDs)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	machineNetNodes, err := s.getAllNetNodeUUIDsForImportVolumeArgs(ctx, params)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	mach := slices.Collect(maps.Values(machineNetNodes))
+	blockDevicesByNetNode, err := s.st.GetBlockDevicesForMachinesByNetNodeUUIDs(ctx, mach)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -416,16 +450,32 @@ func (s *StorageImportService) transformImportVolumeArgs(
 			return internal.ImportVolumeArgs{}, errors.Errorf("storage pool %q not found",
 				in.Pool).Add(domainstorageerrors.StoragePoolNotFound)
 		}
-		storageInstanceUUID, ok := instanceUUIDsByIDs[in.StorageID]
+		storageInstanceUUID, ok := instanceUUIDsByIDs[in.StorageInstanceID]
 		if !ok {
 			return internal.ImportVolumeArgs{}, errors.Errorf("storage instance %q not found",
-				in.StorageID).Add(domainstorageerrors.StorageInstanceNotFound)
+				in.StorageInstanceID).Add(domainstorageerrors.StorageInstanceNotFound)
 		}
+
+		volumeAttachments, err := s.transformVolumeAttachments(
+			in.Attachments,
+			machineNetNodes,
+			blockDevicesByNetNode,
+		)
+		if err != nil {
+			return internal.ImportVolumeArgs{}, errors.Errorf("transforming volume attachments: %w", err)
+		}
+
+		volumeAttachmentPlans, err := s.transformVolumeAttachmentPlans(in.AttachmentPlans, machineNetNodes)
+		if err != nil {
+			return internal.ImportVolumeArgs{}, errors.Errorf("transforming volume attachment plans: %w", err)
+		}
+
 		return internal.ImportVolumeArgs{
-			UUID:                volumeUUID.String(),
+			UUID:                volumeUUID,
 			ID:                  in.ID,
 			LifeID:              life.Alive,
 			StorageInstanceUUID: storageInstanceUUID,
+			StorageInstanceID:   in.StorageInstanceID,
 			Provisioned:         in.Provisioned,
 			ProvisionScopeID:    provisionScope,
 			SizeMiB:             in.SizeMiB,
@@ -433,6 +483,175 @@ func (s *StorageImportService) transformImportVolumeArgs(
 			WWN:                 in.WWN,
 			ProviderID:          in.ProviderID,
 			Persistent:          in.Persistent,
+			Attachments:         volumeAttachments,
+			AttachmentPlans:     volumeAttachmentPlans,
 		}, nil
 	})
+}
+
+func (s *StorageImportService) getAllNetNodeUUIDsForImportVolumeArgs(
+	ctx context.Context,
+	params []domainstorage.ImportVolumeParams,
+) (map[machine.Name]network.NetNodeUUID, error) {
+	// Ensure we have a unique set of machines, with no empty strings.
+	machineNames := set.NewStrings()
+	for _, param := range params {
+		for _, attachment := range param.Attachments {
+			machineNames.Add(attachment.HostMachineName)
+		}
+		for _, plan := range param.AttachmentPlans {
+			machineNames.Add(plan.HostMachineName)
+		}
+	}
+	if machineNames.Size() == 0 {
+		return nil, nil
+	}
+	machineNetNodeUUIDS, _, err := s.st.GetNetNodeUUIDsByMachineOrUnitName(
+		ctx,
+		transform.Slice(machineNames.Values(), func(in string) machine.Name { return machine.Name(in) }),
+		nil,
+	)
+	if err != nil {
+		return nil, errors.Errorf("getting net node uuids: %w", err)
+	}
+	if len(machineNetNodeUUIDS) != machineNames.Size() {
+		return nil, errors.Errorf("not all machines found")
+	}
+	return machineNetNodeUUIDS, nil
+}
+
+func (s *StorageImportService) transformVolumeAttachments(
+	attachments []domainstorage.ImportVolumeAttachmentParams,
+	machineNetNodeUUIDS map[machine.Name]network.NetNodeUUID,
+	blockDevicesByNetNode map[network.NetNodeUUID][]internal.BlockDevice,
+) ([]internal.ImportVolumeAttachmentArgs, error) {
+	if len(attachments) == 0 {
+		return nil, nil
+	}
+
+	existingAttachments := make([]internal.ImportVolumeAttachmentArgs, len(attachments))
+	for i, attachment := range attachments {
+		uuid, err := domainstorage.NewVolumeAttachmentUUID()
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+
+		netNodeUUID, err := getAttachmentNetNodeUUID(
+			machine.Name(attachment.HostMachineName),
+			"",
+			machineNetNodeUUIDS,
+			nil,
+		)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+
+		iva := internal.ImportVolumeAttachmentArgs{
+			UUID:        uuid,
+			LifeID:      life.Alive,
+			NetNodeUUID: netNodeUUID,
+			ReadOnly:    attachment.ReadOnly,
+		}
+
+		attachmentBlockDevice := attachment.CoreBlockDevice()
+		if blockdevice.IsEmpty(attachmentBlockDevice) {
+			existingAttachments = append(existingAttachments, iva)
+			continue
+		}
+
+		machineBlockDevices, ok := blockDevicesByNetNode[netNodeUUID]
+		if !ok {
+			return nil, errors.Errorf("block devices for net node %q not found", netNodeUUID).Add(blockdeviceerrors.BlockDeviceNotFound)
+		}
+
+		if blockDeviceUUID, ok := findBlockDeviceUUID(attachmentBlockDevice, machineBlockDevices); ok {
+			iva.BlockDeviceUUID = blockDeviceUUID
+			existingAttachments[i] = iva
+			continue
+		}
+		return nil, errors.Errorf("block device for machine %q not found", attachment.HostMachineName).Add(blockdeviceerrors.BlockDeviceNotFound)
+	}
+
+	return existingAttachments, nil
+}
+
+func getAttachmentNetNodeUUID(
+	machineName machine.Name,
+	unitName unit.Name,
+	machineNetNodeUUIDS map[machine.Name]network.NetNodeUUID,
+	unitNetNodeUUIDs map[unit.Name]network.NetNodeUUID,
+) (network.NetNodeUUID, error) {
+	var (
+		machineNetNodeUUID, unitNetNodeUUID network.NetNodeUUID
+		ok                                  bool
+	)
+	if machineName != "" {
+		machineNetNodeUUID, ok = machineNetNodeUUIDS[machineName]
+		if !ok {
+			return "", errors.Errorf("network node uuid for machine %q not found", machineName).Add(machineerrors.MachineNotFound)
+		}
+	}
+	if unitName != "" {
+		unitNetNodeUUID, ok = unitNetNodeUUIDs[unitName]
+		if !ok {
+			return "", errors.Errorf("network node uuid for unit %q not found", unitName).Add(uniterrors.UnitNotFound)
+		}
+	}
+	if machineNetNodeUUID != "" && unitNetNodeUUID != "" && machineNetNodeUUID != unitNetNodeUUID {
+		return "", errors.Errorf("conflicting data unit %q not on machine %q", unitName, machineName)
+	}
+	if machineNetNodeUUID.String() != "" {
+		return machineNetNodeUUID, nil
+	}
+	return unitNetNodeUUID, nil
+}
+
+func findBlockDeviceUUID(
+	find coreblockdevice.BlockDevice,
+	blockDevices []internal.BlockDevice,
+) (blockdevice.BlockDeviceUUID, bool) {
+	for _, bd := range blockDevices {
+		if blockdevice.SameDevice(find, bd.BlockDevice) {
+			return bd.UUID, true
+		}
+	}
+	return "", false
+}
+
+func (s *StorageImportService) transformVolumeAttachmentPlans(
+	plans []domainstorage.ImportVolumeAttachmentPlanParams,
+	machineNetNodeUUIDs map[machine.Name]network.NetNodeUUID,
+) ([]internal.ImportVolumeAttachmentPlanArgs, error) {
+	if len(plans) == 0 {
+		return nil, nil
+	}
+
+	existingPlans := make([]internal.ImportVolumeAttachmentPlanArgs, 0)
+	for _, plan := range plans {
+		netNodeUUID, ok := machineNetNodeUUIDs[machine.Name(plan.HostMachineName)]
+		if !ok {
+			return nil, errors.Errorf("network node uuid for machine %q not found", plan.HostMachineName).Add(applicationerrors.MachineNotFound)
+		}
+		uuid, err := domainstorage.NewVolumeAttachmentPlanUUID()
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		var deviceTypePtr *domainstorage.VolumeDeviceType
+		if plan.DeviceType != "" {
+			deviceType, err := domainstorage.ParseVolumeDeviceType(plan.DeviceType)
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
+			deviceTypePtr = &deviceType
+		}
+		existingPlans = append(existingPlans, internal.ImportVolumeAttachmentPlanArgs{
+			UUID:             uuid,
+			LifeID:           life.Alive,
+			NetNodeUUID:      netNodeUUID,
+			DeviceTypeID:     deviceTypePtr,
+			DeviceAttributes: plan.DeviceAttributes,
+		})
+	}
+
+	return existingPlans, nil
 }
