@@ -3,25 +3,22 @@
 package ssh
 
 import (
-	"testing"
-
 	"github.com/juju/cmd/v3"
 	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/client/client"
+	"github.com/juju/juju/juju/testing"
 	jujussh "github.com/juju/juju/network/ssh"
 	"github.com/juju/juju/rpc/params"
 )
 
-type PTYSuite struct{}
+type PTYSuite struct {
+	testing.JujuConnSuite
+}
 
 var _ = gc.Suite(&PTYSuite{})
-
-func TestPTY(t *testing.T) {
-	gc.TestingT(t)
-}
 
 type mockSSHProvider struct {
 	args       []string
@@ -66,6 +63,7 @@ func (m *mockSSHProvider) setRetryStrategy(retry.CallArgs)          {}
 func (m *mockSSHProvider) setPublicKeyRetryStrategy(retry.CallArgs) {}
 
 func (s *PTYSuite) TestRunPTYLogic(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
 	tests := []struct {
 		about       string
 		args        []string // args passed to the command (target is args[0])
