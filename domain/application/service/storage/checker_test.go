@@ -20,9 +20,7 @@ func createUnitStorageArgChecker() *tc.MultiChecker {
 	expectedStorageAttachmentChecker := tc.NewMultiChecker()
 	expectedStorageAttachmentChecker.AddExpr("_.UUID", tc.IsNonZeroUUID)
 	expectedStorageAttachmentChecker.AddExpr("_.FilesystemAttachment.UUID", tc.IsNonZeroUUID)
-	expectedStorageAttachmentChecker.AddExpr("_.FilesystemAttachment.FilesystemUUID", tc.IsNonZeroUUID)
 	expectedStorageAttachmentChecker.AddExpr("_.VolumeAttachment.UUID", tc.IsNonZeroUUID)
-	expectedStorageAttachmentChecker.AddExpr("_.VolumeAttachment.VolumeUUID", tc.IsNonZeroUUID)
 
 	mc := tc.NewMultiChecker()
 	mc.AddExpr("_.StorageDirectives", tc.SameContents, tc.ExpectedValue)
