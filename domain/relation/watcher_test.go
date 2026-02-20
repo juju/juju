@@ -899,6 +899,45 @@ VALUES (?,?,?)`,
 	harness.Run(c, struct{}{})
 }
 
+func (s *watcherSuite) TestWatchRelationUnitsInitial(c *tc.C) {
+	// Arrange:
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "relation_unit_settings_hash")
+
+	config := s.setupTestWatchRelationUnits(c)
+
+	svc := s.setupService(c, factory)
+
+	// Ensure that if we start the watcher after the relation units are created,
+	// we still get the events for them.
+	relationUnitUUID := uuid.MustNewUUID().String()
+	s.arrange(c, `
+INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid)
+VALUES (?,?,?),
+       (?,?,?)`,
+		relationUnitUUID, config.watchedRelationEndpointUUID, config.watched0UUID,
+		uuid.MustNewUUID().String(), config.watchedRelationEndpointUUID, config.watched1UUID)
+
+	s.AssertChangeStreamIdle(c)
+
+	watcher, err := svc.WatchRelationUnits(c.Context(), config.relationUUID, config.watchedAppUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Act: update the unit settings hash.
+	// Assert: change seen
+	harness.AddTest(c, func(c *tc.C) {
+		s.act(c, "INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256) VALUES (?, 'hash')",
+			relationUnitUUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Act: run test harness.
+	// Assert: initial events are related units
+	harness.Run(c, struct{}{})
+}
+
 type testWatchRelationUnits struct {
 	relationUUID                relation.UUID
 	watchedAppUUID              coreapplication.UUID
