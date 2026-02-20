@@ -324,33 +324,29 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 				Add(removalerrors.EntityStillAlive)
 		}
 
-		// If we're not forcing, we need to ensure that there are no units
-		// or relations associated with the application.
-		if !force {
-			// Check that there are no units.
-			var numUnits count
-			err = tx.Query(ctx, unitsStmt, applicationUUID).Get(&numUnits)
-			if err != nil {
-				return errors.Errorf("querying application units: %w", err)
-			} else if numUnits := numUnits.Count; numUnits > 0 {
-				// It is required that all units have been completely removed
-				// before the application can be removed.
-				return errors.Errorf("cannot delete application as it still has %d unit(s)", numUnits).
-					Add(applicationerrors.ApplicationHasUnits).
-					Add(removalerrors.RemovalJobIncomplete)
-			}
+		// Ensure all units and relations have been removed by their own removal
+		// jobs before allowing the application to be deleted. This applies
+		// unconditionally: even force removals cascade separate removal jobs for
+		// units and relations, so by the time this runs those jobs must have
+		// completed.
+		var numUnits count
+		err = tx.Query(ctx, unitsStmt, applicationUUID).Get(&numUnits)
+		if err != nil {
+			return errors.Errorf("querying application units: %w", err)
+		} else if numUnits := numUnits.Count; numUnits > 0 {
+			return errors.Errorf("cannot delete application as it still has %d unit(s)", numUnits).
+				Add(applicationerrors.ApplicationHasUnits).
+				Add(removalerrors.RemovalJobIncomplete)
+		}
 
-			var numRelations count
-			err = tx.Query(ctx, relationsStmt, applicationUUID).Get(&numRelations)
-			if err != nil {
-				return errors.Errorf("querying application relations: %w", err)
-			} else if numRelations := numRelations.Count; numRelations > 0 {
-				// It is required that all relations have been completely removed
-				// before the application can be removed.
-				return errors.Errorf("cannot delete application as it still has %d relation(s)", numRelations).
-					Add(applicationerrors.ApplicationHasRelations).
-					Add(removalerrors.RemovalJobIncomplete)
-			}
+		var numRelations count
+		err = tx.Query(ctx, relationsStmt, applicationUUID).Get(&numRelations)
+		if err != nil {
+			return errors.Errorf("querying application relations: %w", err)
+		} else if numRelations := numRelations.Count; numRelations > 0 {
+			return errors.Errorf("cannot delete application as it still has %d relation(s)", numRelations).
+				Add(applicationerrors.ApplicationHasRelations).
+				Add(removalerrors.RemovalJobIncomplete)
 		}
 
 		var offers []entityUUID
@@ -381,14 +377,6 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 
 		if err := st.deleteApplicationResources(ctx, tx, aUUID); err != nil {
 			return errors.Errorf("deleting application resources: %w", err)
-		}
-
-		if err := st.deleteApplicationRelations(ctx, tx, aUUID); err != nil {
-			return errors.Errorf("deleting application relations: %w", err)
-		}
-
-		if err := st.deleteApplicationUnits(ctx, tx, aUUID, force); err != nil {
-			return errors.Errorf("deleting application units: %w", err)
 		}
 
 		if err := st.deleteSimpleApplicationReferences(ctx, tx, aUUID); err != nil {
@@ -655,61 +643,6 @@ WHERE  uuid = $entityUUID.uuid`, appID)
 
 	if err := tx.Query(ctx, deleteApplicationAnnotationStmt, appID).Run(); err != nil {
 		return errors.Errorf("removing application annotations: %w", err)
-	}
-	return nil
-}
-
-func (st *State) deleteApplicationRelations(ctx context.Context, tx *sqlair.TX, aUUID string) error {
-	appID := entityUUID{UUID: aUUID}
-
-	getRelationUUIDsStmt, err := st.Prepare(`
-SELECT DISTINCT re.relation_uuid AS &entityUUID.uuid
-FROM   relation_endpoint AS re
-JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
-WHERE  ae.application_uuid = $entityUUID.uuid
-`, entityUUID{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	var relationUUIDs []entityUUID
-	if err := tx.Query(ctx, getRelationUUIDsStmt, appID).GetAll(&relationUUIDs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("getting application relation UUIDs: %w", err)
-	}
-
-	for _, rel := range relationUUIDs {
-		if err := st.deleteRelationUnitsForRelation(ctx, tx, rel); err != nil {
-			return errors.Errorf("deleting relation units for relation %q: %w", rel.UUID, err)
-		}
-		if err := st.deleteRelation(ctx, tx, rel); err != nil {
-			return errors.Errorf("deleting relation %q: %w", rel.UUID, err)
-		}
-	}
-	return nil
-}
-
-func (st *State) deleteApplicationUnits(ctx context.Context, tx *sqlair.TX, aUUID string, force bool) error {
-	appID := entityUUID{UUID: aUUID}
-
-	getUnitUUIDsStmt, err := st.Prepare(`
-SELECT uuid AS &entityUUID.uuid
-FROM unit
-WHERE application_uuid = $entityUUID.uuid
-`, entityUUID{})
-
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	var unitUUIDs []entityUUID
-	if err := tx.Query(ctx, getUnitUUIDsStmt, appID).GetAll(&unitUUIDs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("getting application unit UUIDs: %w", err)
-	}
-
-	for _, unit := range unitUUIDs {
-		if err := st.deleteUnit(ctx, tx, unit.UUID, force); err != nil {
-			return errors.Errorf("deleting unit %q: %w", unit.UUID, err)
-		}
 	}
 	return nil
 }

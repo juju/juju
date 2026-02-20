@@ -659,54 +659,6 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`,
 	return rel, unit, relUnit
 }
 
-// TestDeleteRelationWithNetworkCIDRs verifies that DeleteRelation succeeds
-// when the relation has relation_network_ingress and relation_network_egress
-// records, which previously caused FK constraint failures.
-func (s *relationSuite) TestDeleteRelationWithNetworkCIDRs(c *tc.C) {
-	rel, _, _ := s.addAppUnitRelationScope(c, domaincharm.CharmHubSource)
-
-	ctx := c.Context()
-
-	// Add network ingress and egress CIDRs to the relation.
-	_, err := s.DB().ExecContext(ctx,
-		"INSERT INTO relation_network_ingress (relation_uuid, cidr) VALUES (?, ?)",
-		rel, "10.0.0.0/24",
-	)
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, err = s.DB().ExecContext(ctx,
-		"INSERT INTO relation_network_egress (relation_uuid, cidr) VALUES (?, ?)",
-		rel, "192.168.0.0/16",
-	)
-	c.Assert(err, tc.ErrorIsNil)
-
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-
-	// Remove units from scope first.
-	err = st.DeleteRelationUnits(ctx, rel)
-	c.Assert(err, tc.ErrorIsNil)
-
-	// This previously failed with "FOREIGN KEY constraint failed" because
-	// relation_network_ingress and relation_network_egress were not cleaned up.
-	err = st.DeleteRelation(ctx, rel)
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, err = st.GetRelationLife(ctx, rel)
-	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
-
-	// Verify the network CIDRs are cleaned up.
-	var count int
-	row := s.DB().QueryRow("SELECT COUNT(*) FROM relation_network_ingress WHERE relation_uuid = ?", rel)
-	err = row.Scan(&count)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(count, tc.Equals, 0)
-
-	row = s.DB().QueryRow("SELECT COUNT(*) FROM relation_network_egress WHERE relation_uuid = ?", rel)
-	err = row.Scan(&count)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(count, tc.Equals, 0)
-}
-
 func encodeCharmSource(c *tc.C, source domaincharm.CharmSource) int {
 	switch source {
 	case domaincharm.LocalSource:

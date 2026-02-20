@@ -842,11 +842,7 @@ WHERE  net_node_uuid = $node.uuid`
 		}
 
 		if err := tx.Query(ctx, stmt, netNodeUUIDRec).Run(); err != nil {
-			removeErr := errors.Errorf("deleting net node addresses in query %q: %w", query, err)
-			if database.IsErrConstraintForeignKey(err) {
-				removeErr = removeErr.Add(removalerrors.RemovalJobIncomplete)
-			}
-			return removeErr
+			return errors.Errorf("deleting net node addresses in query %q: %w", query, err)
 		}
 	}
 
