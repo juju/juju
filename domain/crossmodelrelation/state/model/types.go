@@ -475,3 +475,14 @@ type setRelationStatus struct {
 type remoteModelUUID struct {
 	UUID sql.NullString `db:"uuid"`
 }
+
+// remoteSecretGrant is used to insert secret_permission records for imported
+// remote secrets.
+type remoteSecretGrant struct {
+	SecretID      string                        `db:"secret_id"`
+	RoleID        domainsecret.Role             `db:"role_id"`
+	SubjectUUID   string                        `db:"subject_uuid"`
+	SubjectTypeID domainsecret.GrantSubjectType `db:"subject_type_id"`
+	ScopeUUID     string                        `db:"scope_uuid"`
+	ScopeTypeID   domainsecret.GrantScopeType   `db:"scope_type_id"`
+}
