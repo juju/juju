@@ -12,7 +12,7 @@ run_serviceaccount_credential() {
 		printf "Could not find project default service account:\n%s" "${projectInfo}" >&2
 		exit 1
 	fi
-	credAuthType=$(juju show-credential --controller "$BOOTSTRAPPED_JUJU_CTRL_NAME" | yq '.controller-credentials .google .default .content .auth-type')
+	credAuthType=$(juju show-credential --controller "$BOOTSTRAPPED_JUJU_CTRL_NAME" | yq '.controller-credentials .google .content .auth-type')
 	chk=$(echo "${credAuthType}" | grep "service-account" || true)
 	if [[ -z ${chk} ]]; then
 		printf "Expected project service account auth type not found in controller credential"
