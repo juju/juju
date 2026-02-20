@@ -184,6 +184,15 @@ func (x *executor) writeState(ctx context.Context, newState State) error {
 	if x.state != nil && x.state.match(newState) {
 		return nil
 	}
+
+	if x.state != nil && x.state.Hook != nil {
+		isWrenchActive := wrench.IsActive("contextfail", "relation-broken")
+		if x.state.Hook.Kind == hooks.UpgradeCharm && isWrenchActive {
+			x.logger.Warningf(ctx, "hooks.UpgradeCharm: wrench is active")
+		} else {
+			x.logger.Infof(ctx, "received hook: %q, (wrench active: %v)", x.state.Hook.Kind, isWrenchActive)
+		}
+	}
 	if err := x.stateOps.Write(ctx, &newState); err != nil {
 		return errors.Annotatef(err, "writing state")
 	}

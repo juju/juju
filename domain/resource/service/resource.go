@@ -436,7 +436,7 @@ func (s *Service) storeResource(
 		if err != nil {
 			rErr := store.Remove(ctx, path)
 			if rErr != nil {
-				s.logger.Errorf(ctx, "removing resource %s from store: %w", rErr)
+				s.logger.Errorf(ctx, "removing resource %s from store: %v", res.Name, rErr)
 			}
 		}
 	}()
@@ -472,6 +472,7 @@ func (s *Service) OpenResource(
 	ctx context.Context,
 	resourceUUID coreresource.UUID,
 ) (coreresource.Resource, io.ReadCloser, error) {
+	s.logger.Debugf(ctx, "getting resource %s", resourceUUID)
 	if err := resourceUUID.Validate(); err != nil {
 		return coreresource.Resource{}, nil, errors.Errorf("resource id: %w", err)
 	}
@@ -480,6 +481,7 @@ func (s *Service) OpenResource(
 	if err != nil {
 		return coreresource.Resource{}, nil, err
 	}
+	s.logger.Debugf(ctx, "loaded resource %s from db with type %s", res.Name, res.Type.String())
 
 	store, err := s.resourceStoreGetter.GetResourceStore(ctx, res.Type)
 	if err != nil {
@@ -492,8 +494,10 @@ func (s *Service) OpenResource(
 	reader, size, err := store.Get(ctx, resourceUUID.String())
 	if errors.Is(err, objectstoreerrors.ObjectNotFound) ||
 		errors.Is(err, containerimageresourcestoreerrors.ContainerImageMetadataNotFound) {
+		s.logger.Debugf(ctx, "resource %s not found in store: %v", resourceUUID.String(), err)
 		return coreresource.Resource{}, nil, resourceerrors.StoredResourceNotFound
 	} else if err != nil {
+		s.logger.Debugf(ctx, "failed getting resource %s from store: %v", resourceUUID.String(), err)
 		return coreresource.Resource{}, nil, errors.Errorf("getting resource from store: %w", err)
 	}
 

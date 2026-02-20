@@ -191,6 +191,7 @@ func (ro ResourceOpener) getResource(
 			},
 		}, nil
 	}
+	resourceLogger.Infof(ctx, "resource %q with id %q not found on controller, downloading from charmhub", resName, resourceUUID.String())
 
 	// The resource could not be opened, so may not be stored on the controller,
 	// get the resource info and download from charmhub.

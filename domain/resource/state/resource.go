@@ -243,6 +243,8 @@ AND    state = 'available'
 		return "", errors.Capture(err)
 	}
 
+	st.logger.Debugf(ctx, "state: retrieving application resource id for app %q, name %q", resource.ApplicationUUID, resource.Name)
+
 	// Execute the SQL transaction.
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, resource).Get(&resource)
@@ -854,6 +856,7 @@ WHERE  resource_uuid = $storedContainerImageResource.resource_uuid
 		return resourceerrors.StoredResourceAlreadyExists
 	}
 
+	st.logger.Debugf(ctx, "state: storing resource %q in container image store with storage key %q", resourceUUID.String(), storageKey)
 	// Record where the resource is stored.
 	insertStoredResourceStmt, err := st.Prepare(`
 INSERT INTO resource_image_store (*)
@@ -965,6 +968,7 @@ WHERE  uuid = $applicationUUID.application_uuid
 		return errors.Errorf("updating charm modified version: %w", err)
 	}
 
+	st.logger.Debugf(ctx, "state: updated charm modified version for application %q to %d", appUUID.UUID, nextCharmModifiedVersion)
 	return nil
 }
 
@@ -986,6 +990,8 @@ func (st *State) SetUnitResource(
 	if err != nil {
 		return errors.Capture(err)
 	}
+
+	st.logger.Debugf(ctx, "state: linking resource %q with unit %q", resourceUUID.String(), unitUUID.String())
 
 	// Prepare statement to check if the unit/resource link is already there.
 	unitResourceInput := unitResource{
@@ -1035,6 +1041,7 @@ VALUES      ($unitResource.*)`
 		err := tx.Query(ctx, checkUnitResourceStmt, unitResourceInput).Get(&unitResourceInput)
 		if err == nil {
 			// If the unit to resource link is already there, return.
+			st.logger.Debugf(ctx, "state: unit %q already linked to resource %q", unitUUID.String(), resourceUUID.String())
 			return nil
 		} else if !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
@@ -1043,6 +1050,7 @@ VALUES      ($unitResource.*)`
 		// Check resource exists.
 		err = tx.Query(ctx, checkResourceExistsStmt, unitResourceInput).Get(&unitResourceInput)
 		if errors.Is(err, sqlair.ErrNoRows) {
+			st.logger.Debugf(ctx, "state: cannot link unit because resource %q does not exist", resourceUUID.String())
 			return errors.Errorf("resource %s: %w", resourceUUID, resourceerrors.ResourceNotFound)
 		} else if err != nil {
 			return errors.Capture(err)
@@ -1051,6 +1059,7 @@ VALUES      ($unitResource.*)`
 		// Check unit exists.
 		err = tx.Query(ctx, checkValidUnitStmt, unitResourceInput).Get(&unitResourceInput)
 		if errors.Is(err, sqlair.ErrNoRows) {
+			st.logger.Debugf(ctx, "state: cannot link unit because unit %q does not exist", unitUUID.String())
 			return errors.Errorf("unit %s: %w", unitUUID, applicationerrors.UnitNotFound)
 		} else if err != nil {
 			return errors.Capture(err)
@@ -1067,6 +1076,7 @@ VALUES      ($unitResource.*)`
 
 		// Update unit resource table.
 		err = tx.Query(ctx, insertUnitResourceStmt, unitResourceInput).Run()
+		st.logger.Debugf(ctx, "state: linked unit %q with resource %q", unitUUID.String(), resourceUUID.String())
 		return errors.Capture(err)
 	})
 
@@ -1079,6 +1089,7 @@ func (st *State) unsetUnitResourcesWithSameCharmResource(
 	ctx context.Context, tx *sqlair.TX, uuid coreresource.UUID, unitUUID coreunit.UUID) error {
 	unitRes := unitResource{ResourceUUID: uuid.String(), UnitUUID: unitUUID.String()}
 
+	st.logger.Debugf(ctx, "state: removing unit resources of unit %q with same charm resource %q", unitRes.UnitUUID, unitRes.ResourceUUID)
 	// Check if there is a resource on the unit that is using the same charm
 	// resource as the resource we are trying to set. This will be an old
 	// application resource of the units' which needs to be unset.
@@ -1102,6 +1113,7 @@ AND    (r.charm_uuid, r.charm_resource_name) IN (
 	err = tx.Query(ctx, checkForResourcesStmt, unitRes).GetAll(&matchingUUIDs)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		// Nothing to do.
+		st.logger.Debugf(ctx, "state: no resources to unset for unit %q with same charm resource %q", unitRes.UnitUUID, unitRes.ResourceUUID)
 		return nil
 	} else if err != nil {
 		return errors.Capture(err)
@@ -1124,6 +1136,7 @@ AND           unit_uuid = $unitResource.unit_uuid
 		return errors.Capture(err)
 	}
 
+	st.logger.Debugf(ctx, "state: unsetting following matching id with resource %q from unit %q: %s", unitRes.ResourceUUID, unitRes.UnitUUID, matchingUUIDs[0].UUID)
 	var outcome sqlair.Outcome
 	err = tx.Query(ctx, unsetResourceStmt, unitRes, matchingUUIDs[0]).Get(&outcome)
 	if err != nil {
