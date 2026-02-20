@@ -158,7 +158,7 @@ bootstrap() {
 		name="${bootstrapped_name}"
 		BOOTSTRAPPED_CLOUD=$(juju show-model controller --format json | yq -r '.[] | .cloud')
 		export BOOTSTRAPPED_CLOUD
-		BOOTSTRAPPED_CLOUD_REGION=$(juju show-model controller --format json | yq -r '.[] | (.cloud + "/" + .region)')
+		BOOTSTRAPPED_CLOUD_REGION=$(juju show-model controller --format json | yq -r '.[] | "\(.cloud)/\(.region)"')
 		export BOOTSTRAPPED_CLOUD_REGION
 	else
 		local cloud_region
@@ -434,7 +434,7 @@ destroy_model() {
 
 	echo "====> Destroying juju model ${name}"
 	echo "${name}" | xargs -I % timeout "$timeout" juju destroy-model --no-prompt --destroy-storage % >"${output}" 2>&1 || true
-	CHK=$(cat "${output}" | grep -i "ERROR\|Unable to get the model status from the API" || true)
+	CHK=$(cat "${output}" | grep -e "^ERROR " || true)
 	if [[ -n ${CHK} ]]; then
 		printf '\nFound some issues destroying model\n'
 		cat "${output}"

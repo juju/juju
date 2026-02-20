@@ -2,8 +2,8 @@ run_show_clouds() {
 	echo
 
 	mkdir -p "${TEST_DIR}/juju"
-	echo "" >>"${TEST_DIR}/juju/public-clouds.yaml"
-	echo "" >>"${TEST_DIR}/juju/credentials.yaml"
+	touch "${TEST_DIR}/juju/public-clouds.yaml"
+	touch "${TEST_DIR}/juju/credentials.yaml"
 
 	OUT=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json | yq '.[] | select(.defined != "built-in")')
 	if [ -n "${OUT}" ]; then
@@ -19,7 +19,7 @@ run_show_clouds() {
 	fi
 
 	EXPECTED=$(
-		yq <<'EOF'
+		yq -o=json <<'EOF'
 {
   "defined": "public",
   "type": "ec2",
@@ -38,7 +38,7 @@ run_show_clouds() {
 EOF
 	)
 
-	OUT=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --all --format=json | yq '.[] | select(.defined != "built-in")')
+	OUT=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --all --format=json | yq -o=json '.[] | select(.defined != "built-in")')
 	if [ "${OUT}" != "${EXPECTED}" ]; then
 		echo "expected ${EXPECTED}, got ${OUT}"
 		exit 1
@@ -52,7 +52,7 @@ run_assess_clouds() {
 	touch "${TEST_DIR}/juju/public-clouds.yaml"
 	touch "${TEST_DIR}/juju/credentials.yaml"
 
-	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json | yq 'with_entries(select(.value.defined != "built-in"))')
+	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json | yq -o=json 'with_entries(select(.value.defined != "built-in"))')
 	EXPECTED={}
 	if [ "${CLOUD_LIST}" != "${EXPECTED}" ]; then
 		echo "expected ${EXPECTED}, got ${CLOUD_LIST}"
@@ -60,7 +60,7 @@ run_assess_clouds() {
 	fi
 
 	CLOUDS=$(
-		cat <<'EOF'
+		yq <<'EOF'
  clouds:
    finfolk-vmaas:
      auth-types:
@@ -89,10 +89,10 @@ EOF
 		exit 1
 	fi
 
-	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju show-cloud finfolk-vmaas --format json --client | yq '.[] | with_entries((select(.value!= null))) | sort_keys(..)')
+	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju show-cloud finfolk-vmaas --format json --client | yq -o=json '.[] | with_entries((select(.value!= null))) | sort_keys(..)')
 	EXPECTED=$(
-		cat <<'EOF' | yq 'sort_keys(..)'
-	{
+		yq -o=json 'sort_keys(..)' <<'EOF'
+{
     "auth-types": [
       "oauth1"
     ],
@@ -102,7 +102,7 @@ EOF
     "name": "finfolk-vmaas",
     "summary": "Client cloud \"finfolk-vmaas\"",
     "type": "maas"
-  }
+}
 EOF
 	)
 
