@@ -223,26 +223,26 @@ func (i *importOperation) importRemoteApplicationOfferers(
 	}
 
 	input := make([]service.RemoteApplicationOffererImport, 0, len(uniqueRemoteApps))
-	for _, remoteApps := range uniqueRemoteApps {
-		if len(remoteApps) == 0 {
+	for _, duplicatedRemoteApps := range uniqueRemoteApps {
+		if duplicatedRemoteApps.IsEmpty() {
 			continue
 		}
 
-		remoteApp := remoteApps[0]
-		endpoints, err := extractRemoteEndpoints(remoteApp)
+		primaryRemoteApp := duplicatedRemoteApps.Primary
+		endpoints, err := extractRemoteEndpoints(primaryRemoteApp)
 		if err != nil {
 			return errors.Errorf("extracting endpoints for remote application %q: %w",
-				remoteApp.Name(), err)
+				primaryRemoteApp.Name(), err)
 		}
 
 		input = append(input, service.RemoteApplicationOffererImport{
 			RemoteApplicationImport: service.RemoteApplicationImport{
-				Name:            remoteApp.Name(),
-				OfferUUID:       remoteApp.OfferUUID(),
-				URL:             remoteApp.URL(),
-				SourceModelUUID: remoteApp.SourceModelUUID(),
-				Macaroon:        remoteApp.Macaroon(),
-				Units:           remoteAppUnits[remoteApp.Name()],
+				Name:            primaryRemoteApp.Name(),
+				OfferUUID:       primaryRemoteApp.OfferUUID(),
+				URL:             primaryRemoteApp.URL(),
+				SourceModelUUID: primaryRemoteApp.SourceModelUUID(),
+				Macaroon:        primaryRemoteApp.Macaroon(),
+				Units:           remoteAppUnits[primaryRemoteApp.Name()],
 				Endpoints:       endpoints,
 			},
 		})

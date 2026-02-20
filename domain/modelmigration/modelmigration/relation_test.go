@@ -91,14 +91,14 @@ func (s *relationSuite) TestUniqueRemoteOfferApplications(c *tc.C) {
 	tests := []struct {
 		name     string
 		setup    func() []description.RemoteApplication
-		expected func(c *tc.C, remoteApps map[string][]description.RemoteApplication)
+		expected func(c *tc.C, remoteApps map[string]RemoteApplicationOfferer)
 	}{
 		{
 			name: "no remote applications",
 			setup: func() []description.RemoteApplication {
 				return nil
 			},
-			expected: func(c *tc.C, remoteApps map[string][]description.RemoteApplication) {
+			expected: func(c *tc.C, remoteApps map[string]RemoteApplicationOfferer) {
 				c.Check(remoteApps, tc.HasLen, 0)
 			},
 		},
@@ -114,7 +114,7 @@ func (s *relationSuite) TestUniqueRemoteOfferApplications(c *tc.C) {
 				})
 				return []description.RemoteApplication{remoteApp}
 			},
-			expected: func(c *tc.C, remoteApps map[string][]description.RemoteApplication) {
+			expected: func(c *tc.C, remoteApps map[string]RemoteApplicationOfferer) {
 				c.Check(remoteApps, tc.HasLen, 0)
 			},
 		},
@@ -132,7 +132,7 @@ func (s *relationSuite) TestUniqueRemoteOfferApplications(c *tc.C) {
 
 				return []description.RemoteApplication{remoteApp0}
 			},
-			expected: func(c *tc.C, remoteApps map[string][]description.RemoteApplication) {
+			expected: func(c *tc.C, remoteApps map[string]RemoteApplicationOfferer) {
 				c.Check(remoteApps, tc.HasLen, 0)
 			},
 		},
@@ -154,15 +154,15 @@ func (s *relationSuite) TestUniqueRemoteOfferApplications(c *tc.C) {
 
 				return []description.RemoteApplication{remoteApp0}
 			},
-			expected: func(c *tc.C, remoteApps map[string][]description.RemoteApplication) {
+			expected: func(c *tc.C, remoteApps map[string]RemoteApplicationOfferer) {
 				c.Assert(remoteApps, tc.HasLen, 1)
 
 				remoteApp, ok := remoteApps["deadbeef"]
 				c.Assert(ok, tc.IsTrue)
-				c.Assert(remoteApp, tc.HasLen, 1)
+				c.Assert(remoteApp.IsEmpty(), tc.IsFalse)
 
-				c.Check(remoteApp[0].Name(), tc.Equals, "dummy-source")
-				c.Check(remoteApp[0].SourceModelUUID(), tc.Equals, "bar")
+				c.Check(remoteApp.Primary.Name(), tc.Equals, "dummy-source")
+				c.Check(remoteApp.Primary.SourceModelUUID(), tc.Equals, "bar")
 			},
 		},
 		{
@@ -194,18 +194,20 @@ func (s *relationSuite) TestUniqueRemoteOfferApplications(c *tc.C) {
 
 				return []description.RemoteApplication{remoteApp0, remoteApp1}
 			},
-			expected: func(c *tc.C, remoteApps map[string][]description.RemoteApplication) {
+			expected: func(c *tc.C, remoteApps map[string]RemoteApplicationOfferer) {
 				c.Assert(remoteApps, tc.HasLen, 1)
 
 				remoteApp, ok := remoteApps["deadbeef"]
 				c.Assert(ok, tc.IsTrue)
-				c.Assert(remoteApp, tc.HasLen, 2)
+				c.Assert(remoteApp.IsEmpty(), tc.IsFalse)
 
-				c.Check(remoteApp[0].Name(), tc.Equals, "foo")
-				c.Check(remoteApp[0].SourceModelUUID(), tc.Equals, "bar")
+				c.Check(remoteApp.Primary.Name(), tc.Equals, "foo")
+				c.Check(remoteApp.Primary.SourceModelUUID(), tc.Equals, "bar")
 
-				c.Check(remoteApp[1].Name(), tc.Equals, "baz")
-				c.Check(remoteApp[1].SourceModelUUID(), tc.Equals, "bar")
+				c.Assert(remoteApp.Duplicates, tc.HasLen, 1)
+
+				c.Check(remoteApp.Duplicates[0].Name(), tc.Equals, "baz")
+				c.Check(remoteApp.Duplicates[0].SourceModelUUID(), tc.Equals, "bar")
 			},
 		},
 		{
@@ -237,18 +239,20 @@ func (s *relationSuite) TestUniqueRemoteOfferApplications(c *tc.C) {
 
 				return []description.RemoteApplication{remoteApp0, remoteApp1}
 			},
-			expected: func(c *tc.C, remoteApps map[string][]description.RemoteApplication) {
+			expected: func(c *tc.C, remoteApps map[string]RemoteApplicationOfferer) {
 				c.Assert(remoteApps, tc.HasLen, 1)
 
 				remoteApp, ok := remoteApps["deadbeef"]
 				c.Assert(ok, tc.IsTrue)
-				c.Assert(remoteApp, tc.HasLen, 2)
+				c.Assert(remoteApp.IsEmpty(), tc.IsFalse)
 
-				c.Check(remoteApp[0].Name(), tc.Equals, "foo")
-				c.Check(remoteApp[0].SourceModelUUID(), tc.Equals, "bar")
+				c.Check(remoteApp.Primary.Name(), tc.Equals, "foo")
+				c.Check(remoteApp.Primary.SourceModelUUID(), tc.Equals, "bar")
 
-				c.Check(remoteApp[1].Name(), tc.Equals, "baz")
-				c.Check(remoteApp[1].SourceModelUUID(), tc.Equals, "bar")
+				c.Assert(remoteApp.Duplicates, tc.HasLen, 1)
+
+				c.Check(remoteApp.Duplicates[0].Name(), tc.Equals, "baz")
+				c.Check(remoteApp.Duplicates[0].SourceModelUUID(), tc.Equals, "bar")
 			},
 		},
 	}

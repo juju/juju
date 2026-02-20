@@ -163,8 +163,8 @@ func (i *importOperation) createImportArg(rel description.Relation) (relation.Im
 // the remote application names, and also re-writing the relation key to ensure
 // that it is unique across the model if there are multiple relations with
 // remote applications that have been de-duplicated to have the same offer UUID.
-func (i *importOperation) createRemoteImportArg(rel description.Relation, remoteApps []description.RemoteApplication) (relation.ImportRelationArg, error) {
-	if len(remoteApps) == 0 {
+func (i *importOperation) createRemoteImportArg(rel description.Relation, remoteApps domainmodelmigration.RemoteApplicationOfferer) (relation.ImportRelationArg, error) {
+	if remoteApps.IsEmpty() {
 		// This is a programmatic error, as this function should only be called
 		// for relations that have remote applications, so we return an error if
 		// there are no remote applications provided.
@@ -172,7 +172,7 @@ func (i *importOperation) createRemoteImportArg(rel description.Relation, remote
 	}
 
 	// The first remote application name is the primary name.
-	primaryApplicationName := remoteApps[0].Name()
+	primaryApplicationName := remoteApps.Primary.Name()
 
 	key, err := corerelation.NewKeyFromString(rel.Key())
 	if err != nil {
@@ -184,13 +184,12 @@ func (i *importOperation) createRemoteImportArg(rel description.Relation, remote
 	// may not be unique if there are multiple remote applications with the same
 	// offer UUID that have been de-duplicated.
 	for i, ident := range key.EndpointIdentifiers() {
-		for _, remoteApp := range remoteApps {
+		if ident.ApplicationName == primaryApplicationName {
+			continue
+		}
+
+		for _, remoteApp := range remoteApps.Duplicates {
 			if ident.ApplicationName == remoteApp.Name() {
-				// Re-write the relation key to use the remote application name,
-				// which is unique across the model, instead of the original
-				// application name, which may not be unique if there are
-				// multiple remote applications with the same offer UUID that
-				// have been de-duplicated.
 				ident.ApplicationName = primaryApplicationName
 				key[i] = ident
 				break
@@ -215,10 +214,12 @@ func (i *importOperation) createRemoteImportArg(rel description.Relation, remote
 		// application names, which may not be unique if there are multiple
 		// remote applications with the same offer UUID that have been
 		// de-duplicated.
-		for _, remoteApp := range remoteApps {
-			if v.ApplicationName() == remoteApp.Name() {
-				applicationName = primaryApplicationName
-				break
+		if applicationName != primaryApplicationName {
+			for _, remoteApp := range remoteApps.Duplicates {
+				if v.ApplicationName() == remoteApp.Name() {
+					applicationName = primaryApplicationName
+					break
+				}
 			}
 		}
 
@@ -233,16 +234,20 @@ func (i *importOperation) createRemoteImportArg(rel description.Relation, remote
 	return arg, nil
 }
 
-func getRemoteRelation(rel description.Relation, remoteApps map[string][]description.RemoteApplication) ([]description.RemoteApplication, bool) {
+func getRemoteRelation(rel description.Relation, remoteApps map[string]domainmodelmigration.RemoteApplicationOfferer) (domainmodelmigration.RemoteApplicationOfferer, bool) {
 	for _, endpoint := range rel.Endpoints() {
 		appName := endpoint.ApplicationName()
 		for _, remoteApp := range remoteApps {
-			for _, app := range remoteApp {
+			if remoteApp.Primary.Name() == appName {
+				return remoteApp, true
+			}
+
+			for _, app := range remoteApp.Duplicates {
 				if app.Name() == appName {
 					return remoteApp, true
 				}
 			}
 		}
 	}
-	return nil, false
+	return domainmodelmigration.RemoteApplicationOfferer{}, false
 }

@@ -52,7 +52,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 
 func (s *importSuite) TestImportRelationsWithContainerScope(c *tc.C) {
 	// Arrange
-	defer s.setupMocks(c)
+	defer s.setupMocks(c).Finish()
 
 	model := s.expectImportRelations(c, map[int]corerelation.Key{
 		3: relationtesting.GenNewKey(c, "ubuntu:peer"),

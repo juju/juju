@@ -52,11 +52,47 @@ func GetUniqueRemoteConsumersNames(remoteApps []description.RemoteApplication) s
 	return remoteConsumers
 }
 
+// RemoteApplicationOfferer represents a remote application that offers an
+// application, and any duplicate remote applications with the same offer UUID
+// and endpoints.
+type RemoteApplicationOfferer struct {
+	Primary    description.RemoteApplication
+	Duplicates []description.RemoteApplication
+}
+
+// MatchesSourceModelUUID returns true if the source model UUID of the primary
+// remote application does not match the given source model UUID.
+func (o RemoteApplicationOfferer) MatchesSourceModelUUID(sourceModelUUID string) bool {
+	return o.Primary.SourceModelUUID() != sourceModelUUID
+}
+
+// MatchesEndpoints returns true if the endpoints of the primary remote
+// application do not match the given endpoints.
+func (o RemoteApplicationOfferer) MatchesEndpoints(endpoints []description.RemoteEndpoint) bool {
+	return remoteEndpointsEqual(o.Primary.Endpoints(), endpoints)
+}
+
+// SourceModelUUID returns the source model UUID of the primary remote
+// application.
+func (o RemoteApplicationOfferer) SourceModelUUID() string {
+	return o.Primary.SourceModelUUID()
+}
+
+// Endpoints returns the endpoints of the primary remote application.
+func (o RemoteApplicationOfferer) Endpoints() []description.RemoteEndpoint {
+	return o.Primary.Endpoints()
+}
+
+// IsEmpty returns true if there is no primary remote application.
+func (o RemoteApplicationOfferer) IsEmpty() bool {
+	return o.Primary == nil
+}
+
 // UniqueRemoteOfferApplications de-duplicates remote applications based on
 // offer UUID and endpoints, and verifies that there are no conflicting remote
 // applications with the same offer UUID.
-func UniqueRemoteOfferApplications(remoteApps []description.RemoteApplication) (map[string][]description.RemoteApplication, error) {
-	unique := map[string][]description.RemoteApplication{}
+func UniqueRemoteOfferApplications(remoteApps []description.RemoteApplication) (map[string]RemoteApplicationOfferer, error) {
+	unique := map[string]RemoteApplicationOfferer{}
 	for _, remoteApp := range remoteApps {
 		// We don't care about remove application consumers, so duplications
 		// here don't matter.
@@ -69,19 +105,23 @@ func UniqueRemoteOfferApplications(remoteApps []description.RemoteApplication) (
 		// endpoints, otherwise the import would be ambiguous.
 		offerUUID := remoteApp.OfferUUID()
 		if existing, ok := unique[offerUUID]; ok {
-			for _, existingApp := range existing {
-				if existingApp.SourceModelUUID() != remoteApp.SourceModelUUID() {
-					return nil, errors.Errorf("multiple remote application offerers with the same offer UUID %q, but different source model UUIDs: %q and %q",
-						offerUUID, existingApp.SourceModelUUID(), remoteApp.SourceModelUUID())
-				}
-				if !remoteEndpointsEqual(existingApp.Endpoints(), remoteApp.Endpoints()) {
-					return nil, errors.Errorf("multiple remote application offerers with the same offer UUID %q, but different endpoints: %v and %v",
-						offerUUID, remoteEndpointString(existingApp.Endpoints()), remoteEndpointString(remoteApp.Endpoints()))
-				}
+			if existing.MatchesSourceModelUUID(remoteApp.SourceModelUUID()) {
+				return nil, errors.Errorf("multiple remote application offerers with the same offer UUID %q, but different source model UUIDs: %q and %q",
+					offerUUID, existing.SourceModelUUID(), remoteApp.SourceModelUUID())
 			}
+			if !existing.MatchesEndpoints(remoteApp.Endpoints()) {
+				return nil, errors.Errorf("multiple remote application offerers with the same offer UUID %q, but different endpoints: %v and %v",
+					offerUUID, remoteEndpointString(existing.Endpoints()), remoteEndpointString(remoteApp.Endpoints()))
+			}
+
+			existing.Duplicates = append(existing.Duplicates, remoteApp)
+			unique[offerUUID] = existing
+			continue
 		}
 
-		unique[offerUUID] = append(unique[offerUUID], remoteApp)
+		unique[offerUUID] = RemoteApplicationOfferer{
+			Primary: remoteApp,
+		}
 	}
 
 	return unique, nil

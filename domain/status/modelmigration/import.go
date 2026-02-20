@@ -243,11 +243,11 @@ func (i *importOperation) importRemoteApplicationOffererStatus(
 		// We only need the first of the remote offer applications as the rest
 		// are de-duplicated copies of the same remote application, and will
 		// have the same status.
-		if len(remoteApps) == 0 {
+		if remoteApps.IsEmpty() {
 			continue
 		}
 
-		remoteApp := remoteApps[0]
+		remoteApp := remoteApps.Primary
 		offererStatus := i.importStatus(remoteApp.Status())
 		if err := service.SetRemoteApplicationOffererStatus(ctx, remoteApp.Name(), offererStatus); err != nil {
 			return errors.Errorf("setting offerer status for remote application %q: %w", remoteApp.Name(), err)
