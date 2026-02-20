@@ -1401,7 +1401,7 @@ WHERE  u.application_uuid = $entityUUID.uuid AND sfa.provider_id <> ''`,
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	var existingAttachments []existingFilesystemAttachment
+	var existingAttachments existingFilesystemAttachmentRows
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		exists, err := st.checkApplicationExists(ctx, tx, uuid)
@@ -1423,15 +1423,5 @@ WHERE  u.application_uuid = $entityUUID.uuid AND sfa.provider_id <> ''`,
 		return nil, errors.Capture(err)
 	}
 
-	attachmentsByStorage := make(map[string][]storageprovisioning.RealizedFilesystemAttachment)
-	for _, existing := range existingAttachments {
-		attachmentsByStorage[existing.StorageName] = append(
-			attachmentsByStorage[existing.StorageName],
-			storageprovisioning.RealizedFilesystemAttachment{
-				AttachmentUUID: existing.AttachmentUUID,
-				StorageName:    existing.StorageName,
-				ProviderID:     existing.ProviderID,
-			})
-	}
-	return attachmentsByStorage, nil
+	return existingAttachments.toRealisedFilesystemAttachment()
 }

@@ -7,6 +7,7 @@ import (
 	"database/sql"
 
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/storageprovisioning"
 )
 
 // attachmentLife represents the current life value of either a filesystem or
@@ -453,4 +454,23 @@ type existingFilesystemAttachment struct {
 	AttachmentUUID string `db:"uuid"`
 	StorageName    string `db:"storage_name"`
 	ProviderID     string `db:"provider_id"`
+}
+
+type existingFilesystemAttachmentRows []existingFilesystemAttachment
+
+func (rows existingFilesystemAttachmentRows) toRealisedFilesystemAttachment() (
+	map[string][]storageprovisioning.RealizedFilesystemAttachment,
+	error,
+) {
+	attachmentsByStorage := make(map[string][]storageprovisioning.RealizedFilesystemAttachment)
+	for _, existing := range rows {
+		attachmentsByStorage[existing.StorageName] = append(
+			attachmentsByStorage[existing.StorageName],
+			storageprovisioning.RealizedFilesystemAttachment{
+				AttachmentUUID: existing.AttachmentUUID,
+				StorageName:    existing.StorageName,
+				ProviderID:     existing.ProviderID,
+			})
+	}
+	return attachmentsByStorage, nil
 }
