@@ -391,28 +391,6 @@ type ExposedEndpoint struct {
 	ExposeToCIDRs set.Strings
 }
 
-// ExportApplication contains parameters for exporting an application.
-type ExportApplication struct {
-	UUID                 application.UUID
-	Name                 string
-	CharmUUID            charm.ID
-	Life                 life.Life
-	Subordinate          bool
-	CharmModifiedVersion int
-	CharmUpgradeOnError  bool
-	CharmLocator         domaincharm.CharmLocator
-	K8sServiceProviderID *string
-	EndpointBindings     map[string]string
-}
-
-// ExportUnit contains parameters for exporting a unit.
-type ExportUnit struct {
-	UUID      coreunit.UUID
-	Name      coreunit.Name
-	Machine   machine.Name
-	Principal coreunit.Name
-}
-
 // ImportUnitArg is used to import a unit.
 type ImportUnitArg struct {
 	UnitStatusArg

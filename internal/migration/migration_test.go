@@ -55,52 +55,6 @@ func (s *ExportSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *ExportSuite) TestExportValidates(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	scope := modelmigration.NewScope(nil, nil, nil, tc.Must0(c, model.NewUUID))
-
-	// The order of the expectations is important here. We expect that the
-	// validation is the last thing that happens.
-	gomock.InOrder(
-		s.operationsExporter.EXPECT().ExportOperations(s.storageRegistryGetter),
-		s.coordinator.EXPECT().Perform(gomock.Any(), scope, s.model).Return(nil),
-		s.model.EXPECT().Validate().Return(nil),
-	)
-
-	exporter := migration.NewModelExporter(
-		s.operationsExporter,
-		scope,
-		s.storageRegistryGetter,
-		s.coordinator,
-		nil, nil,
-	)
-
-	_, err := exporter.Export(c.Context(), s.model)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *ExportSuite) TestExportValidationFails(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	scope := modelmigration.NewScope(nil, nil, nil, tc.Must0(c, model.NewUUID))
-
-	s.operationsExporter.EXPECT().ExportOperations(s.storageRegistryGetter)
-	s.model.EXPECT().Validate().Return(errors.New("boom"))
-	s.coordinator.EXPECT().Perform(gomock.Any(), scope, s.model).Return(nil)
-
-	exporter := migration.NewModelExporter(
-		s.operationsExporter,
-		scope,
-		s.storageRegistryGetter,
-		s.coordinator,
-		nil, nil,
-	)
-
-	_, err := exporter.Export(c.Context(), s.model)
-	c.Assert(err, tc.ErrorMatches, "boom")
-}
-
 type ImportSuite struct {
 	testhelpers.IsolationSuite
 	charmService     *MockCharmService

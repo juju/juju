@@ -16,23 +16,16 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/naturalsort"
 	"github.com/juju/juju/rpc/params"
 )
-
-// ModelExporter exports a model to a description.Model.
-type ModelExporter interface {
-	// ExportModel exports a model to a description.Model.
-	// It requires a known set of leaders to be passed in, so that applications
-	// can have their leader set correctly once imported.
-	// The objectstore is used to retrieve charms and resources for export.
-	ExportModel(context.Context, objectstore.ObjectStore) (description.Model, error)
-}
 
 // APIV4 implements the API V4.
 type APIV4 struct {
@@ -42,7 +35,6 @@ type APIV4 struct {
 // API implements the API required for the model migration
 // master worker.
 type API struct {
-	modelExporter               ModelExporter
 	authorizer                  facade.Authorizer
 	watcherRegistry             facade.WatcherRegistry
 	leadership                  leadership.Reader
@@ -66,7 +58,6 @@ type API struct {
 // NewAPI creates a new API server endpoint for the model migration
 // master worker.
 func NewAPI(
-	modelExporter ModelExporter,
 	store objectstore.ObjectStore,
 	controllerModelUUID coremodel.UUID,
 	watcherRegistry facade.WatcherRegistry,
@@ -91,7 +82,6 @@ func NewAPI(
 	}
 
 	return &API{
-		modelExporter:               modelExporter,
 		store:                       store,
 		controllerModelUUID:         controllerModelUUID,
 		authorizer:                  authorizer,
@@ -183,22 +173,14 @@ func (api *API) ModelInfo(ctx context.Context) (params.MigrationModelInfo, error
 		return empty, errors.Annotate(err, "retrieving model info")
 	}
 
-	model, err := api.modelExporter.ExportModel(ctx, api.store)
-	if err != nil {
-		return empty, errors.Annotate(err, "retrieving model")
-	}
-
-	modelDescription, err := description.Serialize(model)
-	if err != nil {
-		return empty, errors.Annotate(err, "serializing model")
-	}
+	// TODO (modelmigration): return model description, depending on if we want
+	// to do pre-migration checks with the new migration code or not.
 
 	return params.MigrationModelInfo{
-		UUID:             modelInfo.UUID.String(),
-		Name:             modelInfo.Name,
-		Qualifier:        modelInfo.Qualifier.String(),
-		AgentVersion:     modelInfo.AgentVersion,
-		ModelDescription: modelDescription,
+		UUID:         modelInfo.UUID.String(),
+		Name:         modelInfo.Name,
+		Qualifier:    modelInfo.Qualifier.String(),
+		AgentVersion: modelInfo.AgentVersion,
 	}, nil
 }
 
@@ -305,24 +287,7 @@ func (api *API) SetStatusMessage(ctx context.Context, args params.SetMigrationSt
 
 // Export serializes the model associated with the API connection.
 func (api *API) Export(ctx context.Context) (params.SerializedModel, error) {
-	var serialized params.SerializedModel
-
-	model, err := api.modelExporter.ExportModel(ctx, api.store)
-	if err != nil {
-		return serialized, err
-	}
-
-	bytes, err := description.Serialize(model)
-	if err != nil {
-		return serialized, err
-	}
-	serialized.Bytes = bytes
-	serialized.Charms = getUsedCharms(model)
-	serialized.Resources = getUsedResources(model)
-	if model.Type() == string(coremodel.IAAS) {
-		serialized.Tools = getUsedTools(model)
-	}
-	return serialized, nil
+	return params.SerializedModel{}, internalerrors.New("export not supported in this API version").Add(coreerrors.NotSupported)
 }
 
 // ProcessRelations processes any relations that need updating after an export.

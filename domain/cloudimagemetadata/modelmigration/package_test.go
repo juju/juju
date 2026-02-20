@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/domain/cloudimagemetadata"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/cloudimagemetadata/modelmigration Coordinator,ImportService,ExportService
+//go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/cloudimagemetadata/modelmigration Coordinator,ImportService
 
 // transformMetadataFromDescriptionToDomain is a helper function to transform a slice of CloudImageMetadata
 // from the description package to a slice of Metadata in the cloudimagemetadata package,
@@ -41,4 +41,8 @@ func transformMetadataFromDescriptionToDomain(metadata []description.CloudImageM
 		}
 	}
 	return obtained
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

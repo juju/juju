@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v11"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"gopkg.in/macaroon.v2"
@@ -44,15 +43,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// ModelExporter exports a model to a description.Model.
-type ModelExporter interface {
-	// ExportModel exports a model to a description.Model.
-	// It requires a known set of leaders to be passed in, so that applications
-	// can have their leader set correctly once imported.
-	// The objectstore is used to retrieve charms and resources for export.
-	ExportModel(context.Context, objectstore.ObjectStore) (description.Model, error)
-}
-
 // ControllerAPIV12 implements the controller APIV12.
 type ControllerAPIV12 struct {
 	*ControllerAPI
@@ -83,7 +73,6 @@ type ControllerAPI struct {
 	machineServiceGetter        func(context.Context, coremodel.UUID) (MachineService, error)
 	removalServiceGetter        func(context.Context, coremodel.UUID) (RemovalService, error)
 	proxyService                ProxyService
-	modelExporter               func(context.Context, coremodel.UUID) (ModelExporter, error)
 	store                       objectstore.ObjectStore
 	logger                      corelogger.Logger
 	controllerModelUUID         coremodel.UUID
@@ -120,7 +109,6 @@ func NewControllerAPI(
 	machineServiceGetter func(context.Context, coremodel.UUID) (MachineService, error),
 	removalServiceGetter func(context.Context, coremodel.UUID) (RemovalService, error),
 	proxyService ProxyService,
-	modelExporter func(context.Context, coremodel.UUID) (ModelExporter, error),
 	store objectstore.ObjectStore,
 	controllerModelUUID coremodel.UUID,
 	controllerUUID string,
@@ -174,7 +162,6 @@ func NewControllerAPI(
 		removalServiceGetter:        removalServiceGetter,
 		modelMigrationServiceGetter: modelMigrationServiceGetter,
 		proxyService:                proxyService,
-		modelExporter:               modelExporter,
 		store:                       store,
 		controllerModelUUID:         controllerModelUUID,
 		controllerUUID:              controllerUUID,
@@ -767,7 +754,7 @@ func (c *ControllerAPI) runMigrationPrechecks(
 	}
 	// Check target controller.
 	modelInfo, srcUserList, err := makeModelInfo(ctx,
-		c.controllerConfigService, c.modelService, modelAgentService, c.modelExporter, c.store, model)
+		c.controllerConfigService, c.modelService, modelAgentService, c.store, model)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -880,21 +867,11 @@ func makeModelInfo(ctx context.Context,
 	controllerConfigService ControllerConfigService,
 	modelService ModelService,
 	modelAgentService ModelAgentService,
-	modelExporterFn func(context.Context, coremodel.UUID) (ModelExporter, error),
 	store objectstore.ObjectStore,
 	model coremodel.Model,
 ) (coremigration.ModelInfo, userList, error) {
 	var empty coremigration.ModelInfo
 	var ul userList
-
-	modelExporter, err := modelExporterFn(ctx, model.UUID)
-	if err != nil {
-		return empty, ul, errors.Trace(err)
-	}
-	description, err := modelExporter.ExportModel(ctx, store)
-	if err != nil {
-		return empty, ul, errors.Trace(err)
-	}
 
 	users, err := modelService.GetModelUsers(ctx, model.UUID)
 	if err != nil {
@@ -929,7 +906,6 @@ func makeModelInfo(ctx context.Context,
 		Qualifier:              model.Qualifier,
 		AgentVersion:           agentVersion,
 		ControllerAgentVersion: controllerModel.AgentVersion,
-		ModelDescription:       description,
 	}, ul, nil
 }
 

@@ -195,9 +195,6 @@ func (s *destroyControllerSuite) controllerAPI(c *tc.C) *controller.ControllerAP
 		machineServiceGetter,
 		removalServiceGetter,
 		domainServices.Proxy(),
-		func(c context.Context, modelUUID coremodel.UUID) (controller.ModelExporter, error) {
-			return ctx.ModelExporter(c, modelUUID)
-		},
 		ctx.ObjectStore(),
 		ctx.ControllerModelUUID(),
 		ctx.ControllerUUID(),

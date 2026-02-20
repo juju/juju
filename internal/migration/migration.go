@@ -16,7 +16,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	corestorage "github.com/juju/juju/core/storage"
@@ -50,65 +49,6 @@ type Coordinator interface {
 	// returned to the caller on the source, and we want them to be reflected
 	// in *this* controller's logs.
 	Perform(ctx context.Context, scope modelmigration.Scope, model description.Model) (err error)
-}
-
-// ModelExporter facilitates partial and full export of a model.
-type ModelExporter struct {
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter
-	operationExporter     OperationExporter
-
-	scope       modelmigration.Scope
-	coordinator Coordinator
-	logger      corelogger.Logger
-
-	clock clock.Clock
-}
-
-// NewModelExporter returns a new ModelExporter that encapsulates the
-// legacyStateExporter. The legacyStateExporter is being deprecated, only
-// needed until the migration to dqlite is complete.
-func NewModelExporter(
-	operationExporter OperationExporter,
-	scope modelmigration.Scope,
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
-	coordinator Coordinator,
-	logger corelogger.Logger,
-	clock clock.Clock,
-) *ModelExporter {
-	me := &ModelExporter{
-		operationExporter:     operationExporter,
-		scope:                 scope,
-		storageRegistryGetter: storageRegistryGetter,
-		coordinator:           coordinator,
-		logger:                logger,
-		clock:                 clock,
-	}
-	me.operationExporter.ExportOperations(me.storageRegistryGetter)
-	return me
-}
-
-// ExportModel serializes a model description from the database (legacy mongodb
-// plus dqlite) contents.
-func (e *ModelExporter) ExportModel(ctx context.Context, store objectstore.ObjectStore) (description.Model, error) {
-	var model description.Model
-	if model == nil {
-		return nil, errors.ConstError("model export not implemented")
-	}
-	return e.Export(ctx, model)
-}
-
-// Export serializes a model description from the database contents.
-func (e *ModelExporter) Export(ctx context.Context, model description.Model) (description.Model, error) {
-	if err := e.coordinator.Perform(ctx, e.scope, model); err != nil {
-		return nil, errors.Trace(err)
-	}
-	// The model now contains all the exported data from the legacy state along
-	// with the new domains' one. Time to validate.
-	if err := model.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return model, nil
 }
 
 // ConfigSchemaSourceProvider returns a config.ConfigSchemaSourceGetter based

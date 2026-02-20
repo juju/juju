@@ -192,9 +192,6 @@ type ModelImporter interface {
 
 // ModelMigrationFactory defines an interface for getting a model migrator.
 type ModelMigrationFactory interface {
-	// ModelExporter returns a model exporter for the current model.
-	ModelExporter(context.Context, model.UUID) (ModelExporter, error)
-
 	// ModelImporter returns a model importer.
 	ModelImporter() ModelImporter
 }

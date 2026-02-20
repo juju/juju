@@ -17,6 +17,11 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// Coordinator is the interface that is used to add operations to a migration.
+type Coordinator interface {
+	Add(modelmigration.Operation)
+}
+
 // RegisterImport register's a new model migration importer into the supplied
 // coordinator.
 func RegisterImport(
