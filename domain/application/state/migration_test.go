@@ -14,8 +14,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	machinetesting "github.com/juju/juju/core/machine/testing"
-	"github.com/juju/juju/core/network"
-	networktesting "github.com/juju/juju/core/network/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
@@ -89,42 +87,6 @@ func (s *migrationStateSuite) TestInsertMigratingApplication(c *tc.C) {
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{Trust: true})
-}
-
-// addSpace ensures a space with the given name exists in the database,
-// creating it if necessary, and returns its name.
-func (s *migrationStateSuite) addSpace(c *tc.C, name string) network.SpaceUUID {
-	spaceUUID := networktesting.GenSpaceUUID(c)
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO space (uuid, name)
-VALUES (?, ?)`, spaceUUID, name)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	return spaceUUID
-}
-
-func (s *migrationStateSuite) updateApplicationEndpoint(c *tc.C, endpoint, spaceUUID network.SpaceUUID) {
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		var charmRelationUUID string
-		err := tx.QueryRowContext(ctx, `
-SELECT uuid
-FROM   charm_relation
-WHERE  name = ?
-`, endpoint).Scan(&charmRelationUUID)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, `
-UPDATE application_endpoint
-SET    space_uuid = ?
-WHERE  charm_relation_uuid = ?
-`, spaceUUID, charmRelationUUID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *migrationStateSuite) assertDownloadProvenance(c *tc.C, appID coreapplication.UUID, expectedProvenance charm.Provenance) {

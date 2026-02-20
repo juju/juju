@@ -7,12 +7,9 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/juju/collections/set"
-	"github.com/juju/description/v11"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
@@ -404,77 +401,4 @@ func (api *API) MinionReportTimeout(ctx context.Context) (params.StringResult, e
 		return params.StringResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 	return params.StringResult{Result: cfg.MigrationMinionWaitMax().String()}, nil
-}
-
-func getUsedCharms(model description.Model) []string {
-	result := set.NewStrings()
-	for _, application := range model.Applications() {
-		result.Add(application.CharmURL())
-	}
-	return result.Values()
-}
-
-func getUsedTools(model description.Model) []params.SerializedModelTools {
-	// Iterate through the model for all tools, and make a map of them.
-	tools := map[string]params.SerializedModelTools{}
-
-	addTools := func(agentTools description.AgentTools) {
-		if _, exists := tools[agentTools.SHA256()]; exists {
-			return
-		}
-
-		tools[agentTools.SHA256()] = params.SerializedModelTools{
-			Version: agentTools.Version(),
-			SHA256:  agentTools.SHA256(),
-			URI:     common.ToolsURL("", agentTools.Version()),
-		}
-	}
-
-	for _, machine := range model.Machines() {
-		addTools(machine.Tools())
-		for _, container := range machine.Containers() {
-			addTools(container.Tools())
-		}
-	}
-	for _, application := range model.Applications() {
-		for _, unit := range application.Units() {
-			addTools(unit.Tools())
-		}
-	}
-
-	out := make([]params.SerializedModelTools, 0, len(tools))
-	for _, v := range tools {
-		out = append(out, v)
-	}
-	return out
-}
-
-func getUsedResources(model description.Model) []params.SerializedModelResource {
-	var out []params.SerializedModelResource
-	for _, app := range model.Applications() {
-		for _, resource := range app.Resources() {
-			out = append(out, resourceToSerialized(app.Name(), resource))
-		}
-
-	}
-	return out
-}
-
-func resourceToSerialized(app string, desc description.Resource) params.SerializedModelResource {
-	res := params.SerializedModelResource{
-		Application: app,
-		Name:        desc.Name(),
-	}
-	rr := desc.ApplicationRevision()
-	if rr == nil {
-		return res
-	}
-	res.Revision = rr.Revision()
-	res.Type = rr.Type()
-	res.Origin = rr.Origin()
-	res.FingerprintHex = rr.SHA384()
-	res.Size = rr.Size()
-	res.Timestamp = rr.Timestamp()
-	res.Username = rr.RetrievedBy()
-	return res
 }

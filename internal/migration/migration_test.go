@@ -33,28 +33,6 @@ import (
 	"github.com/juju/juju/internal/tools"
 )
 
-type ExportSuite struct {
-	storageRegistryGetter *MockModelStorageRegistryGetter
-	operationsExporter    *MockOperationExporter
-	coordinator           *MockCoordinator
-	model                 *MockModel
-}
-
-func TestExportSuite(t *testing.T) {
-	tc.Run(t, &ExportSuite{})
-}
-
-func (s *ExportSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.storageRegistryGetter = NewMockModelStorageRegistryGetter(ctrl)
-	s.operationsExporter = NewMockOperationExporter(ctrl)
-	s.coordinator = NewMockCoordinator(ctrl)
-	s.model = NewMockModel(ctrl)
-
-	return ctrl
-}
-
 type ImportSuite struct {
 	testhelpers.IsolationSuite
 	charmService     *MockCharmService
