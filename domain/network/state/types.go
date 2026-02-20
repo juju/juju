@@ -472,46 +472,6 @@ func netAddrToDML(
 	return dml, nil
 }
 
-// machineInterfaceRow is the type for a row from the v_machine_interface view.
-type machineInterfaceRow struct {
-	// MachineUUID and associated machine fields.
-	MachineUUID string `db:"machine_uuid"`
-	MachineName string `db:"machine_name"`
-	NetNodeUUID string `db:"net_node_uuid"`
-
-	// DeviceUUID and associated link-layer device fields.
-	DeviceUUID        string         `db:"device_uuid"`
-	DeviceName        string         `db:"device_name"`
-	MTU               sql.NullInt64  `db:"mtu"`
-	MacAddress        sql.NullString `db:"mac_address"`
-	ProviderID        sql.NullString `db:"device_provider_id"`
-	DeviceTypeID      int64          `db:"device_type_id"`
-	VirtualPortTypeID int64          `db:"virtual_port_type_id"`
-	IsAutoStart       bool           `db:"is_auto_start"`
-	IsEnabled         bool           `db:"is_enabled"`
-	ParentDeviceUUID  sql.NullString `db:"parent_device_uuid"`
-	ParentDeviceName  sql.NullString `db:"parent_device_name"`
-	GatewayAddress    sql.NullString `db:"gateway_address"`
-	IsDefaultGateway  bool           `db:"is_default_gateway"`
-	VLANTag           uint64         `db:"vlan_tag"`
-	DNSAddress        sql.NullString `db:"dns_address"`
-	DNSSearchDomain   sql.NullString `db:"search_domain"`
-
-	// AddressUUID and associated IP address fields.
-	AddressUUID       sql.NullString `db:"address_uuid"`
-	ProviderAddressID sql.NullString `db:"provider_address_id"`
-	AddressValue      sql.NullString `db:"address_value"`
-	SubnetUUID        sql.NullString `db:"subnet_uuid"`
-	CIDR              sql.NullString `db:"cidr"`
-	ProviderSubnetID  sql.NullString `db:"provider_subnet_id"`
-	AddressTypeID     sql.NullInt64  `db:"address_type_id"`
-	ConfigTypeID      sql.NullInt64  `db:"config_type_id"`
-	OriginID          sql.NullInt64  `db:"origin_id"`
-	ScopeID           sql.NullInt64  `db:"scope_id"`
-	IsSecondary       sql.NullBool   `db:"is_secondary"`
-	IsShadow          sql.NullBool   `db:"is_shadow"`
-}
-
 type machineNameNetNode struct {
 	MachineName string `db:"name"`
 	NetNodeUUID string `db:"net_node_uuid"`
@@ -728,12 +688,4 @@ func nilZeroPtr[T comparable](v T) *T {
 		return nil
 	}
 	return &v
-}
-
-func zeroNilPtr[T comparable](v *T) T {
-	var zero T
-	if v == nil {
-		return zero
-	}
-	return *v
 }

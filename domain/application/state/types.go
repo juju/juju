@@ -8,7 +8,6 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
@@ -1072,22 +1071,6 @@ type applicationOrigin struct {
 	Hash               sql.NullString  `db:"hash"`
 }
 
-type exportApplication struct {
-	UUID                 coreapplication.UUID `db:"uuid"`
-	Name                 string               `db:"name"`
-	CharmUUID            corecharm.ID         `db:"charm_uuid"`
-	Life                 life.Life            `db:"life_id"`
-	Subordinate          bool                 `db:"subordinate"`
-	CharmModifiedVersion int                  `db:"charm_modified_version"`
-	CharmUpgradeOnError  bool                 `db:"charm_upgrade_on_error"`
-	CharmReferenceName   string               `db:"reference_name"`
-	CharmSourceID        int                  `db:"source_id"`
-	CharmRevision        int                  `db:"revision"`
-	CharmArchitectureID  sql.Null[int64]      `db:"architecture_id"`
-	K8sServiceProviderID sql.NullString       `db:"k8s_provider_id"`
-	EndpointBindings     map[string]string
-}
-
 // peerEndpoint represents a structure for defining a peer application endpoint
 // with a UUID and a name.
 type peerEndpoint struct {
@@ -1095,13 +1078,6 @@ type peerEndpoint struct {
 	UUID corerelation.EndpointUUID `db:"uuid"`
 	// Name is the human-readable name of the peer endpoint.
 	Name string `db:"name"`
-}
-
-type exportUnit struct {
-	UUID      coreunit.UUID    `db:"uuid"`
-	Name      coreunit.Name    `db:"name"`
-	Machine   coremachine.Name `db:"machine_name"`
-	Principal coreunit.Name    `db:"principal_name"`
 }
 
 type setExposedSpace struct {

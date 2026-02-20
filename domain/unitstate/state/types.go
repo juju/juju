@@ -71,15 +71,6 @@ func (p endpointPortRangeUUID) decode() network.PortRange {
 	}
 }
 
-// endpointPortRange represents a range of ports for a give protocol for a
-// given endpoint.
-type endpointPortRange struct {
-	Protocol string `db:"protocol"`
-	FromPort int    `db:"from_port"`
-	ToPort   int    `db:"to_port"`
-	Endpoint string `db:"endpoint"`
-}
-
 // protocol represents a network protocol type and its ID in DQLite.
 type protocol struct {
 	ID   int    `db:"id"`
@@ -95,16 +86,6 @@ type unitPortRange struct {
 	ToPort       int    `db:"to_port"`
 	RelationUUID string `db:"relation_uuid,omitempty"`
 	UnitUUID     string `db:"unit_uuid"`
-}
-
-// unitEndpointPortRange represents a range of ports for a given protocol for
-// a given unit's endpoint, and unit name.
-type unitEndpointPortRange struct {
-	UnitName string `db:"unit_name"`
-	Protocol string `db:"protocol"`
-	FromPort int    `db:"from_port"`
-	ToPort   int    `db:"to_port"`
-	Endpoint string `db:"endpoint"`
 }
 
 // unitState contains a YAML string representing the
