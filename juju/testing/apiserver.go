@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication"
+	jwtauth "github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
@@ -131,9 +132,10 @@ type ApiServerSuite struct {
 
 	// These can be set prior to login being called.
 
-	WithUpgrading      bool
-	WithAuditLogConfig *auditlog.Config
-	WithIntrospection  func(func(string, http.Handler))
+	WithUpgrading        bool
+	WithAuditLogConfig   *auditlog.Config
+	WithIntrospection    func(func(string, http.Handler))
+	WithJWTAuthenticator jwtauth.Authenticator
 
 	// AdminUserUUID is the root user for the controller.
 	AdminUserUUID coreuser.UUID
@@ -308,6 +310,9 @@ func (s *ApiServerSuite) setupAPIServer(c *tc.C, controllerCfg controller.Config
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	cfg.LocalMacaroonAuthenticator = authenticator
+	if s.WithJWTAuthenticator != nil {
+		cfg.JWTAuthenticator = s.WithJWTAuthenticator
+	}
 	err = authenticator.AddHandlers(s.mux)
 	c.Assert(err, tc.ErrorIsNil)
 

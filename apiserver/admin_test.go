@@ -5,6 +5,7 @@ package apiserver_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,6 +13,9 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakerytest"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
@@ -20,17 +24,23 @@ import (
 
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/agent/machiner"
+	"github.com/juju/juju/api/base"
 	apiclient "github.com/juju/juju/api/client/client"
 	machineclient "github.com/juju/juju/api/client/machinemanager"
 	"github.com/juju/juju/api/client/modelconfig"
+	jwtauth "github.com/juju/juju/apiserver/authentication/jwt"
+	apitesting "github.com/juju/juju/apiserver/testing"
+	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	coreuser "github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	accessservice "github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/internal/auth"
@@ -834,4 +844,204 @@ func (t errorTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 func ptr[T any](v T) *T {
 	return &v
+}
+
+type externalUserLoginSuite struct {
+	jujutesting.ApiServerSuite
+	discharger *bakerytest.Discharger
+}
+
+func TestExternalUserLoginSuite(t *stdtesting.T) {
+	tc.Run(t, &externalUserLoginSuite{})
+}
+
+func (s *externalUserLoginSuite) SetUpTest(c *tc.C) {
+	s.discharger = bakerytest.NewDischarger(nil)
+	// Configure the discharger to identify any login attempt as "testuser".
+	// This simulates a JAAS/JIMM identity provider declaring the username.
+	s.discharger.CheckerP = httpbakery.ThirdPartyCaveatCheckerPFunc(
+		func(_ context.Context, _ httpbakery.ThirdPartyCaveatCheckerParams) ([]checkers.Caveat, error) {
+			return []checkers.Caveat{
+				checkers.DeclaredCaveat("username", "testuser"),
+			}, nil
+		},
+	)
+	// Set the identity URL so that admin.authenticate() uses external macaroon auth.
+	s.ControllerConfigAttrs = map[string]interface{}{
+		jujucontroller.IdentityURL: s.discharger.Location(),
+	}
+	s.ApiServerSuite.SetUpTest(c)
+}
+
+func (s *externalUserLoginSuite) TearDownTest(c *tc.C) {
+	s.ApiServerSuite.TearDownTest(c)
+	if s.discharger != nil {
+		s.discharger.Close()
+	}
+}
+
+// TestExternalUserCreatedOnMacaroonLogin verifies that an external user is
+// inserted into Juju's database after successfully authenticating via the
+// external macaroon path.
+func (s *externalUserLoginSuite) TestExternalUserCreatedOnMacaroonLogin(c *tc.C) {
+	accessService := s.ControllerDomainServices(c).Access()
+
+	// Provision everyone@external with superuser access so that any external
+	// user can log in. EnsureExternalUserIfAuthorized checks everyone@external
+	// permissions before deciding whether to create a new user entry.
+	err := accessService.AddExternalUser(c.Context(), permission.EveryoneUserName, "", s.AdminUserUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	err = accessService.UpdatePermission(c.Context(), access.UpdatePermissionArgs{
+		Subject: permission.EveryoneUserName,
+		Change:  permission.Grant,
+		AccessSpec: permission.AccessSpec{
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        s.ControllerUUID,
+			},
+			Access: permission.SuperuserAccess,
+		},
+	})
+	c.Assert(err, tc.IsNil)
+
+	// Confirm the external user does not yet exist in Juju's database.
+	externalUserName, err := coreuser.NewName("testuser@external")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = accessService.GetUserByName(c.Context(), externalUserName)
+	c.Assert(err, tc.ErrorIs, accesserrors.UserNotFound,
+		tc.Commentf("testuser@external should not exist before login"))
+
+	// Open an API connection with no credentials. This triggers the external
+	// macaroon login flow:
+	//   1. Server returns DischargeRequired with a macaroon pointing to the
+	//      identity URL (s.discharger).
+	//   2. The httpbakery client discharges the macaroon; the discharger
+	//      declares "username=testuser".
+	//   3. Client retries login with the discharged macaroon.
+	//   4. admin.authenticate() calls EnsureExternalUserIfAuthorized, inserting
+	//      testuser@external into Juju's user table.
+	info := s.ControllerModelApiInfo()
+	info.Tag = nil
+	info.Password = ""
+	info.Macaroons = nil
+	apiState, err := api.Open(c.Context(), info, api.DialOpts{
+		BakeryClient: httpbakery.NewClient(),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = apiState.Close() }()
+
+	// The external user must now exist in Juju's database.
+	_, err = accessService.GetUserByName(c.Context(), externalUserName)
+	c.Assert(err, tc.ErrorIsNil,
+		tc.Commentf("testuser@external was not created in Juju's DB after external macaroon login"))
+}
+
+// jwtLoginProvider is a LoginProvider that authenticates using a JWT token.
+type jwtLoginProvider struct {
+	tag   names.Tag
+	token string
+}
+
+func (p *jwtLoginProvider) Login(ctx context.Context, caller base.APICaller) (*api.LoginResultParams, error) {
+	var result params.LoginResult
+	err := caller.APICall(ctx, "Admin", 3, "", "Login", &params.LoginRequest{
+		AuthTag:       p.tag.String(),
+		Token:         p.token,
+		ClientVersion: jujuversion.Current.String(),
+	}, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return api.NewLoginResultParams(result)
+}
+
+func (p *jwtLoginProvider) AuthHeader() (http.Header, error) {
+	h := make(http.Header)
+	h.Set("Authorization", "Bearer "+p.token)
+	return h, nil
+}
+
+func (p *jwtLoginProvider) String() string { return "JWTLoginProvider" }
+
+// externalUserJWTLoginSuite tests external user creation via JWT login.
+type externalUserJWTLoginSuite struct {
+	jujutesting.ApiServerSuite
+}
+
+func TestExternalUserJWTLoginSuite(t *stdtesting.T) {
+	tc.Run(t, &externalUserJWTLoginSuite{})
+}
+
+func (s *externalUserJWTLoginSuite) SetUpTest(c *tc.C) {
+	s.WithJWTAuthenticator = jwtauth.NewAuthenticator(&apitesting.InsecureJWTParser{})
+	s.ApiServerSuite.SetUpTest(c)
+}
+
+// TestExternalUserCreatedOnJWTLogin verifies that an external user is
+// inserted into Juju's database after successfully authenticating via the
+// JWT path (the modern JAAS/JIMM flow).
+func (s *externalUserJWTLoginSuite) TestExternalUserCreatedOnJWTLogin(c *tc.C) {
+	accessService := s.ControllerDomainServices(c).Access()
+
+	// Provision everyone@external with superuser access so that any external
+	// user can log in. EnsureExternalUserIfAuthorized checks everyone@external
+	// permissions before deciding whether to create a new user entry.
+	err := accessService.AddExternalUser(c.Context(), permission.EveryoneUserName, "", s.AdminUserUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	err = accessService.UpdatePermission(c.Context(), access.UpdatePermissionArgs{
+		Subject: permission.EveryoneUserName,
+		Change:  permission.Grant,
+		AccessSpec: permission.AccessSpec{
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        s.ControllerUUID,
+			},
+			Access: permission.SuperuserAccess,
+		},
+	})
+	c.Assert(err, tc.IsNil)
+
+	// Confirm the external user does not yet exist in Juju's database.
+	externalUserName, err := coreuser.NewName("testuser@external")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = accessService.GetUserByName(c.Context(), externalUserName)
+	c.Assert(err, tc.ErrorIs, accesserrors.UserNotFound,
+		tc.Commentf("testuser@external should not exist before login"))
+
+	// Build a JWT token for "user-testuser@external" with superuser access
+	// on the controller. The token is base64-encoded, matching the format
+	// JIMM sends to Juju controllers.
+	controllerTag := names.NewControllerTag(s.ControllerUUID)
+	token, err := apitesting.NewEncodedJWT(apitesting.JWTParams{
+		Controller: s.ControllerUUID,
+		User:       "user-testuser@external",
+		Access: map[string]string{
+			controllerTag.String(): "superuser",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Open an API connection using the JWT login provider. This triggers:
+	//   1. Client sends LoginRequest with Token set (the JWT).
+	//   2. Macaroon authenticator returns NotSupported (no macaroons).
+	//   3. JWT authenticator parses the token, extracts user-testuser@external.
+	//   4. admin.authenticate() calls EnsureExternalUserIfAuthorized, inserting
+	//      testuser@external into Juju's user table.
+	info := s.ControllerModelApiInfo()
+	info.Tag = nil
+	info.Password = ""
+	info.Macaroons = nil
+	apiState, err := api.Open(c.Context(), info, api.DialOpts{
+		LoginProvider: &jwtLoginProvider{
+			tag:   names.NewUserTag("testuser@external"),
+			token: token,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = apiState.Close() }()
+
+	// The external user must now exist in Juju's database.
+	_, err = accessService.GetUserByName(c.Context(), coreuser.AdminUserName)
+	c.Assert(err, tc.ErrorIsNil,
+		tc.Commentf("testuser@external was not created in Juju's DB after JWT login"))
 }

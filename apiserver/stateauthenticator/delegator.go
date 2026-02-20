@@ -31,13 +31,6 @@ func (p *PermissionDelegator) SubjectPermissions(
 		return permission.NoAccess, errors.Trace(err)
 	}
 
-	if !name.IsLocal() {
-		err := p.AccessService.EnsureExternalUserIfAuthorized(ctx, name, target)
-		if err != nil {
-			return permission.NoAccess, errors.Trace(err)
-		}
-	}
-
 	access, err := p.AccessService.ReadUserAccessLevelForTarget(ctx, name, target)
 	if errors.Is(err, accesserrors.AccessNotFound) {
 		return permission.NoAccess, accesserrors.PermissionNotFound
