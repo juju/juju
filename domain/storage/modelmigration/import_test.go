@@ -450,7 +450,7 @@ func (s *importSuite) TestImportVolumes(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{
 		Type: coremodel.IAAS.String(),
 	})
-	model.AddVolume(description.VolumeArgs{
+	volOne := model.AddVolume(description.VolumeArgs{
 		ID:          "0",
 		Storage:     "multi-fs/0",
 		Provisioned: true,
@@ -459,6 +459,42 @@ func (s *importSuite) TestImportVolumes(c *tc.C) {
 		Size:        1024,
 		VolumeID:    "vol-0f2829d7e5c4c0140",
 		WWN:         "uuid.c2f9e696-7b12-5368-b274-0510bf1feade",
+	})
+	volOne.AddAttachment(description.VolumeAttachmentArgs{
+		HostMachine: "0",
+		DeviceName:  "xvdf",
+		DeviceLink:  "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol0e8b3aed0fbee6887",
+		DeviceAttributes: map[string]string{
+			"iqn":  "iqn.2015-12.com.oracleiaas:5349c1a7-36b4-4d7c-85f2-059c5cd6e344",
+			"port": "3260",
+		},
+	})
+	volOne.AddAttachmentPlan(description.VolumeAttachmentPlanArgs{
+		Machine:    "0",
+		DeviceType: "local",
+		DeviceAttributes: map[string]string{
+			"iqn":  "iqn.2015-12.com.oracleiaas:5349c1a7-36b4-4d7c-85f2-059c5cd6e344",
+			"port": "3260",
+		},
+	})
+	volTwo := model.AddVolume(description.VolumeArgs{
+		ID:          "1",
+		Storage:     "multi-fs/1",
+		Provisioned: true,
+		Persistent:  true,
+		Pool:        "ebs",
+		Size:        1024,
+		VolumeID:    "vol-08195b158e8ce069d",
+		WWN:         "uuid.1c63bb59-9514-505d-8d85-275a629db6d9",
+	})
+	volTwo.AddAttachment(description.VolumeAttachmentArgs{
+		HostMachine: "1",
+		DeviceName:  "xvdf",
+		DeviceLink:  "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol08195b158e8ce069d",
+	})
+	volTwo.AddAttachmentPlan(description.VolumeAttachmentPlanArgs{
+		Machine:    "1",
+		DeviceType: "iscsi",
 	})
 
 	expected := []domainstorage.ImportVolumeParams{
@@ -471,6 +507,45 @@ func (s *importSuite) TestImportVolumes(c *tc.C) {
 			SizeMiB:     1024,
 			ProviderID:  "vol-0f2829d7e5c4c0140",
 			WWN:         "uuid.c2f9e696-7b12-5368-b274-0510bf1feade",
+			Attachments: []domainstorage.ImportVolumeAttachment{
+				{
+					MachineID:  "0",
+					DeviceName: "xvdf",
+					DeviceLink: "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol0e8b3aed0fbee6887",
+				},
+			},
+			AttachmentPlans: []domainstorage.ImportVolumeAttachmentPlan{
+				{
+					MachineID:  "0",
+					DeviceType: "local",
+					DeviceAttributes: map[string]string{
+						"iqn":  "iqn.2015-12.com.oracleiaas:5349c1a7-36b4-4d7c-85f2-059c5cd6e344",
+						"port": "3260",
+					},
+				},
+			},
+		}, {
+			ID:          "1",
+			StorageID:   "multi-fs/1",
+			Provisioned: true,
+			Persistent:  true,
+			Pool:        "ebs",
+			SizeMiB:     1024,
+			ProviderID:  "vol-08195b158e8ce069d",
+			WWN:         "uuid.1c63bb59-9514-505d-8d85-275a629db6d9",
+			Attachments: []domainstorage.ImportVolumeAttachment{
+				{
+					MachineID:  "1",
+					DeviceName: "xvdf",
+					DeviceLink: "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol08195b158e8ce069d",
+				},
+			},
+			AttachmentPlans: []domainstorage.ImportVolumeAttachmentPlan{
+				{
+					MachineID:  "1",
+					DeviceType: "iscsi",
+				},
+			},
 		},
 	}
 	s.service.EXPECT().ImportVolumes(gomock.Any(), expected).Return(nil)

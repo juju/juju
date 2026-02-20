@@ -49,6 +49,7 @@ type ImportVolumeArgs struct {
 	UUID                string
 	ID                  string
 	LifeID              life.Life
+	StorageID           string
 	StorageInstanceUUID string
 	Provisioned         bool
 	ProvisionScopeID    storageprovisioning.ProvisionScope
@@ -57,4 +58,42 @@ type ImportVolumeArgs struct {
 	WWN                 string
 	ProviderID          string
 	Persistent          bool
+	Attachments         []ImportVolumeAttachment
+	// If the BlockDevice was not already imported, best effort
+	// to create one which can be updated later.
+	AttachmentsWithNewBlockDevice []ImportVolumeAttachmentNewBlockDevice
+	AttachmentPlans               []ImportVolumeAttachmentPlan
+}
+
+// ImportVolumeAttachment represents a volume attachment with
+// an existing BlockDevice.
+type ImportVolumeAttachment struct {
+	UUID            string
+	BlockDeviceUUID string
+	LifeID          life.Life
+	NetNodeUUID     string
+	ReadOnly        bool
+	ProviderID      string
+}
+
+// ImportVolumeAttachmentNewBlockDevice represents a volume attachment
+// where a BlockDevice needs to be created.
+type ImportVolumeAttachmentNewBlockDevice struct {
+	ImportVolumeAttachment
+	MachineUUID string
+	Provisioned bool
+	BusAddress  string
+	DeviceLink  string
+	DeviceName  string
+}
+
+// ImportVolumeAttachmentPlan represents a volume attachment plan
+// including storage volume needs to be created.
+type ImportVolumeAttachmentPlan struct {
+	UUID             string
+	DeviceAttributes map[string]string
+	DeviceTypeID     int
+	LifeID           life.Life
+	NetNodeUUID      string
+	ProvisionScopeID storageprovisioning.ProvisionScope
 }

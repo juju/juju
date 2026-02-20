@@ -3,6 +3,11 @@
 
 package storage
 
+import (
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
+)
+
 // VolumeAttachmentPlanUUID represents the unique id for a storage
 // VolumeAttachmentPlan.
 type VolumeAttachmentPlanUUID baseUUID
@@ -71,6 +76,17 @@ func (v VolumeDeviceType) String() string {
 		return "iscsi"
 	default:
 		return ""
+	}
+}
+
+func ParseVolumeDeviceType(s string) (VolumeDeviceType, error) {
+	switch s {
+	case "local":
+		return VolumeDeviceTypeLocal, nil
+	case "iscsi":
+		return VolumeDeviceTypeISCSI, nil
+	default:
+		return 0, errors.Errorf("volume device type: %q not valid", s).Add(coreerrors.NotValid)
 	}
 }
 

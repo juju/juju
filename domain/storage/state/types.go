@@ -163,8 +163,42 @@ type blockDevice struct {
 	MountPoint         string `db:"mount_point"`
 }
 
-type deviceLink struct {
+type importDeviceLink struct {
 	BlockDeviceUUID string `db:"block_device_uuid"`
 	MachineUUID     string `db:"machine_uuid"`
 	Name            string `db:"name"`
+}
+
+type importStorageVolumeAttachment struct {
+	UUID              string `db:"uuid"`
+	StorageVolumeUUID string `db:"storage_volume_uuid"`
+	NetNodeUUID       string `db:"net_node_uuid"`
+	LifeID            int    `db:"life_id"`
+	ProvisionScopeID  int    `db:"provision_scope_id"`
+	ProviderID        string `db:"provider_id"`
+	BlockDeviceUUID   string `db:"block_device_uuid"`
+	ReadOnly          bool   `db:"read_only"`
+}
+
+type importBlockDevice struct {
+	UUID        string `db:"uuid"`
+	BusAddress  string `db:"bus_address"`
+	InUse       bool   `db:"in_use"`
+	MachineUUID string `db:"machine_uuid"`
+	Name        string `db:"name"`
+}
+
+type importStorageVolumeAttachmentPlan struct {
+	UUID              string `db:"uuid"`
+	DeviceTypeID      int    `db:"device_type_id"`
+	LifeID            int    `db:"life_id"`
+	NetNodeUUID       string `db:"net_node_uuid"`
+	ProvisionScopeID  int    `db:"provision_scope_id"`
+	StorageVolumeUUID string `db:"storage_volume_uuid"`
+}
+
+type importStorageVolumePlanAttribute struct {
+	PlanUUID string `db:"attachment_plan_uuid"`
+	Key      string `db:"key"`
+	Value    string `db:"value"`
 }

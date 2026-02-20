@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/tc"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -273,4 +274,74 @@ func (s *typesSuite) TestImportFilesystemParamsValidate(c *tc.C) {
 			c.Assert(err, tc.NotNil)
 		}
 	}
+}
+
+func (s *typesSuite) TestImportVolumeParamsValidateNoID(c *tc.C) {
+	params := storage.ImportVolumeParams{}
+	c.Assert(params.Validate(), tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *typesSuite) TestImportVolumeParamsValidateNoSize(c *tc.C) {
+	params := storage.ImportVolumeParams{
+		ID: "multi-fs/0",
+	}
+	c.Assert(params.Validate(), tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *typesSuite) TestImportVolumeParamsValidateInvalidPoolName(c *tc.C) {
+	params := storage.ImportVolumeParams{
+		ID:      "multi-fs/0",
+		SizeMiB: 1024,
+	}
+	c.Assert(params.Validate(), tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *typesSuite) TestImportVolumeParamsValidateInvalidAttachMachineNorUnit(c *tc.C) {
+	params := storage.ImportVolumeParams{
+		ID:      "multi-fs/0",
+		SizeMiB: 1024,
+		Pool:    "ebs",
+		Attachments: []storage.ImportVolumeAttachment{
+			{},
+		},
+	}
+	c.Assert(params.Validate(), tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *typesSuite) TestImportVolumeParamsValidateInvalidAttachBlockDevice(c *tc.C) {
+	params := storage.ImportVolumeParams{
+		ID:      "multi-fs/0",
+		SizeMiB: 1024,
+		Pool:    "ebs",
+		Attachments: []storage.ImportVolumeAttachment{
+			{
+				MachineID: "42",
+			},
+		},
+	}
+	c.Assert(params.Validate(), tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *typesSuite) TestImportVolumeParamsValidateValidAttachment(c *tc.C) {
+	params := storage.ImportVolumeParams{
+		ID:      "multi-fs/0",
+		SizeMiB: 1024,
+		Pool:    "ebs",
+		Attachments: []storage.ImportVolumeAttachment{
+			{
+				MachineID:  "42",
+				DeviceLink: "long-device-link-name",
+			},
+		},
+	}
+	c.Assert(params.Validate(), tc.ErrorIsNil)
+}
+
+func (s *typesSuite) TestImportVolumeParamsValidateNoAttachment(c *tc.C) {
+	params := storage.ImportVolumeParams{
+		ID:      "multi-fs/0",
+		SizeMiB: 1024,
+		Pool:    "ebs",
+	}
+	c.Assert(params.Validate(), tc.ErrorIsNil)
 }

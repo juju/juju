@@ -10,8 +10,12 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	coreblockdevice "github.com/juju/juju/core/blockdevice"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storage/internal"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
@@ -353,51 +357,177 @@ func (s *importSuite) TestImportVolumes(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	// Arrange
-	storageInstanceUUID := tc.Must(c, domainstorage.NewStoragePoolUUID).String()
-	s.state.EXPECT().GetStorageInstanceUUIDsByIDs(gomock.Any(), []string{"multi-fs/0"}).
-		Return(map[string]string{
-			"multi-fs/0": storageInstanceUUID,
-		}, nil)
-
-	s.state.EXPECT().GetStoragePoolProvidersByNames(gomock.Any(), []string{"ebs"}).Return(map[string]string{
-		"ebs": "ebs",
-	}, nil)
-
 	// Arrange: CalculateStorageInstanceComposition
 	ebsProvider := NewMockProvider(ctrl)
 	ebsProvider.EXPECT().Scope().Return(internalstorage.ScopeEnviron).AnyTimes()
 	ebsProvider.EXPECT().Supports(internalstorage.StorageKindBlock).Return(true).AnyTimes()
 	ebsProvider.EXPECT().Supports(internalstorage.StorageKindFilesystem).Return(false).AnyTimes()
 	s.registry.Providers["ebs"] = ebsProvider
+	s.state.EXPECT().GetStoragePoolProvidersByNames(gomock.Any(), []string{"ebs"}).Return(map[string]string{
+		"ebs": "ebs",
+	}, nil)
+
+	// Arrange: mocks for storage instances
+	storageInstanceUUIDOne := tc.Must(c, domainstorage.NewStoragePoolUUID).String()
+	storageInstanceUUIDTwo := tc.Must(c, domainstorage.NewStoragePoolUUID).String()
+	storageIDOne := "multi-vol/0"
+	storageIDTwo := "multi-fs/1"
+	s.state.EXPECT().GetStorageInstanceUUIDsByIDs(gomock.Any(), []string{storageIDOne, storageIDTwo}).
+		Return(map[string]string{
+			storageIDOne: storageInstanceUUIDOne,
+			storageIDTwo: storageInstanceUUIDTwo,
+		}, nil)
+
+	// Arrange: volume 0 attachments, block device will be created
+	machine0UUID := tc.Must(c, machine.NewUUID)
+	netNodeUUIDOne := tc.Must(c, network.NewNetNodeUUID).String()
+	s.state.EXPECT().GetMachineUUIDByNetNodeUUID(gomock.Any(), netNodeUUIDOne).Return(machine0UUID, nil)
+	s.state.EXPECT().GetNetNodeUUIDsByMachineOrUnitName(gomock.Any(), []string{"0"}, []string{}).Return(
+		map[string]string{
+			"0": netNodeUUIDOne,
+		}, nil, nil).AnyTimes()
+	s.state.EXPECT().GetBlockDevicesForMachine(gomock.Any(), machine0UUID).Return(nil, nil)
+
+	// Arrange: volume 1 attachments, block device exists
+	machine1UUID := tc.Must(c, machine.NewUUID)
+	netNodeUUIDTwo := tc.Must(c, network.NewNetNodeUUID).String()
+	s.state.EXPECT().GetMachineUUIDByNetNodeUUID(gomock.Any(), netNodeUUIDTwo).Return(machine1UUID, nil)
+	s.state.EXPECT().GetNetNodeUUIDsByMachineOrUnitName(gomock.Any(), []string{"1"}, []string{}).Return(
+		map[string]string{
+			"1": netNodeUUIDTwo,
+		}, nil, nil).AnyTimes()
+	bdUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
+	s.state.EXPECT().GetBlockDevicesForMachine(gomock.Any(), machine1UUID).Return(
+		map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice{
+			bdUUID: {
+				DeviceName:  "xvdf",
+				DeviceLinks: []string{"/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol08195b158e8ce069d"},
+			},
+		}, nil)
 
 	// Arrange: state call
 	expected := []internal.ImportVolumeArgs{
 		{
-			ID:                  "multi-vol/0",
+			ID:                  "0",
+			StorageID:           storageIDOne,
 			LifeID:              life.Alive,
+			Provisioned:         true,
+			Persistent:          true,
 			ProvisionScopeID:    domainstorageprovisioning.ProvisionScopeModel,
-			StorageInstanceUUID: storageInstanceUUID,
+			StorageInstanceUUID: storageInstanceUUIDOne,
+			SizeMiB:             4048,
+			ProviderID:          "vol-0f2829d7e5c4c0140",
+			WWN:                 "uuid.c2f9e696-7b12-5368-b274-0510bf1feade",
+			AttachmentsWithNewBlockDevice: []internal.ImportVolumeAttachmentNewBlockDevice{
+				{
+					ImportVolumeAttachment: internal.ImportVolumeAttachment{
+						LifeID:      life.Alive,
+						NetNodeUUID: netNodeUUIDOne,
+					},
+					DeviceName:  "xvdf",
+					DeviceLink:  "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol0e8b3aed0fbee6887",
+					MachineUUID: machine0UUID.String(),
+				},
+			},
+			AttachmentPlans: []internal.ImportVolumeAttachmentPlan{
+				{
+					DeviceAttributes: map[string]string{
+						"iqn":  "iqn.2015-12.com.oracleiaas:5349c1a7-36b4-4d7c-85f2-059c5cd6e344",
+						"port": "3260",
+					},
+					LifeID:           life.Alive,
+					NetNodeUUID:      netNodeUUIDOne,
+					ProvisionScopeID: domainstorageprovisioning.ProvisionScopeModel,
+				},
+			},
+		}, {
+			ID:                  "1",
+			StorageID:           storageIDTwo,
+			LifeID:              life.Alive,
+			Persistent:          true,
+			Provisioned:         true,
+			ProvisionScopeID:    domainstorageprovisioning.ProvisionScopeModel,
+			StorageInstanceUUID: storageInstanceUUIDTwo,
 			SizeMiB:             4048,
 			HardwareID:          "hardware",
-			ProviderID:          "vol-0f2829d7e5c4c0140",
-			WWN:                 "uuid.06eba00f-72a0-5af0-9e94-891d7542e96c",
+			ProviderID:          "vol-08195b158e8ce069d",
+			WWN:                 "uuid.1c63bb59-9514-505d-8d85-275a629db6d9",
+			Attachments: []internal.ImportVolumeAttachment{
+				{
+					BlockDeviceUUID: bdUUID.String(),
+					LifeID:          life.Alive,
+					NetNodeUUID:     netNodeUUIDTwo,
+				},
+			},
+			AttachmentPlans: []internal.ImportVolumeAttachmentPlan{
+				{
+					DeviceTypeID:     1,
+					LifeID:           life.Alive,
+					NetNodeUUID:      netNodeUUIDTwo,
+					ProvisionScopeID: domainstorageprovisioning.ProvisionScopeModel,
+				},
+			},
 		},
 	}
 	mc := tc.NewMultiChecker()
 	mc.AddExpr(`_[_].UUID`, tc.IsNonZeroUUID)
+	mc.AddExpr(`_[_].AttachmentPlans[_].UUID`, tc.IsNonZeroUUID)
+	mc.AddExpr(`_[_].Attachments[_].UUID`, tc.IsNonZeroUUID)
+	mc.AddExpr(`_[_].AttachmentsWithNewBlockDevice[_].ImportVolumeAttachment.UUID`, tc.IsNonZeroUUID)
+	mc.AddExpr(`_[_].AttachmentsWithNewBlockDevice[_].ImportVolumeAttachment.BlockDeviceUUID`, tc.IsNonZeroUUID)
 	s.state.EXPECT().ImportVolumes(gomock.Any(), tc.Bind(mc, expected)).Return(nil)
 
-	// Arrange: input
+	// Arrange: ImportVolumes params
 	params := []domainstorage.ImportVolumeParams{
 		{
-			ID:         "multi-vol/0",
-			Pool:       "ebs",
-			StorageID:  "multi-fs/0",
-			SizeMiB:    4048,
-			HardwareID: "hardware",
-			ProviderID: "vol-0f2829d7e5c4c0140",
-			WWN:        "uuid.06eba00f-72a0-5af0-9e94-891d7542e96c",
+			ID:          "0",
+			StorageID:   storageIDOne,
+			Provisioned: true,
+			Persistent:  true,
+			Pool:        "ebs",
+			SizeMiB:     4048,
+			ProviderID:  "vol-0f2829d7e5c4c0140",
+			WWN:         "uuid.c2f9e696-7b12-5368-b274-0510bf1feade",
+			Attachments: []domainstorage.ImportVolumeAttachment{
+				{
+					MachineID:  "0",
+					DeviceName: "xvdf",
+					DeviceLink: "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol0e8b3aed0fbee6887",
+				},
+			},
+			AttachmentPlans: []domainstorage.ImportVolumeAttachmentPlan{
+				{
+					MachineID:  "0",
+					DeviceType: "local",
+					DeviceAttributes: map[string]string{
+						"iqn":  "iqn.2015-12.com.oracleiaas:5349c1a7-36b4-4d7c-85f2-059c5cd6e344",
+						"port": "3260",
+					},
+				},
+			},
+		}, {
+			ID:          "1",
+			StorageID:   storageIDTwo,
+			Provisioned: true,
+			Persistent:  true,
+			Pool:        "ebs",
+			SizeMiB:     4048,
+			ProviderID:  "vol-08195b158e8ce069d",
+			WWN:         "uuid.1c63bb59-9514-505d-8d85-275a629db6d9",
+			HardwareID:  "hardware",
+			Attachments: []domainstorage.ImportVolumeAttachment{
+				{
+					MachineID:  "1",
+					DeviceName: "xvdf",
+					DeviceLink: "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol08195b158e8ce069d",
+				},
+			},
+			AttachmentPlans: []domainstorage.ImportVolumeAttachmentPlan{
+				{
+					MachineID:  "1",
+					DeviceType: "iscsi",
+				},
+			},
 		},
 	}
 

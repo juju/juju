@@ -13,7 +13,10 @@ import (
 	context "context"
 	reflect "reflect"
 
+	blockdevice "github.com/juju/juju/core/blockdevice"
+	machine "github.com/juju/juju/core/machine"
 	unit "github.com/juju/juju/core/unit"
+	blockdevice0 "github.com/juju/juju/domain/blockdevice"
 	storage "github.com/juju/juju/domain/storage"
 	internal "github.com/juju/juju/domain/storage/internal"
 	gomock "go.uber.org/mock/gomock"
@@ -114,6 +117,84 @@ func (c *MockStateDeleteStoragePoolCall) Do(f func(context.Context, string) erro
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateDeleteStoragePoolCall) DoAndReturn(f func(context.Context, string) error) *MockStateDeleteStoragePoolCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetBlockDevicesForMachine mocks base method.
+func (m *MockState) GetBlockDevicesForMachine(arg0 context.Context, arg1 machine.UUID) (map[blockdevice0.BlockDeviceUUID]blockdevice.BlockDevice, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBlockDevicesForMachine", arg0, arg1)
+	ret0, _ := ret[0].(map[blockdevice0.BlockDeviceUUID]blockdevice.BlockDevice)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBlockDevicesForMachine indicates an expected call of GetBlockDevicesForMachine.
+func (mr *MockStateMockRecorder) GetBlockDevicesForMachine(arg0, arg1 any) *MockStateGetBlockDevicesForMachineCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockDevicesForMachine", reflect.TypeOf((*MockState)(nil).GetBlockDevicesForMachine), arg0, arg1)
+	return &MockStateGetBlockDevicesForMachineCall{Call: call}
+}
+
+// MockStateGetBlockDevicesForMachineCall wrap *gomock.Call
+type MockStateGetBlockDevicesForMachineCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetBlockDevicesForMachineCall) Return(arg0 map[blockdevice0.BlockDeviceUUID]blockdevice.BlockDevice, arg1 error) *MockStateGetBlockDevicesForMachineCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetBlockDevicesForMachineCall) Do(f func(context.Context, machine.UUID) (map[blockdevice0.BlockDeviceUUID]blockdevice.BlockDevice, error)) *MockStateGetBlockDevicesForMachineCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetBlockDevicesForMachineCall) DoAndReturn(f func(context.Context, machine.UUID) (map[blockdevice0.BlockDeviceUUID]blockdevice.BlockDevice, error)) *MockStateGetBlockDevicesForMachineCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetMachineUUIDByNetNodeUUID mocks base method.
+func (m *MockState) GetMachineUUIDByNetNodeUUID(arg0 context.Context, arg1 string) (machine.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineUUIDByNetNodeUUID", arg0, arg1)
+	ret0, _ := ret[0].(machine.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachineUUIDByNetNodeUUID indicates an expected call of GetMachineUUIDByNetNodeUUID.
+func (mr *MockStateMockRecorder) GetMachineUUIDByNetNodeUUID(arg0, arg1 any) *MockStateGetMachineUUIDByNetNodeUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineUUIDByNetNodeUUID", reflect.TypeOf((*MockState)(nil).GetMachineUUIDByNetNodeUUID), arg0, arg1)
+	return &MockStateGetMachineUUIDByNetNodeUUIDCall{Call: call}
+}
+
+// MockStateGetMachineUUIDByNetNodeUUIDCall wrap *gomock.Call
+type MockStateGetMachineUUIDByNetNodeUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachineUUIDByNetNodeUUIDCall) Return(arg0 machine.UUID, arg1 error) *MockStateGetMachineUUIDByNetNodeUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachineUUIDByNetNodeUUIDCall) Do(f func(context.Context, string) (machine.UUID, error)) *MockStateGetMachineUUIDByNetNodeUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachineUUIDByNetNodeUUIDCall) DoAndReturn(f func(context.Context, string) (machine.UUID, error)) *MockStateGetMachineUUIDByNetNodeUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

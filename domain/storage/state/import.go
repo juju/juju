@@ -23,6 +23,9 @@ import (
 // ImportStorageInstances imports storage instances and storage unit
 // owners. Storage unit owners are created if the unit name is provided.
 func (st *State) ImportStorageInstances(ctx context.Context, args []internal.ImportStorageInstanceArgs) error {
+	if len(args) == 0 {
+		return nil
+	}
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -46,13 +49,15 @@ INSERT INTO storage_unit_owner (*) VALUES ($importStorageUnitOwner.*)`, importSt
 			return err
 		}
 
-		err = tx.Query(ctx, insertStorageInstanceStmt, storageInstances).Run()
-		if err != nil {
+		if err = tx.Query(ctx, insertStorageInstanceStmt, storageInstances).Run(); err != nil {
 			return errors.Errorf("inserting storage instance rows: %w", err)
 		}
 
-		err = tx.Query(ctx, insertUnitOwnerStmt, storageUnitOwners).Run()
-		if err != nil {
+		if len(storageUnitOwners) == 0 {
+			return nil
+		}
+
+		if err = tx.Query(ctx, insertUnitOwnerStmt, storageUnitOwners).Run(); err != nil {
 			return errors.Errorf("inserting storage unit owner rows: %w", err)
 		}
 
@@ -315,16 +320,37 @@ func (st *State) ImportVolumes(ctx context.Context, args []internal.ImportVolume
 	if err != nil {
 		return errors.Capture(err)
 	}
-	storageVolumeData, storageInstanceVolumeData := makeInsertVolumeArgs(args)
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.importStorageVolumes(ctx, tx, storageVolumeData); err != nil {
-			return errors.Capture(err)
+
+	insertData := makeInsertVolumeArgs(args)
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.importStorageVolumes(ctx, tx, insertData.volumes); err != nil {
+			return errors.Errorf("importing volume: %w", err)
 		}
-		if err := st.importStorageInstanceVolumes(ctx, tx, storageInstanceVolumeData); err != nil {
-			return errors.Capture(err)
+		if err := st.importStorageInstanceVolumes(ctx, tx, insertData.instances); err != nil {
+			return errors.Errorf("importing storage instance volumes: %w", err)
+		}
+		// Missing block devices must be created before volume attachments can
+		// be imported, otherwise a foreign key constrain failure will occur.
+		if err := st.insertMissingBlockDevicesForVolumeAttachments(ctx, tx, insertData.blockDevices); err != nil {
+			return errors.Errorf("importing block devices for volume attachments: %w", err)
+		}
+		if err := st.importDeviceLinksForVolumeAttachments(ctx, tx, insertData.links); err != nil {
+			return errors.Errorf("importing device links for block devices for volume attachments: %w", err)
+		}
+		if err := st.importStorageVolumeAttachments(ctx, tx, insertData.attachments); err != nil {
+			return errors.Errorf("importing volume attachments: %w", err)
+		}
+		if err := st.importVolumeAttachmentPlans(ctx, tx, insertData.plans); err != nil {
+			return errors.Errorf("importing volume attachment plans: %w", err)
+		}
+		// Volume attachment plan attributes require the plan to be inserted.
+		if err := st.importVolumeAttachmentPlanAttributes(ctx, tx, insertData.planAttributes); err != nil {
+			return errors.Errorf("importing volume attachment plan attributes: %w", err)
 		}
 		return nil
 	})
+	return errors.Capture(err)
 }
 
 func (st *State) importStorageVolumes(ctx context.Context, tx *sqlair.TX, input []importStorageVolume) error {
@@ -336,7 +362,7 @@ func (st *State) importStorageVolumes(ctx context.Context, tx *sqlair.TX, input 
 INSERT INTO storage_volume (*) VALUES ($importStorageVolume.*)
 `, importStorageVolume{})
 	if err != nil {
-		return errors.Errorf("preparing insert volume import statement: %w", err)
+		return err
 	}
 
 	err = tx.Query(ctx, insertStmt, input).Run()
@@ -352,19 +378,114 @@ func (st *State) importStorageInstanceVolumes(ctx context.Context, tx *sqlair.TX
 INSERT INTO storage_instance_volume (*) VALUES ($importStorageInstanceVolume.*)
 `, importStorageInstanceVolume{})
 	if err != nil {
-		return errors.Errorf("preparing insert storage instance volume import statement: %w", err)
+		return err
 	}
 
 	err = tx.Query(ctx, insertStmt, input).Run()
 	return err
 }
 
-func makeInsertVolumeArgs(args []internal.ImportVolumeArgs) ([]importStorageVolume, []importStorageInstanceVolume) {
-	out := make([]importStorageVolume, len(args))
-	outInstance := make([]importStorageInstanceVolume, len(args))
+func (st *State) importStorageVolumeAttachments(ctx context.Context, tx *sqlair.TX, input []importStorageVolumeAttachment) error {
+	if len(input) == 0 {
+		return nil
+	}
+
+	insertStmt, err := st.Prepare(`
+INSERT INTO storage_volume_attachment (*) VALUES ($importStorageVolumeAttachment.*)
+`, importStorageVolumeAttachment{})
+	if err != nil {
+		return err
+	}
+
+	err = tx.Query(ctx, insertStmt, input).Run()
+	return err
+}
+
+func (st *State) insertMissingBlockDevicesForVolumeAttachments(ctx context.Context, tx *sqlair.TX, input []importBlockDevice) error {
+	if len(input) == 0 {
+		return nil
+	}
+
+	insertStmt, err := st.Prepare(`
+INSERT INTO block_device (*) VALUES ($importBlockDevice.*)
+`, importBlockDevice{})
+	if err != nil {
+		return err
+	}
+
+	err = tx.Query(ctx, insertStmt, input).Run()
+	return err
+}
+
+func (st *State) importDeviceLinksForVolumeAttachments(ctx context.Context, tx *sqlair.TX, input []importDeviceLink) error {
+	if len(input) == 0 {
+		return nil
+	}
+
+	insertStmt, err := st.Prepare(`
+INSERT INTO block_device_link_device (*) VALUES ($importDeviceLink.*)
+`, importDeviceLink{})
+	if err != nil {
+		return err
+	}
+
+	err = tx.Query(ctx, insertStmt, input).Run()
+	return err
+}
+
+func (st *State) importVolumeAttachmentPlans(ctx context.Context, tx *sqlair.TX, input []importStorageVolumeAttachmentPlan) error {
+	if len(input) == 0 {
+		return nil
+	}
+
+	insertStmt, err := st.Prepare(`
+INSERT INTO storage_volume_attachment_plan (*) VALUES ($importStorageVolumeAttachmentPlan.*)
+`, importStorageVolumeAttachmentPlan{})
+	if err != nil {
+		return err
+	}
+
+	err = tx.Query(ctx, insertStmt, input).Run()
+	return err
+}
+
+func (st *State) importVolumeAttachmentPlanAttributes(ctx context.Context, tx *sqlair.TX, input []importStorageVolumePlanAttribute) error {
+	if len(input) == 0 {
+		return nil
+	}
+
+	insertStmt, err := st.Prepare(`
+INSERT INTO storage_volume_attachment_plan_attr (*) VALUES ($importStorageVolumePlanAttribute.*)
+`, importStorageVolumePlanAttribute{})
+	if err != nil {
+		return err
+	}
+
+	err = tx.Query(ctx, insertStmt, input).Run()
+	return err
+}
+
+type insertVolumeData struct {
+	volumes        []importStorageVolume
+	instances      []importStorageInstanceVolume
+	blockDevices   []importBlockDevice
+	links          []importDeviceLink
+	attachments    []importStorageVolumeAttachment
+	plans          []importStorageVolumeAttachmentPlan
+	planAttributes []importStorageVolumePlanAttribute
+}
+
+func makeInsertVolumeArgs(args []internal.ImportVolumeArgs) insertVolumeData {
+	out := insertVolumeData{
+		volumes:      make([]importStorageVolume, len(args)),
+		instances:    make([]importStorageInstanceVolume, len(args)),
+		blockDevices: make([]importBlockDevice, 0),
+		attachments:  make([]importStorageVolumeAttachment, 0),
+		plans:        make([]importStorageVolumeAttachmentPlan, 0),
+	}
 
 	for i, arg := range args {
-		out[i] = importStorageVolume{
+		out.volumes[i] = importStorageVolume{
 			UUID:             arg.UUID,
 			VolumeID:         arg.ID,
 			LifeID:           int(arg.LifeID),
@@ -375,13 +496,69 @@ func makeInsertVolumeArgs(args []internal.ImportVolumeArgs) ([]importStorageVolu
 			WWN:              arg.WWN,
 			Persistent:       arg.Persistent,
 		}
-		outInstance[i] = importStorageInstanceVolume{
+		out.instances[i] = importStorageInstanceVolume{
 			StorageInstanceUUID: arg.StorageInstanceUUID,
 			VolumeUUID:          arg.UUID,
 		}
+
+		for _, attach := range arg.Attachments {
+			out.attachments = append(out.attachments, importStorageVolumeAttachment{
+				UUID:              attach.UUID,
+				BlockDeviceUUID:   attach.BlockDeviceUUID,
+				LifeID:            int(attach.LifeID),
+				NetNodeUUID:       attach.NetNodeUUID,
+				ProvisionScopeID:  int(arg.ProvisionScopeID),
+				ProviderID:        arg.ProviderID,
+				ReadOnly:          attach.ReadOnly,
+				StorageVolumeUUID: arg.UUID,
+			})
+		}
+
+		for _, bd := range arg.AttachmentsWithNewBlockDevice {
+			out.attachments = append(out.attachments, importStorageVolumeAttachment{
+				UUID:              bd.UUID,
+				BlockDeviceUUID:   bd.BlockDeviceUUID,
+				LifeID:            int(bd.LifeID),
+				NetNodeUUID:       bd.NetNodeUUID,
+				ProvisionScopeID:  int(arg.ProvisionScopeID),
+				ProviderID:        arg.ProviderID,
+				ReadOnly:          bd.ReadOnly,
+				StorageVolumeUUID: arg.UUID,
+			})
+			out.blockDevices = append(out.blockDevices, importBlockDevice{
+				UUID:        bd.BlockDeviceUUID,
+				MachineUUID: bd.MachineUUID,
+				Name:        bd.DeviceName,
+				BusAddress:  bd.BusAddress,
+				InUse:       false,
+			})
+			out.links = append(out.links, importDeviceLink{
+				BlockDeviceUUID: bd.BlockDeviceUUID,
+				MachineUUID:     bd.MachineUUID,
+				Name:            bd.DeviceLink,
+			})
+		}
+
+		for _, plan := range arg.AttachmentPlans {
+			out.plans = append(out.plans, importStorageVolumeAttachmentPlan{
+				UUID:              plan.UUID,
+				DeviceTypeID:      plan.DeviceTypeID,
+				LifeID:            int(plan.LifeID),
+				NetNodeUUID:       plan.NetNodeUUID,
+				ProvisionScopeID:  int(plan.ProvisionScopeID),
+				StorageVolumeUUID: arg.UUID,
+			})
+			for key, value := range plan.DeviceAttributes {
+				out.planAttributes = append(out.planAttributes, importStorageVolumePlanAttribute{
+					PlanUUID: plan.UUID,
+					Key:      key,
+					Value:    value,
+				})
+			}
+		}
 	}
 
-	return out, outInstance
+	return out
 }
 
 // GetBlockDevicesForMachine returns the BlockDevices for the specified machine.
@@ -426,10 +603,10 @@ WHERE  machine_uuid = $entityUUID.uuid
 	}
 
 	blockDeviceLinkStmt, err := st.Prepare(`
-SELECT &deviceLink.*
+SELECT &importDeviceLink.*
 FROM   block_device_link_device
 WHERE  machine_uuid = $entityUUID.uuid
-`, input, deviceLink{})
+`, input, importDeviceLink{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -445,7 +622,7 @@ WHERE  machine_uuid = $entityUUID.uuid
 		)
 	}
 
-	var devLinks []deviceLink
+	var devLinks []importDeviceLink
 	err = tx.Query(ctx, blockDeviceLinkStmt, input).GetAll(&devLinks)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Errorf(
@@ -521,50 +698,51 @@ WHERE  uuid = $entityLife.uuid`, io)
 	return nil
 }
 
-// GetMachineUUIDByName gets the uuid for the named machine.
+// GetMachineUUIDByNetNodeUUID gets the UUID for the named machine
+// or unit. If both supplied, the unit must exist on the machine.
 //
 // The following errors may be returned:
+// - [applicationerrors.UnitIsDead] when the unit is dead.
 // - [machineerrors.MachineNotFound] when the machine is not found.
 // - [machineerrors.MachineIsDead] when the machine is dead.
-func (st *State) GetMachineUUIDByName(
-	ctx context.Context, machineName string,
-) (string, error) {
+// - if non empty unit does not exist on the give machine.
+func (st *State) GetMachineUUIDByNetNodeUUID(
+	ctx context.Context, netNodeUUID string,
+) (machine.UUID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	in := name{
-		Name: machineName,
-	}
-	out := entityLife{}
-
 	stmt, err := st.Prepare(`
 SELECT &entityLife.*
 FROM   machine
-WHERE  name = $name.name`, in, out)
+WHERE  net_node_uuid = $entityUUID.uuid
+`, entityUUID{}, entityLife{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
+	var result entityLife
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, in).Get(&out)
+		err = tx.Query(ctx, stmt, entityUUID{UUID: netNodeUUID}).Get(&result)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
-				"machine %q not found",
-				machineName,
+				"machine with net node %q, not found",
+				netNodeUUID,
 			).Add(machineerrors.MachineNotFound)
 		} else if err != nil {
 			return errors.Capture(err)
 		}
-		if out.Life == life.Dead {
-			return errors.Errorf(
-				"machine %q is dead",
-				machineName,
-			).Add(machineerrors.MachineIsDead)
-		}
 		return nil
 	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
 
-	return out.UUID, err
+	if result.Life == life.Dead {
+		return "", errors.Errorf("machine %q is dead", result.UUID).Add(machineerrors.MachineIsDead)
+	}
+
+	return machine.UUID(result.UUID), nil
 }

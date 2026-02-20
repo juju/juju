@@ -6,6 +6,7 @@ package storage
 import (
 	"github.com/juju/collections/set"
 
+	coreblockdevice "github.com/juju/juju/core/blockdevice"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	corestorage "github.com/juju/juju/core/storage"
@@ -197,15 +198,17 @@ func (p ImportFilesystemAttachmentsParams) Validate() error {
 // ImportVolumeParams represents a volume definition used when importing
 // volumes into the model.
 type ImportVolumeParams struct {
-	ID          string
-	StorageID   string
-	Provisioned bool
-	SizeMiB     uint64
-	Pool        string
-	HardwareID  string
-	WWN         string
-	ProviderID  string
-	Persistent  bool
+	ID              string
+	StorageID       string
+	Provisioned     bool
+	SizeMiB         uint64
+	Pool            string
+	HardwareID      string
+	WWN             string
+	ProviderID      string
+	Persistent      bool
+	Attachments     []ImportVolumeAttachment
+	AttachmentPlans []ImportVolumeAttachmentPlan
 }
 
 // Validate returns an NotValid error if the ImportVolumeParams does not
@@ -229,5 +232,53 @@ func (i ImportVolumeParams) Validate() error {
 		}
 	}
 
+	for _, a := range i.Attachments {
+		if err := a.Validate(); err != nil {
+			return err
+		}
+	}
+
 	return nil
+}
+
+// ImportVolumeAttachment represents a volume attachment used when
+// importing volumes into the model.
+type ImportVolumeAttachment struct {
+	MachineID   string
+	UnitID      string
+	Provisioned bool
+	ReadOnly    bool
+	DeviceName  string
+	DeviceLink  string
+	BusAddress  string
+}
+
+// Validate returns an NotValid if ImportVolumeAttachment does not meet
+// following criteria:
+// 1. MachineID or UnitID must be set.
+// 2. DeviceName, DeviceLink or BusAddress must be set.
+func (i ImportVolumeAttachment) Validate() error {
+	if i.MachineID == "" && i.UnitID == "" {
+		return errors.New("empty machine ID and unit ID not valid").Add(coreerrors.NotValid)
+	}
+	if i.DeviceName == "" && i.DeviceLink == "" && i.BusAddress == "" {
+		return errors.New("empty device name, device link and bus address not valid").Add(coreerrors.NotValid)
+	}
+	return nil
+}
+
+func (i ImportVolumeAttachment) CoreBlockDevice() coreblockdevice.BlockDevice {
+	return coreblockdevice.BlockDevice{
+		DeviceName:  i.DeviceName,
+		DeviceLinks: []string{i.DeviceLink},
+		BusAddress:  i.BusAddress,
+	}
+}
+
+// ImportVolumeAttachmentPlan represents a volume attachment plan used when
+// importing volumes into the model.
+type ImportVolumeAttachmentPlan struct {
+	MachineID        string
+	DeviceType       string
+	DeviceAttributes map[string]string
 }
