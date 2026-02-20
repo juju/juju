@@ -87,6 +87,17 @@ func (c MachineWorkerConfig) Validate() error {
 
 // MachineWorker manages the lifecycle of a single machine using an FSM.
 // It receives all events through a single channel from the main loop.
+//
+// The worker uses a state-entry pattern: the main loop drives the FSM by
+// executing the action for the current state on every iteration, then waiting
+// for an event only when the state did not change (i.e. the worker is idle or
+// waiting for an external response). This guarantees that:
+//
+//   - Each state has exactly one discrete, testable action.
+//   - Event handlers are pure state-transition functions with no side effects.
+//   - Life events that arrive while an active operation is in progress (e.g.
+//     during StartInstance) are safely buffered in EventsChan and processed
+//     once the worker returns to an idle state.
 type MachineWorker struct {
 	catacomb catacomb.Catacomb
 	config   MachineWorkerConfig
@@ -151,6 +162,13 @@ func (w *MachineWorker) transitionTo(ctx context.Context, target MachineState) e
 }
 
 // loop is the main event loop for the machine worker.
+//
+// The loop follows a state-entry pattern:
+//  1. Call driveState to execute the action for the current state.
+//  2. If the state changed, loop immediately (don't wait for an event) so the
+//     new state's action runs without delay.
+//  3. If the state did not change (idle or waiting), block on the select until
+//     an event, timer, or dying signal arrives.
 func (w *MachineWorker) loop() error {
 	ctx := w.catacomb.Context(context.Background())
 
@@ -159,6 +177,27 @@ func (w *MachineWorker) loop() error {
 	defer w.stopRetryTimer()
 
 	for {
+		prevState := w.fsm.State()
+
+		if err := w.driveState(ctx); err != nil {
+			return errors.Trace(err)
+		}
+		if w.fsm.IsTerminal() {
+			w.config.Logger.Infof(ctx, "machine worker %s reached terminal state %s", w.config.MachineID, w.fsm.State())
+			return nil
+		}
+
+		// If driveState changed the state, loop back immediately to run the
+		// new state's action without waiting for an external event. This is
+		// what keeps life events safely buffered in EventsChan while active
+		// operations (Provisioning → Registering → RollingBack) chain through
+		// without entering the select.
+		if w.fsm.State() != prevState {
+			continue
+		}
+
+		// State unchanged: the worker is idle or waiting. Block until the next
+		// event or timer signal, then loop back to driveState.
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
@@ -171,30 +210,406 @@ func (w *MachineWorker) loop() error {
 			w.config.Logger.Tracef(ctx, "machine %s received event %s in state %s",
 				w.config.MachineID, event.Type, w.fsm.State())
 
-			if err := w.handleEvent(ctx, event); err != nil {
+			if err := w.applyEvent(ctx, event); err != nil {
 				return errors.Trace(err)
-			}
-
-			if w.fsm.IsTerminal() {
-				w.config.Logger.Infof(ctx, "machine worker %s reached terminal state", w.config.MachineID)
-				return nil // Clean exit.
 			}
 
 		case <-w.retryTimerChan():
 			w.config.Logger.Debugf(ctx, "machine %s retry timer fired in state %s",
 				w.config.MachineID, w.fsm.State())
 
-			if err := w.handleRetryTimer(ctx); err != nil {
+			if err := w.applyRetryTimer(ctx); err != nil {
 				return errors.Trace(err)
 			}
+		}
 
-			if w.fsm.IsTerminal() {
-				w.config.Logger.Infof(ctx, "machine worker %s reached terminal state", w.config.MachineID)
-				return nil // Clean exit.
-			}
+		if w.fsm.IsTerminal() {
+			w.config.Logger.Infof(ctx, "machine worker %s reached terminal state %s", w.config.MachineID, w.fsm.State())
+			return nil
 		}
 	}
 }
+
+// driveState executes the entry action for the current state.
+// Idle states (Pending, Running, Complete, Error) have no action.
+// Active states execute one discrete operation and transition on completion.
+func (w *MachineWorker) driveState(ctx context.Context) error {
+	switch w.fsm.State() {
+	case StateRequestingZone:
+		return w.enterRequestingZone(ctx)
+	case StateProvisioning:
+		return w.enterProvisioning(ctx)
+	case StateRegistering:
+		return w.enterRegistering(ctx)
+	case StateRollingBack:
+		return w.enterRollingBack(ctx)
+	case StateStopping:
+		return w.enterStopping(ctx)
+	case StateRemoving:
+		return w.enterRemoving(ctx)
+	}
+	// StatePending, StateRunning, StateComplete, StateError: no action.
+	return nil
+}
+
+// applyEvent dispatches an incoming event to the appropriate handler.
+// Handlers only update FSM state; all work is done in driveState.
+func (w *MachineWorker) applyEvent(ctx context.Context, event MachineEvent) error {
+	switch event.Type {
+	case EventLifeChanged:
+		return w.applyLifeChange(ctx, event.Life)
+	case EventZoneAssigned:
+		return w.applyZoneAssigned(ctx, event.Zone)
+	case EventZoneRequestFailed:
+		return w.applyZoneRequestFailed(ctx, event.ZoneError)
+	default:
+		w.config.Logger.Warningf(ctx, "machine %s received unknown event type %s", w.config.MachineID, event.Type)
+		return nil
+	}
+}
+
+// applyLifeChange handles lifecycle changes from the main loop.
+//
+// Life value semantics for the provisioner:
+//   - Dying: the machine's workers in the machine agent manifold are still
+//     running and handling shutdown. The provisioner must not provision or
+//     de-provision; it waits for the machine to go dead.
+//   - Dead: the machine's workers have completed their shutdown. The
+//     provisioner can now de-provision the instance and mark the machine
+//     for removal.
+//   - The removal worker then looks for a dead machine with a dead or absent
+//     instance to actually delete the machine record.
+func (w *MachineWorker) applyLifeChange(ctx context.Context, newLife life.Value) error {
+	w.config.Logger.Debugf(ctx, "machine %s applying life change to %s in state %s",
+		w.config.MachineID, newLife, w.fsm.State())
+
+	switch w.fsm.State() {
+	case StatePending:
+		// Cancel any pending retry timer since we're handling a life event.
+		w.stopRetryTimer()
+
+		if newLife == life.Dead {
+			return w.transitionTo(ctx, StateRemoving)
+		}
+		if newLife == life.Dying {
+			// Machine is shutting down; don't provision but wait for dead.
+			w.config.Logger.Debugf(ctx, "machine %s is dying, waiting for dead", w.config.MachineID)
+			return nil
+		}
+		// life.Alive - check if already provisioned.
+		if w.instanceID != "" {
+			w.config.Logger.Debugf(ctx, "machine %s already has instance %s, transitioning to running",
+				w.config.MachineID, w.instanceID)
+			return w.transitionTo(ctx, StateRunning)
+		}
+		// Not provisioned yet, start provisioning.
+		return w.transitionTo(ctx, StateRequestingZone)
+
+	case StateRequestingZone:
+		if newLife == life.Dead {
+			return w.transitionTo(ctx, StateRemoving)
+		}
+		if newLife == life.Dying {
+			// Machine is shutting down; abort the zone request and go back to
+			// pending. The stale zone response will be ignored when it arrives
+			// since we'll no longer be in RequestingZone.
+			w.config.Logger.Debugf(ctx, "machine %s is dying while requesting zone, returning to pending", w.config.MachineID)
+			return w.transitionTo(ctx, StatePending)
+		}
+		// Still alive, waiting for zone response.
+
+	case StateProvisioning, StateRegistering, StateRollingBack:
+		// An active provider/state API call is in progress. Because the loop
+		// skips the select while state transitions are chaining (prevState !=
+		// state), this case is unreachable in normal operation. Life events are
+		// buffered in EventsChan and processed once the worker reaches an idle
+		// state (Running or Pending).
+
+	case StateRunning:
+		if newLife == life.Dead {
+			if w.config.Machine.KeepInstance() || w.instanceID == "" {
+				// keep-instance: preserve the cloud resource.
+				// No instance: nothing to stop.
+				w.config.Logger.Infof(ctx, "machine %s is dead, removing without stopping instance", w.config.MachineID)
+				return w.transitionTo(ctx, StateRemoving)
+			}
+			return w.transitionTo(ctx, StateStopping)
+		}
+		// Dying: machine agent workers are still shutting down; wait for dead.
+
+	case StateStopping, StateRemoving:
+		// Already in terminal path, ignore life changes.
+
+	case StateComplete, StateError:
+		// Terminal state, nothing to do.
+	}
+
+	return nil
+}
+
+// applyZoneAssigned handles successful zone assignment from the AZ Coordinator.
+// Transitions from RequestingZone → Provisioning; stale responses are dropped.
+func (w *MachineWorker) applyZoneAssigned(ctx context.Context, zone string) error {
+	if w.fsm.State() != StateRequestingZone {
+		// Stale response (e.g. arrived after machine went dying → pending).
+		w.config.Logger.Debugf(ctx, "machine %s ignoring stale zone assignment in state %s",
+			w.config.MachineID, w.fsm.State())
+		return nil
+	}
+
+	w.config.Logger.Infof(ctx, "machine %s assigned to zone %s", w.config.MachineID, zone)
+	w.zoneName = zone
+	return w.transitionTo(ctx, StateProvisioning)
+}
+
+// applyZoneRequestFailed handles a zone request failure from the AZ Coordinator.
+// Increments the retry counter and transitions to Pending (retry) or Error
+// (retries exhausted). Stale responses are dropped.
+func (w *MachineWorker) applyZoneRequestFailed(ctx context.Context, err error) error {
+	if w.fsm.State() != StateRequestingZone {
+		// Stale response.
+		w.config.Logger.Debugf(ctx, "machine %s ignoring stale zone request failure in state %s",
+			w.config.MachineID, w.fsm.State())
+		return nil
+	}
+
+	w.lastError = err
+	w.retryCount++
+
+	w.config.Logger.Warningf(ctx, "machine %s zone request failed (attempt %d/%d): %v",
+		w.config.MachineID, w.retryCount, w.config.MaxRetries+1, err)
+
+	if w.retryCount > w.config.MaxRetries {
+		w.config.Logger.Errorf(ctx, "machine %s zone request retries exhausted", w.config.MachineID)
+		if setErr := w.setProvisioningError(ctx, err); setErr != nil {
+			w.config.Logger.Errorf(ctx, "failed to set provisioning error: %v", setErr)
+		}
+		return w.transitionTo(ctx, StateError)
+	}
+
+	if err := w.transitionTo(ctx, StatePending); err != nil {
+		return err
+	}
+	w.scheduleRetry(ctx)
+	return nil
+}
+
+// applyRetryTimer handles the retry timer firing.
+// For StatePending: advances to StateRequestingZone so driveState sends the
+// zone request. For other retry states (Stopping, Removing): no transition is
+// needed because driveState will re-execute their action on the next iteration.
+func (w *MachineWorker) applyRetryTimer(ctx context.Context) error {
+	if w.fsm.State() == StatePending {
+		return w.transitionTo(ctx, StateRequestingZone)
+	}
+	// StateStopping / StateRemoving: the timer just wakes up the loop;
+	// driveState will retry the operation automatically.
+	return nil
+}
+
+// ── State entry actions (one discrete operation per active state) ─────────────
+
+// enterRequestingZone sends a zone request to the main loop.
+// The state remains RequestingZone until a zone response event arrives.
+func (w *MachineWorker) enterRequestingZone(ctx context.Context) error {
+	msg := NewZoneRequestMessage(w.config.MachineID, w.config.DistributionGroup, w.config.Constraints)
+
+	select {
+	case w.config.MessageChan <- msg:
+		w.config.Logger.Debugf(ctx, "machine %s sent zone request", w.config.MachineID)
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// enterProvisioning acquires the provider semaphore and calls StartInstance.
+// On success: transitions to StateRegistering (instance created, not yet registered).
+// On failure: transitions to StatePending (retry) or StateError (retries exhausted).
+func (w *MachineWorker) enterProvisioning(ctx context.Context) error {
+	w.config.Logger.Infof(ctx, "machine %s starting instance in zone %s", w.config.MachineID, w.zoneName)
+
+	if err := w.config.Semaphore.Acquire(ctx); err != nil {
+		if errors.Is(err, context.Canceled) {
+			return w.catacomb.ErrDying()
+		}
+		return errors.Trace(err)
+	}
+	defer w.config.Semaphore.Release()
+
+	params := StartInstanceParams{
+		MachineID:        w.config.MachineID,
+		AvailabilityZone: w.zoneName,
+	}
+
+	result, err := w.config.Broker.StartInstance(ctx, params)
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return w.catacomb.ErrDying()
+		}
+
+		w.notifyProvisionFailed(ctx, err)
+
+		w.lastError = err
+		w.retryCount++
+
+		w.config.Logger.Warningf(ctx, "machine %s StartInstance failed (attempt %d/%d): %v",
+			w.config.MachineID, w.retryCount, w.config.MaxRetries+1, err)
+
+		if w.retryCount > w.config.MaxRetries {
+			w.config.Logger.Errorf(ctx, "machine %s provisioning retries exhausted", w.config.MachineID)
+			if setErr := w.setProvisioningError(ctx, err); setErr != nil {
+				w.config.Logger.Errorf(ctx, "failed to set provisioning error: %v", setErr)
+			}
+			return w.transitionTo(ctx, StateError)
+		}
+
+		w.zoneName = ""
+		if err := w.transitionTo(ctx, StatePending); err != nil {
+			return err
+		}
+		w.scheduleRetry(ctx)
+		return nil
+	}
+
+	w.instanceID = result.InstanceID
+	w.config.Logger.Infof(ctx, "machine %s started instance %s", w.config.MachineID, w.instanceID)
+	return w.transitionTo(ctx, StateRegistering)
+}
+
+// enterRegistering calls SetInstanceInfo to register the instance with Juju state.
+// On success: notifies the main loop and transitions to StateRunning.
+// On failure: transitions to StateRollingBack to clean up the orphaned instance.
+//
+// NOTE: There is a window between instance creation (enterProvisioning) and
+// database registration (here) where a failure could leave an orphaned instance.
+// StateRollingBack handles the cleanup.
+func (w *MachineWorker) enterRegistering(ctx context.Context) error {
+	w.config.Logger.Infof(ctx, "machine %s registering instance %s in zone %s",
+		w.config.MachineID, w.instanceID, w.zoneName)
+
+	err := w.config.InstanceInfoSetter.SetInstanceInfo(ctx, w.config.MachineID, w.instanceID, w.zoneName)
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			// Context was cancelled, but we still need to roll back the instance
+			// we created. Transition to StateRollingBack so enterRollingBack runs.
+			w.config.Logger.Warningf(ctx, "machine %s context cancelled during SetInstanceInfo, will roll back instance %s",
+				w.config.MachineID, w.instanceID)
+		} else {
+			w.config.Logger.Warningf(ctx, "machine %s SetInstanceInfo failed, rolling back: %v",
+				w.config.MachineID, err)
+		}
+		w.lastError = err
+		return w.transitionTo(ctx, StateRollingBack)
+	}
+
+	w.notifyProvisionSuccess(ctx)
+	w.config.Logger.Infof(ctx, "machine %s provisioning complete, instance %s in zone %s",
+		w.config.MachineID, w.instanceID, w.zoneName)
+	return w.transitionTo(ctx, StateRunning)
+}
+
+// enterRollingBack stops the orphaned instance that was created by
+// enterProvisioning but could not be registered by enterRegistering.
+// After the cleanup attempt (whether or not StopInstances succeeds), the
+// instance state is cleared and the worker transitions to StatePending (retry)
+// or StateError (retries exhausted).
+func (w *MachineWorker) enterRollingBack(ctx context.Context) error {
+	w.config.Logger.Infof(ctx, "machine %s rolling back: stopping orphaned instance %s",
+		w.config.MachineID, w.instanceID)
+
+	if err := w.config.Semaphore.Acquire(ctx); err != nil {
+		if errors.Is(err, context.Canceled) {
+			return w.catacomb.ErrDying()
+		}
+		return errors.Trace(err)
+	}
+	defer w.config.Semaphore.Release()
+
+	if stopErr := w.config.Broker.StopInstances(ctx, w.instanceID); stopErr != nil {
+		// Log but do not abort: proceed with the retry regardless.
+		// The orphaned instance may require manual cleanup.
+		w.config.Logger.Errorf(ctx, "machine %s rollback StopInstances failed (instance %s may be orphaned): %v",
+			w.config.MachineID, w.instanceID, stopErr)
+	}
+
+	w.notifyProvisionFailed(ctx, w.lastError)
+
+	// Clear instance state before retrying.
+	w.instanceID = ""
+	w.zoneName = ""
+	w.retryCount++
+
+	w.config.Logger.Warningf(ctx, "machine %s provisioning failed after registration (attempt %d/%d): %v",
+		w.config.MachineID, w.retryCount, w.config.MaxRetries+1, w.lastError)
+
+	if w.retryCount > w.config.MaxRetries {
+		w.config.Logger.Errorf(ctx, "machine %s provisioning retries exhausted after SetInstanceInfo failure", w.config.MachineID)
+		if setErr := w.setProvisioningError(ctx, w.lastError); setErr != nil {
+			w.config.Logger.Errorf(ctx, "failed to set provisioning error: %v", setErr)
+		}
+		return w.transitionTo(ctx, StateError)
+	}
+
+	if err := w.transitionTo(ctx, StatePending); err != nil {
+		return err
+	}
+	w.scheduleRetry(ctx)
+	return nil
+}
+
+// enterStopping acquires the provider semaphore and calls StopInstances.
+// On success: transitions to StateRemoving.
+// On failure: schedules a retry and stays in StateStopping. The retry timer
+// wakes the loop which calls driveState again.
+func (w *MachineWorker) enterStopping(ctx context.Context) error {
+	w.config.Logger.Infof(ctx, "machine %s stopping instance %s", w.config.MachineID, w.instanceID)
+
+	if err := w.config.Semaphore.Acquire(ctx); err != nil {
+		if errors.Is(err, context.Canceled) {
+			return w.catacomb.ErrDying()
+		}
+		return errors.Trace(err)
+	}
+	defer w.config.Semaphore.Release()
+
+	err := w.config.Broker.StopInstances(ctx, w.instanceID)
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return w.catacomb.ErrDying()
+		}
+		w.lastError = err
+		w.config.Logger.Warningf(ctx, "machine %s StopInstances failed, will retry: %v", w.config.MachineID, err)
+		w.scheduleRetry(ctx)
+		return nil
+	}
+
+	w.config.Logger.Infof(ctx, "machine %s instance %s stopped", w.config.MachineID, w.instanceID)
+	return w.transitionTo(ctx, StateRemoving)
+}
+
+// enterRemoving calls MarkForRemoval on the machine record.
+// On success: transitions to StateComplete (terminal).
+// On failure: schedules a retry and stays in StateRemoving.
+func (w *MachineWorker) enterRemoving(ctx context.Context) error {
+	w.config.Logger.Infof(ctx, "machine %s removing machine record", w.config.MachineID)
+
+	err := w.config.Machine.MarkForRemoval(ctx)
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return w.catacomb.ErrDying()
+		}
+		w.lastError = err
+		w.config.Logger.Warningf(ctx, "machine %s MarkForRemoval failed, will retry: %v", w.config.MachineID, err)
+		w.scheduleRetry(ctx)
+		return nil
+	}
+
+	w.config.Logger.Infof(ctx, "machine %s removed", w.config.MachineID)
+	return w.transitionTo(ctx, StateComplete)
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 // retryTimerChan returns the retry timer's channel, or nil if no timer is active.
 // Reading from a nil channel blocks forever, effectively disabling this select case.
@@ -218,296 +633,6 @@ func (w *MachineWorker) scheduleRetry(ctx context.Context) {
 	w.stopRetryTimer() // Cancel any existing timer.
 	w.retryTimer = time.NewTimer(w.config.RetryDelay)
 	w.config.Logger.Debugf(ctx, "machine %s scheduled retry in %v", w.config.MachineID, w.config.RetryDelay)
-}
-
-// handleRetryTimer handles the retry timer firing.
-func (w *MachineWorker) handleRetryTimer(ctx context.Context) error {
-	// Only retry if we're in Pending state (waiting for retry).
-	if w.fsm.State() != StatePending {
-		w.config.Logger.Debugf(ctx, "machine %s ignoring retry timer in state %s",
-			w.config.MachineID, w.fsm.State())
-		return nil
-	}
-
-	// Transition to RequestingZone and request a zone.
-	if err := w.transitionTo(ctx, StateRequestingZone); err != nil {
-		return err
-	}
-	return w.requestZone(ctx)
-}
-
-// handleEvent processes an event and performs state transitions.
-func (w *MachineWorker) handleEvent(ctx context.Context, event MachineEvent) error {
-	switch event.Type {
-	case EventLifeChanged:
-		return w.handleLifeChange(ctx, event.Life)
-	case EventZoneAssigned:
-		return w.handleZoneAssigned(ctx, event.Zone)
-	case EventZoneRequestFailed:
-		return w.handleZoneRequestFailed(ctx, event.ZoneError)
-	default:
-		w.config.Logger.Warningf(ctx, "machine %s received unknown event type %s", w.config.MachineID, event.Type)
-		return nil
-	}
-}
-
-// handleLifeChange handles lifecycle changes from the main loop.
-//
-// Life value semantics for the provisioner:
-//   - Dying: the machine's workers in the machine agent manifold are still
-//     running and handling shutdown. The provisioner must not provision or
-//     de-provision; it waits for the machine to go dead.
-//   - Dead: the machine's workers have completed their shutdown. The
-//     provisioner can now de-provision the instance and mark the machine
-//     for removal.
-//   - The removal worker then looks for a dead machine with a dead or absent
-//     instance to actually delete the machine record.
-func (w *MachineWorker) handleLifeChange(ctx context.Context, newLife life.Value) error {
-	w.config.Logger.Debugf(ctx, "machine %s handling life change to %s in state %s",
-		w.config.MachineID, newLife, w.fsm.State())
-
-	switch w.fsm.State() {
-	case StatePending:
-		// Cancel any pending retry timer since we're handling a life event.
-		w.stopRetryTimer()
-
-		if newLife == life.Dead {
-			if err := w.transitionTo(ctx, StateRemoving); err != nil {
-				return err
-			}
-			return w.doRemove(ctx)
-		}
-		if newLife == life.Dying {
-			// Machine is shutting down; don't provision but wait for dead.
-			w.config.Logger.Debugf(ctx, "machine %s is dying, waiting for dead", w.config.MachineID)
-			return nil
-		}
-		// life.Alive - check if already provisioned.
-		if w.instanceID != "" {
-			w.config.Logger.Debugf(ctx, "machine %s already has instance %s, transitioning to running",
-				w.config.MachineID, w.instanceID)
-			return w.transitionTo(ctx, StateRunning)
-		}
-		// Not provisioned yet, start provisioning.
-		if err := w.transitionTo(ctx, StateRequestingZone); err != nil {
-			return err
-		}
-		return w.requestZone(ctx)
-
-	case StateRequestingZone:
-		if newLife == life.Dead {
-			if err := w.transitionTo(ctx, StateRemoving); err != nil {
-				return err
-			}
-			return w.doRemove(ctx)
-		}
-		if newLife == life.Dying {
-			// Machine is shutting down; abort the zone request and go
-			// back to pending. The stale zone response will be ignored
-			// when it arrives since we'll no longer be in RequestingZone.
-			w.config.Logger.Debugf(ctx, "machine %s is dying while requesting zone, returning to pending", w.config.MachineID)
-			return w.transitionTo(ctx, StatePending)
-		}
-		// Still alive, waiting for zone response.
-
-	case StateProvisioning:
-		// Provisioning is a blocking operation. Life events are queued
-		// and processed after doProvision() returns. The event will be
-		// handled when we return to the event loop with a new state.
-
-	case StateRunning:
-		if newLife == life.Dead {
-			if w.config.Machine.KeepInstance() {
-				w.config.Logger.Infof(ctx, "machine %s is dead with keep-instance=true, removing without stopping",
-					w.config.MachineID)
-				if err := w.transitionTo(ctx, StateRemoving); err != nil {
-					return err
-				}
-				return w.doRemove(ctx)
-			}
-			if err := w.transitionTo(ctx, StateStopping); err != nil {
-				return err
-			}
-			return w.doStop(ctx)
-		}
-		// Dying: machine agent workers are still shutting down; wait for dead.
-
-	case StateStopping, StateRemoving:
-		// Already in terminal path, ignore life changes.
-
-	case StateComplete, StateError:
-		// Terminal state, nothing to do.
-	}
-
-	return nil
-}
-
-// handleZoneAssigned handles successful zone assignment.
-func (w *MachineWorker) handleZoneAssigned(ctx context.Context, zone string) error {
-	if w.fsm.State() != StateRequestingZone {
-		// Stale response, ignore.
-		w.config.Logger.Debugf(ctx, "machine %s ignoring stale zone assignment in state %s",
-			w.config.MachineID, w.fsm.State())
-		return nil
-	}
-
-	w.config.Logger.Infof(ctx, "machine %s assigned to zone %s", w.config.MachineID, zone)
-	w.zoneName = zone
-	if err := w.transitionTo(ctx, StateProvisioning); err != nil {
-		return err
-	}
-	return w.doProvision(ctx)
-}
-
-// handleZoneRequestFailed handles zone request failure.
-func (w *MachineWorker) handleZoneRequestFailed(ctx context.Context, err error) error {
-	if w.fsm.State() != StateRequestingZone {
-		// Stale response, ignore.
-		w.config.Logger.Debugf(ctx, "machine %s ignoring stale zone request failure in state %s",
-			w.config.MachineID, w.fsm.State())
-		return nil
-	}
-
-	w.lastError = err
-	w.retryCount++
-
-	w.config.Logger.Warningf(ctx, "machine %s zone request failed (attempt %d/%d): %v",
-		w.config.MachineID, w.retryCount, w.config.MaxRetries+1, err)
-
-	if w.retryCount > w.config.MaxRetries {
-		w.config.Logger.Errorf(ctx, "machine %s zone request retries exhausted", w.config.MachineID)
-		if setErr := w.setProvisioningError(ctx, err); setErr != nil {
-			w.config.Logger.Errorf(ctx, "failed to set provisioning error: %v", setErr)
-		}
-		return w.transitionTo(ctx, StateError)
-	}
-
-	// Go back to Pending and schedule a retry.
-	if err := w.transitionTo(ctx, StatePending); err != nil {
-		return err
-	}
-	w.scheduleRetry(ctx)
-	return nil
-}
-
-// requestZone sends a zone request to the main loop.
-func (w *MachineWorker) requestZone(ctx context.Context) error {
-	msg := NewZoneRequestMessage(w.config.MachineID, w.config.DistributionGroup, w.config.Constraints)
-
-	select {
-	case w.config.MessageChan <- msg:
-		w.config.Logger.Debugf(ctx, "machine %s sent zone request", w.config.MachineID)
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
-// doProvision performs StartInstance + SetInstanceInfo as a single operation.
-func (w *MachineWorker) doProvision(ctx context.Context) error {
-	w.config.Logger.Infof(ctx, "machine %s starting provisioning in zone %s", w.config.MachineID, w.zoneName)
-
-	// Acquire semaphore.
-	if err := w.config.Semaphore.Acquire(ctx); err != nil {
-		if errors.Is(err, context.Canceled) {
-			return w.catacomb.ErrDying()
-		}
-		return errors.Trace(err)
-	}
-	defer w.config.Semaphore.Release()
-
-	// Call StartInstance.
-	params := StartInstanceParams{
-		MachineID:        w.config.MachineID,
-		AvailabilityZone: w.zoneName,
-	}
-
-	result, err := w.config.Broker.StartInstance(ctx, params)
-	if err != nil {
-		if errors.Is(err, context.Canceled) {
-			return w.catacomb.ErrDying()
-		}
-
-		w.notifyProvisionFailed(ctx, err)
-
-		// Retry or fail.
-		w.lastError = err
-		w.retryCount++
-
-		w.config.Logger.Warningf(ctx, "machine %s StartInstance failed (attempt %d/%d): %v",
-			w.config.MachineID, w.retryCount, w.config.MaxRetries+1, err)
-
-		if w.retryCount > w.config.MaxRetries {
-			w.config.Logger.Errorf(ctx, "machine %s provisioning retries exhausted", w.config.MachineID)
-			if setErr := w.setProvisioningError(ctx, err); setErr != nil {
-				w.config.Logger.Errorf(ctx, "failed to set provisioning error: %v", setErr)
-			}
-			return w.transitionTo(ctx, StateError)
-		}
-
-		// Go back to Pending and schedule a retry.
-		w.zoneName = ""
-		if err := w.transitionTo(ctx, StatePending); err != nil {
-			return err
-		}
-		w.scheduleRetry(ctx)
-		return nil
-	}
-
-	// StartInstance succeeded.
-	w.instanceID = result.InstanceID
-	w.config.Logger.Infof(ctx, "machine %s started instance %s", w.config.MachineID, w.instanceID)
-
-	// Call SetInstanceInfo.
-	// NOTE: There is a window between instance creation (above) and database
-	// registration (below) where a failure could leave an orphan instance.
-	// This must be minimized and carefully handled. If SetInstanceInfo fails,
-	// we roll back by stopping the instance.
-	err = w.config.InstanceInfoSetter.SetInstanceInfo(ctx, w.config.MachineID, w.instanceID, w.zoneName)
-	if err != nil {
-		if errors.Is(err, context.Canceled) {
-			// Even on cancellation, we need to clean up the instance we created.
-			w.config.Logger.Warningf(ctx, "context cancelled during SetInstanceInfo, cleaning up instance %s", w.instanceID)
-		}
-
-		// Registration failed - rollback by stopping the instance.
-		w.config.Logger.Warningf(ctx, "machine %s SetInstanceInfo failed, rolling back: %v", w.config.MachineID, err)
-
-		stopErr := w.config.Broker.StopInstances(ctx, w.instanceID)
-		if stopErr != nil {
-			w.config.Logger.Errorf(ctx, "machine %s rollback StopInstances failed: %v", w.config.MachineID, stopErr)
-		}
-
-		w.notifyProvisionFailed(ctx, err)
-
-		// Clear instance state and retry.
-		w.instanceID = ""
-		w.zoneName = ""
-		w.retryCount++
-
-		if w.retryCount > w.config.MaxRetries {
-			w.config.Logger.Errorf(ctx, "machine %s provisioning retries exhausted after SetInstanceInfo failure", w.config.MachineID)
-			if setErr := w.setProvisioningError(ctx, err); setErr != nil {
-				w.config.Logger.Errorf(ctx, "failed to set provisioning error: %v", setErr)
-			}
-			return w.transitionTo(ctx, StateError)
-		}
-
-		// Go back to Pending and schedule a retry.
-		if err := w.transitionTo(ctx, StatePending); err != nil {
-			return err
-		}
-		w.scheduleRetry(ctx)
-		return nil
-	}
-
-	// Success - notify AZ Coordinator.
-	w.notifyProvisionSuccess(ctx)
-
-	w.config.Logger.Infof(ctx, "machine %s provisioning complete, instance %s in zone %s",
-		w.config.MachineID, w.instanceID, w.zoneName)
-
-	return w.transitionTo(ctx, StateRunning)
 }
 
 // notifyProvisionFailed sends a failure notification to the main loop.
@@ -541,65 +666,4 @@ func (w *MachineWorker) setProvisioningError(ctx context.Context, err error) err
 	w.config.Logger.Infof(ctx, "machine %s marked as ProvisioningError after %d retries: %v",
 		w.config.MachineID, w.retryCount, err)
 	return nil
-}
-
-// doStop stops the instance.
-func (w *MachineWorker) doStop(ctx context.Context) error {
-	if w.instanceID == "" {
-		// No instance to stop, go directly to removing.
-		w.config.Logger.Debugf(ctx, "machine %s has no instance to stop", w.config.MachineID)
-		if err := w.transitionTo(ctx, StateRemoving); err != nil {
-			return err
-		}
-		return w.doRemove(ctx)
-	}
-
-	w.config.Logger.Infof(ctx, "machine %s stopping instance %s", w.config.MachineID, w.instanceID)
-
-	// Acquire semaphore.
-	if err := w.config.Semaphore.Acquire(ctx); err != nil {
-		if errors.Is(err, context.Canceled) {
-			return w.catacomb.ErrDying()
-		}
-		return errors.Trace(err)
-	}
-	defer w.config.Semaphore.Release()
-
-	err := w.config.Broker.StopInstances(ctx, w.instanceID)
-	if err != nil {
-		if errors.Is(err, context.Canceled) {
-			return w.catacomb.ErrDying()
-		}
-		// Retry - stay in Stopping state.
-		w.lastError = err
-		w.config.Logger.Warningf(ctx, "machine %s StopInstances failed, will retry: %v", w.config.MachineID, err)
-		return nil
-	}
-
-	w.config.Logger.Infof(ctx, "machine %s instance %s stopped", w.config.MachineID, w.instanceID)
-
-	if err := w.transitionTo(ctx, StateRemoving); err != nil {
-		return err
-	}
-	return w.doRemove(ctx)
-}
-
-// doRemove removes the machine record.
-func (w *MachineWorker) doRemove(ctx context.Context) error {
-	w.config.Logger.Infof(ctx, "machine %s removing machine record", w.config.MachineID)
-
-	err := w.config.Machine.MarkForRemoval(ctx)
-	if err != nil {
-		if errors.Is(err, context.Canceled) {
-			return w.catacomb.ErrDying()
-		}
-		// Retry - stay in Removing state.
-		w.lastError = err
-		w.config.Logger.Warningf(ctx, "machine %s MarkForRemoval failed, will retry: %v", w.config.MachineID, err)
-		return nil
-	}
-
-	w.config.Logger.Infof(ctx, "machine %s removed", w.config.MachineID)
-
-	return w.transitionTo(ctx, StateComplete)
 }

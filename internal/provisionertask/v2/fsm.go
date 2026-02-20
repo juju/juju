@@ -15,24 +15,35 @@ const (
 	// Worker is ready to begin provisioning.
 	StatePending MachineState = "pending"
 
-	// StateRequestingZone indicates the worker has requested an availability zone
-	// from the AZ Coordinator and is waiting for the response.
+	// StateRequestingZone indicates the worker has requested an availability
+	// zone from the AZ Coordinator and is waiting for the response.
 	StateRequestingZone MachineState = "requesting zone"
 
-	// StateProvisioning indicates the worker has acquired a semaphore slot and is
-	// executing StartInstance followed by SetInstanceInfo. Both calls happen
-	// within this single state.
+	// StateProvisioning indicates the worker has acquired a semaphore slot and
+	// is executing StartInstance. On success the worker transitions to
+	// StateRegistering.
 	StateProvisioning MachineState = "provisioning"
 
-	// StateRunning indicates the instance is created and registered. Worker idles,
-	// waiting for the machine to die.
+	// StateRegistering indicates the worker is calling SetInstanceInfo to
+	// register the newly created instance with Juju state. On success it
+	// transitions to StateRunning; on failure it transitions to
+	// StateRollingBack.
+	StateRegistering MachineState = "registering"
+
+	// StateRollingBack indicates SetInstanceInfo failed and the worker is
+	// stopping the orphaned instance to clean up before retrying provisioning.
+	StateRollingBack MachineState = "rolling back"
+
+	// StateRunning indicates the instance is created and registered. Worker
+	// idles, waiting for the machine to die.
 	StateRunning MachineState = "running"
 
-	// StateStopping indicates the worker is executing StopInstances to terminate
-	// the instance.
+	// StateStopping indicates the worker is executing StopInstances to
+	// terminate the instance.
 	StateStopping MachineState = "stopping"
 
-	// StateRemoving indicates the worker is removing the machine record from state.
+	// StateRemoving indicates the worker is removing the machine record from
+	// state.
 	StateRemoving MachineState = "removing"
 
 	// StateComplete is a terminal state. Worker exits after successfully
@@ -69,13 +80,22 @@ var validTransitions = map[MachineState]map[MachineState]struct{}{
 		StateError:        {}, // Retries exhausted.
 	},
 	StateProvisioning: {
-		StateRunning: {}, // Provisioning succeeded.
-		StatePending: {}, // Provisioning failed, will retry on next life event.
+		StateRegistering: {}, // StartInstance succeeded.
+		StatePending:     {}, // StartInstance failed, will retry.
+		StateError:       {}, // Retries exhausted.
+	},
+	StateRegistering: {
+		StateRunning:     {}, // SetInstanceInfo succeeded.
+		StateRollingBack: {}, // SetInstanceInfo failed, rolling back orphaned instance.
+		StateError:       {}, // Retries exhausted.
+	},
+	StateRollingBack: {
+		StatePending: {}, // Rollback complete (or best-effort), will retry provisioning.
 		StateError:   {}, // Retries exhausted.
 	},
 	StateRunning: {
 		StateStopping: {}, // Machine died, stopping instance.
-		StateRemoving: {}, // Machine died with keep-instance=true.
+		StateRemoving: {}, // Machine died with keep-instance=true or no instance.
 	},
 	StateStopping: {
 		StateRemoving: {}, // Instance stopped successfully.
