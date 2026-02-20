@@ -49,8 +49,8 @@ run_assess_clouds() {
 	echo
 
 	mkdir -p "${TEST_DIR}/juju"
-	echo "" >>"${TEST_DIR}/juju/public-clouds.yaml"
-	echo "" >>"${TEST_DIR}/juju/credentials.yaml"
+	touch "${TEST_DIR}/juju/public-clouds.yaml"
+	touch "${TEST_DIR}/juju/credentials.yaml"
 
 	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json | yq 'with_entries(select(.value.defined != "built-in"))')
 	EXPECTED={}
@@ -78,11 +78,11 @@ run_assess_clouds() {
 EOF
 	)
 
-	echo "${CLOUDS}" >>"${TEST_DIR}/juju/clouds.yaml"
-	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json | yq 'with_entries(select(
+	echo "${CLOUDS}" > "${TEST_DIR}/juju/clouds.yaml"
+	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json | yq -o=json 'with_entries(select(
 	                                                  .value.defined != "built-in")) | with_entries((select(.value.defined == "local")
 	                                                  | del(.value.defined) |  del(.value.description))) | sort_keys(..)')
-	EXPECTED=$(echo "${CLOUDS}" | yq -o=json | yq '.[] | del(.clouds) | .[] |= (.endpoint as $ep
+	EXPECTED=$(echo "${CLOUDS}" | yq -o=json '.[] | del(.clouds) | .[] |= (.endpoint as $ep
 	                                                  | del(.regions[].endpoint | select(. == $ep))) | sort_keys(..)')
 	if [ "${CLOUD_LIST}" != "${EXPECTED}" ]; then
 		echo "expected ${EXPECTED}, got ${CLOUD_LIST}"
@@ -116,10 +116,10 @@ run_controller_clouds() {
 	echo
 
 	juju add-cloud my-ec2 -f "./tests/suites/cli/clouds/myclouds.yaml" --force --controller ${BOOTSTRAPPED_JUJU_CTRL_NAME}
-	OUT=$(juju clouds --controller ${BOOTSTRAPPED_JUJU_CTRL_NAME} --format=json | yq '.[]')
+	OUT=$(juju clouds --controller ${BOOTSTRAPPED_JUJU_CTRL_NAME} --format=json | yq -o=json '.[]')
 
 	EXPECTED=$(
-		cat <<'EOF'
+		yq -o=json <<'EOF'
 {
   "defined": "public",
   "type": "ec2",

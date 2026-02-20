@@ -109,7 +109,7 @@ run_deploy_lxd_profile_charm() {
 	short_uuid="${full_uuid:0:6}"
 	lxd_profile="juju-test-deploy-lxd-profile-${short_uuid}-lxd-profile"
 
-	juju status --format=json | yq '.machines | .["0"] | .["lxd-profiles"] | keys[0]' | check "${lxd_profile}"
+	juju status --format=json | yq '.machines | .["0"] | select(.["lxd-profiles"]) | .["lxd-profiles"] | keys[0]' | check "${lxd_profile}"
 
 	destroy_model "test-deploy-lxd-profile"
 }
@@ -133,7 +133,7 @@ run_deploy_lxd_profile_charm_container() {
 	short_uuid="${full_uuid:0:6}"
 	lxd_profile="juju-test-deploy-lxd-profile-container-${short_uuid}-lxd-profile"
 
-	juju status --format=json | yq '.machines | .["0"] | .containers | .["0/lxd/0"] | .["lxd-profiles"] | keys[0]' |
+	juju status --format=json | yq '.machines | .["0"] | .containers | .["0/lxd/0"] | select(.["lxd-profiles"]) | .["lxd-profiles"] | keys[0]' |
 		check "${lxd_profile}"
 
 	destroy_model "test-deploy-lxd-profile-container"
@@ -170,7 +170,7 @@ run_deploy_local_lxd_profile_charm() {
 	juju integrate lxd-profile-subordinate lxd-profile
 
 	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
-	wait_for "lxd-profile-subordinate" ".applications | keys[1]"
+	wait_for "lxd-profile-subordinate" "select(.applications) | .applications | keys[1]"
 
 	full_uuid=$(juju models --format json |
 		name="${model_name}" yq -r '.models[] | select(.["short-name"]==env(name)) | ."model-uuid"')
@@ -288,7 +288,7 @@ run_deploy_lxd_to_container() {
 	juju integrate lxd-profile-subordinate lxd-profile-alt
 
 	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
-	wait_for "lxd-profile-subordinate" ".applications | keys[1]"
+	wait_for "lxd-profile-subordinate" "select(.applications) | .applications | keys[1]"
 
 	machine_0="$(machine_container_path 0 0/lxd/0)"
 	wait_for "lxd-profile-subordinate" "${machine_0}"
@@ -419,7 +419,7 @@ machine_path() {
 
 	machine=${1}
 
-	echo ".machines | .[\"${machine}\"] | .[\"lxd-profiles\"] | keys"
+	echo ".machines | .[\"${machine}\"] | select(.[\"lxd-profiles\"]) | .[\"lxd-profiles\"] | keys"
 }
 
 machine_container_path() {
@@ -428,5 +428,5 @@ machine_container_path() {
 	machine=${1}
 	container=${2}
 
-	echo ".machines | .[\"${machine}\"] | .containers | .[\"${container}\"] | .[\"lxd-profiles\"] | keys"
+	echo ".machines | .[\"${machine}\"] | .containers | .[\"${container}\"] | select(.[\"lxd-profiles\"]) | .[\"lxd-profiles\"] | keys"
 }

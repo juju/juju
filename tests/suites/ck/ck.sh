@@ -71,7 +71,7 @@ run_deploy_ck() {
 	# And on AWS, the maximum number of tags per resource is 50.
 	# Then we will get `Error while granting requests (TagLimitExceeded); check credentials and debug-log` error in next test run.
 	# So we purge the subnet tags here in advance as a workaround.
-	integrator_app_name=$(cat "$overlay_path" | yq '.applications | keys | .[] | select(.== "*integrator")')
+	integrator_app_name=$(cat "$overlay_path" | yq 'select(.applications) | .applications | keys | .[] | select(.== "*integrator")')
 	juju --show-log run "$integrator_app_name/leader" --wait=10m purge-subnet-tags
 }
 
@@ -104,7 +104,7 @@ run_deploy_caas_workload() {
 	model_name="test-${name}"
 	file="${TEST_DIR}/${model_name}.log"
 
-	controller_name=$(juju controllers --format json | yq -r '.controllers | keys[0]')
+	controller_name=$(juju controllers --format json | yq -r 'select(.controllers) | .controllers | keys[0]')
 	juju add-k8s "${k8s_cloud_name}" --storage "${storage}" --controller "${controller_name}" 2>&1 | OUTPUT "${file}"
 
 	juju_add_model "${model_name}" "${k8s_cloud_name}" "${controller_name}" "${file}"

@@ -456,7 +456,7 @@ destroy_controller() {
 	shift
 
 	# shellcheck disable=SC2034
-	OUT=$(juju controllers --format=json | yq '.controllers | keys[]' | grep "${name}" || true)
+	OUT=$(juju controllers --format=json | yq 'select(.controllers) | .controllers | keys | .[]' | grep "${name}" || true)
 	# shellcheck disable=SC2181
 	if [[ -z ${OUT} ]]; then
 		OUT=$(juju models --format=json | yq -r '.models | .[] | .["short-name"]' | grep "^${name}$" || true)
@@ -535,7 +535,7 @@ introspect_controller() {
 		return
 	fi
 
-	idents=$(juju machines -m "${name}:controller" --format=json | yq ".machines | keys | .[]")
+	idents=$(juju machines -m "${name}:controller" --format=json | yq "select(.machines) | .machines | keys | .[]")
 	if [[ -z ${idents} ]]; then
 		return
 	fi

@@ -35,7 +35,7 @@ run_network_health() {
 check_default_routes() {
 	echo "[+] checking default routes"
 
-	for machine in $(juju machines --format=json | yq -r ".machines | keys | .[]"); do
+	for machine in $(juju machines --format=json | yq -r "select(.machines) | .machines | keys | .[]"); do
 		default=$(juju exec --machine "$machine" -- ip route show | grep default)
 		if [ -z "$default" ]; then
 			echo "No default route detected for machine ${machine}"
