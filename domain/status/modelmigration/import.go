@@ -216,9 +216,9 @@ func (i *importOperation) importRelationStatus(
 ) error {
 	remoteApplications := domainmodelmigration.GetUniqueRemoteConsumersNames(model.RemoteApplications())
 	for _, relation := range model.Relations() {
-		if domainmodelmigration.IsRelationInApplicationsName(relation, remoteApplications) {
-			// Remote consumer relations are imported as part of the
-			// crossmodelrelation domain, so we skip them here.
+		// Remote consumer relations are imported as part of the
+		// crossmodelrelation domain, so we skip them here.
+		if domainmodelmigration.ContainsRelationEndpointApplicationName(relation, remoteApplications) {
 			continue
 		}
 
@@ -235,12 +235,19 @@ func (i *importOperation) importRemoteApplicationOffererStatus(
 	service ImportService,
 	model description.Model,
 ) error {
-	for _, remoteApp := range model.RemoteApplications() {
-		// Skip remote applications, we only want offerers here.
-		if remoteApp.IsConsumerProxy() {
+	remoteOfferApps, err := domainmodelmigration.UniqueRemoteOfferApplications(model.RemoteApplications())
+	if err != nil {
+		return errors.Errorf("getting unique remote offer applications: %w", err)
+	}
+	for _, remoteApps := range remoteOfferApps {
+		// We only need the first of the remote offer applications as the rest
+		// are de-duplicated copies of the same remote application, and will
+		// have the same status.
+		if remoteApps.IsEmpty() {
 			continue
 		}
 
+		remoteApp := remoteApps.Primary
 		offererStatus := i.importStatus(remoteApp.Status())
 		if err := service.SetRemoteApplicationOffererStatus(ctx, remoteApp.Name(), offererStatus); err != nil {
 			return errors.Errorf("setting offerer status for remote application %q: %w", remoteApp.Name(), err)

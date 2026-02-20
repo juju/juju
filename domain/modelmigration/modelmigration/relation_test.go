@@ -21,7 +21,6 @@ func TestRelationSuite(t *testing.T) {
 }
 
 func (s *relationSuite) TestMatchRelationEndpointByApplications(c *tc.C) {
-
 	tests := []struct {
 		name     string
 		setup    func() (description.Relation, []description.RemoteApplication)
@@ -82,10 +81,249 @@ func (s *relationSuite) TestMatchRelationEndpointByApplications(c *tc.C) {
 		c.Logf("Test case: %s", test.name)
 
 		relation, remoteApps := test.setup()
-		result := IsRelationInApplicationsName(relation, GetUniqueRemoteConsumersNames(remoteApps))
+		result := ContainsRelationEndpointApplicationName(relation, GetUniqueRemoteConsumersNames(remoteApps))
 
 		c.Assert(result, tc.Equals, test.expected)
 	}
+}
+
+func (s *relationSuite) TestUniqueRemoteOfferApplications(c *tc.C) {
+	tests := []struct {
+		name     string
+		setup    func() []description.RemoteApplication
+		expected func(c *tc.C, remoteApps map[string]RemoteApplicationOfferer)
+	}{
+		{
+			name: "no remote applications",
+			setup: func() []description.RemoteApplication {
+				return nil
+			},
+			expected: func(c *tc.C, remoteApps map[string]RemoteApplicationOfferer) {
+				c.Check(remoteApps, tc.HasLen, 0)
+			},
+		},
+		{
+			name: "no relations",
+			setup: func() []description.RemoteApplication {
+				m := description.NewModel(description.ModelArgs{})
+				remoteApp := m.AddRemoteApplication(description.RemoteApplicationArgs{
+					Name:            "remote-consumer-1",
+					IsConsumerProxy: true,
+					OfferUUID:       "foo",
+					SourceModelUUID: "bar",
+				})
+				return []description.RemoteApplication{remoteApp}
+			},
+			expected: func(c *tc.C, remoteApps map[string]RemoteApplicationOfferer) {
+				c.Check(remoteApps, tc.HasLen, 0)
+			},
+		},
+		{
+			name: "consumer proxy remote application",
+			setup: func() []description.RemoteApplication {
+				m := description.NewModel(description.ModelArgs{})
+
+				remoteApp0 := m.AddRemoteApplication(description.RemoteApplicationArgs{
+					Name:            "remote-consumer",
+					IsConsumerProxy: true,
+					OfferUUID:       "foo",
+					SourceModelUUID: "bar",
+				})
+
+				return []description.RemoteApplication{remoteApp0}
+			},
+			expected: func(c *tc.C, remoteApps map[string]RemoteApplicationOfferer) {
+				c.Check(remoteApps, tc.HasLen, 0)
+			},
+		},
+		{
+			name: "remote application",
+			setup: func() []description.RemoteApplication {
+				m := description.NewModel(description.ModelArgs{})
+
+				remoteApp0 := m.AddRemoteApplication(description.RemoteApplicationArgs{
+					Name:            "dummy-source",
+					OfferUUID:       "deadbeef",
+					SourceModelUUID: "bar",
+				})
+				remoteApp0.AddEndpoint(description.RemoteEndpointArgs{
+					Name:      "dummy-source",
+					Interface: "dummy-token",
+					Role:      "requirer",
+				})
+
+				return []description.RemoteApplication{remoteApp0}
+			},
+			expected: func(c *tc.C, remoteApps map[string]RemoteApplicationOfferer) {
+				c.Assert(remoteApps, tc.HasLen, 1)
+
+				remoteApp, ok := remoteApps["deadbeef"]
+				c.Assert(ok, tc.IsTrue)
+				c.Assert(remoteApp.IsEmpty(), tc.IsFalse)
+
+				c.Check(remoteApp.Primary.Name(), tc.Equals, "dummy-source")
+				c.Check(remoteApp.Primary.SourceModelUUID(), tc.Equals, "bar")
+			},
+		},
+		{
+			name: "duplicate remote application with relations",
+			setup: func() []description.RemoteApplication {
+				m := description.NewModel(description.ModelArgs{})
+
+				remoteApp0 := m.AddRemoteApplication(description.RemoteApplicationArgs{
+					Name:            "foo",
+					OfferUUID:       "deadbeef",
+					SourceModelUUID: "bar",
+				})
+				remoteApp0.AddEndpoint(description.RemoteEndpointArgs{
+					Name:      "dummy-source",
+					Interface: "dummy-token",
+					Role:      "requirer",
+				})
+
+				remoteApp1 := m.AddRemoteApplication(description.RemoteApplicationArgs{
+					Name:            "baz",
+					OfferUUID:       "deadbeef",
+					SourceModelUUID: "bar",
+				})
+				remoteApp1.AddEndpoint(description.RemoteEndpointArgs{
+					Name:      "dummy-source",
+					Interface: "dummy-token",
+					Role:      "requirer",
+				})
+
+				return []description.RemoteApplication{remoteApp0, remoteApp1}
+			},
+			expected: func(c *tc.C, remoteApps map[string]RemoteApplicationOfferer) {
+				c.Assert(remoteApps, tc.HasLen, 1)
+
+				remoteApp, ok := remoteApps["deadbeef"]
+				c.Assert(ok, tc.IsTrue)
+				c.Assert(remoteApp.IsEmpty(), tc.IsFalse)
+
+				c.Check(remoteApp.Primary.Name(), tc.Equals, "foo")
+				c.Check(remoteApp.Primary.SourceModelUUID(), tc.Equals, "bar")
+
+				c.Assert(remoteApp.Duplicates, tc.HasLen, 1)
+
+				c.Check(remoteApp.Duplicates[0].Name(), tc.Equals, "baz")
+				c.Check(remoteApp.Duplicates[0].SourceModelUUID(), tc.Equals, "bar")
+			},
+		},
+		{
+			name: "duplicate remote application with relations - inverted endpoints",
+			setup: func() []description.RemoteApplication {
+				m := description.NewModel(description.ModelArgs{})
+
+				remoteApp0 := m.AddRemoteApplication(description.RemoteApplicationArgs{
+					Name:            "foo",
+					OfferUUID:       "deadbeef",
+					SourceModelUUID: "bar",
+				})
+				remoteApp0.AddEndpoint(description.RemoteEndpointArgs{
+					Name:      "dummy-source",
+					Interface: "dummy-token",
+					Role:      "requirer",
+				})
+
+				remoteApp1 := m.AddRemoteApplication(description.RemoteApplicationArgs{
+					Name:            "baz",
+					OfferUUID:       "deadbeef",
+					SourceModelUUID: "bar",
+				})
+				remoteApp1.AddEndpoint(description.RemoteEndpointArgs{
+					Name:      "dummy-source",
+					Interface: "dummy-token",
+					Role:      "requirer",
+				})
+
+				return []description.RemoteApplication{remoteApp0, remoteApp1}
+			},
+			expected: func(c *tc.C, remoteApps map[string]RemoteApplicationOfferer) {
+				c.Assert(remoteApps, tc.HasLen, 1)
+
+				remoteApp, ok := remoteApps["deadbeef"]
+				c.Assert(ok, tc.IsTrue)
+				c.Assert(remoteApp.IsEmpty(), tc.IsFalse)
+
+				c.Check(remoteApp.Primary.Name(), tc.Equals, "foo")
+				c.Check(remoteApp.Primary.SourceModelUUID(), tc.Equals, "bar")
+
+				c.Assert(remoteApp.Duplicates, tc.HasLen, 1)
+
+				c.Check(remoteApp.Duplicates[0].Name(), tc.Equals, "baz")
+				c.Check(remoteApp.Duplicates[0].SourceModelUUID(), tc.Equals, "bar")
+			},
+		},
+	}
+
+	for _, test := range tests {
+		c.Logf("Test case: %s", test.name)
+
+		remoteApps := test.setup()
+		result, err := UniqueRemoteOfferApplications(remoteApps)
+
+		c.Assert(err, tc.IsNil)
+		test.expected(c, result)
+	}
+}
+
+func (s *relationSuite) TestUniqueRemoteOfferApplicationsInvalidSourceModelUUID(c *tc.C) {
+	m := description.NewModel(description.ModelArgs{})
+
+	remoteApp0 := m.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "foo",
+		OfferUUID:       "deadbeef",
+		SourceModelUUID: "bar",
+	})
+	remoteApp0.AddEndpoint(description.RemoteEndpointArgs{
+		Name:      "dummy-source",
+		Interface: "dummy-token",
+		Role:      "requirer",
+	})
+
+	remoteApp1 := m.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "baz",
+		OfferUUID:       "deadbeef",
+		SourceModelUUID: "blah",
+	})
+	remoteApp1.AddEndpoint(description.RemoteEndpointArgs{
+		Name:      "dummy-source",
+		Interface: "dummy-token",
+		Role:      "requirer",
+	})
+
+	_, err := UniqueRemoteOfferApplications([]description.RemoteApplication{remoteApp0, remoteApp1})
+	c.Assert(err, tc.ErrorMatches, "multiple remote application offerers with the same offer UUID.*but different source model UUIDs.*")
+}
+
+func (s *relationSuite) TestUniqueRemoteOfferApplicationsInvalidEndpoints(c *tc.C) {
+	m := description.NewModel(description.ModelArgs{})
+
+	remoteApp0 := m.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "foo",
+		OfferUUID:       "deadbeef",
+		SourceModelUUID: "bar",
+	})
+	remoteApp0.AddEndpoint(description.RemoteEndpointArgs{
+		Name:      "dummy-source",
+		Interface: "dummy-token",
+		Role:      "requirer",
+	})
+
+	remoteApp1 := m.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "baz",
+		OfferUUID:       "deadbeef",
+		SourceModelUUID: "bar",
+	})
+	remoteApp1.AddEndpoint(description.RemoteEndpointArgs{
+		Name:      "dummy-source",
+		Interface: "dummy-token",
+		Role:      "foo",
+	})
+
+	_, err := UniqueRemoteOfferApplications([]description.RemoteApplication{remoteApp0, remoteApp1})
+	c.Assert(err, tc.ErrorMatches, "multiple remote application offerers with the same offer UUID.*but different endpoints.*")
 }
 
 func newModel() description.Model {

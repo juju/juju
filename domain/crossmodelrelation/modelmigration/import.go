@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/domain/crossmodelrelation/service"
 	modelstate "github.com/juju/juju/domain/crossmodelrelation/state/model"
 	deploymentcharm "github.com/juju/juju/domain/deployment/charm"
+	domainmodelmigration "github.com/juju/juju/domain/modelmigration/modelmigration"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -213,27 +214,35 @@ func (i *importOperation) importRemoteApplicationOfferers(
 	remoteApps []description.RemoteApplication,
 	remoteAppUnits map[string][]string,
 ) error {
-	input := make([]service.RemoteApplicationOffererImport, 0, len(remoteApps))
-	for _, remoteApp := range remoteApps {
-		// Ignore remote application consumers.
-		if remoteApp.IsConsumerProxy() {
+	// Import remote application offerers. These are remote applications that
+	// life in the consuming model, but represent applications in the offering
+	// model.
+	uniqueRemoteApps, err := domainmodelmigration.UniqueRemoteOfferApplications(remoteApps)
+	if err != nil {
+		return err
+	}
+
+	input := make([]service.RemoteApplicationOffererImport, 0, len(uniqueRemoteApps))
+	for _, duplicatedRemoteApps := range uniqueRemoteApps {
+		if duplicatedRemoteApps.IsEmpty() {
 			continue
 		}
 
-		endpoints, err := extractRemoteEndpoints(remoteApp)
+		primaryRemoteApp := duplicatedRemoteApps.Primary
+		endpoints, err := extractRemoteEndpoints(primaryRemoteApp)
 		if err != nil {
 			return errors.Errorf("extracting endpoints for remote application %q: %w",
-				remoteApp.Name(), err)
+				primaryRemoteApp.Name(), err)
 		}
 
 		input = append(input, service.RemoteApplicationOffererImport{
 			RemoteApplicationImport: service.RemoteApplicationImport{
-				Name:            remoteApp.Name(),
-				OfferUUID:       remoteApp.OfferUUID(),
-				URL:             remoteApp.URL(),
-				SourceModelUUID: remoteApp.SourceModelUUID(),
-				Macaroon:        remoteApp.Macaroon(),
-				Units:           remoteAppUnits[remoteApp.Name()],
+				Name:            primaryRemoteApp.Name(),
+				OfferUUID:       primaryRemoteApp.OfferUUID(),
+				URL:             primaryRemoteApp.URL(),
+				SourceModelUUID: primaryRemoteApp.SourceModelUUID(),
+				Macaroon:        primaryRemoteApp.Macaroon(),
+				Units:           remoteAppUnits[primaryRemoteApp.Name()],
 				Endpoints:       endpoints,
 			},
 		})

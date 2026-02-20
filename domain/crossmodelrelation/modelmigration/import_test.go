@@ -94,6 +94,16 @@ func (s *importSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 		Role:      "provider",
 		Interface: "mysql",
 	})
+	relation := model.AddRelation(description.RelationArgs{
+		Id:  0,
+		Key: "remote-mysql:db foo:db",
+	})
+	relation.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "remote-mysql",
+	})
+	relation.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "foo",
+	})
 
 	expected := []service.RemoteApplicationOffererImport{
 		{
@@ -121,7 +131,8 @@ func (s *importSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 
 	// Act - no relations, so no units to extract
 	remoteAppUnits := make(map[string][]string)
-	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(), model.RemoteApplications(), remoteAppUnits)
+	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(),
+		model.RemoteApplications(), remoteAppUnits)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -133,7 +144,8 @@ func (s *importSuite) TestImportRemoteApplicationOfferersEmpty(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	remoteAppUnits := make(map[string][]string)
-	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(), model.RemoteApplications(), remoteAppUnits)
+	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(),
+		model.RemoteApplications(), remoteAppUnits)
 
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -155,6 +167,17 @@ func (s *importSuite) TestImportRemoteApplicationOfferersMultiple(c *tc.C) {
 		Interface: "mysql",
 	})
 
+	relation1 := model.AddRelation(description.RelationArgs{
+		Id:  0,
+		Key: "remote-mysql:db foo:db",
+	})
+	relation1.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "remote-mysql",
+	})
+	relation1.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "foo",
+	})
+
 	remoteApp2 := model.AddRemoteApplication(description.RemoteApplicationArgs{
 		Name:            "remote-postgresql",
 		OfferUUID:       "offer-uuid-2",
@@ -170,6 +193,17 @@ func (s *importSuite) TestImportRemoteApplicationOfferersMultiple(c *tc.C) {
 		Name:      "admin",
 		Role:      "requirer",
 		Interface: "admin",
+	})
+
+	relation2 := model.AddRelation(description.RelationArgs{
+		Id:  0,
+		Key: "remote-postgresql:db foo:db",
+	})
+	relation2.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "remote-postgresql",
+	})
+	relation2.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "foo",
 	})
 
 	expected := []service.RemoteApplicationOffererImport{
@@ -215,7 +249,8 @@ func (s *importSuite) TestImportRemoteApplicationOfferersMultiple(c *tc.C) {
 	).Return(nil)
 
 	remoteAppUnits := make(map[string][]string)
-	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(), model.RemoteApplications(), remoteAppUnits)
+	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(),
+		model.RemoteApplications(), remoteAppUnits)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

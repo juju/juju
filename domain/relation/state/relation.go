@@ -3368,7 +3368,9 @@ AND    ae.application_name = $endpointIdentifier.application_name
 	}
 	var endpoint applicationEndpointUUID
 	err = tx.Query(ctx, stmt, epIdentifier).Get(&endpoint)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", relationerrors.ApplicationEndpointNotFound
+	} else if err != nil {
 		return "", errors.Errorf("getting application endpoint uuid for %q:%q : %w", applicationName, endpointName, err)
 	}
 
