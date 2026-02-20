@@ -6,7 +6,6 @@ package application
 import (
 	"context"
 	"fmt"
-	"maps"
 	"regexp"
 	"slices"
 	"sort"
@@ -286,7 +285,6 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		err := a.configureStorage(
 			storageUniqueID,
 			config.Filesystems,
-			config.RealizedAttachments,
 			storageClasses,
 			handleVolume, handleVolumeMount, handlePVC, handleStorageClass,
 		)
@@ -2135,7 +2133,8 @@ func (a *app) volumeName(storageName string) string {
 }
 
 // volumeNameToPVCTemplateNames returns a mapping of volume name to PVC template name for this app's PVCs.
-func (a *app) volumeNameToPVCTemplateNames(pvcAndStorageNames []pvcAndStorageName) (map[string]string, error) {
+func (a *app) volumeNameToPVCTemplateNames(
+	pvcAndStorageNames []pvcAndStorageName) (map[string]string, error) {
 	names := make(map[string]string)
 	for _, pvcAndStorage := range pvcAndStorageNames {
 		pvcTemplateName, err := a.getPVCTemplateName(pvcAndStorage.pvc)
@@ -2151,8 +2150,6 @@ func (a *app) volumeNameToPVCTemplateNames(pvcAndStorageNames []pvcAndStorageNam
 // A complete PVC name is expected to be suffixed with an ordinal. This function
 // returns the prefix that identifies the PVC template, excluding the ordinal
 // and application-specific suffix.
-// The caller must call [compilePVCNamePrefixRegexp] to instantiate [a.pvcNamePrefixRegexp]
-// before calling this func.
 //
 // Supported complete PVC name formats include:
 //
@@ -2165,14 +2162,8 @@ func (a *app) volumeNameToPVCTemplateNames(pvcAndStorageNames []pvcAndStorageNam
 //   - given juju-{storagename}-{number}-{appname}-{ordinal}
 //     returns juju-{storagename}-{number}
 //
-//   - If the supplied complete PVC name is empty, an empty string is returned. This
-//     is a valid case where it must have been a fresh deployment.
-//
 //   - If the PVC template name cannot be extracted, an error is returned.
 func (a *app) getPVCTemplateName(completePVCName string) (string, error) {
-	if completePVCName == "" {
-		return "", nil
-	}
 	if a.pvcNamePrefixRegexp == nil {
 		return "", errors.Errorf("pvcNamePrefixRegexp has not been set")
 	}
@@ -2187,7 +2178,6 @@ func (a *app) getPVCTemplateName(completePVCName string) (string, error) {
 func (a *app) configureStorage(
 	storageUniqueID string,
 	filesystems []jujustorage.KubernetesFilesystemParams,
-	realizedAttachments []jujustorage.KubernetesFilesystemAttachment,
 	storageClasses []resources.StorageClass,
 	handleVolume handleVolumeFunc,
 	handleVolumeMount handleVolumeMountFunc,
@@ -2199,17 +2189,7 @@ func (a *app) configureStorage(
 		storageClassMap[v.Name] = v
 	}
 
-	// Group realized attachments to extract PVC template name prefixes.
-	// Since all PVCs for the same container+storage combination share the same
-	// template name prefix (only differing by ordinal suffix), we only need one
-	// representative attachment per container+storage pair to extract the prefix.
-	// The grouping key format is "{containerName}:{storageName}".
-	// See [getPVCTemplateName] for how the prefix is extracted from the full PVC name.
-	attachments := a.groupAttachments(realizedAttachments,
-		func(attachment jujustorage.KubernetesFilesystemAttachment) string {
-			return fmt.Sprintf("%s:%s", attachment.ContainerName, attachment.StorageName)
-		})
-	pvcAndStorageNames := a.collectPVCAndStorageNames(filesystems, attachments)
+	pvcAndStorageNames := a.collectPVCAndStorageNames(filesystems)
 	pvcTemplateNames, err := a.volumeNameToPVCTemplateNames(pvcAndStorageNames)
 	if err != nil {
 		return errors.Trace(err)
@@ -2272,51 +2252,27 @@ func (a *app) configureStorage(
 	return nil
 }
 
-func (a *app) groupAttachments(
-	realizedAttachments []jujustorage.KubernetesFilesystemAttachment,
-	keyFn func(jujustorage.KubernetesFilesystemAttachment) string,
-) []jujustorage.KubernetesFilesystemAttachment {
-	attachmentsMap := make(map[string]jujustorage.KubernetesFilesystemAttachment)
-	for _, attachment := range realizedAttachments {
-		attachmentsMap[keyFn(attachment)] = attachment
-	}
-	return slices.Collect(maps.Values(attachmentsMap))
-}
-
 func (a *app) collectPVCAndStorageNames(
 	filesystems []jujustorage.KubernetesFilesystemParams,
-	attachments []jujustorage.KubernetesFilesystemAttachment,
 ) []pvcAndStorageName {
 	pvcAndStorageNames := make([]pvcAndStorageName, 0)
 	for _, fs := range filesystems {
-		for _, attachmentToFind := range fs.Attachments {
-			attachment := a.findAttachment(attachments, attachmentToFind, fs.StorageName)
-			// If attachment is nil then it means the PVC ("attachment") has not been
-			// created yet. We skip this attachment because we don't have the PVC name.
-			if attachment == nil {
+		for _, attachment := range fs.Attachments {
+			// This is must have been a new deployment so a realized attachment
+			// is not yet available.
+			if len(attachment.RealizedPVCNames) == 0 {
 				continue
 			}
 			pvcAndStorageNames = append(pvcAndStorageNames, pvcAndStorageName{
-				pvc:     attachment.PVCName,
+				// Since all PVCs for a given fs storage share the same template
+				// name prefix (only differing by ordinal suffix), we only need one
+				// representative attachment per container+storage pair to extract the prefix.
+				pvc:     attachment.RealizedPVCNames[0],
 				storage: fs.StorageName,
 			})
 		}
 	}
 	return pvcAndStorageNames
-}
-
-func (a *app) findAttachment(attachments []jujustorage.KubernetesFilesystemAttachment,
-	toFind jujustorage.KubernetesFilesystemAttachmentParams, storageName string) *jujustorage.KubernetesFilesystemAttachment {
-	idx := slices.IndexFunc(attachments, func(attachment jujustorage.KubernetesFilesystemAttachment) bool {
-		return attachment.StorageName == storageName &&
-			attachment.ContainerName == toFind.ContainerName &&
-			attachment.Path == toFind.Path
-	})
-	if idx == -1 {
-		return nil
-	}
-
-	return &attachments[idx]
 }
 
 func (a *app) filesystemToVolumeInfo(

@@ -62,7 +62,6 @@ type ProvisioningInfo struct {
 	Images              map[string]coreresource.DockerImageDetails
 	FilesystemTemplates []storageprovisioning.FilesystemTemplate
 	StorageResourceTags map[string]string
-	RealizedAttachments []storageprovisioning.RealizedFilesystemAttachment
 }
 
 // ApplicationOps defines all the operations the application worker can perform.
@@ -292,17 +291,6 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 		))
 	}
 
-	attachments := make([]internalstorage.KubernetesFilesystemAttachment, 0,
-		len(pi.RealizedAttachments))
-	for _, attachment := range pi.RealizedAttachments {
-		attachments = append(attachments, internalstorage.KubernetesFilesystemAttachment{
-			ContainerName: attachment.TargetKey,
-			Path:          attachment.MountPoint,
-			PVCName:       attachment.ProviderID,
-			StorageName:   attachment.StorageName,
-		})
-	}
-
 	config := caas.ApplicationConfig{
 		IsPrivateImageRepo:   pi.ImageDetails.IsPrivate(),
 		IntroductionSecret:   password,
@@ -313,7 +301,6 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 		ResourceTags:         pi.Tags,
 		Constraints:          pi.Constraints,
 		Filesystems:          filesystems,
-		RealizedAttachments:  attachments,
 		Devices:              pi.Devices,
 		CharmBaseImagePath:   charmBaseImage,
 		Containers:           containers,
@@ -356,7 +343,7 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 
 func makeKubernetesFilesystemParams(
 	fst storageprovisioning.FilesystemTemplate,
-	attachments []storageprovisioning.FilesystemAttachmentTemplate,
+	attachments []storageprovisioning.FilesystemAttachmentTemplateWithRealized,
 	storageResourceTags map[string]string,
 ) internalstorage.KubernetesFilesystemParams {
 	k8sFileSystemParamAttachments := make(
@@ -365,10 +352,15 @@ func makeKubernetesFilesystemParams(
 	)
 
 	for i, attachment := range attachments {
+		pvcNames := make([]string, 0)
+		for _, realizedAttachment := range attachment.RealizedAttachments {
+			pvcNames = append(pvcNames, realizedAttachment.ProviderID)
+		}
 		k8sFileSystemParamAttachments[i] = internalstorage.KubernetesFilesystemAttachmentParams{
-			ReadOnly:      attachment.ReadOnly,
-			Path:          attachment.MountPoint,
-			ContainerName: attachment.ContainerKey,
+			ReadOnly:         attachment.ReadOnly,
+			Path:             attachment.MountPoint,
+			ContainerName:    attachment.ContainerKey,
+			RealizedPVCNames: pvcNames,
 		}
 	}
 
@@ -868,27 +860,10 @@ func ensureScaleWithFsAttachments(
 		return errors.Trace(err)
 	}
 
-	realizedAttachments, err := storageProvisioningService.GetFileSystemAttachmentsForApplication(ctx, appUUID)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	attachments := make([]internalstorage.KubernetesFilesystemAttachment, 0,
-		len(realizedAttachments))
-	for _, attachment := range realizedAttachments {
-		attachments = append(attachments, internalstorage.KubernetesFilesystemAttachment{
-			ContainerName: attachment.TargetKey,
-			Path:          attachment.MountPoint,
-			PVCName:       attachment.ProviderID,
-			StorageName:   attachment.StorageName,
-		})
-	}
-
 	// Ensure PVCs exist.
 	err = app.EnsurePVCs(
 		info.Filesystems,
 		info.FilesystemUnitAttachments,
-		attachments,
 		storageUniqueID,
 	)
 	if err != nil {
@@ -932,12 +907,6 @@ func provisioningInfo(
 		return nil, errors.Trace(err)
 	}
 	pi.FilesystemTemplates = fsTemplates
-
-	attachments, err := storageProvisioningService.GetFileSystemAttachmentsForApplication(ctx, appUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	pi.RealizedAttachments = attachments
 
 	storageResourceTags, err := storageProvisioningService.GetStorageResourceTagsForApplication(ctx, appUUID)
 	if err != nil {

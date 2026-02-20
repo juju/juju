@@ -758,8 +758,6 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 		c.Logf("running test case %d: %s", i, tt.name)
 		app, _ := s.getApp(c, caas.DeploymentStateful, false)
 
-		c.Logf("[adis] expectedPVCs: %+v", tt.expectedPVCs)
-
 		s.assertEnsure(
 			c,
 			app,

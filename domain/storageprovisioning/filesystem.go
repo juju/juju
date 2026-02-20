@@ -149,7 +149,8 @@ type FilesystemAttachmentParams struct {
 // of the supplied application are created and mounted correctly.
 type FilesystemTemplate struct {
 	// Attachments describes the attachment templates for this filesystem.
-	Attachments []FilesystemAttachmentTemplate
+	// It also includes the realized attachments if they exist.
+	Attachments []FilesystemAttachmentTemplateWithRealized
 
 	// Attributes are a set of key value pairs that are supplied to the provider
 	// or provisioner to facilitate this filesystem(s).
@@ -216,9 +217,11 @@ type RealizedFilesystemAttachment struct {
 	StorageName string
 	// ProviderID is the identifier of the attachment from the storage provider.
 	ProviderID string
-	// MountPoint is the path where the filesystem is mounted on the machine.
-	MountPoint string
-	// TargetKey is the identifier of the target (container or machine) where the
-	// filesystem attachment is mounted.
-	TargetKey string
+}
+
+// FilesystemAttachmentTemplateWithRealized combines a FilesystemAttachmentTemplate
+// with its realized attachments.
+type FilesystemAttachmentTemplateWithRealized struct {
+	FilesystemAttachmentTemplate
+	RealizedAttachments []RealizedFilesystemAttachment
 }

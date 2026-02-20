@@ -209,10 +209,13 @@ type FilesystemState interface {
 	// attachment information about the provisoned filesystem attachment.
 	SetFilesystemAttachmentProvisionedInfo(ctx context.Context, filesystemAttachmentUUID domainstorage.FilesystemAttachmentUUID, info storageprovisioning.FilesystemAttachmentProvisionedInfo) error
 
-	// GetFilesystemAttachments returns the realized filesystem attachments for the
+	// GetFilesystemAttachmentsForApplication returns the realized filesystem attachments for the
 	// given application UUID. It returns an error satisfying
 	// [applicationerrors.ApplicationNotFound] if the application does not exist.
-	GetFilesystemAttachments(ctx context.Context, uuid coreapplication.UUID) ([]storageprovisioning.RealizedFilesystemAttachment, error)
+	GetFilesystemAttachmentsForApplication(ctx context.Context, uuid coreapplication.UUID) (
+		map[string][]storageprovisioning.RealizedFilesystemAttachment,
+		error,
+	)
 }
 
 // CharmState defines the methods required to fetch the mount points for charm
@@ -881,6 +884,12 @@ func (s *Service) GetFilesystemTemplatesForApplication(
 		)
 	}
 
+	realizedAttachments, err := s.st.GetFilesystemAttachmentsForApplication(ctx, appUUID)
+	if err != nil {
+		return nil, errors.Errorf(
+			"getting realized attachments for app %q: %w", appUUID, err,
+		)
+	}
 	retVal := make([]storageprovisioning.FilesystemTemplate, 0, len(fsTemplates))
 	for _, fsTemplate := range fsTemplates {
 		attachments := calculateFilesystemAttachmentTemplates(
@@ -902,8 +911,14 @@ func (s *Service) GetFilesystemTemplatesForApplication(
 			attachments = append(attachments, containerAttachments...)
 		}
 
+		attachmentTemplatesWithRealized := buildFilesystemAttachmentTemplatesWithRealized(
+			attachments,
+			realizedAttachments,
+			fsTemplate.StorageName,
+		)
+
 		mountTemplate := storageprovisioning.FilesystemTemplate{
-			Attachments:  attachments,
+			Attachments:  attachmentTemplatesWithRealized,
 			Attributes:   fsTemplate.Attributes,
 			Count:        fsTemplate.Count,
 			ProviderType: fsTemplate.ProviderType,
@@ -914,6 +929,22 @@ func (s *Service) GetFilesystemTemplatesForApplication(
 	}
 
 	return retVal, nil
+}
+
+func buildFilesystemAttachmentTemplatesWithRealized(
+	attachments []storageprovisioning.FilesystemAttachmentTemplate,
+	realizedAttachmentsByStorage map[string][]storageprovisioning.RealizedFilesystemAttachment,
+	storageName string,
+) []storageprovisioning.FilesystemAttachmentTemplateWithRealized {
+	realizedAttachments := realizedAttachmentsByStorage[storageName]
+	result := make([]storageprovisioning.FilesystemAttachmentTemplateWithRealized, 0, len(attachments))
+	for _, attachment := range attachments {
+		result = append(result, storageprovisioning.FilesystemAttachmentTemplateWithRealized{
+			FilesystemAttachmentTemplate: attachment,
+			RealizedAttachments:          realizedAttachments,
+		})
+	}
+	return result
 }
 
 // SetFilesystemProvisionedInfo sets on the provided filesystem the information
@@ -1017,18 +1048,4 @@ func (s *Service) SetFilesystemAttachmentProvisionedInfoForUnit(
 	}
 
 	return nil
-}
-
-// GetFileSystemAttachmentsForApplication retrieves the realized filesystem
-// attachments for the specified application UUID.
-// It returns an error satisfying
-// [applicationerrors.ApplicationNotFound] if the application does not exist.
-func (s *Service) GetFileSystemAttachmentsForApplication(ctx context.Context,
-	uuid coreapplication.UUID) ([]storageprovisioning.RealizedFilesystemAttachment, error) {
-	err := uuid.Validate()
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	return s.st.GetFilesystemAttachments(ctx, uuid)
 }

@@ -1372,13 +1372,14 @@ WHERE  a.uuid = $entityUUID.uuid
 	return rvals, nil
 }
 
-// GetFilesystemAttachments returns the realized filesystem attachments for the
-// given application UUID. It returns an error satisfying
-// [applicationerrors.ApplicationNotFound] if the application does not exist.
-func (st *State) GetFilesystemAttachments(
+// GetFilesystemAttachmentsForApplication returns the realized filesystem attachments
+// indexed by storage name for the given application UUID.
+// It returns an error satisfying [applicationerrors.ApplicationNotFound] if
+// the application does not exist.
+func (st *State) GetFilesystemAttachmentsForApplication(
 	ctx context.Context,
 	uuid coreapplication.UUID,
-) ([]storageprovisioning.RealizedFilesystemAttachment, error) {
+) (map[string][]storageprovisioning.RealizedFilesystemAttachment, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1387,18 +1388,15 @@ func (st *State) GetFilesystemAttachments(
 	stmt, err := st.Prepare(`
 SELECT (sfa.uuid,
        si.storage_name,
-       sfa.provider_id,
-       sfa.mount_point,
-       ccm.charm_container_key) AS (&existingFilesystemAttachment.*)
+       sfa.provider_id) AS (&existingFilesystemAttachment.*)
 FROM   storage_filesystem_attachment AS sfa
 JOIN   storage_filesystem AS sf ON sfa.storage_filesystem_uuid = sf.uuid
 JOIN   unit AS u ON sfa.net_node_uuid = u.net_node_uuid
 JOIN   storage_instance_filesystem AS sif ON sf.uuid = sif.storage_filesystem_uuid
 JOIN   storage_instance AS si ON sif.storage_instance_uuid = si.uuid
 JOIN   application AS a ON u.application_uuid = a.uuid
-JOIN   charm_container_mount AS ccm ON a.charm_uuid = ccm.charm_uuid AND 
-	   si.storage_name = ccm.storage
-WHERE  u.application_uuid = $entityUUID.uuid`, existingFilesystemAttachment{}, input)
+WHERE  u.application_uuid = $entityUUID.uuid AND sfa.provider_id <> ''`,
+		existingFilesystemAttachment{}, input)
 
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1406,10 +1404,6 @@ WHERE  u.application_uuid = $entityUUID.uuid`, existingFilesystemAttachment{}, i
 	var existingAttachments []existingFilesystemAttachment
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Reset existingAttachments should the transaction retries because
-		// GetAll func appends to the slice. By doing this we can avoid duplicate
-		// elements in existingAttachments.
-		existingAttachments = nil
 		exists, err := st.checkApplicationExists(ctx, tx, uuid)
 		if err != nil {
 			return err
@@ -1429,15 +1423,15 @@ WHERE  u.application_uuid = $entityUUID.uuid`, existingFilesystemAttachment{}, i
 		return nil, errors.Capture(err)
 	}
 
-	attachments := make([]storageprovisioning.RealizedFilesystemAttachment, 0, len(existingAttachments))
-	for _, attachment := range existingAttachments {
-		attachments = append(attachments, storageprovisioning.RealizedFilesystemAttachment{
-			AttachmentUUID: attachment.AttachmentUUID,
-			StorageName:    attachment.StorageName,
-			ProviderID:     attachment.ProviderID,
-			MountPoint:     attachment.MountPoint,
-			TargetKey:      attachment.CharmContainerKey,
-		})
+	attachmentsByStorage := make(map[string][]storageprovisioning.RealizedFilesystemAttachment)
+	for _, existing := range existingAttachments {
+		attachmentsByStorage[existing.StorageName] = append(
+			attachmentsByStorage[existing.StorageName],
+			storageprovisioning.RealizedFilesystemAttachment{
+				AttachmentUUID: existing.AttachmentUUID,
+				StorageName:    existing.StorageName,
+				ProviderID:     existing.ProviderID,
+			})
 	}
-	return attachments, nil
+	return attachmentsByStorage, nil
 }

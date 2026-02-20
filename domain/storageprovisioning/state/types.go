@@ -450,9 +450,7 @@ type containerMount struct {
 
 // existingFilesystemAttachment represents a realized filesystem attachment.
 type existingFilesystemAttachment struct {
-	AttachmentUUID    string `db:"uuid"`
-	StorageName       string `db:"storage_name"`
-	ProviderID        string `db:"provider_id"`
-	MountPoint        string `db:"mount_point"`
-	CharmContainerKey string `db:"charm_container_key"`
+	AttachmentUUID string `db:"uuid"`
+	StorageName    string `db:"storage_name"`
+	ProviderID     string `db:"provider_id"`
 }

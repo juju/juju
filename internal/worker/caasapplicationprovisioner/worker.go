@@ -151,11 +151,6 @@ type StorageProvisioningService interface {
 	// the given application. These tags are used when creating a resource in an
 	// environ.
 	GetStorageResourceTagsForApplication(ctx context.Context, appID application.UUID) (map[string]string, error)
-
-	// GetFileSystemAttachmentsForApplication retrieves the realized filesystem
-	// attachments for a given application.
-	GetFileSystemAttachmentsForApplication(ctx context.Context,
-		appID application.UUID) ([]storageprovisioning.RealizedFilesystemAttachment, error)
 }
 
 // ResourceOpenerGetter provides a way to get a resource opener for an

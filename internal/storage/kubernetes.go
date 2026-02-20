@@ -42,6 +42,10 @@ type KubernetesFilesystemAttachmentParams struct {
 	// ContainerName is the identifier of the container where this attachment
 	// should be mounted to.
 	ContainerName string
+
+	// RealizedPVCNames is the list of PersistentVolumeClaim names that have been
+	// created for this attachment params.
+	RealizedPVCNames []string
 }
 
 // FilesystemAttachmentInfo describes a filesystem attachment.
@@ -70,12 +74,4 @@ type KubernetesFilesystemUnitAttachmentParams struct {
 
 	// VolumeId is the storage provider's unique identifier for the volume.
 	VolumeId string
-}
-
-// KubernetesFilesystemAttachment describes the concrete filesystem attachment.
-type KubernetesFilesystemAttachment struct {
-	ContainerName string
-	Path          string
-	PVCName       string
-	StorageName   string
 }
