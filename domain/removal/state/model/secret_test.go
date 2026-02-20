@@ -11,6 +11,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
+	coresecrets "github.com/juju/juju/core/secrets"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -112,6 +113,149 @@ func (s *secretSuite) TestGetUnitOwnedSecretRevisionRefs(c *tc.C) {
 	c.Check(ids, tc.SameContents, []string{"0", "1", "2"})
 }
 
+func (s *secretSuite) TestDeleteSomeRevisions(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	ctx := c.Context()
+
+	app, _ := s.addAppAndUnit(c)
+	sec := s.addSecretWithRevisionsAndContent(c, app)
+	uri := &coresecrets.URI{ID: sec}
+
+	deleted, err := st.DeleteUserSecretRevisions(ctx, uri, []int{1})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(deleted, tc.DeepEquals, []string{"revision_id_1"})
+
+	s.assertRevisionExists(c, uri, 0)
+	s.assertRevisionDoesNotExist(c, uri, 1)
+	s.assertRevisionExists(c, uri, 2)
+
+	checkCount := func(table string, expected int) {
+		row := s.DB().QueryRowContext(ctx, "SELECT count(*) FROM "+table)
+		var count int
+		err := row.Scan(&count)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(count, tc.Equals, expected)
+	}
+
+	checkCount("secret_revision", 2)
+	checkCount("secret_content", 2)
+	checkCount("secret_value_ref", 2)
+	checkCount("secret_revision_expire", 2)
+	checkCount("secret_revision_obsolete", 2)
+	checkCount("secret_reference", 1)
+	checkCount("secret", 1)
+}
+
+func (s *secretSuite) TestDeleteAllRevisionsFromNil(c *tc.C) {
+	s.assertDeleteAllRevisions(c, nil)
+}
+
+func (s *secretSuite) TestDeleteAllRevisions(c *tc.C) {
+	s.assertDeleteAllRevisions(c, []int{0, 1, 2})
+}
+
+func (s *secretSuite) assertDeleteAllRevisions(c *tc.C, revs []int) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	ctx := c.Context()
+
+	app, unit := s.addAppAndUnit(c)
+	sec := s.addSecretWithRevisionsAndContent(c, app)
+	uri := &coresecrets.URI{ID: sec}
+
+	q := "INSERT INTO secret_application_owner (secret_id, application_uuid) VALUES (?, ?)"
+	_, err := s.DB().ExecContext(ctx, q, sec, app)
+	c.Assert(err, tc.ErrorIsNil)
+
+	q = "INSERT INTO secret_unit_owner (secret_id, unit_uuid) VALUES (?, ?)"
+	_, err = s.DB().ExecContext(ctx, q, sec, unit)
+	c.Assert(err, tc.ErrorIsNil)
+
+	deleted, err := st.DeleteUserSecretRevisions(ctx, uri, revs)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(deleted, tc.SameContents, []string{"revision_id_0", "revision_id_1", "revision_id_2"})
+
+	checkCount := func(table string, expected int) {
+		row := s.DB().QueryRowContext(ctx, "SELECT count(*) FROM "+table)
+		var count int
+		err := row.Scan(&count)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(count, tc.Equals, expected)
+	}
+
+	checkCount("secret_revision", 0)
+	checkCount("secret_content", 0)
+	checkCount("secret_value_ref", 0)
+	checkCount("secret_revision_expire", 0)
+	checkCount("secret_revision_obsolete", 0)
+	checkCount("secret_reference", 0)
+	checkCount("secret_rotation", 0)
+	checkCount("secret_metadata", 0)
+	checkCount("secret_application_owner", 0)
+	checkCount("secret_unit_owner", 0)
+	checkCount("secret", 0)
+}
+
+func (s *secretSuite) TestDeleteObsoleteUserSecretRevisions(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	ctx := c.Context()
+	app, _ := s.addAppAndUnit(c)
+
+	uriNoAuto, _ := s.addSecretWithRevisions(c, app, false, true, map[int]bool{1: true, 2: false})
+	uriAuto, revUUIDsAuto := s.addSecretWithRevisions(c, app, true, true, map[int]bool{1: true, 2: false})
+	uriAutoNoObsolete, _ := s.addSecretWithRevisions(c, app, true, true, map[int]bool{1: false})
+	uriCharmAuto, _ := s.addSecretWithRevisions(c, app, true, false, map[int]bool{1: true, 2: false})
+
+	deletedRevisionUUIDs, err := st.DeleteObsoleteUserSecretRevisions(ctx)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(deletedRevisionUUIDs, tc.DeepEquals, []string{revUUIDsAuto[1]})
+
+	s.assertRevisionExists(c, uriNoAuto, 1)
+	s.assertRevisionExists(c, uriNoAuto, 2)
+	s.assertRevisionDoesNotExist(c, uriAuto, 1)
+	s.assertRevisionExists(c, uriAuto, 2)
+	s.assertRevisionExists(c, uriAutoNoObsolete, 1)
+	s.assertRevisionExists(c, uriCharmAuto, 1)
+	s.assertRevisionExists(c, uriCharmAuto, 2)
+}
+
+func (s *secretSuite) TestGetUserSecretRevisionRefs(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	ctx := c.Context()
+
+	app, _ := s.addAppAndUnit(c)
+	_ = s.addSecretWithRevisionsAndContent(c, app)
+
+	refs, err := st.GetUserSecretRevisionRefs(ctx, []string{"revision_id_2", "revision_id_0"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(refs, tc.SameContents, []string{"0", "2"})
+}
+
+func (s *secretSuite) TestDeleteUserSecretRevisionRef(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	ctx := c.Context()
+
+	app, _ := s.addAppAndUnit(c)
+	_ = s.addSecretWithRevisionsAndContent(c, app)
+
+	err := st.DeleteUserSecretRevisionRef(ctx, "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	row := s.DB().QueryRowContext(
+		ctx,
+		"SELECT count(*) FROM secret_deleted_value_ref WHERE revision_uuid = ?",
+		"revision_id_1",
+	)
+	var count int
+	err = row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
 func (s *secretSuite) addSecretWithRevisionsAndContent(c *tc.C, appUUID string) string {
 	ctx := c.Context()
 
@@ -173,22 +317,87 @@ VALUES (?, ?, ?, ?)`, sec, 0, appUUID, time.Now().UTC())
 	return sec
 }
 
+func (s *secretSuite) addSecretWithRevisions(
+	c *tc.C,
+	appUUID string,
+	autoPrune bool,
+	modelOwned bool,
+	obsoleteByRevision map[int]bool,
+) (*coresecrets.URI, map[int]string) {
+	ctx := c.Context()
+
+	uri := coresecrets.NewURI()
+	_, err := s.DB().ExecContext(ctx, "INSERT INTO secret VALUES (?)", uri.ID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	q := "INSERT INTO secret_metadata (secret_id, version, rotate_policy_id, auto_prune) VALUES (?, ?, ?, ?)"
+	_, err = s.DB().ExecContext(ctx, q, uri.ID, 1, 0, autoPrune)
+	c.Assert(err, tc.ErrorIsNil)
+
+	if modelOwned {
+		q := "INSERT INTO secret_model_owner (secret_id) VALUES (?)"
+		_, err = s.DB().ExecContext(ctx, q, uri.ID)
+	} else {
+		q := "INSERT INTO secret_application_owner (secret_id, application_uuid) VALUES (?, ?)"
+		_, err = s.DB().ExecContext(ctx, q, uri.ID, appUUID)
+	}
+	c.Assert(err, tc.ErrorIsNil)
+
+	revUUIDs := make(map[int]string, len(obsoleteByRevision))
+	for revision, obsolete := range obsoleteByRevision {
+		revUUID := uri.ID + "_revision_" + strconv.Itoa(revision)
+		revUUIDs[revision] = revUUID
+
+		q := "INSERT INTO secret_revision (uuid, secret_id, revision) VALUES (?, ?, ?)"
+		_, err := s.DB().ExecContext(ctx, q, revUUID, uri.ID, revision)
+		c.Assert(err, tc.ErrorIsNil)
+
+		q = "INSERT INTO secret_content (revision_uuid, name, content) VALUES (?, ?, ?)"
+		_, err = s.DB().ExecContext(ctx, q, revUUID, "name", "content-"+strconv.Itoa(revision))
+		c.Assert(err, tc.ErrorIsNil)
+
+		q = "INSERT INTO secret_value_ref (revision_uuid, backend_uuid, revision_id) VALUES (?, ?, ?)"
+		_, err = s.DB().ExecContext(ctx, q, revUUID, "backend-uuid", revUUID)
+		c.Assert(err, tc.ErrorIsNil)
+
+		q = "INSERT INTO secret_revision_obsolete (revision_uuid, obsolete) VALUES (?, ?)"
+		_, err = s.DB().ExecContext(ctx, q, revUUID, obsolete)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	return uri, revUUIDs
+}
+
+func (s *secretSuite) assertRevisionExists(c *tc.C, uri *coresecrets.URI, revision int) {
+	c.Check(s.selectRevisionCount(c, uri, revision), tc.Equals, 1)
+
+}
+func (s *secretSuite) assertRevisionDoesNotExist(c *tc.C, uri *coresecrets.URI, revision int) {
+	c.Check(s.selectRevisionCount(c, uri, revision), tc.Equals, 0)
+}
+
+func (s *secretSuite) selectRevisionCount(c *tc.C, uri *coresecrets.URI, revision int) int {
+	q := "SELECT count(*) FROM secret_revision WHERE secret_id = ? AND revision = ?"
+	row := s.DB().QueryRowContext(c.Context(), q, uri.ID, revision)
+
+	var count int
+	err := row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return count
+}
+
 func (s *secretSuite) addAppAndUnit(c *tc.C) (string, string) {
 	ctx := c.Context()
 
 	charmUUID := "charm-uuid"
-	_, err := s.DB().ExecContext(
-		ctx,
-		"INSERT INTO charm (uuid, reference_name, source_id, architecture_id) VALUES (?, ?, ?, ?)",
-		charmUUID, charmUUID, 1, 0)
+	q := "INSERT INTO charm (uuid, reference_name, source_id, architecture_id) VALUES (?, ?, ?, ?)"
+	_, err := s.DB().ExecContext(ctx, q, charmUUID, charmUUID, 1, 0)
 	c.Assert(err, tc.ErrorIsNil)
 
 	appUUID := "app-uuid"
-	_, err = s.DB().ExecContext(
-		ctx,
-		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)",
-		appUUID, appUUID, 0, charmUUID, network.AlphaSpaceId,
-	)
+	q = "INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)"
+	_, err = s.DB().ExecContext(ctx, q, appUUID, appUUID, 0, charmUUID, network.AlphaSpaceId)
 	c.Assert(err, tc.ErrorIsNil)
 
 	nodeUUID := "net-node-uuid"
@@ -196,9 +405,8 @@ func (s *secretSuite) addAppAndUnit(c *tc.C) (string, string) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	unitUUID := "unit-uuid"
-	_, err = s.DB().Exec(
-		"INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?, ?)",
-		unitUUID, unitUUID, 0, appUUID, charmUUID, nodeUUID)
+	q = "INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?, ?)"
+	_, err = s.DB().Exec(q, unitUUID, unitUUID, 0, appUUID, charmUUID, nodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return appUUID, unitUUID

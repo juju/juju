@@ -155,6 +155,7 @@ var modelPostPatchFilesByVersion = []struct {
 	files: []string{
 		"0049-object-store-node-id.PATCH.sql",
 		"0050-secret.PATCH.sql",
+		"0051-secret-removal.PATCH.sql",
 	},
 }}
 

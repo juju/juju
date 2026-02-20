@@ -5,10 +5,13 @@ package model
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -315,6 +318,272 @@ func (st *State) prepareSecretDeletions() ([]*sqlair.Statement, []*sqlair.Statem
 	}
 
 	return rdStmts, sdStmts, nil
+}
+
+// DeleteUserSecretRevisions deletes the specified revisions of the user secret
+// with the input URI. If revisions is nil or empty, all revisions are deleted.
+// If the last remaining revisions are removed, the secret is deleted.
+// Returns the revision UUIDs that were deleted (for backend cleanup).
+func (st *State) DeleteUserSecretRevisions(ctx context.Context, uri *coresecrets.URI, revs []int) ([]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var deletedUUIDs []string
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		deletedUUIDs, err = st.deleteUserSecretRevisions(ctx, tx, uri, revs)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return deletedUUIDs, nil
+}
+
+// DeleteObsoleteUserSecretRevisions deletes all obsolete revisions of
+// auto-prune user (model-owned) secrets. Returns the deleted revision UUIDs
+// for back-end content cleanup.
+func (st *State) DeleteObsoleteUserSecretRevisions(ctx context.Context) ([]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	q := `
+SELECT smo.secret_id AS &secretID.secret_id,
+       sr.revision AS &secretExternalRevision.revision
+FROM      secret_model_owner smo
+JOIN      secret_metadata sm ON sm.secret_id = smo.secret_id
+JOIN      secret_revision sr ON sr.secret_id = smo.secret_id
+LEFT JOIN secret_revision_obsolete sro ON sro.revision_uuid = sr.uuid
+WHERE     sm.auto_prune = true AND sro.obsolete = true`
+
+	stmt, err := st.Prepare(q, secretID{}, secretExternalRevision{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var deletedRevisionIDs []string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var (
+			dbSecrets    secretIDList
+			dbsecretRevs secretExternalRevisions
+		)
+		err = tx.Query(ctx, stmt).GetAll(&dbSecrets, &dbsecretRevs)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// Nothing to delete.
+			return nil
+		}
+		if err != nil {
+			return errors.Capture(err)
+		}
+		itemsToDelete, err := dbSecrets.toSecretMetadataForDrain(dbsecretRevs)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		for _, toDelete := range itemsToDelete {
+			revs := make([]int, len(toDelete.Revisions))
+			for i, r := range toDelete.Revisions {
+				revs[i] = r.Revision
+			}
+			deleted, err := st.deleteUserSecretRevisions(ctx, tx, toDelete.URI, revs)
+			if err != nil {
+				return errors.Capture(err)
+			}
+			deletedRevisionIDs = append(deletedRevisionIDs, deleted...)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return deletedRevisionIDs, nil
+}
+
+func (st *State) deleteUserSecretRevisions(
+	ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, revNums []int,
+) ([]string, error) {
+	type revisions []int
+
+	// Build the revision filter
+	selectRevisionParams := []any{secretID{ID: uri.ID}}
+	var revFilter string
+	if len(revNums) > 0 {
+		revFilter = "\nAND r.revision IN ($revisions[:])"
+		selectRevisionParams = append(selectRevisionParams, revisions(revNums))
+	}
+
+	// Query to get revision UUIDs to delete.
+	selectRevsQuery := fmt.Sprintf(`
+SELECT uuid AS &entityUUID.uuid
+FROM   secret_revision r
+WHERE  secret_id = $secretID.secret_id%s
+`, revFilter)
+
+	selectRevsStmt, err := st.Prepare(selectRevsQuery, append(selectRevisionParams, entityUUID{})...)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Query to count remaining revisions.
+	countRevisions := `SELECT count(*) AS &M.count FROM secret_revision WHERE secret_id = $secretID.secret_id`
+	countRevisionsStmt, err := st.Prepare(countRevisions, secretID{}, sqlair.M{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Get the revision UUIDs to delete.
+	var revUUIDs []entityUUID
+	err = tx.Query(ctx, selectRevsStmt, selectRevisionParams...).GetAll(&revUUIDs)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("selecting revision UUIDs to delete: %w", err)
+	}
+	if len(revUUIDs) == 0 {
+		// No revisions found - this is OK, secret might already be deleted
+		return nil, nil
+	}
+
+	// Convert to string slice.
+	revUUIDStrs := make(uuids, len(revUUIDs))
+	for i, r := range revUUIDs {
+		revUUIDStrs[i] = r.UUID
+	}
+
+	st.logger.Debugf(ctx, "deleting %d revisions for secret %q", len(revUUIDStrs), uri.String())
+
+	// Delete revision data.
+	deleteRevisionQueries := []string{
+		`DELETE FROM secret_revision_expire WHERE revision_uuid IN ($uuids[:])`,
+		`DELETE FROM secret_content WHERE revision_uuid IN ($uuids[:])`,
+		`
+INSERT OR IGNORE INTO secret_deleted_value_ref (revision_uuid,backend_uuid,revision_id)
+SELECT revision_uuid,backend_uuid,revision_id 
+FROM secret_value_ref 
+WHERE revision_uuid IN ($uuids[:])`,
+		`DELETE FROM secret_value_ref WHERE revision_uuid IN ($uuids[:])`,
+		`DELETE FROM secret_revision_obsolete WHERE revision_uuid IN ($uuids[:])`,
+		`DELETE FROM secret_revision WHERE uuid IN ($uuids[:])`,
+	}
+
+	for _, q := range deleteRevisionQueries {
+		stmt, err := st.Prepare(q, revUUIDStrs)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		if err := tx.Query(ctx, stmt, revUUIDStrs).Run(); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return nil, errors.Errorf("deleting revision data: %w", err)
+		}
+	}
+
+	// Check if any revisions remain.
+	countResult := sqlair.M{}
+	err = tx.Query(ctx, countRevisionsStmt, secretID{ID: uri.ID}).Get(&countResult)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("counting remaining revisions: %w", err)
+	}
+
+	count := 0
+	if countResult != nil && countResult["count"] != nil {
+		count, _ = strconv.Atoi(fmt.Sprint(countResult["count"]))
+	}
+
+	// If there are still some revisions, leave the secret alone.
+	if count > 0 {
+		return revUUIDStrs, nil
+	}
+
+	// No revisions remain, delete the secret and all related records.
+	deleteSecretQueries := []string{
+		`DELETE FROM secret_rotation WHERE secret_id = $secretID.secret_id`,
+		`DELETE FROM secret_unit_owner WHERE secret_id = $secretID.secret_id`,
+		`DELETE FROM secret_application_owner WHERE secret_id = $secretID.secret_id`,
+		`DELETE FROM secret_model_owner WHERE secret_id = $secretID.secret_id`,
+		`DELETE FROM secret_unit_consumer WHERE secret_id = $secretID.secret_id`,
+		`DELETE FROM secret_remote_unit_consumer WHERE secret_id = $secretID.secret_id`,
+		`DELETE FROM secret_reference WHERE secret_id = $secretID.secret_id`,
+		`DELETE FROM secret_permission WHERE secret_id = $secretID.secret_id`,
+		`DELETE FROM secret_metadata WHERE secret_id = $secretID.secret_id`,
+		`DELETE FROM secret WHERE id = $secretID.secret_id`,
+	}
+
+	for _, q := range deleteSecretQueries {
+		stmt, err := st.Prepare(q, secretID{ID: uri.ID})
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		if err := tx.Query(ctx, stmt, secretID{ID: uri.ID}).Run(); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return nil, errors.Errorf("deleting secret data: %w", err)
+		}
+	}
+
+	return revUUIDStrs, nil
+}
+
+// GetUserSecretRevisionRefs returns the back-end value references for the
+// specified revision UUIDs.
+func (st *State) GetUserSecretRevisionRefs(ctx context.Context, revs []string) ([]string, error) {
+	if len(revs) == 0 {
+		return nil, nil
+	}
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	q := `
+SELECT revision_id AS &entityUUID.uuid
+FROM   secret_deleted_value_ref
+WHERE  revision_uuid IN ($uuids[:])`
+
+	stmt, err := st.Prepare(q, uuids{}, entityUUID{})
+	if err != nil {
+		return nil, errors.Errorf("preparing backend refs query: %w", err)
+	}
+
+	var refs []entityUUID
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, uuids(revs)).GetAll(&refs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("selecting backend refs query: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make([]string, len(refs))
+	for i, r := range refs {
+		result[i] = r.UUID
+	}
+	return result, nil
+}
+
+// DeleteUserSecretRevisionRef deletes the back-end value reference for the
+// specified deleted revision UUID.
+func (st *State) DeleteUserSecretRevisionRef(ctx context.Context, revisionID string) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+DELETE FROM secret_deleted_value_ref
+WHERE  revision_id = $secretExternalRevision.revision_id
+`, secretExternalRevision{})
+	if err != nil {
+		return errors.Errorf("preparing deleted value ref deletion query: %w", err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		param := secretExternalRevision{RevisionID: revisionID}
+		if err := tx.Query(ctx, stmt, param).Run(); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("deleting deleted value ref for revision %q: %w", revisionID, err)
+		}
+		return nil
+	}))
 }
 
 func (st *State) deleteOwnedSecretReferences(ctx context.Context, tx *sqlair.TX, appUUID entityUUID) error {

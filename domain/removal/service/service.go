@@ -195,6 +195,12 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 	case removal.ControllerModelJob:
 		err = s.processControllerModelJob(ctx, job)
 
+	case removal.UserSecretJob:
+		err = s.processUserSecretRemovalJob(ctx, job)
+
+	case removal.ObsoleteUserSecretRevisionsJob:
+		err = s.processObsoleteUserSecretRevisionsJob(ctx, job)
+
 	default:
 		err = errors.Errorf("removal job type %q not supported", job.RemovalType).Add(
 			removalerrors.RemovalJobTypeNotSupported)

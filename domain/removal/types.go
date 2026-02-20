@@ -51,6 +51,11 @@ const (
 	RelationWithRemoteConsumerJob
 	// ControllerModelJob indicates a job to remove a controller model.
 	ControllerModelJob
+	// UserSecretJob indicates a job to remove a user secret.
+	UserSecretJob
+	// ObsoleteUserSecretRevisionsJob indicates a job to prune obsolete
+	// user secret revisions.
+	ObsoleteUserSecretRevisionsJob
 )
 
 // String is used in logging output make job type identifiers readable.
@@ -89,6 +94,10 @@ func (t JobType) String() string {
 		return "relation with remote consumer"
 	case ControllerModelJob:
 		return "controller model"
+	case UserSecretJob:
+		return "user secret"
+	case ObsoleteUserSecretRevisionsJob:
+		return "obsolete user secret revisions"
 	default:
 		return strconv.FormatInt(int64(t), 10)
 	}
