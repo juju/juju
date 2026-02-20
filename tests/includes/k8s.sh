@@ -10,7 +10,11 @@ kubectl() {
 	esac
 	case "${k8s}" in
 	"microk8s")
-		microk8s kubectl "$@"
+		if [ "$1" = "config" ] && [ "$2" = "view" ]; then
+			microk8s.config
+		else
+			microk8s kubectl "$@"
+		fi
 		;;
 	"minikube")
 		minikube kubectl -- "$@"

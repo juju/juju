@@ -19,7 +19,7 @@ run_show_clouds() {
 	fi
 
 	EXPECTED=$(
-		cat <<'EOF'
+		yq <<'EOF'
 {
   "defined": "public",
   "type": "ec2",

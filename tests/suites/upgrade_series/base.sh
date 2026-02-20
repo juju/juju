@@ -37,7 +37,7 @@ assert_machine_base() {
 	local machine expected_base actual_base
 	machine=$1
 	expected_base=$2
-	actual_base=$(juju status --format=json | yq -r ".machines[\"$machine\"] | (.base.name+\"@\"+.base.channel)")
+	actual_base=$(juju status --format=json | machine=$machine yq -r ".machines[env(machine)] | (.base.name+\"@\"+.base.channel)")
 
 	if [[ $expected_base == "$actual_base" ]]; then
 		echo "Machine $machine has base $actual_base"

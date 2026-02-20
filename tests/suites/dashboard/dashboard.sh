@@ -37,7 +37,8 @@ test_dashboard_deploy() {
 
 open_dashboard() {
 	push_daemon_scope
-	trap 'pop_daemon_scope' RETURN
+	local expected_scope_depth=${DAEMON_SCOPE_DEPTH}
+	trap "pop_daemon_scope ${expected_scope_depth}" RETURN
 	
 	daemon juju dashboard
 	sleep 10

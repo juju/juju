@@ -82,7 +82,7 @@ exec_simplestream_metadata() {
 		--show-log \
 		--agent-version="${stable_version}" \
 		--bootstrap-series="${BOOTSTRAP_SERIES}" \
-		--config agent-metadata-url="http://${server_address}:8666/" ${extra_opts} 2>&1 | OUTPUT "${file}"
+		--config agent-metadata-url="http://${server_address}:8666/" ${extra_opts:-} 2>&1 | OUTPUT "${file}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
 
 	juju add-model test-upgrade-"${test_name}"

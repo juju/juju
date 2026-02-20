@@ -16,7 +16,7 @@ run_upgrade_charm_with_bind() {
 	add_multi_nic_machine "$hotplug_nic_id"
 
 	juju_machine_id=$(juju show-machine --format json | yq -r '.["machines"] | keys[0]')
-	ifaces=$(juju ssh ${juju_machine_id} 'ip -j link' | yq -r '.[].ifname | select(. | startswith("en") or startswith("eth"))')
+	ifaces=$(juju ssh ${juju_machine_id} 'ip -j link' | yq -r '.[].ifname | select(. == "en*" or . == "eth*")')
 	primary_iface=$(echo $ifaces | cut -d " " -f1)
 	hotplug_iface=$(echo $ifaces | cut -d " " -f2)
 	configure_multi_nic_netplan "$juju_machine_id" "$hotplug_iface"

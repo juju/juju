@@ -38,7 +38,7 @@ run_simplestream_metadata() {
 		--config test-mode=true \
 		--add-model=default \
 		--bootstrap-series="${BOOTSTRAP_SERIES}" \
-		--agent-version="${JUJUD_VERSION}" ${extra_opts} 2>&1 | OUTPUT "${file}"
+		--agent-version="${JUJUD_VERSION}" ${extra_opts:-} 2>&1 | OUTPUT "${file}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
 
 	juju deploy jameinel-ubuntu-lite

@@ -303,7 +303,13 @@ pre_bootstrap() {
 		else
 			version=$(juju_version)
 		fi
-		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --agent-version=${version}"
+		
+		local extra_opts
+		if [[ ${version} == "3.6.14" ]]; then
+			extra_opts="--config juju-db-snap-channel=4.4/stable"
+		fi
+		
+		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --agent-version=${version} ${extra_opts:-}"
 	fi
 
 	if [[ -n ${SHORT_GIT_COMMIT:-} ]]; then

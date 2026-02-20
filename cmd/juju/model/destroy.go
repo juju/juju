@@ -469,7 +469,7 @@ func summarizeModelStatus(ctx *cmd.Context, api DestroyModelAPI, tag names.Model
 		err = status[0].Error
 	}
 	if err != nil {
-		if params.IsCodeNotFound(err) {
+		if params.IsCodeNotFound(err) || errors.Is(err, io.EOF) {
 			ctx.Infof("\nModel destroyed.")
 		} else {
 			ctx.Infof("Unable to get the model status from the API: %v.", err)

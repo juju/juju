@@ -84,7 +84,7 @@ run_deploy_manual_aws() {
 		echo "===> Re-using vpc $vpc_id"
 	fi
 
-	OUT=$(aws ec2 describe-internet-gateways | yq ".InternetGateways[] | select(.Attachments[0].VpcId == \"${vpc_id}\")")
+	OUT=$(aws ec2 describe-internet-gateways | vpc_id=$vpc_id yq '.InternetGateways[] | select(.Attachments[0].VpcId == env(vpc_id))')
 	if [[ -z ${OUT} ]]; then
 		igw_id=$(create_igw)
 		echo "===> Created igw $igw_id"
@@ -93,7 +93,7 @@ run_deploy_manual_aws() {
 		echo "===> Re-using igw $igw_id"
 	fi
 
-	OUT=$(aws ec2 describe-subnets | yq ".Subnets[] | select(.VpcId == \"${vpc_id}\")" || true)
+	OUT=$(aws ec2 describe-subnets | vpc_id=$vpc_id yq '.Subnets[] | select(.VpcId == env(vpc_id))' || true)
 	if [[ -z ${OUT} ]]; then
 		subnet_id=$(create_subnet)
 		echo "===> Created subnet $subnet_id"
@@ -102,7 +102,7 @@ run_deploy_manual_aws() {
 		echo "===> Re-using subnet $subnet_id"
 	fi
 
-	OUT=$(aws ec2 describe-security-groups | yq ".SecurityGroups[] | select(.VpcId==\"${vpc_id}\" and .GroupName==\"ci-manual-deploy\")" || true)
+	OUT=$(aws ec2 describe-security-groups | vpc_id=$vpc_id yq '.SecurityGroups[] | select(.VpcId==env(vpc_id) and .GroupName=="ci-manual-deploy")' || true)
 	if [[ -z ${OUT} ]]; then
 		sg_id=$(create_secgroup)
 		echo "===> Created secgroup $sg_id"

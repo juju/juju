@@ -15,13 +15,13 @@ run_deploy_local_charm_revision() {
 
 	# Initialise a git repo to check the commit SHA is used as the charm version.
 	create_local_git_and_commit_all
-	SHA_OF_UBUNTU_PLUS=\"$(git describe --dirty --always)\"
+	SHA_OF_UBUNTU_PLUS=$(git describe --dirty --always)
 
 	# Deploy from directory.
 	juju deploy .
 
 	wait_for "ubuntu-plus" ".applications | keys[0]"
-	CURRENT_CHARM_SHA=$(juju status --format=json | yq '.applications."ubuntu-plus"."charm-version"')
+	CURRENT_CHARM_SHA=$(juju status --format=json | yq -r '.applications."ubuntu-plus"."charm-version"')
 
 	if [ "${SHA_OF_UBUNTU_PLUS}" != "${CURRENT_CHARM_SHA}" ]; then
 		echo "The expected sha does not equal the ntp SHA"

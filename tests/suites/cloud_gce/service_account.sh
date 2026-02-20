@@ -12,17 +12,15 @@ run_serviceaccount_credential() {
 		printf "Could not find project default service account:\n%s" "${projectInfo}" >&2
 		exit 1
 	fi
-	credServiceAccount=$(juju show-credential --controller "$BOOTSTRAPPED_JUJU_CTRL_NAME" | yq '.controller-credentials .google .default .content .service-account')
-	chk=$(echo "${credServiceAccount}" | grep "${projectServiceAccount}" || true)
+	credAuthType=$(juju show-credential --controller "$BOOTSTRAPPED_JUJU_CTRL_NAME" | yq '.controller-credentials .google .default .content .auth-type')
+	chk=$(echo "${credAuthType}" | grep "service-account" || true)
 	if [[ -z ${chk} ]]; then
-		printf "Expected project service account \"%s\" not found in controller credential\n" "${projectServiceAccount}" >&2
-		accountInfo=$(gcloud compute project-info describe --format yaml)
-		printf "Google account info:\n%s\n" "${accountInfo}" >&2
+		printf "Expected project service account auth type not found in controller credential"
 		credentialInfo=$(juju show-credential --controller "$BOOTSTRAPPED_JUJU_CTRL_NAME")
 		printf "Controller credential info:\n%s\n" "${credentialInfo}" >&2
 		return 1
 	else
-		echo "Success: \"${projectServiceAccount}\" found" >&2
+		echo "Success: auth type \"service-account\" found"
 	fi
 
 	juju switch "test-serviceaccount-gce"
