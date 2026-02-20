@@ -422,13 +422,25 @@ func (a *StorageAPI) StorageDetails(ctx context.Context, entities params.Entitie
 
 // ListStorageDetails returns detailed information for every storage instance
 // within the model. ListStorageDetails does not currently support any filtering
-// of the information returned.
+// of the information returned. At least one filter arg is required to be
+// supplied by the caller.
 func (a *StorageAPI) ListStorageDetails(
 	ctx context.Context,
-	_ params.StorageFilters,
+	filters params.StorageFilters,
 ) (params.StorageDetailsListResults, error) {
 	if err := a.checkCanRead(ctx); err != nil {
 		return params.StorageDetailsListResults{}, errors.Capture(err)
+	}
+
+	// While filters don't filter anything in this facade we do require at least
+	// one be supplied by the caller. This is so that we can match the results
+	// to the filter index.
+	//
+	// This check must always occur after permission checks.
+	if len(filters.Filters) == 0 {
+		return params.StorageDetailsListResults{}, apiservererrors.ParamsErrorf(
+			params.CodeNotValid, "at least one filter is required",
+		)
 	}
 
 	// processStorageInstance is responsible for taking a single storage
@@ -436,7 +448,7 @@ func (a *StorageAPI) ListStorageDetails(
 	// [params.StorageDetails] struct to provide to the caller.
 	processStorageInstance := func(
 		si statusservice.StorageInstance,
-	) (params.StorageDetails, error) {
+	) params.StorageDetails {
 		retVal := params.StorageDetails{}
 		storageInstTag := names.NewStorageTag(si.ID)
 		retVal.StorageTag = storageInstTag.String()
@@ -495,7 +507,7 @@ func (a *StorageAPI) ListStorageDetails(
 
 			retVal.Attachments[unitTag.String()] = sad
 		}
-		return retVal, nil
+		return retVal
 	}
 
 	// We don't support any storage filtering at the moment.
@@ -515,23 +527,19 @@ func (a *StorageAPI) ListStorageDetails(
 
 	results := make([]params.StorageDetails, 0, len(storageInstances))
 	for _, storageInstance := range storageInstances {
-		storageDetails, err := processStorageInstance(storageInstance)
-		if err != nil {
-			return params.StorageDetailsListResults{
-				Results: []params.StorageDetailsListResult{{
-					Error: apiservererrors.ServerError(err),
-				}},
-			}, nil
-		}
-
-		results = append(results, storageDetails)
+		results = append(results, processStorageInstance(storageInstance))
 	}
 
-	return params.StorageDetailsListResults{
-		Results: []params.StorageDetailsListResult{{
+	retVal := params.StorageDetailsListResults{
+		Results: make([]params.StorageDetailsListResult, 0, len(filters.Filters)),
+	}
+	for range filters.Filters {
+		retVal.Results = append(retVal.Results, params.StorageDetailsListResult{
 			Result: results,
-		}},
-	}, nil
+		})
+	}
+
+	return retVal, nil
 }
 
 // ListVolumes lists volumes with the given filters. Each filter produces
@@ -656,8 +664,32 @@ func (a *StorageAPI) volumeDetails(
 
 	for _, v := range storageInstances {
 		details := params.StorageDetails{
+			Status: params.EntityStatus{
+				Status: v.Status.Status,
+				Info:   v.Status.Message,
+				Data:   v.Status.Data,
+				Since:  v.Status.Since,
+			},
 			StorageTag: names.NewStorageTag(v.ID).String(),
 			Life:       v.Life,
+		}
+		if v.Status.Since == nil {
+			// This prevents a panic in clients due to a storage instance after
+			// 4.0 possibly having no filesystem or volume to get a status from.
+			// This is poor API design anyway, since a storage instance does not
+			// have a status, instead, we've pulled one from the provisioned
+			// entities.
+			zeroTime := time.UnixMicro(0).UTC()
+			details.Status.Since = &zeroTime
+		}
+		if v.Status.Since == nil {
+			// This prevents a panic in clients due to a storage instance after
+			// 4.0 possibly having no filesystem or volume to get a status from.
+			// This is poor API design anyway, since a storage instance does not
+			// have a status, instead, we've pulled one from the provisioned
+			// entities.
+			zeroTime := time.UnixMicro(0).UTC()
+			details.Status.Since = &zeroTime
 		}
 		if v.Owner != nil {
 			details.OwnerTag = names.NewUnitTag(v.Owner.String()).String()
@@ -709,6 +741,16 @@ func (a *StorageAPI) volumeDetails(
 				Since:  v.Status.Since,
 			},
 		}
+		if v.Status.Since == nil {
+			// This prevents a panic in clients due to a storage instance after
+			// 4.0 possibly having no filesystem or volume to get a status from.
+			// This is poor API design anyway, since a storage instance does not
+			// have a status, instead, we've pulled one from the provisioned
+			// entities.
+			zeroTime := time.UnixMicro(0).UTC()
+			details.Status.Since = &zeroTime
+		}
+
 		unitAttachmentLocations := map[string]string{}
 		for unit, va := range v.UnitAttachments {
 			vad := params.VolumeAttachmentDetails{
@@ -959,6 +1001,16 @@ func (a *StorageAPI) filesystemDetails(
 				Since:  v.Status.Since,
 			},
 		}
+		if v.Status.Since == nil {
+			// This prevents a panic in clients due to a storage instance after
+			// 4.0 possibly having no filesystem or volume to get a status from.
+			// This is poor API design anyway, since a storage instance does not
+			// have a status, instead, we've pulled one from the provisioned
+			// entities.
+			zeroTime := time.UnixMicro(0).UTC()
+			details.Status.Since = &zeroTime
+		}
+
 		if v.VolumeID != nil {
 			details.VolumeTag = names.NewVolumeTag(*v.VolumeID).String()
 		}
