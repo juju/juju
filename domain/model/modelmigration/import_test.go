@@ -551,3 +551,7 @@ func (i *importSuite) TestModelActivate(c *tc.C) {
 	err := importOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIsNil)
 }
+
+func ptr[T any](v T) *T {
+	return &v
+}

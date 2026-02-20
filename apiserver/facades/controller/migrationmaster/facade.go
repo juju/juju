@@ -7,32 +7,22 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/juju/collections/set"
-	"github.com/juju/description/v11"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/naturalsort"
 	"github.com/juju/juju/rpc/params"
 )
-
-// ModelExporter exports a model to a description.Model.
-type ModelExporter interface {
-	// ExportModel exports a model to a description.Model.
-	// It requires a known set of leaders to be passed in, so that applications
-	// can have their leader set correctly once imported.
-	// The objectstore is used to retrieve charms and resources for export.
-	ExportModel(context.Context, objectstore.ObjectStore) (description.Model, error)
-}
 
 // APIV4 implements the API V4.
 type APIV4 struct {
@@ -42,7 +32,6 @@ type APIV4 struct {
 // API implements the API required for the model migration
 // master worker.
 type API struct {
-	modelExporter               ModelExporter
 	authorizer                  facade.Authorizer
 	watcherRegistry             facade.WatcherRegistry
 	leadership                  leadership.Reader
@@ -66,7 +55,6 @@ type API struct {
 // NewAPI creates a new API server endpoint for the model migration
 // master worker.
 func NewAPI(
-	modelExporter ModelExporter,
 	store objectstore.ObjectStore,
 	controllerModelUUID coremodel.UUID,
 	watcherRegistry facade.WatcherRegistry,
@@ -91,7 +79,6 @@ func NewAPI(
 	}
 
 	return &API{
-		modelExporter:               modelExporter,
 		store:                       store,
 		controllerModelUUID:         controllerModelUUID,
 		authorizer:                  authorizer,
@@ -183,22 +170,14 @@ func (api *API) ModelInfo(ctx context.Context) (params.MigrationModelInfo, error
 		return empty, errors.Annotate(err, "retrieving model info")
 	}
 
-	model, err := api.modelExporter.ExportModel(ctx, api.store)
-	if err != nil {
-		return empty, errors.Annotate(err, "retrieving model")
-	}
-
-	modelDescription, err := description.Serialize(model)
-	if err != nil {
-		return empty, errors.Annotate(err, "serializing model")
-	}
+	// TODO (modelmigration): return model description, depending on if we want
+	// to do pre-migration checks with the new migration code or not.
 
 	return params.MigrationModelInfo{
-		UUID:             modelInfo.UUID.String(),
-		Name:             modelInfo.Name,
-		Qualifier:        modelInfo.Qualifier.String(),
-		AgentVersion:     modelInfo.AgentVersion,
-		ModelDescription: modelDescription,
+		UUID:         modelInfo.UUID.String(),
+		Name:         modelInfo.Name,
+		Qualifier:    modelInfo.Qualifier.String(),
+		AgentVersion: modelInfo.AgentVersion,
 	}, nil
 }
 
@@ -305,24 +284,7 @@ func (api *API) SetStatusMessage(ctx context.Context, args params.SetMigrationSt
 
 // Export serializes the model associated with the API connection.
 func (api *API) Export(ctx context.Context) (params.SerializedModel, error) {
-	var serialized params.SerializedModel
-
-	model, err := api.modelExporter.ExportModel(ctx, api.store)
-	if err != nil {
-		return serialized, err
-	}
-
-	bytes, err := description.Serialize(model)
-	if err != nil {
-		return serialized, err
-	}
-	serialized.Bytes = bytes
-	serialized.Charms = getUsedCharms(model)
-	serialized.Resources = getUsedResources(model)
-	if model.Type() == string(coremodel.IAAS) {
-		serialized.Tools = getUsedTools(model)
-	}
-	return serialized, nil
+	return params.SerializedModel{}, internalerrors.New("export not supported in this API version").Add(coreerrors.NotSupported)
 }
 
 // ProcessRelations processes any relations that need updating after an export.
@@ -439,77 +401,4 @@ func (api *API) MinionReportTimeout(ctx context.Context) (params.StringResult, e
 		return params.StringResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 	return params.StringResult{Result: cfg.MigrationMinionWaitMax().String()}, nil
-}
-
-func getUsedCharms(model description.Model) []string {
-	result := set.NewStrings()
-	for _, application := range model.Applications() {
-		result.Add(application.CharmURL())
-	}
-	return result.Values()
-}
-
-func getUsedTools(model description.Model) []params.SerializedModelTools {
-	// Iterate through the model for all tools, and make a map of them.
-	tools := map[string]params.SerializedModelTools{}
-
-	addTools := func(agentTools description.AgentTools) {
-		if _, exists := tools[agentTools.SHA256()]; exists {
-			return
-		}
-
-		tools[agentTools.SHA256()] = params.SerializedModelTools{
-			Version: agentTools.Version(),
-			SHA256:  agentTools.SHA256(),
-			URI:     common.ToolsURL("", agentTools.Version()),
-		}
-	}
-
-	for _, machine := range model.Machines() {
-		addTools(machine.Tools())
-		for _, container := range machine.Containers() {
-			addTools(container.Tools())
-		}
-	}
-	for _, application := range model.Applications() {
-		for _, unit := range application.Units() {
-			addTools(unit.Tools())
-		}
-	}
-
-	out := make([]params.SerializedModelTools, 0, len(tools))
-	for _, v := range tools {
-		out = append(out, v)
-	}
-	return out
-}
-
-func getUsedResources(model description.Model) []params.SerializedModelResource {
-	var out []params.SerializedModelResource
-	for _, app := range model.Applications() {
-		for _, resource := range app.Resources() {
-			out = append(out, resourceToSerialized(app.Name(), resource))
-		}
-
-	}
-	return out
-}
-
-func resourceToSerialized(app string, desc description.Resource) params.SerializedModelResource {
-	res := params.SerializedModelResource{
-		Application: app,
-		Name:        desc.Name(),
-	}
-	rr := desc.ApplicationRevision()
-	if rr == nil {
-		return res
-	}
-	res.Revision = rr.Revision()
-	res.Type = rr.Type()
-	res.Origin = rr.Origin()
-	res.FingerprintHex = rr.SHA384()
-	res.Size = rr.Size()
-	res.Timestamp = rr.Timestamp()
-	res.Username = rr.RetrievedBy()
-	return res
 }

@@ -580,6 +580,12 @@ rebuild-triggers:
 	@echo "Generating trigger schema..."
 	@env GOOS= GOARCH= CGO_ENABLED=1 go generate -tags="libsqlite3" $(COMPILE_FLAGS) -x ./domain/schema
 
+.PHONY: rebuild-ddl
+rebuild-ddl:
+## rebuild-ddl: Rebuild the SQL DDL schema
+	@echo "Generating DDL schema..."
+	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/ddlgen
+
 .PHONY: install-snap-dependencies
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.

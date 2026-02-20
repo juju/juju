@@ -3,142 +3,26 @@
 
 package modelmigration
 
-import (
-	"github.com/juju/clock"
-	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
-
-	charmtesting "github.com/juju/juju/core/charm/testing"
-	"github.com/juju/juju/core/constraints"
-	unit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/application"
-	"github.com/juju/juju/domain/application/architecture"
-	"github.com/juju/juju/domain/application/charm"
-	"github.com/juju/juju/domain/deployment"
-	internalcharm "github.com/juju/juju/domain/deployment/charm"
-	"github.com/juju/juju/internal/testhelpers"
-)
-
-//go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/application/modelmigration ImportService,ExportService
+//go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/application/modelmigration ImportService
 //go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination description_mock_test.go github.com/juju/description/v11 CharmMetadata,CharmMetadataRelation,CharmMetadataStorage,CharmMetadataDevice,CharmMetadataResource,CharmMetadataContainer,CharmMetadataContainerMount,CharmManifest,CharmManifestBase,CharmActions,CharmAction,CharmConfigs,CharmConfig
 
-type exportSuite struct {
-	testhelpers.IsolationSuite
-
-	exportService *MockExportService
+type baseType struct {
+	name          string
+	channel       string
+	architectures []string
 }
 
-func (s *exportSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.exportService = NewMockExportService(ctrl)
-
-	return ctrl
+// Name returns the name of the base.
+func (b baseType) Name() string {
+	return b.name
 }
 
-func (s *exportSuite) newExportOperation() exportOperation {
-	return exportOperation{
-		service: s.exportService,
-		clock:   clock.WallClock,
-	}
+// Channel returns the channel of the base.
+func (b baseType) Channel() string {
+	return b.channel
 }
 
-func (s *exportSuite) expectApplication(c *tc.C) {
-	s.expectApplicationFor(c, "prometheus")
-}
-
-func (s *exportSuite) expectApplicationFor(c *tc.C, name string) {
-	charmUUID := charmtesting.GenCharmID(c)
-
-	s.exportService.EXPECT().GetApplications(gomock.Any()).Return([]application.ExportApplication{{
-		Name:      name,
-		CharmUUID: charmUUID,
-		CharmLocator: charm.CharmLocator{
-			Source:       charm.CharmHubSource,
-			Name:         name,
-			Revision:     42,
-			Architecture: architecture.AMD64,
-		},
-	}}, nil)
-	s.exportService.EXPECT().GetApplicationCharmOrigin(gomock.Any(), name).Return(application.CharmOrigin{
-		Name:   name,
-		Source: charm.CharmHubSource,
-		Platform: deployment.Platform{
-			OSType:       deployment.Ubuntu,
-			Channel:      "24.04",
-			Architecture: architecture.AMD64,
-		},
-	}, nil)
-}
-
-func (s *exportSuite) expectCharmOriginFor(name string) {
-	s.exportService.EXPECT().GetApplicationCharmOrigin(gomock.Any(), name).Return(application.CharmOrigin{
-		Name:   name,
-		Source: charm.CharmHubSource,
-		Platform: deployment.Platform{
-			OSType:       deployment.Ubuntu,
-			Channel:      "24.04",
-			Architecture: architecture.AMD64,
-		},
-	}, nil)
-}
-
-func (s *exportSuite) expectMinimalCharm() {
-	s.expectMinimalCharmFor("prometheus")
-}
-
-func (s *exportSuite) expectMinimalCharmFor(name string) {
-	meta := &internalcharm.Meta{
-		Name: name,
-	}
-	cfg := &internalcharm.ConfigSpec{
-		Options: map[string]internalcharm.Option{
-			"foo": {
-				Type:    "string",
-				Default: "baz",
-			},
-		},
-	}
-	ch := internalcharm.NewCharmBase(meta, nil, cfg, nil, nil)
-	locator := charm.CharmLocator{
-		Revision: 1,
-	}
-	s.exportService.EXPECT().GetCharmByApplicationName(gomock.Any(), name).Return(ch, locator, nil)
-}
-
-func (s *exportSuite) expectApplicationConfig() {
-	s.expectApplicationConfigFor("prometheus")
-}
-
-func (s *exportSuite) expectApplicationConfigFor(name string) {
-	config := internalcharm.Config{
-		"foo": "bar",
-	}
-	settings := application.ApplicationSettings{
-		Trust: true,
-	}
-	s.exportService.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), name).Return(config, settings, nil)
-}
-
-func (s *exportSuite) expectGetApplicationScaleStateFor(name string, scaleState application.ScaleState) {
-	exp := s.exportService.EXPECT()
-	exp.GetApplicationScaleState(gomock.Any(), name).Return(scaleState, nil)
-}
-
-func (s *exportSuite) expectApplicationConstraints(cons constraints.Value) {
-	s.expectApplicationConstraintsFor("prometheus", cons)
-}
-
-func (s *exportSuite) expectApplicationConstraintsFor(name string, cons constraints.Value) {
-	s.exportService.EXPECT().GetApplicationConstraints(gomock.Any(), name).Return(cons, nil)
-}
-
-func (s *exportSuite) expectApplicationUnits() {
-	s.expectApplicationUnitsFor("prometheus")
-}
-
-func (s *exportSuite) expectApplicationUnitsFor(name string) {
-	s.exportService.EXPECT().GetApplicationUnits(gomock.Any(), name).Return([]application.ExportUnit{{
-		Name: unit.Name(name + "/0"),
-	}}, nil)
+// Architectures returns the architectures of the base.
+func (b baseType) Architectures() []string {
+	return b.architectures
 }

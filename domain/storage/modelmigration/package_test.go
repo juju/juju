@@ -3,6 +3,6 @@
 
 package modelmigration
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/storage/modelmigration Coordinator,ImportService,ExportService
+//go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/storage/modelmigration Coordinator,ImportService
 //go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination modelstorageregistry_mock_test.go github.com/juju/juju/core/storage ModelStorageRegistryGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination storage_mock_test.go github.com/juju/juju/internal/storage ProviderRegistry,Provider
