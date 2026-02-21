@@ -312,14 +312,14 @@ wait_for_model() {
 	attempt=0
 	# shellcheck disable=SC2046,SC2143
 	until [ $(juju models --format=json | yq -r ".models | .[] | select(.[\"short-name\"] == \"${name}\") | .[\"short-name\"]" | grep "${name}") ]; do
-		echo "[+] (attempt ${attempt}) polling models"
+		echo "[+] (attempt ${attempt}) polling for model ${name}"
 		juju models | sed 's/^/    | /g'
 		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))
 	done
 
 	if [[ ${attempt} -gt 0 ]]; then
-		echo "[+] $(green 'Completed polling models')"
+		echo "[+] $(green "Completed polling for model ${name}")"
 		juju models | sed 's/^/    | /g'
 		sleep "${SHORT_TIMEOUT}"
 	fi
