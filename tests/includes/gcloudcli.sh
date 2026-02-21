@@ -5,9 +5,8 @@ setup_gcloudcli_credential() {
 		fi
 	fi
 
-	# Check if a service account is already active
-	if gcloud auth list --filter="status:ACTIVE" \
-		--format="value(account)" | grep -q 'gserviceaccount\.com$'; then
+	# Check if an account is already active
+	if [[ "$(gcloud config get account 2>&1)" != "(unset)" ]]; then
 		return
 	fi
 
