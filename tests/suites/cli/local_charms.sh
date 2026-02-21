@@ -100,24 +100,24 @@ run_deploy_local_charm_revision_relative_path() {
 
 	# Initialise a git repo and commit everything so that commit SHA is used as the charm version.
 	create_local_git_and_commit_all
-	SHA_OF_UBUNTU_PLUS=\"$(git describe --dirty --always)\"
+	SHA_OF_UBUNTU_PLUS=$(git describe --dirty --always)
 
 	# Create git directory outside the charm directory
 	cd ..
 	create_local_git_folder
-	SHA_OF_TMP=\"$(git describe --dirty --always)\"
+	SHA_OF_TMP=$(git describe --dirty --always)
 
 	# state: there is a git repo in the current directory, $TMP, but the correct
 	# git repo is in $TMP/ubuntu-plus.
 	juju deploy ./ubuntu-plus 2>&1
 
 	cd "${TMP}/ubuntu-plus" || exit 1
-	SHA_OF_UBUNTU_PLUS=\"$(git describe --dirty --always)\"
+	SHA_OF_UBUNTU_PLUS=$(git describe --dirty --always)
 
 	wait_for "ubuntu-plus" "select(.applications) | .applications | keys[0]"
 
 	# We still expect the SHA to be the one from the place we deploy and not the CWD, which in this case has no SHA
-	CURRENT_CHARM_SHA=$(juju status --format=json | yq '.applications."ubuntu-plus"."charm-version"')
+	CURRENT_CHARM_SHA=$(juju status --format=json | yq -r '.applications."ubuntu-plus"."charm-version"')
 
 	if [ "${SHA_OF_TMP}" = "${CURRENT_CHARM_SHA}" ]; then
 		echo "The expected sha should not equal the tmp SHA. Current sha: ${CURRENT_CHARM_SHA}"

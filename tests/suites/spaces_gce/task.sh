@@ -53,11 +53,12 @@ ensure_subnets() {
 	fi
 
 	for i in "subnet1 10.104.0.0/20" "subnet2 10.142.0.0/20"; do
-		set -- $i
-		existing_range=$(gcloud compute networks subnets list --regions "${region}" --format json | network_name=$network_name cidr=$2 yq -r '.[] | select(.network == "*networks/\(env(network_name))") | select(.ipCidrRange==env(cidr)) | .ipCidrRange')
+		local subnet=$(echo $i | awk -F' ' '{print $1}')
+		local cidr=$(echo $i | awk -F' ' '{print $2}')
+		existing_range=$(gcloud compute networks subnets list --regions "${region}" --format json | network_name=$network_name cidr=$cidr yq -r '.[] | select(.network == "*networks/\(env(network_name))") | select(.ipCidrRange==env(cidr)) | .ipCidrRange')
 		if [ "$existing_range" == "" ]; then
-			echo "Creating subnet $1 with CIDR range $2"
-			gcloud compute networks subnets create "${1}" --region "${region}" --network "${network_name}" --range "${2}"
+			echo "Creating subnet $subnet with CIDR range $cidr"
+			gcloud compute networks subnets create "${subnet}" --region "${region}" --network "${network_name}" --range "${cidr}"
 		fi
 	done
 }
