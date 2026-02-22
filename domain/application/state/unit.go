@@ -2063,7 +2063,7 @@ func (st *State) GetStorageAddInfoByUnitUUID(
 		return internal.StorageInfoForAdd{}, errors.Capture(err)
 	}
 	return internal.StorageInfoForAdd{
-		Name:                 addInfo.Name,
+		CharmStorageName:     addInfo.Name,
 		Type:                 internalcharm.StorageType(addInfo.Kind),
 		CountMin:             addInfo.CountMin,
 		CountMax:             addInfo.CountMax,
@@ -2437,11 +2437,11 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		return internal.StorageInfoForAttach{}, errors.Capture(err)
 	}
 	return internal.StorageInfoForAttach{
-		Name:                 attachInfo.StorageName.String(),
+		CharmStorageName:     attachInfo.StorageName.String(),
 		CountMin:             attachInfo.CountMin,
 		CountMax:             attachInfo.CountMax,
 		MinimumSize:          attachInfo.MinimumSize,
-		SizeMiB:              attachInfo.SizeMIB,
+		ProvisionedSizeMiB:   attachInfo.SizeMIB,
 		AlreadyAttachedCount: count,
 	}, nil
 }

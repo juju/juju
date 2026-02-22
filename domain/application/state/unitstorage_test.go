@@ -487,7 +487,7 @@ func (u *unitStorageSuite) TestGetStorageAddInfoByUnitUUID(c *tc.C) {
 	storageInfo, err := u.state.GetStorageAddInfoByUnitUUID(c.Context(), unitUUID, "st1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(storageInfo, tc.DeepEquals, internal.StorageInfoForAdd{
-		Name:                 "st1",
+		CharmStorageName:     "st1",
 		Type:                 "filesystem",
 		CountMin:             1,
 		CountMax:             10,
@@ -634,14 +634,14 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnit(c *tc.C) {
 func (u *unitStorageSuite) TestAttachStorageToIAASUnitNotFound(c *tc.C) {
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	stUUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
-	err := u.state.AttachStorageToIAASUnit(c.Context(), stUUID, unitUUID, internal.IAASUnitAttachStorageArg{})
+	err := u.state.AttachStorageToIAASUnit(c.Context(), stUUID, unitUUID, internal.AttachStorageToIAASUnitArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (u *unitStorageSuite) TestAttachStorageToIAASUnitStorageNotFound(c *tc.C) {
 	_, unitUUID := u.createNamedIAASUnit(c)
 	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
-	err := u.state.AttachStorageToIAASUnit(c.Context(), storageUUID, unitUUID, internal.IAASUnitAttachStorageArg{})
+	err := u.state.AttachStorageToIAASUnit(c.Context(), storageUUID, unitUUID, internal.AttachStorageToIAASUnitArg{})
 	c.Assert(err, tc.ErrorIs, errors.StorageInstanceNotFound)
 }
 
@@ -655,7 +655,7 @@ func (u *unitStorageSuite) TestAttachStorageToIAASUnitNotAlive(c *tc.C) {
 	})
 	c.Assert(err, tc.IsNil)
 
-	err = u.state.AttachStorageToIAASUnit(c.Context(), stUUID, unitUUID, internal.IAASUnitAttachStorageArg{})
+	err = u.state.AttachStorageToIAASUnit(c.Context(), stUUID, unitUUID, internal.AttachStorageToIAASUnitArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotAlive)
 }
 
@@ -663,7 +663,7 @@ func (u *unitStorageSuite) TestAttachStorageToIAASUnitStorageNotAlive(c *tc.C) {
 	_, unitUUID := u.createNamedIAASUnit(c)
 	stUUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
 
-	err := u.state.AttachStorageToIAASUnit(c.Context(), stUUID, unitUUID, internal.IAASUnitAttachStorageArg{})
+	err := u.state.AttachStorageToIAASUnit(c.Context(), stUUID, unitUUID, internal.AttachStorageToIAASUnitArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.StorageNotAlive)
 }
 
@@ -691,7 +691,7 @@ func (u *unitStorageSuite) TestAttachStorageToIAASUnit(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(exists, tc.IsFalse)
 
-	err = u.state.AttachStorageToIAASUnit(c.Context(), siUUID, unitUUID, internal.IAASUnitAttachStorageArg{
+	err = u.state.AttachStorageToIAASUnit(c.Context(), siUUID, unitUUID, internal.AttachStorageToIAASUnitArg{
 		AttachStorageToUnitArg: internal.AttachStorageToUnitArg{
 			StorageToAttach: unitStorageToAttach,
 		},
@@ -788,11 +788,11 @@ func (u *unitStorageSuite) TestGetStorageAttachInfoByUnitUUIDAndStorageUUID(c *t
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(storageInfo, tc.DeepEquals, internal.StorageInfoForAttach{
-		Name:                 "st1",
+		CharmStorageName:     "st1",
 		CountMin:             1,
 		CountMax:             10,
 		MinimumSize:          1024,
 		AlreadyAttachedCount: 2,
-		SizeMiB:              1024,
+		ProvisionedSizeMiB:   1024,
 	})
 }

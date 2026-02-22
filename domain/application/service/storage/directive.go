@@ -319,9 +319,9 @@ func validateApplicationStorageDirectiveOverride(
 	return nil
 }
 
-// ValidateAttachStorage checks that a storage instance from the specified
-// pool can be attached to a unit with respect to the unit's charm storage
-// definition.
+// ValidateAttachStorage checks that a storage instance can be attached
+// to a unit with respect to the unit's charm storage definition, checking
+// the existing count of storage instances and the size of the new storage.
 func (s *Service) ValidateAttachStorage(
 	charmStorageDef internal.ValidateStorageArg,
 	existingCount uint32,

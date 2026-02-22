@@ -1118,7 +1118,7 @@ func (s *ProviderService) populateAddStorageArgs(
 
 	charmStorageDefs := map[string]internal.ValidateStorageArg{
 		storageName.String(): {
-			Name:        storageAddInfo.Name,
+			Name:        storageAddInfo.CharmStorageName,
 			Type:        storageAddInfo.Type,
 			CountMin:    storageAddInfo.CountMin,
 			CountMax:    storageAddInfo.CountMax,
@@ -1158,7 +1158,7 @@ func (s *ProviderService) populateAddStorageArgs(
 	}
 	// Record the max allowed count precondition.
 	// This will be checked inside the transaction.
-	args.CountLessThanEqual = uint32(math.MaxUint32)
+	args.CountLessThanEqual = uint32(math.MaxUint32) - addCount
 	if storageAddInfo.CountMax > 0 {
 		args.CountLessThanEqual = uint32(storageAddInfo.CountMax) - addCount
 	}
@@ -1270,14 +1270,14 @@ func (s *ProviderService) populateAttachStorageArgs(
 	}
 
 	charmStorageDef := internal.ValidateStorageArg{
-		Name:        storageAttachInfo.Name,
+		Name:        storageAttachInfo.CharmStorageName,
 		CountMin:    storageAttachInfo.CountMin,
 		CountMax:    storageAttachInfo.CountMax,
 		MinimumSize: storageAttachInfo.MinimumSize,
 	}
 
 	err = s.storageService.ValidateAttachStorage(
-		charmStorageDef, storageAttachInfo.AlreadyAttachedCount, storageAttachInfo.SizeMiB)
+		charmStorageDef, storageAttachInfo.AlreadyAttachedCount, storageAttachInfo.ProvisionedSizeMiB)
 	if err != nil {
 		return internal.AttachStorageToUnitArg{}, errors.Capture(err)
 	}
@@ -1292,7 +1292,7 @@ func (s *ProviderService) populateAttachStorageArgs(
 	}
 	args := internal.AttachStorageToUnitArg{
 		StorageToAttach:    attachArgs,
-		StorageName:        storageAttachInfo.Name,
+		StorageName:        storageAttachInfo.CharmStorageName,
 		CountLessThanEqual: uint32(math.MaxUint32),
 	}
 
@@ -1364,7 +1364,7 @@ func (s *ProviderService) AttachStorageToIAASUnit(
 		return errors.Capture(err)
 	}
 
-	err = s.st.AttachStorageToIAASUnit(ctx, storageUUID, unitUUID, internal.IAASUnitAttachStorageArg{
+	err = s.st.AttachStorageToIAASUnit(ctx, storageUUID, unitUUID, internal.AttachStorageToIAASUnitArg{
 		AttachStorageToUnitArg: unitAttachStorageArgs,
 		FilesystemsToOwn:       iaasUnitStorageArgs.FilesystemsToOwn,
 		VolumesToOwn:           iaasUnitStorageArgs.VolumesToOwn,
