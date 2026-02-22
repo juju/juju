@@ -248,7 +248,7 @@ type UnitState interface {
 	// when the requested storage falls outside of the bounds defined by the charm.
 	AddStorageForIAASUnit(
 		ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
-		storageArg internal.IAASUnitAddStorageArg,
+		storageArg internal.AddStorageToIAASUnitArg,
 	) ([]corestorage.ID, error)
 
 	// GetUnitStorageAttachmentExists returns true if the storage is
@@ -294,7 +294,7 @@ type UnitState interface {
 	// when the requested storage falls outside of the bounds defined by the charm.
 	AttachStorageToIAASUnit(
 		ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
-		storageArg internal.IAASUnitAttachStorageArg) error
+		storageArg internal.AttachStorageToIAASUnitArg) error
 }
 
 func (s *ProviderService) makeIAASUnitArgs(

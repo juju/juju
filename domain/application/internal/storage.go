@@ -60,7 +60,7 @@ type ValidateStorageArg struct {
 	MinimumSize uint64
 }
 
-// AddStorageToUnitArg represents the arguments required for add storage
+// AddStorageToUnitArg represents the arguments required for adding storage
 // to a unit. This will instantiate the instances and attachments for the unit.
 type AddStorageToUnitArg struct {
 	// StorageInstances defines the new storage instances that must be created
@@ -82,10 +82,10 @@ type AddStorageToUnitArg struct {
 	CountLessThanEqual uint32
 }
 
-// IAASUnitAddStorageArg represents the arguments required for making storage
+// AddStorageToIAASUnitArg represents the arguments required for making storage
 // for an IAAS unit. This complements [AddStorageToUnitArg], allowing for an
 // IAAS unit to augment storage that is destined for a machine.
-type IAASUnitAddStorageArg struct {
+type AddStorageToIAASUnitArg struct {
 	AddStorageToUnitArg
 	// FilesystemsToOwn defines filesystems that will be owned by the unit's
 	// machine.
@@ -110,10 +110,10 @@ type AttachStorageToUnitArg struct {
 	CountLessThanEqual uint32
 }
 
-// IAASUnitAttachStorageArg represents the arguments required for attaching storage
+// AttachStorageToIAASUnitArg represents the arguments required for attaching storage
 // to an IASS unit. This complements [AttachStorageToUnitArg], allowing for an
 // IAAS unit to augment storage that is destined for a machine.
-type IAASUnitAttachStorageArg struct {
+type AttachStorageToIAASUnitArg struct {
 	AttachStorageToUnitArg
 	// FilesystemsToOwn defines filesystems that will be owned by the unit's
 	// machine.
@@ -123,9 +123,11 @@ type IAASUnitAttachStorageArg struct {
 	VolumesToOwn []domainstorage.VolumeUUID
 }
 
+// StorageInfoForAdd represents the arguments required to
+// add storage to a unit.
 type StorageInfoForAdd struct {
-	// Name is the name of the storage.
-	Name string
+	// CharmStorageName is the name of the storage.
+	CharmStorageName string
 
 	// Type is the storage type: filesystem or block-device.
 	Type charm.StorageType
@@ -152,9 +154,11 @@ type StorageInfoForAdd struct {
 	AlreadyAttachedCount uint32
 }
 
+// StorageInfoForAttach represents the arguments required to
+// attach storage to a unit.
 type StorageInfoForAttach struct {
-	// Name is the name of the storage.
-	Name string
+	// CharmStorageName is the name of the storage.
+	CharmStorageName string
 
 	// CountMin is the number of storage instances that must be attached
 	// to the charm for it to be useful; the charm will not install until
@@ -177,8 +181,8 @@ type StorageInfoForAttach struct {
 	// underlying storage name already attached.
 	AlreadyAttachedCount uint32
 
-	// SizeMiB is the size of the storage.
-	SizeMiB uint64
+	// ProvisionedSizeMiB is the size of the storage.
+	ProvisionedSizeMiB uint64
 }
 
 // CreateUnitStorageArg represents the arguments required for making storage

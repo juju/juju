@@ -3115,7 +3115,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnitValidates(c *tc.C) {
 		}, nil)
 	s.state.EXPECT().GetStorageAddInfoByUnitUUID(gomock.Any(), unitUUID, corestorage.Name("pgdata")).
 		Return(internal.StorageInfoForAdd{
-			Name:                 "pgdata",
+			CharmStorageName:     "pgdata",
 			Type:                 internalcharm.StorageFilesystem,
 			MinimumSize:          10,
 			CountMin:             1,
@@ -3161,7 +3161,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 		}, nil)
 	s.state.EXPECT().GetStorageAddInfoByUnitUUID(gomock.Any(), unitUUID, corestorage.Name("pgdata")).
 		Return(internal.StorageInfoForAdd{
-			Name:                 "pgdata",
+			CharmStorageName:     "pgdata",
 			Type:                 internalcharm.StorageFilesystem,
 			MinimumSize:          10,
 			CountMin:             1,
@@ -3215,7 +3215,7 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 			VolumesToOwn:     volToOwn,
 		}, nil)
 
-	s.state.EXPECT().AddStorageForIAASUnit(gomock.Any(), unitUUID, corestorage.Name("pgdata"), internal.IAASUnitAddStorageArg{
+	s.state.EXPECT().AddStorageForIAASUnit(gomock.Any(), unitUUID, corestorage.Name("pgdata"), internal.AddStorageToIAASUnitArg{
 		AddStorageToUnitArg: unitStorageArgs,
 		FilesystemsToOwn:    fsToOwn,
 		VolumesToOwn:        volToOwn,
@@ -3279,7 +3279,7 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnitValidates(c *tc.C) {
 		}, nil)
 	s.state.EXPECT().GetStorageAddInfoByUnitUUID(gomock.Any(), unitUUID, corestorage.Name("pgdata")).
 		Return(internal.StorageInfoForAdd{
-			Name:                 "pgdata",
+			CharmStorageName:     "pgdata",
 			Type:                 internalcharm.StorageFilesystem,
 			MinimumSize:          10,
 			CountMin:             1,
@@ -3325,7 +3325,7 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnit(c *tc.C) {
 		}, nil)
 	s.state.EXPECT().GetStorageAddInfoByUnitUUID(gomock.Any(), unitUUID, corestorage.Name("pgdata")).
 		Return(internal.StorageInfoForAdd{
-			Name:                 "pgdata",
+			CharmStorageName:     "pgdata",
 			Type:                 internalcharm.StorageFilesystem,
 			MinimumSize:          10,
 			CountMin:             1,
@@ -3411,12 +3411,12 @@ func (s *providerServiceSuite) TestAttachStorageForIAASUnitValidates(c *tc.C) {
 		Return(false, nil)
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(gomock.Any(), unitUUID, siUUID).
 		Return(internal.StorageInfoForAttach{
-			Name:                 "pgdata",
+			CharmStorageName:     "pgdata",
 			CountMin:             1,
 			CountMax:             66,
 			MinimumSize:          10,
 			AlreadyAttachedCount: 66,
-			SizeMiB:              6,
+			ProvisionedSizeMiB:   6,
 		}, nil)
 	s.storageService.EXPECT().ValidateAttachStorage(internal.ValidateStorageArg{
 		Name:        "pgdata",
@@ -3443,12 +3443,12 @@ func (s *providerServiceSuite) TestAttachStorageForIAASUnit(c *tc.C) {
 		Return(false, nil)
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(gomock.Any(), unitUUID, siUUID).
 		Return(internal.StorageInfoForAttach{
-			Name:                 "pgdata",
+			CharmStorageName:     "pgdata",
 			CountMin:             1,
 			CountMax:             666,
 			MinimumSize:          10,
 			AlreadyAttachedCount: 66,
-			SizeMiB:              6,
+			ProvisionedSizeMiB:   6,
 		}, nil)
 	s.storageService.EXPECT().ValidateAttachStorage(internal.ValidateStorageArg{
 		Name:        "pgdata",
@@ -3489,7 +3489,7 @@ func (s *providerServiceSuite) TestAttachStorageForIAASUnit(c *tc.C) {
 		StorageName:        "pgdata",
 		CountLessThanEqual: 665,
 	}
-	s.state.EXPECT().AttachStorageToIAASUnit(gomock.Any(), siUUID, unitUUID, internal.IAASUnitAttachStorageArg{
+	s.state.EXPECT().AttachStorageToIAASUnit(gomock.Any(), siUUID, unitUUID, internal.AttachStorageToIAASUnitArg{
 		AttachStorageToUnitArg: unitStorageArgs,
 		FilesystemsToOwn:       fsToOwn,
 		VolumesToOwn:           volToOwn,
@@ -3538,12 +3538,12 @@ func (s *providerServiceSuite) TestAttachStorageForCAASUnitValidates(c *tc.C) {
 		Return(false, nil)
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(gomock.Any(), unitUUID, siUUID).
 		Return(internal.StorageInfoForAttach{
-			Name:                 "pgdata",
+			CharmStorageName:     "pgdata",
 			CountMin:             1,
 			CountMax:             66,
 			MinimumSize:          10,
 			AlreadyAttachedCount: 66,
-			SizeMiB:              6,
+			ProvisionedSizeMiB:   6,
 		}, nil)
 	s.storageService.EXPECT().ValidateAttachStorage(internal.ValidateStorageArg{
 		Name:        "pgdata",
@@ -3569,12 +3569,12 @@ func (s *providerServiceSuite) TestAttachStorageForCAASUnit(c *tc.C) {
 		Return(false, nil)
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(gomock.Any(), unitUUID, siUUID).
 		Return(internal.StorageInfoForAttach{
-			Name:                 "pgdata",
+			CharmStorageName:     "pgdata",
 			CountMin:             1,
 			CountMax:             666,
 			MinimumSize:          10,
 			AlreadyAttachedCount: 66,
-			SizeMiB:              6,
+			ProvisionedSizeMiB:   6,
 		}, nil)
 	s.storageService.EXPECT().ValidateAttachStorage(internal.ValidateStorageArg{
 		Name:        "pgdata",

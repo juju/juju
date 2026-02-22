@@ -172,10 +172,10 @@ type StorageService interface {
 		toUpdate []internal.UpdateApplicationStorageDirectiveArg,
 		err error,
 	)
-
-	// ValidateAttachStorage checks that a storage instance from the specified
-	// pool can be attached to a unit with respect to the unit's charm storage
-	// definition.
+	
+	// ValidateAttachStorage checks that a storage instance can be attached
+	// to a unit with respect to the unit's charm storage definition, checking
+	// the existing count of storage instances and the size of the new storage.
 	//
 	// The following errors may be expected:
 	// - [applicationerrors.StorageCountLimitExceeded] when the requested storage

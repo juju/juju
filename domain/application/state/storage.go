@@ -1232,7 +1232,7 @@ func (st *State) AttachStorageToCAASUnit(
 // AttachStorageToIAASUnit attaches the storage instance to an IAAS unit.
 func (st *State) AttachStorageToIAASUnit(
 	ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
-	storageArg internal.IAASUnitAttachStorageArg,
+	storageArg internal.AttachStorageToIAASUnitArg,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1357,7 +1357,7 @@ func (st *State) AddStorageForCAASUnit(
 // AddStorageForIAASUnit adds storage instances to given IAAS unit as specified.
 func (st *State) AddStorageForIAASUnit(
 	ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
-	storageArg internal.IAASUnitAddStorageArg,
+	storageArg internal.AddStorageToIAASUnitArg,
 ) ([]corestorage.ID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
