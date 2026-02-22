@@ -80,7 +80,7 @@ func (w *appFirewaller) getPortMutator(ctx context.Context) (PortMutator, error)
 
 	app, err := w.broker.Application(appName, caas.DeploymentStateful)
 	if err != nil {
-		return nil, errors.Errorf("getting caas app %q: %w", appName, err)
+		return nil, errors.Errorf("getting k8s application %q: %w", appName, err)
 	}
 	return app, nil
 }

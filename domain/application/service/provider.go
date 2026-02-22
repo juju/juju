@@ -540,7 +540,7 @@ func (s *ProviderService) RegisterCAASUnit(
 	}
 	caasApp, err := caasApplicationProvider.Application(appName, caas.DeploymentStateful)
 	if err != nil {
-		return "", "", errors.Errorf("getting caas app %q: %w", appName, err)
+		return "", "", errors.Errorf("getting k8s application %q: %w", appName, err)
 	}
 	pods, err := caasApp.Units()
 	if err != nil {
