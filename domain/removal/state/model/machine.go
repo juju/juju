@@ -585,28 +585,27 @@ WHERE uuid = $machine.uuid;
 		// Before proceeding, check that no units (including dead ones) still
 		// reference this machine's net node. Dead units that have not yet been
 		// deleted from the DB hold a FK reference to net_node, so attempting to
-		// delete the net_node while they exist will cause a constraint violation.
-		// Return RemovalJobIncomplete so the machine removal job retries once
-		// the unit removal job has finished.
-		if !force {
-			// Use the populated node variable as the sqlair sample value since
-			// "var node node" shadows the type name after this point.
-			countUnitsOnNetNodeStmt, err := st.Prepare(`
+		// delete the net_node while they exist will cause a constraint
+		// violation. Return RemovalJobIncomplete so the machine removal job
+		// retries once the unit removal job has finished.
+		// This applies unconditionally: even force removals cascade separate
+		// removal jobs for units, so by the time this runs those jobs must have
+		// completed.
+		countUnitsOnNetNodeStmt, err := st.Prepare(`
 SELECT COUNT(*) AS &count.count
 FROM   unit
 WHERE  net_node_uuid = $node.uuid`, count{}, node)
-			if err != nil {
-				return errors.Capture(err)
-			}
-			var unitNodeCount count
-			if err := tx.Query(ctx, countUnitsOnNetNodeStmt, node).Get(&unitNodeCount); err != nil {
-				return errors.Errorf("checking units on net node: %w", err)
-			} else if unitNodeCount.Count > 0 {
-				return errors.Errorf(
-					"machine net node still referenced by %d unit(s), waiting for unit removal",
-					unitNodeCount.Count,
-				).Add(removalerrors.RemovalJobIncomplete)
-			}
+		if err != nil {
+			return errors.Capture(err)
+		}
+		var unitNodeCount count
+		if err := tx.Query(ctx, countUnitsOnNetNodeStmt, node).Get(&unitNodeCount); err != nil {
+			return errors.Errorf("checking units on net node: %w", err)
+		} else if unitNodeCount.Count > 0 {
+			return errors.Errorf(
+				"machine net node still referenced by %d unit(s), waiting for unit removal",
+				unitNodeCount.Count,
+			).Add(removalerrors.RemovalJobIncomplete)
 		}
 
 		// Remove the machine entry

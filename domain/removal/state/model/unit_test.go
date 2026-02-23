@@ -1112,10 +1112,11 @@ func (s *unitSuite) expectK8sPodCount(c *tc.C, unitUUID unit.UUID, expected int)
 	c.Check(count, tc.Equals, expected)
 }
 
-// TestDeleteUnitWithRelationUnit verifies that DeleteUnit succeeds when
-// the unit has relation_unit records, which previously caused FK constraint
-// failures.
-func (s *unitSuite) TestDeleteUnitWithRelationUnit(c *tc.C) {
+// TestDeleteUnitWithRelationUnitReturnsIncomplete verifies that DeleteUnit
+// returns RemovalJobIncomplete when the unit still has relation_unit records.
+// The relation's own removal job is responsible for cleaning those up (via
+// LeaveScope or DeleteRelationUnits).
+func (s *unitSuite) TestDeleteUnitWithRelationUnitReturnsIncomplete(c *tc.C) {
 	appSvc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, appSvc, "app1", applicationservice.AddIAASUnitArg{})
 	s.createIAASApplication(c, appSvc, "app2", applicationservice.AddIAASUnitArg{})
@@ -1149,19 +1150,31 @@ func (s *unitSuite) TestDeleteUnitWithRelationUnit(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	// This previously failed with "FOREIGN KEY constraint failed".
+	// Unit deletion should return RemovalJobIncomplete because the
+	// relation_unit records have not been cleaned up yet.
+	err = st.DeleteUnit(c.Context(), unitUUID.String(), false)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+
+	// The unit should still exist.
+	exists, err := st.UnitExists(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, true)
+
+	// Now simulate the relation removal job cleaning up the relation_unit
+	// records by departing the unit from scope.
+	relUnitUUIDs, err := st.GetRelationUnitsForUnit(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(relUnitUUIDs, tc.HasLen, 1)
+	err = st.LeaveScope(c.Context(), relUnitUUIDs[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Now the unit can be deleted.
 	err = st.DeleteUnit(c.Context(), unitUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
-	exists, err := st.UnitExists(c.Context(), unitUUID.String())
+	exists, err = st.UnitExists(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
-
-	// The relation_unit should be cleaned up.
-	row = s.DB().QueryRow("SELECT COUNT(*) FROM relation_unit WHERE unit_uuid = ?", unitUUID.String())
-	err = row.Scan(&ruCount)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(ruCount, tc.Equals, 0)
 }
 
 func (s *unitSuite) getCharmUUIDForUnit(c *tc.C, unitUUID string) string {

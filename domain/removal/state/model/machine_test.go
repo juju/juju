@@ -1952,6 +1952,46 @@ func (s *machineSuite) TestDeleteMachineWaitsForDeadUnitRemoval(c *tc.C) {
 	c.Check(exists, tc.IsFalse)
 }
 
+func (s *machineSuite) TestDeleteMachineWithForceWaitsForDeadUnitRemoval(c *tc.C) {
+	// Same scenario as TestDeleteMachineWaitsForDeadUnitRemoval but with
+	// force=true. Even forced machine removal must wait for units to be
+	// fully deleted, because the unit row holds a FK reference to net_node.
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+	machineUUID := s.getUnitMachineUUID(c, unitUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Advance unit, machine, and instance to Dead.
+	_, err := s.DB().Exec("UPDATE unit SET life_id = 2 WHERE uuid = ?", unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	s.advanceMachineLife(c, machineUUID, life.Dead)
+	s.advanceInstanceLife(c, machineUUID, life.Dead)
+
+	// Even with force, the unit row is dead but still in the DB –
+	// DeleteMachine must defer.
+	err = st.DeleteMachine(c.Context(), machineUUID.String(), true)
+	c.Assert(err, tc.NotNil)
+	c.Check(errors.Is(err, removalerrors.RemovalJobIncomplete), tc.IsTrue,
+		tc.Commentf("expected RemovalJobIncomplete while dead unit still exists (force=true), got: %v", err))
+
+	// Simulate the unit removal job completing.
+	err = st.DeleteUnit(c.Context(), unitUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Now the machine can be fully deleted.
+	err = st.DeleteMachine(c.Context(), machineUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exists, err := st.MachineExists(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
+}
+
 func (s *machineSuite) createMachineFilesystem(
 	c *tc.C, machineUUID string,
 ) string {

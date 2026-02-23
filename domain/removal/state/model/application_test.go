@@ -536,10 +536,20 @@ func (s *applicationSuite) TestDeleteIAASApplicationWithForce(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	// This should fail because the application has units.
+	// This should fail because the application still has units, even when
+	// forcing. Units are removed by their own removal jobs, so the
+	// application must wait for them to complete.
 	err := st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
 	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationHasUnits)
+
+	err = st.DeleteApplication(c.Context(), appUUID.String(), true)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationHasUnits)
+
+	// Delete the unit first.
+	err = st.DeleteUnit(c.Context(), unitUUIDs[0].String(), true)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Now we can delete the application.
 	err = st.DeleteApplication(c.Context(), appUUID.String(), true)
@@ -569,10 +579,20 @@ func (s *applicationSuite) TestDeleteIAASApplicationWithUnitsWithForce(c *tc.C) 
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	// This should fail because the application has units.
+	// This should fail because the application still has units, even when
+	// forcing. Units are removed by their own removal jobs, so the
+	// application must wait for them to complete.
 	err := st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
 	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationHasUnits)
+
+	err = st.DeleteApplication(c.Context(), appUUID.String(), true)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationHasUnits)
+
+	// Delete the unit first.
+	err = st.DeleteUnit(c.Context(), unitUUIDs[0].String(), true)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Now we can delete the application.
 	err = st.DeleteApplication(c.Context(), appUUID.String(), true)

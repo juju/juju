@@ -659,6 +659,15 @@ WHERE principal_uuid = $entityAssociationCount.uuid
 		return errors.Capture(err)
 	}
 
+	relationUnitCountStmt, err := st.Prepare(`
+SELECT count(*) AS &entityAssociationCount.count
+FROM relation_unit
+WHERE unit_uuid = $entityAssociationCount.uuid
+`, unitUUIDCount)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	unitUUIDRec := entityUUID{UUID: unitUUID}
 	deleteUnitStmt, err := st.Prepare(`
 DELETE FROM unit
@@ -676,6 +685,20 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 	} else if uLife == life.Alive {
 		return errors.Errorf("cannot delete unit %q as it is still alive", unitUUID).
 			Add(removalerrors.EntityStillAlive)
+	}
+
+	// Ensure that the unit has no relation_unit records. These are cleaned
+	// up by the relation's own removal job (via LeaveScope or
+	// DeleteRelationUnits). If they still exist, we must wait for the
+	// relation removal to complete first.
+	var numRelationUnits entityAssociationCount
+	err = tx.Query(ctx, relationUnitCountStmt, unitUUIDCount).Get(&numRelationUnits)
+	if err != nil {
+		return errors.Errorf("getting relation unit count for unit %q: %w", unitUUID, err)
+	} else if numRelationUnits.Count > 0 {
+		return errors.Errorf("unit %q still has %d relation(s) in scope, waiting for relation removal",
+			unitUUID, numRelationUnits.Count).
+			Add(removalerrors.RemovalJobIncomplete)
 	}
 
 	// Delete all tasks related to the unit, and eventually removes
@@ -869,7 +892,6 @@ func (st *State) deleteForeignKeyUnitReferences(ctx context.Context, tx *sqlair.
 		"DELETE FROM unit_storage_directive WHERE unit_uuid = $entityUUID.uuid",
 		"DELETE FROM unit_agent_presence WHERE unit_uuid = $entityUUID.uuid",
 		"DELETE FROM secret_unit_consumer WHERE unit_uuid = $entityUUID.uuid",
-		"DELETE FROM relation_unit WHERE unit_uuid = $entityUUID.uuid",
 	} {
 		deleteUnitReferenceStmt, err := st.Prepare(table, unitUUIDRec)
 		if err != nil {
