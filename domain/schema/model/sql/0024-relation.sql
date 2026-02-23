@@ -223,6 +223,10 @@ CREATE TABLE relation_status (
     REFERENCES relation_status_type (id)
 );
 
+CREATE INDEX IF NOT EXISTS idx_relation_status_type_relation
+ON relation_status (relation_status_type_id, relation_uuid);
+
+
 CREATE VIEW v_application_endpoint AS
 SELECT
     ae.uuid AS application_endpoint_uuid,
