@@ -8,6 +8,8 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 
 	coreapplication "github.com/juju/juju/core/application"
 	coremachine "github.com/juju/juju/core/machine"
@@ -537,33 +539,11 @@ FROM (
 	return retInstComp, retAttachmentComp, nil
 }
 
-// GetUnitStorageAttachmentExists returns true if the storage is
-// attached to the specified unit.
-func (st *State) GetUnitStorageAttachmentExists(
-	ctx context.Context,
-	stUUID domainstorage.StorageInstanceUUID,
-	uUUID coreunit.UUID,
-) (bool, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-	var result bool
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		result, err = st.getUnitStorageAttachmentExists(ctx, tx, stUUID, uUUID)
-		return errors.Capture(err)
-	})
-	return result, errors.Capture(err)
-}
-
-func (st *State) getUnitStorageAttachmentExists(
+func (st *State) getStorageAttachmentUnits(
 	ctx context.Context,
 	tx *sqlair.TX,
 	stUUID domainstorage.StorageInstanceUUID,
-	uUUID coreunit.UUID,
-) (bool, error) {
-	unitUUID := unitUUID{UnitUUID: uUUID.String()}
+) ([]string, error) {
 	storageUUID := entityUUID{UUID: stUUID.String()}
 
 	storageExistsStmt, err := st.Prepare(`
@@ -572,46 +552,38 @@ FROM   storage_instance
 WHERE  uuid = $entityUUID.uuid
 `, storageUUID)
 	if err != nil {
-		return false, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
+
+	type unitUUID entityUUID
 
 	attachStmt, err := st.Prepare(`
-SELECT count(*) AS &count.count
+SELECT u.uuid AS &unitUUID.uuid
 FROM   storage_attachment sia
 JOIN   unit u ON sia.unit_uuid = u.uuid
-WHERE  u.uuid = $unitUUID.uuid
 AND    sia.storage_instance_uuid = $entityUUID.uuid
-`, unitUUID, storageUUID, count{})
+`, storageUUID, unitUUID{})
 	if err != nil {
-		return false, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
-	exists, err := st.checkUnitExists(ctx, tx, uUUID.String())
-	if err != nil {
-		return false, errors.Errorf(
-			"checking unit %q exists: %w", uUUID, err,
-		)
-	}
-	if !exists {
-		return false, errors.Errorf("unit %q does not exist", uUUID).Add(
-			applicationerrors.UnitNotFound,
-		)
-	}
 	err = tx.Query(ctx, storageExistsStmt, storageUUID).Get(&storageUUID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return false, errors.Errorf("storage %q does not exist", stUUID).
+		return nil, errors.Errorf("storage %q does not exist", stUUID).
 			Add(storageerrors.StorageInstanceNotFound)
 	}
 	if err != nil {
-		return false, errors.Errorf("checking storage %q exists: %w", stUUID, err)
+		return nil, errors.Errorf("checking storage %q exists: %w", stUUID, err)
 	}
 
-	var result count
-	err = tx.Query(ctx, attachStmt, unitUUID, storageUUID).Get(&result)
-	if err != nil {
-		return false, errors.Errorf("checking storage %q is attached to unit %q: %w", stUUID, uUUID, err)
+	var result []unitUUID
+	err = tx.Query(ctx, attachStmt, storageUUID).GetAll(&result)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Errorf("getting storage %q attachments: %w", stUUID, err)
 	}
-	return result.Count > 0, nil
+	return transform.Slice(result, func(u unitUUID) string { return u.UUID }), nil
 }
 
 // GetUnitStorageDirectives returns the storage directives that are set for
@@ -1108,13 +1080,20 @@ func (st *State) attachStorageForUnit(
 	ctx context.Context, tx *sqlair.TX, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
 	storageArg internal.AttachStorageToUnitArg,
 ) error {
-	// Already attached is a no-op.
-	attached, err := st.getUnitStorageAttachmentExists(ctx, tx, storageUUID, unitUUID)
+	// Check allowed attachments.
+	attachedToUnits, err := st.getStorageAttachmentUnits(ctx, tx, storageUUID)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	if attached {
-		return nil
+	allowedAttachments := set.NewStrings(storageArg.AllowedExistingUnitAttachments...)
+	attachedTo := set.NewStrings(attachedToUnits...)
+	if attachedTo.Difference(allowedAttachments).Size() > 0 {
+		return internal.StorageAttachmentNotAllowed{
+			AttachedToUnits: attachedToUnits,
+		}
+	} else if attachedTo.Contains(unitUUID.String()) {
+		// The storage is already attached to the unit, so we can no-op.
+		return internal.StorageAlreadyAttached
 	}
 
 	// First to the basic life checks for the unit and storage.
@@ -1221,6 +1200,9 @@ func (st *State) AttachStorageToCAASUnit(
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := st.attachStorageForUnit(ctx, tx, storageUUID, unitUUID, storageArg)
+		if errors.Is(err, internal.StorageAlreadyAttached) {
+			return nil
+		}
 		return errors.Capture(err)
 	})
 	if err != nil {
@@ -1246,7 +1228,9 @@ func (st *State) AttachStorageToIAASUnit(
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := st.attachStorageForUnit(ctx, tx, storageUUID, unitUUID, storageArg.AttachStorageToUnitArg)
-		if err != nil {
+		if errors.Is(err, internal.StorageAlreadyAttached) {
+			return nil
+		} else if err != nil {
 			return errors.Capture(err)
 		}
 

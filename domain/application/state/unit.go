@@ -1834,12 +1834,17 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		return internal.StorageInfoForAttach{}, errors.Capture(err)
 	}
 	var (
-		attachInfo storageInfoForAttach
-		count      uint32
+		attachInfo      storageInfoForAttach
+		attachedToUnits []string
+		count           uint32
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		attachInfo, err = st.getStorageInstanceInfoForAttach(ctx, tx, storageUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		attachedToUnits, err = st.getStorageAttachmentUnits(ctx, tx, storageUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -1852,12 +1857,13 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		return internal.StorageInfoForAttach{}, errors.Capture(err)
 	}
 	return internal.StorageInfoForAttach{
-		CharmStorageName:     attachInfo.StorageName.String(),
-		CountMin:             attachInfo.CountMin,
-		CountMax:             attachInfo.CountMax,
-		MinimumSize:          attachInfo.MinimumSize,
-		ProvisionedSizeMiB:   attachInfo.SizeMIB,
-		AlreadyAttachedCount: count,
+		CharmStorageName:       attachInfo.StorageName.String(),
+		CountMin:               attachInfo.CountMin,
+		CountMax:               attachInfo.CountMax,
+		MinimumSize:            attachInfo.MinimumSize,
+		ProvisionedSizeMiB:     attachInfo.SizeMIB,
+		AlreadyAttachedCount:   count,
+		AlreadyAttachedToUnits: attachedToUnits,
 	}, nil
 }
 

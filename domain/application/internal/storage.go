@@ -4,6 +4,8 @@
 package internal
 
 import (
+	"strings"
+
 	"github.com/juju/juju/domain/deployment/charm"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -108,6 +110,10 @@ type AttachStorageToUnitArg struct {
 	// CountLessThanEqual is the maximum storage count allowed at the time
 	// the add is performed in order for the attach operation to be considered successful.
 	CountLessThanEqual uint32
+
+	// AllowedExistingUnitAttachments are the unit UUIDs to which the storage
+	// being attached is allowed to already be attached.
+	AllowedExistingUnitAttachments []string
 }
 
 // AttachStorageToIAASUnitArg represents the arguments required for attaching storage
@@ -183,6 +189,27 @@ type StorageInfoForAttach struct {
 
 	// ProvisionedSizeMiB is the size of the storage.
 	ProvisionedSizeMiB uint64
+
+	// AlreadyAttachedToUnits holds the unit UUIDs to which the storage
+	// is already attached.
+	AlreadyAttachedToUnits []string
+}
+
+// StorageAlreadyAttached describes an error that occurs when attempting to
+// attach storage to a unit and the storage is already attached to the unit.
+const StorageAlreadyAttached = errors.ConstError("storage already attached")
+
+// StorageAttachmentNotAllowed describes an error that occurs when attempting to
+// attach storage to a unit and the unit is not in the allow list.
+type StorageAttachmentNotAllowed struct {
+	// AttachedToUnits is the unexpected units to which
+	// the storage is already attached.
+	AttachedToUnits []string
+}
+
+// Error implements error.
+func (e StorageAttachmentNotAllowed) Error() string {
+	return "storage is already attached to units: " + strings.Join(e.AttachedToUnits, ", ")
 }
 
 // CreateUnitStorageArg represents the arguments required for making storage

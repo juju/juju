@@ -319,10 +319,6 @@ const (
 	// StorageNameNotSupported describes an error that occurs when
 	// a storage name is not supported by the charm.
 	StorageNameNotSupported = errors.ConstError("storage name not supported")
-
-	// InvalidStorageCount describes an error that occurs when
-	// a storage attachment would violate charm expectations for cardinality.
-	InvalidStorageCount = errors.ConstError("invalid storage count")
 )
 
 // StorageCountLimitExceeded describes an error that occurs when an operation
