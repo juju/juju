@@ -122,17 +122,17 @@ func (c *MockApplicationOpsAppDeadCall) DoAndReturn(f func(context.Context, stri
 }
 
 // AppDying mocks base method.
-func (m *MockApplicationOps) AppDying(arg0 context.Context, arg1 string, arg2 application.UUID, arg3 caas.Application, arg4 life.Value, arg5 caasapplicationprovisioner.CAASProvisionerFacade, arg6 caasapplicationprovisioner.ApplicationService, arg7 caasapplicationprovisioner.StatusService, arg8 logger.Logger, arg9 caasapplicationprovisioner.StorageProvisioningService) error {
+func (m *MockApplicationOps) AppDying(arg0 context.Context, arg1 string, arg2 application.UUID, arg3 caas.Application, arg4 life.Value, arg5 caasapplicationprovisioner.CAASProvisionerFacade, arg6 caasapplicationprovisioner.ApplicationService, arg7 caasapplicationprovisioner.StatusService, arg8 logger.Logger) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AppDying", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
+	ret := m.ctrl.Call(m, "AppDying", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AppDying indicates an expected call of AppDying.
-func (mr *MockApplicationOpsMockRecorder) AppDying(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9 any) *MockApplicationOpsAppDyingCall {
+func (mr *MockApplicationOpsMockRecorder) AppDying(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8 any) *MockApplicationOpsAppDyingCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppDying", reflect.TypeOf((*MockApplicationOps)(nil).AppDying), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppDying", reflect.TypeOf((*MockApplicationOps)(nil).AppDying), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
 	return &MockApplicationOpsAppDyingCall{Call: call}
 }
 
@@ -148,29 +148,29 @@ func (c *MockApplicationOpsAppDyingCall) Return(arg0 error) *MockApplicationOpsA
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationOpsAppDyingCall) Do(f func(context.Context, string, application.UUID, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, caasapplicationprovisioner.StatusService, logger.Logger, caasapplicationprovisioner.StorageProvisioningService) error) *MockApplicationOpsAppDyingCall {
+func (c *MockApplicationOpsAppDyingCall) Do(f func(context.Context, string, application.UUID, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, caasapplicationprovisioner.StatusService, logger.Logger) error) *MockApplicationOpsAppDyingCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationOpsAppDyingCall) DoAndReturn(f func(context.Context, string, application.UUID, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, caasapplicationprovisioner.StatusService, logger.Logger, caasapplicationprovisioner.StorageProvisioningService) error) *MockApplicationOpsAppDyingCall {
+func (c *MockApplicationOpsAppDyingCall) DoAndReturn(f func(context.Context, string, application.UUID, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, caasapplicationprovisioner.StatusService, logger.Logger) error) *MockApplicationOpsAppDyingCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // EnsureScale mocks base method.
-func (m *MockApplicationOps) EnsureScale(arg0 context.Context, arg1 string, arg2 application.UUID, arg3 caas.Application, arg4 life.Value, arg5 caasapplicationprovisioner.CAASProvisionerFacade, arg6 caasapplicationprovisioner.ApplicationService, arg7 caasapplicationprovisioner.StatusService, arg8 logger.Logger, arg9 caasapplicationprovisioner.StorageProvisioningService) error {
+func (m *MockApplicationOps) EnsureScale(arg0 context.Context, arg1 string, arg2 application.UUID, arg3 caas.Application, arg4 life.Value, arg5 caasapplicationprovisioner.CAASProvisionerFacade, arg6 caasapplicationprovisioner.ApplicationService, arg7 logger.Logger) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureScale", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
+	ret := m.ctrl.Call(m, "EnsureScale", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // EnsureScale indicates an expected call of EnsureScale.
-func (mr *MockApplicationOpsMockRecorder) EnsureScale(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9 any) *MockApplicationOpsEnsureScaleCall {
+func (mr *MockApplicationOpsMockRecorder) EnsureScale(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7 any) *MockApplicationOpsEnsureScaleCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureScale", reflect.TypeOf((*MockApplicationOps)(nil).EnsureScale), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureScale", reflect.TypeOf((*MockApplicationOps)(nil).EnsureScale), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	return &MockApplicationOpsEnsureScaleCall{Call: call}
 }
 
@@ -186,13 +186,13 @@ func (c *MockApplicationOpsEnsureScaleCall) Return(arg0 error) *MockApplicationO
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationOpsEnsureScaleCall) Do(f func(context.Context, string, application.UUID, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, caasapplicationprovisioner.StatusService, logger.Logger, caasapplicationprovisioner.StorageProvisioningService) error) *MockApplicationOpsEnsureScaleCall {
+func (c *MockApplicationOpsEnsureScaleCall) Do(f func(context.Context, string, application.UUID, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, logger.Logger) error) *MockApplicationOpsEnsureScaleCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationOpsEnsureScaleCall) DoAndReturn(f func(context.Context, string, application.UUID, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, caasapplicationprovisioner.StatusService, logger.Logger, caasapplicationprovisioner.StorageProvisioningService) error) *MockApplicationOpsEnsureScaleCall {
+func (c *MockApplicationOpsEnsureScaleCall) DoAndReturn(f func(context.Context, string, application.UUID, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, logger.Logger) error) *MockApplicationOpsEnsureScaleCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -236,7 +236,7 @@ func (c *MockApplicationOpsEnsureTrustCall) DoAndReturn(f func(context.Context, 
 }
 
 // ProvisioningInfo mocks base method.
-func (m *MockApplicationOps) ProvisioningInfo(arg0 context.Context, arg1 string, arg2 application.UUID, arg3 caasapplicationprovisioner.CAASProvisionerFacade, arg4 caasapplicationprovisioner.StorageProvisioningService, arg5 caasapplicationprovisioner.ApplicationService, arg6 caasapplicationprovisioner.ResourceOpenerGetter, arg7 *caasapplicationprovisioner.ProvisioningInfo, arg8 logger.Logger) (*caasapplicationprovisioner.ProvisioningInfo, error) {
+func (m *MockApplicationOps) ProvisioningInfo(arg0 context.Context, arg1 string, arg2 application.UUID, arg3 caasapplicationprovisioner.CAASProvisionerFacade, arg4 caasapplicationprovisioner.ApplicationService, arg5 caasapplicationprovisioner.StorageProvisioningService, arg6 caasapplicationprovisioner.ResourceOpenerGetter, arg7 *caasapplicationprovisioner.ProvisioningInfo, arg8 logger.Logger) (*caasapplicationprovisioner.ProvisioningInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProvisioningInfo", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
 	ret0, _ := ret[0].(*caasapplicationprovisioner.ProvisioningInfo)
@@ -263,29 +263,29 @@ func (c *MockApplicationOpsProvisioningInfoCall) Return(arg0 *caasapplicationpro
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationOpsProvisioningInfoCall) Do(f func(context.Context, string, application.UUID, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.StorageProvisioningService, caasapplicationprovisioner.ApplicationService, caasapplicationprovisioner.ResourceOpenerGetter, *caasapplicationprovisioner.ProvisioningInfo, logger.Logger) (*caasapplicationprovisioner.ProvisioningInfo, error)) *MockApplicationOpsProvisioningInfoCall {
+func (c *MockApplicationOpsProvisioningInfoCall) Do(f func(context.Context, string, application.UUID, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, caasapplicationprovisioner.StorageProvisioningService, caasapplicationprovisioner.ResourceOpenerGetter, *caasapplicationprovisioner.ProvisioningInfo, logger.Logger) (*caasapplicationprovisioner.ProvisioningInfo, error)) *MockApplicationOpsProvisioningInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationOpsProvisioningInfoCall) DoAndReturn(f func(context.Context, string, application.UUID, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.StorageProvisioningService, caasapplicationprovisioner.ApplicationService, caasapplicationprovisioner.ResourceOpenerGetter, *caasapplicationprovisioner.ProvisioningInfo, logger.Logger) (*caasapplicationprovisioner.ProvisioningInfo, error)) *MockApplicationOpsProvisioningInfoCall {
+func (c *MockApplicationOpsProvisioningInfoCall) DoAndReturn(f func(context.Context, string, application.UUID, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, caasapplicationprovisioner.StorageProvisioningService, caasapplicationprovisioner.ResourceOpenerGetter, *caasapplicationprovisioner.ProvisioningInfo, logger.Logger) (*caasapplicationprovisioner.ProvisioningInfo, error)) *MockApplicationOpsProvisioningInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ReconcileDeadUnitScale mocks base method.
-func (m *MockApplicationOps) ReconcileDeadUnitScale(arg0 context.Context, arg1 string, arg2 application.UUID, arg3 caas.Application, arg4 caasapplicationprovisioner.CAASProvisionerFacade, arg5 caasapplicationprovisioner.ApplicationService, arg6 caasapplicationprovisioner.StatusService, arg7 logger.Logger, arg8 caasapplicationprovisioner.StorageProvisioningService) error {
+func (m *MockApplicationOps) ReconcileDeadUnitScale(arg0 context.Context, arg1 string, arg2 application.UUID, arg3 caas.Application, arg4 caasapplicationprovisioner.CAASProvisionerFacade, arg5 caasapplicationprovisioner.ApplicationService, arg6 logger.Logger) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReconcileDeadUnitScale", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+	ret := m.ctrl.Call(m, "ReconcileDeadUnitScale", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ReconcileDeadUnitScale indicates an expected call of ReconcileDeadUnitScale.
-func (mr *MockApplicationOpsMockRecorder) ReconcileDeadUnitScale(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8 any) *MockApplicationOpsReconcileDeadUnitScaleCall {
+func (mr *MockApplicationOpsMockRecorder) ReconcileDeadUnitScale(arg0, arg1, arg2, arg3, arg4, arg5, arg6 any) *MockApplicationOpsReconcileDeadUnitScaleCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReconcileDeadUnitScale", reflect.TypeOf((*MockApplicationOps)(nil).ReconcileDeadUnitScale), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReconcileDeadUnitScale", reflect.TypeOf((*MockApplicationOps)(nil).ReconcileDeadUnitScale), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	return &MockApplicationOpsReconcileDeadUnitScaleCall{Call: call}
 }
 
@@ -301,13 +301,13 @@ func (c *MockApplicationOpsReconcileDeadUnitScaleCall) Return(arg0 error) *MockA
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationOpsReconcileDeadUnitScaleCall) Do(f func(context.Context, string, application.UUID, caas.Application, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, caasapplicationprovisioner.StatusService, logger.Logger, caasapplicationprovisioner.StorageProvisioningService) error) *MockApplicationOpsReconcileDeadUnitScaleCall {
+func (c *MockApplicationOpsReconcileDeadUnitScaleCall) Do(f func(context.Context, string, application.UUID, caas.Application, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, logger.Logger) error) *MockApplicationOpsReconcileDeadUnitScaleCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationOpsReconcileDeadUnitScaleCall) DoAndReturn(f func(context.Context, string, application.UUID, caas.Application, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, caasapplicationprovisioner.StatusService, logger.Logger, caasapplicationprovisioner.StorageProvisioningService) error) *MockApplicationOpsReconcileDeadUnitScaleCall {
+func (c *MockApplicationOpsReconcileDeadUnitScaleCall) DoAndReturn(f func(context.Context, string, application.UUID, caas.Application, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.ApplicationService, logger.Logger) error) *MockApplicationOpsReconcileDeadUnitScaleCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
