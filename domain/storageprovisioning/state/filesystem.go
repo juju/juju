@@ -1414,10 +1414,10 @@ WHERE  u.application_uuid = $entityUUID.uuid AND sfa.provider_id <> ''`,
 			).Add(applicationerrors.ApplicationNotFound)
 		}
 		err = tx.Query(ctx, stmt, input).GetAll(&existingAttachments)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return err
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
 		}
-		return nil
+		return err
 	})
 	if err != nil {
 		return nil, errors.Capture(err)
