@@ -10,13 +10,9 @@ import (
 	"io"
 	"net/http"
 	"time"
-
-	"github.com/juju/description/v11"
+	
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
-	"gopkg.in/httprequest.v1"
-	"gopkg.in/macaroon.v2"
-
+	
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/migration"
@@ -261,7 +257,6 @@ func (c *Client) OpenResource(ctx context.Context, application, name string) (io
 
 	uri := fmt.Sprintf("/applications/%s/resources/%s", application, name)
 	var resp *http.Response
-	ctx := context.TODO()
 	if err := httpClient.Get(
 		ctx,
 		uri, &resp); err != nil {

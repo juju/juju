@@ -7,10 +7,9 @@ import (
 	"context"
 	"io"
 	"net/http"
-
+	
 	"github.com/juju/errors"
-	"gopkg.in/httprequest.v1"
-
+	
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -26,9 +25,8 @@ func (c *Client) Download(ctx context.Context, filename string) (io.ReadCloser, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
+	
 	var resp *http.Response
-	ctx := context.TODO()
 	err = httpClient.Call(
 		ctx,
 		&downloadParams{

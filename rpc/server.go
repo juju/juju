@@ -443,7 +443,7 @@ func (conn *Conn) input() {
 	// Terminate all client requests.
 	for _, call := range conn.clientPending {
 		call.Error = err
-		call.done()
+		call.done(conn.context)
 	}
 	conn.clientPending = nil
 	conn.shutdown = true
