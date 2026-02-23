@@ -138,7 +138,7 @@ func NewApplication(
 	clock clock.Clock,
 	controllerUUID string,
 ) (caas.Application, error) {
-	reg, err := regexp.Compile(`^(.+)-` + regexp.QuoteMeta(name) + `-\d+$`)
+	pvcNamePrefixRegexp, err := regexp.Compile(`^(.+)-` + regexp.QuoteMeta(name) + `-\d+$`)
 	if err != nil {
 		return nil, errors.Annotatef(err, "compiling regex to get pvc template name")
 	}
@@ -156,7 +156,7 @@ func NewApplication(
 		clock,
 		resources.NewApplier,
 		controllerUUID,
-		reg,
+		pvcNamePrefixRegexp,
 	), nil
 }
 

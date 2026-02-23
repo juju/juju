@@ -46,13 +46,13 @@ func NewApplicationForTest(
 	newApplier func() resources.Applier,
 	controllerUUID string,
 ) (ApplicationInterfaceForTest, error) {
-	reg, err := regexp.Compile(`^(.+)-` + regexp.QuoteMeta(name) + `-\d+$`)
+	pvcNamePrefixRegexp, err := regexp.Compile(`^(.+)-` + regexp.QuoteMeta(name) + `-\d+$`)
 	if err != nil {
 		return nil, errors.Annotatef(err, "compiling regex to get pvc template name")
 	}
 	return newApplication(
 		name, namespace, modelUUID, modelName, labelVersion, deploymentType,
 		client, extendedClient, dynamicClient, newWatcher, clock, newApplier,
-		controllerUUID, reg,
+		controllerUUID, pvcNamePrefixRegexp,
 	), nil
 }
