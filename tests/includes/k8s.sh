@@ -1,8 +1,7 @@
 kubectl() {
 	local k8s="${BOOTSTRAP_CLOUD}"
 	case "${BOOTSTRAP_PROVIDER}" in
-	"k8s")
-		;;
+	"k8s") ;;
 	*)
 		# Use a local k8s that is available for IAAS testing needs.
 		k8s="$(default_k8s)"

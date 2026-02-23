@@ -78,7 +78,7 @@ run_assess_clouds() {
 EOF
 	)
 
-	echo "${CLOUDS}" > "${TEST_DIR}/juju/clouds.yaml"
+	echo "${CLOUDS}" >"${TEST_DIR}/juju/clouds.yaml"
 	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json | yq -o=json 'with_entries(select(
 	                                                  .value.defined != "built-in")) | with_entries((select(.value.defined == "local")
 	                                                  | del(.value.defined) |  del(.value.description))) | sort_keys(..)')

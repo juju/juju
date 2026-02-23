@@ -20,7 +20,7 @@ run_serviceaccount_credential() {
 		printf "Controller credential info:\n%s\n" "${credentialInfo}" >&2
 		return 1
 	else
-		echo "Success: auth type \"service-account\" found"
+		echo 'Success: auth type "service-account" found'
 	fi
 
 	juju switch "test-serviceaccount-gce"

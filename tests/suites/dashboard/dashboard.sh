@@ -37,9 +37,11 @@ test_dashboard_deploy() {
 
 open_dashboard() {
 	push_daemon_scope
-	local expected_scope_depth=${DAEMON_SCOPE_DEPTH}
+	local expected_scope_depth
+	expected_scope_depth=${DAEMON_SCOPE_DEPTH}
+	# shellcheck disable=SC2064
 	trap "pop_daemon_scope ${expected_scope_depth}" RETURN
-	
+
 	daemon juju dashboard
 	sleep 10
 	# TODO: capture url from dashboard output

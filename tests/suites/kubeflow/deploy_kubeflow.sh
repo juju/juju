@@ -17,7 +17,7 @@ run_deploy_kubeflow() {
 
 	attempt=0
 	# shellcheck disable=SC2046,SC2143,SC2091,SC2086
-	until $(check_contains "$(curl ${jupyter_ip})" "Found" >/dev/null 2>&1); do
+	until check_contains "$(curl ${jupyter_ip})" "Found" >/dev/null 2>&1; do
 		echo "[+] (attempt ${attempt}) jupyter ui"
 		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))
