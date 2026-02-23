@@ -55,7 +55,7 @@ func (st *State) GetOperations(ctx context.Context, params operation.QueryArgs) 
 	}
 
 	// Prepare query arguments and flags for static query.
-	queryArgs, flags := st.prepareOperationsQueryArgs(params)
+	queryArgs := st.prepareOperationsQueryArgs(params)
 	queryArgs = append(queryArgs, paginationParams)
 
 	st.logger.Tracef(ctx, "executing operations query with arguments: %+v", queryArgs)
@@ -64,7 +64,6 @@ func (st *State) GetOperations(ctx context.Context, params operation.QueryArgs) 
 	if err != nil {
 		return operation.QueryResult{}, errors.Errorf("preparing operations query: %w", err)
 	}
-	_ = flags // Used in query via queryArgs
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, queryArgs...).GetAll(&ops)
@@ -311,7 +310,7 @@ LIMIT $queryParams.limit OFFSET $queryParams.offset
 
 // prepareOperationsQueryArgs constructs the query arguments and flags for the
 // static GetOperations query.
-func (st *State) prepareOperationsQueryArgs(params operation.QueryArgs) ([]any, queryFlags) {
+func (st *State) prepareOperationsQueryArgs(params operation.QueryArgs) []any {
 	// Define local typed slices for sqlair parameters
 	type actionNames []string
 	type statuses []string
@@ -324,7 +323,7 @@ func (st *State) prepareOperationsQueryArgs(params operation.QueryArgs) ([]any, 
 
 	// ActionNames filter
 	if len(params.ActionNames) > 0 {
-		flags.HasActions = 1
+		flags.HasActions = true
 	}
 	args = append(args, actionNames(params.ActionNames))
 
@@ -334,13 +333,13 @@ func (st *State) prepareOperationsQueryArgs(params operation.QueryArgs) ([]any, 
 		statusStrings[i] = st.String()
 	}
 	if len(params.Status) > 0 {
-		flags.HasStatus = 1
+		flags.HasStatus = true
 	}
 	args = append(args, statuses(statusStrings))
 
 	// Applications filter
 	if len(params.Applications) > 0 {
-		flags.HasApplications = 1
+		flags.HasApplications = true
 	}
 	args = append(args, applications(params.Applications))
 
@@ -350,7 +349,7 @@ func (st *State) prepareOperationsQueryArgs(params operation.QueryArgs) ([]any, 
 		machineNames[i] = string(name)
 	}
 	if len(params.Machines) > 0 {
-		flags.HasMachines = 1
+		flags.HasMachines = true
 	}
 	args = append(args, machines(machineNames))
 
@@ -360,14 +359,14 @@ func (st *State) prepareOperationsQueryArgs(params operation.QueryArgs) ([]any, 
 		unitNames[i] = string(name)
 	}
 	if len(params.Units) > 0 {
-		flags.HasUnits = 1
+		flags.HasUnits = true
 	}
 	args = append(args, units(unitNames))
 
 	// Add flags to args
 	args = append(args, flags)
 
-	return args, flags
+	return args
 }
 
 // accumulateToMap transforms a slice of elements into a map of keys to slices
