@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	corerelation "github.com/juju/juju/core/relation"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -70,6 +71,34 @@ func (w *errWorker) Kill() {
 
 func (w *errWorker) Wait() error {
 	return w.tomb.Wait()
+}
+
+// macaroonErrWorker extends errWorker with Macaroon() and RelationUUID()
+// methods, so it can be used as an offerer unit relation worker in tests.
+type macaroonErrWorker struct {
+	errWorker
+	macaroon     *macaroon.Macaroon
+	relationUUID corerelation.UUID
+}
+
+func newMacaroonErrWorker(mac *macaroon.Macaroon, relationUUID corerelation.UUID) *macaroonErrWorker {
+	w := &macaroonErrWorker{
+		macaroon:     mac,
+		relationUUID: relationUUID,
+	}
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		return nil
+	})
+	return w
+}
+
+func (w *macaroonErrWorker) Macaroon() *macaroon.Macaroon {
+	return w.macaroon
+}
+
+func (w *macaroonErrWorker) RelationUUID() corerelation.UUID {
+	return w.relationUUID
 }
 
 type reportableWorker struct {

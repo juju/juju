@@ -389,6 +389,14 @@ func (s *localConsumerWorkerSuite) TestWatchApplicationStatusChangedNotFound(c *
 			return domainrelation.RelationDetails{}, relationerrors.RelationNotFound
 		})
 
+	// Expect the notification to the offering model when the relation is found
+	// to be removed and the offerer unit worker has a macaroon.
+	mac := newMacaroon(c, "relation-mac")
+	s.remoteModelRelationClient.EXPECT().
+		PublishRelationChange(gomock.Any(), gomock.Any()).
+		Return(nil).
+		AnyTimes()
+
 	w := s.newLocalConsumerWorker(c)
 	defer workertest.DirtyKill(c, w)
 
@@ -398,7 +406,7 @@ func (s *localConsumerWorkerSuite) TestWatchApplicationStatusChangedNotFound(c *
 		return newErrWorker(nil), nil
 	})
 	w.runner.StartWorker(c.Context(), offererUnitRelationWorkerName(relationUUID), func(ctx context.Context) (worker.Worker, error) {
-		return newErrWorker(nil), nil
+		return newMacaroonErrWorker(mac, relationUUID), nil
 	})
 
 	s.waitForWorkerStarted(c, w.runner,
@@ -588,7 +596,6 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerRelationChange(c *tc.C) {
 
 	s.waitForAllWorkersStarted(c)
 
-	s.allowShutdownPublish()
 }
 
 func (s *localConsumerWorkerSuite) TestHandleConsumerRelationChangeApplicationNotFound(c *tc.C) {
@@ -1225,7 +1232,6 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumption(c *tc.C) {
 		"consumer-unit-relation:" + consumingRelationUUID.String(),
 	})
 
-	s.allowShutdownPublish()
 	workertest.CleanKill(c, w)
 }
 
@@ -1307,7 +1313,6 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionEnsureSingular(c
 		"consumer-unit-relation:" + consumingRelationUUID.String(),
 	})
 
-	s.allowShutdownPublish()
 	workertest.CleanKill(c, w)
 }
 
@@ -1582,7 +1587,6 @@ func (s *localConsumerWorkerSuite) TestHandleSecretRevisionChange(c *tc.C) {
 		c.Fatalf("timed out waiting for secret to be updated")
 	}
 
-	s.allowShutdownPublish()
 	workertest.CleanKill(c, w)
 }
 
@@ -1943,7 +1947,6 @@ func (s *localConsumerWorkerSuite) TestHandleConsumerUnitChangeAlreadyDeadWithNo
 	names = w.runner.WorkerNames()
 	c.Assert(names, tc.HasLen, 0)
 
-	s.allowShutdownPublish()
 	workertest.CleanKill(c, w)
 }
 
@@ -2849,7 +2852,7 @@ func (s *localConsumerWorkerSuite) newLocalConsumerWorkerConfig(c *tc.C) LocalCo
 			}()
 			return newErrWorker(nil), nil
 		},
-		NewOffererUnitRelationsWorker: func(offererunitrelations.Config) (offererunitrelations.ReportableWorker, error) {
+		NewOffererUnitRelationsWorker: func(cfg offererunitrelations.Config) (offererunitrelations.ReportableWorker, error) {
 			defer func() {
 				select {
 				case s.offererUnitRelationsWorkerStarted <- struct{}{}:
@@ -2857,7 +2860,7 @@ func (s *localConsumerWorkerSuite) newLocalConsumerWorkerConfig(c *tc.C) LocalCo
 					c.Fatalf("timed out trying to send on offererUnitRelationsWorkerStarted channel")
 				}
 			}()
-			return newErrWorker(nil), nil
+			return newMacaroonErrWorker(cfg.Macaroon, cfg.ConsumerRelationUUID), nil
 		},
 		NewOffererRelationsWorker: func(offererrelations.Config) (offererrelations.ReportableWorker, error) {
 			defer func() {
@@ -2910,18 +2913,6 @@ func (s *localConsumerWorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.secretRevisionWatcherStarted = make(chan struct{}, 1)
 
 	return ctrl
-}
-
-// allowShutdownPublish registers a catch-all PublishRelationChange expectation
-// so that the notifyOfferingModelOnShutdown cleanup during worker kill doesn't
-// cause unexpected mock call failures. Must be called AFTER all test-specific
-// PublishRelationChange expectations have been registered so that gomock matches
-// specific expectations first (FIFO order).
-func (s *localConsumerWorkerSuite) allowShutdownPublish() {
-	s.remoteModelRelationClient.EXPECT().
-		PublishRelationChange(gomock.Any(), gomock.Any()).
-		Return(nil).
-		AnyTimes()
 }
 
 func (s *localConsumerWorkerSuite) waitForAllWorkersStarted(c *tc.C) {
@@ -3073,10 +3064,11 @@ func (s *localConsumerWorkerSuite) TestRelationRemovedNotifiesOfferingModel(c *t
 	workertest.CleanKill(c, w)
 }
 
-// TestRelationRemovedWithoutCachedMacaroon tests that when a relation is
-// removed and no macaroon was cached (e.g. worker restarted), the worker
-// gracefully handles the situation without trying to notify the offering model.
-func (s *localConsumerWorkerSuite) TestRelationRemovedWithoutCachedMacaroon(c *tc.C) {
+// TestRelationRemovedWithoutOffererUnitWorker tests that when a relation is
+// removed and no offerer unit relation worker exists (e.g. worker restarted),
+// the worker gracefully handles the situation without trying to notify the
+// offering model.
+func (s *localConsumerWorkerSuite) TestRelationRemovedWithoutOffererUnitWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	relationUUID := tc.Must(c, relation.NewUUID)
@@ -3104,7 +3096,7 @@ func (s *localConsumerWorkerSuite) TestRelationRemovedWithoutCachedMacaroon(c *t
 		})
 
 	// Relation is already gone. No PublishRelationChange expected because
-	// no macaroon was cached.
+	// no offerer unit worker exists.
 	s.crossModelService.EXPECT().
 		GetRelationDetails(gomock.Any(), relationUUID).
 		DoAndReturn(func(ctx context.Context, u relation.UUID) (domainrelation.RelationDetails, error) {
@@ -3115,18 +3107,15 @@ func (s *localConsumerWorkerSuite) TestRelationRemovedWithoutCachedMacaroon(c *t
 	w := s.newLocalConsumerWorker(c)
 	defer workertest.DirtyKill(c, w)
 
-	// Force the creation of the workers so handleRelationRemoved has
-	// something to clean up.
+	// Force the creation of only the consumer unit worker (no offerer unit
+	// worker). This simulates a restart where the offerer unit worker was
+	// never created for this relation.
 	w.runner.StartWorker(c.Context(), consumerUnitRelationWorkerName(relationUUID), func(ctx context.Context) (worker.Worker, error) {
-		return newErrWorker(nil), nil
-	})
-	w.runner.StartWorker(c.Context(), offererUnitRelationWorkerName(relationUUID), func(ctx context.Context) (worker.Worker, error) {
 		return newErrWorker(nil), nil
 	})
 
 	s.waitForWorkerStarted(c, w.runner,
 		consumerUnitRelationWorkerName(relationUUID),
-		offererUnitRelationWorkerName(relationUUID),
 	)
 
 	select {
@@ -3141,28 +3130,27 @@ func (s *localConsumerWorkerSuite) TestRelationRemovedWithoutCachedMacaroon(c *t
 		c.Fatalf("timed out waiting for GetRelationDetails to be called")
 	}
 
-	// Workers should be cleaned up.
+	// Consumer unit worker should be cleaned up.
 	s.waitUntilWorkerIsGone(c, w.runner,
 		consumerUnitRelationWorkerName(relationUUID),
-		offererUnitRelationWorkerName(relationUUID),
 	)
 
 	err := workertest.CheckKill(c, w)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestWorkerShutdownNotifiesOfferingModel tests that when the worker is
-// killed (e.g. during model destruction), it sends ForceCleanup notifications
-// for all relations that still have cached macaroons.
+// TestPublishModelDying tests that when PublishModelDying is called
+// (e.g. during model destruction), it sends ForceCleanup notifications
+// for all relations that have offerer unit relation workers.
 // This is the main fix for https://github.com/juju/juju/issues/21771.
-func (s *localConsumerWorkerSuite) TestWorkerShutdownNotifiesOfferingModel(c *tc.C) {
+func (s *localConsumerWorkerSuite) TestPublishModelDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := s.expectWorkerStartup()
 	consumingRelationUUID := s.expectRegisterRemoteRelation(c)
 
 	// Relation is alive. This triggers registerConsumerRelation which
-	// caches the macaroon.
+	// starts the offerer unit relation worker with the macaroon.
 	s.crossModelService.EXPECT().GetRelationDetails(gomock.Any(), consumingRelationUUID).Return(domainrelation.RelationDetails{
 		UUID: consumingRelationUUID,
 		Life: life.Alive,
@@ -3186,8 +3174,7 @@ func (s *localConsumerWorkerSuite) TestWorkerShutdownNotifiesOfferingModel(c *tc
 		Suspended: false,
 	}, nil)
 
-	// Expect the shutdown notification with ForceCleanup=true when the
-	// worker is killed.
+	// Expect the model dying notification with ForceCleanup=true.
 	publishDone := make(chan struct{})
 	s.remoteModelRelationClient.EXPECT().
 		PublishRelationChange(gomock.Any(), params.RemoteRelationChangeEvent{
@@ -3211,7 +3198,7 @@ func (s *localConsumerWorkerSuite) TestWorkerShutdownNotifiesOfferingModel(c *tc
 		c.Fatalf("timed out waiting for worker to be started")
 	}
 
-	// Send the alive event to cache the macaroon.
+	// Send the alive event to start the offerer unit workers.
 	select {
 	case s.relationLifeChanges <- []string{consumingRelationUUID.String()}:
 	case <-c.Context().Done():
@@ -3220,17 +3207,16 @@ func (s *localConsumerWorkerSuite) TestWorkerShutdownNotifiesOfferingModel(c *tc
 
 	s.waitForAllWorkersStarted(c)
 
-	// Kill the worker (simulating model destruction).
-	// The shutdown path should notify the offering model.
-	w.Kill()
+	// Call PublishModelDying directly (simulating model destruction).
+	err := w.PublishModelDying(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
 
-	// Verify PublishRelationChange was called with ForceCleanup on shutdown.
+	// Verify PublishRelationChange was called with ForceCleanup.
 	select {
 	case <-publishDone:
 	case <-c.Context().Done():
-		c.Fatalf("timed out waiting for shutdown PublishRelationChange to be called")
+		c.Fatalf("timed out waiting for PublishModelDying PublishRelationChange to be called")
 	}
 
-	err := workertest.CheckKill(c, w)
-	c.Assert(err, tc.ErrorIsNil)
+	workertest.CleanKill(c, w)
 }

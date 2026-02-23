@@ -6,6 +6,7 @@ package remoterelationconsumer
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -145,12 +146,6 @@ type localConsumerWorker struct {
 	// consume the remote application to which this worker pertains.
 	offerMacaroon *macaroon.Macaroon
 
-	// relationMacaroons caches relation-specific macaroons obtained from
-	// registerConsumerRelation. These are used in handleRelationRemoved to
-	// notify the offering model when the consuming model's relation has
-	// already been deleted by the removal worker (race condition).
-	relationMacaroons map[corerelation.UUID]*macaroon.Macaroon
-
 	consumerRelationUnitChanges chan consumerunitrelations.RelationUnitChange
 	offererRelationUnitChanges  chan offererunitrelations.RelationUnitChange
 	offererRelationChanges      chan offererrelations.RelationChange
@@ -196,8 +191,6 @@ func NewLocalConsumerWorker(config LocalConsumerWorkerConfig) (ReportableWorker,
 		offererModelUUID:  config.OffererModelUUID,
 		consumeVersion:    config.ConsumeVersion,
 		offerMacaroon:     config.Macaroon,
-
-		relationMacaroons: make(map[corerelation.UUID]*macaroon.Macaroon),
 
 		remoteRelationClientGetter: config.RemoteRelationClientGetter,
 
@@ -258,6 +251,44 @@ func (w *localConsumerWorker) Report() map[string]interface{} {
 	return result
 }
 
+// PublishModelDying notifies the offering model that the consuming model is
+// dying, so that it can mark all relations to the remote application as dying.
+// This is a best-effort notification: errors are logged but not propagated.
+// Uses a fresh context since the catacomb context may be cancelled.
+func (w *localConsumerWorker) PublishModelDying(ctx context.Context) error {
+	for _, workerName := range w.runner.WorkerNames() {
+		if !isOffererUnitRelationWorker(workerName) {
+			continue
+		}
+
+		rw, err := w.runner.Worker(workerName, ctx.Done())
+		if errors.Is(err, errors.NotFound) {
+			continue
+		} else if err != nil {
+			return err
+		}
+
+		type RelationMacaroonGetter interface {
+			RelationUUID() corerelation.UUID
+			Macaroon() *macaroon.Macaroon
+		}
+
+		relationWorker, ok := rw.(RelationMacaroonGetter)
+		if !ok {
+			return errors.Errorf("worker %q is not a RelationMacaroonGetter", workerName)
+		}
+
+		w.publishRelationDyingChange(
+			relationWorker.RelationUUID(),
+			relationWorker.Macaroon(),
+			"model is dying",
+			"model dying",
+		)
+	}
+
+	return nil
+}
+
 func (w *localConsumerWorker) loop() (err error) {
 	ctx := w.catacomb.Context(context.Background())
 
@@ -292,7 +323,6 @@ func (w *localConsumerWorker) loop() (err error) {
 	for {
 		select {
 		case <-w.catacomb.Dying():
-			w.notifyOfferingModelOnShutdown()
 			return w.catacomb.ErrDying()
 
 		case changes, ok := <-relationsWatcher.Changes():
@@ -321,18 +351,9 @@ func (w *localConsumerWorker) loop() (err error) {
 				// change appropriately.
 				details, err := w.crossModelService.GetRelationDetails(ctx, relationUUID)
 				if errors.Is(err, relationerrors.RelationNotFound) {
-					// The relation has been removed from the local
-					// (consuming) model. Notify the offering model so
-					// it can clean up the offer_connection and
-					// associated data. This covers the race where the
-					// local removal worker deletes the relation before
-					// we can send the dying notification via the normal
-					// handleRelationConsumption path.
-					w.publishRelationDyingForRemovedRelation(ctx, relationUUID)
-
-					// Ensure that we don't have any workers still
-					// running for the removed relation.
-					if err := w.handleRelationRemoved(ctx, relationUUID, 0); err != nil {
+					// Ensure that we don't have any workers still running for
+					// the removed relation.
+					if err := w.handleRelationNotFound(ctx, relationUUID); err != nil {
 						// If we fail to remove the relation, we must kill the
 						// worker, as nothing will come around and try again.
 						// Thus, kill it and force the application worker to
@@ -495,6 +516,19 @@ func (w *localConsumerWorker) remoteOfferRemoved(ctx context.Context) error {
 	return nil
 }
 
+func (w *localConsumerWorker) handleRelationNotFound(ctx context.Context, relationUUID corerelation.UUID) error {
+	// The relation has been removed from the local (consuming) model. Notify
+	// the offering model so it can clean up the offer_connection and associated
+	// data. This covers the race where the local removal worker deletes the
+	// relation before we can send the dying notification via the normal
+	// handleRelationConsumption path.
+	if err := w.publishRelationDyingForRemovedRelation(ctx, relationUUID); err != nil {
+		return errors.Annotatef(err, "notifying offering model of removed relation %q", relationUUID)
+	}
+
+	return w.handleRelationRemoved(ctx, relationUUID, 0)
+}
+
 func (w *localConsumerWorker) handleRelationRemoved(ctx context.Context, relationUUID corerelation.UUID, inScopeUnits int) error {
 	w.logger.Debugf(ctx, "relation %q removed", relationUUID)
 
@@ -523,12 +557,6 @@ func (w *localConsumerWorker) handleRelationRemoved(ctx context.Context, relatio
 	return nil
 }
 
-// publishRelationDyingForRemovedRelation notifies the offering model that a
-// relation has been removed from the consuming model. This handles the race
-// condition where the local removal worker deletes the relation before the
-// localConsumerWorker can send the dying notification via the normal
-// handleRelationConsumption → handleRelationDying path.
-// This is a best-effort notification: errors are logged but not propagated.
 // publishRelationDyingChange sends a ForceCleanup notification to the offering
 // model for a relation. This is a best-effort notification: errors are logged
 // but not propagated. Uses a fresh context since the catacomb context may be
@@ -563,12 +591,22 @@ func (w *localConsumerWorker) publishRelationDyingChange(
 	}
 }
 
-func (w *localConsumerWorker) publishRelationDyingForRemovedRelation(_ context.Context, relationUUID corerelation.UUID) {
-	mac, ok := w.relationMacaroons[relationUUID]
-	if !ok {
-		return
+func (w *localConsumerWorker) publishRelationDyingForRemovedRelation(ctx context.Context, relationUUID corerelation.UUID) error {
+	offererUnitRelationWorker, err := w.runner.Worker(offererUnitRelationWorkerName(relationUUID), ctx.Done())
+	if errors.Is(err, errors.NotFound) {
+		// If the worker doesn't exist, then it either hasn't been created yet,
+		// or has already been removed, in either case, we can skip sending the
+		// notification.
+		return nil
+	} else if err != nil {
+		return errors.Annotatef(err, "stopping offerer unit relation worker for %q", relationUUID)
 	}
-	defer delete(w.relationMacaroons, relationUUID)
+
+	type MacaroonGetter interface {
+		Macaroon() *macaroon.Macaroon
+	}
+
+	mac := offererUnitRelationWorker.(MacaroonGetter).Macaroon()
 
 	w.publishRelationDyingChange(
 		relationUUID,
@@ -576,6 +614,8 @@ func (w *localConsumerWorker) publishRelationDyingForRemovedRelation(_ context.C
 		"relation %q removed locally, notifying offering model",
 		"removal",
 	)
+
+	return nil
 }
 
 // publishRelationDyingWithMacaroon sends a ForceCleanup notification to the
@@ -592,26 +632,6 @@ func (w *localConsumerWorker) publishRelationDyingWithMacaroon(relationUUID core
 		"relation %q removed locally during registration, notifying offering model",
 		"removal during registration",
 	)
-}
-
-// notifyOfferingModelOnShutdown sends ForceCleanup notifications for all
-// relations that still have cached macaroons when the worker is shutting down.
-// Relations that had their dying notification sent successfully via the normal
-// path will have had their macaroons removed from the cache already.
-// This uses a fresh context since the catacomb context is cancelled on shutdown.
-func (w *localConsumerWorker) notifyOfferingModelOnShutdown() {
-	if len(w.relationMacaroons) == 0 || w.remoteModelClient == nil {
-		return
-	}
-
-	for relationUUID, mac := range w.relationMacaroons {
-		w.publishRelationDyingChange(
-			relationUUID,
-			mac,
-			"worker shutting down, notifying offering model about relation %q",
-			"on shutdown",
-		)
-	}
 }
 
 // handleConsumerRelationChange processes changes to the relation as recorded in
@@ -706,12 +726,6 @@ func (w *localConsumerWorker) handleRelationConsumption(
 
 	w.logger.Debugf(ctx, "consumer relation registered for %q: %v", details.UUID, result)
 
-	// Cache the relation-specific macaroon so that it can be used to notify
-	// the offering model if the relation is removed locally before the
-	// localConsumerWorker can process the dying event (race with the removal
-	// worker).
-	w.relationMacaroons[details.UUID] = result.macaroon
-
 	// Start the remote relation worker to watch for offerer relation changes.
 	// The aim is to ensure that we can track the suspended status of the
 	// relation so we can correctly react to that.
@@ -738,10 +752,6 @@ func (w *localConsumerWorker) handleRelationConsumption(
 		if err := w.handleRelationDying(ctx, details.UUID, result.macaroon, !relationKnown); err != nil {
 			return err
 		}
-		// Clean up the cached macaroon since the offering model has been
-		// successfully notified via the normal path. This avoids sending
-		// a duplicate forced notification from handleRelationRemoved later.
-		delete(w.relationMacaroons, details.UUID)
 		return nil
 	}
 
@@ -1248,6 +1258,10 @@ func consumerUnitRelationWorkerName(relationUUID corerelation.UUID) string {
 
 func offererUnitRelationWorkerName(relationUUID corerelation.UUID) string {
 	return fmt.Sprintf("offerer-unit-relation:%s", relationUUID)
+}
+
+func isOffererUnitRelationWorker(name string) bool {
+	return strings.HasPrefix(name, "offerer-unit-relation:")
 }
 
 func offererRelationWorkerName(relationUUID corerelation.UUID) string {
