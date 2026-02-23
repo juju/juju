@@ -445,7 +445,7 @@ func (api *OffersAPI) makeOfferParams(
 		})
 	}
 
-	result.Users = addUsersToApplicationOfferDetails(apiUser, apiUserDisplayName, apiUserAccess, offer.OfferUsers)
+	result.Users = addUsersToApplicationOfferDetails(apiUser, apiUserDisplayName, offer.OfferUsers, isAdminUser)
 
 	return &result
 }
@@ -453,8 +453,8 @@ func (api *OffersAPI) makeOfferParams(
 func addUsersToApplicationOfferDetails(
 	apiUser names.UserTag,
 	apiUserDisplayName string,
-	apiUserAccess permission.Access,
 	offerUsers []crossmodelrelation.OfferUser,
+	isAdminUser bool,
 ) []params.OfferUserDetails {
 	result := make([]params.OfferUserDetails, 0)
 
