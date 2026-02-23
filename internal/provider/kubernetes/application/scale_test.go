@@ -15,7 +15,7 @@ import (
 
 func (s *applicationSuite) TestApplicationScaleStateful(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
-	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {}, nil)
 
 	c.Assert(app.Scale(20), tc.ErrorIsNil)
 	ss, err := s.client.AppsV1().StatefulSets(s.namespace).Get(
@@ -29,7 +29,7 @@ func (s *applicationSuite) TestApplicationScaleStateful(c *tc.C) {
 
 func (s *applicationSuite) TestApplicationScaleStateless(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateless, false)
-	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {}, nil)
 
 	c.Assert(app.Scale(20), tc.ErrorIsNil)
 	dep, err := s.client.AppsV1().Deployments(s.namespace).Get(
@@ -43,14 +43,14 @@ func (s *applicationSuite) TestApplicationScaleStateless(c *tc.C) {
 
 func (s *applicationSuite) TestApplicationScaleStatefulLessThanZero(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
-	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {}, nil)
 
 	c.Assert(app.Scale(-1), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *applicationSuite) TestCurrentScale(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
-	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {}, nil)
 
 	c.Assert(app.Scale(3), tc.ErrorIsNil)
 
@@ -65,7 +65,7 @@ func (s *applicationSuite) TestCurrentScale(c *tc.C) {
 
 func (s *applicationSuite) TestEnsurePVCs(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
-	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {}, nil)
 
 	// Test EnsurePVCs with filesystem params and unit attachments
 	filesystems := []storage.KubernetesFilesystemParams{
@@ -86,9 +86,7 @@ func (s *applicationSuite) TestEnsurePVCs(c *tc.C) {
 		},
 	}
 
-	var existingAttachments []storage.KubernetesFilesystemAttachment
-
-	err := app.EnsurePVCs(filesystems, filesystemUnitAttachments, existingAttachments, "uniqid")
+	err := app.EnsurePVCs(filesystems, filesystemUnitAttachments, "uniqid")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Verify PVC was created
@@ -99,4 +97,82 @@ func (s *applicationSuite) TestEnsurePVCs(c *tc.C) {
 	pvc := pvcList.Items[0]
 	c.Assert(pvc.Spec.VolumeName, tc.Equals, "test-volume-id")
 	c.Assert(pvc.Name, tc.Matches, "gitlab-database-uniqid-gitlab-0")
+}
+
+func (s *applicationSuite) TestEnsurePVCsWithRealizedAttachments(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {}, nil)
+
+	// Test EnsurePVCs with filesystem params and unit attachments
+	filesystems := []storage.KubernetesFilesystemParams{
+		{
+			StorageName: "database",
+			Size:        1024, // 1GiB in MiB
+			Provider:    storage.ProviderType("kubernetes"),
+			Attributes:  map[string]interface{}{"storage-class": "fast"},
+			Attachments: []storage.KubernetesFilesystemAttachmentParams{
+				{
+					RealizedPVCNames: []string{"gitlab-database-uniqid-gitlab-0"},
+				},
+			},
+		},
+	}
+
+	filesystemUnitAttachments := map[string][]storage.KubernetesFilesystemUnitAttachmentParams{
+		"database": {
+			{
+				UnitName: "gitlab/0",
+				VolumeId: "test-volume-id",
+			},
+		},
+	}
+
+	err := app.EnsurePVCs(filesystems, filesystemUnitAttachments, "uniqid")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify PVC was created
+	pvcList, err := s.client.CoreV1().PersistentVolumeClaims(s.namespace).List(c.Context(), metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pvcList.Items, tc.HasLen, 1)
+
+	pvc := pvcList.Items[0]
+	c.Assert(pvc.Spec.VolumeName, tc.Equals, "test-volume-id")
+	c.Assert(pvc.Name, tc.Matches, "gitlab-database-uniqid-gitlab-0")
+}
+
+func (s *applicationSuite) TestEnsurePVCsUnknownPVCNameFormat(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {}, nil)
+
+	// Test EnsurePVCs with filesystem params and unit attachments
+	filesystems := []storage.KubernetesFilesystemParams{
+		{
+			StorageName: "database",
+			Size:        1024, // 1GiB in MiB
+			Provider:    storage.ProviderType("kubernetes"),
+			Attributes:  map[string]interface{}{"storage-class": "fast"},
+			Attachments: []storage.KubernetesFilesystemAttachmentParams{
+				{
+					RealizedPVCNames: []string{"gitlab-database-uniqid-gitlabunknown-%#$0"},
+				},
+			},
+		},
+	}
+
+	filesystemUnitAttachments := map[string][]storage.KubernetesFilesystemUnitAttachmentParams{
+		"database": {
+			{
+				UnitName: "gitlab/0",
+				VolumeId: "test-volume-id",
+			},
+		},
+	}
+
+	err := app.EnsurePVCs(filesystems, filesystemUnitAttachments, "uniqid")
+	c.Assert(err, tc.ErrorMatches, `cannot get pvc template name for app "gitlab" .*`)
+
+	// Verify PVC was not created
+	pvcList, err := s.client.CoreV1().PersistentVolumeClaims(s.namespace).List(c.Context(), metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pvcList.Items, tc.HasLen, 0)
 }

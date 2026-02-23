@@ -156,7 +156,7 @@ func (s *applicationSuite) getApp(c *tc.C, deploymentType caas.DeploymentType, m
 func (s *applicationSuite) assertEnsure(c *tc.C, app caas.Application,
 	isPrivateImageRepo bool, cons constraints.Value, trust bool, rootless bool,
 	agentVersion string, mutateAppConfig func(*caas.ApplicationConfig),
-	checkMainResource func(),
+	checkMainResource func(), assertEnsureErrFunc func(err error),
 ) {
 	if agentVersion == "" {
 		agentVersion = defaultAgentVersion
@@ -427,6 +427,12 @@ func (s *applicationSuite) assertEnsure(c *tc.C, app caas.Application,
 		mutateAppConfig(&appConfig)
 	}
 
+	if assertEnsureErrFunc != nil {
+		err := app.Ensure(appConfig)
+		assertEnsureErrFunc(err)
+		return
+	}
+
 	c.Assert(app.Ensure(appConfig), tc.ErrorIsNil)
 
 	secret, err := s.client.CoreV1().Secrets("test").Get(c.Context(), "gitlab-application-config", metav1.GetOptions{})
@@ -656,6 +662,7 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 
 	tests := []struct {
 		name            string
+		assertErrorFunc func(error)
 		mutateConfig    func(*caas.ApplicationConfig)
 		expectedPVCs    []corev1.PersistentVolumeClaim
 		expectedService corev1.Service
@@ -664,6 +671,7 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 		{
 			name:            "no realized attachments",
 			mutateConfig:    nil,
+			assertErrorFunc: nil,
 			expectedPVCs:    expectedPVCsModernFormat,
 			expectedService: expectedService,
 			expectedPodSpec: expectedPodSpec,
@@ -671,27 +679,19 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 		{
 			name: "with realized attachments pvc name format <app>-<storage>-<uniqid>-<app>-<ordinal>",
 			mutateConfig: func(config *caas.ApplicationConfig) {
-				config.RealizedAttachments = []storage.KubernetesFilesystemAttachment{
-					{
-						ContainerName: "gitlab",
-						Path:          "path/in/workload-container",
-						PVCName:       "gitlab-database-uniqid-gitlab-0",
-						StorageName:   "database",
-					},
-					{
-						ContainerName: "gitlab",
-						Path:          "path/in/workload-container",
-						PVCName:       "gitlab-database-uniqid-gitlab-1",
-						StorageName:   "database",
-					},
-					{
-						ContainerName: "gitlab",
-						Path:          "path/in/workload-container",
-						PVCName:       "gitlab-database-uniqid-gitlab-2",
-						StorageName:   "database",
-					},
+				realizedPVCNames := []string{
+					"gitlab-database-uniqid-gitlab-0",
+					"gitlab-database-uniqid-gitlab-1",
+					"gitlab-database-uniqid-gitlab-2",
+				}
+				for i := 0; i < len(config.Filesystems); i++ {
+					fs := config.Filesystems[i]
+					for j := 0; j < len(fs.Attachments); j++ {
+						fs.Attachments[j].RealizedPVCNames = realizedPVCNames
+					}
 				}
 			},
+			assertErrorFunc: nil,
 			expectedPVCs:    expectedPVCsModernFormat,
 			expectedService: expectedService,
 			expectedPodSpec: expectedPodSpec,
@@ -699,27 +699,19 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 		{
 			name: "with realized attachments pvc name legacy format <storage>-<uniqid>-<app>-<ordinal>",
 			mutateConfig: func(config *caas.ApplicationConfig) {
-				config.RealizedAttachments = []storage.KubernetesFilesystemAttachment{
-					{
-						ContainerName: "gitlab",
-						Path:          "path/in/workload-container",
-						PVCName:       "database-uniqid-gitlab-0",
-						StorageName:   "database",
-					},
-					{
-						ContainerName: "gitlab",
-						Path:          "path/in/workload-container",
-						PVCName:       "database-uniqid-gitlab-1",
-						StorageName:   "database",
-					},
-					{
-						ContainerName: "gitlab",
-						Path:          "path/in/workload-container",
-						PVCName:       "database-uniqid-gitlab-2",
-						StorageName:   "database",
-					},
+				realizedPVCNames := []string{
+					"database-uniqid-gitlab-0",
+					"database-uniqid-gitlab-1",
+					"database-uniqid-gitlab-2",
+				}
+				for i := 0; i < len(config.Filesystems); i++ {
+					fs := config.Filesystems[i]
+					for j := 0; j < len(fs.Attachments); j++ {
+						fs.Attachments[j].RealizedPVCNames = realizedPVCNames
+					}
 				}
 			},
+			assertErrorFunc: nil,
 			expectedPVCs:    expectedPVCsLegacyFormatWithUniqID,
 			expectedService: expectedService,
 			expectedPodSpec: expectedPodSpecWithLegacyVolumeMountNameWithUniqID,
@@ -727,30 +719,44 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 		{
 			name: "with realized attachments pvc name legacy format juju-<storage>-<number>",
 			mutateConfig: func(config *caas.ApplicationConfig) {
-				config.RealizedAttachments = []storage.KubernetesFilesystemAttachment{
-					{
-						ContainerName: "gitlab",
-						Path:          "path/in/workload-container",
-						PVCName:       "juju-database-123-gitlab-0",
-						StorageName:   "database",
-					},
-					{
-						ContainerName: "gitlab",
-						Path:          "path/in/workload-container",
-						PVCName:       "juju-database-123-gitlab-1",
-						StorageName:   "database",
-					},
-					{
-						ContainerName: "gitlab",
-						Path:          "path/in/workload-container",
-						PVCName:       "juju-database-123-gitlab-2",
-						StorageName:   "database",
-					},
+				realizedPVCNames := []string{
+					"juju-database-123-gitlab-0",
+					"juju-database-123-gitlab-1",
+					"juju-database-123-gitlab-2",
+				}
+				for i := 0; i < len(config.Filesystems); i++ {
+					fs := config.Filesystems[i]
+					for j := 0; j < len(fs.Attachments); j++ {
+						fs.Attachments[j].RealizedPVCNames = realizedPVCNames
+					}
 				}
 			},
+			assertErrorFunc: nil,
 			expectedPVCs:    expectedPVCsLegacyFormatWithoutUniqID,
 			expectedService: expectedService,
 			expectedPodSpec: expectedPodSpecWithLegacyVolumeMountNameWithoutUniqID,
+		},
+		{
+			name: "error because realized pvc names follow an unrecognized format",
+			mutateConfig: func(config *caas.ApplicationConfig) {
+				realizedPVCNames := []string{
+					"juju-database-123-gitlabunknown-!#0",
+					"juju-database-123-gitlabstrange-1$#@",
+					"juju-database-123-gitlaberror",
+				}
+				for i := 0; i < len(config.Filesystems); i++ {
+					fs := config.Filesystems[i]
+					for j := 0; j < len(fs.Attachments); j++ {
+						fs.Attachments[j].RealizedPVCNames = realizedPVCNames
+					}
+				}
+			},
+			assertErrorFunc: func(err error) {
+				c.Assert(err, tc.ErrorMatches, `cannot get pvc template name for app "gitlab" .*`)
+			},
+			expectedPVCs:    []corev1.PersistentVolumeClaim{},
+			expectedService: corev1.Service{},
+			expectedPodSpec: corev1.PodSpec{},
 		},
 	}
 
@@ -771,6 +777,7 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 				assertStatefulResources(c, s, tt.expectedPVCs,
 					tt.expectedService, tt.expectedPodSpec)
 			},
+			tt.assertErrorFunc,
 		)
 
 		s.assertDelete(c, app)
@@ -922,6 +929,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless35(c *tc.C) {
 				},
 			})
 		},
+		nil,
 	)
 	s.assertDelete(c, app)
 }
@@ -1011,6 +1019,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless(c *tc.C) {
 				},
 			})
 		},
+		nil,
 	)
 	s.assertDelete(c, app)
 }
@@ -1133,6 +1142,7 @@ func (s *applicationSuite) TestEnsureStatefulRootlessWithTempFSStorage(c *tc.C) 
 				},
 			})
 		},
+		nil,
 	)
 	s.assertDelete(c, app)
 }
@@ -1141,6 +1151,7 @@ func (s *applicationSuite) TestEnsureTrusted(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, true, false, "", nil, func() {},
+		nil,
 	)
 	s.assertDelete(c, app)
 }
@@ -1149,6 +1160,7 @@ func (s *applicationSuite) TestEnsureUntrusted(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, false, false, "", nil, func() {},
+		nil,
 	)
 	s.assertDelete(c, app)
 }
@@ -1245,6 +1257,7 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *tc.C) {
 				},
 			})
 		},
+		nil,
 	)
 	s.assertDelete(c, app)
 }
@@ -1319,6 +1332,7 @@ func (s *applicationSuite) TestEnsureStateless(c *tc.C) {
 				},
 			})
 		},
+		nil,
 	)
 	s.assertDelete(c, app)
 }
@@ -1392,6 +1406,7 @@ func (s *applicationSuite) TestEnsureDaemon(c *tc.C) {
 				},
 			})
 		},
+		nil,
 	)
 	s.assertDelete(c, app)
 }
@@ -1533,7 +1548,8 @@ func (s *applicationSuite) TestUpgradeStateful(c *tc.C) {
 			"--data-dir", "/var/lib/juju",
 			"--bin-dir", "/charm/bin",
 		})
-	})
+	},
+		nil)
 
 	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "2.9.37", nil, func() {
 		ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
@@ -1547,7 +1563,8 @@ func (s *applicationSuite) TestUpgradeStateful(c *tc.C) {
 			"--data-dir", "/var/lib/juju",
 			"--bin-dir", "/charm/bin",
 		})
-	})
+	},
+		nil)
 
 	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "3.5-beta1.1", nil, func() {
 		ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
@@ -1562,7 +1579,8 @@ func (s *applicationSuite) TestUpgradeStateful(c *tc.C) {
 			"--bin-dir", "/charm/bin",
 			"--profile-dir", "/containeragent/etc/profile.d",
 		})
-	})
+	},
+		nil)
 }
 
 func (s *applicationSuite) TestDeleteStateful(c *tc.C) {
@@ -3020,6 +3038,7 @@ func (s *applicationSuite) TestServiceActive(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, false, false, "", nil, func() {},
+		nil,
 	)
 	defer s.assertDelete(c, app)
 
@@ -3059,6 +3078,7 @@ func (s *applicationSuite) TestServiceNotSupportedDaemon(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentDaemon, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, false, false, "", nil, func() {},
+		nil,
 	)
 	defer s.assertDelete(c, app)
 
@@ -3076,6 +3096,7 @@ func (s *applicationSuite) TestServiceNotSupportedStateless(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateless, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, false, false, "", nil, func() {},
+		nil,
 	)
 	defer s.assertDelete(c, app)
 
@@ -3093,6 +3114,7 @@ func (s *applicationSuite) TestServiceTerminated(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, false, false, "", nil, func() {},
+		nil,
 	)
 	defer s.assertDelete(c, app)
 
@@ -3133,6 +3155,7 @@ func (s *applicationSuite) TestServiceError(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, false, false, "", nil, func() {},
+		nil,
 	)
 	defer s.assertDelete(c, app)
 
@@ -3285,6 +3308,7 @@ func (s *applicationSuite) TestEnsureConstraints(c *tc.C) {
 				},
 			})
 		},
+		nil,
 	)
 }
 
@@ -3331,7 +3355,8 @@ func (s *applicationSuite) TestPullSecretUpdate(c *tc.C) {
 		metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "", nil, func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "", nil, func() {},
+		nil)
 
 	_, err = s.client.CoreV1().Secrets(s.namespace).Get(c.Context(), "gitlab-oldcontainer-secret", metav1.GetOptions{})
 	c.Assert(err, tc.ErrorMatches, `secrets "gitlab-oldcontainer-secret" not found`)
@@ -3362,6 +3387,7 @@ func (s *applicationSuite) TestLimits(c *tc.C) {
 				c.Check(ctr.Resources.Limits, tc.DeepEquals, limits)
 			}
 		},
+		nil,
 	)
 }
 
@@ -3405,6 +3431,7 @@ func (s *applicationSuite) TestEnsureUpdatedConstraints(c *tc.C) {
 				c.Check(ctr.Resources.Requests.Memory().Equal(*workloadResourceLimits.Memory()), tc.IsTrue)
 			}
 		},
+		nil,
 	)
 }
 
