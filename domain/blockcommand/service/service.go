@@ -16,10 +16,10 @@ import (
 type State interface {
 	// SetBlock switches on a command block for a given type with an optional
 	// message.
-	SetBlock(ctx context.Context, t blockcommand.BlockType, message string) error
+	SetBlock(ctx context.Context, blockType int8, message string) error
 
 	// RemoveBlock disables block of specified type for the current model.
-	RemoveBlock(ctx context.Context, t blockcommand.BlockType) error
+	RemoveBlock(ctx context.Context, blockType int8) error
 
 	// RemoveAllBlocks removes all the blocks for the current model.
 	RemoveAllBlocks(ctx context.Context) error
@@ -28,7 +28,7 @@ type State interface {
 	GetBlocks(ctx context.Context) ([]blockcommand.Block, error)
 
 	// GetBlockMessage returns the optional block message if it is switched on.
-	GetBlockMessage(ctx context.Context, t blockcommand.BlockType) (string, error)
+	GetBlockMessage(ctx context.Context, blockType int8) (string, error)
 }
 
 // Service defines a service for interacting with the underlying state.
@@ -49,25 +49,17 @@ func NewService(st State, logger logger.Logger) *Service {
 // for the given type.
 // Returns an error [errors.NotFound] if the block does not exist.
 func (s *Service) GetBlockSwitchedOn(ctx context.Context, t blockcommand.BlockType) (string, error) {
-	if err := t.Validate(); err != nil {
-		return "", err
-	}
-
-	return s.st.GetBlockMessage(ctx, t)
+	return s.st.GetBlockMessage(ctx, int8(t))
 }
 
 // SwitchBlockOn switches on a command block for a given type and message.
 // Returns an error [errors.AlreadyExists] if the block already exists.
 func (s *Service) SwitchBlockOn(ctx context.Context, t blockcommand.BlockType, message string) error {
-	if err := t.Validate(); err != nil {
-		return err
-	}
-
 	if len(message) > blockcommand.DefaultMaxMessageLength {
 		return errors.Errorf("message length exceeds maximum allowed length of %d", blockcommand.DefaultMaxMessageLength)
 	}
 
-	if err := s.st.SetBlock(ctx, t, message); errors.Is(err, blockcommanderrors.AlreadyExists) {
+	if err := s.st.SetBlock(ctx, int8(t), message); errors.Is(err, blockcommanderrors.AlreadyExists) {
 		s.logger.Debugf(ctx, "block already exists for type %q", t)
 		return nil
 	} else if err != nil {
@@ -84,11 +76,7 @@ func (s *Service) GetBlocks(ctx context.Context) ([]blockcommand.Block, error) {
 // SwitchBlockOff disables block of specified type for the current model.
 // Returns an error [errors.NotFound] if the block does not exist.
 func (s *Service) SwitchBlockOff(ctx context.Context, t blockcommand.BlockType) error {
-	if err := t.Validate(); err != nil {
-		return err
-	}
-
-	return s.st.RemoveBlock(ctx, t)
+	return s.st.RemoveBlock(ctx, int8(t))
 }
 
 // RemoveAllBlocks removes all the blocks for the current model.

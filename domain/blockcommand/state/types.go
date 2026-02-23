@@ -13,6 +13,6 @@ type blockCommandMessage struct {
 	Message string `db:"message"`
 }
 
-type blockType struct {
+type blockTypeID struct {
 	ID int8 `db:"id"`
 }
