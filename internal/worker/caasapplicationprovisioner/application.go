@@ -165,8 +165,7 @@ func (a *appWorker) loop() error {
 	if appLife == life.Dead {
 		if !statusOnly {
 			err = a.ops.AppDying(ctx, name, a.appUUID, app, a.life, a.facade,
-				a.applicationService, a.statusService, a.logger,
-				a.storageProvisioningService)
+				a.applicationService, a.statusService, a.logger)
 			if err != nil {
 				return errors.Annotatef(err, "deleting application %q", name)
 			}
@@ -278,8 +277,8 @@ func (a *appWorker) loop() error {
 			}
 			if !statusOnly {
 				a.provisioningInfo, err = a.ops.ProvisioningInfo(ctx, name,
-					a.appUUID, a.facade, a.storageProvisioningService,
-					a.applicationService, a.resourceOpenerGetter,
+					a.appUUID, a.facade, a.applicationService,
+					a.storageProvisioningService, a.resourceOpenerGetter,
 					a.provisioningInfo, a.logger)
 				if errors.Is(err, errors.NotProvisioned) {
 					a.logger.Debugf(ctx, "application %q is not provisioned", name)
@@ -321,8 +320,7 @@ func (a *appWorker) loop() error {
 		case life.Dying:
 			if !statusOnly {
 				err = a.ops.AppDying(ctx, name, a.appUUID, app, a.life,
-					a.facade, a.applicationService, a.statusService, a.logger,
-					a.storageProvisioningService)
+					a.facade, a.applicationService, a.statusService, a.logger)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -331,8 +329,7 @@ func (a *appWorker) loop() error {
 		case life.Dead:
 			if !statusOnly {
 				err = a.ops.AppDying(ctx, name, a.appUUID, app, a.life,
-					a.facade, a.applicationService, a.statusService, a.logger,
-					a.storageProvisioningService)
+					a.facade, a.applicationService, a.statusService, a.logger)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -376,8 +373,7 @@ func (a *appWorker) loop() error {
 				break
 			}
 			err := a.ops.EnsureScale(ctx, name, a.appUUID, app, a.life, a.facade,
-				a.applicationService, a.statusService, a.logger,
-				a.storageProvisioningService)
+				a.applicationService, a.logger)
 			if errors.Is(err, errors.NotFound) {
 				if scaleTries >= maxRetries {
 					return errors.Annotatef(err, "more than %d retries ensuring scale", maxRetries)
@@ -439,8 +435,7 @@ func (a *appWorker) loop() error {
 				break
 			}
 			err := a.ops.ReconcileDeadUnitScale(ctx, name, a.appUUID, app,
-				a.facade, a.applicationService, a.statusService, a.logger,
-				a.storageProvisioningService)
+				a.facade, a.applicationService, a.logger)
 			if errors.Is(err, errors.NotFound) {
 				reconcileDeadChan = a.clock.After(retryDelay)
 				shouldRefresh = false
