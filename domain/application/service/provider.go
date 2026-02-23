@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/caas"
@@ -1260,14 +1261,8 @@ func (s *ProviderService) populateAttachStorageArgs(
 	ctx context.Context,
 	storageUUID domainstorage.StorageInstanceUUID,
 	unitUUID coreunit.UUID,
+	storageAttachInfo internal.StorageInfoForAttach,
 ) (internal.AttachStorageToUnitArg, error) {
-	storageAttachInfo, err := s.st.GetStorageAttachInfoByUnitUUIDAndStorageUUID(ctx, unitUUID, storageUUID)
-	if err != nil {
-		return internal.AttachStorageToUnitArg{}, errors.Errorf(
-			"getting unit %q charm storage and count for %q: %w",
-			unitUUID, storageUUID, err,
-		)
-	}
 
 	charmStorageDef := internal.ValidateStorageArg{
 		Name:        storageAttachInfo.CharmStorageName,
@@ -1276,7 +1271,7 @@ func (s *ProviderService) populateAttachStorageArgs(
 		MinimumSize: storageAttachInfo.MinimumSize,
 	}
 
-	err = s.storageService.ValidateAttachStorage(
+	err := s.storageService.ValidateAttachStorage(
 		charmStorageDef, storageAttachInfo.AlreadyAttachedCount, storageAttachInfo.ProvisionedSizeMiB)
 	if err != nil {
 		return internal.AttachStorageToUnitArg{}, errors.Capture(err)
@@ -1291,9 +1286,10 @@ func (s *ProviderService) populateAttachStorageArgs(
 		return internal.AttachStorageToUnitArg{}, errors.Capture(err)
 	}
 	args := internal.AttachStorageToUnitArg{
-		StorageToAttach:    attachArgs,
-		StorageName:        storageAttachInfo.CharmStorageName,
-		CountLessThanEqual: uint32(math.MaxUint32),
+		StorageToAttach:                attachArgs,
+		StorageName:                    storageAttachInfo.CharmStorageName,
+		CountLessThanEqual:             uint32(math.MaxUint32),
+		AllowedExistingUnitAttachments: storageAttachInfo.AlreadyAttachedToUnits,
 	}
 
 	// Record the max allowed count precondition.
@@ -1330,15 +1326,29 @@ func (s *ProviderService) AttachStorageToIAASUnit(
 	if unitUUID.Validate() != nil {
 		return errors.New("unit uuid is not valid").Add(coreerrors.NotValid)
 	}
-	exists, err := s.st.GetUnitStorageAttachmentExists(ctx, storageUUID, unitUUID)
+
+	storageAttachInfo, err := s.st.GetStorageAttachInfoByUnitUUIDAndStorageUUID(ctx, unitUUID, storageUUID)
 	if err != nil {
-		return errors.Capture(err)
+		return errors.Errorf(
+			"getting unit %q charm storage and attachment info for %q: %w",
+			unitUUID, storageUUID, err,
+		)
 	}
-	if exists {
+	attachedTo := set.NewStrings(storageAttachInfo.AlreadyAttachedToUnits...)
+	if attachedTo.Size() == 1 && attachedTo.Contains(unitUUID.String()) {
+		// The storage is already attached to the unit, so this is a no-op.
 		return nil
 	}
+	attachedTo.Remove(unitUUID.String())
+	// Shared storage is not supported.
+	if attachedTo.Size() > 0 {
+		return errors.Errorf(
+			"storage instance %q is already attached to other unit(s): %v",
+			storageUUID, attachedTo.Values(),
+		)
+	}
 
-	unitAttachStorageArgs, err := s.populateAttachStorageArgs(ctx, storageUUID, unitUUID)
+	unitAttachStorageArgs, err := s.populateAttachStorageArgs(ctx, storageUUID, unitUUID, storageAttachInfo)
 
 	if err != nil {
 		return errors.Capture(err)
@@ -1369,13 +1379,19 @@ func (s *ProviderService) AttachStorageToIAASUnit(
 		FilesystemsToOwn:       iaasUnitStorageArgs.FilesystemsToOwn,
 		VolumesToOwn:           iaasUnitStorageArgs.VolumesToOwn,
 	})
-	if errors.Is(err, internal.MaxStorageCountPreconditonFailed) {
+
+	var attachmentNotAllowed internal.StorageAttachmentNotAllowed
+	switch {
+	case errors.Is(err, internal.MaxStorageCountPreconditonFailed):
 		maxCount := int(unitAttachStorageArgs.CountLessThanEqual + 1)
 		return applicationerrors.StorageCountLimitExceeded{
 			Maximum:     &maxCount,
 			Requested:   1,
 			StorageName: unitAttachStorageArgs.StorageName,
 		}
+	case errors.As(err, &attachmentNotAllowed):
+		return errors.Errorf(
+			"attaching storage %q to unit %q: %w", unitAttachStorageArgs.StorageName, unitUUID, attachmentNotAllowed)
 	}
 	return errors.Capture(err)
 }
@@ -1406,27 +1422,47 @@ func (s *ProviderService) AttachStorageToCAASUnit(
 	if unitUUID.Validate() != nil {
 		return errors.New("unit uuid is not valid").Add(coreerrors.NotValid)
 	}
-	exists, err := s.st.GetUnitStorageAttachmentExists(ctx, storageUUID, unitUUID)
+
+	storageAttachInfo, err := s.st.GetStorageAttachInfoByUnitUUIDAndStorageUUID(ctx, unitUUID, storageUUID)
 	if err != nil {
-		return errors.Capture(err)
+		return errors.Errorf(
+			"getting unit %q charm storage and attachment info for %q: %w",
+			unitUUID, storageUUID, err,
+		)
 	}
-	if exists {
+	attachedTo := set.NewStrings(storageAttachInfo.AlreadyAttachedToUnits...)
+	if attachedTo.Size() == 1 && attachedTo.Contains(unitUUID.String()) {
+		// The storage is already attached to the unit, so this is a no-op.
 		return nil
 	}
+	attachedTo.Remove(unitUUID.String())
+	// Shared storage is not supported.
+	if attachedTo.Size() > 0 {
+		return errors.Errorf(
+			"storage instance %q is already attached to other unit(s): %v",
+			storageUUID, attachedTo.Values(),
+		)
+	}
 
-	unitStorageArgs, err := s.populateAttachStorageArgs(ctx, storageUUID, unitUUID)
+	unitAttachStorageArgs, err := s.populateAttachStorageArgs(ctx, storageUUID, unitUUID, storageAttachInfo)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	err = s.st.AttachStorageToCAASUnit(ctx, storageUUID, unitUUID, unitStorageArgs)
-	if errors.Is(err, internal.MaxStorageCountPreconditonFailed) {
-		maxCount := int(unitStorageArgs.CountLessThanEqual + 1)
+	err = s.st.AttachStorageToCAASUnit(ctx, storageUUID, unitUUID, unitAttachStorageArgs)
+
+	var attachmentNotAllowed internal.StorageAttachmentNotAllowed
+	switch {
+	case errors.Is(err, internal.MaxStorageCountPreconditonFailed):
+		maxCount := int(unitAttachStorageArgs.CountLessThanEqual + 1)
 		return applicationerrors.StorageCountLimitExceeded{
 			Maximum:     &maxCount,
 			Requested:   1,
-			StorageName: unitStorageArgs.StorageName,
+			StorageName: unitAttachStorageArgs.StorageName,
 		}
+	case errors.As(err, &attachmentNotAllowed):
+		return errors.Errorf(
+			"attaching storage %q to unit %q: %w", unitAttachStorageArgs.StorageName, unitUUID, attachmentNotAllowed)
 	}
 	return errors.Capture(err)
 }

@@ -4,6 +4,8 @@
 package internal
 
 import (
+	"strings"
+
 	corecharm "github.com/juju/juju/core/charm"
 	coremachine "github.com/juju/juju/core/machine"
 	domainapplicationcharm "github.com/juju/juju/domain/application/charm"
