@@ -83,7 +83,7 @@ type StoragePoolState interface {
 	// If any referenced storage pool UUID does not exist in the model, this
 	// returns [domainstorageerrors.StoragePoolNotFound]. Supplying an empty slice
 	// results in a no-op.
-	SetModelStoragePools(ctx context.Context, pools []domainstorage.RecommendedStoragePoolArg) error
+	SetModelStoragePools(ctx context.Context, pools []domainstorageinternal.RecommendedStoragePoolArg) error
 }
 
 // StoragePoolService defines a service for interacting with the underlying state.

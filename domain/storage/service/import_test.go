@@ -253,7 +253,7 @@ func (s *importSuite) TestImportStoragePools(c *tc.C) {
 		})
 		return nil
 	})
-	s.state.EXPECT().SetModelStoragePools(gomock.Any(), []domainstorage.RecommendedStoragePoolArg{})
+	s.state.EXPECT().SetModelStoragePools(gomock.Any(), []domainstorageinternal.RecommendedStoragePoolArg{})
 
 	err := s.service.ImportStoragePools(
 		c.Context(),
@@ -290,7 +290,7 @@ func (s *importSuite) TestImportStoragePoolsMultipleSuccess(c *tc.C) {
 		internalstorage.StorageKindFilesystem)
 	s.storageProviderRegistry.EXPECT().RecommendedPoolForKind(
 		internalstorage.StorageKindBlock)
-	s.state.EXPECT().SetModelStoragePools(gomock.Any(), []domainstorage.RecommendedStoragePoolArg{})
+	s.state.EXPECT().SetModelStoragePools(gomock.Any(), []domainstorageinternal.RecommendedStoragePoolArg{})
 
 	gomock.InOrder(
 		s.state.EXPECT().
@@ -503,7 +503,7 @@ func (s *importSuite) TestSetRecommendedStoragePools(c *tc.C) {
 		},
 	}
 
-	s.state.EXPECT().SetModelStoragePools(gomock.Any(), []domainstorage.RecommendedStoragePoolArg{
+	s.state.EXPECT().SetModelStoragePools(gomock.Any(), []domainstorageinternal.RecommendedStoragePoolArg{
 		{
 			StorageKind:     domainstorage.StorageKindFilesystem,
 			StoragePoolUUID: uuid1,

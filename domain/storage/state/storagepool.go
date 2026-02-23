@@ -725,7 +725,7 @@ WHERE name IN ($storagePoolNames[:])`
 // If any referenced storage pool UUID does not exist in the model, this
 // returns [domainstorageerrors.StoragePoolNotFound]. Supplying an empty slice
 // results in a no-op.
-func (st State) SetModelStoragePools(ctx context.Context, args []domainstorage.RecommendedStoragePoolArg) error {
+func (st State) SetModelStoragePools(ctx context.Context, args []domainstorageinternal.RecommendedStoragePoolArg) error {
 	if len(args) == 0 {
 		return nil
 	}

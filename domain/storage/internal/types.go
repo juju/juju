@@ -5,6 +5,7 @@ package internal
 
 import (
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
 )
 
@@ -30,4 +31,11 @@ type ImportFilesystemArgs struct {
 	ProviderID          string
 	StorageInstanceUUID string
 	Scope               storageprovisioning.ProvisionScope
+}
+
+// RecommendedStoragePoolArg represents a recommended storage pool assignment
+// for the state layer to accept.
+type RecommendedStoragePoolArg struct {
+	StoragePoolUUID storage.StoragePoolUUID
+	StorageKind     storage.StorageKind
 }

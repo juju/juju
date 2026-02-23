@@ -56,7 +56,7 @@ type StorageImportState interface {
 	// If any referenced storage pool UUID does not exist in the model, this
 	// returns [domainstorageerrors.StoragePoolNotFound]. Supplying an empty slice
 	// results in a no-op.
-	SetModelStoragePools(ctx context.Context, pools []domainstorage.RecommendedStoragePoolArg) error
+	SetModelStoragePools(ctx context.Context, pools []domainstorageinternal.RecommendedStoragePoolArg) error
 }
 
 // StorageImportService defines a service for importing storage entities during
@@ -444,9 +444,9 @@ func (s *StorageImportService) setRecommendedStoragePools(ctx context.Context,
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	poolArgs := make([]domainstorage.RecommendedStoragePoolArg, len(pools))
+	poolArgs := make([]domainstorageinternal.RecommendedStoragePoolArg, len(pools))
 	for i, pool := range pools {
-		poolArgs[i] = domainstorage.RecommendedStoragePoolArg{
+		poolArgs[i] = domainstorageinternal.RecommendedStoragePoolArg{
 			StoragePoolUUID: pool.StoragePoolUUID,
 			StorageKind:     pool.StorageKind,
 		}
