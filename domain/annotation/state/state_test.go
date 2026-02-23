@@ -85,7 +85,7 @@ func (s *stateSuite) TestSetAnnotations(c *tc.C) {
 		Name: "my-machine",
 	}
 
-	err := st.SetAnnotations(c.Context(), id, map[string]string{"bar": "6", "foo": "15"})
+	err := st.SetAnnotations(c.Context(), id, map[string]string{"bar": "6", "foo": "15"}, []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the final annotation set
@@ -93,7 +93,7 @@ func (s *stateSuite) TestSetAnnotations(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(annotations, tc.DeepEquals, map[string]string{"bar": "6", "foo": "15"})
 
-	err = st.SetAnnotations(c.Context(), id, map[string]string{"bar": "6", "baz": "7"})
+	err = st.SetAnnotations(c.Context(), id, map[string]string{"bar": "6", "baz": "7"}, []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the final annotation set
@@ -213,7 +213,7 @@ func testAnnotationUpdate(c *tc.C, st *State, id annotations.ID) {
 	c.Check(annotations1, tc.DeepEquals, map[string]string{"foo": "5"})
 
 	// Add bar:6 and update foo:15
-	err = st.SetAnnotations(c.Context(), id, map[string]string{"bar": "6", "foo": "15"})
+	err = st.SetAnnotations(c.Context(), id, map[string]string{"bar": "6", "foo": "15"}, []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the final annotation set
@@ -243,7 +243,7 @@ func (s *stateSuite) TestSetAnnotationsUnset(c *tc.C) {
 	c.Check(annotations1, tc.DeepEquals, map[string]string{"foo": "5", "bar": "6"})
 
 	// Unset foo
-	err = st.SetAnnotations(c.Context(), id, map[string]string{"foo": ""})
+	err = st.SetAnnotations(c.Context(), id, map[string]string{}, []string{"foo"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that we only have bar:6
@@ -252,7 +252,7 @@ func (s *stateSuite) TestSetAnnotationsUnset(c *tc.C) {
 	c.Check(annotations2, tc.DeepEquals, map[string]string{"bar": "6"})
 
 	// Set nothing
-	err = st.SetAnnotations(c.Context(), id, map[string]string{})
+	err = st.SetAnnotations(c.Context(), id, map[string]string{}, []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that we still have the bar:6
@@ -275,7 +275,7 @@ func (s *stateSuite) TestSetAnnotationsUnsetModel(c *tc.C) {
 	}
 
 	// Unset foo
-	err := st.SetAnnotations(c.Context(), id, map[string]string{"foo": ""})
+	err := st.SetAnnotations(c.Context(), id, map[string]string{}, []string{"foo"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that we only have bar:6
@@ -284,7 +284,7 @@ func (s *stateSuite) TestSetAnnotationsUnsetModel(c *tc.C) {
 	c.Check(annotations2, tc.DeepEquals, map[string]string{"bar": "6"})
 
 	// Set nothing
-	err = st.SetAnnotations(c.Context(), id, map[string]string{})
+	err = st.SetAnnotations(c.Context(), id, map[string]string{}, []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that we still have the bar:6
