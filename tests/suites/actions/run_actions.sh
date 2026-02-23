@@ -59,6 +59,28 @@ run_actions_params() {
 	juju show-task 9 --format=json | jq '.message' |
 	  check 'validation failed: \(root\).length : must be of type string, given false'
 
+	# Test juju operations command with basic filters
+	ops_count=$(juju operations --format=json | jq 'length')
+	check_ge "${ops_count}" 5
+	
+	# Test filtering by action and status - verify correct action name appears
+	fortune_ops=$(juju operations --actions fortune --status completed --format=json)
+	echo "${fortune_ops}" | jq 'length' | check '[1-9]'
+	echo "${fortune_ops}" | jq '.[keys[0]].action.name' | check 'fortune'
+	echo "${fortune_ops}" | jq '.[keys[0]].status' | check 'completed'
+
+	# Test filtering by app - verify the results contain the correct app
+	app_ops=$(juju operations --apps juju-qa-action --format=json)
+	app_ops_count=$(echo "${app_ops}" | jq 'length')
+	check_ge "${app_ops_count}" 5
+	echo "${app_ops}" | jq '.[keys[0]] | has("summary")' | check 'true'
+
+	# Test filtering by units - verify unit reference exists in results
+	unit_ops=$(juju operations --units juju-qa-action/0 --format=json)
+	unit_ops_count=$(echo "${unit_ops}" | jq 'length')
+	check_ge "${unit_ops_count}" 5
+	echo "${unit_ops}" | jq '.[keys[0]].tasks | to_entries[0].value.host' | check 'juju-qa-action/0'
+	
 	destroy_model "actions_test"
 }
 

@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"strings"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -55,15 +54,13 @@ func (st *State) GetOperations(ctx context.Context, params operation.QueryArgs) 
 		paginationParams.Offset = *params.Offset
 	}
 
-	// Build the query for operations with filters.
-	query, queryArgs := st.buildOperationsQuery(params)
-
-	// Add pagination parameters to the query arguments.
+	// Prepare query arguments and flags for static query.
+	queryArgs := st.prepareOperationsQueryArgs(params)
 	queryArgs = append(queryArgs, paginationParams)
 
-	st.logger.Tracef(ctx, "preparing operations query: \n %q \n with arguments: %+v", query, queryArgs)
+	st.logger.Tracef(ctx, "executing operations query with arguments: %+v", queryArgs)
 
-	stmt, err := st.Prepare(query, append([]any{operationResult{}}, queryArgs...)...)
+	stmt, err := st.Prepare(operationsQuery, append([]any{operationResult{}}, queryArgs...)...)
 	if err != nil {
 		return operation.QueryResult{}, errors.Errorf("preparing operations query: %w", err)
 	}
@@ -268,8 +265,52 @@ func encodeOperationInfo(
 	return opInfo, nil
 }
 
-// buildOperationsQuery constructs the SQL query and arguments for filtering operations
-func (st *State) buildOperationsQuery(params operation.QueryArgs) (string, []any) {
+// operationsQuery retrieves operations with their associated tasks, filtered
+// by action names, task statuses, and receivers (applications, machines,
+// units).
+//
+// The query uses integer flags to control whether each filter applies:
+// when a flag is 0, the corresponding filter is ignored; when 1, it matches
+// values from the provided slice. This allows empty filter parameters to be
+// handled correctly without dynamic query construction.
+//
+// All AND/OR conditions are explicitly parenthesized to ensure correct
+// evaluation order. The receiver filters use OR semantics: operations matching
+// ANY receiver type are returned, not just those matching ALL types.
+const operationsQuery = `
+SELECT DISTINCT
+    o.uuid AS &operationResult.uuid,
+    o.operation_id AS &operationResult.operation_id,
+    o.summary AS &operationResult.summary,
+    o.enqueued_at AS &operationResult.enqueued_at,
+    o.started_at AS &operationResult.started_at,
+    o.completed_at AS &operationResult.completed_at
+FROM operation AS o
+LEFT JOIN operation_action AS oa ON o.uuid = oa.operation_uuid
+LEFT JOIN operation_task AS t ON o.uuid = t.operation_uuid
+LEFT JOIN operation_task_status AS ts ON t.uuid = ts.task_uuid
+LEFT JOIN operation_task_status_value AS sv ON ts.status_id = sv.id
+LEFT JOIN operation_unit_task AS ut ON t.uuid = ut.task_uuid
+LEFT JOIN unit AS u ON ut.unit_uuid = u.uuid
+LEFT JOIN application AS a ON u.application_uuid = a.uuid
+LEFT JOIN operation_machine_task AS mt ON t.uuid = mt.task_uuid
+LEFT JOIN machine AS m ON mt.machine_uuid = m.uuid
+WHERE
+    ($queryFlags.has_actions = 0 OR oa.charm_action_key IN ($actionNames[:]))
+    AND ($queryFlags.has_status = 0 OR sv.status IN ($statuses[:]))
+    AND (
+        ($queryFlags.has_applications = 0 AND $queryFlags.has_machines = 0 AND $queryFlags.has_units = 0)
+        OR ($queryFlags.has_applications = 1 AND a.name IN ($applications[:]))
+        OR ($queryFlags.has_machines = 1 AND m.name IN ($machines[:]))
+        OR ($queryFlags.has_units = 1 AND u.name IN ($units[:]))
+    )
+ORDER BY o.operation_id
+LIMIT $queryParams.limit OFFSET $queryParams.offset
+`
+
+// prepareOperationsQueryArgs constructs the query arguments and flags for the
+// static GetOperations query.
+func (st *State) prepareOperationsQueryArgs(params operation.QueryArgs) []any {
 	// Define local typed slices for sqlair parameters
 	type actionNames []string
 	type statuses []string
@@ -277,110 +318,55 @@ func (st *State) buildOperationsQuery(params operation.QueryArgs) (string, []any
 	type machines []string
 	type units []string
 
+	flags := queryFlags{}
 	var args []any
 
-	// Base query: selecting from operation.
-	query := `
-WITH
-ops AS (
-	SELECT *
-	FROM   operation AS o
-	LIMIT $queryParams.limit OFFSET $queryParams.offset
-)
-SELECT DISTINCT
-       o.uuid AS &operationResult.uuid,
-       o.operation_id AS &operationResult.operation_id,
-       o.summary AS &operationResult.summary,
-       o.enqueued_at AS &operationResult.enqueued_at,
-       o.started_at AS &operationResult.started_at,
-       o.completed_at AS &operationResult.completed_at
-FROM ops AS o
-`
-
-	// Build WHERE clauses.
-	whereClauses := []string{}
-	joinClauses := []string{}
-
-	// Check if we need task joins.
-	needsTaskJoin := len(params.Status) > 0 ||
-		len(params.Applications) > 0 ||
-		len(params.Machines) > 0 ||
-		len(params.Units) > 0
-
-	// Add task joins if needed.
-	if needsTaskJoin {
-		joinClauses = append(joinClauses, "JOIN operation_task AS t ON o.uuid = t.operation_uuid")
-	}
-
-	// ActionNames filter - need to join with operation_action.
+	// ActionNames filter
 	if len(params.ActionNames) > 0 {
-		joinClauses = append(joinClauses, "JOIN operation_action AS oa ON o.uuid = oa.operation_uuid")
-		whereClauses = append(whereClauses, "oa.charm_action_key IN ($actionNames[:])")
-		args = append(args, actionNames(params.ActionNames))
+		flags.HasActions = true
 	}
+	args = append(args, actionNames(params.ActionNames))
 
-	// Status filter - need to compute status from tasks.
+	// Status filter - convert Status enum to strings
+	statusStrings := make([]string, len(params.Status))
+	for i, st := range params.Status {
+		statusStrings[i] = st.String()
+	}
 	if len(params.Status) > 0 {
-		statusStrings := make([]string, len(params.Status))
-		for i, st := range params.Status {
-			statusStrings[i] = st.String()
-		}
-		joinClauses = append(joinClauses, "JOIN operation_task_status AS ts ON t.uuid = ts.task_uuid")
-		joinClauses = append(joinClauses, "JOIN operation_task_status_value AS sv ON ts.status_id = sv.id")
-		whereClauses = append(whereClauses, "sv.status IN ($statuses[:])")
-		args = append(args, statuses(statusStrings))
+		flags.HasStatus = true
 	}
+	args = append(args, statuses(statusStrings))
 
-	// Receivers filter - need to join with tasks and their targets.
-	receiverClauses := []string{}
-
+	// Applications filter
 	if len(params.Applications) > 0 {
-		joinClauses = append(joinClauses, "JOIN operation_unit_task AS ut ON t.uuid = ut.task_uuid")
-		joinClauses = append(joinClauses, "JOIN unit AS u ON ut.unit_uuid = u.uuid")
-		joinClauses = append(joinClauses, "JOIN application AS a ON u.application_uuid = a.uuid")
-		receiverClauses = append(receiverClauses, "a.name IN ($applications[:])")
-		args = append(args, applications(params.Applications))
+		flags.HasApplications = true
 	}
+	args = append(args, applications(params.Applications))
 
+	// Machines filter
+	machineNames := make([]string, len(params.Machines))
+	for i, name := range params.Machines {
+		machineNames[i] = string(name)
+	}
 	if len(params.Machines) > 0 {
-		joinClauses = append(joinClauses, "JOIN operation_machine_task mt ON t.uuid = mt.task_uuid")
-		joinClauses = append(joinClauses, "JOIN machine m ON mt.machine_uuid = m.uuid")
-		machineNames := make([]string, len(params.Machines))
-		for i, name := range params.Machines {
-			machineNames[i] = string(name)
-		}
-		receiverClauses = append(receiverClauses, "m.name IN ($machines[:])")
-		args = append(args, machines(machineNames))
+		flags.HasMachines = true
 	}
+	args = append(args, machines(machineNames))
 
+	// Units filter
+	unitNames := make([]string, len(params.Units))
+	for i, name := range params.Units {
+		unitNames[i] = string(name)
+	}
 	if len(params.Units) > 0 {
-		// If we haven't already joined with unit tables for applications
-		if len(params.Applications) == 0 {
-			joinClauses = append(joinClauses, "JOIN operation_unit_task ut ON t.uuid = ut.task_uuid")
-			joinClauses = append(joinClauses, "JOIN unit u ON ut.unit_uuid = u.uuid")
-		}
-		unitNames := make([]string, len(params.Units))
-		for i, name := range params.Units {
-			unitNames[i] = string(name)
-		}
-		receiverClauses = append(receiverClauses, "u.name IN ($units[:])")
-		args = append(args, units(unitNames))
+		flags.HasUnits = true
 	}
+	args = append(args, units(unitNames))
 
-	if len(receiverClauses) > 0 {
-		whereClauses = append(whereClauses, "("+strings.Join(receiverClauses, " AND ")+")")
-	}
+	// Add flags to args
+	args = append(args, flags)
 
-	// Assemble the query
-	if len(joinClauses) > 0 {
-		query += "\n" + strings.Join(joinClauses, "\n")
-	}
-	if len(whereClauses) > 0 {
-		query += "\nWHERE " + strings.Join(whereClauses, " AND ")
-	}
-	query += "\nORDER BY o.operation_id"
-
-	return query, args
+	return args
 }
 
 // accumulateToMap transforms a slice of elements into a map of keys to slices
