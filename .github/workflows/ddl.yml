@@ -28,3 +28,25 @@ jobs:
             exit 1
           fi
 
+  check-for-patches:
+    name: Check for DDL Patches
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false && github.base_ref == 'main'
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v3
+
+      - name: Check for DDL patches
+        run: |
+          controller_patches=$(find ./domain/schema/controller/sql -maxdepth 1 -type f | grep ".PATCH.sql" || true)
+          model_patches=$(find ./domain/schema/model/sql -maxdepth 1 -type f | grep ".PATCH.sql" || true)
+
+          if [[ -n "$controller_patches" || -n "$model_patches" ]]; then
+            echo "*****"
+            echo "The following DDL patch files have been found:"
+            echo "$controller_patches"
+            echo "$model_patches"
+            echo "Please merge these patch files into the DDL itself. Patches are not allowed on main."
+            echo "*****"
+            exit 1
+          fi

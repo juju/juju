@@ -58,13 +58,7 @@ const (
 var controllerPostPatchFilesByVersion = []struct {
 	version semversion.Number
 	files   []string
-}{{
-	version: semversion.MustParse("4.0.1"),
-	files: []string{
-		"0026-secret-backend.PATCH.sql",
-		"0027-model-migration-import.PATCH.sql",
-	},
-}}
+}{}
 
 // ControllerDDL is used to create the controller database schema at bootstrap.
 func ControllerDDL() *schema.Schema {
@@ -112,8 +106,8 @@ func ControllerDDLForVersion(version semversion.Number) *schema.Schema {
 		// they are created by the controller during bootstrap time.
 		// 0 is 'controller', 1 is 'kubernetes'.
 		triggersForImmutableTable("secret_backend",
-			"OLD.backend_type_id IN (0, 1)",
-			"secret backends with type controller or kubernetes are immutable"),
+			"OLD.origin_id = 0 OR OLD.backend_type_id IN (0, 1)",
+			"built-in secret backends or secret backends with type controller or kubernetes are immutable"),
 	)
 
 	var postPatchFiles []string

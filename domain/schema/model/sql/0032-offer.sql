@@ -43,6 +43,7 @@ SELECT
     cr.name AS endpoint_name,
     crr.name AS endpoint_role,
     cr.interface AS endpoint_interface,
+    cr.capacity AS endpoint_limit,
     (SELECT COUNT(*) FROM conn AS c WHERE o.uuid = c.offer_uuid) AS total_connections,
     (SELECT COUNT(*) FROM active_conn AS ac WHERE o.uuid = ac.offer_uuid) AS total_active_connections
 FROM offer AS o

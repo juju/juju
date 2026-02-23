@@ -14,7 +14,7 @@ In Juju, a **model**  is an abstraction that holds {ref}`applications <applicati
 
 A model is created by a {ref}`user <user>`, and owned in perpetuity by that user (or a new user with the same name), though it may also be used by any other user with model access level, within the limits of their level.
 
-A model is created on a {ref}`controller <controller>`.  Both the model and the controller are associated with a {ref}`cloud <cloud>` (and a cloud {ref}`credential <credential>`), though they do not both have to be on the same cloud (this is a scenario where you have a 'multicloud controller' and where you may have 'cross-model relations (integrations)'). Any entities added to the model will use resources from that cloud.
+A model is created on a {ref}`controller <controller>`.  Both the model and the controller are associated with a {ref}`cloud <cloud>` (and a cloud {ref}`credential <credential>`), though they do not both have to be on the same cloud (this is a scenario where you have a 'multicloud controller' and where you may have 'cross-model relations'). Any entities added to the model will use resources from that cloud.
 
 One can deploy multiple applications to the same model. Thus, models allow the logical grouping of applications and infrastructure that work together to deliver a service or product.  Moreover, one can apply common {ref}`configurations <configuration>` to a whole model. As such, models allow the low-level storage, compute, network and software components to be reasoned about as a single entity as well.
 
@@ -36,7 +36,7 @@ The picture below illustrates a typical deployment with one controller model con
 
 
 <!--
-A [model](https://juju.is/docs/models) is a canvas on a particular cloud/k8s-cluster. The model is used to group applications that are being operated together for a common purpose on a common substrate. The model will capture the applications, their integration, configuration, and resource allocation.
+A [model](https://juju.is/docs/models) is a canvas on a particular cloud/k8s-cluster. The model is used to group applications that are being operated together for a common purpose on a common substrate. The model will capture the applications, their relations, configuration, and resource allocation.
 
 ```{note}
 

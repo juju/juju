@@ -46,8 +46,8 @@ CREATE TABLE secret_metadata (
     rotate_policy_id INT NOT NULL,
     auto_prune BOOLEAN NOT NULL DEFAULT (FALSE),
     latest_revision_checksum TEXT,
-    create_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
-    update_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
+    create_time DATETIME NOT NULL,
+    update_time DATETIME NOT NULL,
     CONSTRAINT fk_secret_id
     FOREIGN KEY (secret_id)
     REFERENCES secret (id),
@@ -106,7 +106,12 @@ CREATE TABLE secret_revision (
     uuid TEXT NOT NULL PRIMARY KEY,
     secret_id TEXT NOT NULL,
     revision INT NOT NULL,
-    create_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
+    create_time DATETIME NOT NULL,
+    -- TODO(gfouillet): update_time should be not null in 4.1, but we can't do it till we release the first 4.1
+    --  version. This is due to the fact we check for non breaking changes between minor versions, and this change
+    --  is breaking the generated  domain/export/types/v4_0_2/model.go : SecretRevision.UpdateTime type  change from
+    --  pointer to non pointer.
+    update_time DATETIME, -- NOT NULL,
     CONSTRAINT fk_secret_revision_secret_metadata_id
     FOREIGN KEY (secret_id)
     REFERENCES secret_metadata (secret_id)
@@ -323,3 +328,55 @@ LEFT JOIN application AS sua ON sp.subject_uuid = sua.uuid
 LEFT JOIN unit AS scu ON sp.scope_uuid = scu.uuid
 LEFT JOIN application AS sca ON sp.scope_uuid = sca.uuid
 JOIN model AS m;
+
+CREATE VIEW v_secret_owner AS
+SELECT
+    'model' AS owner_kind,
+    m.uuid AS owner_uuid,
+    m.name AS owner_name,
+    so.label,
+    so.secret_id
+FROM secret_model_owner AS so
+JOIN model AS m -- this is a singleton
+UNION ALL
+SELECT
+    'application' AS owner_kind,
+    so.application_uuid AS owner_uuid,
+    a.name AS owner_name,
+    so.label,
+    so.secret_id
+FROM secret_application_owner AS so
+JOIN application AS a ON so.application_uuid = a.uuid
+UNION ALL
+SELECT
+    'unit' AS owner_kind,
+    so.unit_uuid AS owner_uuid,
+    u.name AS owner_name,
+    so.label,
+    so.secret_id
+FROM secret_unit_owner AS so
+JOIN unit AS u ON so.unit_uuid = u.uuid;
+
+CREATE VIEW v_secret_metadata AS
+SELECT
+    sm.secret_id,
+    sm.version,
+    sm.description,
+    sm.auto_prune,
+    sm.latest_revision_checksum,
+    sm.create_time,
+    sm.update_time,
+    rp.policy,
+    sro.next_rotation_time,
+    sre.expire_time,
+    sr.revision,
+    so.owner_kind,
+    so.owner_uuid,
+    so.owner_name,
+    so.label
+FROM secret_metadata AS sm
+JOIN secret_rotate_policy AS rp ON sm.rotate_policy_id = rp.id
+JOIN secret_revision AS sr ON sm.secret_id = sr.secret_id
+LEFT JOIN secret_revision_expire AS sre ON sr.uuid = sre.revision_uuid
+LEFT JOIN secret_rotation AS sro ON sm.secret_id = sro.secret_id
+LEFT JOIN v_secret_owner AS so ON sm.secret_id = so.secret_id;

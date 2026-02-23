@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/permission"
 	relationtesting "github.com/juju/juju/core/relation/testing"
+	"github.com/juju/juju/core/status"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
@@ -559,6 +560,173 @@ func (s *offerServiceSuite) TestGetOffersWithAllowedConsumersNotFound(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.SameContents, []*crossmodelrelation.OfferDetail{})
+}
+
+// TestGetOffersWithConnections focuses on the GetOfferConnections state call.
+// The other functionality has been tested in TestGetOffers tests.
+func (s *offerServiceSuite) TestGetOffersWithConnections(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	offerUUIDs := []string{uuid.MustNewUUID().String()}
+
+	inputFilter := crossmodelrelation.OfferFilter{ApplicationName: "test-offer"}
+	offerDetails := []*crossmodelrelation.OfferDetail{
+		{
+			OfferUUID:              offerUUIDs[0],
+			OfferName:              "test-offer",
+			ApplicationName:        "test-offer",
+			ApplicationDescription: "this is a test",
+			Endpoints: []crossmodelrelation.OfferEndpoint{
+				{
+					Name:      "endpoint",
+					Interface: "interface",
+					Role:      charm.RoleProvider,
+				},
+			},
+			TotalConnections:       2,
+			TotalActiveConnections: 1,
+		},
+	}
+	s.modelState.EXPECT().GetOfferDetails(gomock.Any(), inputFilter).Return(offerDetails, nil)
+
+	offerUsers := map[string][]crossmodelrelation.OfferUser{
+		offerUUIDs[0]: {
+			{
+				Name:   "fred",
+				Access: permission.ConsumeAccess,
+			},
+		},
+	}
+	s.controllerState.EXPECT().GetUsersForOfferUUIDs(gomock.Any(), offerUUIDs).Return(offerUsers, nil)
+
+	offerConnections := map[string][]crossmodelrelation.OfferConnection{
+		offerUUIDs[0]: {
+			{
+				Username:       "bob",
+				RelationId:     0,
+				Endpoint:       "db-admin-r",
+				Status:         status.Joined,
+				IngressSubnets: []string{"203.0.113.42/24"},
+			},
+		},
+	}
+	s.modelState.EXPECT().GetOfferConnections(gomock.Any(), offerUUIDs).Return(offerConnections, nil)
+
+	filters := []OfferFilter{{
+		ApplicationName: inputFilter.ApplicationName,
+	}}
+
+	// Act
+	result, err := s.service(c).GetOffersWithConnections(c.Context(), filters)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.SameContents, []*crossmodelrelation.OfferDetailWithConnections{
+		{
+			OfferDetail: crossmodelrelation.OfferDetail{
+				OfferUUID:              offerUUIDs[0],
+				OfferName:              "test-offer",
+				ApplicationName:        "test-offer",
+				ApplicationDescription: "this is a test",
+				Endpoints: []crossmodelrelation.OfferEndpoint{
+					{
+						Name:      "endpoint",
+						Interface: "interface",
+						Role:      charm.RoleProvider,
+					},
+				},
+				OfferUsers: []crossmodelrelation.OfferUser{
+					{
+						Name:   "fred",
+						Access: permission.ConsumeAccess,
+					},
+				},
+				TotalConnections:       2,
+				TotalActiveConnections: 1,
+			},
+			OfferConnections: []crossmodelrelation.OfferConnection{{
+				Username:       "bob",
+				RelationId:     0,
+				Endpoint:       "db-admin-r",
+				Status:         status.Joined,
+				IngressSubnets: []string{"203.0.113.42/24"},
+			}},
+		},
+	})
+}
+
+// TestGetOffersWithConnections focuses on the GetOfferConnections state call.
+// The other functionality has been tested in TestGetOffers tests. Ensure that
+// if there are no connections, the call does not fail.
+func (s *offerServiceSuite) TestGetOffersWithConnectionsNoConnections(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	offerUUIDs := []string{uuid.MustNewUUID().String()}
+
+	inputFilter := crossmodelrelation.OfferFilter{ApplicationName: "test-offer"}
+	offerDetails := []*crossmodelrelation.OfferDetail{
+		{
+			OfferUUID:              offerUUIDs[0],
+			OfferName:              "test-offer",
+			ApplicationName:        "test-offer",
+			ApplicationDescription: "this is a test",
+			Endpoints: []crossmodelrelation.OfferEndpoint{
+				{
+					Name:      "endpoint",
+					Interface: "interface",
+					Role:      charm.RoleProvider,
+				},
+			},
+		},
+	}
+	s.modelState.EXPECT().GetOfferDetails(gomock.Any(), inputFilter).Return(offerDetails, nil)
+
+	offerUsers := map[string][]crossmodelrelation.OfferUser{
+		offerUUIDs[0]: {
+			{
+				Name:   "fred",
+				Access: permission.ConsumeAccess,
+			},
+		},
+	}
+	s.controllerState.EXPECT().GetUsersForOfferUUIDs(gomock.Any(), offerUUIDs).Return(offerUsers, nil)
+
+	s.modelState.EXPECT().GetOfferConnections(gomock.Any(), offerUUIDs).Return(nil, nil)
+
+	filters := []OfferFilter{{
+		ApplicationName: inputFilter.ApplicationName,
+	}}
+
+	// Act
+	result, err := s.service(c).GetOffersWithConnections(c.Context(), filters)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.SameContents, []*crossmodelrelation.OfferDetailWithConnections{
+		{
+			OfferDetail: crossmodelrelation.OfferDetail{
+				OfferUUID:              offerUUIDs[0],
+				OfferName:              "test-offer",
+				ApplicationName:        "test-offer",
+				ApplicationDescription: "this is a test",
+				Endpoints: []crossmodelrelation.OfferEndpoint{
+					{
+						Name:      "endpoint",
+						Interface: "interface",
+						Role:      charm.RoleProvider,
+					},
+				},
+				OfferUsers: []crossmodelrelation.OfferUser{
+					{
+						Name:   "fred",
+						Access: permission.ConsumeAccess,
+					},
+				},
+			},
+		},
+	})
 }
 
 func (s *offerServiceSuite) TestGetOfferUUID(c *tc.C) {

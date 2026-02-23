@@ -12,6 +12,7 @@ import (
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/offer"
+	"github.com/juju/juju/core/status"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
@@ -201,6 +202,117 @@ WHERE  o.name = $name.name
 	}, nil
 }
 
+// GetOfferConnections returns a map of offer UUIDs to a slice of the
+// offer's  connections
+func (st *State) GetOfferConnections(
+	ctx context.Context,
+	offerUUIDs []string,
+) (map[string][]crossmodelrelation.OfferConnection, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT (oc.offer_uuid, oc.username, cr.name, r.relation_id,
+        vrs.message, vrs.status, vrs.updated_at) AS (&offerConnectionDetail.*),
+       r.uuid AS &offerConnectionDetail.relation_uuid
+FROM   offer_connection AS oc
+JOIN   relation AS r ON oc.remote_relation_uuid = r.uuid
+JOIN   relation_endpoint AS re ON r.uuid = re.relation_uuid
+JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+JOIN   charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
+JOIN   charm AS ch ON cr.charm_uuid = ch.uuid
+JOIN   charm_source AS cs ON ch.source_id = cs.id
+JOIN   v_relation_status AS vrs ON r.uuid = vrs.relation_uuid
+WHERE  oc.offer_uuid IN ($uuids[:])
+AND    cs.name != 'cmr'
+`, offerConnectionDetail{}, uuids{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	networkStmt, err := st.Prepare(`
+SELECT &relationNetworkIngress.*
+FROM   relation_network_ingress
+WHERE  relation_uuid IN ($uuids[:])
+`, relationNetworkIngress{}, uuids{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var offerConnections []offerConnectionDetail
+	var ingressNetworks []relationNetworkIngress
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, uuids(offerUUIDs)).GetAll(&offerConnections)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+
+		relationUUIDs := transform.Slice(offerConnections, func(in offerConnectionDetail) string {
+			return in.RelationUUID
+		})
+
+		err = tx.Query(ctx, networkStmt, uuids(relationUUIDs)).GetAll(&ingressNetworks)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return transformToOfferConnectionMap(offerConnections, ingressNetworks), nil
+}
+
+func transformToOfferConnectionMap(
+	offerConnections []offerConnectionDetail,
+	ingressNetworks []relationNetworkIngress,
+) map[string][]crossmodelrelation.OfferConnection {
+	if offerConnections == nil {
+		return nil
+	}
+
+	relationUUID2Ingress := make(map[string][]string)
+	for _, ingress := range ingressNetworks {
+		addrs, ok := relationUUID2Ingress[ingress.RelationUUID]
+		if ok {
+			relationUUID2Ingress[ingress.RelationUUID] = append(addrs, ingress.CIDR)
+		} else {
+			relationUUID2Ingress[ingress.RelationUUID] = []string{ingress.CIDR}
+		}
+	}
+
+	result := make(map[string][]crossmodelrelation.OfferConnection)
+	for _, oc := range offerConnections {
+		newOC := crossmodelrelation.OfferConnection{
+			Username:       oc.Username,
+			RelationId:     int(oc.RelationID),
+			Endpoint:       oc.EndpointName,
+			Status:         status.Status(oc.Status),
+			Message:        oc.StatusMessage,
+			Since:          ptr(oc.Since),
+			IngressSubnets: nil,
+		}
+		if ingress, ok := relationUUID2Ingress[oc.RelationUUID]; ok {
+			newOC.IngressSubnets = ingress
+		}
+		ocs, ok := result[oc.OfferUUID]
+		if ok {
+			result[oc.OfferUUID] = append(ocs, newOC)
+		} else {
+			result[oc.OfferUUID] = []crossmodelrelation.OfferConnection{newOC}
+		}
+
+	}
+	return result
+}
+
 // GetOfferDetails returns the OfferDetail of every offer in the model.
 // No error is returned if offers are found.
 func (st *State) GetOfferDetails(
@@ -263,7 +375,6 @@ FROM   v_offer_detail
 }
 
 func (st *State) getOfferDetailsForUUIDs(ctx context.Context, tx *sqlair.TX, offerUUIDs []string) (offerDetails, error) {
-	type uuids []string
 	stmt, err := st.Prepare(`
 SELECT &offerDetail.*
 FROM   v_offer_detail

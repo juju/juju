@@ -460,7 +460,7 @@ func printRelations(tw *ansiterm.TabWriter, relations []relationStatus) {
 		return a.Provider < b.Provider
 	})
 
-	w := startSection(tw, false, "Integration provider", "Requirer", "Interface", "Type", "Message")
+	w := startSection(tw, false, "Relation provider", "Requirer", "Interface", "Type", "Message")
 
 	for _, r := range relations {
 		provider := strings.Split(r.Provider, ":")

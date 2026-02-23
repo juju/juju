@@ -87,6 +87,7 @@ func (option Option) validate(name string, value interface{}) (_ interface{}, er
 var optionTypeCheckers = map[string]schema.Checker{
 	"string":  schema.String(),
 	"int":     schema.Int(),
+	"integer": schema.Int(),
 	"float":   schema.Float(),
 	"boolean": schema.Bool(),
 	"secret":  secretC{},
@@ -96,7 +97,7 @@ func (option Option) parse(name, str string) (val interface{}, err error) {
 	switch option.Type {
 	case "string", "secret":
 		return str, nil
-	case "int":
+	case "int", "integer":
 		val, err = strconv.ParseInt(str, 10, 64)
 	case "float":
 		val, err = strconv.ParseFloat(str, 64)
@@ -149,6 +150,9 @@ func ReadConfig(r io.Reader) (*ConfigSpec, error) {
 		}
 	}
 	for name, option := range config.Options {
+		if option.Type == "integer" {
+			option.Type = "int"
+		}
 		switch option.Type {
 		case "string", "secret", "int", "float", "boolean":
 		case "":

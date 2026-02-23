@@ -265,8 +265,8 @@ func (s *relationSuite) TestDeleteRelationUnitsInScopeSuccessHasSecretPermission
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().Exec(`
-INSERT INTO secret_metadata (secret_id, version, rotate_policy_id)
-VALUES (?, ?, ?)`, "secret-id", 1, 0)
+INSERT INTO secret_metadata (secret_id, version, rotate_policy_id, create_time, update_time)
+VALUES (?, ?, ?, ?, ?)`, "secret-id", 1, 0, s.now, s.now)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().Exec(`

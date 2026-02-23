@@ -367,15 +367,15 @@ func (s *controllerSchemaSuite) TestControllerTriggersForImmutableTables(c *tc.C
 		backendUUID2)
 	s.assertExecSQLError(c,
 		"UPDATE secret_backend SET name = 'new-name' WHERE uuid = ?",
-		"built-in secret backends are immutable", backendUUID1)
+		"built-in secret backends or secret backends with type controller or kubernetes are immutable", backendUUID1)
 	s.assertExecSQLError(c,
 		"UPDATE secret_backend SET name = 'new-name' WHERE uuid = ?",
-		"built-in secret backends are immutable", backendUUID2)
+		"built-in secret backends or secret backends with type controller or kubernetes are immutable", backendUUID2)
 
 	s.assertExecSQLError(c,
 		"DELETE FROM secret_backend WHERE uuid = ?;",
-		"built-in secret backends are immutable", backendUUID1)
+		"built-in secret backends or secret backends with type controller or kubernetes are immutable", backendUUID1)
 	s.assertExecSQLError(c,
 		"DELETE FROM secret_backend WHERE uuid = ?;",
-		"built-in secret backends are immutable", backendUUID2)
+		"built-in secret backends or secret backends with type controller or kubernetes are immutable", backendUUID2)
 }

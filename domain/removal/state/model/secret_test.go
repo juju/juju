@@ -119,7 +119,9 @@ func (s *secretSuite) addSecretWithRevisionsAndContent(c *tc.C, appUUID string) 
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().ExecContext(
-		ctx, "INSERT INTO secret_metadata (secret_id, version, rotate_policy_id) VALUES (?, ?, ?)", sec, 1, 0)
+		ctx, `
+INSERT INTO secret_metadata (secret_id, version, rotate_policy_id, create_time, update_time) VALUES (?, ?, ?, ?, ?)`, sec,
+		1, 0, s.now, s.now)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().ExecContext(
@@ -132,9 +134,10 @@ func (s *secretSuite) addSecretWithRevisionsAndContent(c *tc.C, appUUID string) 
 
 	for i := 0; i < 3; i++ {
 		rev := "revision_id_" + strconv.Itoa(i)
-
 		_, err := s.DB().ExecContext(
-			ctx, "INSERT INTO secret_revision (uuid, secret_id, revision) VALUES (?, ?, ?)", rev, sec, i)
+			ctx, `
+INSERT INTO secret_revision (uuid, secret_id, revision, create_time, update_time) 
+VALUES (?, ?, ?, ?, ?)`, rev, sec, i, s.now, s.now)
 		c.Assert(err, tc.ErrorIsNil)
 
 		_, err = s.DB().ExecContext(

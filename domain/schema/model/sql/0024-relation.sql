@@ -70,6 +70,9 @@ CREATE TABLE relation_endpoint (
 CREATE UNIQUE INDEX idx_relation_endpoint
 ON relation_endpoint (relation_uuid, endpoint_uuid);
 
+CREATE INDEX idx_relation_endpoint_relation
+ON relation_endpoint (relation_uuid);
+
 -- The relation table represents a relation between two
 -- applications, or a peer relation.
 CREATE TABLE relation (

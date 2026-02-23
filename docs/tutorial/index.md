@@ -296,7 +296,7 @@ juju find ingress
 :host: my-juju-vm
 juju info traefik-k8s
 
-# Output should show name, publisher, quick description, integration endpoints, etc.
+# Output should show name, publisher, quick description, relation endpoints, etc.
 # For the full features and more info see directly the charm's page on Charmhub.
 ```
 
@@ -503,7 +503,7 @@ postgresql-k8s/0*            active    idle   10.1.32.139            Primary
 postgresql-k8s/1             active    idle   10.1.32.140
 self-signed-certificates/0*  active    idle   10.1.32.141
 
-Integration provider                   Requirer                       Interface         Type     Message
+Relation provider                      Requirer                       Interface         Type     Message
 postgresql-k8s:database-peers          postgresql-k8s:database-peers  postgresql_peers  peer
 postgresql-k8s:db                      mattermost-k8s:db              pgsql             regular
 postgresql-k8s:restart                 postgresql-k8s:restart         rolling_op        peer

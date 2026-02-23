@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Learn how to create, suspend, resume, and remove relations between Juju applications for same-model and cross-model integrations."
+    description: "Learn how to create, suspend, resume, and remove relations between Juju applications for same-model and cross-model relations."
 ---
 
 (manage-relations)=
@@ -49,7 +49,7 @@ juju integrate mysql mediawiki:db
 ```
 ```{note}
 
-The integration endpoints provided or required by a charm are listed in the result of the `juju info` command. They are also listed on the page for the charmed operator at [Charmhub](https://charmhub.io).
+The relation endpoints provided or required by a charm are listed in the result of the `juju info` command. They are also listed on the page for the charmed operator at [Charmhub](https://charmhub.io).
 
 ```
 
@@ -114,7 +114,7 @@ $ juju show-unit synapse/0
 
 ## Remove a relation
 
-Regardless of whether the relation is same-model or cross-model, to remove an relation, run the `remove-relation` command followed by  the names of the two applications involved in the integration:
+Regardless of whether the relation is same-model or cross-model, to remove a relation, run the `remove-relation` command followed by the names of the two applications involved in the relation:
 
 `juju remove-relation <application-name> <application-name>`
 

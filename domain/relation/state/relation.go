@@ -118,7 +118,7 @@ func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 d
 				return errors.Errorf("checking if relation %q is CMR: %w", relUUID, err)
 			}
 			if !isCMR {
-				return errors.Errorf("integration via subnets for non cross model relations").Add(coreerrors.NotSupported)
+				return errors.Errorf("integrating via subnets for non cross model relations").Add(coreerrors.NotSupported)
 			}
 			if err := st.insertRelationNetworkEgress(ctx, tx, relUUID.String(), cidrs...); err != nil {
 				return errors.Errorf("inserting network egress for relation %q: %w", relUUID, err)
@@ -1587,7 +1587,6 @@ WHERE  relation_uuid = $entityUUID.uuid`, rows{}, entityUUID{})
 		}
 		return nil
 	})
-
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -1627,7 +1626,6 @@ func (st *State) EnterScope(
 	unitName unit.Name,
 	settings map[string]string,
 ) (internal.SubordinateUnitStatusHistoryData, error) {
-
 	db, err := st.DB(ctx)
 	if err != nil {
 		return internal.SubordinateUnitStatusHistoryData{}, errors.Capture(err)

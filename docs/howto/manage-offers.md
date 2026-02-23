@@ -14,7 +14,7 @@ See also: {ref}`offer`
 This document shows how to manage offers.
 
 <!--
-This document demonstrates the various steps involved in managing a cross-model integration. The step of adding the integration is the same as for a regular, same-model integration. However, as a cross-model integration may in principle cross controller, cloud, and administrative boundaries, there are additional steps before and after, for making an application accessible from another model, or *offering* it, and for relating to it from the other model, or *consuming* it.
+This document demonstrates the various steps involved in managing a cross-model relation. The step of adding the relation is the same as for a regular, same-model relation. However, as a cross-model relation may in principle cross controller, cloud, and administrative boundaries, there are additional steps before and after, for making an application accessible from another model, or *offering* it, and for relating to it from the other model, or *consuming* it.
 
 ### Central monitoring of model workloads
 Assume that we have a number of models for which we want to collect performance metrics using a common prometheus deployment.
@@ -281,13 +281,13 @@ See more: {ref}`command-juju-find-offers`
 Before Juju `3.0`, `juju integrate` was `juju relate`.
 ```
 
-If a user has consume access to an offer, they can deploy an application in their model and establish an integration with the offer by way of its URL.
+If a user has consume access to an offer, they can deploy an application in their model and establish a relation with the offer by way of its URL.
 
 ```text
 juju integrate <application>[:<application endpoint>] <offer-url>[:<offer endpoint>]
 ```
 
-Specifying the endpoint for the application and the offer is analogous to normal integrations. They can be added but are often unnecessary:
+Specifying the endpoint for the application and the offer is analogous to normal relations. They can be added but are often unnecessary:
 
 ```text
 juju integrate <application> <offer-url>
@@ -302,7 +302,7 @@ juju consume <offer-url> <offer-alias>
 juju integrate <application> <offer alias>
 ```
 
-Offers which have been consumed show up in `juju status` in the SAAS section. The integrations (relations) block in status shows any relevant status information about the integrations to the offer in the Message field. This includes any error information due to rejected ingress, or if the relation is suspended etc.
+Offers which have been consumed show up in `juju status` in the SAAS section. The relations block in status shows any relevant status information about the integrations to the offer in the Message field. This includes any error information due to rejected ingress, or if the relation is suspended etc.
 
 To remove a consumed offer:
 
@@ -332,7 +332,7 @@ juju integrate mediawiki:db ian:admin/default.mysql --via 69.32.56.0/8
 
 The `--via` value is a comma separated list of subnets in CIDR notation. This includes the /32 case where a single NATed IP address is used for egress.
 
-It's also possible to set up egress subnets as a model config value so that all cross model integrations use those subnets without needing to use the `--via` option.
+It's also possible to set up egress subnets as a model config value so that all cross model relations use those subnets without needing to use the `--via` option.
 
 ```text
 juju model-config egress-subnets=<cidr subnet>
@@ -379,7 +379,7 @@ juju-application-offer  103.37.0.0/16
 
 ```{note}
 
-Beyond a certain number of firewall rules, which have been dynamically created to allow access from individual integrations, Juju will revert to using the whitelist subnets as the access rules. The number of rules at which this cutover applies is cloud specific.
+Beyond a certain number of firewall rules, which have been dynamically created to allow access from individual relations, Juju will revert to using the whitelist subnets as the access rules. The number of rules at which this cutover applies is cloud specific.
 
 ```
 
@@ -387,7 +387,7 @@ Beyond a certain number of firewall rules, which have been dynamically created t
 See more: {ref}`command-juju-set-firewall-rule`, {ref}`command-juju-firewall-rules`
 ```
 
-## Inspect integrations with an offer
+## Inspect relations to an offer
 > Who: User with {ref}`offer admin access <user-access-offer-admin>`.
 
 The `offers` command is used to see all connections to one more offers.
@@ -404,7 +404,7 @@ relation id of the relation, and ingress subnets in use with that connection. Th
 The output can be filtered by:
  - interface: the interface name of the endpoint
  - application: the name of the offered application
- - connected user: the name of a user who has an integration to the offer
+ - connected user: the name of a user who has a relation to the offer
  - allowed consumer: the name of a user allowed to consume the offer
  - active only: only show offers which are in use (are related to)
 
@@ -447,29 +447,29 @@ All offers for a given user who can consume the offer:
 juju offers --format summary --allowed-consumer mary
 ```
 
-The above command is best run with `--format` summary as the intent is to see, for a given user, what offers they might relate to, regardless of whether there are existing integrations (which is what the tabular view shows).
+The above command is best run with `--format` summary as the intent is to see, for a given user, what offers they might relate to, regardless of whether there are existing relations (which is what the tabular view shows).
 
 ```{ibnote}
 See more: {ref}`command-juju-offers`
 ```
 
-## Suspend, resume, or remove an integration with an offer
+## Suspend, resume, or remove a relation to an offer
 > Who: User with {ref}`offer admin access <user-access-offer-admin>`.
 
-Before you can suspend, resume, or remove an integration (relation), you need to know the integration (relation) ID. (That is because, once you've made an offer, there could potentially be many instances of the same application integrating with that offer, so the only way to identify uniquely is via the relation ID.)
+Before you can suspend, resume, or remove a relation, you need to know the relation ID. (That is because, once you've made an offer, there could potentially be many instances of the same application integrating with that offer, so the only way to identify uniquely is via the relation ID.)
 
-Given two related apps (app1: endpoint, app2), the integration (relation) ID can be found as follows:
+Given two related apps (app1: endpoint, app2), the relation ID can be found as follows:
 
 
 ```text
 juju exec --unit $UNIT_FOR_APP1 -- relation-ids endpoint
 ```
 
-The output, `<ENDPOINT>:<REL_ID`, gives you the relation id.
+The output, `<ENDPOINT>:<REL_ID`, gives you the relation ID.
 
-Once you have the integration (relation) id:
+Once you have the relation ID:
 
-To suspend an integration (relation), do:
+To suspend a relation, do:
 
 
 ```text
@@ -477,17 +477,17 @@ juju suspend-relation <id1>
 ```
 
 ```{note}
-Suspended integrations (relations) will run the relation departed / broken hooks on either end, and any firewall ingress will be closed.
+Suspended relations will run the relation departed / broken hooks on either end, and any firewall ingress will be closed.
 ```
 
 
-And, to resume an integration (relation), do:
+And, to resume a relation, do:
 
 ```text
 juju resume-relation <id1>
 ```
 
-Finally, to remove an integration (relation) entirely:
+Finally, to remove a relation entirely:
 
 ```text
 juju remove-relation <id1>
@@ -495,12 +495,12 @@ juju remove-relation <id1>
 
 ```{note}
 
-Removing an integration on the offering side will trigger a removal on the consuming side. An integration can also be removed from the consuming side, as well as the application proxy, resulting in all integrations being removed.
+Removing a relation on the offering side will trigger a removal on the consuming side. A relation can also be removed from the consuming side, as well as the application proxy, resulting in all relations being removed.
 ```
 
 ```{note}
 
-In all cases, more than one integration id can be specified, separated by spaces.
+In all cases, more than one relation id can be specified, separated by spaces.
 
 ```
 
@@ -519,7 +519,7 @@ See more: {ref}`command-juju-suspend-relation`, {ref}`command-juju-resume-relati
 ## Remove an offer
 > Who: User with {ref}`offer admin access <user-access-offer-admin>`.
 
-An offer can be removed providing it hasn't been used in any integration. To override this behaviour the `--force` option is required, in which case the  integration is also removed. This is how an offer is removed:
+An offer can be removed providing it hasn't been used in any relation. To override this behaviour the `--force` option is required, in which case the relation is also removed. This is how an offer is removed:
 
 ```text
 juju remove-offer [--force] <offer-url>

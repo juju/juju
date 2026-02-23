@@ -29,7 +29,7 @@ test_default_block_storage() {
 	juju model-config -m "${model_name}" storage-default-block-source="${storage_type}"
 
 	# Deploy application with block storage without specifying storage type.
-	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage --storage single-blk=100M
+	juju deploy -m "${model_name}" "$(pack_charm ./testcharms/charms/dummy-storage)" --storage single-blk=100M
 
 	# Wait for the application to be active.
 	wait_for "dummy-storage" "$(active_condition "dummy-storage" 0)"

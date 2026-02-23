@@ -444,6 +444,7 @@ func (s *ConfigSuite) TestDefaultType(c *tc.C) {
 	assertDefault("string", `""`, "")
 	assertDefault("float", "2.211", 2.211)
 	assertDefault("int", "99", int64(99))
+	assertDefault("integer", "99", int64(99))
 
 	assertTypeError := func(type_, str, value string) {
 		config := fmt.Sprintf(`options: {t: {type: %s, default: %s}}`, type_, str)

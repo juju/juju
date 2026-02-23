@@ -261,9 +261,9 @@ Charm authors should expect this event to fire many times during an application'
 
 This event is guaranteed to follow immediately after each {ref}`hook-relation-joined` hook. So all `juju` commands that trigger `relation-joined` will also cause `relation-changed` to be fired. So typical scenarios include:
 
-|   Scenario  | Example Command                          | Resulting Events                     |
-| :-------: | -------------------------- | ------------------------------------ |
-|  Add an integration   | `juju integrate foo:a bar:b` | (all `foo` and `bar` units) <br> `*-relation-created -> *-relation-joined -> *-relation-changed`|
+|    Scenario    | Example Command              | Resulting Events                                                                                 |
+|:--------------:|------------------------------|--------------------------------------------------------------------------------------------------|
+| Add a relation | `juju integrate foo:a bar:b` | (all `foo` and `bar` units) <br> `*-relation-created -> *-relation-joined -> *-relation-changed` |
 
 Additionally, a unit will receive a `relation-changed` event every time another unit involved in the relation changes the relation data. Suppose `foo` receives an event, and while handling it the following block executes:
 
@@ -356,10 +356,10 @@ This event is the exact inverse of `relation-joined`.
 If you scale down `bar`, all `foo` units will receive a `*-relation-departed` event. The departing unit will receive a `*-relation-broken` event as part of its {ref}`teardown phase <teardown-phase>`.
 Also removing a relation altogether will trigger `*-relation-departed` events (followed by `*-relation-broken`) on all involved units.
 
-|   Scenario  | Example Command                          | Resulting Events                     |
-| :-------: | -------------------------- | ------------------------------------ |
-|  Unit removal   | `juju remove-unit --num-units 1 bar` | (foo/0): `*-relation-departed` <br> (bar/0): `*-relation-broken -> stop -> ...` |
-|  Integration removal   | `juju remove-relation foo bar` | (all units): `*-relation-departed -> *-relation-broken` |
+|     Scenario     | Example Command                      | Resulting Events                                                                |
+|:----------------:|--------------------------------------|---------------------------------------------------------------------------------|
+|   Unit removal   | `juju remove-unit --num-units 1 bar` | (foo/0): `*-relation-departed` <br> (bar/0): `*-relation-broken -> stop -> ...` |
+| Relation removal | `juju remove-relation foo bar`       | (all units): `*-relation-departed -> *-relation-broken`                         |
 
 Of course, removing the application altogether, instead of a single unit, will have a similar effect and also trigger these events.
 

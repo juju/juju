@@ -1,17 +1,17 @@
 ---
 myst:
   html_meta:
-    description: "Juju relation (integration) reference: application connections through endpoints. These include regular relations, peer relations, subordinate relations, and cross-model relations, and involve relation databags."
+    description: "Juju relation reference: application connections through endpoints. These include regular relations, peer relations, subordinate relations, and cross-model relations, and involve relation databags."
 ---
 
 (relation)=
-# Relation (integration)
+# Relation
 
 ```{ibnote}
 See also: {ref}`manage-relations`
 ```
 
-In Juju, a **relation** (**integration**) is a connection an {ref}`application <application>` supports by virtue of having a particular {ref}`endpoint <application-endpoint>`.
+In Juju, a **relation** is a connection an {ref}`application <application>` supports by virtue of having a particular {ref}`endpoint <application-endpoint>`.
 
 
 <!--
