@@ -1591,7 +1591,7 @@ WHERE value = ?
 `, "", 7, life.Alive)
 		return err
 	})
-	c.Assert(err, tc.ErrorMatches, `relation.uuid cannot be NULL or empty`)
+	c.Assert(err, tc.ErrorMatches, `CHECK constraint failed: chk_empty_relation_uuid`)
 }
 
 func (s *modelSuite) insertRelation(c *tc.C) string {

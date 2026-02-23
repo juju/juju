@@ -35,8 +35,7 @@ active_conn AS (
         oc.offer_uuid,
         COUNT(*) AS total_active_connections
     FROM offer_connection AS oc
-    JOIN relation_status AS rs ON oc.remote_relation_uuid = rs.relation_uuid
-    AND rs.relation_status_type_id = 1
+    JOIN relation_status AS rs ON oc.remote_relation_uuid = rs.relation_uuid AND rs.relation_status_type_id = 1
     GROUP BY oc.offer_uuid
 )
 
