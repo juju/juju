@@ -6,7 +6,6 @@ package caasapplicationprovisioner_test
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"testing"
 	"time"
@@ -35,7 +34,6 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/deployment/charm"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
-	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
@@ -308,8 +306,6 @@ func (s *OpsSuite) TestReconcileDeadUnitScale(c *tc.C) {
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
-	statusService := mocks.NewMockStatusService(ctrl)
-	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
 
 	units := map[unit.Name]life.Value{
 		"test/0": life.Alive,
@@ -328,9 +324,7 @@ func (s *OpsSuite) TestReconcileDeadUnitScale(c *tc.C) {
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(units, nil),
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(ps, nil),
 		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(api.FilesystemProvisioningInfo{}, nil),
-		storageProvisioningService.EXPECT().GetFileSystemAttachmentsForApplication(gomock.Any(), appUUID).
-			Return([]storageprovisioning.RealizedFilesystemAttachment{}, nil),
-		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), gomock.Any(), storageUniqueID),
+		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), storageUniqueID),
 		app.EXPECT().Scale(1).Return(nil),
 		app.EXPECT().State().Return(appState, nil),
 		facade.EXPECT().RemoveUnit(gomock.Any(), "test/1").Return(nil),
@@ -338,7 +332,7 @@ func (s *OpsSuite) TestReconcileDeadUnitScale(c *tc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale(c.Context(), "test",
-		appUUID, app, facade, applicationService, statusService, s.logger, storageProvisioningService)
+		appUUID, app, facade, applicationService, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -351,8 +345,6 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleUp(c *tc.C) {
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
-	statusService := mocks.NewMockStatusService(ctrl)
-	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
 
 	// Scale DOWN: 4 current units -> 2 target units, all excess units are dead
 	units := map[unit.Name]life.Value{
@@ -369,7 +361,7 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleUp(c *tc.C) {
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(ps, nil),
 	)
 	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale(c.Context(), "test",
-		appId, app, facade, applicationService, statusService, s.logger, storageProvisioningService)
+		appId, app, facade, applicationService, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -382,8 +374,6 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownNotAllDead(c *tc.C) {
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
-	statusService := mocks.NewMockStatusService(ctrl)
-	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
 
 	// Scale DOWN: 4 current units -> 2 target units, all excess units are dead
 	units := map[unit.Name]life.Value{
@@ -403,7 +393,7 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownNotAllDead(c *tc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale(c.Context(), "test",
-		appId, app, facade, applicationService, statusService, s.logger, storageProvisioningService)
+		appId, app, facade, applicationService, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -415,8 +405,6 @@ func (s *OpsSuite) TestEnsureScaleAlive(c *tc.C) {
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
-	statusService := mocks.NewMockStatusService(ctrl)
-	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
 
 	units := map[unit.Name]life.Value{
 		"test/0": life.Alive,
@@ -434,7 +422,7 @@ func (s *OpsSuite) TestEnsureScaleAlive(c *tc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app,
-		life.Alive, facade, applicationService, statusService, s.logger, storageProvisioningService)
+		life.Alive, facade, applicationService, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -446,8 +434,6 @@ func (s *OpsSuite) TestEnsureScaleAliveRetry(c *tc.C) {
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
-	statusService := mocks.NewMockStatusService(ctrl)
-	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
 
 	ps := applicationservice.ScalingState{
 		Scaling:     true,
@@ -468,7 +454,7 @@ func (s *OpsSuite) TestEnsureScaleAliveRetry(c *tc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app,
-		life.Alive, facade, applicationService, statusService, s.logger, storageProvisioningService)
+		life.Alive, facade, applicationService, s.logger)
 	c.Assert(err, tc.ErrorMatches, `try again`)
 }
 
@@ -480,8 +466,6 @@ func (s *OpsSuite) TestEnsureScaleDyingDead(c *tc.C) {
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
-	statusService := mocks.NewMockStatusService(ctrl)
-	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
 
 	units := map[unit.Name]life.Value{
 		"test/0": life.Dying,
@@ -494,7 +478,7 @@ func (s *OpsSuite) TestEnsureScaleDyingDead(c *tc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app,
-		life.Dead, facade, applicationService, statusService, s.logger, storageProvisioningService)
+		life.Dead, facade, applicationService, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -503,14 +487,10 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorage(c *tc.C) {
 	defer ctrl.Finish()
 
 	appUUID := tc.Must(c, application.NewUUID)
-	attachmentUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 	storageUniqueID := appUUID.String()[:6]
-	providerID := fmt.Sprintf("test-config-%s-test-0", storageUniqueID)
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
-	statusService := mocks.NewMockStatusService(ctrl)
-	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
 
 	// Current units (less than scale target)
 	units := map[unit.Name]life.Value{
@@ -536,34 +516,17 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorage(c *tc.C) {
 		}, nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(units, nil),
 		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(provisioningInfo, nil),
-		storageProvisioningService.EXPECT().GetFileSystemAttachmentsForApplication(gomock.Any(), appUUID).
-			Return([]storageprovisioning.RealizedFilesystemAttachment{
-				{
-					AttachmentUUID: attachmentUUID.String(),
-					StorageName:    "config",
-					ProviderID:     providerID,
-					MountPoint:     "/mount/config",
-					TargetKey:      "test",
-				},
-			}, nil),
 		app.EXPECT().EnsurePVCs([]storage.KubernetesFilesystemParams{{
 			StorageName: "data",
 			Size:        100,
 			Provider:    "kubernetes",
-		}}, gomock.Any(), []storage.KubernetesFilesystemAttachment{
-			{
-				ContainerName: "test",
-				Path:          "/mount/config",
-				PVCName:       providerID,
-				StorageName:   "config",
-			},
-		}, storageUniqueID).Return(nil),
+		}}, gomock.Any(), storageUniqueID).Return(nil),
 		app.EXPECT().Scale(2).Return(nil),
 		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, false).Return(nil),
 	)
 
 	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appUUID, app,
-		life.Alive, facade, applicationService, statusService, s.logger, storageProvisioningService)
+		life.Alive, facade, applicationService, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -576,8 +539,6 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorageEnsurePVCsFails(c *tc.C) {
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
-	statusService := mocks.NewMockStatusService(ctrl)
-	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
 
 	// Current units (less than scale target)
 	units := map[unit.Name]life.Value{
@@ -603,14 +564,12 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorageEnsurePVCsFails(c *tc.C) {
 		}, nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(units, nil),
 		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(provisioningInfo, nil),
-		storageProvisioningService.EXPECT().GetFileSystemAttachmentsForApplication(gomock.Any(), appUUID).
-			Return([]storageprovisioning.RealizedFilesystemAttachment{}, nil),
-		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), gomock.Any(), storageUniqueID).
+		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), storageUniqueID).
 			Return(errors.New("PVC creation failed")),
 	)
 
 	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appUUID, app,
-		life.Alive, facade, applicationService, statusService, s.logger, storageProvisioningService)
+		life.Alive, facade, applicationService, s.logger)
 	c.Assert(err, tc.ErrorMatches, "PVC creation failed")
 }
 
@@ -625,7 +584,6 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 	password := "123456789"
 	lastApplied := caas.ApplicationConfig{}
 	appUUID := tc.Must(c, application.NewUUID)
-	attachmentUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 	storageUniqueID := appUUID.String()[:6]
 
 	pi := caasapplicationprovisioner.ProvisioningInfo{
@@ -679,10 +637,12 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 			},
 		},
 		FilesystemTemplates: []storageprovisioning.FilesystemTemplate{{
-			Attachments: []storageprovisioning.FilesystemAttachmentTemplate{
+			Attachments: []storageprovisioning.FilesystemAttachmentTemplateWithRealized{
 				{
-					MountPoint: "/charm-defined-location/data/0",
-					ReadOnly:   false,
+					FilesystemAttachmentTemplate: storageprovisioning.FilesystemAttachmentTemplate{
+						MountPoint: "/charm-defined-location/data/0",
+						ReadOnly:   false,
+					},
 				},
 			},
 			StorageName:  "data",
@@ -693,15 +653,6 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 				"attr-foo": "attr-bar",
 			},
 		}},
-		RealizedAttachments: []storageprovisioning.RealizedFilesystemAttachment{
-			{
-				AttachmentUUID: attachmentUUID.String(),
-				StorageName:    "data",
-				ProviderID:     "test-data-uniqid123-test-0",
-				MountPoint:     "/charm-defined-location/data/0",
-				TargetKey:      "test",
-			},
-		},
 		StorageResourceTags: map[string]string{
 			"rsc-foo": "rsc-bar",
 		},
@@ -760,14 +711,6 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 				},
 			},
 		}},
-		RealizedAttachments: []storage.KubernetesFilesystemAttachment{
-			{
-				ContainerName: "test",
-				Path:          "/charm-defined-location/data/0",
-				PVCName:       "test-data-uniqid123-test-0",
-				StorageName:   "data",
-			},
-		},
 		Devices:         []devices.KubernetesDeviceParams{},
 		Trust:           true,
 		InitialScale:    0,
@@ -793,39 +736,18 @@ func (s *OpsSuite) TestAppDying(c *tc.C) {
 	defer ctrl.Finish()
 
 	appUUID := tc.Must(c, application.NewUUID)
-	attachmentUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 	storageUniqueID := appUUID.String()[:6]
-	providerID := fmt.Sprintf("test-data-%s-test-0", storageUniqueID)
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
 	statusService := mocks.NewMockStatusService(ctrl)
-	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
 
 	gomock.InOrder(
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
 		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, true).Return(nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(nil, nil),
 		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(api.FilesystemProvisioningInfo{}, nil),
-		storageProvisioningService.EXPECT().GetFileSystemAttachmentsForApplication(gomock.Any(), appUUID).
-			Return([]storageprovisioning.RealizedFilesystemAttachment{
-				{
-					AttachmentUUID: attachmentUUID.String(),
-					StorageName:    "data",
-					ProviderID:     providerID,
-					MountPoint:     "/mount/data",
-					TargetKey:      "test-container",
-				},
-			}, nil),
-		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), []storage.KubernetesFilesystemAttachment{
-			{
-				ContainerName: "test-container",
-				Path:          "/mount/data",
-				PVCName:       providerID,
-				StorageName:   "data",
-			},
-		},
-			storageUniqueID).Return(nil),
+		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), storageUniqueID).Return(nil),
 		app.EXPECT().Scale(0).Return(nil),
 		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, false).Return(nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(nil, nil),
@@ -833,7 +755,7 @@ func (s *OpsSuite) TestAppDying(c *tc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.AppDying(c.Context(), "test", appUUID, app,
-		life.Dying, facade, applicationService, statusService, s.logger, storageProvisioningService)
+		life.Dying, facade, applicationService, statusService, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -901,8 +823,6 @@ func (s *OpsSuite) TestProvisioningInfo(c *tc.C) {
 		Devices:     []devices.KubernetesDeviceParams{},
 	}
 	facade.EXPECT().ProvisioningInfo(gomock.Any(), "test").Return(facadePi, nil)
-	storageProvisioningService.EXPECT().GetFileSystemAttachmentsForApplication(gomock.Any(), appId).
-		Return([]storageprovisioning.RealizedFilesystemAttachment{}, nil)
 
 	fsTemplates := []storageprovisioning.FilesystemTemplate{{
 		StorageName:  "data",
@@ -960,7 +880,9 @@ func (s *OpsSuite) TestProvisioningInfo(c *tc.C) {
 	ro.EXPECT().OpenResource(gomock.Any(), "rootless-image").Return(rootlessImageResource, nil)
 	ro.EXPECT().SetResourceUsed(gomock.Any(), gomock.Any()).Return(nil)
 
-	pi, err := caasapplicationprovisioner.AppOps.ProvisioningInfo(c.Context(), "test", appId, facade, storageProvisioningService, applicationService, resourceOpenerGetter, nil, s.logger)
+	pi, err := caasapplicationprovisioner.AppOps.ProvisioningInfo(c.Context(), "test", appId,
+		facade, applicationService, storageProvisioningService, resourceOpenerGetter,
+		nil, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(pi, tc.DeepEquals, &caasapplicationprovisioner.ProvisioningInfo{
 		ImageDetails: coreresource.DockerImageDetails{
