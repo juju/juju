@@ -356,6 +356,7 @@ func (s *WatchableService) WatchRelationUnits(
 
 			if wantEvent {
 				out = append(out, e.Changed())
+				s.logger.Tracef(ctx, "relation unit changed: ", relationUUID, applicationUUID, relationUnitUUIDs)
 			}
 		}
 		return out, nil

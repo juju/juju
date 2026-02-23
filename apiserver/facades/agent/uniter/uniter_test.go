@@ -3007,7 +3007,7 @@ func (s *uniterRelationSuite) expectWatchRelatedUnitsChange(
 
 	s.relationService.EXPECT().WatchRelatedUnits(gomock.Any(), watchedUnitUUID, relUUID).Return(mockWatcher, nil)
 	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return(watcherID, nil)
-	s.relationService.EXPECT().GetRelationUnitChanges(gomock.Any(), unitUUIDs, appUUIDS).Return(changes, nil)
+	s.relationService.EXPECT().GetRelationUnitChanges(gomock.Any(), relUUID, unitUUIDs, appUUIDS).Return(changes, nil)
 }
 
 func encodeUnitFromUUID(uuid coreunit.UUID) string {

@@ -83,7 +83,7 @@ func (w *relationUnitsWatcher) fetchRelationUnitChanges(ctx context.Context,
 		}
 	}
 
-	fetched, err := w.relation.GetRelationUnitChanges(ctx, changedUnitUUIDs, changedAppUUIDs)
+	fetched, err := w.relation.GetRelationUnitChanges(ctx, w.relationUUID, changedUnitUUIDs, changedAppUUIDs)
 	if err != nil {
 		return params.RelationUnitsChange{}, internalerrors.Errorf("fetching related units watcher changes: %w", err)
 	}
