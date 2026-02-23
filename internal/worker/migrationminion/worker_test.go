@@ -132,16 +132,49 @@ func (s *Suite) TestNonRunningPhases(c *gc.C) {
 	phases := []migration.Phase{
 		migration.UNKNOWN,
 		migration.NONE,
-		migration.LOGTRANSFER,
-		migration.REAP,
-		migration.REAPFAILED,
-		migration.DONE,
 		migration.ABORT,
 		migration.ABORTDONE,
 	}
 	for _, phase := range phases {
 		s.checkNonRunningPhase(c, phase)
 	}
+}
+
+func (s *Suite) TestPostSuccessPhasesUpdateAgentConfig(c *gc.C) {
+	phases := []migration.Phase{
+		migration.LOGTRANSFER,
+		migration.REAP,
+		migration.REAPFAILED,
+		migration.DONE,
+	}
+	for _, phase := range phases {
+		s.checkPostSuccessPhase(c, phase)
+	}
+}
+
+func (s *Suite) checkPostSuccessPhase(c *gc.C, phase migration.Phase) {
+	c.Logf("checking %s", phase)
+	s.stub.ResetCalls()
+	s.agent = newStubAgent()
+	s.config.Agent = s.agent
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          phase,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-s.agent.configChanged:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out")
+	}
+	workertest.CleanKill(c, w)
+	c.Assert(s.agent.conf.addrs, gc.DeepEquals, addrs)
+	c.Assert(s.agent.conf.caCert, gc.DeepEquals, caCert)
+	s.stub.CheckCallNames(c, "Watch", "API open", "API close", "Unlock")
 }
 
 func (s *Suite) checkNonRunningPhase(c *gc.C, phase migration.Phase) {
