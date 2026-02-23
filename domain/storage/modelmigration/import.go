@@ -36,21 +36,9 @@ func RegisterImport(coordinator Coordinator, storageRegistryGetter corestorage.M
 // ImportService provides a subset of the storage domain
 // service methods needed for storage pool import.
 type ImportService interface {
-	// GetStoragePoolsToImport resolves the full set of storage pools to create during
-	// model import.
-	GetStoragePoolsToImport(ctx context.Context, userPools []description.StoragePool) (
-		[]domainstorage.ImportStoragePoolParams,
-		[]domainstorage.RecommendedStoragePoolParams,
-		error,
-	)
-
 	// ImportStoragePools creates new storage pools with the slice
 	// of [domainstorage.ImportStoragePoolParams].
-	ImportStoragePools(ctx context.Context, pools []domainstorage.ImportStoragePoolParams) error
-
-	// SetRecommendedStoragePools persists the set of recommended storage pools
-	// that are to be used for a model.
-	SetRecommendedStoragePools(ctx context.Context, pools []domainstorage.RecommendedStoragePoolParams) error
+	ImportStoragePools(ctx context.Context, pools []domainstorage.UserStoragePoolParams) error
 
 	// ImportStorageInstances imports storage instances and storage unit
 	// unit owners if the unit name is provided.
@@ -82,22 +70,8 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute the import on the storage pools contained in the model.
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
-	// TODO: Combine the storage pool import calls into a single service call,
-	// and stop passing through a description entity into the service layer.
-	// This must be done ASAP
-	poolsToImport, recommendedPools, err := i.service.GetStoragePoolsToImport(ctx, model.StoragePools())
-	if err != nil {
-		return errors.Errorf("getting pools to import: %w", err)
-	}
-
-	err = i.service.ImportStoragePools(ctx, poolsToImport)
-	if err != nil {
-		return errors.Errorf("importing storage pools %+v: %w", poolsToImport, err)
-	}
-
-	err = i.service.SetRecommendedStoragePools(ctx, recommendedPools)
-	if err != nil {
-		return errors.Errorf("setting recommended storage pools: %w", err)
+	if err := i.importStoragePools(ctx, model.StoragePools()); err != nil {
+		return errors.Errorf("importing storage pools: %w", err)
 	}
 
 	if err := i.importStorageInstances(ctx, model.Storages()); err != nil {
@@ -113,6 +87,17 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	}
 
 	return nil
+}
+
+func (i *importOperation) importStoragePools(ctx context.Context, pools []description.StoragePool) error {
+	args := transform.Slice(pools, func(in description.StoragePool) domainstorage.UserStoragePoolParams {
+		return domainstorage.UserStoragePoolParams{
+			Name:       in.Name(),
+			Provider:   in.Provider(),
+			Attributes: in.Attributes(),
+		}
+	})
+	return i.service.ImportStoragePools(ctx, args)
 }
 
 func (i *importOperation) importStorageInstances(ctx context.Context, instances []description.Storage) error {

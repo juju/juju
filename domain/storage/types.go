@@ -65,13 +65,6 @@ type FilesystemInfo struct {
 	BackingVolume *storage.VolumeInfo
 }
 
-// RecommendedStoragePoolArg represents a recommended storage pool assignment
-// for the state layer to accept.
-type RecommendedStoragePoolArg struct {
-	StoragePoolUUID StoragePoolUUID
-	StorageKind     StorageKind
-}
-
 // RecommendedStoragePoolParams represents a recommended storage pool assignment
 // at the service layer boundary. It is accepted by services and translated into
 // state-layer arguments before being persisted.
@@ -136,4 +129,11 @@ func (p ImportFilesystemParams) Validate() error {
 	}
 
 	return nil
+}
+
+// UserStoragePoolParams represents the user storage pools data from model description.
+type UserStoragePoolParams struct {
+	Name       string
+	Provider   string
+	Attributes map[string]interface{}
 }

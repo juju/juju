@@ -4,7 +4,6 @@
 package modelmigration
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/juju/description/v11"
@@ -85,64 +84,6 @@ func (s *importSuite) TestImportEmpty(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestNoUserDefinedStoragePools tests that Execute imports provider default
-// storage pools and sets the recommended pool when the model contains no
-// user-defined storage pools.
-func (s *importSuite) TestNoUserDefinedStoragePools(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	model := description.NewModel(description.ModelArgs{
-		Type: coremodel.IAAS.String(),
-	})
-	ctx := c.Context()
-
-	poolsToImport := []domainstorage.ImportStoragePoolParams{
-		{
-			UUID:   "16d8c090-8ef4-59b4-8e88-0bc64a0598a3",
-			Name:   "lxd",
-			Type:   "lxd",
-			Origin: domainstorage.StoragePoolOriginProviderDefault,
-			Attrs:  map[string]any{},
-		},
-		{
-			UUID:   "635f1873-be0b-5f07-b841-9fa02466a9f6",
-			Name:   "lxd-zfs",
-			Type:   "lxd",
-			Origin: domainstorage.StoragePoolOriginProviderDefault,
-			Attrs: map[string]any{
-				"driver":        "zfs",
-				"lxd-pool":      "juju-zfs",
-				"zfs.pool_name": "juju-lxd",
-			},
-		},
-	}
-
-	recommendedPools := []domainstorage.RecommendedStoragePoolParams{
-		{
-			StoragePoolUUID: "16d8c090-8ef4-59b4-8e88-0bc64a0598a3",
-			StorageKind:     domainstorage.StorageKindFilesystem,
-		},
-	}
-
-	gomock.InOrder(
-		s.service.EXPECT().
-			GetStoragePoolsToImport(ctx, model.StoragePools()).
-			Return(poolsToImport, recommendedPools, nil),
-
-		s.service.EXPECT().
-			ImportStoragePools(ctx, poolsToImport).
-			Return(nil),
-
-		s.service.EXPECT().
-			SetRecommendedStoragePools(ctx, recommendedPools).
-			Return(nil),
-	)
-
-	op := s.newImportOperation()
-	err := op.Execute(ctx, model)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
 // TestImportStoragePools tests that Execute imports both user-defined and provider default
 // storage pools and sets the recommended pools.
 func (s *importSuite) TestImportStoragePools(c *tc.C) {
@@ -159,156 +100,18 @@ func (s *importSuite) TestImportStoragePools(c *tc.C) {
 
 	ctx := c.Context()
 
-	poolsToImport := []domainstorage.ImportStoragePoolParams{
+	poolsToImport := []domainstorage.UserStoragePoolParams{
 		{
-			Name:   "ebs-fast",
-			Type:   "ebs",
-			Origin: domainstorage.StoragePoolOriginUser,
-			Attrs:  map[string]any{"foo": "bar"},
-		},
-		{
-			UUID:   "16d8c090-8ef4-59b4-8e88-0bc64a0598a3",
-			Name:   "lxd",
-			Type:   "lxd",
-			Origin: domainstorage.StoragePoolOriginProviderDefault,
-			Attrs:  map[string]any{},
+			Name:       "ebs-fast",
+			Provider:   "ebs",
+			Attributes: map[string]interface{}{"foo": "bar"},
 		},
 	}
-
-	recommendedPools := []domainstorage.RecommendedStoragePoolParams{
-		{
-			StoragePoolUUID: "16d8c090-8ef4-59b4-8e88-0bc64a0598a3",
-			StorageKind:     domainstorage.StorageKindFilesystem,
-		},
-	}
-
-	gomock.InOrder(
-		s.service.EXPECT().
-			GetStoragePoolsToImport(ctx, model.StoragePools()).
-			Return(poolsToImport, recommendedPools, nil),
-
-		s.service.EXPECT().
-			ImportStoragePools(ctx, poolsToImport).
-			Return(nil),
-
-		s.service.EXPECT().
-			SetRecommendedStoragePools(ctx, recommendedPools).
-			Return(nil),
-	)
+	s.service.EXPECT().ImportStoragePools(ctx, poolsToImport)
 
 	op := s.newImportOperation()
 	err := op.Execute(ctx, model)
 	c.Assert(err, tc.ErrorIsNil)
-}
-
-// TestExecuteGetStoragePoolsToImportError tests that Execute fails fast if
-// GetStoragePoolsToImport returns an error, and that no further calls are made.
-func (s *importSuite) TestExecuteGetStoragePoolsToImportError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	model := description.NewModel(description.ModelArgs{
-		Type: coremodel.IAAS.String(),
-	})
-	expectedErr := errors.New("boom")
-
-	s.service.EXPECT().
-		GetStoragePoolsToImport(gomock.Any(), model.StoragePools()).
-		Return(nil, nil, expectedErr)
-
-	op := s.newImportOperation()
-	err := op.Execute(c.Context(), model)
-
-	c.Assert(err, tc.ErrorMatches, "getting pools to import: .*boom")
-}
-
-// TestExecuteImportStoragePoolsError tests that Execute returns an error if
-// ImportStoragePools fails, and that recommended storage pools are not set.
-func (s *importSuite) TestExecuteImportStoragePoolsError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	model := description.NewModel(description.ModelArgs{
-		Type: coremodel.IAAS.String(),
-	})
-	expectedErr := errors.New("import failed")
-
-	poolsToImport := []domainstorage.ImportStoragePoolParams{
-		{
-			UUID:   "pool-1",
-			Name:   "lxd",
-			Origin: domainstorage.StoragePoolOriginProviderDefault,
-			Type:   "lxd",
-			Attrs:  map[string]any{},
-		},
-	}
-
-	recommendedPools := []domainstorage.RecommendedStoragePoolParams{
-		{
-			StoragePoolUUID: "pool-1",
-			StorageKind:     domainstorage.StorageKindFilesystem,
-		},
-	}
-
-	gomock.InOrder(
-		s.service.EXPECT().
-			GetStoragePoolsToImport(gomock.Any(), model.StoragePools()).
-			Return(poolsToImport, recommendedPools, nil),
-
-		s.service.EXPECT().
-			ImportStoragePools(gomock.Any(), poolsToImport).
-			Return(expectedErr),
-	)
-
-	op := s.newImportOperation()
-	err := op.Execute(c.Context(), model)
-
-	c.Assert(err, tc.ErrorMatches, "importing storage pools .*: .*import failed")
-}
-
-// TestExecuteSetRecommendedStoragePoolsError tests that Execute returns an error
-// if setting recommended storage pools fails, even when imports succeed.
-func (s *importSuite) TestExecuteSetRecommendedStoragePoolsError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	model := description.NewModel(description.ModelArgs{
-		Type: coremodel.IAAS.String(),
-	})
-	expectedErr := errors.New("recommendation failed")
-
-	poolsToImport := []domainstorage.ImportStoragePoolParams{
-		{
-			UUID:   "pool-1",
-			Name:   "lxd",
-			Origin: domainstorage.StoragePoolOriginProviderDefault,
-			Type:   "lxd",
-			Attrs:  map[string]any{},
-		},
-	}
-
-	recommendedPools := []domainstorage.RecommendedStoragePoolParams{
-		{
-			StoragePoolUUID: "pool-1",
-			StorageKind:     domainstorage.StorageKindFilesystem,
-		},
-	}
-
-	gomock.InOrder(
-		s.service.EXPECT().
-			GetStoragePoolsToImport(gomock.Any(), model.StoragePools()).
-			Return(poolsToImport, recommendedPools, nil),
-
-		s.service.EXPECT().
-			ImportStoragePools(gomock.Any(), poolsToImport).
-			Return(nil),
-
-		s.service.EXPECT().
-			SetRecommendedStoragePools(gomock.Any(), recommendedPools).
-			Return(expectedErr),
-	)
-
-	op := s.newImportOperation()
-	err := op.Execute(c.Context(), model)
-
-	c.Assert(err, tc.ErrorMatches, "setting recommended storage pools: .*recommendation failed")
 }
 
 func (s *importSuite) TestImportStorageInstances(c *tc.C) {
@@ -423,7 +226,5 @@ func (s *importSuite) TestImportFilesystems(c *tc.C) {
 }
 
 func (s *importSuite) noopStoragePoolImport() {
-	s.service.EXPECT().GetStoragePoolsToImport(gomock.Any(), gomock.Any()).Return(nil, nil, nil)
 	s.service.EXPECT().ImportStoragePools(gomock.Any(), gomock.Any()).Return(nil)
-	s.service.EXPECT().SetRecommendedStoragePools(gomock.Any(), gomock.Any()).Return(nil)
 }
