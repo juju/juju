@@ -243,10 +243,26 @@ func applicationConfigValue(key string, valueMap interface{}) (interface{}, erro
 	if source == "unset" {
 		return nil, nil
 	}
-	value, found := vm["value"]
+
+	return coerceConfigType(vm)
+}
+
+// coerceConfigType ensures that the application config value is of the
+// type specified in the option definitions.
+func coerceConfigType(valueMap map[string]interface{}) (interface{}, error) {
+	value, found := valueMap["value"]
+
 	if !found {
 		return nil, errors.Errorf("missing application config value 'value'")
 	}
+
+	switch v := value.(type) {
+	case float64:
+		if configType, found := valueMap["type"]; found && configType == "int" {
+			return int(v), nil
+		}
+	}
+
 	return value, nil
 }
 
