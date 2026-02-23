@@ -7,14 +7,18 @@ import (
 	"context"
 	"sort"
 	"time"
-	
+
+	"github.com/EvilSuperstars/go-cidrman"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
+	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
-	
+	"gopkg.in/macaroon.v2"
+
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"

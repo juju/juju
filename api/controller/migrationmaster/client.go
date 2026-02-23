@@ -10,9 +10,13 @@ import (
 	"io"
 	"net/http"
 	"time"
-	
+
+	"github.com/juju/description/v11"
 	"github.com/juju/errors"
-	
+	"github.com/juju/names/v6"
+	"gopkg.in/httprequest.v1"
+	"gopkg.in/macaroon.v2"
+
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/migration"

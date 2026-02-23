@@ -12,6 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -94,6 +95,14 @@ func (s *exposedServiceSuite) TestUnsetExposeSettings(c *tc.C) {
 
 	err := s.service.UnsetExposeSettings(c.Context(), "foo", exposedEndpoints)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *exposedServiceSuite) TestUnsetExposeSettingsControllerApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	exposedEndpoints := set.NewStrings("endpoint0", "endpoint1")
+	err := s.service.UnsetExposeSettings(c.Context(), "controller", exposedEndpoints)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
 func (s *exposedServiceSuite) TestMergeExposeSettingsNotFound(c *tc.C) {
