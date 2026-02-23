@@ -53,6 +53,10 @@ type StorageInstanceMachineAttachment struct {
 // StorageInstanceUnitAttachment describes a single attachment of a
 // StorageInstance onto a Unit.
 type StorageInstanceUnitAttachment struct {
+	// Life describes the current lifecycle of the StorageInstanceAttachment on
+	// to the Unit.
+	Life domainlife.Life
+
 	// Location is the expected location where the StorageInstance can be found
 	// for the Charm in the Unit.
 	Location string
