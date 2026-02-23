@@ -56,8 +56,8 @@ type ImportService interface {
 	// unit owners if the unit name is provided.
 	ImportStorageInstances(ctx context.Context, params []domainstorage.ImportStorageInstanceParams) error
 
-	// ImportFilesystems imports filesystems from the provided parameters.
-	ImportFilesystems(ctx context.Context, args []domainstorage.ImportFilesystemParams) error
+	// ImportFilesystemsIAAS imports filesystems from the provided parameters.
+	ImportFilesystemsIAAS(ctx context.Context, args []domainstorage.ImportFilesystemParams) error
 }
 
 type importOperation struct {
@@ -107,7 +107,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	// Filesystems need to be handled differently for CAAS models. So until
 	// this is implemented skip the import step.
 	if model.Type() == coremodel.IAAS.String() {
-		if err := i.importFilesystems(ctx, model.Filesystems()); err != nil {
+		if err := i.importFilesystemsIAAS(ctx, model.Filesystems()); err != nil {
 			return errors.Errorf("importing filesystems: %w", err)
 		}
 	}
@@ -149,7 +149,7 @@ func (i *importOperation) importStorageInstances(ctx context.Context, instances 
 	return i.service.ImportStorageInstances(ctx, args)
 }
 
-func (i *importOperation) importFilesystems(ctx context.Context, filesystems []description.Filesystem) error {
+func (i *importOperation) importFilesystemsIAAS(ctx context.Context, filesystems []description.Filesystem) error {
 	if len(filesystems) == 0 {
 		return nil
 	}
@@ -161,8 +161,21 @@ func (i *importOperation) importFilesystems(ctx context.Context, filesystems []d
 			ProviderID:        in.FilesystemID(),
 			PoolName:          in.Pool(),
 			StorageInstanceID: in.Storage(),
+			Attachments: transform.Slice(
+				in.Attachments(),
+				func(a description.FilesystemAttachment) domainstorage.ImportFilesystemAttachmentsParams {
+					hostMachine, _ := a.HostMachine()
+					hostUnit, _ := a.HostUnit()
+					return domainstorage.ImportFilesystemAttachmentsParams{
+						HostMachineName: hostMachine,
+						HostUnitName:    hostUnit,
+						MountPoint:      a.MountPoint(),
+						ReadOnly:        a.ReadOnly(),
+					}
+				},
+			),
 		}
 	})
 
-	return i.service.ImportFilesystems(ctx, args)
+	return i.service.ImportFilesystemsIAAS(ctx, args)
 }

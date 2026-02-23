@@ -60,9 +60,14 @@ INSERT INTO storage_unit_owner (*) VALUES ($importStorageUnitOwner.*)`, importSt
 	return nil
 }
 
-// ImportFilesystems imports filesystems from the provided parameters.
-func (st *State) ImportFilesystems(ctx context.Context, args []internal.ImportFilesystemArgs) error {
-	if len(args) == 0 {
+// ImportFilesystemsIAAS imports filesystems from the provided parameters for
+// IAAS models.
+func (st *State) ImportFilesystemsIAAS(
+	ctx context.Context,
+	fsArgs []internal.ImportFilesystemIAASArgs,
+	attachmentArgs []internal.ImportFilesystemAttachmentIAASArgs,
+) error {
+	if len(fsArgs)+len(attachmentArgs) == 0 {
 		return nil
 	}
 
@@ -72,21 +77,27 @@ func (st *State) ImportFilesystems(ctx context.Context, args []internal.ImportFi
 	}
 
 	insertStorageFilesystemStmt, err := st.Prepare(`
-	INSERT INTO storage_filesystem (*) VALUES ($importStorageFilesystem.*)`, importStorageFilesystem{})
+INSERT INTO storage_filesystem (*) VALUES ($importStorageFilesystem.*)`, importStorageFilesystem{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	insertStorageInstanceFilesystemStmt, err := st.Prepare(`
-	INSERT INTO storage_instance_filesystem (*) VALUES ($importStorageInstanceFilesystem.*)`, importStorageInstanceFilesystem{})
+INSERT INTO storage_instance_filesystem (*) VALUES ($importStorageInstanceFilesystem.*)`, importStorageInstanceFilesystem{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	fsArgs := make([]importStorageFilesystem, len(args))
-	fsInstanceArgs := make([]importStorageInstanceFilesystem, 0, len(args))
-	for i, arg := range args {
-		fsArgs[i] = importStorageFilesystem{
+	insertFilesystemAttachmentStmt, err := st.Prepare(`
+INSERT INTO storage_filesystem_attachment (*) VALUES ($importStorageFilesystemAttachment.*)`, importStorageFilesystemAttachment{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	fsDBArgs := make([]importStorageFilesystem, len(fsArgs))
+	fsDBInstanceArgs := make([]importStorageInstanceFilesystem, 0, len(fsArgs))
+	for i, arg := range fsArgs {
+		fsDBArgs[i] = importStorageFilesystem{
 			UUID:       arg.UUID,
 			ID:         arg.ID,
 			LifeID:     int(arg.Life),
@@ -95,23 +106,45 @@ func (st *State) ImportFilesystems(ctx context.Context, args []internal.ImportFi
 			SizeInMiB:  arg.SizeInMiB,
 		}
 		if arg.StorageInstanceUUID != "" {
-			fsInstanceArgs = append(fsInstanceArgs, importStorageInstanceFilesystem{
+			fsDBInstanceArgs = append(fsDBInstanceArgs, importStorageInstanceFilesystem{
 				StorageInstanceUUID: arg.StorageInstanceUUID,
 				FilesystemUUID:      arg.UUID,
 			})
 		}
 	}
 
+	fsAttachmentDBArgs := make([]importStorageFilesystemAttachment, len(attachmentArgs))
+	for i, arg := range attachmentArgs {
+		fsAttachmentDBArgs[i] = importStorageFilesystemAttachment{
+			UUID:           arg.UUID,
+			FilesystemUUID: arg.FilesystemUUID,
+			NetNodeUUID:    arg.NetNodeUUID,
+			ScopeID:        int(arg.Scope),
+			LifeID:         int(arg.Life),
+			MountPoint:     arg.MountPoint,
+			ReadOnly:       arg.ReadOnly,
+		}
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, insertStorageFilesystemStmt, fsArgs).Run()
-		if err != nil {
-			return errors.Errorf("inserting storage filesystem rows: %w", err)
+		if len(fsDBArgs) > 0 {
+			err := tx.Query(ctx, insertStorageFilesystemStmt, fsDBArgs).Run()
+			if err != nil {
+				return errors.Errorf("inserting storage filesystem rows: %w", err)
+			}
 		}
 
-		if len(fsInstanceArgs) > 0 {
-			err := tx.Query(ctx, insertStorageInstanceFilesystemStmt, fsInstanceArgs).Run()
+		if len(fsDBInstanceArgs) > 0 {
+			err := tx.Query(ctx, insertStorageInstanceFilesystemStmt, fsDBInstanceArgs).Run()
 			if err != nil {
 				return errors.Errorf("inserting storage instance filesystem rows: %w", err)
+			}
+		}
+
+		if len(fsAttachmentDBArgs) > 0 {
+			err := tx.Query(ctx, insertFilesystemAttachmentStmt, fsAttachmentDBArgs).Run()
+			if err != nil {
+				return errors.Errorf("inserting storage filesystem attachment rows: %w", err)
 			}
 		}
 
@@ -200,7 +233,7 @@ WHERE  u.name = $name.name`, name{}, nameAndUUID{})
 	return output.Name, output.UUID, nil
 }
 
-// GetNetNodeUUIDsByMachineOrUnitID returns net node UUIDs for all machine or
+// GetNetNodeUUIDsByMachineOrUnitName returns net node UUIDs for all machine or
 // and unit names provided. If a machine name or unit name is not found then it
 // is excluded from the result.
 func (st *State) GetNetNodeUUIDsByMachineOrUnitName(ctx context.Context, machines []string, units []string) (map[string]string, map[string]string, error) {

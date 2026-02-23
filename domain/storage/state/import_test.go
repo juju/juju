@@ -113,7 +113,7 @@ func (s *importSuite) TestImportStorageInstances(c *tc.C) {
 	s.checkStorageUnitOwner(c, unit, 2)
 }
 
-func (s *importSuite) TestImportFilesystems(c *tc.C) {
+func (s *importSuite) TestImportFilesystemsIAAS(c *tc.C) {
 	// Arrange
 	ebsPoolUUID := s.newStoragePool(c, "ebs", "fspool")
 	gcePoolUUID := s.newStoragePool(c, "gce", "testme")
@@ -125,7 +125,7 @@ func (s *importSuite) TestImportFilesystems(c *tc.C) {
 	gceFsUUID := tc.Must(c, storage.NewFilesystemUUID)
 	azureFsUUID := tc.Must(c, storage.NewFilesystemUUID)
 
-	args := []internal.ImportFilesystemArgs{{
+	args := []internal.ImportFilesystemIAASArgs{{
 		UUID:                ebsFsUUID.String(),
 		ID:                  "ebs-fs-1",
 		SizeInMiB:           1024,
@@ -155,7 +155,7 @@ func (s *importSuite) TestImportFilesystems(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Act
-	err := st.ImportFilesystems(c.Context(), args)
+	err := st.ImportFilesystemsIAAS(c.Context(), args, nil)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -188,6 +188,101 @@ func (s *importSuite) TestImportFilesystems(c *tc.C) {
 	}, {
 		StorageInstanceUUID: gceInstanceUUID.String(),
 		FilesystemUUID:      gceFsUUID.String(),
+	}})
+}
+
+func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
+	// Arrange
+	ebsPoolUUID := s.newStoragePool(c, "ebs", "fspool")
+	gcePoolUUID := s.newStoragePool(c, "gce", "testme")
+
+	ebsInstanceUUID := s.newStorageInstance(c, "ebs", "1", ebsPoolUUID)
+	gceInstanceUUID := s.newStorageInstance(c, "gce", "1", gcePoolUUID)
+
+	netNodeUUID1 := s.newNetNode(c)
+	netNodeUUID2 := s.newNetNode(c)
+	netNodeUUID3 := s.newNetNode(c)
+
+	ebsFsUUID := tc.Must(c, storage.NewFilesystemUUID)
+	gceFsUUID := tc.Must(c, storage.NewFilesystemUUID)
+
+	ebsAttachment1UUID := tc.Must(c, storage.NewFilesystemAttachmentUUID)
+	ebsAttachment2UUID := tc.Must(c, storage.NewFilesystemAttachmentUUID)
+	gceAttachmentUUID := tc.Must(c, storage.NewFilesystemAttachmentUUID)
+
+	fsArgs := []internal.ImportFilesystemIAASArgs{{
+		UUID:                ebsFsUUID.String(),
+		ID:                  "ebs-fs-1",
+		SizeInMiB:           1024,
+		ProviderID:          "provider-ebs-fs-1",
+		StorageInstanceUUID: ebsInstanceUUID.String(),
+		Life:                life.Alive,
+		Scope:               domainstorageprovisioning.ProvisionScopeMachine,
+	}, {
+		UUID:                gceFsUUID.String(),
+		ID:                  "gce-fs-1",
+		SizeInMiB:           2048,
+		ProviderID:          "provider-gce-fs-1",
+		StorageInstanceUUID: gceInstanceUUID.String(),
+		Life:                life.Alive,
+		Scope:               domainstorageprovisioning.ProvisionScopeModel,
+	}}
+
+	attachmentArgs := []internal.ImportFilesystemAttachmentIAASArgs{{
+		UUID:           ebsAttachment1UUID.String(),
+		FilesystemUUID: ebsFsUUID.String(),
+		Scope:          domainstorageprovisioning.ProvisionScopeMachine,
+		NetNodeUUID:    netNodeUUID1,
+		MountPoint:     "/mnt/ebs1",
+		ReadOnly:       false,
+	}, {
+		UUID:           ebsAttachment2UUID.String(),
+		FilesystemUUID: ebsFsUUID.String(),
+		Scope:          domainstorageprovisioning.ProvisionScopeMachine,
+		NetNodeUUID:    netNodeUUID2,
+		MountPoint:     "/mnt/ebs2",
+		ReadOnly:       true,
+	}, {
+		UUID:           gceAttachmentUUID.String(),
+		FilesystemUUID: gceFsUUID.String(),
+		Scope:          domainstorageprovisioning.ProvisionScopeModel,
+		NetNodeUUID:    netNodeUUID3,
+		MountPoint:     "/mnt/gce",
+		ReadOnly:       false,
+	}}
+
+	st := NewState(s.TxnRunnerFactory())
+
+	// Act
+	err := st.ImportFilesystemsIAAS(c.Context(), fsArgs, attachmentArgs)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	obtainedAttachments := s.getFilesystemAttachments(c)
+	c.Check(obtainedAttachments, tc.SameContents, []importStorageFilesystemAttachment{{
+		UUID:           ebsAttachment1UUID.String(),
+		FilesystemUUID: ebsFsUUID.String(),
+		NetNodeUUID:    netNodeUUID1,
+		ScopeID:        int(domainstorageprovisioning.ProvisionScopeMachine),
+		LifeID:         int(life.Alive),
+		MountPoint:     "/mnt/ebs1",
+		ReadOnly:       false,
+	}, {
+		UUID:           ebsAttachment2UUID.String(),
+		FilesystemUUID: ebsFsUUID.String(),
+		NetNodeUUID:    netNodeUUID2,
+		ScopeID:        int(domainstorageprovisioning.ProvisionScopeMachine),
+		LifeID:         int(life.Alive),
+		MountPoint:     "/mnt/ebs2",
+		ReadOnly:       true,
+	}, {
+		UUID:           gceAttachmentUUID.String(),
+		FilesystemUUID: gceFsUUID.String(),
+		NetNodeUUID:    netNodeUUID3,
+		ScopeID:        int(domainstorageprovisioning.ProvisionScopeModel),
+		LifeID:         int(life.Alive),
+		MountPoint:     "/mnt/gce",
+		ReadOnly:       false,
 	}})
 }
 
@@ -487,6 +582,41 @@ FROM storage_instance_filesystem`)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return filesystems, instanceFilesystems
+}
+
+func (s *importSuite) getFilesystemAttachments(c *tc.C) []importStorageFilesystemAttachment {
+	var attachments []importStorageFilesystemAttachment
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(c.Context(), `
+SELECT uuid, storage_filesystem_uuid, net_node_uuid, provision_scope_id, life_id, mount_point, read_only
+FROM storage_filesystem_attachment`)
+		if err != nil {
+			return err
+		}
+
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var uuid, fsUUID, netNodeUUID, mountPoint string
+			var scopeID, lifeID int
+			var readOnly bool
+			if err := rows.Scan(&uuid, &fsUUID, &netNodeUUID, &scopeID, &lifeID, &mountPoint, &readOnly); err != nil {
+				return err
+			}
+			attachments = append(attachments, importStorageFilesystemAttachment{
+				UUID:           uuid,
+				FilesystemUUID: fsUUID,
+				NetNodeUUID:    netNodeUUID,
+				ScopeID:        scopeID,
+				LifeID:         lifeID,
+				MountPoint:     mountPoint,
+				ReadOnly:       readOnly,
+			})
+		}
+
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return attachments
 }
 
 func (s *importSuite) newStorageInstance(c *tc.C, name, id string, poolUUID storage.StoragePoolUUID) storage.StorageInstanceUUID {

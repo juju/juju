@@ -384,14 +384,14 @@ func (s *importSuite) TestImportFilesystems(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{
 		Type: coremodel.IAAS.String(),
 	})
-	model.AddFilesystem(description.FilesystemArgs{
+	fs1 := model.AddFilesystem(description.FilesystemArgs{
 		ID:           "fs-1",
 		Size:         2048,
 		Storage:      "multi-fs/1",
 		Pool:         "testpool",
 		FilesystemID: "provider-fs-1",
 	})
-	model.AddFilesystem(description.FilesystemArgs{
+	fs2 := model.AddFilesystem(description.FilesystemArgs{
 		ID:           "fs-2",
 		Size:         4096,
 		Storage:      "multi-fs/2",
@@ -399,19 +399,40 @@ func (s *importSuite) TestImportFilesystems(c *tc.C) {
 		FilesystemID: "provider-fs-2",
 	})
 
+	fs1.AddAttachment(description.FilesystemAttachmentArgs{
+		HostMachine: "1",
+		ReadOnly:    false,
+		MountPoint:  "/data",
+	})
+	fs2.AddAttachment(description.FilesystemAttachmentArgs{
+		HostUnit:   "unit/1",
+		ReadOnly:   true,
+		MountPoint: "/opt",
+	})
+
 	s.noopStoragePoolImport()
-	s.service.EXPECT().ImportFilesystems(gomock.Any(), tc.Bind(tc.SameContents, []domainstorage.ImportFilesystemParams{{
+	s.service.EXPECT().ImportFilesystemsIAAS(gomock.Any(), tc.Bind(tc.SameContents, []domainstorage.ImportFilesystemParams{{
 		ID:                "fs-1",
 		SizeInMiB:         2048,
 		StorageInstanceID: "multi-fs/1",
 		PoolName:          "testpool",
 		ProviderID:        "provider-fs-1",
+		Attachments: []domainstorage.ImportFilesystemAttachmentsParams{{
+			HostMachineName: "1",
+			ReadOnly:        false,
+			MountPoint:      "/data",
+		}},
 	}, {
 		ID:                "fs-2",
 		SizeInMiB:         4096,
 		StorageInstanceID: "multi-fs/2",
 		PoolName:          "testpool",
 		ProviderID:        "provider-fs-2",
+		Attachments: []domainstorage.ImportFilesystemAttachmentsParams{{
+			HostUnitName: "unit/1",
+			ReadOnly:     true,
+			MountPoint:   "/opt",
+		}},
 	}})).Return(nil)
 
 	// Act

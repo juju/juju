@@ -119,6 +119,46 @@ func (c *MockStateDeleteStoragePoolCall) DoAndReturn(f func(context.Context, str
 	return c
 }
 
+// GetNetNodeUUIDsByMachineOrUnitName mocks base method.
+func (m *MockState) GetNetNodeUUIDsByMachineOrUnitName(arg0 context.Context, arg1, arg2 []string) (map[string]string, map[string]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetNodeUUIDsByMachineOrUnitName", arg0, arg1, arg2)
+	ret0, _ := ret[0].(map[string]string)
+	ret1, _ := ret[1].(map[string]string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetNetNodeUUIDsByMachineOrUnitName indicates an expected call of GetNetNodeUUIDsByMachineOrUnitName.
+func (mr *MockStateMockRecorder) GetNetNodeUUIDsByMachineOrUnitName(arg0, arg1, arg2 any) *MockStateGetNetNodeUUIDsByMachineOrUnitNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetNodeUUIDsByMachineOrUnitName", reflect.TypeOf((*MockState)(nil).GetNetNodeUUIDsByMachineOrUnitName), arg0, arg1, arg2)
+	return &MockStateGetNetNodeUUIDsByMachineOrUnitNameCall{Call: call}
+}
+
+// MockStateGetNetNodeUUIDsByMachineOrUnitNameCall wrap *gomock.Call
+type MockStateGetNetNodeUUIDsByMachineOrUnitNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetNetNodeUUIDsByMachineOrUnitNameCall) Return(arg0, arg1 map[string]string, arg2 error) *MockStateGetNetNodeUUIDsByMachineOrUnitNameCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetNetNodeUUIDsByMachineOrUnitNameCall) Do(f func(context.Context, []string, []string) (map[string]string, map[string]string, error)) *MockStateGetNetNodeUUIDsByMachineOrUnitNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetNetNodeUUIDsByMachineOrUnitNameCall) DoAndReturn(f func(context.Context, []string, []string) (map[string]string, map[string]string, error)) *MockStateGetNetNodeUUIDsByMachineOrUnitNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetStorageAttachmentUUIDForStorageInstanceAndUnit mocks base method.
 func (m *MockState) GetStorageAttachmentUUIDForStorageInstanceAndUnit(arg0 context.Context, arg1 storage0.StorageInstanceUUID, arg2 unit.UUID) (storage0.StorageAttachmentUUID, error) {
 	m.ctrl.T.Helper()
@@ -431,40 +471,40 @@ func (c *MockStateImportFilesystemCall) DoAndReturn(f func(context.Context, stor
 	return c
 }
 
-// ImportFilesystems mocks base method.
-func (m *MockState) ImportFilesystems(arg0 context.Context, arg1 []internal.ImportFilesystemArgs) error {
+// ImportFilesystemsIAAS mocks base method.
+func (m *MockState) ImportFilesystemsIAAS(arg0 context.Context, arg1 []internal.ImportFilesystemIAASArgs, arg2 []internal.ImportFilesystemAttachmentIAASArgs) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ImportFilesystems", arg0, arg1)
+	ret := m.ctrl.Call(m, "ImportFilesystemsIAAS", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// ImportFilesystems indicates an expected call of ImportFilesystems.
-func (mr *MockStateMockRecorder) ImportFilesystems(arg0, arg1 any) *MockStateImportFilesystemsCall {
+// ImportFilesystemsIAAS indicates an expected call of ImportFilesystemsIAAS.
+func (mr *MockStateMockRecorder) ImportFilesystemsIAAS(arg0, arg1, arg2 any) *MockStateImportFilesystemsIAASCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportFilesystems", reflect.TypeOf((*MockState)(nil).ImportFilesystems), arg0, arg1)
-	return &MockStateImportFilesystemsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportFilesystemsIAAS", reflect.TypeOf((*MockState)(nil).ImportFilesystemsIAAS), arg0, arg1, arg2)
+	return &MockStateImportFilesystemsIAASCall{Call: call}
 }
 
-// MockStateImportFilesystemsCall wrap *gomock.Call
-type MockStateImportFilesystemsCall struct {
+// MockStateImportFilesystemsIAASCall wrap *gomock.Call
+type MockStateImportFilesystemsIAASCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateImportFilesystemsCall) Return(arg0 error) *MockStateImportFilesystemsCall {
+func (c *MockStateImportFilesystemsIAASCall) Return(arg0 error) *MockStateImportFilesystemsIAASCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateImportFilesystemsCall) Do(f func(context.Context, []internal.ImportFilesystemArgs) error) *MockStateImportFilesystemsCall {
+func (c *MockStateImportFilesystemsIAASCall) Do(f func(context.Context, []internal.ImportFilesystemIAASArgs, []internal.ImportFilesystemAttachmentIAASArgs) error) *MockStateImportFilesystemsIAASCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateImportFilesystemsCall) DoAndReturn(f func(context.Context, []internal.ImportFilesystemArgs) error) *MockStateImportFilesystemsCall {
+func (c *MockStateImportFilesystemsIAASCall) DoAndReturn(f func(context.Context, []internal.ImportFilesystemIAASArgs, []internal.ImportFilesystemAttachmentIAASArgs) error) *MockStateImportFilesystemsIAASCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
