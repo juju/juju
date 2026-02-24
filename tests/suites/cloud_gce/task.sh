@@ -22,12 +22,10 @@ test_cloud_gce() {
 
 	test_pro_images
 	test_deploy_gpu_instance
-
 	test_create_storage_pool
 
 	destroy_controller "test-cloud-gce"
 
 	# This test bootstraps a custom controller.
 	test_serviceaccount_credential
-
 }

@@ -54,14 +54,11 @@ test_serviceaccount_credential() {
 		return
 	fi
 
-	setup_gcloudcli_credential
+	(
+		set_verbosity
 
-	set_verbosity
+		cd .. || exit
 
-	echo "==> Checking for dependencies"
-	check_dependencies juju gcloud
-
-	cd .. || exit
-
-	run "run_serviceaccount_credential" "$@"
+		run "run_serviceaccount_credential" "$@"
+	)
 }

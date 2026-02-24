@@ -351,10 +351,7 @@ run_test_add_multiple_secrets_parallel() {
 	model_name='multiple-secrets-parallel-k8s-model'
 	model_log_file="${TEST_DIR}/${model_name}.log"
 
-	cleanup_resources() {
-		export KILL_CONTROLLER=true
-	}
-	trap cleanup_resources EXIT HUP INT TERM
+	export KILL_CONTROLLER=true
 
 	# Verify all added secret IDs exist.
 	verify_secrets_exist() {

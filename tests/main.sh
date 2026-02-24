@@ -281,7 +281,8 @@ cleanup() {
 
 	archive_logs "partial"
 
-	cleanup_pids
+	pop_daemon_scope 0
+
 	cleanup_jujus
 	cleanup_funcs
 
@@ -332,6 +333,7 @@ archive_logs() {
 TEST_CURRENT=setup
 TEST_RESULT=failure
 
+push_daemon_scope
 trap cleanup EXIT HUP INT TERM
 
 # Setup test directory
@@ -351,7 +353,17 @@ run_test() {
 	# shellcheck disable=SC2046,SC2086
 	echo "==> TEST BEGIN: ${TEST_CURRENT_DESCRIPTION} ($(green $(basename ${TEST_DIR})))"
 	START_TIME=$(date +%s)
-	${TEST_CURRENT}
+	(
+		push_daemon_scope
+		local expected_scope_depth
+		expected_scope_depth=${DAEMON_SCOPE_DEPTH}
+		# shellcheck disable=SC2064
+		trap "pop_daemon_scope ${expected_scope_depth}" EXIT
+
+		set_verbosity
+
+		${TEST_CURRENT}
+	)
 	END_TIME=$(date +%s)
 
 	echo "==> TEST DONE: ${TEST_CURRENT_DESCRIPTION} ($((END_TIME - START_TIME))s)"

@@ -368,7 +368,7 @@ post_bootstrap() {
 	# shellcheck disable=SC2069
 	juju debug-log -m "${controller}:controller" --replay --tail 2>&1 >"${TEST_DIR}/${controller}-controller-debug.log" &
 	CMD_PID=$!
-	echo "${CMD_PID}" >>"${TEST_DIR}/pids"
+	track_daemon_pid "${CMD_PID}"
 
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"vsphere")
@@ -397,7 +397,7 @@ post_add_model() {
 	# shellcheck disable=SC2069
 	juju debug-log -m "${ctrl_arg}" --replay --tail 2>&1 >"${TEST_DIR}/${log_file}" &
 	CMD_PID=$!
-	echo "${CMD_PID}" >>"${TEST_DIR}/pids"
+	track_daemon_pid "${CMD_PID}"
 
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"vsphere")
