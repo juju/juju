@@ -89,10 +89,11 @@ run_linter() {
 }
 
 skip() {
-	# For each command, check if it would be skipped (absent from RUN_LIST or
-	# present in SKIP_LIST). Only output "SKIP" if every command would be skipped.
+	# For each command, check if it would be skipped (absent from RUN_LIST when
+	# provided or present in SKIP_LIST). Only output "SKIP" if every command
+	# would be skipped.
 	if echo "$@" | tr ' ' '\n' | awk -v run_list="${RUN_LIST:-}" -v skip_list="${SKIP_LIST:-}" '
-		function is_skipped(cmd,    i, n, parts) {
+		function is_skipped(cmd, i, n, parts) {
 			if (run_list != "") {
 				n = split(run_list, parts, /,/)
 				for (i = 1; i <= n; i++) if (parts[i] == cmd) { break }
@@ -102,8 +103,9 @@ skip() {
 			for (i = 1; i <= n; i++) if (parts[i] == cmd) return 1
 			return 0
 		}
-		{ if (!is_skipped($0)) exit 1 }
-		END { exit (NR == 0) }
+		BEGIN { all_skip = 1 }
+		{ if (!is_skipped($0)) { all_skip = 0 } }
+		END { exit (NR == 0 || !all_skip) }
 	'; then
 		echo "SKIP"
 		exit 1

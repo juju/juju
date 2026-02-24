@@ -16,7 +16,7 @@ _daemon_scope_label() {
 track_daemon_pid() {
 	local pid
 	pid=$1
-	echo "${pid} $(_daemon_scope_label)" >>"${TEST_DIR}/cleanup"
+	echo "${pid} $(_daemon_scope_label)" >>"${TEST_DIR}/pids"
 }
 
 # push_daemon_scope creates a new daemon tracking scope for nested run calls
@@ -31,7 +31,7 @@ pop_daemon_scope() {
 
 	# Kill all daemons whose scope matches current_scope exactly or is a child
 	# of it.
-	if [[ -f "${TEST_DIR}/cleanup" ]]; then
+	if [[ -f "${TEST_DIR}/pids" ]]; then
 		local pid
 		local current_scope
 		current_scope="$(_daemon_scope_label $expected_depth)"
@@ -42,7 +42,7 @@ pop_daemon_scope() {
 			fi
 		done < <(awk -v scope="${current_scope}" '
 			$2 == scope || index($2, scope "_") == 1 { print $1 }
-		' "${TEST_DIR}/cleanup")
+		' "${TEST_DIR}/pids")
 	fi
 
 	if [[ ${DAEMON_SCOPE_DEPTH} -eq 0 ]]; then
