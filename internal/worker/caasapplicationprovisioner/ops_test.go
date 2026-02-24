@@ -306,7 +306,6 @@ func (s *OpsSuite) TestReconcileDeadUnitScale(c *tc.C) {
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
-	statusService := mocks.NewMockStatusService(ctrl)
 
 	units := map[unit.Name]life.Value{
 		"test/0": life.Alive,
@@ -332,7 +331,8 @@ func (s *OpsSuite) TestReconcileDeadUnitScale(c *tc.C) {
 		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, false).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale(c.Context(), "test", appUUID, app, facade, applicationService, statusService, s.logger)
+	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale(c.Context(), "test",
+		appUUID, app, facade, applicationService, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -345,7 +345,6 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleUp(c *tc.C) {
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
-	statusService := mocks.NewMockStatusService(ctrl)
 
 	// Scale DOWN: 4 current units -> 2 target units, all excess units are dead
 	units := map[unit.Name]life.Value{
@@ -361,7 +360,8 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleUp(c *tc.C) {
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appId).Return(units, nil),
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(ps, nil),
 	)
-	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale(c.Context(), "test", appId, app, facade, applicationService, statusService, s.logger)
+	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale(c.Context(), "test",
+		appId, app, facade, applicationService, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -374,7 +374,6 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownNotAllDead(c *tc.C) {
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
-	statusService := mocks.NewMockStatusService(ctrl)
 
 	// Scale DOWN: 4 current units -> 2 target units, all excess units are dead
 	units := map[unit.Name]life.Value{
@@ -393,7 +392,8 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownNotAllDead(c *tc.C) {
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(ps, nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale(c.Context(), "test", appId, app, facade, applicationService, statusService, s.logger)
+	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale(c.Context(), "test",
+		appId, app, facade, applicationService, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -405,7 +405,6 @@ func (s *OpsSuite) TestEnsureScaleAlive(c *tc.C) {
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
-	statusService := mocks.NewMockStatusService(ctrl)
 
 	units := map[unit.Name]life.Value{
 		"test/0": life.Alive,
@@ -422,7 +421,8 @@ func (s *OpsSuite) TestEnsureScaleAlive(c *tc.C) {
 		facade.EXPECT().DestroyUnits(gomock.Any(), unitsToDestroy).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app, life.Alive, facade, applicationService, statusService, s.logger)
+	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app,
+		life.Alive, facade, applicationService, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -434,7 +434,6 @@ func (s *OpsSuite) TestEnsureScaleAliveRetry(c *tc.C) {
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
-	statusService := mocks.NewMockStatusService(ctrl)
 
 	ps := applicationservice.ScalingState{
 		Scaling:     true,
@@ -454,7 +453,8 @@ func (s *OpsSuite) TestEnsureScaleAliveRetry(c *tc.C) {
 		facade.EXPECT().DestroyUnits(gomock.Any(), unitsToDestroy).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app, life.Alive, facade, applicationService, statusService, s.logger)
+	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app,
+		life.Alive, facade, applicationService, s.logger)
 	c.Assert(err, tc.ErrorMatches, `try again`)
 }
 
@@ -466,7 +466,6 @@ func (s *OpsSuite) TestEnsureScaleDyingDead(c *tc.C) {
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
-	statusService := mocks.NewMockStatusService(ctrl)
 
 	units := map[unit.Name]life.Value{
 		"test/0": life.Dying,
@@ -478,7 +477,8 @@ func (s *OpsSuite) TestEnsureScaleDyingDead(c *tc.C) {
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appId).Return(units, nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app, life.Dead, facade, applicationService, statusService, s.logger)
+	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app,
+		life.Dead, facade, applicationService, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -491,7 +491,6 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorage(c *tc.C) {
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
-	statusService := mocks.NewMockStatusService(ctrl)
 
 	// Current units (less than scale target)
 	units := map[unit.Name]life.Value{
@@ -526,7 +525,8 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorage(c *tc.C) {
 		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, false).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appUUID, app, life.Alive, facade, applicationService, statusService, s.logger)
+	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appUUID, app,
+		life.Alive, facade, applicationService, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -539,7 +539,6 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorageEnsurePVCsFails(c *tc.C) {
 	app := caasmocks.NewMockApplication(ctrl)
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
-	statusService := mocks.NewMockStatusService(ctrl)
 
 	// Current units (less than scale target)
 	units := map[unit.Name]life.Value{
@@ -569,7 +568,8 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorageEnsurePVCsFails(c *tc.C) {
 			Return(errors.New("PVC creation failed")),
 	)
 
-	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appUUID, app, life.Alive, facade, applicationService, statusService, s.logger)
+	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appUUID, app,
+		life.Alive, facade, applicationService, s.logger)
 	c.Assert(err, tc.ErrorMatches, "PVC creation failed")
 }
 
@@ -637,10 +637,12 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 			},
 		},
 		FilesystemTemplates: []storageprovisioning.FilesystemTemplate{{
-			Attachments: []storageprovisioning.FilesystemAttachmentTemplate{
+			Attachments: []storageprovisioning.FilesystemAttachmentTemplateWithProvisioned{
 				{
-					MountPoint: "/charm-defined-location/data/0",
-					ReadOnly:   false,
+					FilesystemAttachmentTemplate: storageprovisioning.FilesystemAttachmentTemplate{
+						MountPoint: "/charm-defined-location/data/0",
+						ReadOnly:   false,
+					},
 				},
 			},
 			StorageName:  "data",
@@ -752,7 +754,8 @@ func (s *OpsSuite) TestAppDying(c *tc.C) {
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.AppDying(c.Context(), "test", appUUID, app, life.Dying, facade, applicationService, statusService, s.logger)
+	err := caasapplicationprovisioner.AppOps.AppDying(c.Context(), "test", appUUID, app,
+		life.Dying, facade, applicationService, statusService, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -877,7 +880,9 @@ func (s *OpsSuite) TestProvisioningInfo(c *tc.C) {
 	ro.EXPECT().OpenResource(gomock.Any(), "rootless-image").Return(rootlessImageResource, nil)
 	ro.EXPECT().SetResourceUsed(gomock.Any(), gomock.Any()).Return(nil)
 
-	pi, err := caasapplicationprovisioner.AppOps.ProvisioningInfo(c.Context(), "test", appId, facade, storageProvisioningService, applicationService, resourceOpenerGetter, nil, s.logger)
+	pi, err := caasapplicationprovisioner.AppOps.ProvisioningInfo(c.Context(), "test", appId,
+		facade, applicationService, storageProvisioningService, resourceOpenerGetter,
+		nil, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(pi, tc.DeepEquals, &caasapplicationprovisioner.ProvisioningInfo{
 		ImageDetails: coreresource.DockerImageDetails{

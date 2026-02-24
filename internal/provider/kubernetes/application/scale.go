@@ -97,12 +97,12 @@ func (a *app) EnsurePVCs(
 ) error {
 	applier := a.newApplier()
 
-	pvcNames, err := a.pvcNames(storageUniqueID)
+	pvcTemplateNames, err := a.storageNameToPVCTemplateNames(filesystems)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "mapping pvc template names for app %q", a.name)
 	}
 
-	pvcNameGetter := a.pvcNameGetter(pvcNames, storageUniqueID)
+	pvcNameGetter := a.pvcNameGetter(pvcTemplateNames, storageUniqueID)
 
 	storageClasses, err := resources.ListStorageClass(context.Background(), a.client.StorageV1().StorageClasses(), meta.ListOptions{})
 	if err != nil {
@@ -114,7 +114,7 @@ func (a *app) EnsurePVCs(
 	}
 
 	for _, fs := range filesystems {
-		name := a.volumeName(fs.StorageName)
+		name := a.appStorageName(fs.StorageName)
 		_, pvc, _, err := a.filesystemToVolumeInfo(name, fs, storageClassMap, pvcNameGetter)
 		if err != nil {
 			return errors.Trace(err)

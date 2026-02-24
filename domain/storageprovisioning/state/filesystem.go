@@ -1371,3 +1371,56 @@ WHERE  a.uuid = $entityUUID.uuid
 
 	return rvals, nil
 }
+
+// GetProvisionedFilesystemAttachmentsForApplication returns the provisioned filesystem
+// attachments indexed by storage name for the given application UUID.
+// It returns an error satisfying [applicationerrors.ApplicationNotFound] if
+// the application does not exist.
+func (st *State) GetProvisionedFilesystemAttachmentsForApplication(
+	ctx context.Context,
+	uuid coreapplication.UUID,
+) (map[string][]storageprovisioning.ProvisionedFilesystemAttachment, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	input := entityUUID{uuid.String()}
+	stmt, err := st.Prepare(`
+SELECT (sfa.uuid,
+       si.storage_name,
+       sfa.provider_id) AS (&existingFilesystemAttachment.*)
+FROM   storage_filesystem_attachment AS sfa
+JOIN   storage_instance_filesystem AS sif ON sfa.storage_filesystem_uuid = sif.storage_filesystem_uuid
+JOIN   storage_instance AS si ON sif.storage_instance_uuid = si.uuid
+JOIN   storage_attachment AS sa ON si.uuid = sa.storage_instance_uuid
+JOIN   unit AS u ON sa.unit_uuid = u.uuid
+WHERE  u.application_uuid = $entityUUID.uuid AND sfa.provider_id <> ''`,
+		existingFilesystemAttachment{}, input)
+
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var existingAttachments existingFilesystemAttachmentRows
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkApplicationExists(ctx, tx, uuid)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return errors.Errorf(
+				"application %q does not exist", uuid,
+			).Add(applicationerrors.ApplicationNotFound)
+		}
+		err = tx.Query(ctx, stmt, input).GetAll(&existingAttachments)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return existingAttachments.toProvisionedFilesystemAttachment()
+}

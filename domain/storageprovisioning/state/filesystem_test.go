@@ -1273,6 +1273,222 @@ func (s *filesystemSuite) TestGetContainerMountsForApplicationMissingApplication
 	c.Check(err, tc.ErrorIs, domainapplicationerrors.ApplicationNotFound)
 }
 
+// TestGetFilesystemAttachmentsForApplicationSingle tests retrieving a single
+// filesystem attachment per storage.
+func (s *filesystemSuite) TestGetFilesystemAttachmentsForApplicationSingle(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+	appUUID, charmUUID := s.newApplicationContainer(c, applicationContainerParams{
+		appName:           "testapp",
+		containerKey:      "test",
+		containerResource: "resource",
+		containerMounts: []mounts{
+			{
+				index:        "0",
+				containerKey: "test",
+				storageName:  "data",
+				location:     "/mount/data",
+			},
+			{
+				index:        "1",
+				containerKey: "test",
+				storageName:  "config",
+				location:     "/mount/config",
+			},
+		},
+	})
+	unitUUID, _ := s.newUnitWithNetNode(c, "testapp/0", appUUID.String(), netNodeUUID)
+
+	// Setup storage pool and charm storage
+	poolUUID := s.newStoragePool(c, "mypool", "canonical", nil)
+	s.newCharmStorage(c, charmUUID.String(), "data", "filesystem", false,
+		false, "/mount/data")
+	s.newCharmStorage(c, charmUUID.String(), "config", "filesystem", false,
+		false, "/mount/config")
+
+	// Setup storage instance and filesystem
+	storageInstanceUUID1, _ := s.newStorageInstanceForCharmWithPool(
+		c, charmUUID.String(), poolUUID, "data",
+	)
+	storageInstanceUUID2, _ := s.newStorageInstanceForCharmWithPool(
+		c, charmUUID.String(), poolUUID, "config",
+	)
+
+	s.newStorageAttachment(c, storageInstanceUUID1, unitUUID)
+	s.newStorageAttachment(c, storageInstanceUUID2, unitUUID)
+
+	fsUUID1, _ := s.newMachineFilesystem(c)
+	fsaUUID1 := s.newMachineFilesystemAttachmentWithMount(
+		c, fsUUID1, netNodeUUID, "/mount/data", false,
+	)
+	fsUUID2, _ := s.newMachineFilesystem(c)
+
+	fsaUUID2 := s.newMachineFilesystemAttachmentWithMount(
+		c, fsUUID2, netNodeUUID, "/mount/config", false,
+	)
+	s.setFilesystemAttachmentProviderID(c, fsaUUID1.String(), "test-data-uniqid123-test-0")
+	s.setFilesystemAttachmentProviderID(c, fsaUUID2.String(), "test-config-uniqid123-test-0")
+
+	// Link storage instance to filesystem.
+	s.newStorageInstanceFilesystem(c, storageInstanceUUID1, fsUUID1)
+	s.newStorageInstanceFilesystem(c, storageInstanceUUID2, fsUUID2)
+
+	st := NewState(s.TxnRunnerFactory())
+	attachments, err := st.GetProvisionedFilesystemAttachmentsForApplication(c.Context(), appUUID)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(attachments, tc.DeepEquals, map[string][]storageprovisioning.ProvisionedFilesystemAttachment{
+		"data": {
+			{
+				AttachmentUUID: fsaUUID1.String(),
+				StorageName:    "data",
+				ProviderID:     "test-data-uniqid123-test-0",
+			},
+		},
+		"config": {
+			{AttachmentUUID: fsaUUID2.String(),
+				StorageName: "config",
+				ProviderID:  "test-config-uniqid123-test-0"},
+		},
+	})
+}
+
+// TestGetFilesystemAttachmentsForApplicationMultiple tests retrieving multiple filesystem
+// attachments for each storage.
+func (s *filesystemSuite) TestGetFilesystemAttachmentsForApplicationMultiple(c *tc.C) {
+	netNodeUUID := s.newNetNode(c)
+	appUUID, charmUUID := s.newApplicationContainer(c, applicationContainerParams{
+		appName:           "testapp",
+		containerKey:      "test",
+		containerResource: "resource",
+		containerMounts: []mounts{
+			{
+				index:        "0",
+				containerKey: "test",
+				storageName:  "data",
+				location:     "/mount/data",
+			},
+			{
+				index:        "1",
+				containerKey: "test",
+				storageName:  "config",
+				location:     "/mount/config",
+			},
+		},
+	})
+	unitUUID, _ := s.newUnitWithNetNode(c, "testapp/0", appUUID.String(), netNodeUUID)
+
+	// Setup storage pool and charm storage
+	poolUUID := s.newStoragePool(c, "mypool", "canonical", nil)
+	s.newCharmStorage(c, charmUUID.String(), "data", "filesystem", false,
+		false, "/mount/data")
+	s.newCharmStorage(c, charmUUID.String(), "config", "filesystem", false,
+		false, "/mount/config")
+
+	// Setup storage instance and filesystem
+	storageInstanceDataUUID1, _ := s.newStorageInstanceForCharmWithPool(
+		c, charmUUID.String(), poolUUID, "data",
+	)
+	storageInstanceDataUUID2, _ := s.newStorageInstanceForCharmWithPool(
+		c, charmUUID.String(), poolUUID, "data",
+	)
+	storageInstanceConfigUUID1, _ := s.newStorageInstanceForCharmWithPool(
+		c, charmUUID.String(), poolUUID, "config",
+	)
+	storageInstanceConfigUUID2, _ := s.newStorageInstanceForCharmWithPool(
+		c, charmUUID.String(), poolUUID, "config",
+	)
+
+	s.newStorageAttachment(c, storageInstanceDataUUID1, unitUUID)
+	s.newStorageAttachment(c, storageInstanceDataUUID2, unitUUID)
+	s.newStorageAttachment(c, storageInstanceConfigUUID1, unitUUID)
+	s.newStorageAttachment(c, storageInstanceConfigUUID2, unitUUID)
+
+	fsDataUUID1, _ := s.newMachineFilesystem(c)
+	fsaDataUUID1 := s.newMachineFilesystemAttachmentWithMount(
+		c, fsDataUUID1, netNodeUUID, "/mount/data", false,
+	)
+	fsDataUUID2, _ := s.newMachineFilesystem(c)
+	fsaDataUUID2 := s.newMachineFilesystemAttachmentWithMount(
+		c, fsDataUUID2, netNodeUUID, "/mount/data", false,
+	)
+	fsConfigUUID1, _ := s.newMachineFilesystem(c)
+	fsaConfigUUID1 := s.newMachineFilesystemAttachmentWithMount(
+		c, fsConfigUUID1, netNodeUUID, "/mount/config", false,
+	)
+	fsConfigUUID2, _ := s.newMachineFilesystem(c)
+	fsaConfigUUID2 := s.newMachineFilesystemAttachmentWithMount(
+		c, fsConfigUUID2, netNodeUUID, "/mount/config", false,
+	)
+
+	// Populate the provider id for attachments.
+	s.setFilesystemAttachmentProviderID(c, fsaDataUUID1.String(), "test-data-uniqid123-test-0")
+	s.setFilesystemAttachmentProviderID(c, fsaDataUUID2.String(), "test-data-uniqid123-test-1")
+	s.setFilesystemAttachmentProviderID(c, fsaConfigUUID1.String(), "test-config-uniqid123-test-0")
+	s.setFilesystemAttachmentProviderID(c, fsaConfigUUID2.String(), "test-config-uniqid123-test-1")
+
+	// Link storage instance to filesystem.
+	s.newStorageInstanceFilesystem(c, storageInstanceDataUUID1, fsDataUUID1)
+	s.newStorageInstanceFilesystem(c, storageInstanceDataUUID2, fsDataUUID2)
+	s.newStorageInstanceFilesystem(c, storageInstanceConfigUUID1, fsConfigUUID1)
+	s.newStorageInstanceFilesystem(c, storageInstanceConfigUUID2, fsConfigUUID2)
+
+	st := NewState(s.TxnRunnerFactory())
+	attachments, err := st.GetProvisionedFilesystemAttachmentsForApplication(c.Context(), appUUID)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(attachments, tc.HasLen, 2)
+	c.Assert(attachments["data"], tc.SameContents, []storageprovisioning.ProvisionedFilesystemAttachment{
+		{
+			AttachmentUUID: fsaDataUUID1.String(),
+			StorageName:    "data",
+			ProviderID:     "test-data-uniqid123-test-0",
+		},
+		{
+			AttachmentUUID: fsaDataUUID2.String(),
+			StorageName:    "data",
+			ProviderID:     "test-data-uniqid123-test-1",
+		},
+	})
+	c.Assert(attachments["config"], tc.SameContents, []storageprovisioning.ProvisionedFilesystemAttachment{
+		{
+			AttachmentUUID: fsaConfigUUID1.String(),
+			StorageName:    "config",
+			ProviderID:     "test-config-uniqid123-test-0",
+		},
+		{
+			AttachmentUUID: fsaConfigUUID2.String(),
+			StorageName:    "config",
+			ProviderID:     "test-config-uniqid123-test-1",
+		},
+	})
+}
+
+// TestGetFilesystemAttachmentsForApplicationNotFound tests that when requesting filesystem
+// attachments for an application that doesn't exist, an error satisfying
+// [domainapplicationerrors.ApplicationNotFound] is returned.
+func (s *filesystemSuite) TestGetFilesystemAttachmentsForApplicationNotFound(c *tc.C) {
+	notFoundApplicationUUID := tc.Must(c, application.NewUUID)
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetProvisionedFilesystemAttachmentsForApplication(c.Context(), notFoundApplicationUUID)
+
+	c.Check(err, tc.ErrorIs, domainapplicationerrors.ApplicationNotFound)
+}
+
+// TestGetFilesystemAttachmentsForApplicationNoAttachments tests that when requesting filesystem
+// attachments for an application with no attachments, an empty slice is returned
+// with no error.
+func (s *filesystemSuite) TestGetFilesystemAttachmentsForApplicationNoAttachments(c *tc.C) {
+	appUUID, _ := s.newApplication(c, "testapp")
+	st := NewState(s.TxnRunnerFactory())
+
+	attachments, err := st.GetProvisionedFilesystemAttachmentsForApplication(c.Context(),
+		application.UUID(appUUID))
+
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(attachments, tc.HasLen, 0)
+}
+
 // changeFilesystemLife is a utility function for updating the life value of a
 // filesystem.
 func (s *filesystemSuite) changeFilesystemLife(
@@ -1493,4 +1709,13 @@ VALUES (?, ?, ?, ?, ?)
 	}
 
 	return application.UUID(applicationUUID), corecharm.ID(charmUUID)
+}
+
+func (s *filesystemSuite) setFilesystemAttachmentProviderID(c *tc.C, attachmentUUID string,
+	providerID string) {
+	_, err := s.DB().Exec(`
+UPDATE storage_filesystem_attachment 
+SET    provider_id = ? 
+WHERE  uuid = ?`, providerID, attachmentUUID)
+	c.Assert(err, tc.ErrorIsNil)
 }
