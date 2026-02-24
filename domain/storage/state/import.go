@@ -299,3 +299,82 @@ FROM (
 	}
 	return machineMap, unitMap, nil
 }
+
+// ImportVolumes creates new volumes and storage instance volumes.
+func (st *State) ImportVolumes(ctx context.Context, args []internal.ImportVolumeArgs) error {
+	if len(args) == 0 {
+		return nil
+	}
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	storageVolumeData, storageInstanceVolumeData := makeInsertVolumeArgs(args)
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.importStorageVolumes(ctx, tx, storageVolumeData); err != nil {
+			return errors.Capture(err)
+		}
+		if err := st.importStorageInstanceVolumes(ctx, tx, storageInstanceVolumeData); err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+}
+
+func (st *State) importStorageVolumes(ctx context.Context, tx *sqlair.TX, input []importStorageVolume) error {
+	if len(input) == 0 {
+		return nil
+	}
+
+	insertStmt, err := st.Prepare(`
+INSERT INTO storage_volume (*) VALUES ($importStorageVolume.*)
+`, importStorageVolume{})
+	if err != nil {
+		return errors.Errorf("preparing insert volume import statement: %w", err)
+	}
+
+	err = tx.Query(ctx, insertStmt, input).Run()
+	return err
+}
+
+func (st *State) importStorageInstanceVolumes(ctx context.Context, tx *sqlair.TX, input []importStorageInstanceVolume) error {
+	if len(input) == 0 {
+		return nil
+	}
+
+	insertStmt, err := st.Prepare(`
+INSERT INTO storage_instance_volume (*) VALUES ($importStorageInstanceVolume.*)
+`, importStorageInstanceVolume{})
+	if err != nil {
+		return errors.Errorf("preparing insert storage instance volume import statement: %w", err)
+	}
+
+	err = tx.Query(ctx, insertStmt, input).Run()
+	return err
+}
+
+func makeInsertVolumeArgs(args []internal.ImportVolumeArgs) ([]importStorageVolume, []importStorageInstanceVolume) {
+	out := make([]importStorageVolume, len(args))
+	outInstance := make([]importStorageInstanceVolume, len(args))
+
+	for i, arg := range args {
+		out[i] = importStorageVolume{
+			UUID:             arg.UUID,
+			VolumeID:         arg.ID,
+			LifeID:           int(arg.LifeID),
+			ProvisionScopeID: int(arg.ProvisionScopeID),
+			ProviderID:       arg.ProviderID,
+			SizeMiB:          arg.SizeMiB,
+			HardwareID:       arg.HardwareID,
+			WWN:              arg.WWN,
+			Persistent:       arg.Persistent,
+		}
+		outInstance[i] = importStorageInstanceVolume{
+			StorageInstanceUUID: arg.StorageInstanceUUID,
+			VolumeUUID:          arg.UUID,
+		}
+	}
+
+	return out, outInstance
+}

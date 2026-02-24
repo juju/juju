@@ -140,12 +140,12 @@ func (p ImportFilesystemParams) Validate() error {
 	}
 
 	if !IsValidStoragePoolNameWithLegacy(p.PoolName) {
-		return errors.Errorf("invalid PoolName %q", p.PoolName).Add(coreerrors.NotValid)
+		return errors.Errorf("storage pool name %q not valid", p.PoolName).Add(coreerrors.NotValid)
 	}
 
 	if p.StorageInstanceID != "" {
 		if err := corestorage.ID(p.StorageInstanceID).Validate(); err != nil {
-			return errors.Errorf("invalid StorageInstanceID %q: %w", p.StorageInstanceID, err).Add(coreerrors.NotValid)
+			return errors.Errorf("storage instance ID %q: %w", p.StorageInstanceID, err).Add(coreerrors.NotValid)
 		}
 	}
 
@@ -189,6 +189,44 @@ func (p ImportFilesystemAttachmentsParams) Validate() error {
 
 	if p.MountPoint == "" {
 		return errors.New("MountPoint cannot be empty").Add(coreerrors.NotValid)
+	}
+
+	return nil
+}
+
+// ImportVolumeParams represents a volume definition used when importing
+// volumes into the model.
+type ImportVolumeParams struct {
+	ID          string
+	StorageID   string
+	Provisioned bool
+	SizeMiB     uint64
+	Pool        string
+	HardwareID  string
+	WWN         string
+	ProviderID  string
+	Persistent  bool
+}
+
+// Validate returns an NotValid error if the ImportVolumeParams does not
+// contain an ID, StorageID, SizeMiB, nor storage pool.
+func (i ImportVolumeParams) Validate() error {
+	if i.ID == "" {
+		return errors.New("empty volume ID not valid").Add(coreerrors.NotValid)
+	}
+
+	if i.SizeMiB == 0 {
+		return errors.Errorf("empty size for volume %q not valid", i.ID).Add(coreerrors.NotValid)
+	}
+
+	if !IsValidStoragePoolNameWithLegacy(i.Pool) {
+		return errors.Errorf("storage pool name %q not valid", i.Pool).Add(coreerrors.NotValid)
+	}
+
+	if i.StorageID != "" {
+		if err := corestorage.ID(i.StorageID).Validate(); err != nil {
+			return errors.Errorf("storage ID %q: %w", i.StorageID, err).Add(coreerrors.NotValid)
+		}
 	}
 
 	return nil
