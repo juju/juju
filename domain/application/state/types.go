@@ -912,6 +912,12 @@ type storageInstance struct {
 	RequestedSizeMIB uint64                            `db:"requested_size_mib"`
 }
 
+// storageAttachmentUnit holds the UUID and name of a unit attached to storage.
+type storageAttachmentUnit struct {
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
+}
+
 type storageInfoForAdd struct {
 	Name        string `db:"name"`
 	Kind        string `db:"kind"`

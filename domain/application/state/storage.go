@@ -533,7 +533,7 @@ func (st *State) getStorageAttachmentUnits(
 	ctx context.Context,
 	tx *sqlair.TX,
 	stUUID domainstorage.StorageInstanceUUID,
-) ([]string, error) {
+) ([]storageAttachmentUnit, error) {
 	storageUUID := entityUUID{UUID: stUUID.String()}
 
 	storageExistsStmt, err := st.Prepare(`
@@ -545,14 +545,12 @@ WHERE  uuid = $entityUUID.uuid
 		return nil, errors.Capture(err)
 	}
 
-	type unitUUID entityUUID
-
 	attachStmt, err := st.Prepare(`
-SELECT u.uuid AS &unitUUID.uuid
+SELECT u.* AS &storageAttachmentUnit.*
 FROM   storage_attachment sia
 JOIN   unit u ON sia.unit_uuid = u.uuid
 AND    sia.storage_instance_uuid = $entityUUID.uuid
-`, storageUUID, unitUUID{})
+`, storageUUID, storageAttachmentUnit{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -566,14 +564,14 @@ AND    sia.storage_instance_uuid = $entityUUID.uuid
 		return nil, errors.Errorf("checking storage %q exists: %w", stUUID, err)
 	}
 
-	var result []unitUUID
+	var result []storageAttachmentUnit
 	err = tx.Query(ctx, attachStmt, storageUUID).GetAll(&result)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	} else if err != nil {
 		return nil, errors.Errorf("getting storage %q attachments: %w", stUUID, err)
 	}
-	return transform.Slice(result, func(u unitUUID) string { return u.UUID }), nil
+	return result, nil
 }
 
 // GetUnitStorageDirectives returns the storage directives that are set for
@@ -1150,12 +1148,12 @@ func (st *State) attachStorageForUnit(
 		return errors.Capture(err)
 	}
 	allowedAttachments := set.NewStrings(storageArg.AllowedExistingUnitAttachments...)
-	attachedTo := set.NewStrings(attachedToUnits...)
-	if attachedTo.Difference(allowedAttachments).Size() > 0 {
+	attachedUUIDs := set.NewStrings(transform.Slice(attachedToUnits, func(u storageAttachmentUnit) string { return u.UUID })...)
+	if attachedUUIDs.Difference(allowedAttachments).Size() > 0 {
 		return internal.StorageAttachmentNotAllowed{
-			AttachedToUnits: attachedToUnits,
+			AttachedToUnits: transform.Slice(attachedToUnits, func(u storageAttachmentUnit) string { return u.Name }),
 		}
-	} else if attachedTo.Contains(unitUUID.String()) {
+	} else if attachedUUIDs.Contains(unitUUID.String()) {
 		// The storage is already attached to the unit, so we can no-op.
 		return internal.StorageAlreadyAttached
 	}

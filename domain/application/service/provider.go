@@ -1285,11 +1285,18 @@ func (s *ProviderService) populateAttachStorageArgs(
 	if err != nil {
 		return internal.AttachStorageToUnitArg{}, errors.Capture(err)
 	}
+	var allowedUUIDs []string
+	if len(storageAttachInfo.AlreadyAttachedToUnits) > 0 {
+		allowedUUIDs = make([]string, 0, len(storageAttachInfo.AlreadyAttachedToUnits))
+		for uuid := range storageAttachInfo.AlreadyAttachedToUnits {
+			allowedUUIDs = append(allowedUUIDs, uuid)
+		}
+	}
 	args := internal.AttachStorageToUnitArg{
 		StorageToAttach:                attachArgs,
 		StorageName:                    storageAttachInfo.CharmStorageName,
 		CountLessThanEqual:             uint32(math.MaxUint32),
-		AllowedExistingUnitAttachments: storageAttachInfo.AlreadyAttachedToUnits,
+		AllowedExistingUnitAttachments: allowedUUIDs,
 	}
 
 	// Record the max allowed count precondition.
@@ -1334,17 +1341,25 @@ func (s *ProviderService) AttachStorageToUnit(
 			unitUUID, storageUUID, err,
 		)
 	}
-	attachedTo := set.NewStrings(storageAttachInfo.AlreadyAttachedToUnits...)
-	if attachedTo.Size() == 1 && attachedTo.Contains(unitUUID.String()) {
+	attachedToMap := storageAttachInfo.AlreadyAttachedToUnits
+	attachedUUIDs := set.NewStrings()
+	for uuid := range attachedToMap {
+		attachedUUIDs.Add(uuid)
+	}
+	if attachedUUIDs.Size() == 1 && attachedUUIDs.Contains(unitUUID.String()) {
 		// The storage is already attached to the unit, so this is a no-op.
 		return nil
 	}
-	attachedTo.Remove(unitUUID.String())
+	attachedUUIDs.Remove(unitUUID.String())
 	// Shared storage is not supported.
-	if attachedTo.Size() > 0 {
+	if attachedUUIDs.Size() > 0 {
+		otherNames := make([]string, 0, attachedUUIDs.Size())
+		for _, uuid := range attachedUUIDs.SortedValues() {
+			otherNames = append(otherNames, attachedToMap[uuid])
+		}
 		return errors.Errorf(
-			"storage instance %q is already attached to other unit(s): %v",
-			storageUUID, attachedTo.Values(),
+			"storage is already attached to other unit(s): %v",
+			otherNames,
 		)
 	}
 
@@ -1366,7 +1381,9 @@ func (s *ProviderService) AttachStorageToUnit(
 		}
 	case errors.As(err, &attachmentNotAllowed):
 		return errors.Errorf(
-			"attaching storage %q to unit %q: %w", unitAttachStorageArgs.StorageName, unitUUID, attachmentNotAllowed)
+			"storage is already attached to other unit(s): %v",
+			attachmentNotAllowed.AttachedToUnits,
+		)
 	}
 	return errors.Capture(err)
 }
