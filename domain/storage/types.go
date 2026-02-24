@@ -7,7 +7,9 @@ import (
 	"github.com/juju/collections/set"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	coremachine "github.com/juju/juju/core/machine"
 	corestorage "github.com/juju/juju/core/storage"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
@@ -107,6 +109,17 @@ func (i ImportStorageInstanceParams) Validate() error {
 	if i.PoolName == "" || i.RequestedSizeMiB == 0 || i.StorageID == "" {
 		return errors.New("empty PoolName, RequestedSizeMiB, or StorageID not valid").Add(coreerrors.NotValid)
 	}
+
+	if i.UnitName != "" {
+		if err := coreunit.Name(i.UnitName).Validate(); err != nil {
+			return err
+		}
+	}
+
+	if !IsValidStoragePoolNameWithLegacy(i.PoolName) {
+		return errors.Errorf("invalid PoolName %q", i.PoolName).Add(coreerrors.NotValid)
+	}
+
 	return nil
 }
 
@@ -117,6 +130,7 @@ type ImportFilesystemParams struct {
 	ProviderID        string
 	PoolName          string
 	StorageInstanceID string
+	Attachments       []ImportFilesystemAttachmentsParams
 }
 
 // Validate returns NotValid if the params are not valid
@@ -133,6 +147,48 @@ func (p ImportFilesystemParams) Validate() error {
 		if err := corestorage.ID(p.StorageInstanceID).Validate(); err != nil {
 			return errors.Errorf("invalid StorageInstanceID %q: %w", p.StorageInstanceID, err).Add(coreerrors.NotValid)
 		}
+	}
+
+	for i, attachment := range p.Attachments {
+		if err := attachment.Validate(); err != nil {
+			return errors.Errorf("invalid attachment %d: %w", i, err).Add(coreerrors.NotValid)
+		}
+	}
+
+	return nil
+}
+
+// ImportFilesystemAttachmentsParams represents data to import filesystem
+// attachments.
+type ImportFilesystemAttachmentsParams struct {
+	HostMachineName string
+	HostUnitName    string
+	MountPoint      string
+	ReadOnly        bool
+}
+
+func (p ImportFilesystemAttachmentsParams) Validate() error {
+	if p.HostMachineName == "" && p.HostUnitName == "" {
+		return errors.New("either HostMachineName or HostUnitName must be provided").Add(coreerrors.NotValid)
+	}
+	if p.HostUnitName != "" && p.HostMachineName != "" {
+		return errors.New("only one of HostMachineName or HostUnitName can be provided").Add(coreerrors.NotValid)
+	}
+
+	if p.HostUnitName != "" {
+		if err := coreunit.Name(p.HostUnitName).Validate(); err != nil {
+			return err
+		}
+	}
+
+	if p.HostMachineName != "" {
+		if err := coremachine.Name(p.HostMachineName).Validate(); err != nil {
+			return err
+		}
+	}
+
+	if p.MountPoint == "" {
+		return errors.New("MountPoint cannot be empty").Add(coreerrors.NotValid)
 	}
 
 	return nil

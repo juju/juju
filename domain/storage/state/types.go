@@ -3,6 +3,8 @@
 
 package state
 
+import "database/sql"
+
 // entityUUID represents the UUID of a storage entity in the model.
 type entityUUID struct {
 	UUID string `db:"uuid"`
@@ -88,4 +90,24 @@ type importStorageFilesystem struct {
 type importStorageInstanceFilesystem struct {
 	StorageInstanceUUID string `db:"storage_instance_uuid"`
 	FilesystemUUID      string `db:"storage_filesystem_uuid"`
+}
+
+type importStorageFilesystemAttachment struct {
+	UUID           string `db:"uuid"`
+	FilesystemUUID string `db:"storage_filesystem_uuid"`
+	NetNodeUUID    string `db:"net_node_uuid"`
+	ScopeID        int    `db:"provision_scope_id"`
+	LifeID         int    `db:"life_id"`
+	MountPoint     string `db:"mount_point"`
+	ReadOnly       bool   `db:"read_only"`
+}
+
+// machineAndUnitNetNodeUUID represents names and net node uuid
+// for machine or unit combinations where the data is gathered in
+// a single query.
+type machineAndUnitNetNodeUUID struct {
+	MachineName        sql.NullString `db:"machine_name"`
+	MachineNetNodeUUID sql.NullString `db:"machine_net_node_uuid"`
+	UnitName           sql.NullString `db:"unit_name"`
+	UnitNetNodeUUID    sql.NullString `db:"unit_net_node_uuid"`
 }

@@ -141,40 +141,40 @@ func (c *MockImportServiceGetStoragePoolsToImportCall) DoAndReturn(f func(contex
 	return c
 }
 
-// ImportFilesystems mocks base method.
-func (m *MockImportService) ImportFilesystems(arg0 context.Context, arg1 []storage.ImportFilesystemParams) error {
+// ImportFilesystemsIAAS mocks base method.
+func (m *MockImportService) ImportFilesystemsIAAS(arg0 context.Context, arg1 []storage.ImportFilesystemParams) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ImportFilesystems", arg0, arg1)
+	ret := m.ctrl.Call(m, "ImportFilesystemsIAAS", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// ImportFilesystems indicates an expected call of ImportFilesystems.
-func (mr *MockImportServiceMockRecorder) ImportFilesystems(arg0, arg1 any) *MockImportServiceImportFilesystemsCall {
+// ImportFilesystemsIAAS indicates an expected call of ImportFilesystemsIAAS.
+func (mr *MockImportServiceMockRecorder) ImportFilesystemsIAAS(arg0, arg1 any) *MockImportServiceImportFilesystemsIAASCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportFilesystems", reflect.TypeOf((*MockImportService)(nil).ImportFilesystems), arg0, arg1)
-	return &MockImportServiceImportFilesystemsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportFilesystemsIAAS", reflect.TypeOf((*MockImportService)(nil).ImportFilesystemsIAAS), arg0, arg1)
+	return &MockImportServiceImportFilesystemsIAASCall{Call: call}
 }
 
-// MockImportServiceImportFilesystemsCall wrap *gomock.Call
-type MockImportServiceImportFilesystemsCall struct {
+// MockImportServiceImportFilesystemsIAASCall wrap *gomock.Call
+type MockImportServiceImportFilesystemsIAASCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockImportServiceImportFilesystemsCall) Return(arg0 error) *MockImportServiceImportFilesystemsCall {
+func (c *MockImportServiceImportFilesystemsIAASCall) Return(arg0 error) *MockImportServiceImportFilesystemsIAASCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockImportServiceImportFilesystemsCall) Do(f func(context.Context, []storage.ImportFilesystemParams) error) *MockImportServiceImportFilesystemsCall {
+func (c *MockImportServiceImportFilesystemsIAASCall) Do(f func(context.Context, []storage.ImportFilesystemParams) error) *MockImportServiceImportFilesystemsIAASCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockImportServiceImportFilesystemsCall) DoAndReturn(f func(context.Context, []storage.ImportFilesystemParams) error) *MockImportServiceImportFilesystemsCall {
+func (c *MockImportServiceImportFilesystemsIAASCall) DoAndReturn(f func(context.Context, []storage.ImportFilesystemParams) error) *MockImportServiceImportFilesystemsIAASCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

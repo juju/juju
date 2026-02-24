@@ -4,6 +4,7 @@
 package service
 
 import (
+	"context"
 	stdtesting "testing"
 
 	"github.com/juju/tc"
@@ -60,10 +61,10 @@ func (s *importSuite) TestImportStorageInstances(c *tc.C) {
 			PoolName:         "ebs",
 		},
 	}
-	s.state.EXPECT().ImportStorageInstances(gomock.Any(), ignoreUUIDArgsMatcher[internal.ImportStorageInstanceArgs]{
-		c:        c,
-		expected: expected,
-	}).Return(nil)
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].UUID`, tc.IsNonZeroUUID)
+	s.state.EXPECT().ImportStorageInstances(gomock.Any(), tc.Bind(mc, expected)).Return(nil)
 
 	args := []domainstorage.ImportStorageInstanceParams{
 		{
@@ -112,11 +113,11 @@ func (s *importSuite) TestImportStorageInstancesValidate(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *importSuite) TestImportFilesystems(c *tc.C) {
+func (s *importSuite) TestImportFilesystemsIAAS(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	args := []domainstorage.ImportFilesystemParams{{
+	params := []domainstorage.ImportFilesystemParams{{
 		ID:                "test-1/0",
 		PoolName:          "ebs",
 		SizeInMiB:         1024,
@@ -137,7 +138,7 @@ func (s *importSuite) TestImportFilesystems(c *tc.C) {
 		StorageInstanceID: "",
 	}}
 
-	s.state.EXPECT().GetStoragePoolProvidersByNames(gomock.Any(), []string{"ebs", "ebs-ssd", "tmpfs"}).Return(map[string]string{
+	s.state.EXPECT().GetStoragePoolProvidersByNames(gomock.Any(), tc.Bind(tc.SameContents, []string{"ebs", "ebs-ssd", "tmpfs"})).Return(map[string]string{
 		"ebs":     "ebs",
 		"ebs-ssd": "ebs",
 		"tmpfs":   "tmpfs",
@@ -161,7 +162,101 @@ func (s *importSuite) TestImportFilesystems(c *tc.C) {
 			"storageinstance/2": "storageinstance-uuid-2",
 		}, nil)
 
-	expected := []internal.ImportFilesystemArgs{{
+	expectedFS := []internal.ImportFilesystemIAASArgs{{
+		ID:                  "test-2/1",
+		Life:                life.Alive,
+		SizeInMiB:           2048,
+		ProviderID:          "provider-test-2/1",
+		StorageInstanceUUID: "storageinstance-uuid-2",
+		Scope:               domainstorageprovisioning.ProvisionScopeMachine,
+	}, {
+		ID:                  "test-1/0",
+		Life:                life.Alive,
+		SizeInMiB:           1024,
+		ProviderID:          "provider-test-1/0",
+		StorageInstanceUUID: "storageinstance-uuid-1",
+		Scope:               domainstorageprovisioning.ProvisionScopeMachine,
+	}, {
+		ID:         "test-3/2",
+		Life:       life.Alive,
+		SizeInMiB:  4096,
+		ProviderID: "provider-test-3/2",
+		Scope:      domainstorageprovisioning.ProvisionScopeMachine,
+	}}
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_.UUID`, tc.IsNonZeroUUID)
+
+	s.state.EXPECT().ImportFilesystemsIAAS(gomock.Any(),
+		tc.Bind(tc.UnorderedMatch[[]internal.ImportFilesystemIAASArgs](mc), expectedFS),
+		tc.Bind(tc.HasLen, 0),
+	).Return(nil)
+
+	err := s.service.ImportFilesystemsIAAS(c.Context(), params)
+
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Arrange
+	params := []domainstorage.ImportFilesystemParams{{
+		ID:                "test-1/0",
+		PoolName:          "ebs",
+		SizeInMiB:         1024,
+		ProviderID:        "provider-test-1/0",
+		StorageInstanceID: "storageinstance/1",
+		Attachments: []domainstorage.ImportFilesystemAttachmentsParams{{
+			HostUnitName: "unit/0",
+			MountPoint:   "/mnt/test1-0",
+			ReadOnly:     false,
+		}, {
+			HostUnitName: "unit/1",
+			MountPoint:   "/mnt/test1-0-ro",
+			ReadOnly:     true,
+		}},
+	}, {
+		ID:                "test-2/1",
+		PoolName:          "ebs-ssd",
+		SizeInMiB:         2048,
+		ProviderID:        "provider-test-2/1",
+		StorageInstanceID: "storageinstance/2",
+		Attachments: []domainstorage.ImportFilesystemAttachmentsParams{{
+			HostMachineName: "0",
+			MountPoint:      "/mnt/test2-1",
+			ReadOnly:        false,
+		}},
+	}}
+
+	s.state.EXPECT().GetStoragePoolProvidersByNames(gomock.Any(), tc.Bind(tc.SameContents, []string{"ebs", "ebs-ssd"})).Return(map[string]string{
+		"ebs":     "ebs",
+		"ebs-ssd": "ebs",
+	}, nil)
+
+	ebsProvider := NewMockProvider(ctrl)
+	ebsProvider.EXPECT().Scope().Return(internalstorage.ScopeEnviron).AnyTimes()
+	ebsProvider.EXPECT().Supports(internalstorage.StorageKindBlock).Return(true).AnyTimes()
+	ebsProvider.EXPECT().Supports(internalstorage.StorageKindFilesystem).Return(false).AnyTimes()
+	s.registry.Providers["ebs"] = ebsProvider
+
+	s.state.EXPECT().GetStorageInstanceUUIDsByIDs(gomock.Any(), []string{"storageinstance/1", "storageinstance/2"}).
+		Return(map[string]string{
+			"storageinstance/1": "storageinstance-uuid-1",
+			"storageinstance/2": "storageinstance-uuid-2",
+		}, nil)
+
+	s.state.EXPECT().GetNetNodeUUIDsByMachineOrUnitName(gomock.Any(),
+		tc.Bind(tc.SameContents, []string{"0"}),
+		tc.Bind(tc.SameContents, []string{"unit/0", "unit/1"}),
+	).Return(
+		map[string]string{"0": "netnode-uuid-0"},
+		map[string]string{"unit/0": "netnode-uuid-unit-0", "unit/1": "netnode-uuid-unit-1"},
+		nil,
+	)
+
+	expectedFS := []internal.ImportFilesystemIAASArgs{{
 		ID:                  "test-1/0",
 		Life:                life.Alive,
 		SizeInMiB:           1024,
@@ -175,28 +270,82 @@ func (s *importSuite) TestImportFilesystems(c *tc.C) {
 		ProviderID:          "provider-test-2/1",
 		StorageInstanceUUID: "storageinstance-uuid-2",
 		Scope:               domainstorageprovisioning.ProvisionScopeMachine,
-	}, {
-		ID:         "test-3/2",
-		Life:       life.Alive,
-		SizeInMiB:  4096,
-		ProviderID: "provider-test-3/2",
-		Scope:      domainstorageprovisioning.ProvisionScopeMachine,
 	}}
-	s.state.EXPECT().ImportFilesystems(gomock.Any(), ignoreUUIDArgsMatcher[internal.ImportFilesystemArgs]{
-		c:        c,
-		expected: expected,
-	}).Return(nil)
+	expectedAttachments := []internal.ImportFilesystemAttachmentIAASArgs{{
+		MountPoint:  "/mnt/test1-0",
+		ReadOnly:    false,
+		NetNodeUUID: "netnode-uuid-unit-0",
+		Life:        life.Alive,
+		Scope:       domainstorageprovisioning.ProvisionScopeMachine,
+	}, {
+		MountPoint:  "/mnt/test1-0-ro",
+		ReadOnly:    true,
+		NetNodeUUID: "netnode-uuid-unit-1",
+		Life:        life.Alive,
+		Scope:       domainstorageprovisioning.ProvisionScopeMachine,
+	}, {
+		MountPoint:  "/mnt/test2-1",
+		ReadOnly:    false,
+		NetNodeUUID: "netnode-uuid-0",
+		Life:        life.Alive,
+		Scope:       domainstorageprovisioning.ProvisionScopeMachine,
+	}}
 
-	err := s.service.ImportFilesystems(c.Context(), args)
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_.UUID`, tc.IsNonZeroUUID)
+	mc.AddExpr(`_.FilesystemUUID`, tc.IsNonZeroUUID)
 
+	var (
+		gotFS          []internal.ImportFilesystemIAASArgs
+		gotAttachments []internal.ImportFilesystemAttachmentIAASArgs
+	)
+	s.state.EXPECT().ImportFilesystemsIAAS(gomock.Any(),
+		tc.Bind(tc.UnorderedMatch[[]internal.ImportFilesystemIAASArgs](mc), expectedFS),
+		tc.Bind(tc.UnorderedMatch[[]internal.ImportFilesystemAttachmentIAASArgs](mc), expectedAttachments),
+	).DoAndReturn(func(_ context.Context, fsArgs []internal.ImportFilesystemIAASArgs, attachmentArgs []internal.ImportFilesystemAttachmentIAASArgs) error {
+		gotFS = fsArgs
+		gotAttachments = attachmentArgs
+		return nil
+	})
+
+	// Act
+	err := s.service.ImportFilesystemsIAAS(c.Context(), params)
+
+	// Assert
 	c.Assert(err, tc.ErrorIsNil)
+
+	var (
+		fs1UUID, fs2UUID string
+	)
+	for _, fs := range gotFS {
+		switch fs.ID {
+		case "test-1/0":
+			fs1UUID = fs.UUID
+		case "test-2/1":
+			fs2UUID = fs.UUID
+		default:
+			c.Fatalf("unexpected filesystem ID %q", fs.ID)
+		}
+	}
+	for _, a := range gotAttachments {
+		switch a.MountPoint {
+		case "/mnt/test1-0":
+			c.Assert(a.FilesystemUUID, tc.Equals, fs1UUID)
+		case "/mnt/test1-0-ro":
+			c.Assert(a.FilesystemUUID, tc.Equals, fs1UUID)
+		case "/mnt/test2-1":
+			c.Assert(a.FilesystemUUID, tc.Equals, fs2UUID)
+		default:
+			c.Fatalf("unexpected attachment mount point %q", a.MountPoint)
+		}
+	}
 }
 
 func (s *importSuite) TestImportFilesystemsValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	args := []domainstorage.ImportFilesystemParams{{}}
-	err := s.service.ImportFilesystems(c.Context(), args)
+	err := s.service.ImportFilesystemsIAAS(c.Context(), args)
 
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
@@ -219,23 +368,4 @@ func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	})
 
 	return ctrl
-}
-
-type ignoreUUIDArgsMatcher[T any] struct {
-	c        *tc.C
-	expected []T
-}
-
-func (m ignoreUUIDArgsMatcher[T]) Matches(arg any) bool {
-	obtained, ok := arg.([]T)
-	if !ok {
-		return false
-	}
-	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_.UUID`, tc.IsNonZeroUUID)
-	return m.c.Check(obtained, tc.UnorderedMatch[[]T](mc), m.expected)
-}
-
-func (m ignoreUUIDArgsMatcher[T]) String() string {
-	return "matches if the input slice matches expectation."
 }
