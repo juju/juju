@@ -1329,10 +1329,10 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentsForApplicationSingle(c *tc
 	s.newStorageInstanceFilesystem(c, storageInstanceUUID2, fsUUID2)
 
 	st := NewState(s.TxnRunnerFactory())
-	attachments, err := st.GetFilesystemAttachmentsForApplication(c.Context(), appUUID)
+	attachments, err := st.GetProvisionedFilesystemAttachmentsForApplication(c.Context(), appUUID)
 
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(attachments, tc.DeepEquals, map[string][]storageprovisioning.RealizedFilesystemAttachment{
+	c.Assert(attachments, tc.DeepEquals, map[string][]storageprovisioning.ProvisionedFilesystemAttachment{
 		"data": {
 			{
 				AttachmentUUID: fsaUUID1.String(),
@@ -1423,11 +1423,11 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentsForApplicationMultiple(c *
 	s.newStorageInstanceFilesystem(c, storageInstanceConfigUUID2, fsConfigUUID2)
 
 	st := NewState(s.TxnRunnerFactory())
-	attachments, err := st.GetFilesystemAttachmentsForApplication(c.Context(), appUUID)
+	attachments, err := st.GetProvisionedFilesystemAttachmentsForApplication(c.Context(), appUUID)
 
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(attachments, tc.HasLen, 2)
-	c.Assert(attachments["data"], tc.SameContents, []storageprovisioning.RealizedFilesystemAttachment{
+	c.Assert(attachments["data"], tc.SameContents, []storageprovisioning.ProvisionedFilesystemAttachment{
 		{
 			AttachmentUUID: fsaDataUUID1.String(),
 			StorageName:    "data",
@@ -1439,7 +1439,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentsForApplicationMultiple(c *
 			ProviderID:     "test-data-uniqid123-test-1",
 		},
 	})
-	c.Assert(attachments["config"], tc.SameContents, []storageprovisioning.RealizedFilesystemAttachment{
+	c.Assert(attachments["config"], tc.SameContents, []storageprovisioning.ProvisionedFilesystemAttachment{
 		{
 			AttachmentUUID: fsaConfigUUID1.String(),
 			StorageName:    "config",
@@ -1460,7 +1460,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentsForApplicationNotFound(c *
 	notFoundApplicationUUID := tc.Must(c, application.NewUUID)
 	st := NewState(s.TxnRunnerFactory())
 
-	_, err := st.GetFilesystemAttachmentsForApplication(c.Context(), notFoundApplicationUUID)
+	_, err := st.GetProvisionedFilesystemAttachmentsForApplication(c.Context(), notFoundApplicationUUID)
 
 	c.Check(err, tc.ErrorIs, domainapplicationerrors.ApplicationNotFound)
 }
@@ -1472,7 +1472,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentsForApplicationNoAttachment
 	appUUID, _ := s.newApplication(c, "testapp")
 	st := NewState(s.TxnRunnerFactory())
 
-	attachments, err := st.GetFilesystemAttachmentsForApplication(c.Context(),
+	attachments, err := st.GetProvisionedFilesystemAttachmentsForApplication(c.Context(),
 		application.UUID(appUUID))
 
 	c.Check(err, tc.ErrorIsNil)

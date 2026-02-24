@@ -99,7 +99,7 @@ func (s *applicationSuite) TestEnsurePVCs(c *tc.C) {
 	c.Assert(pvc.Name, tc.Matches, "gitlab-database-uniqid-gitlab-0")
 }
 
-func (s *applicationSuite) TestEnsurePVCsWithRealizedAttachments(c *tc.C) {
+func (s *applicationSuite) TestEnsurePVCsWithProvisionedAttachments(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", nil, func() {}, nil)
 
@@ -112,7 +112,7 @@ func (s *applicationSuite) TestEnsurePVCsWithRealizedAttachments(c *tc.C) {
 			Attributes:  map[string]interface{}{"storage-class": "fast"},
 			Attachments: []storage.KubernetesFilesystemAttachmentParams{
 				{
-					RealizedPVCNames: []string{"gitlab-database-uniqid-gitlab-0"},
+					ProvisionedPVCNames: []string{"gitlab-database-uniqid-gitlab-0"},
 				},
 			},
 		},
@@ -153,7 +153,7 @@ func (s *applicationSuite) TestEnsurePVCsUnknownPVCNameFormat(c *tc.C) {
 			Attributes:  map[string]interface{}{"storage-class": "fast"},
 			Attachments: []storage.KubernetesFilesystemAttachmentParams{
 				{
-					RealizedPVCNames: []string{"gitlab-database-uniqid-gitlabunknown-%#$0"},
+					ProvisionedPVCNames: []string{"gitlab-database-uniqid-gitlabunknown-%#$0"},
 				},
 			},
 		},

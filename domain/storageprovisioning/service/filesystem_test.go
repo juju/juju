@@ -482,14 +482,14 @@ func (s *filesystemSuite) TestGetFilesystemsTemplateForApplication(c *tc.C) {
 				MountPoint:   "/data/config",
 			}},
 		}, nil)
-	s.state.EXPECT().GetFilesystemAttachmentsForApplication(gomock.Any(), appUUID)
+	s.state.EXPECT().GetProvisionedFilesystemAttachmentsForApplication(gomock.Any(), appUUID)
 
 	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
 	result, err := svc.GetFilesystemTemplatesForApplication(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	expectedResult := []storageprovisioning.FilesystemTemplate{{
-		Attachments: []storageprovisioning.FilesystemAttachmentTemplateWithRealized{
+		Attachments: []storageprovisioning.FilesystemAttachmentTemplateWithProvisioned{
 			{
 				FilesystemAttachmentTemplate: storageprovisioning.FilesystemAttachmentTemplate{
 					MountPoint:   "/bar/0",
@@ -523,9 +523,9 @@ func (s *filesystemSuite) TestGetFilesystemsTemplateForApplication(c *tc.C) {
 	c.Check(result, tc.DeepEquals, expectedResult)
 }
 
-// TestGetFilesystemsTemplateForApplicationWithRealizedAttachments tests when
-// there are realzied attachments for the template, it is also returned alongside it.
-func (s *filesystemSuite) TestGetFilesystemsTemplateForApplicationWithRealizedAttachments(c *tc.C) {
+// TestGetFilesystemsTemplateForApplicationWithProvisionedAttachments tests when
+// there are provisioned attachments for the template, it is also returned alongside it.
+func (s *filesystemSuite) TestGetFilesystemsTemplateForApplicationWithProvisionedAttachments(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
@@ -551,20 +551,20 @@ func (s *filesystemSuite) TestGetFilesystemsTemplateForApplicationWithRealizedAt
 				MountPoint:   "/data/config",
 			}},
 		}, nil)
-	s.state.EXPECT().GetFilesystemAttachmentsForApplication(gomock.Any(), appUUID).
-		Return(map[string][]storageprovisioning.RealizedFilesystemAttachment{
+	s.state.EXPECT().GetProvisionedFilesystemAttachmentsForApplication(gomock.Any(), appUUID).
+		Return(map[string][]storageprovisioning.ProvisionedFilesystemAttachment{
 			"config": {
-				storageprovisioning.RealizedFilesystemAttachment{
+				storageprovisioning.ProvisionedFilesystemAttachment{
 					AttachmentUUID: "1-1-1-1",
 					StorageName:    "config",
 					ProviderID:     "app-config-uniqid-app-0",
 				},
-				storageprovisioning.RealizedFilesystemAttachment{
+				storageprovisioning.ProvisionedFilesystemAttachment{
 					AttachmentUUID: "2-2-2-2",
 					StorageName:    "config",
 					ProviderID:     "app-config-uniqid-app-1",
 				},
-				storageprovisioning.RealizedFilesystemAttachment{
+				storageprovisioning.ProvisionedFilesystemAttachment{
 					AttachmentUUID: "3-3-3-3",
 					StorageName:    "config",
 					ProviderID:     "app-config-uniqid-app-2",
@@ -576,7 +576,7 @@ func (s *filesystemSuite) TestGetFilesystemsTemplateForApplicationWithRealizedAt
 	result, err := svc.GetFilesystemTemplatesForApplication(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	realizedAttachments := []storageprovisioning.RealizedFilesystemAttachment{
+	provisionedAttachments := []storageprovisioning.ProvisionedFilesystemAttachment{
 		{
 			AttachmentUUID: "1-1-1-1",
 			StorageName:    "config",
@@ -595,14 +595,14 @@ func (s *filesystemSuite) TestGetFilesystemsTemplateForApplicationWithRealizedAt
 	}
 
 	expectedResult := []storageprovisioning.FilesystemTemplate{{
-		Attachments: []storageprovisioning.FilesystemAttachmentTemplateWithRealized{
+		Attachments: []storageprovisioning.FilesystemAttachmentTemplateWithProvisioned{
 			{
 				FilesystemAttachmentTemplate: storageprovisioning.FilesystemAttachmentTemplate{
 					MountPoint:   "/bar/0",
 					ReadOnly:     true,
 					ContainerKey: "charm",
 				},
-				RealizedAttachments: realizedAttachments,
+				ProvisionedAttachments: provisionedAttachments,
 			},
 			{
 				FilesystemAttachmentTemplate: storageprovisioning.FilesystemAttachmentTemplate{
@@ -610,7 +610,7 @@ func (s *filesystemSuite) TestGetFilesystemsTemplateForApplicationWithRealizedAt
 					ReadOnly:     true,
 					ContainerKey: "charm",
 				},
-				RealizedAttachments: realizedAttachments,
+				ProvisionedAttachments: provisionedAttachments,
 			},
 			{
 				FilesystemAttachmentTemplate: storageprovisioning.FilesystemAttachmentTemplate{
@@ -618,7 +618,7 @@ func (s *filesystemSuite) TestGetFilesystemsTemplateForApplicationWithRealizedAt
 					ReadOnly:     true,
 					ContainerKey: "web-server",
 				},
-				RealizedAttachments: realizedAttachments,
+				ProvisionedAttachments: provisionedAttachments,
 			},
 		},
 		StorageName:  "config",
@@ -660,14 +660,14 @@ func (s *filesystemSuite) TestGetFilesystemsTemplateForApplicationSingleton(c *t
 				MountPoint:   "/data/config",
 			}},
 		}, nil)
-	s.state.EXPECT().GetFilesystemAttachmentsForApplication(gomock.Any(), appUUID)
+	s.state.EXPECT().GetProvisionedFilesystemAttachmentsForApplication(gomock.Any(), appUUID)
 
 	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
 	result, err := svc.GetFilesystemTemplatesForApplication(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	expectedResult := []storageprovisioning.FilesystemTemplate{{
-		Attachments: []storageprovisioning.FilesystemAttachmentTemplateWithRealized{
+		Attachments: []storageprovisioning.FilesystemAttachmentTemplateWithProvisioned{
 			{
 				FilesystemAttachmentTemplate: storageprovisioning.FilesystemAttachmentTemplate{
 					MountPoint:   "/bar",
@@ -716,14 +716,14 @@ func (s *filesystemSuite) TestGetFilesystemsTemplateForApplicationEmptyContainer
 		Return(stateTemplates, nil)
 	s.state.EXPECT().GetContainerMountsForApplication(gomock.Any(), appUUID).
 		Return(nil, nil)
-	s.state.EXPECT().GetFilesystemAttachmentsForApplication(gomock.Any(), appUUID)
+	s.state.EXPECT().GetProvisionedFilesystemAttachmentsForApplication(gomock.Any(), appUUID)
 
 	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
 	result, err := svc.GetFilesystemTemplatesForApplication(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	expectedResult := []storageprovisioning.FilesystemTemplate{{
-		Attachments: []storageprovisioning.FilesystemAttachmentTemplateWithRealized{
+		Attachments: []storageprovisioning.FilesystemAttachmentTemplateWithProvisioned{
 			{
 				FilesystemAttachmentTemplate: storageprovisioning.FilesystemAttachmentTemplate{
 					MountPoint:   "/bar",
@@ -772,14 +772,14 @@ func (s *filesystemSuite) TestGetFilesystemsTemplateForApplicationNoCharmLocatio
 				MountPoint:   "/data/config",
 			}},
 		}, nil)
-	s.state.EXPECT().GetFilesystemAttachmentsForApplication(gomock.Any(), appUUID)
+	s.state.EXPECT().GetProvisionedFilesystemAttachmentsForApplication(gomock.Any(), appUUID)
 
 	svc := NewService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
 	result, err := svc.GetFilesystemTemplatesForApplication(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	expectedResult := []storageprovisioning.FilesystemTemplate{{
-		Attachments: []storageprovisioning.FilesystemAttachmentTemplateWithRealized{
+		Attachments: []storageprovisioning.FilesystemAttachmentTemplateWithProvisioned{
 			{
 				FilesystemAttachmentTemplate: storageprovisioning.FilesystemAttachmentTemplate{
 					MountPoint:   "/var/lib/juju/storage/config-0",
