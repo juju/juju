@@ -286,6 +286,7 @@ type ImportRelationsArgs []ImportRelationArg
 
 // ImportRelationArg is a single argument for the ImportRelation method.
 type ImportRelationArg struct {
+	UUID      corerelation.UUID
 	ID        int
 	Key       corerelation.Key
 	Endpoints []ImportEndpoint
@@ -340,7 +341,7 @@ type GetRelationUUIDForRemovalArgs struct {
 // should be used.
 func (d GetRelationUUIDForRemovalArgs) Validate() error {
 	if len(d.Endpoints) == 1 {
-		return errors.Errorf("cannot remove a peer relation")
+		return errors.Errorf("removing a peer relation")
 	}
 	if len(d.Endpoints) > 2 {
 		return errors.Errorf("invalid endpoint length: %d, must be 2 or 0 with relation ID provided", len(d.Endpoints))
