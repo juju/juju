@@ -584,6 +584,50 @@ AND    sia.storage_instance_uuid = $entityUUID.uuid
 	return result, nil
 }
 
+// getStorageMachineOwner returns the UUID and name of the machine that owns
+// the storage instance's underlying volume or filesystem. If the storage
+// instance has both a filesystem and a volume associated with a machine, the
+// filesystem association is preferred. Returns nil if no machine owns the
+// storage.
+func (st *State) getStorageMachineOwner(
+	ctx context.Context,
+	tx *sqlair.TX,
+	stUUID domainstorage.StorageInstanceUUID,
+) (*storageMachineOwner, error) {
+	storageUUID := entityUUID{UUID: stUUID.String()}
+
+	// Prefer the filesystem path; fall back to the volume path.
+	stmt, err := st.Prepare(`
+WITH machine_storage AS (
+	SELECT m.uuid, m.name
+	FROM   storage_instance_filesystem sif
+	JOIN   machine_filesystem mf ON sif.storage_filesystem_uuid = mf.filesystem_uuid
+	JOIN   machine m ON mf.machine_uuid = m.uuid
+	WHERE  sif.storage_instance_uuid = $entityUUID.uuid
+	UNION
+	SELECT m.uuid, m.name
+	FROM   storage_instance_volume siv
+	JOIN   machine_volume mv ON siv.storage_volume_uuid = mv.volume_uuid
+	JOIN   machine m ON mv.machine_uuid = m.uuid
+	WHERE  siv.storage_instance_uuid = $entityUUID.uuid
+	LIMIT 1
+)
+SELECT * AS &storageMachineOwner.* FROM machine_storage
+`, storageUUID, storageMachineOwner{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result storageMachineOwner
+	err = tx.Query(ctx, stmt, storageUUID).Get(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Errorf("getting machine owner for storage %q: %w", stUUID, err)
+	}
+	return &result, nil
+}
+
 // GetUnitStorageDirectives returns the storage directives that are set for
 // a unit. If the unit does not have any storage directives set then an
 // empty result is returned.
@@ -1085,7 +1129,7 @@ func (st *State) attachStorageForUnit(
 	allowedAttachments := set.NewStrings(storageArg.AllowedExistingUnitAttachments...)
 	attachedUUIDs := set.NewStrings(transform.Slice(attachedToUnits, func(u storageAttachmentUnit) string { return u.UUID })...)
 	if attachedUUIDs.Difference(allowedAttachments).Size() > 0 {
-		return internal.StorageAttachmentNotAllowed{
+		return applicationerrors.StorageAttachmentNotAllowed{
 			AttachedToUnits: transform.Slice(attachedToUnits, func(u storageAttachmentUnit) string { return u.Name }),
 		}
 	} else if attachedUUIDs.Contains(unitUUID.String()) {

@@ -1281,6 +1281,21 @@ func (s *ProviderService) AttachStorageToUnit(
 			unitUUID, storageUUID, err,
 		)
 	}
+
+	if storageAttachInfo.StorageMachineOwner != nil {
+		unitMachineUUID, err := s.st.GetUnitMachineUUID(ctx, unitUUID.String())
+		if err != nil {
+			return errors.Errorf(
+				"getting machine for unit %q: %w",
+				unitUUID, err)
+		}
+		if unitMachineUUID != storageAttachInfo.StorageMachineOwner.UUID {
+			return applicationerrors.StorageAttachmentNotAllowed{
+				ExistingStorageMachineOwner: &storageAttachInfo.StorageMachineOwner.Name,
+			}
+		}
+	}
+
 	attachedToMap := storageAttachInfo.AlreadyAttachedToUnits
 	attachedUUIDs := set.NewStrings()
 	for uuid := range attachedToMap {
@@ -1297,10 +1312,9 @@ func (s *ProviderService) AttachStorageToUnit(
 		for _, uuid := range attachedUUIDs.SortedValues() {
 			otherNames = append(otherNames, attachedToMap[uuid])
 		}
-		return errors.Errorf(
-			"storage is already attached to other unit(s): %v",
-			otherNames,
-		)
+		return applicationerrors.StorageAttachmentNotAllowed{
+			AttachedToUnits: otherNames,
+		}
 	}
 
 	unitAttachStorageArgs, err := s.populateAttachStorageArgs(ctx, storageUUID, unitUUID, storageAttachInfo)
@@ -1310,7 +1324,6 @@ func (s *ProviderService) AttachStorageToUnit(
 
 	err = s.st.AttachStorageToUnit(ctx, storageUUID, unitUUID, unitAttachStorageArgs)
 
-	var attachmentNotAllowed internal.StorageAttachmentNotAllowed
 	switch {
 	case errors.Is(err, internal.MaxStorageCountPreconditonFailed):
 		maxCount := int(unitAttachStorageArgs.CountLessThanEqual + 1)
@@ -1319,11 +1332,6 @@ func (s *ProviderService) AttachStorageToUnit(
 			Requested:   1,
 			StorageName: unitAttachStorageArgs.StorageName,
 		}
-	case errors.As(err, &attachmentNotAllowed):
-		return errors.Errorf(
-			"storage is already attached to other unit(s): %v",
-			attachmentNotAllowed.AttachedToUnits,
-		)
 	}
 	return errors.Capture(err)
 }

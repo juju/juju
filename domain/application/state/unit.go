@@ -1836,6 +1836,7 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 	var (
 		attachInfo      storageInfoForAttach
 		attachedToUnits []storageAttachmentUnit
+		ownedByMachine  *storageMachineOwner
 		count           uint32
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -1845,6 +1846,10 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 			return errors.Capture(err)
 		}
 		attachedToUnits, err = st.getStorageAttachmentUnits(ctx, tx, storageUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		ownedByMachine, err = st.getStorageMachineOwner(ctx, tx, storageUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -1861,6 +1866,13 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 	for _, u := range attachedToUnits {
 		attachedMap[u.UUID] = u.Name
 	}
+	var ownedByMachinePtr *internal.MachineIdentifier
+	if ownedByMachine != nil {
+		ownedByMachinePtr = &internal.MachineIdentifier{
+			UUID: ownedByMachine.UUID,
+			Name: ownedByMachine.Name,
+		}
+	}
 	return internal.StorageInfoForAttach{
 		CharmStorageName:       attachInfo.StorageName.String(),
 		CountMin:               attachInfo.CountMin,
@@ -1869,6 +1881,7 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		ProvisionedSizeMiB:     attachInfo.SizeMIB,
 		AlreadyAttachedCount:   count,
 		AlreadyAttachedToUnits: attachedMap,
+		StorageMachineOwner:    ownedByMachinePtr,
 	}, nil
 }
 

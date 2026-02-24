@@ -680,9 +680,9 @@ func (u *unitStorageSuite) TestAttachStorageAlreadyAttached(c *tc.C) {
 
 	arg.AllowedExistingUnitAttachments = []string{tc.Must(c, coreunit.NewUUID).String()}
 	err = u.state.AttachStorageToUnit(c.Context(), siUUID, unitUUID, arg)
-	rErr, ok := internalerrors.AsType[internal.StorageAttachmentNotAllowed](err)
+	rErr, ok := internalerrors.AsType[applicationerrors.StorageAttachmentNotAllowed](err)
 	c.Assert(ok, tc.IsTrue)
-	c.Assert(rErr, tc.DeepEquals, internal.StorageAttachmentNotAllowed{
+	c.Assert(rErr, tc.DeepEquals, applicationerrors.StorageAttachmentNotAllowed{
 		AttachedToUnits: []string{"foo/0"},
 	})
 }

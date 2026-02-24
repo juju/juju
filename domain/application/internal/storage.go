@@ -4,8 +4,6 @@
 package internal
 
 import (
-	"strings"
-
 	"github.com/juju/juju/domain/deployment/charm"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -147,6 +145,14 @@ type StorageInfoForAdd struct {
 	AlreadyAttachedCount uint32
 }
 
+// MachineIdentifier describes the identifying information for a machine.
+type MachineIdentifier struct {
+	// UUID is the machine uuid.
+	UUID string
+	// Name is the machine name.
+	Name string
+}
+
 // StorageInfoForAttach represents the arguments required to
 // attach storage to a unit.
 type StorageInfoForAttach struct {
@@ -180,24 +186,15 @@ type StorageInfoForAttach struct {
 	// AlreadyAttachedToUnits maps unit UUIDs to unit names for units
 	// to which the storage is already attached.
 	AlreadyAttachedToUnits map[string]string
+
+	// StorageMachineOwner, if not nil, is the machine that owns
+	// the storage being attached.
+	StorageMachineOwner *MachineIdentifier
 }
 
 // StorageAlreadyAttached describes an error that occurs when attempting to
 // attach storage to a unit and the storage is already attached to the unit.
 const StorageAlreadyAttached = errors.ConstError("storage already attached")
-
-// StorageAttachmentNotAllowed describes an error that occurs when attempting to
-// attach storage to a unit and the unit is not in the allow list.
-type StorageAttachmentNotAllowed struct {
-	// AttachedToUnits is the unexpected units to which
-	// the storage is already attached.
-	AttachedToUnits []string
-}
-
-// Error implements error.
-func (e StorageAttachmentNotAllowed) Error() string {
-	return "storage is already attached to units: " + strings.Join(e.AttachedToUnits, ", ")
-}
 
 // CreateUnitStorageArg represents the arguments required for making storage
 // for a unit. This will create and set the unit's storage directives and then

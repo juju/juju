@@ -914,6 +914,11 @@ type storageAttachmentUnit struct {
 	Name string `db:"name"`
 }
 
+type storageMachineOwner struct {
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
+}
+
 type storageInfoForAdd struct {
 	Name        string `db:"name"`
 	Kind        string `db:"kind"`
