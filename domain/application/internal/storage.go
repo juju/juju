@@ -177,9 +177,9 @@ type StorageInfoForAttach struct {
 	// ProvisionedSizeMiB is the size of the storage.
 	ProvisionedSizeMiB uint64
 
-	// AlreadyAttachedToUnits holds the unit UUIDs to which the storage
-	// is already attached.
-	AlreadyAttachedToUnits []string
+	// AlreadyAttachedToUnits maps unit UUIDs to unit names for units
+	// to which the storage is already attached.
+	AlreadyAttachedToUnits map[string]string
 }
 
 // StorageAlreadyAttached describes an error that occurs when attempting to

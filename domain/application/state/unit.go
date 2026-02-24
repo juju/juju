@@ -1835,7 +1835,7 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 	}
 	var (
 		attachInfo      storageInfoForAttach
-		attachedToUnits []string
+		attachedToUnits []storageAttachmentUnit
 		count           uint32
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -1856,6 +1856,11 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 	}); err != nil {
 		return internal.StorageInfoForAttach{}, errors.Capture(err)
 	}
+
+	attachedMap := make(map[string]string, len(attachedToUnits))
+	for _, u := range attachedToUnits {
+		attachedMap[u.UUID] = u.Name
+	}
 	return internal.StorageInfoForAttach{
 		CharmStorageName:       attachInfo.StorageName.String(),
 		CountMin:               attachInfo.CountMin,
@@ -1863,7 +1868,7 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		MinimumSize:            attachInfo.MinimumSize,
 		ProvisionedSizeMiB:     attachInfo.SizeMIB,
 		AlreadyAttachedCount:   count,
-		AlreadyAttachedToUnits: attachedToUnits,
+		AlreadyAttachedToUnits: attachedMap,
 	}, nil
 }
 

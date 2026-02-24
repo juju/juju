@@ -649,10 +649,10 @@ func (u *unitStorageSuite) TestAttachStorageToUnit(c *tc.C) {
 
 	attachInfo, err = u.state.GetStorageAttachInfoByUnitUUIDAndStorageUUID(c.Context(), unitUUID, siUUID)
 	c.Assert(err, tc.IsNil)
-	c.Assert(attachInfo.AlreadyAttachedToUnits, tc.SameContents, []string{unitUUID.String()})
+	c.Assert(attachInfo.AlreadyAttachedToUnits, tc.DeepEquals, map[string]string{unitUUID.String(): "foo/0"})
 }
 
-func (u *unitStorageSuite) TestAttachStorageMismatch(c *tc.C) {
+func (u *unitStorageSuite) TestAttachStorageAlreadyAttached(c *tc.C) {
 	unitUUID, _ := u.newUnitWithStorageDirectives(c)
 	netNodeUUID, err := u.state.GetUnitNetNodeUUID(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -683,7 +683,7 @@ func (u *unitStorageSuite) TestAttachStorageMismatch(c *tc.C) {
 	rErr, ok := internalerrors.AsType[internal.StorageAttachmentNotAllowed](err)
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(rErr, tc.DeepEquals, internal.StorageAttachmentNotAllowed{
-		AttachedToUnits: []string{unitUUID.String()},
+		AttachedToUnits: []string{"foo/0"},
 	})
 }
 
