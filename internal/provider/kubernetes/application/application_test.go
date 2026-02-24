@@ -687,7 +687,7 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 				for i := 0; i < len(config.Filesystems); i++ {
 					fs := config.Filesystems[i]
 					for j := 0; j < len(fs.Attachments); j++ {
-						fs.Attachments[j].RealizedPVCNames = realizedPVCNames
+						fs.Attachments[j].ProvisionedPVCNames = realizedPVCNames
 					}
 				}
 			},
@@ -707,7 +707,7 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 				for i := 0; i < len(config.Filesystems); i++ {
 					fs := config.Filesystems[i]
 					for j := 0; j < len(fs.Attachments); j++ {
-						fs.Attachments[j].RealizedPVCNames = realizedPVCNames
+						fs.Attachments[j].ProvisionedPVCNames = realizedPVCNames
 					}
 				}
 			},
@@ -727,7 +727,7 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 				for i := 0; i < len(config.Filesystems); i++ {
 					fs := config.Filesystems[i]
 					for j := 0; j < len(fs.Attachments); j++ {
-						fs.Attachments[j].RealizedPVCNames = realizedPVCNames
+						fs.Attachments[j].ProvisionedPVCNames = realizedPVCNames
 					}
 				}
 			},
@@ -747,7 +747,7 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 				for i := 0; i < len(config.Filesystems); i++ {
 					fs := config.Filesystems[i]
 					for j := 0; j < len(fs.Attachments); j++ {
-						fs.Attachments[j].RealizedPVCNames = realizedPVCNames
+						fs.Attachments[j].ProvisionedPVCNames = realizedPVCNames
 					}
 				}
 			},

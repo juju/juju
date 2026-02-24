@@ -458,15 +458,15 @@ type existingFilesystemAttachment struct {
 
 type existingFilesystemAttachmentRows []existingFilesystemAttachment
 
-func (rows existingFilesystemAttachmentRows) toRealisedFilesystemAttachment() (
-	map[string][]storageprovisioning.RealizedFilesystemAttachment,
+func (rows existingFilesystemAttachmentRows) toProvisionedFilesystemAttachment() (
+	map[string][]storageprovisioning.ProvisionedFilesystemAttachment,
 	error,
 ) {
-	attachmentsByStorage := make(map[string][]storageprovisioning.RealizedFilesystemAttachment)
+	attachmentsByStorage := make(map[string][]storageprovisioning.ProvisionedFilesystemAttachment)
 	for _, existing := range rows {
 		attachmentsByStorage[existing.StorageName] = append(
 			attachmentsByStorage[existing.StorageName],
-			storageprovisioning.RealizedFilesystemAttachment{
+			storageprovisioning.ProvisionedFilesystemAttachment{
 				AttachmentUUID: existing.AttachmentUUID,
 				StorageName:    existing.StorageName,
 				ProviderID:     existing.ProviderID,

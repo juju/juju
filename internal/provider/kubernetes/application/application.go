@@ -2260,14 +2260,14 @@ func (a *app) collectPVCAndStorageNames(
 		for _, attachment := range fs.Attachments {
 			// This is must have been a new deployment so a realized attachment
 			// is not yet available.
-			if len(attachment.RealizedPVCNames) == 0 {
+			if len(attachment.ProvisionedPVCNames) == 0 {
 				continue
 			}
 			pvcAndStorageNames = append(pvcAndStorageNames, pvcAndStorageName{
 				// Since all PVCs for a given fs storage share the same template
 				// name prefix (only differing by ordinal suffix), we only need one
 				// representative attachment per container+storage pair to extract the prefix.
-				pvc:     attachment.RealizedPVCNames[0],
+				pvc:     attachment.ProvisionedPVCNames[0],
 				storage: fs.StorageName,
 			})
 		}

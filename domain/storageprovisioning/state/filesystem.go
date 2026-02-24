@@ -1372,14 +1372,14 @@ WHERE  a.uuid = $entityUUID.uuid
 	return rvals, nil
 }
 
-// GetFilesystemAttachmentsForApplication returns the realized filesystem attachments
-// indexed by storage name for the given application UUID.
+// GetProvisionedFilesystemAttachmentsForApplication returns the provisioned filesystem
+// attachments indexed by storage name for the given application UUID.
 // It returns an error satisfying [applicationerrors.ApplicationNotFound] if
 // the application does not exist.
-func (st *State) GetFilesystemAttachmentsForApplication(
+func (st *State) GetProvisionedFilesystemAttachmentsForApplication(
 	ctx context.Context,
 	uuid coreapplication.UUID,
-) (map[string][]storageprovisioning.RealizedFilesystemAttachment, error) {
+) (map[string][]storageprovisioning.ProvisionedFilesystemAttachment, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1423,5 +1423,5 @@ WHERE  u.application_uuid = $entityUUID.uuid AND sfa.provider_id <> ''`,
 		return nil, errors.Capture(err)
 	}
 
-	return existingAttachments.toRealisedFilesystemAttachment()
+	return existingAttachments.toProvisionedFilesystemAttachment()
 }

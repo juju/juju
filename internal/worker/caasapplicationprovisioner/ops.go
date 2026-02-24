@@ -336,7 +336,7 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 
 func makeKubernetesFilesystemParams(
 	fst storageprovisioning.FilesystemTemplate,
-	attachments []storageprovisioning.FilesystemAttachmentTemplateWithRealized,
+	attachments []storageprovisioning.FilesystemAttachmentTemplateWithProvisioned,
 	storageResourceTags map[string]string,
 ) internalstorage.KubernetesFilesystemParams {
 	k8sFileSystemParamAttachments := make(
@@ -346,14 +346,14 @@ func makeKubernetesFilesystemParams(
 
 	for i, attachment := range attachments {
 		pvcNames := make([]string, 0)
-		for _, realizedAttachment := range attachment.RealizedAttachments {
-			pvcNames = append(pvcNames, realizedAttachment.ProviderID)
+		for _, provisionedAttachment := range attachment.ProvisionedAttachments {
+			pvcNames = append(pvcNames, provisionedAttachment.ProviderID)
 		}
 		k8sFileSystemParamAttachments[i] = internalstorage.KubernetesFilesystemAttachmentParams{
-			ReadOnly:         attachment.ReadOnly,
-			Path:             attachment.MountPoint,
-			ContainerName:    attachment.ContainerKey,
-			RealizedPVCNames: pvcNames,
+			ReadOnly:            attachment.ReadOnly,
+			Path:                attachment.MountPoint,
+			ContainerName:       attachment.ContainerKey,
+			ProvisionedPVCNames: pvcNames,
 		}
 	}
 

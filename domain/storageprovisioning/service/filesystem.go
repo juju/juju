@@ -209,11 +209,12 @@ type FilesystemState interface {
 	// attachment information about the provisoned filesystem attachment.
 	SetFilesystemAttachmentProvisionedInfo(ctx context.Context, filesystemAttachmentUUID domainstorage.FilesystemAttachmentUUID, info storageprovisioning.FilesystemAttachmentProvisionedInfo) error
 
-	// GetFilesystemAttachmentsForApplication returns the realized filesystem attachments for the
-	// given application UUID. It returns an error satisfying
-	// [applicationerrors.ApplicationNotFound] if the application does not exist.
-	GetFilesystemAttachmentsForApplication(ctx context.Context, uuid coreapplication.UUID) (
-		map[string][]storageprovisioning.RealizedFilesystemAttachment,
+	// GetProvisionedFilesystemAttachmentsForApplication returns the provisioned filesystem
+	// attachments indexed by storage name for the given application UUID.
+	// It returns an error satisfying [applicationerrors.ApplicationNotFound] if
+	// the application does not exist.
+	GetProvisionedFilesystemAttachmentsForApplication(ctx context.Context, uuid coreapplication.UUID) (
+		map[string][]storageprovisioning.ProvisionedFilesystemAttachment,
 		error,
 	)
 }
@@ -884,7 +885,7 @@ func (s *Service) GetFilesystemTemplatesForApplication(
 		)
 	}
 
-	realizedAttachments, err := s.st.GetFilesystemAttachmentsForApplication(ctx, appUUID)
+	provisionedAttachments, err := s.st.GetProvisionedFilesystemAttachmentsForApplication(ctx, appUUID)
 	if err != nil {
 		return nil, errors.Errorf(
 			"getting realized attachments for app %q: %w", appUUID, err,
@@ -911,14 +912,13 @@ func (s *Service) GetFilesystemTemplatesForApplication(
 			attachments = append(attachments, containerAttachments...)
 		}
 
-		attachmentTemplatesWithRealized := buildFilesystemAttachmentTemplatesWithRealized(
+		attachmentTemplatesWithProvisioned := buildFilesystemAttachmentTemplatesWithProvisioned(
 			attachments,
-			realizedAttachments,
-			fsTemplate.StorageName,
+			provisionedAttachments[fsTemplate.StorageName],
 		)
 
 		mountTemplate := storageprovisioning.FilesystemTemplate{
-			Attachments:  attachmentTemplatesWithRealized,
+			Attachments:  attachmentTemplatesWithProvisioned,
 			Attributes:   fsTemplate.Attributes,
 			Count:        fsTemplate.Count,
 			ProviderType: fsTemplate.ProviderType,
@@ -931,18 +931,16 @@ func (s *Service) GetFilesystemTemplatesForApplication(
 	return retVal, nil
 }
 
-func buildFilesystemAttachmentTemplatesWithRealized(
+func buildFilesystemAttachmentTemplatesWithProvisioned(
 	attachments []storageprovisioning.FilesystemAttachmentTemplate,
-	realizedAttachmentsByStorage map[string][]storageprovisioning.RealizedFilesystemAttachment,
-	storageName string,
-) []storageprovisioning.FilesystemAttachmentTemplateWithRealized {
-	realizedAttachments := realizedAttachmentsByStorage[storageName]
-	result := make([]storageprovisioning.FilesystemAttachmentTemplateWithRealized, 0, len(attachments))
-	for _, attachment := range attachments {
-		result = append(result, storageprovisioning.FilesystemAttachmentTemplateWithRealized{
+	provisionedAttachments []storageprovisioning.ProvisionedFilesystemAttachment,
+) []storageprovisioning.FilesystemAttachmentTemplateWithProvisioned {
+	result := make([]storageprovisioning.FilesystemAttachmentTemplateWithProvisioned, len(attachments))
+	for i, attachment := range attachments {
+		result[i] = storageprovisioning.FilesystemAttachmentTemplateWithProvisioned{
 			FilesystemAttachmentTemplate: attachment,
-			RealizedAttachments:          realizedAttachments,
-		})
+			ProvisionedAttachments:       provisionedAttachments,
+		}
 	}
 	return result
 }
