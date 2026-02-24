@@ -4,10 +4,7 @@
 package application
 
 import (
-	"regexp"
-
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -45,14 +42,10 @@ func NewApplicationForTest(
 	clock clock.Clock,
 	newApplier func() resources.Applier,
 	controllerUUID string,
-) (ApplicationInterfaceForTest, error) {
-	pvcNamePrefixRegexp, err := regexp.Compile(`^(.+)-` + regexp.QuoteMeta(name) + `-\d+$`)
-	if err != nil {
-		return nil, errors.Annotatef(err, "compiling regex to get pvc template name")
-	}
+) ApplicationInterfaceForTest {
 	return newApplication(
 		name, namespace, modelUUID, modelName, labelVersion, deploymentType,
 		client, extendedClient, dynamicClient, newWatcher, clock, newApplier,
-		controllerUUID, pvcNamePrefixRegexp,
-	), nil
+		controllerUUID,
+	)
 }

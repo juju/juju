@@ -143,7 +143,7 @@ func (s *ApplicationWorkerSuite) TestLifeDead(c *tc.C) {
 	gomock.InOrder(
 		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("test", nil),
 		applicationService.EXPECT().IsControllerApplication(x, s.appUUID).Return(false, nil),
-		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app, nil),
+		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Dead, nil),
 		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dead, x, x, x, x).Return(nil),
 		ops.EXPECT().AppDead(x, "test", s.appUUID, app, broker, applicationService, statusService, clk, s.logger).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, CAASBroker, ApplicationService, StatusService, clock.Clock, logger.Logger) error {
@@ -188,7 +188,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 	gomock.InOrder(
 		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("test", nil),
 		applicationService.EXPECT().IsControllerApplication(x, s.appUUID).Return(false, nil),
-		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app, nil),
+		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
 
 		agentPasswordService.EXPECT().SetApplicationPassword(x, s.appUUID, x).Return(nil),
@@ -319,7 +319,7 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 	gomock.InOrder(
 		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("con-troll-er", nil),
 		applicationService.EXPECT().IsControllerApplication(x, s.appUUID).Return(true, nil),
-		broker.EXPECT().Application("con-troll-er", caas.DeploymentStateful).Return(app, nil),
+		broker.EXPECT().Application("con-troll-er", caas.DeploymentStateful).Return(app),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
 
 		applicationService.EXPECT().WatchApplicationScale(x, "con-troll-er").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
@@ -400,7 +400,7 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 	gomock.InOrder(
 		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("test", nil),
 		applicationService.EXPECT().IsControllerApplication(x, s.appUUID).Return(false, nil),
-		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app, nil),
+		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
 
 		agentPasswordService.EXPECT().SetApplicationPassword(x, s.appUUID, x).Return(nil),

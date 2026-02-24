@@ -169,7 +169,7 @@ func (s *applicationSuite) TestEnsurePVCsUnknownPVCNameFormat(c *tc.C) {
 	}
 
 	err := app.EnsurePVCs(filesystems, filesystemUnitAttachments, "uniqid")
-	c.Assert(err, tc.ErrorMatches, `cannot get pvc template name for app "gitlab" .*`)
+	c.Assert(err, tc.ErrorMatches, `mapping pvc template names for app "gitlab".*`)
 
 	// Verify PVC was not created
 	pvcList, err := s.client.CoreV1().PersistentVolumeClaims(s.namespace).List(c.Context(), metav1.ListOptions{})

@@ -133,7 +133,7 @@ func (s *applicationSuite) getApp(c *tc.C, deploymentType caas.DeploymentType, m
 
 	s.controllerUUID = controllerUUID.String()
 	s.modelUUID = modelUUID.String()
-	app, err := application.NewApplicationForTest(
+	return application.NewApplicationForTest(
 		s.appName, s.namespace, modelUUID.String(), s.namespace, constants.LabelVersion2,
 		deploymentType,
 		s.client,
@@ -148,9 +148,7 @@ func (s *applicationSuite) getApp(c *tc.C, deploymentType caas.DeploymentType, m
 			return resources.NewApplier()
 		},
 		controllerUUID.String(),
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	return app, ctrl
+	), ctrl
 }
 
 func (s *applicationSuite) assertEnsure(c *tc.C, app caas.Application,
@@ -752,7 +750,7 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 				}
 			},
 			assertErrorFunc: func(err error) {
-				c.Assert(err, tc.ErrorMatches, `cannot get pvc template name for app "gitlab" .*`)
+				c.Assert(err, tc.ErrorMatches, `mapping pvc template names for app "gitlab".*`)
 			},
 			expectedPVCs:    []corev1.PersistentVolumeClaim{},
 			expectedService: corev1.Service{},
