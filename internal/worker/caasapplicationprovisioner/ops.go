@@ -345,9 +345,9 @@ func makeKubernetesFilesystemParams(
 	)
 
 	for i, attachment := range attachments {
-		pvcNames := make([]string, 0)
-		for _, provisionedAttachment := range attachment.ProvisionedAttachments {
-			pvcNames = append(pvcNames, provisionedAttachment.ProviderID)
+		pvcNames := make([]string, len(attachment.ProvisionedAttachments))
+		for j, provisionedAttachment := range attachment.ProvisionedAttachments {
+			pvcNames[j] = provisionedAttachment.ProviderID
 		}
 		k8sFileSystemParamAttachments[i] = internalstorage.KubernetesFilesystemAttachmentParams{
 			ReadOnly:            attachment.ReadOnly,
