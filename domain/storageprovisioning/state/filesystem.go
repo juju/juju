@@ -1390,11 +1390,10 @@ SELECT (sfa.uuid,
        si.storage_name,
        sfa.provider_id) AS (&existingFilesystemAttachment.*)
 FROM   storage_filesystem_attachment AS sfa
-JOIN   storage_filesystem AS sf ON sfa.storage_filesystem_uuid = sf.uuid
-JOIN   unit AS u ON sfa.net_node_uuid = u.net_node_uuid
-JOIN   storage_instance_filesystem AS sif ON sf.uuid = sif.storage_filesystem_uuid
+JOIN   storage_instance_filesystem AS sif ON sfa.storage_filesystem_uuid = sif.storage_filesystem_uuid
 JOIN   storage_instance AS si ON sif.storage_instance_uuid = si.uuid
-JOIN   application AS a ON u.application_uuid = a.uuid
+JOIN   storage_attachment AS sa ON si.uuid = sa.storage_instance_uuid
+JOIN   unit AS u ON sa.unit_uuid = u.uuid
 WHERE  u.application_uuid = $entityUUID.uuid AND sfa.provider_id <> ''`,
 		existingFilesystemAttachment{}, input)
 

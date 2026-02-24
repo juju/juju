@@ -1296,7 +1296,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentsForApplicationSingle(c *tc
 			},
 		},
 	})
-	s.newUnitWithNetNode(c, "testapp/0", appUUID.String(), netNodeUUID)
+	unitUUID, _ := s.newUnitWithNetNode(c, "testapp/0", appUUID.String(), netNodeUUID)
 
 	// Setup storage pool and charm storage
 	poolUUID := s.newStoragePool(c, "mypool", "canonical", nil)
@@ -1312,6 +1312,10 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentsForApplicationSingle(c *tc
 	storageInstanceUUID2, _ := s.newStorageInstanceForCharmWithPool(
 		c, charmUUID.String(), poolUUID, "config",
 	)
+
+	s.newStorageAttachment(c, storageInstanceUUID1, unitUUID)
+	s.newStorageAttachment(c, storageInstanceUUID2, unitUUID)
+
 	fsUUID1, _ := s.newMachineFilesystem(c)
 	fsaUUID1 := s.newMachineFilesystemAttachmentWithMount(
 		c, fsUUID1, netNodeUUID, "/mount/data", false,
@@ -1371,7 +1375,7 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentsForApplicationMultiple(c *
 			},
 		},
 	})
-	s.newUnitWithNetNode(c, "testapp/0", appUUID.String(), netNodeUUID)
+	unitUUID, _ := s.newUnitWithNetNode(c, "testapp/0", appUUID.String(), netNodeUUID)
 
 	// Setup storage pool and charm storage
 	poolUUID := s.newStoragePool(c, "mypool", "canonical", nil)
@@ -1393,6 +1397,12 @@ func (s *filesystemSuite) TestGetFilesystemAttachmentsForApplicationMultiple(c *
 	storageInstanceConfigUUID2, _ := s.newStorageInstanceForCharmWithPool(
 		c, charmUUID.String(), poolUUID, "config",
 	)
+
+	s.newStorageAttachment(c, storageInstanceDataUUID1, unitUUID)
+	s.newStorageAttachment(c, storageInstanceDataUUID2, unitUUID)
+	s.newStorageAttachment(c, storageInstanceConfigUUID1, unitUUID)
+	s.newStorageAttachment(c, storageInstanceConfigUUID2, unitUUID)
+
 	fsDataUUID1, _ := s.newMachineFilesystem(c)
 	fsaDataUUID1 := s.newMachineFilesystemAttachmentWithMount(
 		c, fsDataUUID1, netNodeUUID, "/mount/data", false,
