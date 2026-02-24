@@ -97,8 +97,7 @@ func (a *app) EnsurePVCs(
 ) error {
 	applier := a.newApplier()
 
-	pvcAndStorageNames := a.collectPVCAndStorageNames(filesystems)
-	pvcTemplateNames, err := a.volumeNameToPVCTemplateNames(pvcAndStorageNames)
+	pvcTemplateNames, err := a.volumeNameToPVCTemplateNames(filesystems)
 	if err != nil {
 		return errors.Trace(err)
 	}

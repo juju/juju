@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
@@ -2134,12 +2135,14 @@ func (a *app) volumeName(storageName string) string {
 
 // volumeNameToPVCTemplateNames returns a mapping of volume name to PVC template name for this app's PVCs.
 func (a *app) volumeNameToPVCTemplateNames(
-	pvcAndStorageNames []pvcAndStorageName) (map[string]string, error) {
+	filesystems []jujustorage.KubernetesFilesystemParams,
+) (map[string]string, error) {
+	pvcAndStorageNames := a.collectPVCAndStorageNames(filesystems)
 	names := make(map[string]string)
 	for _, pvcAndStorage := range pvcAndStorageNames {
 		pvcTemplateName, err := a.getPVCTemplateName(pvcAndStorage.pvc)
 		if err != nil {
-			return nil, err
+			return nil, internalerrors.Capture(err)
 		}
 		names[a.volumeName(pvcAndStorage.storage)] = pvcTemplateName
 	}
@@ -2188,9 +2191,7 @@ func (a *app) configureStorage(
 	for _, v := range storageClasses {
 		storageClassMap[v.Name] = v
 	}
-
-	pvcAndStorageNames := a.collectPVCAndStorageNames(filesystems)
-	pvcTemplateNames, err := a.volumeNameToPVCTemplateNames(pvcAndStorageNames)
+	pvcTemplateNames, err := a.volumeNameToPVCTemplateNames(filesystems)
 	if err != nil {
 		return errors.Trace(err)
 	}
