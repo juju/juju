@@ -245,7 +245,7 @@ func (s *importSuite) TestImportRemoteApplicationOfferersMultiple(c *tc.C) {
 	}
 	s.importService.EXPECT().ImportRemoteApplicationOfferers(
 		gomock.Any(),
-		expected,
+		tc.Bind(tc.SameContents, expected),
 	).Return(nil)
 
 	remoteAppUnits := make(map[string][]string)
