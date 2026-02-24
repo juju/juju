@@ -757,7 +757,7 @@ func (s *Service) MakeUnitStorageArgs(
 		rvalToOwn = slices.Grow(rvalToOwn, len(instArgs))
 		for _, inst := range instArgs {
 			storageAttachArg, err := makeStorageAttachmentArgFromNewStorageInstance(
-				attachNetNodeUUID, internal.UnitStorageInstanceArg{
+				attachNetNodeUUID, internal.AttachStorageInstanceArg{
 					Filesystem: inst.Filesystem,
 					Volume:     inst.Volume,
 					UUID:       inst.UUID,
@@ -905,7 +905,7 @@ func (s *Service) MakeUnitAddStorageArgs(
 	rvalToOwn = slices.Grow(rvalToOwn, len(instArgs))
 	for _, inst := range instArgs {
 		storageAttachArg, err := makeStorageAttachmentArgFromNewStorageInstance(
-			domainnetwork.NetNodeUUID(attachNetNodeUUID), internal.UnitStorageInstanceArg{
+			domainnetwork.NetNodeUUID(attachNetNodeUUID), internal.AttachStorageInstanceArg{
 				Filesystem: inst.Filesystem,
 				Volume:     inst.Volume,
 				UUID:       inst.UUID,
@@ -1045,7 +1045,7 @@ func (s Service) MakeUnitAttachStorageArgs(
 		return internal.CreateUnitStorageAttachmentArg{}, errors.Errorf("getting unit net node uuid: %w", err)
 	}
 
-	instArg := internal.UnitStorageInstanceArg{
+	instArg := internal.AttachStorageInstanceArg{
 		UUID: storageInstanceUUID,
 	}
 	if instComposition.Filesystem != nil {

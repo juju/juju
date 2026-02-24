@@ -1038,7 +1038,6 @@ WHERE  uuid = $storagePoolUUID.uuid
 // makeInsertUnitStorageAttachmentArgs is responsible for making the set of
 // storage instance attachment arguments that correspond to the storage uuids.
 func makeInsertUnitStorageAttachmentArgs(
-	_ context.Context,
 	unitUUID string,
 	storageToAttach []domainstorage.CreateUnitStorageAttachmentArg,
 ) []insertStorageInstanceAttachment {
@@ -1253,8 +1252,8 @@ WHERE storage_instance.uuid = $storageInstance.uuid
 	return nil
 }
 
-// AttachStorageToCAASUnit attaches the storage instance to a CAAS unit.
-func (st *State) AttachStorageToCAASUnit(
+// AttachStorageToUnit attaches the storage instance to an unit.
+func (st *State) AttachStorageToUnit(
 	ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
 	storageArg internal.AttachStorageToUnitArg,
 ) error {
@@ -1268,55 +1267,9 @@ func (st *State) AttachStorageToCAASUnit(
 		if errors.Is(err, internal.StorageAlreadyAttached) {
 			return nil
 		}
-		return errors.Capture(err)
-	})
-	if err != nil {
-		return errors.Capture(err)
-	}
-	return nil
-}
-
-// AttachStorageToIAASUnit attaches the storage instance to an IAAS unit.
-func (st *State) AttachStorageToIAASUnit(
-	ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
-	storageArg internal.AttachStorageToIAASUnitArg,
-) error {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	machineUUID, err := st.GetUnitMachineUUID(ctx, unitUUID.String())
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := st.attachStorageForUnit(ctx, tx, storageUUID, unitUUID, storageArg.AttachStorageToUnitArg)
-		if errors.Is(err, internal.StorageAlreadyAttached) {
-			return nil
-		} else if err != nil {
-			return errors.Capture(err)
-		}
-
-		err = st.unitState.insertMachineVolumeOwnership(ctx, tx, coremachine.UUID(machineUUID),
-			storageArg.VolumesToOwn)
 		if err != nil {
-			return errors.Errorf(
-				"inserting volume ownership for machine %q: %w",
-				machineUUID, err,
-			)
+			return errors.Errorf("attaching storage %q to unit %q: %w", storageUUID, unitUUID, err)
 		}
-
-		err = st.unitState.insertMachineFilesystemOwnership(ctx, tx, coremachine.UUID(machineUUID),
-			storageArg.FilesystemsToOwn)
-		if err != nil {
-			return errors.Errorf(
-				"inserting volume ownership for machine %q: %w",
-				machineUUID, err,
-			)
-		}
-
 		return nil
 	})
 	if err != nil {

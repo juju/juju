@@ -1192,8 +1192,8 @@ func (s *ProviderService) AddStorageForIAASUnit(
 	}
 
 	storageInst := transform.Slice(unitStorageArgs.StorageInstances,
-		func(in internal.CreateUnitStorageInstanceArg) internal.UnitStorageInstanceArg {
-			return internal.UnitStorageInstanceArg{
+		func(in internal.CreateUnitStorageInstanceArg) internal.AddStorageInstanceArg {
+			return internal.AddStorageInstanceArg{
 				Filesystem: in.Filesystem,
 				Volume:     in.Volume,
 				UUID:       in.UUID,
@@ -1300,8 +1300,8 @@ func (s *ProviderService) populateAttachStorageArgs(
 	return args, nil
 }
 
-// AttachStorageToIAASUnit ensures the specified storage instance is attached to
-// the specified IAAS unit.
+// AttachStorageToUnit ensures the specified storage instance is attached to
+// the specified unit.
 // If the attachment already exists, the result is a no op.
 // The following error types can be expected:
 // - [github.com/juju/juju/domain/storage/errors.StorageInstanceNotFound] when
@@ -1314,103 +1314,7 @@ func (s *ProviderService) populateAttachStorageArgs(
 // storage is not alive.
 // - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded]
 // when the requested storage falls outside of the bounds defined by the charm.
-func (s *ProviderService) AttachStorageToIAASUnit(
-	ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
-) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if storageUUID.Validate() != nil {
-		return errors.New("storage uuid is not valid").Add(coreerrors.NotValid)
-	}
-	if unitUUID.Validate() != nil {
-		return errors.New("unit uuid is not valid").Add(coreerrors.NotValid)
-	}
-
-	storageAttachInfo, err := s.st.GetStorageAttachInfoByUnitUUIDAndStorageUUID(ctx, unitUUID, storageUUID)
-	if err != nil {
-		return errors.Errorf(
-			"getting unit %q charm storage and attachment info for %q: %w",
-			unitUUID, storageUUID, err,
-		)
-	}
-	attachedTo := set.NewStrings(storageAttachInfo.AlreadyAttachedToUnits...)
-	if attachedTo.Size() == 1 && attachedTo.Contains(unitUUID.String()) {
-		// The storage is already attached to the unit, so this is a no-op.
-		return nil
-	}
-	attachedTo.Remove(unitUUID.String())
-	// Shared storage is not supported.
-	if attachedTo.Size() > 0 {
-		return errors.Errorf(
-			"storage instance %q is already attached to other unit(s): %v",
-			storageUUID, attachedTo.Values(),
-		)
-	}
-
-	unitAttachStorageArgs, err := s.populateAttachStorageArgs(ctx, storageUUID, unitUUID, storageAttachInfo)
-
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	arg := internal.UnitStorageInstanceArg{
-		UUID: unitAttachStorageArgs.StorageToAttach.StorageInstanceUUID,
-	}
-	if unitAttachStorageArgs.StorageToAttach.FilesystemAttachment != nil {
-		arg.Filesystem = &internal.CreateUnitStorageFilesystemArg{
-			UUID:           unitAttachStorageArgs.StorageToAttach.FilesystemAttachment.FilesystemUUID,
-			ProvisionScope: unitAttachStorageArgs.StorageToAttach.FilesystemAttachment.ProvisionScope,
-		}
-	}
-	if unitAttachStorageArgs.StorageToAttach.VolumeAttachment != nil {
-		arg.Volume = &internal.CreateUnitStorageVolumeArg{
-			UUID:           unitAttachStorageArgs.StorageToAttach.VolumeAttachment.VolumeUUID,
-			ProvisionScope: unitAttachStorageArgs.StorageToAttach.VolumeAttachment.ProvisionScope,
-		}
-	}
-	iaasUnitStorageArgs, err := s.storageService.MakeIAASUnitStorageArgs([]internal.UnitStorageInstanceArg{arg})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = s.st.AttachStorageToIAASUnit(ctx, storageUUID, unitUUID, internal.AttachStorageToIAASUnitArg{
-		AttachStorageToUnitArg: unitAttachStorageArgs,
-		FilesystemsToOwn:       iaasUnitStorageArgs.FilesystemsToOwn,
-		VolumesToOwn:           iaasUnitStorageArgs.VolumesToOwn,
-	})
-
-	var attachmentNotAllowed internal.StorageAttachmentNotAllowed
-	switch {
-	case errors.Is(err, internal.MaxStorageCountPreconditonFailed):
-		maxCount := int(unitAttachStorageArgs.CountLessThanEqual + 1)
-		return applicationerrors.StorageCountLimitExceeded{
-			Maximum:     &maxCount,
-			Requested:   1,
-			StorageName: unitAttachStorageArgs.StorageName,
-		}
-	case errors.As(err, &attachmentNotAllowed):
-		return errors.Errorf(
-			"attaching storage %q to unit %q: %w", unitAttachStorageArgs.StorageName, unitUUID, attachmentNotAllowed)
-	}
-	return errors.Capture(err)
-}
-
-// AttachStorageToCAASUnit ensures the specified storage instance is attached to
-// the specified CAAS unit.
-// If the attachment already exists, the result is a no op.
-// The following error types can be expected:
-// - [github.com/juju/juju/domain/storage/errors.StorageInstanceNotFound] when
-// the storage doesn't exist.
-// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the
-// unit does not exist.
-// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the
-// unit is not alive.
-// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the
-// storage is not alive.
-// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded]
-// when the requested storage falls outside of the bounds defined by the charm.
-func (s *ProviderService) AttachStorageToCAASUnit(
+func (s *ProviderService) AttachStorageToUnit(
 	ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -1449,7 +1353,7 @@ func (s *ProviderService) AttachStorageToCAASUnit(
 		return errors.Capture(err)
 	}
 
-	err = s.st.AttachStorageToCAASUnit(ctx, storageUUID, unitUUID, unitAttachStorageArgs)
+	err = s.st.AttachStorageToUnit(ctx, storageUUID, unitUUID, unitAttachStorageArgs)
 
 	var attachmentNotAllowed internal.StorageAttachmentNotAllowed
 	switch {

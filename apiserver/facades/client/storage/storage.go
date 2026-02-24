@@ -220,13 +220,9 @@ type ApplicationService interface {
 		domainapplication.AddUnitStorageOverride,
 	) ([]corestorage.ID, error)
 
-	// AttachStorageToIAASUnit ensures the specified storage instance is attached to the specified unit.
+	// AttachStorageToUnit ensures the specified storage instance is attached to the specified unit.
 	// If the attachment already exists, the result is a no op.
-	AttachStorageToIAASUnit(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error
-
-	// AttachStorageToCAASUnit ensures the specified storage instance is attached to the specified unit.
-	// If the attachment already exists, the result is a no op.
-	AttachStorageToCAASUnit(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error
+	AttachStorageToUnit(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error
 }
 
 // MachineService defines the service methods required by the Storage facade for
@@ -1349,12 +1345,7 @@ func (a *StorageAPI) attachOneStorage(ctx context.Context, one params.StorageAtt
 		)
 	}
 
-	if a.modelType == coremodel.CAAS {
-		err = a.applicationService.AttachStorageToCAASUnit(ctx, storageUUID, unitUUID)
-	} else {
-		err = a.applicationService.AttachStorageToIAASUnit(ctx, storageUUID, unitUUID)
-	}
-
+	err = a.applicationService.AttachStorageToUnit(ctx, storageUUID, unitUUID)
 	err = handleAttachStorageToUnitError(err, unitName, storageTag.Id())
 	return err
 }

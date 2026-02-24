@@ -781,78 +781,40 @@ func (c *MockStateAddStorageForIAASUnitCall) DoAndReturn(f func(context.Context,
 	return c
 }
 
-// AttachStorageToCAASUnit mocks base method.
-func (m *MockState) AttachStorageToCAASUnit(arg0 context.Context, arg1 storage0.StorageInstanceUUID, arg2 unit.UUID, arg3 internal.AttachStorageToUnitArg) error {
+// AttachStorageToUnit mocks base method.
+func (m *MockState) AttachStorageToUnit(arg0 context.Context, arg1 storage0.StorageInstanceUUID, arg2 unit.UUID, arg3 internal.AttachStorageToUnitArg) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AttachStorageToCAASUnit", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "AttachStorageToUnit", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// AttachStorageToCAASUnit indicates an expected call of AttachStorageToCAASUnit.
-func (mr *MockStateMockRecorder) AttachStorageToCAASUnit(arg0, arg1, arg2, arg3 any) *MockStateAttachStorageToCAASUnitCall {
+// AttachStorageToUnit indicates an expected call of AttachStorageToUnit.
+func (mr *MockStateMockRecorder) AttachStorageToUnit(arg0, arg1, arg2, arg3 any) *MockStateAttachStorageToUnitCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AttachStorageToCAASUnit", reflect.TypeOf((*MockState)(nil).AttachStorageToCAASUnit), arg0, arg1, arg2, arg3)
-	return &MockStateAttachStorageToCAASUnitCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AttachStorageToUnit", reflect.TypeOf((*MockState)(nil).AttachStorageToUnit), arg0, arg1, arg2, arg3)
+	return &MockStateAttachStorageToUnitCall{Call: call}
 }
 
-// MockStateAttachStorageToCAASUnitCall wrap *gomock.Call
-type MockStateAttachStorageToCAASUnitCall struct {
+// MockStateAttachStorageToUnitCall wrap *gomock.Call
+type MockStateAttachStorageToUnitCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateAttachStorageToCAASUnitCall) Return(arg0 error) *MockStateAttachStorageToCAASUnitCall {
+func (c *MockStateAttachStorageToUnitCall) Return(arg0 error) *MockStateAttachStorageToUnitCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAttachStorageToCAASUnitCall) Do(f func(context.Context, storage0.StorageInstanceUUID, unit.UUID, internal.AttachStorageToUnitArg) error) *MockStateAttachStorageToCAASUnitCall {
+func (c *MockStateAttachStorageToUnitCall) Do(f func(context.Context, storage0.StorageInstanceUUID, unit.UUID, internal.AttachStorageToUnitArg) error) *MockStateAttachStorageToUnitCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAttachStorageToCAASUnitCall) DoAndReturn(f func(context.Context, storage0.StorageInstanceUUID, unit.UUID, internal.AttachStorageToUnitArg) error) *MockStateAttachStorageToCAASUnitCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// AttachStorageToIAASUnit mocks base method.
-func (m *MockState) AttachStorageToIAASUnit(arg0 context.Context, arg1 storage0.StorageInstanceUUID, arg2 unit.UUID, arg3 internal.AttachStorageToIAASUnitArg) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AttachStorageToIAASUnit", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AttachStorageToIAASUnit indicates an expected call of AttachStorageToIAASUnit.
-func (mr *MockStateMockRecorder) AttachStorageToIAASUnit(arg0, arg1, arg2, arg3 any) *MockStateAttachStorageToIAASUnitCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AttachStorageToIAASUnit", reflect.TypeOf((*MockState)(nil).AttachStorageToIAASUnit), arg0, arg1, arg2, arg3)
-	return &MockStateAttachStorageToIAASUnitCall{Call: call}
-}
-
-// MockStateAttachStorageToIAASUnitCall wrap *gomock.Call
-type MockStateAttachStorageToIAASUnitCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateAttachStorageToIAASUnitCall) Return(arg0 error) *MockStateAttachStorageToIAASUnitCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateAttachStorageToIAASUnitCall) Do(f func(context.Context, storage0.StorageInstanceUUID, unit.UUID, internal.AttachStorageToIAASUnitArg) error) *MockStateAttachStorageToIAASUnitCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAttachStorageToIAASUnitCall) DoAndReturn(f func(context.Context, storage0.StorageInstanceUUID, unit.UUID, internal.AttachStorageToIAASUnitArg) error) *MockStateAttachStorageToIAASUnitCall {
+func (c *MockStateAttachStorageToUnitCall) DoAndReturn(f func(context.Context, storage0.StorageInstanceUUID, unit.UUID, internal.AttachStorageToUnitArg) error) *MockStateAttachStorageToUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
