@@ -96,6 +96,10 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	// subordinate units can refer to the principal ones.
 	var principals, subordinates []description.Application
 	for _, app := range model.Applications() {
+		if coreapplication.IsRemoteApplication(app.Name()) {
+			continue
+		}
+
 		if app.Subordinate() {
 			subordinates = append(subordinates, app)
 		} else {
@@ -704,6 +708,18 @@ func (i *importOperation) importExposedEndpoints(ctx context.Context, app descri
 	return exposedEndpoints, nil
 }
 
+const (
+	// Convert the charm-user to a string representation. This is a string
+	// representation of the internalcharm.RunAs type. This is done to ensure
+	// that if any changes to the on the wire protocol are made, we can easily
+	// adapt and convert to them, without breaking migrations to older versions.
+	// The strings ARE the API when it comes to migrations.
+	runAsRoot    = "root"
+	runAsDefault = "default"
+	runAsNonRoot = "non-root"
+	runAsSudoer  = "sudoer"
+)
+
 func importCharmUser(data description.CharmMetadata) (internalcharm.RunAs, error) {
 	switch data.RunAs() {
 	case runAsDefault, "":
@@ -776,6 +792,17 @@ func importRelations(data map[string]description.CharmMetadataRelation) (map[str
 	return relations, nil
 }
 
+const (
+	// Convert the charm role to a string representation. This is a string
+	// representation of the internalcharm.RelationRole type. This is done to
+	// ensure that if any changes to the on the wire protocol are made, we can
+	// easily adapt and convert to them, without breaking migrations to older
+	// versions. The strings ARE the API when it comes to migrations.
+	roleProvider = "provider"
+	roleRequirer = "requirer"
+	rolePeer     = "peer"
+)
+
 func importRelationRole(data string) (internalcharm.RelationRole, error) {
 	switch data {
 	case rolePeer:
@@ -788,6 +815,16 @@ func importRelationRole(data string) (internalcharm.RelationRole, error) {
 		return "", errors.Errorf("unknown relation role %q: %w", data, coreerrors.NotValid)
 	}
 }
+
+const (
+	// Convert the charm scope to a string representation. This is a string
+	// representation of the internalcharm.RelationScope type. This is done to
+	// ensure that if any changes to the on the wire protocol are made, we can
+	// easily adapt and convert to them, without breaking migrations to older
+	// versions. The strings ARE the API when it comes to migrations.
+	scopeGlobal    = "global"
+	scopeContainer = "container"
+)
 
 func importRelationScope(data string) (internalcharm.RelationScope, error) {
 	switch data {
@@ -833,6 +870,16 @@ func importStorage(data map[string]description.CharmMetadataStorage) (map[string
 	}
 	return storage, nil
 }
+
+const (
+	// Convert the charm storage type to a string representation. This is a string
+	// representation of the internalcharm.StorageType type. This is done to
+	// ensure that if any changes to the on the wire protocol are made, we can
+	// easily adapt and convert to them, without breaking migrations to older
+	// versions. The strings ARE the API when it comes to migrations.
+	storageBlock      = "block"
+	storageFilesystem = "filesystem"
+)
 
 func importStorageType(data string) (internalcharm.StorageType, error) {
 	switch data {
@@ -898,6 +945,16 @@ func importResources(data map[string]description.CharmMetadataResource) (map[str
 	}
 	return resources, nil
 }
+
+const (
+	// Convert the charm resource type to a string representation. This is a
+	// string representation of the resource.Type type. This is done to ensure
+	// that if any changes to the on the wire protocol are made, we can easily
+	// adapt and convert to them, without breaking migrations to older versions.
+	// The strings ARE the API when it comes to migrations.
+	resourceFile      = "file"
+	resourceContainer = "oci-image"
+)
 
 func importResourceType(data string) (resource.Type, error) {
 	switch data {

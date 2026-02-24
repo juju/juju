@@ -145,6 +145,11 @@ type dbCloudName struct {
 	Name string `db:"name"`
 }
 
+// countResult holds the result of a COUNT query.
+type countResult struct {
+	Count int `db:"count"`
+}
+
 // dbAddUserPermission represents a permission in the system where the values
 // overlap with corepermission.Permission.
 type dbAddUserPermission struct {

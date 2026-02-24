@@ -26,12 +26,6 @@ type insertStoragePool struct {
 }
 
 // These structs represent the persistent storage pool entity schema in the database.
-type storagePoolIdentifiers struct {
-	// UUID is the unique identifier for the storage pool.
-	UUID string `db:"uuid"`
-	// Name is the name of the storage pool.
-	Name string `db:"name"`
-}
 
 // storagePool represents a single storage pool record from the storage_pool
 // table.
@@ -67,6 +61,11 @@ type storagePoolAttribute struct {
 // storagePoolName represents a storage pools name within the model.
 type storagePoolName struct {
 	Name string `db:"name"`
+}
+
+type storagePoolNameAndType struct {
+	Name string `db:"name"`
+	Type string `db:"type"`
 }
 
 type storagePoolNames []string

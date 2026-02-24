@@ -86,6 +86,8 @@ CREATE TABLE relation (
     -- the relation itself. This is because a relation is considered
     -- container-scoped if either of it's endpoints are container-scoped.
     scope_id INT NOT NULL,
+    CONSTRAINT chk_empty_relation_uuid
+    CHECK (uuid != ''),
     CONSTRAINT fk_relation_life
     FOREIGN KEY (life_id)
     REFERENCES life (id),
@@ -220,6 +222,10 @@ CREATE TABLE relation_status (
     FOREIGN KEY (relation_status_type_id)
     REFERENCES relation_status_type (id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_relation_status_type_relation
+ON relation_status (relation_status_type_id, relation_uuid);
+
 
 CREATE VIEW v_application_endpoint AS
 SELECT

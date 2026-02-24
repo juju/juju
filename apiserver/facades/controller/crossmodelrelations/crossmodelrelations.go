@@ -183,7 +183,7 @@ func (api *CrossModelRelationsAPIv3) getApplicationUUIDFromToken(
 		return "", errors.NotValidf("token %q is not a valid application or offer UUID", token)
 	}
 
-	appUUID, err := api.crossModelRelationService.GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(ctx, offerUUID, relationUUID)
+	appUUID, err := api.crossModelRelationService.GetSyntheticApplicationUUIDByRemoteToken(ctx, offerUUID, relationUUID)
 	if err != nil {
 		return "", errors.Annotatef(err, "getting application UUID from offer %q", offerUUID)
 	}

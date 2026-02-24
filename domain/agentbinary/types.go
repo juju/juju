@@ -71,6 +71,12 @@ func AgentBinaryCompactOnVersion(a, b AgentBinary) bool {
 	return a.Version.Compare(b.Version) == 0
 }
 
+// AgentBinaryCompareOnVersion provides a comparison func for comparing
+// [AgentBinary] against their [AgentBinary.Version] field.
+func AgentBinaryCompareOnVersion(a, b AgentBinary) int {
+	return a.Version.Compare(b.Version)
+}
+
 // AgentBinaryNotMatchingVersion provides a helper closure to use with the
 // slices package for filtering agent binaries that do match the supplied
 // version.

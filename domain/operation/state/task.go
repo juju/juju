@@ -145,7 +145,7 @@ func (st *State) StartTask(ctx context.Context, taskID string) error {
 
 	updateStartedAt := taskTime{
 		TaskID: taskID,
-		Time:   time.Now().UTC(),
+		Time:   st.clock.Now().UTC(),
 	}
 	updateStartedStmt, err := st.Prepare(`
 UPDATE operation_task
@@ -236,7 +236,7 @@ func (st *State) FinishTask(ctx context.Context, task internal.CompletedTask) er
 		return errors.Capture(err)
 	}
 
-	completedTime := time.Now().UTC()
+	completedTime := st.clock.Now().UTC()
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.updateOperationTaskStatus(ctx, tx, task.TaskUUID, task.Status, task.Message, completedTime); err != nil {
@@ -494,7 +494,7 @@ AND    ot.task_id = $taskIdent.task_id
 	}
 
 	newStatus := taskStatus{
-		UpdatedAt: time.Now().UTC(),
+		UpdatedAt: st.clock.Now().UTC(),
 	}
 	if currentStatus.Status == corestatus.Pending.String() {
 		// If the task is in Pending status, then we have to update its status to
@@ -742,7 +742,7 @@ func (st *State) LogTaskMessage(ctx context.Context, taskID, message string) err
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 
-		return st.insertTaskMessage(ctx, tx, taskID, time.Now().UTC(), message)
+		return st.insertTaskMessage(ctx, tx, taskID, st.clock.Now().UTC(), message)
 	})
 	if err != nil {
 		return errors.Errorf("logging task %q: %w", taskID, err)

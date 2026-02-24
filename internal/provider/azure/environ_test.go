@@ -677,6 +677,15 @@ func (s *environSuite) TestStartInstanceConflictRetry(c *tc.C) {
 	s.assertStartInstance(c, nil, nil, false, false, false, true)
 }
 
+func (s *environSuite) TestStartInstanceRootDiskAccountTypeSetsStorageAccountType(c *tc.C) {
+	rootDiskSourceParams := map[string]interface{}{
+		"encrypted":                "true",
+		"disk-encryption-set-name": "my-des",
+		"account-type":             "Premium_LRS",
+	}
+	s.assertStartInstance(c, nil, rootDiskSourceParams, true, false, false, false)
+}
+
 func (s *environSuite) assertStartInstance(
 	c *tc.C, wantedRootDisk *int, rootDiskSourceParams map[string]interface{},
 	publicIP, withQuotaRetry, withHypervisorGenRetry, withConflictRetry bool,
@@ -692,6 +701,7 @@ func (s *environSuite) assertStartInstance(
 	diskEncryptionSetName := ""
 	vaultName := ""
 	vaultKeyName := ""
+	var storageAccountType *armcompute.StorageAccountType
 	if len(rootDiskSourceParams) > 0 {
 		encrypted, _ := rootDiskSourceParams["encrypted"].(string)
 		if encrypted == "true" {
@@ -701,6 +711,10 @@ func (s *environSuite) assertStartInstance(
 			diskEncryptionSetName, _ = rootDiskSourceParams["disk-encryption-set-name"].(string)
 			vaultName, _ = rootDiskSourceParams["vault-name-prefix"].(string)
 			vaultKeyName, _ = rootDiskSourceParams["vault-key-name"].(string)
+			rds, exists := rootDiskSourceParams["account-type"].(string)
+			if exists {
+				storageAccountType = to.Ptr(armcompute.StorageAccountType(rds))
+			}
 		}
 	}
 	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{
@@ -763,6 +777,7 @@ func (s *environSuite) assertStartInstance(
 	if !publicIP {
 		args.Constraints.AllocatePublicIP = &publicIP
 	}
+
 	result, err := env.StartInstance(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.NotNil)
@@ -794,6 +809,7 @@ func (s *environSuite) assertStartInstance(
 		withQuotaRetry:         withQuotaRetry,
 		withHypervisorGenRetry: withHypervisorGenRetry,
 		withConflictRetry:      withConflictRetry,
+		storageAccountType:     storageAccountType,
 	}
 	if withConflictRetry {
 		startParams.availabilitySetName = "mysql"
@@ -1093,6 +1109,7 @@ type assertStartInstanceRequestsParams struct {
 	withConflictRetry      bool
 	hasSpaceConstraints    bool
 	managedIdentity        string
+	storageAccountType     *armcompute.StorageAccountType
 }
 
 func (s *environSuite) assertStartInstanceRequests(
@@ -1335,13 +1352,18 @@ func (s *environSuite) assertStartInstanceRequests(
 		})
 	}
 
+	storageAccountType := to.Ptr(armcompute.StorageAccountTypesStandardSSDLRS)
+	if args.storageAccountType != nil {
+		storageAccountType = (*armcompute.StorageAccountTypes)(args.storageAccountType)
+	}
+
 	osDisk := &armcompute.OSDisk{
 		Name:         to.Ptr("juju-06f00d-0"),
 		CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
 		Caching:      to.Ptr(armcompute.CachingTypesReadWrite),
 		DiskSizeGB:   to.Ptr(int32(args.diskSizeGB)),
 		ManagedDisk: &armcompute.ManagedDiskParameters{
-			StorageAccountType: to.Ptr(armcompute.StorageAccountTypesStandardLRS),
+			StorageAccountType: storageAccountType,
 		},
 	}
 	if args.diskEncryptionSet != "" {

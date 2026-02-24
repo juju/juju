@@ -62,7 +62,7 @@ func (s *offerServiceSuite) TestOfferCreate(c *tc.C) {
 	).Return(nil)
 
 	// Act
-	err := s.service(c).Offer(c.Context(), args)
+	err := s.service(c).CreateOffer(c.Context(), args)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -102,7 +102,7 @@ func (s *offerServiceSuite) TestOfferCreateAccessErr(c *tc.C) {
 	s.modelState.EXPECT().DeleteFailedOffer(gomock.Any(), gomock.AssignableToTypeOf(offer.UUID(""))).Return(nil)
 
 	// Act
-	err := s.service(c).Offer(c.Context(), args)
+	err := s.service(c).CreateOffer(c.Context(), args)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `creating access for offer "test-offer": boom`)
@@ -133,7 +133,7 @@ func (s *offerServiceSuite) TestOfferCreateError(c *tc.C) {
 	s.modelState.EXPECT().CreateOffer(gomock.Any(), m).Return(errors.Errorf("boom"))
 
 	// Act
-	err := s.service(c).Offer(c.Context(), args)
+	err := s.service(c).CreateOffer(c.Context(), args)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, "create offer: boom")
@@ -160,7 +160,7 @@ func (s *offerServiceSuite) TestOfferAlreadyExists(c *tc.C) {
 	s.modelState.EXPECT().GetOfferUUID(gomock.Any(), offerName).Return(existingOfferUUID, nil)
 
 	// Act
-	err := s.service(c).Offer(c.Context(), args)
+	err := s.service(c).CreateOffer(c.Context(), args)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `create offer: offer "test-offer" already exists with UUID ".*"`)
@@ -187,7 +187,7 @@ func (s *offerServiceSuite) TestOfferGetOfferUUIDError(c *tc.C) {
 	s.modelState.EXPECT().GetOfferUUID(gomock.Any(), offerName).Return("", errors.Errorf("database error"))
 
 	// Act
-	err := s.service(c).Offer(c.Context(), args)
+	err := s.service(c).CreateOffer(c.Context(), args)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, "create offer: database error")
@@ -215,7 +215,7 @@ func (s *offerServiceSuite) TestOfferOwnerNotFound(c *tc.C) {
 	s.controllerState.EXPECT().GetUserUUIDByName(gomock.Any(), ownerName).Return(uuid.UUID{}, errors.Errorf("user not found"))
 
 	// Act
-	err := s.service(c).Offer(c.Context(), args)
+	err := s.service(c).CreateOffer(c.Context(), args)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, "create offer: user not found")

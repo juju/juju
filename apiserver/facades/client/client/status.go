@@ -247,7 +247,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		Machines:                  context.processMachines(ctx),
 		Applications:              context.processApplications(ctx),
 		Offers:                    context.processOffers(),
-		Relations:                 context.processRelations(ctx),
+		Relations:                 context.processRelations(),
 		RemoteApplicationOfferers: context.processRemoteApplicationOfferers(ctx),
 		Storage:                   allStorage,
 		Filesystems:               filesystems,
@@ -796,7 +796,7 @@ func (c *statusContext) makeMachineStatus(
 	return
 }
 
-func (c *statusContext) processRelations(ctx context.Context) []params.RelationStatus {
+func (c *statusContext) processRelations() []params.RelationStatus {
 	var out []params.RelationStatus
 	for _, current := range c.relationsByID {
 		var eps []params.EndpointStatus

@@ -849,3 +849,22 @@ SELECT uuid, name FROM machine WHERE net_node_uuid = ?
 	c.Assert(err, tc.ErrorIsNil)
 	return unitUUID, unitName
 }
+
+// endpointPortRange represents a range of ports for a give protocol for a
+// given endpoint.
+type endpointPortRange struct {
+	Protocol string `db:"protocol"`
+	FromPort int    `db:"from_port"`
+	ToPort   int    `db:"to_port"`
+	Endpoint string `db:"endpoint"`
+}
+
+// unitEndpointPortRange represents a range of ports for a given protocol for
+// a given unit's endpoint, and unit name.
+type unitEndpointPortRange struct {
+	UnitName string `db:"unit_name"`
+	Protocol string `db:"protocol"`
+	FromPort int    `db:"from_port"`
+	ToPort   int    `db:"to_port"`
+	Endpoint string `db:"endpoint"`
+}

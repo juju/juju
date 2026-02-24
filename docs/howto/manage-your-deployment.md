@@ -20,6 +20,7 @@ manage-your-juju-deployment/set-up-your-juju-deployment-offline
 manage-your-juju-deployment/harden-your-juju-deployment
 manage-your-juju-deployment/troubleshoot-your-juju-deployment
 manage-your-juju-deployment/upgrade-your-juju-deployment
+manage-your-juju-deployment/upgrade-your-juju-deployment-from-36-to-40
 manage-your-juju-deployment/tear-down-your-juju-deployment-local-testing-and-development
 
 ```
@@ -47,6 +48,10 @@ If things don't go as expected, here's how to troubleshoot:
 At all time, try to stay up to date:
 
 - {ref}`upgrade-your-deployment`
+
+If you're upgrading from Juju 3.6 to 4.0, check out the specific guide for that:
+
+- {ref}`upgrade-your-deployment-from-36-to-40`
 
 And, if you're trying things locally, here's how to clean up:
 

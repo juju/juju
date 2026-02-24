@@ -100,13 +100,7 @@ func newMigrationMasterFacade(stdCtx context.Context, ctx facade.MultiModelConte
 		return domainServices.Machine(), nil
 	}
 
-	modelExporter, err := ctx.ModelExporter(stdCtx, ctx.ModelUUID())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	return NewAPI(
-		modelExporter,
 		ctx.ObjectStore(),
 		ctx.ControllerModelUUID(),
 		ctx.WatcherRegistry(),

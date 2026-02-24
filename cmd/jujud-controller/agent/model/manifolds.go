@@ -615,7 +615,6 @@ const (
 	agentBinaryFetcherName    = "agent-binary-fetcher"
 
 	apiRemoteRelationCallerName  = "api-remote-relation-caller"
-	applicationScalerName        = "application-scaler"
 	asyncCharmDownloader         = "async-charm-downloader"
 	changeStreamPrunerName       = "change-stream-pruner"
 	charmRevisionerName          = "charm-revisioner"

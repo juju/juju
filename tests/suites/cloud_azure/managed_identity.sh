@@ -70,11 +70,11 @@ run_custom_managed_identity() {
             \"/subscriptions/${subscription}\"
       ]
   }"
-	rname=$(az role definition list --name "${role}" | jq -r '.[0].name')
+	rname=$(az role definition list --name "${role}" | yq -r '.[0].name')
 	if [[ -n ${rname} ]]; then
 		echo "${rname}" >>"${TEST_DIR}/azure-roles"
 	fi
-	raid=$(az role assignment create --assignee-object-id "${mid}" --assignee-principal-type "ServicePrincipal" --role "${role}" --scope "/subscriptions/${subscription}" | jq -r .id)
+	raid=$(az role assignment create --assignee-object-id "${mid}" --assignee-principal-type "ServicePrincipal" --role "${role}" --scope "/subscriptions/${subscription}" | yq -r .id)
 	if [[ -n ${raid} ]]; then
 		echo "${raid}" >>"${TEST_DIR}/azure-role-assignments"
 	fi
@@ -119,7 +119,7 @@ test_managed_identity() {
 		return
 	fi
 
-	if [ "$(az account list | jq length)" -lt 1 ]; then
+	if [ "$(az account list | yq -r 'length')" -lt 1 ]; then
 		echo "==> TEST SKIPPED: not logged in to Azure cloud"
 		return
 	fi

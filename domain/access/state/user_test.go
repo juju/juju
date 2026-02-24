@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"golang.org/x/net/context"
 
@@ -131,7 +132,7 @@ func (s *userStateSuite) TestBootstrapAddUserWithPassword(c *tc.C) {
 			c.Context(), tx, adminUUID,
 			usertesting.GenNewName(c, "admin"), "admin",
 			adminUUID, s.controllerLoginAccess(), "passwordHash", salt,
-		)
+			time.Now().UTC())
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -163,7 +164,7 @@ WHERE uuid = ?
 // TestAddUser asserts a new user is added, enabled, and has
 // the provided permission.
 func (s *userStateSuite) TestAddUser(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
@@ -188,7 +189,7 @@ func (s *userStateSuite) TestAddUser(c *tc.C) {
 // TestAddUserAlreadyExists asserts that we get an error when we try to add a
 // user that already exists.
 func (s *userStateSuite) TestAddUserAlreadyExists(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
@@ -216,7 +217,7 @@ func (s *userStateSuite) TestAddUserAlreadyExists(c *tc.C) {
 // TestAddUserCreatorNotFound asserts that we get an error when we try
 // to add a user that has a creator that does not exist.
 func (s *userStateSuite) TestAddUserCreatorNotFound(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
@@ -237,7 +238,7 @@ func (s *userStateSuite) TestAddUserCreatorNotFound(c *tc.C) {
 // TestAddUserWithPermission asserts a new user is added, enabled, and has
 // the provided permission.
 func (s *userStateSuite) TestAddUserWithPermission(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
@@ -260,7 +261,7 @@ func (s *userStateSuite) TestAddUserWithPermission(c *tc.C) {
 	c.Check(newUser.CreatorUUID, tc.Equals, adminUUID)
 	c.Check(newUser.CreatorName, tc.Equals, user.AdminUserName)
 
-	pSt := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	pSt := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	newUserAccess, err := pSt.ReadUserAccessForTarget(c.Context(), usertesting.GenNewName(c, "admin"), loginAccess.Target)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(newUserAccess.Access, tc.Equals, loginAccess.Access)
@@ -271,7 +272,7 @@ func (s *userStateSuite) TestAddUserWithPermission(c *tc.C) {
 // TestAddUserWithPermissionInvalid asserts that we can't add a user to the
 // database.
 func (s *userStateSuite) TestAddUserWithPermissionInvalid(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
@@ -299,7 +300,7 @@ func (s *userStateSuite) TestAddUserWithPermissionInvalid(c *tc.C) {
 
 // TestGetUser asserts that we can get a user from the database.
 func (s *userStateSuite) TestGetUser(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
@@ -331,7 +332,7 @@ func (s *userStateSuite) TestGetUser(c *tc.C) {
 
 // TestGetRemovedUser asserts that we can get a removed user from the database.
 func (s *userStateSuite) TestGetRemovedUser(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
@@ -381,7 +382,7 @@ func (s *userStateSuite) TestGetRemovedUser(c *tc.C) {
 // TestGetUserNotFound asserts that we get an error when we try to get a user
 // that does not exist.
 func (s *userStateSuite) TestGetUserNotFound(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Generate a random UUID.
 	userUUID, err := user.NewUUID()
@@ -394,7 +395,7 @@ func (s *userStateSuite) TestGetUserNotFound(c *tc.C) {
 
 // TestGetUserByName asserts that we can get a user by name from the database.
 func (s *userStateSuite) TestGetUserByName(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
@@ -428,7 +429,7 @@ func (s *userStateSuite) TestGetUserByName(c *tc.C) {
 
 // TestGetRemovedUserByName asserts that we can get only non-removed user by name.
 func (s *userStateSuite) TestGetRemovedUserByName(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
@@ -470,7 +471,7 @@ func (s *userStateSuite) TestGetRemovedUserByName(c *tc.C) {
 // TestGetUserByNameMultipleUsers asserts that we get a non-removed user when we try to
 // get a user by name that has multiple users with the same name.
 func (s *userStateSuite) TestGetUserByNameMultipleUsers(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
@@ -521,7 +522,7 @@ func (s *userStateSuite) TestGetUserByNameMultipleUsers(c *tc.C) {
 // TestGetUserByNameNotFound asserts that we get an error when we try to get a
 // user by name that does not exist.
 func (s *userStateSuite) TestGetUserByNameNotFound(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Get the user.
 	_, err := st.GetUserByName(c.Context(), usertesting.GenNewName(c, "admin"))
@@ -531,7 +532,7 @@ func (s *userStateSuite) TestGetUserByNameNotFound(c *tc.C) {
 // TestGetUserWithAuthInfoByName asserts that we can get a user with auth info
 // by name from the database.
 func (s *userStateSuite) TestGetUserWithAuthInfoByName(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user with password hash.
 	adminUUID, err := user.NewUUID()
@@ -565,7 +566,7 @@ func (s *userStateSuite) TestGetUserWithAuthInfoByName(c *tc.C) {
 
 // TestGetUserByAuth asserts that we can get a user by auth from the database.
 func (s *userStateSuite) TestGetUserByAuth(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user with password hash.
 	adminUUID, err := user.NewUUID()
@@ -602,7 +603,7 @@ func (s *userStateSuite) TestGetUserByAuth(c *tc.C) {
 // TestGetUserByAuthWithInvalidSalt asserts that we correctly send an
 // unauthorized error if the user doesn't have a valid salt.
 func (s *userStateSuite) TestGetUserByAuthWithInvalidSalt(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
@@ -626,7 +627,7 @@ func (s *userStateSuite) TestGetUserByAuthWithInvalidSalt(c *tc.C) {
 // TestGetUserByAuthDisabled asserts that we can get a user by auth from the
 // database and has the correct disabled flag.
 func (s *userStateSuite) TestGetUserByAuthDisabled(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user with password hash.
 	adminUUID, err := user.NewUUID()
@@ -666,7 +667,7 @@ func (s *userStateSuite) TestGetUserByAuthDisabled(c *tc.C) {
 // TestGetUserByAuthUnauthorized asserts that we get an error when we try to
 // get a user by auth with the wrong password.
 func (s *userStateSuite) TestGetUserByAuthUnauthorized(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user with password hash.
 	adminUUID, err := user.NewUUID()
@@ -696,7 +697,7 @@ func (s *userStateSuite) TestGetUserByAuthUnauthorized(c *tc.C) {
 // TestGetUserByAuthDoesNotExist asserts that we get an error when we try to
 // get a user by auth that does not exist.
 func (s *userStateSuite) TestGetUserByAuthDoesNotExist(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Get the user.
 	_, err := st.GetUserByAuth(c.Context(), usertesting.GenNewName(c, "admin"), auth.NewPassword("password"))
@@ -705,7 +706,8 @@ func (s *userStateSuite) TestGetUserByAuthDoesNotExist(c *tc.C) {
 
 // TestRemoveUser asserts that we can remove a user from the database.
 func (s *userStateSuite) TestRemoveUser(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
+	ps := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
@@ -734,6 +736,23 @@ func (s *userStateSuite) TestRemoveUser(c *tc.C) {
 		s.controllerLoginAccess(),
 	)
 	c.Assert(err, tc.ErrorIsNil)
+
+	// Create permission for an offer
+	offerID := uuid.MustNewUUID()
+	_, err = ps.CreatePermission(c.Context(), uuid.MustNewUUID(), permission.UserAccessSpec{
+		AccessSpec: permission.AccessSpec{
+			Target: permission.ID{ObjectType: permission.Offer, Key: offerID.String()},
+			Access: permission.ReadAccess,
+		},
+		User: userToRemoveName,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	accesses, err := ps.ReadAllAccessForUserAndObjectType(c.Context(), userToRemoveName, permission.Offer)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(accesses, tc.HasLen, 1)
+	c.Check(accesses[0].UserID, tc.Equals, userToRemoveUUID.String())
+	c.Check(accesses[0].Object.Key, tc.Equals, offerID.String())
 
 	// Remove userToRemove.
 	err = st.RemoveUser(c.Context(), userToRemoveName)
@@ -774,10 +793,13 @@ WHERE uuid = ?
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(removed, tc.Equals, true)
 
+	// Check permission was removed
+	_, err = ps.ReadAllAccessForUserAndObjectType(c.Context(), userToRemoveName, permission.Offer)
+	c.Assert(err, tc.ErrorIs, usererrors.PermissionNotFound)
 }
 
 func (s *userStateSuite) TestRemoveUserLastAdmin(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	modelUUID := tc.Must(c, uuid.NewUUID).String()
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -831,7 +853,7 @@ func (s *userStateSuite) TestRemoveUserLastAdmin(c *tc.C) {
 // TestRemoveUserSSHKeys is here to test that when we remove a user from the
 // Juju database we delete all ssh keys for the user.
 func (s *userStateSuite) TestRemoveUserSSHKeys(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
@@ -930,7 +952,7 @@ WHERE uuid = ?
 // TestGetAllUsersWihAuthInfo asserts that we can get all users with auth info from
 // the database.
 func (s *userStateSuite) TestGetAllUsersWihAuthInfo(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin1 user with password hash.
 	admin1UUID, err := user.NewUUID()
@@ -1010,7 +1032,7 @@ func (s *userStateSuite) TestGetAllUsersWihAuthInfo(c *tc.C) {
 // TestUserWithAuthInfo asserts that we can get a user with auth info from the
 // database.
 func (s *userStateSuite) TestUserWithAuthInfo(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	uuid, err := user.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
@@ -1045,7 +1067,7 @@ func (s *userStateSuite) TestUserWithAuthInfo(c *tc.C) {
 
 // TestSetPasswordHash asserts that we can set a password hash for a user.
 func (s *userStateSuite) TestSetPasswordHash(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user with activation key.
 	adminUUID, err := user.NewUUID()
@@ -1113,7 +1135,7 @@ WHERE user_uuid = ?
 
 // TestSetPasswordHash asserts that we can set a password hash for a user twice.
 func (s *userStateSuite) TestSetPasswordHashTwice(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user with activation key.
 	adminUUID, err := user.NewUUID()
@@ -1162,7 +1184,7 @@ WHERE user_uuid = ?
 // TestAddUserWithPasswordHash asserts that we can add a user with a password
 // hash.
 func (s *userStateSuite) TestAddUserWithPasswordHash(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
@@ -1199,7 +1221,7 @@ func (s *userStateSuite) TestAddUserWithPasswordHash(c *tc.C) {
 // when we try to add a user with a password that has a creator that does not
 // exist.
 func (s *userStateSuite) TestAddUserWithPasswordWhichCreatorDoesNotExist(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
@@ -1225,7 +1247,7 @@ func (s *userStateSuite) TestAddUserWithPasswordWhichCreatorDoesNotExist(c *tc.C
 // TestAddUserWithActivationKey asserts that we can add a user with an
 // activation key.
 func (s *userStateSuite) TestAddUserWithActivationKey(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user with activation key.
 	adminUUID, err := user.NewUUID()
@@ -1253,7 +1275,7 @@ func (s *userStateSuite) TestAddUserWithActivationKey(c *tc.C) {
 // TestGetActivationKeyNotFound asserts that if we try to get an activation key
 // for a user that does not exist, we get an error.
 func (s *userStateSuite) TestGetActivationKeyNotFound(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
@@ -1278,7 +1300,7 @@ func (s *userStateSuite) TestGetActivationKeyNotFound(c *tc.C) {
 // error when we try to add a user with an activation key that has a creator
 // that does not exist.
 func (s *userStateSuite) TestAddUserWithActivationKeyWhichCreatorDoesNotExist(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user with activation key.
 	adminUUID, err := user.NewUUID()
@@ -1302,7 +1324,7 @@ func (s *userStateSuite) TestAddUserWithActivationKeyWhichCreatorDoesNotExist(c 
 
 // TestSetActivationKey asserts that we can set an activation key for a user.
 func (s *userStateSuite) TestSetActivationKey(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
@@ -1358,7 +1380,7 @@ WHERE user_uuid = ?
 
 // TestDisableUserAuthentication asserts that we can disable a user.
 func (s *userStateSuite) TestDisableUserAuthentication(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
@@ -1400,7 +1422,7 @@ WHERE user_uuid = ?
 }
 
 func (s *userStateSuite) TestDisableUserAuthenticationLastAdmin(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	modelUUID := tc.Must(c, uuid.NewUUID).String()
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -1453,7 +1475,7 @@ func (s *userStateSuite) TestDisableUserAuthenticationLastAdmin(c *tc.C) {
 
 // TestEnableUserAuthentication asserts that we can enable a user.
 func (s *userStateSuite) TestEnableUserAuthentication(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Add admin user with activation key.
 	adminUUID, err := user.NewUUID()
@@ -1499,7 +1521,7 @@ WHERE user_uuid = ?
 }
 
 func (s *userStateSuite) TestGetUserUUIDByName(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 	uuid, err := user.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1522,7 +1544,7 @@ func (s *userStateSuite) TestGetUserUUIDByName(c *tc.C) {
 // TestGetUserUUIDByNameNotFound is asserting that if try and find the uuid for
 // a user that doesn't exist we get back a [usererrors.NotFound] error.
 func (s *userStateSuite) TestGetUserUUIDByNameNotFound(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 	_, err := st.GetUserUUIDByName(c.Context(), usertesting.GenNewName(c, "tlm"))
 	c.Check(err, tc.ErrorIs, usererrors.UserNotFound)
 }
@@ -1531,7 +1553,7 @@ func (s *userStateSuite) TestGetUserUUIDByNameNotFound(c *tc.C) {
 // with the last login time to the model on UpdateLastModelLogin.
 func (s *userStateSuite) TestUpdateLastModelLogin(c *tc.C) {
 	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-update-last-login-model")
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 	name, adminUUID := s.addTestUser(c, st, "admin")
 	loginTime := time.Now()
 
@@ -1561,7 +1583,7 @@ WHERE user_uuid = ?
 }
 
 func (s *userStateSuite) TestUpdateLastModelLoginModelNotFound(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 	name, _ := s.addTestUser(c, st, "admin")
 	badModelUUID, err := coremodel.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
@@ -1574,7 +1596,7 @@ func (s *userStateSuite) TestUpdateLastModelLoginModelNotFound(c *tc.C) {
 
 func (s *userStateSuite) TestLastModelLogin(c *tc.C) {
 	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-last-model-login")
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 	username1, _ := s.addTestUser(c, st, "user1")
 	username2, _ := s.addTestUser(c, st, "user2")
 	expectedTime1 := time.Now()
@@ -1606,7 +1628,7 @@ func (s *userStateSuite) TestLastModelLogin(c *tc.C) {
 }
 
 func (s *userStateSuite) TestLastModelLoginModelNotFound(c *tc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 	name, _ := s.addTestUser(c, st, "admin")
 	badModelUUID, err := coremodel.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
@@ -1619,7 +1641,7 @@ func (s *userStateSuite) TestLastModelLoginModelNotFound(c *tc.C) {
 
 func (s *userStateSuite) TestLastModelLoginModelUserNeverAccessedModel(c *tc.C) {
 	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-last-model-login")
-	st := NewUserState(s.TxnRunnerFactory())
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 	name, _ := s.addTestUser(c, st, "admin")
 
 	// Get users last login for non existent model.

@@ -17,6 +17,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
+	domainmodelmigration "github.com/juju/juju/domain/modelmigration/modelmigration"
 	"github.com/juju/juju/domain/status/service"
 	statecontroller "github.com/juju/juju/domain/status/state/controller"
 	statemodel "github.com/juju/juju/domain/status/state/model"
@@ -213,14 +214,19 @@ func (i *importOperation) importRelationStatus(
 	service ImportService,
 	model description.Model,
 ) error {
-
+	remoteApplications := domainmodelmigration.GetUniqueRemoteConsumersNames(model.RemoteApplications())
 	for _, relation := range model.Relations() {
+		// Remote consumer relations are imported as part of the
+		// crossmodelrelation domain, so we skip them here.
+		if domainmodelmigration.ContainsRelationEndpointApplicationName(relation, remoteApplications) {
+			continue
+		}
+
 		relationStatus := i.importStatus(relation.Status())
 		if err := service.ImportRelationStatus(ctx, relation.Id(), relationStatus); err != nil {
 			return errors.Errorf("importing status for relation %d: %w", relation.Id(), err)
 		}
 	}
-
 	return nil
 }
 
@@ -229,7 +235,19 @@ func (i *importOperation) importRemoteApplicationOffererStatus(
 	service ImportService,
 	model description.Model,
 ) error {
-	for _, remoteApp := range model.RemoteApplications() {
+	remoteOfferApps, err := domainmodelmigration.UniqueRemoteOfferApplications(model.RemoteApplications())
+	if err != nil {
+		return errors.Errorf("getting unique remote offer applications: %w", err)
+	}
+	for _, remoteApps := range remoteOfferApps {
+		// We only need the first of the remote offer applications as the rest
+		// are de-duplicated copies of the same remote application, and will
+		// have the same status.
+		if remoteApps.IsEmpty() {
+			continue
+		}
+
+		remoteApp := remoteApps.Primary
 		offererStatus := i.importStatus(remoteApp.Status())
 		if err := service.SetRemoteApplicationOffererStatus(ctx, remoteApp.Name(), offererStatus); err != nil {
 			return errors.Errorf("setting offerer status for remote application %q: %w", remoteApp.Name(), err)

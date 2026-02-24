@@ -74,3 +74,10 @@ type versions []string
 
 // arches represents a list of architecture names in the metadataFilter struct.
 type arches []string
+
+// findFlags holds boolean flags (as ints for SQL) that indicate whether
+// optional IN-clause filters should be applied in the FindMetadata query.
+type findFlags struct {
+	HasVersions int `db:"has_versions"`
+	HasArches   int `db:"has_arches"`
+}

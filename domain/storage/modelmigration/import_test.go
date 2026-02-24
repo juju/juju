@@ -11,6 +11,8 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	coreerrors "github.com/juju/juju/core/errors"
+	coremodel "github.com/juju/juju/core/model"
 	corestorage "github.com/juju/juju/core/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -66,13 +68,32 @@ func (s *importSuite) TestRegisterImport(c *tc.C) {
 	}), loggertesting.WrapCheckLog(c))
 }
 
+func (s *importSuite) TestImportEmpty(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
+	s.noopStoragePoolImport()
+
+	// Act
+	op := s.newImportOperation()
+	err := op.Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 // TestNoUserDefinedStoragePools tests that Execute imports provider default
 // storage pools and sets the recommended pool when the model contains no
 // user-defined storage pools.
 func (s *importSuite) TestNoUserDefinedStoragePools(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
 	ctx := c.Context()
 
 	poolsToImport := []domainstorage.ImportStoragePoolParams{
@@ -122,12 +143,14 @@ func (s *importSuite) TestNoUserDefinedStoragePools(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestImport tests that Execute imports both user-defined and provider default
+// TestImportStoragePools tests that Execute imports both user-defined and provider default
 // storage pools and sets the recommended pools.
-func (s *importSuite) TestImport(c *tc.C) {
+func (s *importSuite) TestImportStoragePools(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
 	model.AddStoragePool(description.StoragePoolArgs{
 		Name:       "ebs-fast",
 		Provider:   "ebs",
@@ -183,7 +206,9 @@ func (s *importSuite) TestImport(c *tc.C) {
 func (s *importSuite) TestExecuteGetStoragePoolsToImportError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
 	expectedErr := errors.New("boom")
 
 	s.service.EXPECT().
@@ -201,7 +226,9 @@ func (s *importSuite) TestExecuteGetStoragePoolsToImportError(c *tc.C) {
 func (s *importSuite) TestExecuteImportStoragePoolsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
 	expectedErr := errors.New("import failed")
 
 	poolsToImport := []domainstorage.ImportStoragePoolParams{
@@ -242,7 +269,9 @@ func (s *importSuite) TestExecuteImportStoragePoolsError(c *tc.C) {
 func (s *importSuite) TestExecuteSetRecommendedStoragePoolsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
 	expectedErr := errors.New("recommendation failed")
 
 	poolsToImport := []domainstorage.ImportStoragePoolParams{
@@ -280,4 +309,121 @@ func (s *importSuite) TestExecuteSetRecommendedStoragePoolsError(c *tc.C) {
 	err := op.Execute(c.Context(), model)
 
 	c.Assert(err, tc.ErrorMatches, "setting recommended storage pools: .*recommendation failed")
+}
+
+func (s *importSuite) TestImportStorageInstances(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	expected := []domainstorage.ImportStorageInstanceParams{
+		{
+			PoolName:         "testpool",
+			RequestedSizeMiB: uint64(1024),
+			StorageID:        "multi-fs/1",
+			StorageKind:      "block",
+			StorageName:      "multi-fs",
+			UnitName:         "unit/3",
+		},
+	}
+	s.noopStoragePoolImport()
+	s.service.EXPECT().ImportStorageInstances(gomock.Any(), expected).Return(nil)
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
+	model.AddStorage(description.StorageArgs{
+		ID:          "multi-fs/1",
+		Kind:        "block",
+		UnitOwner:   "unit/3",
+		Name:        "multi-fs",
+		Attachments: nil,
+		Constraints: &description.StorageInstanceConstraints{
+			Pool: "testpool",
+			Size: 1024,
+		},
+	})
+
+	// Act
+	op := s.newImportOperation()
+	err := op.Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportStorageInstancesValidate(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
+	model.AddStorage(description.StorageArgs{
+		Kind:        "block",
+		UnitOwner:   "unit/3",
+		Name:        "multi-fs",
+		Attachments: nil,
+		Constraints: &description.StorageInstanceConstraints{
+			Pool: "testpool",
+			Size: 1024,
+		},
+	})
+	s.noopStoragePoolImport()
+
+	// Act
+	op := s.newImportOperation()
+	err := op.Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *importSuite) TestImportFilesystems(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
+	model.AddFilesystem(description.FilesystemArgs{
+		ID:           "fs-1",
+		Size:         2048,
+		Storage:      "multi-fs/1",
+		Pool:         "testpool",
+		FilesystemID: "provider-fs-1",
+	})
+	model.AddFilesystem(description.FilesystemArgs{
+		ID:           "fs-2",
+		Size:         4096,
+		Storage:      "multi-fs/2",
+		Pool:         "testpool",
+		FilesystemID: "provider-fs-2",
+	})
+
+	s.noopStoragePoolImport()
+	s.service.EXPECT().ImportFilesystems(gomock.Any(), tc.Bind(tc.SameContents, []domainstorage.ImportFilesystemParams{{
+		ID:                "fs-1",
+		SizeInMiB:         2048,
+		StorageInstanceID: "multi-fs/1",
+		PoolName:          "testpool",
+		ProviderID:        "provider-fs-1",
+	}, {
+		ID:                "fs-2",
+		SizeInMiB:         4096,
+		StorageInstanceID: "multi-fs/2",
+		PoolName:          "testpool",
+		ProviderID:        "provider-fs-2",
+	}})).Return(nil)
+
+	// Act
+	op := s.newImportOperation()
+	err := op.Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) noopStoragePoolImport() {
+	s.service.EXPECT().GetStoragePoolsToImport(gomock.Any(), gomock.Any()).Return(nil, nil, nil)
+	s.service.EXPECT().ImportStoragePools(gomock.Any(), gomock.Any()).Return(nil)
+	s.service.EXPECT().SetRecommendedStoragePools(gomock.Any(), gomock.Any()).Return(nil)
 }

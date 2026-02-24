@@ -168,6 +168,7 @@ func (s *authenticatorSuite) TestCheckOfferMacaroonsAllowedNoConditions(c *tc.C)
 func (s *authenticatorSuite) TestCheckOfferMacaroonsCheckMacaroonCaveatsMissingSourceModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	bakeryMacaroon := newBakeryMacaroon(c, "discharge")
 	slice := macaroon.Slice{
 		newMacaroon(c, "test"),
 	}
@@ -183,15 +184,24 @@ func (s *authenticatorSuite) TestCheckOfferMacaroonsCheckMacaroonCaveatsMissingS
 	exp.InferDeclaredFromMacaroon(gomock.Any(), requiredValues).Return(declaredValues)
 
 	exp.AllowedAuth(gomock.Any(), crossModelConsumeOp("offer-uuid"), slice).Return([]string{"does-not-matter"}, nil)
+	exp.CreateDischargeMacaroon(gomock.Any(), "mary", requiredValues, declaredValues, crossModelConsumeOp("offer-uuid"), bakery.LatestVersion).
+		Return(bakeryMacaroon, nil)
 
 	auth := s.newAuthenticator(c)
 	_, err := auth.CheckOfferMacaroons(c.Context(), s.modelUUID.String(), "offer-uuid", slice, bakery.LatestVersion)
-	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
+
+	var target *apiservererrors.DischargeRequiredError
+	c.Assert(errors.As(err, &target), tc.IsTrue)
+
+	c.Check(target.Error(), tc.Equals, "missing source model UUID")
+	c.Check(target.Macaroon, tc.Equals, bakeryMacaroon)
+	c.Check(target.LegacyMacaroon, tc.Equals, bakeryMacaroon.M())
 }
 
 func (s *authenticatorSuite) TestCheckOfferMacaroonsCheckMacaroonCaveatsMissingOfferUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	bakeryMacaroon := newBakeryMacaroon(c, "discharge")
 	slice := macaroon.Slice{
 		newMacaroon(c, "test"),
 	}
@@ -207,10 +217,18 @@ func (s *authenticatorSuite) TestCheckOfferMacaroonsCheckMacaroonCaveatsMissingO
 	exp.InferDeclaredFromMacaroon(gomock.Any(), requiredValues).Return(declaredValues)
 
 	exp.AllowedAuth(gomock.Any(), crossModelConsumeOp("offer-uuid"), slice).Return([]string{"does-not-matter"}, nil)
+	exp.CreateDischargeMacaroon(gomock.Any(), "mary", requiredValues, declaredValues, crossModelConsumeOp("offer-uuid"), bakery.LatestVersion).
+		Return(bakeryMacaroon, nil)
 
 	auth := s.newAuthenticator(c)
 	_, err := auth.CheckOfferMacaroons(c.Context(), s.modelUUID.String(), "offer-uuid", slice, bakery.LatestVersion)
-	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
+
+	var target *apiservererrors.DischargeRequiredError
+	c.Assert(errors.As(err, &target), tc.IsTrue)
+
+	c.Check(target.Error(), tc.Equals, "missing offer UUID")
+	c.Check(target.Macaroon, tc.Equals, bakeryMacaroon)
+	c.Check(target.LegacyMacaroon, tc.Equals, bakeryMacaroon.M())
 }
 
 func (s *authenticatorSuite) TestCheckOfferMacaroonsCheckMacaroonCaveatsMissMatchOfferUUID(c *tc.C) {
@@ -236,19 +254,9 @@ func (s *authenticatorSuite) TestCheckOfferMacaroonsCheckMacaroonCaveatsMissMatc
 
 	exp.AllowedAuth(gomock.Any(), crossModelConsumeOp(anotherOfferUUID.String()), slice).Return([]string{"does-not-matter"}, nil)
 
-	exp.CreateDischargeMacaroon(gomock.Any(), "mary", requiredValues, declaredValues,
-		crossModelConsumeOp(anotherOfferUUID.String()), bakery.LatestVersion).
-		Return(bakeryMacaroon, nil)
-
 	auth := s.newAuthenticator(c)
 	_, err := auth.CheckOfferMacaroons(c.Context(), s.modelUUID.String(), anotherOfferUUID.String(), slice, bakery.LatestVersion)
-
-	var target *apiservererrors.DischargeRequiredError
-	c.Assert(errors.As(err, &target), tc.IsTrue)
-
-	c.Check(target.Cause, tc.ErrorIs, coreerrors.Unauthorized)
-	c.Check(target.Macaroon, tc.Equals, bakeryMacaroon)
-	c.Check(target.LegacyMacaroon, tc.Equals, bakeryMacaroon.M())
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
 func (s *authenticatorSuite) TestCheckRelationMacaroons(c *tc.C) {
@@ -300,6 +308,7 @@ func (s *authenticatorSuite) TestCheckRelationMacaroonsMissingUser(c *tc.C) {
 func (s *authenticatorSuite) TestCheckRelationMacaroonsInvalidOp(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	bakeryMacaroon := newBakeryMacaroon(c, "discharge")
 	slice := macaroon.Slice{
 		newMacaroon(c, "test"),
 	}
@@ -315,10 +324,18 @@ func (s *authenticatorSuite) TestCheckRelationMacaroonsInvalidOp(c *tc.C) {
 	exp.InferDeclaredFromMacaroon(gomock.Any(), requiredValues).Return(declaredValues)
 
 	exp.AllowedAuth(gomock.Any(), crossModelRelateOp("wordpress:mysql"), slice).Return([]string{"does-not-matter"}, nil)
+	exp.CreateDischargeMacaroon(gomock.Any(), "mary", requiredValues, declaredValues, crossModelRelateOp("wordpress:mysql"), bakery.LatestVersion).
+		Return(bakeryMacaroon, nil)
 
 	auth := s.newAuthenticator(c)
 	err := auth.CheckRelationMacaroons(c.Context(), s.modelUUID.String(), "offer-uuid", names.NewRelationTag("wordpress:mysql"), slice, bakery.LatestVersion)
-	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
+
+	var target *apiservererrors.DischargeRequiredError
+	c.Assert(errors.As(err, &target), tc.IsTrue)
+
+	c.Check(target.Cause, tc.ErrorMatches, "missing relation")
+	c.Check(target.Macaroon, tc.Equals, bakeryMacaroon)
+	c.Check(target.LegacyMacaroon, tc.Equals, bakeryMacaroon.M())
 }
 
 func (s *authenticatorSuite) newAuthenticator(c *tc.C) *Authenticator {

@@ -136,7 +136,7 @@ func (s *Service) recordInitMachinesStatusHistory(
 	// Record the status history for the machines created for the application.
 	machineStatusInfo := corestatus.StatusInfo{
 		Status: corestatus.Pending,
-		Since:  ptr(s.clock.Now()),
+		Since:  ptr(s.clock.Now().UTC()),
 	}
 	for _, machineName := range machineNames {
 		if err := s.statusHistory.RecordStatus(ctx, status.MachineNamespace.WithID(machineName.String()), machineStatusInfo); err != nil {

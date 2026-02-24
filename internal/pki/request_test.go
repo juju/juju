@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"testing"
+	"time"
 
 	"github.com/juju/tc"
 
@@ -35,7 +36,7 @@ func (r *RequestSigner) SetUpTest(c *tc.C) {
 }
 
 func (r *RequestSigner) TestDefaultRequestSigning(c *tc.C) {
-	requestSigner := pki.NewDefaultRequestSigner(r.ca, []*x509.Certificate{}, r.signer)
+	requestSigner := pki.NewDefaultRequestSigner(r.ca, []*x509.Certificate{}, r.signer, time.Minute)
 
 	leafSigner, err := pki.DefaultKeyProfile()
 	c.Assert(err, tc.ErrorIsNil)
@@ -49,8 +50,10 @@ func (r *RequestSigner) TestDefaultRequestSigning(c *tc.C) {
 		},
 	}
 
+	now := time.Now()
 	leafCert, _, err := requestSigner.SignCSR(&leafCSR)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(leafCert.DNSNames, tc.DeepEquals, dnsNames)
 	c.Assert(leafCert.Subject.CommonName, tc.Equals, "test")
+	c.Assert(leafCert.NotAfter, tc.Almost, now.Add(time.Minute))
 }

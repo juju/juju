@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -145,6 +146,7 @@ func (s *DomainServicesSuite) SeedAdminUser(c *tc.C) {
 				Key:        jujutesting.ControllerTag.Id(),
 			},
 		},
+		time.Now(),
 	)
 	s.AdminUserUUID = uuid
 	err := fn(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())

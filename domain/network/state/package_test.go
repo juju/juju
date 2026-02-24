@@ -406,3 +406,11 @@ func (s *linkLayerBaseSuite) addK8sService(c *tc.C, nodeUUID, appUUID string) {
 	s.query(c, `INSERT INTO k8s_service (uuid, net_node_uuid, application_uuid, provider_id) VALUES (?, ?, ?, ?)`,
 		svcUUID, nodeUUID, appUUID, "provider-id")
 }
+
+func zeroNilPtr[T comparable](v *T) T {
+	var zero T
+	if v == nil {
+		return zero
+	}
+	return *v
+}

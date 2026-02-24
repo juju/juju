@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -27,12 +28,15 @@ import (
 // UserState represents a type for interacting with the underlying state.
 type UserState struct {
 	*domain.StateBase
+
+	clock clock.Clock
 }
 
 // NewUserState returns a new State for interacting with the underlying state.
-func NewUserState(factory database.TxnRunnerFactory) *UserState {
+func NewUserState(factory database.TxnRunnerFactory, clock clock.Clock) *UserState {
 	return &UserState{
 		StateBase: domain.NewStateBase(factory),
+		clock:     clock,
 	}
 }
 
@@ -54,7 +58,7 @@ func (st *UserState) AddUser(
 		return errors.Errorf("getting DB access: %w", err)
 	}
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Capture(AddUser(ctx, tx, uuid, name, displayName, external, creatorUUID))
+		return errors.Capture(AddUser(ctx, tx, uuid, name, displayName, external, creatorUUID, st.clock.Now().UTC()))
 	})
 }
 
@@ -78,7 +82,8 @@ func (st *UserState) AddUserWithPermission(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Capture(AddUserWithPermission(ctx, tx, uuid, name, displayName, external, creatorUUID, permission))
+		return errors.Capture(AddUserWithPermission(ctx, tx, uuid, name, displayName, external, creatorUUID,
+			permission, st.clock.Now().UTC()))
 	})
 }
 
@@ -102,7 +107,8 @@ func (st *UserState) AddUserWithPasswordHash(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Capture(AddUserWithPassword(ctx, tx, uuid, name, displayName, creatorUUID, permission, passwordHash, salt))
+		return errors.Capture(AddUserWithPassword(ctx, tx, uuid, name, displayName, creatorUUID, permission,
+			passwordHash, salt, st.clock.Now().UTC()))
 	})
 }
 
@@ -126,7 +132,7 @@ func (st *UserState) AddUserWithActivationKey(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = AddUserWithPermission(ctx, tx, uuid, name, displayName, false, creatorUUID, permission)
+		err = AddUserWithPermission(ctx, tx, uuid, name, displayName, false, creatorUUID, permission, st.clock.Now().UTC())
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -472,6 +478,11 @@ WHERE user_public_ssh_key_id IN (SELECT id
 		return errors.Errorf("preparing activation key deletion query: %w", err)
 	}
 
+	deletePermStmt, err := st.Prepare("DELETE FROM permission WHERE grant_to = $M.uuid", m)
+	if err != nil {
+		return errors.Errorf("preparing permission deletion query: %w", err)
+	}
+
 	setRemovedStmt, err := st.Prepare("UPDATE user SET removed = true WHERE uuid = $M.uuid", m)
 	if err != nil {
 		return errors.Errorf("preparing password deletion query: %w", err)
@@ -503,6 +514,10 @@ WHERE user_public_ssh_key_id IN (SELECT id
 
 		if err := tx.Query(ctx, deleteKeyStmt, m).Run(); err != nil {
 			return errors.Errorf("deleting key for %q: %w", name, err)
+		}
+
+		if err := tx.Query(ctx, deletePermStmt, m).Run(); err != nil {
+			return errors.Errorf("deleting permission for %q: %w", name, err)
 		}
 
 		if err := tx.Query(ctx, setRemovedStmt, m).Run(); err != nil {
@@ -738,8 +753,9 @@ func AddUserWithPassword(
 	permission permission.AccessSpec,
 	passwordHash string,
 	salt []byte,
+	createdAt time.Time,
 ) error {
-	err := AddUserWithPermission(ctx, tx, uuid, name, displayName, false, creatorUUID, permission)
+	err := AddUserWithPermission(ctx, tx, uuid, name, displayName, false, creatorUUID, permission, createdAt)
 	if err != nil {
 		return errors.Errorf("adding user with uuid %q: %w", uuid, err)
 	}
@@ -760,6 +776,7 @@ func AddUser(
 	displayName string,
 	external bool,
 	creatorUuid user.UUID,
+	createdAt time.Time,
 ) error {
 	user := dbUser{
 		UUID:        uuid.String(),
@@ -767,7 +784,7 @@ func AddUser(
 		DisplayName: displayName,
 		External:    external,
 		CreatorUUID: creatorUuid.String(),
-		CreatedAt:   time.Now(),
+		CreatedAt:   createdAt.UTC(),
 	}
 
 	addUserQuery := `
@@ -820,8 +837,9 @@ func AddUserWithPermission(
 	external bool,
 	creatorUuid user.UUID,
 	access permission.AccessSpec,
+	createdAt time.Time,
 ) error {
-	err := AddUser(ctx, tx, uuid, name, displayName, external, creatorUuid)
+	err := AddUser(ctx, tx, uuid, name, displayName, external, creatorUuid, createdAt)
 	if err != nil {
 		return errors.Capture(err)
 	}

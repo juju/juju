@@ -15,35 +15,6 @@ import (
 	internalerrors "github.com/juju/juju/internal/errors"
 )
 
-// GetUnitEndpointNetworks retrieves network relation information for a given unit
-// and specified endpoints.
-// It returns exactly one info for each endpoint names passed in argument,
-// but doesn't enforce the order. Each info has an endpoint name that should match
-// one of the endpoint names, one info for each endpoint names.
-//
-// The following errors may be returned:
-// - [applicationerrors.UnitNotFound] if the unit does not exist
-func (s *Service) GetUnitEndpointNetworks(
-	ctx context.Context,
-	unitName coreunit.Name,
-	endpointNames []string,
-) ([]network.UnitNetwork, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
-	if err != nil {
-		return nil, internalerrors.Capture(err)
-	}
-
-	result, err := s.st.GetUnitEndpointNetworks(ctx, unitUUID.String(), endpointNames)
-	if err != nil {
-		return nil, internalerrors.Errorf("getting unit endpoint networks: %w", err)
-	}
-
-	return result, nil
-}
-
 // GetUnitRelationNetwork retrieves network relation information for a given
 // unit and relation key.
 //
@@ -51,7 +22,7 @@ func (s *Service) GetUnitEndpointNetworks(
 //   - [applicationerrors.UnitNotFound] if the unit does not exist
 //   - [relationerrors.RelationNotFound] if the relation key doesn't belong to
 //     the unit.
-func (s *Service) GetUnitRelationNetwork(ctx context.Context, unitName coreunit.Name,
+func (s *ProviderService) GetUnitRelationNetwork(ctx context.Context, unitName coreunit.Name,
 	relKey corerelation.Key) (network.UnitNetwork, error) {
 	var endpoint string
 	for _, epIdentifier := range relKey.EndpointIdentifiers() {
@@ -78,4 +49,54 @@ func (s *Service) GetUnitRelationNetwork(ctx context.Context, unitName coreunit.
 			len(infos))
 	}
 	return infos[0], nil
+}
+
+// GetUnitEndpointNetworks retrieves network relation information for a given
+// unit and specified endpoints.
+// It returns exactly one info for each endpoint names passed in argument,
+// but doesn't enforce the order. Each info has an endpoint name that should
+// match one of the endpoint names, one info for each endpoint names.
+// If the provider does not support spaces, we choose the best candidate from
+// all unit addresses and return it for all the input endpoints.
+//
+// The following errors may be returned:
+// - [applicationerrors.UnitNotFound] if the unit does not exist
+func (s *ProviderService) GetUnitEndpointNetworks(
+	ctx context.Context,
+	unitName coreunit.Name,
+	endpointNames []string,
+) ([]network.UnitNetwork, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	supportsNetworking, err := s.supportsNetworking(ctx)
+	if err != nil {
+		return nil, internalerrors.Errorf("checking provider networking support: %w", err)
+	}
+
+	if !supportsNetworking {
+		info, err := s.st.GetUnitNetwork(ctx, unitUUID.String())
+		if err != nil {
+			return nil, internalerrors.Errorf("getting unit network: %w", err)
+		}
+
+		infos := make([]network.UnitNetwork, len(endpointNames))
+		for i, endpointName := range endpointNames {
+			infos[i] = info
+			infos[i].EndpointName = endpointName
+		}
+		return infos, nil
+	}
+
+	result, err := s.st.GetUnitEndpointNetworks(ctx, unitUUID.String(), endpointNames)
+	if err != nil {
+		return nil, internalerrors.Errorf("getting unit endpoint networks: %w", err)
+	}
+
+	return result, nil
 }

@@ -3501,7 +3501,7 @@ func (s *stateSuite) TestListGrantedSecrets(c *tc.C) {
 		SubjectTypeID: domainsecret.SubjectApplication,
 		SubjectID:     "mysql",
 	}}
-	result, err := s.state.ListGrantedSecretsForBackend(ctx, "backend-id", accessors, coresecrets.RoleView)
+	result, err := s.state.ListGrantedSecretsForBackend(ctx, "backend-id", accessors, []domainsecret.Role{domainsecret.RoleView})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.SameContents, []*coresecrets.SecretRevisionRef{{
 		URI:        uri2,
@@ -3510,6 +3510,88 @@ func (s *stateSuite) TestListGrantedSecrets(c *tc.C) {
 		URI:        uri3,
 		RevisionID: "revision-id2",
 	}})
+}
+
+// TestListGrantedSecretsForBackendWithMultipleRoles verifies that when
+// multiple roles are passed, secrets with any of those roles are returned.
+// The "manage implies view" business logic is in the service layer which
+// expands the requested role to include all satisfying roles.
+func (s *stateSuite) TestListGrantedSecretsForBackendWithMultipleRoles(c *tc.C) {
+	s.setupUnits(c, "mysql")
+
+	ctx := c.Context()
+
+	// Create an application-owned secret with external backend reference.
+	// When created, the application is automatically granted RoleManage (not
+	// RoleView).
+	sp := domainsecret.UpsertSecretParams{
+		RevisionID: ptr(uuid.MustNewUUID().String()),
+		ValueRef: &coresecrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "revision-id",
+		},
+	}
+	uri := coresecrets.NewURI()
+	err := s.createCharmApplicationSecret(c, 1, uri, "mysql", sp)
+	c.Assert(err, tc.ErrorIsNil)
+
+	accessors := []domainsecret.AccessParams{{
+		SubjectTypeID: domainsecret.SubjectApplication,
+		SubjectID:     "mysql",
+	}}
+
+	// Query with only RoleView - should NOT return the secret since the app
+	// has RoleManage, not RoleView.
+	result, err := s.state.ListGrantedSecretsForBackend(ctx, "backend-id", accessors, []domainsecret.Role{domainsecret.RoleView})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.HasLen, 0)
+
+	// Query with only RoleManage - should return the secret.
+	result, err = s.state.ListGrantedSecretsForBackend(ctx, "backend-id", accessors, []domainsecret.Role{domainsecret.RoleManage})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, []*coresecrets.SecretRevisionRef{{
+		URI:        uri,
+		RevisionID: "revision-id",
+	}})
+
+	// Query with both RoleView and RoleManage (as the service layer would
+	// expand for a view request) - should return the secret.
+	result, err = s.state.ListGrantedSecretsForBackend(ctx, "backend-id", accessors, []domainsecret.Role{domainsecret.RoleView, domainsecret.RoleManage})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, []*coresecrets.SecretRevisionRef{{
+		URI:        uri,
+		RevisionID: "revision-id",
+	}})
+}
+
+// TestListGrantedSecretsForBackendNoGrants verifies that an application
+// without any grants gets no results.
+func (s *stateSuite) TestListGrantedSecretsForBackendNoGrants(c *tc.C) {
+	s.setupUnits(c, "mysql")
+	s.setupUnits(c, "mediawiki")
+
+	ctx := c.Context()
+
+	// Create a secret owned by mysql.
+	sp := domainsecret.UpsertSecretParams{
+		RevisionID: ptr(uuid.MustNewUUID().String()),
+		ValueRef: &coresecrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "revision-id",
+		},
+	}
+	uri := coresecrets.NewURI()
+	err := s.createCharmApplicationSecret(c, 1, uri, "mysql", sp)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Query as mediawiki which has no grants to any secrets.
+	accessors := []domainsecret.AccessParams{{
+		SubjectTypeID: domainsecret.SubjectApplication,
+		SubjectID:     "mediawiki",
+	}}
+	result, err := s.state.ListGrantedSecretsForBackend(ctx, "backend-id", accessors, []domainsecret.Role{domainsecret.RoleView, domainsecret.RoleManage})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.HasLen, 0)
 }
 
 type obsoleteSecretInfo struct {
@@ -4539,4 +4621,34 @@ func (s *stateSuite) TestChangeSecretBackendFailed(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "either valueRef or data must be set")
 	err = s.state.ChangeSecretBackend(ctx, uuid.MustNewUUID(), valueRefInput, dataInput)
 	c.Assert(err, tc.ErrorMatches, "both valueRef and data cannot be set")
+}
+
+func (s *stateSuite) TestUpdateSecretContentWithEmptyValues(c *tc.C) {
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		RevisionID: ptr(uuid.MustNewUUID().String()),
+	}
+	fillDataForUpsertSecretParams(c, &sp, coresecrets.SecretData{"foo": "bar", "empty": ""})
+	uri := coresecrets.NewURI()
+	ctx := c.Context()
+	err := s.createCharmUnitSecret(c, 1, uri, "mysql/0", sp)
+	c.Assert(err, tc.ErrorIsNil)
+
+	content, _, err := s.state.GetSecretValue(ctx, uri, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(content, tc.DeepEquals, coresecrets.SecretData{"foo": "bar", "empty": ""})
+
+	// Now update it, providing an empty value for an existing key and a new key.
+	sp2 := domainsecret.UpsertSecretParams{
+		RevisionID: ptr(uuid.MustNewUUID().String()),
+	}
+	fillDataForUpsertSecretParams(c, &sp2, coresecrets.SecretData{"foo": "", "new": "value", "another_empty": ""})
+	err = s.state.UpdateSecret(ctx, uri, sp2)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify that only "new" is in the second revision.
+	content, _, err = s.state.GetSecretValue(ctx, uri, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(content, tc.DeepEquals, coresecrets.SecretData{"foo": "", "new": "value", "another_empty": ""})
 }

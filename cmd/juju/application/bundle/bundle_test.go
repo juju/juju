@@ -137,8 +137,9 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithSubordi
 	obtainedWordpress, ok := obtainedModel.Applications["wordpress"]
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(obtainedWordpress.Options, tc.HasLen, 1)
-	_, ok = obtainedWordpress.Options["skill-level"]
+	skillLevel, ok := obtainedWordpress.Options["skill-level"]
 	c.Assert(ok, tc.IsTrue)
+	c.Assert(skillLevel, tc.DeepEquals, 42) // check int option is of proper type
 	_, ok = obtainedModel.Applications["sub"]
 	c.Assert(ok, tc.IsTrue)
 
@@ -190,8 +191,9 @@ func (s *buildModelRepSuite) expectGetConfigSubWordpress() {
 			"description": "A number indicating skill.",
 			"source":      "user",
 			"type":        "int",
-			"value":       42,
-		}}
+			"value":       42.0, // json unmarshals int as float
+		},
+	}
 	retval := []map[string]interface{}{
 		{},           // sub
 		wordpressCfg, // wordpress

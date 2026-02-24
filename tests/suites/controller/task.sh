@@ -17,6 +17,7 @@ test_controller() {
 
 	test_enable_ha
 	test_query_tracing
+	test_limit_access
 
 	destroy_controller "test-controller"
 }

@@ -28,15 +28,6 @@ import (
 
 // MigrationState is the state required for migrating applications.
 type MigrationState interface {
-	// GetApplicationsForExport returns all the applications in the model.
-	GetApplicationsForExport(ctx context.Context) ([]application.ExportApplication, error)
-
-	// GetApplicationUnitsForExport returns all the units for a given
-	// application in the model.
-	// If the application does not exist, an error satisfying
-	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationUnitsForExport(ctx context.Context, appID coreapplication.UUID) ([]application.ExportUnit, error)
-
 	// GetSpaceUUIDByName returns the UUID of the space with the given name.
 	// It returns an error satisfying [networkerrors.SpaceNotFound] if the provided
 	//
@@ -165,33 +156,6 @@ func (s *MigrationService) GetCharmByApplicationName(ctx context.Context, name s
 		&actions,
 		&lxdProfile,
 	), locator, nil
-}
-
-// GetApplications returns all the applications in the model.
-func (s *MigrationService) GetApplications(ctx context.Context) ([]application.ExportApplication, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	return s.st.GetApplicationsForExport(ctx)
-}
-
-// GetApplicationUnits returns all the units for the specified application.
-// If the application does not exist, an error satisfying
-// [applicationerrors.ApplicationNotFound] is returned.
-func (s *MigrationService) GetApplicationUnits(ctx context.Context, name string) ([]application.ExportUnit, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if !application.IsValidApplicationName(name) {
-		return nil, applicationerrors.ApplicationNameNotValid
-	}
-
-	appID, err := s.st.GetApplicationUUIDByName(ctx, name)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	return s.st.GetApplicationUnitsForExport(ctx, appID)
 }
 
 // GetApplicationCharmOrigin returns the charm origin for the specified

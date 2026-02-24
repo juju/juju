@@ -159,9 +159,6 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		machineServiceGetter,
 		removalServiceGetter,
 		domainServices.Proxy(),
-		func(c context.Context, modelUUID model.UUID) (ModelExporter, error) {
-			return ctx.ModelExporter(c, modelUUID)
-		},
 		ctx.ObjectStore(),
 		ctx.ControllerModelUUID(),
 		ctx.ControllerUUID(),

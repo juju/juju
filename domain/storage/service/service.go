@@ -19,6 +19,7 @@ import (
 type State interface {
 	StoragePoolState
 	StorageState
+	StorageImportState
 
 	// GetStorageAttachmentUUIDForStorageInstanceAndUnit returns the
 	// [domainstorageprovisioning.StorageAttachmentUUID] associated with the given
@@ -62,6 +63,7 @@ type State interface {
 type Service struct {
 	*StoragePoolService
 	*StorageService
+	*StorageImportService
 
 	logger logger.Logger
 	st     State
@@ -82,6 +84,11 @@ func NewService(
 		StorageService: &StorageService{
 			st:             st,
 			registryGetter: registryGetter,
+		},
+		StorageImportService: &StorageImportService{
+			registryGetter: registryGetter,
+			st:             st,
+			logger:         logger,
 		},
 		logger: logger,
 		st:     st,

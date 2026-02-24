@@ -3074,13 +3074,14 @@ type (
 	units        []string
 	applications []string
 	models       []string
+	roles        []int
 )
 
 // ListGrantedSecretsForBackend returns the secret revision info for any
 // secrets from the specified backend for which the specified consumers
-// have been granted the specified access.
+// have been granted any of the specified roles.
 func (st State) ListGrantedSecretsForBackend(
-	ctx context.Context, backendID string, accessors []domainsecret.AccessParams, role coresecrets.SecretRole,
+	ctx context.Context, backendID string, accessors []domainsecret.AccessParams, roleIDs []domainsecret.Role,
 ) ([]*coresecrets.SecretRevisionRef, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -3093,19 +3094,22 @@ SELECT (sm.secret_id) AS (&secretInfo.*),
 FROM   secret_metadata sm
 JOIN   secret_revision rev ON rev.secret_id = sm.secret_id
 JOIN   secret_value_ref svr ON svr.revision_uuid = rev.uuid
-JOIN   v_secret_permission sp ON sp.secret_id = sm.secret_id
-WHERE  sp.role_id = $secretAccessor.role_id
+JOIN   secret_permission sp ON sp.secret_id = sm.secret_id
+LEFT JOIN unit suu ON sp.subject_uuid = suu.uuid AND sp.subject_type_id = $secretAccessorType.unit_type_id
+LEFT JOIN application sua ON sp.subject_uuid = sua.uuid AND sp.subject_type_id = $secretAccessorType.app_type_id
+WHERE  sp.role_id IN ($roles[:])
 AND    svr.backend_uuid = $secretBackendID.id
-AND    (subject_type_id = $secretAccessorType.unit_type_id AND subject_id IN ($units[:])
-        OR subject_type_id = $secretAccessorType.app_type_id AND subject_id IN ($applications[:])
-        OR subject_type_id = $secretAccessorType.model_type_id AND subject_id IN ($models[:])
+AND    (sp.subject_type_id = $secretAccessorType.unit_type_id AND suu.name IN ($units[:])
+        OR sp.subject_type_id = $secretAccessorType.app_type_id AND sua.name IN ($applications[:])
+        OR sp.subject_type_id = $secretAccessorType.model_type_id AND sp.subject_uuid IN ($models[:])
        )`
 	secretBackendID := secretBackendID{
 		ID: backendID,
 	}
 
-	secretRole := secretAccessor{
-		RoleID: domainsecret.MarshallRole(role),
+	secretRoles := make(roles, len(roleIDs))
+	for i, r := range roleIDs {
+		secretRoles[i] = int(r)
 	}
 
 	// Ideally we'd use IN tuple but sqlair doesn't support that.
@@ -3132,7 +3136,7 @@ AND    (subject_type_id = $secretAccessorType.unit_type_id AND subject_id IN ($u
 		unitAccessors,
 		modelAccessors,
 		secretAccessorTypeParam,
-		secretRole,
+		secretRoles,
 		secretBackendID,
 	}
 

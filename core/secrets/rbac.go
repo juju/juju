@@ -9,14 +9,13 @@ type SecretRole string
 const (
 	RoleNone   = SecretRole("")
 	RoleView   = SecretRole("view")
-	RoleRotate = SecretRole("rotate")
 	RoleManage = SecretRole("manage")
 )
 
 // IsValid returns true if r is a valid secret role.
 func (r SecretRole) IsValid() bool {
 	switch r {
-	case RoleNone, RoleView, RoleRotate, RoleManage:
+	case RoleNone, RoleView, RoleManage:
 		return true
 	}
 	return false
@@ -26,10 +25,8 @@ func (r SecretRole) value() int {
 	switch r {
 	case RoleView:
 		return 1
-	case RoleRotate:
-		return 2
 	case RoleManage:
-		return 3
+		return 2
 	default:
 		return -1
 	}

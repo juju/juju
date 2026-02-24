@@ -248,9 +248,6 @@ func (s *controllerSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		machineServiceGetter,
 		removalServiceGetter,
 		domainServices.Proxy(),
-		func(c context.Context, modelUUID model.UUID) (controller.ModelExporter, error) {
-			return ctx.ModelExporter(c, modelUUID)
-		},
 		ctx.ObjectStore(),
 		ctx.ControllerModelUUID(),
 		ctx.ControllerUUID(),
@@ -720,7 +717,6 @@ func (s *accessSuite) controllerAPI(c *tc.C) *controller.ControllerAPI {
 		nil,
 		s.accessService,
 		s.modelService,
-		nil,
 		nil,
 		nil,
 		nil,

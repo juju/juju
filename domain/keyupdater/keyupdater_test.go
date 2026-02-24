@@ -8,6 +8,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -59,7 +60,7 @@ func (s *keyUpdaterSuite) SetUpTest(c *tc.C) {
 
 	s.userID = usertesting.GenUserUUID(c)
 
-	accessState := accessstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	accessState := accessstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	err := accessState.AddUser(
 		c.Context(), s.userID,
 		user.AdminUserName,
@@ -195,7 +196,7 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *tc.C) {
 	})
 
 	userSvc := accessservice.NewUserService(
-		accessstate.NewUserState(s.ControllerSuite.TxnRunnerFactory()),
+		accessstate.NewUserState(s.ControllerSuite.TxnRunnerFactory(), clock.WallClock), clock.WallClock,
 	)
 
 	harness.AddTest(c, func(c *tc.C) {

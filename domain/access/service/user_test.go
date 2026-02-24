@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 	"golang.org/x/crypto/nacl/secretbox"
@@ -41,7 +42,7 @@ func (s *userServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *userServiceSuite) service() *Service {
-	return NewService(s.state)
+	return NewService(s.state, clock.WallClock)
 }
 
 // TestAddUserNameNotValid is testing that if we try and add a user with a
@@ -540,7 +541,7 @@ func FuzzGetUser(f *testing.F) {
 			nil,
 		).AnyTimes()
 
-		usr, err := NewService(state).GetUserByName(t.Context(), name)
+		usr, err := NewService(state, clock.WallClock).GetUserByName(t.Context(), name)
 		if err != nil {
 			t.Errorf("unexpected error %v when fuzzing GetUser with %q",
 				err, username,

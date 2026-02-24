@@ -168,8 +168,7 @@ type RemoteApplicationEndpoint struct {
 }
 
 // RemoteApplicationImport contains details to import a remote application
-// (offerer) during migration. This represents a remote application that this
-// model is consuming from another model.
+// during migration.
 type RemoteApplicationImport struct {
 	// Name is the name of the remote application in this model.
 	Name string
@@ -190,21 +189,54 @@ type RemoteApplicationImport struct {
 	// This is created in the service layer from the Endpoints field.
 	SyntheticCharm charm.Charm
 
-	// Endpoints are the remote endpoints for creating the synthetic charm.
-	// This is kept for backwards compatibility and service layer processing.
-	Endpoints []RemoteApplicationEndpoint
-
-	// Bindings are the endpoint-to-space bindings.
-	Bindings map[string]string
-
-	// IsConsumerProxy indicates if this is a consumer proxy (on the offerer
-	// side) rather than a remote offerer (on the consumer side).
-	IsConsumerProxy bool
-
 	// Units are the unit names for the remote application that need to be
 	// created as synthetic units. These are extracted from relation endpoints
 	// during migration import.
 	Units []string
+}
+
+// RemoteApplicationOffererImport contains details to import a remote
+// application offerer during migration. This represents a remote application
+// that this model is consuming from another model.
+type RemoteApplicationOffererImport struct {
+	RemoteApplicationImport
+}
+
+// RemoteApplicationConsumerImport contains details to import a remote
+// application consumer during migration. This represents a remote application
+// that this model is offering from another model.
+type RemoteApplicationConsumerImport struct {
+	RemoteApplicationImport
+
+	// RelationUUID is the UUID of the relation created for this remote
+	// application consumer.
+	RelationUUID string
+
+	// ConsumerModelUUID is the UUID of the model consuming the application.
+	ConsumerModelUUID string
+
+	// ConsumerApplicationUUID is the UUID of the consuming application UUID.
+	ConsumerApplicationUUID string
+
+	// ConsumerApplicationEndpoint is the relation endpoint name of the
+	// consuming application.
+	ConsumerApplicationEndpoint string
+
+	// OffererApplicationUUID is the UUID of the offering application.
+	OffererApplicationUUID string
+
+	// OffererApplicationEndpoint is the relation endpoint name of the
+	// offering application.
+	OffererApplicationEndpoint string
+
+	// UserName is the name of the user who made the original offer connection
+	// request.
+	UserName string
+
+	// SyntheticCharmUUID is the UUID to assign to the synthetic charm
+	// representing the remote application, on the consuming model. This is used
+	// to link the synthetic charm to the remote application consumer.
+	SyntheticCharmUUID string
 }
 
 // RemoteApplicationConsumer represents a remote application

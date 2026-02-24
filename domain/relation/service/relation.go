@@ -44,8 +44,8 @@ type State interface {
 	// ApplicationExists checks if the given application exists.
 	ApplicationExists(ctx context.Context, applicationID application.UUID) error
 
-	// ApplicationRelationEndpointNames returns a slice of names of the given application's
-	// relation endpoints.
+	// ApplicationRelationsInfo returns all endpoint data for the application
+	// with the input UUID.
 	ApplicationRelationsInfo(
 		ctx context.Context,
 		applicationID application.UUID,
@@ -187,8 +187,8 @@ type State interface {
 	// found
 	GetRelationUnitChanges(ctx context.Context, unitUUIDs []unit.UUID, appUUIDs []application.UUID) (relation.RelationUnitsChange, error)
 
-	// GetRelationUnit retrieves the UUID of a relation unit based on the given
-	// relation UUID and unit name.
+	// GetRelationUnitUUID retrieves the UUID of a relation unit based on the
+	// given relation UUID and unit name.
 	GetRelationUnitUUID(
 		ctx context.Context,
 		relationUUID corerelation.UUID,

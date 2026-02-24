@@ -68,7 +68,6 @@ func (s *ResourcesFacadeClientSuite) TestUnitDoer(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Do")
-	//s.stub.CheckCall(c, 0, "Do", expected, body, resp)
 	c.Check(req.URL.Path, tc.Equals, "/units/spam/1/resources/eggs")
 }
 
@@ -97,9 +96,7 @@ func (s *stubAPI) BestFacadeVersion(_ string) int {
 }
 
 func (s *stubAPI) HTTPClient() (*httprequest.Client, error) {
-	return &httprequest.Client{
-		//Doer: func,
-	}, nil
+	return &httprequest.Client{}, nil
 }
 
 func (s *stubAPI) APICall(ctx context.Context, objType string, version int, id, request string, args, response interface{}) error {

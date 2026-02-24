@@ -145,5 +145,25 @@ func (s *SecretService) ListGrantedSecretsForBackend(
 		}
 		accessors[i] = accessor
 	}
-	return s.secretState.ListGrantedSecretsForBackend(ctx, backendID, accessors, role)
+
+	// Expand the requested role to include all roles that satisfy it.
+	roles := expandRolesToMatch(role)
+
+	return s.secretState.ListGrantedSecretsForBackend(ctx, backendID, accessors, roles)
+}
+
+// expandRolesToMatch returns a slice of roles that satisfy the requested role.
+// RoleManage implies RoleView.
+func expandRolesToMatch(role secrets.SecretRole) []domainsecret.Role {
+	switch role {
+	case secrets.RoleView:
+		// Manage implies view, so include both.
+		return []domainsecret.Role{domainsecret.RoleView, domainsecret.RoleManage}
+	case secrets.RoleManage:
+		return []domainsecret.Role{domainsecret.RoleManage}
+	case secrets.RoleNone:
+		return nil
+	default:
+		return nil
+	}
 }

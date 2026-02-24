@@ -8,6 +8,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
@@ -56,7 +57,7 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	var err error
 	s.adminUserUUID, err = coreuser.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
-	accessState := accessstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	accessState := accessstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	err = accessState.AddUserWithPermission(
 		c.Context(), s.adminUserUUID,
 		coreuser.AdminUserName,

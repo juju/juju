@@ -308,7 +308,13 @@ func (s *importSuite) TestImportRemoteApplicationOffererStatus(c *tc.C) {
 	})
 
 	remoteApp2 := model.AddRemoteApplication(description.RemoteApplicationArgs{
-		Name: "remote-app-2",
+		Name:      "remote-app-2",
+		OfferUUID: "deadbeef",
+	})
+	remoteApp2.AddEndpoint(description.RemoteEndpointArgs{
+		Name:      "foo",
+		Role:      "blah",
+		Interface: "requirer",
 	})
 	remoteApp2.SetStatus(description.StatusArgs{
 		Value:   "blocked",
@@ -316,6 +322,54 @@ func (s *importSuite) TestImportRemoteApplicationOffererStatus(c *tc.C) {
 		Data:    map[string]any{"baz2": "qux2"},
 		Updated: now,
 	})
+
+	remoteApp3 := model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:      "remote-app-3",
+		OfferUUID: "deadbeef",
+	})
+	remoteApp3.AddEndpoint(description.RemoteEndpointArgs{
+		Name:      "foo",
+		Role:      "blah",
+		Interface: "requirer",
+	})
+	remoteApp3.SetStatus(description.StatusArgs{
+		Value:   "stopped",
+		Message: "bar3",
+		Data:    map[string]any{"bar3": "qux3"},
+		Updated: now,
+	})
+
+	remoteApp4 := model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "remote-123e4567e89b12d3a456426655440000",
+		IsConsumerProxy: true,
+	})
+	remoteApp4.SetStatus(description.StatusArgs{
+		Value:   "running",
+		Message: "bar4",
+		Data:    map[string]any{"foo": "baz"},
+		Updated: now,
+	})
+
+	rel1 := model.AddRelation(description.RelationArgs{
+		Id:  1,
+		Key: "remote-app:sink dummy-sink:source",
+	})
+	rel1.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "remote-app",
+	})
+	rel2 := model.AddRelation(description.RelationArgs{
+		Id:  2,
+		Key: "remote-app-2:sink dummy-sink:source",
+	})
+	rel2.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "remote-app-2",
+	})
+
+	// We require a relation to be able to validate the flow, even though we're
+	// not interested in the relation status itself
+
+	s.importService.EXPECT().ImportRelationStatus(gomock.Any(), 1, gomock.Any())
+	s.importService.EXPECT().ImportRelationStatus(gomock.Any(), 2, gomock.Any())
 
 	s.importService.EXPECT().SetRemoteApplicationOffererStatus(gomock.Any(), "remote-app", corestatus.StatusInfo{
 		Status:  corestatus.Active,

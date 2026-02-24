@@ -325,28 +325,6 @@ CREATE TABLE net_node_hostname_address (
     PRIMARY KEY (net_node_uuid, address_uuid)
 );
 
--- v_address exposes ip and fqdn addresses as a single table.
--- Used for compatibility with the current core network model.
-CREATE VIEW v_address AS
-SELECT
-    ipa.address_value,
-    ipa.type_id,
-    ipa.config_type_id,
-    ipa.origin_id,
-    ipa.scope_id
-FROM ip_address AS ipa
-UNION
-SELECT
-    fa.hostname AS address_value,
-    -- FQDN address type is always "hostname".
-    0 AS type_id,
-    -- FQDN address config type is always "manual".
-    3 AS config_type_id,
-    -- FQDN address doesn't have an origin.
-    null AS origin_id,
-    fa.scope_id
-FROM fqdn_address AS fa;
-
 -- v_ip_address_with_names returns a ip_address with the
 -- type ids converted to their names.
 CREATE VIEW v_ip_address_with_names AS

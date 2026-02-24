@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/description/v11"
 
 	"github.com/juju/juju/core/logger"
@@ -29,8 +30,9 @@ type Coordinator interface {
 }
 
 // RegisterImport registers the import operations with the given coordinator.
-func RegisterImport(coordinator Coordinator, logger logger.Logger) {
+func RegisterImport(coordinator Coordinator, clock clock.Clock, logger logger.Logger) {
 	coordinator.Add(&importOperation{
+		clock:  clock,
 		logger: logger,
 	})
 }
@@ -68,8 +70,10 @@ type ImportOfferAccessService interface {
 type importOperation struct {
 	modelmigration.BaseOperation
 
-	logger  logger.Logger
 	service ImportService
+
+	clock  clock.Clock
+	logger logger.Logger
 }
 
 // Name returns the name of this operation.
@@ -79,8 +83,7 @@ func (i *importOperation) Name() string {
 
 // Setup implements Operation.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
-	i.service = service.NewService(
-		state.NewState(scope.ControllerDB(), i.logger))
+	i.service = service.NewService(state.NewState(scope.ControllerDB(), i.clock, i.logger), i.clock)
 	return nil
 }
 
@@ -126,8 +129,9 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 // RegisterOfferAccessImport registers offer access import operations with the
 // given coordinator.
-func RegisterOfferAccessImport(coordinator Coordinator, logger logger.Logger) {
+func RegisterOfferAccessImport(coordinator Coordinator, clock clock.Clock, logger logger.Logger) {
 	coordinator.Add(&offerAccessImportOperation{
+		clock:  clock,
 		logger: logger,
 	})
 }
@@ -135,8 +139,10 @@ func RegisterOfferAccessImport(coordinator Coordinator, logger logger.Logger) {
 type offerAccessImportOperation struct {
 	modelmigration.BaseOperation
 
-	logger  logger.Logger
 	service ImportOfferAccessService
+
+	clock  clock.Clock
+	logger logger.Logger
 }
 
 // Name returns the name of this operation.
@@ -146,8 +152,7 @@ func (i *offerAccessImportOperation) Name() string {
 
 // Setup implements Operation.
 func (i *offerAccessImportOperation) Setup(scope modelmigration.Scope) error {
-	i.service = service.NewService(
-		state.NewState(scope.ControllerDB(), i.logger))
+	i.service = service.NewService(state.NewState(scope.ControllerDB(), i.clock, i.logger), i.clock)
 	return nil
 }
 

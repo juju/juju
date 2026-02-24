@@ -8,8 +8,6 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/set"
-	"github.com/juju/collections/transform"
 	"gopkg.in/macaroon.v2"
 
 	coredatabase "github.com/juju/juju/core/database"
@@ -120,13 +118,6 @@ func (st *State) AddConsumedRelation(
 		return errors.Capture(err)
 	}
 
-	// Check that the charm has only one endpoint. There can be multiple
-	// synthetic applications per offer, but only one endpoint per synthetic
-	// application. To do otherwise requires design and facade changes.
-	if err := synthCharmHasOnlyOneEndpoint(args.ConsumerApplicationEndpoint, args.Charm); err != nil {
-		return errors.Errorf("adding consumed relation: %w", err)
-	}
-
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Get the application UUID for which the offer UUID was created.
 		_, offerApplicationUUID, err := st.getApplicationNameAndUUIDByOfferUUID(ctx, tx, args.OfferUUID)
@@ -209,24 +200,6 @@ func (st *State) AddConsumedRelation(
 	}
 
 	return nil
-}
-
-func synthCharmHasOnlyOneEndpoint(endpoint string, ch charm.Charm) error {
-	provides := transform.MapToSlice(ch.Metadata.Provides, func(k string, _ charm.Relation) []string {
-		return []string{k}
-	})
-	requires := transform.MapToSlice(ch.Metadata.Requires, func(k string, _ charm.Relation) []string {
-		return []string{k}
-	})
-	providesSet := set.NewStrings(provides...)
-	requiresSet := set.NewStrings(requires...)
-	cnt := providesSet.Size() + requiresSet.Size()
-	if providesSet.Union(requiresSet).Contains(endpoint) && cnt == 1 {
-		return nil
-	} else if cnt > 1 {
-		return errors.Errorf("application in relation has more than one potential endpoint").Add(relationerrors.AmbiguousRelation)
-	}
-	return errors.Errorf("endpoint %q", endpoint).Add(relationerrors.RelationEndpointNotFound)
 }
 
 // GetRemoteApplicationOfferers returns all the current non-dead remote
@@ -958,11 +931,11 @@ func (st *State) GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offer
 	return applicationName, applicationUUID, nil
 }
 
-// GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID returns the synthetic application UUID
-// for the given offer UUID and the remote relation UUID.
-// Returns [applicationerrors.ApplicationNotFound] if the offer or associated
-// synthetic application is not found.
-func (st *State) GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(ctx context.Context, offerUUID string, remRelationUUID string) (string, error) {
+// GetSyntheticApplicationUUIDByRemoteToken returns the
+// synthetic application UUID for the given offer UUID and the remote relation
+// UUID. Returns [applicationerrors.ApplicationNotFound] if the offer or
+// associated synthetic application is not found.
+func (st *State) GetSyntheticApplicationUUIDByRemoteToken(ctx context.Context, offerOrAppToken string, remRelationUUID string) (string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -972,7 +945,7 @@ func (st *State) GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(ctx
 	// application on the consuming side. Getting the offer connection for the
 	// offer UUID and remote relation UUID allows us to retrieve the synthetic
 	// application UUID.
-	stmt, err := st.Prepare(`
+	offerStmt, err := st.Prepare(`
 SELECT oc.uuid AS &uuid.uuid
 FROM   offer_connection AS oc
 WHERE  oc.offer_uuid = $uuid.uuid
@@ -982,13 +955,34 @@ AND    oc.remote_relation_uuid = $remoteRelationUUID.uuid
 		return "", errors.Capture(err)
 	}
 
+	appStmt, err := st.Prepare(`
+SELECT a.uuid AS &uuid.uuid
+FROM application_remote_consumer AS arc
+JOIN application AS a ON a.uuid = arc.offer_connection_uuid
+WHERE arc.consumer_application_uuid = $uuid.uuid`, uuid{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
 	var res uuid
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err = tx.Query(ctx, stmt, uuid{UUID: offerUUID}, remoteRelationUUID{UUID: remRelationUUID}).Get(&res); errors.Is(err, sqlair.ErrNoRows) {
+		// Get the offer connection for the offer UUID and remote relation UUID.
+		// If it doesn't exist, attempt to look up the application of the offer
+		// UUID.
+		err := tx.Query(ctx, offerStmt, uuid{UUID: offerOrAppToken}, remoteRelationUUID{UUID: remRelationUUID}).Get(&res)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("retrieving synthetic application UID from offer %q: %w", offerOrAppToken, err)
+		} else if err == nil {
+			return nil
+		}
+
+		err = tx.Query(ctx, appStmt, uuid{UUID: offerOrAppToken}).Get(&res)
+		if errors.Is(err, sqlair.ErrNoRows) {
 			return applicationerrors.ApplicationNotFound
 		} else if err != nil {
-			return errors.Errorf("retrieving synthetic application UID from offer %q: %w", offerUUID, err)
+			return errors.Errorf("retrieving synthetic application UUID from application token %q: %w", offerOrAppToken, err)
 		}
+
 		return nil
 	})
 	if err != nil {

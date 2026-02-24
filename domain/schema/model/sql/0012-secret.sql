@@ -90,8 +90,6 @@ CREATE TABLE secret_content (
     content TEXT NOT NULL,
     CONSTRAINT chk_empty_name
     CHECK (name != ''),
-    CONSTRAINT chk_empty_content
-    CHECK (content != ''),
     CONSTRAINT pk_secret_content_revision_uuid_name
     PRIMARY KEY (revision_uuid, name),
     CONSTRAINT fk_secret_content_secret_revision_uuid

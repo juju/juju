@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/collections/set"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/trace"
@@ -60,6 +61,11 @@ func (s *Service) GetExposedEndpoints(ctx context.Context, appName string) (map[
 func (s *Service) UnsetExposeSettings(ctx context.Context, appName string, exposedEndpoints set.Strings) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	if appName == "controller" {
+		return errors.New("unexposing the controller application not supported").
+			Add(coreerrors.NotSupported)
+	}
 
 	appID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {

@@ -195,7 +195,7 @@ func (s *modelSecretsSuite) prepareWatchForRemoteConsumedSecretsChangesFromOffer
 	s.createSecret(c, uri2, map[string]string{"foo": "bar", "hello": "world"}, nil)
 	uri2.SourceUUID = s.ModelUUID()
 
-	_, _, realApplicationUUID, syntheticApplicationUUID := s.setupRemoteApplicationConsumer(c)
+	_, _, realApplicationUUID, syntheticApplicationUUID, _ := s.setupRemoteApplicationConsumer(c)
 
 	// The consumed revision 1.
 	saveRemoteConsumer(uri1, 1, syntheticApplicationUUID+"/0")

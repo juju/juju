@@ -109,9 +109,9 @@ func (s *Service) GetOfferUUIDByRelationUUID(ctx context.Context, relationUUID c
 	return res, nil
 }
 
-// Offer updates an existing offer, or creates a new offer if it does not exist.
-// Permissions are created for a new offer only.
-func (s *Service) Offer(
+// CreateOffer updates an existing offer, or creates a new offer if it does not
+// exist. Permissions are created for a new offer only.
+func (s *Service) CreateOffer(
 	ctx context.Context,
 	args crossmodelrelation.ApplicationOfferArgs,
 ) error {

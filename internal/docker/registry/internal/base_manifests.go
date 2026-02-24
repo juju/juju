@@ -93,7 +93,16 @@ func (c *baseClient) GetManifests(imageName, tag string) (*ManifestsResult, erro
 
 // GetManifestsCommon returns manifests result for the provided url.
 func (c *baseClient) GetManifestsCommon(url string) (*ManifestsResult, error) {
-	resp, err := c.client.Get(url)
+	logger.Debugf(context.TODO(), "Getting manifests for %s", url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	req.Header.Add("Accept", manifestContentTypeV1+"+json")
+	req.Header.Add("Accept", manifestContentTypeV2+"+json")
+	req.Header.Add("Accept", manifestContentTypeListV2+"+json")
+	req.Header.Add("Accept", manifestContentTypeOCIV1+"+json")
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, errors.Trace(unwrapNetError(err))
 	}
@@ -105,6 +114,7 @@ const (
 	manifestContentTypeV1     = "application/vnd.docker.distribution.manifest.v1"
 	manifestContentTypeV2     = "application/vnd.docker.distribution.manifest.v2"
 	manifestContentTypeListV2 = "application/vnd.docker.distribution.manifest.list.v2"
+	manifestContentTypeOCIV1  = "application/vnd.oci.image.manifest.v1"
 )
 
 func processManifestsResponse(resp *http.Response) (*ManifestsResult, error) {
@@ -131,7 +141,7 @@ func processManifestsResponse(resp *http.Response) (*ManifestsResult, error) {
 			return nil, errors.Trace(err)
 		}
 		return &ManifestsResult{Digest: data.Config.Digest}, nil
-	case manifestContentTypeListV2:
+	case manifestContentTypeListV2, manifestContentTypeOCIV1:
 		var data manifestsResponseListV2
 		if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 			return nil, errors.Trace(err)

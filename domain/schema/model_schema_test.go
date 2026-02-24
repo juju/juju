@@ -400,7 +400,6 @@ func (s *modelSchemaSuite) TestModelViews(c *tc.C) {
 
 	// Ensure that each view is present.
 	expected := set.NewStrings(
-		"v_address",
 		"v_application_charm_download_info",
 		"v_application_config",
 		"v_application_constraint",

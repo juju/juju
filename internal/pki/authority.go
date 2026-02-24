@@ -48,16 +48,22 @@ type Authority interface {
 	// given Authority. Supplied function should return false to stop iteration
 	// early.
 	LeafRange(func(leaf Leaf) bool)
+
+	// SetLeafValidityDuration records the duration (relative
+	// to the time at which the certificate is generated) for
+	// which a generated leaf certificate is valid.
+	SetLeafValidityDuration(time.Duration)
 }
 
 // DefaultAuthority is a juju implementation of the Authority interface. It's
 // main difference is the ability to set a common leaf private key so all leafs
 // use the same key.
 type DefaultAuthority struct {
-	authority       Leaf
-	leafs           sync.Map
-	leafSignerMutex sync.Mutex
-	leafSigner      crypto.Signer
+	authority           Leaf
+	leafs               sync.Map
+	leafSignerMutex     sync.Mutex
+	leafSigner          crypto.Signer
+	leafRequestValidity time.Duration
 }
 
 // Organisation default organisation set on all certificates
@@ -89,6 +95,13 @@ func (a *DefaultAuthority) ChainWithAuthority() []*x509.Certificate {
 	return append(chain, a.authority.Certificate())
 }
 
+// SetLeafValidityDuration records the duration (relative
+// to the time at which the certificate is generated) for
+// which a generated leaf certificate is valid.
+func (a *DefaultAuthority) SetLeafValidityDuration(d time.Duration) {
+	a.leafRequestValidity = d
+}
+
 // leafMaker is responsible for providing a method to make new leafs after
 // request signing.
 func (a *DefaultAuthority) leafMaker(groupKey string) LeafMaker {
@@ -113,11 +126,11 @@ func (a *DefaultAuthority) LeafRequestForGroup(group string) LeafRequest {
 	defer a.leafSignerMutex.Unlock()
 	if a.leafSigner != nil {
 		return NewDefaultLeafRequestWithSigner(subject, a.leafSigner,
-			NewDefaultRequestSigner(a.Certificate(), a.ChainWithAuthority(), a.Signer()),
+			NewDefaultRequestSigner(a.Certificate(), a.ChainWithAuthority(), a.Signer(), a.LeafValidityDuration()),
 			a.leafMaker(groupKey))
 	}
 	return NewDefaultLeafRequest(subject,
-		NewDefaultRequestSigner(a.Certificate(), a.ChainWithAuthority(), a.Signer()),
+		NewDefaultRequestSigner(a.Certificate(), a.ChainWithAuthority(), a.Signer(), a.LeafValidityDuration()),
 		a.leafMaker(groupKey))
 }
 
@@ -245,6 +258,11 @@ func (a *DefaultAuthority) SetLeafSigner(signer crypto.Signer) {
 	a.leafSignerMutex.Lock()
 	defer a.leafSignerMutex.Unlock()
 	a.leafSigner = signer
+}
+
+// LeafValidityDuration returns the leaf request validity duration.
+func (a *DefaultAuthority) LeafValidityDuration() time.Duration {
+	return a.leafRequestValidity
 }
 
 // Signer implements Leaf interface method. Returns the signer used for this

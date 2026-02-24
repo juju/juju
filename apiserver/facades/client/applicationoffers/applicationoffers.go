@@ -173,7 +173,7 @@ func (api *OffersAPI) Offer(ctx context.Context, all params.AddApplicationOffers
 		return handleErr(err), nil
 	}
 
-	err = crossModelRelationService.Offer(ctx, applicationOfferArgs)
+	err = crossModelRelationService.CreateOffer(ctx, applicationOfferArgs)
 	if errors.Is(err, crossmodelrelationerrors.OfferAlreadyExists) {
 		// We don't support updating offers via this API, so return an
 		// appropriate error.
@@ -306,14 +306,14 @@ func (api *OffersAPI) getModelFilters(ctx context.Context, apiUser names.UserTag
 		)
 		if modelUUID, ok = modelUUIDs[f.ModelName]; !ok {
 			var err error
-			model, err := api.modelForName(ctx, f.ModelName, modelQualifier)
+			m, err := api.modelForName(ctx, f.ModelName, modelQualifier)
 			if err != nil {
 				return nil, nil, errors.Capture(err)
 			}
 			// Record the UUID and model for next time.
-			modelUUID = model.UUID.String()
+			modelUUID = m.UUID.String()
 			modelUUIDs[f.ModelName] = modelUUID
-			models[modelUUID] = model
+			models[modelUUID] = m
 		}
 
 		// Record the filter and model details against the model UUID.
@@ -367,12 +367,13 @@ func (api *OffersAPI) applicationOffersFromModel(
 			continue
 		}
 
+		isAdminUser := api.authorizer.HasPermission(ctx, permission.AdminAccess, names.NewModelTag(modelUUID)) == nil
 		offerParams := api.makeOfferParams(
 			model.UUID(modelUUID),
 			appOffer.OfferDetail,
 			apiUser,
 			apiUserDisplayName,
-			requiredAccess,
+			isAdminUser,
 		)
 		offerConnections := api.makeOfferConnections(
 			modelUUID,
@@ -426,7 +427,7 @@ func (api *OffersAPI) makeOfferParams(
 	offer crossmodelrelation.OfferDetail,
 	apiUser names.UserTag,
 	apiUserDisplayName string,
-	apiUserAccess permission.Access,
+	isAdminUser bool,
 ) *params.ApplicationOfferDetailsV5 {
 	result := params.ApplicationOfferDetailsV5{
 		SourceModelTag:         names.NewModelTag(modelUUID.String()).String(),
@@ -444,7 +445,7 @@ func (api *OffersAPI) makeOfferParams(
 		})
 	}
 
-	result.Users = addUsersToApplicationOfferDetails(apiUser, apiUserDisplayName, apiUserAccess, offer.OfferUsers)
+	result.Users = addUsersToApplicationOfferDetails(apiUser, apiUserDisplayName, offer.OfferUsers, isAdminUser)
 
 	return &result
 }
@@ -452,13 +453,13 @@ func (api *OffersAPI) makeOfferParams(
 func addUsersToApplicationOfferDetails(
 	apiUser names.UserTag,
 	apiUserDisplayName string,
-	apiUserAccess permission.Access,
 	offerUsers []crossmodelrelation.OfferUser,
+	isAdminUser bool,
 ) []params.OfferUserDetails {
 	result := make([]params.OfferUserDetails, 0)
 
 	// All OfferUsers only provided if apiUserAccess if Admin.
-	if apiUserAccess != permission.AdminAccess {
+	if !isAdminUser {
 		result = append(result, params.OfferUserDetails{
 			UserName:    apiUser.Id(),
 			DisplayName: apiUserDisplayName,
@@ -1078,7 +1079,7 @@ func (api *OffersAPI) getConsumeDetails(
 
 // RemoteApplicationInfo returns information about the requested remote application.
 // This call currently has no client side API, only there for the Dashboard at this stage.
-func (api *OffersAPI) RemoteApplicationInfo(ctx context.Context, args params.OfferURLs) (params.RemoteApplicationInfoResults, error) {
+func (api *OffersAPI) RemoteApplicationInfo(_ context.Context, _ params.OfferURLs) (params.RemoteApplicationInfoResults, error) {
 	return params.RemoteApplicationInfoResults{}, nil
 }
 

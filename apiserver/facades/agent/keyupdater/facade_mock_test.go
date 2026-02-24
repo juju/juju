@@ -10,7 +10,6 @@
 package keyupdater
 
 import (
-	context "context"
 	reflect "reflect"
 
 	clock "github.com/juju/clock"
@@ -810,45 +809,6 @@ func (c *MockModelContextMachineTagCall) Do(f func() names.Tag) *MockModelContex
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelContextMachineTagCall) DoAndReturn(f func() names.Tag) *MockModelContextMachineTagCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ModelExporter mocks base method.
-func (m *MockModelContext) ModelExporter(arg0 context.Context, arg1 model.UUID) (facade.ModelExporter, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelExporter", arg0, arg1)
-	ret0, _ := ret[0].(facade.ModelExporter)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ModelExporter indicates an expected call of ModelExporter.
-func (mr *MockModelContextMockRecorder) ModelExporter(arg0, arg1 any) *MockModelContextModelExporterCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelExporter", reflect.TypeOf((*MockModelContext)(nil).ModelExporter), arg0, arg1)
-	return &MockModelContextModelExporterCall{Call: call}
-}
-
-// MockModelContextModelExporterCall wrap *gomock.Call
-type MockModelContextModelExporterCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelContextModelExporterCall) Return(arg0 facade.ModelExporter, arg1 error) *MockModelContextModelExporterCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelContextModelExporterCall) Do(f func(context.Context, model.UUID) (facade.ModelExporter, error)) *MockModelContextModelExporterCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelContextModelExporterCall) DoAndReturn(f func(context.Context, model.UUID) (facade.ModelExporter, error)) *MockModelContextModelExporterCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

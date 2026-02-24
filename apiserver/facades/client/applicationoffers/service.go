@@ -70,9 +70,9 @@ type CrossModelRelationService interface {
 		filters []crossmodelrelationservice.OfferFilter,
 	) ([]*crossmodelrelation.OfferDetailWithConnections, error)
 
-	// Offer updates an existing offer, or creates a new offer if it does not
-	// exist. Permissions are created for a new offer only.
-	Offer(
+	// CreateOffer updates an existing offer, or creates a new offer if it does
+	// not exist. Permissions are created for a new offer only.
+	CreateOffer(
 		ctx context.Context,
 		args crossmodelrelation.ApplicationOfferArgs,
 	) error

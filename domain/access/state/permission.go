@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 
@@ -31,13 +32,16 @@ import (
 // PermissionState describes retrieval and persistence methods for storage.
 type PermissionState struct {
 	*domain.StateBase
+
+	clock  clock.Clock
 	logger logger.Logger
 }
 
 // NewPermissionState returns a new state reference.
-func NewPermissionState(factory coredatabase.TxnRunnerFactory, logger logger.Logger) *PermissionState {
+func NewPermissionState(factory coredatabase.TxnRunnerFactory, clock clock.Clock, logger logger.Logger) *PermissionState {
 	return &PermissionState{
 		StateBase: domain.NewStateBase(factory),
+		clock:     clock,
 		logger:    logger,
 	}
 }
@@ -399,7 +403,7 @@ func (st *PermissionState) addExternalUser(ctx context.Context, tx *sqlair.TX, s
 	if err != nil {
 		return "", errors.Errorf("generating user UUID: %w", err)
 	}
-	err = AddUser(ctx, tx, userUUID, subject, subject.Name(), true, user.UUID(everyoneExternal.UUID))
+	err = AddUser(ctx, tx, userUUID, subject, subject.Name(), true, user.UUID(everyoneExternal.UUID), st.clock.Now().UTC())
 	if err != nil {
 		return "", errors.Errorf("adding exteranl user %q: %w", subject, err)
 	}

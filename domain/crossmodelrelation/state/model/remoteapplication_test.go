@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"database/sql"
-	"maps"
 	"testing"
 
 	"github.com/juju/collections/set"
@@ -15,7 +14,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	coreoffer "github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/application/charm"
@@ -25,8 +23,6 @@ import (
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/life"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
-	"github.com/juju/juju/domain/status"
-	internalerrors "github.com/juju/juju/internal/errors"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
@@ -541,7 +537,7 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelation(c *tc.C) {
 	s.assertRelationStatusJoining(c, relationUUID)
 }
 
-func (s *modelRemoteApplicationSuite) TestAddConsumedRelationEndpointNotFound(c *tc.C) {
+func (s *modelRemoteApplicationSuite) TestAddConsumedRelationApplicationNotFound(c *tc.C) {
 	charm := charm.Charm{
 		ReferenceName: "bar",
 		Source:        charm.CMRSource,
@@ -565,41 +561,7 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelationEndpointNotFound(c 
 		ConsumerApplicationEndpoint: "db",
 		Charm:                       charm,
 	})
-	c.Assert(err, tc.ErrorIs, relationerrors.RelationEndpointNotFound)
-}
-
-func (s *modelRemoteApplicationSuite) TestAddConsumedRelationOneAndOnlyOneEndpoint(c *tc.C) {
-	charm := charm.Charm{
-		ReferenceName: "bar",
-		Source:        charm.CMRSource,
-		Metadata: charm.Metadata{
-			Name:        "foo",
-			Description: "remote consumer application",
-			Provides: map[string]charm.Relation{
-				"db": {
-					Name:      "db",
-					Role:      charm.RoleProvider,
-					Interface: "db",
-					Limit:     1,
-					Scope:     charm.ScopeGlobal,
-				},
-				"seven": {
-					Name:      "seven",
-					Role:      charm.RoleProvider,
-					Interface: "seven",
-					Limit:     1,
-					Scope:     charm.ScopeGlobal,
-				},
-			},
-			Requires: map[string]charm.Relation{},
-			Peers:    map[string]charm.Relation{},
-		},
-	}
-	err := s.state.AddConsumedRelation(c.Context(), "foo", crossmodelrelation.AddRemoteApplicationConsumerArgs{
-		ConsumerApplicationEndpoint: "db",
-		Charm:                       charm,
-	})
-	c.Assert(err, tc.ErrorIs, relationerrors.AmbiguousRelation)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *modelRemoteApplicationSuite) TestAddConsumedRelationTwice(c *tc.C) {
@@ -889,7 +851,7 @@ func (s *modelRemoteApplicationSuite) TestGetApplicationUUIDByOfferUUIDNotExists
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDNoOfferConnection(c *tc.C) {
+func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByRemoteTokenNoOfferConnection(c *tc.C) {
 	// Create application, charm and offer first
 	applicationUUID := tc.Must(c, coreapplication.NewUUID)
 	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
@@ -900,47 +862,86 @@ func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByOfferUUID
 	s.createApplication(c, applicationUUID, charmUUID, offerUUID)
 
 	// Retrieve application UUID by offer UUID - should return the correct UUID
-	_, err := s.state.GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(c.Context(), offerUUID, remRelationUUID)
+	_, err := s.state.GetSyntheticApplicationUUIDByRemoteToken(c.Context(), offerUUID, remRelationUUID)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *baseSuite) setupRemoteApplicationConsumer(c *tc.C) (string, string, string, string) {
+func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByRemoteTokenWithApplicationUUIDNotFound(c *tc.C) {
 	// Create application, charm and offer first
-	synthApplicationUUID := tc.Must(c, coreapplication.NewUUID)
-	realApplicationUUID := tc.Must(c, coreapplication.NewUUID)
-	synthCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
-	realCharmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	applicationUUID := tc.Must(c, coreapplication.NewUUID)
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
 	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	remRelationUUID := tc.Must(c, internaluuid.NewUUID).String()
 	s.createOffer(c, offerUUID)
+	s.createCharm(c, charmUUID)
+	s.createApplication(c, applicationUUID, charmUUID, offerUUID)
+
+	// Retrieve application UUID by offer UUID - should return the correct UUID
+	_, err := s.state.GetSyntheticApplicationUUIDByRemoteToken(c.Context(), applicationUUID.String(), remRelationUUID)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *baseSuite) setupRemoteApplicationConsumer(c *tc.C) (offerUUID, relationUUID, appUUID, synthAppUUID, consumeAppUUID string) {
+	var (
+		synthApplicationUUID    = tc.Must(c, coreapplication.NewUUID)
+		realApplicationUUID     = tc.Must(c, coreapplication.NewUUID)
+		synthCharmUUID          = tc.Must(c, internaluuid.NewUUID).String()
+		realCharmUUID           = tc.Must(c, internaluuid.NewUUID).String()
+		offUUID                 = tc.Must(c, internaluuid.NewUUID).String()
+		consumerApplicationUUID = tc.Must(c, coreapplication.NewUUID).String()
+	)
+
+	s.createOffer(c, offUUID)
 	s.createCharm(c, synthCharmUUID)
 	s.createCharm(c, realCharmUUID)
-	s.createApplication(c, synthApplicationUUID, synthCharmUUID, offerUUID)
+	s.createApplication(c, synthApplicationUUID, synthCharmUUID, offUUID)
 	s.createApplication(c, realApplicationUUID, realCharmUUID, "")
 	relUUID := s.addRelation(c).String()
 
 	s.query(c, `
 INSERT INTO offer_connection (uuid, offer_uuid, remote_relation_uuid, username)
-VALUES (?, ?, ?, 'bob')`, synthApplicationUUID, offerUUID, relUUID)
+VALUES (?, ?, ?, 'bob')`, synthApplicationUUID, offUUID, relUUID)
+
 	s.query(c, `
-INSERT INTO application_remote_consumer (offer_connection_uuid, offerer_application_uuid, consumer_application_uuid, consumer_model_uuid, life_id)
-VALUES (?, ?, ?, ?, 0)`, synthApplicationUUID, realApplicationUUID, tc.Must(c, coreapplication.NewUUID), tc.Must(c, coreapplication.NewUUID))
-	return offerUUID, relUUID, realApplicationUUID.String(), synthApplicationUUID.String()
+INSERT INTO application_remote_consumer (
+    offer_connection_uuid,
+    offerer_application_uuid,
+    consumer_application_uuid,
+    consumer_model_uuid,
+    life_id)
+VALUES (?, ?, ?, ?, 0)`,
+		synthApplicationUUID,
+		realApplicationUUID,
+		consumerApplicationUUID,
+		tc.Must(c, coremodel.NewUUID),
+	)
+
+	return offUUID, relUUID, realApplicationUUID.String(), synthApplicationUUID.String(), consumerApplicationUUID
 }
 
-func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDWithOfferConnection(c *tc.C) {
-	offerUUID, relUUID, _, synthApplicationUUID := s.setupRemoteApplicationConsumer(c)
+func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByRemoteTokenWithOfferConnection(c *tc.C) {
+	offerUUID, relUUID, _, synthApplicationUUID, _ := s.setupRemoteApplicationConsumer(c)
+
 	// Retrieve application UUID by offer UUID and remote relation UUID - should return the correct UUID
-	uuid, err := s.state.GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(c.Context(), offerUUID, relUUID)
+	uuid, err := s.state.GetSyntheticApplicationUUIDByRemoteToken(c.Context(), offerUUID, relUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(uuid, tc.Equals, synthApplicationUUID)
 }
 
-func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUIDNotFound(c *tc.C) {
+func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByRemoteTokenWithApplication(c *tc.C) {
+	_, relUUID, _, synthApplicationUUID, consumeAppUUID := s.setupRemoteApplicationConsumer(c)
+	// Retrieve application UUID by offer UUID and remote relation UUID - should return the correct UUID
+	uuid, err := s.state.GetSyntheticApplicationUUIDByRemoteToken(c.Context(), consumeAppUUID, relUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuid, tc.Equals, synthApplicationUUID)
+}
+
+func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByRemoteTokenNotFound(c *tc.C) {
 	// Test with non-existing offer UUID - should return application not found
 	// (no linked application)
 	nonExistentOfferUUID := tc.Must(c, internaluuid.NewUUID).String()
 	nonExistentRelationUUID := tc.Must(c, internaluuid.NewUUID).String()
-	_, err := s.state.GetSyntheticApplicationUUIDByOfferUUIDAndRemoteRelationUUID(c.Context(), nonExistentOfferUUID, nonExistentRelationUUID)
+	_, err := s.state.GetSyntheticApplicationUUIDByRemoteToken(c.Context(), nonExistentOfferUUID, nonExistentRelationUUID)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -1812,398 +1813,6 @@ func (s *modelRemoteApplicationSuite) TestGetOfferingApplicationTokenNotFound(c 
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
-}
-
-func (s *modelRemoteApplicationSuite) assertUnitNames(c *tc.C, applicationUUID coreapplication.UUID, expectedNames []string) {
-	var names []string
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `
-SELECT name
-FROM unit
-WHERE application_uuid = ?`, applicationUUID)
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var name string
-			if err := rows.Scan(&name); err != nil {
-				return err
-			}
-			names = append(names, name)
-		}
-		return rows.Err()
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(names, tc.SameContents, expectedNames)
-}
-
-func (s *modelRemoteApplicationSuite) assertApplicationRemoteConsumer(c *tc.C, applicationUUID string) {
-	var count int
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRow(`
-SELECT COUNT(*)
-FROM application_remote_consumer
-WHERE consumer_application_uuid = ?
-`, applicationUUID).Scan(&count)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(count, tc.Equals, 1)
-}
-
-func (s *baseSuite) createOffer(c *tc.C, offerUUID string) {
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		// Create an offer record
-		_, err := tx.Exec(`
-INSERT INTO offer (uuid, name)
-VALUES (?, 'test-offer')
-`, offerUUID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *baseSuite) createApplication(c *tc.C, applicationUUID coreapplication.UUID, charmUUID string, offerUUID string) {
-	s.createApplicationWithLife(c, applicationUUID, charmUUID, offerUUID, life.Alive)
-}
-
-func (s *modelRemoteApplicationSuite) createDeadApplication(c *tc.C, applicationUUID coreapplication.UUID, charmUUID string, offerUUID string) {
-	s.createApplicationWithLife(c, applicationUUID, charmUUID, offerUUID, life.Dead)
-}
-
-func (s *modelRemoteApplicationSuite) createDyingApplication(c *tc.C, applicationUUID coreapplication.UUID, charmUUID string, offerUUID string) {
-	s.createApplicationWithLife(c, applicationUUID, charmUUID, offerUUID, life.Dying)
-}
-
-func (s *baseSuite) createApplicationWithLife(c *tc.C, applicationUUID coreapplication.UUID, charmUUID string, offerUUID string, l life.Life) {
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		// Create an application record
-		_, err := tx.Exec(`
-INSERT INTO application (uuid, name, charm_uuid, life_id, space_uuid)
-VALUES (?, ?, ?, ?, ?)
-`, applicationUUID, applicationUUID, charmUUID, l, network.AlphaSpaceId)
-		if err != nil {
-			return err
-		}
-
-		charmRelationUUID := tc.Must(c, internaluuid.NewUUID).String()
-		charmEndpointUUID := tc.Must(c, internaluuid.NewUUID).String()
-
-		// Insert charm_relation and application_endpoint records
-		insertCharmRelation := `INSERT INTO charm_relation (uuid, charm_uuid, scope_id, role_id, name) VALUES (?, ?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertCharmRelation, charmRelationUUID, charmUUID, "0", "0", "endpoint0")
-		if err != nil {
-			return err
-		}
-		insertEndpoint := `INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertEndpoint, charmEndpointUUID, applicationUUID, network.AlphaSpaceId, charmRelationUUID)
-		if err != nil {
-			return err
-		}
-		// Insert an offer endpoint record if it's not empty.
-		if offerUUID == "" {
-			return nil
-		}
-		insertOfferEndpoint := `INSERT INTO offer_endpoint (offer_uuid, endpoint_uuid) VALUES (?, ?)`
-		_, err = tx.ExecContext(ctx, insertOfferEndpoint, offerUUID, charmEndpointUUID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *baseSuite) createCharm(c *tc.C, charmUUID string) {
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		// Create a charm record
-		_, err := tx.Exec(`
-INSERT INTO charm (uuid, reference_name, source_id)
-VALUES (?, ?, 1)
-`, charmUUID, charmUUID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *modelRemoteApplicationSuite) createCharmRelation(c *tc.C, charmUUID, endpointName string) string {
-	charmRelUUID1 := tc.Must(c, internaluuid.NewUUID).String()
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO charm_relation (uuid, charm_uuid, scope_id, role_id, name) VALUES (?, ?, 0, 0, ?)`,
-			charmRelUUID1, charmUUID, endpointName)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	return charmRelUUID1
-}
-
-func (s *modelRemoteApplicationSuite) assertApplicationRemoteOfferer(c *tc.C, uuid string) {
-	var (
-		gotLifeID   int
-		gotMacaroon string
-	)
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, `
-SELECT aro.life_id, aro.macaroon 
-FROM application_remote_offerer AS aro
-JOIN application AS a ON aro.application_uuid = a.uuid
-WHERE a.uuid=?`, uuid).
-			Scan(&gotLifeID, &gotMacaroon)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(gotLifeID, tc.Equals, 0)
-	c.Check(gotMacaroon, tc.Equals, "encoded macaroon")
-}
-
-func (s *modelRemoteApplicationSuite) assertApplicationRemoteOffererStatus(c *tc.C, uuid string) {
-	var gotStatusID int
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, `
-SELECT aros.status_id 
-FROM application_remote_offerer_status AS aros
-JOIN application_remote_offerer AS aro ON aros.application_remote_offerer_uuid = aro.uuid
-JOIN application AS a ON aro.application_uuid = a.uuid
-WHERE a.uuid=?`, uuid).
-			Scan(&gotStatusID)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(gotStatusID, tc.Equals, 1)
-}
-
-func (s *modelRemoteApplicationSuite) assertApplication(c *tc.C, uuid string) {
-	var (
-		gotName      string
-		gotUUID      string
-		gotCharmUUID string
-	)
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT uuid, charm_uuid, name FROM application WHERE uuid=?", uuid).
-			Scan(&gotUUID, &gotCharmUUID, &gotName)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(gotName, tc.Equals, "foo")
-}
-
-func (s *modelRemoteApplicationSuite) assertRelation(c *tc.C, relationUUID string, relationID int) {
-	var (
-		gotUUID            string
-		gotID              int
-		gotLifID           int
-		gotScopeID         int
-		gotSuspended       bool
-		gotSuspendedReason sql.Null[string]
-	)
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, `
-SELECT uuid, relation_id, life_id, scope_id, suspended, suspended_reason
-FROM relation WHERE relation_id=?
-`, relationID).
-			Scan(&gotUUID, &gotID, &gotLifID, &gotScopeID, &gotSuspended, &gotSuspendedReason)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	if c.Check(err, tc.ErrorIsNil) {
-		c.Check(gotUUID, tc.Equals, relationUUID)
-		c.Check(gotID, tc.Equals, relationID)
-		c.Check(gotLifID, tc.Equals, 0)   // life.Alive
-		c.Check(gotScopeID, tc.Equals, 0) // scope.Global
-		c.Check(gotSuspended, tc.Equals, false)
-		c.Check(gotSuspendedReason.V, tc.Equals, "")
-	}
-}
-func (s *modelRemoteApplicationSuite) assertRelationEndpoints(c *tc.C, relationUUID, app1UUID, app2UUID string) {
-	appUUIDs := set.NewStrings(app1UUID, app2UUID)
-
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `
-SELECT ae.application_uuid
-FROM   relation_endpoint AS re
-JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
-WHERE  relation_uuid = ?
-`, relationUUID)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = rows.Close() }()
-
-		for rows.Next() {
-			var appUUID string
-
-			if err := rows.Scan(&appUUID); err != nil {
-				return err
-			}
-			if c.Check(appUUIDs.Contains(appUUID), tc.Equals, true) {
-				appUUIDs.Remove(appUUID)
-			}
-		}
-		return nil
-	})
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(appUUIDs.IsEmpty(), tc.Equals, true, tc.Commentf("relation_endpoint with app %q, not found", appUUIDs.SortedValues()))
-}
-
-func (s *modelRemoteApplicationSuite) assertRelationStatusJoining(c *tc.C, relationUUID string) {
-	var statusID int
-
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, `
-SELECT relation_status_type_id
-FROM   relation_status
-WHERE  relation_uuid = ?
-`, relationUUID).Scan(&statusID)
-
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	expectedRelationID := tc.Must1(c, status.EncodeRelationStatus, status.RelationStatusTypeJoining)
-	c.Check(statusID, tc.Equals, expectedRelationID)
-}
-
-func (s *modelRemoteApplicationSuite) assertCharmMetadata(c *tc.C, appUUID, charmUUID string, expected charm.Charm) {
-	var (
-		gotReferenceName string
-		gotSourceName    string
-		gotCharmName     string
-
-		gotProvides = make(map[string]charm.Relation)
-		gotRequires = make(map[string]charm.Relation)
-	)
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, `
-SELECT ch.reference_name, cs.name, cm.name
-FROM application
-JOIN charm AS ch ON application.charm_uuid = ch.uuid
-JOIN charm_metadata AS cm ON ch.uuid = cm.charm_uuid
-JOIN charm_source AS cs ON ch.source_id = cs.id
-WHERE application.uuid=?`, appUUID).
-			Scan(&gotReferenceName, &gotSourceName, &gotCharmName)
-		if err != nil {
-			return err
-		}
-
-		rows, err := tx.QueryContext(ctx, `
-SELECT name, role_id, interface, capacity, scope_id
-FROM charm_relation
-WHERE charm_uuid = ?`, charmUUID)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = rows.Close() }()
-
-		for rows.Next() {
-			var (
-				relName  string
-				roleID   int
-				iface    string
-				capacity int
-				scopeID  int
-			)
-			if err := rows.Scan(&relName, &roleID, &iface, &capacity, &scopeID); err != nil {
-				return err
-			}
-			rel := charm.Relation{
-				Name:      relName,
-				Interface: iface,
-				Limit:     capacity,
-			}
-			switch roleID {
-			case 0:
-				rel.Role = charm.RoleProvider
-			case 1:
-				rel.Role = charm.RoleRequirer
-			default:
-				return internalerrors.Errorf("unknown role ID %d", roleID)
-			}
-			switch scopeID {
-			case 0:
-				rel.Scope = charm.ScopeGlobal
-			default:
-				return internalerrors.Errorf("unknown scope ID %d", scopeID)
-			}
-			switch rel.Role {
-			case charm.RoleProvider:
-				gotProvides[rel.Name] = rel
-			case charm.RoleRequirer:
-				gotRequires[rel.Name] = rel
-			}
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Check(gotReferenceName, tc.Equals, expected.ReferenceName)
-	c.Check(gotSourceName, tc.Equals, "cmr")
-	c.Check(gotCharmName, tc.Equals, expected.Metadata.Name)
-
-	// Every remote application will automatically get a "juju-info" provider
-	// relation.
-	// Check that it has been added correctly.
-	provides := make(map[string]charm.Relation)
-	maps.Copy(provides, expected.Metadata.Provides)
-	provides["juju-info"] = charm.Relation{
-		Name:      "juju-info",
-		Role:      charm.RoleProvider,
-		Interface: "juju-info",
-		Limit:     0,
-		Scope:     charm.ScopeGlobal,
-	}
-
-	c.Check(gotProvides, tc.DeepEquals, provides)
-	c.Check(gotRequires, tc.DeepEquals, expected.Metadata.Requires)
-}
-
-type applicationEndpoint struct {
-	charmRelationUUID string
-	charmRelationName string
-	spaceName         string
-}
-
-func (s *modelRemoteApplicationSuite) fetchApplicationEndpoints(c *tc.C, appID string) []applicationEndpoint {
-	var endpoints []applicationEndpoint
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.Query(`
-SELECT ae.charm_relation_uuid, s.name, cr.name AS charm_relation_name
-FROM application_endpoint ae
-JOIN charm_relation cr ON cr.uuid=ae.charm_relation_uuid
-LEFT JOIN space s ON s.uuid=ae.space_uuid
-WHERE ae.application_uuid=?
-ORDER BY cr.name`, appID)
-		defer func() { _ = rows.Close() }()
-		if err != nil {
-			return err
-		}
-		for rows.Next() {
-			var (
-				uuid              string
-				spaceName         *string
-				charmRelationName string
-			)
-			if err := rows.Scan(&uuid, &spaceName, &charmRelationName); err != nil {
-				return err
-			}
-			endpoints = append(endpoints, applicationEndpoint{
-				charmRelationUUID: uuid,
-				charmRelationName: charmRelationName,
-				spaceName:         nilEmpty(spaceName),
-			})
-		}
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	return endpoints
 }
 
 func (s *modelRemoteApplicationSuite) TestGetConsumerRelationUUIDsFiltering(c *tc.C) {

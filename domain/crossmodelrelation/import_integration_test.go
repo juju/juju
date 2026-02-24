@@ -37,10 +37,10 @@ func TestImportSuite(t *testing.T) {
 	tc.Run(t, &importSuite{})
 }
 
-// TestImport is a comprehensive happy-path test that verifies the complete
-// import process for both offers and remote applications with all fields populated.
-// This ensures no data is lost during migration.
-func (s *importSuite) TestImport(c *tc.C) {
+// TestImportOffers is a comprehensive happy-path test that verifies the
+// complete import process for both offers and remote applications with all
+// fields populated. This ensures no data is lost during migration.
+func (s *importSuite) TestImportOffers(c *tc.C) {
 	// Arrange: set up the import data
 	desc := description.NewModel(description.ModelArgs{
 		Type: string(model.IAAS),
@@ -172,23 +172,6 @@ func (s *importSuite) TestImport(c *tc.C) {
 		Name:      "cache",
 		Role:      "provider",
 		Interface: "redis",
-	})
-
-	// Add a consumer proxy remote application (should be skipped during import).
-	consumerProxyMacaroon := newMacaroon(c, "proxy-macaroon")
-	consumerProxyMacaroonJSON := string(tc.Must(c, consumerProxyMacaroon.MarshalJSON))
-	consumerProxyApp := desc.AddRemoteApplication(description.RemoteApplicationArgs{
-		Name:            "remote-consumer-proxy",
-		OfferUUID:       tc.Must(c, uuid.NewUUID).String(),
-		URL:             "ctrl:admin/consumer.app",
-		SourceModelUUID: tc.Must(c, uuid.NewUUID).String(),
-		IsConsumerProxy: true, // This should be skipped during import
-		Macaroon:        consumerProxyMacaroonJSON,
-	})
-	consumerProxyApp.AddEndpoint(description.RemoteEndpointArgs{
-		Name:      "endpoint",
-		Role:      "provider",
-		Interface: "http",
 	})
 
 	// Arrange: setup the db and import

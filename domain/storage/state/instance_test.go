@@ -44,3 +44,59 @@ func (s *instanceSuite) TestGetStorageInstanceUUIDByIDNotFound(c *tc.C) {
 	_, err := st.GetStorageInstanceUUIDByID(c.Context(), "non-existent-id")
 	c.Check(err, tc.ErrorIs, domainstorageerrors.StorageInstanceNotFound)
 }
+
+func (s *instanceSuite) TestGetStorageInstanceUUIDsByIDs(c *tc.C) {
+	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
+	uuid1, id1 := s.newStorageInstanceForCharmWithPool(
+		c, "foo", poolUUID, "token1",
+	)
+	uuid2, id2 := s.newStorageInstanceForCharmWithPool(
+		c, "bar", poolUUID, "token2",
+	)
+
+	st := NewState(s.TxnRunnerFactory())
+	uuidMap, err := st.GetStorageInstanceUUIDsByIDs(c.Context(), []string{id1, id2})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuidMap, tc.DeepEquals, map[string]string{
+		id1: uuid1.String(),
+		id2: uuid2.String(),
+	})
+}
+
+func (s *instanceSuite) TestGetStorageInstanceUUIDsByIDsDuplicateIDs(c *tc.C) {
+	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
+	uuid1, id1 := s.newStorageInstanceForCharmWithPool(
+		c, "foo", poolUUID, "token1",
+	)
+	uuid2, id2 := s.newStorageInstanceForCharmWithPool(
+		c, "bar", poolUUID, "token2",
+	)
+
+	st := NewState(s.TxnRunnerFactory())
+	uuidMap, err := st.GetStorageInstanceUUIDsByIDs(c.Context(), []string{id1, id2, id1})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuidMap, tc.DeepEquals, map[string]string{
+		id1: uuid1.String(),
+		id2: uuid2.String(),
+	})
+}
+
+func (s *instanceSuite) TestGetStorageInstanceUUIDsByIDsMiss(c *tc.C) {
+	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
+	_, id1 := s.newStorageInstanceForCharmWithPool(
+		c, "foo", poolUUID, "token1",
+	)
+	_, id2 := s.newStorageInstanceForCharmWithPool(
+		c, "bar", poolUUID, "token2",
+	)
+
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.GetStorageInstanceUUIDsByIDs(c.Context(), []string{id1, id2, "foo", "bar"})
+	c.Check(err, tc.ErrorIs, domainstorageerrors.StorageInstanceNotFound)
+}
+
+func (s *instanceSuite) TestGetStorageInstanceUUIDsByIDsNoInstances(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.GetStorageInstanceUUIDsByIDs(c.Context(), []string{"foo", "bar"})
+	c.Check(err, tc.ErrorIs, domainstorageerrors.StorageInstanceNotFound)
+}
