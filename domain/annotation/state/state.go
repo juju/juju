@@ -191,13 +191,13 @@ WHERE uuid = $annotationUUID.uuid`, tableName)
 func (st *State) SetAnnotations(
 	ctx context.Context,
 	id annotations.ID,
-	values map[string]string,
+	upserts map[string]string,
 	deletions []string,
 ) error {
 	if id.Kind == annotations.KindModel {
-		return st.setAnnotationsForModel(ctx, values, deletions)
+		return st.setAnnotationsForModel(ctx, upserts, deletions)
 	}
-	return st.setAnnotationsForID(ctx, id, values, deletions)
+	return st.setAnnotationsForID(ctx, id, upserts, deletions)
 }
 
 // setAnnotationsForID associates key/value pairs with the given ID.
