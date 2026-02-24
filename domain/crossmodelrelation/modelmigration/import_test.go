@@ -12,6 +12,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
@@ -104,6 +105,10 @@ func (s *importSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 	relation.AddEndpoint(description.EndpointArgs{
 		ApplicationName: "foo",
 	})
+	remoteEntities := map[string]string{
+		"db":           "application-uuid-1234",
+		"remote-mysql": "application-uuid-4321",
+	}
 
 	expected := []service.RemoteApplicationOffererImport{
 		{
@@ -122,6 +127,7 @@ func (s *importSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 				},
 				Units: nil,
 			},
+			OffererApplicationUUID: application.UUID("application-uuid-1234"),
 		},
 	}
 	s.importService.EXPECT().ImportRemoteApplicationOfferers(
@@ -132,7 +138,75 @@ func (s *importSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 	// Act - no relations, so no units to extract
 	remoteAppUnits := make(map[string][]string)
 	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(),
-		model.RemoteApplications(), remoteAppUnits)
+		model.RemoteApplications(), remoteEntities, remoteAppUnits)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportRemoteApplicationOfferersNoRemoteEntity(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	model := description.NewModel(description.ModelArgs{})
+	remoteApp := model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "remote-mysql",
+		OfferUUID:       "offer-uuid-1234",
+		URL:             "ctrl:admin/model.mysql",
+		SourceModelUUID: "source-model-uuid",
+		Macaroon:        "macaroon-data",
+		Bindings:        map[string]string{"db": "alpha"},
+	})
+	remoteApp.AddEndpoint(description.RemoteEndpointArgs{
+		Name:      "db",
+		Role:      "provider",
+		Interface: "mysql",
+	})
+	relation := model.AddRelation(description.RelationArgs{
+		Id:  0,
+		Key: "remote-mysql:db foo:db",
+	})
+	relation.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "remote-mysql",
+	})
+	relation.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "foo",
+	})
+	remoteEntities := map[string]string{}
+
+	expected := []service.RemoteApplicationOffererImport{
+		{
+			RemoteApplicationImport: service.RemoteApplicationImport{
+				Name:            "remote-mysql",
+				OfferUUID:       "offer-uuid-1234",
+				URL:             "ctrl:admin/model.mysql",
+				SourceModelUUID: "source-model-uuid",
+				Macaroon:        "macaroon-data",
+				Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
+					{
+						Name:      "db",
+						Role:      charm.RoleProvider,
+						Interface: "mysql",
+					},
+				},
+				Units: nil,
+			},
+			OffererApplicationUUID: application.UUID(""),
+		},
+	}
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].OffererApplicationUUID`, tc.IsNonZeroUUID)
+
+	s.importService.EXPECT().ImportRemoteApplicationOfferers(
+		gomock.Any(),
+		tc.Bind(mc, expected),
+	).Return(nil)
+
+	// Act - no relations, so no units to extract
+	remoteAppUnits := make(map[string][]string)
+	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(),
+		model.RemoteApplications(), remoteEntities, remoteAppUnits)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -143,9 +217,10 @@ func (s *importSuite) TestImportRemoteApplicationOfferersEmpty(c *tc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 
+	remoteEntities := map[string]string{}
 	remoteAppUnits := make(map[string][]string)
 	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(),
-		model.RemoteApplications(), remoteAppUnits)
+		model.RemoteApplications(), remoteEntities, remoteAppUnits)
 
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -206,6 +281,10 @@ func (s *importSuite) TestImportRemoteApplicationOfferersMultiple(c *tc.C) {
 		ApplicationName: "foo",
 	})
 
+	remoteEntities := map[string]string{
+		"db": "application-uuid-1",
+	}
+
 	expected := []service.RemoteApplicationOffererImport{
 		{
 			RemoteApplicationImport: service.RemoteApplicationImport{
@@ -221,6 +300,7 @@ func (s *importSuite) TestImportRemoteApplicationOfferersMultiple(c *tc.C) {
 					},
 				},
 			},
+			OffererApplicationUUID: application.UUID("application-uuid-1"),
 		},
 		{
 			RemoteApplicationImport: service.RemoteApplicationImport{
@@ -241,6 +321,7 @@ func (s *importSuite) TestImportRemoteApplicationOfferersMultiple(c *tc.C) {
 					},
 				},
 			},
+			OffererApplicationUUID: application.UUID("application-uuid-1"),
 		},
 	}
 	s.importService.EXPECT().ImportRemoteApplicationOfferers(
@@ -250,7 +331,7 @@ func (s *importSuite) TestImportRemoteApplicationOfferersMultiple(c *tc.C) {
 
 	remoteAppUnits := make(map[string][]string)
 	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(),
-		model.RemoteApplications(), remoteAppUnits)
+		model.RemoteApplications(), remoteEntities, remoteAppUnits)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -306,6 +387,10 @@ func (s *importSuite) TestImportRemoteApplicationsWithUnitsFromRelations(c *tc.C
 	remoteEp.SetUnitSettings("remote-mysql/0", map[string]interface{}{"key": "value1"})
 	remoteEp.SetUnitSettings("remote-mysql/1", map[string]interface{}{"key": "value2"})
 
+	remoteEntities := map[string]string{
+		"db": "application-uuid-1234",
+	}
+
 	// The expected import should include the units extracted from relations
 	s.importService.EXPECT().ImportRemoteApplicationOfferers(
 		gomock.Any(),
@@ -322,7 +407,7 @@ func (s *importSuite) TestImportRemoteApplicationsWithUnitsFromRelations(c *tc.C
 	// Act - use Execute which extracts units from relations
 	op := s.newImportOperation(c)
 	remoteAppUnits := op.extractRemoteAppUnits(model)
-	err := op.importRemoteApplicationOfferers(c.Context(), model.RemoteApplications(), remoteAppUnits)
+	err := op.importRemoteApplicationOfferers(c.Context(), model.RemoteApplications(), remoteEntities, remoteAppUnits)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)

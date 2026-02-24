@@ -13,6 +13,7 @@ import (
 	"github.com/juju/description/v11"
 	"github.com/juju/names/v6"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/relation"
@@ -94,9 +95,14 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	// relations can be imported.
 	remoteAppUnits := i.extractRemoteAppUnits(model)
 
+	applicationRemoteEntities, err := extractApplicationUUIDFromRemoteEntities(model)
+	if err != nil {
+		return errors.Errorf("extracting application UUIDs from remote entities: %w", err)
+	}
+
 	// Import remote application offerers, this will create the synthetic
 	// applications and units needed for relations.
-	if err := i.importRemoteApplicationOfferers(ctx, remoteApplications, remoteAppUnits); err != nil {
+	if err := i.importRemoteApplicationOfferers(ctx, remoteApplications, applicationRemoteEntities, remoteAppUnits); err != nil {
 		return errors.Errorf("importing remote applications: %w", err)
 	}
 
@@ -113,10 +119,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	if err != nil {
 		return errors.Errorf("extracting relation UUIDs from remote entities: %w", err)
 	}
-	applicationRemoteEntities, err := extractApplicationUUIDFromRemoteEntities(model)
-	if err != nil {
-		return errors.Errorf("extracting application UUIDs from remote entities: %w", err)
-	}
+
 	relationEndpoints, err := extractRelationEndpoints(model)
 	if err != nil {
 		return errors.Errorf("extracting relation endpoints from relations: %w", err)
@@ -212,6 +215,7 @@ func (i *importOperation) importOffers(ctx context.Context, apps []description.A
 func (i *importOperation) importRemoteApplicationOfferers(
 	ctx context.Context,
 	remoteApps []description.RemoteApplication,
+	remoteEntities map[string]string,
 	remoteAppUnits map[string][]string,
 ) error {
 	// Import remote application offerers. These are remote applications that
@@ -235,6 +239,11 @@ func (i *importOperation) importRemoteApplicationOfferers(
 				primaryRemoteApp.Name(), err)
 		}
 
+		offererApplicationUUID, err := findApplicationUUIDFromRemoteEntities(endpoints, remoteEntities)
+		if err != nil {
+			return errors.Errorf("finding application UUID for remote application %q: %w",
+				primaryRemoteApp.Name(), err)
+		}
 		input = append(input, service.RemoteApplicationOffererImport{
 			RemoteApplicationImport: service.RemoteApplicationImport{
 				Name:            primaryRemoteApp.Name(),
@@ -245,6 +254,7 @@ func (i *importOperation) importRemoteApplicationOfferers(
 				Units:           remoteAppUnits[primaryRemoteApp.Name()],
 				Endpoints:       endpoints,
 			},
+			OffererApplicationUUID: offererApplicationUUID,
 		})
 	}
 	if len(input) == 0 {
@@ -476,6 +486,16 @@ func findRelationUUIDForKey(remoteEntities []relationRemoteEntity, relationKey r
 	}
 
 	return "", errors.Errorf("no relation UUID found for relation key %q", relationKey.String())
+}
+
+func findApplicationUUIDFromRemoteEntities(endpoints []crossmodelrelation.RemoteApplicationEndpoint, remoteEntities map[string]string) (coreapplication.UUID, error) {
+	for _, ep := range endpoints {
+		if appUUID, ok := remoteEntities[ep.Name]; ok {
+			return coreapplication.UUID(appUUID), nil
+		}
+	}
+
+	return coreapplication.NewUUID()
 }
 
 func relationTagSuffixToKey(s string) string {

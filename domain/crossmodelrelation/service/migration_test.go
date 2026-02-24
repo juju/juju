@@ -82,6 +82,8 @@ func (s *migrationSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
+	appUUID1 := tc.Must(c, coreapplication.NewUUID)
+	appUUID2 := tc.Must(c, coreapplication.NewUUID)
 	input := []RemoteApplicationOffererImport{
 		{
 			RemoteApplicationImport: RemoteApplicationImport{
@@ -98,6 +100,7 @@ func (s *migrationSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 					},
 				},
 			},
+			OffererApplicationUUID: appUUID1,
 		},
 		{
 			RemoteApplicationImport: RemoteApplicationImport{
@@ -114,13 +117,17 @@ func (s *migrationSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 					},
 				},
 			},
+			OffererApplicationUUID: appUUID2,
 		},
 	}
 	// Verify the service builds synthetic charms correctly
+
+	var appUUIDs []coreapplication.UUID
 	s.modelMigrationState.EXPECT().ImportRemoteApplicationOfferers(
 		gomock.Any(),
 		syntheticCharmMatcher{
 			expectedApps: transform.Slice(input, func(v RemoteApplicationOffererImport) RemoteApplicationImport {
+				appUUIDs = append(appUUIDs, v.OffererApplicationUUID)
 				return v.RemoteApplicationImport
 			}),
 		},
@@ -131,6 +138,9 @@ func (s *migrationSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(appUUIDs, tc.HasLen, 2)
+	c.Check(appUUIDs, tc.SameContents, []coreapplication.UUID{appUUID1, appUUID2})
 }
 
 func (s *migrationSuite) TestImportRemoteApplicationOfferersEmpty(c *tc.C) {

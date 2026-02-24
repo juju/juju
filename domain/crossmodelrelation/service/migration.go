@@ -100,6 +100,12 @@ type RemoteApplicationImport struct {
 // that this model is consuming from another model.
 type RemoteApplicationOffererImport struct {
 	RemoteApplicationImport
+
+	// OffererApplicationUUID is the UUID of the application in the offerer
+	// model that is offering this application. This is used to link the
+	// consumer application to the correct offerer application in the offerer
+	// model.
+	OffererApplicationUUID application.UUID
 }
 
 // RemoteApplicationConsumerImport contains details to import a remote
@@ -160,13 +166,14 @@ func (s *MigrationService) constructApplicationOfferer(rApp RemoteApplicationOff
 
 	return crossmodelrelation.RemoteApplicationOffererImport{
 		RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
-			Name:            rApp.Name,
-			OfferUUID:       rApp.OfferUUID,
-			URL:             rApp.URL,
-			SourceModelUUID: rApp.SourceModelUUID,
-			Macaroon:        rApp.Macaroon,
-			Units:           rApp.Units,
-			SyntheticCharm:  synthCharm,
+			Name:                   rApp.Name,
+			OfferUUID:              rApp.OfferUUID,
+			URL:                    rApp.URL,
+			SourceModelUUID:        rApp.SourceModelUUID,
+			Macaroon:               rApp.Macaroon,
+			Units:                  rApp.Units,
+			SyntheticCharm:         synthCharm,
+			OffererApplicationUUID: rApp.OffererApplicationUUID.String(),
 		},
 	}, nil
 }
@@ -264,18 +271,18 @@ func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rAp
 
 	return crossmodelrelation.RemoteApplicationConsumerImport{
 		RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
-			Name:           rApp.Name,
-			OfferUUID:      rApp.OfferUUID,
-			URL:            rApp.URL,
-			Macaroon:       rApp.Macaroon,
-			Units:          rApp.Units,
-			SyntheticCharm: synthCharm,
+			Name:                   rApp.Name,
+			OfferUUID:              rApp.OfferUUID,
+			URL:                    rApp.URL,
+			Macaroon:               rApp.Macaroon,
+			Units:                  rApp.Units,
+			SyntheticCharm:         synthCharm,
+			OffererApplicationUUID: offererApplicationUUID,
 		},
 		RelationUUID:                rApp.RelationUUID,
 		ConsumerModelUUID:           rApp.ConsumerModelUUID,
 		ConsumerApplicationUUID:     rApp.ConsumerApplicationUUID,
 		ConsumerApplicationEndpoint: consumerApplicationEndpoint,
-		OffererApplicationUUID:      offererApplicationUUID,
 		OffererApplicationEndpoint:  offererApplicationEndpoint,
 		UserName:                    rApp.UserName,
 		SyntheticCharmUUID:          charmUUID.String(),
