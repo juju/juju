@@ -117,7 +117,9 @@ func (s *providerSuite) expectEnsureSecretAccessToken(consumer, appNameLabel str
 		Labels: map[string]string{
 			"app.kubernetes.io/managed-by": "juju",
 			"app.kubernetes.io/name":       appNameLabel,
+			"app.juju.is/created-by":       appNameLabel,
 			"model.juju.is/name":           "fred",
+			"model.juju.is/id":             coretesting.ModelTag.Id(),
 			"secrets.juju.is/model-name":   "fred",
 			"secrets.juju.is/model-id":     coretesting.ModelTag.Id(),
 		},
@@ -211,7 +213,9 @@ func (s *providerSuite) expectEnsureControllerModelSecretAccessToken(unit string
 		Labels: map[string]string{
 			"app.kubernetes.io/managed-by": "juju",
 			"app.kubernetes.io/name":       "gitlab",
+			"app.juju.is/created-by":       "gitlab",
 			"model.juju.is/name":           "controller",
+			"model.juju.is/id":             coretesting.ModelTag.Id(),
 			"secrets.juju.is/model-name":   "controller",
 			"secrets.juju.is/model-id":     coretesting.ModelTag.Id(),
 		},
@@ -575,7 +579,9 @@ func (s *providerSuite) TestEnsureSecretAccessTokenUpdate(c *tc.C) {
 		Labels: map[string]string{
 			"app.kubernetes.io/managed-by": "juju",
 			"app.kubernetes.io/name":       "gitlab",
+			"app.juju.is/created-by":       "gitlab",
 			"model.juju.is/name":           "fred",
+			"model.juju.is/id":             coretesting.ModelTag.Id(),
 			"secrets.juju.is/model-name":   "fred",
 			"secrets.juju.is/model-id":     coretesting.ModelTag.Id(),
 		},

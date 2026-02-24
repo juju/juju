@@ -27,6 +27,7 @@ func labelsForSecretRevision(modelName string, modelUUID string) labels.Set {
 func labelsForServiceAccount(modelName string, modelUUID string) labels.Set {
 	secretLabels := map[string]string{
 		constants.LabelJujuModelName: modelName,
+		constants.LabelJujuModelUUID: modelUUID,
 		labelJujuSecretModelName:     modelName,
 		labelJujuSecretModelUUID:     modelUUID,
 	}

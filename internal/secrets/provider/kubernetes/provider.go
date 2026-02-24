@@ -995,6 +995,7 @@ func (k *kubernetesClient) ensureSecretAccessToken(
 	labels = utils.LabelsMerge(labels,
 		map[string]string{
 			constants.LabelKubernetesAppName: appName,
+			constants.LabelJujuAppCreatedBy:  appName,
 		})
 
 	// Compose the name of the service account and role and role binding.
