@@ -93,14 +93,18 @@ skip() {
 	# provided or present in SKIP_LIST). Only output "SKIP" if every command
 	# would be skipped.
 	if echo "$@" | tr ' ' '\n' | awk -v run_list="${RUN_LIST:-}" -v skip_list="${SKIP_LIST:-}" '
+		function strip_quotes(s) {
+			gsub(/^"+|"+$/, "", s)
+			return s
+		}
 		function is_skipped(cmd, i, n, parts) {
 			if (run_list != "") {
 				n = split(run_list, parts, /,/)
-				for (i = 1; i <= n; i++) if (parts[i] == cmd) { break }
+				for (i = 1; i <= n; i++) if (strip_quotes(parts[i]) == cmd) { break }
 				if (i > n) return 1
 			}
 			n = split(skip_list, parts, /,/)
-			for (i = 1; i <= n; i++) if (parts[i] == cmd) return 1
+			for (i = 1; i <= n; i++) if (strip_quotes(parts[i]) == cmd) return 1
 			return 0
 		}
 		BEGIN { all_skip = 1 }
