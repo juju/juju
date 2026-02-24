@@ -89,18 +89,22 @@ run_linter() {
 }
 
 skip() {
-	CMD="${1}"
-
-	if [[ -n ${RUN_LIST} ]]; then
-		# shellcheck disable=SC2143,SC2046
-		if [[ ! $(echo "${RUN_LIST}" | grep -w "${CMD}") ]]; then
-			echo "SKIP"
-			exit 1
-		fi
-	fi
-
-	# shellcheck disable=SC2143,SC2046
-	if [[ $(echo "${SKIP_LIST:-}" | grep -w "${CMD}") ]]; then
+	# For each command, check if it would be skipped (absent from RUN_LIST or
+	# present in SKIP_LIST). Only output "SKIP" if every command would be skipped.
+	if echo "$@" | tr ' ' '\n' | awk -v run_list="${RUN_LIST:-}" -v skip_list="${SKIP_LIST:-}" '
+		function is_skipped(cmd,    i, n, parts) {
+			if (run_list != "") {
+				n = split(run_list, parts, /,/)
+				for (i = 1; i <= n; i++) if (parts[i] == cmd) { break }
+				if (i > n) return 1
+			}
+			n = split(skip_list, parts, /,/)
+			for (i = 1; i <= n; i++) if (parts[i] == cmd) return 1
+			return 0
+		}
+		{ if (!is_skipped($0)) exit 1 }
+		END { exit (NR == 0) }
+	'; then
 		echo "SKIP"
 		exit 1
 	fi
