@@ -797,7 +797,7 @@ func (st *InsertIAASUnitState) insertUnitStorageAttachments(
 	storageToAttach []internal.CreateUnitStorageAttachmentArg,
 ) error {
 	storageAttachmentArgs := makeInsertUnitStorageAttachmentArgs(
-		ctx, unitUUID, storageToAttach,
+		unitUUID, storageToAttach,
 	)
 
 	fsAttachmentArgs := st.makeInsertUnitFilesystemAttachmentArgs(

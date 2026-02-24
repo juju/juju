@@ -251,7 +251,7 @@ type UnitState interface {
 		storageArg internal.AddStorageToIAASUnitArg,
 	) ([]corestorage.ID, error)
 
-	// AttachStorageToCAASUnit attaches the storage instance to a CAAS unit.
+	// AttachStorageToUnit attaches the storage instance to a CAAS unit.
 	// The following error types can be expected:
 	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the
 	// unit does not exist.
@@ -263,25 +263,9 @@ type UnitState interface {
 	// the storage instance is not alive.
 	// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded]:
 	// when the requested storage falls outside of the bounds defined by the charm.
-	AttachStorageToCAASUnit(
+	AttachStorageToUnit(
 		ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
 		storageArg internal.AttachStorageToUnitArg) error
-
-	// AttachStorageToIAASUnit attaches the storage instance to an IAAS unit.
-	// The following error types can be expected:
-	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the
-	// unit does not exist.
-	// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the
-	// unit is not alive.
-	// - [github.com/juju/juju/domain/application/errors.StorageInstanceNotFound]:
-	// when the storage instance does not exist.
-	// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when
-	// the storage instance is not alive.
-	// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded]:
-	// when the requested storage falls outside of the bounds defined by the charm.
-	AttachStorageToIAASUnit(
-		ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
-		storageArg internal.AttachStorageToIAASUnitArg) error
 }
 
 func (s *ProviderService) makeIAASUnitArgs(
@@ -350,8 +334,8 @@ func (s *ProviderService) makeIAASUnitArgs(
 			)
 		}
 		storageInst := transform.Slice(unitStorageArgs.StorageInstances,
-			func(in internal.CreateUnitStorageInstanceArg) internal.UnitStorageInstanceArg {
-				return internal.UnitStorageInstanceArg{
+			func(in internal.CreateUnitStorageInstanceArg) internal.AddStorageInstanceArg {
+				return internal.AddStorageInstanceArg{
 					Filesystem: in.Filesystem,
 					Volume:     in.Volume,
 					UUID:       in.UUID,

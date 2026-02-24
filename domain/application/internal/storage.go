@@ -116,19 +116,6 @@ type AttachStorageToUnitArg struct {
 	AllowedExistingUnitAttachments []string
 }
 
-// AttachStorageToIAASUnitArg represents the arguments required for attaching storage
-// to an IASS unit. This complements [AttachStorageToUnitArg], allowing for an
-// IAAS unit to augment storage that is destined for a machine.
-type AttachStorageToIAASUnitArg struct {
-	AttachStorageToUnitArg
-	// FilesystemsToOwn defines filesystems that will be owned by the unit's
-	// machine.
-	FilesystemsToOwn []domainstorage.FilesystemUUID
-
-	// VolumesToOwn defines volumes that will be owned by the unit's machine.
-	VolumesToOwn []domainstorage.VolumeUUID
-}
-
 // StorageInfoForAdd represents the arguments required to
 // add storage to a unit.
 type StorageInfoForAdd struct {
@@ -377,8 +364,9 @@ type CreateUnitStorageVolumeAttachmentArg struct {
 	ProviderID *string
 }
 
-// UnitStorageInstanceArg describes a storage instance attached to a unit.
-type UnitStorageInstanceArg struct {
+// AddStorageInstanceArg describes a set of arguments used
+// to add a unit storage instance.
+type AddStorageInstanceArg struct {
 	// Filesystem describes the properties of a new filesystem to be created
 	// alongside the  storage instance. If this value is not nil a new
 	// filesystem will be created with the storage instance.
@@ -392,6 +380,10 @@ type UnitStorageInstanceArg struct {
 	// UUID is the unique identifier of the storage instance.
 	UUID domainstorage.StorageInstanceUUID
 }
+
+// AttachStorageInstanceArg describes a set of arguments used
+// to attach a unit storage instance.
+type AttachStorageInstanceArg AddStorageInstanceArg
 
 // ModelStoragePools provides the default storage pools that have been set
 // within the model. If a value is nil then no default exists.

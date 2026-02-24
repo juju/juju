@@ -7,10 +7,10 @@ import (
 	"context"
 	"database/sql"
 	"testing"
-	
+
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	
+
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -553,14 +553,14 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnit(c *tc.C) {
 func (u *unitStorageSuite) TestAttachStorageToIAASUnitNotFound(c *tc.C) {
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	stUUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
-	err := u.state.AttachStorageToIAASUnit(c.Context(), stUUID, unitUUID, internal.AttachStorageToIAASUnitArg{})
+	err := u.state.AttachStorageToUnit(c.Context(), stUUID, unitUUID, internal.AttachStorageToUnitArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (u *unitStorageSuite) TestAttachStorageToIAASUnitStorageNotFound(c *tc.C) {
 	_, unitUUID := u.createNamedIAASUnit(c)
 	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
-	err := u.state.AttachStorageToIAASUnit(c.Context(), storageUUID, unitUUID, internal.AttachStorageToIAASUnitArg{})
+	err := u.state.AttachStorageToUnit(c.Context(), storageUUID, unitUUID, internal.AttachStorageToUnitArg{})
 	c.Assert(err, tc.ErrorIs, errors.StorageInstanceNotFound)
 }
 
@@ -574,7 +574,7 @@ func (u *unitStorageSuite) TestAttachStorageToIAASUnitNotAlive(c *tc.C) {
 	})
 	c.Assert(err, tc.IsNil)
 
-	err = u.state.AttachStorageToIAASUnit(c.Context(), stUUID, unitUUID, internal.AttachStorageToIAASUnitArg{})
+	err = u.state.AttachStorageToUnit(c.Context(), stUUID, unitUUID, internal.AttachStorageToUnitArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotAlive)
 }
 
@@ -582,11 +582,11 @@ func (u *unitStorageSuite) TestAttachStorageToIAASUnitStorageNotAlive(c *tc.C) {
 	_, unitUUID := u.createNamedIAASUnit(c)
 	stUUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
 
-	err := u.state.AttachStorageToIAASUnit(c.Context(), stUUID, unitUUID, internal.AttachStorageToIAASUnitArg{})
+	err := u.state.AttachStorageToUnit(c.Context(), stUUID, unitUUID, internal.AttachStorageToUnitArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.StorageNotAlive)
 }
 
-func (u *unitStorageSuite) TestAttachStorageToIAASUnit(c *tc.C) {
+func (u *unitStorageSuite) TestAttachStorageToUnit(c *tc.C) {
 	unitUUID, _ := u.newUnitWithStorageDirectives(c)
 	netNodeUUID, err := u.state.GetUnitNetNodeUUID(c.Context(), unitUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -610,11 +610,8 @@ func (u *unitStorageSuite) TestAttachStorageToIAASUnit(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 	c.Assert(attachInfo.AlreadyAttachedToUnits, tc.HasLen, 0)
 
-	err = u.state.AttachStorageToIAASUnit(c.Context(), siUUID, unitUUID, internal.AttachStorageToIAASUnitArg{
-		AttachStorageToUnitArg: internal.AttachStorageToUnitArg{
-			StorageToAttach: unitStorageToAttach,
-		},
-		FilesystemsToOwn: []domainstorage.FilesystemUUID{fsUUID},
+	err = u.state.AttachStorageToUnit(c.Context(), siUUID, unitUUID, internal.AttachStorageToUnitArg{
+		StorageToAttach: unitStorageToAttach,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -678,17 +675,11 @@ func (u *unitStorageSuite) TestAttachStorageMismatch(c *tc.C) {
 	arg := internal.AttachStorageToUnitArg{
 		StorageToAttach: unitStorageToAttach,
 	}
-	err = u.state.AttachStorageToIAASUnit(c.Context(), siUUID, unitUUID, internal.AttachStorageToIAASUnitArg{
-		AttachStorageToUnitArg: arg,
-		FilesystemsToOwn:       []domainstorage.FilesystemUUID{fsUUID},
-	})
+	err = u.state.AttachStorageToUnit(c.Context(), siUUID, unitUUID, arg)
 	c.Assert(err, tc.ErrorIsNil)
 
 	arg.AllowedExistingUnitAttachments = []string{tc.Must(c, coreunit.NewUUID).String()}
-	err = u.state.AttachStorageToIAASUnit(c.Context(), siUUID, unitUUID, internal.AttachStorageToIAASUnitArg{
-		AttachStorageToUnitArg: arg,
-		FilesystemsToOwn:       []domainstorage.FilesystemUUID{fsUUID},
-	})
+	err = u.state.AttachStorageToUnit(c.Context(), siUUID, unitUUID, arg)
 	rErr, ok := internalerrors.AsType[internal.StorageAttachmentNotAllowed](err)
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(rErr, tc.DeepEquals, internal.StorageAttachmentNotAllowed{
@@ -719,18 +710,12 @@ func (u *unitStorageSuite) TestAttachStorageTwiceSameUnit(c *tc.C) {
 	arg := internal.AttachStorageToUnitArg{
 		StorageToAttach: unitStorageToAttach,
 	}
-	err = u.state.AttachStorageToIAASUnit(c.Context(), siUUID, unitUUID, internal.AttachStorageToIAASUnitArg{
-		AttachStorageToUnitArg: arg,
-		FilesystemsToOwn:       []domainstorage.FilesystemUUID{fsUUID},
-	})
+	err = u.state.AttachStorageToUnit(c.Context(), siUUID, unitUUID, arg)
 	c.Assert(err, tc.ErrorIsNil)
 
 	arg.AllowedExistingUnitAttachments = []string{unitUUID.String()}
 	arg.CountLessThanEqual = 2
-	err = u.state.AttachStorageToIAASUnit(c.Context(), siUUID, unitUUID, internal.AttachStorageToIAASUnitArg{
-		AttachStorageToUnitArg: arg,
-		FilesystemsToOwn:       []domainstorage.FilesystemUUID{fsUUID},
-	})
+	err = u.state.AttachStorageToUnit(c.Context(), siUUID, unitUUID, arg)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

@@ -246,7 +246,7 @@ func (s *serviceSuite) TestMakeIAASUnitStorageArgs(c *tc.C) {
 	volUUID1 := tc.Must(c, domainstorage.NewVolumeUUID)
 	volUUID2 := tc.Must(c, domainstorage.NewVolumeUUID)
 
-	expectedStorageInstances := []internal.UnitStorageInstanceArg{
+	expectedStorageInstances := []internal.AddStorageInstanceArg{
 		{
 			Filesystem: &internal.CreateUnitStorageFilesystemArg{
 				UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
