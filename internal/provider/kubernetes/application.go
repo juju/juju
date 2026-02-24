@@ -9,7 +9,7 @@ import (
 )
 
 // Application returns an Application interface.
-func (k *kubernetesClient) Application(name string, deploymentType caas.DeploymentType) (caas.Application, error) {
+func (k *kubernetesClient) Application(name string, deploymentType caas.DeploymentType) caas.Application {
 	return application.NewApplication(name,
 		k.Namespace(),
 		k.ModelUUID(),

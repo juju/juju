@@ -147,10 +147,7 @@ func (a *appWorker) loop() error {
 	}
 
 	// TODO(sidecar): support more than statefulset
-	app, err := a.broker.Application(name, caas.DeploymentStateful)
-	if err != nil {
-		return errors.Annotatef(err, "getting k8s application")
-	}
+	app := a.broker.Application(name, caas.DeploymentStateful)
 
 	// If the application no longer exists, return immediately. If it's in
 	// Dead state, ensure it's deleted and terminated.

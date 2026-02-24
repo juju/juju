@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -108,7 +109,7 @@ type app struct {
 	newApplier     func() resources.Applier
 	controllerUUID string
 
-	pvcNamePrefixRegexp *regexp.Regexp
+	pvcNamePrefixRegexGetter func() (*regexp.Regexp, error)
 }
 
 // pvcAndStorageName represents the pvc and storage name.
@@ -138,11 +139,7 @@ func NewApplication(
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock,
 	controllerUUID string,
-) (caas.Application, error) {
-	pvcNamePrefixRegexp, err := regexp.Compile(`^(.+)-` + regexp.QuoteMeta(name) + `-\d+$`)
-	if err != nil {
-		return nil, errors.Annotatef(err, "compiling regex to get pvc template name")
-	}
+) caas.Application {
 	return newApplication(
 		name,
 		namespace,
@@ -157,8 +154,7 @@ func NewApplication(
 		clock,
 		resources.NewApplier,
 		controllerUUID,
-		pvcNamePrefixRegexp,
-	), nil
+	)
 }
 
 func newApplication(
@@ -175,23 +171,24 @@ func newApplication(
 	clock clock.Clock,
 	newApplier func() resources.Applier,
 	controllerUUID string,
-	pvcNamePrefixRegexp *regexp.Regexp,
 ) *app {
 	return &app{
-		name:                name,
-		namespace:           namespace,
-		modelUUID:           modelUUID,
-		modelName:           modelName,
-		labelVersion:        labelVersion,
-		deploymentType:      deploymentType,
-		client:              client,
-		extendedClient:      extendedClient,
-		dynamicClient:       dynamicClient,
-		newWatcher:          newWatcher,
-		clock:               clock,
-		newApplier:          newApplier,
-		controllerUUID:      controllerUUID,
-		pvcNamePrefixRegexp: pvcNamePrefixRegexp,
+		name:           name,
+		namespace:      namespace,
+		modelUUID:      modelUUID,
+		modelName:      modelName,
+		labelVersion:   labelVersion,
+		deploymentType: deploymentType,
+		client:         client,
+		extendedClient: extendedClient,
+		dynamicClient:  dynamicClient,
+		newWatcher:     newWatcher,
+		clock:          clock,
+		newApplier:     newApplier,
+		controllerUUID: controllerUUID,
+		pvcNamePrefixRegexGetter: sync.OnceValues(func() (*regexp.Regexp, error) {
+			return regexp.Compile(`^(.+)-` + regexp.QuoteMeta(name) + `-\d+$`)
+		}),
 	}
 }
 
@@ -2167,10 +2164,14 @@ func (a *app) storageNameToPVCTemplateNames(
 //
 //   - If the PVC template name cannot be extracted, an error is returned.
 func (a *app) getPVCTemplateName(completePVCName string) (string, error) {
-	if a.pvcNamePrefixRegexp == nil {
-		return "", errors.Errorf("pvcNamePrefixRegexp has not been set")
+	pvcNamePrefixRegexp, err := a.pvcNamePrefixRegexGetter()
+	if err != nil {
+		return "", errors.Trace(err)
 	}
-	matches := a.pvcNamePrefixRegexp.FindStringSubmatch(completePVCName)
+	if pvcNamePrefixRegexp == nil {
+		return "", errors.New("pvcNamePrefixRegexp is nil")
+	}
+	matches := pvcNamePrefixRegexp.FindStringSubmatch(completePVCName)
 	if matches == nil || len(matches) != 2 {
 		return "", errors.NotValidf("extracting pvc template name from existing pvc %q", completePVCName)
 	}
