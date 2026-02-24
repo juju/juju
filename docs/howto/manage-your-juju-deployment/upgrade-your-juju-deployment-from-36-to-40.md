@@ -385,6 +385,15 @@ viddy juju status
 
 ### 15. Importing orphaned volumes or file systems creates new storage instances
 
-If a storage volume or file system with no associated storage instance is migrated to 4.0, a storage instance will be
-created. These will be of the form `orphaned/x`. The purpose of such storage instances is to allow the operator to delete
-the linked volume or file system and its cloud resources should they desire.
+If a storage volume or file system with no associated storage instance is migrated to `4.0`, a storage instance will be
+created. These will be of the form `orphaned/x`. The purpose of such storage instances is to allow the operator to 
+delete the linked volume or file system and its cloud resources should they desire.
+
+### 16. Cross-model integration offers can only be consumed once
+
+Juju `3.6` allowed operators to consume offers multiple times with different names in order to end up with multiple SAAS
+entities for the same offer.
+
+Juju `4.0` allows a maximum of one SAAS per remote offer in a consuming model.
+
+If importing multiple SAAS entities for the same offer, Juju `4.0` will unify them into a single SAAS.
