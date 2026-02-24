@@ -2129,12 +2129,12 @@ type handleVolumeMountFunc func(string, corev1.VolumeMount, string) error
 
 type handleStorageClassFunc func(storagev1.StorageClass) error
 
-func (a *app) volumeName(storageName string) string {
+func (a *app) appStorageName(storageName string) string {
 	return fmt.Sprintf("%s-%s", a.name, storageName)
 }
 
-// volumeNameToPVCTemplateNames returns a mapping of volume name to PVC template name for this app's PVCs.
-func (a *app) volumeNameToPVCTemplateNames(
+// storageNameToPVCTemplateNames returns a mapping of storage name to PVC template name for this app's PVCs.
+func (a *app) storageNameToPVCTemplateNames(
 	filesystems []jujustorage.KubernetesFilesystemParams,
 ) (map[string]string, error) {
 	pvcAndStorageNames := a.collectPVCAndStorageNames(filesystems)
@@ -2144,7 +2144,7 @@ func (a *app) volumeNameToPVCTemplateNames(
 		if err != nil {
 			return nil, internalerrors.Capture(err)
 		}
-		names[a.volumeName(pvcAndStorage.storage)] = pvcTemplateName
+		names[a.appStorageName(pvcAndStorage.storage)] = pvcTemplateName
 	}
 	return names, nil
 }
@@ -2172,7 +2172,7 @@ func (a *app) getPVCTemplateName(completePVCName string) (string, error) {
 	}
 	matches := a.pvcNamePrefixRegexp.FindStringSubmatch(completePVCName)
 	if matches == nil || len(matches) != 2 {
-		return "", errors.NotValidf("cannot get pvc template name for app %q with complete pvc name %q", a.name, completePVCName)
+		return "", errors.NotValidf("extracting pvc template name from existing pvc %q", completePVCName)
 	}
 
 	return matches[1], nil
@@ -2191,9 +2191,9 @@ func (a *app) configureStorage(
 	for _, v := range storageClasses {
 		storageClassMap[v.Name] = v
 	}
-	pvcTemplateNames, err := a.volumeNameToPVCTemplateNames(filesystems)
+	pvcTemplateNames, err := a.storageNameToPVCTemplateNames(filesystems)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "mapping pvc template names for app %q", a.name)
 	}
 	logger.Tracef(context.TODO(), "persistent volume claim name mapping = %v", pvcTemplateNames)
 
@@ -2207,7 +2207,7 @@ func (a *app) configureStorage(
 
 		logger.Debugf(context.TODO(), "%s has filesystem %s: %s", a.name, fs.StorageName, pretty.Sprint(fs))
 
-		name := a.volumeName(fs.StorageName)
+		name := a.appStorageName(fs.StorageName)
 		pvcNameGetter := a.pvcNameGetter(pvcTemplateNames, storageUniqueID)
 
 		vol, pvc, sc, err := a.filesystemToVolumeInfo(name, fs, storageClassMap, pvcNameGetter)
