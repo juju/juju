@@ -49,11 +49,14 @@ func (st *State) InitialWatchRelatedUnits(
 	if err != nil {
 		return nil, nil, nil, errors.Errorf("getting application UUID for unit %q: %w", unitUUID, err)
 	}
-	var localEndpointUUID string
+
+	var localEndpointUUID, remoteEndpoint string
 	for endpointUUID, aUUID := range appByEndpoint {
 		if aUUID == appUUID {
 			localEndpointUUID = endpointUUID
-			break
+		}
+		if aUUID != appUUID {
+			remoteEndpoint = endpointUUID
 		}
 	}
 	if localEndpointUUID == "" {
@@ -65,17 +68,12 @@ func (st *State) InitialWatchRelatedUnits(
 	// For regular relations, this is the remote endpoint.
 	endpointForAppSettingsChange := localEndpointUUID
 	if !isPeerRelation {
-		endpointForAppSettingsChange = ""
-		for endpointUUID := range appByEndpoint {
-			if endpointUUID != localEndpointUUID {
-				endpointForAppSettingsChange = endpointUUID
-				break
-			}
-		}
+		endpointForAppSettingsChange = remoteEndpoint
 		if endpointForAppSettingsChange == "" {
 			return nil, nil, nil, errors.Errorf("no remote endpoint found in relation %q", relationUUID)
 		}
 	}
+
 	appUUIDForAppSettingsChange, ok := appByEndpoint[endpointForAppSettingsChange]
 	if !ok {
 		// This should be impossible.
