@@ -2257,6 +2257,9 @@ func (a *app) collectPVCAndStorageNames(
 	filesystems []jujustorage.KubernetesFilesystemParams,
 ) []pvcAndStorageName {
 	pvcAndStorageNames := make([]pvcAndStorageName, 0)
+	// TODO: this func doesn't currently consider multiple storage instances of
+	// the same name attached to a unit. i.e a charm that allows for more then
+	// one storage instance.
 	for _, fs := range filesystems {
 		for _, attachment := range fs.Attachments {
 			// This is must have been a new deployment so a realized attachment
