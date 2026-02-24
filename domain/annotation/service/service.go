@@ -82,7 +82,7 @@ func (s *Service) GetCharmAnnotations(ctx context.Context, id annotation.GetChar
 // an annotation already exists for the given ID, then it will be updated with
 // the given value.
 // Annotation keys not included will be left unchaged.
-// Anotation keys with an empty string value will be removed.
+// Annotation keys with an empty string value will be removed.
 func (s *Service) SetAnnotations(ctx context.Context, id annotations.ID, annotations map[string]string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
