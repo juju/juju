@@ -260,6 +260,14 @@ func (s *stateSuite) TestSetAnnotationsUnset(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(annotations3, tc.DeepEquals, map[string]string{"bar": "6"})
 
+	// Both add and remove at the same time
+	err = st.SetAnnotations(c.Context(), id, map[string]string{"baz": "7"}, []string{"bar"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Check that we only have baz:7
+	annotations4, err := st.GetAnnotations(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(annotations4, tc.DeepEquals, map[string]string{"baz": "7"})
 }
 
 // TestSetAnnotationsUnsetModel asserts the happy path, unsets some annotations
