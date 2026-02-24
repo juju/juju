@@ -380,11 +380,11 @@ func appDying(
 ) (err error) {
 	logger.Debugf(ctx, "application %q dying", appName)
 	err = ensureScale(ctx, appName, appUUID, app, appLife, facade, applicationService, logger)
-	if err != nil {
+	if err != nil && !errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return errors.Annotate(err, "cannot scale dying application to 0")
 	}
 	err = reconcileDeadUnitScale(ctx, appName, appUUID, app, facade, applicationService, logger)
-	if err != nil {
+	if err != nil && !errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return errors.Annotate(err, "cannot reconcile dead units in dying application")
 	}
 	return nil

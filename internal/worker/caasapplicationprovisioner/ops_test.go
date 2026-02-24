@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/deployment/charm"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
@@ -752,6 +753,31 @@ func (s *OpsSuite) TestAppDying(c *tc.C) {
 		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, false).Return(nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(nil, nil),
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
+	)
+
+	err := caasapplicationprovisioner.AppOps.AppDying(c.Context(), "test", appUUID, app,
+		life.Dying, facade, applicationService, statusService, s.logger)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *OpsSuite) TestAppDyingApplicationNotFound(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appUUID := tc.Must(c, application.NewUUID)
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+	statusService := mocks.NewMockStatusService(ctrl)
+
+	// GetApplicationScalingState returns ApplicationNotFound because the app
+	// has already been removed from the DB. appDying should tolerate this
+	// so that appDead can still run and clean up K8s resources.
+	gomock.InOrder(
+		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").
+			Return(applicationservice.ScalingState{}, applicationerrors.ApplicationNotFound),
+		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).
+			Return(nil, applicationerrors.ApplicationNotFound),
 	)
 
 	err := caasapplicationprovisioner.AppOps.AppDying(c.Context(), "test", appUUID, app,
