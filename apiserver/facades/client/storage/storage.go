@@ -1364,6 +1364,9 @@ func handleAttachStorageToUnitError(err error, unitName coreunit.Name, storageID
 	case errors.Is(err, applicationerrors.StorageNameNotSupported):
 		return apiservererrors.ParamsErrorf(params.CodeNotSupported,
 			"storage %q not supported by the charm", storageID)
+	case errors.Is(err, applicationerrors.UnitNotAssigned):
+		return apiservererrors.ParamsErrorf(params.CodeNotAssigned,
+			"cannot attach storage when the unit is not assigned to a machine")
 	case errors.HasType[applicationerrors.StorageCountLimitExceeded](err):
 		limitErr, _ := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
 		if limitErr.Maximum != nil && limitErr.Requested > *limitErr.Maximum {
@@ -1372,6 +1375,25 @@ func handleAttachStorageToUnitError(err error, unitName coreunit.Name, storageID
 				limitErr.StorageName, limitErr.Requested, *limitErr.Maximum,
 			)
 		}
+	case errors.HasType[applicationerrors.StorageAttachmentNotAllowed](err):
+		attachErr, _ := errors.AsType[applicationerrors.StorageAttachmentNotAllowed](err)
+		if len(attachErr.AttachedToUnits) > 0 {
+			return apiservererrors.ParamsErrorf(params.CodeNotValid,
+				"%v is already attached to other unit(s): %v",
+				storageID,
+				attachErr.AttachedToUnits,
+			)
+		}
+		if attachErr.ExistingStorageMachineOwner != nil {
+			return apiservererrors.ParamsErrorf(params.CodeNotValid,
+				"%v is attached to machine %v",
+				storageID,
+				*attachErr.ExistingStorageMachineOwner,
+			)
+		}
+		return apiservererrors.ParamsErrorf(params.CodeNotValid,
+			"storage attachment not allowed",
+		)
 	}
 	return err
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coreassumes "github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/domain/deployment/charm/assumes"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/rpc/params"
 )
 
 // ModelService provides access to the model state.
@@ -70,7 +72,7 @@ type DeployApplicationParams struct {
 // does not exist then the original error will be returned.
 func handleApplicationDomainError(err error) error {
 	switch {
-	// When the supplied storage directive overrides violates the chamrs
+	// When the supplied storage directive overrides violates the charm's
 	// storage.
 	case errors.HasType[applicationerrors.StorageCountLimitExceeded](err):
 		limitErr, _ := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
@@ -85,8 +87,25 @@ func handleApplicationDomainError(err error) error {
 				limitErr.StorageName, limitErr.Requested, *limitErr.Maximum,
 			).Add(coreerrors.NotValid)
 		}
-
-	// When the charm storage location violateds a prohibited filesystem mount
+	// When a request is made to attach storage but it's not allowed.
+	case errors.HasType[applicationerrors.StorageAttachmentNotAllowed](err):
+		attachErr, _ := errors.AsType[applicationerrors.StorageAttachmentNotAllowed](err)
+		if len(attachErr.AttachedToUnits) > 0 {
+			return apiservererrors.ParamsErrorf(params.CodeNotValid,
+				"storage is already attached to other unit(s): %v",
+				attachErr.AttachedToUnits,
+			)
+		}
+		if attachErr.ExistingStorageMachineOwner != nil {
+			return apiservererrors.ParamsErrorf(params.CodeNotValid,
+				"storage is attached to machine %v",
+				*attachErr.ExistingStorageMachineOwner,
+			)
+		}
+		return apiservererrors.ParamsErrorf(params.CodeNotValid,
+			"storage attachment not allowed",
+		)
+	// When the charm storage location violates a prohibited filesystem mount
 	// point.
 	case errors.HasType[applicationerrors.CharmStorageLocationProhibited](err):
 		prohibitErr, _ := errors.AsType[applicationerrors.CharmStorageLocationProhibited](err)

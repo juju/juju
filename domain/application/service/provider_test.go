@@ -3464,6 +3464,72 @@ func (s *providerServiceSuite) TestAttachStorageValidates(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.StorageCountLimitExceeded{})
 }
 
+func (s *providerServiceSuite) TestAttachStorageChecksMachineOwnerOk(c *tc.C) {
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
+	defer ctrl.Finish()
+
+	machineUUID := tc.Must(c, coremachine.NewUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	siUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+
+	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(gomock.Any(), unitUUID, siUUID).
+		Return(internal.StorageInfoForAttach{
+			CharmStorageName:     "pgdata",
+			CountMin:             1,
+			CountMax:             66,
+			MinimumSize:          10,
+			AlreadyAttachedCount: 66,
+			ProvisionedSizeMiB:   6,
+			StorageMachineOwner: &internal.MachineIdentifier{
+				UUID: machineUUID.String(),
+				Name: "666",
+			},
+		}, nil)
+	s.state.EXPECT().GetUnitMachineUUID(gomock.Any(), unitUUID.String()).Return(machineUUID.String(), nil)
+	s.storageService.EXPECT().ValidateAttachStorage(internal.ValidateStorageArg{
+		Name:        "pgdata",
+		CountMin:    1,
+		CountMax:    66,
+		MinimumSize: 10,
+	}, uint32(66), uint64(6)).
+		Return(applicationerrors.StorageCountLimitExceeded{})
+
+	err := s.service.AttachStorageToUnit(c.Context(), siUUID, unitUUID)
+	c.Assert(err, tc.ErrorIs, applicationerrors.StorageCountLimitExceeded{})
+}
+
+func (s *providerServiceSuite) TestAttachStorageChecksMachineOwnerInvalid(c *tc.C) {
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
+	defer ctrl.Finish()
+
+	machineOwnerUUID := tc.Must(c, coremachine.NewUUID)
+	machineUUID := tc.Must(c, coremachine.NewUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	siUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+
+	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(gomock.Any(), unitUUID, siUUID).
+		Return(internal.StorageInfoForAttach{
+			CharmStorageName:     "pgdata",
+			CountMin:             1,
+			CountMax:             66,
+			MinimumSize:          10,
+			AlreadyAttachedCount: 66,
+			ProvisionedSizeMiB:   6,
+			StorageMachineOwner: &internal.MachineIdentifier{
+				UUID: machineOwnerUUID.String(),
+				Name: "666",
+			},
+		}, nil)
+	s.state.EXPECT().GetUnitMachineUUID(gomock.Any(), unitUUID.String()).Return(machineUUID.String(), nil)
+
+	err := s.service.AttachStorageToUnit(c.Context(), siUUID, unitUUID)
+	storageErr, ok := errors.AsType[applicationerrors.StorageAttachmentNotAllowed](err)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(storageErr, tc.DeepEquals, applicationerrors.StorageAttachmentNotAllowed{
+		ExistingStorageMachineOwner: ptr("666"),
+	})
+}
+
 func (s *providerServiceSuite) TestAttachStorage(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
