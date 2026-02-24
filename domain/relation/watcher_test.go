@@ -677,6 +677,38 @@ VALUES (?,?,?),
 	}))
 }
 
+func (s *watcherSuite) TestWatchRelatedUnitsSettingsNoRemoteUnits(c *tc.C) {
+	// Arrange: remote application is in the relation, but has no units.
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "relation_application_settings_hash")
+	config := s.setupTestWatchRelationUnitNoRemoteUnits(c)
+
+	svc := s.setupService(c, factory)
+	watcher, err := svc.WatchRelatedUnits(c.Context(), config.watched0UUID, config.relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Act: update settings hash for remote application => event with remote app UUID.
+	harness.AddTest(c, func(c *tc.C) {
+		s.act(c, "INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256) VALUES (?, 'hash')",
+			config.otherRelationUUID)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert(domainrelation.EncodeApplicationUUID(config.otherUUID.String())),
+		)
+	})
+
+	// Act: update settings hash for local application => no event.
+	harness.AddTest(c, func(c *tc.C) {
+		s.act(c, "INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256) VALUES (?, 'hash')",
+			config.watchedRelationUUID)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	harness.Run(c, []string{})
+}
+
 func (s *watcherSuite) TestWatchRelatedUnitsPeerSettings(c *tc.C) {
 	// Arrange:
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "relation_unit_settings_hash")
@@ -969,6 +1001,43 @@ func (s *watcherSuite) setupTestWatchRelationUnit(c *tc.C) testWatchRelationUnit
 	config.initialEvents = []coreunit.UUID{config.other0UUID, config.other1UUID}
 	sort.Slice(config.initialEvents, func(i, j int) bool { return config.initialEvents[i] < config.initialEvents[j] })
 
+	return config
+}
+
+func (s *watcherSuite) setupTestWatchRelationUnitNoRemoteUnits(c *tc.C) testWatchRelationUnit {
+	// Arrange:
+	// - 2 apps linked through a relation.
+	// - local app has units, remote app has no units.
+	// - this validates app settings watch behavior without remote units.
+	config := testWatchRelationUnit{}
+	config.watchedUnit0 = "watched/0"
+	config.relationUUID = relationtesting.GenRelationUUID(c)
+
+	charmUUID := charmtesting.GenCharmID(c)
+	watchedUUID := tc.Must(c, coreapplication.NewUUID)
+	config.otherUUID = tc.Must(c, coreapplication.NewUUID)
+	config.watched0UUID = unittesting.GenUnitUUID(c)
+	config.watched1UUID = unittesting.GenUnitUUID(c)
+	charmRelationProviderUUID := uuid.MustNewUUID()
+	charmRelationRequiresUUID := uuid.MustNewUUID()
+	watchedEndpointUUID := uuid.MustNewUUID()
+	otherEndpointUUID := uuid.MustNewUUID()
+	config.watchedRelationUUID = relationtesting.GenEndpointUUID(c)
+	config.otherRelationUUID = relationtesting.GenEndpointUUID(c)
+	s.addCharm(c, charmUUID, "whatever")
+	s.addCharmRelation(c, charmUUID, charmRelationProviderUUID, 0)
+	s.addCharmRelation(c, charmUUID, charmRelationRequiresUUID, 1)
+	s.addApplication(c, charmUUID, watchedUUID, "watched")
+	s.addApplication(c, charmUUID, config.otherUUID, "other")
+	s.addUnit(c, config.watched0UUID, config.watchedUnit0, watchedUUID, charmUUID)
+	s.addUnit(c, config.watched1UUID, "watched/1", watchedUUID, charmUUID)
+	s.addApplicationEndpoint(c, watchedEndpointUUID, watchedUUID, charmRelationProviderUUID)
+	s.addApplicationEndpoint(c, otherEndpointUUID, config.otherUUID, charmRelationRequiresUUID)
+	s.addRelation(c, config.relationUUID)
+	s.addRelationEndpoint(c, config.watchedRelationUUID, config.relationUUID, watchedEndpointUUID)
+	s.addRelationEndpoint(c, config.otherRelationUUID, config.relationUUID, otherEndpointUUID)
+
+	config.initialEvents = nil
 	return config
 }
 
