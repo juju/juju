@@ -10,7 +10,7 @@ run_check_go_version() {
 
 check_go_version() {
 	exit_code=0
-	target_version="$(go mod edit -json | jq -r .Go | awk 'BEGIN{FS="."} {print $1"."$2}')"
+	target_version="$(go mod edit -json | yq -r .Go | awk 'BEGIN{FS="."} {print $1"."$2}')"
 
 	snapcraft_go_juju_version="$(yq -r '.parts | .["juju"] | .["build-snaps"].[] | select(. == "go/*")' snap/snapcraft.yaml | awk -F'/' '{print $2}')"
 	echo "${snapcraft_go_juju_version}" | grep -q "${target_version}"

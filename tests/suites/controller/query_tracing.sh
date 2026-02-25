@@ -18,7 +18,7 @@ run_query_tracing_enabled() {
 
 	attempt=0
 	# shellcheck disable=SC2046,SC2143,SC2091
-	until $(check_contains "$(cat_query_tracing_enabled_agent_conf)" "true" >/dev/null 2>&1); do
+	until check_contains "$(cat_query_tracing_enabled_agent_conf)" "true" >/dev/null 2>&1; do
 		echo "[+] (attempt ${attempt}) polling agent conf"
 		cat_query_tracing_enabled_agent_conf | sed 's/^/    | /g'
 		# This will attempt to wait for 2 minutes before failing out.
@@ -58,7 +58,7 @@ run_query_tracing_threshold() {
 
 	attempt=0
 	# shellcheck disable=SC2046,SC2143,SC2091
-	until $(check_contains "$(cat_query_tracing_threshold_agent_conf)" "42ms" >/dev/null 2>&1); do
+	until check_contains "$(cat_query_tracing_threshold_agent_conf)" "42ms" >/dev/null 2>&1; do
 		echo "[+] (attempt ${attempt}) polling agent conf"
 		cat_query_tracing_threshold_agent_conf | sed 's/^/    | /g'
 		# This will attempt to wait for 2 minutes before failing out.

@@ -24,7 +24,7 @@ run_secrets_cmr() {
 
 	echo "Create and share a secret on the offer side"
 	secret_uri=$(juju exec --unit dummy-source/0 -- secret-add foo=bar)
-	relation_id=$(juju --show-log show-unit -m model-secrets-offer dummy-source/0 --format json | jq '."dummy-source/0"."relation-info"[0]."relation-id"')
+	relation_id=$(juju --show-log show-unit -m model-secrets-offer dummy-source/0 --format json | yq '."dummy-source/0"."relation-info"[0]."relation-id"')
 	juju exec --unit dummy-source/0 -- secret-grant "$secret_uri" -r "$relation_id"
 
 	echo "Checking: the secret can be read by the consumer"

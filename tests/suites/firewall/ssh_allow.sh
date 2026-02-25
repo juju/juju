@@ -10,18 +10,18 @@ run_firewall_ssh_ec2() {
 
 	echo "==> Verifying default setting"
 	juju model-config ssh-allow | check "0.0.0.0/0,::/0"
-	model_uuid=$(juju show-model --format json | jq -r '.["firewall-ssh"]["model-uuid"]')
-	secgroup=$(aws ec2 describe-security-groups | jq -r ".SecurityGroups[] | select(.GroupName == \"juju-${model_uuid}\")")
-	echo $secgroup | jq -r ".IpPermissions[] | select(.FromPort == 22) | .IpRanges[0].CidrIp" | check "0.0.0.0/0"
-	echo $secgroup | jq -r ".IpPermissions[] | select(.FromPort == 22) | .Ipv6Ranges[0].CidrIpv6" | check "::/0"
+	model_uuid=$(juju show-model --format json | yq -r '.["firewall-ssh"]["model-uuid"]')
+	secgroup=$(aws ec2 describe-security-groups | yq -r ".SecurityGroups[] | select(.GroupName == \"juju-${model_uuid}\")")
+	echo $secgroup | yq -r ".IpPermissions[] | select(.FromPort == 22) | .IpRanges[0].CidrIp" | check "0.0.0.0/0"
+	echo $secgroup | yq -r ".IpPermissions[] | select(.FromPort == 22) | .Ipv6Ranges[0].CidrIpv6" | check "::/0"
 
 	echo "==> Verifying changed setting"
 	juju model-config ssh-allow="192.168.0.0/24"
 	attempt=0
 	while true; do
-		secgroup=$(aws ec2 describe-security-groups | jq -r ".SecurityGroups[] | select(.GroupName == \"juju-${model_uuid}\")")
-		ingress=$(echo $secgroup | jq -r ".IpPermissions[] | select(.FromPort == 22) | .IpRanges[0].CidrIp")
-		ingressv6=$(echo $secgroup | jq -r ".IpPermissions[] | select(.FromPort == 22) | .IpRanges[0].CidrIpv6")
+		secgroup=$(aws ec2 describe-security-groups | yq -r ".SecurityGroups[] | select(.GroupName == \"juju-${model_uuid}\")")
+		ingress=$(echo $secgroup | yq -r ".IpPermissions[] | select(.FromPort == 22) | .IpRanges[0].CidrIp")
+		ingressv6=$(echo $secgroup | yq -r ".IpPermissions[] | select(.FromPort == 22) | .IpRanges[0].CidrIpv6")
 		if [ "${ingress}" == "192.168.0.0/24" ] && [ "${ingressv6}" == "null" ]; then
 			break
 		fi
@@ -42,15 +42,15 @@ run_firewall_ssh_gce() {
 	juju add-machine
 	wait_for_machine_agent_status "0" "started"
 
-	model_uuid=$(juju show-model --format json | jq -r '.["firewall-ssh"]["model-uuid"]')
+	model_uuid=$(juju show-model --format json | yq -r '.["firewall-ssh"]["model-uuid"]')
 	network_tag="juju-${model_uuid}"
 
 	echo "==> Verifying default setting"
 	default_rule=$(gcloud compute firewall-rules list \
 		--filter="targetTags.list():${network_tag}" \
 		--format=json)
-	echo "$default_rule" | jq -r '.[0].sourceRanges[0]' | check "0.0.0.0/0"
-	echo "$default_rule" | jq -r '.[0].allowed[0].ports[0]' | check "22"
+	echo "$default_rule" | yq -r '.[0].sourceRanges[0]' | check "0.0.0.0/0"
+	echo "$default_rule" | yq -r '.[0].allowed[0].ports[0]' | check "22"
 
 	echo "==> Verifying changed setting"
 	juju model-config ssh-allow="192.168.0.0/24"
@@ -60,8 +60,8 @@ run_firewall_ssh_gce() {
 		updated_rule=$(gcloud compute firewall-rules list \
 			--filter="targetTags.list():${network_tag}" \
 			--format=json)
-		echo "$updated_rule" | jq -r '.[0].allowed[0].ports[0]' | check "22"
-		ingress=$(echo "$updated_rule" | jq -r '.[0].sourceRanges[0]')
+		echo "$updated_rule" | yq -r '.[0].allowed[0].ports[0]' | check "22"
+		ingress=$(echo "$updated_rule" | yq -r '.[0].sourceRanges[0]')
 		if [ "${ingress}" == "192.168.0.0/24" ]; then
 			break
 		fi

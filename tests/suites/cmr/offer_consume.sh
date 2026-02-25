@@ -28,7 +28,7 @@ run_offer_consume() {
 	wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
 	echo "Check list-offer output"
-	juju list-offers --format=json | jq -r 'has("dummy-offer")' | check true
+	juju list-offers --format=json | yq -r 'has("dummy-offer")' | check true
 
 	echo "Deploy workload in consume model"
 	juju add-model "model-consume"
@@ -38,7 +38,7 @@ run_offer_consume() {
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
 	echo "Check find-offer output"
-	juju find-offers --format=json | jq -r "has(\"${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-offer.dummy-offer\")" | check true
+	juju find-offers --format=json | yq -r "has(\"${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-offer.dummy-offer\")" | check true
 
 	echo "Relate workload in consume model with offer"
 	juju consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-offer.dummy-offer"
@@ -83,7 +83,7 @@ run_offer_consume_cross_controller() {
 	file="${TEST_DIR}/test-offer-consume-cross-controller.log"
 	ensure "model-offer" "${file}"
 
-	offer_controller="$(juju controllers --format=json | jq -r '."current-controller"')"
+	offer_controller="$(juju controllers --format=json | yq -r '."current-controller"')"
 
 	# Ensure we have another controller available.
 	echo "Bootstrap consume offer controller"

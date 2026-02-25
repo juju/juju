@@ -8,7 +8,7 @@ run_api_imports() {
 			continue
 		fi
 
-		got=$(go run ./scripts/import-inspector "$dir" 2>/dev/null | jq -r ".[]")
+		got=$(go run ./scripts/import-inspector "$dir" 2>/dev/null | yq -r ".[]")
 		python3 tests/suites/static_analysis/lint_go.py -a "${allowed}" -g "${got}" || (echo "Error: API Client import failure in $dir" && exit 1)
 	done
 }
@@ -82,7 +82,7 @@ run_govulncheck() {
 	echo "Ignoring vulnerabilities: ${ignoreMatcher}"
 
 	allVulns=$(govulncheck -format openvex "github.com/juju/juju/...")
-	filteredVulns=$(echo ${allVulns} | jq -r '.statements[] | select(.status == "affected") | .vulnerability.name' | grep -vE "${ignoreMatcher}")
+	filteredVulns=$(echo ${allVulns} | yq -r '.statements[] | select(.status == "affected") | .vulnerability.name' | grep -vE "${ignoreMatcher}")
 
 	if [[ -n ${filteredVulns} ]]; then
 		(echo >&2 -e "\\nError: govulncheck has issues:\\n\\n${filteredVulns}")

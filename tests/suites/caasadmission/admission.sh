@@ -47,7 +47,7 @@ EOF
 
 	bearer_token=$(kubectl --kubeconfig "${KUBE_CONFIG}" create token "${name}" -n "$namespace")
 
-	kubectl --kubeconfig "${KUBE_CONFIG}" config view --raw -o json | jq "del(.users[0]) | .contexts[0].context.user = \"test\" | .users[0] = {\"name\": \"test\", \"user\": {\"token\": \"$bearer_token\"}}" >"${TEST_DIR}"/kube-sa.json
+	kubectl --kubeconfig "${KUBE_CONFIG}" config view --raw -o json | yq "del(.users[0]) | .contexts[0].context.user = \"test\" | .users[0] = {\"name\": \"test\", \"user\": {\"token\": \"$bearer_token\"}}" >"${TEST_DIR}"/kube-sa.json
 
 	# Wait for the model operator to be ready
 	echo "waiting for modeloperator to become available"
@@ -129,7 +129,7 @@ EOF
 
 	bearer_token=$(kubectl --kubeconfig "${KUBE_CONFIG}" create token "${name}" -n "$namespace")
 
-	kubectl --kubeconfig "${TEST_DIR}"/kube.conf config view --raw -o json | jq "del(.users[0]) | .contexts[0].context.user = \"test\" | .users[0] = {\"name\": \"test\", \"user\": {\"token\": \"$bearer_token\"}}" >"${TEST_DIR}"/kube-sa.json
+	kubectl --kubeconfig "${TEST_DIR}"/kube.conf config view --raw -o json | yq "del(.users[0]) | .contexts[0].context.user = \"test\" | .users[0] = {\"name\": \"test\", \"user\": {\"token\": \"$bearer_token\"}}" >"${TEST_DIR}"/kube-sa.json
 
 	# Wait for the model operator to be ready
 	echo "waiting for modeloperator to become available"

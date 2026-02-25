@@ -9,6 +9,15 @@ test_controller() {
 	echo "==> Checking for dependencies"
 	check_dependencies juju
 
+	case "${BOOTSTRAP_PROVIDER:-}" in
+	"ec2")
+		setup_awscli_credential
+		;;
+	"gce")
+		setup_gcloudcli_credential
+		;;
+	esac
+
 	file="${TEST_DIR}/test-controller.log"
 
 	bootstrap "test-controller" "${file}"

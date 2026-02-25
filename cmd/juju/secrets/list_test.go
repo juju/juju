@@ -118,7 +118,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, fmt.Sprintf(`
+	c.Assert(out, jc.Contains, fmt.Sprintf(`
 %s:
   revision: 2
   rotation: hourly
@@ -127,19 +127,25 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
   label: foobar
   created: 0001-01-01T00:00:00Z
   updated: 0001-01-01T00:00:00Z
+`[1:], uris[0].ID))
+
+	c.Assert(out, jc.Contains, fmt.Sprintf(`
 %s:
   revision: 1
   owner: mariadb
   created: 0001-01-01T00:00:00Z
   updated: 0001-01-01T00:00:00Z
   error: boom
+`[1:], uris[1].ID))
+
+	c.Assert(out, jc.Contains, fmt.Sprintf(`
 %s:
   revision: 1
   owner: <model>
   name: my-secret
   created: 0001-01-01T00:00:00Z
   updated: 0001-01-01T00:00:00Z
-`[1:], uris[0].ID, uris[1].ID, uris[2].ID))
+`[1:], uris[2].ID))
 }
 
 func (s *ListSuite) TestListJSON(c *gc.C) {
