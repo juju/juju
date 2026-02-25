@@ -1228,7 +1228,7 @@ func (st *State) attachStorageForUnit(
 		return internal.MaxStorageCountPreconditonFailed
 	}
 
-	err = st.unitState.insertUnitStorageAttachments(
+	err = st.insertUnitStorageAttachments(
 		ctx,
 		tx,
 		unitUUID.String(),
@@ -1247,7 +1247,7 @@ func (st *State) attachStorageForUnit(
 		)
 	}
 
-	err = st.unitState.insertUnitStorageOwnership(ctx, tx, unitUUID.String(), []domainstorage.StorageInstanceUUID{storageUUID})
+	err = st.insertUnitStorageOwnership(ctx, tx, unitUUID.String(), []domainstorage.StorageInstanceUUID{storageUUID})
 	if err != nil {
 		return errors.Errorf(
 			"inserting storage ownership for unit %q: %w", unitUUID, err,
@@ -1342,7 +1342,7 @@ func (st *State) addStorageForUnit(
 		return nil, storageerrors.MaxStorageCountPreconditionFailed
 	}
 
-	storageIDs, err := st.unitState.insertUnitStorageInstances(
+	storageIDs, err := st.insertUnitStorageInstances(
 		ctx, tx, storageArg.StorageInstances,
 	)
 	if err != nil {
@@ -1351,7 +1351,7 @@ func (st *State) addStorageForUnit(
 		)
 	}
 
-	err = st.unitState.insertUnitStorageAttachments(
+	err = st.insertUnitStorageAttachments(
 		ctx,
 		tx,
 		unitUUID.String(),
@@ -1363,7 +1363,7 @@ func (st *State) addStorageForUnit(
 		)
 	}
 
-	err = st.unitState.insertUnitStorageOwnership(ctx, tx, unitUUID.String(), storageArg.StorageToOwn)
+	err = st.insertUnitStorageOwnership(ctx, tx, unitUUID.String(), storageArg.StorageToOwn)
 	if err != nil {
 		return nil, errors.Errorf(
 			"inserting storage ownership for unit %q: %w", unitUUID, err,
@@ -1420,7 +1420,7 @@ func (st *State) AddStorageForIAASUnit(
 			return errors.Capture(err)
 		}
 
-		err = st.unitState.insertMachineVolumeOwnership(ctx, tx, coremachine.UUID(machineUUID),
+		err = st.insertMachineVolumeOwnership(ctx, tx, coremachine.UUID(machineUUID),
 			storageArg.VolumesToOwn)
 		if err != nil {
 			return errors.Errorf(
@@ -1429,7 +1429,7 @@ func (st *State) AddStorageForIAASUnit(
 			)
 		}
 
-		err = st.unitState.insertMachineFilesystemOwnership(ctx, tx, coremachine.UUID(machineUUID),
+		err = st.insertMachineFilesystemOwnership(ctx, tx, coremachine.UUID(machineUUID),
 			storageArg.FilesystemsToOwn)
 		if err != nil {
 			return errors.Errorf(

@@ -429,7 +429,7 @@ func (st *State) insertIAASApplicationUnits(
 ) ([]coremachine.Name, error) {
 	var machineNames []coremachine.Name
 	for i, unit := range units {
-		_, _, mNames, err := st.unitState.InsertIAASUnit(ctx, tx, appUUID, charmUUID, unit)
+		_, _, mNames, err := st.InsertIAASUnit(ctx, tx, appUUID, charmUUID, unit)
 		if err != nil {
 			return nil, errors.Errorf("inserting IAAS unit %d: %w", i, err)
 		}
@@ -1272,7 +1272,7 @@ func (st *State) insertCloudServiceAddresses(
 		return nil
 	}
 
-	subnetUUIDs, err := st.unitState.k8sSubnetUUIDsByAddressType(ctx, tx)
+	subnetUUIDs, err := st.k8sSubnetUUIDsByAddressType(ctx, tx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -2618,7 +2618,7 @@ func (st *State) GetApplicationName(ctx context.Context, appID coreapplication.U
 	var name string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		name, err = st.unitState.getApplicationName(ctx, tx, appID.String())
+		name, err = st.getApplicationName(ctx, tx, appID.String())
 		return err
 	})
 	if err != nil {

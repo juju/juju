@@ -52,10 +52,11 @@ type baseSuite struct {
 //
 // This checker will:
 // - Deep equals check all values in the slice.
-// - It will not deep equals check unit NetNodeUUID values, instead they will be
-// checked to make sure they're a non zero uuid value.
+// - It will not deep equals check unit UnitUUID or NetNodeUUID values,
+// instead they will be checked to make sure they're a non zero uuid value.
 func createAddCAASUnitArgsChecker() *tc.MultiChecker {
 	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].AddUnitArg.UnitUUID`, tc.IsNonZeroUUID)
 	mc.AddExpr(`_[_].AddUnitArg.NetNodeUUID`, tc.IsNonZeroUUID)
 	return mc
 }

@@ -415,7 +415,6 @@ func (s *serviceSuite) TestMakeUnitAttachStorageArgs(c *tc.C) {
 	attachNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
-	unitUUID := tc.Must(c, coreunit.NewUUID)
 	instComposition := internal.StorageInstanceComposition{
 		UUID: storageUUID,
 		Filesystem: &internal.StorageInstanceCompositionFilesystem{
@@ -437,13 +436,12 @@ func (s *serviceSuite) TestMakeUnitAttachStorageArgs(c *tc.C) {
 	).AnyTimes()
 
 	s.state.EXPECT().GetStorageInstanceCompositionByUUID(gomock.Any(), storageUUID).Return(instComposition, nil)
-	s.state.EXPECT().GetUnitNetNodeUUID(gomock.Any(), unitUUID).Return(attachNetNodeUUID.String(), nil)
 
 	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
 
 	attachArg, err := svc.MakeUnitAttachStorageArgs(
 		c.Context(),
-		unitUUID,
+		attachNetNodeUUID.String(),
 		storageUUID,
 	)
 	c.Check(err, tc.ErrorIsNil)

@@ -130,25 +130,25 @@ func (s *stateSuite) TestCheckApplicationExistsDead(c *tc.C) {
 }
 
 func (s *stateSuite) TestCheckApplicationExistsAlive(c *tc.C) {
-	id := s.createIAASApplication(c, "foo", life.Dying)
+	appUUID := s.createIAASApplication(c, "foo", life.Dying)
 
 	st := NewState(s.TxnRunnerFactory(), s.modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		return st.checkApplicationAlive(ctx, tx, id)
+		return st.checkApplicationAlive(ctx, tx, appUUID.String())
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
 }
 
 func (s *stateSuite) TestCheckApplicationExistsAliveSyntheticCMRApplication(c *tc.C) {
-	id := s.createIAASApplication(c, "foo", life.Dying)
+	appUUID := s.createIAASApplication(c, "foo", life.Dying)
 
 	// Switch the source_id of a charm to a synthetic CMR charm.
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 UPDATE charm SET source_id = 2, architecture_id = NULL WHERE uuid = (
 SELECT charm_uuid FROM application WHERE uuid = ?
-)`, id)
+)`, appUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -156,7 +156,7 @@ SELECT charm_uuid FROM application WHERE uuid = ?
 	st := NewState(s.TxnRunnerFactory(), s.modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		return st.checkApplicationAlive(ctx, tx, id)
+		return st.checkApplicationAlive(ctx, tx, appUUID.String())
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
 }

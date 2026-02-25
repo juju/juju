@@ -529,9 +529,12 @@ func (s *ProviderService) RegisterCAASUnit(
 	}
 
 	if !isRegistered {
-		// TODO (tlm): This code SHOULD be responsible for generating the unit
-		// uuid of a new CAAS unit. However this is still done in state. We need
-		// to fix this and have this driven from above.
+		unitUUID, err = coreunit.NewUUID()
+		if err != nil {
+			return "", "", errors.Errorf(
+				"generating new unit %q uuid: %w", unitName, err,
+			)
+		}
 		unitNetNodeUUID, err = domainnetwork.NewNetNodeUUID()
 		if err != nil {
 			return "", "", errors.Errorf(
@@ -540,6 +543,7 @@ func (s *ProviderService) RegisterCAASUnit(
 		}
 	}
 
+	registerArgs.UnitUUID = unitUUID
 	registerArgs.NetNodeUUID = unitNetNodeUUID
 
 	// Find the pod/unit in the provider.
@@ -1260,7 +1264,7 @@ func (s *ProviderService) AddStorageForCAASUnit(
 func (s *ProviderService) populateAttachStorageArgs(
 	ctx context.Context,
 	storageUUID domainstorage.StorageInstanceUUID,
-	unitUUID coreunit.UUID,
+	netNodeUUID string,
 	storageAttachInfo internal.StorageInfoForAttach,
 ) (internal.AttachStorageToUnitArg, error) {
 
@@ -1279,7 +1283,7 @@ func (s *ProviderService) populateAttachStorageArgs(
 
 	attachArgs, err := s.storageService.MakeUnitAttachStorageArgs(
 		ctx,
-		unitUUID,
+		netNodeUUID,
 		storageUUID,
 	)
 	if err != nil {
@@ -1306,6 +1310,8 @@ func (s *ProviderService) populateAttachStorageArgs(
 	}
 	return args, nil
 }
+
+const alreadyAttachedError = errors.ConstError("alreadyAttached")
 
 // AttachStorageToUnit ensures the specified storage instance is attached to
 // the specified unit.
@@ -1334,51 +1340,22 @@ func (s *ProviderService) AttachStorageToUnit(
 		return errors.New("unit uuid is not valid").Add(coreerrors.NotValid)
 	}
 
-	storageAttachInfo, err := s.st.GetStorageAttachInfoByUnitUUIDAndStorageUUID(ctx, unitUUID, storageUUID)
+	netNodeUUID, err := s.st.GetUnitNetNodeUUID(ctx, unitUUID)
+	if err != nil {
+		return errors.Errorf("getting unit net node uuid: %w", err)
+	}
+	unitMachineUUID, err := s.st.GetUnitMachineUUID(ctx, unitUUID.String())
 	if err != nil {
 		return errors.Errorf(
-			"getting unit %q charm storage and attachment info for %q: %w",
-			unitUUID, storageUUID, err,
-		)
+			"getting machine for unit %q: %w",
+			unitUUID, err)
 	}
 
-	if storageAttachInfo.StorageMachineOwner != nil {
-		unitMachineUUID, err := s.st.GetUnitMachineUUID(ctx, unitUUID.String())
-		if err != nil {
-			return errors.Errorf(
-				"getting machine for unit %q: %w",
-				unitUUID, err)
-		}
-		if unitMachineUUID != storageAttachInfo.StorageMachineOwner.UUID {
-			return applicationerrors.StorageAttachmentNotAllowed{
-				ExistingStorageMachineOwner: &storageAttachInfo.StorageMachineOwner.Name,
-			}
-		}
-	}
-
-	attachedToMap := storageAttachInfo.AlreadyAttachedToUnits
-	attachedUUIDs := set.NewStrings()
-	for uuid := range attachedToMap {
-		attachedUUIDs.Add(uuid)
-	}
-	if attachedUUIDs.Size() == 1 && attachedUUIDs.Contains(unitUUID.String()) {
+	unitAttachStorageArgs, err := s.makeAttachStorageToUnitArgs(ctx, storageUUID, unitUUID, netNodeUUID, &unitMachineUUID)
+	if errors.Is(err, alreadyAttachedError) {
 		// The storage is already attached to the unit, so this is a no-op.
 		return nil
-	}
-	attachedUUIDs.Remove(unitUUID.String())
-	// Shared storage is not supported.
-	if attachedUUIDs.Size() > 0 {
-		otherNames := make([]string, 0, attachedUUIDs.Size())
-		for _, uuid := range attachedUUIDs.SortedValues() {
-			otherNames = append(otherNames, attachedToMap[uuid])
-		}
-		return applicationerrors.StorageAttachmentNotAllowed{
-			AttachedToUnits: otherNames,
-		}
-	}
-
-	unitAttachStorageArgs, err := s.populateAttachStorageArgs(ctx, storageUUID, unitUUID, storageAttachInfo)
-	if err != nil {
+	} else if err != nil {
 		return errors.Capture(err)
 	}
 
@@ -1394,4 +1371,63 @@ func (s *ProviderService) AttachStorageToUnit(
 		}
 	}
 	return errors.Capture(err)
+}
+
+func (s *ProviderService) makeAttachStorageToUnitArgs(
+	ctx context.Context, storageUUID domainstorage.StorageInstanceUUID,
+	unitUUID coreunit.UUID, netNodeUUID string, unitPlacementMachineUUID *string,
+) (internal.AttachStorageToUnitArg, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if storageUUID.Validate() != nil {
+		return internal.AttachStorageToUnitArg{}, errors.New("storage uuid is not valid").Add(coreerrors.NotValid)
+	}
+	if unitUUID.Validate() != nil {
+		return internal.AttachStorageToUnitArg{}, errors.New("unit uuid is not valid").Add(coreerrors.NotValid)
+	}
+
+	storageAttachInfo, err := s.st.GetStorageAttachInfoByUnitUUIDAndStorageUUID(ctx, unitUUID, storageUUID)
+	if err != nil {
+		return internal.AttachStorageToUnitArg{}, errors.Errorf(
+			"getting unit %q charm storage and attachment info for %q: %w",
+			unitUUID, storageUUID, err,
+		)
+	}
+
+	// First check to see if the storage is already attached to the unit.
+	attachedToMap := storageAttachInfo.AlreadyAttachedToUnits
+	attachedUUIDs := set.NewStrings()
+	for uuid := range attachedToMap {
+		attachedUUIDs.Add(uuid)
+	}
+	if attachedUUIDs.Size() == 1 && attachedUUIDs.Contains(unitUUID.String()) {
+		// The storage is already attached to the unit, so this is a no-op.
+		return internal.AttachStorageToUnitArg{}, alreadyAttachedError
+	}
+	// It's an error if the storage is attached to any other unit,
+	// as we don't support shared storage.
+	attachedUUIDs.Remove(unitUUID.String())
+	if attachedUUIDs.Size() > 0 {
+		otherNames := make([]string, 0, attachedUUIDs.Size())
+		for _, uuid := range attachedUUIDs.SortedValues() {
+			otherNames = append(otherNames, attachedToMap[uuid])
+		}
+		return internal.AttachStorageToUnitArg{}, applicationerrors.StorageAttachmentNotAllowed{
+			AttachedToUnits: otherNames,
+		}
+	}
+
+	// If the storage is owned by a machine, then it can only be
+	// attached to units on the same machine.
+	if storageAttachInfo.StorageMachineOwner != nil {
+		// unitPlacementMachineUUID is nil when the unit is being added to a new machine.
+		if unitPlacementMachineUUID == nil || *unitPlacementMachineUUID != storageAttachInfo.StorageMachineOwner.UUID {
+			return internal.AttachStorageToUnitArg{}, applicationerrors.StorageAttachmentNotAllowed{
+				ExistingStorageMachineOwner: &storageAttachInfo.StorageMachineOwner.Name,
+			}
+		}
+	}
+
+	return s.populateAttachStorageArgs(ctx, storageUUID, netNodeUUID, storageAttachInfo)
 }

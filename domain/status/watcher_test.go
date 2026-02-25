@@ -4,7 +4,7 @@
 package status_test
 
 import (
-	context "context"
+	"context"
 	"database/sql"
 	stdtesting "testing"
 
@@ -117,9 +117,11 @@ func (s *watcherSuite) TestWatchOfferStatus(c *tc.C) {
 func (s *watcherSuite) TestWatchOfferStatusApplicationWithUnits(c *tc.C) {
 	units := make([]application.AddIAASUnitArg, 3)
 	for i := range units {
+		unitUUID := tc.Must(c, coreunit.NewUUID)
 		netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 		units[i].MachineUUID = tc.Must(c, coremachine.NewUUID)
 		units[i].MachineNetNodeUUID = netNodeUUID
+		units[i].UnitUUID = unitUUID
 		units[i].NetNodeUUID = netNodeUUID
 		units[i].WorkloadStatus = &domainstatus.StatusInfo[domainstatus.WorkloadStatusType]{
 			Status: domainstatus.WorkloadStatusActive,

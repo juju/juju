@@ -485,7 +485,7 @@ func (st *State) AddIAASUnits(
 		machineNames []coremachine.Name
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkApplicationAlive(ctx, tx, appUUID); err != nil {
+		if err := st.checkApplicationAlive(ctx, tx, appUUID.String()); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -495,7 +495,7 @@ func (st *State) AddIAASUnits(
 		}
 
 		for i, arg := range args {
-			uName, _, mNames, err := st.unitState.InsertIAASUnit(ctx, tx, appUUID.String(), charmUUID, arg)
+			uName, _, mNames, err := st.InsertIAASUnit(ctx, tx, appUUID.String(), charmUUID, arg)
 			if err != nil {
 				return errors.Errorf("inserting unit %d: %w ", i, err)
 			}
@@ -855,6 +855,7 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 	addUnitArg := application.AddCAASUnitArg{
 		AddUnitArg: application.AddUnitArg{
 			CreateUnitStorageArg: arg.CreateUnitStorageArg,
+			UnitUUID:             arg.UnitUUID,
 			NetNodeUUID:          arg.NetNodeUUID,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
@@ -926,7 +927,7 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 			return errors.Capture(err)
 		}
 
-		err = st.unitState.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.UnitUUID, toUpdate.NetNodeID, cloudContainer)
+		err = st.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.UnitUUID, toUpdate.NetNodeID, cloudContainer)
 		if err != nil {
 			return errors.Errorf("updating cloud container for unit %q: %w", arg.UnitName, err)
 		}
@@ -993,7 +994,7 @@ func (st *State) insertCAASUnit(
 	appUUID, charmUUID string,
 	args application.AddCAASUnitArg,
 ) (string, error) {
-	unitName, err := st.unitState.newUnitName(ctx, tx, appUUID)
+	unitName, err := st.newUnitName(ctx, tx, appUUID)
 	if err != nil {
 		return "", errors.Errorf("getting new unit name for application %q: %w", appUUID, err)
 	}
@@ -1014,13 +1015,9 @@ func (st *State) insertCAASUnitWithName(
 	appUUID, charmUUID, unitName string,
 	args application.AddCAASUnitArg,
 ) (string, error) {
-	u, err := coreunit.NewUUID()
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	unitUUID := u.String()
+	unitUUID := args.UnitUUID.String()
 
-	if err := st.unitState.insertUnit(ctx, tx, appUUID, unitUUID, args.NetNodeUUID.String(), insertUnitArg{
+	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, args.NetNodeUUID.String(), insertUnitArg{
 		CharmUUID:      charmUUID,
 		UnitName:       unitName,
 		CloudContainer: args.CloudContainer,
@@ -1030,7 +1027,7 @@ func (st *State) insertCAASUnitWithName(
 		return "", errors.Errorf("inserting unit for CAAS application %q: %w", appUUID, err)
 	}
 
-	err = st.unitState.insertUnitStorageDirectives(
+	err := st.insertUnitStorageDirectives(
 		ctx, tx, unitUUID, charmUUID, args.StorageDirectives,
 	)
 	if err != nil {
@@ -1039,7 +1036,7 @@ func (st *State) insertCAASUnitWithName(
 		)
 	}
 
-	_, err = st.unitState.insertUnitStorageInstances(
+	_, err = st.insertUnitStorageInstances(
 		ctx, tx, args.StorageInstances,
 	)
 	if err != nil {
@@ -1048,7 +1045,7 @@ func (st *State) insertCAASUnitWithName(
 		)
 	}
 
-	err = st.unitState.insertUnitStorageAttachments(
+	err = st.insertUnitStorageAttachments(
 		ctx,
 		tx,
 		unitUUID,
@@ -1060,7 +1057,7 @@ func (st *State) insertCAASUnitWithName(
 		)
 	}
 
-	err = st.unitState.insertUnitStorageOwnership(ctx, tx, unitUUID, args.StorageToOwn)
+	err = st.insertUnitStorageOwnership(ctx, tx, unitUUID, args.StorageToOwn)
 	if err != nil {
 		return "", errors.Errorf(
 			"inserting storage ownership for unit %q: %w", unitName, err,
@@ -1101,17 +1098,17 @@ func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, par
 		}
 
 		if cloudContainer != nil {
-			err = st.unitState.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.UnitUUID, toUpdate.NetNodeID, cloudContainer)
+			err = st.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.UnitUUID, toUpdate.NetNodeID, cloudContainer)
 			if err != nil {
 				return errors.Errorf("updating cloud container for unit %q: %w", unitName, err)
 			}
 		}
 
-		if err := st.unitState.setUnitAgentStatus(ctx, tx, toUpdate.UnitUUID, params.AgentStatus); err != nil {
+		if err := st.setUnitAgentStatus(ctx, tx, toUpdate.UnitUUID, params.AgentStatus); err != nil {
 			return errors.Errorf("saving unit %q agent status: %w", unitName, err)
 		}
 
-		if err := st.unitState.setUnitWorkloadStatus(ctx, tx, toUpdate.UnitUUID, params.WorkloadStatus); err != nil {
+		if err := st.setUnitWorkloadStatus(ctx, tx, toUpdate.UnitUUID, params.WorkloadStatus); err != nil {
 			return errors.Errorf("saving unit %q workload status: %w", unitName, err)
 		}
 		if err := st.setK8sPodStatus(ctx, tx, toUpdate.UnitUUID, params.K8sPodStatus); err != nil {
@@ -1723,7 +1720,7 @@ func (st *State) SetUnitWorkloadVersion(ctx context.Context, unitName coreunit.N
 		if err != nil {
 			return errors.Errorf("getting uuid for unit %q: %w", unitName, err)
 		}
-		return st.unitState.setUnitWorkloadVersion(ctx, tx, unitUUID, version)
+		return st.setUnitWorkloadVersion(ctx, tx, unitUUID, version)
 	})
 	if err != nil {
 		return errors.Capture(err)
