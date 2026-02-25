@@ -6,6 +6,7 @@ package storage
 import (
 	"context"
 	"slices"
+	"time"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -91,9 +92,29 @@ func (a *StorageAPI) getOneStorageDetails(
 		unitOwnerTagStr = names.NewUnitTag(info.UnitOwner.Name).String()
 	}
 
+	var status params.EntityStatus
+	if info.Kind == domainstorage.StorageKindFilesystem && info.FilesystemStatus != nil {
+		status.Data = info.FilesystemStatus.Data
+		status.Info = info.FilesystemStatus.Message
+		status.Since = info.FilesystemStatus.Since
+		status.Status = info.FilesystemStatus.Status
+	} else if info.VolumeStatus != nil {
+		status.Data = info.VolumeStatus.Data
+		status.Info = info.VolumeStatus.Message
+		status.Since = info.VolumeStatus.Since
+		status.Status = info.VolumeStatus.Status
+	}
+	if status.Since == nil {
+		// We have to set a non nil value for the status since value otherwise
+		// the Juju client will panic.
+		zeroTime := time.UnixMicro(0).UTC()
+		status.Since = &zeroTime
+	}
+
 	storageTagStr := names.NewStorageTag(storageID).String()
 	details := params.StorageDetails{
 		Attachments: map[string]params.StorageAttachmentDetails{},
+		Status:      status,
 		StorageTag:  storageTagStr,
 		Kind:        kind,
 		Life:        life,
@@ -110,7 +131,26 @@ func (a *StorageAPI) getOneStorageDetails(
 			).String()
 		}
 
+		attachmentLife, err := unitAttachment.Life.Value()
+		if err != nil {
+			if err != nil {
+				a.logger.Warningf(
+					ctx,
+					"unable to translate life value %d to params for storage instance attachment %q: %s",
+					unitAttachment.Life,
+					unitAttachment.UUID,
+					err.Error(),
+				)
+				return params.StorageDetailsResult{
+					Error: apiservererrors.ParamsErrorf(
+						"", "unknown life value for storage instance %q attachment", storageID,
+					),
+				}, nil
+			}
+		}
+
 		details.Attachments[unitTagStr] = params.StorageAttachmentDetails{
+			Life:       attachmentLife,
 			Location:   unitAttachment.Location,
 			MachineTag: machineTagStr,
 			StorageTag: storageTagStr,
@@ -125,9 +165,8 @@ func (a *StorageAPI) getOneStorageDetails(
 // storage identified by supplied tags. If specified storage cannot be
 // retrieved, individual error is returned instead of storage information.
 func (a *StorageAPI) StorageDetails(ctx context.Context, entities params.Entities) (params.StorageDetailsResults, error) {
-	a.checkCanRead(ctx)
-	if err := a.checkCanWrite(ctx); err != nil {
-		return params.StorageDetailsResults{}, errors.Capture(err)
+	if err := a.checkCanRead(ctx); err != nil {
+		return params.StorageDetailsResults{}, err
 	}
 
 	// Make a list of the ids we received and the ids for which information

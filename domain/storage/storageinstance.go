@@ -1,14 +1,45 @@
 package storage
 
 import (
+	"time"
+
 	coremachine "github.com/juju/juju/core/machine"
+	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	domainlife "github.com/juju/juju/domain/life"
 )
 
+// StorageInstanceFilesystemStatus represents the status of a filesystem that
+// underpins a StorageInstance in the model. This type exists to represent
+// status as there is cyclic imports between the status domain and storage.
+//
+// TODO (tlm): Remove cyclic imports from status domain. This will be done by
+// brining the storage types back into the storage domain.
+type StorageInstanceFilesystemStatus struct {
+	// Data is the raw JSON information for the status.
+	Data map[string]any
+
+	// Message is a human friendly message describing the status of the
+	// Filesystem.
+	Message string
+
+	// Since is the time at which this status became current.
+	Since *time.Time
+
+	// Status is the current status of the Filesystem.
+	Status corestatus.Status
+
+	// UUID is the unique identifier for the Filesystem.
+	UUID FilesystemUUID
+}
+
 // StorageInstanceInfo describes basic information about a StorageInstance in
 // the model.
 type StorageInstanceInfo struct {
+	// FilesystemStatus when not nil represents the status information for the
+	// filesystem that underpings this StorageInstance.
+	FilesystemStatus *StorageInstanceFilesystemStatus
+
 	// ID is the storage identifier given to the StorageInstance.
 	ID string
 
@@ -34,6 +65,10 @@ type StorageInstanceInfo struct {
 
 	// UUID is the unique identifier given to the StorageInstance.
 	UUID StorageInstanceUUID
+
+	// VolumeStatus when not nil represents the status information for the
+	// volume that underpings this StorageInstance.
+	VolumeStatus *StorageInstanceVolumeStatus
 }
 
 // StorageInstanceMachineAttachment describes an attachment of a StorageInstance
@@ -48,6 +83,12 @@ type StorageInstanceMachineAttachment struct {
 	// MachineUUID is the unique identifier of the Machine in the model that the
 	// StorageInstance has been made available on.
 	MachineUUID coremachine.UUID
+}
+
+// StorageInstanceStatus represents the status information of a StorageInstance.
+// This type exists over the status domain type due to cyclic imports. It would
+// be expected that this is fixed over time.
+type StorageInstanceStatus struct {
 }
 
 // StorageInstanceUnitAttachment describes a single attachment of a
@@ -73,6 +114,9 @@ type StorageInstanceUnitAttachment struct {
 	// UnitUUID is the unique identifier of the Unit in the model that the
 	// StorageInstance is attached to.
 	UnitUUID coreunit.UUID
+
+	// UUID is the unique identifier of the StorageInstanceAttachment.
+	UUID StorageAttachmentUUID
 }
 
 // StorageInstanceUnitOwner describes the Unit that is considered to own a
@@ -84,4 +128,28 @@ type StorageInstanceUnitOwner struct {
 	// UUID is the unique identifier of the Unit in the model that owns the
 	// StorageInstance.
 	UUID coreunit.UUID
+}
+
+// StorageInstanceVolumeStatus represents the status of a volume that
+// underpins a StorageInstance in the model. This type exists to represent
+// status as there is cyclic imports between the status domain and storage.
+//
+// TODO (tlm): Remove cyclic imports from status domain. This will be done by
+// brining the storage types back into the storage domain.
+type StorageInstanceVolumeStatus struct {
+	// Data is the raw JSON information for the status.
+	Data map[string]any
+
+	// Message is a human friendly message describing the status of the
+	// Volume.
+	Message string
+
+	// Since is the time at which this status became current.
+	Since *time.Time
+
+	// Status is the current status of the Volume.
+	Status corestatus.Status
+
+	// UUID is the unique identifier for the Volume.
+	UUID FilesystemUUID
 }
