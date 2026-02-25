@@ -22,7 +22,7 @@ run_deploy_kubeflow() {
 		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))
 
-		if [[ ${attempt} -gt 10 ]]; then
+		if [[ ${attempt} -gt 30 ]]; then
 			echo "failed waiting for jupyter ui"
 			exit 1
 		fi
