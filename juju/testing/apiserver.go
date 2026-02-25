@@ -752,3 +752,7 @@ func (r *testRegistry) loop() error {
 	<-r.catacomb.Dying()
 	return r.catacomb.ErrDying()
 }
+
+func (r *testRegistry) Report() map[string]any {
+	return map[string]any{}
+}
