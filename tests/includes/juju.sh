@@ -506,7 +506,7 @@ destroy_controller() {
 			while IFS= read -r model_uuid; do
 				(
 					while [[ -f ${resolve_sentinel} ]]; do
-						juju resolve --no-retry --all -m "${model_uuid}" >/dev/null 2>&1 || true
+						timeout 30s juju resolve --no-retry --all -m "${model_uuid}" >/dev/null 2>&1 || true
 						sleep 5
 					done
 				) &
