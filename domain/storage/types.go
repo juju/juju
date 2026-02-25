@@ -101,6 +101,7 @@ type ImportStorageInstanceParams struct {
 	RequestedSizeMiB uint64
 	PoolName         string
 	UnitName         string
+	Attachments      []string
 }
 
 // Validate returns NotValid if the params have an empty StorageID or
@@ -112,6 +113,12 @@ func (i ImportStorageInstanceParams) Validate() error {
 
 	if i.UnitName != "" {
 		if err := coreunit.Name(i.UnitName).Validate(); err != nil {
+			return err
+		}
+	}
+
+	for _, attachment := range i.Attachments {
+		if err := coreunit.Name(attachment).Validate(); err != nil {
 			return err
 		}
 	}

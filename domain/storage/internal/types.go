@@ -18,7 +18,16 @@ type ImportStorageInstanceArgs struct {
 	StorageName      string
 	StorageKind      string
 	StorageID        string
-	UnitName         string
+	UnitUUID         string
+}
+
+// ImportStorageInstanceAttachmentArgs represents data to import a storage
+// instance attachment.
+type ImportStorageInstanceAttachmentArgs struct {
+	UUID                string
+	StorageInstanceUUID string
+	UnitUUID            string
+	Life                life.Life
 }
 
 // ImportFilesystemIAASArgs represents data to import a filesystem.

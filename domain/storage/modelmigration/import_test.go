@@ -323,6 +323,7 @@ func (s *importSuite) TestImportStorageInstances(c *tc.C) {
 			StorageKind:      "block",
 			StorageName:      "multi-fs",
 			UnitName:         "unit/3",
+			Attachments:      []string{"foo/0", "bar/1"},
 		},
 	}
 	s.noopStoragePoolImport()
@@ -335,7 +336,7 @@ func (s *importSuite) TestImportStorageInstances(c *tc.C) {
 		Kind:        "block",
 		UnitOwner:   "unit/3",
 		Name:        "multi-fs",
-		Attachments: nil,
+		Attachments: []string{"foo/0", "bar/1"},
 		Constraints: &description.StorageInstanceConstraints{
 			Pool: "testpool",
 			Size: 1024,

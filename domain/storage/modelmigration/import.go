@@ -147,6 +147,7 @@ func (i *importOperation) importStorageInstances(ctx context.Context, instances 
 			UnitName:         owner,
 			RequestedSizeMiB: size,
 			PoolName:         pool,
+			Attachments:      in.Attachments(),
 		}, nil
 	})
 

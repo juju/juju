@@ -11,6 +11,8 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	coreunit "github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storage/internal"
@@ -18,7 +20,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // importSuite is a set of tests to assert the interface and contracts
@@ -42,28 +43,39 @@ func (s *importSuite) TestImportStorageInstances(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	expected := []internal.ImportStorageInstanceArgs{
+	unit2UUID := tc.Must(c, coreunit.NewUUID).String()
+	unit3UUID := tc.Must(c, coreunit.NewUUID).String()
+
+	expectedInstances := []internal.ImportStorageInstanceArgs{
 		{
-			UUID:             tc.Must(c, uuid.NewUUID).String(),
 			StorageName:      "test1",
 			StorageKind:      "block",
 			StorageID:        "test1/0",
-			UnitName:         "unit/3",
+			UnitUUID:         unit3UUID,
 			RequestedSizeMiB: 1024,
 			PoolName:         "ebs",
 		}, {
-			UUID:             tc.Must(c, uuid.NewUUID).String(),
 			StorageName:      "test1",
 			StorageKind:      "block",
 			StorageID:        "test1/2",
-			UnitName:         "unit/2",
+			UnitUUID:         unit2UUID,
 			RequestedSizeMiB: 1024,
 			PoolName:         "ebs",
 		},
 	}
+
+	s.state.EXPECT().GetUnitUUIDsByNames(gomock.Any(), tc.Bind(tc.SameContents, []string{"unit/2", "unit/3"})).Return(map[string]string{
+		"unit/2": unit2UUID,
+		"unit/3": unit3UUID,
+	}, nil)
+
 	mc := tc.NewMultiChecker()
 	mc.AddExpr(`_[_].UUID`, tc.IsNonZeroUUID)
-	s.state.EXPECT().ImportStorageInstances(gomock.Any(), tc.Bind(mc, expected)).Return(nil)
+	s.state.EXPECT().ImportStorageInstances(
+		gomock.Any(),
+		tc.Bind(mc, expectedInstances),
+		tc.Bind(tc.HasLen, 0),
+	).Return(nil)
 
 	args := []domainstorage.ImportStorageInstanceParams{
 		{
@@ -80,6 +92,201 @@ func (s *importSuite) TestImportStorageInstances(c *tc.C) {
 			UnitName:         "unit/2",
 			RequestedSizeMiB: 1024,
 			PoolName:         "ebs",
+		},
+	}
+
+	// Act
+	err := s.service.ImportStorageInstances(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportStorageInstancesWithNoUnit(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	expectedInstances := []internal.ImportStorageInstanceArgs{
+		{
+			StorageName:      "test1",
+			StorageKind:      "block",
+			StorageID:        "test1/0",
+			RequestedSizeMiB: 1024,
+			PoolName:         "ebs",
+		},
+	}
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].UUID`, tc.IsNonZeroUUID)
+	s.state.EXPECT().ImportStorageInstances(
+		gomock.Any(),
+		tc.Bind(mc, expectedInstances),
+		tc.Bind(tc.HasLen, 0),
+	).Return(nil)
+
+	args := []domainstorage.ImportStorageInstanceParams{
+		{
+			StorageName:      "test1",
+			StorageKind:      "block",
+			StorageID:        "test1/0",
+			RequestedSizeMiB: 1024,
+			PoolName:         "ebs",
+		},
+	}
+
+	// Act
+	err := s.service.ImportStorageInstances(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportStorageInstancesMissingUnitOwner(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	unit0UUID := tc.Must(c, coreunit.NewUUID).String()
+
+	// No "unit/1" in the returned map. This indicates that "unit/2" does not exist
+	s.state.EXPECT().GetUnitUUIDsByNames(gomock.Any(), tc.Bind(tc.SameContents, []string{"unit/0", "unit/1"})).Return(map[string]string{
+		"unit/0": unit0UUID,
+	}, nil)
+
+	args := []domainstorage.ImportStorageInstanceParams{
+		{
+			StorageName:      "test1",
+			StorageKind:      "block",
+			StorageID:        "test1/0",
+			UnitName:         "unit/0",
+			RequestedSizeMiB: 1024,
+			PoolName:         "ebs",
+		}, {
+			StorageName:      "test1",
+			StorageKind:      "block",
+			StorageID:        "test1/2",
+			UnitName:         "unit/1",
+			RequestedSizeMiB: 1024,
+			PoolName:         "ebs",
+		},
+	}
+
+	// Act
+	err := s.service.ImportStorageInstances(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *importSuite) TestImportStorageInstancesMissingUnitAttachment(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	unit0UUID := tc.Must(c, coreunit.NewUUID).String()
+
+	// No "unit/1" in the returned map. This indicates that "unit/2" does not exist
+	s.state.EXPECT().GetUnitUUIDsByNames(gomock.Any(), tc.Bind(tc.SameContents, []string{"unit/0", "unit/1"})).Return(map[string]string{
+		"unit/0": unit0UUID,
+	}, nil)
+
+	args := []domainstorage.ImportStorageInstanceParams{
+		{
+			StorageName:      "test1",
+			StorageKind:      "block",
+			StorageID:        "test1/0",
+			UnitName:         "unit/0",
+			RequestedSizeMiB: 1024,
+			PoolName:         "ebs",
+			Attachments:      []string{"unit/1"},
+		},
+	}
+
+	// Act
+	err := s.service.ImportStorageInstances(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *importSuite) TestImportStorageInstancesWithAttachments(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unit0UUID := tc.Must(c, coreunit.NewUUID).String()
+	unit1UUID := tc.Must(c, coreunit.NewUUID).String()
+	unit2UUID := tc.Must(c, coreunit.NewUUID).String()
+	unit3UUID := tc.Must(c, coreunit.NewUUID).String()
+
+	// Arrange
+	expectedInstances := []internal.ImportStorageInstanceArgs{
+		{
+			StorageName:      "test1",
+			StorageKind:      "block",
+			StorageID:        "test1/0",
+			UnitUUID:         unit3UUID,
+			RequestedSizeMiB: 1024,
+			PoolName:         "ebs",
+		}, {
+			StorageName:      "test1",
+			StorageKind:      "block",
+			StorageID:        "test1/2",
+			UnitUUID:         unit2UUID,
+			RequestedSizeMiB: 1024,
+			PoolName:         "ebs",
+		},
+	}
+	expectedAttachments := []internal.ImportStorageInstanceAttachmentArgs{
+		{
+			UnitUUID: unit0UUID,
+			Life:     life.Alive,
+		}, {
+			UnitUUID: unit1UUID,
+			Life:     life.Alive,
+		}, {
+			UnitUUID: unit2UUID,
+			Life:     life.Alive,
+		},
+	}
+
+	unitNames := []string{"unit/0", "unit/1", "unit/2", "unit/3"}
+	s.state.EXPECT().GetUnitUUIDsByNames(gomock.Any(), tc.Bind(tc.SameContents, unitNames)).Return(map[string]string{
+		"unit/0": unit0UUID,
+		"unit/1": unit1UUID,
+		"unit/2": unit2UUID,
+		"unit/3": unit3UUID,
+	}, nil)
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].UUID`, tc.IsNonZeroUUID)
+	mc.AddExpr(`_[_].StorageInstanceUUID`, tc.IsNonZeroUUID)
+	s.state.EXPECT().ImportStorageInstances(
+		gomock.Any(),
+		tc.Bind(mc, expectedInstances),
+		tc.Bind(mc, expectedAttachments),
+	).DoAndReturn(func(_ context.Context, gotInstances []internal.ImportStorageInstanceArgs, gotAttachments []internal.ImportStorageInstanceAttachmentArgs) error {
+		c.Assert(gotInstances, tc.HasLen, 2)
+		c.Assert(gotAttachments, tc.HasLen, 3)
+		c.Check(gotAttachments[0].StorageInstanceUUID, tc.Equals, gotInstances[0].UUID)
+		c.Check(gotAttachments[1].StorageInstanceUUID, tc.Equals, gotInstances[0].UUID)
+		c.Check(gotAttachments[2].StorageInstanceUUID, tc.Equals, gotInstances[1].UUID)
+		return nil
+	})
+
+	args := []domainstorage.ImportStorageInstanceParams{
+		{
+			StorageName:      "test1",
+			StorageKind:      "block",
+			StorageID:        "test1/0",
+			UnitName:         "unit/3",
+			RequestedSizeMiB: 1024,
+			PoolName:         "ebs",
+			Attachments:      []string{"unit/0", "unit/1"},
+		}, {
+			StorageName:      "test1",
+			StorageKind:      "block",
+			StorageID:        "test1/2",
+			UnitName:         "unit/2",
+			RequestedSizeMiB: 1024,
+			PoolName:         "ebs",
+			Attachments:      []string{"unit/2"},
 		},
 	}
 
