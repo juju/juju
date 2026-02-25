@@ -1026,7 +1026,7 @@ func makeUnitStorageInstancesFromDirective(
 // attach existing storage to a unit.
 func (s Service) MakeUnitAttachStorageArgs(
 	ctx context.Context,
-	unitUUID coreunit.UUID,
+	attachNetNodeUUID string,
 	storageInstanceUUID domainstorage.StorageInstanceUUID,
 ) (internal.CreateUnitStorageAttachmentArg, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -1037,11 +1037,6 @@ func (s Service) MakeUnitAttachStorageArgs(
 		return internal.CreateUnitStorageAttachmentArg{}, errors.Errorf(
 			"getting composition details for storage %q: %w", storageInstanceUUID, err,
 		)
-	}
-
-	attachNetNodeUUID, err := s.st.GetUnitNetNodeUUID(ctx, unitUUID)
-	if err != nil {
-		return internal.CreateUnitStorageAttachmentArg{}, errors.Errorf("getting unit net node uuid: %w", err)
 	}
 
 	instArg := internal.AttachStorageInstanceArg{

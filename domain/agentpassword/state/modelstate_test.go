@@ -648,6 +648,7 @@ func (s *modelStateSuite) createUnit(c *tc.C) unit.Name {
 	netNodeUUID := tc.Must(c, network.NewNetNodeUUID)
 	unitNames, _, err := applicationSt.AddIAASUnits(ctx, appID, application.AddIAASUnitArg{
 		AddUnitArg: application.AddUnitArg{
+			UnitUUID:    tc.Must(c, unit.NewUUID),
 			NetNodeUUID: netNodeUUID,
 		},
 		Nonce:              ptr("foo"),

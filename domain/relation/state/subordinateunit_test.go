@@ -426,6 +426,7 @@ func (m addIAASUnitArgMatcher) Matches(x interface{}) bool {
 	mc := tc.NewMultiChecker()
 	mc.AddExpr("_.AddUnitArg.UnitStatusArg.AgentStatus.Since", tc.Ignore)
 	mc.AddExpr("_.AddUnitArg.UnitStatusArg.WorkloadStatus.Since", tc.Ignore)
+	mc.AddExpr("_.AddUnitArg.UnitUUID", tc.NotNil)
 	m.c.Check(obtained, mc, m.expected)
 	return true
 }

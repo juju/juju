@@ -84,6 +84,11 @@ type UnitState interface {
 	// exist.
 	GetUnitUUIDByName(context.Context, coreunit.Name) (coreunit.UUID, error)
 
+	// GetUnitNetNodeUUID returns the net node UUID for the specified unit.
+	// The following error types can be expected:
+	// - [applicationerrors.UnitNotFound]: when the unit is not found.
+	GetUnitNetNodeUUID(ctx context.Context, uuid coreunit.UUID) (string, error)
+
 	// GetUnitUUIDAndNetNodeForName returns the unit uuid and net node uuid for a
 	// unit matching the supplied name.
 	//
@@ -283,8 +288,9 @@ func (s *ProviderService) makeIAASUnitArgs(
 		}
 
 		var (
-			machineUUID        coremachine.UUID
-			machineNetNodeUUID domainnetwork.NetNodeUUID
+			placementMachineUUID *string
+			machineUUID          coremachine.UUID
+			machineNetNodeUUID   domainnetwork.NetNodeUUID
 		)
 		// If the placement of the unit is on to an already established machine
 		// we need to resolve this to a machine uuid and netnode uuid.
@@ -300,6 +306,7 @@ func (s *ProviderService) makeIAASUnitArgs(
 			}
 			machineUUID = mUUID
 			machineNetNodeUUID = mNNUUID
+			placementMachineUUID = ptr(mUUID.String())
 		} else {
 			// If the placement is not on to an already established machine we need
 			// to generate a new machine uuid and netnode uuid for the unit.
@@ -348,14 +355,34 @@ func (s *ProviderService) makeIAASUnitArgs(
 			)
 		}
 
+		unitUUID, err := coreunit.NewUUID()
+		if err != nil {
+			return nil, errors.Errorf(
+				"generating new unit uuid for IAAS unit: %w", err,
+			)
+		}
+		// We use the same netnode uuid as the machine for the unit.
+		netNodeUUID := machineNetNodeUUID
+
+		// Compose the storage attachments for any existing storage instances
+		// that need to be attached to the unit.
+		for _, storageInstanceUUID := range u.StorageToAttach {
+			attachArg, err := s.makeAttachStorageToUnitArgs(
+				ctx, storageInstanceUUID, unitUUID, netNodeUUID.String(), placementMachineUUID)
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
+			unitStorageArgs.ExistingStorageToAttach = append(unitStorageArgs.ExistingStorageToAttach, attachArg)
+		}
+
 		arg := application.AddIAASUnitArg{
 			AddUnitArg: application.AddUnitArg{
 				CreateUnitStorageArg: unitStorageArgs,
 				Constraints:          constraints,
 				Placement:            placement,
-				// We use the same netnode uuid as the machine for the unit.
-				NetNodeUUID:   machineNetNodeUUID,
-				UnitStatusArg: s.makeIAASUnitStatusArgs(),
+				NetNodeUUID:          netNodeUUID,
+				UnitUUID:             unitUUID,
+				UnitStatusArg:        s.makeIAASUnitStatusArgs(),
 			},
 			CreateIAASUnitStorageArg: iassUnitStorageArgs,
 			Platform:                 platform,
@@ -380,6 +407,13 @@ func (s *ProviderService) makeCAASUnitArgs(
 		placement, err := deployment.ParsePlacement(u.Placement)
 		if err != nil {
 			return nil, errors.Errorf("invalid placement: %w", err)
+		}
+
+		unitUUID, err := coreunit.NewUUID()
+		if err != nil {
+			return nil, errors.Errorf(
+				"generating new unit uuid for caas unit: %w", err,
+			)
 		}
 
 		netNodeUUID, err := domainnetwork.NewNetNodeUUID()
@@ -407,6 +441,7 @@ func (s *ProviderService) makeCAASUnitArgs(
 				CreateUnitStorageArg: unitStorageArgs,
 				Constraints:          constraints,
 				NetNodeUUID:          netNodeUUID,
+				UnitUUID:             unitUUID,
 				Placement:            placement,
 				UnitStatusArg:        s.makeCAASUnitStatusArgs(),
 			},

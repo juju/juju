@@ -151,6 +151,7 @@ func (s *machinePlacementSuite) createUnit(c *tc.C) unit.Name {
 	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	unitNames, _, err := s.state.AddIAASUnits(c.Context(), appID, application.AddIAASUnitArg{
 		AddUnitArg: application.AddUnitArg{
+			UnitUUID:    tc.Must(c, unit.NewUUID),
 			NetNodeUUID: netNodeUUID,
 		},
 		MachineNetNodeUUID: netNodeUUID,

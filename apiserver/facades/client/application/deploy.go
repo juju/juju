@@ -30,6 +30,8 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/deployment/charm/assumes"
+	domainstorage "github.com/juju/juju/domain/storage"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -162,6 +164,26 @@ func DeployApplication(
 		}
 	}
 
+	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
+		return errors.Errorf(
+			"AttachStorage is non-empty but NumUnits is %d, must be 1",
+			args.NumUnits)
+	}
+
+	var storageUUIDsToAttach []domainstorage.StorageInstanceUUID
+	for _, storageTag := range args.AttachStorage {
+		storageUUID, err := storageService.GetStorageInstanceUUIDForID(ctx, storageTag.Id())
+		if errors.Is(err, storageerrors.StorageInstanceNotFound) {
+			return apiservererrors.ParamsErrorf(params.CodeNotFound, "storage %q does not exist", storageTag.Id())
+		} else if err != nil {
+			return errors.Errorf(
+				"getting storage instance uuid for storage id %q: %w",
+				storageTag.Id(), err,
+			)
+		}
+		storageUUIDsToAttach = append(storageUUIDsToAttach, storageUUID)
+	}
+
 	var downloadInfo *applicationcharm.DownloadInfo
 	if args.CharmOrigin.Source == corecharm.CharmHub {
 		var err error
@@ -203,6 +225,10 @@ func DeployApplication(
 		if err != nil {
 			return errors.Capture(err)
 		}
+		// Unit args length with attach storage has been validated above.
+		if len(unitArgs) == 1 {
+			unitArgs[0].StorageToAttach = storageUUIDsToAttach
+		}
 
 		_, err = applicationService.CreateCAASApplication(
 			ctx,
@@ -221,6 +247,11 @@ func DeployApplication(
 	unitArgs, err := makeIAASUnitArgs(args)
 	if err != nil {
 		return errors.Capture(err)
+	}
+
+	// Unit args length with attach storage has been validated above.
+	if len(unitArgs) == 1 {
+		unitArgs[0].StorageToAttach = storageUUIDsToAttach
 	}
 
 	_, err = applicationService.CreateIAASApplication(

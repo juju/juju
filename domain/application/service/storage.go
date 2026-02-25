@@ -193,7 +193,7 @@ type StorageService interface {
 	// falls outside of the bounds defined by the charm.
 	MakeUnitAttachStorageArgs(
 		ctx context.Context,
-		unitUUID coreunit.UUID,
+		netNodeUUID string,
 		storageUUID domainstorage.StorageInstanceUUID,
 	) (internal.CreateUnitStorageAttachmentArg, error)
 }

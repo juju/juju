@@ -248,11 +248,15 @@ func (s *baseSuite) createIAASApplicationWithNUnitsAndStorage(
 
 	ctx := c.Context()
 	units := make([]application.AddIAASUnitArg, unitCount)
+	unitUUIDs := make([]coreunit.UUID, unitCount)
 	for i := range units {
+		unitUUID := tc.Must(c, coreunit.NewUUID)
+		unitUUIDs[i] = unitUUID
 		netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 		units[i].MachineUUID = coremachinetesting.GenUUID(c)
 		units[i].MachineNetNodeUUID = netNodeUUID
 		units[i].NetNodeUUID = netNodeUUID
+		units[i].UnitUUID = unitUUID
 	}
 
 	appUUID, _, err := state.CreateIAASApplication(ctx, name, application.AddIAASApplicationArg{
@@ -324,7 +328,6 @@ func (s *baseSuite) createIAASApplicationWithNUnitsAndStorage(
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	unitUUIDs := s.getApplicationUnits(c, appUUID)
 	return appUUID, unitUUIDs
 }
 
@@ -534,18 +537,21 @@ func (s *baseSuite) createSubnetForCAASModel(c *tc.C) {
 func (s *baseSuite) createCAASApplicationWithNUnits(
 	c *tc.C, name string, l life.Life, unitCount int,
 ) (coreapplication.UUID, []coreunit.UUID) {
-	units := make([]application.AddCAASUnitArg, 0, unitCount)
-	for range unitCount {
-		units = append(units, application.AddCAASUnitArg{
+	units := make([]application.AddCAASUnitArg, unitCount)
+	unitUUIDs := make([]coreunit.UUID, unitCount)
+	for i := range unitCount {
+		unitUUID := tc.Must(c, coreunit.NewUUID)
+		unitUUIDs[i] = unitUUID
+		units[i] = application.AddCAASUnitArg{
 			AddUnitArg: application.AddUnitArg{
+				UnitUUID:    unitUUID,
 				NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
 			},
-		})
+		}
 	}
 	appUUID := s.createCAASApplication(
 		c, name, l, units...,
 	)
-	unitUUIDs := s.getApplicationUnits(c, appUUID)
 	return appUUID, unitUUIDs
 }
 

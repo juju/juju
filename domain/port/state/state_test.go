@@ -179,10 +179,12 @@ SELECT uuid, name FROM machine WHERE net_node_uuid = ?
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	unitUUID := tc.Must(c, coreunit.NewUUID)
 	unitNames, _, err := applicationSt.AddIAASUnits(c.Context(), appID, application.AddIAASUnitArg{
 		MachineNetNodeUUID: domainnetwork.NetNodeUUID(netNodeUUID),
 		MachineUUID:        machineUUID,
 		AddUnitArg: application.AddUnitArg{
+			UnitUUID:    unitUUID,
 			NetNodeUUID: domainnetwork.NetNodeUUID(netNodeUUID),
 			Placement: deployment.Placement{
 				Type:      deployment.PlacementTypeMachine,
@@ -195,16 +197,6 @@ SELECT uuid, name FROM machine WHERE net_node_uuid = ?
 	unitName := unitNames[0]
 	s.unitCount++
 
-	var unitUUID coreunit.UUID
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", unitName).Scan(&unitUUID)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
 	return unitUUID, unitName
 }
 

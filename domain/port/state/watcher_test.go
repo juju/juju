@@ -162,7 +162,7 @@ func (s *watcherSuite) createNetNode(c *tc.C) string {
 // createUnit creates a new unit in state and returns its UUID. The unit is assigned
 // to the net node with uuid `netNodeUUID` and application with name `appName`.
 func (s *watcherSuite) createUnitWithoutMachine(c *tc.C, netNodeUUID, appName, appUUID string) {
-	unitUUID := tc.Must0(c, coreunit.NewUUID).String()
+	unitUUID := tc.Must(c, coreunit.NewUUID).String()
 	unitName := appName + "/0"
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

@@ -67,6 +67,7 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 	now := ptr(s.clock.Now())
 	us := []application.AddCAASUnitArg{{
 		AddUnitArg: application.AddUnitArg{
+			UnitUUID:    tc.Must(c, coreunit.NewUUID),
 			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
@@ -3377,10 +3378,14 @@ func (s *providerServiceSuite) TestAttachStorageNotFound(c *tc.C) {
 	defer ctrl.Finish()
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
+	machineUUID := tc.Must(c, coremachine.NewUUID)
+	netnodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	siUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(gomock.Any(), unitUUID, siUUID).
 		Return(internal.StorageInfoForAttach{}, storageerrors.StorageInstanceNotFound)
+	s.state.EXPECT().GetUnitNetNodeUUID(gomock.Any(), unitUUID).Return(netnodeUUID.String(), nil)
+	s.state.EXPECT().GetUnitMachineUUID(gomock.Any(), unitUUID.String()).Return(machineUUID.String(), nil)
 
 	err := s.service.AttachStorageToUnit(c.Context(), siUUID, unitUUID)
 	c.Assert(err, tc.ErrorIs, storageerrors.StorageInstanceNotFound)
@@ -3390,7 +3395,9 @@ func (s *providerServiceSuite) TestAttachStorageValidates(c *tc.C) {
 	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
+	machineUUID := tc.Must(c, coremachine.NewUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
+	netnodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	siUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(gomock.Any(), unitUUID, siUUID).
@@ -3402,6 +3409,8 @@ func (s *providerServiceSuite) TestAttachStorageValidates(c *tc.C) {
 			AlreadyAttachedCount: 66,
 			ProvisionedSizeMiB:   6,
 		}, nil)
+	s.state.EXPECT().GetUnitNetNodeUUID(gomock.Any(), unitUUID).Return(netnodeUUID.String(), nil)
+	s.state.EXPECT().GetUnitMachineUUID(gomock.Any(), unitUUID.String()).Return(machineUUID.String(), nil)
 	s.storageService.EXPECT().ValidateAttachStorage(internal.ValidateStorageArg{
 		Name:        "pgdata",
 		CountMin:    1,
@@ -3420,6 +3429,7 @@ func (s *providerServiceSuite) TestAttachStorageChecksMachineOwnerOk(c *tc.C) {
 
 	machineUUID := tc.Must(c, coremachine.NewUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
+	netnodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	siUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(gomock.Any(), unitUUID, siUUID).
@@ -3435,6 +3445,7 @@ func (s *providerServiceSuite) TestAttachStorageChecksMachineOwnerOk(c *tc.C) {
 				Name: "666",
 			},
 		}, nil)
+	s.state.EXPECT().GetUnitNetNodeUUID(gomock.Any(), unitUUID).Return(netnodeUUID.String(), nil)
 	s.state.EXPECT().GetUnitMachineUUID(gomock.Any(), unitUUID.String()).Return(machineUUID.String(), nil)
 	s.storageService.EXPECT().ValidateAttachStorage(internal.ValidateStorageArg{
 		Name:        "pgdata",
@@ -3455,6 +3466,7 @@ func (s *providerServiceSuite) TestAttachStorageChecksMachineOwnerInvalid(c *tc.
 	machineOwnerUUID := tc.Must(c, coremachine.NewUUID)
 	machineUUID := tc.Must(c, coremachine.NewUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
+	netnodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	siUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 
 	s.state.EXPECT().GetStorageAttachInfoByUnitUUIDAndStorageUUID(gomock.Any(), unitUUID, siUUID).
@@ -3470,6 +3482,7 @@ func (s *providerServiceSuite) TestAttachStorageChecksMachineOwnerInvalid(c *tc.
 				Name: "666",
 			},
 		}, nil)
+	s.state.EXPECT().GetUnitNetNodeUUID(gomock.Any(), unitUUID).Return(netnodeUUID.String(), nil)
 	s.state.EXPECT().GetUnitMachineUUID(gomock.Any(), unitUUID.String()).Return(machineUUID.String(), nil)
 
 	err := s.service.AttachStorageToUnit(c.Context(), siUUID, unitUUID)
@@ -3485,6 +3498,8 @@ func (s *providerServiceSuite) TestAttachStorage(c *tc.C) {
 	defer ctrl.Finish()
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
+	machineUUID := tc.Must(c, coremachine.NewUUID)
+	netnodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	siUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
@@ -3498,6 +3513,8 @@ func (s *providerServiceSuite) TestAttachStorage(c *tc.C) {
 			AlreadyAttachedCount: 66,
 			ProvisionedSizeMiB:   6,
 		}, nil)
+	s.state.EXPECT().GetUnitNetNodeUUID(gomock.Any(), unitUUID).Return(netnodeUUID.String(), nil)
+	s.state.EXPECT().GetUnitMachineUUID(gomock.Any(), unitUUID.String()).Return(machineUUID.String(), nil)
 	s.storageService.EXPECT().ValidateAttachStorage(internal.ValidateStorageArg{
 		Name:        "pgdata",
 		CountMin:    1,
@@ -3515,7 +3532,7 @@ func (s *providerServiceSuite) TestAttachStorage(c *tc.C) {
 		StorageInstanceUUID: siUUID,
 	}
 
-	s.storageService.EXPECT().MakeUnitAttachStorageArgs(gomock.Any(), unitUUID, siUUID).
+	s.storageService.EXPECT().MakeUnitAttachStorageArgs(gomock.Any(), netnodeUUID.String(), siUUID).
 		Return(storageToAttach, nil)
 
 	unitStorageArgs := internal.AttachStorageToUnitArg{

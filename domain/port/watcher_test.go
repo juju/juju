@@ -174,10 +174,12 @@ func (s *watcherSuite) createUnit(c *tc.C, netNodeUUID, appName string) coreunit
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	unitNames, _, err := applicationSt.AddIAASUnits(ctx, appID, application.AddIAASUnitArg{
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	_, _, err = applicationSt.AddIAASUnits(ctx, appID, application.AddIAASUnitArg{
 		MachineNetNodeUUID: domainnetwork.NetNodeUUID(netNodeUUID),
 		MachineUUID:        machine.UUID(machineUUID),
 		AddUnitArg: application.AddUnitArg{
+			UnitUUID:    unitUUID,
 			NetNodeUUID: domainnetwork.NetNodeUUID(netNodeUUID),
 			Placement: deployment.Placement{
 				Type:      deployment.PlacementTypeMachine,
@@ -186,16 +188,8 @@ func (s *watcherSuite) createUnit(c *tc.C, netNodeUUID, appName string) coreunit
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(unitNames, tc.HasLen, 1)
-	unitName := unitNames[0]
 	s.unitCount++
 
-	var unitUUID coreunit.UUID
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", unitName).Scan(&unitUUID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
 	return unitUUID
 }
 
@@ -214,7 +208,7 @@ func (s *watcherSuite) createNetNode(c *tc.C) string {
 // state and returns its UUID. The unit is assigned to the net node with uuid
 // `netNodeUUID` and application with name `appName`.
 func (s *watcherSuite) createUnitWithoutMachine(c *tc.C, netNodeUUID, appName, appUUID string) {
-	unitUUID := tc.Must0(c, coreunit.NewUUID).String()
+	unitUUID := tc.Must(c, coreunit.NewUUID).String()
 	unitName := appName + "/0"
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

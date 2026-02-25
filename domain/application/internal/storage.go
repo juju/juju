@@ -214,6 +214,12 @@ type CreateUnitStorageArg struct {
 	// the unit and should be included in this list.
 	StorageToAttach []CreateUnitStorageAttachmentArg
 
+	// ExistingStorageToAttach defines already provisioned storage instances,
+	// previously detached from another unit, that should be attached to the
+	// new unit, as opposed to new storage created and attached as defined in
+	// [CreateUnitStorageArg.StorageToAttach].
+	ExistingStorageToAttach []AttachStorageToUnitArg
+
 	// StorageToOwn defines the storage instances that should be owned by the
 	// unit.
 	StorageToOwn []domainstorage.StorageInstanceUUID
