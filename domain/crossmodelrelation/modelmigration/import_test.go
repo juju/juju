@@ -112,8 +112,12 @@ func (s *importSuite) TestImportRemoteApplicationOfferersViaExec(c *tc.C) {
 	})
 
 	model.AddRemoteEntity(description.RemoteEntityArgs{
-		ID:    "application-sink",
+		ID:    "application-src",
 		Token: "application-uuid-1234",
+	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "application-sink",
+		Token: "application-uuid-4321",
 	})
 
 	expected := []service.RemoteApplicationOffererImport{
@@ -180,8 +184,12 @@ func (s *importSuite) TestImportRemoteApplicationOfferersDifferentAppNameViaExec
 	})
 
 	model.AddRemoteEntity(description.RemoteEntityArgs{
-		ID:    "application-sink1",
+		ID:    "application-src",
 		Token: "application-uuid-1234",
+	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "application-sink1",
+		Token: "application-uuid-4321",
 	})
 
 	expected := []service.RemoteApplicationOffererImport{
@@ -282,7 +290,7 @@ func (s *importSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 				},
 				Units: nil,
 			},
-			OffererApplicationUUID: application.UUID("application-uuid-1234"),
+			OffererApplicationUUID: application.UUID("application-uuid-4321"),
 		},
 	}
 	s.importService.EXPECT().ImportRemoteApplicationOfferers(
@@ -368,7 +376,7 @@ func (s *importSuite) TestImportRemoteApplicationOfferersWithDifferentAppName(c 
 				},
 				Units: nil,
 			},
-			OffererApplicationUUID: application.UUID("application-uuid-1234"),
+			OffererApplicationUUID: application.UUID("application-uuid-4321"),
 		},
 	}
 	s.importService.EXPECT().ImportRemoteApplicationOfferers(
@@ -437,42 +445,13 @@ func (s *importSuite) TestImportRemoteApplicationOfferersNoRemoteEntity(c *tc.C)
 		}: "src",
 	}
 
-	expected := []service.RemoteApplicationOffererImport{
-		{
-			RemoteApplicationImport: service.RemoteApplicationImport{
-				Name:            "src",
-				OfferUUID:       "offer-uuid-1234",
-				URL:             "src:admin/from.src",
-				SourceModelUUID: "source-model-uuid",
-				Macaroon:        "macaroon-data",
-				Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
-					{
-						Name:      "sink",
-						Role:      charm.RoleRequirer,
-						Interface: "dummy-token",
-					},
-				},
-				Units: nil,
-			},
-			OffererApplicationUUID: application.UUID(""),
-		},
-	}
-
-	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_[_].OffererApplicationUUID`, tc.IsNonZeroUUID)
-
-	s.importService.EXPECT().ImportRemoteApplicationOfferers(
-		gomock.Any(),
-		tc.Bind(mc, expected),
-	).Return(nil)
-
 	// Act - no relations, so no units to extract
 	remoteAppUnits := make(map[string][]string)
 	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(),
 		model.RemoteApplications(), remoteEntities, remoteAppUnits, relations)
 
 	// Assert
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorMatches, `.*no application UUID found for remote application with endpoints`)
 }
 
 func (s *importSuite) TestImportRemoteApplicationOfferersEmpty(c *tc.C) {
@@ -1119,56 +1098,6 @@ func (s *importSuite) TestExtractRelationUUIDFromRemoteEntitiesNoEntities(c *tc.
 	model := description.NewModel(description.ModelArgs{})
 
 	entities, err := extractRelationUUIDFromRemoteEntities(model)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(entities, tc.HasLen, 0)
-}
-
-func (s *importSuite) TestExtractApplicationUUIDFromRemoteEntities(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	model := description.NewModel(description.ModelArgs{})
-
-	model.AddRemoteEntity(description.RemoteEntityArgs{
-		ID:    "application-remote-13ea2791-5e78-40d8-88c5-e9451444b45d",
-		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
-	})
-
-	entities, err := extractApplicationUUIDFromRemoteEntities(model)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Check(entities, tc.DeepEquals, map[string]string{
-		"remote-13ea2791-5e78-40d8-88c5-e9451444b45d": "6049aa01-76c9-462d-8440-964a6e26aac2",
-	})
-}
-
-func (s *importSuite) TestExtractApplicationUUIDFromRemoteEntitiesWithRelationEntities(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	model := description.NewModel(description.ModelArgs{})
-
-	model.AddRemoteEntity(description.RemoteEntityArgs{
-		ID:    "relation-dummy-source.sink#remote-13ea27915e7840d888c5e9451444b45d.source",
-		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
-	})
-	model.AddRemoteEntity(description.RemoteEntityArgs{
-		ID:    "application-remote-13ea2791-5e78-40d8-88c5-e9451444b45d",
-		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
-	})
-
-	entities, err := extractApplicationUUIDFromRemoteEntities(model)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Check(entities, tc.DeepEquals, map[string]string{
-		"remote-13ea2791-5e78-40d8-88c5-e9451444b45d": "6049aa01-76c9-462d-8440-964a6e26aac2",
-	})
-}
-
-func (s *importSuite) TestExtractApplicationUUIDFromRemoteEntitiesNoEntities(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	model := description.NewModel(description.ModelArgs{})
-
-	entities, err := extractApplicationUUIDFromRemoteEntities(model)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(entities, tc.HasLen, 0)
 }

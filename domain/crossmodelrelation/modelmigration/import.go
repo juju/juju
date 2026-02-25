@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/description/v11"
-	"github.com/juju/names/v6"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
@@ -96,7 +95,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	// relations can be imported.
 	remoteAppUnits := i.extractRemoteAppUnits(model)
 
-	applicationRemoteEntities, err := extractApplicationUUIDFromRemoteEntities(model)
+	applicationRemoteEntities, err := domainmodelmigration.ExtractApplicationUUIDFromRemoteEntities(model)
 	if err != nil {
 		return errors.Errorf("extracting application UUIDs from remote entities: %w", err)
 	}
@@ -402,25 +401,6 @@ func extractRelationUUIDFromRemoteEntities(model description.Model) ([]relationR
 	return remoteEntities, nil
 }
 
-func extractApplicationUUIDFromRemoteEntities(model description.Model) (map[string]string, error) {
-	remoteEntities := make(map[string]string)
-	for _, re := range model.RemoteEntities() {
-		// Handle only remote entities that are application UUIDs.
-		remoteEntityID := re.ID()
-		if !strings.HasPrefix(remoteEntityID, "application-") {
-			continue
-		}
-
-		tag, err := names.ParseApplicationTag(remoteEntityID)
-		if err != nil {
-			return nil, errors.Errorf("parsing application tag from remote entity id %q: %w", remoteEntityID, err)
-		}
-
-		remoteEntities[tag.Id()] = re.Token()
-	}
-	return remoteEntities, nil
-}
-
 func extractRemoteEndpoints(remoteApp description.RemoteApplication) ([]crossmodelrelation.RemoteApplicationEndpoint, error) {
 	endpoints := make([]crossmodelrelation.RemoteApplicationEndpoint, 0, len(remoteApp.Endpoints()))
 	for _, ep := range remoteApp.Endpoints() {
@@ -527,14 +507,13 @@ func findRelationUUIDForKey(remoteEntities []relationRemoteEntity, relationKey r
 
 func findApplicationUUIDFromRemoteEntities(endpoints []crossmodelrelation.RemoteApplicationEndpoint, relations map[relationEndpoint]string, remoteEntities map[string]string) (coreapplication.UUID, error) {
 	for _, ep := range endpoints {
-		relEndpoint := relationEndpoint{
+		appName, err := findRemoteApplicationName(relations, relationEndpoint{
 			EndpointName: ep.Name,
 			Role:         ep.Role,
 			Interface:    ep.Interface,
-		}
-		appName, err := findRemoteApplicationName(relations, relEndpoint)
+		})
 		if err != nil {
-			return "", errors.Errorf("finding remote application name for endpoint %q: %w", relEndpoint.String(), err)
+			return "", errors.Errorf("finding remote application name: %w", err)
 		}
 
 		appUUIDStr, ok := remoteEntities[appName]
@@ -543,24 +522,14 @@ func findApplicationUUIDFromRemoteEntities(endpoints []crossmodelrelation.Remote
 		}
 	}
 
-	return coreapplication.NewUUID()
+	return "", errors.Errorf("no application UUID found for remote application with endpoints")
 }
 
 func findRemoteApplicationName(endpoints map[relationEndpoint]string, endpoint relationEndpoint) (string, error) {
-	switch len(endpoints) {
-	case 1:
-		return "", errors.Errorf("peer relations not supported")
-	case 2:
-		for ep, appName := range endpoints {
-			if ep == endpoint {
-				continue
-			}
-			return appName, nil
-		}
-		return "", errors.Errorf("no relation endpoint found")
-	default:
-		return "", errors.Errorf("no relation endpoints found for remote application")
+	if appName, ok := endpoints[endpoint]; ok {
+		return appName, nil
 	}
+	return "", errors.Errorf("no relation endpoints found for remote application")
 }
 
 func relationTagSuffixToKey(s string) string {

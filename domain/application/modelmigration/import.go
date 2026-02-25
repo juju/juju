@@ -28,6 +28,7 @@ import (
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/deployment/charm/assumes"
 	"github.com/juju/juju/domain/deployment/charm/resource"
+	domainmodelmigration "github.com/juju/juju/domain/modelmigration/modelmigration"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -112,6 +113,11 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return errors.Errorf("parsing model type %q: %w", model.Type(), err)
 	}
 
+	remoteAppUUIDs, err := domainmodelmigration.ExtractApplicationUUIDFromRemoteEntities(model)
+	if err != nil {
+		return errors.Errorf("extracting application UUID from remote entities: %w", err)
+	}
+
 	for _, app := range append(principals, subordinates...) {
 		chURL, err := internalcharm.ParseURL(app.CharmURL())
 		if err != nil {
@@ -162,6 +168,11 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			return errors.Errorf("importing exposed endpoints: %w", err)
 		}
 
+		appUUID, err := findApplicationUUIDByName(app.Name(), remoteAppUUIDs)
+		if err != nil {
+			return errors.Errorf("finding application UUID for application %q: %w", app.Name(), err)
+		}
+
 		// TODO hml 04-30-2024
 		// Investigate how device constraints for an application are
 		// migrated and implemented if necessary.
@@ -170,6 +181,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		// Investigate how storage directives for an application are
 		// migrated and implemented if necessary.
 		args := service.ImportApplicationArgs{
+			UUID:                   appUUID,
 			Charm:                  charm,
 			CharmOrigin:            origin,
 			ApplicationConfig:      applicationConfig,
@@ -1070,4 +1082,11 @@ func convertKey(key any) (string, error) {
 	default:
 		return "", errors.Errorf("key can not be converted to a string: %w", coreerrors.NotValid)
 	}
+}
+
+func findApplicationUUIDByName(appName string, remoteEntities map[string]string) (coreapplication.UUID, error) {
+	if uuid, ok := remoteEntities[appName]; ok {
+		return coreapplication.UUID(uuid), nil
+	}
+	return coreapplication.NewUUID()
 }

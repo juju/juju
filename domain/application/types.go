@@ -432,6 +432,8 @@ type K8sPodInfo struct {
 // InsertApplicationArgs contains arguments for importing an application to the
 // model.
 type InsertApplicationArgs struct {
+	// ApplicationUUID is the unique identifier for the application.
+	ApplicationUUID string
 	// Charm is the charm to add to the application. This is required to
 	// be able to add the application.
 	Charm domaincharm.Charm
