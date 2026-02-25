@@ -77,52 +77,207 @@ func (s *importSuite) TestImportOffers(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *importSuite) TestImportRemoteApplicationOfferersViaExec(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	model := description.NewModel(description.ModelArgs{})
+	remoteApp := model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "src",
+		OfferUUID:       "offer-uuid-1234",
+		URL:             "src:admin/from.src",
+		SourceModelUUID: "source-model-uuid",
+	})
+	remoteApp.AddEndpoint(description.RemoteEndpointArgs{
+		Name:      "sink",
+		Role:      "requirer",
+		Interface: "dummy-token",
+	})
+
+	relation := model.AddRelation(description.RelationArgs{
+		Id:  0,
+		Key: "src:sink sink:source",
+	})
+	relation.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "sink",
+		Interface:       "dummy-token",
+		Name:            "source",
+		Role:            "provider",
+	})
+	relation.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "src",
+		Interface:       "dummy-token",
+		Name:            "sink",
+		Role:            "requirer",
+	})
+
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "application-sink",
+		Token: "application-uuid-1234",
+	})
+
+	expected := []service.RemoteApplicationOffererImport{
+		{
+			RemoteApplicationImport: service.RemoteApplicationImport{
+				Name:            "src",
+				OfferUUID:       "offer-uuid-1234",
+				URL:             "src:admin/from.src",
+				SourceModelUUID: "source-model-uuid",
+				Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
+					{
+						Name:      "sink",
+						Role:      charm.RoleRequirer,
+						Interface: "dummy-token",
+					},
+				},
+			},
+			OffererApplicationUUID: application.UUID("application-uuid-1234"),
+		},
+	}
+	s.importService.EXPECT().ImportRemoteApplicationOfferers(
+		gomock.Any(),
+		tc.Bind(tc.DeepEquals, expected),
+	).Return(nil)
+
+	err := s.newImportOperation(c).Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportRemoteApplicationOfferersDifferentAppNameViaExec(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	model := description.NewModel(description.ModelArgs{})
+	remoteApp := model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "src",
+		OfferUUID:       "offer-uuid-1234",
+		URL:             "src:admin/from.src",
+		SourceModelUUID: "source-model-uuid",
+	})
+	remoteApp.AddEndpoint(description.RemoteEndpointArgs{
+		Name:      "sink",
+		Role:      "requirer",
+		Interface: "dummy-token",
+	})
+
+	relation := model.AddRelation(description.RelationArgs{
+		Id:  0,
+		Key: "src:sink sink1:source",
+	})
+	relation.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "sink1",
+		Interface:       "dummy-token",
+		Name:            "source",
+		Role:            "provider",
+	})
+	relation.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "src",
+		Interface:       "dummy-token",
+		Name:            "sink",
+		Role:            "requirer",
+	})
+
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "application-sink1",
+		Token: "application-uuid-1234",
+	})
+
+	expected := []service.RemoteApplicationOffererImport{
+		{
+			RemoteApplicationImport: service.RemoteApplicationImport{
+				Name:            "src",
+				OfferUUID:       "offer-uuid-1234",
+				URL:             "src:admin/from.src",
+				SourceModelUUID: "source-model-uuid",
+				Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
+					{
+						Name:      "sink",
+						Role:      charm.RoleRequirer,
+						Interface: "dummy-token",
+					},
+				},
+			},
+			OffererApplicationUUID: application.UUID("application-uuid-1234"),
+		},
+	}
+	s.importService.EXPECT().ImportRemoteApplicationOfferers(
+		gomock.Any(),
+		tc.Bind(tc.DeepEquals, expected),
+	).Return(nil)
+
+	err := s.newImportOperation(c).Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *importSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
 	model := description.NewModel(description.ModelArgs{})
 	remoteApp := model.AddRemoteApplication(description.RemoteApplicationArgs{
-		Name:            "remote-mysql",
+		Name:            "src",
 		OfferUUID:       "offer-uuid-1234",
-		URL:             "ctrl:admin/model.mysql",
+		URL:             "src:admin/from.src",
 		SourceModelUUID: "source-model-uuid",
 		Macaroon:        "macaroon-data",
 		Bindings:        map[string]string{"db": "alpha"},
 	})
 	remoteApp.AddEndpoint(description.RemoteEndpointArgs{
-		Name:      "db",
-		Role:      "provider",
-		Interface: "mysql",
+		Name:      "sink",
+		Role:      "requirer",
+		Interface: "dummy-token",
 	})
+
 	relation := model.AddRelation(description.RelationArgs{
 		Id:  0,
-		Key: "remote-mysql:db foo:db",
+		Key: "src:sink sink:source",
 	})
 	relation.AddEndpoint(description.EndpointArgs{
-		ApplicationName: "remote-mysql",
+		ApplicationName: "sink",
+		Interface:       "dummy-token",
+		Name:            "source",
+		Role:            "provider",
 	})
 	relation.AddEndpoint(description.EndpointArgs{
-		ApplicationName: "foo",
+		ApplicationName: "src",
+		Interface:       "dummy-token",
+		Name:            "sink",
+		Role:            "requirer",
 	})
 	remoteEntities := map[string]string{
-		"db":           "application-uuid-1234",
-		"remote-mysql": "application-uuid-4321",
+		"sink": "application-uuid-1234",
+		"src":  "application-uuid-4321",
+	}
+	relations := map[relationEndpoint]string{
+		{
+			EndpointName: "source",
+			Role:         "provider",
+			Interface:    "dummy-token",
+		}: "sink",
+		{
+			EndpointName: "sink",
+			Role:         "requirer",
+			Interface:    "dummy-token",
+		}: "src",
 	}
 
 	expected := []service.RemoteApplicationOffererImport{
 		{
 			RemoteApplicationImport: service.RemoteApplicationImport{
-				Name:            "remote-mysql",
+				Name:            "src",
 				OfferUUID:       "offer-uuid-1234",
-				URL:             "ctrl:admin/model.mysql",
+				URL:             "src:admin/from.src",
 				SourceModelUUID: "source-model-uuid",
 				Macaroon:        "macaroon-data",
 				Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
 					{
-						Name:      "db",
-						Role:      charm.RoleProvider,
-						Interface: "mysql",
+						Name:      "sink",
+						Role:      charm.RoleRequirer,
+						Interface: "dummy-token",
 					},
 				},
 				Units: nil,
@@ -138,7 +293,93 @@ func (s *importSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 	// Act - no relations, so no units to extract
 	remoteAppUnits := make(map[string][]string)
 	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(),
-		model.RemoteApplications(), remoteEntities, remoteAppUnits)
+		model.RemoteApplications(), remoteEntities, remoteAppUnits, relations)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportRemoteApplicationOfferersWithDifferentAppName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	model := description.NewModel(description.ModelArgs{})
+	remoteApp := model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "src",
+		OfferUUID:       "offer-uuid-1234",
+		URL:             "src:admin/from.src",
+		SourceModelUUID: "source-model-uuid",
+		Macaroon:        "macaroon-data",
+		Bindings:        map[string]string{"db": "alpha"},
+	})
+	remoteApp.AddEndpoint(description.RemoteEndpointArgs{
+		Name:      "sink",
+		Role:      "requirer",
+		Interface: "dummy-token",
+	})
+
+	relation := model.AddRelation(description.RelationArgs{
+		Id:  0,
+		Key: "src:sink sink1:source",
+	})
+	relation.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "sink1",
+		Interface:       "dummy-token",
+		Name:            "source",
+		Role:            "provider",
+	})
+	relation.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "src",
+		Interface:       "dummy-token",
+		Name:            "sink",
+		Role:            "requirer",
+	})
+	remoteEntities := map[string]string{
+		"sink1": "application-uuid-1234",
+		"src":   "application-uuid-4321",
+	}
+	relations := map[relationEndpoint]string{
+		{
+			EndpointName: "source",
+			Role:         "provider",
+			Interface:    "dummy-token",
+		}: "sink1",
+		{
+			EndpointName: "sink",
+			Role:         "requirer",
+			Interface:    "dummy-token",
+		}: "src",
+	}
+
+	expected := []service.RemoteApplicationOffererImport{
+		{
+			RemoteApplicationImport: service.RemoteApplicationImport{
+				Name:            "src",
+				OfferUUID:       "offer-uuid-1234",
+				URL:             "src:admin/from.src",
+				SourceModelUUID: "source-model-uuid",
+				Macaroon:        "macaroon-data",
+				Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
+					{
+						Name:      "sink",
+						Role:      charm.RoleRequirer,
+						Interface: "dummy-token",
+					},
+				},
+				Units: nil,
+			},
+			OffererApplicationUUID: application.UUID("application-uuid-1234"),
+		},
+	}
+	s.importService.EXPECT().ImportRemoteApplicationOfferers(
+		gomock.Any(),
+		expected,
+	).Return(nil)
+
+	// Act - no relations, so no units to extract
+	remoteAppUnits := make(map[string][]string)
+	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(),
+		model.RemoteApplications(), remoteEntities, remoteAppUnits, relations)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -148,45 +389,67 @@ func (s *importSuite) TestImportRemoteApplicationOfferersNoRemoteEntity(c *tc.C)
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
 	model := description.NewModel(description.ModelArgs{})
 	remoteApp := model.AddRemoteApplication(description.RemoteApplicationArgs{
-		Name:            "remote-mysql",
+		Name:            "src",
 		OfferUUID:       "offer-uuid-1234",
-		URL:             "ctrl:admin/model.mysql",
+		URL:             "src:admin/from.src",
 		SourceModelUUID: "source-model-uuid",
 		Macaroon:        "macaroon-data",
 		Bindings:        map[string]string{"db": "alpha"},
 	})
 	remoteApp.AddEndpoint(description.RemoteEndpointArgs{
-		Name:      "db",
-		Role:      "provider",
-		Interface: "mysql",
+		Name:      "sink",
+		Role:      "requirer",
+		Interface: "dummy-token",
 	})
+
 	relation := model.AddRelation(description.RelationArgs{
 		Id:  0,
-		Key: "remote-mysql:db foo:db",
+		Key: "src:sink sink:source",
 	})
 	relation.AddEndpoint(description.EndpointArgs{
-		ApplicationName: "remote-mysql",
+		ApplicationName: "sink",
+		Interface:       "dummy-token",
+		Name:            "source",
+		Role:            "provider",
 	})
 	relation.AddEndpoint(description.EndpointArgs{
-		ApplicationName: "foo",
+		ApplicationName: "src",
+		Interface:       "dummy-token",
+		Name:            "sink",
+		Role:            "requirer",
 	})
 	remoteEntities := map[string]string{}
+	relations := map[relationEndpoint]string{
+		{
+			EndpointName: "source",
+			Role:         "provider",
+			Interface:    "dummy-token",
+		}: "sink",
+		{
+			EndpointName: "sink",
+			Role:         "requirer",
+			Interface:    "dummy-token",
+		}: "src",
+	}
 
 	expected := []service.RemoteApplicationOffererImport{
 		{
 			RemoteApplicationImport: service.RemoteApplicationImport{
-				Name:            "remote-mysql",
+				Name:            "src",
 				OfferUUID:       "offer-uuid-1234",
-				URL:             "ctrl:admin/model.mysql",
+				URL:             "src:admin/from.src",
 				SourceModelUUID: "source-model-uuid",
 				Macaroon:        "macaroon-data",
 				Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
 					{
-						Name:      "db",
-						Role:      charm.RoleProvider,
-						Interface: "mysql",
+						Name:      "sink",
+						Role:      charm.RoleRequirer,
+						Interface: "dummy-token",
 					},
 				},
 				Units: nil,
@@ -206,7 +469,7 @@ func (s *importSuite) TestImportRemoteApplicationOfferersNoRemoteEntity(c *tc.C)
 	// Act - no relations, so no units to extract
 	remoteAppUnits := make(map[string][]string)
 	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(),
-		model.RemoteApplications(), remoteEntities, remoteAppUnits)
+		model.RemoteApplications(), remoteEntities, remoteAppUnits, relations)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -219,8 +482,9 @@ func (s *importSuite) TestImportRemoteApplicationOfferersEmpty(c *tc.C) {
 
 	remoteEntities := map[string]string{}
 	remoteAppUnits := make(map[string][]string)
+	relations := map[relationEndpoint]string{}
 	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(),
-		model.RemoteApplications(), remoteEntities, remoteAppUnits)
+		model.RemoteApplications(), remoteEntities, remoteAppUnits, relations)
 
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -248,6 +512,9 @@ func (s *importSuite) TestImportRemoteApplicationOfferersMultiple(c *tc.C) {
 	})
 	relation1.AddEndpoint(description.EndpointArgs{
 		ApplicationName: "remote-mysql",
+		Name:            "db",
+		Role:            "provider",
+		Interface:       "mysql",
 	})
 	relation1.AddEndpoint(description.EndpointArgs{
 		ApplicationName: "foo",
@@ -276,13 +543,32 @@ func (s *importSuite) TestImportRemoteApplicationOfferersMultiple(c *tc.C) {
 	})
 	relation2.AddEndpoint(description.EndpointArgs{
 		ApplicationName: "remote-postgresql",
+		Name:            "db",
+		Role:            "provider",
+		Interface:       "pgsql",
 	})
 	relation2.AddEndpoint(description.EndpointArgs{
 		ApplicationName: "foo",
+		Name:            "db",
+		Role:            "provider",
+		Interface:       "pgsql",
 	})
-
 	remoteEntities := map[string]string{
-		"db": "application-uuid-1",
+		"foo":               "application-uuid-9999",
+		"remote-mysql":      "application-uuid-1234",
+		"remote-postgresql": "application-uuid-1234",
+	}
+	relations := map[relationEndpoint]string{
+		{
+			EndpointName: "db",
+			Role:         "provider",
+			Interface:    "mysql",
+		}: "remote-mysql",
+		{
+			EndpointName: "db",
+			Role:         "provider",
+			Interface:    "pgsql",
+		}: "remote-postgresql",
 	}
 
 	expected := []service.RemoteApplicationOffererImport{
@@ -300,7 +586,7 @@ func (s *importSuite) TestImportRemoteApplicationOfferersMultiple(c *tc.C) {
 					},
 				},
 			},
-			OffererApplicationUUID: application.UUID("application-uuid-1"),
+			OffererApplicationUUID: application.UUID("application-uuid-1234"),
 		},
 		{
 			RemoteApplicationImport: service.RemoteApplicationImport{
@@ -321,7 +607,7 @@ func (s *importSuite) TestImportRemoteApplicationOfferersMultiple(c *tc.C) {
 					},
 				},
 			},
-			OffererApplicationUUID: application.UUID("application-uuid-1"),
+			OffererApplicationUUID: application.UUID("application-uuid-1234"),
 		},
 	}
 	s.importService.EXPECT().ImportRemoteApplicationOfferers(
@@ -331,7 +617,7 @@ func (s *importSuite) TestImportRemoteApplicationOfferersMultiple(c *tc.C) {
 
 	remoteAppUnits := make(map[string][]string)
 	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(),
-		model.RemoteApplications(), remoteEntities, remoteAppUnits)
+		model.RemoteApplications(), remoteEntities, remoteAppUnits, relations)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -344,51 +630,64 @@ func (s *importSuite) TestImportRemoteApplicationsWithUnitsFromRelations(c *tc.C
 
 	// Add a local application
 	model.AddApplication(description.ApplicationArgs{
-		Name: "local-app",
+		Name: "sink",
 	})
 
 	// Add a remote application
 	remoteApp := model.AddRemoteApplication(description.RemoteApplicationArgs{
-		Name:            "remote-mysql",
+		Name:            "src",
 		OfferUUID:       "offer-uuid-1234",
-		URL:             "ctrl:admin/model.mysql",
+		URL:             "src:admin/from.src",
 		SourceModelUUID: "source-model-uuid",
+		Macaroon:        "macaroon-data",
+		Bindings:        map[string]string{"db": "alpha"},
 	})
 	remoteApp.AddEndpoint(description.RemoteEndpointArgs{
-		Name:      "db",
-		Role:      "provider",
-		Interface: "mysql",
+		Name:      "sink",
+		Role:      "requirer",
+		Interface: "dummy-token",
 	})
 
-	// Add a relation between local-app and remote-mysql
+	// Add a relation between sink and src
 	rel := model.AddRelation(description.RelationArgs{
-		Id:  1,
-		Key: "local-app:database remote-mysql:db",
+		Id:  0,
+		Key: "src:sink sink:source",
 	})
 	// Add endpoint for local app
 	localEp := rel.AddEndpoint(description.EndpointArgs{
-		ApplicationName: "local-app",
-		Name:            "database",
-		Role:            "requirer",
-		Interface:       "mysql",
-		Scope:           "global",
+		ApplicationName: "sink",
+		Interface:       "dummy-token",
+		Name:            "source",
+		Role:            "provider",
 	})
-	localEp.SetUnitSettings("local-app/0", map[string]interface{}{"key": "value"})
+	localEp.SetUnitSettings("sink/0", map[string]interface{}{"key": "value"})
 
 	// Add endpoint for remote app with unit settings
 	remoteEp := rel.AddEndpoint(description.EndpointArgs{
-		ApplicationName: "remote-mysql",
-		Name:            "db",
-		Role:            "provider",
-		Interface:       "mysql",
-		Scope:           "global",
+		ApplicationName: "src",
+		Interface:       "dummy-token",
+		Name:            "sink",
+		Role:            "requirer",
 	})
 	// These unit settings represent the remote units
-	remoteEp.SetUnitSettings("remote-mysql/0", map[string]interface{}{"key": "value1"})
-	remoteEp.SetUnitSettings("remote-mysql/1", map[string]interface{}{"key": "value2"})
+	remoteEp.SetUnitSettings("src/0", map[string]interface{}{"key": "value1"})
+	remoteEp.SetUnitSettings("src/1", map[string]interface{}{"key": "value2"})
 
 	remoteEntities := map[string]string{
-		"db": "application-uuid-1234",
+		"sink": "application-uuid-1234",
+		"src":  "application-uuid-4321",
+	}
+	relations := map[relationEndpoint]string{
+		{
+			EndpointName: "source",
+			Role:         "provider",
+			Interface:    "dummy-token",
+		}: "sink",
+		{
+			EndpointName: "sink",
+			Role:         "requirer",
+			Interface:    "dummy-token",
+		}: "src",
 	}
 
 	// The expected import should include the units extracted from relations
@@ -397,17 +696,18 @@ func (s *importSuite) TestImportRemoteApplicationsWithUnitsFromRelations(c *tc.C
 		gomock.Any(),
 	).DoAndReturn(func(ctx context.Context, imports []service.RemoteApplicationOffererImport) error {
 		c.Assert(imports, tc.HasLen, 1)
-		c.Check(imports[0].Name, tc.Equals, "remote-mysql")
+		c.Check(imports[0].Name, tc.Equals, "src")
 		// Units should be extracted from relation endpoint settings
 		c.Check(imports[0].Units, tc.HasLen, 2)
-		c.Check(imports[0].Units, tc.SameContents, []string{"remote-mysql/0", "remote-mysql/1"})
+		c.Check(imports[0].Units, tc.SameContents, []string{"src/0", "src/1"})
 		return nil
 	})
 
 	// Act - use Execute which extracts units from relations
 	op := s.newImportOperation(c)
 	remoteAppUnits := op.extractRemoteAppUnits(model)
-	err := op.importRemoteApplicationOfferers(c.Context(), model.RemoteApplications(), remoteEntities, remoteAppUnits)
+	err := op.importRemoteApplicationOfferers(c.Context(),
+		model.RemoteApplications(), remoteEntities, remoteAppUnits, relations)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
