@@ -11,18 +11,18 @@ import (
 
 	"github.com/canonical/sqlair"
 
-	"github.com/juju/juju/domain/export/types/v{{ .Version }}"
+	"github.com/juju/juju/domain/export/types/v{{ .VersionToken }}"
 	"github.com/juju/juju/internal/errors"
 )
 
-// ExportV{{ .Version }} exports all model data for version {{ .Version }}.
-func (st *State) ExportV{{ .Version }}(ctx context.Context) (*v{{ .Version }}.ModelExport, error) {
-	var modelExport v{{ .Version }}.ModelExport
+// Export exports all model data for version {{ .SemanticVersion }}.
+func (st *State) Export(ctx context.Context) (*v{{ .VersionToken }}.ModelExport, error) {
+	var modelExport v{{ .VersionToken }}.ModelExport
 	var err error
 
 	// Prepare statements first using the typed samples from the generated types package.
 {{- range $i, $sn := .StructNames }}
-	stmt{{ $sn }}, err := sqlair.Prepare(`SELECT &{{ $sn }}.* FROM "{{ index $.TableNames $i }}"`, v{{ $.Version }}.{{ $sn }}{})
+	stmt{{ $sn }}, err := sqlair.Prepare(`SELECT &{{ $sn }}.* FROM "{{ index $.TableNames $i }}"`, v{{ $.VersionToken }}.{{ $sn }}{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing {{ $sn }} statement: %w", err)
 	}

@@ -79,9 +79,10 @@ func generate(ctx context.Context, runner *txnRunner) error {
 	if len(export.ExportVersions) == 0 {
 		return fmt.Errorf("no export versions defined")
 	}
-	// Transform dots to underscores for use in package and directory names
-	thisVersion := export.ExportVersions[len(export.ExportVersions)-1]
-	thisVersion = strings.ReplaceAll(thisVersion, ".", "_")
+	semanticVersion := export.ExportVersions[len(export.ExportVersions)-1]
+
+	// Transform dots to underscores for use in package and directory names.
+	versionToken := strings.ReplaceAll(semanticVersion, ".", "_")
 
 	tableNames, err := getTableNames(ctx, runner)
 	if err != nil {
@@ -114,11 +115,15 @@ func generate(ctx context.Context, runner *txnRunner) error {
 		}
 	}
 
-	if err := writeTypesFile(thisVersion, structs, structNames, imports); err != nil {
+	if err := writeTypesFile(versionToken, structs, structNames, imports); err != nil {
 		return err
 	}
 
-	return writeStateModelVersionFile(thisVersion, usedTableNames, structNames)
+	if err := writeStateModelVersionFile(versionToken, semanticVersion, usedTableNames, structNames); err != nil {
+		return err
+	}
+
+	return writeServiceModelVersionFile(versionToken, semanticVersion)
 }
 
 func getTableNames(ctx context.Context, runner *txnRunner) ([]string, error) {
@@ -316,7 +321,12 @@ func writeTypesFile(version string, structs []string, structNames []string, impo
 	return os.WriteFile(filePath, formatted, 0644)
 }
 
-func writeStateModelVersionFile(version string, tableNames []string, structNames []string) error {
+func writeStateModelVersionFile(
+	versionToken string,
+	semanticVersion string,
+	tableNames []string,
+	structNames []string,
+) error {
 	_, filename, _, _ := runtime.Caller(0)
 	currentDir := filepath.Dir(filename)
 
@@ -334,13 +344,15 @@ func writeStateModelVersionFile(version string, tableNames []string, structNames
 	}
 
 	data := struct {
-		Version     string
-		TableNames  []string
-		StructNames []string
+		VersionToken    string
+		SemanticVersion string
+		TableNames      []string
+		StructNames     []string
 	}{
-		Version:     version,
-		TableNames:  tableNames,
-		StructNames: structNames,
+		VersionToken:    versionToken,
+		SemanticVersion: semanticVersion,
+		TableNames:      tableNames,
+		StructNames:     structNames,
 	}
 
 	t := template.Must(template.New("state").Parse(string(tmplBytes)))
@@ -351,7 +363,7 @@ func writeStateModelVersionFile(version string, tableNames []string, structNames
 
 	formatted, err := format.Source(out.Bytes())
 	if err != nil {
-		log.Printf("error formatting generated code for v%s.go: %v", version, err)
+		log.Printf("error formatting generated code for v%s.go: %v", versionToken, err)
 		formatted = out.Bytes()
 	}
 
@@ -372,9 +384,9 @@ func writeStateModelVersionFile(version string, tableNames []string, structNames
 	}
 
 	testData := struct {
-		Version string
+		VersionToken string
 	}{
-		Version: version,
+		VersionToken: versionToken,
 	}
 
 	testT := template.Must(template.New("state_test").Parse(string(testTmplBytes)))
@@ -382,6 +394,74 @@ func writeStateModelVersionFile(version string, tableNames []string, structNames
 	if err := testT.Execute(&testOut, testData); err != nil {
 		return err
 	}
+	testFormatted, err := format.Source(testOut.Bytes())
+	if err != nil {
+		return err
+	}
+
+	testFilePath := filepath.Join(dir, "export_test.go")
+	fmt.Printf("writing to %s\n", testFilePath)
+	if err := os.WriteFile(testFilePath, testFormatted, 0644); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func writeServiceModelVersionFile(versionToken, semanticVersion string) error {
+	_, filename, _, _ := runtime.Caller(0)
+	currentDir := filepath.Dir(filename)
+
+	repoRoot := filepath.Dir(filepath.Dir(currentDir))
+	dir := filepath.Join(repoRoot, "domain", "export", "service")
+
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
+	tmplPath := filepath.Join(filepath.Dir(filename), "service.tmpl")
+	tmplBytes, err := os.ReadFile(tmplPath)
+	if err != nil {
+		return err
+	}
+
+	data := struct {
+		VersionToken    string
+		SemanticVersion string
+	}{
+		VersionToken:    versionToken,
+		SemanticVersion: semanticVersion,
+	}
+
+	t := template.Must(template.New("service").Parse(string(tmplBytes)))
+	var out bytes.Buffer
+	if err := t.Execute(&out, data); err != nil {
+		return err
+	}
+
+	formatted, err := format.Source(out.Bytes())
+	if err != nil {
+		return err
+	}
+
+	filePath := filepath.Join(dir, "export.go")
+	fmt.Printf("writing to %s\n", filePath)
+	if err := os.WriteFile(filePath, formatted, 0644); err != nil {
+		return err
+	}
+
+	testTmplPath := filepath.Join(filepath.Dir(filename), "service_test.tmpl")
+	testTmplBytes, err := os.ReadFile(testTmplPath)
+	if err != nil {
+		return err
+	}
+
+	testT := template.Must(template.New("service_test").Parse(string(testTmplBytes)))
+	var testOut bytes.Buffer
+	if err := testT.Execute(&testOut, data); err != nil {
+		return err
+	}
+
 	testFormatted, err := format.Source(testOut.Bytes())
 	if err != nil {
 		return err
