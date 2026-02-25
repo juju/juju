@@ -413,12 +413,17 @@ func (s *Service) transformFilesystemResults(
 	return ret, nil
 }
 
-// GetVolumeStatuses returns the specified volume statuses.
+// GetVolumeStatuses returns the specified volumes statuses. If no volume uuids
+// are supplied then slice of length zero is returned.
 func (s *Service) GetVolumeStatuses(
 	ctx context.Context, uuids []storage.VolumeUUID,
 ) ([]Volume, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	if len(uuids) == 0 {
+		return nil, nil
+	}
 
 	volumes, err := s.modelState.GetVolumes(ctx, uuids)
 	if err != nil {
