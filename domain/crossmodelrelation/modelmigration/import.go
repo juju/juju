@@ -447,7 +447,7 @@ type relationEndpoint struct {
 }
 
 func (e relationEndpoint) String() string {
-	return fmt.Sprintf("%s:%s#%s", e.EndpointName, e.Role, e.Interface)
+	return fmt.Sprintf("%s:%s#%s", e.EndpointName, e.Interface, e.Role)
 }
 
 func extractRelationEndpointsWithApplicationName(model description.Model) (map[relationEndpoint]string, error) {

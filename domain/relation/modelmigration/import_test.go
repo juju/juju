@@ -158,7 +158,10 @@ func (s *importSuite) TestImportSkipsConsumerRemoteRelationsWithOtherRelations(c
 		IsConsumerProxy: false,
 	})
 
-	s.service.EXPECT().ImportRelations(gomock.Any(), []relation.ImportRelationArg{{
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].UUID`, tc.IsNonZeroUUID)
+
+	s.service.EXPECT().ImportRelations(gomock.Any(), tc.Bind(mc, relation.ImportRelationsArgs{{
 		ID:  2,
 		Key: key1,
 		Endpoints: []relation.ImportEndpoint{{
@@ -173,7 +176,7 @@ func (s *importSuite) TestImportSkipsConsumerRemoteRelationsWithOtherRelations(c
 			UnitSettings:        map[string]map[string]any{},
 		}},
 		Scope: charm.ScopeGlobal,
-	}}).Return(nil)
+	}})).Return(nil)
 
 	importOp := importOperation{
 		service: s.service,
@@ -592,7 +595,10 @@ func (s *importSuite) TestImportRemoteRelations(c *tc.C) {
 		Role:      "requirer",
 	})
 
-	s.service.EXPECT().ImportRelations(gomock.Any(), relation.ImportRelationsArgs{
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].UUID`, tc.IsNonZeroUUID)
+
+	s.service.EXPECT().ImportRelations(gomock.Any(), tc.Bind(mc, relation.ImportRelationsArgs{
 		{
 			ID:  32,
 			Key: relationtesting.GenNewKey(c, "foo:sink dummy-sink:source"),
@@ -631,7 +637,7 @@ func (s *importSuite) TestImportRemoteRelations(c *tc.C) {
 			},
 			Scope: charm.ScopeGlobal,
 		},
-	}).Return(nil)
+	})).Return(nil)
 
 	importOp := importOperation{
 		service: s.service,
