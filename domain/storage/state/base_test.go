@@ -31,8 +31,8 @@ type baseSuite struct {
 // results in a proxied call to [sqlair.Prepare].
 type preparer struct{}
 
-// newMachine create a new machine in the model for testing with the given name.
-// Returned is the uuid of the new machine.
+// newMachine create a new machine in the model returning the uuid of the new
+// Machine created.
 func (s *baseSuite) newMachine(c *tc.C) coremachine.UUID {
 	uuid := tc.Must(c, coremachine.NewUUID)
 	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
