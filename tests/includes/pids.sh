@@ -12,7 +12,7 @@ _daemon_scope_label() {
 	echo "$scope_label"
 }
 
-# track_daemon_pid appends the provided PID to the
+# track_daemon_pid appends the provided PID to the scoped pid list file
 track_daemon_pid() {
 	local pid
 	pid=$1

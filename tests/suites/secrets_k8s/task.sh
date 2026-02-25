@@ -6,6 +6,11 @@ test_secrets_k8s() {
 
 	set_verbosity
 
+	if [[ ${BOOTSTRAP_PROVIDER} != "k8s" ]]; then
+		echo "==> TEST SKIPPED: test_secrets_k8s test runs on k8s only"
+		return
+	fi
+
 	case "${BOOTSTRAP_CLOUD:-}" in
 	"microk8s")
 		microk8s enable ingress >/dev/null 2>&1 || true
@@ -19,18 +24,11 @@ test_secrets_k8s() {
 
 	bootstrap "test-secrets-k8s" "${file}"
 
-	case "${BOOTSTRAP_PROVIDER:-}" in
-	"k8s")
-		test_secrets
-		test_secret_drain
-		test_user_secrets
-		test_user_secret_drain
-		test_add_multiple_secrets_parallel
-		;;
-	*)
-		echo "==> TEST SKIPPED: test_secrets_k8s test runs on k8s only"
-		;;
-	esac
+	test_secrets
+	test_secret_drain
+	test_user_secrets
+	test_user_secret_drain
+	test_add_multiple_secrets_parallel
 
 	# Takes too long to tear down, so forcibly destroy it
 	export KILL_CONTROLLER=true
