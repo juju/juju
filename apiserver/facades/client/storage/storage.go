@@ -443,6 +443,10 @@ func (a *StorageAPI) ListStorageDetails(
 		)
 	}
 
+	// zeroTime is used to set the status time when a storage instance does not
+	// have a status time set.
+	zeroTime := time.UnixMicro(0).UTC()
+
 	// processStorageInstance is responsible for taking a single storage
 	// instance representation in the model and building a
 	// [params.StorageDetails] struct to provide to the caller.
@@ -482,7 +486,6 @@ func (a *StorageAPI) ListStorageDetails(
 			// This is poor API design anyway, since a storage instance does not
 			// have a status, instead, we've pulled one from the provisioned
 			// entities.
-			zeroTime := time.UnixMicro(0).UTC()
 			retVal.Status.Since = &zeroTime
 		}
 
@@ -662,6 +665,10 @@ func (a *StorageAPI) volumeDetails(
 ) ([]params.VolumeDetails, error) {
 	storageMap := map[string]*params.StorageDetails{}
 
+	// zeroTime is used to set the status time when a storage instance does not
+	// have a status time set.
+	zeroTime := time.UnixMicro(0).UTC()
+
 	for _, v := range storageInstances {
 		details := params.StorageDetails{
 			Status: params.EntityStatus{
@@ -679,16 +686,6 @@ func (a *StorageAPI) volumeDetails(
 			// This is poor API design anyway, since a storage instance does not
 			// have a status, instead, we've pulled one from the provisioned
 			// entities.
-			zeroTime := time.UnixMicro(0).UTC()
-			details.Status.Since = &zeroTime
-		}
-		if v.Status.Since == nil {
-			// This prevents a panic in clients due to a storage instance after
-			// 4.0 possibly having no filesystem or volume to get a status from.
-			// This is poor API design anyway, since a storage instance does not
-			// have a status, instead, we've pulled one from the provisioned
-			// entities.
-			zeroTime := time.UnixMicro(0).UTC()
 			details.Status.Since = &zeroTime
 		}
 		if v.Owner != nil {
@@ -747,7 +744,6 @@ func (a *StorageAPI) volumeDetails(
 			// This is poor API design anyway, since a storage instance does not
 			// have a status, instead, we've pulled one from the provisioned
 			// entities.
-			zeroTime := time.UnixMicro(0).UTC()
 			details.Status.Since = &zeroTime
 		}
 
@@ -948,6 +944,10 @@ func (a *StorageAPI) filesystemDetails(
 	storageInstances []statusservice.StorageInstance,
 	filesystems []statusservice.Filesystem,
 ) ([]params.FilesystemDetails, error) {
+	// zeroTime is used to set the status time when a storage instance does not
+	// have a status time set.
+	zeroTime := time.UnixMicro(0).UTC()
+
 	storageMap := map[string]*params.StorageDetails{}
 	for _, v := range storageInstances {
 		details := params.StorageDetails{
@@ -1007,7 +1007,6 @@ func (a *StorageAPI) filesystemDetails(
 			// This is poor API design anyway, since a storage instance does not
 			// have a status, instead, we've pulled one from the provisioned
 			// entities.
-			zeroTime := time.UnixMicro(0).UTC()
 			details.Status.Since = &zeroTime
 		}
 

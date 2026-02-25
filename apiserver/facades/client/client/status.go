@@ -1300,6 +1300,10 @@ func processStorage(
 	if err != nil {
 		return nil, nil, nil, internalerrors.Capture(err)
 	}
+
+	// zeroTime is used to set the status time no status time is available.
+	zeroTime := time.UnixMicro(0).UTC()
+
 	storageResult := make([]params.StorageDetails, 0, len(storageInstances))
 	for _, v := range storageInstances {
 		details := params.StorageDetails{
@@ -1318,7 +1322,6 @@ func processStorage(
 			// This is poor API design anyway, since a storage instance does not
 			// have a status, instead, we've pulled one from the provisioned
 			// entities.
-			zeroTime := time.UnixMicro(0).UTC()
 			v.Status.Since = &zeroTime
 		}
 		if v.Owner != nil {
