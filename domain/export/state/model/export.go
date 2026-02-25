@@ -15,8 +15,8 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// ExportV4_0_2 exports all model data for version 4_0_2.
-func (st *State) ExportV4_0_2(ctx context.Context) (*v4_0_2.ModelExport, error) {
+// Export exports all model data for version 4.0.2.
+func (st *State) Export(ctx context.Context) (*v4_0_2.ModelExport, error) {
 	var modelExport v4_0_2.ModelExport
 	var err error
 

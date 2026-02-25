@@ -21,6 +21,6 @@ func TestExportStateSuiteV4_0_2(t *testing.T) {
 
 func (s *exportStateSuiteV4_0_2) TestExportRuns(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.ExportV4_0_2(c.Context())
+	_, err := st.Export(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
