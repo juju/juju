@@ -39,7 +39,9 @@ func (st *State) GetFilesystemUUIDsByMachines(
 		return nil, errors.Capture(err)
 	}
 
-	// de-dupe machine uuids
+	// de-dupe machine uuids, make a copy to not affect the callers value
+	uuids = slices.Clone(uuids)
+	slices.Sort(uuids)
 	uuids = slices.Compact(uuids)
 	machineUUIDInputs := make(machineUUIDs, 0, len(uuids))
 	for _, u := range uuids {
