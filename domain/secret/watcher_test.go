@@ -16,7 +16,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
-	model "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -1071,9 +1071,7 @@ func (s *watcherSuite) deleteSecretForWatcher(c *tc.C, uri *coresecrets.URI, rev
 		if err != nil {
 			return err
 		}
-		defer func(rows *sql.Rows) {
-			_ = rows.Close()
-		}(rows)
+		defer func() { _ = rows.Close() }()
 
 		wantedRevisions := make(map[int]struct{}, len(revisions))
 		for _, r := range revisions {

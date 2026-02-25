@@ -359,44 +359,6 @@ func (c *MockStateCreateUserSecretCall) DoAndReturn(f func(context.Context, int,
 	return c
 }
 
-// DeleteSecret mocks base method.
-func (m *MockState) DeleteSecret(arg0 context.Context, arg1 *secrets.URI, arg2 []int) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteSecret", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteSecret indicates an expected call of DeleteSecret.
-func (mr *MockStateMockRecorder) DeleteSecret(arg0, arg1, arg2 any) *MockStateDeleteSecretCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecret", reflect.TypeOf((*MockState)(nil).DeleteSecret), arg0, arg1, arg2)
-	return &MockStateDeleteSecretCall{Call: call}
-}
-
-// MockStateDeleteSecretCall wrap *gomock.Call
-type MockStateDeleteSecretCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateDeleteSecretCall) Return(arg0 error) *MockStateDeleteSecretCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateDeleteSecretCall) Do(f func(context.Context, *secrets.URI, []int) error) *MockStateDeleteSecretCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateDeleteSecretCall) DoAndReturn(f func(context.Context, *secrets.URI, []int) error) *MockStateDeleteSecretCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetApplicationUUID mocks base method.
 func (m *MockState) GetApplicationUUID(arg0 context.Context, arg1 string) (application.UUID, error) {
 	m.ctrl.T.Helper()

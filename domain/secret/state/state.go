@@ -2763,11 +2763,11 @@ func (st State) checkSubjectUUIDExists(
 		return errors.Errorf("%s %q not found", subjectTypeID, subjectUUID).Add(subjectNotFoundError)
 	}
 
-		subject := subjectUUID
-		if subjectTypeID == domainsecret.SubjectModel {
-			subject = "model"
-		}
-		return errors.Errorf("looking up secret grant subject UUID for %q: %w", subject, err)
+	subject := subjectUUID
+	if subjectTypeID == domainsecret.SubjectModel {
+		subject = "model"
+	}
+	return errors.Errorf("looking up secret grant subject UUID for %q: %w", subject, err)
 }
 
 func (st State) checkScopeUUIDExists(
@@ -3082,11 +3082,11 @@ FROM   v_secret_permission sp
 }
 
 type (
-	units        []string
-	applications []string
-	models       []string
-	roles        []int
-    revisionUUIDs []string
+	units         []string
+	applications  []string
+	models        []string
+	roles         []int
+	revisionUUIDs []string
 )
 
 // ListGrantedSecretsForBackend returns the secret revision info for any
