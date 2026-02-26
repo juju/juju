@@ -1,8 +1,0 @@
-#!/bin/bash
-set -x
-
-cool_fs=$(storage-list cool-fs)
-
-echo "cool fs: $cool_fs"
-
-status-set active "OK" || true
