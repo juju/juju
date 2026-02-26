@@ -91,7 +91,7 @@ func (s *registrySuite) TestRegisterNamedRepeatedError(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = reg.RegisterNamed(c.Context(), "foo", w)
-	c.Assert(err, tc.ErrorMatches, `worker "foo" already exists`)
+	c.Assert(err, tc.ErrorMatches, `watcher "foo" already exists`)
 	c.Assert(err, tc.ErrorIs, coreerrors.AlreadyExists)
 }
 

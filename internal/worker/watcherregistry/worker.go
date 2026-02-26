@@ -7,10 +7,8 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 	"sync/atomic"
 
 	"github.com/juju/clock"
@@ -80,9 +78,7 @@ type Config struct {
 // for a connection.
 type Worker struct {
 	catacomb catacomb.Catacomb
-
-	mutex      sync.Mutex
-	registries map[uint64]WatcherRegistry
+	runner   *worker.Runner
 
 	namespacePrefix string
 
@@ -92,7 +88,6 @@ type Worker struct {
 
 // NewWorker creates a new watcher registry worker.
 func NewWorker(config Config) (worker.Worker, error) {
-
 	// Generate a random namespace prefix to avoid collisions when the process
 	// is restarted and the consuming side doesn't know about the restart and
 	// attempts to register a watcher with the same name. This might not be
@@ -102,10 +97,25 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Capture(err)
 	}
 
-	w := &Worker{
-		registries: make(map[uint64]WatcherRegistry),
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name: "watcher-registry",
+		IsFatal: func(err error) bool {
+			return false
+		},
+		ShouldRestart: func(err error) bool {
+			return false
+		},
+		Clock:  config.Clock,
+		Logger: &runnerLogger{logger: config.Logger},
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
 
+	w := &Worker{
 		namespacePrefix: hex.EncodeToString(token),
+
+		runner: runner,
 
 		clock:  config.Clock,
 		logger: config.Logger,
@@ -115,6 +125,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		Name: "watcher-registry",
 		Site: &w.catacomb,
 		Work: w.loop,
+		Init: []worker.Worker{runner},
 	}); err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -134,58 +145,38 @@ func (w *Worker) Wait() error {
 
 // Report returns a map of the current state of the registry.
 func (w *Worker) Report() map[string]any {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
-
-	m := make(map[string]any)
-	for id, reg := range w.registries {
-		m[strconv.FormatUint(id, 10)] = reg.Report()
-	}
-
-	return m
+	return w.runner.Report()
 }
 
 // GetWatcherRegistry returns the watcher registry for a given id.
 func (w *Worker) GetWatcherRegistry(ctx context.Context, id uint64) (WatcherRegistry, error) {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
-
-	// Cache the registry if it exists, otherwise create a new one.
-	if reg, ok := w.registries[id]; ok {
-		return reg, nil
+	// First attempt to get the registry without attempting to start a new
+	// worker flow. If the worker is not found, then start the worker.
+	sid := strconv.FormatUint(id, 10)
+	wrk, err := w.runner.Worker(sid, w.catacomb.Dying())
+	if err != nil && !errors.Is(err, coreerrors.NotFound) {
+		return nil, errors.Capture(err)
+	} else if err == nil {
+		return wrk.(WatcherRegistry), nil
 	}
 
-	runner, err := worker.NewRunner(worker.RunnerParams{
-		Name: "watcher-registry-" + strconv.FormatUint(id, 10),
-		IsFatal: func(err error) bool {
-			return false
-		},
-		ShouldRestart: func(err error) bool {
-			return false
-		},
-		Clock:  w.clock,
-		Logger: &runnerLogger{logger: w.logger},
+	err = w.runner.StartWorker(ctx, sid, func(ctx context.Context) (worker.Worker, error) {
+		tw, err := newTrackedWorker("watcher-registry"+sid, w.namespacePrefix, w.clock, w.logger)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		return tw, nil
 	})
+	if err != nil && !errors.Is(err, coreerrors.AlreadyExists) {
+		return nil, errors.Capture(err)
+	}
+
+	// The worker is started, but we need to get it so we can return it.
+	wrk, err = w.runner.Worker(sid, w.catacomb.Dying())
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-
-	if err := w.catacomb.Add(runner); err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	reg := &trackedWorker{
-		id:     strconv.FormatUint(id, 10),
-		runner: runner,
-		dying:  w.catacomb.Dying(),
-
-		namespacePrefix:  w.namespacePrefix,
-		namespaceCounter: 0,
-	}
-
-	w.registries[id] = reg
-
-	return reg, nil
+	return wrk.(WatcherRegistry), nil
 }
 
 func (w *Worker) loop() error {
@@ -194,27 +185,61 @@ func (w *Worker) loop() error {
 }
 
 type trackedWorker struct {
-	id     string
-	runner *worker.Runner
-
-	dying  <-chan struct{}
-	closed atomic.Bool
+	catacomb catacomb.Catacomb
+	runner   *worker.Runner
 
 	namespacePrefix  string
 	namespaceCounter int64
 }
 
+func newTrackedWorker(name, namespacePrefix string, clock clock.Clock, logger logger.Logger) (*trackedWorker, error) {
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name: name,
+		IsFatal: func(err error) bool {
+			return false
+		},
+		ShouldRestart: func(err error) bool {
+			return false
+		},
+		Clock:  clock,
+		Logger: &runnerLogger{logger: logger},
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	reg := &trackedWorker{
+		runner: runner,
+
+		namespacePrefix:  namespacePrefix,
+		namespaceCounter: 0,
+	}
+
+	if err := catacomb.Invoke(catacomb.Plan{
+		Name: name,
+		Site: &reg.catacomb,
+		Work: reg.loop,
+		Init: []worker.Worker{runner},
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return reg, nil
+}
+
 // Get returns the watcher for the given id, or nil if there is no such
 // watcher.
 func (r *trackedWorker) Get(id string) (worker.Worker, error) {
-	if r.closed.Load() {
+	select {
+	case <-r.catacomb.Dying():
 		return nil, errors.Errorf("watcher %q %w", id, coreerrors.NotFound).
 			Add(ErrWatcherRegistryClosed)
+	default:
 	}
 
-	w, err := r.runner.Worker(r.prefixNamespace(id), r.dying)
+	w, err := r.runner.Worker(id, r.catacomb.Dying())
 	if errors.Is(err, coreerrors.NotFound) {
-		return nil, errors.Errorf("watcher %q %w", id, coreerrors.NotFound)
+		return nil, errors.Errorf("11 watcher %q %w", id, coreerrors.NotFound)
 	} else if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -228,9 +253,7 @@ func (r *trackedWorker) Register(ctx context.Context, w worker.Worker) (string, 
 	nsCounter := atomic.AddInt64(&r.namespaceCounter, 1)
 	namespace := r.namespacePrefix + "-" + strconv.FormatInt(nsCounter, 10)
 
-	if err := r.register(ctx, namespace, w); errors.Is(err, coreerrors.NotFound) {
-		return "", errors.Errorf("watcher %q %w", namespace, coreerrors.NotFound)
-	} else if err != nil {
+	if err := r.register(ctx, namespace, w); err != nil {
 		return "", errors.Capture(err)
 	}
 	return namespace, nil
@@ -248,10 +271,8 @@ func (r *trackedWorker) RegisterNamed(ctx context.Context, name string, w worker
 		return errors.Errorf("name %q %w", name, coreerrors.NotValid)
 	}
 
-	if err := r.register(ctx, name, w); errors.Is(err, coreerrors.NotFound) {
-		return errors.Errorf("watcher %q %w", name, coreerrors.NotFound)
-	} else if errors.Is(err, coreerrors.AlreadyExists) {
-		return errors.Errorf("worker %q %w", name, coreerrors.AlreadyExists)
+	if err := r.register(ctx, name, w); errors.Is(err, coreerrors.AlreadyExists) {
+		return errors.Errorf("watcher %q %w", name, coreerrors.AlreadyExists)
 	} else if err != nil {
 		return errors.Capture(err)
 	}
@@ -263,7 +284,7 @@ func (r *trackedWorker) RegisterNamed(ctx context.Context, name string, w worker
 // It does not return an error if the resource has already
 // been unregistered.
 func (r *trackedWorker) Stop(id string) error {
-	if err := r.runner.StopAndRemoveWorker(r.prefixNamespace(id), r.dying); err != nil {
+	if err := r.runner.StopAndRemoveWorker(id, r.catacomb.Dying()); err != nil {
 		return errors.Capture(err)
 	}
 	return nil
@@ -272,60 +293,54 @@ func (r *trackedWorker) Stop(id string) error {
 // StopAll stops all resources and unregisters them. The registry is then
 // considered closed and no further registrations are allowed.
 func (r *trackedWorker) StopAll() error {
-	if r.closed.Load() {
-		return nil
-	}
-
-	_ = r.closed.Swap(true)
-
-	r.runner.Kill()
-	return r.runner.Wait()
+	r.catacomb.Kill(nil)
+	return r.catacomb.Wait()
 }
 
 // Count returns the number of resources currently held.
 func (r *trackedWorker) Count() int {
-	var amount int
-	for _, name := range r.runner.WorkerNames() {
-		if !r.isOwnedByNamespace(name) {
-			continue
-		}
-		amount++
-	}
-	return amount
+	return len(r.runner.WorkerNames())
+}
+
+// Kill stops the worker and cleans up any resources.
+func (r *trackedWorker) Kill() {
+	r.catacomb.Kill(nil)
+}
+
+// Wait waits for the worker to finish.
+func (r *trackedWorker) Wait() error {
+	return r.catacomb.Wait()
 }
 
 // Report returns a map of the current state of the registry.
 func (r *trackedWorker) Report() map[string]any {
 	report := make(map[string]any)
-	report["id"] = r.id
 	report["namespacePrefix"] = r.namespacePrefix
 	report["namespaceCounter"] = r.namespaceCounter
 	report["workers"] = r.runner.Report()
 	return report
 }
 
-func (r *trackedWorker) register(ctx context.Context, namespace string, w worker.Worker) error {
-	if r.closed.Load() {
-		return ErrWatcherRegistryClosed
-	}
+func (r *trackedWorker) loop() error {
+	<-r.catacomb.Dying()
+	return r.catacomb.ErrDying()
+}
 
-	scopedNamespace := r.prefixNamespace(namespace)
-	err := r.runner.StartWorker(ctx, scopedNamespace, func(ctx context.Context) (worker.Worker, error) {
+func (r *trackedWorker) register(ctx context.Context, namespace string, w worker.Worker) error {
+	err := r.runner.StartWorker(ctx, namespace, func(ctx context.Context) (worker.Worker, error) {
 		return w, nil
 	})
 	if err != nil {
-		return errors.Capture(err)
+		select {
+		case <-r.catacomb.Dying():
+			return errors.Errorf("watcher %q %w", namespace, coreerrors.NotFound).
+				Add(ErrWatcherRegistryClosed)
+		default:
+			return errors.Capture(err)
+		}
 	}
 
 	return nil
-}
-
-func (r *trackedWorker) prefixNamespace(id string) string {
-	return fmt.Sprintf("%s:%s", r.id, id)
-}
-
-func (r *trackedWorker) isOwnedByNamespace(id string) bool {
-	return strings.HasPrefix(id, r.id+":")
 }
 
 // runnerLogger is a logger.Logger that logs to worker.Logger interface, but
