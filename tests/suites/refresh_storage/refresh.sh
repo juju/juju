@@ -1,195 +1,344 @@
-run_refresh_new_storage_definition() {
-	echo
+# Verify storage is attached to a unit.
+assert_storage_attached() {
+    # e.g. storage-refresher/0
+    UNIT="$1"
+    # e.g. awesome-fs/0
+    STORAGE_NAME="$2"
 
-	model_name="test-refresh-new-storage-definition"
-	file="${TEST_DIR}/${model_name}.log"
-	charm_name_to_refresh="./testcharms/charms/refresh-storage-new-storage-def/refresh-storage.charm"
-
-	ensure "${model_name}" "${file}"
-
-	juju deploy "./testcharms/charms/refresh-storage/refresh-storage.charm"
-	wait_for "refresh-storage" "$(active_idle_condition "refresh-storage")"
-
-	OUT=$(juju refresh refresh-storage --path "${charm_name_to_refresh}" 2>&1 || true)
-	if echo "${OUT}" | grep -v "no change" | grep -E -vq "Added local charm"; then
-		echo $(red "failed refreshing charm: ${OUT}")
-		exit 5
-	fi
-	printf "${OUT}\n"
-
-	wait_for "refresh-storage" "$(charm_rev "refresh-storage" 1)"
-	wait_for "refresh-storage" "$(active_idle_condition "refresh-storage")"
-
-	juju add-unit refresh-storage
-  wait_for "refresh-storage" "$(active_idle_condition "refresh-storage")"
-
-  # check there are 2 units
-  num_of_units=$(juju status --format json | jq '.applications["refresh-storage"].units | to_entries | length')
-
-  if [ "$num_of_units" -ne 2 ]; then
-		echo $(red "expected 2 units, obtained $num_of_units")
-		exit 1
-  fi
-
-  storages=$(juju status --format json | jq '.storage.storage')
-  # there must be 3 storages in total after adding a new unit
-  num_of_storages=$(echo $storages | jq 'to_entries | length')
-  if [ "$num_of_storages" -ne 3 ]; then
-      echo $(red "expected 3 storages, obtained $num_of_storages")
-      		exit 1
-  fi
-
-  # old unit "refresh-storage/0" only has "awesome-fs" storage
-  if ! echo $storages | jq -e '
-    .["awesome-fs/0"].attachments.units | to_entries | length == 1 and .[0].key == "refresh-storage/0"
-  ' >/dev/null; then
-    echo $(red "expected awesome-fs/0 storage to only be attached to refresh-storage/0 unit")
-  fi
-
-  #  check that new unit "refresh-storage/1" have "cool-fs" and "awesome-fs" storage attached
-  if ! echo $storages | jq -e '
-  .["awesome-fs/1"].attachments.units | to_entries | length == 1 and .[0].key == "refresh-storage/1"
-  ' >/dev/null; then
-    echo $(red "expected awesome-fs/1 storage to only be attached to refresh-storage/1 unit")
-  fi
-
-  if ! echo $storage | jq -e '
-  .["cool-fs/2"].attachments.units | to_entries | length == 1 and .[0].key == "refresh-storage/1"
-  ' >/dev/null; then
-    echo $(red "expected cool-fs/2 storage to only be attached to refresh-storage/1 unit")
-  fi
-
-	destroy_model "${model_name}"
+    if juju status --format json | jq -e \
+        --arg unit "$UNIT" \
+        --arg storage "$STORAGE_NAME" '
+        .storage.storage
+        | to_entries[]
+        | select(.key == $storage)
+        | select(.value.status.current == "attached")
+        | select(.value.attachments.units[$unit])
+        ' >/dev/null
+    then
+        return 0
+    else
+        return 1
+    fi
 }
 
-run_refresh_delete_storage_definition() {
-	echo
+# Verify storage is attached and meets minimum size requirement.
+assert_storage_min_size() {
+    # e.g. storage-refresher/0
+    local unit_name="$1"
+    # e.g. awesome-fs/0
+    local storage_name="$2"
+    # 1024 (in MiB)
+    local min_size="$3"
 
-	model_name="test-refresh-delete-storage-definition"
-	file="${TEST_DIR}/${model_name}.log"
-	charm_name_to_refresh="./testcharms/charms/refresh-storage-delete-storage-def/refresh-storage.charm"
+    if [[ -z "$unit_name" || -z "$storage_name" || -z "$min_size" ]]; then
+        echo $(red "usage: assert_storage_min_size <unit> <storage> <min_size_mib>")
+        return 1
+    fi
 
-	ensure "${model_name}" "${file}"
+    local actual_size
+    actual_size=$(juju status --format json | jq -r \
+        --arg storage "$storage_name" \
+        '.storage.filesystems[]
+         | select(.storage == $storage)
+         | .size')
 
-	juju deploy "./testcharms/charms/refresh-storage/refresh-storage.charm"
-	wait_for "refresh-storage" "$(active_idle_condition "refresh-storage")"
+    if [[ -z "$actual_size" || "$actual_size" == "null" ]]; then
+        echo $(red "ERROR: Storage '$storage_name' not found")
+        return 1
+    fi
 
-	OUT=$(juju refresh refresh-storage --path "${charm_name_to_refresh}" 2>&1 || true)
-	if echo "${OUT}" | grep -v "no change" | grep -E -vq "Added local charm"; then
-		echo $(red "failed refreshing charm: ${OUT}")
-		exit 5
-	fi
-	printf "${OUT}\n"
+    local attached
+    attached=$(juju status --format json | jq -r \
+        --arg storage "$storage_name" \
+        --arg unit "$unit_name" \
+        '.storage.filesystems[]
+         | select(.storage == $storage)
+         | .attachments.units[$unit] != null')
 
-	wait_for "refresh-storage" "$(charm_rev "refresh-storage" 1)"
-	wait_for "refresh-storage" "$(active_idle_condition "refresh-storage")"
+    if [[ "$attached" != "true" ]]; then
+        echo $(red "ERROR: Storage '$storage_name' is not attached to unit '$unit_name'")
+        return 1
+    fi
 
-	juju add-unit refresh-storage
-  wait_for "refresh-storage" "$(active_idle_condition "refresh-storage")"
-
-  # check there are 2 units.
-  num_of_units=$(juju status --format json | jq '.applications["refresh-storage"].units | to_entries | length')
-
-  if [ "$num_of_units" -ne 2 ]; then
-    echo $(red "expected 2 units, obtained $num_of_units")
-    exit 1
-  fi
-
-  storages=$(juju status --format json | jq '.storage.storage')
-  # there must be 2 storages in total after adding a new unit.
-  # the new unit is attached 1 storage and the old unit remains on the old storage.
-  num_of_storages=$(echo $storages | jq 'to_entries | length')
-  if [ "$num_of_storages" -ne 2 ]; then
-      echo $(red "expected 2 storages, obtained $num_of_storages")
-      exit 1
-  fi
-
-  # old unit "refresh-storage/0" only has "awesome-fs" storage
-  if ! echo $storages | jq -e '
-    .["awesome-fs/0"].attachments.units | to_entries | length == 1 and .[0].key == "refresh-storage/0"
-  ' >/dev/null; then
-    echo $(red "expected awesome-fs/0 storage to only be attached to refresh-storage/0 unit")
-  fi
-
-  # check that new unit "refresh-storage/1" only has "cool-fs" storage attached
-  if ! echo $storages | jq -e '
-  .["cool-fs/1"].attachments.units | to_entries | length == 1 and .[0].key == "refresh-storage/1"
-  ' >/dev/null; then
-    echo $(red "expected cool-fs/1 storage to only be attached to refresh-storage/1 unit")
-  fi
-
-
-	destroy_model "${model_name}"
+    if (( actual_size >= min_size )); then
+        return 0
+    else
+        return 1
+    fi
 }
 
-run_refresh_increase_max_count() {
-	echo
+# Verifies that a given storage instance is attached to a specific unit and
+# mounted at the expected location.
+assert_storage_mount_location() {
+    local unit_name="$1"
+    local storage_name="$2"
+    local expected_location="$3"
 
-	model_name="test-refresh-increase-max-count"
-	file="${TEST_DIR}/${model_name}.log"
-	charm_name_to_refresh="./testcharms/charms/refresh-storage-multiple-increase-max-count"
+    if [[ -z "$unit_name" || -z "$storage_name" || -z "$expected_location" ]]; then
+        echo $(red "usage: assert_storage_mount_location <unit> <storage> <expected_location>")
+        return 1
+    fi
 
-	ensure "${model_name}" "${file}"
+    local actual_location
+    actual_location=$(juju status --format json | jq -r \
+        --arg storage "$storage_name" \
+        --arg unit "$unit_name" \
+        '.storage.filesystems[]
+         | select(.storage == $storage)
+         | .attachments.units[$unit].location')
 
-	juju deploy $(pack_charm "./testcharms/charms/refresh-storage-multiple")
-	wait_for "refresh-storage" "$(active_idle_condition "refresh-storage")"
+    if [[ -z "$actual_location" || "$actual_location" == "null" ]]; then
+        echo $(red "ERROR: Storage '$storage_name' not attached to unit '$unit_name'")
+        return 1
+    fi
 
-  # This fails because it violates the charm storage max count
-  if ! juju add-storage refresh-storage/0 awesome-multi-fs="rootfs,10M,5" | grep -q "
-    request count 6 exceeds the charm's maximum count of 5
-  "; then
-      echo $(red "expected to fail adding storage")
+    if [[ "$actual_location" == "$expected_location" ]]; then
+        return 0
+    else
+        echo $(red "ERROR: Storage '$storage_name' mounted at '$actual_location', expected '$expected_location'")
+        return 1
+    fi
+}
+
+# Tests that when a charm is refreshed to a revision with identical storage definitions,
+# existing and new units maintain the same storage size and mount locations.
+run_no_changes_in_new_revision() {
+  	echo
+
+    	model_name="test-no-changes-in-new-revision"
+    	file="${TEST_DIR}/${model_name}.log"
+
+      ensure "${model_name}" "${file}"
+
+      juju deploy "storage-refresher" --revision 1 --channel latest/edge
+      wait_for "storage-refresher" "$(active_idle_condition "storage-refresher")"
+
+      # Assert the new unit has the at least 3072 MiB.
+      if ! assert_storage_min_size "storage-refresher/0" "awesome-fs/0" 3072 ; then
+        echo $(red "attached storage is not at least 3072 in size")
+        exit 1
+      fi
+
+      # Assert the new unit has the same mount location.
+      if ! assert_storage_mount_location "storage-refresher/0" "awesome-fs/0" "/awesome-fs" ; then
+        echo $(red "awesome-fs/1 is not located in /awesome-fs")
+        exit 1
+      fi
+
+      # Refresh charm to revision 9 which has the exact contents as revision 1.
+      juju refresh "storage-refresher" --revision 9
+
+  	  wait_for "storage-refresher" "$(charm_rev "storage-refresher" 9)"
+
+  	  juju add-unit storage-refresher
+      wait_for "storage-refresher" "$(active_idle_condition "storage-refresher" 1)"
+
+      # Assert the new unit has the at least 3072 MiB (same as revision 1).
+      if ! assert_storage_min_size "storage-refresher/1" "awesome-fs/1" 3072 ; then
+        echo $(red "attached storage is not at least 3072 in size")
+        exit 1
+      fi
+
+      # Assert the new unit has the same mount location (same as revision 1).
+      if ! assert_storage_mount_location "storage-refresher/1" "awesome-fs/1" "/awesome-fs" ; then
+        echo $(red "awesome-fs/1 is not located in /awesome-fs")
+        exit 1
+      fi
+
+      destroy_model "$model_name"
+}
+
+# Tests storage size decreases after charm refresh.
+run_decrease_size() {
+  	echo
+
+  	model_name="test-decrease-size"
+  	file="${TEST_DIR}/${model_name}.log"
+
+    ensure "${model_name}" "${file}"
+
+    juju deploy "storage-refresher" --revision 1 --channel latest/edge
+    wait_for "storage-refresher" "$(active_idle_condition "storage-refresher")"
+
+    # Assert that storage is attached to the unit.
+    if ! assert_storage_attached "storage-refresher/0" "awesome-fs/0"; then
+        echo $(red "awesome-fs/0 is not attached")
+        exit 1
+    fi
+
+    # Refresh charm to revision 3 which has a lower storage size of 1G.
+    juju refresh "storage-refresher" --revision 3
+
+	  wait_for "storage-refresher" "$(charm_rev "storage-refresher" 3)"
+
+	  juju add-unit storage-refresher
+    wait_for "storage-refresher" "$(active_idle_condition "storage-refresher" 1)"
+
+    # Assert the new unit has the new storage requirement.
+    if ! assert_storage_min_size "storage-refresher/1" "awesome-fs/1" 1024 ; then
+      echo $(red "attached storage is not at least 1024 in size")
       exit 1
-  fi
+    fi
 
-  # Refresh charm with a higher storage max count.
-	OUT=$(juju refresh refresh-storage --path $(pack_charm ${charm_name_to_refresh}) 2>&1 || true)
-	if echo "${OUT}" | grep -v "no change" | grep -E -vq "Added local charm"; then
-		echo $(red "failed refreshing charm: ${OUT}")
-		exit 5
-	fi
-	printf "${OUT}\n"
+    destroy_model "$model_name"
+}
 
-	wait_for "refresh-storage" "$(charm_rev "refresh-storage" 1)"
-	wait_for "refresh-storage" "$(active_idle_condition "refresh-storage")"
+# Tests storage size increase is rejected during charm refresh.
+run_increase_size() {
+  	echo
 
-  # Add a unit so that the new storage requirement is reflected in the new unit.
-	juju add-unit refresh-storage
-  wait_for "refresh-storage" "$(active_idle_condition "refresh-storage")"
+  	model_name="test-increase-size"
+  	file="${TEST_DIR}/${model_name}.log"
 
-  # check there are 2 units.
-  num_of_units=$(juju status --format json | jq '.applications["refresh-storage"].units | to_entries | length')
+    ensure "${model_name}" "${file}"
 
-  if [ "$num_of_units" -ne 2 ]; then
-    echo $(red "expected 2 units, obtained $num_of_units")
-    exit 1
-  fi
+    juju deploy "storage-refresher" --revision 1 --channel latest/edge
+    wait_for "storage-refresher" "$(active_idle_condition "storage-refresher")"
 
-  # Add new storage with a higher count than before.
-  add_storage_output_success=$(juju add-storage refresh-storage/1 awesome-multi-fs="rootfs,10M,6")
-  if ! echo "$add_storage_output_success" | grep -q "REPLACE-ME-WITH-SUCCESS"; then
-      echo $(red "expected to succeed adding storage")
-      exit 1
-  fi
+    # Assert that storage is attached to the unit.
+    if ! assert_storage_attached "storage-refresher/0" "awesome-fs/0"; then
+        echo $(red "awesome-fs/0 is not attached")
+        exit 1
+    fi
 
-  # This fails because the unit has reached the maximum count.
-  if ! juju add-storage refresh-storage/1 awesome-multi-fs="rootfs,10M,5" | grep -q "REPLACE-ME-WITH-FAILURE"; then
-      echo $(red "expected to fail adding storage")
-      exit 1
-  fi
+    # Refresh charm to revision 2 which has a larger storage size.
+    # This should fail.
+    OUT=$(juju refresh "storage-refresher" --revision 2 2>&1 || true)
+    echo "$OUT" | grep -q 'storage definition "awesome-fs".*exceeds existing minimum size'
 
-  wait_for "refresh-storage" "$(active_idle_condition "refresh-storage")"
+    # Stay at revision 1.
+    wait_for "storage-refresher" "$(charm_rev "storage-refresher" 1)"
 
-  storages=$(juju status --format json | jq '.storage.storage')
-  # there must be 8 storages in total after adding a new unit.
-  # the new unit is attached 7 storages and the old unit remains attached to 1 storage.
-  num_of_storages=$(echo $storages | jq 'to_entries | length')
-  if [ "$num_of_storages" -ne 7 ]; then
-      echo $(red "expected 8 storages, obtained length: $num_of_storages, storages: $storages")
-      exit 1
-  fi
+    destroy_model "$model_name"
+}
 
-	destroy_model "${model_name}"
+# Tests storage definition deletion is rejected during charm refresh.
+run_delete_storage_definition() {
+  	echo
+
+  	model_name="test-delete-storage-definition"
+  	file="${TEST_DIR}/${model_name}.log"
+
+    ensure "${model_name}" "${file}"
+
+    juju deploy "storage-refresher" --revision 1 --channel latest/edge
+    wait_for "storage-refresher" "$(active_idle_condition "storage-refresher")"
+
+    # Assert that storage is attached to the unit.
+    if ! assert_storage_attached "storage-refresher/0" "awesome-fs/0"; then
+        echo $(red "awesome-fs/0 is not attached")
+        exit 1
+    fi
+
+    # Refresh charm to revision 5 which deletes storage "awesome-fs".
+    # This should fail.
+    OUT=$(juju refresh "storage-refresher" --revision 5 2>&1 || true)
+    echo "$OUT" | grep -q 'storage definition "awesome-fs" removed'
+
+    # Stay at revision 1.
+    wait_for "storage-refresher" "$(charm_rev "storage-refresher" 1)"
+
+    destroy_model "$model_name"
+}
+
+# Tests new storage definition is created for new units.
+run_new_storage_definition() {
+  	echo
+
+  	model_name="test-new-storage-definition"
+  	file="${TEST_DIR}/${model_name}.log"
+
+    ensure "${model_name}" "${file}"
+
+    juju deploy "storage-refresher" --revision 1 --channel latest/edge
+    wait_for "storage-refresher" "$(active_idle_condition "storage-refresher")"
+
+    # Assert that storage is attached to the unit.
+    if ! assert_storage_attached "storage-refresher/0" "awesome-fs/0"; then
+        echo $(red "awesome-fs/0 is not attached")
+        exit 1
+    fi
+
+    # Refresh charm to revision 4 which adds a new storage definition "epic-fs".
+    juju refresh "storage-refresher" --revision 4
+
+	  wait_for "storage-refresher" "$(charm_rev "storage-refresher" 4)"
+
+	  juju add-unit storage-refresher
+    wait_for "storage-refresher" "$(active_idle_condition "storage-refresher" 1)"
+
+    # Assert the new unit has the new storage requirement.
+    if ! assert_storage_attached "storage-refresher/1" "awesome-fs/1"; then
+        echo $(red "awesome-fs/1 is not attached")
+        exit 1
+    fi
+    if ! assert_storage_attached "storage-refresher/1" "epic-fs/2"; then
+        echo $(red "epic-fs/2 is not attached")
+        exit 1
+    fi
+
+    destroy_model "$model_name"
+}
+
+# Tests a charm with single storage instance refreshed to one with
+# multiple storage instance of the same name is rejected during charm refresh.
+run_single_to_multiple_storage_instances_violates() {
+  	echo
+
+  	model_name="test-single-to-multiple-storage-instances-violates"
+  	file="${TEST_DIR}/${model_name}.log"
+
+    ensure "${model_name}" "${file}"
+
+    juju deploy "storage-refresher" --revision 1 --channel latest/edge
+    wait_for "storage-refresher" "$(active_idle_condition "storage-refresher")"
+
+    # Assert that storage is attached to the unit.
+    if ! assert_storage_attached "storage-refresher/0" "awesome-fs/0"; then
+        echo $(red "awesome-fs/0 is not attached")
+        exit 1
+    fi
+
+    # Refresh charm to revision 6 which changes "awesome-fs" to be multiple instances
+    # with count range 2-5.
+    # This should fail because it violates the existing storage requirement.
+    OUT=$(juju refresh "storage-refresher" --revision 6 2>&1 || true)
+    echo "$OUT" | grep -q 'storage definition "awesome-fs" new minimum count 2 exceeds existing minimum count 1'
+
+    # Revision remains at 1.
+	  wait_for "storage-refresher" "$(charm_rev "storage-refresher" 1)"
+
+    destroy_model "$model_name"
+}
+
+# Tests changing a storage type from "filesystem" to "block" is rejected during
+# charm refresh.
+run_filesystem_to_block() {
+  	echo
+
+  	model_name="test-filesystem-to-block"
+  	file="${TEST_DIR}/${model_name}.log"
+
+    ensure "${model_name}" "${file}"
+
+    juju deploy "storage-refresher" --revision 1 --channel latest/edge
+    wait_for "storage-refresher" "$(active_idle_condition "storage-refresher")"
+
+    # Assert that storage is attached to the unit.
+    if ! assert_storage_attached "storage-refresher/0" "awesome-fs/0"; then
+        echo $(red "awesome-fs/0 is not attached")
+        exit 1
+    fi
+
+    # Refresh charm to revision 8 which changes "awesome-fs" to be a block type.
+    # This should fail because you cannot change the storage type.
+    OUT=$(juju refresh "storage-refresher" --revision 8 2>&1 || true)
+    echo "$OUT" | grep -q 'storage definition "awesome-fs" type changed from "filesystem" to "block"'
+
+    # Revision remains at 1.
+    wait_for "storage-refresher" "$(charm_rev "storage-refresher" 1)"
+
+    destroy_model "$model_name"
 }
 
 test_refresh_charm_storage() {
@@ -203,7 +352,12 @@ test_refresh_charm_storage() {
 
 		cd .. || exit
 
-		run "run_refresh_new_storage_definition"
-		run "run_refresh_delete_storage_definition"
+    run "run_no_changes_in_new_revision"
+    run "run_decrease_size"
+    run "run_increase_size"
+    run "run_delete_storage_definition"
+    run "run_new_storage_definition"
+    run "run_single_to_multiple_storage_instances_violates"
+    run "run_filesystem_to_block"
 	)
 }
