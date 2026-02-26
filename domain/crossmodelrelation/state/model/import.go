@@ -92,11 +92,6 @@ func (st *State) ImportRemoteApplicationOfferers(ctx context.Context, imports []
 }
 
 func (st *State) importRemoteApplicationOfferer(ctx context.Context, tx *sqlair.TX, offerer crossmodelrelation.RemoteApplicationOffererImport) error {
-	// Generate UUIDs for the application, charm, and remote app record.
-	applicationUUID, err := internaluuid.NewUUID()
-	if err != nil {
-		return errors.Errorf("generating application UUID: %w", err)
-	}
 	charmUUID, err := internaluuid.NewUUID()
 	if err != nil {
 		return errors.Errorf("generating charm UUID: %w", err)
@@ -109,7 +104,7 @@ func (st *State) importRemoteApplicationOfferer(ctx context.Context, tx *sqlair.
 	// Insert the application (which also inserts the charm).
 	// The synthetic charm is pre-built in the service layer.
 	if err := st.insertApplication(ctx, tx, offerer.Name, insertApplicationArgs{
-		ApplicationUUID: applicationUUID.String(),
+		ApplicationUUID: offerer.OffererApplicationUUID,
 		CharmUUID:       charmUUID.String(),
 		Charm:           offerer.SyntheticCharm,
 	}); err != nil {
@@ -119,7 +114,7 @@ func (st *State) importRemoteApplicationOfferer(ctx context.Context, tx *sqlair.
 	// Create synthetic units for this remote application.
 	// These units are needed for relations to be imported successfully.
 	for _, unitName := range offerer.Units {
-		if err := st.insertUnit(ctx, tx, unitName, applicationUUID.String(), charmUUID.String()); err != nil {
+		if err := st.insertUnit(ctx, tx, unitName, offerer.OffererApplicationUUID, charmUUID.String()); err != nil {
 			return errors.Errorf("inserting synthetic unit %q: %w",
 				unitName, err)
 		}
@@ -129,7 +124,7 @@ func (st *State) importRemoteApplicationOfferer(ctx context.Context, tx *sqlair.
 	remoteApp := remoteApplicationOfferer{
 		UUID:             remoteAppUUID.String(),
 		LifeID:           life.Alive,
-		ApplicationUUID:  applicationUUID.String(),
+		ApplicationUUID:  offerer.OffererApplicationUUID,
 		OfferUUID:        offerer.OfferUUID,
 		OfferURL:         offerer.URL,
 		OffererModelUUID: offerer.SourceModelUUID,

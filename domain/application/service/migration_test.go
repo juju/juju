@@ -466,8 +466,9 @@ func (s *migrationServiceSuite) TestImportIAASApplication(c *tc.C) {
 	}).MinTimes(1)
 
 	args := application.InsertApplicationArgs{
-		Charm:    ch,
-		Platform: platform,
+		ApplicationUUID: id.String(),
+		Charm:           ch,
+		Platform:        platform,
 		Config: map[string]application.AddApplicationConfig{
 			"foo": {
 				Type:  domaincharm.OptionString,
@@ -478,7 +479,7 @@ func (s *migrationServiceSuite) TestImportIAASApplication(c *tc.C) {
 			Trust: true,
 		},
 	}
-	s.state.EXPECT().InsertMigratingApplication(gomock.Any(), "ubuntu", args).Return(id, nil)
+	s.state.EXPECT().InsertMigratingApplication(gomock.Any(), "ubuntu", args).Return(nil)
 
 	unitArg := ImportIAASUnitArg{
 		ImportUnitArg: ImportUnitArg{
@@ -512,6 +513,7 @@ func (s *migrationServiceSuite) TestImportIAASApplication(c *tc.C) {
 
 	err := s.service.ImportIAASApplication(c.Context(), "ubuntu", ImportIAASApplicationArgs{
 		ImportApplicationArgs: ImportApplicationArgs{
+			UUID:  id,
 			Charm: s.charm,
 			CharmOrigin: corecharm.Origin{
 				Source:   corecharm.CharmHub,
@@ -620,9 +622,10 @@ func (s *migrationServiceSuite) TestImportCAASApplication(c *tc.C) {
 	}).MinTimes(1)
 
 	args := application.InsertApplicationArgs{
-		Charm:    ch,
-		Platform: platform,
-		Scale:    1,
+		ApplicationUUID: id.String(),
+		Charm:           ch,
+		Platform:        platform,
+		Scale:           1,
 		Config: map[string]application.AddApplicationConfig{
 			"foo": {
 				Type:  domaincharm.OptionString,
@@ -633,7 +636,7 @@ func (s *migrationServiceSuite) TestImportCAASApplication(c *tc.C) {
 			Trust: true,
 		},
 	}
-	s.state.EXPECT().InsertMigratingApplication(gomock.Any(), "ubuntu", args).Return(id, nil)
+	s.state.EXPECT().InsertMigratingApplication(gomock.Any(), "ubuntu", args).Return(nil)
 
 	unitArg := ImportCAASUnitArg{
 		ImportUnitArg: ImportUnitArg{
@@ -665,6 +668,7 @@ func (s *migrationServiceSuite) TestImportCAASApplication(c *tc.C) {
 
 	err := s.service.ImportCAASApplication(c.Context(), "ubuntu", ImportCAASApplicationArgs{
 		ImportApplicationArgs: ImportApplicationArgs{
+			UUID:  id,
 			Charm: s.charm,
 			CharmOrigin: corecharm.Origin{
 				Source:   corecharm.CharmHub,

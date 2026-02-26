@@ -49,8 +49,10 @@ func (s *migrationStateSuite) TestInsertMigratingApplication(c *tc.C) {
 		Branch: "branch",
 	}
 	ctx := c.Context()
+	id := tc.Must(c, coreapplication.NewUUID)
 	args := application.InsertApplicationArgs{
-		Platform: platform,
+		ApplicationUUID: id.String(),
+		Platform:        platform,
 		Charm: charm.Charm{
 			Metadata:      s.minimalMetadata(c, "666"),
 			Manifest:      s.minimalManifest(c),
@@ -71,7 +73,7 @@ func (s *migrationStateSuite) TestInsertMigratingApplication(c *tc.C) {
 			Trust: true,
 		},
 	}
-	id, err := st.InsertMigratingApplication(ctx, "666", args)
+	err := st.InsertMigratingApplication(ctx, "666", args)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("Failed to create application: %s", errors.ErrorStack(err)))
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, false)

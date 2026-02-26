@@ -20,14 +20,14 @@ import (
 // argument. Used for migration import.
 func (st *State) ImportPeerRelation(
 	ctx context.Context,
+	relUUID string,
 	epIdentifier corerelation.EndpointIdentifier,
 	id uint64,
 	scope charm.RelationScope,
-) (corerelation.UUID, error) {
-	var relUUID corerelation.UUID
+) error {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return relUUID, errors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -38,8 +38,7 @@ func (st *State) ImportPeerRelation(
 		}
 
 		// Insert a new relation with a new relation UUID.
-		relUUID, err = st.insertNewRelation(ctx, tx, id, scope)
-		if err != nil {
+		if err := st.insertNewRelation(ctx, tx, relUUID, id, scope); err != nil {
 			return errors.Errorf("inserting new relation: %w", err)
 		}
 
@@ -50,7 +49,7 @@ func (st *State) ImportPeerRelation(
 
 		return nil
 	})
-	return relUUID, errors.Capture(err)
+	return errors.Capture(err)
 }
 
 // ImportRelation establishes a relation between two endpoints identified
@@ -58,14 +57,14 @@ func (st *State) ImportPeerRelation(
 // import.
 func (st *State) ImportRelation(
 	ctx context.Context,
+	relUUID string,
 	epIdentifier1, epIdentifier2 corerelation.EndpointIdentifier,
 	id uint64,
 	scope charm.RelationScope,
-) (corerelation.UUID, error) {
-	var relUUID corerelation.UUID
+) error {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return relUUID, errors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -80,8 +79,7 @@ func (st *State) ImportRelation(
 		}
 
 		// Insert a new relation with a new relation UUID.
-		relUUID, err = st.insertNewRelation(ctx, tx, id, scope)
-		if err != nil {
+		if err := st.insertNewRelation(ctx, tx, relUUID, id, scope); err != nil {
 			return errors.Errorf("inserting new relation: %w", err)
 		}
 
@@ -96,7 +94,7 @@ func (st *State) ImportRelation(
 
 		return nil
 	})
-	return relUUID, errors.Capture(err)
+	return errors.Capture(err)
 }
 
 // GetApplicationUUIDByName returns the application UUID of the given application.

@@ -4,6 +4,7 @@
 package service
 
 import (
+	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -199,6 +200,9 @@ func (r ResolvedResources) Validate() error {
 // ImportApplicationArgs contains arguments for importing an application to the
 // model.
 type ImportApplicationArgs struct {
+	// UUID is the application UUID to import.
+	UUID coreapplication.UUID
+
 	// Charm is the charm to import.
 	Charm internalcharm.Charm
 

@@ -199,9 +199,9 @@ func (s *importRemoteApplicationOfferersSuite) TestImportRemoteApplicationOffere
 		{
 			RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
 				Name:            "remote-kafka",
-				OfferUUID:       internaluuid.MustNewUUID().String(),
+				OfferUUID:       tc.Must(c, internaluuid.NewUUID).String(),
 				URL:             "ctrl:admin/prod.kafka",
-				SourceModelUUID: internaluuid.MustNewUUID().String(),
+				SourceModelUUID: tc.Must(c, internaluuid.NewUUID).String(),
 				Macaroon:        "test-macaroon-data",
 				SyntheticCharm:  buildTestSyntheticCharm("remote-kafka", endpoints),
 			},
@@ -263,9 +263,9 @@ func (s *importRemoteApplicationOfferersSuite) TestImportRemoteApplicationOffere
 		{
 			RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
 				Name:            "remote-mysql",
-				OfferUUID:       internaluuid.MustNewUUID().String(),
+				OfferUUID:       tc.Must(c, internaluuid.NewUUID).String(),
 				URL:             "ctrl:admin/prod.mysql",
-				SourceModelUUID: internaluuid.MustNewUUID().String(),
+				SourceModelUUID: tc.Must(c, internaluuid.NewUUID).String(),
 				Macaroon:        "test-macaroon",
 				SyntheticCharm:  buildTestSyntheticCharm("remote-mysql", endpoints),
 				Units:           []string{"remote-mysql/0", "remote-mysql/1"},
@@ -325,22 +325,24 @@ func (s *importRemoteApplicationOfferersSuite) TestImportRemoteApplicationOffere
 	args := []crossmodelrelation.RemoteApplicationOffererImport{
 		{
 			RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
-				Name:            "remote-mysql",
-				OfferUUID:       internaluuid.MustNewUUID().String(),
-				URL:             "ctrl:admin/model.mysql",
-				SourceModelUUID: internaluuid.MustNewUUID().String(),
-				Macaroon:        "macaroon1",
-				SyntheticCharm:  buildTestSyntheticCharm("remote-mysql", endpoints1),
+				Name:                   "remote-mysql",
+				OfferUUID:              tc.Must(c, internaluuid.NewUUID).String(),
+				URL:                    "ctrl:admin/model.mysql",
+				SourceModelUUID:        tc.Must(c, internaluuid.NewUUID).String(),
+				Macaroon:               "macaroon1",
+				SyntheticCharm:         buildTestSyntheticCharm("remote-mysql", endpoints1),
+				OffererApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
 			},
 		},
 		{
 			RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
-				Name:            "remote-postgres",
-				OfferUUID:       internaluuid.MustNewUUID().String(),
-				URL:             "ctrl:admin/model.postgres",
-				SourceModelUUID: internaluuid.MustNewUUID().String(),
-				Macaroon:        "macaroon2",
-				SyntheticCharm:  buildTestSyntheticCharm("remote-postgres", endpoints2),
+				Name:                   "remote-postgres",
+				OfferUUID:              tc.Must(c, internaluuid.NewUUID).String(),
+				URL:                    "ctrl:admin/model.postgres",
+				SourceModelUUID:        tc.Must(c, internaluuid.NewUUID).String(),
+				Macaroon:               "macaroon2",
+				SyntheticCharm:         buildTestSyntheticCharm("remote-postgres", endpoints2),
+				OffererApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
 			},
 		},
 	}
@@ -436,16 +438,16 @@ func (s *importRemoteApplicationConsumersSuite) TestImportRemoteApplicationConsu
 	}
 	err := s.state.ImportRemoteApplicationConsumers(c.Context(), []crossmodelrelation.RemoteApplicationConsumerImport{{
 		RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
-			Name:           "foo",
-			OfferUUID:      offerUUID,
-			SyntheticCharm: charm,
-			Units:          []string{"foo/0"},
+			Name:                   "foo",
+			OfferUUID:              offerUUID,
+			SyntheticCharm:         charm,
+			Units:                  []string{"foo/0"},
+			OffererApplicationUUID: offerApplicationUUID.String(),
 		},
 		RelationUUID:                relationUUID,
 		ConsumerModelUUID:           consumerModelUUID,
 		ConsumerApplicationUUID:     consumerApplicationUUID,
 		ConsumerApplicationEndpoint: "db",
-		OffererApplicationUUID:      offerApplicationUUID.String(),
 		OffererApplicationEndpoint:  "offer-endpoint",
 		UserName:                    "consumer-user",
 		SyntheticCharmUUID:          charmUUID,
