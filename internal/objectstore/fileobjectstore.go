@@ -38,7 +38,7 @@ const (
 	remoteTimeout = time.Second * 30
 )
 
-// FallBackStrategy is the strategy to use when there is no local file to
+// FallbackStrategy is the strategy to use when there is no local file to
 // retrieve.
 type FallbackStrategy string
 
@@ -539,7 +539,9 @@ func (t *fileObjectStore) loop() error {
 	}
 }
 
-func (t *fileObjectStore) get(ctx context.Context, path string, fallbackStrategy FallbackStrategy) (io.ReadCloser, int64, error) {
+func (t *fileObjectStore) get(
+	ctx context.Context, path string, fallbackStrategy FallbackStrategy,
+) (io.ReadCloser, int64, error) {
 	t.logger.Debugf(ctx, "getting object %q from file storage", path)
 
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
@@ -578,7 +580,9 @@ func (t *fileObjectStore) getBySHA256(ctx context.Context, sha256 string) (io.Re
 	return t.getWithMetadata(ctx, metadata, NoFallback)
 }
 
-func (t *fileObjectStore) getBySHA256Prefix(ctx context.Context, sha256 string, fallbackStrategy FallbackStrategy) (io.ReadCloser, int64, error) {
+func (t *fileObjectStore) getBySHA256Prefix(
+	ctx context.Context, sha256 string, fallbackStrategy FallbackStrategy,
+) (io.ReadCloser, int64, error) {
 	t.logger.Debugf(ctx, "getting object with SHA256 %q from file storage", sha256)
 
 	metadata, err := t.metadataService.GetMetadataBySHA256Prefix(ctx, sha256)
@@ -595,7 +599,9 @@ func (t *fileObjectStore) getBySHA256Prefix(ctx context.Context, sha256 string, 
 	return t.getWithMetadata(ctx, metadata, fallbackStrategy)
 }
 
-func (t *fileObjectStore) getWithMetadata(ctx context.Context, metadata objectstore.Metadata, fallbackStrategy FallbackStrategy) (io.ReadCloser, int64, error) {
+func (t *fileObjectStore) getWithMetadata(
+	ctx context.Context, metadata objectstore.Metadata, fallbackStrategy FallbackStrategy,
+) (io.ReadCloser, int64, error) {
 	hash := SelectFileHash(metadata)
 
 	file, err := t.fs.Open(hash)
@@ -627,14 +633,19 @@ func (t *fileObjectStore) getWithMetadata(ctx context.Context, metadata objectst
 	return file, size, nil
 }
 
-func (t *fileObjectStore) remoteGetWithMetadata(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error) {
+func (t *fileObjectStore) remoteGetWithMetadata(
+	ctx context.Context, metadata objectstore.Metadata,
+) (io.ReadCloser, int64, error) {
 	// Retrieve the file from the remote source.
 	reader, size, err := t.remoteRetriever.Retrieve(ctx, metadata.SHA256)
 	if errors.Is(err, jujuerrors.NotFound) {
 		return nil, -1, errors.Errorf("%w: %w", err, objectstoreerrors.ObjectNotFound)
 	} else if err != nil {
 		return nil, -1, errors.Errorf("remote get: %w", err)
-	} else if size != metadata.Size {
+	}
+	defer func() { _ = reader.Close() }()
+
+	if size != metadata.Size {
 		return nil, -1, errors.Errorf("size mismatch for %q: expected %d, got %d", metadata.Path, metadata.Size, size)
 	}
 
@@ -657,7 +668,8 @@ func (t *fileObjectStore) remoteGetWithMetadata(ctx context.Context, metadata ob
 	encoded384 := hex.EncodeToString(hash384.Sum(nil))
 
 	if encoded384 != metadata.SHA384 {
-		return nil, -1, errors.Errorf("hash mismatch for %q: expected %q, got %q: %w", metadata.Path, metadata.SHA256, encoded384, objectstore.ErrHashMismatch)
+		return nil, -1, errors.Errorf("hash mismatch for %q: expected %q, got %q: %w",
+			metadata.Path, metadata.SHA256, encoded384, objectstore.ErrHashMismatch)
 	}
 
 	// Lock the file with the given hash, so that we can't remove the file
@@ -686,7 +698,9 @@ func (t *fileObjectStore) remoteGetWithMetadata(ctx context.Context, metadata ob
 	return file, size, nil
 }
 
-func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, size int64, validator hashValidator) (objectstore.UUID, error) {
+func (t *fileObjectStore) put(
+	ctx context.Context, path string, r io.Reader, size int64, validator hashValidator,
+) (objectstore.UUID, error) {
 	t.logger.Debugf(ctx, "putting object %q to file storage", path)
 
 	// Charms and resources are coded to use the SHA384 hash. It is possible
@@ -719,7 +733,8 @@ func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, siz
 
 	// Ensure that the hash of the file matches the expected hash.
 	if expected, ok := validator(encoded384); !ok {
-		return "", errors.Errorf("hash mismatch for %q: expected %q, got %q: %w", path, expected, encoded384, objectstore.ErrHashMismatch)
+		return "", errors.Errorf("hash mismatch for %q: expected %q, got %q: %w",
+			path, expected, encoded384, objectstore.ErrHashMismatch)
 	}
 
 	// Lock the file with the given hash, so that we can't remove the file
@@ -850,7 +865,9 @@ func basePath(rootDir, namespace string) string {
 
 // getFromRemote fetches the object from the remote API server, writes it to
 // the file store, and then retrieves the object from the file store.
-func (t *fileObjectStore) getFromRemote(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error) {
+func (t *fileObjectStore) getFromRemote(
+	ctx context.Context, metadata objectstore.Metadata,
+) (io.ReadCloser, int64, error) {
 	ctx, cancel := context.WithTimeout(ctx, remoteTimeout)
 	defer cancel()
 
@@ -858,6 +875,7 @@ func (t *fileObjectStore) getFromRemote(ctx context.Context, metadata objectstor
 	if err != nil {
 		return nil, -1, errors.Errorf("fetching blob from remote: %w", err)
 	}
+	defer func() { _ = reader.Close() }()
 
 	// We need to now put the blob into the file store, so that we can
 	// retrieve it from the file store next time.
@@ -934,7 +952,9 @@ func (t *fileObjectStore) handleMetadataChange(ctx context.Context, path string)
 	return nil
 }
 
-func (t *fileObjectStore) fetchReaderFromRemote(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error) {
+func (t *fileObjectStore) fetchReaderFromRemote(
+	ctx context.Context, metadata objectstore.Metadata,
+) (io.ReadCloser, int64, error) {
 	t.logger.Tracef(ctx, "fetching object %q from remote %q", metadata.Path, metadata.SHA256)
 
 	reader, size, err := t.remoteRetriever.Retrieve(ctx, metadata.SHA256)
@@ -946,6 +966,7 @@ func (t *fileObjectStore) fetchReaderFromRemote(ctx context.Context, metadata ob
 	}
 
 	if size != metadata.Size {
+		_ = reader.Close()
 		return nil, -1, errors.Errorf("size mismatch for %q: expected %d, got %d", metadata.Path, metadata.Size, size)
 	}
 
@@ -1006,7 +1027,7 @@ func (w *fetchWorker) loop() error {
 	}); err != nil {
 		return errors.Errorf("retrieving blob from remote: %w", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	tmpFileName, tmpFileCleanup, err := w.t.writeToTmpFile(w.t.path, reader, size)
 	if err != nil {
