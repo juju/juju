@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/trace"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/storage/internal"
@@ -98,7 +99,7 @@ func (s *StorageImportService) ImportStorageInstances(ctx context.Context, param
 		if param.UnitName != "" {
 			units.Add(param.UnitName)
 		}
-		for _, attachment := range param.Attachments {
+		for _, attachment := range param.AttachedUnitNames {
 			units.Add(attachment)
 		}
 	}
@@ -121,11 +122,11 @@ func (s *StorageImportService) ImportStorageInstances(ctx context.Context, param
 		}
 
 		var unitUUID string
-		if param.UnitName != "" {
+		if unitName := param.UnitName; unitName != "" {
 			var ok bool
-			unitUUID, ok = unitUUIDs[param.UnitName]
+			unitUUID, ok = unitUUIDs[unitName]
 			if !ok {
-				return errors.Errorf("unit with name %q not found for storage instance", param.UnitName).
+				return errors.Errorf("unit with name %q not found for storage instance", unitName).
 					Add(applicationerrors.UnitNotFound)
 			}
 		}
@@ -135,16 +136,16 @@ func (s *StorageImportService) ImportStorageInstances(ctx context.Context, param
 			// 3.6 does not pass life of a storage instance during
 			// import. Assume alive. domainlife.Life has a test which
 			// validates the data against the db.
-			Life:             int(life.Alive),
-			PoolName:         param.PoolName,
-			RequestedSizeMiB: param.RequestedSizeMiB,
-			StorageID:        param.StorageID,
-			StorageName:      param.StorageName,
-			StorageKind:      param.StorageKind,
-			UnitUUID:         unitUUID,
+			Life:              life.Alive,
+			PoolName:          param.PoolName,
+			RequestedSizeMiB:  param.RequestedSizeMiB,
+			StorageInstanceID: param.StorageInstanceID,
+			StorageName:       param.StorageName,
+			StorageKind:       param.StorageKind,
+			UnitUUID:          unitUUID,
 		}
 
-		for _, attachment := range param.Attachments {
+		for _, attachment := range param.AttachedUnitNames {
 			attachmentUUID, err := domainstorage.NewStorageAttachmentUUID()
 			if err != nil {
 				return errors.Capture(err)
@@ -179,6 +180,10 @@ func (s *StorageImportService) ImportStorageInstances(ctx context.Context, param
 // of the specified storage pools cannot be found in the storage registry.
 // - [domainstorageerrors.StorageInstanceNotFound] when any of the
 // provided IDs do not have a corresponding storage instance.
+// - [applicationerrors.UnitNotFound] when a host unit name is provided but not
+// found in the model.
+// - [machineerrors.MachineNotFound] when a host machine name is provided but not
+// found in the model.
 func (s *StorageImportService) ImportFilesystemsIAAS(ctx context.Context, params []domainstorage.ImportFilesystemParams) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -236,8 +241,6 @@ func (s *StorageImportService) ImportFilesystemsIAAS(ctx context.Context, params
 	for i, arg := range params {
 		providerScope, ok := poolScopes[arg.PoolName]
 		if !ok {
-			// This indicates a programming error. We should fail in the state
-			// if a pool name is not found.
 			return errors.Errorf("storage pool %q not found for filesystem %q", arg.PoolName, arg.ID).
 				Add(domainstorageerrors.StoragePoolNotFound)
 		}
@@ -246,8 +249,6 @@ func (s *StorageImportService) ImportFilesystemsIAAS(ctx context.Context, params
 		if arg.StorageInstanceID != "" {
 			var ok bool
 			storageInstanceUUID, ok = storageInstanceUUIDsByID[arg.StorageInstanceID]
-			// This indicates a programming error. We should fail in the state
-			// if a storage instance ID is not found.
 			if !ok {
 				return errors.Errorf("storage instance with ID %q not found for filesystem %q", arg.StorageInstanceID, arg.ID).
 					Add(domainstorageerrors.StorageInstanceNotFound)
@@ -280,19 +281,15 @@ func (s *StorageImportService) ImportFilesystemsIAAS(ctx context.Context, params
 				var ok bool
 				netNodeUUID, ok = unitNodes[attachment.HostUnitName]
 				if !ok {
-					// This indicates a programming error. We should fail in the
-					// state if a unit name is not found.
 					return errors.Errorf("net node for host unit %q not found", attachment.HostUnitName).
-						Add(coreerrors.NotFound)
+						Add(applicationerrors.UnitNotFound)
 				}
 			} else {
 				var ok bool
 				netNodeUUID, ok = machineNodes[attachment.HostMachineName]
 				if !ok {
-					// This indicates a programming error. We should fail in the
-					// state if a machine name is not found.
 					return errors.Errorf("net node for host machine %q not found", attachment.HostMachineName).
-						Add(coreerrors.NotFound)
+						Add(machineerrors.MachineNotFound)
 				}
 			}
 

@@ -11,14 +11,14 @@ import (
 // ImportStorageInstanceArgs represents data to import a storage instance
 // and its owner.
 type ImportStorageInstanceArgs struct {
-	UUID             string
-	Life             int
-	PoolName         string
-	RequestedSizeMiB uint64
-	StorageName      string
-	StorageKind      string
-	StorageID        string
-	UnitUUID         string
+	UUID              string
+	Life              life.Life
+	PoolName          string
+	RequestedSizeMiB  uint64
+	StorageName       string
+	StorageKind       string
+	StorageInstanceID string
+	UnitUUID          string
 }
 
 // ImportStorageInstanceAttachmentArgs represents data to import a storage

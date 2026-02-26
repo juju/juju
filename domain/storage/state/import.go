@@ -11,13 +11,12 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/storage/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
 // ImportStorageInstances imports storage instances, storage attachments and
-// storage unit owners if the unit name is provided.
+// storage unit owners if a unit uuid is provided.
 func (st *State) ImportStorageInstances(
 	ctx context.Context,
 	instanceArgs []internal.ImportStorageInstanceArgs,
@@ -197,12 +196,25 @@ func (st *State) transformStorageInstances(
 	tx *sqlair.TX,
 	args []internal.ImportStorageInstanceArgs,
 ) ([]importStorageInstance, []importStorageUnitOwner, error) {
+	if len(args) == 0 {
+		return nil, nil, nil
+	}
+
 	lookups, err := st.getImportStorageInstanceLookups(ctx, tx)
 	if err != nil {
 		return nil, nil, errors.Capture(err)
 	}
 	storageInstances := make([]importStorageInstance, len(args))
 	storageUnitOwners := make([]importStorageUnitOwner, 0)
+
+	stmt, err := st.Prepare(`
+SELECT cm.name AS &name.name
+FROM   unit AS u
+JOIN   charm_metadata AS cm ON u.charm_uuid = cm.charm_uuid
+WHERE  u.uuid = $entityUUID.uuid`, name{}, entityUUID{})
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
 
 	for i, arg := range args {
 		poolUUID, ok := lookups.StoragePoolUUID[arg.PoolName]
@@ -215,16 +227,21 @@ func (st *State) transformStorageInstances(
 		}
 		storageInstances[i] = importStorageInstance{
 			UUID:            arg.UUID,
-			LifeID:          arg.Life,
-			StorageID:       arg.StorageID,
+			LifeID:          int(arg.Life),
+			StorageID:       arg.StorageInstanceID,
 			StorageKindID:   kind,
 			StorageName:     arg.StorageName,
 			StoragePoolUUID: poolUUID,
 			RequestedSize:   arg.RequestedSizeMiB,
 		}
 
-		charmName, err := st.getCharmNameFromUnitUUID(ctx, tx, arg.UnitUUID)
-		if errors.Is(err, coreerrors.NotFound) {
+		if arg.UnitUUID == "" {
+			continue
+		}
+
+		var charmName name
+		err := tx.Query(ctx, stmt, entityUUID{UUID: arg.UnitUUID}).Get(&charmName)
+		if errors.Is(err, sql.ErrNoRows) {
 			// Neither charmName in storage_instance storage_unit_owner rows
 			// are required by the DDL.
 			continue
@@ -232,7 +249,7 @@ func (st *State) transformStorageInstances(
 			return nil, nil, errors.Errorf("getting charm name from unit %q: %w", arg.UnitUUID, err)
 		}
 
-		storageInstances[i].CharmName = charmName
+		storageInstances[i].CharmName = charmName.Name
 		storageUnitOwners = append(storageUnitOwners, importStorageUnitOwner{
 			StorageInstanceUUID: arg.UUID,
 			UnitUUID:            arg.UnitUUID,
@@ -240,33 +257,6 @@ func (st *State) transformStorageInstances(
 	}
 
 	return storageInstances, storageUnitOwners, nil
-}
-
-func (st *State) getCharmNameFromUnitUUID(
-	ctx context.Context,
-	tx *sqlair.TX,
-	unitUUID string,
-) (string, error) {
-	if unitUUID == "" {
-		return "", coreerrors.NotFound
-	}
-	stmt, err := st.Prepare(`
-SELECT cm.name AS &name.name
-FROM   unit AS u
-JOIN   charm_metadata AS cm ON u.charm_uuid = cm.charm_uuid
-WHERE  u.uuid = $entityUUID.uuid`, name{}, entityUUID{})
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	var output name
-	err = tx.Query(ctx, stmt, entityUUID{UUID: unitUUID}).Get(&output)
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", coreerrors.NotFound
-	} else if err != nil {
-		return "", errors.Errorf("finding charm name for %q: %w", unitUUID, err)
-	}
-	return output.Name, nil
 }
 
 // GetNetNodeUUIDsByMachineOrUnitName returns net node UUIDs for all machine or

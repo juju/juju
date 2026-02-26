@@ -15,6 +15,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
+	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/storage/internal"
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -48,19 +49,19 @@ func (s *importSuite) TestImportStorageInstances(c *tc.C) {
 
 	expectedInstances := []internal.ImportStorageInstanceArgs{
 		{
-			StorageName:      "test1",
-			StorageKind:      "block",
-			StorageID:        "test1/0",
-			UnitUUID:         unit3UUID,
-			RequestedSizeMiB: 1024,
-			PoolName:         "ebs",
+			StorageName:       "test1",
+			StorageKind:       "block",
+			StorageInstanceID: "test1/0",
+			UnitUUID:          unit3UUID,
+			RequestedSizeMiB:  1024,
+			PoolName:          "ebs",
 		}, {
-			StorageName:      "test1",
-			StorageKind:      "block",
-			StorageID:        "test1/2",
-			UnitUUID:         unit2UUID,
-			RequestedSizeMiB: 1024,
-			PoolName:         "ebs",
+			StorageName:       "test1",
+			StorageKind:       "block",
+			StorageInstanceID: "test1/2",
+			UnitUUID:          unit2UUID,
+			RequestedSizeMiB:  1024,
+			PoolName:          "ebs",
 		},
 	}
 
@@ -79,19 +80,19 @@ func (s *importSuite) TestImportStorageInstances(c *tc.C) {
 
 	args := []domainstorage.ImportStorageInstanceParams{
 		{
-			StorageName:      "test1",
-			StorageKind:      "block",
-			StorageID:        "test1/0",
-			UnitName:         "unit/3",
-			RequestedSizeMiB: 1024,
-			PoolName:         "ebs",
+			StorageName:       "test1",
+			StorageKind:       "block",
+			StorageInstanceID: "test1/0",
+			UnitName:          "unit/3",
+			RequestedSizeMiB:  1024,
+			PoolName:          "ebs",
 		}, {
-			StorageName:      "test1",
-			StorageKind:      "block",
-			StorageID:        "test1/2",
-			UnitName:         "unit/2",
-			RequestedSizeMiB: 1024,
-			PoolName:         "ebs",
+			StorageName:       "test1",
+			StorageKind:       "block",
+			StorageInstanceID: "test1/2",
+			UnitName:          "unit/2",
+			RequestedSizeMiB:  1024,
+			PoolName:          "ebs",
 		},
 	}
 
@@ -108,11 +109,11 @@ func (s *importSuite) TestImportStorageInstancesWithNoUnit(c *tc.C) {
 	// Arrange
 	expectedInstances := []internal.ImportStorageInstanceArgs{
 		{
-			StorageName:      "test1",
-			StorageKind:      "block",
-			StorageID:        "test1/0",
-			RequestedSizeMiB: 1024,
-			PoolName:         "ebs",
+			StorageName:       "test1",
+			StorageKind:       "block",
+			StorageInstanceID: "test1/0",
+			RequestedSizeMiB:  1024,
+			PoolName:          "ebs",
 		},
 	}
 
@@ -126,11 +127,11 @@ func (s *importSuite) TestImportStorageInstancesWithNoUnit(c *tc.C) {
 
 	args := []domainstorage.ImportStorageInstanceParams{
 		{
-			StorageName:      "test1",
-			StorageKind:      "block",
-			StorageID:        "test1/0",
-			RequestedSizeMiB: 1024,
-			PoolName:         "ebs",
+			StorageName:       "test1",
+			StorageKind:       "block",
+			StorageInstanceID: "test1/0",
+			RequestedSizeMiB:  1024,
+			PoolName:          "ebs",
 		},
 	}
 
@@ -147,26 +148,26 @@ func (s *importSuite) TestImportStorageInstancesMissingUnitOwner(c *tc.C) {
 	// Arrange
 	unit0UUID := tc.Must(c, coreunit.NewUUID).String()
 
-	// No "unit/1" in the returned map. This indicates that "unit/2" does not exist
+	// No "unit/1" in the returned map. This indicates that "unit/1" does not exist
 	s.state.EXPECT().GetUnitUUIDsByNames(gomock.Any(), tc.Bind(tc.SameContents, []string{"unit/0", "unit/1"})).Return(map[string]string{
 		"unit/0": unit0UUID,
 	}, nil)
 
 	args := []domainstorage.ImportStorageInstanceParams{
 		{
-			StorageName:      "test1",
-			StorageKind:      "block",
-			StorageID:        "test1/0",
-			UnitName:         "unit/0",
-			RequestedSizeMiB: 1024,
-			PoolName:         "ebs",
+			StorageName:       "test1",
+			StorageKind:       "block",
+			StorageInstanceID: "test1/0",
+			UnitName:          "unit/0",
+			RequestedSizeMiB:  1024,
+			PoolName:          "ebs",
 		}, {
-			StorageName:      "test1",
-			StorageKind:      "block",
-			StorageID:        "test1/2",
-			UnitName:         "unit/1",
-			RequestedSizeMiB: 1024,
-			PoolName:         "ebs",
+			StorageName:       "test1",
+			StorageKind:       "block",
+			StorageInstanceID: "test1/2",
+			UnitName:          "unit/1",
+			RequestedSizeMiB:  1024,
+			PoolName:          "ebs",
 		},
 	}
 
@@ -183,20 +184,20 @@ func (s *importSuite) TestImportStorageInstancesMissingUnitAttachment(c *tc.C) {
 	// Arrange
 	unit0UUID := tc.Must(c, coreunit.NewUUID).String()
 
-	// No "unit/1" in the returned map. This indicates that "unit/2" does not exist
+	// No "unit/1" in the returned map. This indicates that "unit/1" does not exist
 	s.state.EXPECT().GetUnitUUIDsByNames(gomock.Any(), tc.Bind(tc.SameContents, []string{"unit/0", "unit/1"})).Return(map[string]string{
 		"unit/0": unit0UUID,
 	}, nil)
 
 	args := []domainstorage.ImportStorageInstanceParams{
 		{
-			StorageName:      "test1",
-			StorageKind:      "block",
-			StorageID:        "test1/0",
-			UnitName:         "unit/0",
-			RequestedSizeMiB: 1024,
-			PoolName:         "ebs",
-			Attachments:      []string{"unit/1"},
+			StorageName:       "test1",
+			StorageKind:       "block",
+			StorageInstanceID: "test1/0",
+			UnitName:          "unit/0",
+			RequestedSizeMiB:  1024,
+			PoolName:          "ebs",
+			AttachedUnitNames: []string{"unit/1"},
 		},
 	}
 
@@ -218,19 +219,19 @@ func (s *importSuite) TestImportStorageInstancesWithAttachments(c *tc.C) {
 	// Arrange
 	expectedInstances := []internal.ImportStorageInstanceArgs{
 		{
-			StorageName:      "test1",
-			StorageKind:      "block",
-			StorageID:        "test1/0",
-			UnitUUID:         unit3UUID,
-			RequestedSizeMiB: 1024,
-			PoolName:         "ebs",
+			StorageName:       "test1",
+			StorageKind:       "block",
+			StorageInstanceID: "test1/0",
+			UnitUUID:          unit3UUID,
+			RequestedSizeMiB:  1024,
+			PoolName:          "ebs",
 		}, {
-			StorageName:      "test1",
-			StorageKind:      "block",
-			StorageID:        "test1/2",
-			UnitUUID:         unit2UUID,
-			RequestedSizeMiB: 1024,
-			PoolName:         "ebs",
+			StorageName:       "test1",
+			StorageKind:       "block",
+			StorageInstanceID: "test1/2",
+			UnitUUID:          unit2UUID,
+			RequestedSizeMiB:  1024,
+			PoolName:          "ebs",
 		},
 	}
 	expectedAttachments := []internal.ImportStorageInstanceAttachmentArgs{
@@ -272,21 +273,21 @@ func (s *importSuite) TestImportStorageInstancesWithAttachments(c *tc.C) {
 
 	args := []domainstorage.ImportStorageInstanceParams{
 		{
-			StorageName:      "test1",
-			StorageKind:      "block",
-			StorageID:        "test1/0",
-			UnitName:         "unit/3",
-			RequestedSizeMiB: 1024,
-			PoolName:         "ebs",
-			Attachments:      []string{"unit/0", "unit/1"},
+			StorageName:       "test1",
+			StorageKind:       "block",
+			StorageInstanceID: "test1/0",
+			UnitName:          "unit/3",
+			RequestedSizeMiB:  1024,
+			PoolName:          "ebs",
+			AttachedUnitNames: []string{"unit/0", "unit/1"},
 		}, {
-			StorageName:      "test1",
-			StorageKind:      "block",
-			StorageID:        "test1/2",
-			UnitName:         "unit/2",
-			RequestedSizeMiB: 1024,
-			PoolName:         "ebs",
-			Attachments:      []string{"unit/2"},
+			StorageName:       "test1",
+			StorageKind:       "block",
+			StorageInstanceID: "test1/2",
+			UnitName:          "unit/2",
+			RequestedSizeMiB:  1024,
+			PoolName:          "ebs",
+			AttachedUnitNames: []string{"unit/2"},
 		},
 	}
 
@@ -547,6 +548,234 @@ func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
 	}
 }
 
+func (s *importSuite) TestImportFilesystemsIAASMissingProvider(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Arrange
+	params := []domainstorage.ImportFilesystemParams{{
+		ID:                "test-1/0",
+		PoolName:          "ebs",
+		SizeInMiB:         1024,
+		ProviderID:        "provider-test-1/0",
+		StorageInstanceID: "storageinstance/1",
+	}}
+
+	// No provider for "ebs" is returned, which indicates the provider does not exist
+	s.state.EXPECT().GetStoragePoolProvidersByNames(gomock.Any(), tc.Bind(tc.SameContents, []string{"ebs"})).Return(map[string]string{}, nil)
+
+	s.state.EXPECT().GetStorageInstanceUUIDsByIDs(gomock.Any(), []string{"storageinstance/1"}).
+		Return(map[string]string{
+			"storageinstance/1": "storageinstance-uuid-1",
+		}, nil)
+
+	// Act
+	err := s.service.ImportFilesystemsIAAS(c.Context(), params)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, domainstorageerrors.StoragePoolNotFound)
+}
+
+func (s *importSuite) TestImportFilesystemsIAASMissingStorageInstance(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Arrange
+	params := []domainstorage.ImportFilesystemParams{{
+		ID:                "test-1/0",
+		PoolName:          "ebs",
+		SizeInMiB:         1024,
+		ProviderID:        "provider-test-1/0",
+		StorageInstanceID: "storageinstance/1",
+		Attachments: []domainstorage.ImportFilesystemAttachmentsParams{{
+			HostUnitName: "unit/0",
+			MountPoint:   "/mnt/test1-0",
+			ReadOnly:     false,
+		}, {
+			HostUnitName: "unit/1",
+			MountPoint:   "/mnt/test1-0-ro",
+			ReadOnly:     true,
+		}},
+	}, {
+		ID:                "test-2/1",
+		PoolName:          "ebs-ssd",
+		SizeInMiB:         2048,
+		ProviderID:        "provider-test-2/1",
+		StorageInstanceID: "storageinstance/2",
+		Attachments: []domainstorage.ImportFilesystemAttachmentsParams{{
+			HostMachineName: "0",
+			MountPoint:      "/mnt/test2-1",
+			ReadOnly:        false,
+		}},
+	}}
+
+	s.state.EXPECT().GetStoragePoolProvidersByNames(gomock.Any(), tc.Bind(tc.SameContents, []string{"ebs", "ebs-ssd"})).Return(map[string]string{
+		"ebs":     "ebs",
+		"ebs-ssd": "ebs",
+	}, nil)
+
+	ebsProvider := NewMockProvider(ctrl)
+	ebsProvider.EXPECT().Scope().Return(internalstorage.ScopeEnviron).AnyTimes()
+	ebsProvider.EXPECT().Supports(internalstorage.StorageKindBlock).Return(true).AnyTimes()
+	ebsProvider.EXPECT().Supports(internalstorage.StorageKindFilesystem).Return(false).AnyTimes()
+	s.registry.Providers["ebs"] = ebsProvider
+
+	// No uuid for storageinstance/2 is returned, which indicates it does not exist
+	s.state.EXPECT().GetStorageInstanceUUIDsByIDs(gomock.Any(), []string{"storageinstance/1", "storageinstance/2"}).
+		Return(map[string]string{
+			"storageinstance/1": "storageinstance-uuid-1",
+		}, nil)
+
+	s.state.EXPECT().GetNetNodeUUIDsByMachineOrUnitName(gomock.Any(),
+		tc.Bind(tc.SameContents, []string{"0"}),
+		tc.Bind(tc.SameContents, []string{"unit/0", "unit/1"}),
+	).Return(
+		map[string]string{"0": "netnode-uuid-0"},
+		map[string]string{"unit/0": "netnode-uuid-unit-0", "unit/1": "netnode-uuid-unit-1"},
+		nil,
+	)
+
+	// Act
+	err := s.service.ImportFilesystemsIAAS(c.Context(), params)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, domainstorageerrors.StorageInstanceNotFound)
+}
+
+func (s *importSuite) TestImportFilesystemsIAASMissingUnit(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Arrange
+	params := []domainstorage.ImportFilesystemParams{{
+		ID:                "test-1/0",
+		PoolName:          "ebs",
+		SizeInMiB:         1024,
+		ProviderID:        "provider-test-1/0",
+		StorageInstanceID: "storageinstance/1",
+		Attachments: []domainstorage.ImportFilesystemAttachmentsParams{{
+			HostUnitName: "unit/0",
+			MountPoint:   "/mnt/test1-0",
+			ReadOnly:     false,
+		}, {
+			HostUnitName: "unit/1",
+			MountPoint:   "/mnt/test1-0-ro",
+			ReadOnly:     true,
+		}},
+	}, {
+		ID:                "test-2/1",
+		PoolName:          "ebs-ssd",
+		SizeInMiB:         2048,
+		ProviderID:        "provider-test-2/1",
+		StorageInstanceID: "storageinstance/2",
+		Attachments: []domainstorage.ImportFilesystemAttachmentsParams{{
+			HostMachineName: "0",
+			MountPoint:      "/mnt/test2-1",
+			ReadOnly:        false,
+		}},
+	}}
+
+	s.state.EXPECT().GetStoragePoolProvidersByNames(gomock.Any(), tc.Bind(tc.SameContents, []string{"ebs", "ebs-ssd"})).Return(map[string]string{
+		"ebs":     "ebs",
+		"ebs-ssd": "ebs",
+	}, nil)
+
+	ebsProvider := NewMockProvider(ctrl)
+	ebsProvider.EXPECT().Scope().Return(internalstorage.ScopeEnviron).AnyTimes()
+	ebsProvider.EXPECT().Supports(internalstorage.StorageKindBlock).Return(true).AnyTimes()
+	ebsProvider.EXPECT().Supports(internalstorage.StorageKindFilesystem).Return(false).AnyTimes()
+	s.registry.Providers["ebs"] = ebsProvider
+
+	s.state.EXPECT().GetStorageInstanceUUIDsByIDs(gomock.Any(), []string{"storageinstance/1", "storageinstance/2"}).
+		Return(map[string]string{
+			"storageinstance/1": "storageinstance-uuid-1",
+			"storageinstance/2": "storageinstance-uuid-2",
+		}, nil)
+
+	// No uuid for "unit/1" is returned, which indicates it does not exist
+	s.state.EXPECT().GetNetNodeUUIDsByMachineOrUnitName(gomock.Any(),
+		tc.Bind(tc.SameContents, []string{"0"}),
+		tc.Bind(tc.SameContents, []string{"unit/0", "unit/1"}),
+	).Return(
+		map[string]string{"0": "netnode-uuid-0"},
+		map[string]string{"unit/0": "netnode-uuid-unit-0"},
+		nil,
+	)
+
+	// Act
+	err := s.service.ImportFilesystemsIAAS(c.Context(), params)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *importSuite) TestImportFilesystemsIAASMissingMachine(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Arrange
+	params := []domainstorage.ImportFilesystemParams{{
+		ID:                "test-1/0",
+		PoolName:          "ebs",
+		SizeInMiB:         1024,
+		ProviderID:        "provider-test-1/0",
+		StorageInstanceID: "storageinstance/1",
+		Attachments: []domainstorage.ImportFilesystemAttachmentsParams{{
+			HostUnitName: "unit/0",
+			MountPoint:   "/mnt/test1-0",
+			ReadOnly:     false,
+		}, {
+			HostUnitName: "unit/1",
+			MountPoint:   "/mnt/test1-0-ro",
+			ReadOnly:     true,
+		}},
+	}, {
+		ID:                "test-2/1",
+		PoolName:          "ebs-ssd",
+		SizeInMiB:         2048,
+		ProviderID:        "provider-test-2/1",
+		StorageInstanceID: "storageinstance/2",
+		Attachments: []domainstorage.ImportFilesystemAttachmentsParams{{
+			HostMachineName: "0",
+			MountPoint:      "/mnt/test2-1",
+			ReadOnly:        false,
+		}},
+	}}
+
+	s.state.EXPECT().GetStoragePoolProvidersByNames(gomock.Any(), tc.Bind(tc.SameContents, []string{"ebs", "ebs-ssd"})).Return(map[string]string{
+		"ebs":     "ebs",
+		"ebs-ssd": "ebs",
+	}, nil)
+
+	ebsProvider := NewMockProvider(ctrl)
+	ebsProvider.EXPECT().Scope().Return(internalstorage.ScopeEnviron).AnyTimes()
+	ebsProvider.EXPECT().Supports(internalstorage.StorageKindBlock).Return(true).AnyTimes()
+	ebsProvider.EXPECT().Supports(internalstorage.StorageKindFilesystem).Return(false).AnyTimes()
+	s.registry.Providers["ebs"] = ebsProvider
+
+	s.state.EXPECT().GetStorageInstanceUUIDsByIDs(gomock.Any(), []string{"storageinstance/1", "storageinstance/2"}).
+		Return(map[string]string{
+			"storageinstance/1": "storageinstance-uuid-1",
+			"storageinstance/2": "storageinstance-uuid-2",
+		}, nil)
+
+	// No uuid for "0" is returned, which indicates the machine does not exist
+	s.state.EXPECT().GetNetNodeUUIDsByMachineOrUnitName(gomock.Any(),
+		tc.Bind(tc.SameContents, []string{"0"}),
+		tc.Bind(tc.SameContents, []string{"unit/0", "unit/1"}),
+	).Return(
+		map[string]string{},
+		map[string]string{"unit/0": "netnode-uuid-unit-0", "unit/1": "netnode-uuid-unit-1"},
+		nil,
+	)
+
+	// Act
+	err := s.service.ImportFilesystemsIAAS(c.Context(), params)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, applicationerrors.MachineNotFound)
+}
+
 func (s *importSuite) TestImportFilesystemsValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -613,6 +842,40 @@ func (s *importSuite) TestImportVolumes(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportVolumesMissingStorageProvider(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Arrange
+	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID).String()
+	s.state.EXPECT().GetStorageInstanceUUIDsByIDs(gomock.Any(), []string{"multi-fs/0"}).
+		Return(map[string]string{
+			"multi-fs/0": storageInstanceUUID,
+		}, nil)
+
+	// No provider for "ebs" is returned, which indicates the provider does not exist
+	s.state.EXPECT().GetStoragePoolProvidersByNames(gomock.Any(), []string{"ebs"}).Return(map[string]string{}, nil)
+
+	// Arrange: input
+	params := []domainstorage.ImportVolumeParams{
+		{
+			ID:         "multi-vol/0",
+			Pool:       "ebs",
+			StorageID:  "multi-fs/0",
+			SizeMiB:    4048,
+			HardwareID: "hardware",
+			ProviderID: "vol-0f2829d7e5c4c0140",
+			WWN:        "uuid.06eba00f-72a0-5af0-9e94-891d7542e96c",
+		},
+	}
+
+	// Act
+	err := s.service.ImportVolumes(c.Context(), params)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, domainstorageerrors.StoragePoolNotFound)
 }
 
 func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
