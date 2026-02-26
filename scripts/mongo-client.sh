@@ -5,28 +5,28 @@ set -u
 declare -a cmds=()
 declare -i machine=0
 
-while (( $# > 0 )); do
-    case $1 in
-        -h|--help)
-            cat <<EOF
+while (($# > 0)); do
+	case $1 in
+	-h | --help)
+		cat <<EOF
 $(basename $0)
 
 -h | --help         This help
 -m | --machine N    Connect with machine N in the controller model
                     (defaults to ${machine})
 EOF
-            exit 0
-            ;;
-        -m|--machine)
-            shift
-            machine=$(($1))
-            ;;
-        *)
-            echo "Unknown argument $1"
-            exit 1
-            ;;
-    esac
-    shift
+		exit 0
+		;;
+	-m | --machine)
+		shift
+		machine=$(($1))
+		;;
+	*)
+		echo "Unknown argument $1"
+		exit 1
+		;;
+	esac
+	shift
 done
 
 read -d '' -r cmds <<'EOF'
