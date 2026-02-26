@@ -360,6 +360,20 @@ WHERE  a.uuid = $entityUUID.uuid
 		return errors.Capture(err)
 	}
 
+	deleteFqdnAddressStmt, err := st.Prepare(`
+DELETE FROM net_node_fqdn_address
+WHERE net_node_uuid IN ($uuids[:])`, uuids{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteHostnameAddressStmt, err := st.Prepare(`
+DELETE FROM net_node_hostname_address
+WHERE net_node_uuid IN ($uuids[:])`, uuids{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	deleteNetNodesStmt, err := st.Prepare(`
 DELETE FROM net_node
 WHERE uuid IN ($uuids[:])`, uuids{})
@@ -390,6 +404,15 @@ WHERE application_uuid = $entityUUID.uuid`, synthApp)
 	}
 
 	netNodeUUIDs := uuids(transform.Slice(netNodeEntityUUIDs, func(e entityUUID) string { return e.UUID }))
+
+	if err := tx.Query(ctx, deleteFqdnAddressStmt, netNodeUUIDs).Run(); err != nil {
+		return errors.Errorf("deleting net node fqdn address for synth units: %w", err)
+	}
+
+	if err := tx.Query(ctx, deleteHostnameAddressStmt, netNodeUUIDs).Run(); err != nil {
+		return errors.Errorf("deleting net node hostname address for synth units: %w", err)
+	}
+
 	if err := tx.Query(ctx, deleteNetNodesStmt, netNodeUUIDs).Run(); err != nil {
 		return errors.Capture(err)
 	}
@@ -413,6 +436,20 @@ WHERE uuid = $entityUUID.uuid`, synthUnit)
 		return errors.Capture(err)
 	}
 
+	deleteFqdnAddressStmt, err := st.Prepare(`
+DELETE FROM net_node_fqdn_address
+WHERE net_node_uuid = $entityUUID.uuid`, entityUUID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteHostnameAddressStmt, err := st.Prepare(`
+DELETE FROM net_node_hostname_address
+WHERE net_node_uuid = $entityUUID.uuid`, entityUUID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	deleteNetNodeStmt, err := st.Prepare(`
 DELETE FROM net_node
 WHERE uuid = $entityUUID.uuid`, entityUUID{})
@@ -428,6 +465,14 @@ WHERE uuid = $entityUUID.uuid`, entityUUID{})
 
 	if err := tx.Query(ctx, deleteUnitStmt, synthUnit).Run(); err != nil {
 		return errors.Errorf("deleting synthetic unit: %w", err)
+	}
+
+	if err := tx.Query(ctx, deleteFqdnAddressStmt, netNode).Run(); err != nil {
+		return errors.Errorf("deleting net node fqdn address for synthetic unit: %w", err)
+	}
+
+	if err := tx.Query(ctx, deleteHostnameAddressStmt, netNode).Run(); err != nil {
+		return errors.Errorf("deleting net node hostname address for synthetic unit: %w", err)
 	}
 
 	if err := tx.Query(ctx, deleteNetNodeStmt, netNode).Run(); err != nil {
