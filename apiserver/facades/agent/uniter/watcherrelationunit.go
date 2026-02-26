@@ -83,7 +83,7 @@ func (w *relationUnitsWatcher) fetchRelationUnitChanges(ctx context.Context,
 		}
 	}
 
-	fetched, err := w.relation.GetRelationUnitChanges(ctx, changedUnitUUIDs, changedAppUUIDs)
+	fetched, err := w.relation.GetRelationUnitChanges(ctx, w.relationUUID, changedUnitUUIDs, changedAppUUIDs)
 	if err != nil {
 		return params.RelationUnitsChange{}, internalerrors.Errorf("fetching related units watcher changes: %w", err)
 	}
@@ -92,13 +92,6 @@ func (w *relationUnitsWatcher) fetchRelationUnitChanges(ctx context.Context,
 }
 
 func convertRelationUnitsChange(changes relation.RelationUnitsChange) params.RelationUnitsChange {
-	var changed map[string]params.UnitSettings
-	if changes.Changed != nil {
-		changed = make(map[string]params.UnitSettings, len(changes.Changed))
-		for key, val := range changes.Changed {
-			changed[key.String()] = params.UnitSettings{Version: val}
-		}
-	}
 	return params.RelationUnitsChange{
 		Changed: transform.Map(changes.Changed, func(k coreunit.Name, v int64) (string, params.UnitSettings) {
 			return k.String(), params.UnitSettings{Version: v}

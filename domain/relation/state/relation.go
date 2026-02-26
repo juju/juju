@@ -1136,29 +1136,35 @@ func (st *State) GetRelationDetails(ctx context.Context, relationUUID corerelati
 // the relation_unit table is that the unit has departed, and thus, the related
 // row has been deleted.
 func (st *State) GetRelationUnitChanges(
-	ctx context.Context, unitUUIDs []unit.UUID, appUUIDs []application.UUID,
+	ctx context.Context, relUUID string, unitUUIDs []unit.UUID, appUUIDs []application.UUID,
 ) (domainrelation.RelationUnitsChange, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return domainrelation.RelationUnitsChange{}, errors.Capture(err)
 	}
 
-	type uuids []string
-	type change struct {
-		UUID string `db:"uuid"`
-		Name string `db:"name"`
-		Hash string `db:"sha256"`
-	}
+	type (
+		uuids  []string
+		change struct {
+			UUID string `db:"uuid"`
+			Name string `db:"name"`
+			Hash string `db:"sha256"`
+		}
+	)
+
+	rel := relationUUID{UUID: relUUID}
 
 	unitStmt, err := st.Prepare(`
 SELECT 
     ru.unit_uuid AS &change.uuid,
     u.name AS &change.name,
     rush.sha256 AS &change.sha256
-FROM relation_unit AS ru
+FROM relation as r
+JOIN relation_endpoint AS re ON r.uuid = re.relation_uuid
+JOIN relation_unit AS ru ON re.uuid = ru.relation_endpoint_uuid
 JOIN unit AS u ON ru.unit_uuid = u.uuid
-LEFT JOIN  relation_unit_settings_hash AS rush ON ru.uuid = rush.relation_unit_uuid
-WHERE ru.unit_uuid IN ($uuids[:])`, change{}, uuids{})
+LEFT JOIN relation_unit_settings_hash AS rush ON ru.uuid = rush.relation_unit_uuid
+WHERE r.uuid = $relationUUID.uuid AND ru.unit_uuid IN ($uuids[:])`, change{}, rel, uuids{})
 	if err != nil {
 		return domainrelation.RelationUnitsChange{}, errors.Capture(err)
 	}
@@ -1171,8 +1177,9 @@ SELECT
 FROM application_endpoint AS ae
 JOIN application AS a ON ae.application_uuid = a.uuid
 JOIN relation_endpoint AS re ON ae.uuid = re.endpoint_uuid 
+JOIN relation AS r ON re.relation_uuid = r.uuid
 LEFT JOIN relation_application_settings_hash AS rash ON re.uuid = rash.relation_endpoint_uuid
-WHERE ae.application_uuid IN ($uuids[:])`, change{}, uuids{})
+WHERE r.uuid = $relationUUID.uuid AND ae.application_uuid IN ($uuids[:])`, change{}, rel, uuids{})
 	if err != nil {
 		return domainrelation.RelationUnitsChange{}, errors.Capture(err)
 	}
@@ -1190,13 +1197,13 @@ WHERE u.uuid IN ($uuids[:])`, getUnit{}, uuids{})
 	apps := transform.Slice(appUUIDs, application.UUID.String)
 	units := transform.Slice(unitUUIDs, unit.UUID.String)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, unitStmt, uuids(units)).GetAll(&unitChanges)
+		err = tx.Query(ctx, unitStmt, rel, uuids(units)).GetAll(&unitChanges)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("failed to get relation unit changes: %w", err)
+			return errors.Errorf("getting relation unit changes: %w", err)
 		}
-		err = tx.Query(ctx, appStmt, uuids(apps)).GetAll(&appChanges)
+		err = tx.Query(ctx, appStmt, rel, uuids(apps)).GetAll(&appChanges)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("failed to get relation application changes: %w", err)
+			return errors.Errorf("getting relation application changes: %w", err)
 		}
 
 		// Compute departed units, which are requested units not found into the unitChanges
@@ -1208,7 +1215,7 @@ WHERE u.uuid IN ($uuids[:])`, getUnit{}, uuids{})
 
 		err = tx.Query(ctx, departedStmt, uuids(requested.Values())).GetAll(&departedUnits)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("failed to get relation application changes: %w", err)
+			return errors.Errorf("getting relation application changes: %w", err)
 		}
 
 		return nil

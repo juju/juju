@@ -89,19 +89,24 @@ func (st *State) InitialWatchRelatedUnits(
 				return nil, errors.Errorf("fetching units for relation %q: %w", relationUUID, err)
 			}
 
+			// Always include the application UUID for the initial settings,
+			// as this is the base line, so we don't want to miss it.
+			entityUUIDs := []string{domainrelation.EncodeApplicationUUID(appUUID)}
+
 			// Exclude the input unit from the list of related units.
-			otherUnits := make([]string, 0, len(units)-1)
 			for _, u := range units {
 				if u.UnitUUID == unitUUID {
 					continue
 				}
-				// If we are not in a peer relation, we want to watch the remote side, so we exclude the local side too.
+				// If we are not in a peer relation, we want to watch the remote
+				// side, so we exclude the local side too.
 				if !isPeerRelation && appUUID == appByEndpoint[u.RelationEndpointUUID] {
 					continue
 				}
-				otherUnits = append(otherUnits, domainrelation.EncodeUnitUUID(u.UnitUUID))
+				entityUUIDs = append(entityUUIDs, domainrelation.EncodeUnitUUID(u.UnitUUID))
 			}
-			return otherUnits, nil
+
+			return entityUUIDs, nil
 		},
 		// Mapper.
 		func(ctx context.Context, events []changestream.ChangeEvent) ([]string, error) {
