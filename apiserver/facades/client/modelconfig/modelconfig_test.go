@@ -388,6 +388,28 @@ func (s *modelconfigSuite) TestModelUnset(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *modelconfigSuite) TestModelUnsetValidation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	api := s.getAPI(c)
+
+	s.expectModelWriteAccess()
+	s.expectNoBlocks()
+
+	s.mockModelConfigService.EXPECT().UpdateModelConfig(
+		gomock.Any(),
+		nil,
+		[]string{"abc"},
+		gomock.Any(),
+	).Return(&config.ValidationError{
+		InvalidAttrs: []string{"abc"},
+		Reason:       "some reason",
+	})
+
+	args := params.ModelUnset{Keys: []string{"abc"}}
+	err := api.ModelUnset(c.Context(), args)
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+}
+
 func (s *modelconfigSuite) TestBlockModelUnset(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.getAPI(c)
