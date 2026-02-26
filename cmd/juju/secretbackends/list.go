@@ -15,11 +15,11 @@ import (
 
 	"github.com/juju/juju/api/client/secretbackends"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/secrets/provider"
 )
 

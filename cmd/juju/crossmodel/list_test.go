@@ -13,12 +13,12 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/jujuclient"
+	"github.com/juju/juju/cmd/cmd"
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	model "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/deployment/charm"
-	"github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 )
 
 func newListEndpointsCommandForTest(store jujuclient.ClientStore, api ListAPI) cmd.Command {

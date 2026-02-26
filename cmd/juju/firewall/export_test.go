@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/juju/api/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/internal/cmd"
 )
 
 func NewListRulesCommandForTest(

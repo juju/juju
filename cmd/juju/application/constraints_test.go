@@ -9,8 +9,8 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/application"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
 )
 

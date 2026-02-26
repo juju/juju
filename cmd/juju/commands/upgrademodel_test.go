@@ -12,6 +12,8 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/jujuclient"
+	"github.com/juju/juju/cmd/cmd"
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/commands/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
@@ -19,8 +21,6 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/sync"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )

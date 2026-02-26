@@ -14,9 +14,9 @@ import (
 	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/cmd"
 	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/internal/cmd"
 )
 
 func NewAddCAASCommandForTest(

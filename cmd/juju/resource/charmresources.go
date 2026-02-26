@@ -13,10 +13,10 @@ import (
 	"github.com/juju/juju/api/client/charms"
 	apicharm "github.com/juju/juju/api/common/charm"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/domain/deployment/charm"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
-	"github.com/juju/juju/internal/cmd"
 )
 
 // ResourceLister lists resources for the given charm ids.

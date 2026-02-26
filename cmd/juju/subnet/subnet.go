@@ -13,9 +13,9 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/subnets"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/internal/cmd"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )

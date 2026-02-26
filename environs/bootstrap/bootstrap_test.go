@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -42,7 +43,6 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 	_ "github.com/juju/juju/internal/provider/dummy"
 	corestorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"

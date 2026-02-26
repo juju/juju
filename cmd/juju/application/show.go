@@ -13,10 +13,10 @@ import (
 
 	"github.com/juju/juju/api/client/application"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/rpc/params"
 )
 

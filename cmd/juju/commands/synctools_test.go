@@ -15,13 +15,13 @@ import (
 
 	"github.com/juju/juju/api/jujuclient"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/cmd/cmd"
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/commands/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/sync"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 )

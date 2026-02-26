@@ -19,9 +19,9 @@ import (
 
 	"github.com/juju/juju/api/controller/controller"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/juju/ssh"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/proxy"
 	proxyfactory "github.com/juju/juju/internal/proxy/factory"
 )

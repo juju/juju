@@ -25,11 +25,11 @@ import (
 	"gopkg.in/yaml.v2"
 
 	actionapi "github.com/juju/juju/api/client/action"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/core/operation"
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/deployment/charm"
-	"github.com/juju/juju/internal/cmd"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )

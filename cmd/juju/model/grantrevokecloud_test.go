@@ -12,10 +12,10 @@ import (
 
 	"github.com/juju/juju/api/jujuclient"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/cmd/cmd"
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/model"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
 )
 

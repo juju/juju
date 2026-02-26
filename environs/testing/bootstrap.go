@@ -9,11 +9,11 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/ssh"
 
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/environs"
 	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/testhelpers"

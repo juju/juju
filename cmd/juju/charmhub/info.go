@@ -12,10 +12,10 @@ import (
 	"github.com/juju/gnuflag"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/internal/charmhub"
-	"github.com/juju/juju/internal/cmd"
 )
 
 const (

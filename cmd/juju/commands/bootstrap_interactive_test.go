@@ -13,8 +13,8 @@ import (
 	"github.com/juju/tc"
 
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/core/version"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testhelpers"
 )
 

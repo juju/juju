@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/api/client/spaces"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/juju/application/deployer"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/block"
@@ -41,7 +42,6 @@ import (
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
-	"github.com/juju/juju/internal/cmd"
 	apiparams "github.com/juju/juju/rpc/params"
 )
 

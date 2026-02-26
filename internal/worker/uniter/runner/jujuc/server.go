@@ -19,7 +19,7 @@ import (
 	"github.com/juju/utils/v4/exec"
 
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/juju/sockets"
 )

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils/v4/keyvalues"
 	"gopkg.in/yaml.v3"
 
-	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/cmd/cmd"
 )
 
 // Action represents the action we want to perform here.

@@ -13,11 +13,11 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/juju/application/bundle/mocks"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/domain/deployment/charm"
 	bundlechanges "github.com/juju/juju/internal/bundle/changes"
-	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/rpc/params"
 )
 

@@ -21,12 +21,12 @@ import (
 
 	"github.com/juju/juju/agent/introspect"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/containeragent/config"
 	initcommand "github.com/juju/juju/cmd/containeragent/initialize"
 	unitcommand "github.com/juju/juju/cmd/containeragent/unit"
 	"github.com/juju/juju/cmd/internal/run"
 	"github.com/juju/juju/core/machinelock"
-	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	proxy "github.com/juju/juju/internal/proxy/config"

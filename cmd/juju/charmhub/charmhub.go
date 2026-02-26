@@ -12,10 +12,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/internal/charmhub"
-	"github.com/juju/juju/internal/cmd"
 	internallogger "github.com/juju/juju/internal/logger"
 )
 

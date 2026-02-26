@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/model"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
 )
 

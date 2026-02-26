@@ -20,9 +20,9 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/ssh/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 	jujussh "github.com/juju/juju/internal/network/ssh"
 )
 

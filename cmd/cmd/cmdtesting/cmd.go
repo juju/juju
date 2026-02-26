@@ -10,7 +10,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/cmd/cmd"
 )
 
 // NewFlagSet creates a new flag set using the standard options, particularly

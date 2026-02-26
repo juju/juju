@@ -18,10 +18,10 @@ import (
 	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/api/jujuclient"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/naturalsort"
 )
 

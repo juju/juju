@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/juju/api/jujuclient"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/cmd/cmd"
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/controller"
-	"github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 )
 
 type enableDestroyControllerSuite struct {

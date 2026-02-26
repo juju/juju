@@ -20,11 +20,11 @@ import (
 	"github.com/juju/utils/v4"
 
 	actionapi "github.com/juju/juju/api/client/action"
+	"github.com/juju/juju/cmd/cmd"
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/action"
 	coreoperation "github.com/juju/juju/core/operation"
 	"github.com/juju/juju/core/testing"
-	"github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/rpc/params"
 )
 
