@@ -250,6 +250,57 @@ func (s *WorkerSuite) TestNewConnectionTrackerBroken(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
+func (s *WorkerSuite) TestNewConnectionTrackerBrokenImmediately(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(ctx context.Context, c api.Connection) error) error {
+		return f(ctx, s.connection)
+	})
+	s.connection.EXPECT().IsBroken(gomock.Any()).Return(false)
+
+	ch := make(chan struct{}, 1)
+	ch <- struct{}{}
+	sync0 := make(chan struct{})
+	s.connection.EXPECT().Broken().DoAndReturn(func() <-chan struct{} {
+		defer close(sync0)
+		return ch
+	})
+
+	s.statusService.EXPECT().DeleteMachinePresence(gomock.Any(), machine.Name("0")).Return(nil)
+
+	sync1 := make(chan struct{})
+	s.statusService.EXPECT().DeleteUnitPresence(gomock.Any(), tc.Must1_1(c, unit.NewName, "controller/0")).DoAndReturn(func(ctx context.Context, n unit.Name) error {
+		defer close(sync1)
+		return nil
+	})
+
+	w := s.newConnectionTracker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-sync0:
+	case <-c.Context().Done():
+		c.Fatal("connection tracker did not start")
+	}
+	select {
+	case ch <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatal("connection tracker did not recv first close notification")
+	}
+
+	c.Assert(w.connected.Load(), tc.IsFalse)
+
+	select {
+	case <-sync1:
+	case <-c.Context().Done():
+		c.Fatal("connection tracker did not handle broken connection")
+	}
+
+	c.Assert(w.connected.Load(), tc.IsFalse)
+
+	workertest.CleanKill(c, w)
+}
+
 func (s *WorkerSuite) TestNewConnectionTrackerAlreadyBroken(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
