@@ -19,6 +19,7 @@ import (
 	"github.com/juju/names/v6"
 	"gopkg.in/macaroon.v2"
 
+	apimacaroon "github.com/juju/juju/api/macaroon"
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/bakeryutil"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -26,7 +27,6 @@ import (
 	corepermission "github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/auth"
-	internalmacaroon "github.com/juju/juju/internal/macaroon"
 )
 
 var errMacaroonAuthNotConfigured = errors.New("macaroon authentication is not configured")
@@ -139,8 +139,8 @@ func newAuthContext(
 	// Create a bakery for discharging third-party caveats for
 	// local user authentication. This service does not persist keys;
 	// its macaroons should be very short-lived.
-	checker := checkers.New(internalmacaroon.MacaroonNamespace)
-	checker.Register("is-authenticated-user", internalmacaroon.MacaroonURI,
+	checker := checkers.New(apimacaroon.MacaroonNamespace)
+	checker.Register("is-authenticated-user", apimacaroon.MacaroonURI,
 		// Having a macaroon with an is-authenticated-user
 		// caveat is proof that the user is "logged in".
 		// "is-authenticated-user",
@@ -168,7 +168,7 @@ func newAuthContext(
 
 	// Create a bakery service for local user authentication. This service
 	// persists keys into DQLite in a TTL collection.
-	store := internalmacaroon.NewRootKeyStore(macaroonService, internalmacaroon.DefaultPolicy, ctxClock)
+	store := apimacaroon.NewRootKeyStore(macaroonService, apimacaroon.DefaultPolicy, ctxClock)
 
 	localUserBakeryKey, err := macaroonService.GetLocalUsersKey(ctx)
 	if err != nil {
@@ -320,7 +320,7 @@ func (ctxt *authContext) externalMacaroonAuth(ctx context.Context, identClient i
 			controllerConfigService: ctxt.controllerConfigService,
 			macaroonService:         ctxt.macaroonService,
 			clock:                   ctxt.clock,
-			policy:                  internalmacaroon.DefaultPolicy,
+			policy:                  apimacaroon.DefaultPolicy,
 			identClient:             identClient,
 		})
 	})
@@ -369,7 +369,7 @@ func newExternalMacaroonAuth(ctx context.Context, cfg externalMacaroonAuthentica
 		Clock:            cfg.clock,
 		IdentityLocation: idURL,
 	}
-	store := internalmacaroon.NewRootKeyStore(cfg.macaroonService, cfg.policy, cfg.clock)
+	store := apimacaroon.NewRootKeyStore(cfg.macaroonService, cfg.policy, cfg.clock)
 	if cfg.identClient == nil {
 		cfg.identClient = &auth
 	}

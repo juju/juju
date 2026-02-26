@@ -18,13 +18,13 @@ import (
 	"github.com/juju/names/v6"
 	"gopkg.in/macaroon.v2"
 
+	apimacaroon "github.com/juju/juju/api/macaroon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	coreuser "github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/internal/auth"
 	internallogger "github.com/juju/juju/internal/logger"
-	internalmacaroon "github.com/juju/juju/internal/macaroon"
 )
 
 const (
@@ -158,7 +158,7 @@ func (u *LocalUserAuthenticator) authenticateMacaroons(ctx context.Context, user
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	}
 	loginMac := macaroonAuthInfo.Macaroons[index]
-	declared := checkers.InferDeclared(internalmacaroon.MacaroonNamespace, loginMac)
+	declared := checkers.InferDeclared(apimacaroon.MacaroonNamespace, loginMac)
 	username := declared[usernameKey]
 
 	// If the userTag id is not the same as the username, then the user is not
