@@ -18,6 +18,8 @@ import (
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing"
@@ -216,6 +218,73 @@ func (s *upgradesSuite) TestSplitMigrationStatusMessages(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestOpenControllerAPIPort(c *gc.C) {
+	m0, err := s.state.AddMachine(UbuntuBase("12.10"), JobManageModel, JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.state.EnableHA(3, constraints.Value{}, UbuntuBase("12.10"), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	m1, err := s.state.Machine("1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerApp := AddTestingApplication(c, s.state, "controller", AddTestingCharm(c, s.state, "wordpress"))
+
+	// Unit 0 has no existing ports.
+	u0, err := controllerApp.AddUnit(AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = u0.AssignToMachine(m0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Unit 1 has existing ports.
+	u1, err := controllerApp.AddUnit(AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = u1.AssignToMachine(m1)
+	c.Assert(err, jc.ErrorIsNil)
+	pcp, err := u1.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	pcp.Open("", network.PortRange{
+		FromPort: 666,
+		ToPort:   666,
+		Protocol: "tcp",
+	})
+	err = s.state.ApplyOperation(pcp.Changes())
+	c.Assert(err, jc.ErrorIsNil)
+
+	openPorts, closer := s.state.db().GetRawCollection(openedPortsC)
+	defer closer()
+
+	s.assertUpgradedData(c, OpenControllerAPIPort, nil,
+		upgradedData(openPorts, []bson.M{{
+			"_id":        s.state.ModelUUID() + ":" + m0.Id(),
+			"model-uuid": s.state.ModelUUID(),
+			"machine-id": m0.Id(),
+			"unit-port-ranges": bson.M{
+				"controller/0": bson.M{"": []any{bson.M{
+					"protocol": "tcp",
+					"fromport": 17777,
+					"toport":   17777,
+				}}},
+			},
+		}, {
+			"_id":        s.state.ModelUUID() + ":" + m1.Id(),
+			"model-uuid": s.state.ModelUUID(),
+			"machine-id": m1.Id(),
+			"unit-port-ranges": bson.M{
+				"controller/1": bson.M{"": []any{
+					bson.M{
+						"protocol": "tcp",
+						"fromport": 666,
+						"toport":   666,
+					}, bson.M{
+						"protocol": "tcp",
+						"fromport": 17777,
+						"toport":   17777,
+					}},
+				},
+			},
+		}}),
+	)
+
+}
 func (s *upgradesSuite) TestPopulateApplicationStorageUniqueID(c *gc.C) {
 	state1 := s.makeModel(c, "m1", coretesting.Attrs{}, ModelArgs{Type: ModelTypeCAAS})
 	state2 := s.makeModel(c, "m2", coretesting.Attrs{}, ModelArgs{Type: ModelTypeCAAS})
