@@ -12,5 +12,4 @@ for unit in $(storage-list); do
     juju-log -l INFO "Storage details for ${unit}: $(storage-get -s $unit)"
 done
 
-# The storage-attached hook has fired so we can write some data there now.
 status-set maintenance "Installed" || true

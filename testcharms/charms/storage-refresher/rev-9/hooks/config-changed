@@ -1,0 +1,6 @@
+#!/bin/bash
+set -x
+
+echo "hello in config-changed"
+
+status-set active "OK" || true

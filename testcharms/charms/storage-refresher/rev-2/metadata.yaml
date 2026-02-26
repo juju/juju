@@ -1,0 +1,18 @@
+name: storage-refresher
+maintainer:
+  - Adis <adis.azhar@canonical.com>
+summary: Dummy charm that utilises storage.
+description: This is for testing refreshing a charm with storage updates.
+categories:
+  - misc
+series:
+  - jammy
+  - focal
+  - bionic
+
+storage:
+  awesome-fs:
+    type: filesystem
+    description: awesome storage instance
+    location: /awesome-fs
+    minimum-size: 5G

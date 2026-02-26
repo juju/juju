@@ -1,0 +1,8 @@
+#!/bin/bash
+set -x
+
+juju-log -l INFO "awesome-fs-storage is attached."
+juju-log -l INFO "Storage details: $(storage-list)"
+
+
+status-set active "awesome-fs-storage attached"
