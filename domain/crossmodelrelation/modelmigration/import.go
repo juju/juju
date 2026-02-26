@@ -5,7 +5,6 @@ package modelmigration
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"strings"
 
@@ -100,14 +99,9 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return errors.Errorf("extracting application UUIDs from remote entities: %w", err)
 	}
 
-	relationEndpoints, err := extractRelationEndpointsWithApplicationName(model)
-	if err != nil {
-		return errors.Errorf("extracting relation endpoints from relations: %w", err)
-	}
-
 	// Import remote application offerers, this will create the synthetic
 	// applications and units needed for relations.
-	if err := i.importRemoteApplicationOfferers(ctx, remoteApplications, applicationRemoteEntities, remoteAppUnits, relationEndpoints); err != nil {
+	if err := i.importRemoteApplicationOfferers(ctx, remoteApplications, applicationRemoteEntities, remoteAppUnits); err != nil {
 		return errors.Errorf("importing remote applications: %w", err)
 	}
 
@@ -222,7 +216,6 @@ func (i *importOperation) importRemoteApplicationOfferers(
 	remoteApps []description.RemoteApplication,
 	remoteEntities map[string]string,
 	remoteAppUnits map[string][]string,
-	relations map[relationEndpoint]string,
 ) error {
 	// Import remote application offerers. These are remote applications that
 	// life in the consuming model, but represent applications in the offering
@@ -245,7 +238,7 @@ func (i *importOperation) importRemoteApplicationOfferers(
 				primaryRemoteApp.Name(), err)
 		}
 
-		offererApplicationUUID, err := findApplicationUUIDFromRemoteEntities(endpoints, relations, remoteEntities)
+		offererApplicationUUID, err := findApplicationUUIDFromRemoteEntities(remoteEntities, primaryRemoteApp.Name())
 		if err != nil {
 			return errors.Errorf("finding application UUID for remote application %q: %w",
 				primaryRemoteApp.Name(), err)
@@ -440,36 +433,6 @@ func extractRelationKeys(model description.Model) (map[string]relation.Key, erro
 	return relationKeys, nil
 }
 
-type relationEndpoint struct {
-	EndpointName string
-	Role         charm.RelationRole
-	Interface    string
-}
-
-func (e relationEndpoint) String() string {
-	return fmt.Sprintf("%s:%s#%s", e.EndpointName, e.Interface, e.Role)
-}
-
-func extractRelationEndpointsWithApplicationName(model description.Model) (map[relationEndpoint]string, error) {
-	m := map[relationEndpoint]string{}
-	for _, rel := range model.Relations() {
-		for _, ep := range rel.Endpoints() {
-			role, err := parseRelationRole(ep.Role())
-			if err != nil {
-				return nil, errors.Errorf("parsing role for relation endpoint: %w", err)
-			}
-
-			relationEp := relationEndpoint{
-				EndpointName: ep.Name(),
-				Role:         role,
-				Interface:    ep.Interface(),
-			}
-			m[relationEp] = ep.ApplicationName()
-		}
-	}
-	return m, nil
-}
-
 func findOfferConnection(offerConns []offerConnection, appName, modelUUID string) (offerConnection, error) {
 	if len(offerConns) == 0 {
 		return offerConnection{}, errors.Errorf("no offer connections for application %q", appName)
@@ -505,31 +468,13 @@ func findRelationUUIDForKey(remoteEntities []relationRemoteEntity, relationKey r
 	return "", errors.Errorf("no relation UUID found for relation key %q", relationKey.String())
 }
 
-func findApplicationUUIDFromRemoteEntities(endpoints []crossmodelrelation.RemoteApplicationEndpoint, relations map[relationEndpoint]string, remoteEntities map[string]string) (coreapplication.UUID, error) {
-	for _, ep := range endpoints {
-		appName, err := findRemoteApplicationName(relations, relationEndpoint{
-			EndpointName: ep.Name,
-			Role:         ep.Role,
-			Interface:    ep.Interface,
-		})
-		if err != nil {
-			return "", errors.Errorf("finding remote application name: %w", err)
-		}
-
-		appUUIDStr, ok := remoteEntities[appName]
-		if ok {
-			return coreapplication.UUID(appUUIDStr), nil
-		}
+func findApplicationUUIDFromRemoteEntities(remoteEntities map[string]string, appName string) (coreapplication.UUID, error) {
+	appUUIDStr, ok := remoteEntities[appName]
+	if ok {
+		return coreapplication.UUID(appUUIDStr), nil
 	}
 
 	return "", errors.Errorf("no application UUID found for remote application with endpoints")
-}
-
-func findRemoteApplicationName(endpoints map[relationEndpoint]string, endpoint relationEndpoint) (string, error) {
-	if appName, ok := endpoints[endpoint]; ok {
-		return appName, nil
-	}
-	return "", errors.Errorf("no relation endpoints found for remote application")
 }
 
 func relationTagSuffixToKey(s string) string {

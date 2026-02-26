@@ -260,18 +260,6 @@ func (s *importSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 		"sink": "application-uuid-1234",
 		"src":  "application-uuid-4321",
 	}
-	relations := map[relationEndpoint]string{
-		{
-			EndpointName: "source",
-			Role:         "provider",
-			Interface:    "dummy-token",
-		}: "sink",
-		{
-			EndpointName: "sink",
-			Role:         "requirer",
-			Interface:    "dummy-token",
-		}: "src",
-	}
 
 	expected := []service.RemoteApplicationOffererImport{
 		{
@@ -301,7 +289,7 @@ func (s *importSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 	// Act - no relations, so no units to extract
 	remoteAppUnits := make(map[string][]string)
 	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(),
-		model.RemoteApplications(), remoteEntities, remoteAppUnits, relations)
+		model.RemoteApplications(), remoteEntities, remoteAppUnits)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -346,18 +334,6 @@ func (s *importSuite) TestImportRemoteApplicationOfferersWithDifferentAppName(c 
 		"sink1": "application-uuid-1234",
 		"src":   "application-uuid-4321",
 	}
-	relations := map[relationEndpoint]string{
-		{
-			EndpointName: "source",
-			Role:         "provider",
-			Interface:    "dummy-token",
-		}: "sink1",
-		{
-			EndpointName: "sink",
-			Role:         "requirer",
-			Interface:    "dummy-token",
-		}: "src",
-	}
 
 	expected := []service.RemoteApplicationOffererImport{
 		{
@@ -387,7 +363,7 @@ func (s *importSuite) TestImportRemoteApplicationOfferersWithDifferentAppName(c 
 	// Act - no relations, so no units to extract
 	remoteAppUnits := make(map[string][]string)
 	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(),
-		model.RemoteApplications(), remoteEntities, remoteAppUnits, relations)
+		model.RemoteApplications(), remoteEntities, remoteAppUnits)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -432,23 +408,11 @@ func (s *importSuite) TestImportRemoteApplicationOfferersNoRemoteEntity(c *tc.C)
 		Role:            "requirer",
 	})
 	remoteEntities := map[string]string{}
-	relations := map[relationEndpoint]string{
-		{
-			EndpointName: "source",
-			Role:         "provider",
-			Interface:    "dummy-token",
-		}: "sink",
-		{
-			EndpointName: "sink",
-			Role:         "requirer",
-			Interface:    "dummy-token",
-		}: "src",
-	}
 
 	// Act - no relations, so no units to extract
 	remoteAppUnits := make(map[string][]string)
 	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(),
-		model.RemoteApplications(), remoteEntities, remoteAppUnits, relations)
+		model.RemoteApplications(), remoteEntities, remoteAppUnits)
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `.*no application UUID found for remote application with endpoints`)
@@ -461,9 +425,8 @@ func (s *importSuite) TestImportRemoteApplicationOfferersEmpty(c *tc.C) {
 
 	remoteEntities := map[string]string{}
 	remoteAppUnits := make(map[string][]string)
-	relations := map[relationEndpoint]string{}
 	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(),
-		model.RemoteApplications(), remoteEntities, remoteAppUnits, relations)
+		model.RemoteApplications(), remoteEntities, remoteAppUnits)
 
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -537,18 +500,6 @@ func (s *importSuite) TestImportRemoteApplicationOfferersMultiple(c *tc.C) {
 		"remote-mysql":      "application-uuid-1234",
 		"remote-postgresql": "application-uuid-1234",
 	}
-	relations := map[relationEndpoint]string{
-		{
-			EndpointName: "db",
-			Role:         "provider",
-			Interface:    "mysql",
-		}: "remote-mysql",
-		{
-			EndpointName: "db",
-			Role:         "provider",
-			Interface:    "pgsql",
-		}: "remote-postgresql",
-	}
 
 	expected := []service.RemoteApplicationOffererImport{
 		{
@@ -596,7 +547,7 @@ func (s *importSuite) TestImportRemoteApplicationOfferersMultiple(c *tc.C) {
 
 	remoteAppUnits := make(map[string][]string)
 	err := s.newImportOperation(c).importRemoteApplicationOfferers(c.Context(),
-		model.RemoteApplications(), remoteEntities, remoteAppUnits, relations)
+		model.RemoteApplications(), remoteEntities, remoteAppUnits)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -656,18 +607,6 @@ func (s *importSuite) TestImportRemoteApplicationsWithUnitsFromRelations(c *tc.C
 		"sink": "application-uuid-1234",
 		"src":  "application-uuid-4321",
 	}
-	relations := map[relationEndpoint]string{
-		{
-			EndpointName: "source",
-			Role:         "provider",
-			Interface:    "dummy-token",
-		}: "sink",
-		{
-			EndpointName: "sink",
-			Role:         "requirer",
-			Interface:    "dummy-token",
-		}: "src",
-	}
 
 	// The expected import should include the units extracted from relations
 	s.importService.EXPECT().ImportRemoteApplicationOfferers(
@@ -686,7 +625,7 @@ func (s *importSuite) TestImportRemoteApplicationsWithUnitsFromRelations(c *tc.C
 	op := s.newImportOperation(c)
 	remoteAppUnits := op.extractRemoteAppUnits(model)
 	err := op.importRemoteApplicationOfferers(c.Context(),
-		model.RemoteApplications(), remoteEntities, remoteAppUnits, relations)
+		model.RemoteApplications(), remoteEntities, remoteAppUnits)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
