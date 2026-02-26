@@ -702,7 +702,7 @@ func (s *watcherSuite) TestWatchRelatedUnitsSettingsNoRemoteUnits(c *tc.C) {
 		w.AssertNoChange()
 	})
 
-	harness.Run(c, []string{})
+	harness.Run(c, initialEvents(config.initialAppUUID, config.initialUnitUUIDs))
 }
 
 func (s *watcherSuite) TestWatchRelatedUnitsPeerSettings(c *tc.C) {
@@ -1071,7 +1071,8 @@ func (s *watcherSuite) setupTestWatchRelationUnitNoRemoteUnits(c *tc.C) testWatc
 	s.addRelationEndpoint(c, config.watchedRelationUUID, config.relationUUID, watchedEndpointUUID)
 	s.addRelationEndpoint(c, config.otherRelationUUID, config.relationUUID, otherEndpointUUID)
 
-	config.initialEvents = nil
+	config.initialAppUUID = watchedUUID
+	config.initialUnitUUIDs = nil
 	return config
 }
 
