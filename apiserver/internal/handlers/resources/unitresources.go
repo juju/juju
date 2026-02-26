@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -61,12 +62,18 @@ func (h *UnitResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Req
 }
 
 func (h *UnitResourcesHandler) serveGet(resp http.ResponseWriter, req *http.Request) error {
+	name := req.URL.Query().Get(":resource")
+
+	// If the name is empty, don't perform the lookup, just return a bad request
+	// error. We need some sort of name
+	if strings.TrimSpace(name) == "" {
+		return errors.BadRequestf("missing resource name")
+	}
+
 	opener, err := h.resourceOpenerGetter.Opener(req, names.UnitTagKind, names.ApplicationTagKind)
 	if err != nil {
 		return err
 	}
-
-	name := req.URL.Query().Get(":resource")
 	opened, err := opener.OpenResource(req.Context(), name)
 	if err != nil {
 		h.logger.Errorf(req.Context(), "cannot fetch resource reader: %v", err)
