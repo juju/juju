@@ -205,14 +205,14 @@ func (s *WorkerSuite) TestNewConnectionTrackerBroken(c *tc.C) {
 	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(ctx context.Context, c api.Connection) error) error {
 		return f(ctx, s.connection)
 	})
-	sync0 := make(chan struct{})
-	s.connection.EXPECT().IsBroken(gomock.Any()).DoAndReturn(func(ctx context.Context) bool {
-		defer close(sync0)
-		return false
-	})
+	s.connection.EXPECT().IsBroken(gomock.Any()).Return(false)
 
 	ch := make(chan struct{})
-	s.connection.EXPECT().Broken().Return(ch)
+	sync0 := make(chan struct{})
+	s.connection.EXPECT().Broken().DoAndReturn(func() <-chan struct{} {
+		defer close(sync0)
+		return ch
+	})
 
 	s.statusService.EXPECT().DeleteMachinePresence(gomock.Any(), machine.Name("0")).Return(nil)
 
