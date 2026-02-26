@@ -14,6 +14,7 @@ import (
 	"github.com/juju/worker/v4"
 	"gopkg.in/macaroon.v2"
 
+	apimacaroon "github.com/juju/juju/api/macaroon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
@@ -35,7 +36,6 @@ import (
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
-	internalmacaroon "github.com/juju/juju/internal/macaroon"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -751,7 +751,7 @@ func (api *CrossModelRelationsAPIv3) WatchConsumedSecretsChanges(ctx context.Con
 		var offerUUIDStr string
 		// Old clients don't pass in the relation token.
 		if arg.RelationToken == "" {
-			declared := checkers.InferDeclared(internalmacaroon.MacaroonNamespace, arg.Macaroons)
+			declared := checkers.InferDeclared(apimacaroon.MacaroonNamespace, arg.Macaroons)
 			offerUUIDStr = declared["offer-uuid"]
 		} else {
 			offerUUID, err := api.crossModelRelationService.GetOfferUUIDByRelationUUID(ctx, corerelation.UUID(arg.RelationToken))

@@ -23,6 +23,7 @@ func (*ImportSuite) TestImports(c *tc.C) {
 	c.Assert(found, tc.SameContents, []string{
 		"api/agent/keyupdater",
 		"api/base",
+		"api/macaroon",
 		"api/watcher",
 		"core/arch",
 		"core/backups",
@@ -65,7 +66,6 @@ func (*ImportSuite) TestImports(c *tc.C) {
 		"internal/featureflag",
 		"internal/http",
 		"internal/logger",
-		"internal/macaroon",
 		"internal/proxy",
 		"internal/proxy/config",
 		"internal/rpcreflect",
