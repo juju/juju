@@ -168,9 +168,18 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			return errors.Errorf("importing exposed endpoints: %w", err)
 		}
 
-		appUUID, err := findApplicationUUIDByName(app.Name(), remoteAppUUIDs)
-		if err != nil {
-			return errors.Errorf("finding application UUID for application %q: %w", app.Name(), err)
+		// If the application is an application that has an associated remote
+		// entity application UUID, use that, otherwise generate a new UUID for
+		// the application. This ensures that if the application is a remote
+		// application, then we maintain RI with the remote entity and any cross
+		// model relations that refer to it.
+		var appUUID coreapplication.UUID
+		if uuid, ok := remoteAppUUIDs[app.Name()]; ok {
+			appUUID = coreapplication.UUID(uuid)
+		} else {
+			if appUUID, err = coreapplication.NewUUID(); err != nil {
+				return errors.Errorf("generating application UUID for application %q: %w", app.Name(), err)
+			}
 		}
 
 		// TODO hml 04-30-2024
@@ -1082,11 +1091,4 @@ func convertKey(key any) (string, error) {
 	default:
 		return "", errors.Errorf("key can not be converted to a string: %w", coreerrors.NotValid)
 	}
-}
-
-func findApplicationUUIDByName(appName string, remoteEntities map[string]string) (coreapplication.UUID, error) {
-	if uuid, ok := remoteEntities[appName]; ok {
-		return coreapplication.UUID(uuid), nil
-	}
-	return coreapplication.NewUUID()
 }
