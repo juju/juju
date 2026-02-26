@@ -1520,6 +1520,62 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *tc.C)
 	}
 }
 
+func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSideAlreadyExists(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.ensureMocks(c, ctrl)
+
+	// Create the firewaller facade on the consuming model.
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+
+	published := make(chan bool)
+	app, _ := s.addApplication(ctrl, "wordpress", true)
+	_, _, m, _ := s.addUnit(c, ctrl, app)
+	s.machinesCh <- []string{m.Tag().Id()}
+	s.waitForMachineFlush(c)
+	relSubnetCh, mac := s.setupRemoteRelationRequirerRoleConsumingSide(c)
+
+	// Force the trigger of the worker again.
+	s.consumerRelCh <- []string{"rel-token"}
+
+	// Have a unit on the consuming app enter the relation scope.
+	// This will trigger the firewaller to publish the changes.
+	event := params.IngressNetworksChangeEvent{
+		RelationToken:   "rel-token",
+		Networks:        []string{"10.0.0.0/24"},
+		IngressRequired: true,
+		Macaroons:       macaroon.Slice{mac},
+		BakeryVersion:   bakery.LatestVersion,
+	}
+	s.crossmodelFirewaller.EXPECT().PublishIngressNetworkChange(gomock.Any(), event).DoAndReturn(func(_ context.Context, _ params.IngressNetworksChangeEvent) error {
+		published <- true
+		return nil
+	})
+
+	relSubnetCh <- []string{"10.0.0.0/24"}
+
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("time out waiting for ingress change to be published on enter scope")
+	case <-published:
+	}
+
+	s.crossmodelFirewaller.EXPECT().PublishIngressNetworkChange(gomock.Any(), event).DoAndReturn(func(_ context.Context, _ params.IngressNetworksChangeEvent) error {
+		published <- true
+		return nil
+	})
+
+	relSubnetCh <- []string{"10.0.0.0/24"}
+
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("time out waiting for ingress change to be published on enter scope")
+	case <-published:
+	}
+}
+
 func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
