@@ -240,28 +240,36 @@ func (c *scopedContext) Done() <-chan struct{} {
 		close(d)
 	})
 
+	parentDone := c.parent.Done()
+	childDone := c.child.Done()
+
 	go func() {
 		for {
 			select {
-			case <-c.parent.Done():
+			case <-parentDone:
 				closeDone()
 				return
-			case <-c.child.Done():
+			case <-childDone:
 				// If the child context is ignored, we don't want to close
 				// the done channel, because we don't want to propagate the
 				// cancellation to the caller.
 				if c.IsChildIgnored() {
+					// The child channel is closed, disable this select arm to
+					// avoid a tight loop while we continue to wait on parent
+					// cancellation.
+					childDone = nil
 					continue
 				}
 
 				closeDone()
+				return
 			}
 		}
 	}()
 	return d
 }
 
-// If Done is not yet closed, Err returns nil.
+// Err returns nil if channel returned by Done() is not yet closed.
 func (c *scopedContext) Err() error {
 	if err := c.parent.Err(); err != nil {
 		return err

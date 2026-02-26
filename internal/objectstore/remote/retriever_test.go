@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	io "io"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -257,6 +258,63 @@ func (s *retrieverSuite) TestRetrievePreventReaderCancelationPropagate(c *tc.C) 
 	s.checkReader(c, reader, size)
 
 	workertest.CleanKill(c, ret)
+}
+
+func (s *retrieverSuite) TestScopedContextDoneClosesOnChildDone(c *tc.C) {
+	parentCtx, parentCancel := context.WithCancel(c.Context())
+	defer parentCancel()
+
+	childCtx, childCancel := context.WithCancel(c.Context())
+	defer childCancel()
+
+	ctx := &scopedContext{
+		parent: parentCtx,
+		child:  childCtx,
+	}
+
+	done := ctx.Done()
+	childCancel()
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("done channel did not close when child context was cancelled: %v", c.Context().Err())
+	}
+}
+
+func (s *retrieverSuite) TestScopedContextDoneIgnoresChildAfterIgnore(c *tc.C) {
+	parentCtx, parentCancel := context.WithCancel(c.Context())
+	defer parentCancel()
+
+	childCtx, childCancel := context.WithCancel(c.Context())
+	defer childCancel()
+
+	ctx := &scopedContext{
+		parent: parentCtx,
+		child:  childCtx,
+	}
+
+	done := ctx.Done()
+	ctx.IgnoreChild()
+	childCancel()
+
+	// Give the goroutine behind Done a chance to process child cancellation.
+	for i := 0; i < 1000; i++ {
+		runtime.Gosched()
+	}
+
+	select {
+	case <-done:
+		c.Fatal("done channel closed while child context is ignored")
+	default:
+	}
+
+	parentCancel()
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("done channel did not close when parent context was cancelled: %v", c.Context().Err())
+	}
 }
 
 func (s *retrieverSuite) newRetriever(c *tc.C) *BlobRetriever {
