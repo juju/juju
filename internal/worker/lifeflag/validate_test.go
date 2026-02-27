@@ -61,7 +61,7 @@ func checkInvalid(c *tc.C, config lifeflag.Config, message string) {
 func validConfig() lifeflag.Config {
 	return lifeflag.Config{
 		Facade: struct{ lifeflag.Facade }{},
-		Entity: testEntity,
+		Entity: tag,
 		Result: explode,
 	}
 }

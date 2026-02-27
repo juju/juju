@@ -4,6 +4,7 @@
 package lifeflag_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -11,12 +12,16 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/mock/gomock"
 
 	apilifeflag "github.com/juju/juju/api/agent/lifeflag"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/lifeflag"
 )
+
+//go:generate go run go.uber.org/mock/mockgen -typed -package lifeflag_test -destination facade_mocks_test.go github.com/juju/juju/internal/worker/lifeflag Facade
 
 type WorkerSuite struct {
 	testhelpers.IsolationSuite
@@ -27,41 +32,56 @@ func TestWorkerSuite(t *testing.T) {
 }
 
 func (*WorkerSuite) TestCreateNotFoundError(c *tc.C) {
-	stub := &testhelpers.Stub{}
-	stub.SetErrors(apilifeflag.ErrEntityNotFound)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	facade := NewMockFacade(ctrl)
+	facade.EXPECT().Life(
+		gomock.Any(), tag,
+	).Return("", apilifeflag.ErrEntityNotFound)
+
 	config := lifeflag.Config{
-		Facade: newMockFacade(stub),
-		Entity: testEntity,
+		Facade: facade,
+		Entity: tag,
 		Result: explode,
 	}
 
 	worker, err := lifeflag.New(c.Context(), config)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorIs, apilifeflag.ErrEntityNotFound)
-	checkCalls(c, stub, "Life")
 }
 
 func (*WorkerSuite) TestCreateRandomError(c *tc.C) {
-	stub := &testhelpers.Stub{}
-	stub.SetErrors(errors.New("boom splat"))
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	facade := NewMockFacade(ctrl)
+	facade.EXPECT().Life(gomock.Any(), tag).Return("", errors.New("boom splat"))
+
 	config := lifeflag.Config{
-		Facade: newMockFacade(stub),
-		Entity: testEntity,
+		Facade: facade,
+		Entity: tag,
 		Result: explode,
 	}
 
 	worker, err := lifeflag.New(c.Context(), config)
 	c.Check(worker, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "boom splat")
-	checkCalls(c, stub, "Life")
 }
 
 func (*WorkerSuite) TestWatchNotFoundError(c *tc.C) {
-	stub := &testhelpers.Stub{}
-	stub.SetErrors(nil, apilifeflag.ErrEntityNotFound)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	facade := NewMockFacade(ctrl)
+	facade.EXPECT().Life(gomock.Any(), tag).Return(life.Alive, nil)
+	facade.EXPECT().Watch(
+		gomock.Any(), tag,
+	).Return(nil, apilifeflag.ErrEntityNotFound)
+
 	config := lifeflag.Config{
-		Facade: newMockFacade(stub, alive),
-		Entity: testEntity,
+		Facade: facade,
+		Entity: tag,
 		Result: never,
 	}
 
@@ -71,15 +91,19 @@ func (*WorkerSuite) TestWatchNotFoundError(c *tc.C) {
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, tc.ErrorIs, apilifeflag.ErrEntityNotFound)
-	checkCalls(c, stub, "Life", "Watch")
 }
 
 func (*WorkerSuite) TestWatchRandomError(c *tc.C) {
-	stub := &testhelpers.Stub{}
-	stub.SetErrors(nil, errors.New("pew pew"))
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	facade := NewMockFacade(ctrl)
+	facade.EXPECT().Life(gomock.Any(), tag).Return(life.Alive, nil)
+	facade.EXPECT().Watch(gomock.Any(), tag).Return(nil, errors.New("pew pew"))
+
 	config := lifeflag.Config{
-		Facade: newMockFacade(stub, alive),
-		Entity: testEntity,
+		Facade: facade,
+		Entity: tag,
 		Result: never,
 	}
 
@@ -89,15 +113,30 @@ func (*WorkerSuite) TestWatchRandomError(c *tc.C) {
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, tc.ErrorMatches, "pew pew")
-	checkCalls(c, stub, "Life", "Watch")
 }
 
 func (*WorkerSuite) TestLifeNotFoundError(c *tc.C) {
-	stub := &testhelpers.Stub{}
-	stub.SetErrors(nil, nil, apilifeflag.ErrEntityNotFound)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// Pre-fill one event; since Result is never (always false) there is no
+	// observable race on the initial Check() call even if the goroutine
+	// processes the event first.
+	ch := make(chan struct{}, 1)
+	ch <- struct{}{}
+
+	facade := NewMockFacade(ctrl)
+	facade.EXPECT().Life(gomock.Any(), tag).Return(life.Alive, nil)
+	facade.EXPECT().Watch(
+		gomock.Any(), tag,
+	).Return(watchertest.NewMockNotifyWatcher(ch), nil)
+	facade.EXPECT().Life(
+		gomock.Any(), tag,
+	).Return("", apilifeflag.ErrEntityNotFound)
+
 	config := lifeflag.Config{
-		Facade: newMockFacade(stub, alive),
-		Entity: testEntity,
+		Facade: facade,
+		Entity: tag,
 		Result: never,
 	}
 
@@ -107,15 +146,30 @@ func (*WorkerSuite) TestLifeNotFoundError(c *tc.C) {
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, tc.ErrorIs, apilifeflag.ErrEntityNotFound)
-	checkCalls(c, stub, "Life", "Watch", "Life")
 }
 
 func (*WorkerSuite) TestLifeRandomError(c *tc.C) {
-	stub := &testhelpers.Stub{}
-	stub.SetErrors(nil, nil, errors.New("rawr"))
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// Pre-fill one event; since Result is never (always false) there is no
+	// observable race on the initial Check() call even if the goroutine
+	// processes the event first.
+	ch := make(chan struct{}, 1)
+	ch <- struct{}{}
+
+	facade := NewMockFacade(ctrl)
+	facade.EXPECT().Life(gomock.Any(), tag).Return(life.Alive, nil)
+	facade.EXPECT().Watch(
+		gomock.Any(), tag,
+	).Return(watchertest.NewMockNotifyWatcher(ch), nil)
+	facade.EXPECT().Life(
+		gomock.Any(), tag,
+	).Return("", errors.New("rawr"))
+
 	config := lifeflag.Config{
-		Facade: newMockFacade(stub, alive),
-		Entity: testEntity,
+		Facade: facade,
+		Entity: tag,
 		Result: never,
 	}
 
@@ -125,25 +179,38 @@ func (*WorkerSuite) TestLifeRandomError(c *tc.C) {
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, tc.ErrorMatches, "rawr")
-	checkCalls(c, stub, "Life", "Watch", "Life")
 }
 
 func (*WorkerSuite) TestResultImmediateRealChange(c *tc.C) {
-	done := make(chan struct{})
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	stub := &testhelpers.Stub{}
+	done := make(chan struct{})
+	ch := make(chan struct{}, 1)
+
+	facade := NewMockFacade(ctrl)
+	facade.EXPECT().Life(gomock.Any(), tag).Return(life.Alive, nil)
+	facade.EXPECT().Watch(
+		gomock.Any(), tag,
+	).Return(watchertest.NewMockNotifyWatcher(ch), nil)
+	facade.EXPECT().Life(
+		gomock.Any(), tag,
+	).DoAndReturn(func(context.Context, names.Tag) (life.Value, error) {
+		close(done)
+		return life.Dead, nil
+	})
+
 	config := lifeflag.Config{
-		Facade: newMockFacade(stub, alive, func() life.Value {
-			close(done)
-			return life.Dead
-		}),
-		Entity: testEntity,
+		Facade: facade,
+		Entity: tag,
 		Result: life.IsNotAlive,
 	}
 
 	worker, err := lifeflag.New(c.Context(), config)
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(worker.Check(), tc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(worker.Check(), tc.IsFalse)
+
+	ch <- struct{}{}
 
 	select {
 	case <-done:
@@ -151,76 +218,85 @@ func (*WorkerSuite) TestResultImmediateRealChange(c *tc.C) {
 		c.Fatal("timed out waiting for worker to change state")
 	}
 
-	// Now check that the life has actually changed!
-	c.Check(worker.Check(), tc.IsTrue)
+	c.Assert(worker.Check(), tc.IsTrue)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Check(err, tc.Equals, lifeflag.ErrValueChanged)
-	checkCalls(c, stub, "Life", "Watch", "Life")
+	c.Assert(err, tc.Equals, lifeflag.ErrValueChanged)
 }
 
 func (*WorkerSuite) TestResultSubsequentRealChange(c *tc.C) {
-	done := make(chan struct{})
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	stub := &testhelpers.Stub{}
+	done := make(chan struct{})
+	ch := make(chan struct{}, 2)
+
+	facade := NewMockFacade(ctrl)
+	facade.EXPECT().Life(gomock.Any(), tag).Return(life.Dying, nil)
+	facade.EXPECT().Watch(
+		gomock.Any(), tag,
+	).Return(watchertest.NewMockNotifyWatcher(ch), nil)
+	facade.EXPECT().Life(gomock.Any(), tag).Return(life.Dying, nil)
+	facade.EXPECT().Life(
+		gomock.Any(), tag,
+	).DoAndReturn(func(context.Context, names.Tag) (life.Value, error) {
+		close(done)
+		return life.Dead, nil
+	})
+
 	config := lifeflag.Config{
-		Facade: newMockFacade(stub, dying, dying, func() life.Value {
-			close(done)
-			return life.Dead
-		}),
-		Entity: testEntity,
+		Facade: facade,
+		Entity: tag,
 		Result: life.IsNotDead,
 	}
 	worker, err := lifeflag.New(c.Context(), config)
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(worker.Check(), tc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(worker.Check(), tc.IsTrue)
 
+	ch <- struct{}{}
+	ch <- struct{}{}
 	select {
 	case <-done:
 	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for worker to change state")
 	}
 
-	// Now check that the life has actually changed!
-	c.Check(worker.Check(), tc.IsFalse)
+	c.Assert(worker.Check(), tc.IsFalse)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Check(err, tc.Equals, lifeflag.ErrValueChanged)
-	checkCalls(c, stub, "Life", "Watch", "Life", "Life")
+	c.Assert(err, tc.Equals, lifeflag.ErrValueChanged)
 }
 
 func (*WorkerSuite) TestResultNoRealChange(c *tc.C) {
-	stub := &testhelpers.Stub{}
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ch := make(chan struct{}, 2)
+	ch <- struct{}{}
+	ch <- struct{}{}
+
+	facade := NewMockFacade(ctrl)
+	facade.EXPECT().Life(gomock.Any(), tag).Return(life.Alive, nil)
+	facade.EXPECT().Watch(
+		gomock.Any(), tag,
+	).Return(watchertest.NewMockNotifyWatcher(ch), nil)
+	facade.EXPECT().Life(gomock.Any(), tag).Return(life.Alive, nil)
+	facade.EXPECT().Life(gomock.Any(), tag).Return(life.Dying, nil)
+
 	config := lifeflag.Config{
-		Facade: newMockFacade(stub, alive, alive, dying),
-		Entity: testEntity,
+		Facade: facade,
+		Entity: tag,
 		Result: life.IsNotDead,
 	}
 	worker, err := lifeflag.New(c.Context(), config)
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(worker.Check(), tc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(worker.Check(), tc.IsTrue)
 
 	workertest.CheckAlive(c, worker)
 	workertest.CleanKill(c, worker)
-	checkCalls(c, stub, "Life", "Watch", "Life", "Life")
 }
 
-var testEntity = names.NewUnitTag("blah/123")
-
-func checkCalls(c *tc.C, stub *testhelpers.Stub, names ...string) {
-	stub.CheckCallNames(c, names...)
-	for _, call := range stub.Calls() {
-		c.Check(call.Args, tc.DeepEquals, []interface{}{testEntity})
-	}
-}
+var tag = names.NewUnitTag("blah/123")
 
 func explode(life.Value) bool { panic("unexpected") }
 func never(life.Value) bool   { return false }
-
-func alive() life.Value {
-	return life.Alive
-}
-
-func dying() life.Value {
-	return life.Dying
-}
