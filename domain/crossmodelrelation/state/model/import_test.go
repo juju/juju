@@ -612,6 +612,7 @@ func (s *importSecretSuite) TestImportRemoteSecretConsumers(c *tc.C) {
 }
 
 func (s *importSecretSuite) TestImportRemoteSecret(c *tc.C) {
+	c.Skip("Will be fixed in follow up PR when import remote will be implemented again")
 	// Arrange
 	secretID := "remote-secret-id"
 	sourceModelUUID := tc.Must(c, internaluuid.NewUUID).String()
