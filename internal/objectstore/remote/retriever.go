@@ -135,7 +135,7 @@ func (r *BlobRetriever) retrieve(ctx context.Context, remote apiremotecaller.Rem
 			return errors.Errorf("failed to get root HTTP client: %w", err).Add(HTTPError)
 		}
 
-		client, err := r.newBlobsClient(httpClient.BaseURL, newHTTPClient(httpClient), r.logger)
+		client, err := r.newBlobsClient(httpClient.BaseURL, newHTTPClient(httpClient.Doer), r.logger)
 		if err != nil {
 			return errors.Errorf("failed to create object client: %w", err).Add(HTTPError)
 		}
