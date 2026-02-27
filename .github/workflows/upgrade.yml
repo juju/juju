@@ -39,7 +39,6 @@ jobs:
       CHARM_microk8s: snappass-test
       OCI_REGISTRY: 10.152.183.69
       UPGRADE_FLAGS_localhost: --build-agent
-      UPGRADE_FLAGS_microk8s: --agent-stream=proposed
       MODEL_TYPE_localhost: iaas
       MODEL_TYPE_microk8s: caas
 
@@ -283,7 +282,13 @@ jobs:
           set -euxo pipefail
 
           # Upgrade to the latest stable.
-          OUTPUT=$(juju upgrade-controller --debug ${UPGRADE_FLAGS_${{ matrix.cloud }}} 2>&1)
+          if [[ ${{ matrix.cloud }} == 'microk8s' ]]; then
+            UPGRADE_ARGS=(--agent-version="${TARGET_JUJU_VERSION}")
+          else
+            UPGRADE_ARGS=(${UPGRADE_FLAGS_${{ matrix.cloud }}})
+          fi
+          OUTPUT=$(juju upgrade-controller --debug "${UPGRADE_ARGS[@]}" 2>&1)
+
           if [[ $OUTPUT == *'no upgrades available'* ]]; then
             echo $OUTPUT
             juju debug-log --replay --no-tail -m controller
