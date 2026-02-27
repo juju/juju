@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
-	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
+	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -34,10 +34,9 @@ type ReadObjectStore interface {
 func ReadCharmFromStorage(ctx context.Context, objectStore ReadObjectStore, dataDir, storagePath string) (string, error) {
 	// Use the storage to retrieve and save the charm archive.
 	reader, _, err := objectStore.Get(ctx, storagePath)
-	if err != nil {
-		if errors.Is(err, objectstoreerrors.ErrNotFound) {
-			return "", errors.NewNotFound(err, "charm not found in model storage")
-		}
+	if errors.Is(err, objectstoreerrors.ObjectNotFound) {
+		return "", errors.NewNotFound(err, "charm not found in model storage")
+	} else if err != nil {
 		return "", errors.Annotate(err, "cannot get charm from model storage")
 	}
 	defer reader.Close()

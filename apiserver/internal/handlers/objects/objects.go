@@ -80,8 +80,8 @@ func (h *ObjectsHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) er
 		return jujuerrors.BadRequestf("missing object sha256")
 	}
 
-	reader, readerSize, err := service.GetBySHA256(r.Context(), sha256)
-	if errors.Is(err, objectstoreerrors.ErrNotFound) {
+	reader, readerSize, err := objectStore.GetBySHA256(r.Context(), sha256)
+	if errors.Is(err, objectstoreerrors.ObjectNotFound) {
 		return jujuerrors.NotFoundf("object: %s", sha256)
 	} else if err != nil {
 		return errors.Capture(err)
