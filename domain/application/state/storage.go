@@ -669,6 +669,64 @@ VALUES ($insertApplicationStorageDirective.*)
 	return nil
 }
 
+// updateApplicationStorageDirectives updates the storage directives and charmUUID
+// for an application based on the provided overrides.
+// This is used during charm refresh to reconcile storage requirements.
+func (st *State) updateApplicationStorageDirectives(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appUUID coreapplication.UUID,
+	charmUUID string,
+	updates []internal.UpdateApplicationStorageDirectiveArg,
+) error {
+	if len(updates) == 0 {
+		return nil
+	}
+
+	updateStmt, err := st.Prepare(`
+UPDATE application_storage_directive
+SET    count = $updateApplicationStorageDirective.count,
+       size_mib = $updateApplicationStorageDirective.size_mib,
+	   storage_pool_uuid = $updateApplicationStorageDirective.storage_pool_uuid,
+	   charm_uuid = $updateApplicationStorageDirective.charm_uuid
+WHERE  application_uuid = $updateApplicationStorageDirective.application_uuid
+AND    storage_name = $updateApplicationStorageDirective.storage_name
+`, updateApplicationStorageDirective{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	for _, override := range updates {
+		input := updateApplicationStorageDirective{
+			ApplicationUUID: appUUID.String(),
+			CharmUUID:       charmUUID,
+			Count:           override.Count,
+			SizeMiB:         override.Size,
+			StorageName:     override.Name.String(),
+			StoragePoolUUID: override.PoolUUID.String(),
+		}
+		var outcome sqlair.Outcome
+		if err := tx.Query(ctx, updateStmt, input).Get(&outcome); err != nil {
+			return errors.Errorf("updating storage directives for application: %w", err)
+		}
+		result := outcome.Result()
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return errors.Errorf("getting number of affected rows: %w", err)
+		}
+		// We should always have an update if the storage directive is present,
+		// since charmUUID should always be updated.
+		if affected == 0 {
+			return errors.Errorf(
+				"missing storage directive for charm storage %q",
+				input.StorageName,
+			).Add(applicationerrors.MissingStorageDirective)
+		}
+	}
+
+	return nil
+}
+
 func (st *State) setFilesystemProviderIDs(
 	ctx context.Context, tx *sqlair.TX,
 	providerIDs map[domainstorage.FilesystemUUID]string,

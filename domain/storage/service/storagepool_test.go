@@ -443,6 +443,52 @@ func (s *storagePoolServiceSuite) TestListStoragePoolsByNamesInvalidNames(c *tc.
 	c.Assert(err, tc.ErrorMatches, `pool name "666invalid" not valid`)
 }
 
+func (s *storagePoolServiceSuite) TestGetStoragePoolUUIDsByName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	sp := domainstorage.StoragePoolNameUUID{
+		UUID: "pool-uuid-1",
+		Name: "ebs-fast",
+	}
+
+	s.state.EXPECT().GetStoragePoolUUIDsByName(gomock.Any(), []string{"ebs-fast"}).
+		Return([]domainstorage.StoragePoolNameUUID{sp}, nil)
+
+	svc := StoragePoolService{
+		registryGetter: registryGetter{s.registry},
+		st:             s.state,
+	}
+	got, err := svc.GetStoragePoolUUIDsByName(c.Context(), []string{"ebs-fast"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, map[string]domainstorage.StoragePoolUUID{
+		sp.Name: domainstorage.StoragePoolUUID(sp.UUID),
+	})
+}
+
+func (s *storagePoolServiceSuite) TestGetStoragePoolUUIDsByNameEmptyArgs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	svc := StoragePoolService{
+		registryGetter: registryGetter{s.registry},
+		st:             s.state,
+	}
+	got, err := svc.GetStoragePoolUUIDsByName(c.Context(), []string{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, map[string]domainstorage.StoragePoolUUID{})
+}
+
+func (s *storagePoolServiceSuite) TestGetStoragePoolUUIDsByNameInvalidNames(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	svc := StoragePoolService{
+		registryGetter: registryGetter{s.registry},
+		st:             s.state,
+	}
+	_, err := svc.GetStoragePoolUUIDsByName(c.Context(), []string{"666invalid"})
+	c.Assert(err, tc.ErrorIs, domainstorageerrors.StoragePoolNameInvalid)
+	c.Assert(err, tc.ErrorMatches, `pool name "666invalid" not valid`)
+}
+
 func (s *storagePoolServiceSuite) TestListStoragePoolsByProviders(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	ctrl.Finish()

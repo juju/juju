@@ -2393,6 +2393,45 @@ func (c *MockStorageServiceGetStoragePoolUUIDCall) DoAndReturn(f func(context.Co
 	return c
 }
 
+// GetStoragePoolUUIDsByName mocks base method.
+func (m *MockStorageService) GetStoragePoolUUIDsByName(arg0 context.Context, arg1 []string) (map[string]storage.StoragePoolUUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStoragePoolUUIDsByName", arg0, arg1)
+	ret0, _ := ret[0].(map[string]storage.StoragePoolUUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStoragePoolUUIDsByName indicates an expected call of GetStoragePoolUUIDsByName.
+func (mr *MockStorageServiceMockRecorder) GetStoragePoolUUIDsByName(arg0, arg1 any) *MockStorageServiceGetStoragePoolUUIDsByNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStoragePoolUUIDsByName", reflect.TypeOf((*MockStorageService)(nil).GetStoragePoolUUIDsByName), arg0, arg1)
+	return &MockStorageServiceGetStoragePoolUUIDsByNameCall{Call: call}
+}
+
+// MockStorageServiceGetStoragePoolUUIDsByNameCall wrap *gomock.Call
+type MockStorageServiceGetStoragePoolUUIDsByNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageServiceGetStoragePoolUUIDsByNameCall) Return(arg0 map[string]storage.StoragePoolUUID, arg1 error) *MockStorageServiceGetStoragePoolUUIDsByNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageServiceGetStoragePoolUUIDsByNameCall) Do(f func(context.Context, []string) (map[string]storage.StoragePoolUUID, error)) *MockStorageServiceGetStoragePoolUUIDsByNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageServiceGetStoragePoolUUIDsByNameCall) DoAndReturn(f func(context.Context, []string) (map[string]storage.StoragePoolUUID, error)) *MockStorageServiceGetStoragePoolUUIDsByNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockRelationService is a mock of RelationService interface.
 type MockRelationService struct {
 	ctrl     *gomock.Controller

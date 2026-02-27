@@ -347,10 +347,12 @@ func (s *directiveSuite) TestMakeStorageDirectiveFromApplicationArg(c *tc.C) {
 	c.Assert(gotDirectives, tc.SameContents, expected)
 }
 
-// TestReconcileUpdatedCharmStorageDirectiveNoChanges tests that when existing
+// TestReconcileStorageDirectiveAgainstCharmStorageNoChanges tests that when existing
 // storage directives match new charm storage exactly, no changes are proposed.
-func (s *directiveSuite) TestReconcileUpdatedCharmStorageDirectiveNoChanges(c *tc.C) {
-	modelStoragePools := makeModelStoragePools(c)
+func (s *directiveSuite) TestReconcileStorageDirectiveAgainstCharmStorageNoChanges(c *tc.C) {
+	defer s.setupMocks(c.T).Finish()
+	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
+
 	existingStorageDirectives := []domainapplication.StorageDirective{
 		{
 			CharmStorageType: domainapplicationcharm.StorageFilesystem,
@@ -369,19 +371,32 @@ func (s *directiveSuite) TestReconcileUpdatedCharmStorageDirectiveNoChanges(c *t
 		},
 	}
 
-	toApply, toDelete, err := ReconcileUpdatedCharmStorageDirective(
-		newCharmStorages, existingStorageDirectives, modelStoragePools,
+	modelStoragePools := makeModelStoragePools(c)
+	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(modelStoragePools, nil)
+
+	toCreate, toUpdate, err := svc.ReconcileStorageDirectivesAgainstCharmStorage(
+		c.Context(), existingStorageDirectives, newCharmStorages,
 	)
 
 	c.Assert(err, tc.IsNil)
-	c.Assert(toApply, tc.HasLen, 0)
-	c.Assert(toDelete, tc.HasLen, 0)
+	c.Assert(toCreate, tc.HasLen, 0)
+
+	// There should be an update to refresh the charmID even no directive value has changed.
+	c.Assert(toUpdate, tc.SameContents, []internal.UpdateApplicationStorageDirectiveArg{
+		{
+			Name:  "data",
+			Size:  1024,
+			Count: 1,
+		},
+	})
 }
 
-// TestReconcileUpdatedCharmStorageDirectiveIncreaseSize tests that when new
+// TestReconcileStorageDirectiveAgainstCharmStorageIncreaseSize tests that when new
 // charm storage minimum size is higher than existing, the size is increased.
-func (s *directiveSuite) TestReconcileUpdatedCharmStorageDirectiveIncreaseSize(c *tc.C) {
-	modelStoragePools := makeModelStoragePools(c)
+func (s *directiveSuite) TestReconcileStorageDirectiveAgainstCharmStorageIncreaseSize(c *tc.C) {
+	defer s.setupMocks(c.T).Finish()
+	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
+
 	existingStorageDirectives := []domainapplication.StorageDirective{
 		{
 			CharmStorageType: domainapplicationcharm.StorageBlock,
@@ -400,21 +415,31 @@ func (s *directiveSuite) TestReconcileUpdatedCharmStorageDirectiveIncreaseSize(c
 		},
 	}
 
-	toApply, toDelete, err := ReconcileUpdatedCharmStorageDirective(
-		newCharmStorages, existingStorageDirectives, modelStoragePools,
+	modelStoragePools := makeModelStoragePools(c)
+	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(modelStoragePools, nil)
+
+	toCreate, toUpdate, err := svc.ReconcileStorageDirectivesAgainstCharmStorage(
+		c.Context(), existingStorageDirectives, newCharmStorages,
 	)
 
 	c.Assert(err, tc.IsNil)
-	c.Assert(toApply, tc.HasLen, 1)
-	c.Assert(toApply[0].Size, tc.Equals, uint64(2048))
-	c.Assert(toApply[0].Name, tc.Equals, domainstorage.Name("data"))
-	c.Assert(toDelete, tc.HasLen, 0)
+	c.Assert(toCreate, tc.HasLen, 0)
+	c.Assert(toUpdate, tc.SameContents, []internal.UpdateApplicationStorageDirectiveArg{
+		{
+			Name:  "data",
+			Size:  2048,
+			Count: 1,
+		},
+	})
 }
 
-// TestReconcileUpdatedCharmStorageDirectiveNoSizeChange tests that when existing
-// storage size is already above new charm minimum, no size change occurs.
-func (s *directiveSuite) TestReconcileUpdatedCharmStorageDirectiveNoSizeChange(c *tc.C) {
-	modelStoragePools := makeModelStoragePools(c)
+// TestReconcileStorageDirectiveAgainstCharmStorageNoSizeChange tests that when existing
+// storage size is already above new charm minimum, no size change occurs. However,
+// there will still be an update to the charmID.
+func (s *directiveSuite) TestReconcileStorageDirectiveAgainstCharmStorageNoSizeChange(c *tc.C) {
+	defer s.setupMocks(c.T).Finish()
+	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
+
 	existingStorageDirectives := []domainapplication.StorageDirective{
 		{
 			CharmStorageType: domainapplicationcharm.StorageBlock,
@@ -433,19 +458,32 @@ func (s *directiveSuite) TestReconcileUpdatedCharmStorageDirectiveNoSizeChange(c
 		},
 	}
 
-	toApply, toDelete, err := ReconcileUpdatedCharmStorageDirective(
-		newCharmStorages, existingStorageDirectives, modelStoragePools,
+	modelStoragePools := makeModelStoragePools(c)
+	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(modelStoragePools, nil)
+
+	toCreate, toUpdate, err := svc.ReconcileStorageDirectivesAgainstCharmStorage(
+		c.Context(), existingStorageDirectives, newCharmStorages,
 	)
 
 	c.Assert(err, tc.IsNil)
-	c.Assert(toApply, tc.HasLen, 0)
-	c.Assert(toDelete, tc.HasLen, 0)
+	c.Assert(toCreate, tc.HasLen, 0)
+
+	// There should be an update to refresh the charmID even no directive value has changed.
+	c.Assert(toUpdate, tc.SameContents, []internal.UpdateApplicationStorageDirectiveArg{
+		{
+			Name:  "data",
+			Size:  4096,
+			Count: 1,
+		},
+	})
 }
 
-// TestReconcileUpdatedCharmStorageDirectiveIncreaseCount tests that when new
+// TestReconcileStorageDirectiveAgainstCharmStorageIncreaseCount tests that when new
 // charm storage minimum count is higher than existing, the count is increased.
-func (s *directiveSuite) TestReconcileUpdatedCharmStorageDirectiveIncreaseCount(c *tc.C) {
-	modelStoragePools := makeModelStoragePools(c)
+func (s *directiveSuite) TestReconcileStorageDirectiveAgainstCharmStorageIncreaseCount(c *tc.C) {
+	defer s.setupMocks(c.T).Finish()
+	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
+
 	existingStorageDirectives := []domainapplication.StorageDirective{
 		{
 			CharmStorageType: domainapplicationcharm.StorageBlock,
@@ -464,21 +502,30 @@ func (s *directiveSuite) TestReconcileUpdatedCharmStorageDirectiveIncreaseCount(
 		},
 	}
 
-	toApply, toDelete, err := ReconcileUpdatedCharmStorageDirective(
-		newCharmStorages, existingStorageDirectives, modelStoragePools,
+	modelStoragePools := makeModelStoragePools(c)
+	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(modelStoragePools, nil)
+
+	toCreate, toUpdate, err := svc.ReconcileStorageDirectivesAgainstCharmStorage(
+		c.Context(), existingStorageDirectives, newCharmStorages,
 	)
 
 	c.Assert(err, tc.IsNil)
-	c.Assert(toApply, tc.HasLen, 1)
-	c.Assert(toApply[0].Count, tc.Equals, uint32(3))
-	c.Assert(toApply[0].Name, tc.Equals, domainstorage.Name("data"))
-	c.Assert(toDelete, tc.HasLen, 0)
+	c.Assert(toCreate, tc.HasLen, 0)
+	c.Assert(toUpdate, tc.SameContents, []internal.UpdateApplicationStorageDirectiveArg{
+		{
+			Name:  "data",
+			Size:  1024,
+			Count: 3,
+		},
+	})
 }
 
-// TestReconcileUpdatedCharmStorageDirectiveDecreaseCount tests that when new
+// TestReconcileStorageDirectiveAgainstCharmStorageDecreaseCount tests that when new
 // charm storage maximum count is lower than existing, the count is decreased.
-func (s *directiveSuite) TestReconcileUpdatedCharmStorageDirectiveDecreaseCount(c *tc.C) {
-	modelStoragePools := makeModelStoragePools(c)
+func (s *directiveSuite) TestReconcileStorageDirectiveAgainstCharmStorageDecreaseCount(c *tc.C) {
+	defer s.setupMocks(c.T).Finish()
+	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
+
 	existingStorageDirectives := []domainapplication.StorageDirective{
 		{
 			CharmStorageType: domainapplicationcharm.StorageBlock,
@@ -497,59 +544,29 @@ func (s *directiveSuite) TestReconcileUpdatedCharmStorageDirectiveDecreaseCount(
 		},
 	}
 
-	toApply, toDelete, err := ReconcileUpdatedCharmStorageDirective(
-		newCharmStorages, existingStorageDirectives, modelStoragePools,
-	)
-
-	c.Assert(err, tc.IsNil)
-	c.Assert(toApply, tc.HasLen, 1)
-	c.Assert(toApply[0].Count, tc.Equals, uint32(4))
-	c.Assert(toApply[0].Name, tc.Equals, domainstorage.Name("data"))
-	c.Assert(toDelete, tc.HasLen, 0)
-}
-
-// TestReconcileUpdatedCharmStorageDirectiveDeleteOldStorage tests that storage
-// present in existing directives but not in new charm is marked for deletion.
-func (s *directiveSuite) TestReconcileUpdatedCharmStorageDirectiveDeleteOldStorage(c *tc.C) {
 	modelStoragePools := makeModelStoragePools(c)
-	existingStorageDirectives := []domainapplication.StorageDirective{
-		{
-			CharmStorageType: domainapplicationcharm.StorageBlock,
-			Name:             "data",
-			Count:            1,
-			Size:             1024,
-		},
-		{
-			CharmStorageType: domainapplicationcharm.StorageBlock,
-			Name:             "logs",
-			Count:            1,
-			Size:             512,
-		},
-	}
+	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(modelStoragePools, nil)
 
-	newCharmStorages := map[string]internalcharm.Storage{
-		"data": {
-			Type:        internalcharm.StorageBlock,
-			CountMin:    1,
-			CountMax:    1,
-			MinimumSize: 1024,
-		},
-	}
-
-	toApply, toDelete, err := ReconcileUpdatedCharmStorageDirective(
-		newCharmStorages, existingStorageDirectives, modelStoragePools,
+	toCreate, toUpdate, err := svc.ReconcileStorageDirectivesAgainstCharmStorage(
+		c.Context(), existingStorageDirectives, newCharmStorages,
 	)
 
 	c.Assert(err, tc.IsNil)
-	c.Assert(toApply, tc.HasLen, 0)
-	c.Assert(toDelete, tc.HasLen, 1)
-	c.Assert(toDelete[0], tc.Equals, "logs")
+	c.Assert(toCreate, tc.HasLen, 0)
+	c.Assert(toUpdate, tc.SameContents, []internal.UpdateApplicationStorageDirectiveArg{
+		{
+			Name:  "data",
+			Size:  1024,
+			Count: 4,
+		},
+	})
 }
 
-// TestReconcileUpdatedCharmStorageDirectiveAddNewStorage tests that storage
+// TestReconcileStorageDirectiveAgainstCharmStorageAddNewStorage tests that storage
 // present in new charm but not in existing directives is added.
-func (s *directiveSuite) TestReconcileUpdatedCharmStorageDirectiveAddNewStorage(c *tc.C) {
-	modelStoragePools := makeModelStoragePools(c)
+func (s *directiveSuite) TestReconcileStorageDirectiveAgainstCharmStorageAddNewStorage(c *tc.C) {
+	defer s.setupMocks(c.T).Finish()
+	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
 
 	existingStorageDirectives := []domainapplication.StorageDirective{
 		{
@@ -575,60 +592,32 @@ func (s *directiveSuite) TestReconcileUpdatedCharmStorageDirectiveAddNewStorage(
 		},
 	}
 
-	toApply, toDelete, err := ReconcileUpdatedCharmStorageDirective(
-		newCharmStorages, existingStorageDirectives, modelStoragePools,
+	modelStoragePools := makeModelStoragePools(c)
+	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(modelStoragePools, nil)
+
+	toCreate, toUpdate, err := svc.ReconcileStorageDirectivesAgainstCharmStorage(
+		c.Context(), existingStorageDirectives, newCharmStorages,
 	)
 
 	c.Assert(err, tc.IsNil)
-	c.Assert(toApply, tc.HasLen, 1)
-	c.Assert(string(toApply[0].Name), tc.Equals, "logs")
-	c.Assert(toApply[0].Count, tc.Equals, uint32(2))
-	c.Assert(toApply[0].Size, tc.Equals, uint64(512))
-	c.Assert(toApply[0].PoolUUID, tc.Equals, *modelStoragePools.FilesystemPoolUUID)
-	c.Assert(toDelete, tc.HasLen, 0)
-}
-
-// TestReconcileUpdatedCharmStorageDirectiveIncompatibleType tests that when
-// storage type changes between existing and new charm, an error is returned.
-func (s *directiveSuite) TestReconcileUpdatedCharmStorageDirectiveIncompatibleType(c *tc.C) {
-	modelStoragePools := makeModelStoragePools(c)
-	existingStorageDirectives := []domainapplication.StorageDirective{
+	c.Assert(toCreate, tc.SameContents, []internal.CreateApplicationStorageDirectiveArg{
 		{
-			Name:             "data",
-			Count:            1,
-			CharmStorageType: domainapplicationcharm.StorageBlock,
-			Size:             1024,
+			Name:     domainstorage.Name("logs"),
+			Count:    2,
+			Size:     512,
+			PoolUUID: *modelStoragePools.FilesystemPoolUUID,
 		},
-	}
+	})
 
-	newCharmStorages := map[string]internalcharm.Storage{
-		"data": {
-			Type:        internalcharm.StorageFilesystem,
-			CountMin:    1,
-			CountMax:    1,
-			MinimumSize: 1024,
-		},
-	}
-
-	toApply, toDelete, err := ReconcileUpdatedCharmStorageDirective(
-		newCharmStorages, existingStorageDirectives, modelStoragePools,
-	)
-
-	c.Assert(toApply, tc.IsNil)
-	c.Assert(toDelete, tc.IsNil)
-	c.Assert(err, tc.ErrorMatches, `.*existing storage "data" type changed from "block" to "filesystem".*`)
-	var incompatibleErr *applicationerrors.CharmStorageTypeChanged
-	c.Assert(errors.As(err, &incompatibleErr), tc.Equals, true)
-	c.Assert(incompatibleErr.StorageName, tc.Equals, "data")
-	c.Assert(incompatibleErr.OldType, tc.Equals, "block")
-	c.Assert(incompatibleErr.NewType, tc.Equals, "filesystem")
+	// Update of charmID even though no value changed.
+	c.Assert(toUpdate, tc.HasLen, 1)
 }
 
-// TestReconcileUpdatedCharmStorageDirectiveComplexReconciliation tests a
-// combination of operations: update storage count and size, delete old storage,
-// and add new storage.
-func (s *directiveSuite) TestReconcileUpdatedCharmStorageDirectiveComplexReconciliation(c *tc.C) {
-	modelStoragePools := makeModelStoragePools(c)
+// TestReconcileStorageDirectiveAgainstCharmStorageComplexReconciliation tests a
+// combination of operations: update storage count and size and add new storage.
+func (s *directiveSuite) TestReconcileStorageDirectiveAgainstCharmStorageComplexReconciliation(c *tc.C) {
+	defer s.setupMocks(c.T).Finish()
+	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
 
 	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 
@@ -639,12 +628,6 @@ func (s *directiveSuite) TestReconcileUpdatedCharmStorageDirectiveComplexReconci
 			Count:            1,
 			Size:             512,
 			PoolUUID:         poolUUID,
-		},
-		{
-			CharmStorageType: domainapplicationcharm.StorageBlock,
-			Name:             "cache",
-			Count:            1,
-			Size:             256,
 		},
 	}
 
@@ -663,32 +646,28 @@ func (s *directiveSuite) TestReconcileUpdatedCharmStorageDirectiveComplexReconci
 		},
 	}
 
-	toApply, toDelete, err := ReconcileUpdatedCharmStorageDirective(
-		newCharmStorages, existingStorageDirectives, modelStoragePools,
+	modelStoragePools := makeModelStoragePools(c)
+	s.state.EXPECT().GetModelStoragePools(gomock.Any()).Return(modelStoragePools, nil)
+
+	toCreate, toUpdate, err := svc.ReconcileStorageDirectivesAgainstCharmStorage(
+		c.Context(), existingStorageDirectives, newCharmStorages,
 	)
 
 	c.Assert(err, tc.IsNil)
-	c.Assert(toApply, tc.HasLen, 2)
-	c.Assert(toDelete, tc.HasLen, 1)
-	c.Assert(toDelete[0], tc.Equals, "cache")
-
-	// Check for updated "data" storage
-	var dataUpdate, logsCreate *internal.ApplyApplicationStorageDirectiveArg
-	for i := range toApply {
-		if string(toApply[i].Name) == "data" {
-			dataUpdate = &toApply[i]
-		} else if string(toApply[i].Name) == "logs" {
-			logsCreate = &toApply[i]
-		}
-	}
-
-	c.Assert(dataUpdate, tc.Not(tc.IsNil))
-	c.Assert(dataUpdate.Count, tc.Equals, uint32(2))
-	c.Assert(dataUpdate.Size, tc.Equals, uint64(1024))
-	c.Assert(dataUpdate.PoolUUID, tc.Equals, poolUUID)
-
-	c.Assert(logsCreate, tc.Not(tc.IsNil))
-	c.Assert(logsCreate.Count, tc.Equals, uint32(1))
-	c.Assert(logsCreate.Size, tc.Equals, uint64(512))
-	c.Assert(logsCreate.PoolUUID, tc.Equals, *modelStoragePools.FilesystemPoolUUID)
+	c.Assert(toCreate, tc.SameContents, []internal.CreateApplicationStorageDirectiveArg{
+		{
+			Name:     domainstorage.Name("logs"),
+			Count:    1,
+			Size:     512,
+			PoolUUID: *modelStoragePools.FilesystemPoolUUID,
+		},
+	})
+	c.Assert(toUpdate, tc.SameContents, []internal.UpdateApplicationStorageDirectiveArg{
+		{
+			Name:     "data",
+			Count:    2,
+			Size:     1024,
+			PoolUUID: poolUUID,
+		},
+	})
 }

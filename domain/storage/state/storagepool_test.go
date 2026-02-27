@@ -512,6 +512,54 @@ FROM model_storage_pool
 	return result
 }
 
+func (s *storagePoolStateSuite) TestListStoragePoolNameUUIDs(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := c.Context()
+	poolUUID1 := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	poolUUID2 := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	err := st.CreateStoragePool(ctx, domainstorageinternal.CreateStoragePool{
+		Name:         "pool-a",
+		ProviderType: "lxd",
+		Origin:       domainstorage.StoragePoolOriginUser,
+		UUID:         poolUUID1,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.CreateStoragePool(ctx, domainstorageinternal.CreateStoragePool{
+		Name:         "pool-b",
+		ProviderType: "ec2",
+		Origin:       domainstorage.StoragePoolOriginUser,
+		UUID:         poolUUID2,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := st.GetStoragePoolUUIDsByName(ctx, []string{"pool-b", "pool-a"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.SameContents, []domainstorage.StoragePoolNameUUID{
+		{
+			Name: "pool-a",
+			UUID: poolUUID1.String(),
+		},
+		{
+			Name: "pool-b",
+			UUID: poolUUID2.String(),
+		},
+	})
+}
+
+func (s *storagePoolStateSuite) TestListStoragePoolNameUUIDsEmpty(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	got, err := st.GetStoragePoolUUIDsByName(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.HasLen, 0)
+}
+
+func (s *storagePoolStateSuite) TestListStoragePoolNameUUIDsNoMatch(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	got, err := st.GetStoragePoolUUIDsByName(c.Context(), []string{"unknown"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.HasLen, 0)
+}
+
 //func (s *storagePoolStateSuite) TestDeleteStoragePool(c *tc.C) {
 //	st := newStoragePoolState(s.TxnRunnerFactory())
 //

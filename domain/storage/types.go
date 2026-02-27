@@ -231,3 +231,9 @@ func (i ImportVolumeParams) Validate() error {
 
 	return nil
 }
+
+// StoragePoolNameUUID represents a storage pool name and uuid pair.
+type StoragePoolNameUUID struct {
+	Name string `db:"name"`
+	UUID string `db:"uuid"`
+}
