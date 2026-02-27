@@ -9,6 +9,7 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/agentbinary"
@@ -70,6 +71,66 @@ func (s *ControllerModelState) GetModelTargetAgentVersion(
 		)
 	}
 	return rval, nil
+}
+
+// GetControllerModelType returns the model type currently set for the
+// controller's model.
+//
+// This func will check that the current model is the controller's model and if
+// not return an error.
+func (s *ControllerModelState) GetControllerModelType(
+	ctx context.Context,
+) (coremodel.ModelType, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var modelType string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		isControllerModel, err := s.isControllerModel(ctx, tx)
+		if err != nil {
+			return errors.Errorf("checking model is controller model: %w", err)
+		}
+		if !isControllerModel {
+			return errors.New("model being operated on is not the controller's model")
+		}
+
+		modelType, err = s.getControllerModelType(ctx, tx)
+		return err
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	result := coremodel.ModelType(modelType)
+	if !result.IsValid() {
+		return "", errors.Errorf("invalid controller model type %q", modelType)
+	}
+	return result, nil
+}
+
+func (s *ControllerModelState) getControllerModelType(
+	ctx context.Context,
+	tx *sqlair.TX,
+) (string, error) {
+	var dbVal controllerModelType
+	stmt, err := s.Prepare(
+		"SELECT &controllerModelType.* FROM model",
+		dbVal,
+	)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt).Get(&dbVal)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", errors.Errorf("model information has not been set in the database")
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return dbVal.Type, nil
 }
 
 func (s *ControllerModelState) getModelTargetAgentVersion(

@@ -18,6 +18,12 @@ type controllerNodeAgentVersion struct {
 	Version      string `db:"version"`
 }
 
+// controllerNodeArchitecture represents the architecture running for each
+// controller node in the cluster.
+type controllerNodeArchitecture struct {
+	ArchitectureID int `db:"architecture_id"`
+}
+
 // agentVersionTarget represents the target agent version column from the
 // agent_version table.
 type agentVersionTarget struct {
@@ -34,6 +40,12 @@ type controllerTargetVersion struct {
 // model table in the controller's model database.
 type isControllerModel struct {
 	Is bool `db:"is_controller_model"`
+}
+
+// controllerModelType represents the model type column value from the model
+// table in the controller's model database.
+type controllerModelType struct {
+	Type string `db:"type"`
 }
 
 // setAgentVersionTarget represents the set of update values required for

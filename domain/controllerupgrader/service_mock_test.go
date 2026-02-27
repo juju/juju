@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	model "github.com/juju/juju/core/model"
 	semversion "github.com/juju/juju/core/semversion"
 	agentbinary "github.com/juju/juju/domain/agentbinary"
 	environs "github.com/juju/juju/environs"
@@ -360,6 +361,45 @@ func NewMockControllerModelState(ctrl *gomock.Controller) *MockControllerModelSt
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockControllerModelState) EXPECT() *MockControllerModelStateMockRecorder {
 	return m.recorder
+}
+
+// GetControllerModelType mocks base method.
+func (m *MockControllerModelState) GetControllerModelType(arg0 context.Context) (model.ModelType, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetControllerModelType", arg0)
+	ret0, _ := ret[0].(model.ModelType)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetControllerModelType indicates an expected call of GetControllerModelType.
+func (mr *MockControllerModelStateMockRecorder) GetControllerModelType(arg0 any) *MockControllerModelStateGetControllerModelTypeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerModelType", reflect.TypeOf((*MockControllerModelState)(nil).GetControllerModelType), arg0)
+	return &MockControllerModelStateGetControllerModelTypeCall{Call: call}
+}
+
+// MockControllerModelStateGetControllerModelTypeCall wrap *gomock.Call
+type MockControllerModelStateGetControllerModelTypeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerModelStateGetControllerModelTypeCall) Return(arg0 model.ModelType, arg1 error) *MockControllerModelStateGetControllerModelTypeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerModelStateGetControllerModelTypeCall) Do(f func(context.Context) (model.ModelType, error)) *MockControllerModelStateGetControllerModelTypeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerModelStateGetControllerModelTypeCall) DoAndReturn(f func(context.Context) (model.ModelType, error)) *MockControllerModelStateGetControllerModelTypeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // GetModelTargetAgentVersion mocks base method.

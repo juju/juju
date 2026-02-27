@@ -38,6 +38,12 @@ func TestControllerStateSuite(t *testing.T) {
 func (s *controllerStateSuite) addControllerNodeAgentVersion(
 	c *tc.C, version string,
 ) string {
+	return s.addControllerNodeAgentVersionWithArch(c, version, domainagentbinary.AMD64)
+}
+
+func (s *controllerStateSuite) addControllerNodeAgentVersionWithArch(
+	c *tc.C, version string, architecture domainagentbinary.Architecture,
+) string {
 	id, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -50,7 +56,7 @@ func (s *controllerStateSuite) addControllerNodeAgentVersion(
 INSERT INTO controller_node_agent_version (controller_id, version, architecture_id)
 VALUES (?, ?, ?)
 `,
-		id.String(), version, 0,
+		id.String(), version, int(architecture),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -127,6 +133,32 @@ func (s *controllerStateSuite) TestGetControllerNodeVersions(c *tc.C) {
 	c.Check(versions, tc.DeepEquals, map[string]semversion.Number{
 		id1: c1Version,
 		id2: c2Version,
+	})
+}
+
+// TestGetControllerNodeArchitecturesEmpty tests that when no controller node
+// architectures are reported an empty value is returned with no error.
+func (s *controllerStateSuite) TestGetControllerNodeArchitecturesEmpty(c *tc.C) {
+	st := NewControllerState(s.TxnRunnerFactory())
+	arches, err := st.GetControllerNodeArchitectures(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(arches, tc.HasLen, 0)
+}
+
+// TestGetControllerNodeArchitectures verifies that distinct architectures are
+// returned in stable order.
+func (s *controllerStateSuite) TestGetControllerNodeArchitectures(c *tc.C) {
+	st := NewControllerState(s.TxnRunnerFactory())
+
+	s.addControllerNodeAgentVersionWithArch(c, "4.0.0", domainagentbinary.ARM64)
+	s.addControllerNodeAgentVersion(c, "4.0.1")
+	s.addControllerNodeAgentVersion(c, "4.0.2")
+
+	arches, err := st.GetControllerNodeArchitectures(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(arches, tc.DeepEquals, []domainagentbinary.Architecture{
+		domainagentbinary.AMD64,
+		domainagentbinary.ARM64,
 	})
 }
 

@@ -11,6 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	domainagentbinary "github.com/juju/juju/domain/agentbinary"
 	controllerupgradererrors "github.com/juju/juju/domain/controllerupgrader/errors"
@@ -35,6 +36,12 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.agentBinaryFinder = NewMockAgentBinaryFinder(ctrl)
 	s.ctrlSt = NewMockControllerState(ctrl)
 	s.modelSt = NewMockControllerModelState(ctrl)
+	s.ctrlSt.EXPECT().GetControllerNodeArchitectures(gomock.Any()).Return(
+		[]domainagentbinary.Architecture{domainagentbinary.AMD64}, nil,
+	).AnyTimes()
+	s.modelSt.EXPECT().GetControllerModelType(gomock.Any()).Return(
+		coremodel.IAAS, nil,
+	).AnyTimes()
 
 	c.Cleanup(func() {
 		s.agentBinaryFinder = nil
@@ -219,6 +226,44 @@ func (s *serviceSuite) TestUpgradeControllerWithMissingControllerBinaries(c *tc.
 		"updating controller to recommended version %q is missing agent binaries",
 		highestVersion),
 	)
+}
+
+// TestUpgradeControllerCAASSkipsControllerBinaryCheck tests that CAAS
+// controller upgrades do not require simplestream controller binaries.
+func (s *serviceSuite) TestUpgradeControllerCAASSkipsControllerBinaryCheck(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	highestVersion, err := semversion.Parse("4.0.7")
+	c.Assert(err, tc.ErrorIsNil)
+	currentControllerVersion, err := semversion.Parse("4.0.4")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.modelSt.EXPECT().GetControllerModelType(gomock.Any()).Return(
+		coremodel.CAAS, nil,
+	)
+	s.agentBinaryFinder.EXPECT().GetHighestPatchVersionAvailable(gomock.Any()).
+		Return(highestVersion, nil)
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
+		currentControllerVersion, nil,
+	)
+	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
+		map[string]semversion.Number{
+			"1": currentControllerVersion,
+			"2": currentControllerVersion,
+			"3": currentControllerVersion,
+		}, nil,
+	)
+	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
+		currentControllerVersion, nil,
+	)
+	s.modelSt.EXPECT().SetModelTargetAgentVersion(
+		gomock.Any(), currentControllerVersion, highestVersion,
+	).Return(nil)
+	s.ctrlSt.EXPECT().SetControllerTargetVersion(gomock.Any(), highestVersion).Return(nil)
+
+	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
+	_, err = svc.UpgradeController(c.Context())
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestUpgradeControllerWithStreamNodeBlocker tests the case where a controller
@@ -837,6 +882,48 @@ func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamMissingBinaries(c 
 		domainagentbinary.AgentStreamProposed,
 	)
 	c.Check(err, tc.ErrorIs, controllerupgradererrors.MissingControllerBinaries)
+}
+
+// TestUpgradeControllerToVersionAndStreamCAASSkipsControllerBinaryCheck tests
+// that CAAS controller upgrades with stream do not require simplestream
+// controller binaries.
+func (s *serviceSuite) TestUpgradeControllerToVersionAndStreamCAASSkipsControllerBinaryCheck(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	upgradeVersion, err := semversion.Parse("4.0.9")
+	c.Assert(err, tc.ErrorIsNil)
+	currentControllerVersion, err := semversion.Parse("4.0.8")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.modelSt.EXPECT().GetControllerModelType(gomock.Any()).Return(
+		coremodel.CAAS, nil,
+	)
+	s.ctrlSt.EXPECT().GetControllerTargetVersion(gomock.Any()).Return(
+		currentControllerVersion, nil,
+	)
+	s.ctrlSt.EXPECT().GetControllerNodeVersions(gomock.Any()).Return(
+		map[string]semversion.Number{
+			"1": currentControllerVersion,
+		}, nil,
+	)
+	s.modelSt.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
+		currentControllerVersion, nil,
+	)
+	s.modelSt.EXPECT().SetModelTargetAgentVersionAndStream(
+		gomock.Any(),
+		currentControllerVersion,
+		upgradeVersion,
+		domainagentbinary.AgentStreamProposed,
+	).Return(nil)
+	s.ctrlSt.EXPECT().SetControllerTargetVersion(gomock.Any(), upgradeVersion).Return(nil)
+
+	svc := NewService(s.agentBinaryFinder, s.ctrlSt, s.modelSt)
+	err = svc.UpgradeControllerToVersionWithStream(
+		c.Context(),
+		upgradeVersion,
+		domainagentbinary.AgentStreamProposed,
+	)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // TestUpgradeControllerToVersionAndStreamInvalidStream tests the case where a

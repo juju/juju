@@ -50,15 +50,21 @@ func (s *controllerModelStateSuite) checkModelAgentStream(
 // seedControllerModel establishes a controller's model information in the
 // database.
 func (s *controllerModelStateSuite) seedControllerModel(c *tc.C) {
+	s.seedControllerModelWithType(c, "iaas")
+}
+
+// seedControllerModelWithType establishes controller model information in the
+// database with the provided model type.
+func (s *controllerModelStateSuite) seedControllerModelWithType(c *tc.C, modelType string) {
 	modelUUID := tc.Must0(c, coremodel.NewUUID)
 	controllerUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().Exec(`
 INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type, qualifier, is_controller_model)
-VALUES            (?, ?, "test-model", "iaas", "test-cloud", "ec2", "testq", true)
+VALUES            (?, ?, "test-model", ?, "test-cloud", "ec2", "testq", true)
 `,
-		modelUUID, controllerUUID.String(),
+		modelUUID, controllerUUID.String(), modelType,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -153,6 +159,39 @@ func (s *controllerModelStateSuite) TestSetModelTargetAgentVersionNotSet(c *tc.C
 
 	err = st.SetModelTargetAgentVersion(c.Context(), preCondition, toVersion)
 	c.Check(err, tc.NotNil)
+}
+
+// TestGetControllerModelTypeNotController asserts that if this model is not
+// the model that hosts the controller then an error is returned when getting
+// the model type.
+func (s *controllerModelStateSuite) TestGetControllerModelTypeNotController(c *tc.C) {
+	s.seedModel(c)
+	st := NewControllerModelState(s.TxnRunnerFactory())
+
+	_, err := st.GetControllerModelType(c.Context())
+	c.Check(err, tc.NotNil)
+}
+
+// TestGetControllerModelTypeIAAS is a happy path test for
+// [ControllerModelState.GetControllerModelType] returning IAAS.
+func (s *controllerModelStateSuite) TestGetControllerModelTypeIAAS(c *tc.C) {
+	s.seedControllerModelWithType(c, "iaas")
+	st := NewControllerModelState(s.TxnRunnerFactory())
+
+	modelType, err := st.GetControllerModelType(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(modelType, tc.Equals, coremodel.IAAS)
+}
+
+// TestGetControllerModelTypeCAAS is a happy path test for
+// [ControllerModelState.GetControllerModelType] returning CAAS.
+func (s *controllerModelStateSuite) TestGetControllerModelTypeCAAS(c *tc.C) {
+	s.seedControllerModelWithType(c, "caas")
+	st := NewControllerModelState(s.TxnRunnerFactory())
+
+	modelType, err := st.GetControllerModelType(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(modelType, tc.Equals, coremodel.CAAS)
 }
 
 // TestSetModelTargetAgentVersionPreconditionFail asserts that in an attempt to

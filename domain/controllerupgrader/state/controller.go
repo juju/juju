@@ -143,6 +143,47 @@ FROM   controller_node_agent_version
 	return rval, nil
 }
 
+// GetControllerNodeArchitectures returns the architecture that each controller
+// in the cluster reports when it starts up.
+func (s *ControllerState) GetControllerNodeArchitectures(
+	ctx context.Context,
+) ([]agentbinary.Architecture, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := s.Prepare(`
+SELECT DISTINCT &controllerNodeArchitecture.*
+FROM   controller_node_agent_version
+ORDER BY architecture_id
+`,
+		controllerNodeArchitecture{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var dbValues []controllerNodeArchitecture
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&dbValues)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	rval := make([]agentbinary.Architecture, 0, len(dbValues))
+	for _, v := range dbValues {
+		rval = append(rval, agentbinary.Architecture(v.ArchitectureID))
+	}
+
+	return rval, nil
+}
+
 // GetControllerTargetVersion returns the target controller version in use by the
 // cluster.
 func (s *ControllerState) GetControllerTargetVersion(ctx context.Context) (semversion.Number, error) {

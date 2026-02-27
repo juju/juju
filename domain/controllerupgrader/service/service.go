@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/agentbinary"
@@ -57,6 +58,10 @@ type ControllerState interface {
 	// reports when it starts up.
 	GetControllerNodeVersions(ctx context.Context) (map[string]semversion.Number, error)
 
+	// GetControllerNodeArchitectures returns the architecture that each
+	// controller node in the cluster reports.
+	GetControllerNodeArchitectures(ctx context.Context) ([]agentbinary.Architecture, error)
+
 	// GetControllerTargetVersion returns the target controller version in use by the
 	// cluster.
 	GetControllerTargetVersion(ctx context.Context) (semversion.Number, error)
@@ -72,6 +77,9 @@ type ControllerState interface {
 // required for the controller upgrader so that the target agent version of the
 // model can be upgraded in lock step with the controller version.
 type ControllerModelState interface {
+	// GetControllerModelType returns the model type for the controller's model.
+	GetControllerModelType(context.Context) (coremodel.ModelType, error)
+
 	// GetModelTargetAgentVersion returns the target agent version currently set
 	// for the controller's model.
 	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
@@ -537,9 +545,18 @@ func (s *Service) RunPreUpgradeChecksToVersion(ctx context.Context, desiredVersi
 		return errors.Capture(err)
 	}
 
-	// TODO(adisazhar123): Refactor this. Ideally we will get the architecture off of the
-	// controller and model state. We hardcode this for now.
-	architectures := []agentbinary.Architecture{agentbinary.AMD64}
+	requireBinaryCheck, err := s.requiresControllerBinaryCheck(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if !requireBinaryCheck {
+		return nil
+	}
+
+	architectures, err := s.getControllerArchitectures(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
 	hasBinaries, err := s.agentBinaryFinder.HasBinariesForVersionAndArchitectures(
 		ctx, desiredVersion, architectures,
 	)
@@ -630,9 +647,18 @@ func (s *Service) RunPreUpgradeChecksToVersionWithStream(ctx context.Context, de
 		return errors.Capture(err)
 	}
 
-	// TODO(adisazhar123): Refactor this. Ideally we will get the architecture off of the
-	// controller and model state. We hardcode this for now.
-	architectures := []agentbinary.Architecture{agentbinary.AMD64}
+	requireBinaryCheck, err := s.requiresControllerBinaryCheck(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if !requireBinaryCheck {
+		return nil
+	}
+
+	architectures, err := s.getControllerArchitectures(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
 	hasBinaries, err := s.agentBinaryFinder.HasBinariesForVersionStreamAndArchitectures(
 		ctx, desiredVersion, stream, architectures,
 	)
@@ -648,4 +674,25 @@ func (s *Service) RunPreUpgradeChecksToVersionWithStream(ctx context.Context, de
 	}
 
 	return nil
+}
+
+func (s *Service) getControllerArchitectures(ctx context.Context) ([]agentbinary.Architecture, error) {
+	architectures, err := s.ctrlSt.GetControllerNodeArchitectures(ctx)
+	if err != nil {
+		return nil, errors.Errorf("getting controller node architectures: %w", err)
+	}
+	if len(architectures) == 0 {
+		// Keep current behaviour if no controller nodes are reported.
+		return []agentbinary.Architecture{agentbinary.AMD64}, nil
+	}
+	return architectures, nil
+}
+
+func (s *Service) requiresControllerBinaryCheck(ctx context.Context) (bool, error) {
+	controllerModelType, err := s.modelSt.GetControllerModelType(ctx)
+	if err != nil {
+		return false, errors.Errorf("getting controller model type: %w", err)
+	}
+
+	return controllerModelType != coremodel.CAAS, nil
 }
