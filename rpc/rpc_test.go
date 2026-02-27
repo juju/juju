@@ -21,11 +21,11 @@ import (
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/rpc/rpcreflect"
 )
 
 var logger = internallogger.GetLogger("juju.rpc")

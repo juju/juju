@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/rpc/rpcreflect"
 )
 
 // We test rpcreflect in this package, so that the

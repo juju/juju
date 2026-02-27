@@ -98,7 +98,7 @@ func (*importSuite) TestImports(c *tc.C) {
 		"internal/proxy",
 		"internal/proxy/config",
 		"internal/provider/kubernetes/constants",
-		"internal/rpcreflect",
+		"rpc/rpcreflect",
 		"internal/service/pebble/identity",
 		"internal/service/pebble/plan",
 		"internal/storage",

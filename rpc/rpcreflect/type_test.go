@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/internal/rpcreflect"
+	"github.com/juju/juju/rpc/rpcreflect"
 )
 
 type reflectSuite struct{}
