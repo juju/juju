@@ -14,8 +14,8 @@ import (
 	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/internal/cmd"
 )
 
 // BootstrapConstraintsFlag records constraints set in bootstrap command

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/output"
@@ -20,7 +21,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/internal/cmd"
 )
 
 func newValidateToolsMetadataCommand() cmd.Command {

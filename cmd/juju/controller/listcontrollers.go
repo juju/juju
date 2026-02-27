@@ -17,10 +17,10 @@ import (
 	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/api/jujuclient"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/internal/cmd"
 )
 
 var helpControllersSummary = `

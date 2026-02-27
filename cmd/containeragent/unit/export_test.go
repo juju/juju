@@ -8,9 +8,9 @@ import (
 	"github.com/juju/utils/v4/voyeur"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/containeragent/utils"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/worker/logsender"
 )
 

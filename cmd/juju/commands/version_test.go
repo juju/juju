@@ -10,11 +10,11 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testhelpers"
 )
 

@@ -11,8 +11,8 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/config"
 	agenterrors "github.com/juju/juju/agent/errors"
+	"github.com/juju/juju/cmd/cmd"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/featureflag"
 )
 

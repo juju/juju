@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/internal/testhelpers"
 )
 

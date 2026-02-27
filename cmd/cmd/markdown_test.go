@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/cmd/cmd"
 )
 
 type markdownSuite struct{}

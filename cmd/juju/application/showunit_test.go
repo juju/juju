@@ -14,10 +14,10 @@ import (
 
 	apiapplication "github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/jujuclient"
+	"github.com/juju/juju/cmd/cmd"
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 

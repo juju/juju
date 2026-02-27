@@ -8,8 +8,8 @@ import (
 	"github.com/juju/gnuflag"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/internal/cmd"
 )
 
 // StatusSetCommand implements the status-set command.

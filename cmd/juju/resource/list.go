@@ -13,9 +13,9 @@ import (
 
 	"github.com/juju/juju/api/client/resources"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	coreresources "github.com/juju/juju/core/resource"
-	"github.com/juju/juju/internal/cmd"
 )
 
 // ListClient has the API client methods needed by ListCommand.

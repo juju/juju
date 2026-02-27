@@ -14,6 +14,7 @@ import (
 	"github.com/juju/loggo/v2"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/constants"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -21,7 +22,6 @@ import (
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/internal/cmd"
 	coretools "github.com/juju/juju/internal/tools"
 )
 

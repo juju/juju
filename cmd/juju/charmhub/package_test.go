@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/cmd/cmd"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination ./mocks/api_mock.go github.com/juju/juju/cmd/juju/charmhub CharmHubClient

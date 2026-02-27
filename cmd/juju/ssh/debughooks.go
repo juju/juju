@@ -17,12 +17,12 @@ import (
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/client/charms"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/deployment/charm/hooks"
-	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/network/ssh"
 	unitdebug "github.com/juju/juju/internal/worker/uniter/runner/debug"
 )

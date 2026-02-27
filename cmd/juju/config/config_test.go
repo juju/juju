@@ -14,7 +14,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/tc"
 
-	jujucmd "github.com/juju/juju/internal/cmd"
+	jujucmd "github.com/juju/juju/cmd/cmd"
 )
 
 type suite struct{}

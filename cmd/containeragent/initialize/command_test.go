@@ -17,11 +17,11 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api/agent/caasapplication"
+	"github.com/juju/juju/cmd/cmd"
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/containeragent/initialize"
 	"github.com/juju/juju/cmd/containeragent/initialize/mocks"
 	utilsmocks "github.com/juju/juju/cmd/containeragent/utils/mocks"
-	"github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 

@@ -11,8 +11,8 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
+	"github.com/juju/juju/cmd/cmd"
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/testhelpers"
 )

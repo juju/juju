@@ -14,9 +14,9 @@ import (
 	cookiejar "github.com/juju/persistent-cookiejar"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/cmd/cmd"
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/user"
-	"github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 )
 
 type LogoutCommandSuite struct {
