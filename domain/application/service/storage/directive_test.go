@@ -355,11 +355,10 @@ func (s *directiveSuite) TestValidateAttachStorageExceedMax(c *tc.C) {
 		MinimumSize: 1024,
 		Type:        internalcharm.StorageBlock,
 	}
-	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 
 	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
 	err := svc.ValidateAttachStorage(
-		c.Context(), charmStorageDef, 3, 1024, poolUUID,
+		charmStorageDef, 3, 1024,
 	)
 
 	errVal, is := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
@@ -367,7 +366,7 @@ func (s *directiveSuite) TestValidateAttachStorageExceedMax(c *tc.C) {
 	c.Check(errVal, tc.DeepEquals, applicationerrors.StorageCountLimitExceeded{
 		Maximum:     ptr(2),
 		Minimum:     0,
-		Requested:   3,
+		Requested:   4,
 		StorageName: "st1",
 	})
 }
