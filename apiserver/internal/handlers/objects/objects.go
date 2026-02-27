@@ -12,8 +12,10 @@ import (
 
 	jujuerrors "github.com/juju/errors"
 
-	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
+	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	"github.com/juju/juju/internal/errors"
+	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
 )
 
 // ObjectStoreService is an interface that provides a method to get an object
@@ -61,7 +63,10 @@ func (h *ObjectsHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := sendJSONError(w, errors.Capture(err)); err != nil {
+	requestID := r.Header.Get("x-amz-request-id")
+	hostID := r.Header.Get("x-amz-id-2")
+
+	if err := sendS3JSONError(w, requestID, hostID, err); err != nil {
 		logger.Errorf(r.Context(), "%v", errors.Errorf("cannot return error to user: %w", err))
 	}
 }
@@ -69,7 +74,7 @@ func (h *ObjectsHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // ServeGet serves the GET method for the S3 API. This is the equivalent of the
 // `GetObject` method in the AWS S3 API.
 func (h *ObjectsHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
-	service, err := h.objectStoreGetter.ObjectStore(r)
+	objectStore, err := h.objectStoreGetter.ObjectStore(r)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -92,6 +97,9 @@ func (h *ObjectsHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) er
 	// expect.
 	w.Header().Set("Content-Length", strconv.FormatInt(readerSize, 10))
 
+	w.Header().Set("x-amzn-requestid", r.Header.Get("x-amz-request-id"))
+	w.Header().Set("x-amzn-id-2", r.Header.Get("x-amz-id-2"))
+
 	size, err := io.Copy(w, reader)
 	if err != nil {
 		return errors.Errorf("processing object download: %w", err)
@@ -103,4 +111,36 @@ func (h *ObjectsHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) er
 	}
 
 	return nil
+}
+
+type S3Error struct {
+	Code      string `json:"code"`
+	Message   string `json:"message"`
+	RequestID string `json:"requestId"`
+	HostID    string `json:"hostId"`
+}
+
+// sendJSONError sends a JSON-encoded error response.  Note the
+// difference from the error response sent by the sendError function -
+// the error is encoded in the Error field as a string, not an Error
+// object.
+func sendS3JSONError(w http.ResponseWriter, requestID, hostID string, err error) error {
+	perr, status := apiservererrors.ServerErrorAndStatus(err)
+
+	code := "InternalError"
+	switch status {
+	case http.StatusBadRequest:
+		code = "InvalidRequest"
+	case http.StatusForbidden:
+		code = "InvalidAccessKeyId"
+	case http.StatusNotFound:
+		code = "NoSuchKey"
+	}
+
+	return errors.Capture(internalhttp.SendStatusAndJSON(w, status, S3Error{
+		Code:      code,
+		Message:   perr.Message,
+		RequestID: requestID,
+		HostID:    hostID,
+	}))
 }
