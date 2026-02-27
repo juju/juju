@@ -154,6 +154,10 @@ func (ro ResourceOpener) getResource(
 	resName string,
 	done func(),
 ) (opened coreresource.Opened, err error) {
+	if resName == "" {
+		return coreresource.Opened{}, errors.Errorf("resource name cannot be empty")
+	}
+
 	defer func() {
 		// Call done if not returning a ReadCloser that calls done on Close.
 		if err != nil {

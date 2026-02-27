@@ -109,7 +109,7 @@ func OpenResource(resValue string, resType charmresource.Type, osOpen osOpenFunc
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return noopCloser{bytes.NewReader(data)}, nil
+		return noopCloser{ReadSeeker: bytes.NewReader(data)}, nil
 	default:
 		return nil, errors.Errorf("unknown resource type %q", resType)
 	}

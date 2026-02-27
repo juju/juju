@@ -56,7 +56,7 @@ func OpenResource(ctx context.Context, name string, client OpenedResourceClient)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		reader = httprequest.BytesReaderCloser{bytes.NewReader(yamlOut)}
+		reader = httprequest.BytesReaderCloser{Reader: bytes.NewReader(yamlOut)}
 		info.Size = int64(len(yamlOut))
 	}
 	or := &OpenedResource{
