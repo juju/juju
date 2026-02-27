@@ -51,6 +51,11 @@ var disallowedCalls = map[string]set.Strings{
 }
 
 var allowedCalls = map[string]set.Strings{
+	// cmd framework helpers may access filesystem directly.
+	"cmd/documentation.go": set.NewStrings("os.Create", "os.Open", "os.Stat"),
+	"cmd/filevar.go":       set.NewStrings("os.Open"),
+	"cmd/logging.go":       set.NewStrings("os.OpenFile"),
+	"cmd/output.go":        set.NewStrings("os.Create"),
 	// Used for checking for new Juju 2 installs.
 	"juju/commands/main.go": set.NewStrings("os.Stat"),
 	// plugins are not enabled for embedded CLI commands.
