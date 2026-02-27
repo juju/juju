@@ -54,6 +54,7 @@ type WorkerConfig struct {
 	ModelServiceGetter         ModelServiceGetter
 	ModelClaimGetter           ModelClaimGetter
 	AllowDraining              bool
+	ControllerNodeID           string
 }
 
 // Validate ensures that the config values are valid.
@@ -93,6 +94,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.ModelClaimGetter == nil {
 		return errors.NotValidf("nil ModelClaimGetter")
+	}
+	if c.ControllerNodeID == "" {
+		return errors.NotValidf("empty ControllerNodeID")
 	}
 	return nil
 }
@@ -341,6 +345,7 @@ func (w *objectStoreWorker) initObjectStore(ctx context.Context, namespace strin
 			internalobjectstore.WithClaimer(claimer),
 			internalobjectstore.WithLogger(w.cfg.Logger.Child(database.ShortNamespace(namespace))),
 			internalobjectstore.WithAllowDraining(w.cfg.AllowDraining),
+			internalobjectstore.WithControllerNodeID(w.cfg.ControllerNodeID),
 		)
 		if err != nil {
 			return nil, errors.Annotatef(err, "creating object store for namespace %q", namespace)

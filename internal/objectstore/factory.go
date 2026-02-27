@@ -115,6 +115,15 @@ func WithNewBlobsClient(clientFn remote.NewBlobsClientFunc) Option {
 	}
 }
 
+// WithControllerNodeID is the option to set the controller node id for the
+// current controller.
+// This is for file based object stores.
+func WithControllerNodeID(nodeID string) Option {
+	return func(o *options) {
+		o.controllerNodeID = nodeID
+	}
+}
+
 type options struct {
 	rootDir         string
 	claimer         Claimer
@@ -130,6 +139,7 @@ type options struct {
 	// File base options
 	apiRemoteCallers   apiremotecaller.APIRemoteCallers
 	newFileBlobsClient remote.NewBlobsClientFunc
+	controllerNodeID   string
 }
 
 func newOptions() *options {
@@ -167,13 +177,14 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 		}
 
 		fileStore, err := NewFileObjectStore(FileObjectStoreConfig{
-			Namespace:       namespace,
-			RootDir:         opts.rootDir,
-			MetadataService: opts.metadataService.ObjectStore(),
-			Claimer:         opts.claimer,
-			Logger:          opts.logger,
-			Clock:           opts.clock,
-			RemoteRetriever: blobRetriever,
+			Namespace:        namespace,
+			RootDir:          opts.rootDir,
+			MetadataService:  opts.metadataService.ObjectStore(),
+			Claimer:          opts.claimer,
+			Logger:           opts.logger,
+			Clock:            opts.clock,
+			RemoteRetriever:  blobRetriever,
+			ControllerNodeID: opts.controllerNodeID,
 		})
 		if err != nil {
 			return nil, errors.Errorf("creating file based objectstore: %w", err)

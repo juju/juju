@@ -199,7 +199,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			dataDir := a.CurrentConfig().DataDir()
+			currentConfig := a.CurrentConfig()
+			dataDir := currentConfig.DataDir()
+
+			// The controller node ID is the machine ID of the current
+			// controller.
+			controllerNodeID := currentConfig.Tag().Id()
 
 			w, err := NewWorker(WorkerConfig{
 				TracerGetter:              tracerGetter,
@@ -221,7 +226,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ModelClaimGetter: modelClaimGetter{
 					manager: leaseManager,
 				},
-				AllowDraining: AllowDraining(controllerConfig, config.IsBootstrapController(dataDir)),
+				AllowDraining:    AllowDraining(controllerConfig, config.IsBootstrapController(dataDir)),
+				ControllerNodeID: controllerNodeID,
 			})
 			return w, errors.Trace(err)
 		},

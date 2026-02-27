@@ -77,6 +77,8 @@ type FileObjectStoreConfig struct {
 	Logger logger.Logger
 	// Clock is the clock for the file object store.
 	Clock clock.Clock
+	// ControllerNodeID is the controller node id of the current controller.
+	ControllerNodeID string
 }
 
 type fileObjectStore struct {
