@@ -394,6 +394,25 @@ func (u UnitStorageMinViolation) Error() string {
 	)
 }
 
+// CharmStorageDefinitionRemoved describes an error that occurs when a charm's
+// storage definition is removed during a refresh for a named storage definition.
+// Example of this would be the previous charm's storage `foo` being removed
+// in the new charm.
+type CharmStorageDefinitionRemoved struct {
+	// StorageName is the name of the storage which was removed in the new charm,
+	// but exists in the old charm.
+	StorageName string
+}
+
+// Error returns a string representation of the [CharmStorageDefinitionRemoved] error
+// providing context of the storage name for the violation.
+// This func implements the [error] interface.
+func (s CharmStorageDefinitionRemoved) Error() string {
+	return fmt.Sprintf(
+		"storage definition %q removed", s.StorageName,
+	)
+}
+
 // CharmStorageTypeChanged describes an error that occurs when a charm's
 // storage type changes during a refresh for a named storage definition.
 // Example of this would be the previous charm's storage `foo` changing from
@@ -413,7 +432,153 @@ type CharmStorageTypeChanged struct {
 // This func implements the [error] interface.
 func (s CharmStorageTypeChanged) Error() string {
 	return fmt.Sprintf(
-		"existing storage %q type changed from %q to %q",
+		"storage definition %q type changed from %q to %q",
 		s.StorageName, s.OldType, s.NewType,
+	)
+}
+
+// CharmStorageDefinitionMinSizeViolation describes an error that occurs when a charm's
+// storage minimum size increases during a refresh for a named storage definition.
+type CharmStorageDefinitionMinSizeViolation struct {
+	// ExistingMin defines the minimum storage size required by the existing charm.
+	ExistingMin uint64
+
+	// NewMin defines the minimum storage size required by the new charm.
+	NewMin uint64
+
+	// StorageName is the name of the storage whose
+	// minimum size check fails.
+	StorageName string
+}
+
+// Error returns a string representation of the [CharmStorageDefinitionMinSizeViolation] error
+// providing context for the violation. This func implements the [error]
+// interface.
+func (s CharmStorageDefinitionMinSizeViolation) Error() string {
+	return fmt.Sprintf(
+		"storage definition %q new minimum size %d MiB exceeds existing minimum size %d MiB",
+		s.StorageName, s.NewMin, s.ExistingMin,
+	)
+}
+
+// CharmStorageDefinitionMinCountViolation describes an error that occurs when a charm's
+// storage minimum count increases during a refresh for a named storage definition.
+type CharmStorageDefinitionMinCountViolation struct {
+	// ExistingMin defines the minimum storage count required by the existing charm.
+	ExistingMin int
+
+	// NewMin defines the minimum storage count required by the new charm.
+	NewMin int
+
+	// StorageName is the name of the storage whose
+	// minimum count check fails.
+	StorageName string
+}
+
+// Error returns a string representation of the [CharmStorageDefinitionMinCountViolation] error
+// providing context for the violation. This func implements the [error]
+// interface.
+func (s CharmStorageDefinitionMinCountViolation) Error() string {
+	return fmt.Sprintf(
+		"storage definition %q new minimum count %d exceeds existing minimum count %d",
+		s.StorageName, s.NewMin, s.ExistingMin,
+	)
+}
+
+// CharmStorageDefinitionMaxCountViolation describes an error that occurs when a charm's
+// storage maximum count decreases during a refresh for a named storage definition.
+type CharmStorageDefinitionMaxCountViolation struct {
+	// ExistingMax defines the maximum storage count required by the existing charm.
+	ExistingMax int
+
+	// NewMax defines the maximum storage count required by the new charm.
+	NewMax int
+
+	// StorageName is the name of the storage whose
+	// maximum count check fails.
+	StorageName string
+}
+
+// Error returns a string representation of the [CharmStorageDefinitionMaxCountViolation] error
+// providing context for the violation. This func implements the [error]
+// interface.
+func (s CharmStorageDefinitionMaxCountViolation) Error() string {
+	if s.ExistingMax < 0 {
+		return fmt.Sprintf(
+			"storage definition %q new maximum count %d is less than existing maximum count (unbounded)",
+			s.StorageName, s.NewMax,
+		)
+	}
+	return fmt.Sprintf(
+		"storage definition %q new maximum count %d is less than existing maximum count %d",
+		s.StorageName, s.NewMax, s.ExistingMax,
+	)
+}
+
+// CharmStorageDefinitionSingleToMultipleViolation describes an error that occurs
+// when a charm's singleton storage definition with a fixed location changes to
+// a multiple storage definition during refresh.
+type CharmStorageDefinitionSingleToMultipleViolation struct {
+	// ExistingMax defines the existing maximum storage count.
+	ExistingMax int
+
+	// NewMax defines the new maximum storage count.
+	NewMax int
+
+	// StorageName is the storage whose single-to-multiple check fails.
+	StorageName string
+}
+
+// Error returns a string representation of the
+// [CharmStorageDefinitionSingleToMultipleViolation] error.
+func (s CharmStorageDefinitionSingleToMultipleViolation) Error() string {
+	return fmt.Sprintf(
+		"storage definition %q cannot change from single to multiple when location is set (maximum count %d -> %d)",
+		s.StorageName, s.ExistingMax, s.NewMax,
+	)
+}
+
+// CharmStorageDefinitionSharedChanged describes an error that occurs when a
+// charm storage definition shared value changes during refresh.
+type CharmStorageDefinitionSharedChanged struct {
+	StorageName   string
+	ExistingValue bool
+	NewValue      bool
+}
+
+func (s CharmStorageDefinitionSharedChanged) Error() string {
+	return fmt.Sprintf(
+		"storage definition %q shared changed from %v to %v",
+		s.StorageName, s.ExistingValue, s.NewValue,
+	)
+}
+
+// CharmStorageDefinitionReadOnlyChanged describes an error that occurs when a
+// charm storage definition read-only value changes during refresh.
+type CharmStorageDefinitionReadOnlyChanged struct {
+	StorageName   string
+	ExistingValue bool
+	NewValue      bool
+}
+
+func (s CharmStorageDefinitionReadOnlyChanged) Error() string {
+	return fmt.Sprintf(
+		"storage definition %q read-only changed from %v to %v",
+		s.StorageName, s.ExistingValue, s.NewValue,
+	)
+}
+
+// CharmStorageDefinitionLocationChanged describes an error that occurs when a
+// charm storage definition location changes during refresh.
+type CharmStorageDefinitionLocationChanged struct {
+	StorageName      string
+	ExistingLocation string
+	NewLocation      string
+}
+
+func (s CharmStorageDefinitionLocationChanged) Error() string {
+	return fmt.Sprintf(
+		"storage definition %q location changed from %q to %q",
+		s.StorageName, s.ExistingLocation, s.NewLocation,
 	)
 }

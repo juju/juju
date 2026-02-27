@@ -174,3 +174,14 @@ type modelStoragePools struct {
 	StorageKindID   int    `db:"storage_kind_id"`
 	StoragePoolUUID string `db:"storage_pool_uuid"`
 }
+
+// updateApplicationStorageDirective represents the data needed to update
+// an application storage directive during charm refresh.
+type updateApplicationStorageDirective struct {
+	ApplicationUUID string `db:"application_uuid"`
+	CharmUUID       string `db:"charm_uuid"`
+	Count           uint32 `db:"count"`
+	SizeMiB         uint64 `db:"size_mib"`
+	StorageName     string `db:"storage_name"`
+	StoragePoolUUID string `db:"storage_pool_uuid"`
+}

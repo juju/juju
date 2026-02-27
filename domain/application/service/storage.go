@@ -160,4 +160,16 @@ type StorageService interface {
 		uuid coreunit.UUID,
 		storageName corestorage.Name,
 	) (application.StorageDirective, error)
+
+	// ReconcileStorageDirectivesAgainstCharmStorage reconciles existing application storage directives
+	// and adds any new storage definitions.
+	ReconcileStorageDirectivesAgainstCharmStorage(
+		ctx context.Context,
+		existingStorageDirectives []application.StorageDirective,
+		newCharmStorages map[string]internalcharm.Storage,
+	) (
+		toCreate []internal.CreateApplicationStorageDirectiveArg,
+		toUpdate []internal.UpdateApplicationStorageDirectiveArg,
+		err error,
+	)
 }

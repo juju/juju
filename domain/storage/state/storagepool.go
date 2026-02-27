@@ -821,3 +821,55 @@ WHERE  uuid IN ($poolUUIDs[:])
 
 	return len(storagePoolUUIDs) == dbVal.Count, nil
 }
+
+// GetStoragePoolUUIDsByName returns name/UUID pairs for storage pools matching
+// the supplied names.
+// If no names are specified, or no storage pools match the criteria,
+// an empty slice is returned without an error.
+func (st *State) GetStoragePoolUUIDsByName(
+	ctx context.Context,
+	names []string,
+) ([]domainstorage.StoragePoolNameUUID, error) {
+	if len(names) == 0 {
+		return []domainstorage.StoragePoolNameUUID{}, nil
+	}
+	spNames := storagePoolNames(names)
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT sp.name AS &StoragePoolNameUUID.name,
+       sp.uuid AS &StoragePoolNameUUID.uuid
+FROM   storage_pool sp
+WHERE  sp.name IN ($storagePoolNames[:])
+`, spNames, domainstorage.StoragePoolNameUUID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var dbRows []domainstorage.StoragePoolNameUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		qerr := tx.Query(ctx, stmt, spNames).GetAll(&dbRows)
+		if errors.Is(qerr, sqlair.ErrNoRows) {
+			return nil
+		}
+		return qerr
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting storage pool UUIDs by name: %w", err)
+	}
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	result := make([]domainstorage.StoragePoolNameUUID, 0, len(dbRows))
+	for _, row := range dbRows {
+		result = append(result, domainstorage.StoragePoolNameUUID{
+			UUID: row.UUID,
+			Name: row.Name,
+		})
+	}
+	return result, nil
+}
