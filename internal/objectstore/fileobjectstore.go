@@ -380,21 +380,21 @@ func (t *fileObjectStore) Report() map[string]any {
 }
 
 // Kill implements the worker.Worker interface.
-func (s *fileObjectStore) Kill() {
-	s.catacomb.Kill(nil)
+func (t *fileObjectStore) Kill() {
+	t.catacomb.Kill(nil)
 }
 
 // Wait implements the worker.Worker interface.
-func (s *fileObjectStore) Wait() error {
-	return s.catacomb.Wait()
+func (t *fileObjectStore) Wait() error {
+	return t.catacomb.Wait()
 }
 
 // scopedContext returns a context that is in the scope of the worker lifetime.
 // It returns a cancellable context that is cancelled when the action has
 // completed.
-func (w *fileObjectStore) scopedContext() (context.Context, context.CancelFunc) {
+func (t *fileObjectStore) scopedContext() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
-	return w.catacomb.Context(ctx), cancel
+	return t.catacomb.Context(ctx), cancel
 }
 
 func (t *fileObjectStore) loop() error {
@@ -795,15 +795,26 @@ func (t *fileObjectStore) remove(ctx context.Context, path string) error {
 
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if err != nil {
-		return errors.Errorf("get metadata: %w", err)
+		return errors.Errorf("getting metadata: %w", err)
 	}
 
 	hash := SelectFileHash(metadata)
 	return t.withLock(ctx, hash, func(ctx context.Context) error {
 		if err := t.metadataService.RemoveMetadata(ctx, path); err != nil {
-			return errors.Errorf("remove metadata: %w", err)
+			return errors.Errorf("removing metadata: %w", err)
 		}
-		return t.deleteObject(ctx, hash)
+
+		// Only delete the underlying file when no metadata entry for this hash
+		// remains. Multiple logical paths can point to the same hash.
+		_, err := t.metadataService.GetMetadataBySHA256(ctx, metadata.SHA256)
+		if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
+			return errors.Capture(t.deleteObject(ctx, hash))
+		} else if err != nil {
+			return errors.Errorf("getting metadata by hash: %w", err)
+		}
+
+		t.logger.Debugf(ctx, "metadata still references hash %q, skipping file deletion", hash)
+		return nil
 	})
 }
 

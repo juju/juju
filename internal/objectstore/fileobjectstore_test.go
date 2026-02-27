@@ -963,6 +963,7 @@ func (s *fileObjectStoreSuite) TestRemoveFileNotFound(c *tc.C) {
 	}, nil)
 
 	s.service.EXPECT().RemoveMetadata(gomock.Any(), "foo").Return(nil)
+	s.service.EXPECT().GetMetadataBySHA256(gomock.Any(), "blah").Return(objectstore.Metadata{}, domainobjectstoreerrors.ErrNotFound)
 
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
@@ -1003,6 +1004,7 @@ func (s *fileObjectStoreSuite) TestRemove(c *tc.C) {
 	}, nil)
 
 	s.service.EXPECT().RemoveMetadata(gomock.Any(), "foo").Return(nil)
+	s.service.EXPECT().GetMetadataBySHA256(gomock.Any(), hash256).Return(objectstore.Metadata{}, domainobjectstoreerrors.ErrNotFound)
 
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
@@ -1018,6 +1020,47 @@ func (s *fileObjectStoreSuite) TestRemove(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectFileDoesNotExist(c, path, hash384)
+
+	workertest.CleanKill(c, store)
+}
+
+func (s *fileObjectStoreSuite) TestRemoveDoesNotDeleteSharedHash(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ch := s.expectWatch()
+
+	path := c.MkDir()
+
+	size, hash384, hash256 := s.createFile(c, s.filePath(path, "inferi"), "foo", "some content")
+
+	s.expectClaim(hash384, 1)
+	s.expectRelease(hash384, 1)
+
+	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   "foo",
+		Size:   size,
+	}, nil)
+
+	s.service.EXPECT().RemoveMetadata(gomock.Any(), "foo").Return(nil)
+	s.service.EXPECT().GetMetadataBySHA256(gomock.Any(), hash256).Return(objectstore.Metadata{
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   "bar",
+		Size:   size,
+	}, nil)
+
+	store := s.newFileObjectStore(c, path)
+	defer workertest.DirtyKill(c, store)
+
+	s.expectStartup(c, ch)
+
+	err := store.Remove(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The same hash is still referenced by another path, so the file must remain.
+	s.expectFileDoesExist(c, path, hash384)
 
 	workertest.CleanKill(c, store)
 }
