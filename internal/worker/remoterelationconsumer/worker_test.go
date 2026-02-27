@@ -44,6 +44,10 @@ func (s *workerSuite) TestWorkerKilled(c *tc.C) {
 			defer close(done)
 			return watchertest.NewMockNotifyWatcher(make(chan struct{})), nil
 		})
+	s.crossModelService.EXPECT().WatchDyingModel(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
+			return watchertest.NewMockNotifyWatcher(make(chan struct{})), nil
+		})
 
 	w := s.newWorker(c, nil)
 	defer workertest.DirtyKill(c, w)
@@ -68,6 +72,10 @@ func (s *workerSuite) TestRemoteApplications(c *tc.C) {
 	exp.WatchRemoteApplicationOfferers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(ch), nil
+		})
+	exp.WatchDyingModel(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
+			return watchertest.NewMockNotifyWatcher(make(chan struct{})), nil
 		})
 
 	exp.GetRemoteApplicationOfferers(gomock.Any()).
@@ -114,6 +122,10 @@ func (s *workerSuite) TestRemoteApplicationsGone(c *tc.C) {
 	exp.WatchRemoteApplicationOfferers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(ch), nil
+		})
+	exp.WatchDyingModel(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
+			return watchertest.NewMockNotifyWatcher(make(chan struct{})), nil
 		})
 
 	exp.GetRemoteApplicationOfferers(gomock.Any()).
@@ -213,4 +225,8 @@ var _ OffererApplicationWorker = (*testOffererApplicationWorker)(nil)
 
 func (w *testOffererApplicationWorker) ConsumeVersion() int {
 	return w.consumeVersion
+}
+
+func (w *testOffererApplicationWorker) PublishModelDying(ctx context.Context) error {
+	return nil
 }
