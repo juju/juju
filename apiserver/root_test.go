@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/pinger"
-	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/rpc/rpcreflect"
 )
 
 type pingSuite struct {

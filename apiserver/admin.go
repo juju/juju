@@ -29,10 +29,10 @@ import (
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modelmigration"
-	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/rpc/rpcreflect"
 )
 
 type adminAPIFactory func(*Server, *apiHandler, observer.Observer) interface{}
