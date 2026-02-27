@@ -317,12 +317,13 @@ func (s *importSuite) TestImportStorageInstances(c *tc.C) {
 	// Arrange
 	expected := []domainstorage.ImportStorageInstanceParams{
 		{
-			PoolName:         "testpool",
-			RequestedSizeMiB: uint64(1024),
-			StorageID:        "multi-fs/1",
-			StorageKind:      "block",
-			StorageName:      "multi-fs",
-			UnitName:         "unit/3",
+			PoolName:          "testpool",
+			RequestedSizeMiB:  uint64(1024),
+			StorageInstanceID: "multi-fs/1",
+			StorageKind:       "block",
+			StorageName:       "multi-fs",
+			UnitName:          "unit/3",
+			AttachedUnitNames: []string{"foo/0", "bar/1"},
 		},
 	}
 	s.noopStoragePoolImport()
@@ -335,7 +336,7 @@ func (s *importSuite) TestImportStorageInstances(c *tc.C) {
 		Kind:        "block",
 		UnitOwner:   "unit/3",
 		Name:        "multi-fs",
-		Attachments: nil,
+		Attachments: []string{"foo/0", "bar/1"},
 		Constraints: &description.StorageInstanceConstraints{
 			Pool: "testpool",
 			Size: 1024,

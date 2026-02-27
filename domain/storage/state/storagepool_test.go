@@ -474,17 +474,14 @@ func (s *storagePoolStateSuite) TestGetStoragePoolProvidersByNamesMiss(c *tc.C) 
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	_, err = st.GetStoragePoolProvidersByNames(c.Context(), []string{"foo", "bar", "baz", "qux"})
+	providers, err := st.GetStoragePoolProvidersByNames(c.Context(), []string{"foo", "bar", "baz", "qux"})
 
 	// Assert
-	c.Check(err, tc.ErrorIs, domainstorageerrors.StoragePoolNotFound)
-}
-
-func (s *storagePoolStateSuite) TestGetStoragePoolProvidersByNamesNoPools(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetStoragePoolProvidersByNames(c.Context(), []string{"foo", "bar"})
-
-	c.Check(err, tc.ErrorIs, domainstorageerrors.StoragePoolNotFound)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(providers, tc.DeepEquals, map[string]string{
+		"foo": "bar",
+		"bar": "foo",
+	})
 }
 
 // getModelStoragePools is a helper method to fetch model storage pools from DB.

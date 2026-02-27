@@ -95,23 +95,30 @@ type ImportStoragePoolParams struct {
 // ImportStorageInstanceParams represents data to import a storage instance
 // and its owner.
 type ImportStorageInstanceParams struct {
-	StorageName      string
-	StorageKind      string
-	StorageID        string
-	RequestedSizeMiB uint64
-	PoolName         string
-	UnitName         string
+	StorageName       string
+	StorageKind       string
+	StorageInstanceID string
+	RequestedSizeMiB  uint64
+	PoolName          string
+	UnitName          string
+	AttachedUnitNames []string
 }
 
 // Validate returns NotValid if the params have an empty StorageID or
 // PoolName or RequestedSizeMiB.
 func (i ImportStorageInstanceParams) Validate() error {
-	if i.PoolName == "" || i.RequestedSizeMiB == 0 || i.StorageID == "" {
+	if i.PoolName == "" || i.RequestedSizeMiB == 0 || i.StorageInstanceID == "" {
 		return errors.New("empty PoolName, RequestedSizeMiB, or StorageID not valid").Add(coreerrors.NotValid)
 	}
 
 	if i.UnitName != "" {
 		if err := coreunit.Name(i.UnitName).Validate(); err != nil {
+			return err
+		}
+	}
+
+	for _, attachment := range i.AttachedUnitNames {
+		if err := coreunit.Name(attachment).Validate(); err != nil {
 			return err
 		}
 	}

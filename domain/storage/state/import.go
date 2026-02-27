@@ -9,15 +9,23 @@ import (
 	"slices"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/storage/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
-// ImportStorageInstances imports storage instances and storage unit
-// owners. Storage unit owners are created if the unit name is provided.
-func (st *State) ImportStorageInstances(ctx context.Context, args []internal.ImportStorageInstanceArgs) error {
+// ImportStorageInstances imports storage instances, storage attachments and
+// storage unit owners if a unit uuid is provided.
+func (st *State) ImportStorageInstances(
+	ctx context.Context,
+	instanceArgs []internal.ImportStorageInstanceArgs,
+	attachmentArgs []internal.ImportStorageInstanceAttachmentArgs,
+) error {
+	if len(instanceArgs) == 0 {
+		return nil
+	}
+
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -35,20 +43,46 @@ INSERT INTO storage_unit_owner (*) VALUES ($importStorageUnitOwner.*)`, importSt
 		return errors.Capture(err)
 	}
 
+	storageAttachments := transform.Slice(attachmentArgs, func(arg internal.ImportStorageInstanceAttachmentArgs) importStorageAttachment {
+		return importStorageAttachment{
+			UUID:                arg.UUID,
+			StorageInstanceUUID: arg.StorageInstanceUUID,
+			UnitUUID:            arg.UnitUUID,
+			LifeID:              int(arg.Life),
+		}
+	})
+
+	insertStorageAttachmentStmt, err := st.Prepare(`
+INSERT INTO storage_attachment (*) VALUES ($importStorageAttachment.*)`, importStorageAttachment{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		storageInstances, storageUnitOwners, err := st.transformStorageInstances(ctx, tx, args)
+		storageInstances, storageUnitOwners, err := st.transformStorageInstances(ctx, tx, instanceArgs)
 		if err != nil {
 			return err
 		}
 
-		err = tx.Query(ctx, insertStorageInstanceStmt, storageInstances).Run()
-		if err != nil {
-			return errors.Errorf("inserting storage instance rows: %w", err)
+		if len(storageInstances) > 0 {
+			err := tx.Query(ctx, insertStorageInstanceStmt, storageInstances).Run()
+			if err != nil {
+				return errors.Errorf("inserting storage instance rows: %w", err)
+			}
 		}
 
-		err = tx.Query(ctx, insertUnitOwnerStmt, storageUnitOwners).Run()
-		if err != nil {
-			return errors.Errorf("inserting storage unit owner rows: %w", err)
+		if len(storageUnitOwners) > 0 {
+			err := tx.Query(ctx, insertUnitOwnerStmt, storageUnitOwners).Run()
+			if err != nil {
+				return errors.Errorf("inserting storage unit owner rows: %w", err)
+			}
+		}
+
+		if len(storageAttachments) > 0 {
+			err := tx.Query(ctx, insertStorageAttachmentStmt, storageAttachments).Run()
+			if err != nil {
+				return errors.Errorf("inserting storage attachment rows: %w", err)
+			}
 		}
 
 		return nil
@@ -162,12 +196,25 @@ func (st *State) transformStorageInstances(
 	tx *sqlair.TX,
 	args []internal.ImportStorageInstanceArgs,
 ) ([]importStorageInstance, []importStorageUnitOwner, error) {
+	if len(args) == 0 {
+		return nil, nil, nil
+	}
+
 	lookups, err := st.getImportStorageInstanceLookups(ctx, tx)
 	if err != nil {
 		return nil, nil, errors.Capture(err)
 	}
 	storageInstances := make([]importStorageInstance, len(args))
 	storageUnitOwners := make([]importStorageUnitOwner, 0)
+
+	stmt, err := st.Prepare(`
+SELECT cm.name AS &name.name
+FROM   unit AS u
+JOIN   charm_metadata AS cm ON u.charm_uuid = cm.charm_uuid
+WHERE  u.uuid = $entityUUID.uuid`, name{}, entityUUID{})
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
 
 	for i, arg := range args {
 		poolUUID, ok := lookups.StoragePoolUUID[arg.PoolName]
@@ -180,57 +227,36 @@ func (st *State) transformStorageInstances(
 		}
 		storageInstances[i] = importStorageInstance{
 			UUID:            arg.UUID,
-			LifeID:          arg.Life,
-			StorageID:       arg.StorageID,
+			LifeID:          int(arg.Life),
+			StorageID:       arg.StorageInstanceID,
 			StorageKindID:   kind,
 			StorageName:     arg.StorageName,
 			StoragePoolUUID: poolUUID,
 			RequestedSize:   arg.RequestedSizeMiB,
 		}
 
-		charmName, unit, err := st.getCharmNameAndUnitUUIDFromUnitName(ctx, tx, arg.UnitName)
-		if errors.Is(err, coreerrors.NotFound) {
+		if arg.UnitUUID == "" {
+			continue
+		}
+
+		var charmName name
+		err := tx.Query(ctx, stmt, entityUUID{UUID: arg.UnitUUID}).Get(&charmName)
+		if errors.Is(err, sql.ErrNoRows) {
 			// Neither charmName in storage_instance storage_unit_owner rows
 			// are required by the DDL.
 			continue
 		} else if err != nil {
-			return nil, nil, errors.Errorf("getting charm and unit uuid from %q: w", err)
+			return nil, nil, errors.Errorf("getting charm name from unit %q: %w", arg.UnitUUID, err)
 		}
 
-		storageInstances[i].CharmName = charmName
+		storageInstances[i].CharmName = charmName.Name
 		storageUnitOwners = append(storageUnitOwners, importStorageUnitOwner{
 			StorageInstanceUUID: arg.UUID,
-			UnitUUID:            unit,
+			UnitUUID:            arg.UnitUUID,
 		})
 	}
 
 	return storageInstances, storageUnitOwners, nil
-}
-
-func (st *State) getCharmNameAndUnitUUIDFromUnitName(
-	ctx context.Context,
-	tx *sqlair.TX,
-	unitName string,
-) (string, string, error) {
-	if unitName == "" {
-		return "", "", coreerrors.NotFound
-	}
-	stmt, err := st.Prepare(`
-SELECT (cm.name, u.uuid) AS (&nameAndUUID.*)
-FROM   unit AS u
-JOIN   charm_metadata AS cm ON u.charm_uuid = cm.charm_uuid
-WHERE  u.name = $name.name`, name{}, nameAndUUID{})
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", "", coreerrors.NotFound
-	} else if err != nil {
-		return "", "", errors.Capture(err)
-	}
-	var output nameAndUUID
-	err = tx.Query(ctx, stmt, name{Name: unitName}).Get(&output)
-	if err != nil {
-		return "", "", errors.Errorf("finding charm name and unit uuid for %q: %w", unitName, err)
-	}
-	return output.Name, output.UUID, nil
 }
 
 // GetNetNodeUUIDsByMachineOrUnitName returns net node UUIDs for all machine or
@@ -300,6 +326,49 @@ FROM (
 	return machineMap, unitMap, nil
 }
 
+// GetUnitUUIDsByNames returns a map of unit names to unit UUIDs for the provided
+// unit names.
+func (st *State) GetUnitUUIDsByNames(ctx context.Context, units []string) (map[string]string, error) {
+	if len(units) == 0 {
+		return map[string]string{}, nil
+	}
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type unitNames []string
+	unitNameInput := unitNames(units)
+
+	stmt, err := st.Prepare(`
+SELECT &nameAndUUID.*
+FROM unit
+WHERE name IN ($unitNames[:])
+	`, unitNameInput, nameAndUUID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var nameAndUUIDs []nameAndUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, unitNameInput).GetAll(&nameAndUUIDs)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(map[string]string, len(nameAndUUIDs))
+	for _, nu := range nameAndUUIDs {
+		result[nu.Name] = nu.UUID
+	}
+	return result, nil
+}
+
 // ImportVolumes creates new volumes and storage instance volumes.
 func (st *State) ImportVolumes(ctx context.Context, args []internal.ImportVolumeArgs) error {
 	if len(args) == 0 {
@@ -310,6 +379,7 @@ func (st *State) ImportVolumes(ctx context.Context, args []internal.ImportVolume
 	if err != nil {
 		return errors.Capture(err)
 	}
+
 	storageVolumeData, storageInstanceVolumeData := makeInsertVolumeArgs(args)
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.importStorageVolumes(ctx, tx, storageVolumeData); err != nil {

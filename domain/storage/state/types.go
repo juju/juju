@@ -78,6 +78,13 @@ type importStorageUnitOwner struct {
 	UnitUUID            string `db:"unit_uuid"`
 }
 
+type importStorageAttachment struct {
+	UUID                string `db:"uuid"`
+	StorageInstanceUUID string `db:"storage_instance_uuid"`
+	UnitUUID            string `db:"unit_uuid"`
+	LifeID              int    `db:"life_id"`
+}
+
 type importStorageFilesystem struct {
 	UUID       string `db:"uuid"`
 	ID         string `db:"filesystem_id"`

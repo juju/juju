@@ -141,12 +141,13 @@ func (i *importOperation) importStorageInstances(ctx context.Context, instances 
 			size = constraints.Size
 		}
 		return domainstorage.ImportStorageInstanceParams{
-			StorageName:      in.Name(),
-			StorageKind:      in.Kind(),
-			StorageID:        in.ID(),
-			UnitName:         owner,
-			RequestedSizeMiB: size,
-			PoolName:         pool,
+			StorageName:       in.Name(),
+			StorageKind:       in.Kind(),
+			StorageInstanceID: in.ID(),
+			UnitName:          owner,
+			RequestedSizeMiB:  size,
+			PoolName:          pool,
+			AttachedUnitNames: in.Attachments(),
 		}, nil
 	})
 

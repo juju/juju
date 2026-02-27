@@ -83,20 +83,18 @@ func (s *instanceSuite) TestGetStorageInstanceUUIDsByIDsDuplicateIDs(c *tc.C) {
 
 func (s *instanceSuite) TestGetStorageInstanceUUIDsByIDsMiss(c *tc.C) {
 	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
-	_, id1 := s.newStorageInstanceForCharmWithPool(
+	uuid1, id1 := s.newStorageInstanceForCharmWithPool(
 		c, "foo", poolUUID, "token1",
 	)
-	_, id2 := s.newStorageInstanceForCharmWithPool(
+	uuid2, id2 := s.newStorageInstanceForCharmWithPool(
 		c, "bar", poolUUID, "token2",
 	)
 
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetStorageInstanceUUIDsByIDs(c.Context(), []string{id1, id2, "foo", "bar"})
-	c.Check(err, tc.ErrorIs, domainstorageerrors.StorageInstanceNotFound)
-}
-
-func (s *instanceSuite) TestGetStorageInstanceUUIDsByIDsNoInstances(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetStorageInstanceUUIDsByIDs(c.Context(), []string{"foo", "bar"})
-	c.Check(err, tc.ErrorIs, domainstorageerrors.StorageInstanceNotFound)
+	uuidMap, err := st.GetStorageInstanceUUIDsByIDs(c.Context(), []string{id1, id2, "foo", "bar"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuidMap, tc.DeepEquals, map[string]string{
+		id1: uuid1.String(),
+		id2: uuid2.String(),
+	})
 }
