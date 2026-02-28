@@ -161,7 +161,10 @@ func (ro ResourceOpener) getResource(
 	defer func() {
 		// Call done if not returning a ReadCloser that calls done on Close.
 		if err != nil {
+			resourceLogger.Warningf(ctx, "failed to open resource %s for application %s: %v", resName, ro.appID, err)
 			done()
+		} else {
+			resourceLogger.Infof(ctx, "resource opener returned without error for resource %s for application %s", resName, ro.appID)
 		}
 	}()
 
