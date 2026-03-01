@@ -204,7 +204,7 @@ run_increase_size() {
     # Refresh charm to revision 2 which has a larger storage size.
     # This should fail.
     OUT=$(juju refresh "storage-refresher" --revision 2 2>&1 || true)
-    echo "$OUT" | grep -q 'storage definition "awesome-fs".*exceeds existing minimum size'
+    echo "$OUT" | check 'storage definition "awesome-fs".*exceeds existing minimum size'
 
     # Stay at revision 1.
     wait_for "storage-refresher" "$(charm_rev "storage-refresher" 1)"
@@ -233,7 +233,7 @@ run_delete_storage_definition() {
     # Refresh charm to revision 5 which deletes storage "awesome-fs".
     # This should fail.
     OUT=$(juju refresh "storage-refresher" --revision 5 2>&1 || true)
-    echo "$OUT" | grep -q 'storage definition "awesome-fs" removed'
+    echo "$OUT" | check 'storage definition "awesome-fs" removed'
 
     # Stay at revision 1.
     wait_for "storage-refresher" "$(charm_rev "storage-refresher" 1)"
@@ -282,7 +282,7 @@ run_new_storage_definition() {
 
 # Tests a charm with single storage instance refreshed to one with
 # multiple storage instance of the same name is rejected during charm refresh.
-run_single_to_multiple_storage_instances_violates() {
+run_single_to_multiple_storage_instances() {
   	echo
 
   	model_name="test-single-to-multiple-storage-instances-violates"
@@ -303,7 +303,13 @@ run_single_to_multiple_storage_instances_violates() {
     # with count range 2-5.
     # This should fail because it violates the existing storage requirement.
     OUT=$(juju refresh "storage-refresher" --revision 6 2>&1 || true)
-    echo "$OUT" | grep -q 'storage definition "awesome-fs" new minimum count 2 exceeds existing minimum count 1'
+    echo "$OUT" | check 'storage definition "awesome-fs" new minimum count 2 exceeds existing minimum count 1'
+
+    # Refresh charm to revision 7 which changes "awesome-fs" to be multiple instances
+    # with count range 1-5.
+    # This should fail because it violates the existing storage requirement.
+    OUT=$(juju refresh "storage-refresher" --revision 7 2>&1 || true)
+    echo "$OUT" | check 'storage definition "awesome-fs" cannot change from single to multiple when location is set'
 
     # Revision remains at 1.
 	  wait_for "storage-refresher" "$(charm_rev "storage-refresher" 1)"
@@ -333,12 +339,48 @@ run_filesystem_to_block() {
     # Refresh charm to revision 8 which changes "awesome-fs" to be a block type.
     # This should fail because you cannot change the storage type.
     OUT=$(juju refresh "storage-refresher" --revision 8 2>&1 || true)
-    echo "$OUT" | grep -q 'storage definition "awesome-fs" type changed from "filesystem" to "block"'
+    echo "$OUT" | check 'storage definition "awesome-fs" type changed from "filesystem" to "block"'
 
     # Revision remains at 1.
     wait_for "storage-refresher" "$(charm_rev "storage-refresher" 1)"
 
     destroy_model "$model_name"
+}
+
+run_change_shared_readonly_location() {
+    	model_name="test-change-shared-readonly-location"
+    	file="${TEST_DIR}/${model_name}.log"
+
+      ensure "${model_name}" "${file}"
+
+      juju deploy "storage-refresher" --revision 1 --channel latest/edge
+      wait_for "storage-refresher" "$(active_idle_condition "storage-refresher")"
+
+      # Assert that storage is attached to the unit.
+      if ! assert_storage_attached "storage-refresher/0" "awesome-fs/0"; then
+          echo $(red "awesome-fs/0 is not attached")
+          exit 1
+      fi
+
+      # Refresh charm to revision 11 which changes "awesome-fs" to be a shared storage.
+      # This should fail because you cannot change the shared property.
+      OUT=$(juju refresh "storage-refresher" --revision 11 2>&1 || true)
+      echo "$OUT" | check 'charm storage "awesome-fs" requires shared storage which is not implemented'
+
+      # Refresh charm to revision 12 which changes "awesome-fs" to be a readonly storage.
+      # This should fail because you cannot change the read-only type.
+      OUT=$(juju refresh "storage-refresher" --revision 12 2>&1 || true)
+      echo "$OUT" | check 'storage definition "awesome-fs" read-only changed from false to true'
+
+      # Refresh charm to revision 13 which changes "awesome-fs" mount location.
+      # This should fail because you cannot change the location.
+      OUT=$(juju refresh "storage-refresher" --revision 13 2>&1 || true)
+      echo "$OUT" | check 'storage definition "awesome-fs" location changed from "/awesome-fs" to "/new/awesome-fs/"'
+
+      # Revision remains at 1.
+      wait_for "storage-refresher" "$(charm_rev "storage-refresher" 1)"
+
+      destroy_model "$model_name"
 }
 
 test_refresh_charm_storage() {
@@ -357,7 +399,8 @@ test_refresh_charm_storage() {
     run "run_increase_size"
     run "run_delete_storage_definition"
     run "run_new_storage_definition"
-    run "run_single_to_multiple_storage_instances_violates"
+    run "run_single_to_multiple_storage_instances"
     run "run_filesystem_to_block"
+    run "run_change_shared_readonly_location"
 	)
 }
