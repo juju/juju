@@ -9,3 +9,7 @@ I created a charm [storage-refresher](https://charmhub.io/storage-refresher) to 
 - Revision 7: changes existing storage awesome-fs to become multiple with min count 1 and max count 5
 - Revision 8: changes existing storage awesome-fs to be a block
 - Revision 9: same as Revision 1 (no changes)
+- Rev 10: obsolete 
+- Rev 11: changes shared to true
+- Rev 12: changes readonly to true
+- Rev 13: changes location to /new/awesome-fs/
