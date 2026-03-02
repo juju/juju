@@ -32,6 +32,51 @@ func (s *secretSuite) TestProcessRemovalJobInvalidJobType(c *tc.C) {
 	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobTypeNotValid)
 }
 
+func (s *secretSuite) TestProcessUserSecretRemovalJobInvalidArgs(c *tc.C) {
+	j := removal.Job{
+		UUID:        func() removal.UUID { u, _ := removal.NewUUID(); return u }(),
+		RemovalType: removal.UserSecretJob,
+		EntityUUID:  secrets.NewURI().String(),
+		Arg: map[string]any{
+			"revisions": "not-a-valid-type",
+		},
+	}
+	err := s.newService(c).processUserSecretRemovalJob(c.Context(), j)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobArgsInvalid)
+}
+
+func (s *secretSuite) TestProcessUserSecretRemovalJobInvalidRevisions(c *tc.C) {
+	j := removal.Job{
+		UUID:        func() removal.UUID { u, _ := removal.NewUUID(); return u }(),
+		RemovalType: removal.UserSecretJob,
+		EntityUUID:  secrets.NewURI().String(),
+		Arg: map[string]any{
+			"revisions": []any{"invalid-revisions"},
+		},
+	}
+	err := s.newService(c).processUserSecretRemovalJob(c.Context(), j)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobArgsInvalid)
+}
+
+func (s *secretSuite) TestExecuteJobForUserSecretWithInvalidArgs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := removal.Job{
+		UUID:        func() removal.UUID { u, _ := removal.NewUUID(); return u }(),
+		RemovalType: removal.UserSecretJob,
+		EntityUUID:  secrets.NewURI().String(),
+		Arg: map[string]any{
+			"revisions": "not-a-valid-type",
+		},
+	}
+
+	// The job is non-retryable, so it must be deleted from the model state.
+	s.modelState.EXPECT().DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *secretSuite) TestExecuteJobForUserSecretDelete(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -101,8 +101,14 @@ func (s *Service) processUserSecretRemovalJob(ctx context.Context, job removal.J
 						revisions = append(revisions, int(rv))
 					case int64:
 						revisions = append(revisions, int(rv))
+					default:
+						return errors.Errorf("revision value is not integer: %v", rv).
+							Add(removalerrors.RemovalJobArgsInvalid)
 					}
 				}
+			default:
+				return errors.Errorf("invalid revisions type: %T", v).Add(removalerrors.RemovalJobArgsInvalid)
+
 			}
 		}
 	}
