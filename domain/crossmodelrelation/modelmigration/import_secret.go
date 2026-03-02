@@ -5,7 +5,6 @@ package modelmigration
 
 import (
 	"context"
-	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v11"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/crossmodelrelation/service"
 	modelstate "github.com/juju/juju/domain/crossmodelrelation/state/model"
+	domainmodelmigration "github.com/juju/juju/domain/modelmigration/modelmigration"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -129,7 +129,7 @@ func extractRemoteGrants(secret description.Secret) ([]service.GrantedSecretACLI
 		if err != nil {
 			return nil, errors.Errorf("parsing application tag from secret ACL key %q: %w", app, err)
 		}
-		if !isRemoteApplication(tag) {
+		if !domainmodelmigration.IsRemoteSecretGrant(tag) {
 			// Not a remote application, skip since remote secrets are granted
 			// to applications through relations.
 			continue
@@ -151,10 +151,6 @@ func extractRemoteGrants(secret description.Secret) ([]service.GrantedSecretACLI
 		})
 	}
 	return result, nil
-}
-
-func isRemoteApplication(tag names.Tag) bool {
-	return tag.Kind() == names.ApplicationTagKind && strings.HasPrefix(tag.Id(), "remote-")
 }
 
 func extractRemoteConsumers(secret description.Secret) ([]service.GrantedSecretConsumerImport, error) {

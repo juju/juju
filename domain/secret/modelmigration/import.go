@@ -1,4 +1,4 @@
-// Copyright 2024 Canonical Ltd.
+// Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package modelmigration
@@ -7,7 +7,6 @@ import (
 	"context"
 	"reflect"
 	"sort"
-	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v11"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/secrets"
+	domainmodelmigration "github.com/juju/juju/domain/modelmigration/modelmigration"
 	"github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/domain/secret/service"
@@ -306,7 +306,7 @@ func (i *importOperation) collateAccess(secretAccess map[string]description.Secr
 			return nil, errors.Errorf("invalid access scope: %w", err)
 		}
 
-		if isRemoteTag(consumerTag) {
+		if domainmodelmigration.IsRemoteSecretGrant(consumerTag) {
 			// Remote secrets are not imported in secret domain.
 			// See crossmodelrelation/modelmigration/import.go
 			continue
@@ -319,9 +319,4 @@ func (i *importOperation) collateAccess(secretAccess map[string]description.Secr
 		})
 	}
 	return result, nil
-}
-
-// isRemoteTag returns true if the given tag is a remote tag.
-func isRemoteTag(tag names.Tag) bool {
-	return strings.HasPrefix(tag.Id(), "remote-")
 }
