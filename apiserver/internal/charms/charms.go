@@ -4,11 +4,9 @@
 package charms
 
 import (
-	"archive/zip"
 	"context"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 
 	"github.com/juju/errors"
@@ -57,38 +55,6 @@ func ReadCharmFromStorage(ctx context.Context, objectStore ReadObjectStore, data
 		return "", errors.Annotate(err, "error processing charm archive download")
 	}
 	return charmFile.Name(), nil
-}
-
-// CharmArchiveEntry retrieves the specified entry from the zip archive.
-func CharmArchiveEntry(charmPath, entryPath string) ([]byte, error) {
-	// TODO(fwereade) 2014-01-27 bug #1285685
-	// This doesn't handle symlinks helpfully, and should be talking in
-	// terms of bundles rather than zip readers; but this demands thought
-	// and design and is not amenable to a quick fix.
-	zipReader, err := zip.OpenReader(charmPath)
-	if err != nil {
-		return nil, errors.Annotatef(err, "unable to read charm")
-	}
-	defer zipReader.Close()
-	for _, file := range zipReader.File {
-		if path.Clean(file.Name) != entryPath {
-			continue
-		}
-		fileInfo := file.FileInfo()
-		if fileInfo.IsDir() {
-			return nil, &params.Error{
-				Message: "directory listing not allowed",
-				Code:    params.CodeForbidden,
-			}
-		}
-		contents, err := file.Open()
-		if err != nil {
-			return nil, errors.Annotatef(err, "unable to read file %q", entryPath)
-		}
-		defer contents.Close()
-		return io.ReadAll(contents)
-	}
-	return nil, errors.NotFoundf("charm file")
 }
 
 // ValidateCharmOrigin validates the Source of the charm origin for args received
