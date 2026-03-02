@@ -2171,7 +2171,7 @@ func (s *BundleDeployRepositorySuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.deployerAPI = mocks.NewMockDeployerAPI(ctrl)
 	s.deployerAPI.EXPECT().BestFacadeVersion("Resources").Return(666).AnyTimes()
 	s.deployerAPI.EXPECT().BestFacadeVersion("Charms").Return(666).AnyTimes()
-	s.deployerAPI.EXPECT().HTTPClient().Return(&httprequest.Client{}, nil).AnyTimes()
+	s.deployerAPI.EXPECT().HTTPClient(base.HTTPClientScopeModel).Return(&httprequest.Client{}, nil).AnyTimes()
 	s.bundleResolver = mocks.NewMockResolver(ctrl)
 	s.charmReader = mocks.NewMockCharmReader(ctrl)
 	s.stdOut = mocks.NewMockWriter(ctrl)

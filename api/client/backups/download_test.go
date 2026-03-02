@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/tc"
 	"gopkg.in/httprequest.v1"
 )
@@ -32,7 +33,7 @@ func (s *downloadSuite) TestDownload(c *tc.C) {
 	defer srv.Close()
 	httpClient := &httprequest.Client{BaseURL: srv.URL}
 
-	s.apiCaller.EXPECT().HTTPClient().Return(httpClient, nil)
+	s.apiCaller.EXPECT().HTTPClient(base.HTTPClientScopeModel).Return(httpClient, nil)
 
 	client := s.newClient()
 	rdr, err := client.Download(c.Context(), "/path/to/backup")

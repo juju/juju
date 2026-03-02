@@ -19,6 +19,19 @@ import (
 	"github.com/juju/juju/rpc"
 )
 
+// HTTPClientScope indicates the scope of the HTTP client returned by
+// APICaller.HTTPClient.
+type HTTPClientScope string
+
+const (
+	// HTTPClientScopeModel indicates that the HTTP client is scoped to a model.
+	HTTPClientScopeModel HTTPClientScope = "model"
+
+	// HTTPClientScopeController indicates that the HTTP client is scoped to a
+	// controller.
+	HTTPClientScopeController HTTPClientScope = "controller"
+)
+
 // APICaller is implemented by the client-facing State object.
 // It defines the lowest level of API calls and is used by
 // the various API implementations to actually make
@@ -44,11 +57,7 @@ type APICaller interface {
 	//
 	// Note that the URLs in HTTP requests passed to the Client.Do
 	// method should not include a host part.
-	HTTPClient() (*httprequest.Client, error)
-
-	// RootHTTPClient returns an httprequest.Client pointing to
-	// the API server root path.
-	RootHTTPClient() (*httprequest.Client, error)
+	HTTPClient(HTTPClientScope) (*httprequest.Client, error)
 
 	// BakeryClient returns the bakery client for this connection.
 	BakeryClient() MacaroonDischarger

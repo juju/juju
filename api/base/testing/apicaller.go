@@ -40,12 +40,8 @@ func (APICallerFunc) Close() error {
 	return nil
 }
 
-func (APICallerFunc) HTTPClient() (*httprequest.Client, error) {
+func (APICallerFunc) HTTPClient(base.HTTPClientScope) (*httprequest.Client, error) {
 	return nil, errors.New("no HTTP client available in this test")
-}
-
-func (APICallerFunc) RootHTTPClient() (*httprequest.Client, error) {
-	return nil, errors.New("no Root HTTP client available in this test")
 }
 
 func (APICallerFunc) BakeryClient() base.MacaroonDischarger {

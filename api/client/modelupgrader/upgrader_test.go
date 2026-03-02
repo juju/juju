@@ -15,6 +15,7 @@ import (
 	"go.uber.org/mock/gomock"
 	"gopkg.in/httprequest.v1"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/modelupgrader"
 	"github.com/juju/juju/api/client/modelupgrader/mocks"
 	"github.com/juju/juju/core/semversion"
@@ -109,7 +110,7 @@ func (s *UpgradeModelSuite) TestUploadTools(c *tc.C) {
 	resp.Header.Set("Content-Type", "application/json")
 
 	apiCaller.EXPECT().BestFacadeVersion("ModelUpgrader").Return(1)
-	apiCaller.EXPECT().HTTPClient().Return(&httprequest.Client{Doer: doer}, nil)
+	apiCaller.EXPECT().HTTPClient(base.HTTPClientScopeModel).Return(&httprequest.Client{Doer: doer}, nil)
 	doer.EXPECT().Do(req).Return(resp, nil)
 
 	client := modelupgrader.NewClient(apiCaller)

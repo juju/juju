@@ -156,7 +156,7 @@ func (c *Client) httpPost(ctx context.Context, content io.ReadSeeker, endpoint, 
 	req.Header.Set("Content-Type", contentType)
 
 	// The returned httpClient sets the base url to /model/<uuid> if it can.
-	httpClient, err := c.conn.HTTPClient()
+	httpClient, err := c.conn.HTTPClient(base.HTTPClientScopeModel)
 	if err != nil {
 		return errors.Trace(err)
 	}

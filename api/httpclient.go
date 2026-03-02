@@ -16,13 +16,30 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/httprequest.v1"
 
+	"github.com/juju/juju/api/base"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/rpc/params"
 )
 
-// HTTPClient implements Connection.APICaller.HTTPClient and returns an HTTP
-// client pointing to the API server "/model/:uuid/" path.
-func (c *conn) HTTPClient() (*httprequest.Client, error) {
+// HTTPClient returns a HTTP client that can be used to make authenticated
+// requests to the API server. The returned client will have its BaseURL set to
+// the appropriate API endpoint for the given scope.
+//
+// JSON responses from the API server will be automatically unmarshaled if there
+// is an error, and coerced into the API error type. Non-JSON error responses
+// will be returned as errors with the response body as the message.
+func (c *conn) HTTPClient(scope base.HTTPClientScope) (*httprequest.Client, error) {
+	switch scope {
+	case base.HTTPClientScopeModel:
+		return c.modelScopedHTTPClient()
+	case base.HTTPClientScopeController:
+		return c.controllerScopedHTTPClient()
+	default:
+		return nil, errors.Errorf("unknown HTTP client scope %q", scope)
+	}
+}
+
+func (c *conn) modelScopedHTTPClient() (*httprequest.Client, error) {
 	apiPath, err := apiPath(c.modelTag.Id(), "/")
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -34,9 +51,7 @@ func (c *conn) HTTPClient() (*httprequest.Client, error) {
 	return c.httpClient(url)
 }
 
-// RootHTTPClient implements Connection.APICaller.HTTPClient and returns an HTTP
-// client pointing to the API server root path.
-func (c *conn) RootHTTPClient() (*httprequest.Client, error) {
+func (c *conn) controllerScopedHTTPClient() (*httprequest.Client, error) {
 	url := c.Addr()
 	url.Scheme = c.serverScheme
 	return c.httpClient(url)

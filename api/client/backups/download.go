@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/httprequest.v1"
 
+	"github.com/juju/juju/api/base"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -22,7 +23,7 @@ type downloadParams struct {
 
 // Download returns an io.ReadCloser for the given backup id.
 func (c *Client) Download(ctx context.Context, filename string) (io.ReadCloser, error) {
-	httpClient, err := c.st.HTTPClient()
+	httpClient, err := c.st.HTTPClient(base.HTTPClientScopeModel)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

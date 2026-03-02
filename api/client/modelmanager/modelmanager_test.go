@@ -269,9 +269,9 @@ func (s *modelmanagerSuite) TestModelDefaults(c *tc.C) {
 	res := new(params.ModelDefaultsResults)
 	ress := params.ModelDefaultsResults{
 		Results: []params.ModelDefaultsResult{{Config: map[string]params.ModelDefaults{
-			"foo": {"bar", "model", []params.RegionDefaults{{
-				"dummy-region",
-				"dummy-value"}}},
+			"foo": {Default: "bar", Controller: "model", Regions: []params.RegionDefaults{{
+				RegionName: "dummy-region",
+				Value:      "dummy-value"}}},
 		}}},
 	}
 
@@ -283,9 +283,9 @@ func (s *modelmanagerSuite) TestModelDefaults(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(result, tc.DeepEquals, config.ModelDefaultAttributes{
-		"foo": {"bar", "model", []config.RegionDefaultValue{{
-			"dummy-region",
-			"dummy-value"}}},
+		"foo": {Default: "bar", Controller: "model", Regions: []config.RegionDefaultValue{{
+			Name:  "dummy-region",
+			Value: "dummy-value"}}},
 	})
 }
 
@@ -678,7 +678,7 @@ func (s *dumpModelSuite) TestDumpModelDB(c *tc.C) {
 			"life": 0,
 		}},
 	}
-	args := params.Entities{[]params.Entity{{coretesting.ModelTag.String()}}}
+	args := params.Entities{Entities: []params.Entity{{Tag: coretesting.ModelTag.String()}}}
 
 	res := new(params.MapResults)
 	ress := params.MapResults{Results: []params.MapResult{{
@@ -698,7 +698,7 @@ func (s *dumpModelSuite) TestDumpModelDBError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	args := params.Entities{[]params.Entity{{coretesting.ModelTag.String()}}}
+	args := params.Entities{Entities: []params.Entity{{Tag: coretesting.ModelTag.String()}}}
 
 	res := new(params.MapResults)
 	ress := params.MapResults{Results: []params.MapResult{{

@@ -275,18 +275,18 @@ func (c *MockAPICallCloserConnectStreamCall) DoAndReturn(f func(context.Context,
 }
 
 // HTTPClient mocks base method.
-func (m *MockAPICallCloser) HTTPClient() (*httprequest.Client, error) {
+func (m *MockAPICallCloser) HTTPClient(arg0 base.HTTPClientScope) (*httprequest.Client, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HTTPClient")
+	ret := m.ctrl.Call(m, "HTTPClient", arg0)
 	ret0, _ := ret[0].(*httprequest.Client)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // HTTPClient indicates an expected call of HTTPClient.
-func (mr *MockAPICallCloserMockRecorder) HTTPClient() *MockAPICallCloserHTTPClientCall {
+func (mr *MockAPICallCloserMockRecorder) HTTPClient(arg0 any) *MockAPICallCloserHTTPClientCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HTTPClient", reflect.TypeOf((*MockAPICallCloser)(nil).HTTPClient))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HTTPClient", reflect.TypeOf((*MockAPICallCloser)(nil).HTTPClient), arg0)
 	return &MockAPICallCloserHTTPClientCall{Call: call}
 }
 
@@ -302,13 +302,13 @@ func (c *MockAPICallCloserHTTPClientCall) Return(arg0 *httprequest.Client, arg1 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAPICallCloserHTTPClientCall) Do(f func() (*httprequest.Client, error)) *MockAPICallCloserHTTPClientCall {
+func (c *MockAPICallCloserHTTPClientCall) Do(f func(base.HTTPClientScope) (*httprequest.Client, error)) *MockAPICallCloserHTTPClientCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAPICallCloserHTTPClientCall) DoAndReturn(f func() (*httprequest.Client, error)) *MockAPICallCloserHTTPClientCall {
+func (c *MockAPICallCloserHTTPClientCall) DoAndReturn(f func(base.HTTPClientScope) (*httprequest.Client, error)) *MockAPICallCloserHTTPClientCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -348,45 +348,6 @@ func (c *MockAPICallCloserModelTagCall) Do(f func() (names.ModelTag, bool)) *Moc
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockAPICallCloserModelTagCall) DoAndReturn(f func() (names.ModelTag, bool)) *MockAPICallCloserModelTagCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// RootHTTPClient mocks base method.
-func (m *MockAPICallCloser) RootHTTPClient() (*httprequest.Client, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RootHTTPClient")
-	ret0, _ := ret[0].(*httprequest.Client)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// RootHTTPClient indicates an expected call of RootHTTPClient.
-func (mr *MockAPICallCloserMockRecorder) RootHTTPClient() *MockAPICallCloserRootHTTPClientCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHTTPClient", reflect.TypeOf((*MockAPICallCloser)(nil).RootHTTPClient))
-	return &MockAPICallCloserRootHTTPClientCall{Call: call}
-}
-
-// MockAPICallCloserRootHTTPClientCall wrap *gomock.Call
-type MockAPICallCloserRootHTTPClientCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockAPICallCloserRootHTTPClientCall) Return(arg0 *httprequest.Client, arg1 error) *MockAPICallCloserRootHTTPClientCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockAPICallCloserRootHTTPClientCall) Do(f func() (*httprequest.Client, error)) *MockAPICallCloserRootHTTPClientCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAPICallCloserRootHTTPClientCall) DoAndReturn(f func() (*httprequest.Client, error)) *MockAPICallCloserRootHTTPClientCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
