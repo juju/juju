@@ -222,31 +222,32 @@ func (s SeriesName) String() string {
 }
 
 const (
-	Precise SeriesName = "precise"
-	Quantal SeriesName = "quantal"
-	Raring  SeriesName = "raring"
-	Saucy   SeriesName = "saucy"
-	Trusty  SeriesName = "trusty"
-	Utopic  SeriesName = "utopic"
-	Vivid   SeriesName = "vivid"
-	Wily    SeriesName = "wily"
-	Xenial  SeriesName = "xenial"
-	Yakkety SeriesName = "yakkety"
-	Zesty   SeriesName = "zesty"
-	Artful  SeriesName = "artful"
-	Bionic  SeriesName = "bionic"
-	Cosmic  SeriesName = "cosmic"
-	Disco   SeriesName = "disco"
-	Eoan    SeriesName = "eoan"
-	Focal   SeriesName = "focal"
-	Groovy  SeriesName = "groovy"
-	Hirsute SeriesName = "hirsute"
-	Impish  SeriesName = "impish"
-	Jammy   SeriesName = "jammy"
-	Kinetic SeriesName = "kinetic"
-	Lunar   SeriesName = "lunar"
-	Mantic  SeriesName = "mantic"
-	Noble   SeriesName = "noble"
+	Precise  SeriesName = "precise"
+	Quantal  SeriesName = "quantal"
+	Raring   SeriesName = "raring"
+	Saucy    SeriesName = "saucy"
+	Trusty   SeriesName = "trusty"
+	Utopic   SeriesName = "utopic"
+	Vivid    SeriesName = "vivid"
+	Wily     SeriesName = "wily"
+	Xenial   SeriesName = "xenial"
+	Yakkety  SeriesName = "yakkety"
+	Zesty    SeriesName = "zesty"
+	Artful   SeriesName = "artful"
+	Bionic   SeriesName = "bionic"
+	Cosmic   SeriesName = "cosmic"
+	Disco    SeriesName = "disco"
+	Eoan     SeriesName = "eoan"
+	Focal    SeriesName = "focal"
+	Groovy   SeriesName = "groovy"
+	Hirsute  SeriesName = "hirsute"
+	Impish   SeriesName = "impish"
+	Jammy    SeriesName = "jammy"
+	Kinetic  SeriesName = "kinetic"
+	Lunar    SeriesName = "lunar"
+	Mantic   SeriesName = "mantic"
+	Noble    SeriesName = "noble"
+	Resolute SeriesName = "resolute"
 )
 
 var ubuntuSeries = map[SeriesName]seriesVersion{
@@ -383,6 +384,14 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 		WorkloadType: ControllerWorkloadType,
 		OS:           UbuntuOS,
 		Version:      "24.04",
+		LTS:          true,
+		Supported:    true,
+		ESMSupported: true,
+	},
+	Resolute: {
+		WorkloadType: ControllerWorkloadType,
+		OS:           UbuntuOS,
+		Version:      "26.04",
 		LTS:          true,
 		Supported:    true,
 		ESMSupported: true,
