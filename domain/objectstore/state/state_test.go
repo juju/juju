@@ -14,6 +14,7 @@ import (
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/errors"
 )
 
 type stateSuite struct {
@@ -443,6 +444,51 @@ func (s *stateSuite) TestPutMetadataWithControllerIDHintMultipleTimes(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(metadata, tc.DeepEquals, metadatas[i])
 	}
+}
+
+func (s *stateSuite) TestAddControllerIDHint(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	uuid := tc.Must(c, coreobjectstore.NewUUID).String()
+
+	metadata := coreobjectstore.Metadata{
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "blah-foo",
+		Size:   666,
+	}
+
+	_, err := st.PutMetadataWithControllerIDHint(c.Context(), uuid, metadata, "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.AddControllerIDHint(c.Context(), "sha384", "2")
+	c.Assert(err, tc.ErrorIsNil)
+
+	runner, err := s.TxnRunnerFactory()(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	var nodes []string
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT p.node_id
+FROM object_store_placement AS p
+JOIN object_store_metadata AS m ON p.uuid = m.uuid
+WHERE m.sha_384 = ?`, "sha384")
+		if err != nil {
+			return errors.Errorf("querying placement hints: %w", err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var nodeID string
+			if err := rows.Scan(&nodeID); err != nil {
+				return errors.Errorf("scanning placement hint: %w", err)
+			}
+			nodes = append(nodes, nodeID)
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(nodes, tc.SameContents, []string{"1", "2"})
 }
 
 func (s *stateSuite) TestRemoveMetadataNotExists(c *tc.C) {

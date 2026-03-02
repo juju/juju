@@ -1,10 +1,8 @@
 CREATE TABLE object_store_placement (
-    uuid TEXT NOT NULL PRIMARY KEY,
+    uuid TEXT NOT NULL,
     node_id TEXT NOT NULL,
     CONSTRAINT fk_object_store_placement_uuid
     FOREIGN KEY (uuid)
-    REFERENCES object_store_metadata (uuid)
+    REFERENCES object_store_metadata (uuid),
+    PRIMARY KEY (uuid, node_id)
 );
-
-CREATE UNIQUE INDEX idx_object_store_placement_node_id
-ON object_store_placement (uuid, node_id);

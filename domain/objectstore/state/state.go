@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -279,7 +278,6 @@ AND size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
 		// the path based on that uuid.
 		err := tx.Query(ctx, metadataLookupStmt, dbMetadata).Get(&dbMetadataPath)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			fmt.Println("???")
 			return "", objectstoreerrors.ErrHashAndSizeAlreadyExists
 		} else if err != nil {
 			return "", errors.Errorf("inserting metadata: %w", err)
@@ -310,6 +308,44 @@ AND size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
 	return uuid, nil
 }
 
+// AddControllerIDHint adds a controller ID hint for the specified SHA384. This
+// is used to indicate that a controller might have the object with the
+// specified SHA384, which can be used for optimization in certain scenarios.
+func (s *State) AddControllerIDHint(ctx context.Context, sha384 string, controllerIDHint string) error {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	type hint struct {
+		SHA384           string `db:"sha_384"`
+		ControllerIDHint string `db:"node_id"`
+	}
+
+	value := hint{
+		SHA384:           sha384,
+		ControllerIDHint: controllerIDHint,
+	}
+
+	hintQuery, err := s.Prepare(`
+INSERT INTO object_store_placement (uuid, node_id)
+SELECT uuid, $hint.node_id AS node_id FROM object_store_metadata
+WHERE sha_384 = $hint.sha_384
+ON CONFLICT (uuid, node_id) DO NOTHING;
+`, value)
+	if err != nil {
+		return errors.Errorf("preparing insert placement hint statement: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, hintQuery, value).Run()
+	})
+	if err != nil {
+		return errors.Errorf("adding controller id hint for sha384 %s: %w", sha384, err)
+	}
+	return nil
+}
+
 // RemoveMetadata removes the specified key for the persistence path.
 func (s *State) RemoveMetadata(ctx context.Context, path string) error {
 	db, err := s.DB(ctx)
@@ -335,14 +371,28 @@ WHERE path = $dbMetadataPath.path`, dbMetadataPath)
 		return errors.Errorf("preparing delete metadata path statement: %w", err)
 	}
 
+	type count struct {
+		Count int `db:"count"`
+	}
+
+	countStmt, err := s.Prepare(`
+SELECT COUNT(*) AS &count.count 
+FROM object_store_metadata_path 
+WHERE metadata_uuid = $dbMetadataPath.metadata_uuid`, dbMetadataPath, count{})
+	if err != nil {
+		return errors.Errorf("preparing count metadata paths statement: %w", err)
+	}
+
+	placementStmt, err := s.Prepare(`
+DELETE FROM object_store_placement 
+WHERE uuid = $dbMetadataPath.metadata_uuid`, dbMetadataPath)
+	if err != nil {
+		return errors.Errorf("preparing delete placement hints statement: %w", err)
+	}
+
 	metadataStmt, err := s.Prepare(`
 DELETE FROM object_store_metadata 
-WHERE uuid = $dbMetadataPath.metadata_uuid 
-AND NOT EXISTS (
-  SELECT 1 
-  FROM   object_store_metadata_path 
-  WHERE  metadata_uuid = object_store_metadata.uuid
-)`, dbMetadataPath)
+WHERE uuid = $dbMetadataPath.metadata_uuid`, dbMetadataPath)
 	if err != nil {
 		return errors.Errorf("preparing delete metadata statement: %w", err)
 	}
@@ -358,6 +408,22 @@ AND NOT EXISTS (
 		}
 
 		if err := tx.Query(ctx, pathStmt, dbMetadataPath).Run(); err != nil {
+			return errors.Capture(err)
+		}
+
+		// Ensure that nothing else is using the same metadata before we delete
+		// it and the placement hints.
+		var counter count
+		err = tx.Query(ctx, countStmt, dbMetadataPath).Get(&counter)
+		if err != nil {
+			return errors.Errorf("counting metadata paths: %w", err)
+		} else if counter.Count > 0 {
+			// There are still paths using the same metadata, so we don't want
+			// to delete the metadata or the placement hints.
+			return nil
+		}
+
+		if err := tx.Query(ctx, placementStmt, dbMetadataPath).Run(); err != nil {
 			return errors.Capture(err)
 		}
 

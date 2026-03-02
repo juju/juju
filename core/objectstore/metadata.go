@@ -65,4 +65,10 @@ type RemoteObjectStoreMetadata interface {
 	// controller might have put the object, which can be used for optimization
 	// in certain scenarios.
 	PutMetadataWithControllerIDHint(ctx context.Context, metadata Metadata, controllerID string) (UUID, error)
+
+	// AddControllerIDHint adds a controller ID hint for the specified SHA384.
+	// This is used to indicate that a controller might have the object with the
+	// specified SHA256, which can be used for optimization in certain
+	// scenarios.
+	AddControllerIDHint(ctx context.Context, sha384 string, controllerID string) error
 }

@@ -54,6 +54,12 @@ type State interface {
 	// request to the correct controller in a multi-controller environment.
 	PutMetadataWithControllerIDHint(ctx context.Context, uuid string, metadata objectstore.Metadata, controllerIDHint string) (string, error)
 
+	// AddControllerIDHint adds a controller ID hint for the specified SHA384.
+	// This is used to indicate that a controller might have the object with the
+	// specified SHA384, which can be used for optimization in certain
+	// scenarios.
+	AddControllerIDHint(ctx context.Context, sha384 string, controllerIDHint string) error
+
 	// ListMetadata returns the persistence metadata for all paths.
 	ListMetadata(ctx context.Context) ([]objectstore.Metadata, error)
 
@@ -272,6 +278,24 @@ func (s *Service) PutMetadataWithControllerIDHint(
 	}
 
 	return objectstore.UUID(pUUID), nil
+}
+
+// AddControllerIDHint adds a controller ID hint for the specified SHA384.
+// This is used to indicate that a controller might have the object with the
+// specified SHA256, which can be used for optimization in certain
+// scenarios.
+func (s *Service) AddControllerIDHint(ctx context.Context, sha384 string, controllerID string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if sha384 == "" {
+		return errors.Errorf("missing hash384: %w", objectstoreerrors.ErrMissingHash)
+	}
+
+	if err := s.st.AddControllerIDHint(ctx, sha384, controllerID); err != nil {
+		return errors.Errorf("adding controller ID hint for sha384 %s: %w", sha384, err)
+	}
+	return nil
 }
 
 // RemoveMetadata removes the specified path for the persistence metadata.
