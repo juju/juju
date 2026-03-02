@@ -390,11 +390,11 @@ type awsLogger struct {
 func (l *awsLogger) Logf(classification logging.Classification, format string, v ...any) {
 	switch classification {
 	case logging.Warn:
-		l.logger.Warningf(context.Background(), format, v)
+		l.logger.Warningf(context.Background(), format, v...)
 	case logging.Debug:
-		l.logger.Debugf(context.Background(), format, v)
+		l.logger.Debugf(context.Background(), format, v...)
 	default:
-		l.logger.Tracef(context.Background(), format, v)
+		l.logger.Tracef(context.Background(), format, v...)
 	}
 }
 

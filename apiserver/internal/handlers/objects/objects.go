@@ -113,6 +113,8 @@ func (h *ObjectsHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) er
 	return nil
 }
 
+// S3Error represents the structure of an error response from the S3 API.
+// If we ever support XML, this would need to be updated to include XML tags.
 type S3Error struct {
 	Code      string `json:"code"`
 	Message   string `json:"message"`
