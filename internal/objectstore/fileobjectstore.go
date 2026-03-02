@@ -68,7 +68,7 @@ type FileObjectStoreConfig struct {
 	Namespace string
 	// MetadataService is the metadata service for translating paths to
 	// hashes.
-	MetadataService objectstore.ObjectStoreMetadata
+	MetadataService objectstore.RemoteObjectStoreMetadata
 	// RemoteRetriever is the remote retriever for the file object store.
 	RemoteRetriever RemoteRetriever
 	// Claimer is the claimer for the file object store.
@@ -85,6 +85,9 @@ type fileObjectStore struct {
 	baseObjectStore
 
 	catacomb catacomb.Catacomb
+
+	metadataService  objectstore.RemoteObjectStoreMetadata
+	controllerNodeID string
 
 	fs              fs.FS
 	remoteRetriever RemoteRetriever
@@ -115,12 +118,14 @@ func NewFileObjectStore(cfg FileObjectStoreConfig) (TrackedObjectStore, error) {
 
 	s := &fileObjectStore{
 		baseObjectStore: baseObjectStore{
-			path:            path,
-			claimer:         cfg.Claimer,
-			metadataService: cfg.MetadataService,
-			logger:          cfg.Logger,
-			clock:           cfg.Clock,
+			path:    path,
+			claimer: cfg.Claimer,
+			logger:  cfg.Logger,
+			clock:   cfg.Clock,
 		},
+		metadataService:  cfg.MetadataService,
+		controllerNodeID: cfg.ControllerNodeID,
+
 		fs:              os.DirFS(path),
 		remoteRetriever: cfg.RemoteRetriever,
 		remoteRunner:    runner,
@@ -753,12 +758,12 @@ func (t *fileObjectStore) put(
 		// correctly sequence the watch events. Otherwise there is a potential
 		// race where the watch event is emitted before the file is written.
 		var err error
-		if uuid, err = t.metadataService.PutMetadata(ctx, objectstore.Metadata{
+		if uuid, err = t.metadataService.PutMetadataWithControllerIDHint(ctx, objectstore.Metadata{
 			Path:   path,
 			SHA256: encoded256,
 			SHA384: encoded384,
 			Size:   size,
-		}); err != nil {
+		}, t.controllerNodeID); err != nil {
 			return errors.Capture(err)
 		}
 		return nil

@@ -21,7 +21,8 @@ import (
 
 // MetadataService is the interface that is used to get a object store.
 type MetadataService interface {
-	ObjectStore() objectstore.ObjectStoreMetadata
+	// ObjectStore returns the object store metadata.
+	ObjectStore() objectstore.RemoteObjectStoreMetadata
 }
 
 // TrackedObjectStore is a ObjectStore that is also a worker, to ensure the

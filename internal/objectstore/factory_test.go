@@ -67,12 +67,12 @@ func (s *objectStoreFactorySuite) setupMocks(c *tc.C) *gomock.Controller {
 
 type stubMetadataService struct{}
 
-func (stubMetadataService) ObjectStore() objectstore.ObjectStoreMetadata {
+func (stubMetadataService) ObjectStore() objectstore.RemoteObjectStoreMetadata {
 	return stubObjectStore{}
 }
 
 type stubObjectStore struct {
-	objectstore.ObjectStoreMetadata
+	objectstore.RemoteObjectStoreMetadata
 }
 
 // Watch returns a watcher that emits the path changes that either have been

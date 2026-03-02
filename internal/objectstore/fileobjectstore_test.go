@@ -613,12 +613,12 @@ func (s *fileObjectStoreSuite) TestPut(c *tc.C) {
 
 	uuid := objectstoretesting.GenObjectStoreUUID(c)
 
-	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
+	s.service.EXPECT().PutMetadataWithControllerIDHint(gomock.Any(), objectstore.Metadata{
 		SHA384: hash384,
 		SHA256: hash256,
 		Path:   "foo",
 		Size:   12,
-	}).Return(uuid, nil)
+	}, "1").Return(uuid, nil)
 
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
@@ -648,12 +648,12 @@ func (s *fileObjectStoreSuite) TestPutFileAlreadyExists(c *tc.C) {
 
 	uuid := objectstoretesting.GenObjectStoreUUID(c)
 
-	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
+	s.service.EXPECT().PutMetadataWithControllerIDHint(gomock.Any(), objectstore.Metadata{
 		SHA384: hash384,
 		SHA256: hash256,
 		Path:   "foo",
 		Size:   12,
-	}).Return(uuid, nil).Times(2)
+	}, "1").Return(uuid, nil).Times(2)
 
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
@@ -691,12 +691,12 @@ func (s *fileObjectStoreSuite) TestPutCleansUpFileOnMetadataFailure(c *tc.C) {
 
 	uuid := objectstoretesting.GenObjectStoreUUID(c)
 
-	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
+	s.service.EXPECT().PutMetadataWithControllerIDHint(gomock.Any(), objectstore.Metadata{
 		SHA384: hash384,
 		SHA256: hash256,
 		Path:   "foo",
 		Size:   12,
-	}).Return(uuid, jujuerrors.Errorf("boom"))
+	}, "1").Return(uuid, jujuerrors.Errorf("boom"))
 
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
@@ -730,19 +730,19 @@ func (s *fileObjectStoreSuite) TestPutDoesNotCleansUpFileOnMetadataFailure(c *tc
 
 	uuid := objectstoretesting.GenObjectStoreUUID(c)
 
-	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
+	s.service.EXPECT().PutMetadataWithControllerIDHint(gomock.Any(), objectstore.Metadata{
 		SHA384: hash384,
 		SHA256: hash256,
 		Path:   "foo",
 		Size:   12,
-	}).Return(uuid, nil)
+	}, "1").Return(uuid, nil)
 
-	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
+	s.service.EXPECT().PutMetadataWithControllerIDHint(gomock.Any(), objectstore.Metadata{
 		SHA384: hash384,
 		SHA256: hash256,
 		Path:   "foo",
 		Size:   12,
-	}).Return(uuid, jujuerrors.Errorf("boom"))
+	}, "1").Return(uuid, jujuerrors.Errorf("boom"))
 
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
@@ -775,12 +775,12 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHash(c *tc.C) {
 
 	uuid := objectstoretesting.GenObjectStoreUUID(c)
 
-	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
+	s.service.EXPECT().PutMetadataWithControllerIDHint(gomock.Any(), objectstore.Metadata{
 		SHA384: hash384,
 		SHA256: hash256,
 		Path:   "foo",
 		Size:   12,
-	}).Return(uuid, nil)
+	}, "1").Return(uuid, nil)
 
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
@@ -831,12 +831,12 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *tc.C) {
 
 	uuid := objectstoretesting.GenObjectStoreUUID(c)
 
-	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
+	s.service.EXPECT().PutMetadataWithControllerIDHint(gomock.Any(), objectstore.Metadata{
 		SHA384: hash384,
 		SHA256: hash256,
 		Path:   "foo",
 		Size:   12,
-	}).Return(uuid, nil).Times(2)
+	}, "1").Return(uuid, nil).Times(2)
 
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
@@ -872,12 +872,12 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashCleansUpFileOnMetadataFailure(
 
 	path := c.MkDir()
 
-	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
+	s.service.EXPECT().PutMetadataWithControllerIDHint(gomock.Any(), objectstore.Metadata{
 		SHA384: hash384,
 		SHA256: hash256,
 		Path:   "foo",
 		Size:   12,
-	}).Return("", jujuerrors.Errorf("boom"))
+	}, "1").Return("", jujuerrors.Errorf("boom"))
 
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
@@ -909,19 +909,19 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashDoesNotCleansUpFileOnMetadataF
 
 	path := c.MkDir()
 
-	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
+	s.service.EXPECT().PutMetadataWithControllerIDHint(gomock.Any(), objectstore.Metadata{
 		SHA384: hash384,
 		SHA256: hash256,
 		Path:   "foo",
 		Size:   12,
-	}).Return("", nil)
+	}, "1").Return("", nil)
 
-	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
+	s.service.EXPECT().PutMetadataWithControllerIDHint(gomock.Any(), objectstore.Metadata{
 		SHA384: hash384,
 		SHA256: hash256,
 		Path:   "foo",
 		Size:   12,
-	}).Return("", jujuerrors.Errorf("boom"))
+	}, "1").Return("", jujuerrors.Errorf("boom"))
 
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
@@ -989,12 +989,12 @@ func (s *fileObjectStoreSuite) TestRemove(c *tc.C) {
 
 	path := c.MkDir()
 
-	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
+	s.service.EXPECT().PutMetadataWithControllerIDHint(gomock.Any(), objectstore.Metadata{
 		SHA384: hash384,
 		SHA256: hash256,
 		Path:   "foo",
 		Size:   12,
-	}).Return("", nil)
+	}, "1").Return("", nil)
 
 	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
 		SHA384: hash384,
@@ -1078,12 +1078,12 @@ func (s *fileObjectStoreSuite) TestRemoveAll(c *tc.C) {
 
 	path := c.MkDir()
 
-	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
+	s.service.EXPECT().PutMetadataWithControllerIDHint(gomock.Any(), objectstore.Metadata{
 		SHA384: hash384,
 		SHA256: hash256,
 		Path:   "foo",
 		Size:   12,
-	}).Return("", nil)
+	}, "1").Return("", nil)
 
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
@@ -1232,13 +1232,14 @@ func (s *fileObjectStoreSuite) filePath(path, namespace string) string {
 
 func (s *fileObjectStoreSuite) newFileObjectStore(c *tc.C, path string) TrackedObjectStore {
 	store, err := NewFileObjectStore(FileObjectStoreConfig{
-		Namespace:       "inferi",
-		RootDir:         path,
-		MetadataService: s.service,
-		Claimer:         s.claimer,
-		Logger:          loggertesting.WrapCheckLog(c),
-		Clock:           clock.WallClock,
-		RemoteRetriever: s.remote,
+		Namespace:        "inferi",
+		RootDir:          path,
+		MetadataService:  s.service,
+		Claimer:          s.claimer,
+		Logger:           loggertesting.WrapCheckLog(c),
+		Clock:            clock.WallClock,
+		RemoteRetriever:  s.remote,
+		ControllerNodeID: "1",
 	})
 	c.Assert(err, tc.IsNil)
 

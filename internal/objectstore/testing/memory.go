@@ -33,7 +33,7 @@ func MemoryMetadataService() objectstore.MetadataService {
 // interface.
 // This is purely for testing purposes, until we remove the dependency on
 // state.
-func MemoryObjectStore() coreobjectstore.ObjectStoreMetadata {
+func MemoryObjectStore() coreobjectstore.RemoteObjectStoreMetadata {
 	return &objectStore{
 		store: newStore(),
 	}
@@ -43,7 +43,7 @@ type metadataService struct {
 	store *store
 }
 
-func (m *metadataService) ObjectStore() coreobjectstore.ObjectStoreMetadata {
+func (m *metadataService) ObjectStore() coreobjectstore.RemoteObjectStoreMetadata {
 	return &objectStore{
 		store: m.store,
 	}
@@ -87,6 +87,12 @@ func (s *objectStore) GetMetadataBySHA256Prefix(ctx context.Context, sha256Prefi
 
 // PutMetadata implements objectstore.ObjectStoreMetadata.
 func (s *objectStore) PutMetadata(ctx context.Context, metadata coreobjectstore.Metadata) (coreobjectstore.UUID, error) {
+	return s.store.put(metadata)
+}
+
+// PutMetadataWithControllerIDHint adds the metadata but ignores the
+// controllerID, as this is only used for testing.
+func (s *objectStore) PutMetadataWithControllerIDHint(ctx context.Context, metadata coreobjectstore.Metadata, controllerID string) (coreobjectstore.UUID, error) {
 	return s.store.put(metadata)
 }
 
