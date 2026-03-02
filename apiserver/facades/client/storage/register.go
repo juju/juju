@@ -58,5 +58,7 @@ func newStorageAPI(stdCtx context.Context, ctx facade.ModelContext) (*StorageAPI
 		domainServices.Application(),
 		domainServices.Removal(),
 		domainServices.Storage(),
+		domainServices.Machine(),
+		domainServices.Status(),
 	), nil
 }

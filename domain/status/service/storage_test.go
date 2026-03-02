@@ -15,6 +15,7 @@ import (
 	machine "github.com/juju/juju/core/machine"
 	corestatus "github.com/juju/juju/core/status"
 	unit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/domain/storage"
@@ -237,31 +238,43 @@ func (s *storageServiceSuite) TestVolumeStatusTransitionErrorInvalid(c *tc.C) {
 func (s *storageServiceSuite) TestGetStorageInstanceStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
+	now := time.Now()
+	uuids := []storage.StorageInstanceUUID{
+		tc.Must(c, storage.NewStorageInstanceUUID),
+	}
 	si := []status.StorageInstance{
 		{
-			UUID:  storageInstanceUUID,
+			UUID:  uuids[0],
 			ID:    "12",
 			Owner: ptr(unit.Name("foo/10")),
 			Life:  life.Alive,
 			Kind:  storage.StorageKindFilesystem,
+			FilesystemStatus: status.StatusInfo[status.StorageFilesystemStatusType]{
+				Message: "filesystem is attached",
+				Status:  status.StorageFilesystemStatusTypeAttached,
+				Since:   &now,
+			},
 		},
 	}
-	s.modelState.EXPECT().GetStorageInstances(gomock.Any()).Return(si, nil)
+	s.modelState.EXPECT().GetStorageInstances(
+		gomock.Any(), uuids).Return(si, nil)
 	sa := []status.StorageAttachment{
 		{
-			StorageInstanceUUID: storageInstanceUUID,
+			StorageInstanceUUID: uuids[0],
 			Life:                life.Alive,
 			Unit:                unit.Name("foo/10"),
 			Machine:             ptr(machine.Name("5")),
 		},
 	}
-	s.modelState.EXPECT().GetStorageInstanceAttachments(gomock.Any()).Return(sa, nil)
+	s.modelState.EXPECT().GetStorageInstanceAttachments(
+		gomock.Any(), uuids).Return(sa, nil)
+	s.modelState.EXPECT().GetAllAttachedBlockDeviceLinks(gomock.Any()).Return(nil, nil)
 
-	res, err := s.service.GetStorageInstanceStatuses(c.Context())
+	res, err := s.service.GetStorageInstanceStatuses(c.Context(), uuids)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, []StorageInstance{
 		{
+			UUID:  uuids[0],
 			ID:    "12",
 			Owner: ptr(unit.Name("foo/10")),
 			Kind:  storage.StorageKindFilesystem,
@@ -273,30 +286,116 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatuses(c *tc.C) {
 					Machine: ptr(machine.Name("5")),
 				},
 			},
+			Status: corestatus.StatusInfo{
+				Message: "filesystem is attached",
+				Status:  corestatus.Attached,
+				Since:   &now,
+			},
 		},
 	})
 }
 
-func (s *storageServiceSuite) TestGetStorageInstanceStatusesMultiple(c *tc.C) {
+func (s *storageServiceSuite) TestGetAllStorageInstanceStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	storageInstanceUUID0 := storagetesting.GenStorageInstanceUUID(c)
-	storageInstanceUUID1 := storagetesting.GenStorageInstanceUUID(c)
+	now := time.Now()
+
+	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
+	si := []status.StorageInstance{
+		{
+			UUID:  storageInstanceUUID,
+			ID:    "12",
+			Owner: ptr(unit.Name("foo/10")),
+			Life:  life.Alive,
+			Kind:  storage.StorageKindFilesystem,
+			FilesystemStatus: status.StatusInfo[status.StorageFilesystemStatusType]{
+				Message: "filesystem is attached",
+				Status:  status.StorageFilesystemStatusTypeAttached,
+				Since:   &now,
+			},
+		},
+	}
+	s.modelState.EXPECT().GetAllStorageInstances(gomock.Any()).Return(si, nil)
+	sa := []status.StorageAttachment{
+		{
+			StorageInstanceUUID: storageInstanceUUID,
+			Life:                life.Alive,
+			Unit:                unit.Name("foo/10"),
+			Machine:             ptr(machine.Name("5")),
+		},
+	}
+	s.modelState.EXPECT().GetAllStorageInstanceAttachments(gomock.Any()).Return(sa, nil)
+	s.modelState.EXPECT().GetAllAttachedBlockDeviceLinks(gomock.Any()).Return(nil, nil)
+
+	res, err := s.service.GetAllStorageInstanceStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, []StorageInstance{
+		{
+			UUID:  storageInstanceUUID,
+			ID:    "12",
+			Owner: ptr(unit.Name("foo/10")),
+			Kind:  storage.StorageKindFilesystem,
+			Life:  corelife.Alive,
+			Attachments: map[unit.Name]StorageAttachment{
+				"foo/10": {
+					Life:    corelife.Alive,
+					Unit:    "foo/10",
+					Machine: ptr(machine.Name("5")),
+				},
+			},
+			Status: corestatus.StatusInfo{
+				Message: "filesystem is attached",
+				Status:  corestatus.Attached,
+				Since:   &now,
+			},
+		},
+	})
+}
+
+func (s *storageServiceSuite) TestGetAllStorageInstanceStatusesMultiple(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+	storageInstanceUUID0 := tc.Must(c, storage.NewStorageInstanceUUID)
+	storageInstanceUUID1 := tc.Must(c, storage.NewStorageInstanceUUID)
+	storageInstanceUUID2 := tc.Must(c, storage.NewStorageInstanceUUID)
+	blockDeviceUUID1 := tc.Must(c, blockdevice.NewBlockDeviceUUID)
 	si := []status.StorageInstance{
 		{
 			UUID: storageInstanceUUID0,
 			ID:   "0",
 			Life: life.Alive,
 			Kind: storage.StorageKindFilesystem,
+			FilesystemStatus: status.StatusInfo[status.StorageFilesystemStatusType]{
+				Message: "filesystem is attached",
+				Status:  status.StorageFilesystemStatusTypeAttached,
+				Since:   &now,
+			},
 		},
 		{
 			UUID: storageInstanceUUID1,
 			ID:   "1",
 			Life: life.Dying,
 			Kind: storage.StorageKindFilesystem,
+			FilesystemStatus: status.StatusInfo[status.StorageFilesystemStatusType]{
+				Message: "filesystem is attached",
+				Status:  status.StorageFilesystemStatusTypeAttached,
+				Since:   &now,
+			},
+		},
+		{
+			UUID: storageInstanceUUID2,
+			ID:   "2",
+			Life: life.Alive,
+			Kind: storage.StorageKindBlock,
+			VolumeStatus: status.StatusInfo[status.StorageVolumeStatusType]{
+				Message: "volume is attached",
+				Status:  status.StorageVolumeStatusTypeAttached,
+				Since:   &now,
+			},
 		},
 	}
-	s.modelState.EXPECT().GetStorageInstances(gomock.Any()).Return(si, nil)
+	s.modelState.EXPECT().GetAllStorageInstances(gomock.Any()).Return(si, nil)
 	sa := []status.StorageAttachment{
 		{
 			StorageInstanceUUID: storageInstanceUUID0,
@@ -316,13 +415,32 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatusesMultiple(c *tc.C) {
 			Machine:             ptr(machine.Name("1")),
 			Life:                life.Dying,
 		},
+		{
+			StorageInstanceUUID: storageInstanceUUID2,
+			Unit:                unit.Name("unit/0"),
+			Machine:             ptr(machine.Name("2")),
+			Life:                life.Alive,
+			VolumeBlockDevice:   &blockDeviceUUID1,
+		},
 	}
-	s.modelState.EXPECT().GetStorageInstanceAttachments(gomock.Any()).Return(sa, nil)
+	s.modelState.EXPECT().GetAllStorageInstanceAttachments(gomock.Any()).Return(sa, nil)
 
-	res, err := s.service.GetStorageInstanceStatuses(c.Context())
+	blockDeviceLinks := map[blockdevice.BlockDeviceUUID][]string{
+		blockDeviceUUID1: {
+			"/dev/disk/by-id/1234",
+			"/dev/somethingelse",
+			"/dev/disk/by-id/123",
+		},
+	}
+	s.modelState.EXPECT().GetAllAttachedBlockDeviceLinks(gomock.Any()).Return(
+		blockDeviceLinks, nil,
+	)
+
+	res, err := s.service.GetAllStorageInstanceStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.UnorderedMatch[[]StorageInstance](tc.DeepEquals), []StorageInstance{
 		{
+			UUID: storageInstanceUUID0,
 			ID:   "0",
 			Life: corelife.Alive,
 			Kind: storage.StorageKindFilesystem,
@@ -333,8 +451,14 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatusesMultiple(c *tc.C) {
 					Life:    corelife.Alive,
 				},
 			},
+			Status: corestatus.StatusInfo{
+				Status:  corestatus.Attached,
+				Message: "filesystem is attached",
+				Since:   &now,
+			},
 		},
 		{
+			UUID: storageInstanceUUID1,
 			ID:   "1",
 			Life: corelife.Dying,
 			Kind: storage.StorageKindFilesystem,
@@ -350,6 +474,30 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatusesMultiple(c *tc.C) {
 					Life:    corelife.Dying,
 				},
 			},
+			Status: corestatus.StatusInfo{
+				Status:  corestatus.Attached,
+				Message: "filesystem is attached",
+				Since:   &now,
+			},
+		},
+		{
+			UUID: storageInstanceUUID2,
+			ID:   "2",
+			Life: corelife.Alive,
+			Kind: storage.StorageKindBlock,
+			Attachments: map[unit.Name]StorageAttachment{
+				"unit/0": {
+					Unit:     "unit/0",
+					Machine:  ptr(machine.Name("2")),
+					Life:     corelife.Alive,
+					Location: "/dev/disk/by-id/123",
+				},
+			},
+			Status: corestatus.StatusInfo{
+				Status:  corestatus.Attached,
+				Message: "volume is attached",
+				Since:   &now,
+			},
 		},
 	})
 }
@@ -357,26 +505,30 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatusesMultiple(c *tc.C) {
 func (s *storageServiceSuite) TestGetFilesystemStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	fsUUID := tc.Must(c, storage.NewFilesystemUUID)
+	uuids := []storage.FilesystemUUID{
+		tc.Must(c, storage.NewFilesystemUUID),
+	}
+	siUUID := tc.Must(c, storage.NewStorageInstanceUUID)
 	fs := []status.Filesystem{
 		{
-			UUID: fsUUID,
+			UUID: uuids[0],
 			ID:   "1",
 			Life: life.Alive,
 			Status: status.StatusInfo[status.StorageFilesystemStatusType]{
 				Status:  status.StorageFilesystemStatusTypeAttaching,
 				Message: "attaching to the thing",
 			},
-			StorageID:  "data/0",
-			VolumeID:   ptr("9"),
-			ProviderID: "provider-foo-0",
-			SizeMiB:    123,
+			StorageUUID: &siUUID,
+			StorageID:   "data/0",
+			VolumeID:    ptr("9"),
+			ProviderID:  "provider-foo-0",
+			SizeMiB:     123,
 		},
 	}
-	s.modelState.EXPECT().GetFilesystems(gomock.Any()).Return(fs, nil)
+	s.modelState.EXPECT().GetFilesystems(gomock.Any(), uuids).Return(fs, nil)
 	fa := []status.FilesystemAttachment{
 		{
-			FilesystemUUID: fsUUID,
+			FilesystemUUID: uuids[0],
 			Life:           life.Alive,
 			Unit:           ptr(unit.Name("foo/0")),
 			Machine:        ptr(machine.Name("0")),
@@ -384,14 +536,16 @@ func (s *storageServiceSuite) TestGetFilesystemStatuses(c *tc.C) {
 			ReadOnly:       true,
 		},
 	}
-	s.modelState.EXPECT().GetFilesystemAttachments(gomock.Any()).Return(fa, nil)
+	s.modelState.EXPECT().GetFilesystemAttachments(gomock.Any(), uuids).Return(fa, nil)
 
-	res, err := s.service.GetFilesystemStatuses(c.Context())
+	res, err := s.service.GetFilesystemStatuses(c.Context(), uuids)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, []Filesystem{
 		{
-			ID:   "1",
-			Life: corelife.Alive,
+			UUID:        uuids[0],
+			StorageUUID: &siUUID,
+			ID:          "1",
+			Life:        corelife.Alive,
 			Status: corestatus.StatusInfo{
 				Status:  corestatus.Attaching,
 				Message: "attaching to the thing",
@@ -418,11 +572,81 @@ func (s *storageServiceSuite) TestGetFilesystemStatuses(c *tc.C) {
 	})
 }
 
-func (s *storageServiceSuite) TestGetFilesystemStatusesMultiple(c *tc.C) {
+func (s *storageServiceSuite) TestGetAllFilesystemStatuses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	fsUUID := tc.Must(c, storage.NewFilesystemUUID)
+	siUUID := tc.Must(c, storage.NewStorageInstanceUUID)
+	fs := []status.Filesystem{
+		{
+			UUID: fsUUID,
+			ID:   "1",
+			Life: life.Alive,
+			Status: status.StatusInfo[status.StorageFilesystemStatusType]{
+				Status:  status.StorageFilesystemStatusTypeAttaching,
+				Message: "attaching to the thing",
+			},
+			StorageUUID: &siUUID,
+			StorageID:   "data/0",
+			VolumeID:    ptr("9"),
+			ProviderID:  "provider-foo-0",
+			SizeMiB:     123,
+		},
+	}
+	s.modelState.EXPECT().GetAllFilesystems(gomock.Any()).Return(fs, nil)
+	fa := []status.FilesystemAttachment{
+		{
+			FilesystemUUID: fsUUID,
+			Life:           life.Alive,
+			Unit:           ptr(unit.Name("foo/0")),
+			Machine:        ptr(machine.Name("0")),
+			MountPoint:     "/foo/bar",
+			ReadOnly:       true,
+		},
+	}
+	s.modelState.EXPECT().GetAllFilesystemAttachments(gomock.Any()).Return(fa, nil)
+
+	res, err := s.service.GetAllFilesystemStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, []Filesystem{
+		{
+			UUID:        fsUUID,
+			StorageUUID: &siUUID,
+			ID:          "1",
+			Life:        corelife.Alive,
+			Status: corestatus.StatusInfo{
+				Status:  corestatus.Attaching,
+				Message: "attaching to the thing",
+			},
+			StorageID:  "data/0",
+			VolumeID:   ptr("9"),
+			ProviderID: "provider-foo-0",
+			SizeMiB:    123,
+			MachineAttachments: map[machine.Name]FilesystemAttachment{
+				"0": {
+					Life:       corelife.Alive,
+					MountPoint: "/foo/bar",
+					ReadOnly:   true,
+				},
+			},
+			UnitAttachments: map[unit.Name]FilesystemAttachment{
+				"foo/0": {
+					Life:       corelife.Alive,
+					MountPoint: "/foo/bar",
+					ReadOnly:   true,
+				},
+			},
+		},
+	})
+}
+
+func (s *storageServiceSuite) TestGetAllFilesystemStatusesMultiple(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	fsUUID0 := tc.Must(c, storage.NewFilesystemUUID)
 	fsUUID1 := tc.Must(c, storage.NewFilesystemUUID)
+	siUUID0 := tc.Must(c, storage.NewStorageInstanceUUID)
+	siUUID1 := tc.Must(c, storage.NewStorageInstanceUUID)
 	fs := []status.Filesystem{
 		{
 			UUID: fsUUID0,
@@ -432,10 +656,11 @@ func (s *storageServiceSuite) TestGetFilesystemStatusesMultiple(c *tc.C) {
 				Status:  status.StorageFilesystemStatusTypeAttaching,
 				Message: "attaching to the thing",
 			},
-			StorageID:  "data/0",
-			VolumeID:   ptr("9"),
-			ProviderID: "provider-foo-0",
-			SizeMiB:    123,
+			StorageUUID: &siUUID0,
+			StorageID:   "data/0",
+			VolumeID:    ptr("9"),
+			ProviderID:  "provider-foo-0",
+			SizeMiB:     123,
 		},
 		{
 			UUID: fsUUID1,
@@ -444,12 +669,13 @@ func (s *storageServiceSuite) TestGetFilesystemStatusesMultiple(c *tc.C) {
 			Status: status.StatusInfo[status.StorageFilesystemStatusType]{
 				Status: status.StorageFilesystemStatusTypeAttached,
 			},
-			StorageID:  "data/4",
-			ProviderID: "provider-foo-9",
-			SizeMiB:    456,
+			StorageUUID: &siUUID1,
+			StorageID:   "data/4",
+			ProviderID:  "provider-foo-9",
+			SizeMiB:     456,
 		},
 	}
-	s.modelState.EXPECT().GetFilesystems(gomock.Any()).Return(fs, nil)
+	s.modelState.EXPECT().GetAllFilesystems(gomock.Any()).Return(fs, nil)
 	fa := []status.FilesystemAttachment{
 		{
 			FilesystemUUID: fsUUID0,
@@ -475,14 +701,16 @@ func (s *storageServiceSuite) TestGetFilesystemStatusesMultiple(c *tc.C) {
 			ReadOnly:       false,
 		},
 	}
-	s.modelState.EXPECT().GetFilesystemAttachments(gomock.Any()).Return(fa, nil)
+	s.modelState.EXPECT().GetAllFilesystemAttachments(gomock.Any()).Return(fa, nil)
 
-	res, err := s.service.GetFilesystemStatuses(c.Context())
+	res, err := s.service.GetAllFilesystemStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.UnorderedMatch[[]Filesystem](tc.DeepEquals), []Filesystem{
 		{
-			ID:   "1",
-			Life: corelife.Alive,
+			UUID:        fsUUID0,
+			StorageUUID: &siUUID0,
+			ID:          "1",
+			Life:        corelife.Alive,
 			Status: corestatus.StatusInfo{
 				Status:  corestatus.Attaching,
 				Message: "attaching to the thing",
@@ -507,8 +735,10 @@ func (s *storageServiceSuite) TestGetFilesystemStatusesMultiple(c *tc.C) {
 			},
 		},
 		{
-			ID:   "3",
-			Life: corelife.Alive,
+			UUID:        fsUUID1,
+			StorageUUID: &siUUID1,
+			ID:          "3",
+			Life:        corelife.Alive,
 			Status: corestatus.StatusInfo{
 				Status: corestatus.Attached,
 			},
@@ -540,35 +770,39 @@ func (s *storageServiceSuite) TestGetFilesystemStatusesMultiple(c *tc.C) {
 func (s *storageServiceSuite) TestGetVolumeStatuses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	volUUID := tc.Must(c, storage.NewVolumeUUID)
+	uuids := []storage.VolumeUUID{
+		tc.Must(c, storage.NewVolumeUUID),
+	}
+	siUUID := tc.Must(c, storage.NewStorageInstanceUUID)
 	vol := []status.Volume{
 		{
-			UUID: volUUID,
+			UUID: uuids[0],
 			ID:   "1",
 			Life: life.Alive,
 			Status: status.StatusInfo[status.StorageVolumeStatusType]{
 				Status:  status.StorageVolumeStatusTypeAttaching,
 				Message: "attaching to the thing",
 			},
-			StorageID:  "data/0",
-			ProviderID: "provider-foo-0",
-			SizeMiB:    123,
-			HardwareID: "hw0",
-			WWN:        "wwn0",
-			Persistent: true,
+			StorageUUID: &siUUID,
+			StorageID:   "data/0",
+			ProviderID:  "provider-foo-0",
+			SizeMiB:     123,
+			HardwareID:  "hw0",
+			WWN:         "wwn0",
+			Persistent:  true,
 		},
 	}
-	s.modelState.EXPECT().GetVolumes(gomock.Any()).Return(vol, nil)
+	s.modelState.EXPECT().GetVolumes(gomock.Any(), uuids).Return(vol, nil)
 	va := []status.VolumeAttachment{
 		{
-			VolumeUUID: volUUID,
-			Life:       life.Alive,
-			Unit:       ptr(unit.Name("foo/0")),
-			Machine:    ptr(machine.Name("0")),
-			ReadOnly:   true,
-			DeviceName: "dvname0",
-			DeviceLink: "/dev/link0",
-			BusAddress: "bus-addr0",
+			VolumeUUID:  uuids[0],
+			Life:        life.Alive,
+			Unit:        ptr(unit.Name("foo/0")),
+			Machine:     ptr(machine.Name("0")),
+			ReadOnly:    true,
+			DeviceName:  "dvname0",
+			DeviceLinks: []string{"/dev/disk/by-id/123"},
+			BusAddress:  "bus-addr0",
 			VolumeAttachmentPlan: &status.VolumeAttachmentPlan{
 				DeviceType: storage.VolumeDeviceTypeISCSI,
 				DeviceAttributes: map[string]string{
@@ -577,14 +811,17 @@ func (s *storageServiceSuite) TestGetVolumeStatuses(c *tc.C) {
 			},
 		},
 	}
-	s.modelState.EXPECT().GetVolumeAttachments(gomock.Any()).Return(va, nil)
+	s.modelState.EXPECT().GetVolumeAttachments(
+		gomock.Any(), uuids).Return(va, nil)
 
-	res, err := s.service.GetVolumeStatuses(c.Context())
+	res, err := s.service.GetVolumeStatuses(c.Context(), uuids)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, []Volume{
 		{
-			ID:   "1",
-			Life: corelife.Alive,
+			UUID:        uuids[0],
+			StorageUUID: &siUUID,
+			ID:          "1",
+			Life:        corelife.Alive,
 			Status: corestatus.StatusInfo{
 				Status:  corestatus.Attaching,
 				Message: "attaching to the thing",
@@ -600,7 +837,7 @@ func (s *storageServiceSuite) TestGetVolumeStatuses(c *tc.C) {
 					Life:       corelife.Alive,
 					ReadOnly:   true,
 					DeviceName: "dvname0",
-					DeviceLink: "/dev/link0",
+					DeviceLink: "/dev/disk/by-id/123",
 					BusAddress: "bus-addr0",
 					VolumeAttachmentPlan: &VolumeAttachmentPlan{
 						DeviceType: storage.VolumeDeviceTypeISCSI,
@@ -615,7 +852,103 @@ func (s *storageServiceSuite) TestGetVolumeStatuses(c *tc.C) {
 					Life:       corelife.Alive,
 					ReadOnly:   true,
 					DeviceName: "dvname0",
-					DeviceLink: "/dev/link0",
+					DeviceLink: "/dev/disk/by-id/123",
+					BusAddress: "bus-addr0",
+					VolumeAttachmentPlan: &VolumeAttachmentPlan{
+						DeviceType: storage.VolumeDeviceTypeISCSI,
+						DeviceAttributes: map[string]string{
+							"foo": "bar",
+						},
+					},
+				},
+			},
+		},
+	})
+}
+
+func (s *storageServiceSuite) TestGetAllVolumeStatuses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	volUUID := tc.Must(c, storage.NewVolumeUUID)
+	siUUID := tc.Must(c, storage.NewStorageInstanceUUID)
+	vol := []status.Volume{
+		{
+			UUID: volUUID,
+			ID:   "1",
+			Life: life.Alive,
+			Status: status.StatusInfo[status.StorageVolumeStatusType]{
+				Status:  status.StorageVolumeStatusTypeAttaching,
+				Message: "attaching to the thing",
+			},
+			StorageUUID: &siUUID,
+			StorageID:   "data/0",
+			ProviderID:  "provider-foo-0",
+			SizeMiB:     123,
+			HardwareID:  "hw0",
+			WWN:         "wwn0",
+			Persistent:  true,
+		},
+	}
+	s.modelState.EXPECT().GetAllVolumes(gomock.Any()).Return(vol, nil)
+	va := []status.VolumeAttachment{
+		{
+			VolumeUUID:  volUUID,
+			Life:        life.Alive,
+			Unit:        ptr(unit.Name("foo/0")),
+			Machine:     ptr(machine.Name("0")),
+			ReadOnly:    true,
+			DeviceName:  "dvname0",
+			DeviceLinks: []string{"/dev/disk/by-id/123"},
+			BusAddress:  "bus-addr0",
+			VolumeAttachmentPlan: &status.VolumeAttachmentPlan{
+				DeviceType: storage.VolumeDeviceTypeISCSI,
+				DeviceAttributes: map[string]string{
+					"foo": "bar",
+				},
+			},
+		},
+	}
+	s.modelState.EXPECT().GetAllVolumeAttachments(gomock.Any()).Return(va, nil)
+
+	res, err := s.service.GetAllVolumeStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, []Volume{
+		{
+			UUID:        volUUID,
+			StorageUUID: &siUUID,
+			ID:          "1",
+			Life:        corelife.Alive,
+			Status: corestatus.StatusInfo{
+				Status:  corestatus.Attaching,
+				Message: "attaching to the thing",
+			},
+			StorageID:  "data/0",
+			ProviderID: "provider-foo-0",
+			SizeMiB:    123,
+			HardwareID: "hw0",
+			WWN:        "wwn0",
+			Persistent: true,
+			MachineAttachments: map[machine.Name]VolumeAttachment{
+				"0": {
+					Life:       corelife.Alive,
+					ReadOnly:   true,
+					DeviceName: "dvname0",
+					DeviceLink: "/dev/disk/by-id/123",
+					BusAddress: "bus-addr0",
+					VolumeAttachmentPlan: &VolumeAttachmentPlan{
+						DeviceType: storage.VolumeDeviceTypeISCSI,
+						DeviceAttributes: map[string]string{
+							"foo": "bar",
+						},
+					},
+				},
+			},
+			UnitAttachments: map[unit.Name]VolumeAttachment{
+				"foo/0": {
+					Life:       corelife.Alive,
+					ReadOnly:   true,
+					DeviceName: "dvname0",
+					DeviceLink: "/dev/disk/by-id/123",
 					BusAddress: "bus-addr0",
 					VolumeAttachmentPlan: &VolumeAttachmentPlan{
 						DeviceType: storage.VolumeDeviceTypeISCSI,

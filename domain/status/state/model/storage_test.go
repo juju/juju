@@ -396,14 +396,14 @@ func (s *storageStatusSuite) NewModelState(c *tc.C) *ModelState {
 	return NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 }
 
-func (s *storageStatusSuite) TestGetStorageInstancesEmpty(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllStorageInstancesEmpty(c *tc.C) {
 	st := s.NewModelState(c)
-	res, err := st.GetStorageInstances(c.Context())
+	res, err := st.GetAllStorageInstances(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.HasLen, 0)
 }
 
-func (s *storageStatusSuite) TestGetStorageInstances(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllStorageInstances(c *tc.C) {
 	ch0 := s.newCharm(c)
 	s.newCharmStorage(c, ch0, "blk", storage.StorageKindBlock)
 	s.newCharmStorage(c, ch0, "fs", storage.StorageKindFilesystem)
@@ -412,29 +412,31 @@ func (s *storageStatusSuite) TestGetStorageInstances(c *tc.C) {
 	fsPoolUUID := s.newStoragePool(c, "fspool", "fspool", nil)
 
 	// Block device storage instance with no owner that is dying.
-	s0, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
+	s0, s0ID := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
 	s.changeStorageInstanceLife(c, s0.String(), life.Dying)
 
 	// Filesystem storage instance with an owning unit that is alive.
-	s1, _ := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, storage.StorageKindFilesystem)
+	s1, s1ID := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, storage.StorageKindFilesystem)
 	a0 := s.newApplication(c, "foo", ch0)
 	nn0 := s.newNetNode(c)
 	u0, u0n := s.newUnitWithNetNode(c, a0, nn0)
 	s.newStorageUnitOwner(c, s1, u0)
 
 	st := s.NewModelState(c)
-	res, err := st.GetStorageInstances(c.Context())
+	res, err := st.GetAllStorageInstances(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.UnorderedMatch[[]status.StorageInstance](tc.DeepEquals), []status.StorageInstance{
 		{
 			UUID: s0,
-			ID:   "blk/0",
+			ID:   s0ID,
+			Name: "blk",
 			Life: life.Dying,
 			Kind: storage.StorageKindBlock,
 		},
 		{
 			UUID:  s1,
-			ID:    "fs/1",
+			ID:    s1ID,
+			Name:  "fs",
 			Life:  life.Alive,
 			Owner: &u0n,
 			Kind:  storage.StorageKindFilesystem,
@@ -442,14 +444,14 @@ func (s *storageStatusSuite) TestGetStorageInstances(c *tc.C) {
 	})
 }
 
-func (s *storageStatusSuite) TestGetStorageInstanceAttachmentsEmpty(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllStorageInstanceAttachmentsEmpty(c *tc.C) {
 	st := s.NewModelState(c)
-	res, err := st.GetStorageInstanceAttachments(c.Context())
+	res, err := st.GetAllStorageInstanceAttachments(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.HasLen, 0)
 }
 
-func (s *storageStatusSuite) TestGetStorageInstanceAttachments(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllStorageInstanceAttachments(c *tc.C) {
 	ch0 := s.newCharm(c)
 	s.newCharmStorage(c, ch0, "blk", storage.StorageKindBlock)
 	s.newCharmStorage(c, ch0, "fs", storage.StorageKindFilesystem)
@@ -475,7 +477,7 @@ func (s *storageStatusSuite) TestGetStorageInstanceAttachments(c *tc.C) {
 	s.newStorageAttachment(c, s1, u1)
 
 	st := s.NewModelState(c)
-	res, err := st.GetStorageInstanceAttachments(c.Context())
+	res, err := st.GetAllStorageInstanceAttachments(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.UnorderedMatch[[]status.StorageAttachment](tc.DeepEquals), []status.StorageAttachment{
 		{
@@ -492,14 +494,14 @@ func (s *storageStatusSuite) TestGetStorageInstanceAttachments(c *tc.C) {
 	})
 }
 
-func (s *storageStatusSuite) TestGetFilesystemsEmpty(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllFilesystemsEmpty(c *tc.C) {
 	st := s.NewModelState(c)
-	res, err := st.GetFilesystems(c.Context())
+	res, err := st.GetAllFilesystems(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.HasLen, 0)
 }
 
-func (s *storageStatusSuite) TestGetFilesystems(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllFilesystems(c *tc.C) {
 	ch0 := s.newCharm(c)
 	s.newCharmStorage(c, ch0, "fs", storage.StorageKindFilesystem)
 
@@ -530,7 +532,7 @@ func (s *storageStatusSuite) TestGetFilesystems(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	res, err := st.GetFilesystems(c.Context())
+	res, err := st.GetAllFilesystems(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.UnorderedMatch[[]status.Filesystem](tc.DeepEquals), []status.Filesystem{
 		{
@@ -541,9 +543,10 @@ func (s *storageStatusSuite) TestGetFilesystems(c *tc.C) {
 				Status:  status.StorageFilesystemStatusTypeAttaching,
 				Message: "attaching the filez",
 			},
-			StorageID:  s0id,
-			ProviderID: "my-provider-id-1",
-			SizeMiB:    123,
+			StorageUUID: &s0,
+			StorageID:   s0id,
+			ProviderID:  "my-provider-id-1",
+			SizeMiB:     123,
 		},
 		{
 			UUID: f1,
@@ -552,22 +555,23 @@ func (s *storageStatusSuite) TestGetFilesystems(c *tc.C) {
 			Status: status.StatusInfo[status.StorageFilesystemStatusType]{
 				Status: status.StorageFilesystemStatusTypePending,
 			},
-			StorageID:  s1id,
-			ProviderID: "my-provider-id-2",
-			SizeMiB:    456,
-			VolumeID:   &v1id,
+			StorageUUID: &s1,
+			StorageID:   s1id,
+			ProviderID:  "my-provider-id-2",
+			SizeMiB:     456,
+			VolumeID:    &v1id,
 		},
 	})
 }
 
-func (s *storageStatusSuite) TestGetFilesystemAttachmentsEmpty(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllFilesystemAttachmentsEmpty(c *tc.C) {
 	st := s.NewModelState(c)
-	res, err := st.GetFilesystemAttachments(c.Context())
+	res, err := st.GetAllFilesystemAttachments(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.HasLen, 0)
 }
 
-func (s *storageStatusSuite) TestGetFilesystemAttachments(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllFilesystemAttachments(c *tc.C) {
 	ch0 := s.newCharm(c)
 	s.newCharmStorage(c, ch0, "fs", storage.StorageKindFilesystem)
 
@@ -588,7 +592,7 @@ func (s *storageStatusSuite) TestGetFilesystemAttachments(c *tc.C) {
 	a1 := s.newApplication(c, "bar", ch0)
 	nn1 := s.newNetNode(c)
 	_, m1n := s.newMachineWithNetNode(c, nn1)
-	u1, u1n := s.newUnitWithNetNode(c, a1, nn1)
+	u1, _ := s.newUnitWithNetNode(c, a1, nn1)
 	s1, _ := s.newStorageInstance(c, ch0, "fs", fsPoolUUID, storage.StorageKindFilesystem)
 	s.newStorageAttachment(c, s1, u1)
 	f1, _ := s.newFilesystem(c)
@@ -597,7 +601,7 @@ func (s *storageStatusSuite) TestGetFilesystemAttachments(c *tc.C) {
 	s.changeFilesystemAttachmentInfo(c, f1a, "/mnt/y", false)
 
 	st := s.NewModelState(c)
-	res, err := st.GetFilesystemAttachments(c.Context())
+	res, err := st.GetAllFilesystemAttachments(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.UnorderedMatch[[]status.FilesystemAttachment](tc.DeepEquals), []status.FilesystemAttachment{
 		{
@@ -610,7 +614,6 @@ func (s *storageStatusSuite) TestGetFilesystemAttachments(c *tc.C) {
 		{
 			FilesystemUUID: f1,
 			Life:           life.Alive,
-			Unit:           &u1n,
 			Machine:        &m1n,
 			MountPoint:     "/mnt/y",
 			ReadOnly:       false,
@@ -618,14 +621,14 @@ func (s *storageStatusSuite) TestGetFilesystemAttachments(c *tc.C) {
 	})
 }
 
-func (s *storageStatusSuite) TestGetVolumesEmpty(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllVolumesEmpty(c *tc.C) {
 	st := s.NewModelState(c)
-	res, err := st.GetVolumes(c.Context())
+	res, err := st.GetAllVolumes(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.HasLen, 0)
 }
 
-func (s *storageStatusSuite) TestGetVolumes(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllVolumes(c *tc.C) {
 	ch0 := s.newCharm(c)
 	s.newCharmStorage(c, ch0, "blk", storage.StorageKindBlock)
 
@@ -658,7 +661,7 @@ func (s *storageStatusSuite) TestGetVolumes(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	res, err := st.GetVolumes(c.Context())
+	res, err := st.GetAllVolumes(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.UnorderedMatch[[]status.Volume](tc.DeepEquals), []status.Volume{
 		{
@@ -669,12 +672,13 @@ func (s *storageStatusSuite) TestGetVolumes(c *tc.C) {
 				Status:  status.StorageVolumeStatusTypeAttaching,
 				Message: "attaching the volumez",
 			},
-			StorageID:  s0id,
-			ProviderID: "my-provider-id-1",
-			SizeMiB:    123,
-			HardwareID: "hw0",
-			WWN:        "wwn0",
-			Persistent: true,
+			StorageUUID: &s0,
+			StorageID:   s0id,
+			ProviderID:  "my-provider-id-1",
+			SizeMiB:     123,
+			HardwareID:  "hw0",
+			WWN:         "wwn0",
+			Persistent:  true,
 		},
 		{
 			UUID: v1,
@@ -683,19 +687,20 @@ func (s *storageStatusSuite) TestGetVolumes(c *tc.C) {
 			Status: status.StatusInfo[status.StorageVolumeStatusType]{
 				Status: status.StorageVolumeStatusTypePending,
 			},
-			StorageID: s1id,
+			StorageUUID: &s1,
+			StorageID:   s1id,
 		},
 	})
 }
 
-func (s *storageStatusSuite) TestGetVolumeAttachmentsEmpty(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllVolumeAttachmentsEmpty(c *tc.C) {
 	st := s.NewModelState(c)
-	res, err := st.GetVolumeAttachments(c.Context())
+	res, err := st.GetAllVolumeAttachments(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.HasLen, 0)
 }
 
-func (s *storageStatusSuite) TestGetVolumeAttachments(c *tc.C) {
+func (s *storageStatusSuite) TestGetAllVolumeAttachments(c *tc.C) {
 	ch0 := s.newCharm(c)
 	s.newCharmStorage(c, ch0, "blk", storage.StorageKindBlock)
 
@@ -715,7 +720,7 @@ func (s *storageStatusSuite) TestGetVolumeAttachments(c *tc.C) {
 	a1 := s.newApplication(c, "bar", ch0)
 	nn1 := s.newNetNode(c)
 	_, m1n := s.newMachineWithNetNode(c, nn1)
-	u1, u1n := s.newUnitWithNetNode(c, a1, nn1)
+	u1, _ := s.newUnitWithNetNode(c, a1, nn1)
 	s1, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
 	s.newStorageAttachment(c, s1, u1)
 	v1, _ := s.newVolume(c)
@@ -726,7 +731,7 @@ func (s *storageStatusSuite) TestGetVolumeAttachments(c *tc.C) {
 	a2 := s.newApplication(c, "baz", ch0)
 	nn2 := s.newNetNode(c)
 	m2, m2n := s.newMachineWithNetNode(c, nn2)
-	u2, u2n := s.newUnitWithNetNode(c, a2, nn2)
+	u2, _ := s.newUnitWithNetNode(c, a2, nn2)
 	s2, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
 	s.newStorageAttachment(c, s2, u2)
 	v2, _ := s.newVolume(c)
@@ -743,7 +748,7 @@ func (s *storageStatusSuite) TestGetVolumeAttachments(c *tc.C) {
 	a3 := s.newApplication(c, "zaz", ch0)
 	nn3 := s.newNetNode(c)
 	_, m3n := s.newMachineWithNetNode(c, nn3)
-	u3, u3n := s.newUnitWithNetNode(c, a3, nn3)
+	u3, _ := s.newUnitWithNetNode(c, a3, nn3)
 	s3, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
 	s.newStorageAttachment(c, s3, u3)
 	v3, _ := s.newVolume(c)
@@ -755,7 +760,7 @@ func (s *storageStatusSuite) TestGetVolumeAttachments(c *tc.C) {
 	)
 
 	st := s.NewModelState(c)
-	res, err := st.GetVolumeAttachments(c.Context())
+	res, err := st.GetAllVolumeAttachments(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.UnorderedMatch[[]status.VolumeAttachment](tc.DeepEquals), []status.VolumeAttachment{
 		{
@@ -766,23 +771,20 @@ func (s *storageStatusSuite) TestGetVolumeAttachments(c *tc.C) {
 		{
 			VolumeUUID: v1,
 			Life:       life.Alive,
-			Unit:       &u1n,
 			Machine:    &m1n,
 		},
 		{
-			VolumeUUID: v2,
-			Life:       life.Alive,
-			Unit:       &u2n,
-			Machine:    &m2n,
-			DeviceName: "blocky",
-			BusAddress: "blocky-bus-addr",
-			DeviceLink: "/dev/blocky",
-			ReadOnly:   true,
+			VolumeUUID:  v2,
+			Life:        life.Alive,
+			Machine:     &m2n,
+			DeviceName:  "blocky",
+			BusAddress:  "blocky-bus-addr",
+			DeviceLinks: []string{"/dev/blocky", "/dev/disk/by-id/blocky"},
+			ReadOnly:    true,
 		},
 		{
 			VolumeUUID: v3,
 			Life:       life.Alive,
-			Unit:       &u3n,
 			Machine:    &m3n,
 			VolumeAttachmentPlan: &status.VolumeAttachmentPlan{
 				DeviceType: storage.VolumeDeviceTypeISCSI,

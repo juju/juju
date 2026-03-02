@@ -134,7 +134,7 @@ func (s *baseStorageSuite) newStorageInstance(
 	poolUUID storage.StoragePoolUUID,
 	storageKind storage.StorageKind,
 ) (storage.StorageInstanceUUID, string) {
-	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
+	storageInstanceUUID := tc.Must(c, storage.NewStorageInstanceUUID)
 	storageID := fmt.Sprintf("%s/%d", storageName, s.nextSequenceNumber(c, "storage"))
 
 	var charmName string

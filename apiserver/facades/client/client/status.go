@@ -1296,24 +1296,33 @@ func encodeOSType(ostype deployment.OSType) (string, error) {
 func processStorage(
 	ctx context.Context, statusService StatusService,
 ) ([]params.StorageDetails, []params.FilesystemDetails, []params.VolumeDetails, error) {
-	storageInstances, err := statusService.GetStorageInstanceStatuses(ctx)
+	storageInstances, err := statusService.GetAllStorageInstanceStatuses(ctx)
 	if err != nil {
 		return nil, nil, nil, internalerrors.Capture(err)
 	}
-	// This prevents a panic in clients due to a storage instance after 4.0
-	// possibly having no filesystem or volume to get a status from. This is
-	// poor API design anyway, since a storage instance does not have a status,
-	// instead, we've pulled one from the provisioned entities.
+
+	// zeroTime is used to set the status time no status time is available.
 	zeroTime := time.UnixMicro(0).UTC()
-	storageMap := map[string]*params.StorageDetails{}
+
+	storageResult := make([]params.StorageDetails, 0, len(storageInstances))
 	for _, v := range storageInstances {
 		details := params.StorageDetails{
 			StorageTag: names.NewStorageTag(v.ID).String(),
 			Life:       v.Life,
 			Status: params.EntityStatus{
-				Status: status.Unknown,
-				Since:  &zeroTime,
+				Status: v.Status.Status,
+				Info:   v.Status.Message,
+				Data:   v.Status.Data,
+				Since:  v.Status.Since,
 			},
+		}
+		if v.Status.Since == nil {
+			// This prevents a panic in clients due to a storage instance after
+			// 4.0 possibly having no filesystem or volume to get a status from.
+			// This is poor API design anyway, since a storage instance does not
+			// have a status, instead, we've pulled one from the provisioned
+			// entities.
+			v.Status.Since = &zeroTime
 		}
 		if v.Owner != nil {
 			details.OwnerTag = names.NewUnitTag(v.Owner.String()).String()
@@ -1340,13 +1349,10 @@ func processStorage(
 			}
 			details.Attachments[unitTag.String()] = sad
 		}
-		// Store in a map to get the status and location from either the
-		// filesystem or volumes. These are a facade concern, hence why it
-		// is done here.
-		storageMap[v.ID] = &details
+		storageResult = append(storageResult, details)
 	}
 
-	filesystems, err := statusService.GetFilesystemStatuses(ctx)
+	filesystems, err := statusService.GetAllFilesystemStatuses(ctx)
 	if err != nil {
 		return nil, nil, nil, internalerrors.Capture(err)
 	}
@@ -1399,27 +1405,10 @@ func processStorage(
 			machineTag := names.NewMachineTag(machine.String()).String()
 			details.MachineAttachments[machineTag] = fad
 		}
-		if storage, ok := storageMap[v.StorageID]; ok {
-			if storage.Kind == params.StorageKindFilesystem {
-				storage.Status = details.Status
-
-				// give the storage instance attachment the unit's attachment
-				// location.
-				for k, v := range unitAttachmentLocations {
-					ad, ok := storage.Attachments[k]
-					if !ok {
-						continue
-					}
-					ad.Location = v
-					storage.Attachments[k] = ad
-				}
-			}
-			details.Storage = storage
-		}
 		filesystemResult = append(filesystemResult, details)
 	}
 
-	volumes, err := statusService.GetVolumeStatuses(ctx)
+	volumes, err := statusService.GetAllVolumeStatuses(ctx)
 	if err != nil {
 		return nil, nil, nil, internalerrors.Capture(err)
 	}
@@ -1506,32 +1495,9 @@ func processStorage(
 			machineTag := names.NewMachineTag(machine.String()).String()
 			details.MachineAttachments[machineTag] = vad
 		}
-		if storage, ok := storageMap[v.StorageID]; ok {
-			if storage.Kind == params.StorageKindBlock {
-				storage.Status = details.Status
-				storage.Persistent = details.Info.Persistent
-				// give the storage instance attachment the unit's attachment
-				// location.
-				for k, v := range unitAttachmentLocations {
-					ad, ok := storage.Attachments[k]
-					if !ok {
-						continue
-					}
-					ad.Location = v
-					storage.Attachments[k] = ad
-				}
-			}
-			details.Storage = storage
-		}
 		volumeResult = append(volumeResult, details)
 	}
 
-	storageResult := make([]params.StorageDetails, 0, len(storageInstances))
-	for _, v := range storageInstances {
-		if storage, ok := storageMap[v.ID]; ok {
-			storageResult = append(storageResult, *storage)
-		}
-	}
 	return storageResult, filesystemResult, volumeResult, nil
 }
 

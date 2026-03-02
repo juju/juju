@@ -98,22 +98,28 @@ type StatusHistoryRequest struct {
 
 // StorageInstance represents the status of a storage instance.
 type StorageInstance struct {
+	UUID        storage.StorageInstanceUUID
 	ID          string
 	Owner       *unit.Name
 	Kind        storage.StorageKind
 	Life        life.Value
+	Status      status.StatusInfo
 	Attachments map[unit.Name]StorageAttachment
+	Name        string
 }
 
 // StorageAttachment represents the status of a storage attachment.
 type StorageAttachment struct {
-	Life    life.Value
-	Unit    unit.Name
-	Machine *machine.Name
+	Life     life.Value
+	Unit     unit.Name
+	Machine  *machine.Name
+	Location string
 }
 
 // Filesystem represents the status of a filesystem.
 type Filesystem struct {
+	UUID               storage.FilesystemUUID
+	StorageUUID        *storage.StorageInstanceUUID
 	ID                 string
 	Life               life.Value
 	Status             status.StatusInfo
@@ -127,6 +133,8 @@ type Filesystem struct {
 
 // Volume represents the status of a volume.
 type Volume struct {
+	UUID               storage.VolumeUUID
+	StorageUUID        *storage.StorageInstanceUUID
 	ID                 string
 	Life               life.Value
 	Status             status.StatusInfo

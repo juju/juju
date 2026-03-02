@@ -17,6 +17,8 @@ import (
 	"github.com/juju/juju/domain/status"
 )
 
+type entityUUIDs []string
+
 type applicationUUID struct {
 	UUID string `db:"uuid"`
 }
@@ -279,20 +281,29 @@ type volumeStatusInfo struct {
 // storageInstanceStatusDetails is used to retrieve all required
 // information for a storage instance for status reporting.
 type storageInstanceStatusDetails struct {
-	UUID          string         `db:"uuid"`
-	ID            string         `db:"storage_id"`
-	OwnerUnitName sql.NullString `db:"owner_unit_name"`
-	KindID        int            `db:"storage_kind_id"`
-	LifeID        int            `db:"life_id"`
+	UUID                      string         `db:"uuid"`
+	ID                        string         `db:"storage_id"`
+	OwnerUnitName             sql.NullString `db:"owner_unit_name"`
+	KindID                    int            `db:"storage_kind_id"`
+	StorageName               string         `db:"storage_name"`
+	LifeID                    int            `db:"life_id"`
+	FilesystemStatusID        sql.Null[int]  `db:"filesystem_status_id"`
+	FilesystemStatusMessage   string         `db:"filesystem_status_message"`
+	FilesystemStatusUpdatedAt *time.Time     `db:"filesystem_status_updated_at"`
+	VolumeStatusID            sql.Null[int]  `db:"volume_status_id"`
+	VolumeStatusMessage       string         `db:"volume_status_message"`
+	VolumeStatusUpdatedAt     *time.Time     `db:"volume_status_updated_at"`
 }
 
 // storageAttachmentStatusDetails is used to retrieve all required
 // information for a storage attachment for status reporting.
 type storageAttachmentStatusDetails struct {
-	StorageInstanceUUID string         `db:"storage_instance_uuid"`
-	UnitName            string         `db:"unit_name"`
-	MachineName         sql.NullString `db:"machine_name"`
-	LifeID              int            `db:"life_id"`
+	StorageInstanceUUID   string         `db:"storage_instance_uuid"`
+	UnitName              string         `db:"unit_name"`
+	MachineName           sql.NullString `db:"machine_name"`
+	LifeID                int            `db:"life_id"`
+	FilesystemMountPoint  sql.NullString `db:"filesystem_mount_point"`
+	VolumeBlockDeviceUUID sql.NullString `db:"volume_block_device_uuid"`
 }
 
 // filesystemStatusDetails is used to retrieve all required information
@@ -306,10 +317,11 @@ type filesystemStatusDetails struct {
 	Message   string     `db:"message"`
 	UpdatedAt *time.Time `db:"updated_at"`
 
-	StorageID  string         `db:"storage_id"`
-	VolumeID   sql.NullString `db:"volume_id"`
-	ProviderID string         `db:"provider_id"`
-	SizeMiB    uint64         `db:"size_mib"`
+	StorageInstanceUUID sql.NullString `db:"storage_instance_uuid"`
+	StorageID           string         `db:"storage_id"`
+	VolumeID            sql.NullString `db:"volume_id"`
+	ProviderID          string         `db:"provider_id"`
+	SizeMiB             uint64         `db:"size_mib"`
 }
 
 // filesystemAttachmentStatusDetails is used to retrieve all required
@@ -334,12 +346,22 @@ type volumeStatusDetails struct {
 	Message   string     `db:"message"`
 	UpdatedAt *time.Time `db:"updated_at"`
 
-	StorageID  string `db:"storage_id"`
-	ProviderID string `db:"provider_id"`
-	HardwareID string `db:"hardware_id"`
-	WWN        string `db:"wwn"`
-	SizeMiB    uint64 `db:"size_mib"`
-	Persistent bool   `db:"persistent"`
+	StorageInstanceUUID sql.NullString `db:"storage_instance_uuid"`
+	StorageID           string         `db:"storage_id"`
+	ProviderID          string         `db:"provider_id"`
+	HardwareID          string         `db:"hardware_id"`
+	WWN                 string         `db:"wwn"`
+	SizeMiB             uint64         `db:"size_mib"`
+	Persistent          bool           `db:"persistent"`
+}
+
+// volumeAttachmentDeviceLink represents a single device link for a volume
+// attachment.
+type volumeAttachmentDeviceLink struct {
+	DeviceLink string `db:"device_link"`
+
+	// UUID is the storage volume attachment uuid
+	UUID string `db:"uuid"`
 }
 
 // volumeAttachmentStatusDetails is used to retrieve all required
@@ -350,9 +372,9 @@ type volumeAttachmentStatusDetails struct {
 	UnitName    sql.NullString `db:"unit_name"`
 	MachineName sql.NullString `db:"machine_name"`
 	DeviceName  string         `db:"device_name"`
-	DeviceLink  string         `db:"device_link"`
 	BusAddress  string         `db:"bus_address"`
 	ReadOnly    bool           `db:"read_only"`
+	UUID        string         `db:"uuid"`
 }
 
 // volumeAttachmentPlanStatusDetails is used to retrieve all required
