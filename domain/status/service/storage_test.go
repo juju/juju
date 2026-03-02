@@ -426,7 +426,7 @@ func (s *storageServiceSuite) TestGetAllStorageInstanceStatusesMultiple(c *tc.C)
 	s.modelState.EXPECT().GetAllStorageInstanceAttachments(gomock.Any()).Return(sa, nil)
 
 	blockDeviceLinks := map[blockdevice.BlockDeviceUUID][]string{
-		blockDeviceUUID1: []string{
+		blockDeviceUUID1: {
 			"/dev/disk/by-id/1234",
 			"/dev/somethingelse",
 			"/dev/disk/by-id/123",
