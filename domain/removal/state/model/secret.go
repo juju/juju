@@ -407,37 +407,25 @@ func (st *State) deleteUserSecretRevisions(
 	ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, revNums []int,
 ) ([]string, error) {
 	type revisions []int
-
-	// Build the revision filter
-	selectRevisionParams := []any{secretID{ID: uri.ID}}
-	var revFilter string
-	if len(revNums) > 0 {
-		revFilter = "\nAND r.revision IN ($revisions[:])"
-		selectRevisionParams = append(selectRevisionParams, revisions(revNums))
+	type deleteFlags struct {
+		HasRevisions int `db:"has_revisions"`
 	}
 
-	// Query to get revision UUIDs to delete.
-	selectRevsQuery := fmt.Sprintf(`
+	selectRevsStmt, err := st.Prepare(`
 SELECT uuid AS &entityUUID.uuid
 FROM   secret_revision r
-WHERE  secret_id = $secretID.secret_id%s
-`, revFilter)
-
-	selectRevsStmt, err := st.Prepare(selectRevsQuery, append(selectRevisionParams, entityUUID{})...)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	// Query to count remaining revisions.
-	countRevisions := `SELECT count(*) AS &M.count FROM secret_revision WHERE secret_id = $secretID.secret_id`
-	countRevisionsStmt, err := st.Prepare(countRevisions, secretID{}, sqlair.M{})
+WHERE  r.secret_id = $secretID.secret_id
+AND    ($deleteFlags.has_revisions = 0 OR r.revision IN ($revisions[:]))
+  `, secretID{}, deleteFlags{}, revisions{}, entityUUID{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	// Get the revision UUIDs to delete.
 	var revUUIDs []entityUUID
-	err = tx.Query(ctx, selectRevsStmt, selectRevisionParams...).GetAll(&revUUIDs)
+	sid := secretID{ID: uri.ID}
+	flags := deleteFlags{HasRevisions: len(revNums)}
+	err = tx.Query(ctx, selectRevsStmt, sid, flags, revisions(revNums)).GetAll(&revUUIDs)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Errorf("selecting revision UUIDs to delete: %w", err)
 	}
@@ -479,8 +467,14 @@ WHERE revision_uuid IN ($uuids[:])`,
 	}
 
 	// Check if any revisions remain.
+	countRevisions := `SELECT count(*) AS &M.count FROM secret_revision WHERE secret_id = $secretID.secret_id`
+	countRevisionsStmt, err := st.Prepare(countRevisions, secretID{}, sqlair.M{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
 	countResult := sqlair.M{}
-	err = tx.Query(ctx, countRevisionsStmt, secretID{ID: uri.ID}).Get(&countResult)
+	err = tx.Query(ctx, countRevisionsStmt, sid).Get(&countResult)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Errorf("counting remaining revisions: %w", err)
 	}
@@ -510,11 +504,11 @@ WHERE revision_uuid IN ($uuids[:])`,
 	}
 
 	for _, q := range deleteSecretQueries {
-		stmt, err := st.Prepare(q, secretID{ID: uri.ID})
+		stmt, err := st.Prepare(q, sid)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		if err := tx.Query(ctx, stmt, secretID{ID: uri.ID}).Run(); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		if err := tx.Query(ctx, stmt, sid).Run(); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return nil, errors.Errorf("deleting secret data: %w", err)
 		}
 	}
