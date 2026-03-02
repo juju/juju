@@ -432,6 +432,49 @@ func (c *MockControllerDBStateModelExistsCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// RemoveSecretBackendReference mocks base method.
+func (m *MockControllerDBState) RemoveSecretBackendReference(arg0 context.Context, arg1 ...string) error {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "RemoveSecretBackendReference", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveSecretBackendReference indicates an expected call of RemoveSecretBackendReference.
+func (mr *MockControllerDBStateMockRecorder) RemoveSecretBackendReference(arg0 any, arg1 ...any) *MockControllerDBStateRemoveSecretBackendReferenceCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0}, arg1...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSecretBackendReference", reflect.TypeOf((*MockControllerDBState)(nil).RemoveSecretBackendReference), varargs...)
+	return &MockControllerDBStateRemoveSecretBackendReferenceCall{Call: call}
+}
+
+// MockControllerDBStateRemoveSecretBackendReferenceCall wrap *gomock.Call
+type MockControllerDBStateRemoveSecretBackendReferenceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerDBStateRemoveSecretBackendReferenceCall) Return(arg0 error) *MockControllerDBStateRemoveSecretBackendReferenceCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerDBStateRemoveSecretBackendReferenceCall) Do(f func(context.Context, ...string) error) *MockControllerDBStateRemoveSecretBackendReferenceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerDBStateRemoveSecretBackendReferenceCall) DoAndReturn(f func(context.Context, ...string) error) *MockControllerDBStateRemoveSecretBackendReferenceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockModelDBState is a mock of ModelDBState interface.
 type MockModelDBState struct {
 	ctrl     *gomock.Controller

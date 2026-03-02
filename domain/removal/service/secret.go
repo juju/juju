@@ -133,7 +133,17 @@ func (s *Service) processObsoleteUserSecretRevisionsJob(ctx context.Context, job
 		return errors.Errorf("deleting obsolete user secret revisions: %w", err)
 	}
 
-	return s.deleteSecretRevisionContent(ctx, deletedRevisionUUIDs)
+	err = s.deleteSecretRevisionContent(ctx, deletedRevisionUUIDs)
+	if err != nil {
+		return errors.Errorf("deleting secret revision content: %w", err)
+	}
+
+	err = s.controllerState.RemoveSecretBackendReference(ctx, deletedRevisionUUIDs...)
+	if err != nil {
+		return errors.Errorf("removing secret backend reference: %w", err)
+	}
+
+	return nil
 }
 
 func (s *Service) deleteApplicationOwnedSecrets(ctx context.Context, aUUID coreapplication.UUID) error {
@@ -233,7 +243,17 @@ func (s *Service) deleteUserSecretRevisions(ctx context.Context, uri *coresecret
 	}
 	s.logger.Infof(ctx, "deleted secret %s revisions %v", uri.String(), deletedRevisionUUIDs)
 
-	return s.deleteSecretRevisionContent(ctx, deletedRevisionUUIDs)
+	err = s.deleteSecretRevisionContent(ctx, deletedRevisionUUIDs)
+	if err != nil {
+		return errors.Errorf("deleting secret revision content: %w", err)
+	}
+
+	err = s.controllerState.RemoveSecretBackendReference(ctx, deletedRevisionUUIDs...)
+	if err != nil {
+		return errors.Errorf("removing secret backend reference: %w", err)
+	}
+
+	return nil
 }
 
 // deleteSecretRevisionContent deletes the secret content from the backend.

@@ -95,6 +95,7 @@ func (s *secretSuite) TestExecuteJobForUserSecretDelete(c *tc.C) {
 	s.controllerState.EXPECT().
 		GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).
 		Return("", sbCfg, nil)
+	s.controllerState.EXPECT().RemoveSecretBackendReference(gomock.Any(), "rev-uuid-1").Return(nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIsNil)
@@ -118,6 +119,8 @@ func (s *secretSuite) TestExecuteJobForUserSecretWithSpecificRevisions(c *tc.C) 
 	s.prepareSecretBackendProvider()
 	s.secretBackend.EXPECT().DeleteContent(c.Context(), "ref-1").Return(nil)
 	s.secretBackend.EXPECT().DeleteContent(c.Context(), "ref-2").Return(nil)
+
+	s.controllerState.EXPECT().RemoveSecretBackendReference(gomock.Any(), "rev-uuid-1", "rev-uuid-2").Return(nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIsNil)
@@ -145,6 +148,10 @@ func (s *secretSuite) TestExecuteJobForUserSecretExternalSecretsDelete(c *tc.C) 
 		s.secretBackend.EXPECT().DeleteContent(c.Context(), id).Return(nil)
 	}
 
+	s.controllerState.EXPECT().
+		RemoveSecretBackendReference(gomock.Any(), "rev-uuid-1", "rev-uuid-2", "rev-uuid-3").
+		Return(nil)
+
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -167,6 +174,8 @@ func (s *secretSuite) TestExecuteJobForUserSecretExternalSecretsDeleteWithFailur
 	s.prepareSecretBackendProvider()
 	s.secretBackend.EXPECT().DeleteContent(c.Context(), secretExternalRefs[0]).Return(nil)
 	s.secretBackend.EXPECT().DeleteContent(c.Context(), secretExternalRefs[1]).Return(errors.Errorf("backend error"))
+
+	s.controllerState.EXPECT().RemoveSecretBackendReference(gomock.Any(), "rev-uuid-1", "rev-uuid-2").Return(nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIsNil)
