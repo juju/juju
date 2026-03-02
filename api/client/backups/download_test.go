@@ -9,9 +9,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/juju/juju/api/base"
 	"github.com/juju/tc"
 	"gopkg.in/httprequest.v1"
+
+	"github.com/juju/juju/api/base"
 )
 
 type downloadSuite struct {
