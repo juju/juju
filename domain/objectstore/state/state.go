@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -163,26 +164,76 @@ FROM v_object_store_metadata`, dbMetadata{})
 }
 
 // PutMetadata adds a new specified path for the persistence metadata.
-func (s *State) PutMetadata(ctx context.Context, metadata coreobjectstore.Metadata) (coreobjectstore.UUID, error) {
+func (s *State) PutMetadata(ctx context.Context, uuid string, metadata coreobjectstore.Metadata) (string, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	uuid, err := coreobjectstore.NewUUID()
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		uuid, err = s.putMetadata(ctx, tx, uuid, metadata)
+		return err
+	})
 	if err != nil {
-		return "", err
+		return "", errors.Errorf("adding path %s: %w", metadata.Path, err)
+	}
+	return uuid, nil
+}
+
+// PutMetadataWithControllerIDHint adds a new specified path for the persistence
+// metadata with a controller ID hint. This is used to route the request to the
+// correct controller in a multi-controller environment.
+func (s *State) PutMetadataWithControllerIDHint(
+	ctx context.Context,
+	uuid string,
+	metadata coreobjectstore.Metadata,
+	controllerIDHint string,
+) (string, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
 	}
 
+	type hint struct {
+		UUID             string `db:"uuid"`
+		ControllerIDHint string `db:"node_id"`
+	}
+
+	hintQuery, err := s.Prepare(`
+INSERT INTO object_store_placement (uuid, node_id)
+VALUES ($hint.*);
+`, hint{})
+	if err != nil {
+		return "", errors.Errorf("preparing insert placement hint statement: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		uuid, err = s.putMetadata(ctx, tx, uuid, metadata)
+		if err != nil {
+			return err
+		}
+
+		return tx.Query(ctx, hintQuery, hint{
+			UUID:             uuid,
+			ControllerIDHint: controllerIDHint,
+		}).Run()
+	})
+	if err != nil {
+		return "", errors.Errorf("adding path %s: %w", metadata.Path, err)
+	}
+	return uuid, nil
+}
+
+func (s *State) putMetadata(ctx context.Context, tx *sqlair.TX, uuid string, metadata coreobjectstore.Metadata) (string, error) {
 	dbMetadata := dbMetadata{
-		UUID:   uuid.String(),
+		UUID:   uuid,
 		SHA256: metadata.SHA256,
 		SHA384: metadata.SHA384,
 		Size:   metadata.Size,
 	}
 
 	dbMetadataPath := dbMetadataPath{
-		UUID: uuid.String(),
+		UUID: uuid,
 		Path: metadata.Path,
 	}
 
@@ -214,52 +265,47 @@ AND size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
 		return "", errors.Errorf("preparing select metadata statement: %w", err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var outcome sqlair.Outcome
-		err := tx.Query(ctx, metadataStmt, dbMetadata).Get(&outcome)
-		if err != nil {
-			return errors.Errorf("inserting metadata: %w", err)
-		}
+	var outcome sqlair.Outcome
+	if err := tx.Query(ctx, metadataStmt, dbMetadata).Get(&outcome); err != nil {
+		return "", errors.Errorf("inserting metadata: %w", err)
+	}
 
-		metadataRows, err := outcome.Result().RowsAffected()
-		if err != nil {
-			return errors.Errorf("inserting metadata: %w", err)
-		} else if metadataRows == 0 {
-			// If the rows affected is 0, then the metadata already exists.
-			// We need to get the uuid for the metadata, so that we can insert
-			// the path based on that uuid.
-			err := tx.Query(ctx, metadataLookupStmt, dbMetadata).Get(&dbMetadataPath)
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return objectstoreerrors.ErrHashAndSizeAlreadyExists
-			} else if err != nil {
-				return errors.Errorf("inserting metadata: %w", err)
-			}
-			// At this point we need to update the uuid that we'll
-			// return back to be the one that was already in the db.
-			uuid, err = coreobjectstore.ParseUUID(dbMetadataPath.UUID)
-			if err != nil {
-				return errors.Errorf("parsing present uuid in metadata: %w", err)
-			}
-		}
-
-		err = tx.Query(ctx, pathStmt, dbMetadataPath).Get(&outcome)
-		constraintErr := database.IsErrConstraintPrimaryKey(err)
-		if constraintErr && metadataRows == 0 {
-			return objectstoreerrors.ErrHashAndSizeAlreadyExists
-		} else if constraintErr {
-			return objectstoreerrors.ErrPathAlreadyExistsDifferentHash
-		} else if err != nil {
-			return errors.Errorf("inserting metadata path: %w", err)
-		}
-		if rows, err := outcome.Result().RowsAffected(); err != nil {
-			return errors.Errorf("inserting metadata path: %w", err)
-		} else if rows != 1 {
-			return errors.Errorf("metadata path not inserted")
-		}
-		return nil
-	})
+	metadataRows, err := outcome.Result().RowsAffected()
 	if err != nil {
-		return "", errors.Errorf("adding path %s: %w", metadata.Path, err)
+		return "", errors.Errorf("inserting metadata: %w", err)
+	} else if metadataRows == 0 {
+		// If the rows affected is 0, then the metadata already exists.
+		// We need to get the uuid for the metadata, so that we can insert
+		// the path based on that uuid.
+		err := tx.Query(ctx, metadataLookupStmt, dbMetadata).Get(&dbMetadataPath)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			fmt.Println("???")
+			return "", objectstoreerrors.ErrHashAndSizeAlreadyExists
+		} else if err != nil {
+			return "", errors.Errorf("inserting metadata: %w", err)
+		}
+		// At this point we need to update the uuid that we'll
+		// return back to be the one that was already in the db.
+		pUUID, err := coreobjectstore.ParseUUID(dbMetadataPath.UUID)
+		if err != nil {
+			return "", errors.Errorf("parsing present uuid in metadata: %w", err)
+		}
+		uuid = pUUID.String()
+	}
+
+	err = tx.Query(ctx, pathStmt, dbMetadataPath).Get(&outcome)
+	constraintErr := database.IsErrConstraintPrimaryKey(err)
+	if constraintErr && metadataRows == 0 {
+		return "", objectstoreerrors.ErrHashAndSizeAlreadyExists
+	} else if constraintErr {
+		return "", objectstoreerrors.ErrPathAlreadyExistsDifferentHash
+	} else if err != nil {
+		return "", errors.Errorf("inserting metadata path: %w", err)
+	}
+	if rows, err := outcome.Result().RowsAffected(); err != nil {
+		return "", errors.Errorf("inserting metadata path: %w", err)
+	} else if rows != 1 {
+		return "", errors.Errorf("metadata path not inserted")
 	}
 	return uuid, nil
 }
