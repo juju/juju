@@ -200,7 +200,8 @@ func (s *State) PutMetadataWithControllerIDHint(
 
 	hintQuery, err := s.Prepare(`
 INSERT INTO object_store_placement (uuid, node_id)
-VALUES ($hint.*);
+VALUES ($hint.*)
+ON CONFLICT (uuid, node_id) DO NOTHING;
 `, hint{})
 	if err != nil {
 		return "", errors.Errorf("preparing insert placement hint statement: %w", err)

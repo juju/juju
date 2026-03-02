@@ -6,6 +6,7 @@ package objects
 import (
 	"context"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -100,7 +101,16 @@ func (h *ObjectsHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) er
 
 	w.Header().Set("x-amzn-requestid", r.Header.Get("x-amz-request-id"))
 	w.Header().Set("x-amzn-id-2", r.Header.Get("x-amz-id-2"))
-	w.Header().Set("x-amz-checksum-sha256", base64.StdEncoding.EncodeToString([]byte(sha256)))
+
+	// We want to send back the checksum header to ensure nothing got corrupted
+	// in transit. Objects are content addressable, we can guarantee that the
+	// object found for the give hash is the same. So we just need to encode
+	// the hash back for the s3 client to verify it.
+	decodedHex, err := hex.DecodeString(sha256)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	w.Header().Set("x-amz-checksum-sha256", base64.StdEncoding.EncodeToString(decodedHex))
 
 	size, err := io.Copy(w, reader)
 	if err != nil {
