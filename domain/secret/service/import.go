@@ -14,145 +14,10 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// GetSecretsForExport returns a result containing all the information needed to
-// export secrets to a model description.
-func (s *SecretService) GetSecretsForExport(ctx context.Context) (*SecretExport, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	secrets, secretRevisions, err := s.secretState.ListAllSecrets(ctx)
-	if err != nil {
-		return nil, errors.Errorf("loading secrets for export: %w", err)
-	}
-
-	remoteSecrets, err := s.secretState.AllRemoteSecrets(ctx)
-	if err != nil {
-		return nil, errors.Errorf("loading secrets for export: %w", err)
-	}
-
-	allSecrets := &SecretExport{
-		Secrets:         secrets,
-		Revisions:       make(map[string][]*coresecrets.SecretRevisionMetadata),
-		Content:         make(map[string]map[int]coresecrets.SecretData),
-		Access:          make(map[string][]SecretAccess),
-		Consumers:       make(map[string][]ConsumerInfo),
-		RemoteConsumers: make(map[string][]ConsumerInfo),
-		RemoteSecrets:   make([]RemoteSecret, len(remoteSecrets)),
-	}
-
-	for i, info := range remoteSecrets {
-		allSecrets.RemoteSecrets[i] = RemoteSecret{
-			URI:             info.URI,
-			Label:           info.Label,
-			CurrentRevision: info.CurrentRevision,
-			LatestRevision:  info.LatestRevision,
-			Accessor: secret.SecretAccessor{
-				Kind: secret.SecretAccessorKind(info.SubjectTypeID.String()),
-				ID:   info.SubjectID,
-			},
-		}
-	}
-
-	for i, md := range secrets {
-		revs := secretRevisions[i]
-		allSecrets.Revisions[md.URI.ID] = revs
-		for _, rev := range revs {
-			if rev.ValueRef != nil {
-				continue
-			}
-			data, _, err := s.secretState.GetSecretValue(ctx, md.URI, rev.Revision)
-			if err != nil {
-				return nil, errors.Errorf("loading secret content for %q: %w", md.URI.ID, err)
-			}
-			if len(data) == 0 {
-				// Should not happen.
-				return nil, errors.Errorf("unexpected empty secret content for %q", md.URI.ID)
-			}
-			if _, ok := allSecrets.Content[md.URI.ID]; !ok {
-				allSecrets.Content[md.URI.ID] = make(map[int]coresecrets.SecretData)
-			}
-			allSecrets.Content[md.URI.ID][rev.Revision] = data
-		}
-	}
-
-	allGrants, err := s.secretState.AllSecretGrants(ctx)
-	if err != nil {
-		return nil, errors.Errorf("loading secret grants for export: %w", err)
-	}
-	for id, grants := range allGrants {
-		secretAccess := make([]SecretAccess, len(grants))
-		for i, grant := range grants {
-			access := SecretAccess{
-				Scope: secret.SecretAccessScope{
-					Kind: secret.SecretAccessScopeKind(grant.ScopeTypeID.String()),
-					ID:   grant.ScopeID,
-				},
-				Subject: secret.SecretAccessor{
-					Kind: secret.SecretAccessorKind(grant.SubjectTypeID.String()),
-					ID:   grant.SubjectID,
-				},
-				Role: coresecrets.SecretRole(grant.RoleID.String()),
-			}
-			secretAccess[i] = access
-		}
-		allSecrets.Access[id] = secretAccess
-	}
-
-	allConsumers, err := s.secretState.AllSecretConsumers(ctx)
-	if err != nil {
-		return nil, errors.Errorf("loading secret consumers for export: %w", err)
-	}
-	for id, consumers := range allConsumers {
-		secretConsumers := make([]ConsumerInfo, len(consumers))
-		for i, consumer := range consumers {
-			info := ConsumerInfo{
-				SecretConsumerMetadata: coresecrets.SecretConsumerMetadata{
-					Label:           consumer.Label,
-					CurrentRevision: consumer.CurrentRevision,
-				},
-				Accessor: secret.SecretAccessor{
-					Kind: secret.SecretAccessorKind(consumer.SubjectTypeID.String()),
-					ID:   consumer.SubjectID,
-				},
-			}
-			secretConsumers[i] = info
-		}
-		allSecrets.Consumers[id] = secretConsumers
-	}
-
-	allRemoteConsumers, err := s.secretState.AllSecretRemoteConsumers(ctx)
-	if err != nil {
-		return nil, errors.Errorf("loading secret remote consumers for export: %w", err)
-	}
-	for id, consumers := range allRemoteConsumers {
-		secretConsumers := make([]ConsumerInfo, len(consumers))
-		for i, consumer := range consumers {
-			info := ConsumerInfo{
-				SecretConsumerMetadata: coresecrets.SecretConsumerMetadata{
-					Label:           consumer.Label,
-					CurrentRevision: consumer.CurrentRevision,
-				},
-				Accessor: secret.SecretAccessor{
-					Kind: secret.SecretAccessorKind(consumer.SubjectTypeID.String()),
-					ID:   consumer.SubjectID,
-				},
-			}
-			secretConsumers[i] = info
-		}
-		allSecrets.RemoteConsumers[id] = secretConsumers
-	}
-
-	return allSecrets, nil
-}
-
 // ImportSecrets saves the supplied secret details to the model.
-func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretExport) error {
+func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretImport) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
-
-	if err := s.importRemoteSecrets(ctx, modelSecrets.RemoteSecrets); err != nil {
-		return errors.Errorf("importing remote secrets: %w", err)
-	}
 
 	modelID, err := s.secretState.GetModelUUID(ctx)
 	if err != nil {
@@ -177,20 +42,6 @@ func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretE
 				return errors.Errorf("saving secret consumer %q for %q: %w", sc.Accessor.ID, md.URI.ID, err)
 			}
 		}
-
-		// TODO(secrets) - move to crossmodelrelation domain
-		//for _, rc := range modelSecrets.RemoteConsumers[md.URI.ID] {
-		//	unitName, err := unit.NewName(rc.Accessor.ID)
-		//	if err != nil {
-		//		return errors.Errorf("invalid remote secret consumer: %w", err)
-		//	}
-		//	if err := s.secretState.SaveSecretRemoteConsumer(ctx, md.URI, unitName, &coresecrets.SecretConsumerMetadata{
-		//		Label:           rc.Label,
-		//		CurrentRevision: rc.CurrentRevision,
-		//	}); err != nil {
-		//		return errors.Errorf("saving secret remote consumer %q for %q: %w", rc.Accessor.ID, md.URI.ID, err)
-		//	}
-		//}
 
 		for _, access := range modelSecrets.Access[md.URI.ID] {
 			p, err := s.grantParams(ctx, secret.SecretAccessParams{
@@ -307,10 +158,6 @@ func (s *SecretService) importSecretWithRevisions(
 		return errors.Errorf("saving secret %q: %w", md.URI.ID, err)
 	}
 
-	return nil
-}
-
-func (s *SecretService) importRemoteSecrets(ctx context.Context, remoteSecrets []RemoteSecret) error {
 	return nil
 }
 

@@ -125,7 +125,8 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	}
 
 	// Import remote application consumers.
-	if err := i.importRemoteApplicationConsumers(ctx,
+	if err := i.importRemoteApplicationConsumers(
+		ctx,
 		remoteApplications,
 		remoteAppUnits,
 		offerConnections,

@@ -21,123 +21,6 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-func (s *serviceSuite) TestGetSecretsForExport(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	uri := coresecrets.NewURI()
-	secrets := []*coresecrets.SecretMetadata{{
-		URI:                    uri,
-		LatestRevisionChecksum: "checksum-1234",
-	}}
-	revisions := [][]*coresecrets.SecretRevisionMetadata{{{
-		Revision: 1,
-	}, {
-		Revision: 2,
-		ValueRef: &coresecrets.ValueRef{
-			BackendID:  "backend-id",
-			RevisionID: "revision-id",
-		},
-	}, {
-		Revision: 3,
-	}}}
-
-	s.state.EXPECT().ListAllSecrets(gomock.Any()).Return(
-		secrets, revisions, nil,
-	)
-	s.state.EXPECT().GetSecretValue(gomock.Any(), uri, 1).Return(
-		coresecrets.SecretData{"foo": "bar"}, nil, nil,
-	)
-	s.state.EXPECT().GetSecretValue(gomock.Any(), uri, 3).Return(
-		coresecrets.SecretData{"foo": "bar3"}, nil, nil,
-	)
-	s.state.EXPECT().AllSecretGrants(gomock.Any()).Return(
-		map[string][]domainsecret.GrantDetails{
-			uri.ID: {{
-				ScopeTypeID:   1,
-				ScopeID:       "wordpress",
-				ScopeUUID:     "wordpress-uuid",
-				SubjectTypeID: 1,
-				SubjectID:     "wordpress",
-				RoleID:        2,
-			}},
-		}, nil,
-	)
-	s.state.EXPECT().AllSecretConsumers(gomock.Any()).Return(
-		map[string][]domainsecret.ConsumerInfo{
-			uri.ID: {{
-				SubjectTypeID:   0,
-				SubjectID:       "mysql/0",
-				Label:           "my label",
-				CurrentRevision: 666,
-			}},
-		}, nil,
-	)
-	s.state.EXPECT().AllSecretRemoteConsumers(gomock.Any()).Return(
-		map[string][]domainsecret.ConsumerInfo{
-			uri.ID: {{
-				SubjectTypeID:   0,
-				SubjectID:       "remote-app/0",
-				CurrentRevision: 668,
-			}},
-		}, nil,
-	)
-	s.state.EXPECT().AllRemoteSecrets(gomock.Any()).Return(
-		[]domainsecret.RemoteSecretInfo{}, nil,
-	)
-
-	got, err := s.service.GetSecretsForExport(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(got, tc.DeepEquals, &SecretExport{
-		Secrets: secrets,
-		Revisions: map[string][]*coresecrets.SecretRevisionMetadata{
-			uri.ID: revisions[0],
-		},
-		Content: map[string]map[int]coresecrets.SecretData{
-			uri.ID: {
-				1: {"foo": "bar"},
-				3: {"foo": "bar3"},
-			},
-		},
-		Consumers: map[string][]ConsumerInfo{
-			uri.ID: {{
-				SecretConsumerMetadata: coresecrets.SecretConsumerMetadata{
-					Label:           "my label",
-					CurrentRevision: 666,
-				},
-				Accessor: domainsecret.SecretAccessor{
-					Kind: "unit",
-					ID:   "mysql/0",
-				},
-			}},
-		},
-		RemoteConsumers: map[string][]ConsumerInfo{
-			uri.ID: {{
-				SecretConsumerMetadata: coresecrets.SecretConsumerMetadata{
-					CurrentRevision: 668,
-				},
-				Accessor: domainsecret.SecretAccessor{
-					Kind: "unit",
-					ID:   "remote-app/0",
-				},
-			}},
-		},
-		Access: map[string][]SecretAccess{
-			uri.ID: {{
-				Scope: domainsecret.SecretAccessScope{
-					Kind: "application",
-					ID:   "wordpress",
-				},
-				Subject: domainsecret.SecretAccessor{
-					Kind: "application",
-					ID:   "wordpress",
-				},
-				Role: "manage",
-			}},
-		},
-		RemoteSecrets: nil,
-	})
-}
-
 func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -145,7 +28,6 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
-	uri3 := coresecrets.NewURI()
 	expireTime := time.Now()
 	rotateTime := time.Now()
 	secrets := []*coresecrets.SecretMetadata{{
@@ -164,7 +46,7 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 		CreateTime:             now.Add(1 * time.Hour),
 		UpdateTime:             now.Add(3 * time.Hour),
 	}, {
-		URI:     uri3,
+		URI:     uri2,
 		Version: 0,
 		Owner: coresecrets.Owner{
 			Kind: coresecrets.ModelOwner,
@@ -284,7 +166,7 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 		RoleID:        1,
 	})
 
-	s.state.EXPECT().GrantAccess(gomock.Any(), uri3, domainsecret.GrantParams{
+	s.state.EXPECT().GrantAccess(gomock.Any(), uri2, domainsecret.GrantParams{
 		ScopeTypeID:   1,
 		ScopeUUID:     appUUID.String(),
 		SubjectTypeID: 1,
@@ -292,7 +174,7 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 		RoleID:        1,
 	})
 
-	s.state.EXPECT().ImportSecretWithRevisions(gomock.Any(), 0, uri3, domainsecret.Owner{
+	s.state.EXPECT().ImportSecretWithRevisions(gomock.Any(), 0, uri2, domainsecret.Owner{
 		Kind: coresecrets.ModelOwner,
 		UUID: testing.ModelTag.Id(),
 	}, domainsecret.UpsertSecretParams{
@@ -315,17 +197,17 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 		func() error { return nil }, nil,
 	)
 
-	toImport := &SecretExport{
+	toImport := &SecretImport{
 		Secrets: secrets,
 		Revisions: map[string][]*coresecrets.SecretRevisionMetadata{
 			uri.ID:  revisions[0],
-			uri3.ID: revisions[1],
+			uri2.ID: revisions[1],
 		},
 		Content: map[string]map[int]coresecrets.SecretData{
 			uri.ID: {
 				1: {"foo": "bar"},
 			},
-			uri3.ID: {
+			uri2.ID: {
 				5: {"foo": "baz"},
 			},
 		},
@@ -341,17 +223,6 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 				},
 			}},
 		},
-		RemoteConsumers: map[string][]ConsumerInfo{
-			uri.ID: {{
-				SecretConsumerMetadata: coresecrets.SecretConsumerMetadata{
-					CurrentRevision: 668,
-				},
-				Accessor: domainsecret.SecretAccessor{
-					Kind: "unit",
-					ID:   "remote-app/0",
-				},
-			}},
-		},
 		Access: map[string][]SecretAccess{
 			uri.ID: {{
 				Scope: domainsecret.SecretAccessScope{
@@ -364,7 +235,7 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 				},
 				Role: "view",
 			}},
-			uri3.ID: {{
+			uri2.ID: {{
 				Scope: domainsecret.SecretAccessScope{
 					Kind: "application",
 					ID:   "mysql",
@@ -376,16 +247,6 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 				Role: "view",
 			}},
 		},
-		RemoteSecrets: []RemoteSecret{{
-			URI:             uri2,
-			Label:           "remote label",
-			CurrentRevision: 666,
-			LatestRevision:  668,
-			Accessor: domainsecret.SecretAccessor{
-				Kind: "unit",
-				ID:   "mysql/0",
-			},
-		}},
 	}
 	err := s.service.ImportSecrets(c.Context(), toImport)
 	c.Assert(err, tc.ErrorIsNil)
@@ -442,7 +303,7 @@ func (s *serviceSuite) TestImportSecretsRollbackOnFailure(c *tc.C) {
 		nil, fmt.Errorf("failed to add reference"),
 	)
 
-	toImport := &SecretExport{
+	toImport := &SecretImport{
 		Secrets: secrets,
 		Revisions: map[string][]*coresecrets.SecretRevisionMetadata{
 			uri.ID: revisions[0],
@@ -508,7 +369,7 @@ func (s *serviceSuite) TestImportSecretsRollbackOnStateFailure(c *tc.C) {
 		fmt.Errorf("failed to import to state"),
 	)
 
-	toImport := &SecretExport{
+	toImport := &SecretImport{
 		Secrets: secrets,
 		Revisions: map[string][]*coresecrets.SecretRevisionMetadata{
 			uri.ID: revisions[0],
