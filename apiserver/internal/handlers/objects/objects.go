@@ -5,6 +5,7 @@ package objects
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -99,6 +100,7 @@ func (h *ObjectsHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) er
 
 	w.Header().Set("x-amzn-requestid", r.Header.Get("x-amz-request-id"))
 	w.Header().Set("x-amzn-id-2", r.Header.Get("x-amz-id-2"))
+	w.Header().Set("x-amz-checksum-sha256", base64.StdEncoding.EncodeToString([]byte(sha256)))
 
 	size, err := io.Copy(w, reader)
 	if err != nil {
