@@ -101,7 +101,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataFoundNoFile(c *tc.C) {
 	}, nil).Times(2)
 
 	s.remote.EXPECT().Retrieve(gomock.Any(), "blah").
-		Return(nil, -1, jujuerrors.NotFoundf("not found"))
+		Return(nil, -1, remote.BlobNotFound)
 
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
@@ -154,7 +154,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixFoundNoFile(c *tc.C)
 	}, nil).Times(2)
 
 	s.remote.EXPECT().Retrieve(gomock.Any(), "0263829989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f").
-		Return(nil, -1, jujuerrors.NotFoundf("not found"))
+		Return(nil, -1, remote.BlobNotFound)
 
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)

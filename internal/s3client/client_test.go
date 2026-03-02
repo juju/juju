@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
-	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -35,7 +34,7 @@ func (s *s3ClientSuite) TestObjectExists(c *tc.C) {
 	})
 	defer cleanup()
 
-	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, loggertesting.WrapCheckLog(c))
+	client, err := NewS3Client(url, httpClient, AnonymousCredentials{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = client.ObjectExists(c.Context(), "bucket", "object")
@@ -51,7 +50,7 @@ func (s *s3ClientSuite) TestObjectExistsNotFound(c *tc.C) {
 	})
 	defer cleanup()
 
-	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, loggertesting.WrapCheckLog(c))
+	client, err := NewS3Client(url, httpClient, AnonymousCredentials{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = client.ObjectExists(c.Context(), "bucket", "object")
@@ -67,7 +66,7 @@ func (s *s3ClientSuite) TestObjectExistsForbidden(c *tc.C) {
 	})
 	defer cleanup()
 
-	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, loggertesting.WrapCheckLog(c))
+	client, err := NewS3Client(url, httpClient, AnonymousCredentials{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = client.ObjectExists(c.Context(), "bucket", "object")
@@ -84,7 +83,7 @@ func (s *s3ClientSuite) TestGetObject(c *tc.C) {
 	})
 	defer cleanup()
 
-	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, loggertesting.WrapCheckLog(c))
+	client, err := NewS3Client(url, httpClient, AnonymousCredentials{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	resp, size, hash, err := client.GetObject(c.Context(), "bucket", "object")
@@ -124,7 +123,7 @@ func (s *s3ClientSuite) TestPutObject(c *tc.C) {
 	})
 	defer cleanup()
 
-	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, loggertesting.WrapCheckLog(c))
+	client, err := NewS3Client(url, httpClient, AnonymousCredentials{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = client.PutObject(c.Context(), "bucket", "object", strings.NewReader("blob"), hash)
@@ -141,7 +140,7 @@ func (s *s3ClientSuite) TestDeleteObject(c *tc.C) {
 	})
 	defer cleanup()
 
-	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, loggertesting.WrapCheckLog(c))
+	client, err := NewS3Client(url, httpClient, AnonymousCredentials{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = client.DeleteObject(c.Context(), "bucket", "object")
@@ -158,7 +157,7 @@ func (s *s3ClientSuite) TestCreateBucket(c *tc.C) {
 	})
 	defer cleanup()
 
-	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, loggertesting.WrapCheckLog(c))
+	client, err := NewS3Client(url, httpClient, AnonymousCredentials{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = client.CreateBucket(c.Context(), "bucket")
