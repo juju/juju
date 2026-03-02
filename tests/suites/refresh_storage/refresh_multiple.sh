@@ -126,6 +126,94 @@ run_change_minimal_count() {
     destroy_model "$model_name"
 }
 
+# Tests changes towards the maximal count property.
+# Reject refresh if the maximal count is decreased.
+# Allow the refresh if the maximal count is increased.
+run_change_maximal_count() {
+  echo
+
+    model_name="test-change-maximal-count"
+    file="${TEST_DIR}/${model_name}.log"
+
+    ensure "${model_name}" "${file}"
+
+    # Deploy revision 1 as the baseline.
+    juju deploy "storage-multiple-refresher" --revision 1 --channel latest/edge
+    wait_for "storage-multiple-refresher" "$(active_idle_condition "storage-multiple-refresher")"
+    wait_for "attached" '.storage.storage["awesome-fs/0"].status.current'
+    wait_for "attached" '.storage.storage["awesome-fs/1"].status.current'
+    assert_storage_attached "storage-multiple-refresher/0" "awesome-fs/0"
+    assert_storage_attached "storage-multiple-refresher/0" "awesome-fs/1"
+    assert_storage_min_size "storage-multiple-refresher/0" "awesome-fs/0" 3072
+    assert_storage_min_size "storage-multiple-refresher/0" "awesome-fs/1" 3072
+
+    # Add more storage exceeding the max count.
+    # This should fail.
+    OUT=$(juju add-storage storage-multiple-refresher/0 awesome-fs="rootfs,3G,6" 2>&1 || true)
+    echo "$OUT" | check "storage directive \"awesome-fs\" request count 8 exceeds the charm's maximum count of 5"
+
+    # Refresh charm to revision 5 which decreases the maximal storage count to 3.
+    # Reject this refresh.
+    OUT=$(juju refresh "storage-multiple-refresher" --revision 5 2>&1 || true)
+    echo "$OUT" | check 'storage definition "awesome-fs" new maximum count 3 is less than existing maximum count 5'
+
+    # Revision remains at 1.
+	  wait_for "storage-multiple-refresher" "$(charm_rev "storage-multiple-refresher" 1)"
+
+    # Refresh charm to revision 4 which increases the maximal storage count to 8.
+    # Allow this refresh.
+    juju refresh "storage-multiple-refresher" --revision 4
+
+    wait_for "storage-multiple-refresher" "$(charm_rev "storage-multiple-refresher" 4)"
+
+    juju add-unit storage-multiple-refresher
+    wait_for "storage-multiple-refresher" "$(active_idle_condition "storage-multiple-refresher" 1)"
+    wait_for "attached" '.storage.storage["awesome-fs/2"].status.current'
+    assert_storage_attached "storage-multiple-refresher/1" "awesome-fs/2"
+    assert_storage_attached "storage-multiple-refresher/1" "awesome-fs/3"
+    assert_storage_min_size "storage-multiple-refresher/1" "awesome-fs/2" 3072
+    assert_storage_min_size "storage-multiple-refresher/1" "awesome-fs/3" 3072
+
+    # Let's try adding more storage to max the count to 8.
+    # Recall the old unit failed to perform this.the It should work now :)
+    juju add-storage storage-multiple-refresher/0 awesome-fs="rootfs,3G,6"
+    wait_for "attached" '.storage.storage["awesome-fs/4"].status.current'
+    assert_storage_min_size "storage-multiple-refresher/0" "awesome-fs/4" 3072
+    wait_for "attached" '.storage.storage["awesome-fs/5"].status.current'
+    assert_storage_min_size "storage-multiple-refresher/0" "awesome-fs/5" 3072
+    wait_for "attached" '.storage.storage["awesome-fs/6"].status.current'
+    assert_storage_min_size "storage-multiple-refresher/0" "awesome-fs/6" 3072
+    wait_for "attached" '.storage.storage["awesome-fs/7"].status.current'
+    assert_storage_min_size "storage-multiple-refresher/0" "awesome-fs/7" 3072
+    wait_for "attached" '.storage.storage["awesome-fs/8"].status.current'
+    assert_storage_min_size "storage-multiple-refresher/0" "awesome-fs/8" 3072
+    wait_for "attached" '.storage.storage["awesome-fs/9"].status.current'
+    assert_storage_min_size "storage-multiple-refresher/0" "awesome-fs/9" 3072
+    # This one fails because it exceeds the total of 8.
+    OUT=$(juju add-storage storage-multiple-refresher/0 awesome-fs="rootfs,3G,2" 2>&1 || true)
+    echo "$OUT" | check "storage directive \"awesome-fs\" request count 10 exceeds the charm's maximum count of 8"
+
+    # It should also work for the new unit too.
+    juju add-storage storage-multiple-refresher/1 awesome-fs="rootfs,3G,6"
+    wait_for "attached" '.storage.storage["awesome-fs/10"].status.current'
+    assert_storage_min_size "storage-multiple-refresher/1" "awesome-fs/10" 3072
+    wait_for "attached" '.storage.storage["awesome-fs/11"].status.current'
+    assert_storage_min_size "storage-multiple-refresher/1" "awesome-fs/11" 3072
+    wait_for "attached" '.storage.storage["awesome-fs/12"].status.current'
+    assert_storage_min_size "storage-multiple-refresher/1" "awesome-fs/12" 3072
+    wait_for "attached" '.storage.storage["awesome-fs/13"].status.current'
+    assert_storage_min_size "storage-multiple-refresher/1" "awesome-fs/13" 3072
+    wait_for "attached" '.storage.storage["awesome-fs/14"].status.current'
+    assert_storage_min_size "storage-multiple-refresher/1" "awesome-fs/14" 3072
+    wait_for "attached" '.storage.storage["awesome-fs/15"].status.current'
+    assert_storage_min_size "storage-multiple-refresher/1" "awesome-fs/15" 3072
+    # This one fails because it exceeds the total of 8.
+    OUT=$(juju add-storage storage-multiple-refresher/1 awesome-fs="rootfs,3G,2" 2>&1 || true)
+    echo "$OUT" | check "storage directive \"awesome-fs\" request count 10 exceeds the charm's maximum count of 8"
+
+    destroy_model "$model_name"
+}
+
 test_refresh_charm_storage_multiple() {
 	if [ "$(skip 'test_refresh_charm_storage_multiple')" ]; then
 		echo "==> TEST SKIPPED: refresh charm storage multiple"
@@ -139,5 +227,8 @@ test_refresh_charm_storage_multiple() {
 
     # Tests changes in minimal count property.
     run "run_change_minimal_count"
+
+    # Tests changes in maximal count property.
+    run "run_change_maximal_count"
 	)
 }
