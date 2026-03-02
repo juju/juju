@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	httprequest "gopkg.in/httprequest.v1"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/s3client"
@@ -71,7 +72,7 @@ func (s *manifoldSuite) TestInputs(c *tc.C) {
 func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.apiConn.EXPECT().RootHTTPClient().Return(&httprequest.Client{}, nil)
+	s.apiConn.EXPECT().HTTPClient(base.HTTPClientScopeController).Return(&httprequest.Client{}, nil)
 
 	w, err := Manifold(s.getConfig()).Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIsNil)
@@ -82,7 +83,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 func (s *manifoldSuite) TestOutput(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.apiConn.EXPECT().RootHTTPClient().Return(&httprequest.Client{}, nil)
+	s.apiConn.EXPECT().HTTPClient(base.HTTPClientScopeController).Return(&httprequest.Client{}, nil)
 
 	manifold := Manifold(s.getConfig())
 	w, err := manifold.Start(c.Context(), s.newGetter())
