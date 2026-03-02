@@ -516,10 +516,10 @@ func (m *MockMetadataService) EXPECT() *MockMetadataServiceMockRecorder {
 }
 
 // ObjectStore mocks base method.
-func (m *MockMetadataService) ObjectStore() objectstore.ObjectStoreMetadata {
+func (m *MockMetadataService) ObjectStore() objectstore.RemoteObjectStoreMetadata {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ObjectStore")
-	ret0, _ := ret[0].(objectstore.ObjectStoreMetadata)
+	ret0, _ := ret[0].(objectstore.RemoteObjectStoreMetadata)
 	return ret0
 }
 
@@ -536,19 +536,19 @@ type MockMetadataServiceObjectStoreCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockMetadataServiceObjectStoreCall) Return(arg0 objectstore.ObjectStoreMetadata) *MockMetadataServiceObjectStoreCall {
+func (c *MockMetadataServiceObjectStoreCall) Return(arg0 objectstore.RemoteObjectStoreMetadata) *MockMetadataServiceObjectStoreCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMetadataServiceObjectStoreCall) Do(f func() objectstore.ObjectStoreMetadata) *MockMetadataServiceObjectStoreCall {
+func (c *MockMetadataServiceObjectStoreCall) Do(f func() objectstore.RemoteObjectStoreMetadata) *MockMetadataServiceObjectStoreCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMetadataServiceObjectStoreCall) DoAndReturn(f func() objectstore.ObjectStoreMetadata) *MockMetadataServiceObjectStoreCall {
+func (c *MockMetadataServiceObjectStoreCall) DoAndReturn(f func() objectstore.RemoteObjectStoreMetadata) *MockMetadataServiceObjectStoreCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

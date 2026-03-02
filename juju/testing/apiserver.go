@@ -597,7 +597,7 @@ type stubMetadataService struct {
 	services services.ObjectStoreServices
 }
 
-func (s *stubMetadataService) ObjectStore() objectstore.ObjectStoreMetadata {
+func (s *stubMetadataService) ObjectStore() objectstore.RemoteObjectStoreMetadata {
 	return s.services.ObjectStore()
 }
 

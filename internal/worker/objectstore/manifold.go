@@ -54,7 +54,7 @@ type ModelClaimGetter interface {
 
 // MetadataService is the interface that is used to get a object store.
 type MetadataService interface {
-	ObjectStore() coreobjectstore.ObjectStoreMetadata
+	ObjectStore() coreobjectstore.RemoteObjectStoreMetadata
 }
 
 // ControllerConfigService is the interface that the worker uses to get the
@@ -269,7 +269,7 @@ type controllerMetadataService struct {
 
 // ObjectStore returns the object store metadata for the controller model.
 // This is the global object store.
-func (s controllerMetadataService) ObjectStore() coreobjectstore.ObjectStoreMetadata {
+func (s controllerMetadataService) ObjectStore() coreobjectstore.RemoteObjectStoreMetadata {
 	return s.factory.AgentObjectStore()
 }
 
@@ -287,7 +287,7 @@ type modelMetadataService struct {
 }
 
 // ObjectStore returns the object store metadata for the given model UUID
-func (s modelMetadataService) ObjectStore() coreobjectstore.ObjectStoreMetadata {
+func (s modelMetadataService) ObjectStore() coreobjectstore.RemoteObjectStoreMetadata {
 	return s.factory.ObjectStore()
 }
 

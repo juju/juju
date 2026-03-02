@@ -12,7 +12,7 @@ const (
 	// ErrHashAndSizeAlreadyExists is returned when a hash already exists, but
 	// the associated size is different. This should never happen, it means that
 	// there is a collision in the hash function.
-	ErrHashAndSizeAlreadyExists = errors.ConstError("hash exists for different file size")
+	ErrHashAndSizeAlreadyExists = errors.ConstError("hash exists already exists")
 
 	// ErrPathAlreadyExistsDifferentHash is returned when a path already exists
 	// with a different hash.
