@@ -31,6 +31,7 @@ assert_storage_min_size() {
     local min_size="$3"
 
     if [[ -z "$unit_name" || -z "$storage_name" || -z "$min_size" ]]; then
+        # shellcheck disable=SC2046
         echo $(red "usage: assert_storage_min_size <unit> <storage> <min_size_mib>")
         return 1
     fi
@@ -43,6 +44,7 @@ assert_storage_min_size() {
          | .size')
 
     if [[ -z "$actual_size" || "$actual_size" == "null" ]]; then
+        # shellcheck disable=SC2046
         echo $(red "ERROR: Storage '$storage_name' not found")
         return 1
     fi
@@ -56,6 +58,7 @@ assert_storage_min_size() {
          | .attachments.units[$unit] != null')
 
     if [[ "$attached" != "true" ]]; then
+        # shellcheck disable=SC2046
         echo $(red "ERROR: Storage '$storage_name' is not attached to unit '$unit_name'")
         return 1
     fi
@@ -75,6 +78,7 @@ assert_storage_mount_location() {
     local expected_location="$3"
 
     if [[ -z "$unit_name" || -z "$storage_name" || -z "$expected_location" ]]; then
+        # shellcheck disable=SC2046
         echo $(red "usage: assert_storage_mount_location <unit> <storage> <expected_location>")
         return 1
     fi
@@ -88,6 +92,7 @@ assert_storage_mount_location() {
          | .attachments.units[$unit].location')
 
     if [[ -z "$actual_location" || "$actual_location" == "null" ]]; then
+        # shellcheck disable=SC2046
         echo $(red "ERROR: Storage '$storage_name' not attached to unit '$unit_name'")
         return 1
     fi
@@ -95,6 +100,7 @@ assert_storage_mount_location() {
     if [[ "$actual_location" == "$expected_location" ]]; then
         return 0
     else
+        # shellcheck disable=SC2046
         echo $(red "ERROR: Storage '$storage_name' mounted at '$actual_location', expected '$expected_location'")
         return 1
     fi
@@ -115,12 +121,14 @@ run_no_changes_in_new_revision() {
 
       # Assert the new unit has the at least 3072 MiB.
       if ! assert_storage_min_size "storage-refresher/0" "awesome-fs/0" 3072 ; then
+        # shellcheck disable=SC2046
         echo $(red "attached storage is not at least 3072 in size")
         exit 1
       fi
 
       # Assert the new unit has the same mount location.
       if ! assert_storage_mount_location "storage-refresher/0" "awesome-fs/0" "/awesome-fs" ; then
+        # shellcheck disable=SC2046
         echo $(red "awesome-fs/1 is not located in /awesome-fs")
         exit 1
       fi
@@ -135,12 +143,14 @@ run_no_changes_in_new_revision() {
 
       # Assert the new unit has the at least 3072 MiB (same as revision 1).
       if ! assert_storage_min_size "storage-refresher/1" "awesome-fs/1" 3072 ; then
+        # shellcheck disable=SC2046
         echo $(red "attached storage is not at least 3072 in size")
         exit 1
       fi
 
       # Assert the new unit has the same mount location (same as revision 1).
       if ! assert_storage_mount_location "storage-refresher/1" "awesome-fs/1" "/awesome-fs" ; then
+        # shellcheck disable=SC2046
         echo $(red "awesome-fs/1 is not located in /awesome-fs")
         exit 1
       fi
@@ -162,8 +172,9 @@ run_decrease_size() {
 
     # Assert that storage is attached to the unit.
     if ! assert_storage_attached "storage-refresher/0" "awesome-fs/0"; then
-        echo $(red "awesome-fs/0 is not attached")
-        exit 1
+      # shellcheck disable=SC2046
+      echo $(red "awesome-fs/0 is not attached")
+      exit 1
     fi
 
     # Refresh charm to revision 3 which has a lower storage size of 1G.
@@ -176,6 +187,7 @@ run_decrease_size() {
 
     # Assert the new unit has the new storage requirement.
     if ! assert_storage_min_size "storage-refresher/1" "awesome-fs/1" 1024 ; then
+      # shellcheck disable=SC2046
       echo $(red "attached storage is not at least 1024 in size")
       exit 1
     fi
@@ -197,8 +209,9 @@ run_increase_size() {
 
     # Assert that storage is attached to the unit.
     if ! assert_storage_attached "storage-refresher/0" "awesome-fs/0"; then
-        echo $(red "awesome-fs/0 is not attached")
-        exit 1
+      # shellcheck disable=SC2046
+      echo $(red "awesome-fs/0 is not attached")
+      exit 1
     fi
 
     # Refresh charm to revision 2 which has a larger storage size.
@@ -226,8 +239,9 @@ run_delete_storage_definition() {
 
     # Assert that storage is attached to the unit.
     if ! assert_storage_attached "storage-refresher/0" "awesome-fs/0"; then
-        echo $(red "awesome-fs/0 is not attached")
-        exit 1
+      # shellcheck disable=SC2046
+      echo $(red "awesome-fs/0 is not attached")
+      exit 1
     fi
 
     # Refresh charm to revision 5 which deletes storage "awesome-fs".
@@ -255,8 +269,9 @@ run_new_storage_definition() {
 
     # Assert that storage is attached to the unit.
     if ! assert_storage_attached "storage-refresher/0" "awesome-fs/0"; then
-        echo $(red "awesome-fs/0 is not attached")
-        exit 1
+      # shellcheck disable=SC2046
+      echo $(red "awesome-fs/0 is not attached")
+      exit 1
     fi
 
     # Refresh charm to revision 4 which adds a new storage definition "epic-fs".
@@ -269,23 +284,27 @@ run_new_storage_definition() {
 
     # Assert the new unit has the new storage requirement.
     if ! assert_storage_attached "storage-refresher/1" "awesome-fs/1"; then
-        echo $(red "awesome-fs/1 is not attached")
-        exit 1
+      # shellcheck disable=SC2046
+      echo $(red "awesome-fs/1 is not attached")
+      exit 1
     fi
     if ! assert_storage_attached "storage-refresher/1" "epic-fs/2"; then
-        echo $(red "epic-fs/2 is not attached")
-        exit 1
+      # shellcheck disable=SC2046
+      echo $(red "epic-fs/2 is not attached")
+      exit 1
     fi
 
     destroy_model "$model_name"
 }
 
 # Tests a charm with single storage instance refreshed to one with
-# multiple storage instance of the same name is rejected during charm refresh.
+# multiple storage instance of the same name.
+# The refresh is allowed if min.count = max.count = 1.
+# Otherwise, they are rejected.
 run_single_to_multiple_storage_instances() {
   	echo
 
-  	model_name="test-single-to-multiple-storage-instances-violates"
+  	model_name="test-single-to-multiple-storage-instances"
   	file="${TEST_DIR}/${model_name}.log"
 
     ensure "${model_name}" "${file}"
@@ -295,8 +314,9 @@ run_single_to_multiple_storage_instances() {
 
     # Assert that storage is attached to the unit.
     if ! assert_storage_attached "storage-refresher/0" "awesome-fs/0"; then
-        echo $(red "awesome-fs/0 is not attached")
-        exit 1
+      # shellcheck disable=SC2046
+      echo $(red "awesome-fs/0 is not attached")
+      exit 1
     fi
 
     # Refresh charm to revision 6 which changes "awesome-fs" to be multiple instances
@@ -313,6 +333,12 @@ run_single_to_multiple_storage_instances() {
 
     # Revision remains at 1.
 	  wait_for "storage-refresher" "$(charm_rev "storage-refresher" 1)"
+
+	  # Refresh charm to revision 14 which changes "awesome-fs" to be multiple instances
+    # with count range 1-1.
+    # The refresh is allowed because it's essentially refreshing to a singleton.
+    juju refresh "storage-refresher" --revision 14
+    wait_for "storage-refresher" "$(charm_rev "storage-refresher" 14)"
 
     destroy_model "$model_name"
 }
@@ -332,8 +358,9 @@ run_filesystem_to_block() {
 
     # Assert that storage is attached to the unit.
     if ! assert_storage_attached "storage-refresher/0" "awesome-fs/0"; then
-        echo $(red "awesome-fs/0 is not attached")
-        exit 1
+      # shellcheck disable=SC2046
+      echo $(red "awesome-fs/0 is not attached")
+      exit 1
     fi
 
     # Refresh charm to revision 8 which changes "awesome-fs" to be a block type.
@@ -358,8 +385,9 @@ run_change_shared_readonly_location() {
 
       # Assert that storage is attached to the unit.
       if ! assert_storage_attached "storage-refresher/0" "awesome-fs/0"; then
-          echo $(red "awesome-fs/0 is not attached")
-          exit 1
+        # shellcheck disable=SC2046
+        echo $(red "awesome-fs/0 is not attached")
+        exit 1
       fi
 
       # Refresh charm to revision 11 which changes "awesome-fs" to be a shared storage.
@@ -394,13 +422,24 @@ test_refresh_charm_storage() {
 
 		cd .. || exit
 
+    # tests refreshing an identical revision
     run "run_no_changes_in_new_revision"
+
+    # tests changing the minimum size property
     run "run_decrease_size"
     run "run_increase_size"
+
+    # tests adding and removing storage definitions
     run "run_delete_storage_definition"
     run "run_new_storage_definition"
+
+    # tests changing a singleton to multiple instance storage
     run "run_single_to_multiple_storage_instances"
+
+    # tests changing the storage type property
     run "run_filesystem_to_block"
+
+    # tests changing the shared, readonly, and location properties
     run "run_change_shared_readonly_location"
 	)
 }
