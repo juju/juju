@@ -17,7 +17,6 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/errors"
@@ -131,12 +130,12 @@ func (r *BlobRetriever) retrieve(ctx context.Context, remote apiremotecaller.Rem
 	var size int64
 
 	err := remote.Connection(ctx, func(connectionContext context.Context, conn api.Connection) error {
-		httpClient, err := conn.HTTPClient(base.HTTPClientScopeController)
+		httpClient, err := conn.SimpleHTTPClient()
 		if err != nil {
 			return errors.Errorf("failed to get root HTTP client: %w", err).Add(HTTPError)
 		}
 
-		client, err := r.newBlobsClient(httpClient.BaseURL, newHTTPClient(httpClient.Doer), r.logger)
+		client, err := r.newBlobsClient(httpClient.BaseURL(), newHTTPClient(httpClient), r.logger)
 		if err != nil {
 			return errors.Errorf("failed to create object client: %w", err).Add(HTTPError)
 		}

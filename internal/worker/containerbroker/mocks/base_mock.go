@@ -313,3 +313,42 @@ func (c *MockAPICallerModelTagCall) DoAndReturn(f func() (names.ModelTag, bool))
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// SimpleHTTPClient mocks base method.
+func (m *MockAPICaller) SimpleHTTPClient() (base.SimpleHTTPClient, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SimpleHTTPClient")
+	ret0, _ := ret[0].(base.SimpleHTTPClient)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SimpleHTTPClient indicates an expected call of SimpleHTTPClient.
+func (mr *MockAPICallerMockRecorder) SimpleHTTPClient() *MockAPICallerSimpleHTTPClientCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SimpleHTTPClient", reflect.TypeOf((*MockAPICaller)(nil).SimpleHTTPClient))
+	return &MockAPICallerSimpleHTTPClientCall{Call: call}
+}
+
+// MockAPICallerSimpleHTTPClientCall wrap *gomock.Call
+type MockAPICallerSimpleHTTPClientCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAPICallerSimpleHTTPClientCall) Return(arg0 base.SimpleHTTPClient, arg1 error) *MockAPICallerSimpleHTTPClientCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAPICallerSimpleHTTPClientCall) Do(f func() (base.SimpleHTTPClient, error)) *MockAPICallerSimpleHTTPClientCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAPICallerSimpleHTTPClientCall) DoAndReturn(f func() (base.SimpleHTTPClient, error)) *MockAPICallerSimpleHTTPClientCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

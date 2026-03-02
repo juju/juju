@@ -32,6 +32,23 @@ const (
 	HTTPClientScopeController HTTPClientScope = "controller"
 )
 
+// Doer is implemented by HTTP client packages to make an HTTP request.
+type Doer interface {
+	// Do sends an HTTP request and returns an HTTP response, following
+	// policy (e.g. redirects, cookies, auth) as configured on the client.
+	Do(req *http.Request) (*http.Response, error)
+}
+
+// SimpleHTTPClient is implemented by HTTP client packages to make an HTTP
+// request.
+type SimpleHTTPClient interface {
+	Doer
+
+	// BaseURL returns the base URL for the API server. URLs passed to the
+	// client will be made relative to this URL.
+	BaseURL() string
+}
+
 // APICaller is implemented by the client-facing State object.
 // It defines the lowest level of API calls and is used by
 // the various API implementations to actually make
@@ -58,6 +75,11 @@ type APICaller interface {
 	// Note that the URLs in HTTP requests passed to the Client.Do
 	// method should not include a host part.
 	HTTPClient(HTTPClientScope) (*httprequest.Client, error)
+
+	// SimpleHTTPClient returns a http.Client that can be used to make
+	// HTTP requests to the API. URLs passed to the client will be made
+	// relative to the API host and the current model.
+	SimpleHTTPClient() (SimpleHTTPClient, error)
 
 	// BakeryClient returns the bakery client for this connection.
 	BakeryClient() MacaroonDischarger

@@ -59,7 +59,7 @@ func (c *conn) controllerScopedHTTPClient() (*httprequest.Client, error) {
 
 func (c *conn) httpClient(baseURL *url.URL) (*httprequest.Client, error) {
 	if !c.isLoggedIn() {
-		return nil, errors.New("no HTTP client available without logging in")
+		return nil, errors.New("HTTP client available without logging in")
 	}
 	return &httprequest.Client{
 		BaseURL: baseURL.String(),
@@ -68,6 +68,42 @@ func (c *conn) httpClient(baseURL *url.URL) (*httprequest.Client, error) {
 		},
 		UnmarshalError: unmarshalHTTPErrorResponse,
 	}, nil
+}
+
+// SimpleHTTPClient returns a http.Client that can be used to make HTTP requests
+// to the API. No automatic error handling is performed by this client, and the
+// caller is responsible for using the response and closing the body. URLs
+// passed to the client will be made relative to the API host and the
+// controller.
+func (c *conn) SimpleHTTPClient() (base.SimpleHTTPClient, error) {
+	if !c.isLoggedIn() {
+		return nil, errors.New("HTTP client available without logging in")
+	}
+
+	url := c.Addr()
+	url.Scheme = c.serverScheme
+
+	// This should allow us to make requests via any proxies so that they
+	// can be correctly passed through to the API server.
+	return simpleHTTPClient{
+		baseURL: url.String(),
+		doer: httpRequestDoer{
+			c: c,
+		},
+	}, nil
+}
+
+type simpleHTTPClient struct {
+	baseURL string
+	doer    base.Doer
+}
+
+func (c simpleHTTPClient) BaseURL() string {
+	return c.baseURL
+}
+
+func (c simpleHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	return c.doer.Do(req)
 }
 
 // httpRequestDoer implements httprequest.Doer and httprequest.DoerWithBody
@@ -120,7 +156,8 @@ func authHTTPRequest(req *http.Request, lp LoginProvider) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// Copy headers to the request, using the first available value for each key.
+	// Copy headers to the request, using the first available value for each
+	// key.
 	for key := range header {
 		req.Header.Set(key, header.Get(key))
 	}

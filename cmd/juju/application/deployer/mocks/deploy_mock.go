@@ -1465,6 +1465,45 @@ func (c *MockDeployerAPISetConstraintsCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
+// SimpleHTTPClient mocks base method.
+func (m *MockDeployerAPI) SimpleHTTPClient() (base.SimpleHTTPClient, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SimpleHTTPClient")
+	ret0, _ := ret[0].(base.SimpleHTTPClient)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SimpleHTTPClient indicates an expected call of SimpleHTTPClient.
+func (mr *MockDeployerAPIMockRecorder) SimpleHTTPClient() *MockDeployerAPISimpleHTTPClientCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SimpleHTTPClient", reflect.TypeOf((*MockDeployerAPI)(nil).SimpleHTTPClient))
+	return &MockDeployerAPISimpleHTTPClientCall{Call: call}
+}
+
+// MockDeployerAPISimpleHTTPClientCall wrap *gomock.Call
+type MockDeployerAPISimpleHTTPClientCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockDeployerAPISimpleHTTPClientCall) Return(arg0 base.SimpleHTTPClient, arg1 error) *MockDeployerAPISimpleHTTPClientCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockDeployerAPISimpleHTTPClientCall) Do(f func() (base.SimpleHTTPClient, error)) *MockDeployerAPISimpleHTTPClientCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockDeployerAPISimpleHTTPClientCall) DoAndReturn(f func() (base.SimpleHTTPClient, error)) *MockDeployerAPISimpleHTTPClientCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Status mocks base method.
 func (m *MockDeployerAPI) Status(arg0 context.Context, arg1 *client.StatusArgs) (*params.FullStatus, error) {
 	m.ctrl.T.Helper()

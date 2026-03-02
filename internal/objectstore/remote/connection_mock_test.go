@@ -888,3 +888,42 @@ func (c *MockConnectionServerVersionCall) DoAndReturn(f func() (semversion.Numbe
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// SimpleHTTPClient mocks base method.
+func (m *MockConnection) SimpleHTTPClient() (base.SimpleHTTPClient, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SimpleHTTPClient")
+	ret0, _ := ret[0].(base.SimpleHTTPClient)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SimpleHTTPClient indicates an expected call of SimpleHTTPClient.
+func (mr *MockConnectionMockRecorder) SimpleHTTPClient() *MockConnectionSimpleHTTPClientCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SimpleHTTPClient", reflect.TypeOf((*MockConnection)(nil).SimpleHTTPClient))
+	return &MockConnectionSimpleHTTPClientCall{Call: call}
+}
+
+// MockConnectionSimpleHTTPClientCall wrap *gomock.Call
+type MockConnectionSimpleHTTPClientCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockConnectionSimpleHTTPClientCall) Return(arg0 base.SimpleHTTPClient, arg1 error) *MockConnectionSimpleHTTPClientCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockConnectionSimpleHTTPClientCall) Do(f func() (base.SimpleHTTPClient, error)) *MockConnectionSimpleHTTPClientCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockConnectionSimpleHTTPClientCall) DoAndReturn(f func() (base.SimpleHTTPClient, error)) *MockConnectionSimpleHTTPClientCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
