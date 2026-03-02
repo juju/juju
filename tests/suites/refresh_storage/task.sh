@@ -15,5 +15,5 @@ test_refresh_storage() {
 
 	test_refresh_charm_storage
 
-  destroy_controller "test-refresh-storage-ctl"
+	destroy_controller "test-refresh-storage-ctl"
 }
