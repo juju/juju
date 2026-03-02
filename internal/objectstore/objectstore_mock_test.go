@@ -337,6 +337,44 @@ func (m *MockRemoteObjectStoreMetadata) EXPECT() *MockRemoteObjectStoreMetadataM
 	return m.recorder
 }
 
+// AddControllerIDHint mocks base method.
+func (m *MockRemoteObjectStoreMetadata) AddControllerIDHint(arg0 context.Context, arg1, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddControllerIDHint", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddControllerIDHint indicates an expected call of AddControllerIDHint.
+func (mr *MockRemoteObjectStoreMetadataMockRecorder) AddControllerIDHint(arg0, arg1, arg2 any) *MockRemoteObjectStoreMetadataAddControllerIDHintCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddControllerIDHint", reflect.TypeOf((*MockRemoteObjectStoreMetadata)(nil).AddControllerIDHint), arg0, arg1, arg2)
+	return &MockRemoteObjectStoreMetadataAddControllerIDHintCall{Call: call}
+}
+
+// MockRemoteObjectStoreMetadataAddControllerIDHintCall wrap *gomock.Call
+type MockRemoteObjectStoreMetadataAddControllerIDHintCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRemoteObjectStoreMetadataAddControllerIDHintCall) Return(arg0 error) *MockRemoteObjectStoreMetadataAddControllerIDHintCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRemoteObjectStoreMetadataAddControllerIDHintCall) Do(f func(context.Context, string, string) error) *MockRemoteObjectStoreMetadataAddControllerIDHintCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRemoteObjectStoreMetadataAddControllerIDHintCall) DoAndReturn(f func(context.Context, string, string) error) *MockRemoteObjectStoreMetadataAddControllerIDHintCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetMetadata mocks base method.
 func (m *MockRemoteObjectStoreMetadata) GetMetadata(arg0 context.Context, arg1 string) (objectstore.Metadata, error) {
 	m.ctrl.T.Helper()

@@ -913,6 +913,17 @@ func (t *fileObjectStore) getFromRemote(
 		return nil, -1, errors.Capture(err)
 	}
 
+	// Add the metadata hint for the controller node ID, so that other
+	// controllers in the cluster can find the file on this node when they
+	// receive a request for it.
+	if err := t.metadataService.AddControllerIDHint(ctx, metadata.SHA384, t.controllerNodeID); err != nil {
+		// Log the error, we don't need to be strict with this, just that we've
+		// attempted to add the hint for the controller node ID. If this fails,
+		// then we might make more requests when trying to retrieve the file,
+		// but it shouldn't cause any major issues.
+		t.logger.Errorf(ctx, "adding controller ID hint for %q: %v", metadata.Path, err)
+	}
+
 	// Now that we've written the file, we can get the file from the file store.
 	return t.getWithMetadata(ctx, metadata, NoFallback)
 }
@@ -1061,6 +1072,17 @@ func (w *fetchWorker) loop() error {
 		return w.t.persistTmpFile(ctx, tmpFileName, w.m.SHA384, size)
 	}); err != nil {
 		return errors.Capture(err)
+	}
+
+	// Add the metadata hint for the controller node ID, so that other
+	// controllers in the cluster can find the file on this node when they
+	// receive a request for it.
+	if err := w.t.metadataService.AddControllerIDHint(ctx, w.m.SHA384, w.t.controllerNodeID); err != nil {
+		// Log the error, we don't need to be strict with this, just that we've
+		// attempted to add the hint for the controller node ID. If this fails,
+		// then we might make more requests when trying to retrieve the file,
+		// but it shouldn't cause any major issues.
+		w.t.logger.Errorf(ctx, "adding controller ID hint for %q: %v", w.m.Path, err)
 	}
 
 	return nil

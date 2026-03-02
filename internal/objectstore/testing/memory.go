@@ -96,6 +96,12 @@ func (s *objectStore) PutMetadataWithControllerIDHint(ctx context.Context, metad
 	return s.store.put(metadata)
 }
 
+// AddControllerIDHint implements objectstore.RemoteObjectStoreMetadata.
+func (s *objectStore) AddControllerIDHint(ctx context.Context, sha384 string, controllerID string) error {
+	// This is only used for testing, so we can ignore the controller ID hint.
+	return nil
+}
+
 // RemoveMetadata implements objectstore.ObjectStoreMetadata.
 func (s *objectStore) RemoveMetadata(ctx context.Context, path string) error {
 	if path == "" {

@@ -264,6 +264,8 @@ func (s *fileObjectStoreSuite) TestGetMetadataNotFoundRemoteFallbackClosesReader
 	s.remote.EXPECT().Retrieve(gomock.Any(), hash256).
 		Return(reader, size, nil)
 
+	s.service.EXPECT().AddControllerIDHint(gomock.Any(), hash384, "1")
+
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
