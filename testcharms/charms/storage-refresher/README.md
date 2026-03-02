@@ -13,3 +13,4 @@ I created a charm [storage-refresher](https://charmhub.io/storage-refresher) to 
 - Rev 11: changes shared to true
 - Rev 12: changes readonly to true
 - Rev 13: changes location to /new/awesome-fs/
+- Rev 14: changes existing storage awesome-fs to become multiple with min count 1 and max count 1
