@@ -32,6 +32,7 @@ type appWorker struct {
 
 	agentPasswordService       AgentPasswordService
 	applicationService         ApplicationService
+	removalService             RemovalService
 	statusService              StatusService
 	storageProvisioningService StorageProvisioningService
 	resourceOpenerGetter       ResourceOpenerGetter
@@ -57,6 +58,7 @@ type AppWorkerConfig struct {
 
 	AgentPasswordService       AgentPasswordService
 	ApplicationService         ApplicationService
+	RemovalService             RemovalService
 	StatusService              StatusService
 	StorageProvisioningService StorageProvisioningService
 	ResourceOpenerGetter       ResourceOpenerGetter
@@ -86,6 +88,7 @@ func NewAppWorker(config AppWorkerConfig) func(ctx context.Context) (worker.Work
 		a := &appWorker{
 			agentPasswordService:       config.AgentPasswordService,
 			applicationService:         config.ApplicationService,
+			removalService:             config.RemovalService,
 			statusService:              config.StatusService,
 			storageProvisioningService: config.StorageProvisioningService,
 			resourceOpenerGetter:       config.ResourceOpenerGetter,
@@ -167,7 +170,7 @@ func (a *appWorker) loop() error {
 				return errors.Annotatef(err, "deleting application %q", name)
 			}
 			err = a.ops.AppDead(ctx, name, a.appUUID, app, a.broker,
-				a.applicationService, a.statusService, a.clock, a.logger)
+				a.applicationService, a.removalService, a.statusService, a.clock, a.logger)
 			if err != nil {
 				return errors.Annotatef(err, "deleting application %q", name)
 			}
@@ -235,7 +238,10 @@ func (a *appWorker) loop() error {
 	handleChange := func() error {
 		appLife, err := a.applicationService.GetApplicationLife(ctx, a.appUUID)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
-			appLife = life.Dead
+			a.logger.Debugf(ctx, "application %q no longer exists", name)
+			done = true
+			ready = false
+			return nil
 		} else if err != nil {
 			return errors.Trace(err)
 		}
@@ -321,6 +327,11 @@ func (a *appWorker) loop() error {
 				if err != nil {
 					return errors.Trace(err)
 				}
+				err = a.ops.AppDead(ctx, name, a.appUUID, app, a.broker,
+					a.applicationService, a.removalService, a.statusService, a.clock, a.logger)
+				if err != nil {
+					return errors.Trace(err)
+				}
 			}
 			ready = false
 		case life.Dead:
@@ -331,7 +342,7 @@ func (a *appWorker) loop() error {
 					return errors.Trace(err)
 				}
 				err = a.ops.AppDead(ctx, name, a.appUUID, app, a.broker,
-					a.applicationService, a.statusService, a.clock, a.logger)
+					a.applicationService, a.removalService, a.statusService, a.clock, a.logger)
 				if err != nil {
 					return errors.Trace(err)
 				}

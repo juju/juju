@@ -93,6 +93,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	}
 	w, err := config.NewWorker(Config{
 		ApplicationService:         domainServices.Application(),
+		RemovalService:             domainServices.Removal(),
 		StatusService:              domainServices.Status(),
 		AgentPasswordService:       domainServices.AgentPassword(),
 		StorageProvisioningService: domainServices.StorageProvisioning(),

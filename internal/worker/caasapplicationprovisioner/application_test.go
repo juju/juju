@@ -67,6 +67,7 @@ func (s *ApplicationWorkerSuite) startAppWorker(
 	broker CAASBroker,
 	ops ApplicationOps,
 	applicationService ApplicationService,
+	removalService RemovalService,
 	statusService StatusService,
 	agentPasswordService AgentPasswordService,
 	storageProvisioningService StorageProvisioningService,
@@ -80,6 +81,7 @@ func (s *ApplicationWorkerSuite) startAppWorker(
 		Logger:                     s.logger,
 		Ops:                        ops,
 		ApplicationService:         applicationService,
+		RemovalService:             removalService,
 		StatusService:              statusService,
 		AgentPasswordService:       agentPasswordService,
 		StorageProvisioningService: storageProvisioningService,
@@ -103,6 +105,7 @@ func (s *ApplicationWorkerSuite) TestLifeNotFound(c *tc.C) {
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	ops := mocks.NewMockApplicationOps(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
+	removalService := mocks.NewMockRemovalService(ctrl)
 	statusService := mocks.NewMockStatusService(ctrl)
 	agentPasswordService := mocks.NewMockAgentPasswordService(ctrl)
 	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
@@ -115,7 +118,7 @@ func (s *ApplicationWorkerSuite) TestLifeNotFound(c *tc.C) {
 			return "", applicationerrors.ApplicationNotFound
 		}),
 	)
-	appWorker := s.startAppWorker(c, nil, facade, broker, ops, applicationService, statusService, agentPasswordService, storageProvisioningService, resourceOpenerGetter)
+	appWorker := s.startAppWorker(c, nil, facade, broker, ops, applicationService, removalService, statusService, agentPasswordService, storageProvisioningService, resourceOpenerGetter)
 
 	s.waitDone(c, done)
 	workertest.CleanKill(c, appWorker)
@@ -132,6 +135,7 @@ func (s *ApplicationWorkerSuite) TestLifeDead(c *tc.C) {
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	ops := mocks.NewMockApplicationOps(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
+	removalService := mocks.NewMockRemovalService(ctrl)
 	statusService := mocks.NewMockStatusService(ctrl)
 	agentPasswordService := mocks.NewMockAgentPasswordService(ctrl)
 	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
@@ -146,12 +150,12 @@ func (s *ApplicationWorkerSuite) TestLifeDead(c *tc.C) {
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Dead, nil),
 		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dead, x, x, x, x).Return(nil),
-		ops.EXPECT().AppDead(x, "test", s.appUUID, app, broker, applicationService, statusService, clk, s.logger).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, CAASBroker, ApplicationService, StatusService, clock.Clock, logger.Logger) error {
+		ops.EXPECT().AppDead(x, "test", s.appUUID, app, broker, applicationService, removalService, statusService, clk, s.logger).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, CAASBroker, ApplicationService, RemovalService, StatusService, clock.Clock, logger.Logger) error {
 			close(done)
 			return nil
 		}),
 	)
-	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService, storageProvisioningService, resourceOpenerGetter)
+	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, removalService, statusService, agentPasswordService, storageProvisioningService, resourceOpenerGetter)
 
 	s.waitDone(c, done)
 	workertest.CleanKill(c, appWorker)
@@ -168,6 +172,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	ops := mocks.NewMockApplicationOps(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
+	removalService := mocks.NewMockRemovalService(ctrl)
 	statusService := mocks.NewMockStatusService(ctrl)
 	agentPasswordService := mocks.NewMockAgentPasswordService(ctrl)
 	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
@@ -275,15 +280,17 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 				provisioningInfoChan <- struct{}{}
 				return nil
 			}),
+		ops.EXPECT().AppDead(x, "test", s.appUUID, app, x, x, x, x, x, x).
+			Return(errors.ConstError("try again")),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Dead, nil),
 		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dead, x, x, x, x).Return(nil),
-		ops.EXPECT().AppDead(x, "test", s.appUUID, app, x, x, x, x, x).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, CAASBroker, ApplicationService, StatusService, clock.Clock, logger.Logger) error {
+		ops.EXPECT().AppDead(x, "test", s.appUUID, app, x, x, x, x, x, x).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, CAASBroker, ApplicationService, RemovalService, StatusService, clock.Clock, logger.Logger) error {
 			close(done)
 			return nil
 		}),
 	)
 
-	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService, storageProvisioningService, resourceOpenerGetter)
+	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, removalService, statusService, agentPasswordService, storageProvisioningService, resourceOpenerGetter)
 	s.waitDone(c, done)
 	workertest.CheckKill(c, appWorker)
 }
@@ -299,6 +306,7 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	ops := mocks.NewMockApplicationOps(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
+	removalService := mocks.NewMockRemovalService(ctrl)
 	statusService := mocks.NewMockStatusService(ctrl)
 	agentPasswordService := mocks.NewMockAgentPasswordService(ctrl)
 	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
@@ -364,7 +372,7 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 		}),
 	)
 
-	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService, storageProvisioningService, resourceOpenerGetter)
+	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, removalService, statusService, agentPasswordService, storageProvisioningService, resourceOpenerGetter)
 	s.waitDone(c, done)
 	workertest.CheckKill(c, appWorker)
 }
@@ -380,6 +388,7 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	ops := mocks.NewMockApplicationOps(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
+	removalService := mocks.NewMockRemovalService(ctrl)
 	statusService := mocks.NewMockStatusService(ctrl)
 	agentPasswordService := mocks.NewMockAgentPasswordService(ctrl)
 	storageProvisioningService := mocks.NewMockStorageProvisioningService(ctrl)
@@ -489,15 +498,17 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 				provisioningInfoChan <- struct{}{}
 				return nil
 			}),
+		ops.EXPECT().AppDead(x, "test", s.appUUID, app, x, x, x, x, x, x).
+			Return(errors.ConstError("try again")),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Dead, nil),
 		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dead, x, x, x, x).Return(nil),
-		ops.EXPECT().AppDead(x, "test", s.appUUID, app, x, x, x, x, x).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, CAASBroker, ApplicationService, StatusService, clock.Clock, logger.Logger) error {
+		ops.EXPECT().AppDead(x, "test", s.appUUID, app, x, x, x, x, x, x).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, CAASBroker, ApplicationService, RemovalService, StatusService, clock.Clock, logger.Logger) error {
 			close(done)
 			return nil
 		}),
 	)
 
-	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, statusService, agentPasswordService, storageProvisioningService, resourceOpenerGetter)
+	appWorker := s.startAppWorker(c, clk, facade, broker, ops, applicationService, removalService, statusService, agentPasswordService, storageProvisioningService, resourceOpenerGetter)
 	s.waitDone(c, done)
 	workertest.CheckKill(c, appWorker)
 }

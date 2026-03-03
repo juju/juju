@@ -11,6 +11,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/removal"
@@ -314,6 +315,40 @@ func (st *State) GetModelLife(ctx context.Context, mUUID string) (life.Life, err
 	})
 
 	return life, errors.Capture(err)
+}
+
+// GetModelType retrieves the model type.
+func (st *State) GetModelType(ctx context.Context) (coremodel.ModelType, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	type modelType struct {
+		Type string `db:"type"`
+	}
+	var mType modelType
+	stmt, err := st.Prepare(`
+SELECT &modelType.*
+FROM   model
+`, mType)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt).Get(&mType); errors.Is(err, sql.ErrNoRows) {
+			return modelerrors.NotFound
+		} else if err != nil {
+			return errors.Errorf("querying model type: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return coremodel.ModelType(mType.Type), nil
 }
 
 // MarkModelAsDead marks the model with the input UUID as dead.

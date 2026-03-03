@@ -34,6 +34,7 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/deployment/charm"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
@@ -88,6 +89,7 @@ type ApplicationOps interface {
 
 	AppDead(ctx context.Context, appName string, appUUID coreapplication.UUID,
 		app caas.Application, broker CAASBroker, applicationService ApplicationService,
+		removalService RemovalService,
 		statusService StatusService,
 		clk clock.Clock, logger logger.Logger) error
 
@@ -154,10 +156,10 @@ func (applicationOps) AppDying(
 
 func (applicationOps) AppDead(ctx context.Context,
 	appName string, appUUID coreapplication.UUID, app caas.Application, broker CAASBroker,
-	applicationService ApplicationService, statusService StatusService,
+	applicationService ApplicationService, removalService RemovalService, statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
 ) error {
-	return appDead(ctx, appName, appUUID, app, broker, applicationService, statusService, clk, logger)
+	return appDead(ctx, appName, appUUID, app, broker, applicationService, removalService, statusService, clk, logger)
 }
 
 func (applicationOps) EnsureTrust(
@@ -395,12 +397,12 @@ func appDying(
 func appDead(
 	ctx context.Context,
 	appName string, appUUID coreapplication.UUID, app caas.Application, broker CAASBroker,
-	applicationService ApplicationService, statusService StatusService,
+	applicationService ApplicationService, removalService RemovalService, statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
 ) error {
 	logger.Debugf(ctx, "application %q dead", appName)
 	err := app.Delete()
-	if err != nil {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
 	err = waitForTerminated(appName, app, clk)
@@ -412,11 +414,16 @@ func appDead(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// TODO(k8s): re-implement this to prevent a dead app from going away through
-	// creating a new domain concept that holds the application until this worker
-	// has destroyed all the k8s resources.
-	//
-	// Clear "has-resources" flag so state knows it can now remove the application.
+
+	err = removalService.MarkApplicationAsDeadWithNoEntities(ctx, appUUID)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return nil
+	} else if errors.Is(err, removalerrors.EntityStillAlive) {
+		return tryAgain
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
 }
 

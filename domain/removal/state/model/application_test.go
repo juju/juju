@@ -493,17 +493,19 @@ func (s *applicationSuite) TestDeleteIAASApplicationWithUnits(c *tc.C) {
 
 	s.checkApplicationSequence(c, "some-app", 1)
 	s.advanceUnitLife(c, unitUUIDs[0], life.Dead)
-	s.advanceApplicationLife(c, appUUID, life.Dead)
+	s.advanceApplicationLife(c, appUUID, life.Dying)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	// This should fail because the application has units.
-	err := st.DeleteApplication(c.Context(), appUUID.String(), false)
-	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
-	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationHasUnits)
+	// This should fail because the application still has units.
+	err := st.MarkApplicationAsDeadWithNoEntities(c.Context(), appUUID.String())
+	c.Check(err, tc.ErrorIs, removalerrors.EntityStillAlive)
 
 	// Delete any units associated with the application.
 	err = st.DeleteUnit(c.Context(), unitUUIDs[0].String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.MarkApplicationAsDeadWithNoEntities(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Now we can delete the application.
@@ -536,19 +538,15 @@ func (s *applicationSuite) TestDeleteIAASApplicationWithForce(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	// This should fail because the application still has units, even when
-	// forcing. Units are removed by their own removal jobs, so the
-	// application must wait for them to complete.
-	err := st.DeleteApplication(c.Context(), appUUID.String(), false)
-	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
-	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationHasUnits)
-
-	err = st.DeleteApplication(c.Context(), appUUID.String(), true)
-	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
-	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationHasUnits)
+	// This should fail because the application still has units.
+	err := st.MarkApplicationAsDeadWithNoEntities(c.Context(), appUUID.String())
+	c.Check(err, tc.ErrorIs, removalerrors.EntityStillAlive)
 
 	// Delete the unit first.
 	err = st.DeleteUnit(c.Context(), unitUUIDs[0].String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.MarkApplicationAsDeadWithNoEntities(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Now we can delete the application.
@@ -575,23 +573,19 @@ func (s *applicationSuite) TestDeleteIAASApplicationWithUnitsWithForce(c *tc.C) 
 	c.Assert(unitUUIDs, tc.HasLen, 1)
 
 	s.advanceUnitLife(c, unitUUIDs[0], life.Dead)
-	s.advanceApplicationLife(c, appUUID, life.Dead)
+	s.advanceApplicationLife(c, appUUID, life.Dying)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	// This should fail because the application still has units, even when
-	// forcing. Units are removed by their own removal jobs, so the
-	// application must wait for them to complete.
-	err := st.DeleteApplication(c.Context(), appUUID.String(), false)
-	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
-	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationHasUnits)
-
-	err = st.DeleteApplication(c.Context(), appUUID.String(), true)
-	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
-	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationHasUnits)
+	// This should fail because the application still has units.
+	err := st.MarkApplicationAsDeadWithNoEntities(c.Context(), appUUID.String())
+	c.Check(err, tc.ErrorIs, removalerrors.EntityStillAlive)
 
 	// Delete the unit first.
 	err = st.DeleteUnit(c.Context(), unitUUIDs[0].String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.MarkApplicationAsDeadWithNoEntities(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Now we can delete the application.
@@ -621,18 +615,20 @@ func (s *applicationSuite) TestDeleteIAASApplicationWithRelations(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.advanceApplicationLife(c, appUUID, life.Dead)
+	s.advanceApplicationLife(c, appUUID, life.Dying)
 	s.advanceRelationLife(c, relUUID, life.Dead)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	// This should fail because the application has units.
-	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
-	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
-	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationHasRelations)
+	// This should fail because the application still has a relation.
+	err = st.MarkApplicationAsDeadWithNoEntities(c.Context(), appUUID.String())
+	c.Check(err, tc.ErrorIs, removalerrors.EntityStillAlive)
 
 	// Delete any relations associated with the application.
 	err = st.DeleteRelation(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.MarkApplicationAsDeadWithNoEntities(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Now we can delete the application.
@@ -719,12 +715,12 @@ func (s *applicationSuite) TestDeleteCAASApplicationWithUnit(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createCAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
 
-	s.advanceApplicationLife(c, appUUID, life.Dead)
+	s.advanceApplicationLife(c, appUUID, life.Dying)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.DeleteApplication(c.Context(), appUUID.String(), false)
-	c.Assert(err, tc.ErrorMatches, `.*still has 1 unit.*`)
+	err := st.MarkApplicationAsDeadWithNoEntities(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
 }
 
 // TestDeleteApplicationNotWipingDevices is a regression test for where deleting an application
@@ -1162,12 +1158,11 @@ func (s *applicationSuite) getCharmUUIDForApplication(c *tc.C, appUUID string) s
 	return charmUUID
 }
 
-// TestDeleteApplicationDefersUntilUnitsAndRelationsGone verifies that
-// DeleteApplication returns RemovalJobIncomplete whenever units or relations
-// still exist, regardless of the force flag. Units and relations must be
-// cleaned up by their own removal jobs first; the application removal job
-// will retry until they are gone.
-func (s *applicationSuite) TestDeleteApplicationDefersUntilUnitsAndRelationsGone(c *tc.C) {
+// TestMarkApplicationAsDeadWithNoEntitiesDefersUntilUnitsAndRelationsGone verifies
+// that MarkApplicationAsDeadWithNoEntities returns EntityStillAlive whenever units
+// or relations still exist. Once all dependents are removed, the application can
+// be marked dead and then deleted.
+func (s *applicationSuite) TestMarkApplicationAsDeadWithNoEntitiesDefersUntilUnitsAndRelationsGone(c *tc.C) {
 	appSvc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, appSvc, "app1",
 		applicationservice.AddIAASUnitArg{},
@@ -1187,17 +1182,14 @@ func (s *applicationSuite) TestDeleteApplicationDefersUntilUnitsAndRelationsGone
 	c.Assert(unitUUIDs, tc.HasLen, 1)
 
 	s.advanceUnitLife(c, unitUUIDs[0], life.Dead)
-	s.advanceApplicationLife(c, appUUID, life.Dead)
+	s.advanceApplicationLife(c, appUUID, life.Dying)
 	s.advanceRelationLife(c, relUUID, life.Dead)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	// Both force and non-force must defer while the relation still exists.
-	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
-	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
-
-	err = st.DeleteApplication(c.Context(), appUUID.String(), true)
-	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+	// The transition to dead must defer while the relation still exists.
+	err = st.MarkApplicationAsDeadWithNoEntities(c.Context(), appUUID.String())
+	c.Check(err, tc.ErrorIs, removalerrors.EntityStillAlive)
 
 	// Simulate the relation removal job completing.
 	err = st.DeleteRelationUnits(c.Context(), relUUID.String())
@@ -1206,11 +1198,14 @@ func (s *applicationSuite) TestDeleteApplicationDefersUntilUnitsAndRelationsGone
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Still defers while the unit exists.
-	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
-	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+	err = st.MarkApplicationAsDeadWithNoEntities(c.Context(), appUUID.String())
+	c.Check(err, tc.ErrorIs, removalerrors.EntityStillAlive)
 
 	// Simulate the unit removal job completing.
 	err = st.DeleteUnit(c.Context(), unitUUIDs[0].String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.MarkApplicationAsDeadWithNoEntities(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Now the application can be deleted.

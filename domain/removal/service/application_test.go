@@ -11,6 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
+	coremodel "github.com/juju/juju/core/model"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	removal "github.com/juju/juju/domain/removal"
@@ -292,29 +293,28 @@ func (s *applicationSuite) TestExecuteJobForApplicationStillAlive(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
 }
 
-func (s *applicationSuite) TestExecuteJobForApplicationDyingDeleteApplication(c *tc.C) {
+func (s *applicationSuite) TestExecuteJobForApplicationDyingIAASTransitionsToDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	j := newApplicationJob(c)
 
 	exp := s.modelState.EXPECT()
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
-	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
-	exp.GetApplicationOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
-	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
-	exp.DeleteApplication(gomock.Any(), j.EntityUUID, false).Return(nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
-	exp.DeleteOrphanedResources(gomock.Any(), gomock.Any()).Return(nil)
-	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+	exp.GetModelType(gomock.Any()).Return(coremodel.IAAS, nil)
+	exp.MarkApplicationAsDeadWithNoEntities(gomock.Any(), j.EntityUUID).Return(nil)
 
-	sbCfg := &provider.ModelBackendConfig{
-		BackendConfig: provider.BackendConfig{
-			BackendType: vault.BackendType,
-		},
-	}
-	s.controllerState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).Return("", sbCfg, nil)
-	s.secretBackendProvider.EXPECT().Initialise(sbCfg).Return(nil)
-	s.secretBackendProvider.EXPECT().NewBackend(sbCfg).Return(s.secretBackend, nil)
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestExecuteJobForApplicationDyingCAASWaitsForWorker(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newApplicationJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.GetModelType(gomock.Any()).Return(coremodel.CAAS, nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIsNil)
@@ -326,7 +326,7 @@ func (s *applicationSuite) TestDeleteCharmForApplicationFails(c *tc.C) {
 	j := newApplicationJob(c)
 
 	exp := s.modelState.EXPECT()
-	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
 	exp.GetApplicationOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteApplication(gomock.Any(), j.EntityUUID, false).Return(nil)
@@ -354,7 +354,7 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingJujuSecretsDeleteApp
 	j := newApplicationJob(c)
 
 	exp := s.modelState.EXPECT()
-	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
 	exp.DeleteApplicationOwnedSecretContent(gomock.Any(), j.EntityUUID)
 	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
@@ -382,7 +382,7 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingExternalSecretsDelet
 	secretExternalRefs := []string{"wun", "too", "free"}
 
 	exp := s.modelState.EXPECT()
-	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
 	exp.GetApplicationOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(secretExternalRefs, nil)
 	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
@@ -418,7 +418,7 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingDeleteApplicationErr
 	j := newApplicationJob(c)
 
 	exp := s.modelState.EXPECT()
-	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
 	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
 	exp.GetApplicationOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)

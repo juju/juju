@@ -767,6 +767,7 @@ func (s *OpsSuite) TestAppDead(c *tc.C) {
 	app := caasmocks.NewMockApplication(ctrl)
 	broker := mocks.NewMockCAASBroker(ctrl)
 	applicationService := mocks.NewMockApplicationService(ctrl)
+	removalService := mocks.NewMockRemovalService(ctrl)
 	statusService := mocks.NewMockStatusService(ctrl)
 
 	clk := testclock.NewDilatedWallClock(coretesting.ShortWait)
@@ -777,9 +778,10 @@ func (s *OpsSuite) TestAppDead(c *tc.C) {
 		app.EXPECT().Service().Return(nil, errors.NotFound),
 		applicationService.EXPECT().GetAllUnitCloudContainerIDsForApplication(gomock.Any(), appId).Return(nil, nil),
 		app.EXPECT().Units().Return(nil, nil),
+		removalService.EXPECT().MarkApplicationAsDeadWithNoEntities(gomock.Any(), appId).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.AppDead(c.Context(), "test", appId, app, broker, applicationService, statusService, clk, s.logger)
+	err := caasapplicationprovisioner.AppOps.AppDead(c.Context(), "test", appId, app, broker, applicationService, removalService, statusService, clk, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

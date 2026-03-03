@@ -110,6 +110,13 @@ type ApplicationService interface {
 	GetCharmByApplicationUUID(context.Context, application.UUID) (internalcharm.Charm, applicationcharm.CharmLocator, error)
 }
 
+// RemovalService is used to advance application lifecycle during teardown.
+type RemovalService interface {
+	// MarkApplicationAsDeadWithNoEntities marks the application as dead only
+	// when it has no remaining units or relations.
+	MarkApplicationAsDeadWithNoEntities(ctx context.Context, appUUID application.UUID) error
+}
+
 // CAASBroker exposes CAAS broker functionality to a worker.
 type CAASBroker interface {
 	Application(string, caas.DeploymentType) caas.Application
@@ -172,6 +179,7 @@ func (f ResourceOpenerGetterFunc) ResourceOpenerForApplication(ctx context.Conte
 // Config defines the operation of a Worker.
 type Config struct {
 	ApplicationService         ApplicationService
+	RemovalService             RemovalService
 	StatusService              StatusService
 	AgentPasswordService       AgentPasswordService
 	StorageProvisioningService StorageProvisioningService
@@ -187,6 +195,7 @@ type provisioner struct {
 	catacomb                   catacomb.Catacomb
 	runner                     Runner
 	applicationService         ApplicationService
+	removalService             RemovalService
 	statusService              StatusService
 	agentPasswordService       AgentPasswordService
 	storageProvisioningService StorageProvisioningService
@@ -219,6 +228,7 @@ func newProvisionerWorker(
 ) (worker.Worker, error) {
 	p := &provisioner{
 		applicationService:         config.ApplicationService,
+		removalService:             config.RemovalService,
 		statusService:              config.StatusService,
 		agentPasswordService:       config.AgentPasswordService,
 		storageProvisioningService: config.StorageProvisioningService,
@@ -294,6 +304,7 @@ func (p *provisioner) loop() error {
 				config := AppWorkerConfig{
 					AppID:                      appID,
 					ApplicationService:         p.applicationService,
+					RemovalService:             p.removalService,
 					StatusService:              p.statusService,
 					AgentPasswordService:       p.agentPasswordService,
 					StorageProvisioningService: p.storageProvisioningService,

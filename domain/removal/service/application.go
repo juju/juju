@@ -9,6 +9,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
@@ -45,6 +46,10 @@ type ApplicationState interface {
 	// GetApplicationLife returns the life of the application with the input
 	// UUID.
 	GetApplicationLife(ctx context.Context, appUUID string) (life.Life, error)
+
+	// MarkApplicationAsDeadWithNoEntities marks the application with the input
+	// UUID as dead, if there are no associated units or relations.
+	MarkApplicationAsDeadWithNoEntities(ctx context.Context, appUUID string) error
 
 	// DeleteApplication removes a application from the database completely.
 	DeleteApplication(ctx context.Context, appUUID string, force bool) error
@@ -249,6 +254,22 @@ func (s *Service) RemoveApplication(
 	return appJobUUID, nil
 }
 
+// MarkApplicationAsDeadWithNoEntities marks an application as dead, if it has
+// no associated units or relations.
+func (s *Service) MarkApplicationAsDeadWithNoEntities(ctx context.Context, appUUID coreapplication.UUID) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	exists, err := s.modelState.ApplicationExists(ctx, appUUID.String())
+	if err != nil {
+		return errors.Errorf("checking if application %q exists: %w", appUUID, err)
+	} else if !exists {
+		return errors.Errorf("application %q does not exist", appUUID).Add(applicationerrors.ApplicationNotFound)
+	}
+
+	return s.modelState.MarkApplicationAsDeadWithNoEntities(ctx, appUUID.String())
+}
+
 func (s *Service) applicationScheduleRemoval(
 	ctx context.Context, appUUID coreapplication.UUID, force bool, wait time.Duration,
 ) (removal.UUID, error) {
@@ -267,7 +288,7 @@ func (s *Service) applicationScheduleRemoval(
 	return jobUUID, nil
 }
 
-// processApplicationRemovalJob deletes an application if it is dying.
+// processApplicationRemovalJob deletes an application if it is dead.
 // Note that we do not need transactionality here:
 //   - Life can only advance - it cannot become alive if dying or dead.
 func (s *Service) processApplicationRemovalJob(ctx context.Context, job removal.Job) error {
@@ -289,6 +310,32 @@ func (s *Service) processApplicationRemovalJob(ctx context.Context, job removal.
 	// programming error if we've reached this point and we're still alive.
 	if l == life.Alive {
 		return errors.Errorf("application %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
+	}
+
+	if l == life.Dying {
+		modelType, err := s.modelState.GetModelType(ctx)
+		if err != nil {
+			return errors.Errorf("getting model type: %w", err)
+		}
+		if modelType == coremodel.CAAS {
+			return errors.Errorf("application %q is waiting for caas teardown to complete", job.EntityUUID).
+				Add(removalerrors.RemovalJobIncomplete)
+		}
+
+		if err := s.modelState.MarkApplicationAsDeadWithNoEntities(ctx, job.EntityUUID); errors.Is(err, applicationerrors.ApplicationNotFound) {
+			// The application has already been removed.
+			// Indicate success so that this job will be deleted.
+			return nil
+		} else if errors.Is(err, removalerrors.EntityStillAlive) {
+			// The application still has units/relations and cannot transition to dead yet.
+			return errors.Errorf("application %q is not dead", job.EntityUUID).
+				Add(removalerrors.RemovalJobIncomplete)
+		} else if err != nil {
+			return errors.Errorf("marking application %q dead: %w", job.EntityUUID, err)
+		}
+
+		return errors.Errorf("application %q transitioned to dead", job.EntityUUID).
+			Add(removalerrors.RemovalJobIncomplete)
 	}
 
 	// The unit agent itself attempts to delete the applications's secrets if it

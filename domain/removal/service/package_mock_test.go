@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 	time "time"
 
+	model "github.com/juju/juju/core/model"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
 	life "github.com/juju/juju/domain/life"
 	removal "github.com/juju/juju/domain/removal"
@@ -2649,6 +2650,45 @@ func (c *MockModelDBStateGetModelLifeCall) DoAndReturn(f func(context.Context, s
 	return c
 }
 
+// GetModelType mocks base method.
+func (m *MockModelDBState) GetModelType(arg0 context.Context) (model.ModelType, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelType", arg0)
+	ret0, _ := ret[0].(model.ModelType)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelType indicates an expected call of GetModelType.
+func (mr *MockModelDBStateMockRecorder) GetModelType(arg0 any) *MockModelDBStateGetModelTypeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelType", reflect.TypeOf((*MockModelDBState)(nil).GetModelType), arg0)
+	return &MockModelDBStateGetModelTypeCall{Call: call}
+}
+
+// MockModelDBStateGetModelTypeCall wrap *gomock.Call
+type MockModelDBStateGetModelTypeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateGetModelTypeCall) Return(arg0 model.ModelType, arg1 error) *MockModelDBStateGetModelTypeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateGetModelTypeCall) Do(f func(context.Context) (model.ModelType, error)) *MockModelDBStateGetModelTypeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateGetModelTypeCall) DoAndReturn(f func(context.Context) (model.ModelType, error)) *MockModelDBStateGetModelTypeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetRelationLife mocks base method.
 func (m *MockModelDBState) GetRelationLife(arg0 context.Context, arg1 string) (life.Life, error) {
 	m.ctrl.T.Helper()
@@ -3306,6 +3346,44 @@ func (c *MockModelDBStateMachineScheduleRemovalCall) Do(f func(context.Context, 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelDBStateMachineScheduleRemovalCall) DoAndReturn(f func(context.Context, string, string, bool, time.Time) error) *MockModelDBStateMachineScheduleRemovalCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MarkApplicationAsDeadWithNoEntities mocks base method.
+func (m *MockModelDBState) MarkApplicationAsDeadWithNoEntities(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkApplicationAsDeadWithNoEntities", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MarkApplicationAsDeadWithNoEntities indicates an expected call of MarkApplicationAsDeadWithNoEntities.
+func (mr *MockModelDBStateMockRecorder) MarkApplicationAsDeadWithNoEntities(arg0, arg1 any) *MockModelDBStateMarkApplicationAsDeadWithNoEntitiesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkApplicationAsDeadWithNoEntities", reflect.TypeOf((*MockModelDBState)(nil).MarkApplicationAsDeadWithNoEntities), arg0, arg1)
+	return &MockModelDBStateMarkApplicationAsDeadWithNoEntitiesCall{Call: call}
+}
+
+// MockModelDBStateMarkApplicationAsDeadWithNoEntitiesCall wrap *gomock.Call
+type MockModelDBStateMarkApplicationAsDeadWithNoEntitiesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateMarkApplicationAsDeadWithNoEntitiesCall) Return(arg0 error) *MockModelDBStateMarkApplicationAsDeadWithNoEntitiesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateMarkApplicationAsDeadWithNoEntitiesCall) Do(f func(context.Context, string) error) *MockModelDBStateMarkApplicationAsDeadWithNoEntitiesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateMarkApplicationAsDeadWithNoEntitiesCall) DoAndReturn(f func(context.Context, string) error) *MockModelDBStateMarkApplicationAsDeadWithNoEntitiesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

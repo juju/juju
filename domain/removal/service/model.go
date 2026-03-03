@@ -67,6 +67,9 @@ type ModelState interface {
 	// GetModelLife retrieves the life state of a model.
 	GetModelLife(ctx context.Context, modelUUID string) (life.Life, error)
 
+	// GetModelType retrieves the type of the model.
+	GetModelType(ctx context.Context) (model.ModelType, error)
+
 	// MarkModelAsDead marks the model with the input UUID as dead.
 	MarkModelAsDead(ctx context.Context, modelUUID string, force bool) error
 }

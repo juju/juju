@@ -19,6 +19,7 @@ import (
 	agentpasswordservice "github.com/juju/juju/domain/agentpassword/service"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
+	removalservice "github.com/juju/juju/domain/removal/service"
 	resourceservice "github.com/juju/juju/domain/resource/service"
 	statusservice "github.com/juju/juju/domain/status/service"
 	storageprovisioningservice "github.com/juju/juju/domain/storageprovisioning/service"
@@ -102,6 +103,7 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 	mockDomainServices := mocks.NewMockModelDomainServices(ctrl)
 	mockDomainServices.EXPECT().Config().Return(&modelconfigservice.WatchableService{}).AnyTimes()
 	mockDomainServices.EXPECT().Application().Return(&applicationservice.WatchableService{}).AnyTimes()
+	mockDomainServices.EXPECT().Removal().Return(&removalservice.WatchableService{}).AnyTimes()
 	mockDomainServices.EXPECT().Status().Return(&statusservice.LeadershipService{}).AnyTimes()
 	mockDomainServices.EXPECT().AgentPassword().Return(&agentpasswordservice.Service{}).AnyTimes()
 	mockDomainServices.EXPECT().Resource().Return(&resourceservice.Service{}).AnyTimes()

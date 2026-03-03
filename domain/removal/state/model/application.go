@@ -268,13 +268,23 @@ func (st *State) GetApplicationLife(ctx context.Context, aUUID string) (life.Lif
 	return l, nil
 }
 
-// DeleteApplication removes a application from the database completely.
-func (st *State) DeleteApplication(ctx context.Context, aUUID string, force bool) error {
+// MarkApplicationAsDeadWithNoEntities marks the application with the input UUID as dead,
+// if there are no associated units or relations.
+func (st *State) MarkApplicationAsDeadWithNoEntities(ctx context.Context, aUUID string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
+
 	applicationUUID := entityUUID{UUID: aUUID}
+	updateStmt, err := st.Prepare(`
+UPDATE application
+SET    life_id = 2
+WHERE  uuid = $entityUUID.uuid
+AND    life_id = 1`, applicationUUID)
+	if err != nil {
+		return errors.Errorf("preparing application life update: %w", err)
+	}
 
 	unitsStmt, err := st.Prepare(`
 SELECT COUNT(*) AS &count.count
@@ -294,6 +304,44 @@ WHERE application_uuid = $entityUUID.uuid
 		return errors.Errorf("preparing application relation count query: %w", err)
 	}
 
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if l, err := st.getApplicationLife(ctx, tx, aUUID); err != nil {
+			return errors.Errorf("getting application life: %w", err)
+		} else if l == life.Dead {
+			return nil
+		} else if l == life.Alive {
+			return removalerrors.EntityStillAlive
+		}
+
+		var numUnits count
+		if err := tx.Query(ctx, unitsStmt, applicationUUID).Get(&numUnits); err != nil {
+			return errors.Errorf("querying application units: %w", err)
+		} else if numUnits.Count > 0 {
+			return removalerrors.EntityStillAlive
+		}
+
+		var numRelations count
+		if err := tx.Query(ctx, relationsStmt, applicationUUID).Get(&numRelations); err != nil {
+			return errors.Errorf("querying application relations: %w", err)
+		} else if numRelations.Count > 0 {
+			return removalerrors.EntityStillAlive
+		}
+
+		if err := tx.Query(ctx, updateStmt, applicationUUID).Run(); err != nil {
+			return errors.Errorf("marking application as dead: %w", err)
+		}
+		return nil
+	}))
+}
+
+// DeleteApplication removes a application from the database completely.
+func (st *State) DeleteApplication(ctx context.Context, aUUID string, force bool) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	applicationUUID := entityUUID{UUID: aUUID}
+
 	getOffersStmt, err := st.Prepare(`
 SELECT oe.offer_uuid AS &entityUUID.uuid
 FROM offer_endpoint AS oe
@@ -311,42 +359,12 @@ WHERE  uuid = $entityUUID.uuid;`, applicationUUID)
 		return errors.Errorf("preparing application delete: %w", err)
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// TODO (stickupkid): We should ensure that the application is not
-		// in a dying state, but nothing calls MarkApplicationAsDead. It is
-		// assumed that, as long as all units are removed then we can
-		// delete the application.
 		aLife, err := st.getApplicationLife(ctx, tx, aUUID)
 		if err != nil {
 			return errors.Errorf("getting application life: %w", err)
-		} else if aLife == life.Alive {
-			// The application is still alive, we cannot delete it.
-			return errors.Errorf("cannot delete application %q as it is still alive", aUUID).
-				Add(removalerrors.EntityStillAlive)
-		}
-
-		// Ensure all units and relations have been removed by their own removal
-		// jobs before allowing the application to be deleted. This applies
-		// unconditionally: even force removals cascade separate removal jobs for
-		// units and relations, so by the time this runs those jobs must have
-		// completed.
-		var numUnits count
-		err = tx.Query(ctx, unitsStmt, applicationUUID).Get(&numUnits)
-		if err != nil {
-			return errors.Errorf("querying application units: %w", err)
-		} else if numUnits := numUnits.Count; numUnits > 0 {
-			return errors.Errorf("cannot delete application as it still has %d unit(s)", numUnits).
-				Add(applicationerrors.ApplicationHasUnits).
-				Add(removalerrors.RemovalJobIncomplete)
-		}
-
-		var numRelations count
-		err = tx.Query(ctx, relationsStmt, applicationUUID).Get(&numRelations)
-		if err != nil {
-			return errors.Errorf("querying application relations: %w", err)
-		} else if numRelations := numRelations.Count; numRelations > 0 {
-			return errors.Errorf("cannot delete application as it still has %d relation(s)", numRelations).
-				Add(applicationerrors.ApplicationHasRelations).
-				Add(removalerrors.RemovalJobIncomplete)
+		} else if aLife != life.Dead {
+			return errors.Errorf("cannot delete application %q as it is not dead", aUUID).
+				Add(removalerrors.EntityNotDead)
 		}
 
 		var offers []entityUUID
