@@ -184,7 +184,7 @@ run_decrease_size() {
 	juju add-unit storage-refresher
 	wait_for "storage-refresher" "$(active_idle_condition "storage-refresher" 1)"
 
-	# Assert the new unit has the new storage requirement.
+	# Assert the new unit has at least the new storage minimum size requirement.
 	if ! assert_storage_min_size "storage-refresher/1" "awesome-fs/1" 1024; then
 		# shellcheck disable=SC2046
 		echo $(red "attached storage is not at least 1024 in size")
@@ -300,7 +300,7 @@ run_delete_storage_definition() {
 # multiple storage instance of the same name.
 # The refresh is allowed if min.count = max.count = 1.
 # Otherwise, they are rejected.
-run_single_to_multiple_storage_instances() {
+run_single_to_range_storage_instances() {
 	echo
 
 	model_name="test-single-to-multiple-storage-instances"
@@ -433,7 +433,7 @@ test_refresh_charm_storage() {
 		run "run_new_storage_definition"
 
 		# tests changing a singleton to multiple instance storage
-		run "run_single_to_multiple_storage_instances"
+		run "run_single_to_range_storage_instances"
 
 		# tests changing the storage type property
 		run "run_filesystem_to_block"
