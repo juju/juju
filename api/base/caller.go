@@ -68,17 +68,21 @@ type APICaller interface {
 	// to if there is one. It returns false for a controller-only connection.
 	ModelTag() (names.ModelTag, bool)
 
-	// HTTPClient returns a httprequest.Client that can be used
-	// to make HTTP requests to the API. URLs passed to the client
-	// will be made relative to the API host and the current model.
+	// HTTPClient returns a HTTP client that can be used to make authenticated
+	// requests to the API server. The returned client will have its BaseURL set
+	// to the appropriate API endpoint for the given scope.
 	//
-	// Note that the URLs in HTTP requests passed to the Client.Do
-	// method should not include a host part.
+	// JSON responses from the API server will be automatically unmarshaled if
+	// there is an error, and coerced into the API error type. Non-JSON error
+	// responses will be returned as errors with the response body as the
+	// message.
 	HTTPClient(HTTPClientScope) (*httprequest.Client, error)
 
-	// SimpleHTTPClient returns a http.Client that can be used to make
-	// HTTP requests to the API. URLs passed to the client will be made
-	// relative to the API host and the current model.
+	// SimpleHTTPClient returns a http.Client that can be used to make HTTP
+	// requests to the API. No automatic error handling is performed by this
+	// client, and the caller is responsible for using the response and closing
+	// the body. URLs passed to the client will be made relative to the API host
+	// and the controller.
 	SimpleHTTPClient() (SimpleHTTPClient, error)
 
 	// BakeryClient returns the bakery client for this connection.

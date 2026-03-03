@@ -28,6 +28,8 @@ import (
 // JSON responses from the API server will be automatically unmarshaled if there
 // is an error, and coerced into the API error type. Non-JSON error responses
 // will be returned as errors with the response body as the message.
+//
+// Clients must be logged in otherwise an error will be returned.
 func (c *conn) HTTPClient(scope base.HTTPClientScope) (*httprequest.Client, error) {
 	switch scope {
 	case base.HTTPClientScopeModel:
@@ -59,7 +61,7 @@ func (c *conn) controllerScopedHTTPClient() (*httprequest.Client, error) {
 
 func (c *conn) httpClient(baseURL *url.URL) (*httprequest.Client, error) {
 	if !c.isLoggedIn() {
-		return nil, errors.New("HTTP client available without logging in")
+		return nil, errors.New("HTTP client not available without logging in")
 	}
 	return &httprequest.Client{
 		BaseURL: baseURL.String(),
@@ -75,9 +77,11 @@ func (c *conn) httpClient(baseURL *url.URL) (*httprequest.Client, error) {
 // caller is responsible for using the response and closing the body. URLs
 // passed to the client will be made relative to the API host and the
 // controller.
+//
+// Clients must be logged in otherwise an error will be returned.
 func (c *conn) SimpleHTTPClient() (base.SimpleHTTPClient, error) {
 	if !c.isLoggedIn() {
-		return nil, errors.New("HTTP client available without logging in")
+		return nil, errors.New("HTTP client not available without logging in")
 	}
 
 	url := c.Addr()
