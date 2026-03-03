@@ -199,6 +199,7 @@ func newK8sBroker(
 		labelVersion:      labelVersion,
 		environNetworking: environNetworking{},
 	}
+	client.environNetworking.listNodes = client.listNodes
 	if len(controllerUUID) > 0 {
 		client.annotations.Add(utils.AnnotationControllerUUIDKey(labelVersion), controllerUUID)
 	}
