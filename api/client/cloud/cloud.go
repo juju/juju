@@ -158,9 +158,9 @@ func (c *Client) UserCredentials(ctx context.Context, user names.UserTag, cloud 
 // If there are any models that are using a credential and these models or their
 // cloud instances are not going to be accessible with corresponding credential,
 // there will be detailed validation errors per model.
-func (c *Client) CheckCredentialsModels(args params.TaggedCredentials) ([]params.UpdateCredentialResult, error) {
+func (c *Client) CheckCredentialsModels(ctx context.Context, args params.TaggedCredentials) ([]params.UpdateCredentialResult, error) {
 	var results params.UpdateCredentialResults
-	if err := c.facade.FacadeCall("CheckCredentialsModels", args, &results); err != nil {
+	if err := c.facade.FacadeCall(ctx, "CheckCredentialsModels", args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return results.Results, nil

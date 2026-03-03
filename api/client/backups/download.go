@@ -28,7 +28,6 @@ func (c *Client) Download(ctx context.Context, filename string) (io.ReadCloser, 
 	}
 
 	var resp *http.Response
-	ctx := context.TODO()
 	err = httpClient.Call(
 		ctx,
 		&downloadParams{

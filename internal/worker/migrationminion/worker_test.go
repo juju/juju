@@ -142,7 +142,7 @@ func (s *Suite) TestNonRunningPhases(c *tc.C) {
 	}
 }
 
-func (s *Suite) TestPostSuccessPhasesUpdateAgentConfig(c *gc.C) {
+func (s *Suite) TestPostSuccessPhasesUpdateAgentConfig(c *tc.C) {
 	phases := []migration.Phase{
 		migration.LOGTRANSFER,
 		migration.REAP,
@@ -154,7 +154,7 @@ func (s *Suite) TestPostSuccessPhasesUpdateAgentConfig(c *gc.C) {
 	}
 }
 
-func (s *Suite) checkPostSuccessPhase(c *gc.C, phase migration.Phase) {
+func (s *Suite) checkPostSuccessPhase(c *tc.C, phase migration.Phase) {
 	c.Logf("checking %s", phase)
 	s.stub.ResetCalls()
 	s.agent = newStubAgent()
@@ -166,7 +166,7 @@ func (s *Suite) checkPostSuccessPhase(c *gc.C, phase migration.Phase) {
 		TargetCACert:   caCert,
 	}
 	w, err := migrationminion.New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-s.agent.configChanged:
@@ -174,8 +174,8 @@ func (s *Suite) checkPostSuccessPhase(c *gc.C, phase migration.Phase) {
 		c.Fatal("timed out")
 	}
 	workertest.CleanKill(c, w)
-	c.Assert(s.agent.conf.addrs, gc.DeepEquals, addrs)
-	c.Assert(s.agent.conf.caCert, gc.DeepEquals, caCert)
+	c.Assert(s.agent.conf.addrs, tc.DeepEquals, addrs)
+	c.Assert(s.agent.conf.caCert, tc.DeepEquals, caCert)
 	s.stub.CheckCallNames(c, "Watch", "API open", "API close", "Unlock")
 }
 

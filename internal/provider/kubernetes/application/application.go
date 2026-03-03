@@ -978,7 +978,7 @@ func (a *app) shouldDeleteExistingStatefulSet(sts *resources.StatefulSet, expect
 	if stsAnnotations[modelUUIDKey] != a.modelUUID {
 		return false
 	}
-	logger.Infof("detected orphaned statefulset %q: storage UUID %q does not match expected %q",
+	logger.Infof(context.TODO(), "detected orphaned statefulset %q: storage UUID %q does not match expected %q",
 		a.name, existingUUID, expectedStorageUUID)
 	return true
 }

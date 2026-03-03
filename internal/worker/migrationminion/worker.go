@@ -242,7 +242,7 @@ func (w *Worker) handle(ctx context.Context, status watcher.MigrationStatus) err
 		// This will cause a retry if it fails, so consider that we may never
 		// leave this phase. If that's the case the migration should timeout.
 		if status.Phase.IsPostSuccess() {
-			if err := w.updateAgentConfigForTargetController(status); err != nil {
+			if err := w.updateAgentConfigForTargetController(ctx, status); err != nil {
 				return errors.Trace(err)
 			}
 		}

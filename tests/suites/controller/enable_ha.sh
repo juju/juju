@@ -82,9 +82,6 @@ run_enable_ha() {
 	# Run limit api port access
 	# run_controller_limit_access_in_ha
 
-	# Run limit api port access
-	run_controller_limit_access_in_ha
-
 	juju switch enable-ha
 	controller_1=$(juju status -m controller --format json | jq -r '.applications.controller.units["controller/1"].machine')
 	juju remove-machine -m controller "${controller_1}" --force
