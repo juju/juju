@@ -555,17 +555,35 @@ func (st *InsertIAASUnitState) k8sSubnetUUIDsByAddressType(ctx context.Context, 
 	if err = tx.Query(ctx, subnetStmt).GetAll(&subnets); err != nil {
 		return nil, errors.Errorf("getting subnet uuid: %w", err)
 	}
-	// Note: Today there are only two k8s subnets, which are a placeholders.
-	// Finding the subnet for the ip address will be more complex
-	// in the future.
-	if len(subnets) != 2 {
-		return nil, errors.Errorf("expected 2 subnet uuid, got %d", len(subnets))
+	if len(subnets) == 0 {
+		return nil, errors.Errorf("expected at least 1 subnet uuid, got 0")
 	}
 
+	// Prefer placeholder CIDRs when available to remain compatible with models
+	// that still rely on fallback subnet semantics.
 	for _, subnet := range subnets {
 		addrType := addressTypeForUnspecifiedCIDR(subnet.CIDR)
+		if addrType == "" {
+			continue
+		}
 		result[addrType] = subnet.UUID
 	}
+
+	// Fill in any missing address families from discovered provider subnets.
+	for _, subnet := range subnets {
+		addrType := addressTypeForUnspecifiedCIDR(subnet.CIDR)
+		if addrType == "" {
+			addrType, err = network.CIDRAddressType(subnet.CIDR)
+			if err != nil {
+				return nil, errors.Errorf("determining address type for subnet CIDR %q: %w", subnet.CIDR, err)
+			}
+		}
+		if _, exists := result[addrType]; exists {
+			continue
+		}
+		result[addrType] = subnet.UUID
+	}
+
 	return result, nil
 }
 
