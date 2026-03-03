@@ -179,6 +179,52 @@ func (s *State) PutMetadata(ctx context.Context, uuid string, metadata coreobjec
 	return uuid, nil
 }
 
+// GetControllerIDHints returns the controller ID hints for the specified
+// SHA384. This is used to indicate which controller might have the object
+// with the specified SHA384, which can be used for optimization in certain
+// scenarios.
+func (s *State) GetControllerIDHints(ctx context.Context, sha384 string) ([]string, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type hint struct {
+		SHA384           string `db:"sha_384"`
+		ControllerIDHint string `db:"node_id"`
+	}
+
+	ctrlHint := hint{SHA384: sha384}
+
+	stmt, err := s.Prepare(`
+SELECT node_id AS &hint.node_id
+FROM object_store_placement
+JOIN object_store_metadata ON object_store_placement.uuid = object_store_metadata.uuid
+WHERE object_store_metadata.sha_384 = $hint.sha_384
+LIMIT 1`, ctrlHint)
+	if err != nil {
+		return nil, errors.Errorf("preparing select controller ID hint statement: %w", err)
+	}
+
+	var hintResult []hint
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, ctrlHint).GetAll(&hintResult)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Errorf("retrieving controller ID hint for sha384 %s: %w", sha384, err)
+	}
+
+	return transform.Slice(hintResult, func(h hint) string {
+		return h.ControllerIDHint
+	}), nil
+}
+
 // PutMetadataWithControllerIDHint adds a new specified path for the persistence
 // metadata with a controller ID hint. This is used to route the request to the
 // correct controller in a multi-controller environment.

@@ -51,7 +51,7 @@ const (
 // RemoteRetriever is the interface for retrieving objects from a remote source.
 type RemoteRetriever interface {
 	// Retrieve gets the object from the remote source.
-	Retrieve(ctx context.Context, sha256 string) (io.ReadCloser, int64, error)
+	Retrieve(ctx context.Context, sha256, controllerNodeID string) (io.ReadCloser, int64, error)
 }
 
 // FileObjectStoreConfig is the configuration for the file object store.
@@ -663,8 +663,13 @@ func (t *fileObjectStore) getWithMetadata(
 func (t *fileObjectStore) remoteGetWithMetadata(
 	ctx context.Context, metadata objectstore.Metadata,
 ) (io.ReadCloser, int64, error) {
+	hint, err := t.metadataService.GetControllerIDHint(ctx, metadata.SHA384)
+	if err != nil {
+		t.logger.Debugf(ctx, "getting controller ID hint for %q: %v", metadata.Path, err)
+	}
+
 	// Retrieve the file from the remote source.
-	reader, size, err := t.remoteRetriever.Retrieve(ctx, metadata.SHA256)
+	reader, size, err := t.remoteRetriever.Retrieve(ctx, metadata.SHA256, hint)
 	if errors.Is(err, remote.NoRemoteConnections) ||
 		errors.Is(err, remote.BlobNotFound) {
 		return nil, -1, errors.Errorf("%w: %w", err, objectstoreerrors.ObjectNotFound)
@@ -977,7 +982,12 @@ func (t *fileObjectStore) fetchReaderFromRemote(
 ) (io.ReadCloser, int64, error) {
 	t.logger.Tracef(ctx, "fetching object %q from remote %q", metadata.Path, metadata.SHA256)
 
-	reader, size, err := t.remoteRetriever.Retrieve(ctx, metadata.SHA256)
+	hint, err := t.metadataService.GetControllerIDHint(ctx, metadata.SHA384)
+	if err != nil {
+		t.logger.Debugf(ctx, "getting controller ID hint for %q: %v", metadata.Path, err)
+	}
+
+	reader, size, err := t.remoteRetriever.Retrieve(ctx, metadata.SHA256, hint)
 	if errors.Is(err, remote.NoRemoteConnections) ||
 		errors.Is(err, remote.BlobNotFound) {
 		return nil, -1, objectstoreerrors.ObjectNotFound

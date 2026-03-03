@@ -85,7 +85,7 @@ func (r *BlobRetriever) Report() map[string]any {
 }
 
 // Retrieve returns a reader for the blob with the given SHA256.
-func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
+func (r *BlobRetriever) Retrieve(ctx context.Context, sha256, controllerNodeID string) (io.ReadCloser, int64, error) {
 	// Check if we're already dead or dying before we start to do anything.
 	select {
 	case <-r.tomb.Dying():
@@ -102,12 +102,24 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (io.ReadClo
 		return nil, -1, NoRemoteConnections
 	}
 
+	idx := controllerNodeIndex(remotes, controllerNodeID)
+
+	// If there is no controller node ID hint, or if the hinted controller node
+	// is not available, we shuffle the remotes and try to retrieve from them in
+	// random order to avoid always hitting the same remote first.
+	if controllerNodeID == "" || idx == -1 {
+		return r.retrieveFromRemotes(ctx, shuffleRemotes(remotes), sha256)
+	}
+
+	// Try to retrieve from the hinted controller node first, and if that fails,
+	// try the other remotes in random order.
+	return r.retrieveFromRemotes(ctx, prioritizeRemotes(remotes, idx), sha256)
+}
+
+func (r *BlobRetriever) retrieveFromRemotes(ctx context.Context, remotes []apiremotecaller.RemoteConnection, sha256 string) (io.ReadCloser, int64, error) {
 	// Iterate over the remotes and try to retrieve the blob from each one.
-	// TODO (stickupkid): We could parallelize this, but that can lead to
-	// flooding of the controller with requests, so we do it sequentially for
-	// now.
 	var errs []string
-	for _, remote := range shuffleRemotes(remotes) {
+	for _, remote := range remotes {
 		reader, size, err := r.retrieve(ctx, remote, sha256)
 		if errors.Is(err, HTTPError) {
 			errs = append(errs, err.Error())
@@ -180,7 +192,20 @@ func (r *BlobRetriever) loop() error {
 	return tomb.ErrDying
 }
 
-// Shuffle the remotes to avoid always hitting the same one first.
+// controllerNodeIndex returns the index of the given controller node ID is
+// present in the list of remotes.
+func controllerNodeIndex(remotes []apiremotecaller.RemoteConnection, controllerNodeID string) int {
+	for i, remote := range remotes {
+		if remote.ControllerID() == controllerNodeID {
+			return i
+		}
+	}
+	return -1
+}
+
+// Shuffle the remotes to avoid always hitting the same one first. This copies
+// the slice before shuffling to avoid modifying the original slice, which may
+// be shared with other parts of the code.
 func shuffleRemotes(remotes []apiremotecaller.RemoteConnection) []apiremotecaller.RemoteConnection {
 	if len(remotes) <= 1 {
 		return remotes
@@ -194,6 +219,22 @@ func shuffleRemotes(remotes []apiremotecaller.RemoteConnection) []apiremotecalle
 	})
 
 	return shuffled
+}
+
+func prioritizeRemotes(remotes []apiremotecaller.RemoteConnection, idx int) []apiremotecaller.RemoteConnection {
+	if idx < 0 || idx >= len(remotes) {
+		return remotes
+	}
+
+	fallback := make([]apiremotecaller.RemoteConnection, 0, len(remotes)-1)
+	fallback = append(fallback, remotes[:idx]...)
+	fallback = append(fallback, remotes[idx+1:]...)
+
+	shuffled := shuffleRemotes(fallback)
+
+	return append([]apiremotecaller.RemoteConnection{
+		remotes[idx],
+	}, shuffled...)
 }
 
 // scopedContext is a context that allows us to ignore the child context
