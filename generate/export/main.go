@@ -469,9 +469,5 @@ func writeServiceModelVersionFile(versionToken, semanticVersion string) error {
 
 	testFilePath := filepath.Join(dir, "export_test.go")
 	fmt.Printf("writing to %s\n", testFilePath)
-	if err := os.WriteFile(testFilePath, testFormatted, 0644); err != nil {
-		return err
-	}
-
-	return nil
+	return os.WriteFile(testFilePath, testFormatted, 0644)
 }

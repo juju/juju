@@ -1,4 +1,4 @@
-// Copyright 2025 Canonical Ltd. All rights reserved.
+// Copyright 2026 Canonical Ltd. All rights reserved.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package model
