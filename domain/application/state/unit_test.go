@@ -34,6 +34,7 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	portstate "github.com/juju/juju/domain/port/state"
 	"github.com/juju/juju/domain/status"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -874,6 +875,116 @@ func (s *unitStateSuite) TestUpdateUnitCharm(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotUUID, tc.Equals, id.String())
+}
+
+func (s *unitStateSuite) TestUpdateUnitCharmUpdatesUnitStorageDirectives(c *tc.C) {
+	// Arrange a unit with storage definitions on its current charm.
+	storage := map[string]charm.Storage{
+		"st1": {
+			CountMax:    5,
+			CountMin:    1,
+			Description: "st1",
+			Name:        "st1",
+			MinimumSize: 1024,
+			Type:        charm.StorageFilesystem,
+		},
+		"st2": {
+			CountMax:    1,
+			CountMin:    1,
+			Description: "st2",
+			Name:        "st2",
+			MinimumSize: 2048,
+			Type:        charm.StorageBlock,
+		},
+	}
+	_, unitUUIDs := s.createIAASApplicationWithNUnitsAndStorage(c, "foo", life.Alive, 1, storage)
+	unitUUID := unitUUIDs[0]
+
+	var (
+		unitName     string
+		currentCharm string
+	)
+	// Capture the unit name and current charm UUID.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT name, charm_uuid FROM unit WHERE uuid=?", unitUUID.String()).
+			Scan(&unitName, &currentCharm)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Create a storage pool and unit storage directives bound to the old charm UUID.
+	storagePoolID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		"INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)",
+		storagePoolID.String(),
+		"test-pool",
+		"test-provider",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		"INSERT INTO unit_storage_directive VALUES (?, ?, ?, ?, ?, ?)",
+		unitUUID.String(),
+		currentCharm,
+		"st1",
+		storagePoolID.String(),
+		4096,
+		2,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		"INSERT INTO unit_storage_directive VALUES (?, ?, ?, ?, ?, ?)",
+		unitUUID.String(),
+		currentCharm,
+		"st2",
+		storagePoolID.String(),
+		8192,
+		1,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Add the replacement charm with matching storage names.
+	id, _, err := s.state.AddCharm(c.Context(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name:    "foo",
+			Storage: storage,
+		},
+		Manifest:      s.minimalManifest(c),
+		Source:        charm.LocalSource,
+		Revision:      43,
+		ReferenceName: "foo",
+		Hash:          "hash-v2",
+		ArchivePath:   "archive-v2",
+		Version:       "deadbeef-v2",
+	}, nil, false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act by updating the unit charm to the new charm UUID.
+	err = s.state.UpdateUnitCharm(c.Context(), coreunit.Name(unitName), id)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var (
+		gotUnitCharmUUID      string
+		storageDirectiveCount int
+	)
+	// Assert that both unit and unit storage directives now reference the new charm UUID.
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, "SELECT charm_uuid FROM unit WHERE uuid=?", unitUUID.String()).
+			Scan(&gotUnitCharmUUID); err != nil {
+			return err
+		}
+		return tx.QueryRowContext(
+			ctx,
+			"SELECT count(*) FROM unit_storage_directive WHERE unit_uuid=? AND charm_uuid=?",
+			unitUUID.String(),
+			id.String(),
+		).Scan(&storageDirectiveCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotUnitCharmUUID, tc.Equals, id.String())
+	c.Check(storageDirectiveCount, tc.Equals, 2)
 }
 
 func (s *unitStateSuite) TestGetUnitRefreshAttributes(c *tc.C) {

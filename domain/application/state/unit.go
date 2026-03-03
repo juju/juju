@@ -1124,7 +1124,7 @@ func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, par
 }
 
 // UpdateUnitCharm updates the currently running charm marker for the given
-// unit.
+// unit and aligns any existing unit storage directives to the same charm.
 // The following errors may be returned:
 // - [applicationerrors.UnitNotFound] if the unit does not exist.
 // - [applicationerrors.UnitIsDead] if the unit is dead.
@@ -1145,6 +1145,19 @@ WHERE name = $unitName.name
 		return errors.Capture(err)
 	}
 
+	// Keep unit storage directives bound to the same charm metadata
+	// as the unit's current charm marker.
+	updateUnitStorageDirectivesQuery, err := st.Prepare(`
+UPDATE unit_storage_directive
+SET    charm_uuid = $charmUUID.charm_uuid
+WHERE  unit_uuid = (
+    SELECT uuid FROM unit WHERE name = $unitName.name
+)
+`, charmUUID, unitName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkUnitNotDeadByName(ctx, tx, name.String()); err != nil {
 			return errors.Capture(err)
@@ -1153,6 +1166,10 @@ WHERE name = $unitName.name
 		if internaldatabase.IsErrConstraintForeignKey(err) {
 			return errors.Errorf("charm %q not found", uuid).Add(applicationerrors.CharmNotFound)
 		} else if err != nil {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, updateUnitStorageDirectivesQuery, charmUUID, unitName).Run()
+		if err != nil {
 			return errors.Capture(err)
 		}
 		return nil
