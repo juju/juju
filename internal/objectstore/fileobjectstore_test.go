@@ -21,6 +21,7 @@ import (
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	watcher "github.com/juju/juju/core/watcher"
@@ -43,6 +44,59 @@ func TestFileObjectStoreSuite(t *testing.T) {
 }
 
 var _ TrackedObjectStore = (*fileObjectStore)(nil)
+
+func (s *fileObjectStoreSuite) TestValidateConfig(c *tc.C) {
+	cfg := s.newConfig(c)
+	err := cfg.Validate()
+	c.Assert(err, tc.ErrorIsNil)
+
+	cfg = s.newConfig(c)
+	cfg.Namespace = ""
+	err = cfg.Validate()
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+
+	cfg = s.newConfig(c)
+	cfg.MetadataService = nil
+	err = cfg.Validate()
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+
+	cfg = s.newConfig(c)
+	cfg.RemoteRetriever = nil
+	err = cfg.Validate()
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+
+	cfg = s.newConfig(c)
+	cfg.Claimer = nil
+	err = cfg.Validate()
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+
+	cfg = s.newConfig(c)
+	cfg.Logger = nil
+	err = cfg.Validate()
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+
+	cfg = s.newConfig(c)
+	cfg.Clock = nil
+	err = cfg.Validate()
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+
+	cfg = s.newConfig(c)
+	cfg.ControllerNodeID = ""
+	err = cfg.Validate()
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *fileObjectStoreSuite) newConfig(c *tc.C) FileObjectStoreConfig {
+	return FileObjectStoreConfig{
+		Namespace:        "test-namespace",
+		MetadataService:  s.service,
+		RemoteRetriever:  s.remote,
+		Claimer:          s.claimer,
+		Logger:           loggertesting.WrapCheckLog(c),
+		Clock:            clock.WallClock,
+		ControllerNodeID: "1",
+	}
+}
 
 func (s *fileObjectStoreSuite) TestGetMetadataNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()

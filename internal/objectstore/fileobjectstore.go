@@ -21,6 +21,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/tomb.v2"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	domainobjectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
@@ -81,6 +82,32 @@ type FileObjectStoreConfig struct {
 	ControllerNodeID string
 }
 
+// Validate validates the file object store configuration.
+func (cfg FileObjectStoreConfig) Validate() error {
+	if cfg.Namespace == "" {
+		return errors.New("empty namespace not valid").Add(coreerrors.NotValid)
+	}
+	if cfg.MetadataService == nil {
+		return errors.New("metadata service is required").Add(coreerrors.NotValid)
+	}
+	if cfg.RemoteRetriever == nil {
+		return errors.New("remote retriever is required").Add(coreerrors.NotValid)
+	}
+	if cfg.Claimer == nil {
+		return errors.New("claimer is required").Add(coreerrors.NotValid)
+	}
+	if cfg.Logger == nil {
+		return errors.New("logger is required").Add(coreerrors.NotValid)
+	}
+	if cfg.Clock == nil {
+		return errors.New("clock is required").Add(coreerrors.NotValid)
+	}
+	if cfg.ControllerNodeID == "" {
+		return errors.New("controller node id is required").Add(coreerrors.NotValid)
+	}
+	return nil
+}
+
 type fileObjectStore struct {
 	baseObjectStore
 
@@ -99,6 +126,10 @@ type fileObjectStore struct {
 // NewFileObjectStore returns a new object store worker based on the file
 // storage.
 func NewFileObjectStore(cfg FileObjectStoreConfig) (TrackedObjectStore, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, errors.Errorf("validating file objectstore config: %w", err)
+	}
+
 	runner, err := worker.NewRunner(worker.RunnerParams{
 		Name: "file-object-store-remote-runner",
 		IsFatal: func(err error) bool {
