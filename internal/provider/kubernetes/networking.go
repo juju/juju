@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -23,6 +24,7 @@ var _ environs.Networking = (*environNetworking)(nil)
 type environNetworking struct {
 	environs.NoContainerAddressesEnviron
 	environs.NoSpaceDiscoveryEnviron
+
 	listNodes func(context.Context) ([]corev1.Node, error)
 }
 
@@ -32,6 +34,18 @@ var nodeCIDRAnnotationKeys = []string{
 	"cilium.io/ipv4-pod-cidr",
 	"cilium.io/ipv6-pod-cidr",
 	"kube-router.io/pod-cidr",
+}
+
+func newEnvironNetworking(k8sClient kubernetes.Interface) environNetworking {
+	return environNetworking{
+		listNodes: func(ctx context.Context) ([]corev1.Node, error) {
+			nodes, err := k8sClient.CoreV1().Nodes().List(ctx, v1.ListOptions{})
+			if err != nil {
+				return nil, errors.Annotate(err, "listing kubernetes nodes")
+			}
+			return nodes.Items, nil
+		},
+	}
 }
 
 // Subnets is part of the [environs.Networking] interface.
@@ -104,14 +118,6 @@ func splitCIDRCandidates(raw string) []string {
 	return strings.FieldsFunc(raw, func(r rune) bool {
 		return r == ',' || r == ';' || r == ' ' || r == '\t' || r == '\n'
 	})
-}
-
-func (k *kubernetesClient) listNodes(ctx context.Context) ([]corev1.Node, error) {
-	nodes, err := k.client().CoreV1().Nodes().List(ctx, v1.ListOptions{})
-	if err != nil {
-		return nil, errors.Annotate(err, "listing kubernetes nodes")
-	}
-	return nodes.Items, nil
 }
 
 // NetworkInterfaces is part of the [environs.Networking] interface.
