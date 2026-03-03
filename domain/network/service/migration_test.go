@@ -695,6 +695,55 @@ func (s *migrationSuite) TestImportCloudServicesIPv6Success(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 }
 
+func (s *migrationSuite) TestImportCloudServicesIPv4SuccessWithDiscoveredSubnet(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	services := []internal.ImportCloudService{
+		{
+			UUID:            "service-uuid",
+			DeviceUUID:      "device-uuid",
+			NetNodeUUID:     "node-uuid",
+			ApplicationName: "test-app",
+			ProviderID:      "provider-id",
+			Addresses: []internal.ImportCloudServiceAddress{
+				{
+					UUID:    "addr-uuid",
+					Value:   "192.0.2.1",
+					Type:    "ipv4",
+					Scope:   "local-cloud",
+					Origin:  "provider",
+					SpaceID: "space-id",
+				},
+			},
+		},
+	}
+
+	subnet := corenetwork.SubnetInfo{
+		ID:   corenetwork.Id(uuid.MustNewUUID().String()),
+		CIDR: "10.0.0.0/24",
+	}
+	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(corenetwork.SubnetInfos{subnet}, nil)
+	s.st.EXPECT().CreateCloudServices(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, svcs []internal.ImportCloudService) error {
+			c.Assert(svcs, tc.DeepEquals, services)
+			return nil
+		})
+	s.st.EXPECT().ImportLinkLayerDevices(gomock.Any(), cloudServiceLLDMatcher{
+		c:    c,
+		from: services,
+		subnetUUIDs: map[string]string{
+			"addr-uuid": subnet.ID.String(),
+		},
+	}).Return(nil)
+
+	// Act
+	err := s.migrationService(c).ImportCloudServices(c.Context(), services)
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+}
+
 func (s *migrationSuite) fallbackSubnetInfo() corenetwork.SubnetInfos {
 	return corenetwork.SubnetInfos{
 		{
