@@ -57,13 +57,13 @@ func (c *ModelManagerAPIV10) ModelStatus(ctx context.Context, req params.Entitie
 // It converts results which have a model qualifier to instead use
 // an owner tag.
 func (m *ModelManagerAPIV10) CreateModel(ctx context.Context, args params.ModelCreateArgsLegacy) (params.ModelInfoLegacy, error) {
-	ownerTag, err := names.ParseUserTag(args.OwnerTag)
+	ownerTag, qualifier, err := ownerTagAndQualifierFromLegacyOwner(args.OwnerTag)
 	if err != nil {
 		return params.ModelInfoLegacy{}, errors.Trace(err)
 	}
 	createArgs := params.ModelCreateArgs{
 		Name:               args.Name,
-		Qualifier:          coremodel.QualifierFromUserTag(ownerTag).String(),
+		Qualifier:          qualifier.String(),
 		Config:             args.Config,
 		CloudTag:           args.CloudTag,
 		CloudRegion:        args.CloudRegion,
@@ -96,6 +96,24 @@ func (m *ModelManagerAPIV10) CreateModel(ctx context.Context, args params.ModelC
 		SupportedFeatures:       info.SupportedFeatures,
 	}
 	return result, nil
+}
+
+func ownerTagAndQualifierFromLegacyOwner(ownerOrQualifier string) (names.UserTag, coremodel.Qualifier, error) {
+	if ownerTag, err := names.ParseUserTag(ownerOrQualifier); err == nil {
+		return ownerTag, coremodel.QualifierFromUserTag(ownerTag), nil
+	}
+
+	if names.IsValidUser(ownerOrQualifier) {
+		ownerTag := names.NewUserTag(ownerOrQualifier)
+		return ownerTag, coremodel.QualifierFromUserTag(ownerTag), nil
+	}
+
+	qualifier := coremodel.NormalizeQualifier(ownerOrQualifier)
+	if err := qualifier.Validate(); err != nil {
+		return names.UserTag{}, "", errors.Trace(err)
+	}
+
+	return names.NewUserTag(qualifier.String()), qualifier, nil
 }
 
 // ListModelSummaries returns models that the specified user

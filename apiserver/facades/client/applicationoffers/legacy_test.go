@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/rpc/params"
 )
 
 func TestLegacySuite(t *testing.T) {
@@ -25,6 +26,7 @@ func (*legacySuite) TestTransformOfferURLs(c *tc.C) {
 	// Create a user tag with a domain
 	userTag := names.NewUserTag("Fred.Smith@canonical.com")
 	domainUserOfferURL := crossmodel.MakeURL(userTag.Id(), "modelname", "offername", "")
+	domainUserOfferURLWithTag := crossmodel.MakeURL(userTag.String(), "modelname", "offername", "")
 
 	// Create an Offer URL which will fail to parse.
 	failToParseOfferURLStr := "/qualifier/model"
@@ -44,6 +46,8 @@ func (*legacySuite) TestTransformOfferURLs(c *tc.C) {
 		"/modelname.offername",
 		// offer URL with external user
 		domainUserOfferURL,
+		// offer URL with owner tag qualifier
+		domainUserOfferURLWithTag,
 	}
 
 	// Act
@@ -55,5 +59,60 @@ func (*legacySuite) TestTransformOfferURLs(c *tc.C) {
 		adminOfferURL,
 		"/modelname.offername",
 		crossmodel.MakeURL("fred-smith-canonical-com", "modelname", "offername", ""),
+		crossmodel.MakeURL("fred-smith-canonical-com", "modelname", "offername", ""),
+	})
+}
+
+func (*legacySuite) TestLegacyFiltersToFilters(c *tc.C) {
+	in := params.OfferFiltersLegacy{
+		Filters: []params.OfferFilterLegacy{
+			{
+				OwnerName: "fred.smith@canonical.com",
+				ModelName: "model-a",
+				OfferName: "offer-a",
+			},
+			{
+				OwnerName: "fred-smith-canonical-com",
+				ModelName: "model-b",
+				OfferName: "offer-b",
+			},
+			{
+				OwnerName: "user-fred.smith@canonical.com",
+				ModelName: "model-c",
+				OfferName: "offer-c",
+			},
+			{
+				OwnerName: "bad/name",
+				ModelName: "model-d",
+				OfferName: "offer-d",
+			},
+		},
+	}
+
+	out := legacyFiltersToFilters(in)
+
+	c.Assert(out, tc.DeepEquals, params.OfferFilters{
+		Filters: []params.OfferFilter{
+			{
+				ModelQualifier: "fred-smith-canonical-com",
+				ModelName:      "model-a",
+				OfferName:      "offer-a",
+			},
+			{
+				ModelQualifier: "fred-smith-canonical-com",
+				ModelName:      "model-b",
+				OfferName:      "offer-b",
+			},
+			{
+				ModelQualifier: "fred-smith-canonical-com",
+				ModelName:      "model-c",
+				OfferName:      "offer-c",
+			},
+			{
+				ModelQualifier: "bad/name",
+				ModelName:      "model-d",
+				OfferName:      "offer-d",
+			},
+		},
 	})
 }

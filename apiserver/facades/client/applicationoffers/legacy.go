@@ -31,10 +31,25 @@ func legacyFiltersToFilters(in params.OfferFiltersLegacy) params.OfferFilters {
 			AllowedConsumerTags:    f.AllowedConsumerTags,
 		}
 		if f.OwnerName != "" {
-			out.Filters[i].ModelQualifier = model.QualifierFromUserTag(names.NewUserTag(f.OwnerName)).String()
+			out.Filters[i].ModelQualifier = qualifierFromLegacyOwnerOrQualifier(f.OwnerName).String()
 		}
 	}
 	return out
+}
+
+func qualifierFromLegacyOwnerOrQualifier(ownerOrQualifier string) model.Qualifier {
+	if ownerOrQualifier == "" {
+		return ""
+	}
+	// Legacy callers may provide an owner tag, a bare owner name, or an
+	// already-normalized model qualifier.
+	if ownerTag, err := names.ParseUserTag(ownerOrQualifier); err == nil {
+		return model.QualifierFromUserTag(ownerTag)
+	}
+	if names.IsValidUser(ownerOrQualifier) {
+		return model.QualifierFromUserTag(names.NewUserTag(ownerOrQualifier))
+	}
+	return model.NormalizeQualifier(ownerOrQualifier)
 }
 
 // ApplicationOffers gets details about remote applications that match given URLs.
@@ -67,7 +82,7 @@ func transformOfferURLs(in []string) []string {
 		}
 		// Older clients may try to reference an offer with a model owner username.
 		// Create a URL ensuring a valid model qualifier is always used.
-		url.ModelQualifier = model.QualifierFromUserTag(names.NewUserTag(url.ModelQualifier)).String()
+		url.ModelQualifier = qualifierFromLegacyOwnerOrQualifier(url.ModelQualifier).String()
 		updatedURLs[i] = url.String()
 	}
 	return updatedURLs
