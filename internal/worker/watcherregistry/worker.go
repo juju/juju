@@ -239,7 +239,7 @@ func (r *trackedWorker) Get(id string) (worker.Worker, error) {
 
 	w, err := r.runner.Worker(id, r.catacomb.Dying())
 	if errors.Is(err, coreerrors.NotFound) {
-		return nil, errors.Errorf("11 watcher %q %w", id, coreerrors.NotFound)
+		return nil, errors.Errorf("watcher %q %w", id, coreerrors.NotFound)
 	} else if err != nil {
 		return nil, errors.Capture(err)
 	}
