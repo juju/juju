@@ -161,6 +161,10 @@ func (st State) ImportSecretWithRevisions(
 	owner domainsecret.Owner,
 	metaParams domainsecret.UpsertSecretParams,
 	revisions []domainsecret.UpsertRevisionParams) error {
+	if len(revisions) == 0 {
+		return errors.Errorf("cannot import secret with no revisions")
+	}
+
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
