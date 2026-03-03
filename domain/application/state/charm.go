@@ -636,9 +636,14 @@ func (s *State) AddCharm(ctx context.Context, ch charm.Charm, downloadInfo *char
 
 	var locator charmLocator
 	locatorQuery := `
-SELECT &charmLocator.*
-FROM charm
-WHERE uuid = $entityUUID.uuid;
+SELECT
+    c.reference_name AS &charmLocator.reference_name,
+    c.revision AS &charmLocator.revision,
+    cs.name AS &charmLocator.source,
+    c.architecture_id AS &charmLocator.architecture_id
+FROM charm AS c
+JOIN charm_source AS cs ON c.source_id = cs.id
+WHERE c.uuid = $entityUUID.uuid;
 	`
 	locatorStmt, err := s.Prepare(locatorQuery, charmUUID, locator)
 	if err != nil {
@@ -696,9 +701,14 @@ func (s *State) ListCharmLocators(ctx context.Context) ([]charm.CharmLocator, er
 	}
 
 	query := `
-SELECT &charmLocator.*
-FROM charm
-WHERE source_id < 2;
+SELECT
+    c.reference_name AS &charmLocator.reference_name,
+    c.revision AS &charmLocator.revision,
+    cs.name AS &charmLocator.source,
+    c.architecture_id AS &charmLocator.architecture_id
+FROM charm AS c
+JOIN charm_source AS cs ON c.source_id = cs.id
+WHERE c.source_id < 2;
 `
 	stmt, err := s.Prepare(query, charmLocator{})
 	if err != nil {
@@ -733,9 +743,14 @@ func (s *State) ListCharmLocatorsByNames(ctx context.Context, names []string) ([
 	type nameSelector []string
 
 	query := `
-SELECT &charmLocator.*
-FROM charm
-WHERE reference_name IN ($nameSelector[:]) AND source_id < 2;
+SELECT
+    c.reference_name AS &charmLocator.reference_name,
+    c.revision AS &charmLocator.revision,
+    cs.name AS &charmLocator.source,
+    c.architecture_id AS &charmLocator.architecture_id
+FROM charm AS c
+JOIN charm_source AS cs ON c.source_id = cs.id
+WHERE c.reference_name IN ($nameSelector[:]) AND c.source_id < 2;
 `
 	stmt, err := s.Prepare(query, charmLocator{}, nameSelector(names))
 	if err != nil {
@@ -770,9 +785,14 @@ func (s *State) GetCharmLocatorByCharmID(ctx context.Context, id corecharm.ID) (
 	ident := entityUUID{UUID: id.String()}
 
 	query := `
-SELECT &charmLocator.*
-FROM charm
-WHERE uuid = $entityUUID.uuid;
+SELECT
+    c.reference_name AS &charmLocator.reference_name,
+    c.revision AS &charmLocator.revision,
+    cs.name AS &charmLocator.source,
+    c.architecture_id AS &charmLocator.architecture_id
+FROM charm AS c
+JOIN charm_source AS cs ON c.source_id = cs.id
+WHERE c.uuid = $entityUUID.uuid;
 `
 	stmt, err := s.Prepare(query, charmLocator{}, ident)
 	if err != nil {
@@ -938,9 +958,14 @@ WHERE uuid = $entityUUID.uuid;`
 
 	var locator charmLocator
 	locatorQuery := `
-SELECT &charmLocator.*
-FROM charm
-WHERE uuid = $entityUUID.uuid;
+SELECT
+    c.reference_name AS &charmLocator.reference_name,
+    c.revision AS &charmLocator.revision,
+    cs.name AS &charmLocator.source,
+    c.architecture_id AS &charmLocator.architecture_id
+FROM charm AS c
+JOIN charm_source AS cs ON c.source_id = cs.id
+WHERE c.uuid = $entityUUID.uuid;
 	`
 	locatorStmt, err := s.Prepare(locatorQuery, charmUUID, locator)
 	if err != nil {
@@ -1004,20 +1029,20 @@ func (s *State) GetLatestPendingCharmhubCharm(ctx context.Context, name string, 
 
 	query := `
 SELECT
-    v.reference_name AS &charmLocator.reference_name,
-    v.source_id AS &charmLocator.source_id,
-    v.architecture_id AS &charmLocator.architecture_id,
-    v.revision AS &charmLocator.revision
-FROM charm AS v
-JOIN charm ON v.uuid = charm.uuid
-LEFT JOIN application ON application.charm_uuid = charm.uuid
+    c.reference_name AS &charmLocator.reference_name,
+    cs.name AS &charmLocator.source,
+    c.architecture_id AS &charmLocator.architecture_id,
+    c.revision AS &charmLocator.revision
+FROM charm AS c
+JOIN charm_source AS cs ON c.source_id = cs.id
+LEFT JOIN application ON application.charm_uuid = c.uuid
 WHERE
-    charm.available = FALSE
-    AND charm.source_id = 1
-    AND charm.reference_name = $charmNameAndArchitecture.name
-    AND charm.architecture_id = $charmNameAndArchitecture.architecture_id
+    c.available = FALSE
+    AND c.source_id = 1
+    AND c.reference_name = $charmNameAndArchitecture.name
+    AND c.architecture_id = $charmNameAndArchitecture.architecture_id
     AND application.uuid IS NULL
-ORDER BY charm.create_time DESC;
+ORDER BY c.create_time DESC;
 `
 	stmt, err := s.Prepare(query, ident, charmLocator{})
 	if err != nil {
@@ -1045,21 +1070,16 @@ func decodeCharmLocators(results []charmLocator) ([]charm.CharmLocator, error) {
 }
 
 func decodeCharmLocator(c charmLocator) (charm.CharmLocator, error) {
-	source, err := decodeCharmSource(c.SourceID)
-	if err != nil {
-		return charm.CharmLocator{}, errors.Errorf("decoding charm source: %w", err)
-	}
-
-	architecture, err := decodeArchitecture(c.ArchitectureID)
-	if err != nil {
-		return charm.CharmLocator{}, errors.Errorf("decoding architecture: %w", err)
+	arch := architecture.Unknown
+	if c.ArchitectureID.Valid {
+		arch = architecture.Architecture(c.ArchitectureID.V)
 	}
 
 	return charm.CharmLocator{
 		Name:         c.ReferenceName,
 		Revision:     c.Revision,
-		Source:       source,
-		Architecture: architecture,
+		Source:       charm.CharmSource(c.Source),
+		Architecture: arch,
 	}, nil
 }
 
