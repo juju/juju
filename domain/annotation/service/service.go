@@ -26,13 +26,15 @@ type State interface {
 
 	// SetAnnotations associates key/value annotation pairs with a given ID.
 	// If an annotation already exists for the given ID, then it will be updated
-	// with the given value. First all annotations are deleted, then the given
-	// pairs are inserted, so unsetting an annotation is implicit.
-	SetAnnotations(ctx context.Context, ID annotations.ID, annotations map[string]string) error
+	// with the given value.
+	// Annotation keys not included will be left unchaged.
+	// Annotation keys in the deletions slice will be deleted.
+	SetAnnotations(ctx context.Context, ID annotations.ID, upserts map[string]string, deletions []string) error
 
 	// SetCharmAnnotations associates key/value annotation pairs with a given ID.
 	// If an annotation already exists for the given ID, then it will be updated
-	// with the given value. First all annotations are deleted, then the given
+	// with the given value.
+	// First all annotations are deleted, then the given
 	// pairs are inserted, so unsetting an annotation is implicit.
 	SetCharmAnnotations(ctx context.Context, ID annotation.GetCharmArgs, annotations map[string]string) error
 }
@@ -79,6 +81,8 @@ func (s *Service) GetCharmAnnotations(ctx context.Context, id annotation.GetChar
 // SetAnnotations associates key/value annotation pairs with a given ID. If
 // an annotation already exists for the given ID, then it will be updated with
 // the given value.
+// Annotation keys not included will be left unchaged.
+// Annotation keys with an empty string value will be removed.
 func (s *Service) SetAnnotations(ctx context.Context, id annotations.ID, annotations map[string]string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -91,7 +95,18 @@ func (s *Service) SetAnnotations(ctx context.Context, id annotations.ID, annotat
 		return errors.Capture(err)
 	}
 
-	if err := s.st.SetAnnotations(ctx, id, annotations); err != nil {
+	// To maintain API compatibility with the 3.x series, treat empty string values as deletions
+	upserts := make(map[string]string)
+	deletions := make([]string, 0)
+	for key, value := range annotations {
+		if value != "" {
+			upserts[key] = value
+		} else {
+			deletions = append(deletions, key)
+		}
+	}
+
+	if err := s.st.SetAnnotations(ctx, id, upserts, deletions); err != nil {
 		return errors.Errorf("updating annotations for %q: %w", id.Name, err)
 	}
 	return nil

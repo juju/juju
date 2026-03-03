@@ -185,18 +185,19 @@ WHERE uuid = $annotationUUID.uuid`, tableName)
 
 // SetAnnotations associates key/value annotation pairs with a given ID.
 // If an annotation already exists for the given ID, then it will be updated
-// with the given value. First all annotations are deleted, then the given pairs
-// are inserted, so unsetting an annotation is implicit.
+// with the given value.
+// Annotation keys not included will be left unchaged.
+// Annotation keys in the deletions slice will be deleted.
 func (st *State) SetAnnotations(
 	ctx context.Context,
 	id annotations.ID,
-	values map[string]string,
+	upserts map[string]string,
+	deletions []string,
 ) error {
 	if id.Kind == annotations.KindModel {
-		return st.setAnnotationsForModel(ctx, values)
+		return st.setAnnotationsForModel(ctx, upserts, deletions)
 	}
-	return st.setAnnotationsForID(ctx, id, values)
-
+	return st.setAnnotationsForID(ctx, id, upserts, deletions)
 }
 
 // setAnnotationsForID associates key/value pairs with the given ID.
@@ -204,7 +205,7 @@ func (st *State) SetAnnotations(
 // Kinds we need to find the uuid of the id before we add an annotation in the
 // corresponding annotation table.
 func (st *State) setAnnotationsForID(ctx context.Context, id annotations.ID,
-	toInsert map[string]string,
+	upserts map[string]string, deletions []string,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -225,11 +226,12 @@ VALUES ($annotationUUID.uuid, $Annotation.key, $Annotation.value)
 		return errors.Errorf("preparing set annotations query for ID: %q: %w", id.Name, err)
 	}
 
+	type deleteInput []string
 	deleteQuery := fmt.Sprintf(`
 DELETE FROM %s
-WHERE uuid = $annotationUUID.uuid`, tableName)
+WHERE uuid = $annotationUUID.uuid AND key IN ($deleteInput[:])`, tableName)
 
-	deleteAnnotationsStmt, err := st.Prepare(deleteQuery, annotationUUID{})
+	deleteAnnotationsStmt, err := st.Prepare(deleteQuery, annotationUUID{}, deleteInput{})
 	if err != nil {
 		return errors.Errorf("preparing set annotations query for ID: %q: %w", id.Name, err)
 	}
@@ -253,12 +255,12 @@ WHERE uuid = $annotationUUID.uuid`, tableName)
 			return errors.Errorf("looking up UUID for ID: %s: %w", id.Name, err)
 		}
 
-		if err := tx.Query(ctx, deleteAnnotationsStmt, annotationUUID).Run(); err != nil {
+		if err := tx.Query(ctx, deleteAnnotationsStmt, annotationUUID, deleteInput(deletions)).Run(); err != nil {
 			return errors.Errorf("unsetting annotations for ID: %s: %w", id.Name, err)
 		}
 
 		var annotationParam Annotation
-		for key, value := range toInsert {
+		for key, value := range upserts {
 			annotationParam.Key = key
 			annotationParam.Value = value
 			if err := tx.Query(ctx, setAnnotationsStmt, annotationUUID, annotationParam).Run(); err != nil {
@@ -279,7 +281,8 @@ WHERE uuid = $annotationUUID.uuid`, tableName)
 // annotations per model, so we don't need to try to find the uuid of the given
 // id (the model).
 func (st *State) setAnnotationsForModel(ctx context.Context,
-	toInsert map[string]string,
+	upserts map[string]string,
+	deletions []string,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -293,19 +296,22 @@ VALUES ($Annotation.*)
 	if err != nil {
 		return errors.Errorf("preparing set annotations query for model: %w", err)
 	}
+
+	type deleteInput []string
 	deleteAnnotationsStmt, err := st.Prepare(`
-DELETE FROM annotation_model`)
+DELETE FROM annotation_model
+WHERE key IN ($deleteInput[:])`, deleteInput{})
 	if err != nil {
 		return errors.Errorf("preparing set annotations query for model: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, deleteAnnotationsStmt).Run(); err != nil {
+		if err := tx.Query(ctx, deleteAnnotationsStmt, deleteInput(deletions)).Run(); err != nil {
 			return errors.Errorf("unsetting annotations for model: %w", err)
 		}
 
 		var annotationParam Annotation
-		for key, value := range toInsert {
+		for key, value := range upserts {
 			annotationParam.Key = key
 			annotationParam.Value = value
 			if err := tx.Query(ctx, setAnnotationsStmt, annotationParam).Run(); err != nil {

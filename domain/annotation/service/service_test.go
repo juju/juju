@@ -116,14 +116,13 @@ func (s *serviceSuite) TestSetAnnotations(c *tc.C) {
 		{ID: id44, key: "annotationKey4"}: "annotationValue4",
 	}
 
-	s.state.EXPECT().SetAnnotations(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, id annotations.ID, annotations map[string]string) error {
-			for annKey, annVal := range annotations {
-				if annVal == "" {
-					delete(mockState, stateAnnotationKey{ID: id, key: annKey})
-				} else {
-					mockState[stateAnnotationKey{ID: id, key: annKey}] = annVal
-				}
+	s.state.EXPECT().SetAnnotations(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, id annotations.ID, upserts map[string]string, deletions []string) error {
+			for annKey, annVal := range upserts {
+				mockState[stateAnnotationKey{ID: id, key: annKey}] = annVal
+			}
+			for _, annKey := range deletions {
+				delete(mockState, stateAnnotationKey{ID: id, key: annKey})
 			}
 			return nil
 		},
