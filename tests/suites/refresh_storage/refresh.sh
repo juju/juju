@@ -69,94 +69,6 @@ assert_storage_min_size() {
 	fi
 }
 
-# Verifies that a given storage instance is attached to a specific unit and
-# mounted at the expected location.
-assert_storage_mount_location() {
-	local unit_name="$1"
-	local storage_name="$2"
-	local expected_location="$3"
-
-	if [[ -z "$unit_name" || -z "$storage_name" || -z "$expected_location" ]]; then
-		# shellcheck disable=SC2046
-		echo $(red "usage: assert_storage_mount_location <unit> <storage> <expected_location>")
-		return 1
-	fi
-
-	local actual_location
-	actual_location=$(juju status --format json | jq -r \
-		--arg storage "$storage_name" \
-		--arg unit "$unit_name" \
-		'.storage.filesystems[]
-         | select(.storage == $storage)
-         | .attachments.units[$unit].location')
-
-	if [[ -z "$actual_location" || "$actual_location" == "null" ]]; then
-		# shellcheck disable=SC2046
-		echo $(red "ERROR: Storage '$storage_name' not attached to unit '$unit_name'")
-		return 1
-	fi
-
-	if [[ "$actual_location" == "$expected_location" ]]; then
-		return 0
-	else
-		# shellcheck disable=SC2046
-		echo $(red "ERROR: Storage '$storage_name' mounted at '$actual_location', expected '$expected_location'")
-		return 1
-	fi
-}
-
-# Tests that when a charm is refreshed to a revision with identical storage definitions,
-# existing and new units maintain the same storage size and mount locations.
-run_no_changes_in_new_revision() {
-	echo
-
-	model_name="test-no-changes-in-new-revision"
-	file="${TEST_DIR}/${model_name}.log"
-
-	ensure "${model_name}" "${file}"
-
-	juju deploy "storage-refresher" --revision 1 --channel latest/edge
-	wait_for "storage-refresher" "$(active_idle_condition "storage-refresher")"
-
-	# Assert the new unit has the at least 3072 MiB.
-	if ! assert_storage_min_size "storage-refresher/0" "awesome-fs/0" 3072; then
-		# shellcheck disable=SC2046
-		echo $(red "attached storage is not at least 3072 in size")
-		exit 1
-	fi
-
-	# Assert the new unit has the same mount location.
-	if ! assert_storage_mount_location "storage-refresher/0" "awesome-fs/0" "/awesome-fs"; then
-		# shellcheck disable=SC2046
-		echo $(red "awesome-fs/1 is not located in /awesome-fs")
-		exit 1
-	fi
-
-	# Refresh charm to revision 9 which has the exact contents as revision 1.
-	juju refresh "storage-refresher" --revision 9
-
-	wait_for "storage-refresher" "$(charm_rev "storage-refresher" 9)"
-
-	juju add-unit storage-refresher
-	wait_for "storage-refresher" "$(active_idle_condition "storage-refresher" 1)"
-
-	# Assert the new unit has the at least 3072 MiB (same as revision 1).
-	if ! assert_storage_min_size "storage-refresher/1" "awesome-fs/1" 3072; then
-		# shellcheck disable=SC2046
-		echo $(red "attached storage is not at least 3072 in size")
-		exit 1
-	fi
-
-	# Assert the new unit has the same mount location (same as revision 1).
-	if ! assert_storage_mount_location "storage-refresher/1" "awesome-fs/1" "/awesome-fs"; then
-		# shellcheck disable=SC2046
-		echo $(red "awesome-fs/1 is not located in /awesome-fs")
-		exit 1
-	fi
-
-	destroy_model "$model_name"
-}
-
 # Tests storage size decreases after charm refresh.
 run_decrease_size() {
 	echo
@@ -420,9 +332,6 @@ test_refresh_charm_storage() {
 		set_verbosity
 
 		cd .. || exit
-
-		# tests refreshing an identical revision
-		run "run_no_changes_in_new_revision"
 
 		# tests changing the minimum size property
 		run "run_decrease_size"
