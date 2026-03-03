@@ -629,7 +629,7 @@ func (c *MockStateGetVolumeUUIDsByMachinesCall) DoAndReturn(f func(context.Conte
 }
 
 // ImportFilesystemsIAAS mocks base method.
-func (m *MockState) ImportFilesystemsIAAS(arg0 context.Context, arg1 []internal.ImportFilesystemIAASArgs, arg2 []internal.ImportFilesystemAttachmentIAASArgs) error {
+func (m *MockState) ImportFilesystemsIAAS(arg0 context.Context, arg1 []internal.ImportFilesystemArgs, arg2 []internal.ImportFilesystemAttachmentArgs) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ImportFilesystemsIAAS", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -655,13 +655,13 @@ func (c *MockStateImportFilesystemsIAASCall) Return(arg0 error) *MockStateImport
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateImportFilesystemsIAASCall) Do(f func(context.Context, []internal.ImportFilesystemIAASArgs, []internal.ImportFilesystemAttachmentIAASArgs) error) *MockStateImportFilesystemsIAASCall {
+func (c *MockStateImportFilesystemsIAASCall) Do(f func(context.Context, []internal.ImportFilesystemArgs, []internal.ImportFilesystemAttachmentArgs) error) *MockStateImportFilesystemsIAASCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateImportFilesystemsIAASCall) DoAndReturn(f func(context.Context, []internal.ImportFilesystemIAASArgs, []internal.ImportFilesystemAttachmentIAASArgs) error) *MockStateImportFilesystemsIAASCall {
+func (c *MockStateImportFilesystemsIAASCall) DoAndReturn(f func(context.Context, []internal.ImportFilesystemArgs, []internal.ImportFilesystemAttachmentArgs) error) *MockStateImportFilesystemsIAASCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

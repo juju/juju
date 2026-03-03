@@ -68,8 +68,8 @@ type StorageImportState interface {
 	// for IAAS models.
 	ImportFilesystemsIAAS(
 		ctx context.Context,
-		fsArgs []internal.ImportFilesystemIAASArgs,
-		attachmentArgs []internal.ImportFilesystemAttachmentIAASArgs,
+		fsArgs []internal.ImportFilesystemArgs,
+		attachmentArgs []internal.ImportFilesystemAttachmentArgs,
 	) error
 
 	// ImportStorageInstances imports storage instances, storage attachments, and
@@ -203,7 +203,10 @@ func (s *StorageImportService) ImportStorageInstances(ctx context.Context, param
 func (s *StorageImportService) ImportFilesystemsIAAS(ctx context.Context, params []domainstorage.ImportFilesystemParams) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+	return s.importFilesystems(ctx, params)
+}
 
+func (s *StorageImportService) importFilesystems(ctx context.Context, params []domainstorage.ImportFilesystemParams) error {
 	if len(params) == 0 {
 		return nil
 	}
@@ -258,8 +261,8 @@ func (s *StorageImportService) ImportFilesystemsIAAS(ctx context.Context, params
 		}
 	}
 
-	fsArgs := make([]internal.ImportFilesystemIAASArgs, len(params))
-	attachmentArgs := make([]internal.ImportFilesystemAttachmentIAASArgs, 0)
+	fsArgs := make([]internal.ImportFilesystemArgs, len(params))
+	attachmentArgs := make([]internal.ImportFilesystemAttachmentArgs, 0)
 	for i, arg := range params {
 		providerScope, ok := poolScopes[arg.PoolName]
 		if !ok {
@@ -282,7 +285,7 @@ func (s *StorageImportService) ImportFilesystemsIAAS(ctx context.Context, params
 			return errors.Errorf("generating UUID for filesystem %q: %w", arg.ID, err)
 		}
 
-		fsArgs[i] = internal.ImportFilesystemIAASArgs{
+		fsArgs[i] = internal.ImportFilesystemArgs{
 			UUID:                fsUUID.String(),
 			ID:                  arg.ID,
 			Life:                life.Alive,
@@ -308,13 +311,14 @@ func (s *StorageImportService) ImportFilesystemsIAAS(ctx context.Context, params
 				return errors.Errorf("getting net node UUID for filesystem attachment of filesystem %q: %w", arg.ID, err)
 			}
 
-			attachmentArgs = append(attachmentArgs, internal.ImportFilesystemAttachmentIAASArgs{
+			attachmentArgs = append(attachmentArgs, internal.ImportFilesystemAttachmentArgs{
 				UUID:           attachmentUUID.String(),
 				FilesystemUUID: fsUUID.String(),
 				NetNodeUUID:    netNodeUUID.String(),
 				Scope:          providerScope,
 				Life:           life.Alive,
 				MountPoint:     attachment.MountPoint,
+				ProviderID:     attachment.ProviderID,
 				ReadOnly:       attachment.ReadOnly,
 			})
 		}

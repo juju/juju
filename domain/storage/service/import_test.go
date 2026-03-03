@@ -364,7 +364,7 @@ func (s *importSuite) TestImportFilesystemsIAAS(c *tc.C) {
 			"storageinstance/2": "storageinstance-uuid-2",
 		}, nil)
 
-	expectedFS := []internal.ImportFilesystemIAASArgs{{
+	expectedFS := []internal.ImportFilesystemArgs{{
 		ID:                  "test-2/1",
 		Life:                life.Alive,
 		SizeInMiB:           2048,
@@ -390,7 +390,7 @@ func (s *importSuite) TestImportFilesystemsIAAS(c *tc.C) {
 	mc.AddExpr(`_.UUID`, tc.IsNonZeroUUID)
 
 	s.state.EXPECT().ImportFilesystemsIAAS(gomock.Any(),
-		tc.Bind(tc.UnorderedMatch[[]internal.ImportFilesystemIAASArgs](mc), expectedFS),
+		tc.Bind(tc.UnorderedMatch[[]internal.ImportFilesystemArgs](mc), expectedFS),
 		tc.Bind(tc.HasLen, 0),
 	).Return(nil)
 
@@ -428,6 +428,7 @@ func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
 		Attachments: []domainstorage.ImportFilesystemAttachmentsParams{{
 			HostMachineName: "0",
 			MountPoint:      "/mnt/test2-1",
+			ProviderID:      "provider-id",
 			ReadOnly:        false,
 		}},
 	}}
@@ -458,7 +459,7 @@ func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
 		nil,
 	)
 
-	expectedFS := []internal.ImportFilesystemIAASArgs{{
+	expectedFS := []internal.ImportFilesystemArgs{{
 		ID:                  "test-1/0",
 		Life:                life.Alive,
 		SizeInMiB:           1024,
@@ -473,7 +474,7 @@ func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
 		StorageInstanceUUID: "storageinstance-uuid-2",
 		Scope:               domainstorageprovisioning.ProvisionScopeMachine,
 	}}
-	expectedAttachments := []internal.ImportFilesystemAttachmentIAASArgs{{
+	expectedAttachments := []internal.ImportFilesystemAttachmentArgs{{
 		MountPoint:  "/mnt/test1-0",
 		ReadOnly:    false,
 		NetNodeUUID: "netnode-uuid-unit-0",
@@ -489,6 +490,7 @@ func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
 		MountPoint:  "/mnt/test2-1",
 		ReadOnly:    false,
 		NetNodeUUID: "netnode-uuid-0",
+		ProviderID:  "provider-id",
 		Life:        life.Alive,
 		Scope:       domainstorageprovisioning.ProvisionScopeMachine,
 	}}
@@ -498,13 +500,13 @@ func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
 	mc.AddExpr(`_.FilesystemUUID`, tc.IsNonZeroUUID)
 
 	var (
-		gotFS          []internal.ImportFilesystemIAASArgs
-		gotAttachments []internal.ImportFilesystemAttachmentIAASArgs
+		gotFS          []internal.ImportFilesystemArgs
+		gotAttachments []internal.ImportFilesystemAttachmentArgs
 	)
 	s.state.EXPECT().ImportFilesystemsIAAS(gomock.Any(),
-		tc.Bind(tc.UnorderedMatch[[]internal.ImportFilesystemIAASArgs](mc), expectedFS),
-		tc.Bind(tc.UnorderedMatch[[]internal.ImportFilesystemAttachmentIAASArgs](mc), expectedAttachments),
-	).DoAndReturn(func(_ context.Context, fsArgs []internal.ImportFilesystemIAASArgs, attachmentArgs []internal.ImportFilesystemAttachmentIAASArgs) error {
+		tc.Bind(tc.UnorderedMatch[[]internal.ImportFilesystemArgs](mc), expectedFS),
+		tc.Bind(tc.UnorderedMatch[[]internal.ImportFilesystemAttachmentArgs](mc), expectedAttachments),
+	).DoAndReturn(func(_ context.Context, fsArgs []internal.ImportFilesystemArgs, attachmentArgs []internal.ImportFilesystemAttachmentArgs) error {
 		gotFS = fsArgs
 		gotAttachments = attachmentArgs
 		return nil

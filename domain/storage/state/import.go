@@ -103,8 +103,8 @@ INSERT INTO storage_attachment (*) VALUES ($importStorageAttachment.*)`, importS
 // IAAS models.
 func (st *State) ImportFilesystemsIAAS(
 	ctx context.Context,
-	fsArgs []internal.ImportFilesystemIAASArgs,
-	attachmentArgs []internal.ImportFilesystemAttachmentIAASArgs,
+	fsArgs []internal.ImportFilesystemArgs,
+	attachmentArgs []internal.ImportFilesystemAttachmentArgs,
 ) error {
 	if len(fsArgs)+len(attachmentArgs) == 0 {
 		return nil
@@ -161,6 +161,7 @@ INSERT INTO storage_filesystem_attachment (*) VALUES ($importStorageFilesystemAt
 			ScopeID:        int(arg.Scope),
 			LifeID:         int(arg.Life),
 			MountPoint:     arg.MountPoint,
+			ProviderID:     arg.ProviderID,
 			ReadOnly:       arg.ReadOnly,
 		}
 	}
