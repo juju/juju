@@ -801,6 +801,11 @@ func (t *fileObjectStore) put(
 			SHA384: encoded384,
 			Size:   size,
 		}, t.controllerNodeID); err != nil {
+			// We don't want to remove the file if we fail to save the metadata,
+			// as there might be other metadata entries that point to the same
+			// file.
+			//
+			// The pruner will take care of removing any unreferenced files.
 			return errors.Capture(err)
 		}
 		return nil
