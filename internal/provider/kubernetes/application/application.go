@@ -2518,15 +2518,13 @@ func (a *app) pvcNameGetter(pvcNames map[string]string, storageUniqueID string) 
 func (a *app) EnsureStorage(
 	config caas.ApplicationConfig,
 	saveReplicaCount func(
-	appName string,
-	replicaCount int) error,
+		appName string,
+		replicaCount int) error,
 ) error {
 	logger.Debugf("ensuring storage app %q", a.name)
 	currentStatefulset, err := a.getStatefulSetWithOrphanDelete()
-	exists := true
-	if k8serrors.IsNotFound(err) {
-		exists = false
-	} else if err != nil {
+	notFound := k8serrors.IsNotFound(err)
+	if !notFound && err != nil {
 		return errors.Trace(err)
 	}
 
@@ -2562,7 +2560,7 @@ func (a *app) EnsureStorage(
 	// We have to build the statefulset oject because it's missing.
 	// This may happen when a storage update occurs, we delete the statefulset,
 	// then crashes before we are able to reapply a new one.
-	if !exists {
+	if notFound {
 		applier.Apply(newStatefulset)
 		err := applier.Run(context.Background(), false)
 		return errors.Annotatef(err, "ensuring storage for app %q", a.name)

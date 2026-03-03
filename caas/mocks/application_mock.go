@@ -14,7 +14,6 @@ import (
 	reflect "reflect"
 
 	caas "github.com/juju/juju/caas"
-	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
 	storage "github.com/juju/juju/storage"
 	gomock "go.uber.org/mock/gomock"
@@ -102,17 +101,17 @@ func (mr *MockApplicationMockRecorder) EnsurePVCs(arg0, arg1, arg2 any) *gomock.
 }
 
 // EnsureStorage mocks base method.
-func (m *MockApplication) EnsureStorage(arg0 caas.ApplicationConfig, arg1 *caas.ApplicationConfig, arg2 func(string, int) error, arg3 func(string, status.Status, string, map[string]any) error) error {
+func (m *MockApplication) EnsureStorage(arg0 caas.ApplicationConfig, arg1 func(string, int) error) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureStorage", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "EnsureStorage", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // EnsureStorage indicates an expected call of EnsureStorage.
-func (mr *MockApplicationMockRecorder) EnsureStorage(arg0, arg1, arg2, arg3 any) *gomock.Call {
+func (mr *MockApplicationMockRecorder) EnsureStorage(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureStorage", reflect.TypeOf((*MockApplication)(nil).EnsureStorage), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureStorage", reflect.TypeOf((*MockApplication)(nil).EnsureStorage), arg0, arg1)
 }
 
 // Exists mocks base method.

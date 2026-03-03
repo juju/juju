@@ -668,7 +668,7 @@ func (s *applicationSuite) TestEnsureStatefulDeletesOrphanedStatefulSet(c *gc.C)
 	s.k8sWatcherFn = k8swatchertest.NewKubernetesTestWatcherFunc(w)
 
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, true, false, "", func() {
+		c, app, false, constraints.Value{}, true, false, "", true, func() {
 			ss, err := s.client.AppsV1().StatefulSets(s.namespace).Get(
 				context.Background(), s.appName, metav1.GetOptions{},
 			)
@@ -730,7 +730,7 @@ func (s *applicationSuite) TestEnsureStatefulSkipsOrphanNotOwnedByJuju(c *gc.C) 
 	// Ensure should succeed without deleting the orphan — the applier
 	// will update the existing StatefulSet in place (patching mutable fields).
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, true, false, "", func() {
+		c, app, false, constraints.Value{}, true, false, "", true, func() {
 			ss, err := s.client.AppsV1().StatefulSets(s.namespace).Get(
 				context.Background(), s.appName, metav1.GetOptions{},
 			)
@@ -782,7 +782,7 @@ func (s *applicationSuite) TestEnsureStatefulSkipsOrphanFromDifferentModel(c *gc
 	// Ensure should succeed without deleting the orphan — the applier
 	// will update the existing StatefulSet in place (patching mutable fields).
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, true, false, "", func() {
+		c, app, false, constraints.Value{}, true, false, "", true, func() {
 			ss, err := s.client.AppsV1().StatefulSets(s.namespace).Get(
 				context.Background(), s.appName, metav1.GetOptions{},
 			)
