@@ -100,7 +100,7 @@ func handleApplicationDomainError(err error) error {
 		}
 		if attachErr.ExistingStorageMachineOwner != nil {
 			return apiservererrors.ParamsErrorf(params.CodeNotValid,
-				"storage is attached to machine %v",
+				"storage is bound to machine %v but the unit is assigned to a different machine",
 				*attachErr.ExistingStorageMachineOwner,
 			)
 		}
@@ -166,8 +166,8 @@ func DeployApplication(
 
 	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
 		return errors.Errorf(
-			"AttachStorage is non-empty but NumUnits is %d, must be 1",
-			args.NumUnits)
+			"attaching existing storage to a new deployment can only be performed when the number of units is 1",
+		).Add(coreerrors.NotValid)
 	}
 
 	var storageUUIDsToAttach []domainstorage.StorageInstanceUUID
@@ -221,13 +221,9 @@ func DeployApplication(
 		StorageDirectiveOverrides: sdo,
 	}
 	if modelType == coremodel.CAAS {
-		unitArgs, err := makeCAASUnitArgs(args)
+		unitArgs, err := makeCAASUnitArgs(args, storageUUIDsToAttach)
 		if err != nil {
 			return errors.Capture(err)
-		}
-		// Unit args length with attach storage has been validated above.
-		if len(unitArgs) == 1 {
-			unitArgs[0].StorageToAttach = storageUUIDsToAttach
 		}
 
 		_, err = applicationService.CreateCAASApplication(
@@ -244,14 +240,9 @@ func DeployApplication(
 		return nil
 	}
 
-	unitArgs, err := makeIAASUnitArgs(args)
+	unitArgs, err := makeIAASUnitArgs(args, storageUUIDsToAttach)
 	if err != nil {
 		return errors.Capture(err)
-	}
-
-	// Unit args length with attach storage has been validated above.
-	if len(unitArgs) == 1 {
-		unitArgs[0].StorageToAttach = storageUUIDsToAttach
 	}
 
 	_, err = applicationService.CreateIAASApplication(
@@ -269,7 +260,9 @@ func DeployApplication(
 	return nil
 }
 
-func makeIAASUnitArgs(args DeployApplicationParams) ([]applicationservice.AddIAASUnitArg, error) {
+func makeIAASUnitArgs(
+	args DeployApplicationParams, storageUUIDsToAttach []domainstorage.StorageInstanceUUID,
+) ([]applicationservice.AddIAASUnitArg, error) {
 	unitArgs := make([]applicationservice.AddIAASUnitArg, args.NumUnits)
 	for i := range args.NumUnits {
 		var unitPlacement *instance.Placement
@@ -281,12 +274,17 @@ func makeIAASUnitArgs(args DeployApplicationParams) ([]applicationservice.AddIAA
 				Placement: unitPlacement,
 			},
 		}
+		if i == 0 {
+			unitArgs[i].StorageToAttach = storageUUIDsToAttach
+		}
 	}
 
 	return unitArgs, nil
 }
 
-func makeCAASUnitArgs(args DeployApplicationParams) ([]applicationservice.AddUnitArg, error) {
+func makeCAASUnitArgs(
+	args DeployApplicationParams, storageUUIDsToAttach []domainstorage.StorageInstanceUUID,
+) ([]applicationservice.AddUnitArg, error) {
 	unitArgs := make([]applicationservice.AddUnitArg, args.NumUnits)
 	for i := range args.NumUnits {
 		var unitPlacement *instance.Placement
@@ -295,6 +293,9 @@ func makeCAASUnitArgs(args DeployApplicationParams) ([]applicationservice.AddUni
 		}
 		unitArgs[i] = applicationservice.AddUnitArg{
 			Placement: unitPlacement,
+		}
+		if i == 0 {
+			unitArgs[i].StorageToAttach = storageUUIDsToAttach
 		}
 	}
 

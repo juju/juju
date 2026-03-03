@@ -1363,7 +1363,7 @@ func handleAttachStorageToUnitError(err error, unitName coreunit.Name, storageID
 			"storage %q not found", storageID)
 	case errors.Is(err, applicationerrors.StorageNameNotSupported):
 		return apiservererrors.ParamsErrorf(params.CodeNotSupported,
-			"storage %q not supported by the charm", storageID)
+			"storage %q not supported by the unit's charm", storageID)
 	case errors.Is(err, applicationerrors.UnitNotAssigned):
 		return apiservererrors.ParamsErrorf(params.CodeNotAssigned,
 			"cannot attach storage when the unit is not assigned to a machine")
@@ -1386,7 +1386,7 @@ func handleAttachStorageToUnitError(err error, unitName coreunit.Name, storageID
 		}
 		if attachErr.ExistingStorageMachineOwner != nil {
 			return apiservererrors.ParamsErrorf(params.CodeNotValid,
-				"%v is attached to machine %v",
+				"%v is bound to machine %v but the unit is assigned to a different machine",
 				storageID,
 				*attachErr.ExistingStorageMachineOwner,
 			)
