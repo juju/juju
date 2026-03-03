@@ -16,6 +16,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
+	domainobjectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/internal/errors"
 	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
 )
@@ -88,7 +89,9 @@ func (h *ObjectsHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) er
 	}
 
 	reader, readerSize, err := objectStore.GetBySHA256(r.Context(), sha256)
-	if errors.Is(err, objectstoreerrors.ObjectNotFound) {
+	if errors.IsOneOf(err, domainobjectstoreerrors.ErrInvalidHashLength, domainobjectstoreerrors.ErrInvalidHash) {
+		return jujuerrors.BadRequestf("invalid object sha256: %s", sha256)
+	} else if errors.Is(err, objectstoreerrors.ObjectNotFound) {
 		return jujuerrors.NotFoundf("object: %s", sha256)
 	} else if err != nil {
 		return errors.Capture(err)

@@ -15,6 +15,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	domainobjectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
 	"github.com/juju/juju/internal/testing"
 )
@@ -126,6 +127,32 @@ func (s *objectsHandlerSuite) TestServeGetHeaders(c *tc.C) {
 	c.Check(resp.Header.Get("x-amzn-requestid"), tc.Equals, "1234")
 	c.Check(resp.Header.Get("x-amzn-id-2"), tc.Equals, "5678")
 	c.Check(resp.Header.Get("x-amz-checksum-sha256"), tc.Equals, "+rW3bnwjTZySkBTUbvCl25yLbp/WO9w7qcK5A0cbx34=")
+}
+
+func (s *objectsHandlerSuite) TestServeGetInvalidHash(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectObjectStore()
+
+	reader := io.NopCloser(strings.NewReader("charm-content"))
+	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e").Return(reader, 13, domainobjectstoreerrors.ErrInvalidHashLength)
+
+	handlers := &ObjectsHTTPHandler{
+		objectStoreGetter: s.objectStoreGetter,
+	}
+
+	s.mux.AddHandler("GET", objectsRoutePrefix, handlers)
+	defer s.mux.RemoveHandler("GET", objectsRoutePrefix)
+
+	modelUUID := testing.ModelTag.Id()
+	hash := "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e"
+
+	url := fmt.Sprintf("%s/model-%s/objects/%s", s.srv.URL, modelUUID, hash)
+	resp, err := http.Get(url)
+	c.Assert(err, tc.ErrorIsNil)
+	defer resp.Body.Close()
+
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusBadRequest)
 }
 
 func (s *objectsHandlerSuite) TestServeGetInvalidSize(c *tc.C) {
