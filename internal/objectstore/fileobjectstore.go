@@ -582,15 +582,12 @@ func (t *fileObjectStore) get(
 ) (io.ReadCloser, int64, error) {
 	t.logger.Debugf(ctx, "getting object %q from file storage", path)
 
+	// If we don't have the metadata for the file, we know it can't exist.
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
-		if fallbackStrategy != RemoteFallback {
-			return nil, -1, errors.Errorf("get metadata: %w", objectstoreerrors.ObjectNotFound)
-		}
-
-		return t.getFromRemote(ctx, metadata)
+		return nil, -1, errors.Errorf("getting metadata: %w", objectstoreerrors.ObjectNotFound)
 	} else if err != nil {
-		return nil, -1, errors.Errorf("get metadata: %w", err)
+		return nil, -1, errors.Errorf("getting metadata: %w", err)
 	}
 
 	return t.getWithMetadata(ctx, metadata, fallbackStrategy)
@@ -599,11 +596,12 @@ func (t *fileObjectStore) get(
 func (t *fileObjectStore) getBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
 	t.logger.Debugf(ctx, "getting object with SHA256 %q from file storage", sha256)
 
+	// If we don't have the metadata for the file, we know it can't exist.
 	metadata, err := t.metadataService.GetMetadataBySHA256(ctx, sha256)
 	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
-		return nil, -1, errors.Errorf("get metadata by SHA256: %w", objectstoreerrors.ObjectNotFound)
+		return nil, -1, errors.Errorf("getting metadata by SHA256: %w", objectstoreerrors.ObjectNotFound)
 	} else if err != nil {
-		return nil, -1, errors.Errorf("get metadata by SHA256: %w", err)
+		return nil, -1, errors.Errorf("getting metadata by SHA256: %w", err)
 	}
 
 	// Getting a file by SHA256 implies that we're looking for a file that
@@ -623,15 +621,12 @@ func (t *fileObjectStore) getBySHA256Prefix(
 ) (io.ReadCloser, int64, error) {
 	t.logger.Debugf(ctx, "getting object with SHA256 %q from file storage", sha256)
 
+	// If we don't have the metadata for the file, we know it can't exist.
 	metadata, err := t.metadataService.GetMetadataBySHA256Prefix(ctx, sha256)
 	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
-		if fallbackStrategy != RemoteFallback {
-			return nil, -1, errors.Errorf("get metadata by SHA256 prefix: %w", objectstoreerrors.ObjectNotFound)
-		}
-
-		return t.getFromRemote(ctx, metadata)
+		return nil, -1, errors.Errorf("getting metadata: %w", objectstoreerrors.ObjectNotFound)
 	} else if err != nil {
-		return nil, -1, errors.Errorf("get metadata by SHA256 prefix: %w", err)
+		return nil, -1, errors.Errorf("getting metadata by SHA256 prefix: %w", err)
 	}
 
 	return t.getWithMetadata(ctx, metadata, fallbackStrategy)
@@ -726,6 +721,17 @@ func (t *fileObjectStore) remoteGetWithMetadata(
 		return nil
 	}); err != nil {
 		return nil, -1, errors.Capture(err)
+	}
+
+	// Add the metadata hint for the controller node ID, so that other
+	// controllers in the cluster can find the file on this node when they
+	// receive a request for it.
+	if err := t.metadataService.AddControllerIDHint(ctx, metadata.SHA384, t.controllerNodeID); err != nil {
+		// Log the error, we don't need to be strict with this, just that we've
+		// attempted to add the hint for the controller node ID. If this fails,
+		// then we might make more requests when trying to retrieve the file,
+		// but it shouldn't cause any major issues.
+		t.logger.Errorf(ctx, "adding controller ID hint for %q: %v", metadata.Path, err)
 	}
 
 	// Open the file so we can send it back to the client.
@@ -911,52 +917,6 @@ func (t *fileObjectStore) deleteObject(ctx context.Context, hash string) error {
 // typically: /var/lib/juju/objectstore/<namespace>
 func basePath(rootDir, namespace string) string {
 	return filepath.Join(rootDir, defaultFileDirectory, namespace)
-}
-
-// getFromRemote fetches the object from the remote API server, writes it to
-// the file store, and then retrieves the object from the file store.
-func (t *fileObjectStore) getFromRemote(
-	ctx context.Context, metadata objectstore.Metadata,
-) (io.ReadCloser, int64, error) {
-	ctx, cancel := context.WithTimeout(ctx, remoteTimeout)
-	defer cancel()
-
-	reader, size, err := t.fetchReaderFromRemote(ctx, metadata)
-	if err != nil {
-		return nil, -1, errors.Errorf("fetching blob from remote: %w", err)
-	}
-	defer func() { _ = reader.Close() }()
-
-	// We need to now put the blob into the file store, so that we can
-	// retrieve it from the file store next time.
-	tmpFileName, tmpFileCleanup, err := t.writeToTmpFile(t.path, reader, size)
-	if err != nil {
-		return nil, -1, errors.Capture(err)
-	}
-	defer func() {
-		_ = tmpFileCleanup()
-	}()
-
-	// Persist the temporary file to the final location.
-	if err := t.withLock(ctx, metadata.SHA384, func(ctx context.Context) error {
-		return t.persistTmpFile(ctx, tmpFileName, metadata.SHA384, size)
-	}); err != nil {
-		return nil, -1, errors.Capture(err)
-	}
-
-	// Add the metadata hint for the controller node ID, so that other
-	// controllers in the cluster can find the file on this node when they
-	// receive a request for it.
-	if err := t.metadataService.AddControllerIDHint(ctx, metadata.SHA384, t.controllerNodeID); err != nil {
-		// Log the error, we don't need to be strict with this, just that we've
-		// attempted to add the hint for the controller node ID. If this fails,
-		// then we might make more requests when trying to retrieve the file,
-		// but it shouldn't cause any major issues.
-		t.logger.Errorf(ctx, "adding controller ID hint for %q: %v", metadata.Path, err)
-	}
-
-	// Now that we've written the file, we can get the file from the file store.
-	return t.getWithMetadata(ctx, metadata, NoFallback)
 }
 
 func (t *fileObjectStore) handleMetadataChanges(ctx context.Context, changes []string) error {

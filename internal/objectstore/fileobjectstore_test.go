@@ -103,9 +103,16 @@ func (s *fileObjectStoreSuite) TestGetMetadataNotFound(c *tc.C) {
 
 	ch := s.expectWatch()
 
-	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
-		SHA256: "026382989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f",
-	}, domainobjectstoreerrors.ErrNotFound).Times(2)
+	gomock.InOrder(
+		s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
+			SHA256: "026382989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f",
+			SHA384: "blah",
+		}, domainobjectstoreerrors.ErrNotFound),
+		s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
+			SHA256: "026382989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f",
+			SHA384: "blah",
+		}, nil),
+	)
 	s.remote.EXPECT().Retrieve(gomock.Any(), "026382989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f").Return(nil, -1, remote.BlobNotFound)
 
 	store := s.newFileObjectStore(c, c.MkDir())
@@ -124,9 +131,16 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHANotFound(c *tc.C) {
 
 	ch := s.expectWatch()
 
-	s.service.EXPECT().GetMetadataBySHA256Prefix(gomock.Any(), "0263829").Return(objectstore.Metadata{
-		SHA256: "026382989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f",
-	}, domainobjectstoreerrors.ErrNotFound).Times(2)
+	gomock.InOrder(
+		s.service.EXPECT().GetMetadataBySHA256Prefix(gomock.Any(), "0263829").Return(objectstore.Metadata{
+			SHA256: "026382989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f",
+			SHA384: "blah",
+		}, domainobjectstoreerrors.ErrNotFound),
+		s.service.EXPECT().GetMetadataBySHA256Prefix(gomock.Any(), "0263829").Return(objectstore.Metadata{
+			SHA256: "026382989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f",
+			SHA384: "blah",
+		}, nil),
+	)
 	s.remote.EXPECT().Retrieve(gomock.Any(), "026382989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f").Return(nil, -1, remote.BlobNotFound)
 
 	store := s.newFileObjectStore(c, c.MkDir())
@@ -275,6 +289,8 @@ func (s *fileObjectStoreSuite) TestGetMetadataFoundNoFileRemoteFallback(c *tc.C)
 	s.remote.EXPECT().Retrieve(gomock.Any(), hash256).
 		Return(reader, size, nil)
 
+	s.service.EXPECT().AddControllerIDHint(gomock.Any(), hash384, "1")
+
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
@@ -308,12 +324,20 @@ func (s *fileObjectStoreSuite) TestGetMetadataNotFoundRemoteFallbackClosesReader
 	hash384 := "66b3707eaed3f7f4c6f084e4ba7aaa95f0412c3d9fd91475fc454b93ed8b7cd9d33cc1821e517b52d338f8d8d6908cb9"
 	hash256 := "290f493c44f5d63d06b374d0a5abd292fae38b92cab2fae5efefe1b0e9347f56"
 
-	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
-		SHA384: hash384,
-		SHA256: hash256,
-		Path:   "foo",
-		Size:   12,
-	}, domainobjectstoreerrors.ErrNotFound).Times(2)
+	gomock.InOrder(
+		s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
+			SHA384: hash384,
+			SHA256: hash256,
+			Path:   "foo",
+			Size:   12,
+		}, domainobjectstoreerrors.ErrNotFound),
+		s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
+			SHA384: hash384,
+			SHA256: hash256,
+			Path:   "foo",
+			Size:   12,
+		}, nil),
+	)
 
 	s.remote.EXPECT().Retrieve(gomock.Any(), hash256).
 		Return(reader, size, nil)
@@ -423,6 +447,8 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixFoundNoFileRemoteFal
 
 	s.remote.EXPECT().Retrieve(gomock.Any(), hash256).
 		Return(reader, size, nil)
+
+	s.service.EXPECT().AddControllerIDHint(gomock.Any(), hash384, "1")
 
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
