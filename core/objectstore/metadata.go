@@ -68,7 +68,7 @@ type RemoteObjectStoreMetadata interface {
 
 	// AddControllerIDHint adds a controller ID hint for the specified SHA384.
 	// This is used to indicate that a controller might have the object with the
-	// specified SHA256, which can be used for optimization in certain
+	// specified SHA384, which can be used for optimization in certain
 	// scenarios.
 	AddControllerIDHint(ctx context.Context, sha384 string, controllerID string) error
 }
