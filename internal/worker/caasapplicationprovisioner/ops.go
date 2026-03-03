@@ -730,7 +730,9 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 	if ps == nil {
 		ps = &params.CAASApplicationProvisioningState{}
 	}
-	anotherOpRunning := ps.CurrentOperation == application.StorageUpdateOperation
+
+	scaleOp := application.ScaleOperation
+	anotherOpRunning := application.IsDifferentOperation(ps.CurrentOperation, scaleOp)
 	if anotherOpRunning {
 		logger.Debugf("current operation is %q, try again", ps.CurrentOperation)
 		return tryAgain
@@ -738,13 +740,12 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 
 	logger.Debugf("updating application %q scale to %d", appName, desiredScale)
 	if ps.CurrentOperation == application.NoOperation || appLife != life.Alive {
-		op := application.ScaleOperation
 		err := updateProvisioningState(appName, desiredScale,
-			op, facade)
+			scaleOp, facade)
 		if err != nil {
 			return err
 		}
-		ps.CurrentOperation = op
+		ps.CurrentOperation = scaleOp
 		ps.ScaleTarget = desiredScale
 	}
 
@@ -811,33 +812,33 @@ func ensureStorage(appName string, app caas.Application,
 		return errors.Annotatef(err, "creating app config %q", appName)
 	}
 
-	anotherOpRunning := ps.CurrentOperation == application.ScaleOperation
+	storageOp := application.StorageUpdateOperation
+	anotherOpRunning := application.IsDifferentOperation(ps.CurrentOperation, storageOp)
 	if anotherOpRunning {
 		logger.Debugf("current operation is %q, try again", ps.CurrentOperation)
 		return tryAgain
 	}
 
-	updateOp := application.StorageUpdateOperation
 	err = facade.SetProvisioningState(appName, params.CAASApplicationProvisioningState{
 		ScaleTarget:      ps.ScaleTarget,
 		ReplicaCount:     ps.ReplicaCount,
-		CurrentOperation: updateOp,
+		CurrentOperation: storageOp,
 	})
 	if err != nil {
-		return errors.Annotatef(err, "setting current operation to %q", updateOp)
+		return errors.Annotatef(err, "setting current operation to %q", storageOp)
 	}
 
 	saveReplicaCount := func(appName string, replicaCount int) error {
 		params := params.CAASApplicationProvisioningState{
 			ScaleTarget:      ps.ScaleTarget,
 			ReplicaCount:     replicaCount,
-			CurrentOperation: updateOp,
+			CurrentOperation: storageOp,
 		}
 		return facade.SetProvisioningState(appName, params)
 	}
 
 	config.InitialScale = ps.ReplicaCount
-	err = app.EnsureStorage(config, lastApplied, saveReplicaCount, facade.SetOperatorStatus)
+	err = app.EnsureStorage(config, saveReplicaCount)
 	if err != nil {
 		return errors.Trace(err)
 	}

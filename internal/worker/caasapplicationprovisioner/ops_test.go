@@ -1062,11 +1062,10 @@ func (s *OpsSuite) TestEnsureStorage(c *gc.C) {
 		CurrentOperation: application.StorageUpdateOperation,
 	})
 
-	app.EXPECT().EnsureStorage(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(config caas.ApplicationConfig,
-			lastApplied *caas.ApplicationConfig,
+	app.EXPECT().EnsureStorage(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(
+			config caas.ApplicationConfig,
 			_ func(_ string, _ int) error,
-			_ func(_ string, _ status.Status, _ string, _ map[string]interface{}) error,
 		) error {
 			c.Check(config, gc.DeepEquals, ensureParams)
 			return nil
