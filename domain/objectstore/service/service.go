@@ -257,9 +257,13 @@ func (s *Service) PutMetadataWithControllerIDHint(
 
 	// If you have one hash, you must have the other.
 	if h1, h2 := metadata.SHA384, metadata.SHA256; h1 != "" && h2 == "" {
-		return "", errors.Errorf("missing hash256: %w", objectstoreerrors.ErrMissingHash)
+		return "", errors.Errorf("missing hash256").Add(objectstoreerrors.ErrMissingHash)
 	} else if h1 == "" && h2 != "" {
-		return "", errors.Errorf("missing hash384: %w", objectstoreerrors.ErrMissingHash)
+		return "", errors.Errorf("missing hash384").Add(objectstoreerrors.ErrMissingHash)
+	}
+
+	if controllerID == "" {
+		return "", errors.Errorf("missing controller ID hint").Add(objectstoreerrors.ErrMissingControllerID)
 	}
 
 	uuid, err := objectstore.NewUUID()
@@ -289,7 +293,10 @@ func (s *Service) AddControllerIDHint(ctx context.Context, sha384 string, contro
 	defer span.End()
 
 	if sha384 == "" {
-		return errors.Errorf("missing hash384: %w", objectstoreerrors.ErrMissingHash)
+		return errors.Errorf("missing hash384").Add(objectstoreerrors.ErrMissingHash)
+	}
+	if controllerID == "" {
+		return errors.Errorf("missing controller ID hint").Add(objectstoreerrors.ErrMissingControllerID)
 	}
 
 	if err := s.st.AddControllerIDHint(ctx, sha384, controllerID); err != nil {

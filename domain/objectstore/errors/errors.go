@@ -43,4 +43,7 @@ const (
 	// ErrDrainingAlreadyInProgress is returned when the draining phase is
 	// already in progress.
 	ErrDrainingAlreadyInProgress = errors.ConstError("draining already in progress")
+
+	// ErrMissingControllerID is returned when the controller ID is missing.
+	ErrMissingControllerID = errors.ConstError("missing controller ID")
 )

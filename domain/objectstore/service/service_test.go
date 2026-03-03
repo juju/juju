@@ -301,6 +301,52 @@ func (s *serviceSuite) TestPutMetadataWithControllerIDHintMissingSHA256(c *tc.C)
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMissingHash)
 }
 
+func (s *serviceSuite) TestPutMetadataWithControllerIDHintMissingControllerID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	path := tc.Must(c, uuid.NewUUID).String()
+	metadata := objectstore.Metadata{
+		Path:   path,
+		SHA256: tc.Must(c, uuid.NewUUID).String(),
+		SHA384: tc.Must(c, uuid.NewUUID).String(),
+		Size:   666,
+	}
+
+	_, err := NewService(s.state).PutMetadataWithControllerIDHint(c.Context(), metadata, "")
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMissingControllerID)
+}
+
+func (s *serviceSuite) TestAddControllerIDHint(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	controllerID := "1"
+	sha384 := tc.Must(c, uuid.NewUUID).String()
+
+	s.state.EXPECT().AddControllerIDHint(gomock.Any(), sha384, controllerID).Return(nil)
+
+	err := NewService(s.state).AddControllerIDHint(c.Context(), sha384, controllerID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestAddControllerIDHintMissingHash(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	controllerID := "1"
+
+	err := NewService(s.state).AddControllerIDHint(c.Context(), "", controllerID)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMissingHash)
+}
+
+func (s *serviceSuite) TestAddControllerIDHintMissingControllerNodeID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	controllerID := ""
+	sha384 := tc.Must(c, uuid.NewUUID).String()
+
+	err := NewService(s.state).AddControllerIDHint(c.Context(), sha384, controllerID)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMissingControllerID)
+}
+
 // Test watch returns a watcher that watches the specified path.
 func (s *serviceSuite) TestWatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
