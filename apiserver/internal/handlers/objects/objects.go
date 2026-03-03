@@ -104,7 +104,7 @@ func (h *ObjectsHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) er
 
 	// We want to send back the checksum header to ensure nothing got corrupted
 	// in transit. Objects are content addressable, we can guarantee that the
-	// object found for the give hash is the same. So we just need to encode
+	// object found for the given hash is the same. So we just need to encode
 	// the hash back for the s3 client to verify it.
 	decodedHex, err := hex.DecodeString(sha256)
 	if err != nil {
