@@ -30,8 +30,8 @@ func (s *k8sNetworkingSuite) TestSupportsSpaces(c *tc.C) {
 	ok, err := envNet.SupportsSpaces()
 
 	// Assert
-	c.Assert(err, tc.IsNil)
-	c.Assert(ok, tc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(ok, tc.IsFalse)
 }
 
 func (s *k8sNetworkingSuite) TestSubnets(c *tc.C) {
@@ -42,8 +42,8 @@ func (s *k8sNetworkingSuite) TestSubnets(c *tc.C) {
 	result, err := envNet.Subnets(c.Context(), nil)
 
 	// Assert
-	c.Assert(err, tc.IsNil)
-	c.Assert(result, tc.DeepEquals, []network.SubnetInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, []network.SubnetInfo{
 		{
 			CIDR: "0.0.0.0/0",
 		}, {
@@ -80,8 +80,8 @@ func (s *k8sNetworkingSuite) TestSubnetsFromNodePodCIDRs(c *tc.C) {
 	result, err := envNet.Subnets(c.Context(), nil)
 
 	// Assert
-	c.Assert(err, tc.IsNil)
-	c.Assert(result, tc.DeepEquals, []network.SubnetInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, []network.SubnetInfo{
 		{
 			CIDR:       "10.10.0.0/24",
 			ProviderId: "10.10.0.0/24",
@@ -122,8 +122,8 @@ func (s *k8sNetworkingSuite) TestSubnetsFromNodeCIDRAnnotations(c *tc.C) {
 	result, err := envNet.Subnets(c.Context(), nil)
 
 	// Assert
-	c.Assert(err, tc.IsNil)
-	c.Assert(result, tc.DeepEquals, []network.SubnetInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, []network.SubnetInfo{
 		{
 			CIDR:       "10.32.4.0/24",
 			ProviderId: "10.32.4.0/24",
@@ -146,8 +146,8 @@ func (s *k8sNetworkingSuite) TestSubnetsNodeDiscoveryErrorFallsBack(c *tc.C) {
 	result, err := envNet.Subnets(c.Context(), nil)
 
 	// Assert
-	c.Assert(err, tc.IsNil)
-	c.Assert(result, tc.DeepEquals, []network.SubnetInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, []network.SubnetInfo{
 		{
 			CIDR: "0.0.0.0/0",
 		}, {
