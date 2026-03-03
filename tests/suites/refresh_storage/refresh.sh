@@ -224,36 +224,6 @@ run_increase_size() {
 	destroy_model "$model_name"
 }
 
-# Tests storage definition deletion is rejected during charm refresh.
-run_delete_storage_definition() {
-	echo
-
-	model_name="test-delete-storage-definition"
-	file="${TEST_DIR}/${model_name}.log"
-
-	ensure "${model_name}" "${file}"
-
-	juju deploy "storage-refresher" --revision 1 --channel latest/edge
-	wait_for "storage-refresher" "$(active_idle_condition "storage-refresher")"
-
-	# Assert that storage is attached to the unit.
-	if ! assert_storage_attached "storage-refresher/0" "awesome-fs/0"; then
-		# shellcheck disable=SC2046
-		echo $(red "awesome-fs/0 is not attached")
-		exit 1
-	fi
-
-	# Refresh charm to revision 5 which deletes storage "awesome-fs".
-	# This should fail.
-	OUT=$(juju refresh "storage-refresher" --revision 5 2>&1 || true)
-	echo "$OUT" | check 'storage definition "awesome-fs" removed'
-
-	# Stay at revision 1.
-	wait_for "storage-refresher" "$(charm_rev "storage-refresher" 1)"
-
-	destroy_model "$model_name"
-}
-
 # Tests new storage definition is created for new units.
 run_new_storage_definition() {
 	echo
@@ -292,6 +262,36 @@ run_new_storage_definition() {
 		echo $(red "epic-fs/2 is not attached")
 		exit 1
 	fi
+
+	destroy_model "$model_name"
+}
+
+# Tests storage definition deletion is rejected during charm refresh.
+run_delete_storage_definition() {
+	echo
+
+	model_name="test-delete-storage-definition"
+	file="${TEST_DIR}/${model_name}.log"
+
+	ensure "${model_name}" "${file}"
+
+	juju deploy "storage-refresher" --revision 1 --channel latest/edge
+	wait_for "storage-refresher" "$(active_idle_condition "storage-refresher")"
+
+	# Assert that storage is attached to the unit.
+	if ! assert_storage_attached "storage-refresher/0" "awesome-fs/0"; then
+		# shellcheck disable=SC2046
+		echo $(red "awesome-fs/0 is not attached")
+		exit 1
+	fi
+
+	# Refresh charm to revision 5 which deletes storage "awesome-fs".
+	# This should fail.
+	OUT=$(juju refresh "storage-refresher" --revision 5 2>&1 || true)
+	echo "$OUT" | check 'storage definition "awesome-fs" removed'
+
+	# Stay at revision 1.
+	wait_for "storage-refresher" "$(charm_rev "storage-refresher" 1)"
 
 	destroy_model "$model_name"
 }
