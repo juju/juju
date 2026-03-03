@@ -261,6 +261,7 @@ func (c *Client) OpenResource(ctx context.Context, application, name string) (io
 
 	uri := fmt.Sprintf("/applications/%s/resources/%s", application, name)
 	var resp *http.Response
+	ctx := context.TODO()
 	if err := httpClient.Get(
 		ctx,
 		uri, &resp); err != nil {
