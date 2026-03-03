@@ -168,7 +168,9 @@ func (c *findCommand) validateOrSetURL() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		qualifier = model.QualifierFromUserTag(names.NewUserTag(accountDetails.User))
+		// Preserve the account username form. Older controllers expect owner
+		// names, while newer controllers can normalize to a model qualifier.
+		qualifier = model.Qualifier(accountDetails.User)
 	}
 	c.modelQualifier = qualifier
 	c.modelName = urlParts.ModelName

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/model"
 )
 
 const showCommandDoc = `
@@ -126,8 +125,9 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 	}
 
 	if url.ModelQualifier == "" {
-		qualifier := model.QualifierFromUserTag(names.NewUserTag(accountDetails.User))
-		url.ModelQualifier = qualifier.String()
+		// Preserve the account username form. Older controllers expect owner
+		// names, while newer controllers can normalize to a model qualifier.
+		url.ModelQualifier = accountDetails.User
 	}
 	if url.Source != "" {
 		controllerName = url.Source
