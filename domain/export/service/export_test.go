@@ -11,46 +11,46 @@ import (
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/domain/export/types/v4_0_2"
+	"github.com/juju/juju/domain/export/types/v4_0_3"
 	"github.com/juju/juju/internal/errors"
 )
 
-type exportServiceSuiteV4_0_2 struct{}
+type exportServiceSuiteV4_0_3 struct{}
 
-func TestExportServiceSuiteV4_0_2(t *testing.T) {
-	tc.Run(t, &exportServiceSuiteV4_0_2{})
+func TestExportServiceSuiteV4_0_3(t *testing.T) {
+	tc.Run(t, &exportServiceSuiteV4_0_3{})
 }
 
-func (s *exportServiceSuiteV4_0_2) TestExport(c *tc.C) {
-	expectedPayload := &v4_0_2.ModelExport{}
+func (s *exportServiceSuiteV4_0_3) TestExport(c *tc.C) {
+	expectedPayload := &v4_0_3.ModelExport{}
 
-	svc := NewService(&stubStateV4_0_2{
-		export: func(context.Context) (*v4_0_2.ModelExport, error) {
+	svc := NewService(&stubStateV4_0_3{
+		export: func(context.Context) (*v4_0_3.ModelExport, error) {
 			return expectedPayload, nil
 		},
 	})
 
 	modelExport, err := svc.Export(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(modelExport.Version, tc.Equals, "4.0.2")
+	c.Assert(modelExport.Version, tc.Equals, "4.0.3")
 	c.Assert(modelExport.Payload, tc.Equals, expectedPayload)
 }
 
-func (s *exportServiceSuiteV4_0_2) TestExportError(c *tc.C) {
-	svc := NewService(&stubStateV4_0_2{
-		export: func(context.Context) (*v4_0_2.ModelExport, error) {
+func (s *exportServiceSuiteV4_0_3) TestExportError(c *tc.C) {
+	svc := NewService(&stubStateV4_0_3{
+		export: func(context.Context) (*v4_0_3.ModelExport, error) {
 			return nil, errors.New("boom")
 		},
 	})
 
 	_, err := svc.Export(c.Context())
-	c.Assert(err, tc.ErrorMatches, "exporting model data for version 4.0.2: boom")
+	c.Assert(err, tc.ErrorMatches, "exporting model data for version 4.0.3: boom")
 }
 
-type stubStateV4_0_2 struct {
-	export func(context.Context) (*v4_0_2.ModelExport, error)
+type stubStateV4_0_3 struct {
+	export func(context.Context) (*v4_0_3.ModelExport, error)
 }
 
-func (s *stubStateV4_0_2) Export(ctx context.Context) (*v4_0_2.ModelExport, error) {
+func (s *stubStateV4_0_3) Export(ctx context.Context) (*v4_0_3.ModelExport, error) {
 	return s.export(ctx)
 }

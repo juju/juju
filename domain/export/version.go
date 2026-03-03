@@ -10,6 +10,5 @@ package export
 // If the version currently being worked on has not been released,
 // the generation can be run repeatedly for the same version.
 var ExportVersions = []string{
-	"4.0.1",
-	"4.0.2",
+	"4.0.3",
 }

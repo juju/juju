@@ -10,28 +10,28 @@ import (
 
 	"github.com/juju/juju/core/trace"
 	domainexport "github.com/juju/juju/domain/export"
-	"github.com/juju/juju/domain/export/types/v4_0_2"
+	"github.com/juju/juju/domain/export/types/v4_0_3"
 	"github.com/juju/juju/internal/errors"
 )
 
 // State describes retrieval methods for model exports.
 type State interface {
-	// Export exports all model data for version 4.0.2.
-	Export(ctx context.Context) (*v4_0_2.ModelExport, error)
+	// Export exports all model data for version 4.0.3.
+	Export(ctx context.Context) (*v4_0_3.ModelExport, error)
 }
 
-// Export exports all model data for version 4.0.2.
+// Export exports all model data for version 4.0.3.
 func (s *Service) Export(ctx context.Context) (*domainexport.ModelExport, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	payload, err := s.st.Export(ctx)
 	if err != nil {
-		return nil, errors.Errorf("exporting model data for version 4.0.2: %w", err)
+		return nil, errors.Errorf("exporting model data for version 4.0.3: %w", err)
 	}
 
 	return &domainexport.ModelExport{
-		Version: "4.0.2",
+		Version: "4.0.3",
 		Payload: payload,
 	}, nil
 }
