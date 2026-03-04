@@ -391,6 +391,44 @@ func (c *MockStateEnableUserAuthenticationCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// EnsureExternalUser mocks base method.
+func (m *MockState) EnsureExternalUser(arg0 context.Context, arg1 user.Name) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureExternalUser", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsureExternalUser indicates an expected call of EnsureExternalUser.
+func (mr *MockStateMockRecorder) EnsureExternalUser(arg0, arg1 any) *MockStateEnsureExternalUserCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureExternalUser", reflect.TypeOf((*MockState)(nil).EnsureExternalUser), arg0, arg1)
+	return &MockStateEnsureExternalUserCall{Call: call}
+}
+
+// MockStateEnsureExternalUserCall wrap *gomock.Call
+type MockStateEnsureExternalUserCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateEnsureExternalUserCall) Return(arg0 error) *MockStateEnsureExternalUserCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateEnsureExternalUserCall) Do(f func(context.Context, user.Name) error) *MockStateEnsureExternalUserCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateEnsureExternalUserCall) DoAndReturn(f func(context.Context, user.Name) error) *MockStateEnsureExternalUserCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // EnsureExternalUserIfAuthorized mocks base method.
 func (m *MockState) EnsureExternalUserIfAuthorized(arg0 context.Context, arg1 user.Name, arg2 permission.ID) error {
 	m.ctrl.T.Helper()

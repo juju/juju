@@ -28,7 +28,6 @@ import (
 	apiclient "github.com/juju/juju/api/client/client"
 	machineclient "github.com/juju/juju/api/client/machinemanager"
 	"github.com/juju/juju/api/client/modelconfig"
-	jwtauth "github.com/juju/juju/apiserver/authentication/jwt"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
@@ -36,7 +35,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	coreuser "github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access"
@@ -905,7 +903,7 @@ func (s *externalUserLoginSuite) TestExternalUserCreatedOnMacaroonLogin(c *tc.C)
 	c.Assert(err, tc.IsNil)
 
 	// Confirm the external user does not yet exist in Juju's database.
-	externalUserName, err := coreuser.NewName("testuser@external")
+	externalUserName, err := user.NewName("testuser@external")
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = accessService.GetUserByName(c.Context(), externalUserName)
 	c.Assert(err, tc.ErrorIs, accesserrors.UserNotFound,
@@ -973,7 +971,7 @@ func TestExternalUserJWTLoginSuite(t *stdtesting.T) {
 }
 
 func (s *externalUserJWTLoginSuite) SetUpTest(c *tc.C) {
-	s.WithJWTAuthenticator = jwtauth.NewAuthenticator(&apitesting.InsecureJWTParser{})
+	s.WithJWTTokenParser = &apitesting.InsecureJWTParser{}
 	s.ApiServerSuite.SetUpTest(c)
 }
 
@@ -983,26 +981,16 @@ func (s *externalUserJWTLoginSuite) SetUpTest(c *tc.C) {
 func (s *externalUserJWTLoginSuite) TestExternalUserCreatedOnJWTLogin(c *tc.C) {
 	accessService := s.ControllerDomainServices(c).Access()
 
-	// Provision everyone@external with superuser access so that any external
-	// user can log in. EnsureExternalUserIfAuthorized checks everyone@external
-	// permissions before deciding whether to create a new user entry.
+	// The everyone@external user must exist as a user record (it's created
+	// during bootstrap and serves as the creator of other external users),
+	// but for the JWT path we do NOT need to grant it any permissions.
+	// This verifies that JWT login works without everyone@external having
+	// controller access — unlike the macaroon path which gates on that.
 	err := accessService.AddExternalUser(c.Context(), permission.EveryoneUserName, "", s.AdminUserUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	err = accessService.UpdatePermission(c.Context(), access.UpdatePermissionArgs{
-		Subject: permission.EveryoneUserName,
-		Change:  permission.Grant,
-		AccessSpec: permission.AccessSpec{
-			Target: permission.ID{
-				ObjectType: permission.Controller,
-				Key:        s.ControllerUUID,
-			},
-			Access: permission.SuperuserAccess,
-		},
-	})
-	c.Assert(err, tc.IsNil)
 
 	// Confirm the external user does not yet exist in Juju's database.
-	externalUserName, err := coreuser.NewName("testuser@external")
+	externalUserName, err := user.NewName("testuser@external")
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = accessService.GetUserByName(c.Context(), externalUserName)
 	c.Assert(err, tc.ErrorIs, accesserrors.UserNotFound,
@@ -1025,8 +1013,8 @@ func (s *externalUserJWTLoginSuite) TestExternalUserCreatedOnJWTLogin(c *tc.C) {
 	//   1. Client sends LoginRequest with Token set (the JWT).
 	//   2. Macaroon authenticator returns NotSupported (no macaroons).
 	//   3. JWT authenticator parses the token, extracts user-testuser@external.
-	//   4. admin.authenticate() calls EnsureExternalUserIfAuthorized, inserting
-	//      testuser@external into Juju's user table.
+	//   4. admin.authenticate() calls EnsureExternalUser (unconditionally),
+	//      inserting testuser@external into Juju's user table.
 	info := s.ControllerModelApiInfo()
 	info.Tag = nil
 	info.Password = ""
@@ -1041,7 +1029,7 @@ func (s *externalUserJWTLoginSuite) TestExternalUserCreatedOnJWTLogin(c *tc.C) {
 	defer func() { _ = apiState.Close() }()
 
 	// The external user must now exist in Juju's database.
-	_, err = accessService.GetUserByName(c.Context(), coreuser.AdminUserName)
+	_, err = accessService.GetUserByName(c.Context(), externalUserName)
 	c.Assert(err, tc.ErrorIsNil,
 		tc.Commentf("testuser@external was not created in Juju's DB after JWT login"))
 }

@@ -336,23 +336,18 @@ func (a *admin) authenticate(ctx context.Context, modelExists bool, req params.L
 		// For external users, ensure a database record exists before
 		// permission checks. This makes user creation an explicit part
 		// of authentication rather than a side-effect of permission reading.
+		// Each PermissionDelegator implements its own strategy:
+		// JWT creates the user unconditionally (the token is the proof),
+		// macaroon checks everyone@external permissions first.
 		if result.userLogin {
 			if userTag, ok := authInfo.Tag.(names.UserTag); ok && !userTag.IsLocal() {
 				userName := coreuser.NameFromTag(userTag)
-				accessService := a.root.domainServices.Access()
-				if err := accessService.EnsureExternalUserIfAuthorized(ctx, userName, permission.ID{
-					ObjectType: permission.Controller,
-					Key:        a.srv.shared.controllerUUID,
-				}); err != nil {
-					return nil, errors.Trace(err)
-				}
+				targets := []permission.ID{{ObjectType: permission.Controller, Key: a.srv.shared.controllerUUID}}
 				if !result.controllerOnlyLogin {
-					if err := accessService.EnsureExternalUserIfAuthorized(ctx, userName, permission.ID{
-						ObjectType: permission.Model,
-						Key:        a.root.modelUUID.String(),
-					}); err != nil {
-						return nil, errors.Trace(err)
-					}
+					targets = append(targets, permission.ID{ObjectType: permission.Model, Key: a.root.modelUUID.String()})
+				}
+				if err := authInfo.EnsureExternalUser(ctx, userName, targets); err != nil {
+					return nil, errors.Trace(err)
 				}
 			}
 		}

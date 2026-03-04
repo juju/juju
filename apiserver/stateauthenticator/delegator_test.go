@@ -13,6 +13,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 )
 
@@ -130,4 +131,43 @@ func (s *permissionDelegatorSuite) TestPermissionError(c *tc.C) {
 
 	err := s.delegator().PermissionError(names.NewUserTag("alice"), permission.AdminAccess)
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
+}
+
+// TestEnsureExternalUser verifies that EnsureExternalUser calls
+// EnsureExternalUserIfAuthorized for each target.
+func (s *permissionDelegatorSuite) TestEnsureExternalUser(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	userName, err := user.NewName("bob@external")
+	c.Assert(err, tc.ErrorIsNil)
+
+	controllerTarget := permission.ID{ObjectType: permission.Controller, Key: "ctrl-uuid"}
+	modelTarget := permission.ID{ObjectType: permission.Model, Key: "model-uuid"}
+
+	gomock.InOrder(
+		s.accessService.EXPECT().EnsureExternalUserIfAuthorized(gomock.Any(), userName, controllerTarget).Return(nil),
+		s.accessService.EXPECT().EnsureExternalUserIfAuthorized(gomock.Any(), userName, modelTarget).Return(nil),
+	)
+
+	err = s.delegator().EnsureExternalUser(c.Context(), userName, []permission.ID{controllerTarget, modelTarget})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestEnsureExternalUserStopsOnError verifies that EnsureExternalUser
+// stops iterating and returns the error if any target fails.
+func (s *permissionDelegatorSuite) TestEnsureExternalUserStopsOnError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	userName, err := user.NewName("bob@external")
+	c.Assert(err, tc.ErrorIsNil)
+
+	controllerTarget := permission.ID{ObjectType: permission.Controller, Key: "ctrl-uuid"}
+	modelTarget := permission.ID{ObjectType: permission.Model, Key: "model-uuid"}
+
+	s.accessService.EXPECT().
+		EnsureExternalUserIfAuthorized(gomock.Any(), userName, controllerTarget).
+		Return(errors.New("auth denied"))
+
+	err = s.delegator().EnsureExternalUser(c.Context(), userName, []permission.ID{controllerTarget, modelTarget})
+	c.Assert(err, tc.ErrorMatches, "auth denied")
 }

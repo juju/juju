@@ -17,6 +17,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 )
 
 // Authenticator defines an interface for authenticating requests.
@@ -32,16 +33,27 @@ type TokenParser interface {
 	Parse(ctx context.Context, tok string) (jwt.Token, error)
 }
 
+// ExternalUserService is a narrow interface for ensuring external users
+// exist in the database.
+type ExternalUserService interface {
+	// EnsureExternalUser ensures that the given external user exists in the
+	// database, creating them if necessary.
+	EnsureExternalUser(ctx context.Context, subject user.Name) error
+}
+
 // JWTAuthenticator is an authenticator responsible for handling JWT tokens from
 // a client.
 type JWTAuthenticator struct {
-	parser TokenParser
+	parser              TokenParser
+	externalUserService ExternalUserService
 }
 
-// NewAuthenticator creates a new JWT authenticator with the supplied parser.
-func NewAuthenticator(parser TokenParser) *JWTAuthenticator {
+// NewAuthenticator creates a new JWT authenticator with the supplied parser
+// and external user service.
+func NewAuthenticator(parser TokenParser, externalUserService ExternalUserService) *JWTAuthenticator {
 	return &JWTAuthenticator{
-		parser: parser,
+		parser:              parser,
+		externalUserService: externalUserService,
 	}
 }
 
@@ -52,6 +64,10 @@ type PermissionDelegator struct {
 	// Token is the authenticated context to answer all authorization questions
 	// from.
 	Token jwt.Token
+
+	// externalUserService is used to ensure external users exist in the
+	// database when they authenticate via JWT.
+	externalUserService ExternalUserService
 }
 
 // Authenticate implements EntityAuthenticator
@@ -97,7 +113,7 @@ func (j *JWTAuthenticator) Authenticate(req *http.Request) (authentication.AuthI
 
 	return authentication.AuthInfo{
 		Tag:       userTag,
-		Delegator: &PermissionDelegator{token},
+		Delegator: &PermissionDelegator{Token: token, externalUserService: j.externalUserService},
 	}, nil
 }
 
@@ -119,8 +135,16 @@ func (j *JWTAuthenticator) AuthenticateLoginRequest(
 
 	return authentication.AuthInfo{
 		Tag:       userTag,
-		Delegator: &PermissionDelegator{token},
+		Delegator: &PermissionDelegator{Token: token, externalUserService: j.externalUserService},
 	}, nil
+}
+
+// EnsureExternalUser implements authentication.ExternalUserEnsurer.
+// For JWT authentication, the token itself is proof of identity (signed by
+// JIMM), so the user is created unconditionally without checking
+// everyone@external permissions. The targets parameter is ignored.
+func (p *PermissionDelegator) EnsureExternalUser(ctx context.Context, subject user.Name, _ []permission.ID) error {
+	return p.externalUserService.EnsureExternalUser(ctx, subject)
 }
 
 // SubjectPermissions implements PermissionDelegator

@@ -12,12 +12,10 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreapiserver "github.com/juju/juju/apiserver"
-	"github.com/juju/juju/apiserver/authentication/jwt"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/jwtparser"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apiserver"
 )
@@ -111,9 +109,10 @@ func (s *WorkerStateSuite) TestStart(c *tc.C) {
 	// compare it.
 	config.GetAuditConfig = nil
 
-	logSinkConfig := coreapiserver.DefaultLogSinkConfig()
+	c.Assert(config.JWTAuthenticator, tc.NotNil)
+	config.JWTAuthenticator = nil
 
-	jwtAuthenticator := jwt.NewAuthenticator(&jwtparser.Parser{})
+	logSinkConfig := coreapiserver.DefaultLogSinkConfig()
 
 	c.Assert(config, tc.DeepEquals, coreapiserver.ServerConfig{
 		LocalMacaroonAuthenticator: s.authenticator,
@@ -138,7 +137,6 @@ func (s *WorkerStateSuite) TestStart(c *tc.C) {
 		ObjectStoreGetter:          s.objectStoreGetter,
 		ControllerUUID:             s.controllerUUID,
 		ControllerModelUUID:        s.controllerModelUUID,
-		JWTAuthenticator:           jwtAuthenticator,
 		WatcherRegistryGetter:      s.watcherRegistryGetter,
 	})
 }
