@@ -1088,10 +1088,10 @@ func (w *localConsumerWorker) processDischargeRequiredError(ctx context.Context,
 
 func (w *localConsumerWorker) isRelationWorkerDead(ctx context.Context, relationUUID corerelation.UUID) (bool, error) {
 	_, err := w.runner.Worker(offererRelationWorkerName(relationUUID), ctx.Done())
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return false, errors.Annotatef(err, "querying offerer relation worker for %q", relationUUID)
-	} else if errors.Is(err, errors.NotFound) {
+	if errors.Is(err, errors.NotFound) || errors.Is(err, worker.ErrDead) {
 		return true, nil
+	} else if err != nil {
+		return false, errors.Annotatef(err, "querying offerer relation worker for %q", relationUUID)
 	}
 	return false, nil
 }
