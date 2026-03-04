@@ -275,9 +275,6 @@ func (w *apiAddressSetterWorker) updateControllerNodes(ctx context.Context) (boo
 
 	// Start trackers for new nodes.
 	for _, controllerID := range controllerIDs {
-		w.config.Logger.Debugf(ctx, "found new controller %q", controllerID)
-		changed = true
-
 		if err := w.runner.StartWorker(ctx, controllerID, func(ctx context.Context) (worker.Worker, error) {
 			id, err := strconv.Atoi(controllerID)
 			if err != nil {
@@ -287,14 +284,23 @@ func (w *apiAddressSetterWorker) updateControllerNodes(ctx context.Context) (boo
 			if err != nil {
 				return nil, errors.Errorf("invalid unit name for controller %q: %w", controllerID, err)
 			}
-			tracker, err := newControllerTracker(unitName, w.config.ApplicationService, w.controllerNodeAddressChanges, w.config.Logger.Child("controllertracker"))
+			tracker, err := newControllerTracker(
+				unitName, w.config.ApplicationService,
+				w.controllerNodeAddressChanges,
+				w.config.Logger.Child("controllertracker"),
+			)
 			if err != nil {
 				return nil, errors.Capture(err)
 			}
 			return tracker, nil
-		}); err != nil && !errors.Is(err, coreerrors.AlreadyExists) {
+		}); errors.Is(err, coreerrors.AlreadyExists) {
+			continue
+		} else if err != nil {
 			return false, errors.Errorf("failed to start tracker for controller node %q: %w", controllerID, err)
 		}
+
+		w.config.Logger.Debugf(ctx, "found new controller %q", controllerID)
+		changed = true
 	}
 
 	return changed, nil

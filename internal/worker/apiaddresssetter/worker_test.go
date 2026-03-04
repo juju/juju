@@ -180,6 +180,104 @@ func (s *workerSuite) TestNewControllerNode(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
+// TestUnchangedControllerNodes tests that when the controller node watcher
+// fires but the set of controller nodes does not change, we do not trigger a
+// full API address update.
+func (s *workerSuite) TestUnchangedControllerNodes(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	// Mock the controller node watcher.
+	nodeCh := make(chan struct{})
+	nodeWatcher := watchertest.NewMockNotifyWatcher(nodeCh)
+	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(nodeWatcher, nil)
+
+	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(watchertest.NewMockStringsWatcher(make(chan []string)), nil)
+
+	// We expect two controller node events with the same node list.
+	secondEventProcessed := make(chan struct{})
+	count := 0
+	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).DoAndReturn(func(context.Context) ([]string, error) {
+		count++
+		if count == 2 {
+			close(secondEventProcessed)
+		}
+		return []string{"1"}, nil
+	}).Times(2)
+
+	// Tracker should only be started once for the new node.
+	s.applicationService.EXPECT().WatchUnitAddresses(gomock.Any(), unit.Name("controller/1")).Return(watchertest.NewMockNotifyWatcher(make(chan struct{})), nil).Times(1)
+
+	// API addresses should only be updated for the first (actual) change.
+	addrs := network.SpaceAddresses{
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "10.0.0.1/24",
+			},
+			SpaceID: "space0",
+		},
+	}
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
+		controller.JujuManagementSpace: "space0",
+	}, nil).Times(1)
+	sp := &network.SpaceInfo{
+		ID: "space0",
+	}
+	s.networkService.EXPECT().GetControllerAPIAddresses(gomock.Any(), unit.Name("controller/1")).Return(addrs, nil).Times(1)
+	s.networkService.EXPECT().SpaceByName(gomock.Any(), network.SpaceName("space0")).Return(sp, nil).Times(1)
+
+	sync := make(chan struct{})
+	hostPorts := network.SpaceAddressesWithPort(addrs, 17070)
+	args := controllernode.SetAPIAddressArgs{
+		MgmtSpace: sp,
+		APIAddresses: map[string]network.SpaceHostPorts{
+			"1": hostPorts,
+		},
+	}
+	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), args).DoAndReturn(func(context.Context, controllernode.SetAPIAddressArgs) error {
+		close(sync)
+		return nil
+	}).Times(1)
+
+	cfg := Config{
+		ControllerConfigService: s.controllerConfigService,
+		ApplicationService:      s.applicationService,
+		ControllerNodeService:   s.controllerNodeService,
+		NetworkService:          s.networkService,
+		APIPort:                 17070,
+		Logger:                  loggertesting.WrapCheckLog(c),
+	}
+	w, err := New(cfg)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	// First event adds the node and triggers one API address update.
+	select {
+	case nodeCh <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("sending controller node event: %v", c.Context().Err())
+	}
+	select {
+	case <-sync:
+	case <-c.Context().Done():
+		c.Fatalf("waiting for API address update: %v", c.Context().Err())
+	}
+
+	// Second event has unchanged node membership; no API address update expected.
+	select {
+	case nodeCh <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("sending unchanged controller node event: %v", c.Context().Err())
+	}
+	select {
+	case <-secondEventProcessed:
+	case <-c.Context().Done():
+		c.Fatalf("waiting for unchanged controller node event processing: %v", c.Context().Err())
+	}
+
+	workertest.CheckAlive(c, w)
+	workertest.CleanKill(c, w)
+}
+
 // TestConfigChange tests that when the controller config changes, the worker
 // will update the api addresses for the controller.
 func (s *workerSuite) TestConfigChange(c *tc.C) {
