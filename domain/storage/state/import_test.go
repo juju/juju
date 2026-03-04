@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storage/internal"
-	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -685,7 +684,7 @@ func (s *importSuite) checkStorageUnitOwner(c *tc.C, unitUUID coreunit.UUID, exp
 func (s *importSuite) newStoragePool(c *tc.C,
 	name string, providerType string,
 ) storage.StoragePoolUUID {
-	spUUID := storagetesting.GenStoragePoolUUID(c)
+	spUUID := tc.Must(c, storage.NewStoragePoolUUID)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `

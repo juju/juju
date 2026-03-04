@@ -18,7 +18,7 @@ import (
 	annotationerrors "github.com/juju/juju/domain/annotation/errors"
 	"github.com/juju/juju/domain/deployment/charm"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	storagetesting "github.com/juju/juju/domain/storage/testing"
+	domainstorage "github.com/juju/juju/domain/storage"
 )
 
 type stateSuite struct {
@@ -471,7 +471,7 @@ VALUES (?, ?, ?, ?, false, ?)
 
 // ensureStorage inserts a row into the storage_instance table
 func (s *stateSuite) ensureStorage(c *tc.C, name, uuid, charmName string) {
-	poolUUID := storagetesting.GenStoragePoolUUID(c)
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 
 	_, err := s.DB().Exec(`
 INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)`,
