@@ -11,6 +11,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coreerrors "github.com/juju/juju/core/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
+	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/names/v6"
@@ -34,7 +35,7 @@ func (a *StorageAPI) getOneStorageDetails(
 		return params.StorageDetailsResult{}, apiservererrors.ParamsErrorf(
 			params.CodeNotValid, "invalid storage id supplied",
 		)
-	case errors.Is(err, coreerrors.NotFound):
+	case errors.Is(err, domainstorageerrors.StorageInstanceNotFound):
 		return params.StorageDetailsResult{
 			Error: apiservererrors.ParamsErrorf(
 				params.CodeNotFound, "storage instance %q not found", storageID,
@@ -48,7 +49,7 @@ func (a *StorageAPI) getOneStorageDetails(
 
 	info, err := a.storageService.GetStorageInstanceInfo(ctx, uuid)
 	switch {
-	case errors.Is(err, coreerrors.NotFound):
+	case errors.Is(err, domainstorageerrors.StorageInstanceNotFound):
 		return params.StorageDetailsResult{
 			Error: apiservererrors.ParamsErrorf(
 				params.CodeNotFound, "storage instance %q not found", storageID,
