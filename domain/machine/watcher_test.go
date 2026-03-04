@@ -773,6 +773,7 @@ func (s *watcherSuite) setupRemovalService(c *tc.C, factory domain.WatchableDBFa
 		domain.NewWatcherFactory(factory, log),
 		nil,
 		nil,
+		nil,
 		model.UUID(s.ModelUUID()),
 		clock.WallClock,
 		log,
