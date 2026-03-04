@@ -21,8 +21,6 @@ import (
 	"github.com/juju/juju/internal/worker/lifeflag"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package lifeflag_test -destination facade_mocks_test.go github.com/juju/juju/internal/worker/lifeflag Facade
-
 type WorkerSuite struct {
 	testhelpers.IsolationSuite
 }
@@ -295,8 +293,3 @@ func (*WorkerSuite) TestResultNoRealChange(c *tc.C) {
 	workertest.CheckAlive(c, worker)
 	workertest.CleanKill(c, worker)
 }
-
-var tag = names.NewUnitTag("blah/123")
-
-func explode(life.Value) bool { panic("unexpected") }
-func never(life.Value) bool   { return false }
