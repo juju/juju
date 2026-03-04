@@ -10,9 +10,3 @@ const (
 	ScaleOperation         ProvisioningOperation = "scale"
 	StorageUpdateOperation ProvisioningOperation = "storage-update"
 )
-
-// IsDifferentOperation reports whether the current operation differs from the
-// requested operation.
-func IsDifferentOperation(currentOp, requestedOp ProvisioningOperation) bool {
-	return currentOp != NoOperation && currentOp != requestedOp
-}

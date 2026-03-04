@@ -399,7 +399,7 @@ func (a *appWorker) loop() error {
 				break
 			}
 			err = a.handleStorageChange(state)
-			if errors.Is(err, tryAgain) || errors.Is(err, errors.NotProvisioned) {
+			if errors.Is(err, errors.NotProvisioned) {
 				state.storageConstraintsChan = a.clock.After(retryDelay)
 				shouldRefresh = false
 			} else if err != nil {
