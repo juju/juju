@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	permission "github.com/juju/juju/core/permission"
+	user "github.com/juju/juju/core/user"
 	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -39,6 +40,44 @@ func NewMockPermissionDelegator(ctrl *gomock.Controller) *MockPermissionDelegato
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockPermissionDelegator) EXPECT() *MockPermissionDelegatorMockRecorder {
 	return m.recorder
+}
+
+// EnsureExternalUser mocks base method.
+func (m *MockPermissionDelegator) EnsureExternalUser(arg0 context.Context, arg1 user.Name, arg2 []permission.ID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureExternalUser", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsureExternalUser indicates an expected call of EnsureExternalUser.
+func (mr *MockPermissionDelegatorMockRecorder) EnsureExternalUser(arg0, arg1, arg2 any) *MockPermissionDelegatorEnsureExternalUserCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureExternalUser", reflect.TypeOf((*MockPermissionDelegator)(nil).EnsureExternalUser), arg0, arg1, arg2)
+	return &MockPermissionDelegatorEnsureExternalUserCall{Call: call}
+}
+
+// MockPermissionDelegatorEnsureExternalUserCall wrap *gomock.Call
+type MockPermissionDelegatorEnsureExternalUserCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockPermissionDelegatorEnsureExternalUserCall) Return(arg0 error) *MockPermissionDelegatorEnsureExternalUserCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockPermissionDelegatorEnsureExternalUserCall) Do(f func(context.Context, user.Name, []permission.ID) error) *MockPermissionDelegatorEnsureExternalUserCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockPermissionDelegatorEnsureExternalUserCall) DoAndReturn(f func(context.Context, user.Name, []permission.ID) error) *MockPermissionDelegatorEnsureExternalUserCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // PermissionError mocks base method.

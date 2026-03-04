@@ -11,6 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/juju/errors"
 	"github.com/lestrrat-go/jwx/v2/jwt"
+
+	"github.com/juju/juju/core/user"
 )
 
 type testJWTParser struct {
@@ -51,4 +53,15 @@ func EncodedJWT(params JWTParams) ([]byte, error) {
 
 	freshToken, err := jwt.NewSerializer().Serialize(token)
 	return freshToken, errors.Trace(err)
+}
+
+type stubExternalUserService struct {
+	called  bool
+	subject user.Name
+}
+
+func (s *stubExternalUserService) EnsureExternalUser(_ context.Context, subject user.Name) error {
+	s.called = true
+	s.subject = subject
+	return nil
 }

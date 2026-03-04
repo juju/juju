@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	corepermission "github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/internal/errors"
@@ -307,4 +308,19 @@ func (s *serviceSuite) TestDeletePermissionsByGrantOnUUIDZeroInput(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestEnsureExternalUser(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.state.EXPECT().EnsureExternalUser(gomock.Any(), usertesting.GenNewName(c, "testme@external")).Return(nil)
+
+	err := NewService(s.state, clock.WallClock).EnsureExternalUser(c.Context(), usertesting.GenNewName(c, "testme@external"))
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestEnsureExternalUserEmptySubject(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := NewService(s.state, clock.WallClock).EnsureExternalUser(c.Context(), user.Name{})
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }

@@ -159,6 +159,11 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		return nil, errors.Annotate(err, "getting controller model information")
 	}
 
+	controllerDomainServices, err := config.DomainServicesGetter.ServicesForModel(ctx, controllerModel.UUID)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting controller domain services")
+	}
+
 	observerFactory, err := newObserverFn(
 		config.AgentConfig,
 		config.DomainServicesGetter,
@@ -178,7 +183,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		ControllerUUID:                controllerConfig.ControllerUUID(),
 		ControllerModelUUID:           controllerModel.UUID,
 		LocalMacaroonAuthenticator:    config.LocalMacaroonAuthenticator,
-		JWTAuthenticator:              jwt.NewAuthenticator(config.JWTParser),
+		JWTAuthenticator:              jwt.NewAuthenticator(config.JWTParser, controllerDomainServices.Access()),
 		UpgradeComplete:               config.UpgradeComplete,
 		PublicDNSName:                 controllerConfig.AutocertDNSName(),
 		AllowModelAccess:              controllerConfig.AllowModelAccess(),

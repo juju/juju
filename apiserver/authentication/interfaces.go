@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 )
 
 // AuthInfo is returned by Authenticator and RequestAuthInfo.
@@ -59,12 +60,24 @@ type AuthParams struct {
 	BakeryVersion bakery.Version
 }
 
+// ExternalUserEnsurer is an interface for ensuring external users exist in
+// the database. Each authentication method implements its own strategy:
+// JWT creates the user unconditionally (the token is the proof of identity),
+// while macaroon checks everyone@external permissions first.
+type ExternalUserEnsurer interface {
+	// EnsureExternalUser ensures the external user exists in the database,
+	// creating it if necessary.
+	EnsureExternalUser(ctx context.Context, subject user.Name, targets []permission.ID) error
+}
+
 // PermissionDelegator is an interface that represents a window back into the
 // original authentication method that generated an AuthInfo struct. Specifically
 // it allows users of AuthInfo to ask specific details about an entity's
 // permissions that needs response aligned with the way in which they were
 // authenticated.
 type PermissionDelegator interface {
+	ExternalUserEnsurer
+
 	// SubjectPermissions returns the permission the entity has for the
 	// specified subject.
 	SubjectPermissions(ctx context.Context, userName string, target permission.ID) (permission.Access, error)
@@ -129,6 +142,16 @@ type RequestAuthenticator interface {
 // Authorize calls the func represented by [AuthorizeFunc] return the result.
 func (f AuthorizerFunc) Authorize(c context.Context, i AuthInfo) error {
 	return f(c, i)
+}
+
+// EnsureExternalUser is a convenience wrapper around the AuthInfo permissions
+// delegator. errors.NotImplemented is returned if the permission delegator
+// on this AuthInfo is nil.
+func (a *AuthInfo) EnsureExternalUser(ctx context.Context, subject user.Name, targets []permission.ID) error {
+	if a.Delegator == nil {
+		return fmt.Errorf("permissions delegator %w", errors.NotImplemented)
+	}
+	return a.Delegator.EnsureExternalUser(ctx, subject, targets)
 }
 
 // SubjectPermissions is a convenience wrapper around the AuthInfo permissions

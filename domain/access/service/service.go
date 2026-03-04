@@ -186,6 +186,12 @@ type PermissionState interface {
 	// their permissions from everyone@external.
 	EnsureExternalUserIfAuthorized(ctx context.Context, subject user.Name, target permission.ID) error
 
+	// EnsureExternalUser ensures that the given external user exists in the
+	// database, creating them if necessary. Unlike EnsureExternalUserIfAuthorized,
+	// this method does not check everyone@external permissions — the caller is
+	// responsible for determining that the user is authorized (e.g. via JWT).
+	EnsureExternalUser(ctx context.Context, subject user.Name) error
+
 	// ReadAllUserAccessForUser returns a slice of the user access the given
 	// subject's (user) has for any access type.
 	ReadAllUserAccessForUser(ctx context.Context, subject user.Name) ([]permission.UserAccess, error)

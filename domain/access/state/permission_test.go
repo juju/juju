@@ -570,6 +570,52 @@ func (s *permissionStateSuite) TestEnsureExternalUserIfAuthorizedNoAccess(c *tc.
 	c.Assert(err, tc.ErrorIs, accesserrors.UserNotFound)
 }
 
+// TestEnsureExternalUser checks that an external user is created when they
+// do not already exist.
+func (s *permissionStateSuite) TestEnsureExternalUser(c *tc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	jimUserName := usertesting.GenNewName(c, "jim@juju")
+
+	err := st.EnsureExternalUser(c.Context(), jimUserName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	userSt := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
+	jim, err := userSt.GetUserByName(c.Context(), jimUserName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(jim.Name, tc.Equals, jimUserName)
+	c.Check(jim.DisplayName, tc.Equals, jimUserName.Name())
+	c.Check(jim.UUID, tc.Not(tc.Equals), "")
+	c.Check(jim.CreatorUUID, tc.Not(tc.Equals), "")
+}
+
+// TestEnsureExternalUserAlreadyExists checks that no error is returned if the
+// user already exists.
+func (s *permissionStateSuite) TestEnsureExternalUserAlreadyExists(c *tc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	jimUserName := usertesting.GenNewName(c, "jim@juju")
+	s.ensureUser(c, "777", jimUserName.Name(), "42", true)
+
+	err := st.EnsureExternalUser(c.Context(), jimUserName)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestEnsureExternalUserLocalUser checks that local users are a no-op.
+func (s *permissionStateSuite) TestEnsureExternalUserLocalUser(c *tc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	localUserName := usertesting.GenNewName(c, "localonly")
+
+	err := st.EnsureExternalUser(c.Context(), localUserName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Check the user has not been added.
+	userSt := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
+	_, err = userSt.GetUserByName(c.Context(), localUserName)
+	c.Assert(err, tc.ErrorIs, accesserrors.UserNotFound)
+}
+
 func (s *permissionStateSuite) TestReadAllUserAccessForUser(c *tc.C) {
 	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 

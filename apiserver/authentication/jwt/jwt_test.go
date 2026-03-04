@@ -17,6 +17,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -45,7 +46,7 @@ func (s *loginTokenSuite) TestAuthenticate(c *tc.C) {
 		Token: base64.StdEncoding.EncodeToString(tok),
 	}
 
-	authenticator := jwt.NewAuthenticator(&testJWTParser{})
+	authenticator := jwt.NewAuthenticator(&testJWTParser{}, nil)
 
 	req, err := http.NewRequest("", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
@@ -77,7 +78,7 @@ func (s *loginTokenSuite) TestAuthenticate(c *tc.C) {
 }
 
 func (s *loginTokenSuite) TestAuthenticateInvalidHeader(c *tc.C) {
-	authenticator := jwt.NewAuthenticator(&testJWTParser{})
+	authenticator := jwt.NewAuthenticator(&testJWTParser{}, nil)
 	req, err := http.NewRequest("", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = authenticator.Authenticate(req)
@@ -116,7 +117,7 @@ func (s *loginTokenSuite) TestUsesLoginToken(c *tc.C) {
 		Token: base64.StdEncoding.EncodeToString(tok),
 	}
 
-	authenticator := jwt.NewAuthenticator(&testJWTParser{})
+	authenticator := jwt.NewAuthenticator(&testJWTParser{}, nil)
 
 	authInfo, err := authenticator.AuthenticateLoginRequest(c.Context(), "", "", params)
 	c.Assert(err, tc.ErrorIsNil)
@@ -165,7 +166,7 @@ func (s *loginTokenSuite) TestPermissionsForDifferentEntity(c *tc.C) {
 		Token: base64.StdEncoding.EncodeToString(tok),
 	}
 
-	authenticator := jwt.NewAuthenticator(&testJWTParser{})
+	authenticator := jwt.NewAuthenticator(&testJWTParser{}, nil)
 
 	authInfo, err := authenticator.AuthenticateLoginRequest(c.Context(), "", "", params)
 	c.Assert(err, tc.ErrorIsNil)
@@ -202,7 +203,7 @@ func (s *loginTokenSuite) TestControllerSuperuser(c *tc.C) {
 		Token: base64.StdEncoding.EncodeToString(tok),
 	}
 
-	authenticator := jwt.NewAuthenticator(&testJWTParser{})
+	authenticator := jwt.NewAuthenticator(&testJWTParser{}, nil)
 
 	authInfo, err := authenticator.AuthenticateLoginRequest(c.Context(), "", "", params)
 	c.Assert(err, tc.ErrorIsNil)
@@ -217,8 +218,45 @@ func (s *loginTokenSuite) TestControllerSuperuser(c *tc.C) {
 	c.Assert(perm, tc.Equals, permission.SuperuserAccess)
 }
 
+// TestEnsureExternalUser verifies that the JWT delegator's EnsureExternalUser
+// delegates to the ExternalUserService, ignoring the targets parameter.
+func (s *loginTokenSuite) TestEnsureExternalUser(c *tc.C) {
+	tok, err := EncodedJWT(JWTParams{
+		Controller: testing.ControllerTag.Id(),
+		User:       "user-fred@external",
+		Access: map[string]string{
+			testing.ControllerTag.String(): "login",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	params := authentication.AuthParams{
+		Token: base64.StdEncoding.EncodeToString(tok),
+	}
+
+	stub := &stubExternalUserService{}
+	authenticator := jwt.NewAuthenticator(&testJWTParser{}, stub)
+
+	authInfo, err := authenticator.AuthenticateLoginRequest(c.Context(), "", "", params)
+	c.Assert(err, tc.ErrorIsNil)
+
+	userName, err := user.NewName("fred@external")
+	c.Assert(err, tc.ErrorIsNil)
+
+	targets := []permission.ID{
+		{ObjectType: permission.Controller, Key: testing.ControllerTag.Id()},
+		{ObjectType: permission.Model, Key: "some-model-uuid"},
+	}
+	err = authInfo.EnsureExternalUser(c.Context(), userName, targets)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The service should have been called exactly once with the user name.
+	c.Assert(stub.called, tc.Equals, true)
+	c.Assert(stub.subject, tc.Equals, userName)
+}
+
 func (s *loginTokenSuite) TestNotAvailableJWTParser(c *tc.C) {
-	authenticator := jwt.NewAuthenticator(&testJWTParser{notReady: true})
+	authenticator := jwt.NewAuthenticator(&testJWTParser{notReady: true}, nil)
 
 	params := authentication.AuthParams{Token: "token"}
 	_, err := authenticator.AuthenticateLoginRequest(c.Context(), "", "", params)
