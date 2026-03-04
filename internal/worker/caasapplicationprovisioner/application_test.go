@@ -269,7 +269,6 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 			}),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Dying, nil),
 		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dying, x, x, x, x).Return(nil),
-		applicationService.EXPECT().GetAllUnitLifeForApplication(x, s.appUUID).Return(nil, nil),
 		ops.EXPECT().AppDead(x, "test", s.appUUID, app, x, x, x, x, x).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, CAASBroker, ApplicationService, StatusService, clock.Clock, logger.Logger) error {
 			close(done)
 			return nil
@@ -476,7 +475,6 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 			}),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Dying, nil),
 		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dying, x, x, x, x).Return(nil),
-		applicationService.EXPECT().GetAllUnitLifeForApplication(x, s.appUUID).Return(nil, nil),
 		ops.EXPECT().AppDead(x, "test", s.appUUID, app, x, x, x, x, x).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, CAASBroker, ApplicationService, StatusService, clock.Clock, logger.Logger) error {
 			close(done)
 			return nil
