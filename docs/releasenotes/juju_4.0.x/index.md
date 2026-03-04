@@ -6,6 +6,7 @@
 :glob:
 :hidden:
 
+Juju 4.0.3 <juju_4.0.3>
 Juju 4.0.1 <juju_4.0.1>
 Juju 4.0.0 <juju_4.0.0>
 
