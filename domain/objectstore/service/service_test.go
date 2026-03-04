@@ -200,13 +200,8 @@ func (s *serviceSuite) TestPutMetadata(c *tc.C) {
 	}
 
 	var rUUID string
-	s.state.EXPECT().PutMetadata(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(objectstore.Metadata{})).
+	s.state.EXPECT().PutMetadata(gomock.Any(), gomock.Any(), metadata).
 		DoAndReturn(func(ctx context.Context, uuid string, data objectstore.Metadata) (string, error) {
-			c.Check(data.Path, tc.Equals, metadata.Path)
-			c.Check(data.Size, tc.Equals, metadata.Size)
-			c.Check(data.SHA256, tc.Equals, metadata.SHA256)
-			c.Check(data.SHA384, tc.Equals, metadata.SHA384)
-
 			rUUID = uuid
 			return uuid, nil
 		})
@@ -257,12 +252,8 @@ func (s *serviceSuite) TestPutMetadataWithControllerIDHint(c *tc.C) {
 	}
 
 	var rUUID string
-	s.state.EXPECT().PutMetadataWithControllerIDHint(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(objectstore.Metadata{}), controllerID).
+	s.state.EXPECT().PutMetadataWithControllerIDHint(gomock.Any(), gomock.Any(), metadata, controllerID).
 		DoAndReturn(func(ctx context.Context, uuid string, data objectstore.Metadata, _ string) (string, error) {
-			c.Check(data.Path, tc.Equals, metadata.Path)
-			c.Check(data.Size, tc.Equals, metadata.Size)
-			c.Check(data.SHA256, tc.Equals, metadata.SHA256)
-			c.Check(data.SHA384, tc.Equals, metadata.SHA384)
 
 			rUUID = uuid
 			return uuid, nil

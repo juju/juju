@@ -229,7 +229,7 @@ func (s *Service) PutMetadata(ctx context.Context, metadata objectstore.Metadata
 		return "", err
 	}
 
-	pUUID, err := s.st.PutMetadata(ctx, uuid.String(), objectstore.Metadata{
+	resultUUID, err := s.st.PutMetadata(ctx, uuid.String(), objectstore.Metadata{
 		SHA256: metadata.SHA256,
 		SHA384: metadata.SHA384,
 		Path:   metadata.Path,
@@ -239,7 +239,7 @@ func (s *Service) PutMetadata(ctx context.Context, metadata objectstore.Metadata
 		return "", errors.Errorf("adding path %s: %w", metadata.Path, err)
 	}
 
-	return objectstore.UUID(pUUID), nil
+	return objectstore.UUID(resultUUID), nil
 }
 
 // PutMetadataWithControllerIDHint adds a new specified path for the persistence
