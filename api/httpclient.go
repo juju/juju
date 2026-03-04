@@ -102,10 +102,13 @@ type simpleHTTPClient struct {
 	doer    base.Doer
 }
 
+// BaseURL returns a URL for which the client will make requests to.
 func (c simpleHTTPClient) BaseURL() string {
 	return c.baseURL
 }
 
+// Do sends an HTTP request and returns an HTTP response, following
+// policy (e.g. redirects, cookies, auth) as configured on the client.
 func (c simpleHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return c.doer.Do(req)
 }
