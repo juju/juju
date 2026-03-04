@@ -172,7 +172,6 @@ func (a *StorageAPI) StorageDetails(ctx context.Context, entities params.Entitie
 
 	// Make a list of the ids we received and the ids for which information
 	// needs to be fetched.
-	storageIDsToGet := make([]string, 0, len(entities.Entities))
 	storageIDsReceived := make([]string, 0, len(entities.Entities))
 	for i, entity := range entities.Entities {
 		tag, err := names.ParseTag(entity.Tag)
@@ -191,15 +190,13 @@ func (a *StorageAPI) StorageDetails(ctx context.Context, entities params.Entitie
 			)
 		}
 
-		storageIDsToGet = append(storageIDsToGet, tag.Id())
 		storageIDsReceived = append(storageIDsReceived, tag.Id())
 	}
 
 	// Because we process each entity individually we must de-dupe the id's to
 	// not thrash the service layer for no reason. Results for each unique id
 	// are stored in a map for building the final result.
-	slices.Sort(storageIDsToGet)
-	storageIDsToGet = slices.Compact(storageIDsToGet)
+	storageIDsToGet := slices.Compact(slices.Sorted(slices.Values(storageIDsReceived)))
 	results := make(map[string]params.StorageDetailsResult, len(storageIDsToGet))
 
 	for _, id := range storageIDsToGet {
