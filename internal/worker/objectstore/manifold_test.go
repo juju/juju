@@ -8,6 +8,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/dependency"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
@@ -131,8 +132,9 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 }
 
 func (s *manifoldSuite) expectAgentConfig(c *tc.C) {
-	s.agentConfig.EXPECT().DataDir().Return(c.MkDir())
 	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
+	s.agentConfig.EXPECT().DataDir().Return(c.MkDir())
+	s.agentConfig.EXPECT().Tag().Return(names.NewMachineTag("0"))
 }
 
 func (s *manifoldSuite) expectControllerConfig() {
