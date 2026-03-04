@@ -1262,51 +1262,6 @@ func (s *ProviderService) AddStorageForCAASUnit(
 	return added, errors.Capture(err)
 }
 
-func (s *ProviderService) populateAttachStorageArgs(
-	ctx context.Context,
-	storageUUID domainstorage.StorageInstanceUUID,
-	netNodeUUID string,
-	storageAttachInfo internal.StorageInfoForAttach,
-) (internal.AttachStorageToUnitArg, error) {
-
-	charmStorageDef := internal.ValidateStorageArg{
-		Name:        storageAttachInfo.CharmStorageName,
-		CountMin:    storageAttachInfo.CountMin,
-		CountMax:    storageAttachInfo.CountMax,
-		MinimumSize: storageAttachInfo.MinimumSize,
-	}
-
-	err := s.storageService.ValidateAttachStorage(
-		charmStorageDef, storageAttachInfo.AlreadyAttachedCount, storageAttachInfo.ProvisionedSizeMiB)
-	if err != nil {
-		return internal.AttachStorageToUnitArg{}, errors.Capture(err)
-	}
-
-	attachArgs, err := s.storageService.MakeUnitAttachStorageArgs(
-		ctx,
-		netNodeUUID,
-		storageUUID,
-	)
-	if err != nil {
-		return internal.AttachStorageToUnitArg{}, errors.Capture(err)
-	}
-
-	allowedUUIDs := slices.Collect(maps.Keys(storageAttachInfo.AlreadyAttachedToUnits))
-	args := internal.AttachStorageToUnitArg{
-		StorageToAttach:                attachArgs,
-		StorageName:                    storageAttachInfo.CharmStorageName,
-		CountLessThanEqual:             uint32(math.MaxUint32),
-		AllowedExistingUnitAttachments: allowedUUIDs,
-	}
-
-	// Record the max allowed count precondition.
-	// This will be checked inside the transaction.
-	if storageAttachInfo.CountMax > 0 {
-		args.CountLessThanEqual = uint32(storageAttachInfo.CountMax) - 1
-	}
-	return args, nil
-}
-
 // AttachStorageToUnit ensures the specified storage instance is attached to
 // the specified unit.
 // If the attachment already exists, the result is a no op.
@@ -1406,4 +1361,49 @@ func (s *ProviderService) makeAttachStorageToUnitArgs(
 	}
 
 	return s.populateAttachStorageArgs(ctx, storageUUID, netNodeUUID, storageAttachInfo)
+}
+
+func (s *ProviderService) populateAttachStorageArgs(
+	ctx context.Context,
+	storageUUID domainstorage.StorageInstanceUUID,
+	netNodeUUID string,
+	storageAttachInfo internal.StorageInfoForAttach,
+) (internal.AttachStorageToUnitArg, error) {
+
+	charmStorageDef := internal.ValidateStorageArg{
+		Name:        storageAttachInfo.CharmStorageName,
+		CountMin:    storageAttachInfo.CountMin,
+		CountMax:    storageAttachInfo.CountMax,
+		MinimumSize: storageAttachInfo.MinimumSize,
+	}
+
+	err := s.storageService.ValidateAttachStorage(
+		charmStorageDef, storageAttachInfo.AlreadyAttachedCount, storageAttachInfo.ProvisionedSizeMiB)
+	if err != nil {
+		return internal.AttachStorageToUnitArg{}, errors.Capture(err)
+	}
+
+	attachArgs, err := s.storageService.MakeUnitAttachStorageArgs(
+		ctx,
+		netNodeUUID,
+		storageUUID,
+	)
+	if err != nil {
+		return internal.AttachStorageToUnitArg{}, errors.Capture(err)
+	}
+
+	allowedUUIDs := slices.Collect(maps.Keys(storageAttachInfo.AlreadyAttachedToUnits))
+	args := internal.AttachStorageToUnitArg{
+		StorageToAttach:                attachArgs,
+		StorageName:                    storageAttachInfo.CharmStorageName,
+		CountLessThanEqual:             uint32(math.MaxUint32),
+		AllowedExistingUnitAttachments: allowedUUIDs,
+	}
+
+	// Record the max allowed count precondition.
+	// This will be checked inside the transaction.
+	if storageAttachInfo.CountMax > 0 {
+		args.CountLessThanEqual = uint32(storageAttachInfo.CountMax) - 1
+	}
+	return args, nil
 }
