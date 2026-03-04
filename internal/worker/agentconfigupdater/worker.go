@@ -127,7 +127,10 @@ func (w *agentConfigUpdater) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 
-		case <-watcher.Changes():
+		case _, ok := <-watcher.Changes():
+			if !ok {
+				return errors.New("watcher channel closed")
+			}
 			if err := w.handleConfigChange(ctx); err != nil {
 				return errors.Capture(err)
 			}

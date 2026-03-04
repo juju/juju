@@ -120,6 +120,33 @@ func (s *WorkerSuite) TestNormalStart(c *tc.C) {
 	}
 }
 
+func (s *WorkerSuite) TestWatcherChannelClosed(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	start := make(chan struct{})
+	ch := make(chan []string)
+	close(ch)
+
+	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
+		close(start)
+		return watchertest.NewMockStringsWatcher(ch), nil
+	})
+
+	w, err := agentconfigupdater.NewWorker(s.config)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(w, tc.NotNil)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-start:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("waiting for watcher to start")
+	}
+
+	err = workertest.CheckKilled(c, w)
+	c.Assert(err, tc.ErrorMatches, "watcher channel closed")
+}
+
 func (s *WorkerSuite) TestUpdateQueryTracingEnabled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
