@@ -416,8 +416,16 @@ func (s *ProviderService) makeIAASUnitArgs(
 		// Compose the storage attachments for any existing storage instances
 		// that need to be attached to the unit.
 		for _, storageInstanceUUID := range u.StorageToAttach {
+			storageAttachInfo, err := s.st.GetStorageAttachInfoByUnitUUIDAndStorageUUID(
+				ctx, unitUUID, storageInstanceUUID)
+			if err != nil {
+				return nil, errors.Errorf(
+					"getting unit %q charm storage and attachment info for %q: %w",
+					unitUUID, storageInstanceUUID, err,
+				)
+			}
 			attachArg, err := s.makeAttachStorageToUnitArgs(
-				ctx, storageInstanceUUID, unitUUID, netNodeUUID.String(), placementMachineUUID)
+				ctx, storageInstanceUUID, unitUUID, netNodeUUID.String(), placementMachineUUID, storageAttachInfo)
 			if err != nil {
 				return nil, errors.Capture(err)
 			}

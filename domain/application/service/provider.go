@@ -1307,8 +1307,6 @@ func (s *ProviderService) populateAttachStorageArgs(
 	return args, nil
 }
 
-const alreadyAttachedError = errors.ConstError("alreadyAttached")
-
 // AttachStorageToUnit ensures the specified storage instance is attached to
 // the specified unit.
 // If the attachment already exists, the result is a no op.
@@ -1347,11 +1345,21 @@ func (s *ProviderService) AttachStorageToUnit(
 			unitUUID, err)
 	}
 
-	unitAttachStorageArgs, err := s.makeAttachStorageToUnitArgs(ctx, storageUUID, unitUUID, netNodeUUID, &unitMachineUUID)
-	if errors.Is(err, alreadyAttachedError) {
+	storageAttachInfo, err := s.st.GetStorageAttachInfoByUnitUUIDAndStorageUUID(ctx, unitUUID, storageUUID)
+	if err != nil {
+		return errors.Errorf(
+			"getting unit %q charm storage and attachment info for %q: %w",
+			unitUUID, storageUUID, err,
+		)
+	}
+	if _, alreadyAttached := storageAttachInfo.AlreadyAttachedToUnits[unitUUID.String()]; alreadyAttached {
 		// The storage is already attached to the unit, so this is a no-op.
 		return nil
-	} else if err != nil {
+	}
+
+	unitAttachStorageArgs, err := s.makeAttachStorageToUnitArgs(
+		ctx, storageUUID, unitUUID, netNodeUUID, &unitMachineUUID, storageAttachInfo)
+	if err != nil {
 		return errors.Capture(err)
 	}
 
@@ -1372,22 +1380,11 @@ func (s *ProviderService) AttachStorageToUnit(
 func (s *ProviderService) makeAttachStorageToUnitArgs(
 	ctx context.Context, storageUUID domainstorage.StorageInstanceUUID,
 	unitUUID coreunit.UUID, netNodeUUID string, unitPlacementMachineUUID *string,
+	storageAttachInfo internal.StorageInfoForAttach,
 ) (internal.AttachStorageToUnitArg, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	storageAttachInfo, err := s.st.GetStorageAttachInfoByUnitUUIDAndStorageUUID(ctx, unitUUID, storageUUID)
-	if err != nil {
-		return internal.AttachStorageToUnitArg{}, errors.Errorf(
-			"getting unit %q charm storage and attachment info for %q: %w",
-			unitUUID, storageUUID, err,
-		)
-	}
-
-	// First check to see if the storage is already attached to the unit.
-	if _, alreadyAttached := storageAttachInfo.AlreadyAttachedToUnits[unitUUID.String()]; alreadyAttached {
-		return internal.AttachStorageToUnitArg{}, alreadyAttachedError
-	}
 	delete(storageAttachInfo.AlreadyAttachedToUnits, unitUUID.String())
 	// It's an error if the storage is attached to any other unit,
 	// as we don't support shared storage.
