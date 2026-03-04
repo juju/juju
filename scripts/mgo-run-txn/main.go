@@ -143,13 +143,17 @@ func main() {
 		fmt.Printf("error connecting to mongo:\n%v\n", err)
 		os.Exit(1)
 	}
-	runner := jujutxn.NewRunner(jujutxn.RunnerParams{
+	runner, err := jujutxn.NewRunner(jujutxn.RunnerParams{
 		Database:                  session.DB(args.Database),
 		TransactionCollectionName: "txns",
 		ChangeLogName:             "-",
 		ServerSideTransactions:    true,
 		Clock:                     clock.WallClock,
 	})
+	if err != nil {
+		fmt.Printf("error creating transaction runner:\n%v\n", err)
+		os.Exit(1)
+	}
 	txnOps := make([]txn.Op, len(ops))
 	for i, o := range ops {
 		op := txn.Op{
