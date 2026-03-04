@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/ipaddress"
@@ -33,6 +34,8 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
+	domainstorage "github.com/juju/juju/domain/storage"
+	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
@@ -1158,6 +1161,10 @@ ON CONFLICT (unit_uuid, charm_uuid, storage_name) DO NOTHING
 		if err != nil {
 			return errors.Capture(err)
 		}
+		err = st.backfillUnitStorageInstancesForDirectives(ctx, tx, unitName, charmUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
 		return nil
 	})
 	if err != nil {
@@ -1165,6 +1172,196 @@ ON CONFLICT (unit_uuid, charm_uuid, storage_name) DO NOTHING
 	}
 
 	return nil
+}
+
+func (st *State) backfillUnitStorageInstancesForDirectives(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitName unitName,
+	charmUUID charmUUID,
+) error {
+	type unitStorageDirectiveBackfill struct {
+		UnitUUID      string `db:"unit_uuid"`
+		NetNodeUUID   string `db:"net_node_uuid"`
+		CharmName     string `db:"charm_name"`
+		StorageName   string `db:"storage_name"`
+		StorageKind   string `db:"storage_kind"`
+		StoragePoolID string `db:"storage_pool_uuid"`
+		SizeMiB       uint64 `db:"size_mib"`
+		DesiredCount  uint32 `db:"desired_count"`
+		CurrentCount  uint32 `db:"current_count"`
+	}
+
+	// Identify directive rows for this unit/charm where current instance count
+	// is below the directive count; each row maps to "instances still needed".
+	backfillQuery, err := st.Prepare(`
+SELECT u.uuid AS &unitStorageDirectiveBackfill.unit_uuid,
+       u.net_node_uuid AS &unitStorageDirectiveBackfill.net_node_uuid,
+       cm.name AS &unitStorageDirectiveBackfill.charm_name,
+       usd.storage_name AS &unitStorageDirectiveBackfill.storage_name,
+       csk.kind AS &unitStorageDirectiveBackfill.storage_kind,
+       usd.storage_pool_uuid AS &unitStorageDirectiveBackfill.storage_pool_uuid,
+       usd.size_mib AS &unitStorageDirectiveBackfill.size_mib,
+       usd.count AS &unitStorageDirectiveBackfill.desired_count,
+       CAST(COALESCE(existing.current_count, 0) AS INT) AS &unitStorageDirectiveBackfill.current_count
+FROM   unit u
+JOIN   unit_storage_directive usd
+       ON usd.unit_uuid = u.uuid
+JOIN   charm_metadata cm
+       ON cm.charm_uuid = usd.charm_uuid
+JOIN   charm_storage cs
+       ON cs.charm_uuid = usd.charm_uuid
+      AND cs.name = usd.storage_name
+JOIN   charm_storage_kind csk
+       ON csk.id = cs.storage_kind_id
+LEFT JOIN (
+    SELECT suo.unit_uuid,
+           si.storage_name,
+           COUNT(*) AS current_count
+    FROM   storage_unit_owner suo
+    JOIN   storage_instance si
+           ON si.uuid = suo.storage_instance_uuid
+    GROUP BY suo.unit_uuid, si.storage_name
+) existing
+       ON existing.unit_uuid = u.uuid
+      AND existing.storage_name = usd.storage_name
+WHERE  u.name = $unitName.name
+AND    usd.charm_uuid = $charmUUID.charm_uuid
+AND    CAST(COALESCE(existing.current_count, 0) AS INT) < usd.count
+`, unitStorageDirectiveBackfill{}, unitName, charmUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var backfill []unitStorageDirectiveBackfill
+	err = tx.Query(ctx, backfillQuery, unitName, charmUUID).GetAll(&backfill)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if len(backfill) == 0 {
+		return nil
+	}
+
+	var (
+		instArgs      []internal.CreateUnitStorageInstanceArg
+		attachArgs    []internal.CreateUnitStorageAttachmentArg
+		ownershipArgs []domainstorage.StorageInstanceUUID
+	)
+
+	// Build create/attach/ownership args for each missing instance.
+	for _, row := range backfill {
+		toCreate := int(row.DesiredCount - row.CurrentCount)
+		for range toCreate {
+			storageUUID, err := domainstorage.NewStorageInstanceUUID()
+			if err != nil {
+				return errors.Errorf("generating storage instance uuid: %w", err)
+			}
+
+			kind, err := decodeStorageKind(row.StorageKind)
+			if err != nil {
+				return errors.Capture(err)
+			}
+
+			instanceArg := internal.CreateUnitStorageInstanceArg{
+				UUID:            storageUUID,
+				CharmName:       row.CharmName,
+				Name:            domainstorage.Name(row.StorageName),
+				Kind:            kind,
+				RequestSizeMiB:  row.SizeMiB,
+				StoragePoolUUID: domainstorage.StoragePoolUUID(row.StoragePoolID),
+			}
+
+			attachArg := internal.CreateUnitStorageAttachmentArg{
+				StorageInstanceUUID: storageUUID,
+			}
+			storageAttachmentUUID, err := domainstorage.NewStorageAttachmentUUID()
+			if err != nil {
+				return errors.Errorf("generating storage attachment uuid: %w", err)
+			}
+			attachArg.UUID = storageAttachmentUUID
+
+			switch kind {
+			case domainstorage.StorageKindFilesystem:
+				filesystemUUID, err := domainstorage.NewFilesystemUUID()
+				if err != nil {
+					return errors.Errorf("generating storage filesystem uuid: %w", err)
+				}
+				filesystemAttachmentUUID, err := domainstorage.NewFilesystemAttachmentUUID()
+				if err != nil {
+					return errors.Errorf("generating filesystem attachment uuid: %w", err)
+				}
+				instanceArg.Filesystem = &internal.CreateUnitStorageFilesystemArg{
+					UUID:           filesystemUUID,
+					ProvisionScope: domainstorageprov.ProvisionScopeModel,
+				}
+				attachArg.FilesystemAttachment = &internal.CreateUnitStorageFilesystemAttachmentArg{
+					FilesystemUUID: filesystemUUID,
+					NetNodeUUID:    domainnetwork.NetNodeUUID(row.NetNodeUUID),
+					ProvisionScope: domainstorageprov.ProvisionScopeModel,
+					UUID:           filesystemAttachmentUUID,
+				}
+			case domainstorage.StorageKindBlock:
+				volumeUUID, err := domainstorage.NewVolumeUUID()
+				if err != nil {
+					return errors.Errorf("generating storage volume uuid: %w", err)
+				}
+				volumeAttachmentUUID, err := domainstorage.NewVolumeAttachmentUUID()
+				if err != nil {
+					return errors.Errorf("generating volume attachment uuid: %w", err)
+				}
+				instanceArg.Volume = &internal.CreateUnitStorageVolumeArg{
+					UUID:           volumeUUID,
+					ProvisionScope: domainstorageprov.ProvisionScopeModel,
+				}
+				attachArg.VolumeAttachment = &internal.CreateUnitStorageVolumeAttachmentArg{
+					VolumeUUID:     volumeUUID,
+					NetNodeUUID:    domainnetwork.NetNodeUUID(row.NetNodeUUID),
+					ProvisionScope: domainstorageprov.ProvisionScopeModel,
+					UUID:           volumeAttachmentUUID,
+				}
+			default:
+				return errors.Errorf("unsupported storage kind %q", row.StorageKind)
+			}
+
+			instArgs = append(instArgs, instanceArg)
+			attachArgs = append(attachArgs, attachArg)
+			ownershipArgs = append(ownershipArgs, storageUUID)
+		}
+	}
+
+	// Insert instance rows first, then attachments, then ownership links.
+	storageIDs, err := st.unitState.insertUnitStorageInstances(ctx, tx, instArgs)
+	if err != nil {
+		return errors.Errorf("inserting backfilled storage instances for unit %q: %w", unitName.Name, err)
+	}
+	if len(storageIDs) != len(instArgs) {
+		return errors.Errorf("unexpected storage ids created for unit %q", unitName.Name)
+	}
+	err = st.unitState.insertUnitStorageAttachments(ctx, tx, backfill[0].UnitUUID, attachArgs)
+	if err != nil {
+		return errors.Errorf("inserting backfilled storage attachments for unit %q: %w", unitName.Name, err)
+	}
+	err = st.unitState.insertUnitStorageOwnership(ctx, tx, backfill[0].UnitUUID, ownershipArgs)
+	if err != nil {
+		return errors.Errorf("inserting backfilled storage ownership for unit %q: %w", unitName.Name, err)
+	}
+
+	return nil
+}
+
+func decodeStorageKind(kind string) (domainstorage.StorageKind, error) {
+	switch kind {
+	case string(internalcharm.StorageFilesystem):
+		return domainstorage.StorageKindFilesystem, nil
+	case string(internalcharm.StorageBlock):
+		return domainstorage.StorageKindBlock, nil
+	default:
+		return -1, errors.Errorf("unknown charm storage kind %q", kind)
+	}
 }
 
 // GetUnitRefreshAttributes returns the unit refresh attributes for the

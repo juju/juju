@@ -1080,6 +1080,7 @@ func (s *unitStateSuite) TestUpdateUnitCharmAddsNewUnitStorageDirectives(c *tc.C
 		st2Name               string
 		st2Size               int
 		st2Count              int
+		st2InstanceCount      int
 	)
 
 	// Assert that the newly defined storage is inserted for the existing unit.
@@ -1102,10 +1103,23 @@ func (s *unitStateSuite) TestUpdateUnitCharmAddsNewUnitStorageDirectives(c *tc.C
 		).Scan(&st2Name, &st2Size, &st2Count)
 	})
 	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(
+			ctx,
+			`SELECT count(*)
+			 FROM storage_instance si
+			 JOIN storage_unit_owner suo ON suo.storage_instance_uuid = si.uuid
+			 WHERE suo.unit_uuid=? AND si.storage_name='st2'`,
+			unitUUID.String(),
+		).Scan(&st2InstanceCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(storageDirectiveCount, tc.Equals, 2)
 	c.Check(st2Name, tc.Equals, "st2")
 	c.Check(st2Size, tc.Equals, 8192)
 	c.Check(st2Count, tc.Equals, 1)
+	c.Check(st2InstanceCount, tc.Equals, 1)
 }
 
 func (s *unitStateSuite) TestGetUnitRefreshAttributes(c *tc.C) {
