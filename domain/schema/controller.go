@@ -65,7 +65,7 @@ var controllerPostPatchFilesByVersion = []struct {
 		"0027-model-migration-import.PATCH.sql",
 	},
 }, {
-	version: semversion.MustParse("4.0.3"),
+	version: semversion.MustParse("4.0.4"),
 	files: []string{
 		"0028-object-store-node-id.PATCH.sql",
 	},

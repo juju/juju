@@ -151,7 +151,7 @@ var modelPostPatchFilesByVersion = []struct {
 		"0048-offer.PATCH.sql",
 	},
 }, {
-	version: semversion.MustParse("4.0.3"),
+	version: semversion.MustParse("4.0.4"),
 	files: []string{
 		"0049-object-store-node-id.PATCH.sql",
 	},
