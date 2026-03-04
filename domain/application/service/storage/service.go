@@ -610,13 +610,13 @@ func makeStorageAttachmentArgFromExistingStorageInstance(
 	return rval, nil
 }
 
-// makeStorageAttachmentArgFromNewStorageInstance is responsible for taking the
-// arguments to create a new storage instance in the model and generating a
-// corresponding storage attachment creation argument.
+// makeStorageAttachmentArgFromStorageInstance is responsible generating a
+// storage attachment creation argument for either a new or existing
+// storage instance.
 //
 // The attachment of filesystem and volume will be done on to the supplied net
 // node and follow the information set on the storage instance.
-func makeStorageAttachmentArgFromNewStorageInstance(
+func makeStorageAttachmentArgFromStorageInstance(
 	netNodeUUID domainnetwork.NetNodeUUID,
 	storageInstance internal.AttachStorageInstanceArg,
 ) (internal.CreateUnitStorageAttachmentArg, error) {
@@ -756,7 +756,7 @@ func (s Service) MakeUnitStorageArgs(
 		rvalInstances = slices.Grow(rvalInstances, len(instArgs))
 		rvalToOwn = slices.Grow(rvalToOwn, len(instArgs))
 		for _, inst := range instArgs {
-			storageAttachArg, err := makeStorageAttachmentArgFromNewStorageInstance(
+			storageAttachArg, err := makeStorageAttachmentArgFromStorageInstance(
 				attachNetNodeUUID, internal.AttachStorageInstanceArg{
 					Filesystem: inst.Filesystem,
 					Volume:     inst.Volume,
@@ -903,7 +903,7 @@ func (s Service) MakeUnitAddStorageArgs(
 	rvalInstances = slices.Grow(rvalInstances, len(instArgs))
 	rvalToOwn = slices.Grow(rvalToOwn, len(instArgs))
 	for _, inst := range instArgs {
-		storageAttachArg, err := makeStorageAttachmentArgFromNewStorageInstance(
+		storageAttachArg, err := makeStorageAttachmentArgFromStorageInstance(
 			domainnetwork.NetNodeUUID(attachNetNodeUUID), internal.AttachStorageInstanceArg{
 				Filesystem: inst.Filesystem,
 				Volume:     inst.Volume,
@@ -1054,7 +1054,7 @@ func (s Service) MakeUnitAttachStorageArgs(
 			ProvisionScope: instComposition.Volume.ProvisionScope,
 		}
 	}
-	storageAttachArg, err := makeStorageAttachmentArgFromNewStorageInstance(
+	storageAttachArg, err := makeStorageAttachmentArgFromStorageInstance(
 		domainnetwork.NetNodeUUID(attachNetNodeUUID), instArg,
 	)
 	if err != nil {
