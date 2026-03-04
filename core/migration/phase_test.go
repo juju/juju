@@ -72,6 +72,22 @@ func (s *PhaseSuite) TestIsRunning(c *gc.C) {
 	c.Check(migration.ABORTDONE.IsRunning(), jc.IsFalse)
 }
 
+func (s *PhaseSuite) TestIsPostSuccess(c *gc.C) {
+	c.Check(migration.UNKNOWN.IsPostSuccess(), jc.IsFalse)
+	c.Check(migration.NONE.IsPostSuccess(), jc.IsFalse)
+	c.Check(migration.QUIESCE.IsPostSuccess(), jc.IsFalse)
+	c.Check(migration.IMPORT.IsPostSuccess(), jc.IsFalse)
+	c.Check(migration.PROCESSRELATIONS.IsPostSuccess(), jc.IsFalse)
+	c.Check(migration.SUCCESS.IsPostSuccess(), jc.IsFalse)
+
+	c.Check(migration.LOGTRANSFER.IsPostSuccess(), jc.IsTrue)
+	c.Check(migration.REAP.IsPostSuccess(), jc.IsTrue)
+	c.Check(migration.REAPFAILED.IsPostSuccess(), jc.IsTrue)
+	c.Check(migration.DONE.IsPostSuccess(), jc.IsTrue)
+	c.Check(migration.ABORT.IsPostSuccess(), jc.IsFalse)
+	c.Check(migration.ABORTDONE.IsPostSuccess(), jc.IsFalse)
+}
+
 func (s *PhaseSuite) TestCanTransitionTo(c *gc.C) {
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.SUCCESS), jc.IsFalse)
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.ABORT), jc.IsTrue)

@@ -873,7 +873,7 @@ func formatMinionWaitDone(reports coremigration.MinionReports, infoPrefix string
 
 func formatMinionWaitUpdate(reports coremigration.MinionReports) string {
 	if reports.IsZero() {
-		return fmt.Sprintf("no reports from agents yet")
+		return "no reports from agents yet"
 	}
 
 	msg := fmt.Sprintf("waiting for agents to report back: %d succeeded, %d still to report",

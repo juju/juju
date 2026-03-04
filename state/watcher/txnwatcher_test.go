@@ -67,13 +67,15 @@ func (s *TxnWatcherSuite) newRunner(c *gc.C) {
 		runnerSession.Close()
 	})
 	runnerSession.SetMode(mgo.Strong, true)
-	s.runner = jujutxn.NewRunner(jujutxn.RunnerParams{
+	var err error
+	s.runner, err = jujutxn.NewRunner(jujutxn.RunnerParams{
 		Database:                  runnerSession.DB("juju"),
 		TransactionCollectionName: "txn",
 		ChangeLogName:             "-",
 		ServerSideTransactions:    true,
 		MaxRetryAttempts:          3,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *TxnWatcherSuite) newWatcherWithError(c *gc.C, expect int, watcherError error, baseConfig watcher.TxnWatcherConfig) (*watcher.TxnWatcher, *fakeHub) {

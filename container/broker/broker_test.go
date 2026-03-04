@@ -49,3 +49,43 @@ func (s *brokerSuite) TestAssociateDNSConfigSetsDomainsAndServers(c *gc.C) {
 	c.Assert(results[1].DNSSearchDomains, gc.DeepEquals, []string{"example.com"})
 	c.Assert(results[1].DNSServers.Values(), gc.DeepEquals, []string{"192.168.20.2", "8.8.8.8", "1.1.1.1"})
 }
+
+func (s *brokerSuite) TestAssociateDNSConfigFallbackDedupes(c *gc.C) {
+	nics := network.InterfaceInfos{
+		{
+			InterfaceName: "eth0",
+			Addresses: network.ProviderAddresses{
+				network.NewMachineAddress("10.0.0.5", network.WithCIDR("10.0.0.0/24")).AsProviderAddress(),
+			},
+		},
+	}
+
+	dnsCfg := &network.DNSConfig{
+		Nameservers: []network.ProviderAddress{
+			// This matches the subnet and will be added during main association.
+			network.NewMachineAddress("10.0.0.2").AsProviderAddress(),
+
+			// Duplicate of the above — if dedupe fails, it will appear twice.
+			network.NewMachineAddress("10.0.0.2").AsProviderAddress(),
+
+			// Fallback DNS
+			network.NewMachineAddress("8.8.8.8").AsProviderAddress(),
+
+			// Duplicate fallback DNS
+			network.NewMachineAddress("8.8.8.8").AsProviderAddress(),
+		},
+	}
+
+	results := associateDNSConfig(nics, dnsCfg)
+	c.Assert(results, gc.HasLen, 1)
+
+	values := results[0].DNSServers.Values()
+
+	// If dedupe is broken, we would get:
+	// ["10.0.0.2", "10.0.0.2", "8.8.8.8"]
+	// We expect only one instance of 10.0.0.2
+	c.Assert(values, gc.DeepEquals, []string{
+		"10.0.0.2",
+		"8.8.8.8",
+	})
+}

@@ -315,22 +315,7 @@ juju add-machine kvm:1
 juju add-machine lxd:1 --constraints virt-type=virtual-machine
 ```
 
-### 11. `juju status --watch` is dropped
-
-`juju wait-for` and subcommands are removed in `4.0`. Use status polling and check readiness yourself.
-
-**Juju 3.6**
-```bash
-juju wait-for application myapp --timeout=10m
-```
-
-**Juju 4.0**
-```bash
-# poll JSON status, then evaluate readiness client-side
-juju status --format=json
-```
-
-### 12. `juju wait-for` removed (scripts/CI must change)
+### 11. `juju wait-for` removed (scripts/CI must change)
 
 `juju wait-for` and subcommands are removed in `4.0`. Use status polling and check readiness yourself.
 
@@ -345,7 +330,7 @@ juju wait-for application myapp --timeout=10m
 juju status --format=json
 ```
 
-### 13. `juju export-bundle` removed
+### 12. `juju export-bundle` removed
 
 The `juju status` command cannot be used to watch status anymore. Please use the third-party `watch`.
 
@@ -359,7 +344,7 @@ juju export-bundle > bundle.yaml
 # Command removed. Please use Juju Terraform Provider plans.
 ```
 
-### 14. `juju status --watch` flag is dropped
+### 13. `juju status --watch` flag is dropped
 
 Operators can’t use `juju status` to watch the changes (via polling) using this command in `4.0`.
 

@@ -801,5 +801,8 @@ var watcherIgnoreList = []string{
 	bakeryStorageItemsC,
 	sequenceC,
 	refcountsC,
+	globalRefcountsC,
 	statusesHistoryC,
+	txnsC,
+	txnsC + ".stash",
 }

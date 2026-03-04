@@ -105,12 +105,12 @@ func EnsureWorkersStarted(st *State) {
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
 	EnsureWorkersStarted(st)
-	return txntesting.SetTestHooks(c, newRunnerForHooks(st), hooks...)
+	return txntesting.SetTestHooks(c, newRunnerForHooks(c, st), hooks...)
 }
 
 func SetBeforeHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
 	EnsureWorkersStarted(st)
-	return txntesting.SetBeforeHooks(c, newRunnerForHooks(st), fs...)
+	return txntesting.SetBeforeHooks(c, newRunnerForHooks(c, st), fs...)
 }
 
 // SetFailIfTransaction will set a transaction hook that marks the test as an error
@@ -118,24 +118,24 @@ func SetBeforeHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChec
 // should *not* trigger database updates.
 func SetFailIfTransaction(c *gc.C, st *State) txntesting.TransactionChecker {
 	EnsureWorkersStarted(st)
-	return txntesting.SetFailIfTransaction(c, newRunnerForHooks(st))
+	return txntesting.SetFailIfTransaction(c, newRunnerForHooks(c, st))
 }
 
 func SetAfterHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
 	EnsureWorkersStarted(st)
-	return txntesting.SetAfterHooks(c, newRunnerForHooks(st), fs...)
+	return txntesting.SetAfterHooks(c, newRunnerForHooks(c, st), fs...)
 }
 
 func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.TransactionChecker {
 	EnsureWorkersStarted(st)
-	return txntesting.SetRetryHooks(c, newRunnerForHooks(st), block, check)
+	return txntesting.SetRetryHooks(c, newRunnerForHooks(c, st), block, check)
 }
 
 func SetMaxTxnAttempts(c *gc.C, st *State, n int) {
 	st.maxTxnAttempts = n
 	db := st.database.(*database)
 	db.maxTxnAttempts = n
-	runner := jujutxn.NewRunner(jujutxn.RunnerParams{
+	runner, err := jujutxn.NewRunner(jujutxn.RunnerParams{
 		Database:                  db.raw,
 		Clock:                     st.stateClock,
 		TransactionCollectionName: "txns",
@@ -143,13 +143,14 @@ func SetMaxTxnAttempts(c *gc.C, st *State, n int) {
 		ServerSideTransactions:    true,
 		MaxRetryAttempts:          db.maxTxnAttempts,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	db.runner = runner
 	return
 }
 
-func newRunnerForHooks(st *State) jujutxn.Runner {
+func newRunnerForHooks(c *gc.C, st *State) jujutxn.Runner {
 	db := st.database.(*database)
-	runner := jujutxn.NewRunner(jujutxn.RunnerParams{
+	runner, err := jujutxn.NewRunner(jujutxn.RunnerParams{
 		Database:                  db.raw,
 		Clock:                     st.stateClock,
 		TransactionCollectionName: "txns",
@@ -161,6 +162,7 @@ func newRunnerForHooks(st *State) jujutxn.Runner {
 		},
 		MaxRetryAttempts: db.maxTxnAttempts,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	db.runner = runner
 	return runner
 }

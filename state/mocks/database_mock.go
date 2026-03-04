@@ -218,12 +218,13 @@ func (mr *MockDatabaseMockRecorder) Schema() *gomock.Call {
 }
 
 // TransactionRunner mocks base method.
-func (m *MockDatabase) TransactionRunner() (txn0.Runner, state.SessionCloser) {
+func (m *MockDatabase) TransactionRunner() (txn0.Runner, state.SessionCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TransactionRunner")
 	ret0, _ := ret[0].(txn0.Runner)
 	ret1, _ := ret[1].(state.SessionCloser)
-	return ret0, ret1
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // TransactionRunner indicates an expected call of TransactionRunner.

@@ -52,13 +52,15 @@ func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 	s.metadataCollection, closer = mongo.CollectionFromName(catalogue, "binarymetadata")
 	s.addCleanup(func(*gc.C) { closer() })
 	s.managedStorage = blobstore.NewManagedStorage(s.metadataCollection.Writeable().Underlying().Database, rs)
-	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{
+	var err error
+	s.txnRunner, err = jujutxn.NewRunner(jujutxn.RunnerParams{
 		Database:                  catalogue,
 		TransactionCollectionName: "txns",
 		ChangeLogName:             "-",
 		ServerSideTransactions:    true,
 		MaxRetryAttempts:          3,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	s.storage = binarystorage.New("my-uuid", s.managedStorage, s.metadataCollection, s.txnRunner)
 }
 

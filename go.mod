@@ -47,7 +47,7 @@ require (
 	github.com/hashicorp/vault/api v1.10.0
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
-	github.com/juju/blobstore/v3 v3.0.2
+	github.com/juju/blobstore/v3 v3.1.0
 	github.com/juju/charm/v12 v12.1.1
 	github.com/juju/clock v1.1.1
 	github.com/juju/cmd/v3 v3.2.2
@@ -81,7 +81,7 @@ require (
 	github.com/juju/schema v1.2.0
 	github.com/juju/terms-client/v2 v2.0.0
 	github.com/juju/testing v1.1.0
-	github.com/juju/txn/v3 v3.0.2
+	github.com/juju/txn/v3 v3.1.0
 	github.com/juju/utils/v3 v3.2.3
 	github.com/juju/version/v2 v2.0.1
 	github.com/juju/viddy v0.0.0-beta5
@@ -110,7 +110,7 @@ require (
 	github.com/vmware/govmomi v0.34.1
 	go.uber.org/mock v0.6.0
 	golang.org/x/crypto v0.48.0
-	golang.org/x/net v0.50.0
+	golang.org/x/net v0.51.0
 	golang.org/x/oauth2 v0.35.0
 	golang.org/x/sync v0.19.0
 	golang.org/x/sys v0.41.0
