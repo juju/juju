@@ -5,16 +5,19 @@ package state
 
 import "database/sql/driver"
 
-// publicKey represents a single row from the user public key table.
+// publicKey represents the result of selecting a public key with its per-model comment.
+// Data comes from joining user_public_ssh_key with model_authorized_keys.
 type publicKey struct {
 	Fingerprint string `db:"fingerprint"`
 	PublicKey   string `db:"public_key"`
+	Comment     string `db:"comment"`
 }
 
-// publicKeyData represents a single raw public key from the user public key
-// table.
+// publicKeyData represents public key data with its per-model comment.
+// Data comes from joining user_public_ssh_key with model_authorized_keys.
 type publicKeyData struct {
 	PublicKey string `db:"public_key"`
+	Comment   string `db:"comment"`
 }
 
 // modelAuthorizedKey represents a single row from the model_authorized_keys
@@ -22,6 +25,7 @@ type publicKeyData struct {
 type modelAuthorizedKey struct {
 	UserPublicSSHKeyId int64  `db:"user_public_ssh_key_id"`
 	ModelUUID          string `db:"model_uuid"`
+	Comment            string `db:"comment"`
 }
 
 // modelUUIDValue represents a model id for associating public keys with.
@@ -47,7 +51,6 @@ type userPublicKeyIds []userPublicKeyId
 // userPublicKeyInsert describes the data input needed for inserting new public
 // keys for a user.
 type userPublicKeyInsert struct {
-	Comment                  string `db:"comment"`
 	FingerprintHashAlgorithm string `db:"algorithm"`
 	Fingerprint              string `db:"fingerprint"`
 	PublicKey                string `db:"public_key"`
