@@ -33,7 +33,7 @@ func (*httpAPICallCloser) BestFacadeVersion(facade string) int {
 
 // HTTPClient implements base.APICallCloser. The returned HTTP client can be
 // used to send requests to the testing server set up in httpFixture.run().
-func (ac *httpAPICallCloser) HTTPClient() (*httprequest.Client, error) {
+func (ac *httpAPICallCloser) HTTPClient(base.HTTPClientScope) (*httprequest.Client, error) {
 	return &httprequest.Client{
 		BaseURL: ac.url.String(),
 	}, nil

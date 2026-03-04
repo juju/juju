@@ -33,7 +33,7 @@ type s3Putter struct {
 // to the controller via the s3-compatible api endpoint
 // "model-:modeluuid/charms/:object"
 func newS3Putter(api base.APICaller) (CharmPutter, error) {
-	apiHTTPClient, err := api.RootHTTPClient()
+	apiHTTPClient, err := api.HTTPClient(base.HTTPClientScopeUnscoped)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot retrieve http client from the api connection")
 	}

@@ -14,6 +14,7 @@ import (
 	"go.uber.org/mock/gomock"
 	"gopkg.in/httprequest.v1"
 
+	"github.com/juju/juju/api/base"
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/api/http/mocks"
@@ -247,7 +248,7 @@ func testMinVer(t minverTest, c *tc.C) {
 		Doer:    mockHttpDoer,
 	}
 
-	mockCaller.EXPECT().HTTPClient().Return(reqClient, nil).AnyTimes()
+	mockCaller.EXPECT().HTTPClient(base.HTTPClientScopeModel).Return(reqClient, nil).AnyTimes()
 	mockCaller.EXPECT().ModelTag().Return(testing.ModelTag, false).AnyTimes()
 	mockFacadeCaller.EXPECT().RawAPICaller().Return(mockCaller).AnyTimes()
 
