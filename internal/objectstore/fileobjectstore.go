@@ -31,13 +31,7 @@ import (
 	internalworker "github.com/juju/juju/internal/worker"
 )
 
-const (
-	defaultFileDirectory = "objectstore"
-
-	// remoteTimeout is the default timeout for retrieving blobs from
-	// remote API servers when it's from a get request.
-	remoteTimeout = time.Second * 30
-)
+const defaultFileDirectory = "objectstore"
 
 // FallbackStrategy is the strategy to use when there is no local file to
 // retrieve.
