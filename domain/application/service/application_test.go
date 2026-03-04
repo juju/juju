@@ -9,13 +9,13 @@ import (
 	"math/rand/v2"
 	"testing"
 	"time"
-	
+
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	
+
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/changestream"

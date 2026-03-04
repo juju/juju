@@ -5,12 +5,13 @@ package service
 
 import (
 	"context"
+	"maps"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/juju/clock"
-	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/caas"
@@ -1229,13 +1230,8 @@ func (s *ProviderService) populateAttachStorageArgs(
 	if err != nil {
 		return internal.AttachStorageToUnitArg{}, errors.Capture(err)
 	}
-	var allowedUUIDs []string
-	if len(storageAttachInfo.AlreadyAttachedToUnits) > 0 {
-		allowedUUIDs = make([]string, 0, len(storageAttachInfo.AlreadyAttachedToUnits))
-		for uuid := range storageAttachInfo.AlreadyAttachedToUnits {
-			allowedUUIDs = append(allowedUUIDs, uuid)
-		}
-	}
+
+	allowedUUIDs := slices.Collect(maps.Keys(storageAttachInfo.AlreadyAttachedToUnits))
 	args := internal.AttachStorageToUnitArg{
 		StorageToAttach:                attachArgs,
 		StorageName:                    storageAttachInfo.CharmStorageName,
@@ -1320,13 +1316,6 @@ func (s *ProviderService) makeAttachStorageToUnitArgs(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if storageUUID.Validate() != nil {
-		return internal.AttachStorageToUnitArg{}, errors.New("storage uuid is not valid").Add(coreerrors.NotValid)
-	}
-	if unitUUID.Validate() != nil {
-		return internal.AttachStorageToUnitArg{}, errors.New("unit uuid is not valid").Add(coreerrors.NotValid)
-	}
-
 	storageAttachInfo, err := s.st.GetStorageAttachInfoByUnitUUIDAndStorageUUID(ctx, unitUUID, storageUUID)
 	if err != nil {
 		return internal.AttachStorageToUnitArg{}, errors.Errorf(
@@ -1336,25 +1325,15 @@ func (s *ProviderService) makeAttachStorageToUnitArgs(
 	}
 
 	// First check to see if the storage is already attached to the unit.
-	attachedToMap := storageAttachInfo.AlreadyAttachedToUnits
-	attachedUUIDs := set.NewStrings()
-	for uuid := range attachedToMap {
-		attachedUUIDs.Add(uuid)
-	}
-	if attachedUUIDs.Size() == 1 && attachedUUIDs.Contains(unitUUID.String()) {
-		// The storage is already attached to the unit, so this is a no-op.
+	if _, alreadyAttached := storageAttachInfo.AlreadyAttachedToUnits[unitUUID.String()]; alreadyAttached {
 		return internal.AttachStorageToUnitArg{}, alreadyAttachedError
 	}
+	delete(storageAttachInfo.AlreadyAttachedToUnits, unitUUID.String())
 	// It's an error if the storage is attached to any other unit,
 	// as we don't support shared storage.
-	attachedUUIDs.Remove(unitUUID.String())
-	if attachedUUIDs.Size() > 0 {
-		otherNames := make([]string, 0, attachedUUIDs.Size())
-		for _, uuid := range attachedUUIDs.SortedValues() {
-			otherNames = append(otherNames, attachedToMap[uuid])
-		}
+	if len(storageAttachInfo.AlreadyAttachedToUnits) > 0 {
 		return internal.AttachStorageToUnitArg{}, applicationerrors.StorageAttachmentNotAllowed{
-			AttachedToUnits: otherNames,
+			AttachedToUnits: slices.Collect(maps.Values(storageAttachInfo.AlreadyAttachedToUnits)),
 		}
 	}
 
