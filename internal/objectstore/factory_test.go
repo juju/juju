@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v4/workertest"
@@ -17,11 +18,12 @@ import (
 	watcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/testhelpers"
 )
 
 type objectStoreFactorySuite struct {
-	testhelpers.IsolationSuite
+	baseSuite
+
+	remote *MockRemoteRetriever
 }
 
 func TestObjectStoreFactorySuite(t *testing.T) {
@@ -40,6 +42,9 @@ func (s *objectStoreFactorySuite) TestNewObjectStore(c *tc.C) {
 		"inferi",
 		WithLogger(loggertesting.WrapCheckLog(c)),
 		WithMetadataService(stubMetadataService{}),
+		WithClock(clock.WallClock),
+		WithControllerNodeID("1"),
+		WithClaimer(s.claimer),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obj, tc.NotNil)
@@ -61,18 +66,25 @@ func (s *objectStoreFactorySuite) TestNewObjectStoreInvalidBackend(c *tc.C) {
 }
 
 func (s *objectStoreFactorySuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
+	ctrl := s.baseSuite.setupMocks(c)
+
+	s.remote = NewMockRemoteRetriever(ctrl)
+
+	c.Cleanup(func() {
+		s.remote = nil
+	})
+
 	return ctrl
 }
 
 type stubMetadataService struct{}
 
-func (stubMetadataService) ObjectStore() objectstore.ObjectStoreMetadata {
+func (stubMetadataService) ObjectStore() objectstore.RemoteObjectStoreMetadata {
 	return stubObjectStore{}
 }
 
 type stubObjectStore struct {
-	objectstore.ObjectStoreMetadata
+	objectstore.RemoteObjectStoreMetadata
 }
 
 // Watch returns a watcher that emits the path changes that either have been

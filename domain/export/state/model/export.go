@@ -545,6 +545,10 @@ func (st *State) Export(ctx context.Context) (*v4_0_4.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing ObjectStoreMetadataPath statement: %w", err)
 	}
+	stmtObjectStorePlacement, err := sqlair.Prepare(`SELECT &ObjectStorePlacement.* FROM "object_store_placement"`, v4_0_4.ObjectStorePlacement{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing ObjectStorePlacement statement: %w", err)
+	}
 	stmtOffer, err := sqlair.Prepare(`SELECT &Offer.* FROM "offer"`, v4_0_4.Offer{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing Offer statement: %w", err)
@@ -1380,6 +1384,9 @@ func (st *State) Export(ctx context.Context) (*v4_0_4.ModelExport, error) {
 		}
 		if err := tx.Query(ctx, stmtObjectStoreMetadataPath).GetAll(&modelExport.ObjectStoreMetadataPath); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ObjectStoreMetadataPath (table object_store_metadata_path): %w", err)
+		}
+		if err := tx.Query(ctx, stmtObjectStorePlacement).GetAll(&modelExport.ObjectStorePlacement); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying ObjectStorePlacement (table object_store_placement): %w", err)
 		}
 		if err := tx.Query(ctx, stmtOffer).GetAll(&modelExport.Offer); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying Offer (table offer): %w", err)

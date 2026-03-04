@@ -144,6 +144,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		// Object store metadata
 		"object_store_metadata",
 		"object_store_metadata_path",
+		"object_store_placement",
 
 		// Node
 		"fqdn_address",

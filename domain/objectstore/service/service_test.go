@@ -36,12 +36,12 @@ func TestServiceSuite(t *testing.T) {
 func (s *serviceSuite) TestGetMetadata(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	path := uuid.MustNewUUID().String()
+	path := tc.Must(c, uuid.NewUUID).String()
 
 	metadata := objectstore.Metadata{
 		Path:   path,
-		SHA256: uuid.MustNewUUID().String(),
-		SHA384: uuid.MustNewUUID().String(),
+		SHA256: tc.Must(c, uuid.NewUUID).String(),
+		SHA384: tc.Must(c, uuid.NewUUID).String(),
 		Size:   666,
 	}
 
@@ -61,13 +61,13 @@ func (s *serviceSuite) TestGetMetadataBySHA256(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sha256 := sha256.New()
-	sha256.Write([]byte(uuid.MustNewUUID().String()))
+	sha256.Write([]byte(tc.Must(c, uuid.NewUUID).String()))
 	sha := hex.EncodeToString(sha256.Sum(nil))
 
 	metadata := objectstore.Metadata{
 		Path:   "path",
-		SHA256: uuid.MustNewUUID().String(),
-		SHA384: uuid.MustNewUUID().String(),
+		SHA256: tc.Must(c, uuid.NewUUID).String(),
+		SHA384: tc.Must(c, uuid.NewUUID).String(),
 		Size:   666,
 	}
 
@@ -87,7 +87,7 @@ func (s *serviceSuite) TestGetMetadataBySHA256Invalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sha256 := sha256.New()
-	sha256.Write([]byte(uuid.MustNewUUID().String()))
+	sha256.Write([]byte(tc.Must(c, uuid.NewUUID).String()))
 	sha := hex.EncodeToString(sha256.Sum(nil))
 
 	illegalSha := "!" + sha[1:]
@@ -100,7 +100,7 @@ func (s *serviceSuite) TestGetMetadataBySHA256TooShort(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sha256 := sha256.New()
-	sha256.Write([]byte(uuid.MustNewUUID().String()))
+	sha256.Write([]byte(tc.Must(c, uuid.NewUUID).String()))
 	sha := hex.EncodeToString(sha256.Sum(nil))
 
 	_, err := NewService(s.state).GetMetadataBySHA256(c.Context(), sha+"a")
@@ -121,8 +121,8 @@ func (s *serviceSuite) TestGetMetadataBySHA256Prefix(c *tc.C) {
 
 	metadata := objectstore.Metadata{
 		Path:   "path",
-		SHA256: uuid.MustNewUUID().String(),
-		SHA384: uuid.MustNewUUID().String(),
+		SHA256: tc.Must(c, uuid.NewUUID).String(),
+		SHA384: tc.Must(c, uuid.NewUUID).String(),
 		Size:   666,
 	}
 
@@ -162,12 +162,12 @@ func (s *serviceSuite) TestGetMetadataBySHA256PrefixInvalid(c *tc.C) {
 func (s *serviceSuite) TestListMetadata(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	path := uuid.MustNewUUID().String()
+	path := tc.Must(c, uuid.NewUUID).String()
 
 	metadata := objectstore.Metadata{
 		Path:   path,
-		SHA256: uuid.MustNewUUID().String(),
-		SHA384: uuid.MustNewUUID().String(),
+		SHA256: tc.Must(c, uuid.NewUUID).String(),
+		SHA384: tc.Must(c, uuid.NewUUID).String(),
 		Size:   666,
 	}
 
@@ -191,35 +191,33 @@ func (s *serviceSuite) TestListMetadata(c *tc.C) {
 func (s *serviceSuite) TestPutMetadata(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	path := uuid.MustNewUUID().String()
+	path := tc.Must(c, uuid.NewUUID).String()
 	metadata := objectstore.Metadata{
 		Path:   path,
-		SHA256: uuid.MustNewUUID().String(),
-		SHA384: uuid.MustNewUUID().String(),
+		SHA256: tc.Must(c, uuid.NewUUID).String(),
+		SHA384: tc.Must(c, uuid.NewUUID).String(),
 		Size:   666,
 	}
 
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
-	s.state.EXPECT().PutMetadata(gomock.Any(), gomock.AssignableToTypeOf(objectstore.Metadata{})).DoAndReturn(func(ctx context.Context, data objectstore.Metadata) (objectstore.UUID, error) {
-		c.Check(data.Path, tc.Equals, metadata.Path)
-		c.Check(data.Size, tc.Equals, metadata.Size)
-		c.Check(data.SHA256, tc.Equals, metadata.SHA256)
-		c.Check(data.SHA384, tc.Equals, metadata.SHA384)
-		return uuid, nil
-	})
+	var rUUID string
+	s.state.EXPECT().PutMetadata(gomock.Any(), gomock.Any(), metadata).
+		DoAndReturn(func(ctx context.Context, uuid string, data objectstore.Metadata) (string, error) {
+			rUUID = uuid
+			return uuid, nil
+		})
 
 	result, err := NewService(s.state).PutMetadata(c.Context(), metadata)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.Equals, uuid)
+	c.Check(result, tc.Equals, objectstore.UUID(rUUID))
 }
 
 func (s *serviceSuite) TestPutMetadataMissingSHA384(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	path := uuid.MustNewUUID().String()
+	path := tc.Must(c, uuid.NewUUID).String()
 	metadata := objectstore.Metadata{
 		Path:   path,
-		SHA256: uuid.MustNewUUID().String(),
+		SHA256: tc.Must(c, uuid.NewUUID).String(),
 		Size:   666,
 	}
 
@@ -230,15 +228,114 @@ func (s *serviceSuite) TestPutMetadataMissingSHA384(c *tc.C) {
 func (s *serviceSuite) TestPutMetadataMissingSHA256(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	path := uuid.MustNewUUID().String()
+	path := tc.Must(c, uuid.NewUUID).String()
 	metadata := objectstore.Metadata{
 		Path:   path,
-		SHA384: uuid.MustNewUUID().String(),
+		SHA384: tc.Must(c, uuid.NewUUID).String(),
 		Size:   666,
 	}
 
 	_, err := NewService(s.state).PutMetadata(c.Context(), metadata)
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMissingHash)
+}
+
+func (s *serviceSuite) TestPutMetadataWithControllerIDHint(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	controllerID := "1"
+	path := tc.Must(c, uuid.NewUUID).String()
+	metadata := objectstore.Metadata{
+		Path:   path,
+		SHA256: tc.Must(c, uuid.NewUUID).String(),
+		SHA384: tc.Must(c, uuid.NewUUID).String(),
+		Size:   666,
+	}
+
+	var rUUID string
+	s.state.EXPECT().PutMetadataWithControllerIDHint(gomock.Any(), gomock.Any(), metadata, controllerID).
+		DoAndReturn(func(ctx context.Context, uuid string, data objectstore.Metadata, _ string) (string, error) {
+
+			rUUID = uuid
+			return uuid, nil
+		})
+
+	result, err := NewService(s.state).PutMetadataWithControllerIDHint(c.Context(), metadata, controllerID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.Equals, objectstore.UUID(rUUID))
+}
+
+func (s *serviceSuite) TestPutMetadataWithControllerIDHintMissingSHA384(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	path := tc.Must(c, uuid.NewUUID).String()
+	metadata := objectstore.Metadata{
+		Path:   path,
+		SHA256: tc.Must(c, uuid.NewUUID).String(),
+		Size:   666,
+	}
+
+	_, err := NewService(s.state).PutMetadataWithControllerIDHint(c.Context(), metadata, "1")
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMissingHash)
+}
+
+func (s *serviceSuite) TestPutMetadataWithControllerIDHintMissingSHA256(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	path := tc.Must(c, uuid.NewUUID).String()
+	metadata := objectstore.Metadata{
+		Path:   path,
+		SHA384: tc.Must(c, uuid.NewUUID).String(),
+		Size:   666,
+	}
+
+	_, err := NewService(s.state).PutMetadataWithControllerIDHint(c.Context(), metadata, "1")
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMissingHash)
+}
+
+func (s *serviceSuite) TestPutMetadataWithControllerIDHintMissingControllerID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	path := tc.Must(c, uuid.NewUUID).String()
+	metadata := objectstore.Metadata{
+		Path:   path,
+		SHA256: tc.Must(c, uuid.NewUUID).String(),
+		SHA384: tc.Must(c, uuid.NewUUID).String(),
+		Size:   666,
+	}
+
+	_, err := NewService(s.state).PutMetadataWithControllerIDHint(c.Context(), metadata, "")
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMissingControllerID)
+}
+
+func (s *serviceSuite) TestAddControllerIDHint(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	controllerID := "1"
+	sha384 := tc.Must(c, uuid.NewUUID).String()
+
+	s.state.EXPECT().AddControllerIDHint(gomock.Any(), sha384, controllerID).Return(nil)
+
+	err := NewService(s.state).AddControllerIDHint(c.Context(), sha384, controllerID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestAddControllerIDHintMissingHash(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	controllerID := "1"
+
+	err := NewService(s.state).AddControllerIDHint(c.Context(), "", controllerID)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMissingHash)
+}
+
+func (s *serviceSuite) TestAddControllerIDHintMissingControllerNodeID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	controllerID := ""
+	sha384 := tc.Must(c, uuid.NewUUID).String()
+
+	err := NewService(s.state).AddControllerIDHint(c.Context(), sha384, controllerID)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMissingControllerID)
 }
 
 // Test watch returns a watcher that watches the specified path.
@@ -361,7 +458,7 @@ func (s *drainingServiceSuite) TestGetDrainingPhaseError(c *tc.C) {
 func (s *drainingServiceSuite) TestRemoveMetadata(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	key := uuid.MustNewUUID().String()
+	key := tc.Must(c, uuid.NewUUID).String()
 
 	s.state.EXPECT().RemoveMetadata(gomock.Any(), key).Return(nil)
 

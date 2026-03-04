@@ -62,6 +62,8 @@ const (
 type s3ObjectStore struct {
 	baseObjectStore
 
+	metadataService objectstore.ObjectStoreMetadata
+
 	internalStates chan string
 	catacomb       catacomb.Catacomb
 
@@ -82,16 +84,16 @@ func newS3ObjectStore(cfg S3ObjectStoreConfig, internalStates chan string) (*s3O
 
 	s := &s3ObjectStore{
 		baseObjectStore: baseObjectStore{
-			path:            path,
-			claimer:         cfg.Claimer,
-			metadataService: cfg.MetadataService,
-			logger:          cfg.Logger,
-			clock:           cfg.Clock,
+			path:    path,
+			claimer: cfg.Claimer,
+			logger:  cfg.Logger,
+			clock:   cfg.Clock,
 		},
-		internalStates: internalStates,
-		client:         cfg.Client,
-		rootBucket:     cfg.RootBucket,
-		namespace:      cfg.Namespace,
+		metadataService: cfg.MetadataService,
+		internalStates:  internalStates,
+		client:          cfg.Client,
+		rootBucket:      cfg.RootBucket,
+		namespace:       cfg.Namespace,
 
 		requests: make(chan request),
 	}

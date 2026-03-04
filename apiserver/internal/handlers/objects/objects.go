@@ -5,6 +5,8 @@ package objects
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +16,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
+	domainobjectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/internal/errors"
 	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
 )
@@ -86,7 +89,9 @@ func (h *ObjectsHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) er
 	}
 
 	reader, readerSize, err := objectStore.GetBySHA256(r.Context(), sha256)
-	if errors.Is(err, objectstoreerrors.ObjectNotFound) {
+	if errors.IsOneOf(err, domainobjectstoreerrors.ErrInvalidHashLength, domainobjectstoreerrors.ErrInvalidHash) {
+		return jujuerrors.BadRequestf("invalid object sha256: %s", sha256)
+	} else if errors.Is(err, objectstoreerrors.ObjectNotFound) {
 		return jujuerrors.NotFoundf("object: %s", sha256)
 	} else if err != nil {
 		return errors.Capture(err)
@@ -99,6 +104,16 @@ func (h *ObjectsHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) er
 
 	w.Header().Set("x-amzn-requestid", r.Header.Get("x-amz-request-id"))
 	w.Header().Set("x-amzn-id-2", r.Header.Get("x-amz-id-2"))
+
+	// We want to send back the checksum header to ensure nothing got corrupted
+	// in transit. Objects are content addressable, we can guarantee that the
+	// object found for the given hash is the same. So we just need to encode
+	// the hash back for the s3 client to verify it.
+	decodedHex, err := hex.DecodeString(sha256)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	w.Header().Set("x-amz-checksum-sha256", base64.StdEncoding.EncodeToString(decodedHex))
 
 	size, err := io.Copy(w, reader)
 	if err != nil {
