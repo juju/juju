@@ -72,8 +72,10 @@ func (s *objectsHandlerSuite) TestServeGet(c *tc.C) {
 
 	s.expectObjectStore()
 
+	hash := "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e"
+
 	reader := io.NopCloser(strings.NewReader("charm-content"))
-	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e").Return(reader, 13, nil)
+	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), hash).Return(reader, 13, nil)
 
 	handlers := &ObjectsHTTPHandler{
 		objectStoreGetter: s.objectStoreGetter,
@@ -83,7 +85,6 @@ func (s *objectsHandlerSuite) TestServeGet(c *tc.C) {
 	defer s.mux.RemoveHandler("GET", objectsRoutePrefix)
 
 	modelUUID := testing.ModelTag.Id()
-	hash := "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e"
 
 	url := fmt.Sprintf("%s/model-%s/objects/%s", s.srv.URL, modelUUID, hash)
 	resp, err := http.Get(url)
@@ -101,8 +102,10 @@ func (s *objectsHandlerSuite) TestServeGetHeaders(c *tc.C) {
 
 	s.expectObjectStore()
 
+	hash := "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e"
+
 	reader := io.NopCloser(strings.NewReader("charm-content"))
-	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e").Return(reader, 13, nil)
+	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), hash).Return(reader, 13, nil)
 
 	handlers := &ObjectsHTTPHandler{
 		objectStoreGetter: s.objectStoreGetter,
@@ -112,7 +115,6 @@ func (s *objectsHandlerSuite) TestServeGetHeaders(c *tc.C) {
 	defer s.mux.RemoveHandler("GET", objectsRoutePrefix)
 
 	modelUUID := testing.ModelTag.Id()
-	hash := "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e"
 
 	url := fmt.Sprintf("%s/model-%s/objects/%s", s.srv.URL, modelUUID, hash)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
@@ -134,8 +136,10 @@ func (s *objectsHandlerSuite) TestServeGetInvalidHash(c *tc.C) {
 
 	s.expectObjectStore()
 
+	hash := "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e"
+
 	reader := io.NopCloser(strings.NewReader("charm-content"))
-	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e").Return(reader, 13, domainobjectstoreerrors.ErrInvalidHashLength)
+	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), hash).Return(reader, 13, domainobjectstoreerrors.ErrInvalidHashLength)
 
 	handlers := &ObjectsHTTPHandler{
 		objectStoreGetter: s.objectStoreGetter,
@@ -145,7 +149,6 @@ func (s *objectsHandlerSuite) TestServeGetInvalidHash(c *tc.C) {
 	defer s.mux.RemoveHandler("GET", objectsRoutePrefix)
 
 	modelUUID := testing.ModelTag.Id()
-	hash := "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e"
 
 	url := fmt.Sprintf("%s/model-%s/objects/%s", s.srv.URL, modelUUID, hash)
 	resp, err := http.Get(url)
@@ -160,8 +163,10 @@ func (s *objectsHandlerSuite) TestServeGetInvalidSize(c *tc.C) {
 
 	s.expectObjectStore()
 
+	hash := "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e"
+
 	reader := io.NopCloser(strings.NewReader("charm-content"))
-	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e").Return(reader, 2, nil)
+	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), hash).Return(reader, 2, nil)
 
 	handlers := &ObjectsHTTPHandler{
 		objectStoreGetter: s.objectStoreGetter,
@@ -171,7 +176,6 @@ func (s *objectsHandlerSuite) TestServeGetInvalidSize(c *tc.C) {
 	defer s.mux.RemoveHandler("GET", objectsRoutePrefix)
 
 	modelUUID := testing.ModelTag.Id()
-	hash := "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e"
 
 	url := fmt.Sprintf("%s/model-%s/objects/%s", s.srv.URL, modelUUID, hash)
 	resp, err := http.Get(url)
@@ -188,7 +192,9 @@ func (s *objectsHandlerSuite) TestServeGetNotFound(c *tc.C) {
 
 	s.expectObjectStore()
 
-	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e").Return(nil, -1, objectstoreerrors.ObjectNotFound)
+	hash := "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e"
+
+	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), hash).Return(nil, -1, objectstoreerrors.ObjectNotFound)
 
 	handlers := &ObjectsHTTPHandler{
 		objectStoreGetter: s.objectStoreGetter,
@@ -198,7 +204,6 @@ func (s *objectsHandlerSuite) TestServeGetNotFound(c *tc.C) {
 	defer s.mux.RemoveHandler("GET", objectsRoutePrefix)
 
 	modelUUID := testing.ModelTag.Id()
-	hash := "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e"
 
 	url := fmt.Sprintf("%s/model-%s/objects/%s", s.srv.URL, modelUUID, hash)
 	resp, err := http.Get(url)
