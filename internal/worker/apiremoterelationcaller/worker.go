@@ -134,7 +134,9 @@ func (w *remoteWorker) Report() map[string]any {
 // specified model. The connection must be valid for the lifetime of the
 // returned RemoteConnection.
 func (w *remoteWorker) GetConnectionForModel(ctx context.Context, modelName model.UUID) (api.Connection, error) {
-	response := make(chan response)
+	// Buffer the response to avoid blocking the worker loop if the caller context
+	// is cancelled after enqueueing the request but before receiving the response.
+	response := make(chan response, 1)
 	select {
 	case <-w.catacomb.Dying():
 		return nil, errors.Capture(ErrAPIRemoteRelationCallerDead)
