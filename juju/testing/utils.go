@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	coreobjectstore "github.com/juju/juju/core/objectstore"
@@ -26,6 +27,8 @@ func NewObjectStoreWithMetadataService(c *tc.C, modelUUID string, metadataServic
 		modelUUID,
 		objectstore.WithRootDir(c.MkDir()),
 		objectstore.WithLogger(loggertesting.WrapCheckLog(c)),
+		objectstore.WithClock(clock.WallClock),
+		objectstore.WithControllerNodeID("0"),
 
 		// TODO (stickupkid): Swap this over to the real metadata service
 		// when all facades are moved across.

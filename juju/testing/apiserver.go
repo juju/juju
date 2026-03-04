@@ -581,6 +581,8 @@ func (s *stubObjectStoreGetter) GetObjectStore(ctx context.Context, namespace st
 		internalobjectstore.WithMetadataService(&stubMetadataService{services: services}),
 		internalobjectstore.WithClaimer(s.claimer),
 		internalobjectstore.WithLogger(internallogger.GetLogger("juju.objectstore")),
+		internalobjectstore.WithClock(clock.WallClock),
+		internalobjectstore.WithControllerNodeID("0"),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
