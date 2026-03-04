@@ -148,6 +148,7 @@ func (w *remoteServer) Wait() error {
 	return w.tomb.Wait()
 }
 
+// Report outputs the state of the worker for the engine report.
 func (w *remoteServer) Report() map[string]any {
 	ch := make(chan report, 1)
 	select {
