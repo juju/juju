@@ -414,7 +414,6 @@ func (s *serviceSuite) TestMakeUnitAttachStorageArgs(c *tc.C) {
 
 	attachNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
-	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 	instComposition := internal.StorageInstanceComposition{
 		UUID: storageUUID,
 		Filesystem: &internal.StorageInstanceCompositionFilesystem{
@@ -431,9 +430,6 @@ func (s *serviceSuite) TestMakeUnitAttachStorageArgs(c *tc.C) {
 	provider.EXPECT().Scope().Return(internalstorage.ScopeMachine).AnyTimes()
 	provider.EXPECT().Supports(internalstorage.StorageKindFilesystem).Return(true).AnyTimes()
 	provider.EXPECT().Supports(internalstorage.StorageKindBlock).Return(true).AnyTimes()
-	s.poolProvider.EXPECT().GetProviderForPool(gomock.Any(), poolUUID).Return(
-		provider, nil,
-	).AnyTimes()
 
 	s.state.EXPECT().GetStorageInstanceCompositionByUUID(gomock.Any(), storageUUID).Return(instComposition, nil)
 
