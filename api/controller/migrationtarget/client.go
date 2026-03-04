@@ -215,7 +215,7 @@ func (c *Client) http(ctx context.Context, method, modelUUID string, content io.
 	}
 
 	// The returned httpClient sets the base url to the controller api root
-	httpClient, err := c.httpRootClientFactory(base.HTTPClientScopeController)
+	httpClient, err := c.httpRootClientFactory(base.HTTPClientScopeUnscoped)
 	if err != nil {
 		return errors.Trace(err)
 	}

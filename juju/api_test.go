@@ -618,7 +618,7 @@ func (s *NewAPIClientSuite) TestHTTPClientWithControllerPathSegment(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(client.BaseURL, tc.Equals, "https://example1:1111/foo/model/9c8fc580-7ad2-43a0-a0b9-c14b80172190")
 
-	client, err = conn.HTTPClient(base.HTTPClientScopeController)
+	client, err = conn.HTTPClient(base.HTTPClientScopeUnscoped)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(client.BaseURL, tc.Equals, "https://example1:1111/foo")
 }

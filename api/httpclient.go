@@ -34,8 +34,8 @@ func (c *conn) HTTPClient(scope base.HTTPClientScope) (*httprequest.Client, erro
 	switch scope {
 	case base.HTTPClientScopeModel:
 		return c.modelScopedHTTPClient()
-	case base.HTTPClientScopeController:
-		return c.controllerScopedHTTPClient()
+	case base.HTTPClientScopeUnscoped:
+		return c.unscopedHTTPClient()
 	default:
 		return nil, errors.Errorf("unknown HTTP client scope %q", scope)
 	}
@@ -53,7 +53,7 @@ func (c *conn) modelScopedHTTPClient() (*httprequest.Client, error) {
 	return c.httpClient(url)
 }
 
-func (c *conn) controllerScopedHTTPClient() (*httprequest.Client, error) {
+func (c *conn) unscopedHTTPClient() (*httprequest.Client, error) {
 	url := c.Addr()
 	url.Scheme = c.serverScheme
 	return c.httpClient(url)

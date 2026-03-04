@@ -70,7 +70,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, err
 	}
 
-	httpClient, err := apiConn.HTTPClient(base.HTTPClientScopeController)
+	httpClient, err := apiConn.HTTPClient(base.HTTPClientScopeUnscoped)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

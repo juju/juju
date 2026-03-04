@@ -27,9 +27,11 @@ const (
 	// HTTPClientScopeModel indicates that the HTTP client is scoped to a model.
 	HTTPClientScopeModel HTTPClientScope = "model"
 
-	// HTTPClientScopeController indicates that the HTTP client is scoped to a
-	// controller.
-	HTTPClientScopeController HTTPClientScope = "controller"
+	// HTTPClientScopeUnscoped indicates that the HTTP client is unscoped. The
+	// intention is that the client will be free to make requests to any API
+	// endpoint, but in practice it will be scoped to the controller, as there
+	// is no model UUID to scope to.
+	HTTPClientScopeUnscoped HTTPClientScope = "unscoped"
 )
 
 // Doer is implemented by HTTP client packages to make an HTTP request.
