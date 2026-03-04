@@ -13,7 +13,17 @@ run_serviceaccount_credential() {
 		exit 1
 	fi
 	credServiceAccount=$(juju show-credential --controller "$BOOTSTRAPPED_JUJU_CTRL_NAME" | yq '.controller-credentials .google .default .content .service-account')
-	check_contains "$credServiceAccount" "$projectServiceAccount"
+	chk=$(echo "${credServiceAccount}" | grep "${projectServiceAccount}" || true)
+	if [[ -z ${chk} ]]; then
+		printf "Expected project service account \"%s\" not found in controller credential\n" "${projectServiceAccount}" >&2
+		accountInfo=$(gcloud compute project-info describe --format yaml)
+		printf "Google account info:\n%s\n" "${accountInfo}" >&2
+		credentialInfo=$(juju show-credential --controller "$BOOTSTRAPPED_JUJU_CTRL_NAME")
+		printf "Controller credential info:\n%s\n" "${credentialInfo}" >&2
+		return 1
+	else
+		echo "Success: \"${projectServiceAccount}\" found" >&2
+	fi
 
 	juju switch "test-serviceaccount-gce"
 	juju deploy ubuntu

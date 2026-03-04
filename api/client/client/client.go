@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/logger"
@@ -34,13 +33,13 @@ var WithTracer = base.WithTracer
 type Client struct {
 	base.ClientFacade
 	facade base.FacadeCaller
-	conn   api.Connection
+	conn   base.APICallCloser
 	logger logger.Logger
 }
 
 // NewClient returns an object that can be used to access client-specific
 // functionality.
-func NewClient(c api.Connection, logger logger.Logger, options ...Option) *Client {
+func NewClient(c base.APICallCloser, logger logger.Logger, options ...Option) *Client {
 	frontend, backend := base.NewClientFacade(c, "Client", options...)
 	return &Client{
 		ClientFacade: frontend,
