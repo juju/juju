@@ -16,7 +16,7 @@ import (
 func (s *Service) GetStorageInstanceInfo(
 	ctx context.Context, uuid domainstorage.StorageInstanceUUID,
 ) (domainstorage.StorageInstanceInfo, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	_, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	return domainstorage.StorageInstanceInfo{}, errors.New("not yet implemented")

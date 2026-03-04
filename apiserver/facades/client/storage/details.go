@@ -8,13 +8,14 @@ import (
 	"slices"
 	"time"
 
+	"github.com/juju/names/v6"
+
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coreerrors "github.com/juju/juju/core/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/names/v6"
 )
 
 // getOneStorageDetails processes and retreives the storage details for a single

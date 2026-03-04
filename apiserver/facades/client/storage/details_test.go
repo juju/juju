@@ -101,7 +101,7 @@ func (s *storageDetailsSuite) TestWithReadPermission(c *tc.C) {
 			{
 				Result: &params.StorageDetails{
 					Attachments: map[string]params.StorageAttachmentDetails{
-						unitTag.String(): params.StorageAttachmentDetails{
+						unitTag.String(): {
 							Life:       corelife.Alive,
 							Location:   "/mnt/foo",
 							MachineTag: names.NewMachineTag("1").String(),
@@ -194,7 +194,7 @@ func (s *storageDetailsSuite) TestWithWritePermission(c *tc.C) {
 			{
 				Result: &params.StorageDetails{
 					Attachments: map[string]params.StorageAttachmentDetails{
-						unitTag.String(): params.StorageAttachmentDetails{
+						unitTag.String(): {
 							Life:       corelife.Alive,
 							Location:   "/mnt/foo",
 							MachineTag: names.NewMachineTag("1").String(),
@@ -287,7 +287,7 @@ func (s *storageDetailsSuite) TestWithModelAdminPermission(c *tc.C) {
 			{
 				Result: &params.StorageDetails{
 					Attachments: map[string]params.StorageAttachmentDetails{
-						unitTag.String(): params.StorageAttachmentDetails{
+						unitTag.String(): {
 							Life:       corelife.Alive,
 							Location:   "/mnt/foo",
 							MachineTag: names.NewMachineTag("1").String(),
@@ -338,7 +338,7 @@ func (s *storageDetailsSuite) TestWithNoPermission(c *tc.C) {
 	c.Check(result, tc.DeepEquals, params.StorageDetailsResults{})
 }
 
-// TestStorageDetailsWithTheSameIDReuse is making sure that if we recieve the
+// TestStorageDetailsWithTheSameIDReuse is making sure that if we receive the
 // same storage entity id from a caller multiple times we reuse the first
 // result instead of going back to the database for the same information
 // again. This test also makes sure that results are returned in the order
@@ -458,7 +458,7 @@ func (s *storageDetailsSuite) TestStorageDetailsWithTheSameIDReuse(c *tc.C) {
 			{
 				Result: &params.StorageDetails{
 					Attachments: map[string]params.StorageAttachmentDetails{
-						unitTag1.String(): params.StorageAttachmentDetails{
+						unitTag1.String(): {
 							Life:       corelife.Alive,
 							Location:   "/mnt/foo",
 							MachineTag: names.NewMachineTag("1").String(),
@@ -485,7 +485,7 @@ func (s *storageDetailsSuite) TestStorageDetailsWithTheSameIDReuse(c *tc.C) {
 			{
 				Result: &params.StorageDetails{
 					Attachments: map[string]params.StorageAttachmentDetails{
-						unitTag2.String(): params.StorageAttachmentDetails{
+						unitTag2.String(): {
 							Life:       corelife.Alive,
 							Location:   "/mnt/foo",
 							MachineTag: names.NewMachineTag("2").String(),
@@ -512,7 +512,7 @@ func (s *storageDetailsSuite) TestStorageDetailsWithTheSameIDReuse(c *tc.C) {
 			{
 				Result: &params.StorageDetails{
 					Attachments: map[string]params.StorageAttachmentDetails{
-						unitTag1.String(): params.StorageAttachmentDetails{
+						unitTag1.String(): {
 							Life:       corelife.Alive,
 							Location:   "/mnt/foo",
 							MachineTag: names.NewMachineTag("1").String(),
@@ -603,7 +603,7 @@ func (s *storageDetailsSuite) TestStorageDetailsFilesystemNoStatusSet(c *tc.C) {
 			{
 				Result: &params.StorageDetails{
 					Attachments: map[string]params.StorageAttachmentDetails{
-						unitTag1.String(): params.StorageAttachmentDetails{
+						unitTag1.String(): {
 							Life:       corelife.Alive,
 							Location:   "/mnt/foo",
 							MachineTag: names.NewMachineTag("1").String(),
@@ -689,7 +689,7 @@ func (s *storageDetailsSuite) TestStorageDetailsVolumeNoStatusSet(c *tc.C) {
 			{
 				Result: &params.StorageDetails{
 					Attachments: map[string]params.StorageAttachmentDetails{
-						unitTag1.String(): params.StorageAttachmentDetails{
+						unitTag1.String(): {
 							Life:       corelife.Alive,
 							Location:   "/mnt/foo",
 							MachineTag: names.NewMachineTag("1").String(),
@@ -960,7 +960,7 @@ func (s *storageDetailsSuite) TestStorageDetailsMixedResults(c *tc.C) {
 			{
 				Result: &params.StorageDetails{
 					Attachments: map[string]params.StorageAttachmentDetails{
-						unitTag1.String(): params.StorageAttachmentDetails{
+						unitTag1.String(): {
 							Life:       corelife.Alive,
 							Location:   "/mnt/foo",
 							MachineTag: names.NewMachineTag("1").String(),
@@ -993,7 +993,7 @@ func (s *storageDetailsSuite) TestStorageDetailsMixedResults(c *tc.C) {
 			{
 				Result: &params.StorageDetails{
 					Attachments: map[string]params.StorageAttachmentDetails{
-						unitTag2.String(): params.StorageAttachmentDetails{
+						unitTag2.String(): {
 							Life:       corelife.Alive,
 							Location:   "/mnt/foo",
 							MachineTag: names.NewMachineTag("2").String(),
@@ -1020,7 +1020,7 @@ func (s *storageDetailsSuite) TestStorageDetailsMixedResults(c *tc.C) {
 			{
 				Result: &params.StorageDetails{
 					Attachments: map[string]params.StorageAttachmentDetails{
-						unitTag1.String(): params.StorageAttachmentDetails{
+						unitTag1.String(): {
 							Life:       corelife.Alive,
 							Location:   "/mnt/foo",
 							MachineTag: names.NewMachineTag("1").String(),
