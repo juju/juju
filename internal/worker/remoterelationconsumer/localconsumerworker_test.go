@@ -3064,6 +3064,26 @@ func (s *localConsumerWorkerSuite) TestRelationRemovedNotifiesOfferingModel(c *t
 	workertest.CleanKill(c, w)
 }
 
+func (s *localConsumerWorkerSuite) TestIsRelationWorkerDeadWhenRunnerDeadAndWorkerDying(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := s.expectWorkerStartup()
+
+	w := s.newLocalConsumerWorker(c)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	workertest.CleanKill(c, w)
+
+	dead, err := w.isRelationWorkerDead(c.Context(), tc.Must(c, relation.NewUUID))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(dead, tc.IsTrue)
+}
+
 // TestRelationRemovedWithoutOffererUnitWorker tests that when a relation is
 // removed and no offerer unit relation worker exists (e.g. worker restarted),
 // the worker gracefully handles the situation without trying to notify the
