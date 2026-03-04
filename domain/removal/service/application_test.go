@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/assumes"
 	coremodel "github.com/juju/juju/core/model"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
@@ -349,7 +350,7 @@ func (s *applicationSuite) TestMarkApplicationAsDeadCAASResourcesStillExist(c *t
 	exp.GetApplicationName(gomock.Any(), appUUID.String()).Return("app-name", nil)
 
 	svc := s.newService(c)
-	svc.providerGetter = func(context.Context) (Provider, error) {
+	svc.caasApplicationProvider = func(context.Context) (CAASProvider, error) {
 		return staticCAASProvider{app: caasApp}, nil
 	}
 	err := svc.markApplicationAsDead(c.Context(), appUUID.String())
@@ -405,7 +406,7 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingCAASReturnsIncomplet
 	exp.GetApplicationName(gomock.Any(), j.EntityUUID).Return("app-name", nil)
 
 	svc := s.newService(c)
-	svc.providerGetter = func(context.Context) (Provider, error) {
+	svc.caasApplicationProvider = func(context.Context) (CAASProvider, error) {
 		return staticCAASProvider{app: caasApp}, nil
 	}
 	err := svc.processApplicationRemovalJob(c.Context(), j)
@@ -596,12 +597,8 @@ func (p staticCAASProvider) Application(string, caas.DeploymentType) caas.Applic
 	return p.app
 }
 
-func (staticCAASProvider) ReleaseContainerAddresses(context.Context, []string) error {
-	return nil
-}
-
-func (staticCAASProvider) Destroy(context.Context) error {
-	return nil
+func (staticCAASProvider) SupportedFeatures() (assumes.FeatureSet, error) {
+	return assumes.FeatureSet{}, nil
 }
 
 func newApplicationJob(c *tc.C) removal.Job {

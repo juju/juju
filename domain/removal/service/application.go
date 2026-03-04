@@ -298,39 +298,27 @@ func (s *Service) markApplicationAsDead(ctx context.Context, appUUID string) err
 	}
 
 	// For CAAS models, check if the application has any provider resources
-	// before marking it as dead.
+	// before marking it as dead. Provider and resource check errors are
+	// treated as transient (RemovalJobIncomplete) so the removal worker
+	// retries gracefully instead of silently dropping the error.
 	if modelType == coremodel.CAAS {
 		appName, err := s.modelState.GetApplicationName(ctx, appUUID)
 		if err != nil {
 			return errors.Errorf("getting application %q name for provider resource check: %w", appUUID, err)
 		}
 
-		var appProvider interface {
-			Application(string, caas.DeploymentType) caas.Application
-		}
-		if s.caasApplicationProvider != nil {
-			provider, err := s.caasApplicationProvider(ctx)
-			if err != nil {
-				return errors.Errorf("getting provider for CAAS application %q dead transition: %w", appUUID, err)
-			}
-			appProvider = provider
-		} else {
-			provider, err := s.providerGetter(ctx)
-			if err != nil {
-				return errors.Errorf("getting provider for CAAS application %q dead transition: %w", appUUID, err)
-			}
-			caasProvider, ok := provider.(interface {
-				Application(string, caas.DeploymentType) caas.Application
-			})
-			if !ok {
-				return errors.Errorf("provider does not support CAAS application checks for application %q", appUUID)
-			}
-			appProvider = caasProvider
+		provider, err := s.caasApplicationProvider(ctx)
+		if err != nil {
+			s.logger.Warningf(ctx, "cannot get CAAS provider for application %q dead transition, will retry: %v", appUUID, err)
+			return errors.Errorf("getting provider for CAAS application %q dead transition: %w", appUUID, err).
+				Add(removalerrors.RemovalJobIncomplete)
 		}
 
-		appState, err := appProvider.Application(appName, caas.DeploymentStateful).Exists()
+		appState, err := provider.Application(appName, caas.DeploymentStateful).Exists()
 		if err != nil {
-			return errors.Errorf("checking CAAS resources for application %q: %w", appUUID, err)
+			s.logger.Warningf(ctx, "cannot check CAAS resources for application %q, will retry: %v", appUUID, err)
+			return errors.Errorf("checking CAAS resources for application %q: %w", appUUID, err).
+				Add(removalerrors.RemovalJobIncomplete)
 		}
 		if appState.Exists {
 			return errors.Errorf("cannot mark application %q as dead while CAAS resources still exist", appUUID).

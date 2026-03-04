@@ -60,21 +60,15 @@ func (st *State) GetModelType(ctx context.Context) (coremodel.ModelType, error) 
 		return "", errors.Capture(err)
 	}
 
-	type modelType struct {
-		Type coremodel.ModelType `db:"model_type"`
-	}
-	stmt, err := st.Prepare(`
-SELECT mt.type AS &modelType.model_type
-FROM   model AS m
-JOIN   model_type AS mt ON mt.id = m.model_type_id`, modelType{})
+	m := dbModelType{}
+	stmt, err := st.Prepare(`SELECT &dbModelType.* FROM model`, m)
 	if err != nil {
-		return "", errors.Errorf("preparing model type query: %w", err)
+		return "", errors.Capture(err)
 	}
 
-	var mType modelType
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt).Get(&mType); errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("model not found").Add(modelerrors.NotFound)
+		if err := tx.Query(ctx, stmt).Get(&m); errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("model does not exist").Add(modelerrors.NotFound)
 		} else if err != nil {
 			return errors.Errorf("running model type query: %w", err)
 		}
@@ -83,7 +77,8 @@ JOIN   model_type AS mt ON mt.id = m.model_type_id`, modelType{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	return mType.Type, nil
+
+	return coremodel.ParseModelType(m.Type)
 }
 
 // EnsureModelNotAlive ensures that there is no model identified by the input
