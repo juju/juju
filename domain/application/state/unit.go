@@ -1079,7 +1079,8 @@ func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, par
 }
 
 // UpdateUnitCharm updates the currently running charm marker for the given
-// unit and aligns any existing unit storage directives to the same charm.
+// unit, aligns existing unit storage directives to the same charm, and
+// backfills directives for any new charm storage definitions.
 // The following errors may be returned:
 // - [applicationerrors.UnitNotFound] if the unit does not exist.
 // - [applicationerrors.UnitIsDead] if the unit is dead.
@@ -1113,6 +1114,32 @@ WHERE  unit_uuid = (
 		return errors.Capture(err)
 	}
 
+	insertMissingUnitStorageDirectivesQuery, err := st.Prepare(`
+INSERT INTO unit_storage_directive (
+    unit_uuid,
+    charm_uuid,
+    storage_name,
+    storage_pool_uuid,
+    size_mib,
+    count
+)
+SELECT u.uuid,
+       asd.charm_uuid,
+       asd.storage_name,
+       asd.storage_pool_uuid,
+       asd.size_mib,
+       asd.count
+FROM   unit u
+JOIN   application_storage_directive asd
+       ON asd.application_uuid = u.application_uuid
+WHERE  u.name = $unitName.name
+AND    asd.charm_uuid = $charmUUID.charm_uuid
+ON CONFLICT (unit_uuid, charm_uuid, storage_name) DO NOTHING
+`, charmUUID, unitName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkUnitNotDeadByName(ctx, tx, name.String()); err != nil {
 			return errors.Capture(err)
@@ -1124,6 +1151,10 @@ WHERE  unit_uuid = (
 			return errors.Capture(err)
 		}
 		err = tx.Query(ctx, updateUnitStorageDirectivesQuery, charmUUID, unitName).Run()
+		if err != nil {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, insertMissingUnitStorageDirectivesQuery, charmUUID, unitName).Run()
 		if err != nil {
 			return errors.Capture(err)
 		}
