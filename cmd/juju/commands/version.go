@@ -6,11 +6,11 @@ package commands
 import (
 	"github.com/juju/gnuflag"
 
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/internal/cmd"
 )
 
 const versionDoc = `

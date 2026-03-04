@@ -18,7 +18,6 @@ import (
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/domain/storage"
-	storagetesting "github.com/juju/juju/domain/storage/testing"
 )
 
 // baseStorageSuite defines a set of common test suite fixtures for common
@@ -134,7 +133,7 @@ func (s *baseStorageSuite) newStorageInstance(
 	poolUUID storage.StoragePoolUUID,
 	storageKind storage.StorageKind,
 ) (storage.StorageInstanceUUID, string) {
-	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
+	storageInstanceUUID := tc.Must(c, storage.NewStorageInstanceUUID)
 	storageID := fmt.Sprintf("%s/%d", storageName, s.nextSequenceNumber(c, "storage"))
 
 	var charmName string
@@ -204,7 +203,7 @@ func (s *baseStorageSuite) newStoragePool(c *tc.C,
 	name string, providerType string,
 	attrs map[string]string,
 ) storage.StoragePoolUUID {
-	spUUID := storagetesting.GenStoragePoolUUID(c)
+	spUUID := tc.Must(c, storage.NewStoragePoolUUID)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `

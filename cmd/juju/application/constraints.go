@@ -14,10 +14,10 @@ import (
 
 	"github.com/juju/juju/api/client/application"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/internal/cmd"
 )
 
 var usageGetConstraintsSummary = `

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
@@ -72,45 +73,52 @@ type Machine struct {
 
 // StorageInstance represents the status of a storage instance.
 type StorageInstance struct {
-	UUID  storage.StorageInstanceUUID
-	ID    string
-	Kind  storage.StorageKind
-	Owner *unit.Name
-	Life  life.Life
+	UUID             storage.StorageInstanceUUID
+	ID               string
+	Kind             storage.StorageKind
+	Name             string
+	Owner            *unit.Name
+	Life             life.Life
+	FilesystemStatus StatusInfo[StorageFilesystemStatusType]
+	VolumeStatus     StatusInfo[StorageVolumeStatusType]
 }
 
 // StorageAttachment represents the status of a storage attachment.
 type StorageAttachment struct {
-	StorageInstanceUUID storage.StorageInstanceUUID
-	Life                life.Life
-	Unit                unit.Name
-	Machine             *machine.Name
+	StorageInstanceUUID  storage.StorageInstanceUUID
+	Life                 life.Life
+	Unit                 unit.Name
+	Machine              *machine.Name
+	FilesystemMountPoint *string
+	VolumeBlockDevice    *blockdevice.BlockDeviceUUID
 }
 
 // Filesystem represents the status of a filesystem.
 type Filesystem struct {
-	UUID       storage.FilesystemUUID
-	ID         string
-	Life       life.Life
-	Status     StatusInfo[StorageFilesystemStatusType]
-	StorageID  string
-	VolumeID   *string
-	ProviderID string
-	SizeMiB    uint64
+	UUID        storage.FilesystemUUID
+	StorageUUID *storage.StorageInstanceUUID
+	ID          string
+	Life        life.Life
+	Status      StatusInfo[StorageFilesystemStatusType]
+	StorageID   string
+	VolumeID    *string
+	ProviderID  string
+	SizeMiB     uint64
 }
 
 // Volume represents the status of a volume.
 type Volume struct {
-	UUID       storage.VolumeUUID
-	ID         string
-	Life       life.Life
-	Status     StatusInfo[StorageVolumeStatusType]
-	StorageID  string
-	ProviderID string
-	HardwareID string
-	WWN        string
-	SizeMiB    uint64
-	Persistent bool
+	UUID        storage.VolumeUUID
+	StorageUUID *storage.StorageInstanceUUID
+	ID          string
+	Life        life.Life
+	Status      StatusInfo[StorageVolumeStatusType]
+	StorageID   string
+	ProviderID  string
+	HardwareID  string
+	WWN         string
+	SizeMiB     uint64
+	Persistent  bool
 }
 
 // FilesystemAttachment represents the status of a filesystem attachment.
@@ -130,7 +138,7 @@ type VolumeAttachment struct {
 	Unit                 *unit.Name
 	Machine              *machine.Name
 	DeviceName           string
-	DeviceLink           string
+	DeviceLinks          []string
 	BusAddress           string
 	ReadOnly             bool
 	VolumeAttachmentPlan *VolumeAttachmentPlan

@@ -18,10 +18,10 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 	containerLXD "github.com/juju/juju/internal/container/lxd"
 	"github.com/juju/juju/internal/provider/lxd"
 	coretesting "github.com/juju/juju/internal/testing"

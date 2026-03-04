@@ -17,11 +17,11 @@ import (
 	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/api/jujuclient"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/rpc/params"
 )

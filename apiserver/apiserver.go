@@ -24,6 +24,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
 
+	apimacaroon "github.com/juju/juju/api/macaroon"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/jwt"
@@ -61,7 +62,6 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
-	internalmacaroon "github.com/juju/juju/internal/macaroon"
 	"github.com/juju/juju/internal/resource"
 	resourcecharmhub "github.com/juju/juju/internal/resource/charmhub"
 	"github.com/juju/juju/internal/services"
@@ -1378,7 +1378,7 @@ func getMacaroonBakeryByURL(
 	logger corelogger.Logger,
 ) (crossmodel.OfferBakery, error) {
 	location := authContextLocation(controllerModelUUID)
-	checker := checkers.New(internalmacaroon.MacaroonNamespace)
+	checker := checkers.New(apimacaroon.MacaroonNamespace)
 	authorizer := crossmodel.NewCMRAuthorizer(logger)
 
 	// Create a local bakery for validating macaroons.

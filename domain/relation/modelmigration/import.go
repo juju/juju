@@ -5,6 +5,8 @@ package modelmigration
 
 import (
 	"context"
+	"sort"
+	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v11"
@@ -90,6 +92,11 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return err
 	}
 
+	relationRemoteEntities, err := extractRelationUUIDFromRemoteEntities(model)
+	if err != nil {
+		return errors.Errorf("extracting relation UUIDs from remote entities: %w", err)
+	}
+
 	var args relation.ImportRelationsArgs
 	for _, rel := range model.Relations() {
 		// If the relation is a remote consumer relation we skip it.
@@ -103,7 +110,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		// it has any remote applications that have be de-duplicated as part of
 		// the import in cross model relation domain.
 		if remoteApps, ok := getRemoteRelation(rel, unique); ok {
-			arg, err := i.createRemoteImportArg(rel, remoteApps)
+			arg, err := i.createRemoteImportArg(rel, remoteApps, relationRemoteEntities)
 			if err != nil {
 				return errors.Errorf("setting up remote relation data for import %d: %w", rel.Id(), err)
 			}
@@ -137,7 +144,13 @@ func (i *importOperation) createImportArg(rel description.Relation) (relation.Im
 		return relation.ImportRelationArg{}, err
 	}
 
+	uuid, err := corerelation.NewUUID()
+	if err != nil {
+		return relation.ImportRelationArg{}, err
+	}
+
 	arg := relation.ImportRelationArg{
+		UUID:  uuid,
 		ID:    rel.Id(),
 		Key:   key,
 		Scope: charm.ScopeGlobal,
@@ -163,7 +176,11 @@ func (i *importOperation) createImportArg(rel description.Relation) (relation.Im
 // the remote application names, and also re-writing the relation key to ensure
 // that it is unique across the model if there are multiple relations with
 // remote applications that have been de-duplicated to have the same offer UUID.
-func (i *importOperation) createRemoteImportArg(rel description.Relation, remoteApps domainmodelmigration.RemoteApplicationOfferer) (relation.ImportRelationArg, error) {
+func (i *importOperation) createRemoteImportArg(
+	rel description.Relation,
+	remoteApps domainmodelmigration.RemoteApplicationOfferer,
+	remoteEntities []relationRemoteEntity,
+) (relation.ImportRelationArg, error) {
 	if remoteApps.IsEmpty() {
 		// This is a programmatic error, as this function should only be called
 		// for relations that have remote applications, so we return an error if
@@ -197,7 +214,13 @@ func (i *importOperation) createRemoteImportArg(rel description.Relation, remote
 		}
 	}
 
+	relationUUID, err := findRelationUUID(key, remoteEntities)
+	if err != nil {
+		return relation.ImportRelationArg{}, errors.Errorf("finding relation UUID for relation with key %q: %w", key, err)
+	}
+
 	arg := relation.ImportRelationArg{
+		UUID:  relationUUID,
 		ID:    rel.Id(),
 		Key:   key,
 		Scope: charm.ScopeGlobal,
@@ -250,4 +273,76 @@ func getRemoteRelation(rel description.Relation, remoteApps map[string]domainmod
 		}
 	}
 	return domainmodelmigration.RemoteApplicationOfferer{}, false
+}
+
+type relationRemoteEntity struct {
+	RelationKey  corerelation.Key
+	RelationUUID string
+}
+
+func extractRelationUUIDFromRemoteEntities(model description.Model) ([]relationRemoteEntity, error) {
+	var remoteEntities []relationRemoteEntity
+	for _, re := range model.RemoteEntities() {
+		// Handle only remote entities that are relation UUIDs.
+		remoteEntityID := re.ID()
+		if !strings.HasPrefix(remoteEntityID, "relation-") {
+			continue
+		}
+
+		key, err := corerelation.ParseKeyFromTagString(relationTagSuffixToKey(remoteEntityID))
+		if err != nil {
+			return nil, errors.Errorf("parsing relation key from remote entity id %q: %w", remoteEntityID, err)
+		}
+
+		// We shouldn't require the macaroon here, as no connections from the
+		// consumer side should be made to the offerer side.
+		remoteEntities = append(remoteEntities, relationRemoteEntity{
+			RelationKey:  key,
+			RelationUUID: re.Token(),
+		})
+	}
+	return remoteEntities, nil
+}
+
+func relationTagSuffixToKey(s string) string {
+	// Replace both "." with ":" and the "#" with " ".
+	s = strings.Replace(s, ".", ":", 2)
+	return strings.Replace(s, "#", " ", 1)
+}
+
+func findRelationUUID(key corerelation.Key, remoteEntities []relationRemoteEntity) (corerelation.UUID, error) {
+	for _, re := range remoteEntities {
+		if relationKeysEqual(re.RelationKey, key) {
+			return corerelation.UUID(re.RelationUUID), nil
+		}
+	}
+	return corerelation.NewUUID()
+}
+
+// relationKeysEqual compares two relation keys for equality, ignoring order.
+// Assumes both keys have exactly two endpoints and no scopes.
+func relationKeysEqual(a, b corerelation.Key) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	// Make defensive copies so that sorting does not mutate the caller's
+	// slices.
+	aCopy := append(corerelation.Key(nil), a...)
+	bCopy := append(corerelation.Key(nil), b...)
+
+	sort.Slice(aCopy, func(i, j int) bool {
+		return aCopy[i].String() < aCopy[j].String()
+	})
+	sort.Slice(bCopy, func(i, j int) bool {
+		return bCopy[i].String() < bCopy[j].String()
+	})
+
+	// Note: we ignore scope here, as cross model relations do not have scopes
+	// when being imported.
+	return endpointEquals(aCopy[0], bCopy[0]) && endpointEquals(aCopy[1], bCopy[1])
+}
+
+func endpointEquals(a, b corerelation.EndpointIdentifier) bool {
+	return a.ApplicationName == b.ApplicationName && a.EndpointName == b.EndpointName
 }

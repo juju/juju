@@ -25,7 +25,6 @@ import (
 	domainsequence "github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	domainstorage "github.com/juju/juju/domain/storage"
-	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -317,7 +316,7 @@ VALUES (?, ?, ?, ?)
 func (s *baseSuite) newStorageInstanceForCharmWithPool(
 	c *tc.C, charmUUID, poolUUID, storageName string,
 ) (domainstorage.StorageInstanceUUID, string) {
-	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
+	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	storageID := strconv.FormatUint(s.nextStorageSequenceNumber(c), 10)
 
 	var charmName string
@@ -348,7 +347,7 @@ VALUES (?, ?, ?, ?, 0, 100, ?, 1)
 func (s *baseSuite) newStorageInstanceBlockKindForCharmWithPool(
 	c *tc.C, charmUUID, poolUUID, storageName string,
 ) domainstorage.StorageInstanceUUID {
-	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
+	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	storageID := fmt.Sprintf("%s/%d", storageName, s.nextStorageSequenceNumber(c))
 
 	var charmName string

@@ -171,3 +171,13 @@ type queryParams struct {
 	Limit  int `db:"limit"`
 	Offset int `db:"offset"`
 }
+
+// queryFlags holds boolean flags (as ints for SQL) that indicate whether
+// optional filter clauses should be applied in the GetOperations query.
+type queryFlags struct {
+	HasActions      bool `db:"has_actions"`
+	HasStatus       bool `db:"has_status"`
+	HasApplications bool `db:"has_applications"`
+	HasMachines     bool `db:"has_machines"`
+	HasUnits        bool `db:"has_units"`
+}

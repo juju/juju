@@ -115,7 +115,8 @@ Rewrite as a sidecar charm pattern.
 
 ### 7. `private-address` is no longer auto-maintained in relation data
 
-Juju no longer maintains `private-address` automatically. It used to be a copy of `ingres-address`. Use ingress address instead.
+Juju no longer maintains `private-address` automatically. It used to be a copy of `ingres-address`. 
+Use ingress address instead.
 
 **Juju 3.6**
 ```bash
@@ -131,7 +132,8 @@ network-get --ingress-address <binding-name>
 
 ### 8. Actions: `additionalProperties` now defaults to `false`
 
-In `4.0`, action schemas default `additionalProperties` to `false`. If your action accepts arbitrary keys, set it explicitly.
+In `4.0`, action schemas default `additionalProperties` to `false`. 
+If your action accepts arbitrary keys, set it explicitly.
 
 **Juju 3.6**
 ```yaml
@@ -161,7 +163,8 @@ my-action:
 
 ### 1. Ubuntu fan networking removed
 
-Fan networking is removed in `4.0`. If you rely on Juju-managed fan overlay addresses, migrate to other networking before moving to `4.0`.
+Fan networking is removed in `4.0`. If you rely on Juju-managed fan overlay addresses, 
+migrate to other networking before migrating to `4.0`.
 
 **Juju 3.6**
 ```
@@ -206,7 +209,8 @@ juju add-ssh-key "ssh-ed25519 AAAA... yourkeycomment"
 
 ### 4. Status API filtering removed (`StatusArgs.Patterns[]`)
 
-Server-side status filtering via `StatusArgs.Patterns[]` is removed. API clients must fetch full status and filter client-side.
+Server-side status filtering via `StatusArgs.Patterns[]` is removed. 
+API clients must fetch full status and filter client-side.
 
 **Juju 3.6 (API consumer idea)**
 ```go
@@ -253,7 +257,8 @@ The provider name “Manual” is renamed to “Unmanaged”. Update scripts, te
 
 ### 7. Base/series commands removed: `upgrade-machine` and `set-application-base`
 
-In-place base/series switching via these commands is removed in `4.0`. Plan base changes as “move/redeploy” workflows instead of mutating machines.
+In-place base/series switching via these commands is removed in `4.0`. 
+Plan base changes as “move/redeploy” workflows instead of mutating machines.
 
 **Juju 3.6**
 ```bash
@@ -378,3 +383,17 @@ watch --color -n 1 juju status --color
 viddy juju status
 ```
 
+### 15. Importing orphaned volumes or file systems creates new storage instances
+
+If a storage volume or file system with no associated storage instance is migrated to `4.0`, a storage instance will be
+created. These will be of the form `orphaned/x`. The purpose of such storage instances is to allow the operator to 
+delete the linked volume or file system and its cloud resources should they desire.
+
+### 16. Cross-model integration offers can only be consumed once
+
+Juju `3.6` allowed operators to consume offers multiple times with different names in order to end up with multiple SAAS
+entities for the same offer.
+
+Juju `4.0` allows a maximum of one SAAS per remote offer in a consuming model.
+
+If importing multiple SAAS entities for the same offer, Juju `4.0` will unify them into a single SAAS.

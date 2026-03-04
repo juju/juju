@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -56,6 +57,7 @@ import (
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/configschema"
@@ -705,20 +707,150 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 		return errors.Trace(err)
 	}
 
-	err = api.applicationService.SetApplicationCharm(ctx, args.ApplicationName, newCharmLocator, application.SetCharmParams{
-		CharmOrigin:         charmOrigin,
-		CharmUpgradeOnError: args.Force,
-		EndpointBindings:    transform.Map(args.EndpointBindings, func(k, v string) (string, network.SpaceName) { return k, network.SpaceName(v) }),
-	})
-	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return errors.NotFoundf("application %q", args.ApplicationName)
-	} else if errors.Is(err, applicationerrors.CharmNotFound) {
-		return errors.NotFoundf("charm %q", args.CharmURL)
-	} else if err != nil {
+	storageDirectiveOverrides, err := convertToApplicationStorageDirectiveOverrides(ctx, api.storageService, args.StorageDirectives)
+	if err != nil {
 		return errors.Trace(err)
 	}
 
+	err = api.applicationService.SetApplicationCharm(ctx, args.ApplicationName, newCharmLocator, application.SetCharmParams{
+		CharmOrigin:               charmOrigin,
+		CharmUpgradeOnError:       args.Force,
+		EndpointBindings:          transform.Map(args.EndpointBindings, func(k, v string) (string, network.SpaceName) { return k, network.SpaceName(v) }),
+		StorageDirectiveOverrides: storageDirectiveOverrides,
+	})
+	switch {
+	case errors.Is(err, applicationerrors.ApplicationNotFound):
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotFound, "application %q not found", args.ApplicationName,
+		)
+	case errors.Is(err, applicationerrors.CharmNotFound):
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotFound, "charm %q not found", args.CharmURL,
+		)
+	case errors.HasType[applicationerrors.CharmStorageDefinitionRemoved](err):
+		defErr, _ := errors.AsType[applicationerrors.CharmStorageDefinitionRemoved](err)
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotSupported,
+			"cannot set charm %q because %s", args.CharmURL, defErr.Error(),
+		)
+	case errors.HasType[applicationerrors.CharmStorageDefinitionMinSizeViolation](err):
+		sizeErr, _ := errors.AsType[applicationerrors.CharmStorageDefinitionMinSizeViolation](err)
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotSupported,
+			"cannot set charm %q because %s", args.CharmURL, sizeErr.Error(),
+		)
+	case errors.HasType[applicationerrors.CharmStorageDefinitionMinCountViolation](err):
+		minErr, _ := errors.AsType[applicationerrors.CharmStorageDefinitionMinCountViolation](err)
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotSupported,
+			"cannot set charm %q because %s", args.CharmURL, minErr.Error(),
+		)
+	case errors.HasType[applicationerrors.CharmStorageDefinitionMaxCountViolation](err):
+		maxErr, _ := errors.AsType[applicationerrors.CharmStorageDefinitionMaxCountViolation](err)
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotSupported,
+			"cannot set charm %q because %s", args.CharmURL, maxErr.Error(),
+		)
+	case errors.HasType[applicationerrors.CharmStorageDefinitionSingleToMultipleViolation](err):
+		multiErr, _ := errors.AsType[applicationerrors.CharmStorageDefinitionSingleToMultipleViolation](err)
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotSupported,
+			"cannot set charm %q because %s", args.CharmURL, multiErr.Error(),
+		)
+	case errors.HasType[applicationerrors.CharmStorageDefinitionSharedChanged](err):
+		sharedErr, _ := errors.AsType[applicationerrors.CharmStorageDefinitionSharedChanged](err)
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotSupported,
+			"cannot set charm %q because %s", args.CharmURL, sharedErr.Error(),
+		)
+	case errors.HasType[applicationerrors.CharmStorageDefinitionReadOnlyChanged](err):
+		readOnlyErr, _ := errors.AsType[applicationerrors.CharmStorageDefinitionReadOnlyChanged](err)
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotSupported,
+			"cannot set charm %q because %s", args.CharmURL, readOnlyErr.Error(),
+		)
+	case errors.HasType[applicationerrors.CharmStorageDefinitionLocationChanged](err):
+		locationErr, _ := errors.AsType[applicationerrors.CharmStorageDefinitionLocationChanged](err)
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotSupported,
+			"cannot set charm %q because %s", args.CharmURL, locationErr.Error(),
+		)
+	case errors.HasType[applicationerrors.CharmStorageTypeChanged](err):
+		typeErr, _ := errors.AsType[applicationerrors.CharmStorageTypeChanged](err)
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotSupported,
+			"cannot set charm %q because %s", args.CharmURL, typeErr.Error(),
+		)
+	case err != nil:
+		return err
+	}
+
 	return nil
+}
+
+func convertToApplicationStorageDirectiveOverrides(
+	ctx context.Context,
+	storageService StorageService,
+	in map[string]params.StorageDirectives,
+) (map[string]application.ApplicationStorageDirectiveOverride, error) {
+	if len(in) == 0 {
+		return nil, nil
+	}
+
+	storagePoolNamesMap := make(map[string]struct{})
+	for name, sd := range in {
+		// Pool is not a required field in the storage directive override, so only validate if it's provided.
+		if len(sd.Pool) == 0 {
+			continue
+		}
+		if isValidPoolName := domainstorage.IsValidStoragePoolName(sd.Pool); !isValidPoolName {
+			return nil, apiservererrors.ParamsErrorf(params.CodeNotValid,
+				"storage directive %q references an invalid pool", name)
+		}
+		storagePoolNamesMap[sd.Pool] = struct{}{}
+	}
+	storagePoolNames := make([]string, 0, len(storagePoolNamesMap))
+	for name := range storagePoolNamesMap {
+		storagePoolNames = append(storagePoolNames, name)
+	}
+	storagePoolUUIDs, err := storageService.GetStoragePoolUUIDsByName(ctx, storagePoolNames)
+	if err != nil {
+		return nil, apiservererrors.ParamsErrorf(params.CodeNotValid,
+			"getting storage pool uuids for user supplied storage directive overrides: %v", err)
+	}
+
+	out := make(map[string]application.ApplicationStorageDirectiveOverride, len(in))
+	for name, dir := range in {
+		override := application.ApplicationStorageDirectiveOverride{}
+		// Validate count before we assign it to the override, as the domain expects uint32, but the user input is uint64.
+		// This is to prevent overflow when the count is assigned to the override.
+		if dir.Count != nil {
+			if *dir.Count > math.MaxUint32 {
+				return nil, apiservererrors.ParamsErrorf(params.CodeNotValid,
+					"storage directive %q override count %d exceeds maximum %d",
+					name,
+					*dir.Count,
+					math.MaxUint32,
+				)
+			}
+			count := uint32(*dir.Count)
+			override.Count = &count
+		}
+		// Validate pool name is not empty and exists before we assign the pool UUID to the override.
+		if dir.Pool != "" {
+			poolUUID, exists := storagePoolUUIDs[dir.Pool]
+			if !exists {
+				return nil, apiservererrors.ParamsErrorf(params.CodeNotFound,
+					"storage directive %q references unknown storage pool %q", name, dir.Pool)
+			}
+			override.PoolUUID = &poolUUID
+		}
+
+		override.Size = dir.SizeMiB
+		out[name] = override
+	}
+
+	return out, nil
 }
 
 // GetCharmURLOrigin returns the charm URL and charm origin the given

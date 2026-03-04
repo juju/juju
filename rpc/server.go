@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/rpcreflect"
+	"github.com/juju/juju/rpc/rpcreflect"
 )
 
 const codeNotImplemented = "not implemented"

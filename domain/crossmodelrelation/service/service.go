@@ -197,6 +197,20 @@ func (w *WatchableService) WatchRemoteApplicationOfferers(ctx context.Context) (
 	)
 }
 
+// WatchDyingModel returns a watcher that emits when the model lifecycle
+// changes. This is used to notify the offering model that the consuming model
+// is going away.
+func (w *WatchableService) WatchDyingModel(ctx context.Context) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return w.watcherFactory.NewNotifyWatcher(
+		ctx,
+		"watch model dying",
+		eventsource.NamespaceFilter("model_life", changestream.All),
+	)
+}
+
 // WatchRemoteConsumedSecretsChanges watches secrets remotely consumed by any
 // unit of the specified app and returns a watcher which notifies of secret URIs
 // that have had a new revision added.

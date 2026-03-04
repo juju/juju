@@ -258,12 +258,12 @@ VALUES (?, ?, ?, datetime('now'))`, taskUUID, operationUUID, taskID)
 func (s *baseSuite) addCompletedOperation(c *tc.C, completedSince time.Duration) string {
 	opUUID := internaluuid.MustNewUUID().String()
 	opID := s.nextID()
-	now := s.state.clock.Now()
+	now := s.state.clock.Now().UTC()
 	completedAt := now.Add(-completedSince)
 	startedAt := completedAt.Add(-time.Second)
 	enqueuedAt := startedAt.Add(-time.Second)
 	s.query(c, `
-INSERT INTO operation (uuid, operation_id, enqueued_at, started_at, completed_at) 
+INSERT INTO operation (uuid, operation_id, enqueued_at, started_at, completed_at)
 VALUES (?, ?, ?, ?, ?)`,
 		opUUID, opID, enqueuedAt, startedAt, completedAt)
 	return opUUID

@@ -14,9 +14,9 @@ import (
 // associated with an application.
 type CreateApplicationStorageDirectiveArg = CreateStorageDirectiveArg
 
-// ApplyApplicationStorageDirectiveArg defines the arguments required to
-// apply an existing storage directive associated with an application.
-type ApplyApplicationStorageDirectiveArg = CreateStorageDirectiveArg
+// UpdateApplicationStorageDirectiveArg defines the arguments required to
+// update an existing storage directive associated with an application.
+type UpdateApplicationStorageDirectiveArg = CreateStorageDirectiveArg
 
 // CreateStorageDirectiveArg defines the arguments required to add a storage
 // directive to the model.

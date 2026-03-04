@@ -22,20 +22,22 @@ type MigrationState interface {
 	// argument. Used for migration import.
 	ImportPeerRelation(
 		ctx context.Context,
+		uuid string,
 		ep corerelation.EndpointIdentifier,
 		id uint64,
 		scope charm.RelationScope,
-	) (corerelation.UUID, error)
+	) error
 
 	// ImportRelation establishes a relation between two endpoints identified
 	// by ep1 and ep2 and returns the relation UUID. Used for migration
 	// import.
 	ImportRelation(
 		ctx context.Context,
+		uuid string,
 		ep1, ep2 corerelation.EndpointIdentifier,
 		id uint64,
 		scope charm.RelationScope,
-	) (corerelation.UUID, error)
+	) error
 
 	// GetApplicationUUIDByName returns the application UUID of the given application.
 	GetApplicationUUIDByName(ctx context.Context, appName string) (application.UUID, error)
@@ -81,13 +83,13 @@ func (s *MigrationService) ImportRelations(ctx context.Context, args relation.Im
 	defer span.End()
 
 	for _, arg := range args {
-		relUUID, err := s.importRelation(ctx, arg)
+		err := s.importRelation(ctx, arg)
 		if err != nil {
 			return errors.Capture(err)
 		}
 
 		for _, ep := range arg.Endpoints {
-			err = s.importRelationEndpoint(ctx, relUUID, ep)
+			err = s.importRelationEndpoint(ctx, arg.UUID, ep)
 			if err != nil {
 				return errors.Capture(err)
 			}
@@ -96,28 +98,32 @@ func (s *MigrationService) ImportRelations(ctx context.Context, args relation.Im
 	return nil
 }
 
-func (s *MigrationService) importRelation(ctx context.Context, arg relation.ImportRelationArg) (corerelation.UUID, error) {
-	var relUUID corerelation.UUID
+func (s *MigrationService) importRelation(ctx context.Context, arg relation.ImportRelationArg) error {
+	if err := arg.UUID.Validate(); err != nil {
+		return errors.Errorf("validating relation UUID for relation %d: %w", arg.ID, err)
+	}
+	if err := arg.Key.Validate(); err != nil {
+		return errors.Errorf("validating relation key for relation %d: %w", arg.ID, err)
+	}
 
 	eps := arg.Key.EndpointIdentifiers()
-	var err error
 
 	switch len(eps) {
 	case 1:
-		relUUID, err = s.st.ImportPeerRelation(ctx, eps[0], uint64(arg.ID), arg.Scope)
+		err := s.st.ImportPeerRelation(ctx, arg.UUID.String(), eps[0], uint64(arg.ID), arg.Scope)
 		if err != nil {
-			return relUUID, errors.Errorf("importing peer relation %d by endpoint %q: %w", arg.ID, eps[0], err)
+			return errors.Errorf("importing peer relation %d by endpoint %q: %w", arg.ID, eps[0], err)
 		}
 	case 2:
-		relUUID, err = s.st.ImportRelation(ctx, eps[0], eps[1], uint64(arg.ID), arg.Scope)
+		err := s.st.ImportRelation(ctx, arg.UUID.String(), eps[0], eps[1], uint64(arg.ID), arg.Scope)
 		if err != nil {
-			return relUUID, errors.Errorf("importing relation %d between endpoints %q and %q: %w",
+			return errors.Errorf("importing relation %d between endpoints %q and %q: %w",
 				arg.ID, eps[0], eps[1], err)
 		}
 	default:
-		return relUUID, errors.Errorf("unexpected number of endpoints %d for %q", len(eps), arg.Key)
+		return errors.Errorf("unexpected number of endpoints %d for %q", len(eps), arg.Key)
 	}
-	return relUUID, nil
+	return nil
 }
 
 func (s *MigrationService) importRelationEndpoint(ctx context.Context, relUUID corerelation.UUID, ep relation.ImportEndpoint) error {

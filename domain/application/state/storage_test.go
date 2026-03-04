@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	stdtesting "testing"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -41,9 +41,9 @@ func TestStorageSuite(t *stdtesting.T) {
 func (s *storageSuite) TestGetStorageUUIDByID(c *tc.C) {
 	ctx := c.Context()
 
-	uuid := storagetesting.GenStorageInstanceUUID(c)
+	uuid := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 
-	poolUUID := storagetesting.GenStoragePoolUUID(c)
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 	_, err := s.ModelSuite.DB().Exec(`
 INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)`,
 		poolUUID, "rootfs", "rootfs")
@@ -88,7 +88,7 @@ func (s *storageSuite) TestGetStorageUUIDByIDNotFound(c *tc.C) {
 func (s *applicationStateSuite) createStoragePool(
 	c *tc.C, name, providerType string,
 ) domainstorage.StoragePoolUUID {
-	poolUUID := storagetesting.GenStoragePoolUUID(c)
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 	_, err := s.DB().Exec(`
 INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)
 `,
@@ -281,6 +281,195 @@ WHERE application_uuid = ? AND charm_uuid = ?`, appUUID, charmUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(foundCharmStorage, tc.SameContents, chStorage)
 	c.Check(foundAppStorage, tc.SameContents, directives)
+}
+
+func (s *applicationStateSuite) TestUpdateApplicationStorageDirectives(c *tc.C) {
+	ctx := c.Context()
+
+	poolUUID1 := s.createStoragePool(c, "pool-a", "lxd")
+	poolUUID2 := s.createStoragePool(c, "pool-b", "ebs")
+
+	// Setup charm with 2 storages.
+	chStorage := []charm.Storage{{
+		Name:        "database",
+		Type:        "block",
+		CountMin:    1,
+		CountMax:    3,
+		MinimumSize: 10,
+	}, {
+		Name:        "logs",
+		Type:        "filesystem",
+		CountMin:    1,
+		CountMax:    2,
+		MinimumSize: 5,
+	}}
+
+	// Setup application with 2 storage directives.
+	directives := []internal.CreateApplicationStorageDirectiveArg{
+		{
+			Name:     "database",
+			PoolUUID: poolUUID1,
+			Size:     10,
+			Count:    1,
+		},
+		{
+			Name:     "logs",
+			PoolUUID: poolUUID2,
+			Size:     20,
+			Count:    2,
+		},
+	}
+
+	// Create application with the above directives and charm storages.
+	appUUID, _, err := s.state.CreateIAASApplication(
+		ctx,
+		"charm-name",
+		s.addIAASApplicationArgForStorage(c, "charm-name", chStorage, directives),
+		nil,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Get charmUUID for the application.
+	var charmUUID string
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		charmUUID, err = s.state.getCharmIDByApplicationUUID(c.Context(), tx, appUUID.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Update storage directives for the application.
+	overrides := []internal.UpdateApplicationStorageDirectiveArg{
+		{
+			Name:     "database",
+			PoolUUID: poolUUID2,
+			Size:     99,
+			Count:    3,
+		},
+		{
+			Name:     "logs",
+			PoolUUID: poolUUID1,
+			Size:     5,
+			Count:    1,
+		},
+	}
+	err = s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.updateApplicationStorageDirectives(ctx, tx, appUUID, charmUUID, overrides)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify that the storage directives have been updated.
+	applicationStorageDirectives, err := s.state.GetApplicationStorageDirectives(ctx, appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(applicationStorageDirectives, tc.SameContents, []application.StorageDirective{
+		{
+			CharmMetadataName: "charm-name",
+			CharmStorageType:  charm.StorageBlock,
+			Name:              "database",
+			PoolUUID:          poolUUID2,
+			Size:              99,
+			Count:             3,
+			MaxCount:          3,
+		},
+		{
+			CharmMetadataName: "charm-name",
+			CharmStorageType:  charm.StorageFilesystem,
+			Name:              "logs",
+			PoolUUID:          poolUUID1,
+			Size:              5,
+			Count:             1,
+			MaxCount:          2,
+		},
+	})
+}
+
+func (s *applicationStateSuite) TestUpdateApplicationStorageDirectivesMissingStorage(c *tc.C) {
+	ctx := c.Context()
+
+	poolUUID1 := s.createStoragePool(c, "pool-a", "lxd")
+	poolUUID2 := s.createStoragePool(c, "pool-b", "ebs")
+
+	// Setup charm with 3 storages.
+	chStorage := []charm.Storage{{
+		Name:        "database",
+		Type:        "block",
+		CountMin:    1,
+		CountMax:    3,
+		MinimumSize: 10,
+	}, {
+		Name:        "logs",
+		Type:        "filesystem",
+		CountMin:    1,
+		CountMax:    2,
+		MinimumSize: 5,
+	}, {
+		Name:        "cache",
+		Type:        "block",
+		CountMin:    1,
+		CountMax:    1,
+		MinimumSize: 1,
+	}}
+
+	// Setup application with 2 storage directives.
+	directives := []internal.CreateApplicationStorageDirectiveArg{
+		{
+			Name:     "database",
+			PoolUUID: poolUUID1,
+			Size:     10,
+			Count:    1,
+		},
+		{
+			Name:     "logs",
+			PoolUUID: poolUUID2,
+			Size:     20,
+			Count:    2,
+		},
+	}
+
+	// Create application with the above directives and charm storages.
+	appUUID, _, err := s.state.CreateIAASApplication(
+		ctx,
+		"charm-name",
+		s.addIAASApplicationArgForStorage(c, "charm-name", chStorage, directives),
+		nil,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Get charmUUID for the application.
+	var charmUUID string
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		charmUUID, err = s.state.getCharmIDByApplicationUUID(c.Context(), tx, appUUID.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Attempt to update 3 storage directives for the application, even though the application currently only has 2.
+	// This provides the situation where a storage directive is manually removed.
+	overrides := []internal.UpdateApplicationStorageDirectiveArg{
+		{
+			Name:     "database",
+			PoolUUID: poolUUID2,
+			Size:     99,
+			Count:    3,
+		},
+		{
+			Name:     "logs",
+			PoolUUID: poolUUID1,
+			Size:     5,
+			Count:    1,
+		},
+		{
+			Name:     "cache",
+			PoolUUID: poolUUID2,
+			Size:     1,
+			Count:    1,
+		},
+	}
+	err = s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.updateApplicationStorageDirectives(ctx, tx, appUUID, charmUUID, overrides)
+	})
+	c.Assert(err, tc.ErrorMatches, `missing storage directive for charm storage "cache"`)
 }
 
 // TestGetProviderTypeOfPoolNotFound tests that trying to get the provider type

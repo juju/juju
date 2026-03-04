@@ -26,7 +26,6 @@ import (
 	domainsequence "github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	domainstorage "github.com/juju/juju/domain/storage"
-	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning/service"
 	"github.com/juju/juju/domain/storageprovisioning/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
@@ -1854,7 +1853,7 @@ VALUES (?, ?, ?)`, spUUID.String(), k, v)
 func (s *watcherSuite) newStorageInstance(c *tc.C) (
 	domainstorage.StorageInstanceUUID, string,
 ) {
-	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
+	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	seq := s.nextStorageSequenceNumber(c)
 	storageName := fmt.Sprintf("mystorage-%d", seq)
 	storageID := fmt.Sprintf("mystorage/%d", seq)

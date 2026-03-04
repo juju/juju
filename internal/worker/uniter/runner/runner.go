@@ -22,9 +22,9 @@ import (
 	"github.com/juju/errors"
 	utilexec "github.com/juju/utils/v4/exec"
 
+	"github.com/juju/juju/cmd/cmd"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/operation"
-	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 	"github.com/juju/juju/internal/worker/uniter/runner/debug"

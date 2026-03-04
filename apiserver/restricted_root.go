@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/trace"
-	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/rpcreflect"
 )
 
 // restrictRoot wraps the provided root so that the check function is

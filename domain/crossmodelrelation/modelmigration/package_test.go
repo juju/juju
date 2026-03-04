@@ -3,4 +3,4 @@
 
 package modelmigration
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination package_mock_test.go github.com/juju/juju/domain/crossmodelrelation/modelmigration ImportService
+//go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination package_mock_test.go github.com/juju/juju/domain/crossmodelrelation/modelmigration ImportService,ImportSecretService

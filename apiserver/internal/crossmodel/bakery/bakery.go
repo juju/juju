@@ -13,10 +13,10 @@ import (
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/yaml.v3"
 
+	apimacaroon "github.com/juju/juju/api/macaroon"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/permission"
 	internalerrors "github.com/juju/juju/internal/errors"
-	internalmacaroon "github.com/juju/juju/internal/macaroon"
 )
 
 const (
@@ -28,7 +28,7 @@ const (
 
 // RelationInfoFromMacaroons extracts the relation and offer caveats from a macaroon.
 func RelationInfoFromMacaroons(mac macaroon.Slice) (string, string, bool) {
-	declared := checkers.InferDeclared(internalmacaroon.MacaroonNamespace, mac)
+	declared := checkers.InferDeclared(apimacaroon.MacaroonNamespace, mac)
 	relKey, ok1 := declared[relationKey]
 	offerUUID, ok2 := declared[offerUUIDKey]
 	return relKey, offerUUID, ok1 && ok2

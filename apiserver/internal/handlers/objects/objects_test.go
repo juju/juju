@@ -15,7 +15,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
+	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -128,7 +128,7 @@ func (s *objectsHandlerSuite) TestServeGetNotFound(c *tc.C) {
 
 	s.expectObjectStore()
 
-	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e").Return(nil, -1, objectstoreerrors.ErrNotFound)
+	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e").Return(nil, -1, objectstoreerrors.ObjectNotFound)
 
 	handlers := &ObjectsHTTPHandler{
 		objectStoreGetter: s.objectStoreGetter,

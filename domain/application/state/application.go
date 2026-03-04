@@ -1696,7 +1696,15 @@ WHERE  uuid = $entityUUID.uuid
 			return errors.Capture(err)
 		}
 
-		//TODO(storage) - upsert storage directive for app
+		// Update storage directives for the new charm.
+		if err := st.updateApplicationStorageDirectives(ctx, tx, appID, chID.String(), params.StorageDirectivesToUpdate); err != nil {
+			return errors.Errorf("updating storage directives: %w", err)
+		}
+
+		// Insert storage directives for the new charm.
+		if err := st.insertApplicationStorageDirectives(ctx, tx, appID.String(), chID.String(), params.StorageDirectivesToCreate); err != nil {
+			return errors.Errorf("inserting storage directives: %w", err)
+		}
 
 		bindings := transform.Map(params.EndpointBindings, func(k string, v network.SpaceName) (string, string) {
 			return k, v.String()

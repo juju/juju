@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"math"
 	"strconv"
 
 	"github.com/juju/collections/set"
@@ -512,15 +511,15 @@ func validateCharmStorage(charmStorage map[string]internalcharm.Storage) error {
 
 		if storage.CountMin < 0 {
 			return errors.Errorf(
-				"charm storage %q has a minimum count less than zero, negative storage count cannot be achieved",
-				name,
+				"charm storage %q has a minimum count %d less than zero, negative storage count cannot be achieved",
+				name, storage.CountMin,
 			)
 		}
 
 		if storage.CountMax >= 0 && storage.CountMin > storage.CountMax {
 			return errors.Errorf(
-				"charm storage %q has a minimum count greater than maximum count, this is can't be achieved",
-				name,
+				"charm storage %q has a minimum count %d greater than maximum count %d, this can't be achieved",
+				name, storage.CountMin, storage.CountMax,
 			)
 		}
 	}
@@ -636,107 +635,6 @@ func validateDeviceConstraints(cons map[string]devices.Constraints, charmMeta *i
 			return errors.Errorf("no constraints specified for device %q", name)
 		}
 	}
-	return nil
-}
-
-// validateApplicationStorageDirectives performs a sanity check on the
-// directives for the application to make sure they are in a sane state to be
-// persisted to the state layer.
-//
-// The following errors may be returned:
-// - [applicationerrors.MissingStorageDirective] when one or more storage
-// directives are missing that are required by the charm.
-func validateApplicationStorageDirectives(
-	charmStorageDefs map[string]internalcharm.Storage,
-	directives []internal.CreateApplicationStorageDirectiveArg,
-) error {
-	// seenDirectives acts as a sanity check to see if a directive by a name has
-	// been witnessed.
-	seenDirectives := map[string]struct{}{}
-	for _, directive := range directives {
-		charmStorageDef, exists := charmStorageDefs[directive.Name.String()]
-		if !exists {
-			return errors.Errorf(
-				"invalid storage directive, charm has no storage %q",
-				directive.Name,
-			)
-		}
-
-		if _, seen := seenDirectives[directive.Name.String()]; seen {
-			return errors.Errorf(
-				"duplicate storage directive for %q exists", directive.Name,
-			)
-		}
-		seenDirectives[directive.Name.String()] = struct{}{}
-
-		err := validateApplicationStorageDirective(charmStorageDef, directive)
-		if err != nil {
-			return errors.Capture(err)
-		}
-	}
-
-	// This is a sanity to check to make sure that for each required storage in
-	// the charm there exists a directive for it.
-	for charmStorageName, charmStorageDef := range charmStorageDefs {
-		if charmStorageDef.CountMin == 0 {
-			// We skip storage definitions that don't require at least one
-			// storage instance. If the directive is missing that is fine.
-			continue
-		}
-
-		if _, seen := seenDirectives[charmStorageName]; !seen {
-			return errors.Errorf(
-				"missing storage directive for charm storage %q",
-				charmStorageName,
-			).Add(applicationerrors.MissingStorageDirective)
-		}
-	}
-	return nil
-}
-
-// validateApplicationStorageDirective checks a single storage directive against
-// a charm storage definition. This checks the definition is inline with the
-// expectations of the charm storage definition.
-func validateApplicationStorageDirective(
-	charmStorageDef internalcharm.Storage,
-	directive internal.CreateApplicationStorageDirectiveArg,
-) error {
-	minCount := uint32(0)
-	if charmStorageDef.CountMin > 0 {
-		minCount = uint32(charmStorageDef.CountMin)
-	}
-	maxCount := uint32(math.MaxUint32)
-	if charmStorageDef.CountMax > 0 {
-		maxCount = uint32(charmStorageDef.CountMax)
-	}
-
-	if directive.Count < minCount {
-		return errors.Errorf(
-			"charm requires min %q storage %q instances, %d specified",
-			minCount, directive.Name, directive.Count,
-		)
-	}
-	if directive.Count > maxCount {
-		return errors.Errorf(
-			"charm requires at most %d instances of storage %q, %d specified",
-			maxCount, directive.Name, directive.Count,
-		)
-	}
-
-	if directive.Size < charmStorageDef.MinimumSize {
-		return errors.Errorf(
-			"storage directive %q must be at least of size %d defined by the charm",
-			directive.Name, charmStorageDef.MinimumSize,
-		)
-	}
-
-	if err := directive.PoolUUID.Validate(); err != nil {
-		return errors.Errorf(
-			"storage directive %q pool uuid is not valid: %w",
-			directive.Name, err,
-		)
-	}
-
 	return nil
 }
 
@@ -1671,6 +1569,47 @@ func (s *Service) GetMachinesForApplication(ctx context.Context, appName string)
 	}), nil
 }
 
+func overrideStorageDirectives(
+	toCreate []internal.CreateApplicationStorageDirectiveArg,
+	toUpdate []internal.UpdateApplicationStorageDirectiveArg,
+	overrides map[string]storage.StorageDirectiveOverride,
+) ([]internal.CreateApplicationStorageDirectiveArg, []internal.UpdateApplicationStorageDirectiveArg) {
+	created := append([]internal.CreateApplicationStorageDirectiveArg{}, toCreate...)
+	updated := append([]internal.UpdateApplicationStorageDirectiveArg{}, toUpdate...)
+
+	for i, dir := range created {
+		override, exists := overrides[dir.Name.String()]
+		if !exists {
+			continue
+		}
+		if override.PoolUUID != nil {
+			created[i].PoolUUID = *override.PoolUUID
+		}
+		if override.Count != nil {
+			created[i].Count = *override.Count
+		}
+		if override.Size != nil {
+			created[i].Size = *override.Size
+		}
+	}
+	for i, dir := range updated {
+		override, exists := overrides[dir.Name.String()]
+		if !exists {
+			continue
+		}
+		if override.PoolUUID != nil {
+			updated[i].PoolUUID = *override.PoolUUID
+		}
+		if override.Count != nil {
+			updated[i].Count = *override.Count
+		}
+		if override.Size != nil {
+			updated[i].Size = *override.Size
+		}
+	}
+	return created, updated
+}
+
 // SetApplicationCharm sets a new charm for the application, validating that aspects such
 // as storage are still viable with the new charm. It reconciles existing application
 // storage directives with the new charm's storage requirements.
@@ -1686,18 +1625,18 @@ func (s *ProviderService) SetApplicationCharm(ctx context.Context, appName strin
 	if err != nil {
 		return errors.Errorf("getting charm ID: %w", err)
 	}
-	// Retrieve the current storage directives for the application.
-	storageDirectives, err := s.storageService.GetApplicationStorageDirectives(ctx, appUUID)
-	if err != nil {
-		return errors.Errorf("getting application storage directives: %w", err)
-	}
+
+	// 1. Validate storage requirements between the existing and new charm.
+	// Prevent refresh if the new charm’s storage configuration is incompatible.
+	// For example, removing previously defined storage names is disallowed,
+	// as it may cause important hooks (e.g., storage-attached) to be skipped.
+
 	// Get new charm's storage requirements.
-	charmMetadataStorage, err := s.st.GetCharmMetadataStorage(ctx, charmID)
+	newCharmMetadataStorage, err := s.st.GetCharmMetadataStorage(ctx, charmID)
 	if err != nil {
 		return errors.Errorf("getting charm storage metadata: %w", err)
 	}
-	// Decode charm storage to internal charm format.
-	newCharmStorage, err := decodeMetadataStorage(charmMetadataStorage)
+	newCharmStorage, err := decodeMetadataStorage(newCharmMetadataStorage)
 	if err != nil {
 		return errors.Errorf("decoding charm storage: %w", err)
 	}
@@ -1705,26 +1644,61 @@ func (s *ProviderService) SetApplicationCharm(ctx context.Context, appName strin
 	if err := validateCharmStorage(newCharmStorage); err != nil {
 		return errors.Errorf("validating charm storage: %w", err)
 	}
-	// Reconcile storage directives between existing and new charm storage.
-	modelStoragePools, err := s.st.GetModelStoragePools(ctx)
+	// Retrieve the current charm storage metadata.
+	currentCharm, err := s.st.GetCharmByApplicationUUID(ctx, appUUID)
 	if err != nil {
-		return errors.Errorf("getting default storage provisioners for model: %w", err)
+		return errors.Errorf("getting current application charm ID: %w", err)
 	}
-	toApply, toDelete, err := storage.ReconcileUpdatedCharmStorageDirective(newCharmStorage, storageDirectives, modelStoragePools)
+	currentCharmMetadataStorage := currentCharm.Metadata.Storage
+	currentCharmStorage, err := decodeMetadataStorage(currentCharmMetadataStorage)
+	if err != nil {
+		return errors.Errorf("decoding current charm storage: %w", err)
+	}
+	// Validate new charm storage against existing charm storage.
+	err = storage.ValidateNewCharmStorageAgainstExistingCharmStorage(newCharmStorage, currentCharmStorage)
+	if err != nil {
+		return errors.Errorf("validating new charm storage against existing charm storage: %w", err)
+	}
+
+	// 2. Reconcile existing storage directives with the new charm’s storage definitions
+	// and handle any newly added storage definitions.
+
+	// Retrieve the current storage directives for the application.
+	storageDirectives, err := s.storageService.GetApplicationStorageDirectives(ctx, appUUID)
+	if err != nil {
+		return errors.Errorf("getting application storage directives: %w", err)
+	}
+	// Reconcile storage directives between existing and new charm storage.
+	toCreate, toUpdate, err := s.storageService.ReconcileStorageDirectivesAgainstCharmStorage(ctx, storageDirectives, newCharmStorage)
 	if err != nil {
 		return errors.Errorf("reconciling storage directives: %w", err)
 	}
 
-	// TODO: Override toApply with user provided storage directives in params.
+	// 3. Validate and apply any user provided storage directive overrides.
 
-	// TODO: Validate storage directives in toApply against new charm requirements again.
+	// Validate that the user provided storage directive overrides are valid
+	// against the new charm storage requirements.
+	userStorageDirectiveOverrides := params.StorageDirectiveOverrides
+	if err := s.storageService.ValidateApplicationStorageDirectiveOverrides(
+		ctx, newCharmStorage, userStorageDirectiveOverrides,
+	); err != nil {
+		return errors.Errorf("validating storage directives: %w", err)
+	}
+	// Apply user-provided overrides to the reconciled directives.
+	toCreate, toUpdate = overrideStorageDirectives(
+		toCreate, toUpdate, params.StorageDirectiveOverrides,
+	)
 
-	paramsState, err := makeSetCharmStateArg(params)
+	// 4. Do a final sanity validation to ensure that the final storage directives are valid against the new charm storage requirements.
+	finalStorageDirectives := append(toCreate, toUpdate...)
+	if err := storage.ValidateApplicationStorageDirectives(newCharmStorage, finalStorageDirectives); err != nil {
+		return errors.Errorf("validating final storage directives against charm storage: %w", err)
+	}
+
+	paramsState, err := makeSetCharmStateArg(params, toCreate, toUpdate)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	paramsState.StorageDirectivesToApply = toApply
-	paramsState.StorageDirectivesToDelete = toDelete
 
 	err = s.st.SetApplicationCharm(ctx, appUUID, charmID, paramsState)
 	if err != nil {
@@ -1946,14 +1920,18 @@ func coerceValue(t charm.OptionType, value string) (interface{}, error) {
 
 }
 
-func makeSetCharmStateArg(setCharmParams application.SetCharmParams) (application.SetCharmStateParams, error) {
+func makeSetCharmStateArg(setCharmParams application.SetCharmParams,
+	toCreate []internal.CreateApplicationStorageDirectiveArg,
+	toUpdate []internal.UpdateApplicationStorageDirectiveArg) (application.SetCharmStateParams, error) {
 	channel, err := encodeChannel(setCharmParams.CharmOrigin.Channel)
 	if err != nil {
 		return application.SetCharmStateParams{}, errors.Errorf("encoding charm channel: %w", err)
 	}
 
 	return application.SetCharmStateParams{
-		Channel:          channel,
-		EndpointBindings: setCharmParams.EndpointBindings,
+		Channel:                   channel,
+		EndpointBindings:          setCharmParams.EndpointBindings,
+		StorageDirectivesToCreate: toCreate,
+		StorageDirectivesToUpdate: toUpdate,
 	}, nil
 }

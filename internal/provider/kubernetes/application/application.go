@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -43,6 +44,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
@@ -106,6 +108,14 @@ type app struct {
 
 	newApplier     func() resources.Applier
 	controllerUUID string
+
+	pvcNamePrefixRegexGetter func() (*regexp.Regexp, error)
+}
+
+// pvcAndStorageName represents the pvc and storage name.
+type pvcAndStorageName struct {
+	pvc     string
+	storage string
 }
 
 // CharmContainerResourceRequirements defines the memory resource constraints
@@ -176,6 +186,9 @@ func newApplication(
 		clock:          clock,
 		newApplier:     newApplier,
 		controllerUUID: controllerUUID,
+		pvcNamePrefixRegexGetter: sync.OnceValues(func() (*regexp.Regexp, error) {
+			return regexp.Compile(`^(.+)-` + regexp.QuoteMeta(name) + `-\d+$`)
+		}),
 	}
 }
 
@@ -337,7 +350,6 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			},
 		}
 		statefulset := resources.NewStatefulSet(a.client.AppsV1().StatefulSets(a.namespace), a.namespace, a.name, sts)
-
 		applier.Apply(statefulset)
 	case caas.DeploymentStateless:
 		exists := true
@@ -2114,56 +2126,57 @@ type handleVolumeMountFunc func(string, corev1.VolumeMount, string) error
 
 type handleStorageClassFunc func(storagev1.StorageClass) error
 
-func (a *app) volumeName(storageName string) string {
+func (a *app) appStorageName(storageName string) string {
 	return fmt.Sprintf("%s-%s", a.name, storageName)
 }
 
-// pvcNames returns a mapping of volume name to PVC name for this app's PVCs.
-func (a *app) pvcNames(storagePrefix string) (map[string]string, error) {
-	// Fetch all Juju PVCs associated with this app
-	labelSelectors := map[string]string{
-		"app.kubernetes.io/managed-by": "juju",
-		"app.kubernetes.io/name":       a.name,
-	}
-	opts := metav1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(labelSelectors).String(),
-	}
-	pvcs, err := resources.ListPersistentVolumeClaims(context.TODO(), a.client, a.namespace, opts)
-	if err != nil {
-		return nil, errors.Annotate(err, "fetching persistent volume claims")
-	}
-
+// storageNameToPVCTemplateNames returns a mapping of storage name to PVC template name for this app's PVCs.
+func (a *app) storageNameToPVCTemplateNames(
+	filesystems []jujustorage.KubernetesFilesystemParams,
+) (map[string]string, error) {
+	pvcAndStorageNames := a.collectPVCAndStorageNames(filesystems)
 	names := make(map[string]string)
-	for _, pvc := range pvcs {
-		// Look up Juju storage name
-		s, ok := pvc.Labels["storage.juju.is/name"]
-		if !ok {
-			continue
+	for _, pvcAndStorage := range pvcAndStorageNames {
+		pvcTemplateName, err := a.getPVCTemplateName(pvcAndStorage.pvc)
+		if err != nil {
+			return nil, internalerrors.Capture(err)
 		}
-
-		// Try to match different PVC name formats that have evolved over time
-		storagePart := s + "-" + storagePrefix
-		regexes := []string{
-			// Sidecar "{appName}-{storageName}-{uniqueId}", e.g., "dex-auth-test-0837847d-dex-auth-0"
-			"^" + regexp.QuoteMeta(a.name+"-"+storagePart),
-			// Pod-spec "{storageName}-{uniqueId}", e.g., "test-0837847d-dex-auth-0"
-			"^" + regexp.QuoteMeta(storagePart),
-			// Legacy "juju-{storageName}-{n}", e.g., "juju-test-1-dex-auth-0"
-			"^juju-" + regexp.QuoteMeta(s) + `-[0-9]+`,
-		}
-		for _, regex := range regexes {
-			r, err := regexp.Compile(regex)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			match := r.FindString(pvc.Name)
-			if match != "" {
-				names[a.volumeName(s)] = match
-				break
-			}
-		}
+		names[a.appStorageName(pvcAndStorage.storage)] = pvcTemplateName
 	}
 	return names, nil
+}
+
+// getPVCTemplateName extracts the PVC template name from a complete PVC name.
+// A complete PVC name is expected to be suffixed with an ordinal. This function
+// returns the prefix that identifies the PVC template, excluding the ordinal
+// and application-specific suffix.
+//
+// Supported complete PVC name formats include:
+//
+//   - given {appname}-{storagename}-{uniqid}-{appname}-{ordinal}
+//     returns {appname}-{storagename}-{uniqid}
+//
+//   - given {storagename}-{uniqid}-{appname}-{ordinal}
+//     returns {storagename}-{uniqid}
+//
+//   - given juju-{storagename}-{number}-{appname}-{ordinal}
+//     returns juju-{storagename}-{number}
+//
+//   - If the PVC template name cannot be extracted, an error is returned.
+func (a *app) getPVCTemplateName(completePVCName string) (string, error) {
+	pvcNamePrefixRegexp, err := a.pvcNamePrefixRegexGetter()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if pvcNamePrefixRegexp == nil {
+		return "", errors.New("pvcNamePrefixRegexp is nil")
+	}
+	matches := pvcNamePrefixRegexp.FindStringSubmatch(completePVCName)
+	if matches == nil || len(matches) != 2 {
+		return "", errors.NotValidf("extracting pvc template name from existing pvc %q", completePVCName)
+	}
+
+	return matches[1], nil
 }
 
 func (a *app) configureStorage(
@@ -2179,12 +2192,11 @@ func (a *app) configureStorage(
 	for _, v := range storageClasses {
 		storageClassMap[v.Name] = v
 	}
-
-	pvcNames, err := a.pvcNames(storageUniqueID)
+	pvcTemplateNames, err := a.storageNameToPVCTemplateNames(filesystems)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "mapping pvc template names for app %q", a.name)
 	}
-	logger.Tracef(context.TODO(), "persistent volume claim name mapping = %v", pvcNames)
+	logger.Tracef(context.TODO(), "persistent volume claim name mapping = %v", pvcTemplateNames)
 
 	fsNames := set.NewStrings()
 
@@ -2196,8 +2208,8 @@ func (a *app) configureStorage(
 
 		logger.Debugf(context.TODO(), "%s has filesystem %s: %s", a.name, fs.StorageName, pretty.Sprint(fs))
 
-		name := a.volumeName(fs.StorageName)
-		pvcNameGetter := a.pvcNameGetter(pvcNames, storageUniqueID)
+		name := a.appStorageName(fs.StorageName)
+		pvcNameGetter := a.pvcNameGetter(pvcTemplateNames, storageUniqueID)
 
 		vol, pvc, sc, err := a.filesystemToVolumeInfo(name, fs, storageClassMap, pvcNameGetter)
 		if err != nil {
@@ -2240,6 +2252,32 @@ func (a *app) configureStorage(
 		}
 	}
 	return nil
+}
+
+func (a *app) collectPVCAndStorageNames(
+	filesystems []jujustorage.KubernetesFilesystemParams,
+) []pvcAndStorageName {
+	pvcAndStorageNames := make([]pvcAndStorageName, 0)
+	// TODO: this func doesn't currently consider multiple storage instances of
+	// the same name attached to a unit. i.e a charm that allows for more then
+	// one storage instance.
+	for _, fs := range filesystems {
+		for _, attachment := range fs.Attachments {
+			// This is must have been a new deployment so a realized attachment
+			// is not yet available.
+			if len(attachment.ProvisionedPVCNames) == 0 {
+				continue
+			}
+			pvcAndStorageNames = append(pvcAndStorageNames, pvcAndStorageName{
+				// Since all PVCs for a given fs storage share the same template
+				// name prefix (only differing by ordinal suffix), we only need one
+				// representative attachment per container+storage pair to extract the prefix.
+				pvc:     attachment.ProvisionedPVCNames[0],
+				storage: fs.StorageName,
+			})
+		}
+	}
+	return pvcAndStorageNames
 }
 
 func (a *app) filesystemToVolumeInfo(

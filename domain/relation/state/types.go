@@ -42,10 +42,10 @@ type name struct {
 }
 
 type relation struct {
-	UUID    corerelation.UUID `db:"uuid"`
-	ID      uint64            `db:"relation_id"`
-	LifeID  domainlife.Life   `db:"life_id"`
-	ScopeID uint8             `db:"scope_id"`
+	UUID    string          `db:"uuid"`
+	ID      uint64          `db:"relation_id"`
+	LifeID  domainlife.Life `db:"life_id"`
+	ScopeID uint8           `db:"scope_id"`
 }
 
 type relationIDAndUUID struct {
@@ -297,14 +297,14 @@ func (e Endpoint) toEndpointIdentifier() corerelation.EndpointIdentifier {
 // to the table `relation_endpoint`
 type setRelationEndpoint struct {
 	UUID         corerelation.EndpointUUID `db:"uuid"`
-	RelationUUID corerelation.UUID         `db:"relation_uuid"`
+	RelationUUID string                    `db:"relation_uuid"`
 	EndpointUUID corerelation.EndpointUUID `db:"endpoint_uuid"`
 }
 
 // setRelationStatus represents the structure to insert the status of a relation.
 type setRelationStatus struct {
 	// RelationUUID is the unique identifier of the relation.
-	RelationUUID corerelation.UUID `db:"relation_uuid"`
+	RelationUUID string `db:"relation_uuid"`
 	// Status indicates the current state of a given relation.
 	Status corestatus.Status `db:"status"`
 	// UpdatedAt specifies the timestamp of the insertion

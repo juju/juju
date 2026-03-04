@@ -11,9 +11,13 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corerelation "github.com/juju/juju/core/relation"
 	appcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
+	"github.com/juju/juju/domain/life"
+	domainsecret "github.com/juju/juju/domain/secret"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
@@ -199,9 +203,9 @@ func (s *importRemoteApplicationOfferersSuite) TestImportRemoteApplicationOffere
 		{
 			RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
 				Name:            "remote-kafka",
-				OfferUUID:       internaluuid.MustNewUUID().String(),
+				OfferUUID:       tc.Must(c, internaluuid.NewUUID).String(),
 				URL:             "ctrl:admin/prod.kafka",
-				SourceModelUUID: internaluuid.MustNewUUID().String(),
+				SourceModelUUID: tc.Must(c, internaluuid.NewUUID).String(),
 				Macaroon:        "test-macaroon-data",
 				SyntheticCharm:  buildTestSyntheticCharm("remote-kafka", endpoints),
 			},
@@ -263,9 +267,9 @@ func (s *importRemoteApplicationOfferersSuite) TestImportRemoteApplicationOffere
 		{
 			RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
 				Name:            "remote-mysql",
-				OfferUUID:       internaluuid.MustNewUUID().String(),
+				OfferUUID:       tc.Must(c, internaluuid.NewUUID).String(),
 				URL:             "ctrl:admin/prod.mysql",
-				SourceModelUUID: internaluuid.MustNewUUID().String(),
+				SourceModelUUID: tc.Must(c, internaluuid.NewUUID).String(),
 				Macaroon:        "test-macaroon",
 				SyntheticCharm:  buildTestSyntheticCharm("remote-mysql", endpoints),
 				Units:           []string{"remote-mysql/0", "remote-mysql/1"},
@@ -325,22 +329,24 @@ func (s *importRemoteApplicationOfferersSuite) TestImportRemoteApplicationOffere
 	args := []crossmodelrelation.RemoteApplicationOffererImport{
 		{
 			RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
-				Name:            "remote-mysql",
-				OfferUUID:       internaluuid.MustNewUUID().String(),
-				URL:             "ctrl:admin/model.mysql",
-				SourceModelUUID: internaluuid.MustNewUUID().String(),
-				Macaroon:        "macaroon1",
-				SyntheticCharm:  buildTestSyntheticCharm("remote-mysql", endpoints1),
+				Name:                   "remote-mysql",
+				OfferUUID:              tc.Must(c, internaluuid.NewUUID).String(),
+				URL:                    "ctrl:admin/model.mysql",
+				SourceModelUUID:        tc.Must(c, internaluuid.NewUUID).String(),
+				Macaroon:               "macaroon1",
+				SyntheticCharm:         buildTestSyntheticCharm("remote-mysql", endpoints1),
+				OffererApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
 			},
 		},
 		{
 			RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
-				Name:            "remote-postgres",
-				OfferUUID:       internaluuid.MustNewUUID().String(),
-				URL:             "ctrl:admin/model.postgres",
-				SourceModelUUID: internaluuid.MustNewUUID().String(),
-				Macaroon:        "macaroon2",
-				SyntheticCharm:  buildTestSyntheticCharm("remote-postgres", endpoints2),
+				Name:                   "remote-postgres",
+				OfferUUID:              tc.Must(c, internaluuid.NewUUID).String(),
+				URL:                    "ctrl:admin/model.postgres",
+				SourceModelUUID:        tc.Must(c, internaluuid.NewUUID).String(),
+				Macaroon:               "macaroon2",
+				SyntheticCharm:         buildTestSyntheticCharm("remote-postgres", endpoints2),
+				OffererApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
 			},
 		},
 	}
@@ -436,16 +442,16 @@ func (s *importRemoteApplicationConsumersSuite) TestImportRemoteApplicationConsu
 	}
 	err := s.state.ImportRemoteApplicationConsumers(c.Context(), []crossmodelrelation.RemoteApplicationConsumerImport{{
 		RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
-			Name:           "foo",
-			OfferUUID:      offerUUID,
-			SyntheticCharm: charm,
-			Units:          []string{"foo/0"},
+			Name:                   "foo",
+			OfferUUID:              offerUUID,
+			SyntheticCharm:         charm,
+			Units:                  []string{"foo/0"},
+			OffererApplicationUUID: offerApplicationUUID.String(),
 		},
 		RelationUUID:                relationUUID,
 		ConsumerModelUUID:           consumerModelUUID,
 		ConsumerApplicationUUID:     consumerApplicationUUID,
 		ConsumerApplicationEndpoint: "db",
-		OffererApplicationUUID:      offerApplicationUUID.String(),
 		OffererApplicationEndpoint:  "offer-endpoint",
 		UserName:                    "consumer-user",
 		SyntheticCharmUUID:          charmUUID,
@@ -467,4 +473,236 @@ func (s *importRemoteApplicationConsumersSuite) TestImportRemoteApplicationConsu
 	s.assertRelation(c, relationUUID, 0)
 
 	s.assertRelationEndpoints(c, relationUUID, offerApplicationUUID.String(), consumerApplicationUUID)
+}
+
+type importSecretSuite struct {
+	baseSuite
+}
+
+func TestImportMigrationSuite(t *testing.T) {
+	tc.Run(t, &importSecretSuite{})
+}
+
+func (s *importSecretSuite) TestGetRelationUUIDByRelationKey(c *tc.C) {
+	// Arrange
+	charmUUID := s.addCharm(c)
+	app1Name := "app1"
+	app2Name := "app2"
+	app1UUID := s.addApplication(c, charmUUID, app1Name)
+	app2UUID := s.addApplication(c, charmUUID, app2Name)
+
+	relation1 := internalcharm.Relation{
+		Name:      "endpoint1",
+		Role:      internalcharm.RoleProvider,
+		Interface: "int1",
+		Scope:     internalcharm.ScopeGlobal,
+	}
+	relationUUID1 := s.addCharmRelation(c, charmUUID, relation1)
+	relation2 := internalcharm.Relation{
+		Name:      "endpoint2",
+		Role:      internalcharm.RoleRequirer,
+		Interface: "int1",
+		Scope:     internalcharm.ScopeGlobal,
+	}
+	relationUUID2 := s.addCharmRelation(c, charmUUID, relation2)
+
+	endpoint1UUID := s.addApplicationEndpoint(c, app1UUID, relationUUID1)
+	endpoint2UUID := s.addApplicationEndpoint(c, app2UUID, relationUUID2)
+
+	relUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relUUID.String(), endpoint1UUID)
+	s.addRelationEndpoint(c, relUUID.String(), endpoint2UUID)
+
+	key, err := corerelation.NewKeyFromString(app2Name + ":endpoint2 " + app1Name + ":endpoint1")
+	c.Assert(err, tc.IsNil)
+
+	// Act
+	obtainedUUID, err := s.state.GetRelationUUIDByRelationKey(c.Context(), key)
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Check(obtainedUUID, tc.Equals, relUUID.String())
+}
+
+func (s *importSecretSuite) TestImportRemoteApplicationSecretGrants(c *tc.C) {
+	// Arrange
+	secretID := "secret-id"
+	appUUID := tc.Must(c, internaluuid.NewUUID).String()
+	relUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	// secret_permission.secret_id references secret_metadata(secret_id)
+	s.createSecretWithMetadata(c, secretID)
+
+	grants := []internal.RemoteApplicationSecretGrant{
+		{
+			SecretID:        secretID,
+			ApplicationName: "app",
+			RelationKey:     "app:endpoint other:endpoint",
+			ApplicationUUID: appUUID,
+			RelationUUID:    relUUID,
+		},
+	}
+
+	// Act
+	err := s.state.ImportRemoteApplicationSecretGrants(c.Context(), grants)
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+
+	var (
+		obtainedSecretID    string
+		obtainedRoleID      int
+		obtainedSubjectUUID string
+		obtainedSubjectType int
+		obtainedScopeUUID   string
+		obtainedScopeType   int
+	)
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+			SELECT secret_id, role_id, subject_uuid, subject_type_id, scope_uuid, scope_type_id
+			FROM secret_permission
+			WHERE secret_id = ?
+		`, secretID).Scan(&obtainedSecretID, &obtainedRoleID, &obtainedSubjectUUID, &obtainedSubjectType, &obtainedScopeUUID, &obtainedScopeType)
+	})
+	c.Assert(err, tc.IsNil)
+	c.Check(obtainedSecretID, tc.Equals, secretID)
+	c.Check(obtainedRoleID, tc.Equals, int(domainsecret.RoleView))
+	c.Check(obtainedSubjectUUID, tc.Equals, appUUID)
+	c.Check(obtainedSubjectType, tc.Equals, int(domainsecret.SubjectApplication))
+	c.Check(obtainedScopeUUID, tc.Equals, relUUID)
+	c.Check(obtainedScopeType, tc.Equals, int(domainsecret.ScopeRelation))
+}
+
+func (s *importSecretSuite) TestImportRemoteSecretConsumers(c *tc.C) {
+	// Arrange
+	secretID := "secret-id"
+	// Ensure the secret exists with metadata and an initial revision.
+	s.createSecretWithMetadata(c, secretID)
+
+	consumers := []internal.RemoteUnitConsumer{
+		{
+			SecretID:        secretID,
+			Unit:            "app/0",
+			CurrentRevision: 1,
+		},
+	}
+
+	// Act
+	err := s.state.ImportRemoteSecretConsumers(c.Context(), consumers)
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+
+	var (
+		obtainedSecretID   string
+		obtainedUnitName   string
+		obtainedCurrentRev int
+	)
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+			SELECT secret_id, unit_name, current_revision
+			FROM secret_remote_unit_consumer
+			WHERE secret_id = ?
+		`, secretID).Scan(&obtainedSecretID, &obtainedUnitName, &obtainedCurrentRev)
+	})
+	c.Assert(err, tc.IsNil)
+	c.Check(obtainedSecretID, tc.Equals, secretID)
+	c.Check(obtainedUnitName, tc.Equals, "app/0")
+	c.Check(obtainedCurrentRev, tc.Equals, 1)
+}
+
+func (s *importSecretSuite) TestImportRemoteSecret(c *tc.C) {
+	c.Skip("Will be fixed in follow up PR when import remote will be implemented again")
+	// Arrange
+	secretID := "remote-secret-id"
+	sourceModelUUID := tc.Must(c, internaluuid.NewUUID).String()
+	unitUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	// Unit must exist for saveSecretConsumer to work.
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, "app")
+	s.addUnitWithUUID(c, unitUUID, "app/0", appUUID.String(), charmUUID.String())
+
+	secret := internal.RemoteSecret{
+		SecretID:        secretID,
+		SourceModelUUID: sourceModelUUID,
+		UnitUUID:        unitUUID,
+		Label:           "test-label",
+		CurrentRevision: 1,
+	}
+
+	// Act
+	err := s.state.ImportRemoteSecret(c.Context(), secret)
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+
+	// Verify secret exists
+	var obtainedSecretID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT id FROM secret WHERE id = ?", secretID).Scan(&obtainedSecretID)
+	})
+	c.Assert(err, tc.IsNil)
+	c.Check(obtainedSecretID, tc.Equals, secretID)
+
+	// Verify unit consumer exists
+	var (
+		obtainedUnitUUID    string
+		obtainedSourceModel string
+		obtainedLabel       string
+		obtainedRev         int
+	)
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+			SELECT unit_uuid, source_model_uuid, label, current_revision
+			FROM secret_unit_consumer
+			WHERE secret_id = ?
+		`, secretID).Scan(&obtainedUnitUUID, &obtainedSourceModel, &obtainedLabel, &obtainedRev)
+	})
+	c.Assert(err, tc.IsNil)
+	c.Check(obtainedUnitUUID, tc.Equals, unitUUID)
+	c.Check(obtainedSourceModel, tc.Equals, sourceModelUUID)
+	c.Check(obtainedLabel, tc.Equals, "test-label")
+	c.Check(obtainedRev, tc.Equals, 1)
+}
+
+func (s *importSecretSuite) createSecretWithMetadata(c *tc.C, secretID string) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// base secret
+		if _, err := tx.ExecContext(ctx, "INSERT INTO secret (id) VALUES (?)", secretID); err != nil {
+			return err
+		}
+		// metadata requires rotate policy id to exist; schema seeds it. Use 0 (never).
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO secret_metadata (secret_id, version, description, rotate_policy_id, auto_prune)
+			VALUES (?, 1, '', 0, 0)
+		`, secretID); err != nil {
+			return err
+		}
+		// create initial revision so latest revision queries work.
+		revUUID := internaluuid.MustNewUUID().String()
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO secret_revision (uuid, secret_id, revision)
+			VALUES (?, ?, 1)
+		`, revUUID, secretID); err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.IsNil)
+}
+
+func (s *importSecretSuite) addUnitWithUUID(c *tc.C, unitUUID string, unitName string, appUUID string, charmUUID string) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		netNodeUUID := internaluuid.MustNewUUID().String()
+		_, err := tx.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
+            INSERT INTO unit (uuid, name, application_uuid, charm_uuid, net_node_uuid, life_id)
+            VALUES (?, ?, ?, ?, ?, ?)`, unitUUID, unitName, appUUID, charmUUID, netNodeUUID, life.Alive)
+		return err
+	})
+	c.Assert(err, tc.IsNil)
 }

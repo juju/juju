@@ -88,6 +88,7 @@ func ImportOperations(
 	port.RegisterImport(coordinator, logger.Child("port"))
 	blockdevice.RegisterImport(coordinator, logger.Child("blockdevice"))
 	secret.RegisterImport(coordinator, logger.Child("secret"))
+	crossmodelrelation.RegisterImportSecret(coordinator, clock, logger.Child("remotesecret"))
 	cloudimagemetadata.RegisterImport(coordinator, logger.Child("cloudimagemetadata"), clock)
 	unitstate.RegisterImport(coordinator, logger.Child("unitstate"))
 	operation.RegisterImport(coordinator, clock, logger.Child("operation"))

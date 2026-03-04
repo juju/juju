@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
+	domainstorage "github.com/juju/juju/domain/storage"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
 
@@ -432,6 +433,8 @@ type K8sPodInfo struct {
 // InsertApplicationArgs contains arguments for importing an application to the
 // model.
 type InsertApplicationArgs struct {
+	// ApplicationUUID is the unique identifier for the application.
+	ApplicationUUID string
 	// Charm is the charm to add to the application. This is required to
 	// be able to add the application.
 	Charm domaincharm.Charm
@@ -473,6 +476,10 @@ type SetCharmParams struct {
 	// EndpointBindings is an operator-defined map of endpoint names to
 	// space names that should be merged with any existing bindings.
 	EndpointBindings map[string]network.SpaceName
+
+	// StorageDirectiveOverrides is a map of storage names to storage directives to
+	// update during the upgrade.
+	StorageDirectiveOverrides map[string]ApplicationStorageDirectiveOverride
 }
 
 // SetCharmParams contains the parameters for updating
@@ -486,17 +493,13 @@ type SetCharmStateParams struct {
 	// space names that should be merged with any existing bindings.
 	EndpointBindings map[string]network.SpaceName
 
-	// StorageDirectivesToApply contains storage directives that need to be
-	// applied based on the new charm's storage requirements.
-	StorageDirectivesToApply []internal.ApplyApplicationStorageDirectiveArg
+	// StorageDirectivesToCreate contains storage directives that need to be
+	// created based on the new charm's storage requirements.
+	StorageDirectivesToCreate []internal.CreateApplicationStorageDirectiveArg
 
-	// StorageDirectivesToDelete contains the names of storage directives that
-	// should be removed because the storage is no longer in the charm.
-	// These are tracked separately from StorageDirectivesToApply because the
-	// apply list may not contain the complete set of storage directives.
-	// Splitting them this way avoids unnecessary database churn and watcher
-	// events that would occur if we replaced all directives on every update.
-	StorageDirectivesToDelete []string
+	// StorageDirectivesToUpdate contains storage directives that need to be
+	// applied based on the new charm's storage requirements.
+	StorageDirectivesToUpdate []internal.UpdateApplicationStorageDirectiveArg
 }
 
 // ApplicationDetails contains details about an application.
@@ -505,4 +508,23 @@ type ApplicationDetails struct {
 	Life                   life.Life
 	Name                   string
 	IsApplicationSynthetic bool
+}
+
+// ApplicationStorageDirectiveOverride represents override instructions in the application
+// domain for application storage directives to alter the default
+// values a new application will receive.
+type ApplicationStorageDirectiveOverride struct {
+	// Count is the number of storage instances to create for each unit. This
+	// value must be greater or equal to the minimum defined by the charm. This
+	// value must also be less or equal to the maximum defined by the charm.
+	Count *uint32
+
+	// PoolUUID defines the storage pool to use when provisioning storage for
+	// this directive.
+	PoolUUID *domainstorage.StoragePoolUUID
+
+	// Size defines the size of the storage to provision as a minimum value in
+	// MiB. What gets provisioned by the provider for each unit may be larger
+	// then this value.
+	Size *uint64
 }

@@ -19,10 +19,10 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
+	jujumacaroon "github.com/juju/juju/api/macaroon"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/featureflag"
 	jujuhttp "github.com/juju/juju/internal/http"
-	jujumacaroon "github.com/juju/juju/internal/macaroon"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 )

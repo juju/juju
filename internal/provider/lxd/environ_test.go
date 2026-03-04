@@ -14,6 +14,7 @@ import (
 	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -22,7 +23,6 @@ import (
 	environscmd "github.com/juju/juju/environs/cmd"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"

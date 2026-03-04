@@ -185,6 +185,17 @@ func (w *remoteWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
+// Macaroon returns the macaroon used by this worker to authenticate with the
+// remote model.
+func (w *remoteWorker) Macaroon() *macaroon.Macaroon {
+	return w.macaroon
+}
+
+// RelationUUID returns the consumer relation UUID for this worker.
+func (w *remoteWorker) RelationUUID() corerelation.UUID {
+	return w.consumerRelationUUID
+}
+
 func (w *remoteWorker) loop() error {
 	ctx := w.catacomb.Context(context.Background())
 

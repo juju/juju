@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/tc"
 
+	jujucmd "github.com/juju/juju/cmd/cmd"
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
-	jujucmd "github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 )
 
 func charmRes(c *tc.C, name, suffix, description, content string) charmresource.Resource {

@@ -2998,6 +2998,7 @@ func (s *relationSuite) TestGetRelationUnitChanges(c *tc.C) {
 	var changes domainrelation.RelationUnitsChange
 	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		changes, err = s.state.GetRelationUnitChanges(ctx,
+			relationUUID.String(),
 			[]coreunit.UUID{noSettingUnitUUID, withSettingUnitUUID, departedUnitUUID},
 			[]coreapplication.UUID{noSettingAppUUID, withSettingAppUUID},
 		)
@@ -3017,6 +3018,47 @@ func (s *relationSuite) TestGetRelationUnitChanges(c *tc.C) {
 	c.Assert(changes.Departed, tc.SameContents, []coreunit.Name{"noSetting/1"})
 }
 
+func (s *relationSuite) TestGetRelationUnitChangesForDifferentRelationUUID(c *tc.C) {
+	// Arrange
+	charmUUID := s.addCharm(c)
+	charmRelationUUID := s.addCharmRelationWithDefaults(c, charmUUID)
+	noSettingAppUUID := s.addApplication(c, charmUUID, "noSetting")
+	withSettingAppUUID := s.addApplication(c, charmUUID, "withSetting")
+	noSettingAppEndpointUUID := s.addApplicationEndpoint(c, noSettingAppUUID, charmRelationUUID)
+	withSettingAppEndpointUUID := s.addApplicationEndpoint(c, withSettingAppUUID, charmRelationUUID)
+	relationUUID := s.addRelation(c)
+	departedUnitUUID := s.addUnit(c, "noSetting/1", noSettingAppUUID, charmUUID)
+	noSettingUnitUUID := s.addUnit(c, "noSetting/0", noSettingAppUUID, charmUUID)
+	withSettingUnitUUID := s.addUnit(c, "withSetting/0", withSettingAppUUID, charmUUID)
+	noSettingRelationEndpointUUID := s.addRelationEndpoint(c, relationUUID, noSettingAppEndpointUUID)
+	withSettingRelationEndpointUUID := s.addRelationEndpoint(c, relationUUID, withSettingAppEndpointUUID)
+	s.addRelationUnit(c, noSettingUnitUUID, noSettingRelationEndpointUUID)
+	relUnitUUID := s.addRelationUnit(c, withSettingUnitUUID, withSettingRelationEndpointUUID)
+	s.addRelationUnitSettingsHash(c, relUnitUUID, "42")
+	s.addRelationApplicationSettingsHash(c, withSettingRelationEndpointUUID, "84")
+
+	db, err := s.state.DB(c.Context())
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) cannot get the DB: %s", errors.ErrorStack(err)))
+
+	relationUUID2 := s.addRelation(c)
+
+	// Act
+	var changes domainrelation.RelationUnitsChange
+	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		changes, err = s.state.GetRelationUnitChanges(ctx,
+			relationUUID2.String(),
+			[]coreunit.UUID{noSettingUnitUUID, withSettingUnitUUID, departedUnitUUID},
+			[]coreapplication.UUID{noSettingAppUUID, withSettingAppUUID},
+		)
+		return err
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error: %s", errors.ErrorStack(err)))
+	c.Assert(changes.Changed, tc.HasLen, 0)
+	c.Assert(changes.AppChanged, tc.HasLen, 0)
+}
+
 func (s *relationSuite) TestGetRelationUnitChangesEmptyArgs(c *tc.C) {
 
 	// Arrange
@@ -3026,7 +3068,7 @@ func (s *relationSuite) TestGetRelationUnitChangesEmptyArgs(c *tc.C) {
 	// Act
 	var changes domainrelation.RelationUnitsChange
 	err = db.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		changes, err = s.state.GetRelationUnitChanges(ctx, nil, nil)
+		changes, err = s.state.GetRelationUnitChanges(ctx, "", nil, nil)
 		return err
 	})
 

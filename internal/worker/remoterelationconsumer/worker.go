@@ -49,6 +49,10 @@ type OffererApplicationWorker interface {
 	// ConsumeVersion returns the consume version for the remote application
 	// worker.
 	ConsumeVersion() int
+
+	// PublishModelDying notifies the worker that the model is dying, so it can
+	// perform any necessary cleanup.
+	PublishModelDying(ctx context.Context) error
 }
 
 // RemoteModelRelationsClient instances publish local relation changes to the
@@ -153,6 +157,11 @@ type CrossModelRelationService interface {
 	// WatchRemoteApplicationOfferers watches the changes to remote
 	// application consumers and notifies the worker of any changes.
 	WatchRemoteApplicationOfferers(ctx context.Context) (watcher.NotifyWatcher, error)
+
+	// WatchDyingModel returns a watcher that emits when the model transitions
+	// to a dying state. This is used to notify the offering model that the
+	// consuming model is going away.
+	WatchDyingModel(ctx context.Context) (watcher.NotifyWatcher, error)
 
 	// GetRemoteApplicationOfferers returns the current state of all remote
 	// application consumers in the local model.
@@ -323,11 +332,19 @@ func (w *Worker) loop() (err error) {
 
 	// Watch for new remote application offerers. This is the consuming side,
 	// so the consumer model has received an offer from another model.
-	watcher, err := w.crossModelService.WatchRemoteApplicationOfferers(ctx)
+	offersWatcher, err := w.crossModelService.WatchRemoteApplicationOfferers(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := w.catacomb.Add(watcher); err != nil {
+	if err := w.catacomb.Add(offersWatcher); err != nil {
+		return errors.Trace(err)
+	}
+
+	modelWatcher, err := w.crossModelService.WatchDyingModel(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := w.catacomb.Add(modelWatcher); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -335,7 +352,13 @@ func (w *Worker) loop() (err error) {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case _, ok := <-watcher.Changes():
+
+		case <-modelWatcher.Changes():
+			if err := w.handleModelDying(ctx); err != nil {
+				return errors.Trace(err)
+			}
+
+		case _, ok := <-offersWatcher.Changes():
 			if !ok {
 				return errors.New("change channel closed")
 			}
@@ -437,6 +460,30 @@ func (w *Worker) hasRemoteAppChanged(remoteApp crossmodelrelation.RemoteApplicat
 	}
 
 	return appWorker.ConsumeVersion() != 0, nil
+}
+
+func (w *Worker) handleModelDying(ctx context.Context) error {
+	w.logger.Debugf(ctx, "model is dying, stopping all offerer application workers")
+
+	for _, appUUID := range w.runner.WorkerNames() {
+		worker, err := w.runner.Worker(appUUID, ctx.Done())
+		if errors.Is(err, errors.NotFound) {
+			continue
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+
+		appWorker, ok := worker.(OffererApplicationWorker)
+		if !ok {
+			return errors.Errorf("worker %q is not a OffererApplicationWorker", appUUID)
+		}
+
+		if err := appWorker.PublishModelDying(ctx); err != nil {
+			w.logger.Warningf(ctx, "error publishing model dying for worker %q: %v", appUUID, err)
+		}
+	}
+
+	return nil
 }
 
 // Report provides information for the engine report.

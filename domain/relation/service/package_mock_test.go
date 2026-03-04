@@ -167,18 +167,17 @@ func (c *MockMigrationStateGetApplicationUUIDByNameCall) DoAndReturn(f func(cont
 }
 
 // ImportPeerRelation mocks base method.
-func (m *MockMigrationState) ImportPeerRelation(arg0 context.Context, arg1 relation.EndpointIdentifier, arg2 uint64, arg3 charm.RelationScope) (relation.UUID, error) {
+func (m *MockMigrationState) ImportPeerRelation(arg0 context.Context, arg1 string, arg2 relation.EndpointIdentifier, arg3 uint64, arg4 charm.RelationScope) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ImportPeerRelation", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(relation.UUID)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "ImportPeerRelation", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // ImportPeerRelation indicates an expected call of ImportPeerRelation.
-func (mr *MockMigrationStateMockRecorder) ImportPeerRelation(arg0, arg1, arg2, arg3 any) *MockMigrationStateImportPeerRelationCall {
+func (mr *MockMigrationStateMockRecorder) ImportPeerRelation(arg0, arg1, arg2, arg3, arg4 any) *MockMigrationStateImportPeerRelationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportPeerRelation", reflect.TypeOf((*MockMigrationState)(nil).ImportPeerRelation), arg0, arg1, arg2, arg3)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportPeerRelation", reflect.TypeOf((*MockMigrationState)(nil).ImportPeerRelation), arg0, arg1, arg2, arg3, arg4)
 	return &MockMigrationStateImportPeerRelationCall{Call: call}
 }
 
@@ -188,36 +187,35 @@ type MockMigrationStateImportPeerRelationCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockMigrationStateImportPeerRelationCall) Return(arg0 relation.UUID, arg1 error) *MockMigrationStateImportPeerRelationCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockMigrationStateImportPeerRelationCall) Return(arg0 error) *MockMigrationStateImportPeerRelationCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMigrationStateImportPeerRelationCall) Do(f func(context.Context, relation.EndpointIdentifier, uint64, charm.RelationScope) (relation.UUID, error)) *MockMigrationStateImportPeerRelationCall {
+func (c *MockMigrationStateImportPeerRelationCall) Do(f func(context.Context, string, relation.EndpointIdentifier, uint64, charm.RelationScope) error) *MockMigrationStateImportPeerRelationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMigrationStateImportPeerRelationCall) DoAndReturn(f func(context.Context, relation.EndpointIdentifier, uint64, charm.RelationScope) (relation.UUID, error)) *MockMigrationStateImportPeerRelationCall {
+func (c *MockMigrationStateImportPeerRelationCall) DoAndReturn(f func(context.Context, string, relation.EndpointIdentifier, uint64, charm.RelationScope) error) *MockMigrationStateImportPeerRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ImportRelation mocks base method.
-func (m *MockMigrationState) ImportRelation(arg0 context.Context, arg1, arg2 relation.EndpointIdentifier, arg3 uint64, arg4 charm.RelationScope) (relation.UUID, error) {
+func (m *MockMigrationState) ImportRelation(arg0 context.Context, arg1 string, arg2, arg3 relation.EndpointIdentifier, arg4 uint64, arg5 charm.RelationScope) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ImportRelation", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(relation.UUID)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "ImportRelation", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // ImportRelation indicates an expected call of ImportRelation.
-func (mr *MockMigrationStateMockRecorder) ImportRelation(arg0, arg1, arg2, arg3, arg4 any) *MockMigrationStateImportRelationCall {
+func (mr *MockMigrationStateMockRecorder) ImportRelation(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockMigrationStateImportRelationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportRelation", reflect.TypeOf((*MockMigrationState)(nil).ImportRelation), arg0, arg1, arg2, arg3, arg4)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportRelation", reflect.TypeOf((*MockMigrationState)(nil).ImportRelation), arg0, arg1, arg2, arg3, arg4, arg5)
 	return &MockMigrationStateImportRelationCall{Call: call}
 }
 
@@ -227,19 +225,19 @@ type MockMigrationStateImportRelationCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockMigrationStateImportRelationCall) Return(arg0 relation.UUID, arg1 error) *MockMigrationStateImportRelationCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockMigrationStateImportRelationCall) Return(arg0 error) *MockMigrationStateImportRelationCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMigrationStateImportRelationCall) Do(f func(context.Context, relation.EndpointIdentifier, relation.EndpointIdentifier, uint64, charm.RelationScope) (relation.UUID, error)) *MockMigrationStateImportRelationCall {
+func (c *MockMigrationStateImportRelationCall) Do(f func(context.Context, string, relation.EndpointIdentifier, relation.EndpointIdentifier, uint64, charm.RelationScope) error) *MockMigrationStateImportRelationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMigrationStateImportRelationCall) DoAndReturn(f func(context.Context, relation.EndpointIdentifier, relation.EndpointIdentifier, uint64, charm.RelationScope) (relation.UUID, error)) *MockMigrationStateImportRelationCall {
+func (c *MockMigrationStateImportRelationCall) DoAndReturn(f func(context.Context, string, relation.EndpointIdentifier, relation.EndpointIdentifier, uint64, charm.RelationScope) error) *MockMigrationStateImportRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1169,18 +1167,18 @@ func (c *MockStateGetRelationUUIDByIDCall) DoAndReturn(f func(context.Context, i
 }
 
 // GetRelationUnitChanges mocks base method.
-func (m *MockState) GetRelationUnitChanges(arg0 context.Context, arg1 []unit.UUID, arg2 []application.UUID) (relation0.RelationUnitsChange, error) {
+func (m *MockState) GetRelationUnitChanges(arg0 context.Context, arg1 string, arg2 []unit.UUID, arg3 []application.UUID) (relation0.RelationUnitsChange, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRelationUnitChanges", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "GetRelationUnitChanges", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(relation0.RelationUnitsChange)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetRelationUnitChanges indicates an expected call of GetRelationUnitChanges.
-func (mr *MockStateMockRecorder) GetRelationUnitChanges(arg0, arg1, arg2 any) *MockStateGetRelationUnitChangesCall {
+func (mr *MockStateMockRecorder) GetRelationUnitChanges(arg0, arg1, arg2, arg3 any) *MockStateGetRelationUnitChangesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUnitChanges", reflect.TypeOf((*MockState)(nil).GetRelationUnitChanges), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUnitChanges", reflect.TypeOf((*MockState)(nil).GetRelationUnitChanges), arg0, arg1, arg2, arg3)
 	return &MockStateGetRelationUnitChangesCall{Call: call}
 }
 
@@ -1196,13 +1194,13 @@ func (c *MockStateGetRelationUnitChangesCall) Return(arg0 relation0.RelationUnit
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetRelationUnitChangesCall) Do(f func(context.Context, []unit.UUID, []application.UUID) (relation0.RelationUnitsChange, error)) *MockStateGetRelationUnitChangesCall {
+func (c *MockStateGetRelationUnitChangesCall) Do(f func(context.Context, string, []unit.UUID, []application.UUID) (relation0.RelationUnitsChange, error)) *MockStateGetRelationUnitChangesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetRelationUnitChangesCall) DoAndReturn(f func(context.Context, []unit.UUID, []application.UUID) (relation0.RelationUnitsChange, error)) *MockStateGetRelationUnitChangesCall {
+func (c *MockStateGetRelationUnitChangesCall) DoAndReturn(f func(context.Context, string, []unit.UUID, []application.UUID) (relation0.RelationUnitsChange, error)) *MockStateGetRelationUnitChangesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

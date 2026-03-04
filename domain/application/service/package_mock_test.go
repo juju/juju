@@ -3932,12 +3932,11 @@ func (c *MockStateInitialWatchStatementUnitLifeCall) DoAndReturn(f func(string) 
 }
 
 // InsertMigratingApplication mocks base method.
-func (m *MockState) InsertMigratingApplication(arg0 context.Context, arg1 string, arg2 application0.InsertApplicationArgs) (application.UUID, error) {
+func (m *MockState) InsertMigratingApplication(arg0 context.Context, arg1 string, arg2 application0.InsertApplicationArgs) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InsertMigratingApplication", arg0, arg1, arg2)
-	ret0, _ := ret[0].(application.UUID)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // InsertMigratingApplication indicates an expected call of InsertMigratingApplication.
@@ -3953,19 +3952,19 @@ type MockStateInsertMigratingApplicationCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateInsertMigratingApplicationCall) Return(arg0 application.UUID, arg1 error) *MockStateInsertMigratingApplicationCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockStateInsertMigratingApplicationCall) Return(arg0 error) *MockStateInsertMigratingApplicationCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateInsertMigratingApplicationCall) Do(f func(context.Context, string, application0.InsertApplicationArgs) (application.UUID, error)) *MockStateInsertMigratingApplicationCall {
+func (c *MockStateInsertMigratingApplicationCall) Do(f func(context.Context, string, application0.InsertApplicationArgs) error) *MockStateInsertMigratingApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInsertMigratingApplicationCall) DoAndReturn(f func(context.Context, string, application0.InsertApplicationArgs) (application.UUID, error)) *MockStateInsertMigratingApplicationCall {
+func (c *MockStateInsertMigratingApplicationCall) DoAndReturn(f func(context.Context, string, application0.InsertApplicationArgs) error) *MockStateInsertMigratingApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

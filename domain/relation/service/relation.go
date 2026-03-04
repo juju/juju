@@ -185,7 +185,7 @@ type State interface {
 	// It takes a list of unit UUIDs and application UUIDs, returning the
 	// current setting version for each one, or departed if any unit is not
 	// found
-	GetRelationUnitChanges(ctx context.Context, unitUUIDs []unit.UUID, appUUIDs []application.UUID) (relation.RelationUnitsChange, error)
+	GetRelationUnitChanges(ctx context.Context, relationUUID string, unitUUIDs []unit.UUID, appUUIDs []application.UUID) (relation.RelationUnitsChange, error)
 
 	// GetRelationUnitUUID retrieves the UUID of a relation unit based on the
 	// given relation UUID and unit name.
@@ -809,9 +809,14 @@ func (s *Service) getRelationUnitByID(
 // GetRelationUnitChanges validates the given unit and application UUIDs,
 // and retrieves related unit changes.
 // If any UUID is invalid, an appropriate error is returned.
-func (s *Service) GetRelationUnitChanges(ctx context.Context, unitUUIDs []unit.UUID, appUUIDs []application.UUID) (relation.RelationUnitsChange, error) {
+func (s *Service) GetRelationUnitChanges(ctx context.Context, relUUID corerelation.UUID, unitUUIDs []unit.UUID, appUUIDs []application.UUID) (relation.RelationUnitsChange, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	if err := relUUID.Validate(); err != nil {
+		return relation.RelationUnitsChange{}, errors.Errorf(
+			"%w: %w", relationerrors.RelationUUIDNotValid, err)
+	}
 
 	for _, uuid := range unitUUIDs {
 		if err := uuid.Validate(); err != nil {
@@ -824,7 +829,7 @@ func (s *Service) GetRelationUnitChanges(ctx context.Context, unitUUIDs []unit.U
 		}
 	}
 
-	return s.st.GetRelationUnitChanges(ctx, unitUUIDs, appUUIDs)
+	return s.st.GetRelationUnitChanges(ctx, relUUID.String(), unitUUIDs, appUUIDs)
 }
 
 // GetRelationUnitSettings returns the relation settings for the input unit in

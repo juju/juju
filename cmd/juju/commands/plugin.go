@@ -19,7 +19,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/v4"
 
-	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/juju/osenv"
 )
 

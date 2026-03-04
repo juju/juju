@@ -931,7 +931,7 @@ func makeCreateApplicationArgs(
 		)
 	}
 
-	err = validateApplicationStorageDirectives(charmMeta.Storage, storageDirectiveArgs)
+	err = storage.ValidateApplicationStorageDirectives(charmMeta.Storage, storageDirectiveArgs)
 	if err != nil {
 		return application.BaseAddApplicationArg{}, errors.Errorf(
 			"invalid application storage directives: %w", err,

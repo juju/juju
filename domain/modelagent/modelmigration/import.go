@@ -161,6 +161,9 @@ func (i *importUnitAgentBinaryOperation) Execute(
 	for _, application := range model.Applications() {
 		for _, unit := range application.Units() {
 			tools := unit.Tools()
+			if tools == nil {
+				continue
+			}
 
 			uName := coreunit.Name(unit.Name())
 			binVer, err := semversion.ParseBinary(tools.Version())

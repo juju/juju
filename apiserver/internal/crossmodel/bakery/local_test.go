@@ -15,9 +15,9 @@ import (
 	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
 
+	apimacaroon "github.com/juju/juju/api/macaroon"
 	coreerrors "github.com/juju/juju/core/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	internalmacaroon "github.com/juju/juju/internal/macaroon"
 )
 
 type localBakerySuite struct {
@@ -31,7 +31,7 @@ func TestLocalBakerySuite(t *testing.T) {
 func (s *localBakerySuite) TestNewLocalOfferBakery(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	checker := checkers.New(internalmacaroon.MacaroonNamespace)
+	checker := checkers.New(apimacaroon.MacaroonNamespace)
 	bakery, err := NewLocalOfferBakery(
 		s.keyPair,
 		"juju model",

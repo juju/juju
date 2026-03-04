@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/internal/cmd"
 )
 
 var (

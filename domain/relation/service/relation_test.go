@@ -443,6 +443,7 @@ func (s *relationServiceSuite) TestGetRelationUnitByIDUnitStateError(c *tc.C) {
 func (s *relationServiceSuite) TestGetRelationUnitChanges(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
+	relationUUID := corerelationtesting.GenRelationUUID(c)
 	appUUIDs := []coreapplication.UUID{
 		tc.Must(c, coreapplication.NewUUID),
 		tc.Must(c, coreapplication.NewUUID),
@@ -463,10 +464,10 @@ func (s *relationServiceSuite) TestGetRelationUnitChanges(c *tc.C) {
 		},
 		Departed: []coreunit.Name{"bar/0"},
 	}
-	s.state.EXPECT().GetRelationUnitChanges(gomock.Any(), unitUUIDS, appUUIDs).Return(expectedResult, nil)
+	s.state.EXPECT().GetRelationUnitChanges(gomock.Any(), relationUUID.String(), unitUUIDS, appUUIDs).Return(expectedResult, nil)
 
 	// Act
-	result, err := s.service.GetRelationUnitChanges(c.Context(), unitUUIDS, appUUIDs)
+	result, err := s.service.GetRelationUnitChanges(c.Context(), relationUUID, unitUUIDS, appUUIDs)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -476,6 +477,7 @@ func (s *relationServiceSuite) TestGetRelationUnitChanges(c *tc.C) {
 func (s *relationServiceSuite) TestGetRelationUnitChangesUnitUUIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
+	relationUUID := corerelationtesting.GenRelationUUID(c)
 	unitUUIDS := []coreunit.UUID{
 		coreunittesting.GenUnitUUID(c),
 		coreunit.UUID("not-valid-uuid"),
@@ -483,7 +485,7 @@ func (s *relationServiceSuite) TestGetRelationUnitChangesUnitUUIDNotValid(c *tc.
 	}
 
 	// Act
-	_, err := s.service.GetRelationUnitChanges(c.Context(), unitUUIDS, nil)
+	_, err := s.service.GetRelationUnitChanges(c.Context(), relationUUID, unitUUIDS, nil)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitUUIDNotValid)
@@ -492,6 +494,7 @@ func (s *relationServiceSuite) TestGetRelationUnitChangesUnitUUIDNotValid(c *tc.
 func (s *relationServiceSuite) TestGetRelationUnitChangesAppUUIDNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
+	relationUUID := corerelationtesting.GenRelationUUID(c)
 	appUUIDs := []coreapplication.UUID{
 		tc.Must(c, coreapplication.NewUUID),
 		coreapplication.UUID("not-valid-uuid"),
@@ -499,7 +502,7 @@ func (s *relationServiceSuite) TestGetRelationUnitChangesAppUUIDNotValid(c *tc.C
 	}
 
 	// Act
-	_, err := s.service.GetRelationUnitChanges(c.Context(), nil, appUUIDs)
+	_, err := s.service.GetRelationUnitChanges(c.Context(), relationUUID, nil, appUUIDs)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationUUIDNotValid)
@@ -508,12 +511,13 @@ func (s *relationServiceSuite) TestGetRelationUnitChangesAppUUIDNotValid(c *tc.C
 func (s *relationServiceSuite) TestGetRelationUnitChangesUnitStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange
+	relationUUID := corerelationtesting.GenRelationUUID(c)
 	boom := errors.Errorf("boom")
-	s.state.EXPECT().GetRelationUnitChanges(gomock.Any(), gomock.Any(),
+	s.state.EXPECT().GetRelationUnitChanges(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).Return(relation.RelationUnitsChange{}, boom)
 
 	// Act
-	_, err := s.service.GetRelationUnitChanges(c.Context(), nil, nil)
+	_, err := s.service.GetRelationUnitChanges(c.Context(), relationUUID, nil, nil)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, boom)

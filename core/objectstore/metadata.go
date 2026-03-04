@@ -28,7 +28,7 @@ type Metadata struct {
 	Size int64
 }
 
-// Metadata represents the metadata for an object store.
+// ObjectStoreMetadata represents the metadata for an object store.
 type ObjectStoreMetadata interface {
 	// GetMetadata returns the persistence metadata for the specified path.
 	GetMetadata(ctx context.Context, path string) (Metadata, error)

@@ -18,7 +18,19 @@ import (
 // intended to be used by the unit, there is never an expectation that the unit
 // will write to the object store.
 func NewBlobsClient(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
-	session, err := s3client.NewS3Client(ensureHTTPS(url), client, s3client.AnonymousCredentials{}, logger)
+	creds := s3client.AnonymousCredentials{}
+	session, err := s3client.NewS3Client(ensureHTTPS(url), client, creds,
+		s3client.WithLogger(logger),
+
+		// We don't want s3 to retry requests as there already exists a set
+		// of retry logic in the apiremotecaller and it can cause exponential
+		// backoff which can cause long delays in retrieving blobs.
+		s3client.WithMaxAttempts(1),
+
+		// We also don't want rate limiting from the client side, that should
+		// be handled by the apiserver.
+		s3client.WithRateLimiting(false),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -30,18 +42,17 @@ func NewBlobsClient(url string, client s3client.HTTPClient, logger logger.Logger
 // the stdlib http.Client. This is just asinine. The httprequest.Client should
 // be ripped out and replaced with the stdlib http.Client.
 type httpClient struct {
-	client *httprequest.Client
+	client httprequest.Doer
 }
 
-func newHTTPClient(client *httprequest.Client) *httpClient {
+func newHTTPClient(client httprequest.Doer) *httpClient {
 	return &httpClient{
 		client: client,
 	}
 }
 
 func (c *httpClient) Do(req *http.Request) (*http.Response, error) {
-	var res *http.Response
-	err := c.client.Do(req.Context(), req, &res)
+	res, err := c.client.Do(req)
 	return res, err
 }
 

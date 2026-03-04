@@ -370,8 +370,8 @@ WHERE value = ?
 	return unitUUID
 }
 
-func (s *baseRelationSuite) fetchRelationUUIDByRelationID(c *tc.C, id uint64) corerelation.UUID {
-	var relationUUID corerelation.UUID
+func (s *baseRelationSuite) fetchRelationUUIDByRelationID(c *tc.C, id uint64) string {
+	var relationUUID string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRow(`
 SELECT r.uuid

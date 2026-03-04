@@ -208,6 +208,15 @@ type FilesystemState interface {
 	// SetFilesystemAttachmentProvisionedInfo sets on the provided filesystem
 	// attachment information about the provisoned filesystem attachment.
 	SetFilesystemAttachmentProvisionedInfo(ctx context.Context, filesystemAttachmentUUID domainstorage.FilesystemAttachmentUUID, info storageprovisioning.FilesystemAttachmentProvisionedInfo) error
+
+	// GetProvisionedFilesystemAttachmentsForApplication returns the provisioned filesystem
+	// attachments indexed by storage name for the given application UUID.
+	// It returns an error satisfying [applicationerrors.ApplicationNotFound] if
+	// the application does not exist.
+	GetProvisionedFilesystemAttachmentsForApplication(ctx context.Context, uuid coreapplication.UUID) (
+		map[string][]storageprovisioning.ProvisionedFilesystemAttachment,
+		error,
+	)
 }
 
 // CharmState defines the methods required to fetch the mount points for charm
@@ -876,6 +885,12 @@ func (s *Service) GetFilesystemTemplatesForApplication(
 		)
 	}
 
+	provisionedAttachments, err := s.st.GetProvisionedFilesystemAttachmentsForApplication(ctx, appUUID)
+	if err != nil {
+		return nil, errors.Errorf(
+			"getting realized attachments for app %q: %w", appUUID, err,
+		)
+	}
 	retVal := make([]storageprovisioning.FilesystemTemplate, 0, len(fsTemplates))
 	for _, fsTemplate := range fsTemplates {
 		attachments := calculateFilesystemAttachmentTemplates(
@@ -897,8 +912,13 @@ func (s *Service) GetFilesystemTemplatesForApplication(
 			attachments = append(attachments, containerAttachments...)
 		}
 
+		attachmentTemplatesWithProvisioned := buildFilesystemAttachmentTemplatesWithProvisioned(
+			attachments,
+			provisionedAttachments[fsTemplate.StorageName],
+		)
+
 		mountTemplate := storageprovisioning.FilesystemTemplate{
-			Attachments:  attachments,
+			Attachments:  attachmentTemplatesWithProvisioned,
 			Attributes:   fsTemplate.Attributes,
 			Count:        fsTemplate.Count,
 			ProviderType: fsTemplate.ProviderType,
@@ -909,6 +929,20 @@ func (s *Service) GetFilesystemTemplatesForApplication(
 	}
 
 	return retVal, nil
+}
+
+func buildFilesystemAttachmentTemplatesWithProvisioned(
+	attachments []storageprovisioning.FilesystemAttachmentTemplate,
+	provisionedAttachments []storageprovisioning.ProvisionedFilesystemAttachment,
+) []storageprovisioning.FilesystemAttachmentTemplateWithProvisioned {
+	result := make([]storageprovisioning.FilesystemAttachmentTemplateWithProvisioned, len(attachments))
+	for i, attachment := range attachments {
+		result[i] = storageprovisioning.FilesystemAttachmentTemplateWithProvisioned{
+			FilesystemAttachmentTemplate: attachment,
+			ProvisionedAttachments:       provisionedAttachments,
+		}
+	}
+	return result
 }
 
 // SetFilesystemProvisionedInfo sets on the provided filesystem the information

@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/domain/storage"
@@ -58,7 +59,15 @@ func (st *ModelState) SetFilesystemStatus(
 	return nil
 }
 
-// getFilesystemStatus gets the status of the given filesystem
+func (st *ModelState) GetAllAttachedBlockDeviceLinks(
+	ctx context.Context,
+) (map[blockdevice.BlockDeviceUUID][]string, error) {
+	// TODO(tlm): implement
+	//
+	return map[blockdevice.BlockDeviceUUID][]string{}, nil
+}
+
+// getFilesystemstatus gets the status of the given filesystem
 // and a bool indicating if it is provisioned.
 // The following errors can be expected:
 // - [storageerrors.FilesystemNotFound] if the filesystem doesn't exist.
@@ -224,7 +233,7 @@ func (st *ModelState) SetVolumeStatus(
 	return nil
 }
 
-// getVolumeStatus gets the status of the given volume
+// getVolumeProvisioningStatus gets the status of the given volume
 // and a bool indicating if it is provisioned.
 // The following errors can be expected:
 // - [storageerrors.VolumeNotFound] if the volume doesn't exist.
@@ -355,8 +364,105 @@ ON CONFLICT(volume_uuid) DO UPDATE SET
 	return nil
 }
 
-// GetStorageInstances returns all the storage instances for this model.
+// GetStorageInstances returns the specified storage instances if they exist.
 func (st *ModelState) GetStorageInstances(
+	ctx context.Context, uuids []storage.StorageInstanceUUID,
+) ([]status.StorageInstance, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	ids := IDs[entityUUIDs](uuids)
+
+	stmt, err := st.Prepare(`
+SELECT &storageInstanceStatusDetails.* FROM (
+    SELECT    si.uuid,
+              si.storage_id,
+              si.life_id,
+              si.storage_kind_id,
+              si.storage_name,
+              u.name AS owner_unit_name,
+              svs.status_id AS volume_status_id,
+              svs.message AS volume_status_message,
+              svs.updated_at AS volume_status_updated_at,
+              sfs.status_id AS filesystem_status_id,
+              sfs.message AS filesystem_status_message,
+              sfs.updated_at AS filesystem_status_updated_at
+    FROM      storage_instance si
+    LEFT JOIN storage_unit_owner suo ON si.uuid=suo.storage_instance_uuid
+    LEFT JOIN unit u ON suo.unit_uuid=u.uuid
+    LEFT JOIN storage_instance_volume siv ON si.uuid=siv.storage_instance_uuid
+    LEFT JOIN storage_volume_status svs ON siv.storage_volume_uuid=svs.volume_uuid
+    LEFT JOIN storage_instance_filesystem sif ON si.uuid=sif.storage_instance_uuid
+    LEFT JOIN storage_filesystem_status sfs ON sif.storage_filesystem_uuid=sfs.filesystem_uuid
+    WHERE     si.uuid IN ($entityUUIDs[:])
+)
+`, storageInstanceStatusDetails{}, ids)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var out []storageInstanceStatusDetails
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, ids).GetAll(&out)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// No rows just means that no StorageInstances exist in the model.
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return transform.SliceOrErr(out, func(v storageInstanceStatusDetails) (status.StorageInstance, error) {
+		var owner *unit.Name
+		if v.OwnerUnitName.Valid {
+			n := unit.Name(v.OwnerUnitName.String)
+			owner = &n
+		}
+		var fsStatus status.StatusInfo[status.StorageFilesystemStatusType]
+		if v.FilesystemStatusID.Valid {
+			statusValue, err := status.DecodeStorageFilesystemStatus(
+				v.FilesystemStatusID.V)
+			if err != nil {
+				return status.StorageInstance{}, errors.Capture(err)
+			}
+			fsStatus = status.StatusInfo[status.StorageFilesystemStatusType]{
+				Status:  statusValue,
+				Message: v.FilesystemStatusMessage,
+				Since:   v.FilesystemStatusUpdatedAt,
+			}
+		}
+		var volStatus status.StatusInfo[status.StorageVolumeStatusType]
+		if v.FilesystemStatusID.Valid {
+			statusValue, err := status.DecodeStorageVolumeStatus(
+				v.VolumeStatusID.V)
+			if err != nil {
+				return status.StorageInstance{}, errors.Capture(err)
+			}
+			volStatus = status.StatusInfo[status.StorageVolumeStatusType]{
+				Status:  statusValue,
+				Message: v.VolumeStatusMessage,
+				Since:   v.VolumeStatusUpdatedAt,
+			}
+		}
+		return status.StorageInstance{
+			UUID:             storage.StorageInstanceUUID(v.UUID),
+			ID:               v.ID,
+			Kind:             storage.StorageKind(v.KindID),
+			Name:             v.StorageName,
+			Life:             life.Life(v.LifeID),
+			Owner:            owner,
+			FilesystemStatus: fsStatus,
+			VolumeStatus:     volStatus,
+		}, nil
+	})
+}
+
+// GetAllStorageInstances returns all the storage instances for this model.
+func (st *ModelState) GetAllStorageInstances(
 	ctx context.Context,
 ) ([]status.StorageInstance, error) {
 	db, err := st.DB(ctx)
@@ -365,11 +471,27 @@ func (st *ModelState) GetStorageInstances(
 	}
 
 	stmt, err := st.Prepare(`
-SELECT    (si.uuid, si.storage_id, si.life_id, si.storage_kind_id) AS (&storageInstanceStatusDetails.*),
-          u.name AS &storageInstanceStatusDetails.owner_unit_name
-FROM      storage_instance si
-LEFT JOIN storage_unit_owner suo ON si.uuid=suo.storage_instance_uuid
-LEFT JOIN unit u ON suo.unit_uuid=u.uuid
+SELECT &storageInstanceStatusDetails.* FROM (
+    SELECT    si.uuid,
+    		  si.storage_id,
+              si.life_id,
+              si.storage_kind_id,
+              si.storage_name,
+              u.name AS owner_unit_name,
+              svs.status_id AS volume_status_id,
+              svs.message AS volume_status_message,
+              svs.updated_at AS volume_status_updated_at,
+              sfs.status_id AS filesystem_status_id,
+              sfs.message AS filesystem_status_message,
+              sfs.updated_at AS filesystem_status_updated_at
+    FROM      storage_instance si
+    LEFT JOIN storage_unit_owner suo ON si.uuid=suo.storage_instance_uuid
+    LEFT JOIN unit u ON suo.unit_uuid=u.uuid
+    LEFT JOIN storage_instance_volume siv ON si.uuid=siv.storage_instance_uuid
+    LEFT JOIN storage_volume_status svs ON siv.storage_volume_uuid=svs.volume_uuid
+    LEFT JOIN storage_instance_filesystem sif ON si.uuid=sif.storage_instance_uuid
+    LEFT JOIN storage_filesystem_status sfs ON sif.storage_filesystem_uuid=sfs.filesystem_uuid
+)
 `, storageInstanceStatusDetails{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -378,6 +500,99 @@ LEFT JOIN unit u ON suo.unit_uuid=u.uuid
 	var out []storageInstanceStatusDetails
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).GetAll(&out)
+		if errors.Is(err, sql.ErrNoRows) {
+			// No rows just means that no StorageInstances exist in the model.
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return transform.SliceOrErr(out, func(v storageInstanceStatusDetails) (status.StorageInstance, error) {
+		var owner *unit.Name
+		if v.OwnerUnitName.Valid {
+			n := unit.Name(v.OwnerUnitName.String)
+			owner = &n
+		}
+		var fsStatus status.StatusInfo[status.StorageFilesystemStatusType]
+		if v.FilesystemStatusID.Valid {
+			statusValue, err := status.DecodeStorageFilesystemStatus(
+				v.FilesystemStatusID.V)
+			if err != nil {
+				return status.StorageInstance{}, errors.Capture(err)
+			}
+			fsStatus = status.StatusInfo[status.StorageFilesystemStatusType]{
+				Status:  statusValue,
+				Message: v.FilesystemStatusMessage,
+				Since:   v.FilesystemStatusUpdatedAt,
+			}
+		}
+		var volStatus status.StatusInfo[status.StorageVolumeStatusType]
+		if v.VolumeStatusID.Valid {
+			statusValue, err := status.DecodeStorageVolumeStatus(
+				v.VolumeStatusID.V)
+			if err != nil {
+				return status.StorageInstance{}, errors.Capture(err)
+			}
+			volStatus = status.StatusInfo[status.StorageVolumeStatusType]{
+				Status:  statusValue,
+				Message: v.VolumeStatusMessage,
+				Since:   v.VolumeStatusUpdatedAt,
+			}
+		}
+		return status.StorageInstance{
+			UUID:             storage.StorageInstanceUUID(v.UUID),
+			ID:               v.ID,
+			Kind:             storage.StorageKind(v.KindID),
+			Name:             v.StorageName,
+			Life:             life.Life(v.LifeID),
+			Owner:            owner,
+			FilesystemStatus: fsStatus,
+			VolumeStatus:     volStatus,
+		}, nil
+	})
+}
+
+// GetStorageInstanceAttachments returns the specified storage instance
+// attachments if they exist.
+func (st *ModelState) GetStorageInstanceAttachments(
+	ctx context.Context, uuids []storage.StorageInstanceUUID,
+) ([]status.StorageAttachment, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	ids := IDs[entityUUIDs](uuids)
+
+	stmt, err := st.Prepare(`
+SELECT &storageAttachmentStatusDetails.* FROM (
+    SELECT    sa.storage_instance_uuid, sa.life_id,
+              u.name AS unit_name,
+              m.name AS machine_name,
+              sfa.mount_point AS filesystem_mount_point,
+              sva.block_device_uuid AS volume_block_device_uuid
+    FROM      storage_attachment sa
+    LEFT JOIN unit u ON sa.unit_uuid=u.uuid
+    LEFT JOIN machine m ON u.net_node_uuid=m.net_node_uuid
+    LEFT JOIN storage_instance_volume siv ON sa.storage_instance_uuid=siv.storage_instance_uuid
+    LEFT JOIN storage_volume_attachment sva ON siv.storage_volume_uuid=sva.storage_volume_uuid AND
+                                               u.net_node_uuid=sva.net_node_uuid
+    LEFT JOIN storage_instance_filesystem sif ON sa.storage_instance_uuid=sif.storage_instance_uuid
+    LEFT JOIN storage_filesystem_attachment sfa ON sif.storage_filesystem_uuid=sfa.storage_filesystem_uuid AND
+                                                   u.net_node_uuid=sfa.net_node_uuid
+    WHERE     sa.storage_instance_uuid IN ($entityUUIDs[:])
+)
+`, storageAttachmentStatusDetails{}, ids)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var out []storageAttachmentStatusDetails
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, ids).GetAll(&out)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return err
 		}
@@ -387,25 +602,36 @@ LEFT JOIN unit u ON suo.unit_uuid=u.uuid
 		return nil, errors.Capture(err)
 	}
 
-	return transform.Slice(out, func(v storageInstanceStatusDetails) status.StorageInstance {
-		var owner *unit.Name
-		if v.OwnerUnitName.Valid {
-			n := unit.Name(v.OwnerUnitName.String)
-			owner = &n
+	return transform.Slice(out, func(v storageAttachmentStatusDetails) status.StorageAttachment {
+		var machineName *machine.Name
+		if v.MachineName.Valid {
+			m := machine.Name(v.MachineName.String)
+			machineName = &m
 		}
-		return status.StorageInstance{
-			UUID:  storage.StorageInstanceUUID(v.UUID),
-			ID:    v.ID,
-			Kind:  storage.StorageKind(v.KindID),
-			Life:  life.Life(v.LifeID),
-			Owner: owner,
+		var filesystemMountPoint *string
+		if v.FilesystemMountPoint.Valid {
+			filesystemMountPoint = &v.FilesystemMountPoint.String
+		}
+		var volumeBlockDevice *blockdevice.BlockDeviceUUID
+		if v.VolumeBlockDeviceUUID.Valid {
+			blockDeviceUUID := blockdevice.BlockDeviceUUID(
+				v.VolumeBlockDeviceUUID.String)
+			volumeBlockDevice = &blockDeviceUUID
+		}
+		return status.StorageAttachment{
+			StorageInstanceUUID:  storage.StorageInstanceUUID(v.StorageInstanceUUID),
+			Life:                 life.Life(v.LifeID),
+			Unit:                 unit.Name(v.UnitName),
+			Machine:              machineName,
+			FilesystemMountPoint: filesystemMountPoint,
+			VolumeBlockDevice:    volumeBlockDevice,
 		}
 	}), nil
 }
 
-// GetStorageInstanceAttachments returns all the storage instance
+// GetAllStorageInstanceAttachments returns all the storage instance
 // attachments for this model.
-func (st *ModelState) GetStorageInstanceAttachments(
+func (st *ModelState) GetAllStorageInstanceAttachments(
 	ctx context.Context,
 ) ([]status.StorageAttachment, error) {
 	db, err := st.DB(ctx)
@@ -414,12 +640,22 @@ func (st *ModelState) GetStorageInstanceAttachments(
 	}
 
 	stmt, err := st.Prepare(`
-SELECT    (sa.storage_instance_uuid, sa.life_id) AS (&storageAttachmentStatusDetails.*),
-          u.name AS &storageAttachmentStatusDetails.unit_name,
-          m.name AS &storageAttachmentStatusDetails.machine_name
-FROM      storage_attachment sa
-LEFT JOIN unit u ON sa.unit_uuid=u.uuid
-LEFT JOIN machine m ON u.net_node_uuid=m.net_node_uuid
+SELECT &storageAttachmentStatusDetails.* FROM (
+    SELECT    sa.storage_instance_uuid, sa.life_id,
+              u.name AS unit_name,
+              m.name AS machine_name,
+              sfa.mount_point AS filesystem_mount_point,
+              sva.block_device_uuid AS volume_block_device_uuid
+    FROM      storage_attachment sa
+    LEFT JOIN unit u ON sa.unit_uuid=u.uuid
+    LEFT JOIN machine m ON u.net_node_uuid=m.net_node_uuid
+    LEFT JOIN storage_instance_volume siv ON sa.storage_instance_uuid=siv.storage_instance_uuid
+    LEFT JOIN storage_volume_attachment sva ON siv.storage_volume_uuid=sva.storage_volume_uuid AND
+                                               u.net_node_uuid=sva.net_node_uuid
+    LEFT JOIN storage_instance_filesystem sif ON sa.storage_instance_uuid=sif.storage_instance_uuid
+    LEFT JOIN storage_filesystem_attachment sfa ON sif.storage_filesystem_uuid=sfa.storage_filesystem_uuid AND
+                                                   u.net_node_uuid=sfa.net_node_uuid
+)
 `, storageAttachmentStatusDetails{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -443,17 +679,101 @@ LEFT JOIN machine m ON u.net_node_uuid=m.net_node_uuid
 			m := machine.Name(v.MachineName.String)
 			machineName = &m
 		}
+		var filesystemMountPoint *string
+		if v.FilesystemMountPoint.Valid {
+			filesystemMountPoint = &v.FilesystemMountPoint.String
+		}
+		var volumeBlockDevice *blockdevice.BlockDeviceUUID
+		if v.VolumeBlockDeviceUUID.Valid {
+			blockDeviceUUID := blockdevice.BlockDeviceUUID(
+				v.VolumeBlockDeviceUUID.String)
+			volumeBlockDevice = &blockDeviceUUID
+		}
 		return status.StorageAttachment{
-			StorageInstanceUUID: storage.StorageInstanceUUID(v.StorageInstanceUUID),
-			Life:                life.Life(v.LifeID),
-			Unit:                unit.Name(v.UnitName),
-			Machine:             machineName,
+			StorageInstanceUUID:  storage.StorageInstanceUUID(v.StorageInstanceUUID),
+			Life:                 life.Life(v.LifeID),
+			Unit:                 unit.Name(v.UnitName),
+			Machine:              machineName,
+			FilesystemMountPoint: filesystemMountPoint,
+			VolumeBlockDevice:    volumeBlockDevice,
 		}
 	}), nil
 }
 
-// GetFilesystems returns all the filesystems for this model.
+// GetFilesystems returns the specified filesystems if they exist.
 func (st *ModelState) GetFilesystems(
+	ctx context.Context, uuids []storage.FilesystemUUID,
+) ([]status.Filesystem, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	ids := IDs[entityUUIDs](uuids)
+
+	stmt, err := st.Prepare(`
+SELECT    (sf.uuid, sf.filesystem_id, sf.life_id, sf.provider_id, sf.size_mib) AS (&filesystemStatusDetails.*),
+          (sfs.status_id, sfs.message, sfs.updated_at) AS (&filesystemStatusDetails.*),
+          (si.storage_id, sv.volume_id) AS (&filesystemStatusDetails.*),
+          si.uuid AS &filesystemStatusDetails.storage_instance_uuid
+FROM      storage_filesystem sf
+LEFT JOIN storage_filesystem_status sfs ON sfs.filesystem_uuid=sf.uuid
+LEFT JOIN storage_instance_filesystem sif ON sf.uuid=sif.storage_filesystem_uuid
+LEFT JOIN storage_instance si ON si.uuid=sif.storage_instance_uuid
+LEFT JOIN storage_instance_volume siv ON siv.storage_instance_uuid=si.uuid
+LEFT JOIN storage_volume sv ON sv.uuid=siv.storage_volume_uuid
+WHERE     sf.uuid IN ($entityUUIDs[:])
+`, filesystemStatusDetails{}, ids)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var out []filesystemStatusDetails
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, ids).GetAll(&out)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return transform.SliceOrErr(out, func(v filesystemStatusDetails) (status.Filesystem, error) {
+		statusValue, err := status.DecodeStorageFilesystemStatus(v.StatusID)
+		if err != nil {
+			return status.Filesystem{}, errors.Capture(err)
+		}
+		var volumeID *string
+		if v.VolumeID.Valid {
+			volumeID = &v.VolumeID.String
+		}
+		var storageInstanceUUID *storage.StorageInstanceUUID
+		if v.StorageInstanceUUID.Valid {
+			siUUID := storage.StorageInstanceUUID(v.StorageInstanceUUID.String)
+			storageInstanceUUID = &siUUID
+		}
+		return status.Filesystem{
+			UUID: storage.FilesystemUUID(v.UUID),
+			ID:   v.ID,
+			Life: life.Life(v.LifeID),
+			Status: status.StatusInfo[status.StorageFilesystemStatusType]{
+				Status:  statusValue,
+				Message: v.Message,
+				Since:   v.UpdatedAt,
+			},
+			StorageUUID: storageInstanceUUID,
+			StorageID:   v.StorageID,
+			VolumeID:    volumeID,
+			ProviderID:  v.ProviderID,
+			SizeMiB:     v.SizeMiB,
+		}, nil
+	})
+}
+
+// GetAllFilesystems returns all the filesystems for this model.
+func (st *ModelState) GetAllFilesystems(
 	ctx context.Context,
 ) ([]status.Filesystem, error) {
 	db, err := st.DB(ctx)
@@ -464,7 +784,8 @@ func (st *ModelState) GetFilesystems(
 	stmt, err := st.Prepare(`
 SELECT    (sf.uuid, sf.filesystem_id, sf.life_id, sf.provider_id, sf.size_mib) AS (&filesystemStatusDetails.*),
           (sfs.status_id, sfs.message, sfs.updated_at) AS (&filesystemStatusDetails.*),
-          (si.storage_id, sv.volume_id) AS (&filesystemStatusDetails.*)
+          (si.storage_id, sv.volume_id) AS (&filesystemStatusDetails.*),
+          si.uuid AS &filesystemStatusDetails.storage_instance_uuid
 FROM      storage_filesystem sf
 LEFT JOIN storage_filesystem_status sfs ON sfs.filesystem_uuid=sf.uuid
 LEFT JOIN storage_instance_filesystem sif ON sf.uuid=sif.storage_filesystem_uuid
@@ -497,6 +818,11 @@ LEFT JOIN storage_volume sv ON sv.uuid=siv.storage_volume_uuid
 		if v.VolumeID.Valid {
 			volumeID = &v.VolumeID.String
 		}
+		var storageInstanceUUID *storage.StorageInstanceUUID
+		if v.StorageInstanceUUID.Valid {
+			siUUID := storage.StorageInstanceUUID(v.StorageInstanceUUID.String)
+			storageInstanceUUID = &siUUID
+		}
 		return status.Filesystem{
 			UUID: storage.FilesystemUUID(v.UUID),
 			ID:   v.ID,
@@ -506,17 +832,92 @@ LEFT JOIN storage_volume sv ON sv.uuid=siv.storage_volume_uuid
 				Message: v.Message,
 				Since:   v.UpdatedAt,
 			},
-			StorageID:  v.StorageID,
-			VolumeID:   volumeID,
-			ProviderID: v.ProviderID,
-			SizeMiB:    v.SizeMiB,
+			StorageUUID: storageInstanceUUID,
+			StorageID:   v.StorageID,
+			VolumeID:    volumeID,
+			ProviderID:  v.ProviderID,
+			SizeMiB:     v.SizeMiB,
 		}, nil
 	})
 }
 
-// GetFilesystemAttachments returns all the filesystem attachments for this
-// model.
+// GetFilesystemAttachments returns the specified filesystem attachments if they
+// exist.
 func (st *ModelState) GetFilesystemAttachments(
+	ctx context.Context, uuids []storage.FilesystemUUID,
+) ([]status.FilesystemAttachment, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// To satisfy the unit name column of this query a filesystem attachment
+	// must be for a net node uuid that is on a unit where that unit does not
+	// share a net node with a machine.
+	// If units are for machines they share a net node.
+	q := `
+SELECT DISTINCT &filesystemAttachmentStatusDetails.* FROM (
+    SELECT    sfa.storage_filesystem_uuid,
+              sfa.life_id,
+              sfa.mount_point,
+              sfa.read_only,
+              u.name As unit_name,
+              m.name AS machine_name
+    FROM      storage_filesystem_attachment sfa
+    LEFT JOIN machine m ON sfa.net_node_uuid=m.net_node_uuid
+    -- Only join units when there is no machine.
+    LEFT JOIN unit u
+        ON sfa.net_node_uuid = u.net_node_uuid
+        AND m.net_node_uuid IS NULL
+    LEFT JOIN storage_instance_filesystem sif ON sif.storage_filesystem_uuid=sfa.storage_filesystem_uuid
+    LEFT JOIN storage_attachment sa ON sa.storage_instance_uuid=sif.storage_instance_uuid
+    WHERE     sfa.storage_filesystem_uuid IN ($entityUUIDs[:])
+)
+`
+
+	ids := IDs[entityUUIDs](uuids)
+	stmt, err := st.Prepare(q, filesystemAttachmentStatusDetails{}, ids)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var out []filesystemAttachmentStatusDetails
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, ids).GetAll(&out)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return transform.Slice(out, func(v filesystemAttachmentStatusDetails) status.FilesystemAttachment {
+		var machineName *machine.Name
+		if v.MachineName.Valid {
+			m := machine.Name(v.MachineName.String)
+			machineName = &m
+		}
+		var unitName *unit.Name
+		if v.UnitName.Valid {
+			u := unit.Name(v.UnitName.String)
+			unitName = &u
+		}
+		return status.FilesystemAttachment{
+			FilesystemUUID: storage.FilesystemUUID(v.FilesystemUUID),
+			Life:           life.Life(v.LifeID),
+			Unit:           unitName,
+			Machine:        machineName,
+			MountPoint:     v.MountPoint,
+			ReadOnly:       v.ReadOnly,
+		}
+	}), nil
+}
+
+// GetAllFilesystemAttachments returns all the filesystem attachments for this
+// model.
+func (st *ModelState) GetAllFilesystemAttachments(
 	ctx context.Context,
 ) ([]status.FilesystemAttachment, error) {
 	db, err := st.DB(ctx)
@@ -524,16 +925,30 @@ func (st *ModelState) GetFilesystemAttachments(
 		return nil, errors.Capture(err)
 	}
 
-	stmt, err := st.Prepare(`
-SELECT    (sfa.storage_filesystem_uuid, sfa.life_id, sfa.mount_point, sfa.read_only) AS (&filesystemAttachmentStatusDetails.*),
-          u.name AS &filesystemAttachmentStatusDetails.unit_name,
-          m.name AS &filesystemAttachmentStatusDetails.machine_name
-FROM      storage_filesystem_attachment sfa
-LEFT JOIN machine m ON sfa.net_node_uuid=m.net_node_uuid
-LEFT JOIN storage_instance_filesystem sif ON sif.storage_filesystem_uuid=sfa.storage_filesystem_uuid
-LEFT JOIN storage_attachment sa ON sa.storage_instance_uuid=sif.storage_instance_uuid
-LEFT JOIN unit u ON u.uuid=sa.unit_uuid
-`, filesystemAttachmentStatusDetails{})
+	// To satisfy the unit name column of this query a filesystem attachment
+	// must be for a net node uuid that is on a unit where that unit does not
+	// share a net node with a machine.
+	// If units are for machines they share a net node.
+	q := `
+SELECT DISTINCT &filesystemAttachmentStatusDetails.* FROM (
+    SELECT    sfa.storage_filesystem_uuid,
+              sfa.life_id,
+              sfa.mount_point,
+              sfa.read_only,
+              u.name As unit_name,
+              m.name AS machine_name
+    FROM      storage_filesystem_attachment sfa
+    LEFT JOIN machine m ON sfa.net_node_uuid=m.net_node_uuid
+    -- Only join units when there is no machine.
+    LEFT JOIN unit u
+        ON sfa.net_node_uuid = u.net_node_uuid
+        AND m.net_node_uuid IS NULL
+    LEFT JOIN storage_instance_filesystem sif ON sif.storage_filesystem_uuid=sfa.storage_filesystem_uuid
+    LEFT JOIN storage_attachment sa ON sa.storage_instance_uuid=sif.storage_instance_uuid
+)
+`
+
+	stmt, err := st.Prepare(q, filesystemAttachmentStatusDetails{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -572,8 +987,76 @@ LEFT JOIN unit u ON u.uuid=sa.unit_uuid
 	}), nil
 }
 
-// GetVolumes returns all the volumes for this model.
+// GetVolumes returns the specified volumes if they exist.
 func (st *ModelState) GetVolumes(
+	ctx context.Context, uuids []storage.VolumeUUID,
+) ([]status.Volume, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	ids := IDs[entityUUIDs](uuids)
+
+	stmt, err := st.Prepare(`
+SELECT    (sv.uuid, sv.volume_id, sv.life_id, sv.provider_id, sv.hardware_id, sv.wwn, sv.size_mib, sv.persistent) AS (&volumeStatusDetails.*),
+          (svs.status_id, svs.message, svs.updated_at) AS (&volumeStatusDetails.*),
+          (si.storage_id) AS (&volumeStatusDetails.*),
+          si.uuid AS &volumeStatusDetails.storage_instance_uuid
+FROM      storage_volume sv
+LEFT JOIN storage_volume_status svs ON svs.volume_uuid=sv.uuid
+LEFT JOIN storage_instance_volume siv ON siv.storage_volume_uuid=sv.uuid
+LEFT JOIN storage_instance si ON si.uuid=siv.storage_instance_uuid
+WHERE     sv.uuid IN ($entityUUIDs[:])
+`, volumeStatusDetails{}, ids)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var out []volumeStatusDetails
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, ids).GetAll(&out)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return transform.SliceOrErr(out, func(v volumeStatusDetails) (status.Volume, error) {
+		statusValue, err := status.DecodeStorageVolumeStatus(v.StatusID)
+		if err != nil {
+			return status.Volume{}, errors.Capture(err)
+		}
+		var storageInstanceUUID *storage.StorageInstanceUUID
+		if v.StorageInstanceUUID.Valid {
+			siUUID := storage.StorageInstanceUUID(v.StorageInstanceUUID.String)
+			storageInstanceUUID = &siUUID
+		}
+		return status.Volume{
+			UUID: storage.VolumeUUID(v.UUID),
+			ID:   v.ID,
+			Life: life.Life(v.LifeID),
+			Status: status.StatusInfo[status.StorageVolumeStatusType]{
+				Status:  statusValue,
+				Message: v.Message,
+				Since:   v.UpdatedAt,
+			},
+			StorageUUID: storageInstanceUUID,
+			StorageID:   v.StorageID,
+			ProviderID:  v.ProviderID,
+			HardwareID:  v.HardwareID,
+			WWN:         v.WWN,
+			Persistent:  v.Persistent,
+			SizeMiB:     v.SizeMiB,
+		}, nil
+	})
+}
+
+// GetAllVolumes returns all the volumes for this model.
+func (st *ModelState) GetAllVolumes(
 	ctx context.Context,
 ) ([]status.Volume, error) {
 	db, err := st.DB(ctx)
@@ -584,7 +1067,8 @@ func (st *ModelState) GetVolumes(
 	stmt, err := st.Prepare(`
 SELECT    (sv.uuid, sv.volume_id, sv.life_id, sv.provider_id, sv.hardware_id, sv.wwn, sv.size_mib, sv.persistent) AS (&volumeStatusDetails.*),
           (svs.status_id, svs.message, svs.updated_at) AS (&volumeStatusDetails.*),
-          (si.storage_id) AS (&volumeStatusDetails.*)
+          (si.storage_id) AS (&volumeStatusDetails.*),
+          si.uuid AS &volumeStatusDetails.storage_instance_uuid
 FROM      storage_volume sv
 LEFT JOIN storage_volume_status svs ON svs.volume_uuid=sv.uuid
 LEFT JOIN storage_instance_volume siv ON siv.storage_volume_uuid=sv.uuid
@@ -611,6 +1095,11 @@ LEFT JOIN storage_instance si ON si.uuid=siv.storage_instance_uuid
 		if err != nil {
 			return status.Volume{}, errors.Capture(err)
 		}
+		var storageInstanceUUID *storage.StorageInstanceUUID
+		if v.StorageInstanceUUID.Valid {
+			siUUID := storage.StorageInstanceUUID(v.StorageInstanceUUID.String)
+			storageInstanceUUID = &siUUID
+		}
 		return status.Volume{
 			UUID: storage.VolumeUUID(v.UUID),
 			ID:   v.ID,
@@ -620,91 +1109,162 @@ LEFT JOIN storage_instance si ON si.uuid=siv.storage_instance_uuid
 				Message: v.Message,
 				Since:   v.UpdatedAt,
 			},
-			StorageID:  v.StorageID,
-			ProviderID: v.ProviderID,
-			HardwareID: v.HardwareID,
-			WWN:        v.WWN,
-			Persistent: v.Persistent,
-			SizeMiB:    v.SizeMiB,
+			StorageUUID: storageInstanceUUID,
+			StorageID:   v.StorageID,
+			ProviderID:  v.ProviderID,
+			HardwareID:  v.HardwareID,
+			WWN:         v.WWN,
+			Persistent:  v.Persistent,
+			SizeMiB:     v.SizeMiB,
 		}, nil
 	})
 }
 
-// GetVolumeAttachments returns all the volume attachments for this model.
+// GetVolumeAttachments returns the specified volume attachments if they exist.
 func (st *ModelState) GetVolumeAttachments(
-	ctx context.Context,
+	ctx context.Context, uuids []storage.VolumeUUID,
 ) ([]status.VolumeAttachment, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	stmt, err := st.Prepare(`
-SELECT DISTINCT (sva.storage_volume_uuid, sva.life_id, sva.read_only) AS (&volumeAttachmentStatusDetails.*),
-                bd.name AS &volumeAttachmentStatusDetails.device_name,
-                bd.bus_address AS &volumeAttachmentStatusDetails.bus_address,
-                first_value(bdld.name) OVER bdld_first AS &volumeAttachmentStatusDetails.device_link,
-                u.name AS &volumeAttachmentStatusDetails.unit_name,
-                m.name AS &volumeAttachmentStatusDetails.machine_name
-FROM            storage_volume_attachment sva
-LEFT JOIN       block_device bd ON bd.uuid=sva.block_device_uuid
-LEFT JOIN       block_device_link_device bdld ON bdld.block_device_uuid=bd.uuid
-LEFT JOIN       machine m ON sva.net_node_uuid=m.net_node_uuid
-LEFT JOIN       storage_instance_volume siv ON siv.storage_volume_uuid=sva.storage_volume_uuid
-LEFT JOIN       storage_attachment sa ON sa.storage_instance_uuid=siv.storage_instance_uuid
-LEFT JOIN       unit u ON u.uuid=sa.unit_uuid
-WINDOW          bdld_first AS (PARTITION BY bdld.block_device_uuid ORDER BY bdld.name)
-`, volumeAttachmentStatusDetails{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
+	// To satisfy the unit name column of this query a volume attachment
+	// must be for a net node uuid that is on a unit where that unit does not
+	// share a net node with a machine.
+	// If units are for machines they share a net node.
+	volumeAttachmentQuery := `
+SELECT &volumeAttachmentStatusDetails.*
+FROM (
+    SELECT    sva.uuid,
+              sva.storage_volume_uuid,
+              sva.life_id,
+              sva.read_only,
+              bd.name AS device_name,
+              bd.bus_address AS bus_address,
+              u.name AS unit_name,
+              m.name AS machine_name
+    FROM      storage_volume_attachment sva
+    LEFT JOIN block_device bd ON bd.uuid=sva.block_device_uuid
+    LEFT JOIN machine m ON sva.net_node_uuid=m.net_node_uuid
+    LEFT JOIN unit u
+        ON sva.net_node_uuid=u.net_node_uuid
+        AND m.net_node_uuid IS NULL
+    WHERE sva.storage_volume_uuid IN ($entityUUIDs[:])
+)
+`
 
-	volPlanStmt, err := st.Prepare(`
+	// Query to get all device links for volume attachments.
+	deviceLinksQuery := `
+SELECT &volumeAttachmentDeviceLink.*
+FROM  (
+    SELECT    sva.uuid,
+              bdld.name AS device_link
+    FROM      storage_volume_attachment sva
+    JOIN      block_device bd ON bd.uuid=sva.block_device_uuid
+    JOIN      block_device_link_device bdld ON bdld.block_device_uuid=bd.uuid
+    WHERE     sva.storage_volume_uuid IN ($entityUUIDs[:])
+)
+`
+
+	volumeAttachmentPlanQuery := `
 SELECT    &volumeAttachmentPlanStatusDetails.*
 FROM      storage_volume_attachment_plan svap
 LEFT JOIN storage_volume_attachment_plan_attr svapa ON svapa.attachment_plan_uuid=svap.uuid
-`, volumeAttachmentPlanStatusDetails{})
+ORDER BY  svap.uuid
+`
+
+	ids := IDs[entityUUIDs](uuids)
+	stmt, err := st.Prepare(volumeAttachmentQuery, volumeAttachmentStatusDetails{}, ids)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, errors.Errorf(
+			"preparing volume attachment status query: %w", err,
+		)
 	}
 
-	var out []volumeAttachmentStatusDetails
-	var vapOut []volumeAttachmentPlanStatusDetails
+	deviceLinksStmt, err := st.Prepare(
+		deviceLinksQuery, volumeAttachmentDeviceLink{}, ids,
+	)
+	if err != nil {
+		return nil, errors.Errorf(
+			"preparing volume attachment device links query: %w", err,
+		)
+	}
+
+	volAttachmentPlanStmt, err := st.Prepare(
+		volumeAttachmentPlanQuery, volumeAttachmentPlanStatusDetails{},
+	)
+	if err != nil {
+		return nil, errors.Errorf(
+			"preparing volume attachment plan query: %w", err,
+		)
+	}
+
+	var (
+		volAttachmentDetailsOut     []volumeAttachmentStatusDetails
+		volAttachmentDeviceLinksOut []volumeAttachmentDeviceLink
+		volAttachmentPlanOut        []volumeAttachmentPlanStatusDetails
+	)
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt).GetAll(&out)
+		err := tx.Query(ctx, stmt, ids).GetAll(&volAttachmentDetailsOut)
+		if errors.Is(err, sql.ErrNoRows) {
+			// If no volumes exists there is nothing more to do. Cannot have
+			// device links or plans without an attachment.
+			return nil
+		} else if err != nil {
+			return err
+		}
+
+		err = tx.Query(ctx, deviceLinksStmt, ids).GetAll(&volAttachmentDeviceLinksOut)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return err
 		}
-		err = tx.Query(ctx, volPlanStmt).GetAll(&vapOut)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return err
+
+		err = tx.Query(ctx, volAttachmentPlanStmt).GetAll(&volAttachmentPlanOut)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
 		}
-		return nil
+		return err
 	})
+
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	vaps := map[string]*status.VolumeAttachmentPlan{}
-	for _, v := range vapOut {
-		vap := vaps[v.VolumeUUID]
-		if vap == nil {
-			vap = &status.VolumeAttachmentPlan{
-				DeviceType: storage.VolumeDeviceType(v.DeviceTypeID),
-			}
-			vaps[v.VolumeUUID] = vap
-		}
-		if v.DeviceAttributeKey.Valid && v.DeviceAttributeValue.Valid {
-			key := v.DeviceAttributeKey.String
-			value := v.DeviceAttributeValue.String
-			if vap.DeviceAttributes == nil {
-				vap.DeviceAttributes = map[string]string{}
-			}
-			vap.DeviceAttributes[key] = value
-		}
+	// Group device links by VolumeAttachmentUUID
+	attachmentDeviceLinks := make(map[string][]string)
+	for _, dl := range volAttachmentDeviceLinksOut {
+		attachmentDeviceLinks[dl.UUID] = append(
+			attachmentDeviceLinks[dl.UUID], dl.DeviceLink,
+		)
 	}
 
-	return transform.Slice(out, func(v volumeAttachmentStatusDetails) status.VolumeAttachment {
+	// Organise volume attachment plans on volume uuid.
+	vaps := map[string]status.VolumeAttachmentPlan{}
+	var (
+		processingPlanAttributes map[string]string
+		processingVolumeUUID     string
+	)
+	for _, v := range volAttachmentPlanOut {
+		if v.VolumeUUID != processingVolumeUUID {
+			processingPlanAttributes = map[string]string{}
+			processingVolumeUUID = v.VolumeUUID
+			vaps[processingVolumeUUID] = status.VolumeAttachmentPlan{
+				DeviceAttributes: processingPlanAttributes,
+				DeviceType:       storage.VolumeDeviceType(v.DeviceTypeID),
+			}
+		}
+
+		if !v.DeviceAttributeKey.Valid && !v.DeviceAttributeValue.Valid {
+			// if there is no attribute to process continue
+			continue
+		}
+
+		processingPlanAttributes[v.DeviceAttributeKey.String] = v.DeviceAttributeValue.String
+	}
+
+	return transform.Slice(volAttachmentDetailsOut, func(v volumeAttachmentStatusDetails) status.VolumeAttachment {
 		var machineName *machine.Name
 		if v.MachineName.Valid {
 			m := machine.Name(v.MachineName.String)
@@ -715,16 +1275,199 @@ LEFT JOIN storage_volume_attachment_plan_attr svapa ON svapa.attachment_plan_uui
 			u := unit.Name(v.UnitName.String)
 			unitName = &u
 		}
+
+		var vapPtr *status.VolumeAttachmentPlan
+		if vap, exists := vaps[v.VolumeUUID]; exists {
+			vapPtr = &vap
+		}
 		return status.VolumeAttachment{
 			VolumeUUID:           storage.VolumeUUID(v.VolumeUUID),
 			Life:                 life.Life(v.LifeID),
 			Unit:                 unitName,
 			Machine:              machineName,
 			DeviceName:           v.DeviceName,
-			DeviceLink:           v.DeviceLink,
+			DeviceLinks:          attachmentDeviceLinks[v.UUID],
 			BusAddress:           v.BusAddress,
 			ReadOnly:             v.ReadOnly,
-			VolumeAttachmentPlan: vaps[v.VolumeUUID],
+			VolumeAttachmentPlan: vapPtr,
 		}
 	}), nil
+}
+
+// GetAllVolumeAttachments returns all the volume attachments for this model.
+func (st *ModelState) GetAllVolumeAttachments(
+	ctx context.Context,
+) ([]status.VolumeAttachment, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// To satisfy the unit name column of this query a volume attachment
+	// must be for a net node uuid that is on a unit where that unit does not
+	// share a net node with a machine.
+	// If units are for machines they share a net node.
+	q := `
+SELECT &volumeAttachmentStatusDetails.*
+FROM (
+    SELECT    sva.uuid,
+              sva.storage_volume_uuid,
+              sva.life_id,
+              sva.read_only,
+              bd.name AS device_name,
+              bd.bus_address AS bus_address,
+              u.name AS unit_name,
+              m.name AS machine_name
+    FROM      storage_volume_attachment sva
+    LEFT JOIN block_device bd ON bd.uuid=sva.block_device_uuid
+    LEFT JOIN machine m ON sva.net_node_uuid=m.net_node_uuid
+    LEFT JOIN unit u
+        ON sva.net_node_uuid=u.net_node_uuid
+        AND m.net_node_uuid IS NULL
+)
+`
+
+	deviceLinksQuery := `
+SELECT &volumeAttachmentDeviceLink.*
+FROM  (
+   SELECT    sva.uuid,
+             bdld.name AS device_link
+   FROM      storage_volume_attachment sva
+   JOIN      block_device bd ON bd.uuid=sva.block_device_uuid
+   JOIN      block_device_link_device bdld ON bdld.block_device_uuid=bd.uuid
+)
+`
+
+	volumeAttachmentPlanQuery := `
+SELECT    &volumeAttachmentPlanStatusDetails.*
+FROM      storage_volume_attachment_plan svap
+LEFT JOIN storage_volume_attachment_plan_attr svapa ON svapa.attachment_plan_uuid=svap.uuid
+ORDER BY  svap.uuid
+`
+
+	stmt, err := st.Prepare(q, volumeAttachmentStatusDetails{})
+	if err != nil {
+		return nil, errors.Errorf(
+			"preparing volume attachment status query: %w", err,
+		)
+	}
+
+	deviceLinksStmt, err := st.Prepare(
+		deviceLinksQuery, volumeAttachmentDeviceLink{},
+	)
+	if err != nil {
+		return nil, errors.Errorf(
+			"preparing volume attachment device links query: %w", err,
+		)
+	}
+
+	volAttachmentPlanStmt, err := st.Prepare(
+		volumeAttachmentPlanQuery, volumeAttachmentPlanStatusDetails{},
+	)
+	if err != nil {
+		return nil, errors.Errorf(
+			"preparing volume attachment plan query: %w", err,
+		)
+	}
+
+	var (
+		volAttachmentDetailsOut     []volumeAttachmentStatusDetails
+		volAttachmentDeviceLinksOut []volumeAttachmentDeviceLink
+		volAttachmentPlanOut        []volumeAttachmentPlanStatusDetails
+	)
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&volAttachmentDetailsOut)
+		if errors.Is(err, sql.ErrNoRows) {
+			// If no volumes exists there is nothing more to do. Cannot have
+			// device links or plans without an attachment.
+			return nil
+		} else if err != nil {
+			return err
+		}
+
+		err = tx.Query(ctx, deviceLinksStmt).GetAll(&volAttachmentDeviceLinksOut)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+
+		err = tx.Query(ctx, volAttachmentPlanStmt).GetAll(&volAttachmentPlanOut)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Group device links by VolumeAttachmentUUID
+	attachmentDeviceLinks := make(map[string][]string)
+	for _, dl := range volAttachmentDeviceLinksOut {
+		attachmentDeviceLinks[dl.UUID] = append(
+			attachmentDeviceLinks[dl.UUID], dl.DeviceLink,
+		)
+	}
+
+	// Organise volume attachment plans on volume uuid.
+	vaps := map[string]status.VolumeAttachmentPlan{}
+	var (
+		processingPlanAttributes map[string]string
+		processingVolumeUUID     string
+	)
+	for _, v := range volAttachmentPlanOut {
+		if v.VolumeUUID != processingVolumeUUID {
+			processingPlanAttributes = map[string]string{}
+			processingVolumeUUID = v.VolumeUUID
+			vaps[processingVolumeUUID] = status.VolumeAttachmentPlan{
+				DeviceAttributes: processingPlanAttributes,
+				DeviceType:       storage.VolumeDeviceType(v.DeviceTypeID),
+			}
+		}
+
+		if !v.DeviceAttributeKey.Valid && !v.DeviceAttributeValue.Valid {
+			// if there is no attribute to process continue
+			continue
+		}
+
+		processingPlanAttributes[v.DeviceAttributeKey.String] = v.DeviceAttributeValue.String
+	}
+
+	return transform.Slice(volAttachmentDetailsOut, func(v volumeAttachmentStatusDetails) status.VolumeAttachment {
+		var machineName *machine.Name
+		if v.MachineName.Valid {
+			m := machine.Name(v.MachineName.String)
+			machineName = &m
+		}
+		var unitName *unit.Name
+		if v.UnitName.Valid {
+			u := unit.Name(v.UnitName.String)
+			unitName = &u
+		}
+
+		var vapPtr *status.VolumeAttachmentPlan
+		if vap, exists := vaps[v.VolumeUUID]; exists {
+			vapPtr = &vap
+		}
+		return status.VolumeAttachment{
+			VolumeUUID:           storage.VolumeUUID(v.VolumeUUID),
+			Life:                 life.Life(v.LifeID),
+			Unit:                 unitName,
+			Machine:              machineName,
+			DeviceName:           v.DeviceName,
+			DeviceLinks:          attachmentDeviceLinks[v.UUID],
+			BusAddress:           v.BusAddress,
+			ReadOnly:             v.ReadOnly,
+			VolumeAttachmentPlan: vapPtr,
+		}
+	}), nil
+}
+
+func IDs[RS ~[]R, R ~string, TS ~[]T, T ~string](input TS) RS {
+	r := make(RS, len(input))
+	for i, v := range input {
+		r[i] = R(string(v))
+	}
+	return r
 }

@@ -12,10 +12,10 @@ import (
 	"github.com/juju/names/v6"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/output"
-	"github.com/juju/juju/internal/cmd"
 )
 
 // NewListCommand returns a cammin used to list all subnets

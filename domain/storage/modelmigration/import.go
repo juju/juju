@@ -44,20 +44,23 @@ type ImportService interface {
 		error,
 	)
 
+	// ImportFilesystemsIAAS imports filesystems from the provided parameters.
+	ImportFilesystemsIAAS(ctx context.Context, args []domainstorage.ImportFilesystemParams) error
+
 	// ImportStoragePools creates new storage pools with the slice
 	// of [domainstorage.ImportStoragePoolParams].
 	ImportStoragePools(ctx context.Context, pools []domainstorage.ImportStoragePoolParams) error
 
-	// SetRecommendedStoragePools persists the set of recommended storage pools
-	// that are to be used for a model.
-	SetRecommendedStoragePools(ctx context.Context, pools []domainstorage.RecommendedStoragePoolParams) error
-
-	// ImportStorageInstances imports storage instances and storage unit
+	// ImportStorageInstances creates new storage instances and storage
 	// unit owners if the unit name is provided.
 	ImportStorageInstances(ctx context.Context, params []domainstorage.ImportStorageInstanceParams) error
 
-	// ImportFilesystems imports filesystems from the provided parameters.
-	ImportFilesystems(ctx context.Context, args []domainstorage.ImportFilesystemParams) error
+	// ImportVolumes creates new volumes and storage instance volumes.
+	ImportVolumes(ctx context.Context, arg []domainstorage.ImportVolumeParams) error
+
+	// SetRecommendedStoragePools persists the set of recommended storage pools
+	// that are to be used for a model.
+	SetRecommendedStoragePools(ctx context.Context, pools []domainstorage.RecommendedStoragePoolParams) error
 }
 
 type importOperation struct {
@@ -104,14 +107,19 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return errors.Errorf("importing storage instances: %w", err)
 	}
 
-	// Filesystems need to be handled differently for CAAS models. So until
+	// Filesystems and Volumes need to be handled differently for CAAS models. Until
 	// this is implemented skip the import step.
 	if model.Type() == coremodel.IAAS.String() {
-		if err := i.importFilesystems(ctx, model.Filesystems()); err != nil {
+		if err := i.importFilesystemsIAAS(ctx, model.Filesystems()); err != nil {
 			return errors.Errorf("importing filesystems: %w", err)
 		}
-	}
 
+		if err := i.importVolumes(ctx, model.Volumes()); err != nil {
+			return errors.Errorf("setting volumes: %w", err)
+
+		}
+
+	}
 	return nil
 }
 
@@ -133,12 +141,13 @@ func (i *importOperation) importStorageInstances(ctx context.Context, instances 
 			size = constraints.Size
 		}
 		return domainstorage.ImportStorageInstanceParams{
-			StorageName:      in.Name(),
-			StorageKind:      in.Kind(),
-			StorageID:        in.ID(),
-			UnitName:         owner,
-			RequestedSizeMiB: size,
-			PoolName:         pool,
+			StorageName:       in.Name(),
+			StorageKind:       in.Kind(),
+			StorageInstanceID: in.ID(),
+			UnitName:          owner,
+			RequestedSizeMiB:  size,
+			PoolName:          pool,
+			AttachedUnitNames: in.Attachments(),
 		}, nil
 	})
 
@@ -149,7 +158,7 @@ func (i *importOperation) importStorageInstances(ctx context.Context, instances 
 	return i.service.ImportStorageInstances(ctx, args)
 }
 
-func (i *importOperation) importFilesystems(ctx context.Context, filesystems []description.Filesystem) error {
+func (i *importOperation) importFilesystemsIAAS(ctx context.Context, filesystems []description.Filesystem) error {
 	if len(filesystems) == 0 {
 		return nil
 	}
@@ -161,8 +170,45 @@ func (i *importOperation) importFilesystems(ctx context.Context, filesystems []d
 			ProviderID:        in.FilesystemID(),
 			PoolName:          in.Pool(),
 			StorageInstanceID: in.Storage(),
+			Attachments: transform.Slice(
+				in.Attachments(),
+				func(a description.FilesystemAttachment) domainstorage.ImportFilesystemAttachmentsParams {
+					hostMachine, _ := a.HostMachine()
+					hostUnit, _ := a.HostUnit()
+					return domainstorage.ImportFilesystemAttachmentsParams{
+						HostMachineName: hostMachine,
+						HostUnitName:    hostUnit,
+						MountPoint:      a.MountPoint(),
+						ReadOnly:        a.ReadOnly(),
+					}
+				},
+			),
 		}
 	})
 
-	return i.service.ImportFilesystems(ctx, args)
+	return i.service.ImportFilesystemsIAAS(ctx, args)
+}
+
+func (i *importOperation) importVolumes(ctx context.Context, volumes []description.Volume) error {
+	if len(volumes) == 0 {
+		return nil
+	}
+
+	args := make([]domainstorage.ImportVolumeParams, len(volumes))
+	for i, volume := range volumes {
+		vol := domainstorage.ImportVolumeParams{
+			ID:          volume.ID(),
+			StorageID:   volume.Storage(),
+			Provisioned: volume.Provisioned(),
+			SizeMiB:     volume.Size(),
+			Pool:        volume.Pool(),
+			HardwareID:  volume.HardwareID(),
+			WWN:         volume.WWN(),
+			ProviderID:  volume.VolumeID(),
+			Persistent:  volume.Persistent(),
+		}
+		args[i] = vol
+	}
+
+	return i.service.ImportVolumes(ctx, args)
 }

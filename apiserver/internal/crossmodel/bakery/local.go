@@ -13,10 +13,10 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/macaroon.v2"
 
+	apimacaroon "github.com/juju/juju/api/macaroon"
 	"github.com/juju/juju/apiserver/bakeryutil"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
-	internalmacaroon "github.com/juju/juju/internal/macaroon"
 )
 
 // LocalOfferBakery provides a bakery for local offer access.
@@ -38,7 +38,7 @@ func NewLocalOfferBakery(
 	clock clock.Clock,
 	logger logger.Logger,
 ) (*LocalOfferBakery, error) {
-	store := internalmacaroon.NewRootKeyStore(backingStore, internalmacaroon.DefaultPolicy, clock)
+	store := apimacaroon.NewRootKeyStore(backingStore, apimacaroon.DefaultPolicy, clock)
 
 	locator := bakeryutil.BakeryThirdPartyLocator{PublicKey: keyPair.Public}
 
@@ -91,7 +91,7 @@ func (o *LocalOfferBakery) GetRemoteRelationCaveats(offerUUID, sourceModelUUID, 
 
 // InferDeclaredFromMacaroon returns the declared attributes from the macaroon.
 func (o *LocalOfferBakery) InferDeclaredFromMacaroon(mac macaroon.Slice, requiredValues map[string]string) DeclaredValues {
-	declared := checkers.InferDeclared(internalmacaroon.MacaroonNamespace, mac)
+	declared := checkers.InferDeclared(apimacaroon.MacaroonNamespace, mac)
 	additional := make(map[string]string)
 
 	for k, v := range declared {

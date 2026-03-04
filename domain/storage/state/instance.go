@@ -5,11 +5,9 @@ package state
 
 import (
 	"context"
-	"strings"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
-	"github.com/juju/collections/transform"
 
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
@@ -63,10 +61,6 @@ WHERE  storage_id = $storageInstanceID.storage_id`,
 
 // GetStorageInstanceUUIDsByIDs retrieves the UUIDs of storage instances by
 // their IDs.
-//
-// The following errors may be returned:
-// - [domainstorageerrors.StorageInstanceNotFound] when any of the
-// provided IDs do not have a corresponding storage instance.
 func (s *State) GetStorageInstanceUUIDsByIDs(
 	ctx context.Context, storageIDs []string,
 ) (map[string]string, error) {
@@ -100,15 +94,6 @@ WHERE  storage_id IN ($storageInstanceIDs[:])`,
 	})
 	if err != nil {
 		return nil, errors.Capture(err)
-	}
-
-	if len(dbVals) != len(storageInstanceIDs) {
-		// This indicates some of the provided storage IDs did not hit any results.
-		missingIDs := set.NewStrings(storageIDs...).
-			Difference(set.NewStrings(transform.Slice(dbVals, func(val storageInstanceUUIDAndID) string { return val.ID })...)).
-			Values()
-		return nil, errors.Errorf("storage instance(s) with ID(s) %s not found", strings.Join(missingIDs, ", ")).
-			Add(domainstorageerrors.StorageInstanceNotFound)
 	}
 
 	result := make(map[string]string, len(dbVals))

@@ -20,7 +20,6 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -355,7 +354,7 @@ func (s *stateSuite) TestGetAttachmentLife(c *tc.C) {
 
 func (s *stateSuite) TestGetAttachmentLifeWithUnitNotFound(c *tc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
-	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
+	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetStorageAttachmentLife(c.Context(), unitUUID, storageInstanceUUID)
@@ -366,7 +365,7 @@ func (s *stateSuite) TestGetAttachmentLifeWithStorageInstanceNotFound(c *tc.C) {
 	netNodeUUID := s.newNetNode(c)
 	appUUID, _ := s.newApplication(c, "foo")
 	unitUUID, _ := s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID)
-	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
+	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetStorageAttachmentLife(c.Context(), unitUUID, storageInstanceUUID)

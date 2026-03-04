@@ -11,8 +11,8 @@ import (
 
 	"golang.org/x/crypto/ssh/terminal"
 
+	"github.com/juju/juju/cmd/cmd"
 	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/internal/cmd"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/juju/osenv"
 )

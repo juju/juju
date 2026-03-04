@@ -14,9 +14,12 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	deploymentcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -82,6 +85,8 @@ func (s *migrationSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
+	appUUID1 := tc.Must(c, coreapplication.NewUUID)
+	appUUID2 := tc.Must(c, coreapplication.NewUUID)
 	input := []RemoteApplicationOffererImport{
 		{
 			RemoteApplicationImport: RemoteApplicationImport{
@@ -98,6 +103,7 @@ func (s *migrationSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 					},
 				},
 			},
+			OffererApplicationUUID: appUUID1,
 		},
 		{
 			RemoteApplicationImport: RemoteApplicationImport{
@@ -114,13 +120,17 @@ func (s *migrationSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 					},
 				},
 			},
+			OffererApplicationUUID: appUUID2,
 		},
 	}
 	// Verify the service builds synthetic charms correctly
+
+	var appUUIDs []coreapplication.UUID
 	s.modelMigrationState.EXPECT().ImportRemoteApplicationOfferers(
 		gomock.Any(),
 		syntheticCharmMatcher{
 			expectedApps: transform.Slice(input, func(v RemoteApplicationOffererImport) RemoteApplicationImport {
+				appUUIDs = append(appUUIDs, v.OffererApplicationUUID)
 				return v.RemoteApplicationImport
 			}),
 		},
@@ -131,6 +141,9 @@ func (s *migrationSuite) TestImportRemoteApplicationOfferers(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(appUUIDs, tc.HasLen, 2)
+	c.Check(appUUIDs, tc.SameContents, []coreapplication.UUID{appUUID1, appUUID2})
 }
 
 func (s *migrationSuite) TestImportRemoteApplicationOfferersEmpty(c *tc.C) {
@@ -597,6 +610,258 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumerInvalidConsumerAppli
 
 	err := s.service(c).ImportRemoteApplicationConsumers(c.Context(), input)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *migrationSuite) TestImportGrantedSecrets(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	secretID := "secret-id"
+	appName := "app"
+	appUUID := uuid.MustNewUUID().String()
+	relKey := relation.Key{
+		{
+			ApplicationName: appName,
+			EndpointName:    "endpoint",
+			Role:            deploymentcharm.RoleProvider,
+		},
+	}
+	relUUID := uuid.MustNewUUID().String()
+	unitName := unit.Name("app/0")
+
+	input := []GrantedSecretImport{
+		{
+			SecretID: secretID,
+			ACLs: []GrantedSecretACLImport{
+				{
+					ApplicationName: appName,
+					RelationKey:     relKey,
+					Role:            secrets.RoleView,
+				},
+			},
+			Consumers: []GrantedSecretConsumerImport{
+				{
+					Unit:            unitName,
+					CurrentRevision: 1,
+				},
+			},
+		},
+	}
+
+	s.modelMigrationState.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appUUID, nil)
+	s.modelMigrationState.EXPECT().GetRelationUUIDByRelationKey(gomock.Any(), relKey).Return(relUUID, nil)
+	s.modelMigrationState.EXPECT().ImportRemoteApplicationSecretGrants(gomock.Any(), []internal.RemoteApplicationSecretGrant{
+		{
+			SecretID:        secretID,
+			ApplicationName: appName,
+			ApplicationUUID: appUUID,
+			RelationKey:     relKey.String(),
+			RelationUUID:    relUUID,
+		},
+	}).Return(nil)
+	s.modelMigrationState.EXPECT().ImportRemoteSecretConsumers(gomock.Any(), []internal.RemoteUnitConsumer{
+		{
+			SecretID:        secretID,
+			Unit:            unitName.String(),
+			CurrentRevision: 1,
+		},
+	}).Return(nil)
+
+	// Act
+	err := s.service(c).ImportGrantedSecrets(c.Context(), input)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *migrationSuite) TestImportGrantedSecretsUnsupportedRole(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	input := []GrantedSecretImport{
+		{
+			SecretID: "secret-id",
+			ACLs: []GrantedSecretACLImport{
+				{
+					ApplicationName: "app",
+					Role:            secrets.RoleManage, // Unsupported
+				},
+			},
+		},
+	}
+
+	// Act
+	err := s.service(c).ImportGrantedSecrets(c.Context(), input)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `.*unsupported role "manage" for remote secret "secret-id"`)
+}
+
+func (s *migrationSuite) TestImportGrantedSecretsConsumerGrantNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	appName := "app"
+	otherAppName := "other"
+	input := []GrantedSecretImport{
+		{
+			SecretID: "secret-id",
+			ACLs: []GrantedSecretACLImport{
+				{
+					ApplicationName: appName,
+					Role:            secrets.RoleView,
+				},
+			},
+			Consumers: []GrantedSecretConsumerImport{
+				{
+					Unit: unit.Name(otherAppName + "/0"),
+				},
+			},
+		},
+	}
+
+	s.modelMigrationState.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(uuid.MustNewUUID().String(), nil)
+	s.modelMigrationState.EXPECT().GetRelationUUIDByRelationKey(gomock.Any(), gomock.Any()).Return(uuid.MustNewUUID().String(), nil)
+
+	// Act
+	err := s.service(c).ImportGrantedSecrets(c.Context(), input)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `.*grant for application "other" not found for remote secret "secret-id"`)
+}
+
+func (s *migrationSuite) TestImportGrantedSecretsGetApplicationUUIDByNameFail(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	appName := "app"
+	input := []GrantedSecretImport{
+		{
+			SecretID: "secret-id",
+			ACLs: []GrantedSecretACLImport{
+				{
+					ApplicationName: appName,
+					Role:            secrets.RoleView,
+				},
+			},
+		},
+	}
+
+	s.modelMigrationState.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return("", errors.Errorf("boom"))
+
+	// Act
+	err := s.service(c).ImportGrantedSecrets(c.Context(), input)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, ".*getting application UUID by name \"app\": boom")
+}
+
+func (s *migrationSuite) TestImportGrantedSecretsImportGrantsFail(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	appName := "app"
+	input := []GrantedSecretImport{
+		{
+			SecretID: "secret-id",
+			ACLs: []GrantedSecretACLImport{
+				{
+					ApplicationName: appName,
+					Role:            secrets.RoleView,
+				},
+			},
+		},
+	}
+
+	s.modelMigrationState.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return("uuid", nil)
+	s.modelMigrationState.EXPECT().GetRelationUUIDByRelationKey(gomock.Any(), gomock.Any()).Return("rel-uuid", nil)
+	s.modelMigrationState.EXPECT().ImportRemoteApplicationSecretGrants(gomock.Any(), gomock.Any()).Return(errors.Errorf("boom"))
+
+	// Act
+	err := s.service(c).ImportGrantedSecrets(c.Context(), input)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, ".*boom")
+}
+
+func (s *migrationSuite) TestImportRemoteSecrets(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	secretID := "secret-id"
+	sourceUUID := uuid.MustNewUUID().String()
+	unitName := unit.Name("app/0")
+	unitUUID := uuid.MustNewUUID().String()
+
+	input := []RemoteSecretImport{
+		{
+			SecretID:        secretID,
+			SourceUUID:      sourceUUID,
+			Label:           "label",
+			ConsumerUnit:    unitName,
+			CurrentRevision: 1,
+			LatestRevision:  2,
+		},
+	}
+
+	s.modelMigrationState.EXPECT().GetUnitUUID(gomock.Any(), unitName.String()).Return(unitUUID, nil)
+	s.modelMigrationState.EXPECT().ImportRemoteSecret(gomock.Any(), internal.RemoteSecret{
+		SecretID:        secretID,
+		SourceModelUUID: sourceUUID,
+		UnitUUID:        unitUUID,
+		Label:           "label",
+		CurrentRevision: 1,
+		LatestRevision:  2,
+	}).Return(nil)
+
+	// Act
+	err := s.service(c).ImportRemoteSecrets(c.Context(), input)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *migrationSuite) TestImportRemoteSecretsFail(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	unitName := unit.Name("app/0")
+	input := []RemoteSecretImport{
+		{
+			SecretID:     "secret-id",
+			ConsumerUnit: unitName,
+		},
+	}
+
+	s.modelMigrationState.EXPECT().GetUnitUUID(gomock.Any(), unitName.String()).Return("", errors.Errorf("not found"))
+
+	// Act
+	err := s.service(c).ImportRemoteSecrets(c.Context(), input)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, ".*not found")
+}
+
+func (s *migrationSuite) TestImportRemoteSecretsImportFail(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	unitName := unit.Name("app/0")
+	input := []RemoteSecretImport{
+		{
+			SecretID:     "secret-id",
+			ConsumerUnit: unitName,
+		},
+	}
+
+	s.modelMigrationState.EXPECT().GetUnitUUID(gomock.Any(), unitName.String()).Return("unit-uuid", nil)
+	s.modelMigrationState.EXPECT().ImportRemoteSecret(gomock.Any(), gomock.Any()).Return(errors.Errorf("boom"))
+
+	// Act
+	err := s.service(c).ImportRemoteSecrets(c.Context(), input)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, ".*boom")
 }
 
 // syntheticCharmMatcher is a custom gomock matcher that verifies

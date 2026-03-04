@@ -59,6 +59,9 @@ func (s *importCloudServiceSuite) TestImportCloudService(c *tc.C) {
 	app2 := model.AddApplication(description.ApplicationArgs{
 		Name: "app-2",
 	})
+	app3 := model.AddApplication(description.ApplicationArgs{
+		Name: "app-3",
+	})
 	app1.SetCloudService(description.CloudServiceArgs{
 		ProviderId: "app-1-service",
 		Addresses: []description.AddressArgs{
@@ -68,8 +71,7 @@ func (s *importCloudServiceSuite) TestImportCloudService(c *tc.C) {
 				Scope:   "public",
 				Origin:  "provider",
 				SpaceID: "space-1",
-			},
-			{
+			}, {
 				Value:   "2001:db8::1",
 				Type:    "ipv6",
 				Scope:   "public",
@@ -89,6 +91,9 @@ func (s *importCloudServiceSuite) TestImportCloudService(c *tc.C) {
 				SpaceID: "space-2",
 			},
 		},
+	})
+	app3.SetCloudService(description.CloudServiceArgs{
+		ProviderId: "app-3-service",
 	})
 	args := []internal.ImportCloudService{
 		{
@@ -110,8 +115,7 @@ func (s *importCloudServiceSuite) TestImportCloudService(c *tc.C) {
 					SpaceID: "space-1",
 				},
 			},
-		},
-		{
+		}, {
 			ApplicationName: "app-2",
 			ProviderID:      "app-2-service",
 			Addresses: []internal.ImportCloudServiceAddress{{
@@ -121,6 +125,9 @@ func (s *importCloudServiceSuite) TestImportCloudService(c *tc.C) {
 				Origin:  "provider",
 				SpaceID: "space-2",
 			}},
+		}, {
+			ApplicationName: "app-3",
+			ProviderID:      "app-3-service",
 		},
 	}
 	s.migrationService.EXPECT().ImportCloudServices(gomock.Any(), cloudServiceMatcher{

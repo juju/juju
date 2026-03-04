@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/gnuflag"
 
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/juju/commands"
-	"github.com/juju/juju/internal/cmd"
 )
 
 // This script generates Markdown documentation for the juju cli documentation.

@@ -87,6 +87,11 @@ type StoragePoolState interface {
 	// returns [domainstorageerrors.StoragePoolNotFound]. Supplying an empty slice
 	// results in a no-op.
 	SetModelStoragePools(ctx context.Context, pools []domainstorage.RecommendedStoragePoolArg) error
+
+	// GetStoragePoolUUIDsByName returns storage pool UUIDs keyed by pool name for
+	// the supplied names. Unknown names are omitted.
+	// If no names are specified, an empty map is returned without error.
+	GetStoragePoolUUIDsByName(ctx context.Context, names []string) ([]domainstorage.StoragePoolNameUUID, error)
 }
 
 // StoragePoolService defines a service for interacting with the underlying state.
@@ -527,6 +532,37 @@ func (s *StoragePoolService) GetStoragePoolUUID(ctx context.Context, name string
 		return "", errors.Capture(err)
 	}
 	return poolUUID, nil
+}
+
+// GetStoragePoolUUIDsByName returns storage pool UUIDs keyed by pool name for
+// the supplied names. Unknown names are omitted.
+// If no names are specified, an empty map is returned without error.
+func (s *StoragePoolService) GetStoragePoolUUIDsByName(
+	ctx context.Context,
+	names []string,
+) (map[string]domainstorage.StoragePoolUUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if len(names) == 0 {
+		return map[string]domainstorage.StoragePoolUUID{}, nil
+	}
+
+	if err := s.validateNameCriteria(names); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	pools, err := s.st.GetStoragePoolUUIDsByName(ctx, names)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(map[string]domainstorage.StoragePoolUUID, len(pools))
+	for _, pool := range pools {
+		result[pool.Name] = domainstorage.StoragePoolUUID(pool.UUID)
+	}
+
+	return result, nil
 }
 
 // GetStoragePoolByName returns the storage pool with the specified name.

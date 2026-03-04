@@ -12,13 +12,13 @@ import (
 	"github.com/juju/errors"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/juju/application/bundle"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain/deployment/charm"
-	"github.com/juju/juju/internal/cmd"
 )
 
 type deployBundle struct {
