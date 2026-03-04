@@ -731,15 +731,9 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 		ps = &params.CAASApplicationProvisioningState{}
 	}
 
-	scaleOp := application.ScaleOperation
-	anotherOpRunning := application.IsDifferentOperation(ps.CurrentOperation, scaleOp)
-	if anotherOpRunning {
-		logger.Debugf("current operation is %q, try again", ps.CurrentOperation)
-		return tryAgain
-	}
-
 	logger.Debugf("updating application %q scale to %d", appName, desiredScale)
 	if ps.CurrentOperation == application.NoOperation || appLife != life.Alive {
+		scaleOp := application.ScaleOperation
 		err := updateProvisioningState(appName, desiredScale,
 			scaleOp, facade)
 		if err != nil {
@@ -813,12 +807,6 @@ func ensureStorage(appName string, app caas.Application,
 	}
 
 	storageOp := application.StorageUpdateOperation
-	anotherOpRunning := application.IsDifferentOperation(ps.CurrentOperation, storageOp)
-	if anotherOpRunning {
-		logger.Debugf("current operation is %q, try again", ps.CurrentOperation)
-		return tryAgain
-	}
-
 	err = facade.SetProvisioningState(appName, params.CAASApplicationProvisioningState{
 		ScaleTarget:      ps.ScaleTarget,
 		ReplicaCount:     ps.ReplicaCount,
