@@ -468,6 +468,48 @@ func (s *RemoteSuite) TestConnectWithBrokenConnection(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
+func (s *RemoteSuite) TestReportReturnsAddressSnapshot(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+	s.expectClockAfter(make(<-chan time.Time))
+
+	addr := &url.URL{Scheme: "wss", Host: "10.0.0.1"}
+
+	s.apiConnection.EXPECT().Broken().Return(make(<-chan struct{})).MinTimes(1)
+	s.apiConnection.EXPECT().Close().Return(nil)
+
+	w := s.newRemoteServer(c)
+	defer workertest.DirtyKill(c, w)
+	reporter := w.(interface{ Report() map[string]any })
+
+	s.ensureStartup(c)
+
+	w.UpdateAddresses([]string{addr.String()})
+
+	select {
+	case <-s.apiConnect:
+	case <-time.After(testhelpers.LongWait):
+		c.Fatalf("timed out waiting for API connect")
+	}
+
+	s.ensureChanged(c)
+
+	report := reporter.Report()
+	addresses, ok := report["addresses"].([]string)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(addresses, tc.DeepEquals, []string{addr.String()})
+
+	addresses[0] = "wss://10.0.0.99"
+
+	report = reporter.Report()
+	addresses, ok = report["addresses"].([]string)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(addresses, tc.DeepEquals, []string{addr.String()})
+
+	workertest.CleanKill(c, w)
+}
+
 func (s *RemoteSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
