@@ -93,8 +93,8 @@ func (s *RemoteSuite) TestConnect(c *tc.C) {
 
 	select {
 	case <-s.apiConnect:
-	case <-time.After(testhelpers.LongWait):
-		c.Fatalf("timed out waiting for API connect")
+	case <-c.Context().Done():
+		c.Fatalf("waiting for API connect: %v", c.Context().Err())
 	}
 
 	s.ensureChanged(c)
@@ -229,14 +229,14 @@ func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *tc.C) {
 	}()
 	select {
 	case <-sync:
-	case <-time.After(testhelpers.LongWait):
-		c.Fatalf("timed out waiting for connections to finish")
+	case <-c.Context().Done():
+		c.Fatalf("waiting for connections to finish: %v", c.Context().Err())
 	}
 
 	select {
 	case <-seq:
-	case <-time.After(testhelpers.LongWait):
-		c.Fatalf("timed out waiting for first connection to be cancelled")
+	case <-c.Context().Done():
+		c.Fatalf("waiting for first connection to be cancelled: %v", c.Context().Err())
 	}
 
 	w.UpdateAddresses([]string{addr.String()})
@@ -244,8 +244,8 @@ func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *tc.C) {
 	// This is our sequence point to ensure that we connect.
 	select {
 	case <-s.apiConnect:
-	case <-time.After(testhelpers.LongWait):
-		c.Fatalf("timed out waiting for API connect")
+	case <-c.Context().Done():
+		c.Fatalf("waiting for API connect: %v", c.Context().Err())
 	}
 
 	s.ensureChanged(c)
@@ -253,8 +253,8 @@ func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *tc.C) {
 	select {
 	case err := <-res:
 		c.Assert(err, tc.ErrorIsNil)
-	case <-time.After(testhelpers.LongWait):
-		c.Fatalf("timed out waiting for connection")
+	case <-c.Context().Done():
+		c.Fatalf("waiting for connection: %v", c.Context().Err())
 	}
 
 	workertest.CleanKill(c, w)
@@ -271,8 +271,8 @@ func (s *RemoteSuite) TestConnectWhilstConnecting(c *tc.C) {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case <-time.After(testhelpers.LongWait):
-				c.Fatalf("timed out waiting for context to be done")
+			case <-c.Context().Done():
+				c.Fatalf("waiting for context to be done: %v", c.Context().Err())
 			}
 		}
 		close(s.apiConnect)
@@ -302,8 +302,8 @@ func (s *RemoteSuite) TestConnectWhilstConnecting(c *tc.C) {
 
 	select {
 	case <-s.apiConnect:
-	case <-time.After(testhelpers.LongWait):
-		c.Fatalf("timed out waiting for API connect")
+	case <-c.Context().Done():
+		c.Fatalf("waiting for API connect: %v", c.Context().Err())
 	}
 
 	s.ensureChanged(c)
@@ -328,8 +328,8 @@ func (s *RemoteSuite) TestConnectBlocks(c *tc.C) {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(testhelpers.LongWait):
-			c.Fatalf("timed out waiting for context to be done")
+		case <-c.Context().Done():
+			c.Fatalf("waiting for context to be done: %v", c.Context().Err())
 		}
 		return nil
 	}
@@ -358,8 +358,8 @@ func (s *RemoteSuite) TestConnectWithSameAddress(c *tc.C) {
 
 		select {
 		case s.apiConnect <- struct{}{}:
-		case <-time.After(time.Second):
-			c.Fatalf("timed out waiting for API connect")
+		case <-c.Context().Done():
+			c.Fatalf("waiting for API connect: %v", c.Context().Err())
 		}
 		return nil
 	}
@@ -370,7 +370,7 @@ func (s *RemoteSuite) TestConnectWithSameAddress(c *tc.C) {
 	addr := &url.URL{Scheme: "wss", Host: "10.0.0.1"}
 
 	s.apiConnection.EXPECT().Broken().Return(make(<-chan struct{})).MinTimes(1)
-	s.apiConnection.EXPECT().Close().Return(nil)
+	s.apiConnection.EXPECT().Close().Return(nil).Times(2)
 
 	w := s.newRemoteServer(c)
 	defer workertest.DirtyKill(c, w)
@@ -381,8 +381,8 @@ func (s *RemoteSuite) TestConnectWithSameAddress(c *tc.C) {
 
 	select {
 	case <-s.apiConnect:
-	case <-time.After(testhelpers.LongWait):
-		c.Fatalf("timed out waiting for API connect")
+	case <-c.Context().Done():
+		c.Fatalf("waiting for API connect: %v", c.Context().Err())
 	}
 
 	// Fix a race condition by making sure the connection has been correctly
@@ -397,15 +397,16 @@ func (s *RemoteSuite) TestConnectWithSameAddress(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	w.UpdateAddresses([]string{addr.String()})
+	addr2 := &url.URL{Scheme: "wss", Host: "10.0.0.2"}
+	w.UpdateAddresses([]string{addr2.String()})
 
 	select {
 	case <-s.apiConnect:
-		// fail fast: Assert on counter will fails anyway,
-		// with a bigger call count
-	case <-time.After(time.Second):
+	case <-c.Context().Done():
+		c.Fatalf("waiting for API connect: %v", c.Context().Err())
 	}
 
-	c.Assert(counter.Load(), tc.Equals, int64(1))
+	c.Assert(counter.Load(), tc.Equals, int64(2))
 
 	workertest.CleanKill(c, w)
 }
@@ -419,8 +420,8 @@ func (s *RemoteSuite) TestConnectWithBrokenConnection(c *tc.C) {
 
 		select {
 		case s.apiConnect <- struct{}{}:
-		case <-time.After(time.Second):
-			c.Fatalf("timed out waiting for API connect")
+		case <-c.Context().Done():
+			c.Fatalf("waiting for API connect: %v", c.Context().Err())
 		}
 		return nil
 	}
@@ -450,20 +451,61 @@ func (s *RemoteSuite) TestConnectWithBrokenConnection(c *tc.C) {
 
 	select {
 	case <-s.apiConnect:
-	case <-time.After(testhelpers.LongWait):
-		c.Fatalf("timed out waiting for API connect")
+	case <-c.Context().Done():
+		c.Fatalf("waiting for API connect: %v", c.Context().Err())
 	}
 
 	close(broken)
 
 	select {
 	case <-s.apiConnect:
-		// fail fast: Assert on counter will fails anyway,
-		// with a bigger call count
-	case <-time.After(time.Second):
+	case <-c.Context().Done():
+		c.Fatalf("waiting for API connect: %v", c.Context().Err())
 	}
 
 	c.Assert(counter.Load(), tc.Equals, int64(2))
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *RemoteSuite) TestReportReturnsAddressSnapshot(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+	s.expectClockAfter(make(<-chan time.Time))
+
+	addr := &url.URL{Scheme: "wss", Host: "10.0.0.1"}
+
+	s.apiConnection.EXPECT().Broken().Return(make(<-chan struct{})).MinTimes(1)
+	s.apiConnection.EXPECT().Close().Return(nil)
+
+	w := s.newRemoteServer(c)
+	defer workertest.DirtyKill(c, w)
+	reporter := w.(interface{ Report() map[string]any })
+
+	s.ensureStartup(c)
+
+	w.UpdateAddresses([]string{addr.String()})
+
+	select {
+	case <-s.apiConnect:
+	case <-c.Context().Done():
+		c.Fatalf("waiting for API connect: %v", c.Context().Err())
+	}
+
+	s.ensureChanged(c)
+
+	report := reporter.Report()
+	addresses, ok := report["addresses"].([]string)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(addresses, tc.DeepEquals, []string{addr.String()})
+
+	addresses[0] = "wss://10.0.0.99"
+
+	report = reporter.Report()
+	addresses, ok = report["addresses"].([]string)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(addresses, tc.DeepEquals, []string{addr.String()})
 
 	workertest.CleanKill(c, w)
 }
