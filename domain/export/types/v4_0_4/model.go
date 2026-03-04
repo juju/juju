@@ -880,6 +880,11 @@ type ObjectStoreMetadataPath struct {
 	MetadataUUID string `db:"metadata_uuid"`
 }
 
+type ObjectStorePlacement struct {
+	UUID   string `db:"uuid"`
+	NodeID string `db:"node_id"`
+}
+
 type Offer struct {
 	UUID string `db:"uuid"`
 	Name string `db:"name"`
@@ -1706,6 +1711,7 @@ type ModelExport struct {
 	NetworkAddressScope                      []NetworkAddressScope
 	ObjectStoreMetadata                      []ObjectStoreMetadata
 	ObjectStoreMetadataPath                  []ObjectStoreMetadataPath
+	ObjectStorePlacement                     []ObjectStorePlacement
 	Offer                                    []Offer
 	OfferConnection                          []OfferConnection
 	OfferEndpoint                            []OfferEndpoint
