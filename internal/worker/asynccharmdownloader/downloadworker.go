@@ -185,14 +185,7 @@ func (w *Worker) loop() error {
 
 			logger.Debugf(ctx, "triggering asynchronous download of charms for the following applications: %v", strings.Join(changes, ", "))
 
-			// Get a new downloader, this ensures that we've got a fresh
-			// connection to the charm store.
-			httpClient, err := w.config.NewHTTPClient(ctx, w.config.HTTPClientGetter)
-			if err != nil {
-				return errors.Capture(err)
-			}
-
-			downloader := w.config.NewDownloader(httpClient, logger)
+			var downloader Downloader
 
 			// Start up a series of workers to download the charms for the
 			// applications asynchronously. We do not want to block the any
@@ -210,6 +203,18 @@ func (w *Worker) loop() error {
 				} else if cached {
 					// Already tracking this application, skip it.
 					continue
+				}
+
+				// Lazily create the downloader only when we actually need to
+				// start at least one async worker in this change batch.
+				if downloader == nil {
+					// Get a new downloader, this ensures that we've got a fresh
+					// connection to the charm store.
+					httpClient, err := w.config.NewHTTPClient(ctx, w.config.HTTPClientGetter)
+					if err != nil {
+						return errors.Capture(err)
+					}
+					downloader = w.config.NewDownloader(httpClient, logger)
 				}
 
 				// Kick off the async download worker for the application.
