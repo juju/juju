@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/statushistory"
@@ -300,7 +299,7 @@ func (s *storageServiceSuite) TestGetAllStorageInstanceStatuses(c *tc.C) {
 
 	now := time.Now()
 
-	storageInstanceUUID := storagetesting.GenStorageInstanceUUID(c)
+	storageInstanceUUID := tc.Must(c, storage.NewStorageInstanceUUID)
 	si := []status.StorageInstance{
 		{
 			UUID:  storageInstanceUUID,

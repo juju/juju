@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	storagetesting "github.com/juju/juju/domain/storage/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -42,9 +41,9 @@ func TestStorageSuite(t *stdtesting.T) {
 func (s *storageSuite) TestGetStorageUUIDByID(c *tc.C) {
 	ctx := c.Context()
 
-	uuid := storagetesting.GenStorageInstanceUUID(c)
+	uuid := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 
-	poolUUID := storagetesting.GenStoragePoolUUID(c)
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 	_, err := s.ModelSuite.DB().Exec(`
 INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)`,
 		poolUUID, "rootfs", "rootfs")
@@ -89,7 +88,7 @@ func (s *storageSuite) TestGetStorageUUIDByIDNotFound(c *tc.C) {
 func (s *applicationStateSuite) createStoragePool(
 	c *tc.C, name, providerType string,
 ) domainstorage.StoragePoolUUID {
-	poolUUID := storagetesting.GenStoragePoolUUID(c)
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 	_, err := s.DB().Exec(`
 INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)
 `,
