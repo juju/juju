@@ -491,6 +491,13 @@ WHERE m.sha_384 = ?`, "sha384")
 	c.Check(nodes, tc.SameContents, []string{"1", "2"})
 }
 
+func (s *stateSuite) TestAddControllerIDHintNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	err := st.AddControllerIDHint(c.Context(), "non-existent-sha384", "1")
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
+}
+
 func (s *stateSuite) TestRemoveMetadataNotExists(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 

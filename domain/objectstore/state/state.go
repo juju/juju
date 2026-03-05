@@ -385,7 +385,16 @@ ON CONFLICT (uuid, node_id) DO NOTHING;
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, hintQuery, value).Run()
+		var outcome sqlair.Outcome
+		if err := tx.Query(ctx, hintQuery, value).Get(&outcome); err != nil {
+			return errors.Errorf("inserting placement hint: %w", err)
+		}
+		if rows, err := outcome.Result().RowsAffected(); err != nil {
+			return errors.Errorf("inserting placement hint: %w", err)
+		} else if rows == 0 {
+			return objectstoreerrors.ErrNotFound
+		}
+		return nil
 	})
 	if err != nil {
 		return errors.Errorf("adding controller id hint for sha384 %s: %w", sha384, err)
