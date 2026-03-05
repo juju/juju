@@ -46,7 +46,7 @@ func (s *applicationSuite) TestEnsureStorage(c *gc.C) {
 	}
 
 	// Create the current sts with a pvc of size 100.
-	sts, err := s.client.AppsV1().StatefulSets("test").
+	_, err := s.client.AppsV1().StatefulSets("test").
 		Create(context.Background(), &appsv1.StatefulSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "gitlab",
@@ -159,7 +159,7 @@ func (s *applicationSuite) TestEnsureStorage(c *gc.C) {
 	}
 
 	// Check volume claim template size before ensure storage. It should have size 100Mi.
-	sts, err = s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
+	sts, err := s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(sts.Spec.VolumeClaimTemplates, gc.DeepEquals, []corev1.PersistentVolumeClaim{*expectedPVCBeforeUpdate})
 
