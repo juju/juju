@@ -162,6 +162,36 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHANotFound(c *tc.C) {
 	workertest.CleanKill(c, store)
 }
 
+func (s *fileObjectStoreSuite) TestGetMetadataBySHANoHints(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ch := s.expectWatch()
+
+	gomock.InOrder(
+		s.service.EXPECT().GetMetadataBySHA256Prefix(gomock.Any(), "0263829").Return(objectstore.Metadata{
+			SHA256: "026382989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f",
+			SHA384: "blah",
+		}, domainobjectstoreerrors.ErrNotFound),
+		s.service.EXPECT().GetMetadataBySHA256Prefix(gomock.Any(), "0263829").Return(objectstore.Metadata{
+			SHA256: "026382989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f",
+			SHA384: "blah",
+		}, nil),
+	)
+
+	s.service.EXPECT().GetControllerIDHints(gomock.Any(), "blah").Return(nil, domainobjectstoreerrors.ErrNoHints)
+	s.remote.EXPECT().Retrieve(gomock.Any(), "026382989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f", nil).Return(nil, -1, remote.BlobNotFound)
+
+	store := s.newFileObjectStore(c, c.MkDir())
+	defer workertest.DirtyKill(c, store)
+
+	s.expectStartup(c, ch)
+
+	_, _, err := store.GetBySHA256Prefix(c.Context(), "0263829")
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ObjectNotFound)
+
+	workertest.CleanKill(c, store)
+}
+
 func (s *fileObjectStoreSuite) TestGetMetadataFoundNoFile(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

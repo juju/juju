@@ -257,7 +257,7 @@ func (s *Service) PutMetadata(ctx context.Context, metadata objectstore.Metadata
 // The hints are returned in random order to ensure that no particular
 // controller is favored, which helps to distribute the load more evenly across
 // controllers. If there are no hints, an
-// [objectstoreerrors.ErrMissingControllerID] error is returned, and the caller
+// [objectstoreerrors.ErrNoHints] error is returned, and the caller
 // can decide how to handle this case, for example by trying to retrieve from
 // any controller.
 func (s *Service) GetControllerIDHints(ctx context.Context, sha384 string) ([]string, error) {
@@ -273,11 +273,9 @@ func (s *Service) GetControllerIDHints(ctx context.Context, sha384 string) ([]st
 		return nil, errors.Errorf("getting controller ID hint for sha384 %s: %w", sha384, err)
 	}
 
-	// If there are no hints, return an empty string. The caller can decide how
-	// to handle this case, for example by trying to retrieve from any
-	// controller.
+	// Handle the case where there are no hints.
 	if len(hints) == 0 {
-		return nil, objectstoreerrors.ErrMissingControllerID
+		return nil, objectstoreerrors.ErrNoHints
 	}
 
 	// Shuffle them if we have multiple hints to help distribute the load more

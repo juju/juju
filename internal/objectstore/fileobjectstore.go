@@ -664,8 +664,8 @@ func (t *fileObjectStore) remoteGetWithMetadata(
 	ctx context.Context, metadata objectstore.Metadata,
 ) (io.ReadCloser, int64, error) {
 	hints, err := t.metadataService.GetControllerIDHints(ctx, metadata.SHA384)
-	if err != nil {
-		t.logger.Debugf(ctx, "getting controller ID hints for %q: %v", metadata.Path, err)
+	if err != nil && !errors.Is(err, domainobjectstoreerrors.ErrNoHints) {
+		return nil, -1, errors.Errorf("getting controller ID hints: %w", err)
 	}
 
 	// Retrieve the file from the remote source.
@@ -725,7 +725,8 @@ func (t *fileObjectStore) remoteGetWithMetadata(
 	// Add the metadata hint for the controller node ID, so that other
 	// controllers in the cluster can find the file on this node when they
 	// receive a request for it.
-	if err := t.metadataService.AddControllerIDHint(ctx, metadata.SHA384, t.controllerNodeID); err != nil {
+	err = t.metadataService.AddControllerIDHint(ctx, metadata.SHA384, t.controllerNodeID)
+	if err != nil && !errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
 		// Log the error, we don't need to be strict with this, just that we've
 		// attempted to add the hint for the controller node ID. If this fails,
 		// then we might make more requests when trying to retrieve the file,
@@ -983,8 +984,8 @@ func (t *fileObjectStore) fetchReaderFromRemote(
 	t.logger.Tracef(ctx, "fetching object %q from remote %q", metadata.Path, metadata.SHA256)
 
 	hints, err := t.metadataService.GetControllerIDHints(ctx, metadata.SHA384)
-	if err != nil {
-		t.logger.Debugf(ctx, "getting controller ID hints for %q: %v", metadata.Path, err)
+	if err != nil && !errors.Is(err, domainobjectstoreerrors.ErrNoHints) {
+		return nil, -1, errors.Errorf("getting controller ID hints: %w", err)
 	}
 
 	reader, size, err := t.remoteRetriever.Retrieve(ctx, metadata.SHA256, hints)
@@ -1077,7 +1078,8 @@ func (w *fetchWorker) loop() error {
 	// Add the metadata hint for the controller node ID, so that other
 	// controllers in the cluster can find the file on this node when they
 	// receive a request for it.
-	if err := w.t.metadataService.AddControllerIDHint(ctx, w.m.SHA384, w.t.controllerNodeID); err != nil {
+	err = w.t.metadataService.AddControllerIDHint(ctx, w.m.SHA384, w.t.controllerNodeID)
+	if err != nil && !errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
 		// Log the error, we don't need to be strict with this, just that we've
 		// attempted to add the hint for the controller node ID. If this fails,
 		// then we might make more requests when trying to retrieve the file,

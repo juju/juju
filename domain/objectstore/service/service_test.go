@@ -377,7 +377,7 @@ func (s *serviceSuite) TestGetControllerIDHintsNoHints(c *tc.C) {
 	s.state.EXPECT().GetControllerIDHints(gomock.Any(), sha384).Return(nil, nil)
 
 	_, err := NewService(s.state).GetControllerIDHints(c.Context(), sha384)
-	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMissingControllerID)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrNoHints)
 }
 
 // Test watch returns a watcher that watches the specified path.
