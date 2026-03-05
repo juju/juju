@@ -338,6 +338,48 @@ func (s *serviceSuite) TestAddControllerIDHintMissingControllerNodeID(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMissingControllerID)
 }
 
+func (s *serviceSuite) TestGetControllerIDHints(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	sha384 := tc.Must(c, uuid.NewUUID).String()
+	hints := []string{"1", "2", "3"}
+
+	s.state.EXPECT().GetControllerIDHints(gomock.Any(), sha384).Return(hints, nil)
+
+	result, err := NewService(s.state).GetControllerIDHints(c.Context(), sha384)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.SameContents, hints)
+}
+
+func (s *serviceSuite) TestGetControllerIDHintsMissingHash(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewService(s.state).GetControllerIDHints(c.Context(), "")
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMissingHash)
+}
+
+func (s *serviceSuite) TestGetControllerIDHintsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	sha384 := tc.Must(c, uuid.NewUUID).String()
+
+	s.state.EXPECT().GetControllerIDHints(gomock.Any(), sha384).Return(nil, errors.Errorf("boom"))
+
+	_, err := NewService(s.state).GetControllerIDHints(c.Context(), sha384)
+	c.Assert(err, tc.ErrorMatches, `.*boom`)
+}
+
+func (s *serviceSuite) TestGetControllerIDHintsNoHints(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	sha384 := tc.Must(c, uuid.NewUUID).String()
+
+	s.state.EXPECT().GetControllerIDHints(gomock.Any(), sha384).Return(nil, nil)
+
+	_, err := NewService(s.state).GetControllerIDHints(c.Context(), sha384)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMissingControllerID)
+}
+
 // Test watch returns a watcher that watches the specified path.
 func (s *serviceSuite) TestWatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()

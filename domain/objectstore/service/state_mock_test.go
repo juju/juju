@@ -80,6 +80,45 @@ func (c *MockStateAddControllerIDHintCall) DoAndReturn(f func(context.Context, s
 	return c
 }
 
+// GetControllerIDHints mocks base method.
+func (m *MockState) GetControllerIDHints(arg0 context.Context, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetControllerIDHints", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetControllerIDHints indicates an expected call of GetControllerIDHints.
+func (mr *MockStateMockRecorder) GetControllerIDHints(arg0, arg1 any) *MockStateGetControllerIDHintsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerIDHints", reflect.TypeOf((*MockState)(nil).GetControllerIDHints), arg0, arg1)
+	return &MockStateGetControllerIDHintsCall{Call: call}
+}
+
+// MockStateGetControllerIDHintsCall wrap *gomock.Call
+type MockStateGetControllerIDHintsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetControllerIDHintsCall) Return(arg0 []string, arg1 error) *MockStateGetControllerIDHintsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetControllerIDHintsCall) Do(f func(context.Context, string) ([]string, error)) *MockStateGetControllerIDHintsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetControllerIDHintsCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockStateGetControllerIDHintsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetMetadata mocks base method.
 func (m *MockState) GetMetadata(arg0 context.Context, arg1 string) (objectstore.Metadata, error) {
 	m.ctrl.T.Helper()
@@ -488,6 +527,45 @@ func (c *MockDrainingStateGetActiveDrainingPhaseCall) Do(f func(context.Context)
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockDrainingStateGetActiveDrainingPhaseCall) DoAndReturn(f func(context.Context) (string, objectstore.Phase, error)) *MockDrainingStateGetActiveDrainingPhaseCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetControllerIDHints mocks base method.
+func (m *MockDrainingState) GetControllerIDHints(arg0 context.Context, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetControllerIDHints", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetControllerIDHints indicates an expected call of GetControllerIDHints.
+func (mr *MockDrainingStateMockRecorder) GetControllerIDHints(arg0, arg1 any) *MockDrainingStateGetControllerIDHintsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerIDHints", reflect.TypeOf((*MockDrainingState)(nil).GetControllerIDHints), arg0, arg1)
+	return &MockDrainingStateGetControllerIDHintsCall{Call: call}
+}
+
+// MockDrainingStateGetControllerIDHintsCall wrap *gomock.Call
+type MockDrainingStateGetControllerIDHintsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockDrainingStateGetControllerIDHintsCall) Return(arg0 []string, arg1 error) *MockDrainingStateGetControllerIDHintsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockDrainingStateGetControllerIDHintsCall) Do(f func(context.Context, string) ([]string, error)) *MockDrainingStateGetControllerIDHintsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockDrainingStateGetControllerIDHintsCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockDrainingStateGetControllerIDHintsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
