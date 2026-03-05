@@ -86,6 +86,8 @@ func (r *BlobRetriever) Report() map[string]any {
 
 // Retrieve returns a reader for the blob with the given SHA256.
 func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string, controllerIDHints []string) (io.ReadCloser, int64, error) {
+	controllerNamespace := r.namespace == database.ControllerNS
+
 	// Check if we're already dead or dying before we start to do anything.
 	select {
 	case <-r.tomb.Dying():
@@ -111,14 +113,14 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string, controllerI
 		remotes = shuffleRemotes(remotes)
 	}
 
-	return r.retrieveFromRemotes(ctx, remotes, sha256)
+	return r.retrieveFromRemotes(ctx, remotes, sha256, controllerNamespace)
 }
 
-func (r *BlobRetriever) retrieveFromRemotes(ctx context.Context, remotes []apiremotecaller.RemoteConnection, sha256 string) (io.ReadCloser, int64, error) {
+func (r *BlobRetriever) retrieveFromRemotes(ctx context.Context, remotes []apiremotecaller.RemoteConnection, sha256 string, controllerNamespace bool) (io.ReadCloser, int64, error) {
 	// Iterate over the remotes and try to retrieve the blob from each one.
 	var errs []string
 	for _, remote := range remotes {
-		reader, size, err := r.retrieve(ctx, remote, sha256)
+		reader, size, err := r.retrieve(ctx, remote, sha256, controllerNamespace)
 		if errors.Is(err, HTTPError) {
 			errs = append(errs, err.Error())
 			r.logger.Debugf(ctx, "failed to retrieve blob %q from remote: %v", sha256, err)
@@ -135,7 +137,7 @@ func (r *BlobRetriever) retrieveFromRemotes(ctx context.Context, remotes []apire
 	return nil, -1, errors.Errorf(`failed to retrieve %q: %s`, sha256, strings.Join(errs, ",")).Add(BlobNotFound)
 }
 
-func (r *BlobRetriever) retrieve(ctx context.Context, remote apiremotecaller.RemoteConnection, sha256 string) (io.ReadCloser, int64, error) {
+func (r *BlobRetriever) retrieve(ctx context.Context, remote apiremotecaller.RemoteConnection, sha256 string, controllerNamespace bool) (io.ReadCloser, int64, error) {
 	var reader io.ReadCloser
 	var size int64
 
@@ -150,9 +152,11 @@ func (r *BlobRetriever) retrieve(ctx context.Context, remote apiremotecaller.Rem
 			return errors.Errorf("failed to create object client: %w", err).Add(HTTPError)
 		}
 
-		if r.namespace == database.ControllerNS {
-			tag, _ := conn.ModelTag()
-			r.namespace = tag.Id()
+		ns := r.namespace
+		if controllerNamespace {
+			if tag, ok := conn.ModelTag(); ok {
+				ns = tag.Id()
+			}
 		}
 
 		ctx := &scopedContext{
@@ -160,7 +164,7 @@ func (r *BlobRetriever) retrieve(ctx context.Context, remote apiremotecaller.Rem
 			child:  connectionContext,
 		}
 
-		reader, size, err = client.GetObject(ctx, r.namespace, sha256)
+		reader, size, err = client.GetObject(ctx, ns, sha256)
 		if errors.Is(err, jujuerrors.NotFound) {
 			return errors.Errorf("blob %q not found: %w", sha256, err).Add(BlobNotFound)
 		} else if err != nil {
