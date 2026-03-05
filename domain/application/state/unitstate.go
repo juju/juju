@@ -108,7 +108,7 @@ func (st *State) InsertIAASUnit(
 		ctx,
 		tx,
 		unitUUID,
-		args.StorageToAttach,
+		args.NewStorageToAttach,
 	)
 	if err != nil {
 		return "", "", nil, errors.Errorf(
@@ -142,11 +142,11 @@ func (st *State) InsertIAASUnit(
 	}
 
 	for _, extra := range args.ExistingStorageToAttach {
-		err = st.attachStorageForUnit(ctx, tx, extra.StorageToAttach.StorageInstanceUUID, args.UnitUUID, extra)
+		err = st.attachExistingStorageForNewUnit(ctx, tx, extra.StorageInstanceUUID, args.UnitUUID, extra)
 		if err != nil {
 			return "", "", nil, errors.Errorf(
 				"attaching existing storage instance %q to unit %q: %w",
-				extra.StorageToAttach.StorageInstanceUUID, unitName, err,
+				extra.StorageInstanceUUID, unitName, err,
 			)
 		}
 	}

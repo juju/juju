@@ -79,7 +79,7 @@ func (s *registerCAASUnitSuite) makeStorageArg(
 
 func (*registerCAASUnitSuite) storageChecker() *tc.MultiChecker {
 	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_.CreateUnitStorageArg.StorageToAttach[_].FilesystemAttachment.NetNodeUUID`, tc.Ignore)
+	mc.AddExpr(`_.CreateUnitStorageArg.NewStorageToAttach[_].FilesystemAttachment.NetNodeUUID`, tc.Ignore)
 	return mc
 }
 

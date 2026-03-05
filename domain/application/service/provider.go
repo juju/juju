@@ -1312,7 +1312,7 @@ func (s *ProviderService) AttachStorageToUnit(
 		return nil
 	}
 
-	unitAttachStorageArgs, err := s.makeAttachStorageToUnitArgs(
+	unitAttachStorageArgs, err := s.makeAttachExistingStorageToUnitArgs(
 		ctx, storageUUID, unitUUID, netNodeUUID, &unitMachineUUID, storageAttachInfo)
 	if err != nil {
 		return errors.Capture(err)
@@ -1332,11 +1332,11 @@ func (s *ProviderService) AttachStorageToUnit(
 	return errors.Capture(err)
 }
 
-func (s *ProviderService) makeAttachStorageToUnitArgs(
+func (s *ProviderService) makeAttachExistingStorageToUnitArgs(
 	ctx context.Context, storageUUID domainstorage.StorageInstanceUUID,
 	unitUUID coreunit.UUID, netNodeUUID string, unitPlacementMachineUUID *string,
 	storageAttachInfo internal.StorageInfoForAttach,
-) (internal.AttachStorageToUnitArg, error) {
+) (internal.AttachExistingStorageToUnitArg, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1344,7 +1344,7 @@ func (s *ProviderService) makeAttachStorageToUnitArgs(
 	// It's an error if the storage is attached to any other unit,
 	// as we don't support shared storage.
 	if len(storageAttachInfo.AlreadyAttachedToUnits) > 0 {
-		return internal.AttachStorageToUnitArg{}, applicationerrors.StorageAttachmentNotAllowed{
+		return internal.AttachExistingStorageToUnitArg{}, applicationerrors.StorageAttachmentNotAllowed{
 			AttachedToUnits: slices.Collect(maps.Values(storageAttachInfo.AlreadyAttachedToUnits)),
 		}
 	}
@@ -1354,21 +1354,21 @@ func (s *ProviderService) makeAttachStorageToUnitArgs(
 	if storageAttachInfo.StorageMachineOwner != nil {
 		// unitPlacementMachineUUID is nil when the unit is being added to a new machine.
 		if unitPlacementMachineUUID == nil || *unitPlacementMachineUUID != storageAttachInfo.StorageMachineOwner.UUID {
-			return internal.AttachStorageToUnitArg{}, applicationerrors.StorageAttachmentNotAllowed{
+			return internal.AttachExistingStorageToUnitArg{}, applicationerrors.StorageAttachmentNotAllowed{
 				ExistingStorageMachineOwner: &storageAttachInfo.StorageMachineOwner.Name,
 			}
 		}
 	}
 
-	return s.populateAttachStorageArgs(ctx, storageUUID, netNodeUUID, storageAttachInfo)
+	return s.populateAttachExistingStorageArgs(ctx, storageUUID, netNodeUUID, storageAttachInfo)
 }
 
-func (s *ProviderService) populateAttachStorageArgs(
+func (s *ProviderService) populateAttachExistingStorageArgs(
 	ctx context.Context,
 	storageUUID domainstorage.StorageInstanceUUID,
 	netNodeUUID string,
 	storageAttachInfo internal.StorageInfoForAttach,
-) (internal.AttachStorageToUnitArg, error) {
+) (internal.AttachExistingStorageToUnitArg, error) {
 
 	charmStorageDef := internal.ValidateStorageArg{
 		Name:        storageAttachInfo.CharmStorageName,
@@ -1380,30 +1380,17 @@ func (s *ProviderService) populateAttachStorageArgs(
 	err := s.storageService.ValidateAttachStorage(
 		charmStorageDef, storageAttachInfo.AlreadyAttachedCount, storageAttachInfo.ProvisionedSizeMiB)
 	if err != nil {
-		return internal.AttachStorageToUnitArg{}, errors.Capture(err)
+		return internal.AttachExistingStorageToUnitArg{}, errors.Capture(err)
 	}
 
-	attachArgs, err := s.storageService.MakeUnitAttachStorageArgs(
+	attachArgs, err := s.storageService.MakeAttachExistingStorageArgs(
 		ctx,
 		netNodeUUID,
 		storageUUID,
+		storageAttachInfo,
 	)
 	if err != nil {
-		return internal.AttachStorageToUnitArg{}, errors.Capture(err)
+		return internal.AttachExistingStorageToUnitArg{}, errors.Capture(err)
 	}
-
-	allowedUUIDs := slices.Collect(maps.Keys(storageAttachInfo.AlreadyAttachedToUnits))
-	args := internal.AttachStorageToUnitArg{
-		StorageToAttach:                attachArgs,
-		StorageName:                    storageAttachInfo.CharmStorageName,
-		CountLessThanEqual:             uint32(math.MaxUint32),
-		AllowedExistingUnitAttachments: allowedUUIDs,
-	}
-
-	// Record the max allowed count precondition.
-	// This will be checked inside the transaction.
-	if storageAttachInfo.CountMax > 0 {
-		args.CountLessThanEqual = uint32(storageAttachInfo.CountMax) - 1
-	}
-	return args, nil
+	return attachArgs, nil
 }

@@ -174,7 +174,7 @@ type StorageService interface {
 		toUpdate []domainstorage.DirectiveArg,
 		err error,
 	)
-	
+
 	// ValidateAttachStorage checks that a storage instance can be attached
 	// to a unit with respect to the unit's charm storage definition, checking
 	// the existing count of storage instances and the size of the new storage.
@@ -187,15 +187,16 @@ type StorageService interface {
 		existingCount uint32,
 		storageSize uint64,
 	) error
-	
-	// MakeUnitAttachStorageArgs creates the storage arguments required to
+
+	// MakeAttachExistingStorageArgs creates the storage arguments required to
 	// attach existing storage to a unit.
 	// The following errors may be expected:
 	// - [applicationerrors.StorageCountLimitExceeded] when the requested storage
 	// falls outside of the bounds defined by the charm.
-	MakeUnitAttachStorageArgs(
+	MakeAttachExistingStorageArgs(
 		ctx context.Context,
 		netNodeUUID string,
 		storageUUID domainstorage.StorageInstanceUUID,
-	) (internal.CreateUnitStorageAttachmentArg, error)
+		storageAttachInfo internal.StorageInfoForAttach,
+	) (internal.AttachExistingStorageToUnitArg, error)
 }

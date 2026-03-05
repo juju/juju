@@ -1182,9 +1182,63 @@ WHERE  storage_id = $storageInstance.storage_id
 	return inst.StorageUUID, nil
 }
 
-func (st *State) attachStorageForUnit(
+func (st *State) attachExistingStorageForNewUnit(
 	ctx context.Context, tx *sqlair.TX, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
-	storageArg internal.AttachStorageToUnitArg,
+	storageArg internal.AttachExistingStorageToUnitArg,
+) error {
+	// Check allowed attachments.
+	attachedToUnits, err := st.getStorageAttachmentUnits(ctx, tx, storageUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	allowedAttachments := set.NewStrings(storageArg.AllowedExistingUnitAttachments...)
+	attachedUUIDs := set.NewStrings(transform.Slice(attachedToUnits, func(u storageAttachmentUnit) string { return u.UUID })...)
+	if attachedUUIDs.Difference(allowedAttachments).Size() > 0 {
+		return applicationerrors.StorageAttachmentNotAllowed{
+			AttachedToUnits: transform.Slice(attachedToUnits, func(u storageAttachmentUnit) string { return u.Name }),
+		}
+	}
+
+	// First to the basic life checks for the storage.
+	stor, err := st.getStorageDetails(ctx, tx, storageUUID)
+	if err != nil {
+		return err
+	}
+	if stor.LifeID != life.Alive {
+		return errors.Errorf("storage %q is not alive", unitUUID).Add(applicationerrors.StorageNotAlive)
+	}
+
+	err = st.insertUnitStorageAttachments(
+		ctx,
+		tx,
+		unitUUID.String(),
+		[]internal.AttachStorageToUnitArg{storageArg.AttachStorageToUnitArg},
+	)
+	if err != nil {
+		return errors.Errorf(
+			"creating storage attachments for unit %q: %w", unitUUID, err,
+		)
+	}
+
+	err = st.updateStorageInstanceForUnit(ctx, tx, unitUUID, storageUUID)
+	if err != nil {
+		return errors.Errorf(
+			"updating storage instance %q for unit %q: %w", storageUUID, unitUUID, err,
+		)
+	}
+
+	err = st.insertUnitStorageOwnership(ctx, tx, unitUUID.String(), []domainstorage.StorageInstanceUUID{storageUUID})
+	if err != nil {
+		return errors.Errorf(
+			"inserting storage ownership for unit %q: %w", unitUUID, err,
+		)
+	}
+	return nil
+}
+
+func (st *State) attachExistingStorageForExistingUnit(
+	ctx context.Context, tx *sqlair.TX, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
+	storageArg internal.AttachExistingStorageToUnitArg,
 ) error {
 	// Check allowed attachments.
 	attachedToUnits, err := st.getStorageAttachmentUnits(ctx, tx, storageUUID)
@@ -1232,7 +1286,7 @@ func (st *State) attachStorageForUnit(
 		ctx,
 		tx,
 		unitUUID.String(),
-		[]internal.CreateUnitStorageAttachmentArg{storageArg.StorageToAttach},
+		[]internal.AttachStorageToUnitArg{storageArg.AttachStorageToUnitArg},
 	)
 	if err != nil {
 		return errors.Errorf(
@@ -1297,7 +1351,7 @@ WHERE storage_instance.uuid = $storageInstance.uuid
 // AttachStorageToUnit attaches the storage instance to an unit.
 func (st *State) AttachStorageToUnit(
 	ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
-	storageArg internal.AttachStorageToUnitArg,
+	storageArg internal.AttachExistingStorageToUnitArg,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1305,7 +1359,7 @@ func (st *State) AttachStorageToUnit(
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := st.attachStorageForUnit(ctx, tx, storageUUID, unitUUID, storageArg)
+		err := st.attachExistingStorageForExistingUnit(ctx, tx, storageUUID, unitUUID, storageArg)
 		if errors.Is(err, internal.StorageAlreadyAttached) {
 			return nil
 		}
@@ -1355,7 +1409,7 @@ func (st *State) addStorageForUnit(
 		ctx,
 		tx,
 		unitUUID.String(),
-		storageArg.StorageToAttach,
+		storageArg.NewStorageToAttach,
 	)
 	if err != nil {
 		return nil, errors.Errorf(
