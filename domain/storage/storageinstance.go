@@ -138,7 +138,7 @@ type StorageInstanceUnitOwner struct {
 // status as there is cyclic imports between the status domain and storage.
 //
 // TODO (tlm): Remove cyclic imports from status domain. This will be done by
-// brining the storage types back into the storage domain.
+// bringing the storage types back into the storage domain.
 type StorageInstanceVolumeStatus struct {
 	// Data is the raw JSON information for the status.
 	Data map[string]any
@@ -154,5 +154,5 @@ type StorageInstanceVolumeStatus struct {
 	Status corestatus.Status
 
 	// UUID is the unique identifier for the Volume.
-	UUID FilesystemUUID
+	UUID VolumeUUID
 }
