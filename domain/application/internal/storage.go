@@ -67,11 +67,11 @@ type AddStorageToUnitArg struct {
 	// for the unit.
 	StorageInstances []CreateUnitStorageInstanceArg
 
-	// StorageToAttach defines the storage instances that should be attached to
+	// NewStorageToAttach defines the storage instances that should be attached to
 	// the unit. New storage instances defined in
 	// [CreateUnitStorageArg.StorageInstances] are not automatically attached to
 	// the unit and should be included in this list.
-	StorageToAttach []CreateUnitStorageAttachmentArg
+	NewStorageToAttach []AttachStorageToUnitArg
 
 	// StorageToOwn defines the storage instances that should be owned by the
 	// unit.
@@ -93,25 +93,6 @@ type AddStorageToIAASUnitArg struct {
 
 	// VolumesToOwn defines volumes that will be owned by the unit's machine.
 	VolumesToOwn []domainstorage.VolumeUUID
-}
-
-// AttachStorageToUnitArg represents the arguments required to attach storage
-// to a unit.
-type AttachStorageToUnitArg struct {
-	// StorageToAttach defines the storage instance that should be attached to
-	// the unit.
-	StorageToAttach CreateUnitStorageAttachmentArg
-
-	// StorageName is the name of the storage being attached.
-	StorageName string
-
-	// CountLessThanEqual is the maximum storage count allowed at the time
-	// the add is performed in order for the attach operation to be considered successful.
-	CountLessThanEqual uint32
-
-	// AllowedExistingUnitAttachments are the unit UUIDs to which the storage
-	// being attached is allowed to already be attached.
-	AllowedExistingUnitAttachments []string
 }
 
 // StorageInfoForAdd represents the arguments required to
@@ -208,17 +189,17 @@ type CreateUnitStorageArg struct {
 	// for the unit.
 	StorageInstances []CreateUnitStorageInstanceArg
 
-	// StorageToAttach defines the storage instances that should be attached to
-	// the unit. New storage instances defined in
+	// NewStorageToAttach defines the storage instances that should be attached
+	// to the unit. New storage instances defined in
 	// [CreateUnitStorageArg.StorageInstances] are not automatically attached to
 	// the unit and should be included in this list.
-	StorageToAttach []CreateUnitStorageAttachmentArg
+	NewStorageToAttach []AttachStorageToUnitArg
 
 	// ExistingStorageToAttach defines already provisioned storage instances,
 	// previously detached from another unit, that should be attached to the
 	// new unit, as opposed to new storage created and attached as defined in
-	// [CreateUnitStorageArg.StorageToAttach].
-	ExistingStorageToAttach []AttachStorageToUnitArg
+	// [CreateUnitStorageArg.NewStorageToAttach].
+	ExistingStorageToAttach []AttachExistingStorageToUnitArg
 
 	// StorageToOwn defines the storage instances that should be owned by the
 	// unit.
@@ -238,9 +219,9 @@ type CreateIAASUnitStorageArg struct {
 	VolumesToOwn []domainstorage.VolumeUUID
 }
 
-// CreateUnitStorageAttachmentArg describes the arguments required for creating a
+// AttachStorageToUnitArg describes the arguments required for creating a
 // storage attachment.
-type CreateUnitStorageAttachmentArg struct {
+type AttachStorageToUnitArg struct {
 	// UUID is the unique identifier to associate with the storage attachment.
 	UUID domainstorage.StorageAttachmentUUID
 
@@ -255,6 +236,23 @@ type CreateUnitStorageAttachmentArg struct {
 	// VolumeAttachment describes a volume to attach for the storage
 	// instance attachment.
 	VolumeAttachment *CreateUnitStorageVolumeAttachmentArg
+}
+
+// AttachExistingStorageToUnitArg describes the arguments required for creating
+// a storage attachment for existing storage.
+type AttachExistingStorageToUnitArg struct {
+	AttachStorageToUnitArg
+
+	// StorageName is the name of the storage being attached.
+	StorageName string
+
+	// CountLessThanEqual is the maximum storage count allowed at the time
+	// the add is performed in order for the attach operation to be considered successful.
+	CountLessThanEqual uint32
+
+	// AllowedExistingUnitAttachments are the unit UUIDs to which the storage
+	// being attached is allowed to already be attached.
+	AllowedExistingUnitAttachments []string
 }
 
 // CreateUnitStorageDirectiveArg describes the arguments required for making storage

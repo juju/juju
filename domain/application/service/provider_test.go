@@ -1519,7 +1519,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //						Name: "data",
 //					},
 //				},
-//				StorageToAttach: []application.CreateStorageAttachmentArg{
+//				NewStorageToAttach: []application.CreateStorageAttachmentArg{
 //					{},
 //				},
 //				StorageToOwn: []storage.StorageInstanceUUID{""},
@@ -1687,7 +1687,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //						Name: "data",
 //					},
 //				},
-//				StorageToAttach: []application.CreateStorageAttachmentArg{
+//				NewStorageToAttach: []application.CreateStorageAttachmentArg{
 //					{}, {}, {},
 //				},
 //				StorageToOwn: []storage.StorageInstanceUUID{"", "", ""},
@@ -1846,7 +1846,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //						Name: "data",
 //					},
 //				},
-//				StorageToAttach: []application.CreateStorageAttachmentArg{
+//				NewStorageToAttach: []application.CreateStorageAttachmentArg{
 //					{},
 //				},
 //				StorageToOwn: []storage.StorageInstanceUUID{""},
@@ -2010,7 +2010,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //						Name: "data",
 //					},
 //				},
-//				StorageToAttach: []application.CreateStorageAttachmentArg{
+//				NewStorageToAttach: []application.CreateStorageAttachmentArg{
 //					{}, {},
 //				},
 //				StorageToOwn: []storage.StorageInstanceUUID{"", ""},
@@ -3523,24 +3523,31 @@ func (s *providerServiceSuite) TestAttachStorage(c *tc.C) {
 	}, uint32(66), uint64(6)).
 		Return(nil)
 
-	storageToAttach := internal.CreateUnitStorageAttachmentArg{
-		UUID: saUUID,
-		FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
-			FilesystemUUID: fsUUID,
-			ProvisionScope: 1,
+	storageToAttach := internal.AttachExistingStorageToUnitArg{
+		AttachStorageToUnitArg: internal.AttachStorageToUnitArg{
+			UUID: saUUID,
+			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
+				FilesystemUUID: fsUUID,
+				ProvisionScope: 1,
+			},
+			StorageInstanceUUID: siUUID,
 		},
-		StorageInstanceUUID: siUUID,
-	}
-
-	s.storageService.EXPECT().MakeUnitAttachStorageArgs(gomock.Any(), netnodeUUID.String(), siUUID).
-		Return(storageToAttach, nil)
-
-	unitStorageArgs := internal.AttachStorageToUnitArg{
-		StorageToAttach:    storageToAttach,
 		StorageName:        "pgdata",
 		CountLessThanEqual: 665,
 	}
-	s.state.EXPECT().AttachStorageToUnit(gomock.Any(), siUUID, unitUUID, unitStorageArgs)
+
+	storageAttachInfo := internal.StorageInfoForAttach{
+		CharmStorageName:     "pgdata",
+		CountMin:             1,
+		CountMax:             666,
+		MinimumSize:          10,
+		AlreadyAttachedCount: 66,
+		ProvisionedSizeMiB:   6,
+	}
+	s.storageService.EXPECT().MakeAttachExistingStorageArgs(gomock.Any(), netnodeUUID.String(), siUUID, storageAttachInfo).
+		Return(storageToAttach, nil)
+
+	s.state.EXPECT().AttachStorageToUnit(gomock.Any(), siUUID, unitUUID, storageToAttach)
 
 	err := s.service.AttachStorageToUnit(c.Context(), siUUID, unitUUID)
 	c.Assert(err, tc.ErrorIsNil)

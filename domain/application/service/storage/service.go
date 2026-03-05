@@ -5,6 +5,8 @@ package storage
 
 import (
 	"context"
+	"maps"
+	"math"
 	"slices"
 
 	"github.com/juju/juju/caas"
@@ -318,8 +320,8 @@ func (s Service) makeRegisterCAASUnitStorageArg(
 	// attachment provider ID mapped if one exists.
 	for _, storageInstance := range existingProviderStorage {
 		attachmentIndex := slices.IndexFunc(
-			unitStorageArgs.StorageToAttach,
-			func(e internal.CreateUnitStorageAttachmentArg) bool {
+			unitStorageArgs.NewStorageToAttach,
+			func(e internal.AttachStorageToUnitArg) bool {
 				return e.StorageInstanceUUID == storageInstance.UUID
 			},
 		)
@@ -343,7 +345,7 @@ func (s Service) makeRegisterCAASUnitStorageArg(
 			existingUnitOwnedStorage,
 			existingUnitOwnedStorageAttachments,
 			unitStorageArgs.StorageInstances,
-			unitStorageArgs.StorageToAttach,
+			unitStorageArgs.NewStorageToAttach,
 		)
 	)
 
@@ -404,7 +406,7 @@ func makeCAASStorageInstanceProviderIDAssociations(
 	existingUnitOwnedStorage []internal.StorageInstanceComposition,
 	existingUnitAttachments []internal.StorageAttachmentComposition,
 	unitStorageToCreate []internal.CreateUnitStorageInstanceArg,
-	unitStorageToAttach []internal.CreateUnitStorageAttachmentArg,
+	unitStorageToAttach []internal.AttachStorageToUnitArg,
 ) (
 	map[domainstorage.FilesystemUUID]string,
 	map[domainstorage.VolumeUUID]string,
@@ -562,15 +564,15 @@ volumeAttachmentLoop:
 func makeStorageAttachmentArgFromExistingStorageInstance(
 	netNodeUUID domainnetwork.NetNodeUUID,
 	storageInstance internal.StorageInstanceComposition,
-) (internal.CreateUnitStorageAttachmentArg, error) {
+) (internal.AttachStorageToUnitArg, error) {
 	uuid, err := domainstorage.NewStorageAttachmentUUID()
 	if err != nil {
-		return internal.CreateUnitStorageAttachmentArg{}, errors.Errorf(
+		return internal.AttachStorageToUnitArg{}, errors.Errorf(
 			"generating new storage attachment uuid: %w", err,
 		)
 	}
 
-	rval := internal.CreateUnitStorageAttachmentArg{
+	rval := internal.AttachStorageToUnitArg{
 		StorageInstanceUUID: storageInstance.UUID,
 		UUID:                uuid,
 	}
@@ -578,7 +580,7 @@ func makeStorageAttachmentArgFromExistingStorageInstance(
 	if storageInstance.Filesystem != nil {
 		uuid, err := domainstorage.NewFilesystemAttachmentUUID()
 		if err != nil {
-			return internal.CreateUnitStorageAttachmentArg{}, errors.Errorf(
+			return internal.AttachStorageToUnitArg{}, errors.Errorf(
 				"generating new filesystem attachment uuid: %w", err,
 			)
 		}
@@ -594,7 +596,7 @@ func makeStorageAttachmentArgFromExistingStorageInstance(
 	if storageInstance.Volume != nil {
 		uuid, err := domainstorage.NewVolumeAttachmentUUID()
 		if err != nil {
-			return internal.CreateUnitStorageAttachmentArg{}, errors.Errorf(
+			return internal.AttachStorageToUnitArg{}, errors.Errorf(
 				"generating new volume attachment uuid: %w", err,
 			)
 		}
@@ -619,15 +621,15 @@ func makeStorageAttachmentArgFromExistingStorageInstance(
 func makeStorageAttachmentArgFromStorageInstance(
 	netNodeUUID domainnetwork.NetNodeUUID,
 	storageInstance internal.AttachStorageInstanceArg,
-) (internal.CreateUnitStorageAttachmentArg, error) {
+) (internal.AttachStorageToUnitArg, error) {
 	uuid, err := domainstorage.NewStorageAttachmentUUID()
 	if err != nil {
-		return internal.CreateUnitStorageAttachmentArg{}, errors.Errorf(
+		return internal.AttachStorageToUnitArg{}, errors.Errorf(
 			"generating new storage attachment uuid: %w", err,
 		)
 	}
 
-	rval := internal.CreateUnitStorageAttachmentArg{
+	rval := internal.AttachStorageToUnitArg{
 		StorageInstanceUUID: storageInstance.UUID,
 		UUID:                uuid,
 	}
@@ -635,7 +637,7 @@ func makeStorageAttachmentArgFromStorageInstance(
 	if storageInstance.Filesystem != nil {
 		uuid, err := domainstorage.NewFilesystemAttachmentUUID()
 		if err != nil {
-			return internal.CreateUnitStorageAttachmentArg{}, errors.Errorf(
+			return internal.AttachStorageToUnitArg{}, errors.Errorf(
 				"generating new filesystem attachment uuid: %w", err,
 			)
 		}
@@ -651,7 +653,7 @@ func makeStorageAttachmentArgFromStorageInstance(
 	if storageInstance.Volume != nil {
 		uuid, err := domainstorage.NewVolumeAttachmentUUID()
 		if err != nil {
-			return internal.CreateUnitStorageAttachmentArg{}, errors.Errorf(
+			return internal.AttachStorageToUnitArg{}, errors.Errorf(
 				"generating new volume attachment uuid: %w", err,
 			)
 		}
@@ -680,7 +682,7 @@ func makeStorageAttachmentArgFromStorageInstance(
 // storage.
 //
 // No guarantee is made that existing storage supplied to this func will be used
-// in it's entirety. If a storage directive has less demand then what is
+// in its entirety. If a storage directive has less demand then what is
 // supplied it is possible that some existing storage will be unused. It is up
 // to the caller to validate what storage was and wasn't used by looking at the
 // storage attachments.
@@ -688,6 +690,14 @@ func (s Service) MakeUnitStorageArgs(
 	ctx context.Context,
 	attachNetNodeUUID domainnetwork.NetNodeUUID,
 	storageDirectives []application.StorageDirective,
+	// TODO - we only pass in non nil existing storage values for
+	//  CAAS unit registration. These are treated as new storage to
+	//  be attached in the downstream workflow, since the additional
+	//  checks for attaching existing storage to units as initiated by
+	//  a user are not currently relevant for CAAS unit registration.
+	//  We should consider if we want to split the MakeUnitStorageArgs func
+	//  into two separate funcs - one for CAAS unit registration and one
+	//  for adding new units in response to a scale operation.
 	existingStorage []internal.StorageInstanceComposition,
 	existingStorageAttachments []internal.StorageAttachmentComposition,
 ) (internal.CreateUnitStorageArg, error) {
@@ -696,7 +706,7 @@ func (s Service) MakeUnitStorageArgs(
 
 	rvalDirectives := make([]internal.CreateUnitStorageDirectiveArg, 0, len(storageDirectives))
 	rvalInstances := []internal.CreateUnitStorageInstanceArg{}
-	rvalToAttach := make([]internal.CreateUnitStorageAttachmentArg, 0, len(storageDirectives))
+	rvalToAttach := make([]internal.AttachStorageToUnitArg, 0, len(storageDirectives))
 	// rvalToOwn is the list of storage instance uuid's that the unit must own.
 	rvalToOwn := make([]domainstorage.StorageInstanceUUID, 0, len(storageDirectives))
 
@@ -803,10 +813,10 @@ func (s Service) MakeUnitStorageArgs(
 	}
 
 	return internal.CreateUnitStorageArg{
-		StorageDirectives: rvalDirectives,
-		StorageInstances:  rvalInstances,
-		StorageToAttach:   rvalToAttach,
-		StorageToOwn:      rvalToOwn,
+		StorageDirectives:  rvalDirectives,
+		StorageInstances:   rvalInstances,
+		NewStorageToAttach: rvalToAttach,
+		StorageToOwn:       rvalToOwn,
 	}, nil
 }
 
@@ -869,7 +879,7 @@ func (s Service) MakeUnitAddStorageArgs(
 	defer span.End()
 
 	var rvalInstances []internal.CreateUnitStorageInstanceArg
-	rvalToAttach := make([]internal.CreateUnitStorageAttachmentArg, 0, 1)
+	rvalToAttach := make([]internal.AttachStorageToUnitArg, 0, 1)
 	// rvalToOwn is the list of storage instance UUIDs that the unit must own.
 	rvalToOwn := make([]domainstorage.StorageInstanceUUID, 0, 1)
 
@@ -923,9 +933,9 @@ func (s Service) MakeUnitAddStorageArgs(
 	}
 
 	return internal.AddStorageToUnitArg{
-		StorageInstances: rvalInstances,
-		StorageToAttach:  rvalToAttach,
-		StorageToOwn:     rvalToOwn,
+		StorageInstances:   rvalInstances,
+		NewStorageToAttach: rvalToAttach,
+		StorageToOwn:       rvalToOwn,
 	}, nil
 }
 
@@ -1022,19 +1032,20 @@ func makeUnitStorageInstancesFromDirective(
 	return rval, nil
 }
 
-// MakeUnitAttachStorageArgs creates the storage arguments required to
+// MakeAttachExistingStorageArgs creates the storage arguments required to
 // attach existing storage to a unit.
-func (s Service) MakeUnitAttachStorageArgs(
+func (s Service) MakeAttachExistingStorageArgs(
 	ctx context.Context,
 	attachNetNodeUUID string,
 	storageInstanceUUID domainstorage.StorageInstanceUUID,
-) (internal.CreateUnitStorageAttachmentArg, error) {
+	storageAttachInfo internal.StorageInfoForAttach,
+) (internal.AttachExistingStorageToUnitArg, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	instComposition, err := s.st.GetStorageInstanceCompositionByUUID(ctx, storageInstanceUUID)
 	if err != nil {
-		return internal.CreateUnitStorageAttachmentArg{}, errors.Errorf(
+		return internal.AttachExistingStorageToUnitArg{}, errors.Errorf(
 			"getting composition details for storage %q: %w", storageInstanceUUID, err,
 		)
 	}
@@ -1058,9 +1069,29 @@ func (s Service) MakeUnitAttachStorageArgs(
 		domainnetwork.NetNodeUUID(attachNetNodeUUID), instArg,
 	)
 	if err != nil {
-		return internal.CreateUnitStorageAttachmentArg{}, errors.Errorf(
+		return internal.AttachExistingStorageToUnitArg{}, errors.Errorf(
 			"making storage attachment arguments for new storage instance: %w", err,
 		)
 	}
-	return storageAttachArg, nil
+
+	allowedUUIDs := slices.Collect(maps.Keys(storageAttachInfo.AlreadyAttachedToUnits))
+	result := internal.AttachExistingStorageToUnitArg{
+		AttachStorageToUnitArg: internal.AttachStorageToUnitArg{
+			UUID:                 storageAttachArg.UUID,
+			FilesystemAttachment: storageAttachArg.FilesystemAttachment,
+			StorageInstanceUUID:  storageAttachArg.StorageInstanceUUID,
+			VolumeAttachment:     storageAttachArg.VolumeAttachment,
+		},
+		StorageName:                    storageAttachInfo.CharmStorageName,
+		CountLessThanEqual:             uint32(math.MaxUint32),
+		AllowedExistingUnitAttachments: allowedUUIDs,
+	}
+
+	// Record the max allowed count precondition.
+	// This will be checked inside the transaction.
+	if storageAttachInfo.CountMax > 0 {
+		result.CountLessThanEqual = uint32(storageAttachInfo.CountMax) - 1
+	}
+
+	return result, nil
 }

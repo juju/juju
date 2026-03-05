@@ -58,7 +58,7 @@ func (s *registerCAASUnitSuite) makeStorageArg(
 					UUID:            storageInstUUID,
 				},
 			},
-			StorageToAttach: []internal.CreateUnitStorageAttachmentArg{
+			NewStorageToAttach: []internal.AttachStorageToUnitArg{
 				{
 					FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
 						FilesystemUUID: fsUUID,
@@ -81,7 +81,7 @@ func (s *registerCAASUnitSuite) makeStorageArg(
 
 func (*registerCAASUnitSuite) storageChecker() *tc.MultiChecker {
 	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_.CreateUnitStorageArg.StorageToAttach[_].FilesystemAttachment.NetNodeUUID`, tc.Ignore)
+	mc.AddExpr(`_.CreateUnitStorageArg.NewStorageToAttach[_].FilesystemAttachment.NetNodeUUID`, tc.Ignore)
 	return mc
 }
 

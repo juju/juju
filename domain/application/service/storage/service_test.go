@@ -169,7 +169,7 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 		},
 	}
 
-	expectedStorageToAttach := []internal.CreateUnitStorageAttachmentArg{
+	expectedStorageToAttach := []internal.AttachStorageToUnitArg{
 		// Existing st1 storage
 		{
 			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
@@ -202,7 +202,7 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 	// attachment expectations.
 	expectedStorageToAttach = slices.Grow(expectedStorageToAttach, len(arg.StorageInstances))
 	for _, si := range arg.StorageInstances {
-		attachArg := internal.CreateUnitStorageAttachmentArg{
+		attachArg := internal.AttachStorageToUnitArg{
 			StorageInstanceUUID: si.UUID,
 		}
 
@@ -231,10 +231,10 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 	}
 
 	c.Check(arg, createUnitStorageArgChecker(), internal.CreateUnitStorageArg{
-		StorageDirectives: expectStorageDirectives,
-		StorageInstances:  expectedStorageInstances,
-		StorageToAttach:   expectedStorageToAttach,
-		StorageToOwn:      expectedStorageToOwn,
+		StorageDirectives:  expectStorageDirectives,
+		StorageInstances:   expectedStorageInstances,
+		NewStorageToAttach: expectedStorageToAttach,
+		StorageToOwn:       expectedStorageToOwn,
 	})
 }
 
@@ -369,12 +369,12 @@ func (s *serviceSuite) TestMakeUnitAddStorageArgs(c *tc.C) {
 		},
 	}
 
-	expectedStorageToAttach := make([]internal.CreateUnitStorageAttachmentArg, 0, len(arg.StorageInstances))
+	expectedStorageToAttach := make([]internal.AttachStorageToUnitArg, 0, len(arg.StorageInstances))
 	// Loop through the new storage instances being created and set their
 	// attachment expectations.
 	expectedStorageToAttach = slices.Grow(expectedStorageToAttach, len(arg.StorageInstances))
 	for _, si := range arg.StorageInstances {
-		attachArg := internal.CreateUnitStorageAttachmentArg{
+		attachArg := internal.AttachStorageToUnitArg{
 			StorageInstanceUUID: si.UUID,
 		}
 
@@ -403,13 +403,13 @@ func (s *serviceSuite) TestMakeUnitAddStorageArgs(c *tc.C) {
 	}
 
 	c.Check(arg, createUnitStorageArgChecker(), internal.AddStorageToUnitArg{
-		StorageInstances: expectedStorageInstances,
-		StorageToAttach:  expectedStorageToAttach,
-		StorageToOwn:     expectedStorageToOwn,
+		StorageInstances:   expectedStorageInstances,
+		NewStorageToAttach: expectedStorageToAttach,
+		StorageToOwn:       expectedStorageToOwn,
 	})
 }
 
-func (s *serviceSuite) TestMakeUnitAttachStorageArgs(c *tc.C) {
+func (s *serviceSuite) TestMakeAttachExistingStorageArgs(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -434,17 +434,27 @@ func (s *serviceSuite) TestMakeUnitAttachStorageArgs(c *tc.C) {
 
 	s.state.EXPECT().GetStorageInstanceCompositionByUUID(gomock.Any(), storageUUID).Return(instComposition, nil)
 
+	storageAttachInfo := internal.StorageInfoForAttach{
+		CharmStorageName: "pgdata",
+		CountMax:         667,
+	}
+
 	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
 
-	attachArg, err := svc.MakeUnitAttachStorageArgs(
+	attachArg, err := svc.MakeAttachExistingStorageArgs(
 		c.Context(),
 		attachNetNodeUUID.String(),
 		storageUUID,
+		storageAttachInfo,
 	)
 	c.Check(err, tc.ErrorIsNil)
 
-	expectedStorageToAttach := internal.CreateUnitStorageAttachmentArg{
-		StorageInstanceUUID: instComposition.UUID,
+	expectedStorageToAttach := internal.AttachExistingStorageToUnitArg{
+		AttachStorageToUnitArg: internal.AttachStorageToUnitArg{
+			StorageInstanceUUID: instComposition.UUID,
+		},
+		StorageName:        "pgdata",
+		CountLessThanEqual: 666,
 	}
 	if instComposition.Filesystem != nil {
 		expectedStorageToAttach.FilesystemAttachment =
@@ -473,12 +483,7 @@ func (s *serviceSuite) TestMakeUnitAttachStorageArgs(c *tc.C) {
 		c.Assert(attachArg.VolumeAttachment.UUID, tc.Not(tc.Equals), "")
 		attachArg.VolumeAttachment.UUID = ""
 	}
-	arg := internal.AttachStorageToUnitArg{
-		StorageToAttach: attachArg,
-	}
-	c.Check(arg, tc.DeepEquals, internal.AttachStorageToUnitArg{
-		StorageToAttach: expectedStorageToAttach,
-	})
+	c.Check(attachArg, tc.DeepEquals, expectedStorageToAttach)
 }
 
 func (s *serviceSuite) TestValidateAttachStorageExceedMax(c *tc.C) {

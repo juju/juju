@@ -109,7 +109,7 @@ func (st *State) InsertIAASUnit(
 		ctx,
 		tx,
 		unitUUID,
-		args.StorageToAttach,
+		args.NewStorageToAttach,
 	)
 	if err != nil {
 		return "", "", nil, errors.Errorf(
@@ -143,11 +143,11 @@ func (st *State) InsertIAASUnit(
 	}
 
 	for _, extra := range args.ExistingStorageToAttach {
-		err = st.attachStorageForUnit(ctx, tx, extra.StorageToAttach.StorageInstanceUUID, args.UnitUUID, extra)
+		err = st.attachExistingStorageForNewUnit(ctx, tx, extra.StorageInstanceUUID, args.UnitUUID, extra)
 		if err != nil {
 			return "", "", nil, errors.Errorf(
 				"attaching existing storage instance %q to unit %q: %w",
-				extra.StorageToAttach.StorageInstanceUUID, unitName, err,
+				extra.StorageInstanceUUID, unitName, err,
 			)
 		}
 	}
@@ -802,7 +802,7 @@ func (st *State) insertUnitStorageAttachments(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID string,
-	storageToAttach []internal.CreateUnitStorageAttachmentArg,
+	storageToAttach []internal.AttachStorageToUnitArg,
 ) error {
 	storageAttachmentArgs := makeInsertUnitStorageAttachmentArgs(
 		unitUUID, storageToAttach,
@@ -1260,7 +1260,7 @@ func (st *State) makeInsertUnitFilesystemArgs(
 // [insertStorageFilesystemAttachment] for each filesystem attachment defined in
 // args.
 func (st *State) makeInsertUnitFilesystemAttachmentArgs(
-	args []internal.CreateUnitStorageAttachmentArg,
+	args []internal.AttachStorageToUnitArg,
 ) []insertStorageFilesystemAttachment {
 	rval := []insertStorageFilesystemAttachment{}
 	for _, arg := range args {
@@ -1394,7 +1394,7 @@ func (st *State) makeInsertUnitVolumeArgs(
 // [insertStorageVolumeAttachment] values for each volume attachment argument
 // supplied.
 func (st *State) makeInsertUnitVolumeAttachmentArgs(
-	args []internal.CreateUnitStorageAttachmentArg,
+	args []internal.AttachStorageToUnitArg,
 ) []insertStorageVolumeAttachment {
 	rval := []insertStorageVolumeAttachment{}
 	for _, arg := range args {
