@@ -154,9 +154,11 @@ func (r *BlobRetriever) retrieve(ctx context.Context, remote apiremotecaller.Rem
 
 		ns := r.namespace
 		if controllerNamespace {
-			if tag, ok := conn.ModelTag(); ok {
-				ns = tag.Id()
+			tag, ok := conn.ModelTag()
+			if !ok {
+				return errors.Errorf("missing model tag when using controller namespace")
 			}
+			ns = tag.Id()
 		}
 
 		ctx := &scopedContext{
