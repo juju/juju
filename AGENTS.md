@@ -13,11 +13,19 @@ If guidance conflicts, architectural rules take precedence.
 - `make go-build` — Build without schema rebuild.
 - `make juju` — Build the CLI client only.
 - `make jujud-controller` — Build the controller binary (includes domain services, dqlite).
-    - WARNING: `go build ./cmd/jujud` builds the *agent* binary, NOT the controller.
-      This is a common mistake. The agent binary lacks domain services and will
-      not function as a controller.
+  - WARNING: `go build ./cmd/jujud` builds the *agent* binary, NOT the controller.
+    This is a common mistake. The agent binary lacks domain services and will
+    not function as a controller.
 
-## Test
+## Unit Test Conventions
+
+- Assertions:
+  - Use `c.Assert(err, tc.ErrorIsNil)` for error checks.
+  - Prefer `c.Check` for value assertions.
+  - Use `c.Assert` for value assertions only when needed to guard subsequent assertions (e.g. prevent nil dereference).
+- For `select` cases, use test context (`c.Context`) instead of timeouts.
+
+## Running Tests
 
 - `go test ./path/to/package` — Run package tests.
 - `go test -run 'TestName' ./path/to/package` — Run specific test.
