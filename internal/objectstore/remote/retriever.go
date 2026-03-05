@@ -85,7 +85,7 @@ func (r *BlobRetriever) Report() map[string]any {
 }
 
 // Retrieve returns a reader for the blob with the given SHA256.
-func (r *BlobRetriever) Retrieve(ctx context.Context, sha256, controllerNodeID string) (io.ReadCloser, int64, error) {
+func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string, controllerIDHints []string) (io.ReadCloser, int64, error) {
 	// Check if we're already dead or dying before we start to do anything.
 	select {
 	case <-r.tomb.Dying():
@@ -102,18 +102,16 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256, controllerNodeID s
 		return nil, -1, NoRemoteConnections
 	}
 
-	idx := controllerNodeIndex(remotes, controllerNodeID)
-
-	// If there is no controller node ID hint, or if the hinted controller node
-	// is not available, we shuffle the remotes and try to retrieve from them in
-	// random order to avoid always hitting the same remote first.
-	if controllerNodeID == "" || idx == -1 {
-		return r.retrieveFromRemotes(ctx, shuffleRemotes(remotes), sha256)
+	// If we have controller ID hints attempt to prioritize remotes that match
+	// the hints. Otherwise shuffle the other remotes to avoid always hitting
+	// the same one first.
+	if len(controllerIDHints) > 0 {
+		remotes = prioritizeRemotes(remotes, controllerIDHints)
+	} else {
+		remotes = shuffleRemotes(remotes)
 	}
 
-	// Try to retrieve from the hinted controller node first, and if that fails,
-	// try the other remotes in random order.
-	return r.retrieveFromRemotes(ctx, prioritizeRemotes(remotes, idx), sha256)
+	return r.retrieveFromRemotes(ctx, remotes, sha256)
 }
 
 func (r *BlobRetriever) retrieveFromRemotes(ctx context.Context, remotes []apiremotecaller.RemoteConnection, sha256 string) (io.ReadCloser, int64, error) {
@@ -192,17 +190,6 @@ func (r *BlobRetriever) loop() error {
 	return tomb.ErrDying
 }
 
-// controllerNodeIndex returns the index of the given controller node ID is
-// present in the list of remotes.
-func controllerNodeIndex(remotes []apiremotecaller.RemoteConnection, controllerNodeID string) int {
-	for i, remote := range remotes {
-		if remote.ControllerID() == controllerNodeID {
-			return i
-		}
-	}
-	return -1
-}
-
 // Shuffle the remotes to avoid always hitting the same one first. This copies
 // the slice before shuffling to avoid modifying the original slice, which may
 // be shared with other parts of the code.
@@ -221,20 +208,41 @@ func shuffleRemotes(remotes []apiremotecaller.RemoteConnection) []apiremotecalle
 	return shuffled
 }
 
-func prioritizeRemotes(remotes []apiremotecaller.RemoteConnection, idx int) []apiremotecaller.RemoteConnection {
-	if idx < 0 || idx >= len(remotes) {
+func prioritizeRemotes(remotes []apiremotecaller.RemoteConnection, hints []string) []apiremotecaller.RemoteConnection {
+	if len(remotes) <= 1 {
 		return remotes
 	}
 
-	fallback := make([]apiremotecaller.RemoteConnection, 0, len(remotes)-1)
-	fallback = append(fallback, remotes[:idx]...)
-	fallback = append(fallback, remotes[idx+1:]...)
+	set := make(map[string]struct{}, len(hints))
+	for _, hint := range hints {
+		set[hint] = struct{}{}
+	}
 
-	shuffled := shuffleRemotes(fallback)
+	prioritize, fallback := partition(remotes, func(remote apiremotecaller.RemoteConnection) bool {
+		_, found := set[remote.ControllerID()]
+		return found
+	})
 
-	return append([]apiremotecaller.RemoteConnection{
-		remotes[idx],
-	}, shuffled...)
+	return append(shuffleRemotes(prioritize), shuffleRemotes(fallback)...)
+}
+
+// partition splits the slice into two slices based on the provided function.
+// The first slice contains all elements for which the function returns true, and
+// the second slice contains all elements for which the function returns false.
+func partition[S ~[]E, E any](s S, f func(E) bool) (S, S) {
+	if len(s) == 0 {
+		return s, s
+	}
+
+	var a, b S
+	for _, v := range s {
+		if f(v) {
+			a = append(a, v)
+		} else {
+			b = append(b, v)
+		}
+	}
+	return a, b
 }
 
 // scopedContext is a context that allows us to ignore the child context

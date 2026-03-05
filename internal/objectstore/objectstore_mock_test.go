@@ -375,6 +375,45 @@ func (c *MockRemoteObjectStoreMetadataAddControllerIDHintCall) DoAndReturn(f fun
 	return c
 }
 
+// GetControllerIDHints mocks base method.
+func (m *MockRemoteObjectStoreMetadata) GetControllerIDHints(arg0 context.Context, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetControllerIDHints", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetControllerIDHints indicates an expected call of GetControllerIDHints.
+func (mr *MockRemoteObjectStoreMetadataMockRecorder) GetControllerIDHints(arg0, arg1 any) *MockRemoteObjectStoreMetadataGetControllerIDHintsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerIDHints", reflect.TypeOf((*MockRemoteObjectStoreMetadata)(nil).GetControllerIDHints), arg0, arg1)
+	return &MockRemoteObjectStoreMetadataGetControllerIDHintsCall{Call: call}
+}
+
+// MockRemoteObjectStoreMetadataGetControllerIDHintsCall wrap *gomock.Call
+type MockRemoteObjectStoreMetadataGetControllerIDHintsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRemoteObjectStoreMetadataGetControllerIDHintsCall) Return(arg0 []string, arg1 error) *MockRemoteObjectStoreMetadataGetControllerIDHintsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRemoteObjectStoreMetadataGetControllerIDHintsCall) Do(f func(context.Context, string) ([]string, error)) *MockRemoteObjectStoreMetadataGetControllerIDHintsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRemoteObjectStoreMetadataGetControllerIDHintsCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockRemoteObjectStoreMetadataGetControllerIDHintsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetMetadata mocks base method.
 func (m *MockRemoteObjectStoreMetadata) GetMetadata(arg0 context.Context, arg1 string) (objectstore.Metadata, error) {
 	m.ctrl.T.Helper()
