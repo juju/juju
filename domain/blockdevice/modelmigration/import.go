@@ -5,6 +5,7 @@ package modelmigration
 
 import (
 	"context"
+	"slices"
 
 	"github.com/juju/description/v11"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/modelmigration"
+	domainblockdevice "github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/domain/blockdevice/service"
 	"github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/internal/errors"
@@ -64,8 +66,42 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute the import on the block devices contained in the model.
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
-	machines := model.Machines()
+	machinesToBlockDevices := i.getMachineBlockDevices(model.Machines())
+	volumeBlockDevices := i.getMachineBlockDevicesFromVolumeAttachments(model.Volumes())
 
+	// Prefer block devices defined for machines as they will have more data
+	// filled out usually. Only add block devices from volumeBlockDevices which
+	// have not been found with the machine.
+	for machineName, blockDevices := range volumeBlockDevices {
+		unique := slices.DeleteFunc(blockDevices, func(bd blockdevice.BlockDevice) bool {
+			return slices.ContainsFunc(
+				machinesToBlockDevices[machineName],
+				func(machineBD blockdevice.BlockDevice) bool {
+					return domainblockdevice.SameDevice(bd, machineBD)
+				})
+		})
+		machinesToBlockDevices[machineName] = append(machinesToBlockDevices[machineName], unique...)
+	}
+
+	for machineName, blockDevices := range machinesToBlockDevices {
+		err := i.service.SetBlockDevicesForMachineByName(
+			ctx, machine.Name(machineName), blockDevices)
+		if err != nil {
+			return errors.Errorf(
+				"importing block devices for machine %q: %w",
+				machineName, err,
+			)
+		}
+	}
+
+	return nil
+}
+
+// getMachineBlockDevices returns the block devices found for each machine.
+func (i *importOperation) getMachineBlockDevices(
+	machines []description.Machine,
+) map[string][]blockdevice.BlockDevice {
+	machinesToBlockDevices := make(map[string][]blockdevice.BlockDevice)
 	for _, m := range machines {
 		modelBlockDevices := m.BlockDevices()
 		if len(modelBlockDevices) == 0 {
@@ -90,14 +126,84 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			}
 		}
 
-		err := i.service.SetBlockDevicesForMachineByName(
-			ctx, machine.Name(m.Id()), machineBlockDevices)
-		if err != nil {
-			return errors.Errorf(
-				"importing block devices for machine %q: %w",
-				m.Id(), err,
-			)
+		machinesToBlockDevices[m.Id()] = machineBlockDevices
+	}
+
+	return machinesToBlockDevices
+}
+
+// getMachineBlockDevicesFromVolumeAttachments returns block devices found in
+// volume attachment plans for volume attachments. Partial block devices will
+// be resolved by the storage provisioner or registry workers.
+func (i *importOperation) getMachineBlockDevicesFromVolumeAttachments(
+	volumes []description.Volume,
+) map[string][]blockdevice.BlockDevice {
+	if len(volumes) == 0 {
+		return nil
+	}
+
+	machineVolumeBlockDevices := map[string][]blockdevice.BlockDevice{}
+	for _, v := range volumes {
+		for _, p := range v.AttachmentPlans() {
+			planBlockDevice := p.BlockDevice()
+			if planBlockDevice == nil {
+				continue
+			}
+			blockDevice := transformPlanToBlockDeviceStruct(planBlockDevice)
+			if domainblockdevice.IsEmpty(blockDevice) {
+				continue
+			}
+			machineVolumeBlockDevices[p.Machine()] = append(
+				machineVolumeBlockDevices[p.Machine()], blockDevice)
+		}
+
+		for _, attach := range v.Attachments() {
+			machineName, ok := attach.HostMachine()
+			if !ok {
+				continue
+			}
+			blockDevice := transformAttachmentToBlockDevice(attach)
+			if domainblockdevice.IsEmpty(blockDevice) {
+				continue
+			}
+			// Check to see if already been added via attachment plans.
+			// If not, add.
+			machineBDs, _ := machineVolumeBlockDevices[machineName]
+			contains := slices.ContainsFunc(machineBDs, func(bd blockdevice.BlockDevice) bool {
+				return domainblockdevice.SameDevice(bd, blockDevice)
+			})
+			if !contains {
+				machineVolumeBlockDevices[machineName] = append(machineBDs, blockDevice)
+			}
 		}
 	}
-	return nil
+
+	return machineVolumeBlockDevices
+}
+
+func transformPlanToBlockDeviceStruct(bd description.BlockDevice) blockdevice.BlockDevice {
+	return blockdevice.BlockDevice{
+		DeviceName:      bd.Name(),
+		DeviceLinks:     bd.Links(),
+		FilesystemLabel: bd.Label(),
+		FilesystemUUID:  bd.UUID(),
+		HardwareId:      bd.HardwareID(),
+		SerialId:        bd.SerialID(),
+		WWN:             bd.WWN(),
+		BusAddress:      bd.BusAddress(),
+	}
+}
+
+func transformAttachmentToBlockDevice(attach description.VolumeAttachment) blockdevice.BlockDevice {
+	var links []string
+
+	if attach.DeviceLink() != "" {
+		links = []string{attach.DeviceLink()}
+	}
+
+	return blockdevice.BlockDevice{
+		DeviceName:  attach.DeviceName(),
+		DeviceLinks: links,
+		BusAddress:  attach.BusAddress(),
+	}
 }
