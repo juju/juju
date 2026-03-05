@@ -903,3 +903,38 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
+
+func changeLogTriggersForSecretReference(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for SecretReference
+INSERT INTO change_log_namespace VALUES (%[2]d, 'secret_reference', 'SecretReference changes based on %[1]s');
+
+-- insert trigger for SecretReference
+CREATE TRIGGER trg_log_secret_reference_insert
+AFTER INSERT ON secret_reference FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
+END;
+
+-- update trigger for SecretReference
+CREATE TRIGGER trg_log_secret_reference_update
+AFTER UPDATE ON secret_reference FOR EACH ROW
+WHEN 
+	NEW.secret_id != OLD.secret_id OR
+	NEW.latest_revision != OLD.latest_revision OR
+	NEW.owner_application_uuid != OLD.owner_application_uuid 
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;
+-- delete trigger for SecretReference
+CREATE TRIGGER trg_log_secret_reference_delete
+AFTER DELETE ON secret_reference FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;`, columnName, namespaceID))
+	}
+}

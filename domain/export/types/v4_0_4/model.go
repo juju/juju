@@ -1243,9 +1243,11 @@ type SecretPermission struct {
 }
 
 type SecretReference struct {
-	SecretID             string `db:"secret_id"`
-	LatestRevision       int64  `db:"latest_revision"`
-	OwnerApplicationUUID string `db:"owner_application_uuid"`
+	SecretID             string    `db:"secret_id"`
+	LatestRevision       int64     `db:"latest_revision"`
+	OwnerApplicationUUID *string   `db:"owner_application_uuid"`
+	UpdatedAt            time.Time `db:"updated_at"`
+	Migrated             bool      `db:"migrated"`
 }
 
 type SecretRemoteUnitConsumer struct {

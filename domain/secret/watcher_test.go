@@ -652,11 +652,11 @@ func (s *watcherSuite) updateRemoteSecretRevisionInConsumingModel(c *tc.C, uri *
 			return err
 		}
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO secret_reference (secret_id, latest_revision, owner_application_uuid) VALUES (?, ?, ?)
+INSERT INTO secret_reference (secret_id, latest_revision, owner_application_uuid, updated_at) VALUES (?, ?, ?, ?)
 ON CONFLICT(secret_id) DO UPDATE SET
     latest_revision=excluded.latest_revision
 `,
-			uri.ID, latestRevision, appUUID)
+			uri.ID, latestRevision, appUUID, time.Now().UTC())
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -680,10 +680,10 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *tc.C) {
 				return err
 			}
 			_, err = tx.ExecContext(ctx, `
-INSERT INTO secret_reference (secret_id, latest_revision, owner_application_uuid) VALUES (?, ?, ?)
+INSERT INTO secret_reference (secret_id, latest_revision, owner_application_uuid, updated_at) VALUES (?, ?, ?, ?)
 ON CONFLICT(secret_id) DO UPDATE SET
     latest_revision=excluded.latest_revision
-`, uri.ID, revision, appUUID)
+`, uri.ID, revision, appUUID, time.Now().UTC())
 			if err != nil {
 				return err
 			}

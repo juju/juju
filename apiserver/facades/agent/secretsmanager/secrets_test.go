@@ -1310,3 +1310,83 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerRefr
 		}},
 	})
 }
+
+func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerMigrated(c *tc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	anotherUUID := "deadbeef-0bad-0666-8000-4b1d0d06f66d"
+	uri := coresecrets.NewURI().WithSource(anotherUUID)
+
+	consumer := unittesting.GenNewName(c, "mariadb/0")
+	appUUID := tc.Must(c, application.NewUUID)
+	relUUID := relationtesting.GenRelationUUID(c)
+	mac := apitesting.MustNewMacaroon("id")
+
+	s.secretService.EXPECT().ProcessCharmSecretConsumerLabel(gomock.Any(), consumer, uri, "").
+		Return(uri, nil, nil)
+
+	s.remoteClient.EXPECT().Close()
+
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "mariadb").Return(appUUID, nil)
+	s.secretsConsumer.EXPECT().GetSecretConsumer(gomock.Any(), uri, consumer).Return(&coresecrets.SecretConsumerMetadata{
+		CurrentRevision: 665,
+		Migrated:        true,
+	}, nil)
+
+	s.remoteClient.EXPECT().GetSecretAccessScope(gomock.Any(), uri, appUUID, 0).Return(relUUID, nil)
+	s.crossModelRelationService.EXPECT().GetMacaroonForRelation(gomock.Any(), relUUID).Return(mac, nil)
+
+	// Note that even if Refresh is false in GetSecretContentArg,
+	// GetRemoteSecretContentInfo is called with refresh=true
+	// because consumerInfo.Migrated is true.
+	s.remoteClient.EXPECT().GetRemoteSecretContentInfo(
+		gomock.Any(), uri, 665, true, false, coretesting.ControllerTag.Id(),
+		appUUID, 0, macaroon.Slice{mac}).Return(
+		&secrets.ContentParams{
+			ValueRef: &coresecrets.ValueRef{
+				BackendID:  "backend-id",
+				RevisionID: "rev-id",
+			},
+		}, &provider.ModelBackendConfig{
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			ModelUUID:      coretesting.ModelTag.Id(),
+			ModelName:      "fred",
+			BackendConfig: provider.BackendConfig{
+				BackendType: "vault",
+				Config:      map[string]interface{}{"foo": "bar"},
+			},
+		}, 666, true, nil)
+
+	s.crossModelRelationService.EXPECT().SaveRemoteSecretConsumer(gomock.Any(), uri, consumer, coresecrets.SecretConsumerMetadata{
+		CurrentRevision: 666,
+		Migrated:        true,
+	}, appUUID, relUUID)
+
+	results, err := s.facade.GetSecretContentInfo(c.Context(), params.GetSecretContentArgs{
+		Args: []params.GetSecretContentArg{
+			{URI: uri.String(), Refresh: false},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
+		Results: []params.SecretContentResult{{
+			Content: params.SecretContentParams{
+				ValueRef: &params.SecretValueRef{
+					BackendID:  "backend-id",
+					RevisionID: "rev-id",
+				},
+			},
+			BackendConfig: &params.SecretBackendConfigResult{
+				ControllerUUID: coretesting.ControllerTag.Id(),
+				ModelUUID:      coretesting.ModelTag.Id(),
+				ModelName:      "fred",
+				Draining:       true,
+				Config: params.SecretBackendConfig{
+					BackendType: "vault",
+					Params:      map[string]interface{}{"foo": "bar"},
+				},
+			},
+		}},
+	})
+}

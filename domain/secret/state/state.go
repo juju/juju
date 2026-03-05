@@ -2281,7 +2281,7 @@ FROM (SELECT * FROM local UNION SELECT * FROM remote)`
 }
 
 // GetSecretConsumer returns the secret consumer info for the specified unit
-// and secret, along withthe latest revision for the secret.
+// and secret, along with the latest revision for the secret.
 // If the unit does not exist, an error satisfying [applicationerrors.UnitNotFound] is
 // returned.If the secret does not exist, an error satisfying
 // [secreterrors.SecretNotFound] is returned.
@@ -2322,7 +2322,9 @@ WHERE  rev.secret_id = $secretRef.secret_id`
 	}
 
 	selectLatestRemoteRevision := `
-SELECT latest_revision AS &secretRef.revision
+SELECT 
+    latest_revision AS &secretRef.revision,
+	migrated AS &secretRef.migrated
 FROM   secret_reference ref
 WHERE  ref.secret_id = $secretRef.secret_id`
 	selectLatestRemoteRevisionStmt, err := st.Prepare(selectLatestRemoteRevision, secretRef{})
@@ -2333,6 +2335,7 @@ WHERE  ref.secret_id = $secretRef.secret_id`
 	var (
 		dbSecretConsumers secretUnitConsumers
 		latestRevision    int
+		migrated          bool
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		isLocal, err := st.checkExistsIfLocal(ctx, tx, uri)
@@ -2365,6 +2368,7 @@ WHERE  ref.secret_id = $secretRef.secret_id`
 			return errors.Errorf("looking up latest revision for %q: %w", uri.ID, err)
 		}
 		latestRevision = latest.Revision
+		migrated = latest.Migrated
 
 		return nil
 	})
@@ -2375,6 +2379,7 @@ WHERE  ref.secret_id = $secretRef.secret_id`
 		return nil, latestRevision, errors.Errorf("secret consumer for %q and unit %q %w", uri.ID, unitName, secreterrors.SecretConsumerNotFound)
 	}
 	consumers := dbSecretConsumers.toSecretConsumers()
+	consumers[0].Migrated = migrated
 	return consumers[0], latestRevision, nil
 }
 

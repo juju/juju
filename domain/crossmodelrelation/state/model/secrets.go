@@ -344,11 +344,22 @@ ON CONFLICT(id) DO NOTHING`
 		return errors.Capture(err)
 	}
 
+	// When a model consuming a secret through a cross-model relation is
+	// migrated, the owner application uuid for the secret cannot be set
+	// during migration.
+	// This is why we may have a conflict on secret ID even if the
+	// latest_revision as not changed. The first purpose of this query is
+	// to update latest_revision, but we also update the owner_application_uuid
+	// (just in case), and set the migrated to false (missing piece of information
+	// are known at this point.
 	insertLatestQuery := `
 INSERT INTO secret_reference (*)
 VALUES ($secretLatestRevision.*)
 ON CONFLICT(secret_id) DO UPDATE SET
-    latest_revision=excluded.latest_revision`
+    latest_revision=excluded.latest_revision,
+    owner_application_uuid=excluded.owner_application_uuid,
+    updated_at=excluded.updated_at,
+    migrated=false`
 
 	insertLatestStmt, err := st.Prepare(insertLatestQuery, secretLatestRevision{})
 	if err != nil {
@@ -359,6 +370,7 @@ ON CONFLICT(secret_id) DO UPDATE SET
 		ID:              uri.ID,
 		LatestRevision:  latestRevision,
 		ApplicationUUID: applicationUUID,
+		UpdatedAt:       st.clock.Now().UTC(),
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, insertStmt, secretRef{ID: uri.ID}).Run()
@@ -407,7 +419,9 @@ ON CONFLICT DO NOTHING`
 	rUUID := remoteRelationUUID{UUID: relUUID}
 	aUUID := applicationUUID{UUID: appUUID}
 	remoteRef := secretLatestRevision{
-		ID: uri.ID, LatestRevision: md.CurrentRevision,
+		ID:             uri.ID,
+		LatestRevision: md.CurrentRevision,
+		UpdatedAt:      st.clock.Now().UTC(),
 	}
 
 	offerAppUUIDQuery, err := st.Prepare(`
@@ -422,10 +436,23 @@ AND    ae.application_uuid <> $applicationUUID.uuid
 		return errors.Capture(err)
 	}
 
+	// When a model consuming a secret through a cross-model relation is
+	// migrated, the owner application uuid for the secret cannot be set
+	// during migration.
+	// The insertion below doesn't need to do anything if the secret already
+	// exists.
+	// However, due to this migration workaround, we need to use this opportunity
+	// to setup the owner_application_uuid if the secret was imported.
+	// This why we don't do nothing in case of conflict, but instead do update
+	// if the reference has been migrated.
 	insertRemoteSecretReferenceQuery := `
-INSERT INTO secret_reference (secret_id, latest_revision, owner_application_uuid)
+INSERT INTO secret_reference (*)
 VALUES ($secretLatestRevision.*)
-ON CONFLICT DO NOTHING`
+ON CONFLICT (secret_id) DO UPDATE SET
+    owner_application_uuid=excluded.owner_application_uuid,
+    updated_at=excluded.updated_at,
+    migrated=false
+WHERE secret_reference.migrated IS TRUE`
 
 	insertRemoteSecretReferenceStmt, err := st.Prepare(insertRemoteSecretReferenceQuery, remoteRef)
 	if err != nil {

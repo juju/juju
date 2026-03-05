@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -131,7 +132,7 @@ func (s *secretSchemaSuite) TestModelChangeLogTriggersForSecretTables(c *tc.C) {
 INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
 VALUES (?, ?, 'mysql', 0, ?);`, appUUID, charmUUID, network.AlphaSpaceId)
 
-	s.assertExecSQL(c, `INSERT INTO secret_reference (secret_id, latest_revision, owner_application_uuid) VALUES (?, 1, ?);`, secretURI.ID, appUUID)
+	s.assertExecSQL(c, `INSERT INTO secret_reference (secret_id, latest_revision, owner_application_uuid, updated_at) VALUES (?, 1, ?, ?);`, secretURI.ID, appUUID, time.Now().UTC())
 	s.assertExecSQL(c, `UPDATE secret_reference SET latest_revision = 2 WHERE secret_id = ?;`, secretURI.ID)
 	s.assertExecSQL(c, `DELETE FROM secret_reference WHERE secret_id = ?;`, secretURI.ID)
 

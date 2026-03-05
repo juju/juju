@@ -1850,10 +1850,10 @@ func (s *stateSuite) updateRemoteSecretRevision(c *tc.C, uri *coresecrets.URI, l
 			return err
 		}
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO secret_reference (secret_id, latest_revision, owner_application_uuid) VALUES (?, ?, ?)
+INSERT INTO secret_reference (secret_id, latest_revision, owner_application_uuid, updated_at) VALUES (?, ?, ?, ?)
 ON CONFLICT(secret_id) DO UPDATE SET
     latest_revision=excluded.latest_revision
-`, uri.ID, latestRevision, appUUID)
+`, uri.ID, latestRevision, appUUID, time.Now().UTC())
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
