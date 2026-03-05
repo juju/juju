@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/storage"
 )
@@ -62,13 +61,10 @@ type Application interface {
 
 	// EnsureStorage ensures that the storage updates are reflected for the app.
 	EnsureStorage(config ApplicationConfig,
-		lastApplied *ApplicationConfig,
 		saveReplicaCount func(
 			appName string,
 			replicaCount int,
 		) error,
-		setOperatorStatus func(appName string, status status.Status,
-			message string, data map[string]interface{}) error,
 	) error
 
 	ServiceInterface
