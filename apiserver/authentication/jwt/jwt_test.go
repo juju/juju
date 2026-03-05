@@ -55,6 +55,7 @@ func (s *loginTokenSuite) TestAuthenticate(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(authInfo.Tag.String(), tc.Equals, "user-fred")
+	c.Assert(authInfo.IsExternallyAuthenticated, tc.Equals, true)
 	perm, err := authInfo.SubjectPermissions(c.Context(), permission.ID{
 		ObjectType: permission.Model,
 		Key:        modelTag.Id(),
@@ -123,6 +124,7 @@ func (s *loginTokenSuite) TestUsesLoginToken(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(authInfo.Tag.String(), tc.Equals, "user-fred")
+	c.Assert(authInfo.IsExternallyAuthenticated, tc.Equals, true)
 	perm, err := authInfo.SubjectPermissions(c.Context(), permission.ID{
 		ObjectType: permission.Model,
 		Key:        modelTag.Id(),
