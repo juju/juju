@@ -277,7 +277,10 @@ func (i *importOperation) importVolumeStatus(
 	model description.Model,
 ) error {
 	if model.Type() == coremodel.CAAS.String() {
-		// Skip: volumes for kubernetes are not supported in juju 4+.
+		if len(model.Volumes()) > 0 {
+			i.logger.Warningf(ctx,
+				"CAAS volumes not supported in juju 4.x, ignoring volume status on import")
+		}
 		return nil
 	}
 	for _, vol := range model.Volumes() {

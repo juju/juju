@@ -122,12 +122,20 @@ func ProviderRunner[T any](providerFactory ProviderFactory, namespace string) fu
 	}
 }
 
-// EphemeralProviderRunnerFromConfig returns the ProviderGetter function for a
-// given generic type. This is useful for ad-hoc providers that are not tracked,
-// but instead created and discarded. Credential invalidation is not enforced
-// during the call to the provider. For that reason alone, a closure is returned
-// and the provider is created and discarded on each call.
-func EphemeralProviderRunnerFromConfig[T any](providerFactory EphemeralProviderFactory, getter EphemeralProviderConfigGetter) func(context.Context, func(context.Context, T) error) error {
+// EphemeralProviderRunnerGetter returns a runner for an ephemeral provider.
+// The runner takes a closure to use the provider. The provider is created
+// and discarded on each call.
+type EphemeralProviderRunnerGetter[T any] func(context.Context, func(context.Context, T) error) error
+
+// EphemeralProviderRunnerFromConfig returns the EphemeralProviderRunnerGetter
+// function for a given generic type. This is useful for ad-hoc providers that
+// are not tracked, but instead created and discarded. Credential invalidation
+// is not enforced during the call to the provider. For that reason alone, a
+// closure is returned and the provider is created and discarded on each call.
+func EphemeralProviderRunnerFromConfig[T any](
+	providerFactory EphemeralProviderFactory,
+	getter EphemeralProviderConfigGetter,
+) func(context.Context, func(context.Context, T) error) error {
 	return func(ctx context.Context, fn func(context.Context, T) error) error {
 		config, err := getter.GetEphemeralProviderConfig(ctx)
 		if err != nil {
