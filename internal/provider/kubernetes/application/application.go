@@ -25,6 +25,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -2633,30 +2634,11 @@ func (a *app) volumeClaimTemplateMatch(
 	for i := 0; i < len(currentVolClaims); i++ {
 		currentVolClaim := currentVolClaims[i]
 		newVolClaim := newVolClaims[i]
-		nameChange := currentVolClaim.Name != newVolClaim.Name
-		if nameChange {
-			return false
-		}
-
-		storageClassNameChange := (currentVolClaim.Spec.StorageClassName == nil) != (newVolClaim.Spec.StorageClassName == nil) ||
-			(currentVolClaim.Spec.StorageClassName != nil && newVolClaim.Spec.StorageClassName != nil &&
-				*currentVolClaim.Spec.StorageClassName != *newVolClaim.Spec.StorageClassName)
-		if storageClassNameChange {
-			return false
-		}
 
 		slices.Sort(currentVolClaim.Spec.AccessModes)
 		slices.Sort(newVolClaim.Spec.AccessModes)
-		accessModesChange := !slices.Equal(currentVolClaim.Spec.AccessModes, newVolClaim.Spec.AccessModes)
-		if accessModesChange {
-			return false
-		}
 
-		currentQuantity := currentVolClaim.Spec.Resources.Requests.Storage()
-		newQuantity := newVolClaim.Spec.Resources.Requests.Storage()
-		sizeChange := (currentQuantity == nil) != (newQuantity == nil) ||
-			(currentQuantity != nil && newQuantity != nil && !currentQuantity.Equal(*newQuantity))
-		if sizeChange {
+		if !apiequality.Semantic.DeepEqual(currentVolClaim.Spec.Resources, newVolClaim.Spec.Resources) {
 			return false
 		}
 	}
