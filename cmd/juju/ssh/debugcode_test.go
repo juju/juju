@@ -15,10 +15,10 @@ import (
 
 	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/common/charms"
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/ssh/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/domain/deployment/charm"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 )
 
 func TestDebugCodeSuite(t *testing.T) {

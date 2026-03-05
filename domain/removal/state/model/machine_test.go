@@ -19,6 +19,7 @@ import (
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -1828,6 +1829,167 @@ func (s *machineSuite) TestDeleteMachineWithLinkLayerDevice(c *tc.C) {
 	err = s.DB().QueryRow("SELECT count(*) FROM link_layer_device WHERE uuid = ?", lldChildUUID).Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
+}
+
+func (s *machineSuite) TestDeleteMachineWithNetNodeAddresses(c *tc.C) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Get the net_node_uuid for this machine.
+	var netNodeUUID string
+	err = s.DB().QueryRow("SELECT net_node_uuid FROM machine WHERE uuid = ?", machineUUID.String()).Scan(&netNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Add fqdn and hostname addresses to the net node.
+	// These should be deleted when the machine is deleted.
+	fqdnUUID := "test-fqdn-uuid"
+	hostnameUUID := "test-hostname-uuid"
+
+	_, err = s.DB().ExecContext(c.Context(),
+		"INSERT INTO fqdn_address (uuid, address, scope_id) VALUES (?, ?, ?)",
+		fqdnUUID, "test.example.com", 1,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(c.Context(),
+		"INSERT INTO net_node_fqdn_address (net_node_uuid, address_uuid) VALUES (?, ?)",
+		netNodeUUID, fqdnUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(c.Context(),
+		"INSERT INTO hostname_address (uuid, hostname, scope_id) VALUES (?, ?, ?)",
+		hostnameUUID, "testhost", 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(c.Context(),
+		"INSERT INTO net_node_hostname_address (net_node_uuid, address_uuid) VALUES (?, ?)",
+		netNodeUUID, hostnameUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, machineUUID, life.Dead)
+	s.advanceInstanceLife(c, machineUUID, life.Dead)
+
+	// This previously failed with "FOREIGN KEY constraint failed" because
+	// net_node_fqdn_address and net_node_hostname_address were not cleaned up.
+	err = st.DeleteMachine(c.Context(), machineUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The machine should be gone.
+	exists, err := st.MachineExists(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
+
+	// Verify the net node addresses are cleaned up.
+	var count int
+	err = s.DB().QueryRow("SELECT COUNT(*) FROM net_node_fqdn_address WHERE net_node_uuid = ?", netNodeUUID).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+
+	err = s.DB().QueryRow("SELECT COUNT(*) FROM net_node_hostname_address WHERE net_node_uuid = ?", netNodeUUID).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+
+	// Verify the net node itself is cleaned up.
+	err = s.DB().QueryRow("SELECT COUNT(*) FROM net_node WHERE uuid = ?", netNodeUUID).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
+// TestDeleteMachineWaitsForDeadUnitRemoval verifies that DeleteMachine returns
+// RemovalJobIncomplete when a dead-but-not-yet-deleted unit still references
+// the machine's net_node. This is the CMR consumer removal scenario where the
+// machine removal job races ahead of the unit removal job.
+func (s *machineSuite) TestDeleteMachineWaitsForDeadUnitRemoval(c *tc.C) {
+	// Create an IAAS application with one unit; this implicitly creates a machine.
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+	machineUUID := s.getUnitMachineUUID(c, unitUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Advance unit, machine, and instance to Dead.
+	_, err := s.DB().Exec("UPDATE unit SET life_id = 2 WHERE uuid = ?", unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	s.advanceMachineLife(c, machineUUID, life.Dead)
+	s.advanceInstanceLife(c, machineUUID, life.Dead)
+
+	// The unit row is dead but still in the DB – DeleteMachine must defer.
+	// This is the bug from the CMR consumer removal scenario where the machine
+	// removal job runs before the unit removal job has finished.
+	err = st.DeleteMachine(c.Context(), machineUUID.String(), false)
+	c.Assert(err, tc.NotNil)
+	c.Check(errors.Is(err, removalerrors.RemovalJobIncomplete), tc.IsTrue,
+		tc.Commentf("expected RemovalJobIncomplete while dead unit still exists, got: %v", err))
+
+	// Simulate the unit removal job completing by running the unit deletion
+	// (which cleans up all FK references before removing the unit row).
+	err = st.DeleteUnit(c.Context(), unitUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Now the machine can be fully deleted.
+	err = st.DeleteMachine(c.Context(), machineUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exists, err := st.MachineExists(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
+}
+
+func (s *machineSuite) TestDeleteMachineWithForceWaitsForDeadUnitRemoval(c *tc.C) {
+	// Same scenario as TestDeleteMachineWaitsForDeadUnitRemoval but with
+	// force=true. Even forced machine removal must wait for units to be
+	// fully deleted, because the unit row holds a FK reference to net_node.
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+	machineUUID := s.getUnitMachineUUID(c, unitUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Advance unit, machine, and instance to Dead.
+	_, err := s.DB().Exec("UPDATE unit SET life_id = 2 WHERE uuid = ?", unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	s.advanceMachineLife(c, machineUUID, life.Dead)
+	s.advanceInstanceLife(c, machineUUID, life.Dead)
+
+	// Even with force, the unit row is dead but still in the DB –
+	// DeleteMachine must defer.
+	err = st.DeleteMachine(c.Context(), machineUUID.String(), true)
+	c.Assert(err, tc.NotNil)
+	c.Check(errors.Is(err, removalerrors.RemovalJobIncomplete), tc.IsTrue,
+		tc.Commentf("expected RemovalJobIncomplete while dead unit still exists (force=true), got: %v", err))
+
+	// Simulate the unit removal job completing.
+	err = st.DeleteUnit(c.Context(), unitUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Now the machine can be fully deleted.
+	err = st.DeleteMachine(c.Context(), machineUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exists, err := st.MachineExists(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
 }
 
 func (s *machineSuite) createMachineFilesystem(

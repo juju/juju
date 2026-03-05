@@ -12,7 +12,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 
-	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
@@ -633,80 +632,6 @@ WHERE  principal.name = $principalName.name
 
 	return transform.Slice(subNames, func(s subName) coreunit.Name { return s.Name }), nil
 
-}
-
-// SetRunningAgentBinaryVersion sets the running agent binary version for the
-// provided unit uuid. Any previously set values for this unit uuid will
-// be overwritten by this call.
-//
-// The following errors can be expected:
-// - [errors.UnitNotFound] if the unit does not exist.
-// - [coreerrors.NotSupported] if the architecture is not known to the database.
-func (st *State) SetRunningAgentBinaryVersion(ctx context.Context, uuid coreunit.UUID, version coreagentbinary.Version) error {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	archMap := architectureMap{Name: version.Arch}
-
-	archMapStmt, err := st.Prepare(`
-SELECT id AS &architectureMap.id FROM architecture WHERE name = $architectureMap.name
-`, archMap)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	unitAgentVersion := unitAgentVersion{
-		UnitUUID: uuid.String(),
-		Version:  version.Number.String(),
-	}
-
-	upsertRunningVersionStmt, err := st.Prepare(`
-INSERT INTO unit_agent_version (*)
-VALUES ($unitAgentVersion.*)
-ON CONFLICT (unit_uuid) DO
-UPDATE SET version = excluded.version,
-           architecture_id = excluded.architecture_id
-`, unitAgentVersion)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-
-		// Check if unit exists and is not dead.
-		err := st.checkUnitNotDead(ctx, tx, uuid.String())
-		if err != nil {
-			return errors.Errorf(
-				"checking unit %q exists: %w", uuid, err,
-			)
-		}
-
-		// Look up architecture ID.
-		err = tx.Query(ctx, archMapStmt, archMap).Get(&archMap)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf(
-				"architecture %q is unsupported", version.Arch,
-			).Add(coreerrors.NotSupported)
-		} else if err != nil {
-			return errors.Errorf(
-				"looking up id for architecture %q: %w", version.Arch, err,
-			)
-		}
-
-		unitAgentVersion.ArchitectureID = archMap.ID
-		return tx.Query(ctx, upsertRunningVersionStmt, unitAgentVersion).Run()
-	})
-
-	if err != nil {
-		return errors.Errorf(
-			"setting running agent binary version for unit %q: %w",
-			uuid, err,
-		)
-	}
-
-	return nil
 }
 
 // GetUnitNameForUUID returns the name of the unit with the given UUID.

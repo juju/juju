@@ -12,12 +12,12 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/jujuclient"
+	"github.com/juju/juju/cmd/cmd"
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )

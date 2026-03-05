@@ -431,6 +431,10 @@ type ResourceService interface {
 type StorageService interface {
 	// GetStoragePoolUUID returns the UUID of the storage pool for the specified name.
 	GetStoragePoolUUID(context.Context, string) (domainstorage.StoragePoolUUID, error)
+
+	// GetStoragePoolUUIDsByName returns pool UUIDs keyed by pool name for
+	// the supplied names. Unknown names are omitted.
+	GetStoragePoolUUIDsByName(ctx context.Context, names []string) (map[string]domainstorage.StoragePoolUUID, error)
 }
 
 // StatusService provides access to the status service.

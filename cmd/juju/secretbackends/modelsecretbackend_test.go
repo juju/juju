@@ -11,9 +11,9 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/jujuclient"
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/secretbackends"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testhelpers"
 )
 

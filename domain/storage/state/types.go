@@ -3,6 +3,14 @@
 
 package state
 
+import "database/sql"
+
+// count represents the result of performing an aggregate count operation in
+// sql.
+type count struct {
+	Count int `db:"count"`
+}
+
 // entityUUID represents the UUID of a storage entity in the model.
 type entityUUID struct {
 	UUID string `db:"uuid"`
@@ -25,6 +33,20 @@ type name struct {
 type idAndKind struct {
 	ID   int    `db:"id"`
 	Kind string `db:"kind"`
+}
+
+// machineUUIDs is a slice type of string representing machineUUIDs in the
+// model.
+type machineUUIDs []string
+
+// machineAndUnitNetNodeUUID represents names and net node uuid
+// for machine or unit combinations where the data is gathered in
+// a single query.
+type machineAndUnitNetNodeUUID struct {
+	MachineName        sql.NullString `db:"machine_name"`
+	MachineNetNodeUUID sql.NullString `db:"machine_net_node_uuid"`
+	UnitName           sql.NullString `db:"unit_name"`
+	UnitNetNodeUUID    sql.NullString `db:"unit_net_node_uuid"`
 }
 
 // storageInstanceID represents the storage instance storage_id column for a
@@ -76,6 +98,13 @@ type importStorageUnitOwner struct {
 	UnitUUID            string `db:"unit_uuid"`
 }
 
+type importStorageAttachment struct {
+	UUID                string `db:"uuid"`
+	StorageInstanceUUID string `db:"storage_instance_uuid"`
+	UnitUUID            string `db:"unit_uuid"`
+	LifeID              int    `db:"life_id"`
+}
+
 type importStorageFilesystem struct {
 	UUID       string `db:"uuid"`
 	ID         string `db:"filesystem_id"`
@@ -88,4 +117,35 @@ type importStorageFilesystem struct {
 type importStorageInstanceFilesystem struct {
 	StorageInstanceUUID string `db:"storage_instance_uuid"`
 	FilesystemUUID      string `db:"storage_filesystem_uuid"`
+}
+
+type importStorageFilesystemAttachment struct {
+	UUID           string `db:"uuid"`
+	FilesystemUUID string `db:"storage_filesystem_uuid"`
+	NetNodeUUID    string `db:"net_node_uuid"`
+	ScopeID        int    `db:"provision_scope_id"`
+	LifeID         int    `db:"life_id"`
+	MountPoint     string `db:"mount_point"`
+	ReadOnly       bool   `db:"read_only"`
+}
+
+// importStorageVolume represents the data contained in a
+// storage volume which may be inserted on model import.
+type importStorageVolume struct {
+	UUID             string `db:"uuid"`
+	VolumeID         string `db:"volume_id"`
+	LifeID           int    `db:"life_id"`
+	ProvisionScopeID int    `db:"provision_scope_id"`
+	ProviderID       string `db:"provider_id"`
+	SizeMiB          uint64 `db:"size_mib"`
+	HardwareID       string `db:"hardware_id"`
+	WWN              string `db:"wwn"`
+	Persistent       bool   `db:"persistent"`
+}
+
+// importStorageInstanceVolume represents a pairing of a storage
+// instance and a volume on model import.
+type importStorageInstanceVolume struct {
+	StorageInstanceUUID string `db:"storage_instance_uuid"`
+	VolumeUUID          string `db:"storage_volume_uuid"`
 }

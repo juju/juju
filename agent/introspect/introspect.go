@@ -23,8 +23,8 @@ import (
 	"github.com/juju/juju/agent/addons"
 	"github.com/juju/juju/agent/config"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	coreagent "github.com/juju/juju/core/agent"
-	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/juju/sockets"
 )
 

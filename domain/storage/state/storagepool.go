@@ -6,11 +6,9 @@ package state
 import (
 	"context"
 	"slices"
-	"strings"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
-	"github.com/juju/collections/transform"
 
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
@@ -667,10 +665,6 @@ WHERE storage_pool_uuid = $entityUUID.uuid
 
 // GetStoragePoolProvidersByNames returns a map of storage pool names to their
 // provider types for the specified storage pool names.
-//
-// The following errors may be returned:
-// - [domainstorageerrors.StoragePoolNotFound] when any of the specified
-// storage pools do not exist.
 func (st State) GetStoragePoolProvidersByNames(ctx context.Context, names []string) (map[string]string, error) {
 	if len(names) == 0 {
 		return map[string]string{}, nil
@@ -700,15 +694,6 @@ WHERE name IN ($storagePoolNames[:])`
 	})
 	if err != nil {
 		return nil, errors.Capture(err)
-	}
-
-	if len(res) != len(storagePoolNames) {
-		// This indicates some of the pool names provided did not hit any results.
-		missingName := set.NewStrings(names...).
-			Difference(set.NewStrings(transform.Slice(res, func(r storagePoolNameAndType) string { return r.Name })...)).
-			Values()
-		return nil, errors.Errorf("storage pool(s) with name(s) %s not found", strings.Join(missingName, ", ")).
-			Add(domainstorageerrors.StoragePoolNotFound)
 	}
 
 	providers := make(map[string]string, len(res))
@@ -820,4 +805,56 @@ WHERE  uuid IN ($poolUUIDs[:])
 	}
 
 	return len(storagePoolUUIDs) == dbVal.Count, nil
+}
+
+// GetStoragePoolUUIDsByName returns name/UUID pairs for storage pools matching
+// the supplied names.
+// If no names are specified, or no storage pools match the criteria,
+// an empty slice is returned without an error.
+func (st *State) GetStoragePoolUUIDsByName(
+	ctx context.Context,
+	names []string,
+) ([]domainstorage.StoragePoolNameUUID, error) {
+	if len(names) == 0 {
+		return []domainstorage.StoragePoolNameUUID{}, nil
+	}
+	spNames := storagePoolNames(names)
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT sp.name AS &StoragePoolNameUUID.name,
+       sp.uuid AS &StoragePoolNameUUID.uuid
+FROM   storage_pool sp
+WHERE  sp.name IN ($storagePoolNames[:])
+`, spNames, domainstorage.StoragePoolNameUUID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var dbRows []domainstorage.StoragePoolNameUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		qerr := tx.Query(ctx, stmt, spNames).GetAll(&dbRows)
+		if errors.Is(qerr, sqlair.ErrNoRows) {
+			return nil
+		}
+		return qerr
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting storage pool UUIDs by name: %w", err)
+	}
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	result := make([]domainstorage.StoragePoolNameUUID, 0, len(dbRows))
+	for _, row := range dbRows {
+		result = append(result, domainstorage.StoragePoolNameUUID{
+			UUID: row.UUID,
+			Name: row.Name,
+		})
+	}
+	return result, nil
 }

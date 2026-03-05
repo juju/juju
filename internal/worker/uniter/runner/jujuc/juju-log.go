@@ -11,8 +11,8 @@ import (
 	"github.com/juju/gnuflag"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/internal/cmd"
 )
 
 // JujuLogContext is the Context for the JujuLogCommand

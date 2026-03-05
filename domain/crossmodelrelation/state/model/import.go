@@ -10,8 +10,13 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 
+	corerelation "github.com/juju/juju/core/relation"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	"github.com/juju/juju/domain/life"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
+	domainsecret "github.com/juju/juju/domain/secret"
 	"github.com/juju/juju/internal/errors"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
@@ -92,11 +97,6 @@ func (st *State) ImportRemoteApplicationOfferers(ctx context.Context, imports []
 }
 
 func (st *State) importRemoteApplicationOfferer(ctx context.Context, tx *sqlair.TX, offerer crossmodelrelation.RemoteApplicationOffererImport) error {
-	// Generate UUIDs for the application, charm, and remote app record.
-	applicationUUID, err := internaluuid.NewUUID()
-	if err != nil {
-		return errors.Errorf("generating application UUID: %w", err)
-	}
 	charmUUID, err := internaluuid.NewUUID()
 	if err != nil {
 		return errors.Errorf("generating charm UUID: %w", err)
@@ -109,7 +109,7 @@ func (st *State) importRemoteApplicationOfferer(ctx context.Context, tx *sqlair.
 	// Insert the application (which also inserts the charm).
 	// The synthetic charm is pre-built in the service layer.
 	if err := st.insertApplication(ctx, tx, offerer.Name, insertApplicationArgs{
-		ApplicationUUID: applicationUUID.String(),
+		ApplicationUUID: offerer.OffererApplicationUUID,
 		CharmUUID:       charmUUID.String(),
 		Charm:           offerer.SyntheticCharm,
 	}); err != nil {
@@ -119,7 +119,7 @@ func (st *State) importRemoteApplicationOfferer(ctx context.Context, tx *sqlair.
 	// Create synthetic units for this remote application.
 	// These units are needed for relations to be imported successfully.
 	for _, unitName := range offerer.Units {
-		if err := st.insertUnit(ctx, tx, unitName, applicationUUID.String(), charmUUID.String()); err != nil {
+		if err := st.insertUnit(ctx, tx, unitName, offerer.OffererApplicationUUID, charmUUID.String()); err != nil {
 			return errors.Errorf("inserting synthetic unit %q: %w",
 				unitName, err)
 		}
@@ -129,7 +129,7 @@ func (st *State) importRemoteApplicationOfferer(ctx context.Context, tx *sqlair.
 	remoteApp := remoteApplicationOfferer{
 		UUID:             remoteAppUUID.String(),
 		LifeID:           life.Alive,
-		ApplicationUUID:  applicationUUID.String(),
+		ApplicationUUID:  offerer.OffererApplicationUUID,
 		OfferUUID:        offerer.OfferUUID,
 		OfferURL:         offerer.URL,
 		OffererModelUUID: offerer.SourceModelUUID,
@@ -275,4 +275,182 @@ func (st *State) GetApplicationUUIDByName(ctx context.Context, name string) (str
 		return "", errors.Capture(err)
 	}
 	return id, nil
+}
+
+// GetRelationUUIDByRelationKey retrieves the UUID of a relation using its relation key.
+func (st *State) GetRelationUUIDByRelationKey(ctx context.Context, key corerelation.Key) (string, error) {
+	eps := key.EndpointIdentifiers()
+	if len(eps) != 2 {
+		return "", errors.Errorf("relation key %q has %d endpoints, expected 2", key, len(eps))
+	}
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var uuid []uuid
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		uuid, err = st.getRegularRelationUUIDByEndpointIdentifiers(
+			ctx,
+			tx,
+			eps[0],
+			eps[1],
+		)
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	if len(uuid) > 1 {
+		return "", errors.Errorf("found multiple relations for endpoint pair")
+	}
+
+	return uuid[0].UUID, nil
+}
+
+func (st *State) getRegularRelationUUIDByEndpointIdentifiers(
+	ctx context.Context,
+	tx *sqlair.TX,
+	endpoint1, endpoint2 corerelation.EndpointIdentifier,
+) ([]uuid, error) {
+	var uuids []uuid
+	type endpointIdentifier1 endpointIdentifier
+	type endpointIdentifier2 endpointIdentifier
+	e1 := endpointIdentifier1{
+		ApplicationName: endpoint1.ApplicationName,
+		EndpointName:    endpoint1.EndpointName,
+	}
+	e2 := endpointIdentifier2{
+		ApplicationName: endpoint2.ApplicationName,
+		EndpointName:    endpoint2.EndpointName,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &uuid.*
+FROM   relation r
+JOIN   v_relation_endpoint_identifier e1 ON r.uuid = e1.relation_uuid
+JOIN   v_relation_endpoint_identifier e2 ON r.uuid = e2.relation_uuid
+WHERE  e1.application_name = $endpointIdentifier1.application_name 
+AND    e1.endpoint_name    = $endpointIdentifier1.endpoint_name
+AND    e2.application_name = $endpointIdentifier2.application_name 
+AND    e2.endpoint_name    = $endpointIdentifier2.endpoint_name
+`, uuid{}, e1, e2)
+	if err != nil {
+		return uuids, errors.Capture(err)
+	}
+	err = tx.Query(ctx, stmt, e1, e2).GetAll(&uuids)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return uuids, relationerrors.RelationNotFound
+	}
+	return uuids, errors.Capture(err)
+}
+
+// ImportRemoteApplicationSecretGrants imports secrets granted by offerer applications
+// to consumer applications in the offerer model.
+func (st *State) ImportRemoteApplicationSecretGrants(ctx context.Context,
+	values []internal.RemoteApplicationSecretGrant) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertStmt, err := st.Prepare(`
+INSERT INTO secret_permission (*)
+VALUES ($remoteSecretGrant.*)`, remoteSecretGrant{})
+	if err != nil {
+		return errors.Errorf("preparing insert secret grant query: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		for _, grant := range values {
+			if err := tx.Query(ctx, insertStmt, remoteSecretGrant{
+				SecretID:      grant.SecretID,
+				RoleID:        domainsecret.RoleView,
+				SubjectUUID:   grant.ApplicationUUID,
+				SubjectTypeID: domainsecret.SubjectApplication,
+				ScopeUUID:     grant.RelationUUID,
+				ScopeTypeID:   domainsecret.ScopeRelation,
+			}).Run(); err != nil {
+				return errors.Errorf("inserting remote secret grant for application %q, relation %q: %w",
+					grant.ApplicationName, grant.RelationKey, err)
+			}
+		}
+		return nil
+	})
+
+	return errors.Capture(err)
+}
+
+// ImportRemoteSecretConsumers imports secret consumers in the consumer model that
+// consume secrets granted by offerer applications in the offerer model.
+func (st *State) ImportRemoteSecretConsumers(ctx context.Context,
+	values []internal.RemoteUnitConsumer) error {
+	for _, consumer := range values {
+		if err := st.SaveSecretRemoteConsumer(
+			ctx,
+			&coresecrets.URI{ID: consumer.SecretID},
+			consumer.Unit,
+			coresecrets.SecretConsumerMetadata{
+				CurrentRevision: consumer.CurrentRevision,
+			},
+		); err != nil {
+			return errors.Errorf("saving remote secret consumer unit %q: %w", consumer.Unit, err)
+		}
+	}
+	return nil
+}
+
+// ImportRemoteSecret imports a remote secret on the consumer model.
+func (st *State) ImportRemoteSecret(ctx context.Context, secret internal.RemoteSecret) error {
+	// TODO(gfouillet): reimplement remote secret import.
+	//   By default there is no need to implement it, since those information will be populated again whenever the
+	//   secret will be fetched again by the unit through a secret-get.
+	//   Non imported date belongs to both table secret_unit_consumer and secret_reference, but can't be completely
+	//   populated during the migration process: we don't have any solution to figure out the value of
+	//   secret_reference.owner_application_uuid from the model description.
+	//   I need to figure out if those data really need to be populated during migration process, and if it is
+	//   acceptable to have an empty value for secret_reference.owner_application_uuid, at least until the next
+	//   retrieval of the data by a unit.
+	//   This will be done in a follow up PR.
+
+	//	db, err := st.DB(ctx)
+	//	if err != nil {
+	//		return errors.Capture(err)
+	//	}
+	//
+	//	// Remote secrets doesn't have a reference yet.
+	//	secretRef := secretRef{ID: secret.SecretID}
+	//	insertRemoteSecretStmt, err := st.Prepare(`
+	//INSERT INTO secret (id)
+	//VALUES ($secretRef.secret_id)`, secretRef)
+	//	if err != nil {
+	//		return errors.Capture(err)
+	//	}
+	//
+	//	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	//		err = tx.Query(ctx, insertRemoteSecretStmt, secretRef).Run()
+	//		if err != nil {
+	//			return errors.Errorf("inserting remote secret reference: %w", err)
+	//		}
+	//
+	//		err = st.saveSecretConsumer(ctx, tx, &coresecrets.URI{
+	//			SourceUUID: secret.SourceModelUUID,
+	//			ID:         secret.SecretID,
+	//		}, secret.UnitUUID, coresecrets.SecretConsumerMetadata{
+	//			Label:           secret.Label,
+	//			CurrentRevision: secret.CurrentRevision,
+	//		})
+	//		if err != nil {
+	//			return errors.Errorf("saving remote secret consumer info: %w", err)
+	//		}
+	//
+	//		return nil
+	//	})
+	//	if err != nil {
+	//		return errors.Capture(err)
+	//	}
+
+	return nil
 }

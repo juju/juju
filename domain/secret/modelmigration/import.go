@@ -1,4 +1,4 @@
-// Copyright 2024 Canonical Ltd.
+// Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package modelmigration
@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/secrets"
+	domainmodelmigration "github.com/juju/juju/domain/modelmigration/modelmigration"
 	"github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/domain/secret/service"
@@ -41,7 +42,7 @@ func RegisterImport(coordinator Coordinator, logger logger.Logger) {
 // ImportService provides a subset of the secret domain
 // service methods needed for secret import.
 type ImportService interface {
-	ImportSecrets(context.Context, *service.SecretExport) error
+	ImportSecrets(context.Context, *service.SecretImport) error
 }
 
 // SecretBackendService provides a subset of the secret backend
@@ -143,15 +144,12 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	i.knownSecretBackends = set.NewStrings(backendIDs...)
 
 	modelSecrets := model.Secrets()
-	modelRemoteSecrets := model.RemoteSecrets()
-	allSecrets := service.SecretExport{
-		Secrets:         make([]*secrets.SecretMetadata, len(modelSecrets)),
-		Revisions:       make(map[string][]*secrets.SecretRevisionMetadata),
-		Content:         make(map[string]map[int]secrets.SecretData),
-		Access:          make(map[string][]service.SecretAccess),
-		Consumers:       make(map[string][]service.ConsumerInfo),
-		RemoteConsumers: make(map[string][]service.ConsumerInfo),
-		RemoteSecrets:   make([]service.RemoteSecret, len(modelRemoteSecrets)),
+	allSecrets := service.SecretImport{
+		Secrets:   make([]*secrets.SecretMetadata, len(modelSecrets)),
+		Revisions: make(map[string][]*secrets.SecretRevisionMetadata),
+		Content:   make(map[string]map[int]secrets.SecretData),
+		Access:    make(map[string][]service.SecretAccess),
+		Consumers: make(map[string][]service.ConsumerInfo),
 	}
 
 	i.seenBackendIds = set.NewStrings()
@@ -203,30 +201,6 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			return errors.Errorf("collating consumers for secret %q: %w", secret.Id(), err)
 		}
 		allSecrets.Consumers[secret.Id()] = secretConsumers
-
-		remoteConsumers, err := i.collateRemoteConsumers(secret.RemoteConsumers())
-		if err != nil {
-			return errors.Errorf("collating remote consumers for secret %q: %w", secret.Id(), err)
-		}
-		allSecrets.RemoteConsumers[secret.Id()] = remoteConsumers
-	}
-
-	for j, secret := range modelRemoteSecrets {
-		consumer, err := secret.Consumer()
-		if err != nil {
-			return errors.Errorf("invalid remote secret consumer: %w", err)
-		}
-		accessor, err := accessorFromTag(consumer)
-		if err != nil {
-			return errors.Errorf("invalid remote secret consumer: %w", err)
-		}
-		allSecrets.RemoteSecrets[j] = service.RemoteSecret{
-			URI:             &secrets.URI{ID: secret.ID(), SourceUUID: secret.SourceUUID()},
-			Label:           secret.Label(),
-			CurrentRevision: secret.CurrentRevision(),
-			LatestRevision:  secret.LatestRevision(),
-			Accessor:        accessor,
-		}
 	}
 
 	err = i.service.ImportSecrets(ctx, &allSecrets)
@@ -308,27 +282,6 @@ func (i *importOperation) collateConsumers(consumers []description.SecretConsume
 	return result, nil
 }
 
-func (i *importOperation) collateRemoteConsumers(remoteConsumers []description.SecretRemoteConsumer) ([]service.ConsumerInfo, error) {
-	result := make([]service.ConsumerInfo, len(remoteConsumers))
-	for i, info := range remoteConsumers {
-		consumer, err := info.Consumer()
-		if err != nil {
-			return nil, errors.Errorf("invalid remote consumer: %w", err)
-		}
-		accessor, err := accessorFromTag(consumer)
-		if err != nil {
-			return nil, errors.Errorf("invalid remote consumer: %w", err)
-		}
-		result[i] = service.ConsumerInfo{
-			Accessor: accessor,
-			SecretConsumerMetadata: secrets.SecretConsumerMetadata{
-				CurrentRevision: info.CurrentRevision(),
-			},
-		}
-	}
-	return result, nil
-}
-
 func (i *importOperation) collateAccess(secretAccess map[string]description.SecretAccess) ([]service.SecretAccess, error) {
 	// Sort for testing.
 	var consumers []string
@@ -351,6 +304,12 @@ func (i *importOperation) collateAccess(secretAccess map[string]description.Secr
 		scope, err := scopeFromTag(access.Scope())
 		if err != nil {
 			return nil, errors.Errorf("invalid access scope: %w", err)
+		}
+
+		if domainmodelmigration.IsRemoteSecretGrant(consumerTag) {
+			// Remote secrets are not imported in secret domain.
+			// See crossmodelrelation/modelmigration/import.go
+			continue
 		}
 
 		result = append(result, service.SecretAccess{

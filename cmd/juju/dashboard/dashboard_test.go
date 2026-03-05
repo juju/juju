@@ -17,9 +17,9 @@ import (
 
 	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/api/jujuclient"
+	"github.com/juju/juju/cmd/cmd"
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/dashboard"
-	"github.com/juju/juju/internal/cmd"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 	proxytesting "github.com/juju/juju/internal/proxy/testing"
 	"github.com/juju/juju/internal/testing"
 )

@@ -15,8 +15,8 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/secret/modelmigration Coordinator,ImportService,SecretBackendService
 
 // backendSecrets provides some secrets to export.
-func backendSecrets(uri1, uri2, uri3, uri4 *secrets.URI, nextRotate, expire, timestamp time.Time) *service.SecretExport {
-	return &service.SecretExport{
+func backendSecrets(uri1, uri2, uri3, uri4 *secrets.URI, nextRotate, expire, timestamp time.Time) *service.SecretImport {
+	return &service.SecretImport{
 		Secrets: []*secrets.SecretMetadata{{
 			URI: uri1,
 			Owner: secrets.Owner{
@@ -107,19 +107,6 @@ func backendSecrets(uri1, uri2, uri3, uri4 *secrets.URI, nextRotate, expire, tim
 			}},
 			uri3.ID: {},
 		},
-		RemoteConsumers: map[string][]service.ConsumerInfo{
-			uri1.ID: {{
-				SecretConsumerMetadata: secrets.SecretConsumerMetadata{
-					CurrentRevision: 1,
-				},
-				Accessor: secret.SecretAccessor{
-					Kind: "unit",
-					ID:   "remote-deadbeef/0",
-				},
-			}},
-			uri2.ID: {},
-			uri3.ID: {},
-		},
 		Access: map[string][]service.SecretAccess{
 			uri1.ID: {{
 				Scope: secret.SecretAccessScope{
@@ -129,16 +116,6 @@ func backendSecrets(uri1, uri2, uri3, uri4 *secrets.URI, nextRotate, expire, tim
 				Subject: secret.SecretAccessor{
 					Kind: "application",
 					ID:   "mariadb",
-				},
-				Role: "view",
-			}, {
-				Scope: secret.SecretAccessScope{
-					Kind: "relation",
-					ID:   "mysql:server remote-deadbeef:db",
-				},
-				Subject: secret.SecretAccessor{
-					Kind: "application",
-					ID:   "remote-deadbeef",
 				},
 				Role: "view",
 			}},
@@ -155,16 +132,6 @@ func backendSecrets(uri1, uri2, uri3, uri4 *secrets.URI, nextRotate, expire, tim
 			}},
 			uri3.ID: nil,
 		},
-		RemoteSecrets: []service.RemoteSecret{{
-			URI:             uri4,
-			Label:           "mylabel",
-			CurrentRevision: 1,
-			LatestRevision:  666,
-			Accessor: secret.SecretAccessor{
-				Kind: "unit",
-				ID:   "mariadb/0",
-			},
-		}},
 	}
 }
 

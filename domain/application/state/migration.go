@@ -25,26 +25,20 @@ import (
 // application already exists. If returns as error satisfying
 // [applicationerrors.CharmNotFound] if the charm for the application is
 // not found.
-func (st *State) InsertMigratingApplication(ctx context.Context, name string, args application.InsertApplicationArgs) (coreapplication.UUID, error) {
+func (st *State) InsertMigratingApplication(ctx context.Context, name string, args application.InsertApplicationArgs) error {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return "", errors.Capture(err)
+		return errors.Capture(err)
 	}
-
-	a, err := coreapplication.NewUUID()
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	appUUID := a.String()
 
 	charmID, err := corecharm.NewID()
 	if err != nil {
-		return "", errors.Capture(err)
+		return errors.Capture(err)
 	}
 	charmIDStr := charmID.String()
 
 	appDetails := setApplicationDetails{
-		UUID:      appUUID,
+		UUID:      args.ApplicationUUID,
 		Name:      name,
 		CharmUUID: charmIDStr,
 		LifeID:    life.Alive,
@@ -65,21 +59,21 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 	createApplication := `INSERT INTO application (*) VALUES ($setApplicationDetails.*)`
 	createApplicationStmt, err := st.Prepare(createApplication, appDetails)
 	if err != nil {
-		return "", errors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	scaleInfo := applicationScale{
-		ApplicationID: appUUID,
+		ApplicationID: args.ApplicationUUID,
 		Scale:         args.Scale,
 	}
 	createScale := `INSERT INTO application_scale (*) VALUES ($applicationScale.*)`
 	createScaleStmt, err := st.Prepare(createScale, scaleInfo)
 	if err != nil {
-		return "", errors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	platformInfo := applicationPlatform{
-		ApplicationID:  appUUID,
+		ApplicationID:  args.ApplicationUUID,
 		OSTypeID:       int(args.Platform.OSType),
 		Channel:        args.Platform.Channel,
 		ArchitectureID: int(args.Platform.Architecture),
@@ -87,7 +81,7 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 	createPlatform := `INSERT INTO application_platform (*) VALUES ($applicationPlatform.*)`
 	createPlatformStmt, err := st.Prepare(createPlatform, platformInfo)
 	if err != nil {
-		return "", errors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	var (
@@ -102,14 +96,14 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 	)
 	if ch := args.Channel; ch != nil {
 		channelInfo = applicationChannel{
-			ApplicationID: appUUID,
+			ApplicationID: args.ApplicationUUID,
 			Track:         ch.Track,
 			Risk:          string(ch.Risk),
 			Branch:        ch.Branch,
 		}
 		createChannel := `INSERT INTO application_channel (*) VALUES ($applicationChannel.*)`
 		if createChannelStmt, err = st.Prepare(createChannel, channelInfo); err != nil {
-			return "", errors.Capture(err)
+			return errors.Capture(err)
 		}
 	}
 
@@ -176,7 +170,7 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 		if err := st.insertApplicationSettings(ctx, tx, appDetails.UUID, args.Settings); err != nil {
 			return errors.Errorf("inserting settings for application %q: %w", name, err)
 		}
-		if err := st.updateConfigHash(ctx, tx, entityUUID{UUID: appUUID}); err != nil {
+		if err := st.updateConfigHash(ctx, tx, entityUUID{UUID: args.ApplicationUUID}); err != nil {
 			return errors.Errorf("refreshing config hash for application %q: %w", name, err)
 		}
 		if err := st.updateDefaultSpace(ctx, tx, appDetails.UUID, args.EndpointBindings); err != nil {
@@ -199,9 +193,9 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 		return nil
 	})
 	if err != nil {
-		return "", errors.Errorf("creating application %q: %w", name, err)
+		return errors.Errorf("creating application %q: %w", name, err)
 	}
-	return coreapplication.UUID(appUUID), nil
+	return nil
 }
 
 // InsertIAASUnits imports the fully formed units for the specified IAAS

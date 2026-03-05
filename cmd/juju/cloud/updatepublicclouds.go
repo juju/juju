@@ -22,9 +22,9 @@ import (
 	"github.com/juju/juju/api/jujuclient"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/internal/cmd"
 	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/juju/keys"
 )

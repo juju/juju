@@ -158,7 +158,10 @@ func (s *importSuite) TestImportSkipsConsumerRemoteRelationsWithOtherRelations(c
 		IsConsumerProxy: false,
 	})
 
-	s.service.EXPECT().ImportRelations(gomock.Any(), []relation.ImportRelationArg{{
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].UUID`, tc.IsNonZeroUUID)
+
+	s.service.EXPECT().ImportRelations(gomock.Any(), tc.Bind(mc, relation.ImportRelationsArgs{{
 		ID:  2,
 		Key: key1,
 		Endpoints: []relation.ImportEndpoint{{
@@ -173,7 +176,7 @@ func (s *importSuite) TestImportSkipsConsumerRemoteRelationsWithOtherRelations(c
 			UnitSettings:        map[string]map[string]any{},
 		}},
 		Scope: charm.ScopeGlobal,
-	}}).Return(nil)
+	}})).Return(nil)
 
 	importOp := importOperation{
 		service: s.service,
@@ -336,7 +339,10 @@ func (s *importSuite) TestImportOffererRemoteRelation(c *tc.C) {
 		Name: "foo",
 	})
 
-	s.service.EXPECT().ImportRelations(gomock.Any(), relation.ImportRelationsArgs{
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].UUID`, tc.IsNonZeroUUID)
+
+	s.service.EXPECT().ImportRelations(gomock.Any(), tc.Bind(mc, relation.ImportRelationsArgs{
 		{
 			ID:  32,
 			Key: relationtesting.GenNewKey(c, "foo:sink dummy-sink:source"),
@@ -356,7 +362,7 @@ func (s *importSuite) TestImportOffererRemoteRelation(c *tc.C) {
 			},
 			Scope: charm.ScopeGlobal,
 		},
-	}).Return(nil)
+	})).Return(nil)
 
 	importOp := importOperation{
 		service: s.service,
@@ -415,7 +421,10 @@ func (s *importSuite) TestImportOffererRemoteRelationMultipleMatchingRemoteAppli
 		Role:      "requirer",
 	})
 
-	s.service.EXPECT().ImportRelations(gomock.Any(), relation.ImportRelationsArgs{
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].UUID`, tc.IsNonZeroUUID)
+
+	s.service.EXPECT().ImportRelations(gomock.Any(), tc.Bind(mc, relation.ImportRelationsArgs{
 		{
 			ID:  32,
 			Key: relationtesting.GenNewKey(c, "foo:sink dummy-sink:source"),
@@ -435,7 +444,7 @@ func (s *importSuite) TestImportOffererRemoteRelationMultipleMatchingRemoteAppli
 			},
 			Scope: charm.ScopeGlobal,
 		},
-	}).Return(nil)
+	})).Return(nil)
 
 	importOp := importOperation{
 		service: s.service,
@@ -490,7 +499,10 @@ func (s *importSuite) TestImportOffererRemoteRelationMultipleMatchingRemoteAppli
 		Role:      "requirer",
 	})
 
-	s.service.EXPECT().ImportRelations(gomock.Any(), relation.ImportRelationsArgs{
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].UUID`, tc.IsNonZeroUUID)
+
+	s.service.EXPECT().ImportRelations(gomock.Any(), tc.Bind(mc, relation.ImportRelationsArgs{
 		{
 			ID:  32,
 			Key: relationtesting.GenNewKey(c, "bar:sink dummy-sink:source"),
@@ -510,7 +522,7 @@ func (s *importSuite) TestImportOffererRemoteRelationMultipleMatchingRemoteAppli
 			},
 			Scope: charm.ScopeGlobal,
 		},
-	}).Return(nil)
+	})).Return(nil)
 
 	importOp := importOperation{
 		service: s.service,
@@ -583,7 +595,10 @@ func (s *importSuite) TestImportRemoteRelations(c *tc.C) {
 		Role:      "requirer",
 	})
 
-	s.service.EXPECT().ImportRelations(gomock.Any(), relation.ImportRelationsArgs{
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].UUID`, tc.IsNonZeroUUID)
+
+	s.service.EXPECT().ImportRelations(gomock.Any(), tc.Bind(mc, relation.ImportRelationsArgs{
 		{
 			ID:  32,
 			Key: relationtesting.GenNewKey(c, "foo:sink dummy-sink:source"),
@@ -622,7 +637,7 @@ func (s *importSuite) TestImportRemoteRelations(c *tc.C) {
 			},
 			Scope: charm.ScopeGlobal,
 		},
-	}).Return(nil)
+	})).Return(nil)
 
 	importOp := importOperation{
 		service: s.service,
@@ -648,7 +663,7 @@ func (s *importSuite) expectImportRelations(c *tc.C, data map[int]corerelation.K
 	model := description.NewModel(description.ModelArgs{
 		Type: coremodel.IAAS.String(),
 	})
-	args := []relation.ImportRelationArg{}
+	var args []relation.ImportRelationArg
 	for id, key := range data {
 		rel := model.AddRelation(description.RelationArgs{
 			Id:  id,
@@ -659,6 +674,7 @@ func (s *importSuite) expectImportRelations(c *tc.C, data map[int]corerelation.K
 			Key:   key,
 			Scope: scope,
 		}
+
 		eps := key.EndpointIdentifiers()
 		arg.Endpoints = make([]relation.ImportEndpoint, len(eps))
 		for j, ep := range eps {
@@ -693,7 +709,11 @@ func (m relationArgMatcher) Matches(x any) bool {
 	if !ok {
 		return false
 	}
-	return m.c.Check(obtained, tc.SameContents, m.expected)
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].UUID`, tc.IsNonZeroUUID)
+
+	return m.c.Check(obtained, tc.Bind(mc, m.expected))
 }
 
 func (relationArgMatcher) String() string {

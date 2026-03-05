@@ -12,10 +12,10 @@ import (
 
 	"github.com/juju/juju/api/client/modelconfig"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/cmd"
 )
 
 var listRulesHelpSummary = `

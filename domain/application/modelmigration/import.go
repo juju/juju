@@ -28,6 +28,7 @@ import (
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/deployment/charm/assumes"
 	"github.com/juju/juju/domain/deployment/charm/resource"
+	domainmodelmigration "github.com/juju/juju/domain/modelmigration/modelmigration"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -112,6 +113,11 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return errors.Errorf("parsing model type %q: %w", model.Type(), err)
 	}
 
+	remoteAppUUIDs, err := domainmodelmigration.ExtractApplicationUUIDFromRemoteEntities(model)
+	if err != nil {
+		return errors.Errorf("extracting application UUID from remote entities: %w", err)
+	}
+
 	for _, app := range append(principals, subordinates...) {
 		chURL, err := internalcharm.ParseURL(app.CharmURL())
 		if err != nil {
@@ -162,6 +168,20 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			return errors.Errorf("importing exposed endpoints: %w", err)
 		}
 
+		// If the application is an application that has an associated remote
+		// entity application UUID, use that, otherwise generate a new UUID for
+		// the application. This ensures that if the application is a remote
+		// application, then we maintain RI with the remote entity and any cross
+		// model relations that refer to it.
+		var appUUID coreapplication.UUID
+		if uuid, ok := remoteAppUUIDs[app.Name()]; ok {
+			appUUID = coreapplication.UUID(uuid)
+		} else {
+			if appUUID, err = coreapplication.NewUUID(); err != nil {
+				return errors.Errorf("generating application UUID for application %q: %w", app.Name(), err)
+			}
+		}
+
 		// TODO hml 04-30-2024
 		// Investigate how device constraints for an application are
 		// migrated and implemented if necessary.
@@ -170,6 +190,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		// Investigate how storage directives for an application are
 		// migrated and implemented if necessary.
 		args := service.ImportApplicationArgs{
+			UUID:                   appUUID,
 			Charm:                  charm,
 			CharmOrigin:            origin,
 			ApplicationConfig:      applicationConfig,

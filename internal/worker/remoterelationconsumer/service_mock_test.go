@@ -225,6 +225,44 @@ func (c *MockOffererApplicationWorkerConsumeVersionCall) DoAndReturn(f func() in
 	return c
 }
 
+// PublishModelDying mocks base method.
+func (m *MockOffererApplicationWorker) PublishModelDying(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PublishModelDying", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PublishModelDying indicates an expected call of PublishModelDying.
+func (mr *MockOffererApplicationWorkerMockRecorder) PublishModelDying(ctx any) *MockOffererApplicationWorkerPublishModelDyingCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublishModelDying", reflect.TypeOf((*MockOffererApplicationWorker)(nil).PublishModelDying), ctx)
+	return &MockOffererApplicationWorkerPublishModelDyingCall{Call: call}
+}
+
+// MockOffererApplicationWorkerPublishModelDyingCall wrap *gomock.Call
+type MockOffererApplicationWorkerPublishModelDyingCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOffererApplicationWorkerPublishModelDyingCall) Return(arg0 error) *MockOffererApplicationWorkerPublishModelDyingCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOffererApplicationWorkerPublishModelDyingCall) Do(f func(context.Context) error) *MockOffererApplicationWorkerPublishModelDyingCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOffererApplicationWorkerPublishModelDyingCall) DoAndReturn(f func(context.Context) error) *MockOffererApplicationWorkerPublishModelDyingCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockRemoteModelRelationsClient is a mock of RemoteModelRelationsClient interface.
 type MockRemoteModelRelationsClient struct {
 	ctrl     *gomock.Controller
@@ -1048,6 +1086,45 @@ func (c *MockCrossModelServiceUpdateRemoteSecretRevisionCall) DoAndReturn(f func
 	return c
 }
 
+// WatchDyingModel mocks base method.
+func (m *MockCrossModelService) WatchDyingModel(ctx context.Context) (watcher0.NotifyWatcher, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchDyingModel", ctx)
+	ret0, _ := ret[0].(watcher0.NotifyWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchDyingModel indicates an expected call of WatchDyingModel.
+func (mr *MockCrossModelServiceMockRecorder) WatchDyingModel(ctx any) *MockCrossModelServiceWatchDyingModelCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchDyingModel", reflect.TypeOf((*MockCrossModelService)(nil).WatchDyingModel), ctx)
+	return &MockCrossModelServiceWatchDyingModelCall{Call: call}
+}
+
+// MockCrossModelServiceWatchDyingModelCall wrap *gomock.Call
+type MockCrossModelServiceWatchDyingModelCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCrossModelServiceWatchDyingModelCall) Return(arg0 watcher0.NotifyWatcher, arg1 error) *MockCrossModelServiceWatchDyingModelCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCrossModelServiceWatchDyingModelCall) Do(f func(context.Context) (watcher0.NotifyWatcher, error)) *MockCrossModelServiceWatchDyingModelCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCrossModelServiceWatchDyingModelCall) DoAndReturn(f func(context.Context) (watcher0.NotifyWatcher, error)) *MockCrossModelServiceWatchDyingModelCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // WatchRelationUnits mocks base method.
 func (m *MockCrossModelService) WatchRelationUnits(arg0 context.Context, arg1 relation.UUID, arg2 application.UUID) (watcher0.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
@@ -1693,6 +1770,45 @@ func (c *MockCrossModelRelationServiceUpdateRemoteSecretRevisionCall) Do(f func(
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCrossModelRelationServiceUpdateRemoteSecretRevisionCall) DoAndReturn(f func(context.Context, *secrets.URI, int, application.UUID) error) *MockCrossModelRelationServiceUpdateRemoteSecretRevisionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// WatchDyingModel mocks base method.
+func (m *MockCrossModelRelationService) WatchDyingModel(ctx context.Context) (watcher0.NotifyWatcher, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchDyingModel", ctx)
+	ret0, _ := ret[0].(watcher0.NotifyWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchDyingModel indicates an expected call of WatchDyingModel.
+func (mr *MockCrossModelRelationServiceMockRecorder) WatchDyingModel(ctx any) *MockCrossModelRelationServiceWatchDyingModelCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchDyingModel", reflect.TypeOf((*MockCrossModelRelationService)(nil).WatchDyingModel), ctx)
+	return &MockCrossModelRelationServiceWatchDyingModelCall{Call: call}
+}
+
+// MockCrossModelRelationServiceWatchDyingModelCall wrap *gomock.Call
+type MockCrossModelRelationServiceWatchDyingModelCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCrossModelRelationServiceWatchDyingModelCall) Return(arg0 watcher0.NotifyWatcher, arg1 error) *MockCrossModelRelationServiceWatchDyingModelCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCrossModelRelationServiceWatchDyingModelCall) Do(f func(context.Context) (watcher0.NotifyWatcher, error)) *MockCrossModelRelationServiceWatchDyingModelCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCrossModelRelationServiceWatchDyingModelCall) DoAndReturn(f func(context.Context) (watcher0.NotifyWatcher, error)) *MockCrossModelRelationServiceWatchDyingModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

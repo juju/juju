@@ -13,15 +13,20 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/blockdevice"
+	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
+	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	coreversion "github.com/juju/juju/core/version"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/application/service/storage"
+	applicationstorageservice "github.com/juju/juju/domain/application/service/storage"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainremoval "github.com/juju/juju/domain/removal"
+	statusservice "github.com/juju/juju/domain/status/service"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
@@ -71,8 +76,8 @@ type StorageService interface {
 	StoragePoolService
 
 	// GetStorageAttachmentUUIDForStorageInstanceAndUnit returns the
-	// [domainstorageprovisioning.StorageAttachmentUUID] associated with the
-	// given storage instance id and unit name.
+	// [storage.StorageAttachmentUUID] associated with the given storage
+	// instance id and unit name.
 	//
 	// The following errors may be returned:
 	// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] if the
@@ -137,6 +142,47 @@ type StorageService interface {
 	ListStoragePoolsByProviders(
 		ctx context.Context, providers domainstorage.Providers,
 	) ([]domainstorage.StoragePool, error)
+
+	// GetVolumesByMachines returns all the volumes attached to or owned by the
+	// specified machines.
+	GetVolumesByMachines(
+		ctx context.Context, uuids []coremachine.UUID,
+	) ([]domainstorage.VolumeUUID, error)
+
+	// GetFilesystemsByMachines returns all the filesystems attached to or owned
+	// by the specified machines.
+	GetFilesystemsByMachines(
+		ctx context.Context, uuids []coremachine.UUID,
+	) ([]domainstorage.FilesystemUUID, error)
+}
+
+// StatusService defines service methods required to perform bulk listing of
+// storage entities.
+type StatusService interface {
+	// GetStorageInstanceStatuses returns the specified storage instance statuses.
+	GetStorageInstanceStatuses(
+		ctx context.Context, uuids []domainstorage.StorageInstanceUUID,
+	) ([]statusservice.StorageInstance, error)
+
+	// GetAllStorageInstanceStatuses returns all the storage instance statuses for
+	// the model.
+	GetAllStorageInstanceStatuses(ctx context.Context) ([]statusservice.StorageInstance, error)
+
+	// GetFilesystemStatuses returns the specified filesystem statuses.
+	GetFilesystemStatuses(
+		ctx context.Context, uuids []domainstorage.FilesystemUUID,
+	) ([]statusservice.Filesystem, error)
+
+	// GetAllFilesystemStatuses returns all the filesystem statuses for the model.
+	GetAllFilesystemStatuses(ctx context.Context) ([]statusservice.Filesystem, error)
+
+	// GetVolumeStatuses returns the specified volume statuses.
+	GetVolumeStatuses(
+		ctx context.Context, uuids []domainstorage.VolumeUUID,
+	) ([]statusservice.Volume, error)
+
+	// GetAllVolumeStatuses returns all the volume statuses for the model.
+	GetAllVolumeStatuses(ctx context.Context) ([]statusservice.Volume, error)
 }
 
 // ApplicationService defines apis on the application service.
@@ -152,17 +198,32 @@ type ApplicationService interface {
 
 	// AddStorageForIAASUnit adds storage instances to the given unit.
 	AddStorageForIAASUnit(
-		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, count uint32, arg storage.AddUnitStorageOverride,
+		context.Context,
+		corestorage.Name,
+		coreunit.UUID,
+		uint32,
+		applicationstorageservice.AddUnitStorageOverride,
 	) ([]corestorage.ID, error)
 
 	// AddStorageForCAASUnit adds storage instances to the given unit.
 	AddStorageForCAASUnit(
-		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, count uint32, arg storage.AddUnitStorageOverride,
+		context.Context,
+		corestorage.Name,
+		coreunit.UUID,
+		uint32,
+		applicationstorageservice.AddUnitStorageOverride,
 	) ([]corestorage.ID, error)
 
 	// AttachStorageToUnit ensures the specified storage instance is attached to the specified unit.
 	// If the attachment already exists, the result is a no op.
 	AttachStorageToUnit(ctx context.Context, storageID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error
+}
+
+// MachineService defines the service methods required by the Storage facade for
+// resolving machines.
+type MachineService interface {
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	GetMachineUUID(ctx context.Context, name coremachine.Name) (coremachine.UUID, error)
 }
 
 // StorageAPIv6 provides the Storage API facade for version 6.
@@ -176,6 +237,8 @@ type StorageAPI struct {
 	applicationService ApplicationService
 	removalService     RemovalService
 	storageService     StorageService
+	machineService     MachineService
+	statusService      StatusService
 
 	authorizer     facade.Authorizer
 	controllerUUID string
@@ -194,12 +257,16 @@ func NewStorageAPI(
 	applicationService ApplicationService,
 	removalService RemovalService,
 	storageService StorageService,
+	machineService MachineService,
+	statusService StatusService,
 ) *StorageAPI {
 	return &StorageAPI{
 		blockChecker:       blockChecker,
 		applicationService: applicationService,
 		removalService:     removalService,
 		storageService:     storageService,
+		machineService:     machineService,
+		statusService:      statusService,
 
 		authorizer:     authorizer,
 		controllerUUID: controllerUUID,
@@ -353,29 +420,650 @@ func (a *StorageAPI) StorageDetails(ctx context.Context, entities params.Entitie
 	)
 }
 
-// ListStorageDetails returns storage matching a filter.
-func (a *StorageAPI) ListStorageDetails(ctx context.Context, filters params.StorageFilters) (params.StorageDetailsListResults, error) {
-	return params.StorageDetailsListResults{}, apiservererrors.ParamsErrorf(
-		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
-	)
+// ListStorageDetails returns detailed information for every storage instance
+// within the model. ListStorageDetails does not currently support any filtering
+// of the information returned. At least one filter arg is required to be
+// supplied by the caller.
+func (a *StorageAPI) ListStorageDetails(
+	ctx context.Context,
+	filters params.StorageFilters,
+) (params.StorageDetailsListResults, error) {
+	if err := a.checkCanRead(ctx); err != nil {
+		return params.StorageDetailsListResults{}, errors.Capture(err)
+	}
+
+	// While filters don't filter anything in this facade we do require at least
+	// one be supplied by the caller. This is so that we can match the results
+	// to the filter index.
+	//
+	// This check must always occur after permission checks.
+	if len(filters.Filters) == 0 {
+		return params.StorageDetailsListResults{}, apiservererrors.ParamsErrorf(
+			params.CodeNotValid, "at least one filter is required",
+		)
+	}
+
+	// zeroTime is used to set the status time when a storage instance does not
+	// have a status time set.
+	zeroTime := time.UnixMicro(0).UTC()
+
+	// processStorageInstance is responsible for taking a single storage
+	// instance representation in the model and building a
+	// [params.StorageDetails] struct to provide to the caller.
+	processStorageInstance := func(
+		si statusservice.StorageInstance,
+	) params.StorageDetails {
+		retVal := params.StorageDetails{}
+		storageInstTag := names.NewStorageTag(si.ID)
+		retVal.StorageTag = storageInstTag.String()
+
+		var ownerTag string
+		if si.Owner != nil {
+			ownerTag = names.NewUnitTag(si.Owner.String()).String()
+		}
+		retVal.OwnerTag = ownerTag
+
+		// Default storage kind when we can't translate to any other value.
+		storageKind := params.StorageKindUnknown
+		switch si.Kind {
+		case domainstorage.StorageKindBlock:
+			storageKind = params.StorageKindBlock
+		case domainstorage.StorageKindFilesystem:
+			storageKind = params.StorageKindFilesystem
+		}
+		retVal.Kind = storageKind
+
+		retVal.Life = si.Life
+		retVal.Status = params.EntityStatus{
+			Status: si.Status.Status,
+			Info:   si.Status.Message,
+			Data:   si.Status.Data,
+			Since:  si.Status.Since,
+		}
+		if si.Status.Since == nil {
+			// This prevents a panic in clients due to a storage instance after
+			// 4.0 possibly having no filesystem or volume to get a status from.
+			// This is poor API design anyway, since a storage instance does not
+			// have a status, instead, we've pulled one from the provisioned
+			// entities.
+			retVal.Status.Since = &zeroTime
+		}
+
+		retVal.Attachments = make(
+			map[string]params.StorageAttachmentDetails, len(si.Attachments),
+		)
+		for _, attachment := range si.Attachments {
+			unitTag := names.NewUnitTag(attachment.Unit.String())
+			var machineTagStr string
+
+			if attachment.Machine != nil {
+				machineTagStr = names.NewMachineTag(attachment.Machine.String()).String()
+			}
+
+			sad := params.StorageAttachmentDetails{
+				Life:       attachment.Life,
+				Location:   attachment.Location,
+				MachineTag: machineTagStr,
+				StorageTag: storageInstTag.String(),
+				UnitTag:    unitTag.String(),
+			}
+
+			retVal.Attachments[unitTag.String()] = sad
+		}
+		return retVal
+	}
+
+	// We don't support any storage filtering at the moment.
+	storageInstances, err := a.statusService.GetAllStorageInstanceStatuses(ctx)
+	if err != nil {
+		// We log the error instead of returning it to the caller. The contents
+		// are unknown and will reflect an internal server error.
+		a.logger.Errorf(
+			ctx,
+			"failed getting storage instance statuses for listing storage details: %s",
+			err.Error(),
+		)
+		return params.StorageDetailsListResults{}, errors.Errorf(
+			"failed getting available storage instances",
+		)
+	}
+
+	results := make([]params.StorageDetails, 0, len(storageInstances))
+	for _, storageInstance := range storageInstances {
+		results = append(results, processStorageInstance(storageInstance))
+	}
+
+	retVal := params.StorageDetailsListResults{
+		Results: make([]params.StorageDetailsListResult, 0, len(filters.Filters)),
+	}
+	for range filters.Filters {
+		retVal.Results = append(retVal.Results, params.StorageDetailsListResult{
+			Result: results,
+		})
+	}
+
+	return retVal, nil
 }
 
 // ListVolumes lists volumes with the given filters. Each filter produces
 // an independent list of volumes, or an error if the filter is invalid
 // or the volumes could not be listed.
-func (a *StorageAPI) ListVolumes(ctx context.Context, filters params.VolumeFilters) (params.VolumeDetailsListResults, error) {
-	return params.VolumeDetailsListResults{}, apiservererrors.ParamsErrorf(
-		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
-	)
+func (a *StorageAPI) ListVolumes(
+	ctx context.Context, filters params.VolumeFilters,
+) (params.VolumeDetailsListResults, error) {
+	if err := a.checkCanRead(ctx); err != nil {
+		return params.VolumeDetailsListResults{}, errors.Capture(err)
+	}
+
+	one := func(arg params.VolumeFilter) ([]params.VolumeDetails, error) {
+		if len(arg.Machines) == 0 {
+			return a.listVolumes(ctx)
+		}
+
+		var machineTags []names.MachineTag
+		for _, m := range arg.Machines {
+			t, err := names.ParseMachineTag(m)
+			if err != nil {
+				return nil, errors.Errorf(
+					"invalid machine tag: %w", err,
+				).Add(coreerrors.NotValid)
+			}
+			machineTags = append(machineTags, t)
+		}
+
+		return a.listVolumesOnMachines(ctx, machineTags)
+	}
+
+	results := params.VolumeDetailsListResults{
+		Results: make([]params.VolumeDetailsListResult, 0, len(filters.Filters)),
+	}
+	for _, arg := range filters.Filters {
+		var result params.VolumeDetailsListResult
+		var err error
+		result.Result, err = one(arg)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		}
+		results.Results = append(results.Results, result)
+	}
+
+	return results, nil
+}
+
+// listVolumes is responsible for listing all volumes in the model where no
+// filtering is to be applied.
+func (a *StorageAPI) listVolumes(
+	ctx context.Context,
+) ([]params.VolumeDetails, error) {
+	storageInstances, err := a.statusService.GetAllStorageInstanceStatuses(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	volumes, err := a.statusService.GetAllVolumeStatuses(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return a.volumeDetails(ctx, storageInstances, volumes)
+}
+
+func (a *StorageAPI) listVolumesOnMachines(
+	ctx context.Context, machineTags []names.MachineTag,
+) ([]params.VolumeDetails, error) {
+	var machineUUIDs []coremachine.UUID
+	for _, machineTag := range machineTags {
+		name := coremachine.Name(machineTag.Id())
+		machineUUID, err := a.machineService.GetMachineUUID(ctx, name)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			return nil, errors.Errorf(
+				"machine %q not found", name,
+			).Add(coreerrors.NotFound)
+		} else if err != nil {
+			return nil, errors.Errorf(
+				"getting machine uuid for machine %q: %w", name, err,
+			)
+		}
+		machineUUIDs = append(machineUUIDs, machineUUID)
+	}
+
+	volumeUUIDs, err := a.storageService.GetVolumesByMachines(ctx, machineUUIDs)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	if len(volumeUUIDs) == 0 {
+		return nil, nil
+	}
+
+	volumes, err := a.statusService.GetVolumeStatuses(ctx, volumeUUIDs)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var storageInstanceUUIDs []domainstorage.StorageInstanceUUID
+	for _, v := range volumes {
+		if v.StorageUUID != nil {
+			storageInstanceUUIDs = append(storageInstanceUUIDs, *v.StorageUUID)
+		}
+	}
+	var storageInstances []statusservice.StorageInstance
+	if len(storageInstanceUUIDs) > 0 {
+		storageInstances, err = a.statusService.GetStorageInstanceStatuses(
+			ctx, storageInstanceUUIDs)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+	}
+
+	return a.volumeDetails(ctx, storageInstances, volumes)
+}
+
+func (a *StorageAPI) volumeDetails(
+	ctx context.Context,
+	storageInstances []statusservice.StorageInstance,
+	volumes []statusservice.Volume,
+) ([]params.VolumeDetails, error) {
+	storageMap := map[string]*params.StorageDetails{}
+
+	// zeroTime is used to set the status time when a storage instance does not
+	// have a status time set.
+	zeroTime := time.UnixMicro(0).UTC()
+
+	for _, v := range storageInstances {
+		details := params.StorageDetails{
+			Status: params.EntityStatus{
+				Status: v.Status.Status,
+				Info:   v.Status.Message,
+				Data:   v.Status.Data,
+				Since:  v.Status.Since,
+			},
+			StorageTag: names.NewStorageTag(v.ID).String(),
+			Life:       v.Life,
+		}
+		if v.Status.Since == nil {
+			// This prevents a panic in clients due to a storage instance after
+			// 4.0 possibly having no filesystem or volume to get a status from.
+			// This is poor API design anyway, since a storage instance does not
+			// have a status, instead, we've pulled one from the provisioned
+			// entities.
+			details.Status.Since = &zeroTime
+		}
+		if v.Owner != nil {
+			details.OwnerTag = names.NewUnitTag(v.Owner.String()).String()
+		}
+		switch v.Kind {
+		case domainstorage.StorageKindBlock:
+			details.Kind = params.StorageKindBlock
+		case domainstorage.StorageKindFilesystem:
+			details.Kind = params.StorageKindFilesystem
+		default:
+			details.Kind = params.StorageKindUnknown
+		}
+		for unit, sa := range v.Attachments {
+			unitTag := names.NewUnitTag(unit.String())
+			sad := params.StorageAttachmentDetails{
+				StorageTag: details.StorageTag,
+				UnitTag:    names.NewUnitTag(sa.Unit.String()).String(),
+			}
+			if sa.Machine != nil {
+				sad.MachineTag = names.NewMachineTag(sa.Machine.String()).String()
+			}
+			if details.Attachments == nil {
+				details.Attachments = map[string]params.StorageAttachmentDetails{}
+			}
+			details.Attachments[unitTag.String()] = sad
+		}
+		// Store in a map to get the status and location from either the
+		// filesystem or volumes. These are a facade concern, hence why it
+		// is done here.
+		storageMap[v.ID] = &details
+	}
+
+	volumeResult := make([]params.VolumeDetails, 0, len(volumes))
+	for _, v := range volumes {
+		details := params.VolumeDetails{
+			VolumeTag: names.NewVolumeTag(v.ID).String(),
+			Life:      v.Life,
+			Info: params.VolumeInfo{
+				ProviderId: v.ProviderID,
+				HardwareId: v.HardwareID,
+				WWN:        v.WWN,
+				SizeMiB:    v.SizeMiB,
+				Persistent: v.Persistent,
+			},
+			Status: params.EntityStatus{
+				Status: v.Status.Status,
+				Info:   v.Status.Message,
+				Data:   v.Status.Data,
+				Since:  v.Status.Since,
+			},
+		}
+		if v.Status.Since == nil {
+			// This prevents a panic in clients due to a storage instance after
+			// 4.0 possibly having no filesystem or volume to get a status from.
+			// This is poor API design anyway, since a storage instance does not
+			// have a status, instead, we've pulled one from the provisioned
+			// entities.
+			details.Status.Since = &zeroTime
+		}
+
+		unitAttachmentLocations := map[string]string{}
+		for unit, va := range v.UnitAttachments {
+			vad := params.VolumeAttachmentDetails{
+				Life: va.Life,
+				VolumeAttachmentInfo: params.VolumeAttachmentInfo{
+					DeviceName: va.DeviceName,
+					DeviceLink: va.DeviceLink,
+					BusAddress: va.BusAddress,
+					ReadOnly:   va.ReadOnly,
+				},
+			}
+			if vap := va.VolumeAttachmentPlan; vap != nil {
+				vad.VolumeAttachmentInfo.PlanInfo = &params.VolumeAttachmentPlanInfo{
+					DeviceAttributes: vap.DeviceAttributes,
+					DeviceType:       vap.DeviceType.String(),
+				}
+			}
+			if details.UnitAttachments == nil {
+				details.UnitAttachments = map[string]params.VolumeAttachmentDetails{}
+			}
+			unitTag := names.NewUnitTag(unit.String()).String()
+			details.UnitAttachments[unitTag] = vad
+
+			var deviceLinks []string
+			if va.DeviceLink != "" {
+				deviceLinks = append(deviceLinks, vad.DeviceLink)
+			}
+			blockDevicePath, _ := blockdevice.BlockDevicePath(blockdevice.BlockDevice{
+				HardwareId:  v.HardwareID,
+				WWN:         v.WWN,
+				DeviceName:  va.DeviceName,
+				DeviceLinks: deviceLinks,
+			})
+			unitAttachmentLocations[unitTag] = blockDevicePath
+		}
+		for machine, va := range v.MachineAttachments {
+			vad := params.VolumeAttachmentDetails{
+				Life: va.Life,
+				VolumeAttachmentInfo: params.VolumeAttachmentInfo{
+					DeviceName: va.DeviceName,
+					DeviceLink: va.DeviceLink,
+					BusAddress: va.BusAddress,
+					ReadOnly:   va.ReadOnly,
+				},
+			}
+			if vap := va.VolumeAttachmentPlan; vap != nil {
+				vad.VolumeAttachmentInfo.PlanInfo = &params.VolumeAttachmentPlanInfo{
+					DeviceAttributes: vap.DeviceAttributes,
+					DeviceType:       vap.DeviceType.String(),
+				}
+			}
+			if details.MachineAttachments == nil {
+				details.MachineAttachments = map[string]params.VolumeAttachmentDetails{}
+			}
+			machineTag := names.NewMachineTag(machine.String()).String()
+			details.MachineAttachments[machineTag] = vad
+		}
+		if storage, ok := storageMap[v.StorageID]; ok {
+			if storage.Kind == params.StorageKindBlock {
+				storage.Status = details.Status
+				storage.Persistent = details.Info.Persistent
+				// give the storage instance attachment the unit's attachment
+				// location.
+				for k, v := range unitAttachmentLocations {
+					ad, ok := storage.Attachments[k]
+					if !ok {
+						continue
+					}
+					ad.Location = v
+					storage.Attachments[k] = ad
+				}
+			}
+			details.Storage = storage
+		}
+		volumeResult = append(volumeResult, details)
+	}
+
+	return volumeResult, nil
 }
 
 // ListFilesystems returns a list of filesystems in the environment matching
 // the provided filter. Each result describes a filesystem in detail, including
 // the filesystem's attachments.
-func (a *StorageAPI) ListFilesystems(ctx context.Context, filters params.FilesystemFilters) (params.FilesystemDetailsListResults, error) {
-	return params.FilesystemDetailsListResults{}, apiservererrors.ParamsErrorf(
-		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
-	)
+func (a *StorageAPI) ListFilesystems(
+	ctx context.Context,
+	filters params.FilesystemFilters,
+) (params.FilesystemDetailsListResults, error) {
+	if err := a.checkCanRead(ctx); err != nil {
+		return params.FilesystemDetailsListResults{}, errors.Capture(err)
+	}
+
+	one := func(arg params.FilesystemFilter) ([]params.FilesystemDetails, error) {
+		if len(arg.Machines) == 0 {
+			return a.listFilesystems(ctx)
+		}
+
+		var tags []names.MachineTag
+		for _, m := range arg.Machines {
+			t, err := names.ParseMachineTag(m)
+			if err != nil {
+				return nil, errors.Errorf(
+					"invalid machine tag: %w", err,
+				).Add(coreerrors.NotValid)
+			}
+			tags = append(tags, t)
+		}
+
+		return a.listFilesystemsOnMachines(ctx, tags)
+	}
+
+	results := params.FilesystemDetailsListResults{
+		Results: make([]params.FilesystemDetailsListResult, 0, len(filters.Filters)),
+	}
+	for _, arg := range filters.Filters {
+		var result params.FilesystemDetailsListResult
+		var err error
+		result.Result, err = one(arg)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+		}
+		results.Results = append(results.Results, result)
+	}
+
+	return results, nil
+}
+
+func (a *StorageAPI) listFilesystems(
+	ctx context.Context,
+) ([]params.FilesystemDetails, error) {
+	storageInstances, err := a.statusService.GetAllStorageInstanceStatuses(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	filesystems, err := a.statusService.GetAllFilesystemStatuses(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return a.filesystemDetails(ctx, storageInstances, filesystems)
+}
+
+func (a *StorageAPI) listFilesystemsOnMachines(
+	ctx context.Context, machineTags []names.MachineTag,
+) ([]params.FilesystemDetails, error) {
+	var machineUUIDs []coremachine.UUID
+	for _, machineTag := range machineTags {
+		name := coremachine.Name(machineTag.Id())
+		machineUUID, err := a.machineService.GetMachineUUID(ctx, name)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			return nil, errors.Errorf(
+				"machine %q not found", name,
+			).Add(coreerrors.NotFound)
+		} else if err != nil {
+			return nil, errors.Errorf(
+				"getting machine uuid for machine %q: %w", name, err,
+			)
+		}
+		machineUUIDs = append(machineUUIDs, machineUUID)
+	}
+
+	filesystemUUIDs, err := a.storageService.GetFilesystemsByMachines(ctx, machineUUIDs)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	if len(filesystemUUIDs) == 0 {
+		return nil, nil
+	}
+
+	filesystems, err := a.statusService.GetFilesystemStatuses(ctx, filesystemUUIDs)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var storageInstanceUUIDs []domainstorage.StorageInstanceUUID
+	for _, v := range filesystems {
+		if v.StorageUUID != nil {
+			storageInstanceUUIDs = append(storageInstanceUUIDs, *v.StorageUUID)
+		}
+	}
+	var storageInstances []statusservice.StorageInstance
+	if len(storageInstanceUUIDs) > 0 {
+		storageInstances, err = a.statusService.GetStorageInstanceStatuses(
+			ctx, storageInstanceUUIDs)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+	}
+
+	return a.filesystemDetails(ctx, storageInstances, filesystems)
+}
+
+func (a *StorageAPI) filesystemDetails(
+	ctx context.Context,
+	storageInstances []statusservice.StorageInstance,
+	filesystems []statusservice.Filesystem,
+) ([]params.FilesystemDetails, error) {
+	// zeroTime is used to set the status time when a storage instance does not
+	// have a status time set.
+	zeroTime := time.UnixMicro(0).UTC()
+
+	storageMap := map[string]*params.StorageDetails{}
+	for _, v := range storageInstances {
+		details := params.StorageDetails{
+			StorageTag: names.NewStorageTag(v.ID).String(),
+			Life:       v.Life,
+		}
+		if v.Owner != nil {
+			details.OwnerTag = names.NewUnitTag(v.Owner.String()).String()
+		}
+		switch v.Kind {
+		case domainstorage.StorageKindBlock:
+			details.Kind = params.StorageKindBlock
+		case domainstorage.StorageKindFilesystem:
+			details.Kind = params.StorageKindFilesystem
+		default:
+			details.Kind = params.StorageKindUnknown
+		}
+		for unit, sa := range v.Attachments {
+			unitTag := names.NewUnitTag(unit.String())
+			sad := params.StorageAttachmentDetails{
+				StorageTag: details.StorageTag,
+				UnitTag:    names.NewUnitTag(sa.Unit.String()).String(),
+			}
+			if sa.Machine != nil {
+				sad.MachineTag = names.NewMachineTag(sa.Machine.String()).String()
+			}
+			if details.Attachments == nil {
+				details.Attachments = map[string]params.StorageAttachmentDetails{}
+			}
+			details.Attachments[unitTag.String()] = sad
+		}
+		// Store in a map to get the status and location from either the
+		// filesystem or volumes. These are a facade concern, hence why it
+		// is done here.
+		storageMap[v.ID] = &details
+	}
+
+	filesystemResult := make([]params.FilesystemDetails, 0, len(filesystems))
+	for _, v := range filesystems {
+		details := params.FilesystemDetails{
+			FilesystemTag: names.NewFilesystemTag(v.ID).String(),
+			Life:          v.Life,
+			Info: params.FilesystemInfo{
+				ProviderId: v.ProviderID,
+				SizeMiB:    v.SizeMiB,
+			},
+			Status: params.EntityStatus{
+				Status: v.Status.Status,
+				Info:   v.Status.Message,
+				Data:   v.Status.Data,
+				Since:  v.Status.Since,
+			},
+		}
+		if v.Status.Since == nil {
+			// This prevents a panic in clients due to a storage instance after
+			// 4.0 possibly having no filesystem or volume to get a status from.
+			// This is poor API design anyway, since a storage instance does not
+			// have a status, instead, we've pulled one from the provisioned
+			// entities.
+			details.Status.Since = &zeroTime
+		}
+
+		if v.VolumeID != nil {
+			details.VolumeTag = names.NewVolumeTag(*v.VolumeID).String()
+		}
+		unitAttachmentLocations := map[string]string{}
+		for unit, fa := range v.UnitAttachments {
+			fad := params.FilesystemAttachmentDetails{
+				Life: fa.Life,
+				FilesystemAttachmentInfo: params.FilesystemAttachmentInfo{
+					MountPoint: fa.MountPoint,
+					ReadOnly:   fa.ReadOnly,
+				},
+			}
+			if details.UnitAttachments == nil {
+				details.UnitAttachments = map[string]params.FilesystemAttachmentDetails{}
+			}
+			unitTag := names.NewUnitTag(unit.String()).String()
+			details.UnitAttachments[unitTag] = fad
+			unitAttachmentLocations[unitTag] = fa.MountPoint
+		}
+		for machine, fa := range v.MachineAttachments {
+			fad := params.FilesystemAttachmentDetails{
+				Life: fa.Life,
+				FilesystemAttachmentInfo: params.FilesystemAttachmentInfo{
+					MountPoint: fa.MountPoint,
+					ReadOnly:   fa.ReadOnly,
+				},
+			}
+			if details.MachineAttachments == nil {
+				details.MachineAttachments = map[string]params.FilesystemAttachmentDetails{}
+			}
+			machineTag := names.NewMachineTag(machine.String()).String()
+			details.MachineAttachments[machineTag] = fad
+		}
+		if storage, ok := storageMap[v.StorageID]; ok {
+			if storage.Kind == params.StorageKindFilesystem {
+				storage.Status = details.Status
+
+				// give the storage instance attachment the unit's attachment
+				// location.
+				for k, v := range unitAttachmentLocations {
+					ad, ok := storage.Attachments[k]
+					if !ok {
+						continue
+					}
+					ad.Location = v
+					storage.Attachments[k] = ad
+				}
+			}
+			details.Storage = storage
+		}
+		filesystemResult = append(filesystemResult, details)
+	}
+
+	return filesystemResult, nil
 }
 
 // AddToUnit validates and creates additional storage instances for units.
@@ -460,7 +1148,7 @@ func (a *StorageAPI) addOneStorage(ctx context.Context, one params.StorageAddPar
 		storageCount = uint32(*one.Directives.Count)
 	}
 
-	args := storage.AddUnitStorageOverride{
+	args := applicationstorageservice.AddUnitStorageOverride{
 		StoragePoolUUID: storagePoolUUID,
 		SizeMiB:         one.Directives.SizeMiB,
 	}

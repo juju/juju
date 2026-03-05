@@ -174,6 +174,47 @@ func (s *importSuite) TestImportOffers(c *tc.C) {
 		Interface: "redis",
 	})
 
+	rel1 := desc.AddRelation(description.RelationArgs{
+		Id: 0,
+	})
+	rel1.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "remote-kafka",
+		Name:            "client",
+		Role:            "provider",
+		Interface:       "kafka",
+	})
+	rel1.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "foo",
+		Name:            "client",
+		Role:            "requirer",
+		Interface:       "kafka",
+	})
+
+	rel2 := desc.AddRelation(description.RelationArgs{
+		Id: 1,
+	})
+	rel2.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "remote-redis",
+		Name:            "cache",
+		Role:            "provider",
+		Interface:       "redis",
+	})
+	rel2.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "baz",
+		Name:            "client",
+		Role:            "requirer",
+		Interface:       "redis",
+	})
+
+	desc.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "application-remote-kafka",
+		Token: "deadbeef-1",
+	})
+	desc.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "application-remote-redis",
+		Token: "deadbeef-2",
+	})
+
 	// Arrange: setup the db and import
 	coordinator, scope, svc := s.setupCoordinatorScopeAndService(c)
 

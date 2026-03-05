@@ -34,7 +34,7 @@ const (
 type S3ObjectStoreConfig struct {
 	// RootDir is the root directory for the object store. This is the location
 	// where the tmp directory will be created.
-	// This is different than /tmp because the /tmp directory might be
+	// This is different to /tmp because the /tmp directory might be
 	// mounted on a different file system.
 	RootDir string
 	// RootBucket is the name of the root bucket.
@@ -256,9 +256,11 @@ func (t *s3ObjectStore) Put(ctx context.Context, path string, r io.Reader, size 
 	}
 }
 
-// Put stores data from reader at path, namespaced to the model.
+// PutAndCheckHash stores data from reader at path, namespaced to the model.
 // It also ensures the stored data has the correct hash.
-func (t *s3ObjectStore) PutAndCheckHash(ctx context.Context, path string, r io.Reader, size int64, hash string) (objectstore.UUID, error) {
+func (t *s3ObjectStore) PutAndCheckHash(
+	ctx context.Context, path string, r io.Reader, size int64, hash string,
+) (objectstore.UUID, error) {
 	response := make(chan response)
 	select {
 	case <-ctx.Done():
@@ -350,21 +352,21 @@ func (t *s3ObjectStore) Report() map[string]any {
 }
 
 // Kill implements the worker.Worker interface.
-func (s *s3ObjectStore) Kill() {
-	s.catacomb.Kill(nil)
+func (t *s3ObjectStore) Kill() {
+	t.catacomb.Kill(nil)
 }
 
 // Wait implements the worker.Worker interface.
-func (s *s3ObjectStore) Wait() error {
-	return s.catacomb.Wait()
+func (t *s3ObjectStore) Wait() error {
+	return t.catacomb.Wait()
 }
 
 // scopedContext returns a context that is in the scope of the worker lifetime.
 // It returns a cancellable context that is cancelled when the action has
 // completed.
-func (w *s3ObjectStore) scopedContext() (context.Context, context.CancelFunc) {
+func (t *s3ObjectStore) scopedContext() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
-	return w.catacomb.Context(ctx), cancel
+	return t.catacomb.Context(ctx), cancel
 }
 
 func (t *s3ObjectStore) loop() error {
@@ -552,7 +554,9 @@ func (t *s3ObjectStore) getWithMetadata(ctx context.Context, metadata objectstor
 	return reader, size, nil
 }
 
-func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size int64, validator hashValidator) (objectstore.UUID, error) {
+func (t *s3ObjectStore) put(
+	ctx context.Context, path string, r io.Reader, size int64, validator hashValidator,
+) (objectstore.UUID, error) {
 	t.logger.Debugf(ctx, "putting object %q to s3 storage", path)
 
 	// Charms and resources are coded to use the SHA384 hash. It is possible
@@ -623,7 +627,7 @@ func (t *s3ObjectStore) persistTmpFile(ctx context.Context, tmpFileName, fileEnc
 	if err != nil {
 		return errors.Capture(err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// The size is already done when it's written, but to ensure that we have
 	// the correct size, we can stat the file. This is very much, belt and
@@ -666,16 +670,26 @@ func (t *s3ObjectStore) remove(ctx context.Context, path string) error {
 
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if err != nil {
-		return errors.Errorf("get metadata: %w", err)
+		return errors.Errorf("getting metadata: %w", err)
 	}
 
 	hash := SelectFileHash(metadata)
 	return t.withLock(ctx, hash, func(ctx context.Context) error {
 		if err := t.metadataService.RemoveMetadata(ctx, path); err != nil {
-			return errors.Errorf("remove metadata: %w", err)
+			return errors.Errorf("removing metadata: %w", err)
 		}
 
-		return t.deleteObject(ctx, hash)
+		// Only delete the underlying object when no metadata entry for this hash
+		// remains. Multiple logical paths can point to the same hash.
+		_, err := t.metadataService.GetMetadataBySHA256(ctx, metadata.SHA256)
+		if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
+			return errors.Capture(t.deleteObject(ctx, hash))
+		} else if err != nil {
+			return errors.Errorf("getting metadata by hash: %w", err)
+		}
+
+		t.logger.Debugf(ctx, "metadata still references hash %q, skipping object deletion", hash)
+		return nil
 	})
 }
 

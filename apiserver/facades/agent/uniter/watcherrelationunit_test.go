@@ -212,7 +212,7 @@ func (s *watcherRelationUnitSuite) TestWatchOneRelationUnit(c *tc.C) {
 			return f, 1
 		}),
 	}
-	s.relationService.EXPECT().GetRelationUnitChanges(gomock.Any(), unitUUIDs, nil).Return(initialChange, nil)
+	s.relationService.EXPECT().GetRelationUnitChanges(gomock.Any(), relationUUID, unitUUIDs, nil).Return(initialChange, nil)
 
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unit.Name("app1/0")).Return(watchedUUID, nil)
 
@@ -307,7 +307,7 @@ func (s *watcherRelationUnitSuite) TestRelationUnitsWatcher(c *tc.C) {
 			return f, 1
 		}),
 	}
-	initial := s.relationService.EXPECT().GetRelationUnitChanges(gomock.Any(), unitUUIDs,
+	initial := s.relationService.EXPECT().GetRelationUnitChanges(gomock.Any(), relationUUID, unitUUIDs,
 		nil).Return(initialChange, nil)
 	// Second change: all units and applications.
 	withAppsChange := domainrelation.RelationUnitsChange{
@@ -318,7 +318,7 @@ func (s *watcherRelationUnitSuite) TestRelationUnitsWatcher(c *tc.C) {
 			return f, 1
 		}),
 	}
-	withApps := s.relationService.EXPECT().GetRelationUnitChanges(gomock.Any(), unitUUIDs,
+	withApps := s.relationService.EXPECT().GetRelationUnitChanges(gomock.Any(), relationUUID, unitUUIDs,
 		appUUIDs).Return(withAppsChange,
 		nil)
 	// Third change: all applications (unit departed).
@@ -328,7 +328,7 @@ func (s *watcherRelationUnitSuite) TestRelationUnitsWatcher(c *tc.C) {
 		}),
 		Departed: unitNames,
 	}
-	unitDeparted := s.relationService.EXPECT().GetRelationUnitChanges(gomock.Any(), nil, appUUIDs).Return(unitDepartedChange,
+	unitDeparted := s.relationService.EXPECT().GetRelationUnitChanges(gomock.Any(), relationUUID, nil, appUUIDs).Return(unitDepartedChange,
 		nil)
 	gomock.InOrder(initial, withApps, unitDeparted)
 	expectedEvents := []domainrelation.RelationUnitsChange{initialChange, withAppsChange, unitDepartedChange}

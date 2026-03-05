@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/internal/testing"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/agentconfigupdater"
 )
@@ -115,9 +114,36 @@ func (s *WorkerSuite) TestNormalStart(c *tc.C) {
 
 	select {
 	case <-start:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("waiting for watcher to start")
 	}
+}
+
+func (s *WorkerSuite) TestWatcherChannelClosed(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	start := make(chan struct{})
+	ch := make(chan []string)
+	close(ch)
+
+	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
+		close(start)
+		return watchertest.NewMockStringsWatcher(ch), nil
+	})
+
+	w, err := agentconfigupdater.NewWorker(s.config)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(w, tc.NotNil)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-start:
+	case <-c.Context().Done():
+		c.Fatalf("waiting for watcher to start")
+	}
+
+	err = workertest.CheckKilled(c, w)
+	c.Assert(err, tc.ErrorMatches, "watcher channel closed")
 }
 
 func (s *WorkerSuite) TestUpdateQueryTracingEnabled(c *tc.C) {
@@ -131,13 +157,13 @@ func (s *WorkerSuite) TestUpdateQueryTracingEnabled(c *tc.C) {
 
 	select {
 	case ch <- []string{}:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not sent")
 	}
 
 	select {
 	case <-dispatched1:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not handled")
 	}
 
@@ -146,13 +172,13 @@ func (s *WorkerSuite) TestUpdateQueryTracingEnabled(c *tc.C) {
 
 	select {
 	case ch <- []string{}:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not sent")
 	}
 
 	select {
 	case <-dispatched2:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not handled")
 	}
 
@@ -172,13 +198,13 @@ func (s *WorkerSuite) TestUpdateQueryTracingThreshold(c *tc.C) {
 
 	select {
 	case ch <- []string{}:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not sent")
 	}
 
 	select {
 	case <-dispatched1:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not handled")
 	}
 
@@ -187,13 +213,13 @@ func (s *WorkerSuite) TestUpdateQueryTracingThreshold(c *tc.C) {
 
 	select {
 	case ch <- []string{}:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not sent")
 	}
 
 	select {
 	case <-dispatched2:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not handled")
 	}
 
@@ -213,13 +239,13 @@ func (s *WorkerSuite) TestUpdateDqliteBusyTimeout(c *tc.C) {
 
 	select {
 	case ch <- []string{}:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not sent")
 	}
 
 	select {
 	case <-dispatched1:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not handled")
 	}
 
@@ -228,13 +254,13 @@ func (s *WorkerSuite) TestUpdateDqliteBusyTimeout(c *tc.C) {
 
 	select {
 	case ch <- []string{}:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not sent")
 	}
 
 	select {
 	case <-dispatched2:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not handled")
 	}
 
@@ -253,13 +279,13 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryEnabled(c *tc.C) {
 
 	select {
 	case ch <- []string{}:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not sent")
 	}
 
 	select {
 	case <-dispatched1:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not handled")
 	}
 
@@ -268,13 +294,13 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryEnabled(c *tc.C) {
 
 	select {
 	case ch <- []string{}:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not sent")
 	}
 
 	select {
 	case <-dispatched2:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not handled")
 	}
 
@@ -293,13 +319,13 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryEndpoint(c *tc.C) {
 
 	select {
 	case ch <- []string{}:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not sent")
 	}
 
 	select {
 	case <-dispatched1:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not handled")
 	}
 
@@ -308,13 +334,13 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryEndpoint(c *tc.C) {
 
 	select {
 	case ch <- []string{}:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not sent")
 	}
 
 	select {
 	case <-dispatched2:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not handled")
 	}
 
@@ -333,13 +359,13 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryInsecure(c *tc.C) {
 
 	select {
 	case ch <- []string{}:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not sent")
 	}
 
 	select {
 	case <-dispatched1:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not handled")
 	}
 
@@ -348,13 +374,13 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryInsecure(c *tc.C) {
 
 	select {
 	case ch <- []string{}:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not sent")
 	}
 
 	select {
 	case <-dispatched2:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not handled")
 	}
 
@@ -373,13 +399,13 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryStackTraces(c *tc.C) {
 
 	select {
 	case ch <- []string{}:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not sent")
 	}
 
 	select {
 	case <-dispatched1:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not handled")
 	}
 
@@ -388,13 +414,13 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryStackTraces(c *tc.C) {
 
 	select {
 	case ch <- []string{}:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not sent")
 	}
 
 	select {
 	case <-dispatched2:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not handled")
 	}
 
@@ -413,13 +439,13 @@ func (s *WorkerSuite) TestUpdateOpenTelemetrySampleRatio(c *tc.C) {
 
 	select {
 	case ch <- []string{}:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not sent")
 	}
 
 	select {
 	case <-dispatched1:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not handled")
 	}
 
@@ -428,13 +454,13 @@ func (s *WorkerSuite) TestUpdateOpenTelemetrySampleRatio(c *tc.C) {
 
 	select {
 	case ch <- []string{}:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not sent")
 	}
 
 	select {
 	case <-dispatched2:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not handled")
 	}
 
@@ -454,13 +480,13 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryTailSamplingThreshold(c *tc.C) {
 
 	select {
 	case ch <- []string{}:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not sent")
 	}
 
 	select {
 	case <-dispatched1:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not handled")
 	}
 
@@ -469,13 +495,13 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryTailSamplingThreshold(c *tc.C) {
 
 	select {
 	case ch <- []string{}:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not sent")
 	}
 
 	select {
 	case <-dispatched2:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("event not handled")
 	}
 
@@ -557,7 +583,7 @@ func (s *WorkerSuite) runScenario(c *tc.C, newConfig controller.Config) (worker.
 
 	select {
 	case <-start:
-	case <-time.After(testing.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("waiting for watcher to start")
 	}
 

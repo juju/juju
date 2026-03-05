@@ -66,6 +66,83 @@ func (s *workerSuite) TestGetConnectionForModelAlreadyDead(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, ErrAPIRemoteRelationCallerDead)
 }
 
+func (s *workerSuite) TestGetConnectionForModelCanceledRequestDoesNotBlockWorker(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	model1UUID := model.UUID("test-model-1-uuid")
+	model2UUID := model.UUID("test-model-2-uuid")
+
+	apiInfo1 := api.Info{
+		Tag: names.NewUserTag("fred"),
+	}
+	apiInfo2 := api.Info{
+		Tag: names.NewUserTag("bob"),
+	}
+
+	firstStarted := make(chan struct{})
+	releaseFirst := make(chan struct{})
+	secondStarted := make(chan struct{})
+
+	conn2 := NewMockConnection(ctrl)
+
+	s.apiInfoGetter.EXPECT().GetAPIInfoForModel(gomock.Any(), model1UUID).DoAndReturn(func(context.Context, model.UUID) (api.Info, error) {
+		close(firstStarted)
+		select {
+		case <-releaseFirst:
+		case <-c.Context().Done():
+			c.Fatalf("waiting to release first request: %v", c.Context().Err())
+		}
+		return apiInfo1, nil
+	})
+	s.connectionGetter.EXPECT().GetConnectionForModel(gomock.Any(), model1UUID, apiInfo1).Return(s.connection, nil)
+	s.connection.EXPECT().Broken().Return(make(chan struct{}))
+
+	s.apiInfoGetter.EXPECT().GetAPIInfoForModel(gomock.Any(), model2UUID).DoAndReturn(func(context.Context, model.UUID) (api.Info, error) {
+		close(secondStarted)
+		return apiInfo2, nil
+	})
+	s.connectionGetter.EXPECT().GetConnectionForModel(gomock.Any(), model2UUID, apiInfo2).Return(conn2, nil)
+	conn2.EXPECT().Broken().Return(make(chan struct{}))
+
+	w := s.newWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	ctx, cancel := context.WithCancel(c.Context())
+	firstErr := make(chan error, 1)
+	go func() {
+		_, err := w.GetConnectionForModel(ctx, model1UUID)
+		firstErr <- err
+	}()
+
+	select {
+	case <-firstStarted:
+	case <-c.Context().Done():
+		c.Fatalf("waiting for first request to start: %v", c.Context().Err())
+	}
+
+	cancel()
+
+	select {
+	case err := <-firstErr:
+		c.Assert(err, tc.ErrorIs, context.Canceled)
+	case <-c.Context().Done():
+		c.Fatalf("waiting for first request cancellation: %v", c.Context().Err())
+	}
+
+	close(releaseFirst)
+
+	conn, err := w.GetConnectionForModel(c.Context(), model2UUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(conn, tc.NotNil)
+
+	select {
+	case <-secondStarted:
+	case <-c.Context().Done():
+		c.Fatalf("waiting for second request to start: %v", c.Context().Err())
+	}
+}
+
 func (s *workerSuite) TestGetConnectionForModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

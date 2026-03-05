@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/api/client/modelconfig"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	appbundle "github.com/juju/juju/cmd/juju/application/bundle"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
@@ -32,7 +33,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	bundlechanges "github.com/juju/juju/internal/bundle/changes"
 	"github.com/juju/juju/internal/charmhub"
-	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/rpc/params"
 )
 

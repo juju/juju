@@ -7,9 +7,9 @@ import (
 	"github.com/juju/gnuflag"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/internal/cmd"
 )
 
 // GoalStateCommand implements the config-get command.

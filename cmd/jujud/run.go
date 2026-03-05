@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/agent/config"
 	"github.com/juju/juju/agent/introspect"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/internal/run"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
@@ -36,7 +37,6 @@ import (
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	_ "github.com/juju/juju/internal/provider/all" // Import the providers.

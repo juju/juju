@@ -484,6 +484,7 @@ type RelationService interface {
 	// if the operation fails.
 	GetRelationUnitChanges(
 		ctx context.Context,
+		relationUUID corerelation.UUID,
 		unitUUIDs []coreunit.UUID,
 		appUUIDs []coreapplication.UUID,
 	) (relation.RelationUnitsChange, error)

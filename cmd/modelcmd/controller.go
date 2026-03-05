@@ -21,8 +21,8 @@ import (
 	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/api/jujuclient"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/juju/interact"
-	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/juju/osenv"
 )
 

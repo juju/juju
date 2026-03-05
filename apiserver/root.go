@@ -32,12 +32,12 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/migration"
-	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/rpc/rpcreflect"
 )
 
 type objectKey struct {

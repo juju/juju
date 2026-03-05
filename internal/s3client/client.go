@@ -22,6 +22,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/logger"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 // HTTPClient represents the http client used to access the object store.
@@ -69,6 +70,45 @@ func (StaticCredentials) Kind() CredentialsKind {
 	return StaticCredentialsKind
 }
 
+// Option represents an option for configuring the S3Client.
+type Option func(*options)
+
+type options struct {
+	maxAttempts       int
+	allowRateLimiting bool
+	logger            logger.Logger
+}
+
+// WithMaxAttempts is the option to set the maximum number of attempts for the
+// S3 client.
+func WithMaxAttempts(maxAttempts int) Option {
+	return func(o *options) {
+		o.maxAttempts = maxAttempts
+	}
+}
+
+// WithRateLimiting is the option to enable rate limiting for the S3 client.
+func WithRateLimiting(allowRateLimiting bool) Option {
+	return func(o *options) {
+		o.allowRateLimiting = allowRateLimiting
+	}
+}
+
+// WithLogger is the option to set the logger for the S3 client.
+func WithLogger(logger logger.Logger) Option {
+	return func(o *options) {
+		o.logger = logger
+	}
+}
+
+func defaultOptions() *options {
+	return &options{
+		maxAttempts:       10,
+		allowRateLimiting: false,
+		logger:            internallogger.GetLogger("s3client"),
+	}
+}
+
 // objectsClient is a Juju shim around the AWS S3 client,
 // which Juju uses to drive it's object store requirents
 type S3Client struct {
@@ -77,14 +117,19 @@ type S3Client struct {
 }
 
 // NewS3Client returns a new s3Caller client for accessing the object store.
-func NewS3Client(endpoint string, httpClient HTTPClient, credentials Credentials, logger logger.Logger) (*S3Client, error) {
+func NewS3Client(endpoint string, httpClient HTTPClient, credentials Credentials, opts ...Option) (*S3Client, error) {
+	o := defaultOptions()
+	for _, opt := range opts {
+		opt(o)
+	}
+
 	credentialsProvider, err := getCredentialsProvider(credentials)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get credentials provider")
 	}
 
 	awsLogger := &awsLogger{
-		logger: logger.Child("aws.s3"),
+		logger: o.logger.Child("aws.s3"),
 	}
 
 	cfg, err := config.LoadDefaultConfig(
@@ -92,13 +137,15 @@ func NewS3Client(endpoint string, httpClient HTTPClient, credentials Credentials
 		config.WithLogger(awsLogger),
 		config.WithHTTPClient(httpClient),
 		config.WithEndpointResolverWithOptions(&awsEndpointResolver{endpoint: endpoint}),
-		// Standard retryer with custom max attempts. Will retry at most
-		// 10 times with 20s backoff time.
 		config.WithRetryer(func() aws.Retryer {
 			return retry.NewStandard(
-				func(o *retry.StandardOptions) {
-					o.MaxAttempts = 10
-					o.RateLimiter = unlimitedRateLimiter{}
+				func(s3Options *retry.StandardOptions) {
+					if o.maxAttempts > 0 {
+						s3Options.MaxAttempts = o.maxAttempts
+					}
+					if !o.allowRateLimiting {
+						s3Options.RateLimiter = unlimitedRateLimiter{}
+					}
 				},
 			)
 		}),
@@ -115,7 +162,7 @@ func NewS3Client(endpoint string, httpClient HTTPClient, credentials Credentials
 		client: s3.NewFromConfig(cfg, func(o *s3.Options) {
 			o.UsePathStyle = true
 		}),
-		logger: logger,
+		logger: o.logger,
 	}, nil
 }
 
@@ -295,8 +342,7 @@ func handleError(err error) error {
 	}
 
 	// Attempt to look up the error code and return a more specific error type.
-	var ae smithy.APIError
-	if errors.As(err, &ae) {
+	if ae, ok := errors.AsType[smithy.APIError](err); ok {
 		errorCode := ae.ErrorCode()
 		if _, ok := notFoundCodes[errorCode]; ok {
 			return errors.NewNotFound(err, ae.ErrorMessage())
@@ -311,10 +357,8 @@ func handleError(err error) error {
 
 	// If the error is a transport error, we can extract the HTTP status code
 	// and use it to determine the error type.
-	var oe *smithy.OperationError
-	if errors.As(err, &oe) {
-		var te *transporthttp.ResponseError
-		if errors.As(oe.Err, &te) {
+	if oe, ok := errors.AsType[*smithy.OperationError](err); ok {
+		if te, ok := errors.AsType[*transporthttp.ResponseError](oe.Err); ok {
 			statusCode := te.HTTPStatusCode()
 			if statusCode == http.StatusForbidden {
 				return errors.NewForbidden(err, fmt.Sprintf("http status %d", statusCode))
@@ -346,11 +390,11 @@ type awsLogger struct {
 func (l *awsLogger) Logf(classification logging.Classification, format string, v ...any) {
 	switch classification {
 	case logging.Warn:
-		l.logger.Warningf(context.Background(), format, v)
+		l.logger.Warningf(context.Background(), format, v...)
 	case logging.Debug:
-		l.logger.Debugf(context.Background(), format, v)
+		l.logger.Debugf(context.Background(), format, v...)
 	default:
-		l.logger.Tracef(context.Background(), format, v)
+		l.logger.Tracef(context.Background(), format, v...)
 	}
 }
 

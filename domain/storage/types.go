@@ -7,7 +7,9 @@ import (
 	"github.com/juju/collections/set"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	coremachine "github.com/juju/juju/core/machine"
 	corestorage "github.com/juju/juju/core/storage"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
@@ -93,20 +95,38 @@ type ImportStoragePoolParams struct {
 // ImportStorageInstanceParams represents data to import a storage instance
 // and its owner.
 type ImportStorageInstanceParams struct {
-	StorageName      string
-	StorageKind      string
-	StorageID        string
-	RequestedSizeMiB uint64
-	PoolName         string
-	UnitName         string
+	StorageName       string
+	StorageKind       string
+	StorageInstanceID string
+	RequestedSizeMiB  uint64
+	PoolName          string
+	UnitName          string
+	AttachedUnitNames []string
 }
 
 // Validate returns NotValid if the params have an empty StorageID or
 // PoolName or RequestedSizeMiB.
 func (i ImportStorageInstanceParams) Validate() error {
-	if i.PoolName == "" || i.RequestedSizeMiB == 0 || i.StorageID == "" {
+	if i.PoolName == "" || i.RequestedSizeMiB == 0 || i.StorageInstanceID == "" {
 		return errors.New("empty PoolName, RequestedSizeMiB, or StorageID not valid").Add(coreerrors.NotValid)
 	}
+
+	if i.UnitName != "" {
+		if err := coreunit.Name(i.UnitName).Validate(); err != nil {
+			return err
+		}
+	}
+
+	for _, attachment := range i.AttachedUnitNames {
+		if err := coreunit.Name(attachment).Validate(); err != nil {
+			return err
+		}
+	}
+
+	if !IsValidStoragePoolNameWithLegacy(i.PoolName) {
+		return errors.Errorf("invalid PoolName %q", i.PoolName).Add(coreerrors.NotValid)
+	}
+
 	return nil
 }
 
@@ -117,6 +137,7 @@ type ImportFilesystemParams struct {
 	ProviderID        string
 	PoolName          string
 	StorageInstanceID string
+	Attachments       []ImportFilesystemAttachmentsParams
 }
 
 // Validate returns NotValid if the params are not valid
@@ -126,14 +147,100 @@ func (p ImportFilesystemParams) Validate() error {
 	}
 
 	if !IsValidStoragePoolNameWithLegacy(p.PoolName) {
-		return errors.Errorf("invalid PoolName %q", p.PoolName).Add(coreerrors.NotValid)
+		return errors.Errorf("storage pool name %q not valid", p.PoolName).Add(coreerrors.NotValid)
 	}
 
 	if p.StorageInstanceID != "" {
 		if err := corestorage.ID(p.StorageInstanceID).Validate(); err != nil {
-			return errors.Errorf("invalid StorageInstanceID %q: %w", p.StorageInstanceID, err).Add(coreerrors.NotValid)
+			return errors.Errorf("storage instance ID %q: %w", p.StorageInstanceID, err).Add(coreerrors.NotValid)
+		}
+	}
+
+	for i, attachment := range p.Attachments {
+		if err := attachment.Validate(); err != nil {
+			return errors.Errorf("invalid attachment %d: %w", i, err).Add(coreerrors.NotValid)
 		}
 	}
 
 	return nil
+}
+
+// ImportFilesystemAttachmentsParams represents data to import filesystem
+// attachments.
+type ImportFilesystemAttachmentsParams struct {
+	HostMachineName string
+	HostUnitName    string
+	MountPoint      string
+	ReadOnly        bool
+}
+
+func (p ImportFilesystemAttachmentsParams) Validate() error {
+	if p.HostMachineName == "" && p.HostUnitName == "" {
+		return errors.New("either HostMachineName or HostUnitName must be provided").Add(coreerrors.NotValid)
+	}
+	if p.HostUnitName != "" && p.HostMachineName != "" {
+		return errors.New("only one of HostMachineName or HostUnitName can be provided").Add(coreerrors.NotValid)
+	}
+
+	if p.HostUnitName != "" {
+		if err := coreunit.Name(p.HostUnitName).Validate(); err != nil {
+			return err
+		}
+	}
+
+	if p.HostMachineName != "" {
+		if err := coremachine.Name(p.HostMachineName).Validate(); err != nil {
+			return err
+		}
+	}
+
+	if p.MountPoint == "" {
+		return errors.New("MountPoint cannot be empty").Add(coreerrors.NotValid)
+	}
+
+	return nil
+}
+
+// ImportVolumeParams represents a volume definition used when importing
+// volumes into the model.
+type ImportVolumeParams struct {
+	ID          string
+	StorageID   string
+	Provisioned bool
+	SizeMiB     uint64
+	Pool        string
+	HardwareID  string
+	WWN         string
+	ProviderID  string
+	Persistent  bool
+}
+
+// Validate returns an NotValid error if the ImportVolumeParams does not
+// contain an ID, StorageID, SizeMiB, nor storage pool.
+func (i ImportVolumeParams) Validate() error {
+	if i.ID == "" {
+		return errors.New("empty volume ID not valid").Add(coreerrors.NotValid)
+	}
+
+	if i.SizeMiB == 0 {
+		return errors.Errorf("empty size for volume %q not valid", i.ID).Add(coreerrors.NotValid)
+	}
+
+	if !IsValidStoragePoolNameWithLegacy(i.Pool) {
+		return errors.Errorf("storage pool name %q not valid", i.Pool).Add(coreerrors.NotValid)
+	}
+
+	if i.StorageID != "" {
+		if err := corestorage.ID(i.StorageID).Validate(); err != nil {
+			return errors.Errorf("storage ID %q: %w", i.StorageID, err).Add(coreerrors.NotValid)
+		}
+	}
+
+	return nil
+}
+
+// StoragePoolNameUUID represents a storage pool name and uuid pair.
+type StoragePoolNameUUID struct {
+	Name string `db:"name"`
+	UUID string `db:"uuid"`
 }

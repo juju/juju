@@ -15,10 +15,10 @@ import (
 	"github.com/juju/names/v6"
 	"gopkg.in/macaroon.v2"
 
+	apimacaroon "github.com/juju/juju/api/macaroon"
 	"github.com/juju/juju/apiserver/bakeryutil"
 	"github.com/juju/juju/core/logger"
 	internalerrors "github.com/juju/juju/internal/errors"
-	internalmacaroon "github.com/juju/juju/internal/macaroon"
 )
 
 // HTTPClient is implemented by HTTP client packages to make an HTTP request.
@@ -46,7 +46,7 @@ func NewJAASOfferBakery(
 	clock clock.Clock,
 	logger logger.Logger,
 ) (*JAASOfferBakery, error) {
-	store := internalmacaroon.NewRootKeyStore(backingStore, internalmacaroon.DefaultPolicy, clock)
+	store := apimacaroon.NewRootKeyStore(backingStore, apimacaroon.DefaultPolicy, clock)
 
 	externalKeyLocator := newExternalPublicKeyLocator(endpoint, httpClient, logger)
 	bakery := &bakeryutil.StorageBakery{
@@ -92,7 +92,7 @@ func (o *JAASOfferBakery) GetRemoteRelationCaveats(offerUUID, sourceModelUUID, u
 
 // InferDeclaredFromMacaroon returns the declared attributes from the macaroon.
 func (o *JAASOfferBakery) InferDeclaredFromMacaroon(mac macaroon.Slice, requiredValues map[string]string) DeclaredValues {
-	declared := checkers.InferDeclared(internalmacaroon.MacaroonNamespace, mac)
+	declared := checkers.InferDeclared(apimacaroon.MacaroonNamespace, mac)
 
 	o.logger.Debugf(context.TODO(), "check macaroons with declared attrs: %v", declared)
 

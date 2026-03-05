@@ -1360,16 +1360,12 @@ func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	s.AssertChangeStreamIdle(c)
+
 	watcher, err := svc.WatchUnitForLegacyUniter(ctx, unitName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
-
-	// Capture the initial event
-	harness.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[struct{}]) {
-		w.AssertChange()
-		w.AssertNoChange()
-	})
 
 	// Assert no change is emitted from just changing the status.
 	// Conveniently, setting this also allows us to resolve in the next test

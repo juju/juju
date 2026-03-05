@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/api/client/secretbackends"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/internal/cmd"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
 )
 

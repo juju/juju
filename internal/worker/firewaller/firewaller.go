@@ -1697,7 +1697,7 @@ func (fw *Firewaller) startConsumerRelationRequirer(
 			return nil, errors.Trace(err)
 		}
 		return data, nil
-	}); err != nil {
+	}); err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return errors.Annotate(err, "error starting consumer relation requirer worker")
 	}
 
@@ -1734,7 +1734,7 @@ func (fw *Firewaller) startConsumerRelationProvider(
 			return nil, errors.Trace(err)
 		}
 		return data, nil
-	}); err != nil {
+	}); err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return errors.Annotate(err, "error starting consumer relation provider worker")
 	}
 
@@ -1794,7 +1794,7 @@ func (fw *Firewaller) startOffererRelation(ctx context.Context, rel domainrelati
 			return nil, errors.Trace(err)
 		}
 		return data, nil
-	}); err != nil {
+	}); err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return errors.Annotate(err, "error starting offerer relation worker")
 	}
 

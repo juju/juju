@@ -79,6 +79,7 @@ func NewAppWorker(config AppWorkerConfig) func(ctx context.Context) (worker.Work
 	if ops == nil {
 		ops = &applicationOps{}
 	}
+
 	return func(ctx context.Context) (worker.Worker, error) {
 		changes := make(chan struct{}, 1)
 		changes <- struct{}{}
@@ -273,8 +274,8 @@ func (a *appWorker) loop() error {
 			}
 			if !statusOnly {
 				a.provisioningInfo, err = a.ops.ProvisioningInfo(ctx, name,
-					a.appUUID, a.facade, a.storageProvisioningService,
-					a.applicationService, a.resourceOpenerGetter,
+					a.appUUID, a.facade, a.applicationService,
+					a.storageProvisioningService, a.resourceOpenerGetter,
 					a.provisioningInfo, a.logger)
 				if errors.Is(err, errors.NotProvisioned) {
 					a.logger.Debugf(ctx, "application %q is not provisioned", name)
@@ -369,7 +370,7 @@ func (a *appWorker) loop() error {
 				break
 			}
 			err := a.ops.EnsureScale(ctx, name, a.appUUID, app, a.life, a.facade,
-				a.applicationService, a.statusService, a.logger)
+				a.applicationService, a.logger)
 			if errors.Is(err, errors.NotFound) {
 				if scaleTries >= maxRetries {
 					return errors.Annotatef(err, "more than %d retries ensuring scale", maxRetries)
@@ -431,7 +432,7 @@ func (a *appWorker) loop() error {
 				break
 			}
 			err := a.ops.ReconcileDeadUnitScale(ctx, name, a.appUUID, app,
-				a.facade, a.applicationService, a.statusService, a.logger)
+				a.facade, a.applicationService, a.logger)
 			if errors.Is(err, errors.NotFound) {
 				reconcileDeadChan = a.clock.After(retryDelay)
 				shouldRefresh = false

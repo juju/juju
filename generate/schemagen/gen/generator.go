@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/generate/schemagen/jsonschema-gen"
-	"github.com/juju/juju/internal/rpcreflect"
+	"github.com/juju/juju/rpc/rpcreflect"
 )
 
 type APIServer interface {

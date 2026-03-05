@@ -76,10 +76,11 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 //     relation already exists.
 //   - [relationerrors.RelationEndpointNotFound] is returned if no endpoint can
 //     be inferred from one of the identifier.
-func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 domainrelation.CandidateEndpointIdentifier, cidrs ...string) (
-	domainrelation.Endpoint,
-	domainrelation.Endpoint,
-	error) {
+func (st *State) AddRelation(
+	ctx context.Context,
+	epIdentifier1, epIdentifier2 domainrelation.CandidateEndpointIdentifier,
+	cidrs ...string,
+) (domainrelation.Endpoint, domainrelation.Endpoint, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return domainrelation.Endpoint{}, domainrelation.Endpoint{}, errors.Capture(err)
@@ -134,7 +135,8 @@ func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 d
 			return errors.Errorf("internal error: expected 2 endpoints in relation, got %d", l)
 		}
 
-		// order results to have the same order between input candidate and output result.
+		// order results to have the same order between input candidate and
+		// output result.
 		for _, e := range endpoints {
 			if e.ApplicationName == ep1.ApplicationName && e.Name == ep1.EndpointName {
 				endpoint1 = e
@@ -207,10 +209,13 @@ func (st *State) addRelation(
 	ep1, ep2 Endpoint,
 	id uint64,
 ) (corerelation.UUID, error) {
-	var (
-		relUUID corerelation.UUID
-		err     error
-	)
+	// TODO (stickupkid): Move this logic to the service layer.
+	relUUID, err := corerelation.NewUUID()
+	if err != nil {
+		return "", errors.Errorf("generating relation UUID: %w", err)
+	}
+	relUUIDStr := relUUID.String()
+
 	// Check the relation doesn't already exist.
 	if err := st.relationAlreadyExists(ctx, tx, ep1, ep2); err != nil {
 		return relUUID, errors.Errorf("relation %s %s: %w", ep1, ep2, err)
@@ -254,22 +259,22 @@ func (st *State) addRelation(
 	}
 
 	// Insert a new relation with a new relation UUID.
-	relUUID, err = st.insertNewRelation(ctx, tx, id, scope)
+	err = st.insertNewRelation(ctx, tx, relUUIDStr, id, scope)
 	if err != nil {
 		return relUUID, errors.Errorf("inserting new relation: %w", err)
 	}
 
 	// Insert relation status.
-	if err := st.insertNewRelationStatus(ctx, tx, relUUID); err != nil {
+	if err := st.insertNewRelationStatus(ctx, tx, relUUIDStr); err != nil {
 		return relUUID, errors.Errorf("inserting new relation %s %s: %w", ep1, ep2, err)
 	}
 
 	// Insert both relation_endpoint from application_endpoint_uuid and relation
 	// uuid.
-	if err := st.insertNewRelationEndpoint(ctx, tx, relUUID, ep1.ApplicationEndpointUUID); err != nil {
+	if err := st.insertNewRelationEndpoint(ctx, tx, relUUIDStr, ep1.ApplicationEndpointUUID); err != nil {
 		return relUUID, errors.Errorf("inserting new relation endpoint for %q: %w", ep1.String(), err)
 	}
-	if err := st.insertNewRelationEndpoint(ctx, tx, relUUID, ep2.ApplicationEndpointUUID); err != nil {
+	if err := st.insertNewRelationEndpoint(ctx, tx, relUUIDStr, ep2.ApplicationEndpointUUID); err != nil {
 		return relUUID, errors.Errorf("inserting new relation endpoint for %q: %w", ep2.String(), err)
 	}
 	return relUUID, nil
@@ -1136,29 +1141,35 @@ func (st *State) GetRelationDetails(ctx context.Context, relationUUID corerelati
 // the relation_unit table is that the unit has departed, and thus, the related
 // row has been deleted.
 func (st *State) GetRelationUnitChanges(
-	ctx context.Context, unitUUIDs []unit.UUID, appUUIDs []application.UUID,
+	ctx context.Context, relUUID string, unitUUIDs []unit.UUID, appUUIDs []application.UUID,
 ) (domainrelation.RelationUnitsChange, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return domainrelation.RelationUnitsChange{}, errors.Capture(err)
 	}
 
-	type uuids []string
-	type change struct {
-		UUID string `db:"uuid"`
-		Name string `db:"name"`
-		Hash string `db:"sha256"`
-	}
+	type (
+		uuids  []string
+		change struct {
+			UUID string `db:"uuid"`
+			Name string `db:"name"`
+			Hash string `db:"sha256"`
+		}
+	)
+
+	rel := relationUUID{UUID: relUUID}
 
 	unitStmt, err := st.Prepare(`
 SELECT 
     ru.unit_uuid AS &change.uuid,
     u.name AS &change.name,
     rush.sha256 AS &change.sha256
-FROM relation_unit AS ru
+FROM relation as r
+JOIN relation_endpoint AS re ON r.uuid = re.relation_uuid
+JOIN relation_unit AS ru ON re.uuid = ru.relation_endpoint_uuid
 JOIN unit AS u ON ru.unit_uuid = u.uuid
-LEFT JOIN  relation_unit_settings_hash AS rush ON ru.uuid = rush.relation_unit_uuid
-WHERE ru.unit_uuid IN ($uuids[:])`, change{}, uuids{})
+LEFT JOIN relation_unit_settings_hash AS rush ON ru.uuid = rush.relation_unit_uuid
+WHERE r.uuid = $relationUUID.uuid AND ru.unit_uuid IN ($uuids[:])`, change{}, rel, uuids{})
 	if err != nil {
 		return domainrelation.RelationUnitsChange{}, errors.Capture(err)
 	}
@@ -1171,8 +1182,9 @@ SELECT
 FROM application_endpoint AS ae
 JOIN application AS a ON ae.application_uuid = a.uuid
 JOIN relation_endpoint AS re ON ae.uuid = re.endpoint_uuid 
+JOIN relation AS r ON re.relation_uuid = r.uuid
 LEFT JOIN relation_application_settings_hash AS rash ON re.uuid = rash.relation_endpoint_uuid
-WHERE ae.application_uuid IN ($uuids[:])`, change{}, uuids{})
+WHERE r.uuid = $relationUUID.uuid AND ae.application_uuid IN ($uuids[:])`, change{}, rel, uuids{})
 	if err != nil {
 		return domainrelation.RelationUnitsChange{}, errors.Capture(err)
 	}
@@ -1190,13 +1202,13 @@ WHERE u.uuid IN ($uuids[:])`, getUnit{}, uuids{})
 	apps := transform.Slice(appUUIDs, application.UUID.String)
 	units := transform.Slice(unitUUIDs, unit.UUID.String)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, unitStmt, uuids(units)).GetAll(&unitChanges)
+		err = tx.Query(ctx, unitStmt, rel, uuids(units)).GetAll(&unitChanges)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("failed to get relation unit changes: %w", err)
+			return errors.Errorf("getting relation unit changes: %w", err)
 		}
-		err = tx.Query(ctx, appStmt, uuids(apps)).GetAll(&appChanges)
+		err = tx.Query(ctx, appStmt, rel, uuids(apps)).GetAll(&appChanges)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("failed to get relation application changes: %w", err)
+			return errors.Errorf("getting relation application changes: %w", err)
 		}
 
 		// Compute departed units, which are requested units not found into the unitChanges
@@ -1208,7 +1220,7 @@ WHERE u.uuid IN ($uuids[:])`, getUnit{}, uuids{})
 
 		err = tx.Query(ctx, departedStmt, uuids(requested.Values())).GetAll(&departedUnits)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("failed to get relation application changes: %w", err)
+			return errors.Errorf("getting relation application changes: %w", err)
 		}
 
 		return nil
@@ -3563,18 +3575,14 @@ func (st *State) inferEndpoints(
 	return *matches[0].ep1, *matches[0].ep2, nil
 }
 
-// insertNewRelation creates a new relation entry in the database and returns its UUID or an error if the operation fails.
+// insertNewRelation creates a new relation entry in the database and returns
+// its UUID or an error if the operation fails.
 func (st *State) insertNewRelation(
-	ctx context.Context, tx *sqlair.TX, id uint64, scope charm.RelationScope,
-) (corerelation.UUID, error) {
-	relUUID, err := corerelation.NewUUID()
-	if err != nil {
-		return relUUID, errors.Errorf("generating new relation UUID: %w", err)
-	}
-
+	ctx context.Context, tx *sqlair.TX, relUUID string, id uint64, scope charm.RelationScope,
+) error {
 	scopeID, err := encodeScope(scope)
 	if err != nil {
-		return relUUID, errors.Errorf("encoding scope: %w", err)
+		return errors.Errorf("encoding scope: %w", err)
 	}
 
 	rel := relation{
@@ -3589,19 +3597,19 @@ INSERT INTO relation (*)
 VALUES ($relation.*)
 `, rel)
 	if err != nil {
-		return relUUID, errors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	if err := tx.Query(ctx, stmtInsert, rel).Run(); err != nil {
-		return relUUID, errors.Capture(err)
+		return errors.Capture(err)
 	}
 
-	return relUUID, nil
+	return nil
 }
 
 // insertNewRelationEndpoint inserts a new relation endpoint into the database
 // using the provided context and transaction.
-func (st *State) insertNewRelationEndpoint(ctx context.Context, tx *sqlair.TX, relUUID corerelation.UUID,
+func (st *State) insertNewRelationEndpoint(ctx context.Context, tx *sqlair.TX, relUUID string,
 	endpointUUID corerelation.EndpointUUID) error {
 	uuid, err := corerelation.NewEndpointUUID()
 	if err != nil {
@@ -3628,10 +3636,9 @@ VALUES ($setRelationEndpoint.*)`, endpoint)
 }
 
 // insertNewRelationStatus inserts a new relation status into the
-// relation_status table in the database.
-// It uses the provided context, transaction, and relation UUID to create a
-// record with a status of 'joining'.
-func (st *State) insertNewRelationStatus(ctx context.Context, tx *sqlair.TX, uuid corerelation.UUID) error {
+// relation_status table in the database. It uses the provided context,
+// transaction, and relation UUID to create a record with a status of 'joining'.
+func (st *State) insertNewRelationStatus(ctx context.Context, tx *sqlair.TX, uuid string) error {
 	status := setRelationStatus{
 		RelationUUID: uuid,
 		Status:       corestatus.Joining,

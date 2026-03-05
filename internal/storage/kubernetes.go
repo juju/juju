@@ -42,9 +42,13 @@ type KubernetesFilesystemAttachmentParams struct {
 	// ContainerName is the identifier of the container where this attachment
 	// should be mounted to.
 	ContainerName string
+
+	// ProvisionedPVCNames is the list of PersistentVolumeClaim names that have been
+	// created for this attachment params.
+	ProvisionedPVCNames []string
 }
 
-// FilesystemAttachmentInfo describes a filesystem attachment.
+// KubernetesFilesystemInfo describes a filesystem attachment.
 type KubernetesFilesystemInfo struct {
 	// MountPoint is the path the filesystem is mounted at.
 	MountPoint string

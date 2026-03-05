@@ -18,7 +18,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4/exec"
 
-	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/internal/debug/coveruploader"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"

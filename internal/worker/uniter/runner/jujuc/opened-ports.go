@@ -12,8 +12,8 @@ import (
 	"github.com/juju/gnuflag"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/internal/cmd"
 )
 
 // OpenedPortsCommand implements the opened-ports command.

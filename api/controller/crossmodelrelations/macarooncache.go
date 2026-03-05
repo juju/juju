@@ -12,7 +12,7 @@ import (
 	"github.com/juju/clock"
 	"gopkg.in/macaroon.v2"
 
-	internalmacaroon "github.com/juju/juju/internal/macaroon"
+	apimacaroon "github.com/juju/juju/api/macaroon"
 )
 
 // MacaroonCache contains macaroons which are removed at a specified interval.
@@ -76,7 +76,7 @@ func (c *cacheInternal) Upsert(token string, ms macaroon.Slice) {
 	defer c.Unlock()
 
 	var et *time.Time
-	if expiryTime, ok := checkers.MacaroonsExpiryTime(internalmacaroon.MacaroonNamespace, ms); ok {
+	if expiryTime, ok := checkers.MacaroonsExpiryTime(apimacaroon.MacaroonNamespace, ms); ok {
 		et = &expiryTime
 	}
 	c.macaroons[token] = &macaroonEntry{

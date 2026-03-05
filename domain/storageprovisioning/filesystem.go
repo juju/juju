@@ -149,7 +149,8 @@ type FilesystemAttachmentParams struct {
 // of the supplied application are created and mounted correctly.
 type FilesystemTemplate struct {
 	// Attachments describes the attachment templates for this filesystem.
-	Attachments []FilesystemAttachmentTemplate
+	// It also includes the realized attachments if they exist.
+	Attachments []FilesystemAttachmentTemplateWithProvisioned
 
 	// Attributes are a set of key value pairs that are supplied to the provider
 	// or provisioner to facilitate this filesystem(s).
@@ -205,4 +206,22 @@ type FilesystemAttachmentProvisionedInfo struct {
 
 	// ReadOnly is true if the filesystem is mounted read-only.
 	ReadOnly bool
+}
+
+// ProvisionedFilesystemAttachment represents the details of a filesystem attachment
+// that has been realized in the model.
+type ProvisionedFilesystemAttachment struct {
+	// AttachmentUUID is the unique identifier for the filesystem attachment.
+	AttachmentUUID string
+	// StorageName is the name of the storage as defined in the charm for this attachment.
+	StorageName string
+	// ProviderID is the identifier of the attachment from the storage provider.
+	ProviderID string
+}
+
+// FilesystemAttachmentTemplateWithProvisioned combines a FilesystemAttachmentTemplate
+// with its provisioned attachments.
+type FilesystemAttachmentTemplateWithProvisioned struct {
+	FilesystemAttachmentTemplate
+	ProvisionedAttachments []ProvisionedFilesystemAttachment
 }

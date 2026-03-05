@@ -13,8 +13,8 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/internal/cmd"
 )
 
 type ctrData struct {

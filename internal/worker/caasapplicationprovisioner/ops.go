@@ -70,8 +70,8 @@ type ApplicationOps interface {
 	ProvisioningInfo(
 		ctx context.Context, appName string, appUUID coreapplication.UUID,
 		facade CAASProvisionerFacade,
-		storageProvisioningService StorageProvisioningService,
 		applicationService ApplicationService,
+		storageProvisioningService StorageProvisioningService,
 		resourceOpenerGetter ResourceOpenerGetter,
 		lastProvisioningInfo *ProvisioningInfo,
 		logger logger.Logger) (*ProvisioningInfo, error)
@@ -108,13 +108,11 @@ type ApplicationOps interface {
 
 	ReconcileDeadUnitScale(ctx context.Context, appName string, appUUID coreapplication.UUID,
 		app caas.Application, facade CAASProvisionerFacade,
-		applicationService ApplicationService, statusService StatusService,
-		logger logger.Logger) error
+		applicationService ApplicationService, logger logger.Logger) error
 
 	EnsureScale(ctx context.Context, appName string, appUUID coreapplication.UUID,
 		app caas.Application, appLife life.Value, facade CAASProvisionerFacade,
-		applicationService ApplicationService, statusService StatusService,
-		logger logger.Logger) error
+		applicationService ApplicationService, logger logger.Logger) error
 }
 
 type applicationOps struct{}
@@ -124,12 +122,13 @@ var _ ApplicationOps = &applicationOps{}
 func (applicationOps) ProvisioningInfo(
 	ctx context.Context, appName string, appUUID coreapplication.UUID,
 	facade CAASProvisionerFacade,
-	storageProvisioningService StorageProvisioningService,
 	applicationService ApplicationService,
+	storageProvisioningService StorageProvisioningService,
 	resourceOpenerGetter ResourceOpenerGetter,
 	lastProvisioningInfo *ProvisioningInfo,
 	logger logger.Logger) (*ProvisioningInfo, error) {
-	return provisioningInfo(ctx, appName, appUUID, facade, storageProvisioningService, applicationService, resourceOpenerGetter, lastProvisioningInfo, logger)
+	return provisioningInfo(ctx, appName, appUUID, facade, applicationService,
+		storageProvisioningService, resourceOpenerGetter, lastProvisioningInfo, logger)
 }
 
 func (applicationOps) AppAlive(
@@ -140,8 +139,7 @@ func (applicationOps) AppAlive(
 	clk clock.Clock, logger logger.Logger,
 ) error {
 	return appAlive(ctx, appName, appUUID, app, password,
-		lastApplied, provisioningInfo, statusService,
-		clk, logger)
+		lastApplied, provisioningInfo, statusService, clk, logger)
 }
 
 func (applicationOps) AppDying(
@@ -151,7 +149,7 @@ func (applicationOps) AppDying(
 	applicationService ApplicationService, statusService StatusService,
 	logger logger.Logger,
 ) error {
-	return appDying(ctx, appName, appUUID, app, appLife, facade, applicationService, statusService, logger)
+	return appDying(ctx, appName, appUUID, app, appLife, facade, applicationService, logger)
 }
 
 func (applicationOps) AppDead(ctx context.Context,
@@ -177,7 +175,7 @@ func (applicationOps) UpdateState(
 	broker CAASBroker, applicationService ApplicationService, statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
 ) (UpdateStatusState, error) {
-	return updateState(ctx, appName, appUUID, app, lastReportedStatus, broker, applicationService, statusService, clk, logger)
+	return updateState(ctx, appName, appUUID, app, lastReportedStatus, broker, applicationService, statusService, clk)
 }
 
 func (applicationOps) RefreshApplicationStatus(
@@ -200,20 +198,20 @@ func (applicationOps) ReconcileDeadUnitScale(
 	ctx context.Context,
 	appName string, appUUID coreapplication.UUID, app caas.Application,
 	facade CAASProvisionerFacade,
-	applicationService ApplicationService, statusService StatusService,
+	applicationService ApplicationService,
 	logger logger.Logger,
 ) error {
-	return reconcileDeadUnitScale(ctx, appName, appUUID, app, facade, applicationService, statusService, logger)
+	return reconcileDeadUnitScale(ctx, appName, appUUID, app, facade, applicationService, logger)
 }
 
 func (applicationOps) EnsureScale(
 	ctx context.Context,
 	appName string, appUUID coreapplication.UUID, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade,
-	applicationService ApplicationService, statusService StatusService,
+	applicationService ApplicationService,
 	logger logger.Logger,
 ) error {
-	return ensureScale(ctx, appName, appUUID, app, appLife, facade, applicationService, statusService, logger)
+	return ensureScale(ctx, appName, appUUID, app, appLife, facade, applicationService, logger)
 }
 
 type Tomb interface {
@@ -277,43 +275,12 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 	}
 
 	storageUniqueID := getStorageUniqueID(appUUID)
-
-	makeKubernetesFilesystemParams := func(
-		fst storageprovisioning.FilesystemTemplate,
-		attachments []storageprovisioning.FilesystemAttachmentTemplate,
-		forWorkload bool,
-	) internalstorage.KubernetesFilesystemParams {
-		k8sFileSystemParamAttachments := make(
-			[]internalstorage.KubernetesFilesystemAttachmentParams,
-			len(attachments),
-		)
-
-		for i, attachment := range attachments {
-			k8sFileSystemParamAttachments[i] = internalstorage.KubernetesFilesystemAttachmentParams{
-				ReadOnly:      attachment.ReadOnly,
-				Path:          attachment.MountPoint,
-				ContainerName: attachment.ContainerKey,
-			}
-		}
-
-		return internalstorage.KubernetesFilesystemParams{
-			StorageName: fst.StorageName,
-			Size:        fst.SizeMiB,
-			Provider:    internalstorage.ProviderType(fst.ProviderType),
-			Attributes: transform.Map(fst.Attributes, func(k, v string) (string, any) {
-				return k, v
-			}),
-			Attachments:  k8sFileSystemParamAttachments,
-			ResourceTags: pi.StorageResourceTags,
-		}
-	}
-
 	filesystems := []internalstorage.KubernetesFilesystemParams{}
 	for _, fst := range pi.FilesystemTemplates {
 		filesystems = append(filesystems, makeKubernetesFilesystemParams(
 			fst,
 			fst.Attachments,
-			false,
+			pi.StorageResourceTags,
 		))
 	}
 
@@ -367,21 +334,56 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 	return nil
 }
 
+func makeKubernetesFilesystemParams(
+	fst storageprovisioning.FilesystemTemplate,
+	attachments []storageprovisioning.FilesystemAttachmentTemplateWithProvisioned,
+	storageResourceTags map[string]string,
+) internalstorage.KubernetesFilesystemParams {
+	k8sFileSystemParamAttachments := make(
+		[]internalstorage.KubernetesFilesystemAttachmentParams,
+		len(attachments),
+	)
+
+	for i, attachment := range attachments {
+		pvcNames := make([]string, len(attachment.ProvisionedAttachments))
+		for j, provisionedAttachment := range attachment.ProvisionedAttachments {
+			pvcNames[j] = provisionedAttachment.ProviderID
+		}
+		k8sFileSystemParamAttachments[i] = internalstorage.KubernetesFilesystemAttachmentParams{
+			ReadOnly:            attachment.ReadOnly,
+			Path:                attachment.MountPoint,
+			ContainerName:       attachment.ContainerKey,
+			ProvisionedPVCNames: pvcNames,
+		}
+	}
+
+	return internalstorage.KubernetesFilesystemParams{
+		StorageName: fst.StorageName,
+		Size:        fst.SizeMiB,
+		Provider:    internalstorage.ProviderType(fst.ProviderType),
+		Attributes: transform.Map(fst.Attributes, func(k, v string) (string, any) {
+			return k, v
+		}),
+		Attachments:  k8sFileSystemParamAttachments,
+		ResourceTags: storageResourceTags,
+	}
+}
+
 // appDying handles the life.Dying state for the CAAS application. It deals with scaling down
 // the application and removing units.
 func appDying(
 	ctx context.Context,
 	appName string, appUUID coreapplication.UUID, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade,
-	applicationService ApplicationService, statusService StatusService,
+	applicationService ApplicationService,
 	logger logger.Logger,
 ) (err error) {
 	logger.Debugf(ctx, "application %q dying", appName)
-	err = ensureScale(ctx, appName, appUUID, app, appLife, facade, applicationService, statusService, logger)
+	err = ensureScale(ctx, appName, appUUID, app, appLife, facade, applicationService, logger)
 	if err != nil {
 		return errors.Annotate(err, "cannot scale dying application to 0")
 	}
-	err = reconcileDeadUnitScale(ctx, appName, appUUID, app, facade, applicationService, statusService, logger)
+	err = reconcileDeadUnitScale(ctx, appName, appUUID, app, facade, applicationService, logger)
 	if err != nil {
 		return errors.Annotate(err, "cannot reconcile dead units in dying application")
 	}
@@ -405,7 +407,8 @@ func appDead(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = updateState(ctx, appName, appUUID, app, nil, broker, applicationService, statusService, clk, logger)
+	_, err = updateState(ctx, appName, appUUID, app, nil, broker,
+		applicationService, statusService, clk)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -449,7 +452,7 @@ func updateState(
 	appName string, appUUID coreapplication.UUID, app caas.Application,
 	lastReportedStatus UpdateStatusState,
 	broker CAASBroker, applicationService ApplicationService, statusService StatusService,
-	clk clock.Clock, logger logger.Logger,
+	clk clock.Clock,
 ) (UpdateStatusState, error) {
 	svc, err := app.Service()
 	if err != nil && !errors.Is(err, errors.NotFound) {
@@ -614,7 +617,6 @@ func reconcileDeadUnitScale(
 	appName string, appUUID coreapplication.UUID, app caas.Application,
 	facade CAASProvisionerFacade,
 	applicationService ApplicationService,
-	statusService StatusService,
 	logger logger.Logger,
 ) error {
 	unitNamesAndLives, err := applicationService.GetAllUnitLifeForApplication(ctx, appUUID)
@@ -653,9 +655,8 @@ func reconcileDeadUnitScale(
 
 	storageUniqueID := getStorageUniqueID(appUUID)
 	err = ensureScaleWithFsAttachments(
-		ctx, appName, app, desiredScale,
-		facade, logger, storageUniqueID,
-	)
+		ctx, appName, appUUID, app, desiredScale,
+		facade, logger, storageUniqueID)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return fmt.Errorf(
 			"scaling application %q to scale %d: %w",
@@ -690,7 +691,7 @@ func ensureScale(
 	ctx context.Context,
 	appName string, appUUID coreapplication.UUID, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade,
-	applicationService ApplicationService, statusService StatusService,
+	applicationService ApplicationService,
 	logger logger.Logger,
 ) error {
 	var err error
@@ -740,6 +741,7 @@ func ensureScale(
 		err := ensureScaleWithFsAttachments(
 			ctx,
 			appName,
+			appUUID,
 			app,
 			ps.ScaleTarget,
 			facade,
@@ -831,7 +833,7 @@ func updateProvisioningState(
 
 // ensureScaleWithFsAttachments scales an application while ensuring required PVCs are created.
 func ensureScaleWithFsAttachments(
-	ctx context.Context, appName string,
+	ctx context.Context, appName string, appUUID coreapplication.UUID,
 	app caas.Application, scaleTarget int,
 	facade CAASProvisionerFacade, logger logger.Logger, storageUniqueID string,
 ) error {
@@ -859,8 +861,8 @@ func provisioningInfo(
 	ctx context.Context,
 	appName string, appUUID coreapplication.UUID,
 	facade CAASProvisionerFacade,
-	storageProvisioningService StorageProvisioningService,
 	applicationService ApplicationService,
+	storageProvisioningService StorageProvisioningService,
 	resourceOpenerGetter ResourceOpenerGetter,
 	lastProvisioningInfo *ProvisioningInfo,
 	logger logger.Logger,

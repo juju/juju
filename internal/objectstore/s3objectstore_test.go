@@ -618,6 +618,7 @@ func (s *s3ObjectStoreSuite) TestRemoveFileNotFound(c *tc.C) {
 	}, nil)
 
 	s.service.EXPECT().RemoveMetadata(gomock.Any(), "foo").Return(nil)
+	s.service.EXPECT().GetMetadataBySHA256(gomock.Any(), hexSHA256).Return(objectstore.Metadata{}, domainobjectstoreerrors.ErrNotFound)
 	s.session.EXPECT().DeleteObject(gomock.Any(), defaultBucketName, filePath(hexSHA384)).Return(errors.NotFoundf("foo"))
 
 	store := s.newS3ObjectStore(c)
@@ -651,7 +652,45 @@ func (s *s3ObjectStoreSuite) TestRemove(c *tc.C) {
 	}, nil)
 
 	s.service.EXPECT().RemoveMetadata(gomock.Any(), "foo").Return(nil)
+	s.service.EXPECT().GetMetadataBySHA256(gomock.Any(), hexSHA256).Return(objectstore.Metadata{}, domainobjectstoreerrors.ErrNotFound)
 	s.session.EXPECT().DeleteObject(gomock.Any(), defaultBucketName, filePath(hexSHA384)).Return(nil)
+
+	store := s.newS3ObjectStore(c)
+	defer workertest.DirtyKill(c, store)
+
+	// Ensure we've started up before we start the test.
+	s.expectStartup(c)
+
+	err := store.Remove(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+
+	workertest.CleanKill(c, store)
+}
+
+func (s *s3ObjectStoreSuite) TestRemoveDoesNotDeleteSharedHash(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	content := "some content"
+	hexSHA384 := s.calculateHexSHA384(c, content)
+	hexSHA256 := s.calculateHexSHA256(c, content)
+
+	s.expectClaim(hexSHA384, 1)
+	s.expectRelease(hexSHA384, 1)
+
+	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
+	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
+		SHA384: hexSHA384,
+		SHA256: hexSHA256,
+		Path:   "foo",
+		Size:   12,
+	}, nil)
+	s.service.EXPECT().RemoveMetadata(gomock.Any(), "foo").Return(nil)
+	s.service.EXPECT().GetMetadataBySHA256(gomock.Any(), hexSHA256).Return(objectstore.Metadata{
+		SHA384: hexSHA384,
+		SHA256: hexSHA256,
+		Path:   "bar",
+		Size:   12,
+	}, nil)
 
 	store := s.newS3ObjectStore(c)
 	defer workertest.DirtyKill(c, store)

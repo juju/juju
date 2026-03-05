@@ -25,9 +25,9 @@ func SendError(w http.ResponseWriter, errToSend error, logger logger.Logger) err
 	}))
 }
 
-// SendStatusAndJSON sends an HTTP status code and
-// a JSON-encoded response to a client.
-func SendStatusAndJSON(w http.ResponseWriter, statusCode int, response interface{}) error {
+// SendStatusAndJSON sends an HTTP status code and a JSON-encoded response to a
+// client.
+func SendStatusAndJSON(w http.ResponseWriter, statusCode int, response any) error {
 	body, err := json.Marshal(response)
 	if err != nil {
 		return errors.Errorf("cannot marshal JSON result %#v: %v", response, err)

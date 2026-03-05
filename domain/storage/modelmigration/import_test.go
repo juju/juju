@@ -317,12 +317,13 @@ func (s *importSuite) TestImportStorageInstances(c *tc.C) {
 	// Arrange
 	expected := []domainstorage.ImportStorageInstanceParams{
 		{
-			PoolName:         "testpool",
-			RequestedSizeMiB: uint64(1024),
-			StorageID:        "multi-fs/1",
-			StorageKind:      "block",
-			StorageName:      "multi-fs",
-			UnitName:         "unit/3",
+			PoolName:          "testpool",
+			RequestedSizeMiB:  uint64(1024),
+			StorageInstanceID: "multi-fs/1",
+			StorageKind:       "block",
+			StorageName:       "multi-fs",
+			UnitName:          "unit/3",
+			AttachedUnitNames: []string{"foo/0", "bar/1"},
 		},
 	}
 	s.noopStoragePoolImport()
@@ -335,7 +336,7 @@ func (s *importSuite) TestImportStorageInstances(c *tc.C) {
 		Kind:        "block",
 		UnitOwner:   "unit/3",
 		Name:        "multi-fs",
-		Attachments: nil,
+		Attachments: []string{"foo/0", "bar/1"},
 		Constraints: &description.StorageInstanceConstraints{
 			Pool: "testpool",
 			Size: 1024,
@@ -384,14 +385,14 @@ func (s *importSuite) TestImportFilesystems(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{
 		Type: coremodel.IAAS.String(),
 	})
-	model.AddFilesystem(description.FilesystemArgs{
+	fs1 := model.AddFilesystem(description.FilesystemArgs{
 		ID:           "fs-1",
 		Size:         2048,
 		Storage:      "multi-fs/1",
 		Pool:         "testpool",
 		FilesystemID: "provider-fs-1",
 	})
-	model.AddFilesystem(description.FilesystemArgs{
+	fs2 := model.AddFilesystem(description.FilesystemArgs{
 		ID:           "fs-2",
 		Size:         4096,
 		Storage:      "multi-fs/2",
@@ -399,20 +400,99 @@ func (s *importSuite) TestImportFilesystems(c *tc.C) {
 		FilesystemID: "provider-fs-2",
 	})
 
+	fs1.AddAttachment(description.FilesystemAttachmentArgs{
+		HostMachine: "1",
+		ReadOnly:    false,
+		MountPoint:  "/data",
+	})
+	fs2.AddAttachment(description.FilesystemAttachmentArgs{
+		HostUnit:   "unit/1",
+		ReadOnly:   true,
+		MountPoint: "/opt",
+	})
+
 	s.noopStoragePoolImport()
-	s.service.EXPECT().ImportFilesystems(gomock.Any(), tc.Bind(tc.SameContents, []domainstorage.ImportFilesystemParams{{
+	s.service.EXPECT().ImportFilesystemsIAAS(gomock.Any(), tc.Bind(tc.SameContents, []domainstorage.ImportFilesystemParams{{
 		ID:                "fs-1",
 		SizeInMiB:         2048,
 		StorageInstanceID: "multi-fs/1",
 		PoolName:          "testpool",
 		ProviderID:        "provider-fs-1",
+		Attachments: []domainstorage.ImportFilesystemAttachmentsParams{{
+			HostMachineName: "1",
+			ReadOnly:        false,
+			MountPoint:      "/data",
+		}},
 	}, {
 		ID:                "fs-2",
 		SizeInMiB:         4096,
 		StorageInstanceID: "multi-fs/2",
 		PoolName:          "testpool",
 		ProviderID:        "provider-fs-2",
+		Attachments: []domainstorage.ImportFilesystemAttachmentsParams{{
+			HostUnitName: "unit/1",
+			ReadOnly:     true,
+			MountPoint:   "/opt",
+		}},
 	}})).Return(nil)
+
+	// Act
+	op := s.newImportOperation()
+	err := op.Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportVolumes(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
+	model.AddVolume(description.VolumeArgs{
+		ID:          "0",
+		Storage:     "multi-fs/0",
+		Provisioned: true,
+		Persistent:  true,
+		Pool:        "ebs",
+		Size:        1024,
+		VolumeID:    "vol-0f2829d7e5c4c0140",
+		WWN:         "uuid.c2f9e696-7b12-5368-b274-0510bf1feade",
+	})
+
+	expected := []domainstorage.ImportVolumeParams{
+		{
+			ID:          "0",
+			StorageID:   "multi-fs/0",
+			Provisioned: true,
+			Persistent:  true,
+			Pool:        "ebs",
+			SizeMiB:     1024,
+			ProviderID:  "vol-0f2829d7e5c4c0140",
+			WWN:         "uuid.c2f9e696-7b12-5368-b274-0510bf1feade",
+		},
+	}
+	s.service.EXPECT().ImportVolumes(gomock.Any(), expected).Return(nil)
+	s.noopStoragePoolImport()
+
+	// Act
+	op := s.newImportOperation()
+	err := op.Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportVolumesZeroLength(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
+	s.noopStoragePoolImport()
 
 	// Act
 	op := s.newImportOperation()

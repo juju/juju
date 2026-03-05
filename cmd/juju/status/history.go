@@ -22,11 +22,11 @@ import (
 	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/highavailability"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/juju/osenv"
 )
 

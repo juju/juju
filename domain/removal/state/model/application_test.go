@@ -536,10 +536,20 @@ func (s *applicationSuite) TestDeleteIAASApplicationWithForce(c *tc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	// This should fail because the application has units.
+	// This should fail because the application still has units, even when
+	// forcing. Units are removed by their own removal jobs, so the
+	// application must wait for them to complete.
 	err := st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
 	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationHasUnits)
+
+	err = st.DeleteApplication(c.Context(), appUUID.String(), true)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationHasUnits)
+
+	// Delete the unit first.
+	err = st.DeleteUnit(c.Context(), unitUUIDs[0].String(), true)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Now we can delete the application.
 	err = st.DeleteApplication(c.Context(), appUUID.String(), true)
@@ -569,10 +579,20 @@ func (s *applicationSuite) TestDeleteIAASApplicationWithUnitsWithForce(c *tc.C) 
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	// This should fail because the application has units.
+	// This should fail because the application still has units, even when
+	// forcing. Units are removed by their own removal jobs, so the
+	// application must wait for them to complete.
 	err := st.DeleteApplication(c.Context(), appUUID.String(), false)
 	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
 	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationHasUnits)
+
+	err = st.DeleteApplication(c.Context(), appUUID.String(), true)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+	c.Check(err, tc.ErrorIs, applicationerrors.ApplicationHasUnits)
+
+	// Delete the unit first.
+	err = st.DeleteUnit(c.Context(), unitUUIDs[0].String(), true)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Now we can delete the application.
 	err = st.DeleteApplication(c.Context(), appUUID.String(), true)
@@ -1140,6 +1160,66 @@ func (s *applicationSuite) getCharmUUIDForApplication(c *tc.C, appUUID string) s
 	err := row.Scan(&charmUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	return charmUUID
+}
+
+// TestDeleteApplicationDefersUntilUnitsAndRelationsGone verifies that
+// DeleteApplication returns RemovalJobIncomplete whenever units or relations
+// still exist, regardless of the force flag. Units and relations must be
+// cleaned up by their own removal jobs first; the application removal job
+// will retry until they are gone.
+func (s *applicationSuite) TestDeleteApplicationDefersUntilUnitsAndRelationsGone(c *tc.C) {
+	appSvc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, appSvc, "app1",
+		applicationservice.AddIAASUnitArg{},
+	)
+	s.createIAASApplication(c, appSvc, "app2")
+
+	relSvc := s.setupRelationService(c)
+	ep1, ep2, err := relSvc.AddRelation(c.Context(), "app1:foo", "app2:bar")
+	c.Assert(err, tc.ErrorIsNil)
+
+	relUUID, err := relSvc.GetRelationUUIDForRemoval(c.Context(), relation.GetRelationUUIDForRemovalArgs{
+		Endpoints: []string{ep1.String(), ep2.String()},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(unitUUIDs, tc.HasLen, 1)
+
+	s.advanceUnitLife(c, unitUUIDs[0], life.Dead)
+	s.advanceApplicationLife(c, appUUID, life.Dead)
+	s.advanceRelationLife(c, relUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Both force and non-force must defer while the relation still exists.
+	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+
+	err = st.DeleteApplication(c.Context(), appUUID.String(), true)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+
+	// Simulate the relation removal job completing.
+	err = st.DeleteRelationUnits(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.DeleteRelation(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Still defers while the unit exists.
+	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+
+	// Simulate the unit removal job completing.
+	err = st.DeleteUnit(c.Context(), unitUUIDs[0].String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Now the application can be deleted.
+	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exists, err := st.ApplicationExists(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
 }
 
 func removeDuplicates[T comparable](uuids []T) []T {

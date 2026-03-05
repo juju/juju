@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicharms "github.com/juju/juju/api/common/charms"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	coreapplication "github.com/juju/juju/core/application"
 	corebase "github.com/juju/juju/core/base"
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain/deployment/charm"
-	"github.com/juju/juju/internal/cmd"
 	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 )

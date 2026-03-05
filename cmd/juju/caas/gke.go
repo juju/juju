@@ -13,8 +13,8 @@ import (
 
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/juju/interact"
-	"github.com/juju/juju/internal/cmd"
 )
 
 type gke struct {

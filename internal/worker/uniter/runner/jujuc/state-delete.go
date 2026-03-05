@@ -5,7 +5,7 @@ package jujuc
 
 import (
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/cmd/cmd"
 )
 
 // StateDeleteCommand implements the state-delete command.

@@ -4,13 +4,13 @@
 package objectstore
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -101,7 +101,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataFoundNoFile(c *tc.C) {
 	}, nil).Times(2)
 
 	s.remote.EXPECT().Retrieve(gomock.Any(), "blah").
-		Return(nil, -1, jujuerrors.NotFoundf("not found"))
+		Return(nil, -1, remote.BlobNotFound)
 
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
@@ -154,7 +154,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixFoundNoFile(c *tc.C)
 	}, nil).Times(2)
 
 	s.remote.EXPECT().Retrieve(gomock.Any(), "0263829989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f").
-		Return(nil, -1, jujuerrors.NotFoundf("not found"))
+		Return(nil, -1, remote.BlobNotFound)
 
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
@@ -205,8 +205,8 @@ func (s *fileObjectStoreSuite) TestGetMetadataFoundNoFileRemoteFallback(c *tc.C)
 
 	ch := s.expectWatch()
 
-	content := bytes.NewBufferString("some content")
-	size := int64(content.Len())
+	reader := newCloseTrackingReader("some content")
+	size := int64(len("some content"))
 
 	hash384 := "66b3707eaed3f7f4c6f084e4ba7aaa95f0412c3d9fd91475fc454b93ed8b7cd9d33cc1821e517b52d338f8d8d6908cb9"
 	hash256 := "290f493c44f5d63d06b374d0a5abd292fae38b92cab2fae5efefe1b0e9347f56"
@@ -219,7 +219,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataFoundNoFileRemoteFallback(c *tc.C)
 	}, nil).Times(2)
 
 	s.remote.EXPECT().Retrieve(gomock.Any(), hash256).
-		Return(io.NopCloser(content), size, nil)
+		Return(reader, size, nil)
 
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
@@ -234,10 +234,50 @@ func (s *fileObjectStoreSuite) TestGetMetadataFoundNoFileRemoteFallback(c *tc.C)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(size, tc.Equals, fileSize)
 	c.Check(s.readFile(c, file), tc.Equals, "some content")
+	s.expectRemoteReaderClosed(c, reader)
 
 	// The file has been claimed and released.
 	s.expectFileDoesExist(c, path, hash384)
 
+	workertest.CleanKill(c, store)
+}
+
+func (s *fileObjectStoreSuite) TestGetMetadataNotFoundRemoteFallbackClosesReader(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	path := c.MkDir()
+	ch := s.expectWatch()
+
+	reader := newCloseTrackingReader("some content")
+	size := int64(len("some content"))
+
+	hash384 := "66b3707eaed3f7f4c6f084e4ba7aaa95f0412c3d9fd91475fc454b93ed8b7cd9d33cc1821e517b52d338f8d8d6908cb9"
+	hash256 := "290f493c44f5d63d06b374d0a5abd292fae38b92cab2fae5efefe1b0e9347f56"
+
+	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   "foo",
+		Size:   12,
+	}, domainobjectstoreerrors.ErrNotFound).Times(2)
+
+	s.remote.EXPECT().Retrieve(gomock.Any(), hash256).
+		Return(reader, size, nil)
+
+	store := s.newFileObjectStore(c, path)
+	defer workertest.DirtyKill(c, store)
+
+	s.expectStartup(c, ch)
+	s.expectClaim(hash384, 1)
+	s.expectRelease(hash384, 1)
+
+	file, fileSize, err := store.Get(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(size, tc.Equals, fileSize)
+	c.Check(s.readFile(c, file), tc.Equals, "some content")
+	s.expectRemoteReaderClosed(c, reader)
+
+	s.expectFileDoesExist(c, path, hash384)
 	workertest.CleanKill(c, store)
 }
 
@@ -311,8 +351,8 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixFoundNoFileRemoteFal
 
 	ch := s.expectWatch()
 
-	content := bytes.NewBufferString("some content")
-	size := int64(content.Len())
+	reader := newCloseTrackingReader("some content")
+	size := int64(len("some content"))
 
 	hash384 := "66b3707eaed3f7f4c6f084e4ba7aaa95f0412c3d9fd91475fc454b93ed8b7cd9d33cc1821e517b52d338f8d8d6908cb9"
 	hash256 := "290f493c44f5d63d06b374d0a5abd292fae38b92cab2fae5efefe1b0e9347f56"
@@ -326,7 +366,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixFoundNoFileRemoteFal
 	}, nil).Times(2)
 
 	s.remote.EXPECT().Retrieve(gomock.Any(), hash256).
-		Return(io.NopCloser(content), size, nil)
+		Return(reader, size, nil)
 
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
@@ -341,6 +381,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixFoundNoFileRemoteFal
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(size, tc.Equals, fileSize)
 	c.Check(s.readFile(c, file), tc.Equals, "some content")
+	s.expectRemoteReaderClosed(c, reader)
 
 	// The file has been claimed and released.
 	s.expectFileDoesExist(c, path, hash384)
@@ -922,6 +963,7 @@ func (s *fileObjectStoreSuite) TestRemoveFileNotFound(c *tc.C) {
 	}, nil)
 
 	s.service.EXPECT().RemoveMetadata(gomock.Any(), "foo").Return(nil)
+	s.service.EXPECT().GetMetadataBySHA256(gomock.Any(), "blah").Return(objectstore.Metadata{}, domainobjectstoreerrors.ErrNotFound)
 
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
@@ -962,6 +1004,7 @@ func (s *fileObjectStoreSuite) TestRemove(c *tc.C) {
 	}, nil)
 
 	s.service.EXPECT().RemoveMetadata(gomock.Any(), "foo").Return(nil)
+	s.service.EXPECT().GetMetadataBySHA256(gomock.Any(), hash256).Return(objectstore.Metadata{}, domainobjectstoreerrors.ErrNotFound)
 
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
@@ -977,6 +1020,47 @@ func (s *fileObjectStoreSuite) TestRemove(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectFileDoesNotExist(c, path, hash384)
+
+	workertest.CleanKill(c, store)
+}
+
+func (s *fileObjectStoreSuite) TestRemoveDoesNotDeleteSharedHash(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ch := s.expectWatch()
+
+	path := c.MkDir()
+
+	size, hash384, hash256 := s.createFile(c, s.filePath(path, "inferi"), "foo", "some content")
+
+	s.expectClaim(hash384, 1)
+	s.expectRelease(hash384, 1)
+
+	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   "foo",
+		Size:   size,
+	}, nil)
+
+	s.service.EXPECT().RemoveMetadata(gomock.Any(), "foo").Return(nil)
+	s.service.EXPECT().GetMetadataBySHA256(gomock.Any(), hash256).Return(objectstore.Metadata{
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   "bar",
+		Size:   size,
+	}, nil)
+
+	store := s.newFileObjectStore(c, path)
+	defer workertest.DirtyKill(c, store)
+
+	s.expectStartup(c, ch)
+
+	err := store.Remove(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The same hash is still referenced by another path, so the file must remain.
+	s.expectFileDoesExist(c, path, hash384)
 
 	workertest.CleanKill(c, store)
 }
@@ -1069,6 +1153,38 @@ func (s *fileObjectStoreSuite) setupMocks(c *tc.C) *gomock.Controller {
 	})
 
 	return ctrl
+}
+
+type closeTrackingReader struct {
+	reader io.Reader
+	closed chan struct{}
+	once   sync.Once
+}
+
+func newCloseTrackingReader(content string) *closeTrackingReader {
+	return &closeTrackingReader{
+		reader: strings.NewReader(content),
+		closed: make(chan struct{}),
+	}
+}
+
+func (r *closeTrackingReader) Read(p []byte) (int, error) {
+	return r.reader.Read(p)
+}
+
+func (r *closeTrackingReader) Close() error {
+	r.once.Do(func() {
+		close(r.closed)
+	})
+	return nil
+}
+
+func (s *fileObjectStoreSuite) expectRemoteReaderClosed(c *tc.C, reader *closeTrackingReader) {
+	select {
+	case <-reader.closed:
+	case <-c.Context().Done():
+		c.Fatalf("expected remote reader to be closed: %v", c.Context().Err())
+	}
 }
 
 func (s *fileObjectStoreSuite) expectFileDoesNotExist(c *tc.C, path, hash string) {

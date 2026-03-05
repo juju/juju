@@ -11,18 +11,27 @@ import (
 // ImportStorageInstanceArgs represents data to import a storage instance
 // and its owner.
 type ImportStorageInstanceArgs struct {
-	UUID             string
-	Life             int
-	PoolName         string
-	RequestedSizeMiB uint64
-	StorageName      string
-	StorageKind      string
-	StorageID        string
-	UnitName         string
+	UUID              string
+	Life              life.Life
+	PoolName          string
+	RequestedSizeMiB  uint64
+	StorageName       string
+	StorageKind       string
+	StorageInstanceID string
+	UnitUUID          string
 }
 
-// ImportFilesystemArgs represents data to import a filesystem.
-type ImportFilesystemArgs struct {
+// ImportStorageInstanceAttachmentArgs represents data to import a storage
+// instance attachment.
+type ImportStorageInstanceAttachmentArgs struct {
+	UUID                string
+	StorageInstanceUUID string
+	UnitUUID            string
+	Life                life.Life
+}
+
+// ImportFilesystemIAASArgs represents data to import a filesystem.
+type ImportFilesystemIAASArgs struct {
 	UUID                string
 	ID                  string
 	Life                life.Life
@@ -30,4 +39,31 @@ type ImportFilesystemArgs struct {
 	ProviderID          string
 	StorageInstanceUUID string
 	Scope               storageprovisioning.ProvisionScope
+}
+
+// ImportFilesystemAttachmentIAASArgs represents data to import filesystem attachments.
+type ImportFilesystemAttachmentIAASArgs struct {
+	UUID           string
+	FilesystemUUID string
+	NetNodeUUID    string
+	Scope          storageprovisioning.ProvisionScope
+	Life           life.Life
+	MountPoint     string
+	ReadOnly       bool
+}
+
+// ImportVolumeArgs represents a volume definition used when importing
+// volumes into the model.
+type ImportVolumeArgs struct {
+	UUID                string
+	ID                  string
+	LifeID              life.Life
+	StorageInstanceUUID string
+	Provisioned         bool
+	ProvisionScopeID    storageprovisioning.ProvisionScope
+	SizeMiB             uint64
+	HardwareID          string
+	WWN                 string
+	ProviderID          string
+	Persistent          bool
 }

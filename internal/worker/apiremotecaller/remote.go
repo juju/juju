@@ -71,6 +71,7 @@ type remoteServer struct {
 
 	changes     chan []string
 	connections chan chan api.Connection
+	reports     chan chan report
 	connected   atomic.Bool
 }
 
@@ -90,6 +91,7 @@ func newRemoteServer(config RemoteServerConfig, internalStates chan string) Remo
 		changes:        make(chan []string),
 		internalStates: internalStates,
 		connections:    make(chan chan api.Connection),
+		reports:        make(chan chan report),
 	}
 	w.tomb.Go(w.loop)
 	return w
@@ -127,6 +129,8 @@ func (w *remoteServer) Connection(ctx context.Context, fn func(context.Context, 
 
 // UpdateAddresses will update the addresses held for the target API server.
 func (w *remoteServer) UpdateAddresses(addresses []string) {
+	addresses = append([]string(nil), addresses...)
+
 	select {
 	case <-w.tomb.Dying():
 		return
@@ -144,17 +148,35 @@ func (w *remoteServer) Wait() error {
 	return w.tomb.Wait()
 }
 
+// Report outputs the state of the worker for the engine report.
 func (w *remoteServer) Report() map[string]any {
-	report := make(map[string]any)
-	report["controller-id"] = w.controllerID
-	report["addresses"] = w.info.Addrs
-	report["connected"] = w.connected.Load()
-	return report
+	ch := make(chan report, 1)
+	select {
+	case <-w.tomb.Dying():
+		return map[string]any{}
+	case w.reports <- ch:
+	}
+
+	select {
+	case <-w.tomb.Dying():
+		return map[string]any{}
+	case r := <-ch:
+		return map[string]any{
+			"controller-id": w.controllerID,
+			"addresses":     r.addresses,
+			"connected":     r.connected,
+		}
+	}
 }
 
 type request struct {
 	ctx       context.Context
 	addresses []string
+}
+
+type report struct {
+	addresses []string
+	connected bool
 }
 
 func (w *remoteServer) loop() error {
@@ -297,7 +319,7 @@ func (w *remoteServer) loop() error {
 
 			// We've successfully connected to the remote server, so update the
 			// addresses.
-			w.info.Addrs = addresses
+			w.info.Addrs = append([]string(nil), addresses...)
 			w.connected.Store(true)
 
 			w.reportInternalState(stateChanged)
@@ -323,6 +345,16 @@ func (w *remoteServer) loop() error {
 			case <-w.tomb.Dying():
 				return tomb.ErrDying
 			case ch <- connection:
+			}
+
+		case ch := <-w.reports:
+			select {
+			case <-w.tomb.Dying():
+				return tomb.ErrDying
+			case ch <- report{
+				addresses: append([]string(nil), w.info.Addrs...),
+				connected: w.connected.Load(),
+			}:
 			}
 		}
 	}

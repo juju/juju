@@ -15,9 +15,9 @@ import (
 
 	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testhelpers"
 )
 

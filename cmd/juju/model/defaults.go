@@ -22,12 +22,12 @@ import (
 	"github.com/juju/juju/api/client/modelmanager"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/config"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/output"
 	envconfig "github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/cmd"
 )
 
 const (

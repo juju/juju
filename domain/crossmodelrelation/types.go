@@ -189,6 +189,9 @@ type RemoteApplicationImport struct {
 	// This is created in the service layer from the Endpoints field.
 	SyntheticCharm charm.Charm
 
+	// OffererApplicationUUID is the UUID of the offering application.
+	OffererApplicationUUID string
+
 	// Units are the unit names for the remote application that need to be
 	// created as synthetic units. These are extracted from relation endpoints
 	// during migration import.
@@ -221,9 +224,6 @@ type RemoteApplicationConsumerImport struct {
 	// ConsumerApplicationEndpoint is the relation endpoint name of the
 	// consuming application.
 	ConsumerApplicationEndpoint string
-
-	// OffererApplicationUUID is the UUID of the offering application.
-	OffererApplicationUUID string
 
 	// OffererApplicationEndpoint is the relation endpoint name of the
 	// offering application.

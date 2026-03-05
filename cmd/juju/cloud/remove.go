@@ -14,8 +14,8 @@ import (
 	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/internal/cmd"
 )
 
 var usageRemoveCloudSummary = `

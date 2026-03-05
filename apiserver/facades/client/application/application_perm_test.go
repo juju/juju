@@ -146,7 +146,7 @@ func (s *permBaseSuite) TestSetCharmValidOrigin(c *tc.C) {
 		},
 	})
 
-	c.Assert(err, tc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *permBaseSuite) TestGetCharmURLOriginPermission(c *tc.C) {

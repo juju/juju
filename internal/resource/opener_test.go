@@ -62,8 +62,53 @@ func TestOpenerSuite(t *stdtesting.T) {
 // exists in the controllers object store. This is a regression test where we
 // were not correctly passing back the resource information including the
 // resource uuid.
+func (s *OpenerSuite) TestOpenUnitResourceEmptyResource(c *tc.C) {
+	defer s.setupMocks(c, false).Finish()
+
+	appName := "postgresql"
+	unitName := tc.Must1(c, coreunit.NewName, "postgresql/0")
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+
+	charmOrigin := charm.Origin{
+		Source: charm.CharmHub,
+	}
+
+	appSvcExp := s.applicationService.EXPECT()
+	appSvcExp.GetApplicationUUIDByUnitName(c.Context(), unitName).Return(
+		appUUID, nil,
+	)
+	appSvcExp.GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	appSvcExp.GetApplicationCharmOrigin(
+		gomock.Any(),
+		appName,
+	).Return(charmOrigin, nil)
+
+	opener, err := NewResourceOpenerForUnit(
+		c.Context(),
+		ResourceOpenerArgs{
+			ResourceService:      s.resourceService,
+			ApplicationService:   s.applicationService,
+			CharmhubClientGetter: s.resourceClientGetter,
+		},
+		func() ResourceDownloadLock {
+			return noopDownloadResourceLocker{}
+		},
+		unitName,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = opener.OpenResource(c.Context(), "")
+	c.Assert(err, tc.ErrorMatches, "resource name cannot be empty")
+}
+
+// TestOpenUnitResource is a happy path test for opening a unit resource that
+// exists in the controllers object store. This is a regression test where we
+// were not correctly passing back the resource information including the
+// resource uuid.
 func (s *OpenerSuite) TestOpenUnitResource(c *tc.C) {
-	s.setupMocks(c, false)
+	defer s.setupMocks(c, false).Finish()
+
 	resourceUUID := tc.Must(c, coreresource.NewUUID)
 	appName := "postgresql"
 	appUUID := tc.Must(c, coreapplication.NewUUID)
@@ -158,7 +203,8 @@ func (s *OpenerSuite) TestOpenUnitResource(c *tc.C) {
 // This also acts as a regression test to show that the resource uuid is
 // correctly returned as in the original implementation it was not.
 func (s *OpenerSuite) TestOpenUnitResourceCacheMiss(c *tc.C) {
-	s.setupMocks(c, false)
+	defer s.setupMocks(c, false).Finish()
+
 	resourceUUID := tc.Must(c, coreresource.NewUUID)
 	appName := "postgresql"
 	appUUID := tc.Must(c, coreapplication.NewUUID)
