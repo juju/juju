@@ -498,6 +498,38 @@ func (s *stateSuite) TestAddControllerIDHintNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
 }
 
+func (s *stateSuite) TestGetControllerIDHints(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	uuid := tc.Must(c, coreobjectstore.NewUUID).String()
+
+	metadata := coreobjectstore.Metadata{
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "blah-foo",
+		Size:   666,
+	}
+
+	_, err := st.PutMetadataWithControllerIDHint(c.Context(), uuid, metadata, "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.AddControllerIDHint(c.Context(), "sha384", "2")
+	c.Assert(err, tc.ErrorIsNil)
+
+	hints, err := st.GetControllerIDHints(c.Context(), "sha384")
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(hints, tc.SameContents, []string{"1", "2"})
+}
+
+func (s *stateSuite) TestGetControllerIDHintsNoHints(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	hints, err := st.GetControllerIDHints(c.Context(), "sha384")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hints, tc.HasLen, 0)
+}
+
 func (s *stateSuite) TestRemoveMetadataNotExists(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 

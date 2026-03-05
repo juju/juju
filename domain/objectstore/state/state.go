@@ -200,8 +200,7 @@ func (s *State) GetControllerIDHints(ctx context.Context, sha384 string) ([]stri
 SELECT node_id AS &hint.node_id
 FROM object_store_placement
 JOIN object_store_metadata ON object_store_placement.uuid = object_store_metadata.uuid
-WHERE object_store_metadata.sha_384 = $hint.sha_384
-LIMIT 1`, ctrlHint)
+WHERE object_store_metadata.sha_384 = $hint.sha_384`, ctrlHint)
 	if err != nil {
 		return nil, errors.Errorf("preparing select controller ID hint statement: %w", err)
 	}
