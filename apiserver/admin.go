@@ -339,16 +339,15 @@ func (a *admin) authenticate(ctx context.Context, modelExists bool, req params.L
 		// Each PermissionDelegator implements its own strategy:
 		// JWT creates the user unconditionally (the token is the proof),
 		// macaroon checks everyone@external permissions first.
-		if result.userLogin {
-			if userTag, ok := authInfo.Tag.(names.UserTag); ok && !userTag.IsLocal() {
-				userName := coreuser.NameFromTag(userTag)
-				targets := []permission.ID{{ObjectType: permission.Controller, Key: a.srv.shared.controllerUUID}}
-				if !result.controllerOnlyLogin {
-					targets = append(targets, permission.ID{ObjectType: permission.Model, Key: a.root.modelUUID.String()})
-				}
-				if err := authInfo.EnsureExternalUser(ctx, userName, targets); err != nil {
-					return nil, errors.Trace(err)
-				}
+		if authInfo.IsExternallyAuthenticated {
+			userTag := authInfo.Tag.(names.UserTag)
+			userName := coreuser.NameFromTag(userTag)
+			targets := []permission.ID{{ObjectType: permission.Controller, Key: a.srv.shared.controllerUUID}}
+			if !result.controllerOnlyLogin {
+				targets = append(targets, permission.ID{ObjectType: permission.Model, Key: a.root.modelUUID.String()})
+			}
+			if err := authInfo.EnsureExternalUser(ctx, userName, targets); err != nil {
+				return nil, errors.Trace(err)
 			}
 		}
 	}

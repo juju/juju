@@ -276,6 +276,9 @@ func (a *Authenticator) checkCreds(
 		// last login time if they've been authorized (not just authenticated).
 		// For now we'll leave it as is, but we should fix this.
 		userTag := authenticatedTag.(names.UserTag)
+		if !userTag.IsLocal() {
+			authInfo.IsExternallyAuthenticated = true
+		}
 
 		err = a.authContext.accessService.UpdateLastModelLogin(ctx, user.NameFromTag(userTag), modelUUID)
 		if err != nil {
