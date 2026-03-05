@@ -95,6 +95,10 @@ type ApplicationService interface {
 	// UpsertCloudService updates the cloud service for the specified application.
 	UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
 
+	// DeleteCloudService removes cloud-service addresses for the specified
+	// application.
+	DeleteCloudService(ctx context.Context, appName string) error
+
 	// IsControllerApplication returns true when the application is the controller.
 	IsControllerApplication(ctx context.Context, id application.UUID) (bool, error)
 

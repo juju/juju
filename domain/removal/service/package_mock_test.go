@@ -2142,6 +2142,45 @@ func (c *MockModelDBStateGetAllJobsCall) DoAndReturn(f func(context.Context) ([]
 	return c
 }
 
+// GetApplicationCloudServiceResourceCount mocks base method.
+func (m *MockModelDBState) GetApplicationCloudServiceResourceCount(arg0 context.Context, arg1 string) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationCloudServiceResourceCount", arg0, arg1)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationCloudServiceResourceCount indicates an expected call of GetApplicationCloudServiceResourceCount.
+func (mr *MockModelDBStateMockRecorder) GetApplicationCloudServiceResourceCount(arg0, arg1 any) *MockModelDBStateGetApplicationCloudServiceResourceCountCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationCloudServiceResourceCount", reflect.TypeOf((*MockModelDBState)(nil).GetApplicationCloudServiceResourceCount), arg0, arg1)
+	return &MockModelDBStateGetApplicationCloudServiceResourceCountCall{Call: call}
+}
+
+// MockModelDBStateGetApplicationCloudServiceResourceCountCall wrap *gomock.Call
+type MockModelDBStateGetApplicationCloudServiceResourceCountCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDBStateGetApplicationCloudServiceResourceCountCall) Return(arg0 int, arg1 error) *MockModelDBStateGetApplicationCloudServiceResourceCountCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDBStateGetApplicationCloudServiceResourceCountCall) Do(f func(context.Context, string) (int, error)) *MockModelDBStateGetApplicationCloudServiceResourceCountCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDBStateGetApplicationCloudServiceResourceCountCall) DoAndReturn(f func(context.Context, string) (int, error)) *MockModelDBStateGetApplicationCloudServiceResourceCountCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationLife mocks base method.
 func (m *MockModelDBState) GetApplicationLife(arg0 context.Context, arg1 string) (life.Life, error) {
 	m.ctrl.T.Helper()

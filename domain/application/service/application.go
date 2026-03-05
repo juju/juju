@@ -75,6 +75,12 @@ type ApplicationState interface {
 	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
 	UpsertCloudService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
 
+	// DeleteCloudService removes cloud-service addresses for the specified
+	// application.
+	// The following errors may be returned:
+	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
+	DeleteCloudService(ctx context.Context, appName string) error
+
 	// IsSubordinateApplication returns true if the application is a subordinate
 	// application.
 	// The following errors may be returned:
@@ -846,6 +852,17 @@ func (s *Service) UpdateCloudService(ctx context.Context, appName, providerID st
 		return errors.Errorf("empty provider ID %w", coreerrors.NotValid)
 	}
 	return s.st.UpsertCloudService(ctx, appName, providerID, sAddrs)
+}
+
+// DeleteCloudService removes cloud-service addresses for the specified
+// application.
+// The following errors may be returned:
+// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
+func (s *Service) DeleteCloudService(ctx context.Context, appName string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.st.DeleteCloudService(ctx, appName)
 }
 
 // GetApplicationLife looks up the life of the specified application, returning
