@@ -68,61 +68,87 @@ type ApplicationOps interface {
 type applicationOps struct {
 }
 
+// AppAlive ensures the application's resources exist in the provider.
 func (applicationOps) AppAlive(appName string, app caas.Application, password string, lastApplied *caas.ApplicationConfig,
 	facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
 	return appAlive(appName, app, password, lastApplied, facade, clk, logger)
 }
 
+// AppDying scales the application down to zero and reconciles any dead units,
+// preparing the application for removal from the provider.
 func (applicationOps) AppDying(appName string, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) error {
 	return appDying(appName, app, appLife, facade, unitFacade, logger)
 }
 
+// AppDead deletes the application from the provider.
 func (applicationOps) AppDead(appName string, app caas.Application,
 	broker CAASBroker, facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, clk clock.Clock, logger Logger) error {
 	return appDead(appName, app, broker, facade, unitFacade, clk, logger)
 }
 
+// VerifyCharmUpgraded blocks until the application's charm has been upgraded to
+// a v2 (sidecar) format. Returns shouldExit=true if the application no longer
+// exists or is dead and the worker should exit without error.
 func (applicationOps) VerifyCharmUpgraded(appName string,
 	facade CAASProvisionerFacade, tomb Tomb, logger Logger) (shouldExit bool, err error) {
 	return verifyCharmUpgraded(appName, facade, tomb, logger)
 }
 
+// UpgradePodSpec removes any legacy operator and workload pods left over from a
+// previous pod-spec deployment, waiting for full termination before returning.
 func (applicationOps) UpgradePodSpec(appName string,
 	broker CAASBroker, clk clock.Clock, tomb Tomb, logger Logger) error {
 	return upgradePodSpec(appName, broker, clk, tomb, logger)
 }
 
+// EnsureTrust grants or revokes the application's access to the Kubernetes API
+// via a service account, synchronizing the cluster state with the desired trust
+// value from the controller.
 func (applicationOps) EnsureTrust(appName string, app caas.Application,
 	unitFacade CAASUnitProvisionerFacade, logger Logger) error {
 	return ensureTrust(appName, app, unitFacade, logger)
 }
 
+// UpdateState reports the application's current service addresses, unit
+// statuses, and filesystem/volume information. It returns
+// the most recently reported status for each unit.
 func (applicationOps) UpdateState(appName string, app caas.Application, lastReportedStatus map[string]status.StatusInfo,
 	broker CAASBroker, facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) (map[string]status.StatusInfo, error) {
 	return updateState(appName, app, lastReportedStatus, broker, facade, unitFacade, logger)
 }
 
+// RefreshApplicationStatus sets the application's operator status to "waiting"
+// if units are still settling or "active" once all desired replicas are ready.
 func (applicationOps) RefreshApplicationStatus(appName string, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade, logger Logger) error {
 	return refreshApplicationStatus(appName, app, appLife, facade, logger)
 }
 
+// WaitForTerminated polls until the application no longer exists in the provider.
 func (applicationOps) WaitForTerminated(appName string, app caas.Application,
 	clk clock.Clock) error {
 	return waitForTerminated(appName, app, clk)
 }
 
+// ReconcileDeadUnitScale removes dead units and scales the provider
+// application down once all units above the desired scale target have reached
+// the Dead lifecycle state.
 func (applicationOps) ReconcileDeadUnitScale(appName string, app caas.Application,
 	facade CAASProvisionerFacade, logger Logger) error {
 	return reconcileDeadUnitScale(appName, app, facade, logger)
 }
 
+// EnsureScale reconciles the application's actual replica count with the
+// desired scale target.
 func (applicationOps) EnsureScale(appName string, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) error {
 	return ensureScale(appName, app, appLife, facade, unitFacade, logger)
 }
 
+// EnsureStorage recreates the app in the caas provider with updated filesystem
+// configurations when storage updates occur, preserving the current
+// replica count across the operation.
 func (applicationOps) EnsureStorage(appName string, app caas.Application,
 	lastApplied *caas.ApplicationConfig, password string,
 	facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
