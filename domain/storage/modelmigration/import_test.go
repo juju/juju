@@ -15,6 +15,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	corestorage "github.com/juju/juju/core/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 )
@@ -63,9 +64,14 @@ func (s *importSuite) TestRegisterImport(c *tc.C) {
 
 	s.coordinator.EXPECT().Add(gomock.Any())
 
-	RegisterImport(s.coordinator, corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-		return s.storageProviderRegistry
-	}), loggertesting.WrapCheckLog(c))
+	RegisterImport(
+		s.coordinator,
+		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
+			return s.storageProviderRegistry
+		}),
+		nil,
+		loggertesting.WrapCheckLog(c),
+	)
 }
 
 func (s *importSuite) TestImportEmpty(c *tc.C) {
@@ -378,7 +384,7 @@ func (s *importSuite) TestImportStorageInstancesValidate(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *importSuite) TestImportFilesystems(c *tc.C) {
+func (s *importSuite) TestImportFilesystemsIAAS(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -430,6 +436,98 @@ func (s *importSuite) TestImportFilesystems(c *tc.C) {
 		PoolName:          "testpool",
 		ProviderID:        "provider-fs-2",
 		Attachments: []domainstorage.ImportFilesystemAttachmentsParams{{
+			HostUnitName: "unit/1",
+			ReadOnly:     true,
+			MountPoint:   "/opt",
+		}},
+	}})).Return(nil)
+
+	// Act
+	op := s.newImportOperation()
+	err := op.Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportFilesystemsCAAS(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.CAAS.String(),
+		Config: map[string]interface{}{
+			config.NameKey: "moveme",
+		},
+	})
+	fs1 := model.AddFilesystem(description.FilesystemArgs{
+		ID:           "fs-1",
+		Size:         2048,
+		Storage:      "multi-fs/1",
+		Pool:         "kubernetes",
+		FilesystemID: "753fff9e-6d0d-4d2c-b1e5-e2b3c02284f9",
+		Volume:       "0",
+	})
+	fs1.AddAttachment(description.FilesystemAttachmentArgs{
+		HostUnit:   "unit/0",
+		ReadOnly:   false,
+		MountPoint: "/data",
+	})
+
+	fs2 := model.AddFilesystem(description.FilesystemArgs{
+		ID:           "fs-2",
+		Size:         4096,
+		Storage:      "multi-fs/2",
+		Pool:         "kubernetes",
+		FilesystemID: "deadbeef-6d0d-4d2c-b1e5-e2b3c02284f9",
+		Volume:       "1",
+	})
+	fs2.AddAttachment(description.FilesystemAttachmentArgs{
+		HostUnit:   "unit/1",
+		ReadOnly:   true,
+		MountPoint: "/opt",
+	})
+
+	model.AddVolume(description.VolumeArgs{
+		ID:          "0",
+		Storage:     "multi-fs/1",
+		Provisioned: true,
+		Persistent:  true,
+		Pool:        "kubernetes",
+		Size:        1024,
+		VolumeID:    "pvc-753fff9e-6d0d-4d2c-b1e5-e2b3c02284f9",
+	})
+	model.AddVolume(description.VolumeArgs{
+		ID:          "1",
+		Storage:     "multi-fs/2",
+		Provisioned: true,
+		Persistent:  true,
+		Pool:        "kubernetes",
+		Size:        1024,
+		VolumeID:    "pvc-deadbeef-6d0d-4d2c-b1e5-e2b3c02284f9",
+	})
+
+	s.noopStoragePoolImport()
+	s.service.EXPECT().ImportFilesystemsCAAS(gomock.Any(), tc.Bind(tc.SameContents, []domainstorage.ImportFilesystemParams{{
+		ID:                "fs-1",
+		SizeInMiB:         1024,
+		StorageInstanceID: "multi-fs/1",
+		PoolName:          "kubernetes",
+		ProviderID:        "pvc-753fff9e-6d0d-4d2c-b1e5-e2b3c02284f9",
+		Attachments: []domainstorage.ImportFilesystemAttachmentsParams{{
+			ProviderID:   "753fff9e-6d0d-4d2c-b1e5-e2b3c02284f9",
+			HostUnitName: "unit/0",
+			ReadOnly:     false,
+			MountPoint:   "/data",
+		}},
+	}, {
+		ID:                "fs-2",
+		SizeInMiB:         1024,
+		StorageInstanceID: "multi-fs/2",
+		PoolName:          "kubernetes",
+		ProviderID:        "pvc-deadbeef-6d0d-4d2c-b1e5-e2b3c02284f9",
+		Attachments: []domainstorage.ImportFilesystemAttachmentsParams{{
+			ProviderID:   "deadbeef-6d0d-4d2c-b1e5-e2b3c02284f9",
 			HostUnitName: "unit/1",
 			ReadOnly:     true,
 			MountPoint:   "/opt",

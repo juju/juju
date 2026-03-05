@@ -15,6 +15,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
@@ -36,6 +37,14 @@ import (
 // StorageImportState defines an interface for interacting with the underlying
 // state for storage import operations.
 type StorageImportState interface {
+	// CreateStoragePool creates a new storage pool in the model with the
+	// specified args and uuid value.
+	//
+	// The following errors can be expected:
+	// - [storageerrors.PoolAlreadyExists] if a pool with the same name or
+	// uuid already exist in the model.
+	CreateStoragePool(context.Context, internal.CreateStoragePool) error
+
 	// GetBlockDevicesForMachinesByNetNodeUUIDs returns the BlockDevices for the
 	// specified machines. If a machine is not found or dead then it is excluded
 	// from the result.
@@ -43,7 +52,6 @@ type StorageImportState interface {
 		ctx context.Context, netNodeUUIDs []network.NetNodeUUID,
 	) (map[network.NetNodeUUID][]internal.BlockDevice, error)
 
-	// GetNetNodeUUIDsByMachineOrUnitName returns net node UUIDs for all machine or
 	// and unit names provided. If a machine name or unit name is not found then it
 	// is excluded from the result.
 	GetNetNodeUUIDsByMachineOrUnitName(
@@ -82,14 +90,24 @@ type StorageImportState interface {
 
 	// ImportVolumes creates new storage volumes and related database structures.
 	ImportVolumes(ctx context.Context, args []internal.ImportVolumeArgs) error
+
+	// SetModelStoragePools replaces the model's recommended storage pools with the
+	// supplied set. All existing model storage pool mappings are removed before the
+	// new ones are inserted.
+	//
+	// If any referenced storage pool UUID does not exist in the model, this
+	// returns [domainstorageerrors.StoragePoolNotFound]. Supplying an empty slice
+	// results in a no-op.
+	SetModelStoragePools(ctx context.Context, pools []domainstorage.RecommendedStoragePoolArg) error
 }
 
 // StorageImportService defines a service for importing storage entities during
 // model import.
 type StorageImportService struct {
-	st             StorageImportState
-	registryGetter corestorage.ModelStorageRegistryGetter
-	logger         logger.Logger
+	st                      StorageImportState
+	ephemeralProviderRunner providertracker.EphemeralProviderRunnerGetter[internalstorage.FilesystemModelMigration]
+	registryGetter          corestorage.ModelStorageRegistryGetter
+	logger                  logger.Logger
 }
 
 // ImportStorageInstances imports storage instances and storage unit
@@ -377,6 +395,38 @@ func (s *StorageImportService) retrieveProviderScopesForPools(
 	return providerScopes, nil
 }
 
+// ImportFilesystemsCAAS imports filesystems for CAAS models. It differs from
+// ImportFilesystemsIAAS in that it must find the persistent volume claim name
+// to be used as the attachment ProviderID.
+func (s *StorageImportService) ImportFilesystemsCAAS(
+	ctx context.Context,
+	params []domainstorage.ImportFilesystemParams) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	uidToNames, err := s.getPersistentVolumeClaimIdentifiers(ctx)
+	if err != nil {
+		return errors.Errorf("getting persistent volume claim identifiers: %w", err)
+	}
+
+	newParams := make([]domainstorage.ImportFilesystemParams, len(params))
+	copy(newParams, params)
+	for i, param := range params {
+		newAttach := make([]domainstorage.ImportFilesystemAttachmentsParams, len(param.Attachments))
+		copy(newAttach, param.Attachments)
+		param.Attachments = newAttach
+		for j, attachment := range param.Attachments {
+			newProviderID, ok := uidToNames[attachment.ProviderID]
+			if !ok {
+				return errors.Errorf("persistent volume claim identifier %q not found", attachment.ProviderID)
+			}
+			newParams[i].Attachments[j].ProviderID = newProviderID
+		}
+	}
+
+	return s.importFilesystems(ctx, newParams)
+}
+
 // ImportVolumes creates new volumes and storage instance volumes.
 //
 // The following errors may be returned:
@@ -658,4 +708,31 @@ func (s *StorageImportService) transformVolumeAttachmentPlans(
 	}
 
 	return existingPlans, nil
+}
+
+// getPersistentVolumeClaimIdentifiers gets a map of UID to Name from
+// the slice of PersistentVolumeClaimIdentifiers data. Intended for use
+// with kubernetes only.
+func (s *StorageImportService) getPersistentVolumeClaimIdentifiers(ctx context.Context) (map[string]string, error) {
+
+	var data []internalstorage.PersistentVolumeClaimIdentifiers
+	err := s.ephemeralProviderRunner(ctx, func(ctx context.Context, provider internalstorage.FilesystemModelMigration) error {
+		var err error
+		data, err = provider.GetPersistentVolumeClaimIdentifiers(ctx)
+		if err != nil {
+			return errors.Errorf(
+				"from provider: %w", err,
+			)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	uidToNames := transform.SliceToMap(data, func(in internalstorage.PersistentVolumeClaimIdentifiers) (string, string) {
+		return in.UID, in.Name
+	})
+
+	return uidToNames, nil
 }

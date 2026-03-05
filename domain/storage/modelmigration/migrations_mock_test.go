@@ -141,6 +141,44 @@ func (c *MockImportServiceGetStoragePoolsToImportCall) DoAndReturn(f func(contex
 	return c
 }
 
+// ImportFilesystemsCAAS mocks base method.
+func (m *MockImportService) ImportFilesystemsCAAS(arg0 context.Context, arg1 []storage.ImportFilesystemParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ImportFilesystemsCAAS", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ImportFilesystemsCAAS indicates an expected call of ImportFilesystemsCAAS.
+func (mr *MockImportServiceMockRecorder) ImportFilesystemsCAAS(arg0, arg1 any) *MockImportServiceImportFilesystemsCAASCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportFilesystemsCAAS", reflect.TypeOf((*MockImportService)(nil).ImportFilesystemsCAAS), arg0, arg1)
+	return &MockImportServiceImportFilesystemsCAASCall{Call: call}
+}
+
+// MockImportServiceImportFilesystemsCAASCall wrap *gomock.Call
+type MockImportServiceImportFilesystemsCAASCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockImportServiceImportFilesystemsCAASCall) Return(arg0 error) *MockImportServiceImportFilesystemsCAASCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockImportServiceImportFilesystemsCAASCall) Do(f func(context.Context, []storage.ImportFilesystemParams) error) *MockImportServiceImportFilesystemsCAASCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockImportServiceImportFilesystemsCAASCall) DoAndReturn(f func(context.Context, []storage.ImportFilesystemParams) error) *MockImportServiceImportFilesystemsCAASCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ImportFilesystemsIAAS mocks base method.
 func (m *MockImportService) ImportFilesystemsIAAS(arg0 context.Context, arg1 []storage.ImportFilesystemParams) error {
 	m.ctrl.T.Helper()
