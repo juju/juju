@@ -261,9 +261,6 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 			Return(errors.ConstError("not provisioned")),
 		facade.EXPECT().Life("test").Return(life.Alive, nil),
 		ops.EXPECT().EnsureStorage("test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).
-			Return(errors.ConstError("try again")),
-		facade.EXPECT().Life("test").Return(life.Alive, nil),
-		ops.EXPECT().EnsureStorage("test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).
 			DoAndReturn(func(_, _, _, _, _, _, _ any) error {
 				provisioningInfoChan <- struct{}{}
 				return nil
@@ -520,6 +517,7 @@ func (s *ApplicationWorkerSuite) TestWorkerScaleNotReadyRetry(c *gc.C) {
 	appUnitsChan := make(chan []string, 1)
 	appChan := make(chan struct{}, 1)
 	appReplicasChan := make(chan struct{}, 1)
+	storageConsChan := make(chan struct{}, 1)
 
 	ops.EXPECT().RefreshApplicationStatus("test", app, gomock.Any(), facade, s.logger).Return(nil).AnyTimes()
 
@@ -532,9 +530,14 @@ func (s *ApplicationWorkerSuite) TestWorkerScaleNotReadyRetry(c *gc.C) {
 
 		facade.EXPECT().SetPassword("test", gomock.Any()).Return(nil),
 
+		facade.EXPECT().ProvisioningState("test").
+			Return(&params.CAASApplicationProvisioningState{}, nil),
+
 		unitFacade.EXPECT().WatchApplicationScale("test").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
 		unitFacade.EXPECT().WatchApplicationTrustHash("test").Return(watchertest.NewMockStringsWatcher(trustChan), nil),
 		facade.EXPECT().WatchUnits("test").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),
+
+		facade.EXPECT().WatchStorageConstraints("test").Return(watchertest.NewMockNotifyWatcher(storageConsChan), nil),
 
 		// Initially not provisioned.
 		facade.EXPECT().Life("test").Return(life.Alive, nil),
@@ -579,9 +582,21 @@ func (s *ApplicationWorkerSuite) TestWorkerScaleNotReadyRetry(c *gc.C) {
 		}),
 		// appReplicasChan fired
 		ops.EXPECT().UpdateState("test", app, gomock.Any(), broker, facade, unitFacade, s.logger).DoAndReturn(func(_, _, _, _, _, _, _ any) (map[string]status.StatusInfo, error) {
-			provisioningInfoChan <- struct{}{}
+			storageConsChan <- struct{}{}
 			return nil, nil
 		}),
+
+		// storageConsChan fired
+		facade.EXPECT().Life("test").Return(life.Alive, nil),
+		ops.EXPECT().EnsureStorage("test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).
+			Return(errors.ConstError("not provisioned")),
+		facade.EXPECT().Life("test").Return(life.Alive, nil),
+		ops.EXPECT().EnsureStorage("test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).
+			DoAndReturn(func(_, _, _, _, _, _, _ any) error {
+				provisioningInfoChan <- struct{}{}
+				return nil
+			}),
+
 		// provisioningInfoChan fired
 		facade.EXPECT().Life("test").Return(life.Alive, nil),
 		ops.EXPECT().AppAlive("test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).DoAndReturn(func(_, _, _, _, _, _, _ any) error {
