@@ -173,10 +173,6 @@ type StorageInfoForAttach struct {
 	StorageMachineOwner *MachineIdentifier
 }
 
-// StorageAlreadyAttached describes an error that occurs when attempting to
-// attach storage to a unit and the storage is already attached to the unit.
-const StorageAlreadyAttached = errors.ConstError("storage already attached")
-
 // CreateUnitStorageArg represents the arguments required for making storage
 // for a unit. This will create and set the unit's storage directives and then
 // instantiate the instances and attachments for the units.

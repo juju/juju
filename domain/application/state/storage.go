@@ -1188,7 +1188,7 @@ func (st *State) attachExistingStorageForExistingUnit(
 		}
 	} else if attachedUUIDs.Contains(unitUUID.String()) {
 		// The storage is already attached to the unit, so we can no-op.
-		return internal.StorageAlreadyAttached
+		return nil
 	}
 
 	// First to the basic life checks for the unit and storage.
@@ -1295,9 +1295,6 @@ func (st *State) AttachStorageToUnit(
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := st.attachExistingStorageForExistingUnit(ctx, tx, storageUUID, unitUUID, storageArg)
-		if errors.Is(err, internal.StorageAlreadyAttached) {
-			return nil
-		}
 		if err != nil {
 			return errors.Errorf("attaching storage %q to unit %q: %w", storageUUID, unitUUID, err)
 		}
