@@ -33,6 +33,34 @@ func TestWorkerSuite(t *stdtesting.T) {
 	tc.Run(t, &workerSuite{})
 }
 
+func (s *workerSuite) TestFirstClosedCancelStopsGoroutines(c *tc.C) {
+	never := make(chan struct{})
+	for range 100 {
+		_, cancel := firstClosed(never, never)
+		cancel()
+	}
+}
+
+func (s *workerSuite) TestFirstClosedMultipleChannelsNoLeak(c *tc.C) {
+	const n = 64
+	chs := make([]chan struct{}, n)
+	readOnly := make([]<-chan struct{}, n)
+	for i := range n {
+		ch := make(chan struct{})
+		chs[i] = ch
+		readOnly[i] = ch
+	}
+
+	out, cancel := firstClosed(readOnly...)
+	close(chs[n-1])
+	select {
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for firstClosed to return")
+	case <-out:
+		cancel()
+	}
+}
+
 func (s *workerSuite) TestKilledGetDBErrDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
