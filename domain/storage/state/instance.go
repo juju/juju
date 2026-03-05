@@ -103,3 +103,49 @@ WHERE  storage_id IN ($storageInstanceIDs[:])`,
 
 	return result, nil
 }
+
+// GetStorageInstanceUUIDsByVolumeIDs retrieves the UUIDs of storage instances
+// by their linked volume IDs.
+func (s *State) GetStorageInstanceUUIDsByVolumeIDs(
+	ctx context.Context, volumeIDs []string,
+) (map[string]string, error) {
+	if len(volumeIDs) == 0 {
+		return map[string]string{}, nil
+	}
+
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	storageVolumeIDs := storageVolumeIDs(set.NewStrings(volumeIDs...).Values())
+
+	stmt, err := s.Prepare(`
+SELECT &storageInstanceUUIDAndVolumeID.*
+FROM   storage_volume sv
+JOIN   storage_instance_volume siv ON sv.uuid = siv.storage_volume_uuid
+WHERE  sv.volume_id IN ($storageVolumeIDs[:])`,
+		storageInstanceUUIDAndVolumeID{}, storageVolumeIDs,
+	)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var dbVals []storageInstanceUUIDAndVolumeID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, storageVolumeIDs).GetAll(&dbVals)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(map[string]string, len(dbVals))
+	for _, val := range dbVals {
+		result[val.VolumeID] = val.UUID
+	}
+
+	return result, nil
+}

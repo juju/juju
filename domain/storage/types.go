@@ -137,6 +137,7 @@ type ImportFilesystemParams struct {
 	ProviderID        string
 	PoolName          string
 	StorageInstanceID string
+	VolumeID          string
 	Attachments       []ImportFilesystemAttachmentsParams
 }
 

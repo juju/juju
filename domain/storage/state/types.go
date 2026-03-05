@@ -62,6 +62,13 @@ type storageInstanceUUIDAndID struct {
 
 type storageInstanceIDs []string
 
+type storageInstanceUUIDAndVolumeID struct {
+	UUID     string `db:"storage_instance_uuid"`
+	VolumeID string `db:"volume_id"`
+}
+
+type storageVolumeIDs []string
+
 // dbModelStoragePool represents a single row from the model_storage_pool table.
 type dbModelStoragePool struct {
 	StoragePoolUUID string `db:"storage_pool_uuid"`

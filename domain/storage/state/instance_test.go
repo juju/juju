@@ -98,3 +98,61 @@ func (s *instanceSuite) TestGetStorageInstanceUUIDsByIDsMiss(c *tc.C) {
 		id2: uuid2.String(),
 	})
 }
+
+func (s *instanceSuite) TestGetStorageInstanceUUIDsByVolumeIDs(c *tc.C) {
+	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
+	storage1UUID, _ := s.newStorageInstanceForCharmWithPool(
+		c, "foo", poolUUID, "token1",
+	)
+	storage2UUID, _ := s.newStorageInstanceForCharmWithPool(
+		c, "bar", poolUUID, "token2",
+	)
+
+	volume1UUID := s.newStorageVolume(c, "vol-1")
+	s.newStorageInstanceVolume(c, storage1UUID, volume1UUID)
+
+	volume2UUID := s.newStorageVolume(c, "vol-2")
+	s.newStorageInstanceVolume(c, storage2UUID, volume2UUID)
+
+	st := NewState(s.TxnRunnerFactory())
+	uuidMap, err := st.GetStorageInstanceUUIDsByVolumeIDs(c.Context(), []string{"vol-1", "vol-2"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuidMap, tc.DeepEquals, map[string]string{
+		"vol-1": storage1UUID.String(),
+		"vol-2": storage2UUID.String(),
+	})
+}
+
+func (s *instanceSuite) TestGetStorageInstanceUUIDsByVolumeIDsDuplicateIDs(c *tc.C) {
+	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
+	storageUUID, _ := s.newStorageInstanceForCharmWithPool(
+		c, "foo", poolUUID, "token1",
+	)
+
+	volumeUUID := s.newStorageVolume(c, "vol-1")
+	s.newStorageInstanceVolume(c, storageUUID, volumeUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+	uuidMap, err := st.GetStorageInstanceUUIDsByVolumeIDs(c.Context(), []string{"vol-1", "vol-1"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuidMap, tc.DeepEquals, map[string]string{
+		"vol-1": storageUUID.String(),
+	})
+}
+
+func (s *instanceSuite) TestGetStorageInstanceUUIDsByVolumeIDsMiss(c *tc.C) {
+	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
+	storageUUID, _ := s.newStorageInstanceForCharmWithPool(
+		c, "foo", poolUUID, "token1",
+	)
+
+	volumeUUID := s.newStorageVolume(c, "vol-1")
+	s.newStorageInstanceVolume(c, storageUUID, volumeUUID)
+
+	st := NewState(s.TxnRunnerFactory())
+	uuidMap, err := st.GetStorageInstanceUUIDsByVolumeIDs(c.Context(), []string{"vol-1", "vol-missing"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuidMap, tc.DeepEquals, map[string]string{
+		"vol-1": storageUUID.String(),
+	})
+}

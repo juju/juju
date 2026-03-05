@@ -110,15 +110,13 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	// Filesystems and Volumes need to be handled differently for CAAS models. Until
 	// this is implemented skip the import step.
 	if model.Type() == coremodel.IAAS.String() {
+		if err := i.importVolumes(ctx, model.Volumes()); err != nil {
+			return errors.Errorf("setting volumes: %w", err)
+		}
+
 		if err := i.importFilesystemsIAAS(ctx, model.Filesystems()); err != nil {
 			return errors.Errorf("importing filesystems: %w", err)
 		}
-
-		if err := i.importVolumes(ctx, model.Volumes()); err != nil {
-			return errors.Errorf("setting volumes: %w", err)
-
-		}
-
 	}
 	return nil
 }
@@ -170,6 +168,7 @@ func (i *importOperation) importFilesystemsIAAS(ctx context.Context, filesystems
 			ProviderID:        in.FilesystemID(),
 			PoolName:          in.Pool(),
 			StorageInstanceID: in.Storage(),
+			VolumeID:          in.Volume(),
 			Attachments: transform.Slice(
 				in.Attachments(),
 				func(a description.FilesystemAttachment) domainstorage.ImportFilesystemAttachmentsParams {

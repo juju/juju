@@ -69,6 +69,41 @@ VALUES (?, ?, ?, 1)
 	return saUUID
 }
 
+// newStorageVolume is responsible for establishing a new storage volume in the
+// model and returning the volume uuid.
+func (s *baseSuite) newStorageVolume(
+	c *tc.C,
+	volumeID string,
+) domainstorage.VolumeUUID {
+	volumeUUID := tc.Must(c, domainstorage.NewVolumeUUID)
+
+	_, err := s.DB().Exec(`
+INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id)
+VALUES (?, ?, 0, 0)
+`,
+		volumeUUID.String(), volumeID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return volumeUUID
+}
+
+// newStorageInstanceVolume is responsible for establishing a relationship
+// between a storage instance and a storage volume.
+func (s *baseSuite) newStorageInstanceVolume(
+	c *tc.C,
+	storageInstanceUUID domainstorage.StorageInstanceUUID,
+	volumeUUID domainstorage.VolumeUUID,
+) {
+	_, err := s.DB().Exec(`
+INSERT INTO storage_instance_volume (storage_instance_uuid, storage_volume_uuid)
+VALUES (?, ?)
+`,
+		storageInstanceUUID.String(), volumeUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 // newStorageInstanceForCharmWithPool is responsible for establishing a new
 // storage instance in the model using the supplied storage pool. Returned is
 // the new uuid for the storage instance and the storage id.

@@ -5,6 +5,8 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
@@ -22,6 +24,7 @@ import (
 	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	internalstorage "github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // StorageImportState defines an interface for interacting with the underlying
@@ -39,6 +42,10 @@ type StorageImportState interface {
 	// GetStorageInstanceUUIDsByIDs retrieves the UUIDs of storage instances by
 	// their IDs.
 	GetStorageInstanceUUIDsByIDs(ctx context.Context, storageIDs []string) (map[string]string, error)
+
+	// GetStorageInstanceUUIDsByVolumeIDs retrieves the UUIDs of storage
+	// instances by their linked volume IDs.
+	GetStorageInstanceUUIDsByVolumeIDs(ctx context.Context, volumeIDs []string) (map[string]string, error)
 
 	// GetStoragePoolProvidersByNames returns a map of storage pool names to their
 	// provider types for the specified storage pool names.
@@ -169,6 +176,24 @@ func (s *StorageImportService) ImportStorageInstances(ctx context.Context, param
 	return s.st.ImportStorageInstances(ctx, instanceArgs, attachmentArgs)
 }
 
+type filesystemImportPartition struct {
+	poolNames          []string
+	storageInstanceIDs []string
+	volumeIDs          []string
+	orphanIndexes      []int
+	machines           []string
+	units              []string
+}
+
+type filesystemImportLookups struct {
+	poolScopes                             map[string]domainstorageprovisioning.ProvisionScope
+	storageInstanceUUIDsByID               map[string]string
+	storageInstanceUUIDsByVolumeID         map[string]string
+	orphanStorageInstanceUUIDsByFilesystem map[int]string
+	machineNodes                           map[string]string
+	unitNodes                              map[string]string
+}
+
 // ImportFilesystemsIAAS imports filesystems from the provided parameters for
 // IAAS models.
 //
@@ -192,21 +217,49 @@ func (s *StorageImportService) ImportFilesystemsIAAS(ctx context.Context, params
 		return nil
 	}
 
-	var (
-		poolNames = make([]string, len(params))
-		// The vast majority of the time, storageInstanceIDs will be full length
-		storageInstanceIDs = make([]string, 0, len(params))
-		units              = set.NewStrings()
-		machines           = set.NewStrings()
-	)
+	partition, err := s.partitionFilesystemImportParams(params)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	lookups, err := s.resolveFilesystemImportLookups(ctx, params, partition)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	fsArgs, attachmentArgs, err := s.makeImportFilesystemIAASArgs(params, lookups)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return s.st.ImportFilesystemsIAAS(ctx, fsArgs, attachmentArgs)
+}
+
+func (s *StorageImportService) partitionFilesystemImportParams(
+	params []domainstorage.ImportFilesystemParams,
+) (filesystemImportPartition, error) {
+	partition := filesystemImportPartition{
+		poolNames:          make([]string, len(params)),
+		storageInstanceIDs: make([]string, 0, len(params)),
+		volumeIDs:          make([]string, 0, len(params)),
+		orphanIndexes:      make([]int, 0, len(params)),
+	}
+
+	units := set.NewStrings()
+	machines := set.NewStrings()
 	for i, arg := range params {
 		if err := arg.Validate(); err != nil {
-			return errors.Errorf("validating import filesystem params %d: %w", i, err)
+			return filesystemImportPartition{}, errors.Errorf("validating import filesystem params %d: %w", i, err)
 		}
 
-		poolNames[i] = arg.PoolName
-		if arg.StorageInstanceID != "" {
-			storageInstanceIDs = append(storageInstanceIDs, arg.StorageInstanceID)
+		partition.poolNames[i] = arg.PoolName
+		switch {
+		case arg.StorageInstanceID != "":
+			partition.storageInstanceIDs = append(partition.storageInstanceIDs, arg.StorageInstanceID)
+		case arg.VolumeID != "":
+			partition.volumeIDs = append(partition.volumeIDs, arg.VolumeID)
+		default:
+			partition.orphanIndexes = append(partition.orphanIndexes, i)
 		}
 
 		for _, attachment := range arg.Attachments {
@@ -218,46 +271,87 @@ func (s *StorageImportService) ImportFilesystemsIAAS(ctx context.Context, params
 		}
 	}
 
-	poolScopes, err := s.retrieveProviderScopesForPools(ctx, domainstorage.StorageKindFilesystem, poolNames)
+	partition.machines = machines.Values()
+	partition.units = units.Values()
+	return partition, nil
+}
+
+func (s *StorageImportService) resolveFilesystemImportLookups(
+	ctx context.Context,
+	params []domainstorage.ImportFilesystemParams,
+	partition filesystemImportPartition,
+) (filesystemImportLookups, error) {
+	poolScopes, err := s.retrieveProviderScopesForPools(ctx, domainstorage.StorageKindFilesystem, partition.poolNames)
 	if err != nil {
-		return errors.Errorf("getting provider scopes of filesystems: %w", err)
+		return filesystemImportLookups{}, errors.Errorf("getting provider scopes of filesystems: %w", err)
 	}
 
-	storageInstanceUUIDsByID, err := s.st.GetStorageInstanceUUIDsByIDs(ctx, storageInstanceIDs)
-	if err != nil {
-		return errors.Errorf("retrieving storage instance UUIDs by IDs: %w", err)
-	}
-
-	var machineNodes, unitNodes map[string]string
-	if len(machines)+len(units) > 0 {
-		machineNodes, unitNodes, err = s.st.GetNetNodeUUIDsByMachineOrUnitName(ctx, machines.Values(), units.Values())
+	storageInstanceUUIDsByID := map[string]string{}
+	if len(partition.storageInstanceIDs) > 0 {
+		storageInstanceUUIDsByID, err = s.st.GetStorageInstanceUUIDsByIDs(ctx, partition.storageInstanceIDs)
 		if err != nil {
-			return errors.Errorf("retrieving net node UUIDs by machine or unit names: %w", err)
+			return filesystemImportLookups{}, errors.Errorf("retrieving storage instance UUIDs by IDs: %w", err)
 		}
 	}
 
+	storageInstanceUUIDsByVolumeID := map[string]string{}
+	if len(partition.volumeIDs) > 0 {
+		storageInstanceUUIDsByVolumeID, err = s.st.GetStorageInstanceUUIDsByVolumeIDs(ctx, partition.volumeIDs)
+		if err != nil {
+			return filesystemImportLookups{}, errors.Errorf("retrieving storage instance UUIDs by volume IDs: %w", err)
+		}
+	}
+
+	orphanStorageInstanceUUIDsByFilesystem := map[int]string{}
+	if len(partition.orphanIndexes) > 0 {
+		orphanStorageInstanceUUIDsByFilesystem, err = s.importOrphanedFilesystemStorageInstances(ctx, params, partition.orphanIndexes)
+		if err != nil {
+			return filesystemImportLookups{}, errors.Errorf("importing orphaned storage instances: %w", err)
+		}
+	}
+
+	lookups := filesystemImportLookups{
+		poolScopes:                             poolScopes,
+		storageInstanceUUIDsByID:               storageInstanceUUIDsByID,
+		storageInstanceUUIDsByVolumeID:         storageInstanceUUIDsByVolumeID,
+		orphanStorageInstanceUUIDsByFilesystem: orphanStorageInstanceUUIDsByFilesystem,
+	}
+
+	if len(partition.machines)+len(partition.units) == 0 {
+		return lookups, nil
+	}
+
+	lookups.machineNodes, lookups.unitNodes, err = s.st.GetNetNodeUUIDsByMachineOrUnitName(
+		ctx, partition.machines, partition.units,
+	)
+	if err != nil {
+		return filesystemImportLookups{}, errors.Errorf("retrieving net node UUIDs by machine or unit names: %w", err)
+	}
+
+	return lookups, nil
+}
+
+func (s *StorageImportService) makeImportFilesystemIAASArgs(
+	params []domainstorage.ImportFilesystemParams,
+	lookups filesystemImportLookups,
+) ([]internal.ImportFilesystemIAASArgs, []internal.ImportFilesystemAttachmentIAASArgs, error) {
 	fsArgs := make([]internal.ImportFilesystemIAASArgs, len(params))
 	attachmentArgs := make([]internal.ImportFilesystemAttachmentIAASArgs, 0)
 	for i, arg := range params {
-		providerScope, ok := poolScopes[arg.PoolName]
+		providerScope, ok := lookups.poolScopes[arg.PoolName]
 		if !ok {
-			return errors.Errorf("storage pool %q not found for filesystem %q", arg.PoolName, arg.ID).
+			return nil, nil, errors.Errorf("storage pool %q not found for filesystem %q", arg.PoolName, arg.ID).
 				Add(domainstorageerrors.StoragePoolNotFound)
 		}
 
-		var storageInstanceUUID string
-		if arg.StorageInstanceID != "" {
-			var ok bool
-			storageInstanceUUID, ok = storageInstanceUUIDsByID[arg.StorageInstanceID]
-			if !ok {
-				return errors.Errorf("storage instance with ID %q not found for filesystem %q", arg.StorageInstanceID, arg.ID).
-					Add(domainstorageerrors.StorageInstanceNotFound)
-			}
+		storageInstanceUUID, err := s.resolveFilesystemStorageInstanceUUID(i, arg, lookups)
+		if err != nil {
+			return nil, nil, errors.Capture(err)
 		}
 
 		fsUUID, err := domainstorage.NewFilesystemUUID()
 		if err != nil {
-			return errors.Errorf("generating UUID for filesystem %q: %w", arg.ID, err)
+			return nil, nil, errors.Errorf("generating UUID for filesystem %q: %w", arg.ID, err)
 		}
 
 		fsArgs[i] = internal.ImportFilesystemIAASArgs{
@@ -273,24 +367,12 @@ func (s *StorageImportService) ImportFilesystemsIAAS(ctx context.Context, params
 		for _, attachment := range arg.Attachments {
 			attachmentUUID, err := domainstorage.NewFilesystemAttachmentUUID()
 			if err != nil {
-				return errors.Errorf("generating UUID for filesystem attachment of filesystem %q: %w", arg.ID, err)
+				return nil, nil, errors.Errorf("generating UUID for filesystem attachment of filesystem %q: %w", arg.ID, err)
 			}
 
-			var netNodeUUID string
-			if attachment.HostUnitName != "" {
-				var ok bool
-				netNodeUUID, ok = unitNodes[attachment.HostUnitName]
-				if !ok {
-					return errors.Errorf("net node for host unit %q not found", attachment.HostUnitName).
-						Add(applicationerrors.UnitNotFound)
-				}
-			} else {
-				var ok bool
-				netNodeUUID, ok = machineNodes[attachment.HostMachineName]
-				if !ok {
-					return errors.Errorf("net node for host machine %q not found", attachment.HostMachineName).
-						Add(machineerrors.MachineNotFound)
-				}
+			netNodeUUID, err := s.resolveFilesystemAttachmentNetNodeUUID(attachment, lookups)
+			if err != nil {
+				return nil, nil, errors.Capture(err)
 			}
 
 			attachmentArgs = append(attachmentArgs, internal.ImportFilesystemAttachmentIAASArgs{
@@ -305,7 +387,109 @@ func (s *StorageImportService) ImportFilesystemsIAAS(ctx context.Context, params
 		}
 	}
 
-	return s.st.ImportFilesystemsIAAS(ctx, fsArgs, attachmentArgs)
+	return fsArgs, attachmentArgs, nil
+}
+
+func (s *StorageImportService) resolveFilesystemStorageInstanceUUID(
+	filesystemIndex int,
+	arg domainstorage.ImportFilesystemParams,
+	lookups filesystemImportLookups,
+) (string, error) {
+	switch {
+	case arg.StorageInstanceID != "":
+		storageInstanceUUID, ok := lookups.storageInstanceUUIDsByID[arg.StorageInstanceID]
+		if !ok {
+			return "", errors.Errorf("storage instance with ID %q not found for filesystem %q", arg.StorageInstanceID, arg.ID).
+				Add(domainstorageerrors.StorageInstanceNotFound)
+		}
+		return storageInstanceUUID, nil
+	case arg.VolumeID != "":
+		storageInstanceUUID, ok := lookups.storageInstanceUUIDsByVolumeID[arg.VolumeID]
+		if !ok {
+			return "", errors.Errorf("storage instance for volume %q not found for filesystem %q", arg.VolumeID, arg.ID).
+				Add(domainstorageerrors.StorageInstanceNotFound)
+		}
+		return storageInstanceUUID, nil
+	default:
+		storageInstanceUUID, ok := lookups.orphanStorageInstanceUUIDsByFilesystem[filesystemIndex]
+		if !ok {
+			return "", errors.Errorf("orphaned storage instance for filesystem %q not found", arg.ID).
+				Add(domainstorageerrors.StorageInstanceNotFound)
+		}
+		return storageInstanceUUID, nil
+	}
+}
+
+func (s *StorageImportService) resolveFilesystemAttachmentNetNodeUUID(
+	attachment domainstorage.ImportFilesystemAttachmentsParams,
+	lookups filesystemImportLookups,
+) (string, error) {
+	if attachment.HostUnitName != "" {
+		netNodeUUID, ok := lookups.unitNodes[attachment.HostUnitName]
+		if !ok {
+			return "", errors.Errorf("net node for host unit %q not found", attachment.HostUnitName).
+				Add(applicationerrors.UnitNotFound)
+		}
+		return netNodeUUID, nil
+	}
+
+	netNodeUUID, ok := lookups.machineNodes[attachment.HostMachineName]
+	if !ok {
+		return "", errors.Errorf("net node for host machine %q not found", attachment.HostMachineName).
+			Add(machineerrors.MachineNotFound)
+	}
+	return netNodeUUID, nil
+}
+
+func (s *StorageImportService) importOrphanedFilesystemStorageInstances(
+	ctx context.Context,
+	params []domainstorage.ImportFilesystemParams,
+	orphanIndexes []int,
+) (map[int]string, error) {
+	if len(orphanIndexes) == 0 {
+		return map[int]string{}, nil
+	}
+
+	// Include a dashless UUID in the name to be defensive against storage_id
+	// collisions. Dashless guarantees the storage name is valid.
+	uuid, err := uuid.NewUUID()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	orphanedStorageName := fmt.Sprintf("orphaned%s", strings.ReplaceAll(uuid.String(), "-", ""))
+
+	orphanedStorageIDs := make([]string, len(orphanIndexes))
+	for i := range orphanedStorageIDs {
+		orphanedStorageIDs[i] = fmt.Sprintf("%s/%d", orphanedStorageName, i)
+	}
+
+	instanceArgs := make([]internal.ImportStorageInstanceArgs, len(orphanIndexes))
+	orphanStorageUUIDsByFilesystemIndex := make(map[int]string, len(orphanIndexes))
+	for i, filesystemIndex := range orphanIndexes {
+		filesystem := params[filesystemIndex]
+
+		storageUUID, err := domainstorage.NewStorageInstanceUUID()
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+
+		instanceArgs[i] = internal.ImportStorageInstanceArgs{
+			UUID:              storageUUID.String(),
+			Life:              life.Alive,
+			PoolName:          filesystem.PoolName,
+			RequestedSizeMiB:  filesystem.SizeInMiB,
+			StorageInstanceID: orphanedStorageIDs[i],
+			StorageName:       orphanedStorageName,
+			StorageKind:       "filesystem",
+		}
+		orphanStorageUUIDsByFilesystemIndex[filesystemIndex] = storageUUID.String()
+	}
+
+	if err := s.st.ImportStorageInstances(ctx, instanceArgs, nil); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return orphanStorageUUIDsByFilesystemIndex, nil
 }
 
 // retrieveProviderScopesForPools gets the provider scopes for the given

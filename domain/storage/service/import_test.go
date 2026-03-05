@@ -336,19 +336,11 @@ func (s *importSuite) TestImportFilesystemsIAAS(c *tc.C) {
 		SizeInMiB:         2048,
 		ProviderID:        "provider-test-2/1",
 		StorageInstanceID: "storageinstance/2",
-	}, {
-		ID:         "test-3/2",
-		PoolName:   "tmpfs",
-		SizeInMiB:  4096,
-		ProviderID: "provider-test-3/2",
-		// sometimes filesystems are not associated with a storage instance
-		StorageInstanceID: "",
 	}}
 
-	s.state.EXPECT().GetStoragePoolProvidersByNames(gomock.Any(), tc.Bind(tc.SameContents, []string{"ebs", "ebs-ssd", "tmpfs"})).Return(map[string]string{
+	s.state.EXPECT().GetStoragePoolProvidersByNames(gomock.Any(), tc.Bind(tc.SameContents, []string{"ebs", "ebs-ssd"})).Return(map[string]string{
 		"ebs":     "ebs",
 		"ebs-ssd": "ebs",
-		"tmpfs":   "tmpfs",
 	}, nil)
 
 	ebsProvider := NewMockProvider(ctrl)
@@ -356,12 +348,6 @@ func (s *importSuite) TestImportFilesystemsIAAS(c *tc.C) {
 	ebsProvider.EXPECT().Supports(internalstorage.StorageKindBlock).Return(true).AnyTimes()
 	ebsProvider.EXPECT().Supports(internalstorage.StorageKindFilesystem).Return(false).AnyTimes()
 	s.registry.Providers["ebs"] = ebsProvider
-
-	tmpfsProvider := NewMockProvider(ctrl)
-	tmpfsProvider.EXPECT().Scope().Return(internalstorage.ScopeMachine).AnyTimes()
-	tmpfsProvider.EXPECT().Supports(internalstorage.StorageKindBlock).Return(false).AnyTimes()
-	tmpfsProvider.EXPECT().Supports(internalstorage.StorageKindFilesystem).Return(true).AnyTimes()
-	s.registry.Providers["tmpfs"] = tmpfsProvider
 
 	s.state.EXPECT().GetStorageInstanceUUIDsByIDs(gomock.Any(), []string{"storageinstance/1", "storageinstance/2"}).
 		Return(map[string]string{
@@ -383,12 +369,6 @@ func (s *importSuite) TestImportFilesystemsIAAS(c *tc.C) {
 		ProviderID:          "provider-test-1/0",
 		StorageInstanceUUID: "storageinstance-uuid-1",
 		Scope:               domainstorageprovisioning.ProvisionScopeMachine,
-	}, {
-		ID:         "test-3/2",
-		Life:       life.Alive,
-		SizeInMiB:  4096,
-		ProviderID: "provider-test-3/2",
-		Scope:      domainstorageprovisioning.ProvisionScopeMachine,
 	}}
 
 	mc := tc.NewMultiChecker()
@@ -398,6 +378,225 @@ func (s *importSuite) TestImportFilesystemsIAAS(c *tc.C) {
 		tc.Bind(tc.UnorderedMatch[[]internal.ImportFilesystemIAASArgs](mc), expectedFS),
 		tc.Bind(tc.HasLen, 0),
 	).Return(nil)
+
+	err := s.service.ImportFilesystemsIAAS(c.Context(), params)
+
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportFilesystemsIAASResolveStorageInstanceFromVolume(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	params := []domainstorage.ImportFilesystemParams{{
+		ID:         "test-1/0",
+		PoolName:   "ebs",
+		SizeInMiB:  1024,
+		ProviderID: "provider-test-1/0",
+		VolumeID:   "volume-1",
+	}, {
+		ID:                "test-2/1",
+		PoolName:          "ebs-ssd",
+		SizeInMiB:         2048,
+		ProviderID:        "provider-test-2/1",
+		StorageInstanceID: "storageinstance/2",
+	}}
+
+	s.state.EXPECT().GetStoragePoolProvidersByNames(gomock.Any(), tc.Bind(tc.SameContents, []string{"ebs", "ebs-ssd"})).Return(map[string]string{
+		"ebs":     "ebs",
+		"ebs-ssd": "ebs",
+	}, nil)
+
+	ebsProvider := NewMockProvider(ctrl)
+	ebsProvider.EXPECT().Scope().Return(internalstorage.ScopeEnviron).AnyTimes()
+	ebsProvider.EXPECT().Supports(internalstorage.StorageKindBlock).Return(true).AnyTimes()
+	ebsProvider.EXPECT().Supports(internalstorage.StorageKindFilesystem).Return(false).AnyTimes()
+	s.registry.Providers["ebs"] = ebsProvider
+
+	s.state.EXPECT().GetStorageInstanceUUIDsByIDs(gomock.Any(), []string{"storageinstance/2"}).
+		Return(map[string]string{
+			"storageinstance/2": "storageinstance-uuid-2",
+		}, nil)
+
+	s.state.EXPECT().GetStorageInstanceUUIDsByVolumeIDs(gomock.Any(), []string{"volume-1"}).
+		Return(map[string]string{
+			"volume-1": "storageinstance-uuid-1",
+		}, nil)
+
+	expectedFS := []internal.ImportFilesystemIAASArgs{{
+		ID:                  "test-1/0",
+		Life:                life.Alive,
+		SizeInMiB:           1024,
+		ProviderID:          "provider-test-1/0",
+		StorageInstanceUUID: "storageinstance-uuid-1",
+		Scope:               domainstorageprovisioning.ProvisionScopeMachine,
+	}, {
+		ID:                  "test-2/1",
+		Life:                life.Alive,
+		SizeInMiB:           2048,
+		ProviderID:          "provider-test-2/1",
+		StorageInstanceUUID: "storageinstance-uuid-2",
+		Scope:               domainstorageprovisioning.ProvisionScopeMachine,
+	}}
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_.UUID`, tc.IsNonZeroUUID)
+
+	s.state.EXPECT().ImportFilesystemsIAAS(gomock.Any(),
+		tc.Bind(tc.UnorderedMatch[[]internal.ImportFilesystemIAASArgs](mc), expectedFS),
+		tc.Bind(tc.HasLen, 0),
+	).Return(nil)
+
+	err := s.service.ImportFilesystemsIAAS(c.Context(), params)
+
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportFilesystemsIAASStorageIDTakesPrecedenceOverVolume(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	params := []domainstorage.ImportFilesystemParams{{
+		ID:                "test-1/0",
+		PoolName:          "ebs",
+		SizeInMiB:         1024,
+		ProviderID:        "provider-test-1/0",
+		StorageInstanceID: "storageinstance/1",
+		VolumeID:          "volume-1",
+	}, {
+		ID:                "test-2/1",
+		PoolName:          "ebs-ssd",
+		SizeInMiB:         2048,
+		ProviderID:        "provider-test-2/1",
+		StorageInstanceID: "storageinstance/2",
+	}}
+
+	s.state.EXPECT().GetStoragePoolProvidersByNames(gomock.Any(), tc.Bind(tc.SameContents, []string{"ebs", "ebs-ssd"})).Return(map[string]string{
+		"ebs":     "ebs",
+		"ebs-ssd": "ebs",
+	}, nil)
+
+	ebsProvider := NewMockProvider(ctrl)
+	ebsProvider.EXPECT().Scope().Return(internalstorage.ScopeEnviron).AnyTimes()
+	ebsProvider.EXPECT().Supports(internalstorage.StorageKindBlock).Return(true).AnyTimes()
+	ebsProvider.EXPECT().Supports(internalstorage.StorageKindFilesystem).Return(false).AnyTimes()
+	s.registry.Providers["ebs"] = ebsProvider
+
+	// Both filesystems have storage IDs, so volume lookup should not happen.
+	s.state.EXPECT().GetStorageInstanceUUIDsByIDs(gomock.Any(), []string{"storageinstance/1", "storageinstance/2"}).
+		Return(map[string]string{
+			"storageinstance/1": "storageinstance-uuid-1",
+			"storageinstance/2": "storageinstance-uuid-2",
+		}, nil)
+
+	expectedFS := []internal.ImportFilesystemIAASArgs{{
+		ID:                  "test-1/0",
+		Life:                life.Alive,
+		SizeInMiB:           1024,
+		ProviderID:          "provider-test-1/0",
+		StorageInstanceUUID: "storageinstance-uuid-1",
+		Scope:               domainstorageprovisioning.ProvisionScopeMachine,
+	}, {
+		ID:                  "test-2/1",
+		Life:                life.Alive,
+		SizeInMiB:           2048,
+		ProviderID:          "provider-test-2/1",
+		StorageInstanceUUID: "storageinstance-uuid-2",
+		Scope:               domainstorageprovisioning.ProvisionScopeMachine,
+	}}
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_.UUID`, tc.IsNonZeroUUID)
+
+	s.state.EXPECT().ImportFilesystemsIAAS(gomock.Any(),
+		tc.Bind(tc.UnorderedMatch[[]internal.ImportFilesystemIAASArgs](mc), expectedFS),
+		tc.Bind(tc.HasLen, 0),
+	).Return(nil)
+
+	err := s.service.ImportFilesystemsIAAS(c.Context(), params)
+
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportFilesystemsIAASCreateOrphanedStorageInstance(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	params := []domainstorage.ImportFilesystemParams{{
+		ID:         "test-1/0",
+		PoolName:   "tmpfs",
+		SizeInMiB:  1024,
+		ProviderID: "provider-test-1/0",
+	}, {
+		ID:         "test-2/1",
+		PoolName:   "tmpfs-alt",
+		SizeInMiB:  2048,
+		ProviderID: "provider-test-2/1",
+	}}
+
+	s.state.EXPECT().GetStoragePoolProvidersByNames(gomock.Any(), tc.Bind(tc.SameContents, []string{"tmpfs", "tmpfs-alt"})).Return(map[string]string{
+		"tmpfs":     "tmpfs",
+		"tmpfs-alt": "tmpfs",
+	}, nil)
+
+	tmpfsProvider := NewMockProvider(ctrl)
+	tmpfsProvider.EXPECT().Scope().Return(internalstorage.ScopeMachine).AnyTimes()
+	tmpfsProvider.EXPECT().Supports(internalstorage.StorageKindBlock).Return(false).AnyTimes()
+	tmpfsProvider.EXPECT().Supports(internalstorage.StorageKindFilesystem).Return(true).AnyTimes()
+	s.registry.Providers["tmpfs"] = tmpfsProvider
+
+	var gotInstances []internal.ImportStorageInstanceArgs
+	expectedInstances := []internal.ImportStorageInstanceArgs{{
+		Life:             life.Alive,
+		StorageKind:      "filesystem",
+		PoolName:         "tmpfs",
+		RequestedSizeMiB: 1024,
+	}, {
+		Life:             life.Alive,
+		StorageKind:      "filesystem",
+		PoolName:         "tmpfs-alt",
+		RequestedSizeMiB: 2048,
+	}}
+	instanceChecker := tc.NewMultiChecker()
+	instanceChecker.AddExpr(`_[_].UUID`, tc.IsNonZeroUUID)
+	instanceChecker.AddExpr(`_[_].StorageName`, tc.Matches, `orphaned[a-f0-9]{32}`)
+	instanceChecker.AddExpr(`_[_].StorageInstanceID`, tc.Matches, `orphaned[a-f0-9]{32}/[0-9]+`)
+	s.state.EXPECT().ImportStorageInstances(
+		gomock.Any(),
+		tc.Bind(instanceChecker, expectedInstances),
+		tc.Bind(tc.HasLen, 0),
+	).DoAndReturn(func(_ context.Context, importArgs []internal.ImportStorageInstanceArgs, _ []internal.ImportStorageInstanceAttachmentArgs) error {
+		c.Assert(importArgs, tc.HasLen, 2)
+		gotInstances = make([]internal.ImportStorageInstanceArgs, len(importArgs))
+		copy(gotInstances, importArgs)
+		return nil
+	})
+
+	expectedFS := []internal.ImportFilesystemIAASArgs{{
+		ID:         "test-1/0",
+		Life:       life.Alive,
+		SizeInMiB:  1024,
+		ProviderID: "provider-test-1/0",
+		Scope:      domainstorageprovisioning.ProvisionScopeMachine,
+	}, {
+		ID:         "test-2/1",
+		Life:       life.Alive,
+		SizeInMiB:  2048,
+		ProviderID: "provider-test-2/1",
+		Scope:      domainstorageprovisioning.ProvisionScopeMachine,
+	}}
+	fsChecker := tc.NewMultiChecker()
+	fsChecker.AddExpr(`_[_].UUID`, tc.IsNonZeroUUID)
+	fsChecker.AddExpr(`_[_].StorageInstanceUUID`, tc.IsNonZeroUUID)
+	s.state.EXPECT().ImportFilesystemsIAAS(gomock.Any(),
+		tc.Bind(fsChecker, expectedFS),
+		tc.Bind(tc.HasLen, 0),
+	).DoAndReturn(func(_ context.Context, fsArgs []internal.ImportFilesystemIAASArgs, _ []internal.ImportFilesystemAttachmentIAASArgs) error {
+		c.Assert(fsArgs, tc.HasLen, 2)
+		c.Check(fsArgs[0].StorageInstanceUUID, tc.Equals, gotInstances[0].UUID)
+		c.Check(fsArgs[1].StorageInstanceUUID, tc.Equals, gotInstances[1].UUID)
+		return nil
+	})
 
 	err := s.service.ImportFilesystemsIAAS(c.Context(), params)
 

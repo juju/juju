@@ -444,6 +444,37 @@ func (s *importSuite) TestImportFilesystems(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *importSuite) TestImportFilesystemsWithVolumeReference(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
+	model.AddFilesystem(description.FilesystemArgs{
+		ID:           "fs-1",
+		Size:         2048,
+		Volume:       "0",
+		Pool:         "testpool",
+		FilesystemID: "provider-fs-1",
+	})
+
+	s.noopStoragePoolImport()
+	s.service.EXPECT().ImportFilesystemsIAAS(gomock.Any(), tc.Bind(tc.SameContents, []domainstorage.ImportFilesystemParams{{
+		ID:                "fs-1",
+		SizeInMiB:         2048,
+		StorageInstanceID: "",
+		VolumeID:          "0",
+		PoolName:          "testpool",
+		ProviderID:        "provider-fs-1",
+		Attachments:       []domainstorage.ImportFilesystemAttachmentsParams{},
+	}})).Return(nil)
+
+	op := s.newImportOperation()
+	err := op.Execute(c.Context(), model)
+
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *importSuite) TestImportVolumes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
