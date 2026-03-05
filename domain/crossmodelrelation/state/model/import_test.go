@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/juju/tc"
 
@@ -672,19 +673,20 @@ func (s *importSecretSuite) createSecretWithMetadata(c *tc.C, secretID string) {
 		if _, err := tx.ExecContext(ctx, "INSERT INTO secret (id) VALUES (?)", secretID); err != nil {
 			return err
 		}
+		now := time.Now().UTC()
 		// metadata requires rotate policy id to exist; schema seeds it. Use 0 (never).
 		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO secret_metadata (secret_id, version, description, rotate_policy_id, auto_prune)
-			VALUES (?, 1, '', 0, 0)
-		`, secretID); err != nil {
+			INSERT INTO secret_metadata (secret_id, version, description, rotate_policy_id, auto_prune, create_time, update_time)
+			VALUES (?, 1, '', 0, 0, ?, ?)
+		`, secretID, now, now); err != nil {
 			return err
 		}
 		// create initial revision so latest revision queries work.
 		revUUID := internaluuid.MustNewUUID().String()
 		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO secret_revision (uuid, secret_id, revision)
-			VALUES (?, ?, 1)
-		`, revUUID, secretID); err != nil {
+			INSERT INTO secret_revision (uuid, secret_id, revision, create_time)
+			VALUES (?, ?, 1, ?)
+		`, revUUID, secretID, now); err != nil {
 			return err
 		}
 		return nil
