@@ -42,7 +42,7 @@ func (k *klogAdapter) Error(err error, msg string, keysAndValues ...any) {
 		level = k.Logger.Debugf
 	}
 	if err == nil {
-		level(context.TODO(), "%s(%#v)", msg)
+		level(context.TODO(), "%s(%#v)", msg, keysAndValues)
 		return
 	}
 	errStr := err.Error()
