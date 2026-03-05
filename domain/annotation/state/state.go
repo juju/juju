@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/annotation"
+	domainannotation "github.com/juju/juju/domain/annotation"
 	annotationerrors "github.com/juju/juju/domain/annotation/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -44,7 +44,7 @@ func (st *State) GetAnnotations(ctx context.Context, id annotations.ID) (map[str
 // GetCharmAnnotations will retrieve all the annotations associated with the
 // given ID from the database.
 // If no annotations are found, an empty map is returned.
-func (st *State) GetCharmAnnotations(ctx context.Context, id annotation.GetCharmArgs) (map[string]string, error) {
+func (st *State) GetCharmAnnotations(ctx context.Context, id domainannotation.GetCharmArgs) (map[string]string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -55,13 +55,13 @@ func (st *State) GetCharmAnnotations(ctx context.Context, id annotation.GetCharm
 		Revision: id.Revision,
 	}
 
-	var results []Annotation
+	var results []annotation
 	query, err := st.Prepare(`
-SELECT (key, value) AS (&Annotation.*)
+SELECT (key, value) AS (&annotation.*)
 FROM annotation_charm AS ac
 JOIN v_charm_annotation_index AS c ON ac.uuid = c.uuid
 WHERE c.name = $charmArgs.name AND c.revision = $charmArgs.revision;
-`, args, Annotation{})
+`, args, annotation{})
 	if err != nil {
 		return nil, errors.Errorf("preparing get charm annotations query: %w", err)
 	}
@@ -77,7 +77,7 @@ WHERE c.name = $charmArgs.name AND c.revision = $charmArgs.revision;
 		return nil, errors.Errorf("loading annotations for charm %q: %w", id.Name, err)
 	}
 
-	annotations := transform.SliceToMap(results, func(a Annotation) (string, string) {
+	annotations := transform.SliceToMap(results, func(a annotation) (string, string) {
 		return a.Key, a.Value
 	})
 
@@ -97,13 +97,13 @@ func (st *State) getAnnotationsForModel(ctx context.Context) (map[string]string,
 	}
 
 	getAnnotationsStmt, err := st.Prepare(`
-SELECT (key, value) AS (&Annotation.*) 
-FROM   annotation_model`, Annotation{})
+SELECT (key, value) AS (&annotation.*)
+FROM   annotation_model`, annotation{})
 	if err != nil {
 		return nil, errors.Errorf("preparing get annotations query for model: %w", err)
 	}
 
-	var annotationsResults []Annotation
+	var annotationsResults []annotation
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, getAnnotationsStmt).GetAll(&annotationsResults)
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -115,7 +115,7 @@ FROM   annotation_model`, Annotation{})
 		return nil, errors.Errorf("loading annotations for model: %w", err)
 	}
 
-	annotations := transform.SliceToMap(annotationsResults, func(a Annotation) (string, string) { return a.Key, a.Value })
+	annotations := transform.SliceToMap(annotationsResults, func(a annotation) (string, string) { return a.Key, a.Value })
 
 	return annotations, nil
 }
@@ -137,11 +137,11 @@ func (st *State) getAnnotationsForID(ctx context.Context, id annotations.ID) (ma
 		return nil, errors.Capture(err)
 	}
 	getAnnotationsQuery := fmt.Sprintf(`
-SELECT (key, value) AS (&Annotation.*)
+SELECT (key, value) AS (&annotation.*)
 FROM %s
 WHERE uuid = $annotationUUID.uuid`, tableName)
 
-	getAnnotationsStmt, err := st.Prepare(getAnnotationsQuery, Annotation{}, annotationUUID{})
+	getAnnotationsStmt, err := st.Prepare(getAnnotationsQuery, annotation{}, annotationUUID{})
 	if err != nil {
 		return nil, errors.Errorf("preparing get annotations query for ID: %q: %w", id.Name, err)
 	}
@@ -156,7 +156,7 @@ WHERE uuid = $annotationUUID.uuid`, tableName)
 		return nil, errors.Errorf("preparing get annotations query for ID: %q: %w", id.Name, err)
 	}
 
-	var annotationsResults []Annotation
+	var annotationsResults []annotation
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, kindQueryStmt, kindQueryParam).Get(&annotationUUIDParam)
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -176,7 +176,7 @@ WHERE uuid = $annotationUUID.uuid`, tableName)
 		return nil, errors.Errorf("loading annotations for ID: %q: %w", id.Name, err)
 	}
 
-	annotations := transform.SliceToMap(annotationsResults, func(a Annotation) (string, string) {
+	annotations := transform.SliceToMap(annotationsResults, func(a annotation) (string, string) {
 		return a.Key, a.Value
 	})
 
@@ -218,10 +218,10 @@ func (st *State) setAnnotationsForID(ctx context.Context, id annotations.ID,
 	}
 	insertQuery := fmt.Sprintf(`
 INSERT INTO %s (uuid, key, value)
-VALUES ($annotationUUID.uuid, $Annotation.key, $Annotation.value)
-	ON CONFLICT(uuid, key) DO UPDATE SET value=$Annotation.value`, tableName)
+VALUES ($annotationUUID.uuid, $annotation.key, $annotation.value)
+	ON CONFLICT(uuid, key) DO UPDATE SET value=$annotation.value`, tableName)
 
-	setAnnotationsStmt, err := st.Prepare(insertQuery, Annotation{}, annotationUUID{})
+	setAnnotationsStmt, err := st.Prepare(insertQuery, annotation{}, annotationUUID{})
 	if err != nil {
 		return errors.Errorf("preparing set annotations query for ID: %q: %w", id.Name, err)
 	}
@@ -259,7 +259,7 @@ WHERE uuid = $annotationUUID.uuid AND key IN ($deleteInput[:])`, tableName)
 			return errors.Errorf("unsetting annotations for ID: %s: %w", id.Name, err)
 		}
 
-		var annotationParam Annotation
+		var annotationParam annotation
 		for key, value := range upserts {
 			annotationParam.Key = key
 			annotationParam.Value = value
@@ -291,8 +291,8 @@ func (st *State) setAnnotationsForModel(ctx context.Context,
 
 	setAnnotationsStmt, err := st.Prepare(`
 INSERT INTO annotation_model (key, value)
-VALUES ($Annotation.*)
-	ON CONFLICT(key) DO UPDATE SET value=$Annotation.value`, Annotation{})
+VALUES ($annotation.*)
+	ON CONFLICT(key) DO UPDATE SET value=$annotation.value`, annotation{})
 	if err != nil {
 		return errors.Errorf("preparing set annotations query for model: %w", err)
 	}
@@ -310,7 +310,7 @@ WHERE key IN ($deleteInput[:])`, deleteInput{})
 			return errors.Errorf("unsetting annotations for model: %w", err)
 		}
 
-		var annotationParam Annotation
+		var annotationParam annotation
 		for key, value := range upserts {
 			annotationParam.Key = key
 			annotationParam.Value = value
@@ -328,12 +328,14 @@ WHERE key IN ($deleteInput[:])`, deleteInput{})
 
 // SetCharmAnnotations associates key/value annotation pairs with a given ID.
 // If an annotation already exists for the given ID, then it will be updated
-// with the given value. First all annotations are deleted, then the given pairs
-// are inserted, so unsetting an annotation is implicit.
+// with the given value.
+// Annotation keys not included will be left unchanged.
+// Annotation keys in the deletions slice will be deleted.
 func (st *State) SetCharmAnnotations(
 	ctx context.Context,
-	id annotation.GetCharmArgs,
-	values map[string]string,
+	id domainannotation.GetCharmArgs,
+	upserts map[string]string,
+	deletions []string,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -353,18 +355,21 @@ WHERE name = $charmArgs.name AND revision = $charmArgs.revision;
 		return errors.Errorf("preparing get charm annotations query: %w", err)
 	}
 
+	type deleteInput []string
 	deleteStmt, err := st.Prepare(`
 DELETE FROM annotation_charm
 WHERE uuid = $annotationUUID.uuid
-`, annotationUUID{})
+AND key IN ($deleteInput[:])
+`, annotationUUID{}, deleteInput{})
 	if err != nil {
 		return errors.Errorf("preparing delete charm annotations query: %w", err)
 	}
 
 	insertStmt, err := st.Prepare(`
-INSERT INTO annotation_charm (*)
-VALUES ($annotationUUID.*, $Annotation.*)
-`, Annotation{}, annotationUUID{})
+INSERT INTO annotation_charm (uuid, key, value)
+VALUES ($annotationUUID.uuid, $annotation.key, $annotation.value)
+ON CONFLICT(uuid, key) DO UPDATE SET value=excluded.value
+`, annotation{}, annotationUUID{})
 	if err != nil {
 		return errors.Errorf("preparing set charm annotations query: %w", err)
 	}
@@ -378,12 +383,12 @@ VALUES ($annotationUUID.*, $Annotation.*)
 			return errors.Errorf("looking up UUID for ID: %s: %w", id.Name, err)
 		}
 
-		if err := tx.Query(ctx, deleteStmt, annotationUUID).Run(); err != nil {
+		if err := tx.Query(ctx, deleteStmt, annotationUUID, deleteInput(deletions)).Run(); err != nil {
 			return errors.Errorf("unsetting annotations for ID: %s: %w", id.Name, err)
 		}
 
-		var annotationParam Annotation
-		for key, value := range values {
+		var annotationParam annotation
+		for key, value := range upserts {
 			annotationParam.Key = key
 			annotationParam.Value = value
 			if err := tx.Query(ctx, insertStmt, annotationUUID, annotationParam).Run(); err != nil {
