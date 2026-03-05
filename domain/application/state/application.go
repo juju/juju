@@ -1029,8 +1029,6 @@ AND    provider_id = $cloudService.provider_id`, serviceInfo)
 		}
 
 		if len(sAddrs) > 0 {
-			// If we have addresses to insert, then first create the link layer
-			// device (if needed) and then insert the addresses.
 			if err := st.upsertCloudServiceAddresses(ctx, tx, serviceInfo, applicationName, sAddrs); err != nil {
 				return errors.Capture(err)
 			}
@@ -1039,6 +1037,65 @@ AND    provider_id = $cloudService.provider_id`, serviceInfo)
 	})
 	if err != nil {
 		return errors.Errorf("updating cloud service for application %q: %w", applicationName, err)
+	}
+	return nil
+}
+
+// DeleteCloudService removes cloud-service addresses for the specified
+// application.
+func (st *State) DeleteCloudService(ctx context.Context, applicationName string) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	queryServicesStmt, err := st.Prepare(`
+SELECT &cloudService.*
+FROM   k8s_service
+WHERE  application_uuid = $cloudService.application_uuid
+`, cloudService{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteCloudServiceStmt, err := st.Prepare(`
+DELETE FROM k8s_service
+WHERE uuid = $cloudService.uuid
+`, cloudService{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		appDetails, err := st.getApplicationDetails(ctx, tx, applicationName)
+		if err != nil {
+			return errors.Capture(err)
+		} else if appDetails.IsApplicationSynthetic {
+			return errors.Errorf("cannot delete cloud service for synthetic application %q", applicationName)
+		}
+
+		serviceFilter := cloudService{ApplicationUUID: appDetails.UUID}
+		var cloudServices []cloudService
+		err = tx.Query(ctx, queryServicesStmt, serviceFilter).GetAll(&cloudServices)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying cloud services for application %q: %w", applicationName, err)
+		}
+
+		for _, service := range cloudServices {
+			if err := st.deleteCloudServiceAddresses(ctx, tx, appDetails.UUID, service.ProviderID); err != nil {
+				return errors.Capture(err)
+			}
+			if err := tx.Query(ctx, deleteCloudServiceStmt, service).Run(); err != nil {
+				return errors.Errorf("removing cloud service for application %q and providerID %q: %w", appDetails.UUID, service.ProviderID, err)
+			}
+			if err := st.deleteCloudServiceNode(ctx, tx, service.NetNodeUUID); err != nil {
+				return errors.Capture(err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Errorf("deleting cloud service for application %q: %w", applicationName, err)
 	}
 	return nil
 }
@@ -1183,6 +1240,56 @@ WHERE device_uuid IN lld_uuids;
 	}
 	if err := tx.Query(ctx, deleteAddressStmt, cloudService).Run(); err != nil {
 		return errors.Errorf("removing cloud service addresses for application %q and providerID %q: %w", appUUID, providerID, err)
+	}
+	return nil
+}
+
+func (st *State) deleteCloudServiceNode(ctx context.Context, tx *sqlair.TX, netNodeUUID string) error {
+	node := dbUUID{UUID: netNodeUUID}
+
+	deleteDeviceStmt, err := st.Prepare(`
+DELETE FROM link_layer_device
+WHERE net_node_uuid = $dbUUID.uuid
+`, node)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteFQDNStmt, err := st.Prepare(`
+DELETE FROM net_node_fqdn_address
+WHERE net_node_uuid = $dbUUID.uuid
+`, node)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteHostnameStmt, err := st.Prepare(`
+DELETE FROM net_node_hostname_address
+WHERE net_node_uuid = $dbUUID.uuid
+`, node)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteNodeStmt, err := st.Prepare(`
+DELETE FROM net_node
+WHERE uuid = $dbUUID.uuid
+`, node)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, deleteDeviceStmt, node).Run(); err != nil {
+		return errors.Errorf("removing cloud service link-layer devices for net node %q: %w", netNodeUUID, err)
+	}
+	if err := tx.Query(ctx, deleteFQDNStmt, node).Run(); err != nil {
+		return errors.Errorf("removing cloud service fqdn addresses for net node %q: %w", netNodeUUID, err)
+	}
+	if err := tx.Query(ctx, deleteHostnameStmt, node).Run(); err != nil {
+		return errors.Errorf("removing cloud service hostname addresses for net node %q: %w", netNodeUUID, err)
+	}
+	if err := tx.Query(ctx, deleteNodeStmt, node).Run(); err != nil {
+		return errors.Errorf("removing cloud service net node %q: %w", netNodeUUID, err)
 	}
 	return nil
 }

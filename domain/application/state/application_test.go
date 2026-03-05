@@ -1273,9 +1273,88 @@ WHERE application_uuid = ?
 
 	err = s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
 	c.Assert(err, tc.ErrorIsNil)
-	// Since no addresses were passed as input, the previous addresses should
-	// be returned.
+	// Since no addresses were passed as input, this should not modify any
+	// previously known addresses.
 	checkAddresses(c, "10.0.0.1/8", "10.0.0.2/8")
+}
+
+func (s *applicationStateSuite) TestDeleteCloudService(c *tc.C) {
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
+	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
+		{
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.0.1/8",
+				ConfigType: network.ConfigStatic,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeCloudLocal,
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	var netNodeUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT net_node_uuid
+FROM k8s_service
+WHERE application_uuid = ?
+		`, appUUID).Scan(&netNodeUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	checkAddresses := func(c *tc.C, expectedAddresses ...string) {
+		var resultAddresses []string
+		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			rows, err := tx.QueryContext(ctx, `
+SELECT address_value
+FROM ip_address
+WHERE net_node_uuid = ?
+			`, netNodeUUID)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = rows.Close() }()
+
+			for rows.Next() {
+				var addressVal string
+				if err := rows.Scan(&addressVal); err != nil {
+					return err
+				}
+				resultAddresses = append(resultAddresses, addressVal)
+			}
+			return rows.Err()
+		})
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(resultAddresses, tc.SameContents, expectedAddresses)
+	}
+
+	checkAddresses(c, "10.0.0.1/8")
+
+	err = s.state.DeleteCloudService(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+	checkAddresses(c)
+
+	var serviceCount int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM k8s_service
+WHERE application_uuid = ?
+		`, appUUID).Scan(&serviceCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(serviceCount, tc.Equals, 0)
+
+	var netNodeCount int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM net_node
+WHERE uuid = ?
+		`, netNodeUUID).Scan(&netNodeCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(netNodeCount, tc.Equals, 0)
 }
 
 func (s *applicationStateSuite) TestUpsertCloudServiceUpdateExistingWithAddresses(c *tc.C) {

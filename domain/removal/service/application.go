@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
@@ -57,6 +56,11 @@ type ApplicationState interface {
 	// GetApplicationUnitAndRelationCount returns the number of units and
 	// relations that still reference the application.
 	GetApplicationUnitAndRelationCount(ctx context.Context, appUUID string) (int, int, error)
+
+	// GetApplicationCloudServiceResourceCount returns the number of DB-tracked
+	// cloud-service resources (k8s_service rows and associated IP addresses)
+	// for the application.
+	GetApplicationCloudServiceResourceCount(ctx context.Context, appUUID string) (int, error)
 
 	// GetApplicationName returns the application name for the application with
 	// the input UUID.
@@ -266,8 +270,7 @@ func (s *Service) RemoveApplication(
 // This method is responsible for checking that the pre-conditions for marking
 // an application as dead are met before advancing its Life to Dead. These
 // pre-conditions include ensuring that the application has no units or
-// relations, and in the case of k8s applications, that the application's
-// resources have been deleted (done by the CAAS application provisioner).
+// relations.
 func (s *Service) markApplicationAsDead(ctx context.Context, appUUID string) error {
 	exists, err := s.modelState.ApplicationExists(ctx, appUUID)
 	if err != nil {
@@ -292,41 +295,32 @@ func (s *Service) markApplicationAsDead(ctx context.Context, appUUID string) err
 			Add(removalerrors.RemovalJobIncomplete)
 	}
 
+	return errors.Capture(s.modelState.MarkApplicationAsDead(ctx, appUUID))
+}
+
+// ensureApplicationProviderResourcesRemoved checks DB-tracked CAAS cloud-service
+// resources and blocks deletion until they are gone.
+func (s *Service) ensureApplicationProviderResourcesRemoved(ctx context.Context, appUUID string) error {
 	modelType, err := s.modelState.GetModelType(ctx)
 	if err != nil {
-		return errors.Errorf("getting model type for application %q dead transition: %w", appUUID, err)
+		return errors.Errorf("getting model type for application %q removal: %w", appUUID, err)
+	}
+	if modelType != coremodel.CAAS {
+		return nil
 	}
 
-	// For CAAS models, check if the application has any provider resources
-	// before marking it as dead. Provider and resource check errors are
-	// treated as transient (RemovalJobIncomplete) so the removal worker
-	// retries gracefully instead of silently dropping the error.
-	if modelType == coremodel.CAAS {
-		appName, err := s.modelState.GetApplicationName(ctx, appUUID)
-		if err != nil {
-			return errors.Errorf("getting application %q name for provider resource check: %w", appUUID, err)
-		}
-
-		provider, err := s.caasApplicationProvider(ctx)
-		if err != nil {
-			s.logger.Warningf(ctx, "cannot get CAAS provider for application %q dead transition, will retry: %v", appUUID, err)
-			return errors.Errorf("getting provider for CAAS application %q dead transition: %w", appUUID, err).
-				Add(removalerrors.RemovalJobIncomplete)
-		}
-
-		appState, err := provider.Application(appName, caas.DeploymentStateful).Exists()
-		if err != nil {
-			s.logger.Warningf(ctx, "cannot check CAAS resources for application %q, will retry: %v", appUUID, err)
-			return errors.Errorf("checking CAAS resources for application %q: %w", appUUID, err).
-				Add(removalerrors.RemovalJobIncomplete)
-		}
-		if appState.Exists {
-			return errors.Errorf("cannot mark application %q as dead while CAAS resources still exist", appUUID).
-				Add(removalerrors.RemovalJobIncomplete)
-		}
+	numResources, err := s.modelState.GetApplicationCloudServiceResourceCount(ctx, appUUID)
+	if err != nil {
+		s.logger.Warningf(ctx, "cannot check CAAS cloud-service resources for application %q removal, will retry: %v", appUUID, err)
+		return errors.Errorf("checking CAAS cloud-service resources for application %q: %w", appUUID, err).
+			Add(removalerrors.RemovalJobIncomplete)
+	}
+	if numResources > 0 {
+		return errors.Errorf("cannot remove application %q while CAAS resources still exist", appUUID).
+			Add(removalerrors.RemovalJobIncomplete)
 	}
 
-	return errors.Capture(s.modelState.MarkApplicationAsDead(ctx, appUUID))
+	return nil
 }
 
 func (s *Service) applicationScheduleRemoval(
@@ -371,10 +365,18 @@ func (s *Service) processApplicationRemovalJob(ctx context.Context, job removal.
 		return errors.Errorf("application %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}
 
-	// When force is set, skip the dead-state gate entirely. The forced
-	// deletion path does not need the Dying→Dead transition.
-	if l != life.Dead && !job.Force {
-		if err := s.markApplicationAsDead(ctx, job.EntityUUID); err != nil {
+	// When force is set, skip the dead-state and CAAS resource gates entirely.
+	if !job.Force {
+		if l != life.Dead {
+			if err := s.markApplicationAsDead(ctx, job.EntityUUID); err != nil {
+				return err
+			}
+			// Keep the dead transition and final deletion on separate retries.
+			return errors.Errorf("application %q marked as dead; waiting for next pass", job.EntityUUID).
+				Add(removalerrors.RemovalJobIncomplete)
+		}
+
+		if err := s.ensureApplicationProviderResourcesRemoved(ctx, job.EntityUUID); err != nil {
 			return err
 		}
 	}

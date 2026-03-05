@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	corenetwork "github.com/juju/juju/core/network"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
@@ -617,6 +618,36 @@ func (s *applicationSuite) TestGetApplicationUnitAndRelationCountWithRelations(c
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(unitCount, tc.Equals, 0)
 	c.Check(relationCount, tc.Equals, 1)
+}
+
+func (s *applicationSuite) TestGetApplicationCloudServiceResourceCount(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createCAASApplication(c, svc, "some-app")
+
+	err := svc.UpdateCloudService(c.Context(), "some-app", "provider-id", corenetwork.ProviderAddresses{
+		{
+			MachineAddress: corenetwork.MachineAddress{
+				Value:      "10.0.0.1/8",
+				ConfigType: corenetwork.ConfigStatic,
+				Type:       corenetwork.IPv4Address,
+				Scope:      corenetwork.ScopeCloudLocal,
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	resourceCount, err := st.GetApplicationCloudServiceResourceCount(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(resourceCount, tc.Equals, 2)
+
+	err = svc.DeleteCloudService(c.Context(), "some-app")
+	c.Assert(err, tc.ErrorIsNil)
+
+	resourceCount, err = st.GetApplicationCloudServiceResourceCount(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(resourceCount, tc.Equals, 0)
 }
 
 func (s *applicationSuite) TestDeleteIAASApplication(c *tc.C) {

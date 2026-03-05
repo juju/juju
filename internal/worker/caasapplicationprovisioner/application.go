@@ -327,15 +327,6 @@ func (a *appWorker) loop() error {
 				if err != nil {
 					return errors.Trace(err)
 				}
-
-				err = a.ops.AppDead(ctx, name, a.appUUID, app, a.broker,
-					a.applicationService, a.statusService, a.clock, a.logger)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				done = true
-				ready = false
-				return nil
 			}
 			ready = false
 		case life.Dead:

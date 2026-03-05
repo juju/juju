@@ -4,17 +4,13 @@
 package service
 
 import (
-	"context"
 	"testing"
 	"time"
 
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/caas"
-	caasmocks "github.com/juju/juju/caas/mocks"
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/assumes"
 	coremodel "github.com/juju/juju/core/model"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
@@ -416,7 +412,6 @@ func (s *applicationSuite) TestMarkApplicationAsDead(c *tc.C) {
 	exp := s.modelState.EXPECT()
 	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
 	exp.GetApplicationUnitAndRelationCount(gomock.Any(), appUUID.String()).Return(0, 0, nil)
-	exp.GetModelType(gomock.Any()).Return(coremodel.IAAS, nil)
 	exp.MarkApplicationAsDead(gomock.Any(), appUUID.String()).Return(nil)
 
 	err := s.newService(c).markApplicationAsDead(c.Context(), appUUID.String())
@@ -446,30 +441,20 @@ func (s *applicationSuite) TestMarkApplicationAsDeadWithUnitsReturnsIncomplete(c
 	c.Assert(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
 }
 
-func (s *applicationSuite) TestMarkApplicationAsDeadCAASResourcesStillExist(c *tc.C) {
+func (s *applicationSuite) TestEnsureApplicationProviderResourcesRemovedCAASResourcesStillExist(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	caasApp := caasmocks.NewMockApplication(ctrl)
-	caasApp.EXPECT().Exists().Return(caas.DeploymentState{Exists: true}, nil)
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	exp := s.modelState.EXPECT()
-	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
-	exp.GetApplicationUnitAndRelationCount(gomock.Any(), appUUID.String()).Return(0, 0, nil)
 	exp.GetModelType(gomock.Any()).Return(coremodel.CAAS, nil)
-	exp.GetApplicationName(gomock.Any(), appUUID.String()).Return("app-name", nil)
+	exp.GetApplicationCloudServiceResourceCount(gomock.Any(), appUUID.String()).Return(1, nil)
 
 	svc := s.newService(c)
-	svc.caasApplicationProvider = func(context.Context) (CAASProvider, error) {
-		return staticCAASProvider{app: caasApp}, nil
-	}
-	err := svc.markApplicationAsDead(c.Context(), appUUID.String())
+	err := svc.ensureApplicationProviderResourcesRemoved(c.Context(), appUUID.String())
 	c.Assert(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
 }
 
-func (s *applicationSuite) TestExecuteJobForApplicationDyingIAASMarksDeadAndDeletes(c *tc.C) {
+func (s *applicationSuite) TestExecuteJobForApplicationDyingIAASMarksDeadReturnsIncomplete(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	j := newApplicationJob(c)
@@ -478,50 +463,23 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingIAASMarksDeadAndDele
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.ApplicationExists(gomock.Any(), j.EntityUUID).Return(true, nil)
 	exp.GetApplicationUnitAndRelationCount(gomock.Any(), j.EntityUUID).Return(0, 0, nil)
-	exp.GetModelType(gomock.Any()).Return(coremodel.IAAS, nil)
 	exp.MarkApplicationAsDead(gomock.Any(), j.EntityUUID).Return(nil)
-	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
-	exp.GetApplicationOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
-	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
-	exp.DeleteApplication(gomock.Any(), j.EntityUUID, false).Return(nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
-	exp.DeleteOrphanedResources(gomock.Any(), gomock.Any()).Return(nil)
-
-	sbCfg := &provider.ModelBackendConfig{
-		BackendConfig: provider.BackendConfig{
-			BackendType: vault.BackendType,
-		},
-	}
-	s.controllerState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID.String()).Return("", sbCfg, nil)
-	s.secretBackendProvider.EXPECT().Initialise(sbCfg).Return(nil)
-	s.secretBackendProvider.EXPECT().NewBackend(sbCfg).Return(s.secretBackend, nil)
 
 	err := s.newService(c).processApplicationRemovalJob(c.Context(), j)
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
 }
 
-func (s *applicationSuite) TestExecuteJobForApplicationDyingCAASReturnsIncomplete(c *tc.C) {
+func (s *applicationSuite) TestExecuteJobForApplicationDeadCAASReturnsIncomplete(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	caasApp := caasmocks.NewMockApplication(ctrl)
-	caasApp.EXPECT().Exists().Return(caas.DeploymentState{Exists: true}, nil)
 
 	j := newApplicationJob(c)
 
 	exp := s.modelState.EXPECT()
-	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
-	exp.ApplicationExists(gomock.Any(), j.EntityUUID).Return(true, nil)
-	exp.GetApplicationUnitAndRelationCount(gomock.Any(), j.EntityUUID).Return(0, 0, nil)
+	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
 	exp.GetModelType(gomock.Any()).Return(coremodel.CAAS, nil)
-	exp.GetApplicationName(gomock.Any(), j.EntityUUID).Return("app-name", nil)
+	exp.GetApplicationCloudServiceResourceCount(gomock.Any(), j.EntityUUID).Return(1, nil)
 
-	svc := s.newService(c)
-	svc.caasApplicationProvider = func(context.Context) (CAASProvider, error) {
-		return staticCAASProvider{app: caasApp}, nil
-	}
-	err := svc.processApplicationRemovalJob(c.Context(), j)
+	err := s.newService(c).processApplicationRemovalJob(c.Context(), j)
 	c.Assert(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
 }
 
@@ -563,6 +521,7 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingDeleteApplication(c 
 
 	exp := s.modelState.EXPECT()
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
+	exp.GetModelType(gomock.Any()).Return(coremodel.IAAS, nil)
 	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
 	exp.GetApplicationOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
@@ -591,6 +550,7 @@ func (s *applicationSuite) TestDeleteCharmForApplicationFails(c *tc.C) {
 
 	exp := s.modelState.EXPECT()
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
+	exp.GetModelType(gomock.Any()).Return(coremodel.IAAS, nil)
 	exp.GetApplicationOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteApplication(gomock.Any(), j.EntityUUID, false).Return(nil)
@@ -619,6 +579,7 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingJujuSecretsDeleteApp
 
 	exp := s.modelState.EXPECT()
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
+	exp.GetModelType(gomock.Any()).Return(coremodel.IAAS, nil)
 	exp.DeleteApplicationOwnedSecretContent(gomock.Any(), j.EntityUUID)
 	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
@@ -647,6 +608,7 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingExternalSecretsDelet
 
 	exp := s.modelState.EXPECT()
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
+	exp.GetModelType(gomock.Any()).Return(coremodel.IAAS, nil)
 	exp.GetApplicationOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(secretExternalRefs, nil)
 	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
@@ -683,6 +645,7 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingDeleteApplicationErr
 
 	exp := s.modelState.EXPECT()
 	exp.GetApplicationLife(gomock.Any(), j.EntityUUID).Return(life.Dead, nil)
+	exp.GetModelType(gomock.Any()).Return(coremodel.IAAS, nil)
 	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
 	exp.GetApplicationOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
@@ -699,18 +662,6 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingDeleteApplicationErr
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
 	c.Assert(err, tc.ErrorMatches, ".*the front fell off")
-}
-
-type staticCAASProvider struct {
-	app caas.Application
-}
-
-func (p staticCAASProvider) Application(string, caas.DeploymentType) caas.Application {
-	return p.app
-}
-
-func (staticCAASProvider) SupportedFeatures() (assumes.FeatureSet, error) {
-	return assumes.FeatureSet{}, nil
 }
 
 func newApplicationJob(c *tc.C) removal.Job {

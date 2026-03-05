@@ -268,7 +268,12 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 				return nil
 			}),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Dying, nil),
-		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dying, x, x, x, x).Return(nil),
+		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dying, x, x, x, x).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, life.Value, CAASProvisionerFacade, ApplicationService, StatusService, logger.Logger) error {
+			provisioningInfoChan <- struct{}{}
+			return nil
+		}),
+		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Dead, nil),
+		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dead, x, x, x, x).Return(nil),
 		ops.EXPECT().AppDead(x, "test", s.appUUID, app, x, x, x, x, x).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, CAASBroker, ApplicationService, StatusService, clock.Clock, logger.Logger) error {
 			close(done)
 			return nil
@@ -474,7 +479,12 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 				return nil
 			}),
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Dying, nil),
-		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dying, x, x, x, x).Return(nil),
+		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dying, x, x, x, x).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, life.Value, CAASProvisionerFacade, ApplicationService, StatusService, logger.Logger) error {
+			provisioningInfoChan <- struct{}{}
+			return nil
+		}),
+		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Dead, nil),
+		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dead, x, x, x, x).Return(nil),
 		ops.EXPECT().AppDead(x, "test", s.appUUID, app, x, x, x, x, x).DoAndReturn(func(context.Context, string, application.UUID, caas.Application, CAASBroker, ApplicationService, StatusService, clock.Clock, logger.Logger) error {
 			close(done)
 			return nil

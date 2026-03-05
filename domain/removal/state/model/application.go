@@ -333,6 +333,48 @@ WHERE application_uuid = $entityUUID.uuid
 	return numUnits.Count, numRelations.Count, nil
 }
 
+// GetApplicationCloudServiceResourceCount returns the number of DB-tracked
+// cloud-service resources (k8s_service rows and associated IP addresses) for
+// the application.
+func (st *State) GetApplicationCloudServiceResourceCount(ctx context.Context, aUUID string) (int, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	applicationUUID := entityUUID{UUID: aUUID}
+	stmt, err := st.Prepare(`
+WITH resource_ids AS (
+	SELECT ks.uuid AS resource_id
+	FROM k8s_service AS ks
+	WHERE ks.application_uuid = $entityUUID.uuid
+	UNION ALL
+	SELECT ia.uuid AS resource_id
+	FROM ip_address AS ia
+	JOIN link_layer_device AS lld ON ia.device_uuid = lld.uuid
+	JOIN k8s_service AS ks ON lld.net_node_uuid = ks.net_node_uuid
+	WHERE ks.application_uuid = $entityUUID.uuid
+)
+SELECT COUNT(*) AS &count.count
+FROM resource_ids
+`, count{}, applicationUUID)
+	if err != nil {
+		return 0, errors.Errorf("preparing application cloud-service resource count query: %w", err)
+	}
+
+	var numResources count
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, applicationUUID).Get(&numResources); err != nil {
+			return errors.Errorf("querying application cloud-service resources: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	return numResources.Count, nil
+}
+
 // MarkApplicationAsDead marks the application with the input UUID as dead.
 func (st *State) MarkApplicationAsDead(ctx context.Context, aUUID string) error {
 	db, err := st.DB(ctx)

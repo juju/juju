@@ -407,16 +407,16 @@ func appDead(
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// Clear cloud-service state immediately after k8s termination so removal
+	// can proceed.
+	if err := applicationService.DeleteCloudService(ctx, appName); err != nil {
+		return errors.Trace(err)
+	}
 	_, err = updateState(ctx, appName, appUUID, app, nil, broker,
 		applicationService, statusService, clk)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// TODO(k8s): re-implement this to prevent a dead app from going away through
-	// creating a new domain concept that holds the application until this worker
-	// has destroyed all the k8s resources.
-	//
-	// Clear "has-resources" flag so state knows it can now remove the application.
 	return nil
 }
 
