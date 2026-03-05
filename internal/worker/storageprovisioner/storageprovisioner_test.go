@@ -601,10 +601,10 @@ func (s *storageProvisionerSuite) TestAttachFilesystemIncomplete(c *tc.C) {
 	// mockFunc's After will progress the current time by the specified
 	// duration and signal the channel immediately.
 	clock := &mockClock{}
-	var attachFilesystemTimes []time.Time
+	attachFilesystemCh := make(chan time.Time, 1)
 
 	s.provider.attachFilesystemsFunc = func(args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
-		attachFilesystemTimes = append(attachFilesystemTimes, clock.Now())
+		attachFilesystemCh <- clock.Now()
 		return []storage.AttachFilesystemsResult{{Error: storage.FilesystemAttachParamsIncomplete}}, nil
 	}
 
@@ -619,10 +619,9 @@ func (s *storageProvisionerSuite) TestAttachFilesystemIncomplete(c *tc.C) {
 	filesystemAccessor.filesystemsWatcher.changes <- []string{"1"}
 	waitChannel(c, filesystemInfoSet, "waiting for filesystem info to be set")
 	assertNoEvent(c, filesystemAttachmentInfoSet, "filesystem attachment info set event")
-	c.Assert(attachFilesystemTimes, tc.HasLen, 1)
 
 	// The first attempt should have been immediate: T0.
-	c.Assert(attachFilesystemTimes[0], tc.Equals, time.Time{})
+	c.Assert(<-attachFilesystemCh, tc.Equals, time.Time{})
 
 	c.Assert(args.statusSetter.args, tc.DeepEquals, []params.EntityStatusArgs{
 		{Tag: "filesystem-1", Status: "attaching", Info: ""}, // CreateFilesystems
