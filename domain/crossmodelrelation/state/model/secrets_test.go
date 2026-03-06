@@ -480,14 +480,57 @@ func (s *modelSecretsSuite) TestUpdateRemoteSecretRevision(c *tc.C) {
 	}
 
 	appUUID := s.setupRemoteApp(c, "mediawiki")
-	err := s.state.UpdateRemoteSecretRevision(c.Context(), uri, 666, appUUID)
+
+	// Create secret with 3 revisions (1, 2, 3).
+	s.createSecret(c, uri, map[string]string{"foo": "bar"}, nil)
+	s.addRevision(c, uri, map[string]string{"foo": "bar2"})
+	s.addRevision(c, uri, map[string]string{"foo": "bar3"})
+
+	// Initially revisions are not obsolete.
+	for i := 1; i <= 3; i++ {
+		obsolete, _ := s.getObsolete(c, uri, i)
+		c.Check(obsolete, tc.IsFalse)
+	}
+
+	// Update to latest revision 3.
+	err := s.state.UpdateRemoteSecretRevision(c.Context(), uri, 3, appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	got := getLatest()
-	c.Assert(got, tc.Equals, 666)
-	err = s.state.UpdateRemoteSecretRevision(c.Context(), uri, 667, appUUID)
+	c.Assert(got, tc.Equals, 3)
+
+	// Revisions 1 and 2 are now obsolete because they are not the latest and have no consumers.
+	obsolete, _ := s.getObsolete(c, uri, 1)
+	c.Check(obsolete, tc.IsTrue)
+	obsolete, _ = s.getObsolete(c, uri, 2)
+	c.Check(obsolete, tc.IsTrue)
+
+	// Revision 3 is NOT obsolete because it's the latest in secret_revision table.
+	obsolete, _ = s.getObsolete(c, uri, 3)
+	c.Check(obsolete, tc.IsFalse)
+
+	// Add revision 4.
+	s.addRevision(c, uri, map[string]string{"foo": "bar4"})
+
+	// Add a consumer for revision 3.
+	consumer := coresecrets.SecretConsumerMetadata{
+		CurrentRevision: 3,
+	}
+	err = s.state.SaveSecretRemoteConsumer(c.Context(), uri, "remote-app/0", consumer)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Update to latest revision 4.
+	err = s.state.UpdateRemoteSecretRevision(c.Context(), uri, 4, appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	got = getLatest()
-	c.Assert(got, tc.Equals, 667)
+	c.Assert(got, tc.Equals, 4)
+
+	// Revision 3 should NOT be obsolete because it has a consumer.
+	obsolete, _ = s.getObsolete(c, uri, 3)
+	c.Check(obsolete, tc.IsFalse)
+
+	// Revision 4 should NOT be obsolete because it's the latest in secret_revision table.
+	obsolete, _ = s.getObsolete(c, uri, 4)
+	c.Check(obsolete, tc.IsFalse)
 }
 
 func (s *modelSecretsSuite) setupSecretAccess(c *tc.C, uri *coresecrets.URI, unitName coreunit.Name) {

@@ -338,9 +338,10 @@ type secretRef struct {
 }
 
 type secretLatestRevision struct {
-	ID              string `db:"secret_id"`
-	LatestRevision  int    `db:"latest_revision"`
-	ApplicationUUID string `db:"owner_application_uuid"`
+	ID              string    `db:"secret_id"`
+	LatestRevision  int       `db:"latest_revision"`
+	ApplicationUUID string    `db:"owner_application_uuid"`
+	UpdatedAt       time.Time `db:"updated_at"`
 }
 
 type secretUnitConsumer struct {

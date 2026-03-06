@@ -404,53 +404,62 @@ func (st *State) ImportRemoteSecretConsumers(ctx context.Context,
 
 // ImportRemoteSecret imports a remote secret on the consumer model.
 func (st *State) ImportRemoteSecret(ctx context.Context, secret internal.RemoteSecret) error {
-	// TODO(gfouillet): reimplement remote secret import.
-	//   By default there is no need to implement it, since those information will be populated again whenever the
-	//   secret will be fetched again by the unit through a secret-get.
-	//   Non imported date belongs to both table secret_unit_consumer and secret_reference, but can't be completely
-	//   populated during the migration process: we don't have any solution to figure out the value of
-	//   secret_reference.owner_application_uuid from the model description.
-	//   I need to figure out if those data really need to be populated during migration process, and if it is
-	//   acceptable to have an empty value for secret_reference.owner_application_uuid, at least until the next
-	//   retrieval of the data by a unit.
-	//   This will be done in a follow up PR.
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
 
-	//	db, err := st.DB(ctx)
-	//	if err != nil {
-	//		return errors.Capture(err)
-	//	}
-	//
-	//	// Remote secrets doesn't have a reference yet.
-	//	secretRef := secretRef{ID: secret.SecretID}
-	//	insertRemoteSecretStmt, err := st.Prepare(`
-	//INSERT INTO secret (id)
-	//VALUES ($secretRef.secret_id)`, secretRef)
-	//	if err != nil {
-	//		return errors.Capture(err)
-	//	}
-	//
-	//	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-	//		err = tx.Query(ctx, insertRemoteSecretStmt, secretRef).Run()
-	//		if err != nil {
-	//			return errors.Errorf("inserting remote secret reference: %w", err)
-	//		}
-	//
-	//		err = st.saveSecretConsumer(ctx, tx, &coresecrets.URI{
-	//			SourceUUID: secret.SourceModelUUID,
-	//			ID:         secret.SecretID,
-	//		}, secret.UnitUUID, coresecrets.SecretConsumerMetadata{
-	//			Label:           secret.Label,
-	//			CurrentRevision: secret.CurrentRevision,
-	//		})
-	//		if err != nil {
-	//			return errors.Errorf("saving remote secret consumer info: %w", err)
-	//		}
-	//
-	//		return nil
-	//	})
-	//	if err != nil {
-	//		return errors.Capture(err)
-	//	}
+	// Remote secrets doesn't have a reference yet.
+	secretRef := secretLatestRevision{
+		ID:             secret.SecretID,
+		LatestRevision: secret.LatestRevision,
+		UpdatedAt:      st.clock.Now().UTC(),
+	}
+	insertRemoteSecretStmt, err := st.Prepare(`
+	INSERT INTO secret (id)
+	VALUES ($secretLatestRevision.secret_id)
+	ON CONFLICT DO NOTHING`, secretRef)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertReferenceQuery := `
+INSERT INTO secret_reference (secret_id, latest_revision, updated_at, migrated)
+VALUES ($secretLatestRevision.secret_id, $secretLatestRevision.latest_revision, $secretLatestRevision.updated_at, true)
+ON CONFLICT DO NOTHING` // Secret reference can be imported multiple times if there is more than one unit consuming it.
+
+	insertReferenceStmt, err := st.Prepare(insertReferenceQuery, secretLatestRevision{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, insertRemoteSecretStmt, secretRef).Run()
+		if err != nil {
+			return errors.Errorf("inserting remote secret reference: %w", err)
+		}
+
+		err = st.saveSecretConsumer(ctx, tx, &coresecrets.URI{
+			SourceUUID: secret.SourceModelUUID,
+			ID:         secret.SecretID,
+		}, secret.UnitUUID, coresecrets.SecretConsumerMetadata{
+			Label:           secret.Label,
+			CurrentRevision: secret.CurrentRevision,
+		})
+		if err != nil {
+			return errors.Errorf("saving remote secret consumer info: %w", err)
+		}
+
+		err = tx.Query(ctx, insertReferenceStmt, secretRef).Run()
+		if err != nil {
+			return errors.Errorf("inserting remote secret reference: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
 
 	return nil
 }
