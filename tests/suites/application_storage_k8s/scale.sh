@@ -1,3 +1,12 @@
+cleanup_deny_postgresql_sts_policy() {
+	local main_sh_dir
+	local deny_postgresql_sts_spec
+
+	main_sh_dir="$(dirname "$(readlink -f "$0")")"
+	deny_postgresql_sts_spec="${main_sh_dir}/suites/application_storage_k8s/specs/deny-postgresql-sts.yaml"
+	microk8s kubectl delete -f "${deny_postgresql_sts_spec}" --ignore-not-found=true >/dev/null 2>&1 || true
+}
+
 test_scale_app_with_updated_storage() {
 	if [ "$(skip 'test_scale_app_with_updated_storage')" ]; then
 		echo "==> TEST SKIPPED: test_scale_app_with_updated_storage"
@@ -61,6 +70,12 @@ test_scale_app_with_updated_storage_self_healing() {
 	model_name="scale-app-with-updated-storage-self-healing"
 	file="${TEST_DIR}/test-${model_name}.log"
 	ensure "${model_name}" "${file}"
+	main_sh_dir="$(dirname "$(readlink -f "$0")")"
+	deny_postgresql_sts_spec="${main_sh_dir}/suites/application_storage_k8s/specs/deny-postgresql-sts.yaml"
+	add_clean_func "cleanup_deny_postgresql_sts_policy"
+
+	# Backstop cleanup in case a previous run crashed and left the policy around.
+	microk8s kubectl delete -f "${deny_postgresql_sts_spec}" --ignore-not-found=true >/dev/null 2>&1 || true
 
 	juju deploy postgresql-k8s --channel 14/stable --trust
 
@@ -69,7 +84,7 @@ test_scale_app_with_updated_storage_self_healing() {
 	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
 
 	# Apply the admission policy to deny creating a statefulset for postgresql-k8s.
-	microk8s kubectl apply -f "./tests/suites/application_storage_k8s/specs/deny-postgresql-sts.yaml"
+	microk8s kubectl apply -f "${deny_postgresql_sts_spec}"
 
 	# Update the storage to 2GB.
 	# This will trigger a statefulset delete (which succeeds) and a statefulset reapply
@@ -81,7 +96,7 @@ test_scale_app_with_updated_storage_self_healing() {
 	microk8s kubectl get sts "postgresql-k8s" -n "${model_name}" -o json 2>&1 | check "NotFound"
 
 	# Delete the admission policy so the worker can reapply the statefulset.
-	microk8s kubectl delete -f "./tests/suites/application_storage_k8s/specs/deny-postgresql-sts.yaml"
+	microk8s kubectl delete -f "${deny_postgresql_sts_spec}"
 	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
 	microk8s kubectl get sts "postgresql-k8s" -n "${model_name}" -o json 2>&1 | jq '.metadata.name' | check "postgresql-k8s"
 
