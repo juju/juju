@@ -854,6 +854,11 @@ func ensureStorage(appName string, app caas.Application,
 	config.InitialScale = ps.ReplicaCount
 	err = app.EnsureStorage(config, saveReplicaCount)
 	if err != nil {
+		statusErr := setApplicationStatus(appName, status.Error, "failed to update storage",
+			nil, facade, logger)
+		if statusErr != nil {
+			return errors.Trace(statusErr)
+		}
 		return errors.Trace(err)
 	}
 
