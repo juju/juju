@@ -4,72 +4,56 @@
 package main
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"io"
-	"math/rand"
+	"net"
+	"net/rpc"
 	"os"
 	"path/filepath"
 	"runtime"
-	"time"
+	"strconv"
+	"strings"
 
-	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4/exec"
 
-	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/internal/debug/coveruploader"
-	"github.com/juju/juju/internal/featureflag"
-	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/juju/sockets"
 )
-
-var logger = internallogger.GetLogger("juju.cmd.jujud")
-
-func init() {
-	rand.Seed(time.Now().UTC().UnixNano())
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-}
 
 const (
 	// ExitStatusCodeErr is the value that is returned when the user has run juju in an invalid way.
 	ExitStatusCodeErr = 2
 	// ExitStatusCodePanic is the value that is returned when we exit due to an unhandled panic.
 	ExitStatusCodePanic = 3
+
+	errorPrefix = "ERROR"
 )
 
 func getenv(name string) (string, error) {
 	value := os.Getenv(name)
 	if value == "" {
-		return "", errors.Errorf("%s not set", name)
+		return "", fmt.Errorf("%s not set", name)
 	}
 	return value, nil
 }
 
-func getwd() (string, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	abs, err := filepath.Abs(dir)
-	if err != nil {
-		return "", err
-	}
-	return abs, nil
+type socketConfig struct {
+	Address   string
+	Network   string
+	TLSConfig *tls.Config
 }
 
-func getSocket() (sockets.Socket, error) {
+func getSocket() (socketConfig, error) {
 	var err error
-	socket := sockets.Socket{}
+	socket := socketConfig{}
 	socket.Address, err = getenv("JUJU_AGENT_SOCKET_ADDRESS")
 	if err != nil {
-		return sockets.Socket{}, err
+		return socketConfig{}, err
 	}
 	socket.Network, err = getenv("JUJU_AGENT_SOCKET_NETWORK")
 	if err != nil {
-		return sockets.Socket{}, err
+		return socketConfig{}, err
 	}
 
 	// If we are not connecting over tcp, no need for TLS.
@@ -79,30 +63,73 @@ func getSocket() (sockets.Socket, error) {
 
 	caCertFile, err := getenv("JUJU_AGENT_CA_CERT")
 	if err != nil {
-		return sockets.Socket{}, err
+		return socketConfig{}, err
 	}
 	caCert, err := os.ReadFile(caCertFile)
 	if err != nil {
-		return sockets.Socket{}, errors.Annotatef(err, "reading %s", caCertFile)
+		return socketConfig{}, fmt.Errorf("reading %s: %w", caCertFile, err)
 	}
 	rootCAs := x509.NewCertPool()
 	if ok := rootCAs.AppendCertsFromPEM(caCert); ok == false {
-		return sockets.Socket{}, errors.Errorf("invalid ca certificate")
+		return socketConfig{}, fmt.Errorf("invalid ca certificate")
 	}
 
 	unitName, err := getenv("JUJU_UNIT_NAME")
 	if err != nil {
-		return sockets.Socket{}, err
+		return socketConfig{}, err
 	}
-	application, err := names.UnitApplication(unitName)
+	application, err := unitApplication(unitName)
 	if err != nil {
-		return sockets.Socket{}, errors.Trace(err)
+		return socketConfig{}, err
 	}
 	socket.TLSConfig = &tls.Config{
 		RootCAs:    rootCAs,
 		ServerName: application,
 	}
 	return socket, nil
+}
+
+func unitApplication(unitName string) (string, error) {
+	if strings.Count(unitName, "/") != 1 {
+		return "", fmt.Errorf("%q is not a valid unit name", unitName)
+	}
+	i := strings.LastIndexByte(unitName, '/')
+	if i <= 0 || i >= len(unitName)-1 {
+		return "", fmt.Errorf("%q is not a valid unit name", unitName)
+	}
+	if _, err := strconv.Atoi(unitName[i+1:]); err != nil {
+		return "", fmt.Errorf("%q is not a valid unit name", unitName)
+	}
+	return unitName[:i], nil
+}
+
+func dialRPCClient(socket socketConfig) (*rpc.Client, error) {
+	var (
+		conn net.Conn
+		err  error
+	)
+	if socket.TLSConfig != nil {
+		conn, err = tls.Dial(socket.Network, socket.Address, socket.TLSConfig)
+	} else {
+		conn, err = net.Dial(socket.Network, socket.Address)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return rpc.NewClient(conn), nil
+}
+
+type rpcClient interface {
+	Call(serviceMethod string, args interface{}, reply interface{}) error
+	Close() error
+}
+
+var dialRPCClientFunc = func(socket socketConfig) (rpcClient, error) {
+	return dialRPCClient(socket)
+}
+
+func writeError(w io.Writer, err error) {
+	fmt.Fprintf(w, "%s %s\n", errorPrefix, err)
 }
 
 type Request struct {
@@ -116,8 +143,6 @@ type Request struct {
 	// is empty.
 	StdinSet bool
 	Stdin    []byte
-
-	Token string
 }
 
 var ErrNoStdinStr = "hook tool requires stdin, none supplied"
@@ -125,13 +150,17 @@ var ErrNoStdinStr = "hook tool requires stdin, none supplied"
 // hookToolMain uses JUJU_CONTEXT_ID and JUJU_AGENT_SOCKET_ADDRESS to ask a running unit agent
 // to execute a Command on our behalf. Individual commands should be exposed
 // by symlinking the command name to this executable.
-func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int, err error) {
+func hookToolMain(commandName string, args []string) (code int, err error) {
 	code = 1
 	contextID, err := getenv("JUJU_CONTEXT_ID")
 	if err != nil {
 		return
 	}
-	dir, err := getwd()
+	dir, err := os.Getwd()
+	if err != nil {
+		return
+	}
+	dir, err = filepath.Abs(dir)
 	if err != nil {
 		return
 	}
@@ -140,13 +169,12 @@ func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int
 		Dir:         dir,
 		CommandName: commandName,
 		Args:        args[1:],
-		Token:       os.Getenv("JUJU_AGENT_TOKEN"),
 	}
 	socket, err := getSocket()
 	if err != nil {
 		return
 	}
-	client, err := sockets.Dial(socket)
+	client, err := dialRPCClientFunc(socket)
 	if err != nil {
 		return code, err
 	}
@@ -156,7 +184,7 @@ func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int
 	if err != nil && err.Error() == ErrNoStdinStr {
 		req.Stdin, err = io.ReadAll(os.Stdin)
 		if err != nil {
-			err = errors.Annotate(err, "cannot read stdin")
+			err = fmt.Errorf("cannot read stdin: %w", err)
 			return
 		}
 		req.StdinSet = true
@@ -182,22 +210,16 @@ func Main(args []string) int {
 		if r := recover(); r != nil {
 			buf := make([]byte, 4096)
 			buf = buf[:runtime.Stack(buf, false)]
-			logger.Criticalf(context.TODO(), "Unhandled panic: \n%v\n%s", r, buf)
+			writeError(os.Stderr, fmt.Errorf("Unhandled panic: \n%v\n%s", r, buf))
 			os.Exit(ExitStatusCodePanic)
 		}
 	}()
 
-	ctx, err := cmd.DefaultContext()
-	if err != nil {
-		cmd.WriteError(os.Stderr, err)
-		os.Exit(ExitStatusCodeErr)
-	}
-
 	var code int
 	commandName := filepath.Base(args[0])
-	code, err = hookToolMain(commandName, ctx, args)
+	code, err := hookToolMain(commandName, args)
 	if err != nil {
-		cmd.WriteError(ctx.Stderr, err)
+		writeError(os.Stderr, err)
 	}
 	return code
 }
