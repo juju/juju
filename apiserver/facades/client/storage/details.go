@@ -135,20 +135,18 @@ func (a *StorageAPI) getOneStorageDetails(
 
 		attachmentLife, err := unitAttachment.Life.Value()
 		if err != nil {
-			if err != nil {
-				a.logger.Warningf(
-					ctx,
-					"unable to translate life value %d to params for storage instance attachment %q: %s",
-					unitAttachment.Life,
-					unitAttachment.UUID,
-					err.Error(),
-				)
-				return params.StorageDetailsResult{
-					Error: apiservererrors.ParamsErrorf(
-						"", "unknown life value for storage instance %q attachment", storageID,
-					),
-				}, nil
-			}
+			a.logger.Warningf(
+				ctx,
+				"unable to translate life value %d to params for storage instance attachment %q: %s",
+				unitAttachment.Life,
+				unitAttachment.UUID,
+				err.Error(),
+			)
+			return params.StorageDetailsResult{
+				Error: apiservererrors.ParamsErrorf(
+					"", "unknown life value for storage instance %q attachment", storageID,
+				),
+			}, nil
 		}
 
 		details.Attachments[unitTagStr] = params.StorageAttachmentDetails{

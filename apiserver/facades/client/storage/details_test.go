@@ -437,7 +437,7 @@ func (s *storageDetailsSuite) TestStorageDetailsWithTheSameIDReuse(c *tc.C) {
 			Name: "foo/2",
 			UUID: unitUUID2,
 		},
-		UUID: storageInstanceUUID1,
+		UUID: storageInstanceUUID2,
 	}, nil)
 
 	api := s.makeTestAPIForIAASModel(c)
@@ -927,7 +927,7 @@ func (s *storageDetailsSuite) TestStorageDetailsMixedResults(c *tc.C) {
 			Name: "foo/2",
 			UUID: unitUUID2,
 		},
-		UUID: storageInstanceUUID1,
+		UUID: storageInstanceUUID2,
 	}, nil)
 
 	// Storage Instance 3
