@@ -26,9 +26,10 @@ func TestInstanceSuite(t *testing.T) {
 // TestGetStorageInstanceUUIDByID tests the happy path of getting a storage
 // innstance uuid by it's id value.
 func (s *instanceSuite) TestGetStorageInstanceUUIDByID(c *tc.C) {
+	charmUUID := s.newCharm(c)
 	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
 	uuid, id := s.newStorageInstanceForCharmWithPool(
-		c, "ory-kratos", poolUUID, "token",
+		c, charmUUID, poolUUID, "token",
 	)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -47,12 +48,13 @@ func (s *instanceSuite) TestGetStorageInstanceUUIDByIDNotFound(c *tc.C) {
 }
 
 func (s *instanceSuite) TestGetStorageInstanceUUIDsByIDs(c *tc.C) {
+	charmUUID := s.newCharm(c)
 	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
 	uuid1, id1 := s.newStorageInstanceForCharmWithPool(
-		c, "foo", poolUUID, "token1",
+		c, charmUUID, poolUUID, "token1",
 	)
 	uuid2, id2 := s.newStorageInstanceForCharmWithPool(
-		c, "bar", poolUUID, "token2",
+		c, charmUUID, poolUUID, "token2",
 	)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -65,12 +67,13 @@ func (s *instanceSuite) TestGetStorageInstanceUUIDsByIDs(c *tc.C) {
 }
 
 func (s *instanceSuite) TestGetStorageInstanceUUIDsByIDsDuplicateIDs(c *tc.C) {
+	charmUUID := s.newCharm(c)
 	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
 	uuid1, id1 := s.newStorageInstanceForCharmWithPool(
-		c, "foo", poolUUID, "token1",
+		c, charmUUID, poolUUID, "token1",
 	)
 	uuid2, id2 := s.newStorageInstanceForCharmWithPool(
-		c, "bar", poolUUID, "token2",
+		c, charmUUID, poolUUID, "token2",
 	)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -83,12 +86,13 @@ func (s *instanceSuite) TestGetStorageInstanceUUIDsByIDsDuplicateIDs(c *tc.C) {
 }
 
 func (s *instanceSuite) TestGetStorageInstanceUUIDsByIDsMiss(c *tc.C) {
+	charmUUID := s.newCharm(c)
 	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
 	uuid1, id1 := s.newStorageInstanceForCharmWithPool(
-		c, "foo", poolUUID, "token1",
+		c, charmUUID, poolUUID, "token1",
 	)
 	uuid2, id2 := s.newStorageInstanceForCharmWithPool(
-		c, "bar", poolUUID, "token2",
+		c, charmUUID, poolUUID, "token2",
 	)
 
 	st := NewState(s.TxnRunnerFactory())
