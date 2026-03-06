@@ -136,7 +136,7 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 			// store using the charmhub identifier.
 			// If the controllers do not have the same charmhub url, then
 			// all bets are off.
-			downloadInfo := &charm.DownloadInfo{Provenance: charm.ProvenanceMigration}
+			downloadInfo := &charm.DownloadInfo{Provenance: charm.ProvenanceLegacyMigration}
 			if err := st.addCharm(ctx, tx, charmID, args.Charm, downloadInfo); err != nil {
 				return errors.Errorf("setting charm: %w", err)
 			}

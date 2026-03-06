@@ -236,18 +236,6 @@ func (s *State) SetCharmAvailable(ctx context.Context, id corecharm.ID) error {
 	}
 
 	ident := entityUUID{UUID: id.String()}
-
-	selectQuery := `
-SELECT &entityUUID.*
-FROM charm
-WHERE uuid = $entityUUID.uuid AND source_id < 2;
-	`
-
-	selectStmt, err := s.Prepare(selectQuery, ident)
-	if err != nil {
-		return errors.Errorf("failed to prepare query: %w", err)
-	}
-
 	updateQuery := `
 UPDATE charm
 SET available = true
@@ -260,12 +248,8 @@ WHERE uuid = $entityUUID.uuid;
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var result entityUUID
-		if err := tx.Query(ctx, selectStmt, ident).Get(&result); err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return applicationerrors.CharmNotFound
-			}
-			return errors.Errorf("failed to set charm available: %w", err)
+		if err := s.checkCharmExists(ctx, tx, ident); err != nil {
+			return errors.Capture(err)
 		}
 
 		if err := tx.Query(ctx, updateStmt, ident).Run(); err != nil {
@@ -899,8 +883,12 @@ WHERE model_uuid = $modelMigrating.model_uuid
 }
 
 // ResolveMigratingUploadedCharm resolves the charm that is migrating from
-// the uploaded state to the available state. If the charm is not found, a
-// [applicationerrors.CharmNotFound] error is returned.
+// the uploaded state to the available state.
+//
+// The following errors may be returned:
+//   - [applicationerrors.CharmNotFound] if the charm is not found.
+//   - [applicationerrors.CharmAlreadyAvailable] if the charm has already been
+//     resolved and is available.
 func (s *State) ResolveMigratingUploadedCharm(ctx context.Context, id corecharm.ID, info charm.ResolvedMigratingUploadedCharm) (charm.CharmLocator, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -955,13 +943,17 @@ WHERE uuid = $entityUUID.uuid;
 		} else if err != nil {
 			return errors.Capture(err)
 		} else if available.Available {
-			// If the charm has already been processed, then we don't need to do
-			// anything. Handle the error on the other side.
 			return applicationerrors.CharmAlreadyAvailable
 		}
 
 		if err := tx.Query(ctx, charmStmt, charmUUID, chState).Run(); err != nil {
 			return errors.Errorf("updating charm state: %w", err)
+		}
+
+		// Insert the charm hash. Note that we skip adding the charm hash when
+		// a migrating application is inserted.
+		if err := s.addCharmHash(ctx, tx, id, info.Hash); err != nil {
+			return errors.Errorf("setting charm hash: %w", err)
 		}
 
 		// Insert the charm download info.

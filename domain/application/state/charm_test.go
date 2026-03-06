@@ -3210,7 +3210,7 @@ func (s *charmStateSuite) TestResolveMigratingUploadedCharmAlreadyAvailable(c *t
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
 	info := &charm.DownloadInfo{
-		Provenance: charm.ProvenanceMigration,
+		Provenance: charm.ProvenanceLegacyMigration,
 	}
 
 	id, _, err := st.AddCharm(c.Context(), charm.Charm{
@@ -3241,7 +3241,7 @@ func (s *charmStateSuite) TestResolveMigratingUploaded(c *tc.C) {
 	objectStoreUUID := s.createObjectStoreBlob(c, "archive")
 
 	info := &charm.DownloadInfo{
-		Provenance: charm.ProvenanceMigration,
+		Provenance: charm.ProvenanceLegacyMigration,
 	}
 
 	id, chLocator, err := st.AddCharm(c.Context(), charm.Charm{
@@ -3252,7 +3252,7 @@ func (s *charmStateSuite) TestResolveMigratingUploaded(c *tc.C) {
 		Source:        charm.CharmHubSource,
 		Revision:      42,
 		ReferenceName: "foo",
-		Hash:          "hash",
+		Hash:          "",
 		Version:       "deadbeef",
 	}, info, false)
 	c.Assert(err, tc.ErrorIsNil)
@@ -3275,6 +3275,10 @@ func (s *charmStateSuite) TestResolveMigratingUploaded(c *tc.C) {
 	available, err := st.IsCharmAvailable(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(available, tc.Equals, true)
+
+	hash, err := st.GetAvailableCharmArchiveSHA256(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hash, tc.Equals, "hash")
 }
 
 func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmNotFound(c *tc.C) {

@@ -1529,7 +1529,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImporting(c *tc.C) {
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
 	downloadInfo := &charm.DownloadInfo{
-		Provenance: charm.ProvenanceMigration,
+		Provenance: charm.ProvenanceLegacyMigration,
 	}
 
 	s.state.EXPECT().IsImportingModel(gomock.Any()).Return(true, nil)
@@ -1652,7 +1652,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingFailedResol
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
 	downloadInfo := &charm.DownloadInfo{
-		Provenance: charm.ProvenanceMigration,
+		Provenance: charm.ProvenanceLegacyMigration,
 	}
 
 	s.state.EXPECT().IsImportingModel(gomock.Any()).Return(true, nil)
