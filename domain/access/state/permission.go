@@ -407,16 +407,11 @@ func (st *PermissionState) EnsureExternalUser(ctx context.Context, subject user.
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		_, err := st.findUserByName(ctx, tx, subject)
-		if err == nil {
-			return nil
-		} else if !errors.Is(err, accesserrors.UserNotFound) {
-			return errors.Errorf("getting user %q", subject)
-		}
 		_, err = st.addExternalUser(ctx, tx, subject)
 		if err != nil {
-			// Handle race condition: two concurrent logins for the
-			// same user may both try to create the record.
+			// User already exists — this is the expected path for
+			// returning users and also handles the race condition
+			// of two concurrent logins for the same new user.
 			if errors.Is(err, accesserrors.UserAlreadyExists) {
 				return nil
 			}

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
+	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/jwt"
@@ -21,10 +22,18 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-type loginTokenSuite struct{}
+type loginTokenSuite struct {
+	externalUserService *MockExternalUserService
+}
 
 func TestLoginTokenSuite(t *stdtesting.T) {
 	tc.Run(t, &loginTokenSuite{})
+}
+
+func (s *loginTokenSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.externalUserService = NewMockExternalUserService(ctrl)
+	return ctrl
 }
 
 func (s *loginTokenSuite) TestAuthenticate(c *tc.C) {
@@ -223,6 +232,8 @@ func (s *loginTokenSuite) TestControllerSuperuser(c *tc.C) {
 // TestEnsureExternalUser verifies that the JWT delegator's EnsureExternalUser
 // delegates to the ExternalUserService, ignoring the targets parameter.
 func (s *loginTokenSuite) TestEnsureExternalUser(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
 	tok, err := EncodedJWT(JWTParams{
 		Controller: testing.ControllerTag.Id(),
 		User:       "user-fred@external",
@@ -236,13 +247,14 @@ func (s *loginTokenSuite) TestEnsureExternalUser(c *tc.C) {
 		Token: base64.StdEncoding.EncodeToString(tok),
 	}
 
-	stub := &stubExternalUserService{}
-	authenticator := jwt.NewAuthenticator(&testJWTParser{}, stub)
-
-	authInfo, err := authenticator.AuthenticateLoginRequest(c.Context(), "", "", params)
+	userName, err := user.NewName("fred@external")
 	c.Assert(err, tc.ErrorIsNil)
 
-	userName, err := user.NewName("fred@external")
+	s.externalUserService.EXPECT().EnsureExternalUser(gomock.Any(), userName).Return(nil)
+
+	authenticator := jwt.NewAuthenticator(&testJWTParser{}, s.externalUserService)
+
+	authInfo, err := authenticator.AuthenticateLoginRequest(c.Context(), "", "", params)
 	c.Assert(err, tc.ErrorIsNil)
 
 	targets := []permission.ID{
@@ -251,10 +263,6 @@ func (s *loginTokenSuite) TestEnsureExternalUser(c *tc.C) {
 	}
 	err = authInfo.EnsureExternalUser(c.Context(), userName, targets)
 	c.Assert(err, tc.ErrorIsNil)
-
-	// The service should have been called exactly once with the user name.
-	c.Assert(stub.called, tc.Equals, true)
-	c.Assert(stub.subject, tc.Equals, userName)
 }
 
 func (s *loginTokenSuite) TestNotAvailableJWTParser(c *tc.C) {
