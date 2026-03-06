@@ -131,4 +131,3 @@ func (s *permissionDelegatorSuite) TestPermissionError(c *tc.C) {
 	err := s.delegator().PermissionError(names.NewUserTag("alice"), permission.AdminAccess)
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
-
