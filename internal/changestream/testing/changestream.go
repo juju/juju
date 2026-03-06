@@ -56,7 +56,7 @@ func NewTestWatchableDB(c *tc.C, id string, db database.TxnRunner) *TestWatchabl
 
 	logger := loggertesting.WrapCheckLog(c)
 	stream := stream.NewInternalStates(id, db, newNoopFileWatcher(), clock.WallClock, noopMetrics{}, logger, termDeadline, states)
-	mux, err := eventmultiplexer.New(stream, clock.WallClock, noopMetrics{}, logger)
+	mux, err := eventmultiplexer.New(stream, clock.WallClock, noopMetrics{}, logger, time.Until(termDeadline))
 	c.Assert(err, tc.ErrorIsNil)
 
 	h := TestWatchableDB{

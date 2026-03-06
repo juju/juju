@@ -59,11 +59,12 @@ type reportRequest struct {
 // ordering. The subscriptions can be associated with different subscription
 // options, which provide filtering when dispatching.
 type EventMultiplexer struct {
-	catacomb catacomb.Catacomb
-	stream   Stream
-	logger   logger.Logger
-	clock    clock.Clock
-	metrics  MetricsCollector
+	catacomb      catacomb.Catacomb
+	stream        Stream
+	logger        logger.Logger
+	clock         clock.Clock
+	metrics       MetricsCollector
+	signalTimeout time.Duration
 
 	subscriptions      map[uint64]*subscription
 	subscriptionsByNS  map[string][]*eventFilter
@@ -79,12 +80,23 @@ type EventMultiplexer struct {
 }
 
 // New creates a new EventMultiplexer that will use the Stream for events.
-func New(stream Stream, clock clock.Clock, metrics MetricsCollector, logger logger.Logger) (*EventMultiplexer, error) {
+// If [signalTimeout] is zero, then the default is used.
+func New(
+	stream Stream,
+	clock clock.Clock,
+	metrics MetricsCollector,
+	logger logger.Logger,
+	signalTimeout time.Duration,
+) (*EventMultiplexer, error) {
+	if signalTimeout == 0 {
+		signalTimeout = DefaultSignalTimeout
+	}
 	queue := &EventMultiplexer{
 		stream:             stream,
 		logger:             logger,
 		clock:              clock,
 		metrics:            metrics,
+		signalTimeout:      signalTimeout,
 		subscriptions:      make(map[uint64]*subscription),
 		subscriptionsByNS:  make(map[string][]*eventFilter),
 		subscriptionsAll:   make(map[uint64]struct{}),
@@ -252,7 +264,8 @@ func (e *EventMultiplexer) loop() error {
 			term.Done(false, e.catacomb.Dying())
 
 		case request := <-e.subscriptionCh:
-			sub := newSubscription(atomic.AddUint64(&e.subscriptionsCount, 1), request.summary)
+			subID := atomic.AddUint64(&e.subscriptionsCount, 1)
+			sub := newSubscription(subID, request.summary, e.signalTimeout)
 
 			if err := e.catacomb.Add(sub); err != nil {
 				sub.Kill()
