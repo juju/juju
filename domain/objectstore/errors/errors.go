@@ -44,4 +44,7 @@ const (
 
 	// ErrMissingControllerID is returned when the controller ID is missing.
 	ErrMissingControllerID = errors.ConstError("missing controller ID")
+
+	// ErrNoHints is returned when there are no hints for a given SHA384.
+	ErrNoHints = errors.ConstError("no hints for SHA384")
 )

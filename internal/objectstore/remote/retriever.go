@@ -85,7 +85,7 @@ func (r *BlobRetriever) Report() map[string]any {
 }
 
 // Retrieve returns a reader for the blob with the given SHA256.
-func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
+func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string, controllerIDHints []string) (io.ReadCloser, int64, error) {
 	// Check if we're already dead or dying before we start to do anything.
 	select {
 	case <-r.tomb.Dying():
@@ -102,12 +102,22 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (io.ReadClo
 		return nil, -1, NoRemoteConnections
 	}
 
+	// If we have controller ID hints attempt to prioritize remotes that match
+	// the hints. Otherwise shuffle the other remotes to avoid always hitting
+	// the same one first.
+	if len(controllerIDHints) > 0 {
+		remotes = prioritizeRemotes(remotes, controllerIDHints)
+	} else {
+		remotes = shuffleRemotes(remotes)
+	}
+
+	return r.retrieveFromRemotes(ctx, remotes, sha256)
+}
+
+func (r *BlobRetriever) retrieveFromRemotes(ctx context.Context, remotes []apiremotecaller.RemoteConnection, sha256 string) (io.ReadCloser, int64, error) {
 	// Iterate over the remotes and try to retrieve the blob from each one.
-	// TODO (stickupkid): We could parallelize this, but that can lead to
-	// flooding of the controller with requests, so we do it sequentially for
-	// now.
 	var errs []string
-	for _, remote := range shuffleRemotes(remotes) {
+	for _, remote := range remotes {
 		reader, size, err := r.retrieve(ctx, remote, sha256)
 		if errors.Is(err, HTTPError) {
 			errs = append(errs, err.Error())
@@ -180,7 +190,9 @@ func (r *BlobRetriever) loop() error {
 	return tomb.ErrDying
 }
 
-// Shuffle the remotes to avoid always hitting the same one first.
+// Shuffle the remotes to avoid always hitting the same one first. This copies
+// the slice before shuffling to avoid modifying the original slice, which may
+// be shared with other parts of the code.
 func shuffleRemotes(remotes []apiremotecaller.RemoteConnection) []apiremotecaller.RemoteConnection {
 	if len(remotes) <= 1 {
 		return remotes
@@ -194,6 +206,43 @@ func shuffleRemotes(remotes []apiremotecaller.RemoteConnection) []apiremotecalle
 	})
 
 	return shuffled
+}
+
+func prioritizeRemotes(remotes []apiremotecaller.RemoteConnection, hints []string) []apiremotecaller.RemoteConnection {
+	if len(remotes) <= 1 {
+		return remotes
+	}
+
+	set := make(map[string]struct{}, len(hints))
+	for _, hint := range hints {
+		set[hint] = struct{}{}
+	}
+
+	prioritize, fallback := partition(remotes, func(remote apiremotecaller.RemoteConnection) bool {
+		_, found := set[remote.ControllerID()]
+		return found
+	})
+
+	return append(shuffleRemotes(prioritize), shuffleRemotes(fallback)...)
+}
+
+// partition splits the slice into two slices based on the provided function.
+// The first slice contains all elements for which the function returns true, and
+// the second slice contains all elements for which the function returns false.
+func partition[S ~[]E, E any](s S, f func(E) bool) (S, S) {
+	if len(s) == 0 {
+		return s, s
+	}
+
+	var a, b S
+	for _, v := range s {
+		if f(v) {
+			a = append(a, v)
+		} else {
+			b = append(b, v)
+		}
+	}
+	return a, b
 }
 
 // scopedContext is a context that allows us to ignore the child context
