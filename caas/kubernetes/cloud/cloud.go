@@ -11,6 +11,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/names/v5"
 )
 
 // CloudParameters describes basic properties that should be set on a Juju
@@ -74,6 +75,9 @@ func CloudsFromKubeConfigContextsWithParams(
 ) ([]cloud.Cloud, error) {
 	clouds := []cloud.Cloud{}
 	for ctxName := range config.Contexts {
+		if !names.IsValidCloud(ctxName) {
+			continue
+		}
 		cloud, err := CloudFromKubeConfigContext(
 			ctxName,
 			config,
