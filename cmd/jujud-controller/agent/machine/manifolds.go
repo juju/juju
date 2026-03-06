@@ -729,11 +729,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The controlsocket worker runs on the controller machine.
 		controlSocketName: ifDatabaseUpgradeComplete(controlsocket.Manifold(controlsocket.ManifoldConfig{
-			DomainServicesName: domainServicesName,
-			Logger:             internallogger.GetLogger("juju.worker.controlsocket"),
-			NewWorker:          controlsocket.NewWorker,
-			NewSocketListener:  controlsocket.NewSocketListener,
-			SocketName:         path.Join(agentConfig.DataDir(), "control.socket"),
+			DomainServicesName:              domainServicesName,
+			ObjectStoreServicesName:         objectStoreServicesName,
+			Logger:                          internallogger.GetLogger("juju.worker.controlsocket"),
+			NewWorker:                       controlsocket.NewWorker,
+			NewSocketListener:               controlsocket.NewSocketListener,
+			SocketName:                      path.Join(agentConfig.DataDir(), "control.socket"),
+			GetControllerDomainServices:     controlsocket.GetControllerDomainServices,
+			GetControllerObjectStoreService: controlsocket.GetControllerObjectStoreService,
 		})),
 
 		// The ssh server worker runs on the controller machine.
@@ -761,7 +764,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetControllerService:            objectstoredrainer.GetControllerService,
 			GeObjectStoreServices:           objectstoredrainer.GeObjectStoreServicesGetter,
 			GetControllerObjectStoreService: objectstoredrainer.GetControllerObjectStoreService,
-			GetGuardService:                 objectstoredrainer.GetGuardService,
+			GetDrainingService:              objectstoredrainer.GetDrainingService,
 			GetControllerConfigService:      objectstoredrainer.GetControllerConfigService,
 			NewHashFileSystemAccessor:       objectstoredrainer.NewHashFileStoreAccessor,
 			NewDrainerWorker:                objectstoredrainer.NewDrainWorker,
@@ -782,6 +785,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:                     internallogger.GetLogger("juju.worker.objectstore"),
 			NewObjectStoreWorker:       internalobjectstore.ObjectStoreFactory,
 			GetControllerConfigService: objectstore.GetControllerConfigService,
+			GetObjectStoreService:      objectstore.GetObjectStoreService,
 			GetMetadataService:         objectstore.GetMetadataService,
 			IsBootstrapController:      internalbootstrap.IsBootstrapController,
 		})),
@@ -805,13 +809,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		objectStoreS3CallerName: ifDatabaseUpgradeComplete(objectstores3caller.Manifold(objectstores3caller.ManifoldConfig{
-			HTTPClientName:             httpClientName,
-			ObjectStoreServicesName:    objectStoreServicesName,
-			NewClient:                  objectstores3caller.NewS3Client,
-			Logger:                     internallogger.GetLogger("juju.worker.s3caller"),
-			Clock:                      config.Clock,
-			GetControllerConfigService: objectstores3caller.GetControllerConfigService,
-			NewWorker:                  objectstores3caller.NewWorker,
+			HTTPClientName:          httpClientName,
+			ObjectStoreServicesName: objectStoreServicesName,
+			NewClient:               objectstores3caller.NewS3Client,
+			Logger:                  internallogger.GetLogger("juju.worker.s3caller"),
+			Clock:                   config.Clock,
+			GetObjectStoreService:   objectstores3caller.GetObjectStoreService,
+			NewWorker:               objectstores3caller.NewWorker,
 		})),
 
 		// Provider tracker manifold is not dependent on the

@@ -17,7 +17,6 @@ import (
 	gomock "go.uber.org/mock/gomock"
 
 	agent "github.com/juju/juju/agent"
-	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -30,6 +29,8 @@ import (
 
 type manifoldSuite struct {
 	baseSuite
+
+	controllerConfigService *MockControllerConfigService
 }
 
 func TestManifoldSuite(t *testing.T) {
@@ -73,7 +74,7 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
-	cfg.GetGuardService = nil
+	cfg.GetDrainingService = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
@@ -114,8 +115,8 @@ func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 		GeObjectStoreServices: func(g dependency.Getter, s string) (ObjectStoreServicesGetter, error) {
 			return nil, nil
 		},
-		GetGuardService: func(dependency.Getter, string) (GuardService, error) {
-			return s.guardService, nil
+		GetDrainingService: func(dependency.Getter, string) (DrainingService, error) {
+			return s.drainingService, nil
 		},
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
 			return s.controllerConfigService, nil
@@ -163,11 +164,18 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
 
 	cfg := internaltesting.FakeControllerConfig()
-	cfg[controller.ObjectStoreType] = objectstore.FileBackend.String()
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
 
-	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseUnknown, nil)
+	activeBackendUUID := tc.Must(c, objectstore.NewUUID)
+
+	s.drainingService.EXPECT().GetDrainingPhaseInfo(gomock.Any()).Return(objectstore.DrainingPhaseInfo{
+		Phase:             objectstore.PhaseCompleted,
+		ActiveBackendUUID: activeBackendUUID,
+	}, nil)
+	s.drainingService.EXPECT().GetObjectStoreBackend(gomock.Any(), activeBackendUUID).Return(objectstoreservice.BackendInfo{
+		ObjectStoreType: objectstore.FileBackend,
+	}, nil)
 
 	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
 		return fn(s.agentConfigSetter)
@@ -186,11 +194,17 @@ func (s *manifoldSuite) TestStartObjectStoreTypeChangedWhilstDraining(c *tc.C) {
 	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
 
 	cfg := internaltesting.FakeControllerConfig()
-	cfg[controller.ObjectStoreType] = objectstore.S3Backend.String()
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
 
-	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseDraining, nil)
+	activeBackendUUID := tc.Must(c, objectstore.NewUUID)
+	s.drainingService.EXPECT().GetDrainingPhaseInfo(gomock.Any()).Return(objectstore.DrainingPhaseInfo{
+		Phase:             objectstore.PhaseDraining,
+		ActiveBackendUUID: activeBackendUUID,
+	}, nil)
+	s.drainingService.EXPECT().GetObjectStoreBackend(gomock.Any(), activeBackendUUID).Return(objectstoreservice.BackendInfo{
+		ObjectStoreType: objectstore.FileBackend,
+	}, nil)
 
 	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
 		return fn(s.agentConfigSetter)
@@ -209,11 +223,17 @@ func (s *manifoldSuite) TestStartUpdatesObjectStoreType(c *tc.C) {
 	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
 
 	cfg := internaltesting.FakeControllerConfig()
-	cfg[controller.ObjectStoreType] = objectstore.S3Backend.String()
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
 
-	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseUnknown, nil)
+	activeBackendUUID := tc.Must(c, objectstore.NewUUID)
+	s.drainingService.EXPECT().GetDrainingPhaseInfo(gomock.Any()).Return(objectstore.DrainingPhaseInfo{
+		Phase:             objectstore.PhaseCompleted,
+		ActiveBackendUUID: activeBackendUUID,
+	}, nil)
+	s.drainingService.EXPECT().GetObjectStoreBackend(gomock.Any(), activeBackendUUID).Return(objectstoreservice.BackendInfo{
+		ObjectStoreType: objectstore.S3Backend,
+	}, nil)
 
 	s.agentConfigSetter.EXPECT().SetObjectStoreType(objectstore.S3Backend)
 
@@ -223,6 +243,18 @@ func (s *manifoldSuite) TestStartUpdatesObjectStoreType(c *tc.C) {
 
 	_, err := Manifold(s.getConfig(c)).Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIs, internalworker.ErrRestartAgent)
+}
+
+func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := s.baseSuite.setupMocks(c)
+
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+
+	c.Cleanup(func() {
+		s.controllerConfigService = nil
+	})
+
+	return ctrl
 }
 
 // Note: This replicates the ability to get a controller domain services and

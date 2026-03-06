@@ -9,6 +9,43 @@ import (
 )
 
 
+// ChangeLogTriggersForObjectStoreBackend generates the triggers for the
+// object_store_backend table.
+func ChangeLogTriggersForObjectStoreBackend(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ObjectStoreBackend
+INSERT INTO change_log_namespace VALUES (%[2]d, 'object_store_backend', 'ObjectStoreBackend changes based on %[1]s');
+
+-- insert trigger for ObjectStoreBackend
+CREATE TRIGGER trg_log_object_store_backend_insert
+AFTER INSERT ON object_store_backend FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
+END;
+
+-- update trigger for ObjectStoreBackend
+CREATE TRIGGER trg_log_object_store_backend_update
+AFTER UPDATE ON object_store_backend FOR EACH ROW
+WHEN 
+	NEW.uuid != OLD.uuid OR
+	NEW.life_id != OLD.life_id OR
+	NEW.type_id != OLD.type_id 
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;
+-- delete trigger for ObjectStoreBackend
+CREATE TRIGGER trg_log_object_store_backend_delete
+AFTER DELETE ON object_store_backend FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;`, columnName, namespaceID))
+	}
+}
+
 // ChangeLogTriggersForObjectStoreDrainInfo generates the triggers for the
 // object_store_drain_info table.
 func ChangeLogTriggersForObjectStoreDrainInfo(columnName string, namespaceID int) func() schema.Patch {
@@ -30,7 +67,9 @@ CREATE TRIGGER trg_log_object_store_drain_info_update
 AFTER UPDATE ON object_store_drain_info FOR EACH ROW
 WHEN 
 	NEW.uuid != OLD.uuid OR
-	NEW.phase_type_id != OLD.phase_type_id 
+	NEW.phase_type_id != OLD.phase_type_id OR
+	NEW.from_backend_uuid != OLD.from_backend_uuid OR
+	NEW.to_backend_uuid != OLD.to_backend_uuid 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));

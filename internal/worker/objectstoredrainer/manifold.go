@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/watcher"
+	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/services"
@@ -49,9 +49,9 @@ type GetControllerObjectStoreServiceFunc func(dependency.Getter, string) (coreob
 // object store services from the dependency getter.
 type GetObjectStoreServicesFunc func(dependency.Getter, string) (ObjectStoreServicesGetter, error)
 
-// GetGuardServiceFunc is a function that retrieves the
+// GetDrainingServiceFunc is a function that retrieves the
 // controller object store services from the dependency getter.
-type GetGuardServiceFunc func(dependency.Getter, string) (GuardService, error)
+type GetDrainingServiceFunc func(dependency.Getter, string) (DrainingService, error)
 
 // GetControllerConfigServiceFunc is a helper function that gets a service from
 // the manifold.
@@ -62,9 +62,6 @@ type GetControllerConfigServiceFunc func(getter dependency.Getter, name string) 
 type ControllerConfigService interface {
 	// ControllerConfig returns the current controller configuration.
 	ControllerConfig(context.Context) (controller.Config, error)
-
-	// WatchControllerConfig watches the controller config for changes.
-	WatchControllerConfig(context.Context) (watcher.StringsWatcher, error)
 }
 
 // ManifoldConfig holds the dependencies and configuration for a
@@ -79,7 +76,7 @@ type ManifoldConfig struct {
 	GetControllerService            GetControllerServiceFunc
 	GeObjectStoreServices           GetObjectStoreServicesFunc
 	GetControllerObjectStoreService GetControllerObjectStoreServiceFunc
-	GetGuardService                 GetGuardServiceFunc
+	GetDrainingService              GetDrainingServiceFunc
 	GetControllerConfigService      GetControllerConfigServiceFunc
 	NewWorker                       func(Config) (worker.Worker, error)
 	NewHashFileSystemAccessor       NewHashFileSystemAccessorFunc
@@ -116,8 +113,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.GetControllerConfigService == nil {
 		return errors.NotValidf("nil GetControllerConfigService")
 	}
-	if config.GetGuardService == nil {
-		return errors.NotValidf("nil GetGuardService")
+	if config.GetDrainingService == nil {
+		return errors.NotValidf("nil GetDrainingService")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -156,7 +153,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	guardService, err := config.GetGuardService(getter, config.ObjectStoreServicesName)
+	guardService, err := config.GetDrainingService(getter, config.ObjectStoreServicesName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -166,7 +163,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	controllerObjectStoreSerivce, err := config.GetControllerObjectStoreService(getter, config.ObjectStoreServicesName)
+	controllerObjectStoreService, err := config.GetControllerObjectStoreService(getter, config.ObjectStoreServicesName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -203,7 +200,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	currentConfig := a.CurrentConfig()
 	dataDir := currentConfig.DataDir()
 
-	phase, err := guardService.GetDrainingPhase(ctx)
+	phaseInfo, backendType, err := getDrainingState(ctx, guardService)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -214,12 +211,12 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	)
 	err = a.ChangeConfig(func(cfg agent.ConfigSetter) error {
 		agentsObjectStoreType = cfg.ObjectStoreType()
-		configObjectStoreType = controllerConfig.ObjectStoreType()
+		configObjectStoreType = backendType
 		objectStoreTypeChanged = agentsObjectStoreType != configObjectStoreType
 
 		// We've bounced whilst draining, so we need to ensure that we don't
 		// change the object store type if we're still draining.
-		if phase.IsDraining() && objectStoreTypeChanged {
+		if phaseInfo.IsDraining() && objectStoreTypeChanged {
 			objectStoreTypeChanged = false
 		}
 
@@ -244,10 +241,9 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	worker, err := config.NewWorker(Config{
 		Agent:                        a,
 		Guard:                        fortress,
-		GuardService:                 guardService,
+		DrainingService:              guardService,
 		ControllerService:            controllerService,
-		ControllerConfigService:      controllerConfigService,
-		ControllerObjectStoreService: controllerObjectStoreSerivce,
+		ControllerObjectStoreService: controllerObjectStoreService,
 		ObjectStoreServicesGetter:    objectStoreServicesGetter,
 		ObjectStoreFlusher:           objectStoreFlusher,
 		ObjectStoreType:              configObjectStoreType,
@@ -264,6 +260,27 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 	return worker, nil
+}
+
+func getDrainingState(ctx context.Context, guardService DrainingService) (coreobjectstore.Phase, coreobjectstore.BackendType, error) {
+	phaseInfo, err := guardService.GetDrainingPhaseInfo(ctx)
+	if errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
+		// There is no draining phase which means we then have to ask the
+		// service what is the active backend and use that backend's type.
+		backendInfo, err := guardService.GetActiveObjectStoreBackend(ctx)
+		if err != nil {
+			return "", "", internalerrors.Errorf("getting active objectstore backend info: %w", err)
+		}
+		return phaseInfo.Phase, backendInfo.ObjectStoreType, nil
+	} else if err != nil {
+		return "", "", internalerrors.Errorf("getting objectstore draining phase info: %w", err)
+	}
+
+	backendInfo, err := guardService.GetObjectStoreBackend(ctx, phaseInfo.ActiveBackendUUID)
+	if err != nil {
+		return "", "", internalerrors.Errorf("getting objectstore backend info: %w", err)
+	}
+	return phaseInfo.Phase, backendInfo.ObjectStoreType, nil
 }
 
 // Manifold packages a Worker for use in a dependency.Engine.
@@ -325,8 +342,8 @@ func GetControllerObjectStoreService(getter dependency.Getter, name string) (cor
 	return services.AgentObjectStore(), nil
 }
 
-// GetGuardService retrieves the GuardService using the given service.
-func GetGuardService(getter dependency.Getter, name string) (GuardService, error) {
+// GetDrainingService retrieves the DrainingService using the given service.
+func GetDrainingService(getter dependency.Getter, name string) (DrainingService, error) {
 	var services services.ControllerObjectStoreServices
 	if err := getter.Get(name, &services); err != nil {
 		return nil, errors.Trace(err)

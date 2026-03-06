@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -82,15 +83,41 @@ type State interface {
 // phase of the object store.
 type DrainingState interface {
 	State
-	// GetActiveDrainingPhase returns the active draining phase of the object
+
+	// SetObjectStoreBackendToS3 sets the object store to use S3 with the
+	// provided credentials. This is used to update the object store information
+	// when the object store is set to use S3 as the backend.
+	SetObjectStoreBackendToS3(ctx context.Context, uuid string, credential domainobjectstore.S3Credentials) error
+
+	// MarkObjectStoreBackendAsDrained marks the object store backend as
+	// drained. This is used to mark the object store backend as drained after
+	// the draining process has completed. If the s3 backend has been drained,
+	// then this will remove the credentials.
+	MarkObjectStoreBackendAsDrained(ctx context.Context, uuid string) error
+
+	// GetActiveDrainingInfo returns the active draining info of the object
 	// store.
-	GetActiveDrainingPhase(ctx context.Context) (string, objectstore.Phase, error)
+	GetActiveDrainingInfo(ctx context.Context) (domainobjectstore.DrainingInfo, error)
+
+	// GetObjectStoreBackend returns the object store backend information for
+	// the specified uuid.
+	GetObjectStoreBackend(ctx context.Context, uuid string) (domainobjectstore.BackendInfo, error)
+
+	// GetActiveObjectStoreBackend returns the active object store backend
+	// information.
+	GetActiveObjectStoreBackend(ctx context.Context) (domainobjectstore.BackendInfo, error)
+
+	// StartDraining initiates the draining process for the object store.
+	StartDraining(ctx context.Context, uuid string) error
 
 	// SetDrainingPhase sets the phase of the object store to draining.
 	SetDrainingPhase(ctx context.Context, uuid string, phase objectstore.Phase) error
 
 	// InitialWatchDrainingTable returns the table for the draining phase.
 	InitialWatchDrainingTable() string
+
+	// InitialWatchBackendTable returns the table for the object store backend.
+	InitialWatchBackendTable() (string, string)
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -423,18 +450,19 @@ func (s *WatchableDrainingService) SetDrainingPhase(ctx context.Context, phase o
 		return errors.Errorf("invalid phase %q", phase)
 	}
 
-	uuid, current, err := s.st.GetActiveDrainingPhase(ctx)
+	phaseInfo, err := s.st.GetActiveDrainingInfo(ctx)
 	if errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
 		uuid, err := objectstore.NewUUID()
 		if err != nil {
 			return errors.Errorf("creating new uuid: %w", err)
 		}
 
-		return s.st.SetDrainingPhase(ctx, uuid.String(), phase)
+		return s.st.StartDraining(ctx, uuid.String())
 	} else if err != nil {
 		return errors.Errorf("getting active draining phase: %w", err)
 	}
 
+	current := objectstore.Phase(phaseInfo.Phase)
 	if _, err := current.TransitionTo(phase); errors.Is(err, objectstore.ErrTerminalPhase) {
 		return nil
 	} else if err != nil {
@@ -442,24 +470,185 @@ func (s *WatchableDrainingService) SetDrainingPhase(ctx context.Context, phase o
 	}
 
 	// Set the phase in the state.
-	if err := s.st.SetDrainingPhase(ctx, uuid, phase); err != nil {
+	if err := s.st.SetDrainingPhase(ctx, phaseInfo.UUID, phase); err != nil {
 		return errors.Errorf("setting draining phase: %w", err)
 	}
 	return nil
 }
 
-// GetDrainingPhase returns the phase of the object store.
-func (s *WatchableDrainingService) GetDrainingPhase(ctx context.Context) (objectstore.Phase, error) {
+// GetDrainingPhaseInfo returns the phase information of the draining object
+// store.
+func (s *WatchableDrainingService) GetDrainingPhaseInfo(ctx context.Context) (objectstore.DrainingPhaseInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	_, phase, err := s.st.GetActiveDrainingPhase(ctx)
-	if errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
-		return objectstore.PhaseUnknown, nil
-	} else if err != nil {
-		return "", errors.Errorf("getting draining phase: %w", err)
+	info, err := s.st.GetActiveDrainingInfo(ctx)
+	if err != nil {
+		return objectstore.DrainingPhaseInfo{}, errors.Errorf("getting draining phase info: %w", err)
 	}
-	return phase, nil
+
+	var fromBackend *objectstore.UUID
+	if info.FromBackendUUID != nil {
+		fb := objectstore.UUID(*info.FromBackendUUID)
+		fromBackend = &fb
+	}
+
+	return objectstore.DrainingPhaseInfo{
+		Phase:             objectstore.Phase(info.Phase),
+		FromBackendUUID:   fromBackend,
+		ActiveBackendUUID: objectstore.UUID(info.ActiveBackendUUID),
+	}, nil
+}
+
+// BackendInfo represents the information about an object store backend,
+// including the uuid and the type of the object store.
+type BackendInfo struct {
+	// UUID is the uuid for the backend.
+	UUID objectstore.UUID
+
+	// ObjectStoreType is the type of the object store.
+	ObjectStoreType objectstore.BackendType
+
+	// Endpoint, AccessKey, SecretKey, and Region are only used for S3 backend.
+	Endpoint *string
+
+	// AccessKey is not returned for security reasons, but it is expected to be
+	// set in the state when the backend is S3, and it will be used to create
+	// the S3 client for the draining process.
+	AccessKey *string
+	// SecretKey is not returned for security reasons, but it is expected to be
+	// set in the state when the backend is S3, and it will be used to create
+	// the S3 client for the draining process.
+	SecretKey *string
+
+	// SessionToken is not returned for security reasons, but it is expected to
+	// be set in the state when the backend is S3, and it will be used to create
+	// the S3 client for the draining process.
+	SessionToken *string
+}
+
+// S3Credentials returns the S3 credentials if the object store type is S3, and
+// returns false otherwise.
+func (s BackendInfo) S3Credentials() (domainobjectstore.S3Credentials, bool) {
+	if s.ObjectStoreType != objectstore.S3Backend {
+		return domainobjectstore.S3Credentials{}, false
+	}
+
+	return domainobjectstore.S3Credentials{
+		Endpoint:     unptr(s.Endpoint, ""),
+		AccessKey:    unptr(s.AccessKey, ""),
+		SecretKey:    unptr(s.SecretKey, ""),
+		SessionToken: unptr(s.SessionToken, ""),
+	}, true
+}
+
+// GetObjectStoreBackend returns the object store backend information for the
+// specified uuid.
+func (s *WatchableDrainingService) GetObjectStoreBackend(ctx context.Context, uuid objectstore.UUID) (BackendInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := uuid.Validate(); err != nil {
+		return BackendInfo{}, errors.Errorf("invalid uuid %s: %w", uuid, err)
+	}
+
+	backendInfo, err := s.st.GetObjectStoreBackend(ctx, uuid.String())
+	if err != nil {
+		return BackendInfo{}, errors.Errorf("getting object store backend info for uuid %s: %w", uuid, err)
+	}
+	return BackendInfo{
+		UUID:            objectstore.UUID(backendInfo.UUID),
+		ObjectStoreType: objectstore.BackendType(backendInfo.ObjectStoreType),
+		Endpoint:        backendInfo.Endpoint,
+		AccessKey:       backendInfo.AccessKey,
+		SecretKey:       backendInfo.SecretKey,
+		SessionToken:    backendInfo.SessionToken,
+	}, nil
+}
+
+// GetActiveObjectStoreBackend returns the active object store backend
+// information.
+func (s *WatchableDrainingService) GetActiveObjectStoreBackend(ctx context.Context) (BackendInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	backendInfo, err := s.st.GetActiveObjectStoreBackend(ctx)
+	if err != nil {
+		return BackendInfo{}, errors.Errorf("getting active object store backend info: %w", err)
+	}
+	return BackendInfo{
+		UUID:            objectstore.UUID(backendInfo.UUID),
+		ObjectStoreType: objectstore.BackendType(backendInfo.ObjectStoreType),
+		Endpoint:        backendInfo.Endpoint,
+		AccessKey:       backendInfo.AccessKey,
+		SecretKey:       backendInfo.SecretKey,
+		SessionToken:    backendInfo.SessionToken,
+	}, nil
+}
+
+// SetObjectStoreBackendToS3 sets the object store to use S3 with the provided
+// credentials. This is used to update the object store information when the
+// object store is set to use S3 as the backend.
+func (s *WatchableDrainingService) SetObjectStoreBackendToS3(ctx context.Context, credential domainobjectstore.S3Credentials) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := credential.Validate(); err != nil {
+		return errors.Errorf("validating S3 credentials: %w", err)
+	}
+
+	uuid, err := objectstore.NewUUID()
+	if err != nil {
+		return errors.Errorf("creating new uuid: %w", err)
+	}
+
+	if err := s.st.SetObjectStoreBackendToS3(ctx, uuid.String(), credential); err != nil {
+		return errors.Errorf("setting object store backend to S3: %w", err)
+	}
+	return nil
+}
+
+// MarkObjectStoreBackendAsDrained marks the object store backend as drained.
+// This is used to mark the object store backend as drained after the draining
+// process has completed. If the s3 backend has been drained, then this will
+// remove the credentials.
+func (s *WatchableDrainingService) MarkObjectStoreBackendAsDrained(ctx context.Context) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	// Verify that we're in a draining phase before marking the backend as
+	// drained.
+	phaseInfo, err := s.st.GetActiveDrainingInfo(ctx)
+	if err != nil {
+		return errors.Errorf("getting active draining phase: %w", err)
+	}
+	if phase := objectstore.Phase(phaseInfo.Phase); !phase.IsDraining() {
+		return errors.Errorf("cannot mark object store backend as drained when phase is %q", phase)
+	}
+	if phaseInfo.FromBackendUUID == nil {
+		return errors.Errorf("invalid draining state: from backend uuid is nil")
+	}
+
+	if err := s.st.MarkObjectStoreBackendAsDrained(ctx, *phaseInfo.FromBackendUUID); err != nil {
+		return errors.Errorf("marking object store backend as drained: %w", err)
+	}
+	return nil
+}
+
+// WatchObjectStoreBackend returns a watcher that watches the object store
+// backend. The watcher emits the backend changes that either have been added or
+// removed.
+func (s *WatchableDrainingService) WatchObjectStoreBackend(ctx context.Context) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	table, stmt := s.st.InitialWatchBackendTable()
+	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
+		eventsource.InitialNamespaceChanges(stmt),
+		"objectstore backend watcher",
+		eventsource.NamespaceFilter(table, changestream.All),
+	)
 }
 
 // WatchDraining returns a watcher that watches the draining phase of the
@@ -475,4 +664,11 @@ func (s *WatchableDrainingService) WatchDraining(ctx context.Context) (watcher.N
 		"objectstore draining watcher",
 		eventsource.NamespaceFilter(table, changestream.All),
 	)
+}
+
+func unptr[T any](ptr *T, fallback T) T {
+	if ptr == nil {
+		return fallback
+	}
+	return *ptr
 }

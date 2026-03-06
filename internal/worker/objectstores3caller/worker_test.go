@@ -15,9 +15,9 @@ import (
 	"go.uber.org/goleak"
 	gomock "go.uber.org/mock/gomock"
 
-	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
+	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	"github.com/juju/juju/internal/s3client"
 	"github.com/juju/juju/internal/testing"
 )
@@ -36,12 +36,14 @@ func TestWorkerSuite(t *stdtesting.T) {
 func (s *workerSuite) TestCleanKill(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	config := testing.FakeControllerConfig()
-	config[controller.ObjectStoreType] = string(objectstore.S3Backend)
+	info := objectstoreservice.BackendInfo{
+		UUID:            "backend-uuid",
+		ObjectStoreType: objectstore.S3Backend,
+	}
 
 	s.expectClock()
-	s.expectControllerConfig(c, config)
-	s.expectControllerConfigWatch(c)
+	s.expectActiveObjectStoreBackend(c, info)
+	s.expectObjectStoreBackendWatch(c)
 
 	worker := s.newWorker(c)
 	defer workertest.DirtyKill(c, worker)
@@ -54,12 +56,14 @@ func (s *workerSuite) TestCleanKill(c *tc.C) {
 func (s *workerSuite) TestSessionExists(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	config := testing.FakeControllerConfig()
-	config[controller.ObjectStoreType] = string(objectstore.S3Backend)
+	info := objectstoreservice.BackendInfo{
+		UUID:            "backend-uuid",
+		ObjectStoreType: objectstore.S3Backend,
+	}
 
 	s.expectClock()
-	s.expectControllerConfig(c, config)
-	s.expectControllerConfigWatch(c)
+	s.expectActiveObjectStoreBackend(c, info)
+	s.expectObjectStoreBackendWatch(c)
 
 	worker := s.newWorker(c)
 	defer workertest.DirtyKill(c, worker)
@@ -80,13 +84,15 @@ func (s *workerSuite) TestSessionExists(c *tc.C) {
 func (s *workerSuite) TestSessionIsRetried(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	config := testing.FakeControllerConfig()
-	config[controller.ObjectStoreType] = string(objectstore.S3Backend)
+	info := objectstoreservice.BackendInfo{
+		UUID:            "backend-uuid",
+		ObjectStoreType: objectstore.S3Backend,
+	}
 
 	s.expectClock()
 	s.expectTimeAfter()
-	s.expectControllerConfig(c, config)
-	s.expectControllerConfigWatch(c)
+	s.expectActiveObjectStoreBackend(c, info)
+	s.expectObjectStoreBackendWatch(c)
 
 	worker := s.newWorker(c)
 	defer workertest.DirtyKill(c, worker)
@@ -114,13 +120,15 @@ func (s *workerSuite) TestSessionIsRetried(c *tc.C) {
 func (s *workerSuite) TestSessionIsNotRetried(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	config := testing.FakeControllerConfig()
-	config[controller.ObjectStoreType] = string(objectstore.S3Backend)
+	info := objectstoreservice.BackendInfo{
+		UUID:            "backend-uuid",
+		ObjectStoreType: objectstore.S3Backend,
+	}
 
 	s.expectClock()
 	s.expectTimeAfter()
-	s.expectControllerConfig(c, config)
-	s.expectControllerConfigWatch(c)
+	s.expectActiveObjectStoreBackend(c, info)
+	s.expectObjectStoreBackendWatch(c)
 
 	worker := s.newWorker(c)
 	defer workertest.DirtyKill(c, worker)
@@ -141,15 +149,17 @@ func (s *workerSuite) TestSessionIsNotRetried(c *tc.C) {
 func (s *workerSuite) TestSessionIsChanged(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	config := testing.FakeControllerConfig()
-	config[controller.ObjectStoreType] = string(objectstore.S3Backend)
+	info := objectstoreservice.BackendInfo{
+		UUID:            "backend-uuid",
+		ObjectStoreType: objectstore.S3Backend,
+	}
 
 	changes := make(chan []string)
 
 	s.expectClock()
 	s.expectTimeAfter()
-	s.expectControllerConfig(c, config)
-	s.expectControllerConfigWatchWithChanges(c, changes)
+	s.expectActiveObjectStoreBackend(c, info)
+	s.expectObjectStoreBackendWatchWithChanges(c, changes)
 
 	// Trigger change will send a change to the watcher and wait for the
 	// worker to process it.
@@ -158,12 +168,12 @@ func (s *workerSuite) TestSessionIsChanged(c *tc.C) {
 
 		// Now wait for the change to be processed and a new controller config
 		// to be fetched.
-		s.expectControllerConfigWithDone(c, config, triggerDone)
+		s.expectControllerConfigWithDone(c, info, triggerDone)
 
 		// Send a change to the watcher.
 		go func() {
 			select {
-			case changes <- []string{controller.ObjectStoreS3Endpoint}:
+			case changes <- []string{"backend-uuid"}:
 			case <-time.After(testing.LongWait):
 				c.Fatalf("timed out sending change")
 			}
@@ -203,85 +213,6 @@ func (s *workerSuite) TestSessionIsChanged(c *tc.C) {
 	workertest.CleanKill(c, worker)
 }
 
-func (s *workerSuite) TestSessionIsNotChanged(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	config := testing.FakeControllerConfig()
-	config[controller.ObjectStoreType] = string(objectstore.S3Backend)
-
-	changes := make(chan []string)
-
-	s.expectClock()
-	s.expectTimeAfter()
-	s.expectControllerConfig(c, config)
-	s.expectControllerConfigWatchWithChanges(c, changes)
-
-	// Trigger change will send a change to the watcher and wait for the
-	// worker to process it.
-	triggerChange := func() {
-		triggerDone := make(chan struct{})
-
-		// Send a change to the watcher.
-		// Note: the change is not one we care about, so we don't expect the
-		// controller config to be fetched.
-		go func() {
-			defer close(triggerDone)
-
-			// Notice we're not sending a change we care about.
-
-			select {
-			case changes <- []string{controller.OpenTelemetryEnabled}:
-			case <-time.After(testing.LongWait):
-				c.Fatalf("timed out sending change")
-			}
-		}()
-
-		select {
-		case <-triggerDone:
-		case <-time.After(testing.LongWait):
-		}
-	}
-
-	worker := s.newWorker(c)
-	defer workertest.DirtyKill(c, worker)
-
-	// Wait for the initial startup to complete.
-	s.sendInitialChange(c, changes)
-	s.ensureStartup(c)
-
-	// Done is to ensure we actively retry all the scenario before allowing
-	// the test to finish.
-	done := make(chan struct{})
-
-	var attempt int
-	err := worker.Session(c.Context(), func(ctx context.Context, session objectstore.Session) error {
-		attempt++
-		if attempt == 1 {
-			triggerChange()
-			return errors.Forbiddenf("try again")
-		}
-
-		// We're done, the test can complete.
-		defer close(done)
-
-		return nil
-	})
-
-	select {
-	case <-done:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("timed out waiting for controller config watcher to be added")
-	}
-
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(attempt, tc.Equals, 2)
-
-	// The client wasn't refreshed, so we should still have the original client.
-	c.Check(atomic.LoadInt64(&s.sessionRefCount), tc.Equals, int64(1))
-
-	workertest.CleanKill(c, worker)
-}
-
 func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	atomic.StoreInt64(&s.sessionRefCount, 0)
 	return s.baseSuite.setupMocks(c)
@@ -295,8 +226,8 @@ func (s *workerSuite) newWorker(c *tc.C) *s3Worker {
 
 func (s *workerSuite) getConfig() workerConfig {
 	return workerConfig{
-		ControllerConfigService: s.controllerConfigService,
-		HTTPClient:              s.httpClient,
+		ObjectStoreService: s.objectStoreService,
+		HTTPClient:         s.httpClient,
 		NewClient: func(string, s3client.HTTPClient, s3client.Credentials, logger.Logger) (objectstore.Session, error) {
 			atomic.AddInt64(&s.sessionRefCount, 1)
 			return s.session, nil
@@ -306,10 +237,10 @@ func (s *workerSuite) getConfig() workerConfig {
 	}
 }
 
-func (s *workerSuite) expectControllerConfigWithDone(c *tc.C, config controller.Config, done chan struct{}) {
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (controller.Config, error) {
+func (s *workerSuite) expectControllerConfigWithDone(c *tc.C, info objectstoreservice.BackendInfo, done chan struct{}) {
+	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).DoAndReturn(func(context.Context) (objectstoreservice.BackendInfo, error) {
 		defer close(done)
-		return config, nil
+		return info, nil
 	})
 }
 
