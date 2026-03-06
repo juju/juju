@@ -884,11 +884,15 @@ func (s *externalUserLoginSuite) TearDownTest(c *tc.C) {
 func (s *externalUserLoginSuite) TestExternalUserCreatedOnMacaroonLogin(c *tc.C) {
 	accessService := s.ControllerDomainServices(c).Access()
 
-	// Provision everyone@external with superuser access so that any external
-	// user can log in. EnsureExternalUserIfAuthorized checks everyone@external
-	// permissions before deciding whether to create a new user entry.
+	// The everyone@external user must exist as a user record (it's created
+	// during bootstrap and serves as the creator of other external users).
 	err := accessService.AddExternalUser(c.Context(), permission.EveryoneUserName, "", s.AdminUserUUID)
 	c.Assert(err, tc.ErrorIsNil)
+
+	// Grant everyone@external superuser access on the controller.
+	// This is needed so that ReadUserAccessLevelForTarget inherits
+	// controller access for testuser@external (external users inherit
+	// the higher of their own and everyone@external's permissions).
 	err = accessService.UpdatePermission(c.Context(), access.UpdatePermissionArgs{
 		Subject: permission.EveryoneUserName,
 		Change:  permission.Grant,
@@ -916,8 +920,8 @@ func (s *externalUserLoginSuite) TestExternalUserCreatedOnMacaroonLogin(c *tc.C)
 	//   2. The httpbakery client discharges the macaroon; the discharger
 	//      declares "username=testuser".
 	//   3. Client retries login with the discharged macaroon.
-	//   4. admin.authenticate() calls EnsureExternalUserIfAuthorized, inserting
-	//      testuser@external into Juju's user table.
+	//   4. admin.authenticate() calls EnsureExternalUser, inserting
+	//      testuser@external into Juju's user table unconditionally.
 	info := s.ControllerModelApiInfo()
 	info.Tag = nil
 	info.Password = ""

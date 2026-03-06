@@ -40,18 +40,6 @@ func (p *PermissionDelegator) SubjectPermissions(
 	return access, nil
 }
 
-// EnsureExternalUser implements authentication.ExternalUserEnsurer.
-// For macaroon authentication, external users are only created if they have
-// inherited permissions from everyone@external on the given targets.
-func (p *PermissionDelegator) EnsureExternalUser(ctx context.Context, subject user.Name, targets []permission.ID) error {
-	for _, target := range targets {
-		if err := p.AccessService.EnsureExternalUserIfAuthorized(ctx, subject, target); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (p *PermissionDelegator) PermissionError(_ names.Tag, _ permission.Access) error {
 	return apiservererrors.ErrPerm
 }

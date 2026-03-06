@@ -3,8 +3,6 @@
 
 package jwt_test
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package jwt_test -destination service_mock_test.go github.com/juju/juju/apiserver/authentication/jwt ExternalUserService
-
 import (
 	"context"
 	"encoding/base64"

@@ -311,7 +311,7 @@ func (s *ApiServerSuite) setupAPIServer(c *tc.C, controllerCfg controller.Config
 	c.Assert(err, tc.ErrorIsNil)
 	cfg.LocalMacaroonAuthenticator = authenticator
 	if s.WithJWTTokenParser != nil {
-		cfg.JWTAuthenticator = jwtauth.NewAuthenticator(s.WithJWTTokenParser, factory.Access())
+		cfg.JWTAuthenticator = jwtauth.NewAuthenticator(s.WithJWTTokenParser)
 	}
 	err = authenticator.AddHandlers(s.mux)
 	c.Assert(err, tc.ErrorIsNil)
