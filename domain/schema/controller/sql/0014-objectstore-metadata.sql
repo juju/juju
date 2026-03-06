@@ -55,3 +55,12 @@ CREATE TABLE object_store_drain_info (
 -- condition can exist. This states, that multiple draining can exist if they're
 -- not active, but only one active drain can exist.
 CREATE UNIQUE INDEX idx_singleton_active_drain ON object_store_drain_info ((1)) WHERE phase_type_id < 2;
+
+CREATE TABLE object_store_placement (
+    uuid TEXT NOT NULL,
+    node_id TEXT NOT NULL,
+    CONSTRAINT fk_object_store_placement_uuid
+    FOREIGN KEY (uuid)
+    REFERENCES object_store_metadata (uuid),
+    PRIMARY KEY (uuid, node_id)
+);
