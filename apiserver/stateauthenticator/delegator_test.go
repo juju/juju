@@ -13,7 +13,6 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/user"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 )
 
@@ -54,10 +53,10 @@ func (s *permissionDelegatorSuite) TestSubjectPermissionsLocalUserSuccess(c *tc.
 }
 
 // TestSubjectPermissionsExternalUserIsAPureRead verifies that SubjectPermissions
-// for an external user is a pure read that never calls EnsureExternalUserIfAuthorized.
+// for an external user is a pure read that never calls EnsureExternalUser.
 // User creation is now an explicit step in admin.authenticate(), not a
-// side-effect of permission reading. If EnsureExternalUserIfAuthorized were
-// called here, gomock would report an unexpected call.
+// side-effect of permission reading. If EnsureExternalUser were called
+// here, gomock would report an unexpected call.
 func (s *permissionDelegatorSuite) TestSubjectPermissionsExternalUserIsAPureRead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -133,41 +132,3 @@ func (s *permissionDelegatorSuite) TestPermissionError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
-// TestEnsureExternalUser verifies that EnsureExternalUser calls
-// EnsureExternalUserIfAuthorized for each target.
-func (s *permissionDelegatorSuite) TestEnsureExternalUser(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	userName, err := user.NewName("bob@external")
-	c.Assert(err, tc.ErrorIsNil)
-
-	controllerTarget := permission.ID{ObjectType: permission.Controller, Key: "ctrl-uuid"}
-	modelTarget := permission.ID{ObjectType: permission.Model, Key: "model-uuid"}
-
-	gomock.InOrder(
-		s.accessService.EXPECT().EnsureExternalUserIfAuthorized(gomock.Any(), userName, controllerTarget).Return(nil),
-		s.accessService.EXPECT().EnsureExternalUserIfAuthorized(gomock.Any(), userName, modelTarget).Return(nil),
-	)
-
-	err = s.delegator().EnsureExternalUser(c.Context(), userName, []permission.ID{controllerTarget, modelTarget})
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-// TestEnsureExternalUserStopsOnError verifies that EnsureExternalUser
-// stops iterating and returns the error if any target fails.
-func (s *permissionDelegatorSuite) TestEnsureExternalUserStopsOnError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	userName, err := user.NewName("bob@external")
-	c.Assert(err, tc.ErrorIsNil)
-
-	controllerTarget := permission.ID{ObjectType: permission.Controller, Key: "ctrl-uuid"}
-	modelTarget := permission.ID{ObjectType: permission.Model, Key: "model-uuid"}
-
-	s.accessService.EXPECT().
-		EnsureExternalUserIfAuthorized(gomock.Any(), userName, controllerTarget).
-		Return(errors.New("auth denied"))
-
-	err = s.delegator().EnsureExternalUser(c.Context(), userName, []permission.ID{controllerTarget, modelTarget})
-	c.Assert(err, tc.ErrorMatches, "auth denied")
-}
