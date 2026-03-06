@@ -196,6 +196,10 @@ func (w *Worker) registerHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 	r.HandleFunc("/metrics-users/{username}", w.handleRemoveMetricsUser).
 		Methods(http.MethodDelete)
+	r.HandleFunc("/s3-credentials", w.handleAddS3Credentials).
+		Methods(http.MethodPost)
+	r.HandleFunc("/s3-credentials", w.handleRemoveS3Credentials).
+		Methods(http.MethodDelete)
 }
 
 type addMetricsUserBody struct {
@@ -321,6 +325,21 @@ func (w *Worker) removeMetricsUser(ctx context.Context, username string) (int, e
 	}
 
 	return http.StatusOK, nil
+}
+
+func (w *Worker) handleAddS3Credentials(resp http.ResponseWriter, req *http.Request) {
+
+}
+
+func (w *Worker) handleRemoveS3Credentials(resp http.ResponseWriter, req *http.Request) {
+	// We currently don't allow you to move to another s3 provider. This will
+	// be fixed in future requests.
+	resp.Header().Set("Content-Type", "application/json")
+	resp.WriteHeader(http.StatusNotImplemented)
+	_, err := resp.Write([]byte(`{"error": "removing s3 credentials is not supported at this time"}`))
+	if err != nil {
+		w.logger.Warningf(req.Context(), "error writing HTTP response: %v", err)
+	}
 }
 
 func validateMetricsUsername(username string) (user.Name, error) {

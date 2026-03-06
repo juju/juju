@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -82,6 +83,18 @@ type State interface {
 // phase of the object store.
 type DrainingState interface {
 	State
+
+	// SetObjectStoreBackendToS3 sets the object store to use S3 with the
+	// provided credentials. This is used to update the object store information
+	// when the object store is set to use S3 as the backend.
+	SetObjectStoreBackendToS3(ctx context.Context, uuid string, credential domainobjectstore.S3Credentials) error
+
+	// MarkObjectStoreBackendAsDrained marks the object store backend as
+	// drained. This is used to mark the object store backend as drained after
+	// the draining process has completed. If the s3 backend has been drained,
+	// then this will remove the credentials.
+	MarkObjectStoreBackendAsDrained(ctx context.Context, uuid string) error
+
 	// GetActiveDrainingPhase returns the active draining phase of the object
 	// store.
 	GetActiveDrainingPhase(ctx context.Context) (string, objectstore.Phase, error)
@@ -91,6 +104,9 @@ type DrainingState interface {
 
 	// InitialWatchDrainingTable returns the table for the draining phase.
 	InitialWatchDrainingTable() string
+
+	// InitialWatchBackendTable returns the table for the object store backend.
+	InitialWatchBackendTable() (string, string)
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -460,6 +476,58 @@ func (s *WatchableDrainingService) GetDrainingPhase(ctx context.Context) (object
 		return "", errors.Errorf("getting draining phase: %w", err)
 	}
 	return phase, nil
+}
+
+// SetObjectStoreBackendToS3 sets the object store to use S3 with the provided
+// credentials. This is used to update the object store information when the
+// object store is set to use S3 as the backend.
+func (s *WatchableDrainingService) SetObjectStoreBackendToS3(ctx context.Context, credential domainobjectstore.S3Credentials) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := credential.Validate(); err != nil {
+		return errors.Errorf("validating S3 credentials: %w", err)
+	}
+
+	uuid, err := objectstore.NewUUID()
+	if err != nil {
+		return errors.Errorf("creating new uuid: %w", err)
+	}
+
+	if err := s.st.SetObjectStoreBackendToS3(ctx, uuid.String(), credential); err != nil {
+		return errors.Errorf("setting object store backend to S3: %w", err)
+	}
+	return nil
+}
+
+// MarkObjectStoreBackendAsDrained marks the object store backend as drained.
+// This is used to mark the object store backend as drained after the draining
+// process has completed. If the s3 backend has been drained, then this will
+// remove the credentials.
+func (s *WatchableDrainingService) MarkObjectStoreBackendAsDrained(ctx context.Context, uuid objectstore.UUID) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := s.st.MarkObjectStoreBackendAsDrained(ctx, uuid.String()); err != nil {
+		return errors.Errorf("marking object store backend as drained: %w", err)
+	}
+	return nil
+}
+
+// WatchObjectStoreBackend returns a watcher that watches the object store
+// backend. The watcher emits the backend changes that either have been added or
+// removed.
+func (s *WatchableDrainingService) WatchObjectStoreBackend(ctx context.Context) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	table, stmt := s.st.InitialWatchBackendTable()
+	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
+		eventsource.InitialNamespaceChanges(stmt),
+		"objectstore backend watcher",
+		eventsource.NamespaceFilter(table, changestream.All),
+	)
 }
 
 // WatchDraining returns a watcher that watches the draining phase of the

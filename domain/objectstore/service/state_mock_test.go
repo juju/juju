@@ -16,6 +16,7 @@ import (
 	objectstore "github.com/juju/juju/core/objectstore"
 	watcher "github.com/juju/juju/core/watcher"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
+	objectstore0 "github.com/juju/juju/domain/objectstore"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -687,6 +688,45 @@ func (c *MockDrainingStateGetMetadataBySHA256PrefixCall) DoAndReturn(f func(cont
 	return c
 }
 
+// InitialWatchBackendTable mocks base method.
+func (m *MockDrainingState) InitialWatchBackendTable() (string, string) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitialWatchBackendTable")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	return ret0, ret1
+}
+
+// InitialWatchBackendTable indicates an expected call of InitialWatchBackendTable.
+func (mr *MockDrainingStateMockRecorder) InitialWatchBackendTable() *MockDrainingStateInitialWatchBackendTableCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchBackendTable", reflect.TypeOf((*MockDrainingState)(nil).InitialWatchBackendTable))
+	return &MockDrainingStateInitialWatchBackendTableCall{Call: call}
+}
+
+// MockDrainingStateInitialWatchBackendTableCall wrap *gomock.Call
+type MockDrainingStateInitialWatchBackendTableCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockDrainingStateInitialWatchBackendTableCall) Return(arg0, arg1 string) *MockDrainingStateInitialWatchBackendTableCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockDrainingStateInitialWatchBackendTableCall) Do(f func() (string, string)) *MockDrainingStateInitialWatchBackendTableCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockDrainingStateInitialWatchBackendTableCall) DoAndReturn(f func() (string, string)) *MockDrainingStateInitialWatchBackendTableCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // InitialWatchDrainingTable mocks base method.
 func (m *MockDrainingState) InitialWatchDrainingTable() string {
 	m.ctrl.T.Helper()
@@ -799,6 +839,44 @@ func (c *MockDrainingStateListMetadataCall) Do(f func(context.Context) ([]object
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockDrainingStateListMetadataCall) DoAndReturn(f func(context.Context) ([]objectstore.Metadata, error)) *MockDrainingStateListMetadataCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MarkObjectStoreBackendAsDrained mocks base method.
+func (m *MockDrainingState) MarkObjectStoreBackendAsDrained(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkObjectStoreBackendAsDrained", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MarkObjectStoreBackendAsDrained indicates an expected call of MarkObjectStoreBackendAsDrained.
+func (mr *MockDrainingStateMockRecorder) MarkObjectStoreBackendAsDrained(arg0, arg1 any) *MockDrainingStateMarkObjectStoreBackendAsDrainedCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkObjectStoreBackendAsDrained", reflect.TypeOf((*MockDrainingState)(nil).MarkObjectStoreBackendAsDrained), arg0, arg1)
+	return &MockDrainingStateMarkObjectStoreBackendAsDrainedCall{Call: call}
+}
+
+// MockDrainingStateMarkObjectStoreBackendAsDrainedCall wrap *gomock.Call
+type MockDrainingStateMarkObjectStoreBackendAsDrainedCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockDrainingStateMarkObjectStoreBackendAsDrainedCall) Return(arg0 error) *MockDrainingStateMarkObjectStoreBackendAsDrainedCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockDrainingStateMarkObjectStoreBackendAsDrainedCall) Do(f func(context.Context, string) error) *MockDrainingStateMarkObjectStoreBackendAsDrainedCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockDrainingStateMarkObjectStoreBackendAsDrainedCall) DoAndReturn(f func(context.Context, string) error) *MockDrainingStateMarkObjectStoreBackendAsDrainedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -953,6 +1031,44 @@ func (c *MockDrainingStateSetDrainingPhaseCall) Do(f func(context.Context, strin
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockDrainingStateSetDrainingPhaseCall) DoAndReturn(f func(context.Context, string, objectstore.Phase) error) *MockDrainingStateSetDrainingPhaseCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetObjectStoreBackendToS3 mocks base method.
+func (m *MockDrainingState) SetObjectStoreBackendToS3(arg0 context.Context, arg1 string, arg2 objectstore0.S3Credentials) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetObjectStoreBackendToS3", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetObjectStoreBackendToS3 indicates an expected call of SetObjectStoreBackendToS3.
+func (mr *MockDrainingStateMockRecorder) SetObjectStoreBackendToS3(arg0, arg1, arg2 any) *MockDrainingStateSetObjectStoreBackendToS3Call {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetObjectStoreBackendToS3", reflect.TypeOf((*MockDrainingState)(nil).SetObjectStoreBackendToS3), arg0, arg1, arg2)
+	return &MockDrainingStateSetObjectStoreBackendToS3Call{Call: call}
+}
+
+// MockDrainingStateSetObjectStoreBackendToS3Call wrap *gomock.Call
+type MockDrainingStateSetObjectStoreBackendToS3Call struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockDrainingStateSetObjectStoreBackendToS3Call) Return(arg0 error) *MockDrainingStateSetObjectStoreBackendToS3Call {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockDrainingStateSetObjectStoreBackendToS3Call) Do(f func(context.Context, string, objectstore0.S3Credentials) error) *MockDrainingStateSetObjectStoreBackendToS3Call {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockDrainingStateSetObjectStoreBackendToS3Call) DoAndReturn(f func(context.Context, string, objectstore0.S3Credentials) error) *MockDrainingStateSetObjectStoreBackendToS3Call {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -12,6 +12,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain"
+	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
@@ -582,6 +583,169 @@ WHERE di.phase_type_id <= 1;
 	return phaseInfo.UUID, phaseInfo.Phase, nil
 }
 
+// SetObjectStoreBackendToS3 sets the object store to use S3 with the provided
+// credentials. This is used to update the object store information when the
+// object store is set to use S3 as the backend.
+func (s *State) SetObjectStoreBackendToS3(ctx context.Context, uuid string, credential domainobjectstore.S3Credentials) error {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	type s3Credentials struct {
+		UUID         string `db:"uuid"`
+		Endpoint     string `db:"endpoint"`
+		AccessKey    string `db:"access_key"`
+		SecretKey    string `db:"secret_key"`
+		SessionToken string `db:"session_token"`
+	}
+	type uuidIdent struct {
+		UUID string `db:"uuid"`
+	}
+
+	s3Creds := s3Credentials{
+		UUID:         uuid,
+		Endpoint:     credential.Endpoint,
+		AccessKey:    credential.AccessKey,
+		SecretKey:    credential.SecretKey,
+		SessionToken: credential.SessionToken,
+	}
+	backendUUID := uuidIdent{UUID: uuid}
+
+	// Force the active backend to be marked as dying, this will ensure that
+	// we can ensure that there is only one active backend at a time, and that
+	// we can monitor the process of draining from on to another.
+
+	setBackendDyingStmt, err := s.Prepare(`
+UPDATE object_store_backend
+SET life_id = 1
+WHERE life_id = 0`)
+	if err != nil {
+		return errors.Errorf("preparing update object store backend statement: %w", err)
+	}
+
+	insertBackendInfoStmt, err := s.Prepare(`
+INSERT INTO object_store_backend (uuid, life_id, type)
+VALUES ($uuidIdent.uuid, 0, 1)`, backendUUID)
+	if err != nil {
+		return errors.Errorf("preparing insert object store backend statement: %w", err)
+	}
+
+	s3InsertStmt, err := s.Prepare(`
+INSERT INTO object_store_backend_s3_credential (uuid, endpoint, access_key, secret_key, session_token)
+VALUES ($s3Credentials.*)
+`, s3Creds)
+	if err != nil {
+		return errors.Errorf("preparing insert object store information statement: %w", err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var outcome sqlair.Outcome
+		if err := tx.Query(ctx, setBackendDyingStmt).Get(&outcome); err != nil {
+			return errors.Errorf("updating object store backend: %w", err)
+		}
+		if rows, err := outcome.Result().RowsAffected(); err != nil {
+			return errors.Errorf("updating object store backend: %w", err)
+		} else if rows == 0 {
+			// If there are no active backends, then we can't trust the state
+			// of the object store, so we return an error.
+			return errors.Errorf("no object store backend active")
+		}
+
+		// Now activate the new backend by inserting the new backend
+		// information, and the credentials for the S3 backend.
+		if err := tx.Query(ctx, insertBackendInfoStmt, backendUUID).Get(&outcome); err != nil {
+			return errors.Errorf("inserting object store backend: %w", err)
+		}
+		if rows, err := outcome.Result().RowsAffected(); err != nil {
+			return errors.Errorf("inserting object store backend: %w", err)
+		} else if rows == 0 {
+			return errors.Errorf("activating s3 object store backend")
+		}
+
+		if err := tx.Query(ctx, s3InsertStmt, s3Creds).Run(); err != nil {
+			return errors.Errorf("inserting object store information: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Errorf("setting object store information: %w", err)
+	}
+	return nil
+}
+
+// MarkObjectStoreBackendAsDrained marks the object store backend as drained.
+// This is used to mark the object store backend as drained after the draining
+// process has completed. If the s3 backend has been drained, then this will
+// remove the credentials.
+func (s *State) MarkObjectStoreBackendAsDrained(ctx context.Context, uuid string) error {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	type backendType struct {
+		UUID string `db:"uuid"`
+		Type int    `db:"type"`
+	}
+
+	backend := backendType{UUID: uuid}
+
+	selectStmt, err := s.Prepare(`
+SELECT type AS &backendType.type
+FROM object_store_backend
+WHERE uuid = $backendType.uuid`, backend)
+	if err != nil {
+		return errors.Errorf("preparing select object store backend statement: %w", err)
+	}
+
+	deleteStmt, err := s.Prepare(`
+DELETE FROM object_store_backend_s3_credential
+WHERE uuid = $backendType.uuid`, backend)
+	if err != nil {
+		return errors.Errorf("preparing delete object store backend credentials statement: %w", err)
+	}
+
+	updateStmt, err := s.Prepare(`
+UPDATE object_store_backend
+SET life_id = 2
+WHERE uuid = $backendType.uuid AND life_id = 1`, backend)
+	if err != nil {
+		return errors.Errorf("preparing update object store backend statement: %w", err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, selectStmt, backend).Get(&backend); errors.Is(err, sqlair.ErrNoRows) {
+			return objectstoreerrors.ErrBackendNotFound
+		} else if err != nil {
+			return errors.Errorf("selecting object store backend: %w", err)
+		}
+
+		// If the backend is S3, then we want to remove the credentials for the
+		// backend, as the draining process has completed, and we want to ensure
+		// that the credentials are not left in the database.
+		if backend.Type == 1 {
+			if err := tx.Query(ctx, deleteStmt, backend).Run(); err != nil {
+				return errors.Errorf("deleting object store backend credentials: %w", err)
+			}
+		}
+
+		var outcome sqlair.Outcome
+		if err := tx.Query(ctx, updateStmt, backend).Get(&outcome); err != nil {
+			return errors.Errorf("updating object store backend: %w", err)
+		}
+		if rows, err := outcome.Result().RowsAffected(); err != nil {
+			return errors.Errorf("updating object store backend: %w", err)
+		} else if rows == 0 {
+			return errors.Errorf("no draining backend found")
+		}
+
+		return nil
+	})
+	if err != nil {
+		return errors.Errorf("marking object store backend as drained: %w", err)
+	}
+	return nil
+}
+
 // InitialWatchStatement returns the initial watch statement for the
 // persistence path.
 func (s *State) InitialWatchStatement() (string, string) {
@@ -591,6 +755,11 @@ func (s *State) InitialWatchStatement() (string, string) {
 // InitialWatchDrainingTable returns the table for the draining phase.
 func (s *State) InitialWatchDrainingTable() string {
 	return "object_store_drain_info"
+}
+
+// InitialWatchBackendTable returns the table for the object store backend.
+func (s *State) InitialWatchBackendTable() (string, string) {
+	return "object_store_backend", "SELECT uuid FROM object_store_backend WHERE life_id = 0"
 }
 
 func encodePhaseTypeID(phase coreobjectstore.Phase) (int, error) {
