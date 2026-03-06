@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"hash/fnv"
 	"net"
 	"os"
 	"path/filepath"
@@ -89,7 +90,12 @@ func (s *DqliteSuite) SetUpTest(c *tc.C) {
 	var endpoint string
 	if s.UseTCP {
 		port := FindTCPPort(c)
-		endpoint = fmt.Sprintf("%s:%d", "127.0.0.1", port)
+		pid := os.Getpid()
+		f := fnv.New32a()
+		f.Write([]byte{byte(pid), byte(pid >> 8), byte(pid >> 16), byte(pid >> 24)})
+		subnet := f.Sum32()
+		subnet ^= subnet >> 16
+		endpoint = fmt.Sprintf("127.%d.%d.1:%d", byte(subnet), byte(subnet>>8), port)
 		if verbose {
 			c.Logf("Opening dqlite db with: %v", endpoint)
 		}
