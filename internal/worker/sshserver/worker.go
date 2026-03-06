@@ -175,13 +175,18 @@ func (ssw *serverWrapperWorker) loop() error {
 		select {
 		case <-ssw.catacomb.Dying():
 			return ssw.catacomb.ErrDying()
-		case <-changesChan:
+		case _, ok := <-changesChan:
+			if !ok {
+				return errors.New("controller config watcher closed")
+			}
+
 			config, err := ssw.config.ControllerConfigService.ControllerConfig(ctx)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if maxConns == config.SSHMaxConcurrentConnections() {
-				ssw.config.Logger.Debugf(context.Background(), "controller configuration changed, but nothing changed for the ssh server.")
+			if maxConns == config.SSHMaxConcurrentConnections() &&
+				port == config.SSHServerPort() {
+				ssw.config.Logger.Debugf(ctx, "controller configuration changed, but nothing changed for the ssh server")
 				continue
 			}
 			return errors.New("changes detected, stopping SSH server worker")

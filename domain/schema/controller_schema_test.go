@@ -159,6 +159,7 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 		"object_store_metadata_path",
 		"object_store_drain_info",
 		"object_store_drain_phase_type",
+		"object_store_placement",
 
 		// SSH Keys
 		"ssh_fingerprint_hash_algorithm",

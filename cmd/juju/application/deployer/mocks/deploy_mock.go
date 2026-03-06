@@ -962,18 +962,18 @@ func (c *MockDeployerAPIGrantOfferCall) DoAndReturn(f func(context.Context, stri
 }
 
 // HTTPClient mocks base method.
-func (m *MockDeployerAPI) HTTPClient() (*httprequest.Client, error) {
+func (m *MockDeployerAPI) HTTPClient(arg0 base.HTTPClientScope) (*httprequest.Client, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HTTPClient")
+	ret := m.ctrl.Call(m, "HTTPClient", arg0)
 	ret0, _ := ret[0].(*httprequest.Client)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // HTTPClient indicates an expected call of HTTPClient.
-func (mr *MockDeployerAPIMockRecorder) HTTPClient() *MockDeployerAPIHTTPClientCall {
+func (mr *MockDeployerAPIMockRecorder) HTTPClient(arg0 any) *MockDeployerAPIHTTPClientCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HTTPClient", reflect.TypeOf((*MockDeployerAPI)(nil).HTTPClient))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HTTPClient", reflect.TypeOf((*MockDeployerAPI)(nil).HTTPClient), arg0)
 	return &MockDeployerAPIHTTPClientCall{Call: call}
 }
 
@@ -989,13 +989,13 @@ func (c *MockDeployerAPIHTTPClientCall) Return(arg0 *httprequest.Client, arg1 er
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIHTTPClientCall) Do(f func() (*httprequest.Client, error)) *MockDeployerAPIHTTPClientCall {
+func (c *MockDeployerAPIHTTPClientCall) Do(f func(base.HTTPClientScope) (*httprequest.Client, error)) *MockDeployerAPIHTTPClientCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIHTTPClientCall) DoAndReturn(f func() (*httprequest.Client, error)) *MockDeployerAPIHTTPClientCall {
+func (c *MockDeployerAPIHTTPClientCall) DoAndReturn(f func(base.HTTPClientScope) (*httprequest.Client, error)) *MockDeployerAPIHTTPClientCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1234,45 +1234,6 @@ func (c *MockDeployerAPIOfferCall) DoAndReturn(f func(context.Context, string, s
 	return c
 }
 
-// RootHTTPClient mocks base method.
-func (m *MockDeployerAPI) RootHTTPClient() (*httprequest.Client, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RootHTTPClient")
-	ret0, _ := ret[0].(*httprequest.Client)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// RootHTTPClient indicates an expected call of RootHTTPClient.
-func (mr *MockDeployerAPIMockRecorder) RootHTTPClient() *MockDeployerAPIRootHTTPClientCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHTTPClient", reflect.TypeOf((*MockDeployerAPI)(nil).RootHTTPClient))
-	return &MockDeployerAPIRootHTTPClientCall{Call: call}
-}
-
-// MockDeployerAPIRootHTTPClientCall wrap *gomock.Call
-type MockDeployerAPIRootHTTPClientCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockDeployerAPIRootHTTPClientCall) Return(arg0 *httprequest.Client, arg1 error) *MockDeployerAPIRootHTTPClientCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIRootHTTPClientCall) Do(f func() (*httprequest.Client, error)) *MockDeployerAPIRootHTTPClientCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIRootHTTPClientCall) DoAndReturn(f func() (*httprequest.Client, error)) *MockDeployerAPIRootHTTPClientCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // ScaleApplication mocks base method.
 func (m *MockDeployerAPI) ScaleApplication(arg0 context.Context, arg1 application.ScaleApplicationParams) (params.ScaleApplicationResult, error) {
 	m.ctrl.T.Helper()
@@ -1500,6 +1461,45 @@ func (c *MockDeployerAPISetConstraintsCall) Do(f func(context.Context, string, c
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockDeployerAPISetConstraintsCall) DoAndReturn(f func(context.Context, string, constraints.Value) error) *MockDeployerAPISetConstraintsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SimpleHTTPClient mocks base method.
+func (m *MockDeployerAPI) SimpleHTTPClient() (base.SimpleHTTPClient, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SimpleHTTPClient")
+	ret0, _ := ret[0].(base.SimpleHTTPClient)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SimpleHTTPClient indicates an expected call of SimpleHTTPClient.
+func (mr *MockDeployerAPIMockRecorder) SimpleHTTPClient() *MockDeployerAPISimpleHTTPClientCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SimpleHTTPClient", reflect.TypeOf((*MockDeployerAPI)(nil).SimpleHTTPClient))
+	return &MockDeployerAPISimpleHTTPClientCall{Call: call}
+}
+
+// MockDeployerAPISimpleHTTPClientCall wrap *gomock.Call
+type MockDeployerAPISimpleHTTPClientCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockDeployerAPISimpleHTTPClientCall) Return(arg0 base.SimpleHTTPClient, arg1 error) *MockDeployerAPISimpleHTTPClientCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockDeployerAPISimpleHTTPClientCall) Do(f func() (base.SimpleHTTPClient, error)) *MockDeployerAPISimpleHTTPClientCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockDeployerAPISimpleHTTPClientCall) DoAndReturn(f func() (base.SimpleHTTPClient, error)) *MockDeployerAPISimpleHTTPClientCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

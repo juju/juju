@@ -3,9 +3,9 @@
 
 package state
 
-// Annotation represents an annotation in the state layer that we read/write
+// annotation represents an annotation in the state layer that we read/write
 // to/from DB.
-type Annotation struct {
+type annotation struct {
 	Key   string `db:"key"`
 	Value string `db:"value"`
 }

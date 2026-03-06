@@ -21,7 +21,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/internal/testing"
 )
 
 // Ensure that the trackedDBWorker is a killableWorker.
@@ -123,7 +122,7 @@ func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *tc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.ShortWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for DB callback")
 	}
 
@@ -155,7 +154,7 @@ func (s *trackedDBWorkerSuite) TestWorkerStdTxnIsNotNil(c *tc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.ShortWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for DB callback")
 	}
 
@@ -231,7 +230,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *tc.C) 
 	// The db should wait to a successful ping after several attempts
 	select {
 	case <-dbReady:
-	case <-time.After(testing.ShortWait):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for DB callback")
 	}
 
@@ -320,12 +319,11 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDiffer
 	// In-theatre this will be OK, because a DB in an error state recoverable
 	// by reconnecting will be replaced within the default retry strategy's
 	// backoff/repeat loop.
-	timeout := time.After(time.Millisecond * 500)
 	tables := readTableNames(c, w)
 loop:
 	for {
 		select {
-		case <-timeout:
+		case <-c.Context().Done():
 			c.Fatal("did not reach expected clean DB state")
 		default:
 			if set.NewStrings(tables...).Contains("lease") {
@@ -421,7 +419,7 @@ func (s *trackedDBWorkerSuite) ensureStartup(c *tc.C) {
 	select {
 	case state := <-s.states:
 		c.Assert(state, tc.Equals, stateStarted)
-	case <-time.After(testing.ShortWait * 10):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for startup")
 	}
 }
@@ -430,7 +428,7 @@ func (s *trackedDBWorkerSuite) ensureDBReplaced(c *tc.C) {
 	select {
 	case state := <-s.states:
 		c.Assert(state, tc.Equals, stateDBReplaced)
-	case <-time.After(testing.ShortWait * 10):
+	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for startup")
 	}
 }

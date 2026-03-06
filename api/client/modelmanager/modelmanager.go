@@ -184,7 +184,7 @@ func (c *Client) ListModels(ctx context.Context, user string) ([]base.UserModel,
 		return c.listModelsCompat(ctx, user)
 	}
 	var models params.UserModelList
-	entity := params.Entity{names.NewUserTag(user).String()}
+	entity := params.Entity{Tag: names.NewUserTag(user).String()}
 	err := c.facade.FacadeCall(ctx, "ListModels", entity, &models)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -244,7 +244,7 @@ func (c *Client) composeModelSummaries(results []params.ModelSummaryResult) ([]b
 			AgentVersion:       summary.AgentVersion,
 		}
 		for pos, count := range summary.Counts {
-			summaries[i].Counts[pos] = base.EntityCount{string(count.Entity), count.Count}
+			summaries[i].Counts[pos] = base.EntityCount{Entity: string(count.Entity), Count: count.Count}
 		}
 		summaries[i].Status = base.Status{
 			Status: summary.Status.Status,

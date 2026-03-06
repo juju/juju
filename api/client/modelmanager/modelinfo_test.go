@@ -106,7 +106,7 @@ func (s *modelInfoSuite) TestInvalidResultCount(c *tc.C) {
 		APICallerFunc: func(objType string, version int, id, request string, a, result interface{}) error {
 			s.checkCall(c, objType, id, request)
 			c.Assert(a, tc.DeepEquals, params.Entities{
-				Entities: []params.Entity{{testing.ModelTag.String()}, {testing.ModelTag.String()}},
+				Entities: []params.Entity{{Tag: testing.ModelTag.String()}, {Tag: testing.ModelTag.String()}},
 			})
 			resp := s.assertResponse(c, result)
 			*resp = params.ModelInfoResults{Results: []params.ModelInfoResult{{}}}

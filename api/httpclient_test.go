@@ -17,6 +17,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/testing"
@@ -52,7 +53,7 @@ func (s *httpSuite) SetUpTest(c *tc.C) {
 	s.conn, err = api.Open(c.Context(), info, api.DialOpts{})
 	c.Assert(err, tc.ErrorIsNil)
 	s.AddCleanup(func(c *tc.C) { c.Assert(s.conn.Close(), tc.ErrorIsNil) })
-	client, err := s.conn.HTTPClient()
+	client, err := s.conn.HTTPClient(base.HTTPClientScopeModel)
 	c.Assert(err, tc.IsNil)
 	s.client = client
 }
@@ -214,7 +215,7 @@ func (s *httpSuite) TestControllerMachineAuthForHostedModel(c *tc.C) {
 
 	conn, err := api.Open(c.Context(), info, api.DialOpts{})
 	c.Assert(err, tc.ErrorIsNil)
-	httpClient, err := conn.HTTPClient()
+	httpClient, err := conn.HTTPClient(base.HTTPClientScopeModel)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Test with a dummy HTTP server returns the auth related headers used.

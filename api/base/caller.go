@@ -19,6 +19,38 @@ import (
 	"github.com/juju/juju/rpc"
 )
 
+// HTTPClientScope indicates the scope of the HTTP client returned by
+// APICaller.HTTPClient.
+type HTTPClientScope string
+
+const (
+	// HTTPClientScopeModel indicates that the HTTP client is scoped to a model.
+	HTTPClientScopeModel HTTPClientScope = "model"
+
+	// HTTPClientScopeUnscoped indicates that the HTTP client is unscoped. The
+	// intention is that the client will be free to make requests to any API
+	// endpoint, but in practice it will be scoped to the controller, as there
+	// is no model UUID to scope to.
+	HTTPClientScopeUnscoped HTTPClientScope = "unscoped"
+)
+
+// Doer is implemented by HTTP client packages to make an HTTP request.
+type Doer interface {
+	// Do sends an HTTP request and returns an HTTP response, following
+	// policy (e.g. redirects, cookies, auth) as configured on the client.
+	Do(req *http.Request) (*http.Response, error)
+}
+
+// SimpleHTTPClient is implemented by HTTP client packages to make an HTTP
+// request.
+type SimpleHTTPClient interface {
+	Doer
+
+	// BaseURL returns the base URL for the API server. URLs passed to the
+	// client will be made relative to this URL.
+	BaseURL() string
+}
+
 // APICaller is implemented by the client-facing State object.
 // It defines the lowest level of API calls and is used by
 // the various API implementations to actually make
@@ -38,17 +70,22 @@ type APICaller interface {
 	// to if there is one. It returns false for a controller-only connection.
 	ModelTag() (names.ModelTag, bool)
 
-	// HTTPClient returns a httprequest.Client that can be used
-	// to make HTTP requests to the API. URLs passed to the client
-	// will be made relative to the API host and the current model.
+	// HTTPClient returns a HTTP client that can be used to make authenticated
+	// requests to the API server. The returned client will have its BaseURL set
+	// to the appropriate API endpoint for the given scope.
 	//
-	// Note that the URLs in HTTP requests passed to the Client.Do
-	// method should not include a host part.
-	HTTPClient() (*httprequest.Client, error)
+	// JSON responses from the API server will be automatically unmarshaled if
+	// there is an error, and coerced into the API error type. Non-JSON error
+	// responses will be returned as errors with the response body as the
+	// message.
+	HTTPClient(HTTPClientScope) (*httprequest.Client, error)
 
-	// RootHTTPClient returns an httprequest.Client pointing to
-	// the API server root path.
-	RootHTTPClient() (*httprequest.Client, error)
+	// SimpleHTTPClient returns a http.Client that can be used to make HTTP
+	// requests to the API. No automatic error handling is performed by this
+	// client, and the caller is responsible for using the response and closing
+	// the body. URLs passed to the client will be made relative to the API host
+	// and the controller.
+	SimpleHTTPClient() (SimpleHTTPClient, error)
 
 	// BakeryClient returns the bakery client for this connection.
 	BakeryClient() MacaroonDischarger

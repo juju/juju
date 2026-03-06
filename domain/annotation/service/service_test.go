@@ -156,8 +156,7 @@ func (s *serviceSuite) TestSetCharmAnnotations(c *tc.C) {
 		Revision: 1,
 	}, map[string]string{
 		"annotationKey1": "annotationValue1",
-		"annotationKey2": "annotationValue2",
-	}).Return(nil)
+	}, []string{"annotationKey2"}).Return(nil)
 
 	err := s.service().SetCharmAnnotations(c.Context(), annotation.GetCharmArgs{
 		Source:   "ch",
@@ -165,9 +164,63 @@ func (s *serviceSuite) TestSetCharmAnnotations(c *tc.C) {
 		Revision: 1,
 	}, map[string]string{
 		"annotationKey1": "annotationValue1",
-		"annotationKey2": "annotationValue2",
+		"annotationKey2": "",
 	})
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetCharmAnnotationsUpsertAndDelete(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	id1 := annotation.GetCharmArgs{Source: "ch", Name: "foo", Revision: 1}
+	id2 := annotation.GetCharmArgs{Source: "ch", Name: "bar", Revision: 2}
+
+	type stateCharmAnnotationKey struct {
+		ID  annotation.GetCharmArgs
+		key string
+	}
+	mockState := map[stateCharmAnnotationKey]string{
+		{ID: id1, key: "annotationKey1"}: "annotationValue1",
+		{ID: id1, key: "annotationKey2"}: "annotationValue2",
+		{ID: id2, key: "annotationKey4"}: "annotationValue4",
+	}
+
+	s.state.EXPECT().SetCharmAnnotations(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, id annotation.GetCharmArgs, upserts map[string]string, deletions []string) error {
+			for annKey, annVal := range upserts {
+				mockState[stateCharmAnnotationKey{ID: id, key: annKey}] = annVal
+			}
+			for _, annKey := range deletions {
+				delete(mockState, stateCharmAnnotationKey{ID: id, key: annKey})
+			}
+			return nil
+		},
+	).AnyTimes()
+
+	// Upsert new key and update an existing one.
+	err := s.service().SetCharmAnnotations(c.Context(), id1, map[string]string{
+		"annotationKey5": "annotationValue5",
+		"annotationKey1": "annotationValue1Updated",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(mockState), tc.Equals, 4)
+	c.Assert(mockState[stateCharmAnnotationKey{ID: id1, key: "annotationKey5"}], tc.Equals, "annotationValue5")
+	c.Assert(mockState[stateCharmAnnotationKey{ID: id1, key: "annotationKey1"}], tc.Equals, "annotationValue1Updated")
+
+	// Unset a key.
+	err = s.service().SetCharmAnnotations(c.Context(), id2, map[string]string{
+		"annotationKey4": "",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(mockState), tc.Equals, 3)
+
+	// Upsert and unset in a single call.
+	err = s.service().SetCharmAnnotations(c.Context(), id1, map[string]string{
+		"annotationKey1": "annotationValue1Final",
+		"annotationKey5": "",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(mockState), tc.Equals, 2)
+	c.Assert(mockState[stateCharmAnnotationKey{ID: id1, key: "annotationKey1"}], tc.Equals, "annotationValue1Final")
 }
 
 func (s *serviceSuite) TestSetAnnotationsWithInvalidKeys(c *tc.C) {

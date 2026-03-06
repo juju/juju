@@ -343,7 +343,7 @@ func (fakeHTTPCaller) BestFacadeVersion(string) int {
 	return 0
 }
 
-func (f *fakeHTTPCaller) RootHTTPClient() (*httprequest.Client, error) {
+func (f *fakeHTTPCaller) HTTPClient(base.HTTPClientScope) (*httprequest.Client, error) {
 	return f.httpClient, f.err
 }
 

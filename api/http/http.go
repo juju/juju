@@ -42,7 +42,7 @@ func (o *uriOpener) OpenURI(ctx context.Context, uri string, query url.Values) (
 
 // NewURIOpener returns a URI opener for the api caller.
 func NewURIOpener(apiConn base.APICaller) (URIOpener, error) {
-	httpClient, err := apiConn.HTTPClient()
+	httpClient, err := apiConn.HTTPClient(base.HTTPClientScopeModel)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

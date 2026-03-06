@@ -647,7 +647,8 @@ func (s *baseSuite) setCharmObjectStoreMetadata(c *tc.C, appID coreapplication.U
 		return s.ModelTxnRunner(), nil
 	}
 
-	objectStoreUUID, err := objectstorestate.NewState(modelDB).PutMetadata(c.Context(), coreobjectstore.Metadata{
+	uuid := tc.Must(c, uuid.NewUUID).String()
+	objectStoreUUID, err := objectstorestate.NewState(modelDB).PutMetadata(c.Context(), uuid, coreobjectstore.Metadata{
 		SHA256: fmt.Sprintf("%v-sha256", appID),
 		SHA384: fmt.Sprintf("%v-sha384", appID),
 		Path:   fmt.Sprintf("/path/to/%v", appID),

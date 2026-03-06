@@ -209,7 +209,7 @@ juju add-ssh-key "ssh-ed25519 AAAA... yourkeycomment"
 
 ### 4. Status API filtering removed (`StatusArgs.Patterns[]`)
 
-Server-side status filtering via `StatusArgs.Patterns[]` is removed. 
+Server-side status filtering via `StatusArgs.Patterns[]` is removed.
 API clients must fetch full status and filter client-side.
 
 **Juju 3.6 (API consumer idea)**
@@ -257,7 +257,7 @@ The provider name “Manual” is renamed to “Unmanaged”. Update scripts, te
 
 ### 7. Base/series commands removed: `upgrade-machine` and `set-application-base`
 
-In-place base/series switching via these commands is removed in `4.0`. 
+In-place base/series switching via these commands is removed in `4.0`.
 Plan base changes as “move/redeploy” workflows instead of mutating machines.
 
 **Juju 3.6**
@@ -320,22 +320,7 @@ juju add-machine kvm:1
 juju add-machine lxd:1 --constraints virt-type=virtual-machine
 ```
 
-### 11. `juju status --watch` is dropped
-
-`juju wait-for` and subcommands are removed in `4.0`. Use status polling and check readiness yourself.
-
-**Juju 3.6**
-```bash
-juju wait-for application myapp --timeout=10m
-```
-
-**Juju 4.0**
-```bash
-# poll JSON status, then evaluate readiness client-side
-juju status --format=json
-```
-
-### 12. `juju wait-for` removed (scripts/CI must change)
+### 11. `juju wait-for` removed (scripts/CI must change)
 
 `juju wait-for` and subcommands are removed in `4.0`. Use status polling and check readiness yourself.
 
@@ -350,7 +335,7 @@ juju wait-for application myapp --timeout=10m
 juju status --format=json
 ```
 
-### 13. `juju export-bundle` removed
+### 12. `juju export-bundle` removed
 
 The `juju status` command cannot be used to watch status anymore. Please use the third-party `watch`.
 
@@ -364,7 +349,7 @@ juju export-bundle > bundle.yaml
 # Command removed. Please use Juju Terraform Provider plans.
 ```
 
-### 14. `juju status --watch` flag is dropped
+### 13. `juju status --watch` flag is dropped
 
 Operators can’t use `juju status` to watch the changes (via polling) using this command in `4.0`.
 

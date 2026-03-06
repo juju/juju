@@ -842,6 +842,182 @@ func expectedStatefulSet(
 	}
 }
 
+func (s *applicationSuite) TestEnsureStatefulDeletesOrphanedStatefulSet(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+
+	// Pre-create an orphaned StatefulSet with a different storage UUID
+	// but valid Juju ownership labels and annotations. This simulates
+	// the leftover from a force-removed deployment.
+	orphanSts := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      s.appName,
+			Namespace: s.namespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       s.appName,
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{
+				"app.juju.is/uuid":      "old-uuid",
+				"model.juju.is/id":      s.modelUUID,
+				"controller.juju.is/id": s.controllerUUID,
+				"juju.is/version":       defaultAgentVersion,
+			},
+		},
+		Spec: appsv1.StatefulSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app.kubernetes.io/name": s.appName},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app.kubernetes.io/name": s.appName},
+				},
+			},
+		},
+	}
+	_, err := s.client.AppsV1().StatefulSets(s.namespace).Create(
+		c.Context(), orphanSts, metav1.CreateOptions{},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Set up a mock watcher so waitForStatefulSetDeletion can proceed.
+	// The fake client deletes synchronously, so by the time the watcher's
+	// initial event fires and getStatefulSet is called, the StatefulSet
+	// is already gone.
+	w, _ := k8swatchertest.NewKubernetesTestWatcher()
+	s.k8sWatcherFn = k8swatchertest.NewKubernetesTestWatcherFunc(w)
+
+	s.assertEnsure(
+		c, app, false, constraints.Value{}, true, false, "", nil,
+		func() {
+			ss, err := s.client.AppsV1().StatefulSets(s.namespace).Get(
+				c.Context(), s.appName, metav1.GetOptions{},
+			)
+			c.Assert(err, tc.ErrorIsNil)
+
+			// The new StatefulSet must have the new UUID, not the orphan's.
+			c.Assert(ss.Annotations["app.juju.is/uuid"], tc.Equals, "uniqid")
+
+			// Replicas must be nil (not 0) so Kubernetes defaults to 1.
+			// This is because exists stays true after the orphan deletion.
+			c.Assert(ss.Spec.Replicas, tc.IsNil)
+
+			// The VolumeClaimTemplates must contain the new UUID.
+			// Without the fix, the update path does not modify VCTs
+			// (they are immutable on a real cluster), so VCTs from the
+			// orphan would persist. With the fix, the orphan is deleted
+			// and a fresh StatefulSet is created with correct VCTs.
+			c.Assert(ss.Spec.VolumeClaimTemplates, tc.HasLen, 1)
+			c.Assert(ss.Spec.VolumeClaimTemplates[0].Name, tc.Equals, "gitlab-database-uniqid")
+		}, nil,
+	)
+}
+
+func (s *applicationSuite) TestEnsureStatefulSkipsOrphanNotOwnedByJuju(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+
+	// Pre-create a StatefulSet with a different UUID but NOT owned by Juju
+	// (missing the managed-by label). The fix must not delete it.
+	orphanSts := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      s.appName,
+			Namespace: s.namespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/name": s.appName,
+				// No "app.kubernetes.io/managed-by": "juju" label.
+			},
+			Annotations: map[string]string{
+				"app.juju.is/uuid": "old-uuid",
+				"model.juju.is/id": s.modelUUID,
+				"juju.is/version":  defaultAgentVersion,
+			},
+		},
+		Spec: appsv1.StatefulSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app.kubernetes.io/name": s.appName},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app.kubernetes.io/name": s.appName},
+				},
+			},
+		},
+	}
+	_, err := s.client.AppsV1().StatefulSets(s.namespace).Create(
+		c.Context(), orphanSts, metav1.CreateOptions{},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Ensure should succeed without deleting the orphan — the applier
+	// will update the existing StatefulSet in place (patching mutable fields).
+	s.assertEnsure(
+		c, app, false, constraints.Value{}, true, false, "", nil,
+		func() {
+			ss, err := s.client.AppsV1().StatefulSets(s.namespace).Get(
+				c.Context(), s.appName, metav1.GetOptions{},
+			)
+			c.Assert(err, tc.ErrorIsNil)
+
+			// The VCTs remain empty because the update path does not
+			// modify VolumeClaimTemplates (they are immutable in real K8s).
+			// This confirms the orphan was NOT deleted-and-recreated.
+			c.Assert(ss.Spec.VolumeClaimTemplates, tc.IsNil)
+		}, nil,
+	)
+}
+
+func (s *applicationSuite) TestEnsureStatefulSkipsOrphanFromDifferentModel(c *tc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+
+	// Pre-create a StatefulSet with a different UUID that is managed by Juju
+	// but belongs to a different model. The fix must not delete it.
+	orphanSts := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      s.appName,
+			Namespace: s.namespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       s.appName,
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{
+				"app.juju.is/uuid": "old-uuid",
+				"model.juju.is/id": "different-model-uuid",
+				"juju.is/version":  defaultAgentVersion,
+			},
+		},
+		Spec: appsv1.StatefulSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app.kubernetes.io/name": s.appName},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app.kubernetes.io/name": s.appName},
+				},
+			},
+		},
+	}
+	_, err := s.client.AppsV1().StatefulSets(s.namespace).Create(
+		c.Context(), orphanSts, metav1.CreateOptions{},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Ensure should succeed without deleting the orphan — the applier
+	// will update the existing StatefulSet in place (patching mutable fields).
+	s.assertEnsure(
+		c, app, false, constraints.Value{}, true, false, "", nil,
+		func() {
+			ss, err := s.client.AppsV1().StatefulSets(s.namespace).Get(
+				c.Context(), s.appName, metav1.GetOptions{},
+			)
+			c.Assert(err, tc.ErrorIsNil)
+
+			// The VCTs remain empty because the update path does not
+			// modify VolumeClaimTemplates (they are immutable in real K8s).
+			// This confirms the orphan was NOT deleted-and-recreated.
+			c.Assert(ss.Spec.VolumeClaimTemplates, tc.IsNil)
+		}, nil,
+	)
+}
+
 func (s *applicationSuite) TestEnsureStatefulRootless35(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(

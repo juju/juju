@@ -21,7 +21,8 @@ import (
 
 // MetadataService is the interface that is used to get a object store.
 type MetadataService interface {
-	ObjectStore() objectstore.ObjectStoreMetadata
+	// ObjectStore returns the object store metadata.
+	ObjectStore() objectstore.RemoteObjectStoreMetadata
 }
 
 // TrackedObjectStore is a ObjectStore that is also a worker, to ensure the
@@ -115,6 +116,15 @@ func WithNewBlobsClient(clientFn remote.NewBlobsClientFunc) Option {
 	}
 }
 
+// WithControllerNodeID is the option to set the controller node id for the
+// current controller.
+// This is for file based object stores.
+func WithControllerNodeID(nodeID string) Option {
+	return func(o *options) {
+		o.controllerNodeID = nodeID
+	}
+}
+
 type options struct {
 	rootDir         string
 	claimer         Claimer
@@ -130,6 +140,7 @@ type options struct {
 	// File base options
 	apiRemoteCallers   apiremotecaller.APIRemoteCallers
 	newFileBlobsClient remote.NewBlobsClientFunc
+	controllerNodeID   string
 }
 
 func newOptions() *options {
@@ -155,31 +166,7 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 
 	switch backendType {
 	case objectstore.FileBackend:
-		blobRetriever, err := remote.NewBlobRetriever(
-			opts.apiRemoteCallers,
-			namespace,
-			opts.newFileBlobsClient,
-			opts.clock,
-			opts.logger,
-		)
-		if err != nil {
-			return nil, errors.Errorf("creating blob retriever: %w", err)
-		}
-
-		fileStore, err := NewFileObjectStore(FileObjectStoreConfig{
-			Namespace:       namespace,
-			RootDir:         opts.rootDir,
-			MetadataService: opts.metadataService.ObjectStore(),
-			Claimer:         opts.claimer,
-			Logger:          opts.logger,
-			Clock:           opts.clock,
-			RemoteRetriever: blobRetriever,
-		})
-		if err != nil {
-			return nil, errors.Errorf("creating file based objectstore: %w", err)
-		}
-
-		return newRemoteFileObjectStore(fileStore, blobRetriever)
+		return newFileObjectStore(ctx, namespace, opts)
 
 	case objectstore.S3Backend:
 		return NewS3ObjectStore(S3ObjectStoreConfig{
@@ -195,6 +182,57 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 	default:
 		return nil, errors.Errorf("backend type %q: %w", backendType, jujuerrors.NotValid)
 	}
+}
+
+func newFileObjectStore(ctx context.Context, namespace string, opts *options) (_ *remoteFileObjectStore, err error) {
+	blobRetriever, err := remote.NewBlobRetriever(
+		opts.apiRemoteCallers,
+		namespace,
+		opts.newFileBlobsClient,
+		opts.clock,
+		opts.logger,
+	)
+	if err != nil {
+		return nil, errors.Errorf("creating blob retriever: %w", err)
+	}
+
+	// Ensure the blob retriever is stopped if there is an error creating the
+	// file object store.
+	defer func() {
+		if err != nil {
+			blobRetriever.Kill()
+			if killErr := blobRetriever.Wait(); killErr != nil {
+				opts.logger.Errorf(ctx, "error waiting for blob retriever to stop after failed creation: %v", killErr)
+			}
+		}
+	}()
+
+	fileStore, err := NewFileObjectStore(FileObjectStoreConfig{
+		Namespace:        namespace,
+		RootDir:          opts.rootDir,
+		MetadataService:  opts.metadataService.ObjectStore(),
+		Claimer:          opts.claimer,
+		Logger:           opts.logger,
+		Clock:            opts.clock,
+		RemoteRetriever:  blobRetriever,
+		ControllerNodeID: opts.controllerNodeID,
+	})
+	if err != nil {
+		return nil, errors.Errorf("creating file based objectstore: %w", err)
+	}
+
+	// Ensure the file store is stopped if there is an error creating the remote
+	// file object store.
+	defer func() {
+		if err != nil {
+			fileStore.Kill()
+			if killErr := fileStore.Wait(); killErr != nil {
+				opts.logger.Errorf(ctx, "error waiting for file object store to stop after failed creation: %v", killErr)
+			}
+		}
+	}()
+
+	return newRemoteFileObjectStore(fileStore, blobRetriever)
 }
 
 // BackendTypeOrDefault returns the default backend type for the given object

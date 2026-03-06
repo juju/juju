@@ -861,6 +861,45 @@ func (c *MockStorageServiceGetStorageInstanceAttachmentsCall) DoAndReturn(f func
 	return c
 }
 
+// GetStorageInstanceInfo mocks base method.
+func (m *MockStorageService) GetStorageInstanceInfo(arg0 context.Context, arg1 storage1.StorageInstanceUUID) (storage1.StorageInstanceInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStorageInstanceInfo", arg0, arg1)
+	ret0, _ := ret[0].(storage1.StorageInstanceInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStorageInstanceInfo indicates an expected call of GetStorageInstanceInfo.
+func (mr *MockStorageServiceMockRecorder) GetStorageInstanceInfo(arg0, arg1 any) *MockStorageServiceGetStorageInstanceInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageInstanceInfo", reflect.TypeOf((*MockStorageService)(nil).GetStorageInstanceInfo), arg0, arg1)
+	return &MockStorageServiceGetStorageInstanceInfoCall{Call: call}
+}
+
+// MockStorageServiceGetStorageInstanceInfoCall wrap *gomock.Call
+type MockStorageServiceGetStorageInstanceInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageServiceGetStorageInstanceInfoCall) Return(arg0 storage1.StorageInstanceInfo, arg1 error) *MockStorageServiceGetStorageInstanceInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageServiceGetStorageInstanceInfoCall) Do(f func(context.Context, storage1.StorageInstanceUUID) (storage1.StorageInstanceInfo, error)) *MockStorageServiceGetStorageInstanceInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageServiceGetStorageInstanceInfoCall) DoAndReturn(f func(context.Context, storage1.StorageInstanceUUID) (storage1.StorageInstanceInfo, error)) *MockStorageServiceGetStorageInstanceInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetStorageInstanceUUIDForID mocks base method.
 func (m *MockStorageService) GetStorageInstanceUUIDForID(arg0 context.Context, arg1 string) (storage1.StorageInstanceUUID, error) {
 	m.ctrl.T.Helper()

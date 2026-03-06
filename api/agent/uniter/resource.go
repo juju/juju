@@ -38,7 +38,7 @@ type UnitHTTPClient interface {
 // portion of the uniter facade.
 func NewResourcesFacadeClient(caller base.APICaller, unitTag names.UnitTag) (*ResourcesFacadeClient, error) {
 	facadeCaller := base.NewFacadeCaller(caller, "ResourcesHookContext")
-	httpClient, err := caller.HTTPClient()
+	httpClient, err := caller.HTTPClient(base.HTTPClientScopeModel)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

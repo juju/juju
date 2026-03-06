@@ -9,10 +9,8 @@ const (
 	// ErrNotFound is returned when a path is not found.
 	ErrNotFound = errors.ConstError("path not found")
 
-	// ErrHashAndSizeAlreadyExists is returned when a hash already exists, but
-	// the associated size is different. This should never happen, it means that
-	// there is a collision in the hash function.
-	ErrHashAndSizeAlreadyExists = errors.ConstError("hash exists for different file size")
+	// ErrHashAndSizeAlreadyExists is returned when a hash already exists.
+	ErrHashAndSizeAlreadyExists = errors.ConstError("hash exists already exists")
 
 	// ErrPathAlreadyExistsDifferentHash is returned when a path already exists
 	// with a different hash.
@@ -43,4 +41,7 @@ const (
 	// ErrDrainingAlreadyInProgress is returned when the draining phase is
 	// already in progress.
 	ErrDrainingAlreadyInProgress = errors.ConstError("draining already in progress")
+
+	// ErrMissingControllerID is returned when the controller ID is missing.
+	ErrMissingControllerID = errors.ConstError("missing controller ID")
 )

@@ -54,3 +54,21 @@ type ObjectStoreMetadata interface {
 	// added or removed.
 	Watch(context.Context) (watcher.StringsWatcher, error)
 }
+
+// RemoteObjectStoreMetadata is the interface that is used to get the metadata
+// for a remote object store.
+type RemoteObjectStoreMetadata interface {
+	ObjectStoreMetadata
+
+	// PutMetadataWithControllerIDHint adds a new specified path for the
+	// persistence metadata. The controller ID hint is used to indicate which
+	// controller might have put the object, which can be used for optimization
+	// in certain scenarios.
+	PutMetadataWithControllerIDHint(ctx context.Context, metadata Metadata, controllerID string) (UUID, error)
+
+	// AddControllerIDHint adds a controller ID hint for the specified SHA384.
+	// This is used to indicate that a controller might have the object with the
+	// specified SHA384, which can be used for optimization in certain
+	// scenarios.
+	AddControllerIDHint(ctx context.Context, sha384 string, controllerID string) error
+}

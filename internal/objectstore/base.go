@@ -76,11 +76,10 @@ type response struct {
 }
 
 type baseObjectStore struct {
-	path            string
-	metadataService objectstore.ObjectStoreMetadata
-	claimer         Claimer
-	logger          logger.Logger
-	clock           clock.Clock
+	path    string
+	claimer Claimer
+	logger  logger.Logger
+	clock   clock.Clock
 }
 
 func (t *baseObjectStore) writeToTmpFile(path string, r io.Reader, size int64) (string, func() error, error) {

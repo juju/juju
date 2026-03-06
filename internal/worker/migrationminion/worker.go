@@ -225,6 +225,28 @@ func (w *Worker) handle(ctx context.Context, status watcher.MigrationStatus) err
 	w.config.Logger.Infof(ctx, "migration phase is now: %s", status.Phase)
 
 	if !status.Phase.IsRunning() {
+		// If the agent migration has already passed the SUCCESS phase, we need
+		// to ensure that the agent config is updated to a point where it can
+		// talk to the new controller. This is because the worker or agent may
+		// have restarted after the reporting of the SUCCESS phase, but before
+		// the persistence of the new config. By ensuring that the agent config
+		// is updated in all *post-SUCCESS* phases, we can try to update the
+		// agent config to be correct where possible. It's possible that the
+		// agent config update will also fail, but we're in no worse position
+		// than if we hadn't tried.
+		//
+		// Potentially, this would require the addition of a new phase(s), one
+		// that indicates that the agent config has been updated and that the
+		// migration can consider itself fully complete.
+		//
+		// This will cause a retry if it fails, so consider that we may never
+		// leave this phase. If that's the case the migration should timeout.
+		if status.Phase.IsPostSuccess() {
+			if err := w.updateAgentConfigForTargetController(ctx, status); err != nil {
+				return errors.Trace(err)
+			}
+		}
+
 		// If the phase is not running, we can unlock the fortress, but remove
 		// the migration from the processed map first.
 		delete(w.processed, status.MigrationId)
@@ -389,6 +411,22 @@ func (w *Worker) dialWithRedirect(ctx context.Context, apiInfo *api.Info, dialOp
 }
 
 func (w *Worker) doSUCCESS(ctx context.Context, status watcher.MigrationStatus) (err error) {
+	if err := w.ensureTargetControllerDetails(ctx, status); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Report first because the config update that's about to happen
+	// will cause the API connection to drop. The SUCCESS phase is the
+	// point of no return anyway, so we must retry this step even if
+	// the api connection dies.
+	if err := w.robustReport(ctx, status, true); err != nil {
+		return errors.Trace(err)
+	}
+
+	return w.updateAgentConfigForTargetController(ctx, status)
+}
+
+func (w *Worker) updateAgentConfigForTargetController(ctx context.Context, status watcher.MigrationStatus) (err error) {
 	defer func() {
 		if err != nil {
 			cfg := w.config.Agent.CurrentConfig()
@@ -398,29 +436,13 @@ func (w *Worker) doSUCCESS(ctx context.Context, status watcher.MigrationStatus) 
 		}
 	}()
 
-	// If the new details struct is nil, it means that the agent restarted between the
-	// VALIDATION and SUCCESS phases, and we need to re-dial the new controller to
-	// ensure that we follow any redirects that may have occurred.
-	if w.newControllerDetails == nil {
-		conn, newDetails, err := w.dialNewController(ctx, status.TargetAPIAddrs, status.TargetCACert)
-		if err != nil {
-			return errors.Annotate(err, "failed to open API to target controller")
-		}
-		conn.Close()
-		w.newControllerDetails = &newDetails
+	if err := w.ensureTargetControllerDetails(ctx, status); err != nil {
+		return errors.Trace(err)
 	}
 
 	hps, err := network.ParseProviderHostPorts(w.newControllerDetails.targetAPIAddrs...)
 	if err != nil {
 		return errors.Annotate(err, "converting API addresses")
-	}
-
-	// Report first because the config update that's about to happen
-	// will cause the API connection to drop. The SUCCESS phase is the
-	// point of no return anyway, so we must retry this step even if
-	// the api connection dies.
-	if err := w.robustReport(ctx, status, true); err != nil {
-		return errors.Trace(err)
 	}
 
 	err = w.config.Agent.ChangeConfig(func(conf agent.ConfigSetter) error {
@@ -432,6 +454,22 @@ func (w *Worker) doSUCCESS(ctx context.Context, status watcher.MigrationStatus) 
 		return nil
 	})
 	return errors.Annotate(err, "setting agent config")
+}
+
+func (w *Worker) ensureTargetControllerDetails(ctx context.Context, status watcher.MigrationStatus) error {
+	// If the new details struct is nil, it means that the agent restarted
+	// between the VALIDATION and SUCCESS, or in post SUCCESS phases, and we
+	// need to re-dial the new controller to ensure that we follow any redirects
+	// that may have occurred.
+	if w.newControllerDetails == nil {
+		conn, newDetails, err := w.dialNewController(ctx, status.TargetAPIAddrs, status.TargetCACert)
+		if err != nil {
+			return errors.Annotate(err, "failed to open API to target controller")
+		}
+		_ = conn.Close()
+		w.newControllerDetails = &newDetails
+	}
+	return nil
 }
 
 func (w *Worker) report(ctx context.Context, status watcher.MigrationStatus, success bool) error {

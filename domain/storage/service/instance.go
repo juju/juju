@@ -8,7 +8,19 @@ import (
 
 	"github.com/juju/juju/core/trace"
 	domainstorage "github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/internal/errors"
 )
+
+// GetStorageInstanceInfo returns the basic information about a StorageInstance
+// in the model.
+func (s *Service) GetStorageInstanceInfo(
+	ctx context.Context, uuid domainstorage.StorageInstanceUUID,
+) (domainstorage.StorageInstanceInfo, error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return domainstorage.StorageInstanceInfo{}, errors.New("not yet implemented")
+}
 
 // GetStorageInstanceUUIDForID returns the StorageInstanceUUID for the given
 // storage ID.

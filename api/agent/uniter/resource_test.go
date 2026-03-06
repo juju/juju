@@ -95,7 +95,7 @@ func (s *stubAPI) BestFacadeVersion(_ string) int {
 	return 1
 }
 
-func (s *stubAPI) HTTPClient() (*httprequest.Client, error) {
+func (s *stubAPI) HTTPClient(base.HTTPClientScope) (*httprequest.Client, error) {
 	return &httprequest.Client{}, nil
 }
 

@@ -90,7 +90,7 @@ func (c *Client) UploadTools(ctx context.Context, r io.Reader, vers semversion.B
 
 	var resp params.ToolsResult
 	// The returned httpClient sets the base url to /model/<uuid> if it can.
-	httpClient, err := c.st.HTTPClient()
+	httpClient, err := c.st.HTTPClient(base.HTTPClientScopeModel)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -102,6 +102,12 @@ type StorageService interface {
 		context.Context, domainstorage.StorageInstanceUUID,
 	) ([]domainstorage.StorageAttachmentUUID, error)
 
+	// GetStorageInstanceInfo returns the basic information about a
+	// StorageInstance in the model.
+	GetStorageInstanceInfo(
+		context.Context, domainstorage.StorageInstanceUUID,
+	) (domainstorage.StorageInstanceInfo, error)
+
 	// GetStorageInstanceUUIDForID returns the StorageInstanceUUID for the given
 	// storage ID.
 	//
@@ -408,15 +414,6 @@ func (a *StorageAPI) checkCanWrite(ctx context.Context) *params.Error {
 
 	return apiservererrors.ParamsErrorf(
 		params.CodeUnauthorized, "not authorized for request",
-	)
-}
-
-// StorageDetails retrieves and returns detailed information about desired
-// storage identified by supplied tags. If specified storage cannot be
-// retrieved, individual error is returned instead of storage information.
-func (a *StorageAPI) StorageDetails(ctx context.Context, entities params.Entities) (params.StorageDetailsResults, error) {
-	return params.StorageDetailsResults{}, apiservererrors.ParamsErrorf(
-		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
 	)
 }
 

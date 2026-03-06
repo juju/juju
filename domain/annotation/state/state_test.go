@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/domain/annotation"
+	domainannotation "github.com/juju/juju/domain/annotation"
 	annotationerrors "github.com/juju/juju/domain/annotation/errors"
 	"github.com/juju/juju/domain/deployment/charm"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -52,7 +52,7 @@ func (s *stateSuite) TestGetCharmAnnotations(c *tc.C) {
 	s.ensureAnnotation(c, "charm", "123", "foo", "5")
 	s.ensureAnnotation(c, "charm", "123", "bar", "6")
 
-	annotations, err := st.GetCharmAnnotations(c.Context(), annotation.GetCharmArgs{
+	annotations, err := st.GetCharmAnnotations(c.Context(), domainannotation.GetCharmArgs{
 		Source:   "local",
 		Name:     "mycharmurl",
 		Revision: 5,
@@ -107,14 +107,14 @@ func (s *stateSuite) TestSetCharmAnnotations(c *tc.C) {
 
 	s.ensureCharm(c, "local:mycharmurl-5", "mystorage", "123")
 
-	args := annotation.GetCharmArgs{
+	args := domainannotation.GetCharmArgs{
 		Source:   "local",
 		Name:     "mycharmurl",
 		Revision: 5,
 	}
 
 	// Set annotations bar:6 and foo:15
-	err := st.SetCharmAnnotations(c.Context(), args, map[string]string{"bar": "6", "foo": "15"})
+	err := st.SetCharmAnnotations(c.Context(), args, map[string]string{"bar": "6", "foo": "15"}, []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the final annotation set
@@ -122,8 +122,8 @@ func (s *stateSuite) TestSetCharmAnnotations(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(annotations, tc.DeepEquals, map[string]string{"bar": "6", "foo": "15"})
 
-	// Set annotations bar:6 and foo:15
-	err = st.SetCharmAnnotations(c.Context(), args, map[string]string{"bar": "6", "baz": "7"})
+	// Set annotations bar:6 and baz:7 and unset foo.
+	err = st.SetCharmAnnotations(c.Context(), args, map[string]string{"bar": "6", "baz": "7"}, []string{"foo"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the final annotation set

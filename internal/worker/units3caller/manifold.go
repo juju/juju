@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/s3client"
@@ -69,7 +70,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, err
 	}
 
-	httpClient, err := apiConn.RootHTTPClient()
+	httpClient, err := apiConn.HTTPClient(base.HTTPClientScopeUnscoped)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

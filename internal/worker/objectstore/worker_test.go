@@ -191,6 +191,7 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 		ModelClaimGetter:           s.modelClaimGetter,
 		RootDir:                    c.MkDir(),
 		RootBucket:                 uuid.MustNewUUID().String(),
+		ControllerNodeID:           "0",
 	}, s.states)
 	c.Assert(err, tc.ErrorIsNil)
 	return w
