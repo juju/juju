@@ -115,7 +115,11 @@ func (s *workerSuite) TestStartStop(c *tc.C) {
 }
 
 func (s *workerSuite) advanceClock(c *tc.C, d time.Duration) {
-	err := s.clock.WaitAdvance(d, testing.LongWait, 1)
+	s.advanceClockWithWaiters(c, d, 1)
+}
+
+func (s *workerSuite) advanceClockWithWaiters(c *tc.C, d time.Duration, waiters int) {
+	err := s.clock.WaitAdvance(d, testing.LongWait, waiters)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -192,7 +196,7 @@ func (s *workerSuite) TestRetrigger(c *tc.C) {
 		URI:      uri,
 		Revision: 666,
 	}}
-	s.advanceClock(c, 5*time.Minute)
+	s.advanceClockWithWaiters(c, 5*time.Minute, 0)
 	s.expectNoExpiry(c)
 }
 
