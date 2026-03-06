@@ -9,6 +9,8 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/instance"
+	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	corestorage "github.com/juju/juju/core/storage"
@@ -1289,4 +1291,10 @@ type charmModifiedVersion struct {
 
 type modelMigrating struct {
 	ModelUUID string `db:"model_uuid"`
+}
+
+// modelType represents the type of the model.
+type modelType struct {
+	// Type is the type of the model.
+	Type model.ModelType `db:"type"`
 }

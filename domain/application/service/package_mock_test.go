@@ -23,6 +23,7 @@ import (
 	constraints "github.com/juju/juju/core/constraints"
 	devices "github.com/juju/juju/core/devices"
 	machine "github.com/juju/juju/core/machine"
+	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
 	objectstore "github.com/juju/juju/core/objectstore"
 	semversion "github.com/juju/juju/core/semversion"
@@ -3247,6 +3248,45 @@ func (c *MockStateGetModelStoragePoolsCall) Do(f func(context.Context) (internal
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetModelStoragePoolsCall) DoAndReturn(f func(context.Context) (internal.ModelStoragePools, error)) *MockStateGetModelStoragePoolsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetModelType mocks base method.
+func (m *MockState) GetModelType(arg0 context.Context) (model.ModelType, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelType", arg0)
+	ret0, _ := ret[0].(model.ModelType)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelType indicates an expected call of GetModelType.
+func (mr *MockStateMockRecorder) GetModelType(arg0 any) *MockStateGetModelTypeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelType", reflect.TypeOf((*MockState)(nil).GetModelType), arg0)
+	return &MockStateGetModelTypeCall{Call: call}
+}
+
+// MockStateGetModelTypeCall wrap *gomock.Call
+type MockStateGetModelTypeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetModelTypeCall) Return(arg0 model.ModelType, arg1 error) *MockStateGetModelTypeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetModelTypeCall) Do(f func(context.Context) (model.ModelType, error)) *MockStateGetModelTypeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetModelTypeCall) DoAndReturn(f func(context.Context) (model.ModelType, error)) *MockStateGetModelTypeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
