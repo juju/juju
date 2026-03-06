@@ -482,7 +482,10 @@ func (w *dbWorker) GetDB(ctx context.Context, namespace string) (database.TxnRun
 
 func (w *dbWorker) workerFromCache(ctx context.Context, namespace string) (database.TxnRunner, error) {
 	// If the worker already exists, return the existing worker early.
-	if tracked, err := w.dbRunner.Worker(namespace, firstClosed(ctx.Done(), w.catacomb.Dying())); err == nil {
+	merged, cancel := firstClosed(ctx.Done(), w.catacomb.Dying())
+	defer cancel()
+
+	if tracked, err := w.dbRunner.Worker(namespace, merged); err == nil {
 		return tracked.(database.TxnRunner), nil
 	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
 		// Handle the case where the DB runner is dead due to this worker dying.
@@ -506,22 +509,29 @@ func (w *dbWorker) workerFromCache(ctx context.Context, namespace string) (datab
 // channel that closes will close the output channel.
 // It is expected that no channel will emit any value only that they will
 // close.
-func firstClosed(cs ...<-chan struct{}) <-chan struct{} {
+func firstClosed(cs ...<-chan struct{}) (<-chan struct{}, func()) {
 	out := make(chan struct{})
+	stop := make(chan struct{})
 	once := sync.OnceFunc(func() {
 		close(out)
 	})
 
 	for _, c := range cs {
-		go func() {
+		go func(ch <-chan struct{}) {
 			select {
+			case <-stop:
 			case <-out:
-			case <-c:
+			case <-ch:
 				once()
 			}
-		}()
+		}(c)
 	}
-	return out
+
+	cancel := func() {
+		close(stop)
+	}
+
+	return out, cancel
 }
 
 // DeleteDB deletes the dqlite-backed database that contains the data for
