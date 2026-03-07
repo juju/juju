@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
+	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testhelpers"
@@ -506,6 +507,53 @@ func (s *drainingServiceSuite) TestRemoveMetadata(c *tc.C) {
 
 	err := NewWatchableDrainingService(s.state, s.watcherFactory).RemoveMetadata(c.Context(), key)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *drainingServiceSuite) TestSetObjectStoreBackendToS3(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	creds := domainobjectstore.S3Credentials{
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access",
+		SecretKey: "secret",
+	}
+
+	s.state.EXPECT().SetObjectStoreBackendToS3(gomock.Any(), gomock.Any(), creds).Return(nil)
+
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetObjectStoreBackendToS3(c.Context(), creds)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *drainingServiceSuite) TestSetObjectStoreBackendToS3InvalidCreds(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	creds := domainobjectstore.S3Credentials{}
+
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetObjectStoreBackendToS3(c.Context(), creds)
+	c.Assert(err, tc.ErrorMatches, "validating S3 credentials: .*endpoint is required")
+}
+
+func (s *drainingServiceSuite) TestMarkObjectStoreBackendAsDrained(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backendUUID := objectstoretesting.GenObjectStoreUUID(c)
+
+	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return("draining", objectstore.PhaseDraining, nil)
+	s.state.EXPECT().MarkObjectStoreBackendAsDrained(gomock.Any(), backendUUID.String()).Return(nil)
+
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).MarkObjectStoreBackendAsDrained(c.Context(), backendUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *drainingServiceSuite) TestMarkObjectStoreBackendAsDrainedNotDraining(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backendUUID := objectstoretesting.GenObjectStoreUUID(c)
+
+	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return("draining", objectstore.PhaseUnknown, nil)
+
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).MarkObjectStoreBackendAsDrained(c.Context(), backendUUID)
+	c.Assert(err, tc.ErrorMatches, "cannot mark object store backend as drained when phase is \"unknown\"")
 }
 
 func (s *drainingServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
