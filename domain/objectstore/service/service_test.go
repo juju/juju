@@ -14,7 +14,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/objectstore"
-	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
@@ -429,7 +428,7 @@ func (s *drainingServiceSuite) TestSetDrainingPhase(c *tc.C) {
 
 	currentPhase := objectstore.PhaseUnknown
 	newPhase := objectstore.PhaseDraining
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
+	uuid := tc.Must(c, objectstore.NewUUID)
 
 	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return(uuid.String(), currentPhase, nil)
 	s.state.EXPECT().SetDrainingPhase(gomock.Any(), uuid.String(), newPhase).Return(nil)
@@ -464,7 +463,7 @@ func (s *drainingServiceSuite) TestSetDrainingPhaseError(c *tc.C) {
 
 	currentPhase := objectstore.PhaseUnknown
 	newPhase := objectstore.PhaseDraining
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
+	uuid := tc.Must(c, objectstore.NewUUID)
 
 	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return(uuid.String(), currentPhase, nil)
 	s.state.EXPECT().SetDrainingPhase(gomock.Any(), uuid.String(), newPhase).Return(errors.Errorf("boom"))
@@ -477,7 +476,7 @@ func (s *drainingServiceSuite) TestGetDrainingPhase(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	phase := objectstore.PhaseDraining
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
+	uuid := tc.Must(c, objectstore.NewUUID)
 
 	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return(uuid.String(), phase, nil)
 
@@ -490,7 +489,7 @@ func (s *drainingServiceSuite) TestGetDrainingPhaseError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	phase := objectstore.PhaseDraining
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
+	uuid := tc.Must(c, objectstore.NewUUID)
 
 	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return(uuid.String(), phase, errors.Errorf("boom"))
 
@@ -536,7 +535,7 @@ func (s *drainingServiceSuite) TestSetObjectStoreBackendToS3InvalidCreds(c *tc.C
 func (s *drainingServiceSuite) TestMarkObjectStoreBackendAsDrained(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	backendUUID := objectstoretesting.GenObjectStoreUUID(c)
+	backendUUID := tc.Must(c, objectstore.NewUUID)
 
 	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return("draining", objectstore.PhaseDraining, nil)
 	s.state.EXPECT().MarkObjectStoreBackendAsDrained(gomock.Any(), backendUUID.String()).Return(nil)
@@ -548,7 +547,7 @@ func (s *drainingServiceSuite) TestMarkObjectStoreBackendAsDrained(c *tc.C) {
 func (s *drainingServiceSuite) TestMarkObjectStoreBackendAsDrainedNotDraining(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	backendUUID := objectstoretesting.GenObjectStoreUUID(c)
+	backendUUID := tc.Must(c, objectstore.NewUUID)
 
 	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return("draining", objectstore.PhaseUnknown, nil)
 
