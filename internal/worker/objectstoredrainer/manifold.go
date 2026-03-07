@@ -166,7 +166,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	controllerObjectStoreSerivce, err := config.GetControllerObjectStoreService(getter, config.ObjectStoreServicesName)
+	controllerObjectStoreService, err := config.GetControllerObjectStoreService(getter, config.ObjectStoreServicesName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -247,7 +247,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		GuardService:                 guardService,
 		ControllerService:            controllerService,
 		ControllerConfigService:      controllerConfigService,
-		ControllerObjectStoreService: controllerObjectStoreSerivce,
+		ControllerObjectStoreService: controllerObjectStoreService,
 		ObjectStoreServicesGetter:    objectStoreServicesGetter,
 		ObjectStoreFlusher:           objectStoreFlusher,
 		ObjectStoreType:              configObjectStoreType,

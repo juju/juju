@@ -508,6 +508,20 @@ func (s *WatchableDrainingService) MarkObjectStoreBackendAsDrained(ctx context.C
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	if err := uuid.Validate(); err != nil {
+		return errors.Errorf("validating uuid: %w", err)
+	}
+
+	// Verify that we're in a draining phase before marking the backend as
+	// drained.
+	_, phase, err := s.st.GetActiveDrainingPhase(ctx)
+	if err != nil {
+		return errors.Errorf("getting active draining phase: %w", err)
+	}
+	if !phase.IsDraining() {
+		return errors.Errorf("cannot mark object store backend as drained when phase is %q", phase)
+	}
+
 	if err := s.st.MarkObjectStoreBackendAsDrained(ctx, uuid.String()); err != nil {
 		return errors.Errorf("marking object store backend as drained: %w", err)
 	}

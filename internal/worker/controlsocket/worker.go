@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"strings"
 	"time"
@@ -25,6 +26,7 @@ import (
 	"github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
+	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/socketlistener"
 )
@@ -38,6 +40,9 @@ const (
 	// This user CANNOT be a local user (it must have a domain), otherwise the
 	// model addUser code will complain about the user not existing.
 	userCreator = "juju-metrics"
+
+	// maxPayloadBytes is the maximum size of any payload.
+	maxPayloadBytes = 1 << 20 // 1MiB
 )
 
 // AccessService is the interface for the access service.
@@ -96,6 +101,8 @@ type PermissionService interface {
 type Config struct {
 	// AccessService is the user access service for the model.
 	AccessService AccessService
+	// ObjectStoreService is the object store service for the controller.
+	ObjectStoreService ControllerObjectStoreService
 	// SocketName is the socket file descriptor.
 	SocketName string
 	// NewSocketListener is the function that creates a new socket listener.
@@ -110,6 +117,9 @@ type Config struct {
 func (config Config) Validate() error {
 	if config.AccessService == nil {
 		return errors.NotValidf("nil AccessService")
+	}
+	if config.ObjectStoreService == nil {
+		return errors.NotValidf("nil ObjectStoreService")
 	}
 	if config.ControllerModelUUID == "" {
 		return errors.NotValidf("empty ControllerModelUUID")
@@ -130,8 +140,9 @@ func (config Config) Validate() error {
 type Worker struct {
 	catacomb catacomb.Catacomb
 
-	accessService AccessService
-	logger        logger.Logger
+	accessService      AccessService
+	objectStoreService ControllerObjectStoreService
+	logger             logger.Logger
 
 	controllerModelUUID model.UUID
 	userCreatorName     user.Name
@@ -150,6 +161,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 	w := &Worker{
 		accessService:       config.AccessService,
+		objectStoreService:  config.ObjectStoreService,
 		logger:              config.Logger,
 		controllerModelUUID: config.ControllerModelUUID,
 		userCreatorName:     userCreatorName,
@@ -185,18 +197,16 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop() error {
-	select {
-	case <-w.catacomb.Dying():
-		return w.catacomb.ErrDying()
-	}
+	<-w.catacomb.Dying()
+	return w.catacomb.ErrDying()
 }
 
 func (w *Worker) registerHandlers(r *mux.Router) {
-	r.HandleFunc("/metrics-users", w.handleAddMetricsUser).
+	r.Handle("/metrics-users", w.handleJSONPost(w.handleAddMetricsUser)).
 		Methods(http.MethodPost)
 	r.HandleFunc("/metrics-users/{username}", w.handleRemoveMetricsUser).
 		Methods(http.MethodDelete)
-	r.HandleFunc("/s3-credentials", w.handleAddS3Credentials).
+	r.Handle("/s3-credentials", w.handleJSONPost(w.handleAddS3Credentials)).
 		Methods(http.MethodPost)
 	r.HandleFunc("/s3-credentials", w.handleRemoveS3Credentials).
 		Methods(http.MethodDelete)
@@ -208,24 +218,29 @@ type addMetricsUserBody struct {
 }
 
 func (w *Worker) handleAddMetricsUser(resp http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+
 	var parsedBody addMetricsUserBody
-	defer req.Body.Close()
-	err := json.NewDecoder(req.Body).Decode(&parsedBody)
-	if errors.Is(err, io.EOF) {
-		w.writeResponse(req.Context(), resp, http.StatusBadRequest, errorf("missing request body"))
-		return
-	} else if err != nil {
-		w.writeResponse(req.Context(), resp, http.StatusBadRequest, errorf("request body is not valid JSON: %v", err))
+	if err := json.NewDecoder(req.Body).Decode(&parsedBody); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		switch {
+		case errors.Is(err, io.EOF):
+			w.writeResponse(ctx, resp, http.StatusBadRequest, errorf("missing request body"))
+		case errors.As(err, &maxBytesErr):
+			w.writeResponse(ctx, resp, http.StatusRequestEntityTooLarge, errorf("request body must not exceed %d bytes", maxPayloadBytes))
+		default:
+			w.writeResponse(ctx, resp, http.StatusBadRequest, errorf("request body is not valid JSON: %v", err))
+		}
 		return
 	}
 
-	code, err := w.addMetricsUser(req.Context(), parsedBody.Username, auth.NewPassword(parsedBody.Password))
+	code, err := w.addMetricsUser(ctx, parsedBody.Username, auth.NewPassword(parsedBody.Password))
 	if err != nil {
-		w.writeResponse(req.Context(), resp, code, errorf("%v", err))
+		w.writeResponse(ctx, resp, code, errorf("%v", err))
 		return
 	}
 
-	w.writeResponse(req.Context(), resp, code, infof("created user %q", parsedBody.Username))
+	w.writeResponse(ctx, resp, code, infof("created user %q", parsedBody.Username))
 }
 
 func (w *Worker) addMetricsUser(ctx context.Context, username string, password auth.Password) (int, error) {
@@ -328,7 +343,38 @@ func (w *Worker) removeMetricsUser(ctx context.Context, username string) (int, e
 }
 
 func (w *Worker) handleAddS3Credentials(resp http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
 
+	type s3CredentialsRequest struct {
+		Endpoint  string `json:"endpoint"`
+		AccessKey string `json:"access_key"`
+		SecretKey string `json:"secret_key"`
+	}
+
+	var parsedBody s3CredentialsRequest
+	if err := json.NewDecoder(req.Body).Decode(&parsedBody); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		switch {
+		case errors.Is(err, io.EOF):
+			w.writeResponse(ctx, resp, http.StatusBadRequest, errorf("missing request body"))
+		case errors.As(err, &maxBytesErr):
+			w.writeResponse(ctx, resp, http.StatusRequestEntityTooLarge, errorf("request body must not exceed %d bytes", maxPayloadBytes))
+		default:
+			w.writeResponse(ctx, resp, http.StatusBadRequest, errorf("request body is not valid JSON: %v", err))
+		}
+		return
+	}
+
+	if err := w.objectStoreService.SetObjectStoreBackendToS3(ctx, domainobjectstore.S3Credentials{
+		Endpoint:  parsedBody.Endpoint,
+		AccessKey: parsedBody.AccessKey,
+		SecretKey: parsedBody.SecretKey,
+	}); err != nil {
+		w.writeResponse(ctx, resp, http.StatusInternalServerError, errorf("saving S3 credentials: %v", err))
+		return
+	}
+
+	w.writeResponse(ctx, resp, http.StatusOK, infof("updated S3 credentials"))
 }
 
 func (w *Worker) handleRemoveS3Credentials(resp http.ResponseWriter, req *http.Request) {
@@ -357,6 +403,46 @@ func validateMetricsUsername(username string) (user.Name, error) {
 	}
 
 	return name, nil
+}
+
+func (w *Worker) handleJSONPost(fn func(http.ResponseWriter, *http.Request)) http.Handler {
+	return w.closeRequestBodyMiddleware(
+		w.contentTypeMiddleware(
+			w.contentLengthMiddleware(
+				http.HandlerFunc(fn),
+			),
+		),
+	)
+}
+
+func (w *Worker) closeRequestBodyMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(resp http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		next.ServeHTTP(resp, r)
+	})
+}
+
+func (w *Worker) contentTypeMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(resp http.ResponseWriter, r *http.Request) {
+		if !hasContentType(r, "application/json") {
+			w.writeResponse(r.Context(), resp, http.StatusUnsupportedMediaType, errorf("request Content-Type must be application/json"))
+			return
+		}
+		next.ServeHTTP(resp, r)
+	})
+}
+
+func (w *Worker) contentLengthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(resp http.ResponseWriter, r *http.Request) {
+		if r.ContentLength > maxPayloadBytes {
+			w.writeResponse(r.Context(), resp, http.StatusRequestEntityTooLarge, errorf("request body must not exceed %d bytes", maxPayloadBytes))
+			return
+		}
+
+		r.Body = http.MaxBytesReader(resp, r.Body, maxPayloadBytes)
+
+		next.ServeHTTP(resp, r)
+	})
 }
 
 func (w *Worker) writeResponse(ctx context.Context, resp http.ResponseWriter, statusCode int, body any) {
@@ -404,4 +490,22 @@ func errorf(format string, args ...any) any {
 	}{
 		Error: fmt.Sprintf(format, args...),
 	}
+}
+
+func hasContentType(r *http.Request, mimeType string) bool {
+	contentType := r.Header.Get("Content-type")
+	if contentType == "" {
+		return false
+	}
+
+	for v := range strings.SplitSeq(contentType, ",") {
+		t, _, err := mime.ParseMediaType(v)
+		if err != nil {
+			break
+		}
+		if t == mimeType {
+			return true
+		}
+	}
+	return false
 }

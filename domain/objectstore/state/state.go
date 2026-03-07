@@ -525,6 +525,12 @@ func (s *State) SetDrainingPhase(ctx context.Context, uuid string, phase coreobj
 		PhaseTypeID: phaseTypeID,
 	}
 
+	// TODO (stickupkid): Ensure the backend of the previously marked draining
+	// object store is marked as dead, and that the new backend is marked as
+	// active, this will ensure that we can have better guarantees around the
+	// state of the object store, and that we can monitor the process of
+	// draining from one to another.
+
 	stmt, err := s.Prepare(`
 INSERT INTO object_store_drain_info (uuid, phase_type_id)
 VALUES ($dbSetPhaseInfo.*)
