@@ -599,10 +599,10 @@ func (s *State) SetObjectStoreBackendToS3(ctx context.Context, uuid string, cred
 	}
 
 	type s3Credentials struct {
-		UUID         string `db:"uuid"`
+		UUID         string `db:"object_store_backend_uuid"`
 		Endpoint     string `db:"endpoint"`
-		AccessKey    string `db:"access_key"`
-		SecretKey    string `db:"secret_key"`
+		AccessKey    string `db:"static_key"`
+		SecretKey    string `db:"static_secret"`
 		SessionToken string `db:"session_token"`
 	}
 	type uuidIdent struct {
@@ -631,14 +631,14 @@ WHERE life_id = 0`)
 	}
 
 	insertBackendInfoStmt, err := s.Prepare(`
-INSERT INTO object_store_backend (uuid, life_id, type)
+INSERT INTO object_store_backend (uuid, life_id, type_id)
 VALUES ($uuidIdent.uuid, 0, 1)`, backendUUID)
 	if err != nil {
 		return errors.Errorf("preparing insert object store backend statement: %w", err)
 	}
 
 	s3InsertStmt, err := s.Prepare(`
-INSERT INTO object_store_backend_s3_credential (uuid, endpoint, access_key, secret_key, session_token)
+INSERT INTO object_store_backend_s3_credential (object_store_backend_uuid, endpoint, static_key, static_secret, session_token)
 VALUES ($s3Credentials.*)
 `, s3Creds)
 	if err != nil {
@@ -690,14 +690,14 @@ func (s *State) MarkObjectStoreBackendAsDrained(ctx context.Context, uuid string
 	}
 
 	type backendType struct {
-		UUID string `db:"uuid"`
-		Type int    `db:"type"`
+		UUID   string `db:"uuid"`
+		TypeID int    `db:"type_id"`
 	}
 
 	backend := backendType{UUID: uuid}
 
 	selectStmt, err := s.Prepare(`
-SELECT type AS &backendType.type
+SELECT type_id AS &backendType.type_id
 FROM object_store_backend
 WHERE uuid = $backendType.uuid`, backend)
 	if err != nil {
@@ -706,7 +706,7 @@ WHERE uuid = $backendType.uuid`, backend)
 
 	deleteStmt, err := s.Prepare(`
 DELETE FROM object_store_backend_s3_credential
-WHERE uuid = $backendType.uuid`, backend)
+WHERE object_store_backend_uuid = $backendType.uuid`, backend)
 	if err != nil {
 		return errors.Errorf("preparing delete object store backend credentials statement: %w", err)
 	}
@@ -728,7 +728,7 @@ WHERE uuid = $backendType.uuid AND life_id = 1`, backend)
 		// If the backend is S3, then we want to remove the credentials for the
 		// backend, as the draining process has completed, and we want to ensure
 		// that the credentials are not left in the database.
-		if backend.Type == 1 {
+		if backend.TypeID == 1 {
 			if err := tx.Query(ctx, deleteStmt, backend).Run(); err != nil {
 				return errors.Errorf("deleting object store backend credentials: %w", err)
 			}

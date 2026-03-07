@@ -12,6 +12,7 @@ import (
 	"github.com/juju/tc"
 
 	coreobjectstore "github.com/juju/juju/core/objectstore"
+	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/errors"
@@ -726,4 +727,125 @@ func (s *stateSuite) TestSetDrainingPhaseWithMultipleActive(c *tc.C) {
 
 	err = st.SetDrainingPhase(c.Context(), "bar", coreobjectstore.PhaseDraining)
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingAlreadyInProgress)
+}
+
+func (s *stateSuite) TestSetObjectStoreBackendToS3(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
+	creds := domainobjectstore.S3Credentials{
+		Endpoint:     "https://s3.example.com",
+		AccessKey:    "access-key",
+		SecretKey:    "secret-key",
+		SessionToken: "session-token",
+	}
+
+	err := st.SetObjectStoreBackendToS3(c.Context(), backendUUID, creds)
+	c.Assert(err, tc.ErrorIsNil)
+
+	runner, err := s.TxnRunnerFactory()(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		var lifeID, typeID int
+		row := tx.QueryRowContext(ctx, `
+SELECT life_id, type_id FROM object_store_backend
+WHERE uuid = ?`, backendUUID)
+		if err := row.Scan(&lifeID, &typeID); err != nil {
+			return errors.Errorf("querying s3 backend: %w", err)
+		}
+		if lifeID != 0 || typeID != 1 {
+			return errors.Errorf("unexpected backend state life_id=%d type_id=%d", lifeID, typeID)
+		}
+
+		row = tx.QueryRowContext(ctx, `
+SELECT type_id FROM object_store_backend
+WHERE life_id = 1`)
+		var dyingTypeID int
+		if err := row.Scan(&dyingTypeID); err != nil {
+			return errors.Errorf("querying dying backend: %w", err)
+		}
+		if dyingTypeID != 0 {
+			return errors.Errorf("expected file backend to be marked dying, got type %d", dyingTypeID)
+		}
+
+		row = tx.QueryRowContext(ctx, `
+SELECT endpoint, static_key, static_secret, session_token
+FROM object_store_backend_s3_credential
+WHERE object_store_backend_uuid = ?`, backendUUID)
+		var endpoint, accessKey, secretKey, sessionToken string
+		if err := row.Scan(&endpoint, &accessKey, &secretKey, &sessionToken); err != nil {
+			return errors.Errorf("querying backend credentials: %w", err)
+		}
+		if endpoint != creds.Endpoint || accessKey != creds.AccessKey || secretKey != creds.SecretKey || sessionToken != creds.SessionToken {
+			return errors.Errorf("unexpected credentials for backend")
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestMarkObjectStoreBackendAsDrained(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	drainingUUID := tc.Must(c, coreobjectstore.NewUUID).String()
+	activeUUID := tc.Must(c, coreobjectstore.NewUUID).String()
+
+	creds := domainobjectstore.S3Credentials{
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
+	}
+
+	// First call promotes an S3 backend and marks the default file backend as dying.
+	err := st.SetObjectStoreBackendToS3(c.Context(), drainingUUID, creds)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Second call marks the first S3 backend as dying and activates a new one.
+	err = st.SetObjectStoreBackendToS3(c.Context(), activeUUID, creds)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.MarkObjectStoreBackendAsDrained(c.Context(), drainingUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	runner, err := s.TxnRunnerFactory()(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, `
+SELECT life_id FROM object_store_backend
+WHERE uuid = ?`, drainingUUID)
+		var lifeID int
+		if err := row.Scan(&lifeID); err != nil {
+			return errors.Errorf("querying drained backend: %w", err)
+		}
+		if lifeID != 2 {
+			return errors.Errorf("unexpected life_id for drained backend: %d", lifeID)
+		}
+
+		row = tx.QueryRowContext(ctx, `
+SELECT COUNT(*) FROM object_store_backend_s3_credential
+WHERE object_store_backend_uuid = ?`, drainingUUID)
+		var credsCount int
+		if err := row.Scan(&credsCount); err != nil {
+			return errors.Errorf("counting drained backend credentials: %w", err)
+		}
+		if credsCount != 0 {
+			return errors.Errorf("expected drained backend credentials to be removed, found %d", credsCount)
+		}
+
+		row = tx.QueryRowContext(ctx, `
+SELECT life_id FROM object_store_backend
+WHERE uuid = ?`, activeUUID)
+		if err := row.Scan(&lifeID); err != nil {
+			return errors.Errorf("querying active backend: %w", err)
+		}
+		if lifeID != 0 {
+			return errors.Errorf("unexpected life_id for active backend: %d", lifeID)
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }
