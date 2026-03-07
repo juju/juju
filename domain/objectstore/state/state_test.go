@@ -729,6 +729,51 @@ func (s *stateSuite) TestSetDrainingPhaseWithMultipleActive(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingAlreadyInProgress)
 }
 
+func (s *stateSuite) TestGetActiveObjectStoreBackendDefault(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	uuid, err := st.GetActiveObjectStoreBackend(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	const defaultBackendUUID = "f44ea516-22ad-4161-b2bd-cbae9d7a9412"
+	c.Check(uuid, tc.Equals, defaultBackendUUID)
+}
+
+func (s *stateSuite) TestGetActiveObjectStoreBackendAfterS3(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
+	creds := domainobjectstore.S3Credentials{
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access",
+		SecretKey: "secret",
+	}
+
+	err := st.SetObjectStoreBackendToS3(c.Context(), backendUUID, creds)
+	c.Assert(err, tc.ErrorIsNil)
+
+	uuid, err := st.GetActiveObjectStoreBackend(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuid, tc.Equals, backendUUID)
+}
+
+func (s *stateSuite) TestGetActiveObjectStoreBackendNone(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	runner, err := s.TxnRunnerFactory()(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE object_store_backend
+SET life_id = 1
+WHERE life_id = 0`)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = st.GetActiveObjectStoreBackend(c.Context())
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrBackendNotFound)
+}
+
 func (s *stateSuite) TestSetObjectStoreBackendToS3(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 

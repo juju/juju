@@ -679,6 +679,45 @@ VALUES ($s3Credentials.*)
 	return nil
 }
 
+// GetActiveObjectStoreBackend returns the active object store backend
+// information. This is used to get the active object store backend information,
+// which can be used to determine which backend is currently active, and to get
+// the credentials for the S3 backend if it is active.
+func (s *State) GetActiveObjectStoreBackend(ctx context.Context) (string, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	type uuid struct {
+		UUID string `db:"uuid"`
+	}
+
+	stmt, err := s.Prepare(`
+SELECT b.uuid AS &uuid.uuid
+FROM object_store_backend AS b
+WHERE b.life_id = 0`, uuid{})
+	if err != nil {
+		return "", errors.Errorf("preparing active object store backend statement: %w", err)
+	}
+
+	var result uuid
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return objectstoreerrors.ErrBackendNotFound
+		} else if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Errorf("getting active object store backend: %w", err)
+	}
+
+	return result.UUID, nil
+}
+
 // MarkObjectStoreBackendAsDrained marks the object store backend as drained.
 // This is used to mark the object store backend as drained after the draining
 // process has completed. If the s3 backend has been drained, then this will
