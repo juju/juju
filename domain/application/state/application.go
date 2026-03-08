@@ -1057,7 +1057,7 @@ WHERE  application_uuid = $cloudService.application_uuid
 
 	deleteCloudServiceStmt, err := st.Prepare(`
 DELETE FROM k8s_service
-WHERE uuid = $cloudService.uuid
+WHERE application_uuid = $cloudService.application_uuid
 `, cloudService{})
 	if err != nil {
 		return errors.Capture(err)
@@ -1082,9 +1082,11 @@ WHERE uuid = $cloudService.uuid
 			if err := st.deleteCloudServiceAddresses(ctx, tx, appDetails.UUID, service.ProviderID); err != nil {
 				return errors.Capture(err)
 			}
-			if err := tx.Query(ctx, deleteCloudServiceStmt, service).Run(); err != nil {
-				return errors.Errorf("removing cloud service for application %q and providerID %q: %w", appDetails.UUID, service.ProviderID, err)
-			}
+		}
+		if err := tx.Query(ctx, deleteCloudServiceStmt, serviceFilter).Run(); err != nil {
+			return errors.Errorf("removing cloud services for application %q: %w", appDetails.UUID, err)
+		}
+		for _, service := range cloudServices {
 			if err := st.deleteCloudServiceNode(ctx, tx, service.NetNodeUUID); err != nil {
 				return errors.Capture(err)
 			}

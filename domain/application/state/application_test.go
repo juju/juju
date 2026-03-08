@@ -1302,6 +1302,34 @@ WHERE application_uuid = ?
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	fqdnAddressUUID := uuid.MustNewUUID().String()
+	hostnameAddressUUID := uuid.MustNewUUID().String()
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO fqdn_address (uuid, address, scope_id) VALUES (?, ?, ?)
+		`, fqdnAddressUUID, "foo.example.com", 1)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO net_node_fqdn_address (net_node_uuid, address_uuid) VALUES (?, ?)
+		`, netNodeUUID, fqdnAddressUUID)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO hostname_address (uuid, hostname, scope_id) VALUES (?, ?, ?)
+		`, hostnameAddressUUID, "foo-host", 1)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO net_node_hostname_address (net_node_uuid, address_uuid) VALUES (?, ?)
+		`, netNodeUUID, hostnameAddressUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
 	checkAddresses := func(c *tc.C, expectedAddresses ...string) {
 		var resultAddresses []string
 		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -1355,6 +1383,28 @@ WHERE uuid = ?
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(netNodeCount, tc.Equals, 0)
+
+	var fqdnReferenceCount int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM net_node_fqdn_address
+WHERE net_node_uuid = ?
+		`, netNodeUUID).Scan(&fqdnReferenceCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(fqdnReferenceCount, tc.Equals, 0)
+
+	var hostnameReferenceCount int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM net_node_hostname_address
+WHERE net_node_uuid = ?
+		`, netNodeUUID).Scan(&hostnameReferenceCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hostnameReferenceCount, tc.Equals, 0)
 }
 
 func (s *applicationStateSuite) TestUpsertCloudServiceUpdateExistingWithAddresses(c *tc.C) {
