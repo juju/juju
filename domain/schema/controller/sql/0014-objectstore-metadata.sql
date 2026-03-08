@@ -43,19 +43,6 @@ INSERT INTO object_store_drain_phase_type VALUES
 (2, 'error'),
 (3, 'completed');
 
-CREATE TABLE object_store_drain_info (
-    uuid TEXT NOT NULL PRIMARY KEY,
-    phase_type_id INT NOT NULL,
-    CONSTRAINT fk_object_store_drain_info_object_store_drain_phase_type
-    FOREIGN KEY (phase_type_id)
-    REFERENCES object_store_drain_phase_type (id)
-);
-
--- A unique constraint over a constant index ensures only 1 entry matching the 
--- condition can exist. This states, that multiple draining can exist if they're
--- not active, but only one active drain can exist.
-CREATE UNIQUE INDEX idx_singleton_active_drain ON object_store_drain_info ((1)) WHERE phase_type_id < 2;
-
 CREATE TABLE object_store_placement (
     uuid TEXT NOT NULL,
     node_id TEXT NOT NULL,
@@ -67,15 +54,15 @@ CREATE TABLE object_store_placement (
 
 CREATE TABLE object_store_backend_type (
     id INT NOT NULL PRIMARY KEY,
-    "type" TEXT NOT NULL UNIQUE
+    type TEXT NOT NULL UNIQUE
 );
 
-INSERT INTO object_store_backend_type (id, "type") VALUES
+INSERT INTO object_store_backend_type (id, type) VALUES
 (0, 'file'),
 (1, 's3');
 
 CREATE TABLE object_store_backend (
-    uuid INT NOT NULL PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     life_id INT NOT NULL,
     type_id INT NOT NULL,
     CONSTRAINT fk_object_store_backend_life_id
@@ -110,3 +97,23 @@ CREATE TABLE object_store_backend_s3_credential (
     REFERENCES object_store_backend (uuid)
 );
 
+CREATE TABLE object_store_drain_info (
+    uuid TEXT NOT NULL PRIMARY KEY,
+    phase_type_id INT NOT NULL,
+    from_backend_uuid TEXT NOT NULL,
+    to_backend_uuid TEXT NOT NULL,
+    CONSTRAINT fk_object_store_drain_info_object_store_drain_phase_type
+    FOREIGN KEY (phase_type_id)
+    REFERENCES object_store_drain_phase_type (id),
+    CONSTRAINT fk_object_store_drain_info_from_object_store_backend_uuid
+    FOREIGN KEY (from_backend_uuid)
+    REFERENCES object_store_backend (uuid),
+    CONSTRAINT fk_object_store_drain_info_to_object_store_backend_uuid
+    FOREIGN KEY (to_backend_uuid)
+    REFERENCES object_store_backend (uuid)
+);
+
+-- A unique constraint over a constant index ensures only 1 entry matching the 
+-- condition can exist. This states, that multiple draining can exist if they're
+-- not active, but only one active drain can exist.
+CREATE UNIQUE INDEX idx_singleton_active_drain ON object_store_drain_info ((1)) WHERE phase_type_id < 2;

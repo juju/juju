@@ -684,94 +684,85 @@ func (s *stateSuite) TestListMetadataNoRows(c *tc.C) {
 	c.Assert(metadatas, tc.HasLen, 0)
 }
 
-func (s *stateSuite) TestGetActiveDrainingPhase(c *tc.C) {
+func (s *stateSuite) TestGetActiveDrainingInfo(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	_, _, err := st.GetActiveDrainingPhase(c.Context())
+	_, err := st.GetActiveDrainingInfo(c.Context())
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingPhaseNotFound)
 
-	err = st.SetDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseDraining)
+	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
+	creds := domainobjectstore.S3Credentials{
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
+	}
+
+	err = st.SetObjectStoreBackendToS3(c.Context(), backendUUID, creds)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, phase, err := st.GetActiveDrainingPhase(c.Context())
+	err = st.SetDrainingPhase(c.Context(), "foo", backendUUID, coreobjectstore.PhaseDraining)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(phase, tc.Equals, coreobjectstore.PhaseDraining)
+
+	info, err := st.GetActiveDrainingInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.Phase, tc.Equals, string(coreobjectstore.PhaseDraining))
+	c.Check(info.UUID, tc.Equals, "foo")
+	c.Check(info.ToBackendUUID, tc.Equals, backendUUID)
 }
 
 func (s *stateSuite) TestSetDrainingPhase(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	err := st.SetDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseDraining)
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, phase, err := st.GetActiveDrainingPhase(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(phase, tc.Equals, coreobjectstore.PhaseDraining)
-
-	err = st.SetDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseCompleted)
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, _, err = st.GetActiveDrainingPhase(c.Context())
-	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingPhaseNotFound)
-}
-
-func (s *stateSuite) TestSetDrainingPhaseWithMultipleActive(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
-	err := st.SetDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseDraining)
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, phase, err := st.GetActiveDrainingPhase(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(phase, tc.Equals, coreobjectstore.PhaseDraining)
-
-	err = st.SetDrainingPhase(c.Context(), "bar", coreobjectstore.PhaseDraining)
-	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingAlreadyInProgress)
-}
-
-func (s *stateSuite) TestGetActiveObjectStoreBackendDefault(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
-	uuid, err := st.GetActiveObjectStoreBackend(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	const defaultBackendUUID = "f44ea516-22ad-4161-b2bd-cbae9d7a9412"
-	c.Check(uuid, tc.Equals, defaultBackendUUID)
-}
-
-func (s *stateSuite) TestGetActiveObjectStoreBackendAfterS3(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
 	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
 	creds := domainobjectstore.S3Credentials{
 		Endpoint:  "https://s3.example.com",
-		AccessKey: "access",
-		SecretKey: "secret",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
 	}
 
 	err := st.SetObjectStoreBackendToS3(c.Context(), backendUUID, creds)
 	c.Assert(err, tc.ErrorIsNil)
 
-	uuid, err := st.GetActiveObjectStoreBackend(c.Context())
+	err = st.SetDrainingPhase(c.Context(), "foo", backendUUID, coreobjectstore.PhaseDraining)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(uuid, tc.Equals, backendUUID)
+
+	info, err := st.GetActiveDrainingInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.Phase, tc.Equals, string(coreobjectstore.PhaseDraining))
+
+	err = st.SetDrainingPhase(c.Context(), "foo", backendUUID, coreobjectstore.PhaseCompleted)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = st.GetActiveDrainingInfo(c.Context())
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingPhaseNotFound)
 }
 
-func (s *stateSuite) TestGetActiveObjectStoreBackendNone(c *tc.C) {
+func (s *stateSuite) TestSetDrainingPhaseMissingFromBackend(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	runner, err := s.TxnRunnerFactory()(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-UPDATE object_store_backend
-SET life_id = 1
-WHERE life_id = 0`)
-		return err
-	})
+	const defaultBackendUUID = "f44ea516-22ad-4161-b2bd-cbae9d7a9412"
+
+	err := st.SetDrainingPhase(c.Context(), "foo", defaultBackendUUID, coreobjectstore.PhaseDraining)
+	c.Assert(err, tc.ErrorMatches, ".*migrating from: backend not found")
+}
+
+func (s *stateSuite) TestSetDrainingPhaseMissingToBackend(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
+	creds := domainobjectstore.S3Credentials{
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
+	}
+
+	// Promote a new backend so the default file backend becomes the source (life_id=1).
+	err := st.SetObjectStoreBackendToS3(c.Context(), backendUUID, creds)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = st.GetActiveObjectStoreBackend(c.Context())
-	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrBackendNotFound)
+	missingBackendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
+	err = st.SetDrainingPhase(c.Context(), "foo", missingBackendUUID, coreobjectstore.PhaseDraining)
+	c.Assert(err, tc.ErrorMatches, ".*migrating to: backend not found")
 }
 
 func (s *stateSuite) TestSetObjectStoreBackendToS3(c *tc.C) {

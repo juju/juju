@@ -55,7 +55,11 @@ type dbGetPhaseInfo struct {
 	// UUID is the uuid for the phase info.
 	UUID string `db:"uuid"`
 	// Phase is the phase of the object store.
-	Phase coreobjectstore.Phase `db:"phase"`
+	Phase string `db:"phase"`
+	// FromBackendUUID is the uuid of the backend that is being drained from.
+	FromBackendUUID string `db:"from_backend_uuid"`
+	// ToBackendUUID is the uuid of the backend that is being drained to.
+	ToBackendUUID string `db:"to_backend_uuid"`
 }
 
 type dbSetPhaseInfo struct {
@@ -63,4 +67,8 @@ type dbSetPhaseInfo struct {
 	UUID string `db:"uuid"`
 	// PhaseTypeID is the phase of the object store.
 	PhaseTypeID int `db:"phase_type_id"`
+	// FromBackendUUID is the backend uuid being drained from.
+	FromBackendUUID string `db:"from_backend_uuid"`
+	// ToBackendUUID is the backend uuid being drained to.
+	ToBackendUUID string `db:"to_backend_uuid"`
 }

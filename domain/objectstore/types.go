@@ -42,3 +42,18 @@ func (s S3Credentials) Validate() error {
 	}
 	return nil
 }
+
+// DrainingInfo represents the information about the draining process, including
+// the phase of the draining process, and the uuids of the backends that are
+// being drained from and to. This information can be used to correlate with
+// logs and other information about the draining process.
+type DrainingInfo struct {
+	// UUID is the uuid for the draining info.
+	UUID string
+	// Phase is the phase of the draining process.
+	Phase string
+	// FromBackendUUID is the uuid of the backend that is being drained from.
+	FromBackendUUID string
+	// ToBackendUUID is the uuid of the backend that is being drained to.
+	ToBackendUUID string
+}

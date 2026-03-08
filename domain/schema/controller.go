@@ -99,7 +99,7 @@ func ControllerDDLForVersion(version semversion.Number) *schema.Schema {
 		triggers.ChangeLogTriggersForModel("uuid", tableModelMetadata),
 		triggers.ChangeLogTriggersForModelAuthorizedKeys("model_uuid", tableModelAuthorizedKeys),
 		triggers.ChangeLogTriggersForUserAuthentication("user_uuid", tableUserAuthentication),
-		triggers.ChangeLogTriggersForSecretBackendRotation("uuid", tableObjectStoreBackend),
+		triggers.ChangeLogTriggersForObjectStoreBackend("uuid", tableObjectStoreBackend),
 	)
 
 	// Generic triggers.
