@@ -72,3 +72,7 @@ type dbSetPhaseInfo struct {
 	// ToBackendUUID is the backend uuid being drained to.
 	ToBackendUUID string `db:"to_backend_uuid"`
 }
+
+type backendUUID struct {
+	UUID string `db:"uuid"`
+}

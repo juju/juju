@@ -750,6 +750,53 @@ func (s *stateSuite) TestSetDrainingPhase(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingPhaseNotFound)
 }
 
+func (s *stateSuite) TestSetDrainingPhaseMarksFromBackendDead(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
+	creds := domainobjectstore.S3Credentials{
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
+	}
+
+	err := st.SetObjectStoreBackendToS3(c.Context(), backendUUID, creds)
+	c.Assert(err, tc.ErrorIsNil)
+
+	runner, err := s.TxnRunnerFactory()(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	var fromBackendUUID string
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, `
+SELECT uuid FROM object_store_backend
+WHERE life_id = 1`)
+		return row.Scan(&fromBackendUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.StartDraining(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.SetDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseCompleted)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, `
+SELECT life_id FROM object_store_backend
+WHERE uuid = ?`, fromBackendUUID)
+		var lifeID int
+		if err := row.Scan(&lifeID); err != nil {
+			return errors.Errorf("querying from backend life: %w", err)
+		}
+		if lifeID != 2 {
+			return errors.Errorf("expected from backend to be dead, got life_id=%d", lifeID)
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *stateSuite) TestStartDrainingMissingFromBackend(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
