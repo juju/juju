@@ -117,3 +117,16 @@ func ParsePhase(value string) (Phase, error) {
 		return "", errors.Errorf("invalid phase %q", value)
 	}
 }
+
+// DrainingPhaseInfo represents the information about the draining process,
+// including the phase of the draining process, and the uuids of the backends
+// that are being drained from and to. This information can be used to correlate
+// with logs and other information about the draining process.
+type DrainingPhaseInfo struct {
+	// Phase is the phase of the draining process.
+	Phase Phase
+	// FromBackendUUID is the uuid of the backend that is being drained from.
+	FromBackendUUID UUID
+	// ToBackendUUID is the uuid of the backend that is being drained to.
+	ToBackendUUID UUID
+}

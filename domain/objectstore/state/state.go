@@ -508,16 +508,14 @@ WHERE uuid = $dbMetadataPath.metadata_uuid`, dbMetadataPath)
 	return nil
 }
 
-// SetDrainingPhase sets the phase of the object store to draining. Returns an
-// error if it cannot find the active backend, the to backend, or if there is
-// already an active draining phase.
-func (s *State) SetDrainingPhase(ctx context.Context, uuid, toBackendUUID string, phase coreobjectstore.Phase) error {
+// StartDraining initiates the draining process for the object store.
+func (s *State) StartDraining(ctx context.Context, uuid string) error {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	phaseTypeID, err := encodePhaseTypeID(phase)
+	phaseTypeID, err := encodePhaseTypeID(coreobjectstore.PhaseDraining)
 	if err != nil {
 		return errors.Errorf("encoding phase type id: %w", err)
 	}
@@ -537,16 +535,14 @@ WHERE b.life_id = 1`, backend{})
 	toBackendStmt, err := s.Prepare(`
 SELECT b.uuid AS &backend.uuid
 FROM object_store_backend AS b
-WHERE b.life_id = 0 AND b.uuid = $backend.uuid`, backend{})
+WHERE b.life_id = 0`, backend{})
 	if err != nil {
 		return errors.Errorf("preparing to object store backend statement: %w", err)
 	}
 
 	insertStmt, err := s.Prepare(`
 INSERT INTO object_store_drain_info (uuid, phase_type_id, from_backend_uuid, to_backend_uuid)
-VALUES ($dbSetPhaseInfo.*)
-ON CONFLICT (uuid) DO UPDATE SET
-	phase_type_id = $dbSetPhaseInfo.phase_type_id;
+VALUES ($dbSetPhaseInfo.*);
 	`, dbSetPhaseInfo{})
 	if err != nil {
 		return errors.Errorf("preparing insert draining phase statement: %w", err)
@@ -564,7 +560,7 @@ ON CONFLICT (uuid) DO UPDATE SET
 		}
 
 		var toBackend backend
-		err = tx.Query(ctx, toBackendStmt, backend{UUID: toBackendUUID}).Get(&toBackend)
+		err = tx.Query(ctx, toBackendStmt).Get(&toBackend)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("migrating to: %v", objectstoreerrors.ErrBackendNotFound)
 		} else if err != nil {
@@ -575,7 +571,50 @@ ON CONFLICT (uuid) DO UPDATE SET
 			UUID:            uuid,
 			PhaseTypeID:     phaseTypeID,
 			FromBackendUUID: fromBackend.UUID,
-			ToBackendUUID:   toBackendUUID,
+			ToBackendUUID:   toBackend.UUID,
+		}
+
+		err = tx.Query(ctx, insertStmt, args).Run()
+		if database.IsErrConstraintUnique(err) {
+			return objectstoreerrors.ErrDrainingAlreadyInProgress
+		} else if err != nil {
+			return errors.Errorf("inserting draining phase: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Errorf("setting draining phase: %w", err)
+	}
+	return nil
+}
+
+// SetDrainingPhase sets the phase of the object store to draining. Returns an
+// error if it cannot find the active backend, the to backend, or if there is
+// already an active draining phase.
+func (s *State) SetDrainingPhase(ctx context.Context, uuid string, phase coreobjectstore.Phase) error {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	phaseTypeID, err := encodePhaseTypeID(phase)
+	if err != nil {
+		return errors.Errorf("encoding phase type id: %w", err)
+	}
+
+	insertStmt, err := s.Prepare(`
+UPDATE object_store_drain_info
+SET phase_type_id = $dbSetPhaseInfo.phase_type_id
+WHERE uuid = $dbSetPhaseInfo.uuid;
+	`, dbSetPhaseInfo{})
+	if err != nil {
+		return errors.Errorf("preparing insert draining phase statement: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		args := dbSetPhaseInfo{
+			UUID:        uuid,
+			PhaseTypeID: phaseTypeID,
 		}
 
 		err = tx.Query(ctx, insertStmt, args).Run()

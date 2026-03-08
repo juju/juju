@@ -95,9 +95,12 @@ type DrainingState interface {
 	// then this will remove the credentials.
 	MarkObjectStoreBackendAsDrained(ctx context.Context, uuid string) error
 
-	// GetActiveDrainingPhase returns the active draining phase of the object
+	// GetActiveDrainingInfo returns the active draining info of the object
 	// store.
-	GetActiveDrainingPhase(ctx context.Context) (string, objectstore.Phase, error)
+	GetActiveDrainingInfo(ctx context.Context) (domainobjectstore.DrainingInfo, error)
+
+	// StartDraining initiates the draining process for the object store.
+	StartDraining(ctx context.Context, uuid string) error
 
 	// SetDrainingPhase sets the phase of the object store to draining.
 	SetDrainingPhase(ctx context.Context, uuid string, phase objectstore.Phase) error
@@ -439,18 +442,19 @@ func (s *WatchableDrainingService) SetDrainingPhase(ctx context.Context, phase o
 		return errors.Errorf("invalid phase %q", phase)
 	}
 
-	uuid, current, err := s.st.GetActiveDrainingPhase(ctx)
+	phaseInfo, err := s.st.GetActiveDrainingInfo(ctx)
 	if errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
 		uuid, err := objectstore.NewUUID()
 		if err != nil {
 			return errors.Errorf("creating new uuid: %w", err)
 		}
 
-		return s.st.SetDrainingPhase(ctx, uuid.String(), phase)
+		return s.st.StartDraining(ctx, uuid.String())
 	} else if err != nil {
 		return errors.Errorf("getting active draining phase: %w", err)
 	}
 
+	current := objectstore.Phase(phaseInfo.Phase)
 	if _, err := current.TransitionTo(phase); errors.Is(err, objectstore.ErrTerminalPhase) {
 		return nil
 	} else if err != nil {
@@ -458,24 +462,31 @@ func (s *WatchableDrainingService) SetDrainingPhase(ctx context.Context, phase o
 	}
 
 	// Set the phase in the state.
-	if err := s.st.SetDrainingPhase(ctx, uuid, phase); err != nil {
+	if err := s.st.SetDrainingPhase(ctx, phaseInfo.UUID, phase); err != nil {
 		return errors.Errorf("setting draining phase: %w", err)
 	}
 	return nil
 }
 
-// GetDrainingPhase returns the phase of the object store.
-func (s *WatchableDrainingService) GetDrainingPhase(ctx context.Context) (objectstore.Phase, error) {
+// GetDrainingPhaseInfo returns the phase information of the draining object
+// store.
+func (s *WatchableDrainingService) GetDrainingPhaseInfo(ctx context.Context) (objectstore.DrainingPhaseInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	_, phase, err := s.st.GetActiveDrainingPhase(ctx)
+	info, err := s.st.GetActiveDrainingInfo(ctx)
 	if errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
-		return objectstore.PhaseUnknown, nil
+		return objectstore.DrainingPhaseInfo{
+			Phase: objectstore.PhaseUnknown,
+		}, nil
 	} else if err != nil {
-		return "", errors.Errorf("getting draining phase: %w", err)
+		return objectstore.DrainingPhaseInfo{}, errors.Errorf("getting draining phase info: %w", err)
 	}
-	return phase, nil
+	return objectstore.DrainingPhaseInfo{
+		Phase:           objectstore.Phase(info.Phase),
+		FromBackendUUID: objectstore.UUID(info.FromBackendUUID),
+		ToBackendUUID:   objectstore.UUID(info.ToBackendUUID),
+	}, nil
 }
 
 // SetObjectStoreBackendToS3 sets the object store to use S3 with the provided
@@ -504,25 +515,21 @@ func (s *WatchableDrainingService) SetObjectStoreBackendToS3(ctx context.Context
 // This is used to mark the object store backend as drained after the draining
 // process has completed. If the s3 backend has been drained, then this will
 // remove the credentials.
-func (s *WatchableDrainingService) MarkObjectStoreBackendAsDrained(ctx context.Context, uuid objectstore.UUID) error {
+func (s *WatchableDrainingService) MarkObjectStoreBackendAsDrained(ctx context.Context) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := uuid.Validate(); err != nil {
-		return errors.Errorf("validating uuid: %w", err)
-	}
-
 	// Verify that we're in a draining phase before marking the backend as
 	// drained.
-	_, phase, err := s.st.GetActiveDrainingPhase(ctx)
+	phaseInfo, err := s.st.GetActiveDrainingInfo(ctx)
 	if err != nil {
 		return errors.Errorf("getting active draining phase: %w", err)
 	}
-	if !phase.IsDraining() {
+	if phase := objectstore.Phase(phaseInfo.Phase); !phase.IsDraining() {
 		return errors.Errorf("cannot mark object store backend as drained when phase is %q", phase)
 	}
 
-	if err := s.st.MarkObjectStoreBackendAsDrained(ctx, uuid.String()); err != nil {
+	if err := s.st.MarkObjectStoreBackendAsDrained(ctx, phaseInfo.FromBackendUUID); err != nil {
 		return errors.Errorf("marking object store backend as drained: %w", err)
 	}
 	return nil

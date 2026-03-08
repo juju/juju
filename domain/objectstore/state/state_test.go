@@ -700,7 +700,7 @@ func (s *stateSuite) TestGetActiveDrainingInfo(c *tc.C) {
 	err = st.SetObjectStoreBackendToS3(c.Context(), backendUUID, creds)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.SetDrainingPhase(c.Context(), "foo", backendUUID, coreobjectstore.PhaseDraining)
+	err = st.StartDraining(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	info, err := st.GetActiveDrainingInfo(c.Context())
@@ -708,6 +708,19 @@ func (s *stateSuite) TestGetActiveDrainingInfo(c *tc.C) {
 	c.Check(info.Phase, tc.Equals, string(coreobjectstore.PhaseDraining))
 	c.Check(info.UUID, tc.Equals, "foo")
 	c.Check(info.ToBackendUUID, tc.Equals, backendUUID)
+
+	runner, err := s.TxnRunnerFactory()(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	var fromBackendUUID string
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, `
+SELECT uuid FROM object_store_backend
+WHERE life_id = 1`)
+		return row.Scan(&fromBackendUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.FromBackendUUID, tc.Equals, fromBackendUUID)
 }
 
 func (s *stateSuite) TestSetDrainingPhase(c *tc.C) {
@@ -723,45 +736,42 @@ func (s *stateSuite) TestSetDrainingPhase(c *tc.C) {
 	err := st.SetObjectStoreBackendToS3(c.Context(), backendUUID, creds)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.SetDrainingPhase(c.Context(), "foo", backendUUID, coreobjectstore.PhaseDraining)
+	err = st.StartDraining(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	info, err := st.GetActiveDrainingInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.Phase, tc.Equals, string(coreobjectstore.PhaseDraining))
 
-	err = st.SetDrainingPhase(c.Context(), "foo", backendUUID, coreobjectstore.PhaseCompleted)
+	err = st.SetDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseCompleted)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.GetActiveDrainingInfo(c.Context())
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingPhaseNotFound)
 }
 
-func (s *stateSuite) TestSetDrainingPhaseMissingFromBackend(c *tc.C) {
+func (s *stateSuite) TestStartDrainingMissingFromBackend(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	const defaultBackendUUID = "f44ea516-22ad-4161-b2bd-cbae9d7a9412"
-
-	err := st.SetDrainingPhase(c.Context(), "foo", defaultBackendUUID, coreobjectstore.PhaseDraining)
+	err := st.StartDraining(c.Context(), "foo")
 	c.Assert(err, tc.ErrorMatches, ".*migrating from: backend not found")
 }
 
-func (s *stateSuite) TestSetDrainingPhaseMissingToBackend(c *tc.C) {
+func (s *stateSuite) TestStartDrainingMissingToBackend(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
-	creds := domainobjectstore.S3Credentials{
-		Endpoint:  "https://s3.example.com",
-		AccessKey: "access-key",
-		SecretKey: "secret-key",
-	}
-
-	// Promote a new backend so the default file backend becomes the source (life_id=1).
-	err := st.SetObjectStoreBackendToS3(c.Context(), backendUUID, creds)
+	runner, err := s.TxnRunnerFactory()(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
-	missingBackendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
-	err = st.SetDrainingPhase(c.Context(), "foo", missingBackendUUID, coreobjectstore.PhaseDraining)
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE object_store_backend
+SET life_id = 1`)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.StartDraining(c.Context(), "foo")
 	c.Assert(err, tc.ErrorMatches, ".*migrating to: backend not found")
 }
 

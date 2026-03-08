@@ -426,11 +426,14 @@ func TestDrainingServiceSuite(t *testing.T) {
 func (s *drainingServiceSuite) TestSetDrainingPhase(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	currentPhase := objectstore.PhaseUnknown
-	newPhase := objectstore.PhaseDraining
+	currentPhase := objectstore.PhaseDraining
+	newPhase := objectstore.PhaseCompleted
 	uuid := tc.Must(c, objectstore.NewUUID)
 
-	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return(uuid.String(), currentPhase, nil)
+	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).Return(domainobjectstore.DrainingInfo{
+		UUID:  uuid.String(),
+		Phase: currentPhase.String(),
+	}, nil)
 	s.state.EXPECT().SetDrainingPhase(gomock.Any(), uuid.String(), newPhase).Return(nil)
 
 	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetDrainingPhase(c.Context(), newPhase)
@@ -442,8 +445,8 @@ func (s *drainingServiceSuite) TestSetDrainingPhaseNoInitial(c *tc.C) {
 
 	newPhase := objectstore.PhaseDraining
 
-	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return("", "", objectstoreerrors.ErrDrainingPhaseNotFound)
-	s.state.EXPECT().SetDrainingPhase(gomock.Any(), gomock.Any(), newPhase).Return(nil)
+	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).Return(domainobjectstore.DrainingInfo{}, objectstoreerrors.ErrDrainingPhaseNotFound)
+	s.state.EXPECT().StartDraining(gomock.Any(), gomock.Any()).Return(nil)
 
 	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetDrainingPhase(c.Context(), newPhase)
 	c.Assert(err, tc.ErrorIsNil)
@@ -461,39 +464,50 @@ func (s *drainingServiceSuite) TestSetDrainingPhaseInvalid(c *tc.C) {
 func (s *drainingServiceSuite) TestSetDrainingPhaseError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	currentPhase := objectstore.PhaseUnknown
-	newPhase := objectstore.PhaseDraining
+	currentPhase := objectstore.PhaseDraining
+	newPhase := objectstore.PhaseCompleted
 	uuid := tc.Must(c, objectstore.NewUUID)
 
-	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return(uuid.String(), currentPhase, nil)
+	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).Return(domainobjectstore.DrainingInfo{
+		UUID:  uuid.String(),
+		Phase: currentPhase.String(),
+	}, nil)
 	s.state.EXPECT().SetDrainingPhase(gomock.Any(), uuid.String(), newPhase).Return(errors.Errorf("boom"))
 
 	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetDrainingPhase(c.Context(), newPhase)
 	c.Assert(err, tc.ErrorMatches, `.*boom`)
 }
 
-func (s *drainingServiceSuite) TestGetDrainingPhase(c *tc.C) {
+func (s *drainingServiceSuite) TestGetDrainingPhaseInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	phase := objectstore.PhaseDraining
-	uuid := tc.Must(c, objectstore.NewUUID)
+	fromBackendUUID := tc.Must(c, objectstore.NewUUID)
+	toBackendUUID := tc.Must(c, objectstore.NewUUID)
 
-	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return(uuid.String(), phase, nil)
+	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).Return(domainobjectstore.DrainingInfo{
+		Phase:           phase.String(),
+		FromBackendUUID: fromBackendUUID.String(),
+		ToBackendUUID:   toBackendUUID.String(),
+	}, nil)
 
-	p, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetDrainingPhase(c.Context())
+	p, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetDrainingPhaseInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(p, tc.Equals, phase)
+	c.Check(p, tc.DeepEquals, objectstore.DrainingPhaseInfo{
+		Phase:           phase,
+		FromBackendUUID: objectstore.UUID(fromBackendUUID.String()),
+		ToBackendUUID:   objectstore.UUID(toBackendUUID.String()),
+	})
 }
 
-func (s *drainingServiceSuite) TestGetDrainingPhaseError(c *tc.C) {
+func (s *drainingServiceSuite) TestGetDrainingPhaseInfoError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	phase := objectstore.PhaseDraining
-	uuid := tc.Must(c, objectstore.NewUUID)
 
-	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return(uuid.String(), phase, errors.Errorf("boom"))
+	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).Return(domainobjectstore.DrainingInfo{Phase: phase.String()}, errors.Errorf("boom"))
 
-	_, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetDrainingPhase(c.Context())
+	_, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetDrainingPhaseInfo(c.Context())
 	c.Assert(err, tc.ErrorMatches, `.*boom`)
 }
 
@@ -537,10 +551,14 @@ func (s *drainingServiceSuite) TestMarkObjectStoreBackendAsDrained(c *tc.C) {
 
 	backendUUID := tc.Must(c, objectstore.NewUUID)
 
-	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return("draining", objectstore.PhaseDraining, nil)
+	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).Return(domainobjectstore.DrainingInfo{
+		UUID:            backendUUID.String(),
+		Phase:           objectstore.PhaseDraining.String(),
+		FromBackendUUID: backendUUID.String(),
+	}, nil)
 	s.state.EXPECT().MarkObjectStoreBackendAsDrained(gomock.Any(), backendUUID.String()).Return(nil)
 
-	err := NewWatchableDrainingService(s.state, s.watcherFactory).MarkObjectStoreBackendAsDrained(c.Context(), backendUUID)
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).MarkObjectStoreBackendAsDrained(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -549,9 +567,13 @@ func (s *drainingServiceSuite) TestMarkObjectStoreBackendAsDrainedNotDraining(c 
 
 	backendUUID := tc.Must(c, objectstore.NewUUID)
 
-	s.state.EXPECT().GetActiveDrainingPhase(gomock.Any()).Return("draining", objectstore.PhaseUnknown, nil)
+	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).Return(domainobjectstore.DrainingInfo{
+		UUID:            backendUUID.String(),
+		Phase:           objectstore.PhaseUnknown.String(),
+		FromBackendUUID: backendUUID.String(),
+	}, nil)
 
-	err := NewWatchableDrainingService(s.state, s.watcherFactory).MarkObjectStoreBackendAsDrained(c.Context(), backendUUID)
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).MarkObjectStoreBackendAsDrained(c.Context())
 	c.Assert(err, tc.ErrorMatches, "cannot mark object store backend as drained when phase is \"unknown\"")
 }
 
