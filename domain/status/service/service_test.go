@@ -2059,10 +2059,11 @@ func (s *serviceSuite) TestGetMachineFullStatusesControllerModel(c *tc.C) {
 
 	expectedStatuses := map[machine.Name]Machine{
 		"666": {
-			Name:        "666",
-			Life:        corelife.Alive,
-			DNSName:     "10.51.45.181",
-			IPAddresses: []string{"10.0.0.1", "10.51.45.181"},
+			Name:         "666",
+			Life:         corelife.Alive,
+			DNSName:      "10.51.45.181",
+			IPAddresses:  []string{"10.0.0.1", "10.51.45.181"},
+			IsController: true,
 			MachineStatus: corestatus.StatusInfo{
 				Status: corestatus.Started,
 				Data: map[string]interface{}{
@@ -2078,10 +2079,11 @@ func (s *serviceSuite) TestGetMachineFullStatusesControllerModel(c *tc.C) {
 			},
 		},
 		"777": {
-			Name:        "777",
-			Life:        corelife.Dying,
-			DNSName:     "10.51.45.182",
-			IPAddresses: []string{"10.0.0.1", "10.51.45.181"},
+			Name:         "777",
+			Life:         corelife.Dying,
+			DNSName:      "10.51.45.182",
+			IPAddresses:  []string{"10.0.0.1", "10.51.45.181"},
+			IsController: true,
 			MachineStatus: corestatus.StatusInfo{
 				Status: corestatus.Pending,
 				Data: map[string]interface{}{
@@ -2097,10 +2099,11 @@ func (s *serviceSuite) TestGetMachineFullStatusesControllerModel(c *tc.C) {
 			},
 		},
 		"888": {
-			Name:        "888",
-			Life:        corelife.Dead,
-			DNSName:     "10.51.45.183",
-			IPAddresses: []string{"10.0.0.1", "10.51.45.181"},
+			Name:         "888",
+			Life:         corelife.Dead,
+			DNSName:      "10.51.45.183",
+			IPAddresses:  []string{"10.0.0.1", "10.51.45.181"},
+			IsController: true,
 			MachineStatus: corestatus.StatusInfo{
 				Status: corestatus.Stopped,
 				Data: map[string]interface{}{
@@ -2163,8 +2166,6 @@ func (s *serviceSuite) TestGetMachineFullStatusesControllerModel(c *tc.C) {
 	}, {
 		ID:   1235,
 		Role: database.Spare,
-	}, {
-		ID: 1236,
 	}}, nil)
 	s.controllerState.EXPECT().GetControllerNodeIDs(gomock.Any()).Return([]status.ControllerNode{{
 		DqliteNodeID: 1234,
@@ -2174,7 +2175,7 @@ func (s *serviceSuite) TestGetMachineFullStatusesControllerModel(c *tc.C) {
 		ControllerID: "777",
 	}, {
 		DqliteNodeID: 1236,
-		ControllerID: "999",
+		ControllerID: "888",
 	}}, nil)
 
 	statuses, err := s.modelService.GetMachineFullStatuses(c.Context())

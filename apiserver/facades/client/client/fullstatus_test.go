@@ -265,6 +265,43 @@ func (s *fullStatusSuite) TestFullStatusOffersNotIncluded(c *tc.C) {
 	c.Assert(output.Offers, tc.DeepEquals, map[string]params.ApplicationOfferStatus{})
 }
 
+func (s *fullStatusSuite) TestFullStatusUsesControllerFlagOnMachineStatus(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	client := s.client(true)
+	s.expectCheckCanRead(client, true)
+	s.expectCheckIsAdmin(client, false)
+
+	s.modelInfoService.EXPECT().GetModelInfo(c.Context()).Return(model.ModelInfo{
+		Cloud:     "dummy",
+		CloudType: "dummy",
+		Type:      model.IAAS,
+	}, nil)
+	s.statusService.EXPECT().GetModelStatus(gomock.Any()).Return(status.StatusInfo{
+		Status: status.Available,
+	}, nil)
+	s.statusService.EXPECT().GetMachineFullStatuses(gomock.Any()).Return(map[machine.Name]service.Machine{
+		"0": {
+			Name:         "0",
+			IsController: true,
+		},
+	}, nil)
+	s.applicationService.EXPECT().GetAllEndpointBindings(gomock.Any()).Return(nil, nil)
+	s.statusService.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(nil, nil)
+	s.statusService.EXPECT().GetRemoteApplicationOffererStatuses(gomock.Any()).Return(nil, nil)
+	s.portService.EXPECT().GetAllOpenedPorts(gomock.Any()).Return(nil, nil)
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(nil, nil)
+	s.networkService.EXPECT().GetAllDevicesByMachineNames(gomock.Any()).Return(nil, nil)
+	s.relationService.EXPECT().GetAllRelationDetails(gomock.Any()).Return(nil, nil)
+
+	output, err := client.FullStatus(c.Context(), params.StatusParams{})
+	c.Assert(err, tc.IsNil)
+	c.Check(output.Machines["0"].Jobs, tc.DeepEquals, []model.MachineJob{
+		model.JobHostUnits,
+		model.JobManageModel,
+	})
+}
+
 func (s *fullStatusSuite) client(isControllerModel bool) *Client {
 	return &Client{
 		controllerTag:     names.NewControllerTag(internaluuid.MustNewUUID().String()),

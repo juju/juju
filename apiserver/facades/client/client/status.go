@@ -36,7 +36,6 @@ import (
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/deployment/charm"
-	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainmodelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/port"
@@ -137,15 +136,13 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		)
 	}
 
-	machineJobFetcher := func(context.Context, coremachine.Name) []model.MachineJob {
+	machineJobFetcher := func(_ context.Context, _ statusservice.Machine) []model.MachineJob {
 		return []model.MachineJob{model.JobHostUnits}
 	}
 	if c.isControllerModel {
-		machineJobFetcher = func(ctx context.Context, name coremachine.Name) []model.MachineJob {
+		machineJobFetcher = func(_ context.Context, machine statusservice.Machine) []model.MachineJob {
 			jobs := []model.MachineJob{model.JobHostUnits}
-			if isController, err := c.machineService.IsMachineController(ctx, name); err != nil && !internalerrors.Is(err, machineerrors.MachineNotFound) {
-				logger.Errorf(ctx, "error checking if machine %q is controller: %v", name, err)
-			} else if isController {
+			if machine.IsController {
 				jobs = append(jobs, model.JobManageModel)
 			}
 			return jobs
@@ -156,7 +153,6 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	context := statusContext{
 		applicationService:        c.applicationService,
 		statusService:             c.statusService,
-		machineService:            c.machineService,
 		crossModelRelationService: c.crossModelRelationService,
 
 		machineJobFetcher: machineJobFetcher,
@@ -323,12 +319,11 @@ func (s relationStatus) RelatedEndpoints(applicationName string) ([]relation.End
 }
 
 // MachineJobFetcherFunc is a function that fetches jobs for a given machine.
-type MachineJobFetcherFunc func(context.Context, coremachine.Name) []model.MachineJob
+type MachineJobFetcherFunc func(context.Context, statusservice.Machine) []model.MachineJob
 
 type statusContext struct {
 	applicationService        ApplicationService
 	crossModelRelationService CrossModelRelationService
-	machineService            MachineService
 	statusService             StatusService
 
 	machineJobFetcher MachineJobFetcherFunc
@@ -739,7 +734,7 @@ func (c *statusContext) makeMachineStatus(
 	status.Constraints = machine.Constraints.String()
 	status.Containers = make(map[string]params.MachineStatus)
 
-	status.Jobs = c.machineJobFetcher(ctx, machineName)
+	status.Jobs = c.machineJobFetcher(ctx, machine)
 
 	if clusterInfo := machine.ClusterInfo; clusterInfo != nil {
 		if clusterInfo.Present {
