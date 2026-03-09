@@ -167,7 +167,9 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
 
-	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseUnknown, nil)
+	s.guardService.EXPECT().GetDrainingPhaseInfo(gomock.Any()).Return(objectstore.DrainingPhaseInfo{
+		Phase: objectstore.PhaseUnknown,
+	}, nil)
 
 	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
 		return fn(s.agentConfigSetter)
@@ -190,7 +192,9 @@ func (s *manifoldSuite) TestStartObjectStoreTypeChangedWhilstDraining(c *tc.C) {
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
 
-	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseDraining, nil)
+	s.guardService.EXPECT().GetDrainingPhaseInfo(gomock.Any()).Return(objectstore.DrainingPhaseInfo{
+		Phase: objectstore.PhaseDraining,
+	}, nil)
 
 	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
 		return fn(s.agentConfigSetter)
@@ -213,7 +217,9 @@ func (s *manifoldSuite) TestStartUpdatesObjectStoreType(c *tc.C) {
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
 
-	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseUnknown, nil)
+	s.guardService.EXPECT().GetDrainingPhaseInfo(gomock.Any()).Return(objectstore.DrainingPhaseInfo{
+		Phase: objectstore.PhaseUnknown,
+	}, nil)
 
 	s.agentConfigSetter.EXPECT().SetObjectStoreType(objectstore.S3Backend)
 

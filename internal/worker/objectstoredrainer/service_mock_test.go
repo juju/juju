@@ -166,41 +166,41 @@ func (m *MockGuardService) EXPECT() *MockGuardServiceMockRecorder {
 	return m.recorder
 }
 
-// GetDrainingPhase mocks base method.
-func (m *MockGuardService) GetDrainingPhase(arg0 context.Context) (objectstore.Phase, error) {
+// GetDrainingPhaseInfo mocks base method.
+func (m *MockGuardService) GetDrainingPhaseInfo(arg0 context.Context) (objectstore.DrainingPhaseInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetDrainingPhase", arg0)
-	ret0, _ := ret[0].(objectstore.Phase)
+	ret := m.ctrl.Call(m, "GetDrainingPhaseInfo", arg0)
+	ret0, _ := ret[0].(objectstore.DrainingPhaseInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetDrainingPhase indicates an expected call of GetDrainingPhase.
-func (mr *MockGuardServiceMockRecorder) GetDrainingPhase(arg0 any) *MockGuardServiceGetDrainingPhaseCall {
+// GetDrainingPhaseInfo indicates an expected call of GetDrainingPhaseInfo.
+func (mr *MockGuardServiceMockRecorder) GetDrainingPhaseInfo(arg0 any) *MockGuardServiceGetDrainingPhaseInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDrainingPhase", reflect.TypeOf((*MockGuardService)(nil).GetDrainingPhase), arg0)
-	return &MockGuardServiceGetDrainingPhaseCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDrainingPhaseInfo", reflect.TypeOf((*MockGuardService)(nil).GetDrainingPhaseInfo), arg0)
+	return &MockGuardServiceGetDrainingPhaseInfoCall{Call: call}
 }
 
-// MockGuardServiceGetDrainingPhaseCall wrap *gomock.Call
-type MockGuardServiceGetDrainingPhaseCall struct {
+// MockGuardServiceGetDrainingPhaseInfoCall wrap *gomock.Call
+type MockGuardServiceGetDrainingPhaseInfoCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockGuardServiceGetDrainingPhaseCall) Return(arg0 objectstore.Phase, arg1 error) *MockGuardServiceGetDrainingPhaseCall {
+func (c *MockGuardServiceGetDrainingPhaseInfoCall) Return(arg0 objectstore.DrainingPhaseInfo, arg1 error) *MockGuardServiceGetDrainingPhaseInfoCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockGuardServiceGetDrainingPhaseCall) Do(f func(context.Context) (objectstore.Phase, error)) *MockGuardServiceGetDrainingPhaseCall {
+func (c *MockGuardServiceGetDrainingPhaseInfoCall) Do(f func(context.Context) (objectstore.DrainingPhaseInfo, error)) *MockGuardServiceGetDrainingPhaseInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockGuardServiceGetDrainingPhaseCall) DoAndReturn(f func(context.Context) (objectstore.Phase, error)) *MockGuardServiceGetDrainingPhaseCall {
+func (c *MockGuardServiceGetDrainingPhaseInfoCall) DoAndReturn(f func(context.Context) (objectstore.DrainingPhaseInfo, error)) *MockGuardServiceGetDrainingPhaseInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

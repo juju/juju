@@ -52,7 +52,9 @@ func (s *workerSuite) TestObjectStoreDrainingNotDraining(c *tc.C) {
 
 	done := make(chan struct{})
 	s.guardService.EXPECT().WatchDraining(gomock.Any()).Return(watcher, nil)
-	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseUnknown, nil)
+	s.guardService.EXPECT().GetDrainingPhaseInfo(gomock.Any()).Return(objectstore.DrainingPhaseInfo{
+		Phase: objectstore.PhaseUnknown,
+	}, nil)
 	s.guard.EXPECT().Unlock(gomock.Any()).DoAndReturn(func(context.Context) error {
 		defer close(done)
 		return nil
@@ -87,7 +89,9 @@ func (s *workerSuite) TestObjectStoreDrainingDraining(c *tc.C) {
 	s.guardService.EXPECT().WatchDraining(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[struct{}], error) {
 		return watchertest.NewMockNotifyWatcher(draining), nil
 	})
-	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseDraining, nil)
+	s.guardService.EXPECT().GetDrainingPhaseInfo(gomock.Any()).Return(objectstore.DrainingPhaseInfo{
+		Phase: objectstore.PhaseDraining,
+	}, nil)
 
 	s.guard.EXPECT().Lockdown(gomock.Any()).Return(nil)
 
@@ -139,7 +143,9 @@ func (s *workerSuite) TestObjectStoreDrainingNamespaceError(c *tc.C) {
 
 	done := make(chan struct{})
 	s.guardService.EXPECT().WatchDraining(gomock.Any()).Return(watcher, nil)
-	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseDraining, nil)
+	s.guardService.EXPECT().GetDrainingPhaseInfo(gomock.Any()).Return(objectstore.DrainingPhaseInfo{
+		Phase: objectstore.PhaseDraining,
+	}, nil)
 	s.guardService.EXPECT().SetDrainingPhase(gomock.Any(), objectstore.PhaseError).DoAndReturn(func(ctx context.Context, p objectstore.Phase) error {
 		defer close(done)
 		return nil
@@ -183,12 +189,16 @@ func (s *workerSuite) TestObjectStoreDrainingDrainingChanged(c *tc.C) {
 	s.guardService.EXPECT().WatchDraining(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[struct{}], error) {
 		return watchertest.NewMockNotifyWatcher(draining), nil
 	})
-	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseUnknown, nil)
+	s.guardService.EXPECT().GetDrainingPhaseInfo(gomock.Any()).Return(objectstore.DrainingPhaseInfo{
+		Phase: objectstore.PhaseUnknown,
+	}, nil)
 	s.guardService.EXPECT().SetDrainingPhase(gomock.Any(), objectstore.PhaseDraining).DoAndReturn(func(ctx context.Context, p objectstore.Phase) error {
 		close(sync)
 		return nil
 	})
-	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseDraining, nil)
+	s.guardService.EXPECT().GetDrainingPhaseInfo(gomock.Any()).Return(objectstore.DrainingPhaseInfo{
+		Phase: objectstore.PhaseDraining,
+	}, nil)
 
 	s.guard.EXPECT().Lockdown(gomock.Any()).Return(nil)
 

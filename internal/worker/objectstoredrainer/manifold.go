@@ -203,7 +203,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	currentConfig := a.CurrentConfig()
 	dataDir := currentConfig.DataDir()
 
-	phase, err := guardService.GetDrainingPhase(ctx)
+	phaseInfo, err := guardService.GetDrainingPhaseInfo(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -219,7 +219,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 
 		// We've bounced whilst draining, so we need to ensure that we don't
 		// change the object store type if we're still draining.
-		if phase.IsDraining() && objectStoreTypeChanged {
+		if phaseInfo.Phase.IsDraining() && objectStoreTypeChanged {
 			objectStoreTypeChanged = false
 		}
 

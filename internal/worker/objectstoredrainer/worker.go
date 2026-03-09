@@ -58,9 +58,9 @@ type NewHashFileSystemAccessorFunc func(namespace, rootDir string, logger logger
 // GuardService provides access to the object store for draining
 // operations.
 type GuardService interface {
-	// GetDrainingPhase returns the current active draining phase of the
-	// object store.
-	GetDrainingPhase(ctx context.Context) (objectstore.Phase, error)
+	// GetDrainingPhaseInfo returns the current active draining phase info of
+	// the object store.
+	GetDrainingPhaseInfo(ctx context.Context) (objectstore.DrainingPhaseInfo, error)
 
 	// SetDrainingPhase sets the phase of the object store to draining.
 	SetDrainingPhase(ctx context.Context, phase objectstore.Phase) error
@@ -299,10 +299,12 @@ func (w *Worker) loop() error {
 			}
 
 		case <-drainingWatcher.Changes():
-			phase, err := w.guardService.GetDrainingPhase(ctx)
+			info, err := w.guardService.GetDrainingPhaseInfo(ctx)
 			if err != nil {
 				return errors.Capture(err)
 			}
+
+			phase := info.Phase
 
 			// We're not draining, so we can unlock the guard and wait
 			// for the next change.
@@ -375,7 +377,7 @@ func (w *Worker) handleConfigChange(ctx context.Context) error {
 		return errors.Capture(err)
 	}
 
-	phase, err := w.guardService.GetDrainingPhase(ctx)
+	phaseInfo, err := w.guardService.GetDrainingPhaseInfo(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -386,7 +388,7 @@ func (w *Worker) handleConfigChange(ctx context.Context) error {
 	if !objectStoreTypeChanged {
 		w.logger.Debugf(ctx, "object store type has not changed: %q", w.objectStoreType)
 		return nil
-	} else if phase.IsDraining() {
+	} else if phaseInfo.Phase.IsDraining() {
 		w.logger.Infof(ctx, "object store is already draining, no action taken")
 		return nil
 	}
