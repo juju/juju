@@ -1,6 +1,6 @@
 module github.com/juju/juju
 
-go 1.25.7
+go 1.25.8
 
 require (
 	cloud.google.com/go/compute v1.44.0
@@ -47,7 +47,7 @@ require (
 	github.com/hashicorp/vault/api v1.10.0
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
-	github.com/juju/blobstore/v3 v3.1.0
+	github.com/juju/blobstore/v3 v3.2.2
 	github.com/juju/charm/v12 v12.1.1
 	github.com/juju/clock v1.1.1
 	github.com/juju/cmd/v3 v3.2.2
@@ -64,7 +64,7 @@ require (
 	github.com/juju/jsonschema-gen v1.0.0
 	github.com/juju/loggo v1.0.0
 	github.com/juju/lumberjack/v2 v2.0.2
-	github.com/juju/mgo/v3 v3.0.8
+	github.com/juju/mgo/v3 v3.0.9
 	github.com/juju/mutex/v2 v2.0.0
 	github.com/juju/names/v5 v5.0.0
 	github.com/juju/os/v2 v2.2.5
@@ -81,7 +81,7 @@ require (
 	github.com/juju/schema v1.2.0
 	github.com/juju/terms-client/v2 v2.0.0
 	github.com/juju/testing v1.1.0
-	github.com/juju/txn/v3 v3.1.0
+	github.com/juju/txn/v3 v3.2.1
 	github.com/juju/utils/v3 v3.2.3
 	github.com/juju/version/v2 v2.0.1
 	github.com/juju/viddy v0.0.0-beta5
@@ -219,7 +219,7 @@ require (
 	github.com/juju/go4 v0.0.0-20160222163258-40d72ab9641a // indirect
 	github.com/juju/gojsonpointer v0.0.0-20150204194629-afe8b77aa08f // indirect
 	github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 // indirect
-	github.com/juju/loggo/v2 v2.0.0 // indirect
+	github.com/juju/loggo/v2 v2.2.0 // indirect
 	github.com/juju/lru v1.0.0 // indirect
 	github.com/juju/mgo/v2 v2.0.2 // indirect
 	github.com/juju/usso v1.0.1 // indirect

@@ -39,7 +39,7 @@ func (s *cloudImageMetadataSuite) SetUpTest(c *gc.C) {
 
 	db := s.MgoSuite.Session.DB("juju")
 
-	s.access = NewTestMongo(c, db)
+	s.access = NewTestMongo(db)
 	s.storage = cloudimagemetadata.NewStorage(collectionName, s.access)
 }
 
@@ -596,17 +596,15 @@ type TestMongo struct {
 	runner   jujutxn.Runner
 }
 
-func NewTestMongo(c *gc.C, database *mgo.Database) *TestMongo {
-	runner, err := jujutxn.NewRunner(jujutxn.RunnerParams{
-		Database:                  database,
-		TransactionCollectionName: "txns",
-		ChangeLogName:             "-",
-		ServerSideTransactions:    true,
-	})
-	c.Assert(err, jc.ErrorIsNil)
+func NewTestMongo(database *mgo.Database) *TestMongo {
 	return &TestMongo{
 		database: database,
-		runner:   runner,
+		runner: jujutxn.NewRunner(jujutxn.RunnerParams{
+			Database:                  database,
+			TransactionCollectionName: "txns",
+			ChangeLogName:             "-",
+			ServerSideTransactions:    true,
+		}),
 	}
 }
 
