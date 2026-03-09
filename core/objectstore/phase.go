@@ -129,6 +129,8 @@ type DrainingPhaseInfo struct {
 	// This is optional, as there might not be a draining process, so you'll
 	// get the current backend UUID only.
 	FromBackendUUID *UUID
-	// ToBackendUUID is the uuid of the backend that is being drained to.
-	ToBackendUUID UUID
+	// ActiveBackendUUID is the uuid of the backend that is currently active to.
+	// It will also indicate the backend that is being drained to, if there is a
+	// draining process.
+	ActiveBackendUUID UUID
 }

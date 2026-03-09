@@ -484,12 +484,12 @@ func (s *drainingServiceSuite) TestGetDrainingPhaseInfo(c *tc.C) {
 
 	phase := objectstore.PhaseDraining
 	fromBackendUUID := tc.Must(c, objectstore.NewUUID).String()
-	toBackendUUID := tc.Must(c, objectstore.NewUUID).String()
+	activeBackendUUID := tc.Must(c, objectstore.NewUUID).String()
 
 	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).Return(domainobjectstore.DrainingInfo{
-		Phase:           phase.String(),
-		FromBackendUUID: &fromBackendUUID,
-		ToBackendUUID:   toBackendUUID,
+		Phase:             phase.String(),
+		FromBackendUUID:   &fromBackendUUID,
+		ActiveBackendUUID: activeBackendUUID,
 	}, nil)
 
 	p, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetDrainingPhaseInfo(c.Context())
@@ -497,9 +497,9 @@ func (s *drainingServiceSuite) TestGetDrainingPhaseInfo(c *tc.C) {
 
 	fb := objectstore.UUID(fromBackendUUID)
 	c.Check(p, tc.DeepEquals, objectstore.DrainingPhaseInfo{
-		Phase:           phase,
-		FromBackendUUID: &fb,
-		ToBackendUUID:   objectstore.UUID(toBackendUUID),
+		Phase:             phase,
+		FromBackendUUID:   &fb,
+		ActiveBackendUUID: objectstore.UUID(activeBackendUUID),
 	})
 }
 

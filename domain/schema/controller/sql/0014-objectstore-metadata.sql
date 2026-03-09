@@ -100,7 +100,7 @@ CREATE TABLE object_store_backend_s3_credential (
 CREATE TABLE object_store_drain_info (
     uuid TEXT NOT NULL PRIMARY KEY,
     phase_type_id INT NOT NULL,
-    from_backend_uuid TEXT NOT NULL,
+    from_backend_uuid TEXT,
     to_backend_uuid TEXT NOT NULL,
     CONSTRAINT fk_object_store_drain_info_object_store_drain_phase_type
     FOREIGN KEY (phase_type_id)

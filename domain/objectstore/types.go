@@ -57,8 +57,8 @@ type DrainingInfo struct {
 	Phase string
 	// FromBackendUUID is the uuid of the backend that is being drained from.
 	FromBackendUUID *string
-	// ToBackendUUID is the uuid of the backend that is being drained to.
-	ToBackendUUID string
+	// ActiveBackendUUID is the uuid of the backend that is the active backend.
+	ActiveBackendUUID string
 }
 
 // BackendInfo represents the information about an object store backend,

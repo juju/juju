@@ -708,7 +708,7 @@ func (s *stateSuite) TestGetActiveDrainingInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.Phase, tc.Equals, string(coreobjectstore.PhaseDraining))
 	c.Check(info.UUID, tc.Equals, "foo")
-	c.Check(info.ToBackendUUID, tc.Equals, backendUUID)
+	c.Check(info.ActiveBackendUUID, tc.Equals, backendUUID)
 
 	runner, err := s.TxnRunnerFactory()(c.Context())
 	c.Assert(err, tc.ErrorIsNil)

@@ -383,7 +383,7 @@ func (w *Worker) handleConfigChange(ctx context.Context) error {
 		return errors.Capture(err)
 	}
 
-	toBackendInfo, err := w.guardService.GetObjectStoreBackend(ctx, phaseInfo.ToBackendUUID)
+	toBackendInfo, err := w.guardService.GetObjectStoreBackend(ctx, phaseInfo.ActiveBackendUUID)
 	if err != nil {
 		return errors.Capture(err)
 	}

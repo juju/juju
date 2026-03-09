@@ -182,7 +182,7 @@ func (s *workerSuite) TestObjectStoreDrainingDrainingChanged(c *tc.C) {
 	changes := make(chan []string, 1)
 	sync := make(chan struct{}, 1)
 
-	toBackend := tc.Must(c, objectstore.NewUUID)
+	activeBackend := tc.Must(c, objectstore.NewUUID)
 
 	gExp := s.guardService.EXPECT()
 	draining := make(chan struct{})
@@ -193,11 +193,11 @@ func (s *workerSuite) TestObjectStoreDrainingDrainingChanged(c *tc.C) {
 		return watchertest.NewMockStringsWatcher(changes), nil
 	})
 	gExp.GetDrainingPhaseInfo(gomock.Any()).Return(objectstore.DrainingPhaseInfo{
-		Phase:         objectstore.PhaseUnknown,
-		ToBackendUUID: toBackend,
+		Phase:             objectstore.PhaseUnknown,
+		ActiveBackendUUID: activeBackend,
 	}, nil)
-	gExp.GetObjectStoreBackend(gomock.Any(), toBackend).Return(objectstoreservice.BackendInfo{
-		UUID:            toBackend,
+	gExp.GetObjectStoreBackend(gomock.Any(), activeBackend).Return(objectstoreservice.BackendInfo{
+		UUID:            activeBackend,
 		ObjectStoreType: objectstore.S3Backend,
 	}, nil)
 	gExp.SetDrainingPhase(gomock.Any(), objectstore.PhaseDraining).DoAndReturn(func(ctx context.Context, p objectstore.Phase) error {

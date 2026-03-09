@@ -702,10 +702,10 @@ WHERE di.phase_type_id <= 1;
 	}
 
 	return domainobjectstore.DrainingInfo{
-		UUID:            phaseInfo.UUID,
-		Phase:           phaseInfo.Phase,
-		FromBackendUUID: nullableOrNil(phaseInfo.FromBackendUUID),
-		ToBackendUUID:   phaseInfo.ToBackendUUID,
+		UUID:              phaseInfo.UUID,
+		Phase:             phaseInfo.Phase,
+		FromBackendUUID:   nullableOrNil(phaseInfo.FromBackendUUID),
+		ActiveBackendUUID: phaseInfo.ActiveBackendUUID,
 	}, nil
 }
 

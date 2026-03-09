@@ -204,7 +204,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	backendInfo, err := guardService.GetObjectStoreBackend(ctx, phaseInfo.ToBackendUUID)
+	backendInfo, err := guardService.GetObjectStoreBackend(ctx, phaseInfo.ActiveBackendUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

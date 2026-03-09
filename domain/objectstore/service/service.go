@@ -498,9 +498,9 @@ func (s *WatchableDrainingService) GetDrainingPhaseInfo(ctx context.Context) (ob
 	}
 
 	return objectstore.DrainingPhaseInfo{
-		Phase:           objectstore.Phase(info.Phase),
-		FromBackendUUID: fromBackend,
-		ToBackendUUID:   objectstore.UUID(info.ToBackendUUID),
+		Phase:             objectstore.Phase(info.Phase),
+		FromBackendUUID:   fromBackend,
+		ActiveBackendUUID: objectstore.UUID(info.ActiveBackendUUID),
 	}, nil
 }
 

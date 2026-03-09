@@ -60,8 +60,8 @@ type dbGetPhaseInfo struct {
 	Phase string `db:"phase"`
 	// FromBackendUUID is the uuid of the backend that is being drained from.
 	FromBackendUUID sql.Null[string] `db:"from_backend_uuid"`
-	// ToBackendUUID is the uuid of the backend that is being drained to.
-	ToBackendUUID string `db:"to_backend_uuid"`
+	// ActiveBackendUUID is the uuid of the backend that is active.
+	ActiveBackendUUID string `db:"active_backend_uuid"`
 }
 
 type dbSetPhaseInfo struct {
