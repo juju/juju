@@ -19,6 +19,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/api/jujuclient/jujuclienttesting"
 	apitesting "github.com/juju/juju/api/testing"
@@ -613,11 +614,11 @@ func (s *NewAPIClientSuite) TestHTTPClientWithControllerPathSegment(c *tc.C) {
 	conn := setupControllerWithPathSegment(c, store, "9c8fc580-7ad2-43a0-a0b9-c14b80172190")
 	defer conn.Close()
 
-	client, err := conn.HTTPClient()
+	client, err := conn.HTTPClient(base.HTTPClientScopeModel)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(client.BaseURL, tc.Equals, "https://example1:1111/foo/model/9c8fc580-7ad2-43a0-a0b9-c14b80172190")
 
-	client, err = conn.RootHTTPClient()
+	client, err = conn.HTTPClient(base.HTTPClientScopeUnscoped)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(client.BaseURL, tc.Equals, "https://example1:1111/foo")
 }

@@ -14,6 +14,7 @@ import (
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/errors"
 )
 
 type stateSuite struct {
@@ -34,6 +35,8 @@ func (s *stateSuite) TestGetMetadataNotFound(c *tc.C) {
 func (s *stateSuite) TestGetMetadataFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
+	uuid := tc.Must(c, coreobjectstore.NewUUID).String()
+
 	metadata := coreobjectstore.Metadata{
 		SHA256: "sha256",
 		SHA384: "sha384",
@@ -41,7 +44,7 @@ func (s *stateSuite) TestGetMetadataFound(c *tc.C) {
 		Size:   666,
 	}
 
-	_, err := st.PutMetadata(c.Context(), metadata)
+	_, err := st.PutMetadata(c.Context(), uuid, metadata)
 	c.Assert(err, tc.ErrorIsNil)
 
 	received, err := st.GetMetadata(c.Context(), metadata.Path)
@@ -51,6 +54,9 @@ func (s *stateSuite) TestGetMetadataFound(c *tc.C) {
 
 func (s *stateSuite) TestGetMetadataBySHA256Found(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
+
+	uuid1 := tc.Must(c, coreobjectstore.NewUUID).String()
+	uuid2 := tc.Must(c, coreobjectstore.NewUUID).String()
 
 	metadata1 := coreobjectstore.Metadata{
 		SHA256: "41af286dc0b172ed2f1ca934fd2278de4a1192302ffa07087cea2682e7d372e3",
@@ -66,10 +72,10 @@ func (s *stateSuite) TestGetMetadataBySHA256Found(c *tc.C) {
 		Size:   666,
 	}
 
-	_, err := st.PutMetadata(c.Context(), metadata1)
+	_, err := st.PutMetadata(c.Context(), uuid1, metadata1)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = st.PutMetadata(c.Context(), metadata2)
+	_, err = st.PutMetadata(c.Context(), uuid2, metadata2)
 	c.Assert(err, tc.ErrorIsNil)
 
 	received, err := st.GetMetadataBySHA256(c.Context(), "41af286dc0b172ed2f1ca934fd2278de4a1192302ffa07087cea2682e7d372e3")
@@ -91,6 +97,9 @@ func (s *stateSuite) TestGetMetadataBySHA256NotFound(c *tc.C) {
 func (s *stateSuite) TestGetMetadataBySHA256PrefixFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
+	uuid1 := tc.Must(c, coreobjectstore.NewUUID).String()
+	uuid2 := tc.Must(c, coreobjectstore.NewUUID).String()
+
 	metadata1 := coreobjectstore.Metadata{
 		SHA256: "41af286dc0b172ed2f1ca934fd2278de4a1192302ffa07087cea2682e7d372e3",
 		SHA384: "sha384-1",
@@ -105,10 +114,10 @@ func (s *stateSuite) TestGetMetadataBySHA256PrefixFound(c *tc.C) {
 		Size:   666,
 	}
 
-	_, err := st.PutMetadata(c.Context(), metadata1)
+	_, err := st.PutMetadata(c.Context(), uuid1, metadata1)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = st.PutMetadata(c.Context(), metadata2)
+	_, err = st.PutMetadata(c.Context(), uuid2, metadata2)
 	c.Assert(err, tc.ErrorIsNil)
 
 	received, err := st.GetMetadataBySHA256Prefix(c.Context(), "41af286")
@@ -134,6 +143,8 @@ func (s *stateSuite) TestGetMetadataBySHA256PrefixNotFound(c *tc.C) {
 func (s *stateSuite) TestListMetadataFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
+	uuid := tc.Must(c, coreobjectstore.NewUUID).String()
+
 	metadata := coreobjectstore.Metadata{
 		SHA256: "sha256",
 		SHA384: "sha384",
@@ -141,7 +152,7 @@ func (s *stateSuite) TestListMetadataFound(c *tc.C) {
 		Size:   666,
 	}
 
-	_, err := st.PutMetadata(c.Context(), metadata)
+	_, err := st.PutMetadata(c.Context(), uuid, metadata)
 	c.Assert(err, tc.ErrorIsNil)
 
 	received, err := st.ListMetadata(c.Context())
@@ -152,6 +163,8 @@ func (s *stateSuite) TestListMetadataFound(c *tc.C) {
 func (s *stateSuite) TestPutMetadata(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
+	uuid := tc.Must(c, coreobjectstore.NewUUID).String()
+
 	metadata := coreobjectstore.Metadata{
 		SHA256: "sha256",
 		SHA384: "sha384",
@@ -159,7 +172,7 @@ func (s *stateSuite) TestPutMetadata(c *tc.C) {
 		Size:   666,
 	}
 
-	uuid, err := st.PutMetadata(c.Context(), metadata)
+	uuid, err := st.PutMetadata(c.Context(), uuid, metadata)
 	c.Assert(err, tc.ErrorIsNil)
 
 	runner, err := s.TxnRunnerFactory()(c.Context())
@@ -178,6 +191,12 @@ SELECT path, size, sha_256, sha_384 FROM v_object_store_metadata WHERE uuid = ?`
 func (s *stateSuite) TestPutMetadataConflict(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
+	// UUID does not matter in this test, because we are testing the conflict of
+	// the hash and size, which is independent of the UUID.
+
+	uuid1 := tc.Must(c, coreobjectstore.NewUUID).String()
+	uuid2 := tc.Must(c, coreobjectstore.NewUUID).String()
+
 	metadata := coreobjectstore.Metadata{
 		SHA256: "sha256",
 		SHA384: "sha384",
@@ -185,16 +204,22 @@ func (s *stateSuite) TestPutMetadataConflict(c *tc.C) {
 		Size:   666,
 	}
 
-	_, err := st.PutMetadata(c.Context(), metadata)
+	_, err := st.PutMetadata(c.Context(), uuid1, metadata)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = st.PutMetadata(c.Context(), metadata)
+	_, err = st.PutMetadata(c.Context(), uuid2, metadata)
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 	c.Check(err, tc.ErrorIs, objectstoreerrors.ErrHashAndSizeAlreadyExists)
 }
 
 func (s *stateSuite) TestPutMetadataConflictDifferentHash(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
+
+	// UUID does not matter in this test, because we are testing the conflict of
+	// the hash and size, which is independent of the UUID.
+
+	uuid1 := tc.Must(c, coreobjectstore.NewUUID).String()
+	uuid2 := tc.Must(c, coreobjectstore.NewUUID).String()
 
 	metadata1 := coreobjectstore.Metadata{
 		SHA256: "sha256-a",
@@ -210,16 +235,22 @@ func (s *stateSuite) TestPutMetadataConflictDifferentHash(c *tc.C) {
 		Size:   666,
 	}
 
-	_, err := st.PutMetadata(c.Context(), metadata1)
+	_, err := st.PutMetadata(c.Context(), uuid1, metadata1)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = st.PutMetadata(c.Context(), metadata2)
+	_, err = st.PutMetadata(c.Context(), uuid2, metadata2)
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 	c.Check(err, tc.ErrorIs, objectstoreerrors.ErrPathAlreadyExistsDifferentHash)
 }
 
 func (s *stateSuite) TestPutMetadataWithSameHashesAndSize(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
+
+	// UUID does not matter in this test, because we are testing the conflict of
+	// the hash and size, which is independent of the UUID.
+
+	uuid1 := tc.Must(c, coreobjectstore.NewUUID).String()
+	uuid2 := tc.Must(c, coreobjectstore.NewUUID).String()
 
 	metadata1 := coreobjectstore.Metadata{
 		SHA256: "sha256",
@@ -234,15 +265,21 @@ func (s *stateSuite) TestPutMetadataWithSameHashesAndSize(c *tc.C) {
 		Size:   666,
 	}
 
-	_, err := st.PutMetadata(c.Context(), metadata1)
+	_, err := st.PutMetadata(c.Context(), uuid1, metadata1)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = st.PutMetadata(c.Context(), metadata2)
+	_, err = st.PutMetadata(c.Context(), uuid2, metadata2)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *stateSuite) TestPutMetadataWithSameSHA256AndSize(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
+
+	// UUID does not matter in this test, because we are testing the conflict of
+	// the hash and size, which is independent of the UUID.
+
+	uuid1 := tc.Must(c, coreobjectstore.NewUUID).String()
+	uuid2 := tc.Must(c, coreobjectstore.NewUUID).String()
 
 	metadata1 := coreobjectstore.Metadata{
 		SHA256: "sha256",
@@ -257,17 +294,23 @@ func (s *stateSuite) TestPutMetadataWithSameSHA256AndSize(c *tc.C) {
 		Size:   666,
 	}
 
-	uuid1, err := st.PutMetadata(c.Context(), metadata1)
+	rUUID1, err := st.PutMetadata(c.Context(), uuid1, metadata1)
 	c.Assert(err, tc.ErrorIsNil)
 
-	uuid2, err := st.PutMetadata(c.Context(), metadata2)
+	rUUID2, err := st.PutMetadata(c.Context(), uuid2, metadata2)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(uuid1, tc.Equals, uuid2)
+	c.Check(rUUID1, tc.Equals, rUUID2)
 }
 
 func (s *stateSuite) TestPutMetadataWithSameSHA384AndSize(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
+
+	// UUID does not matter in this test, because we are testing the conflict of
+	// the hash and size, which is independent of the UUID.
+
+	uuid1 := tc.Must(c, coreobjectstore.NewUUID).String()
+	uuid2 := tc.Must(c, coreobjectstore.NewUUID).String()
 
 	metadata1 := coreobjectstore.Metadata{
 		SHA256: "foo",
@@ -282,13 +325,13 @@ func (s *stateSuite) TestPutMetadataWithSameSHA384AndSize(c *tc.C) {
 		Size:   666,
 	}
 
-	uuid1, err := st.PutMetadata(c.Context(), metadata1)
+	rUUID1, err := st.PutMetadata(c.Context(), uuid1, metadata1)
 	c.Assert(err, tc.ErrorIsNil)
 
-	uuid2, err := st.PutMetadata(c.Context(), metadata2)
+	rUUID2, err := st.PutMetadata(c.Context(), uuid2, metadata2)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(uuid1, tc.Equals, uuid2)
+	c.Check(rUUID1, tc.Equals, rUUID2)
 }
 
 func (s *stateSuite) TestPutMetadataWithSameHashDifferentSize(c *tc.C) {
@@ -297,6 +340,9 @@ func (s *stateSuite) TestPutMetadataWithSameHashDifferentSize(c *tc.C) {
 	// Test if the hash is the same but the size is different. The root
 	// cause of this, is if the hash is the same, but the size is different.
 	// There is a broken hash function somewhere.
+
+	uuid1 := tc.Must(c, coreobjectstore.NewUUID).String()
+	uuid2 := tc.Must(c, coreobjectstore.NewUUID).String()
 
 	metadata1 := coreobjectstore.Metadata{
 		SHA256: "sha256",
@@ -311,10 +357,10 @@ func (s *stateSuite) TestPutMetadataWithSameHashDifferentSize(c *tc.C) {
 		Size:   42,
 	}
 
-	_, err := st.PutMetadata(c.Context(), metadata1)
+	_, err := st.PutMetadata(c.Context(), uuid1, metadata1)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = st.PutMetadata(c.Context(), metadata2)
+	_, err = st.PutMetadata(c.Context(), uuid2, metadata2)
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrHashAndSizeAlreadyExists)
 }
 
@@ -324,7 +370,9 @@ func (s *stateSuite) TestPutMetadataMultipleTimes(c *tc.C) {
 	// Ensure that we can add the same metadata multiple times.
 	metadatas := make([]coreobjectstore.Metadata, 10)
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
+		uuid := tc.Must(c, coreobjectstore.NewUUID).String()
+
 		metadatas[i] = coreobjectstore.Metadata{
 			SHA256: fmt.Sprintf("hash-256-%d", i),
 			SHA384: fmt.Sprintf("hash-384-%d", i),
@@ -332,15 +380,115 @@ func (s *stateSuite) TestPutMetadataMultipleTimes(c *tc.C) {
 			Size:   666,
 		}
 
-		_, err := st.PutMetadata(c.Context(), metadatas[i])
+		_, err := st.PutMetadata(c.Context(), uuid, metadatas[i])
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		metadata, err := st.GetMetadata(c.Context(), fmt.Sprintf("blah-foo-%d", i))
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(metadata, tc.DeepEquals, metadatas[i])
 	}
+}
+
+func (s *stateSuite) TestPutMetadataWithControllerIDHint(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	uuid := tc.Must(c, coreobjectstore.NewUUID).String()
+
+	metadata := coreobjectstore.Metadata{
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "blah-foo",
+		Size:   666,
+	}
+
+	uuid, err := st.PutMetadataWithControllerIDHint(c.Context(), uuid, metadata, "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	runner, err := s.TxnRunnerFactory()(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	var nodeID string
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, `
+SELECT node_id FROM object_store_placement WHERE uuid = ?`, uuid)
+		return row.Scan(&nodeID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(nodeID, tc.Equals, "1")
+}
+
+func (s *stateSuite) TestPutMetadataWithControllerIDHintMultipleTimes(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Ensure that we can add the same metadata multiple times.
+	metadatas := make([]coreobjectstore.Metadata, 10)
+
+	for i := range 10 {
+		uuid := tc.Must(c, coreobjectstore.NewUUID).String()
+
+		metadatas[i] = coreobjectstore.Metadata{
+			SHA256: fmt.Sprintf("hash-256-%d", i),
+			SHA384: fmt.Sprintf("hash-384-%d", i),
+			Path:   fmt.Sprintf("blah-foo-%d", i),
+			Size:   666,
+		}
+
+		_, err := st.PutMetadataWithControllerIDHint(c.Context(), uuid, metadatas[i], "1")
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	for i := range 10 {
+		metadata, err := st.GetMetadata(c.Context(), fmt.Sprintf("blah-foo-%d", i))
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(metadata, tc.DeepEquals, metadatas[i])
+	}
+}
+
+func (s *stateSuite) TestAddControllerIDHint(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	uuid := tc.Must(c, coreobjectstore.NewUUID).String()
+
+	metadata := coreobjectstore.Metadata{
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "blah-foo",
+		Size:   666,
+	}
+
+	_, err := st.PutMetadataWithControllerIDHint(c.Context(), uuid, metadata, "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.AddControllerIDHint(c.Context(), "sha384", "2")
+	c.Assert(err, tc.ErrorIsNil)
+
+	runner, err := s.TxnRunnerFactory()(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	var nodes []string
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT p.node_id
+FROM object_store_placement AS p
+JOIN object_store_metadata AS m ON p.uuid = m.uuid
+WHERE m.sha_384 = ?`, "sha384")
+		if err != nil {
+			return errors.Errorf("querying placement hints: %w", err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var nodeID string
+			if err := rows.Scan(&nodeID); err != nil {
+				return errors.Errorf("scanning placement hint: %w", err)
+			}
+			nodes = append(nodes, nodeID)
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(nodes, tc.SameContents, []string{"1", "2"})
 }
 
 func (s *stateSuite) TestRemoveMetadataNotExists(c *tc.C) {
@@ -352,6 +500,9 @@ func (s *stateSuite) TestRemoveMetadataNotExists(c *tc.C) {
 
 func (s *stateSuite) TestRemoveMetadataDoesNotRemoveMetadataIfReferenced(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
+
+	uuid1 := tc.Must(c, coreobjectstore.NewUUID).String()
+	uuid2 := tc.Must(c, coreobjectstore.NewUUID).String()
 
 	metadata1 := coreobjectstore.Metadata{
 		SHA256: "sha256",
@@ -366,10 +517,10 @@ func (s *stateSuite) TestRemoveMetadataDoesNotRemoveMetadataIfReferenced(c *tc.C
 		Size:   666,
 	}
 
-	_, err := st.PutMetadata(c.Context(), metadata1)
+	_, err := st.PutMetadata(c.Context(), uuid1, metadata1)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = st.PutMetadata(c.Context(), metadata2)
+	_, err = st.PutMetadata(c.Context(), uuid2, metadata2)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.RemoveMetadata(c.Context(), metadata2.Path)
@@ -382,6 +533,10 @@ func (s *stateSuite) TestRemoveMetadataDoesNotRemoveMetadataIfReferenced(c *tc.C
 
 func (s *stateSuite) TestRemoveMetadataCleansUpEverything(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
+
+	uuid1 := tc.Must(c, coreobjectstore.NewUUID).String()
+	uuid2 := tc.Must(c, coreobjectstore.NewUUID).String()
+	uuid3 := tc.Must(c, coreobjectstore.NewUUID).String()
 
 	metadata1 := coreobjectstore.Metadata{
 		SHA256: "sha256",
@@ -397,9 +552,9 @@ func (s *stateSuite) TestRemoveMetadataCleansUpEverything(c *tc.C) {
 	}
 
 	// Add both metadata.
-	_, err := st.PutMetadata(c.Context(), metadata1)
+	_, err := st.PutMetadata(c.Context(), uuid1, metadata1)
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = st.PutMetadata(c.Context(), metadata2)
+	_, err = st.PutMetadata(c.Context(), uuid2, metadata2)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Remove both metadata.
@@ -421,7 +576,7 @@ func (s *stateSuite) TestRemoveMetadataCleansUpEverything(c *tc.C) {
 		Path:   "blah-foo-3",
 		Size:   666,
 	}
-	_, err = st.PutMetadata(c.Context(), metadata3)
+	_, err = st.PutMetadata(c.Context(), uuid3, metadata3)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// We guarantee that the metadata has been added is unique, because
@@ -435,6 +590,9 @@ func (s *stateSuite) TestRemoveMetadataCleansUpEverything(c *tc.C) {
 func (s *stateSuite) TestRemoveMetadataThenAddAgain(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
+	uuid1 := tc.Must(c, coreobjectstore.NewUUID).String()
+	uuid2 := tc.Must(c, coreobjectstore.NewUUID).String()
+
 	metadata := coreobjectstore.Metadata{
 		SHA256: "sha256",
 		SHA384: "sha384",
@@ -442,13 +600,13 @@ func (s *stateSuite) TestRemoveMetadataThenAddAgain(c *tc.C) {
 		Size:   666,
 	}
 
-	_, err := st.PutMetadata(c.Context(), metadata)
+	_, err := st.PutMetadata(c.Context(), uuid1, metadata)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.RemoveMetadata(c.Context(), metadata.Path)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = st.PutMetadata(c.Context(), metadata)
+	_, err = st.PutMetadata(c.Context(), uuid2, metadata)
 	c.Assert(err, tc.ErrorIsNil)
 
 	received, err := st.GetMetadata(c.Context(), metadata.Path)
@@ -459,6 +617,8 @@ func (s *stateSuite) TestRemoveMetadataThenAddAgain(c *tc.C) {
 func (s *stateSuite) TestListMetadata(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
+	uuid1 := tc.Must(c, coreobjectstore.NewUUID).String()
+
 	metadata := coreobjectstore.Metadata{
 		SHA256: "sha256",
 		SHA384: "sha384",
@@ -466,7 +626,7 @@ func (s *stateSuite) TestListMetadata(c *tc.C) {
 		Size:   666,
 	}
 
-	_, err := st.PutMetadata(c.Context(), metadata)
+	_, err := st.PutMetadata(c.Context(), uuid1, metadata)
 	c.Assert(err, tc.ErrorIsNil)
 
 	metadatas, err := st.ListMetadata(c.Context())

@@ -194,8 +194,9 @@ func (c *S3Client) GetObject(ctx context.Context, bucketName, objectName string)
 
 	obj, err := c.client.GetObject(ctx,
 		&s3.GetObjectInput{
-			Bucket: aws.String(bucketName),
-			Key:    aws.String(objectName),
+			Bucket:       aws.String(bucketName),
+			Key:          aws.String(objectName),
+			ChecksumMode: types.ChecksumModeEnabled,
 		})
 	if err != nil {
 		if err := handleError(err); err != nil {

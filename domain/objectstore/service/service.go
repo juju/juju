@@ -47,7 +47,18 @@ type State interface {
 	GetMetadataBySHA256Prefix(ctx context.Context, sha256 string) (objectstore.Metadata, error)
 
 	// PutMetadata adds a new specified path for the persistence metadata.
-	PutMetadata(ctx context.Context, metadata objectstore.Metadata) (objectstore.UUID, error)
+	PutMetadata(ctx context.Context, uuid string, metadata objectstore.Metadata) (string, error)
+
+	// PutMetadataWithControllerIDHint adds a new specified path for the
+	// persistence metadata with a controller ID hint. This is used to route the
+	// request to the correct controller in a multi-controller environment.
+	PutMetadataWithControllerIDHint(ctx context.Context, uuid string, metadata objectstore.Metadata, controllerIDHint string) (string, error)
+
+	// AddControllerIDHint adds a controller ID hint for the specified SHA384.
+	// This is used to indicate that a controller might have the object with the
+	// specified SHA384, which can be used for optimization in certain
+	// scenarios.
+	AddControllerIDHint(ctx context.Context, sha384 string, controllerIDHint string) error
 
 	// ListMetadata returns the persistence metadata for all paths.
 	ListMetadata(ctx context.Context) ([]objectstore.Metadata, error)
@@ -213,7 +224,12 @@ func (s *Service) PutMetadata(ctx context.Context, metadata objectstore.Metadata
 		return "", errors.Errorf("missing hash384: %w", objectstoreerrors.ErrMissingHash)
 	}
 
-	uuid, err := s.st.PutMetadata(ctx, objectstore.Metadata{
+	uuid, err := objectstore.NewUUID()
+	if err != nil {
+		return "", err
+	}
+
+	resultUUID, err := s.st.PutMetadata(ctx, uuid.String(), objectstore.Metadata{
 		SHA256: metadata.SHA256,
 		SHA384: metadata.SHA384,
 		Path:   metadata.Path,
@@ -223,7 +239,70 @@ func (s *Service) PutMetadata(ctx context.Context, metadata objectstore.Metadata
 		return "", errors.Errorf("adding path %s: %w", metadata.Path, err)
 	}
 
-	return uuid, nil
+	return objectstore.UUID(resultUUID), nil
+}
+
+// PutMetadataWithControllerIDHint adds a new specified path for the persistence
+// metadata, along with the controller ID hint. If any hash is missing, a
+// [objectstoreerrors.ErrMissingHash] error is returned. It is expected that the
+// caller supplies both hashes or none and they should be consistent with the
+// object. That's the caller's responsibility.
+func (s *Service) PutMetadataWithControllerIDHint(
+	ctx context.Context,
+	metadata objectstore.Metadata,
+	controllerID string,
+) (objectstore.UUID, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	// If you have one hash, you must have the other.
+	if h1, h2 := metadata.SHA384, metadata.SHA256; h1 != "" && h2 == "" {
+		return "", errors.Errorf("missing hash256").Add(objectstoreerrors.ErrMissingHash)
+	} else if h1 == "" && h2 != "" {
+		return "", errors.Errorf("missing hash384").Add(objectstoreerrors.ErrMissingHash)
+	}
+
+	if controllerID == "" {
+		return "", errors.Errorf("missing controller ID hint").Add(objectstoreerrors.ErrMissingControllerID)
+	}
+
+	uuid, err := objectstore.NewUUID()
+	if err != nil {
+		return "", err
+	}
+
+	pUUID, err := s.st.PutMetadataWithControllerIDHint(ctx, uuid.String(), objectstore.Metadata{
+		SHA256: metadata.SHA256,
+		SHA384: metadata.SHA384,
+		Path:   metadata.Path,
+		Size:   metadata.Size,
+	}, controllerID)
+	if err != nil {
+		return "", errors.Errorf("adding path %s: %w", metadata.Path, err)
+	}
+
+	return objectstore.UUID(pUUID), nil
+}
+
+// AddControllerIDHint adds a controller ID hint for the specified SHA384.
+// This is used to indicate that a controller might have the object with the
+// specified SHA384, which can be used for optimization in certain
+// scenarios.
+func (s *Service) AddControllerIDHint(ctx context.Context, sha384 string, controllerID string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if sha384 == "" {
+		return errors.Errorf("missing hash384").Add(objectstoreerrors.ErrMissingHash)
+	}
+	if controllerID == "" {
+		return errors.Errorf("missing controller ID hint").Add(objectstoreerrors.ErrMissingControllerID)
+	}
+
+	if err := s.st.AddControllerIDHint(ctx, sha384, controllerID); err != nil {
+		return errors.Errorf("adding controller ID hint for sha384 %s: %w", sha384, err)
+	}
+	return nil
 }
 
 // RemoveMetadata removes the specified path for the persistence metadata.

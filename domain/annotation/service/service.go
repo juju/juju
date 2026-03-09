@@ -34,9 +34,9 @@ type State interface {
 	// SetCharmAnnotations associates key/value annotation pairs with a given ID.
 	// If an annotation already exists for the given ID, then it will be updated
 	// with the given value.
-	// First all annotations are deleted, then the given
-	// pairs are inserted, so unsetting an annotation is implicit.
-	SetCharmAnnotations(ctx context.Context, ID annotation.GetCharmArgs, annotations map[string]string) error
+	// Annotation keys not included will be left unchanged.
+	// Annotation keys in the deletions slice will be deleted.
+	SetCharmAnnotations(ctx context.Context, ID annotation.GetCharmArgs, upserts map[string]string, deletions []string) error
 }
 
 // Service provides the API for working with annotations.
@@ -115,6 +115,8 @@ func (s *Service) SetAnnotations(ctx context.Context, id annotations.ID, annotat
 // SetCharmAnnotations associates key/value annotation pairs with a given charm
 // argument. If an annotation already exists for the given ID, then it will be
 // updated with the given value.
+// Annotation keys not included will be left unchanged.
+// Annotation keys with an empty string value will be removed.
 func (s *Service) SetCharmAnnotations(ctx context.Context, id annotation.GetCharmArgs, annotations map[string]string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -127,7 +129,18 @@ func (s *Service) SetCharmAnnotations(ctx context.Context, id annotation.GetChar
 		return errors.Capture(err)
 	}
 
-	if err := s.st.SetCharmAnnotations(ctx, id, annotations); err != nil {
+	// To maintain API compatibility with the 3.x series, treat empty string values as deletions
+	upserts := make(map[string]string)
+	deletions := make([]string, 0)
+	for key, value := range annotations {
+		if value != "" {
+			upserts[key] = value
+		} else {
+			deletions = append(deletions, key)
+		}
+	}
+
+	if err := s.st.SetCharmAnnotations(ctx, id, upserts, deletions); err != nil {
 		return errors.Errorf("updating annotations for %q: %w", id.Name, err)
 	}
 	return nil

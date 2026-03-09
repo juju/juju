@@ -39,7 +39,7 @@ type Client struct {
 func NewClient(apiCaller base.APICallCloser, options ...Option) (*Client, error) {
 	frontend, backend := base.NewClientFacade(apiCaller, "Resources", options...)
 
-	httpClient, err := apiCaller.HTTPClient()
+	httpClient, err := apiCaller.HTTPClient(base.HTTPClientScopeModel)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

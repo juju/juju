@@ -168,6 +168,7 @@ func (s *crossmodelMockSuite) TestList(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, []*jujucrossmodel.ApplicationOfferDetails{{
 		OfferURL:        url,
+		OfferUUID:       offerName + "-uuid",
 		OfferName:       offerName,
 		Endpoints:       []charm.Relation{{Name: "endPointA"}},
 		ApplicationName: "db2-app",
@@ -230,6 +231,7 @@ func (s *crossmodelMockSuite) TestShow(c *tc.C) {
 	offerName := "hosted-db2"
 	access := "consume"
 	since := time.Now()
+	offerUUID := "offer-uuid"
 
 	args := params.OfferURLs{OfferURLs: []string{url}, BakeryVersion: bakery.LatestVersion}
 
@@ -241,6 +243,7 @@ func (s *crossmodelMockSuite) TestShow(c *tc.C) {
 					ApplicationDescription: desc,
 					Endpoints:              endpoints,
 					OfferURL:               url,
+					OfferUUID:              offerUUID,
 					OfferName:              offerName,
 					Users: []params.OfferUserDetails{
 						{UserName: "fred", DisplayName: "Fred", Access: access},
@@ -266,6 +269,7 @@ func (s *crossmodelMockSuite) TestShow(c *tc.C) {
 
 	c.Assert(results, tc.DeepEquals, &jujucrossmodel.ApplicationOfferDetails{
 		OfferURL:  url,
+		OfferUUID: offerUUID,
 		OfferName: offerName,
 		Endpoints: []charm.Relation{
 			{Name: "db2", Role: "provider", Interface: "db2", Optional: false, Limit: 0, Scope: ""},
@@ -322,6 +326,8 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *tc.C) {
 	}
 	offerName := "hosted-db2"
 	args := params.OfferURLs{OfferURLs: []string{url}, BakeryVersion: bakery.LatestVersion}
+	offerUUID1 := "offer-uuid-1"
+	offerUUID2 := "offer-uuid-2"
 
 	res := new(params.ApplicationOffersResults)
 	ress := params.ApplicationOffersResults{
@@ -332,6 +338,7 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *tc.C) {
 					Endpoints:              endpoints,
 					OfferURL:               url,
 					OfferName:              offerName,
+					OfferUUID:              offerUUID1,
 				},
 			}},
 			{Result: &params.ApplicationOfferAdminDetailsV5{
@@ -340,6 +347,7 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *tc.C) {
 					Endpoints:              endpoints,
 					OfferURL:               url,
 					OfferName:              offerName,
+					OfferUUID:              offerUUID2,
 				},
 			}}},
 	}
