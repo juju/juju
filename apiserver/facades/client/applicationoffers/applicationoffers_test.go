@@ -740,6 +740,34 @@ func (s *applicationOffersSuite) TestFindPermission(c *gc.C) {
 	s.assertFind(c, expected)
 }
 
+// TestFindExternalUser verifies that FindApplicationOffers succeeds for external
+// users (e.g. "foo@external") who have no local user document in the controller
+// state. The display name is expected to be empty in that case.
+func (s *applicationOffersSuite) TestFindExternalUser(c *gc.C) {
+	offerUUID := s.setupOffers(c, "", true)
+	user := names.NewUserTag("foo@external")
+	s.authorizer.Tag = user
+	s.authorizer.HasReadTag = user
+	// Deliberately do NOT add the user to s.mockState.users to simulate
+	// an external user with no local user document.
+	expected := []params.ApplicationOfferAdminDetailsV5{
+		{
+			ApplicationName: "test",
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
+				SourceModelTag:         testing.ModelTag.String(),
+				ApplicationDescription: "description",
+				OfferName:              "hosted-db2",
+				OfferUUID:              offerUUID,
+				OfferURL:               "fred@external/prod.hosted-db2",
+				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+				Users: []params.OfferUserDetails{
+					{UserName: "foo@external", DisplayName: "", Access: "read"},
+				}},
+		},
+	}
+	s.assertFind(c, expected)
+}
+
 func (s *applicationOffersSuite) TestFindFiltersRequireModel(c *gc.C) {
 	s.setupOffers(c, "", true)
 	filter := params.OfferFilters{

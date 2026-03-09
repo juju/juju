@@ -103,9 +103,12 @@ func (api *BaseAPI) applicationOffersFromModel(
 		return nil, errors.Trace(err)
 	}
 
+	var apiUserDisplayName string
 	u, err := backend.User(user)
-	if err != nil {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
+	} else if err == nil {
+		apiUserDisplayName = u.DisplayName()
 	}
 
 	var results []params.ApplicationOfferAdminDetailsV5
@@ -131,7 +134,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		}
 		offerParams.Users = []params.OfferUserDetails{{
 			UserName:    user.Id(),
-			DisplayName: u.DisplayName(),
+			DisplayName: apiUserDisplayName,
 			Access:      string(userAccess),
 		}}
 		offer := params.ApplicationOfferAdminDetailsV5{
