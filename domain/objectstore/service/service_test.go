@@ -483,21 +483,23 @@ func (s *drainingServiceSuite) TestGetDrainingPhaseInfo(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	phase := objectstore.PhaseDraining
-	fromBackendUUID := tc.Must(c, objectstore.NewUUID)
-	toBackendUUID := tc.Must(c, objectstore.NewUUID)
+	fromBackendUUID := tc.Must(c, objectstore.NewUUID).String()
+	toBackendUUID := tc.Must(c, objectstore.NewUUID).String()
 
 	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).Return(domainobjectstore.DrainingInfo{
 		Phase:           phase.String(),
-		FromBackendUUID: fromBackendUUID.String(),
-		ToBackendUUID:   toBackendUUID.String(),
+		FromBackendUUID: &fromBackendUUID,
+		ToBackendUUID:   toBackendUUID,
 	}, nil)
 
 	p, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetDrainingPhaseInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
+
+	fb := objectstore.UUID(fromBackendUUID)
 	c.Check(p, tc.DeepEquals, objectstore.DrainingPhaseInfo{
 		Phase:           phase,
-		FromBackendUUID: objectstore.UUID(fromBackendUUID.String()),
-		ToBackendUUID:   objectstore.UUID(toBackendUUID.String()),
+		FromBackendUUID: &fb,
+		ToBackendUUID:   objectstore.UUID(toBackendUUID),
 	})
 }
 
@@ -649,14 +651,15 @@ func (s *drainingServiceSuite) TestSetObjectStoreBackendToS3InvalidCreds(c *tc.C
 func (s *drainingServiceSuite) TestMarkObjectStoreBackendAsDrained(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	backendUUID := tc.Must(c, objectstore.NewUUID)
+	backendUUID := tc.Must(c, objectstore.NewUUID).String()
+	fromBackendUUID := tc.Must(c, objectstore.NewUUID).String()
 
 	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).Return(domainobjectstore.DrainingInfo{
-		UUID:            backendUUID.String(),
+		UUID:            backendUUID,
 		Phase:           objectstore.PhaseDraining.String(),
-		FromBackendUUID: backendUUID.String(),
+		FromBackendUUID: &fromBackendUUID,
 	}, nil)
-	s.state.EXPECT().MarkObjectStoreBackendAsDrained(gomock.Any(), backendUUID.String()).Return(nil)
+	s.state.EXPECT().MarkObjectStoreBackendAsDrained(gomock.Any(), fromBackendUUID).Return(nil)
 
 	err := NewWatchableDrainingService(s.state, s.watcherFactory).MarkObjectStoreBackendAsDrained(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -665,12 +668,13 @@ func (s *drainingServiceSuite) TestMarkObjectStoreBackendAsDrained(c *tc.C) {
 func (s *drainingServiceSuite) TestMarkObjectStoreBackendAsDrainedNotDraining(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	backendUUID := tc.Must(c, objectstore.NewUUID)
+	backendUUID := tc.Must(c, objectstore.NewUUID).String()
+	fromBackendUUID := tc.Must(c, objectstore.NewUUID).String()
 
 	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).Return(domainobjectstore.DrainingInfo{
-		UUID:            backendUUID.String(),
+		UUID:            backendUUID,
 		Phase:           objectstore.PhaseUnknown.String(),
-		FromBackendUUID: backendUUID.String(),
+		FromBackendUUID: &fromBackendUUID,
 	}, nil)
 
 	err := NewWatchableDrainingService(s.state, s.watcherFactory).MarkObjectStoreBackendAsDrained(c.Context())

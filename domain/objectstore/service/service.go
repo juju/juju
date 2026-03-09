@@ -490,9 +490,16 @@ func (s *WatchableDrainingService) GetDrainingPhaseInfo(ctx context.Context) (ob
 	} else if err != nil {
 		return objectstore.DrainingPhaseInfo{}, errors.Errorf("getting draining phase info: %w", err)
 	}
+
+	var fromBackend *objectstore.UUID
+	if info.FromBackendUUID != nil {
+		fb := objectstore.UUID(*info.FromBackendUUID)
+		fromBackend = &fb
+	}
+
 	return objectstore.DrainingPhaseInfo{
 		Phase:           objectstore.Phase(info.Phase),
-		FromBackendUUID: objectstore.UUID(info.FromBackendUUID),
+		FromBackendUUID: fromBackend,
 		ToBackendUUID:   objectstore.UUID(info.ToBackendUUID),
 	}, nil
 }
@@ -622,8 +629,11 @@ func (s *WatchableDrainingService) MarkObjectStoreBackendAsDrained(ctx context.C
 	if phase := objectstore.Phase(phaseInfo.Phase); !phase.IsDraining() {
 		return errors.Errorf("cannot mark object store backend as drained when phase is %q", phase)
 	}
+	if phaseInfo.FromBackendUUID == nil {
+		return errors.Errorf("invalid draining state: from backend uuid is nil")
+	}
 
-	if err := s.st.MarkObjectStoreBackendAsDrained(ctx, phaseInfo.FromBackendUUID); err != nil {
+	if err := s.st.MarkObjectStoreBackendAsDrained(ctx, *phaseInfo.FromBackendUUID); err != nil {
 		return errors.Errorf("marking object store backend as drained: %w", err)
 	}
 	return nil

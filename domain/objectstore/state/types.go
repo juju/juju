@@ -4,6 +4,8 @@
 package state
 
 import (
+	"database/sql"
+
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 )
 
@@ -57,7 +59,7 @@ type dbGetPhaseInfo struct {
 	// Phase is the phase of the object store.
 	Phase string `db:"phase"`
 	// FromBackendUUID is the uuid of the backend that is being drained from.
-	FromBackendUUID string `db:"from_backend_uuid"`
+	FromBackendUUID sql.Null[string] `db:"from_backend_uuid"`
 	// ToBackendUUID is the uuid of the backend that is being drained to.
 	ToBackendUUID string `db:"to_backend_uuid"`
 }

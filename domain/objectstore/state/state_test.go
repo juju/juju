@@ -721,7 +721,8 @@ WHERE life_id = 1`)
 		return row.Scan(&fromBackendUUID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(info.FromBackendUUID, tc.Equals, fromBackendUUID)
+	c.Assert(info.FromBackendUUID, tc.NotNil)
+	c.Check(*info.FromBackendUUID, tc.Equals, fromBackendUUID)
 }
 
 func (s *stateSuite) TestSetDrainingPhase(c *tc.C) {
