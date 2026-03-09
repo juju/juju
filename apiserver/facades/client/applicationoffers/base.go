@@ -72,6 +72,17 @@ func (api *BaseAPI) modelForName(modelName, ownerName string) (Model, string, bo
 	return model, modelPath, model != nil, nil
 }
 
+func (api *BaseAPI) userDisplayName(backend Backend, userTag names.UserTag) (string, error) {
+	user, err := backend.User(userTag)
+	if errors.Is(err, errors.NotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return user.DisplayName(), nil
+}
+
 // applicationOffersFromModel gets details about remote applications that match given filters.
 func (api *BaseAPI) applicationOffersFromModel(
 	modelUUID string,
@@ -103,7 +114,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		return nil, errors.Trace(err)
 	}
 
-	u, err := backend.User(user)
+	displayName, err := api.userDisplayName(backend, user)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -131,7 +142,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		}
 		offerParams.Users = []params.OfferUserDetails{{
 			UserName:    user.Id(),
-			DisplayName: u.DisplayName(),
+			DisplayName: displayName,
 			Access:      string(userAccess),
 		}}
 		offer := params.ApplicationOfferAdminDetailsV5{
