@@ -145,7 +145,21 @@ var httpClientTests = []struct {
 		})
 	},
 	expectError: `Get http://.*/: no macaroon found in discharge-required response`,
-}}
+}, {
+	about: "unhandled non-json error prints http code",
+	handler: func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+	},
+	expectError: `Get http://.*/: 502 Bad Gateway`,
+}, {
+	about: "unhandled non-json error prints http code and body",
+	handler: func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+		w.Write([]byte("bad request"))
+	},
+	expectError: `Get http://.*/: 502 Bad Gateway - bad request`,
+},
+}
 
 func (s *httpSuite) TestHTTPClient(c *gc.C) {
 	var handler http.HandlerFunc
