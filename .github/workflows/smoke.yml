@@ -45,7 +45,7 @@ jobs:
         uses: balchua/microk8s-actions@13f73436011eb4925c22526f64fb3ecdd81289a9
         with:
           channel: "1.34-strict/stable"
-          addons: '["dns", "hostpath-storage", "rbac"]'
+          addons: '["hostpath-storage", "rbac"]'
           launch-configuration: "$GITHUB_WORKSPACE/.github/microk8s-launch-config-aws.yaml"
 
       - name: Set up Go

@@ -4,7 +4,6 @@ extraKubeletArgs:
   --cluster-domain: cluster.local
   --cluster-dns: 10.152.183.10
 addons:
-  - name: dns
 containerdRegistryConfigs:
   docker.io: |
     [host."https://docker-cache.us-west-2.aws.jujuqa.com:443"]

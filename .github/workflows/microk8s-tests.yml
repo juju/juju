@@ -48,7 +48,7 @@ jobs:
       with:
         channel: '${{ matrix.microk8s }}'
         # enable now to give microk8s more time to settle down.
-        addons: '["dns", "hostpath-storage", "dashboard", "ingress", "metallb:10.64.140.43-10.64.140.49"]'
+        addons: '["hostpath-storage", "dashboard", "ingress", "metallb:10.64.140.43-10.64.140.49"]'
         launch-configuration: "$GITHUB_WORKSPACE/.github/microk8s-launch-config-aws.yaml"
 
     - name: Install Dependencies
