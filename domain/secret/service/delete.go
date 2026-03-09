@@ -6,12 +6,11 @@ package service
 import (
 	"context"
 
-	"github.com/google/uuid"
-
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/secret"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // DeleteObsoleteUserSecretRevisions schedules pruning of obsolete user secret

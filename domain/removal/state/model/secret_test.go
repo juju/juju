@@ -126,25 +126,17 @@ func (s *secretSuite) TestDeleteSomeRevisions(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(deleted, tc.DeepEquals, []string{"revision_id_1"})
 
-	s.assertRevisionExists(c, uri, 0)
-	s.assertRevisionDoesNotExist(c, uri, 1)
-	s.assertRevisionExists(c, uri, 2)
+	s.checkRevisionExists(c, uri, 0)
+	s.checkRevisionDoesNotExist(c, uri, 1)
+	s.checkRevisionExists(c, uri, 2)
 
-	checkCount := func(table string, expected int) {
-		row := s.DB().QueryRowContext(ctx, "SELECT count(*) FROM "+table)
-		var count int
-		err := row.Scan(&count)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Check(count, tc.Equals, expected)
-	}
-
-	checkCount("secret_revision", 2)
-	checkCount("secret_content", 2)
-	checkCount("secret_value_ref", 2)
-	checkCount("secret_revision_expire", 2)
-	checkCount("secret_revision_obsolete", 2)
-	checkCount("secret_reference", 1)
-	checkCount("secret", 1)
+	s.checkCount(c, "secret_revision", 2)
+	s.checkCount(c, "secret_content", 2)
+	s.checkCount(c, "secret_value_ref", 2)
+	s.checkCount(c, "secret_revision_expire", 2)
+	s.checkCount(c, "secret_revision_obsolete", 2)
+	s.checkCount(c, "secret_reference", 1)
+	s.checkCount(c, "secret", 1)
 }
 
 func (s *secretSuite) TestDeleteAllRevisionsFromNil(c *tc.C) {
@@ -176,25 +168,25 @@ func (s *secretSuite) assertDeleteAllRevisions(c *tc.C, revs []int) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(deleted, tc.SameContents, []string{"revision_id_0", "revision_id_1", "revision_id_2"})
 
-	checkCount := func(table string, expected int) {
-		row := s.DB().QueryRowContext(ctx, "SELECT count(*) FROM "+table)
-		var count int
-		err := row.Scan(&count)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Check(count, tc.Equals, expected)
-	}
+	s.checkCount(c, "secret_revision", 0)
+	s.checkCount(c, "secret_content", 0)
+	s.checkCount(c, "secret_value_ref", 0)
+	s.checkCount(c, "secret_revision_expire", 0)
+	s.checkCount(c, "secret_revision_obsolete", 0)
+	s.checkCount(c, "secret_reference", 0)
+	s.checkCount(c, "secret_rotation", 0)
+	s.checkCount(c, "secret_metadata", 0)
+	s.checkCount(c, "secret_application_owner", 0)
+	s.checkCount(c, "secret_unit_owner", 0)
+	s.checkCount(c, "secret", 0)
+}
 
-	checkCount("secret_revision", 0)
-	checkCount("secret_content", 0)
-	checkCount("secret_value_ref", 0)
-	checkCount("secret_revision_expire", 0)
-	checkCount("secret_revision_obsolete", 0)
-	checkCount("secret_reference", 0)
-	checkCount("secret_rotation", 0)
-	checkCount("secret_metadata", 0)
-	checkCount("secret_application_owner", 0)
-	checkCount("secret_unit_owner", 0)
-	checkCount("secret", 0)
+func (s *secretSuite) checkCount(c *tc.C, table string, expected int) {
+	row := s.DB().QueryRowContext(c.Context(), "SELECT count(*) FROM "+table)
+	var count int
+	err := row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, expected)
 }
 
 func (s *secretSuite) TestDeleteObsoleteUserSecretRevisions(c *tc.C) {
@@ -212,13 +204,13 @@ func (s *secretSuite) TestDeleteObsoleteUserSecretRevisions(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(deletedRevisionUUIDs, tc.DeepEquals, []string{revUUIDsAuto[1]})
 
-	s.assertRevisionExists(c, uriNoAuto, 1)
-	s.assertRevisionExists(c, uriNoAuto, 2)
-	s.assertRevisionDoesNotExist(c, uriAuto, 1)
-	s.assertRevisionExists(c, uriAuto, 2)
-	s.assertRevisionExists(c, uriAutoNoObsolete, 1)
-	s.assertRevisionExists(c, uriCharmAuto, 1)
-	s.assertRevisionExists(c, uriCharmAuto, 2)
+	s.checkRevisionExists(c, uriNoAuto, 1)
+	s.checkRevisionExists(c, uriNoAuto, 2)
+	s.checkRevisionDoesNotExist(c, uriAuto, 1)
+	s.checkRevisionExists(c, uriAuto, 2)
+	s.checkRevisionExists(c, uriAutoNoObsolete, 1)
+	s.checkRevisionExists(c, uriCharmAuto, 1)
+	s.checkRevisionExists(c, uriCharmAuto, 2)
 }
 
 func (s *secretSuite) TestGetUserSecretRevisionRefs(c *tc.C) {
@@ -368,11 +360,11 @@ func (s *secretSuite) addSecretWithRevisions(
 	return uri, revUUIDs
 }
 
-func (s *secretSuite) assertRevisionExists(c *tc.C, uri *coresecrets.URI, revision int) {
+func (s *secretSuite) checkRevisionExists(c *tc.C, uri *coresecrets.URI, revision int) {
 	c.Check(s.selectRevisionCount(c, uri, revision), tc.Equals, 1)
-
 }
-func (s *secretSuite) assertRevisionDoesNotExist(c *tc.C, uri *coresecrets.URI, revision int) {
+
+func (s *secretSuite) checkRevisionDoesNotExist(c *tc.C, uri *coresecrets.URI, revision int) {
 	c.Check(s.selectRevisionCount(c, uri, revision), tc.Equals, 0)
 }
 
