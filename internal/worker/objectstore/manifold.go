@@ -410,6 +410,14 @@ func GetControllerConfigService(getter dependency.Getter, name string) (Controll
 	})
 }
 
+// GetObjectStoreService is a helper function that gets a service from the
+// manifold.
+func GetObjectStoreService(getter dependency.Getter, name string) (ObjectStoreService, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factory services.ControllerObjectStoreServices) ObjectStoreService {
+		return factory.AgentObjectStore()
+	})
+}
+
 // GetMetadataService is a helper function that gets a service from the
 // manifold.
 func GetMetadataService(getter dependency.Getter, name string) (MetadataService, error) {

@@ -785,6 +785,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:                     internallogger.GetLogger("juju.worker.objectstore"),
 			NewObjectStoreWorker:       internalobjectstore.ObjectStoreFactory,
 			GetControllerConfigService: objectstore.GetControllerConfigService,
+			GetObjectStoreService:      objectstore.GetObjectStoreService,
 			GetMetadataService:         objectstore.GetMetadataService,
 			IsBootstrapController:      internalbootstrap.IsBootstrapController,
 		})),
