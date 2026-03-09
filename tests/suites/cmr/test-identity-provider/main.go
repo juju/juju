@@ -1,6 +1,21 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakerytest"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
+)
+
 // test-identity-provider is a minimal bakery-based identity provider for use
 // in integration tests. It auto-approves every "is-authenticated-user" third-
 // party caveat discharge as the username supplied via --username, eliminating
@@ -25,21 +40,6 @@
 // The identity-public-key config is required when using an HTTP (non-TLS)
 // identity-url; providing the key lets Juju skip the HTTPS requirement for
 // fetching the key from the identity service.
-package main
-
-import (
-	"context"
-	"flag"
-	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
-
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakerytest"
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-)
-
 func main() {
 	username := flag.String("username", "", "username to auto-approve for every login request")
 	flag.Parse()

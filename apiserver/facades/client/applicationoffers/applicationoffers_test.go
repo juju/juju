@@ -1139,6 +1139,33 @@ func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
 	)
 }
 
+func (s *consumeSuite) TestConsumeDetailsExternalUserWithoutLocalStateUser(c *gc.C) {
+	offerUUID := s.setupOffer()
+	apiUser := names.NewUserTag("someone@external")
+	s.authorizer.Tag = apiUser
+	s.authorizer.HasConsumeTag = apiUser
+
+	results, err := s.api.GetConsumeDetails(params.ConsumeOfferDetailsArg{
+		OfferURLs: params.OfferURLs{
+			OfferURLs: []string{"fred@external/prod.hosted-mysql"},
+		}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[0].Offer, jc.DeepEquals, &params.ApplicationOfferDetailsV5{
+		SourceModelTag:         "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		OfferURL:               "fred@external/prod.hosted-mysql",
+		OfferName:              "hosted-mysql",
+		OfferUUID:              offerUUID,
+		ApplicationDescription: "a database",
+		Endpoints:              []params.RemoteEndpoint{{Name: "server", Role: "provider", Interface: "mysql"}},
+		Users: []params.OfferUserDetails{
+			{UserName: "someone@external", DisplayName: "", Access: "consume"},
+		},
+	})
+}
+
 func (s *consumeSuite) TestConsumeDetailsSpecifiedUserHasPermission(c *gc.C) {
 	s.assertConsumeDetailsWithPermission(c,
 		func(authorizer *apiservertesting.FakeAuthorizer, apiUser names.UserTag) string {
