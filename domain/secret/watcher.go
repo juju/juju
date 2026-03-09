@@ -28,7 +28,9 @@ type secretWatcher[T any] struct {
 }
 
 // NewSecretStringWatcher returns a new secrets watcher from the source watcher
-// and tracks already seen secret URIs to ensure they are only notified once.
+// and tracks already seen secret URIs to ensure they are only notified once
+// during an event batch. This is possible when we track revision or consumer
+// events, since a unique secret can generate several events in such cases.
 func NewSecretStringWatcher[T any](
 	sourceWatcher watcher.StringsWatcher, logger logger.Logger,
 	processChanges func(ctx context.Context, events ...string) ([]T, error),
@@ -105,6 +107,7 @@ func (w *secretWatcher[T]) loop() error {
 				return errors.Capture(err)
 			}
 		case out <- changes:
+			historyIDs = nil
 			changes = nil
 			out = nil
 		}
