@@ -394,6 +394,10 @@ type ApplicationState interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetExposedEndpoints(ctx context.Context, appUUID coreapplication.UUID) (map[string]application.ExposedEndpoint, error)
 
+	// GetAllExposedEndpoints returns all exposed endpoints in the model,
+	// grouped by application name and endpoint name.
+	GetAllExposedEndpoints(ctx context.Context) (map[string]map[string]application.ExposedEndpoint, error)
+
 	// UnsetExposeSettings removes the expose settings for the provided list of
 	// endpoint names. If the resulting exposed endpoints map for the application
 	// becomes empty after the settings are removed, the application will be

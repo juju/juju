@@ -51,6 +51,15 @@ func (s *Service) GetExposedEndpoints(ctx context.Context, appName string) (map[
 	return s.st.GetExposedEndpoints(ctx, appID)
 }
 
+// GetAllExposedEndpoints returns all exposed endpoints in the model, grouped
+// by application name and endpoint name.
+func (s *Service) GetAllExposedEndpoints(ctx context.Context) (map[string]map[string]application.ExposedEndpoint, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.st.GetAllExposedEndpoints(ctx)
+}
+
 // UnsetExposeSettings removes the expose settings for the provided list of
 // endpoint names. If the resulting exposed endpoints map for the application
 // becomes empty after the settings are removed, the application will be
