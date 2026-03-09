@@ -198,7 +198,7 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 	return nil
 }
 
-// InsertIAASUnits imports the fully formed units for the specified IAAS
+// InsertMigratingIAASUnits imports the fully formed units for the specified IAAS
 // application. This is only used when importing units during model migration.
 func (st *State) InsertMigratingIAASUnits(ctx context.Context, appUUID coreapplication.UUID, units ...application.ImportIAASUnitArg) error {
 	if len(units) == 0 {
@@ -218,7 +218,7 @@ func (st *State) InsertMigratingIAASUnits(ctx context.Context, appUUID coreappli
 	})
 }
 
-// InsertCAASUnits imports the fully formed units for the specified CAAS
+// InsertMigratingCAASUnits imports the fully formed units for the specified CAAS
 // application. This is only used when importing units during model migration.
 func (st *State) InsertMigratingCAASUnits(ctx context.Context, appUUID coreapplication.UUID, units ...application.ImportCAASUnitArg) error {
 	if len(units) == 0 {

@@ -606,6 +606,19 @@ func (s *State) AddCharm(ctx context.Context, ch charm.Charm, downloadInfo *char
 		return "", charm.CharmLocator{}, errors.Errorf("setting charm with revision %d and requires sequencing", ch.Revision)
 	}
 
+	if downloadInfo != nil && downloadInfo.Provenance == charm.ProvenanceLegacyMigration {
+		// This check is in place as a safety check against incorrectly using
+		// AddCharm for migrating charms. The workflow to add a migrating charm
+		// is different to usual deployment because (for migrating charms) the
+		// charm blob is added after the metadata is added to the database. This
+		// means AddCharm will likely result in a broken charm.
+		//
+		// We have purpose-built methods to handle the differences i.e.
+		// InsertMigratingApplication and ResolveMigratingUploadedCharm that
+		// should be used instead
+		return "", charm.CharmLocator{}, errors.Errorf("adding migrating charm with AddCharm")
+	}
+
 	db, err := s.DB(ctx)
 	if err != nil {
 		return "", charm.CharmLocator{}, errors.Capture(err)
@@ -889,6 +902,8 @@ WHERE model_uuid = $modelMigrating.model_uuid
 //   - [applicationerrors.CharmNotFound] if the charm is not found.
 //   - [applicationerrors.CharmAlreadyAvailable] if the charm has already been
 //     resolved and is available.
+//   - [applicationerrors.CharmHashNotFound] is the charm is already available but
+//     the hash is not found.
 func (s *State) ResolveMigratingUploadedCharm(ctx context.Context, id corecharm.ID, info charm.ResolvedMigratingUploadedCharm) (charm.CharmLocator, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -943,6 +958,12 @@ WHERE uuid = $entityUUID.uuid;
 		} else if err != nil {
 			return errors.Capture(err)
 		} else if available.Available {
+			// If the charm has already been processed, then we don't need to do
+			// anything. Ensure the hash is correctly set, and handle the error
+			// on the other side.
+			if _, err := s.getCharmHash(ctx, tx, charmUUID); err != nil {
+				return errors.Errorf("getting charm hash for already resolved charm: %w", err)
+			}
 			return applicationerrors.CharmAlreadyAvailable
 		}
 
@@ -1078,4 +1099,25 @@ WHERE uuid = $entityUUID.uuid;
 		return "", errors.Errorf("getting charm ID by application UUID: %w", err)
 	}
 	return charmUUID.UUID, nil
+}
+
+func (s *State) getCharmHash(ctx context.Context, tx *sqlair.TX, ident entityUUID) (string, error) {
+	query := `
+SELECT hash AS &charmHash.hash
+FROM charm_hash
+WHERE charm_uuid = $entityUUID.uuid;
+`
+	stmt, err := s.Prepare(query, charmHash{}, ident)
+	if err != nil {
+		return "", errors.Errorf("preparing query: %w", err)
+	}
+
+	var charmHash charmHash
+	if err := tx.Query(ctx, stmt, ident).Get(&charmHash); errors.Is(err, sqlair.ErrNoRows) {
+		return "", applicationerrors.CharmHashNotFound
+	} else if err != nil {
+		return "", errors.Errorf("getting charm hash: %w", err)
+	}
+
+	return charmHash.Hash, nil
 }
