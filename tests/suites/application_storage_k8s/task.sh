@@ -13,6 +13,8 @@ test_application_storage_k8s() {
 
 		test_scale_app_with_updated_storage
 		test_scale_app_with_updated_storage_self_healing
+		test_scale_after_storage_update_crash
+		test_scale_resumes_after_storage_update_missing_sts
 		;;
 	*)
 		echo "==> TEST SKIPPED: application storage k8s tests, not a k8s provider"
