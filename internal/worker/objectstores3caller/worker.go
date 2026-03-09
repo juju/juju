@@ -14,12 +14,12 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/s3client"
 )
@@ -38,28 +38,31 @@ const (
 	defaultRetryMaxDuration = time.Minute
 )
 
-// ControllerConfigService is the interface that the worker uses to get the
-// controller configuration.
-type ControllerConfigService interface {
-	// ControllerConfig returns the current controller configuration.
-	ControllerConfig(context.Context) (controller.Config, error)
-	// WatchControllerConfig returns a watcher that returns keys for any changes
-	// to controller config.
-	WatchControllerConfig(context.Context) (watcher.StringsWatcher, error)
+// ObjectStoreService provides access to the object store for changes to
+// the backend.
+type ObjectStoreService interface {
+	// GetActiveObjectStoreBackend returns the backend info for the given
+	// backend uuid.
+	GetActiveObjectStoreBackend(ctx context.Context) (objectstoreservice.BackendInfo, error)
+
+	// WatchObjectStoreBackend returns a watcher that watches the object store
+	// backend. The watcher emits the backend changes that either have been
+	// added or removed.
+	WatchObjectStoreBackend(ctx context.Context) (watcher.StringsWatcher, error)
 }
 
 type workerConfig struct {
-	ControllerConfigService ControllerConfigService
-	HTTPClient              s3client.HTTPClient
-	NewClient               NewClientFunc
-	Logger                  logger.Logger
-	Clock                   clock.Clock
+	ObjectStoreService ObjectStoreService
+	HTTPClient         s3client.HTTPClient
+	NewClient          NewClientFunc
+	Logger             logger.Logger
+	Clock              clock.Clock
 }
 
 // Validate returns an error if the workerConfig is not valid.
 func (cfg workerConfig) Validate() error {
-	if cfg.ControllerConfigService == nil {
-		return errors.NotValidf("nil ControllerConfigService")
+	if cfg.ObjectStoreService == nil {
+		return errors.NotValidf("nil ObjectStoreService")
 	}
 	if cfg.HTTPClient == nil {
 		return errors.NotValidf("nil HTTPClient")
@@ -167,7 +170,7 @@ func (w *s3Worker) loop() (err error) {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	watcher, err := w.config.ControllerConfigService.WatchControllerConfig(ctx)
+	watcher, err := w.config.ObjectStoreService.WatchObjectStoreBackend(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -183,13 +186,7 @@ func (w *s3Worker) loop() (err error) {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case keys := <-watcher.Changes():
-			// If any of the keys we care about have changed, then we need to
-			// update the session.
-			if !containsObjectStoreKey(keys) {
-				continue
-			}
-
+		case <-watcher.Changes():
 			client, err := w.makeNewClient(ctx)
 			if err != nil {
 				return errors.Trace(err)
@@ -207,24 +204,29 @@ func (w *s3Worker) loop() (err error) {
 func (w *s3Worker) makeNewClient(ctx context.Context) (objectstore.Session, error) {
 	// Attempt to get the controller config. If we can't get it, then
 	// defer the update until the next change or until
-	controllerConfig, err := w.config.ControllerConfigService.ControllerConfig(ctx)
+	backendInfo, err := w.config.ObjectStoreService.GetActiveObjectStoreBackend(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if controllerConfig.ObjectStoreType() != objectstore.S3Backend {
+	if backendInfo.ObjectStoreType != objectstore.S3Backend {
 		// If the object store type is file, then we don't need to create
 		// a new S3 client, just return a noop worker.
 		return nil, nil
 	}
 
+	credentials, ok := backendInfo.S3Credentials()
+	if !ok {
+		return nil, errors.New("s3 credentials not found for s3 backend")
+	}
+
 	client, err := w.config.NewClient(
-		controllerConfig.ObjectStoreS3Endpoint(),
+		credentials.Endpoint,
 		w.config.HTTPClient,
 		s3client.StaticCredentials{
-			Key:     controllerConfig.ObjectStoreS3StaticKey(),
-			Secret:  controllerConfig.ObjectStoreS3StaticSecret(),
-			Session: controllerConfig.ObjectStoreS3StaticSession(),
+			Key:     credentials.AccessKey,
+			Secret:  credentials.SecretKey,
+			Session: credentials.SessionToken,
 		},
 		w.config.Logger,
 	)
@@ -242,7 +244,7 @@ func (w *s3Worker) addWatcher(ctx context.Context, watcher eventsource.Watcher[[
 	// Consume the initial events from the watchers. The notify watcher will
 	// dispatch an initial event when it is created, so we need to consume
 	// that event before we can start watching.
-	if _, err := eventsource.ConsumeInitialEvent[[]string](ctx, watcher); err != nil {
+	if _, err := eventsource.ConsumeInitialEvent(ctx, watcher); err != nil {
 		// IF we're shutting down, then we don't care about the error. Just
 		// return nil.
 		if errors.Is(err, context.Canceled) {
@@ -264,21 +266,4 @@ func (w *s3Worker) reportInternalState(state string) {
 	case w.internalStates <- state:
 	default:
 	}
-}
-
-var objectStoreKeys = map[string]struct{}{
-	controller.ObjectStoreS3Endpoint:      {},
-	controller.ObjectStoreS3StaticKey:     {},
-	controller.ObjectStoreS3StaticSecret:  {},
-	controller.ObjectStoreS3StaticSession: {},
-}
-
-// containsObjectStoreKey returns true if the key is interesting to the worker.
-func containsObjectStoreKey(keys []string) bool {
-	for _, key := range keys {
-		if _, ok := objectStoreKeys[key]; ok {
-			return true
-		}
-	}
-	return false
 }

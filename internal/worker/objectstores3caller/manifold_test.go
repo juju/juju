@@ -15,11 +15,10 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/goleak"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
+	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	"github.com/juju/juju/internal/s3client"
-	"github.com/juju/juju/internal/testing"
 )
 
 type manifoldSuite struct {
@@ -71,8 +70,8 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		},
 		Logger: s.logger,
 		Clock:  s.clock,
-		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
-			return s.controllerConfigService, nil
+		GetObjectStoreService: func(getter dependency.Getter, name string) (ObjectStoreService, error) {
+			return s.objectStoreService, nil
 		},
 		NewWorker: func(cfg workerConfig) (worker.Worker, error) {
 			return newWorker(cfg, s.states)
@@ -89,11 +88,14 @@ func (s *manifoldSuite) TestInputs(c *tc.C) {
 func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	config := testing.FakeControllerConfig()
+	info := objectstoreservice.BackendInfo{
+		UUID:            "backend-uuid",
+		ObjectStoreType: objectstore.FileBackend,
+	}
 
 	s.expectClock()
-	s.expectControllerConfig(c, config)
-	s.expectControllerConfigWatch(c)
+	s.expectActiveObjectStoreBackend(c, info)
+	s.expectObjectStoreBackendWatch(c)
 	s.expectHTTPClient(c)
 
 	manifold := Manifold(s.getConfig())
@@ -122,18 +124,17 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 func (s *manifoldSuite) TestStartS3Backend(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Expect that the controller config has started with the S3 backend. and
+	// Expect that the object store backend has started with the S3 backend. and
 	// that the manifold has started the worker.
 
-	// The controller config will be called twice, once to get the initial
-	// config in the manifold and once more when creating the initial session.
-
-	config := testing.FakeControllerConfig()
-	config[controller.ObjectStoreType] = string(objectstore.S3Backend)
+	info := objectstoreservice.BackendInfo{
+		UUID:            "backend-uuid",
+		ObjectStoreType: objectstore.S3Backend,
+	}
 
 	s.expectClock()
-	s.expectControllerConfig(c, config)
-	s.expectControllerConfigWatch(c)
+	s.expectActiveObjectStoreBackend(c, info)
+	s.expectObjectStoreBackendWatch(c)
 	s.expectHTTPClient(c)
 
 	w, err := Manifold(s.getConfig()).Start(c.Context(), s.newGetter())
@@ -149,12 +150,14 @@ func (s *manifoldSuite) TestStartS3Backend(c *tc.C) {
 func (s *manifoldSuite) TestOutput(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	config := testing.FakeControllerConfig()
-	config[controller.ObjectStoreType] = string(objectstore.S3Backend)
+	info := objectstoreservice.BackendInfo{
+		UUID:            "backend-uuid",
+		ObjectStoreType: objectstore.S3Backend,
+	}
 
 	s.expectClock()
-	s.expectControllerConfig(c, config)
-	s.expectControllerConfigWatch(c)
+	s.expectActiveObjectStoreBackend(c, info)
+	s.expectObjectStoreBackendWatch(c)
 	s.expectHTTPClient(c)
 
 	manifold := Manifold(s.getConfig())

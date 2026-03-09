@@ -10,17 +10,17 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	controller "github.com/juju/juju/controller"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
 	watcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination package_mock_test.go github.com/juju/juju/core/objectstore Client,Session
-//go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination services_mocks_test.go github.com/juju/juju/internal/worker/objectstores3caller ControllerConfigService
+//go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination services_mocks_test.go github.com/juju/juju/internal/worker/objectstores3caller ObjectStoreService
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination http_mocks_test.go github.com/juju/juju/internal/s3client HTTPClient
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination clock_mocks_test.go github.com/juju/clock Clock
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination httpclient_mock_test.go github.com/juju/juju/core/http HTTPClientGetter
@@ -29,10 +29,10 @@ import (
 type baseSuite struct {
 	states chan string
 
-	session                 *MockSession
-	controllerConfigService *MockControllerConfigService
-	domainServices          *MockDomainServices
-	clock                   *MockClock
+	session            *MockSession
+	objectStoreService *MockObjectStoreService
+	domainServices     *MockDomainServices
+	clock              *MockClock
 
 	httpClientGetter *MockHTTPClientGetter
 	httpClient       *MockHTTPClient
@@ -48,7 +48,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.session = NewMockSession(ctrl)
-	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.objectStoreService = NewMockObjectStoreService(ctrl)
 	s.domainServices = NewMockDomainServices(ctrl)
 	s.clock = NewMockClock(ctrl)
 
@@ -76,12 +76,12 @@ func (s *baseSuite) expectHTTPClient(c *tc.C) {
 	s.httpClientGetter.EXPECT().GetHTTPClient(gomock.Any(), corehttp.S3Purpose).Return(s.httpClient, nil)
 }
 
-func (s *baseSuite) expectControllerConfig(c *tc.C, config controller.Config) {
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(config, nil)
+func (s *baseSuite) expectActiveObjectStoreBackend(c *tc.C, info objectstoreservice.BackendInfo) {
+	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).Return(info, nil)
 }
 
-func (s *baseSuite) expectControllerConfigWatch(c *tc.C) {
-	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
+func (s *baseSuite) expectObjectStoreBackendWatch(c *tc.C) {
+	s.objectStoreService.EXPECT().WatchObjectStoreBackend(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
 		ch := make(chan []string)
 		go func() {
 			select {
@@ -94,8 +94,8 @@ func (s *baseSuite) expectControllerConfigWatch(c *tc.C) {
 	})
 }
 
-func (s *baseSuite) expectControllerConfigWatchWithChanges(c *tc.C, changes <-chan []string) {
-	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
+func (s *baseSuite) expectObjectStoreBackendWatchWithChanges(c *tc.C, changes <-chan []string) {
+	s.objectStoreService.EXPECT().WatchObjectStoreBackend(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
 		return watchertest.NewMockStringsWatcher(changes), nil
 	})
 }

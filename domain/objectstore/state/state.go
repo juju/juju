@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -716,16 +717,21 @@ func (s *State) GetObjectStoreBackend(ctx context.Context, uuid string) (domaino
 	}
 
 	type backendInfo struct {
-		UUID      string    `db:"uuid"`
-		TypeID    int       `db:"type_id"`
-		TypeValue string    `db:"type"`
-		LifeID    life.Life `db:"life_id"`
+		UUID         string           `db:"uuid"`
+		TypeID       int              `db:"type_id"`
+		TypeValue    string           `db:"type"`
+		LifeID       life.Life        `db:"life_id"`
+		Endpoint     sql.Null[string] `db:"endpoint"`
+		AccessKey    sql.Null[string] `db:"static_key"`
+		SecretKey    sql.Null[string] `db:"static_secret"`
+		SessionToken sql.Null[string] `db:"session_token"`
 	}
 
 	stmt, err := s.Prepare(`
 SELECT &backendInfo.*
 FROM object_store_backend
 JOIN object_store_backend_type ON object_store_backend.type_id = object_store_backend_type.id
+LEFT JOIN object_store_backend_s3_credential ON object_store_backend.uuid = object_store_backend_s3_credential.object_store_backend_uuid
 WHERE uuid = $backendInfo.uuid`, backendInfo{})
 	if err != nil {
 		return domainobjectstore.BackendInfo{}, errors.Errorf("preparing select object store backend statement: %w", err)
@@ -749,6 +755,66 @@ WHERE uuid = $backendInfo.uuid`, backendInfo{})
 		UUID:            info.UUID,
 		ObjectStoreType: info.TypeValue,
 		LifeID:          info.LifeID,
+		Endpoint:        nullableOrNil(info.Endpoint),
+		AccessKey:       nullableOrNil(info.AccessKey),
+		SecretKey:       nullableOrNil(info.SecretKey),
+		SessionToken:    nullableOrNil(info.SessionToken),
+	}, nil
+}
+
+// GetActiveObjectStoreBackend returns the current active object store backend
+// information. This is used to determine which backend the object store is
+// currently using, and if it is using S3, then it will return the credentials
+// for the S3 backend.
+func (s *State) GetActiveObjectStoreBackend(ctx context.Context) (domainobjectstore.BackendInfo, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return domainobjectstore.BackendInfo{}, errors.Capture(err)
+	}
+
+	type backendInfo struct {
+		UUID         string           `db:"uuid"`
+		TypeID       int              `db:"type_id"`
+		TypeValue    string           `db:"type"`
+		LifeID       life.Life        `db:"life_id"`
+		Endpoint     sql.Null[string] `db:"endpoint"`
+		AccessKey    sql.Null[string] `db:"static_key"`
+		SecretKey    sql.Null[string] `db:"static_secret"`
+		SessionToken sql.Null[string] `db:"session_token"`
+	}
+
+	stmt, err := s.Prepare(`
+SELECT &backendInfo.*
+FROM object_store_backend
+JOIN object_store_backend_type ON object_store_backend.type_id = object_store_backend_type.id
+LEFT JOIN object_store_backend_s3_credential ON object_store_backend.uuid = object_store_backend_s3_credential.object_store_backend_uuid
+WHERE life_id = 0`, backendInfo{})
+	if err != nil {
+		return domainobjectstore.BackendInfo{}, errors.Errorf("preparing select active object store backend statement: %w", err)
+	}
+
+	var info backendInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&info)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return objectstoreerrors.ErrBackendNotFound
+		} else if err != nil {
+			return errors.Errorf("retrieving active object store backend: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return domainobjectstore.BackendInfo{}, errors.Errorf("getting active object store backend: %w", err)
+	}
+
+	return domainobjectstore.BackendInfo{
+		UUID:            info.UUID,
+		ObjectStoreType: info.TypeValue,
+		LifeID:          info.LifeID,
+		Endpoint:        nullableOrNil(info.Endpoint),
+		AccessKey:       nullableOrNil(info.AccessKey),
+		SecretKey:       nullableOrNil(info.SecretKey),
+		SessionToken:    nullableOrNil(info.SessionToken),
 	}, nil
 }
 
@@ -946,4 +1012,11 @@ func encodePhaseTypeID(phase coreobjectstore.Phase) (int, error) {
 	default:
 		return -1, errors.Errorf("invalid phase %q", phase)
 	}
+}
+
+func nullableOrNil[T any](s sql.Null[T]) *T {
+	if s.Valid {
+		return &s.V
+	}
+	return nil
 }

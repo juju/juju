@@ -531,6 +531,45 @@ func (c *MockDrainingStateGetActiveDrainingInfoCall) DoAndReturn(f func(context.
 	return c
 }
 
+// GetActiveObjectStoreBackend mocks base method.
+func (m *MockDrainingState) GetActiveObjectStoreBackend(arg0 context.Context) (objectstore0.BackendInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetActiveObjectStoreBackend", arg0)
+	ret0, _ := ret[0].(objectstore0.BackendInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetActiveObjectStoreBackend indicates an expected call of GetActiveObjectStoreBackend.
+func (mr *MockDrainingStateMockRecorder) GetActiveObjectStoreBackend(arg0 any) *MockDrainingStateGetActiveObjectStoreBackendCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActiveObjectStoreBackend", reflect.TypeOf((*MockDrainingState)(nil).GetActiveObjectStoreBackend), arg0)
+	return &MockDrainingStateGetActiveObjectStoreBackendCall{Call: call}
+}
+
+// MockDrainingStateGetActiveObjectStoreBackendCall wrap *gomock.Call
+type MockDrainingStateGetActiveObjectStoreBackendCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockDrainingStateGetActiveObjectStoreBackendCall) Return(arg0 objectstore0.BackendInfo, arg1 error) *MockDrainingStateGetActiveObjectStoreBackendCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockDrainingStateGetActiveObjectStoreBackendCall) Do(f func(context.Context) (objectstore0.BackendInfo, error)) *MockDrainingStateGetActiveObjectStoreBackendCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockDrainingStateGetActiveObjectStoreBackendCall) DoAndReturn(f func(context.Context) (objectstore0.BackendInfo, error)) *MockDrainingStateGetActiveObjectStoreBackendCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetControllerIDHints mocks base method.
 func (m *MockDrainingState) GetControllerIDHints(arg0 context.Context, arg1 string) ([]string, error) {
 	m.ctrl.T.Helper()

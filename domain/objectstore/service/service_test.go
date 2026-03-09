@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/domain/life"
 	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/internal/errors"
@@ -511,14 +512,71 @@ func (s *drainingServiceSuite) TestGetDrainingPhaseInfoError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `.*boom`)
 }
 
+func (s *drainingServiceSuite) TestGetActiveObjectStoreBackend(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := tc.Must(c, objectstore.NewUUID)
+	endpoint := "https://s3.example.com"
+	accessKey := "access-key"
+	secretKey := "secret-key"
+	sessionToken := "session-token"
+
+	s.state.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).Return(domainobjectstore.BackendInfo{
+		UUID:            uuid.String(),
+		ObjectStoreType: string(objectstore.S3Backend),
+		LifeID:          life.Alive,
+		Endpoint:        &endpoint,
+		AccessKey:       &accessKey,
+		SecretKey:       &secretKey,
+		SessionToken:    &sessionToken,
+	}, nil)
+
+	info, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetActiveObjectStoreBackend(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.UUID, tc.Equals, uuid)
+	c.Check(info.ObjectStoreType, tc.Equals, objectstore.S3Backend)
+	c.Assert(info.Endpoint, tc.NotNil)
+	c.Check(*info.Endpoint, tc.Equals, endpoint)
+	c.Assert(info.AccessKey, tc.NotNil)
+	c.Check(*info.AccessKey, tc.Equals, accessKey)
+	c.Assert(info.SecretKey, tc.NotNil)
+	c.Check(*info.SecretKey, tc.Equals, secretKey)
+	c.Assert(info.SessionToken, tc.NotNil)
+	c.Check(*info.SessionToken, tc.Equals, sessionToken)
+
+	creds, ok := info.S3Credentials()
+	c.Assert(ok, tc.IsTrue)
+	c.Check(creds.Endpoint, tc.Equals, endpoint)
+	c.Check(creds.AccessKey, tc.Equals, accessKey)
+	c.Check(creds.SecretKey, tc.Equals, secretKey)
+	c.Check(creds.SessionToken, tc.Equals, sessionToken)
+}
+
+func (s *drainingServiceSuite) TestGetActiveObjectStoreBackendError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).Return(domainobjectstore.BackendInfo{}, errors.Errorf("boom"))
+
+	_, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetActiveObjectStoreBackend(c.Context())
+	c.Assert(err, tc.ErrorMatches, `.*boom`)
+}
+
 func (s *drainingServiceSuite) TestGetObjectStoreBackend(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uuid := tc.Must(c, objectstore.NewUUID)
+	endpoint := "https://s3.example.com"
+	accessKey := "access-key"
+	secretKey := "secret-key"
+	sessionToken := "session-token"
 
 	backendInfo := domainobjectstore.BackendInfo{
 		UUID:            uuid.String(),
 		ObjectStoreType: "s3",
+		Endpoint:        &endpoint,
+		AccessKey:       &accessKey,
+		SecretKey:       &secretKey,
+		SessionToken:    &sessionToken,
 	}
 
 	s.state.EXPECT().GetObjectStoreBackend(gomock.Any(), uuid.String()).Return(backendInfo, nil)
@@ -528,7 +586,18 @@ func (s *drainingServiceSuite) TestGetObjectStoreBackend(c *tc.C) {
 	c.Check(info, tc.DeepEquals, BackendInfo{
 		UUID:            objectstore.UUID(backendInfo.UUID),
 		ObjectStoreType: objectstore.BackendType(backendInfo.ObjectStoreType),
+		Endpoint:        &endpoint,
+		AccessKey:       &accessKey,
+		SecretKey:       &secretKey,
+		SessionToken:    &sessionToken,
 	})
+
+	creds, ok := info.S3Credentials()
+	c.Assert(ok, tc.IsTrue)
+	c.Check(creds.Endpoint, tc.Equals, endpoint)
+	c.Check(creds.AccessKey, tc.Equals, accessKey)
+	c.Check(creds.SecretKey, tc.Equals, secretKey)
+	c.Check(creds.SessionToken, tc.Equals, sessionToken)
 }
 
 func (s *drainingServiceSuite) TestGetObjectStoreBackendError(c *tc.C) {

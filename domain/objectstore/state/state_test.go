@@ -1003,6 +1003,79 @@ WHERE object_store_backend_uuid = ?`, drainingUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *stateSuite) TestGetActiveObjectStoreBackend(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	runner, err := s.TxnRunnerFactory()(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	var activeUUID string
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, `
+SELECT uuid FROM object_store_backend
+WHERE life_id = 0`)
+		return row.Scan(&activeUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	info, err := st.GetActiveObjectStoreBackend(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.UUID, tc.Equals, activeUUID)
+	c.Check(info.ObjectStoreType, tc.Equals, "file")
+	c.Check(info.LifeID, tc.Equals, life.Alive)
+	c.Check(info.Endpoint, tc.IsNil)
+	c.Check(info.AccessKey, tc.IsNil)
+	c.Check(info.SecretKey, tc.IsNil)
+	c.Check(info.SessionToken, tc.IsNil)
+}
+
+func (s *stateSuite) TestGetActiveObjectStoreBackendS3(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
+	creds := domainobjectstore.S3Credentials{
+		Endpoint:     "https://s3.example.com",
+		AccessKey:    "access-key",
+		SecretKey:    "secret-key",
+		SessionToken: "session-token",
+	}
+
+	err := st.SetObjectStoreBackendToS3(c.Context(), backendUUID, creds)
+	c.Assert(err, tc.ErrorIsNil)
+
+	info, err := st.GetActiveObjectStoreBackend(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.UUID, tc.Equals, backendUUID)
+	c.Check(info.ObjectStoreType, tc.Equals, "s3")
+	c.Check(info.LifeID, tc.Equals, life.Alive)
+	c.Assert(info.Endpoint, tc.NotNil)
+	c.Check(*info.Endpoint, tc.Equals, creds.Endpoint)
+	c.Assert(info.AccessKey, tc.NotNil)
+	c.Check(*info.AccessKey, tc.Equals, creds.AccessKey)
+	c.Assert(info.SecretKey, tc.NotNil)
+	c.Check(*info.SecretKey, tc.Equals, creds.SecretKey)
+	c.Assert(info.SessionToken, tc.NotNil)
+	c.Check(*info.SessionToken, tc.Equals, creds.SessionToken)
+}
+
+func (s *stateSuite) TestGetActiveObjectStoreBackendNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	runner, err := s.TxnRunnerFactory()(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE object_store_backend
+SET life_id = 1`)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = st.GetActiveObjectStoreBackend(c.Context())
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrBackendNotFound)
+}
+
 func (s *stateSuite) TestGetObjectStoreBackend(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
@@ -1023,6 +1096,40 @@ WHERE life_id = 0`)
 	c.Check(info.UUID, tc.Equals, backendUUID)
 	c.Check(info.ObjectStoreType, tc.Equals, "file")
 	c.Check(info.LifeID, tc.Equals, life.Alive)
+	c.Check(info.Endpoint, tc.IsNil)
+	c.Check(info.AccessKey, tc.IsNil)
+	c.Check(info.SecretKey, tc.IsNil)
+	c.Check(info.SessionToken, tc.IsNil)
+}
+
+func (s *stateSuite) TestGetObjectStoreBackendS3(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
+	creds := domainobjectstore.S3Credentials{
+		Endpoint:     "https://s3.example.com",
+		AccessKey:    "access-key",
+		SecretKey:    "secret-key",
+		SessionToken: "foo",
+	}
+
+	err := st.SetObjectStoreBackendToS3(c.Context(), backendUUID, creds)
+	c.Assert(err, tc.ErrorIsNil)
+
+	info, err := st.GetObjectStoreBackend(c.Context(), backendUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.UUID, tc.Equals, backendUUID)
+	c.Check(info.ObjectStoreType, tc.Equals, "s3")
+	c.Check(info.LifeID, tc.Equals, life.Alive)
+
+	c.Assert(info.Endpoint, tc.NotNil)
+	c.Check(*info.Endpoint, tc.Equals, creds.Endpoint)
+	c.Assert(info.AccessKey, tc.NotNil)
+	c.Check(*info.AccessKey, tc.Equals, creds.AccessKey)
+	c.Assert(info.SecretKey, tc.NotNil)
+	c.Check(*info.SecretKey, tc.Equals, creds.SecretKey)
+	c.Check(info.SessionToken, tc.NotNil)
+	c.Check(*info.SessionToken, tc.Equals, creds.SessionToken)
 }
 
 func (s *stateSuite) TestGetObjectStoreBackendNotFound(c *tc.C) {

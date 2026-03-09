@@ -103,6 +103,10 @@ type DrainingState interface {
 	// the specified uuid.
 	GetObjectStoreBackend(ctx context.Context, uuid string) (domainobjectstore.BackendInfo, error)
 
+	// GetActiveObjectStoreBackend returns the active object store backend
+	// information.
+	GetActiveObjectStoreBackend(ctx context.Context) (domainobjectstore.BackendInfo, error)
+
 	// StartDraining initiates the draining process for the object store.
 	StartDraining(ctx context.Context, uuid string) error
 
@@ -498,8 +502,41 @@ func (s *WatchableDrainingService) GetDrainingPhaseInfo(ctx context.Context) (ob
 type BackendInfo struct {
 	// UUID is the uuid for the backend.
 	UUID objectstore.UUID
+
 	// ObjectStoreType is the type of the object store.
 	ObjectStoreType objectstore.BackendType
+
+	// Endpoint, AccessKey, SecretKey, and Region are only used for S3 backend.
+	Endpoint *string
+
+	// AccessKey is not returned for security reasons, but it is expected to be
+	// set in the state when the backend is S3, and it will be used to create
+	// the S3 client for the draining process.
+	AccessKey *string
+	// SecretKey is not returned for security reasons, but it is expected to be
+	// set in the state when the backend is S3, and it will be used to create
+	// the S3 client for the draining process.
+	SecretKey *string
+
+	// SessionToken is not returned for security reasons, but it is expected to
+	// be set in the state when the backend is S3, and it will be used to create
+	// the S3 client for the draining process.
+	SessionToken *string
+}
+
+// S3Credentials returns the S3 credentials if the object store type is S3, and
+// returns false otherwise.
+func (s BackendInfo) S3Credentials() (domainobjectstore.S3Credentials, bool) {
+	if s.ObjectStoreType != objectstore.S3Backend {
+		return domainobjectstore.S3Credentials{}, false
+	}
+
+	return domainobjectstore.S3Credentials{
+		Endpoint:     unptr(s.Endpoint, ""),
+		AccessKey:    unptr(s.AccessKey, ""),
+		SecretKey:    unptr(s.SecretKey, ""),
+		SessionToken: unptr(s.SessionToken, ""),
+	}, true
 }
 
 // GetObjectStoreBackend returns the object store backend information for the
@@ -519,6 +556,30 @@ func (s *WatchableDrainingService) GetObjectStoreBackend(ctx context.Context, uu
 	return BackendInfo{
 		UUID:            objectstore.UUID(backendInfo.UUID),
 		ObjectStoreType: objectstore.BackendType(backendInfo.ObjectStoreType),
+		Endpoint:        backendInfo.Endpoint,
+		AccessKey:       backendInfo.AccessKey,
+		SecretKey:       backendInfo.SecretKey,
+		SessionToken:    backendInfo.SessionToken,
+	}, nil
+}
+
+// GetActiveObjectStoreBackend returns the active object store backend
+// information.
+func (s *WatchableDrainingService) GetActiveObjectStoreBackend(ctx context.Context) (BackendInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	backendInfo, err := s.st.GetActiveObjectStoreBackend(ctx)
+	if err != nil {
+		return BackendInfo{}, errors.Errorf("getting active object store backend info: %w", err)
+	}
+	return BackendInfo{
+		UUID:            objectstore.UUID(backendInfo.UUID),
+		ObjectStoreType: objectstore.BackendType(backendInfo.ObjectStoreType),
+		Endpoint:        backendInfo.Endpoint,
+		AccessKey:       backendInfo.AccessKey,
+		SecretKey:       backendInfo.SecretKey,
+		SessionToken:    backendInfo.SessionToken,
 	}, nil
 }
 
@@ -597,4 +658,11 @@ func (s *WatchableDrainingService) WatchDraining(ctx context.Context) (watcher.N
 		"objectstore draining watcher",
 		eventsource.NamespaceFilter(table, changestream.All),
 	)
+}
+
+func unptr[T any](ptr *T, fallback T) T {
+	if ptr == nil {
+		return fallback
+	}
+	return *ptr
 }
