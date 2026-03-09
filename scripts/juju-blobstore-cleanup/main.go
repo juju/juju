@@ -36,9 +36,8 @@ const (
 	dataDir              = "/var/lib/juju"
 	managedResourceC     = "managedStoredResources"
 	resourceCatalogC     = "storedResources"
-	// resourceC            = "resources"
-	blobstoreFilesC  = "blobstore.files"
-	blobstoreChunksC = "blobstore.chunks"
+	blobstoreFilesC      = "blobstore.files"
+	blobstoreChunksC     = "blobstore.chunks"
 )
 
 var loggingConfig = gnuflag.String("logging-config", defaultLoggingConfig, "specify log levels for modules")
@@ -377,7 +376,7 @@ func (b *BlobstoreCleaner) findUnmanagedResources() {
 		len(b.unmanagedResources), lengthToSize(b.unmanagedResourceBytes))
 }
 
-func txnRunner(db *mgo.Database) (jujutxn.Runner, error) {
+func txnRunner(db *mgo.Database) jujutxn.Runner {
 	return jujutxn.NewRunner(jujutxn.RunnerParams{
 		Database:                  db,
 		TransactionCollectionName: "txns",
@@ -404,11 +403,7 @@ func (b *BlobstoreCleaner) cleanupUnmanagedResources() {
 	// However, that code doesn't expose newResourceCatalog or resourceCatalog.
 	// And by their nature, we can't use blobstore.ManagedStorage because the
 	// reference to these objects doesn't exist.
-	runner, err := txnRunner(b.session.DB("juju"))
-	if err != nil {
-		logger.Warningf("error creating transaction runner: %v", err)
-		return
-	}
+	runner := txnRunner(b.session.DB("juju"))
 	gridfs := blobstore.NewGridFS("blobstore", "blobstore", b.session)
 	for _, unmanagedResource := range b.unmanagedResources {
 		logger.Debugf("removing unmanaged resource: %q", unmanagedResource.ID)
