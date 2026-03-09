@@ -19,6 +19,8 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
+	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
+	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	"github.com/juju/juju/internal/errors"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/fortress"
@@ -68,6 +70,20 @@ type GuardService interface {
 	// WatchDraining returns a watcher that watches the draining phase of the
 	// object store.
 	WatchDraining(ctx context.Context) (watcher.NotifyWatcher, error)
+
+	// GetObjectStoreBackend returns the backend info for the given backend uuid.
+	GetObjectStoreBackend(ctx context.Context, backendUUID objectstore.UUID) (objectstoreservice.BackendInfo, error)
+
+	// MarkObjectStoreBackendAsDrained marks the object store backend as
+	// drained, which will cause the controller to switch to the new backend and
+	// update the agent configuration. This should only be called once the
+	// draining process has completed successfully.
+	MarkObjectStoreBackendAsDrained(ctx context.Context) error
+
+	// WatchObjectStoreBackend returns a watcher that watches the object store
+	// backend. The watcher emits the backend changes that either have been
+	// added or removed.
+	WatchObjectStoreBackend(ctx context.Context) (watcher.StringsWatcher, error)
 }
 
 // ControllerService provides access to the controller for draining
@@ -84,7 +100,6 @@ type Config struct {
 	Guard                        fortress.Guard
 	GuardService                 GuardService
 	ControllerService            ControllerService
-	ControllerConfigService      ControllerConfigService
 	ControllerObjectStoreService objectstore.ObjectStoreMetadata
 	ObjectStoreServicesGetter    ObjectStoreServicesGetter
 	ObjectStoreFlusher           objectstore.ObjectStoreFlusher
@@ -113,9 +128,6 @@ func (config Config) Validate() error {
 	}
 	if config.ControllerService == nil {
 		return errors.Errorf("nil ControllerService").Add(coreerrors.NotValid)
-	}
-	if config.ControllerConfigService == nil {
-		return errors.Errorf("nil ControllerConfigService").Add(coreerrors.NotValid)
 	}
 	if config.ControllerObjectStoreService == nil {
 		return errors.Errorf("nil controllerObjectStoreService").Add(coreerrors.NotValid)
@@ -185,7 +197,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 		guardService: config.GuardService,
 
 		controllerService:            config.ControllerService,
-		controllerConfigService:      config.ControllerConfigService,
 		controllerObjectStoreService: config.ControllerObjectStoreService,
 
 		objectStoreServicesGetter: config.ObjectStoreServicesGetter,
@@ -231,7 +242,6 @@ type Worker struct {
 	guardService GuardService
 
 	controllerService            ControllerService
-	controllerConfigService      ControllerConfigService
 	controllerObjectStoreService objectstore.ObjectStoreMetadata
 
 	objectStoreServicesGetter ObjectStoreServicesGetter
@@ -271,12 +281,12 @@ func (w *Worker) Report() map[string]any {
 func (w *Worker) loop() error {
 	ctx := w.catacomb.Context(context.Background())
 
-	cfgWatcher, err := w.controllerConfigService.WatchControllerConfig(ctx)
+	backendWatcher, err := w.guardService.WatchObjectStoreBackend(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := w.catacomb.Add(cfgWatcher); err != nil {
+	if err := w.catacomb.Add(backendWatcher); err != nil {
 		return errors.Capture(err)
 	}
 
@@ -293,7 +303,7 @@ func (w *Worker) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 
-		case <-cfgWatcher.Changes():
+		case <-backendWatcher.Changes():
 			if err := w.handleConfigChange(ctx); err != nil {
 				return errors.Capture(err)
 			}
@@ -325,10 +335,6 @@ func (w *Worker) loop() error {
 			if err := w.guard.Lockdown(ctx); err != nil {
 				return errors.Errorf("failed to update guard: %v", err)
 			}
-
-			// TODO (stickupkid): Support draining from one s3 object store to
-			// another. For now, we just log that we're in the draining phase
-			// from file to s3.
 
 			// Drain the agent binary object store, then drain all the models.
 			if err := w.drainAgentBinaries(ctx); err != nil {
@@ -372,17 +378,24 @@ func (w *Worker) loop() error {
 // HandleConfigChange starts the whole draining process if the object store
 // type has changed.
 func (w *Worker) handleConfigChange(ctx context.Context) error {
-	config, err := w.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	phaseInfo, err := w.guardService.GetDrainingPhaseInfo(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	objectStoreType := config.ObjectStoreType()
+	toBackendInfo, err := w.guardService.GetObjectStoreBackend(ctx, phaseInfo.ToBackendUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// TODO (stickupkid): This currently only supports draining from a file
+	// based object store to an s3 based object store. We should support
+	// draining from one s3 object store to another, but this will require some
+	// changes to the draining process to ensure that we don't delete objects
+	// from the source object store until they have been successfully copied to
+	// the destination object store.
+
+	objectStoreType := toBackendInfo.ObjectStoreType
 	objectStoreTypeChanged := objectStoreType != w.objectStoreType
 
 	if !objectStoreTypeChanged {
@@ -498,6 +511,12 @@ func (w *Worker) waitForDraining(ctx context.Context, signal <-chan string, name
 // It sets the draining phase to completed, which will cause the main loop
 // to unlock the guard and allow the object store to be used again.
 func (w *Worker) completeDraining(ctx context.Context) error {
+	// Mark the old backend as drained. It's ok to call this multiple times, as
+	// the guard service should handle it idempotently.
+	if err := w.guardService.MarkObjectStoreBackendAsDrained(ctx); err != nil && !errors.Is(err, objectstoreerrors.ErrBackendNotFound) {
+		return errors.Errorf("marking object store backend as drained: %w", err)
+	}
+
 	// If we're in a completed state (PhaseCompleted), we can safely update the
 	// agent configuration and then force the object store to pick up the
 	// new configuration.

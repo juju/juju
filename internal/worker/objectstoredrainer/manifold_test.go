@@ -30,6 +30,8 @@ import (
 
 type manifoldSuite struct {
 	baseSuite
+
+	controllerConfigService *MockControllerConfigService
 }
 
 func TestManifoldSuite(t *testing.T) {
@@ -229,6 +231,18 @@ func (s *manifoldSuite) TestStartUpdatesObjectStoreType(c *tc.C) {
 
 	_, err := Manifold(s.getConfig(c)).Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIs, internalworker.ErrRestartAgent)
+}
+
+func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := s.baseSuite.setupMocks(c)
+
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+
+	c.Cleanup(func() {
+		s.controllerConfigService = nil
+	})
+
+	return ctrl
 }
 
 // Note: This replicates the ability to get a controller domain services and

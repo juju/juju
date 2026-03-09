@@ -99,6 +99,10 @@ type DrainingState interface {
 	// store.
 	GetActiveDrainingInfo(ctx context.Context) (domainobjectstore.DrainingInfo, error)
 
+	// GetObjectStoreBackend returns the object store backend information for
+	// the specified uuid.
+	GetObjectStoreBackend(ctx context.Context, uuid string) (domainobjectstore.BackendInfo, error)
+
 	// StartDraining initiates the draining process for the object store.
 	StartDraining(ctx context.Context, uuid string) error
 
@@ -486,6 +490,35 @@ func (s *WatchableDrainingService) GetDrainingPhaseInfo(ctx context.Context) (ob
 		Phase:           objectstore.Phase(info.Phase),
 		FromBackendUUID: objectstore.UUID(info.FromBackendUUID),
 		ToBackendUUID:   objectstore.UUID(info.ToBackendUUID),
+	}, nil
+}
+
+// BackendInfo represents the information about an object store backend,
+// including the uuid and the type of the object store.
+type BackendInfo struct {
+	// UUID is the uuid for the backend.
+	UUID objectstore.UUID
+	// ObjectStoreType is the type of the object store.
+	ObjectStoreType objectstore.BackendType
+}
+
+// GetObjectStoreBackend returns the object store backend information for the
+// specified uuid.
+func (s *WatchableDrainingService) GetObjectStoreBackend(ctx context.Context, uuid objectstore.UUID) (BackendInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := uuid.Validate(); err != nil {
+		return BackendInfo{}, errors.Errorf("invalid uuid %s: %w", uuid, err)
+	}
+
+	backendInfo, err := s.st.GetObjectStoreBackend(ctx, uuid.String())
+	if err != nil {
+		return BackendInfo{}, errors.Errorf("getting object store backend info for uuid %s: %w", uuid, err)
+	}
+	return BackendInfo{
+		UUID:            objectstore.UUID(backendInfo.UUID),
+		ObjectStoreType: objectstore.BackendType(backendInfo.ObjectStoreType),
 	}, nil
 }
 

@@ -33,7 +33,6 @@ type baseSuite struct {
 	controllerObjectStoreMetadata *MockObjectStoreMetadata
 	objectStoreFlusher            *MockObjectStoreFlusher
 	controllerService             *MockControllerService
-	controllerConfigService       *MockControllerConfigService
 	s3Client                      *MockClient
 	s3Session                     *MockSession
 	hashFileSystemAccessor        *MockHashFileSystemAccessor
@@ -57,7 +56,6 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.controllerObjectStoreMetadata = NewMockObjectStoreMetadata(ctrl)
 
 	s.controllerService = NewMockControllerService(ctrl)
-	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 
 	s.s3Client = NewMockClient(ctrl)
 	s.s3Session = NewMockSession(ctrl)
@@ -76,7 +74,6 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.objectStoreMetadata = nil
 		s.objectStoreFlusher = nil
 		s.controllerService = nil
-		s.controllerConfigService = nil
 		s.s3Client = nil
 		s.s3Session = nil
 		s.hashFileSystemAccessor = nil

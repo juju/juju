@@ -511,6 +511,37 @@ func (s *drainingServiceSuite) TestGetDrainingPhaseInfoError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `.*boom`)
 }
 
+func (s *drainingServiceSuite) TestGetObjectStoreBackend(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := tc.Must(c, objectstore.NewUUID)
+
+	backendInfo := domainobjectstore.BackendInfo{
+		UUID:            uuid.String(),
+		ObjectStoreType: "s3",
+	}
+
+	s.state.EXPECT().GetObjectStoreBackend(gomock.Any(), uuid.String()).Return(backendInfo, nil)
+
+	info, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetObjectStoreBackend(c.Context(), uuid)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info, tc.DeepEquals, BackendInfo{
+		UUID:            objectstore.UUID(backendInfo.UUID),
+		ObjectStoreType: objectstore.BackendType(backendInfo.ObjectStoreType),
+	})
+}
+
+func (s *drainingServiceSuite) TestGetObjectStoreBackendError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := tc.Must(c, objectstore.NewUUID)
+
+	s.state.EXPECT().GetObjectStoreBackend(gomock.Any(), uuid.String()).Return(domainobjectstore.BackendInfo{}, errors.Errorf("boom"))
+
+	_, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetObjectStoreBackend(c.Context(), uuid)
+	c.Assert(err, tc.ErrorMatches, `.*boom`)
+}
+
 func (s *drainingServiceSuite) TestRemoveMetadata(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

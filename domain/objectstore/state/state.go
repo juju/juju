@@ -12,6 +12,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/life"
 	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/internal/database"
@@ -707,6 +708,50 @@ WHERE di.phase_type_id <= 1;
 	}, nil
 }
 
+// GetObjectStoreBackend returns the current object store backend information. This is used to determine which backend the object store is currently using, and if it is using S3, then it will return the credentials for the S3 backend.
+func (s *State) GetObjectStoreBackend(ctx context.Context, uuid string) (domainobjectstore.BackendInfo, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return domainobjectstore.BackendInfo{}, errors.Capture(err)
+	}
+
+	type backendInfo struct {
+		UUID      string    `db:"uuid"`
+		TypeID    int       `db:"type_id"`
+		TypeValue string    `db:"type"`
+		LifeID    life.Life `db:"life_id"`
+	}
+
+	stmt, err := s.Prepare(`
+SELECT &backendInfo.*
+FROM object_store_backend
+JOIN object_store_backend_type ON object_store_backend.type_id = object_store_backend_type.id
+WHERE uuid = $backendInfo.uuid`, backendInfo{})
+	if err != nil {
+		return domainobjectstore.BackendInfo{}, errors.Errorf("preparing select object store backend statement: %w", err)
+	}
+
+	var info backendInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, backendInfo{UUID: uuid}).Get(&info)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return objectstoreerrors.ErrBackendNotFound
+		} else if err != nil {
+			return errors.Errorf("retrieving object store backend: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return domainobjectstore.BackendInfo{}, errors.Errorf("getting object store backend: %w", err)
+	}
+
+	return domainobjectstore.BackendInfo{
+		UUID:            info.UUID,
+		ObjectStoreType: info.TypeValue,
+		LifeID:          info.LifeID,
+	}, nil
+}
+
 // SetObjectStoreBackendToS3 sets the object store to use S3 with the provided
 // credentials. This is used to update the object store information when the
 // object store is set to use S3 as the backend.
@@ -808,14 +853,16 @@ func (s *State) MarkObjectStoreBackendAsDrained(ctx context.Context, uuid string
 	}
 
 	type backendType struct {
-		UUID   string `db:"uuid"`
-		TypeID int    `db:"type_id"`
+		UUID   string    `db:"uuid"`
+		TypeID int       `db:"type_id"`
+		LifeID life.Life `db:"life_id"`
 	}
 
 	backend := backendType{UUID: uuid}
 
 	selectStmt, err := s.Prepare(`
-SELECT type_id AS &backendType.type_id
+SELECT type_id AS &backendType.type_id,
+       life_id AS &backendType.life_id
 FROM object_store_backend
 WHERE uuid = $backendType.uuid`, backend)
 	if err != nil {
@@ -858,7 +905,7 @@ WHERE uuid = $backendType.uuid AND life_id = 1`, backend)
 		}
 		if rows, err := outcome.Result().RowsAffected(); err != nil {
 			return errors.Errorf("updating object store backend: %w", err)
-		} else if rows == 0 {
+		} else if rows == 0 && backend.LifeID != life.Dead {
 			return errors.Errorf("no draining backend found")
 		}
 

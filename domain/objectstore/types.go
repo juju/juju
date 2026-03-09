@@ -3,7 +3,10 @@
 
 package objectstore
 
-import "github.com/juju/juju/internal/errors"
+import (
+	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/internal/errors"
+)
 
 // Metadata represents the metadata for an object.
 type Metadata struct {
@@ -56,4 +59,16 @@ type DrainingInfo struct {
 	FromBackendUUID string
 	// ToBackendUUID is the uuid of the backend that is being drained to.
 	ToBackendUUID string
+}
+
+// BackendInfo represents the information about an object store backend,
+// including the uuid and the type of the object store.
+type BackendInfo struct {
+	// UUID is the uuid for the backend.
+	UUID string
+	// LifeID is the life id for the backend, which indicates if the backend is
+	// active (life_id = 0) or not (life_id >= 1).
+	LifeID life.Life
+	// ObjectStoreType is the type of the object store.
+	ObjectStoreType string
 }

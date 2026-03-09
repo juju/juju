@@ -687,6 +687,45 @@ func (c *MockDrainingStateGetMetadataBySHA256PrefixCall) DoAndReturn(f func(cont
 	return c
 }
 
+// GetObjectStoreBackend mocks base method.
+func (m *MockDrainingState) GetObjectStoreBackend(arg0 context.Context, arg1 string) (objectstore0.BackendInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetObjectStoreBackend", arg0, arg1)
+	ret0, _ := ret[0].(objectstore0.BackendInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetObjectStoreBackend indicates an expected call of GetObjectStoreBackend.
+func (mr *MockDrainingStateMockRecorder) GetObjectStoreBackend(arg0, arg1 any) *MockDrainingStateGetObjectStoreBackendCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetObjectStoreBackend", reflect.TypeOf((*MockDrainingState)(nil).GetObjectStoreBackend), arg0, arg1)
+	return &MockDrainingStateGetObjectStoreBackendCall{Call: call}
+}
+
+// MockDrainingStateGetObjectStoreBackendCall wrap *gomock.Call
+type MockDrainingStateGetObjectStoreBackendCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockDrainingStateGetObjectStoreBackendCall) Return(arg0 objectstore0.BackendInfo, arg1 error) *MockDrainingStateGetObjectStoreBackendCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockDrainingStateGetObjectStoreBackendCall) Do(f func(context.Context, string) (objectstore0.BackendInfo, error)) *MockDrainingStateGetObjectStoreBackendCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockDrainingStateGetObjectStoreBackendCall) DoAndReturn(f func(context.Context, string) (objectstore0.BackendInfo, error)) *MockDrainingStateGetObjectStoreBackendCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // InitialWatchBackendTable mocks base method.
 func (m *MockDrainingState) InitialWatchBackendTable() (string, string) {
 	m.ctrl.T.Helper()
