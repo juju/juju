@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"regexp"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -2609,39 +2608,21 @@ func (a *app) volumeClaimTemplateMatch(
 	currentVolClaims []corev1.PersistentVolumeClaim,
 	newVolClaims []corev1.PersistentVolumeClaim,
 ) bool {
-	if len(currentVolClaims) != len(newVolClaims) {
-		return false
-	}
-	slices.SortStableFunc(currentVolClaims, func(a, b corev1.PersistentVolumeClaim) int {
-		if a.Name < b.Name {
-			return -1
-		} else if a.Name > b.Name {
-			return 1
-		}
-		return 0
-	})
+	return apiequality.Semantic.DeepEqual(
+		normalizePVCs(currentVolClaims),
+		normalizePVCs(newVolClaims),
+	)
+}
 
-	slices.SortStableFunc(newVolClaims, func(a, b corev1.PersistentVolumeClaim) int {
-		if a.Name < b.Name {
-			return -1
-		} else if a.Name > b.Name {
-			return 1
-		}
-		return 0
-	})
-
-	// Go through each claim and check for any changes.
-	for i := 0; i < len(currentVolClaims); i++ {
-		currentVolClaim := currentVolClaims[i]
-		newVolClaim := newVolClaims[i]
-
-		slices.Sort(currentVolClaim.Spec.AccessModes)
-		slices.Sort(newVolClaim.Spec.AccessModes)
-
-		if !apiequality.Semantic.DeepEqual(currentVolClaim.Spec.Resources, newVolClaim.Spec.Resources) {
-			return false
+func normalizePVCs(pvcs []corev1.PersistentVolumeClaim) []corev1.PersistentVolumeClaim {
+	out := make([]corev1.PersistentVolumeClaim, len(pvcs))
+	for i, pvc := range pvcs {
+		out[i] = corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: pvc.Name,
+			},
+			Spec: pvc.Spec,
 		}
 	}
-
-	return true
+	return out
 }
