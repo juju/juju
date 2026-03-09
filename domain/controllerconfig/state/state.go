@@ -69,14 +69,8 @@ func (st *State) ControllerConfig(ctx context.Context) (map[string]string, error
 func (st *State) UpdateControllerConfig(
 	ctx context.Context,
 	updateAttrs map[string]string, removeAttrs []string,
-	validateModification func(map[string]string) error,
 ) error {
 	db, err := st.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	selectStmt, err := st.Prepare("SELECT &KeyValue.* FROM v_controller_config", KeyValue{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -136,20 +130,6 @@ SET api_port = $controllerValues.api_port
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Check keys and values are valid between current and new config.
-		var keyValues []KeyValue
-		if err := tx.Query(ctx, selectStmt).GetAll(&keyValues); err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return errors.Capture(err)
-		}
-
-		current := make(map[string]string)
-		for _, kv := range keyValues {
-			current[kv.Key] = kv.Value
-		}
-		if err := validateModification(current); err != nil {
-			return errors.Capture(err)
-		}
-
 		// Update the attributes.
 		if len(updateKeyValues) > 0 {
 			if err := tx.Query(ctx, updateStmt, updateKeyValues).Run(); err != nil {

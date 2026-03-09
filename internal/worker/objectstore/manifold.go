@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
+	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	"github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/apiremotecaller"
@@ -68,6 +69,18 @@ type ControllerConfigService interface {
 // the manifold.
 type GetControllerConfigServiceFunc func(getter dependency.Getter, name string) (ControllerConfigService, error)
 
+// ObjectStoreService is the interface that the worker uses to get the
+// controller configuration.
+type ObjectStoreService interface {
+	// GetActiveObjectStoreBackend returns the active object store backend
+	// information.
+	GetActiveObjectStoreBackend(ctx context.Context) (objectstoreservice.BackendInfo, error)
+}
+
+// GetObjectStoreServiceFunc is a helper function that gets a service from
+// the manifold.
+type GetObjectStoreServiceFunc func(getter dependency.Getter, name string) (ObjectStoreService, error)
+
 // GetMetadataServiceFunc is a helper function that gets a service from
 // the manifold.
 type GetMetadataServiceFunc func(getter dependency.Getter, name string) (MetadataService, error)
@@ -89,6 +102,7 @@ type ManifoldConfig struct {
 	Logger                     logger.Logger
 	NewObjectStoreWorker       objectstore.ObjectStoreWorkerFunc
 	GetControllerConfigService GetControllerConfigServiceFunc
+	GetObjectStoreService      GetObjectStoreServiceFunc
 	GetMetadataService         GetMetadataServiceFunc
 	IsBootstrapController      IsBootstrapControllerFunc
 }
@@ -106,6 +120,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.GetControllerConfigService == nil {
 		return errors.NotValidf("nil GetControllerConfigService")
+	}
+	if cfg.GetObjectStoreService == nil {
+		return errors.NotValidf("nil GetObjectStoreService")
 	}
 	if cfg.GetMetadataService == nil {
 		return errors.NotValidf("nil GetMetadataService")
@@ -165,6 +182,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+			objectStoreService, err := config.GetObjectStoreService(getter, config.ObjectStoreServicesName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			metadataService, err := config.GetMetadataService(getter, config.ObjectStoreServicesName)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -198,6 +219,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+			backendInfo, err := objectStoreService.GetActiveObjectStoreBackend(ctx)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 
 			currentConfig := a.CurrentConfig()
 			dataDir := currentConfig.DataDir()
@@ -216,7 +241,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				S3Client:                  s3Client,
 				APIRemoteCaller:           apiRemoteCaller,
 				ControllerMetadataService: metadataService,
-				ControllerConfigService:   controllerConfigService,
+				ObjectStoreService:        objectStoreService,
 				ModelServiceGetter: modelServiceGetter{
 					servicesGetter: objectStoreServicesGetter,
 				},
@@ -226,7 +251,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ModelClaimGetter: modelClaimGetter{
 					manager: leaseManager,
 				},
-				AllowDraining:    AllowDraining(controllerConfig, config.IsBootstrapController(dataDir)),
+				AllowDraining:    AllowDraining(backendInfo, config.IsBootstrapController(dataDir)),
 				ControllerNodeID: controllerNodeID,
 			})
 			return w, errors.Trace(err)
@@ -397,6 +422,6 @@ func GetMetadataService(getter dependency.Getter, name string) (MetadataService,
 
 // AllowDraining returns true if the worker should allow draining. This
 // currently is only true for the bootstrap controller.
-func AllowDraining(config controller.Config, isBootstrapController bool) bool {
-	return config.ObjectStoreType() == coreobjectstore.S3Backend && isBootstrapController
+func AllowDraining(info objectstoreservice.BackendInfo, isBootstrapController bool) bool {
+	return info.ObjectStoreType == coreobjectstore.S3Backend && isBootstrapController
 }

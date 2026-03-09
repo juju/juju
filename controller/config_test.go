@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/internal/docker/registry/mocks"
@@ -1000,45 +999,4 @@ func (s *ConfigSuite) TestSSHServerConcurrentConnections(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.SSHMaxConcurrentConnections(), tc.Equals, 10)
-}
-
-func (s *ConfigSuite) TestObjectStoreType(c *tc.C) {
-	backendType := "file"
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]interface{}{
-			controller.ObjectStoreType: backendType,
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cfg.ObjectStoreType(), tc.Equals, objectstore.FileBackend)
-}
-
-func (s *ConfigSuite) TestObjectStoreS3Endpoint(c *tc.C) {
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]interface{}{
-			controller.ObjectStoreS3Endpoint: "http://localhost:9000",
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cfg.ObjectStoreS3Endpoint(), tc.Equals, "http://localhost:9000")
-}
-
-func (s *ConfigSuite) TestObjectStoreS3Credentials(c *tc.C) {
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]interface{}{
-			controller.ObjectStoreS3StaticKey:     "key",
-			controller.ObjectStoreS3StaticSecret:  "secret",
-			controller.ObjectStoreS3StaticSession: "session",
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cfg.ObjectStoreS3StaticKey(), tc.Equals, "key")
-	c.Assert(cfg.ObjectStoreS3StaticSecret(), tc.Equals, "secret")
-	c.Assert(cfg.ObjectStoreS3StaticSession(), tc.Equals, "session")
 }

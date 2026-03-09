@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/config"
@@ -113,7 +114,7 @@ func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWr
 		OpenTelemetryStackTraces:           cfg.Controller.OpenTelemetryStackTraces(),
 		OpenTelemetrySampleRatio:           cfg.Controller.OpenTelemetrySampleRatio(),
 		OpenTelemetryTailSamplingThreshold: cfg.Controller.OpenTelemetryTailSamplingThreshold(),
-		ObjectStoreType:                    cfg.Controller.ObjectStoreType(),
+		ObjectStoreType:                    objectstore.FileBackend,
 	}
 	return agent.NewStateMachineConfig(configParams, cfg.Bootstrap.ControllerAgentInfo)
 }

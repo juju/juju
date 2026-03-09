@@ -204,13 +204,18 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
+	backendInfo, err := guardService.GetObjectStoreBackend(ctx, phaseInfo.ToBackendUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var (
 		objectStoreTypeChanged                       bool
 		agentsObjectStoreType, configObjectStoreType coreobjectstore.BackendType
 	)
 	err = a.ChangeConfig(func(cfg agent.ConfigSetter) error {
 		agentsObjectStoreType = cfg.ObjectStoreType()
-		configObjectStoreType = controllerConfig.ObjectStoreType()
+		configObjectStoreType = backendInfo.ObjectStoreType
 		objectStoreTypeChanged = agentsObjectStoreType != configObjectStoreType
 
 		// We've bounced whilst draining, so we need to ensure that we don't
