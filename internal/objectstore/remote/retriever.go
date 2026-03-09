@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/clock"
 	jujuerrors "github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
@@ -37,6 +38,18 @@ const (
 	HTTPError = errors.ConstError("http error")
 )
 
+// ModelTagGetter is an interface for getting the model tag from an API
+// connection.
+type ModelTagGetter interface {
+	// ModelTag returns the model tag for the current connection, if available.
+	ModelTag() (names.ModelTag, bool)
+}
+
+// GetNamespaceFunc is a function that returns the namespace to use for
+// retrieving blobs from the remote API, given a ModelTagGetter to get the model
+// tag from the API connection.
+type GetNamespaceFunc func(ModelTagGetter) (string, error)
+
 // BlobsClient is an interface for retrieving objects from an object store.
 type BlobsClient interface {
 	// GetObject returns a reader for the object with the given key in the
@@ -51,7 +64,8 @@ type NewBlobsClientFunc func(url string, client s3client.HTTPClient, logger logg
 type BlobRetriever struct {
 	tomb tomb.Tomb
 
-	namespace string
+	namespace       string
+	namespaceGetter GetNamespaceFunc
 
 	apiRemoteCallers apiremotecaller.APIRemoteCallers
 	newBlobsClient   NewBlobsClientFunc
@@ -60,10 +74,35 @@ type BlobRetriever struct {
 	logger logger.Logger
 }
 
-// NewBlobRetriever creates a new BlobRetriever.
-func NewBlobRetriever(apiRemoteCallers apiremotecaller.APIRemoteCallers, namespace string, newBlobsClient NewBlobsClientFunc, clock clock.Clock, logger logger.Logger) (*BlobRetriever, error) {
+// NewControllerBlobRetriever creates a new BlobRetriever.
+func NewControllerBlobRetriever(apiRemoteCallers apiremotecaller.APIRemoteCallers, newBlobsClient NewBlobsClientFunc, clock clock.Clock, logger logger.Logger) (*BlobRetriever, error) {
 	w := &BlobRetriever{
-		namespace:        namespace,
+		namespace: database.ControllerNS,
+		namespaceGetter: func(mtg ModelTagGetter) (string, error) {
+			tag, ok := mtg.ModelTag()
+			if !ok {
+				return "", errors.Errorf("missing model tag when using controller namespace")
+			}
+			return tag.Id(), nil
+		},
+		newBlobsClient:   newBlobsClient,
+		apiRemoteCallers: apiRemoteCallers,
+		clock:            clock,
+		logger:           logger,
+	}
+
+	w.tomb.Go(w.loop)
+
+	return w, nil
+}
+
+// NewModelBlobRetriever creates a new BlobRetriever.
+func NewModelBlobRetriever(apiRemoteCallers apiremotecaller.APIRemoteCallers, namespace string, newBlobsClient NewBlobsClientFunc, clock clock.Clock, logger logger.Logger) (*BlobRetriever, error) {
+	w := &BlobRetriever{
+		namespace: namespace,
+		namespaceGetter: func(mtg ModelTagGetter) (string, error) {
+			return namespace, nil
+		},
 		newBlobsClient:   newBlobsClient,
 		apiRemoteCallers: apiRemoteCallers,
 		clock:            clock,
@@ -86,8 +125,6 @@ func (r *BlobRetriever) Report() map[string]any {
 
 // Retrieve returns a reader for the blob with the given SHA256.
 func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string, controllerIDHints []string) (io.ReadCloser, int64, error) {
-	controllerNamespace := r.namespace == database.ControllerNS
-
 	// Check if we're already dead or dying before we start to do anything.
 	select {
 	case <-r.tomb.Dying():
@@ -113,14 +150,14 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string, controllerI
 		remotes = shuffleRemotes(remotes)
 	}
 
-	return r.retrieveFromRemotes(ctx, remotes, sha256, controllerNamespace)
+	return r.retrieveFromRemotes(ctx, remotes, sha256)
 }
 
-func (r *BlobRetriever) retrieveFromRemotes(ctx context.Context, remotes []apiremotecaller.RemoteConnection, sha256 string, controllerNamespace bool) (io.ReadCloser, int64, error) {
+func (r *BlobRetriever) retrieveFromRemotes(ctx context.Context, remotes []apiremotecaller.RemoteConnection, sha256 string) (io.ReadCloser, int64, error) {
 	// Iterate over the remotes and try to retrieve the blob from each one.
 	var errs []string
 	for _, remote := range remotes {
-		reader, size, err := r.retrieve(ctx, remote, sha256, controllerNamespace)
+		reader, size, err := r.retrieve(ctx, remote, sha256)
 		if errors.Is(err, HTTPError) {
 			errs = append(errs, err.Error())
 			r.logger.Debugf(ctx, "failed to retrieve blob %q from remote: %v", sha256, err)
@@ -137,7 +174,7 @@ func (r *BlobRetriever) retrieveFromRemotes(ctx context.Context, remotes []apire
 	return nil, -1, errors.Errorf(`failed to retrieve %q: %s`, sha256, strings.Join(errs, ",")).Add(BlobNotFound)
 }
 
-func (r *BlobRetriever) retrieve(ctx context.Context, remote apiremotecaller.RemoteConnection, sha256 string, controllerNamespace bool) (io.ReadCloser, int64, error) {
+func (r *BlobRetriever) retrieve(ctx context.Context, remote apiremotecaller.RemoteConnection, sha256 string) (io.ReadCloser, int64, error) {
 	var reader io.ReadCloser
 	var size int64
 
@@ -152,13 +189,9 @@ func (r *BlobRetriever) retrieve(ctx context.Context, remote apiremotecaller.Rem
 			return errors.Errorf("failed to create object client: %w", err).Add(HTTPError)
 		}
 
-		ns := r.namespace
-		if controllerNamespace {
-			tag, ok := conn.ModelTag()
-			if !ok {
-				return errors.Errorf("missing model tag when using controller namespace")
-			}
-			ns = tag.Id()
+		ns, err := r.namespaceGetter(conn)
+		if err != nil {
+			return errors.Errorf("failed to get namespace: %w", err).Add(HTTPError)
 		}
 
 		ctx := &scopedContext{

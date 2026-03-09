@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/errors"
@@ -184,8 +185,21 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 	}
 }
 
+func newBlobRetriever(
+	apiRemoteCallers apiremotecaller.APIRemoteCallers,
+	namespace string,
+	newBlobsClient remote.NewBlobsClientFunc,
+	clock clock.Clock,
+	logger logger.Logger,
+) (*remote.BlobRetriever, error) {
+	if namespace == database.ControllerNS {
+		return remote.NewControllerBlobRetriever(apiRemoteCallers, newBlobsClient, clock, logger)
+	}
+	return remote.NewModelBlobRetriever(apiRemoteCallers, namespace, newBlobsClient, clock, logger)
+}
+
 func newFileObjectStore(ctx context.Context, namespace string, opts *options) (_ *remoteFileObjectStore, err error) {
-	blobRetriever, err := remote.NewBlobRetriever(
+	blobRetriever, err := newBlobRetriever(
 		opts.apiRemoteCallers,
 		namespace,
 		opts.newFileBlobsClient,

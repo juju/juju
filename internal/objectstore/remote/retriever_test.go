@@ -21,7 +21,6 @@ import (
 	"gopkg.in/tomb.v2"
 
 	api "github.com/juju/juju/api"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/s3client"
@@ -79,7 +78,31 @@ func (s *retrieverSuite) TestRetrieveControllerNamespace(c *tc.C) {
 	s.simpleHTTPClient.EXPECT().BaseURL().Return("http://example.com/api")
 	s.client.EXPECT().GetObject(gomock.Any(), "f47ac10b-58cc-4372-a567-0e02b2c3d479", "sha256").Return(io.NopCloser(strings.NewReader("test data")), int64(9), nil)
 
-	ret, err := NewBlobRetriever(s.remoteCallers, database.ControllerNS, func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
+	ret, err := NewControllerBlobRetriever(s.remoteCallers, func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
+		return s.client, nil
+	}, s.clock, loggertesting.WrapCheckLog(c))
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, ret)
+
+	reader, size, err := ret.Retrieve(c.Context(), "sha256", []string{"1"})
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkReader(c, reader, size)
+
+	workertest.CleanKill(c, ret)
+}
+
+func (s *retrieverSuite) TestRetrieveModelNamespace(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection1}, nil)
+	s.remoteConnection1.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+		return f(ctx, s.apiConnection)
+	})
+	s.apiConnection.EXPECT().SimpleHTTPClient().Return(s.simpleHTTPClient, nil)
+	s.simpleHTTPClient.EXPECT().BaseURL().Return("http://example.com/api")
+	s.client.EXPECT().GetObject(gomock.Any(), "f47ac10b-58cc-4372-a567-0e02b2c3d479", "sha256").Return(io.NopCloser(strings.NewReader("test data")), int64(9), nil)
+
+	ret, err := NewModelBlobRetriever(s.remoteCallers, "f47ac10b-58cc-4372-a567-0e02b2c3d479", func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
 		return s.client, nil
 	}, s.clock, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
@@ -118,7 +141,7 @@ func (s *retrieverSuite) TestRetrieveControllerNamespacePerCall(c *tc.C) {
 		s.client.EXPECT().GetObject(gomock.Any(), tag2.Id(), "sha256").Return(io.NopCloser(strings.NewReader("test data")), int64(9), nil),
 	)
 
-	ret, err := NewBlobRetriever(s.remoteCallers, database.ControllerNS, func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
+	ret, err := NewControllerBlobRetriever(s.remoteCallers, func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
 		return s.client, nil
 	}, s.clock, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
@@ -138,21 +161,21 @@ func (s *retrieverSuite) TestRetrieveControllerNamespacePerCall(c *tc.C) {
 func (s *retrieverSuite) TestRetrieveControllerNamespaceMissingModelTag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection}, nil)
-	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection1}, nil)
+	s.remoteConnection1.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
 		return f(ctx, s.apiConnection)
 	})
 	s.apiConnection.EXPECT().SimpleHTTPClient().Return(s.simpleHTTPClient, nil)
 	s.simpleHTTPClient.EXPECT().BaseURL().Return("http://example.com/api")
 	s.apiConnection.EXPECT().ModelTag().Return(names.NewModelTag("f47ac10b-58cc-4372-a567-0e02b2c3d479"), false)
 
-	ret, err := NewBlobRetriever(s.remoteCallers, database.ControllerNS, func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
+	ret, err := NewControllerBlobRetriever(s.remoteCallers, func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
 		return s.client, nil
 	}, s.clock, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, ret)
 
-	_, _, err = ret.Retrieve(c.Context(), "sha256")
+	_, _, err = ret.Retrieve(c.Context(), "sha256", []string{"1"})
 	c.Assert(err, tc.ErrorMatches, ".*missing model tag.*")
 
 	workertest.CleanKill(c, ret)
@@ -537,7 +560,7 @@ func (s *retrieverSuite) TestScopedContextDoneIgnoresChildAfterIgnore(c *tc.C) {
 }
 
 func (s *retrieverSuite) newRetriever(c *tc.C) *BlobRetriever {
-	ret, err := NewBlobRetriever(s.remoteCallers, "namespace", func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
+	ret, err := NewModelBlobRetriever(s.remoteCallers, "namespace", func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
 		return s.client, nil
 	}, s.clock, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
