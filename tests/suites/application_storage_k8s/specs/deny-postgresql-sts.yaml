@@ -21,3 +21,13 @@ metadata:
 spec:
   policyName: deny-postgresql-sts
   validationActions: [Deny]
+  # Only apply to the namespaces (juju models) below to avoid disrupting
+  # other tests.
+  matchResources:
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values:
+            - scale-app-with-updated-storage-self-healing
+            - scale-after-storage-update-missing-sts-recovery
