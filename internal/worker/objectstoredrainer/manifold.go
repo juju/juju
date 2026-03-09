@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
+	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/services"
@@ -199,12 +200,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	currentConfig := a.CurrentConfig()
 	dataDir := currentConfig.DataDir()
 
-	phaseInfo, err := guardService.GetDrainingPhaseInfo(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	backendInfo, err := guardService.GetObjectStoreBackend(ctx, phaseInfo.ActiveBackendUUID)
+	phaseInfo, backendType, err := getDrainingState(ctx, guardService)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -215,12 +211,12 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	)
 	err = a.ChangeConfig(func(cfg agent.ConfigSetter) error {
 		agentsObjectStoreType = cfg.ObjectStoreType()
-		configObjectStoreType = backendInfo.ObjectStoreType
+		configObjectStoreType = backendType
 		objectStoreTypeChanged = agentsObjectStoreType != configObjectStoreType
 
 		// We've bounced whilst draining, so we need to ensure that we don't
 		// change the object store type if we're still draining.
-		if phaseInfo.Phase.IsDraining() && objectStoreTypeChanged {
+		if phaseInfo.IsDraining() && objectStoreTypeChanged {
 			objectStoreTypeChanged = false
 		}
 
@@ -264,6 +260,27 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 	return worker, nil
+}
+
+func getDrainingState(ctx context.Context, guardService GuardService) (coreobjectstore.Phase, coreobjectstore.BackendType, error) {
+	phaseInfo, err := guardService.GetDrainingPhaseInfo(ctx)
+	if errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
+		// There is no draining phase which means we then have to ask the
+		// service what is the active backend and use that backend's type.
+		backendInfo, err := guardService.GetActiveObjectStoreBackend(ctx)
+		if err != nil {
+			return "", "", internalerrors.Errorf("getting active objectstore backend info: %w", err)
+		}
+		return phaseInfo.Phase, backendInfo.ObjectStoreType, nil
+	} else if err != nil {
+		return "", "", internalerrors.Errorf("getting objectstore draining phase info: %w", err)
+	}
+
+	backendInfo, err := guardService.GetObjectStoreBackend(ctx, phaseInfo.ActiveBackendUUID)
+	if err != nil {
+		return "", "", internalerrors.Errorf("getting objectstore backend info: %w", err)
+	}
+	return phaseInfo.Phase, backendInfo.ObjectStoreType, nil
 }
 
 // Manifold packages a Worker for use in a dependency.Engine.

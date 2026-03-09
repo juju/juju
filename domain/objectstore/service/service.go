@@ -483,11 +483,7 @@ func (s *WatchableDrainingService) GetDrainingPhaseInfo(ctx context.Context) (ob
 	defer span.End()
 
 	info, err := s.st.GetActiveDrainingInfo(ctx)
-	if errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
-		return objectstore.DrainingPhaseInfo{
-			Phase: objectstore.PhaseUnknown,
-		}, nil
-	} else if err != nil {
+	if err != nil {
 		return objectstore.DrainingPhaseInfo{}, errors.Errorf("getting draining phase info: %w", err)
 	}
 

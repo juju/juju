@@ -167,6 +167,45 @@ func (m *MockGuardService) EXPECT() *MockGuardServiceMockRecorder {
 	return m.recorder
 }
 
+// GetActiveObjectStoreBackend mocks base method.
+func (m *MockGuardService) GetActiveObjectStoreBackend(arg0 context.Context) (service.BackendInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetActiveObjectStoreBackend", arg0)
+	ret0, _ := ret[0].(service.BackendInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetActiveObjectStoreBackend indicates an expected call of GetActiveObjectStoreBackend.
+func (mr *MockGuardServiceMockRecorder) GetActiveObjectStoreBackend(arg0 any) *MockGuardServiceGetActiveObjectStoreBackendCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActiveObjectStoreBackend", reflect.TypeOf((*MockGuardService)(nil).GetActiveObjectStoreBackend), arg0)
+	return &MockGuardServiceGetActiveObjectStoreBackendCall{Call: call}
+}
+
+// MockGuardServiceGetActiveObjectStoreBackendCall wrap *gomock.Call
+type MockGuardServiceGetActiveObjectStoreBackendCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockGuardServiceGetActiveObjectStoreBackendCall) Return(arg0 service.BackendInfo, arg1 error) *MockGuardServiceGetActiveObjectStoreBackendCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockGuardServiceGetActiveObjectStoreBackendCall) Do(f func(context.Context) (service.BackendInfo, error)) *MockGuardServiceGetActiveObjectStoreBackendCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockGuardServiceGetActiveObjectStoreBackendCall) DoAndReturn(f func(context.Context) (service.BackendInfo, error)) *MockGuardServiceGetActiveObjectStoreBackendCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetDrainingPhaseInfo mocks base method.
 func (m *MockGuardService) GetDrainingPhaseInfo(arg0 context.Context) (objectstore.DrainingPhaseInfo, error) {
 	m.ctrl.T.Helper()

@@ -17,7 +17,6 @@ import (
 	gomock "go.uber.org/mock/gomock"
 
 	agent "github.com/juju/juju/agent"
-	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -165,12 +164,17 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
 
 	cfg := internaltesting.FakeControllerConfig()
-	cfg[controller.ObjectStoreType] = objectstore.FileBackend.String()
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
 
+	activeBackendUUID := tc.Must(c, objectstore.NewUUID)
+
 	s.guardService.EXPECT().GetDrainingPhaseInfo(gomock.Any()).Return(objectstore.DrainingPhaseInfo{
-		Phase: objectstore.PhaseUnknown,
+		Phase:             objectstore.PhaseCompleted,
+		ActiveBackendUUID: activeBackendUUID,
+	}, nil)
+	s.guardService.EXPECT().GetObjectStoreBackend(gomock.Any(), activeBackendUUID).Return(objectstoreservice.BackendInfo{
+		ObjectStoreType: objectstore.FileBackend,
 	}, nil)
 
 	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
@@ -190,12 +194,16 @@ func (s *manifoldSuite) TestStartObjectStoreTypeChangedWhilstDraining(c *tc.C) {
 	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
 
 	cfg := internaltesting.FakeControllerConfig()
-	cfg[controller.ObjectStoreType] = objectstore.S3Backend.String()
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
 
+	activeBackendUUID := tc.Must(c, objectstore.NewUUID)
 	s.guardService.EXPECT().GetDrainingPhaseInfo(gomock.Any()).Return(objectstore.DrainingPhaseInfo{
-		Phase: objectstore.PhaseDraining,
+		Phase:             objectstore.PhaseDraining,
+		ActiveBackendUUID: activeBackendUUID,
+	}, nil)
+	s.guardService.EXPECT().GetObjectStoreBackend(gomock.Any(), activeBackendUUID).Return(objectstoreservice.BackendInfo{
+		ObjectStoreType: objectstore.FileBackend,
 	}, nil)
 
 	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
@@ -215,12 +223,16 @@ func (s *manifoldSuite) TestStartUpdatesObjectStoreType(c *tc.C) {
 	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
 
 	cfg := internaltesting.FakeControllerConfig()
-	cfg[controller.ObjectStoreType] = objectstore.S3Backend.String()
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
 
+	activeBackendUUID := tc.Must(c, objectstore.NewUUID)
 	s.guardService.EXPECT().GetDrainingPhaseInfo(gomock.Any()).Return(objectstore.DrainingPhaseInfo{
-		Phase: objectstore.PhaseUnknown,
+		Phase:             objectstore.PhaseCompleted,
+		ActiveBackendUUID: activeBackendUUID,
+	}, nil)
+	s.guardService.EXPECT().GetObjectStoreBackend(gomock.Any(), activeBackendUUID).Return(objectstoreservice.BackendInfo{
+		ObjectStoreType: objectstore.S3Backend,
 	}, nil)
 
 	s.agentConfigSetter.EXPECT().SetObjectStoreType(objectstore.S3Backend)

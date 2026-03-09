@@ -71,6 +71,10 @@ type GuardService interface {
 	// object store.
 	WatchDraining(ctx context.Context) (watcher.NotifyWatcher, error)
 
+	// GetActiveObjectStoreBackend returns the active backend info for the
+	// object store.
+	GetActiveObjectStoreBackend(ctx context.Context) (objectstoreservice.BackendInfo, error)
+
 	// GetObjectStoreBackend returns the backend info for the given backend uuid.
 	GetObjectStoreBackend(ctx context.Context, backendUUID objectstore.UUID) (objectstoreservice.BackendInfo, error)
 

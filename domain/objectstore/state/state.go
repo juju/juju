@@ -678,7 +678,7 @@ func (s *State) GetActiveDrainingInfo(ctx context.Context) (domainobjectstore.Dr
 SELECT di.uuid AS &dbGetPhaseInfo.uuid,
        pt.type AS &dbGetPhaseInfo.phase,
        di.from_backend_uuid AS &dbGetPhaseInfo.from_backend_uuid,
-       di.to_backend_uuid AS &dbGetPhaseInfo.to_backend_uuid
+       di.to_backend_uuid AS &dbGetPhaseInfo.active_backend_uuid
 FROM object_store_drain_info AS di
 JOIN object_store_drain_phase_type AS pt ON di.phase_type_id=pt.id
 WHERE di.phase_type_id <= 1;
