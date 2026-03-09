@@ -172,9 +172,9 @@ run_offer_find_non_admin() {
 	# (the non-admin user has no models of their own).
 
 	JUJU_MODEL="test-offer-find:admin/model-offer-find" JUJU_DATA=/tmp/offeruser \
-		juju find-offers --format=json \
-		| jq -r 'has("test-offer-find:admin/model-offer-find.dummy-offer")' \
-		| check true
+		juju find-offers --format=json |
+		jq -r 'has("test-offer-find:admin/model-offer-find.dummy-offer")' |
+		check true
 
 	echo "Clean up"
 	rm -rf /tmp/offeruser
@@ -241,8 +241,8 @@ run_offer_find_external_user() {
 	wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
 	# Retrieve one of the API endpoints for the external-user login step.
-	CTRL_ENDPOINT=$(juju show-controller ctrl-extuser-idp --format=json \
-		| jq -r '."ctrl-extuser-idp".details."api-endpoints"[0]')
+	CTRL_ENDPOINT=$(juju show-controller ctrl-extuser-idp --format=json |
+		jq -r '."ctrl-extuser-idp".details."api-endpoints"[0]')
 
 	echo "Login as testextuser@external (auto-approved by test identity provider)"
 	rm -rf /tmp/extuser
@@ -256,9 +256,9 @@ run_offer_find_external_user() {
 
 	echo "Check find-offers output as external user"
 	JUJU_MODEL="ctrl-extuser-idp:admin/model-offer-ext" JUJU_DATA=/tmp/extuser \
-		juju find-offers --format=json \
-		| jq -r 'has("ctrl-extuser-idp:admin/model-offer-ext.dummy-offer")' \
-		| check true
+		juju find-offers --format=json |
+		jq -r 'has("ctrl-extuser-idp:admin/model-offer-ext.dummy-offer")' |
+		check true
 
 	echo "Clean up"
 	kill "${IDP_PID}" 2>/dev/null || true
