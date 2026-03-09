@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
@@ -18,9 +19,11 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	application "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	"github.com/juju/juju/domain/deployment"
 	domainnetwork "github.com/juju/juju/domain/network"
 	service "github.com/juju/juju/domain/status/service"
 	"github.com/juju/juju/internal/testhelpers"
@@ -45,6 +48,15 @@ type fullStatusSuite struct {
 	portService               *MockPortService
 	relationService           *MockRelationService
 	statusService             *MockStatusService
+}
+
+type stubLeadershipReader struct {
+	leaders map[string]string
+	err     error
+}
+
+func (s stubLeadershipReader) Leaders() (map[string]string, error) {
+	return s.leaders, s.err
 }
 
 func TestFullStatusSuite(t *testing.T) {
@@ -302,6 +314,63 @@ func (s *fullStatusSuite) TestFullStatusUsesControllerFlagOnMachineStatus(c *tc.
 	})
 }
 
+func (s *fullStatusSuite) TestFullStatusExposedEndpointsFetchedInBulk(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	client := s.client(false)
+	s.expectCheckCanRead(client, true)
+	s.expectCheckIsAdmin(client, false)
+
+	s.modelInfoService.EXPECT().GetModelInfo(c.Context()).Return(model.ModelInfo{
+		Cloud:     "dummy",
+		CloudType: "dummy",
+		Type:      model.IAAS,
+	}, nil)
+	s.statusService.EXPECT().GetModelStatus(gomock.Any()).Return(status.StatusInfo{
+		Status: status.Available,
+	}, nil)
+	s.applicationService.EXPECT().GetAllEndpointBindings(gomock.Any()).Return(nil, nil)
+	s.statusService.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(map[string]service.Application{
+		"mysql": {
+			CharmLocator: charm.CharmLocator{
+				Name:         "mysql",
+				Revision:     1,
+				Source:       charm.CharmHubSource,
+				Architecture: architecture.AMD64,
+			},
+			Platform: deployment.Platform{
+				OSType:  deployment.Ubuntu,
+				Channel: "22.04/stable",
+			},
+			Status: status.StatusInfo{
+				Status: status.Active,
+			},
+			Exposed: true,
+		},
+	}, nil)
+	s.statusService.EXPECT().GetMachineFullStatuses(gomock.Any()).Return(nil, nil)
+	s.applicationService.EXPECT().GetAllExposedEndpoints(gomock.Any()).Return(map[string]map[string]application.ExposedEndpoint{
+		"mysql": {
+			"": {
+				ExposeToCIDRs: set.NewStrings("0.0.0.0/0"),
+			},
+		},
+	}, nil)
+	s.statusService.EXPECT().GetRemoteApplicationOffererStatuses(gomock.Any()).Return(nil, nil)
+	s.portService.EXPECT().GetAllOpenedPorts(gomock.Any()).Return(nil, nil)
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(nil, nil)
+	s.networkService.EXPECT().GetAllDevicesByMachineNames(gomock.Any()).Return(nil, nil)
+	s.relationService.EXPECT().GetAllRelationDetails(gomock.Any()).Return(nil, nil)
+
+	output, err := client.FullStatus(c.Context(), params.StatusParams{})
+	c.Assert(err, tc.IsNil)
+	c.Check(output.Applications["mysql"].ExposedEndpoints, tc.DeepEquals, map[string]params.ExposedEndpoint{
+		"": {
+			ExposeToCIDRs: []string{"0.0.0.0/0"},
+		},
+	})
+}
+
 func (s *fullStatusSuite) client(isControllerModel bool) *Client {
 	return &Client{
 		controllerTag:     names.NewControllerTag(internaluuid.MustNewUUID().String()),
@@ -309,6 +378,7 @@ func (s *fullStatusSuite) client(isControllerModel bool) *Client {
 		modelTag:          names.NewModelTag(s.modelUUID.String()),
 		clock:             s.clock,
 		auth:              s.authorizer,
+		leadershipReader:  stubLeadershipReader{leaders: map[string]string{}},
 
 		applicationService:        s.applicationService,
 		blockDeviceService:        s.blockDeviceService,

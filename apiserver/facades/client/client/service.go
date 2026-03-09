@@ -45,6 +45,10 @@ type ApplicationService interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetExposedEndpoints(ctx context.Context, appName string) (map[string]application.ExposedEndpoint, error)
 
+	// GetAllExposedEndpoints returns all exposed endpoints in the model,
+	// grouped by application name and endpoint name.
+	GetAllExposedEndpoints(ctx context.Context) (map[string]map[string]application.ExposedEndpoint, error)
+
 	// GetAllEndpointBindings returns the all endpoint bindings for the model, where
 	// endpoints are indexed by the application name for the application which they
 	// belong to.
