@@ -314,22 +314,22 @@ func (w *Worker) loop() error {
 
 		case <-drainingWatcher.Changes():
 			info, err := w.guardService.GetDrainingPhaseInfo(ctx)
-			if err != nil {
+			if errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
+				info.Phase = objectstore.PhaseUnknown
+			} else if err != nil {
 				return errors.Capture(err)
 			}
 
-			phase := info.Phase
-
 			// We're not draining, so we can unlock the guard and wait
 			// for the next change.
-			if phase.IsNotStarted() || phase == objectstore.PhaseCompleted {
+			if info.Phase.IsNotStarted() || info.Phase == objectstore.PhaseCompleted {
 				w.logger.Infof(ctx, "object store is not draining, unlocking guard")
 
 				if err := w.guard.Unlock(ctx); err != nil {
 					return errors.Errorf("failed to update guard: %v", err)
 				}
 				continue
-			} else if phase == objectstore.PhaseError {
+			} else if info.Phase == objectstore.PhaseError {
 				w.logger.Errorf(ctx, "object store is in an error state, manual intervention required")
 				continue
 			}
@@ -383,13 +383,32 @@ func (w *Worker) loop() error {
 // type has changed.
 func (w *Worker) handleConfigChange(ctx context.Context) error {
 	phaseInfo, err := w.guardService.GetDrainingPhaseInfo(ctx)
-	if err != nil {
-		return errors.Capture(err)
+	if errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
+		// There is no active draining phase, so it's fine to ignore this
+		// error and just return.
+		return nil
+	} else if err != nil {
+		return errors.Errorf("handling config change: %w", err)
+	}
+
+	// If there is no active draining phase, then we can just return and wait
+	// for the next change, which should be the new draining phase being set to
+	// draining.
+	if phaseInfo.Phase.IsNotStarted() {
+		return nil
 	}
 
 	toBackendInfo, err := w.guardService.GetObjectStoreBackend(ctx, phaseInfo.ActiveBackendUUID)
-	if err != nil {
-		return errors.Capture(err)
+	if errors.Is(err, objectstoreerrors.ErrBackendNotFound) {
+		// There is no active backend, which means we're likely in the middle of
+		// a drain and the old backend has been removed but the new backend
+		// hasn't been marked as active yet. In this case, we can just return
+		// and wait for the next change, which should be the new backend being
+		// marked as active.
+		w.logger.Debugf(ctx, "no active object store backend found, likely in the middle of a drain, waiting for next change")
+		return nil
+	} else if err != nil {
+		return errors.Errorf("getting object store backend: %w", err)
 	}
 
 	// TODO (stickupkid): This currently only supports draining from a file

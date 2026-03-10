@@ -450,8 +450,13 @@ func (w *Worker) contentLengthMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func (w *Worker) writeErrorResponse(ctx context.Context, resp http.ResponseWriter, statusCode int, err error) {
+	w.logger.Errorf(ctx, "failed to handle request: %v", err)
+
+	w.writeResponse(ctx, resp, statusCode, errorf("%s", err.Error()))
+}
+
 func (w *Worker) writeResponse(ctx context.Context, resp http.ResponseWriter, statusCode int, body any) {
-	w.logger.Debugf(ctx, "operation finished with HTTP status %v", statusCode)
 	resp.Header().Set("Content-Type", "application/json")
 
 	message, err := json.Marshal(body)
