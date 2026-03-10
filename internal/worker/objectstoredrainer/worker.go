@@ -383,22 +383,11 @@ func (w *Worker) loop() error {
 // type has changed.
 func (w *Worker) handleConfigChange(ctx context.Context) error {
 	phaseInfo, err := w.drainingService.GetDrainingPhaseInfo(ctx)
-	if errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
-		// There is no active draining phase, so it's fine to ignore this
-		// error and just return.
-		return nil
-	} else if err != nil {
+	if err != nil && !errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
 		return errors.Errorf("handling config change: %w", err)
 	}
 
-	// If there is no active draining phase, then we can just return and wait
-	// for the next change, which should be the new draining phase being set to
-	// draining.
-	if phaseInfo.Phase.IsNotStarted() {
-		return nil
-	}
-
-	toBackendInfo, err := w.drainingService.GetObjectStoreBackend(ctx, phaseInfo.ActiveBackendUUID)
+	newBackend, err := w.drainingService.GetActiveObjectStoreBackend(ctx)
 	if errors.Is(err, objectstoreerrors.ErrBackendNotFound) {
 		// There is no active backend, which means we're likely in the middle of
 		// a drain and the old backend has been removed but the new backend
@@ -418,7 +407,7 @@ func (w *Worker) handleConfigChange(ctx context.Context) error {
 	// from the source object store until they have been successfully copied to
 	// the destination object store.
 
-	objectStoreType := toBackendInfo.ObjectStoreType
+	objectStoreType := newBackend.ObjectStoreType
 	objectStoreTypeChanged := objectStoreType != w.objectStoreType
 
 	if !objectStoreTypeChanged {

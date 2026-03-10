@@ -609,31 +609,7 @@ WHERE uuid = $dbSetPhaseInfo.uuid;
 		return errors.Errorf("preparing insert draining phase statement: %w", err)
 	}
 
-	selectBackendStmt, err := s.Prepare(`
-SELECT b.uuid AS &backendUUID.uuid
-FROM object_store_backend AS b
-WHERE b.life_id = 1`, backendUUID{})
-	if err != nil {
-		return errors.Errorf("preparing active object store backend statement: %w", err)
-	}
-
-	markAsDead, err := s.Prepare(`
-UPDATE object_store_backend
-SET life_id = 2
-WHERE uuid = $backendUUID.uuid`, backendUUID{})
-	if err != nil {
-		return errors.Errorf("preparing update object store backend statement: %w", err)
-	}
-
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var fromBackend backendUUID
-		err := tx.Query(ctx, selectBackendStmt).Get(&fromBackend)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("migrating from: %v", objectstoreerrors.ErrBackendNotFound)
-		} else if err != nil {
-			return errors.Capture(err)
-		}
-
 		args := dbSetPhaseInfo{
 			UUID:        uuid,
 			PhaseTypeID: phaseTypeID,
@@ -644,15 +620,6 @@ WHERE uuid = $backendUUID.uuid`, backendUUID{})
 			return objectstoreerrors.ErrDrainingAlreadyInProgress
 		} else if err != nil {
 			return errors.Errorf("inserting draining phase: %w", err)
-		}
-
-		if phase == coreobjectstore.PhaseCompleted {
-			// If the phase is completed, then we need to mark the from backend
-			// as dead.
-			err := tx.Query(ctx, markAsDead, backendUUID{UUID: fromBackend.UUID}).Run()
-			if err != nil {
-				return errors.Errorf("marking from backend as dead: %w", err)
-			}
 		}
 
 		return nil
