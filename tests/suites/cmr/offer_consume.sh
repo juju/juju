@@ -194,7 +194,8 @@ run_offer_find_external_user() {
 	# Build the test identity provider binary (CWD is repo root via "cd ..").
 	TEST_IDP_TMPDIR=$(mktemp -d)
 	TEST_IDP_BIN="${TEST_IDP_TMPDIR}/test-identity-provider"
-	go build -o "${TEST_IDP_BIN}" ./tests/suites/cmr/test-identity-provider/
+	MAIN_SH_DIR="$(dirname "$(readlink -f "$0")")"
+	go build -o "${TEST_IDP_BIN}" "${MAIN_SH_DIR}/tests/tools/test-identity-provider/"
 
 	# Start the discharger in the background; wait for it to write its two
 	# output lines (URL then public key).
