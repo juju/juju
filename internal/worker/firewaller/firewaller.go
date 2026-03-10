@@ -1697,8 +1697,8 @@ func (fw *Firewaller) startConsumerRelationRequirer(
 			return nil, errors.Trace(err)
 		}
 		return data, nil
-	}); err != nil && !errors.Is(err, errors.AlreadyExists) {
-		return errors.Annotate(err, "error starting consumer relation requirer worker")
+	}); err != nil {
+		return fw.handleRelationWorkerStartError(err, "error starting consumer relation requirer worker")
 	}
 
 	return nil
@@ -1734,8 +1734,8 @@ func (fw *Firewaller) startConsumerRelationProvider(
 			return nil, errors.Trace(err)
 		}
 		return data, nil
-	}); err != nil && !errors.Is(err, errors.AlreadyExists) {
-		return errors.Annotate(err, "error starting consumer relation provider worker")
+	}); err != nil {
+		return fw.handleRelationWorkerStartError(err, "error starting consumer relation provider worker")
 	}
 
 	return nil
@@ -1794,11 +1794,25 @@ func (fw *Firewaller) startOffererRelation(ctx context.Context, rel domainrelati
 			return nil, errors.Trace(err)
 		}
 		return data, nil
-	}); err != nil && !errors.Is(err, errors.AlreadyExists) {
-		return errors.Annotate(err, "error starting offerer relation worker")
+	}); err != nil {
+		return fw.handleRelationWorkerStartError(err, "error starting offerer relation worker")
 	}
 
 	return nil
+}
+
+func (fw *Firewaller) handleRelationWorkerStartError(err error, message string) error {
+	if errors.Is(err, errors.AlreadyExists) {
+		return nil
+	}
+	if errors.Is(errors.Cause(err), worker.ErrDead) {
+		select {
+		case <-fw.catacomb.Dying():
+			return fw.catacomb.ErrDying()
+		default:
+		}
+	}
+	return errors.Annotate(err, message)
 }
 
 // watchLocalIngress watches for ingress address changes on the offering
