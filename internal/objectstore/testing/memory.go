@@ -102,6 +102,12 @@ func (s *objectStore) AddControllerIDHint(ctx context.Context, sha384 string, co
 	return nil
 }
 
+// GetControllerIDHints implements objectstore.RemoteObjectStoreMetadata.
+func (s *objectStore) GetControllerIDHints(ctx context.Context, sha384 string) ([]string, error) {
+	// This is only used for testing, so we can return an empty list of hints.
+	return nil, nil
+}
+
 // RemoveMetadata implements objectstore.ObjectStoreMetadata.
 func (s *objectStore) RemoveMetadata(ctx context.Context, path string) error {
 	if path == "" {

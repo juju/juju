@@ -62,10 +62,11 @@ WHERE  storage_id = $storageInstanceID.storage_id`,
 // GetStorageInstanceUUIDsByIDs retrieves the UUIDs of storage instances by
 // their IDs.
 func (s *State) GetStorageInstanceUUIDsByIDs(
-	ctx context.Context, storageIDs []string,
-) (map[string]string, error) {
+	ctx context.Context,
+	storageIDs []string,
+) (map[string]domainstorage.StorageInstanceUUID, error) {
 	if len(storageIDs) == 0 {
-		return map[string]string{}, nil
+		return map[string]domainstorage.StorageInstanceUUID{}, nil
 	}
 
 	db, err := s.DB(ctx)
@@ -96,9 +97,9 @@ WHERE  storage_id IN ($storageInstanceIDs[:])`,
 		return nil, errors.Capture(err)
 	}
 
-	result := make(map[string]string, len(dbVals))
+	result := make(map[string]domainstorage.StorageInstanceUUID, len(dbVals))
 	for _, val := range dbVals {
-		result[val.ID] = val.UUID
+		result[val.ID] = domainstorage.StorageInstanceUUID(val.UUID)
 	}
 
 	return result, nil

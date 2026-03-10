@@ -200,6 +200,9 @@ func (w *Worker) computeNextExpireTime(ctx context.Context) {
 	w.config.Logger.Debugf(ctx, "computing next expire time for secret revisions %#v", w.secretRevisions)
 
 	if len(w.secretRevisions) == 0 {
+		if w.alarm != nil && !w.alarm.Stop() {
+			w.drainAlarm()
+		}
 		w.alarm = nil
 		return
 	}
@@ -230,16 +233,8 @@ func (w *Worker) computeNextExpireTime(ctx context.Context) {
 	if w.alarm == nil {
 		w.alarm = w.config.Clock.NewAlarm(w.nextTrigger)
 	} else {
-		// See the docs on (*time.Timer).Reset() that says it isn't safe to call
-		// on a non-stopped channel, and if it is stopped, you need to check
-		// if the channel needs to be drained anyway. It isn't safe to drain
-		// unconditionally in case another goroutine has already noticed,
-		// but make an attempt.
 		if !w.alarm.Stop() {
-			select {
-			case <-w.alarm.Chan():
-			default:
-			}
+			w.drainAlarm()
 		}
 		w.alarm.Reset(w.nextTrigger)
 	}
@@ -247,4 +242,17 @@ func (w *Worker) computeNextExpireTime(ctx context.Context) {
 
 func (w *Worker) scopedContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(w.catacomb.Context(context.Background()))
+}
+
+// drainAlarm drains the alarm channel.
+// See the docs on (*time.Timer).Reset() that says it isn't safe to call
+// on a non-stopped channel, and if it is stopped, you need to check
+// if the channel needs to be drained anyway. It isn't safe to drain
+// unconditionally in case another goroutine has already noticed,
+// but make an attempt.
+func (w *Worker) drainAlarm() {
+	select {
+	case <-w.alarm.Chan():
+	default:
+	}
 }

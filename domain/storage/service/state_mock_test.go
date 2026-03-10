@@ -15,6 +15,7 @@ import (
 
 	machine "github.com/juju/juju/core/machine"
 	unit "github.com/juju/juju/core/unit"
+	network "github.com/juju/juju/domain/network"
 	storage "github.com/juju/juju/domain/storage"
 	internal "github.com/juju/juju/domain/storage/internal"
 	gomock "go.uber.org/mock/gomock"
@@ -119,6 +120,45 @@ func (c *MockStateDeleteStoragePoolCall) DoAndReturn(f func(context.Context, str
 	return c
 }
 
+// GetBlockDevicesForMachinesByNetNodeUUIDs mocks base method.
+func (m *MockState) GetBlockDevicesForMachinesByNetNodeUUIDs(arg0 context.Context, arg1 []network.NetNodeUUID) (map[network.NetNodeUUID][]internal.BlockDevice, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBlockDevicesForMachinesByNetNodeUUIDs", arg0, arg1)
+	ret0, _ := ret[0].(map[network.NetNodeUUID][]internal.BlockDevice)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBlockDevicesForMachinesByNetNodeUUIDs indicates an expected call of GetBlockDevicesForMachinesByNetNodeUUIDs.
+func (mr *MockStateMockRecorder) GetBlockDevicesForMachinesByNetNodeUUIDs(arg0, arg1 any) *MockStateGetBlockDevicesForMachinesByNetNodeUUIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockDevicesForMachinesByNetNodeUUIDs", reflect.TypeOf((*MockState)(nil).GetBlockDevicesForMachinesByNetNodeUUIDs), arg0, arg1)
+	return &MockStateGetBlockDevicesForMachinesByNetNodeUUIDsCall{Call: call}
+}
+
+// MockStateGetBlockDevicesForMachinesByNetNodeUUIDsCall wrap *gomock.Call
+type MockStateGetBlockDevicesForMachinesByNetNodeUUIDsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetBlockDevicesForMachinesByNetNodeUUIDsCall) Return(arg0 map[network.NetNodeUUID][]internal.BlockDevice, arg1 error) *MockStateGetBlockDevicesForMachinesByNetNodeUUIDsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetBlockDevicesForMachinesByNetNodeUUIDsCall) Do(f func(context.Context, []network.NetNodeUUID) (map[network.NetNodeUUID][]internal.BlockDevice, error)) *MockStateGetBlockDevicesForMachinesByNetNodeUUIDsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetBlockDevicesForMachinesByNetNodeUUIDsCall) DoAndReturn(f func(context.Context, []network.NetNodeUUID) (map[network.NetNodeUUID][]internal.BlockDevice, error)) *MockStateGetBlockDevicesForMachinesByNetNodeUUIDsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetFilesystemUUIDsByMachines mocks base method.
 func (m *MockState) GetFilesystemUUIDsByMachines(arg0 context.Context, arg1 []machine.UUID) ([]storage.FilesystemUUID, error) {
 	m.ctrl.T.Helper()
@@ -159,11 +199,11 @@ func (c *MockStateGetFilesystemUUIDsByMachinesCall) DoAndReturn(f func(context.C
 }
 
 // GetNetNodeUUIDsByMachineOrUnitName mocks base method.
-func (m *MockState) GetNetNodeUUIDsByMachineOrUnitName(arg0 context.Context, arg1, arg2 []string) (map[string]string, map[string]string, error) {
+func (m *MockState) GetNetNodeUUIDsByMachineOrUnitName(arg0 context.Context, arg1 []machine.Name, arg2 []unit.Name) (map[machine.Name]network.NetNodeUUID, map[unit.Name]network.NetNodeUUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetNetNodeUUIDsByMachineOrUnitName", arg0, arg1, arg2)
-	ret0, _ := ret[0].(map[string]string)
-	ret1, _ := ret[1].(map[string]string)
+	ret0, _ := ret[0].(map[machine.Name]network.NetNodeUUID)
+	ret1, _ := ret[1].(map[unit.Name]network.NetNodeUUID)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
@@ -181,19 +221,19 @@ type MockStateGetNetNodeUUIDsByMachineOrUnitNameCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetNetNodeUUIDsByMachineOrUnitNameCall) Return(arg0, arg1 map[string]string, arg2 error) *MockStateGetNetNodeUUIDsByMachineOrUnitNameCall {
+func (c *MockStateGetNetNodeUUIDsByMachineOrUnitNameCall) Return(arg0 map[machine.Name]network.NetNodeUUID, arg1 map[unit.Name]network.NetNodeUUID, arg2 error) *MockStateGetNetNodeUUIDsByMachineOrUnitNameCall {
 	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetNetNodeUUIDsByMachineOrUnitNameCall) Do(f func(context.Context, []string, []string) (map[string]string, map[string]string, error)) *MockStateGetNetNodeUUIDsByMachineOrUnitNameCall {
+func (c *MockStateGetNetNodeUUIDsByMachineOrUnitNameCall) Do(f func(context.Context, []machine.Name, []unit.Name) (map[machine.Name]network.NetNodeUUID, map[unit.Name]network.NetNodeUUID, error)) *MockStateGetNetNodeUUIDsByMachineOrUnitNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetNetNodeUUIDsByMachineOrUnitNameCall) DoAndReturn(f func(context.Context, []string, []string) (map[string]string, map[string]string, error)) *MockStateGetNetNodeUUIDsByMachineOrUnitNameCall {
+func (c *MockStateGetNetNodeUUIDsByMachineOrUnitNameCall) DoAndReturn(f func(context.Context, []machine.Name, []unit.Name) (map[machine.Name]network.NetNodeUUID, map[unit.Name]network.NetNodeUUID, error)) *MockStateGetNetNodeUUIDsByMachineOrUnitNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -316,10 +356,10 @@ func (c *MockStateGetStorageInstanceUUIDByIDCall) DoAndReturn(f func(context.Con
 }
 
 // GetStorageInstanceUUIDsByIDs mocks base method.
-func (m *MockState) GetStorageInstanceUUIDsByIDs(arg0 context.Context, arg1 []string) (map[string]string, error) {
+func (m *MockState) GetStorageInstanceUUIDsByIDs(arg0 context.Context, arg1 []string) (map[string]storage.StorageInstanceUUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetStorageInstanceUUIDsByIDs", arg0, arg1)
-	ret0, _ := ret[0].(map[string]string)
+	ret0, _ := ret[0].(map[string]storage.StorageInstanceUUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -337,19 +377,19 @@ type MockStateGetStorageInstanceUUIDsByIDsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetStorageInstanceUUIDsByIDsCall) Return(arg0 map[string]string, arg1 error) *MockStateGetStorageInstanceUUIDsByIDsCall {
+func (c *MockStateGetStorageInstanceUUIDsByIDsCall) Return(arg0 map[string]storage.StorageInstanceUUID, arg1 error) *MockStateGetStorageInstanceUUIDsByIDsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetStorageInstanceUUIDsByIDsCall) Do(f func(context.Context, []string) (map[string]string, error)) *MockStateGetStorageInstanceUUIDsByIDsCall {
+func (c *MockStateGetStorageInstanceUUIDsByIDsCall) Do(f func(context.Context, []string) (map[string]storage.StorageInstanceUUID, error)) *MockStateGetStorageInstanceUUIDsByIDsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetStorageInstanceUUIDsByIDsCall) DoAndReturn(f func(context.Context, []string) (map[string]string, error)) *MockStateGetStorageInstanceUUIDsByIDsCall {
+func (c *MockStateGetStorageInstanceUUIDsByIDsCall) DoAndReturn(f func(context.Context, []string) (map[string]storage.StorageInstanceUUID, error)) *MockStateGetStorageInstanceUUIDsByIDsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -110,7 +110,9 @@ AFTER UPDATE ON secret_reference FOR EACH ROW
 WHEN 
 	NEW.secret_id != OLD.secret_id OR
 	NEW.latest_revision != OLD.latest_revision OR
-	NEW.owner_application_uuid != OLD.owner_application_uuid 
+	(NEW.owner_application_uuid != OLD.owner_application_uuid OR (NEW.owner_application_uuid IS NOT NULL AND OLD.owner_application_uuid IS NULL) OR (NEW.owner_application_uuid IS NULL AND OLD.owner_application_uuid IS NOT NULL)) OR
+	NEW.updated_at != OLD.updated_at OR
+	NEW.migrated != OLD.migrated 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));

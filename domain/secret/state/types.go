@@ -62,6 +62,7 @@ type secretRef struct {
 	ID         string `db:"secret_id"`
 	SourceUUID string `db:"source_uuid"`
 	Revision   int    `db:"revision"`
+	Migrated   bool   `db:"migrated"`
 }
 
 type secretMetadata struct {

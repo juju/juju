@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"math/rand/v2"
 	"regexp"
 
 	"github.com/juju/juju/core/changestream"
@@ -48,6 +49,12 @@ type State interface {
 
 	// PutMetadata adds a new specified path for the persistence metadata.
 	PutMetadata(ctx context.Context, uuid string, metadata objectstore.Metadata) (string, error)
+
+	// GetControllerIDHints returns the controller ID hints for the specified
+	// SHA384. This is used to indicate which controller might have the object
+	// with the specified SHA384, which can be used for optimization in certain
+	// scenarios.
+	GetControllerIDHints(ctx context.Context, sha384 string) ([]string, error)
 
 	// PutMetadataWithControllerIDHint adds a new specified path for the
 	// persistence metadata with a controller ID hint. This is used to route the
@@ -240,6 +247,44 @@ func (s *Service) PutMetadata(ctx context.Context, metadata objectstore.Metadata
 	}
 
 	return objectstore.UUID(resultUUID), nil
+}
+
+// GetControllerIDHints returns the controller ID hints for the specified
+// SHA384. This is used to indicate which controllers might have the object with
+// the specified SHA384, which can be used for optimization in certain
+// scenarios.
+//
+// The hints are returned in random order to ensure that no particular
+// controller is favored, which helps to distribute the load more evenly across
+// controllers. If there are no hints, an
+// [objectstoreerrors.ErrNoHints] error is returned, and the caller
+// can decide how to handle this case, for example by trying to retrieve from
+// any controller.
+func (s *Service) GetControllerIDHints(ctx context.Context, sha384 string) ([]string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if sha384 == "" {
+		return nil, errors.Errorf("missing hash384").Add(objectstoreerrors.ErrMissingHash)
+	}
+
+	hints, err := s.st.GetControllerIDHints(ctx, sha384)
+	if err != nil {
+		return nil, errors.Errorf("getting controller ID hint for sha384 %s: %w", sha384, err)
+	}
+
+	// Handle the case where there are no hints.
+	if len(hints) == 0 {
+		return nil, objectstoreerrors.ErrNoHints
+	}
+
+	// Shuffle them if we have multiple hints to help distribute the load more
+	// evenly across controllers.
+	rand.Shuffle(len(hints), func(i, j int) {
+		hints[i], hints[j] = hints[j], hints[i]
+	})
+
+	return hints, nil
 }
 
 // PutMetadataWithControllerIDHint adds a new specified path for the persistence

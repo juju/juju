@@ -11,6 +11,11 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 
+	coreblockdevice "github.com/juju/juju/core/blockdevice"
+	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/blockdevice"
+	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/storage/internal"
 	"github.com/juju/juju/internal/errors"
 )
@@ -262,7 +267,11 @@ WHERE  u.uuid = $entityUUID.uuid`, name{}, entityUUID{})
 // GetNetNodeUUIDsByMachineOrUnitName returns net node UUIDs for all machine or
 // and unit names provided. If a machine name or unit name is not found then it
 // is excluded from the result.
-func (st *State) GetNetNodeUUIDsByMachineOrUnitName(ctx context.Context, machines []string, units []string) (map[string]string, map[string]string, error) {
+func (st *State) GetNetNodeUUIDsByMachineOrUnitName(
+	ctx context.Context,
+	machines []machine.Name,
+	units []unit.Name,
+) (map[machine.Name]network.NetNodeUUID, map[unit.Name]network.NetNodeUUID, error) {
 	if len(machines)+len(units) == 0 {
 		return nil, nil, nil
 	}
@@ -278,8 +287,8 @@ func (st *State) GetNetNodeUUIDsByMachineOrUnitName(ctx context.Context, machine
 	type machineNames []string
 	type unitNames []string
 	var (
-		machineNameInput = machineNames(machines)
-		unitNameInput    = unitNames(units)
+		machineNameInput = machineNames(transform.Slice(machines, func(in machine.Name) string { return string(in) }))
+		unitNameInput    = unitNames(transform.Slice(units, func(in unit.Name) string { return string(in) }))
 	)
 	stmt, err := st.Prepare(`
 SELECT &machineAndUnitNetNodeUUID.*
@@ -313,14 +322,14 @@ FROM (
 	if err != nil {
 		return nil, nil, errors.Capture(err)
 	}
-	machineMap := make(map[string]string, len(machineNameInput))
-	unitMap := make(map[string]string, len(unitNameInput))
+	machineMap := make(map[machine.Name]network.NetNodeUUID, len(machineNameInput))
+	unitMap := make(map[unit.Name]network.NetNodeUUID, len(unitNameInput))
 	for _, dbVal := range netNodeUUIDs {
 		if dbVal.MachineName.Valid {
-			machineMap[dbVal.MachineName.String] = dbVal.MachineNetNodeUUID.String
+			machineMap[machine.Name(dbVal.MachineName.String)] = network.NetNodeUUID(dbVal.MachineNetNodeUUID.String)
 		}
 		if dbVal.UnitName.Valid {
-			unitMap[dbVal.UnitName.String] = dbVal.UnitNetNodeUUID.String
+			unitMap[unit.Name(dbVal.UnitName.String)] = network.NetNodeUUID(dbVal.UnitNetNodeUUID.String)
 		}
 	}
 	return machineMap, unitMap, nil
@@ -380,13 +389,24 @@ func (st *State) ImportVolumes(ctx context.Context, args []internal.ImportVolume
 		return errors.Capture(err)
 	}
 
-	storageVolumeData, storageInstanceVolumeData := makeInsertVolumeArgs(args)
+	insertData := makeInsertVolumeArgs(args)
+
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.importStorageVolumes(ctx, tx, storageVolumeData); err != nil {
-			return errors.Capture(err)
+		if err := st.importStorageVolumes(ctx, tx, insertData.volumes); err != nil {
+			return errors.Errorf("importing volume: %w", err)
 		}
-		if err := st.importStorageInstanceVolumes(ctx, tx, storageInstanceVolumeData); err != nil {
-			return errors.Capture(err)
+		if err := st.importStorageInstanceVolumes(ctx, tx, insertData.instances); err != nil {
+			return errors.Errorf("importing storage instance volumes: %w", err)
+		}
+		if err := st.importStorageVolumeAttachments(ctx, tx, insertData.attachments); err != nil {
+			return errors.Errorf("importing volume attachments: %w", err)
+		}
+		if err := st.importVolumeAttachmentPlans(ctx, tx, insertData.plans); err != nil {
+			return errors.Errorf("importing volume attachment plans: %w", err)
+		}
+		// Volume attachment plan attributes require the plan to be inserted.
+		if err := st.importVolumeAttachmentPlanAttributes(ctx, tx, insertData.planAttributes); err != nil {
+			return errors.Errorf("importing volume attachment plan attributes: %w", err)
 		}
 		return nil
 	})
@@ -401,11 +421,10 @@ func (st *State) importStorageVolumes(ctx context.Context, tx *sqlair.TX, input 
 INSERT INTO storage_volume (*) VALUES ($importStorageVolume.*)
 `, importStorageVolume{})
 	if err != nil {
-		return errors.Errorf("preparing insert volume import statement: %w", err)
+		return err
 	}
 
-	err = tx.Query(ctx, insertStmt, input).Run()
-	return err
+	return tx.Query(ctx, insertStmt, input).Run()
 }
 
 func (st *State) importStorageInstanceVolumes(ctx context.Context, tx *sqlair.TX, input []importStorageInstanceVolume) error {
@@ -417,20 +436,76 @@ func (st *State) importStorageInstanceVolumes(ctx context.Context, tx *sqlair.TX
 INSERT INTO storage_instance_volume (*) VALUES ($importStorageInstanceVolume.*)
 `, importStorageInstanceVolume{})
 	if err != nil {
-		return errors.Errorf("preparing insert storage instance volume import statement: %w", err)
+		return err
 	}
 
-	err = tx.Query(ctx, insertStmt, input).Run()
-	return err
+	return tx.Query(ctx, insertStmt, input).Run()
 }
 
-func makeInsertVolumeArgs(args []internal.ImportVolumeArgs) ([]importStorageVolume, []importStorageInstanceVolume) {
-	out := make([]importStorageVolume, len(args))
-	outInstance := make([]importStorageInstanceVolume, len(args))
+func (st *State) importStorageVolumeAttachments(ctx context.Context, tx *sqlair.TX, input []importStorageVolumeAttachment) error {
+	if len(input) == 0 {
+		return nil
+	}
+
+	insertStmt, err := st.Prepare(`
+INSERT INTO storage_volume_attachment (*) VALUES ($importStorageVolumeAttachment.*)
+`, importStorageVolumeAttachment{})
+	if err != nil {
+		return err
+	}
+
+	return tx.Query(ctx, insertStmt, input).Run()
+}
+
+func (st *State) importVolumeAttachmentPlans(ctx context.Context, tx *sqlair.TX, input []importStorageVolumeAttachmentPlan) error {
+	if len(input) == 0 {
+		return nil
+	}
+
+	insertStmt, err := st.Prepare(`
+INSERT INTO storage_volume_attachment_plan (*) VALUES ($importStorageVolumeAttachmentPlan.*)
+`, importStorageVolumeAttachmentPlan{})
+	if err != nil {
+		return err
+	}
+
+	return tx.Query(ctx, insertStmt, input).Run()
+}
+
+func (st *State) importVolumeAttachmentPlanAttributes(ctx context.Context, tx *sqlair.TX, input []importStorageVolumePlanAttribute) error {
+	if len(input) == 0 {
+		return nil
+	}
+
+	insertStmt, err := st.Prepare(`
+INSERT INTO storage_volume_attachment_plan_attr (*) VALUES ($importStorageVolumePlanAttribute.*)
+`, importStorageVolumePlanAttribute{})
+	if err != nil {
+		return err
+	}
+
+	return tx.Query(ctx, insertStmt, input).Run()
+}
+
+type insertVolumeData struct {
+	volumes        []importStorageVolume
+	instances      []importStorageInstanceVolume
+	attachments    []importStorageVolumeAttachment
+	plans          []importStorageVolumeAttachmentPlan
+	planAttributes []importStorageVolumePlanAttribute
+}
+
+func makeInsertVolumeArgs(args []internal.ImportVolumeArgs) insertVolumeData {
+	out := insertVolumeData{
+		volumes:     make([]importStorageVolume, len(args)),
+		instances:   make([]importStorageInstanceVolume, len(args)),
+		attachments: make([]importStorageVolumeAttachment, 0),
+		plans:       make([]importStorageVolumeAttachmentPlan, 0),
+	}
 
 	for i, arg := range args {
-		out[i] = importStorageVolume{
-			UUID:             arg.UUID,
+		out.volumes[i] = importStorageVolume{
+			UUID:             arg.UUID.String(),
 			VolumeID:         arg.ID,
 			LifeID:           int(arg.LifeID),
 			ProvisionScopeID: int(arg.ProvisionScopeID),
@@ -440,11 +515,178 @@ func makeInsertVolumeArgs(args []internal.ImportVolumeArgs) ([]importStorageVolu
 			WWN:              arg.WWN,
 			Persistent:       arg.Persistent,
 		}
-		outInstance[i] = importStorageInstanceVolume{
-			StorageInstanceUUID: arg.StorageInstanceUUID,
-			VolumeUUID:          arg.UUID,
+		out.instances[i] = importStorageInstanceVolume{
+			StorageInstanceUUID: arg.StorageInstanceUUID.String(),
+			VolumeUUID:          arg.UUID.String(),
+		}
+
+		for _, attach := range arg.Attachments {
+			out.attachments = append(out.attachments, importStorageVolumeAttachment{
+				UUID:              attach.UUID.String(),
+				BlockDeviceUUID:   attach.BlockDeviceUUID.String(),
+				LifeID:            int(attach.LifeID),
+				NetNodeUUID:       attach.NetNodeUUID.String(),
+				ProvisionScopeID:  int(arg.ProvisionScopeID),
+				ProviderID:        arg.ProviderID,
+				ReadOnly:          attach.ReadOnly,
+				StorageVolumeUUID: arg.UUID.String(),
+			})
+		}
+		for _, plan := range arg.AttachmentPlans {
+			out.plans = append(out.plans, importStorageVolumeAttachmentPlan{
+				UUID: plan.UUID.String(),
+				DeviceTypeID: sql.NullInt64{
+					Int64: int64(dereferenceOrEmpty(plan.DeviceTypeID)),
+					Valid: isNotNil(plan.DeviceTypeID),
+				},
+				LifeID:            int(plan.LifeID),
+				NetNodeUUID:       plan.NetNodeUUID.String(),
+				ProvisionScopeID:  int(plan.ProvisionScopeID),
+				StorageVolumeUUID: arg.UUID.String(),
+			})
+			for key, value := range plan.DeviceAttributes {
+				out.planAttributes = append(out.planAttributes, importStorageVolumePlanAttribute{
+					PlanUUID: plan.UUID.String(),
+					Key:      key,
+					Value:    value,
+				})
+			}
 		}
 	}
 
-	return out, outInstance
+	return out
+}
+
+// dereferenceOrEmpty is handy for assigning values to the sql.Null* types.
+func dereferenceOrEmpty[T any](val *T) T {
+	if val == nil {
+		var empty T
+		return empty
+	}
+	return *val
+}
+
+// isNotNil is handy for assigning validity to the sql.Null* types.
+func isNotNil[T any](val *T) bool {
+	return val != nil
+}
+
+// GetBlockDevicesForMachineByNetNodeUUID returns the BlockDevices for the
+// specified machines.
+func (st *State) GetBlockDevicesForMachinesByNetNodeUUIDs(
+	ctx context.Context, netNodeUUIDs []network.NetNodeUUID,
+) (map[network.NetNodeUUID][]internal.BlockDevice, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	blockDeviceStmt, err := st.Prepare(`
+SELECT (bd.uuid, bd.name, bd.hardware_id, bd.wwn, bd.bus_address,
+       bd.serial_id, bd.size_mib, bd.filesystem_label, bd.host_filesystem_uuid,
+       bd.filesystem_type, bd.in_use, bd.mount_point, m.net_node_uuid) AS (&blockDevice.*)
+FROM   block_device AS bd
+JOIN   machine AS m ON bd.machine_uuid = m.uuid
+WHERE  m.net_node_uuid IN ($uuids[:])
+`, uuids{}, blockDevice{})
+	if err != nil {
+		return nil, errors.Errorf("preparing block device query: %w", err)
+	}
+
+	blockDeviceLinkStmt, err := st.Prepare(`
+SELECT (bd.block_device_uuid, bd.name, m.net_node_uuid) AS (&deviceLink.*)
+FROM   block_device_link_device AS bd
+JOIN   machine AS m ON bd.machine_uuid = m.uuid
+WHERE  m.net_node_uuid IN ($uuids[:])
+`, uuids{}, deviceLink{})
+	if err != nil {
+		return nil, errors.Errorf("preparing block device link device query: %w", err)
+	}
+
+	nodeUUIDs := transform.Slice(netNodeUUIDs, func(in network.NetNodeUUID) string { return string(in) })
+	var (
+		blockDevices []blockDevice
+		devLinks     []deviceLink
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		qErr := tx.Query(ctx, blockDeviceStmt, uuids(nodeUUIDs)).GetAll(&blockDevices)
+		if errors.Is(qErr, sqlair.ErrNoRows) {
+			return nil
+		} else if qErr != nil {
+			return errors.Errorf(
+				"querying block devices: %w", qErr,
+			)
+		}
+		qErr = tx.Query(ctx, blockDeviceLinkStmt, uuids(nodeUUIDs)).GetAll(&devLinks)
+		if qErr != nil && !errors.Is(qErr, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"querying block device dev links: %w", qErr,
+			)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Arrange the block devices into a map of net node UUIDs to a map of
+	// block device UUIDs to block devices. This will facilitate adding the
+	// device links to the block devices.
+	interim := make(
+		map[network.NetNodeUUID]map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice,
+		len(netNodeUUIDs),
+	)
+	for _, bd := range blockDevices {
+		bdUUID := blockdevice.BlockDeviceUUID(bd.UUID)
+		netNodeUUID := network.NetNodeUUID(bd.NetNodeUUID)
+		devices, ok := interim[netNodeUUID]
+		if !ok {
+			devices = make(map[blockdevice.BlockDeviceUUID]coreblockdevice.BlockDevice, 0)
+		}
+		devices[bdUUID] = coreblockdevice.BlockDevice{
+			DeviceName:      bd.Name,
+			FilesystemLabel: bd.FilesystemLabel,
+			FilesystemUUID:  bd.HostFilesystemUUID,
+			HardwareId:      bd.HardwareId,
+			WWN:             bd.WWN,
+			BusAddress:      bd.BusAddress,
+			SizeMiB:         bd.SizeMiB,
+			FilesystemType:  bd.FilesystemType,
+			InUse:           bd.InUse,
+			MountPoint:      bd.MountPoint,
+			SerialId:        bd.SerialId,
+		}
+		interim[netNodeUUID] = devices
+	}
+
+	// Add devices links to their block devices.
+	for _, dl := range devLinks {
+		bdUUID := blockdevice.BlockDeviceUUID(dl.BlockDeviceUUID)
+		netNodeUUID := network.NetNodeUUID(dl.NetNodeUUID)
+		bds, ok := interim[netNodeUUID]
+		if !ok {
+			continue
+		}
+		bd, ok := bds[bdUUID]
+		if !ok {
+			continue
+		}
+		bd.DeviceLinks = append(bd.DeviceLinks, dl.Name)
+		interim[netNodeUUID][bdUUID] = bd
+	}
+
+	// Arrange in final format.
+	result := make(map[network.NetNodeUUID][]internal.BlockDevice, len(interim))
+	for netNodeUUID, devices := range interim {
+		bdList := make([]internal.BlockDevice, 0, len(devices))
+		for bdUUID, bd := range devices {
+			bdList = append(bdList, internal.BlockDevice{
+				UUID:        bdUUID,
+				BlockDevice: bd,
+			})
+		}
+		result[netNodeUUID] = bdList
+	}
+
+	return result, nil
 }

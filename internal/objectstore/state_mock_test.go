@@ -651,9 +651,9 @@ func (m *MockRemoteRetriever) EXPECT() *MockRemoteRetrieverMockRecorder {
 }
 
 // Retrieve mocks base method.
-func (m *MockRemoteRetriever) Retrieve(arg0 context.Context, arg1 string) (io.ReadCloser, int64, error) {
+func (m *MockRemoteRetriever) Retrieve(arg0 context.Context, arg1 string, arg2 []string) (io.ReadCloser, int64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Retrieve", arg0, arg1)
+	ret := m.ctrl.Call(m, "Retrieve", arg0, arg1, arg2)
 	ret0, _ := ret[0].(io.ReadCloser)
 	ret1, _ := ret[1].(int64)
 	ret2, _ := ret[2].(error)
@@ -661,9 +661,9 @@ func (m *MockRemoteRetriever) Retrieve(arg0 context.Context, arg1 string) (io.Re
 }
 
 // Retrieve indicates an expected call of Retrieve.
-func (mr *MockRemoteRetrieverMockRecorder) Retrieve(arg0, arg1 any) *MockRemoteRetrieverRetrieveCall {
+func (mr *MockRemoteRetrieverMockRecorder) Retrieve(arg0, arg1, arg2 any) *MockRemoteRetrieverRetrieveCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Retrieve", reflect.TypeOf((*MockRemoteRetriever)(nil).Retrieve), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Retrieve", reflect.TypeOf((*MockRemoteRetriever)(nil).Retrieve), arg0, arg1, arg2)
 	return &MockRemoteRetrieverRetrieveCall{Call: call}
 }
 
@@ -679,13 +679,13 @@ func (c *MockRemoteRetrieverRetrieveCall) Return(arg0 io.ReadCloser, arg1 int64,
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemoteRetrieverRetrieveCall) Do(f func(context.Context, string) (io.ReadCloser, int64, error)) *MockRemoteRetrieverRetrieveCall {
+func (c *MockRemoteRetrieverRetrieveCall) Do(f func(context.Context, string, []string) (io.ReadCloser, int64, error)) *MockRemoteRetrieverRetrieveCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoteRetrieverRetrieveCall) DoAndReturn(f func(context.Context, string) (io.ReadCloser, int64, error)) *MockRemoteRetrieverRetrieveCall {
+func (c *MockRemoteRetrieverRetrieveCall) DoAndReturn(f func(context.Context, string, []string) (io.ReadCloser, int64, error)) *MockRemoteRetrieverRetrieveCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

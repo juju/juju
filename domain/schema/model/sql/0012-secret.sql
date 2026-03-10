@@ -30,13 +30,30 @@ CREATE TABLE secret (
 CREATE TABLE secret_reference (
     secret_id TEXT NOT NULL PRIMARY KEY,
     latest_revision INT NOT NULL,
-    owner_application_uuid TEXT NOT NULL,
+
+    -- owner_application_uuid is the application that owns the secret.
+    -- It is used to determine which remote (offerer) application the secret
+    -- belongs to. It is leveraged when the remote application is deleted from
+    -- the point of view of the local model (consumer), in order to delete the
+    -- secret from the local model.
+    owner_application_uuid TEXT,
+
+    -- updated_at is either the creation time of the reference, or the time it
+    -- was migrated, or the last time it was fetched from a unit, and thus
+    -- when the owner_application_uuid was defined.
+    updated_at DATETIME NOT NULL,
+
+    -- migrated is true if the reference was migrated from the old table.
+    -- In this case, owner_application_uuid may be empty.
+    migrated BOOLEAN NOT NULL DEFAULT FALSE,
     CONSTRAINT fk_secret_id
     FOREIGN KEY (secret_id)
     REFERENCES secret (id),
     CONSTRAINT fk_secret_reference_application_uuid
     FOREIGN KEY (owner_application_uuid)
-    REFERENCES application (uuid)
+    REFERENCES application (uuid),
+    CONSTRAINT chk_owned_or_migrated
+    CHECK ((owner_application_uuid IS NOT NULL AND owner_application_uuid != '') OR migrated)
 );
 
 CREATE TABLE secret_metadata (

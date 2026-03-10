@@ -23,6 +23,7 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils/v4"
 
+	proxy "github.com/juju/juju/api/proxy/config"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -30,7 +31,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/container/lxd"
-	proxy "github.com/juju/juju/internal/proxy/config"
 )
 
 // Server defines an interface of all localized methods that the environment
