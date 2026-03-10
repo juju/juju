@@ -9,6 +9,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
@@ -48,6 +49,22 @@ type ApplicationState interface {
 
 	// DeleteApplication removes a application from the database completely.
 	DeleteApplication(ctx context.Context, appUUID string, force bool) error
+
+	// MarkApplicationAsDead marks the application with the input UUID as dead.
+	MarkApplicationAsDead(ctx context.Context, appUUID string) error
+
+	// GetApplicationUnitAndRelationCount returns the number of units and
+	// relations that still reference the application.
+	GetApplicationUnitAndRelationCount(ctx context.Context, appUUID string) (int, int, error)
+
+	// GetApplicationCloudServiceResourceCount returns the number of DB-tracked
+	// cloud-service resources (k8s_service rows and associated IP addresses)
+	// for the application.
+	GetApplicationCloudServiceResourceCount(ctx context.Context, appUUID string) (int, error)
+
+	// GetApplicationName returns the application name for the application with
+	// the input UUID.
+	GetApplicationName(ctx context.Context, appUUID string) (string, error)
 
 	// DeleteCharmIfUnused deletes the charm with the input UUID if it is not
 	// used by any other application/unit.
@@ -249,6 +266,63 @@ func (s *Service) RemoveApplication(
 	return appJobUUID, nil
 }
 
+// markApplicationAsDead marks the application as dead.
+// This method is responsible for checking that the pre-conditions for marking
+// an application as dead are met before advancing its Life to Dead. These
+// pre-conditions include ensuring that the application has no units or
+// relations.
+func (s *Service) markApplicationAsDead(ctx context.Context, appUUID string) error {
+	exists, err := s.modelState.ApplicationExists(ctx, appUUID)
+	if err != nil {
+		return errors.Errorf("checking if application exists: %w", err)
+	} else if !exists {
+		return errors.Errorf("application does not exist").Add(applicationerrors.ApplicationNotFound)
+	}
+
+	// First we check that the application has no units or relations.
+	numUnits, numRelations, err := s.modelState.GetApplicationUnitAndRelationCount(ctx, appUUID)
+	if err != nil {
+		return errors.Errorf("getting application %q association counts: %w", appUUID, err)
+	}
+	if numUnits > 0 {
+		return errors.Errorf("cannot mark application as dead as it still has %d unit(s)", numUnits).
+			Add(applicationerrors.ApplicationHasUnits).
+			Add(removalerrors.RemovalJobIncomplete)
+	}
+	if numRelations > 0 {
+		return errors.Errorf("cannot mark application as dead as it still has %d relation(s)", numRelations).
+			Add(applicationerrors.ApplicationHasRelations).
+			Add(removalerrors.RemovalJobIncomplete)
+	}
+
+	return errors.Capture(s.modelState.MarkApplicationAsDead(ctx, appUUID))
+}
+
+// ensureApplicationProviderResourcesRemoved checks DB-tracked CAAS cloud-service
+// resources and blocks deletion until they are gone.
+func (s *Service) ensureApplicationProviderResourcesRemoved(ctx context.Context, appUUID string) error {
+	modelType, err := s.modelState.GetModelType(ctx)
+	if err != nil {
+		return errors.Errorf("getting model type for application %q removal: %w", appUUID, err)
+	}
+	if modelType != coremodel.CAAS {
+		return nil
+	}
+
+	numResources, err := s.modelState.GetApplicationCloudServiceResourceCount(ctx, appUUID)
+	if err != nil {
+		s.logger.Warningf(ctx, "cannot check CAAS cloud-service resources for application %q removal, will retry: %v", appUUID, err)
+		return errors.Errorf("checking CAAS cloud-service resources for application %q: %w", appUUID, err).
+			Add(removalerrors.RemovalJobIncomplete)
+	}
+	if numResources > 0 {
+		return errors.Errorf("cannot remove application %q while CAAS resources still exist", appUUID).
+			Add(removalerrors.RemovalJobIncomplete)
+	}
+
+	return nil
+}
+
 func (s *Service) applicationScheduleRemoval(
 	ctx context.Context, appUUID coreapplication.UUID, force bool, wait time.Duration,
 ) (removal.UUID, error) {
@@ -267,7 +341,7 @@ func (s *Service) applicationScheduleRemoval(
 	return jobUUID, nil
 }
 
-// processApplicationRemovalJob deletes an application if it is dying.
+// processApplicationRemovalJob deletes an application once it is dead.
 // Note that we do not need transactionality here:
 //   - Life can only advance - it cannot become alive if dying or dead.
 func (s *Service) processApplicationRemovalJob(ctx context.Context, job removal.Job) error {
@@ -289,6 +363,22 @@ func (s *Service) processApplicationRemovalJob(ctx context.Context, job removal.
 	// programming error if we've reached this point and we're still alive.
 	if l == life.Alive {
 		return errors.Errorf("application %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
+	}
+
+	// When force is set, skip the dead-state and CAAS resource gates entirely.
+	if !job.Force {
+		if l != life.Dead {
+			if err := s.markApplicationAsDead(ctx, job.EntityUUID); err != nil {
+				return err
+			}
+			// Keep the dead transition and final deletion on separate retries.
+			return errors.Errorf("application %q marked as dead; waiting for next pass", job.EntityUUID).
+				Add(removalerrors.RemovalJobIncomplete)
+		}
+
+		if err := s.ensureApplicationProviderResourcesRemoved(ctx, job.EntityUUID); err != nil {
+			return err
+		}
 	}
 
 	// The unit agent itself attempts to delete the applications's secrets if it

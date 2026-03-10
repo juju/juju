@@ -11,6 +11,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/removal"
@@ -50,6 +51,34 @@ WHERE  uuid = $entityUUID.uuid`, modelUUID)
 	})
 
 	return modelExists, errors.Capture(err)
+}
+
+// GetModelType returns the current model's type.
+func (st *State) GetModelType(ctx context.Context) (coremodel.ModelType, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	m := dbModelType{}
+	stmt, err := st.Prepare(`SELECT &dbModelType.* FROM model`, m)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt).Get(&m); errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("model does not exist").Add(modelerrors.NotFound)
+		} else if err != nil {
+			return errors.Errorf("running model type query: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return coremodel.ParseModelType(m.Type)
 }
 
 // EnsureModelNotAlive ensures that there is no model identified by the input

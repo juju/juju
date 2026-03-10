@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
@@ -23,6 +24,7 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/secrets/provider"
 )
@@ -36,6 +38,14 @@ type Provider interface {
 	// Destroy shuts down all known machines and destroys the rest of the
 	// known environment.
 	Destroy(ctx context.Context) error
+}
+
+// CAASProvider defines the interface for interacting with the
+// underlying provider for CAAS applications.
+type CAASProvider interface {
+	environs.SupportedFeatureEnumerator
+	// Application returns an (k8s) Application interface.
+	Application(string, caas.DeploymentType) caas.Application
 }
 
 // ModelDBState describes retrieval and persistence methods for entity removal
@@ -111,8 +121,9 @@ type Service struct {
 	controllerState ControllerDBState
 	modelState      ModelDBState
 
-	leadershipRevoker leadership.Revoker
-	providerGetter    providertracker.ProviderGetter[Provider]
+	leadershipRevoker       leadership.Revoker
+	providerGetter          providertracker.ProviderGetter[Provider]
+	caasApplicationProvider providertracker.ProviderGetter[CAASProvider]
 
 	// secretBackendProviderGetter allows us to acquire access
 	// to the secret back-end for the model we are working in.
@@ -238,6 +249,7 @@ func NewWatchableService(
 	watcherFactory WatcherFactory,
 	leadershipRevoker leadership.Revoker,
 	providerGetter providertracker.ProviderGetter[Provider],
+	caasApplicationProvider providertracker.ProviderGetter[CAASProvider],
 	modelUUID model.UUID,
 	clock clock.Clock,
 	logger logger.Logger,
@@ -248,6 +260,7 @@ func NewWatchableService(
 			modelState:                  modelState,
 			leadershipRevoker:           leadershipRevoker,
 			providerGetter:              providerGetter,
+			caasApplicationProvider:     caasApplicationProvider,
 			secretBackendProviderGetter: provider.Provider,
 			modelUUID:                   modelUUID,
 			clock:                       clock,

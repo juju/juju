@@ -56,6 +56,7 @@ type Provider interface {
 // underlying provider for CAAS applications.
 type CAASProvider interface {
 	environs.SupportedFeatureEnumerator
+	// Application returns an (k8s) Application interface.
 	Application(string, caas.DeploymentType) caas.Application
 }
 

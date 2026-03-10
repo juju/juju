@@ -833,6 +833,44 @@ func (c *MockStateCreateIAASApplicationCall) DoAndReturn(f func(context.Context,
 	return c
 }
 
+// DeleteCloudService mocks base method.
+func (m *MockState) DeleteCloudService(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteCloudService", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteCloudService indicates an expected call of DeleteCloudService.
+func (mr *MockStateMockRecorder) DeleteCloudService(arg0, arg1 any) *MockStateDeleteCloudServiceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCloudService", reflect.TypeOf((*MockState)(nil).DeleteCloudService), arg0, arg1)
+	return &MockStateDeleteCloudServiceCall{Call: call}
+}
+
+// MockStateDeleteCloudServiceCall wrap *gomock.Call
+type MockStateDeleteCloudServiceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateDeleteCloudServiceCall) Return(arg0 error) *MockStateDeleteCloudServiceCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateDeleteCloudServiceCall) Do(f func(context.Context, string) error) *MockStateDeleteCloudServiceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateDeleteCloudServiceCall) DoAndReturn(f func(context.Context, string) error) *MockStateDeleteCloudServiceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // EndpointsExist mocks base method.
 func (m *MockState) EndpointsExist(arg0 context.Context, arg1 application.UUID, arg2 set.Strings) error {
 	m.ctrl.T.Helper()
