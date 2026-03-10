@@ -52,27 +52,6 @@ func (s *permissionDelegatorSuite) TestSubjectPermissionsLocalUserSuccess(c *tc.
 	c.Assert(access, tc.Equals, permission.AdminAccess)
 }
 
-// TestSubjectPermissionsExternalUserIsAPureRead verifies that SubjectPermissions
-// for an external user is a pure read that never calls EnsureExternalUser.
-// User creation is now an explicit step in admin.authenticate(), not a
-// side-effect of permission reading. If EnsureExternalUser were called
-// here, gomock would report an unexpected call.
-func (s *permissionDelegatorSuite) TestSubjectPermissionsExternalUserIsAPureRead(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	target := permission.ID{
-		ObjectType: permission.Controller,
-		Key:        "controller-uuid",
-	}
-	s.accessService.EXPECT().
-		ReadUserAccessLevelForTarget(gomock.Any(), gomock.Any(), target).
-		Return(permission.LoginAccess, nil)
-
-	access, err := s.delegator().SubjectPermissions(c.Context(), "foo@external", target)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(access, tc.Equals, permission.LoginAccess)
-}
-
 // TestSubjectPermissionsAccessNotFound verifies that AccessNotFound from the
 // access service is mapped to PermissionNotFound, which the caller (admin.go)
 // treats as "no access" rather than a hard error.
@@ -101,12 +80,13 @@ func (s *permissionDelegatorSuite) TestSubjectPermissionsServiceError(c *tc.C) {
 		ObjectType: permission.Controller,
 		Key:        "controller-uuid",
 	}
+	svcError := errors.New("database error")
 	s.accessService.EXPECT().
 		ReadUserAccessLevelForTarget(gomock.Any(), gomock.Any(), target).
-		Return(permission.NoAccess, errors.New("database error"))
+		Return(permission.NoAccess, svcError)
 
 	_, err := s.delegator().SubjectPermissions(c.Context(), "alice@local", target)
-	c.Assert(err, tc.ErrorMatches, "database error")
+	c.Assert(err, tc.ErrorIs, svcError)
 }
 
 // TestSubjectPermissionsInvalidUserName verifies that an invalid user name
@@ -128,6 +108,18 @@ func (s *permissionDelegatorSuite) TestSubjectPermissionsInvalidUserName(c *tc.C
 func (s *permissionDelegatorSuite) TestPermissionError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.delegator().PermissionError(names.NewUserTag("alice"), permission.AdminAccess)
-	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
+	tests := []struct {
+		tag    names.Tag
+		access permission.Access
+	}{
+		{names.NewUserTag("alice"), permission.AdminAccess},
+		{names.NewUserTag("bob@external"), permission.LoginAccess},
+		{names.NewMachineTag("0"), permission.NoAccess},
+		{names.NewUserTag("admin"), permission.SuperuserAccess},
+	}
+
+	for _, t := range tests {
+		err := s.delegator().PermissionError(t.tag, t.access)
+		c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
+	}
 }

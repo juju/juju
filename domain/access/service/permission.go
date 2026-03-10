@@ -130,21 +130,6 @@ func (s *PermissionService) EnsureExternalUserIfAuthorized(ctx context.Context, 
 	return nil
 }
 
-// EnsureExternalUser ensures that the given external user exists in the
-// database, creating them if necessary. Unlike EnsureExternalUserIfAuthorized,
-// this method does not check everyone@external permissions — the caller is
-// responsible for determining that the user is authorized (e.g. via JWT).
-// A NotValid error is returned if the subject is empty.
-func (s *PermissionService) EnsureExternalUser(ctx context.Context, subject user.Name) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if subject.IsZero() {
-		return errors.Errorf("empty subject %w", coreerrors.NotValid)
-	}
-	return errors.Capture(s.st.EnsureExternalUser(ctx, subject))
-}
-
 // ReadUserAccessLevelForTarget returns the user access level for the
 // given user on the given target. A NotValid error is returned if the
 // subject (user) string is empty, or the target is not valid. Any errors

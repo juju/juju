@@ -143,6 +143,12 @@ type UserState interface {
 	// - accesserrors.UserNeverAccessedModel: If there is no record of the user
 	// accessing the model.
 	LastModelLogin(context.Context, user.Name, coremodel.UUID) (time.Time, error)
+
+	// EnsureExternalUser ensures that the given external user exists in the
+	// database, creating them if necessary. Unlike EnsureExternalUserIfAuthorized,
+	// this method does not check everyone@external permissions — the caller is
+	// responsible for determining that the user is authorized (e.g. via JWT).
+	EnsureExternalUser(ctx context.Context, subject user.Name) error
 }
 
 // PermissionState describes retrieval and persistence methods for user
@@ -185,12 +191,6 @@ type PermissionState interface {
 	// This ensures that juju has a record of external users that have inherited
 	// their permissions from everyone@external.
 	EnsureExternalUserIfAuthorized(ctx context.Context, subject user.Name, target permission.ID) error
-
-	// EnsureExternalUser ensures that the given external user exists in the
-	// database, creating them if necessary. Unlike EnsureExternalUserIfAuthorized,
-	// this method does not check everyone@external permissions — the caller is
-	// responsible for determining that the user is authorized (e.g. via JWT).
-	EnsureExternalUser(ctx context.Context, subject user.Name) error
 
 	// ReadAllUserAccessForUser returns a slice of the user access the given
 	// subject's (user) has for any access type.

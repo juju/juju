@@ -45,11 +45,12 @@ func NewEncodedJWT(params JWTParams) (string, error) {
 	return base64.StdEncoding.EncodeToString(serialized), nil
 }
 
-// InsecureJWTParser implements jwt.TokenParser for testing purposes.
+// InsecureJWTParser implements the TokenParser interface defined in
+// apiserver/authentication/jwt for testing purposes.
 // It decodes base64 JWT tokens and parses them without signature verification.
 type InsecureJWTParser struct{}
 
-// Parse implements jwt.TokenParser.
+// Parse implements TokenParser.
 func (p *InsecureJWTParser) Parse(_ context.Context, tok string) (jwt.Token, error) {
 	data, err := base64.StdEncoding.DecodeString(tok)
 	if err != nil {

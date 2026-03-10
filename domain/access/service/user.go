@@ -268,6 +268,23 @@ func (s *UserService) AddExternalUser(ctx context.Context, name user.Name, displ
 	return s.st.AddUser(ctx, uuid, name, displayName, true, creatorUUID)
 }
 
+// EnsureExternalUser ensures that the given external user exists in the
+// database, creating them if necessary.
+// The following error types are possible from this function:
+//   - accesserrors.UserNameNotValid: When the provided subject is empty.
+func (s *UserService) EnsureExternalUser(ctx context.Context, subject user.Name) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if subject.IsZero() {
+		return errors.New("external user to ensure is empty").Add(accesserrors.UserNameNotValid)
+	}
+	if subject.IsLocal() {
+		return nil
+	}
+	return errors.Capture(s.st.EnsureExternalUser(ctx, subject))
+}
+
 // RemoveUser marks the user as removed and removes any credentials or
 // activation codes for the current users. Once a user is removed they are no
 // longer usable in Juju and should never be un removed.

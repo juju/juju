@@ -391,40 +391,6 @@ func (st *PermissionState) EnsureExternalUserIfAuthorized(
 	return nil
 }
 
-// EnsureExternalUser ensures that the given external user exists in the
-// database, creating them if necessary. Unlike EnsureExternalUserIfAuthorized,
-// this method does not check everyone@external permissions — the caller is
-// responsible for determining that the user is authorized (e.g. via JWT).
-// If the user already exists or is local, this is a no-op.
-func (st *PermissionState) EnsureExternalUser(ctx context.Context, subject user.Name) error {
-	if subject.IsLocal() {
-		return nil
-	}
-
-	db, err := st.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		_, err = st.addExternalUser(ctx, tx, subject)
-		if err != nil {
-			// User already exists — this is the expected path for
-			// returning users and also handles the race condition
-			// of two concurrent logins for the same new user.
-			if errors.Is(err, accesserrors.UserAlreadyExists) {
-				return nil
-			}
-			return errors.Capture(err)
-		}
-		return nil
-	})
-	if err != nil {
-		return errors.Errorf("adding external user %q: %w", subject, err)
-	}
-	return nil
-}
-
 // addExternalUser adds an external user to the database with everyone@external
 // as its creator.
 func (st *PermissionState) addExternalUser(ctx context.Context, tx *sqlair.TX, subject user.Name) (user.UUID, error) {
