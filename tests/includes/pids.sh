@@ -19,6 +19,20 @@ track_daemon_pid() {
 	echo "${pid} $(_daemon_scope_label)" >>"${TEST_DIR}/pids"
 }
 
+# track_daemon_exec_trampoline returns a new command, that when invoked will
+# perform an exec on the supplied arguments, tracking the life of the program.
+track_daemon_exec_trampoline() {
+	mkdir -p "${TEST_DIR}/exec_trampoline/"
+	local trampoline="$(mktemp -p "${TEST_DIR}/exec_trampoline/")"
+	sed -e "s|__DAEMON_SCOPE_LABEL__|$(_daemon_scope_label)|;s|__PIDS__|${TEST_DIR}/pids|" > "${trampoline}" <<'EOM'
+#!/usr/bin/env sh
+echo "$$ __DAEMON_SCOPE_LABEL__" >> "__PIDS__"
+exec "$@"
+EOM
+	chmod +x "${trampoline}"
+	echo "${trampoline}"
+}
+
 # push_daemon_scope creates a new daemon tracking scope for nested run calls
 push_daemon_scope() {
 	DAEMON_SCOPE_DEPTH=$((DAEMON_SCOPE_DEPTH + 1))
