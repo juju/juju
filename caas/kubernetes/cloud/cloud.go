@@ -79,7 +79,7 @@ func CloudsFromKubeConfigContextsWithParams(
 	clouds := []cloud.Cloud{}
 	for ctxName := range config.Contexts {
 		if !names.IsValidCloud(ctxName) {
-			logger.Debugf("ignoring context %1v because it is not a valid cloud name", ctxName)
+			logger.Debugf("ignoring context %q because it is not a valid cloud name", ctxName)
 			continue
 		}
 		cloud, err := CloudFromKubeConfigContext(
