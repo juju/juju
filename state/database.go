@@ -84,7 +84,7 @@ type Database interface {
 	// collections; it will automatically rewrite operations that reference
 	// non-global collections; and it will ensure that non-global documents can
 	// only be inserted while the corresponding model is still Alive.
-	TransactionRunner() (jujutxn.Runner, SessionCloser, error)
+	TransactionRunner() (jujutxn.Runner, SessionCloser)
 
 	// RunTransaction is a convenience method for running a single
 	// transaction.
@@ -144,10 +144,7 @@ func Apply(db Database, change Change) error {
 		return ops, nil
 	}
 
-	runner, tCloser, err := db.TransactionRunner()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	runner, tCloser := db.TransactionRunner()
 	defer tCloser()
 	if err := runner.Run(buildTxn); err != nil {
 		return errors.Trace(err)
@@ -370,7 +367,7 @@ func (db *database) GetRawCollection(name string) (*mgo.Collection, SessionClose
 }
 
 // TransactionRunner is part of the Database interface.
-func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCloser, _ error) {
+func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCloser) {
 	runner = db.runner
 	closer = dontCloseAnything
 	if runner == nil {
@@ -409,29 +406,18 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 			ServerSideTransactions:    true,
 			MaxRetryAttempts:          db.maxTxnAttempts,
 		}
-		var err error
-		runner, err = jujutxn.NewRunner(params)
-		if err != nil {
-			// We need to close the session if we created one,
-			// even if we failed to create the runner.
-			closer()
-			return nil, nil, errors.Annotate(err, "creating txn runner")
-		}
+		runner = jujutxn.NewRunner(params)
 	}
 	return &multiModelRunner{
 		rawRunner: runner,
 		modelUUID: db.modelUUID,
 		schema:    db.schema,
-	}, closer, nil
+	}, closer
 }
 
 // RunTransaction is part of the Database interface.
 func (db *database) RunTransaction(ops []txn.Op) error {
-	runner, closer, err := db.TransactionRunner()
-	if err != nil {
-		closer()
-		return errors.Trace(err)
-	}
+	runner, closer := db.TransactionRunner()
 	defer closer()
 	return runner.RunTransaction(&jujutxn.Transaction{Ops: ops})
 }
@@ -440,20 +426,14 @@ func (db *database) RunTransaction(ops []txn.Op) error {
 func (db *database) RunTransactionFor(modelUUID string, ops []txn.Op) error {
 	newDB, dbcloser := db.CopyForModel(modelUUID)
 	defer dbcloser()
-	runner, closer, err := newDB.TransactionRunner()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	runner, closer := newDB.TransactionRunner()
 	defer closer()
 	return runner.RunTransaction(&jujutxn.Transaction{Ops: ops})
 }
 
 // RunRawTransaction is part of the Database interface.
 func (db *database) RunRawTransaction(ops []txn.Op) error {
-	runner, closer, err := db.TransactionRunner()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	runner, closer := db.TransactionRunner()
 	defer closer()
 	if multiRunner, ok := runner.(*multiModelRunner); ok {
 		runner = multiRunner.rawRunner
@@ -463,20 +443,14 @@ func (db *database) RunRawTransaction(ops []txn.Op) error {
 
 // Run is part of the Database interface.
 func (db *database) Run(transactions jujutxn.TransactionSource) error {
-	runner, closer, err := db.TransactionRunner()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	runner, closer := db.TransactionRunner()
 	defer closer()
 	return runner.Run(transactions)
 }
 
 // RunRaw is part of the Database interface.
 func (db *database) RunRaw(transactions jujutxn.TransactionSource) error {
-	runner, closer, err := db.TransactionRunner()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	runner, closer := db.TransactionRunner()
 	defer closer()
 	if multiRunner, ok := runner.(*multiModelRunner); ok {
 		runner = multiRunner.rawRunner

@@ -59,7 +59,7 @@ func (p *tryInOrderLoginProviders) Login(ctx context.Context, caller base.APICal
 			if params.IsCodeFatalLoginError(err) {
 				return nil, errors.Trace(err)
 			}
-			p.logger.Debugf("login error using provider %ds - %s", provider, err.Error())
+			p.logger.Debugf("login error using provider %s - %s", provider, err.Error())
 		} else {
 			p.logger.Debugf("successful login using provider %s", provider)
 			p.authHeader = func() (http.Header, error) { return provider.AuthHeader() }
