@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -62,4 +63,31 @@ func (c *Client) ControllerDetails(ctx context.Context) (map[string]ControllerDe
 		}
 	}
 	return result, nil
+}
+
+// EnableHA ensures the availability of Juju controllers.
+func (c *Client) EnableHA(
+	ctx context.Context, numControllers int, cons constraints.Value, placement []string,
+) (params.ControllersChanges, error) {
+
+	var results params.ControllersChangeResults
+	arg := params.ControllersSpecs{
+		Specs: []params.ControllersSpec{{
+			NumControllers: numControllers,
+			Constraints:    cons,
+			Placement:      placement,
+		}}}
+
+	err := c.facade.FacadeCall(ctx, "EnableHA", arg, &results)
+	if err != nil {
+		return params.ControllersChanges{}, apiservererrors.RestoreError(err)
+	}
+	if len(results.Results) != 1 {
+		return params.ControllersChanges{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return params.ControllersChanges{}, apiservererrors.RestoreError(result.Error)
+	}
+	return result.Result, nil
 }
