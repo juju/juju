@@ -21,7 +21,19 @@ type PermissionDelegator struct {
 }
 
 // SubjectPermissions ensures that the input entity is a user,
-// then returns that user's access to the input subject.
+// then returns that user's access to the input target.
+//
+// This method is a pure permission read with no side effects.
+// External user creation was previously performed here via
+// EnsureExternalUserIfAuthorized (which checked everyone@external
+// permissions before inserting). That call has been removed because:
+//   - User creation is now an explicit step in admin.authenticate(),
+//     which calls EnsureExternalUser unconditionally for all externally
+//     authenticated entities.
+//   - The everyone@external permission check is already performed by
+//     ReadUserAccessLevelForTarget, which returns the higher of the
+//     user's own access and everyone@external's access. If neither has
+//     access, AccessNotFound is returned and the caller denies login.
 func (p *PermissionDelegator) SubjectPermissions(
 	ctx context.Context, userName string, target permission.ID,
 ) (permission.Access, error) {

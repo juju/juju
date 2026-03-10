@@ -117,8 +117,9 @@ func (s *WorkerStateSuite) TestStart(c *tc.C) {
 	// compare it.
 	config.GetAuditConfig = nil
 
-	jwtAuthenticator := jwt.NewAuthenticator(&jwtparser.Parser{})
 	logSinkConfig := coreapiserver.DefaultLogSinkConfig()
+
+	jwtAuthenticator := jwt.NewAuthenticator(&jwtparser.Parser{})
 
 	c.Assert(config, tc.DeepEquals, coreapiserver.ServerConfig{
 		LocalMacaroonAuthenticator: s.authenticator,
