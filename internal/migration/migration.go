@@ -57,13 +57,13 @@ type ConfigSchemaSourceProvider = func(environs.CloudService) config.ConfigSchem
 
 // ModelImporter represents a model migration that implements Import.
 type ModelImporter struct {
-	controllerConfigService ControllerConfigService
-	domainServices          services.DomainServicesGetter
-	storageRegistryGetter   corestorage.ModelStorageRegistryGetter
+	domainServices        services.DomainServicesGetter
+	storageRegistryGetter corestorage.ModelStorageRegistryGetter
 
-	scope  modelmigration.ScopeForModel
-	logger corelogger.Logger
-	clock  clock.Clock
+	controllerUUID string
+	scope          modelmigration.ScopeForModel
+	logger         corelogger.Logger
+	clock          clock.Clock
 }
 
 // NewModelImporter returns a new ModelImporter that encapsulates the
@@ -71,19 +71,19 @@ type ModelImporter struct {
 // needed until the migration to dqlite is complete.
 func NewModelImporter(
 	scope modelmigration.ScopeForModel,
-	controllerConfigService ControllerConfigService,
 	domainServices services.DomainServicesGetter,
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
+	controllerUUID string,
 	logger corelogger.Logger,
 	clock clock.Clock,
 ) *ModelImporter {
 	return &ModelImporter{
-		scope:                   scope,
-		controllerConfigService: controllerConfigService,
-		domainServices:          domainServices,
-		storageRegistryGetter:   storageRegistryGetter,
-		logger:                  logger,
-		clock:                   clock,
+		scope:                 scope,
+		controllerUUID:        controllerUUID,
+		domainServices:        domainServices,
+		storageRegistryGetter: storageRegistryGetter,
+		logger:                logger,
+		clock:                 clock,
 	}
 }
 
@@ -96,20 +96,30 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) error {
 		return errors.Trace(err)
 	}
 
+	configGetter, err := newEphemeralProviderConfigGetter(i.controllerUUID, model, getterShim{servicesGetter: i.domainServices})
+	if err != nil {
+		return internalerrors.Errorf("creating ephemeral provider config getter: %w", err)
+	}
+
 	modelUUID := coremodel.UUID(model.UUID())
 
 	// The domain services are not available during the import, until the
 	// model is created and activated. The model defaults provider is used
 	// to provide the model defaults during the migration, so we allow access
 	// but in a lazy way.
-
 	modelDefaultsProvider := modelDefaultsProvider{
 		modelUUID:      modelUUID,
 		servicesGetter: i.domainServices,
 	}
 
 	coordinator := modelmigration.NewCoordinator(i.logger)
-	migrations.ImportOperations(coordinator, modelDefaultsProvider, i.storageRegistryGetter, i.clock, i.logger)
+	migrations.ImportOperations(
+		coordinator,
+		modelDefaultsProvider,
+		i.storageRegistryGetter,
+		configGetter,
+		i.clock,
+		i.logger)
 	if err := coordinator.Perform(ctx, i.scope(modelUUID), model); err != nil {
 		return errors.Trace(err)
 	}
@@ -127,6 +137,7 @@ func (p modelDefaultsProvider) ModelDefaults(ctx context.Context) (modeldefaults
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	modelDefaults := domainServices.ModelDefaults()
 	fn := modelDefaults.ModelDefaultsProvider(p.modelUUID)
 	return fn(ctx)
