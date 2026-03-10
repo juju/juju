@@ -42,7 +42,7 @@ func TestWorkerSuite(t *stdtesting.T) {
 func (s *workerSuite) TestObjectStoreDrainingNotDraining(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	gExp := s.guardService.EXPECT()
+	gExp := s.drainingService.EXPECT()
 	gExp.WatchObjectStoreBackend(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
 		return watchertest.NewMockStringsWatcher(make(chan []string)), nil
 	})
@@ -81,7 +81,7 @@ func (s *workerSuite) TestObjectStoreDrainingNotDraining(c *tc.C) {
 func (s *workerSuite) TestObjectStoreDrainingDraining(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	gExp := s.guardService.EXPECT()
+	gExp := s.drainingService.EXPECT()
 	gExp.WatchObjectStoreBackend(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
 		return watchertest.NewMockStringsWatcher(make(chan []string)), nil
 	})
@@ -137,7 +137,7 @@ func (s *workerSuite) TestObjectStoreDrainingDraining(c *tc.C) {
 func (s *workerSuite) TestObjectStoreDrainingNamespaceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	gExp := s.guardService.EXPECT()
+	gExp := s.drainingService.EXPECT()
 	gExp.WatchObjectStoreBackend(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
 		return watchertest.NewMockStringsWatcher(make(chan []string)), nil
 	})
@@ -184,7 +184,7 @@ func (s *workerSuite) TestObjectStoreDrainingDrainingChanged(c *tc.C) {
 
 	activeBackend := tc.Must(c, objectstore.NewUUID)
 
-	gExp := s.guardService.EXPECT()
+	gExp := s.drainingService.EXPECT()
 	draining := make(chan struct{})
 	gExp.WatchDraining(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[struct{}], error) {
 		return watchertest.NewMockNotifyWatcher(draining), nil
@@ -225,7 +225,7 @@ func (s *workerSuite) TestObjectStoreDrainingDrainingChanged(c *tc.C) {
 	gExp.MarkObjectStoreBackendAsDrained(gomock.Any()).Return(nil)
 
 	done := make(chan struct{})
-	s.guardService.EXPECT().SetDrainingPhase(gomock.Any(), objectstore.PhaseCompleted).DoAndReturn(func(ctx context.Context, p objectstore.Phase) error {
+	s.drainingService.EXPECT().SetDrainingPhase(gomock.Any(), objectstore.PhaseCompleted).DoAndReturn(func(ctx context.Context, p objectstore.Phase) error {
 		defer close(done)
 		return nil
 	})
@@ -272,7 +272,7 @@ func (s *workerSuite) getConfig(c *tc.C) Config {
 	return Config{
 		Agent:                        s.agent,
 		Guard:                        s.guard,
-		GuardService:                 s.guardService,
+		DrainingService:              s.drainingService,
 		ControllerService:            s.controllerService,
 		ObjectStoreServicesGetter:    s.objectStoreServicesGetter,
 		ControllerObjectStoreService: s.controllerObjectStoreMetadata,

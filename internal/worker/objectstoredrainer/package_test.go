@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package objectstoredrainer -destination service_mock_test.go github.com/juju/juju/internal/worker/objectstoredrainer ObjectStoreService,ObjectStoreServicesGetter,GuardService,ControllerService,ControllerConfigService,HashFileSystemAccessor
+//go:generate go run go.uber.org/mock/mockgen -typed -package objectstoredrainer -destination service_mock_test.go github.com/juju/juju/internal/worker/objectstoredrainer ObjectStoreService,ObjectStoreServicesGetter,DrainingService,ControllerService,ControllerConfigService,HashFileSystemAccessor
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstoredrainer -destination fortress_mock_test.go github.com/juju/juju/internal/worker/fortress Guard
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstoredrainer -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config,ConfigSetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package objectstoredrainer -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore Client,Session,ObjectStoreMetadata,ObjectStoreFlusher
@@ -26,7 +26,7 @@ type baseSuite struct {
 	agentConfig                   *MockConfig
 	agentConfigSetter             *MockConfigSetter
 	guard                         *MockGuard
-	guardService                  *MockGuardService
+	drainingService               *MockDrainingService
 	objectStoreService            *MockObjectStoreService
 	objectStoreServicesGetter     *MockObjectStoreServicesGetter
 	objectStoreMetadata           *MockObjectStoreMetadata
@@ -46,7 +46,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.agentConfigSetter = NewMockConfigSetter(ctrl)
 
 	s.guard = NewMockGuard(ctrl)
-	s.guardService = NewMockGuardService(ctrl)
+	s.drainingService = NewMockDrainingService(ctrl)
 
 	s.objectStoreService = NewMockObjectStoreService(ctrl)
 	s.objectStoreServicesGetter = NewMockObjectStoreServicesGetter(ctrl)
@@ -68,7 +68,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.agent = nil
 		s.agentConfig = nil
 		s.guard = nil
-		s.guardService = nil
+		s.drainingService = nil
 		s.objectStoreService = nil
 		s.objectStoreServicesGetter = nil
 		s.objectStoreMetadata = nil
