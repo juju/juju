@@ -37,6 +37,7 @@ func (*ImportTest) TestImports(c *tc.C) {
 		"core/network",
 		"core/objectstore",
 		"core/permission",
+		"core/providertracker",
 		"core/resource",
 		"core/secrets",
 		"core/semversion",

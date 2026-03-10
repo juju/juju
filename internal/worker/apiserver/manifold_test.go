@@ -18,6 +18,7 @@ import (
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/agent"
 	coreapiserver "github.com/juju/juju/apiserver"
@@ -71,6 +72,8 @@ type ManifoldSuite struct {
 	watcherRegistryGetter   *stubWatcherRegistryGetter
 	jwtParser               *jwtparser.Parser
 	flightRecorder          flightrecorder.FlightRecorder
+	providerFactory         *MockProviderFactory
+	provider                *MockProvider
 
 	stub testhelpers.Stub
 }
@@ -81,6 +84,10 @@ func TestManifoldSuite(t *testing.T) {
 
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
+}
+
+func (s *ManifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
 
 	s.agent = &mockAgent{}
 	s.authenticator = &mockAuthenticator{}
@@ -101,6 +108,8 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.domainServicesGetter = &stubDomainServicesGetter{}
 	s.watcherRegistryGetter = &stubWatcherRegistryGetter{}
 	s.flightRecorder = flightrecorder.NoopRecorder{}
+	s.providerFactory = NewMockProviderFactory(ctrl)
+	s.provider = NewMockProvider(ctrl)
 
 	s.getter = s.newGetter(nil)
 	s.manifold = apiserver.Manifold(apiserver.ManifoldConfig{
@@ -120,6 +129,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 		JWTParserName:                     "jwt-parser",
 		WatcherRegistryName:               "watcher-registry",
 		FlightRecorderName:                "flight-recorder",
+		ProviderTrackerName:               "provider-tracker",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		GetControllerConfigService: func(getter dependency.Getter, name string) (apiserver.ControllerConfigService, error) {
@@ -131,6 +141,26 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 		NewWorker:           s.newWorker,
 		NewMetricsCollector: s.newMetricsCollector,
 	})
+
+	c.Cleanup(func() {
+		s.agent = nil
+		s.authenticator = nil
+		s.mux = nil
+		s.upgradeGate = stubGateWaiter{}
+		s.auditConfig = stubAuditConfig{}
+		s.leaseManager = nil
+		s.logSink = nil
+		s.charmhubHTTPClient = nil
+		s.macaroonHTTPClient = nil
+		s.httpClientGetter = nil
+		s.jwtParser = nil
+		s.domainServicesGetter = nil
+		s.watcherRegistryGetter = nil
+		s.flightRecorder = flightrecorder.NoopRecorder{}
+		s.getter = nil
+		s.manifold = dependency.Manifold{}
+	})
+	return ctrl
 }
 
 func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Getter {
@@ -151,6 +181,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Get
 		"jwt-parser":          s.jwtParser,
 		"watcher-registry":    s.watcherRegistryGetter,
 		"flight-recorder":     s.flightRecorder,
+		"provider-tracker":    s.providerFactory,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -186,14 +217,16 @@ var expectedInputs = []string{
 	"http-client", "change-stream",
 	"domain-services", "trace", "object-store", "log-sink",
 	"jwt-parser", "watcher-registry",
-	"flight-recorder",
+	"flight-recorder", "provider-tracker",
 }
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
 	c.Assert(s.manifold.Inputs, tc.SameContents, expectedInputs)
 }
 
 func (s *ManifoldSuite) TestStart(c *tc.C) {
+	defer s.setupMocks(c).Finish()
 	w := s.startWorkerClean(c)
 	workertest.CleanKill(c, w)
 
@@ -241,10 +274,12 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 		JWTParser:                  s.jwtParser,
 		WatcherRegistryGetter:      s.watcherRegistryGetter,
 		FlightRecorder:             s.flightRecorder,
+		EphemeralProviderFactory:   s.providerFactory,
 	})
 }
 
 func (s *ManifoldSuite) TestStopWorkerClosesState(c *tc.C) {
+	defer s.setupMocks(c).Finish()
 	w := s.startWorkerClean(c)
 	defer workertest.CleanKill(c, w)
 
@@ -252,6 +287,7 @@ func (s *ManifoldSuite) TestStopWorkerClosesState(c *tc.C) {
 }
 
 func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
+	defer s.setupMocks(c).Finish()
 	w, err := s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
@@ -259,6 +295,7 @@ func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
 }
 
 func (s *ManifoldSuite) TestAddsAndRemovesMuxClients(c *tc.C) {
+	defer s.setupMocks(c).Finish()
 	waitFinished := make(chan struct{})
 	w := s.startWorkerClean(c)
 	go func() {

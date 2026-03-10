@@ -48,6 +48,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/trace"
 	coreuser "github.com/juju/juju/core/user"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
@@ -311,12 +312,23 @@ func (s *ApiServerSuite) setupAPIServer(c *tc.C, controllerCfg controller.Config
 	err = authenticator.AddHandlers(s.mux)
 	c.Assert(err, tc.ErrorIsNil)
 
+	cfg.EphemeralProviderFactory = &noopEphemeralProviderFactory{}
+
 	s.Server, err = apiserver.NewServer(c.Context(), cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	s.apiInfo = api.Info{
 		Addrs:  []string{fmt.Sprintf("localhost:%d", s.httpServer.Listener.Addr().(*net.TCPAddr).Port)},
 		CACert: coretesting.CACert,
 	}
+}
+
+type noopEphemeralProviderFactory struct{}
+
+func (*noopEphemeralProviderFactory) EphemeralProviderFromConfig(
+	context.Context,
+	providertracker.EphemeralProviderConfig,
+) (providertracker.Provider, error) {
+	return nil, nil
 }
 
 type agentPasswordServiceGetter struct {

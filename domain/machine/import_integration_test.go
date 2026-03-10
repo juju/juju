@@ -111,7 +111,7 @@ func (s *importSuite) TestImportMachine(c *tc.C) {
 	coordinator := modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
 	machinemodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 	err := coordinator.Perform(c.Context(), modelmigration.NewScope(nil, s.TxnRunnerFactory(),
-		nil, model.UUID(s.ModelUUID())), desc)
+		nil, nil, model.UUID(s.ModelUUID())), desc)
 	c.Assert(err, tc.ErrorIsNil)
 
 	svc := s.setupService(c)
@@ -180,7 +180,7 @@ func (s *importSuite) TestImportMachineParentSubordinate(c *tc.C) {
 	coordinator := modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
 	machinemodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 	err := coordinator.Perform(c.Context(), modelmigration.NewScope(nil, s.TxnRunnerFactory(),
-		nil, model.UUID(s.ModelUUID())), desc)
+		nil, nil, model.UUID(s.ModelUUID())), desc)
 	c.Assert(err, tc.ErrorIsNil)
 
 	svc := s.setupService(c)

@@ -50,7 +50,7 @@ func (s *importSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	s.coordinator = modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
-	s.scope = modelmigration.NewScope(nil, s.TxnRunnerFactory(), nil, model.UUID(s.ModelUUID()))
+	s.scope = modelmigration.NewScope(nil, s.TxnRunnerFactory(), nil, nil, model.UUID(s.ModelUUID()))
 
 	s.svc = service.NewService(
 		state.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c)),
