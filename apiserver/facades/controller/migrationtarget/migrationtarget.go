@@ -45,6 +45,8 @@ type ModelImporter interface {
 
 // CloudService provides a subset of the cloud domain service methods.
 type CloudService interface {
+	// Cloud returns the named cloud.
+	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
 	// ListAll returns all the clouds.
 	ListAll(ctx context.Context) ([]cloud.Cloud, error)
 }
