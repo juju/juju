@@ -4,6 +4,7 @@
 package objectstore
 
 import (
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/errors"
 )
@@ -35,13 +36,13 @@ type S3Credentials struct {
 // Validate validates the S3Credentials.
 func (s S3Credentials) Validate() error {
 	if s.Endpoint == "" {
-		return errors.New("endpoint is required")
+		return errors.New("endpoint is required").Add(coreerrors.NotValid)
 	}
 	if s.AccessKey == "" {
-		return errors.New("access key is required")
+		return errors.New("access key is required").Add(coreerrors.NotValid)
 	}
 	if s.SecretKey == "" {
-		return errors.New("secret key is required")
+		return errors.New("secret key is required").Add(coreerrors.NotValid)
 	}
 	return nil
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -28,6 +29,7 @@ import (
 	"github.com/juju/juju/domain/access/service"
 	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	"github.com/juju/juju/internal/auth"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/socketlistener"
 )
 
@@ -116,22 +118,22 @@ type Config struct {
 // Validate returns an error if config cannot drive the Worker.
 func (config Config) Validate() error {
 	if config.AccessService == nil {
-		return errors.NotValidf("nil AccessService")
+		return internalerrors.New("nil AccessService").Add(coreerrors.NotValid)
 	}
 	if config.ObjectStoreService == nil {
-		return errors.NotValidf("nil ObjectStoreService")
+		return internalerrors.New("nil ObjectStoreService").Add(coreerrors.NotValid)
 	}
 	if config.ControllerModelUUID == "" {
-		return errors.NotValidf("empty ControllerModelUUID")
+		return internalerrors.New("empty ControllerModelUUID").Add(coreerrors.NotValid)
 	}
 	if config.SocketName == "" {
-		return errors.NotValidf("empty SocketName")
+		return internalerrors.New("empty SocketName").Add(coreerrors.NotValid)
 	}
 	if config.NewSocketListener == nil {
-		return errors.NotValidf("nil NewSocketListener func")
+		return internalerrors.New("nil NewSocketListener func").Add(coreerrors.NotValid)
 	}
 	if config.Logger == nil {
-		return errors.NotValidf("nil Logger")
+		return internalerrors.New("nil Logger").Add(coreerrors.NotValid)
 	}
 	return nil
 }
@@ -151,12 +153,12 @@ type Worker struct {
 // NewWorker returns a controlsocket worker with the given config.
 func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
-		return nil, errors.Trace(err)
+		return nil, internalerrors.Capture(err)
 	}
 
 	userCreatorName, err := user.NewName(userCreator)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, internalerrors.Capture(err)
 	}
 
 	w := &Worker{
@@ -173,7 +175,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		ShutdownTimeout:  500 * time.Millisecond,
 	})
 	if err != nil {
-		return nil, errors.Annotate(err, "control socket listener:")
+		return nil, internalerrors.Errorf("control socket listener: %w", err)
 	}
 
 	err = catacomb.Invoke(catacomb.Plan{
@@ -183,7 +185,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		Init: []worker.Worker{sl},
 	})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, internalerrors.Capture(err)
 	}
 	return w, nil
 }
@@ -224,19 +226,19 @@ func (w *Worker) handleAddMetricsUser(resp http.ResponseWriter, req *http.Reques
 	if err := json.NewDecoder(req.Body).Decode(&parsedBody); err != nil {
 		var maxBytesErr *http.MaxBytesError
 		switch {
-		case errors.Is(err, io.EOF):
-			w.writeResponse(ctx, resp, http.StatusBadRequest, errorf("missing request body"))
-		case errors.As(err, &maxBytesErr):
-			w.writeResponse(ctx, resp, http.StatusRequestEntityTooLarge, errorf("request body must not exceed %d bytes", maxPayloadBytes))
+		case internalerrors.Is(err, io.EOF):
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.New("missing request body"))
+		case internalerrors.As(err, &maxBytesErr):
+			w.writeErrorResponse(ctx, resp, http.StatusRequestEntityTooLarge, internalerrors.Errorf("request body must not exceed %d bytes", maxPayloadBytes))
 		default:
-			w.writeResponse(ctx, resp, http.StatusBadRequest, errorf("request body is not valid JSON: %v", err))
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.Errorf("request body is not valid JSON: %v", err))
 		}
 		return
 	}
 
 	code, err := w.addMetricsUser(ctx, parsedBody.Username, auth.NewPassword(parsedBody.Password))
 	if err != nil {
-		w.writeResponse(ctx, resp, code, errorf("%v", err))
+		w.writeErrorResponse(ctx, resp, code, err)
 		return
 	}
 
@@ -251,7 +253,7 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 
 	creatorUser, err := w.accessService.GetUserByName(ctx, w.userCreatorName)
 	if err != nil {
-		return http.StatusInternalServerError, errors.Annotatef(err, "retrieving creator user %q: %v", userCreator, err)
+		return http.StatusInternalServerError, internalerrors.Errorf("retrieving creator user %q: %w", userCreator, err)
 	}
 
 	controllerModelID := permission.ID{
@@ -269,7 +271,7 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 			Access: permission.ReadAccess,
 		},
 	})
-	if errors.Is(err, usererrors.UserAlreadyExists) {
+	if internalerrors.Is(err, usererrors.UserAlreadyExists) {
 		// Retrieve existing user
 		user, err := w.accessService.GetUserByAuth(ctx, validatedName, password)
 		if err != nil {
@@ -282,10 +284,10 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 		// So ensure the user is identical to what we would have created, and
 		// otherwise error.
 		if user.Disabled {
-			return http.StatusForbidden, errors.Forbiddenf("user %q is disabled", user.Name)
+			return http.StatusForbidden, internalerrors.Errorf("user %q is disabled", user.Name).Add(coreerrors.Forbidden)
 		}
 		if user.CreatorName != w.userCreatorName {
-			return http.StatusConflict, errors.AlreadyExistsf("user %q (created by %q)", user.Name, user.CreatorName)
+			return http.StatusConflict, internalerrors.Errorf("user %q (created by %q)", user.Name, user.CreatorName).Add(coreerrors.AlreadyExists)
 		}
 
 		accessLevel, err := w.accessService.ReadUserAccessLevelForTarget(ctx, validatedName, controllerModelID)
@@ -299,7 +301,7 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 			)
 		}
 	} else if err != nil {
-		return http.StatusInternalServerError, errors.Annotatef(err, "creating user %q: %v", username, err)
+		return http.StatusInternalServerError, internalerrors.Errorf("creating user %q: %w", username, err)
 	}
 	return http.StatusOK, nil
 }
@@ -323,14 +325,14 @@ func (w *Worker) removeMetricsUser(ctx context.Context, username string) (int, e
 
 	// We shouldn't mess with users that weren't created by us.
 	user, err := w.accessService.GetUserByName(ctx, validatedName)
-	if errors.Is(err, usererrors.UserNotFound) {
+	if internalerrors.Is(err, usererrors.UserNotFound) {
 		// succeed as no-op
 		return http.StatusOK, nil
 	} else if err != nil {
 		return http.StatusInternalServerError, err
 	}
 	if user.CreatorName != w.userCreatorName {
-		return http.StatusForbidden, errors.Forbiddenf("cannot remove user %q created by %q", user.Name, user.CreatorName)
+		return http.StatusForbidden, internalerrors.Errorf("cannot remove user %q created by %q", user.Name, user.CreatorName).Add(coreerrors.Forbidden)
 	}
 
 	err = w.accessService.RemoveUser(ctx, validatedName)
@@ -355,12 +357,12 @@ func (w *Worker) handleAddS3Credentials(resp http.ResponseWriter, req *http.Requ
 	if err := json.NewDecoder(req.Body).Decode(&parsedBody); err != nil {
 		var maxBytesErr *http.MaxBytesError
 		switch {
-		case errors.Is(err, io.EOF):
-			w.writeResponse(ctx, resp, http.StatusBadRequest, errorf("missing request body"))
-		case errors.As(err, &maxBytesErr):
-			w.writeResponse(ctx, resp, http.StatusRequestEntityTooLarge, errorf("request body must not exceed %d bytes", maxPayloadBytes))
+		case internalerrors.Is(err, io.EOF):
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.New("missing request body"))
+		case internalerrors.As(err, &maxBytesErr):
+			w.writeErrorResponse(ctx, resp, http.StatusRequestEntityTooLarge, internalerrors.Errorf("request body must not exceed %d bytes", maxPayloadBytes))
 		default:
-			w.writeResponse(ctx, resp, http.StatusBadRequest, errorf("request body is not valid JSON: %v", err))
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.Errorf("request body is not valid JSON: %v", err))
 		}
 		return
 	}
@@ -369,8 +371,11 @@ func (w *Worker) handleAddS3Credentials(resp http.ResponseWriter, req *http.Requ
 		Endpoint:  parsedBody.Endpoint,
 		AccessKey: parsedBody.AccessKey,
 		SecretKey: parsedBody.SecretKey,
-	}); err != nil {
-		w.writeResponse(ctx, resp, http.StatusInternalServerError, errorf("saving S3 credentials: %v", err))
+	}); internalerrors.IsOneOf(err, coreerrors.NotValid, coreerrors.BadRequest) {
+		w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.Errorf("invalid S3 credentials: %v", err))
+		return
+	} else if err != nil {
+		w.writeErrorResponse(ctx, resp, http.StatusInternalServerError, internalerrors.Errorf("saving S3 credentials: %w", err))
 		return
 	}
 
@@ -390,11 +395,11 @@ func (w *Worker) handleRemoveS3Credentials(resp http.ResponseWriter, req *http.R
 
 func validateMetricsUsername(username string) (user.Name, error) {
 	if username == "" {
-		return user.Name{}, errors.BadRequestf("missing username")
+		return user.Name{}, internalerrors.Errorf("missing username").Add(coreerrors.BadRequest)
 	}
 
 	if !strings.HasPrefix(username, jujuMetricsUserPrefix) {
-		return user.Name{}, errors.BadRequestf("metrics username %q should have prefix %q", username, jujuMetricsUserPrefix)
+		return user.Name{}, internalerrors.Errorf("metrics username %q should have prefix %q", username, jujuMetricsUserPrefix).Add(coreerrors.BadRequest)
 	}
 
 	name, err := user.NewName(username)
