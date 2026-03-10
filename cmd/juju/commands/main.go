@@ -15,6 +15,7 @@ import (
 	proxyutils "github.com/juju/proxy"
 
 	"github.com/juju/juju/api/jujuclient"
+	proxy "github.com/juju/juju/api/proxy/config"
 	cloudfile "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/cmd"
@@ -44,7 +45,6 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
-	proxy "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 )

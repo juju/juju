@@ -25,6 +25,7 @@ import (
 
 	"github.com/juju/juju/agent/config"
 	"github.com/juju/juju/agent/introspect"
+	proxy "github.com/juju/juju/api/proxy/config"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
@@ -39,8 +40,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
-	_ "github.com/juju/juju/internal/provider/all" // Import the providers.
-	proxy "github.com/juju/juju/internal/proxy/config"
+	_ "github.com/juju/juju/internal/provider/all"         // Import the providers.
 	_ "github.com/juju/juju/internal/secrets/provider/all" // Import the secret providers.
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/worker/dbaccessor"
