@@ -54,6 +54,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/providertracker"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/securitylog"
 	coretrace "github.com/juju/juju/core/trace"
@@ -254,6 +255,10 @@ type ServerConfig struct {
 
 	// WatcherRegistryGetter is used to register and manage watchers.
 	WatcherRegistryGetter watcherregistry.WatcherRegistryGetter
+
+	// EphemeralProviderFactory is used to create providers for operations that
+	// require them, but where the provider does not need to be tracked.
+	EphemeralProviderFactory providertracker.EphemeralProviderFactory
 }
 
 // Validate validates the API server configuration.
@@ -310,6 +315,9 @@ func (c ServerConfig) Validate() error {
 	}
 	if c.WatcherRegistryGetter == nil {
 		return errors.NotValidf("missing WatcherRegistryGetter")
+	}
+	if c.EphemeralProviderFactory == nil {
+		return errors.NotValidf("missing EphemeralProviderFactory")
 	}
 	return nil
 }
@@ -381,6 +389,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		dataDir:                  cfg.DataDir,
 		logDir:                   cfg.LogDir,
 		watcherRegistryGetter:    cfg.WatcherRegistryGetter,
+		ephemeralProviderFactory: cfg.EphemeralProviderFactory,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1202,6 +1211,7 @@ func (srv *Server) serveConn(
 		objectStore,
 		srv.shared.objectStoreGetter,
 		controllerObjectStore,
+		srv.shared.ephemeralProviderFactory,
 		watcherRegistry,
 		modelUUID,
 		controllerOnlyLogin,

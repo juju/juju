@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
@@ -75,6 +76,7 @@ type ManifoldConfig struct {
 	HTTPClientName         string
 	WatcherRegistryName    string
 	FlightRecorderName     string
+	ProviderTrackerName    string
 
 	ChangeStreamName   string
 	DomainServicesName string
@@ -147,6 +149,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.JWTParserName == "" {
 		return errors.NotValidf("empty JWTParserName")
 	}
+	if config.ProviderTrackerName == "" {
+		return errors.NotValidf("empty ProviderTrackerName")
+	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
@@ -159,6 +164,7 @@ func (config ManifoldConfig) Validate() error {
 	if config.GetModelService == nil {
 		return errors.NotValidf("nil GetModelService")
 	}
+
 	return nil
 }
 
@@ -184,6 +190,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.LogSinkName,
 			config.JWTParserName,
 			config.WatcherRegistryName,
+			config.ProviderTrackerName,
 		},
 		Start: config.start,
 	}
@@ -279,6 +286,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
+	var providerFactory providertracker.ProviderFactory
+	if err := getter.Get(config.ProviderTrackerName, &providerFactory); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	controllerConfigService, err := config.GetControllerConfigService(getter, config.DomainServicesName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -329,6 +341,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		ObjectStoreGetter:                 objectStoreGetter,
 		ModelService:                      modelService,
 		WatcherRegistryGetter:             watcherRegistryGetter,
+		EphemeralProviderFactory:          providerFactory,
 	})
 	if err != nil {
 		// Ensure we clean up the resources we've registered with. This includes

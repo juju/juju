@@ -76,20 +76,28 @@ type EphemeralProviderConfigGetter interface {
 	GetEphemeralProviderConfig(ctx context.Context) (EphemeralProviderConfig, error)
 }
 
+// EphemeralProviderFactory is a factory for creating ephemeral providers. An
+// ephemeral provider is a provider that is not tracked, and is created and then
+// discarded. This is useful for operations that need to interact with a
+// provider, but do not need to track it as part of the migration.
+type EphemeralProviderFactory interface {
+	// EphemeralProviderFromConfig returns an ephemeral provider for a given
+	// configuration. The provider is not tracked, instead is created and then
+	// discarded.
+	EphemeralProviderFromConfig(ctx context.Context, config EphemeralProviderConfig) (Provider, error)
+}
+
 // ProviderFactory is an interface that provides a way to get a provider
 // for a given model namespace. It will continue to be updated in the background
 // for as long as the Worker continues to run.
 type ProviderFactory interface {
+	EphemeralProviderFactory
+
 	// ProviderForModel returns the encapsulated provider for a given model
 	// namespace. It will continue to be updated in the background for as long
 	// as the Worker continues to run. If the worker is not a singular worker,
 	// then an error will be returned.
 	ProviderForModel(ctx context.Context, namespace string) (Provider, error)
-
-	// EphemeralProviderFromConfig returns an ephemeral provider for a given
-	// configuration. The provider is not tracked, instead is created and then
-	// discarded.
-	EphemeralProviderFromConfig(ctx context.Context, config EphemeralProviderConfig) (Provider, error)
 }
 
 // ProviderGetter is a function that returns a provider for a given type.
@@ -119,7 +127,7 @@ func ProviderRunner[T any](providerFactory ProviderFactory, namespace string) fu
 // but instead created and discarded. Credential invalidation is not enforced
 // during the call to the provider. For that reason alone, a closure is returned
 // and the provider is created and discarded on each call.
-func EphemeralProviderRunnerFromConfig[T any](providerFactory ProviderFactory, getter EphemeralProviderConfigGetter) func(context.Context, func(context.Context, T) error) error {
+func EphemeralProviderRunnerFromConfig[T any](providerFactory EphemeralProviderFactory, getter EphemeralProviderConfigGetter) func(context.Context, func(context.Context, T) error) error {
 	return func(ctx context.Context, fn func(context.Context, T) error) error {
 		config, err := getter.GetEphemeralProviderConfig(ctx)
 		if err != nil {
