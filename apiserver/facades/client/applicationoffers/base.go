@@ -72,6 +72,19 @@ func (api *BaseAPI) modelForName(modelName, ownerName string) (Model, string, bo
 	return model, modelPath, model != nil, nil
 }
 
+// resolveUserDisplayName resolves the display name of a user.
+// External users return an empty display name.
+func (api *BaseAPI) resolveUserDisplayName(backend Backend, user names.UserTag) (string, error) {
+	u, err := backend.User(user)
+	if errors.Is(err, errors.NotFound) {
+		// External users don't have display names.
+		return "", nil
+	} else if err != nil {
+		return "", errors.Trace(err)
+	}
+	return u.DisplayName(), nil
+}
+
 // applicationOffersFromModel gets details about remote applications that match given filters.
 func (api *BaseAPI) applicationOffersFromModel(
 	modelUUID string,
@@ -103,7 +116,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		return nil, errors.Trace(err)
 	}
 
-	u, err := backend.User(user)
+	apiUserDisplayName, err := api.resolveUserDisplayName(backend, user)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -131,7 +144,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		}
 		offerParams.Users = []params.OfferUserDetails{{
 			UserName:    user.Id(),
-			DisplayName: u.DisplayName(),
+			DisplayName: apiUserDisplayName,
 			Access:      string(userAccess),
 		}}
 		offer := params.ApplicationOfferAdminDetailsV5{

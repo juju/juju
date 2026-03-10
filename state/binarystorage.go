@@ -17,22 +17,15 @@ var binarystorageNew = binarystorage.New
 // ToolsStorage returns a new binarystorage.StorageCloser that stores tools
 // metadata in the "juju" database "toolsmetadata" collection.
 func (st *State) ToolsStorage() (binarystorage.StorageCloser, error) {
-	modelStorage, err := newBinaryStorageCloser(st.database, toolsmetadataC, st.ModelUUID())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	modelStorage := newBinaryStorageCloser(st.database, toolsmetadataC, st.ModelUUID())
 	if st.IsController() {
 		return modelStorage, nil
 	}
 	// This is a hosted model. Hosted models have their own tools
 	// catalogue, which we combine with the controller's.
-	controllerStorage, err := newBinaryStorageCloser(
+	controllerStorage := newBinaryStorageCloser(
 		st.database, toolsmetadataC, st.ControllerModelUUID(),
 	)
-	if err != nil {
-		modelStorage.Close()
-		return nil, errors.Trace(err)
-	}
 	storage, err := binarystorage.NewLayeredStorage(modelStorage, controllerStorage)
 	if err != nil {
 		modelStorage.Close()
@@ -45,21 +38,17 @@ func (st *State) ToolsStorage() (binarystorage.StorageCloser, error) {
 	}}, nil
 }
 
-func newBinaryStorageCloser(db Database, collectionName, uuid string) (binarystorage.StorageCloser, error) {
+func newBinaryStorageCloser(db Database, collectionName, uuid string) binarystorage.StorageCloser {
 	db, closer1 := db.CopyForModel(uuid)
-	txnRunner, closer2, err := db.TransactionRunner()
-	if err != nil {
-		closer1()
-		return nil, errors.Trace(err)
-	}
-	metadataCollection, closer3 := db.GetCollection(collectionName)
+	metadataCollection, closer2 := db.GetCollection(collectionName)
+	txnRunner, closer3 := db.TransactionRunner()
 	closer := func() {
 		closer3()
 		closer2()
 		closer1()
 	}
 	storage := newBinaryStorage(uuid, metadataCollection, txnRunner)
-	return &storageCloser{storage, closer}, nil
+	return &storageCloser{storage, closer}
 }
 
 func newBinaryStorage(uuid string, metadataCollection mongo.Collection, txnRunner jujutxn.Runner) binarystorage.Storage {
