@@ -345,52 +345,6 @@ AND     u.removed = false
 	return corepermission.NoAccess, errors.Errorf("%w for %q on %q", accesserrors.AccessNotFound, subject, target.Key)
 }
 
-// EnsureExternalUserIfAuthorized checks if an external user is missing from the
-// database and has permissions on an object. If they do then they will be
-// added. This ensures that juju has a record of external users that have
-// inherited their permissions from everyone@external.
-func (st *PermissionState) EnsureExternalUserIfAuthorized(
-	ctx context.Context,
-	subject user.Name,
-	target corepermission.ID,
-) error {
-	if subject.IsLocal() {
-		return nil
-	}
-
-	db, err := st.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		_, err := st.findUserByName(ctx, tx, subject)
-		if err == nil {
-			return nil
-		} else if !errors.Is(err, accesserrors.UserNotFound) {
-			return errors.Errorf("getting user %q", subject)
-		}
-		// We have a UserNotFound error. Check if everyone@external has permissions
-		// on the target.
-		baseExternalPerms, err := st.baseExternalAccessForTarget(ctx, tx, target)
-		if err != nil {
-			return errors.Errorf("getting everyone@external access: %w", err)
-		}
-		if corepermission.Access(baseExternalPerms.AccessType) == corepermission.NoAccess {
-			return nil
-		}
-		_, err = st.addExternalUser(ctx, tx, subject)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		return nil
-	})
-	if err != nil {
-		return errors.Errorf("adding external user %q if missing: %w", subject, err)
-	}
-	return nil
-}
-
 // addExternalUser adds an external user to the database with everyone@external
 // as its creator.
 func (st *PermissionState) addExternalUser(ctx context.Context, tx *sqlair.TX, subject user.Name) (user.UUID, error) {

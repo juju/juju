@@ -41,9 +41,7 @@ func NewUserState(factory database.TxnRunnerFactory, clock clock.Clock) *UserSta
 }
 
 // EnsureExternalUser ensures that the given external user exists in the
-// database, creating them if necessary. Unlike EnsureExternalUserIfAuthorized,
-// this method does not check everyone@external permissions — the caller is
-// responsible for determining that the user is authorized (e.g. via JWT).
+// database, creating them if necessary.
 // If the user already exists, this is a no-op.
 func (st *UserState) EnsureExternalUser(ctx context.Context, subject user.Name) error {
 	db, err := st.DB(ctx)
