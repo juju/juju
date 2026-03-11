@@ -319,7 +319,7 @@ func (s *instanceSuite) TestStorageInstanceInfoVolumeUnitAttach(c *tc.C) {
 
 	blockDeviceUUID := s.newBlockDevice(c, machineUUID)
 	s.setBlockDeviceLinks(c, blockDeviceUUID, []string{"/dev/disk/by-id/123"})
-	vUUID := s.newModelVolume(c, siUUID)
+	vUUID := s.newPersistentModelVolume(c, siUUID)
 	s.newModelVolumeAttachment(
 		c, vUUID, unitNetNodeUUID, blockDeviceUUID,
 	)
@@ -355,6 +355,7 @@ func (s *instanceSuite) TestStorageInstanceInfoVolumeUnitAttach(c *tc.C) {
 		Kind:      domainstorage.StorageKindBlock,
 		StorageID: siID,
 		Volume: &internal.StorageInstanceInfoVolume{
+			Persistent: true,
 			Status: &internal.StorageInstanceInfoVolumeStatus{
 				Message:   "testVolume",
 				Status:    domainstatus.StorageVolumeStatusTypeAttached,

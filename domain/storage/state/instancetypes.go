@@ -42,6 +42,7 @@ type storageInstanceInfo struct {
 	UnitOwnerName             sql.Null[string]    `db:"unit_owner_name"`
 	UnitOwnerUUID             sql.Null[string]    `db:"unit_owner_uuid"`
 	UUID                      string              `db:"uuid"`
+	VolumePersistent          sql.Null[bool]      `db:"storage_volume_persistent"`
 	VolumeStatusID            sql.Null[int]       `db:"storage_volume_status_id"`
 	VolumeStatusMessage       sql.Null[string]    `db:"storage_volume_status_message"`
 	VolumeStatusUpdatedAt     sql.Null[time.Time] `db:"storage_volume_status_updated_at"`
