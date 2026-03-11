@@ -21,7 +21,6 @@ import (
 	"gopkg.in/tomb.v2"
 
 	api "github.com/juju/juju/api"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/s3client"
@@ -32,12 +31,13 @@ import (
 type retrieverSuite struct {
 	testhelpers.IsolationSuite
 
-	remoteCallers    *MockAPIRemoteCallers
-	remoteConnection *MockRemoteConnection
-	apiConnection    *MockConnection
-	simpleHTTPClient *MockSimpleHTTPClient
-	client           *MockBlobsClient
-	clock            *MockClock
+	remoteCallers     *MockAPIRemoteCallers
+	remoteConnection1 *MockRemoteConnection
+	remoteConnection2 *MockRemoteConnection
+	apiConnection     *MockConnection
+	simpleHTTPClient  *MockSimpleHTTPClient
+	client            *MockBlobsClient
+	clock             *MockClock
 }
 
 func TestRetrieverSuite(t *testing.T) {
@@ -48,8 +48,8 @@ func TestRetrieverSuite(t *testing.T) {
 func (s *retrieverSuite) TestRetrieve(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection}, nil)
-	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection1}, nil)
+	s.remoteConnection1.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
 		return f(ctx, s.apiConnection)
 	})
 	s.apiConnection.EXPECT().SimpleHTTPClient().Return(s.simpleHTTPClient, nil)
@@ -59,7 +59,7 @@ func (s *retrieverSuite) TestRetrieve(c *tc.C) {
 	ret := s.newRetriever(c)
 	defer workertest.DirtyKill(c, ret)
 
-	reader, size, err := ret.Retrieve(c.Context(), "sha256")
+	reader, size, err := ret.Retrieve(c.Context(), "sha256", []string{"1"})
 	c.Assert(err, tc.ErrorIsNil)
 	s.checkReader(c, reader, size)
 
@@ -69,8 +69,8 @@ func (s *retrieverSuite) TestRetrieve(c *tc.C) {
 func (s *retrieverSuite) TestRetrieveControllerNamespace(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection}, nil)
-	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection1}, nil)
+	s.remoteConnection1.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
 		return f(ctx, s.apiConnection)
 	})
 	s.apiConnection.EXPECT().ModelTag().Return(names.NewModelTag("f47ac10b-58cc-4372-a567-0e02b2c3d479"), true)
@@ -78,15 +78,105 @@ func (s *retrieverSuite) TestRetrieveControllerNamespace(c *tc.C) {
 	s.simpleHTTPClient.EXPECT().BaseURL().Return("http://example.com/api")
 	s.client.EXPECT().GetObject(gomock.Any(), "f47ac10b-58cc-4372-a567-0e02b2c3d479", "sha256").Return(io.NopCloser(strings.NewReader("test data")), int64(9), nil)
 
-	ret, err := NewBlobRetriever(s.remoteCallers, database.ControllerNS, func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
+	ret, err := NewControllerBlobRetriever(s.remoteCallers, func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
 		return s.client, nil
 	}, s.clock, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, ret)
 
-	reader, size, err := ret.Retrieve(c.Context(), "sha256")
+	reader, size, err := ret.Retrieve(c.Context(), "sha256", []string{"1"})
 	c.Assert(err, tc.ErrorIsNil)
 	s.checkReader(c, reader, size)
+
+	workertest.CleanKill(c, ret)
+}
+
+func (s *retrieverSuite) TestRetrieveModelNamespace(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection1}, nil)
+	s.remoteConnection1.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+		return f(ctx, s.apiConnection)
+	})
+	s.apiConnection.EXPECT().SimpleHTTPClient().Return(s.simpleHTTPClient, nil)
+	s.simpleHTTPClient.EXPECT().BaseURL().Return("http://example.com/api")
+	s.client.EXPECT().GetObject(gomock.Any(), "f47ac10b-58cc-4372-a567-0e02b2c3d479", "sha256").Return(io.NopCloser(strings.NewReader("test data")), int64(9), nil)
+
+	ret, err := NewModelBlobRetriever(s.remoteCallers, "f47ac10b-58cc-4372-a567-0e02b2c3d479", func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
+		return s.client, nil
+	}, s.clock, loggertesting.WrapCheckLog(c))
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, ret)
+
+	reader, size, err := ret.Retrieve(c.Context(), "sha256", []string{"1"})
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkReader(c, reader, size)
+
+	workertest.CleanKill(c, ret)
+}
+
+func (s *retrieverSuite) TestRetrieveControllerNamespacePerCall(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag1 := names.NewModelTag("f47ac10b-58cc-4372-a567-0e02b2c3d479")
+	tag2 := names.NewModelTag("48c4a9b5-3861-497e-88bd-4d94f96931d5")
+
+	gomock.InOrder(
+		s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection1}, nil),
+		s.remoteConnection1.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+			return f(ctx, s.apiConnection)
+		}),
+		s.apiConnection.EXPECT().SimpleHTTPClient().Return(s.simpleHTTPClient, nil),
+		s.simpleHTTPClient.EXPECT().BaseURL().Return("http://example.com/api"),
+		s.apiConnection.EXPECT().ModelTag().Return(tag1, true),
+		s.client.EXPECT().GetObject(gomock.Any(), tag1.Id(), "sha256").Return(io.NopCloser(strings.NewReader("test data")), int64(9), nil),
+
+		s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection1}, nil),
+		s.remoteConnection1.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+			return f(ctx, s.apiConnection)
+		}),
+		s.apiConnection.EXPECT().SimpleHTTPClient().Return(s.simpleHTTPClient, nil),
+		s.simpleHTTPClient.EXPECT().BaseURL().Return("http://example.com/api"),
+		s.apiConnection.EXPECT().ModelTag().Return(tag2, true),
+		s.client.EXPECT().GetObject(gomock.Any(), tag2.Id(), "sha256").Return(io.NopCloser(strings.NewReader("test data")), int64(9), nil),
+	)
+
+	ret, err := NewControllerBlobRetriever(s.remoteCallers, func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
+		return s.client, nil
+	}, s.clock, loggertesting.WrapCheckLog(c))
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, ret)
+
+	reader, size, err := ret.Retrieve(c.Context(), "sha256", []string{"1"})
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkReader(c, reader, size)
+
+	reader, size, err = ret.Retrieve(c.Context(), "sha256", []string{"1"})
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkReader(c, reader, size)
+
+	workertest.CleanKill(c, ret)
+}
+
+func (s *retrieverSuite) TestRetrieveControllerNamespaceMissingModelTag(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection1}, nil)
+	s.remoteConnection1.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+		return f(ctx, s.apiConnection)
+	})
+	s.apiConnection.EXPECT().SimpleHTTPClient().Return(s.simpleHTTPClient, nil)
+	s.simpleHTTPClient.EXPECT().BaseURL().Return("http://example.com/api")
+	s.apiConnection.EXPECT().ModelTag().Return(names.NewModelTag("f47ac10b-58cc-4372-a567-0e02b2c3d479"), false)
+
+	ret, err := NewControllerBlobRetriever(s.remoteCallers, func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
+		return s.client, nil
+	}, s.clock, loggertesting.WrapCheckLog(c))
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, ret)
+
+	_, _, err = ret.Retrieve(c.Context(), "sha256", []string{"1"})
+	c.Assert(err, tc.ErrorMatches, ".*missing model tag.*")
 
 	workertest.CleanKill(c, ret)
 }
@@ -95,18 +185,20 @@ func (s *retrieverSuite) TestRetrieveMultipleRemotes(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{
-		s.remoteConnection,
-		s.remoteConnection,
+		s.remoteConnection1,
+		s.remoteConnection1,
 	}, nil)
 
 	gomock.InOrder(
-		s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+		s.remoteConnection1.EXPECT().ControllerID().Return("1"),
+		s.remoteConnection1.EXPECT().ControllerID().Return("0"),
+		s.remoteConnection1.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
 			return f(ctx, s.apiConnection)
 		}),
 		s.apiConnection.EXPECT().SimpleHTTPClient().Return(s.simpleHTTPClient, nil),
 		s.simpleHTTPClient.EXPECT().BaseURL().Return("http://example.com/api"),
 		s.client.EXPECT().GetObject(gomock.Any(), "namespace", "sha256").Return(nil, int64(-1), jujuerrors.NotFoundf("not found")),
-		s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+		s.remoteConnection1.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
 			return f(ctx, s.apiConnection)
 		}),
 		s.apiConnection.EXPECT().SimpleHTTPClient().Return(s.simpleHTTPClient, nil),
@@ -117,7 +209,148 @@ func (s *retrieverSuite) TestRetrieveMultipleRemotes(c *tc.C) {
 	ret := s.newRetriever(c)
 	defer workertest.DirtyKill(c, ret)
 
-	reader, size, err := ret.Retrieve(c.Context(), "sha256")
+	reader, size, err := ret.Retrieve(c.Context(), "sha256", []string{"1"})
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkReader(c, reader, size)
+
+	workertest.CleanKill(c, ret)
+}
+
+func (s *retrieverSuite) TestRetrieveMultipleRemotesWithHints(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{
+		s.remoteConnection1,
+		s.remoteConnection2,
+	}, nil)
+
+	gomock.InOrder(
+		s.remoteConnection1.EXPECT().ControllerID().Return("1"),
+		s.remoteConnection2.EXPECT().ControllerID().Return("0"),
+		s.remoteConnection1.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+			return f(ctx, s.apiConnection)
+		}),
+		s.apiConnection.EXPECT().SimpleHTTPClient().Return(s.simpleHTTPClient, nil),
+		s.simpleHTTPClient.EXPECT().BaseURL().Return("http://example.com/api"),
+		s.client.EXPECT().GetObject(gomock.Any(), "namespace", "sha256").Return(nil, int64(-1), jujuerrors.NotFoundf("not found")),
+		s.remoteConnection2.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+			return f(ctx, s.apiConnection)
+		}),
+		s.apiConnection.EXPECT().SimpleHTTPClient().Return(s.simpleHTTPClient, nil),
+		s.simpleHTTPClient.EXPECT().BaseURL().Return("http://example.com/api"),
+		s.client.EXPECT().GetObject(gomock.Any(), "namespace", "sha256").Return(io.NopCloser(strings.NewReader("test data")), int64(9), nil),
+	)
+
+	ret := s.newRetriever(c)
+	defer workertest.DirtyKill(c, ret)
+
+	reader, size, err := ret.Retrieve(c.Context(), "sha256", []string{"1"})
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkReader(c, reader, size)
+
+	workertest.CleanKill(c, ret)
+}
+
+func (s *retrieverSuite) TestRetrieveMultipleRemotesWithHintsDifferentOrdering(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{
+		s.remoteConnection1,
+		s.remoteConnection2,
+	}, nil)
+
+	gomock.InOrder(
+		s.remoteConnection1.EXPECT().ControllerID().Return("1"),
+		s.remoteConnection2.EXPECT().ControllerID().Return("0"),
+		s.remoteConnection2.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+			return f(ctx, s.apiConnection)
+		}),
+		s.apiConnection.EXPECT().SimpleHTTPClient().Return(s.simpleHTTPClient, nil),
+		s.simpleHTTPClient.EXPECT().BaseURL().Return("http://example.com/api"),
+		s.client.EXPECT().GetObject(gomock.Any(), "namespace", "sha256").Return(nil, int64(-1), jujuerrors.NotFoundf("not found")),
+		s.remoteConnection1.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+			return f(ctx, s.apiConnection)
+		}),
+		s.apiConnection.EXPECT().SimpleHTTPClient().Return(s.simpleHTTPClient, nil),
+		s.simpleHTTPClient.EXPECT().BaseURL().Return("http://example.com/api"),
+		s.client.EXPECT().GetObject(gomock.Any(), "namespace", "sha256").Return(io.NopCloser(strings.NewReader("test data")), int64(9), nil),
+	)
+
+	ret := s.newRetriever(c)
+	defer workertest.DirtyKill(c, ret)
+
+	reader, size, err := ret.Retrieve(c.Context(), "sha256", []string{"0"})
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkReader(c, reader, size)
+
+	workertest.CleanKill(c, ret)
+}
+
+func (s *retrieverSuite) TestRetrieveMultipleRemotesWithNoHints(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{
+		s.remoteConnection1,
+		s.remoteConnection2,
+	}, nil)
+
+	gomock.InOrder(
+		s.client.EXPECT().GetObject(gomock.Any(), "namespace", "sha256").Return(nil, int64(-1), jujuerrors.NotFoundf("not found")),
+		s.client.EXPECT().GetObject(gomock.Any(), "namespace", "sha256").Return(io.NopCloser(strings.NewReader("test data")), int64(9), nil),
+	)
+
+	s.apiConnection.EXPECT().SimpleHTTPClient().Return(s.simpleHTTPClient, nil).Times(2)
+	s.simpleHTTPClient.EXPECT().BaseURL().Return("http://example.com/api").Times(2)
+
+	s.remoteConnection1.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+		return f(ctx, s.apiConnection)
+	})
+	s.remoteConnection2.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+		return f(ctx, s.apiConnection)
+	})
+
+	ret := s.newRetriever(c)
+	defer workertest.DirtyKill(c, ret)
+
+	reader, size, err := ret.Retrieve(c.Context(), "sha256", []string{})
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkReader(c, reader, size)
+
+	workertest.CleanKill(c, ret)
+}
+
+func (s *retrieverSuite) TestRetrieveMultipleRemotesWithDifferentHints(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{
+		s.remoteConnection1,
+		s.remoteConnection2,
+	}, nil)
+
+	gomock.InOrder(
+		s.remoteConnection1.EXPECT().ControllerID().Return("1"),
+		s.remoteConnection2.EXPECT().ControllerID().Return("0"),
+	)
+
+	gomock.InOrder(
+		s.client.EXPECT().GetObject(gomock.Any(), "namespace", "sha256").Return(nil, int64(-1), jujuerrors.NotFoundf("not found")),
+		s.client.EXPECT().GetObject(gomock.Any(), "namespace", "sha256").Return(io.NopCloser(strings.NewReader("test data")), int64(9), nil),
+	)
+
+	s.apiConnection.EXPECT().SimpleHTTPClient().Return(s.simpleHTTPClient, nil).Times(2)
+	s.simpleHTTPClient.EXPECT().BaseURL().Return("http://example.com/api").Times(2)
+
+	s.remoteConnection1.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+		return f(ctx, s.apiConnection)
+	})
+	s.remoteConnection2.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+		return f(ctx, s.apiConnection)
+	})
+
+	ret := s.newRetriever(c)
+	defer workertest.DirtyKill(c, ret)
+
+	reader, size, err := ret.Retrieve(c.Context(), "sha256", []string{"100", "200"})
 	c.Assert(err, tc.ErrorIsNil)
 	s.checkReader(c, reader, size)
 
@@ -128,18 +361,20 @@ func (s *retrieverSuite) TestRetrieveMultipleRemotesAllFailed(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{
-		s.remoteConnection,
-		s.remoteConnection,
+		s.remoteConnection1,
+		s.remoteConnection1,
 	}, nil)
 
 	gomock.InOrder(
-		s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+		s.remoteConnection1.EXPECT().ControllerID().Return("1"),
+		s.remoteConnection1.EXPECT().ControllerID().Return("0"),
+		s.remoteConnection1.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
 			return f(ctx, s.apiConnection)
 		}),
 		s.apiConnection.EXPECT().SimpleHTTPClient().Return(s.simpleHTTPClient, nil),
 		s.simpleHTTPClient.EXPECT().BaseURL().Return("http://example.com/api"),
 		s.client.EXPECT().GetObject(gomock.Any(), "namespace", "sha256").Return(nil, int64(-1), jujuerrors.NotFoundf("not found")),
-		s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+		s.remoteConnection1.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
 			return f(ctx, s.apiConnection)
 		}),
 		s.apiConnection.EXPECT().SimpleHTTPClient().Return(s.simpleHTTPClient, nil),
@@ -150,7 +385,7 @@ func (s *retrieverSuite) TestRetrieveMultipleRemotesAllFailed(c *tc.C) {
 	ret := s.newRetriever(c)
 	defer workertest.DirtyKill(c, ret)
 
-	_, _, err := ret.Retrieve(c.Context(), "sha256")
+	_, _, err := ret.Retrieve(c.Context(), "sha256", []string{"2", "3", "1"})
 	c.Assert(err, tc.ErrorIs, BlobNotFound)
 
 	workertest.CleanKill(c, ret)
@@ -164,7 +399,7 @@ func (s *retrieverSuite) TestRetrieveRemotesNotFound(c *tc.C) {
 	ret := s.newRetriever(c)
 	defer workertest.DirtyKill(c, ret)
 
-	_, _, err := ret.Retrieve(c.Context(), "sha256")
+	_, _, err := ret.Retrieve(c.Context(), "sha256", nil)
 	c.Assert(err, tc.ErrorIs, jujuerrors.NotFound)
 
 	workertest.CleanKill(c, ret)
@@ -178,7 +413,7 @@ func (s *retrieverSuite) TestRetrieveRemotesNoRemotes(c *tc.C) {
 	ret := s.newRetriever(c)
 	defer workertest.DirtyKill(c, ret)
 
-	_, _, err := ret.Retrieve(c.Context(), "sha256")
+	_, _, err := ret.Retrieve(c.Context(), "sha256", nil)
 	c.Assert(err, tc.ErrorIs, NoRemoteConnections)
 
 	workertest.CleanKill(c, ret)
@@ -187,8 +422,8 @@ func (s *retrieverSuite) TestRetrieveRemotesNoRemotes(c *tc.C) {
 func (s *retrieverSuite) TestRetrieveNoHTTPClient(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection}, nil)
-	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection1}, nil)
+	s.remoteConnection1.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
 		return f(ctx, s.apiConnection)
 	})
 	s.apiConnection.EXPECT().SimpleHTTPClient().Return(s.simpleHTTPClient, errors.New("boom"))
@@ -196,7 +431,7 @@ func (s *retrieverSuite) TestRetrieveNoHTTPClient(c *tc.C) {
 	ret := s.newRetriever(c)
 	defer workertest.DirtyKill(c, ret)
 
-	_, _, err := ret.Retrieve(c.Context(), "sha256")
+	_, _, err := ret.Retrieve(c.Context(), "sha256", nil)
 	c.Assert(err, tc.ErrorMatches, `.*boom.*`)
 
 	workertest.CleanKill(c, ret)
@@ -211,7 +446,7 @@ func (s *retrieverSuite) TestRetrieveCanceled(c *tc.C) {
 	ctx, cancel := context.WithCancel(c.Context())
 	cancel()
 
-	_, _, err := ret.Retrieve(ctx, "sha256")
+	_, _, err := ret.Retrieve(ctx, "sha256", nil)
 	c.Assert(err, tc.ErrorIs, context.Canceled)
 }
 
@@ -223,7 +458,7 @@ func (s *retrieverSuite) TestRetrieveDying(c *tc.C) {
 
 	ret.Kill()
 
-	_, _, err := ret.Retrieve(c.Context(), "sha256")
+	_, _, err := ret.Retrieve(c.Context(), "sha256", nil)
 	c.Assert(err, tc.ErrorIs, tomb.ErrDying)
 }
 
@@ -235,8 +470,8 @@ func (s *retrieverSuite) TestRetrievePreventReaderCancelationPropagate(c *tc.C) 
 
 	sync := make(chan struct{})
 
-	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection}, nil)
-	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
+	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection1}, nil)
+	s.remoteConnection1.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, f func(context.Context, api.Connection) error) error {
 		ctx, cancel := context.WithCancel(ctx)
 		defer func() {
 			cancel()
@@ -253,7 +488,7 @@ func (s *retrieverSuite) TestRetrievePreventReaderCancelationPropagate(c *tc.C) 
 	ret := s.newRetriever(c)
 	defer workertest.DirtyKill(c, ret)
 
-	reader, size, err := ret.Retrieve(c.Context(), "sha256")
+	reader, size, err := ret.Retrieve(c.Context(), "sha256", nil)
 	c.Assert(err, tc.ErrorIsNil)
 
 	select {
@@ -325,7 +560,7 @@ func (s *retrieverSuite) TestScopedContextDoneIgnoresChildAfterIgnore(c *tc.C) {
 }
 
 func (s *retrieverSuite) newRetriever(c *tc.C) *BlobRetriever {
-	ret, err := NewBlobRetriever(s.remoteCallers, "namespace", func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
+	ret, err := NewModelBlobRetriever(s.remoteCallers, "namespace", func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
 		return s.client, nil
 	}, s.clock, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
@@ -336,7 +571,8 @@ func (s *retrieverSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.remoteCallers = NewMockAPIRemoteCallers(ctrl)
-	s.remoteConnection = NewMockRemoteConnection(ctrl)
+	s.remoteConnection1 = NewMockRemoteConnection(ctrl)
+	s.remoteConnection2 = NewMockRemoteConnection(ctrl)
 	s.apiConnection = NewMockConnection(ctrl)
 	s.simpleHTTPClient = NewMockSimpleHTTPClient(ctrl)
 
@@ -346,7 +582,8 @@ func (s *retrieverSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	c.Cleanup(func() {
 		s.remoteCallers = nil
-		s.remoteConnection = nil
+		s.remoteConnection1 = nil
+		s.remoteConnection2 = nil
 		s.apiConnection = nil
 		s.simpleHTTPClient = nil
 		s.client = nil

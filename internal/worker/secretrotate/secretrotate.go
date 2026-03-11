@@ -186,6 +186,9 @@ func (w *Worker) computeNextRotateTime(ctx context.Context) {
 	w.config.Logger.Debugf(ctx, "computing next rotated time for secrets %#v", w.secrets)
 
 	if len(w.secrets) == 0 {
+		if w.timer != nil && !w.timer.Stop() {
+			w.drainTimer()
+		}
 		w.timer = nil
 		return
 	}
@@ -217,16 +220,8 @@ func (w *Worker) computeNextRotateTime(ctx context.Context) {
 	if w.timer == nil {
 		w.timer = w.config.Clock.NewTimer(nextDuration)
 	} else {
-		// See the docs on Timer.Reset() that says it isn't safe to call
-		// on a non-stopped channel, and if it is stopped, you need to check
-		// if the channel needs to be drained anyway. It isn't safe to drain
-		// unconditionally in case another goroutine has already noticed,
-		// but make an attempt.
 		if !w.timer.Stop() {
-			select {
-			case <-w.timer.Chan():
-			default:
-			}
+			w.drainTimer()
 		}
 		w.timer.Reset(nextDuration)
 	}
@@ -234,4 +229,17 @@ func (w *Worker) computeNextRotateTime(ctx context.Context) {
 
 func (w *Worker) scopedContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(w.catacomb.Context(context.Background()))
+}
+
+// drainTimer drains the timer channel.
+// See the docs on (*time.Timer).Reset() that says it isn't safe to call
+// on a non-stopped channel, and if it is stopped, you need to check
+// if the channel needs to be drained anyway. It isn't safe to drain
+// unconditionally in case another goroutine has already noticed,
+// but make an attempt.
+func (w *Worker) drainTimer() {
+	select {
+	case <-w.timer.Chan():
+	default:
+	}
 }

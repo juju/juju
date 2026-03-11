@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/tc"
 
+	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 )
 
@@ -57,9 +58,9 @@ func (s *instanceSuite) TestGetStorageInstanceUUIDsByIDs(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	uuidMap, err := st.GetStorageInstanceUUIDsByIDs(c.Context(), []string{id1, id2})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(uuidMap, tc.DeepEquals, map[string]string{
-		id1: uuid1.String(),
-		id2: uuid2.String(),
+	c.Check(uuidMap, tc.DeepEquals, map[string]domainstorage.StorageInstanceUUID{
+		id1: uuid1,
+		id2: uuid2,
 	})
 }
 
@@ -75,9 +76,9 @@ func (s *instanceSuite) TestGetStorageInstanceUUIDsByIDsDuplicateIDs(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	uuidMap, err := st.GetStorageInstanceUUIDsByIDs(c.Context(), []string{id1, id2, id1})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(uuidMap, tc.DeepEquals, map[string]string{
-		id1: uuid1.String(),
-		id2: uuid2.String(),
+	c.Check(uuidMap, tc.DeepEquals, map[string]domainstorage.StorageInstanceUUID{
+		id1: uuid1,
+		id2: uuid2,
 	})
 }
 
@@ -93,8 +94,8 @@ func (s *instanceSuite) TestGetStorageInstanceUUIDsByIDsMiss(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	uuidMap, err := st.GetStorageInstanceUUIDsByIDs(c.Context(), []string{id1, id2, "foo", "bar"})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(uuidMap, tc.DeepEquals, map[string]string{
-		id1: uuid1.String(),
-		id2: uuid2.String(),
+	c.Check(uuidMap, tc.DeepEquals, map[string]domainstorage.StorageInstanceUUID{
+		id1: uuid1,
+		id2: uuid2,
 	})
 }

@@ -286,6 +286,13 @@ type SecretConsumerMetadata struct {
 	// CurrentRevision is current revision the
 	// consumer wants to read.
 	CurrentRevision int
+
+	// Migrated indicates whether the secret has been migrated to a new model,
+	// which implies it may not have all information populated and requires
+	// override.
+	// It can only be true for secrets that are consumed by an application
+	// on a consumer model through a cross-model relation
+	Migrated bool
 }
 
 // SecretRevisionInfo holds info used to read a secret vale.

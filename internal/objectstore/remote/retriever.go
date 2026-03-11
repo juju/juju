@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/clock"
 	jujuerrors "github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
@@ -37,6 +38,18 @@ const (
 	HTTPError = errors.ConstError("http error")
 )
 
+// ModelTagGetter is an interface for getting the model tag from an API
+// connection.
+type ModelTagGetter interface {
+	// ModelTag returns the model tag for the current connection, if available.
+	ModelTag() (names.ModelTag, bool)
+}
+
+// GetNamespaceFunc is a function that returns the namespace to use for
+// retrieving blobs from the remote API, given a ModelTagGetter to get the model
+// tag from the API connection.
+type GetNamespaceFunc func(ModelTagGetter) (string, error)
+
 // BlobsClient is an interface for retrieving objects from an object store.
 type BlobsClient interface {
 	// GetObject returns a reader for the object with the given key in the
@@ -51,7 +64,8 @@ type NewBlobsClientFunc func(url string, client s3client.HTTPClient, logger logg
 type BlobRetriever struct {
 	tomb tomb.Tomb
 
-	namespace string
+	namespace       string
+	namespaceGetter GetNamespaceFunc
 
 	apiRemoteCallers apiremotecaller.APIRemoteCallers
 	newBlobsClient   NewBlobsClientFunc
@@ -60,10 +74,35 @@ type BlobRetriever struct {
 	logger logger.Logger
 }
 
-// NewBlobRetriever creates a new BlobRetriever.
-func NewBlobRetriever(apiRemoteCallers apiremotecaller.APIRemoteCallers, namespace string, newBlobsClient NewBlobsClientFunc, clock clock.Clock, logger logger.Logger) (*BlobRetriever, error) {
+// NewControllerBlobRetriever creates a new BlobRetriever.
+func NewControllerBlobRetriever(apiRemoteCallers apiremotecaller.APIRemoteCallers, newBlobsClient NewBlobsClientFunc, clock clock.Clock, logger logger.Logger) (*BlobRetriever, error) {
 	w := &BlobRetriever{
-		namespace:        namespace,
+		namespace: database.ControllerNS,
+		namespaceGetter: func(mtg ModelTagGetter) (string, error) {
+			tag, ok := mtg.ModelTag()
+			if !ok {
+				return "", errors.Errorf("missing model tag when using controller namespace")
+			}
+			return tag.Id(), nil
+		},
+		newBlobsClient:   newBlobsClient,
+		apiRemoteCallers: apiRemoteCallers,
+		clock:            clock,
+		logger:           logger,
+	}
+
+	w.tomb.Go(w.loop)
+
+	return w, nil
+}
+
+// NewModelBlobRetriever creates a new BlobRetriever.
+func NewModelBlobRetriever(apiRemoteCallers apiremotecaller.APIRemoteCallers, namespace string, newBlobsClient NewBlobsClientFunc, clock clock.Clock, logger logger.Logger) (*BlobRetriever, error) {
+	w := &BlobRetriever{
+		namespace: namespace,
+		namespaceGetter: func(mtg ModelTagGetter) (string, error) {
+			return namespace, nil
+		},
 		newBlobsClient:   newBlobsClient,
 		apiRemoteCallers: apiRemoteCallers,
 		clock:            clock,
@@ -85,7 +124,7 @@ func (r *BlobRetriever) Report() map[string]any {
 }
 
 // Retrieve returns a reader for the blob with the given SHA256.
-func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
+func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string, controllerIDHints []string) (io.ReadCloser, int64, error) {
 	// Check if we're already dead or dying before we start to do anything.
 	select {
 	case <-r.tomb.Dying():
@@ -102,12 +141,22 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (io.ReadClo
 		return nil, -1, NoRemoteConnections
 	}
 
+	// If we have controller ID hints attempt to prioritize remotes that match
+	// the hints. Otherwise shuffle the other remotes to avoid always hitting
+	// the same one first.
+	if len(controllerIDHints) > 0 {
+		remotes = prioritizeRemotes(remotes, controllerIDHints)
+	} else {
+		remotes = shuffleRemotes(remotes)
+	}
+
+	return r.retrieveFromRemotes(ctx, remotes, sha256)
+}
+
+func (r *BlobRetriever) retrieveFromRemotes(ctx context.Context, remotes []apiremotecaller.RemoteConnection, sha256 string) (io.ReadCloser, int64, error) {
 	// Iterate over the remotes and try to retrieve the blob from each one.
-	// TODO (stickupkid): We could parallelize this, but that can lead to
-	// flooding of the controller with requests, so we do it sequentially for
-	// now.
 	var errs []string
-	for _, remote := range shuffleRemotes(remotes) {
+	for _, remote := range remotes {
 		reader, size, err := r.retrieve(ctx, remote, sha256)
 		if errors.Is(err, HTTPError) {
 			errs = append(errs, err.Error())
@@ -140,9 +189,9 @@ func (r *BlobRetriever) retrieve(ctx context.Context, remote apiremotecaller.Rem
 			return errors.Errorf("failed to create object client: %w", err).Add(HTTPError)
 		}
 
-		if r.namespace == database.ControllerNS {
-			tag, _ := conn.ModelTag()
-			r.namespace = tag.Id()
+		ns, err := r.namespaceGetter(conn)
+		if err != nil {
+			return errors.Errorf("failed to get namespace: %w", err).Add(HTTPError)
 		}
 
 		ctx := &scopedContext{
@@ -150,7 +199,7 @@ func (r *BlobRetriever) retrieve(ctx context.Context, remote apiremotecaller.Rem
 			child:  connectionContext,
 		}
 
-		reader, size, err = client.GetObject(ctx, r.namespace, sha256)
+		reader, size, err = client.GetObject(ctx, ns, sha256)
 		if errors.Is(err, jujuerrors.NotFound) {
 			return errors.Errorf("blob %q not found: %w", sha256, err).Add(BlobNotFound)
 		} else if err != nil {
@@ -180,7 +229,9 @@ func (r *BlobRetriever) loop() error {
 	return tomb.ErrDying
 }
 
-// Shuffle the remotes to avoid always hitting the same one first.
+// Shuffle the remotes to avoid always hitting the same one first. This copies
+// the slice before shuffling to avoid modifying the original slice, which may
+// be shared with other parts of the code.
 func shuffleRemotes(remotes []apiremotecaller.RemoteConnection) []apiremotecaller.RemoteConnection {
 	if len(remotes) <= 1 {
 		return remotes
@@ -194,6 +245,43 @@ func shuffleRemotes(remotes []apiremotecaller.RemoteConnection) []apiremotecalle
 	})
 
 	return shuffled
+}
+
+func prioritizeRemotes(remotes []apiremotecaller.RemoteConnection, hints []string) []apiremotecaller.RemoteConnection {
+	if len(remotes) <= 1 {
+		return remotes
+	}
+
+	set := make(map[string]struct{}, len(hints))
+	for _, hint := range hints {
+		set[hint] = struct{}{}
+	}
+
+	prioritize, fallback := partition(remotes, func(remote apiremotecaller.RemoteConnection) bool {
+		_, found := set[remote.ControllerID()]
+		return found
+	})
+
+	return append(shuffleRemotes(prioritize), shuffleRemotes(fallback)...)
+}
+
+// partition splits the slice into two slices based on the provided function.
+// The first slice contains all elements for which the function returns true, and
+// the second slice contains all elements for which the function returns false.
+func partition[S ~[]E, E any](s S, f func(E) bool) (S, S) {
+	if len(s) == 0 {
+		return s, s
+	}
+
+	var a, b S
+	for _, v := range s {
+		if f(v) {
+			a = append(a, v)
+		} else {
+			b = append(b, v)
+		}
+	}
+	return a, b
 }
 
 // scopedContext is a context that allows us to ignore the child context

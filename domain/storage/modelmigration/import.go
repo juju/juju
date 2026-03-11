@@ -115,8 +115,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		}
 
 		if err := i.importVolumes(ctx, model.Volumes()); err != nil {
-			return errors.Errorf("setting volumes: %w", err)
-
+			return errors.Errorf("importing volumes: %w", err)
 		}
 
 	}
@@ -195,19 +194,53 @@ func (i *importOperation) importVolumes(ctx context.Context, volumes []descripti
 	}
 
 	args := make([]domainstorage.ImportVolumeParams, len(volumes))
-	for i, volume := range volumes {
+	for k, volume := range volumes {
+		attachments := volume.Attachments()
+		plans := volume.AttachmentPlans()
 		vol := domainstorage.ImportVolumeParams{
-			ID:          volume.ID(),
-			StorageID:   volume.Storage(),
-			Provisioned: volume.Provisioned(),
-			SizeMiB:     volume.Size(),
-			Pool:        volume.Pool(),
-			HardwareID:  volume.HardwareID(),
-			WWN:         volume.WWN(),
-			ProviderID:  volume.VolumeID(),
-			Persistent:  volume.Persistent(),
+			ID:                volume.ID(),
+			StorageInstanceID: volume.Storage(),
+			Provisioned:       volume.Provisioned(),
+			SizeMiB:           volume.Size(),
+			Pool:              volume.Pool(),
+			HardwareID:        volume.HardwareID(),
+			WWN:               volume.WWN(),
+			ProviderID:        volume.VolumeID(),
+			Persistent:        volume.Persistent(),
+			Attachments:       make([]domainstorage.ImportVolumeAttachmentParams, len(attachments)),
+			AttachmentPlans:   make([]domainstorage.ImportVolumeAttachmentPlanParams, len(plans)),
 		}
-		args[i] = vol
+
+		for j, attach := range attachments {
+			// Volumes can only be attached to machines. Import of CAAS storage
+			// will be handled in a separate step.
+			machineID, _ := attach.HostMachine()
+			vol.Attachments[j] = domainstorage.ImportVolumeAttachmentParams{
+				HostMachineName: machineID,
+				Provisioned:     attach.Provisioned(),
+				ReadOnly:        attach.ReadOnly(),
+				DeviceName:      attach.DeviceName(),
+				DeviceLink:      attach.DeviceLink(),
+				BusAddress:      attach.BusAddress(),
+			}
+		}
+
+		for p, plan := range plans {
+			var (
+				deviceType       string
+				deviceAttributes map[string]string
+			)
+			if info := plan.VolumePlanInfo(); info != nil {
+				deviceType = info.DeviceType()
+				deviceAttributes = info.DeviceAttributes()
+			}
+			vol.AttachmentPlans[p] = domainstorage.ImportVolumeAttachmentPlanParams{
+				HostMachineName:  plan.Machine(),
+				DeviceType:       deviceType,
+				DeviceAttributes: deviceAttributes,
+			}
+		}
+		args[k] = vol
 	}
 
 	return i.service.ImportVolumes(ctx, args)

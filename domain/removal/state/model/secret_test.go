@@ -6,6 +6,7 @@ package model
 import (
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/juju/tc"
 
@@ -125,7 +126,9 @@ INSERT INTO secret_metadata (secret_id, version, rotate_policy_id, create_time, 
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().ExecContext(
-		ctx, "INSERT INTO secret_reference (secret_id, latest_revision, owner_application_uuid) VALUES (?, ?, ?)", sec, 0, appUUID)
+		ctx, `
+INSERT INTO secret_reference (secret_id, latest_revision, owner_application_uuid, updated_at) 
+VALUES (?, ?, ?, ?)`, sec, 0, appUUID, time.Now().UTC())
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().ExecContext(

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
 
-	proxyconfig "github.com/juju/juju/internal/proxy/config"
+	proxyconfig "github.com/juju/juju/api/proxy/config"
 )
 
 type Suite struct{}

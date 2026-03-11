@@ -65,6 +65,142 @@ func (s *stateSuite) TestGetModelUUID(c *tc.C) {
 	c.Check(got.String(), tc.Equals, s.modelUUID)
 }
 
+func (s *stateSuite) TestImportSecretWithRevisions(c *tc.C) {
+	ctx := c.Context()
+	uri := coresecrets.NewURI()
+
+	metaParams := domainsecret.UpsertSecretParams{
+		Description: ptr("imported secret"),
+		Label:       ptr("imported-label"),
+		AutoPrune:   ptr(true),
+	}
+
+	revisions := []domainsecret.UpsertRevisionParams{
+		{
+			Revision:   1,
+			RevisionID: ptr(uuid.MustNewUUID().String()),
+			Data:       coresecrets.SecretData{"key1": "val1"},
+		},
+		{
+			Revision:   2,
+			RevisionID: ptr(uuid.MustNewUUID().String()),
+			Data:       coresecrets.SecretData{"key1": "val2"},
+		},
+	}
+
+	owner := domainsecret.Owner{
+		Kind: coresecrets.ModelOwner,
+		UUID: s.modelUUID,
+	}
+
+	err := s.state.ImportSecretWithRevisions(ctx, 1, uri, owner, metaParams, revisions)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify metadata.
+	gotMetadata, err := s.state.GetSecret(ctx, uri)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotMetadata.Description, tc.Equals, "imported secret")
+	c.Check(gotMetadata.Label, tc.Equals, "imported-label")
+	c.Check(gotMetadata.Owner.ID, tc.Equals, s.modelUUID)
+	c.Check(gotMetadata.LatestRevision, tc.Equals, 2)
+
+	// Verify revisions.
+	for _, wantRev := range revisions {
+		gotData, _, err := s.state.GetSecretValue(ctx, uri, wantRev.Revision)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(gotData, tc.DeepEquals, wantRev.Data)
+	}
+}
+
+func (s *stateSuite) TestImportSecretWithRevisionsApplicationOwner(c *tc.C) {
+	ctx := c.Context()
+	uri := coresecrets.NewURI()
+	appName := "test-app"
+	appUUID, _ := s.setupApplication(c, appName)
+
+	metaParams := domainsecret.UpsertSecretParams{
+		Description: ptr("imported secret"),
+		Label:       ptr("imported-label"),
+		AutoPrune:   ptr(true),
+	}
+
+	revisions := []domainsecret.UpsertRevisionParams{
+		{
+			Revision:   1,
+			RevisionID: ptr(uuid.MustNewUUID().String()),
+			Data:       coresecrets.SecretData{"key1": "val1"},
+		},
+	}
+
+	owner := domainsecret.Owner{
+		Kind: coresecrets.ApplicationOwner,
+		UUID: appUUID,
+	}
+
+	err := s.state.ImportSecretWithRevisions(ctx, 1, uri, owner, metaParams, revisions)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify metadata.
+	gotMetadata, err := s.state.GetSecret(ctx, uri)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotMetadata.Owner.ID, tc.Equals, appName)
+	c.Check(gotMetadata.Owner.Kind, tc.Equals, coresecrets.ApplicationOwner)
+}
+
+func (s *stateSuite) TestImportSecretWithRevisionsUnitOwner(c *tc.C) {
+	ctx := c.Context()
+	uri := coresecrets.NewURI()
+	appName := "test-app"
+	_, unitUUIDs := s.setupUnits(c, appName)
+
+	metaParams := domainsecret.UpsertSecretParams{
+		Description: ptr("imported secret"),
+		Label:       ptr("imported-label"),
+		AutoPrune:   ptr(true),
+	}
+
+	revisions := []domainsecret.UpsertRevisionParams{
+		{
+			Revision:   1,
+			RevisionID: ptr(uuid.MustNewUUID().String()),
+			Data:       coresecrets.SecretData{"key1": "val1"},
+		},
+	}
+
+	owner := domainsecret.Owner{
+		Kind: coresecrets.UnitOwner,
+		UUID: unitUUIDs[0],
+	}
+
+	err := s.state.ImportSecretWithRevisions(ctx, 1, uri, owner, metaParams, revisions)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify metadata.
+	gotMetadata, err := s.state.GetSecret(ctx, uri)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotMetadata.Owner.ID, tc.Equals, appName+"/0")
+	c.Check(gotMetadata.Owner.Kind, tc.Equals, coresecrets.UnitOwner)
+}
+
+func (s *stateSuite) TestImportSecretWithRevisionsNoRevisions(c *tc.C) {
+	ctx := c.Context()
+	uri := coresecrets.NewURI()
+
+	metaParams := domainsecret.UpsertSecretParams{
+		Description: ptr("imported secret no revs"),
+	}
+
+	owner := domainsecret.Owner{
+		Kind: coresecrets.ModelOwner,
+		UUID: s.modelUUID,
+	}
+
+	err := s.state.ImportSecretWithRevisions(ctx, 1, uri, owner, metaParams, nil)
+
+	// Verify metadata.
+	c.Assert(err, tc.ErrorMatches, "cannot import secret with no revisions")
+}
+
 func (s *stateSuite) TestGetSecretNotFound(c *tc.C) {
 
 	_, err := s.state.GetSecret(c.Context(), coresecrets.NewURI())
@@ -1714,10 +1850,10 @@ func (s *stateSuite) updateRemoteSecretRevision(c *tc.C, uri *coresecrets.URI, l
 			return err
 		}
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO secret_reference (secret_id, latest_revision, owner_application_uuid) VALUES (?, ?, ?)
+INSERT INTO secret_reference (secret_id, latest_revision, owner_application_uuid, updated_at) VALUES (?, ?, ?, ?)
 ON CONFLICT(secret_id) DO UPDATE SET
     latest_revision=excluded.latest_revision
-`, uri.ID, latestRevision, appUUID)
+`, uri.ID, latestRevision, appUUID, time.Now().UTC())
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -1800,6 +1936,30 @@ func (s *stateSuite) TestGetSecretConsumerRemoteSecretFirstTime(c *tc.C) {
 	_, latest, err := s.state.GetSecretConsumer(c.Context(), uri, "mysql/0")
 	c.Assert(err, tc.ErrorIs, secreterrors.SecretConsumerNotFound)
 	c.Check(latest, tc.Equals, 666)
+}
+
+func (s *stateSuite) TestGetSecretConsumerMigrated(c *tc.C) {
+	appUUID, unitUUIDs := s.setupUnits(c, "mysql")
+	uri := coresecrets.NewURI().WithSource("some-other-model")
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO secret (id) VALUES (?) ON CONFLICT(id) DO NOTHING`, uri.ID)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO secret_reference (secret_id, latest_revision, owner_application_uuid, updated_at, migrated) 
+VALUES (?, ?, ?, ?, ?)`, uri.ID, 666, appUUID, time.Now().UTC(), true)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.saveSecretConsumer(c, uri, "my label", 1, unitUUIDs[0])
+
+	got, latest, err := s.state.GetSecretConsumer(c.Context(), uri, "mysql/0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(latest, tc.Equals, 666)
+	c.Check(got.Migrated, tc.IsTrue)
 }
 
 func (s *stateSuite) TestGetSecretConsumerSecretNotExists(c *tc.C) {

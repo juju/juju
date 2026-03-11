@@ -613,7 +613,6 @@ func (s *importSecretSuite) TestImportRemoteSecretConsumers(c *tc.C) {
 }
 
 func (s *importSecretSuite) TestImportRemoteSecret(c *tc.C) {
-	c.Skip("Will be fixed in follow up PR when import remote will be implemented again")
 	// Arrange
 	secretID := "remote-secret-id"
 	sourceModelUUID := tc.Must(c, internaluuid.NewUUID).String()
@@ -630,6 +629,7 @@ func (s *importSecretSuite) TestImportRemoteSecret(c *tc.C) {
 		UnitUUID:        unitUUID,
 		Label:           "test-label",
 		CurrentRevision: 1,
+		LatestRevision:  2,
 	}
 
 	// Act
@@ -665,6 +665,108 @@ func (s *importSecretSuite) TestImportRemoteSecret(c *tc.C) {
 	c.Check(obtainedSourceModel, tc.Equals, sourceModelUUID)
 	c.Check(obtainedLabel, tc.Equals, "test-label")
 	c.Check(obtainedRev, tc.Equals, 1)
+
+	// Verify secret_reference exists
+	var (
+		obtainedRefSecretID       string
+		obtainedRefLatestRevision int
+		obtainedRefMigrated       bool
+	)
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+			SELECT secret_id, latest_revision, migrated
+			FROM secret_reference
+			WHERE secret_id = ?
+		`, secretID).Scan(&obtainedRefSecretID, &obtainedRefLatestRevision, &obtainedRefMigrated)
+	})
+	c.Assert(err, tc.IsNil)
+	c.Check(obtainedRefSecretID, tc.Equals, secretID)
+	c.Check(obtainedRefLatestRevision, tc.Equals, 2)
+	c.Check(obtainedRefMigrated, tc.Equals, true)
+}
+
+func (s *importSecretSuite) TestImportRemoteSecretTwoConsumerUnit(c *tc.C) {
+	// Arrange
+	secretID := "remote-secret-id"
+	sourceModelUUID := tc.Must(c, internaluuid.NewUUID).String()
+	unitUUID1 := tc.Must(c, internaluuid.NewUUID).String()
+	unitUUID2 := tc.Must(c, internaluuid.NewUUID).String()
+
+	// Unit must exist for saveSecretConsumer to work.
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, "app")
+	s.addUnitWithUUID(c, unitUUID1, "app/0", appUUID.String(), charmUUID.String())
+	s.addUnitWithUUID(c, unitUUID2, "app/1", appUUID.String(), charmUUID.String())
+
+	secret1 := internal.RemoteSecret{
+		SecretID:        secretID,
+		SourceModelUUID: sourceModelUUID,
+		UnitUUID:        unitUUID1,
+		Label:           "test-label",
+		CurrentRevision: 1,
+		LatestRevision:  2,
+	}
+	secret2 := internal.RemoteSecret{
+		SecretID:        secretID,
+		SourceModelUUID: sourceModelUUID,
+		UnitUUID:        unitUUID2,
+		Label:           "test-label",
+		CurrentRevision: 2,
+		LatestRevision:  2,
+	}
+
+	// Act
+	tc.Must2_0(c, s.state.ImportRemoteSecret, c.Context(), secret1)
+
+	err := s.state.ImportRemoteSecret(c.Context(), secret2)
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+
+	// Verify secret exists
+	var obtainedSecretID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT id FROM secret WHERE id = ?", secretID).Scan(&obtainedSecretID)
+	})
+	c.Assert(err, tc.IsNil)
+	c.Check(obtainedSecretID, tc.Equals, secretID)
+
+	// Verify expected consumer exists
+	var (
+		obtainedSourceModel string
+		obtainedLabel       string
+		obtainedRev         int
+	)
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+			SELECT source_model_uuid, label, current_revision
+			FROM secret_unit_consumer
+			WHERE secret_id = ?
+			AND unit_uuid = ?
+		`, secretID, unitUUID2).Scan(&obtainedSourceModel, &obtainedLabel, &obtainedRev)
+	})
+	c.Assert(err, tc.IsNil)
+	c.Check(obtainedSourceModel, tc.Equals, sourceModelUUID)
+	c.Check(obtainedLabel, tc.Equals, "test-label")
+	c.Check(obtainedRev, tc.Equals, 2)
+
+	// Verify secret_reference exists
+	var (
+		obtainedRefSecretID       string
+		obtainedRefLatestRevision int
+		obtainedRefMigrated       bool
+	)
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+			SELECT secret_id, latest_revision, migrated
+			FROM secret_reference
+			WHERE secret_id = ?
+		`, secretID).Scan(&obtainedRefSecretID, &obtainedRefLatestRevision, &obtainedRefMigrated)
+	})
+	c.Assert(err, tc.IsNil)
+	c.Check(obtainedRefSecretID, tc.Equals, secretID)
+	c.Check(obtainedRefLatestRevision, tc.Equals, 2)
+	c.Check(obtainedRefMigrated, tc.Equals, true)
 }
 
 func (s *importSecretSuite) createSecretWithMetadata(c *tc.C, secretID string) {

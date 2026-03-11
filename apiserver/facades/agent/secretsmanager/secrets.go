@@ -452,6 +452,13 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(ctx context.Context, uri *cor
 	}
 	var wantRevision int
 	if err == nil {
+		// When a model consuming a secret through a cross-model relation is
+		// migrated, the owner application uuid for the secret cannot be set
+		// during migration.
+		// However, the secret reference is flagged as "migrated", to allow
+		// the secret to be updated during the next access. This is why we need
+		// to refresh the secret if we detect that it has been migrated.
+		refresh = refresh || consumerInfo.Migrated
 		wantRevision = consumerInfo.CurrentRevision
 	} else {
 		// Not found so need to create a new record and populate

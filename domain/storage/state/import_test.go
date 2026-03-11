@@ -12,9 +12,12 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
+	coreblockdevice "github.com/juju/juju/core/blockdevice"
 	charmtesting "github.com/juju/juju/core/charm/testing"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/schema/testing"
@@ -315,21 +318,21 @@ func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
 		UUID:           ebsAttachment1UUID.String(),
 		FilesystemUUID: ebsFsUUID.String(),
 		Scope:          storageprovisioning.ProvisionScopeMachine,
-		NetNodeUUID:    netNodeUUID1,
+		NetNodeUUID:    netNodeUUID1.String(),
 		MountPoint:     "/mnt/ebs1",
 		ReadOnly:       false,
 	}, {
 		UUID:           ebsAttachment2UUID.String(),
 		FilesystemUUID: ebsFsUUID.String(),
 		Scope:          storageprovisioning.ProvisionScopeMachine,
-		NetNodeUUID:    netNodeUUID2,
+		NetNodeUUID:    netNodeUUID2.String(),
 		MountPoint:     "/mnt/ebs2",
 		ReadOnly:       true,
 	}, {
 		UUID:           gceAttachmentUUID.String(),
 		FilesystemUUID: gceFsUUID.String(),
 		Scope:          storageprovisioning.ProvisionScopeModel,
-		NetNodeUUID:    netNodeUUID3,
+		NetNodeUUID:    netNodeUUID3.String(),
 		MountPoint:     "/mnt/gce",
 		ReadOnly:       false,
 	}}
@@ -345,7 +348,7 @@ func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
 	c.Check(obtainedAttachments, tc.SameContents, []importStorageFilesystemAttachment{{
 		UUID:           ebsAttachment1UUID.String(),
 		FilesystemUUID: ebsFsUUID.String(),
-		NetNodeUUID:    netNodeUUID1,
+		NetNodeUUID:    netNodeUUID1.String(),
 		ScopeID:        int(storageprovisioning.ProvisionScopeMachine),
 		LifeID:         int(life.Alive),
 		MountPoint:     "/mnt/ebs1",
@@ -353,7 +356,7 @@ func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
 	}, {
 		UUID:           ebsAttachment2UUID.String(),
 		FilesystemUUID: ebsFsUUID.String(),
-		NetNodeUUID:    netNodeUUID2,
+		NetNodeUUID:    netNodeUUID2.String(),
 		ScopeID:        int(storageprovisioning.ProvisionScopeMachine),
 		LifeID:         int(life.Alive),
 		MountPoint:     "/mnt/ebs2",
@@ -361,7 +364,7 @@ func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
 	}, {
 		UUID:           gceAttachmentUUID.String(),
 		FilesystemUUID: gceFsUUID.String(),
-		NetNodeUUID:    netNodeUUID3,
+		NetNodeUUID:    netNodeUUID3.String(),
 		ScopeID:        int(storageprovisioning.ProvisionScopeModel),
 		LifeID:         int(life.Alive),
 		MountPoint:     "/mnt/gce",
@@ -369,15 +372,38 @@ func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
 	}})
 }
 
-func (s *importSuite) TestImportVolumes(c *tc.C) {
-	// Arrange
+func (s *importSuite) TestImportVolumesFoundBlockDevice(c *tc.C) {
+	// Arrange: the block device to be used.
+	netNodeUUID := s.newNetNode(c)
+	machineUUID := s.newMachine(c, "666", netNodeUUID.String())
+
+	bd1 := coreblockdevice.BlockDevice{
+		DeviceName: "name-666",
+	}
+	blockDeviceUUID := s.newBlockDevice(c, machineUUID, bd1)
+
+	// Arrange: the storage instance to be used.
 	ebsPoolUUID := s.newStoragePool(c, "ebs", "fspool")
+	ebsInstanceUUID := s.newStorageInstance(c, "ebs", "1", ebsPoolUUID)
 
-	ebsInstanceUUID := s.newStorageInstance(c, "ebs", "1", ebsPoolUUID).String()
-
+	// Arrange: input data with existing block device and storage instance.
+	attachment := internal.ImportVolumeAttachmentArgs{
+		UUID:            tc.Must(c, storage.NewVolumeAttachmentUUID),
+		BlockDeviceUUID: blockDeviceUUID,
+		LifeID:          life.Alive,
+		NetNodeUUID:     netNodeUUID,
+		ReadOnly:        false,
+	}
+	attachmentPlan := internal.ImportVolumeAttachmentPlanArgs{
+		UUID:             tc.Must(c, storage.NewVolumeAttachmentPlanUUID),
+		LifeID:           life.Alive,
+		ProvisionScopeID: storageprovisioning.ProvisionScopeMachine,
+		DeviceAttributes: map[string]string{"foo": "bar", "baz": "food"},
+		NetNodeUUID:      netNodeUUID,
+	}
 	args := []internal.ImportVolumeArgs{
 		{
-			UUID:                tc.Must(c, storage.NewVolumeUUID).String(),
+			UUID:                tc.Must(c, storage.NewVolumeUUID),
 			ID:                  "0",
 			ProviderID:          "vol-0f2829d7e5c4c0140",
 			LifeID:              life.Alive,
@@ -386,6 +412,8 @@ func (s *importSuite) TestImportVolumes(c *tc.C) {
 			Persistent:          true,
 			SizeMiB:             1024,
 			StorageInstanceUUID: ebsInstanceUUID,
+			Attachments:         []internal.ImportVolumeAttachmentArgs{attachment},
+			AttachmentPlans:     []internal.ImportVolumeAttachmentPlanArgs{attachmentPlan},
 		},
 	}
 	st := NewState(s.TxnRunnerFactory())
@@ -398,7 +426,7 @@ func (s *importSuite) TestImportVolumes(c *tc.C) {
 	obtained := s.getStorageVolumes(c)
 	c.Check(obtained, tc.SameContents, []importStorageVolume{
 		{
-			UUID:             args[0].UUID,
+			UUID:             args[0].UUID.String(),
 			VolumeID:         args[0].ID,
 			ProviderID:       args[0].ProviderID,
 			LifeID:           int(args[0].LifeID),
@@ -411,8 +439,43 @@ func (s *importSuite) TestImportVolumes(c *tc.C) {
 	obtainedInstances := s.getStorageInstanceVolumes(c)
 	c.Check(obtainedInstances, tc.SameContents, []importStorageInstanceVolume{
 		{
-			StorageInstanceUUID: ebsInstanceUUID,
-			VolumeUUID:          args[0].UUID,
+			StorageInstanceUUID: ebsInstanceUUID.String(),
+			VolumeUUID:          args[0].UUID.String(),
+		},
+	})
+	obtainedAttachments := s.getStorageVolumeAttachments(c)
+	c.Check(obtainedAttachments, tc.SameContents, []importStorageVolumeAttachment{
+		{
+			UUID:              attachment.UUID.String(),
+			BlockDeviceUUID:   attachment.BlockDeviceUUID.String(),
+			LifeID:            int(attachment.LifeID),
+			NetNodeUUID:       netNodeUUID.String(),
+			ReadOnly:          attachment.ReadOnly,
+			ProvisionScopeID:  int(args[0].ProvisionScopeID),
+			ProviderID:        "vol-0f2829d7e5c4c0140",
+			StorageVolumeUUID: args[0].UUID.String(),
+		},
+	})
+	obtainedAttachmentPlans := s.getStorageInstanceVolumeAttachmentPlans(c)
+	c.Check(obtainedAttachmentPlans, tc.SameContents, []importStorageVolumeAttachmentPlan{
+		{
+			UUID:              attachmentPlan.UUID.String(),
+			LifeID:            int(attachment.LifeID),
+			NetNodeUUID:       netNodeUUID.String(),
+			ProvisionScopeID:  int(args[0].ProvisionScopeID),
+			StorageVolumeUUID: args[0].UUID.String(),
+		},
+	})
+	obtainedAttachmentPlanAttrs := s.getStorageInstanceVolumeAttachmentPlanAttrs(c)
+	c.Check(obtainedAttachmentPlanAttrs, tc.SameContents, []importStorageVolumePlanAttribute{
+		{
+			PlanUUID: attachmentPlan.UUID.String(),
+			Key:      "foo",
+			Value:    "bar",
+		}, {
+			PlanUUID: attachmentPlan.UUID.String(),
+			Key:      "baz",
+			Value:    "food",
 		},
 	})
 }
@@ -420,24 +483,24 @@ func (s *importSuite) TestImportVolumes(c *tc.C) {
 func (s *importSuite) TestGetNetNodeUUIDsByMachineOrUnitName(c *tc.C) {
 	// Arrange 1 machine with a net node
 	netNodeUUID2 := s.newNetNode(c)
-	s.newMachine(c, "42", netNodeUUID2)
+	s.newMachine(c, "42", netNodeUUID2.String())
 
 	// Arrange 1 unit with a net node
 	netNodeUUID1 := s.newNetNode(c)
 	appUUID, _ := s.newApplication(c, "foo")
-	s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID1)
+	s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID1.String())
 
 	st := NewState(s.TxnRunnerFactory())
 
 	// Act
-	obtainedMachines, obtainedUnits, err := st.GetNetNodeUUIDsByMachineOrUnitName(c.Context(), []string{"42"}, []string{"foo/0"})
+	obtainedMachines, obtainedUnits, err := st.GetNetNodeUUIDsByMachineOrUnitName(c.Context(), []machine.Name{"42"}, []coreunit.Name{"foo/0"})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtainedMachines, tc.DeepEquals, map[string]string{
+	c.Check(obtainedMachines, tc.DeepEquals, map[machine.Name]domainnetwork.NetNodeUUID{
 		"42": netNodeUUID2,
 	})
-	c.Check(obtainedUnits, tc.DeepEquals, map[string]string{
+	c.Check(obtainedUnits, tc.DeepEquals, map[coreunit.Name]domainnetwork.NetNodeUUID{
 		"foo/0": netNodeUUID1,
 	})
 }
@@ -445,16 +508,16 @@ func (s *importSuite) TestGetNetNodeUUIDsByMachineOrUnitName(c *tc.C) {
 func (s *importSuite) TestGetNetNodeUUIDsByMachineOrUnitNameMachineNotFound(c *tc.C) {
 	// Arrange 1 machine with a net node
 	netNodeUUID2 := s.newNetNode(c)
-	s.newMachine(c, "42", netNodeUUID2)
+	s.newMachine(c, "42", netNodeUUID2.String())
 
 	st := NewState(s.TxnRunnerFactory())
 
 	// Act
-	obtainedMachines, obtainedUnits, err := st.GetNetNodeUUIDsByMachineOrUnitName(c.Context(), []string{"42"}, []string{"fake/0"})
+	obtainedMachines, obtainedUnits, err := st.GetNetNodeUUIDsByMachineOrUnitName(c.Context(), []machine.Name{"42"}, []coreunit.Name{"fake/0"})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtainedMachines, tc.DeepEquals, map[string]string{
+	c.Check(obtainedMachines, tc.DeepEquals, map[machine.Name]domainnetwork.NetNodeUUID{
 		"42": netNodeUUID2,
 	})
 	c.Check(obtainedUnits, tc.HasLen, 0)
@@ -464,17 +527,17 @@ func (s *importSuite) TestGetNetNodeUUIDsByMachineOrUnitNameUnitNotFound(c *tc.C
 	// Arrange 1 unit with a net node
 	netNodeUUID1 := s.newNetNode(c)
 	appUUID, _ := s.newApplication(c, "foo")
-	s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID1)
+	s.newUnitWithNetNode(c, "foo/0", appUUID, netNodeUUID1.String())
 
 	st := NewState(s.TxnRunnerFactory())
 
 	// Act
-	obtainedMachines, obtainedUnits, err := st.GetNetNodeUUIDsByMachineOrUnitName(c.Context(), []string{"42"}, []string{"foo/0"})
+	obtainedMachines, obtainedUnits, err := st.GetNetNodeUUIDsByMachineOrUnitName(c.Context(), []machine.Name{"42"}, []coreunit.Name{"foo/0"})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtainedMachines, tc.HasLen, 0)
-	c.Check(obtainedUnits, tc.DeepEquals, map[string]string{
+	c.Check(obtainedUnits, tc.DeepEquals, map[coreunit.Name]domainnetwork.NetNodeUUID{
 		"foo/0": netNodeUUID1,
 	})
 }
@@ -484,7 +547,7 @@ func (s *importSuite) TestGetNetNodeUUIDsByMachineOrUnitNameNoInput(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Act
-	obtainedMachines, obtainedUnits, err := st.GetNetNodeUUIDsByMachineOrUnitName(c.Context(), []string{""}, []string{""})
+	obtainedMachines, obtainedUnits, err := st.GetNetNodeUUIDsByMachineOrUnitName(c.Context(), []machine.Name{""}, []coreunit.Name{""})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -542,12 +605,67 @@ func (s *importSuite) TestGetUnitUUIDsByNamesNoInput(c *tc.C) {
 	c.Check(obtained, tc.HasLen, 0)
 }
 
+func (s *importSuite) TestGetBlockDevicesForMachinesByNetNodeUUIDsMany(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	netNodeUUID := s.newNetNode(c)
+	machineUUID := s.newMachine(c, "666", netNodeUUID.String())
+
+	bd1 := coreblockdevice.BlockDevice{
+		DeviceName:      "name-666",
+		FilesystemLabel: "label-666",
+		FilesystemUUID:  "device-666",
+		HardwareId:      "hardware-666",
+		WWN:             "wwn-666",
+		BusAddress:      "bus-666",
+		SizeMiB:         666,
+		FilesystemType:  "btrfs",
+		InUse:           true,
+		MountPoint:      "mount-666",
+		SerialId:        "serial-666",
+	}
+	bd2 := coreblockdevice.BlockDevice{
+		DeviceName:      "name-667",
+		DeviceLinks:     []string{"dev_link1", "dev_link2"},
+		FilesystemLabel: "label-667",
+		FilesystemUUID:  "device-667",
+		HardwareId:      "hardware-667",
+		WWN:             "wwn-667",
+		BusAddress:      "bus-667",
+		SizeMiB:         667,
+		FilesystemType:  "btrfs",
+		MountPoint:      "mount-667",
+		SerialId:        "serial-667",
+	}
+	blockDevice1UUID := s.newBlockDevice(c, machineUUID, bd1)
+	blockDevice2UUID := s.newBlockDevice(c, machineUUID, bd2)
+
+	result, err := st.GetBlockDevicesForMachinesByNetNodeUUIDs(c.Context(),
+		[]domainnetwork.NetNodeUUID{
+			netNodeUUID,
+		})
+	c.Assert(err, tc.ErrorIsNil)
+	devices, ok := result[netNodeUUID]
+	c.Assert(ok, tc.Equals, true)
+	c.Check(devices, tc.SameContents,
+		[]internal.BlockDevice{
+			{
+				UUID:        blockDevice1UUID,
+				BlockDevice: bd1,
+			}, {
+				UUID:        blockDevice2UUID,
+				BlockDevice: bd2,
+			},
+		},
+	)
+}
+
 func (s *importSuite) getStorageInstances(c *tc.C) []importStorageInstance {
 	var result []importStorageInstance
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(c.Context(), `
 SELECT uuid, charm_name, storage_name, storage_kind_id, storage_id, life_id, storage_pool_uuid, requested_size_mib 
-FROM storage_instance`)
+FROM   storage_instance`)
 		if err != nil {
 			return err
 		}
@@ -581,7 +699,7 @@ func (s *importSuite) getStorageVolumes(c *tc.C) []importStorageVolume {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(c.Context(), `
 SELECT uuid, volume_id, life_id, provision_scope_id, provider_id, size_mib, wwn, persistent 
-FROM storage_volume`)
+FROM   storage_volume`)
 		if err != nil {
 			return err
 		}
@@ -645,7 +763,7 @@ func (s *importSuite) getStorageInstanceVolumes(c *tc.C) []importStorageInstance
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(c.Context(), `
 SELECT storage_instance_uuid, storage_volume_uuid 
-FROM storage_instance_volume`)
+FROM   storage_instance_volume`)
 		if err != nil {
 			return err
 		}
@@ -660,7 +778,104 @@ FROM storage_instance_volume`)
 				VolumeUUID:          storageVolumeUUID,
 			})
 		}
-		return rows.Err()
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return result
+}
+
+func (s *importSuite) getStorageInstanceVolumeAttachmentPlans(c *tc.C) []importStorageVolumeAttachmentPlan {
+	var result []importStorageVolumeAttachmentPlan
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(c.Context(), `
+SELECT uuid, storage_volume_uuid, net_node_uuid, life_id, provision_scope_id, device_type_id
+FROM   storage_volume_attachment_plan`)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var (
+				planUUID, storageVolumeUUID, netNodeUUID string
+				lifeID, scopeID                          int
+				deviceID                                 sql.NullInt64
+			)
+			if err := rows.Scan(&planUUID, &storageVolumeUUID, &netNodeUUID, &lifeID, &scopeID, &deviceID); err != nil {
+				return err
+			}
+			result = append(result, importStorageVolumeAttachmentPlan{
+				UUID:              planUUID,
+				StorageVolumeUUID: storageVolumeUUID,
+				NetNodeUUID:       netNodeUUID,
+				LifeID:            lifeID,
+				ProvisionScopeID:  scopeID,
+				DeviceTypeID:      deviceID,
+			})
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return result
+}
+
+func (s *importSuite) getStorageVolumeAttachments(c *tc.C) []importStorageVolumeAttachment {
+	var result []importStorageVolumeAttachment
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(c.Context(), `
+SELECT uuid, block_device_uuid, storage_volume_uuid, net_node_uuid, life_id, provision_scope_id, provider_id, read_only
+FROM   storage_volume_attachment`)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var (
+				attachmentUUID, blockDeviceUUID, storageVolumeUUID, netNodeUUID, providerID string
+				lifeID, scopeID                                                             int
+				readOnly                                                                    bool
+			)
+			if err := rows.Scan(&attachmentUUID, &blockDeviceUUID, &storageVolumeUUID, &netNodeUUID, &lifeID, &scopeID, &providerID, &readOnly); err != nil {
+				return err
+			}
+			result = append(result, importStorageVolumeAttachment{
+				UUID:              attachmentUUID,
+				BlockDeviceUUID:   blockDeviceUUID,
+				StorageVolumeUUID: storageVolumeUUID,
+				NetNodeUUID:       netNodeUUID,
+				LifeID:            lifeID,
+				ProvisionScopeID:  scopeID,
+				ProviderID:        providerID,
+				ReadOnly:          readOnly,
+			})
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return result
+}
+
+func (s *importSuite) getStorageInstanceVolumeAttachmentPlanAttrs(c *tc.C) []importStorageVolumePlanAttribute {
+	var result []importStorageVolumePlanAttribute
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(c.Context(), `
+SELECT attachment_plan_uuid, key, value 
+FROM   storage_volume_attachment_plan_attr`)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var attachmentPlanUUID, key, value string
+			if err := rows.Scan(&attachmentPlanUUID, &key, &value); err != nil {
+				return err
+			}
+			result = append(result, importStorageVolumePlanAttribute{
+				PlanUUID: attachmentPlanUUID,
+				Key:      key,
+				Value:    value,
+			})
+		}
+		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return result
@@ -703,13 +918,13 @@ VALUES (?, ?, ?)`, spUUID.String(), name, providerType)
 
 // newNetNode creates a new net node in the model for referencing to storage
 // entity attachments. The net node is not associated with any machine or units.
-func (s *importSuite) newNetNode(c *tc.C) string {
-	nodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID).String()
+func (s *importSuite) newNetNode(c *tc.C) domainnetwork.NetNodeUUID {
+	nodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 
 	_, err := s.DB().ExecContext(
 		c.Context(),
 		"INSERT INTO net_node VALUES (?)",
-		nodeUUID,
+		nodeUUID.String(),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -762,15 +977,25 @@ VALUES (?, 'myapp')
 	return charmUUID.String()
 }
 
-func (s *importSuite) newUnit(c *tc.C, unitName coreunit.Name, appUUID string) (coreunit.UUID, coreunit.Name) {
-	return s.newUnitWithNetNode(c, unitName, appUUID, s.newNetNode(c))
+func (s *importSuite) newUnit(c *tc.C, unitName, appUUID string,
+) (coreunit.UUID, coreunit.Name) {
+	return s.newUnitWithNetNode(c, unitName, appUUID, s.newNetNode(c).String())
 }
 
 // newUnitWithNetNode creates a new unit in the model for the provided
 // application uuid. The new unit will use the supplied net node. Returned is
 // the new uuid of the unit and the name that was used.
 func (s *importSuite) newUnitWithNetNode(
-	c *tc.C, unitName coreunit.Name, appUUID, netNodeUUID string,
+	c *tc.C, unitName, appUUID, netNodeUUID string,
+) (coreunit.UUID, coreunit.Name) {
+	return s.newUnitWithNetNodeWithLife(c, unitName, appUUID, netNodeUUID, life.Alive)
+}
+
+// newUnitWithNetNode creates a new unit in the model for the provided
+// application uuid. The new unit will use the supplied net node. Returned is
+// the new uuid of the unit and the name that was used.
+func (s *importSuite) newUnitWithNetNodeWithLife(
+	c *tc.C, unitName, appUUID, netNodeUUID string, life life.Life,
 ) (coreunit.UUID, coreunit.Name) {
 	var charmUUID string
 	err := s.DB().QueryRowContext(
@@ -785,24 +1010,28 @@ func (s *importSuite) newUnitWithNetNode(
 	_, err = s.DB().ExecContext(
 		c.Context(), `
 INSERT INTO unit (uuid, name, application_uuid, charm_uuid, net_node_uuid, life_id)
-VALUES (?, ?, ?, ?, ?, 0)
-`, unit, unitName, appUUID, charmUUID, netNodeUUID,
+VALUES (?, ?, ?, ?, ?, ?)
+`, unit, unitName, appUUID, charmUUID, netNodeUUID, life,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	return unit, unitName
+	return unit, coreunit.Name(unitName)
 }
 
-func (s *importSuite) newMachine(c *tc.C, name, netNodeUUID string) string {
+func (s *importSuite) newMachineWithLife(c *tc.C, name, netNodeUUID string, life life.Life) string {
 	machineUUID := tc.Must(c, uuid.NewUUID).String()
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 		INSERT INTO machine (uuid, net_node_uuid, name, life_id)
-		VALUES (?, ?, ?, "0")`, machineUUID, netNodeUUID, name)
+		VALUES (?, ?, ?, ?)`, machineUUID, netNodeUUID, name, life)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return machineUUID
+}
+
+func (s *importSuite) newMachine(c *tc.C, name, netNodeUUID string) string {
+	return s.newMachineWithLife(c, name, netNodeUUID, life.Alive)
 }
 
 func (s *importSuite) getFilesystems(c *tc.C) ([]importStorageFilesystem, []importStorageInstanceFilesystem) {
@@ -914,4 +1143,31 @@ VALUES (?, "foo", ?, 1, ?, 0, ?, 4048)`, siUUID, name, fullID, poolUUID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return siUUID
+}
+
+func (s *importSuite) newBlockDevice(c *tc.C, machineUUID string, bd coreblockdevice.BlockDevice) blockdevice.BlockDeviceUUID {
+	blockDeviceUUID := tc.Must(c, blockdevice.NewBlockDeviceUUID)
+	inUse := 0
+	if bd.InUse {
+		inUse = 1
+	}
+	_, err := s.DB().Exec(`
+INSERT INTO block_device (
+	uuid, machine_uuid, name, filesystem_label,
+	host_filesystem_uuid, hardware_id, wwn, bus_address, serial_id,
+	mount_point, filesystem_type, size_mib, in_use)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`, blockDeviceUUID, machineUUID, bd.DeviceName, bd.FilesystemLabel,
+		bd.FilesystemUUID, bd.HardwareId, bd.WWN, bd.BusAddress, bd.SerialId,
+		bd.MountPoint, bd.FilesystemType, bd.SizeMiB, inUse)
+	c.Assert(err, tc.ErrorIsNil)
+
+	for _, link := range bd.DeviceLinks {
+		_, err = s.DB().Exec(`
+INSERT INTO block_device_link_device (block_device_uuid, machine_uuid, name)
+VALUES (?, ?, ?)
+`, blockDeviceUUID, machineUUID, link)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+	return blockDeviceUUID
 }

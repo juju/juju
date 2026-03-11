@@ -3,7 +3,9 @@
 
 package state
 
-import "database/sql"
+import (
+	"database/sql"
+)
 
 // count represents the result of performing an aggregate count operation in
 // sql.
@@ -38,6 +40,8 @@ type idAndKind struct {
 // machineUUIDs is a slice type of string representing machineUUIDs in the
 // model.
 type machineUUIDs []string
+
+type uuids []string
 
 // machineAndUnitNetNodeUUID represents names and net node uuid
 // for machine or unit combinations where the data is gathered in
@@ -148,4 +152,63 @@ type importStorageVolume struct {
 type importStorageInstanceVolume struct {
 	StorageInstanceUUID string `db:"storage_instance_uuid"`
 	VolumeUUID          string `db:"storage_volume_uuid"`
+}
+
+// blockDevice represents a block device.
+type blockDevice struct {
+	UUID        string `db:"uuid"`
+	NetNodeUUID string `db:"net_node_uuid"`
+
+	Name string `db:"name"`
+
+	HardwareId string `db:"hardware_id"`
+	WWN        string `db:"wwn"`
+	BusAddress string `db:"bus_address"`
+	SerialId   string `db:"serial_id"`
+
+	SizeMiB            uint64 `db:"size_mib"`
+	FilesystemLabel    string `db:"filesystem_label"`
+	HostFilesystemUUID string `db:"host_filesystem_uuid"`
+	FilesystemType     string `db:"filesystem_type"`
+	InUse              bool   `db:"in_use"`
+	MountPoint         string `db:"mount_point"`
+}
+
+// deviceLink represents a block device's device link.
+type deviceLink struct {
+	BlockDeviceUUID string `db:"block_device_uuid"`
+	NetNodeUUID     string `db:"net_node_uuid"`
+	Name            string `db:"name"`
+}
+
+// importStorageVolumeAttachment represents a storage volume attachment
+// on model import.
+type importStorageVolumeAttachment struct {
+	UUID              string `db:"uuid"`
+	StorageVolumeUUID string `db:"storage_volume_uuid"`
+	NetNodeUUID       string `db:"net_node_uuid"`
+	LifeID            int    `db:"life_id"`
+	ProvisionScopeID  int    `db:"provision_scope_id"`
+	ProviderID        string `db:"provider_id"`
+	BlockDeviceUUID   string `db:"block_device_uuid"`
+	ReadOnly          bool   `db:"read_only"`
+}
+
+// importStorageVolumeAttachmentPlan represents a storage volume attachment
+// plan on model import.
+type importStorageVolumeAttachmentPlan struct {
+	UUID              string        `db:"uuid"`
+	DeviceTypeID      sql.NullInt64 `db:"device_type_id"`
+	LifeID            int           `db:"life_id"`
+	NetNodeUUID       string        `db:"net_node_uuid"`
+	ProvisionScopeID  int           `db:"provision_scope_id"`
+	StorageVolumeUUID string        `db:"storage_volume_uuid"`
+}
+
+// importStorageVolumePlanAttribute represents a storage volume attachment plan
+// attribute on model import.
+type importStorageVolumePlanAttribute struct {
+	PlanUUID string `db:"attachment_plan_uuid"`
+	Key      string `db:"key"`
+	Value    string `db:"value"`
 }

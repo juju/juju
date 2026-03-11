@@ -290,7 +290,7 @@ WHERE  name = $entityName.name`, in, out)
 		return nil
 	})
 
-	return machine.UUID(out.UUID), nil
+	return machine.UUID(out.UUID), err
 }
 
 // UpdateBlockDevicesForMachine updates the block devices for the specified

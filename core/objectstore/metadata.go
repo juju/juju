@@ -60,6 +60,12 @@ type ObjectStoreMetadata interface {
 type RemoteObjectStoreMetadata interface {
 	ObjectStoreMetadata
 
+	// GetControllerIDHints returns the controller ID hints for the specified
+	// SHA384. This is used to indicate which controllers might have the object
+	// with the specified SHA384, which can be used for optimization in certain
+	// scenarios.
+	GetControllerIDHints(ctx context.Context, sha384 string) ([]string, error)
+
 	// PutMetadataWithControllerIDHint adds a new specified path for the
 	// persistence metadata. The controller ID hint is used to indicate which
 	// controller might have put the object, which can be used for optimization
