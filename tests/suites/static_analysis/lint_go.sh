@@ -48,6 +48,9 @@ run_govulncheck() {
 		# The vulnerability below is for a method not used since Juju 1.x.
 		# https://pkg.go.dev/vuln/GO-2025-3798
 		"GO-2025-3798"
+		# LXD daemon vulnerability not client
+		# https://pkg.go.dev/vuln/GO-2026-4595
+		"GO-2026-4595"
 	)
 	ignoreMatcher=$(join "|" "${ignore[@]}")
 
