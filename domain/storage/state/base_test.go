@@ -311,6 +311,33 @@ VALUES (?, ?, ?, 0, 0, ?)
 	return attachmentUUID
 }
 
+// newPersistentModelVolume creates a new persistent volume in the model with
+// model provision scope and associates it with the provided storage instance.
+// The persistent flag is set to true. Returned is the uuid of the volume.
+func (s *baseSuite) newPersistentModelVolume(
+	c *tc.C,
+	storageInstanceUUID domainstorage.StorageInstanceUUID,
+) domainstorage.VolumeUUID {
+	volumeUUID := tc.Must(c, domainstorage.NewVolumeUUID)
+	volumeID := strconv.FormatUint(s.nextVolumeSequenceNumber(c), 10)
+
+	_, err := s.DB().Exec(`
+INSERT INTO storage_volume (uuid, volume_id, life_id, provision_scope_id, persistent)
+VALUES (?, ?, 0, 0, 1)
+	`,
+		volumeUUID.String(), volumeID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().Exec(`
+INSERT INTO storage_instance_volume (storage_instance_uuid, storage_volume_uuid)
+VALUES (?, ?)
+	`,
+		storageInstanceUUID.String(), volumeUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	return volumeUUID
+}
+
 // newStorageAttachment is responsible for establishing a new storage attachment
 // in the model between the provided storage instance and unit.
 func (s *baseSuite) newStorageAttachment(

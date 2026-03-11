@@ -152,6 +152,11 @@ type StorageInstanceInfoVolumeStatus struct {
 // StorageInstanceInfoVolume represents volume information for a Storage
 // Instance, including its UUID and current status.
 type StorageInstanceInfoVolume struct {
+	// Persistent indicates if the volume will outlive the life of whatever it
+	// may be attached to. Volumes would normally be persistent when the are
+	// provisioned outside of a machine.
+	Persistent bool
+
 	// Status represents the current status of the volume. If not set then no
 	// status information is available for the volume.
 	Status *StorageInstanceInfoVolumeStatus
