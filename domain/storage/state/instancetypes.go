@@ -25,7 +25,7 @@ type storageInstanceInfoAttachment struct {
 // storageInstanceInfoAttachmentBlockDeviceLink represents the block device link
 // information of a Storage Instance attachment on to a unit in the model.
 type storageInstanceInfoAttachmentBlockDeviceLink struct {
-	StorageAttachmentUUID     string `db:"storage_attachment_uuid",partition:"key"`
+	StorageAttachmentUUID     string `db:"storage_attachment_uuid"`
 	BlockDeviceLinkDeviceName string `db:"block_device_link_device_name"`
 }
 
