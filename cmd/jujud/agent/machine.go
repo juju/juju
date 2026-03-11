@@ -887,13 +887,16 @@ func (a *MachineAgent) setupContainerSupport(st api.Connection, logger machine.L
 	}
 	result, err := pr.Machines(mTag)
 	if err != nil {
-		return errors.Annotatef(err, "cannot load machine %s from state", mTag)
+		return errors.Annotatef(err, "loading machine %s from state", mTag)
 	}
 	if len(result) != 1 {
 		return errors.Errorf("expected 1 result, got %d", len(result))
 	}
 	if errors.Is(err, errors.NotFound) || (result[0].Err == nil && result[0].Machine.Life() == life.Dead) {
 		return jworker.ErrTerminateAgent
+	}
+	if result[0].Err != nil {
+		return errors.Annotatef(err, "loading machine %s from state", mTag)
 	}
 	m := result[0].Machine
 
@@ -958,7 +961,8 @@ func (a *MachineAgent) generateClientCert(caCert, caPrivateKey string) (*tls.Cer
 			return nil, errors.Trace(err)
 		}
 		if time.Now().Before(c.NotAfter.Add(certGraceTime)) {
-			return a.mongoClientCert, nil
+			certCopy := *a.mongoClientCert
+			return &certCopy, nil
 		}
 		logger.Debugf("mongo client certificate already expired")
 	}
@@ -968,7 +972,9 @@ func (a *MachineAgent) generateClientCert(caCert, caPrivateKey string) (*tls.Cer
 	}
 
 	a.mongoClientCert = cert
-	return a.mongoClientCert, nil
+
+	certCopy := *a.mongoClientCert
+	return &certCopy, nil
 }
 
 func (a *MachineAgent) initState(ctx stdcontext.Context, agentConfig agent.Config) (*state.StatePool, error) {
