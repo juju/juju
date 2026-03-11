@@ -26,13 +26,14 @@ func (s *Service) GetStorageInstanceInfo(
 // storage ID.
 //
 // The following errors may be returned:
-// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] if no storage
-// instance exists for the provided storage id.
+// - [github.com/juju/juju/domain/storage/errors.StorageInstanceNotFound] if no
+// storage instance exists for the provided storage id.
 func (s *Service) GetStorageInstanceUUIDForID(
 	ctx context.Context, storageID string,
 ) (domainstorage.StorageInstanceUUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	// We don't have any validation that we run over storage id's at the moment.
 	return s.st.GetStorageInstanceUUIDByID(ctx, storageID)
 }
