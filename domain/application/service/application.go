@@ -1722,7 +1722,6 @@ func (s *ProviderService) SetApplicationCharm(ctx context.Context, appName strin
 	if err != nil {
 		return errors.Errorf("setting application %q charm: %w", appName, err)
 	}
-
 	return nil
 }
 

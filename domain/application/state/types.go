@@ -9,7 +9,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/instance"
-	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
@@ -1297,4 +1296,12 @@ type modelMigrating struct {
 type modelType struct {
 	// Type is the type of the model.
 	Type model.ModelType `db:"type"`
+}
+
+// unitCharmUpdateContext represents the set of values required before determining
+// whether we need to update the charm of a unit.
+type unitCharmUpdateContext struct {
+	UnitUUID             string    `db:"unit_uuid"`
+	LifeID               life.Life `db:"life_id"`
+	ApplicationCharmUUID string    `db:"application_charm_uuid"`
 }

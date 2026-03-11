@@ -2483,6 +2483,9 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageLocationChan
 	c.Assert(got.NewLocation, tc.Equals, "/b")
 }
 
+// TestSetApplicationCharmWithStorageSizeChangedCAAS tests that if the new charm has a
+// storage with a different size requirement than the current charm in a CAAS model,
+// the SetApplicationCharm call is rejected with a not supported error.
 func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageSizeChangedCAAS(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -2508,6 +2511,9 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageSizeChangedC
 	c.Assert(err, tc.ErrorMatches, "updating storage declarations on a StatefulSet during charm upgrade is not supported; deploy a new charm")
 }
 
+// TestSetApplicationCharmWithStorageCountChangedCAAS tests that if the new charm has a
+// storage with a different count requirement than the current charm in a CAAS model,
+// the SetApplicationCharm call is rejected with a not supported error.
 func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountChangedCAAS(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -2533,6 +2539,9 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountChanged
 	c.Assert(err, tc.ErrorMatches, "updating storage declarations on a StatefulSet during charm upgrade is not supported; deploy a new charm")
 }
 
+// TestSetApplicationCharmWithStorageSharedChangedCAAS tests that if the new charm has a
+// storage with a different shared setting than the current charm in a CAAS model,
+// the SetApplicationCharm call is rejected with a not supported error.
 func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageSharedChangedCAAS(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -2558,6 +2567,9 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageSharedChange
 	c.Assert(err, tc.ErrorMatches, "updating storage declarations on a StatefulSet during charm upgrade is not supported; deploy a new charm")
 }
 
+// TestSetApplicationCharmWithStorageReadOnlyChangedCAAS tests that if the new charm has a
+// storage with a different read-only setting than the current charm in a CAAS model,
+// the SetApplicationCharm call is rejected with a not supported error.
 func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageReadOnlyChangedCAAS(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -2583,6 +2595,9 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageReadOnlyChan
 	c.Assert(err, tc.ErrorMatches, "updating storage declarations on a StatefulSet during charm upgrade is not supported; deploy a new charm")
 }
 
+// TestSetApplicationCharmWithStorageLocationChangedCAAS tests that if the new charm has a
+// storage with a different location than the current charm in a CAAS model,
+// the SetApplicationCharm call is rejected with a not supported error.
 func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageLocationChangedCAAS(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
