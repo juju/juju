@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -24,7 +25,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -2586,6 +2586,7 @@ func (a *app) EnsureStorage(
 	replica := 0
 	if currentStatefulset.Spec.Replicas != nil {
 		replica = int(*currentStatefulset.Spec.Replicas)
+		newStatefulset.Spec.Replicas = currentStatefulset.Spec.Replicas
 	}
 	err = saveReplicaCount(a.name, replica)
 	if err != nil {
@@ -2608,21 +2609,68 @@ func (a *app) volumeClaimTemplateMatch(
 	currentVolClaims []corev1.PersistentVolumeClaim,
 	newVolClaims []corev1.PersistentVolumeClaim,
 ) bool {
-	return apiequality.Semantic.DeepEqual(
-		normalizePVCs(currentVolClaims),
-		normalizePVCs(newVolClaims),
-	)
-}
+	if len(currentVolClaims) != len(newVolClaims) {
+		return false
+	}
 
-func normalizePVCs(pvcs []corev1.PersistentVolumeClaim) []corev1.PersistentVolumeClaim {
-	out := make([]corev1.PersistentVolumeClaim, len(pvcs))
-	for i, pvc := range pvcs {
-		out[i] = corev1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: pvc.Name,
-			},
-			Spec: pvc.Spec,
+	currentByName := make(map[string]corev1.PersistentVolumeClaim, len(currentVolClaims))
+	for _, claim := range currentVolClaims {
+		currentByName[claim.Name] = claim
+	}
+
+	for _, desiredClaim := range newVolClaims {
+		currentClaim, exists := currentByName[desiredClaim.Name]
+		if !exists {
+			return false
+		}
+		if !volumeClaimTemplateEqual(currentClaim, desiredClaim) {
+			return false
 		}
 	}
-	return out
+	return true
+}
+
+func volumeClaimTemplateEqual(currentVolClaim, newVolClaim corev1.PersistentVolumeClaim) bool {
+	if currentVolClaim.Name != newVolClaim.Name {
+		return false
+	}
+
+	if !stringPtrEqual(currentVolClaim.Spec.StorageClassName, newVolClaim.Spec.StorageClassName) {
+		return false
+	}
+
+	if !accessModesEqual(currentVolClaim.Spec.AccessModes, newVolClaim.Spec.AccessModes) {
+		return false
+	}
+
+	currentQuantity := currentVolClaim.Spec.Resources.Requests.Storage()
+	newQuantity := newVolClaim.Spec.Resources.Requests.Storage()
+	if (currentQuantity == nil) != (newQuantity == nil) {
+		return false
+	}
+	if currentQuantity != nil && !currentQuantity.Equal(*newQuantity) {
+		return false
+	}
+	return true
+}
+
+func accessModesEqual(currentModes, newModes []corev1.PersistentVolumeAccessMode) bool {
+	if len(currentModes) != len(newModes) {
+		return false
+	}
+	currentSorted := slices.Clone(currentModes)
+	newSorted := slices.Clone(newModes)
+	slices.Sort(currentSorted)
+	slices.Sort(newSorted)
+	return slices.Equal(currentSorted, newSorted)
+}
+
+func stringPtrEqual(a, b *string) bool {
+	if (a == nil) != (b == nil) {
+		return false
+	}
+	if a == nil {
+		return true
+	}
+	return *a == *b
 }
