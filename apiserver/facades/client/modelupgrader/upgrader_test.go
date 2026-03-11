@@ -190,10 +190,6 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinAgentVersions, map[int]version.Number{
-		3: version.MustParse("2.9.1"),
-	})
-
 	server := upgradevalidationmocks.NewMockServer(ctrl)
 	serverFactory := upgradevalidationmocks.NewMockServerFactory(ctrl)
 	s.PatchValue(&upgradevalidation.NewServerFactory,
@@ -273,7 +269,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	state1.EXPECT().Model().Return(model1, nil)
 	model1.EXPECT().Life().Return(state.Alive)
 	// - check agent version;
-	model1.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
+	model1.EXPECT().AgentVersion().Return(version.MustParse("3.9.1"), nil)
 	//  - check if model migration is ongoing;
 	model1.EXPECT().MigrationMode().Return(state.MigrationModeNone)
 	// - check if the model has win machines;
@@ -433,17 +429,12 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	)
 
 	ctrlModelTag := coretesting.ModelTag
-	model1ModelUUID, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
 	ctrlModel := mocks.NewMockModel(ctrl)
-	model1 := mocks.NewMockModel(ctrl)
 	ctrlModel.EXPECT().IsControllerModel().Return(true).AnyTimes()
 
 	ctrlState := mocks.NewMockState(ctrl)
-	state1 := mocks.NewMockState(ctrl)
 	ctrlState.EXPECT().Release().AnyTimes()
 	ctrlState.EXPECT().Model().Return(ctrlModel, nil)
-	state1.EXPECT().Release()
 
 	s.statePool.EXPECT().Get(ctrlModelTag.Id()).Return(ctrlState, nil)
 
@@ -499,14 +490,110 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	ctrlModel.EXPECT().Owner().Return(names.NewUserTag("admin"))
 	ctrlModel.EXPECT().Name().Return("controller")
 
+	result, err := api.UpgradeModel(
+		params.UpgradeModelParams{
+			ModelTag:      ctrlModelTag.String(),
+			TargetVersion: version.MustParse("3.9.99"),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error.Error(), gc.Equals, `
+cannot upgrade to "3.9.99" due to issues with these models:
+"admin/controller":
+- upgrade-controller only supports patch upgrades within the same major.minor series (e.g. 2.9.x -> 2.9.y); to upgrade to 3.9.x, bootstrap a new controller and migrate models
+- unable to upgrade, database node 1 (1.1.1.1) has state FATAL, node 2 (2.2.2.2) has state ARBITER, node 3 (3.3.3.3) has state RECOVERING
+- mongo version has to be "4.4" at least, but current version is "4.3"
+- the model hosts deprecated windows machine(s): win10(1) win7(2)
+- the model hosts deprecated ubuntu machine(s): xenial(2)
+- LXD version has to be at least "5.0.0", but current version is only "4.0.0"`[1:])
+}
+
+func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3FailedHostedModel(c *gc.C) {
+	ctrl, api := s.getModelUpgraderAPI(c)
+	defer ctrl.Finish()
+
+	server := upgradevalidationmocks.NewMockServer(ctrl)
+	serverFactory := upgradevalidationmocks.NewMockServerFactory(ctrl)
+	s.PatchValue(&upgradevalidation.NewServerFactory,
+		func(_ lxd.NewHTTPClientFunc) lxd.ServerFactory {
+			return serverFactory
+		},
+	)
+
+	ctrlModelTag := coretesting.ModelTag
+	model1ModelUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	ctrlModel := mocks.NewMockModel(ctrl)
+	model1 := mocks.NewMockModel(ctrl)
+	ctrlModel.EXPECT().IsControllerModel().Return(true).AnyTimes()
+
+	ctrlState := mocks.NewMockState(ctrl)
+	state1 := mocks.NewMockState(ctrl)
+	ctrlState.EXPECT().Release().AnyTimes()
+	ctrlState.EXPECT().Model().Return(ctrlModel, nil)
+	state1.EXPECT().Release()
+
+	s.statePool.EXPECT().Get(ctrlModelTag.Id()).Return(ctrlState, nil)
+	s.blockChecker.EXPECT().ChangeAllowed().Return(nil)
+
+	// Decide/validate target version.
+	ctrlState.EXPECT().ControllerConfig().Return(controllerCfg, nil)
+	ctrlModel.EXPECT().Life().Return(state.Alive)
+	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.1"), nil)
+	ctrlModel.EXPECT().Type().Return(state.ModelTypeIAAS)
+	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
+		Number:        version.MustParse("3.9.99"),
+		ControllerCfg: controllerCfg, ModelType: state.ModelTypeIAAS}).Return(
+		[]*coretools.Tools{
+			{Version: version.MustParseBinary("3.9.99-ubuntu-amd64")},
+		}, nil,
+	)
+
+	// 1. Check controller model — all validators pass (patch upgrade 3.9.1 -> 3.9.99).
+	// - check agent version;
+	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.1"), nil)
+	// - check mongo status;
+	ctrlState.EXPECT().MongoCurrentStatus().Return(&replicaset.Status{
+		Members: []replicaset.MemberStatus{
+			{
+				Id:      1,
+				Address: "1.1.1.1",
+				State:   replicaset.PrimaryState,
+			},
+			{
+				Id:      2,
+				Address: "2.2.2.2",
+				State:   replicaset.SecondaryState,
+			},
+			{
+				Id:      3,
+				Address: "3.3.3.3",
+				State:   replicaset.SecondaryState,
+			},
+		},
+	}, nil)
+	// - check mongo version;
+	s.statePool.EXPECT().MongoVersion().Return("4.4", nil)
+	// - check if the model has win machines;
+	ctrlState.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
+	// - check if the model has deprecated ubuntu machines;
+	ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", unsupportedUbuntuVersions)).Return(nil, nil)
+	// - check if model has charm store charms;
+	ctrlState.EXPECT().AllCharmURLs().Return(nil, errors.NotFoundf("charms"))
+	// - check LXD version.
+	serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil)
+	server.EXPECT().ServerVersion().Return("5.2")
+
+	// Controller model has no blockers, so proceed to check hosted models.
 	ctrlState.EXPECT().AllModelUUIDs().Return([]string{ctrlModelTag.Id(), model1ModelUUID.String()}, nil)
-	// 2. Check other models.
+
+	// 2. Check hosted model — all validators fail.
 	s.statePool.EXPECT().Get(model1ModelUUID.String()).Return(state1, nil)
 	state1.EXPECT().Model().Return(model1, nil)
 	model1.EXPECT().Life().Return(state.Alive)
-	// - check agent version;
+	// - check agent version: 2.9.0 is not same major.minor as target 3.9.99;
 	model1.EXPECT().AgentVersion().Return(version.MustParse("2.9.0"), nil)
-	//  - check if model migration is ongoing;
+	// - check if model migration is ongoing;
 	model1.EXPECT().MigrationMode().Return(state.MigrationModeExporting)
 	// - check if the model has win machines;
 	state1.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(map[string]int{"win10": 1, "win7": 3}, nil)
@@ -534,15 +621,8 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error.Error(), gc.Equals, `
 cannot upgrade to "3.9.99" due to issues with these models:
-"admin/controller":
-- upgrading a controller to a newer major.minor version 3.9 not supported
-- unable to upgrade, database node 1 (1.1.1.1) has state FATAL, node 2 (2.2.2.2) has state ARBITER, node 3 (3.3.3.3) has state RECOVERING
-- mongo version has to be "4.4" at least, but current version is "4.3"
-- the model hosts deprecated windows machine(s): win10(1) win7(2)
-- the model hosts deprecated ubuntu machine(s): xenial(2)
-- LXD version has to be at least "5.0.0", but current version is only "4.0.0"
 "admin/model-1":
-- current model ("2.9.0") has to be upgraded to "2.9.2" at least
+- upgrade-controller only supports patch upgrades within the same major.minor series (e.g. 2.9.x -> 2.9.y); to upgrade to 3.9.x, bootstrap a new controller and migrate models
 - model is under "exporting" mode, upgrade blocked
 - the model hosts deprecated windows machine(s): win10(1) win7(3)
 - the model hosts deprecated ubuntu machine(s): artful(1) cosmic(2) disco(3) eoan(4) groovy(5) hirsute(6) impish(7) precise(8) quantal(9) raring(10) saucy(11) trusty(12) utopic(13) vivid(14) wily(15) xenial(16) yakkety(17) zesty(18)

@@ -348,6 +348,10 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if blockers != nil {
+		// No need to check other models if the controller model has blockers.
+		return
+	}
 
 	modelUUIDs, err := st.AllModelUUIDs()
 	if err != nil {

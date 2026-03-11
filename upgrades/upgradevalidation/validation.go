@@ -248,10 +248,8 @@ func checkForCharmStoreCharms(_ string, _ StatePool, st State, _ Model) (*Blocke
 	return nil, nil
 }
 
-func getCheckTargetVersionForControllerModel(
-	targetVersion version.Number,
-) Validator {
-	return func(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
+func getCheckTargetVersionForControllerModel(targetVersion version.Number) Validator {
+	return func(_ string, _ StatePool, _ State, model Model) (*Blocker, error) {
 		agentVersion, err := model.AgentVersion()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -262,30 +260,31 @@ func getCheckTargetVersionForControllerModel(
 		}
 
 		return NewBlocker(
-			"upgrading a controller to a newer major.minor version %d.%d not supported", targetVersion.Major, targetVersion.Minor,
+			"upgrade-controller only supports patch upgrades within the same major.minor series"+
+				" (e.g. %d.%d.x -> %[1]d.%d.y); to upgrade to %d.%d.x, bootstrap a new controller and migrate models",
+			agentVersion.Major, agentVersion.Minor, targetVersion.Major, targetVersion.Minor,
 		), nil
 	}
 }
 
-func getCheckTargetVersionForModel(
-	targetVersion version.Number,
-	versionChecker func(from, to version.Number) (bool, version.Number, error),
-) Validator {
+func getCheckTargetVersionForModel(targetVersion version.Number) Validator {
 	return func(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
 		agentVersion, err := model.AgentVersion()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		allowed, minVer, err := versionChecker(agentVersion, targetVersion)
-		if err != nil {
-			return nil, errors.Trace(err)
+		if targetVersion.Compare(agentVersion) < 0 {
+			return NewBlocker("downgrade is not allowed"), nil
 		}
-		if allowed {
+		if targetVersion.Major == agentVersion.Major &&
+			targetVersion.Minor == agentVersion.Minor {
 			return nil, nil
 		}
 		return NewBlocker(
-			"current model (%q) has to be upgraded to %q at least", agentVersion, minVer,
+			"upgrade-controller only supports patch upgrades within the same major.minor series"+
+				" (e.g. %d.%d.x -> %[1]d.%d.y); to upgrade to %d.%d.x, bootstrap a new controller and migrate models",
+			agentVersion.Major, agentVersion.Minor, targetVersion.Major, targetVersion.Minor,
 		), nil
 	}
 }

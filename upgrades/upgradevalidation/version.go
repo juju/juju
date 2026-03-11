@@ -17,14 +17,6 @@ var MinAgentVersions = map[int]version.Number{
 	3: version.MustParse("2.9.43"),
 }
 
-// MinClientVersions defines the minimum user client version
-// allowed to make a call to a controller with the major version,
-// or the minimum controller version needed to accept a call from a
-// client with the major version.
-var MinClientVersions = map[int]version.Number{
-	3: version.MustParse("2.9.42"),
-}
-
 // MinMajorMigrateVersions defines the minimum version the model
 // must be running before migrating to the target controller.
 var MinMajorMigrateVersions = MinAgentVersions
@@ -33,14 +25,6 @@ var MinMajorMigrateVersions = MinAgentVersions
 func MigrateToAllowed(modelVersion, targetControllerVersion version.Number) (bool, version.Number, error) {
 	return versionCheck(
 		modelVersion, targetControllerVersion, MinMajorMigrateVersions, "migrate",
-	)
-}
-
-// UpgradeControllerAllowed returns true if a controller upgrade is allowed
-// when it hosts a model with the specified version.
-func UpgradeControllerAllowed(modelVersion, targetControllerVersion version.Number) (bool, version.Number, error) {
-	return versionCheck(
-		modelVersion, targetControllerVersion, MinAgentVersions, "upgrading controller",
 	)
 }
 
