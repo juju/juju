@@ -95,17 +95,22 @@ If `K = 0`, no rebalancing is required.
 
 The controller should be eligible for rebalancing only when:
 
-- if `K <= S`, then `P = K`
+- if `K <= F`, then `P = K`
+- if `F < K <= S`, then `P >= K - M`
 - if `K > S`, then `connected_ratio >= G`
 
 As an initial working definition for the spec:
 
+- `F = 20` agents
+- `M = 2` agents
 - `S = 100` agents
 - `G = 0.98` (98 percent)
 
 Examples:
 
-- With 40 tracked agents, all 40 must be connected before rebalancing starts.
+- With 7 tracked agents, all 7 must be connected before rebalancing starts.
+- With 40 tracked agents, at least 38 must be connected before rebalancing
+  starts.
 - With 6000 tracked agents, at least 5880 must be connected before
   rebalancing starts.
 
