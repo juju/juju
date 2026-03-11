@@ -65,7 +65,7 @@ func (s *stateSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *stateSuite) createModel(c *tc.C, modelType coremodel.ModelType) coremodel.UUID {
-	return s.createModelWithName(c, modelType, "my-model")
+	return s.createModelWithName(c, modelType, "my-model", "my-backend")
 }
 
 func (s *stateSuite) TestGetModelSecretBackendDetails(c *tc.C) {
@@ -108,7 +108,10 @@ func (s *stateSuite) TestGetInternalAndActiveBackendUUIDs(c *tc.C) {
 	c.Assert(activeUUID, tc.Equals, s.vaultBackendID)
 }
 
-func (s *stateSuite) createModelWithName(c *tc.C, modelType coremodel.ModelType, name string) coremodel.UUID {
+func (s *stateSuite) createModelWithName(c *tc.C, modelType coremodel.ModelType, name, vaultBackend string) coremodel.UUID {
+
+	modelBackend := juju.BackendName
+
 	// Create internal controller secret backend.
 	s.internalBackendID = uuid.MustNewUUID().String()
 	result, err := s.state.CreateSecretBackend(c.Context(), secretbackend.CreateSecretBackendParams{
@@ -122,6 +125,9 @@ func (s *stateSuite) createModelWithName(c *tc.C, modelType coremodel.ModelType,
 	c.Assert(result, tc.Equals, s.internalBackendID)
 
 	if modelType == coremodel.CAAS {
+		// If we are in CAAS application, set the backend to the kubernetes backend
+		modelBackend = kubernetes.BackendName
+		// Create the global kubernetes backend for CAAS models.
 		s.kubernetesBackendID = uuid.MustNewUUID().String()
 		_, err = s.state.CreateSecretBackend(c.Context(), secretbackend.CreateSecretBackendParams{
 			BackendIdentifier: secretbackend.BackendIdentifier{
@@ -133,30 +139,34 @@ func (s *stateSuite) createModelWithName(c *tc.C, modelType coremodel.ModelType,
 		c.Assert(err, tc.IsNil)
 	}
 
-	s.vaultBackendID = uuid.MustNewUUID().String()
-	result, err = s.state.CreateSecretBackend(c.Context(), secretbackend.CreateSecretBackendParams{
-		BackendIdentifier: secretbackend.BackendIdentifier{
-			ID:   s.vaultBackendID,
-			Name: "my-backend",
-		},
-		BackendType: "vault",
-		Config: map[string]any{
-			"key1": "value1",
-			"key2": "value2",
-		},
-	})
-	c.Assert(err, tc.IsNil)
-	c.Assert(result, tc.Equals, s.vaultBackendID)
+	if vaultBackend != "" {
+		// If we have defined a vault backend, set the model backend to it
+		modelBackend = vaultBackend
+		s.vaultBackendID = uuid.MustNewUUID().String()
+		result, err = s.state.CreateSecretBackend(c.Context(), secretbackend.CreateSecretBackendParams{
+			BackendIdentifier: secretbackend.BackendIdentifier{
+				ID:   s.vaultBackendID,
+				Name: vaultBackend,
+			},
+			BackendType: "vault",
+			Config: map[string]any{
+				"key1": "value1",
+				"key2": "value2",
+			},
+		})
+		c.Assert(err, tc.IsNil)
+		c.Assert(result, tc.Equals, s.vaultBackendID)
 
-	s.assertSecretBackend(c, secretbackend.SecretBackend{
-		ID:          s.vaultBackendID,
-		Name:        "my-backend",
-		BackendType: "vault",
-		Config: map[string]any{
-			"key1": "value1",
-			"key2": "value2",
-		},
-	}, nil)
+		s.assertSecretBackend(c, secretbackend.SecretBackend{
+			ID:          s.vaultBackendID,
+			Name:        "my-backend",
+			BackendType: "vault",
+			Config: map[string]any{
+				"key1": "value1",
+				"key2": "value2",
+			},
+		}, nil)
+	}
 
 	// We need to generate a user in the database so that we can set the model
 	// owner.
@@ -235,7 +245,7 @@ func (s *stateSuite) createModelWithName(c *tc.C, modelType coremodel.ModelType,
 				Name:          name,
 				Qualifier:     "prod",
 				AdminUsers:    []user.UUID{userUUID},
-				SecretBackend: "my-backend",
+				SecretBackend: modelBackend,
 			},
 		)
 		if err != nil {
@@ -916,12 +926,24 @@ func (s *stateSuite) TestListSecretBackendsIAAS(c *tc.C) {
 }
 
 func (s *stateSuite) TestListSecretBackendsCAAS(c *tc.C) {
-	modelUUID := s.createModel(c, coremodel.CAAS)
+	modelUUID := s.createModelWithName(c, coremodel.CAAS, "my-model", "")
+
+	// Trigger creation of the kubernetes backend and update its ID.
+	activeBackendID, _, err := s.state.GetActiveModelSecretBackend(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Since we are using CAAS, the kubernetes backend is created automatically
+	// with a name derived from the model name.
+	expectedBackendName := "my-model-local"
+	sb, err := s.state.GetSecretBackend(c.Context(), secretbackend.BackendIdentifier{Name: expectedBackendName})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(activeBackendID, tc.Equals, sb.ID)
+
 	secrectRevisionID1 := uuid.MustNewUUID().String()
-	_, err := s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.kubernetesBackendID}, modelUUID, secrectRevisionID1)
+	_, err = s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: sb.ID}, modelUUID, secrectRevisionID1)
 	c.Assert(err, tc.IsNil)
 	secrectRevisionID2 := uuid.MustNewUUID().String()
-	_, err = s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.kubernetesBackendID}, modelUUID, secrectRevisionID2)
+	_, err = s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: sb.ID}, modelUUID, secrectRevisionID2)
 	c.Assert(err, tc.IsNil)
 
 	backendID2 := uuid.MustNewUUID().String()
@@ -954,33 +976,15 @@ func (s *stateSuite) TestListSecretBackendsCAAS(c *tc.C) {
 
 	backends, err := s.state.ListSecretBackends(c.Context())
 	c.Assert(err, tc.IsNil)
-	c.Assert(backends, tc.HasLen, 4)
+	c.Assert(backends, tc.HasLen, 3)
+	sort.Slice(backends, func(i, j int) bool {
+		return backends[i].Name < backends[j].Name
+	})
 	c.Assert(backends, tc.DeepEquals, []*secretbackend.SecretBackend{
-		{
-			ID:          s.kubernetesBackendID,
-			Name:        "my-model-local",
-			BackendType: kubernetes.BackendType,
-			Config: map[string]any{
-				"endpoint":  "https://my-cloud.com",
-				"namespace": "my-model",
-				"ca-certs":  []string{"my-ca-cert"},
-				"token":     "token val",
-			},
-			NumSecrets: 2,
-		},
 		{
 			ID:          s.internalBackendID,
 			Name:        "internal",
 			BackendType: "controller",
-		},
-		{
-			ID:          s.vaultBackendID,
-			Name:        "my-backend",
-			BackendType: "vault",
-			Config: map[string]any{
-				"key1": "value1",
-				"key2": "value2",
-			},
 		},
 		{
 			ID:                  backendID2,
@@ -991,6 +995,18 @@ func (s *stateSuite) TestListSecretBackendsCAAS(c *tc.C) {
 				"key5": "value5",
 				"key6": "value6",
 			},
+		},
+		{
+			ID:          sb.ID,
+			Name:        "my-model-local",
+			BackendType: kubernetes.BackendType,
+			Config: map[string]any{
+				"endpoint":  "https://my-cloud.com",
+				"namespace": "my-model",
+				"ca-certs":  []any{"my-ca-cert"},
+				"token":     "token val",
+			},
+			NumSecrets: 2,
 		},
 	})
 }
@@ -1152,11 +1168,10 @@ func (s *stateSuite) TestListSecretBackendsForModelIAASNotIncludeEmpty(c *tc.C) 
 }
 
 func (s *stateSuite) assertListSecretBackendsForModelCAAS(c *tc.C, includeEmpty bool) {
-	modelUUID := s.createModelWithName(c, coremodel.CAAS, "controller")
-	err := s.state.SetModelSecretBackend(c.Context(), modelUUID, "my-backend")
-	c.Assert(err, tc.IsNil)
-	secrectRevisionID := uuid.MustNewUUID().String()
-	_, err = s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID}, modelUUID, secrectRevisionID)
+	modelUUID := s.createModelWithName(c, coremodel.CAAS, "my-model", "my-backend")
+	secretRevisionID := uuid.MustNewUUID().String()
+	_, err := s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID},
+		modelUUID, secretRevisionID)
 	c.Assert(err, tc.IsNil)
 
 	backendID1 := uuid.MustNewUUID().String()
@@ -1219,23 +1234,22 @@ func (s *stateSuite) assertListSecretBackendsForModelCAAS(c *tc.C, includeEmpty 
 	c.Assert(err, tc.IsNil)
 	expected := []*secretbackend.SecretBackend{
 		{
-			ID:          s.kubernetesBackendID,
-			Name:        "kubernetes",
-			BackendType: "kubernetes",
-			Config: map[string]any{
-				"endpoint":  "https://my-cloud.com",
-				"namespace": "controller-test",
-				"ca-certs":  []string{"my-ca-cert"},
-				"token":     "token val",
-			},
-		},
-		{
 			ID:          s.vaultBackendID,
 			Name:        "my-backend",
 			BackendType: "vault",
 			Config: map[string]any{
 				"key1": "value1",
 				"key2": "value2",
+			},
+		}, {
+			// ID is automatically generated
+			Name:        "my-model-local",
+			BackendType: "kubernetes",
+			Config: map[string]any{
+				"endpoint":  "https://my-cloud.com",
+				"namespace": "my-model",
+				"ca-certs":  []any{"my-ca-cert"},
+				"token":     "token val",
 			},
 		},
 	}
@@ -1262,6 +1276,13 @@ func (s *stateSuite) assertListSecretBackendsForModelCAAS(c *tc.C, includeEmpty 
 				},
 			},
 		)
+	}
+	// remive ID for the test
+	for i, b := range backends {
+		if b.Name == "my-model-local" {
+			c.Assert(b.ID, tc.NotZero)
+			backends[i].ID = ""
+		}
 	}
 	c.Assert(backends, tc.SameContents, expected)
 }
@@ -1321,13 +1342,18 @@ func (s *stateSuite) TestGetActiveModelSecretBackendWithVaultBackend(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetActiveModelSecretBackendCAASDefaultBackend(c *tc.C) {
-	modelUUID := s.createModel(c, coremodel.CAAS)
-	err := s.state.SetModelSecretBackend(c.Context(), modelUUID, kubernetes.BackendName)
-	c.Assert(err, tc.IsNil)
+	modelUUID := s.createModelWithName(c, coremodel.CAAS, "my-model", "")
 
+	// Since we are using CAAS, and we haven't set a backend, it should use
+	// the default kubernetes backend which is created automatically.
 	activeBackendID, backend, err := s.state.GetActiveModelSecretBackend(c.Context(), modelUUID)
-	c.Assert(err, tc.IsNil)
-	c.Assert(activeBackendID, tc.Equals, s.kubernetesBackendID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Since we are using CAAS, the kubernetes backend is created automatically
+	// with a name derived from the model name.
+	expectedBackendName := "my-model-local"
+	c.Assert(activeBackendID, tc.Not(tc.Equals), "")
+
 	c.Assert(backend, tc.DeepEquals, &provider.ModelBackendConfig{
 		ControllerUUID: s.controllerUUID,
 		ModelUUID:      modelUUID.String(),
@@ -1337,11 +1363,15 @@ func (s *stateSuite) TestGetActiveModelSecretBackendCAASDefaultBackend(c *tc.C) 
 			Config: map[string]any{
 				"endpoint":  "https://my-cloud.com",
 				"namespace": "my-model",
-				"ca-certs":  []string{"my-ca-cert"},
+				"ca-certs":  []any{"my-ca-cert"},
 				"token":     "token val",
 			},
 		},
 	})
+
+	sb, err := s.state.GetSecretBackend(c.Context(), secretbackend.BackendIdentifier{Name: expectedBackendName})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(activeBackendID, tc.Equals, sb.ID)
 }
 
 func (s *stateSuite) TestGetActiveModelSecretBackendFailedWithModelNotFound(c *tc.C) {
@@ -1797,6 +1827,32 @@ type preparer struct{}
 
 func (p preparer) Prepare(query string, args ...any) (*sqlair.Statement, error) {
 	return sqlair.Prepare(query, args...)
+}
+
+func (s *stateSuite) TestGetK8sBuiltinSecretBackend(c *tc.C) {
+	modelUUID := s.createModelWithName(c, coremodel.CAAS, "my-model", "")
+
+	// Verify the backend does not exist yet.
+	expectedBackendName := "my-model-local"
+	_, err := s.state.GetSecretBackend(c.Context(), secretbackend.BackendIdentifier{Name: expectedBackendName})
+	c.Assert(err, tc.ErrorIs, backenderrors.NotFound)
+
+	// Trigger creation via GetActiveModelSecretBackend.
+	activeBackendID, backend, err := s.state.GetActiveModelSecretBackend(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify the backend was created.
+	sb, err := s.state.GetSecretBackend(c.Context(), secretbackend.BackendIdentifier{Name: expectedBackendName})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(activeBackendID, tc.Equals, sb.ID)
+	c.Assert(sb.Name, tc.Equals, expectedBackendName)
+	c.Assert(sb.BackendType, tc.Equals, kubernetes.BackendType)
+	c.Assert(map[string]any(backend.BackendConfig.Config), tc.DeepEquals, sb.Config)
+
+	// Call again, it should return the same backend without creating a new one.
+	activeBackendID2, _, err := s.state.GetActiveModelSecretBackend(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(activeBackendID2, tc.Equals, activeBackendID)
 }
 
 func (s *stateSuite) TestGetSecretBackendNamesByUUID(c *tc.C) {
