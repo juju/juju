@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -90,6 +91,7 @@ func DefaultDialOpts() DialOpts {
 const (
 	mongoCertGroup            = "mongodb"
 	mongoCertValidityDuration = 15 * time.Minute
+	mongoCertRefreshWindow    = 5 * time.Minute
 )
 
 // GenerateClientCert issues a TLS certificate
@@ -161,7 +163,17 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 		return nil, stderrors.New("no mongo addresses")
 	}
 
-	var tlsConfig *tls.Config
+	// acquireTLSConfig returns a shallow copy of the TLS config with a
+	// current client certificate.
+	acquireTLSConfig := func() (*tls.Config, error) {
+		return nil, nil
+	}
+
+	generateClientCert := opts.GenerateClientCertificate
+	if generateClientCert == nil {
+		generateClientCert = GenerateClientCert
+	}
+
 	if !info.DisableTLS {
 		if len(info.CACert) == 0 {
 			return nil, stderrors.New("missing CA certificate")
@@ -173,16 +185,17 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 		pool := x509.NewCertPool()
 		pool.AddCert(xcert)
 
-		tlsConfig = http.SecureTLSConfig()
+		tlsConfig := http.SecureTLSConfig()
 		tlsConfig.RootCAs = pool
 		tlsConfig.ServerName = "juju-mongodb"
-		generateClientCert := opts.GenerateClientCertificate
-		if generateClientCert == nil {
-			generateClientCert = GenerateClientCert
-		}
+
 		clientCert, err := generateClientCert(info.CACert, info.CAPrivateKey)
 		if err != nil {
-			return nil, errors.Errorf("generating client certificate: %v", err)
+			return nil, errors.Annotate(err, "generating client certificate")
+		}
+		clientCert.Leaf, err = x509.ParseCertificate(clientCert.Certificate[0])
+		if err != nil {
+			return nil, errors.Annotate(err, "parsing generated client certificate")
 		}
 		tlsConfig.Certificates = []tls.Certificate{*clientCert}
 
@@ -193,6 +206,32 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
 		}
 		tlsConfig.CipherSuites = append(tlsConfig.CipherSuites, moreSuites...)
+
+		var (
+			mu     sync.Mutex
+			expiry = clientCert.Leaf.NotAfter
+		)
+		acquireTLSConfig = func() (*tls.Config, error) {
+			mu.Lock()
+			defer mu.Unlock()
+
+			if time.Now().Add(mongoCertRefreshWindow).Before(expiry) {
+				return tlsConfig.Clone(), nil
+			}
+
+			clientCert, err := generateClientCert(info.CACert, info.CAPrivateKey)
+			if err != nil {
+				return nil, errors.Annotate(err, "refreshing client certificate")
+			}
+			clientCert.Leaf, err = x509.ParseCertificate(clientCert.Certificate[0])
+			if err != nil {
+				return nil, errors.Annotate(err, "parsing refreshed client certificate")
+			}
+			tlsConfig.Certificates = []tls.Certificate{*clientCert}
+			expiry = clientCert.Leaf.NotAfter
+
+			return tlsConfig.Clone(), nil
+		}
 	}
 
 	dial := func(server *mgo.ServerAddr) (_ net.Conn, err error) {
@@ -202,6 +241,14 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 				taken := time.Now().Sub(before)
 				opts.PostDialServer(server.String(), taken, err)
 			}()
+		}
+
+		// Acquire a copy of the TLS config before dialing to minimise the
+		// window between TCP connection and TLS handshake; certificate
+		// signing can be an expensive task.
+		tlsConfig, err := acquireTLSConfig()
+		if err != nil {
+			return nil, err
 		}
 
 		addr := server.TCPAddr().String()
