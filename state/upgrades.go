@@ -10,6 +10,7 @@ import (
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/pki/ssh"
 )
 
@@ -358,13 +359,42 @@ func ConvertScalingToCurrentOperationEnumField(pool *StatePool) error {
 		var app bson.M
 		var ops []txn.Op
 		for iter.Next(&app) {
-			id := app["_id"].(string)
-			ps := app["provisioning-state"].(bson.M)
-			scaling := ps["scaling"].(bool)
+			id, ok := app["_id"].(string)
+			if !ok {
+				return errors.New("typecasting app id to string")
+			}
 
-			currentOp := ""
+			psRaw, ok := app["provisioning-state"]
+			if !ok || psRaw == nil {
+				continue
+			}
+
+			ps, ok := psRaw.(bson.M)
+			if !ok {
+				return errors.New("typecasting app provisioning-state to bson.M")
+			}
+
+			scalingRaw, ok := ps["scaling"]
+			if !ok || scalingRaw == nil {
+				ops = append(ops, txn.Op{
+					C:      applicationsC,
+					Id:     id,
+					Assert: txn.DocExists,
+					Update: bson.D{{"$unset", bson.D{
+						{"provisioning-state.scaling", ""},
+					}}},
+				})
+				continue
+			}
+
+			scaling, ok := scalingRaw.(bool)
+			if !ok {
+				return errors.New("typecasting app scaling to bool")
+			}
+
+			currentOp := application.NoOperation
 			if scaling {
-				currentOp = "scale"
+				currentOp = application.ScaleOperation
 			}
 
 			ops = append(ops, txn.Op{
