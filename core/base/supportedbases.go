@@ -10,6 +10,7 @@ func ControllerBases() []Base {
 		MakeDefaultBase(UbuntuOS, "20.04"),
 		MakeDefaultBase(UbuntuOS, "22.04"),
 		MakeDefaultBase(UbuntuOS, "24.04"),
+		MakeDefaultBase(UbuntuOS, "26.04"),
 	}
 }
 
@@ -19,7 +20,7 @@ func WorkloadBases() []Base {
 	return []Base{
 		MakeDefaultBase(UbuntuOS, "20.04"),
 		MakeDefaultBase(UbuntuOS, "22.04"),
-		MakeDefaultBase(UbuntuOS, "23.10"),
 		MakeDefaultBase(UbuntuOS, "24.04"),
+		MakeDefaultBase(UbuntuOS, "26.04"),
 	}
 }
