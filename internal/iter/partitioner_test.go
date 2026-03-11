@@ -10,7 +10,8 @@ import (
 	"github.com/juju/tc"
 )
 
-// User
+// UserRecord is a testing type to define a mock user value to process with
+// [Partitioner]. UserRecord implements the [Partitionable] interface.
 type UserRecord struct {
 	userID int
 	action string
@@ -39,15 +40,15 @@ func (u UserRecord) Partition() int {
 func ExamplePartitioner() {
 	// records are ordered on the access pattern of each partition.
 	records := []UserRecord{
-		UserRecord{userID: 1, action: "login"},
-		UserRecord{userID: 1, action: "logout"},
-		UserRecord{userID: 1, action: "update"},
-		UserRecord{userID: 2, action: "login"},
-		UserRecord{userID: 2, action: "logout"},
-		UserRecord{userID: 3, action: "login"},
-		UserRecord{userID: 3, action: "logout"},
-		UserRecord{userID: 3, action: "update"},
-		UserRecord{userID: 3, action: "delete"},
+		{userID: 1, action: "login"},
+		{userID: 1, action: "logout"},
+		{userID: 1, action: "update"},
+		{userID: 2, action: "login"},
+		{userID: 2, action: "logout"},
+		{userID: 3, action: "login"},
+		{userID: 3, action: "logout"},
+		{userID: 3, action: "update"},
+		{userID: 3, action: "delete"},
 	}
 
 	// Create a partitioner

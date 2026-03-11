@@ -5,7 +5,6 @@ package iter
 
 import (
 	"cmp"
-	"iter"
 	stditer "iter"
 	"slices"
 )
@@ -90,7 +89,7 @@ func (p *Partitioner[V, T]) Close() {
 // Sequences returned by NextPart are rentrant in that yielding from the
 // supplied [iter.Seq] and running again will resume processing from the last
 // yielded value.
-func (p *Partitioner[V, T]) NextPart(t T) iter.Seq[V] {
+func (p *Partitioner[V, T]) NextPart(t T) stditer.Seq[V] {
 	return func(yield func(V) bool) {
 		for {
 			if p.peeked == nil {
