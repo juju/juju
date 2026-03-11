@@ -19,15 +19,22 @@ import (
 	coretools "github.com/juju/juju/tools"
 )
 
-var errUpToDate = errors.AlreadyExistsf("no upgrades available")
+var (
+	errUpToDate  = errors.AlreadyExistsf("no upgrades available")
+	errDowngrade = errors.NotSupportedf("downgrade")
+)
 
 func (m *ModelUpgraderAPI) decideVersion(
 	currentVersion version.Number, args common.FindAgentsParams,
 ) (_ version.Number, err error) {
-
 	// Short circuit expensive agent look up if we are already up-to-date.
-	if args.Number != version.Zero && args.Number.Compare(currentVersion.ToPatch()) <= 0 {
+	if args.Number != version.Zero && args.Number.Compare(currentVersion.ToPatch()) == 0 {
 		return version.Zero, errUpToDate
+	}
+
+	// Short circuit expensive agent look up if target version is lower.
+	if args.Number != version.Zero && args.Number.Compare(currentVersion.ToPatch()) < 0 {
+		return version.Zero, errDowngrade
 	}
 
 	streamVersions, err := m.findAgents(args, currentVersion)

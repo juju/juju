@@ -535,14 +535,14 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	c.Assert(result.Error.Error(), gc.Equals, `
 cannot upgrade to "3.9.99" due to issues with these models:
 "admin/controller":
-- upgrading a controller to a newer major.minor version 3.9 not supported
+- upgrading a controller only supports patch upgrades within the same major.minor series (e.g. 2.9.x -> 2.9.y); to upgrade to 3.9.x, bootstrap a new controller and migrate models
 - unable to upgrade, database node 1 (1.1.1.1) has state FATAL, node 2 (2.2.2.2) has state ARBITER, node 3 (3.3.3.3) has state RECOVERING
 - mongo version has to be "4.4" at least, but current version is "4.3"
 - the model hosts deprecated windows machine(s): win10(1) win7(2)
 - the model hosts deprecated ubuntu machine(s): xenial(2)
 - LXD version has to be at least "5.0.0", but current version is only "4.0.0"
 "admin/model-1":
-- current model ("2.9.0") has to be upgraded to "2.9.2" at least
+- current model "2.9.0" must be at least "2.9.2" before upgrading to "3.9.99"
 - model is under "exporting" mode, upgrade blocked
 - the model hosts deprecated windows machine(s): win10(1) win7(3)
 - the model hosts deprecated ubuntu machine(s): artful(1) cosmic(2) disco(3) eoan(4) groovy(5) hirsute(6) impish(7) precise(8) quantal(9) raring(10) saucy(11) trusty(12) utopic(13) vivid(14) wily(15) xenial(16) yakkety(17) zesty(18)

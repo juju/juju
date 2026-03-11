@@ -183,31 +183,27 @@ func (s *upgradeValidationSuite) TestGetCheckTargetVersionForControllerModel(c *
 
 	blocker, err := upgradevalidation.GetCheckTargetVersionForModel(
 		version.MustParse("3.0.0"),
-		upgradevalidation.UpgradeControllerAllowed,
 	)("", nil, nil, model)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker, gc.ErrorMatches, `current model \("2.9.29"\) has to be upgraded to "2.9.30" at least`)
+	c.Assert(blocker, gc.ErrorMatches, `current model "2.9.29" must be at least "2.9.30" before upgrading to "3.0.0"`)
 
 	blocker, err = upgradevalidation.GetCheckTargetVersionForModel(
 		version.MustParse("3.0.0"),
-		upgradevalidation.UpgradeControllerAllowed,
 	)("", nil, nil, model)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blocker, gc.IsNil)
 
 	blocker, err = upgradevalidation.GetCheckTargetVersionForModel(
 		version.MustParse("1.1.1"),
-		upgradevalidation.UpgradeControllerAllowed,
 	)("", nil, nil, model)
-	c.Assert(err, gc.ErrorMatches, `downgrade is not allowed`)
-	c.Assert(blocker, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker, gc.ErrorMatches, `downgrade is not allowed`)
 
 	blocker, err = upgradevalidation.GetCheckTargetVersionForModel(
 		version.MustParse("4.1.1"),
-		upgradevalidation.UpgradeControllerAllowed,
 	)("", nil, nil, model)
-	c.Assert(err, gc.ErrorMatches, `upgrading controller to "4.1.1" is not supported from "2.9.31"`)
-	c.Assert(blocker, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker, gc.ErrorMatches, `upgrading model from "2.9.31" to "4.1.1" is not supported`)
 }
 
 func (s *upgradeValidationSuite) TestCheckModelMigrationModeForControllerUpgrade(c *gc.C) {

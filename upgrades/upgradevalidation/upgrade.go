@@ -36,7 +36,7 @@ func ModelValidatorsForControllerModelUpgrade(
 	targetVersion version.Number, cloudspec environscloudspec.CloudSpec,
 ) []Validator {
 	validators := []Validator{
-		getCheckTargetVersionForModel(targetVersion, UpgradeControllerAllowed),
+		getCheckTargetVersionForModel(targetVersion),
 		checkModelMigrationModeForControllerUpgrade,
 		checkNoWinMachinesForModel,
 		checkForDeprecatedUbuntuSeriesForModel,

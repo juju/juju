@@ -208,11 +208,13 @@ func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result p
 			args.Number = targetVersion
 		}
 		targetVersion, err = m.decideVersion(currentVersion, args)
-		if errors.Is(errors.Cause(err), errors.NotFound) || errors.Is(errors.Cause(err), errors.AlreadyExists) {
+		switch {
+		case errors.Is(err, errors.NotFound),
+			errors.Is(err, errors.AlreadyExists),
+			errors.Is(err, errors.NotSupported):
 			result.Error = apiservererrors.ServerError(err)
 			return result, nil
-		}
-		if err != nil {
+		case err != nil:
 			return result, errors.Trace(err)
 		}
 	}
