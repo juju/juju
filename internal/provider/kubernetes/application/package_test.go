@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock"
 	gc "gopkg.in/check.v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -63,4 +64,9 @@ func PVCNames(client kubernetes.Interface, namespace, appName, storagePrefix str
 		client:    client,
 	}
 	return a.pvcNames(storagePrefix)
+}
+
+func VolumeClaimTemplateMatch(currentVolClaims, newVolClaims []corev1.PersistentVolumeClaim) bool {
+	a := &app{}
+	return a.volumeClaimTemplateMatch(currentVolClaims, newVolClaims)
 }

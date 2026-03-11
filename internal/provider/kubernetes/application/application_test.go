@@ -155,7 +155,7 @@ func (s *applicationSuite) getApp(c *gc.C, deploymentType caas.DeploymentType, m
 
 func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application,
 	isPrivateImageRepo bool, cons constraints.Value, trust bool, rootless bool,
-	agentVersion string, callEnsure bool, checkMainResource func()) {
+	agentVersion string, checkMainResource func()) {
 	if agentVersion == "" {
 		agentVersion = defaultAgentVersion
 	}
@@ -270,10 +270,7 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application,
 
 	appConfig, appRole, appClusterRole := s.createAppConfig(isPrivateImageRepo,
 		cons, trust, rootless, agentVersion)
-
-	if callEnsure {
-		c.Assert(app.Ensure(appConfig), jc.ErrorIsNil)
-	}
+	c.Assert(app.Ensure(appConfig), jc.ErrorIsNil)
 
 	secret, err := s.client.CoreV1().Secrets("test").Get(context.TODO(), "gitlab-application-config", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -533,8 +530,7 @@ func (s *applicationSuite) assertDelete(c *gc.C, app caas.Application) {
 func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, true, false, "",
-		true, func() {
+		c, app, false, constraints.Value{}, true, false, "", func() {
 			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(svc, gc.DeepEquals, &corev1.Service{
@@ -668,7 +664,7 @@ func (s *applicationSuite) TestEnsureStatefulDeletesOrphanedStatefulSet(c *gc.C)
 	s.k8sWatcherFn = k8swatchertest.NewKubernetesTestWatcherFunc(w)
 
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, true, false, "", true, func() {
+		c, app, false, constraints.Value{}, true, false, "", func() {
 			ss, err := s.client.AppsV1().StatefulSets(s.namespace).Get(
 				context.Background(), s.appName, metav1.GetOptions{},
 			)
@@ -730,7 +726,7 @@ func (s *applicationSuite) TestEnsureStatefulSkipsOrphanNotOwnedByJuju(c *gc.C) 
 	// Ensure should succeed without deleting the orphan — the applier
 	// will update the existing StatefulSet in place (patching mutable fields).
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, true, false, "", true, func() {
+		c, app, false, constraints.Value{}, true, false, "", func() {
 			ss, err := s.client.AppsV1().StatefulSets(s.namespace).Get(
 				context.Background(), s.appName, metav1.GetOptions{},
 			)
@@ -782,7 +778,7 @@ func (s *applicationSuite) TestEnsureStatefulSkipsOrphanFromDifferentModel(c *gc
 	// Ensure should succeed without deleting the orphan — the applier
 	// will update the existing StatefulSet in place (patching mutable fields).
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, true, false, "", true, func() {
+		c, app, false, constraints.Value{}, true, false, "", func() {
 			ss, err := s.client.AppsV1().StatefulSets(s.namespace).Get(
 				context.Background(), s.appName, metav1.GetOptions{},
 			)
@@ -799,8 +795,7 @@ func (s *applicationSuite) TestEnsureStatefulSkipsOrphanFromDifferentModel(c *gc
 func (s *applicationSuite) TestEnsureStatefulRootless35(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, true, true, "3.5-beta1",
-		true, func() {
+		c, app, false, constraints.Value{}, true, true, "3.5-beta1", func() {
 			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(svc, gc.DeepEquals, &corev1.Service{
@@ -889,8 +884,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless35(c *gc.C) {
 func (s *applicationSuite) TestEnsureStatefulRootless(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, true, true, "3.6-beta3",
-		true, func() {
+		c, app, false, constraints.Value{}, true, true, "3.6-beta3", func() {
 			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(svc, gc.DeepEquals, &corev1.Service{
@@ -979,8 +973,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless(c *gc.C) {
 func (s *applicationSuite) TestEnsureTrusted(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, true, false, "",
-		true, func() {},
+		c, app, false, constraints.Value{}, true, false, "", func() {},
 	)
 	s.assertDelete(c, app)
 }
@@ -988,8 +981,7 @@ func (s *applicationSuite) TestEnsureTrusted(c *gc.C) {
 func (s *applicationSuite) TestEnsureUntrusted(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, false, false, "",
-		true, func() {},
+		c, app, false, constraints.Value{}, false, false, "", func() {},
 	)
 	s.assertDelete(c, app)
 }
@@ -1005,8 +997,7 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *gc.C) {
 		podSpec.ImagePullSecrets...,
 	)
 	s.assertEnsure(
-		c, app, true, constraints.Value{}, true, false, "",
-		true, func() {
+		c, app, true, constraints.Value{}, true, false, "", func() {
 			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(svc, gc.DeepEquals, &corev1.Service{
@@ -1094,8 +1085,7 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *gc.C) {
 func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateless, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, true, false, "", true,
-		func() {
+		c, app, false, constraints.Value{}, true, false, "", func() {
 			ss, err := s.client.AppsV1().Deployments("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 
@@ -1168,8 +1158,7 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentDaemon, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, true, false, "",
-		true, func() {
+		c, app, false, constraints.Value{}, true, false, "", func() {
 			ss, err := s.client.AppsV1().DaemonSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 
@@ -1365,49 +1354,46 @@ func (s *applicationSuite) TestExistsDaemonSet(c *gc.C) {
 // Test upgrades are performed by ensure. Regression bug for lp1997253
 func (s *applicationSuite) TestUpgradeStateful(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
-	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "2.9.34",
-		true, func() {
-			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
-			c.Assert(err, jc.ErrorIsNil)
+	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "2.9.34", func() {
+		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+		c.Assert(err, jc.ErrorIsNil)
 
-			c.Assert(len(ss.Spec.Template.Spec.InitContainers), gc.Equals, 1)
-			c.Assert(ss.Spec.Template.Spec.InitContainers[0].Args, jc.DeepEquals, []string{
-				"init",
-				"--data-dir", "/var/lib/juju",
-				"--bin-dir", "/charm/bin",
-			})
+		c.Assert(len(ss.Spec.Template.Spec.InitContainers), gc.Equals, 1)
+		c.Assert(ss.Spec.Template.Spec.InitContainers[0].Args, jc.DeepEquals, []string{
+			"init",
+			"--data-dir", "/var/lib/juju",
+			"--bin-dir", "/charm/bin",
 		})
+	})
 
-	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "2.9.37",
-		true, func() {
-			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
-			c.Assert(err, jc.ErrorIsNil)
+	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "2.9.37", func() {
+		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+		c.Assert(err, jc.ErrorIsNil)
 
-			c.Assert(len(ss.Spec.Template.Spec.InitContainers), gc.Equals, 1)
-			c.Assert(ss.Spec.Template.Spec.InitContainers[0].Args, jc.DeepEquals, []string{
-				"init",
-				"--containeragent-pebble-dir", "/containeragent/pebble",
-				"--charm-modified-version", "9001",
-				"--data-dir", "/var/lib/juju",
-				"--bin-dir", "/charm/bin",
-			})
+		c.Assert(len(ss.Spec.Template.Spec.InitContainers), gc.Equals, 1)
+		c.Assert(ss.Spec.Template.Spec.InitContainers[0].Args, jc.DeepEquals, []string{
+			"init",
+			"--containeragent-pebble-dir", "/containeragent/pebble",
+			"--charm-modified-version", "9001",
+			"--data-dir", "/var/lib/juju",
+			"--bin-dir", "/charm/bin",
 		})
+	})
 
-	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "3.5-beta1.1",
-		true, func() {
-			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
-			c.Assert(err, jc.ErrorIsNil)
+	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "3.5-beta1.1", func() {
+		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+		c.Assert(err, jc.ErrorIsNil)
 
-			c.Assert(len(ss.Spec.Template.Spec.InitContainers), gc.Equals, 1)
-			c.Assert(ss.Spec.Template.Spec.InitContainers[0].Args, jc.DeepEquals, []string{
-				"init",
-				"--containeragent-pebble-dir", "/containeragent/pebble",
-				"--charm-modified-version", "9001",
-				"--data-dir", "/var/lib/juju",
-				"--bin-dir", "/charm/bin",
-				"--profile-dir", "/containeragent/etc/profile.d",
-			})
+		c.Assert(len(ss.Spec.Template.Spec.InitContainers), gc.Equals, 1)
+		c.Assert(ss.Spec.Template.Spec.InitContainers[0].Args, jc.DeepEquals, []string{
+			"init",
+			"--containeragent-pebble-dir", "/containeragent/pebble",
+			"--charm-modified-version", "9001",
+			"--data-dir", "/var/lib/juju",
+			"--bin-dir", "/charm/bin",
+			"--profile-dir", "/containeragent/etc/profile.d",
 		})
+	})
 }
 
 func (s *applicationSuite) TestDeleteStateful(c *gc.C) {
@@ -2866,8 +2852,7 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 func (s *applicationSuite) TestServiceActive(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, false, false, "",
-		true, func() {},
+		c, app, false, constraints.Value{}, false, false, "", func() {},
 	)
 	defer s.assertDelete(c, app)
 
@@ -2906,8 +2891,7 @@ func (s *applicationSuite) TestServiceActive(c *gc.C) {
 func (s *applicationSuite) TestServiceNotSupportedDaemon(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentDaemon, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, false, false, "",
-		true, func() {},
+		c, app, false, constraints.Value{}, false, false, "", func() {},
 	)
 	defer s.assertDelete(c, app)
 
@@ -2924,8 +2908,7 @@ func (s *applicationSuite) TestServiceNotSupportedDaemon(c *gc.C) {
 func (s *applicationSuite) TestServiceNotSupportedStateless(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateless, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, false, false, "",
-		true, func() {},
+		c, app, false, constraints.Value{}, false, false, "", func() {},
 	)
 	defer s.assertDelete(c, app)
 
@@ -2942,8 +2925,7 @@ func (s *applicationSuite) TestServiceNotSupportedStateless(c *gc.C) {
 func (s *applicationSuite) TestServiceTerminated(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, false, false, "",
-		true, func() {},
+		c, app, false, constraints.Value{}, false, false, "", func() {},
 	)
 	defer s.assertDelete(c, app)
 
@@ -2983,8 +2965,7 @@ func (s *applicationSuite) TestServiceTerminated(c *gc.C) {
 func (s *applicationSuite) TestServiceError(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, false, false, "",
-		true, func() {},
+		c, app, false, constraints.Value{}, false, false, "", func() {},
 	)
 	defer s.assertDelete(c, app)
 
@@ -3043,7 +3024,7 @@ func (s *applicationSuite) TestServiceError(c *gc.C) {
 func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, false, "", true, func() {
+		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, false, "", func() {
 			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(svc, gc.DeepEquals, &corev1.Service{
@@ -3183,8 +3164,7 @@ func (s *applicationSuite) TestPullSecretUpdate(c *gc.C) {
 		metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "",
-		true, func() {})
+	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "", func() {})
 
 	_, err = s.client.CoreV1().Secrets(s.namespace).Get(context.TODO(), "gitlab-oldcontainer-secret", metav1.GetOptions{})
 	c.Assert(err, gc.ErrorMatches, `secrets "gitlab-oldcontainer-secret" not found`)
@@ -3291,7 +3271,7 @@ func (s *applicationSuite) TestLimits(c *gc.C) {
 
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, false, "", true, func() {
+		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, false, "", func() {
 			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			for _, ctr := range ss.Spec.Template.Spec.Containers {
@@ -3304,7 +3284,7 @@ func (s *applicationSuite) TestLimits(c *gc.C) {
 func (s *applicationSuite) TestEnsureUpdatedConstraints(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.MustParse("mem=1G cpu-power=1000"), true, true, "3.6.8", true, func() {
+		c, app, false, constraints.MustParse("mem=1G cpu-power=1000"), true, true, "3.6.8", func() {
 			ps := getPodSpec368()
 			charmResourceMemRequest := corev1.ResourceList{
 				corev1.ResourceMemory: k8sresource.MustParse(constants.CharmMemRequestMi),

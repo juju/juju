@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/internal/provider/kubernetes/application"
 	"github.com/juju/juju/storage"
 )
 
@@ -477,4 +478,118 @@ func (s *applicationSuite) TestEnsureStorageFailToCreateStatefulset(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(stsAfterEnsure.Spec.VolumeClaimTemplates, gc.DeepEquals, stsBeforeEnsure.Spec.VolumeClaimTemplates)
 
+}
+
+func (s *applicationSuite) TestVolumeClaimTemplateMatch(c *gc.C) {
+	storageClass := "sc-fast"
+	otherStorageClass := "sc-slow"
+
+	pvc := func(
+		name string,
+		size string,
+		storageClassName *string,
+		modes ...corev1.PersistentVolumeAccessMode,
+	) corev1.PersistentVolumeClaim {
+		requests := corev1.ResourceList{}
+		if size != "" {
+			requests[corev1.ResourceStorage] = k8sresource.MustParse(size)
+		}
+		return corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: name,
+			},
+			Spec: corev1.PersistentVolumeClaimSpec{
+				StorageClassName: storageClassName,
+				AccessModes:      modes,
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: requests,
+				},
+			},
+		}
+	}
+
+	testCases := []struct {
+		name    string
+		current []corev1.PersistentVolumeClaim
+		desired []corev1.PersistentVolumeClaim
+		want    bool
+	}{
+		{
+			name: "matches with different claim and access-mode order",
+			current: []corev1.PersistentVolumeClaim{
+				pvc("data-b", "1Gi", &storageClass, corev1.ReadWriteOnce, corev1.ReadOnlyMany),
+				pvc("data-a", "2Gi", &storageClass, corev1.ReadWriteMany),
+			},
+			desired: []corev1.PersistentVolumeClaim{
+				pvc("data-a", "2Gi", &storageClass, corev1.ReadWriteMany),
+				pvc("data-b", "1Gi", &storageClass, corev1.ReadOnlyMany, corev1.ReadWriteOnce),
+			},
+			want: true,
+		},
+		{
+			name: "different size does not match",
+			current: []corev1.PersistentVolumeClaim{
+				pvc("data-a", "1Gi", &storageClass, corev1.ReadWriteOnce),
+			},
+			desired: []corev1.PersistentVolumeClaim{
+				pvc("data-a", "2Gi", &storageClass, corev1.ReadWriteOnce),
+			},
+			want: false,
+		},
+		{
+			name: "different storage class does not match",
+			current: []corev1.PersistentVolumeClaim{
+				pvc("data-a", "1Gi", &storageClass, corev1.ReadWriteOnce),
+			},
+			desired: []corev1.PersistentVolumeClaim{
+				pvc("data-a", "1Gi", &otherStorageClass, corev1.ReadWriteOnce),
+			},
+			want: false,
+		},
+		{
+			name: "nil and non-nil storage class does not match",
+			current: []corev1.PersistentVolumeClaim{
+				pvc("data-a", "1Gi", nil, corev1.ReadWriteOnce),
+			},
+			desired: []corev1.PersistentVolumeClaim{
+				pvc("data-a", "1Gi", &storageClass, corev1.ReadWriteOnce),
+			},
+			want: false,
+		},
+		{
+			name: "different access modes do not match",
+			current: []corev1.PersistentVolumeClaim{
+				pvc("data-a", "1Gi", &storageClass, corev1.ReadWriteOnce),
+			},
+			desired: []corev1.PersistentVolumeClaim{
+				pvc("data-a", "1Gi", &storageClass, corev1.ReadWriteMany),
+			},
+			want: false,
+		},
+		{
+			name: "missing claim does not match",
+			current: []corev1.PersistentVolumeClaim{
+				pvc("data-a", "1Gi", &storageClass, corev1.ReadWriteOnce),
+			},
+			desired: []corev1.PersistentVolumeClaim{
+				pvc("data-a", "1Gi", &storageClass, corev1.ReadWriteOnce),
+				pvc("data-b", "1Gi", &storageClass, corev1.ReadWriteOnce),
+			},
+			want: false,
+		},
+		{
+			name: "missing storage request matches when both absent",
+			current: []corev1.PersistentVolumeClaim{
+				pvc("data-a", "", &storageClass, corev1.ReadWriteOnce),
+			},
+			desired: []corev1.PersistentVolumeClaim{
+				pvc("data-a", "", &storageClass, corev1.ReadWriteOnce),
+			},
+			want: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		c.Assert(application.VolumeClaimTemplateMatch(tc.current, tc.desired), gc.Equals, tc.want, gc.Commentf(tc.name))
+	}
 }
