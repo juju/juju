@@ -56,7 +56,7 @@ type ApplicationOps interface {
 		clk clock.Clock) error
 
 	ReconcileDeadUnitScale(appName string, app caas.Application,
-		facade CAASProvisionerFacade, logger Logger) error
+		appLife life.Value, facade CAASProvisionerFacade, logger Logger) error
 
 	EnsureScale(appName string, app caas.Application, appLife life.Value,
 		facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) error
@@ -135,8 +135,8 @@ func (applicationOps) WaitForTerminated(appName string, app caas.Application,
 // application down once all units above the desired scale target have reached
 // the Dead lifecycle state.
 func (applicationOps) ReconcileDeadUnitScale(appName string, app caas.Application,
-	facade CAASProvisionerFacade, logger Logger) error {
-	return reconcileDeadUnitScale(appName, app, facade, logger)
+	appLife life.Value, facade CAASProvisionerFacade, logger Logger) error {
+	return reconcileDeadUnitScale(appName, app, appLife, facade, logger)
 }
 
 // EnsureScale reconciles the application's actual replica count with the
@@ -305,7 +305,7 @@ func appDying(appName string, app caas.Application, appLife life.Value,
 	if err != nil {
 		return errors.Annotate(err, "cannot scale dying application to 0")
 	}
-	err = reconcileDeadUnitScale(appName, app, facade, logger)
+	err = reconcileDeadUnitScale(appName, app, appLife, facade, logger)
 	if err != nil {
 		return errors.Annotate(err, "cannot reconcile dead units in dying application")
 	}
@@ -656,7 +656,7 @@ func waitForTerminated(appName string, app caas.Application,
 // has reached the a point where the desired scale has been achieved this func
 // can go ahead and removed the units from CAAS provider.
 func reconcileDeadUnitScale(appName string, app caas.Application,
-	facade CAASProvisionerFacade, logger Logger) error {
+	appLife life.Value, facade CAASProvisionerFacade, logger Logger) error {
 	units, err := facade.Units(appName)
 	if err != nil {
 		return fmt.Errorf("getting units for application %s: %w", appName, err)
@@ -666,8 +666,16 @@ func reconcileDeadUnitScale(appName string, app caas.Application,
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if ps == nil ||
-		(ps.CurrentOperation != application.ScaleOperation) {
+	if ps == nil {
+		return nil
+	}
+	// We block if it's another op running and the app is alive because we need
+	// to wait for that op to complete.
+	// If it's another op running and the app is dying or dead, then we can continue
+	// to allow scaling the app to 0.
+	scaleOp := application.ScaleOperation
+	anotherOpRunning := application.IsDifferentOperation(ps.CurrentOperation, scaleOp)
+	if anotherOpRunning && appLife == life.Alive {
 		return nil
 	}
 
@@ -758,8 +766,17 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 	}
 
 	logger.Debugf("updating application %q scale to %d", appName, desiredScale)
+	scaleOp := application.ScaleOperation
+	anotherOpRunning := application.IsDifferentOperation(ps.CurrentOperation, scaleOp)
+	// We block if it's another op running and the app is alive because we need
+	// to wait for that op to complete.
+	// If it's another op running and the app is dying or dead, then we can continue
+	// to allow scaling the app to 0.
+	if anotherOpRunning && appLife == life.Alive {
+		return tryAgain
+	}
+
 	if ps.CurrentOperation == application.NoOperation || appLife != life.Alive {
-		scaleOp := application.ScaleOperation
 		err := updateProvisioningState(appName, desiredScale,
 			scaleOp, facade)
 		if err != nil {
@@ -833,6 +850,10 @@ func ensureStorage(appName string, app caas.Application,
 	}
 
 	storageOp := application.StorageUpdateOperation
+	anotherOpRunning := application.IsDifferentOperation(ps.CurrentOperation, storageOp)
+	if anotherOpRunning {
+		return tryAgain
+	}
 	err = facade.SetProvisioningState(appName, params.CAASApplicationProvisioningState{
 		ScaleTarget:      ps.ScaleTarget,
 		ReplicaCount:     ps.ReplicaCount,
@@ -840,6 +861,10 @@ func ensureStorage(appName string, app caas.Application,
 	})
 	if err != nil {
 		return errors.Annotatef(err, "setting current operation to %q", storageOp)
+	}
+	err = setApplicationStatus(appName, status.Waiting, "updating storage", nil, facade, logger)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	saveReplicaCount := func(appName string, replicaCount int) error {
@@ -859,6 +884,10 @@ func ensureStorage(appName string, app caas.Application,
 		if statusErr != nil {
 			return errors.Trace(statusErr)
 		}
+		return errors.Trace(err)
+	}
+	err = setApplicationStatus(appName, status.Active, "", nil, facade, logger)
+	if err != nil {
 		return errors.Trace(err)
 	}
 

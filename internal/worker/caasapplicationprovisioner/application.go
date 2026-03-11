@@ -337,7 +337,7 @@ func (a *appWorker) loop() error {
 				state.reconcileDeadChan = nil
 				break
 			}
-			err := a.ops.ReconcileDeadUnitScale(a.name, state.app, a.facade, a.logger)
+			err := a.ops.ReconcileDeadUnitScale(a.name, state.app, a.life, a.facade, a.logger)
 			if errors.Is(err, errors.NotFound) {
 				state.reconcileDeadChan = a.clock.After(retryDelay)
 				shouldRefresh = false
@@ -399,7 +399,7 @@ func (a *appWorker) loop() error {
 				break
 			}
 			err = a.handleStorageChange(state)
-			if errors.Is(err, errors.NotProvisioned) {
+			if errors.Is(err, tryAgain) || errors.Is(err, errors.NotProvisioned) {
 				state.storageConstraintsChan = a.clock.After(retryDelay)
 				shouldRefresh = false
 			} else if err != nil {
