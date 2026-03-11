@@ -73,7 +73,11 @@ func (s *State) GetStorageInstanceUUIDsByIDs(
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	storageInstanceIDs := storageInstanceIDs(set.NewStrings(storageIDs...).Values())
+
+	// De-dupe input.
+	storageInstanceIDs := storageInstanceIDs(
+		slices.Compact(slices.Sorted(slices.Values(storageIDs))),
+	)
 
 	stmt, err := s.Prepare(`
 SELECT &storageInstanceUUIDAndID.*
