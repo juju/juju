@@ -45,7 +45,7 @@ func TestAttachmentUUIDSuite(t *testing.T) {
 func (s *attachmentUUIDSuite) TestUUIDForNotFoundUnit(c *tc.C) {
 	charmUUID := s.newCharm(c)
 	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
-	storageInstanceUUID, _ := s.newStorageInstanceForCharmWithPool(
+	storageInstanceUUID, _ := s.newBlockStorageInstanceForCharmWithPool(
 		c, charmUUID, poolUUID, "token-store",
 	)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
@@ -76,7 +76,7 @@ func (s *attachmentUUIDSuite) TestUUIDForNotFoundStorageInstance(c *tc.C) {
 func (s *attachmentUUIDSuite) TestUUIDForStorageInstanceAndUnit(c *tc.C) {
 	charmUUID := s.newCharm(c)
 	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
-	storageInstanceUUID, _ := s.newStorageInstanceForCharmWithPool(
+	storageInstanceUUID, _ := s.newBlockStorageInstanceForCharmWithPool(
 		c, charmUUID, poolUUID, "token-store",
 	)
 	unitUUID := s.newUnit(c)
@@ -108,7 +108,7 @@ func (s *attachmentSuite) TestGetStorageInstanceAttachmentsNotFound(c *tc.C) {
 func (s *attachmentSuite) TestGetStorageInstanceAttachmentsEmptyResult(c *tc.C) {
 	charmUUID := s.newCharm(c)
 	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
-	storageInstanceUUID, _ := s.newStorageInstanceForCharmWithPool(
+	storageInstanceUUID, _ := s.newBlockStorageInstanceForCharmWithPool(
 		c, charmUUID, poolUUID, "token-store",
 	)
 
@@ -120,10 +120,10 @@ func (s *attachmentSuite) TestGetStorageInstanceAttachmentsEmptyResult(c *tc.C) 
 
 func (s *attachmentSuite) TestGetStorageInstanceAttachments(c *tc.C) {
 	appUUID, charmUUID := s.newApplication(c, "myapplication")
-	unitUUID1, _ := s.newUnitForApplication(c, appUUID)
-	unitUUID2, _ := s.newUnitForApplication(c, appUUID)
+	unitUUID1, _, _ := s.newUnitForApplication(c, appUUID)
+	unitUUID2, _, _ := s.newUnitForApplication(c, appUUID)
 	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
-	storageInstanceUUID, _ := s.newStorageInstanceForCharmWithPool(
+	storageInstanceUUID, _ := s.newBlockStorageInstanceForCharmWithPool(
 		c, charmUUID, poolUUID, "token-store",
 	)
 	storageAttachmentUUID1 := s.newStorageAttachment(c, storageInstanceUUID, unitUUID1)
