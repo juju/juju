@@ -6,6 +6,7 @@ package secret_test
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	stdtesting "testing"
 
 	"github.com/juju/clock"
@@ -25,7 +26,6 @@ import (
 	modeltesting "github.com/juju/juju/domain/model/state/testing"
 	"github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/secret"
-	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secret/state"
 	domaintesting "github.com/juju/juju/domain/testing"
@@ -78,8 +78,7 @@ func (s *serviceSuite) TestDeleteSecretInternal(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.svc.GetSecret(c.Context(), uri)
-	c.Assert(err, tc.ErrorIs, secreterrors.SecretNotFound)
+	s.verifySecretRemovalJob(c, uri, 1)
 }
 
 func (s *serviceSuite) TestDeleteSecretExternal(c *tc.C) {
@@ -101,8 +100,7 @@ func (s *serviceSuite) TestDeleteSecretExternal(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.svc.GetSecret(c.Context(), uri)
-	c.Assert(err, tc.ErrorIs, secreterrors.SecretNotFound)
+	s.verifySecretRemovalJob(c, uri, 1)
 }
 
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -185,15 +183,33 @@ func (s *serviceSuite) createSecret(c *tc.C, data map[string]string, valueRef *c
 	return uri
 }
 
+func (s *serviceSuite) verifySecretRemovalJob(c *tc.C, uri *coresecrets.URI, revision int) {
+	q := `SELECT arg FROM removal WHERE entity_uuid = $1`
+	type jobArgs struct {
+		Revisions []int `json:"revisions"`
+	}
+	var arg jobArgs
+	err := s.ModelTxnRunner(c, s.modelUUID.String()).StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(c.Context(), q, uri.String())
+		var a string
+		if err := row.Scan(&a); err != nil {
+			return err
+		}
+		return json.Unmarshal([]byte(a), &arg)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(arg.Revisions, tc.SameContents, []int{revision})
+}
+
 type serviceProvider struct {
 	applicationservice.Provider
 	applicationservice.CAASProvider
 }
 
-func (serviceProvider) ConstraintsValidator(ctx context.Context) (constraints.Validator, error) {
+func (serviceProvider) ConstraintsValidator(_ context.Context) (constraints.Validator, error) {
 	return constraints.NewValidator(), nil
 }
 
-func (serviceProvider) PrecheckInstance(ctx context.Context, params environs.PrecheckInstanceParams) error {
+func (serviceProvider) PrecheckInstance(_ context.Context, _ environs.PrecheckInstanceParams) error {
 	return nil
 }

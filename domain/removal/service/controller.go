@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// ControllerDBState describes retrieval and persistence methods for entity
+// ControllerState describes retrieval and persistence methods for entity
 // removal in the controller database.
 type ControllerState interface {
 	// ModelExists returns true if a model exists with the input model
@@ -45,6 +45,10 @@ type ControllerState interface {
 
 	// DeleteModel removes the model with the input UUID from the database.
 	DeleteModel(ctx context.Context, modelUUID string) error
+
+	// RemoveSecretBackendReference removes the reference to the secret backend
+	// for the given secret revisions.
+	RemoveSecretBackendReference(ctx context.Context, revisionIDs ...string) error
 }
 
 // RemoveController sets the controller model to dying and returns the

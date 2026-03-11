@@ -9,6 +9,10 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
+
+	coreerrors "github.com/juju/juju/core/errors"
+	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/internal/errors"
 )
 
 // removalJob represents a record in the removal table
@@ -134,6 +138,44 @@ type secretID struct {
 }
 
 type secretIDs []string
+type secretIDList []secretID
+
+func (rows secretIDList) toSecretMetadataForDrain(revRows secretExternalRevisions) ([]*coresecrets.SecretMetadataForDrain, error) {
+	if len(rows) != len(revRows) {
+		// Should never happen.
+		return nil, errors.New("row length mismatch composing secret results")
+	}
+
+	var (
+		result  []*coresecrets.SecretMetadataForDrain
+		current *coresecrets.SecretMetadataForDrain
+	)
+	for i, row := range rows {
+		if current == nil || current.URI.ID != row.ID {
+			// Encountered a new record.
+			uri, err := coresecrets.ParseURI(row.ID)
+			if err != nil {
+				return nil, errors.Errorf("secret URI %q %w", row.ID, coreerrors.NotValid)
+			}
+			md := coresecrets.SecretMetadataForDrain{
+				URI: uri,
+			}
+			current = &md
+			result = append(result, current)
+		}
+		rev := coresecrets.SecretExternalRevision{
+			Revision: revRows[i].Revision,
+		}
+		if revRows[i].BackendUUID != "" {
+			rev.ValueRef = &coresecrets.ValueRef{
+				BackendID:  revRows[i].BackendUUID,
+				RevisionID: revRows[i].RevisionID,
+			}
+		}
+		current.Revisions = append(current.Revisions, rev)
+	}
+	return result, nil
+}
 
 type secretRevision struct {
 	// UUID uniquely identifies a secret revision.
@@ -156,6 +198,14 @@ func (srs secretRevisions) split() (uuids, uuids) {
 
 	return revisionUUIDs, secretUUIDs.Values()
 }
+
+type secretExternalRevision struct {
+	Revision    int    `db:"revision"`
+	BackendUUID string `db:"backend_uuid"`
+	RevisionID  string `db:"revision_id"`
+}
+
+type secretExternalRevisions []secretExternalRevision
 
 type storageRemoval struct {
 	Obliterate bool `db:"obliterate"`

@@ -9,23 +9,15 @@ import (
 
 	coresecrets "github.com/juju/juju/core/secrets"
 	domainsecret "github.com/juju/juju/domain/secret"
-	"github.com/juju/juju/internal/secrets/provider"
-	"github.com/juju/juju/internal/uuid"
 )
 
 func (s *serviceSuite) TestDeleteObsoleteUserSecretRevisions(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	revisionID1, err := uuid.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
-	revisionID2, err := uuid.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
+	s.state.EXPECT().ScheduleObsoleteUserSecretRevisionsPruning(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
-	s.state.EXPECT().DeleteObsoleteUserSecretRevisions(gomock.Any()).Return([]string{revisionID1.String(), revisionID2.String()}, nil)
-	s.secretBackendState.EXPECT().RemoveSecretBackendReference(gomock.Any(), revisionID1.String(), revisionID2.String()).Return(nil)
-
-	err = s.service.DeleteObsoleteUserSecretRevisions(c.Context())
+	err := s.service.DeleteObsoleteUserSecretRevisions(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -39,11 +31,9 @@ func (s *serviceSuite) TestDeleteSecret(c *tc.C) {
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
-	s.state.EXPECT().DeleteSecret(gomock.Any(), uri, []int{1, 2})
-
-	revs := provider.SecretRevisions{}
-	revs.Add(uri, "rev-id1")
-	revs.Add(uri, "rev-id2")
+	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 1).Return("", nil)
+	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 2).Return("", nil)
+	s.state.EXPECT().ScheduleUserSecretRemoval(gomock.Any(), gomock.Any(), uri, []int{1, 2}, gomock.Any()).Return(nil)
 
 	err := s.service.DeleteSecret(c.Context(), uri, domainsecret.DeleteSecretParams{
 		Accessor: domainsecret.SecretAccessor{

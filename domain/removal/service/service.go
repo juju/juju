@@ -126,6 +126,13 @@ type Service struct {
 	logger logger.Logger
 }
 
+// nonRetryableErrors is a list of error types that indicate a removal job
+// should not be retried, but should still be deleted from the model state.
+var nonRetryableErrors = []error{
+	removalerrors.RemovalModelRemoved,
+	removalerrors.RemovalJobArgsInvalid,
+}
+
 // GetAllJobs returns all removal jobs.
 func (s *Service) GetAllJobs(ctx context.Context) ([]removal.Job, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -195,6 +202,12 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 	case removal.ControllerModelJob:
 		err = s.processControllerModelJob(ctx, job)
 
+	case removal.UserSecretJob:
+		err = s.processUserSecretRemovalJob(ctx, job)
+
+	case removal.ObsoleteUserSecretRevisionsJob:
+		err = s.processObsoleteUserSecretRevisionsJob(ctx, job)
+
 	default:
 		err = errors.Errorf("removal job type %q not supported", job.RemovalType).Add(
 			removalerrors.RemovalJobTypeNotSupported)
@@ -204,12 +217,12 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 		s.logger.Debugf(ctx, "removal job for %s %q incomplete: %v", job.RemovalType, job.EntityUUID, err)
 		return nil
 	}
-	if err != nil && !errors.Is(err, removalerrors.RemovalModelRemoved) {
+	if err != nil && !errors.IsOneOf(err, nonRetryableErrors...) {
 		return errors.Capture(err)
 	}
 
-	if err := s.modelState.DeleteJob(ctx, job.UUID.String()); err != nil {
-		return errors.Errorf("completing removal %q: %w", job.UUID.String(), err)
+	if deleteErr := s.modelState.DeleteJob(ctx, job.UUID.String()); deleteErr != nil {
+		return errors.Errorf("completing removal %q: %w", job.UUID.String(), deleteErr)
 	}
 
 	// The model was removed successfully, it's now up to listeners to ensure
@@ -218,6 +231,11 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 	if errors.Is(err, removalerrors.RemovalModelRemoved) {
 		s.logger.Infof(ctx, "removal job for %s %q completed successfully", job.RemovalType, job.EntityUUID)
 		return err
+	}
+
+	if err != nil {
+		s.logger.Errorf(ctx, "removal job for %s %q completed with non-retryable error: %v",
+			job.RemovalType, job.EntityUUID, err)
 	}
 
 	return nil

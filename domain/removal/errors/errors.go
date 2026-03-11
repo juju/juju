@@ -14,6 +14,10 @@ const (
 	// a removal job using logic for an incompatible type.
 	RemovalJobTypeNotValid = errors.ConstError("removal job type not valid")
 
+	// RemovalJobArgsInvalid indicates that the arguments provided for a
+	// removal job are invalid in some way.
+	RemovalJobArgsInvalid = errors.ConstError("removal job args invalid")
+
 	// RemovalModelRemoved indicates that a model removal job was
 	// attempted, but the model was already removed. This should cause the
 	// removal worker to remove itself.
@@ -48,7 +52,7 @@ const (
 	// still hosts units
 	MachineHasUnits = errors.ConstError("machine has units")
 
-	// MachineHasStorge indicates that a machine cannont be deleted because it
+	// MachineHasStorage indicates that a machine cannot be deleted because it
 	// still has storage.
 	MachineHasStorage = errors.ConstError("machine has storage")
 
@@ -72,11 +76,11 @@ const (
 	// the model the fulfilment expectation was not met.
 	StorageFulfilmentNotMet = errors.ConstError("storage fulfilment not met")
 
-	// StorageFilesystemNoTombstoned indicates that the filesystem is dead but
+	// StorageFilesystemNoTombstone indicates that the filesystem is dead but
 	// cannot be removed until it has the tombstone status.
 	StorageFilesystemNoTombstone = errors.ConstError("filesystem status is not tombstone")
 
-	// StorageVolumeNoTombstoned indicates that the volume is dead but
+	// StorageVolumeNoTombstone indicates that the volume is dead but
 	// cannot be removed until it has the tombstone status.
 	StorageVolumeNoTombstone = errors.ConstError("volume status is not tombstone")
 
