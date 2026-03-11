@@ -963,7 +963,8 @@ func (a *MachineAgent) generateClientCert(caCert, caPrivateKey string) (*tls.Cer
 			return nil, errors.Trace(err)
 		}
 		if time.Now().Before(c.NotAfter.Add(certGraceTime)) {
-			return a.mongoClientCert, nil
+			certCopy := *a.mongoClientCert
+			return &certCopy, nil
 		}
 		logger.Debugf("mongo client certificate already expired")
 	}
@@ -973,7 +974,9 @@ func (a *MachineAgent) generateClientCert(caCert, caPrivateKey string) (*tls.Cer
 	}
 
 	a.mongoClientCert = cert
-	return a.mongoClientCert, nil
+
+	certCopy := *a.mongoClientCert
+	return &certCopy, nil
 }
 
 func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, error) {
