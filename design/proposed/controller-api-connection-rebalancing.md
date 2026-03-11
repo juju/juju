@@ -130,16 +130,19 @@ all of the following rules:
 - do not trigger a rebalance action unless it would move at least 50
   connections
 
-## Recording implementation
+## Implementation stages
 
-This section describes only the recording side of the implementation. It does
-not yet define the adjudication, planning, or enforcement logic for moving
-connections between controller nodes.
+The implementation is expected to proceed in stages. This document currently
+specifies the first two stages, but it does not yet define the adjudication,
+planning, or enforcement logic for moving connections between controller
+nodes.
 
-### Scope
+### Stage 1: Recording connections
 
-The initial recording implementation should track the current controller node
-for agent API connections that participate in the rebalance problem:
+#### Scope
+
+The first stage should track the current controller node for agent API
+connections that participate in the rebalance problem:
 
 - unit agents
 - machine agents
@@ -148,7 +151,23 @@ Application agents are out of scope for the first cut. This keeps the recorded
 population aligned with the initial rebalance population used by the
 controller-scoped connection-state gate.
 
-### Ownership
+#### Canonical source and transition
+
+The controller-scoped connection record introduced in this stage should be
+designed as the long-term canonical connection ledger for unit and machine
+agents.
+
+The existing model-scoped agent presence records in the `status` domain should
+be treated as a temporary compatibility projection during this stage. They
+remain only so existing status, liveness, export, and clean-up paths can
+continue to function until those consumers are migrated in a later stage.
+
+This transition is desirable because the controller-scoped record can retain
+connection identity and apply conditional disconnect updates, which avoids an
+older disconnect clearing a newer replacement session for the same logical
+agent.
+
+#### Ownership
 
 Controller placement for agent API connections should be recorded as
 controller-scoped state in the `controllernode` domain.
@@ -158,11 +177,7 @@ concern rather than a model status concern. Keeping it in `controllernode`
 allows later adjudication to reason about connection placement directly,
 without aggregating placement data out of model-scoped status tables.
 
-The existing model-scoped agent presence records remain in the `status` domain
-for status and liveness reporting, but they are not the source of truth for
-the rebalance precondition gate.
-
-### Recording path
+#### Recording path
 
 The recording path should reuse the existing API observer lifecycle.
 
@@ -170,8 +185,10 @@ The current observer that records agent presence should be expanded into a
 broader connection-recording observer, or replaced by an observer with the same
 lifecycle hooks and both responsibilities:
 
-- record model-scoped agent presence in the `status` domain
-- record controller-scoped agent placement in the `controllernode` domain
+- refresh the temporary model-scoped presence projection in the `status`
+  domain
+- record the canonical controller-scoped agent placement in the
+  `controllernode` domain
 
 The `apiserver` worker should continue to create one observer per API
 connection. That observer should capture:
@@ -184,7 +201,7 @@ The local controller node identity should be supplied as configuration to the
 observer from the controller agent or `apiserver` worker context, rather than
 looked up indirectly from a model service.
 
-### Recorded state
+#### Recorded state
 
 The controller-scoped placement record must contain enough information to
 identify both the logical agent and the specific API connection instance that
@@ -211,25 +228,28 @@ The connection state is required because controller-scoped tracking must retain
 rows for disconnected agents in order to preserve the tracked population used
 by rebalance preconditions.
 
-### Write semantics
+#### Write semantics
 
 On successful login of an in-scope agent, the observer should:
 
-- refresh model-scoped presence in the `status` domain
-- upsert the controller-scoped placement record in the `controllernode`
-  domain to mark the agent connected on the current controller node with the
-  current connection identity
+- refresh the temporary model-scoped presence projection in the `status`
+  domain
+- upsert the canonical controller-scoped placement record in the
+  `controllernode` domain to mark the agent connected on the current
+  controller node with the current connection identity
 
 On connection leave, the observer should:
 
-- remove model-scoped presence in the `status` domain
-- update the controller-scoped placement record to mark the agent disconnected
-  only if the stored connection identity still matches the leaving connection
+- remove the temporary model-scoped presence projection in the `status`
+  domain
+- update the canonical controller-scoped placement record to mark the agent
+  disconnected only if the stored connection identity still matches the
+  leaving connection
 
 This conditional update is required to avoid an older connection marking a
 newer session disconnected after the same agent has already reconnected.
 
-### Failure handling
+#### Failure handling
 
 Recording must not make the login path unavailable.
 
@@ -241,7 +261,7 @@ This means the later adjudication logic must tolerate temporary recording
 inaccuracy and rely on subsequent reconnects and disconnects to repair missed
 updates.
 
-### Non-goals for this phase
+#### Non-goals for this phase
 
 The following remain out of scope for the recording phase:
 
@@ -249,3 +269,50 @@ The following remain out of scope for the recording phase:
 - deciding which controller should shed or receive connections
 - selecting which live connections to terminate
 - biasing reconnects towards a target controller
+- changing model-facing status logic to derive presence from controller-scoped
+  connection state
+- deleting the legacy model-scoped presence writes and tables
+
+### Stage 2: Status migration and legacy removal
+
+The second stage should change model-facing status and liveness behaviour to
+derive agent presence from the controller-scoped connection ledger introduced
+in stage 1, rather than from model-scoped presence tables.
+
+This stage should update existing status-domain consumers that currently depend
+on model-scoped presence recording, including status derivation and any other
+remaining liveness, export, or clean-up paths that still read or maintain the
+legacy model-scoped presence state.
+
+This stage must also update removal jobs so they delete controller-scoped
+connection information for entities and models that are being removed. Once
+controller-scoped connection state becomes the source of truth for presence and
+liveness, it must not retain rows for units, machines, or whole models that no
+longer exist.
+
+This stage must also handle the case where a controller crashes. A crashed
+controller will not run the normal API connection leave workflow for the agent
+connections it was serving, so its controller-scoped connection rows cannot be
+left marked connected indefinitely.
+
+The replacement for model-scoped presence should therefore include a
+controller-side clean-up worker that monitors peer controller availability and
+marks connection records for an unavailable controller as disconnected.
+
+This worker should follow the existing distributed controller-set pattern
+rather than using a singular lease-holder. Each healthy controller should run
+the worker and monitor its peer controllers, reusing the same style of
+peer-observation that is already used for controller presence today. When a
+peer controller is observed unavailable, the clean-up operation should
+idempotently mark all rebalance-participant connection records currently
+assigned to that controller as disconnected.
+
+This work belongs in stage 2 because it is part of making controller-scoped
+connection state the source of truth for model-facing presence and liveness.
+Once this clean-up path exists and status consumers read from controller-scoped
+state, the legacy model-scoped presence path is no longer required for
+controller crash handling.
+
+Once those consumers no longer depend on model-scoped presence recording, the
+legacy model-scoped presence writes should be removed from the API observer
+lifecycle and the model-scoped presence tables should be deleted.
