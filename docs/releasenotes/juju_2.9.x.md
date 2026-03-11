@@ -7,6 +7,32 @@
 ```{note}
 Juju 2.9 series is LTS
 ```
+### 🔸 **Juju 2.9.56**
+🗓️ 13 Mar 2025
+
+This is a security release for Juju 2.9, which includes fixes for several CVEs,
+including Mongo Bleed and other vulnerabilities.
+
+**Important**: upgrading to this release will not update the MongoDB version used
+by existing controllers.<br>To benefit from the Mongo Bleed fixes, you will need to
+bootstrap a new controller with this release and migrate your models to it.
+
+🛠️ Fixes:
+
+#### Mongo Bleed
+- fix: [CVE-2025-14847](https://github.com/juju/juju/security/advisories/GHSA-29v7-rr38-wf32)
+- fix: mongodb accepts unauthenticated connection https://github.com/juju/juju/security/advisories/GHSA-9j5v-49f8-cpp8
+
+#### Other CVEs
+- fix: [CVE-2025-68152](https://github.com/juju/juju/security/advisories/GHSA-j6f6-jp3p-53mw)
+- fix: [CVE-2025-68153](https://github.com/juju/juju/security/advisories/GHSA-245v-p8fj-vwm2)
+
+#### Other fixes
+- fix: upgrade broken on k8s @wallyworld in https://github.com/juju/juju/issues/21979
+- fix: allow noble charms to be deployed with `--force` by @wallyworld in https://github.com/juju/juju/issues/21562
+
+See the full list on the [Github release](https://github.com/juju/juju/releases/tag/v2.9.56).
+
 ### 🔸 **Juju 2.9.53**
 🗓️ 11 Dec 2025
 
