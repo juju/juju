@@ -30,6 +30,10 @@ up and eligible to accept agent API connections. The initial definition should
 assume all such controllers have equal capacity, so the target state is an
 approximately even split of agent API connections.
 
+The feature must not regress model-based status output. Agent presence
+reporting should continue to be indicated correctly in status during normal
+operation, controller failure, and controller recovery.
+
 ### Balance metric
 
 Let:
