@@ -47,7 +47,8 @@ func (s *WorkerStateSuite) TearDownTest(c *tc.C) {
 	s.workerFixture.TearDownTest(c)
 }
 
-func (s *WorkerStateSuite) setupMocks(c *tc.C, ctrl *gomock.Controller) {
+func (s *WorkerStateSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := s.workerFixture.setupMocks(c)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.modelService = NewMockModelService(ctrl)
 
@@ -69,12 +70,11 @@ func (s *WorkerStateSuite) setupMocks(c *tc.C, ctrl *gomock.Controller) {
 		s.controllerConfigService = nil
 		s.modelService = nil
 	})
+	return ctrl
 }
 
 func (s *WorkerStateSuite) TestStart(c *tc.C) {
-	ctrl := s.workerFixture.setupMocks(c)
-	s.setupMocks(c, ctrl)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(
 		map[string]any{"controller-uuid": coretesting.ControllerTag.Id()},
