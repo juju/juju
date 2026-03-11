@@ -11,7 +11,15 @@ test_deploy() {
 
 	file="${TEST_DIR}/test-deploy-ctl.log"
 
-	bootstrap "test-deploy-ctl" "${file}"
+	# When running only this subtest, don't create/destroy a controller.
+	skip_bootstrap=false
+	if [[ ${RUN_LIST:-} == *"test_cmr_bundles_export_overlay"* ]]; then
+		skip_bootstrap=true
+	fi
+
+	if [[ ${skip_bootstrap} != "true" ]]; then
+		bootstrap "test-deploy-ctl" "${file}"
+	fi
 
 	test_deploy_charms
 	test_deploy_bundles
@@ -19,5 +27,7 @@ test_deploy() {
 	test_deploy_revision
 	test_deploy_default_series
 
-	destroy_controller "test-deploy-ctl"
+	if [[ ${skip_bootstrap} != "true" ]]; then
+		destroy_controller "test-deploy-ctl"
+	fi
 }
