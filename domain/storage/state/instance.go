@@ -266,7 +266,8 @@ FROM (
 	// Fill out Volume information for Storage instance if available.
 	if siInfo.VolumeUUID.Valid {
 		retVal.Volume = &internal.StorageInstanceInfoVolume{
-			UUID: domainstorage.VolumeUUID(siInfo.VolumeUUID.V),
+			Persistent: siInfo.VolumePersistent.V,
+			UUID:       domainstorage.VolumeUUID(siInfo.VolumeUUID.V),
 		}
 	}
 
