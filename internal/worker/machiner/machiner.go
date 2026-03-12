@@ -71,6 +71,9 @@ var NewMachiner = func(cfg Config) (worker.Worker, error) {
 // GetObservedNetworkConfig is patched for testing.
 var GetObservedNetworkConfig = corenetwork.GetObservedNetworkConfig
 
+// newAddressChangeWatcher is patched for testing.
+var newAddressChangeWatcher = newAddressChangeNotifyWatcher
+
 func (mr *Machiner) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
 	// Find which machine we're responsible for.
 	m, err := mr.config.MachineAccessor.Machine(ctx, mr.config.Tag)
@@ -90,7 +93,20 @@ func (mr *Machiner) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
 		logger.Infof(ctx, "%q started", mr.config.Tag)
 	}
 
-	return m.Watch(ctx)
+	machineWatcher, err := m.Watch(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	addressWatcher, err := newAddressChangeWatcher(ctx)
+	if err != nil {
+		return nil, errors.Annotate(err, "starting local address watcher")
+	}
+	if addressWatcher == nil {
+		return machineWatcher, nil
+	}
+
+	return newMergedNotifyWatcher(machineWatcher, addressWatcher)
 }
 
 func (mr *Machiner) Handle(ctx context.Context) error {
