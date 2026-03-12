@@ -620,10 +620,10 @@ func printPlainOutput(writer io.Writer, forceColor bool, value any) error {
 			w.Println(output.GoodHighlight, task[fieldOutput])
 		}
 		if stdout != "" {
-			_, _ = fmt.Fprintln(writer, stdout)
+			_, _ = fmt.Fprintln(writer, strings.Trim(stdout, "\n"))
 		}
 		if stderr != "" {
-			_, _ = fmt.Fprintln(writer, stderr)
+			_, _ = fmt.Fprintln(writer, strings.Trim(stderr, "\n"))
 		}
 	}
 
@@ -759,13 +759,13 @@ func convertActionOutput(output map[string]any) (map[string]any, int) {
 	// code and error if they are there.
 	res, ok := output[fieldStdout].(string)
 	if ok && len(res) > 0 {
-		values[fieldStdout] = strings.Trim(strings.ReplaceAll(res, "\r\n", "\n"), "\n")
+		values[fieldStdout] = strings.ReplaceAll(res, "\r\n", "\n")
 	} else {
 		delete(values, fieldStdout)
 	}
 	res, ok = output[fieldStderr].(string)
 	if ok && len(res) > 0 {
-		values[fieldStderr] = strings.Trim(strings.ReplaceAll(res, "\r\n", "\n"), "\n")
+		values[fieldStderr] = strings.ReplaceAll(res, "\r\n", "\n")
 	} else {
 		delete(values, fieldStderr)
 	}
