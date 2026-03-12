@@ -823,6 +823,9 @@ func (s *applicationSuite) TestDeleteApplicationWithObjectstoreResource(c *tc.C)
 		objectStoreUUID.String(), "/path/to/resource")
 	c.Assert(err, tc.ErrorIsNil)
 
+	_, err = s.DB().Exec("INSERT INTO object_store_placement (uuid, node_id) VALUES (?, 0)", objectStoreUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
 	_, err = s.DB().Exec("INSERT INTO resource_file_store (resource_uuid, store_uuid, size, sha384) VALUES (?, ?, ?, ?)",
 		resourceUUID, objectStoreUUID.String(), 42, "sha_384")
 	c.Assert(err, tc.ErrorIsNil)
@@ -837,9 +840,14 @@ func (s *applicationSuite) TestDeleteApplicationWithObjectstoreResource(c *tc.C)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
 
-	// Assert: The resource object store entry is deleted
-	row := s.DB().QueryRow("SELECT COUNT(*) FROM object_store_metadata WHERE uuid = ?", objectStoreUUID.String())
 	var count int
+	row := s.DB().QueryRow("SELECT COUNT(*) FROM object_store_placement WHERE uuid = ?", objectStoreUUID.String())
+	err = row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+
+	// Assert: The resource object store entry is deleted
+	row = s.DB().QueryRow("SELECT COUNT(*) FROM object_store_metadata WHERE uuid = ?", objectStoreUUID.String())
 	err = row.Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
