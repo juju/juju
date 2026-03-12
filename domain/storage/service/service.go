@@ -50,7 +50,12 @@ type State interface {
 		domainstorage.StorageInstanceUUID,
 	) ([]domainstorage.StorageAttachmentUUID, error)
 
-	// GetStorageInstanceInfo
+	// GetStorageInstanceInfo returns the information about a single Storage
+	// Instance in the model.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/domain/storage/errors.StorageInstanceNotFound]
+	// when no Storage Instance exists for the supplied uuid.
 	GetStorageInstanceInfo(
 		context.Context, domainstorage.StorageInstanceUUID,
 	) (internal.StorageInstanceInfo, error)
