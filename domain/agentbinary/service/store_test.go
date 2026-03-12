@@ -373,7 +373,7 @@ func (s *storeSuite) TestGetAgentBinaryUsingSHA256(c *tc.C) {
 	reader := io.NopCloser(strings.NewReader(""))
 	s.mockAgentBinaryStoreState.EXPECT().CheckAgentBinarySHA256Exists(gomock.Any(), sum).Return(true, nil)
 	s.mockObjectStore.EXPECT().GetBySHA256(gomock.Any(), sum).
-		Return(reader, 0, nil)
+		Return(reader, coreobjectstore.Digest{}, nil)
 
 	store := NewAgentBinaryStore(s.mockAgentBinaryStoreState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
 	data, _, err := store.GetAgentBinaryUsingSHA256(c.Context(), sum)
@@ -400,7 +400,7 @@ func (s *storeSuite) TestGetAgentBinaryUsingSHA256NotFound(c *tc.C) {
 	// that the object doesn't exist.
 	s.mockAgentBinaryStoreState.EXPECT().CheckAgentBinarySHA256Exists(gomock.Any(), sum).Return(true, nil)
 	s.mockObjectStore.EXPECT().GetBySHA256(gomock.Any(), sum).Return(
-		nil, 0, intobjectstoreerrors.ObjectNotFound,
+		nil, coreobjectstore.Digest{}, intobjectstoreerrors.ObjectNotFound,
 	)
 
 	_, _, err = store.GetAgentBinaryUsingSHA256(c.Context(), sum)
@@ -421,9 +421,9 @@ func (s *storeSuite) TestGetAgentBinaryUsingSHA256NoObjectStore(c *tc.C) {
 
 	s.mockAgentBinaryStoreState.EXPECT().CheckAgentBinarySHA256Exists(gomock.Any(), sum).Return(false, nil)
 	s.mockObjectStore.EXPECT().GetBySHA256(gomock.Any(), sum).DoAndReturn(
-		func(_ context.Context, _ string) (io.ReadCloser, int64, error) {
+		func(_ context.Context, _ string) (io.ReadCloser, coreobjectstore.Digest, error) {
 			c.Fatal("should never have got this far")
-			return nil, 0, nil
+			return nil, coreobjectstore.Digest{}, nil
 		},
 	).AnyTimes()
 
@@ -445,16 +445,20 @@ func (s *storeSuite) TestGetAgentBinaryWithSHA256(c *tc.C) {
 	agentBinary := strings.NewReader("test-agent-binary")
 	data := io.NopCloser(agentBinary)
 	s.mockObjectStore.EXPECT().GetBySHA256(gomock.Any(), sum).Return(
-		data, agentBinary.Size(), nil,
+		data, coreobjectstore.Digest{
+			SHA256: sum,
+			Size:   agentBinary.Size(),
+		},
+		nil,
 	)
 
 	store := NewAgentBinaryStore(s.mockAgentBinaryStoreState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
 
 	reader, size, sha256Str, err := store.GetAgentBinaryWithSHA256(c.Context(), ver, agentbinary.AgentStreamTesting)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(reader, tc.Equals, data)
-	c.Assert(size, tc.Equals, agentBinary.Size())
-	c.Assert(sha256Str, tc.Equals, sum)
+	c.Check(reader, tc.Equals, data)
+	c.Check(size, tc.Equals, agentBinary.Size())
+	c.Check(sha256Str, tc.Equals, sum)
 }
 
 func (s *storeSuite) TestGetAgentBinaryWithSHA256NotFoundInState(c *tc.C) {
@@ -465,14 +469,16 @@ func (s *storeSuite) TestGetAgentBinaryWithSHA256NotFoundInState(c *tc.C) {
 		Arch:   corearch.AMD64,
 	}
 
-	s.mockAgentBinaryStoreState.EXPECT().GetAgentBinarySHA256(gomock.Any(), ver, agentbinary.AgentStreamTesting).Return("", false, nil)
+	s.mockAgentBinaryStoreState.EXPECT().
+		GetAgentBinarySHA256(gomock.Any(), ver, agentbinary.AgentStreamTesting).
+		Return("", false, nil)
 	store := NewAgentBinaryStore(s.mockAgentBinaryStoreState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
 
 	reader, size, sha256Str, err := store.GetAgentBinaryWithSHA256(c.Context(), ver, agentbinary.AgentStreamTesting)
 	c.Assert(err, tc.ErrorMatches, `no agent binary found for version \"4.6.8-amd64\"`)
-	c.Assert(reader, tc.Equals, nil)
-	c.Assert(size, tc.Equals, int64(0))
-	c.Assert(sha256Str, tc.Equals, "")
+	c.Check(reader, tc.Equals, nil)
+	c.Check(size, tc.Equals, int64(-1))
+	c.Check(sha256Str, tc.Equals, "")
 }
 
 func (s *storeSuite) TestGetAgentBinaryWithSHA256NotFoundInStore(c *tc.C) {
@@ -483,14 +489,18 @@ func (s *storeSuite) TestGetAgentBinaryWithSHA256NotFoundInStore(c *tc.C) {
 		Arch:   corearch.AMD64,
 	}
 
-	s.mockAgentBinaryStoreState.EXPECT().GetAgentBinarySHA256(gomock.Any(), ver, agentbinary.AgentStreamTesting).Return("sha256", true, nil)
-	s.mockObjectStore.EXPECT().GetBySHA256(gomock.Any(), "sha256").Return(nil, 0, intobjectstoreerrors.ObjectNotFound)
+	s.mockAgentBinaryStoreState.EXPECT().
+		GetAgentBinarySHA256(gomock.Any(), ver, agentbinary.AgentStreamTesting).
+		Return("sha256", true, nil)
+	s.mockObjectStore.EXPECT().
+		GetBySHA256(gomock.Any(), "sha256").
+		Return(nil, coreobjectstore.Digest{}, intobjectstoreerrors.ObjectNotFound)
 
 	binaryStore := NewAgentBinaryStore(s.mockAgentBinaryStoreState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
 	reader, size, sha256Str, err := binaryStore.GetAgentBinaryWithSHA256(c.Context(), ver, agentbinary.AgentStreamTesting)
 
 	c.Assert(err, tc.ErrorIs, agentbinaryerrors.NotFound)
-	c.Assert(reader, tc.IsNil)
-	c.Assert(size, tc.Equals, int64(0))
-	c.Assert(sha256Str, tc.Equals, "")
+	c.Check(reader, tc.IsNil)
+	c.Check(size, tc.Equals, int64(-1))
+	c.Check(sha256Str, tc.Equals, "")
 }

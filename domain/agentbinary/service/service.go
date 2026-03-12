@@ -52,8 +52,8 @@ type AgentBinaryGetterStore interface {
 // AgentBinaryDiscoverableStore is the interface that defines the methods
 // required from an external agent binary store.
 type AgentBinaryDiscoverableStore interface {
-	// GetAgentBinaryWithSHA256 retrieves the agent binary corresponding to the given version
-	// and stream from an external store.
+	// GetAgentBinaryWithSHA256 retrieves the agent binary corresponding to the
+	// given version and stream from an external store.
 	// The caller is responsible for closing the returned reader.
 	//
 	// The following errors may be returned:
