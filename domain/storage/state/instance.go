@@ -292,6 +292,7 @@ FROM (
 
 	// Partitioner based on Storage Attachment UUID for block device links.
 	bdLinksPartitioner := iter.NewPartitioner(attachmentBlockDeviceLinks)
+	defer bdLinksPartitioner.Close()
 
 	// Process each attachment for the Storage Instance.
 	for _, attachment := range attachments {
