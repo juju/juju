@@ -666,7 +666,7 @@ func reconcileDeadUnitScale(appName string, app caas.Application,
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if ps == nil {
+	if ps == nil || ps.CurrentOperation == application.NoOperation {
 		return nil
 	}
 	// We block if it's another op running and the app is alive because we need
