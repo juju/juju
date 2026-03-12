@@ -315,7 +315,7 @@ func (s relationStatus) RelatedEndpoints(applicationName string) ([]relation.End
 		}
 	}
 	if eps == nil {
-		return nil, internalerrors.Errorf("fetching endpoints of %q related to application %q: %w", s,
+		return nil, internalerrors.Errorf("fetching endpoints of %q related to application %q: %w", s.Key.String(),
 			applicationName, errors.NotFound)
 	}
 	return eps, nil

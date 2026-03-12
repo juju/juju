@@ -331,7 +331,7 @@ func encodeArchitecture(a architecture.Architecture) (string, error) {
 	case architecture.Unknown:
 		return "", nil
 	default:
-		return "", errors.Errorf("unsupported architecture %q", a)
+		return "", errors.Errorf("unsupported architecture %d", a)
 	}
 }
 

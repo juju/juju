@@ -104,7 +104,7 @@ func (d *ResourceDownloader) Download(
 	}
 	if digest.Size != size {
 		return nil, errors.Errorf(
-			"%w: %q, got %q", ErrUnexpectedSize, size, digest.Size,
+			"%w: %d, got %d", ErrUnexpectedSize, size, digest.Size,
 		)
 	}
 

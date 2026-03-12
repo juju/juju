@@ -31,7 +31,7 @@ type Info struct {
 func (i Info) ToUpgradeInfo() (upgrade.Info, error) {
 	state := upgrade.State(i.StateIDType)
 	if _, ok := upgrade.States[state]; !ok {
-		return upgrade.Info{}, errors.Errorf("unknown state id %q", i)
+		return upgrade.Info{}, errors.Errorf("unknown state id %v", state)
 	}
 	result := upgrade.Info{
 		UUID:            i.UUID,

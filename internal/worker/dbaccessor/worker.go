@@ -352,7 +352,7 @@ func (w *dbWorker) loop() (err error) {
 				}
 			} else {
 				select {
-				case req.done <- errors.Errorf("unknown op %q", req.op):
+				case req.done <- errors.Errorf("unknown op %v", req.op):
 				case <-w.catacomb.Dying():
 					return w.catacomb.ErrDying()
 				}

@@ -76,7 +76,7 @@ func decodeRelationStatusType(s status.RelationStatusType) (corestatus.Status, e
 	case status.RelationStatusTypeError:
 		return corestatus.Error, nil
 	default:
-		return "", errors.Errorf("unknown relation status %q", s)
+		return "", errors.Errorf("unknown relation status %v", s)
 	}
 }
 
@@ -95,7 +95,7 @@ func decodeK8sPodStatusType(s status.K8sPodStatusType) (corestatus.Status, error
 	case status.K8sPodStatusError:
 		return corestatus.Error, nil
 	default:
-		return "", errors.Errorf("unknown cloud container status %q", s)
+		return "", errors.Errorf("unknown cloud container status %v", s)
 	}
 }
 
@@ -140,7 +140,7 @@ func decodeUnitAgentStatusType(s status.UnitAgentStatusType) (corestatus.Status,
 	case status.UnitAgentStatusRebooting:
 		return corestatus.Rebooting, nil
 	default:
-		return "", errors.Errorf("unknown agent status %q", s)
+		return "", errors.Errorf("unknown agent status %v", s)
 	}
 }
 
@@ -190,7 +190,7 @@ func decodeWorkloadStatusType(s status.WorkloadStatusType) (corestatus.Status, e
 	case status.WorkloadStatusError:
 		return corestatus.Error, nil
 	default:
-		return "", errors.Errorf("unknown workload status %q", s)
+		return "", errors.Errorf("unknown workload status %v", s)
 	}
 }
 

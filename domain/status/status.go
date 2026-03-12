@@ -196,14 +196,14 @@ func RelationStatusTransitionValid(current, new StatusInfo[RelationStatusType]) 
 			validTransition = current.Status != RelationStatusTypeBroken
 		case RelationStatusTypeError:
 			if new.Message == "" {
-				return errors.Errorf("cannot set status %q without message", new.Status)
+				return errors.Errorf("cannot set status %v without message", new.Status)
 			}
 		default:
-			return errors.Errorf("cannot set invalid status %q", new.Status)
+			return errors.Errorf("cannot set invalid status %v", new.Status)
 		}
 		if !validTransition {
 			return errors.Errorf(
-				"cannot set status %q when relation has status %q: %w",
+				"cannot set status %v when relation has status %v: %w",
 				new.Status, current.Status, statuserrors.RelationStatusTransitionNotValid,
 			)
 		}
@@ -397,7 +397,7 @@ func EncodeMachineStatus(s MachineStatusType) (int, error) {
 	case MachineStatusDown:
 		result = 4
 	default:
-		return -1, errors.Errorf("unknown status %q", s)
+		return -1, errors.Errorf("unknown status %v", s)
 	}
 	return result, nil
 }
@@ -431,7 +431,7 @@ func EncodeCloudInstanceStatus(s InstanceStatusType) (int, error) {
 	case InstanceStatusProvisioningError:
 		result = 4
 	default:
-		return -1, errors.Errorf("unknown status %q", s)
+		return -1, errors.Errorf("unknown status %v", s)
 	}
 	return result, nil
 }

@@ -98,7 +98,7 @@ func (v *Downloader) Download(
 	}
 	if size != expectedSize {
 		return nil, errors.Errorf(
-			"downloaded resource has unexpected size: got %q, expected %q", size, expectedSize,
+			"downloaded resource has unexpected size: got %d, expected %d", size, expectedSize,
 		)
 	}
 
