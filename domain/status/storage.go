@@ -4,6 +4,7 @@
 package status
 
 import (
+	corestatus "github.com/juju/juju/core/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -174,6 +175,54 @@ func DecodeStorageVolumeStatus(s int) (StorageVolumeStatusType, error) {
 		return StorageVolumeStatusTypeTombstone, nil
 	default:
 		return -1, errors.Errorf("unknown status %d", s)
+	}
+}
+
+// ToCoreStatus converts this [StorageFilesystemStatusType] to a
+// [corestatus.Status] value. If the Filesystem status is not known then a value
+// of [corestatus.Unknown] is returned.
+func (s StorageFilesystemStatusType) ToCoreStatus() corestatus.Status {
+	switch s {
+	case StorageFilesystemStatusTypePending:
+		return corestatus.Pending
+	case StorageFilesystemStatusTypeError:
+		return corestatus.Error
+	case StorageFilesystemStatusTypeAttaching:
+		return corestatus.Attaching
+	case StorageFilesystemStatusTypeAttached:
+		return corestatus.Attached
+	case StorageFilesystemStatusTypeDetaching:
+		return corestatus.Detaching
+	case StorageFilesystemStatusTypeDetached:
+		return corestatus.Detached
+	case StorageFilesystemStatusTypeDestroying:
+		return corestatus.Destroying
+	default:
+		return corestatus.Unknown
+	}
+}
+
+// ToCoreStatus converts this [StorageVolumeStatusType] to a
+// [corestatus.Status] value. If the Volume status is not known then a value
+// of [corestatus.Unknown] is returned.
+func (s StorageVolumeStatusType) ToCoreStatus() corestatus.Status {
+	switch s {
+	case StorageVolumeStatusTypePending:
+		return corestatus.Pending
+	case StorageVolumeStatusTypeError:
+		return corestatus.Error
+	case StorageVolumeStatusTypeAttaching:
+		return corestatus.Attaching
+	case StorageVolumeStatusTypeAttached:
+		return corestatus.Attached
+	case StorageVolumeStatusTypeDetaching:
+		return corestatus.Detaching
+	case StorageVolumeStatusTypeDetached:
+		return corestatus.Detached
+	case StorageVolumeStatusTypeDestroying:
+		return corestatus.Destroying
+	default:
+		return corestatus.Unknown
 	}
 }
 
