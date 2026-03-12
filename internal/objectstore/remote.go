@@ -70,7 +70,7 @@ func (c *remoteFileObjectStore) Wait() error {
 //
 // If the object does not exist, an [objectstore.ObjectNotFound] error is
 // returned.
-func (c *remoteFileObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, int64, error) {
+func (c *remoteFileObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, objectstore.Digest, error) {
 	return c.objectStore.Get(ctx, path)
 }
 
@@ -78,7 +78,7 @@ func (c *remoteFileObjectStore) Get(ctx context.Context, path string) (io.ReadCl
 // hash, namespaced to the model.
 //
 // If no object is found, an [objectstore.ObjectNotFound] error is returned.
-func (c *remoteFileObjectStore) GetBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
+func (c *remoteFileObjectStore) GetBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, objectstore.Digest, error) {
 	return c.objectStore.GetBySHA256(ctx, sha256)
 }
 
@@ -86,7 +86,7 @@ func (c *remoteFileObjectStore) GetBySHA256(ctx context.Context, sha256 string) 
 // hash starting with a given prefix, namespaced to the model.
 //
 // If no object is found, an [objectstore.ObjectNotFound] error is returned.
-func (c *remoteFileObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, int64, error) {
+func (c *remoteFileObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, objectstore.Digest, error) {
 	return c.objectStore.GetBySHA256Prefix(ctx, sha256Prefix)
 }
 

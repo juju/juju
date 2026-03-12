@@ -305,9 +305,13 @@ func (s *fileObjectStoreSuite) TestGetMetadataAndFileFound(c *tc.C) {
 
 	s.expectStartup(c, ch)
 
-	file, fileSize, err := store.Get(c.Context(), fileName)
+	file, digest, err := store.Get(c.Context(), fileName)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(size, tc.Equals, fileSize)
+	c.Check(digest, tc.DeepEquals, objectstore.Digest{
+		SHA256: hash256,
+		SHA384: hash384,
+		Size:   size,
+	})
 	c.Check(s.readFile(c, file), tc.Equals, "some content")
 
 	workertest.CleanKill(c, store)
@@ -350,9 +354,13 @@ func (s *fileObjectStoreSuite) TestGetMetadataFoundNoFileRemoteFallback(c *tc.C)
 
 	s.expectRelease(hash384, 1)
 
-	file, fileSize, err := store.Get(c.Context(), "foo")
+	file, digest, err := store.Get(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(size, tc.Equals, fileSize)
+	c.Check(digest, tc.DeepEquals, objectstore.Digest{
+		SHA256: hash256,
+		SHA384: hash384,
+		Size:   size,
+	})
 	c.Check(s.readFile(c, file), tc.Equals, "some content")
 	s.expectRemoteReaderClosed(c, reader)
 
@@ -402,9 +410,13 @@ func (s *fileObjectStoreSuite) TestGetMetadataNotFoundRemoteFallbackClosesReader
 	s.expectClaim(hash384, 1)
 	s.expectRelease(hash384, 1)
 
-	file, fileSize, err := store.Get(c.Context(), "foo")
+	file, digest, err := store.Get(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(size, tc.Equals, fileSize)
+	c.Check(digest, tc.DeepEquals, objectstore.Digest{
+		SHA256: hash256,
+		SHA384: hash384,
+		Size:   size,
+	})
 	c.Check(s.readFile(c, file), tc.Equals, "some content")
 	s.expectRemoteReaderClosed(c, reader)
 
@@ -435,10 +447,14 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256AndFileFound(c *tc.C) {
 
 	s.expectStartup(c, ch)
 
-	file, fileSize, err := store.GetBySHA256(c.Context(), hash256)
+	file, digest, err := store.GetBySHA256(c.Context(), hash256)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(size, tc.Equals, fileSize)
-	c.Assert(s.readFile(c, file), tc.Equals, "some content")
+	c.Check(digest, tc.DeepEquals, objectstore.Digest{
+		SHA256: hash256,
+		SHA384: hash384,
+		Size:   size,
+	})
+	c.Check(s.readFile(c, file), tc.Equals, "some content")
 
 	workertest.CleanKill(c, store)
 }
@@ -467,9 +483,13 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileFound(c *tc.C
 
 	s.expectStartup(c, ch)
 
-	file, fileSize, err := store.GetBySHA256Prefix(c.Context(), hashPrefix)
+	file, digest, err := store.GetBySHA256Prefix(c.Context(), hashPrefix)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(size, tc.Equals, fileSize)
+	c.Check(digest, tc.DeepEquals, objectstore.Digest{
+		SHA256: hash256,
+		SHA384: hash384,
+		Size:   size,
+	})
 	c.Assert(s.readFile(c, file), tc.Equals, "some content")
 
 	workertest.CleanKill(c, store)
@@ -513,9 +533,13 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixFoundNoFileRemoteFal
 
 	s.expectRelease(hash384, 1)
 
-	file, fileSize, err := store.GetBySHA256Prefix(c.Context(), hashPrefix)
+	file, digest, err := store.GetBySHA256Prefix(c.Context(), hashPrefix)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(size, tc.Equals, fileSize)
+	c.Check(digest, tc.DeepEquals, objectstore.Digest{
+		SHA256: hash256,
+		SHA384: hash384,
+		Size:   size,
+	})
 	c.Check(s.readFile(c, file), tc.Equals, "some content")
 	s.expectRemoteReaderClosed(c, reader)
 
@@ -557,10 +581,14 @@ func (s *fileObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *tc.C) 
 
 	s.expectStartup(c, ch)
 
-	file, fileSize, err := store.Get(c.Context(), fileName)
+	file, digest, err := store.Get(c.Context(), fileName)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(size, tc.Equals, fileSize)
-	c.Assert(s.readFile(c, file), tc.Equals, "some content")
+	c.Check(digest, tc.DeepEquals, objectstore.Digest{
+		SHA256: hash256,
+		SHA384: hash384,
+		Size:   size,
+	})
+	c.Check(s.readFile(c, file), tc.Equals, "some content")
 
 	workertest.CleanKill(c, store)
 }
@@ -597,10 +625,14 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256AndFileNotFoundThenFound(c
 
 	s.expectStartup(c, ch)
 
-	file, fileSize, err := store.GetBySHA256(c.Context(), hash256)
+	file, digest, err := store.GetBySHA256(c.Context(), hash256)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(size, tc.Equals, fileSize)
-	c.Assert(s.readFile(c, file), tc.Equals, "some content")
+	c.Check(digest, tc.DeepEquals, objectstore.Digest{
+		SHA256: hash256,
+		SHA384: hash384,
+		Size:   size,
+	})
+	c.Check(s.readFile(c, file), tc.Equals, "some content")
 
 	workertest.CleanKill(c, store)
 }

@@ -179,23 +179,23 @@ func NewFileObjectStore(cfg FileObjectStoreConfig) (TrackedObjectStore, error) {
 //
 // If the object does not exist, an [objectstore.ObjectNotFound]
 // error is returned.
-func (t *fileObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, int64, error) {
+func (t *fileObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, objectstore.Digest, error) {
 	// Optimistically try to get the file from the file system. If it doesn't
 	// exist, then we'll get an error, and we'll try to get it when sequencing
 	// the get request with the put and remove requests.
 	// Do not attempt to fallback to a remote source, as we're only trying to
 	// get the file from the local file system.
-	if reader, size, err := t.get(ctx, path, NoFallback); err == nil {
-		return reader, size, nil
+	if reader, digest, err := t.get(ctx, path, NoFallback); err == nil {
+		return reader, digest, nil
 	}
 
 	// Sequence the get request with the put and remove requests.
 	response := make(chan response)
 	select {
 	case <-ctx.Done():
-		return nil, -1, ctx.Err()
+		return nil, objectstore.Digest{}, ctx.Err()
 	case <-t.catacomb.Dying():
-		return nil, -1, t.catacomb.ErrDying()
+		return nil, objectstore.Digest{}, t.catacomb.ErrDying()
 	case t.requests <- request{
 		op:       opGet,
 		path:     path,
@@ -205,14 +205,14 @@ func (t *fileObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, 
 
 	select {
 	case <-ctx.Done():
-		return nil, -1, ctx.Err()
+		return nil, objectstore.Digest{}, ctx.Err()
 	case <-t.catacomb.Dying():
-		return nil, -1, t.catacomb.ErrDying()
+		return nil, objectstore.Digest{}, t.catacomb.ErrDying()
 	case resp := <-response:
 		if resp.err != nil {
-			return nil, -1, errors.Errorf("getting blob: %w", resp.err)
+			return nil, objectstore.Digest{}, errors.Errorf("getting blob: %w", resp.err)
 		}
-		return resp.reader, resp.size, nil
+		return resp.reader, resp.digest, nil
 	}
 }
 
@@ -220,21 +220,21 @@ func (t *fileObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, 
 // hash starting with a given prefix, namespaced to the model.
 //
 // If no object is found, an [objectstore.ObjectNotFound] error is returned.
-func (t *fileObjectStore) GetBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
+func (t *fileObjectStore) GetBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, objectstore.Digest, error) {
 	// Optimistically try to get the file from the file system. If it doesn't
 	// exist, then we'll get an error, and we'll try to get it when sequencing
 	// the get request with the put and remove requests.
-	if reader, size, err := t.getBySHA256(ctx, sha256); err == nil {
-		return reader, size, nil
+	if reader, digest, err := t.getBySHA256(ctx, sha256); err == nil {
+		return reader, digest, nil
 	}
 
 	// Sequence the get request with the put and remove requests.
 	response := make(chan response)
 	select {
 	case <-ctx.Done():
-		return nil, -1, ctx.Err()
+		return nil, objectstore.Digest{}, ctx.Err()
 	case <-t.catacomb.Dying():
-		return nil, -1, t.catacomb.ErrDying()
+		return nil, objectstore.Digest{}, t.catacomb.ErrDying()
 	case t.requests <- request{
 		op:       opGetBySHA256,
 		sha256:   sha256,
@@ -244,14 +244,14 @@ func (t *fileObjectStore) GetBySHA256(ctx context.Context, sha256 string) (io.Re
 
 	select {
 	case <-ctx.Done():
-		return nil, -1, ctx.Err()
+		return nil, objectstore.Digest{}, ctx.Err()
 	case <-t.catacomb.Dying():
-		return nil, -1, t.catacomb.ErrDying()
+		return nil, objectstore.Digest{}, t.catacomb.ErrDying()
 	case resp := <-response:
 		if resp.err != nil {
-			return nil, -1, errors.Errorf("getting blob: %w", resp.err)
+			return nil, objectstore.Digest{}, errors.Errorf("getting blob: %w", resp.err)
 		}
-		return resp.reader, resp.size, nil
+		return resp.reader, resp.digest, nil
 	}
 }
 
@@ -259,23 +259,23 @@ func (t *fileObjectStore) GetBySHA256(ctx context.Context, sha256 string) (io.Re
 // hash starting with a given prefix, namespaced to the model.
 //
 // If no object is found, an [objectstore.ObjectNotFound] error is returned.
-func (t *fileObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, int64, error) {
+func (t *fileObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, objectstore.Digest, error) {
 	// Optimistically try to get the file from the file system. If it doesn't
 	// exist, then we'll get an error, and we'll try to get it when sequencing
 	// the get request with the put and remove requests.
 	// Do not attempt to fallback to a remote source, as we're only trying to
 	// get the file from the local file system.
-	if reader, size, err := t.getBySHA256Prefix(ctx, sha256Prefix, NoFallback); err == nil {
-		return reader, size, nil
+	if reader, digest, err := t.getBySHA256Prefix(ctx, sha256Prefix, NoFallback); err == nil {
+		return reader, digest, nil
 	}
 
 	// Sequence the get request with the put and remove requests.
 	response := make(chan response, 1)
 	select {
 	case <-ctx.Done():
-		return nil, -1, ctx.Err()
+		return nil, objectstore.Digest{}, ctx.Err()
 	case <-t.catacomb.Dying():
-		return nil, -1, t.catacomb.ErrDying()
+		return nil, objectstore.Digest{}, t.catacomb.ErrDying()
 	case t.requests <- request{
 		op:       opGetBySHA256Prefix,
 		sha256:   sha256Prefix,
@@ -285,14 +285,14 @@ func (t *fileObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix st
 
 	select {
 	case <-ctx.Done():
-		return nil, -1, ctx.Err()
+		return nil, objectstore.Digest{}, ctx.Err()
 	case <-t.catacomb.Dying():
-		return nil, -1, t.catacomb.ErrDying()
+		return nil, objectstore.Digest{}, t.catacomb.ErrDying()
 	case resp := <-response:
 		if resp.err != nil {
-			return nil, -1, errors.Errorf("getting blob: %w", resp.err)
+			return nil, objectstore.Digest{}, errors.Errorf("getting blob: %w", resp.err)
 		}
-		return resp.reader, resp.size, nil
+		return resp.reader, resp.digest, nil
 	}
 }
 
@@ -466,7 +466,7 @@ func (t *fileObjectStore) loop() error {
 		case req := <-t.requests:
 			switch req.op {
 			case opGet:
-				reader, size, err := t.get(ctx, req.path, RemoteFallback)
+				reader, digest, err := t.get(ctx, req.path, RemoteFallback)
 
 				select {
 				case <-t.catacomb.Dying():
@@ -474,13 +474,13 @@ func (t *fileObjectStore) loop() error {
 
 				case req.response <- response{
 					reader: reader,
-					size:   size,
+					digest: digest,
 					err:    err,
 				}:
 				}
 
 			case opGetBySHA256:
-				reader, size, err := t.getBySHA256(ctx, req.sha256)
+				reader, digest, err := t.getBySHA256(ctx, req.sha256)
 
 				select {
 				case <-t.catacomb.Dying():
@@ -488,13 +488,13 @@ func (t *fileObjectStore) loop() error {
 
 				case req.response <- response{
 					reader: reader,
-					size:   size,
+					digest: digest,
 					err:    err,
 				}:
 				}
 
 			case opGetBySHA256Prefix:
-				reader, size, err := t.getBySHA256Prefix(ctx, req.sha256, RemoteFallback)
+				reader, digest, err := t.getBySHA256Prefix(ctx, req.sha256, RemoteFallback)
 
 				select {
 				case <-t.catacomb.Dying():
@@ -502,7 +502,7 @@ func (t *fileObjectStore) loop() error {
 
 				case req.response <- response{
 					reader: reader,
-					size:   size,
+					digest: digest,
 					err:    err,
 				}:
 				}
@@ -573,29 +573,29 @@ func (t *fileObjectStore) loop() error {
 
 func (t *fileObjectStore) get(
 	ctx context.Context, path string, fallbackStrategy FallbackStrategy,
-) (io.ReadCloser, int64, error) {
+) (io.ReadCloser, objectstore.Digest, error) {
 	t.logger.Debugf(ctx, "getting object %q from file storage", path)
 
 	// If we don't have the metadata for the file, we know it can't exist.
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
-		return nil, -1, errors.Errorf("getting metadata: %w", objectstoreerrors.ObjectNotFound)
+		return nil, objectstore.Digest{}, errors.Errorf("getting metadata: %w", objectstoreerrors.ObjectNotFound)
 	} else if err != nil {
-		return nil, -1, errors.Errorf("getting metadata: %w", err)
+		return nil, objectstore.Digest{}, errors.Errorf("getting metadata: %w", err)
 	}
 
 	return t.getWithMetadata(ctx, metadata, fallbackStrategy)
 }
 
-func (t *fileObjectStore) getBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
+func (t *fileObjectStore) getBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, objectstore.Digest, error) {
 	t.logger.Debugf(ctx, "getting object with SHA256 %q from file storage", sha256)
 
 	// If we don't have the metadata for the file, we know it can't exist.
 	metadata, err := t.metadataService.GetMetadataBySHA256(ctx, sha256)
 	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
-		return nil, -1, errors.Errorf("getting metadata by SHA256: %w", objectstoreerrors.ObjectNotFound)
+		return nil, objectstore.Digest{}, errors.Errorf("getting metadata by SHA256: %w", objectstoreerrors.ObjectNotFound)
 	} else if err != nil {
-		return nil, -1, errors.Errorf("getting metadata by SHA256: %w", err)
+		return nil, objectstore.Digest{}, errors.Errorf("getting metadata by SHA256: %w", err)
 	}
 
 	// Getting a file by SHA256 implies that we're looking for a file that
@@ -612,15 +612,15 @@ func (t *fileObjectStore) getBySHA256(ctx context.Context, sha256 string) (io.Re
 
 func (t *fileObjectStore) getBySHA256Prefix(
 	ctx context.Context, sha256 string, fallbackStrategy FallbackStrategy,
-) (io.ReadCloser, int64, error) {
+) (io.ReadCloser, objectstore.Digest, error) {
 	t.logger.Debugf(ctx, "getting object with SHA256 %q from file storage", sha256)
 
 	// If we don't have the metadata for the file, we know it can't exist.
 	metadata, err := t.metadataService.GetMetadataBySHA256Prefix(ctx, sha256)
 	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
-		return nil, -1, errors.Errorf("getting metadata: %w", objectstoreerrors.ObjectNotFound)
+		return nil, objectstore.Digest{}, errors.Errorf("getting metadata: %w", objectstoreerrors.ObjectNotFound)
 	} else if err != nil {
-		return nil, -1, errors.Errorf("getting metadata by SHA256 prefix: %w", err)
+		return nil, objectstore.Digest{}, errors.Errorf("getting metadata by SHA256 prefix: %w", err)
 	}
 
 	return t.getWithMetadata(ctx, metadata, fallbackStrategy)
@@ -628,7 +628,7 @@ func (t *fileObjectStore) getBySHA256Prefix(
 
 func (t *fileObjectStore) getWithMetadata(
 	ctx context.Context, metadata objectstore.Metadata, fallbackStrategy FallbackStrategy,
-) (io.ReadCloser, int64, error) {
+) (io.ReadCloser, objectstore.Digest, error) {
 	hash := SelectFileHash(metadata)
 
 	file, err := t.fs.Open(hash)
@@ -640,46 +640,50 @@ func (t *fileObjectStore) getWithMetadata(
 		}
 
 		// No fallback strategy, and the file doesn't exist locally.
-		return nil, -1, objectstoreerrors.ObjectNotFound
+		return nil, objectstore.Digest{}, objectstoreerrors.ObjectNotFound
 	} else if err != nil {
-		return nil, -1, errors.Errorf("opening file %q encoded as %q: %w", metadata.Path, hash, err)
+		return nil, objectstore.Digest{}, errors.Errorf("opening file %q encoded as %q: %w", metadata.Path, hash, err)
 	}
 
 	// Verify that the size of the file matches the expected size.
 	// This is a sanity check, that the underlying file hasn't changed.
 	stat, err := file.Stat()
 	if err != nil {
-		return nil, -1, errors.Errorf("retrieving size: file %q encoded as %q: %w", metadata.Path, hash, err)
+		return nil, objectstore.Digest{}, errors.Errorf("retrieving size: file %q encoded as %q: %w", metadata.Path, hash, err)
 	}
 
 	size := stat.Size()
 	if metadata.Size != size {
-		return nil, -1, errors.Errorf("size mismatch for %q: expected %d, got %d", metadata.Path, metadata.Size, size)
+		return nil, objectstore.Digest{}, errors.Errorf("size mismatch for %q: expected %d, got %d", metadata.Path, metadata.Size, size)
 	}
 
-	return file, size, nil
+	return file, objectstore.Digest{
+		SHA256: metadata.SHA256,
+		SHA384: metadata.SHA384,
+		Size:   size,
+	}, nil
 }
 
 func (t *fileObjectStore) remoteGetWithMetadata(
 	ctx context.Context, metadata objectstore.Metadata,
-) (io.ReadCloser, int64, error) {
+) (io.ReadCloser, objectstore.Digest, error) {
 	hints, err := t.metadataService.GetControllerIDHints(ctx, metadata.SHA384)
 	if err != nil && !errors.Is(err, domainobjectstoreerrors.ErrNoHints) {
-		return nil, -1, errors.Errorf("getting controller ID hints: %w", err)
+		return nil, objectstore.Digest{}, errors.Errorf("getting controller ID hints: %w", err)
 	}
 
 	// Retrieve the file from the remote source.
 	reader, size, err := t.remoteRetriever.Retrieve(ctx, metadata.SHA256, hints)
 	if errors.Is(err, remote.NoRemoteConnections) ||
 		errors.Is(err, remote.BlobNotFound) {
-		return nil, -1, errors.Errorf("%w: %w", err, objectstoreerrors.ObjectNotFound)
+		return nil, objectstore.Digest{}, errors.Errorf("%w: %w", err, objectstoreerrors.ObjectNotFound)
 	} else if err != nil {
-		return nil, -1, errors.Errorf("remote get: %w", err)
+		return nil, objectstore.Digest{}, errors.Errorf("remote get: %w", err)
 	}
 	defer func() { _ = reader.Close() }()
 
 	if size != metadata.Size {
-		return nil, -1, errors.Errorf("size mismatch for %q: expected %d, got %d", metadata.Path, metadata.Size, size)
+		return nil, objectstore.Digest{}, errors.Errorf("size mismatch for %q: expected %d, got %d", metadata.Path, metadata.Size, size)
 	}
 
 	// Write the file to the local file system, so that we can retrieve it
@@ -692,7 +696,7 @@ func (t *fileObjectStore) remoteGetWithMetadata(
 	// then we need seek back to the beginning of the file.
 	tmpFileName, tmpFileCleanup, err := t.writeToTmpFile(t.path, io.TeeReader(reader, hash384), size)
 	if err != nil {
-		return nil, -1, errors.Capture(err)
+		return nil, objectstore.Digest{}, errors.Capture(err)
 	}
 
 	// Ensure that we remove the temporary file if we fail to persist it.
@@ -701,7 +705,7 @@ func (t *fileObjectStore) remoteGetWithMetadata(
 	encoded384 := hex.EncodeToString(hash384.Sum(nil))
 
 	if encoded384 != metadata.SHA384 {
-		return nil, -1, errors.Errorf("hash mismatch for %q: expected %q, got %q: %w",
+		return nil, objectstore.Digest{}, errors.Errorf("hash mismatch for %q: expected %q, got %q: %w",
 			metadata.Path, metadata.SHA256, encoded384, objectstore.ErrHashMismatch)
 	}
 
@@ -719,7 +723,7 @@ func (t *fileObjectStore) remoteGetWithMetadata(
 
 		return nil
 	}); err != nil {
-		return nil, -1, errors.Capture(err)
+		return nil, objectstore.Digest{}, errors.Capture(err)
 	}
 
 	// Add the metadata hint for the controller node ID, so that other
@@ -738,9 +742,13 @@ func (t *fileObjectStore) remoteGetWithMetadata(
 	filePath := t.filePath(encoded384)
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, -1, errors.Errorf("opening persisted remote file %q: %w", filePath, err)
+		return nil, objectstore.Digest{}, errors.Errorf("opening persisted remote file %q: %w", filePath, err)
 	}
-	return file, size, nil
+	return file, objectstore.Digest{
+		SHA256: metadata.SHA256,
+		SHA384: metadata.SHA384,
+		Size:   size,
+	}, nil
 }
 
 func (t *fileObjectStore) put(
