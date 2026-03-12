@@ -70,7 +70,6 @@ func (s *storageSuite) TestCreateStorageInstanceWithExistingFilesystem(c *tc.C) 
 	args := domainstorageinternal.CreateStorageInstanceWithExistingFilesystem{
 		UUID:                      storageInstanceUUID,
 		Name:                      domainstorage.Name("data"),
-		Kind:                      domainstorage.StorageKindFilesystem,
 		StoragePoolUUID:           poolUUID,
 		RequestedSizeMiB:          1024,
 		FilesystemUUID:            filesystemUUID,
@@ -185,7 +184,6 @@ func (s *storageSuite) TestCreateStorageInstanceWithExistingFilesystemPoolNotFou
 	args := domainstorageinternal.CreateStorageInstanceWithExistingFilesystem{
 		UUID:                     storageInstanceUUID,
 		Name:                     domainstorage.Name("data"),
-		Kind:                     domainstorage.StorageKindFilesystem,
 		StoragePoolUUID:          nonExistentPoolUUID,
 		RequestedSizeMiB:         1024,
 		FilesystemUUID:           filesystemUUID,
@@ -210,7 +208,6 @@ func (s *storageSuite) TestCreateStorageInstanceWithExistingVolumeBackedFilesyst
 	fsArgs := domainstorageinternal.CreateStorageInstanceWithExistingFilesystem{
 		UUID:                      storageInstanceUUID,
 		Name:                      domainstorage.Name("disk"),
-		Kind:                      domainstorage.StorageKindBlock,
 		StoragePoolUUID:           poolUUID,
 		RequestedSizeMiB:          2048,
 		FilesystemUUID:            filesystemUUID,
@@ -409,7 +406,6 @@ func (s *storageSuite) TestCreateStorageInstanceWithExistingVolumeBackedFilesyst
 	fsArgs := domainstorageinternal.CreateStorageInstanceWithExistingFilesystem{
 		UUID:                     storageInstanceUUID,
 		Name:                     domainstorage.Name("disk"),
-		Kind:                     domainstorage.StorageKindBlock,
 		StoragePoolUUID:          nonExistentPoolUUID,
 		RequestedSizeMiB:         2048,
 		FilesystemUUID:           filesystemUUID,

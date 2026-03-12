@@ -13,9 +13,6 @@ import (
 // CreateStorageInstanceWithExistingFilesystem is used to create a storage
 // instance with a filesystem that is already provisioned.
 type CreateStorageInstanceWithExistingFilesystem struct {
-	// Kind defines the type of storage that is being created.
-	Kind domainstorage.StorageKind
-
 	// Name is the name of the storage.
 	Name domainstorage.Name
 
