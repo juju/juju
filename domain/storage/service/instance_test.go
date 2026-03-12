@@ -206,7 +206,7 @@ func (s *instanceSuite) TestGetStorageInstanceInfoFilesystem(c *tc.C) {
 // filesystem and volume status information, including device links and machine
 // attachment details.
 //
-// We want to see that the location choosen by the service layer is not the
+// We want to see that the location chosen by the service layer is not the
 // volume device links but instead the mount point of the filesystem attachment.
 func (s *instanceSuite) TestGetStorageInstanceInfoFilesystemVolumeBacked(c *tc.C) {
 	defer s.setupMocks(c).Finish()
