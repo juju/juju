@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/collections/transform"
+
 	"github.com/juju/juju/cloud"
 	corecredential "github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -190,6 +192,30 @@ func (s *Service) UpdateCloudCredential(ctx context.Context, key corecredential.
 	return s.st.UpsertCloudCredential(ctx, key, credentialInfoFromCloudCredential(cred))
 }
 
+// CheckCredentialModels checks the credential for the given tag is valid for
+// any models which use this credential and returns the models using the
+// credential and any errors encountered.
+// TODO(wallyworld) - we need a strategy to handle changes which occur after the
+// affected models have been read but before validation can complete.
+func (s *Service) CheckCredentialModels(ctx context.Context, key corecredential.Key, cred cloud.Credential) ([]CheckCredentialModelResult, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := key.Validate(); err != nil {
+		return nil, errors.Errorf("invalid id checking cloud credential: %w", err)
+	}
+
+	modelsResult, modelsErred, err := s.validateCredential(ctx, key, cred)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	if modelsErred {
+		return modelsResult, credentialerrors.CredentialModelValidation
+	}
+
+	return modelsResult, nil
+}
+
 // RemoveCloudCredential removes a cloud credential with the given tag.
 func (s *Service) RemoveCloudCredential(ctx context.Context, key corecredential.Key) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -253,8 +279,8 @@ func (s *Service) modelsUsingCredential(ctx context.Context, key corecredential.
 // CheckAndUpdateCredential updates the credential after first checking that any models which use the credential
 // can still access the cloud resources. If force is true, update the credential even if there are issues
 // validating the credential.
-// TODO(wallyworld) - we need a strategy to handle changes which occur after the affected models have been read
-// but before validation can complete.
+// TODO(wallyworld) - we need a strategy to handle changes which occur after the
+// affected models have been read but before validation can complete.
 func (s *Service) CheckAndUpdateCredential(ctx context.Context, key corecredential.Key, cred cloud.Credential, force bool) ([]UpdateCredentialModelResult, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -263,30 +289,16 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, key corecredenti
 		return nil, errors.Errorf("invalid id updating cloud credential: %w", err)
 	}
 
-	models, err := s.modelsUsingCredential(ctx, key)
-	if err != nil && !errors.Is(err, credentialerrors.NotFound) {
+	modelsCheckResult, modelsErred, err := s.validateCredential(ctx, key, cred)
+	if err != nil {
 		return nil, errors.Capture(err)
 	}
-
-	var (
-		modelsErred  bool
-		modelsResult []UpdateCredentialModelResult
-	)
-	for uuid, name := range models {
-		result := UpdateCredentialModelResult{
-			ModelUUID: uuid,
-			ModelName: name,
+	modelsResult := transform.Slice(modelsCheckResult, func(checkResult CheckCredentialModelResult) UpdateCredentialModelResult {
+		return UpdateCredentialModelResult{
+			ModelUUID: checkResult.ModelUUID,
+			ModelName: checkResult.ModelName,
+			Errors:    checkResult.Errors,
 		}
-		result.Errors = s.validateModelCredential(ctx, uuid, cred)
-		modelsResult = append(modelsResult, result)
-		if len(result.Errors) > 0 {
-			modelsErred = true
-		}
-	}
-	// Since we get a map above, for consistency ensure that models are added
-	// sorted by model uuid.
-	sort.Slice(modelsResult, func(i, j int) bool {
-		return modelsResult[i].ModelUUID < modelsResult[j].ModelUUID
 	})
 
 	if modelsErred && !force {
@@ -303,6 +315,35 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, key corecredenti
 	return modelsResult, nil
 }
 
+func (s *Service) validateCredential(ctx context.Context, key corecredential.Key, cred cloud.Credential) ([]CheckCredentialModelResult, bool, error) {
+	models, err := s.modelsUsingCredential(ctx, key)
+	if err != nil && !errors.Is(err, credentialerrors.NotFound) {
+		return nil, false, errors.Capture(err)
+	}
+
+	var (
+		modelsErred  bool
+		modelsResult []CheckCredentialModelResult
+	)
+	for uuid, name := range models {
+		result := CheckCredentialModelResult{
+			ModelUUID: uuid,
+			ModelName: name,
+		}
+		result.Errors = s.validateModelCredential(ctx, uuid, cred)
+		modelsResult = append(modelsResult, result)
+		if len(result.Errors) > 0 {
+			modelsErred = true
+		}
+	}
+	// Since we get a map above, for consistency ensure that models are added
+	// sorted by model uuid.
+	sort.Slice(modelsResult, func(i, j int) bool {
+		return modelsResult[i].ModelUUID < modelsResult[j].ModelUUID
+	})
+	return modelsResult, modelsErred, nil
+}
+
 // validateModelCredential attempts to ensure the credential is valid for the
 // specified model and returns any errors encountered.
 func (s *Service) validateModelCredential(ctx context.Context, modelUUID coremodel.UUID, cred cloud.Credential) []error {
@@ -313,8 +354,8 @@ func (s *Service) validateModelCredential(ctx context.Context, modelUUID coremod
 // CheckAndRevokeCredential removes the credential after first checking that any models which use the credential
 // can still access the cloud resources. If force is true, update the credential even if there are issues
 // validating the credential.
-// TODO(wallyworld) - we need a strategy to handle changes which occur after the affected models have been read
-// but before validation can complete.
+// TODO(wallyworld) - we need a strategy to handle changes which occur after the
+// affected models have been read but before validation can complete.
 func (s *Service) CheckAndRevokeCredential(ctx context.Context, key corecredential.Key, force bool) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
