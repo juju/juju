@@ -4,8 +4,6 @@
 package main
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"io"
 	"net"
@@ -22,8 +20,6 @@ import (
 )
 
 const (
-	// ExitStatusCodeErr is the value that is returned when the user has run juju in an invalid way.
-	ExitStatusCodeErr = 2
 	// ExitStatusCodePanic is the value that is returned when we exit due to an unhandled panic.
 	ExitStatusCodePanic = 3
 
@@ -39,9 +35,8 @@ func getenv(name string) (string, error) {
 }
 
 type socketConfig struct {
-	Address   string
-	Network   string
-	TLSConfig *tls.Config
+	Address string
+	Network string
 }
 
 func getSocket() (socketConfig, error) {
@@ -56,36 +51,6 @@ func getSocket() (socketConfig, error) {
 		return socketConfig{}, err
 	}
 
-	// If we are not connecting over tcp, no need for TLS.
-	if socket.Network != "tcp" {
-		return socket, nil
-	}
-
-	caCertFile, err := getenv("JUJU_AGENT_CA_CERT")
-	if err != nil {
-		return socketConfig{}, err
-	}
-	caCert, err := os.ReadFile(caCertFile)
-	if err != nil {
-		return socketConfig{}, fmt.Errorf("reading %s: %w", caCertFile, err)
-	}
-	rootCAs := x509.NewCertPool()
-	if ok := rootCAs.AppendCertsFromPEM(caCert); ok == false {
-		return socketConfig{}, fmt.Errorf("invalid ca certificate")
-	}
-
-	unitName, err := getenv("JUJU_UNIT_NAME")
-	if err != nil {
-		return socketConfig{}, err
-	}
-	application, err := unitApplication(unitName)
-	if err != nil {
-		return socketConfig{}, err
-	}
-	socket.TLSConfig = &tls.Config{
-		RootCAs:    rootCAs,
-		ServerName: application,
-	}
 	return socket, nil
 }
 
@@ -108,11 +73,8 @@ func dialRPCClient(socket socketConfig) (*rpc.Client, error) {
 		conn net.Conn
 		err  error
 	)
-	if socket.TLSConfig != nil {
-		conn, err = tls.Dial(socket.Network, socket.Address, socket.TLSConfig)
-	} else {
-		conn, err = net.Dial(socket.Network, socket.Address)
-	}
+
+	conn, err = net.Dial(socket.Network, socket.Address)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +91,7 @@ var dialRPCClientFunc = func(socket socketConfig) (rpcClient, error) {
 }
 
 func writeError(w io.Writer, err error) {
-	fmt.Fprintf(w, "%s %s\n", errorPrefix, err)
+	_, _ = fmt.Fprintf(w, "%s %s\n", errorPrefix, err)
 }
 
 type Request struct {
@@ -178,7 +140,8 @@ func hookToolMain(commandName string, args []string) (code int, err error) {
 	if err != nil {
 		return code, err
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
+
 	var resp exec.ExecResponse
 	err = client.Call("Jujuc.Main", req, &resp)
 	if err != nil && err.Error() == ErrNoStdinStr {
@@ -193,8 +156,10 @@ func hookToolMain(commandName string, args []string) (code int, err error) {
 	if err != nil {
 		return
 	}
-	os.Stdout.Write(resp.Stdout)
-	os.Stderr.Write(resp.Stderr)
+
+	_, _ = os.Stdout.Write(resp.Stdout)
+	_, _ = os.Stderr.Write(resp.Stderr)
+
 	return resp.Code, nil
 }
 
