@@ -278,6 +278,13 @@ func (c *debugHooksCommand) commonRun(
 	innercmd := fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; chmod +x $F; exec $F`, b64Script)
 	args := []string{fmt.Sprintf(c.decideEntryPoint(ctx), innercmd)}
 	c.provider.setArgs(args)
+
+	// debug-hooks and debug-code always need a PTY because they launch a
+	// tmux session on the remote side. Force PTY allocation so that the
+	// enablePty heuristic (which disables PTY when args are present) does
+	// not prevent it.
+	_ = c.pty.Set("true")
+
 	return c.sshCommand.Run(ctx)
 }
 

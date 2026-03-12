@@ -44,6 +44,7 @@ var debugHooksTests = []struct {
 	expected: &argsSpec{
 		hostKeyChecking: "yes",
 		knownHosts:      "0",
+		enablePty:       true,
 		argsMatch:       `ubuntu@0\.(private|public|1\.2\.3) exec sudo .+`, // can be any of the 3
 	},
 }, {
@@ -53,12 +54,23 @@ var debugHooksTests = []struct {
 	expected: &argsSpec{
 		hostKeyChecking: "yes",
 		knownHosts:      "0",
+		enablePty:       true,
 		withProxy:       true,
 		argsMatch:       `ubuntu@0\.(private|public|1\.2\.3) exec sudo .+`, // can be any of the 3
 	},
 }, {
 	info:        "pty enabled",
 	args:        []string{"--pty=true", "mysql/0"},
+	hostChecker: validAddresses("0.private", "0.public", "0.1.2.3"), // set by setAddresses() and setLinkLayerDevicesAddresses()
+	expected: &argsSpec{
+		hostKeyChecking: "yes",
+		knownHosts:      "0",
+		enablePty:       true,
+		argsMatch:       `ubuntu@0\.(private|public|1\.2\.3) exec sudo .+`, // can be any of the 3
+	},
+}, {
+	info:        "pty=false overridden by debug-hooks",
+	args:        []string{"--pty=false", "mysql/0"},
 	hostChecker: validAddresses("0.private", "0.public", "0.1.2.3"), // set by setAddresses() and setLinkLayerDevicesAddresses()
 	expected: &argsSpec{
 		hostKeyChecking: "yes",
