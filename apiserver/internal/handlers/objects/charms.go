@@ -5,6 +5,8 @@ package objects
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,6 +20,7 @@ import (
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -54,7 +57,7 @@ type ApplicationService interface {
 	//
 	// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 	// returned.
-	GetCharmArchiveBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, error)
+	GetCharmArchiveBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, objectstore.Digest, error)
 
 	// ResolveUploadCharm resolves the upload of a charm archive.
 	ResolveUploadCharm(context.Context, applicationcharm.ResolveUploadCharm) (applicationcharm.CharmLocator, error)
@@ -130,13 +133,23 @@ func (h *ObjectsCharmHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Reques
 		return err
 	}
 
-	reader, err := applicationService.GetCharmArchiveBySHA256Prefix(r.Context(), charmSha256Prefix)
+	reader, digest, err := applicationService.GetCharmArchiveBySHA256Prefix(r.Context(), charmSha256Prefix)
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return jujuerrors.NotFoundf("charm")
 	} else if err != nil {
 		return errors.Capture(err)
 	}
 	defer reader.Close()
+
+	// We want to send back the checksum header to ensure nothing got corrupted
+	// in transit. Objects are content addressable, we can guarantee that the
+	// object found for the given hash is the same. So we just need to encode
+	// the hash back for the s3 client to verify it.
+	decodedHex, err := hex.DecodeString(digest.SHA256)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	w.Header().Set("x-amz-checksum-sha256", base64.StdEncoding.EncodeToString(decodedHex))
 
 	_, err = io.Copy(w, reader)
 	if err != nil {
