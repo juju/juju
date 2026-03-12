@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"context"
 	"net/http"
 	stdtesting "testing"
 
@@ -15,6 +16,7 @@ import (
 
 	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/providertracker"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/lease"
@@ -83,17 +85,32 @@ func (s *sharedServerContextSuite) newConfig(c *tc.C) sharedServerConfig {
 		charmhubHTTPClient:       stubHTTPClient{},
 		macaroonHTTPClient:       stubHTTPClient{},
 		offersThirdPartyKeyPair:  bakery.MustGenerateKey(),
+		ephemeralProviderFactory: &noopEphemeralProviderFactory{},
 	}
 }
 
 func (s *sharedServerContextSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.controllerDomainServices = NewMockControllerDomainServices(ctrl)
+
+	c.Cleanup(func() {
+		s.controllerDomainServices = nil
+	})
+
 	return ctrl
 }
 
 type stubHTTPClient struct{}
 
 func (stubHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	return nil, nil
+}
+
+type noopEphemeralProviderFactory struct{}
+
+func (*noopEphemeralProviderFactory) EphemeralProviderFromConfig(
+	context.Context,
+	providertracker.EphemeralProviderConfig,
+) (providertracker.Provider, error) {
 	return nil, nil
 }

@@ -28,6 +28,7 @@ import (
 	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/modelmigration"
@@ -117,6 +118,10 @@ type apiHandler struct {
 	// crossModelAuthContext is the cross model authentication context
 	// used for cross model operations.
 	crossModelAuthContext facade.CrossModelAuthContext
+
+	// ephemeralProviderTracker is used to create providers for operations that
+	// require them.
+	ephemeralProviderTracker providertracker.EphemeralProviderFactory
 }
 
 var _ = (*apiHandler)(nil)
@@ -140,6 +145,7 @@ func newAPIHandler(
 	objectStore objectstore.ObjectStore,
 	objectStoreGetter objectstore.ObjectStoreGetter,
 	controllerObjectStore objectstore.ObjectStore,
+	ephemeralProviderTracker providertracker.EphemeralProviderFactory,
 	watcherRegistry watcherregistry.WatcherRegistry,
 	modelUUID model.UUID,
 	controllerOnlyLogin bool,
@@ -167,20 +173,21 @@ func newAPIHandler(
 	}
 
 	r := &apiHandler{
-		domainServices:        domainServices,
-		domainServicesGetter:  domainServicesGetter,
-		tracer:                tracer,
-		objectStore:           objectStore,
-		objectStoreGetter:     objectStoreGetter,
-		controllerObjectStore: controllerObjectStore,
-		watcherRegistry:       watcherRegistry,
-		shared:                srv.shared,
-		rpcConn:               rpcConn,
-		modelUUID:             modelUUID,
-		controllerOnlyLogin:   controllerOnlyLogin,
-		connectionID:          connectionID,
-		serverHost:            serverHost,
-		crossModelAuthContext: crossModelAuthContext,
+		domainServices:           domainServices,
+		domainServicesGetter:     domainServicesGetter,
+		tracer:                   tracer,
+		objectStore:              objectStore,
+		objectStoreGetter:        objectStoreGetter,
+		controllerObjectStore:    controllerObjectStore,
+		ephemeralProviderTracker: ephemeralProviderTracker,
+		watcherRegistry:          watcherRegistry,
+		shared:                   srv.shared,
+		rpcConn:                  rpcConn,
+		modelUUID:                modelUUID,
+		controllerOnlyLogin:      controllerOnlyLogin,
+		connectionID:             connectionID,
+		serverHost:               serverHost,
+		crossModelAuthContext:    crossModelAuthContext,
 	}
 
 	return r, nil
@@ -242,6 +249,15 @@ func (r *apiHandler) Authorizer() facade.Authorizer {
 // for cross model operations.
 func (r *apiHandler) CrossModelAuthContext() facade.CrossModelAuthContext {
 	return r.crossModelAuthContext
+}
+
+// EphemeralProviderFactory returns the ephemeral provider factory.
+// Ephemeral providers are not updated when the cloud is updated. They
+// are single use entities, requiring a provider configuration, for use
+// when the provider tracker is unable to be used, e.g. during model
+// migration.
+func (r *apiHandler) EphemeralProviderFactory() providertracker.EphemeralProviderFactory {
+	return r.ephemeralProviderTracker
 }
 
 // ModelUUID returns the UUID of the model that the API is operating on.
@@ -411,6 +427,12 @@ type apiRootHandler interface {
 	// CrossModelAuthContext provides methods to create and authorize macaroons
 	// for cross model operations.
 	CrossModelAuthContext() facade.CrossModelAuthContext
+	// EphemeralProviderFactory returns the ephemeral provider factory.
+	// Ephemeral providers are not updated when the cloud is updated. They
+	// are single use entities, requiring a provider configuration, for use
+	// when the provider tracker is unable to be used, e.g. during model
+	// migration.
+	EphemeralProviderFactory() providertracker.EphemeralProviderFactory
 	// ModelUUID returns the UUID of the model that the API is operating on.
 	ModelUUID() model.UUID
 }
@@ -418,21 +440,22 @@ type apiRootHandler interface {
 // apiRoot implements basic method dispatching to the facade registry.
 type apiRoot struct {
 	rpc.Killer
-	clock                 clock.Clock
-	domainServices        services.DomainServices
-	domainServicesGetter  services.DomainServicesGetter
-	tracer                trace.Tracer
-	objectStore           objectstore.ObjectStore
-	objectStoreGetter     objectstore.ObjectStoreGetter
-	controllerObjectStore objectstore.ObjectStore
-	shared                *sharedServerContext
-	facades               *facade.Registry
-	watcherRegistry       watcherregistry.WatcherRegistry
-	authorizer            facade.Authorizer
-	objectMutex           sync.RWMutex
-	objectCache           map[objectKey]reflect.Value
-	requestRecorder       facade.RequestRecorder
-	crossModelAuthContext facade.CrossModelAuthContext
+	clock                    clock.Clock
+	domainServices           services.DomainServices
+	domainServicesGetter     services.DomainServicesGetter
+	tracer                   trace.Tracer
+	objectStore              objectstore.ObjectStore
+	objectStoreGetter        objectstore.ObjectStoreGetter
+	controllerObjectStore    objectstore.ObjectStore
+	shared                   *sharedServerContext
+	facades                  *facade.Registry
+	watcherRegistry          watcherregistry.WatcherRegistry
+	authorizer               facade.Authorizer
+	objectMutex              sync.RWMutex
+	objectCache              map[objectKey]reflect.Value
+	requestRecorder          facade.RequestRecorder
+	crossModelAuthContext    facade.CrossModelAuthContext
+	ephemeralProviderFactory providertracker.EphemeralProviderFactory
 
 	// modelUUID is the UUID of the model that the client is connected to.
 	// All facades for a given context will be scoped to the model UUID.
@@ -450,22 +473,23 @@ func newAPIRoot(
 	clock clock.Clock,
 ) (*apiRoot, error) {
 	return &apiRoot{
-		Killer:                root,
-		clock:                 clock,
-		domainServices:        root.DomainServices(),
-		domainServicesGetter:  root.DomainServicesGetter(),
-		tracer:                root.Tracer(),
-		objectStore:           root.ObjectStore(),
-		objectStoreGetter:     root.ObjectStoreGetter(),
-		controllerObjectStore: root.ControllerObjectStore(),
-		shared:                root.SharedContext(),
-		facades:               facades,
-		watcherRegistry:       root.WatcherRegistry(),
-		authorizer:            root.Authorizer(),
-		objectCache:           make(map[objectKey]reflect.Value),
-		requestRecorder:       requestRecorder,
-		modelUUID:             root.ModelUUID(),
-		crossModelAuthContext: root.CrossModelAuthContext(),
+		Killer:                   root,
+		clock:                    clock,
+		domainServices:           root.DomainServices(),
+		domainServicesGetter:     root.DomainServicesGetter(),
+		tracer:                   root.Tracer(),
+		objectStore:              root.ObjectStore(),
+		objectStoreGetter:        root.ObjectStoreGetter(),
+		controllerObjectStore:    root.ControllerObjectStore(),
+		shared:                   root.SharedContext(),
+		facades:                  facades,
+		watcherRegistry:          root.WatcherRegistry(),
+		authorizer:               root.Authorizer(),
+		objectCache:              make(map[objectKey]reflect.Value),
+		requestRecorder:          requestRecorder,
+		ephemeralProviderFactory: root.EphemeralProviderFactory(),
+		modelUUID:                root.ModelUUID(),
+		crossModelAuthContext:    root.CrossModelAuthContext(),
 	}, nil
 }
 
@@ -965,7 +989,10 @@ func (ctx *facadeContext) migrationScope(modelUUID model.UUID) coremodelmigratio
 		}),
 		modelObjectStore(func(stdCtx context.Context) (objectstore.ObjectStore, error) {
 			return ctx.r.objectStoreGetter.GetObjectStore(stdCtx, modelUUID.String())
-		}), modelUUID)
+		}),
+		ctx.r.ephemeralProviderFactory,
+		modelUUID,
+	)
 }
 
 // DomainServicesForModel returns the services factory for a given

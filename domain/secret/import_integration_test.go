@@ -399,7 +399,7 @@ func (s *importSuite) doImport(c *tc.C, desc description.Model) {
 	secretmodelmigration.RegisterImport(coordinator, loggertesting.WrapCheckLog(c))
 
 	err := coordinator.Perform(c.Context(), modelmigration.NewScope(s.ControllerSuite.TxnRunnerFactory(),
-		s.ModelSuite.TxnRunnerFactory(), nil,
+		s.ModelSuite.TxnRunnerFactory(), nil, nil,
 		model.UUID(s.ModelUUID())), desc)
 	c.Assert(err, tc.ErrorIsNil)
 }
