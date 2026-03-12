@@ -17,6 +17,9 @@ import (
 // in the model, including its attachments, backing filesystem and or volume,
 // lifecycle state, and ownership details.
 type StorageInstanceInfo struct {
+	// UUID is the unique identifier for the Storage Instance.
+	UUID domainstorage.StorageInstanceUUID
+
 	// Attachments defines zero or more attachments the storage instance has
 	// onto units in the model.
 	Attachments []StorageInstanceInfoAttachment
@@ -40,9 +43,6 @@ type StorageInstanceInfo struct {
 	// then no Unit owns this Storage Instance.
 	UnitOwner *StorageInstanceInfoUnitOwner
 
-	// UUID is the unique identifier for the Storage Instance.
-	UUID domainstorage.StorageInstanceUUID
-
 	// Volume represents information about the underlying Volume supporting this
 	// Storage Instance. If not set then no Volume exists for the Storage
 	// Instance.
@@ -53,6 +53,9 @@ type StorageInstanceInfo struct {
 // to a unit, including details about the filesystem mount point, volume device,
 // and machine assignment if applicable.
 type StorageInstanceInfoAttachment struct {
+	// UUID is the unique identifier for the Storage Attachment.
+	UUID domainstorage.StorageAttachmentUUID
+
 	// Filesystem represents filesystem-specific details for this attachment,
 	// including the mount point. If not set then the attachment does not have
 	// filesystem-specific information.
@@ -77,9 +80,6 @@ type StorageInstanceInfoAttachment struct {
 	// UnitUUID is the unique identifier of the unit to which the Storage
 	// Instance is attached to.
 	UnitUUID coreunit.UUID
-
-	// UUID is the unique identifier for the Storage Attachment.
-	UUID domainstorage.StorageAttachmentUUID
 }
 
 // StorageInstanceInfoAttachmentFilesystem contains filesystem-specific details
@@ -93,11 +93,11 @@ type StorageInstanceInfoAttachmentFilesystem struct {
 // StorageInstanceInfoAttachmentMachine contains machine details for a storage
 // attachment when the storage is attached to a unit deployed on a machine.
 type StorageInstanceInfoAttachmentMachine struct {
-	// Name is the name of the machine.
-	Name string
-
 	// UUID is the unique identifier for the machine.
 	UUID coremachine.UUID
+
+	// Name is the name of the machine.
+	Name string
 }
 
 // StorageInstanceInfoAttachmentVolume contains volume-specific details for a
@@ -113,12 +113,12 @@ type StorageInstanceInfoAttachmentVolume struct {
 // StorageInstanceInfoFilesystem represents filesystem information for a storage
 // instance, including its UUID and current status.
 type StorageInstanceInfoFilesystem struct {
+	// UUID is the unique identifier for the filesystem.
+	UUID domainstorage.FilesystemUUID
+
 	// Status represents the current status of the filesystem. If not set then
 	// no status information is available for the filesystem.
 	Status *StorageInstanceInfoFilesystemStatus
-
-	// UUID is the unique identifier for the filesystem.
-	UUID domainstorage.FilesystemUUID
 }
 
 // StorageInstanceInfoFilesystemStatus represents the current status of a
@@ -152,6 +152,9 @@ type StorageInstanceInfoVolumeStatus struct {
 // StorageInstanceInfoVolume represents volume information for a Storage
 // Instance, including its UUID and current status.
 type StorageInstanceInfoVolume struct {
+	// UUID is the unique identifier for the volume.
+	UUID domainstorage.VolumeUUID
+
 	// Persistent indicates if the volume will outlive the life of whatever it
 	// may be attached to. Volumes would normally be persistent when the are
 	// provisioned outside of a machine.
@@ -160,17 +163,14 @@ type StorageInstanceInfoVolume struct {
 	// Status represents the current status of the volume. If not set then no
 	// status information is available for the volume.
 	Status *StorageInstanceInfoVolumeStatus
-
-	// UUID is the unique identifier for the volume.
-	UUID domainstorage.VolumeUUID
 }
 
 // StorageInstanceInfoUnitOwner represents the unit that owns a Storage
 // Instance, including the Unit's name and UUID.
 type StorageInstanceInfoUnitOwner struct {
-	// Name is the name of the unit that owns the storage instance.
-	Name string
-
 	// UUID is the unique identifier for the unit that owns the storage instance.
 	UUID coreunit.UUID
+
+	// Name is the name of the unit that owns the storage instance.
+	Name string
 }
