@@ -237,9 +237,9 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		}),
 
 		// appUnitsChan fired
-		ops.EXPECT().ReconcileDeadUnitScale("test", app, facade, s.logger).Return(errors.NotFound),
-		ops.EXPECT().ReconcileDeadUnitScale("test", app, facade, s.logger).Return(errors.ConstError("try again")),
-		ops.EXPECT().ReconcileDeadUnitScale("test", app, facade, s.logger).DoAndReturn(func(_, _, _, _ any) error {
+		ops.EXPECT().ReconcileDeadUnitScale("test", app, life.Alive, facade, s.logger).Return(errors.NotFound),
+		ops.EXPECT().ReconcileDeadUnitScale("test", app, life.Alive, facade, s.logger).Return(errors.ConstError("try again")),
+		ops.EXPECT().ReconcileDeadUnitScale("test", app, life.Alive, facade, s.logger).DoAndReturn(func(_, _, _, _, _ any) error {
 			appChan <- struct{}{}
 			return nil
 		}),
@@ -259,6 +259,9 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		facade.EXPECT().Life("test").Return(life.Alive, nil),
 		ops.EXPECT().EnsureStorage("test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).
 			Return(errors.ConstError("not provisioned")),
+		facade.EXPECT().Life("test").Return(life.Alive, nil),
+		ops.EXPECT().EnsureStorage("test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).
+			Return(errors.ConstError("try again")),
 		facade.EXPECT().Life("test").Return(life.Alive, nil),
 		ops.EXPECT().EnsureStorage("test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).
 			DoAndReturn(func(_, _, _, _, _, _, _ any) error {
@@ -568,9 +571,9 @@ func (s *ApplicationWorkerSuite) TestWorkerScaleNotReadyRetry(c *gc.C) {
 		}),
 
 		// appUnitsChan fired
-		ops.EXPECT().ReconcileDeadUnitScale("test", app, facade, s.logger).Return(errors.NotFound),
-		ops.EXPECT().ReconcileDeadUnitScale("test", app, facade, s.logger).Return(errors.ConstError("try again")),
-		ops.EXPECT().ReconcileDeadUnitScale("test", app, facade, s.logger).DoAndReturn(func(_, _, _, _ any) error {
+		ops.EXPECT().ReconcileDeadUnitScale("test", app, life.Alive, facade, s.logger).Return(errors.NotFound),
+		ops.EXPECT().ReconcileDeadUnitScale("test", app, life.Alive, facade, s.logger).Return(errors.ConstError("try again")),
+		ops.EXPECT().ReconcileDeadUnitScale("test", app, life.Alive, facade, s.logger).DoAndReturn(func(_, _, _, _, _ any) error {
 			appChan <- struct{}{}
 			return nil
 		}),
@@ -590,6 +593,9 @@ func (s *ApplicationWorkerSuite) TestWorkerScaleNotReadyRetry(c *gc.C) {
 		facade.EXPECT().Life("test").Return(life.Alive, nil),
 		ops.EXPECT().EnsureStorage("test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).
 			Return(errors.ConstError("not provisioned")),
+		facade.EXPECT().Life("test").Return(life.Alive, nil),
+		ops.EXPECT().EnsureStorage("test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).
+			Return(errors.ConstError("try again")),
 		facade.EXPECT().Life("test").Return(life.Alive, nil),
 		ops.EXPECT().EnsureStorage("test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).
 			DoAndReturn(func(_, _, _, _, _, _, _ any) error {
