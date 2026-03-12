@@ -949,6 +949,45 @@ func (c *MockStateGetAllEndpointBindingsCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// GetAllExposedEndpoints mocks base method.
+func (m *MockState) GetAllExposedEndpoints(arg0 context.Context) (map[string]map[string]application0.ExposedEndpoint, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllExposedEndpoints", arg0)
+	ret0, _ := ret[0].(map[string]map[string]application0.ExposedEndpoint)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllExposedEndpoints indicates an expected call of GetAllExposedEndpoints.
+func (mr *MockStateMockRecorder) GetAllExposedEndpoints(arg0 any) *MockStateGetAllExposedEndpointsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllExposedEndpoints", reflect.TypeOf((*MockState)(nil).GetAllExposedEndpoints), arg0)
+	return &MockStateGetAllExposedEndpointsCall{Call: call}
+}
+
+// MockStateGetAllExposedEndpointsCall wrap *gomock.Call
+type MockStateGetAllExposedEndpointsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAllExposedEndpointsCall) Return(arg0 map[string]map[string]application0.ExposedEndpoint, arg1 error) *MockStateGetAllExposedEndpointsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAllExposedEndpointsCall) Do(f func(context.Context) (map[string]map[string]application0.ExposedEndpoint, error)) *MockStateGetAllExposedEndpointsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAllExposedEndpointsCall) DoAndReturn(f func(context.Context) (map[string]map[string]application0.ExposedEndpoint, error)) *MockStateGetAllExposedEndpointsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetAllUnitCloudContainerIDsForApplication mocks base method.
 func (m *MockState) GetAllUnitCloudContainerIDsForApplication(arg0 context.Context, arg1 application.UUID) (map[unit.Name]string, error) {
 	m.ctrl.T.Helper()

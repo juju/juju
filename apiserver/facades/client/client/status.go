@@ -36,7 +36,6 @@ import (
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/deployment/charm"
-	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainmodelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/port"
@@ -137,15 +136,13 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		)
 	}
 
-	machineJobFetcher := func(context.Context, coremachine.Name) []model.MachineJob {
+	machineJobFetcher := func(_ context.Context, _ statusservice.Machine) []model.MachineJob {
 		return []model.MachineJob{model.JobHostUnits}
 	}
 	if c.isControllerModel {
-		machineJobFetcher = func(ctx context.Context, name coremachine.Name) []model.MachineJob {
+		machineJobFetcher = func(_ context.Context, machine statusservice.Machine) []model.MachineJob {
 			jobs := []model.MachineJob{model.JobHostUnits}
-			if isController, err := c.machineService.IsMachineController(ctx, name); err != nil && !internalerrors.Is(err, machineerrors.MachineNotFound) {
-				logger.Errorf(ctx, "error checking if machine %q is controller: %v", name, err)
-			} else if isController {
+			if machine.IsController {
 				jobs = append(jobs, model.JobManageModel)
 			}
 			return jobs
@@ -156,7 +153,6 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	context := statusContext{
 		applicationService:        c.applicationService,
 		statusService:             c.statusService,
-		machineService:            c.machineService,
 		crossModelRelationService: c.crossModelRelationService,
 
 		machineJobFetcher: machineJobFetcher,
@@ -174,6 +170,9 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	if context.allAppsUnitsCharmBindings, context.units, err =
 		fetchAllApplicationsAndUnits(ctx, c.statusService, c.applicationService); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch applications and units: %w", err)
+	}
+	if hasExposedApplications(context.allAppsUnitsCharmBindings.applications) {
+		context.exposedEndpoints, context.exposedEndpointsErr = c.applicationService.GetAllExposedEndpoints(ctx)
 	}
 	// Only admins can see offer details.
 	if err := c.checkIsAdmin(ctx); err == nil {
@@ -323,12 +322,11 @@ func (s relationStatus) RelatedEndpoints(applicationName string) ([]relation.End
 }
 
 // MachineJobFetcherFunc is a function that fetches jobs for a given machine.
-type MachineJobFetcherFunc func(context.Context, coremachine.Name) []model.MachineJob
+type MachineJobFetcherFunc func(context.Context, statusservice.Machine) []model.MachineJob
 
 type statusContext struct {
 	applicationService        ApplicationService
 	crossModelRelationService CrossModelRelationService
-	machineService            MachineService
 	statusService             StatusService
 
 	machineJobFetcher MachineJobFetcherFunc
@@ -357,6 +355,12 @@ type statusContext struct {
 
 	// remoteAppOfferers: remote application name -> remote application offerer
 	remoteAppOfferers map[string]statusservice.RemoteApplicationOfferer
+
+	// exposedEndpoints: application name -> endpoint name -> exposed endpoint details.
+	exposedEndpoints map[string]map[string]application.ExposedEndpoint
+	// exposedEndpointsErr stores a bulk prefetch error so exposed applications can
+	// surface the same per-application error without failing the whole response.
+	exposedEndpointsErr error
 
 	allAppsUnitsCharmBindings applicationStatusInfo
 	units                     map[coreunit.Name]statusservice.Unit
@@ -739,7 +743,7 @@ func (c *statusContext) makeMachineStatus(
 	status.Constraints = machine.Constraints.String()
 	status.Containers = make(map[string]params.MachineStatus)
 
-	status.Jobs = c.machineJobFetcher(ctx, machineName)
+	status.Jobs = c.machineJobFetcher(ctx, machine)
 
 	if clusterInfo := machine.ClusterInfo; clusterInfo != nil {
 		if clusterInfo.Present {
@@ -853,17 +857,14 @@ func (c *statusContext) processApplications(ctx context.Context) map[string]para
 
 func (c *statusContext) processApplicationExposedEndpoints(ctx context.Context, name string, application statusservice.Application) (map[string]params.ExposedEndpoint, error) {
 	// If the application is not exposed, then we don't need to try and get the
-	// exposed endpoints for the application. This reduces the number of default
-	// calls to the application service.
+	// exposed endpoints for the application.
 	if !application.Exposed {
 		return nil, nil
 	}
-
-	exposedEndpoints, err := c.applicationService.GetExposedEndpoints(ctx, name)
-	if err != nil {
-		return nil, err
+	if c.exposedEndpointsErr != nil {
+		return nil, c.exposedEndpointsErr
 	}
-	return c.mapExposedEndpointsFromDomain(exposedEndpoints)
+	return c.mapExposedEndpointsFromDomain(c.exposedEndpoints[name])
 }
 
 func (c *statusContext) processApplication(ctx context.Context, name string, application statusservice.Application) params.ApplicationStatus {
@@ -1503,4 +1504,13 @@ func processStorage(
 
 func ptr[T any](v T) *T {
 	return &v
+}
+
+func hasExposedApplications(applications map[string]statusservice.Application) bool {
+	for _, application := range applications {
+		if application.Exposed {
+			return true
+		}
+	}
+	return false
 }
