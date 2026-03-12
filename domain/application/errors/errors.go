@@ -241,6 +241,10 @@ const (
 	// download URL is not valid.
 	CharmDownloadURLNotValid = errors.ConstError("charm download URL not valid")
 
+	// CharmHashNotFound describes an error that occurs when the charm hash is
+	// not found.
+	CharmHashNotFound = errors.ConstError("charm hash not found")
+
 	// CharmProvenanceNotValid describes an error that occurs when the
 	// charm download provenance is not valid.
 	CharmProvenanceNotValid = errors.ConstError("charm provenance not valid")

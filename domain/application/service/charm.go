@@ -868,7 +868,7 @@ func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.
 		ObjectStoreUUID: result.ObjectStoreUUID,
 		Hash:            digest.SHA256,
 		DownloadInfo: &charm.DownloadInfo{
-			Provenance: charm.ProvenanceMigration,
+			Provenance: charm.ProvenanceLegacyMigration,
 		},
 
 		// This is correct, we want to use the unique name of the stored charm

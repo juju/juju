@@ -12,6 +12,7 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/devices"
 	coremachine "github.com/juju/juju/core/machine"
 	coremachinetesting "github.com/juju/juju/core/machine/testing"
@@ -697,6 +698,56 @@ func (s *baseSuite) createCAASScalingApplication(c *tc.C, name string, l life.Li
 	c.Assert(err, tc.ErrorIsNil)
 
 	return appID
+}
+
+func (s *baseSuite) createMigratingApplication(c *tc.C, name string) (coreapplication.UUID, corecharm.ID) {
+	st := NewState(s.TxnRunnerFactory(), s.modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	platform := deployment.Platform{
+		Channel:      "666",
+		OSType:       deployment.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+	channel := &deployment.Channel{
+		Track:  "track",
+		Risk:   "risk",
+		Branch: "branch",
+	}
+	ctx := c.Context()
+	id := tc.Must(c, coreapplication.NewUUID)
+	args := application.InsertApplicationArgs{
+		ApplicationUUID: id.String(),
+		Platform:        platform,
+		Charm: charm.Charm{
+			Metadata:      s.minimalMetadata(c, name),
+			Manifest:      s.minimalManifest(c),
+			Source:        charm.CharmHubSource,
+			ReferenceName: name,
+			Revision:      42,
+			Architecture:  architecture.AMD64,
+		},
+		Scale:   1,
+		Channel: channel,
+		Config: map[string]application.AddApplicationConfig{
+			"foo": {
+				Value: "bar",
+				Type:  charm.OptionString,
+			},
+		},
+		Settings: application.ApplicationSettings{
+			Trust: true,
+		},
+	}
+	err := st.InsertMigratingApplication(ctx, "666", args)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var charmID corecharm.ID
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT charm_uuid FROM application WHERE uuid = ?", id.String()).Scan(&charmID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return id, charmID
 }
 
 func (s *baseSuite) getApplicationUnits(c *tc.C, appUUID coreapplication.UUID) []coreunit.UUID {
