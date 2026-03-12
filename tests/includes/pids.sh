@@ -23,7 +23,8 @@ track_daemon_pid() {
 # perform an exec on the supplied arguments, tracking the life of the program.
 track_daemon_exec_trampoline() {
 	mkdir -p "${TEST_DIR}/exec_trampoline/"
-	local trampoline="$(mktemp -p "${TEST_DIR}/exec_trampoline/")"
+	local trampoline
+	trampoline="$(mktemp -p "${TEST_DIR}/exec_trampoline/")"
 	sed -e "s|__DAEMON_SCOPE_LABEL__|$(_daemon_scope_label)|;s|__PIDS__|${TEST_DIR}/pids|" > "${trampoline}" <<'EOM'
 #!/usr/bin/env sh
 echo "$$ __DAEMON_SCOPE_LABEL__" >> "__PIDS__"
