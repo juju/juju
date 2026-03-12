@@ -13,6 +13,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
+	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	coreresource "github.com/juju/juju/core/resource"
 	resourcestore "github.com/juju/juju/core/resource/store"
@@ -38,10 +39,13 @@ func (s *fileResourceStoreSuite) SetUpTest(c *tc.C) {
 
 func (s *fileResourceStoreSuite) initResourceData(c *tc.C, data string) {
 	size := int64(len(data))
+
 	sha384hash := sha512.New384()
 	sha384hash.Write([]byte(data))
+
 	fp := fmt.Sprintf("%x", sha384hash.Sum(nil))
 	fingerprint := tc.Must1_1(c, charmresource.ParseFingerprint, fp)
+
 	s.resource = coreresource.Resource{
 		ID: resourcestesting.GenResourceUUID(c).String(),
 		Resource: charmresource.Resource{
@@ -54,6 +58,7 @@ func (s *fileResourceStoreSuite) initResourceData(c *tc.C, data string) {
 		},
 		ApplicationName: "fake-app-uuid",
 	}
+
 	s.file = io.NopCloser(bytes.NewBufferString(data))
 }
 
@@ -67,7 +72,7 @@ func (s *fileResourceStoreSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *fileResourceStoreSuite) TestFileResourceStorePut(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	store := fileResourceStore{s.objectStore}
+	store := fileResourceStore{objectStore: s.objectStore}
 
 	expectedStorageUUID := objectstoretesting.GenObjectStoreUUID(c)
 	s.objectStore.EXPECT().PutAndCheckHash(
@@ -99,7 +104,7 @@ func (s *fileResourceStoreSuite) TestFileResourceStorePut(c *tc.C) {
 func (s *fileResourceStoreSuite) TestFileResourceStorePutZeroSize(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.initResourceData(c, "") // empty file
-	store := fileResourceStore{s.objectStore}
+	store := fileResourceStore{objectStore: s.objectStore}
 	c.Assert(s.resource.Size, tc.Equals, int64(0))
 
 	expectedStorageUUID := objectstoretesting.GenObjectStoreUUID(c)
@@ -131,7 +136,7 @@ func (s *fileResourceStoreSuite) TestFileResourceStorePutZeroSize(c *tc.C) {
 
 func (s *fileResourceStoreSuite) TestFileResourceStorePutBadStorageKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	store := fileResourceStore{s.objectStore}
+	store := fileResourceStore{objectStore: s.objectStore}
 	_, _, _, err := store.Put(
 		c.Context(),
 		"",
@@ -144,7 +149,7 @@ func (s *fileResourceStoreSuite) TestFileResourceStorePutBadStorageKey(c *tc.C) 
 
 func (s *fileResourceStoreSuite) TestFileResourceStorePutNilReader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	store := fileResourceStore{s.objectStore}
+	store := fileResourceStore{objectStore: s.objectStore}
 	_, _, _, err := store.Put(
 		c.Context(),
 		s.resource.ID,
@@ -157,7 +162,7 @@ func (s *fileResourceStoreSuite) TestFileResourceStorePutNilReader(c *tc.C) {
 
 func (s *fileResourceStoreSuite) TestFileResourceStorePutBadFingerprint(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	store := fileResourceStore{s.objectStore}
+	store := fileResourceStore{objectStore: s.objectStore}
 	_, _, _, err := store.Put(
 		c.Context(),
 		s.resource.ID,
@@ -170,9 +175,12 @@ func (s *fileResourceStoreSuite) TestFileResourceStorePutBadFingerprint(c *tc.C)
 
 func (s *fileResourceStoreSuite) TestFileResourceStoreGet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	store := fileResourceStore{s.objectStore}
+	store := fileResourceStore{objectStore: s.objectStore}
 
-	s.objectStore.EXPECT().Get(gomock.Any(), s.resource.ID).Return(s.file, s.resource.Size, nil)
+	s.objectStore.EXPECT().Get(gomock.Any(), s.resource.ID).Return(s.file, objectstore.Digest{
+		SHA256: "fab",
+		Size:   s.resource.Size,
+	}, nil)
 
 	reader, size, err := store.Get(c.Context(), s.resource.ID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -182,7 +190,7 @@ func (s *fileResourceStoreSuite) TestFileResourceStoreGet(c *tc.C) {
 
 func (s *fileResourceStoreSuite) TestFileResourceStoreGetBadStorageKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	store := fileResourceStore{s.objectStore}
+	store := fileResourceStore{objectStore: s.objectStore}
 	_, _, err := store.Get(
 		c.Context(),
 		"",
