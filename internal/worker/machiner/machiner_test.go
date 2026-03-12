@@ -4,6 +4,7 @@
 package machiner_test
 
 import (
+	"context"
 	"net"
 	"testing"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	jworker "github.com/juju/juju/internal/worker"
@@ -45,6 +47,9 @@ func (s *MachinerSuite) SetUpTest(c *tc.C) {
 	}
 
 	s.PatchValue(&machiner.GetObservedNetworkConfig, func(_ corenetwork.ConfigSource) (corenetwork.InterfaceInfos, error) {
+		return nil, nil
+	})
+	s.PatchValue(machiner.NewAddressChangeWatcherForTest, func(_ context.Context) (watcher.NotifyWatcher, error) {
 		return nil, nil
 	})
 }
@@ -381,6 +386,67 @@ func (s *MachinerSuite) TestSetObservedNetworkConfig(c *tc.C) {
 		"Life",
 		"SetObservedNetworkConfig",
 	)
+}
+
+func (s *MachinerSuite) TestAddressChangeTriggersObservedNetworkRefresh(c *tc.C) {
+	addressWatcherChan := make(chan struct{}, 2)
+	addressWatcherChan <- struct{}{}
+	s.PatchValue(machiner.NewAddressChangeWatcherForTest, func(_ context.Context) (watcher.NotifyWatcher, error) {
+		return &mockWatcher{changes: addressWatcherChan}, nil
+	})
+
+	observed := make(chan struct{}, 1)
+	s.PatchValue(&machiner.GetObservedNetworkConfig, func(source corenetwork.ConfigSource) (corenetwork.InterfaceInfos, error) {
+		select {
+		case observed <- struct{}{}:
+		default:
+		}
+		return corenetwork.InterfaceInfos{{}}, nil
+	})
+
+	mr := s.makeMachiner(c)
+	addressWatcherChan <- struct{}{}
+	select {
+	case <-observed:
+	case <-c.Context().Done():
+		c.Fatalf("local address change did not trigger network refresh")
+	}
+	c.Assert(stopWorker(mr), tc.ErrorIsNil)
+
+	s.accessor.machine.CheckCallNames(c,
+		"Life",
+		"SetStatus",
+		"Watch",
+		"Refresh",
+		"Life",
+		"SetObservedNetworkConfig",
+	)
+}
+
+func (s *MachinerSuite) TestAddressWatcherClosedStopsMachiner(c *tc.C) {
+	addressWatcherChan := make(chan struct{}, 1)
+	addressWatcherChan <- struct{}{}
+	s.newAddressChangeWatcher = func(
+		_ context.Context,
+	) (watcher.NotifyWatcher, error) {
+		return &mockWatcher{changes: addressWatcherChan}, nil
+	}
+
+	mr := s.makeMachiner(c)
+	close(addressWatcherChan)
+
+	waitErr := make(chan error, 1)
+	go func() {
+		waitErr <- mr.Wait()
+	}()
+
+	var err error
+	select {
+	case err = <-waitErr:
+	case <-c.Context().Done():
+		c.Fatalf("machiner did not stop after address watcher closed")
+	}
+	c.Assert(err, tc.ErrorMatches, "address change channel closed")
 }
 
 func (s *MachinerSuite) TestAliveErrorGetObservedNetworkConfig(c *tc.C) {
