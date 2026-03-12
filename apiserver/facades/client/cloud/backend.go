@@ -60,4 +60,5 @@ type CredentialService interface {
 	WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error)
 	CheckAndUpdateCredential(ctx context.Context, key credential.Key, cred cloud.Credential, force bool) ([]credentialservice.UpdateCredentialModelResult, error)
 	CheckAndRevokeCredential(ctx context.Context, key credential.Key, force bool) error
+	CheckCredentialModels(ctx context.Context, key credential.Key, cred cloud.Credential) ([]credentialservice.CheckCredentialModelResult, error)
 }

@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/access"
+	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	_ "github.com/juju/juju/internal/provider/dummy"
@@ -755,6 +756,138 @@ func (s *cloudSuite) TestUpdateCredentialsOneModelSuccess(c *tc.C) {
 				{
 					ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 					ModelName: "testModel1",
+				},
+			},
+		}},
+	})
+}
+
+func (s *cloudSuite) TestCheckCredentialModelsErrors(c *tc.C) {
+	bruceTag := names.NewUserTag("bruce")
+	defer s.setup(c, bruceTag).Finish()
+
+	_, tagOne := cloudCredentialTag(credParams{name: "three", owner: "bruce", cloudName: "meep", authType: jujucloud.EmptyAuthType,
+		attrs: map[string]string{}})
+	_, tagTwo := cloudCredentialTag(credParams{name: "three", owner: "bruce", cloudName: "badcloud", authType: jujucloud.EmptyAuthType,
+		attrs: map[string]string{}})
+
+	cred := jujucloud.NewCredential(
+		jujucloud.OAuth1AuthType,
+		map[string]string{"token": "foo:bar:baz"},
+	)
+	s.credService.EXPECT().CheckCredentialModels(gomock.Any(), credential.KeyFromTag(tagTwo), cred).Return(
+		nil, errors.New("cannot update credential \"three\": controller does not manage cloud \"badcloud\""))
+	s.credService.EXPECT().CheckCredentialModels(gomock.Any(), credential.KeyFromTag(tagOne), cred).Return(
+		[]credentialservice.CheckCredentialModelResult{}, nil)
+
+	results, err := s.api.CheckCredentialsModels(c.Context(), params.TaggedCredentials{
+		Credentials: []params.TaggedCredential{{
+			Tag: "machine-0",
+		}, {
+			Tag: "cloudcred-meep_admin_whatever",
+		}, {
+			Tag: "cloudcred-meep_bruce_three",
+			Credential: params.CloudCredential{
+				AuthType:   "oauth1",
+				Attributes: map[string]string{"token": "foo:bar:baz"},
+			},
+		}, {
+			Tag: "cloudcred-badcloud_bruce_three",
+			Credential: params.CloudCredential{
+				AuthType:   "oauth1",
+				Attributes: map[string]string{"token": "foo:bar:baz"},
+			},
+		}}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.UpdateCredentialResults{
+		Results: []params.UpdateCredentialResult{
+			{
+				CredentialTag: "machine-0",
+				Error:         &params.Error{Message: `"machine-0" is not a valid cloudcred tag`},
+			},
+			{
+				CredentialTag: "cloudcred-meep_admin_whatever",
+				Error:         &params.Error{Message: "permission denied", Code: params.CodeUnauthorized},
+			},
+			{CredentialTag: "cloudcred-meep_bruce_three"},
+			{
+				CredentialTag: "cloudcred-badcloud_bruce_three",
+				Error:         &params.Error{Message: `cannot update credential "three": controller does not manage cloud "badcloud"`},
+			},
+		},
+	})
+}
+
+func (s *cloudSuite) TestCheckCredentialModelsOneModelSuccess(c *tc.C) {
+	adminTag := names.NewUserTag("admin")
+	defer s.setup(c, adminTag).Finish()
+
+	_, tag := cloudCredentialTag(credParams{name: "three", owner: "julia", cloudName: "meep", authType: jujucloud.EmptyAuthType,
+		attrs: map[string]string{}})
+
+	cred := jujucloud.Credential{}
+	s.credService.EXPECT().CheckCredentialModels(gomock.Any(), credential.KeyFromTag(tag), cred).Return(
+		[]credentialservice.CheckCredentialModelResult{{
+			ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			ModelName: "testModel1",
+		}}, nil)
+
+	results, err := s.api.CheckCredentialsModels(c.Context(), params.TaggedCredentials{
+		Credentials: []params.TaggedCredential{{
+			Tag:        "cloudcred-meep_julia_three",
+			Credential: params.CloudCredential{},
+		}}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.UpdateCredentialResults{
+		Results: []params.UpdateCredentialResult{{
+			CredentialTag: "cloudcred-meep_julia_three",
+			Models: []params.UpdateCredentialModelResult{
+				{
+					ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+					ModelName: "testModel1",
+				},
+			},
+		}},
+	})
+}
+
+func (s *cloudSuite) TestCheckCredentialModelsValidationError(c *tc.C) {
+	adminTag := names.NewUserTag("admin")
+	defer s.setup(c, adminTag).Finish()
+
+	_, tag := cloudCredentialTag(credParams{name: "three", owner: "julia", cloudName: "meep", authType: jujucloud.EmptyAuthType,
+		attrs: map[string]string{}})
+
+	cred := jujucloud.Credential{}
+	s.credService.EXPECT().CheckCredentialModels(gomock.Any(), credential.KeyFromTag(tag), cred).Return(
+		[]credentialservice.CheckCredentialModelResult{{
+			ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			ModelName: "testModel1",
+		}, {
+			ModelUUID: "deadbeef-0bad-400d-8000-5b1d0d06f00d",
+			ModelName: "testModel2",
+			Errors:    []error{errors.New("boom")},
+		}}, credentialerrors.CredentialModelValidation)
+
+	results, err := s.api.CheckCredentialsModels(c.Context(), params.TaggedCredentials{
+		Credentials: []params.TaggedCredential{{
+			Tag:        "cloudcred-meep_julia_three",
+			Credential: params.CloudCredential{},
+		}}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.UpdateCredentialResults{
+		Results: []params.UpdateCredentialResult{{
+			CredentialTag: "cloudcred-meep_julia_three",
+			Models: []params.UpdateCredentialModelResult{
+				{
+					ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+					ModelName: "testModel1",
+				}, {
+					ModelUUID: "deadbeef-0bad-400d-8000-5b1d0d06f00d",
+					ModelName: "testModel2",
+					Errors: []params.ErrorResult{{
+						Error: &params.Error{Message: "boom"},
+					}},
 				},
 			},
 		}},

@@ -162,6 +162,45 @@ func (c *MockCredentialServiceCheckAndUpdateCredentialCall) DoAndReturn(f func(c
 	return c
 }
 
+// CheckCredentialModels mocks base method.
+func (m *MockCredentialService) CheckCredentialModels(arg0 context.Context, arg1 credential.Key, arg2 cloud.Credential) ([]service.CheckCredentialModelResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckCredentialModels", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]service.CheckCredentialModelResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CheckCredentialModels indicates an expected call of CheckCredentialModels.
+func (mr *MockCredentialServiceMockRecorder) CheckCredentialModels(arg0, arg1, arg2 any) *MockCredentialServiceCheckCredentialModelsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckCredentialModels", reflect.TypeOf((*MockCredentialService)(nil).CheckCredentialModels), arg0, arg1, arg2)
+	return &MockCredentialServiceCheckCredentialModelsCall{Call: call}
+}
+
+// MockCredentialServiceCheckCredentialModelsCall wrap *gomock.Call
+type MockCredentialServiceCheckCredentialModelsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCredentialServiceCheckCredentialModelsCall) Return(arg0 []service.CheckCredentialModelResult, arg1 error) *MockCredentialServiceCheckCredentialModelsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCredentialServiceCheckCredentialModelsCall) Do(f func(context.Context, credential.Key, cloud.Credential) ([]service.CheckCredentialModelResult, error)) *MockCredentialServiceCheckCredentialModelsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCredentialServiceCheckCredentialModelsCall) DoAndReturn(f func(context.Context, credential.Key, cloud.Credential) ([]service.CheckCredentialModelResult, error)) *MockCredentialServiceCheckCredentialModelsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // CloudCredential mocks base method.
 func (m *MockCredentialService) CloudCredential(arg0 context.Context, arg1 credential.Key) (cloud.Credential, error) {
 	m.ctrl.T.Helper()
