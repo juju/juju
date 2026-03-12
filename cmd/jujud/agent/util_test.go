@@ -11,11 +11,9 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/blockdevice"
-	"github.com/juju/juju/core/network"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/authenticationworker"
 	"github.com/juju/juju/internal/worker/diskmanager"
-	"github.com/juju/juju/internal/worker/machiner"
 )
 
 type commonMachineSuite struct {
@@ -34,9 +32,6 @@ func (s *commonMachineSuite) SetUpSuite(c *tc.C) {
 	// Stub out executables etc used by workers.
 	s.PatchValue(&authenticationworker.SSHUser, "")
 	s.PatchValue(&diskmanager.DefaultListBlockDevices, func(context.Context) ([]blockdevice.BlockDevice, error) {
-		return nil, nil
-	})
-	s.PatchValue(&machiner.GetObservedNetworkConfig, func(_ network.ConfigSource) (network.InterfaceInfos, error) {
 		return nil, nil
 	})
 }

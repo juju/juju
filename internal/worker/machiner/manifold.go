@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/agent"
 	apimachiner "github.com/juju/juju/api/agent/machiner"
 	"github.com/juju/juju/api/base"
+	corenetwork "github.com/juju/juju/core/network"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a
@@ -47,8 +48,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 func newWorker(ctx context.Context, a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	w, err := NewMachiner(Config{
-		MachineAccessor: APIMachineAccessor{apimachiner.NewClient(apiCaller)},
-		Tag:             a.CurrentConfig().Tag().(names.MachineTag),
+		MachineAccessor:          APIMachineAccessor{apimachiner.NewClient(apiCaller)},
+		Tag:                      a.CurrentConfig().Tag().(names.MachineTag),
+		GetObservedNetworkConfig: corenetwork.GetObservedNetworkConfig,
+		NewAddressChangeWatcher:  newAddressChangeNotifyWatcher,
 	})
 	return w, errors.Annotate(err, "starting machiner worker")
 }
