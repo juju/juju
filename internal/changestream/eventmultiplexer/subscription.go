@@ -49,13 +49,15 @@ type subscription struct {
 	dispatchTimeout time.Duration
 }
 
-func newSubscription(id uint64, summary string) *subscription {
+func newSubscription(
+	id uint64, summary string, dispatchTimeout time.Duration,
+) *subscription {
 	sub := &subscription{
 		id:              id,
 		summary:         summary,
 		changes:         make(chan ChangeSet),
 		topics:          make(map[string]struct{}),
-		dispatchTimeout: DefaultSignalTimeout,
+		dispatchTimeout: dispatchTimeout,
 	}
 
 	sub.tomb.Go(sub.loop)
