@@ -191,7 +191,8 @@ func (s *storeSuite) TestGet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	archive := io.NopCloser(strings.NewReader("archive-content"))
-	s.objectStore.EXPECT().Get(gomock.Any(), "foo").Return(archive, 0, nil)
+	s.objectStore.EXPECT().Get(gomock.Any(), "foo").
+		Return(archive, objectstore.Digest{}, nil)
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	reader, err := storage.Get(c.Context(), "foo")
@@ -205,7 +206,7 @@ func (s *storeSuite) TestGet(c *tc.C) {
 func (s *storeSuite) TestGetFailed(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.objectStore.EXPECT().Get(gomock.Any(), "foo").Return(nil, 0, errors.Errorf("boom"))
+	s.objectStore.EXPECT().Get(gomock.Any(), "foo").Return(nil, objectstore.Digest{}, errors.Errorf("boom"))
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 
@@ -216,7 +217,8 @@ func (s *storeSuite) TestGetFailed(c *tc.C) {
 func (s *storeSuite) TestGetNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.objectStore.EXPECT().Get(gomock.Any(), "foo").Return(nil, 0, objectstoreerrors.ObjectNotFound)
+	s.objectStore.EXPECT().Get(gomock.Any(), "foo").
+		Return(nil, objectstore.Digest{}, objectstoreerrors.ObjectNotFound)
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
 	_, err := storage.Get(c.Context(), "foo")
@@ -227,33 +229,41 @@ func (s *storeSuite) TestGetBySHA256Prefix(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	archive := io.NopCloser(strings.NewReader("archive-content"))
-	s.objectStore.EXPECT().GetBySHA256Prefix(gomock.Any(), "02638299").Return(archive, 0, nil)
+	s.objectStore.EXPECT().GetBySHA256Prefix(gomock.Any(), "02638299").
+		Return(archive, objectstore.Digest{
+			SHA256: "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e",
+			Size:   13,
+		}, nil)
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
-	reader, err := storage.GetBySHA256Prefix(c.Context(), "02638299")
+	reader, digest, err := storage.GetBySHA256Prefix(c.Context(), "02638299")
 	c.Assert(err, tc.ErrorIsNil)
 	content, err := io.ReadAll(reader)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(content), tc.Equals, "archive-content")
+	c.Check(digest.SHA256, tc.Equals, "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e")
+	c.Check(digest.Size, tc.Equals, int64(13))
 }
 
 func (s *storeSuite) TestGetBySHA256PrefixFailed(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.objectStore.EXPECT().GetBySHA256Prefix(gomock.Any(), "02638299").Return(nil, 0, errors.Errorf("boom"))
+	s.objectStore.EXPECT().GetBySHA256Prefix(gomock.Any(), "02638299").
+		Return(nil, objectstore.Digest{}, errors.Errorf("boom"))
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
-	_, err := storage.GetBySHA256Prefix(c.Context(), "02638299")
+	_, _, err := storage.GetBySHA256Prefix(c.Context(), "02638299")
 	c.Assert(err, tc.ErrorMatches, ".*boom")
 }
 
 func (s *storeSuite) TestGetBySHA256NotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.objectStore.EXPECT().GetBySHA256Prefix(gomock.Any(), "02638299").Return(nil, 0, objectstoreerrors.ObjectNotFound)
+	s.objectStore.EXPECT().GetBySHA256Prefix(gomock.Any(), "02638299").
+		Return(nil, objectstore.Digest{}, objectstoreerrors.ObjectNotFound)
 
 	storage := NewCharmStore(s.objectStoreGetter, loggertesting.WrapCheckLog(c))
-	_, err := storage.GetBySHA256Prefix(c.Context(), "02638299")
+	_, _, err := storage.GetBySHA256Prefix(c.Context(), "02638299")
 	c.Assert(err, tc.ErrorIs, ErrNotFound)
 }
 

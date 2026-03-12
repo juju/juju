@@ -19,6 +19,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/application/architecture"
@@ -639,14 +640,23 @@ func (s *charmServiceSuite) TestGetCharmArchiveBySHA256Prefix(c *tc.C) {
 
 	archive := io.NopCloser(strings.NewReader("archive-content"))
 
-	s.charmStore.EXPECT().GetBySHA256Prefix(gomock.Any(), "prefix").Return(archive, nil)
+	hash := "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e"
 
-	reader, err := s.service.GetCharmArchiveBySHA256Prefix(c.Context(), "prefix")
+	s.charmStore.EXPECT().GetBySHA256Prefix(gomock.Any(), "prefix").Return(archive, objectstore.Digest{
+		SHA256: hash,
+		Size:   13,
+	}, nil)
+
+	reader, digest, err := s.service.GetCharmArchiveBySHA256Prefix(c.Context(), "prefix")
 	c.Assert(err, tc.ErrorIsNil)
 
 	content, err := io.ReadAll(reader)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(content), tc.Equals, "archive-content")
+	c.Check(digest, tc.DeepEquals, objectstore.Digest{
+		SHA256: hash,
+		Size:   13,
+	})
 }
 
 func (s *charmServiceSuite) TestGetCharmArchiveCharmNotFound(c *tc.C) {
