@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package machiner_test
+package machiner
 
 import (
 	"context"
@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	jworker "github.com/juju/juju/internal/worker"
-	"github.com/juju/juju/internal/worker/machiner"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -46,23 +45,23 @@ func (s *MachinerSuite) SetUpTest(c *tc.C) {
 		&net.IPAddr{IP: net.IPv4zero},
 	}
 
-	s.PatchValue(&machiner.GetObservedNetworkConfig, func(_ corenetwork.ConfigSource) (corenetwork.InterfaceInfos, error) {
+	s.PatchValue(&GetObservedNetworkConfig, func(_ corenetwork.ConfigSource) (corenetwork.InterfaceInfos, error) {
 		return nil, nil
 	})
-	s.PatchValue(machiner.NewAddressChangeWatcherForTest, func(_ context.Context) (watcher.NotifyWatcher, error) {
+	s.PatchValue(&newAddressChangeWatcher, func(_ context.Context) (watcher.NotifyWatcher, error) {
 		return nil, nil
 	})
 }
 
 func (s *MachinerSuite) TestMachinerConfigValidate(c *tc.C) {
-	_, err := machiner.NewMachiner(machiner.Config{})
+	_, err := NewMachiner(Config{})
 	c.Assert(err, tc.ErrorMatches, "validating config: unspecified MachineAccessor not valid")
-	_, err = machiner.NewMachiner(machiner.Config{
+	_, err = NewMachiner(Config{
 		MachineAccessor: &mockMachineAccessor{},
 	})
 	c.Assert(err, tc.ErrorMatches, "validating config: unspecified Tag not valid")
 
-	w, err := machiner.NewMachiner(machiner.Config{
+	w, err := NewMachiner(Config{
 		MachineAccessor: &mockMachineAccessor{},
 		Tag:             names.NewMachineTag("123"),
 	})
@@ -78,7 +77,7 @@ func (s *MachinerSuite) TestMachinerSetUpMachineNotFound(c *tc.C) {
 	s.accessor.SetErrors(
 		&params.Error{Code: params.CodeNotFound}, // Machine
 	)
-	w, err := machiner.NewMachiner(machiner.Config{s.accessor, s.machineTag})
+	w, err := NewMachiner(Config{s.accessor, s.machineTag})
 	c.Assert(err, tc.ErrorIsNil)
 	err = stopWorker(w)
 	c.Assert(errors.Cause(err), tc.Equals, jworker.ErrTerminateAgent)
@@ -100,7 +99,7 @@ func (s *MachinerSuite) testMachinerMachineRefreshNotFoundOrUnauthorized(c *tc.C
 		nil,                       // Watch
 		&params.Error{Code: code}, // Refresh
 	)
-	w, err := machiner.NewMachiner(machiner.Config{s.accessor, s.machineTag})
+	w, err := NewMachiner(Config{s.accessor, s.machineTag})
 	c.Assert(err, tc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(w)
@@ -114,7 +113,7 @@ func (s *MachinerSuite) TestMachinerSetStatusStopped(c *tc.C) {
 		nil,                             // Refresh
 		errors.New("cannot set status"), // SetStatus (stopped)
 	)
-	w, err := machiner.NewMachiner(machiner.Config{
+	w, err := NewMachiner(Config{
 		MachineAccessor: s.accessor,
 		Tag:             s.machineTag,
 	})
@@ -148,7 +147,7 @@ func (s *MachinerSuite) TestMachinerMachineEnsureDeadError(c *tc.C) {
 		nil, // SetStatus
 		errors.New("cannot ensure machine is dead"), // EnsureDead
 	)
-	w, err := machiner.NewMachiner(machiner.Config{
+	w, err := NewMachiner(Config{
 		MachineAccessor: s.accessor,
 		Tag:             s.machineTag,
 	})
@@ -175,7 +174,7 @@ func (s *MachinerSuite) TestMachinerMachineAssignedUnits(c *tc.C) {
 		nil, // SetStatus
 		&params.Error{Code: params.CodeHasAssignedUnits}, // EnsureDead
 	)
-	w, err := machiner.NewMachiner(machiner.Config{
+	w, err := NewMachiner(Config{
 		MachineAccessor: s.accessor,
 		Tag:             s.machineTag,
 	})
@@ -205,7 +204,7 @@ func (s *MachinerSuite) TestMachinerMachineHasContainers(c *tc.C) {
 		nil, // SetStatus
 		&params.Error{Code: params.CodeMachineHasContainers}, // EnsureDead
 	)
-	w, err := machiner.NewMachiner(machiner.Config{
+	w, err := NewMachiner(Config{
 		MachineAccessor: s.accessor,
 		Tag:             s.machineTag,
 	})
@@ -239,7 +238,7 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *tc.C) {
 		&params.Error{Code: params.CodeMachineHasAttachedStorage},
 	)
 
-	worker, err := machiner.NewMachiner(machiner.Config{
+	worker, err := NewMachiner(Config{
 		MachineAccessor: s.accessor, Tag: s.machineTag,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -284,7 +283,7 @@ func (s *MachinerSuite) TestMachinerTryAgain(c *tc.C) {
 		&params.Error{Code: params.CodeTryAgain},
 	)
 
-	worker, err := machiner.NewMachiner(machiner.Config{
+	worker, err := NewMachiner(Config{
 		MachineAccessor: s.accessor, Tag: s.machineTag,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -352,7 +351,7 @@ func (s *MachinerSuite) TestSetDead(c *tc.C) {
 }
 
 func (s *MachinerSuite) TestGetObservedNetworkConfigEmpty(c *tc.C) {
-	s.PatchValue(&machiner.GetObservedNetworkConfig, func(source corenetwork.ConfigSource) (corenetwork.InterfaceInfos, error) {
+	s.PatchValue(&GetObservedNetworkConfig, func(source corenetwork.ConfigSource) (corenetwork.InterfaceInfos, error) {
 		return corenetwork.InterfaceInfos{}, nil
 	})
 
@@ -370,7 +369,7 @@ func (s *MachinerSuite) TestGetObservedNetworkConfigEmpty(c *tc.C) {
 }
 
 func (s *MachinerSuite) TestSetObservedNetworkConfig(c *tc.C) {
-	s.PatchValue(&machiner.GetObservedNetworkConfig, func(source corenetwork.ConfigSource) (corenetwork.InterfaceInfos, error) {
+	s.PatchValue(&GetObservedNetworkConfig, func(source corenetwork.ConfigSource) (corenetwork.InterfaceInfos, error) {
 		return corenetwork.InterfaceInfos{{}}, nil
 	})
 
@@ -391,12 +390,12 @@ func (s *MachinerSuite) TestSetObservedNetworkConfig(c *tc.C) {
 func (s *MachinerSuite) TestAddressChangeTriggersObservedNetworkRefresh(c *tc.C) {
 	addressWatcherChan := make(chan struct{}, 2)
 	addressWatcherChan <- struct{}{}
-	s.PatchValue(machiner.NewAddressChangeWatcherForTest, func(_ context.Context) (watcher.NotifyWatcher, error) {
+	s.PatchValue(&newAddressChangeWatcher, func(_ context.Context) (watcher.NotifyWatcher, error) {
 		return &mockWatcher{changes: addressWatcherChan}, nil
 	})
 
 	observed := make(chan struct{}, 1)
-	s.PatchValue(&machiner.GetObservedNetworkConfig, func(source corenetwork.ConfigSource) (corenetwork.InterfaceInfos, error) {
+	s.PatchValue(&GetObservedNetworkConfig, func(source corenetwork.ConfigSource) (corenetwork.InterfaceInfos, error) {
 		select {
 		case observed <- struct{}{}:
 		default:
@@ -450,7 +449,7 @@ func (s *MachinerSuite) TestAddressWatcherClosedStopsMachiner(c *tc.C) {
 }
 
 func (s *MachinerSuite) TestAliveErrorGetObservedNetworkConfig(c *tc.C) {
-	s.PatchValue(&machiner.GetObservedNetworkConfig, func(source corenetwork.ConfigSource) (corenetwork.InterfaceInfos, error) {
+	s.PatchValue(&GetObservedNetworkConfig, func(source corenetwork.ConfigSource) (corenetwork.InterfaceInfos, error) {
 		return nil, errors.New("no config!")
 	})
 
@@ -468,7 +467,7 @@ func (s *MachinerSuite) TestAliveErrorGetObservedNetworkConfig(c *tc.C) {
 }
 
 func (s *MachinerSuite) makeMachiner(c *tc.C) worker.Worker {
-	w, err := machiner.NewMachiner(machiner.Config{
+	w, err := NewMachiner(Config{
 		MachineAccessor: s.accessor,
 		Tag:             s.machineTag,
 	})
