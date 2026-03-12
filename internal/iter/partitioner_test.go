@@ -22,7 +22,7 @@ type UserRecord struct {
 type partitionerSuite struct{}
 
 // partitionT is a testing int value that can be used with [Partitioner].
-// partitionT implements the [Partionable] interface.
+// partitionT implements the [Partitionable] interface.
 type partitionT int
 
 // Partition returns the int value of [partitionT]. Implements the [Partitioner]

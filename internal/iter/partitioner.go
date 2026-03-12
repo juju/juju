@@ -9,11 +9,11 @@ import (
 	"slices"
 )
 
-// Partionable represents a value that can be grouped by a partition key.
+// Partitionable represents a value that can be grouped by a partition key.
 // The Partition method returns the key that identifies which partition this
 // value belongs to. Values with the same partition key are considered part
 // of the same logical group.
-type Partionable[T cmp.Ordered] interface {
+type Partitionable[T cmp.Ordered] interface {
 	// Partition returns the value T that this object belons to.
 	Partition() T
 }
@@ -34,7 +34,7 @@ type Partionable[T cmp.Ordered] interface {
 // underlying sequence.
 //
 // Partitioner is not considered concurrency safe.
-type Partitioner[V Partionable[T], T cmp.Ordered] struct {
+type Partitioner[V Partitionable[T], T cmp.Ordered] struct {
 	peeked   *V
 	seq      stditer.Seq[V]
 	seqClose func()
@@ -44,7 +44,7 @@ type Partitioner[V Partionable[T], T cmp.Ordered] struct {
 // values V. The slice S must be sorted by partition key in access order,
 // matching the order in which partitions will be requested via
 // [Partitioner.NextPart].
-func NewPartitioner[S []V, V Partionable[T], T cmp.Ordered](s S) *Partitioner[V, T] {
+func NewPartitioner[S []V, V Partitionable[T], T cmp.Ordered](s S) *Partitioner[V, T] {
 	return NewPartitionerFromSeq(slices.Values(s))
 }
 
@@ -52,7 +52,7 @@ func NewPartitioner[S []V, V Partionable[T], T cmp.Ordered](s S) *Partitioner[V,
 // The sequence must yield values sorted by partition key in access order,
 // matching the order in which partitions will be requested via
 // [Partitioner.NextPart].
-func NewPartitionerFromSeq[V Partionable[T], T cmp.Ordered](s stditer.Seq[V]) *Partitioner[V, T] {
+func NewPartitionerFromSeq[V Partitionable[T], T cmp.Ordered](s stditer.Seq[V]) *Partitioner[V, T] {
 	seq, close := ResumableSeq(s)
 	return &Partitioner[V, T]{
 		seq:      seq,
