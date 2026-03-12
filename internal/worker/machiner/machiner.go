@@ -21,6 +21,9 @@ import (
 
 var logger = internallogger.GetLogger("juju.worker.machiner")
 
+type getObservedNetworkConfigFunc func(corenetwork.ConfigSource) (corenetwork.InterfaceInfos, error)
+type newAddressChangeWatcherFunc func(context.Context) (watcher.NotifyWatcher, error)
+
 // Config defines the configuration for a machiner worker.
 type Config struct {
 	// MachineAccessor provides a means of observing and updating the
@@ -29,15 +32,27 @@ type Config struct {
 
 	// Tag is the machine's tag.
 	Tag names.MachineTag
+
+	// GetObservedNetworkConfig discovers the machine's network config.
+	GetObservedNetworkConfig getObservedNetworkConfigFunc
+
+	// NewAddressChangeWatcher watches for local address changes.
+	NewAddressChangeWatcher newAddressChangeWatcherFunc
 }
 
 // Validate reports whether or not the configuration is valid.
-func (cfg *Config) Validate() error {
+func (cfg Config) Validate() error {
 	if cfg.MachineAccessor == nil {
 		return errors.NotValidf("unspecified MachineAccessor")
 	}
 	if cfg.Tag == (names.MachineTag{}) {
 		return errors.NotValidf("unspecified Tag")
+	}
+	if cfg.GetObservedNetworkConfig == nil {
+		return errors.NotValidf("unspecified GetObservedNetworkConfig")
+	}
+	if cfg.NewAddressChangeWatcher == nil {
+		return errors.NotValidf("unspecified NewAddressChangeWatcher")
 	}
 	return nil
 }
@@ -68,12 +83,6 @@ var NewMachiner = func(cfg Config) (worker.Worker, error) {
 	return w, nil
 }
 
-// GetObservedNetworkConfig is patched for testing.
-var GetObservedNetworkConfig = corenetwork.GetObservedNetworkConfig
-
-// newAddressChangeWatcher is patched for testing.
-var newAddressChangeWatcher = newAddressChangeNotifyWatcher
-
 func (mr *Machiner) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
 	// Find which machine we're responsible for.
 	m, err := mr.config.MachineAccessor.Machine(ctx, mr.config.Tag)
@@ -98,7 +107,7 @@ func (mr *Machiner) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
 		return nil, errors.Trace(err)
 	}
 
-	addressWatcher, err := newAddressChangeWatcher(ctx)
+	addressWatcher, err := mr.config.NewAddressChangeWatcher(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "starting local address watcher")
 	}
@@ -123,7 +132,9 @@ func (mr *Machiner) Handle(ctx context.Context) error {
 
 	life := mr.machine.Life()
 	if life == corelife.Alive {
-		interfaceInfos, err := GetObservedNetworkConfig(corenetwork.DefaultConfigSource())
+		interfaceInfos, err := mr.config.GetObservedNetworkConfig(
+			corenetwork.DefaultConfigSource(),
+		)
 		if err != nil {
 			return errors.Annotate(err, "cannot discover observed network config")
 		} else if len(interfaceInfos) == 0 {
