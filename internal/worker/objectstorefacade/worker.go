@@ -13,6 +13,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/objectstore"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/worker/fortress"
 )
@@ -112,27 +113,27 @@ type objectStoreFacade struct {
 // The method will block until the fortress is drained or the context
 // is cancelled. If the fortress is draining, the method will return
 // [objectstore.ErrTimeoutWaitingForDraining] error.
-func (o objectStoreFacade) Get(ctx context.Context, path string) (io.ReadCloser, int64, error) {
+func (o objectStoreFacade) Get(ctx context.Context, path string) (io.ReadCloser, objectstore.Digest, error) {
 	visitCtx, cancel := context.WithTimeout(ctx, visitWaitTimeout)
 	defer cancel()
 
 	var (
 		reader io.ReadCloser
-		size   int64
+		digest objectstore.Digest
 	)
 	if visitErr := o.FortressVisitor.Visit(visitCtx, func() error {
 		var err error
-		reader, size, err = o.ObjectStore.Get(ctx, path)
+		reader, digest, err = o.ObjectStore.Get(ctx, path)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		return nil
 	}); errors.Is(visitErr, fortress.ErrAborted) {
-		return nil, 0, coreobjectstore.ErrTimeoutWaitingForDraining
+		return nil, objectstore.Digest{}, coreobjectstore.ErrTimeoutWaitingForDraining
 	} else if visitErr != nil {
-		return nil, 0, errors.Trace(visitErr)
+		return nil, objectstore.Digest{}, errors.Trace(visitErr)
 	}
-	return reader, size, nil
+	return reader, digest, nil
 }
 
 // GetBySHA256 returns an io.ReadCloser for the object with the given SHA256
@@ -140,27 +141,27 @@ func (o objectStoreFacade) Get(ctx context.Context, path string) (io.ReadCloser,
 // The method will block until the fortress is drained or the context
 // is cancelled. If the fortress is draining, the method will return
 // [objectstore.ErrTimeoutWaitingForDraining] error.
-func (o objectStoreFacade) GetBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
+func (o objectStoreFacade) GetBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, objectstore.Digest, error) {
 	visitCtx, cancel := context.WithTimeout(ctx, visitWaitTimeout)
 	defer cancel()
 
 	var (
 		reader io.ReadCloser
-		size   int64
+		digest objectstore.Digest
 	)
 	if visitErr := o.FortressVisitor.Visit(visitCtx, func() error {
 		var err error
-		reader, size, err = o.ObjectStore.GetBySHA256(ctx, sha256)
+		reader, digest, err = o.ObjectStore.GetBySHA256(ctx, sha256)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		return nil
 	}); errors.Is(visitErr, fortress.ErrAborted) {
-		return nil, 0, coreobjectstore.ErrTimeoutWaitingForDraining
+		return nil, objectstore.Digest{}, coreobjectstore.ErrTimeoutWaitingForDraining
 	} else if visitErr != nil {
-		return nil, 0, errors.Trace(visitErr)
+		return nil, objectstore.Digest{}, errors.Trace(visitErr)
 	}
-	return reader, size, nil
+	return reader, digest, nil
 }
 
 // GetBySHA256Prefix returns an io.ReadCloser for any object with the a SHA256
@@ -168,27 +169,27 @@ func (o objectStoreFacade) GetBySHA256(ctx context.Context, sha256 string) (io.R
 // The method will block until the fortress is drained or the context
 // is cancelled. If the fortress is draining, the method will return
 // [objectstore.ErrTimeoutWaitingForDraining] error.
-func (o objectStoreFacade) GetBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, int64, error) {
+func (o objectStoreFacade) GetBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, objectstore.Digest, error) {
 	visitCtx, cancel := context.WithTimeout(ctx, visitWaitTimeout)
 	defer cancel()
 
 	var (
 		reader io.ReadCloser
-		size   int64
+		digest objectstore.Digest
 	)
 	if visitErr := o.FortressVisitor.Visit(visitCtx, func() error {
 		var err error
-		reader, size, err = o.ObjectStore.GetBySHA256Prefix(ctx, sha256Prefix)
+		reader, digest, err = o.ObjectStore.GetBySHA256Prefix(ctx, sha256Prefix)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		return nil
 	}); errors.Is(visitErr, fortress.ErrAborted) {
-		return nil, 0, coreobjectstore.ErrTimeoutWaitingForDraining
+		return nil, objectstore.Digest{}, coreobjectstore.ErrTimeoutWaitingForDraining
 	} else if visitErr != nil {
-		return nil, 0, errors.Trace(visitErr)
+		return nil, objectstore.Digest{}, errors.Trace(visitErr)
 	}
-	return reader, size, nil
+	return reader, digest, nil
 }
 
 // Put stores data from reader at path, namespaced to the model.
