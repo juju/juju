@@ -408,7 +408,8 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleNotScaling(c *gc.C) {
 		// Should return early - no further calls
 	)
 
-	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app, facade, s.logger)
+	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app,
+		life.Alive, facade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -428,7 +429,8 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleNilProvisioningState(c *gc.C) {
 		// Should return early - no further calls
 	)
 
-	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app, facade, s.logger)
+	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app,
+		life.Alive, facade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -458,7 +460,8 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleUp(c *gc.C) {
 		// No app.Scale should be called - all units are below target
 	)
 
-	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app, facade, s.logger)
+	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app,
+		life.Alive, facade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -492,7 +495,8 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownNotAllDead(c *gc.C) {
 		// No app.Scale should be called - not all excess units (2,3) are dead
 	)
 
-	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app, facade, s.logger)
+	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app,
+		life.Alive, facade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -540,7 +544,8 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownAllExcessDead(c *gc.C) {
 		facade.EXPECT().SetProvisioningState("test", newPs).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app, facade, s.logger)
+	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app, life.Alive,
+		facade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -570,7 +575,58 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownNoExcessUnits(c *gc.C) {
 		// No units >= target, so no scaling needed
 	)
 
-	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app, facade, s.logger)
+	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app, life.Alive,
+		facade, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownDifferentOperationAndAppNotAlive(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+
+	// Scale DOWN: 4 current units -> 0 target units, all excess units are dead
+	units := []params.CAASUnit{
+		{Tag: names.NewUnitTag("test/0")}, // >= target
+		{Tag: names.NewUnitTag("test/1")}, // >= target
+		{Tag: names.NewUnitTag("test/2")}, // >= target
+		{Tag: names.NewUnitTag("test/3")}, // >= target
+	}
+	ps := params.CAASApplicationProvisioningState{
+		// Stuck in a storage update operation BUT a remove application was issued.
+		CurrentOperation: application.StorageUpdateOperation,
+		ScaleTarget:      0, // Scale down to 0 units
+	}
+	appState := caas.ApplicationState{
+		Replicas: []string{}, // Already at target scale
+	}
+	newPs := params.CAASApplicationProvisioningState{
+		CurrentOperation: application.NoOperation,
+		ScaleTarget:      0,
+	}
+
+	gomock.InOrder(
+		facade.EXPECT().Units("test").Return(units, nil),
+		facade.EXPECT().ProvisioningState("test").Return(&ps, nil),
+		facade.EXPECT().Life("test/0").Return(life.Dead, nil), // >= target and dead
+		facade.EXPECT().Life("test/1").Return(life.Dead, nil), // >= target and dead
+		facade.EXPECT().Life("test/2").Return(life.Dead, nil), // >= target and dead
+		facade.EXPECT().Life("test/3").Return(life.Dead, nil), // >= target and dead
+		facade.EXPECT().FilesystemProvisioningInfo("test").Return(api.FilesystemProvisioningInfo{StorageUniqueID: "uniqueid"}, nil),
+		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), "uniqueid").Return(nil),
+		app.EXPECT().Scale(0).Return(nil),
+		app.EXPECT().State().Return(appState, nil),
+		facade.EXPECT().RemoveUnit("test/0").Return(nil),
+		facade.EXPECT().RemoveUnit("test/1").Return(nil),
+		facade.EXPECT().RemoveUnit("test/2").Return(nil),
+		facade.EXPECT().RemoveUnit("test/3").Return(nil),
+		facade.EXPECT().SetProvisioningState("test", newPs).Return(nil),
+	)
+
+	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app, life.Dying,
+		facade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1061,6 +1117,7 @@ func (s *OpsSuite) TestEnsureStorage(c *gc.C) {
 		ReplicaCount:     ps.ReplicaCount,
 		CurrentOperation: application.StorageUpdateOperation,
 	})
+	facade.EXPECT().SetOperatorStatus("test", status.Waiting, "updating storage", gomock.Any())
 
 	app.EXPECT().EnsureStorage(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(
@@ -1071,6 +1128,7 @@ func (s *OpsSuite) TestEnsureStorage(c *gc.C) {
 			return nil
 		})
 
+	facade.EXPECT().SetOperatorStatus("test", status.Active, "", gomock.Any())
 	facade.EXPECT().SetProvisioningState("test", params.CAASApplicationProvisioningState{
 		ScaleTarget:      ps.ScaleTarget,
 		ReplicaCount:     0,
