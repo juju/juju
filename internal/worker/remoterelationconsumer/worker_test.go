@@ -38,14 +38,14 @@ type workerSuite struct {
 func (s *workerSuite) TestWorkerKilled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	done := make(chan struct{})
+	started := make(chan struct{})
 	s.crossModelService.EXPECT().WatchRemoteApplicationOfferers(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
-			defer close(done)
 			return watchertest.NewMockNotifyWatcher(make(chan struct{})), nil
 		})
 	s.crossModelService.EXPECT().WatchDyingModel(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
+			defer close(started)
 			return watchertest.NewMockNotifyWatcher(make(chan struct{})), nil
 		})
 
@@ -53,9 +53,9 @@ func (s *workerSuite) TestWorkerKilled(c *tc.C) {
 	defer workertest.DirtyKill(c, w)
 
 	select {
-	case <-done:
+	case <-started:
 	case <-c.Context().Done():
-		c.Fatalf("timed out waiting for WatchRemoteApplications to be called")
+		c.Fatalf("timed out waiting for worker startup to complete")
 	}
 
 	workertest.CleanKill(c, w)
