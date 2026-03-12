@@ -670,10 +670,14 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileNotFoundThenF
 
 	s.expectStartup(c, ch)
 
-	file, fileSize, err := store.GetBySHA256Prefix(c.Context(), hashPrefix)
+	file, digest, err := store.GetBySHA256Prefix(c.Context(), hashPrefix)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(size, tc.Equals, fileSize)
-	c.Assert(s.readFile(c, file), tc.Equals, "some content")
+	c.Check(digest, tc.DeepEquals, objectstore.Digest{
+		SHA256: hash256,
+		SHA384: hash384,
+		Size:   size,
+	})
+	c.Check(s.readFile(c, file), tc.Equals, "some content")
 
 	workertest.CleanKill(c, store)
 }
