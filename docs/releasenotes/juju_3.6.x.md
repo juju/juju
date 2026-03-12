@@ -14,8 +14,8 @@ myst:
 Juju 3.6 series is LTS
 ```
 
-## 🔸 **Juju 3.6.18**
-🗓️ 13 Mar 2025
+## 🔸 **Juju 3.6.19**
+🗓️ 16 Mar 2025
 
 This is a security and critical bug fix release for Juju 3.6.
 Included are fixes for several CVEs, including Mongo Bleed and other vulnerabilities.
@@ -62,10 +62,10 @@ This means that when deploying a charm with `--base=ubuntu@26.04` will now succe
 ### Other CVEs
 - fix: [CVE-2025-68152](https://github.com/juju/juju/security/advisories/GHSA-j6f6-jp3p-53mw)
 - fix: [CVE-2025-68153](https://github.com/juju/juju/security/advisories/GHSA-245v-p8fj-vwm2)
-- fix: [CVE-2025-xxxxx](https://github.com/juju/juju/security/advisories/GHSA-gfgr-6hrj-85ww)
-- fix: [CVE-2025-xxxxx](https://github.com/juju/juju/security/advisories/GHSA-89x7-5m5m-mcmm)
-- fix: [CVE-2025-xxxxx](https://github.com/juju/juju/security/advisories/GHSA-5cj2-rqqf-hx9p)
-- fix: [CVE-2025-xxxxx](https://github.com/juju/juju/security/advisories/GHSA-439w-v2p7-pggc)
+- fix: [CVE-2026-32691](https://github.com/juju/juju/security/advisories/GHSA-gfgr-6hrj-85ww)
+- fix: [CVE-2026-32692](https://github.com/juju/juju/security/advisories/GHSA-89x7-5m5m-mcmm)
+- fix: [CVE-2026-32694](https://github.com/juju/juju/security/advisories/GHSA-5cj2-rqqf-hx9p)
+- fix: [CVE-2026-32693](https://github.com/juju/juju/security/advisories/GHSA-439w-v2p7-pggc)
 
 ### Handle concurrent secret updates correctly
 When a secret owner adds a new revision to a secret at precisely the same moment as a secret consumer
