@@ -85,7 +85,6 @@ func (env *environ) prefixedInstances(prefix string) ([]*environInstance, error)
 	// whether or not we got an error.
 	var results []*environInstance
 	for _, c := range containers {
-		c := c
 		inst := newInstance(&c, env)
 		results = append(results, inst)
 	}

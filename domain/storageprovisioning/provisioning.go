@@ -95,7 +95,7 @@ func CalculateStorageInstanceComposition(
 		pScope = ProvisionScopeMachine
 	default:
 		return StorageInstanceComposition{}, errors.Errorf(
-			"unrecognised scope %q from provider",
+			"unrecognised scope %v from provider",
 			s,
 		)
 	}

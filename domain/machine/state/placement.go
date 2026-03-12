@@ -283,7 +283,7 @@ VALUES ($machinePlatformUUID.*);
 
 	arch, err := encodeArchitecture(platform.Architecture)
 	if err != nil {
-		return errors.Errorf("encoding architecture %q: %w", platform.Architecture, err)
+		return errors.Errorf("encoding architecture %v: %w", platform.Architecture, err)
 	}
 
 	var channel sql.Null[string]

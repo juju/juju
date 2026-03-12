@@ -100,7 +100,7 @@ func FilesystemStatusTransitionValid(
 	}
 	if !validTransition {
 		return errors.Errorf(
-			"cannot set status %q when filesystem has status %q: %w",
+			"cannot set status %v when filesystem has status %v: %w",
 			new.Status, current, statuserrors.FilesystemStatusTransitionNotValid,
 		)
 	}
@@ -199,7 +199,7 @@ func VolumeStatusTransitionValid(
 	}
 	if !validTransition {
 		return errors.Errorf(
-			"cannot set status %q when volume has status %q: %w",
+			"cannot set status %v when volume has status %v: %w",
 			new.Status, current, statuserrors.VolumeStatusTransitionNotValid,
 		)
 	}

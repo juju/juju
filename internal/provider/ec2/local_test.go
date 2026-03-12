@@ -2551,7 +2551,6 @@ func (t *localServerSuite) TestInstanceGroups(c *tc.C) {
 
 	groupNames := make([]string, len(groups))
 	for i, g := range groups {
-		g := g
 		groupNames[i] = aws.ToString(g.GroupName)
 	}
 	groupsResp, err := ec2conn.DescribeSecurityGroups(c.Context(), &awsec2.DescribeSecurityGroupsInput{

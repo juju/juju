@@ -365,7 +365,6 @@ func (e *EventMultiplexer) dispatchSet(changeSet map[*subscription]ChangeSet) er
 	grp, ctx := errgroup.WithContext(e.catacomb.Context(context.Background()))
 
 	for sub, changes := range changeSet {
-		sub, changes := sub, changes
 
 		grp.Go(func() error {
 			// Pass the context of the catacomb with the deadline to the

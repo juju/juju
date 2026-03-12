@@ -423,7 +423,7 @@ func uuidQueryForID(id annotations.ID) (string, sqlair.M, error) {
 		return `SELECT &annotationUUID.uuid FROM model WHERE name = $M.entity_name`,
 			sqlair.M{"entity_name": id.Name}, nil
 	default:
-		return "", nil, errors.Errorf("cannot generate uuid for kind: %q", id.Kind)
+		return "", nil, errors.Errorf("cannot generate uuid for kind: %d", id.Kind)
 	}
 }
 
@@ -443,7 +443,7 @@ func annotationTableNameFromID(id annotations.ID) (string, error) {
 	case annotations.KindModel:
 		tableName = "annotation_model"
 	default:
-		return "", errors.Errorf("%q: %w", id.Kind, annotationerrors.UnknownKind)
+		return "", errors.Errorf("%d: %w", id.Kind, annotationerrors.UnknownKind)
 	}
 	return tableName, nil
 }

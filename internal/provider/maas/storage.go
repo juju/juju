@@ -30,7 +30,6 @@ func removeAll(store storage.Storage) error {
 	wg.Add(len(names))
 	errc := make(chan error, len(names))
 	for _, name := range names {
-		name := name
 		go func() {
 			defer wg.Done()
 			if err := store.Remove(name); err != nil {

@@ -481,7 +481,7 @@ func validateCharmAndApplicationParams(
 
 	// Validate the origin of the charm.
 	if err := origin.Validate(); err != nil {
-		return errors.Errorf("%w: %v", applicationerrors.CharmOriginNotValid, err)
+		return errors.Errorf("%w: %w", applicationerrors.CharmOriginNotValid, err)
 	}
 
 	return nil
@@ -1825,7 +1825,7 @@ func decodeArchitecture(a architecture.Architecture) (arch.Arch, error) {
 	case architecture.Unknown:
 		return "", nil
 	default:
-		return "", errors.Errorf("unsupported architecture %q", a)
+		return "", errors.Errorf("unsupported architecture %d", a)
 	}
 }
 
