@@ -194,8 +194,9 @@ run_offer_find_external_user() {
 	# Start the discharger in the background; wait for it to write its two
 	# output lines (URL then public key).
 	IDP_OUTPUT="${TEST_DIR}/idp-output.txt"
-	go run github.com/juju/juju/tests/tools/test-identity-provider --username testextuser >"${IDP_OUTPUT}" 2>&1 &
-	track_daemon_pid $!
+	go run -exec "$(track_daemon_exec_trampoline)" \
+		github.com/juju/juju/tests/tools/test-identity-provider \
+		--username testextuser >"${IDP_OUTPUT}" 2>&1 &
 
 	IDP_URL=""
 	IDP_PUBKEY=""
