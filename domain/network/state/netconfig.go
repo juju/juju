@@ -419,7 +419,7 @@ func (st *State) reconcileNetConfigAddresses(
 				return nil, nil, errors.Errorf("invalid IP address %q", a.AddressValue)
 			}
 			ones, bits := cidr.Mask.Size()
-			isSingleHostCIDR := ones == bits
+			isSingleHostCIDR := ones == bits && !ip.IsLoopback()
 
 			var (
 				subnetUUID  string
