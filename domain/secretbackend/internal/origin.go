@@ -3,7 +3,9 @@
 
 package internal
 
-import "github.com/juju/juju/internal/errors"
+import (
+	"github.com/juju/juju/internal/errors"
+)
 
 // Origin represents the origin of a secret backend as recorded in the
 // secret_backend_origin lookup table.
@@ -39,10 +41,4 @@ func ParseOrigin(s string) (Origin, error) {
 		return User, nil
 	}
 	return "", errors.Errorf("unknown origin %q", s)
-}
-
-// MakeBuiltInK8sSecretBackendName returns the name of the built-in k8s secret
-// backend for a given model.
-func MakeBuiltInK8sSecretBackendName(modelName string) string {
-	return modelName + "-local"
 }

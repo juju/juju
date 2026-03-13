@@ -4,8 +4,12 @@
 package secretbackend
 
 import (
+	"strings"
+
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/secretbackend/internal"
+	"github.com/juju/juju/internal/secrets/provider"
+	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 )
 
 // ModelSecretBackend represents a set of data about a model and its secret backend config.
@@ -29,7 +33,21 @@ type ModelSecretBackend struct {
 // ActiveBackendName returns the name of the active secret backend for the model.
 func (m ModelSecretBackend) ActiveBackendName() string {
 	if m.SecretBackendOrigin == internal.BuiltIn && m.ModelType == coremodel.CAAS {
-		return internal.MakeBuiltInK8sSecretBackendName(m.ModelName)
+		return MakeBuiltInK8sSecretBackendName(m.ModelName)
 	}
 	return m.SecretBackendName
+}
+
+// MakeBuiltInK8sSecretBackendName returns the name of the built-in k8s secret
+// backend for a given model.
+func MakeBuiltInK8sSecretBackendName(modelName string) string {
+	return modelName + "-local"
+}
+
+// IsBuiltInK8sSecretBackendName returns true if the given name is a built-in
+// k8s secret backend name.
+func IsBuiltInK8sSecretBackendName(name string) bool {
+	return name == provider.Internal ||
+		name == kubernetes.BackendName ||
+		strings.HasSuffix(name, "-local")
 }
