@@ -30,7 +30,9 @@ CREATE TRIGGER trg_log_object_store_drain_info_update
 AFTER UPDATE ON object_store_drain_info FOR EACH ROW
 WHEN 
 	NEW.uuid != OLD.uuid OR
-	NEW.phase_type_id != OLD.phase_type_id 
+	NEW.phase_type_id != OLD.phase_type_id OR
+	(NEW.from_backend_uuid != OLD.from_backend_uuid OR (NEW.from_backend_uuid IS NOT NULL AND OLD.from_backend_uuid IS NULL) OR (NEW.from_backend_uuid IS NULL AND OLD.from_backend_uuid IS NOT NULL)) OR
+	NEW.to_backend_uuid != OLD.to_backend_uuid 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
