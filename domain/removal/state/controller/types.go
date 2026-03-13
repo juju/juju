@@ -17,3 +17,11 @@ type entityLife struct {
 type count struct {
 	Count int `db:"count"`
 }
+
+type entityName struct {
+	Name string `db:"name"`
+}
+
+type backendName struct {
+	Name string `db:"name"`
+}

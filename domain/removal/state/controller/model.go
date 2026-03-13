@@ -206,6 +206,16 @@ func (st *State) DeleteModel(ctx context.Context, mUUID string) error {
 
 	modelUUIDParam := entityUUID{UUID: mUUID}
 
+	// Retrieve model name before deleting the model row.
+	var modelName entityName
+	modelNameStmt, err := st.Prepare(`
+SELECT name AS &entityName.name
+FROM   model
+WHERE  uuid = $entityUUID.uuid`, entityName{}, modelUUIDParam)
+	if err != nil {
+		return errors.Errorf("preparing get model name query: %w", err)
+	}
+
 	// Prepare query for deleting model row.
 	deleteModelStmt, err := st.Prepare(`
 DELETE FROM model 
@@ -250,9 +260,19 @@ WHERE grant_on = $entityUUID.uuid;
 				Add(removalerrors.RemovalJobIncomplete)
 		}
 
+		// Retrieve model name.
+		if err := tx.Query(ctx, modelNameStmt, modelUUIDParam).Get(&modelName); err != nil {
+			return errors.Errorf("getting model name: %w", err)
+		}
+
 		// Delete the model's basic data in one shot.
 		if err := st.removeBasicModelData(ctx, tx, modelUUIDParam.UUID); err != nil {
 			return errors.Errorf("removing basic model data: %w", err)
+		}
+
+		// Delete the dedicated built-in secret backend if any (CaaS model)
+		if err := st.removeBuiltInSecretBackendForModel(ctx, tx, modelName.Name); err != nil {
+			return errors.Errorf("removing built-in secret backend for CaaS model: %w", err)
 		}
 
 		// Delete the model permissions.

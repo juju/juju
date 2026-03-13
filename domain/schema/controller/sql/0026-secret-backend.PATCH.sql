@@ -27,7 +27,7 @@ INSERT INTO secret_backend_origin (id, origin) VALUES
 (1, 'user');
 
 -- Add the origin_id column to secret_backend; Defaulted to 1 (user).
--- Include a column-level FK reference for SQLite.
+-- Include a column-level FKuuid reference for SQLite.
 ALTER TABLE secret_backend
 -- ideally origin_id should be set NOT NULL DEFAULT 1 but can't since sqlite doesn't allows that while ALTER TABLE
 ADD COLUMN origin_id INT -- NOT NULL DEFAULT 1
