@@ -110,44 +110,6 @@ func (m *MockAccessService) EXPECT() *MockAccessServiceMockRecorder {
 	return m.recorder
 }
 
-// EnsureExternalUserIfAuthorized mocks base method.
-func (m *MockAccessService) EnsureExternalUserIfAuthorized(arg0 context.Context, arg1 user.Name, arg2 permission.ID) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureExternalUserIfAuthorized", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// EnsureExternalUserIfAuthorized indicates an expected call of EnsureExternalUserIfAuthorized.
-func (mr *MockAccessServiceMockRecorder) EnsureExternalUserIfAuthorized(arg0, arg1, arg2 any) *MockAccessServiceEnsureExternalUserIfAuthorizedCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureExternalUserIfAuthorized", reflect.TypeOf((*MockAccessService)(nil).EnsureExternalUserIfAuthorized), arg0, arg1, arg2)
-	return &MockAccessServiceEnsureExternalUserIfAuthorizedCall{Call: call}
-}
-
-// MockAccessServiceEnsureExternalUserIfAuthorizedCall wrap *gomock.Call
-type MockAccessServiceEnsureExternalUserIfAuthorizedCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockAccessServiceEnsureExternalUserIfAuthorizedCall) Return(arg0 error) *MockAccessServiceEnsureExternalUserIfAuthorizedCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockAccessServiceEnsureExternalUserIfAuthorizedCall) Do(f func(context.Context, user.Name, permission.ID) error) *MockAccessServiceEnsureExternalUserIfAuthorizedCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAccessServiceEnsureExternalUserIfAuthorizedCall) DoAndReturn(f func(context.Context, user.Name, permission.ID) error) *MockAccessServiceEnsureExternalUserIfAuthorizedCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetUserByAuth mocks base method.
 func (m *MockAccessService) GetUserByAuth(arg0 context.Context, arg1 user.Name, arg2 auth.Password) (user.User, error) {
 	m.ctrl.T.Helper()

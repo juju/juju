@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/pinger"
 	"github.com/juju/juju/core/securitylog"
 	"github.com/juju/juju/core/trace"
+	coreuser "github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -330,6 +331,22 @@ func (a *admin) authenticate(ctx context.Context, modelExists bool, req params.L
 			// agents when logging into the controller model.
 			startPinger = false
 			controllerConn = true
+		}
+
+		// For external users, ensure a database record exists before
+		// permission checks. User creation is unconditional at this
+		// point — the entity is already authenticated.
+		// Authorization is deferred to checkUserPermissions.
+		if authInfo.IsExternallyAuthenticated {
+			userTag, ok := authInfo.Tag.(names.UserTag)
+			if !ok {
+				return nil, errors.Errorf("externally authenticated entity %q is not a user", authInfo.Tag)
+			}
+			userName := coreuser.NameFromTag(userTag)
+			if err := a.root.domainServices.Access().EnsureExternalUser(ctx, userName); err != nil {
+				logger.Warningf(ctx, "ensuring external user %q in database: %v", userName, err)
+				return nil, errors.Annotatef(err, "ensuring external user record for %q", userName)
+			}
 		}
 	}
 	if !modelExists {

@@ -40,6 +40,11 @@ type AuthInfo struct {
 	// Controller reports whether or not the authenticated
 	// entity is a controller agent.
 	Controller bool
+
+	// IsExternallyAuthenticated reports whether the entity was authenticated
+	// via an external mechanism (JWT or macaroon discharge for an external user).
+	// Set by the authenticator; used to drive external user creation at login.
+	IsExternallyAuthenticated bool
 }
 
 // AuthParams holds the info used to authenticate a login request.

@@ -272,11 +272,12 @@ func (a *Authenticator) checkCreds(
 
 	switch authenticatedTag.Kind() {
 	case names.UserTagKind:
+		userTag := authenticatedTag.(names.UserTag)
+		authInfo.IsExternallyAuthenticated = !userTag.IsLocal()
+
 		// TODO (stickupkid): This is incorrect. We should only be updating the
 		// last login time if they've been authorized (not just authenticated).
 		// For now we'll leave it as is, but we should fix this.
-		userTag := authenticatedTag.(names.UserTag)
-
 		err = a.authContext.accessService.UpdateLastModelLogin(ctx, user.NameFromTag(userTag), modelUUID)
 		if err != nil {
 			logger.Warningf(ctx, "updating last login time for %v, %v", userTag, err)

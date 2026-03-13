@@ -40,6 +40,47 @@ func NewUserState(factory database.TxnRunnerFactory, clock clock.Clock) *UserSta
 	}
 }
 
+// EnsureExternalUser ensures that the given external user exists in the
+// database, creating them if necessary.
+// If the user already exists, this is a no-op.
+func (st *UserState) EnsureExternalUser(ctx context.Context, subject user.Name) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Get the UUID of everyone@external to use as the creator.
+		creatorUUID, err := GetUserUUIDByName(ctx, tx, permission.EveryoneUserName)
+		if errors.Is(err, accesserrors.UserNotFound) {
+			return errors.Errorf("%q (should be added on bootstrap): %w", permission.EveryoneUserName, accesserrors.UserNotFound)
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+
+		userUUID, err := user.NewUUID()
+		if err != nil {
+			return errors.Errorf("generating user UUID: %w", err)
+		}
+
+		err = AddUser(ctx, tx, userUUID, subject, subject.Name(), true, creatorUUID, st.clock.Now().UTC())
+		if err != nil {
+			// User already exists — this is the expected path for
+			// returning users and also handles the race condition
+			// of two concurrent logins for the same new user.
+			if errors.Is(err, accesserrors.UserAlreadyExists) {
+				return nil
+			}
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Errorf("ensuring external user %q: %w", subject, err)
+	}
+	return nil
+}
+
 // AddUser adds a new user to the database and enables the user.
 // If the user already exists an error that satisfies
 // [accesserrors.UserAlreadyExists] will be returned. If the creator does not
