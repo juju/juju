@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -82,9 +83,13 @@ type State interface {
 // phase of the object store.
 type DrainingState interface {
 	State
-	// GetActiveDrainingPhase returns the active draining phase of the object
+
+	// GetActiveDrainingInfo returns the active draining info of the object
 	// store.
-	GetActiveDrainingPhase(ctx context.Context) (string, objectstore.Phase, error)
+	GetActiveDrainingInfo(ctx context.Context) (domainobjectstore.DrainingInfo, error)
+
+	// StartDraining initiates the draining process for the object store.
+	StartDraining(ctx context.Context, uuid string) error
 
 	// SetDrainingPhase sets the phase of the object store to draining.
 	SetDrainingPhase(ctx context.Context, uuid string, phase objectstore.Phase) error
@@ -423,18 +428,19 @@ func (s *WatchableDrainingService) SetDrainingPhase(ctx context.Context, phase o
 		return errors.Errorf("invalid phase %q", phase)
 	}
 
-	uuid, current, err := s.st.GetActiveDrainingPhase(ctx)
+	phaseInfo, err := s.st.GetActiveDrainingInfo(ctx)
 	if errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
 		uuid, err := objectstore.NewUUID()
 		if err != nil {
 			return errors.Errorf("creating new uuid: %w", err)
 		}
 
-		return s.st.SetDrainingPhase(ctx, uuid.String(), phase)
+		return s.st.StartDraining(ctx, uuid.String())
 	} else if err != nil {
 		return errors.Errorf("getting active draining phase: %w", err)
 	}
 
+	current := objectstore.Phase(phaseInfo.Phase)
 	if _, err := current.TransitionTo(phase); errors.Is(err, objectstore.ErrTerminalPhase) {
 		return nil
 	} else if err != nil {
@@ -442,7 +448,7 @@ func (s *WatchableDrainingService) SetDrainingPhase(ctx context.Context, phase o
 	}
 
 	// Set the phase in the state.
-	if err := s.st.SetDrainingPhase(ctx, uuid, phase); err != nil {
+	if err := s.st.SetDrainingPhase(ctx, phaseInfo.UUID, phase); err != nil {
 		return errors.Errorf("setting draining phase: %w", err)
 	}
 	return nil
@@ -453,13 +459,13 @@ func (s *WatchableDrainingService) GetDrainingPhase(ctx context.Context) (object
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	_, phase, err := s.st.GetActiveDrainingPhase(ctx)
+	info, err := s.st.GetActiveDrainingInfo(ctx)
 	if errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
 		return objectstore.PhaseUnknown, nil
 	} else if err != nil {
 		return "", errors.Errorf("getting draining phase: %w", err)
 	}
-	return phase, nil
+	return objectstore.Phase(info.Phase), nil
 }
 
 // WatchDraining returns a watcher that watches the draining phase of the
