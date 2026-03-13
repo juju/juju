@@ -29,6 +29,7 @@ test_secrets_k8s() {
 	test_user_secrets
 	test_user_secret_drain
 	test_add_multiple_secrets_parallel
+	test_secrets_cmr
 
 	# Takes too long to tear down, so forcibly destroy it
 	export KILL_CONTROLLER=true
