@@ -7,11 +7,15 @@ import (
 	"io"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/names/v5"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/juju/juju/cloud"
 )
+
+var logger = loggo.GetLogger("juju.caas.kubernetes.cloud")
 
 // CloudParameters describes basic properties that should be set on a Juju
 // cloud.Cloud object. This struct exists to help form Cloud structs from
@@ -74,6 +78,10 @@ func CloudsFromKubeConfigContextsWithParams(
 ) ([]cloud.Cloud, error) {
 	clouds := []cloud.Cloud{}
 	for ctxName := range config.Contexts {
+		if !names.IsValidCloud(ctxName) {
+			logger.Debugf("ignoring context %q because it is not a valid cloud name", ctxName)
+			continue
+		}
 		cloud, err := CloudFromKubeConfigContext(
 			ctxName,
 			config,

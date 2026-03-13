@@ -109,6 +109,46 @@ users:
 	c.Assert(foundCloud2, jc.IsTrue)
 }
 
+func (s *cloudSuite) TestCloudsFromKubeConfigContextsFiltersInvalidNames(c *gc.C) {
+	rawConf := `
+apiVersion: v1
+clusters:
+- cluster:
+    server: https://localhost:8443
+  name: jujukube
+- cluster:
+    server: https://localhost:8443
+  name: kubernetes
+contexts:
+- context:
+    cluster: jujukube
+    namespace: juju-controller
+    user: wallyworld
+  name: jujukube
+- context:
+    cluster: kubernetes
+    namespace: juju-controller
+    user: wallyworld
+  name: kubernetes-admin@kubernetes
+current-context: jujukube
+kind: Config
+preferences: {}
+users:
+- name: wallyworld
+  user:
+    username: wallyworld
+    password: jujurocks
+`
+
+	conf, err := k8scloud.ConfigFromReader(strings.NewReader(rawConf))
+	c.Assert(err, jc.ErrorIsNil)
+	clouds, err := k8scloud.CloudsFromKubeConfigContexts(conf)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(clouds), gc.Equals, 1)
+
+	c.Assert(clouds[0].Name, gc.Equals, "jujukube")
+}
+
 func (s *cloudSuite) TestCloudFromKubeConfigContext(c *gc.C) {
 	rawConf := `
 apiVersion: v1
