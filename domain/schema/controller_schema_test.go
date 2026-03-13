@@ -341,6 +341,10 @@ func (s *controllerSchemaSuite) TestControllerTriggers(c *tc.C) {
 		"trg_log_object_store_drain_info_insert",
 		"trg_log_object_store_drain_info_update",
 		"trg_log_object_store_drain_info_delete",
+
+		"trg_log_object_store_backend_delete",
+		"trg_log_object_store_backend_insert",
+		"trg_log_object_store_backend_update",
 	)
 
 	// These are additional triggers that are not change log triggers, but
