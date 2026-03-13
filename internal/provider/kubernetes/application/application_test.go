@@ -153,7 +153,9 @@ func (s *applicationSuite) getApp(c *gc.C, deploymentType caas.DeploymentType, m
 	), ctrl
 }
 
-func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivateImageRepo bool, cons constraints.Value, trust bool, rootless bool, agentVersion string, checkMainResource func()) {
+func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application,
+	isPrivateImageRepo bool, cons constraints.Value, trust bool, rootless bool,
+	agentVersion string, checkMainResource func()) {
 	if agentVersion == "" {
 		agentVersion = defaultAgentVersion
 	}
@@ -195,6 +197,7 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 			}},
 		},
 	}
+
 	pullSecretConfig, _ := k8sutils.CreateDockerConfigJSON("username", "password", "docker.io/library/nginx:latest")
 	nginxPullSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -223,6 +226,91 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 		},
 		AutomountServiceAccountToken: pointer.BoolPtr(false),
 	}
+
+	appRoleBinding := rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gitlab",
+			Namespace: "test",
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       "gitlab",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{"juju.is/version": agentVersion},
+		},
+		Subjects: []rbacv1.Subject{{
+			Kind:      "ServiceAccount",
+			Name:      "gitlab",
+			Namespace: "test",
+		}},
+		RoleRef: rbacv1.RoleRef{
+			Kind: "Role",
+			Name: "gitlab",
+		},
+	}
+
+	appClusterRoleBinding := rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-gitlab",
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       "gitlab",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{"juju.is/version": agentVersion},
+		},
+		Subjects: []rbacv1.Subject{{
+			Kind:      "ServiceAccount",
+			Name:      "gitlab",
+			Namespace: "test",
+		}},
+		RoleRef: rbacv1.RoleRef{
+			Kind: "ClusterRole",
+			Name: "test-gitlab",
+		},
+	}
+
+	appConfig, appRole, appClusterRole := s.createAppConfig(isPrivateImageRepo,
+		cons, trust, rootless, agentVersion)
+	c.Assert(app.Ensure(appConfig), jc.ErrorIsNil)
+
+	secret, err := s.client.CoreV1().Secrets("test").Get(context.TODO(), "gitlab-application-config", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(secret, gc.DeepEquals, &appSecret)
+
+	secret, err = s.client.CoreV1().Secrets("test").Get(context.TODO(), "gitlab-nginx-secret", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(secret, gc.DeepEquals, &nginxPullSecret)
+
+	svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(svc, gc.DeepEquals, &appSvc)
+
+	sa, err := s.client.CoreV1().ServiceAccounts(s.namespace).Get(context.TODO(), "gitlab", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sa, gc.DeepEquals, &appSA)
+
+	r, err := s.client.RbacV1().Roles(s.namespace).Get(context.TODO(), "gitlab", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r, gc.DeepEquals, &appRole)
+
+	cr, err := s.client.RbacV1().ClusterRoles().Get(context.TODO(), "test-gitlab", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cr, gc.DeepEquals, &appClusterRole)
+
+	rb, err := s.client.RbacV1().RoleBindings(s.namespace).Get(context.TODO(), "gitlab", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rb, gc.DeepEquals, &appRoleBinding)
+
+	crb, err := s.client.RbacV1().ClusterRoleBindings().Get(context.TODO(), "test-gitlab", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(crb, gc.DeepEquals, &appClusterRoleBinding)
+
+	checkMainResource()
+}
+
+func (s *applicationSuite) createAppConfig(isPrivateImageRepo bool,
+	cons constraints.Value, trust bool, rootless bool, agentVersion string) (
+	caas.ApplicationConfig, rbacv1.Role, rbacv1.ClusterRole,
+) {
 	appRole := rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "gitlab",
@@ -269,26 +357,6 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 			},
 		}
 	}
-	appRoleBinding := rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "gitlab",
-			Namespace: "test",
-			Labels: map[string]string{
-				"app.kubernetes.io/name":       "gitlab",
-				"app.kubernetes.io/managed-by": "juju",
-			},
-			Annotations: map[string]string{"juju.is/version": agentVersion},
-		},
-		Subjects: []rbacv1.Subject{{
-			Kind:      "ServiceAccount",
-			Name:      "gitlab",
-			Namespace: "test",
-		}},
-		RoleRef: rbacv1.RoleRef{
-			Kind: "Role",
-			Name: "gitlab",
-		},
-	}
 	appClusterRole := rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-gitlab",
@@ -312,27 +380,8 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 			Resources: []string{"namespaces"},
 		}}
 	}
-	appClusterRoleBinding := rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-gitlab",
-			Labels: map[string]string{
-				"app.kubernetes.io/name":       "gitlab",
-				"app.kubernetes.io/managed-by": "juju",
-			},
-			Annotations: map[string]string{"juju.is/version": agentVersion},
-		},
-		Subjects: []rbacv1.Subject{{
-			Kind:      "ServiceAccount",
-			Name:      "gitlab",
-			Namespace: "test",
-		}},
-		RoleRef: rbacv1.RoleRef{
-			Kind: "ClusterRole",
-			Name: "test-gitlab",
-		},
-	}
 
-	appConfig := caas.ApplicationConfig{
+	return caas.ApplicationConfig{
 		AgentVersion:         version.MustParse(agentVersion),
 		IsPrivateImageRepo:   isPrivateImageRepo,
 		AgentImagePath:       "operator/image-path:1.1.1",
@@ -410,43 +459,7 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 			return caas.RunAsDefault
 		}(),
 		StorageUniqueID: "appuuid",
-	}
-
-	c.Assert(app.Ensure(appConfig), jc.ErrorIsNil)
-
-	secret, err := s.client.CoreV1().Secrets("test").Get(context.TODO(), "gitlab-application-config", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(secret, gc.DeepEquals, &appSecret)
-
-	secret, err = s.client.CoreV1().Secrets("test").Get(context.TODO(), "gitlab-nginx-secret", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(secret, gc.DeepEquals, &nginxPullSecret)
-
-	svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(svc, gc.DeepEquals, &appSvc)
-
-	sa, err := s.client.CoreV1().ServiceAccounts(s.namespace).Get(context.TODO(), "gitlab", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sa, gc.DeepEquals, &appSA)
-
-	r, err := s.client.RbacV1().Roles(s.namespace).Get(context.TODO(), "gitlab", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r, gc.DeepEquals, &appRole)
-
-	cr, err := s.client.RbacV1().ClusterRoles().Get(context.TODO(), "test-gitlab", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cr, gc.DeepEquals, &appClusterRole)
-
-	rb, err := s.client.RbacV1().RoleBindings(s.namespace).Get(context.TODO(), "gitlab", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rb, gc.DeepEquals, &appRoleBinding)
-
-	crb, err := s.client.RbacV1().ClusterRoleBindings().Get(context.TODO(), "test-gitlab", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(crb, gc.DeepEquals, &appClusterRoleBinding)
-
-	checkMainResource()
+	}, appRole, appClusterRole
 }
 
 func (s *applicationSuite) assertDelete(c *gc.C, app caas.Application) {
@@ -2243,6 +2256,8 @@ func (m resourceMatcher) Matches(x interface{}) bool {
 		return reflect.DeepEqual(m.expectedResource, res.Secret)
 	case *resources.StatefulSet:
 		return reflect.DeepEqual(m.expectedResource, res.StatefulSet)
+	case *resources.StatefulSetWithOrphanDelete:
+		return reflect.DeepEqual(m.expectedResource, res.StatefulSet.StatefulSet)
 	case *resources.DaemonSet:
 		return reflect.DeepEqual(m.expectedResource, res.DaemonSet)
 	case *resources.RoleBinding:

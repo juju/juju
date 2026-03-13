@@ -18,9 +18,11 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/wrench"
 )
 
 // ApplicationOps defines all the operations the application worker can perform.
@@ -54,68 +56,103 @@ type ApplicationOps interface {
 		clk clock.Clock) error
 
 	ReconcileDeadUnitScale(appName string, app caas.Application,
-		facade CAASProvisionerFacade, logger Logger) error
+		appLife life.Value, facade CAASProvisionerFacade, logger Logger) error
 
 	EnsureScale(appName string, app caas.Application, appLife life.Value,
 		facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) error
+
+	EnsureStorage(appName string, app caas.Application, lastApplied *caas.ApplicationConfig,
+		password string, facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error
 }
 
 type applicationOps struct {
 }
 
+// AppAlive ensures the application's resources exist in the provider.
 func (applicationOps) AppAlive(appName string, app caas.Application, password string, lastApplied *caas.ApplicationConfig,
 	facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
 	return appAlive(appName, app, password, lastApplied, facade, clk, logger)
 }
 
+// AppDying scales the application down to zero and reconciles any dead units,
+// preparing the application for removal from the provider.
 func (applicationOps) AppDying(appName string, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) error {
 	return appDying(appName, app, appLife, facade, unitFacade, logger)
 }
 
+// AppDead deletes the application from the provider.
 func (applicationOps) AppDead(appName string, app caas.Application,
 	broker CAASBroker, facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, clk clock.Clock, logger Logger) error {
 	return appDead(appName, app, broker, facade, unitFacade, clk, logger)
 }
 
+// VerifyCharmUpgraded blocks until the application's charm has been upgraded to
+// a v2 (sidecar) format. Returns shouldExit=true if the application no longer
+// exists or is dead and the worker should exit without error.
 func (applicationOps) VerifyCharmUpgraded(appName string,
 	facade CAASProvisionerFacade, tomb Tomb, logger Logger) (shouldExit bool, err error) {
 	return verifyCharmUpgraded(appName, facade, tomb, logger)
 }
 
+// UpgradePodSpec removes any legacy operator and workload pods left over from a
+// previous pod-spec deployment, waiting for full termination before returning.
 func (applicationOps) UpgradePodSpec(appName string,
 	broker CAASBroker, clk clock.Clock, tomb Tomb, logger Logger) error {
 	return upgradePodSpec(appName, broker, clk, tomb, logger)
 }
 
+// EnsureTrust grants or revokes the application's access to the Kubernetes API
+// via a service account, synchronizing the cluster state with the desired trust
+// value from the controller.
 func (applicationOps) EnsureTrust(appName string, app caas.Application,
 	unitFacade CAASUnitProvisionerFacade, logger Logger) error {
 	return ensureTrust(appName, app, unitFacade, logger)
 }
 
+// UpdateState reports the application's current service addresses, unit
+// statuses, and filesystem/volume information. It returns
+// the most recently reported status for each unit.
 func (applicationOps) UpdateState(appName string, app caas.Application, lastReportedStatus map[string]status.StatusInfo,
 	broker CAASBroker, facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) (map[string]status.StatusInfo, error) {
 	return updateState(appName, app, lastReportedStatus, broker, facade, unitFacade, logger)
 }
 
+// RefreshApplicationStatus sets the application's operator status to "waiting"
+// if units are still settling or "active" once all desired replicas are ready.
 func (applicationOps) RefreshApplicationStatus(appName string, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade, logger Logger) error {
 	return refreshApplicationStatus(appName, app, appLife, facade, logger)
 }
 
+// WaitForTerminated polls until the application no longer exists in the provider.
 func (applicationOps) WaitForTerminated(appName string, app caas.Application,
 	clk clock.Clock) error {
 	return waitForTerminated(appName, app, clk)
 }
 
+// ReconcileDeadUnitScale removes dead units and scales the provider
+// application down once all units above the desired scale target have reached
+// the Dead lifecycle state.
 func (applicationOps) ReconcileDeadUnitScale(appName string, app caas.Application,
-	facade CAASProvisionerFacade, logger Logger) error {
-	return reconcileDeadUnitScale(appName, app, facade, logger)
+	appLife life.Value, facade CAASProvisionerFacade, logger Logger) error {
+	return reconcileDeadUnitScale(appName, app, appLife, facade, logger)
 }
 
+// EnsureScale reconciles the application's actual replica count with the
+// desired scale target.
 func (applicationOps) EnsureScale(appName string, app caas.Application, appLife life.Value,
 	facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) error {
 	return ensureScale(appName, app, appLife, facade, unitFacade, logger)
+}
+
+// EnsureStorage recreates the app in the caas provider with updated filesystem
+// configurations when storage updates occur, preserving the current
+// replica count across the operation.
+func (applicationOps) EnsureStorage(appName string, app caas.Application,
+	lastApplied *caas.ApplicationConfig, password string,
+	facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
+	return ensureStorage(appName, app, lastApplied, password, facade, clk, logger)
 }
 
 type Tomb interface {
@@ -123,39 +160,43 @@ type Tomb interface {
 	ErrDying() error
 }
 
-// appAlive handles the life.Alive state for the CAAS application. It handles invoking the
-// CAAS broker to create the resources in the k8s cluster for this application.
-func appAlive(appName string, app caas.Application, password string, lastApplied *caas.ApplicationConfig,
-	facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
-	logger.Debugf("ensuring application %q exists", appName)
+func appConfig(appName string, app caas.Application, password string,
+	facade CAASProvisionerFacade, clk clock.Clock) (
+	caas.ApplicationConfig, caas.DeploymentState, error,
+) {
+	emptyCfg := caas.ApplicationConfig{}
+	emptyState := caas.DeploymentState{}
 
 	provisionInfo, err := facade.ProvisioningInfo(appName)
 	if err != nil {
-		return errors.Annotate(err, "retrieving provisioning info")
+		return emptyCfg, emptyState,
+			errors.Annotate(err, "retrieving provisioning info")
 	}
+
 	if provisionInfo.CharmURL == nil {
-		return errors.Errorf("missing charm url in provision info")
+		return emptyCfg, emptyState,
+			errors.Errorf("missing charm url in provision info")
 	}
 
 	charmInfo, err := facade.CharmInfo(provisionInfo.CharmURL.String())
 	if err != nil {
-		return errors.Annotatef(err, "retrieving charm deployment info for %q", appName)
+		return emptyCfg, emptyState, errors.Annotatef(err, "retrieving charm deployment info for %q", appName)
 	}
 
 	appState, err := app.Exists()
 	if err != nil {
-		return errors.Annotatef(err, "retrieving application state for %q", appName)
+		return emptyCfg, emptyState, errors.Annotatef(err, "retrieving application state for %q", appName)
 	}
 
 	if appState.Exists && appState.Terminating {
 		if err := waitForTerminated(appName, app, clk); err != nil {
-			return errors.Annotatef(err, "%q was terminating and there was an error waiting for it to stop", appName)
+			return emptyCfg, emptyState, errors.Annotatef(err, "%q was terminating and there was an error waiting for it to stop", appName)
 		}
 	}
 
 	images, err := facade.ApplicationOCIResources(appName)
 	if err != nil {
-		return errors.Annotate(err, "getting OCI image resources")
+		return emptyCfg, emptyState, errors.Annotate(err, "getting OCI image resources")
 	}
 
 	ch := charmInfo.Charm()
@@ -167,7 +208,7 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		},
 	})
 	if err != nil {
-		return errors.Annotate(err, "getting image for base")
+		return emptyCfg, emptyState, errors.Annotate(err, "getting image for base")
 	}
 
 	containers := make(map[string]caas.ContainerConfig)
@@ -178,11 +219,11 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 			Gid:  v.Gid,
 		}
 		if v.Resource == "" {
-			return errors.NotValidf("empty container resource reference")
+			return emptyCfg, emptyState, errors.NotValidf("empty container resource reference")
 		}
 		image, ok := images[v.Resource]
 		if !ok {
-			return errors.NotFoundf("referenced charm base image resource %s", v.Resource)
+			return emptyCfg, emptyState, errors.NotFoundf("referenced charm base image resource %s", v.Resource)
 		}
 		container.Image = image
 		for _, m := range v.Mounts {
@@ -210,11 +251,8 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		Containers:           containers,
 		CharmModifiedVersion: provisionInfo.CharmModifiedVersion,
 		Trust:                provisionInfo.Trust,
-		// TODO(jneo8): Now units scaling from 0->N follow the same flow.
-		// The provisionInfo.Scale is no longer used, so in theory we
-		// could delete this field. Should investigate refactoring.
-		InitialScale:    0,
-		StorageUniqueID: provisionInfo.StorageUniqueID,
+		InitialScale:         0,
+		StorageUniqueID:      provisionInfo.StorageUniqueID,
 	}
 	switch ch.Meta().CharmUser {
 	case charm.RunAsDefault:
@@ -226,7 +264,20 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 	case charm.RunAsNonRoot:
 		config.CharmUser = caas.RunAsNonRoot
 	default:
-		return errors.NotValidf("unknown RunAs for CharmUser: %q", ch.Meta().CharmUser)
+		return emptyCfg, emptyState, errors.NotValidf("unknown RunAs for CharmUser: %q", ch.Meta().CharmUser)
+	}
+	return config, appState, nil
+}
+
+// appAlive handles the life.Alive state for the CAAS application. It handles invoking the
+// CAAS broker to create the resources in the k8s cluster for this application.
+func appAlive(appName string, app caas.Application, password string, lastApplied *caas.ApplicationConfig,
+	facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
+	logger.Debugf("ensuring application %q exists", appName)
+
+	config, appState, err := appConfig(appName, app, password, facade, clk)
+	if err != nil {
+		return errors.Annotatef(err, "building app %q config", appName)
 	}
 	reason := "unchanged"
 	// TODO(sidecar): implement Equals method for caas.ApplicationConfig
@@ -254,7 +305,7 @@ func appDying(appName string, app caas.Application, appLife life.Value,
 	if err != nil {
 		return errors.Annotate(err, "cannot scale dying application to 0")
 	}
-	err = reconcileDeadUnitScale(appName, app, facade, logger)
+	err = reconcileDeadUnitScale(appName, app, appLife, facade, logger)
 	if err != nil {
 		return errors.Annotate(err, "cannot reconcile dead units in dying application")
 	}
@@ -605,7 +656,7 @@ func waitForTerminated(appName string, app caas.Application,
 // has reached the a point where the desired scale has been achieved this func
 // can go ahead and removed the units from CAAS provider.
 func reconcileDeadUnitScale(appName string, app caas.Application,
-	facade CAASProvisionerFacade, logger Logger) error {
+	appLife life.Value, facade CAASProvisionerFacade, logger Logger) error {
 	units, err := facade.Units(appName)
 	if err != nil {
 		return fmt.Errorf("getting units for application %s: %w", appName, err)
@@ -615,7 +666,16 @@ func reconcileDeadUnitScale(appName string, app caas.Application,
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if ps == nil || !ps.Scaling {
+	if ps == nil || ps.CurrentOperation == application.NoOperation {
+		return nil
+	}
+	// We block if it's another op running and the app is alive because we need
+	// to wait for that op to complete.
+	// If it's another op running and the app is dying or dead, then we can continue
+	// to allow scaling the app to 0.
+	scaleOp := application.ScaleOperation
+	anotherOpRunning := application.IsDifferentOperation(ps.CurrentOperation, scaleOp)
+	if anotherOpRunning && appLife == life.Alive {
 		return nil
 	}
 
@@ -675,7 +735,8 @@ func reconcileDeadUnitScale(appName string, app caas.Application,
 		}
 	}
 
-	return updateProvisioningState(appName, false, 0, facade)
+	return updateProvisioningState(appName, 0,
+		application.NoOperation, facade)
 }
 
 // ensureScale determines how and when to scale up or down based on
@@ -705,18 +766,34 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 	}
 
 	logger.Debugf("updating application %q scale to %d", appName, desiredScale)
-	if !ps.Scaling || appLife != life.Alive {
-		err := updateProvisioningState(appName, true, desiredScale, facade)
+	scaleOp := application.ScaleOperation
+	anotherOpRunning := application.IsDifferentOperation(ps.CurrentOperation, scaleOp)
+	// We block if it's another op running and the app is alive because we need
+	// to wait for that op to complete.
+	// If it's another op running and the app is dying or dead, then we can continue
+	// to allow scaling the app to 0.
+	if anotherOpRunning && appLife == life.Alive {
+		return tryAgain
+	}
+
+	if ps.CurrentOperation == application.NoOperation || appLife != life.Alive {
+		err := updateProvisioningState(appName, desiredScale,
+			scaleOp, facade)
 		if err != nil {
 			return err
 		}
-		ps.Scaling = true
+		ps.CurrentOperation = scaleOp
 		ps.ScaleTarget = desiredScale
 	}
 
 	units, err := facade.Units(appName)
 	if err != nil {
 		return err
+	}
+
+	if wrench.IsActive("scale-application", "ensure-scale-fail") {
+		logger.Debugf("feature ensure-scale-fail is enabled for testing purposes")
+		return errors.Errorf("ensure-scale-fail app %q", appName)
 	}
 
 	if ps.ScaleTarget >= len(units) {
@@ -727,7 +804,8 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 		} else if err != nil {
 			return err
 		}
-		return updateProvisioningState(appName, false, 0, facade)
+		return updateProvisioningState(appName, 0,
+			application.NoOperation, facade)
 	}
 
 	unitsToDestroy, err := app.UnitsToRemove(context.TODO(), ps.ScaleTarget)
@@ -753,17 +831,88 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 	return nil
 }
 
+// ensureStorage recreates a statefulset with the new filesystems.
+func ensureStorage(appName string, app caas.Application,
+	lastApplied *caas.ApplicationConfig, password string,
+	facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
+	ps, err := facade.ProvisioningState(appName)
+	if err != nil {
+		return errors.Annotate(err, "retrieving provisioning state")
+	}
+	if ps == nil {
+		ps = &params.CAASApplicationProvisioningState{}
+	}
+
+	config, _, err := appConfig(appName, app, password, facade,
+		clk)
+	if err != nil {
+		return errors.Annotatef(err, "creating app config %q", appName)
+	}
+
+	storageOp := application.StorageUpdateOperation
+	anotherOpRunning := application.IsDifferentOperation(ps.CurrentOperation, storageOp)
+	if anotherOpRunning {
+		return tryAgain
+	}
+	err = facade.SetProvisioningState(appName, params.CAASApplicationProvisioningState{
+		ScaleTarget:      ps.ScaleTarget,
+		ReplicaCount:     ps.ReplicaCount,
+		CurrentOperation: storageOp,
+	})
+	if err != nil {
+		return errors.Annotatef(err, "setting current operation to %q", storageOp)
+	}
+	err = setApplicationStatus(appName, status.Waiting, "updating storage", nil, facade, logger)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	saveReplicaCount := func(appName string, replicaCount int) error {
+		params := params.CAASApplicationProvisioningState{
+			ScaleTarget:      ps.ScaleTarget,
+			ReplicaCount:     replicaCount,
+			CurrentOperation: storageOp,
+		}
+		return facade.SetProvisioningState(appName, params)
+	}
+
+	config.InitialScale = ps.ReplicaCount
+	err = app.EnsureStorage(config, saveReplicaCount)
+	if err != nil {
+		statusErr := setApplicationStatus(appName, status.Error, "failed to update storage",
+			nil, facade, logger)
+		if statusErr != nil {
+			return errors.Trace(statusErr)
+		}
+		return errors.Trace(err)
+	}
+	err = setApplicationStatus(appName, status.Active, "", nil, facade, logger)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = facade.SetProvisioningState(appName, params.CAASApplicationProvisioningState{
+		ScaleTarget:      ps.ScaleTarget,
+		ReplicaCount:     0,
+		CurrentOperation: application.NoOperation,
+	})
+	if err != nil {
+		return errors.Annotate(err, "setting current operation to empty")
+	}
+	return nil
+}
+
 func setApplicationStatus(appName string, s status.Status, reason string, data map[string]interface{},
 	facade CAASProvisionerFacade, logger Logger) error {
 	logger.Tracef("updating application %q status to %q, %q, %v", appName, s, reason, data)
 	return facade.SetOperatorStatus(appName, s, reason, data)
 }
 
-func updateProvisioningState(appName string, scaling bool, scaleTarget int,
-	facade CAASProvisionerFacade) error {
+func updateProvisioningState(appName string, scaleTarget int,
+	currentOperation application.ProvisioningOperation, facade CAASProvisionerFacade) error {
 	newPs := params.CAASApplicationProvisioningState{
-		Scaling:     scaling,
-		ScaleTarget: scaleTarget,
+		ScaleTarget:      scaleTarget,
+		CurrentOperation: currentOperation,
 	}
 	err := facade.SetProvisioningState(appName, newPs)
 	if params.IsCodeTryAgain(err) {

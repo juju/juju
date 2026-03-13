@@ -10,6 +10,7 @@ import (
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/pki/ssh"
 )
 
@@ -321,6 +322,94 @@ func PopulateApplicationStorageUniqueID(
 				Update: bson.D{{"$set", bson.D{
 					{"storage-unique-id", a.StorageUniqueID},
 				}}},
+			})
+		}
+		return st.runRawTransaction(ops)
+	})
+}
+
+// ConvertScalingToCurrentOperationEnumField has the responsibility of converting
+// the "provisioning-state.scaling" field to "provisioning-state.current-operation"
+// enum field. It also removes "provisioning-state.scaling" which is no longer
+// used.
+func ConvertScalingToCurrentOperationEnumField(pool *StatePool) error {
+	return runForAllModelStates(pool, func(st *State) error {
+		model, err := st.Model()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		logger.Debugf("trying to convert scaling to current-operation field for apps in model %q",
+			model.Name())
+
+		if model.Type() != ModelTypeCAAS {
+			logger.Debugf("skipping because model %q is not a k8s model",
+				model.Name())
+			return nil
+		}
+
+		applicationsColl, closer := st.db().GetCollection(applicationsC)
+		defer closer()
+
+		query := bson.M{"provisioning-state.scaling": bson.M{"$exists": true}}
+		fields := bson.M{"_id": 1, "provisioning-state.scaling": 1}
+
+		iter := applicationsColl.Find(query).Select(fields).Iter()
+		defer iter.Close()
+
+		var app bson.M
+		var ops []txn.Op
+		for iter.Next(&app) {
+			id, ok := app["_id"].(string)
+			if !ok {
+				return errors.New("typecasting app id to string")
+			}
+
+			psRaw, ok := app["provisioning-state"]
+			if !ok || psRaw == nil {
+				continue
+			}
+
+			ps, ok := psRaw.(bson.M)
+			if !ok {
+				return errors.New("typecasting app provisioning-state to bson.M")
+			}
+
+			scalingRaw, ok := ps["scaling"]
+			if !ok || scalingRaw == nil {
+				ops = append(ops, txn.Op{
+					C:      applicationsC,
+					Id:     id,
+					Assert: txn.DocExists,
+					Update: bson.D{{"$unset", bson.D{
+						{"provisioning-state.scaling", ""},
+					}}},
+				})
+				continue
+			}
+
+			scaling, ok := scalingRaw.(bool)
+			if !ok {
+				return errors.New("typecasting app scaling to bool")
+			}
+
+			currentOp := application.NoOperation
+			if scaling {
+				currentOp = application.ScaleOperation
+			}
+
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     id,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{
+					{
+						"provisioning-state.current-operation",
+						currentOp,
+					}}},
+					{"$unset", bson.D{
+						{"provisioning-state.scaling", ""},
+					}},
+				},
 			})
 		}
 		return st.runRawTransaction(ops)

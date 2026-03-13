@@ -899,13 +899,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		args.StorageDirectives = e.storageConstraints(constraints)
 	}
 
-	if ps := application.ProvisioningState(); ps != nil {
-		args.ProvisioningState = &description.ProvisioningStateArgs{
-			Scaling:     ps.Scaling,
-			ScaleTarget: ps.ScaleTarget,
-		}
-	}
-
 	// Include exposed endpoint details
 	if len(application.doc.ExposedEndpoints) > 0 {
 		args.ExposedEndpoints = make(map[string]description.ExposedEndpointArgs)

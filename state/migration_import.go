@@ -1404,13 +1404,6 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		StorageUniqueID:      a.StorageUniqueID(),
 	}
 
-	if ps := a.ProvisioningState(); ps != nil {
-		appDoc.ProvisioningState = &ApplicationProvisioningState{
-			Scaling:     ps.Scaling(),
-			ScaleTarget: ps.ScaleTarget(),
-		}
-	}
-
 	return appDoc, nil
 }
 

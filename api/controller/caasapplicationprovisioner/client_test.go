@@ -14,6 +14,7 @@ import (
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/caasapplicationprovisioner"
+	"github.com/juju/juju/core/application"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/resources"
@@ -506,8 +507,9 @@ func (s *provisionerSuite) TestProvisioningState(c *gc.C) {
 		c.Assert(result, gc.FitsTypeOf, &params.CAASApplicationProvisioningStateResult{})
 		*(result.(*params.CAASApplicationProvisioningStateResult)) = params.CAASApplicationProvisioningStateResult{
 			ProvisioningState: &params.CAASApplicationProvisioningState{
-				Scaling:     true,
-				ScaleTarget: 10,
+				CurrentOperation: application.ScaleOperation,
+				ScaleTarget:      10,
+				ReplicaCount:     1,
 			},
 		}
 		return nil
@@ -516,8 +518,9 @@ func (s *provisionerSuite) TestProvisioningState(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(called, jc.IsTrue)
 	c.Check(state, jc.DeepEquals, &params.CAASApplicationProvisioningState{
-		Scaling:     true,
-		ScaleTarget: 10,
+		CurrentOperation: application.ScaleOperation,
+		ScaleTarget:      10,
+		ReplicaCount:     1,
 	})
 }
 
@@ -531,8 +534,9 @@ func (s *provisionerSuite) TestSetProvisioningState(c *gc.C) {
 		c.Assert(a, jc.DeepEquals, params.CAASApplicationProvisioningStateArg{
 			Application: params.Entity{Tag: "application-foo"},
 			ProvisioningState: params.CAASApplicationProvisioningState{
-				Scaling:     true,
-				ScaleTarget: 10,
+				CurrentOperation: application.ScaleOperation,
+				ScaleTarget:      10,
+				ReplicaCount:     1,
 			},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResult{})
@@ -540,8 +544,9 @@ func (s *provisionerSuite) TestSetProvisioningState(c *gc.C) {
 		return nil
 	})
 	err := client.SetProvisioningState("foo", params.CAASApplicationProvisioningState{
-		Scaling:     true,
-		ScaleTarget: 10,
+		CurrentOperation: application.ScaleOperation,
+		ScaleTarget:      10,
+		ReplicaCount:     1,
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(called, jc.IsTrue)
@@ -557,8 +562,9 @@ func (s *provisionerSuite) TestSetProvisioningStateError(c *gc.C) {
 		c.Assert(a, jc.DeepEquals, params.CAASApplicationProvisioningStateArg{
 			Application: params.Entity{Tag: "application-foo"},
 			ProvisioningState: params.CAASApplicationProvisioningState{
-				Scaling:     true,
-				ScaleTarget: 10,
+				CurrentOperation: application.ScaleOperation,
+				ScaleTarget:      10,
+				ReplicaCount:     1,
 			},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResult{})
@@ -568,8 +574,9 @@ func (s *provisionerSuite) TestSetProvisioningStateError(c *gc.C) {
 		return nil
 	})
 	err := client.SetProvisioningState("foo", params.CAASApplicationProvisioningState{
-		Scaling:     true,
-		ScaleTarget: 10,
+		CurrentOperation: application.ScaleOperation,
+		ScaleTarget:      10,
+		ReplicaCount:     1,
 	})
 	c.Check(params.IsCodeTryAgain(err), jc.IsTrue)
 	c.Check(called, jc.IsTrue)
