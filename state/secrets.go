@@ -4041,7 +4041,7 @@ func (s *secretsStore) CreateSecretBackendIssuedToken(
 	check := func() (string, string, error) {
 		entity, entityC, entityDocID, err := s.st.findSecretEntity(token.Consumer)
 		if err != nil {
-			return "", "", errors.Annotate(err, "invalid owner reference")
+			return "", "", errors.Annotate(err, "invalid secret token receiver")
 		}
 		if entity.Life() == Dead {
 			return "", "", errors.New(
