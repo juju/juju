@@ -6880,6 +6880,17 @@
                         }
                     }
                 },
+                "CheckCredentialsModels": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/TaggedCredentials"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/UpdateCredentialResults"
+                        }
+                    }
+                },
                 "Cloud": {
                     "type": "object",
                     "properties": {

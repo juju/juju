@@ -6,6 +6,7 @@ package cloud
 import (
 	"context"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
+	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	"github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/environs"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -31,6 +33,7 @@ import (
 type CloudV7 interface {
 	AddCloud(ctx context.Context, cloudArgs params.AddCloudArgs) error
 	AddCredentials(ctx context.Context, args params.TaggedCredentials) (params.ErrorResults, error)
+	CheckCredentialsModels(ctx context.Context, args params.TaggedCredentials) (params.UpdateCredentialResults, error)
 	Cloud(ctx context.Context, args params.Entities) (params.CloudResults, error)
 	Clouds(ctx context.Context) (params.CloudsResult, error)
 	Credential(ctx context.Context, args params.Entities) (params.CloudCredentialResults, error)
@@ -400,6 +403,64 @@ func (api *CloudAPI) AddCredentials(ctx context.Context, args params.TaggedCrede
 		}
 	}
 	return results, nil
+}
+
+// CheckCredentialsModels validates supplied cloud credentials' content against
+// models that currently use these credentials.
+// If there are any models that are using a credential and these models or their
+// cloud instances are not going to be accessible with corresponding credential,
+// there will be detailed validation errors per model.
+func (api *CloudAPI) CheckCredentialsModels(ctx context.Context, args params.TaggedCredentials) (params.UpdateCredentialResults, error) {
+	authFunc, err := api.getCredentialsAuthFunc(ctx)
+	if err != nil {
+		return params.UpdateCredentialResults{}, err
+	}
+
+	results := make([]params.UpdateCredentialResult, len(args.Credentials))
+	for i, arg := range args.Credentials {
+		results[i].CredentialTag = arg.Tag
+		tag, err := names.ParseCloudCredentialTag(arg.Tag)
+		if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		// NOTE(axw) if we add ACLs for cloud credentials, we'll need
+		// to change this auth check.
+		if !authFunc(tag.Owner()) {
+			results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		in := cloud.NewCredential(
+			cloud.AuthType(arg.Credential.AuthType),
+			arg.Credential.Attributes,
+		)
+
+		checkResults, err := api.credentialService.CheckCredentialModels(ctx, credential.KeyFromTag(tag), in)
+		if err != nil && !errors.Is(err, credentialerrors.CredentialModelValidation) {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if len(checkResults) == 0 {
+			continue
+		}
+
+		var modelsResult []params.UpdateCredentialModelResult
+		for _, r := range checkResults {
+			model := params.UpdateCredentialModelResult{
+				ModelUUID: r.ModelUUID.String(),
+				ModelName: r.ModelName,
+			}
+			model.Errors = transform.Slice(r.Errors, func(e error) params.ErrorResult {
+				return params.ErrorResult{
+					Error: apiservererrors.ServerError(e),
+				}
+			})
+			modelsResult = append(modelsResult, model)
+		}
+		results[i].Models = modelsResult
+	}
+	return params.UpdateCredentialResults{Results: results}, nil
 }
 
 // UpdateCredentialsCheckModels updates a set of cloud credentials' content.
