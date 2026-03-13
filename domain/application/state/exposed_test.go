@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 
 	"github.com/juju/clock"
@@ -107,6 +108,31 @@ func (s *exposedStateSuite) TestExposedEndpointsFull(c *tc.C) {
 	c.Check(len(exposedEndpoints), tc.Equals, 1)
 	c.Check(exposedEndpoints["endpoint0"].ExposeToCIDRs.SortedValues(), tc.DeepEquals, []string{"10.0.0.0/24", "10.0.1.0/24"})
 	c.Check(exposedEndpoints["endpoint0"].ExposeToSpaceIDs.SortedValues(), tc.DeepEquals, []string{"space0-uuid"})
+}
+
+func (s *exposedStateSuite) TestGetAllExposedEndpoints(c *tc.C) {
+	appFooID := s.createIAASApplication(c, "foo", life.Alive)
+	s.setUpEndpointWithSuffix(c, appFooID, "0")
+	s.createExposedEndpointSpaceWithSuffix(c, appFooID, "0")
+
+	appBarID := s.createIAASApplication(c, "bar", life.Alive)
+	s.setUpEndpointWithSuffix(c, appBarID, "1")
+	s.createExposedEndpointCIDRWithSuffix(c, appBarID, "1", "10.0.1.0/24")
+
+	exposedEndpoints, err := s.state.GetAllExposedEndpoints(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exposedEndpoints, tc.DeepEquals, map[string]map[string]application.ExposedEndpoint{
+		"foo": {
+			"endpoint0": {
+				ExposeToSpaceIDs: set.NewStrings("space0-uuid"),
+			},
+		},
+		"bar": {
+			"endpoint1": {
+				ExposeToCIDRs: set.NewStrings("10.0.1.0/24"),
+			},
+		},
+	})
 }
 
 func (s *exposedStateSuite) TestExposedEndpointsWithWildcard(c *tc.C) {
@@ -535,24 +561,28 @@ func (s *exposedStateSuite) TestMergeExposeSettingsDifferentEndpointsNotOverwrit
 }
 
 func (s *exposedStateSuite) setUpEndpoint(c *tc.C, appID coreapplication.UUID) {
+	s.setUpEndpointWithSuffix(c, appID, "0")
+}
+
+func (s *exposedStateSuite) setUpEndpointWithSuffix(c *tc.C, appID coreapplication.UUID, suffix string) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertSpace := `INSERT INTO space (uuid, name) VALUES (?, ?)`
-		_, err := tx.ExecContext(ctx, insertSpace, "space0-uuid", "space0")
+		_, err := tx.ExecContext(ctx, insertSpace, fmt.Sprintf("space%s-uuid", suffix), fmt.Sprintf("space%s", suffix))
 		if err != nil {
 			return err
 		}
 		insertCharm := `INSERT INTO charm (uuid, reference_name) VALUES (?, ?)`
-		_, err = tx.ExecContext(ctx, insertCharm, "charm0-uuid", "foo")
+		_, err = tx.ExecContext(ctx, insertCharm, fmt.Sprintf("charm%s-uuid", suffix), fmt.Sprintf("charm%s", suffix))
 		if err != nil {
 			return err
 		}
 		insertCharmRelation := `INSERT INTO charm_relation (uuid, charm_uuid, scope_id, role_id, name) VALUES (?, ?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertCharmRelation, "charm-relation0-uuid", "charm0-uuid", "0", "0", "endpoint0")
+		_, err = tx.ExecContext(ctx, insertCharmRelation, fmt.Sprintf("charm-relation%s-uuid", suffix), fmt.Sprintf("charm%s-uuid", suffix), "0", "0", fmt.Sprintf("endpoint%s", suffix))
 		if err != nil {
 			return err
 		}
 		insertEndpoint := `INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertEndpoint, "app-endpoint0-uuid", appID, "space0-uuid", "charm-relation0-uuid")
+		_, err = tx.ExecContext(ctx, insertEndpoint, fmt.Sprintf("app-endpoint%s-uuid", suffix), appID, fmt.Sprintf("space%s-uuid", suffix), fmt.Sprintf("charm-relation%s-uuid", suffix))
 		if err != nil {
 			return err
 		}
@@ -562,12 +592,16 @@ func (s *exposedStateSuite) setUpEndpoint(c *tc.C, appID coreapplication.UUID) {
 }
 
 func (s *exposedStateSuite) createExposedEndpointSpace(c *tc.C, appID coreapplication.UUID) {
+	s.createExposedEndpointSpaceWithSuffix(c, appID, "0")
+}
+
+func (s *exposedStateSuite) createExposedEndpointSpaceWithSuffix(c *tc.C, appID coreapplication.UUID, suffix string) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertExposedSpace := `
 INSERT INTO application_exposed_endpoint_space
 (application_uuid, application_endpoint_uuid, space_uuid)
 VALUES (?, ?, ?)`
-		_, err := tx.ExecContext(ctx, insertExposedSpace, appID, "app-endpoint0-uuid", "space0-uuid")
+		_, err := tx.ExecContext(ctx, insertExposedSpace, appID, fmt.Sprintf("app-endpoint%s-uuid", suffix), fmt.Sprintf("space%s-uuid", suffix))
 		if err != nil {
 			return err
 		}
@@ -577,12 +611,16 @@ VALUES (?, ?, ?)`
 }
 
 func (s *exposedStateSuite) createExposedEndpointCIDR(c *tc.C, appID coreapplication.UUID, cidr string) {
+	s.createExposedEndpointCIDRWithSuffix(c, appID, "0", cidr)
+}
+
+func (s *exposedStateSuite) createExposedEndpointCIDRWithSuffix(c *tc.C, appID coreapplication.UUID, suffix, cidr string) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		insertExposedCIDR := `
 INSERT INTO application_exposed_endpoint_cidr
 (application_uuid, application_endpoint_uuid, cidr)
 VALUES (?, ?, ?)`
-		_, err := tx.ExecContext(ctx, insertExposedCIDR, appID, "app-endpoint0-uuid", cidr)
+		_, err := tx.ExecContext(ctx, insertExposedCIDR, appID, fmt.Sprintf("app-endpoint%s-uuid", suffix), cidr)
 		if err != nil {
 			return err
 		}

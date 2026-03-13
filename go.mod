@@ -1,6 +1,6 @@
 module github.com/juju/juju
 
-go 1.25.8
+go 1.26.1
 
 require (
 	cloud.google.com/go/compute v1.44.0
@@ -107,10 +107,10 @@ require (
 	go.uber.org/mock v0.6.0
 	golang.org/x/crypto v0.48.0
 	golang.org/x/net v0.51.0
-	golang.org/x/oauth2 v0.35.0
-	golang.org/x/sync v0.19.0
-	golang.org/x/sys v0.41.0
-	golang.org/x/time v0.14.0
+	golang.org/x/oauth2 v0.36.0
+	golang.org/x/sync v0.20.0
+	golang.org/x/sys v0.42.0
+	golang.org/x/time v0.15.0
 	golang.org/x/tools v0.42.0
 	google.golang.org/api v0.256.0
 	google.golang.org/grpc v1.77.0

@@ -336,7 +336,7 @@ func (api *CrossModelRelationsAPIv3) handleDepartedUnits(
 	for _, u := range departedUnits {
 		unitName, err := unit.NewNameFromParts(applicationName, u)
 		if err != nil {
-			return errors.Annotatef(err, "parsing departed unit name %q", u)
+			return errors.Annotatef(err, "parsing departed unit %d", u)
 		}
 
 		// If the relation unit doesn't exist, then it has already been removed,

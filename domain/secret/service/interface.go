@@ -32,8 +32,6 @@ type State interface {
 	CreateUserSecret(ctx context.Context, version int, uri *secrets.URI, secret domainsecret.UpsertSecretParams) error
 	CreateCharmApplicationSecret(ctx context.Context, version int, uri *secrets.URI, appUUID coreapplication.UUID, secret domainsecret.UpsertSecretParams) error
 	CreateCharmUnitSecret(ctx context.Context, version int, uri *secrets.URI, unitUUID coreunit.UUID, secret domainsecret.UpsertSecretParams) error
-	DeleteSecret(ctx context.Context, uri *secrets.URI, revs []int) error
-	DeleteObsoleteUserSecretRevisions(ctx context.Context) ([]string, error)
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
 	GetLatestRevision(ctx context.Context, uri *secrets.URI) (int, error)
 	GetLatestRevisions(ctx context.Context, uris []*secrets.URI) (map[string]int, error)
@@ -78,6 +76,8 @@ type State interface {
 	GetApplicationUUIDsForNames(ctx context.Context, names domainsecret.ApplicationOwners) ([]string, error)
 	GetUnitUUIDsForNames(ctx context.Context, names domainsecret.UnitOwners) ([]string, error)
 	UpdateSecret(ctx context.Context, uri *secrets.URI, secret domainsecret.UpsertSecretParams) error
+	ScheduleUserSecretRemoval(ctx context.Context, removalUUID string, uri *secrets.URI, revisions []int, when time.Time) error
+	ScheduleObsoleteUserSecretRevisionsPruning(ctx context.Context, jobUUID string, when time.Time) error
 
 	// For watching obsolete secret revision changes.
 	InitialWatchStatementForObsoleteRevision(
@@ -137,10 +137,6 @@ type SecretBackendReferenceMutator interface {
 	AddSecretBackendReference(
 		ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string,
 	) (func() error, error)
-
-	// RemoveSecretBackendReference removes the reference
-	// to the secret backend for the given secret revision.
-	RemoveSecretBackendReference(ctx context.Context, revisionIDs ...string) error
 
 	// UpdateSecretBackendReference updates the reference
 	// to the secret backend for the given secret revision.

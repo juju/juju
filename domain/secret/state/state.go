@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strconv"
 	"strings"
@@ -153,7 +154,8 @@ WHERE name=$unit.name`, u)
 	return u.UUID, errors.Capture(err)
 }
 
-// ImportSecretWithRevision creates a secret with its metadata and revisions in a single transaction.
+// ImportSecretWithRevisions creates a secret with its metadata and revisions
+// in a single transaction.
 func (st State) ImportSecretWithRevisions(
 	ctx context.Context,
 	version int,
@@ -2611,19 +2613,19 @@ func (st State) GetRelationEndpoints(ctx context.Context, relUUID string) ([]cor
 		return nil, errors.Capture(err)
 	}
 
-	uuid := relationUUID{UUID: relUUID}
+	id := relationUUID{UUID: relUUID}
 	q, err := st.Prepare(`
 SELECT &endpointIdentifier.*
 FROM   v_relation_endpoint
 WHERE  relation_uuid = $relationUUID.uuid
-`, uuid, endpointIdentifier{})
+`, id, endpointIdentifier{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	var endpoints []endpointIdentifier
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, q, uuid).GetAll(&endpoints)
+		err = tx.Query(ctx, q, id).GetAll(&endpoints)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("relation %q not found", relUUID).Add(relationerrors.RelationNotFound)
 		} else if err != nil {
@@ -2759,13 +2761,13 @@ func (st State) checkSubjectUUIDExists(
 	}
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return errors.Errorf("%s %q not found", subjectTypeID, subjectUUID).Add(subjectNotFoundError)
-	} else {
-		subject := subjectUUID
-		if subjectTypeID == domainsecret.SubjectModel {
-			subject = "model"
-		}
-		return errors.Errorf("looking up secret grant subject UUID for %q: %w", subject, err)
 	}
+
+	subject := subjectUUID
+	if subjectTypeID == domainsecret.SubjectModel {
+		subject = "model"
+	}
+	return errors.Errorf("looking up secret grant subject UUID for %q: %w", subject, err)
 }
 
 func (st State) checkScopeUUIDExists(
@@ -3080,10 +3082,11 @@ FROM   v_secret_permission sp
 }
 
 type (
-	units        []string
-	applications []string
-	models       []string
-	roles        []int
+	units         []string
+	applications  []string
+	models        []string
+	roles         []int
+	revisionUUIDs []string
 )
 
 // ListGrantedSecretsForBackend returns the secret revision info for any
@@ -3531,245 +3534,6 @@ WHERE     sro.obsolete = true AND
 	return result, nil
 }
 
-type (
-	revisions     []int
-	revisionUUIDs []string
-)
-
-// DeleteSecret deletes the specified secret revisions.
-// If revisions is nil the last remaining revisions are removed.
-func (st State) DeleteSecret(ctx context.Context, uri *coresecrets.URI, revs []int) error {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		_, err := st.deleteSecretRevisions(ctx, tx, uri, revs)
-		return errors.Capture(err)
-	})
-	return errors.Capture(err)
-}
-
-// DeleteObsoleteUserSecretRevisions deletes the obsolete user secret revisions.
-// It returns the string format UUID of the deleted revisions.
-func (st State) DeleteObsoleteUserSecretRevisions(ctx context.Context) ([]string, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	q := `
-SELECT smo.secret_id AS &secretID.id,
-       sr.revision AS &secretExternalRevision.revision
-FROM      secret_model_owner smo
-JOIN      secret_metadata sm ON sm.secret_id = smo.secret_id
-JOIN      secret_revision sr ON sr.secret_id = smo.secret_id
-LEFT JOIN secret_revision_obsolete sro ON sro.revision_uuid = sr.uuid
-WHERE     sm.auto_prune = true AND sro.obsolete = true`
-
-	stmt, err := st.Prepare(q, secretID{}, secretExternalRevision{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	var deletedRevisionIDs []string
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var (
-			dbSecrets    secretIDs
-			dbsecretRevs secretExternalRevisions
-		)
-		err = tx.Query(ctx, stmt).GetAll(&dbSecrets, &dbsecretRevs)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			// Nothing to delete.
-			return nil
-		}
-		if err != nil {
-			return errors.Capture(err)
-		}
-		itemsToDelete, err := dbSecrets.toSecretMetadataForDrain(dbsecretRevs)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		for _, toDelete := range itemsToDelete {
-			revs := make([]int, len(toDelete.Revisions))
-			for i, r := range toDelete.Revisions {
-				revs[i] = r.Revision
-			}
-			deleted, err := st.deleteSecretRevisions(ctx, tx, toDelete.URI, revs)
-			if err != nil {
-				return errors.Capture(err)
-			}
-			deletedRevisionIDs = append(deletedRevisionIDs, deleted...)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return deletedRevisionIDs, nil
-}
-
-// deleteSecretRevisions deletes the specified secret revisions, or all if revs is nil.
-// If the last remaining revisions are removed, the secret is deleted.
-func (st State) deleteSecretRevisions(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, revs []int) ([]string, error) {
-	// First delete the specified revisions.
-	selectRevisionParams := []any{secretID{
-		ID: uri.ID,
-	}}
-
-	var revFilter string
-	if len(revs) > 0 {
-		revFilter = "\nAND revision IN ($revisions[:])"
-		selectRevisionParams = append(selectRevisionParams, revisions(revs))
-	}
-
-	selectRevsToDelete := fmt.Sprintf(`
-SELECT uuid AS &revisionUUID.uuid
-FROM   secret_revision
-WHERE  secret_id = $secretID.id%s
-`, revFilter)
-	selectRevisionStmt, err := st.Prepare(selectRevsToDelete, append(selectRevisionParams, revisionUUID{})...)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	countRevisions := `SELECT count(*) AS &M.count FROM secret_revision WHERE secret_id = $secretID.id`
-	countRevisionsStmt, err := st.Prepare(countRevisions, secretID{}, sqlair.M{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	deleteRevisionExpire := `
-DELETE FROM secret_revision_expire WHERE revision_uuid IN ($revisionUUIDs[:])`
-
-	deleteRevisionContent := `
-DELETE FROM secret_content WHERE revision_uuid IN ($revisionUUIDs[:])`
-
-	deleteRevisionValueRef := `
-DELETE FROM secret_value_ref WHERE revision_uuid IN ($revisionUUIDs[:])`
-
-	deleteRevisionObsolete := `
-DELETE FROM secret_revision_obsolete WHERE revision_uuid IN ($revisionUUIDs[:])`
-
-	deleteRevision := `
-DELETE FROM secret_revision WHERE uuid IN ($revisionUUIDs[:])`
-
-	deleteRevisionQueries := []string{
-		deleteRevisionExpire,
-		deleteRevisionContent,
-		deleteRevisionValueRef,
-		deleteRevisionObsolete,
-		deleteRevision,
-	}
-
-	deleteRevisionStmts := make([]*sqlair.Statement, len(deleteRevisionQueries))
-	for i, q := range deleteRevisionQueries {
-		deleteRevisionStmts[i], err = st.Prepare(q, revisionUUIDs{})
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-	}
-
-	if isLocal, err := st.checkExistsIfLocal(ctx, tx, uri); err != nil {
-		return nil, errors.Capture(err)
-	} else if !isLocal {
-		// Should never happen.
-		return nil, secreterrors.SecretIsNotLocal
-	}
-
-	result := []revisionUUID{}
-	err = tx.Query(ctx, selectRevisionStmt, selectRevisionParams...).GetAll(&result)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Errorf("secret revisions %v not found", revs).Add(secreterrors.SecretRevisionNotFound)
-	}
-	if err != nil {
-		return nil, errors.Errorf("selecting revision UUIDs to delete for secret %q: %w", uri, err)
-	}
-
-	toDelete := make(revisionUUIDs, len(result))
-	for i, r := range result {
-		toDelete[i] = r.UUID
-	}
-	for _, stmt := range deleteRevisionStmts {
-		err = tx.Query(ctx, stmt, toDelete).Run()
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return nil, errors.Errorf("deleting revision info for secret %q: %w", uri, err)
-		}
-	}
-
-	countResult := sqlair.M{}
-	err = tx.Query(ctx, countRevisionsStmt, selectRevisionParams[0]).Get(&countResult)
-	if err != nil {
-		return nil, errors.Errorf("counting remaining revisions for secret %q: %w", uri, err)
-	}
-	count, _ := strconv.Atoi(fmt.Sprint(countResult["count"]))
-	if count > 0 {
-		return toDelete, nil
-	}
-	// No revisions left so delete the secret.
-	if err := st.deleteSecret(ctx, tx, uri); err != nil {
-		return nil, errors.Capture(err)
-	}
-	return toDelete, nil
-}
-
-func (st State) deleteSecret(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI) error {
-	deleteSecretRotation := `
-DELETE FROM secret_rotation WHERE secret_id = $secretID.id`
-	deleteSecretUnitOwner := `
-DELETE FROM secret_unit_owner WHERE secret_id = $secretID.id`
-	deleteSecretApplicationOwner := `
-DELETE FROM secret_application_owner WHERE secret_id = $secretID.id`
-	deleteSecretModelOwner := `
-DELETE FROM secret_model_owner WHERE secret_id = $secretID.id`
-	deleteSecretUnitConsumer := `
-DELETE FROM secret_unit_consumer WHERE secret_id = $secretID.id`
-	deleteSecretRemoteUnitConsumer := `
-DELETE FROM secret_remote_unit_consumer WHERE secret_id = $secretID.id`
-	deleteSecretRef := `
-DELETE FROM secret_reference WHERE secret_id = $secretID.id`
-	deleteSecretPermission := `
-DELETE FROM secret_permission WHERE secret_id = $secretID.id`
-	deleteSecretMetadata := `
-DELETE FROM secret_metadata WHERE secret_id = $secretID.id`
-	deleteSecret := `
-DELETE FROM secret WHERE id = $secretID.id`
-
-	deleteSecretQueries := []string{
-		deleteSecretRotation,
-		deleteSecretUnitOwner,
-		deleteSecretApplicationOwner,
-		deleteSecretModelOwner,
-		deleteSecretUnitConsumer,
-		deleteSecretRemoteUnitConsumer,
-		deleteSecretRef,
-		deleteSecretPermission,
-		deleteSecretMetadata,
-		deleteSecret,
-	}
-
-	secretIDParamParam := secretID{
-		ID: uri.ID,
-	}
-
-	var err error
-	deleteSecretStmts := make([]*sqlair.Statement, len(deleteSecretQueries))
-	for i, q := range deleteSecretQueries {
-		deleteSecretStmts[i], err = st.Prepare(q, secretIDParamParam)
-		if err != nil {
-			return errors.Capture(err)
-		}
-	}
-
-	for _, stmt := range deleteSecretStmts {
-		err = tx.Query(ctx, stmt, secretIDParamParam).Run()
-		if err != nil {
-			return errors.Errorf("deleting info for secret %q: %w", uri, err)
-		}
-	}
-	return nil
-}
-
 // SecretRotated updates the next rotation time for the specified secret.
 func (st State) SecretRotated(ctx context.Context, uri *coresecrets.URI, next time.Time) error {
 	db, err := st.DB(ctx)
@@ -4127,4 +3891,88 @@ WHERE     sm.auto_prune = true AND sro.obsolete = true`
 		return nil, errors.Capture(err)
 	}
 	return result.toRevIDs(), nil
+}
+
+// removalJob represents a record in the removal table
+// it's duplicated from domain/removal/state/model/types.go
+type removalJob struct {
+	UUID          string         `db:"uuid"`
+	RemovalTypeID uint64         `db:"removal_type_id"`
+	EntityUUID    string         `db:"entity_uuid"`
+	Force         bool           `db:"force"`
+	ScheduledFor  time.Time      `db:"scheduled_for"`
+	Arg           sql.NullString `db:"arg"`
+}
+
+// ScheduleUserSecretRemoval schedules a removal job for the user secret with
+// the input URI and revisions.
+func (st State) ScheduleUserSecretRemoval(
+	ctx context.Context,
+	jobID string,
+	uri *coresecrets.URI,
+	revisions []int,
+	when time.Time,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	removalRec := removalJob{
+		UUID:          jobID,
+		RemovalTypeID: 16, //UserSecretJob
+		EntityUUID:    uri.String(),
+		ScheduledFor:  when,
+	}
+
+	// If revisions are specified, encode them into the Arg field
+	if len(revisions) > 0 {
+		// Build JSON manually to avoid importing encoding/json
+		var revStrs []string
+		for _, rev := range revisions {
+			revStrs = append(revStrs, strconv.Itoa(rev))
+		}
+		argJSON := fmt.Sprintf(`{"revisions":[%s]}`, strings.Join(revStrs, ","))
+		removalRec.Arg = sql.NullString{String: argJSON, Valid: true}
+	}
+
+	stmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removalJob.*)", removalRec)
+	if err != nil {
+		return errors.Errorf("preparing user secret removal job: %w", err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, removalRec).Run()
+		if err != nil {
+			return errors.Errorf("inserting secret removal job: %w", err)
+		}
+		return nil
+	}))
+}
+
+// ScheduleObsoleteUserSecretRevisionsPruning schedules a removal job to prune
+// all obsolete revisions of auto-prune user secrets.
+func (st State) ScheduleObsoleteUserSecretRevisionsPruning(ctx context.Context, jobID string, when time.Time) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	removalRec := removalJob{
+		UUID:          jobID,
+		RemovalTypeID: 17, // ObsoleteUserSecretRevisionsJob
+		ScheduledFor:  when,
+	}
+
+	stmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removalJob.*)", removalRec)
+	if err != nil {
+		return errors.Errorf("preparing obsolete user secret revisions pruning job: %w", err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, removalRec).Run(); err != nil {
+			return errors.Errorf("inserting obsolete user secret revisions pruning job: %w", err)
+		}
+		return nil
+	}))
 }

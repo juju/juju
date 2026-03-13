@@ -94,6 +94,45 @@ func (c *MockApplicationServiceGetAllEndpointBindingsCall) DoAndReturn(f func(co
 	return c
 }
 
+// GetAllExposedEndpoints mocks base method.
+func (m *MockApplicationService) GetAllExposedEndpoints(arg0 context.Context) (map[string]map[string]application.ExposedEndpoint, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllExposedEndpoints", arg0)
+	ret0, _ := ret[0].(map[string]map[string]application.ExposedEndpoint)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllExposedEndpoints indicates an expected call of GetAllExposedEndpoints.
+func (mr *MockApplicationServiceMockRecorder) GetAllExposedEndpoints(arg0 any) *MockApplicationServiceGetAllExposedEndpointsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllExposedEndpoints", reflect.TypeOf((*MockApplicationService)(nil).GetAllExposedEndpoints), arg0)
+	return &MockApplicationServiceGetAllExposedEndpointsCall{Call: call}
+}
+
+// MockApplicationServiceGetAllExposedEndpointsCall wrap *gomock.Call
+type MockApplicationServiceGetAllExposedEndpointsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetAllExposedEndpointsCall) Return(arg0 map[string]map[string]application.ExposedEndpoint, arg1 error) *MockApplicationServiceGetAllExposedEndpointsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetAllExposedEndpointsCall) Do(f func(context.Context) (map[string]map[string]application.ExposedEndpoint, error)) *MockApplicationServiceGetAllExposedEndpointsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetAllExposedEndpointsCall) DoAndReturn(f func(context.Context) (map[string]map[string]application.ExposedEndpoint, error)) *MockApplicationServiceGetAllExposedEndpointsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetExposedEndpoints mocks base method.
 func (m *MockApplicationService) GetExposedEndpoints(arg0 context.Context, arg1 string) (map[string]application.ExposedEndpoint, error) {
 	m.ctrl.T.Helper()

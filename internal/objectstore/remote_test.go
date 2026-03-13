@@ -47,17 +47,25 @@ func (s *remoteFileObjectStoreSuite) TestNewRemoteFileObjectStoreDies(c *tc.C) {
 func (s *remoteFileObjectStoreSuite) TestNewRemoteFileObjectStoreGet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.tracked.EXPECT().Get(gomock.Any(), "foo").Return(s.reader, 12, nil)
+	hash := "09ca7e4eaa6e8ae9c7d261167129184883644d07dfba7cbfbc4c8a2e08360d5b"
+
+	s.tracked.EXPECT().Get(gomock.Any(), "foo").Return(s.reader, objectstore.Digest{
+		SHA256: hash,
+		Size:   12,
+	}, nil)
 
 	remoteStore := s.newRemoteFileObjectStore(c)
 	defer workertest.DirtyKill(c, remoteStore)
 
 	workertest.CheckAlive(c, remoteStore)
 
-	reader, size, err := remoteStore.Get(c.Context(), "foo")
+	reader, digest, err := remoteStore.Get(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(reader, tc.Equals, s.reader)
-	c.Check(size, tc.Equals, int64(12))
+	c.Check(digest, tc.DeepEquals, objectstore.Digest{
+		SHA256: hash,
+		Size:   12,
+	})
 
 	data, err := io.ReadAll(reader)
 	c.Assert(err, tc.ErrorIsNil)
@@ -69,17 +77,25 @@ func (s *remoteFileObjectStoreSuite) TestNewRemoteFileObjectStoreGet(c *tc.C) {
 func (s *remoteFileObjectStoreSuite) TestNewRemoteFileObjectStoreGetBySHA256(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.tracked.EXPECT().GetBySHA256(gomock.Any(), "09ca7e4eaa6e8ae9c7d261167129184883644d07dfba7cbfbc4c8a2e08360d5b").Return(s.reader, 12, nil)
+	hash := "09ca7e4eaa6e8ae9c7d261167129184883644d07dfba7cbfbc4c8a2e08360d5b"
+
+	s.tracked.EXPECT().GetBySHA256(gomock.Any(), hash).Return(s.reader, objectstore.Digest{
+		SHA256: hash,
+		Size:   12,
+	}, nil)
 
 	remoteStore := s.newRemoteFileObjectStore(c)
 	defer workertest.DirtyKill(c, remoteStore)
 
 	workertest.CheckAlive(c, remoteStore)
 
-	reader, size, err := remoteStore.GetBySHA256(c.Context(), "09ca7e4eaa6e8ae9c7d261167129184883644d07dfba7cbfbc4c8a2e08360d5b")
+	reader, digest, err := remoteStore.GetBySHA256(c.Context(), hash)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(reader, tc.Equals, s.reader)
-	c.Check(size, tc.Equals, int64(12))
+	c.Check(digest, tc.DeepEquals, objectstore.Digest{
+		SHA256: hash,
+		Size:   12,
+	})
 
 	data, err := io.ReadAll(reader)
 	c.Assert(err, tc.ErrorIsNil)
@@ -91,17 +107,25 @@ func (s *remoteFileObjectStoreSuite) TestNewRemoteFileObjectStoreGetBySHA256(c *
 func (s *remoteFileObjectStoreSuite) TestNewRemoteFileObjectStoreGetBySHA256Prefix(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.tracked.EXPECT().GetBySHA256Prefix(gomock.Any(), "09ca7e4").Return(s.reader, 12, nil)
+	hash := "09ca7e4eaa6e8ae9c7d261167129184883644d07dfba7cbfbc4c8a2e08360d5b"
+
+	s.tracked.EXPECT().GetBySHA256Prefix(gomock.Any(), "09ca7e4").Return(s.reader, objectstore.Digest{
+		SHA256: hash,
+		Size:   12,
+	}, nil)
 
 	remoteStore := s.newRemoteFileObjectStore(c)
 	defer workertest.DirtyKill(c, remoteStore)
 
 	workertest.CheckAlive(c, remoteStore)
 
-	reader, size, err := remoteStore.GetBySHA256Prefix(c.Context(), "09ca7e4")
+	reader, digest, err := remoteStore.GetBySHA256Prefix(c.Context(), "09ca7e4")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(reader, tc.Equals, s.reader)
-	c.Check(size, tc.Equals, int64(12))
+	c.Check(digest, tc.DeepEquals, objectstore.Digest{
+		SHA256: hash,
+		Size:   12,
+	})
 
 	data, err := io.ReadAll(reader)
 	c.Assert(err, tc.ErrorIsNil)

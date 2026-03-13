@@ -545,7 +545,7 @@ WHERE  relation_id = $relationID.relation_id
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return statuserrors.RelationNotFound
 		} else if err != nil {
-			return errors.Errorf("getting relation UUID for %q: %w", id, err)
+			return errors.Errorf("getting relation UUID for %v: %w", id, err)
 		}
 		return nil
 	})

@@ -51,7 +51,6 @@ func NewPebbleNoticer(
 		newPebbleClient:   newPebbleClient,
 	}
 	for _, name := range containerNames {
-		name := name
 		noticer.tomb.Go(func() error {
 			return noticer.run(name)
 		})

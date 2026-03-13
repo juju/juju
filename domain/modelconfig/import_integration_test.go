@@ -51,7 +51,7 @@ func (s *importSuite) SetUpTest(c *tc.C) {
 	}
 
 	s.coordinator = coremodelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
-	s.scope = coremodelmigration.NewScope(controllerTxnFactory, modelTxnFactory, nil, s.modelUUID)
+	s.scope = coremodelmigration.NewScope(controllerTxnFactory, modelTxnFactory, nil, nil, s.modelUUID)
 
 	defaultsProvider := modeldefaultsservice.NewService(
 		modeldefaultsservice.ProviderModelConfigGetter(),

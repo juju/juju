@@ -64,22 +64,20 @@ func (st *State) GetExposedEndpoints(ctx context.Context, appID coreapplication.
 	ident := entityUUID{UUID: appID.String()}
 	query := `
 SELECT 
-    cr.name AS &endpointCIDRsSpaces.name,
-    cidr AS &endpointCIDRsSpaces.cidr,
-    e.space_uuid AS &endpointCIDRsSpaces.space_uuid
+    cr.name AS &endpointExposed.name,
+    cidr AS &endpointExposed.cidr,
+    e.space_uuid AS &endpointExposed.space_uuid
 FROM v_application_exposed_endpoint e
 LEFT JOIN application_endpoint ae ON e.application_endpoint_uuid = ae.uuid
 LEFT JOIN charm_relation cr ON ae.charm_relation_uuid = cr.uuid
 WHERE e.application_uuid = $entityUUID.uuid;
 	`
-	stmt, err := st.Prepare(query, endpointCIDRsSpaces{}, ident)
+	stmt, err := st.Prepare(query, endpointExposed{}, ident)
 	if err != nil {
 		return nil, errors.Errorf("preparing exposed endpoints query: %w", err)
 	}
 
-	var (
-		endpoints []endpointCIDRsSpaces
-	)
+	var endpoints []endpointExposed
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt, ident).GetAll(&endpoints); err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -94,7 +92,68 @@ WHERE e.application_uuid = $entityUUID.uuid;
 	return encodeExposedEndpoints(endpoints), nil
 }
 
-func encodeExposedEndpoints(endpoints []endpointCIDRsSpaces) map[string]application.ExposedEndpoint {
+// GetAllExposedEndpoints returns all exposed endpoints in the model, grouped by
+// application name and then by endpoint name.
+func (st *State) GetAllExposedEndpoints(ctx context.Context) (map[string]map[string]application.ExposedEndpoint, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	query := `
+SELECT
+    a.name AS &applicationEndpointExposed.application_name,
+    cr.name AS &applicationEndpointExposed.name,
+    e.cidr AS &applicationEndpointExposed.cidr,
+    e.space_uuid AS &applicationEndpointExposed.space_uuid
+FROM v_application_exposed_endpoint e
+JOIN application a ON a.uuid = e.application_uuid
+LEFT JOIN application_endpoint ae ON e.application_endpoint_uuid = ae.uuid
+LEFT JOIN charm_relation cr ON ae.charm_relation_uuid = cr.uuid;
+	`
+	stmt, err := st.Prepare(query, applicationEndpointExposed{})
+	if err != nil {
+		return nil, errors.Errorf("preparing all exposed endpoints query: %w", err)
+	}
+
+	var endpoints []applicationEndpointExposed
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt).GetAll(&endpoints); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("retrieving all exposed endpoints: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return encodeExposedEndpointsByApplication(endpoints), nil
+}
+
+func encodeExposedEndpointsByApplication(
+	endpoints []applicationEndpointExposed,
+) map[string]map[string]application.ExposedEndpoint {
+	if len(endpoints) == 0 {
+		return nil
+	}
+
+	grouped := make(map[string][]endpointExposed)
+	for _, endpoint := range endpoints {
+		grouped[endpoint.ApplicationName] = append(grouped[endpoint.ApplicationName], endpointExposed{
+			Name:      endpoint.Name,
+			CIDR:      endpoint.CIDR,
+			SpaceUUID: endpoint.SpaceUUID,
+		})
+	}
+
+	exposed := make(map[string]map[string]application.ExposedEndpoint, len(grouped))
+	for appName, appEndpoints := range grouped {
+		exposed[appName] = encodeExposedEndpoints(appEndpoints)
+	}
+	return exposed
+}
+
+func encodeExposedEndpoints(endpoints []endpointExposed) map[string]application.ExposedEndpoint {
 	if len(endpoints) == 0 {
 		return nil
 	}

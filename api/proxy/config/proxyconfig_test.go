@@ -45,7 +45,7 @@ var (
 		NoProxy: "*",
 	}
 	ipv6Proxy = proxy.Settings{
-		Http:  "2001:db8:85a3::8a2e:370:7334",
+		Http:  "[2001:db8:85a3::8a2e:370:7334]",
 		Https: "[2001:db8:85a3::8a2e:370:7334]:80",
 	}
 )
@@ -54,7 +54,7 @@ func (s *Suite) TestGetProxy(c *tc.C) {
 	checkProxy(c, normal, "https://perfect.crime", "https://https.proxy")
 	checkProxy(c, normal, "http://decemberists.com", "http://http.proxy")
 	checkProxy(c, normal, "http://[2001:db8:85a3::8a2e:370:7334]", "http://http.proxy")
-	checkProxy(c, ipv6Proxy, "http://[2001:db8:85a3::8a2e:370:7334]", "http://2001:db8:85a3::8a2e:370:7334")
+	checkProxy(c, ipv6Proxy, "http://[2001:db8:85a3::8a2e:370:7334]", "http://[2001:db8:85a3::8a2e:370:7334]")
 	checkProxy(c, proxy.Settings{}, "https://sufjan.stevens", "")
 	checkProxy(c, normal, "http://adz.foo.com:80", "")
 	checkProxy(c, normal, "http://adz.bar.com", "")

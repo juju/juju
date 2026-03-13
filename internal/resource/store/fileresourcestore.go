@@ -23,9 +23,13 @@ func (f fileResourceStore) Get(
 	storageKey string,
 ) (io.ReadCloser, int64, error) {
 	if storageKey == "" {
-		return nil, 0, errors.Errorf("storage key empty")
+		return nil, -1, errors.Errorf("storage key empty")
 	}
-	return f.objectStore.Get(ctx, storageKey)
+	reader, digest, err := f.objectStore.Get(ctx, storageKey)
+	if err != nil {
+		return nil, -1, errors.Capture(err)
+	}
+	return reader, digest.Size, nil
 }
 
 // Put the given resource in the object store using the storage key as the

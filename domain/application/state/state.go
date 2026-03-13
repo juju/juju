@@ -162,6 +162,22 @@ func (s *State) addCharm(ctx context.Context, tx *sqlair.TX, uuid corecharm.ID, 
 		return errors.Capture(err)
 	}
 
+	// Do not add the charm hash if the charm has provenance of migration. This
+	// is because the upload of charms for migration follows a different workflow
+	// to regular deployment of charms. For migration, the charm blob is added
+	// to the object store _after_ the charm data is inserted into state. We
+	// also do not always export the charm hash, meaning we do not always have
+	// the charm hash accessible to us at this point. Skip adding it here, since
+	// charm_hash is an immutable table.
+	//
+	// Instead, we set the charm hash when a migrating charm is resolved, where
+	// the hash is re-calculated.
+	if downloadInfo == nil || downloadInfo.Provenance != charm.ProvenanceLegacyMigration {
+		if err := s.addCharmHash(ctx, tx, uuid, ch.Hash); err != nil {
+			return errors.Capture(err)
+		}
+	}
+
 	// Insert the download info if the charm is from CharmHub.
 	if ch.Source == charm.CharmHubSource {
 		if err := s.addCharmDownloadInfo(ctx, tx, uuid, downloadInfo); err != nil {
@@ -223,24 +239,8 @@ func (s *State) addCharmState(
 		return errors.Errorf("preparing query: %w", err)
 	}
 
-	hash := setCharmHash{
-		CharmUUID:  id.String(),
-		HashKindID: 0,
-		Hash:       ch.Hash,
-	}
-
-	hashQuery := `INSERT INTO charm_hash (*) VALUES ($setCharmHash.*);`
-	hashStmt, err := s.Prepare(hashQuery, hash)
-	if err != nil {
-		return errors.Errorf("preparing query: %w", err)
-	}
-
 	if err := tx.Query(ctx, charmStmt, chState).Run(); err != nil {
 		return errors.Errorf("inserting charm state: %w", err)
-	}
-
-	if err := tx.Query(ctx, hashStmt, hash).Run(); err != nil {
-		return errors.Errorf("inserting charm hash: %w", err)
 	}
 
 	return nil
@@ -599,6 +599,26 @@ func (s *State) addCharmManifest(ctx context.Context, tx *sqlair.TX, id corechar
 
 	if err := tx.Query(ctx, stmt, encodedManifest).Run(); err != nil {
 		return errors.Errorf("inserting charm manifest: %w", err)
+	}
+
+	return nil
+}
+
+func (s *State) addCharmHash(ctx context.Context, tx *sqlair.TX, id corecharm.ID, hash string) error {
+	setHash := setCharmHash{
+		CharmUUID:  id.String(),
+		HashKindID: 0,
+		Hash:       hash,
+	}
+
+	hashQuery := `INSERT INTO charm_hash (*) VALUES ($setCharmHash.*);`
+	hashStmt, err := s.Prepare(hashQuery, setHash)
+	if err != nil {
+		return errors.Errorf("preparing query: %w", err)
+	}
+
+	if err := tx.Query(ctx, hashStmt, setHash).Run(); err != nil {
+		return errors.Errorf("inserting charm hash: %w", err)
 	}
 
 	return nil
@@ -1535,7 +1555,7 @@ func encodeProvenance(provenance charm.Provenance) (int, error) {
 	switch provenance {
 	case charm.ProvenanceDownload:
 		return 0, nil
-	case charm.ProvenanceMigration:
+	case charm.ProvenanceLegacyMigration:
 		return 1, nil
 	case charm.ProvenanceUpload:
 		return 2, nil
@@ -1551,7 +1571,7 @@ func decodeProvenance(provenance string) (charm.Provenance, error) {
 	case "download":
 		return charm.ProvenanceDownload, nil
 	case "migration":
-		return charm.ProvenanceMigration, nil
+		return charm.ProvenanceLegacyMigration, nil
 	case "upload":
 		return charm.ProvenanceUpload, nil
 	case "bootstrap":

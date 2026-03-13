@@ -1719,26 +1719,6 @@ func (s *stateSuite) TestUpdateSecretBackendReferenceFailedNoExistingRefCountFou
 	c.Assert(err, tc.ErrorIs, backenderrors.RefCountNotFound)
 }
 
-func (s *stateSuite) TestRemoveSecretBackendReference(c *tc.C) {
-	modelUUID := s.createModel(c, coremodel.IAAS)
-	secretRevisionID1 := uuid.MustNewUUID().String()
-	secretRevisionID2 := uuid.MustNewUUID().String()
-
-	_, err := s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID}, modelUUID, secretRevisionID1)
-	c.Assert(err, tc.ErrorIsNil)
-	_, err = s.state.AddSecretBackendReference(c.Context(), &secrets.ValueRef{BackendID: s.vaultBackendID}, modelUUID, secretRevisionID2)
-	c.Assert(err, tc.ErrorIsNil)
-
-	assertSecretBackendReference(c, s.DB(), s.vaultBackendID, 2)
-	err = s.state.RemoveSecretBackendReference(c.Context(), secretRevisionID1)
-	c.Assert(err, tc.ErrorIsNil)
-	assertSecretBackendReference(c, s.DB(), s.vaultBackendID, 1)
-
-	err = s.state.RemoveSecretBackendReference(c.Context(), secretRevisionID2)
-	c.Assert(err, tc.ErrorIsNil)
-	assertSecretBackendReference(c, s.DB(), s.vaultBackendID, 0)
-}
-
 func (s *stateSuite) TestInitialWatchStatement(c *tc.C) {
 	table, q := s.state.InitialWatchStatementForSecretBackendRotationChanges()
 	c.Assert(table, tc.Equals, "secret_backend_rotation")

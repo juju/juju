@@ -408,7 +408,7 @@ func (p *Pollster) queryProp(prop *jsonschema.Schema) (interface{}, error) {
 
 func (p *Pollster) queryAdditionalProps(vals map[string]interface{}, schema *jsonschema.Schema) error {
 	if schema.AdditionalProperties.Type[0] != jsonschema.ObjectType {
-		return errors.Errorf("don't know how to query for additional properties of type %q", schema.AdditionalProperties.Type[0])
+		return errors.Errorf("don't know how to query for additional properties of type %d", schema.AdditionalProperties.Type[0])
 	}
 
 	verifyName := func(s string) (ok bool, errmsg string, err error) {
@@ -689,7 +689,7 @@ func convert(s string, t jsonschema.Type) (interface{}, error) {
 			return nil, errors.Errorf("unknown value for boolean type: %q", s)
 		}
 	default:
-		return nil, errors.Errorf("don't know how to convert value %q of type %q", s, t)
+		return nil, errors.Errorf("don't know how to convert value %q of type %d", s, t)
 	}
 }
 

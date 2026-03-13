@@ -63,13 +63,13 @@ func ptr[T any](t T) *T {
 
 // String describes what the matcher matches.
 func (m eventSourceFilterMatcher) String() string {
-	return fmt.Sprintf("event source filter matches ns=%q mask=%q",
+	return fmt.Sprintf("event source filter matches ns=%q mask=%v",
 		m.Namespace, m.ChangeMask)
 }
 
 // String describes what the matcher matches.
 func (m eventSourcePredFilterMatcher) String() string {
-	return fmt.Sprintf("event source filter matches ns=%q mask=%q",
+	return fmt.Sprintf("event source filter matches ns=%q mask=%v",
 		m.Namespace, m.ChangeMask)
 }
 

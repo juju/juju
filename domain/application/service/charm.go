@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application"
@@ -173,7 +174,7 @@ type CharmStore interface {
 
 	// GetBySHA256Prefix retrieves a ReadCloser for a charm archive who's SHA256
 	// hash starts with the provided prefix.
-	GetBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, error)
+	GetBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, objectstore.Digest, error)
 }
 
 // getCharmID returns the charm ID for the given charm locator.
@@ -598,18 +599,18 @@ func (s *Service) GetCharmArchive(ctx context.Context, locator charm.CharmLocato
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *Service) GetCharmArchiveBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, error) {
+func (s *Service) GetCharmArchiveBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, objectstore.Digest, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	reader, err := s.charmStore.GetBySHA256Prefix(ctx, sha256Prefix)
+	reader, digest, err := s.charmStore.GetBySHA256Prefix(ctx, sha256Prefix)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, applicationerrors.CharmNotFound
+		return nil, objectstore.Digest{}, applicationerrors.CharmNotFound
 	} else if err != nil {
-		return nil, errors.Capture(err)
+		return nil, objectstore.Digest{}, errors.Capture(err)
 	}
 
-	return reader, nil
+	return reader, digest, nil
 }
 
 // IsCharmAvailable returns whether the charm is available for use. This
@@ -868,7 +869,7 @@ func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.
 		ObjectStoreUUID: result.ObjectStoreUUID,
 		Hash:            digest.SHA256,
 		DownloadInfo: &charm.DownloadInfo{
-			Provenance: charm.ProvenanceMigration,
+			Provenance: charm.ProvenanceLegacyMigration,
 		},
 
 		// This is correct, we want to use the unique name of the stored charm

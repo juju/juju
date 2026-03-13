@@ -24,6 +24,7 @@ import (
 	devices "github.com/juju/juju/core/devices"
 	machine "github.com/juju/juju/core/machine"
 	network "github.com/juju/juju/core/network"
+	objectstore "github.com/juju/juju/core/objectstore"
 	semversion "github.com/juju/juju/core/semversion"
 	status "github.com/juju/juju/core/status"
 	storage "github.com/juju/juju/core/storage"
@@ -269,12 +270,13 @@ func (c *MockCharmStoreGetCall) DoAndReturn(f func(context.Context, string) (io.
 }
 
 // GetBySHA256Prefix mocks base method.
-func (m *MockCharmStore) GetBySHA256Prefix(arg0 context.Context, arg1 string) (io.ReadCloser, error) {
+func (m *MockCharmStore) GetBySHA256Prefix(arg0 context.Context, arg1 string) (io.ReadCloser, objectstore.Digest, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetBySHA256Prefix", arg0, arg1)
 	ret0, _ := ret[0].(io.ReadCloser)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(objectstore.Digest)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // GetBySHA256Prefix indicates an expected call of GetBySHA256Prefix.
@@ -290,19 +292,19 @@ type MockCharmStoreGetBySHA256PrefixCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCharmStoreGetBySHA256PrefixCall) Return(arg0 io.ReadCloser, arg1 error) *MockCharmStoreGetBySHA256PrefixCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockCharmStoreGetBySHA256PrefixCall) Return(arg0 io.ReadCloser, arg1 objectstore.Digest, arg2 error) *MockCharmStoreGetBySHA256PrefixCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmStoreGetBySHA256PrefixCall) Do(f func(context.Context, string) (io.ReadCloser, error)) *MockCharmStoreGetBySHA256PrefixCall {
+func (c *MockCharmStoreGetBySHA256PrefixCall) Do(f func(context.Context, string) (io.ReadCloser, objectstore.Digest, error)) *MockCharmStoreGetBySHA256PrefixCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmStoreGetBySHA256PrefixCall) DoAndReturn(f func(context.Context, string) (io.ReadCloser, error)) *MockCharmStoreGetBySHA256PrefixCall {
+func (c *MockCharmStoreGetBySHA256PrefixCall) DoAndReturn(f func(context.Context, string) (io.ReadCloser, objectstore.Digest, error)) *MockCharmStoreGetBySHA256PrefixCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -945,6 +947,45 @@ func (c *MockStateGetAllEndpointBindingsCall) Do(f func(context.Context) (map[st
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetAllEndpointBindingsCall) DoAndReturn(f func(context.Context) (map[string]map[string]string, error)) *MockStateGetAllEndpointBindingsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetAllExposedEndpoints mocks base method.
+func (m *MockState) GetAllExposedEndpoints(arg0 context.Context) (map[string]map[string]application0.ExposedEndpoint, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllExposedEndpoints", arg0)
+	ret0, _ := ret[0].(map[string]map[string]application0.ExposedEndpoint)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllExposedEndpoints indicates an expected call of GetAllExposedEndpoints.
+func (mr *MockStateMockRecorder) GetAllExposedEndpoints(arg0 any) *MockStateGetAllExposedEndpointsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllExposedEndpoints", reflect.TypeOf((*MockState)(nil).GetAllExposedEndpoints), arg0)
+	return &MockStateGetAllExposedEndpointsCall{Call: call}
+}
+
+// MockStateGetAllExposedEndpointsCall wrap *gomock.Call
+type MockStateGetAllExposedEndpointsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAllExposedEndpointsCall) Return(arg0 map[string]map[string]application0.ExposedEndpoint, arg1 error) *MockStateGetAllExposedEndpointsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAllExposedEndpointsCall) Do(f func(context.Context) (map[string]map[string]application0.ExposedEndpoint, error)) *MockStateGetAllExposedEndpointsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAllExposedEndpointsCall) DoAndReturn(f func(context.Context) (map[string]map[string]application0.ExposedEndpoint, error)) *MockStateGetAllExposedEndpointsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

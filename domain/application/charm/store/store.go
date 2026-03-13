@@ -213,19 +213,19 @@ func (s *CharmStore) Get(ctx context.Context, path string) (io.ReadCloser, error
 
 // GetBySHA256Prefix retrieves a ReadCloser for a charm archive who's SHA256 hash
 // starts with the provided prefix.
-func (s *CharmStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, error) {
+func (s *CharmStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, objectstore.Digest, error) {
 	store, err := s.objectStoreGetter.GetObjectStore(ctx)
 	if err != nil {
-		return nil, errors.Errorf("getting object store: %w", err)
+		return nil, objectstore.Digest{}, errors.Errorf("getting object store: %w", err)
 	}
-	reader, _, err := store.GetBySHA256Prefix(ctx, sha256Prefix)
+	reader, digest, err := store.GetBySHA256Prefix(ctx, sha256Prefix)
 	if errors.Is(err, objectstoreerrors.ObjectNotFound) {
-		return nil, ErrNotFound
+		return nil, objectstore.Digest{}, ErrNotFound
 	}
 	if err != nil {
-		return nil, errors.Errorf("getting charm: %w", err)
+		return nil, objectstore.Digest{}, errors.Errorf("getting charm: %w", err)
 	}
-	return reader, nil
+	return reader, digest, nil
 }
 
 type charmReaderCloser struct {

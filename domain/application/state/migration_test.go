@@ -77,7 +77,8 @@ func (s *migrationStateSuite) TestInsertMigratingApplication(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("Failed to create application: %s", errors.ErrorStack(err)))
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, false)
-	s.assertDownloadProvenance(c, id, charm.ProvenanceMigration)
+	s.assertDownloadProvenance(c, id, charm.ProvenanceLegacyMigration)
+	s.assertCharmHashCount(c, id, 0)
 
 	// Ensure that config is empty and trust is false.
 	config, settings, err := st.GetApplicationConfigAndSettings(c.Context(), id)
@@ -106,6 +107,22 @@ WHERE  v.application_uuid=?
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(obtainedProvenance, tc.Equals, string(expectedProvenance))
+}
+
+func (s *migrationStateSuite) assertCharmHashCount(c *tc.C, appID coreapplication.UUID, expected int) {
+	var count int
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM charm_hash
+WHERE charm_uuid = (
+	SELECT charm_uuid
+	FROM application
+	WHERE uuid = ?
+)`, appID.String()).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, expected)
 }
 
 func (s *unitStateSuite) TestInsertMigratingIAASUnits(c *tc.C) {

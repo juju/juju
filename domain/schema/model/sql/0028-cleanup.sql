@@ -22,7 +22,10 @@ INSERT INTO removal_type VALUES
 (12, 'remote application offerer'),
 (13, 'relation with remote offerer'),
 (14, 'relation with remote consumer'),
-(15, 'controller-model');
+(15, 'controller-model'),
+(16, 'user secret'),
+(17, 'obsolete user secret revisions');
+
 
 CREATE TABLE removal (
     uuid TEXT NOT NULL PRIMARY KEY,

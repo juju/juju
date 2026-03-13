@@ -37,3 +37,8 @@ If guidance conflicts, architectural rules take precedence.
 - Run via: `cd tests && ./main.sh <suite>` or `./main.sh <suite> <test_name>`.
 - Framework includes: `tests/includes/juju.sh` (bootstrap, ensure, destroy),
   `tests/includes/wait-for.sh` (polling), `tests/includes/check.sh` (assertions).
+
+## General Code Structure Guidelines
+
+- Place methods and functions below others that call them.
+- Limit comment line lengths to 80 characters.

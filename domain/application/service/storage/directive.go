@@ -514,7 +514,7 @@ func validateApplicationStorageDirective(
 
 	if directive.Count < minCount {
 		return errors.Errorf(
-			"charm requires min %q storage %q instances, %d specified",
+			"charm requires min %d storage %q instances, %d specified",
 			minCount, directive.Name, directive.Count,
 		)
 	}

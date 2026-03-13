@@ -90,7 +90,7 @@ func (s *importSuite) TestImportBlockDevices(c *tc.C) {
 	coordinator := modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
 	blockdevicemodelmigration.RegisterImport(coordinator, loggertesting.WrapCheckLog(c))
 	err := coordinator.Perform(c.Context(), modelmigration.NewScope(nil, s.TxnRunnerFactory(),
-		nil, model.UUID(s.ModelUUID())), desc)
+		nil, nil, model.UUID(s.ModelUUID())), desc)
 	c.Assert(err, tc.ErrorIsNil)
 
 	svc := s.setupService(c)

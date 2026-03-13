@@ -7,7 +7,10 @@ import (
 	"context"
 
 	coreapplication "github.com/juju/juju/core/application"
+	coresecrets "github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/removal"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/juju"
@@ -46,6 +49,101 @@ type SecretModelState interface {
 	// GetUnitOwnedSecretRevisionRefs returns the back-end value references
 	// for secret revisions owned by the application with the input UUID.
 	GetUnitOwnedSecretRevisionRefs(ctx context.Context, uUUID string) ([]string, error)
+
+	// DeleteUserSecretRevisions deletes the specified revisions of the user
+	// secret with the input URI. If revisions is nil or empty, all revisions
+	// are deleted. Returns the revision UUIDs that were deleted.
+	DeleteUserSecretRevisions(ctx context.Context, uri *coresecrets.URI, revisions []int) ([]string, error)
+
+	// DeleteObsoleteUserSecretRevisions deletes all obsolete revisions of
+	// auto-prune user secrets. Returns the deleted revision UUIDs for
+	// back-end content cleanup.
+	DeleteObsoleteUserSecretRevisions(ctx context.Context) ([]string, error)
+
+	// GetUserSecretRevisionRefs returns the back-end value
+	// references for the specified revision UUIDs.
+	GetUserSecretRevisionRefs(ctx context.Context, revisionUUIDs []string) ([]string, error)
+
+	// DeleteUserSecretRevisionRef removes the back-end value reference
+	// for the specified deleted revision UUID.
+	DeleteUserSecretRevisionRef(ctx context.Context, revisionUUID string) error
+}
+
+// processUserSecretRemovalJob deletes a user secret or specific revisions.
+// The EntityUUID in the job contains the full secret URI string.
+// Optional revisions can be specified in job.Arg["revisions"] as []int.
+func (s *Service) processUserSecretRemovalJob(ctx context.Context, job removal.Job) error {
+	if job.RemovalType != removal.UserSecretJob {
+		return errors.Errorf("job type: %q not valid for user secret removal", job.RemovalType).
+			Add(removalerrors.RemovalJobTypeNotValid)
+	}
+
+	uri, err := coresecrets.ParseURI(job.EntityUUID)
+	if err != nil {
+		return errors.Errorf("parsing secret URI from job: %w", err)
+	}
+
+	// Extract revisions from job args if provided
+	var revisions []int
+	if job.Arg != nil {
+		if revs, ok := job.Arg["revisions"]; ok && revs != nil {
+			// Handle different numeric types that might come from JSON
+			switch v := revs.(type) {
+			case []int:
+				revisions = v
+			case []any:
+				revisions = make([]int, 0, len(v))
+				for _, r := range v {
+					switch rv := r.(type) {
+					case int:
+						revisions = append(revisions, rv)
+					case float64:
+						revisions = append(revisions, int(rv))
+					case int64:
+						revisions = append(revisions, int(rv))
+					default:
+						return errors.Errorf("revision value is not integer: %v", rv).
+							Add(removalerrors.RemovalJobArgsInvalid)
+					}
+				}
+			default:
+				return errors.Errorf("invalid revisions type: %T", v).Add(removalerrors.RemovalJobArgsInvalid)
+
+			}
+		}
+	}
+
+	if err := s.deleteUserSecretRevisions(ctx, uri, revisions); err != nil {
+		return errors.Errorf("deleting user secret %q revisions %v: %w", job.EntityUUID, revisions, err)
+	}
+
+	return nil
+}
+
+// processObsoleteUserSecretRevisionsJob prunes all obsolete revisions of
+// auto-prune user secrets and cleans up back-end content as needed.
+func (s *Service) processObsoleteUserSecretRevisionsJob(ctx context.Context, job removal.Job) error {
+	if job.RemovalType != removal.ObsoleteUserSecretRevisionsJob {
+		return errors.Errorf("job type: %q not valid for obsolete secret revisions pruning", job.RemovalType).
+			Add(removalerrors.RemovalJobTypeNotValid)
+	}
+
+	deletedRevisionUUIDs, err := s.modelState.DeleteObsoleteUserSecretRevisions(ctx)
+	if err != nil {
+		return errors.Errorf("deleting obsolete user secret revisions: %w", err)
+	}
+
+	err = s.deleteSecretRevisionContent(ctx, deletedRevisionUUIDs)
+	if err != nil {
+		return errors.Errorf("deleting secret revision content: %w", err)
+	}
+
+	err = s.controllerState.RemoveSecretBackendReference(ctx, deletedRevisionUUIDs...)
+	if err != nil {
+		return errors.Errorf("removing secret backend reference: %w", err)
+	}
+
+	return nil
 }
 
 func (s *Service) deleteApplicationOwnedSecrets(ctx context.Context, aUUID coreapplication.UUID) error {
@@ -67,7 +165,7 @@ func (s *Service) deleteApplicationOwnedSecrets(ctx context.Context, aUUID corea
 		// For external content, make a best-effort - just log any errors.
 		for _, id := range ids {
 			if err := sb.DeleteContent(ctx, id); err != nil {
-				s.logger.Warningf(ctx, "failed to delete secret content for external reference %q: %s", id, err.Error())
+				s.logger.Warningf(ctx, "failed to delete secret content for external reference %q: %v", id, err)
 			}
 		}
 	}
@@ -98,7 +196,7 @@ func (s *Service) deleteUnitOwnedSecrets(ctx context.Context, uUUID coreunit.UUI
 		// For external content, make a best-effort - just log any errors.
 		for _, id := range ids {
 			if err := sb.DeleteContent(ctx, id); err != nil {
-				s.logger.Warningf(ctx, "failed to delete secret content for external reference %q: %s", id, err.Error())
+				s.logger.Warningf(ctx, "failed to delete secret content for external reference %q: %v", id, err)
 			}
 		}
 	}
@@ -135,4 +233,58 @@ func (s *Service) getSecretBackend(ctx context.Context) (provider.SecretsBackend
 
 	sb, err := p.NewBackend(modelBackendCfg)
 	return sb, errors.Capture(err)
+}
+
+func (s *Service) deleteUserSecretRevisions(ctx context.Context, uri *coresecrets.URI, revisions []int) error {
+	// Delete the specified revisions (or all if revisions is nil)
+	deletedRevisionUUIDs, err := s.modelState.DeleteUserSecretRevisions(ctx, uri, revisions)
+	if err != nil {
+		return errors.Errorf("deleting secret revisions: %w", err)
+	}
+	s.logger.Infof(ctx, "deleted secret %s revisions %v", uri.String(), deletedRevisionUUIDs)
+
+	err = s.deleteSecretRevisionContent(ctx, deletedRevisionUUIDs)
+	if err != nil {
+		return errors.Errorf("deleting secret revision content: %w", err)
+	}
+
+	err = s.controllerState.RemoveSecretBackendReference(ctx, deletedRevisionUUIDs...)
+	if err != nil {
+		return errors.Errorf("removing secret backend reference: %w", err)
+	}
+
+	return nil
+}
+
+// deleteSecretRevisionContent deletes the secret content from the backend.
+func (s *Service) deleteSecretRevisionContent(ctx context.Context, deletedRevisionUUIDs []string) error {
+	// If using external backend, clean up the content
+	sb, err := s.getSecretBackend(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if sb == nil {
+		// No backend configured, secret content is already deleted with the revision
+		return nil
+	}
+
+	// Get the backend references for the deleted revisions
+	refs, err := s.modelState.GetUserSecretRevisionRefs(ctx, deletedRevisionUUIDs)
+	if err != nil {
+		return errors.Errorf("getting secret revision back-end refs: %w", err)
+	}
+
+	// For external content, make a best-effort - just log any errors.
+	for _, ref := range refs {
+		if err := sb.DeleteContent(ctx, ref); err != nil {
+			s.logger.Warningf(ctx, "failed to delete secret content for external reference %q: %v", ref, err)
+			continue
+		}
+
+		if err := s.modelState.DeleteUserSecretRevisionRef(ctx, ref); err != nil {
+			s.logger.Warningf(ctx, "failed to delete secret backend reference for revision %q: %v", ref, err)
+		}
+	}
+	return nil
 }

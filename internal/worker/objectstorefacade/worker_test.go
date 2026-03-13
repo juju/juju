@@ -37,7 +37,8 @@ func TestWorkerSuite(t *testing.T) {
 func (s *workerSuite) TestObjectStoreGetObjectStore(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.objectStoreGetter.EXPECT().GetObjectStore(gomock.Any(), "foo").Return(s.objectStore, nil)
+	s.objectStoreGetter.EXPECT().GetObjectStore(gomock.Any(), "foo").
+		Return(s.objectStore, nil)
 
 	w := s.newWorker(c)
 	defer workertest.CleanKill(c, w)
@@ -50,7 +51,8 @@ func (s *workerSuite) TestObjectStoreGetObjectStore(c *tc.C) {
 func (s *workerSuite) TestObjectStoreGetObjectStoreError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.objectStoreGetter.EXPECT().GetObjectStore(gomock.Any(), "foo").Return(s.objectStore, errors.Errorf("boom"))
+	s.objectStoreGetter.EXPECT().GetObjectStore(gomock.Any(), "foo").
+		Return(s.objectStore, errors.Errorf("boom"))
 
 	w := s.newWorker(c)
 	defer workertest.CleanKill(c, w)
@@ -62,9 +64,10 @@ func (s *workerSuite) TestObjectStoreGetObjectStoreError(c *tc.C) {
 func (s *workerSuite) TestGetWithVisitReturnsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return errors.Errorf("boom")
-	})
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return errors.Errorf("boom")
+		})
 
 	f := s.newObjectStoreFacade()
 	_, _, err := f.Get(c.Context(), "foo")
@@ -74,9 +77,10 @@ func (s *workerSuite) TestGetWithVisitReturnsError(c *tc.C) {
 func (s *workerSuite) TestGetWithContextCancelled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return ctx.Err()
-	})
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return ctx.Err()
+		})
 
 	ctx, cancel := context.WithCancel(c.Context())
 	cancel()
@@ -89,9 +93,10 @@ func (s *workerSuite) TestGetWithContextCancelled(c *tc.C) {
 func (s *workerSuite) TestGetWithVisitReturnsDrainingError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return fortress.ErrAborted
-	})
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return fortress.ErrAborted
+		})
 
 	f := s.newObjectStoreFacade()
 	_, _, err := f.Get(c.Context(), "foo")
@@ -101,10 +106,12 @@ func (s *workerSuite) TestGetWithVisitReturnsDrainingError(c *tc.C) {
 func (s *workerSuite) TestGetWithVisitObjectStoreNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return fn()
-	})
-	s.objectStore.EXPECT().Get(gomock.Any(), "foo").Return(nil, 0, jujuerrors.NotFound)
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return fn()
+		})
+	s.objectStore.EXPECT().Get(gomock.Any(), "foo").
+		Return(nil, coreobjectstore.Digest{}, jujuerrors.NotFound)
 
 	f := s.newObjectStoreFacade()
 	_, _, err := f.Get(c.Context(), "foo")
@@ -114,27 +121,34 @@ func (s *workerSuite) TestGetWithVisitObjectStoreNotFound(c *tc.C) {
 func (s *workerSuite) TestGetWithVisitObjectStoreReturnsReader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return fn()
-	})
-	s.objectStore.EXPECT().Get(gomock.Any(), "foo").Return(io.NopCloser(strings.NewReader("foo")), 3, nil)
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return fn()
+		})
+	s.objectStore.EXPECT().Get(gomock.Any(), "foo").
+		Return(io.NopCloser(strings.NewReader("foo")), coreobjectstore.Digest{
+			Size: 3,
+		}, nil)
 
 	f := s.newObjectStoreFacade()
-	reader, size, err := f.Get(c.Context(), "foo")
+	reader, digest, err := f.Get(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	data, err := io.ReadAll(reader)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(data, tc.DeepEquals, []byte("foo"))
-	c.Check(size, tc.Equals, int64(3))
+	c.Check(digest, tc.Equals, coreobjectstore.Digest{
+		Size: 3,
+	})
 }
 
 func (s *workerSuite) TestGetBySHA256WithVisitReturnsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return errors.Errorf("boom")
-	})
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return errors.Errorf("boom")
+		})
 
 	f := s.newObjectStoreFacade()
 	_, _, err := f.GetBySHA256(c.Context(), "foo")
@@ -144,9 +158,10 @@ func (s *workerSuite) TestGetBySHA256WithVisitReturnsError(c *tc.C) {
 func (s *workerSuite) TestGetBySHA256WithContextCancelled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return ctx.Err()
-	})
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return ctx.Err()
+		})
 
 	ctx, cancel := context.WithCancel(c.Context())
 	cancel()
@@ -159,9 +174,10 @@ func (s *workerSuite) TestGetBySHA256WithContextCancelled(c *tc.C) {
 func (s *workerSuite) TestGetBySHA256WithVisitReturnsDrainingError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return fortress.ErrAborted
-	})
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return fortress.ErrAborted
+		})
 
 	f := s.newObjectStoreFacade()
 	_, _, err := f.GetBySHA256(c.Context(), "foo")
@@ -171,10 +187,12 @@ func (s *workerSuite) TestGetBySHA256WithVisitReturnsDrainingError(c *tc.C) {
 func (s *workerSuite) TestGetBySHA256WithVisitObjectStoreNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return fn()
-	})
-	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), "foo").Return(nil, 0, jujuerrors.NotFound)
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return fn()
+		})
+	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), "foo").
+		Return(nil, coreobjectstore.Digest{}, jujuerrors.NotFound)
 
 	f := s.newObjectStoreFacade()
 	_, _, err := f.GetBySHA256(c.Context(), "foo")
@@ -184,27 +202,34 @@ func (s *workerSuite) TestGetBySHA256WithVisitObjectStoreNotFound(c *tc.C) {
 func (s *workerSuite) TestGetBySHA256WithVisitObjectStoreReturnsReader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return fn()
-	})
-	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), "foo").Return(io.NopCloser(strings.NewReader("foo")), 3, nil)
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return fn()
+		})
+	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), "foo").
+		Return(io.NopCloser(strings.NewReader("foo")), coreobjectstore.Digest{
+			Size: 3,
+		}, nil)
 
 	f := s.newObjectStoreFacade()
-	reader, size, err := f.GetBySHA256(c.Context(), "foo")
+	reader, digest, err := f.GetBySHA256(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	data, err := io.ReadAll(reader)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(data, tc.DeepEquals, []byte("foo"))
-	c.Check(size, tc.Equals, int64(3))
+	c.Check(digest, tc.Equals, coreobjectstore.Digest{
+		Size: 3,
+	})
 }
 
 func (s *workerSuite) TestGetBySHA256PrefixWithVisitReturnsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return errors.Errorf("boom")
-	})
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return errors.Errorf("boom")
+		})
 
 	f := s.newObjectStoreFacade()
 	_, _, err := f.GetBySHA256Prefix(c.Context(), "foo")
@@ -214,9 +239,10 @@ func (s *workerSuite) TestGetBySHA256PrefixWithVisitReturnsError(c *tc.C) {
 func (s *workerSuite) TestGetBySHA256PrefixWithContextCancelled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return ctx.Err()
-	})
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return ctx.Err()
+		})
 
 	ctx, cancel := context.WithCancel(c.Context())
 	cancel()
@@ -229,9 +255,10 @@ func (s *workerSuite) TestGetBySHA256PrefixWithContextCancelled(c *tc.C) {
 func (s *workerSuite) TestGetBySHA256PrefixWithVisitReturnsDrainingError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return fortress.ErrAborted
-	})
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return fortress.ErrAborted
+		})
 
 	f := s.newObjectStoreFacade()
 	_, _, err := f.GetBySHA256Prefix(c.Context(), "foo")
@@ -241,10 +268,12 @@ func (s *workerSuite) TestGetBySHA256PrefixWithVisitReturnsDrainingError(c *tc.C
 func (s *workerSuite) TestGetBySHA256PrefixWithVisitObjectStoreNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return fn()
-	})
-	s.objectStore.EXPECT().GetBySHA256Prefix(gomock.Any(), "foo").Return(nil, 0, jujuerrors.NotFound)
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return fn()
+		})
+	s.objectStore.EXPECT().GetBySHA256Prefix(gomock.Any(), "foo").
+		Return(nil, coreobjectstore.Digest{}, jujuerrors.NotFound)
 
 	f := s.newObjectStoreFacade()
 	_, _, err := f.GetBySHA256Prefix(c.Context(), "foo")
@@ -254,27 +283,34 @@ func (s *workerSuite) TestGetBySHA256PrefixWithVisitObjectStoreNotFound(c *tc.C)
 func (s *workerSuite) TestGetBySHA256PrefixWithVisitObjectStoreReturnsReader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return fn()
-	})
-	s.objectStore.EXPECT().GetBySHA256Prefix(gomock.Any(), "foo").Return(io.NopCloser(strings.NewReader("foo")), 3, nil)
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return fn()
+		})
+	s.objectStore.EXPECT().GetBySHA256Prefix(gomock.Any(), "foo").
+		Return(io.NopCloser(strings.NewReader("foo")), coreobjectstore.Digest{
+			Size: 3,
+		}, nil)
 
 	f := s.newObjectStoreFacade()
-	reader, size, err := f.GetBySHA256Prefix(c.Context(), "foo")
+	reader, digest, err := f.GetBySHA256Prefix(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
 	data, err := io.ReadAll(reader)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(data, tc.DeepEquals, []byte("foo"))
-	c.Check(size, tc.Equals, int64(3))
+	c.Check(digest, tc.Equals, coreobjectstore.Digest{
+		Size: 3,
+	})
 }
 
 func (s *workerSuite) TestPutWithVisitReturnsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return errors.Errorf("boom")
-	})
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return errors.Errorf("boom")
+		})
 
 	f := s.newObjectStoreFacade()
 	_, err := f.Put(c.Context(), "foo", strings.NewReader("foo"), 3)
@@ -284,9 +320,10 @@ func (s *workerSuite) TestPutWithVisitReturnsError(c *tc.C) {
 func (s *workerSuite) TestPutWithContextCancelled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return ctx.Err()
-	})
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return ctx.Err()
+		})
 
 	ctx, cancel := context.WithCancel(c.Context())
 	cancel()
@@ -299,10 +336,12 @@ func (s *workerSuite) TestPutWithContextCancelled(c *tc.C) {
 func (s *workerSuite) TestPutWithVisitReturnsObjectStoreUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return fn()
-	})
-	s.objectStore.EXPECT().Put(gomock.Any(), "foo", gomock.Any(), int64(3)).Return(coreobjectstore.UUID("i-am-a-uuid"), nil)
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return fn()
+		})
+	s.objectStore.EXPECT().Put(gomock.Any(), "foo", gomock.Any(), int64(3)).
+		Return(coreobjectstore.UUID("i-am-a-uuid"), nil)
 
 	f := s.newObjectStoreFacade()
 	uuid, err := f.Put(c.Context(), "foo", strings.NewReader("foo"), 3)
@@ -313,10 +352,12 @@ func (s *workerSuite) TestPutWithVisitReturnsObjectStoreUUID(c *tc.C) {
 func (s *workerSuite) TestPutWithVisitReturnsObjectStoreError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return fn()
-	})
-	s.objectStore.EXPECT().Put(gomock.Any(), "foo", gomock.Any(), int64(3)).Return(coreobjectstore.UUID("i-am-a-uuid"), errors.Errorf("boom"))
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return fn()
+		})
+	s.objectStore.EXPECT().Put(gomock.Any(), "foo", gomock.Any(), int64(3)).
+		Return(coreobjectstore.UUID("i-am-a-uuid"), errors.Errorf("boom"))
 
 	f := s.newObjectStoreFacade()
 	_, err := f.Put(c.Context(), "foo", strings.NewReader("foo"), 3)
@@ -326,9 +367,10 @@ func (s *workerSuite) TestPutWithVisitReturnsObjectStoreError(c *tc.C) {
 func (s *workerSuite) TestPutAndCheckHashWithVisitReturnsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return errors.Errorf("boom")
-	})
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return errors.Errorf("boom")
+		})
 
 	f := s.newObjectStoreFacade()
 	_, err := f.PutAndCheckHash(c.Context(), "foo", strings.NewReader("foo"), 3, "sha384")
@@ -338,9 +380,10 @@ func (s *workerSuite) TestPutAndCheckHashWithVisitReturnsError(c *tc.C) {
 func (s *workerSuite) TestPutAndCheckHashWithContextCancelled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return ctx.Err()
-	})
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return ctx.Err()
+		})
 
 	ctx, cancel := context.WithCancel(c.Context())
 	cancel()
@@ -353,10 +396,12 @@ func (s *workerSuite) TestPutAndCheckHashWithContextCancelled(c *tc.C) {
 func (s *workerSuite) TestPutAndCheckHashWithVisitReturnsObjectStoreUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return fn()
-	})
-	s.objectStore.EXPECT().PutAndCheckHash(gomock.Any(), "foo", gomock.Any(), int64(3), "sha384").Return(coreobjectstore.UUID("i-am-a-uuid"), nil)
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return fn()
+		})
+	s.objectStore.EXPECT().PutAndCheckHash(gomock.Any(), "foo", gomock.Any(), int64(3), "sha384").
+		Return(coreobjectstore.UUID("i-am-a-uuid"), nil)
 
 	f := s.newObjectStoreFacade()
 	uuid, err := f.PutAndCheckHash(c.Context(), "foo", strings.NewReader("foo"), 3, "sha384")
@@ -367,10 +412,12 @@ func (s *workerSuite) TestPutAndCheckHashWithVisitReturnsObjectStoreUUID(c *tc.C
 func (s *workerSuite) TestPutAndCheckHashWithVisitReturnsObjectStoreError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return fn()
-	})
-	s.objectStore.EXPECT().PutAndCheckHash(gomock.Any(), "foo", gomock.Any(), int64(3), "sha384").Return(coreobjectstore.UUID("i-am-a-uuid"), errors.Errorf("boom"))
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return fn()
+		})
+	s.objectStore.EXPECT().PutAndCheckHash(gomock.Any(), "foo", gomock.Any(), int64(3), "sha384").
+		Return(coreobjectstore.UUID("i-am-a-uuid"), errors.Errorf("boom"))
 
 	f := s.newObjectStoreFacade()
 	_, err := f.PutAndCheckHash(c.Context(), "foo", strings.NewReader("foo"), 3, "sha384")
@@ -380,9 +427,10 @@ func (s *workerSuite) TestPutAndCheckHashWithVisitReturnsObjectStoreError(c *tc.
 func (s *workerSuite) TestRemoveWithVisitReturnsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return errors.Errorf("boom")
-	})
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return errors.Errorf("boom")
+		})
 
 	f := s.newObjectStoreFacade()
 	err := f.Remove(c.Context(), "foo")
@@ -392,9 +440,10 @@ func (s *workerSuite) TestRemoveWithVisitReturnsError(c *tc.C) {
 func (s *workerSuite) TestRemoveWithContextCancelled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return ctx.Err()
-	})
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return ctx.Err()
+		})
 
 	ctx, cancel := context.WithCancel(c.Context())
 	cancel()
@@ -407,9 +456,10 @@ func (s *workerSuite) TestRemoveWithContextCancelled(c *tc.C) {
 func (s *workerSuite) TestRemoveWithVisitReturnsObjectStoreError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
-		return fn()
-	})
+	s.guest.EXPECT().Visit(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, fn fortress.Visit) error {
+			return fn()
+		})
 	s.objectStore.EXPECT().Remove(gomock.Any(), "foo").Return(errors.Errorf("boom"))
 
 	f := s.newObjectStoreFacade()

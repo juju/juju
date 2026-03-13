@@ -225,7 +225,7 @@ func (s *StorageAPI) StorageAttachments(ctx context.Context, args params.Storage
 		sa.Life, err = info.Life.Value()
 		if err != nil {
 			return params.StorageAttachment{}, internalerrors.Errorf(
-				"invalid life %q for storage attachment %q unit %q: %w",
+				"invalid life %d for storage attachment %q unit %q: %w",
 				info.Life, arg.StorageTag, unitTag.Id(), err,
 			)
 		}
@@ -242,7 +242,7 @@ func (s *StorageAPI) StorageAttachments(ctx context.Context, args params.Storage
 			return sa, nil
 		} else if info.Kind != storage.StorageKindBlock {
 			return params.StorageAttachment{}, internalerrors.Errorf(
-				"invalid kind %q for storage attachment %q unit %q",
+				"invalid kind %d for storage attachment %q unit %q",
 				info.Kind, arg.StorageTag, unitTag.Id(),
 			)
 		}

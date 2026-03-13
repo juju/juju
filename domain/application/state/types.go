@@ -1081,10 +1081,17 @@ type setExposedCIDR struct {
 	CIDR            string `db:"cidr"`
 }
 
-type endpointCIDRsSpaces struct {
+type endpointExposed struct {
 	Name      sql.NullString `db:"name"`
 	CIDR      string         `db:"cidr"`
 	SpaceUUID string         `db:"space_uuid"`
+}
+
+type applicationEndpointExposed struct {
+	ApplicationName string         `db:"application_name"`
+	Name            sql.NullString `db:"name"`
+	CIDR            string         `db:"cidr"`
+	SpaceUUID       string         `db:"space_uuid"`
 }
 
 // spaces is a type used to pass a slice of space UUIDs to a query using `IN`

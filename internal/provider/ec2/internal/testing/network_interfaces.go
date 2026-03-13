@@ -376,7 +376,6 @@ func (srv *Server) createNICsOnRun(instId string, instSubnet *subnet, ifacesToCr
 		}
 		groups := make([]types.GroupIdentifier, len(ifaceToCreate.Groups))
 		for i, sg := range ifaceToCreate.Groups {
-			sg := sg
 			groups[i] = sg
 		}
 		// Find the primary private IP address for the NIC
