@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	"github.com/juju/utils/v4"
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/juju/juju/core/version"
@@ -340,43 +339,10 @@ func (s *controllerSchemaSuite) TestControllerTriggers(c *tc.C) {
 		"trg_log_object_store_drain_info_delete",
 	)
 
-	// These are additional triggers that are not change log triggers, but
-	// will be present in the schema.
-	additional := set.NewStrings(
-		"trg_secret_backend_immutable_update",
-		"trg_secret_backend_immutable_delete",
-	)
 	got := readEntityNames(c, s.DB(), "trigger")
-	wanted := expected.Union(additional)
-	c.Assert(got, tc.SameContents, wanted.SortedValues(), tc.Commentf(
+	c.Assert(got, tc.SameContents, expected.SortedValues(), tc.Commentf(
 		"additive: %v, deletion: %v",
-		set.NewStrings(got...).Difference(wanted).SortedValues(),
-		wanted.Difference(set.NewStrings(got...)).SortedValues(),
+		set.NewStrings(got...).Difference(expected).SortedValues(),
+		expected.Difference(set.NewStrings(got...)).SortedValues(),
 	))
-}
-
-func (s *controllerSchemaSuite) TestControllerTriggersForImmutableTables(c *tc.C) {
-	s.applyDDL(c, ControllerDDL())
-
-	backendUUID1 := utils.MustNewUUID().String()
-	backendUUID2 := utils.MustNewUUID().String()
-	s.assertExecSQL(c,
-		"INSERT INTO secret_backend (uuid, name, backend_type_id, origin_id) VALUES (?, 'controller-sb', 0, 0);",
-		backendUUID1)
-	s.assertExecSQL(c,
-		"INSERT INTO secret_backend (uuid, name, backend_type_id, origin_id) VALUES (?, 'kubernetes-sb', 1, 0);",
-		backendUUID2)
-	s.assertExecSQLError(c,
-		"UPDATE secret_backend SET name = 'new-name' WHERE uuid = ?",
-		"built-in secret backends are immutable", backendUUID1)
-	s.assertExecSQLError(c,
-		"UPDATE secret_backend SET name = 'new-name' WHERE uuid = ?",
-		"built-in secret backends are immutable", backendUUID2)
-
-	s.assertExecSQLError(c,
-		"DELETE FROM secret_backend WHERE uuid = ?;",
-		"built-in secret backends are immutable", backendUUID1)
-	s.assertExecSQLError(c,
-		"DELETE FROM secret_backend WHERE uuid = ?;",
-		"built-in secret backends are immutable", backendUUID2)
 }

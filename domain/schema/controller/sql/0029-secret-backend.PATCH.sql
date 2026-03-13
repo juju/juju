@@ -16,3 +16,14 @@ JOIN model AS m ON msb.model_uuid = m.uuid
 JOIN model_type AS mt ON m.model_type_id = mt.id
 JOIN secret_backend_type AS sbt ON sb.backend_type_id = sbt.id
 JOIN secret_backend_origin AS sbo ON sb.origin_id = sbo.id;
+
+-- When merging into main, update the file domain/schema/controller.go:
+--  - drop triggersForImmutableTable for secret_backend"
+-- Note: the immutability is enforced by business logic, so those triggers are
+-- not necessary. It could be a nice to have, but in CaaS models, built-in
+-- backends are actually added or removed for each model (they are hosted by
+-- namespaces)
+-- noqa: disable=all
+DROP TRIGGER trg_secret_backend_immutable_update;
+DROP TRIGGER trg_secret_backend_immutable_delete;
+-- noqa: enable=all
