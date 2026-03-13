@@ -26,7 +26,7 @@ type State interface {
 	// UnitResolveMode returns the resolve mode for the given unit. If no resolved
 	// marker is found for the unit, an error satisfying [resolveerrors.UnitNotResolved]
 	// is returned.
-	UnitResolveMode(context.Context, coreunit.UUID) (resolve.ResolveMode, error)
+	UnitResolveMode(context.Context, coreunit.UUID) (string, error)
 
 	// ResolveUnit marks the unit as resolved. If no agent status is found for the
 	// specified unit uuid, an error satisfying [resolveerrors.UnitAgentStatusNotFound]
@@ -85,7 +85,11 @@ func (s *Service) UnitResolveMode(ctx context.Context, unitName coreunit.Name) (
 	if err != nil {
 		return "", errors.Errorf("getting unit UUID for %q: %w", unitName, err)
 	}
-	return s.st.UnitResolveMode(ctx, unitUUID)
+	mode, err := s.st.UnitResolveMode(ctx, unitUUID)
+	if err != nil {
+		return "", err
+	}
+	return resolve.ResolveMode(mode), nil
 }
 
 // ResolveUnit marks the unit as resolved. If the unit is not found, an error

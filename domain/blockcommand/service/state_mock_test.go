@@ -41,7 +41,7 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // GetBlockMessage mocks base method.
-func (m *MockState) GetBlockMessage(arg0 context.Context, arg1 blockcommand.BlockType) (string, error) {
+func (m *MockState) GetBlockMessage(arg0 context.Context, arg1 int8) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetBlockMessage", arg0, arg1)
 	ret0, _ := ret[0].(string)
@@ -68,13 +68,13 @@ func (c *MockStateGetBlockMessageCall) Return(arg0 string, arg1 error) *MockStat
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetBlockMessageCall) Do(f func(context.Context, blockcommand.BlockType) (string, error)) *MockStateGetBlockMessageCall {
+func (c *MockStateGetBlockMessageCall) Do(f func(context.Context, int8) (string, error)) *MockStateGetBlockMessageCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetBlockMessageCall) DoAndReturn(f func(context.Context, blockcommand.BlockType) (string, error)) *MockStateGetBlockMessageCall {
+func (c *MockStateGetBlockMessageCall) DoAndReturn(f func(context.Context, int8) (string, error)) *MockStateGetBlockMessageCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -157,7 +157,7 @@ func (c *MockStateRemoveAllBlocksCall) DoAndReturn(f func(context.Context) error
 }
 
 // RemoveBlock mocks base method.
-func (m *MockState) RemoveBlock(arg0 context.Context, arg1 blockcommand.BlockType) error {
+func (m *MockState) RemoveBlock(arg0 context.Context, arg1 int8) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveBlock", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -183,19 +183,19 @@ func (c *MockStateRemoveBlockCall) Return(arg0 error) *MockStateRemoveBlockCall 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateRemoveBlockCall) Do(f func(context.Context, blockcommand.BlockType) error) *MockStateRemoveBlockCall {
+func (c *MockStateRemoveBlockCall) Do(f func(context.Context, int8) error) *MockStateRemoveBlockCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateRemoveBlockCall) DoAndReturn(f func(context.Context, blockcommand.BlockType) error) *MockStateRemoveBlockCall {
+func (c *MockStateRemoveBlockCall) DoAndReturn(f func(context.Context, int8) error) *MockStateRemoveBlockCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetBlock mocks base method.
-func (m *MockState) SetBlock(arg0 context.Context, arg1 blockcommand.BlockType, arg2 string) error {
+func (m *MockState) SetBlock(arg0 context.Context, arg1 int8, arg2 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetBlock", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -221,13 +221,13 @@ func (c *MockStateSetBlockCall) Return(arg0 error) *MockStateSetBlockCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetBlockCall) Do(f func(context.Context, blockcommand.BlockType, string) error) *MockStateSetBlockCall {
+func (c *MockStateSetBlockCall) Do(f func(context.Context, int8, string) error) *MockStateSetBlockCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetBlockCall) DoAndReturn(f func(context.Context, blockcommand.BlockType, string) error) *MockStateSetBlockCall {
+func (c *MockStateSetBlockCall) DoAndReturn(f func(context.Context, int8, string) error) *MockStateSetBlockCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
