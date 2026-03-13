@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/domain/secretbackend"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -277,6 +278,49 @@ func (s *modelSuite) TestDeleteMigratingModel(c *tc.C) {
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM model_migration_import WHERE model_uuid = ?", modelUUID).Scan(&count)
 	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
+func (s *modelSuite) TestDeleteModelDeletesSecretBackend(c *tc.C) {
+	modelUUID := s.getModelUUID(c)
+
+	// Add a built-in k8s secret backend for this model.
+	// The model name in baseSuite is "my-test-model".
+	modelName := "my-test-model"
+	backendName := secretbackend.MakeBuiltInK8sSecretBackendName(modelName)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "INSERT INTO secret_backend (uuid, name, backend_type_id, origin_id) VALUES ('backend-uuid', ?, 1, 1)", backendName)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Ensure the backend exists.
+	var count int
+	err = s.DB().QueryRow("SELECT COUNT(*) FROM secret_backend WHERE name = ?", backendName).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 1)
+
+	// Mark model as dead.
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE model SET life_id = 2 WHERE uuid = ?", modelUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err = st.DeleteModel(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Ensure the model is gone.
+	exists, err := st.ModelExists(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+
+	// Ensure the secret backend is also gone.
+	err = s.DB().QueryRow("SELECT COUNT(*) FROM secret_backend WHERE name = ?", backendName).Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
 }
