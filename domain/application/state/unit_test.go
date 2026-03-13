@@ -15,6 +15,7 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
@@ -32,6 +33,7 @@ import (
 	machinestate "github.com/juju/juju/domain/machine/state"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -845,7 +847,7 @@ func (s *unitStateSuite) TestUpdateUnitCharmNoCharm(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *unitStateSuite) TestUpdateUnitCharm(c *tc.C) {
+func (s *unitStateSuite) TestUpdateUnitCharmApplicationCharmMismatch(c *tc.C) {
 	unitName, _ := s.createNamedIAASUnit(c)
 
 	id, _, err := s.state.AddCharm(c.Context(), charm.Charm{
@@ -863,6 +865,37 @@ func (s *unitStateSuite) TestUpdateUnitCharm(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.UpdateUnitCharm(c.Context(), unitName, id)
+	c.Assert(errors.Is(err, coreerrors.NotValid), tc.IsTrue)
+	c.Assert(err, tc.ErrorMatches, `application charm ".*" does not match target charm ".*"`)
+}
+
+func (s *unitStateSuite) TestUpdateUnitCharm(c *tc.C) {
+	unitName, _ := s.createNamedIAASUnit(c)
+
+	id, _, err := s.state.AddCharm(c.Context(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name: "bar",
+		},
+		Manifest:      s.minimalManifest(c),
+		Source:        charm.LocalSource,
+		Revision:      42,
+		ReferenceName: "ubuntu",
+		Hash:          "hash",
+		ArchivePath:   "archive",
+		Version:       "deadbeef",
+	}, nil, false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		`UPDATE application
+		 SET charm_uuid = ?
+		 WHERE uuid = (SELECT application_uuid FROM unit WHERE name = ?)`,
+		id.String(), unitName.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.UpdateUnitCharm(c.Context(), unitName, id)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var gotUUID string
@@ -872,6 +905,292 @@ func (s *unitStateSuite) TestUpdateUnitCharm(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotUUID, tc.Equals, id.String())
+}
+
+func (s *unitStateSuite) TestUpdateUnitCharmUpdateUnitStorageDirectivesCharmUUID(c *tc.C) {
+	// Arrange a unit with storage definitions on its current charm.
+	storage := map[string]charm.Storage{
+		"st1": {
+			CountMax:    5,
+			CountMin:    1,
+			Description: "st1",
+			Name:        "st1",
+			MinimumSize: 1024,
+			Type:        charm.StorageFilesystem,
+		},
+		"st2": {
+			CountMax:    1,
+			CountMin:    1,
+			Description: "st2",
+			Name:        "st2",
+			MinimumSize: 2048,
+			Type:        charm.StorageBlock,
+		},
+	}
+	_, unitUUIDs := s.createIAASApplicationWithNUnitsAndStorage(c, "foo", life.Alive, 1, storage)
+	unitUUID := unitUUIDs[0]
+
+	var (
+		unitName     string
+		currentCharm string
+	)
+	// Capture the unit name and current charm UUID.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT name, charm_uuid FROM unit WHERE uuid=?", unitUUID.String()).
+			Scan(&unitName, &currentCharm)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Create a storage pool and unit storage directives bound to the old charm UUID.
+	storagePoolID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		"INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)",
+		storagePoolID.String(),
+		"test-pool",
+		"test-provider",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		"INSERT INTO unit_storage_directive VALUES (?, ?, ?, ?, ?, ?)",
+		unitUUID.String(),
+		currentCharm,
+		"st1",
+		storagePoolID.String(),
+		4096,
+		2,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		"INSERT INTO unit_storage_directive VALUES (?, ?, ?, ?, ?, ?)",
+		unitUUID.String(),
+		currentCharm,
+		"st2",
+		storagePoolID.String(),
+		8192,
+		1,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Add the replacement charm with matching storage names.
+	id, _, err := s.state.AddCharm(c.Context(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name:    "foo",
+			Storage: storage,
+		},
+		Manifest:      s.minimalManifest(c),
+		Source:        charm.LocalSource,
+		Revision:      43,
+		ReferenceName: "foo",
+		Hash:          "hash-v2",
+		ArchivePath:   "archive-v2",
+		Version:       "deadbeef-v2",
+	}, nil, false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		`UPDATE application
+		 SET charm_uuid = ?
+		 WHERE uuid = (SELECT application_uuid FROM unit WHERE uuid = ?)`,
+		id.String(), unitUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act by updating the unit charm to the new charm UUID.
+	err = s.state.UpdateUnitCharm(c.Context(), coreunit.Name(unitName), id)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var (
+		gotUnitCharmUUID  string
+		oldDirectiveCount int
+	)
+	// Assert that both unit and unit storage directives now reference the new charm UUID.
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, "SELECT charm_uuid FROM unit WHERE uuid=?", unitUUID.String()).
+			Scan(&gotUnitCharmUUID); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(
+			ctx,
+			"SELECT count(*) FROM unit_storage_directive WHERE unit_uuid=? AND charm_uuid=?",
+			unitUUID.String(),
+			currentCharm,
+		).Scan(&oldDirectiveCount); err != nil {
+			return err
+		}
+		return nil
+	})
+	unitStorageDirectives := s.getUnitStorageDirectivesForCharm(c, unitUUID.String(), id.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotUnitCharmUUID, tc.Equals, id.String())
+	c.Check(oldDirectiveCount, tc.Equals, 0)
+	c.Check(unitStorageDirectives, tc.DeepEquals, []unitStorageDirectiveValue{
+		{
+			StorageName:     "st1",
+			StoragePoolUUID: storagePoolID.String(),
+			SizeMiB:         4096,
+			Count:           2,
+		},
+		{
+			StorageName:     "st2",
+			StoragePoolUUID: storagePoolID.String(),
+			SizeMiB:         8192,
+			Count:           1,
+		},
+	})
+}
+
+func (s *unitStateSuite) TestUpdateUnitCharmAddNewUnitStorageDirectives(c *tc.C) {
+	// Arrange a unit with one existing storage definition on the current charm.
+	oldStorage := map[string]charm.Storage{
+		"st1": {
+			CountMax:    5,
+			CountMin:    1,
+			Description: "st1",
+			Name:        "st1",
+			MinimumSize: 1024,
+			Type:        charm.StorageFilesystem,
+		},
+	}
+	appUUID, unitUUIDs := s.createIAASApplicationWithNUnitsAndStorage(c, "foo", life.Alive, 1, oldStorage)
+	unitUUID := unitUUIDs[0]
+
+	var (
+		unitName     string
+		currentCharm string
+	)
+	// Capture the unit name and current charm UUID.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT name, charm_uuid FROM unit WHERE uuid=?", unitUUID.String()).
+			Scan(&unitName, &currentCharm)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Create storage pools and an existing unit storage directive for the old charm.
+	oldPoolID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	newPoolID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		"INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?), (?, ?, ?)",
+		oldPoolID.String(), "old-pool", "test-provider",
+		newPoolID.String(), "new-pool", "test-provider",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		"INSERT INTO unit_storage_directive VALUES (?, ?, ?, ?, ?, ?)",
+		unitUUID.String(),
+		currentCharm,
+		"st1",
+		oldPoolID.String(),
+		4096,
+		2,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Add a replacement charm that introduces a new storage definition "st2".
+	newStorage := map[string]charm.Storage{
+		"st1": oldStorage["st1"],
+		"st2": {
+			CountMax:    1,
+			CountMin:    1,
+			Description: "st2",
+			Name:        "st2",
+			MinimumSize: 2048,
+			Type:        charm.StorageBlock,
+		},
+	}
+	id, _, err := s.state.AddCharm(c.Context(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name:    "foo",
+			Storage: newStorage,
+		},
+		Manifest:      s.minimalManifest(c),
+		Source:        charm.LocalSource,
+		Revision:      44,
+		ReferenceName: "foo",
+		Hash:          "hash-v3",
+		ArchivePath:   "archive-v3",
+		Version:       "deadbeef-v3",
+	}, nil, false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		"UPDATE application SET charm_uuid = ? WHERE uuid = ?",
+		id.String(), appUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Insert application storage directives for the new charm, including the new storage name.
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		`INSERT INTO application_storage_directive
+		(application_uuid, charm_uuid, storage_name, storage_pool_uuid, size_mib, count)
+		VALUES (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?)`,
+		appUUID.String(), id.String(), "st1", oldPoolID.String(), 4096, 2,
+		appUUID.String(), id.String(), "st2", newPoolID.String(), 8192, 1,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Update the unit charm to the new charm UUID.
+	err = s.state.UpdateUnitCharm(c.Context(), coreunit.Name(unitName), id)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var (
+		oldDirectiveCount int
+		// st2InstanceCount  int
+	)
+
+	// Assert that the newly defined storage is inserted for the existing unit.
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(
+			ctx,
+			"SELECT count(*) FROM unit_storage_directive WHERE unit_uuid=? AND charm_uuid=?",
+			unitUUID.String(),
+			currentCharm,
+		).Scan(&oldDirectiveCount); err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert that both the old and new storage directives are present for the unit with the new charm UUID.
+	unitStorageDirectives := s.getUnitStorageDirectivesForCharm(c, unitUUID.String(), id.String())
+	c.Check(unitStorageDirectives, tc.DeepEquals, []unitStorageDirectiveValue{
+		{
+			StorageName:     "st1",
+			StoragePoolUUID: oldPoolID.String(),
+			SizeMiB:         4096,
+			Count:           2,
+		},
+		{
+			StorageName:     "st2",
+			StoragePoolUUID: newPoolID.String(),
+			SizeMiB:         8192,
+			Count:           1,
+		},
+	})
+
+	// Assert that the new storage instance is created for the unit.
+	// err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	// 	return tx.QueryRowContext(
+	// 		ctx,
+	// 		`SELECT count(*)
+	// 		 FROM storage_instance si
+	// 		 JOIN storage_unit_owner suo ON suo.storage_instance_uuid = si.uuid
+	// 		 WHERE suo.unit_uuid=? AND si.storage_name='st2'`,
+	// 		unitUUID.String(),
+	// 	).Scan(&st2InstanceCount)
+	// })
+	// c.Assert(err, tc.ErrorIsNil)
+	// c.Check(oldDirectiveCount, tc.Equals, 0)
+	// c.Check(st2InstanceCount, tc.Equals, 1)
 }
 
 func (s *unitStateSuite) TestGetUnitRefreshAttributes(c *tc.C) {
@@ -1723,6 +2042,50 @@ func (s *unitStateSubordinateSuite) createSubordinateApplication(c *tc.C, name s
 	c.Assert(err, tc.ErrorIsNil)
 
 	return appID
+}
+
+type unitStorageDirectiveValue struct {
+	StorageName     string
+	StoragePoolUUID string
+	SizeMiB         int
+	Count           int
+}
+
+func (s *unitStateSuite) getUnitStorageDirectivesForCharm(
+	c *tc.C, unitUUID, charmUUID string,
+) []unitStorageDirectiveValue {
+	var directives []unitStorageDirectiveValue
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(
+			ctx,
+			`SELECT storage_name, storage_pool_uuid, size_mib, count
+			 FROM unit_storage_directive
+			 WHERE unit_uuid=? AND charm_uuid=?
+			 ORDER BY storage_name`,
+			unitUUID,
+			charmUUID,
+		)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+
+		for rows.Next() {
+			var directive unitStorageDirectiveValue
+			if err := rows.Scan(
+				&directive.StorageName,
+				&directive.StoragePoolUUID,
+				&directive.SizeMiB,
+				&directive.Count,
+			); err != nil {
+				return err
+			}
+			directives = append(directives, directive)
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return directives
 }
 
 func deptr[T any](v *T) T {

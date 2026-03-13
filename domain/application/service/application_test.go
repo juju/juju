@@ -1600,6 +1600,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithChannel(c *tc.C) {
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return([]application.StorageDirective{}, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(map[string]applicationcharm.Storage{}, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(nil), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, nil)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).
@@ -1630,6 +1631,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmEmptyChannel(c *tc.C) {
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return([]application.StorageDirective{}, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(map[string]applicationcharm.Storage{}, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(nil), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Return(nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, nil)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
@@ -1687,6 +1689,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageNameAdded(c 
 	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		[]internal.CreateApplicationStorageDirectiveArg{{
@@ -1749,6 +1752,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageNameRemoved(
 	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 
 	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	var storageNameRemovedErr applicationerrors.CharmStorageDefinitionRemoved
@@ -1789,6 +1793,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageTypeChanged(
 	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 
 	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	var storageTypeChangedErr applicationerrors.CharmStorageTypeChanged
@@ -1831,6 +1836,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageSizeMinimumI
 	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 
 	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	var sizeMinViolationErr applicationerrors.CharmStorageDefinitionMinSizeViolation
@@ -1883,6 +1889,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmStorageSizeMinimumDecre
 	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
@@ -1934,6 +1941,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountMinimum
 	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 
 	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	var countMinViolationErr applicationerrors.CharmStorageDefinitionMinCountViolation
@@ -1986,6 +1994,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountMinimum
 	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
@@ -2048,6 +2057,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountMaximum
 	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
@@ -2100,6 +2110,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountMaximum
 	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 
 	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	var countMaxViolationErr applicationerrors.CharmStorageDefinitionMaxCountViolation
@@ -2142,6 +2153,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountMaximum
 	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 
 	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	c.Assert(err, tc.ErrorMatches, `validating new charm storage against existing charm storage: storage definition "data" new maximum count 100 is less than existing maximum count \(unbounded\)`)
@@ -2195,6 +2207,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountMaximum
 	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
@@ -2255,6 +2268,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountMaximum
 	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
@@ -2334,6 +2348,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountMaximum
 	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 
 	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	var singleToMultipleErr applicationerrors.CharmStorageDefinitionSingleToMultipleViolation
@@ -2386,6 +2401,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageSingletonWit
 	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
@@ -2424,6 +2440,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageSharedChange
 	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 
 	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	var got applicationerrors.CharmStorageDefinitionSharedChanged
@@ -2453,6 +2470,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageReadOnlyChan
 	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 
 	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	var got applicationerrors.CharmStorageDefinitionReadOnlyChanged
@@ -2482,6 +2500,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageLocationChan
 	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 
 	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	var got applicationerrors.CharmStorageDefinitionLocationChanged
@@ -2489,6 +2508,146 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageLocationChan
 	c.Assert(got.StorageName, tc.Equals, "data")
 	c.Assert(got.ExistingLocation, tc.Equals, "/a")
 	c.Assert(got.NewLocation, tc.Equals, "/b")
+}
+
+// TestSetApplicationCharmWithStorageSizeChangedCAAS tests that if the new charm has a
+// storage with a different size requirement than the current charm in a CAAS model,
+// the SetApplicationCharm call is rejected with a not supported error.
+func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageSizeChangedCAAS(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "foo"
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	charmID := charmtesting.GenCharmID(c)
+
+	currentCharmStorages := map[string]applicationcharm.Storage{
+		"data": {Type: applicationcharm.StorageFilesystem, CountMin: 1, CountMax: 1, MinimumSize: 1024},
+	}
+	newCharmStorages := map[string]applicationcharm.Storage{
+		"data": {Type: applicationcharm.StorageFilesystem, CountMin: 1, CountMax: 1, MinimumSize: 2048},
+	}
+
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appUUID, nil)
+	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
+	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
+	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.CAAS, nil)
+
+	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	c.Assert(errors.Is(err, coreerrors.NotSupported), tc.IsTrue)
+	c.Assert(err, tc.ErrorMatches, "updating storage declarations on a StatefulSet during charm upgrade is not supported; deploy a new charm")
+}
+
+// TestSetApplicationCharmWithStorageCountChangedCAAS tests that if the new charm has a
+// storage with a different count requirement than the current charm in a CAAS model,
+// the SetApplicationCharm call is rejected with a not supported error.
+func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountChangedCAAS(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "foo"
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	charmID := charmtesting.GenCharmID(c)
+
+	currentCharmStorages := map[string]applicationcharm.Storage{
+		"data": {Type: applicationcharm.StorageFilesystem, CountMin: 1, CountMax: 1, MinimumSize: 1024},
+	}
+	newCharmStorages := map[string]applicationcharm.Storage{
+		"data": {Type: applicationcharm.StorageFilesystem, CountMin: 1, CountMax: 2, MinimumSize: 1024},
+	}
+
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appUUID, nil)
+	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
+	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
+	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.CAAS, nil)
+
+	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	c.Assert(errors.Is(err, coreerrors.NotSupported), tc.IsTrue)
+	c.Assert(err, tc.ErrorMatches, "updating storage declarations on a StatefulSet during charm upgrade is not supported; deploy a new charm")
+}
+
+// TestSetApplicationCharmWithStorageSharedChangedCAAS tests that if the new charm has a
+// storage with a different shared setting than the current charm in a CAAS model,
+// the SetApplicationCharm call is rejected with a not supported error.
+func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageSharedChangedCAAS(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "foo"
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	charmID := charmtesting.GenCharmID(c)
+
+	currentCharmStorages := map[string]applicationcharm.Storage{
+		"data": {Type: applicationcharm.StorageFilesystem, CountMin: 0, CountMax: 1, MinimumSize: 1024, Shared: false},
+	}
+	newCharmStorages := map[string]applicationcharm.Storage{
+		"data": {Type: applicationcharm.StorageFilesystem, CountMin: 0, CountMax: 1, MinimumSize: 1024, Shared: true},
+	}
+
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appUUID, nil)
+	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
+	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
+	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.CAAS, nil)
+
+	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	c.Assert(errors.Is(err, coreerrors.NotSupported), tc.IsTrue)
+	c.Assert(err, tc.ErrorMatches, "updating storage declarations on a StatefulSet during charm upgrade is not supported; deploy a new charm")
+}
+
+// TestSetApplicationCharmWithStorageReadOnlyChangedCAAS tests that if the new charm has a
+// storage with a different read-only setting than the current charm in a CAAS model,
+// the SetApplicationCharm call is rejected with a not supported error.
+func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageReadOnlyChangedCAAS(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "foo"
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	charmID := charmtesting.GenCharmID(c)
+
+	currentCharmStorages := map[string]applicationcharm.Storage{
+		"data": {Type: applicationcharm.StorageFilesystem, CountMin: 1, CountMax: 1, MinimumSize: 1024, ReadOnly: false},
+	}
+	newCharmStorages := map[string]applicationcharm.Storage{
+		"data": {Type: applicationcharm.StorageFilesystem, CountMin: 1, CountMax: 1, MinimumSize: 1024, ReadOnly: true},
+	}
+
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appUUID, nil)
+	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
+	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
+	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.CAAS, nil)
+
+	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	c.Assert(errors.Is(err, coreerrors.NotSupported), tc.IsTrue)
+	c.Assert(err, tc.ErrorMatches, "updating storage declarations on a StatefulSet during charm upgrade is not supported; deploy a new charm")
+}
+
+// TestSetApplicationCharmWithStorageLocationChangedCAAS tests that if the new charm has a
+// storage with a different location than the current charm in a CAAS model,
+// the SetApplicationCharm call is rejected with a not supported error.
+func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageLocationChangedCAAS(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "foo"
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	charmID := charmtesting.GenCharmID(c)
+
+	currentCharmStorages := map[string]applicationcharm.Storage{
+		"data": {Type: applicationcharm.StorageFilesystem, CountMin: 1, CountMax: 1, MinimumSize: 1024, Location: "/a"},
+	}
+	newCharmStorages := map[string]applicationcharm.Storage{
+		"data": {Type: applicationcharm.StorageFilesystem, CountMin: 1, CountMax: 1, MinimumSize: 1024, Location: "/b"},
+	}
+
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appUUID, nil)
+	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
+	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
+	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.CAAS, nil)
+
+	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	c.Assert(errors.Is(err, coreerrors.NotSupported), tc.IsTrue)
+	c.Assert(err, tc.ErrorMatches, "updating storage declarations on a StatefulSet during charm upgrade is not supported; deploy a new charm")
 }
 
 // TestSetApplicationCharmWithStorageDirectivesChanges tests that when storage directives
@@ -2547,6 +2706,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesCh
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		[]internal.CreateApplicationStorageDirectiveArg{{
 			Name:     "logs",
@@ -2629,6 +2789,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(newCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
 		[]internal.UpdateApplicationStorageDirectiveArg{{
@@ -2696,6 +2857,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(newCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
 		[]internal.UpdateApplicationStorageDirectiveArg{{
@@ -2778,6 +2940,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(newCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
 		[]internal.UpdateApplicationStorageDirectiveArg{{
@@ -2847,6 +3010,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(newCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
 		[]internal.UpdateApplicationStorageDirectiveArg{{
@@ -2908,6 +3072,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(newCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
 		[]internal.UpdateApplicationStorageDirectiveArg{{
@@ -2985,6 +3150,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(newCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
 		[]internal.UpdateApplicationStorageDirectiveArg{{
@@ -3059,6 +3225,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(newCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
 		[]internal.UpdateApplicationStorageDirectiveArg{{
@@ -3132,6 +3299,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(newCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
 		[]internal.UpdateApplicationStorageDirectiveArg{{
@@ -3208,6 +3376,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(newCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
 		[]internal.UpdateApplicationStorageDirectiveArg{{
@@ -3280,6 +3449,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(newCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
 		[]internal.UpdateApplicationStorageDirectiveArg{{
@@ -3355,6 +3525,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(newCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, nil)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, _ map[string]internalcharm.Storage, overrides map[string]storage.StorageDirectiveOverride) error {
@@ -3412,6 +3583,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(newCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, nil)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		errors.New(`storage directive "not-data" references an invalid pool uuid ""`),
@@ -3465,6 +3637,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(newCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, nil)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		errors.Errorf(`storage directive data references unknown pool %q`, missingPoolUUID),
@@ -3521,6 +3694,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(existingStorageDirectives, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(newCharmStorages), nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, nil)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, _ map[string]internalcharm.Storage, overrides map[string]storage.StorageDirectiveOverride) error {
