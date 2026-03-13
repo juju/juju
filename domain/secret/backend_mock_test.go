@@ -239,49 +239,6 @@ func (c *MockSecretBackendStateListSecretBackendsForModelCall) DoAndReturn(f fun
 	return c
 }
 
-// RemoveSecretBackendReference mocks base method.
-func (m *MockSecretBackendState) RemoveSecretBackendReference(arg0 context.Context, arg1 ...string) error {
-	m.ctrl.T.Helper()
-	varargs := []any{arg0}
-	for _, a := range arg1 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "RemoveSecretBackendReference", varargs...)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoveSecretBackendReference indicates an expected call of RemoveSecretBackendReference.
-func (mr *MockSecretBackendStateMockRecorder) RemoveSecretBackendReference(arg0 any, arg1 ...any) *MockSecretBackendStateRemoveSecretBackendReferenceCall {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0}, arg1...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSecretBackendReference", reflect.TypeOf((*MockSecretBackendState)(nil).RemoveSecretBackendReference), varargs...)
-	return &MockSecretBackendStateRemoveSecretBackendReferenceCall{Call: call}
-}
-
-// MockSecretBackendStateRemoveSecretBackendReferenceCall wrap *gomock.Call
-type MockSecretBackendStateRemoveSecretBackendReferenceCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockSecretBackendStateRemoveSecretBackendReferenceCall) Return(arg0 error) *MockSecretBackendStateRemoveSecretBackendReferenceCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockSecretBackendStateRemoveSecretBackendReferenceCall) Do(f func(context.Context, ...string) error) *MockSecretBackendStateRemoveSecretBackendReferenceCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretBackendStateRemoveSecretBackendReferenceCall) DoAndReturn(f func(context.Context, ...string) error) *MockSecretBackendStateRemoveSecretBackendReferenceCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // UpdateSecretBackendReference mocks base method.
 func (m *MockSecretBackendState) UpdateSecretBackendReference(arg0 context.Context, arg1 *secrets.ValueRef, arg2 model.UUID, arg3 string) (func() error, error) {
 	m.ctrl.T.Helper()

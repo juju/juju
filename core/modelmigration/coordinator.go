@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -67,22 +68,30 @@ type Operation interface {
 // Scope is a collection of resource accessors that can be used by the
 // operations.
 type Scope struct {
-	controllerDB           database.TxnRunnerFactory
-	modelDB                database.TxnRunnerFactory
-	modelObjectStoreGetter objectstore.ModelObjectStoreGetter
-	modelUUID              model.UUID
+	controllerDB             database.TxnRunnerFactory
+	modelDB                  database.TxnRunnerFactory
+	modelObjectStoreGetter   objectstore.ModelObjectStoreGetter
+	ephemeralProviderFactory providertracker.EphemeralProviderFactory
+	modelUUID                model.UUID
 }
 
 // ScopeForModel returns a Scope for the given model UUID.
 type ScopeForModel func(modelUUID model.UUID) Scope
 
 // NewScope creates a new scope with the given database txn runners.
-func NewScope(controllerDB database.TxnRunnerFactory, modelDB database.TxnRunnerFactory, modelObjectStoreGetter objectstore.ModelObjectStoreGetter, modelUUID model.UUID) Scope {
+func NewScope(
+	controllerDB database.TxnRunnerFactory,
+	modelDB database.TxnRunnerFactory,
+	modelObjectStoreGetter objectstore.ModelObjectStoreGetter,
+	ephemeralProviderFactory providertracker.EphemeralProviderFactory,
+	modelUUID model.UUID,
+) Scope {
 	return Scope{
-		controllerDB:           controllerDB,
-		modelDB:                modelDB,
-		modelObjectStoreGetter: modelObjectStoreGetter,
-		modelUUID:              modelUUID,
+		controllerDB:             controllerDB,
+		modelDB:                  modelDB,
+		modelObjectStoreGetter:   modelObjectStoreGetter,
+		ephemeralProviderFactory: ephemeralProviderFactory,
+		modelUUID:                modelUUID,
 	}
 }
 
@@ -104,6 +113,11 @@ func (s Scope) ModelUUID() model.UUID {
 // ModelObjectStoreGetter returns the object store getter for the model.
 func (s Scope) ModelObjectStoreGetter() objectstore.ModelObjectStoreGetter {
 	return s.modelObjectStoreGetter
+}
+
+// EphemeralProviderFactory returns the provider factory for the model.
+func (s Scope) EphemeralProviderFactory() providertracker.EphemeralProviderFactory {
+	return s.ephemeralProviderFactory
 }
 
 // Hook is a callback that is called after the operation is executed.

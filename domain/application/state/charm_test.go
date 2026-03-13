@@ -101,13 +101,55 @@ VALUES (?, 'foo')`, id.String())
 	c.Check(charmID, tc.Equals, id)
 }
 
+func (s *charmStateSuite) TestAddCharmWithMigrationProvenance(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), s.modelUUID, clock.WallClock,
+		loggertesting.WrapCheckLog(c))
+
+	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+
+	metadata := charm.Metadata{
+		Name:           "foo",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: semversion.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+	}
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size) VALUES (?, 'foo', 'bar', 42)
+`, objectStoreUUID.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	downloadInfo := &charm.DownloadInfo{
+		Provenance: charm.ProvenanceLegacyMigration,
+	}
+
+	_, _, err = st.AddCharm(c.Context(), charm.Charm{
+		Metadata:        metadata,
+		Manifest:        s.minimalManifest(c),
+		Source:          charm.LocalSource,
+		Revision:        42,
+		ReferenceName:   "foo",
+		Hash:            "hash",
+		Version:         "deadbeef",
+		ObjectStoreUUID: objectStoreUUID,
+	}, downloadInfo, false)
+
+	c.Assert(err, tc.NotNil)
+}
+
 func (s *charmStateSuite) TestAddCharmObjectStoreUUID(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), s.modelUUID, clock.WallClock,
 		loggertesting.WrapCheckLog(c))
 
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
-	expected := charm.Metadata{
+	metadata := charm.Metadata{
 		Name:           "foo",
 		Summary:        "summary",
 		Description:    "description",
@@ -126,7 +168,7 @@ INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size) VALUES (?, 'foo
 	c.Assert(err, tc.ErrorIsNil)
 
 	id, _, err := st.AddCharm(c.Context(), charm.Charm{
-		Metadata:        expected,
+		Metadata:        metadata,
 		Manifest:        s.minimalManifest(c),
 		Source:          charm.LocalSource,
 		Revision:        42,
@@ -3204,32 +3246,45 @@ func (s *charmStateSuite) TestResolveMigratingUploadedCharmNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *charmStateSuite) TestResolveMigratingUploadedCharmAlreadyAvailable(c *tc.C) {
+// TestResolveMigratingUploadedCharmHashNotFound tests the contrived case where
+// a migrating charm is set to available before it is resolved or the charm hash
+// is inserted.
+func (s *charmStateSuite) TestResolveMigratingUploadedCharmHashNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), s.modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	_, charmID := s.createMigratingApplication(c, "foo")
 
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
-	info := &charm.DownloadInfo{
-		Provenance: charm.ProvenanceMigration,
-	}
-
-	id, _, err := st.AddCharm(c.Context(), charm.Charm{
-		Metadata: charm.Metadata{
-			Name: "foo",
-		},
-		Manifest:      s.minimalManifest(c),
-		Source:        charm.CharmHubSource,
-		Revision:      42,
-		ReferenceName: "foo",
-		Hash:          "hash",
-		Version:       "deadbeef",
-	}, info, false)
+	err := st.SetCharmAvailable(c.Context(), charmID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.SetCharmAvailable(c.Context(), id)
+	_, err = st.ResolveMigratingUploadedCharm(c.Context(), charmID, charm.ResolvedMigratingUploadedCharm{
+		ObjectStoreUUID: objectStoreUUID,
+	})
+	c.Assert(err, tc.ErrorIs, applicationerrors.CharmHashNotFound)
+}
+
+// TestResolveMigratingUploadedCharmAlreadyAvailable tests the contrived case
+// where a migrating charm is set to available before it is resolved but after
+// the charm hash is inserted.
+func (s *charmStateSuite) TestResolveMigratingUploadedCharmAlreadyAvailable(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), s.modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	_, charmID := s.createMigratingApplication(c, "foo")
+
+	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO charm_hash (charm_uuid, hash) VALUES (?, ?)`, charmID.String(), "hash")
+		return err
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = st.ResolveMigratingUploadedCharm(c.Context(), id, charm.ResolvedMigratingUploadedCharm{
+	err = st.SetCharmAvailable(c.Context(), charmID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = st.ResolveMigratingUploadedCharm(c.Context(), charmID, charm.ResolvedMigratingUploadedCharm{
 		ObjectStoreUUID: objectStoreUUID,
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.CharmAlreadyAvailable)
@@ -3238,26 +3293,15 @@ func (s *charmStateSuite) TestResolveMigratingUploadedCharmAlreadyAvailable(c *t
 func (s *charmStateSuite) TestResolveMigratingUploaded(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), s.modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c))
 
+	_, charmID := s.createMigratingApplication(c, "foo")
+
 	objectStoreUUID := s.createObjectStoreBlob(c, "archive")
 
 	info := &charm.DownloadInfo{
-		Provenance: charm.ProvenanceMigration,
+		Provenance: charm.ProvenanceLegacyMigration,
 	}
 
-	id, chLocator, err := st.AddCharm(c.Context(), charm.Charm{
-		Metadata: charm.Metadata{
-			Name: "foo",
-		},
-		Manifest:      s.minimalManifest(c),
-		Source:        charm.CharmHubSource,
-		Revision:      42,
-		ReferenceName: "foo",
-		Hash:          "hash",
-		Version:       "deadbeef",
-	}, info, false)
-	c.Assert(err, tc.ErrorIsNil)
-
-	locator, err := st.ResolveMigratingUploadedCharm(c.Context(), id, charm.ResolvedMigratingUploadedCharm{
+	locator, err := st.ResolveMigratingUploadedCharm(c.Context(), charmID, charm.ResolvedMigratingUploadedCharm{
 		ObjectStoreUUID: objectStoreUUID,
 		ArchivePath:     "archive",
 		Hash:            "hash",
@@ -3270,11 +3314,14 @@ func (s *charmStateSuite) TestResolveMigratingUploaded(c *tc.C) {
 		Revision:     42,
 		Architecture: architecture.AMD64,
 	})
-	c.Check(chLocator, tc.DeepEquals, locator)
 
-	available, err := st.IsCharmAvailable(c.Context(), id)
+	available, err := st.IsCharmAvailable(c.Context(), charmID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(available, tc.Equals, true)
+
+	hash, err := st.GetAvailableCharmArchiveSHA256(c.Context(), charmID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hash, tc.Equals, "hash")
 }
 
 func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmNotFound(c *tc.C) {

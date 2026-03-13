@@ -252,8 +252,9 @@ const (
 	ProvenanceDownload Provenance = "download"
 	// ProvenanceUpload represents a charm download from an upload.
 	ProvenanceUpload Provenance = "upload"
-	// ProvenanceMigration represents a charm download from a migration.
-	ProvenanceMigration Provenance = "migration"
+	// ProvenanceLegacyMigration represents a charm download from a migration
+	// using the legacy migration mechanism.
+	ProvenanceLegacyMigration Provenance = "migration"
 	// ProvenanceBootstrap represents a charm placement during bootstrap.
 	ProvenanceBootstrap Provenance = "bootstrap"
 )

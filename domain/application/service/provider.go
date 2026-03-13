@@ -434,7 +434,7 @@ func (s *ProviderService) CAASUnitTerminating(ctx context.Context, unitNameStr s
 
 	caasApplicationProvider, err := s.caasApplicationProvider(ctx)
 	if err != nil {
-		return false, errors.Errorf("terminating k8s unit %s/%q: %w", appName, unitNum, err)
+		return false, errors.Errorf("terminating k8s unit %s/%d: %w", appName, unitNum, err)
 	}
 
 	// We currently only support statefulset.

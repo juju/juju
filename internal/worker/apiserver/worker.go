@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/trace"
@@ -47,6 +48,7 @@ type Config struct {
 	CharmhubHTTPClient                HTTPClient
 	MacaroonHTTPClient                HTTPClient
 	WatcherRegistryGetter             watcherregistry.WatcherRegistryGetter
+	EphemeralProviderFactory          providertracker.EphemeralProviderFactory
 
 	// DBGetter supplies WatchableDB implementations by namespace.
 	DBGetter                changestream.WatchableDBGetter
@@ -130,6 +132,9 @@ func (config Config) Validate() error {
 	if config.WatcherRegistryGetter == nil {
 		return errors.NotValidf("nil WatcherRegistryGetter")
 	}
+	if config.EphemeralProviderFactory == nil {
+		return errors.NotValidf("nil EphemeralProviderFactory")
+	}
 	return nil
 }
 
@@ -194,6 +199,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		TracerGetter:                  config.TracerGetter,
 		ObjectStoreGetter:             config.ObjectStoreGetter,
 		WatcherRegistryGetter:         config.WatcherRegistryGetter,
+		EphemeralProviderFactory:      config.EphemeralProviderFactory,
 	}
 	return config.NewServer(ctx, serverConfig)
 }

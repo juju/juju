@@ -16,7 +16,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
-	model "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -381,8 +381,7 @@ func (s *watcherSuite) TestWatchDeletedForAppOwnedSecret(c *tc.C) {
 
 	harness.AddTest(c, func(c *tc.C) {
 		// Delete the application owned secret.
-		err := st.DeleteSecret(ctx, uri1, nil)
-		tc.Assert(c, err, tc.ErrorIsNil)
+		s.deleteSecretForWatcher(c, uri1, nil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
@@ -393,8 +392,7 @@ func (s *watcherSuite) TestWatchDeletedForAppOwnedSecret(c *tc.C) {
 
 	harness.AddTest(c, func(c *tc.C) {
 		// Delete an application owned revision.
-		err := st.DeleteSecret(ctx, uri2, []int{1})
-		tc.Assert(c, err, tc.ErrorIsNil)
+		s.deleteSecretForWatcher(c, uri2, []int{1})
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
@@ -405,8 +403,7 @@ func (s *watcherSuite) TestWatchDeletedForAppOwnedSecret(c *tc.C) {
 
 	harness.AddTest(c, func(c *tc.C) {
 		// Delete the unit owned secret.
-		err := st.DeleteSecret(ctx, uri3, nil)
-		tc.Assert(c, err, tc.ErrorIsNil)
+		s.deleteSecretForWatcher(c, uri3, nil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -458,8 +455,7 @@ func (s *watcherSuite) TestWatchDeletedSecretRemovesRevisionFromChangeSet(c *tc.
 
 	harness.AddTest(c, func(c *tc.C) {
 		// Delete the application owned secret.
-		err := st.DeleteSecret(ctx, uri1, nil)
-		tc.Assert(c, err, tc.ErrorIsNil)
+		s.deleteSecretForWatcher(c, uri1, nil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
@@ -470,8 +466,7 @@ func (s *watcherSuite) TestWatchDeletedSecretRemovesRevisionFromChangeSet(c *tc.
 
 	harness.AddTest(c, func(c *tc.C) {
 		// Delete few application owned revisions.
-		err := st.DeleteSecret(ctx, uri2, []int{1, 3})
-		tc.Assert(c, err, tc.ErrorIsNil)
+		s.deleteSecretForWatcher(c, uri2, []int{1, 3})
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
@@ -483,8 +478,7 @@ func (s *watcherSuite) TestWatchDeletedSecretRemovesRevisionFromChangeSet(c *tc.
 
 	harness.AddTest(c, func(c *tc.C) {
 		// Delete the extra revision of the above secret
-		err := st.DeleteSecret(ctx, uri2, []int{2})
-		tc.Assert(c, err, tc.ErrorIsNil)
+		s.deleteSecretForWatcher(c, uri2, []int{2})
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
@@ -544,16 +538,14 @@ func (s *watcherSuite) TestWatchDeletedForUnitsOwnedSecret(c *tc.C) {
 
 	harness.AddTest(c, func(c *tc.C) {
 		// Delete the application owned secret.
-		err := st.DeleteSecret(ctx, uri1, nil)
-		tc.Assert(c, err, tc.ErrorIsNil)
+		s.deleteSecretForWatcher(c, uri1, nil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	harness.AddTest(c, func(c *tc.C) {
 		// Delete the unit owned secret.
-		err := st.DeleteSecret(ctx, uri2, nil)
-		tc.Assert(c, err, tc.ErrorIsNil)
+		s.deleteSecretForWatcher(c, uri2, nil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
@@ -1067,6 +1059,89 @@ func createNewRevision(c *tc.C, st *state.State, uri *coresecrets.URI) {
 		UpdateTime: time.Now(),
 	}
 	err := st.UpdateSecret(c.Context(), uri, sp)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// deleteSecretForWatcher removes only records needed to trigger watcher events.
+// It deletes selected secret revisions and, when no revisions remain, removes
+// secret metadata (with minimal dependent rows) so deleted-secret events fire.
+func (s *watcherSuite) deleteSecretForWatcher(c *tc.C, uri *coresecrets.URI, revisions []int) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, "SELECT uuid, revision FROM secret_revision WHERE secret_id = ?", uri.ID)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+
+		wantedRevisions := make(map[int]struct{}, len(revisions))
+		for _, r := range revisions {
+			wantedRevisions[r] = struct{}{}
+		}
+
+		var toDelete []string
+		for rows.Next() {
+			var (
+				revisionUUID string
+				revisionNo   int
+			)
+			if err := rows.Scan(&revisionUUID, &revisionNo); err != nil {
+				return err
+			}
+			if len(revisions) == 0 {
+				toDelete = append(toDelete, revisionUUID)
+				continue
+			}
+			if _, ok := wantedRevisions[revisionNo]; ok {
+				toDelete = append(toDelete, revisionUUID)
+			}
+		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		if len(toDelete) == 0 {
+			return fmt.Errorf("secret revisions %v not found for %q", revisions, uri.ID)
+		}
+
+		deleteRevisionQueries := []string{
+			`DELETE FROM secret_revision_expire WHERE revision_uuid = ?`,
+			`DELETE FROM secret_content WHERE revision_uuid = ?`,
+			`DELETE FROM secret_value_ref WHERE revision_uuid = ?`,
+			`DELETE FROM secret_revision_obsolete WHERE revision_uuid = ?`,
+			`DELETE FROM secret_revision WHERE uuid = ?`,
+		}
+		for _, revisionUUID := range toDelete {
+			for _, q := range deleteRevisionQueries {
+				if _, err := tx.ExecContext(ctx, q, revisionUUID); err != nil {
+					return err
+				}
+			}
+		}
+
+		var remaining int
+		q := "SELECT count(*) FROM secret_revision WHERE secret_id = ?"
+		if err := tx.QueryRowContext(ctx, q, uri.ID).Scan(&remaining); err != nil {
+			return err
+		}
+		if remaining > 0 {
+			return nil
+		}
+
+		deleteSecretMetadataQueries := []string{
+			`DELETE FROM secret_rotation WHERE secret_id = ?`,
+			`DELETE FROM secret_unit_owner WHERE secret_id = ?`,
+			`DELETE FROM secret_application_owner WHERE secret_id = ?`,
+			`DELETE FROM secret_model_owner WHERE secret_id = ?`,
+			`DELETE FROM secret_remote_unit_consumer WHERE secret_id = ?`,
+			`DELETE FROM secret_permission WHERE secret_id = ?`,
+			`DELETE FROM secret_metadata WHERE secret_id = ?`,
+		}
+		for _, q := range deleteSecretMetadataQueries {
+			if _, err := tx.ExecContext(ctx, q, uri.ID); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 	c.Assert(err, tc.ErrorIsNil)
 }
 

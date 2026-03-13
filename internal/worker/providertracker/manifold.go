@@ -246,7 +246,7 @@ func manifoldOutput(in worker.Worker, out any) error {
 	case *storage.ProviderRegistry:
 		*result, err = w.Provider()
 	default:
-		err = errors.NotValidf("*environs.Environ, *caas.Broker, *storage.ProviderRegistry, or *environs.CloudDestroyer: %T", out)
+		err = errors.NotValidf("*providertracker.ProviderFactory, *environs.Environ, *caas.Broker, *storage.ProviderRegistry, or *environs.CloudDestroyer: %T", out)
 	}
 	return errors.Trace(err)
 }

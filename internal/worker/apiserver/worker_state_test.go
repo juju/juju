@@ -40,6 +40,21 @@ func (s *WorkerStateSuite) TearDownSuite(c *tc.C) {
 
 func (s *WorkerStateSuite) SetUpTest(c *tc.C) {
 	s.workerFixture.SetUpTest(c)
+
+}
+
+func (s *WorkerStateSuite) TearDownTest(c *tc.C) {
+	s.workerFixture.TearDownTest(c)
+}
+
+func (s *WorkerStateSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := s.workerFixture.setupMocks(c)
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.modelService = NewMockModelService(ctrl)
+
+	s.config.ControllerConfigService = s.controllerConfigService
+	s.config.ModelService = s.modelService
+
 	s.config.GetAuditConfig = func() auditlog.Config {
 		return auditlog.Config{
 			Enabled:        true,
@@ -50,20 +65,11 @@ func (s *WorkerStateSuite) SetUpTest(c *tc.C) {
 			Target:         &apitesting.FakeAuditLog{},
 		}
 	}
-}
 
-func (s *WorkerStateSuite) TearDownTest(c *tc.C) {
-	s.workerFixture.TearDownTest(c)
-}
-
-func (s *WorkerStateSuite) setupMocks(c *tc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.controllerConfigService = NewMockControllerConfigService(ctrl)
-	s.modelService = NewMockModelService(ctrl)
-
-	s.config.ControllerConfigService = s.controllerConfigService
-	s.config.ModelService = s.modelService
-
+	c.Cleanup(func() {
+		s.controllerConfigService = nil
+		s.modelService = nil
+	})
 	return ctrl
 }
 
@@ -140,5 +146,6 @@ func (s *WorkerStateSuite) TestStart(c *tc.C) {
 		ControllerModelUUID:        s.controllerModelUUID,
 		JWTAuthenticator:           jwtAuthenticator,
 		WatcherRegistryGetter:      s.watcherRegistryGetter,
+		EphemeralProviderFactory:   s.ephemeralProviderFactory,
 	})
 }

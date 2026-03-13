@@ -99,7 +99,7 @@ func (s *modelSuite) TestEnsureModelNotAliveCascade(c *tc.C) {
 
 	modelUUID := s.getModelUUID(c)
 
-	artifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, false)
+	artifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(len(artifacts.UnitUUIDs), tc.Equals, 1)
 	c.Check(len(artifacts.ApplicationUUIDs), tc.Equals, 1)
@@ -113,12 +113,70 @@ func (s *modelSuite) TestEnsureModelNotAliveCascade(c *tc.C) {
 	s.checkApplicationLife(c, artifacts.ApplicationUUIDs[0], life.Dying)
 }
 
+func (s *modelSuite) TestEnsureModelNotAliveCascadeRetryReturnsDyingArtifacts(c *tc.C) {
+	svc := s.setupApplicationService(c)
+
+	s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	modelUUID := s.getModelUUID(c)
+
+	firstArtifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(len(firstArtifacts.UnitUUIDs), tc.Equals, 1)
+	c.Check(len(firstArtifacts.ApplicationUUIDs), tc.Equals, 1)
+	c.Check(len(firstArtifacts.MachineUUIDs), tc.Equals, 1)
+	c.Check(len(firstArtifacts.RelationUUIDs), tc.Equals, 0)
+
+	// Simulate retrying (e.g. destroy-model --force) while dependent entity
+	// removal is still in progress. Dying entities must be returned again so
+	// new jobs can be scheduled.
+	secondArtifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(secondArtifacts, tc.DeepEquals, firstArtifacts)
+
+	s.checkModelLife(c, modelUUID, life.Dying)
+	s.checkUnitLife(c, secondArtifacts.UnitUUIDs[0], life.Dying)
+	s.checkMachineLife(c, secondArtifacts.MachineUUIDs[0], life.Dying)
+	s.checkInstanceLife(c, secondArtifacts.MachineUUIDs[0], life.Dying)
+	s.checkApplicationLife(c, secondArtifacts.ApplicationUUIDs[0], life.Dying)
+}
+
+func (s *modelSuite) TestEnsureModelNotAliveCascadeRetryReturnsDyingRelations(c *tc.C) {
+	relUUID := s.createRelation(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	modelUUID := s.getModelUUID(c)
+
+	firstArtifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(len(firstArtifacts.RelationUUIDs), tc.Equals, 1)
+	c.Check(len(firstArtifacts.ApplicationUUIDs), tc.Equals, 2)
+	c.Check(len(firstArtifacts.UnitUUIDs), tc.Equals, 0)
+	c.Check(len(firstArtifacts.MachineUUIDs), tc.Equals, 0)
+	c.Check(firstArtifacts.RelationUUIDs[0], tc.Equals, relUUID.String())
+
+	// Simulate retrying (e.g. destroy-model --force) while dependent entity
+	// removal is still in progress. Dying entities must be returned again so
+	// new jobs can be scheduled.
+	secondArtifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(secondArtifacts, tc.DeepEquals, firstArtifacts)
+
+	// The relation should still be in the dying state.
+	row := s.DB().QueryRowContext(c.Context(), "SELECT life_id FROM relation where uuid = ?", relUUID.String())
+	var relationLife life.Life
+	err = row.Scan(&relationLife)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(relationLife, tc.Equals, life.Dying)
+}
+
 func (s *modelSuite) TestEnsureModelNotAliveCascadeEmpty(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	modelUUID := s.getModelUUID(c)
 
-	artifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, false)
+	artifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(artifacts.Empty(), tc.IsTrue)
 }

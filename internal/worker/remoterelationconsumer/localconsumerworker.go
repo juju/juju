@@ -1196,7 +1196,7 @@ func (w *localConsumerWorker) handleDepartedUnits(ctx context.Context, relationU
 	for _, u := range departedUnits {
 		unitName, err := unit.NewNameFromParts(w.applicationName, u)
 		if err != nil {
-			return errors.Annotatef(err, "parsing departed unit name %q", u)
+			return errors.Annotatef(err, "parsing departed unit name %v", u)
 		}
 
 		// If the relation unit doesn't exist, then it has already been removed,

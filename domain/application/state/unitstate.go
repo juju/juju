@@ -443,7 +443,7 @@ INSERT INTO link_layer_device (*) VALUES ($cloudContainerDevice.*)
 		// Note: This is a programming error. Today the K8S subnets are
 		// placeholders which should always be created when a model is
 		// added.
-		return errors.Errorf("subnet for address type %q not found", address.AddressType)
+		return errors.Errorf("subnet for address type %v not found", address.AddressType)
 	}
 
 	// Now process the address details.

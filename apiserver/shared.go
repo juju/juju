@@ -22,6 +22,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/internal/worker/watcherregistry"
@@ -64,6 +65,10 @@ type sharedServerContext struct {
 	// server.
 	watcherRegistryGetter watcherregistry.WatcherRegistryGetter
 
+	// ephemeralProviderFactory is used to create providers for operations that
+	// require them.
+	ephemeralProviderFactory providertracker.EphemeralProviderFactory
+
 	configMutex sync.RWMutex
 
 	// controllerUUID is the unique identifier of the controller.
@@ -100,6 +105,7 @@ type sharedServerConfig struct {
 	controllerDomainServices services.ControllerDomainServices
 	tracerGetter             trace.TracerGetter
 	objectStoreGetter        objectstore.ObjectStoreGetter
+	ephemeralProviderFactory providertracker.EphemeralProviderFactory
 	watcherRegistryGetter    watcherregistry.WatcherRegistryGetter
 	machineTag               names.Tag
 	dataDir                  string
@@ -137,6 +143,9 @@ func (c *sharedServerConfig) validate() error {
 	if c.watcherRegistryGetter == nil {
 		return errors.NotValidf("nil watcherRegistryGetter")
 	}
+	if c.ephemeralProviderFactory == nil {
+		return errors.NotValidf("nil ephemeralProviderFactory")
+	}
 	if c.machineTag == nil {
 		return errors.NotValidf("empty machineTag")
 	}
@@ -173,6 +182,7 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		controllerDomainServices: config.controllerDomainServices,
 		tracerGetter:             config.tracerGetter,
 		objectStoreGetter:        config.objectStoreGetter,
+		ephemeralProviderFactory: config.ephemeralProviderFactory,
 		watcherRegistryGetter:    config.watcherRegistryGetter,
 		machineTag:               config.machineTag,
 		dataDir:                  config.dataDir,

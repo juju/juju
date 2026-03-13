@@ -81,7 +81,7 @@ func decodeUnitAgentStatusType(s status.UnitAgentStatusType) (corestatus.Status,
 	case status.UnitAgentStatusRebooting:
 		return corestatus.Rebooting, nil
 	default:
-		return "", errors.Errorf("unknown agent status %q", s)
+		return "", errors.Errorf("unknown agent status %v", s)
 	}
 }
 
@@ -146,6 +146,6 @@ func decodeWorkloadStatusType(s status.WorkloadStatusType) (corestatus.Status, e
 	case status.WorkloadStatusError:
 		return corestatus.Error, nil
 	default:
-		return "", errors.Errorf("unknown workload status %q", s)
+		return "", errors.Errorf("unknown workload status %v", s)
 	}
 }

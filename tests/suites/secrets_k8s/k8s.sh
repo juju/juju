@@ -169,8 +169,6 @@ run_user_secrets() {
 
 	juju --show-log deploy snappass-test
 
-	wait_for "active" '.applications["hello-kubecon"] | ."application-status".current'
-
 	# create user secrets.
 	secret_uri=$(juju --show-log add-secret mysecret owned-by="$model_name-1" --info "this is a user secret")
 	secret_short_uri=${secret_uri##*:}
@@ -225,8 +223,16 @@ run_user_secrets() {
 	check_contains "$(juju exec --unit snappass-test/0 -- secret-get "$secret_uri" 2>&1)" 'is not allowed to read this secret'
 
 	juju --show-log remove-secret $secret_uri
-	check_contains "$(juju --show-log secrets --format yaml | yq length)" '0'
-	until [[ -z $(microk8s kubectl -n "$model_name" get secrets -o json | jq -r '.items[].metadata.name | select(. == "'"${secret_short_uri}"'-1")') ]]; do
+
+	# Both checks are async after remove-secret because remove job runs async, so
+  # poll until both pass.
+	check_secret_deleted() {
+		[[ $(juju --show-log secrets --format yaml | yq length) == '0' ]] &&
+			[[ -z $(microk8s kubectl -n "$model_name" get secrets -o json | jq -r '.items[].metadata.name | select(. == "'"${secret_short_uri}"'-1")') ]]
+	}
+
+	local attempt=0
+	until check_secret_deleted; do
 		if [[ ${attempt} -ge 30 ]]; then
 			echo "Failed: user secret was not deleted."
 			exit 1
@@ -234,6 +240,8 @@ run_user_secrets() {
 		sleep 2
 		attempt=$((attempt + 1))
 	done
+
+	destroy_model "$model_name"
 }
 
 run_secret_drain() {

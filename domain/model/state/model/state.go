@@ -971,7 +971,7 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) 
 	life, err := l.Life.Value()
 	if err != nil {
 		return coremodel.ModelInfo{}, errors.Errorf(
-			"parsing model life %q: %w", l.Life, err,
+			"parsing model life %v: %w", l.Life, err,
 		)
 	}
 

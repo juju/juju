@@ -910,6 +910,14 @@ WHERE metadata_uuid = $entityUUID.uuid
 		return errors.Capture(err)
 	}
 
+	deleteObjectStorePlacementStmt, err := st.Prepare(`
+DELETE FROM object_store_placement
+WHERE uuid = $entityUUID.uuid
+	`, ident)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	// Delete the associated object store entry.
 	deleteObjectStoreStmt, err := st.Prepare(`
 DELETE FROM object_store_metadata
@@ -921,6 +929,10 @@ WHERE uuid = $entityUUID.uuid
 
 	if err := tx.Query(ctx, deleteObjectStorePathStmt, ident).Run(); err != nil {
 		return errors.Errorf("deleting object store path: %w", err)
+	}
+
+	if err := tx.Query(ctx, deleteObjectStorePlacementStmt, ident).Run(); err != nil {
+		return errors.Errorf("deleting object store placement: %w", err)
 	}
 
 	if err := tx.Query(ctx, deleteObjectStoreStmt, ident).Run(); err != nil {

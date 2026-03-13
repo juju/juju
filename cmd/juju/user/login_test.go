@@ -531,12 +531,12 @@ func (s *LoginCommandSuite) TestLoginToPublicControllerWithOIDC(c *tc.C) {
 	sessionLoginProvider := NewMockLoginProvider(ctrl)
 
 	var checkPatchFuncCalled bool
-	*user.APIOpen = func(cmd *modelcmd.CommandBase, ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
+	s.PatchValue(user.APIOpen, func(cmd *modelcmd.CommandBase, ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkPatchFuncCalled = true
 		_, err := opts.LoginProvider.Login(ctx, nil)
 		c.Check(err, tc.ErrorIsNil)
 		return s.apiConnection, nil
-	}
+	})
 
 	var tokenCallbackFunc func(string)
 	sessionLoginFactory.EXPECT().NewLoginProvider("", gomock.Any(), gomock.Any()).DoAndReturn(
@@ -575,10 +575,11 @@ func run(c *tc.C, stdin string, command cmd.Command, args ...string) (stdout, st
 	c.Logf("in LoginControllerSuite.run")
 	var stdoutBuf, stderrBuf bytes.Buffer
 	ctxt := &cmd.Context{
-		Dir:    c.MkDir(),
-		Stdin:  strings.NewReader(stdin),
-		Stdout: &stdoutBuf,
-		Stderr: &stderrBuf,
+		Context: c.Context(),
+		Dir:     c.MkDir(),
+		Stdin:   strings.NewReader(stdin),
+		Stdout:  &stdoutBuf,
+		Stderr:  &stderrBuf,
 	}
 	exitCode := cmd.Main(command, ctxt, args)
 	return stdoutBuf.String(), stderrBuf.String(), exitCode

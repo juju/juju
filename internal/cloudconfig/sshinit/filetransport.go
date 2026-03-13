@@ -83,7 +83,6 @@ func (ft *FileTransporter) Dispatch(ctx context.Context) error {
 	eg, _ := errgroup.WithContext(ctx)
 
 	for _, f := range ft.fileSends {
-		f := f
 		eg.Go(func() error {
 			return ft.doCopy(f)
 		})

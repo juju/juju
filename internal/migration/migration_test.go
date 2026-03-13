@@ -55,7 +55,7 @@ func (s *ImportSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *ImportSuite) TestBadBytes(c *tc.C) {
 	bytes := []byte("not a model")
 	scope := func(model.UUID) modelmigration.Scope {
-		return modelmigration.NewScope(nil, nil, nil, tc.Must0(c, model.NewUUID))
+		return modelmigration.NewScope(nil, nil, nil, nil, tc.Must0(c, model.NewUUID))
 	}
 	importer := migration.NewModelImporter(
 		scope, nil, nil,

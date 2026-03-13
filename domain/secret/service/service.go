@@ -1015,7 +1015,7 @@ func (s *SecretService) SecretRotated(ctx context.Context, uri *secrets.URI, par
 		return errors.Capture(err)
 	}
 	if !info.RotatePolicy.WillRotate() {
-		s.logger.Debugf(ctx, "secret %q was rotated but now is set to not rotate")
+		s.logger.Debugf(ctx, "secret %q was rotated but now is set to not rotate", uri.String())
 		return nil
 	}
 	lastRotateTime := info.NextRotateTime

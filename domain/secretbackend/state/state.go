@@ -1165,24 +1165,6 @@ func (s *State) UpdateSecretBackendReference(
 
 type secretRevisionIDs []string
 
-// RemoveSecretBackendReference removes the reference to the secret backend for the given secret revisions.
-func (s *State) RemoveSecretBackendReference(ctx context.Context, revisionIDs ...string) error {
-	if len(revisionIDs) == 0 {
-		return nil
-	}
-
-	db, err := s.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := s.removeSecretBackendReferenceForRevisions(ctx, tx, revisionIDs...)
-		return errors.Capture(err)
-	})
-	return errors.Capture(err)
-}
-
 func (s *State) removeSecretBackendReferenceForRevisions(ctx context.Context, tx *sqlair.TX, revisionIDs ...string) error {
 	if len(revisionIDs) == 0 {
 		return nil

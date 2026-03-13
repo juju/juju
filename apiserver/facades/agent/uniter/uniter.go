@@ -916,7 +916,7 @@ func (u *UniterAPI) SetCharm(ctx context.Context, args params.EntitiesCharmURL) 
 			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "unit %q not found", unitName)
 			continue
 		} else if errors.Is(err, applicationerrors.CharmNotFound) {
-			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "charm %q not found", charmLocator)
+			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "charm %v not found", charmLocator)
 			continue
 		} else if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)

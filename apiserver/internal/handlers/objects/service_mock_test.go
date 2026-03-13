@@ -15,6 +15,7 @@ import (
 	http "net/http"
 	reflect "reflect"
 
+	objectstore "github.com/juju/juju/core/objectstore"
 	charm "github.com/juju/juju/domain/application/charm"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -105,12 +106,13 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 }
 
 // GetCharmArchiveBySHA256Prefix mocks base method.
-func (m *MockApplicationService) GetCharmArchiveBySHA256Prefix(arg0 context.Context, arg1 string) (io.ReadCloser, error) {
+func (m *MockApplicationService) GetCharmArchiveBySHA256Prefix(arg0 context.Context, arg1 string) (io.ReadCloser, objectstore.Digest, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCharmArchiveBySHA256Prefix", arg0, arg1)
 	ret0, _ := ret[0].(io.ReadCloser)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(objectstore.Digest)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // GetCharmArchiveBySHA256Prefix indicates an expected call of GetCharmArchiveBySHA256Prefix.
@@ -126,19 +128,19 @@ type MockApplicationServiceGetCharmArchiveBySHA256PrefixCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceGetCharmArchiveBySHA256PrefixCall) Return(arg0 io.ReadCloser, arg1 error) *MockApplicationServiceGetCharmArchiveBySHA256PrefixCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockApplicationServiceGetCharmArchiveBySHA256PrefixCall) Return(arg0 io.ReadCloser, arg1 objectstore.Digest, arg2 error) *MockApplicationServiceGetCharmArchiveBySHA256PrefixCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetCharmArchiveBySHA256PrefixCall) Do(f func(context.Context, string) (io.ReadCloser, error)) *MockApplicationServiceGetCharmArchiveBySHA256PrefixCall {
+func (c *MockApplicationServiceGetCharmArchiveBySHA256PrefixCall) Do(f func(context.Context, string) (io.ReadCloser, objectstore.Digest, error)) *MockApplicationServiceGetCharmArchiveBySHA256PrefixCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetCharmArchiveBySHA256PrefixCall) DoAndReturn(f func(context.Context, string) (io.ReadCloser, error)) *MockApplicationServiceGetCharmArchiveBySHA256PrefixCall {
+func (c *MockApplicationServiceGetCharmArchiveBySHA256PrefixCall) DoAndReturn(f func(context.Context, string) (io.ReadCloser, objectstore.Digest, error)) *MockApplicationServiceGetCharmArchiveBySHA256PrefixCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -268,11 +270,11 @@ func (m *MockObjectStoreService) EXPECT() *MockObjectStoreServiceMockRecorder {
 }
 
 // GetBySHA256 mocks base method.
-func (m *MockObjectStoreService) GetBySHA256(arg0 context.Context, arg1 string) (io.ReadCloser, int64, error) {
+func (m *MockObjectStoreService) GetBySHA256(arg0 context.Context, arg1 string) (io.ReadCloser, objectstore.Digest, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetBySHA256", arg0, arg1)
 	ret0, _ := ret[0].(io.ReadCloser)
-	ret1, _ := ret[1].(int64)
+	ret1, _ := ret[1].(objectstore.Digest)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
@@ -290,19 +292,19 @@ type MockObjectStoreServiceGetBySHA256Call struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockObjectStoreServiceGetBySHA256Call) Return(arg0 io.ReadCloser, arg1 int64, arg2 error) *MockObjectStoreServiceGetBySHA256Call {
+func (c *MockObjectStoreServiceGetBySHA256Call) Return(arg0 io.ReadCloser, arg1 objectstore.Digest, arg2 error) *MockObjectStoreServiceGetBySHA256Call {
 	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockObjectStoreServiceGetBySHA256Call) Do(f func(context.Context, string) (io.ReadCloser, int64, error)) *MockObjectStoreServiceGetBySHA256Call {
+func (c *MockObjectStoreServiceGetBySHA256Call) Do(f func(context.Context, string) (io.ReadCloser, objectstore.Digest, error)) *MockObjectStoreServiceGetBySHA256Call {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockObjectStoreServiceGetBySHA256Call) DoAndReturn(f func(context.Context, string) (io.ReadCloser, int64, error)) *MockObjectStoreServiceGetBySHA256Call {
+func (c *MockObjectStoreServiceGetBySHA256Call) DoAndReturn(f func(context.Context, string) (io.ReadCloser, objectstore.Digest, error)) *MockObjectStoreServiceGetBySHA256Call {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

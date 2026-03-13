@@ -16,6 +16,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
+	"github.com/juju/juju/core/objectstore"
 	domainobjectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/internal/errors"
 	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
@@ -25,7 +26,7 @@ import (
 // from an object store.
 type ObjectStoreService interface {
 	// GetBySHA256 returns a reader for the object with the given SHA256 hash.
-	GetBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, int64, error)
+	GetBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, objectstore.Digest, error)
 }
 
 // ObjectStoreServiceGetter is an interface that provides a method to get an
@@ -88,7 +89,7 @@ func (h *ObjectsHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) er
 		return jujuerrors.BadRequestf("missing object sha256")
 	}
 
-	reader, readerSize, err := objectStore.GetBySHA256(r.Context(), sha256)
+	reader, digest, err := objectStore.GetBySHA256(r.Context(), sha256)
 	if errors.IsOneOf(err, domainobjectstoreerrors.ErrInvalidHashLength, domainobjectstoreerrors.ErrInvalidHash) {
 		return jujuerrors.BadRequestf("invalid object sha256: %s", sha256)
 	} else if errors.Is(err, objectstoreerrors.ObjectNotFound) {
@@ -100,7 +101,7 @@ func (h *ObjectsHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) er
 
 	// Set the content-length before the copy, so the client knows how much to
 	// expect.
-	w.Header().Set("Content-Length", strconv.FormatInt(readerSize, 10))
+	w.Header().Set("Content-Length", strconv.FormatInt(digest.Size, 10))
 
 	w.Header().Set("x-amzn-requestid", r.Header.Get("x-amz-request-id"))
 	w.Header().Set("x-amzn-id-2", r.Header.Get("x-amz-id-2"))
@@ -121,8 +122,8 @@ func (h *ObjectsHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) er
 	}
 
 	// There isn't much we can do if the size doesn't match, but we can log it.
-	if readerSize != size {
-		logger.Warningf(r.Context(), "expected size %d, got %d when reading %v", readerSize, size, sha256)
+	if digest.Size != size {
+		logger.Warningf(r.Context(), "expected size %d, got %d when reading %v", digest.Size, size, sha256)
 	}
 
 	return nil

@@ -250,13 +250,13 @@ AND    architecture_id = $agentBinaryRecord.architecture_id
 	err = tx.Query(ctx, getStmt, agentBinaryVal).Get(&agentBinaryVal)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return agentBinaryVal, errors.Errorf(
-			"agent binary for version %q and arch %q not found",
+			"agent binary for version %q and arch %d not found",
 			agentBinaryVal.Version, agentBinaryVal.ArchitectureID,
 		).Add(coreerrors.NotFound)
 	}
 	if err != nil {
 		return agentBinaryVal, errors.Errorf(
-			"getting agent binary for version %q and arch %q: %w",
+			"getting agent binary for version %q and arch %d: %w",
 			agentBinaryVal.Version, agentBinaryVal.ArchitectureID, err,
 		)
 	}

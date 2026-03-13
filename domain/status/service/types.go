@@ -65,6 +65,7 @@ type Machine struct {
 	DNSName                 string
 	IPAddresses             []string
 	InstanceID              instance.Id
+	IsController            bool
 	Life                    life.Value
 	MachineStatus           status.StatusInfo
 	InstanceStatus          status.StatusInfo

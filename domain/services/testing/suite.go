@@ -400,20 +400,20 @@ type TestingObjectStore struct{}
 
 // Get returns an io.ReadCloser for data at path, namespaced to the
 // model.
-func (TestingObjectStore) Get(ctx context.Context, name string) (io.ReadCloser, int64, error) {
-	return nil, 0, errors.Errorf(name+" %w", coreerrors.NotFound)
+func (TestingObjectStore) Get(ctx context.Context, name string) (io.ReadCloser, objectstore.Digest, error) {
+	return nil, objectstore.Digest{}, errors.Errorf(name+" %w", coreerrors.NotFound)
 }
 
 // GetBySHA256 returns an io.ReadCloser for data at path, namespaced to the
 // model.
-func (TestingObjectStore) GetBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
-	return nil, 0, errors.Errorf(sha256+" %w", coreerrors.NotFound)
+func (TestingObjectStore) GetBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, objectstore.Digest, error) {
+	return nil, objectstore.Digest{}, errors.Errorf(sha256+" %w", coreerrors.NotFound)
 }
 
 // GetBySHA256Prefix returns an io.ReadCloser for data at path, namespaced to the
 // model.
-func (TestingObjectStore) GetBySHA256Prefix(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
-	return nil, 0, errors.Errorf(sha256+" %w", coreerrors.NotFound)
+func (TestingObjectStore) GetBySHA256Prefix(ctx context.Context, sha256 string) (io.ReadCloser, objectstore.Digest, error) {
+	return nil, objectstore.Digest{}, errors.Errorf(sha256+" %w", coreerrors.NotFound)
 }
 
 // Put stores data from reader at path, namespaced to the model.

@@ -199,10 +199,14 @@ func (s *s3ObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *tc.C) {
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	file, fileSize, err := store.Get(c.Context(), fileName)
+	file, digest, err := store.Get(c.Context(), fileName)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(size, tc.Equals, fileSize)
-	c.Assert(s.readFile(c, file), tc.Equals, "hello")
+	c.Check(digest, tc.DeepEquals, objectstore.Digest{
+		SHA256: hash256,
+		SHA384: hash384,
+		Size:   size,
+	})
+	c.Check(s.readFile(c, file), tc.Equals, "hello")
 
 	workertest.CleanKill(c, store)
 }
@@ -240,10 +244,14 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256AndFileNotFoundThenFound(c *
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	file, fileSize, err := store.GetBySHA256(c.Context(), hash256)
+	file, digest, err := store.GetBySHA256(c.Context(), hash256)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(size, tc.Equals, fileSize)
-	c.Assert(s.readFile(c, file), tc.Equals, "hello")
+	c.Check(digest, tc.DeepEquals, objectstore.Digest{
+		SHA256: hash256,
+		SHA384: hash384,
+		Size:   size,
+	})
+	c.Check(s.readFile(c, file), tc.Equals, "hello")
 
 	workertest.CleanKill(c, store)
 }
@@ -282,10 +290,14 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileNotFoundThenFou
 	// Ensure we've started up before we start the test.
 	s.expectStartup(c)
 
-	file, fileSize, err := store.GetBySHA256Prefix(c.Context(), hashPrefix)
+	file, digest, err := store.GetBySHA256Prefix(c.Context(), hashPrefix)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(size, tc.Equals, fileSize)
-	c.Assert(s.readFile(c, file), tc.Equals, "hello")
+	c.Check(digest, tc.DeepEquals, objectstore.Digest{
+		SHA256: hash256,
+		SHA384: hash384,
+		Size:   size,
+	})
+	c.Check(s.readFile(c, file), tc.Equals, "hello")
 
 	workertest.CleanKill(c, store)
 }

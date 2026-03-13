@@ -55,7 +55,7 @@ func (s *importSuite) SetUpTest(c *tc.C) {
 	modelUUID := model.UUID(s.ModelUUID())
 
 	s.coordinator = modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
-	s.scope = modelmigration.NewScope(nil, s.TxnRunnerFactory(), nil, modelUUID)
+	s.scope = modelmigration.NewScope(nil, s.TxnRunnerFactory(), nil, nil, modelUUID)
 
 	modelDB := func(context.Context) (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil

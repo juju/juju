@@ -16,6 +16,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -75,7 +76,13 @@ func (s *objectsCharmHandlerSuite) TestServeGet(c *tc.C) {
 
 	s.expectApplicationService()
 
-	s.applicationsService.EXPECT().GetCharmArchiveBySHA256Prefix(gomock.Any(), "01abcdef").Return(io.NopCloser(strings.NewReader("charm-content")), nil)
+	hash := "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e"
+
+	s.applicationsService.EXPECT().GetCharmArchiveBySHA256Prefix(gomock.Any(), "01abcdef").
+		Return(io.NopCloser(strings.NewReader("charm-content")), objectstore.Digest{
+			SHA256: hash,
+			Size:   13,
+		}, nil)
 
 	handlers := &ObjectsCharmHTTPHandler{
 		applicationServiceGetter: s.applicationsServiceGetter,
@@ -96,6 +103,8 @@ func (s *objectsCharmHandlerSuite) TestServeGet(c *tc.C) {
 	body, err := io.ReadAll(resp.Body)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(body), tc.Equals, "charm-content")
+
+	c.Check(resp.Header.Get("x-amz-checksum-sha256"), tc.Equals, "+rW3bnwjTZySkBTUbvCl25yLbp/WO9w7qcK5A0cbx34=")
 }
 
 func (s *objectsCharmHandlerSuite) TestServeGetNotFound(c *tc.C) {
@@ -103,7 +112,13 @@ func (s *objectsCharmHandlerSuite) TestServeGetNotFound(c *tc.C) {
 
 	s.expectApplicationService()
 
-	s.applicationsService.EXPECT().GetCharmArchiveBySHA256Prefix(gomock.Any(), "01abcdef").Return(nil, applicationerrors.CharmNotFound)
+	hash := "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e"
+
+	s.applicationsService.EXPECT().GetCharmArchiveBySHA256Prefix(gomock.Any(), "01abcdef").
+		Return(nil, objectstore.Digest{
+			SHA256: hash,
+			Size:   13,
+		}, applicationerrors.CharmNotFound)
 
 	handlers := &ObjectsCharmHTTPHandler{
 		applicationServiceGetter: s.applicationsServiceGetter,

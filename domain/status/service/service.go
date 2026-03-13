@@ -815,7 +815,7 @@ func (s *Service) GetMachineFullStatuses(ctx context.Context) (map[machine.Name]
 		return nil, errors.Capture(err)
 	}
 
-	clusterInfo, err := s.getDqliteClusterInfo(ctx)
+	clusterInfo, controllerMachines, err := s.getDqliteClusterInfo(ctx)
 	if err != nil {
 		return nil, errors.Errorf("getting cluster machine info: %w", err)
 	}
@@ -831,6 +831,7 @@ func (s *Service) GetMachineFullStatuses(ctx context.Context) (map[machine.Name]
 			return nil, errors.Errorf("decoding machine status for %q: %w", name, err)
 		}
 
+		_, decodedStatus.IsController = controllerMachines[name]
 		if clusterInfo, ok := clusterInfo[name]; ok {
 			decodedStatus.ClusterInfo = &clusterInfo
 		}
@@ -840,11 +841,11 @@ func (s *Service) GetMachineFullStatuses(ctx context.Context) (map[machine.Name]
 	return result, nil
 }
 
-func (s *Service) getDqliteClusterInfo(ctx context.Context) (map[machine.Name]MachineClusterInfo, error) {
+func (s *Service) getDqliteClusterInfo(ctx context.Context) (map[machine.Name]MachineClusterInfo, map[machine.Name]struct{}, error) {
 	if isControllerModel, err := s.modelState.IsControllerModel(ctx); err != nil {
-		return nil, errors.Errorf("checking if controller model: %w", err)
+		return nil, nil, errors.Errorf("checking if controller model: %w", err)
 	} else if !isControllerModel {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	// First get the cluster details. This is direct from dqlite. This should
@@ -855,7 +856,7 @@ func (s *Service) getDqliteClusterInfo(ctx context.Context) (map[machine.Name]Ma
 	// expensive operation.
 	description, err := s.clusterDescriber.ClusterDetails(ctx)
 	if err != nil {
-		return nil, errors.Errorf("getting cluster details: %w", err)
+		return nil, nil, errors.Errorf("getting cluster details: %w", err)
 	}
 
 	members := make(map[uint64]database.ClusterNodeInfo)
@@ -866,23 +867,27 @@ func (s *Service) getDqliteClusterInfo(ctx context.Context) (map[machine.Name]Ma
 	// Now get the controller nodes that are in the database.
 	controllerNodes, err := s.controllerState.GetControllerNodeIDs(ctx)
 	if err != nil {
-		return nil, errors.Errorf("getting controller node IDs: %w", err)
+		return nil, nil, errors.Errorf("getting controller node IDs: %w", err)
 	}
 
 	clusterInfo := make(map[machine.Name]MachineClusterInfo)
+	controllerMachines := make(map[machine.Name]struct{}, len(controllerNodes))
 	for _, node := range controllerNodes {
+		controllerMachineName := machine.Name(node.ControllerID)
+		controllerMachines[controllerMachineName] = struct{}{}
+
 		member, ok := members[node.DqliteNodeID]
 		if !ok {
 			// Node not in the dqlite cluster.
 			continue
 		}
 
-		clusterInfo[machine.Name(node.ControllerID)] = MachineClusterInfo{
+		clusterInfo[controllerMachineName] = MachineClusterInfo{
 			Present: true,
 			Role:    member.Role,
 		}
 	}
-	return clusterInfo, nil
+	return clusterInfo, controllerMachines, nil
 }
 
 // SetMachineStatus sets the status of the specified machine.
@@ -1288,6 +1293,7 @@ func (s *Service) decodeMachineStatusDetails(machineName machine.Name, machine s
 
 	return Machine{
 		Name:                    machineName,
+		IsController:            false,
 		Life:                    life,
 		Hostname:                machine.Hostname,
 		DisplayName:             machine.DisplayName,
