@@ -9,10 +9,8 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain/secret"
-	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secretbackend"
-	"github.com/juju/juju/internal/secrets/provider"
+	"github.com/juju/juju/domain/secretbackend/internal"
 )
 
 // State provides methods for working with secret backends.
@@ -27,6 +25,7 @@ type State interface {
 	SetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID, secretBackendName string) error
 
 	ListSecretBackendsForModel(ctx context.Context, modelUUID coremodel.UUID, includeEmpty bool) ([]*secretbackend.SecretBackend, error)
+	GetModelSecretBackendNameAndOrigin(ctx context.Context, modelUUID coremodel.UUID) (string, internal.Origin, error)
 	GetModelSecretBackendDetails(ctx context.Context, modelUUID coremodel.UUID) (secretbackend.ModelSecretBackend, error)
 	GetModelType(ctx context.Context, modelUUID coremodel.UUID) (coremodel.ModelType, error)
 
@@ -35,31 +34,4 @@ type State interface {
 	InitialWatchStatementForSecretBackendRotationChanges() (string, string)
 	GetSecretBackendRotateChanges(ctx context.Context, backendIDs ...string) ([]watcher.SecretBackendRotateChange, error)
 	NamespaceForWatchModelSecretBackend() string
-}
-
-// AdminBackendConfigGetterFunc returns a function that gets the
-// admin config for a given model's current secret backend.
-func AdminBackendConfigGetterFunc(
-	backendService *WatchableService, modelUUID coremodel.UUID,
-) func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
-	return func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
-		return backendService.GetSecretBackendConfigForAdmin(stdCtx, modelUUID)
-	}
-}
-
-// UserSecretBackendConfigGetterFunc returns a function that gets the
-// config for a given model's current secret backend for creating or updating user secrets.
-func UserSecretBackendConfigGetterFunc(backendService *WatchableService, modelUUID coremodel.UUID) func(
-	stdCtx context.Context, gsg secretservice.GrantedSecretsGetter, accessor secret.SecretAccessor,
-) (*provider.ModelBackendConfigInfo, error) {
-	return func(
-		stdCtx context.Context, gsg secretservice.GrantedSecretsGetter, accessor secret.SecretAccessor,
-	) (*provider.ModelBackendConfigInfo, error) {
-		return backendService.BackendConfigInfo(stdCtx, BackendConfigParams{
-			GrantedSecretsGetter: gsg,
-			Accessor:             accessor,
-			ModelUUID:            modelUUID,
-			SameController:       true,
-		})
-	}
 }

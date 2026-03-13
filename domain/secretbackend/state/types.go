@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/secretbackend"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	"github.com/juju/juju/domain/secretbackend/internal"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
@@ -33,10 +34,18 @@ type ModelSecretBackend struct {
 	ModelName string `db:"name"`
 	// ModelType is the type of the model.
 	ModelType coremodel.ModelType `db:"model_type"`
-	// SecretBackendID is the unique identifier for the secret backend configured for the model.
+	// SecretBackendID is the unique identifier for the secret backend
+	// configured for the model.
 	SecretBackendID string `db:"secret_backend_uuid"`
-	// SecretBackendName is the name of the secret backend configured for the model.
+	// SecretBackendName is the name of the secret backend configured for the
+	// model.
 	SecretBackendName string `db:"secret_backend_name"`
+	// SecretBackendOrigin is the origin of the secret backend configured for
+	// the model (builtin or user)
+	SecretBackendOrigin internal.Origin `db:"secret_backend_origin"`
+	// SecretBackendType is the type of the secret backend configured for the
+	// model (controller, vault or kubernetes)
+	SecretBackendType string `db:"secret_backend_type"`
 }
 
 // modelIdentifier represents a set of identifiers for a model.
@@ -126,8 +135,8 @@ type SecretBackend struct {
 	BackendTypeID secretbackend.BackendType `db:"backend_type_id"`
 	// TokenRotateInterval is the interval at which the token for the secret backend should be rotated.
 	TokenRotateInterval database.NullDuration `db:"token_rotate_interval"`
-	// OriginID is the id of the secret backend origin.
-	OriginID int `db:"origin_id"`
+	// Origin is the origin of the secret backend.
+	Origin internal.Origin `db:"origin"`
 }
 
 // SecretBackendRotation represents a single row from the state database's

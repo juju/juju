@@ -9,6 +9,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/trace"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	"github.com/juju/juju/domain/secretbackend/internal"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
@@ -31,20 +32,13 @@ func (s *ModelSecretBackendService) GetModelSecretBackend(ctx context.Context) (
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	modelSecretBackend, err := s.st.GetModelSecretBackendDetails(ctx, s.modelID)
+	name, origin, err := s.st.GetModelSecretBackendNameAndOrigin(ctx, s.modelID)
 	if err != nil {
 		return "", errors.Errorf("getting model secret backend detail for %q: %w", s.modelID, err)
 	}
-	backendName := modelSecretBackend.SecretBackendName
-	switch modelSecretBackend.ModelType {
-	case coremodel.IAAS:
-		if backendName == provider.Internal {
-			backendName = provider.Auto
-		}
-	case coremodel.CAAS:
-		if backendName == kubernetes.BackendName {
-			backendName = provider.Auto
-		}
+	backendName := name
+	if origin == internal.BuiltIn {
+		backendName = provider.Auto
 	}
 	return backendName, nil
 }

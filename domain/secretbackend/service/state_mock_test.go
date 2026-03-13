@@ -17,6 +17,7 @@ import (
 	model "github.com/juju/juju/core/model"
 	watcher "github.com/juju/juju/core/watcher"
 	secretbackend "github.com/juju/juju/domain/secretbackend"
+	internal "github.com/juju/juju/domain/secretbackend/internal"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -195,6 +196,46 @@ func (c *MockStateGetModelSecretBackendDetailsCall) Do(f func(context.Context, m
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetModelSecretBackendDetailsCall) DoAndReturn(f func(context.Context, model.UUID) (secretbackend.ModelSecretBackend, error)) *MockStateGetModelSecretBackendDetailsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetModelSecretBackendNameAndOrigin mocks base method.
+func (m *MockState) GetModelSecretBackendNameAndOrigin(arg0 context.Context, arg1 model.UUID) (string, internal.Origin, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelSecretBackendNameAndOrigin", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(internal.Origin)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetModelSecretBackendNameAndOrigin indicates an expected call of GetModelSecretBackendNameAndOrigin.
+func (mr *MockStateMockRecorder) GetModelSecretBackendNameAndOrigin(arg0, arg1 any) *MockStateGetModelSecretBackendNameAndOriginCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelSecretBackendNameAndOrigin", reflect.TypeOf((*MockState)(nil).GetModelSecretBackendNameAndOrigin), arg0, arg1)
+	return &MockStateGetModelSecretBackendNameAndOriginCall{Call: call}
+}
+
+// MockStateGetModelSecretBackendNameAndOriginCall wrap *gomock.Call
+type MockStateGetModelSecretBackendNameAndOriginCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetModelSecretBackendNameAndOriginCall) Return(arg0 string, arg1 internal.Origin, arg2 error) *MockStateGetModelSecretBackendNameAndOriginCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetModelSecretBackendNameAndOriginCall) Do(f func(context.Context, model.UUID) (string, internal.Origin, error)) *MockStateGetModelSecretBackendNameAndOriginCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetModelSecretBackendNameAndOriginCall) DoAndReturn(f func(context.Context, model.UUID) (string, internal.Origin, error)) *MockStateGetModelSecretBackendNameAndOriginCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

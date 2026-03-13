@@ -153,7 +153,7 @@ func (s *SecretService) loadBackendInfo(ctx context.Context, activeOnly bool) er
 	if err != nil {
 		return errors.Errorf("getting model secret backend: %w", err)
 	}
-	s.activeBackendID = modelBackend.SecretBackendID
+	backendName := modelBackend.ActiveBackendName()
 
 	backends, err := s.secretBackendState.ListSecretBackendsForModel(ctx, modelUUID, true)
 	if err != nil {
@@ -162,8 +162,11 @@ func (s *SecretService) loadBackendInfo(ctx context.Context, activeOnly bool) er
 
 	s.backends = make(map[string]provider.SecretsBackend)
 	for _, b := range backends {
-		if activeOnly && b.ID != s.activeBackendID {
+		if activeOnly && b.Name != backendName {
 			continue
+		}
+		if b.Name == backendName {
+			s.activeBackendID = b.ID
 		}
 
 		cfg := provider.ModelBackendConfig{
