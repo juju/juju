@@ -15,7 +15,6 @@ import (
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/s3client"
 	"github.com/juju/juju/internal/services"
 )
@@ -23,25 +22,9 @@ import (
 // NewClientFunc is a function that returns a new S3 client.
 type NewClientFunc = func(endpoint string, client s3client.HTTPClient, creds s3client.Credentials, logger logger.Logger) (objectstore.Session, error)
 
-// GetControllerConfigServiceFunc is a helper function that gets a service from
+// GetObjectStoreServiceFunc is a helper function that gets a service from
 // the manifold.
-type GetControllerConfigServiceFunc = func(getter dependency.Getter, name string) (ControllerConfigService, error)
-
-// GetGuardServiceFunc is a function that retrieves the
-// controller object store services from the dependency getter.
-type GetGuardServiceFunc func(dependency.Getter, string) (GuardService, error)
-
-// GuardService provides access to the object store for draining
-// operations.
-type GuardService interface {
-	// GetDrainingPhase returns the current active draining phase of the
-	// object store.
-	GetDrainingPhase(ctx context.Context) (objectstore.Phase, error)
-
-	// WatchDraining returns a watcher that watches the draining phase of the
-	// object store.
-	WatchDraining(ctx context.Context) (watcher.NotifyWatcher, error)
-}
+type GetObjectStoreServiceFunc = func(getter dependency.Getter, name string) (ObjectStoreService, error)
 
 // NewWorkerFunc is a function that returns a new worker.
 type NewWorkerFunc = func(workerConfig) (worker.Worker, error)
@@ -58,10 +41,9 @@ type ManifoldConfig struct {
 	// Clock is used for the retry mechanism.
 	Clock clock.Clock
 
-	// GetControllerConfigService is used to get a service from the manifold.
-	GetControllerConfigService GetControllerConfigServiceFunc
-	GetGuardService            GetGuardServiceFunc
-	NewWorker                  NewWorkerFunc
+	// GetObjectStoreService is used to get a service from the manifold.
+	GetObjectStoreService GetObjectStoreServiceFunc
+	NewWorker             NewWorkerFunc
 }
 
 func (cfg ManifoldConfig) Validate() error {
@@ -102,7 +84,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	controllerConfigService, err := config.GetControllerConfigService(getter, config.ObjectStoreServicesName)
+	controllerConfigService, err := config.GetObjectStoreService(getter, config.ObjectStoreServicesName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -118,11 +100,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	}
 
 	return config.NewWorker(workerConfig{
-		ControllerConfigService: controllerConfigService,
-		HTTPClient:              httpClient,
-		NewClient:               config.NewClient,
-		Logger:                  config.Logger,
-		Clock:                   config.Clock,
+		ObjectStoreService: controllerConfigService,
+		HTTPClient:         httpClient,
+		NewClient:          config.NewClient,
+		Logger:             config.Logger,
+		Clock:              config.Clock,
 	})
 }
 
@@ -161,10 +143,10 @@ func NewS3Client(endpoint string, client s3client.HTTPClient, creds s3client.Cre
 	)
 }
 
-// GetControllerConfigService is a helper function that gets a service from the
+// GetObjectStoreService is a helper function that gets a service from the
 // manifold.
-func GetControllerConfigService(getter dependency.Getter, name string) (ControllerConfigService, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory services.ControllerObjectStoreServices) ControllerConfigService {
-		return factory.ControllerConfig()
+func GetObjectStoreService(getter dependency.Getter, name string) (ObjectStoreService, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factory services.ControllerObjectStoreServices) ObjectStoreService {
+		return factory.AgentObjectStore()
 	})
 }

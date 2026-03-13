@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/deployment/charm"
@@ -519,7 +520,7 @@ func (cfg *InstanceConfig) AgentConfig(
 		configParams.OpenTelemetryStackTraces = cfg.ControllerConfig.OpenTelemetryStackTraces()
 		configParams.OpenTelemetrySampleRatio = cfg.ControllerConfig.OpenTelemetrySampleRatio()
 		configParams.OpenTelemetryTailSamplingThreshold = cfg.ControllerConfig.OpenTelemetryTailSamplingThreshold()
-		configParams.ObjectStoreType = cfg.ControllerConfig.ObjectStoreType()
+		configParams.ObjectStoreType = objectstore.FileBackend
 	}
 	if cfg.Bootstrap == nil {
 		return agent.NewAgentConfig(configParams)

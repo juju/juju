@@ -6,6 +6,7 @@ package controlsocket
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -23,6 +24,7 @@ import (
 	usertesting "github.com/juju/juju/core/user/testing"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
+	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	auth "github.com/juju/juju/internal/auth"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -33,8 +35,9 @@ import (
 type workerSuite struct {
 	testhelpers.IsolationSuite
 
-	logger        logger.Logger
-	accessService *MockAccessService
+	logger             logger.Logger
+	accessService      *MockAccessService
+	objectStoreService *MockControllerObjectStoreService
 
 	controllerModelID permission.ID
 	metricsUserName   coreuser.Name
@@ -58,6 +61,7 @@ type handlerTest struct {
 	method   string
 	endpoint string
 	body     string
+	headers  map[string]string
 	// Response
 	statusCode int
 	response   string // response body
@@ -70,6 +74,7 @@ func (s *workerSuite) runHandlerTest(c *tc.C, test handlerTest) {
 
 	_, err := NewWorker(Config{
 		AccessService:       s.accessService,
+		ObjectStoreService:  s.objectStoreService,
 		Logger:              s.logger,
 		SocketName:          socket,
 		NewSocketListener:   NewSocketListener,
@@ -84,6 +89,10 @@ func (s *workerSuite) runHandlerTest(c *tc.C, test handlerTest) {
 		strings.NewReader(test.body),
 	)
 	c.Assert(err, tc.ErrorIsNil)
+
+	for key, value := range test.headers {
+		req.Header.Set(key, value)
+	}
 
 	// Check server is up
 	resp, err := client(socket).Do(req)
@@ -114,6 +123,7 @@ func (s *workerSuite) TestMetricsUsersAddInvalidMethod(c *tc.C) {
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodGet,
 		endpoint:   "/metrics-users",
+		headers:    map[string]string{"Content-Type": "application/json"},
 		statusCode: http.StatusMethodNotAllowed,
 		ignoreBody: true,
 	})
@@ -125,6 +135,7 @@ func (s *workerSuite) TestMetricsUsersAddMissingBody(c *tc.C) {
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/metrics-users",
+		headers:    map[string]string{"Content-Type": "application/json"},
 		statusCode: http.StatusBadRequest,
 		response:   ".*missing request body.*",
 	})
@@ -136,6 +147,7 @@ func (s *workerSuite) TestMetricsUsersAddInvalidBody(c *tc.C) {
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/metrics-users",
+		headers:    map[string]string{"Content-Type": "application/json"},
 		body:       "username foo, password bar",
 		statusCode: http.StatusBadRequest,
 		response:   ".*request body is not valid JSON.*",
@@ -148,6 +160,7 @@ func (s *workerSuite) TestMetricsUsersAddMissingUsername(c *tc.C) {
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/metrics-users",
+		headers:    map[string]string{"Content-Type": "application/json"},
 		body:       `{"password":"bar"}`,
 		statusCode: http.StatusBadRequest,
 		response:   ".*missing username.*",
@@ -160,6 +173,7 @@ func (s *workerSuite) TestMetricsUsersAddUsernameMissingPrefix(c *tc.C) {
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/metrics-users",
+		headers:    map[string]string{"Content-Type": "application/json"},
 		body:       `{"username":"foo","password":"bar"}`,
 		statusCode: http.StatusBadRequest,
 		response:   `.*username .* should have prefix \\\"juju-metrics-\\\".*`,
@@ -186,6 +200,7 @@ func (s *workerSuite) TestMetricsUsersAddSuccess(c *tc.C) {
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/metrics-users",
+		headers:    map[string]string{"Content-Type": "application/json"},
 		body:       `{"username":"juju-metrics-r0","password":"bar"}`,
 		statusCode: http.StatusOK,
 		response:   `.*created user \\\"juju-metrics-r0\\\".*`,
@@ -215,6 +230,7 @@ func (s *workerSuite) TestMetricsUsersAddAlreadyExists(c *tc.C) {
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/metrics-users",
+		headers:    map[string]string{"Content-Type": "application/json"},
 		body:       `{"username":"juju-metrics-r0","password":"bar"}`,
 		statusCode: http.StatusConflict,
 		response:   ".*user .* already exists.*",
@@ -245,6 +261,7 @@ func (s *workerSuite) TestMetricsUsersAddAlreadyExistsButDisabled(c *tc.C) {
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/metrics-users",
+		headers:    map[string]string{"Content-Type": "application/json"},
 		body:       `{"username":"juju-metrics-r0","password":"bar"}`,
 		statusCode: http.StatusForbidden,
 		response:   ".*user .* is disabled.*",
@@ -277,6 +294,7 @@ func (s *workerSuite) TestMetricsUsersAddAlreadyExistsButWrongPermissions(c *tc.
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/metrics-users",
+		headers:    map[string]string{"Content-Type": "application/json"},
 		body:       `{"username":"juju-metrics-r0","password":"bar"}`,
 		statusCode: http.StatusNotFound,
 		response:   ".*unexpected permission for user .*",
@@ -309,6 +327,7 @@ func (s *workerSuite) TestMetricsUsersAddIdempotent(c *tc.C) {
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/metrics-users",
+		headers:    map[string]string{"Content-Type": "application/json"},
 		body:       `{"username":"juju-metrics-r0","password":"bar"}`,
 		statusCode: http.StatusOK, // succeed as a no-op
 		response:   `.*created user \\\"juju-metrics-r0\\\".*`,
@@ -321,6 +340,7 @@ func (s *workerSuite) TestMetricsUsersRemoveInvalidMethod(c *tc.C) {
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodGet,
 		endpoint:   "/metrics-users/foo",
+		headers:    map[string]string{"Content-Type": "application/json"},
 		statusCode: http.StatusMethodNotAllowed,
 		ignoreBody: true,
 	})
@@ -332,6 +352,7 @@ func (s *workerSuite) TestMetricsUsersRemoveUsernameMissingPrefix(c *tc.C) {
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodDelete,
 		endpoint:   "/metrics-users/foo",
+		headers:    map[string]string{"Content-Type": "application/json"},
 		statusCode: http.StatusBadRequest,
 		response:   `.*username .* should have prefix \\\"juju-metrics-\\\".*`,
 	})
@@ -349,6 +370,7 @@ func (s *workerSuite) TestMetricsUsersRemoveSuccess(c *tc.C) {
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodDelete,
 		endpoint:   "/metrics-users/juju-metrics-r0",
+		headers:    map[string]string{"Content-Type": "application/json"},
 		statusCode: http.StatusOK,
 		response:   `.*deleted user \\\"juju-metrics-r0\\\".*`,
 	})
@@ -366,6 +388,7 @@ func (s *workerSuite) TestMetricsUsersRemoveForbidden(c *tc.C) {
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodDelete,
 		endpoint:   "/metrics-users/juju-metrics-r0",
+		headers:    map[string]string{"Content-Type": "application/json"},
 		statusCode: http.StatusForbidden,
 		response:   `.*cannot remove user \\\"juju-metrics-r0\\\" created by \\\"not-you\\\".*`,
 	})
@@ -383,14 +406,96 @@ func (s *workerSuite) TestMetricsUsersRemoveNotFound(c *tc.C) {
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodDelete,
 		endpoint:   "/metrics-users/juju-metrics-r0",
+		headers:    map[string]string{"Content-Type": "application/json"},
 		statusCode: http.StatusOK, // succeed as a no-op
 		response:   `.*deleted user \\\"juju-metrics-r0\\\".*`,
 	})
 }
 
+func (s *workerSuite) TestAddS3CredentialsRequiresJSONContentType(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.runHandlerTest(c, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/s3-credentials",
+		body:       `{"endpoint":"https://example.com","access_key":"foo","secret_key":"bar"}`,
+		headers:    map[string]string{"Content-Type": "text/plain"},
+		statusCode: http.StatusUnsupportedMediaType,
+		response:   ".*Content-Type must be application/json.*",
+	})
+}
+
+func (s *workerSuite) TestAddS3CredentialsPayloadTooLarge(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.runHandlerTest(c, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/s3-credentials",
+		body:       strings.Repeat("a", maxPayloadBytes+1),
+		headers:    map[string]string{"Content-Type": "application/json"},
+		statusCode: http.StatusRequestEntityTooLarge,
+		response:   ".*must not exceed.*",
+	})
+}
+
+func (s *workerSuite) TestAddS3CredentialsInvalidJSON(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.runHandlerTest(c, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/s3-credentials",
+		body:       `{"Endpoint":`,
+		headers:    map[string]string{"Content-Type": "application/json"},
+		statusCode: http.StatusBadRequest,
+		response:   ".*request body is not valid JSON.*",
+	})
+}
+
+func (s *workerSuite) TestAddS3CredentialsServiceError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.objectStoreService.EXPECT().SetObjectStoreBackendToS3(gomock.Any(), gomock.Any()).Return(errors.New("boom"))
+
+	s.runHandlerTest(c, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/s3-credentials",
+		body:       `{"endpoint":"https://example.com","access_key":"foo","secret_key":"bar"}`,
+		headers:    map[string]string{"Content-Type": "application/json"},
+		statusCode: http.StatusInternalServerError,
+		response:   ".*saving S3 credentials.*boom.*",
+	})
+}
+
+func (s *workerSuite) TestAddS3CredentialsSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.objectStoreService.EXPECT().SetObjectStoreBackendToS3(gomock.Any(), domainobjectstore.S3Credentials{
+		Endpoint:  "https://example.com",
+		AccessKey: "foo",
+		SecretKey: "bar",
+	}).Return(nil)
+
+	s.runHandlerTest(c, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/s3-credentials",
+		body:       `{"endpoint":"https://example.com","access_key":"foo","secret_key":"bar"}`,
+		headers:    map[string]string{"Content-Type": "application/json"},
+		statusCode: http.StatusOK,
+		response:   ".*updated S3 credentials.*",
+	})
+}
+
 func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+
 	s.accessService = NewMockAccessService(ctrl)
+	s.objectStoreService = NewMockControllerObjectStoreService(ctrl)
+
+	c.Cleanup(func() {
+		s.accessService = nil
+		s.objectStoreService = nil
+	})
+
 	return ctrl
 }
 

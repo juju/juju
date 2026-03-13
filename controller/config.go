@@ -1108,33 +1108,6 @@ func (c Config) OpenTelemetryTailSamplingThreshold() time.Duration {
 	return c.durationOrDefault(OpenTelemetryTailSamplingThreshold, DefaultOpenTelemetryTailSamplingThreshold)
 }
 
-// ObjectStoreType returns the type of object store to use for storing blobs.
-func (c Config) ObjectStoreType() objectstore.BackendType {
-	return objectstore.BackendType(c.asString(ObjectStoreType))
-}
-
-// ObjectStoreS3Endpoint returns the endpoint to use for S3 object stores.
-func (c Config) ObjectStoreS3Endpoint() string {
-	return c.asString(ObjectStoreS3Endpoint)
-}
-
-// ObjectStoreS3StaticKey returns the static key to use for S3 object stores.
-func (c Config) ObjectStoreS3StaticKey() string {
-	return c.asString(ObjectStoreS3StaticKey)
-}
-
-// ObjectStoreS3StaticSecret returns the static secret to use for S3 object
-// stores.
-func (c Config) ObjectStoreS3StaticSecret() string {
-	return c.asString(ObjectStoreS3StaticSecret)
-}
-
-// ObjectStoreS3StaticSession returns the static session token to use for S3
-// object stores.
-func (c Config) ObjectStoreS3StaticSession() string {
-	return c.asString(ObjectStoreS3StaticSession)
-}
-
 // SSHServerPort returns the port the SSH server listens on.
 func (c Config) SSHServerPort() int {
 	return c.intOrDefault(SSHServerPort, DefaultSSHServerPort)
@@ -1515,27 +1488,4 @@ func parseRatio(c Config, name string) (float64, error) {
 	default:
 		return 0, errors.Errorf("unexpected type %T", c[name])
 	}
-}
-
-// HasCompleteS3ControllerConfig returns true if the controller has a complete
-// S3 configuration. This includes an endpoint, static key, and static secret.
-func HasCompleteS3ControllerConfig(cfg Config) error {
-	endpoint := cfg.ObjectStoreS3Endpoint()
-	staticKey := cfg.ObjectStoreS3StaticKey()
-	staticSecret := cfg.ObjectStoreS3StaticSecret()
-	return HasCompleteS3Config(endpoint, staticKey, staticSecret)
-}
-
-// HasCompleteS3Config returns true if the S3 configuration is complete.
-func HasCompleteS3Config(endpoint, staticKey, staticSecret string) error {
-	if endpoint == "" {
-		return errors.New("missing S3 endpoint")
-	}
-	if staticKey == "" {
-		return errors.New("missing S3 static key")
-	}
-	if staticSecret == "" {
-		return errors.New("missing S3 static secret")
-	}
-	return nil
 }

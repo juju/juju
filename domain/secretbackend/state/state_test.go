@@ -250,7 +250,7 @@ func (s *stateSuite) createModelWithName(c *tc.C, modelType coremodel.ModelType,
 	ccState := controllerconfigstate.NewState(s.TxnRunnerFactory())
 	err = ccState.UpdateControllerConfig(c.Context(), map[string]string{
 		"controller-name": "test",
-	}, nil, func(map[string]string) error { return nil })
+	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	return modelUUID
 }
