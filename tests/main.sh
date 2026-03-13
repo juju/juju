@@ -70,6 +70,7 @@ TEST_NAMES="actions \
             network \
             ovs_maas \
             refresh \
+            refresh_storage \
             relations \
             resources \
             secrets_iaas \

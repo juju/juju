@@ -1,0 +1,12 @@
+#!/bin/bash
+set -x
+
+juju-log -l INFO "storage is attached."
+juju-log -l INFO "Storage details: $(storage-list)"
+
+if storage-list awesome-fs | grep -q . && \
+   storage-list epic-fs | grep -q .; then
+    status-set active "All storage attached"
+else
+    status-set waiting "Waiting for storage"
+fi
