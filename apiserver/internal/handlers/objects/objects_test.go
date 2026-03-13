@@ -15,6 +15,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/core/objectstore"
 	domainobjectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
 	"github.com/juju/juju/internal/testing"
@@ -75,7 +76,10 @@ func (s *objectsHandlerSuite) TestServeGet(c *tc.C) {
 	hash := "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e"
 
 	reader := io.NopCloser(strings.NewReader("charm-content"))
-	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), hash).Return(reader, 13, nil)
+	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), hash).Return(reader, objectstore.Digest{
+		SHA256: hash,
+		Size:   13,
+	}, nil)
 
 	handlers := &ObjectsHTTPHandler{
 		objectStoreGetter: s.objectStoreGetter,
@@ -105,7 +109,10 @@ func (s *objectsHandlerSuite) TestServeGetHeaders(c *tc.C) {
 	hash := "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e"
 
 	reader := io.NopCloser(strings.NewReader("charm-content"))
-	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), hash).Return(reader, 13, nil)
+	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), hash).Return(reader, objectstore.Digest{
+		SHA256: hash,
+		Size:   13,
+	}, nil)
 
 	handlers := &ObjectsHTTPHandler{
 		objectStoreGetter: s.objectStoreGetter,
@@ -139,7 +146,10 @@ func (s *objectsHandlerSuite) TestServeGetInvalidHash(c *tc.C) {
 	hash := "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e"
 
 	reader := io.NopCloser(strings.NewReader("charm-content"))
-	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), hash).Return(reader, 13, domainobjectstoreerrors.ErrInvalidHashLength)
+	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), hash).Return(reader, objectstore.Digest{
+		SHA256: hash,
+		Size:   13,
+	}, domainobjectstoreerrors.ErrInvalidHashLength)
 
 	handlers := &ObjectsHTTPHandler{
 		objectStoreGetter: s.objectStoreGetter,
@@ -166,7 +176,10 @@ func (s *objectsHandlerSuite) TestServeGetInvalidSize(c *tc.C) {
 	hash := "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e"
 
 	reader := io.NopCloser(strings.NewReader("charm-content"))
-	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), hash).Return(reader, 2, nil)
+	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), hash).Return(reader, objectstore.Digest{
+		SHA256: hash,
+		Size:   2,
+	}, nil)
 
 	handlers := &ObjectsHTTPHandler{
 		objectStoreGetter: s.objectStoreGetter,
@@ -194,7 +207,8 @@ func (s *objectsHandlerSuite) TestServeGetNotFound(c *tc.C) {
 
 	hash := "fab5b76e7c234d9c929014d46ef0a5db9c8b6e9fd63bdc3ba9c2b903471bc77e"
 
-	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), hash).Return(nil, -1, objectstoreerrors.ObjectNotFound)
+	s.objectStore.EXPECT().GetBySHA256(gomock.Any(), hash).
+		Return(nil, objectstore.Digest{}, objectstoreerrors.ObjectNotFound)
 
 	handlers := &ObjectsHTTPHandler{
 		objectStoreGetter: s.objectStoreGetter,

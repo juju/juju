@@ -245,33 +245,33 @@ func (s *AgentBinaryStore) GetAgentBinaryUsingSHA256(
 	// non-related objects out of the store via this interface.
 	exists, err := s.st.CheckAgentBinarySHA256Exists(ctx, sha256Sum)
 	if err != nil {
-		return nil, 0, errors.Errorf(
+		return nil, -1, errors.Errorf(
 			"checking if agent binaries exist for sha256 %q: %w", sha256Sum, err,
 		)
 	}
 
 	if !exists {
-		return nil, 0, errors.Errorf(
+		return nil, -1, errors.Errorf(
 			"no agent binaries exist for sha256 %q", sha256Sum,
 		).Add(agentbinaryerrors.NotFound)
 	}
 
 	store, err := s.objectStoreGetter.GetObjectStore(ctx)
 	if err != nil {
-		return nil, 0, errors.Errorf("getting object store for agent binary %q: %w", sha256Sum, err)
+		return nil, -1, errors.Errorf("getting object store for agent binary %q: %w", sha256Sum, err)
 	}
-	reader, size, err := store.GetBySHA256(ctx, sha256Sum)
+	reader, digest, err := store.GetBySHA256(ctx, sha256Sum)
 	if errors.Is(err, intobjectstoreerrors.ObjectNotFound) {
-		return nil, 0, errors.Errorf(
+		return nil, -1, errors.Errorf(
 			"no agent binaries exist for sha256 %q", sha256Sum,
 		).Add(agentbinaryerrors.NotFound)
 	} else if err != nil {
-		return nil, 0, errors.Errorf(
+		return nil, -1, errors.Errorf(
 			"getting object with sha256 sum %q: %w", sha256Sum, err,
 		)
 	}
 
-	return reader, size, nil
+	return reader, digest.Size, nil
 }
 
 // GetAgentBinaryWithSHA256 retrieves the agent binary corresponding to the
@@ -289,24 +289,24 @@ func (s *AgentBinaryStore) GetAgentBinaryWithSHA256(
 
 	sha256Sum, hasAgentBinary, err := s.st.GetAgentBinarySHA256(ctx, ver, stream)
 	if err != nil {
-		return nil, 0, "", errors.Errorf("checking availability of agent binary in agent binary store: %w", err)
+		return nil, -1, "", errors.Errorf("checking availability of agent binary in agent binary store: %w", err)
 	}
 
 	if !hasAgentBinary {
-		return nil, 0, "", errors.Errorf("no agent binary found for version %q", ver.String()).Add(agentbinaryerrors.NotFound)
+		return nil, -1, "", errors.Errorf("no agent binary found for version %q", ver.String()).Add(agentbinaryerrors.NotFound)
 	}
 
 	store, err := s.objectStoreGetter.GetObjectStore(ctx)
 	if err != nil {
-		return nil, 0, "", errors.Errorf("getting object store for agent binary %q: %w", sha256Sum, err)
+		return nil, -1, "", errors.Errorf("getting object store for agent binary %q: %w", sha256Sum, err)
 	}
-	reader, size, err := store.GetBySHA256(ctx, sha256Sum)
+	reader, digest, err := store.GetBySHA256(ctx, sha256Sum)
 	if errors.Is(err, intobjectstoreerrors.ObjectNotFound) {
-		return nil, 0, "", errors.New("agent binary not found in agent binary object store").Add(agentbinaryerrors.NotFound)
+		return nil, -1, "", errors.New("agent binary not found in agent binary object store").Add(agentbinaryerrors.NotFound)
 	} else if err != nil {
-		return nil, 0, "", errors.Errorf("getting agent binary with sha %q from agent binary object store: %w", sha256Sum, err)
+		return nil, -1, "", errors.Errorf("getting agent binary with sha %q from agent binary object store: %w", sha256Sum, err)
 	}
-	return reader, size, sha256Sum, nil
+	return reader, digest.Size, sha256Sum, nil
 }
 
 func tmpCacheAndHash(r io.Reader, size int64) (_ io.ReadCloser, _ string, _ string, err error) {
