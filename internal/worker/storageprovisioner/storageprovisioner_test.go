@@ -4,6 +4,7 @@
 package storageprovisioner_test
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -2354,18 +2355,24 @@ func (s *caasStorageProvisionerSuite) TestRemoveFilesystems(c *tc.C) {
 	}
 
 	detached := make(chan interface{})
+	var detachedOnce sync.Once
 	fsLife := life.Dying
 	removeAttachments := func(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
 		c.Check(ids, tc.DeepEquals, expectedAttachmentIds)
-		close(detached)
+		detachedOnce.Do(func() {
+			close(detached)
+		})
 		fsLife = life.Dead
 		return make([]params.ErrorResult, len(ids)), nil
 	}
 
 	removed := make(chan interface{})
+	var removedOnce sync.Once
 	remove := func(t []names.Tag) ([]params.ErrorResult, error) {
 		c.Check(t, tc.DeepEquals, expectedFilesystems)
-		close(removed)
+		removedOnce.Do(func() {
+			close(removed)
+		})
 		return make([]params.ErrorResult, len(t)), nil
 	}
 	life := func(t []names.Tag) ([]params.LifeResult, error) {
