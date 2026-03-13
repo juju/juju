@@ -79,15 +79,6 @@ type StoragePoolState interface {
 	// - [storageerrors.PoolNotFoundError] if a pool with the specified UUID does not exist.
 	GetStoragePool(ctx context.Context, poolUUID domainstorage.StoragePoolUUID) (domainstorage.StoragePool, error)
 
-	// SetModelStoragePools replaces the model's recommended storage pools with the
-	// supplied set. All existing model storage pool mappings are removed before the
-	// new ones are inserted.
-	//
-	// If any referenced storage pool UUID does not exist in the model, this
-	// returns [domainstorageerrors.StoragePoolNotFound]. Supplying an empty slice
-	// results in a no-op.
-	SetModelStoragePools(ctx context.Context, pools []domainstorage.RecommendedStoragePoolArg) error
-
 	// GetStoragePoolUUIDsByName returns storage pool UUIDs keyed by pool name for
 	// the supplied names. Unknown names are omitted.
 	// If no names are specified, an empty map is returned without error.
@@ -134,7 +125,7 @@ func (s *StoragePoolService) CreateStoragePool(
 		)
 	}
 
-	err := s.validateStoragePoolCreation(ctx, name, providerType, attrs,
+	err := validateStoragePoolCreation(ctx, s.registryGetter, name, providerType, attrs,
 		domainstorage.IsValidStoragePoolName)
 	if err != nil {
 		return "", err
@@ -188,7 +179,7 @@ func (s *StoragePoolService) CreateStoragePool(
 // supplied name already exists in the model.
 // - [domainstorageerrors.StoragePoolAttributeInvalid] when one of the supplied
 // storage pool attributes is invalid.
-func (s *StoragePoolService) ImportStoragePools(
+func (s *StorageImportService) ImportStoragePools(
 	ctx context.Context,
 	pools []domainstorage.ImportStoragePoolParams,
 ) error {
@@ -196,7 +187,7 @@ func (s *StoragePoolService) ImportStoragePools(
 	defer span.End()
 
 	for _, pool := range pools {
-		err := s.validateStoragePoolCreation(ctx, pool.Name, domainstorage.ProviderType(pool.Type),
+		err := validateStoragePoolCreation(ctx, s.registryGetter, pool.Name, domainstorage.ProviderType(pool.Type),
 			pool.Attrs,
 			domainstorage.IsValidStoragePoolNameWithLegacy)
 		if err != nil {
@@ -231,8 +222,9 @@ func (s *StoragePoolService) ImportStoragePools(
 	return nil
 }
 
-func (s *StoragePoolService) validateStoragePoolCreation(
+func validateStoragePoolCreation(
 	ctx context.Context,
+	registryGetter corestorage.ModelStorageRegistryGetter,
 	name string,
 	providerType domainstorage.ProviderType,
 	attrs map[string]any,
@@ -252,7 +244,7 @@ func (s *StoragePoolService) validateStoragePoolCreation(
 		)
 	}
 
-	providerRegistry, err := s.registryGetter.GetStorageRegistry(ctx)
+	providerRegistry, err := registryGetter.GetStorageRegistry(ctx)
 	if err != nil {
 		return errors.Errorf("getting storage provider registry: %w", err)
 	}
@@ -260,6 +252,7 @@ func (s *StoragePoolService) validateStoragePoolCreation(
 	storageProvider, err := providerRegistry.StorageProvider(
 		internalstorage.ProviderType(providerType),
 	)
+
 	if errors.Is(err, coreerrors.NotFound) {
 		return errors.Errorf(
 			"storage provider %q does not exist in the model",
@@ -639,7 +632,7 @@ func (s *StoragePoolService) validateProviderCriteria(ctx context.Context, provi
 
 // SetRecommendedStoragePools persists the set of recommended storage pools
 // that are to be used for a model.
-func (s *StoragePoolService) SetRecommendedStoragePools(ctx context.Context,
+func (s *StorageImportService) SetRecommendedStoragePools(ctx context.Context,
 	pools []domainstorage.RecommendedStoragePoolParams) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -666,7 +659,7 @@ func (s *StoragePoolService) SetRecommendedStoragePools(ctx context.Context,
 // The function returns:
 //  1. A slice of storage pools that should be created during import
 //  2. A slice of recommended storage pools referencing existing or newly created pools
-func (s *StoragePoolService) GetStoragePoolsToImport(
+func (s *StorageImportService) GetStoragePoolsToImport(
 	ctx context.Context,
 	userPools []description.StoragePool,
 ) (
@@ -736,7 +729,7 @@ func (s *StoragePoolService) GetStoragePoolsToImport(
 	return poolsToCreate, recommendedPools, nil
 }
 
-func (s *StoragePoolService) defaultPoolForImport(
+func (s *StorageImportService) defaultPoolForImport(
 	ctx context.Context,
 	existingPools []domainstorage.ImportStoragePoolParams,
 	config *internalstorage.Config) (*domainstorage.ImportStoragePoolParams, error) {
@@ -801,7 +794,7 @@ func (s *StoragePoolService) defaultPoolForImport(
 //     should be created during import
 //  2. A slice of [RecommendedStoragePoolParams] mapping storage kinds to the
 //     resolved storage pool UUIDs, which may refer to pools of the provider.
-func (s *StoragePoolService) getRecommendedStoragePools(
+func (s *StorageImportService) getRecommendedStoragePools(
 	existingPools []domainstorage.ImportStoragePoolParams,
 	reg internalstorage.ProviderRegistry,
 ) (

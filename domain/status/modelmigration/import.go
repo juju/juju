@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -45,7 +45,7 @@ func RegisterImport(
 type importOperation struct {
 	modelmigration.BaseOperation
 
-	serviceGetter func(model.UUID) ImportService
+	serviceGetter func(coremodel.UUID) ImportService
 
 	clock  clock.Clock
 	logger logger.Logger
@@ -96,7 +96,7 @@ func (i *importOperation) Name() string {
 // Setup the import operation.
 // This will create a new service instance.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
-	i.serviceGetter = func(modelUUID model.UUID) ImportService {
+	i.serviceGetter = func(modelUUID coremodel.UUID) ImportService {
 		return service.NewService(
 			statemodel.NewModelState(scope.ModelDB(), i.clock, i.logger),
 			statecontroller.NewControllerState(scope.ControllerDB(), modelUUID),
@@ -120,7 +120,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 // Execute the import, loading the statuses of the various entities out of the
 // description representation, into the domain.
 func (i *importOperation) Execute(ctx context.Context, m description.Model) error {
-	modelUUID := model.UUID(m.UUID())
+	modelUUID := coremodel.UUID(m.UUID())
 	service := i.serviceGetter(modelUUID)
 
 	err := i.importMachineStatus(ctx, service, m)
@@ -276,6 +276,13 @@ func (i *importOperation) importVolumeStatus(
 	service ImportService,
 	model description.Model,
 ) error {
+	if model.Type() == coremodel.CAAS.String() {
+		if len(model.Volumes()) > 0 {
+			i.logger.Warningf(ctx,
+				"CAAS volumes not supported in juju 4.x, ignoring volume status on import")
+		}
+		return nil
+	}
 	for _, vol := range model.Volumes() {
 		volStatus := i.importStatus(vol.Status())
 		if err := service.SetVolumeStatus(ctx, vol.ID(), volStatus); err != nil {

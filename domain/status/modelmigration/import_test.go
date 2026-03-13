@@ -445,12 +445,36 @@ func (s *importSuite) TestImportFilesystemStatus(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestImportVolumeStatus(c *tc.C) {
+func (s *importSuite) TestImportVolumeStatusCAAS(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.CAAS.String(),
+	})
+	model.AddVolume(description.VolumeArgs{
+		ID: "vol-1",
+	})
+
+	importOp := importOperation{
+		serviceGetter: func(u coremodel.UUID) ImportService {
+			return s.importService
+		},
+		clock: clock.WallClock,
+	}
+
+	err := importOp.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+
+}
+
+func (s *importSuite) TestImportVolumeStatusIAAS(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	now := time.Now().UTC()
 
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
 	vol1 := model.AddVolume(description.VolumeArgs{
 		ID: "vol-1",
 	})

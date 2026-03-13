@@ -99,6 +99,8 @@ type MachineService interface {
 
 // CloudService provides access to the cloud service.
 type CloudService interface {
+	// Cloud returns the named cloud.
+	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
 	// ListAll returns all the clouds.
 	ListAll(ctx context.Context) ([]cloud.Cloud, error)
 }

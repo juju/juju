@@ -130,6 +130,7 @@ type importStorageFilesystemAttachment struct {
 	ScopeID        int    `db:"provision_scope_id"`
 	LifeID         int    `db:"life_id"`
 	MountPoint     string `db:"mount_point"`
+	ProviderID     string `db:"provider_id"`
 	ReadOnly       bool   `db:"read_only"`
 }
 

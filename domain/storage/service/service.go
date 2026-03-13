@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
@@ -19,7 +20,6 @@ import (
 type State interface {
 	FilesystemState
 	StoragePoolState
-	StorageImportState
 	VolumeState
 
 	// GetStorageAttachmentUUIDForStorageInstanceAndUnit returns the
@@ -65,7 +65,6 @@ type Service struct {
 	FilesystemService
 	StoragePoolService
 	StorageService
-	StorageImportService
 	VolumeService
 
 	logger logger.Logger
@@ -91,16 +90,27 @@ func NewService(
 			st:             st,
 			registryGetter: registryGetter,
 		},
-		StorageImportService: StorageImportService{
-			registryGetter: registryGetter,
-			st:             st,
-			logger:         logger,
-		},
 		VolumeService: VolumeService{
 			st: st,
 		},
 		logger: logger,
 		st:     st,
+	}
+}
+
+// NewImportService returns a new StorageImportService for interacting with the underlying state
+// during model migration import.
+func NewImportService(
+	st StorageImportState,
+	logger logger.Logger,
+	registryGetter corestorage.ModelStorageRegistryGetter,
+	ephemeralProviderRunner providertracker.EphemeralProviderRunnerGetter[internalstorage.FilesystemModelMigration],
+) *StorageImportService {
+	return &StorageImportService{
+		registryGetter:          registryGetter,
+		ephemeralProviderRunner: ephemeralProviderRunner,
+		st:                      st,
+		logger:                  logger,
 	}
 }
 

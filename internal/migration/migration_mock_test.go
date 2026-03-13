@@ -1266,6 +1266,45 @@ func (m *MockCloudService) EXPECT() *MockCloudServiceMockRecorder {
 	return m.recorder
 }
 
+// Cloud mocks base method.
+func (m *MockCloudService) Cloud(arg0 context.Context, arg1 string) (*cloud.Cloud, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Cloud", arg0, arg1)
+	ret0, _ := ret[0].(*cloud.Cloud)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Cloud indicates an expected call of Cloud.
+func (mr *MockCloudServiceMockRecorder) Cloud(arg0, arg1 any) *MockCloudServiceCloudCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cloud", reflect.TypeOf((*MockCloudService)(nil).Cloud), arg0, arg1)
+	return &MockCloudServiceCloudCall{Call: call}
+}
+
+// MockCloudServiceCloudCall wrap *gomock.Call
+type MockCloudServiceCloudCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCloudServiceCloudCall) Return(arg0 *cloud.Cloud, arg1 error) *MockCloudServiceCloudCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCloudServiceCloudCall) Do(f func(context.Context, string) (*cloud.Cloud, error)) *MockCloudServiceCloudCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCloudServiceCloudCall) DoAndReturn(f func(context.Context, string) (*cloud.Cloud, error)) *MockCloudServiceCloudCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ListAll mocks base method.
 func (m *MockCloudService) ListAll(arg0 context.Context) ([]cloud.Cloud, error) {
 	m.ctrl.T.Helper()

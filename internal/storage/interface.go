@@ -187,6 +187,15 @@ type FilesystemSource interface {
 	DetachFilesystems(ctx context.Context, params []FilesystemAttachmentParams) ([]error, error)
 }
 
+// FilesystemModelMigration provides an interface for retrieving data
+// necessary for model migration of filesystems.
+type FilesystemModelMigration interface {
+	// GetPersistentVolumeClaimIdentifiers returns a list of paired identifiers
+	// representing Kubernetes persistent volume claims.
+	GetPersistentVolumeClaimIdentifiers(ctx context.Context) (
+		[]PersistentVolumeClaimIdentifiers, error)
+}
+
 // FilesystemImporter provides an interface for importing filesystems
 // into the controller/model.
 //
@@ -404,4 +413,11 @@ type AttachFilesystemsResult struct {
 // the [fmt.Stringer] interface.
 func (p ProviderType) String() string {
 	return string(p)
+}
+
+// PersistentVolumeClaimIdentifiers contains pairs of identifiers for kubernetes
+// volume claims. Used by storage filesystems.
+type PersistentVolumeClaimIdentifiers struct {
+	UID  string // FileSystemProviderID
+	Name string // FileSystemAttachmentProviderID
 }
