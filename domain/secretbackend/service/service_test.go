@@ -1547,6 +1547,17 @@ func (s *serviceSuite) TestSetModelSecretBackendFailedReservedNameKubernetes(c *
 	c.Assert(err, tc.ErrorIs, secretbackenderrors.NotValid)
 }
 
+func (s *serviceSuite) TestSetModelSecretBackendFailedReservedNameLocal(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+	svc := NewModelSecretBackendService(modelUUID, s.mockState)
+
+	err := svc.SetModelSecretBackend(c.Context(), "foo-local")
+	c.Assert(err, tc.ErrorMatches, `secret backend name "foo-local" not valid`)
+	c.Assert(err, tc.ErrorIs, secretbackenderrors.NotValid)
+}
+
 func (s *serviceSuite) TestSetModelSecretBackendFailedReservedNameInternal(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

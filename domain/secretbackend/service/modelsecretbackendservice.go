@@ -8,6 +8,7 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/domain/secretbackend"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/domain/secretbackend/internal"
 	"github.com/juju/juju/internal/errors"
@@ -54,7 +55,8 @@ func (s *ModelSecretBackendService) SetModelSecretBackend(ctx context.Context, b
 	if backendName == "" {
 		return errors.Errorf("missing backend name")
 	}
-	if backendName == provider.Internal || backendName == kubernetes.BackendName {
+	if backendName == provider.Internal || kubernetes.BackendName == backendName ||
+		secretbackend.IsBuiltInK8sSecretBackendName(backendName) {
 		return errors.Errorf("secret backend name %q not valid", backendName).Add(secretbackenderrors.NotValid)
 	}
 

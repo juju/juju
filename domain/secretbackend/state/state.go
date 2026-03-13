@@ -267,7 +267,7 @@ func (s *State) getK8sBuiltinSecretBackend(
 	modelName string,
 	getK8sConfig func(modelName string) (*provider.BackendConfig, error),
 ) (*secretbackend.SecretBackend, error) {
-	backendName := internal.MakeBuiltInK8sSecretBackendName(modelName)
+	backendName := secretbackend.MakeBuiltInK8sSecretBackendName(modelName)
 	sb, err := s.getSecretBackend(ctx, tx, secretbackend.BackendIdentifier{Name: backendName})
 	if errors.Is(err, secretbackenderrors.NotFound) {
 		s.logger.Debugf(ctx, "no k8s secret backend found for model %q, creating one", modelName)
