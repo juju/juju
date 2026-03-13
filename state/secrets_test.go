@@ -881,6 +881,77 @@ func (s *SecretsSuite) TestListByConsumer(c *gc.C) {
 	}})
 }
 
+func (s *SecretsSuite) TestListByRemoteConsumerApplication(c *gc.C) {
+	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "remote-wordpress",
+		SourceModel:     names.NewModelTag("source-model"),
+		IsConsumerProxy: true,
+		OfferUUID:       "offer-uuid",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Limit:     1,
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressEP, err := rwordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlEP, err := s.owner.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	relation, err := s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri := secrets.NewURI()
+	now := s.Clock.Now().Round(time.Second).UTC()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Description: ptr("my secret"),
+			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		},
+	}
+	_, err = s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	subject := rwordpress.Tag()
+	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: &fakeToken{},
+		Scope:       relation.Tag(),
+		Subject:     subject,
+		Role:        secrets.RoleView,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create another secret to ensure it is excluded.
+	uri2 := secrets.NewURI()
+	cp.Owner = names.NewApplicationTag("wordpress")
+	_, err = s.store.CreateSecret(uri2, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	list, err := s.store.ListSecrets(state.SecretsFilter{
+		ConsumerTags: []names.Tag{subject},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	c.Assert(list, mc, []*secrets.SecretMetadata{{
+		URI:                    uri,
+		LatestRevision:         1,
+		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		Version:                1,
+		OwnerTag:               s.owner.Tag().String(),
+		Description:            "my secret",
+		CreateTime:             now,
+		UpdateTime:             now,
+	}})
+}
+
 func (s *SecretsSuite) TestListModelSecrets(c *gc.C) {
 	backendStore := state.NewSecretBackends(s.State)
 	_, err := backendStore.CreateSecretBackend(state.CreateSecretBackendParams{
