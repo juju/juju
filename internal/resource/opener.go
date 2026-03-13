@@ -161,7 +161,10 @@ func (ro ResourceOpener) getResource(
 	defer func() {
 		// Call done if not returning a ReadCloser that calls done on Close.
 		if err != nil {
+			resourceLogger.Warningf(ctx, "failed to open resource %s for application %s: %v", resName, ro.appID, err)
 			done()
+		} else {
+			resourceLogger.Infof(ctx, "resource opener returned without error for resource %s for application %s", resName, ro.appID)
 		}
 	}()
 
@@ -191,6 +194,7 @@ func (ro ResourceOpener) getResource(
 			},
 		}, nil
 	}
+	resourceLogger.Infof(ctx, "resource %q with id %q not found on controller, downloading from charmhub", resName, resourceUUID.String())
 
 	// The resource could not be opened, so may not be stored on the controller,
 	// get the resource info and download from charmhub.

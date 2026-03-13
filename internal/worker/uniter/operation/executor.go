@@ -12,7 +12,9 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
+        "github.com/juju/juju/domain/deployment/charm/hooks"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
+        "github.com/juju/juju/internal/wrench"
 )
 
 type executorStep struct {
@@ -164,7 +166,7 @@ func (x *executor) run(ctx context.Context, op Operation, remoteStateChange <-ch
 
 func (x *executor) do(ctx context.Context, op Operation, step executorStep) (err error) {
 	message := step.message(op, x.unitName)
-	x.logger.Debugf(ctx, message)
+	x.logger.Debugf(ctx, "%v hook has new message: %v", x.state.Hook.Kind, message)
 	newState, firstErr := step.run(op, ctx, *x.state)
 	if newState != nil {
 		writeErr := x.writeState(ctx, *newState)
@@ -183,6 +185,15 @@ func (x *executor) writeState(ctx context.Context, newState State) error {
 	}
 	if x.state != nil && x.state.match(newState) {
 		return nil
+	}
+
+	if x.state != nil && x.state.Hook != nil {
+		isWrenchActive := wrench.IsActive("contextfail", "relation-broken")
+		if x.state.Hook.Kind == hooks.UpgradeCharm && isWrenchActive {
+			x.logger.Warningf(ctx, "hooks.UpgradeCharm: wrench is active")
+		} else {
+			x.logger.Infof(ctx, "received hook: %q, (wrench active: %v)", x.state.Hook.Kind, isWrenchActive)
+		}
 	}
 	if err := x.stateOps.Write(ctx, &newState); err != nil {
 		return errors.Annotatef(err, "writing state")
