@@ -454,6 +454,10 @@ func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
 	return state.StorageConstraints{Pool: pool, Size: size, Count: count}
 }
 
+func makeStorageDirectivesToUpdate(pool string, size, count *uint64) state.StorageDirectivesUpdate {
+	return state.StorageDirectivesUpdate{Pool: pool, Size: size, Count: count}
+}
+
 type StorageStateSuite struct {
 	StorageStateSuiteBase
 }

@@ -555,7 +555,7 @@ func (mr *MockApplicationMockRecorder) UpdateCharmConfig(arg0, arg1 any) *gomock
 }
 
 // UpdateStorageConstraints mocks base method.
-func (m *MockApplication) UpdateStorageConstraints(arg0 map[string]state.StorageConstraints) error {
+func (m *MockApplication) UpdateStorageConstraints(arg0 map[string]state.StorageDirectivesUpdate) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateStorageConstraints", arg0)
 	ret0, _ := ret[0].(error)
