@@ -87,8 +87,8 @@ func (st *State) EnsureModelNotAlive(ctx context.Context, modelUUID string, forc
 
 // EnsureModelNotAliveCascade ensures that there is no model identified by the
 // input model UUID, that is still alive. Returns the artifacts that were
-// transitioned from alive to dying during setting the model to not alive.
-func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID string, force bool) (removal.ModelArtifacts, error) {
+// not dead while setting the model to not alive.
+func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID string) (removal.ModelArtifacts, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Capture(err)
@@ -98,25 +98,25 @@ func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID strin
 		UUID: modelUUID,
 	}
 
-	// Cascading of the dying state of the model means that we will also set the entities to dying all of the
-	// following:
+	// Cascading of the dying state of the model means that we will also set
+	// entities to dying for all of the following:
 	// - All units in the model.
 	// - All applications in the model.
 	// - All relations in the model.
 	// - All machines in the model.
-	selectUnits, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM unit WHERE life_id = 0`, eUUID)
+	selectUnits, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM unit WHERE life_id < 2`, eUUID)
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing select units query: %w", err)
 	}
-	selectApplications, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM application WHERE life_id = 0`, eUUID)
+	selectApplications, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM application WHERE life_id < 2`, eUUID)
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing select applications query: %w", err)
 	}
-	selectRelations, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM relation WHERE life_id = 0`, eUUID)
+	selectRelations, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM relation WHERE life_id < 2`, eUUID)
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing select relations query: %w", err)
 	}
-	selectMachines, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM machine WHERE life_id = 0`, eUUID)
+	selectMachines, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM machine WHERE life_id < 2`, eUUID)
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing select machines query: %w", err)
 	}

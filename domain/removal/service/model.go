@@ -41,9 +41,8 @@ type ModelState interface {
 
 	// EnsureModelNotAliveCascade ensures that there is no model identified
 	// by the input model UUID, that is still alive. Returns the artifacts
-	// that were transitioned from alive to dying during setting the model to
-	// not alive.
-	EnsureModelNotAliveCascade(ctx context.Context, modelUUID string, force bool) (removal.ModelArtifacts, error)
+	// that are not dead while setting the model to not alive.
+	EnsureModelNotAliveCascade(ctx context.Context, modelUUID string) (removal.ModelArtifacts, error)
 
 	// ModelScheduleRemoval schedules a removal job for the model with the
 	// input UUID, qualified with the input force boolean.
@@ -148,11 +147,10 @@ func (s *Service) removeModel(
 	// 3. Check the model exists in the model database. If it does not, and
 	//    the controller model doesn't exist, then we can return early.
 	// 4. Ensure the model is not alive in the model database and return any
-	//    artifacts that were transitioned from alive to dying.
+	//    non-dead artifacts that should have removal jobs.
 	// 5. Schedule the model removal job in the model database.
 	// 6. If there are any relations, units, machines or applications that
-	//    were transitioned from alive to dying, schedule their removal
-	//    as well.
+	//    are not dead, schedule their removal as well.
 
 	controllerModelExists, err := s.controllerState.ModelExists(ctx, modelUUID.String())
 	if err != nil {
@@ -179,7 +177,7 @@ func (s *Service) removeModel(
 
 	// Either the model in the controller database or the model database exists,
 	// so we can proceed with the removal.
-	artifacts, err := s.modelState.EnsureModelNotAliveCascade(ctx, modelUUID.String(), force)
+	artifacts, err := s.modelState.EnsureModelNotAliveCascade(ctx, modelUUID.String())
 	if err != nil {
 		return "", errors.Errorf("model %q: %w", modelUUID, err)
 	}
@@ -213,8 +211,8 @@ func (s *Service) removeModel(
 	}
 
 	if len(artifacts.RelationUUIDs) > 0 {
-		// If there are any relations that transitioned from alive to dying or
-		// dead, we need to schedule their removal as well.
+		// If there are any relations that are not dead, we need to schedule
+		// their removal as well.
 		s.logger.Infof(ctx, "model has relations %v, scheduling removal", artifacts.RelationUUIDs)
 
 		s.removeRelations(ctx, artifacts.RelationUUIDs, force, wait)
@@ -224,24 +222,24 @@ func (s *Service) removeModel(
 	const destroyStorage = true
 
 	if len(artifacts.UnitUUIDs) > 0 {
-		// If there are any units that transitioned from alive to dying or
-		// dead, we need to schedule their removal as well.
+		// If there are any units that are not dead, we need to schedule their
+		// removal as well.
 		s.logger.Infof(ctx, "model has units %v, scheduling removal", artifacts.UnitUUIDs)
 
 		s.removeUnits(ctx, artifacts.UnitUUIDs, destroyStorage, force, wait)
 	}
 
 	if len(artifacts.MachineUUIDs) > 0 {
-		// If there are any machines that transitioned from alive to dying or
-		// dead, we need to schedule their removal as well.
+		// If there are any machines that are not dead, we need to schedule
+		// their removal as well.
 		s.logger.Infof(ctx, "model has machines %v, scheduling removal", artifacts.MachineUUIDs)
 
 		s.removeMachines(ctx, artifacts.MachineUUIDs, force, wait)
 	}
 
 	if len(artifacts.ApplicationUUIDs) > 0 {
-		// If there are any applications that transitioned from alive to dying
-		// or dead, we need to schedule their removal as well.
+		// If there are any applications that are not dead, we need to schedule
+		// their removal as well.
 		s.logger.Infof(ctx, "model has applications %v, scheduling removal", artifacts.ApplicationUUIDs)
 
 		s.removeApplications(ctx, artifacts.ApplicationUUIDs, destroyStorage, force, wait)
