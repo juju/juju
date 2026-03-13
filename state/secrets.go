@@ -3297,8 +3297,19 @@ func (st *State) findSecretEntity(tag names.Tag) (entity Lifer, collName, docID 
 		docID = id
 	case names.UnitTag:
 		entity, err = st.Unit(id)
-		collName = unitsC
-		docID = id
+		if err == nil {
+			docID = id
+			collName = unitsC
+		} else if errors.IsNotFound(err) {
+			// If this unit is from a remote application, find that instead.
+			id, err = names.UnitApplication(id)
+			if err != nil {
+				return nil, "", "", err
+			}
+			entity, err = st.RemoteApplication(id)
+			docID = id
+			collName = remoteApplicationsC
+		}
 	case names.ApplicationTag:
 		entity, err = st.Application(id)
 		docID = id
@@ -3368,18 +3379,11 @@ func (st *State) GrantSecretAccess(uri *secrets.URI, p SecretAccessParams) (err 
 		return errors.Errorf("cannot grant access to secret in scope of %q which is not alive", p.Scope)
 	}
 	subjectEntity, subjectCollName, subjectDocID, err := st.findSecretEntity(p.Subject)
-	if p.Subject.Kind() == names.UnitTagKind && errors.Is(err, errors.NotFound) {
-		unitApp, _ := names.UnitApplication(p.Subject.Id())
-		_, err2 := st.RemoteApplication(unitApp)
-		if err2 != nil && !errors.Is(err2, errors.NotFound) {
-			return errors.Trace(err2)
-		}
-		if err2 == nil {
-			return errors.NotSupportedf("sharing secrets with a unit across a cross model relation")
-		}
-	}
 	if err != nil {
 		return errors.Annotate(err, "invalid subject reference")
+	}
+	if p.Subject.Kind() == names.UnitTagKind && subjectCollName == remoteApplicationsC {
+		return errors.NotSupportedf("sharing secrets with a unit across a cross model relation")
 	}
 	if subjectEntity.Life() != Alive {
 		return errors.Errorf("cannot grant dying %q access to secret", p.Subject)
