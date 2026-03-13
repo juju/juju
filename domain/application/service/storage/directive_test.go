@@ -194,13 +194,13 @@ func (s *directiveSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
 func (s *directiveSuite) TestValidateApplicationStorageDirectiveOverridesNoMaxLimit(c *tc.C) {
 	defer s.setupMocks(c.T).Finish()
 
-	charmStorageDefs := map[string]internal.ValidateStorageArg{
+	charmStorageDefs := map[string]internal.CharmStorageDefinitionForValidation{
 		"st1": {
 			CountMin:    0,
 			CountMax:    -1, // -1 indicates no max limit
 			Name:        "st1",
 			MinimumSize: 1024,
-			Type:        internalcharm.StorageBlock,
+			Type:        domainapplicationcharm.StorageBlock,
 		},
 	}
 
@@ -251,13 +251,13 @@ func (s *directiveSuite) TestGetApplicationStorageDirectivesInfo(c *tc.C) {
 func (s *directiveSuite) TestValidateApplicationStorageDirectiveOverridesExceedMax(c *tc.C) {
 	defer s.setupMocks(c.T).Finish()
 
-	charmStorageDefs := map[string]internal.ValidateStorageArg{
+	charmStorageDefs := map[string]internal.CharmStorageDefinitionForValidation{
 		"st1": {
 			CountMin:    0,
 			CountMax:    2,
 			Name:        "st1",
 			MinimumSize: 1024,
-			Type:        internalcharm.StorageBlock,
+			Type:        domainapplicationcharm.StorageBlock,
 		},
 	}
 
@@ -348,12 +348,12 @@ func (s *directiveSuite) TestMakeStorageDirectiveFromApplicationArg(c *tc.C) {
 func (s *directiveSuite) TestValidateAttachStorageExceedMax(c *tc.C) {
 	defer s.setupMocks(c.T).Finish()
 
-	charmStorageDef := internal.ValidateStorageArg{
+	charmStorageDef := internal.CharmStorageDefinitionForValidation{
 		CountMin:    0,
 		CountMax:    2,
 		Name:        "st1",
 		MinimumSize: 1024,
-		Type:        internalcharm.StorageBlock,
+		Type:        domainapplicationcharm.StorageBlock,
 	}
 
 	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))

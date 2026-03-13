@@ -1610,6 +1610,7 @@ SELECT * AS &storageInfoForAttach.* FROM (
               END) AS size_mib,
               cs.count_max,
               cs.count_min,
+              cs.kind,
               cs.minimum_size_mib
     FROM      storage_instance si
     JOIN      v_charm_storage cs ON si.storage_name = cs.name

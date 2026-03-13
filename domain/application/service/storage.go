@@ -136,7 +136,7 @@ type StorageService interface {
 	// storage definitions.
 	ValidateApplicationStorageDirectiveOverrides(
 		ctx context.Context,
-		charmStorageDefs map[string]internal.ValidateStorageArg,
+		charmStorageDefs map[string]internal.CharmStorageDefinitionForValidation,
 		overrides map[string]storage.StorageDirectiveOverride,
 	) error
 
@@ -183,7 +183,7 @@ type StorageService interface {
 	// - [applicationerrors.StorageCountLimitExceeded] when the requested storage
 	// falls outside of the bounds defined by the charm.
 	ValidateAttachStorage(
-		charmStorageDef internal.ValidateStorageArg,
+		charmStorageDef internal.CharmStorageDefinitionForValidation,
 		existingCount uint32,
 		storageSize uint64,
 	) error

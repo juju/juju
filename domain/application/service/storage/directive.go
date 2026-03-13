@@ -213,7 +213,7 @@ func MakeStorageDirectiveFromApplicationArg(
 // falls outside of the bounds defined by the charm.
 func (s *Service) ValidateApplicationStorageDirectiveOverrides(
 	ctx context.Context,
-	charmStorageDefs map[string]internal.ValidateStorageArg,
+	charmStorageDefs map[string]internal.CharmStorageDefinitionForValidation,
 	overrides map[string]StorageDirectiveOverride,
 ) error {
 	for name, override := range overrides {
@@ -244,7 +244,7 @@ func (s *Service) ValidateApplicationStorageDirectiveOverrides(
 // falls outside of the bounds defined by the charm.
 func validateApplicationStorageDirectiveOverride(
 	ctx context.Context,
-	charmStorageDef internal.ValidateStorageArg,
+	charmStorageDef internal.CharmStorageDefinitionForValidation,
 	override StorageDirectiveOverride,
 	poolProvider StoragePoolProvider,
 ) error {
@@ -297,9 +297,8 @@ func validateApplicationStorageDirectiveOverride(
 	}
 
 	if override.PoolUUID != nil {
-		charmStorageType := charm.StorageType(charmStorageDef.Type)
 		supports, err := poolProvider.CheckPoolSupportsCharmStorage(
-			ctx, *override.PoolUUID, charmStorageType,
+			ctx, *override.PoolUUID, charmStorageDef.Type,
 		)
 		if err != nil {
 			return errors.Errorf(
@@ -323,7 +322,7 @@ func validateApplicationStorageDirectiveOverride(
 // to a unit with respect to the unit's charm storage definition, checking
 // the existing count of storage instances and the size of the new storage.
 func (s *Service) ValidateAttachStorage(
-	charmStorageDef internal.ValidateStorageArg,
+	charmStorageDef internal.CharmStorageDefinitionForValidation,
 	existingCount uint32,
 	storageSize uint64,
 ) error {

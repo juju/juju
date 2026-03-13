@@ -935,6 +935,7 @@ type storageInfoForAttach struct {
 	StorageName corestorage.Name `db:"storage_name"`
 	CountMin    int              `db:"count_min"`
 	CountMax    int              `db:"count_max"`
+	StorageKind string           `db:"kind"`
 	MinimumSize uint64           `db:"minimum_size_mib"`
 	SizeMIB     uint64           `db:"size_mib"`
 }

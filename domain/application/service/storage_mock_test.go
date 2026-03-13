@@ -481,7 +481,7 @@ func (c *MockStorageServiceReconcileStorageDirectivesAgainstCharmStorageCall) Do
 }
 
 // ValidateApplicationStorageDirectiveOverrides mocks base method.
-func (m *MockStorageService) ValidateApplicationStorageDirectiveOverrides(arg0 context.Context, arg1 map[string]internal.ValidateStorageArg, arg2 map[string]application0.ApplicationStorageDirectiveOverride) error {
+func (m *MockStorageService) ValidateApplicationStorageDirectiveOverrides(arg0 context.Context, arg1 map[string]internal.CharmStorageDefinitionForValidation, arg2 map[string]application0.ApplicationStorageDirectiveOverride) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ValidateApplicationStorageDirectiveOverrides", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -507,19 +507,19 @@ func (c *MockStorageServiceValidateApplicationStorageDirectiveOverridesCall) Ret
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageServiceValidateApplicationStorageDirectiveOverridesCall) Do(f func(context.Context, map[string]internal.ValidateStorageArg, map[string]application0.ApplicationStorageDirectiveOverride) error) *MockStorageServiceValidateApplicationStorageDirectiveOverridesCall {
+func (c *MockStorageServiceValidateApplicationStorageDirectiveOverridesCall) Do(f func(context.Context, map[string]internal.CharmStorageDefinitionForValidation, map[string]application0.ApplicationStorageDirectiveOverride) error) *MockStorageServiceValidateApplicationStorageDirectiveOverridesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageServiceValidateApplicationStorageDirectiveOverridesCall) DoAndReturn(f func(context.Context, map[string]internal.ValidateStorageArg, map[string]application0.ApplicationStorageDirectiveOverride) error) *MockStorageServiceValidateApplicationStorageDirectiveOverridesCall {
+func (c *MockStorageServiceValidateApplicationStorageDirectiveOverridesCall) DoAndReturn(f func(context.Context, map[string]internal.CharmStorageDefinitionForValidation, map[string]application0.ApplicationStorageDirectiveOverride) error) *MockStorageServiceValidateApplicationStorageDirectiveOverridesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ValidateAttachStorage mocks base method.
-func (m *MockStorageService) ValidateAttachStorage(arg0 internal.ValidateStorageArg, arg1 uint32, arg2 uint64) error {
+func (m *MockStorageService) ValidateAttachStorage(arg0 internal.CharmStorageDefinitionForValidation, arg1 uint32, arg2 uint64) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ValidateAttachStorage", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -545,13 +545,13 @@ func (c *MockStorageServiceValidateAttachStorageCall) Return(arg0 error) *MockSt
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStorageServiceValidateAttachStorageCall) Do(f func(internal.ValidateStorageArg, uint32, uint64) error) *MockStorageServiceValidateAttachStorageCall {
+func (c *MockStorageServiceValidateAttachStorageCall) Do(f func(internal.CharmStorageDefinitionForValidation, uint32, uint64) error) *MockStorageServiceValidateAttachStorageCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStorageServiceValidateAttachStorageCall) DoAndReturn(f func(internal.ValidateStorageArg, uint32, uint64) error) *MockStorageServiceValidateAttachStorageCall {
+func (c *MockStorageServiceValidateAttachStorageCall) DoAndReturn(f func(internal.CharmStorageDefinitionForValidation, uint32, uint64) error) *MockStorageServiceValidateAttachStorageCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

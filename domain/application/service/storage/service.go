@@ -1075,15 +1075,15 @@ func (s Service) MakeAttachExistingStorageArgs(
 			StorageInstanceUUID:  storageAttachArg.StorageInstanceUUID,
 			VolumeAttachment:     storageAttachArg.VolumeAttachment,
 		},
-		StorageName:                    storageAttachInfo.CharmStorageName,
+		StorageName:                    storageAttachInfo.CharmStorageDefinitionForValidation.Name,
 		CountLessThanEqual:             uint32(math.MaxUint32),
 		AllowedExistingUnitAttachments: allowedUUIDs,
 	}
 
 	// Record the max allowed count precondition.
 	// This will be checked inside the transaction.
-	if storageAttachInfo.CountMax > 0 {
-		result.CountLessThanEqual = uint32(storageAttachInfo.CountMax) - 1
+	if storageAttachInfo.CharmStorageDefinitionForValidation.CountMax > 0 {
+		result.CountLessThanEqual = uint32(storageAttachInfo.CharmStorageDefinitionForValidation.CountMax) - 1
 	}
 
 	return result, nil

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
-	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
@@ -433,9 +432,14 @@ func (s *serviceSuite) TestMakeAttachExistingStorageArgs(c *tc.C) {
 
 	s.state.EXPECT().GetStorageInstanceCompositionByUUID(gomock.Any(), storageUUID).Return(instComposition, nil)
 
+	charmStorageDef := internal.CharmStorageDefinitionForValidation{
+		Name:        "pgdata",
+		CountMin:    1,
+		CountMax:    667,
+		MinimumSize: 10,
+	}
 	storageAttachInfo := internal.StorageInfoForAttach{
-		CharmStorageName: "pgdata",
-		CountMax:         667,
+		CharmStorageDefinitionForValidation: charmStorageDef,
 	}
 
 	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
@@ -489,12 +493,12 @@ func (s *serviceSuite) TestValidateAttachStorageExceedMax(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	charmStorageDef := internal.ValidateStorageArg{
+	charmStorageDef := internal.CharmStorageDefinitionForValidation{
 		CountMin:    0,
 		CountMax:    2,
 		Name:        "st1",
 		MinimumSize: 1024,
-		Type:        internalcharm.StorageBlock,
+		Type:        charm.StorageBlock,
 	}
 
 	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))

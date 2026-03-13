@@ -487,11 +487,13 @@ func (u *unitStorageSuite) TestGetStorageAddInfoByUnitUUID(c *tc.C) {
 	storageInfo, err := u.state.GetStorageAddInfoByUnitUUID(c.Context(), unitUUID, "st1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(storageInfo, tc.DeepEquals, internal.StorageInfoForAdd{
-		CharmStorageName:     "st1",
-		Type:                 "filesystem",
-		CountMin:             1,
-		CountMax:             10,
-		MinimumSize:          1024,
+		CharmStorageDefinitionForValidation: internal.CharmStorageDefinitionForValidation{
+			Name:        "st1",
+			Type:        "filesystem",
+			CountMin:    1,
+			CountMax:    10,
+			MinimumSize: 1024,
+		},
 		AlreadyAttachedCount: uint32(2),
 	})
 }
@@ -847,17 +849,23 @@ func (u *unitStorageSuite) TestGetStorageAttachInfoByUnitUUIDAndStorageUUID(c *t
 	st2UUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
 	u.newStorageUnitOwner(c, st1UUID, unitUUID)
 	u.newStorageUnitOwner(c, st2UUID, unitUUID)
+	charmStorageDef := internal.CharmStorageDefinitionForValidation{
+		Name:        "st1",
+		CountMin:    1,
+		CountMax:    10,
+		Type:        charm.StorageFilesystem,
+		MinimumSize: 1024,
+	}
 
-	storageInfo, err := u.state.GetStorageAttachInfoByUnitUUIDAndStorageUUID(c.Context(), unitUUID, st1UUID)
+	storageInfo, err := u.state.GetStorageAttachInfoByUnitUUIDAndStorageUUID(
+		c.Context(), unitUUID, st1UUID,
+	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(storageInfo, tc.DeepEquals, internal.StorageInfoForAttach{
-		CharmStorageName:       "st1",
-		CountMin:               1,
-		CountMax:               10,
-		MinimumSize:            1024,
-		AlreadyAttachedCount:   2,
-		ProvisionedSizeMiB:     1024,
-		AlreadyAttachedToUnits: nil,
+		CharmStorageDefinitionForValidation: charmStorageDef,
+		AlreadyAttachedCount:                2,
+		ProvisionedSizeMiB:                  1024,
+		AlreadyAttachedToUnits:              nil,
 	})
 }

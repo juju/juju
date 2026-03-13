@@ -813,18 +813,12 @@ func (s *ProviderService) validateCreateApplicationArgs(
 		return AddApplicationArgs{}, errors.Errorf("invalid charm storage: %w", err)
 	}
 
-	charmStorageDef := transform.Map(charm.Meta().Storage, func(k string, v internalcharm.Storage) (string, internal.ValidateStorageArg) {
-		return k, internal.ValidateStorageArg{
-			Name:        v.Name,
-			Type:        v.Type,
-			CountMin:    v.CountMin,
-			CountMax:    v.CountMax,
-			MinimumSize: v.MinimumSize,
-		}
-	})
+	charmStorageDefsForValidation := internal.StorageDefinitionsForValidationFromCharm(
+		charm.Meta().Storage,
+	)
 	err = s.storageService.ValidateApplicationStorageDirectiveOverrides(
 		ctx,
-		charmStorageDef,
+		charmStorageDefsForValidation,
 		args.StorageDirectiveOverrides,
 	)
 	if err != nil {
@@ -1114,22 +1108,14 @@ func (s *ProviderService) populateAddStorageArgs(
 		)
 	}
 
-	storageAddInfo, err := s.st.GetStorageAddInfoByUnitUUID(ctx, unitUUID, storageName)
+	storageAddInfo, err := s.st.GetStorageAddInfoByUnitUUID(
+		ctx, unitUUID, storageName,
+	)
 	if err != nil {
 		return domainstorage.UnitAddStorageArg{}, errors.Errorf(
 			"getting unit %q charm storage %q and count: %w",
 			unitUUID, storageName, err,
 		)
-	}
-
-	charmStorageDefs := map[string]internal.ValidateStorageArg{
-		storageName.String(): {
-			Name:        storageAddInfo.CharmStorageName,
-			Type:        storageAddInfo.Type,
-			CountMin:    storageAddInfo.CountMin,
-			CountMax:    storageAddInfo.CountMax,
-			MinimumSize: storageAddInfo.MinimumSize,
-		},
 	}
 
 	storageDirective := unitStorageDirective
@@ -1148,7 +1134,13 @@ func (s *ProviderService) populateAddStorageArgs(
 			Size:     &storageDirective.Size,
 		},
 	}
-	err = s.storageService.ValidateApplicationStorageDirectiveOverrides(ctx, charmStorageDefs, toCheck)
+	err = s.storageService.ValidateApplicationStorageDirectiveOverrides(
+		ctx,
+		map[string]internal.CharmStorageDefinitionForValidation{
+			storageAddInfo.CharmStorageDefinitionForValidation.Name: storageAddInfo.CharmStorageDefinitionForValidation,
+		},
+		toCheck,
+	)
 	if err != nil {
 		return domainstorage.UnitAddStorageArg{}, errors.Capture(err)
 	}
@@ -1369,16 +1361,11 @@ func (s *ProviderService) populateAttachExistingStorageArgs(
 	netNodeUUID string,
 	storageAttachInfo internal.StorageInfoForAttach,
 ) (internal.AttachExistingStorageToUnitArg, error) {
-
-	charmStorageDef := internal.ValidateStorageArg{
-		Name:        storageAttachInfo.CharmStorageName,
-		CountMin:    storageAttachInfo.CountMin,
-		CountMax:    storageAttachInfo.CountMax,
-		MinimumSize: storageAttachInfo.MinimumSize,
-	}
-
 	err := s.storageService.ValidateAttachStorage(
-		charmStorageDef, storageAttachInfo.AlreadyAttachedCount, storageAttachInfo.ProvisionedSizeMiB)
+		storageAttachInfo.CharmStorageDefinitionForValidation,
+		storageAttachInfo.AlreadyAttachedCount,
+		storageAttachInfo.ProvisionedSizeMiB,
+	)
 	if err != nil {
 		return internal.AttachExistingStorageToUnitArg{}, errors.Capture(err)
 	}

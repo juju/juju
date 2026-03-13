@@ -25,11 +25,11 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
+	domainapplicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
 	applicationinternal "github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
-	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -2060,11 +2060,13 @@ func (st *State) GetStorageAddInfoByUnitUUID(
 		return internal.StorageInfoForAdd{}, errors.Capture(err)
 	}
 	return internal.StorageInfoForAdd{
-		CharmStorageName:     addInfo.Name,
-		Type:                 internalcharm.StorageType(addInfo.Kind),
-		CountMin:             addInfo.CountMin,
-		CountMax:             addInfo.CountMax,
-		MinimumSize:          addInfo.MinimumSize,
+		CharmStorageDefinitionForValidation: internal.CharmStorageDefinitionForValidation{
+			Name:        addInfo.Name,
+			Type:        domainapplicationcharm.StorageType(addInfo.Kind),
+			CountMin:    addInfo.CountMin,
+			CountMax:    addInfo.CountMax,
+			MinimumSize: addInfo.MinimumSize,
+		},
 		AlreadyAttachedCount: count,
 	}, nil
 }
@@ -2456,10 +2458,13 @@ func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
 		}
 	}
 	return internal.StorageInfoForAttach{
-		CharmStorageName:       attachInfo.StorageName.String(),
-		CountMin:               attachInfo.CountMin,
-		CountMax:               attachInfo.CountMax,
-		MinimumSize:            attachInfo.MinimumSize,
+		CharmStorageDefinitionForValidation: internal.CharmStorageDefinitionForValidation{
+			Name:        attachInfo.StorageName.String(),
+			CountMin:    attachInfo.CountMin,
+			CountMax:    attachInfo.CountMax,
+			Type:        domainapplicationcharm.StorageType(attachInfo.StorageKind),
+			MinimumSize: attachInfo.MinimumSize,
+		},
 		ProvisionedSizeMiB:     attachInfo.SizeMIB,
 		AlreadyAttachedCount:   count,
 		AlreadyAttachedToUnits: attachedMap,
