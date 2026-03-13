@@ -6,6 +6,7 @@ package service
 import (
 	"testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
@@ -47,7 +48,7 @@ func (s *attachmentSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *attachmentSuite) TestGetStorageAttachmentUUIDForStorageInstanceAndUnitInvalidUUIDs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(
-		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
 	)
 
 	c.Run("storage instance uuid", func(t *testing.T) {
@@ -92,7 +93,7 @@ func (s *attachmentSuite) TestGetStorageAttachmentUUIDForStorageInstanceAndUnitS
 	).Return("", domainstorageerrors.StorageInstanceNotFound)
 
 	svc := NewService(
-		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
 	)
 	_, err := svc.GetStorageAttachmentUUIDForStorageInstanceAndUnit(
 		c.Context(),
@@ -116,7 +117,7 @@ func (s *attachmentSuite) TestGetStorageAttachmentUUIDForStorageInstanceAndUnitN
 	).Return("", domainapplicationerrors.UnitNotFound)
 
 	svc := NewService(
-		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
 	)
 	_, err := svc.GetStorageAttachmentUUIDForStorageInstanceAndUnit(
 		c.Context(),
@@ -140,7 +141,7 @@ func (s *attachmentSuite) TestGetStorageAttachmentUUIDForStorageInstanceAndUnit(
 	).Return(storageAttachmentUUID, nil)
 
 	svc := NewService(
-		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
 	)
 	uuid, err := svc.GetStorageAttachmentUUIDForStorageInstanceAndUnit(
 		c.Context(),
@@ -158,7 +159,7 @@ func (s *attachmentSuite) TestGetStorageInstanceAttachmentsInvalidUUID(c *tc.C) 
 
 	badStorageUUID := domainstorage.StorageInstanceUUID("invalid-uuid")
 	svc := NewService(
-		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
 	)
 	_, err := svc.GetStorageInstanceAttachments(c.Context(), badStorageUUID)
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
@@ -177,7 +178,7 @@ func (s *attachmentSuite) TestGetStorageInstanceAttachmentsNotFound(c *tc.C) {
 	)
 
 	svc := NewService(
-		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
 	)
 	_, err := svc.GetStorageInstanceAttachments(c.Context(), siUUID)
 	c.Check(err, tc.ErrorIs, domainstorageerrors.StorageInstanceNotFound)
@@ -198,7 +199,7 @@ func (s *attachmentSuite) TestGetStorageInstanceAttachments(c *tc.C) {
 	)
 
 	svc := NewService(
-		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
 	)
 	attachments, err := svc.GetStorageInstanceAttachments(c.Context(), siUUID)
 	c.Check(err, tc.ErrorIsNil)

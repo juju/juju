@@ -6,6 +6,7 @@ package modelmigration
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/description/v11"
 
@@ -26,9 +27,15 @@ type Coordinator interface {
 }
 
 // RegisterImport registers the import operations with the given coordinator.
-func RegisterImport(coordinator Coordinator, storageRegistryGetter corestorage.ModelStorageRegistryGetter, logger logger.Logger) {
+func RegisterImport(
+	coordinator Coordinator,
+	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
+	clock clock.Clock,
+	logger logger.Logger,
+) {
 	coordinator.Add(&importOperation{
 		storageRegistryGetter: storageRegistryGetter,
+		clock:                 clock,
 		logger:                logger,
 	})
 }
@@ -68,6 +75,7 @@ type importOperation struct {
 
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter
 	service               ImportService
+	clock                 clock.Clock
 	logger                logger.Logger
 }
 
@@ -81,6 +89,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.service = service.NewService(
 		state.NewState(scope.ModelDB()),
 		i.logger,
+		i.clock,
 		i.storageRegistryGetter,
 	)
 	return nil

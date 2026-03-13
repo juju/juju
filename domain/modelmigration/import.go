@@ -81,7 +81,7 @@ func ImportOperations(
 	blockdevice.RegisterImport(coordinator, logger.Child("blockdevice"))
 	// Storage requires machines and units (via the application domain) to be
 	// imported first. Volumes require block devices to be imported first.
-	storage.RegisterImport(coordinator, storageRegistryGetter, logger.Child("storage"))
+	storage.RegisterImport(coordinator, storageRegistryGetter, clock, logger.Child("storage"))
 	network.RegisterImportCloudService(coordinator, logger.Child("cloudservice"))
 	agentpassword.RegisterImport(coordinator)
 	crossmodelrelation.RegisterImport(coordinator, clock, logger.Child("crossmodelrelation"))

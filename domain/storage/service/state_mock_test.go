@@ -18,6 +18,7 @@ import (
 	network "github.com/juju/juju/domain/network"
 	storage "github.com/juju/juju/domain/storage"
 	internal "github.com/juju/juju/domain/storage/internal"
+	storageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -42,6 +43,84 @@ func NewMockState(ctrl *gomock.Controller) *MockState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
+}
+
+// CreateStorageInstanceWithExistingFilesystem mocks base method.
+func (m *MockState) CreateStorageInstanceWithExistingFilesystem(arg0 context.Context, arg1 internal.CreateStorageInstanceWithExistingFilesystem) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateStorageInstanceWithExistingFilesystem", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateStorageInstanceWithExistingFilesystem indicates an expected call of CreateStorageInstanceWithExistingFilesystem.
+func (mr *MockStateMockRecorder) CreateStorageInstanceWithExistingFilesystem(arg0, arg1 any) *MockStateCreateStorageInstanceWithExistingFilesystemCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateStorageInstanceWithExistingFilesystem", reflect.TypeOf((*MockState)(nil).CreateStorageInstanceWithExistingFilesystem), arg0, arg1)
+	return &MockStateCreateStorageInstanceWithExistingFilesystemCall{Call: call}
+}
+
+// MockStateCreateStorageInstanceWithExistingFilesystemCall wrap *gomock.Call
+type MockStateCreateStorageInstanceWithExistingFilesystemCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateCreateStorageInstanceWithExistingFilesystemCall) Return(arg0 string, arg1 error) *MockStateCreateStorageInstanceWithExistingFilesystemCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateCreateStorageInstanceWithExistingFilesystemCall) Do(f func(context.Context, internal.CreateStorageInstanceWithExistingFilesystem) (string, error)) *MockStateCreateStorageInstanceWithExistingFilesystemCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateCreateStorageInstanceWithExistingFilesystemCall) DoAndReturn(f func(context.Context, internal.CreateStorageInstanceWithExistingFilesystem) (string, error)) *MockStateCreateStorageInstanceWithExistingFilesystemCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// CreateStorageInstanceWithExistingVolumeBackedFilesystem mocks base method.
+func (m *MockState) CreateStorageInstanceWithExistingVolumeBackedFilesystem(arg0 context.Context, arg1 internal.CreateStorageInstanceWithExistingVolumeBackedFilesystem) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateStorageInstanceWithExistingVolumeBackedFilesystem", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateStorageInstanceWithExistingVolumeBackedFilesystem indicates an expected call of CreateStorageInstanceWithExistingVolumeBackedFilesystem.
+func (mr *MockStateMockRecorder) CreateStorageInstanceWithExistingVolumeBackedFilesystem(arg0, arg1 any) *MockStateCreateStorageInstanceWithExistingVolumeBackedFilesystemCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateStorageInstanceWithExistingVolumeBackedFilesystem", reflect.TypeOf((*MockState)(nil).CreateStorageInstanceWithExistingVolumeBackedFilesystem), arg0, arg1)
+	return &MockStateCreateStorageInstanceWithExistingVolumeBackedFilesystemCall{Call: call}
+}
+
+// MockStateCreateStorageInstanceWithExistingVolumeBackedFilesystemCall wrap *gomock.Call
+type MockStateCreateStorageInstanceWithExistingVolumeBackedFilesystemCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateCreateStorageInstanceWithExistingVolumeBackedFilesystemCall) Return(arg0 string, arg1 error) *MockStateCreateStorageInstanceWithExistingVolumeBackedFilesystemCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateCreateStorageInstanceWithExistingVolumeBackedFilesystemCall) Do(f func(context.Context, internal.CreateStorageInstanceWithExistingVolumeBackedFilesystem) (string, error)) *MockStateCreateStorageInstanceWithExistingVolumeBackedFilesystemCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateCreateStorageInstanceWithExistingVolumeBackedFilesystemCall) DoAndReturn(f func(context.Context, internal.CreateStorageInstanceWithExistingVolumeBackedFilesystem) (string, error)) *MockStateCreateStorageInstanceWithExistingVolumeBackedFilesystemCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // CreateStoragePool mocks base method.
@@ -546,6 +625,45 @@ func (c *MockStateGetStoragePoolUUIDsByNameCall) Do(f func(context.Context, []st
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetStoragePoolUUIDsByNameCall) DoAndReturn(f func(context.Context, []string) ([]storage.StoragePoolNameUUID, error)) *MockStateGetStoragePoolUUIDsByNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetStorageResourceTagInfoForModel mocks base method.
+func (m *MockState) GetStorageResourceTagInfoForModel(arg0 context.Context, arg1 string) (storageprovisioning.ModelResourceTagInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStorageResourceTagInfoForModel", arg0, arg1)
+	ret0, _ := ret[0].(storageprovisioning.ModelResourceTagInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStorageResourceTagInfoForModel indicates an expected call of GetStorageResourceTagInfoForModel.
+func (mr *MockStateMockRecorder) GetStorageResourceTagInfoForModel(arg0, arg1 any) *MockStateGetStorageResourceTagInfoForModelCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageResourceTagInfoForModel", reflect.TypeOf((*MockState)(nil).GetStorageResourceTagInfoForModel), arg0, arg1)
+	return &MockStateGetStorageResourceTagInfoForModelCall{Call: call}
+}
+
+// MockStateGetStorageResourceTagInfoForModelCall wrap *gomock.Call
+type MockStateGetStorageResourceTagInfoForModelCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetStorageResourceTagInfoForModelCall) Return(arg0 storageprovisioning.ModelResourceTagInfo, arg1 error) *MockStateGetStorageResourceTagInfoForModelCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetStorageResourceTagInfoForModelCall) Do(f func(context.Context, string) (storageprovisioning.ModelResourceTagInfo, error)) *MockStateGetStorageResourceTagInfoForModelCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetStorageResourceTagInfoForModelCall) DoAndReturn(f func(context.Context, string) (storageprovisioning.ModelResourceTagInfo, error)) *MockStateGetStorageResourceTagInfoForModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

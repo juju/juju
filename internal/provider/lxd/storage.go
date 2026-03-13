@@ -604,7 +604,9 @@ func (s *lxdFilesystemSource) detachFilesystem(
 func (s *lxdFilesystemSource) ImportFilesystem(
 	ctx context.Context,
 	filesystemId string,
+	storageName string,
 	tags map[string]string,
+	force bool,
 ) (storage.FilesystemInfo, error) {
 	lxdPool, volumeName, err := parseFilesystemId(filesystemId)
 	if err != nil {

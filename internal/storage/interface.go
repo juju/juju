@@ -204,7 +204,9 @@ type FilesystemImporter interface {
 	ImportFilesystem(
 		ctx context.Context,
 		filesystemId string,
+		storageName string,
 		resourceTags map[string]string,
+		force bool,
 	) (FilesystemInfo, error)
 }
 

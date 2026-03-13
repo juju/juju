@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
-	coreversion "github.com/juju/juju/core/version"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationstorageservice "github.com/juju/juju/domain/application/service/storage"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -74,6 +73,7 @@ type RemovalService interface {
 // StorageService defines apis on the storage service.
 type StorageService interface {
 	StoragePoolService
+	StorageAdoptionService
 
 	// GetStorageAttachmentUUIDForStorageInstanceAndUnit returns the
 	// [storage.StorageAttachmentUUID] associated with the given storage
@@ -1371,20 +1371,4 @@ func handleAttachStorageToUnitError(err error, unitName coreunit.Name, storageID
 		}
 	}
 	return err
-}
-
-// Import imports existing storage into the model.
-// A "CHANGE" block can block this operation.
-func (a *StorageAPI) Import(ctx context.Context, args params.BulkImportStorageParamsV2) (params.ImportStorageResults, error) {
-	return params.ImportStorageResults{}, apiservererrors.ParamsErrorf(
-		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
-	)
-}
-
-// Import imports existing storage into the model.
-// A "CHANGE" block can block this operation.
-func (a *StorageAPIv6) Import(ctx context.Context, args params.BulkImportStorageParams) (params.ImportStorageResults, error) {
-	return params.ImportStorageResults{}, apiservererrors.ParamsErrorf(
-		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
-	)
 }

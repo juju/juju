@@ -7,6 +7,7 @@ import (
 	"context"
 	stdtesting "testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -1012,7 +1013,7 @@ func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	}
 
 	s.service = NewService(
-		s.state, loggertesting.WrapCheckLog(c), registryGetter{s.registry},
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, registryGetter{s.registry},
 	)
 
 	c.Cleanup(func() {
