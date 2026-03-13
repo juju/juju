@@ -24,39 +24,48 @@ func TestOriginSuite(t *testing.T) {
 // domain packages.
 func (s *originSuite) TestOriginDBValues(c *tc.C) {
 	db := s.DB()
-	rows, err := db.Query("SELECT id, origin FROM secret_backend_origin")
+	rows, err := db.Query("SELECT origin FROM secret_backend_origin")
 	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 
-	dbValues := make(map[Origin]string)
+	var dbValues []string
 	for rows.Next() {
-		var (
-			id     int
-			origin string
-		)
-		err := rows.Scan(&id, &origin)
+		var origin string
+		err := rows.Scan(&origin)
 		c.Assert(err, tc.ErrorIsNil)
-		dbValues[Origin(id)] = origin
+		dbValues = append(dbValues, origin)
 	}
-	c.Assert(dbValues, tc.DeepEquals, map[Origin]string{
-		BuiltIn: "built-in",
-		User:    "user",
+	c.Assert(dbValues, tc.SameContents, []string{
+		string(BuiltIn),
+		string(User),
 	})
 }
 
-func (s *originSuite) TestValueBuiltIn(c *tc.C) {
-	result, err := BuiltIn.Value()
-	c.Assert(err, tc.IsNil)
-	c.Check(result, tc.Equals, "built-in")
+func (s *originSuite) TestValidOrigins(c *tc.C) {
+	validOrigins := []Origin{
+		BuiltIn,
+		User,
+	}
+
+	for _, vo := range validOrigins {
+		c.Assert(vo.IsValid(), tc.IsTrue)
+	}
 }
 
-func (s *originSuite) TestValueUser(c *tc.C) {
-	result, err := User.Value()
-	c.Assert(err, tc.IsNil)
-	c.Check(result, tc.Equals, "user")
+func (s *originSuite) TestParseOrigins(c *tc.C) {
+	validOrigins := []string{
+		"built-in",
+		"user",
+	}
+
+	for _, vo := range validOrigins {
+		mt, err := ParseOrigin(vo)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(mt.IsValid(), tc.IsTrue)
+	}
 }
 
-func (s *originSuite) TestValueInvalid(c *tc.C) {
-	_, err := Origin(42).Value()
-	c.Assert(err, tc.ErrorMatches, "invalid origin value 42")
+func (s *originSuite) TestParseOriginsInvalid(c *tc.C) {
+	_, err := ParseOrigin("foo")
+	c.Assert(err, tc.ErrorMatches, `unknown origin "foo"`)
 }

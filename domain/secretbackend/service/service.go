@@ -82,7 +82,7 @@ func (s *Service) GetSecretBackendConfigForAdmin(ctx context.Context, modelUUID 
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	currentBackendName := modelSecretBackend.SecretBackendName
+	currentBackendName := modelSecretBackend.ActiveBackendName()
 
 	var info provider.ModelBackendConfigInfo
 	info.Configs = make(map[string]provider.ModelBackendConfig)

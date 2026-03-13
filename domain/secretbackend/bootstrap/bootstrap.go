@@ -45,8 +45,10 @@ func createBackend(ctx context.Context, tx *sqlair.TX, backendName string, backe
 	}
 	insertBackendStmt, err := sqlair.Prepare(`
 INSERT INTO secret_backend
-    (uuid, name, backend_type_id, origin_id)
-VALUES ($SecretBackend.*)`, state.SecretBackend{})
+    (uuid, name, backend_type_id, token_rotate_interval, origin_id)
+SELECT $SecretBackend.uuid, $SecretBackend.name, $SecretBackend.backend_type_id, $SecretBackend.token_rotate_interval, id
+FROM   secret_backend_origin
+WHERE  origin = $SecretBackend.origin`, state.SecretBackend{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -57,7 +59,7 @@ VALUES ($SecretBackend.*)`, state.SecretBackend{})
 		BackendTypeID:       backendType,
 		TokenRotateInterval: internaldatabase.NullDuration{},
 		// Backends created at bootstrap are considered built-in.
-		OriginID: int(internal.BuiltIn),
+		Origin: internal.BuiltIn,
 	}).Run()
 	if err != nil {
 		return errors.Errorf("cannot create secret backend %q: %w", backendName, err)

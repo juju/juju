@@ -33,6 +33,7 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/secretbackend"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	"github.com/juju/juju/domain/secretbackend/internal"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -74,12 +75,12 @@ func (s *stateSuite) TestGetModelSecretBackendDetails(c *tc.C) {
 	result, err := s.state.GetModelSecretBackendDetails(c.Context(), modelUUID)
 	c.Assert(err, tc.IsNil)
 	c.Assert(result, tc.Equals, secretbackend.ModelSecretBackend{
-		ControllerUUID:    s.controllerUUID,
-		ModelID:           modelUUID,
-		ModelName:         "my-model",
-		ModelType:         "iaas",
-		SecretBackendID:   s.vaultBackendID,
-		SecretBackendName: "my-backend",
+		ControllerUUID:      s.controllerUUID,
+		ModelID:             modelUUID,
+		ModelName:           "my-model",
+		ModelType:           "iaas",
+		SecretBackendName:   "my-backend",
+		SecretBackendOrigin: internal.User,
 	})
 }
 
@@ -129,13 +130,15 @@ func (s *stateSuite) createModelWithName(c *tc.C, modelType coremodel.ModelType,
 		modelBackend = kubernetes.BackendName
 		// Create the global kubernetes backend for CAAS models.
 		s.kubernetesBackendID = uuid.MustNewUUID().String()
-		_, err = s.state.CreateSecretBackend(c.Context(), secretbackend.CreateSecretBackendParams{
-			BackendIdentifier: secretbackend.BackendIdentifier{
-				ID:   s.kubernetesBackendID,
-				Name: kubernetes.BackendName,
-			},
-			BackendType: kubernetes.BackendType,
+		err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+			return s.state.upsertBackend(ctx, tx, SecretBackend{
+				ID:            s.kubernetesBackendID,
+				Name:          kubernetes.BackendName,
+				BackendTypeID: tc.Must1(c, secretbackend.MarshallBackendType, kubernetes.BackendType),
+				Origin:        internal.BuiltIn,
+			})
 		})
+
 		c.Assert(err, tc.IsNil)
 	}
 
@@ -1815,7 +1818,7 @@ func (s *stateSuite) addBuiltInBackend(c *tc.C, name string) string {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, txn *sql.Tx) error {
 		_, err := txn.ExecContext(ctx, `
 INSERT INTO secret_backend (uuid, name, backend_type_id, origin_id) 
-VALUES (?,?,0,0)`,
+SELECT ?, ?, 0, id FROM secret_backend_origin WHERE origin = 'built-in'`,
 			backendUUID, name)
 		return errors.Capture(err)
 	})

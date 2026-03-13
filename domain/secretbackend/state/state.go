@@ -46,6 +46,27 @@ func NewState(factory coredatabase.TxnRunnerFactory, logger logger.Logger) *Stat
 	}
 }
 
+func (s *State) GetModelSecretBackendNameAndOrigin(
+	ctx context.Context,
+	modelUUID coremodel.UUID,
+) (string, internal.Origin, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	var backend secretbackend.ModelSecretBackend
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		backend, err = s.getModelSecretBackendDetails(ctx, tx, modelUUID)
+		return err
+	})
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+	return backend.ActiveBackendName(), backend.SecretBackendOrigin, nil
+}
+
 // GetModelSecretBackendDetails is responsible for returning the backend details for a given model uuid,
 // returning an error satisfying [modelerrors.NotFound] if the model provided does not exist.
 func (s *State) GetModelSecretBackendDetails(ctx context.Context, uuid coremodel.UUID) (secretbackend.ModelSecretBackend, error) {
@@ -83,13 +104,14 @@ WHERE  uuid = $modelIdentifier.uuid`, input, ModelSecretBackend{})
 	if err != nil {
 		return secretbackend.ModelSecretBackend{}, errors.Capture(err)
 	}
+
 	return secretbackend.ModelSecretBackend{
-		ControllerUUID:    backend.ControllerUUID,
-		ModelID:           backend.ModelID,
-		ModelName:         backend.ModelName,
-		ModelType:         backend.ModelType,
-		SecretBackendID:   backend.SecretBackendID,
-		SecretBackendName: backend.SecretBackendName,
+		ControllerUUID:      backend.ControllerUUID,
+		ModelID:             backend.ModelID,
+		ModelName:           backend.ModelName,
+		ModelType:           backend.ModelType,
+		SecretBackendName:   backend.SecretBackendName,
+		SecretBackendOrigin: backend.SecretBackendOrigin,
 	}, nil
 }
 
@@ -245,7 +267,7 @@ func (s *State) getK8sBuiltinSecretBackend(
 	modelName string,
 	getK8sConfig func(modelName string) (*provider.BackendConfig, error),
 ) (*secretbackend.SecretBackend, error) {
-	backendName := fmt.Sprintf("%s-local", modelName)
+	backendName := internal.MakeBuiltInK8sSecretBackendName(modelName)
 	sb, err := s.getSecretBackend(ctx, tx, secretbackend.BackendIdentifier{Name: backendName})
 	if errors.Is(err, secretbackenderrors.NotFound) {
 		s.logger.Debugf(ctx, "no k8s secret backend found for model %q, creating one", modelName)
@@ -267,7 +289,7 @@ func (s *State) getK8sBuiltinSecretBackend(
 			ID:            backendID.String(),
 			Name:          backendName,
 			BackendTypeID: secretbackend.BackendTypeKubernetes,
-			OriginID:      int(internal.BuiltIn),
+			Origin:        internal.BuiltIn,
 		}
 		if err := s.upsertBackend(ctx, tx, builtInBackend); err != nil {
 			return nil, errors.Errorf("cannot create built-in secret backend: %w", err)
@@ -303,7 +325,7 @@ func (s *State) upsertSecretBackend(ctx context.Context, tx *sqlair.TX, params u
 		Name:          params.Name,
 		BackendTypeID: backendTypeID,
 		// Backend inserted outside the bootstrap process are user backends.
-		OriginID: int(internal.User),
+		Origin: internal.User,
 	}
 	if params.TokenRotateInterval != nil {
 		sb.TokenRotateInterval = database.NewNullDuration(*params.TokenRotateInterval)
@@ -434,9 +456,10 @@ func (s *State) isImmutable(ctx context.Context, tx *sqlair.TX, backendUUID stri
 	entity := secretBackend{UUID: backendUUID}
 	stmt, err := s.Prepare(`
 SELECT 1 AS &Count.num
-FROM   secret_backend
-WHERE  uuid = $secretBackend.uuid
-AND    origin_id = 0 -- built-in
+FROM   secret_backend sb
+JOIN   secret_backend_origin sbo ON sb.origin_id = sbo.id
+WHERE  sb.uuid = $secretBackend.uuid
+AND    sbo.origin = 'built-in'
 LIMIT 1`, entity, Count{})
 	if err != nil {
 		return false, errors.Capture(err)
@@ -854,10 +877,10 @@ func (s *State) GetActiveModelSecretBackend(ctx context.Context, modelUUID corem
 		if err != nil {
 			return errors.Capture(err)
 		}
-		if modelBackend.ModelType == coremodel.CAAS && modelBackend.SecretBackendName == kubernetes.BackendName {
+		if modelBackend.ModelType == coremodel.CAAS && modelBackend.SecretBackendOrigin == internal.BuiltIn {
 			backend, err = s.getK8sSecretBackendForModel(ctx, tx, modelUUID)
 		} else {
-			backend, err = s.getSecretBackend(ctx, tx, secretbackend.BackendIdentifier{ID: modelBackend.SecretBackendID})
+			backend, err = s.getSecretBackend(ctx, tx, secretbackend.BackendIdentifier{Name: modelBackend.ActiveBackendName()})
 		}
 		return errors.Capture(err)
 	})

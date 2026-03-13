@@ -5,6 +5,7 @@ package secretbackend
 
 import (
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/domain/secretbackend/internal"
 )
 
 // ModelSecretBackend represents a set of data about a model and its secret backend config.
@@ -17,8 +18,18 @@ type ModelSecretBackend struct {
 	ModelName string
 	// ModelType is the type of the model.
 	ModelType coremodel.ModelType
-	// SecretBackendID is the unique identifier for the secret backend configured for the model.
-	SecretBackendID string
+	// SecretBackendOrigin is the origin of the secret backend configured for
+	// the model (builtin or user)
+	SecretBackendOrigin internal.Origin
+
 	// SecretBackendName is the name of the secret backend configured for the model.
 	SecretBackendName string
+}
+
+// ActiveBackendName returns the name of the active secret backend for the model.
+func (m ModelSecretBackend) ActiveBackendName() string {
+	if m.SecretBackendOrigin == internal.BuiltIn && m.ModelType == coremodel.CAAS {
+		return internal.MakeBuiltInK8sSecretBackendName(m.ModelName)
+	}
+	return m.SecretBackendName
 }

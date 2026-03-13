@@ -7,23 +7,42 @@ import "github.com/juju/juju/internal/errors"
 
 // Origin represents the origin of a secret backend as recorded in the
 // secret_backend_origin lookup table.
-type Origin int
+type Origin string
 
 const (
 	// BuiltIn indicates a built-in secret backend managed by Juju itself.
-	BuiltIn Origin = iota
+	BuiltIn Origin = "built-in"
 	// User indicates a secret backend that was created by a user.
-	User
+	User Origin = "user"
 )
 
-// Value returns the string value corresponding to this origin as stored in the
-// controller database lookup table `secret_backend_origin`.
-func (o Origin) Value() (string, error) {
+// String returns m as a string.
+func (o Origin) String() string {
+	return string(o)
+}
+
+// IsValid returns true if the value of Type is a known valid type.
+func (o Origin) IsValid() bool {
 	switch o {
-	case BuiltIn:
-		return "built-in", nil
-	case User:
-		return "user", nil
+	case BuiltIn, User:
+		return true
 	}
-	return "", errors.Errorf("invalid origin value %d", o)
+	return false
+}
+
+// ParseOrigin parses a string into an Origin.
+func ParseOrigin(s string) (Origin, error) {
+	switch s {
+	case string(BuiltIn):
+		return BuiltIn, nil
+	case string(User):
+		return User, nil
+	}
+	return "", errors.Errorf("unknown origin %q", s)
+}
+
+// MakeBuiltInK8sSecretBackendName returns the name of the built-in k8s secret
+// backend for a given model.
+func MakeBuiltInK8sSecretBackendName(modelName string) string {
+	return modelName + "-local"
 }
