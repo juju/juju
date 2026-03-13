@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	domainstorage "github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/domain/storage/internal"
 	"github.com/juju/juju/internal/errors"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
@@ -48,6 +49,16 @@ type State interface {
 		context.Context,
 		domainstorage.StorageInstanceUUID,
 	) ([]domainstorage.StorageAttachmentUUID, error)
+
+	// GetStorageInstanceInfo returns the information about a single Storage
+	// Instance in the model.
+	//
+	// The following errors may be returned:
+	// - [github.com/juju/juju/domain/storage/errors.StorageInstanceNotFound]
+	// when no Storage Instance exists for the supplied uuid.
+	GetStorageInstanceInfo(
+		context.Context, domainstorage.StorageInstanceUUID,
+	) (internal.StorageInstanceInfo, error)
 
 	// GetStorageInstanceUUIDByID retrieves the UUID of a storage instance by
 	// its ID.

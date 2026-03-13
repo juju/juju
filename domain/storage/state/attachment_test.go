@@ -43,9 +43,10 @@ func TestAttachmentUUIDSuite(t *testing.T) {
 // [State.GetStorageAttachmentUUIDForStorageInstanceAndUnit] returns a
 // [domainapplicationerrors.UnitNotFound] error.
 func (s *attachmentUUIDSuite) TestUUIDForNotFoundUnit(c *tc.C) {
+	charmUUID := s.newCharm(c)
 	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
-	storageInstanceUUID, _ := s.newStorageInstanceForCharmWithPool(
-		c, "kratos", poolUUID, "token-store",
+	storageInstanceUUID, _ := s.newBlockStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "token-store",
 	)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 
@@ -73,9 +74,10 @@ func (s *attachmentUUIDSuite) TestUUIDForNotFoundStorageInstance(c *tc.C) {
 
 // TestUUIDForStorageInstanceAndUnit is a happy path test.
 func (s *attachmentUUIDSuite) TestUUIDForStorageInstanceAndUnit(c *tc.C) {
+	charmUUID := s.newCharm(c)
 	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
-	storageInstanceUUID, _ := s.newStorageInstanceForCharmWithPool(
-		c, "kratos", poolUUID, "token-store",
+	storageInstanceUUID, _ := s.newBlockStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "token-store",
 	)
 	unitUUID := s.newUnit(c)
 	storageAttachmentUUID := s.newStorageAttachment(
@@ -104,9 +106,10 @@ func (s *attachmentSuite) TestGetStorageInstanceAttachmentsNotFound(c *tc.C) {
 // TestGetStorageInstanceAttachmentsEmptyResult asserts that when a storage
 // instance is not attached to any units an empty slice is returned.
 func (s *attachmentSuite) TestGetStorageInstanceAttachmentsEmptyResult(c *tc.C) {
+	charmUUID := s.newCharm(c)
 	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
-	storageInstanceUUID, _ := s.newStorageInstanceForCharmWithPool(
-		c, "kratos", poolUUID, "token-store",
+	storageInstanceUUID, _ := s.newBlockStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "token-store",
 	)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -116,11 +119,12 @@ func (s *attachmentSuite) TestGetStorageInstanceAttachmentsEmptyResult(c *tc.C) 
 }
 
 func (s *attachmentSuite) TestGetStorageInstanceAttachments(c *tc.C) {
-	unitUUID1 := s.newUnit(c)
-	unitUUID2 := s.newUnit(c)
+	appUUID, charmUUID := s.newApplication(c, "myapplication")
+	unitUUID1, _, _ := s.newUnitForApplication(c, appUUID)
+	unitUUID2, _, _ := s.newUnitForApplication(c, appUUID)
 	poolUUID := s.newStoragePool(c, "pool1", "myprovider", nil)
-	storageInstanceUUID, _ := s.newStorageInstanceForCharmWithPool(
-		c, "kratos", poolUUID, "token-store",
+	storageInstanceUUID, _ := s.newBlockStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "token-store",
 	)
 	storageAttachmentUUID1 := s.newStorageAttachment(c, storageInstanceUUID, unitUUID1)
 	storageAttachmentUUID2 := s.newStorageAttachment(c, storageInstanceUUID, unitUUID2)
