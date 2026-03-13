@@ -1,0 +1,19 @@
+name: storage-multiple-refresher
+maintainer:
+  - Adis <adis.azhar@canonical.com>
+summary: Dummy charm that utilises storage.
+description: This is for testing refreshing a charm with storage updates.
+categories:
+  - misc
+series:
+  - jammy
+  - focal
+  - bionic
+
+storage:
+  awesome-block:
+    type: block
+    description: awesome storage instance
+    minimum-size: 3G
+    multiple:
+      range: 0-2
