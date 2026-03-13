@@ -10,7 +10,7 @@ import (
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
-	caas "github.com/juju/juju/caas"
+	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	coreunit "github.com/juju/juju/core/unit"
@@ -58,7 +58,7 @@ func (s *registerCAASUnitSuite) makeStorageArg(
 					UUID:            storageInstUUID,
 				},
 			},
-			StorageToAttach: []internal.CreateUnitStorageAttachmentArg{
+			NewStorageToAttach: []internal.AttachStorageToUnitArg{
 				{
 					FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
 						FilesystemUUID: fsUUID,
@@ -81,7 +81,7 @@ func (s *registerCAASUnitSuite) makeStorageArg(
 
 func (*registerCAASUnitSuite) storageChecker() *tc.MultiChecker {
 	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_.CreateUnitStorageArg.StorageToAttach[_].FilesystemAttachment.NetNodeUUID`, tc.Ignore)
+	mc.AddExpr(`_.CreateUnitStorageArg.NewStorageToAttach[_].FilesystemAttachment.NetNodeUUID`, tc.Ignore)
 	return mc
 }
 
@@ -115,6 +115,7 @@ func (s *registerCAASUnitSuite) TestRegisterNewCAASUnit(c *tc.C) {
 	).Return(storageArg, nil).AnyTimes()
 
 	arg := application.RegisterCAASUnitArg{
+		UnitUUID:               tc.Must(c, coreunit.NewUUID),
 		UnitName:               "foo/666",
 		PasswordHash:           "secret",
 		ProviderID:             "foo-666",
@@ -144,6 +145,7 @@ func (s *registerCAASUnitSuite) TestRegisterNewCAASUnit(c *tc.C) {
 
 	mc := tc.NewMultiChecker()
 	mc.AddExpr(`_.PasswordHash`, tc.Ignore)
+	mc.AddExpr(`_.UnitUUID`, tc.IsNonZeroUUID)
 	mc.AddExpr(`_.NetNodeUUID`, tc.IsNonZeroUUID)
 	mc.AddExpr(`_.RegisterUnitStorageArg`, s.storageChecker(), tc.ExpectedValue)
 	c.Assert(gotRCA, mc, arg)
@@ -189,6 +191,7 @@ func (s *registerCAASUnitSuite) TestRegisterExistingCAASUnit(c *tc.C) {
 	).Return(storageArg, nil).AnyTimes()
 
 	expectedArg := application.RegisterCAASUnitArg{
+		UnitUUID:               unitUUID,
 		Address:                ptr("10.6.6.6"),
 		NetNodeUUID:            unitNetNodeUUID,
 		OrderedId:              666,

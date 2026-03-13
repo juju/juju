@@ -17,11 +17,12 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
-	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/domain/storage/errors"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
+	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -53,11 +54,29 @@ func (u *unitStorageSuite) SetUpTest(c *tc.C) {
 	)
 }
 
+// newDyingStorageInstanceWithModelFilesystem is a helper function to
+// create a new storage instance with life Dying in the model with an
+// associated model provisioned filesystem.
+func (u *unitStorageSuite) newDyingStorageInstanceWithModelFilesystem(
+	c *tc.C,
+) (domainstorage.StorageInstanceUUID, domainstorage.FilesystemUUID) {
+	return u.newStorageInstanceWithLifeAndWithModelFilesystem(c, life.Dying)
+}
+
+// newAliveStorageInstanceWithModelFilesystem is a helper function to
+// create a new storage instance with life Dying in the model with an
+// associated model provisioned filesystem.
+func (u *unitStorageSuite) newAliveStorageInstanceWithModelFilesystem(
+	c *tc.C,
+) (domainstorage.StorageInstanceUUID, domainstorage.FilesystemUUID) {
+	return u.newStorageInstanceWithLifeAndWithModelFilesystem(c, life.Alive)
+}
+
 // newStorageInstanceWithModelFilesystem is a helper function to create a new
 // storage instance in the model with an associated model provisioned
 // filesystem.
-func (u *unitStorageSuite) newStorageInstanceWithModelFilesystem(
-	c *tc.C,
+func (u *unitStorageSuite) newStorageInstanceWithLifeAndWithModelFilesystem(
+	c *tc.C, life life.Life,
 ) (domainstorage.StorageInstanceUUID, domainstorage.FilesystemUUID) {
 	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	filesystemUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
@@ -68,24 +87,27 @@ func (u *unitStorageSuite) newStorageInstanceWithModelFilesystem(
 		c.Context(),
 		`
 INSERT INTO storage_instance (uuid, storage_name, storage_kind_id, storage_id,
-                              life_id, storage_pool_uuid, requested_size_mib)
-VALUES (?, ?, 1, ?, 1, ?, 1024)
+                              life_id, storage_pool_uuid, charm_name, requested_size_mib)
+VALUES (?, ?, 1, ?, ?, ?, ?, 1024)
 `,
 		storageInstanceUUID.String(),
 		"st1",
 		storageInstanceUUID.String(),
+		life,
 		storagePoolUUID.String(),
+		"bar",
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = u.DB().ExecContext(
 		c.Context(),
 		`
-INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
-VALUES (?, ?, 1, 0)
+INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id, size_mib)
+VALUES (?, ?, ?, 0, 1024)
 	`,
 		filesystemUUID.String(),
 		filesystemUUID.String(),
+		life,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -130,8 +152,8 @@ func (u *unitStorageSuite) TestGetUnitOwnedStorageInstances(c *tc.C) {
 	_, unitUUIDs := u.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
 	unitUUID := unitUUIDs[0]
 
-	st1UUID, fs1UUID := u.newStorageInstanceWithModelFilesystem(c)
-	st2UUID, fs2UUID := u.newStorageInstanceWithModelFilesystem(c)
+	st1UUID, fs1UUID := u.newDyingStorageInstanceWithModelFilesystem(c)
+	st2UUID, fs2UUID := u.newDyingStorageInstanceWithModelFilesystem(c)
 	u.newStorageUnitOwner(c, st1UUID, unitUUID)
 	u.newStorageUnitOwner(c, st2UUID, unitUUID)
 
@@ -373,37 +395,36 @@ func (u *unitStorageSuite) TestGetUnitStorageDirectiveByName(c *tc.C) {
 	})
 }
 
-func (u *unitStorageSuite) TestGetCharmStorageAndInstanceCountByUnitUUID(c *tc.C) {
+func (u *unitStorageSuite) TestGetStorageAddInfoByUnitUUID(c *tc.C) {
 	unitUUID, _ := u.newUnitWithStorageDirectives(c)
 
-	st1UUID, _ := u.newStorageInstanceWithModelFilesystem(c)
-	st2UUID, _ := u.newStorageInstanceWithModelFilesystem(c)
+	st1UUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
+	st2UUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
 	u.newStorageUnitOwner(c, st1UUID, unitUUID)
 	u.newStorageUnitOwner(c, st2UUID, unitUUID)
 
-	storageInfo, count, err := u.state.GetCharmStorageAndInstanceCountByUnitUUID(c.Context(), unitUUID, "st1")
+	storageInfo, err := u.state.GetStorageAddInfoByUnitUUID(c.Context(), unitUUID, "st1")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(count, tc.Equals, uint32(2))
-	c.Assert(storageInfo, tc.DeepEquals, internalcharm.Storage{
-		Name:        "st1",
-		Description: "st1",
-		Type:        "filesystem",
-		CountMin:    1,
-		CountMax:    10,
-		MinimumSize: 1024,
+	c.Assert(storageInfo, tc.DeepEquals, internal.StorageInfoForAdd{
+		CharmStorageName:     "st1",
+		Type:                 "filesystem",
+		CountMin:             1,
+		CountMax:             10,
+		MinimumSize:          1024,
+		AlreadyAttachedCount: uint32(2),
 	})
 }
 
-func (u *unitStorageSuite) TestGetCharmStorageAndInstanceCountByUnitUUIDNotSupported(c *tc.C) {
+func (u *unitStorageSuite) TestGetStorageAddInfoByUnitUUIDNotSupported(c *tc.C) {
 	unitUUID, _ := u.newUnitWithStorageDirectives(c)
 
-	_, _, err := u.state.GetCharmStorageAndInstanceCountByUnitUUID(c.Context(), unitUUID, "st666")
+	_, err := u.state.GetStorageAddInfoByUnitUUID(c.Context(), unitUUID, "st666")
 	c.Assert(err, tc.ErrorIs, applicationerrors.StorageNameNotSupported)
 }
 
 func (u *unitStorageSuite) TestAddStorageForIAASUnitNotFound(c *tc.C) {
 	uuid := tc.Must(c, coreunit.NewUUID)
-	_, err := u.state.AddStorageForIAASUnit(c.Context(), uuid, "st1", internal.IAASUnitAddStorageArg{})
+	_, err := u.state.AddStorageForIAASUnit(c.Context(), uuid, "st1", internal.AddStorageToIAASUnitArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -416,7 +437,7 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnitNotAlive(c *tc.C) {
 	})
 	c.Assert(err, tc.IsNil)
 
-	_, err = u.state.AddStorageForIAASUnit(c.Context(), uuid, "st1", internal.IAASUnitAddStorageArg{})
+	_, err = u.state.AddStorageForIAASUnit(c.Context(), uuid, "st1", internal.AddStorageToIAASUnitArg{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotAlive)
 }
 
@@ -456,7 +477,7 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnit(c *tc.C) {
 	fsa1UUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
 	sa2UUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
 	fsa2UUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
-	unitStorageToAttach := []internal.CreateUnitStorageAttachmentArg{
+	unitStorageToAttach := []internal.AttachStorageToUnitArg{
 		{
 			UUID: sa1UUID,
 			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
@@ -478,11 +499,11 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnit(c *tc.C) {
 		},
 	}
 
-	gotIDs, err := u.state.AddStorageForIAASUnit(c.Context(), unitUUID, "st1", internal.IAASUnitAddStorageArg{
-		UnitAddStorageArg: internal.UnitAddStorageArg{
-			StorageInstances: unitStorageToCreate,
-			StorageToAttach:  unitStorageToAttach,
-			StorageToOwn:     []domainstorage.StorageInstanceUUID{si1UUID, si2UUID},
+	gotIDs, err := u.state.AddStorageForIAASUnit(c.Context(), unitUUID, "st1", internal.AddStorageToIAASUnitArg{
+		AddStorageToUnitArg: internal.AddStorageToUnitArg{
+			StorageInstances:   unitStorageToCreate,
+			NewStorageToAttach: unitStorageToAttach,
+			StorageToOwn:       []domainstorage.StorageInstanceUUID{si1UUID, si2UUID},
 		},
 		FilesystemsToOwn: []domainstorage.FilesystemUUID{fs1UUID, fs2UUID},
 	})
@@ -526,5 +547,236 @@ func (u *unitStorageSuite) TestAddStorageForIAASUnit(c *tc.C) {
 				FilesystemUUID: fs2UUID,
 			},
 		},
+	})
+}
+
+func (u *unitStorageSuite) TestAttachStorageToIAASUnitNotFound(c *tc.C) {
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	stUUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
+	err := u.state.AttachStorageToUnit(c.Context(), stUUID, unitUUID, internal.AttachExistingStorageToUnitArg{})
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (u *unitStorageSuite) TestAttachStorageToIAASUnitStorageNotFound(c *tc.C) {
+	_, unitUUID := u.createNamedIAASUnit(c)
+	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	err := u.state.AttachStorageToUnit(c.Context(), storageUUID, unitUUID, internal.AttachExistingStorageToUnitArg{})
+	c.Assert(err, tc.ErrorIs, errors.StorageInstanceNotFound)
+}
+
+func (u *unitStorageSuite) TestAttachStorageToIAASUnitNotAlive(c *tc.C) {
+	_, unitUUID := u.createNamedIAASUnit(c)
+	stUUID, _ := u.newAliveStorageInstanceWithModelFilesystem(c)
+
+	err := u.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE uuid = ?", unitUUID.String())
+		return err
+	})
+	c.Assert(err, tc.IsNil)
+
+	err = u.state.AttachStorageToUnit(c.Context(), stUUID, unitUUID, internal.AttachExistingStorageToUnitArg{})
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotAlive)
+}
+
+func (u *unitStorageSuite) TestAttachStorageToIAASUnitStorageNotAlive(c *tc.C) {
+	_, unitUUID := u.createNamedIAASUnit(c)
+	stUUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
+
+	err := u.state.AttachStorageToUnit(c.Context(), stUUID, unitUUID, internal.AttachExistingStorageToUnitArg{})
+	c.Assert(err, tc.ErrorIs, applicationerrors.StorageNotAlive)
+}
+
+func (u *unitStorageSuite) TestAttachStorageToUnit(c *tc.C) {
+	unitUUID, _ := u.newUnitWithStorageDirectives(c)
+	netNodeUUID, err := u.state.GetUnitNetNodeUUID(c.Context(), unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	siUUID, fsUUID := u.newAliveStorageInstanceWithModelFilesystem(c)
+	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
+	fsaUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
+
+	unitStorageToAttach := internal.AttachStorageToUnitArg{
+		UUID: saUUID,
+		FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
+			FilesystemUUID: fsUUID,
+			NetNodeUUID:    domainnetwork.NetNodeUUID(netNodeUUID),
+			ProvisionScope: domainstorageprov.ProvisionScopeMachine,
+			UUID:           fsaUUID,
+		},
+		StorageInstanceUUID: siUUID,
+	}
+
+	attachInfo, err := u.state.GetStorageAttachInfoByUnitUUIDAndStorageUUID(c.Context(), unitUUID, siUUID)
+	c.Assert(err, tc.IsNil)
+	c.Assert(attachInfo.AlreadyAttachedToUnits, tc.HasLen, 0)
+
+	err = u.state.AttachStorageToUnit(c.Context(), siUUID, unitUUID, internal.AttachExistingStorageToUnitArg{
+		AttachStorageToUnitArg: unitStorageToAttach,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	var siCharmName string
+	err = u.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT charm_name FROM storage_instance WHERE uuid=?", siUUID).Scan(&siCharmName)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(siCharmName, tc.Equals, "foo")
+
+	inst, attach, err := u.state.GetUnitOwnedStorageInstances(c.Context(), unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(inst, tc.SameContents, []internal.StorageInstanceComposition{
+		{
+			Filesystem: &internal.StorageInstanceCompositionFilesystem{
+				ProvisionScope: 0,
+				UUID:           fsUUID,
+			},
+			StorageName: "st1",
+			UUID:        siUUID,
+		},
+	})
+	c.Assert(attach, tc.SameContents, []internal.StorageAttachmentComposition{
+		{
+			UUID:                saUUID,
+			StorageInstanceUUID: siUUID,
+			FilesystemAttachment: &internal.StorageInstanceCompositionFilesystemAttachment{
+				ProvisionScope: 1,
+				UUID:           fsaUUID,
+				FilesystemUUID: fsUUID,
+			},
+		},
+	})
+
+	attachInfo, err = u.state.GetStorageAttachInfoByUnitUUIDAndStorageUUID(c.Context(), unitUUID, siUUID)
+	c.Assert(err, tc.IsNil)
+	c.Assert(attachInfo.AlreadyAttachedToUnits, tc.DeepEquals, map[string]string{unitUUID.String(): "foo/0"})
+}
+
+func (u *unitStorageSuite) TestAttachStorageAlreadyAttached(c *tc.C) {
+	unitUUID, _ := u.newUnitWithStorageDirectives(c)
+	netNodeUUID, err := u.state.GetUnitNetNodeUUID(c.Context(), unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	siUUID, fsUUID := u.newAliveStorageInstanceWithModelFilesystem(c)
+	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
+	fsaUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
+
+	unitStorageToAttach := internal.AttachStorageToUnitArg{
+		UUID: saUUID,
+		FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
+			FilesystemUUID: fsUUID,
+			NetNodeUUID:    domainnetwork.NetNodeUUID(netNodeUUID),
+			ProvisionScope: domainstorageprov.ProvisionScopeMachine,
+			UUID:           fsaUUID,
+		},
+		StorageInstanceUUID: siUUID,
+	}
+
+	arg := internal.AttachExistingStorageToUnitArg{
+		AttachStorageToUnitArg: unitStorageToAttach,
+	}
+	err = u.state.AttachStorageToUnit(c.Context(), siUUID, unitUUID, arg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	arg.AllowedExistingUnitAttachments = []string{tc.Must(c, coreunit.NewUUID).String()}
+	err = u.state.AttachStorageToUnit(c.Context(), siUUID, unitUUID, arg)
+	rErr, ok := internalerrors.AsType[applicationerrors.StorageAttachmentNotAllowed](err)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(rErr, tc.DeepEquals, applicationerrors.StorageAttachmentNotAllowed{
+		AttachedToUnits: []string{"foo/0"},
+	})
+}
+
+func (u *unitStorageSuite) TestAttachStorageTwiceSameUnit(c *tc.C) {
+	unitUUID, _ := u.newUnitWithStorageDirectives(c)
+	netNodeUUID, err := u.state.GetUnitNetNodeUUID(c.Context(), unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	siUUID, fsUUID := u.newAliveStorageInstanceWithModelFilesystem(c)
+	saUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
+	fsaUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID)
+
+	unitStorageToAttach := internal.AttachStorageToUnitArg{
+		UUID: saUUID,
+		FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
+			FilesystemUUID: fsUUID,
+			NetNodeUUID:    domainnetwork.NetNodeUUID(netNodeUUID),
+			ProvisionScope: domainstorageprov.ProvisionScopeMachine,
+			UUID:           fsaUUID,
+		},
+		StorageInstanceUUID: siUUID,
+	}
+
+	arg := internal.AttachExistingStorageToUnitArg{
+		AttachStorageToUnitArg: unitStorageToAttach,
+	}
+	err = u.state.AttachStorageToUnit(c.Context(), siUUID, unitUUID, arg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	arg.AllowedExistingUnitAttachments = []string{unitUUID.String()}
+	arg.CountLessThanEqual = 2
+	err = u.state.AttachStorageToUnit(c.Context(), siUUID, unitUUID, arg)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (u *unitStorageSuite) TestGetStorageInstanceCompositionByUUIDNotFound(c *tc.C) {
+	uuid := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	_, err := u.state.GetStorageInstanceCompositionByUUID(c.Context(), uuid)
+	c.Assert(err, tc.ErrorIs, errors.StorageInstanceNotFound)
+}
+
+func (u *unitStorageSuite) TestGetStorageInstanceCompositionByUUID(c *tc.C) {
+	_, unitUUIDs := u.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	unitUUID := unitUUIDs[0]
+
+	st1UUID, fs1UUID := u.newDyingStorageInstanceWithModelFilesystem(c)
+	st2UUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
+	u.newStorageUnitOwner(c, st1UUID, unitUUID)
+	u.newStorageUnitOwner(c, st2UUID, unitUUID)
+
+	result, err := u.state.GetStorageInstanceCompositionByUUID(c.Context(), st1UUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	expected := internal.StorageInstanceComposition{
+		Filesystem: &internal.StorageInstanceCompositionFilesystem{
+			ProvisionScope: domainstorageprov.ProvisionScopeModel,
+			UUID:           fs1UUID,
+		},
+		StorageName: "st1",
+		UUID:        st1UUID,
+	}
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_[_].StorageName", tc.Ignore)
+	c.Check(result, mc, expected)
+}
+
+func (u *unitStorageSuite) TestGetStorageAttachInfoByUnitUUIDAndStorageUUIDNotFound(c *tc.C) {
+	unitUUID, _ := u.newUnitWithStorageDirectives(c)
+	stUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+
+	_, err := u.state.GetStorageAttachInfoByUnitUUIDAndStorageUUID(c.Context(), unitUUID, stUUID)
+	c.Assert(err, tc.ErrorIs, errors.StorageInstanceNotFound)
+}
+
+func (u *unitStorageSuite) TestGetStorageAttachInfoByUnitUUIDAndStorageUUID(c *tc.C) {
+	unitUUID, _ := u.newUnitWithStorageDirectives(c)
+
+	st1UUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
+	st2UUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
+	u.newStorageUnitOwner(c, st1UUID, unitUUID)
+	u.newStorageUnitOwner(c, st2UUID, unitUUID)
+
+	storageInfo, err := u.state.GetStorageAttachInfoByUnitUUIDAndStorageUUID(c.Context(), unitUUID, st1UUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(storageInfo, tc.DeepEquals, internal.StorageInfoForAttach{
+		CharmStorageName:       "st1",
+		CountMin:               1,
+		CountMax:               10,
+		MinimumSize:            1024,
+		AlreadyAttachedCount:   2,
+		ProvisionedSizeMiB:     1024,
+		AlreadyAttachedToUnits: nil,
 	})
 }

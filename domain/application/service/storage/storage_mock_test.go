@@ -109,44 +109,6 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
-// AttachStorageToUnit mocks base method.
-func (m *MockState) AttachStorageToUnit(arg0 context.Context, arg1 storage0.StorageInstanceUUID, arg2 unit.UUID) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AttachStorageToUnit", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AttachStorageToUnit indicates an expected call of AttachStorageToUnit.
-func (mr *MockStateMockRecorder) AttachStorageToUnit(arg0, arg1, arg2 any) *MockStateAttachStorageToUnitCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AttachStorageToUnit", reflect.TypeOf((*MockState)(nil).AttachStorageToUnit), arg0, arg1, arg2)
-	return &MockStateAttachStorageToUnitCall{Call: call}
-}
-
-// MockStateAttachStorageToUnitCall wrap *gomock.Call
-type MockStateAttachStorageToUnitCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateAttachStorageToUnitCall) Return(arg0 error) *MockStateAttachStorageToUnitCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateAttachStorageToUnitCall) Do(f func(context.Context, storage0.StorageInstanceUUID, unit.UUID) error) *MockStateAttachStorageToUnitCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAttachStorageToUnitCall) DoAndReturn(f func(context.Context, storage0.StorageInstanceUUID, unit.UUID) error) *MockStateAttachStorageToUnitCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // DetachStorage mocks base method.
 func (m *MockState) DetachStorage(arg0 context.Context, arg1 storage0.StorageInstanceUUID) error {
 	m.ctrl.T.Helper()
@@ -336,6 +298,45 @@ func (c *MockStateGetModelStoragePoolsCall) Do(f func(context.Context) (internal
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetModelStoragePoolsCall) DoAndReturn(f func(context.Context) (internal.ModelStoragePools, error)) *MockStateGetModelStoragePoolsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetStorageInstanceCompositionByUUID mocks base method.
+func (m *MockState) GetStorageInstanceCompositionByUUID(arg0 context.Context, arg1 storage0.StorageInstanceUUID) (internal.StorageInstanceComposition, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStorageInstanceCompositionByUUID", arg0, arg1)
+	ret0, _ := ret[0].(internal.StorageInstanceComposition)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStorageInstanceCompositionByUUID indicates an expected call of GetStorageInstanceCompositionByUUID.
+func (mr *MockStateMockRecorder) GetStorageInstanceCompositionByUUID(arg0, arg1 any) *MockStateGetStorageInstanceCompositionByUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageInstanceCompositionByUUID", reflect.TypeOf((*MockState)(nil).GetStorageInstanceCompositionByUUID), arg0, arg1)
+	return &MockStateGetStorageInstanceCompositionByUUIDCall{Call: call}
+}
+
+// MockStateGetStorageInstanceCompositionByUUIDCall wrap *gomock.Call
+type MockStateGetStorageInstanceCompositionByUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetStorageInstanceCompositionByUUIDCall) Return(arg0 internal.StorageInstanceComposition, arg1 error) *MockStateGetStorageInstanceCompositionByUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetStorageInstanceCompositionByUUIDCall) Do(f func(context.Context, storage0.StorageInstanceUUID) (internal.StorageInstanceComposition, error)) *MockStateGetStorageInstanceCompositionByUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetStorageInstanceCompositionByUUIDCall) DoAndReturn(f func(context.Context, storage0.StorageInstanceUUID) (internal.StorageInstanceComposition, error)) *MockStateGetStorageInstanceCompositionByUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

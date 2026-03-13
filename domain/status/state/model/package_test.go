@@ -59,17 +59,20 @@ func (s *baseSuite) workloadStatus(now time.Time) *status.StatusInfo[status.Work
 func (s *baseSuite) createCAASUnitArg(c *tc.C) application.AddCAASUnitArg {
 	return application.AddCAASUnitArg{
 		AddUnitArg: application.AddUnitArg{
+			UnitUUID:    tc.Must(c, coreunit.NewUUID),
 			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
 		},
 	}
 }
 
 func (s *baseSuite) createIAASUnitArg(c *tc.C) application.AddIAASUnitArg {
+	unitUUID := tc.Must(c, coreunit.NewUUID)
 	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	return application.AddIAASUnitArg{
 		MachineNetNodeUUID: netNodeUUID,
 		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			UnitUUID:    unitUUID,
 			NetNodeUUID: netNodeUUID,
 		},
 	}
@@ -82,9 +85,11 @@ func (s *baseSuite) createIAASApplicationWithNUnits(
 ) (coreapplication.UUID, []coreunit.UUID) {
 	units := make([]application.AddIAASUnitArg, nUnits)
 	for i := range units {
+		unitUUID := tc.Must(c, coreunit.NewUUID)
 		netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 		units[i].MachineUUID = tc.Must(c, coremachine.NewUUID)
 		units[i].MachineNetNodeUUID = netNodeUUID
+		units[i].UnitUUID = unitUUID
 		units[i].NetNodeUUID = netNodeUUID
 	}
 

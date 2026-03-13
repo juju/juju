@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
-	machine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	networktesting "github.com/juju/juju/core/network/testing"
@@ -2708,7 +2708,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	)
 	// Expect the override pool UUID validation to succeed.
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ map[string]internalcharm.Storage, overrides map[string]storage.StorageDirectiveOverride) error {
+		func(_ context.Context, _ map[string]internal.ValidateStorageArg, overrides map[string]storage.StorageDirectiveOverride) error {
 			override, exists := overrides["data"]
 			c.Assert(exists, tc.IsTrue)
 			c.Assert(override.PoolUUID, tc.NotNil)
@@ -2790,7 +2790,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	)
 	// Expect the override pool UUID validation to fail.
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ map[string]internalcharm.Storage, overrides map[string]storage.StorageDirectiveOverride) error {
+		func(_ context.Context, _ map[string]internal.ValidateStorageArg, overrides map[string]storage.StorageDirectiveOverride) error {
 			override, exists := overrides["data"]
 			c.Assert(exists, tc.IsTrue)
 			c.Assert(override.PoolUUID, tc.NotNil)
@@ -2919,7 +2919,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 		nil,
 	)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ map[string]internalcharm.Storage, overrides map[string]storage.StorageDirectiveOverride) error {
+		func(_ context.Context, _ map[string]internal.ValidateStorageArg, overrides map[string]storage.StorageDirectiveOverride) error {
 			override, exists := overrides["data"]
 			c.Assert(exists, tc.IsTrue)
 			c.Assert(override.Count, tc.NotNil)
@@ -2996,7 +2996,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 		nil,
 	)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ map[string]internalcharm.Storage, overrides map[string]storage.StorageDirectiveOverride) error {
+		func(_ context.Context, _ map[string]internal.ValidateStorageArg, overrides map[string]storage.StorageDirectiveOverride) error {
 			override, exists := overrides["data"]
 			c.Assert(exists, tc.IsTrue)
 			c.Assert(override.Count, tc.NotNil)
@@ -3070,7 +3070,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 		nil,
 	)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ map[string]internalcharm.Storage, overrides map[string]storage.StorageDirectiveOverride) error {
+		func(_ context.Context, _ map[string]internal.ValidateStorageArg, overrides map[string]storage.StorageDirectiveOverride) error {
 			override, exists := overrides["data"]
 			c.Assert(exists, tc.IsTrue)
 			c.Assert(override.Count, tc.NotNil)
@@ -3143,7 +3143,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 		nil,
 	)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ map[string]internalcharm.Storage, overrides map[string]storage.StorageDirectiveOverride) error {
+		func(_ context.Context, _ map[string]internal.ValidateStorageArg, overrides map[string]storage.StorageDirectiveOverride) error {
 			override, exists := overrides["data"]
 			c.Assert(exists, tc.IsTrue)
 			c.Assert(override.Size, tc.NotNil)
@@ -3219,7 +3219,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 		nil,
 	)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ map[string]internalcharm.Storage, overrides map[string]storage.StorageDirectiveOverride) error {
+		func(_ context.Context, _ map[string]internal.ValidateStorageArg, overrides map[string]storage.StorageDirectiveOverride) error {
 			override, exists := overrides["data"]
 			c.Assert(exists, tc.IsTrue)
 			c.Assert(override.Size, tc.NotNil)
@@ -3291,7 +3291,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 		nil,
 	)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ map[string]internalcharm.Storage, overrides map[string]storage.StorageDirectiveOverride) error {
+		func(_ context.Context, _ map[string]internal.ValidateStorageArg, overrides map[string]storage.StorageDirectiveOverride) error {
 			override, exists := overrides["data"]
 			c.Assert(exists, tc.IsTrue)
 			c.Assert(override.Size, tc.NotNil)
@@ -3357,7 +3357,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(newCharmStorages), nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, nil)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ map[string]internalcharm.Storage, overrides map[string]storage.StorageDirectiveOverride) error {
+		func(_ context.Context, _ map[string]internal.ValidateStorageArg, overrides map[string]storage.StorageDirectiveOverride) error {
 			_, exists := overrides["data"]
 			c.Assert(exists, tc.IsFalse)
 			return errors.New("storage directive not-data does not exist in the application")
@@ -3523,7 +3523,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(newCharmStorages), nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, nil)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ map[string]internalcharm.Storage, overrides map[string]storage.StorageDirectiveOverride) error {
+		func(_ context.Context, _ map[string]internal.ValidateStorageArg, overrides map[string]storage.StorageDirectiveOverride) error {
 			c.Assert(len(overrides), tc.Equals, 2)
 			c.Assert(overrides["data"].Size, tc.NotNil)
 			c.Assert(*overrides["data"].Size, tc.Equals, uint64(2048))

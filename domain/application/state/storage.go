@@ -5,11 +5,13 @@ package state
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 
 	coreapplication "github.com/juju/juju/core/application"
-	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -185,6 +187,64 @@ SELECT &storageDirective.* FROM (
 	return rval, nil
 }
 
+// GetStorageInstanceCompositionByUUID returns the storage compositions for
+// the specified storage instance.
+func (st *State) GetStorageInstanceCompositionByUUID(
+	ctx context.Context,
+	storageInstanceUUID domainstorage.StorageInstanceUUID,
+) (
+	internal.StorageInstanceComposition,
+	error,
+) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return internal.StorageInstanceComposition{}, errors.Capture(err)
+	}
+	storageInstanceUUIDInput := entityUUID{UUID: storageInstanceUUID.String()}
+	compositionQ := `
+SELECT &storageInstanceComposition.*
+FROM (
+    SELECT    sf.uuid AS filesystem_uuid,
+              sf.provision_scope_id AS filesystem_provision_scope,
+              si.storage_name AS storage_name,
+              si.uuid AS uuid,
+              sv.uuid AS volume_uuid,
+              sv.provision_scope_id AS volume_provision_scope
+    FROM      storage_instance si
+    LEFT JOIN storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid
+    LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
+    LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
+    LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
+    WHERE     si.uuid = $entityUUID.uuid
+)
+`
+
+	stmt, err := st.Prepare(
+		compositionQ,
+		storageInstanceUUIDInput,
+		storageInstanceComposition{},
+	)
+	if err != nil {
+		return internal.StorageInstanceComposition{}, errors.Capture(err)
+	}
+
+	var dbVal storageInstanceComposition
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, storageInstanceUUIDInput).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("storage instance %q not found", storageInstanceUUID).
+				Add(storageerrors.StorageInstanceNotFound)
+		}
+		return err
+	})
+	if err != nil {
+		return internal.StorageInstanceComposition{}, errors.Capture(err)
+	}
+
+	rval := makeStorageInstanceComposition(dbVal)
+	return rval, nil
+}
+
 // GetStorageInstancesForProviderIDs returns all of the storage instances
 // found in the model using one of the provider ids supplied. The storage
 // instance must also not be owned by a unit. If no storage instances are found
@@ -257,31 +317,39 @@ FROM (
 		return nil, errors.Capture(err)
 	}
 
+	rval := makeStorageInstanceCompositions(dbVals)
+	return rval, nil
+}
+
+func makeStorageInstanceCompositions(dbVals []storageInstanceComposition) []internal.StorageInstanceComposition {
 	rval := make([]internal.StorageInstanceComposition, 0, len(dbVals))
 	for _, dbVal := range dbVals {
-		v := internal.StorageInstanceComposition{
-			StorageName: domainstorage.Name(dbVal.StorageName),
-			UUID:        domainstorage.StorageInstanceUUID(dbVal.UUID),
-		}
-
-		if dbVal.FilesystemUUID.Valid {
-			v.Filesystem = &internal.StorageInstanceCompositionFilesystem{
-				ProvisionScope: domainstorageprov.ProvisionScope(dbVal.FilesystemProvisionScope.V),
-				UUID:           domainstorage.FilesystemUUID(dbVal.FilesystemUUID.V),
-			}
-		}
-
-		if dbVal.VolumeUUID.Valid {
-			v.Volume = &internal.StorageInstanceCompositionVolume{
-				ProvisionScope: domainstorageprov.ProvisionScope(dbVal.VolumeProvisionScope.V),
-				UUID:           domainstorage.VolumeUUID(dbVal.VolumeUUID.V),
-			}
-		}
-
+		v := makeStorageInstanceComposition(dbVal)
 		rval = append(rval, v)
 	}
+	return rval
+}
 
-	return rval, nil
+func makeStorageInstanceComposition(dbVal storageInstanceComposition) internal.StorageInstanceComposition {
+	v := internal.StorageInstanceComposition{
+		StorageName: domainstorage.Name(dbVal.StorageName),
+		UUID:        domainstorage.StorageInstanceUUID(dbVal.UUID),
+	}
+
+	if dbVal.FilesystemUUID.Valid {
+		v.Filesystem = &internal.StorageInstanceCompositionFilesystem{
+			ProvisionScope: domainstorageprov.ProvisionScope(dbVal.FilesystemProvisionScope.V),
+			UUID:           domainstorage.FilesystemUUID(dbVal.FilesystemUUID.V),
+		}
+	}
+
+	if dbVal.VolumeUUID.Valid {
+		v.Volume = &internal.StorageInstanceCompositionVolume{
+			ProvisionScope: domainstorageprov.ProvisionScope(dbVal.VolumeProvisionScope.V),
+			UUID:           domainstorage.VolumeUUID(dbVal.VolumeUUID.V),
+		}
+	}
+	return v
 }
 
 // GetUnitOwnedStorageInstances returns the storage compositions for all
@@ -469,6 +537,95 @@ FROM (
 	}
 
 	return retInstComp, retAttachmentComp, nil
+}
+
+func (st *State) getStorageAttachmentUnits(
+	ctx context.Context,
+	tx *sqlair.TX,
+	stUUID domainstorage.StorageInstanceUUID,
+) ([]storageAttachmentUnit, error) {
+	storageUUID := entityUUID{UUID: stUUID.String()}
+
+	storageExistsStmt, err := st.Prepare(`
+SELECT &entityUUID.uuid
+FROM   storage_instance
+WHERE  uuid = $entityUUID.uuid
+`, storageUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	attachStmt, err := st.Prepare(`
+SELECT u.* AS &storageAttachmentUnit.*
+FROM   storage_attachment sia
+JOIN   unit u ON sia.unit_uuid = u.uuid
+AND    sia.storage_instance_uuid = $entityUUID.uuid
+`, storageUUID, storageAttachmentUnit{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, storageExistsStmt, storageUUID).Get(&storageUUID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, errors.Errorf("storage %q does not exist", stUUID).
+			Add(storageerrors.StorageInstanceNotFound)
+	}
+	if err != nil {
+		return nil, errors.Errorf("checking storage %q exists: %w", stUUID, err)
+	}
+
+	var result []storageAttachmentUnit
+	err = tx.Query(ctx, attachStmt, storageUUID).GetAll(&result)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Errorf("getting storage %q attachments: %w", stUUID, err)
+	}
+	return result, nil
+}
+
+// getStorageMachineOwner returns the UUID and name of the machine that owns
+// the storage instance's underlying volume or filesystem. If the storage
+// instance has both a filesystem and a volume associated with a machine, the
+// filesystem association is preferred. Returns nil if no machine owns the
+// storage.
+func (st *State) getStorageMachineOwner(
+	ctx context.Context,
+	tx *sqlair.TX,
+	stUUID domainstorage.StorageInstanceUUID,
+) (*storageMachineOwner, error) {
+	storageUUID := entityUUID{UUID: stUUID.String()}
+
+	// Prefer the filesystem path; fall back to the volume path.
+	stmt, err := st.Prepare(`
+WITH machine_storage AS (
+	SELECT m.uuid, m.name
+	FROM   storage_instance_filesystem sif
+	JOIN   machine_filesystem mf ON sif.storage_filesystem_uuid = mf.filesystem_uuid
+	JOIN   machine m ON mf.machine_uuid = m.uuid
+	WHERE  sif.storage_instance_uuid = $entityUUID.uuid
+	UNION
+	SELECT m.uuid, m.name
+	FROM   storage_instance_volume siv
+	JOIN   machine_volume mv ON siv.storage_volume_uuid = mv.volume_uuid
+	JOIN   machine m ON mv.machine_uuid = m.uuid
+	WHERE  siv.storage_instance_uuid = $entityUUID.uuid
+	LIMIT 1
+)
+SELECT * AS &storageMachineOwner.* FROM machine_storage
+`, storageUUID, storageMachineOwner{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result storageMachineOwner
+	err = tx.Query(ctx, stmt, storageUUID).Get(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Errorf("getting machine owner for storage %q: %w", stUUID, err)
+	}
+	return &result, nil
 }
 
 // GetUnitStorageDirectives returns the storage directives that are set for
@@ -858,9 +1015,8 @@ WHERE  uuid = $storagePoolUUID.uuid
 // makeInsertUnitStorageAttachmentArgs is responsible for making the set of
 // storage instance attachment arguments that correspond to the storage uuids.
 func makeInsertUnitStorageAttachmentArgs(
-	_ context.Context,
 	unitUUID string,
-	storageToAttach []internal.CreateUnitStorageAttachmentArg,
+	storageToAttach []internal.AttachStorageToUnitArg,
 ) []insertStorageInstanceAttachment {
 	rval := make([]insertStorageInstanceAttachment, 0, len(storageToAttach))
 	for _, sa := range storageToAttach {
@@ -961,90 +1117,198 @@ WHERE  storage_id = $storageInstance.storage_id
 	return inst.StorageUUID, nil
 }
 
-// AttachStorageToUnit attaches the specified storage to the specified unit.
-// The following error types can be expected:
-// - [storageerrors.StorageInstanceNotFound] when the storage doesn't exist.
-// - [applicationerrors.UnitNotFound]: when the unit does not exist.
-// - [applicationerrors.StorageAlreadyAttached]: when the attachment already exists.
-// - [applicationerrors.FilesystemAlreadyAttached]: when the filesystem is already attached.
-// - [applicationerrors.VolumeAlreadyAttached]: when the volume is already attached.
-// - [applicationerrors.UnitNotAlive]: when the unit is not alive.
-// - [applicationerrors.StorageNotAlive]: when the storage is not alive.
-// - [applicationerrors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
-// - [applicationerrors.InvalidStorageCount]: when the allowed attachment count would be violated.
-func (st *State) AttachStorageToUnit(ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID) error {
+func (st *State) attachExistingStorageForNewUnit(
+	ctx context.Context, tx *sqlair.TX, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
+	storageArg internal.AttachExistingStorageToUnitArg,
+) error {
+	// Check allowed attachments.
+	attachedToUnits, err := st.getStorageAttachmentUnits(ctx, tx, storageUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	allowedAttachments := set.NewStrings(storageArg.AllowedExistingUnitAttachments...)
+	attachedUUIDs := set.NewStrings(transform.Slice(attachedToUnits, func(u storageAttachmentUnit) string { return u.UUID })...)
+	if attachedUUIDs.Difference(allowedAttachments).Size() > 0 {
+		return applicationerrors.StorageAttachmentNotAllowed{
+			AttachedToUnits: transform.Slice(attachedToUnits, func(u storageAttachmentUnit) string { return u.Name }),
+		}
+	}
+
+	// First to the basic life checks for the storage.
+	stor, err := st.getStorageDetails(ctx, tx, storageUUID)
+	if err != nil {
+		return err
+	}
+	if stor.LifeID != life.Alive {
+		return errors.Errorf("storage %q is not alive", unitUUID).Add(applicationerrors.StorageNotAlive)
+	}
+
+	err = st.insertUnitStorageAttachments(
+		ctx,
+		tx,
+		unitUUID.String(),
+		[]internal.AttachStorageToUnitArg{storageArg.AttachStorageToUnitArg},
+	)
+	if err != nil {
+		return errors.Errorf(
+			"creating storage attachments for unit %q: %w", unitUUID, err,
+		)
+	}
+
+	err = st.updateStorageInstanceForUnit(ctx, tx, unitUUID, storageUUID)
+	if err != nil {
+		return errors.Errorf(
+			"updating storage instance %q for unit %q: %w", storageUUID, unitUUID, err,
+		)
+	}
+
+	err = st.insertUnitStorageOwnership(ctx, tx, unitUUID.String(), []domainstorage.StorageInstanceUUID{storageUUID})
+	if err != nil {
+		return errors.Errorf(
+			"inserting storage ownership for unit %q: %w", unitUUID, err,
+		)
+	}
+	return nil
+}
+
+func (st *State) attachExistingStorageForExistingUnit(
+	ctx context.Context, tx *sqlair.TX, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
+	storageArg internal.AttachExistingStorageToUnitArg,
+) error {
+	// Check allowed attachments.
+	attachedToUnits, err := st.getStorageAttachmentUnits(ctx, tx, storageUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	allowedAttachments := set.NewStrings(storageArg.AllowedExistingUnitAttachments...)
+	attachedUUIDs := set.NewStrings(transform.Slice(attachedToUnits, func(u storageAttachmentUnit) string { return u.UUID })...)
+	if attachedUUIDs.Difference(allowedAttachments).Size() > 0 {
+		return applicationerrors.StorageAttachmentNotAllowed{
+			AttachedToUnits: transform.Slice(attachedToUnits, func(u storageAttachmentUnit) string { return u.Name }),
+		}
+	} else if attachedUUIDs.Contains(unitUUID.String()) {
+		// The storage is already attached to the unit, so we can no-op.
+		return nil
+	}
+
+	// First to the basic life checks for the unit and storage.
+	unitLifeID, _, err := st.getUnitLifeAndNetNode(ctx, tx, unitUUID.String())
+	if err != nil {
+		return err
+	}
+	if unitLifeID != life.Alive {
+		return errors.Errorf("unit %q is not alive", unitUUID).Add(applicationerrors.UnitNotAlive)
+	}
+
+	stor, err := st.getStorageDetails(ctx, tx, storageUUID)
+	if err != nil {
+		return err
+	}
+	if stor.LifeID != life.Alive {
+		return errors.Errorf("storage %q is not alive", unitUUID).Add(applicationerrors.StorageNotAlive)
+	}
+
+	// Ensure another update hasn't violated our preconditions.
+	currentCount, err := st.getUnitStorageCount(ctx, tx, unitUUID, stor.StorageName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if currentCount > storageArg.CountLessThanEqual {
+		return internal.MaxStorageCountPreconditonFailed
+	}
+
+	err = st.insertUnitStorageAttachments(
+		ctx,
+		tx,
+		unitUUID.String(),
+		[]internal.AttachStorageToUnitArg{storageArg.AttachStorageToUnitArg},
+	)
+	if err != nil {
+		return errors.Errorf(
+			"creating storage attachments for unit %q: %w", unitUUID, err,
+		)
+	}
+
+	err = st.updateStorageInstanceForUnit(ctx, tx, unitUUID, storageUUID)
+	if err != nil {
+		return errors.Errorf(
+			"updating storage instance %q for unit %q: %w", storageUUID, unitUUID, err,
+		)
+	}
+
+	err = st.insertUnitStorageOwnership(ctx, tx, unitUUID.String(), []domainstorage.StorageInstanceUUID{storageUUID})
+	if err != nil {
+		return errors.Errorf(
+			"inserting storage ownership for unit %q: %w", unitUUID, err,
+		)
+	}
+	return nil
+}
+
+// updateStorageInstanceForUnit updates the storage instance to reflect
+// that it's now attached to the specified unit.
+// Currently this just entails updating the storage instance
+// charm name to match that of the unit's charm.
+func (st *State) updateStorageInstanceForUnit(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitUUID coreunit.UUID,
+	storageUUID domainstorage.StorageInstanceUUID,
+) error {
+	uUUID := entityUUID{UUID: unitUUID.String()}
+	storageInst := storageInstance{StorageUUID: storageUUID}
+
+	updateStorageCharmStmt, err := st.Prepare(`
+UPDATE storage_instance
+SET charm_name = (
+    SELECT cm.name
+    FROM charm_metadata cm
+    JOIN UNIT u ON cm.charm_uuid = u.charm_uuid
+    WHERE u.uuid = $entityUUID.uuid
+)
+WHERE storage_instance.uuid = $storageInstance.uuid
+`,
+		uUUID, storageInst)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, updateStorageCharmStmt, uUUID, storageInst).Run()
+	if err != nil {
+		return errors.Errorf(
+			"setting storage instance charm name: %w", err,
+		)
+	}
+
+	return nil
+}
+
+// AttachStorageToUnit attaches the storage instance to an unit.
+func (st *State) AttachStorageToUnit(
+	ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
+	storageArg internal.AttachExistingStorageToUnitArg,
+) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	countQuery, err := st.Prepare(`
-SELECT count(*) AS &storageCount.count
-FROM storage_instance si
-JOIN storage_unit_owner suo ON si.uuid = suo.storage_instance_uuid
-WHERE suo.unit_uuid = $storageCount.unit_uuid
-AND si.storage_name = $storageCount.storage_name
-AND si.uuid != $storageCount.uuid
-`, storageCount{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// First to the basic life checks for the unit and storage.
-		unitLifeID, netNodeUUID, err := st.getUnitLifeAndNetNode(ctx, tx, unitUUID.String())
+		err := st.attachExistingStorageForExistingUnit(ctx, tx, storageUUID, unitUUID, storageArg)
 		if err != nil {
-			return err
+			return errors.Errorf("attaching storage %q to unit %q: %w", storageUUID, unitUUID, err)
 		}
-		if unitLifeID != life.Alive {
-			return errors.Errorf("unit %q is not alive", unitUUID).Add(applicationerrors.UnitNotAlive)
-		}
-
-		stor, err := st.getStorageDetails(ctx, tx, storageUUID)
-		if err != nil {
-			return err
-		}
-		if stor.LifeID != life.Alive {
-			return errors.Errorf("storage %q is not alive", unitUUID).Add(applicationerrors.StorageNotAlive)
-		}
-
-		// See if the storage name is supported by the unit's current charm.
-		// We might be attaching a storage instance created for a previous charm version
-		// and no longer supported.
-		charmStorage, err := st.getUnitCharmStorageByName(ctx, tx, unitUUID, stor.StorageName)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf(
-				"charm for unit %q has no storage called %q",
-				unitUUID, stor.StorageName,
-			).Add(applicationerrors.StorageNameNotSupported)
-		} else if err != nil {
-			return errors.Errorf("getting charm storage metadata for storage name %q unit %q: %w", stor.StorageName, unitUUID, err)
-		}
-
-		// Check allowed storage attachment counts - will this attachment exceed the max allowed.
-		// First get the number of storage instances (excluding the one we are attaching)
-		// of the same name already owned by this unit.
-		storageCount := storageCount{StorageUUID: storageUUID, StorageName: stor.StorageName, UnitUUID: unitUUID}
-		err = tx.Query(ctx, countQuery, storageCount).Get(&storageCount)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("querying storage count for storage %q on unit %q: %w", stor.StorageName, unitUUID, err)
-		}
-		// Ensure that the attachment count can increase by 1.
-		if err := ensureCharmStorageCountChange(charmStorage, storageCount.Count, 1); err != nil {
-			return err
-		}
-
-		return st.attachStorage(ctx, tx, stor, unitUUID, netNodeUUID, charmStorage)
+		return nil
 	})
 	if err != nil {
-		return errors.Errorf("attaching storage %q to unit %q: %w", storageUUID, unitUUID, err)
+		return errors.Capture(err)
 	}
 	return nil
 }
 
 func (st *State) addStorageForUnit(
 	ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID,
-	storageName corestorage.Name, storageArg internal.UnitAddStorageArg,
+	storageName corestorage.Name, storageArg internal.AddStorageToUnitArg,
 ) ([]string, error) {
 	// First to the basic life check for the unit.
 	unitLifeID, _, err := st.getUnitLifeAndNetNode(ctx, tx, unitUUID.String())
@@ -1064,7 +1328,7 @@ func (st *State) addStorageForUnit(
 		return nil, internal.MaxStorageCountPreconditonFailed
 	}
 
-	storageIDs, err := st.unitState.insertUnitStorageInstances(
+	storageIDs, err := st.insertUnitStorageInstances(
 		ctx, tx, storageArg.StorageInstances,
 	)
 	if err != nil {
@@ -1073,11 +1337,11 @@ func (st *State) addStorageForUnit(
 		)
 	}
 
-	err = st.unitState.insertUnitStorageAttachments(
+	err = st.insertUnitStorageAttachments(
 		ctx,
 		tx,
 		unitUUID.String(),
-		storageArg.StorageToAttach,
+		storageArg.NewStorageToAttach,
 	)
 	if err != nil {
 		return nil, errors.Errorf(
@@ -1085,7 +1349,7 @@ func (st *State) addStorageForUnit(
 		)
 	}
 
-	err = st.unitState.insertUnitStorageOwnership(ctx, tx, unitUUID.String(), storageArg.StorageToOwn)
+	err = st.insertUnitStorageOwnership(ctx, tx, unitUUID.String(), storageArg.StorageToOwn)
 	if err != nil {
 		return nil, errors.Errorf(
 			"inserting storage ownership for unit %q: %w", unitUUID, err,
@@ -1097,7 +1361,7 @@ func (st *State) addStorageForUnit(
 // AddStorageForCAASUnit adds storage instances to given CAAS unit as specified.
 func (st *State) AddStorageForCAASUnit(
 	ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
-	storageArg internal.UnitAddStorageArg,
+	storageArg internal.AddStorageToUnitArg,
 ) ([]corestorage.ID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1123,7 +1387,7 @@ func (st *State) AddStorageForCAASUnit(
 // AddStorageForIAASUnit adds storage instances to given IAAS unit as specified.
 func (st *State) AddStorageForIAASUnit(
 	ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
-	storageArg internal.IAASUnitAddStorageArg,
+	storageArg internal.AddStorageToIAASUnitArg,
 ) ([]corestorage.ID, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1137,12 +1401,12 @@ func (st *State) AddStorageForIAASUnit(
 
 	var storageIDs []string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		storageIDs, err = st.addStorageForUnit(ctx, tx, unitUUID, storageName, storageArg.UnitAddStorageArg)
+		storageIDs, err = st.addStorageForUnit(ctx, tx, unitUUID, storageName, storageArg.AddStorageToUnitArg)
 		if err != nil {
 			return errors.Capture(err)
 		}
 
-		err = st.unitState.insertMachineVolumeOwnership(ctx, tx, coremachine.UUID(machineUUID),
+		err = st.insertMachineVolumeOwnership(ctx, tx, coremachine.UUID(machineUUID),
 			storageArg.VolumesToOwn)
 		if err != nil {
 			return errors.Errorf(
@@ -1151,7 +1415,7 @@ func (st *State) AddStorageForIAASUnit(
 			)
 		}
 
-		err = st.unitState.insertMachineFilesystemOwnership(ctx, tx, coremachine.UUID(machineUUID),
+		err = st.insertMachineFilesystemOwnership(ctx, tx, coremachine.UUID(machineUUID),
 			storageArg.FilesystemsToOwn)
 		if err != nil {
 			return errors.Errorf(
@@ -1227,14 +1491,96 @@ WHERE  uuid = $storageInstance.uuid
 	return inst, nil
 }
 
-func (st *State) getUnitCharmStorageByName(ctx context.Context, tx *sqlair.TX, uuid coreunit.UUID, name corestorage.Name) (charmStorage, error) {
+func (st *State) checkStorageInstanceExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	storageUUID string,
+) (bool, error) {
+	uuidInput := entityUUID{UUID: storageUUID}
+
+	checkStmt, err := st.Prepare(`
+SELECT &entityUUID.*
+FROM   storage_instance
+WHERE  uuid = $entityUUID.uuid
+	`,
+		uuidInput,
+	)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, checkStmt, uuidInput).Get(&uuidInput)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+	return true, nil
+}
+
+func (st *State) getStorageInstanceInfoForAttach(
+	ctx context.Context, tx *sqlair.TX,
+	storageUUID domainstorage.StorageInstanceUUID,
+) (storageInfoForAttach, error) {
+	exists, err := st.checkStorageInstanceExists(ctx, tx, storageUUID.String())
+	if err != nil {
+		return storageInfoForAttach{}, errors.Errorf(
+			"checking storage instance %q exists: %w", storageUUID, err,
+		)
+	}
+	if !exists {
+		return storageInfoForAttach{}, errors.Errorf("storage instance %q does not exist", storageUUID).Add(
+			storageerrors.StorageInstanceNotFound,
+		)
+	}
+
+	inst := storageInstance{StorageUUID: storageUUID}
+	query := `
+SELECT * AS &storageInfoForAttach.* FROM (
+    SELECT    si.storage_name,
+              (CASE
+                  WHEN sf.size_mib != 0 THEN sf.size_mib
+                  WHEN sv.size_mib != 0 THEN sv.size_mib
+                  WHEN sv.size_mib = 0 AND sf.size_mib = 0 THEN si.requested_size_mib
+              END) AS size_mib,
+              cs.count_max,
+              cs.count_min,
+              cs.minimum_size_mib
+    FROM      storage_instance si
+    JOIN      v_charm_storage cs ON si.storage_name = cs.name
+    LEFT JOIN storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid
+    LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
+    LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
+    LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
+    WHERE     si.uuid = $storageInstance.uuid
+)
+`
+	queryStmt, err := st.Prepare(query, inst, storageInfoForAttach{})
+	if err != nil {
+		return storageInfoForAttach{}, errors.Capture(err)
+	}
+
+	var result storageInfoForAttach
+	err = tx.Query(ctx, queryStmt, inst).Get(&result)
+	if err != nil {
+		if !errors.Is(err, sqlair.ErrNoRows) {
+			return storageInfoForAttach{}, errors.Errorf("querying storage %q: %w", storageUUID, err)
+		}
+		return storageInfoForAttach{}, errors.Errorf("%w: %s", applicationerrors.StorageNameNotSupported, storageUUID)
+	}
+	return result, nil
+}
+
+func (st *State) getStorageInstanceInfoForAdd(
+	ctx context.Context, tx *sqlair.TX, uuid coreunit.UUID, name corestorage.Name,
+) (storageInfoForAdd, error) {
 	storageSpec := unitCharmStorage{
 		UnitUUID:    uuid,
 		StorageName: name,
 	}
-	var result charmStorage
+	var result storageInfoForAdd
 	stmt, err := st.Prepare(`
-SELECT cs.* AS &charmStorage.*
+SELECT cs.* AS &storageInfoForAdd.*
 FROM   v_charm_storage cs
 JOIN   unit ON unit.charm_uuid = cs.charm_uuid
 WHERE  unit.uuid = $unitCharmStorage.uuid
@@ -1335,244 +1681,3 @@ SELECT &modelStoragePools.* FROM (
 	}
 	return rval, nil
 }
-
-// ensureCharmStorageCountChange checks that the charm storage can change by
-// the specified (positive or negative) increment. This is a backstop - the service
-// should already have performed the necessary validation.
-func ensureCharmStorageCountChange(charmStorage charmStorage, current, n uint32) error {
-	action := "attach"
-	gerund := action + "ing"
-	pluralise := ""
-	if n != 1 {
-		pluralise = "s"
-	}
-
-	count := current + n
-	if charmStorage.CountMin == 1 && charmStorage.CountMax == 1 && count != 1 {
-		return errors.Errorf("cannot %s, storage is singular", action)
-	}
-	if count < uint32(charmStorage.CountMin) {
-		return errors.Errorf(
-			"%s %d storage instance%s brings the total to %d, "+
-				"which is less than the minimum of %d",
-			gerund, n, pluralise, count,
-			charmStorage.CountMin,
-		).Add(applicationerrors.InvalidStorageCount)
-	}
-	if charmStorage.CountMax >= 0 && count > uint32(charmStorage.CountMax) {
-		return errors.Errorf(
-			"%s %d storage instance%s brings the total to %d, "+
-				"exceeding the maximum of %d",
-			gerund, n, pluralise, count,
-			charmStorage.CountMax,
-		).Add(applicationerrors.InvalidStorageCount)
-	}
-	return nil
-}
-
-func (st *State) attachStorage(
-	ctx context.Context, tx *sqlair.TX, inst storageInstance, unitUUID coreunit.UUID, netNodeUUID string,
-	charmStorage charmStorage,
-) error {
-	// TODO (tlm) reimplement when we understand what attach storage looks like.
-	return coreerrors.NotImplemented
-	//	su := storageUnit{StorageUUID: inst.StorageUUID, UnitUUID: unitUUID}
-	//	updateStorageInstanceQuery, err := st.Prepare(`
-	//
-	// UPDATE storage_instance
-	// SET    charm_uuid = (SELECT charm_uuid FROM unit where uuid = $storageUnit.unit_uuid)
-	// WHERE  uuid = $storageUnit.storage_instance_uuid
-	// `, su)
-	//
-	//	if err != nil {
-	//		return errors.Capture(err)
-	//	}
-	//
-	//	err = st.attachStorageToUnit(ctx, tx, inst.StorageUUID, unitUUID)
-	//	if err != nil {
-	//		return errors.Errorf("attaching storage %q to unit %q: %w", inst.StorageUUID, unitUUID, err)
-	//	}
-	//
-	//	// TODO(storage) - insert data for the unit's assigned machine when that is implemented
-	//
-	//	// Attach volumes and filesystems for reattached storage on CAAS.
-	//	// This only occurs in corner cases where a new pod appears with storage
-	//	// that needs to be reconciled with the Juju model. It is part of the
-	//	// UnitIntroduction workflow when a pod appears with volumes already attached.
-	//	// TODO - this can be removed when ObservedAttachedVolumeIDs are processed.
-	//	modelType, err := st.getModelType(ctx, tx)
-	//	if err != nil {
-	//		return errors.Errorf("getting model type: %w", err)
-	//	}
-	//	if modelType == model.CAAS {
-	//		filesystem, volume, err := st.attachmentParamsForStorageInstance(ctx, tx, inst.StorageUUID, inst.StorageID, inst.StorageName, charmStorage)
-	//		if err != nil {
-	//			return errors.Errorf("creating storage attachment parameters: %w", err)
-	//		}
-	//		if filesystem != nil {
-	//			if err := st.attachFilesystemToNode(ctx, tx, netNodeUUID, *filesystem); err != nil {
-	//				return errors.Errorf("attaching filesystem %q to unit %q: %w", filesystem.filesystemUUID, unitUUID, err)
-	//			}
-	//		}
-	//		if volume != nil {
-	//			if err := st.attachVolumeToNode(ctx, tx, netNodeUUID, *volume); err != nil {
-	//				return errors.Errorf("attaching volume %q to unit %q: %w", volume.volumeUUID, unitUUID, err)
-	//			}
-	//		}
-	//	}
-	//
-	//	// Update the charm of the storage instance to match the unit to which it is being attached.
-	//	err = tx.Query(ctx, updateStorageInstanceQuery, su).Run()
-	//	if err != nil {
-	//		return errors.Errorf("updating storage instance %q charm: %w", inst.StorageUUID, err)
-	//	}
-	//	return nil
-}
-
-// type filesystemAttachmentParams struct {
-//	// locationAutoGenerated records whether or not the Location
-//	// field's value was automatically generated, and thus known
-//	// to be unique. This is used to optimise away mount point
-//	// conflict checks.
-//	locationAutoGenerated bool
-//	filesystemUUID        string
-//	location              string
-//	readOnly              bool
-// }
-
-// attachmentParamsForStorageInstance returns parameters for creating
-// volume and filesystem attachments for the specified storage.
-// func (st *State) attachmentParamsForStorageInstance(
-//	ctx context.Context,
-//	tx *sqlair.TX,
-//	storageUUID domainstorage.StorageInstanceUUID,
-//	storageID corestorage.ID,
-//	storageName corestorage.Name,
-//	charmStorage charmStorage,
-// ) (filesystemResult *filesystemAttachmentParams, volumeResult *volumeAttachmentParams, _ error) {
-//
-//	switch charm.StorageType(charmStorage.Kind) {
-//	case charm.StorageFilesystem:
-//		location, err := domainstorage.FilesystemMountPoint(charmStorage.Location, charmStorage.CountMax, storageID)
-//		if err != nil {
-//			return nil, nil, errors.Errorf(
-//				"getting filesystem mount point for storage %s: %w",
-//				storageName, err,
-//			).Add(applicationerrors.InvalidStorageMountPoint)
-//		}
-//
-//		filesystem, err := st.getStorageFilesystem(ctx, tx, storageUUID)
-//		if err != nil {
-//			return nil, nil, errors.Errorf("getting filesystem UUID for storage %q: %w", storageID, err)
-//		}
-//		// The filesystem already exists, so just attach it.
-//		// When creating ops to attach the storage to the
-//		// machine, we will check if the attachment already
-//		// exists, and whether the storage can be attached to
-//		// the machine.
-//		if !charmStorage.Shared {
-//			// The storage is not shared, so make sure that it is
-//			// not currently attached to any other host. If it
-//			// is, it should be in the process of being detached.
-//			if filesystem.AttachedTo != nil {
-//				return nil, nil, errors.Errorf(
-//					"filesystem %q is attached to %q", filesystem.UUID, *filesystem.AttachedTo).
-//					Add(applicationerrors.FilesystemAlreadyAttached)
-//			}
-//		}
-//		filesystemResult = &filesystemAttachmentParams{
-//			locationAutoGenerated: charmStorage.Location == "", // auto-generated location
-//			location:              location,
-//			readOnly:              charmStorage.ReadOnly,
-//			filesystemUUID:        filesystem.UUID,
-//		}
-//
-//		// Fall through to attach the volume that backs the filesystem (if any).
-//		fallthrough
-//
-//	case charm.StorageBlock:
-//		volume, err := st.getStorageVolume(ctx, tx, storageUUID)
-//		if errors.Is(err, storageerrors.VolumeNotFound) && charm.StorageType(charmStorage.Kind) == charm.StorageFilesystem {
-//			break
-//		}
-//		if err != nil {
-//			return nil, nil, errors.Errorf("getting volume UUID for storage %q: %w", storageID, err)
-//		}
-//
-//		// The volume already exists, so just attach it. When
-//		// creating ops to attach the storage to the machine,
-//		// we will check if the attachment already exists, and
-//		// whether the storage can be attached to the machine.
-//		if !charmStorage.Shared {
-//			// The storage is not shared, so make sure that it is
-//			// not currently attached to any other machine. If it
-//			// is, it should be in the process of being detached.
-//			if volume.AttachedTo != nil {
-//				return nil, nil, errors.Errorf("volume %q is attached to %q", volume.UUID, *volume.AttachedTo).
-//					Add(applicationerrors.VolumeAlreadyAttached)
-//			}
-//		}
-//		volumeResult = &volumeAttachmentParams{
-//			readOnly:   charmStorage.ReadOnly,
-//			volumeUUID: volume.UUID,
-//		}
-//	default:
-//		return nil, nil, errors.Errorf("invalid storage kind %v", charmStorage.Kind)
-//	}
-//	return filesystemResult, volumeResult, nil
-// }
-
-// func (st *State) attachFilesystemToNode(
-//	ctx context.Context, tx *sqlair.TX, netNodeUUID string, args filesystemAttachmentParams,
-// ) error {
-//	uuid, err := storageprovisioning.NewFilesystemAttachmentUUID()
-//	if err != nil {
-//		return errors.Capture(err)
-//	}
-//	fsa := filesystemAttachment{
-//		UUID:           uuid.String(),
-//		NetNodeUUID:    netNodeUUID,
-//		FilesystemUUID: args.filesystemUUID,
-//		LifeID:         life.Alive,
-//		MountPoint:     args.location,
-//		ReadOnly:       args.readOnly,
-//	}
-//	stmt, err := st.Prepare(`
-// INSERT INTO storage_filesystem_attachment (*) VALUES ($filesystemAttachment.*)
-// `, fsa)
-//	if err != nil {
-//		return errors.Capture(err)
-//	}
-//	err = tx.Query(ctx, stmt, fsa).Run()
-//	if err != nil {
-//		return errors.Errorf("creating filesystem attachment for %q on %q: %w", args.filesystemUUID, netNodeUUID, err)
-//	}
-//	return nil
-// }
-
-// func (st *State) attachVolumeToNode(
-//	ctx context.Context, tx *sqlair.TX, netNodeUUID string, args volumeAttachmentParams,//
-// ) error {
-//	uuid, err := storageprovisioning.NewVolumeAttachmentUUID()
-//	if err != nil {
-//		return errors.Capture(err)
-//	}
-//	fsa := volumeAttachment{
-//		UUID:        uuid.String(),
-//		NetNodeUUID: netNodeUUID,
-//		VolumeUUID:  args.volumeUUID,
-//		LifeID:      life.Alive,
-//		ReadOnly:    args.readOnly,
-//	}
-//	stmt, err := st.Prepare(`
-// INSERT INTO storage_volume_attachment (*) VALUES ($volumeAttachment.*)
-// `, fsa)
-//	if err != nil {
-//		return errors.Capture(err)
-//	}
-//	err = tx.Query(ctx, stmt, fsa).Run()
-//	if err != nil {
-//		return errors.Errorf("creating volume attachment for %q on %q: %w", args.volumeUUID, netNodeUUID, err)
-//	}
-//	return nil
-// }

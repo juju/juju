@@ -908,6 +908,33 @@ type storageInstance struct {
 	RequestedSizeMIB uint64                            `db:"requested_size_mib"`
 }
 
+// storageAttachmentUnit holds the UUID and name of a unit attached to storage.
+type storageAttachmentUnit struct {
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
+}
+
+type storageMachineOwner struct {
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
+}
+
+type storageInfoForAdd struct {
+	Name        string `db:"name"`
+	Kind        string `db:"kind"`
+	CountMin    int    `db:"count_min"`
+	CountMax    int    `db:"count_max"`
+	MinimumSize uint64 `db:"minimum_size_mib"`
+}
+
+type storageInfoForAttach struct {
+	StorageName corestorage.Name `db:"storage_name"`
+	CountMin    int              `db:"count_min"`
+	CountMax    int              `db:"count_max"`
+	MinimumSize uint64           `db:"minimum_size_mib"`
+	SizeMIB     uint64           `db:"size_mib"`
+}
+
 type unitCharmStorage struct {
 	UnitUUID    coreunit.UUID    `db:"uuid"`
 	StorageName corestorage.Name `db:"name"`

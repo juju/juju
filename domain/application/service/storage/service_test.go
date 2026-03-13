@@ -13,10 +13,13 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/internal"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
@@ -166,7 +169,7 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 		},
 	}
 
-	expectedStorageToAttach := []internal.CreateUnitStorageAttachmentArg{
+	expectedStorageToAttach := []internal.AttachStorageToUnitArg{
 		// Existing st1 storage
 		{
 			FilesystemAttachment: &internal.CreateUnitStorageFilesystemAttachmentArg{
@@ -199,7 +202,7 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 	// attachment expectations.
 	expectedStorageToAttach = slices.Grow(expectedStorageToAttach, len(arg.StorageInstances))
 	for _, si := range arg.StorageInstances {
-		attachArg := internal.CreateUnitStorageAttachmentArg{
+		attachArg := internal.AttachStorageToUnitArg{
 			StorageInstanceUUID: si.UUID,
 		}
 
@@ -228,10 +231,10 @@ func (s *serviceSuite) TestMakeUnitStorageArgs(c *tc.C) {
 	}
 
 	c.Check(arg, createUnitStorageArgChecker(), internal.CreateUnitStorageArg{
-		StorageDirectives: expectStorageDirectives,
-		StorageInstances:  expectedStorageInstances,
-		StorageToAttach:   expectedStorageToAttach,
-		StorageToOwn:      expectedStorageToOwn,
+		StorageDirectives:  expectStorageDirectives,
+		StorageInstances:   expectedStorageInstances,
+		NewStorageToAttach: expectedStorageToAttach,
+		StorageToOwn:       expectedStorageToOwn,
 	})
 }
 
@@ -243,7 +246,7 @@ func (s *serviceSuite) TestMakeIAASUnitStorageArgs(c *tc.C) {
 	volUUID1 := tc.Must(c, domainstorage.NewVolumeUUID)
 	volUUID2 := tc.Must(c, domainstorage.NewVolumeUUID)
 
-	expectedStorageInstances := []internal.CreateUnitStorageInstanceArg{
+	expectedStorageInstances := []internal.AddStorageInstanceArg{
 		{
 			Filesystem: &internal.CreateUnitStorageFilesystemArg{
 				UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
@@ -291,7 +294,7 @@ func (s *serviceSuite) TestMakeIAASUnitStorageArgs(c *tc.C) {
 	}
 
 	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
-	arg, err := svc.MakeIAASUnitStorageArgs(c.Context(), expectedStorageInstances)
+	arg, err := svc.MakeIAASUnitStorageArgs(expectedStorageInstances)
 	c.Assert(err, tc.IsNil)
 	c.Check(arg.FilesystemsToOwn, tc.SameContents,
 		[]domainstorage.FilesystemUUID{
@@ -366,12 +369,12 @@ func (s *serviceSuite) TestMakeUnitAddStorageArgs(c *tc.C) {
 		},
 	}
 
-	expectedStorageToAttach := make([]internal.CreateUnitStorageAttachmentArg, 0, len(arg.StorageInstances))
+	expectedStorageToAttach := make([]internal.AttachStorageToUnitArg, 0, len(arg.StorageInstances))
 	// Loop through the new storage instances being created and set their
 	// attachment expectations.
 	expectedStorageToAttach = slices.Grow(expectedStorageToAttach, len(arg.StorageInstances))
 	for _, si := range arg.StorageInstances {
-		attachArg := internal.CreateUnitStorageAttachmentArg{
+		attachArg := internal.AttachStorageToUnitArg{
 			StorageInstanceUUID: si.UUID,
 		}
 
@@ -399,9 +402,113 @@ func (s *serviceSuite) TestMakeUnitAddStorageArgs(c *tc.C) {
 		expectedStorageToOwn = append(expectedStorageToOwn, si.UUID)
 	}
 
-	c.Check(arg, createUnitStorageArgChecker(), internal.UnitAddStorageArg{
-		StorageInstances: expectedStorageInstances,
-		StorageToAttach:  expectedStorageToAttach,
-		StorageToOwn:     expectedStorageToOwn,
+	c.Check(arg, createUnitStorageArgChecker(), internal.AddStorageToUnitArg{
+		StorageInstances:   expectedStorageInstances,
+		NewStorageToAttach: expectedStorageToAttach,
+		StorageToOwn:       expectedStorageToOwn,
+	})
+}
+
+func (s *serviceSuite) TestMakeAttachExistingStorageArgs(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	attachNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	instComposition := internal.StorageInstanceComposition{
+		UUID: storageUUID,
+		Filesystem: &internal.StorageInstanceCompositionFilesystem{
+			UUID:           tc.Must(c, domainstorage.NewFilesystemUUID),
+			ProvisionScope: domainstorageprov.ProvisionScopeMachine,
+		},
+		Volume: &internal.StorageInstanceCompositionVolume{
+			UUID:           tc.Must(c, domainstorage.NewVolumeUUID),
+			ProvisionScope: domainstorageprov.ProvisionScopeMachine,
+		},
+	}
+
+	provider := NewMockStorageProvider(ctrl)
+	provider.EXPECT().Scope().Return(internalstorage.ScopeMachine).AnyTimes()
+	provider.EXPECT().Supports(internalstorage.StorageKindFilesystem).Return(true).AnyTimes()
+	provider.EXPECT().Supports(internalstorage.StorageKindBlock).Return(true).AnyTimes()
+
+	s.state.EXPECT().GetStorageInstanceCompositionByUUID(gomock.Any(), storageUUID).Return(instComposition, nil)
+
+	storageAttachInfo := internal.StorageInfoForAttach{
+		CharmStorageName: "pgdata",
+		CountMax:         667,
+	}
+
+	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
+
+	attachArg, err := svc.MakeAttachExistingStorageArgs(
+		c.Context(),
+		attachNetNodeUUID.String(),
+		storageUUID,
+		storageAttachInfo,
+	)
+	c.Check(err, tc.ErrorIsNil)
+
+	expectedStorageToAttach := internal.AttachExistingStorageToUnitArg{
+		AttachStorageToUnitArg: internal.AttachStorageToUnitArg{
+			StorageInstanceUUID: instComposition.UUID,
+		},
+		StorageName:        "pgdata",
+		CountLessThanEqual: 666,
+	}
+	if instComposition.Filesystem != nil {
+		expectedStorageToAttach.FilesystemAttachment =
+			&internal.CreateUnitStorageFilesystemAttachmentArg{
+				FilesystemUUID: instComposition.Filesystem.UUID,
+				NetNodeUUID:    attachNetNodeUUID,
+				ProvisionScope: instComposition.Filesystem.ProvisionScope,
+			}
+	}
+	if instComposition.Volume != nil {
+		expectedStorageToAttach.VolumeAttachment =
+			&internal.CreateUnitStorageVolumeAttachmentArg{
+				VolumeUUID:     instComposition.Volume.UUID,
+				NetNodeUUID:    attachNetNodeUUID,
+				ProvisionScope: instComposition.Volume.ProvisionScope,
+			}
+	}
+
+	c.Assert(attachArg.UUID, tc.Not(tc.Equals), "")
+	attachArg.UUID = ""
+	if instComposition.Filesystem != nil {
+		c.Assert(attachArg.FilesystemAttachment.UUID, tc.Not(tc.Equals), "")
+		attachArg.FilesystemAttachment.UUID = ""
+	}
+	if instComposition.Volume != nil {
+		c.Assert(attachArg.VolumeAttachment.UUID, tc.Not(tc.Equals), "")
+		attachArg.VolumeAttachment.UUID = ""
+	}
+	c.Check(attachArg, tc.DeepEquals, expectedStorageToAttach)
+}
+
+func (s *serviceSuite) TestValidateAttachStorageExceedMax(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	charmStorageDef := internal.ValidateStorageArg{
+		CountMin:    0,
+		CountMax:    2,
+		Name:        "st1",
+		MinimumSize: 1024,
+		Type:        internalcharm.StorageBlock,
+	}
+
+	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
+	err := svc.ValidateAttachStorage(
+		charmStorageDef, 2, 1024,
+	)
+
+	errVal, is := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
+	c.Check(is, tc.IsTrue)
+	c.Check(errVal, tc.DeepEquals, applicationerrors.StorageCountLimitExceeded{
+		Maximum:     ptr(2),
+		Minimum:     0,
+		Requested:   3,
+		StorageName: "st1",
 	})
 }

@@ -213,7 +213,7 @@ func MakeStorageDirectiveFromApplicationArg(
 // falls outside of the bounds defined by the charm.
 func (s *Service) ValidateApplicationStorageDirectiveOverrides(
 	ctx context.Context,
-	charmStorageDefs map[string]internalcharm.Storage,
+	charmStorageDefs map[string]internal.ValidateStorageArg,
 	overrides map[string]StorageDirectiveOverride,
 ) error {
 	for name, override := range overrides {
@@ -244,7 +244,7 @@ func (s *Service) ValidateApplicationStorageDirectiveOverrides(
 // falls outside of the bounds defined by the charm.
 func validateApplicationStorageDirectiveOverride(
 	ctx context.Context,
-	charmStorageDef internalcharm.Storage,
+	charmStorageDef internal.ValidateStorageArg,
 	override StorageDirectiveOverride,
 	poolProvider StoragePoolProvider,
 ) error {
@@ -316,6 +316,47 @@ func validateApplicationStorageDirectiveOverride(
 		}
 	}
 
+	return nil
+}
+
+// ValidateAttachStorage checks that a storage instance can be attached
+// to a unit with respect to the unit's charm storage definition, checking
+// the existing count of storage instances and the size of the new storage.
+func (s *Service) ValidateAttachStorage(
+	charmStorageDef internal.ValidateStorageArg,
+	existingCount uint32,
+	storageSize uint64,
+) error {
+	var (
+		// hasMaxCount is true when the charm storage definition has
+		// indicated that there is a maximum value it will tolerate. When
+		// the charm specifies -1 the charm has no opinion what the maximum
+		// should be.
+		hasMaxCount bool
+		maxCount    uint32
+	)
+	if charmStorageDef.CountMax >= 0 {
+		maxCount = uint32(charmStorageDef.CountMax)
+		hasMaxCount = true
+	}
+
+	wantCount := existingCount + 1
+	if hasMaxCount && wantCount > maxCount {
+		return applicationerrors.StorageCountLimitExceeded{
+			Maximum:     &charmStorageDef.CountMax,
+			Minimum:     charmStorageDef.CountMin,
+			Requested:   int(wantCount),
+			StorageName: charmStorageDef.Name,
+		}
+	}
+
+	if charmStorageDef.MinimumSize != 0 &&
+		storageSize < charmStorageDef.MinimumSize {
+		return errors.Errorf(
+			"storage instance size %d for charm storage %s does not meet minimum requirements of %d",
+			storageSize, charmStorageDef.Name, charmStorageDef.MinimumSize,
+		)
+	}
 	return nil
 }
 

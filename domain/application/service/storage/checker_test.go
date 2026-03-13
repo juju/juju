@@ -32,8 +32,8 @@ func createUnitStorageArgChecker() *tc.MultiChecker {
 		tc.ExpectedValue,
 	)
 	mc.AddExpr(
-		"_.StorageToAttach",
-		tc.UnorderedMatch[[]internal.CreateUnitStorageAttachmentArg](
+		"_.NewStorageToAttach",
+		tc.UnorderedMatch[[]internal.AttachStorageToUnitArg](
 			expectedStorageAttachmentChecker,
 		),
 		tc.ExpectedValue,

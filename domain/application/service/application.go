@@ -1683,8 +1683,17 @@ func (s *ProviderService) SetApplicationCharm(ctx context.Context, appName strin
 	// Validate that the user provided storage directive overrides are valid
 	// against the new charm storage requirements.
 	userStorageDirectiveOverrides := params.StorageDirectiveOverrides
+	charmStorageDefs := transform.Map(newCharmStorage, func(name string, def internalcharm.Storage) (string, internal.ValidateStorageArg) {
+		return name, internal.ValidateStorageArg{
+			Name:        def.Name,
+			Type:        def.Type,
+			CountMin:    def.CountMin,
+			CountMax:    def.CountMax,
+			MinimumSize: def.MinimumSize,
+		}
+	})
 	if err := s.storageService.ValidateApplicationStorageDirectiveOverrides(
-		ctx, newCharmStorage, userStorageDirectiveOverrides,
+		ctx, charmStorageDefs, userStorageDirectiveOverrides,
 	); err != nil {
 		return errors.Errorf("validating storage directives: %w", err)
 	}

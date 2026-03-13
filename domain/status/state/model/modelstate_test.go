@@ -1566,11 +1566,13 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *tc.C
 func (s *modelStateSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 	now := time.Now()
 
+	unitUUID := tc.Must(c, coreunit.NewUUID)
 	netNodeUUID1 := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u1 := application.AddIAASUnitArg{
 		MachineNetNodeUUID: netNodeUUID1,
 		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			UnitUUID:    unitUUID,
 			NetNodeUUID: netNodeUUID1,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
@@ -1588,11 +1590,13 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 			},
 		},
 	}
+	unitUUID2 := tc.Must(c, coreunit.NewUUID)
 	netNodeUUID2 := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u2 := application.AddIAASUnitArg{
 		MachineNetNodeUUID: netNodeUUID2,
 		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
+			UnitUUID:    unitUUID2,
 			NetNodeUUID: netNodeUUID2,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{

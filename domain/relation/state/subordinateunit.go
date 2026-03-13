@@ -70,6 +70,10 @@ func (st *State) addSubordinateUnit(
 	if err != nil {
 		return empty, errors.Errorf("getting principal unit net node uuid: %w", err)
 	}
+	unitUUID, err := unit.NewUUID()
+	if err != nil {
+		return empty, errors.Errorf("generating subordinate unit uuid: %w", err)
+	}
 
 	charmUUID, err := st.getCharmIDByApplicationUUID(ctx, tx, subAppUUID)
 	if err != nil {
@@ -92,6 +96,7 @@ func (st *State) addSubordinateUnit(
 		MachineNetNodeUUID: network.NetNodeUUID(machineIdentifiers.NetNodeUUID),
 		MachineUUID:        machine.UUID(machineIdentifiers.UUID),
 		AddUnitArg: application.AddUnitArg{
+			UnitUUID: unitUUID,
 			// TODO: storage for subordinate units.
 			NetNodeUUID: principalNetNodeUUID,
 			Placement: deployment.Placement{

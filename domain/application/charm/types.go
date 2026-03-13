@@ -382,12 +382,12 @@ const (
 
 // Storage represents a charm's storage requirement.
 type Storage struct {
-	// Name is the name of the store.
+	// Name is the name of the storage.
 	//
 	// Name has no default, and must be specified.
 	Name string
 
-	// Description is a description of the store.
+	// Description is a description of the storage.
 	//
 	// Description has no default, and is optional.
 	Description string

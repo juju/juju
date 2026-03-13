@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -194,11 +194,10 @@ func (s *directiveSuite) TestMakeApplicationStorageDirectiveArgs(c *tc.C) {
 func (s *directiveSuite) TestValidateApplicationStorageDirectiveOverridesNoMaxLimit(c *tc.C) {
 	defer s.setupMocks(c.T).Finish()
 
-	charmStorageDefs := map[string]internalcharm.Storage{
+	charmStorageDefs := map[string]internal.ValidateStorageArg{
 		"st1": {
 			CountMin:    0,
 			CountMax:    -1, // -1 indicates no max limit
-			Description: "",
 			Name:        "st1",
 			MinimumSize: 1024,
 			Type:        internalcharm.StorageBlock,
@@ -252,11 +251,10 @@ func (s *directiveSuite) TestGetApplicationStorageDirectivesInfo(c *tc.C) {
 func (s *directiveSuite) TestValidateApplicationStorageDirectiveOverridesExceedMax(c *tc.C) {
 	defer s.setupMocks(c.T).Finish()
 
-	charmStorageDefs := map[string]internalcharm.Storage{
+	charmStorageDefs := map[string]internal.ValidateStorageArg{
 		"st1": {
 			CountMin:    0,
 			CountMax:    2,
-			Description: "",
 			Name:        "st1",
 			MinimumSize: 1024,
 			Type:        internalcharm.StorageBlock,
@@ -345,6 +343,32 @@ func (s *directiveSuite) TestMakeStorageDirectiveFromApplicationArg(c *tc.C) {
 		"kratos", charmStorage, createArgs,
 	)
 	c.Assert(gotDirectives, tc.SameContents, expected)
+}
+
+func (s *directiveSuite) TestValidateAttachStorageExceedMax(c *tc.C) {
+	defer s.setupMocks(c.T).Finish()
+
+	charmStorageDef := internal.ValidateStorageArg{
+		CountMin:    0,
+		CountMax:    2,
+		Name:        "st1",
+		MinimumSize: 1024,
+		Type:        internalcharm.StorageBlock,
+	}
+
+	svc := NewService(s.state, s.poolProvider, loggertesting.WrapCheckLog(c))
+	err := svc.ValidateAttachStorage(
+		charmStorageDef, 3, 1024,
+	)
+
+	errVal, is := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
+	c.Check(is, tc.IsTrue)
+	c.Check(errVal, tc.DeepEquals, applicationerrors.StorageCountLimitExceeded{
+		Maximum:     ptr(2),
+		Minimum:     0,
+		Requested:   4,
+		StorageName: "st1",
+	})
 }
 
 // TestReconcileStorageDirectiveAgainstCharmStorageNoChanges tests that when existing

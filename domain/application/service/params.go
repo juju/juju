@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/domain/application/service/storage"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -103,9 +104,12 @@ type AddressParams struct {
 
 // AddUnitArg contains parameters for adding a unit to the model.
 type AddUnitArg struct {
+	// Placement is the placement of the unit.
 	Placement *instance.Placement
-
-	// Storage params go here.
+	// StorageToAttach contains the list of UUIDs
+	// of existing, provisioned storage to be attached
+	// to the unit upon creation.
+	StorageToAttach []domainstorage.StorageInstanceUUID
 }
 
 // AddIAASUnitArg contains parameters for adding a IAAS unit to the model.

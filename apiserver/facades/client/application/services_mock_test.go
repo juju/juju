@@ -2354,6 +2354,45 @@ func (m *MockStorageService) EXPECT() *MockStorageServiceMockRecorder {
 	return m.recorder
 }
 
+// GetStorageInstanceUUIDForID mocks base method.
+func (m *MockStorageService) GetStorageInstanceUUIDForID(arg0 context.Context, arg1 string) (storage.StorageInstanceUUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStorageInstanceUUIDForID", arg0, arg1)
+	ret0, _ := ret[0].(storage.StorageInstanceUUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStorageInstanceUUIDForID indicates an expected call of GetStorageInstanceUUIDForID.
+func (mr *MockStorageServiceMockRecorder) GetStorageInstanceUUIDForID(arg0, arg1 any) *MockStorageServiceGetStorageInstanceUUIDForIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageInstanceUUIDForID", reflect.TypeOf((*MockStorageService)(nil).GetStorageInstanceUUIDForID), arg0, arg1)
+	return &MockStorageServiceGetStorageInstanceUUIDForIDCall{Call: call}
+}
+
+// MockStorageServiceGetStorageInstanceUUIDForIDCall wrap *gomock.Call
+type MockStorageServiceGetStorageInstanceUUIDForIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStorageServiceGetStorageInstanceUUIDForIDCall) Return(arg0 storage.StorageInstanceUUID, arg1 error) *MockStorageServiceGetStorageInstanceUUIDForIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStorageServiceGetStorageInstanceUUIDForIDCall) Do(f func(context.Context, string) (storage.StorageInstanceUUID, error)) *MockStorageServiceGetStorageInstanceUUIDForIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStorageServiceGetStorageInstanceUUIDForIDCall) DoAndReturn(f func(context.Context, string) (storage.StorageInstanceUUID, error)) *MockStorageServiceGetStorageInstanceUUIDForIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetStoragePoolUUID mocks base method.
 func (m *MockStorageService) GetStoragePoolUUID(arg0 context.Context, arg1 string) (storage.StoragePoolUUID, error) {
 	m.ctrl.T.Helper()

@@ -4,6 +4,7 @@
 package internal
 
 import (
+	"github.com/juju/juju/domain/deployment/charm"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageprov "github.com/juju/juju/domain/storageprovisioning"
@@ -41,18 +42,36 @@ type CreateStorageDirectiveArg struct {
 // has occurred so that any pre-conditions for completing a storage add/attach are violated.
 const MaxStorageCountPreconditonFailed = errors.ConstError("max storage count precondiiton failed")
 
-// UnitAddStorageArg represents the arguments required for add storage
+// ValidateStorageArg holds attributes used to validate storage.
+type ValidateStorageArg struct {
+	// Name is the name of the storage.
+	Name string
+
+	// Type is the storage type: filesystem or block-device.
+	Type charm.StorageType
+
+	// CountMin is the minimum number of storage instances.
+	CountMin int
+
+	// CountMax is the largest number of storage instances.
+	CountMax int
+
+	// MinimumSize is the minimum size of the storage.
+	MinimumSize uint64
+}
+
+// AddStorageToUnitArg represents the arguments required for adding storage
 // to a unit. This will instantiate the instances and attachments for the unit.
-type UnitAddStorageArg struct {
+type AddStorageToUnitArg struct {
 	// StorageInstances defines the new storage instances that must be created
 	// for the unit.
 	StorageInstances []CreateUnitStorageInstanceArg
 
-	// StorageToAttach defines the storage instances that should be attached to
+	// NewStorageToAttach defines the storage instances that should be attached to
 	// the unit. New storage instances defined in
 	// [CreateUnitStorageArg.StorageInstances] are not automatically attached to
 	// the unit and should be included in this list.
-	StorageToAttach []CreateUnitStorageAttachmentArg
+	NewStorageToAttach []AttachStorageToUnitArg
 
 	// StorageToOwn defines the storage instances that should be owned by the
 	// unit.
@@ -63,17 +82,95 @@ type UnitAddStorageArg struct {
 	CountLessThanEqual uint32
 }
 
-// IAASUnitAddStorageArg represents the arguments required for making storage
-// for an IAAS unit. This complements [UnitAddStorageArg], allowing for an
+// AddStorageToIAASUnitArg represents the arguments required for making storage
+// for an IAAS unit. This complements [AddStorageToUnitArg], allowing for an
 // IAAS unit to augment storage that is destined for a machine.
-type IAASUnitAddStorageArg struct {
-	UnitAddStorageArg
+type AddStorageToIAASUnitArg struct {
+	AddStorageToUnitArg
 	// FilesystemsToOwn defines filesystems that will be owned by the unit's
 	// machine.
 	FilesystemsToOwn []domainstorage.FilesystemUUID
 
 	// VolumesToOwn defines volumes that will be owned by the unit's machine.
 	VolumesToOwn []domainstorage.VolumeUUID
+}
+
+// StorageInfoForAdd represents the arguments required to
+// add storage to a unit.
+type StorageInfoForAdd struct {
+	// CharmStorageName is the name of the storage.
+	CharmStorageName string
+
+	// Type is the storage type: filesystem or block-device.
+	Type charm.StorageType
+
+	// CountMin is the number of storage instances that must be attached
+	// to the charm for it to be useful; the charm will not install until
+	// this number has been satisfied. This must be a non-negative number.
+	CountMin int
+
+	// CountMax is the largest number of storage instances that can be
+	// attached to the charm. If CountMax is -1, then there is no upper
+	// bound.
+	CountMax int
+
+	// MinimumSize is the minimum size of store that the charm needs to
+	// work at all. This is not a recommended size or a comfortable size
+	// or a will-work-well size, just a bare minimum below which the charm
+	// is going to break.
+	// MinimumSize requires a unit, one of MGTPEZY, and is stored as MiB.
+	MinimumSize uint64
+
+	// AlreadyAttachedCount is the count of attached instances of the same
+	// underlying storage name already attached.
+	AlreadyAttachedCount uint32
+}
+
+// MachineIdentifier describes the identifying information for a machine.
+type MachineIdentifier struct {
+	// UUID is the machine uuid.
+	UUID string
+	// Name is the machine name.
+	Name string
+}
+
+// StorageInfoForAttach represents the arguments required to
+// attach storage to a unit.
+type StorageInfoForAttach struct {
+	// CharmStorageName is the name of the storage.
+	CharmStorageName string
+
+	// CountMin is the number of storage instances that must be attached
+	// to the charm for it to be useful; the charm will not install until
+	// this number has been satisfied. This must be a non-negative number.
+	CountMin int
+
+	// CountMax is the largest number of storage instances that can be
+	// attached to the charm. If CountMax is -1, then there is no upper
+	// bound.
+	CountMax int
+
+	// MinimumSize is the minimum size of store that the charm needs to
+	// work at all. This is not a recommended size or a comfortable size
+	// or a will-work-well size, just a bare minimum below which the charm
+	// is going to break.
+	// MinimumSize requires a unit, one of MGTPEZY, and is stored as MiB.
+	MinimumSize uint64
+
+	// AlreadyAttachedCount is the count of attached instances of the same
+	// underlying storage name already attached.
+	AlreadyAttachedCount uint32
+
+	// ProvisionedSizeMiB is the size of the storage.
+	ProvisionedSizeMiB uint64
+
+	// AlreadyAttachedToUnits maps unit UUIDs to unit names for units
+	// to which the storage is already attached.
+	AlreadyAttachedToUnits map[string]string
+
+	// StorageMachineOwner, if not nil, is the machine that owns
+	// the storage being attached.
+	StorageMachineOwner *MachineIdentifier
 }
 
 // CreateUnitStorageArg represents the arguments required for making storage
@@ -88,19 +185,26 @@ type CreateUnitStorageArg struct {
 	// for the unit.
 	StorageInstances []CreateUnitStorageInstanceArg
 
-	// StorageToAttach defines the storage instances that should be attached to
-	// the unit. New storage instances defined in
+	// NewStorageToAttach defines the storage instances that should be attached
+	// to the unit. New storage instances defined in
 	// [CreateUnitStorageArg.StorageInstances] are not automatically attached to
 	// the unit and should be included in this list.
-	StorageToAttach []CreateUnitStorageAttachmentArg
+	NewStorageToAttach []AttachStorageToUnitArg
+
+	// ExistingStorageToAttach defines already provisioned storage instances,
+	// previously detached from another unit, that should be attached to the
+	// new unit, as opposed to new storage created and attached as defined in
+	// [CreateUnitStorageArg.NewStorageToAttach].
+	ExistingStorageToAttach []AttachExistingStorageToUnitArg
 
 	// StorageToOwn defines the storage instances that should be owned by the
 	// unit.
 	StorageToOwn []domainstorage.StorageInstanceUUID
 }
 
-// CreateIAASUnitStorageArg represents the arguments required for making storage
-// for an IAAS unit. This complements [CreateUnitStorageArg], allowing for an
+// CreateIAASUnitStorageArg represents the arguments required to describe storage
+// for an IAAS unit. This complements base args [CreateUnitStorageArg],
+// [AddStorageToUnitArg], or [AttachStorageToUnitArg] allowing for an
 // IAAS unit to augment storage that is destined for a machine.
 type CreateIAASUnitStorageArg struct {
 	// FilesystemsToOwn defines filesystems that will be owned by the unit's
@@ -111,9 +215,9 @@ type CreateIAASUnitStorageArg struct {
 	VolumesToOwn []domainstorage.VolumeUUID
 }
 
-// CreateUnitStorageAttachmentArg describes the arguments required for creating a
+// AttachStorageToUnitArg describes the arguments required for creating a
 // storage attachment.
-type CreateUnitStorageAttachmentArg struct {
+type AttachStorageToUnitArg struct {
 	// UUID is the unique identifier to associate with the storage attachment.
 	UUID domainstorage.StorageAttachmentUUID
 
@@ -128,6 +232,23 @@ type CreateUnitStorageAttachmentArg struct {
 	// VolumeAttachment describes a volume to attach for the storage
 	// instance attachment.
 	VolumeAttachment *CreateUnitStorageVolumeAttachmentArg
+}
+
+// AttachExistingStorageToUnitArg describes the arguments required for creating
+// a storage attachment for existing storage.
+type AttachExistingStorageToUnitArg struct {
+	AttachStorageToUnitArg
+
+	// StorageName is the name of the storage being attached.
+	StorageName string
+
+	// CountLessThanEqual is the maximum storage count allowed at the time
+	// the add is performed in order for the attach operation to be considered successful.
+	CountLessThanEqual uint32
+
+	// AllowedExistingUnitAttachments are the unit UUIDs to which the storage
+	// being attached is allowed to already be attached.
+	AllowedExistingUnitAttachments []string
 }
 
 // CreateUnitStorageDirectiveArg describes the arguments required for making storage
@@ -239,6 +360,27 @@ type CreateUnitStorageVolumeAttachmentArg struct {
 	// provider id.
 	ProviderID *string
 }
+
+// AddStorageInstanceArg describes a set of arguments used
+// to add a unit storage instance.
+type AddStorageInstanceArg struct {
+	// Filesystem describes the properties of a new filesystem to be created
+	// alongside the  storage instance. If this value is not nil a new
+	// filesystem will be created with the storage instance.
+	Filesystem *CreateUnitStorageFilesystemArg
+
+	// Volume describes the properties of a new volume to be created alongside
+	// the storage instance. If this value is not nil a new volume will be
+	// created with the storage instance.
+	Volume *CreateUnitStorageVolumeArg
+
+	// UUID is the unique identifier of the storage instance.
+	UUID domainstorage.StorageInstanceUUID
+}
+
+// AttachStorageInstanceArg describes a set of arguments used
+// to attach a unit storage instance.
+type AttachStorageInstanceArg AddStorageInstanceArg
 
 // ModelStoragePools provides the default storage pools that have been set
 // within the model. If a value is nil then no default exists.

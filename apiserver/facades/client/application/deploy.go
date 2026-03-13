@@ -9,6 +9,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coreassumes "github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -29,8 +30,11 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/deployment/charm/assumes"
+	domainstorage "github.com/juju/juju/domain/storage"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/rpc/params"
 )
 
 // ModelService provides access to the model state.
@@ -70,7 +74,7 @@ type DeployApplicationParams struct {
 // does not exist then the original error will be returned.
 func handleApplicationDomainError(err error) error {
 	switch {
-	// When the supplied storage directive overrides violates the chamrs
+	// When the supplied storage directive overrides violates the charm's
 	// storage.
 	case errors.HasType[applicationerrors.StorageCountLimitExceeded](err):
 		limitErr, _ := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
@@ -85,8 +89,25 @@ func handleApplicationDomainError(err error) error {
 				limitErr.StorageName, limitErr.Requested, *limitErr.Maximum,
 			).Add(coreerrors.NotValid)
 		}
-
-	// When the charm storage location violateds a prohibited filesystem mount
+	// When a request is made to attach storage but it's not allowed.
+	case errors.HasType[applicationerrors.StorageAttachmentNotAllowed](err):
+		attachErr, _ := errors.AsType[applicationerrors.StorageAttachmentNotAllowed](err)
+		if len(attachErr.AttachedToUnits) > 0 {
+			return apiservererrors.ParamsErrorf(params.CodeNotValid,
+				"storage is already attached to other unit(s): %v",
+				attachErr.AttachedToUnits,
+			)
+		}
+		if attachErr.ExistingStorageMachineOwner != nil {
+			return apiservererrors.ParamsErrorf(params.CodeNotValid,
+				"storage is bound to machine %v but the unit is assigned to a different machine",
+				*attachErr.ExistingStorageMachineOwner,
+			)
+		}
+		return apiservererrors.ParamsErrorf(params.CodeNotValid,
+			"storage attachment not allowed",
+		)
+	// When the charm storage location violates a prohibited filesystem mount
 	// point.
 	case errors.HasType[applicationerrors.CharmStorageLocationProhibited](err):
 		prohibitErr, _ := errors.AsType[applicationerrors.CharmStorageLocationProhibited](err)
@@ -143,6 +164,26 @@ func DeployApplication(
 		}
 	}
 
+	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
+		return errors.Errorf(
+			"attaching existing storage to a new deployment can only be performed when the number of units is 1",
+		).Add(coreerrors.NotValid)
+	}
+
+	var storageUUIDsToAttach []domainstorage.StorageInstanceUUID
+	for _, storageTag := range args.AttachStorage {
+		storageUUID, err := storageService.GetStorageInstanceUUIDForID(ctx, storageTag.Id())
+		if errors.Is(err, storageerrors.StorageInstanceNotFound) {
+			return apiservererrors.ParamsErrorf(params.CodeNotFound, "storage %q does not exist", storageTag.Id())
+		} else if err != nil {
+			return errors.Errorf(
+				"getting storage instance uuid for storage id %q: %w",
+				storageTag.Id(), err,
+			)
+		}
+		storageUUIDsToAttach = append(storageUUIDsToAttach, storageUUID)
+	}
+
 	var downloadInfo *applicationcharm.DownloadInfo
 	if args.CharmOrigin.Source == corecharm.CharmHub {
 		var err error
@@ -180,7 +221,7 @@ func DeployApplication(
 		StorageDirectiveOverrides: sdo,
 	}
 	if modelType == coremodel.CAAS {
-		unitArgs, err := makeCAASUnitArgs(args)
+		unitArgs, err := makeCAASUnitArgs(args, storageUUIDsToAttach)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -199,7 +240,7 @@ func DeployApplication(
 		return nil
 	}
 
-	unitArgs, err := makeIAASUnitArgs(args)
+	unitArgs, err := makeIAASUnitArgs(args, storageUUIDsToAttach)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -219,7 +260,9 @@ func DeployApplication(
 	return nil
 }
 
-func makeIAASUnitArgs(args DeployApplicationParams) ([]applicationservice.AddIAASUnitArg, error) {
+func makeIAASUnitArgs(
+	args DeployApplicationParams, storageUUIDsToAttach []domainstorage.StorageInstanceUUID,
+) ([]applicationservice.AddIAASUnitArg, error) {
 	unitArgs := make([]applicationservice.AddIAASUnitArg, args.NumUnits)
 	for i := range args.NumUnits {
 		var unitPlacement *instance.Placement
@@ -231,12 +274,17 @@ func makeIAASUnitArgs(args DeployApplicationParams) ([]applicationservice.AddIAA
 				Placement: unitPlacement,
 			},
 		}
+		if i == 0 {
+			unitArgs[i].StorageToAttach = storageUUIDsToAttach
+		}
 	}
 
 	return unitArgs, nil
 }
 
-func makeCAASUnitArgs(args DeployApplicationParams) ([]applicationservice.AddUnitArg, error) {
+func makeCAASUnitArgs(
+	args DeployApplicationParams, storageUUIDsToAttach []domainstorage.StorageInstanceUUID,
+) ([]applicationservice.AddUnitArg, error) {
 	unitArgs := make([]applicationservice.AddUnitArg, args.NumUnits)
 	for i := range args.NumUnits {
 		var unitPlacement *instance.Placement
@@ -245,6 +293,9 @@ func makeCAASUnitArgs(args DeployApplicationParams) ([]applicationservice.AddUni
 		}
 		unitArgs[i] = applicationservice.AddUnitArg{
 			Placement: unitPlacement,
+		}
+		if i == 0 {
+			unitArgs[i].StorageToAttach = storageUUIDsToAttach
 		}
 	}
 

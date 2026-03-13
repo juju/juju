@@ -6,6 +6,8 @@ package service
 import (
 	"context"
 
+	"github.com/juju/collections/transform"
+
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	corelife "github.com/juju/juju/core/life"
@@ -20,10 +22,10 @@ import (
 	"github.com/juju/juju/domain/application/internal"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
-	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -81,6 +83,11 @@ type UnitState interface {
 	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
 	// exist.
 	GetUnitUUIDByName(context.Context, coreunit.Name) (coreunit.UUID, error)
+
+	// GetUnitNetNodeUUID returns the net node UUID for the specified unit.
+	// The following error types can be expected:
+	// - [applicationerrors.UnitNotFound]: when the unit is not found.
+	GetUnitNetNodeUUID(ctx context.Context, uuid coreunit.UUID) (string, error)
 
 	// GetUnitUUIDAndNetNodeForName returns the unit uuid and net node uuid for a
 	// unit matching the supplied name.
@@ -194,11 +201,24 @@ type UnitState interface {
 	//     is returned.
 	GetAllUnitCloudContainerIDsForApplication(context.Context, coreapplication.UUID) (map[coreunit.Name]string, error)
 
-	// GetCharmStorageAndInstanceCountByUnitUUID returns the metadata and how many
+	// GetStorageAddInfoByUnitUUID returns the deploy metadata and how many
 	// storage instances exist for the named storage on the specified unit.
 	// The following error types can be expected:
 	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
-	GetCharmStorageAndInstanceCountByUnitUUID(ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name) (internalcharm.Storage, uint32, error)
+	GetStorageAddInfoByUnitUUID(ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name) (internal.StorageInfoForAdd, error)
+
+	// GetStorageAttachInfoByUnitUUIDAndStorageUUID returns the metadata
+	// and select details for the storage instance on the specified unit.
+	// The details include how many existing instances of the same named storage
+	// already exist, the requested size, and the instance's storage pool.
+	// The following error types can be expected:
+	// - [applicationerrors.storageerrors.StorageInstanceNotFound]: when storage
+	// instance does not exist.
+	// - [applicationerrors.StorageNameNotSupported]: when the storage instance
+	//  name is not defined in charm metadata.
+	GetStorageAttachInfoByUnitUUIDAndStorageUUID(
+		ctx context.Context, unitUUID coreunit.UUID, storageUUID domainstorage.StorageInstanceUUID,
+	) (internal.StorageInfoForAttach, error)
 
 	// AddStorageForCAASUnit adds storage instances to given unit as specified.
 	// The specified storage name is used to retrieve existing storage instances.
@@ -215,7 +235,7 @@ type UnitState interface {
 	// when the requested storage falls outside of the bounds defined by the charm.
 	AddStorageForCAASUnit(
 		ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
-		storageArg internal.UnitAddStorageArg,
+		storageArg internal.AddStorageToUnitArg,
 	) ([]corestorage.ID, error)
 
 	// AddStorageForIAASUnit adds storage instances to given IAAS unit as specified.
@@ -233,8 +253,24 @@ type UnitState interface {
 	// when the requested storage falls outside of the bounds defined by the charm.
 	AddStorageForIAASUnit(
 		ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
-		storageArg internal.IAASUnitAddStorageArg,
+		storageArg internal.AddStorageToIAASUnitArg,
 	) ([]corestorage.ID, error)
+
+	// AttachStorageToUnit attaches the storage instance to a CAAS unit.
+	// The following error types can be expected:
+	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the
+	// unit does not exist.
+	// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the
+	// unit is not alive.
+	// - [github.com/juju/juju/domain/application/errors.StorageInstanceNotFound]:
+	// when the storage instance does not exist.
+	// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when
+	// the storage instance is not alive.
+	// - [github.com/juju/juju/domain/application/errors.StorageCountLimitExceeded]:
+	// when the requested storage falls outside of the bounds defined by the charm.
+	AttachStorageToUnit(
+		ctx context.Context, storageUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
+		storageArg internal.AttachExistingStorageToUnitArg) error
 }
 
 func (s *ProviderService) makeIAASUnitArgs(
@@ -252,8 +288,9 @@ func (s *ProviderService) makeIAASUnitArgs(
 		}
 
 		var (
-			machineUUID        coremachine.UUID
-			machineNetNodeUUID domainnetwork.NetNodeUUID
+			placementMachineUUID *string
+			machineUUID          coremachine.UUID
+			machineNetNodeUUID   domainnetwork.NetNodeUUID
 		)
 		// If the placement of the unit is on to an already established machine
 		// we need to resolve this to a machine uuid and netnode uuid.
@@ -269,6 +306,7 @@ func (s *ProviderService) makeIAASUnitArgs(
 			}
 			machineUUID = mUUID
 			machineNetNodeUUID = mNNUUID
+			placementMachineUUID = ptr(mUUID.String())
 		} else {
 			// If the placement is not on to an already established machine we need
 			// to generate a new machine uuid and netnode uuid for the unit.
@@ -302,12 +340,47 @@ func (s *ProviderService) makeIAASUnitArgs(
 				"making storage arguments for IAAS unit: %w", err,
 			)
 		}
-		iassUnitStorageArgs, err := s.storageService.MakeIAASUnitStorageArgs(
-			ctx, unitStorageArgs.StorageInstances)
+		storageInst := transform.Slice(unitStorageArgs.StorageInstances,
+			func(in internal.CreateUnitStorageInstanceArg) internal.AddStorageInstanceArg {
+				return internal.AddStorageInstanceArg{
+					Filesystem: in.Filesystem,
+					Volume:     in.Volume,
+					UUID:       in.UUID,
+				}
+			})
+		iassUnitStorageArgs, err := s.storageService.MakeIAASUnitStorageArgs(storageInst)
 		if err != nil {
 			return nil, errors.Errorf(
 				"making IAAS storage arguments for IAAS unit: %w", err,
 			)
+		}
+
+		unitUUID, err := coreunit.NewUUID()
+		if err != nil {
+			return nil, errors.Errorf(
+				"generating new unit uuid for IAAS unit: %w", err,
+			)
+		}
+		// We use the same netnode uuid as the machine for the unit.
+		netNodeUUID := machineNetNodeUUID
+
+		// Compose the storage attachments for any existing storage instances
+		// that need to be attached to the unit.
+		for _, storageInstanceUUID := range u.StorageToAttach {
+			storageAttachInfo, err := s.st.GetStorageAttachInfoByUnitUUIDAndStorageUUID(
+				ctx, unitUUID, storageInstanceUUID)
+			if err != nil {
+				return nil, errors.Errorf(
+					"getting unit %q charm storage and attachment info for %q: %w",
+					unitUUID, storageInstanceUUID, err,
+				)
+			}
+			attachArg, err := s.makeAttachExistingStorageToUnitArgs(
+				ctx, storageInstanceUUID, unitUUID, netNodeUUID.String(), placementMachineUUID, storageAttachInfo)
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
+			unitStorageArgs.ExistingStorageToAttach = append(unitStorageArgs.ExistingStorageToAttach, attachArg)
 		}
 
 		arg := application.AddIAASUnitArg{
@@ -315,9 +388,9 @@ func (s *ProviderService) makeIAASUnitArgs(
 				CreateUnitStorageArg: unitStorageArgs,
 				Constraints:          constraints,
 				Placement:            placement,
-				// We use the same netnode uuid as the machine for the unit.
-				NetNodeUUID:   machineNetNodeUUID,
-				UnitStatusArg: s.makeIAASUnitStatusArgs(),
+				NetNodeUUID:          netNodeUUID,
+				UnitUUID:             unitUUID,
+				UnitStatusArg:        s.makeIAASUnitStatusArgs(),
 			},
 			CreateIAASUnitStorageArg: iassUnitStorageArgs,
 			Platform:                 platform,
@@ -342,6 +415,13 @@ func (s *ProviderService) makeCAASUnitArgs(
 		placement, err := deployment.ParsePlacement(u.Placement)
 		if err != nil {
 			return nil, errors.Errorf("invalid placement: %w", err)
+		}
+
+		unitUUID, err := coreunit.NewUUID()
+		if err != nil {
+			return nil, errors.Errorf(
+				"generating new unit uuid for caas unit: %w", err,
+			)
 		}
 
 		netNodeUUID, err := domainnetwork.NewNetNodeUUID()
@@ -369,6 +449,7 @@ func (s *ProviderService) makeCAASUnitArgs(
 				CreateUnitStorageArg: unitStorageArgs,
 				Constraints:          constraints,
 				NetNodeUUID:          netNodeUUID,
+				UnitUUID:             unitUUID,
 				Placement:            placement,
 				UnitStatusArg:        s.makeCAASUnitStatusArgs(),
 			},
