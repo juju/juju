@@ -83,13 +83,12 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	// 2. Check hosted models.
 	// - check agent version;
 	model1.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
+
 	//  - check if model migration is ongoing;
 	model1.EXPECT().MigrationMode().Return(state.MigrationModeNone)
 	// - check if the model has win machines;
 	state1.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
 	state1.EXPECT().MachineCountForBase(makeBases("ubuntu", unsupportedUbuntuVersions)).Return(nil, nil)
-	// - check no charm store charms
-	state1.EXPECT().AllCharmURLs().Return([]*string{}, errors.NotFoundf("charm urls"))
 	// - check LXD version.
 	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
@@ -101,6 +100,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blockers, gc.IsNil)
 
+	targetVersion = version.MustParse("2.9.22")
 	validators = upgradevalidation.ModelValidatorsForControllerModelUpgrade(targetVersion, cloudSpec.CloudSpec)
 	checker = upgradevalidation.NewModelUpgradeCheck(model1ModelTag.Id(), statePool, state1, model1, validators...)
 	blockers, err = checker.Validate()
