@@ -1356,6 +1356,45 @@ WHERE application_uuid = ?
 	checkAddresses(c, "192.168.0.0/24", "192.168.0.1/24")
 }
 
+func (s *applicationStateSuite) TestUpsertCloudServiceWithDiscoveredSubnet(c *tc.C) {
+	subnetUUID := uuid.MustNewUUID().String()
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "INSERT INTO subnet (uuid, cidr) VALUES (?, ?)", subnetUUID, "10.0.0.0/24")
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
+	err = s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
+		{
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.0.1/24",
+				ConfigType: network.ConfigStatic,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeCloudLocal,
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	var (
+		gotCIDR string
+	)
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT subnet.cidr
+FROM ip_address
+JOIN link_layer_device ON link_layer_device.uuid = ip_address.device_uuid
+JOIN net_node ON net_node.uuid = link_layer_device.net_node_uuid
+JOIN k8s_service ON k8s_service.net_node_uuid = net_node.uuid
+JOIN subnet ON subnet.uuid = ip_address.subnet_uuid
+WHERE k8s_service.application_uuid = ?
+`, appUUID).Scan(&gotCIDR)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gotCIDR, tc.Equals, "10.0.0.0/24")
+}
+
 func (s *applicationStateSuite) TestUpsertCloudServiceNotFound(c *tc.C) {
 	err := s.state.UpsertCloudService(c.Context(), "foo", "provider-id", network.ProviderAddresses{})
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
