@@ -14,6 +14,96 @@ myst:
 Juju 3.6 series is LTS
 ```
 
+## 🔸 **Juju 3.6.19**
+🗓️ 16 Mar 2025
+
+This is a security and critical bug fix release for Juju 3.6.
+Included are fixes for several CVEs, including Mongo Bleed and other vulnerabilities.
+In addition, there's 2 critical bug fixes worth highlighting:
+1. a fix to handle concurrent secret updates correctly
+2. a fix to ensure MongoDB consistency in HA controllers
+
+We recommend that all users running Juju 3.6 upgrade to this release as soon
+as possible to benefit from the security fixes and critical bug fixes.
+
+**Important**: upgrading to this release will not update the MongoDB version used
+by existing controllers.<br>To benefit from the Mongo Bleed fixes, you will need to
+bootstrap a new controller with this release and migrate your models to it.
+
+⚙️ **Features:**
+
+### Better management of Juju controller API port ingress
+
+Previously, the bootstrap process created a hardcoded global firewall rule
+to open the controller API port `17070` to `0.0.0.0/0`.
+
+Juju now removes this hard coded rule and instead models the API port as an
+asset of the controller charm, which is opened by the controller charm itself.
+The result is that the user can now use the normal expose mechanism to limit
+access to the API port, for example by specifying CIDR restrictions.
+
+eg `juju expose -m controller controller --to-cidrs 10.0.0.0/24`
+
+* feat: limit api port access for the controller using juju expose @adglkh in https://github.com/juju/juju/pull/20682
+
+### Support for Ubuntu 26.04 workloads
+
+Ubuntu 26.04 workloads are now supported for charms with a compatible base.
+This means that when deploying a charm with `--base=ubuntu@26.04` will now succeed.
+
+* chore: add support for ubuntu 26.04 @wallyworld in https://github.com/juju/juju/pull/21875
+
+🛠️ **Fixes**:
+
+### Mongo Bleed
+- fix: [CVE-2025-14847](https://github.com/juju/juju/security/advisories/GHSA-29v7-rr38-wf32)
+- fix: mongodb accepts unauthenticated connection https://github.com/juju/juju/security/advisories/GHSA-9j5v-49f8-cpp8
+
+### Other CVEs
+- fix: [CVE-2025-68152](https://github.com/juju/juju/security/advisories/GHSA-j6f6-jp3p-53mw)
+- fix: [CVE-2025-68153](https://github.com/juju/juju/security/advisories/GHSA-245v-p8fj-vwm2)
+- fix: [CVE-2026-32691](https://github.com/juju/juju/security/advisories/GHSA-gfgr-6hrj-85ww)
+- fix: [CVE-2026-32692](https://github.com/juju/juju/security/advisories/GHSA-89x7-5m5m-mcmm)
+- fix: [CVE-2026-32694](https://github.com/juju/juju/security/advisories/GHSA-5cj2-rqqf-hx9p)
+- fix: [CVE-2026-32693](https://github.com/juju/juju/security/advisories/GHSA-439w-v2p7-pggc)
+
+### Handle concurrent secret updates correctly
+When a secret owner adds a new revision to a secret at precisely the same moment as a secret consumer
+is refreshing their secret content, it was possible that the latest secret revision could be considered
+as obsolete and deleted.
+
+- fix: handle concurrent updates when marking obsolete secret revisions @wallyworld in https://github.com/juju/juju/pull/21779
+
+### MongoDB consistency in HA controllers
+When a Juju controller opens a mongodb connection, it was querying the db version to determine
+whether the database supports server side transactions. An error doing this check was ignored
+with a fallback to using client side transactions. This could lead to a mismatch in transaction
+handling between controllers, and potentially bugs like [intermittent disconnects](https://github.com/juju/juju/issues/21664).
+
+Juju now always uses server side transactions so the entire pre-flight check is removed.
+
+- chore: update juju/txn dep for sstxn checking @wallyworld in https://github.com/juju/juju/pull/21939
+- fix: error in critical version preflight check ignored @hpidcock in https://github.com/juju/txn/pull/70
+- fix: do not feed state watcher from txn stash @wallyworld in https://github.com/juju/juju/pull/21885
+
+### Handling deleted users showing offers
+When displaying application offers with `show-offer`, if there were users who had previously
+been granted access to the offer but have since been deleted, the result would include an incomplete
+list of users.
+
+- fix(cmr): handle deleted users in show-offer @iyiguncevik in https://github.com/juju/juju/pull/21763
+
+### Other fixes
+- fix: upgrade broken on k8s @wallyworld in https://github.com/juju/juju/issues/21979
+- fix(ssh): disable PTY allocation when remote command is provided @kooltuoehias in https://github.com/juju/juju/pull/21716
+- fix: deduplicate DNS in container fallback path @goldberl in https://github.com/juju/juju/pull/21738
+- fix: retry caas provisioning if charm not ready @wallyworld in https://github.com/juju/juju/pull/21759
+- feat: always log offending ops on transaction errors @manadart in https://github.com/juju/juju/pull/21782
+- fix(k8s): delete orphaned StatefulSets before recreating to avoid PVC mismatch @marceloneppel in https://github.com/juju/juju/pull/21786
+- fix: retry writing agent config during migration @SimonRichardson in https://github.com/juju/juju/pull/21821
+
+See the full list on the [Github release](https://github.com/juju/juju/releases/tag/v3.6.18).
+
 ## 🔸 **Juju 3.6.14**
 
 🗓️ 28 Jan 2026
