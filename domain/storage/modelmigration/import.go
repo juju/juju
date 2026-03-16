@@ -12,11 +12,13 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storage/service"
 	"github.com/juju/juju/domain/storage/state"
 	"github.com/juju/juju/internal/errors"
+	internalstorage "github.com/juju/juju/internal/storage"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -26,16 +28,23 @@ type Coordinator interface {
 }
 
 // RegisterImport registers the import operations with the given coordinator.
-func RegisterImport(coordinator Coordinator, storageRegistryGetter corestorage.ModelStorageRegistryGetter, logger logger.Logger) {
+func RegisterImport(
+	coordinator Coordinator,
+	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
+	ephemeralProviderConfigGetter providertracker.EphemeralProviderConfigGetter,
+	logger logger.Logger,
+) {
 	coordinator.Add(&importOperation{
-		storageRegistryGetter: storageRegistryGetter,
-		logger:                logger,
+		ephemeralProviderConfigGetter: ephemeralProviderConfigGetter,
+		storageRegistryGetter:         storageRegistryGetter,
+		logger:                        logger,
 	})
 }
 
 // ImportService provides a subset of the storage domain
 // service methods needed for storage pool import.
 type ImportService interface {
+
 	// GetStoragePoolsToImport resolves the full set of storage pools to create during
 	// model import.
 	GetStoragePoolsToImport(ctx context.Context, userPools []description.StoragePool) (
@@ -43,6 +52,10 @@ type ImportService interface {
 		[]domainstorage.RecommendedStoragePoolParams,
 		error,
 	)
+	// ImportFilesystemsCAAS imports filesystems for CAAS models. It differs from
+	// ImportFilesystemsIAAS in that it must find the persistent volume claim name
+	// to be used as the attachment ProviderID.
+	ImportFilesystemsCAAS(ctx context.Context, params []domainstorage.ImportFilesystemParams) error
 
 	// ImportFilesystemsIAAS imports filesystems from the provided parameters.
 	ImportFilesystemsIAAS(ctx context.Context, args []domainstorage.ImportFilesystemParams) error
@@ -66,9 +79,11 @@ type ImportService interface {
 type importOperation struct {
 	modelmigration.BaseOperation
 
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter
-	service               ImportService
-	logger                logger.Logger
+	ephemeralProviderConfigGetter providertracker.EphemeralProviderConfigGetter
+	storageRegistryGetter         corestorage.ModelStorageRegistryGetter
+
+	service ImportService
+	logger  logger.Logger
 }
 
 // Name returns the name of this operation.
@@ -78,10 +93,12 @@ func (i *importOperation) Name() string {
 
 // Setup implements Operation.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
-	i.service = service.NewService(
+	i.service = service.NewImportService(
 		state.NewState(scope.ModelDB()),
 		i.logger,
 		i.storageRegistryGetter,
+		providertracker.EphemeralProviderRunnerFromConfig[internalstorage.FilesystemModelMigration](
+			scope.EphemeralProviderFactory(), i.ephemeralProviderConfigGetter),
 	)
 	return nil
 }
@@ -110,17 +127,21 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return errors.Errorf("importing storage instances: %w", err)
 	}
 
-	// Filesystems and Volumes need to be handled differently for CAAS models. Until
-	// this is implemented skip the import step.
-	if model.Type() == coremodel.IAAS.String() {
+	switch model.Type() {
+	case coremodel.CAAS.String():
+		err := i.importVolumesAndFilesystemsCAAS(ctx, model.Filesystems(), model.Volumes())
+		if err != nil {
+			return errors.Errorf("importing CAAS storage: %w", err)
+		}
+	case coremodel.IAAS.String():
 		if err := i.importFilesystemsIAAS(ctx, model.Filesystems()); err != nil {
 			return errors.Errorf("importing filesystems: %w", err)
 		}
 
 		if err := i.importVolumes(ctx, model.Volumes()); err != nil {
-			return errors.Errorf("importing volumes: %w", err)
-		}
+			return errors.Errorf("setting volumes: %w", err)
 
+		}
 	}
 	return nil
 }
@@ -189,6 +210,83 @@ func (i *importOperation) importFilesystemsIAAS(ctx context.Context, filesystems
 	})
 
 	return i.service.ImportFilesystemsIAAS(ctx, args)
+}
+
+// importVolumesAndFilesystemsCAAS imports CAAS storage a filesystems and
+// filesystem attachments. In previous version of juju these were volumes
+// and filesystems.
+func (i *importOperation) importVolumesAndFilesystemsCAAS(
+	ctx context.Context,
+	filesystems []description.Filesystem,
+	volumes []description.Volume) error {
+	if len(filesystems) == 0 && len(volumes) == 0 {
+		return nil
+	}
+	if (len(filesystems) == 0) != (len(volumes) == 0) {
+		return errors.Errorf("volumes and filesystems must both exist or not exist: %d volumes,"+
+			" %d filesystems", len(volumes), len(filesystems))
+	}
+
+	convertedFS := transform.SliceToMap(volumes, func(in description.Volume) (
+		string, domainstorage.ImportFilesystemParams) {
+		return in.ID(), domainstorage.ImportFilesystemParams{
+			SizeInMiB:         in.Size(),
+			ProviderID:        in.VolumeID(),
+			PoolName:          in.Pool(),
+			StorageInstanceID: in.Storage(),
+		}
+	})
+
+	params, err := transform.SliceOrErr(
+		filesystems,
+		func(in description.Filesystem) (domainstorage.ImportFilesystemParams, error,
+		) {
+			fs, ok := convertedFS[in.Volume()]
+			if !ok {
+				return domainstorage.ImportFilesystemParams{},
+					errors.Errorf("could not find volume %q for filesystem %q", in.Volume(), in.ID())
+			}
+
+			attachments, err := getCAASFilesystemAttachment(in.FilesystemID(), in.Attachments())
+			if err != nil {
+				return domainstorage.ImportFilesystemParams{},
+					errors.Errorf("%q: %w", in.ID(), err)
+			}
+
+			fs.ID = in.ID()
+			fs.Attachments = attachments
+			return fs, nil
+		})
+	if err != nil {
+		return errors.Errorf("converting CAAS filesystem attachments for import: %w", err)
+	}
+
+	return i.service.ImportFilesystemsCAAS(ctx, params)
+}
+
+func getCAASFilesystemAttachment(
+	filesystemID string,
+	attachments []description.FilesystemAttachment,
+) ([]domainstorage.ImportFilesystemAttachmentsParams, error) {
+	if len(attachments) > 1 {
+		// Attachments are being converted to filesystems during import,
+		// a storage instance is only allowed one filesystem per the DDL.
+		return nil, errors.Errorf("filesystem has more than one attachment")
+	}
+	if len(attachments) != 1 {
+		return nil, nil
+	}
+	attachment := attachments[0]
+
+	hostUnit, _ := attachment.HostUnit()
+	return []domainstorage.ImportFilesystemAttachmentsParams{
+		{
+			HostUnitName: hostUnit,
+			MountPoint:   attachment.MountPoint(),
+			ReadOnly:     attachment.ReadOnly(),
+			ProviderID:   filesystemID,
+		},
+	}, nil
 }
 
 func (i *importOperation) importVolumes(ctx context.Context, volumes []description.Volume) error {

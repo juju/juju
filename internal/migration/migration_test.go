@@ -58,10 +58,11 @@ func (s *ImportSuite) TestBadBytes(c *tc.C) {
 		return modelmigration.NewScope(nil, nil, nil, nil, tc.Must0(c, model.NewUUID))
 	}
 	importer := migration.NewModelImporter(
-		scope, nil, nil,
+		scope, nil,
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return nil
 		}),
+		"controller-uuid",
 		loggertesting.WrapCheckLog(c),
 		clock.WallClock,
 	)

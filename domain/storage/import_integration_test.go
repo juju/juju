@@ -180,6 +180,7 @@ func (s *importSuite) TestIAASImportStorageInstancesVolumeBackedFilesystems(c *t
 	storagemodelmigration.RegisterImport(
 		s.coordinator,
 		s.registryGetter,
+		nil,
 		s.logger,
 	)
 
@@ -428,6 +429,7 @@ func (s *importSuite) TestIAASImportStorageInstancesNonVolumeBackedFilesystems(c
 	storagemodelmigration.RegisterImport(
 		s.coordinator,
 		s.registryGetter,
+		nil,
 		s.logger,
 	)
 
@@ -671,6 +673,7 @@ func (s *importSuite) TestIAASImportStorageInstancesVolumesOnly(c *tc.C) {
 	storagemodelmigration.RegisterImport(
 		s.coordinator,
 		s.registryGetter,
+		nil,
 		s.logger,
 	)
 

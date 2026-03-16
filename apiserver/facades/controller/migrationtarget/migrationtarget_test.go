@@ -492,8 +492,6 @@ func (s *Suite) mustNewAPIWithFacadeVersions(c *tc.C, versions facades.FacadeVer
 
 func (s *Suite) makeExportedModel(c *tc.C) (string, []byte) {
 	var model description.Model
-	//model, err := s.State.Export(jujujujutesting.NewObjectStore(c, s.State.ModelUUID()))
-	//c.Assert(err, tc.ErrorIsNil)
 
 	newUUID := uuid.MustNewUUID().String()
 	model.UpdateConfig(map[string]any{
@@ -518,11 +516,11 @@ func (s *Suite) expectImportModel(c *tc.C) {
 		}
 		return migration.NewModelImporter(
 			scope,
-			s.controllerConfigService,
 			s.domainServicesGetter,
 			corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 				return nil
 			}),
+			"",
 			loggertesting.WrapCheckLog(c),
 			clock.WallClock,
 		).ImportModel(ctx, bytes)
