@@ -272,35 +272,35 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application,
 		cons, trust, rootless, agentVersion)
 	c.Assert(app.Ensure(appConfig), jc.ErrorIsNil)
 
-	secret, err := s.client.CoreV1().Secrets("test").Get(context.TODO(), "gitlab-application-config", metav1.GetOptions{})
+	secret, err := s.client.CoreV1().Secrets("test").Get(context.Background(), "gitlab-application-config", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(secret, gc.DeepEquals, &appSecret)
 
-	secret, err = s.client.CoreV1().Secrets("test").Get(context.TODO(), "gitlab-nginx-secret", metav1.GetOptions{})
+	secret, err = s.client.CoreV1().Secrets("test").Get(context.Background(), "gitlab-nginx-secret", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(secret, gc.DeepEquals, &nginxPullSecret)
 
-	svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+	svc, err := s.client.CoreV1().Services("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(svc, gc.DeepEquals, &appSvc)
 
-	sa, err := s.client.CoreV1().ServiceAccounts(s.namespace).Get(context.TODO(), "gitlab", metav1.GetOptions{})
+	sa, err := s.client.CoreV1().ServiceAccounts(s.namespace).Get(context.Background(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sa, gc.DeepEquals, &appSA)
 
-	r, err := s.client.RbacV1().Roles(s.namespace).Get(context.TODO(), "gitlab", metav1.GetOptions{})
+	r, err := s.client.RbacV1().Roles(s.namespace).Get(context.Background(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r, gc.DeepEquals, &appRole)
 
-	cr, err := s.client.RbacV1().ClusterRoles().Get(context.TODO(), "test-gitlab", metav1.GetOptions{})
+	cr, err := s.client.RbacV1().ClusterRoles().Get(context.Background(), "test-gitlab", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cr, gc.DeepEquals, &appClusterRole)
 
-	rb, err := s.client.RbacV1().RoleBindings(s.namespace).Get(context.TODO(), "gitlab", metav1.GetOptions{})
+	rb, err := s.client.RbacV1().RoleBindings(s.namespace).Get(context.Background(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rb, gc.DeepEquals, &appRoleBinding)
 
-	crb, err := s.client.RbacV1().ClusterRoleBindings().Get(context.TODO(), "test-gitlab", metav1.GetOptions{})
+	crb, err := s.client.RbacV1().ClusterRoleBindings().Get(context.Background(), "test-gitlab", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(crb, gc.DeepEquals, &appClusterRoleBinding)
 
