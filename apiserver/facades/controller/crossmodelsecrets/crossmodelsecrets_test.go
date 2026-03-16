@@ -129,10 +129,6 @@ func (s *CrossModelSecretsSuite) setup(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *tc.C) {
 	defer s.setup(c).Finish()
 
@@ -142,7 +138,7 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *tc.C) {
 	appUUID2 := tc.Must(c, application.NewUUID)
 
 	s.crossModelRelationService.EXPECT().GetRemoteConsumerApplicationName(gomock.Any(), appUUID).Return("mediawiki", nil)
-	s.crossModelRelationService.EXPECT().ProcessRemoteConsumerGetSecret(gomock.Any(), uri, unit.Name("mediawiki/666"), ptr(667), false, true).Return(
+	s.crossModelRelationService.EXPECT().ProcessRemoteConsumerGetSecret(gomock.Any(), uri, unit.Name("mediawiki/666"), new(667), false, true).Return(
 		nil,
 		&coresecrets.ValueRef{
 			BackendID:  "backend-id",
@@ -225,7 +221,7 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *tc.C) {
 			BakeryVersion:        3,
 			Macaroons:            macaroon.Slice{mac.M()},
 			URI:                  uri.String(),
-			Revision:             ptr(667),
+			Revision:             new(667),
 			Refresh:              true,
 		}, {
 			URI: coresecrets.NewURI().String(),
@@ -261,7 +257,7 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *tc.C) {
 					Params:      map[string]interface{}{"foo": "bar"},
 				},
 			},
-			LatestRevision: ptr(668),
+			LatestRevision: new(668),
 		}, {
 			Error: &params.Error{
 				Code:    "not valid",

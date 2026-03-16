@@ -130,7 +130,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		machineUUID, err := i.service.CreateMachine(
 			ctx,
 			machine.Name(m.Id()),
-			ptr(m.Nonce()),
+			new(m.Nonce()),
 			machinePlatform,
 			domainPlacement,
 			constraints.DecodeConstraints(cons))
@@ -159,7 +159,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 				ctx,
 				machine.Name(c.Id()),
 				machineUUID,
-				ptr(c.Nonce()),
+				new(c.Nonce()),
 				machinePlatform,
 				domainPlacement,
 				constraints.DecodeConstraints(cons))
@@ -281,9 +281,5 @@ func ptrOrZero[T comparable](v T) *T {
 	if v == zero {
 		return nil
 	}
-	return &v
-}
-
-func ptr[T any](v T) *T {
 	return &v
 }

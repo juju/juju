@@ -41,7 +41,7 @@ var configTestCases = [...]struct {
 				Key:          "string",
 				Type:         "string",
 				Description:  "description",
-				DefaultValue: ptr("default"),
+				DefaultValue: new("default"),
 			},
 		},
 		output: charm.Config{
@@ -61,7 +61,7 @@ var configTestCases = [...]struct {
 				Key:          "secret",
 				Type:         "secret",
 				Description:  "description",
-				DefaultValue: ptr("default"),
+				DefaultValue: new("default"),
 			},
 		},
 		output: charm.Config{
@@ -81,7 +81,7 @@ var configTestCases = [...]struct {
 				Key:          "int",
 				Type:         "int",
 				Description:  "description",
-				DefaultValue: ptr("1"),
+				DefaultValue: new("1"),
 			},
 		},
 		output: charm.Config{
@@ -101,7 +101,7 @@ var configTestCases = [...]struct {
 				Key:          "float",
 				Type:         "float",
 				Description:  "description",
-				DefaultValue: ptr("4.2"),
+				DefaultValue: new("4.2"),
 			},
 		},
 		output: charm.Config{
@@ -121,7 +121,7 @@ var configTestCases = [...]struct {
 				Key:          "boolean",
 				Type:         "boolean",
 				Description:  "description",
-				DefaultValue: ptr("true"),
+				DefaultValue: new("true"),
 			},
 		},
 		output: charm.Config{
@@ -188,31 +188,31 @@ var configTypeTestCases = [...]struct {
 	{
 		name:   "string",
 		kind:   charm.OptionString,
-		input:  ptr("deadbeef"),
+		input:  new("deadbeef"),
 		output: "deadbeef",
 	},
 	{
 		name:   "int",
 		kind:   charm.OptionInt,
-		input:  ptr("42"),
+		input:  new("42"),
 		output: 42,
 	},
 	{
 		name:   "float",
 		kind:   charm.OptionFloat,
-		input:  ptr("42.3"),
+		input:  new("42.3"),
 		output: 42.3,
 	},
 	{
 		name:   "bool",
 		kind:   charm.OptionBool,
-		input:  ptr("true"),
+		input:  new("true"),
 		output: true,
 	},
 	{
 		name:   "secret",
 		kind:   charm.OptionSecret,
-		input:  ptr("ssh"),
+		input:  new("ssh"),
 		output: "ssh",
 	},
 	{
@@ -244,37 +244,37 @@ var encodeConfigTypeTestCases = [...]struct {
 	{
 		name:   "string",
 		input:  "deadbeef",
-		output: ptr("deadbeef"),
+		output: new("deadbeef"),
 	},
 	{
 		name:   "int",
 		input:  int(42),
-		output: ptr("42"),
+		output: new("42"),
 	},
 	{
 		name:   "int64",
 		input:  int64(42),
-		output: ptr("42"),
+		output: new("42"),
 	},
 	{
 		name:   "float64",
 		input:  float64(42.1),
-		output: ptr("42.1"),
+		output: new("42.1"),
 	},
 	{
 		name:   "float64",
 		input:  float64(42.0),
-		output: ptr("42"),
+		output: new("42"),
 	},
 	{
 		name:   "float64",
 		input:  float64(42),
-		output: ptr("42"),
+		output: new("42"),
 	},
 	{
 		name:   "bool",
 		input:  true,
-		output: ptr("true"),
+		output: new("true"),
 	},
 	{
 		name:   "nil",
@@ -294,7 +294,7 @@ func (s *configSuite) TestEncodeDefaultValue(c *tc.C) {
 }
 
 func (s *configSuite) TestDecodeConfigTypeError(c *tc.C) {
-	_, err := decodeConfigDefaultValue(charm.OptionType("invalid"), ptr(""))
+	_, err := decodeConfigDefaultValue(charm.OptionType("invalid"), new(""))
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 

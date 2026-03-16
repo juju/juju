@@ -688,7 +688,7 @@ func (s *RefreshSuite) TestRespectsLocalRevisionWhenPossible(c *tc.C) {
 			Origin: commoncharm.Origin{
 				Base:     s.charmAPIClient.charmOrigin.Base,
 				Source:   "local",
-				Revision: ptr(42),
+				Revision: new(42),
 			},
 		},
 		ConfigSettings:   map[string]string{},

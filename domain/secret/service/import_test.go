@@ -41,8 +41,8 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 		Label:                  "a secret",
 		RotatePolicy:           "hourly",
 		LatestRevisionChecksum: "checksum-1234",
-		LatestExpireTime:       ptr(expireTime),
-		NextRotateTime:         ptr(rotateTime),
+		LatestExpireTime:       new(expireTime),
+		NextRotateTime:         new(rotateTime),
 		CreateTime:             now.Add(1 * time.Hour),
 		UpdateTime:             now.Add(3 * time.Hour),
 	}, {
@@ -69,7 +69,7 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 				Revision:   2,
 				CreateTime: now.Add(3 * time.Hour),
 				UpdateTime: now.Add(13 * time.Hour),
-				ExpireTime: ptr(expireTime),
+				ExpireTime: new(expireTime),
 				ValueRef: &coresecrets.ValueRef{
 					BackendID:  "backend-id",
 					RevisionID: "revision-id",
@@ -112,31 +112,31 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 	}, domainsecret.UpsertSecretParams{
 		CreateTime:     secrets[0].CreateTime,
 		UpdateTime:     secrets[0].UpdateTime,
-		NextRotateTime: ptr(rotateTime),
-		Description:    ptr(secrets[0].Description),
-		Label:          ptr(secrets[0].Label),
-		RotatePolicy:   ptr(domainsecret.RotateHourly),
+		NextRotateTime: new(rotateTime),
+		Description:    new(secrets[0].Description),
+		Label:          new(secrets[0].Label),
+		RotatePolicy:   new(domainsecret.RotateHourly),
 		Checksum:       "checksum-1234",
-		ExpireTime:     ptr(expireTime),
+		ExpireTime:     new(expireTime),
 	}, []domainsecret.UpsertRevisionParams{
 		{
 			Revision:   1,
 			CreateTime: revisions[0][0].CreateTime,
 			UpdateTime: revisions[0][0].UpdateTime,
-			RevisionID: ptr(s.fakeUUID.String()),
+			RevisionID: new(s.fakeUUID.String()),
 			Data:       map[string]string{"foo": "bar"},
 		},
 		{
 			Revision:   2,
 			CreateTime: revisions[0][1].CreateTime,
 			UpdateTime: revisions[0][1].UpdateTime,
-			RevisionID: ptr(s.fakeUUID.String()),
+			RevisionID: new(s.fakeUUID.String()),
 			ValueRef: &coresecrets.ValueRef{
 				BackendID:  "backend-id",
 				RevisionID: "revision-id",
 			},
 			Checksum:   "checksum-1234",
-			ExpireTime: ptr(expireTime),
+			ExpireTime: new(expireTime),
 		},
 	}).Return(nil)
 
@@ -180,15 +180,15 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 	}, domainsecret.UpsertSecretParams{
 		CreateTime:  secrets[1].CreateTime,
 		UpdateTime:  secrets[1].UpdateTime,
-		Description: ptr(secrets[1].Description),
-		AutoPrune:   ptr(secrets[1].AutoPrune),
+		Description: new(secrets[1].Description),
+		AutoPrune:   new(secrets[1].AutoPrune),
 		Checksum:    "checksum-1234",
 	}, []domainsecret.UpsertRevisionParams{
 		{
 			Revision:   5,
 			CreateTime: revisions[1][0].CreateTime,
 			UpdateTime: revisions[1][0].UpdateTime,
-			RevisionID: ptr(s.fakeUUID.String()),
+			RevisionID: new(s.fakeUUID.String()),
 			Data:       map[string]string{"foo": "baz"},
 			Checksum:   "checksum-1234",
 		},

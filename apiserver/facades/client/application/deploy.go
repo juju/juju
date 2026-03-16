@@ -170,7 +170,7 @@ func DeployApplication(
 		Devices:          args.Devices,
 		ApplicationStatus: &status.StatusInfo{
 			Status: status.Unset,
-			Since:  ptr(clock.Now()),
+			Since:  new(clock.Now()),
 		},
 		ApplicationConfig: args.ApplicationConfig,
 		ApplicationSettings: application.ApplicationSettings{

@@ -118,50 +118,50 @@ func (s *unitServiceSuite) TestUpdateCAASUnit(c *tc.C) {
 	now := time.Now()
 
 	expected := application.UpdateCAASUnitParams{
-		ProviderID: ptr("provider-id"),
-		Address:    ptr("10.6.6.6"),
-		Ports:      ptr([]string{"666"}),
-		AgentStatus: ptr(status.StatusInfo[status.UnitAgentStatusType]{
+		ProviderID: new("provider-id"),
+		Address:    new("10.6.6.6"),
+		Ports:      new([]string{"666"}),
+		AgentStatus: new(status.StatusInfo[status.UnitAgentStatusType]{
 			Status:  status.UnitAgentStatusAllocating,
 			Message: "agent status",
 			Data:    []byte(`{"foo":"bar"}`),
-			Since:   ptr(now),
+			Since:   new(now),
 		}),
-		WorkloadStatus: ptr(status.StatusInfo[status.WorkloadStatusType]{
+		WorkloadStatus: new(status.StatusInfo[status.WorkloadStatusType]{
 			Status:  status.WorkloadStatusWaiting,
 			Message: "workload status",
 			Data:    []byte(`{"foo":"bar"}`),
-			Since:   ptr(now),
+			Since:   new(now),
 		}),
-		K8sPodStatus: ptr(status.StatusInfo[status.K8sPodStatusType]{
+		K8sPodStatus: new(status.StatusInfo[status.K8sPodStatusType]{
 			Status:  status.K8sPodStatusRunning,
 			Message: "container status",
 			Data:    []byte(`{"foo":"bar"}`),
-			Since:   ptr(now),
+			Since:   new(now),
 		}),
 	}
 
 	params := UpdateCAASUnitParams{
-		ProviderID: ptr("provider-id"),
-		Address:    ptr("10.6.6.6"),
-		Ports:      ptr([]string{"666"}),
-		AgentStatus: ptr(corestatus.StatusInfo{
+		ProviderID: new("provider-id"),
+		Address:    new("10.6.6.6"),
+		Ports:      new([]string{"666"}),
+		AgentStatus: new(corestatus.StatusInfo{
 			Status:  corestatus.Allocating,
 			Message: "agent status",
 			Data:    map[string]interface{}{"foo": "bar"},
-			Since:   ptr(now),
+			Since:   new(now),
 		}),
-		WorkloadStatus: ptr(corestatus.StatusInfo{
+		WorkloadStatus: new(corestatus.StatusInfo{
 			Status:  corestatus.Waiting,
 			Message: "workload status",
 			Data:    map[string]interface{}{"foo": "bar"},
-			Since:   ptr(now),
+			Since:   new(now),
 		}),
-		CloudContainerStatus: ptr(corestatus.StatusInfo{
+		CloudContainerStatus: new(corestatus.StatusInfo{
 			Status:  corestatus.Running,
 			Message: "container status",
 			Data:    map[string]interface{}{"foo": "bar"},
-			Since:   ptr(now),
+			Since:   new(now),
 		}),
 	}
 

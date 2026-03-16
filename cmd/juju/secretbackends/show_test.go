@@ -52,7 +52,7 @@ func (s *ShowSuite) TestShowYAML(c *tc.C) {
 			ID:                  "vault-id",
 			Name:                "myvault",
 			BackendType:         "vault",
-			TokenRotateInterval: ptr(666 * time.Minute),
+			TokenRotateInterval: new(666 * time.Minute),
 			Config:              map[string]interface{}{"endpoint": "http://vault"},
 			NumSecrets:          666,
 			Status:              status.Error,

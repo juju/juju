@@ -217,7 +217,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *tc.C) {
 		Name:        name,
 		DisplayName: "Charlie Brown",
 		CreatorUUID: s.AdminUserUUID,
-		Password:    ptr(auth.NewPassword(pass)),
+		Password:    new(auth.NewPassword(pass)),
 		Permission: permission.AccessSpec{
 			Access: permission.LoginAccess,
 			Target: permission.ID{
@@ -260,7 +260,7 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *tc.C) {
 		Name:        name,
 		DisplayName: "Charlie Brown",
 		CreatorUUID: s.AdminUserUUID,
-		Password:    ptr(auth.NewPassword(pass)),
+		Password:    new(auth.NewPassword(pass)),
 		Permission: permission.AccessSpec{
 			Access: permission.LoginAccess,
 			Target: permission.ID{
@@ -359,7 +359,7 @@ func (s *loginSuite) TestNoLoginPermissions(c *tc.C) {
 		Name:        user.NameFromTag(tag),
 		DisplayName: "Charlie Brown",
 		CreatorUUID: s.AdminUserUUID,
-		Password:    ptr(auth.NewPassword(password)),
+		Password:    new(auth.NewPassword(password)),
 		Permission: permission.AccessSpec{
 			Access: permission.LoginAccess,
 			Target: permission.ID{
@@ -507,7 +507,7 @@ func (s *loginSuite) TestOtherModel(c *tc.C) {
 		Name:        name,
 		DisplayName: "Charlie Brown",
 		CreatorUUID: s.AdminUserUUID,
-		Password:    ptr(auth.NewPassword(pass)),
+		Password:    new(auth.NewPassword(pass)),
 		Permission: permission.AccessSpec{
 			Access: permission.LoginAccess,
 			Target: permission.ID{
@@ -551,7 +551,7 @@ func (s *loginSuite) loginLocalUser(c *tc.C, info *api.Info) (names.UserTag, par
 		Name:        name,
 		DisplayName: "Charlie Brown",
 		CreatorUUID: s.AdminUserUUID,
-		Password:    ptr(auth.NewPassword(pass)),
+		Password:    new(auth.NewPassword(pass)),
 		Permission: permission.AccessSpec{
 			Access: permission.LoginAccess,
 			Target: permission.ID{
@@ -644,7 +644,7 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *tc.C) {
 		Name:        name,
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
-		Password:    ptr(auth.NewPassword("password")),
+		Password:    new(auth.NewPassword("password")),
 		Permission: permission.AccessSpec{
 			Access: permission.LoginAccess,
 			Target: permission.ID{
@@ -769,7 +769,7 @@ func (s *loginV3Suite) TestClientLoginToControllerNoAccessToControllerModel(c *t
 		Name:        name,
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
-		Password:    ptr(auth.NewPassword("password")),
+		Password:    new(auth.NewPassword("password")),
 		Permission: permission.AccessSpec{
 			Access: permission.LoginAccess,
 			Target: permission.ID{
@@ -830,8 +830,4 @@ func (t errorTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}, nil
 	}
 	return t.fallback.RoundTrip(req)
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

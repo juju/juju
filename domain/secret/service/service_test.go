@@ -115,11 +115,11 @@ func (s *serviceSuite) assertCreateUserSecret(c *tc.C, isInternal, finalStepFail
 	defer s.setupMocks(c).Finish()
 
 	params := domainsecret.UpsertSecretParams{
-		Description: ptr("a secret"),
-		Label:       ptr("my secret"),
-		AutoPrune:   ptr(true),
+		Description: new("a secret"),
+		Label:       new("my secret"),
+		AutoPrune:   new(true),
 		Checksum:    "checksum-1234",
-		RevisionID:  ptr(s.fakeUUID.String()),
+		RevisionID:  new(s.fakeUUID.String()),
 		CreateTime:  s.clock.Now(),
 		UpdateTime:  s.clock.Now(),
 	}
@@ -229,10 +229,10 @@ func (s *serviceSuite) assertCreateUserSecret(c *tc.C, isInternal, finalStepFail
 				Kind: domainsecret.ModelAccessor,
 				ID:   s.modelID.String(),
 			},
-			Description: ptr("a secret"),
-			Label:       ptr("my secret"),
+			Description: new("a secret"),
+			Label:       new("my secret"),
 			Data:        map[string]string{"foo": "bar"},
-			AutoPrune:   ptr(true),
+			AutoPrune:   new(true),
 			Checksum:    "checksum-1234",
 		},
 		Version: 1,
@@ -338,11 +338,11 @@ func (s *serviceSuite) assertUpdateUserSecret(c *tc.C, isInternal, finalStepFail
 	}
 
 	params := domainsecret.UpsertSecretParams{
-		Description: ptr("a secret"),
-		Label:       ptr("my secret"),
-		AutoPrune:   ptr(true),
+		Description: new("a secret"),
+		Label:       new("my secret"),
+		AutoPrune:   new(true),
 		Checksum:    "checksum-1234",
-		RevisionID:  ptr(s.fakeUUID.String()),
+		RevisionID:  new(s.fakeUUID.String()),
 		UpdateTime:  s.clock.Now(),
 	}
 	if isInternal {
@@ -382,11 +382,11 @@ func (s *serviceSuite) assertUpdateUserSecret(c *tc.C, isInternal, finalStepFail
 			Kind: domainsecret.ModelAccessor,
 			ID:   s.modelID.String(),
 		},
-		Description: ptr("a secret"),
-		Label:       ptr("my secret"),
+		Description: new("a secret"),
+		Label:       new("my secret"),
 		Data:        map[string]string{"foo": "bar"},
 		Checksum:    "checksum-1234",
-		AutoPrune:   ptr(true),
+		AutoPrune:   new(true),
 	})
 	if finalStepFailed || labelExists {
 		c.Assert(rollbackCalled, tc.IsTrue)
@@ -407,14 +407,14 @@ func (s *serviceSuite) TestCreateCharmUnitSecret(c *tc.C) {
 	rotateTime := s.clock.Now().Add(time.Hour)
 	uri := coresecrets.NewURI()
 	p := domainsecret.UpsertSecretParams{
-		RotatePolicy:   ptr(domainsecret.RotateHourly),
-		Description:    ptr("a secret"),
-		Label:          ptr("my secret"),
+		RotatePolicy:   new(domainsecret.RotateHourly),
+		Description:    new("a secret"),
+		Label:          new("my secret"),
 		Data:           coresecrets.SecretData{"foo": "bar"},
 		Checksum:       "checksum-1234",
-		ExpireTime:     ptr(exipreTime),
-		NextRotateTime: ptr(rotateTime),
-		RevisionID:     ptr(s.fakeUUID.String()),
+		ExpireTime:     new(exipreTime),
+		NextRotateTime: new(rotateTime),
+		RevisionID:     new(s.fakeUUID.String()),
 		CreateTime:     s.clock.Now(),
 		UpdateTime:     s.clock.Now(),
 	}
@@ -445,12 +445,12 @@ func (s *serviceSuite) TestCreateCharmUnitSecret(c *tc.C) {
 				Kind: domainsecret.UnitAccessor,
 				ID:   "mariadb/0",
 			},
-			Description:  ptr("a secret"),
-			Label:        ptr("my secret"),
+			Description:  new("a secret"),
+			Label:        new("my secret"),
 			Data:         map[string]string{"foo": "bar"},
 			Checksum:     "checksum-1234",
-			ExpireTime:   ptr(exipreTime),
-			RotatePolicy: ptr(coresecrets.RotateHourly),
+			ExpireTime:   new(exipreTime),
+			RotatePolicy: new(coresecrets.RotateHourly),
 		},
 		Version: 1,
 		CharmOwner: domainsecret.CharmSecretOwner{
@@ -489,12 +489,12 @@ func (s *serviceSuite) TestCreateCharmUnitSecretFailedLabelAlreadyExists(c *tc.C
 				Kind: domainsecret.UnitAccessor,
 				ID:   "mariadb/0",
 			},
-			Description:  ptr("a secret"),
-			Label:        ptr("my secret"),
+			Description:  new("a secret"),
+			Label:        new("my secret"),
 			Data:         map[string]string{"foo": "bar"},
 			Checksum:     "checksum-1234",
-			ExpireTime:   ptr(exipreTime),
-			RotatePolicy: ptr(coresecrets.RotateHourly),
+			ExpireTime:   new(exipreTime),
+			RotatePolicy: new(coresecrets.RotateHourly),
 		},
 		Version: 1,
 		CharmOwner: domainsecret.CharmSecretOwner{
@@ -513,14 +513,14 @@ func (s *serviceSuite) TestCreateCharmApplicationSecret(c *tc.C) {
 	rotateTime := s.clock.Now().Add(time.Hour)
 	uri := coresecrets.NewURI()
 	p := domainsecret.UpsertSecretParams{
-		RotatePolicy:   ptr(domainsecret.RotateHourly),
-		Description:    ptr("a secret"),
-		Label:          ptr("my secret"),
+		RotatePolicy:   new(domainsecret.RotateHourly),
+		Description:    new("a secret"),
+		Label:          new("my secret"),
 		Data:           coresecrets.SecretData{"foo": "bar"},
 		Checksum:       "checksum-1234",
-		ExpireTime:     ptr(exipreTime),
-		NextRotateTime: ptr(rotateTime),
-		RevisionID:     ptr(s.fakeUUID.String()),
+		ExpireTime:     new(exipreTime),
+		NextRotateTime: new(rotateTime),
+		RevisionID:     new(s.fakeUUID.String()),
 		CreateTime:     s.clock.Now(),
 		UpdateTime:     s.clock.Now(),
 	}
@@ -555,12 +555,12 @@ func (s *serviceSuite) TestCreateCharmApplicationSecret(c *tc.C) {
 				Kind: domainsecret.UnitAccessor,
 				ID:   "mariadb/0",
 			},
-			Description:  ptr("a secret"),
-			Label:        ptr("my secret"),
+			Description:  new("a secret"),
+			Label:        new("my secret"),
 			Data:         map[string]string{"foo": "bar"},
 			Checksum:     "checksum-1234",
-			ExpireTime:   ptr(exipreTime),
-			RotatePolicy: ptr(coresecrets.RotateHourly),
+			ExpireTime:   new(exipreTime),
+			RotatePolicy: new(coresecrets.RotateHourly),
 		},
 		Version: 1,
 		CharmOwner: domainsecret.CharmSecretOwner{
@@ -601,12 +601,12 @@ func (s *serviceSuite) TestCreateCharmApplicationSecretFailedLabelExists(c *tc.C
 				Kind: domainsecret.UnitAccessor,
 				ID:   "mariadb/0",
 			},
-			Description:  ptr("a secret"),
-			Label:        ptr("my secret"),
+			Description:  new("a secret"),
+			Label:        new("my secret"),
 			Data:         map[string]string{"foo": "bar"},
 			Checksum:     "checksum-1234",
-			ExpireTime:   ptr(exipreTime),
-			RotatePolicy: ptr(coresecrets.RotateHourly),
+			ExpireTime:   new(exipreTime),
+			RotatePolicy: new(coresecrets.RotateHourly),
 		},
 		Version: 1,
 		CharmOwner: domainsecret.CharmSecretOwner{
@@ -625,13 +625,13 @@ func (s *serviceSuite) TestUpdateCharmSecretNoRotate(c *tc.C) {
 	uri := coresecrets.NewURI()
 
 	p := domainsecret.UpsertSecretParams{
-		RotatePolicy: ptr(domainsecret.RotateNever),
-		Description:  ptr("a secret"),
-		Label:        ptr("my secret"),
+		RotatePolicy: new(domainsecret.RotateNever),
+		Description:  new("a secret"),
+		Label:        new("my secret"),
 		Data:         coresecrets.SecretData{"foo": "bar"},
 		Checksum:     "checksum-1234",
-		ExpireTime:   ptr(expireTime),
-		RevisionID:   ptr(s.fakeUUID.String()),
+		ExpireTime:   new(expireTime),
+		RevisionID:   new(s.fakeUUID.String()),
 		UpdateTime:   s.clock.Now(),
 	}
 
@@ -653,11 +653,11 @@ func (s *serviceSuite) TestUpdateCharmSecretNoRotate(c *tc.C) {
 			Kind: domainsecret.UnitAccessor,
 			ID:   "mariadb/0",
 		},
-		Description: ptr("a secret"),
-		Label:       ptr("my secret"),
+		Description: new("a secret"),
+		Label:       new("my secret"),
 		Data:        map[string]string{"foo": "bar"},
 		Checksum:    "checksum-1234",
-		ExpireTime:  ptr(expireTime),
+		ExpireTime:  new(expireTime),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rollbackCalled, tc.IsFalse)
@@ -675,25 +675,25 @@ func (s *serviceSuite) TestUpdateCharmSecretRotatePolicyTransitions(c *tc.C) {
 		{
 			name:            "RecomputeNextRotateFromNever",
 			prev:            coresecrets.RotateNever,
-			newPol:          ptr(coresecrets.RotateMonthly),
+			newPol:          new(coresecrets.RotateMonthly),
 			expectRecompute: true,
 		},
 		{
 			name:            "RecomputeNextRotateToNever",
 			prev:            coresecrets.RotateMonthly,
-			newPol:          ptr(coresecrets.RotateNever),
+			newPol:          new(coresecrets.RotateNever),
 			expectRecompute: false, // This will be handled at the state level
 		},
 		{
 			name:            "RecomputeNextRotateFromNeverToNever",
 			prev:            coresecrets.RotateNever,
-			newPol:          ptr(coresecrets.RotateNever),
+			newPol:          new(coresecrets.RotateNever),
 			expectRecompute: false, // Edge case
 		},
 		{
 			name:            "RecomputeNextRotateTimeIfNotMoreFrequent",
 			prev:            coresecrets.RotateDaily,
-			newPol:          ptr(coresecrets.RotateMonthly),
+			newPol:          new(coresecrets.RotateMonthly),
 			expectRecompute: false,
 		},
 	}
@@ -711,10 +711,10 @@ func (s *serviceSuite) runRotatePolicyUpdateCase(c *tc.C, uri *coresecrets.URI, 
 
 	// Build expected Upsert params.
 	want := domainsecret.UpsertSecretParams{
-		Label:        ptr("my secret"),
+		Label:        new("my secret"),
 		Data:         coresecrets.SecretData{"foo": "bar"},
-		RotatePolicy: ptr(domainsecret.MarshallRotatePolicy(newPol)),
-		RevisionID:   ptr(s.fakeUUID.String()),
+		RotatePolicy: new(domainsecret.MarshallRotatePolicy(newPol)),
+		RevisionID:   new(s.fakeUUID.String()),
 		UpdateTime:   s.clock.Now(),
 	}
 	var expectedNext *time.Time
@@ -763,7 +763,7 @@ func (s *serviceSuite) runRotatePolicyUpdateCase(c *tc.C, uri *coresecrets.URI, 
 			Kind: domainsecret.UnitAccessor,
 			ID:   "mariadb/0",
 		},
-		Label:        ptr("my secret"),
+		Label:        new("my secret"),
 		Data:         map[string]string{"foo": "bar"},
 		RotatePolicy: newPol,
 	})
@@ -780,12 +780,12 @@ func (s *serviceSuite) TestUpdateCharmSecretDoNotRecomputeNextRotateTimeIfLessFr
 
 	// No nextRotateTime expected when policy becomes less frequent.
 	p := domainsecret.UpsertSecretParams{
-		RotatePolicy: ptr(domainsecret.RotateMonthly),
-		Description:  ptr("a secret"),
-		Label:        ptr("my secret"),
+		RotatePolicy: new(domainsecret.RotateMonthly),
+		Description:  new("a secret"),
+		Label:        new("my secret"),
 		Data:         coresecrets.SecretData{"foo": "bar"},
 		Checksum:     "checksum-1234",
-		RevisionID:   ptr(s.fakeUUID.String()),
+		RevisionID:   new(s.fakeUUID.String()),
 		UpdateTime:   s.clock.Now(),
 	}
 
@@ -812,11 +812,11 @@ func (s *serviceSuite) TestUpdateCharmSecretDoNotRecomputeNextRotateTimeIfLessFr
 			Kind: domainsecret.UnitAccessor,
 			ID:   "mariadb/0",
 		},
-		Description:  ptr("a secret"),
-		Label:        ptr("my secret"),
+		Description:  new("a secret"),
+		Label:        new("my secret"),
 		Data:         map[string]string{"foo": "bar"},
 		Checksum:     "checksum-1234",
-		RotatePolicy: ptr(coresecrets.RotateMonthly),
+		RotatePolicy: new(coresecrets.RotateMonthly),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rollbackCalled, tc.IsFalse)
@@ -828,13 +828,13 @@ func (s *serviceSuite) TestUpdateCharmSecret(c *tc.C) {
 	uri := coresecrets.NewURI()
 
 	p := domainsecret.UpsertSecretParams{
-		RotatePolicy:   ptr(domainsecret.RotateDaily),
-		Description:    ptr("a secret"),
-		Label:          ptr("my secret"),
+		RotatePolicy:   new(domainsecret.RotateDaily),
+		Description:    new("a secret"),
+		Label:          new("my secret"),
 		Data:           coresecrets.SecretData{"foo": "bar"},
 		Checksum:       "checksum-1234",
-		NextRotateTime: ptr(s.clock.Now().AddDate(0, 0, 1)),
-		RevisionID:     ptr(s.fakeUUID.String()),
+		NextRotateTime: new(s.clock.Now().AddDate(0, 0, 1)),
+		RevisionID:     new(s.fakeUUID.String()),
 		CreateTime:     s.clock.Now(),
 		UpdateTime:     s.clock.Now(),
 	}
@@ -871,11 +871,11 @@ func (s *serviceSuite) TestUpdateCharmSecret(c *tc.C) {
 			Kind: domainsecret.UnitAccessor,
 			ID:   "mariadb/0",
 		},
-		Description:  ptr("a secret"),
-		Label:        ptr("my secret"),
+		Description:  new("a secret"),
+		Label:        new("my secret"),
 		Data:         map[string]string{"foo": "bar"},
 		Checksum:     "checksum-1234",
-		RotatePolicy: ptr(coresecrets.RotateDaily),
+		RotatePolicy: new(coresecrets.RotateDaily),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rollbackCalled, tc.IsFalse)
@@ -902,11 +902,11 @@ func (s *serviceSuite) TestUpdateCharmSecretFailedStateError(c *tc.C) {
 			Kind: domainsecret.UnitAccessor,
 			ID:   "mariadb/0",
 		},
-		Description:  ptr("a secret"),
-		Label:        ptr("my secret"),
+		Description:  new("a secret"),
+		Label:        new("my secret"),
 		Data:         map[string]string{"foo": "bar"},
 		Checksum:     "checksum-1234",
-		RotatePolicy: ptr(coresecrets.RotateDaily),
+		RotatePolicy: new(coresecrets.RotateDaily),
 	})
 	c.Assert(err, tc.ErrorIs, stateError)
 	c.Assert(rollbackCalled, tc.IsTrue)
@@ -2044,7 +2044,7 @@ func (s *serviceSuite) TestSecretsRotatedForce(c *tc.C) {
 		})
 	s.state.EXPECT().GetRotationExpiryInfo(gomock.Any(), uri).Return(&domainsecret.RotationExpiryInfo{
 		RotatePolicy:     coresecrets.RotateHourly,
-		LatestExpireTime: ptr(s.clock.Now().Add(50 * time.Minute)),
+		LatestExpireTime: new(s.clock.Now().Add(50 * time.Minute)),
 		LatestRevision:   667,
 	}, nil)
 
@@ -2109,7 +2109,7 @@ func (s *serviceSuite) TestGetConsumedRevisionFirstTimeUpdateLabel(c *tc.C) {
 		CurrentRevision: 666,
 	})
 
-	rev, err := s.service.GetConsumedRevision(c.Context(), uri, "mariadb/0", false, false, ptr("label"))
+	rev, err := s.service.GetConsumedRevision(c.Context(), uri, "mariadb/0", false, false, new("label"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rev, tc.Equals, 666)
 }
@@ -2128,7 +2128,7 @@ func (s *serviceSuite) TestGetSecretConsumedRevisionUpdateLabel(c *tc.C) {
 		CurrentRevision: 666,
 	})
 
-	rev, err := s.service.GetConsumedRevision(c.Context(), uri, "mariadb/0", false, false, ptr("new-label"))
+	rev, err := s.service.GetConsumedRevision(c.Context(), uri, "mariadb/0", false, false, new("new-label"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(rev, tc.Equals, 666)
 }
@@ -2221,8 +2221,8 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelSecretUpdateLabel(c *t
 	}).Return("manage", nil)
 
 	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, domainsecret.UpsertSecretParams{
-		RotatePolicy: ptr(domainsecret.RotateNever),
-		Label:        ptr("foo"),
+		RotatePolicy: new(domainsecret.RotateNever),
+		Label:        new("foo"),
 		UpdateTime:   s.clock.Now(),
 	}).Return(nil)
 	s.secretBackendState.EXPECT().GetSecretBackendNamesByUUID(gomock.Any()).Return(nil, nil)
@@ -2298,7 +2298,7 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelUpdateLabel(c *tc.C) {
 	gotURI, gotLabel, err := s.service.ProcessCharmSecretConsumerLabel(c.Context(), "mariadb/0", uri, "foo")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(gotURI, tc.DeepEquals, uri)
-	c.Assert(gotLabel, tc.DeepEquals, ptr("foo"))
+	c.Assert(gotLabel, tc.DeepEquals, new("foo"))
 }
 
 func (s *serviceSuite) TestGetLatestRevisions(c *tc.C) {

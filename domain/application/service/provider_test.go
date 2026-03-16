@@ -62,7 +62,7 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 	id := tc.Must(c, coreapplication.NewUUID)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
-	now := ptr(s.clock.Now())
+	now := new(s.clock.Now())
 	us := []application.AddCAASUnitArg{{
 		AddUnitArg: application.AddUnitArg{
 			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
@@ -78,7 +78,7 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 				},
 			},
 			Constraints: constraints.Constraints{
-				Arch: ptr(arch.ARM64),
+				Arch: new(arch.ARM64),
 			},
 		},
 	}}
@@ -122,7 +122,7 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 				},
 				{
 					Name:     "bar",
-					Revision: ptr(42),
+					Revision: new(42),
 					Origin:   charmresource.OriginStore,
 				},
 				{
@@ -138,7 +138,7 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 				"provider": "beta",
 			},
 			Constraints: constraints.Constraints{
-				Arch: ptr("arm64"),
+				Arch: new("arm64"),
 			},
 		},
 		Scale: 1,
@@ -188,7 +188,7 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 	_, err := s.service.CreateCAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-		Revision: ptr(42),
+		Revision: new(42),
 	}, AddApplicationArgs{
 		ReferenceName: "ubuntu",
 		DownloadInfo: &applicationcharm.DownloadInfo{
@@ -205,7 +205,7 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 			},
 			{
 				Name:     "bar",
-				Revision: ptr(42),
+				Revision: new(42),
 				Origin:   charmresource.OriginStore,
 			},
 			{
@@ -231,7 +231,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithApplicationStatus(c 
 	id := tc.Must(c, coreapplication.NewUUID)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
-	now := ptr(s.clock.Now())
+	now := new(s.clock.Now())
 	status := &status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "active",
@@ -268,7 +268,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithApplicationStatus(c 
 	_, err := s.service.CreateIAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-		Revision: ptr(42),
+		Revision: new(42),
 	}, AddApplicationArgs{
 		ReferenceName: "ubuntu",
 		DownloadInfo: &applicationcharm.DownloadInfo{
@@ -326,9 +326,9 @@ func (s *providerServiceSuite) TestCreateIAASApplication(c *tc.C) {
 			},
 			Platform: platform,
 			Constraints: constraints.Constraints{
-				CpuCores: ptr(uint64(4)),
-				CpuPower: ptr(uint64(75)),
-				Arch:     ptr("arm64"),
+				CpuCores: new(uint64(4)),
+				CpuPower: new(uint64(75)),
+				Arch:     new("arm64"),
 			},
 		},
 	}
@@ -368,7 +368,7 @@ func (s *providerServiceSuite) TestCreateIAASApplication(c *tc.C) {
 	_, err := s.service.CreateIAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-		Revision: ptr(42),
+		Revision: new(42),
 	}, AddApplicationArgs{
 		ReferenceName: "ubuntu",
 		DownloadInfo: &applicationcharm.DownloadInfo{
@@ -435,9 +435,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithConfig(c *tc.C) {
 			},
 			Platform: platform,
 			Constraints: constraints.Constraints{
-				CpuCores: ptr(uint64(4)),
-				CpuPower: ptr(uint64(75)),
-				Arch:     ptr("arm64"),
+				CpuCores: new(uint64(4)),
+				CpuPower: new(uint64(75)),
+				Arch:     new("arm64"),
 			},
 			Config: map[string]application.AddApplicationConfig{
 				"foo": {
@@ -489,7 +489,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithConfig(c *tc.C) {
 	_, err := s.service.CreateIAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-		Revision: ptr(42),
+		Revision: new(42),
 	}, AddApplicationArgs{
 		ReferenceName: "ubuntu",
 		DownloadInfo: &applicationcharm.DownloadInfo{
@@ -552,9 +552,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 			},
 			Platform: platform,
 			Constraints: constraints.Constraints{
-				CpuCores: ptr(uint64(4)),
-				CpuPower: ptr(uint64(75)),
-				Arch:     ptr("arm64"),
+				CpuCores: new(uint64(4)),
+				CpuPower: new(uint64(75)),
+				Arch:     new("arm64"),
 			},
 		},
 	}
@@ -607,7 +607,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 	_, err := s.service.CreateIAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-		Revision: ptr(42),
+		Revision: new(42),
 	}, AddApplicationArgs{
 		ReferenceName: "ubuntu",
 		DownloadInfo: &applicationcharm.DownloadInfo{
@@ -764,7 +764,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 //	_, err := s.service.CreateIAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
 //		Source:   corecharm.CharmHub,
 //		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-//		Revision: ptr(42),
+//		Revision: new(42),
 //	}, AddApplicationArgs{
 //		ReferenceName: "ubuntu",
 //		DownloadInfo: &applicationcharm.DownloadInfo{
@@ -915,7 +915,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationMachineScope(c *tc.C) {
 //	_, err := s.service.CreateIAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
 //		Source:   corecharm.CharmHub,
 //		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-//		Revision: ptr(42),
+//		Revision: new(42),
 //	}, AddApplicationArgs{
 //		ReferenceName: "ubuntu",
 //		DownloadInfo: &applicationcharm.DownloadInfo{
@@ -984,7 +984,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPrecheckFailure(c *tc.C)
 	_, err := s.service.CreateIAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-		Revision: ptr(42),
+		Revision: new(42),
 	}, AddApplicationArgs{
 		ReferenceName: "ubuntu",
 		DownloadInfo: &applicationcharm.DownloadInfo{
@@ -1047,9 +1047,9 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPendingResources(c *tc.C
 			Platform:         platform,
 			PendingResources: []resource.UUID{resourceUUID},
 			Constraints: constraints.Constraints{
-				CpuCores: ptr(uint64(4)),
-				CpuPower: ptr(uint64(75)),
-				Arch:     ptr("arm64"),
+				CpuCores: new(uint64(4)),
+				CpuPower: new(uint64(75)),
+				Arch:     new("arm64"),
 			},
 		},
 	}
@@ -1094,7 +1094,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPendingResources(c *tc.C
 	_, err := s.service.CreateIAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-		Revision: ptr(42),
+		Revision: new(42),
 	}, AddApplicationArgs{
 		ReferenceName: "ubuntu",
 		DownloadInfo: &applicationcharm.DownloadInfo{
@@ -1116,7 +1116,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidApplicationNa
 	_, err := s.service.CreateIAASApplication(c.Context(), "666", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-		Revision: ptr(42),
+		Revision: new(42),
 	}, AddApplicationArgs{
 		ReferenceName: "ubuntu",
 	})
@@ -1133,7 +1133,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidCharmName(c *
 	_, err := s.service.CreateIAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-		Revision: ptr(42),
+		Revision: new(42),
 	}, AddApplicationArgs{
 		ReferenceName: "ubuntu",
 	})
@@ -1153,7 +1153,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidReferenceName
 	_, err := s.service.CreateIAASApplication(c.Context(), "ubuntu", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-		Revision: ptr(42),
+		Revision: new(42),
 	}, AddApplicationArgs{
 		ReferenceName: "666",
 		DownloadInfo: &applicationcharm.DownloadInfo{
@@ -1293,7 +1293,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidResourcesMore
 		{
 			Name:     "not-in-charm",
 			Origin:   charmresource.OriginStore,
-			Revision: ptr(42),
+			Revision: new(42),
 		},
 	}
 	s.testCreateIAASApplicationWithInvalidResource(c, resources)
@@ -1304,7 +1304,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidResourcesUplo
 		{
 			Name:     "Upload-revision",
 			Origin:   charmresource.OriginUpload,
-			Revision: ptr(42),
+			Revision: new(42),
 		},
 	}
 	s.testCreateIAASApplicationWithInvalidResource(c, resources)
@@ -1314,7 +1314,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationWithInvalidResourcesNoNa
 	resources := ResolvedResources{
 		{
 			Origin:   charmresource.OriginStore,
-			Revision: ptr(42),
+			Revision: new(42),
 		},
 	}
 	s.testCreateIAASApplicationWithInvalidResource(c, resources)
@@ -1487,7 +1487,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //	id := tc.Must(c, coreapplication.NewUUID)
 //	blockDeviceStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
 //
-//	now := ptr(s.clock.Now())
+//	now := new(s.clock.Now())
 //	us := []application.AddIAASUnitArg{{
 //		AddUnitArg: application.AddUnitArg{
 //			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
@@ -1623,7 +1623,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 //		Source:   corecharm.Local,
 //		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
-//		Revision: ptr(42),
+//		Revision: new(42),
 //	}, AddApplicationArgs{
 //		ReferenceName: "foo",
 //		DownloadInfo: &applicationcharm.DownloadInfo{
@@ -1649,7 +1649,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //	blockDeviceStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
 //	filesystemStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
 
-//	now := ptr(s.clock.Now())
+//	now := new(s.clock.Now())
 //	us := []application.AddIAASUnitArg{{
 //		AddUnitArg: application.AddUnitArg{
 //			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
@@ -1792,7 +1792,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 //		Source:   corecharm.CharmHub,
 //		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
-//		Revision: ptr(42),
+//		Revision: new(42),
 //	}, AddApplicationArgs{
 //		ReferenceName: "foo",
 //		DownloadInfo: &applicationcharm.DownloadInfo{
@@ -1802,7 +1802,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //			DownloadSize:       42,
 //		},
 //		StorageDirectiveOverrides: map[string]ApplicationStorageDirectiveOverride{
-//			"data": {Count: ptr(uint32(3))},
+//			"data": {Count: new(uint32(3))},
 //		},
 //	}, AddIAASUnitArg{})
 //	c.Assert(err, tc.ErrorIsNil)
@@ -1814,7 +1814,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //	id := tc.Must(c, coreapplication.NewUUID)
 //	filesystemStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
 //
-//	now := ptr(s.clock.Now())
+//	now := new(s.clock.Now())
 //	us := []application.AddIAASUnitArg{{
 //		AddUnitArg: application.AddUnitArg{
 //			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
@@ -1951,7 +1951,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 //		Source:   corecharm.CharmHub,
 //		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
-//		Revision: ptr(42),
+//		Revision: new(42),
 //	}, AddApplicationArgs{
 //		ReferenceName: "foo",
 //		DownloadInfo: &applicationcharm.DownloadInfo{
@@ -1976,7 +1976,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //	blockDeviceStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
 //	filesystemStoragePoolUUID := storagetesting.GenStoragePoolUUID(c)
 //
-//	now := ptr(s.clock.Now())
+//	now := new(s.clock.Now())
 //	us := []application.AddIAASUnitArg{{
 //		AddUnitArg: application.AddUnitArg{
 //			UnitStatusArg: application.UnitStatusArg{
@@ -2115,7 +2115,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 //		Source:   corecharm.CharmHub,
 //		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
-//		Revision: ptr(42),
+//		Revision: new(42),
 //	}, AddApplicationArgs{
 //		ReferenceName: "foo",
 //		DownloadInfo: &applicationcharm.DownloadInfo{
@@ -2125,7 +2125,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //			DownloadSize:       42,
 //		},
 //		StorageDirectiveOverrides: map[string]ApplicationStorageDirectiveOverride{
-//			"data": {Count: ptr(uint32(2))},
+//			"data": {Count: new(uint32(2))},
 //		},
 //	}, AddIAASUnitArg{})
 //	c.Assert(err, tc.ErrorIsNil)
@@ -2142,7 +2142,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //		Architecture: architecture.AMD64,
 //	}
 //
-//	now := ptr(s.clock.Now())
+//	now := new(s.clock.Now())
 //	us := []application.AddIAASUnitArg{{
 //		AddUnitArg: application.AddUnitArg{
 //			UnitStatusArg: application.UnitStatusArg{
@@ -2234,7 +2234,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationError(c *tc.C) {
 //	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 //		Source:   corecharm.CharmHub,
 //		Platform: corecharm.MustParsePlatform("amd64/ubuntu/24.04"),
-//		Revision: ptr(42),
+//		Revision: new(42),
 //	}, AddApplicationArgs{
 //		ReferenceName: "foo",
 //		DownloadInfo: &applicationcharm.DownloadInfo{
@@ -2274,7 +2274,7 @@ func (s *providerServiceSuite) TestCreateIAASApplicationPlatformArchContradictsC
 	_, err := s.service.CreateIAASApplication(c.Context(), "foo", s.charm, corecharm.Origin{
 		Source:   corecharm.CharmHub,
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-		Revision: ptr(42),
+		Revision: new(42),
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
 		DownloadInfo: &applicationcharm.DownloadInfo{
@@ -2523,9 +2523,9 @@ func (s *providerServiceSuite) TestSetConstraintsUnsupportedValues(c *tc.C) {
 	validator := NewMockValidator(ctrl)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(validator, nil)
 	validator.EXPECT().Validate(gomock.Any()).Return([]string{"arch", "mem"}, nil)
-	s.state.EXPECT().SetApplicationConstraints(gomock.Any(), id, constraints.Constraints{Arch: ptr("amd64"), Mem: ptr(uint64(8))}).Return(nil)
+	s.state.EXPECT().SetApplicationConstraints(gomock.Any(), id, constraints.Constraints{Arch: new("amd64"), Mem: new(uint64(8))}).Return(nil)
 
-	err := s.service.SetApplicationConstraints(c.Context(), id, coreconstraints.Value{Arch: ptr("amd64"), Mem: ptr(uint64(8))})
+	err := s.service.SetApplicationConstraints(c.Context(), id, coreconstraints.Value{Arch: new("amd64"), Mem: new(uint64(8))})
 	c.Assert(err, tc.ErrorIsNil)
 	// c.Check(c.GetTestLog(), tc.Contains, "unsupported constraints: arch,mem")
 }
@@ -2541,9 +2541,9 @@ func (s *providerServiceSuite) TestSetConstraints(c *tc.C) {
 	validator := NewMockValidator(ctrl)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(validator, nil)
 	validator.EXPECT().Validate(gomock.Any()).Return(nil, nil)
-	s.state.EXPECT().SetApplicationConstraints(gomock.Any(), id, constraints.Constraints{Arch: ptr("amd64"), Mem: ptr(uint64(8))}).Return(nil)
+	s.state.EXPECT().SetApplicationConstraints(gomock.Any(), id, constraints.Constraints{Arch: new("amd64"), Mem: new(uint64(8))}).Return(nil)
 
-	err := s.service.SetApplicationConstraints(c.Context(), id, coreconstraints.Value{Arch: ptr("amd64"), Mem: ptr(uint64(8))})
+	err := s.service.SetApplicationConstraints(c.Context(), id, coreconstraints.Value{Arch: new("amd64"), Mem: new(uint64(8))})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -2554,7 +2554,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 
-	now := ptr(s.clock.Now())
+	now := new(s.clock.Now())
 	u := []application.AddCAASUnitArg{{
 		AddUnitArg: application.AddUnitArg{
 			UnitStatusArg: application.UnitStatusArg{
@@ -2569,7 +2569,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 				},
 			},
 			Constraints: constraints.Constraints{
-				Arch: ptr(arch.AMD64),
+				Arch: new(arch.AMD64),
 			},
 		},
 	}}
@@ -2580,7 +2580,7 @@ func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 			OS: "ubuntu",
 		},
 		Constraints: coreconstraints.Value{
-			Arch: ptr(arch.AMD64),
+			Arch: new(arch.AMD64),
 		},
 	}).Return(nil)
 	s.expectEmptyUnitConstraints(c, appUUID)
@@ -2605,25 +2605,25 @@ func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 
-	now := ptr(s.clock.Now())
+	now := new(s.clock.Now())
 	u := []application.AddCAASUnitArg{{
 		AddUnitArg: application.AddUnitArg{
 			Constraints: constraints.Constraints{
-				Arch:           ptr("amd64"),
-				Container:      ptr(instance.LXD),
-				CpuCores:       ptr(uint64(4)),
-				Mem:            ptr(uint64(1024)),
-				RootDisk:       ptr(uint64(1024)),
-				RootDiskSource: ptr("root-disk-source"),
-				Tags:           ptr([]string{"tag1", "tag2"}),
-				InstanceRole:   ptr("instance-role"),
-				InstanceType:   ptr("instance-type"),
-				Spaces: ptr([]constraints.SpaceConstraint{
+				Arch:           new("amd64"),
+				Container:      new(instance.LXD),
+				CpuCores:       new(uint64(4)),
+				Mem:            new(uint64(1024)),
+				RootDisk:       new(uint64(1024)),
+				RootDiskSource: new("root-disk-source"),
+				Tags:           new([]string{"tag1", "tag2"}),
+				InstanceRole:   new("instance-role"),
+				InstanceType:   new("instance-type"),
+				Spaces: new([]constraints.SpaceConstraint{
 					{SpaceName: "space1", Exclude: false},
 				}),
-				VirtType:         ptr("virt-type"),
-				Zones:            ptr([]string{"zone1", "zone2"}),
-				AllocatePublicIP: ptr(true),
+				VirtType:         new("virt-type"),
+				Zones:            new([]string{"zone1", "zone2"}),
+				AllocatePublicIP: new(true),
 			},
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
@@ -2675,25 +2675,25 @@ func (s *providerServiceSuite) TestAddCAASUnitsModelConstraints(c *tc.C) {
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 
-	now := ptr(s.clock.Now())
+	now := new(s.clock.Now())
 	u := []application.AddCAASUnitArg{{
 		AddUnitArg: application.AddUnitArg{
 			Constraints: constraints.Constraints{
-				Arch:           ptr("amd64"),
-				Container:      ptr(instance.LXD),
-				CpuCores:       ptr(uint64(4)),
-				Mem:            ptr(uint64(1024)),
-				RootDisk:       ptr(uint64(1024)),
-				RootDiskSource: ptr("root-disk-source"),
-				Tags:           ptr([]string{"tag1", "tag2"}),
-				InstanceRole:   ptr("instance-role"),
-				InstanceType:   ptr("instance-type"),
-				Spaces: ptr([]constraints.SpaceConstraint{
+				Arch:           new("amd64"),
+				Container:      new(instance.LXD),
+				CpuCores:       new(uint64(4)),
+				Mem:            new(uint64(1024)),
+				RootDisk:       new(uint64(1024)),
+				RootDiskSource: new("root-disk-source"),
+				Tags:           new([]string{"tag1", "tag2"}),
+				InstanceRole:   new("instance-role"),
+				InstanceType:   new("instance-type"),
+				Spaces: new([]constraints.SpaceConstraint{
 					{SpaceName: "space1", Exclude: false},
 				}),
-				VirtType:         ptr("virt-type"),
-				Zones:            ptr([]string{"zone1", "zone2"}),
-				AllocatePublicIP: ptr(true),
+				VirtType:         new("virt-type"),
+				Zones:            new([]string{"zone1", "zone2"}),
+				AllocatePublicIP: new(true),
 			},
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
@@ -2739,13 +2739,13 @@ func (s *providerServiceSuite) TestAddCAASUnitsFullConstraints(c *tc.C) {
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 
-	now := ptr(s.clock.Now())
+	now := new(s.clock.Now())
 	u := []application.AddCAASUnitArg{{
 		AddUnitArg: application.AddUnitArg{
 			Constraints: constraints.Constraints{
-				CpuCores: ptr(uint64(4)),
-				CpuPower: ptr(uint64(75)),
-				Arch:     ptr(arch.AMD64),
+				CpuCores: new(uint64(4)),
+				CpuPower: new(uint64(75)),
+				Arch:     new(arch.AMD64),
 			},
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
@@ -2924,7 +2924,7 @@ func (s *providerServiceSuite) TestResolveApplicationConstraintsNilValidator(c *
 	// We should always fill in the arch, even if it's not in the model
 	// constraints.
 	c.Check(cons, tc.DeepEquals, constraints.Constraints{
-		Arch: ptr(arch.AMD64),
+		Arch: new(arch.AMD64),
 	})
 }
 
@@ -2956,10 +2956,10 @@ func (s *providerServiceSuite) TestResolveApplicationConstraintsWithArch(c *tc.C
 	s.validator.EXPECT().Merge(
 		constraints.EncodeConstraints(constraints.Constraints{}),
 		constraints.EncodeConstraints(constraints.Constraints{
-			Arch: ptr(arch.AMD64),
+			Arch: new(arch.AMD64),
 		})).
 		Return(coreconstraints.Value{
-			Arch: ptr(arch.AMD64),
+			Arch: new(arch.AMD64),
 		}, nil)
 
 	merged, err := s.service.ResolveApplicationConstraints(c.Context(), coreconstraints.MustParse("arch=amd64"))
@@ -2985,21 +2985,21 @@ func (s *providerServiceSuite) expectAppConstraints(c *tc.C, appUUID coreapplica
 	c.Helper()
 
 	appConstraints := constraints.Constraints{
-		Arch:           ptr("amd64"),
-		Container:      ptr(instance.LXD),
-		CpuCores:       ptr(uint64(4)),
-		Mem:            ptr(uint64(1024)),
-		RootDisk:       ptr(uint64(1024)),
-		RootDiskSource: ptr("root-disk-source"),
-		Tags:           ptr([]string{"tag1", "tag2"}),
-		InstanceRole:   ptr("instance-role"),
-		InstanceType:   ptr("instance-type"),
-		Spaces: ptr([]constraints.SpaceConstraint{
+		Arch:           new("amd64"),
+		Container:      new(instance.LXD),
+		CpuCores:       new(uint64(4)),
+		Mem:            new(uint64(1024)),
+		RootDisk:       new(uint64(1024)),
+		RootDiskSource: new("root-disk-source"),
+		Tags:           new([]string{"tag1", "tag2"}),
+		InstanceRole:   new("instance-role"),
+		InstanceType:   new("instance-type"),
+		Spaces: new([]constraints.SpaceConstraint{
 			{SpaceName: "space1", Exclude: false},
 		}),
-		VirtType:         ptr("virt-type"),
-		Zones:            ptr([]string{"zone1", "zone2"}),
-		AllocatePublicIP: ptr(true),
+		VirtType:         new("virt-type"),
+		Zones:            new([]string{"zone1", "zone2"}),
+		AllocatePublicIP: new(true),
 	}
 	modelConstraints := constraints.Constraints{}
 	unitConstraints := appConstraints
@@ -3015,21 +3015,21 @@ func (s *providerServiceSuite) expectAppConstraints(c *tc.C, appUUID coreapplica
 
 func (s *providerServiceSuite) expectModelConstraints(appUUID coreapplication.UUID) {
 	modelConstraints := constraints.Constraints{
-		Arch:           ptr("amd64"),
-		Container:      ptr(instance.LXD),
-		CpuCores:       ptr(uint64(4)),
-		Mem:            ptr(uint64(1024)),
-		RootDisk:       ptr(uint64(1024)),
-		RootDiskSource: ptr("root-disk-source"),
-		Tags:           ptr([]string{"tag1", "tag2"}),
-		InstanceRole:   ptr("instance-role"),
-		InstanceType:   ptr("instance-type"),
-		Spaces: ptr([]constraints.SpaceConstraint{
+		Arch:           new("amd64"),
+		Container:      new(instance.LXD),
+		CpuCores:       new(uint64(4)),
+		Mem:            new(uint64(1024)),
+		RootDisk:       new(uint64(1024)),
+		RootDiskSource: new("root-disk-source"),
+		Tags:           new([]string{"tag1", "tag2"}),
+		InstanceRole:   new("instance-role"),
+		InstanceType:   new("instance-type"),
+		Spaces: new([]constraints.SpaceConstraint{
 			{SpaceName: "space1", Exclude: false},
 		}),
-		VirtType:         ptr("virt-type"),
-		Zones:            ptr([]string{"zone1", "zone2"}),
-		AllocatePublicIP: ptr(true),
+		VirtType:         new("virt-type"),
+		Zones:            new([]string{"zone1", "zone2"}),
+		AllocatePublicIP: new(true),
 	}
 	appConstraints := constraints.Constraints{}
 	unitConstraints := modelConstraints
@@ -3044,14 +3044,14 @@ func (s *providerServiceSuite) expectModelConstraints(appUUID coreapplication.UU
 
 func (s *providerServiceSuite) expectFullConstraints(c *tc.C, unitUUID coreunit.UUID, appUUID coreapplication.UUID) {
 	modelConstraints := constraints.Constraints{
-		CpuCores: ptr(uint64(4)),
+		CpuCores: new(uint64(4)),
 	}
 	appConstraints := constraints.Constraints{
-		CpuPower: ptr(uint64(75)),
+		CpuPower: new(uint64(75)),
 	}
 	unitConstraints := constraints.Constraints{
-		CpuCores: ptr(uint64(4)),
-		CpuPower: ptr(uint64(75)),
+		CpuCores: new(uint64(4)),
+		CpuPower: new(uint64(75)),
 	}
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, nil)
@@ -3129,15 +3129,15 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnitValidates(c *tc.C) {
 		},
 	}, map[string]storage.StorageDirectiveOverride{
 		"pgdata": {
-			Count:    ptr(uint32(76)),
-			PoolUUID: ptr(poolUUID),
-			Size:     ptr(uint64(6)),
+			Count:    new(uint32(76)),
+			PoolUUID: new(poolUUID),
+			Size:     new(uint64(6)),
 		},
 	}).Return(applicationerrors.StorageCountLimitExceeded{})
 
 	_, err := s.service.AddStorageForIAASUnit(c.Context(), "pgdata", unitUUID, 10, storage.AddUnitStorageOverride{
-		SizeMiB:         ptr(uint64(6)),
-		StoragePoolUUID: ptr(poolUUID),
+		SizeMiB:         new(uint64(6)),
+		StoragePoolUUID: new(poolUUID),
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.StorageCountLimitExceeded{})
 }
@@ -3174,9 +3174,9 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 		},
 	}, map[string]storage.StorageDirectiveOverride{
 		"pgdata": {
-			Count:    ptr(uint32(76)),
-			PoolUUID: ptr(poolUUID),
-			Size:     ptr(uint64(6)),
+			Count:    new(uint32(76)),
+			PoolUUID: new(poolUUID),
+			Size:     new(uint64(6)),
 		},
 	})
 	unitStorageArgs := internal.UnitAddStorageArg{
@@ -3210,8 +3210,8 @@ func (s *providerServiceSuite) TestAddStorageForIAASUnit(c *tc.C) {
 	})
 
 	_, err := s.service.AddStorageForIAASUnit(c.Context(), "pgdata", unitUUID, uint32(10), storage.AddUnitStorageOverride{
-		SizeMiB:         ptr(uint64(6)),
-		StoragePoolUUID: ptr(poolUUID),
+		SizeMiB:         new(uint64(6)),
+		StoragePoolUUID: new(poolUUID),
 	})
 	c.Assert(err, tc.ErrorIs, nil)
 }
@@ -3283,15 +3283,15 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnitValidates(c *tc.C) {
 		},
 	}, map[string]storage.StorageDirectiveOverride{
 		"pgdata": {
-			Count:    ptr(uint32(76)),
-			PoolUUID: ptr(poolUUID),
-			Size:     ptr(uint64(6)),
+			Count:    new(uint32(76)),
+			PoolUUID: new(poolUUID),
+			Size:     new(uint64(6)),
 		},
 	}).Return(applicationerrors.StorageCountLimitExceeded{})
 
 	_, err := s.service.AddStorageForCAASUnit(c.Context(), "pgdata", unitUUID, 10, storage.AddUnitStorageOverride{
-		SizeMiB:         ptr(uint64(6)),
-		StoragePoolUUID: ptr(poolUUID),
+		SizeMiB:         new(uint64(6)),
+		StoragePoolUUID: new(poolUUID),
 	})
 	c.Assert(err, tc.ErrorIs, applicationerrors.StorageCountLimitExceeded{})
 }
@@ -3328,9 +3328,9 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnit(c *tc.C) {
 		},
 	}, map[string]storage.StorageDirectiveOverride{
 		"pgdata": {
-			Count:    ptr(uint32(76)),
-			PoolUUID: ptr(poolUUID),
-			Size:     ptr(uint64(6)),
+			Count:    new(uint32(76)),
+			PoolUUID: new(poolUUID),
+			Size:     new(uint64(6)),
 		},
 	})
 	unitStorageArgs := internal.UnitAddStorageArg{
@@ -3352,8 +3352,8 @@ func (s *providerServiceSuite) TestAddStorageForCAASUnit(c *tc.C) {
 	s.state.EXPECT().AddStorageForCAASUnit(gomock.Any(), unitUUID, corestorage.Name("pgdata"), unitStorageArgs)
 
 	_, err := s.service.AddStorageForCAASUnit(c.Context(), "pgdata", unitUUID, 10, storage.AddUnitStorageOverride{
-		SizeMiB:         ptr(uint64(6)),
-		StoragePoolUUID: ptr(poolUUID),
+		SizeMiB:         new(uint64(6)),
+		StoragePoolUUID: new(poolUUID),
 	})
 	c.Assert(err, tc.ErrorIs, nil)
 }

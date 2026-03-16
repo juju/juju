@@ -244,15 +244,15 @@ func (env *environ) startInstance(
 			}
 			nics = append(nics, &computepb.NetworkInterface{
 				Network:    vpcLink,
-				Subnetwork: ptr(subnet.GetSelfLink()),
+				Subnetwork: new(subnet.GetSelfLink()),
 			})
 		}
 	}
 
 	if allocatePublicIP {
 		nics[0].AccessConfigs = []*computepb.AccessConfig{{
-			Name: ptr(google.ExternalNetworkName),
-			Type: ptr(google.NetworkAccessOneToOneNAT),
+			Name: new(google.ExternalNetworkName),
+			Type: new(google.NetworkAccessOneToOneNAT),
 		}}
 	}
 
@@ -271,7 +271,7 @@ func (env *environ) startInstance(
 	instArg := &computepb.Instance{
 		Name:              &hostname,
 		Zone:              &args.AvailabilityZone,
-		MachineType:       ptr(formatMachineType(args.AvailabilityZone, instanceTypeName)),
+		MachineType:       new(formatMachineType(args.AvailabilityZone, instanceTypeName)),
 		Disks:             disks,
 		NetworkInterfaces: nics,
 		Metadata:          packMetadata(metadata),
@@ -288,7 +288,7 @@ func (env *environ) startInstance(
 	// https://cloud.google.com/compute/docs/instances/live-migration-process#limitations
 	if hasAccelerator {
 		instArg.Scheduling = &computepb.Scheduling{
-			OnHostMaintenance: ptr(google.HostMaintenanceTerminate),
+			OnHostMaintenance: new(google.HostMaintenanceTerminate),
 		}
 	}
 	inst, err := env.gce.AddInstance(ctx, instArg)
@@ -352,13 +352,13 @@ func getDisks(ctx context.Context, imageURL string, cons constraints.Value, os o
 	logger.Infof(ctx, "fetching disk image from %v", imageURL)
 
 	disk := &computepb.AttachedDisk{
-		Type:       ptr(google.DiskPersistenceTypePersistent),
-		Boot:       ptr(true),
-		Mode:       ptr(string(google.ModeRW)),
-		AutoDelete: ptr(true),
+		Type:       new(google.DiskPersistenceTypePersistent),
+		Boot:       new(true),
+		Mode:       new(string(google.ModeRW)),
+		AutoDelete: new(true),
 		InitializeParams: &computepb.AttachedDiskInitializeParams{
 			// DiskName (defaults to instance name)
-			DiskSizeGb: ptr(int64(size)),
+			DiskSizeGb: new(int64(size)),
 			// DiskType (defaults to pd-standard, pd-ssd, local-ssd)
 			SourceImage: &imageURL,
 		},

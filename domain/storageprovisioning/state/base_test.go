@@ -713,10 +713,6 @@ func (s *baseSuite) newK8sPod(
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func ptr[T any](t T) *T {
-	return &t
-}
-
 type preparer struct{}
 
 func (p preparer) Prepare(query string, typeSamples ...any) (*sqlair.Statement, error) {

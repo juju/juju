@@ -946,16 +946,16 @@ func (c dbConstraint) toValue(
 		rval.Arch = &c.Arch.String
 	}
 	if c.CPUCores.Valid {
-		rval.CpuCores = ptr(uint64(c.CPUCores.V))
+		rval.CpuCores = new(uint64(c.CPUCores.V))
 	}
 	if c.CPUPower.Valid {
-		rval.CpuPower = ptr(uint64(c.CPUPower.V))
+		rval.CpuPower = new(uint64(c.CPUPower.V))
 	}
 	if c.Mem.Valid {
-		rval.Mem = ptr(uint64(c.Mem.V))
+		rval.Mem = new(uint64(c.Mem.V))
 	}
 	if c.RootDisk.Valid {
-		rval.RootDisk = ptr(uint64(c.RootDisk.V))
+		rval.RootDisk = new(uint64(c.RootDisk.V))
 	}
 	if c.RootDiskSource.Valid {
 		rval.RootDiskSource = &c.RootDiskSource.String

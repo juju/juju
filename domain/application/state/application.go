@@ -3237,7 +3237,7 @@ func decodeConstraints(cons applicationConstraints) constraints.Constraints {
 
 	// Add the unique spaces, tags and zones to the result:
 	if len(spaces) > 0 {
-		res.Spaces = ptr(slices.Collect(maps.Values(spaces)))
+		res.Spaces = new(slices.Collect(maps.Values(spaces)))
 	}
 	if len(tags) > 0 {
 		tagsSlice := tags.SortedValues()

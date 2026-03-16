@@ -65,10 +65,10 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationSetDiskLabels(c *tc.C) 
 	env := s.SetupEnv(c, s.MockService)
 
 	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*computepb.Disk{{
-		Name:             ptr("zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"),
-		Status:           ptr("READY"),
-		Zone:             ptr("zone"),
-		LabelFingerprint: ptr("fingerprint"),
+		Name:             new("zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"),
+		Status:           new("READY"),
+		Zone:             new("zone"),
+		LabelFingerprint: new("fingerprint"),
 	}}, nil)
 	s.MockService.EXPECT().SetDiskLabels(
 		gomock.Any(), "zone", "zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868", "fingerprint",
@@ -90,8 +90,8 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationSetDiskLabelsNoDescript
 	env := s.SetupEnv(c, s.MockService)
 
 	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*computepb.Disk{{
-		Name:   ptr("zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"),
-		Status: ptr("READY"),
+		Name:   new("zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"),
+		Status: new("READY"),
 		Labels: map[string]string{
 			"juju-model-uuid": s.ModelUUID,
 		},
@@ -110,10 +110,10 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationSetDiskLabelsIdempotent
 	env := s.SetupEnv(c, s.MockService)
 
 	s.MockService.EXPECT().Disks(gomock.Any()).Return([]*computepb.Disk{{
-		Name:             ptr("zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"),
-		Status:           ptr("READY"),
-		Zone:             ptr("zone"),
-		LabelFingerprint: ptr("fingerprint"),
+		Name:             new("zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868"),
+		Status:           new("READY"),
+		Zone:             new("zone"),
+		LabelFingerprint: new("fingerprint"),
 		Labels: map[string]string{
 			"juju-controller-uuid": s.ControllerUUID,
 			"juju-model-uuid":      s.ModelUUID,

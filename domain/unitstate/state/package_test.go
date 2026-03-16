@@ -108,7 +108,3 @@ func (s *baseSuite) query(c *tc.C, query string, args ...any) {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v",
 		errors.ErrorStack(err)))
 }
-
-func ptr[T any](v T) *T {
-	return &v
-}

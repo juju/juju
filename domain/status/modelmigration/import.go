@@ -302,12 +302,8 @@ func (i *importOperation) importStatus(s description.Status) corestatus.StatusIn
 		Status:  corestatus.Status(s.Value()),
 		Message: s.Message(),
 		Data:    s.Data(),
-		Since:   ptr(s.Updated()),
+		Since:   new(s.Updated()),
 	}
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }
 
 type clusterDescriber struct{}

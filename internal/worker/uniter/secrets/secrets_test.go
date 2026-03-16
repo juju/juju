@@ -37,10 +37,6 @@ func (s *secretsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *secretsSuite) yamlString(c *tc.C, st *secrets.State) string {
 	data, err := yaml.Marshal(st)
 	c.Assert(err, tc.ErrorIsNil)
@@ -64,14 +60,14 @@ func (s *secretsSuite) TestCommitSecretChanged(c *tc.C) {
 		map[string]coresecrets.SecretRevisionInfo{"secret:9m4e2mr0ui3e8a215n4g": {LatestRevision: 667}}, nil,
 	)
 
-	s.stateReadWriter.EXPECT().SetState(gomock.Any(), params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
+	s.stateReadWriter.EXPECT().SetState(gomock.Any(), params.SetUnitStateArg{SecretState: new(s.yamlString(c,
 		&secrets.State{
 			ConsumedSecretInfo:      map[string]int{"secret:9m4e2mr0ui3e8a215n4g": 667},
 			SecretObsoleteRevisions: map[string][]int{},
 		},
 	))})
 
-	s.stateReadWriter.EXPECT().SetState(gomock.Any(), params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
+	s.stateReadWriter.EXPECT().SetState(gomock.Any(), params.SetUnitStateArg{SecretState: new(s.yamlString(c,
 		&secrets.State{
 			ConsumedSecretInfo:      map[string]int{"secret:9m4e2mr0ui3e8a215n4g": 666},
 			SecretObsoleteRevisions: map[string][]int{},
@@ -103,7 +99,7 @@ func (s *secretsSuite) TestCommitSecretRemove(c *tc.C) {
 		},
 	)}, nil)
 
-	s.stateReadWriter.EXPECT().SetState(gomock.Any(), params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
+	s.stateReadWriter.EXPECT().SetState(gomock.Any(), params.SetUnitStateArg{SecretState: new(s.yamlString(c,
 		&secrets.State{
 			ConsumedSecretInfo: map[string]int{},
 			SecretObsoleteRevisions: map[string][]int{
@@ -153,7 +149,7 @@ func (s *secretsSuite) TestCommitNoOpSecretRevisionRemoved(c *tc.C) {
 		}, nil,
 	)
 
-	s.stateReadWriter.EXPECT().SetState(gomock.Any(), params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
+	s.stateReadWriter.EXPECT().SetState(gomock.Any(), params.SetUnitStateArg{SecretState: new(s.yamlString(c,
 		&secrets.State{
 			ConsumedSecretInfo: map[string]int{
 				"secret:666e2mr0ui3e8a215n4g": 666,

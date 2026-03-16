@@ -140,7 +140,7 @@ func (s *stateSuite) TestSaveMetadataSeveralMetadata(c *tc.C) {
 		Version:         "12.04",
 		Arch:            "amd64",
 		Source:          "test",
-		RootStorageSize: ptr(uint64(1024)),
+		RootStorageSize: new(uint64(1024)),
 	}
 	expected := []cloudimagemetadata.Metadata{
 		{MetadataAttributes: attrs1, ImageID: "1"},
@@ -174,7 +174,7 @@ func (s *stateSuite) TestSaveMetadataUpdateMetadata(c *tc.C) {
 		Source:          "test",
 	}
 	attrs2 := attrs1
-	attrs2.RootStorageSize = ptr(uint64(1024)) // Not part of the key, but shouldn't be updated either
+	attrs2.RootStorageSize = new(uint64(1024)) // Not part of the key, but shouldn't be updated either
 
 	//  Act
 	err := s.state.SaveMetadata(c.Context(), []cloudimagemetadata.Metadata{
@@ -210,7 +210,7 @@ func (s *stateSuite) TestSaveMetadataWithSameAttributes(c *tc.C) {
 		Source:          "test",
 	}
 	attrs2 := attrs1
-	attrs2.RootStorageSize = ptr(uint64(1024)) // Not part of the key, but shouldn't be updated either
+	attrs2.RootStorageSize = new(uint64(1024)) // Not part of the key, but shouldn't be updated either
 
 	//  Act
 	err := s.state.SaveMetadata(c.Context(), []cloudimagemetadata.Metadata{
@@ -602,7 +602,7 @@ VALUES
 			Arch:            "arm64",
 			VirtType:        "virtType",
 			RootStorageType: "storage",
-			RootStorageSize: ptr(uint64(1024)),
+			RootStorageSize: new(uint64(1024)),
 			Source:          "custom",
 		}, Priority: 42, ImageID: "id"}))
 }

@@ -106,18 +106,14 @@ func getSubTests() []subTest {
 	return []subTest{
 		{
 			uuid: "",
-			err:  ptr("empty uuid"),
+			err:  new("empty uuid"),
 		},
 		{
 			uuid: "invalid",
-			err:  ptr("invalid uuid.*"),
+			err:  new("invalid uuid.*"),
 		},
 		{
 			uuid: internaluuid.MustNewUUID().String(),
 		},
 	}
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

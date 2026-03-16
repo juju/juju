@@ -247,7 +247,7 @@ func (s *watcherSuite) createIAASApplication(c *tc.C, svc *applicationservice.Wa
 		},
 		ResolvedResources: applicationservice.ResolvedResources{{
 			Name:     "buzz",
-			Revision: ptr(42),
+			Revision: new(42),
 			Origin:   charmresource.OriginStore,
 		}},
 	}, units...)
@@ -414,8 +414,4 @@ func (caasApplication) Units() ([]caas.Unit, error) {
 	return []caas.Unit{{
 		Id: "some-app-0",
 	}}, nil
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

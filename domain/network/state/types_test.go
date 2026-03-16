@@ -37,14 +37,14 @@ func (s *typesSuite) TestNetInterfaceToDMLSuccess(c *tc.C) {
 		UUID:              "some-device-uuid",
 		NetNodeUUID:       "some-node-uuid",
 		Name:              "eth0",
-		MTU:               ptr(int64(1500)),
-		MACAddress:        ptr("00:00:00:00:00:00"),
+		MTU:               new(int64(1500)),
+		MACAddress:        new("00:00:00:00:00:00"),
 		DeviceTypeID:      2,
 		VirtualPortTypeID: 1,
 		IsAutoStart:       true,
 		IsEnabled:         true,
 		IsDefaultGateway:  true,
-		GatewayAddress:    ptr("192.168.0.1"),
+		GatewayAddress:    new("192.168.0.1"),
 		VlanTag:           0,
 	})
 
@@ -117,13 +117,13 @@ func (s *typesSuite) TestNetAddrToDMLBadAddressTypeError(c *tc.C) {
 func getNetInterface() network.NetInterface {
 	return network.NetInterface{
 		Name:             "eth0",
-		MTU:              ptr(int64(1500)),
-		MACAddress:       ptr("00:00:00:00:00:00"),
+		MTU:              new(int64(1500)),
+		MACAddress:       new("00:00:00:00:00:00"),
 		Type:             corenetwork.EthernetDevice,
 		VirtualPortType:  corenetwork.OvsPort,
 		IsAutoStart:      true,
 		IsEnabled:        true,
-		GatewayAddress:   ptr("192.168.0.1"),
+		GatewayAddress:   new("192.168.0.1"),
 		IsDefaultGateway: true,
 		VLANTag:          0,
 		DNSSearchDomains: []string{"search.maas.net"},
@@ -183,8 +183,4 @@ func getNetAddressTypes() netConfigLookups {
 			corenetwork.ScopeCloudLocal: 2,
 		},
 	}
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

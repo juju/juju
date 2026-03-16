@@ -23,7 +23,7 @@ func (i *importOperation) importUnit(ctx context.Context, unit description.Unit)
 
 	var passwordHash *string
 	if hash := unit.PasswordHash(); hash != "" {
-		passwordHash = ptr(hash)
+		passwordHash = new(hash)
 	}
 
 	var principal coreunit.Name
@@ -60,7 +60,7 @@ func (i *importOperation) importCAASUnit(ctx context.Context, unit description.U
 			cloudContainer.ProviderID = cc.ProviderId()
 		}
 		if len(cc.Ports()) > 0 {
-			cloudContainer.Ports = ptr(cc.Ports())
+			cloudContainer.Ports = new(cc.Ports())
 		}
 	}
 

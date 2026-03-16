@@ -101,7 +101,7 @@ func (f *Facade) Actions(ctx context.Context, args params.Entities) params.Actio
 		results.Results[i].Action = &params.Action{
 			Name:           task.ActionName,
 			Parameters:     task.Parameters,
-			Parallel:       ptr(task.IsParallel),
+			Parallel:       new(task.IsParallel),
 			ExecutionGroup: nilZeroPtr(task.ExecutionGroup),
 		}
 	}
@@ -265,10 +265,6 @@ func (f *Facade) RunningActions(ctx context.Context, args params.Entities) param
 	}
 
 	return response
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }
 
 func nilZeroPtr[T comparable](v T) *T {

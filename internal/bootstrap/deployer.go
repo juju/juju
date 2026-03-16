@@ -258,7 +258,7 @@ func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base c
 		Source:   corecharm.Local,
 		Type:     "charm",
 		Hash:     sha256,
-		Revision: ptr(0),
+		Revision: new(0),
 		Platform: corecharm.Platform{
 			Architecture: arch,
 			OS:           base.OS,
@@ -452,7 +452,4 @@ func (b *baseDeployer) controllerDownloadInfo(schema string, info *corecharm.Dow
 		DownloadSize:       info.DownloadSize,
 	}, nil
 
-}
-func ptr[T any](v T) *T {
-	return &v
 }

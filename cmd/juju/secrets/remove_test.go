@@ -52,7 +52,7 @@ func (s *removeSuite) TestRemoveWithRevision(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().RemoveSecret(gomock.Any(), uri, "", ptr(4)).Return(nil)
+	s.secretsAPI.EXPECT().RemoveSecret(gomock.Any(), uri, "", new(4)).Return(nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewRemoveCommandForTest(s.store, s.secretsAPI), uri.String(), "--revision", "4")

@@ -205,7 +205,7 @@ func (s *modelStateSuite) TestSetApplicationStatus(c *tc.C) {
 		Status:  status.WorkloadStatusActive,
 		Message: "message",
 		Data:    []byte("data"),
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	err := s.state.SetApplicationStatus(c.Context(), id, expected)
@@ -222,7 +222,7 @@ func (s *modelStateSuite) TestSetApplicationStatusMultipleTimes(c *tc.C) {
 	err := s.state.SetApplicationStatus(c.Context(), id, status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusBlocked,
 		Message: "blocked",
-		Since:   ptr(time.Now().UTC()),
+		Since:   new(time.Now().UTC()),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -231,7 +231,7 @@ func (s *modelStateSuite) TestSetApplicationStatusMultipleTimes(c *tc.C) {
 		Status:  status.WorkloadStatusActive,
 		Message: "message",
 		Data:    []byte("data"),
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	err = s.state.SetApplicationStatus(c.Context(), id, expected)
@@ -249,7 +249,7 @@ func (s *modelStateSuite) TestSetApplicationStatusWithNoData(c *tc.C) {
 	expected := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "message",
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	err := s.state.SetApplicationStatus(c.Context(), id, expected)
@@ -266,7 +266,7 @@ func (s *modelStateSuite) TestSetApplicationStatusApplicationNotFound(c *tc.C) {
 		Status:  status.WorkloadStatusActive,
 		Message: "message",
 		Data:    []byte("data"),
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	err := s.state.SetApplicationStatus(c.Context(), "foo", expected)
@@ -307,7 +307,7 @@ func (s *modelStateSuite) TestSetOperatorStatus(c *tc.C) {
 		Status:  status.WorkloadStatusActive,
 		Message: "message",
 		Data:    []byte("data"),
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	err := s.state.SetOperatorStatus(c.Context(), id, expected)
@@ -323,7 +323,7 @@ func (s *modelStateSuite) TestSetOperatorStatusMultipleTimes(c *tc.C) {
 	err := s.state.SetOperatorStatus(c.Context(), id, status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusBlocked,
 		Message: "blocked",
-		Since:   ptr(time.Now().UTC()),
+		Since:   new(time.Now().UTC()),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -332,7 +332,7 @@ func (s *modelStateSuite) TestSetOperatorStatusMultipleTimes(c *tc.C) {
 		Status:  status.WorkloadStatusActive,
 		Message: "message",
 		Data:    []byte("data"),
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	err = s.state.SetOperatorStatus(c.Context(), id, expected)
@@ -349,7 +349,7 @@ func (s *modelStateSuite) TestSetOperatorStatusWithNoData(c *tc.C) {
 	expected := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "message",
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	err := s.state.SetOperatorStatus(c.Context(), id, expected)
@@ -365,7 +365,7 @@ func (s *modelStateSuite) TestSetOperatorStatusApplicationNotFound(c *tc.C) {
 		Status:  status.WorkloadStatusActive,
 		Message: "message",
 		Data:    []byte("data"),
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	err := s.state.SetOperatorStatus(c.Context(), "foo", expected)
@@ -392,7 +392,7 @@ func (s *modelStateSuite) TestSetRelationStatus(c *tc.C) {
 	sts := status.StatusInfo[status.RelationStatusType]{
 		Status:  status.RelationStatusTypeSuspended,
 		Message: "message",
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	// Act:
@@ -415,13 +415,13 @@ func (s *modelStateSuite) TestSetRelationStatusMultipleTimes(c *tc.C) {
 	sts1 := status.StatusInfo[status.RelationStatusType]{
 		Status:  status.RelationStatusTypeSuspended,
 		Message: "message",
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	sts2 := status.StatusInfo[status.RelationStatusType]{
 		Status:  status.RelationStatusTypeBroken,
 		Message: "message2",
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	// Act: Set status twice.
@@ -447,7 +447,7 @@ func (s *modelStateSuite) TestSetRelationStatusInvalidTransition(c *tc.C) {
 	// Arrange: Create joining status, which cannot be transitioned to from broken.
 	sts := status.StatusInfo[status.RelationStatusType]{
 		Status: status.RelationStatusTypeJoining,
-		Since:  ptr(now),
+		Since:  new(now),
 	}
 
 	// Act: Change status to suspended.
@@ -469,7 +469,7 @@ func (s *modelStateSuite) TestSetRelationStatusSuspendingToSuspended(c *tc.C) {
 	// Arrange: Create suspended status without message to set.
 	suspendedStatus := status.StatusInfo[status.RelationStatusType]{
 		Status: status.RelationStatusTypeSuspended,
-		Since:  ptr(now),
+		Since:  new(now),
 	}
 
 	// Act: Change status to suspended.
@@ -481,14 +481,14 @@ func (s *modelStateSuite) TestSetRelationStatusSuspendingToSuspended(c *tc.C) {
 	c.Assert(foundStatus, tc.DeepEquals, status.StatusInfo[status.RelationStatusType]{
 		Status:  status.RelationStatusTypeSuspended,
 		Message: message,
-		Since:   ptr(now),
+		Since:   new(now),
 	})
 }
 
 func (s *modelStateSuite) TestSetRelationStatusRelationNotFound(c *tc.C) {
 	// Arrange: Create relation and statuses.
 	sts := status.StatusInfo[status.RelationStatusType]{
-		Since: ptr(time.Now().UTC()),
+		Since: new(time.Now().UTC()),
 	}
 
 	// Act:
@@ -507,7 +507,7 @@ func (s *modelStateSuite) TestSetRemoteRelationStatus(c *tc.C) {
 	sts := status.StatusInfo[status.RelationStatusType]{
 		Status:  status.RelationStatusTypeSuspended,
 		Message: "message",
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	// Act:
@@ -528,13 +528,13 @@ func (s *modelStateSuite) TestSetRemoteRelationStatusMultipleTimes(c *tc.C) {
 	sts1 := status.StatusInfo[status.RelationStatusType]{
 		Status:  status.RelationStatusTypeSuspended,
 		Message: "message",
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	sts2 := status.StatusInfo[status.RelationStatusType]{
 		Status:  status.RelationStatusTypeBroken,
 		Message: "message2",
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	// Act: Set status twice.
@@ -552,7 +552,7 @@ func (s *modelStateSuite) TestSetRemoteRelationStatusMultipleTimes(c *tc.C) {
 func (s *modelStateSuite) TestSetRemoteRelationStatusRelationNotFound(c *tc.C) {
 	// Arrange: Create relation and statuses.
 	sts := status.StatusInfo[status.RelationStatusType]{
-		Since: ptr(time.Now().UTC()),
+		Since: new(time.Now().UTC()),
 	}
 
 	// Act:
@@ -587,7 +587,7 @@ func (s *modelStateSuite) TestImportRelationStatus(c *tc.C) {
 	sts := status.StatusInfo[status.RelationStatusType]{
 		Status:  status.RelationStatusTypeSuspended,
 		Message: "message",
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	// Act:
@@ -602,7 +602,7 @@ func (s *modelStateSuite) TestImportRelationStatus(c *tc.C) {
 func (s *modelStateSuite) TestImportRelationStatusRelationNotFound(c *tc.C) {
 	// Arrange: Create relation and statuses.
 	sts := status.StatusInfo[status.RelationStatusType]{
-		Since: ptr(time.Now().UTC()),
+		Since: new(time.Now().UTC()),
 	}
 
 	// Act:
@@ -643,7 +643,7 @@ func (s *modelStateSuite) TestSetK8sPodStatus(c *tc.C) {
 		Status:  status.K8sPodStatusRunning,
 		Message: "it's running",
 		Data:    []byte(`{"foo": "bar"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -662,7 +662,7 @@ func (s *modelStateSuite) TestSetUnitAgentStatus(c *tc.C) {
 		Status:  status.UnitAgentStatusExecuting,
 		Message: "it's executing",
 		Data:    []byte(`{"foo": "bar"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 
 	err := s.state.SetUnitAgentStatus(c.Context(), unitUUID, status)
@@ -676,7 +676,7 @@ func (s *modelStateSuite) TestSetUnitAgentStatusNotFound(c *tc.C) {
 		Status:  status.UnitAgentStatusExecuting,
 		Message: "it's executing",
 		Data:    []byte(`{"foo": "bar"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -712,7 +712,7 @@ func (s *modelStateSuite) TestGetUnitAgentStatus(c *tc.C) {
 		Status:  status.UnitAgentStatusExecuting,
 		Message: "it's executing",
 		Data:    []byte(`{"foo": "bar"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 
 	err := s.state.SetUnitAgentStatus(c.Context(), unitUUID, status)
@@ -734,7 +734,7 @@ func (s *modelStateSuite) TestGetUnitAgentStatusPresent(c *tc.C) {
 		Status:  status.UnitAgentStatusExecuting,
 		Message: "it's executing",
 		Data:    []byte(`{"foo": "bar"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 
 	err := s.state.SetUnitAgentStatus(c.Context(), unitUUID, status)
@@ -766,7 +766,7 @@ func (s *modelStateSuite) TestGetMachineAgentStatusPresent(c *tc.C) {
 		Status:  status.MachineStatusStarted,
 		Message: "it's starting",
 		Data:    []byte(`{"foo": "bar"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 
 	err := s.state.SetMachineStatus(c.Context(), "0", status)
@@ -823,7 +823,7 @@ func (s *modelStateSuite) TestSetWorkloadStatus(c *tc.C) {
 		Status:  status.WorkloadStatusActive,
 		Message: "it's active!",
 		Data:    []byte(`{"foo": "bar"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 
 	err := s.state.SetUnitWorkloadStatus(c.Context(), unitUUID, sts)
@@ -840,7 +840,7 @@ func (s *modelStateSuite) TestSetWorkloadStatus(c *tc.C) {
 		Status:  status.WorkloadStatusTerminated,
 		Message: "it's terminated",
 		Data:    []byte(`{"bar": "foo"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 
 	err = s.state.SetUnitWorkloadStatus(c.Context(), unitUUID, sts)
@@ -860,7 +860,7 @@ func (s *modelStateSuite) TestSetUnitWorkloadStatusToError(c *tc.C) {
 		Status:  status.WorkloadStatusError,
 		Message: "it's an error!",
 		Data:    []byte("some data"),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 
 	err := s.state.SetUnitWorkloadStatus(c.Context(), unitUUID, sts)
@@ -880,7 +880,7 @@ func (s *modelStateSuite) TestSetWorkloadStatusPresent(c *tc.C) {
 		Status:  status.WorkloadStatusActive,
 		Message: "it's active!",
 		Data:    []byte(`{"foo": "bar"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 
 	err := s.state.SetUnitWorkloadStatus(c.Context(), unitUUID, sts)
@@ -900,7 +900,7 @@ func (s *modelStateSuite) TestSetWorkloadStatusPresent(c *tc.C) {
 		Status:  status.WorkloadStatusTerminated,
 		Message: "it's terminated",
 		Data:    []byte(`{"bar": "foo"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 
 	err = s.state.SetUnitWorkloadStatus(c.Context(), unitUUID, sts)
@@ -917,7 +917,7 @@ func (s *modelStateSuite) TestSetUnitWorkloadStatusNotFound(c *tc.C) {
 		Status:  status.WorkloadStatusTerminated,
 		Message: "it's terminated",
 		Data:    []byte(`{"foo": "bar"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 
 	err := s.state.SetUnitWorkloadStatus(c.Context(), "missing-uuid", status)
@@ -985,7 +985,7 @@ func (s *modelStateSuite) TestGetUnitWorkloadStatusesForApplication(c *tc.C) {
 		Status:  status.WorkloadStatusActive,
 		Message: "it's active!",
 		Data:    []byte(`{"foo": "bar"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 	err := s.state.SetUnitWorkloadStatus(c.Context(), unitUUID, status)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1009,7 +1009,7 @@ func (s *modelStateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnits
 		Status:  status.WorkloadStatusActive,
 		Message: "it's active!",
 		Data:    []byte(`{"foo": "bar"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 	err := s.state.SetUnitWorkloadStatus(c.Context(), unitUUID1, status1)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1018,7 +1018,7 @@ func (s *modelStateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnits
 		Status:  status.WorkloadStatusTerminated,
 		Message: "it's terminated",
 		Data:    []byte(`{"bar": "foo"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 	err = s.state.SetUnitWorkloadStatus(c.Context(), unitUUID2, status2)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1047,7 +1047,7 @@ func (s *modelStateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnits
 		Status:  status.WorkloadStatusActive,
 		Message: "it's active!",
 		Data:    []byte(`{"foo": "bar"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 	err := s.state.SetUnitWorkloadStatus(c.Context(), unitUUID1, status1)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1056,7 +1056,7 @@ func (s *modelStateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnits
 		Status:  status.WorkloadStatusTerminated,
 		Message: "it's terminated",
 		Data:    []byte(`{"bar": "foo"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 	err = s.state.SetUnitWorkloadStatus(c.Context(), unitUUID2, status2)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1100,7 +1100,7 @@ func (s *modelStateSuite) TestGetUnitAgentStatusesForApplication(c *tc.C) {
 		Status:  status.UnitAgentStatusExecuting,
 		Message: "it's executing",
 		Data:    []byte(`{"foo": "bar"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 	err := s.state.SetUnitAgentStatus(c.Context(), unitUUID1, status1)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1109,7 +1109,7 @@ func (s *modelStateSuite) TestGetUnitAgentStatusesForApplication(c *tc.C) {
 		Status:  status.UnitAgentStatusAllocating,
 		Message: "it's allocating m8",
 		Data:    []byte(`{"foo": "baz"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 	err = s.state.SetUnitAgentStatus(c.Context(), unitUUID2, status2)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1129,19 +1129,19 @@ func (s *modelStateSuite) TestGetAllUnitStatusesForApplication(c *tc.C) {
 		Status:  status.WorkloadStatusActive,
 		Message: "it's active",
 		Data:    []byte(`{"bar": "foo"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 	agentStatus := status.StatusInfo[status.UnitAgentStatusType]{
 		Status:  status.UnitAgentStatusAllocating,
 		Message: "it's allocating",
 		Data:    []byte(`{"baz": "qux"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 	k8sPodStatus := status.StatusInfo[status.K8sPodStatusType]{
 		Status:  status.K8sPodStatusRunning,
 		Message: "it's running",
 		Data:    []byte(`{"foo": "bar"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		err := s.state.setK8sPodStatus(ctx, tx, unitUUID, k8sPodStatus)
@@ -1187,7 +1187,7 @@ func (s *modelStateSuite) TestGetUnitK8sPodStatusForApplicationMultipleUnits(c *
 		Status:  status.K8sPodStatusRunning,
 		Message: "it's running!",
 		Data:    []byte(`{"foo": "bar"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		err := s.state.setUnitWorkloadStatus(ctx, tx, unitUUID1, workloadStatus)
@@ -1206,7 +1206,7 @@ func (s *modelStateSuite) TestGetUnitK8sPodStatusForApplicationMultipleUnits(c *
 		Status:  status.K8sPodStatusBlocked,
 		Message: "it's blocked",
 		Data:    []byte(`{"bar": "foo"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
 		err := s.state.setUnitWorkloadStatus(ctx, tx, unitUUID2, workloadStatus)
@@ -1277,7 +1277,7 @@ func (s *modelStateSuite) TestGetAllFullUnitStatuses(c *tc.C) {
 		Status:  status.WorkloadStatusActive,
 		Message: "u1 is active!",
 		Data:    []byte(`{"u1": "workload"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 	err := s.state.SetUnitWorkloadStatus(c.Context(), u1UUID, u1Workload)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1286,7 +1286,7 @@ func (s *modelStateSuite) TestGetAllFullUnitStatuses(c *tc.C) {
 		Status:  status.UnitAgentStatusIdle,
 		Message: "u1 is idle!",
 		Data:    []byte(`{"u1": "agent"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 	err = s.state.SetUnitAgentStatus(c.Context(), u1UUID, u1Agent)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1298,7 +1298,7 @@ func (s *modelStateSuite) TestGetAllFullUnitStatuses(c *tc.C) {
 		Status:  status.WorkloadStatusBlocked,
 		Message: "u2 is blocked!",
 		Data:    []byte(`{"u2": "workload"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 	err = s.state.SetUnitWorkloadStatus(c.Context(), u2UUID, u2Workload)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1307,7 +1307,7 @@ func (s *modelStateSuite) TestGetAllFullUnitStatuses(c *tc.C) {
 		Status:  status.UnitAgentStatusAllocating,
 		Message: "u2 is allocating!",
 		Data:    []byte(`{"u2": "agent"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 	err = s.state.SetUnitAgentStatus(c.Context(), u2UUID, u2Agent)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1321,7 +1321,7 @@ func (s *modelStateSuite) TestGetAllFullUnitStatuses(c *tc.C) {
 		Status:  status.WorkloadStatusMaintenance,
 		Message: "u3 is maintenance!",
 		Data:    []byte(`{"u3": "workload"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 	err = s.state.SetUnitWorkloadStatus(c.Context(), u3UUID, u3Workload)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1330,7 +1330,7 @@ func (s *modelStateSuite) TestGetAllFullUnitStatuses(c *tc.C) {
 		Status:  status.UnitAgentStatusRebooting,
 		Message: "u3 is rebooting!",
 		Data:    []byte(`{"u3": "agent"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 	err = s.state.SetUnitAgentStatus(c.Context(), u3UUID, u3Agent)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1396,13 +1396,13 @@ func (s *modelStateSuite) TestGetAllApplicationStatuses(c *tc.C) {
 		Status:  status.WorkloadStatusActive,
 		Message: "it's active",
 		Data:    []byte(`{"foo": "bar"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 	app2Status := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusBlocked,
 		Message: "it's blocked",
 		Data:    []byte(`{"bar": "foo"}`),
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 	err := s.state.SetApplicationStatus(c.Context(), app1ID, app1Status)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1539,7 +1539,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *tc.C
 				"foo/0": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
-					MachineName:     ptr(coremachine.Name("0")),
+					MachineName:     new(coremachine.Name("0")),
 					CharmLocator: charm.CharmLocator{
 						Name:         "foo",
 						Revision:     42,
@@ -1550,7 +1550,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *tc.C
 				"foo/1": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
-					MachineName:     ptr(coremachine.Name("1")),
+					MachineName:     new(coremachine.Name("1")),
 					CharmLocator: charm.CharmLocator{
 						Name:         "foo",
 						Revision:     42,
@@ -1577,13 +1577,13 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 					Status:  status.UnitAgentStatusIdle,
 					Message: "it's idle",
 					Data:    []byte(`{"foo": "bar"}`),
-					Since:   ptr(now),
+					Since:   new(now),
 				},
 				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
 					Status:  status.WorkloadStatusActive,
 					Message: "it's active",
 					Data:    []byte(`{"bar": "foo"}`),
-					Since:   ptr(now),
+					Since:   new(now),
 				},
 			},
 		},
@@ -1599,13 +1599,13 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 					Status:  status.UnitAgentStatusError,
 					Message: "error",
 					Data:    []byte(`{"error": "error"}`),
-					Since:   ptr(now),
+					Since:   new(now),
 				},
 				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
 					Status:  status.WorkloadStatusError,
 					Message: "also in error",
 					Data:    []byte(`{"error": "oh noes"}`),
-					Since:   ptr(now),
+					Since:   new(now),
 				},
 			},
 		},
@@ -1641,22 +1641,22 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 				"foo/0": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
-					MachineName:     ptr(coremachine.Name("0")),
+					MachineName:     new(coremachine.Name("0")),
 					AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 						Status:  status.UnitAgentStatusIdle,
 						Message: "it's idle",
 						Data:    []byte(`{"foo": "bar"}`),
-						Since:   ptr(now),
+						Since:   new(now),
 					},
 					WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
 						Status:  status.WorkloadStatusActive,
 						Message: "it's active",
 						Data:    []byte(`{"bar": "foo"}`),
-						Since:   ptr(now),
+						Since:   new(now),
 					},
 					K8sPodStatus: status.StatusInfo[status.K8sPodStatusType]{
 						Status: status.K8sPodStatusUnset,
-						Since:  ptr(now),
+						Since:  new(now),
 					},
 					CharmLocator: charm.CharmLocator{
 						Name:         "foo",
@@ -1668,22 +1668,22 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 				"foo/1": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
-					MachineName:     ptr(coremachine.Name("1")),
+					MachineName:     new(coremachine.Name("1")),
 					AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 						Status:  status.UnitAgentStatusError,
 						Message: "error",
 						Data:    []byte(`{"error": "error"}`),
-						Since:   ptr(now),
+						Since:   new(now),
 					},
 					WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
 						Status:  status.WorkloadStatusError,
 						Message: "also in error",
 						Data:    []byte(`{"error": "oh noes"}`),
-						Since:   ptr(now),
+						Since:   new(now),
 					},
 					K8sPodStatus: status.StatusInfo[status.K8sPodStatusType]{
 						Status: status.K8sPodStatusUnset,
-						Since:  ptr(now),
+						Since:  new(now),
 					},
 					CharmLocator: charm.CharmLocator{
 						Name:         "foo",
@@ -1712,13 +1712,13 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *tc.C) 
 					Status:  status.UnitAgentStatusError,
 					Message: "error",
 					Data:    []byte(`{"error": "error"}`),
-					Since:   ptr(now),
+					Since:   new(now),
 				},
 				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
 					Status:  status.WorkloadStatusError,
 					Message: "also in error",
 					Data:    []byte(`{"error": "oh noes"}`),
-					Since:   ptr(now),
+					Since:   new(now),
 				},
 			},
 		},
@@ -1765,7 +1765,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *tc.C) 
 				"foo/0": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
-					MachineName:     ptr(coremachine.Name("0")),
+					MachineName:     new(coremachine.Name("0")),
 					SubordinateNames: map[coreunit.Name]struct{}{
 						"sub/0": {},
 						"sub/1": {},
@@ -1805,35 +1805,35 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *tc.C) 
 					Life:            life.Alive,
 					ApplicationName: "sub",
 					Subordinate:     true,
-					PrincipalName:   ptr(coreunit.Name("foo/0")),
+					PrincipalName:   new(coreunit.Name("foo/0")),
 					CharmLocator: charm.CharmLocator{
 						Name:         "sub",
 						Revision:     42,
 						Source:       "charmhub",
 						Architecture: architecture.ARM64,
 					},
-					MachineName: ptr(coremachine.Name("1")),
+					MachineName: new(coremachine.Name("1")),
 				},
 				"sub/1": {
 					Life:            life.Alive,
 					ApplicationName: "sub",
 					Subordinate:     true,
-					PrincipalName:   ptr(coreunit.Name("foo/0")),
+					PrincipalName:   new(coreunit.Name("foo/0")),
 					AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 						Status:  status.UnitAgentStatusError,
 						Message: "error",
 						Data:    []byte(`{"error": "error"}`),
-						Since:   ptr(now),
+						Since:   new(now),
 					},
 					WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
 						Status:  status.WorkloadStatusError,
 						Message: "also in error",
 						Data:    []byte(`{"error": "oh noes"}`),
-						Since:   ptr(now),
+						Since:   new(now),
 					},
 					K8sPodStatus: status.StatusInfo[status.K8sPodStatusType]{
 						Status: status.K8sPodStatusUnset,
-						Since:  ptr(now),
+						Since:  new(now),
 					},
 					CharmLocator: charm.CharmLocator{
 						Name:         "sub",
@@ -1841,7 +1841,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *tc.C) 
 						Source:       "charmhub",
 						Architecture: architecture.ARM64,
 					},
-					MachineName: ptr(coremachine.Name("2")),
+					MachineName: new(coremachine.Name("2")),
 				},
 			},
 		},
@@ -1886,7 +1886,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesLXDProfile(c *tc.C) {
 				"foo/0": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
-					MachineName:     ptr(coremachine.Name("0")),
+					MachineName:     new(coremachine.Name("0")),
 					CharmLocator: charm.CharmLocator{
 						Name:         "foo",
 						Revision:     42,
@@ -1897,7 +1897,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesLXDProfile(c *tc.C) {
 				"foo/1": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
-					MachineName:     ptr(coremachine.Name("1")),
+					MachineName:     new(coremachine.Name("1")),
 					CharmLocator: charm.CharmLocator{
 						Name:         "foo",
 						Revision:     42,
@@ -1944,8 +1944,8 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWorkloadVersion(c *tc
 				Risk:   "stable",
 				Branch: "branch",
 			},
-			Scale:           ptr(2),
-			WorkloadVersion: ptr("blah"),
+			Scale:           new(2),
+			WorkloadVersion: new("blah"),
 			Units: map[coreunit.Name]status.Unit{
 				"foo/0": {
 					Life:            life.Alive,
@@ -1956,7 +1956,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWorkloadVersion(c *tc
 						Source:       "charmhub",
 						Architecture: architecture.ARM64,
 					},
-					WorkloadVersion: ptr("blah"),
+					WorkloadVersion: new("blah"),
 				},
 				"foo/1": {
 					Life:            life.Alive,
@@ -2026,7 +2026,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *tc.C
 				Branch: "branch",
 			},
 			Exposed: true,
-			Scale:   ptr(2),
+			Scale:   new(2),
 			Units: map[coreunit.Name]status.Unit{
 				"foo/0": {
 					Life:            life.Alive,
@@ -2098,7 +2098,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations
 				Branch: "branch",
 			},
 			Exposed: true,
-			Scale:   ptr(2),
+			Scale:   new(2),
 			Units: map[coreunit.Name]status.Unit{
 				"foo/0": {
 					Life:            life.Alive,
@@ -2194,7 +2194,7 @@ WHERE machine_uuid=?`, mUUID)
 		StatusInfo: status.StatusInfo[status.MachineStatusType]{
 			Status:  status.MachineStatusStarted,
 			Message: "started",
-			Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
+			Since:   new(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
 		},
 	})
 }
@@ -2226,7 +2226,7 @@ WHERE machine_uuid=?`, mUUID)
 			Status:  status.MachineStatusStarted,
 			Message: "started",
 			Data:    []byte(`{"key":"data"}`),
-			Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
+			Since:   new(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
 		},
 	})
 }
@@ -2276,13 +2276,13 @@ func (s *modelStateSuite) TestGetMachineFullStatuses(c *tc.C) {
 		{
 			Name:             "eth0",
 			Type:             corenetwork.EthernetDevice,
-			MTU:              ptr[int64](1500),
-			MACAddress:       ptr("00:11:22:33:44:55"),
-			ProviderID:       ptr[corenetwork.Id]("p-id"),
+			MTU:              new(int64(1500)),
+			MACAddress:       new("00:11:22:33:44:55"),
+			ProviderID:       new(corenetwork.Id("p-id")),
 			IsAutoStart:      true,
 			IsEnabled:        true,
 			ParentDeviceName: "parent",
-			GatewayAddress:   ptr("10.0.0.1"),
+			GatewayAddress:   new("10.0.0.1"),
 			IsDefaultGateway: true,
 			VLANTag:          100,
 			Addrs: []domainnetwork.NetAddr{
@@ -2293,8 +2293,8 @@ func (s *modelStateSuite) TestGetMachineFullStatuses(c *tc.C) {
 					ConfigType:       corenetwork.ConfigLoopback,
 					Origin:           corenetwork.OriginMachine,
 					Scope:            corenetwork.ScopeMachineLocal,
-					ProviderID:       ptr[corenetwork.Id]("p-id2"),
-					ProviderSubnetID: ptr[corenetwork.Id]("p-id2"),
+					ProviderID:       new(corenetwork.Id("p-id2")),
+					ProviderSubnetID: new(corenetwork.Id("p-id2")),
 				},
 				{
 					InterfaceName:    "eth0",
@@ -2303,8 +2303,8 @@ func (s *modelStateSuite) TestGetMachineFullStatuses(c *tc.C) {
 					ConfigType:       corenetwork.ConfigDHCP,
 					Origin:           corenetwork.OriginProvider,
 					Scope:            corenetwork.ScopeCloudLocal,
-					ProviderID:       ptr[corenetwork.Id]("p-id2"),
-					ProviderSubnetID: ptr[corenetwork.Id]("p-id2"),
+					ProviderID:       new(corenetwork.Id("p-id2")),
+					ProviderSubnetID: new(corenetwork.Id("p-id2")),
 				},
 				{
 					InterfaceName:    "eth1",
@@ -2313,8 +2313,8 @@ func (s *modelStateSuite) TestGetMachineFullStatuses(c *tc.C) {
 					ConfigType:       corenetwork.ConfigDHCP,
 					Origin:           corenetwork.OriginProvider,
 					Scope:            corenetwork.ScopePublic,
-					ProviderID:       ptr[corenetwork.Id]("p-id3"),
-					ProviderSubnetID: ptr[corenetwork.Id]("p-id3"),
+					ProviderID:       new(corenetwork.Id("p-id3")),
+					ProviderSubnetID: new(corenetwork.Id("p-id3")),
 				},
 			},
 		},
@@ -2387,15 +2387,15 @@ func (s *modelStateSuite) TestGetMachineFullStatuses(c *tc.C) {
 				Architecture: 0,
 			},
 			HardwareCharacteristics: instance.HardwareCharacteristics{
-				Arch:             ptr("arm64"),
-				Mem:              ptr[uint64](1024),
-				RootDisk:         ptr[uint64](256),
-				RootDiskSource:   ptr("/test"),
-				CpuCores:         ptr[uint64](4),
-				CpuPower:         ptr[uint64](75),
-				Tags:             ptr([]string{"tag1", "tag2"}),
-				AvailabilityZone: ptr("az-1"),
-				VirtType:         ptr("virtual-machine"),
+				Arch:             new("arm64"),
+				Mem:              new(uint64(1024)),
+				RootDisk:         new(uint64(256)),
+				RootDiskSource:   new("/test"),
+				CpuCores:         new(uint64(4)),
+				CpuPower:         new(uint64(75)),
+				Tags:             new([]string{"tag1", "tag2"}),
+				AvailabilityZone: new("az-1"),
+				VirtType:         new("virtual-machine"),
 			},
 		},
 		mName1: {
@@ -2417,15 +2417,15 @@ func (s *modelStateSuite) TestGetMachineFullStatuses(c *tc.C) {
 				Architecture: 0,
 			},
 			HardwareCharacteristics: instance.HardwareCharacteristics{
-				Arch:             ptr("arm64"),
-				Mem:              ptr[uint64](1024),
-				RootDisk:         ptr[uint64](256),
-				RootDiskSource:   ptr("/test"),
-				CpuCores:         ptr[uint64](4),
-				CpuPower:         ptr[uint64](75),
-				Tags:             ptr([]string{"tag1", "tag2"}),
-				AvailabilityZone: ptr("az-1"),
-				VirtType:         ptr("virtual-machine"),
+				Arch:             new("arm64"),
+				Mem:              new(uint64(1024)),
+				RootDisk:         new(uint64(256)),
+				RootDiskSource:   new("/test"),
+				CpuCores:         new(uint64(4)),
+				CpuPower:         new(uint64(75)),
+				Tags:             new([]string{"tag1", "tag2"}),
+				AvailabilityZone: new("az-1"),
+				VirtType:         new("virtual-machine"),
 			},
 		},
 		mName2: {
@@ -2445,15 +2445,15 @@ func (s *modelStateSuite) TestGetMachineFullStatuses(c *tc.C) {
 				Architecture: 0,
 			},
 			HardwareCharacteristics: instance.HardwareCharacteristics{
-				Arch:             ptr("arm64"),
-				Mem:              ptr[uint64](1024),
-				RootDisk:         ptr[uint64](256),
-				RootDiskSource:   ptr("/test"),
-				CpuCores:         ptr[uint64](4),
-				CpuPower:         ptr[uint64](75),
-				Tags:             ptr([]string{"tag1", "tag2"}),
-				AvailabilityZone: ptr("az-1"),
-				VirtType:         ptr("virtual-machine"),
+				Arch:             new("arm64"),
+				Mem:              new(uint64(1024)),
+				RootDisk:         new(uint64(256)),
+				RootDiskSource:   new("/test"),
+				CpuCores:         new(uint64(4)),
+				CpuPower:         new(uint64(75)),
+				Tags:             new([]string{"tag1", "tag2"}),
+				AvailabilityZone: new("az-1"),
+				VirtType:         new("virtual-machine"),
 			},
 		},
 	})
@@ -2519,7 +2519,7 @@ func (s *modelStateSuite) TestSetMachineStatusSuccess(c *tc.C) {
 	expectedStatus := status.StatusInfo[status.MachineStatusType]{
 		Status:  status.MachineStatusStarted,
 		Message: "started",
-		Since:   ptr(time.Now().UTC()),
+		Since:   new(time.Now().UTC()),
 	}
 	err := s.state.SetMachineStatus(c.Context(), machineName.String(), expectedStatus)
 	c.Assert(err, tc.ErrorIsNil)
@@ -2540,7 +2540,7 @@ func (s *modelStateSuite) TestSetMachineStatusSuccessWithData(c *tc.C) {
 		Status:  status.MachineStatusStarted,
 		Message: "started",
 		Data:    []byte(`{"key": "data"}`),
-		Since:   ptr(time.Now().UTC()),
+		Since:   new(time.Now().UTC()),
 	}
 	err := s.state.SetMachineStatus(c.Context(), machineName.String(), expectedStatus)
 	c.Assert(err, tc.ErrorIsNil)
@@ -2585,7 +2585,7 @@ WHERE machine_uuid=?`, machineUUID)
 	expectedStatus := status.StatusInfo[status.InstanceStatusType]{
 		Status:  status.InstanceStatusRunning,
 		Message: "running",
-		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
+		Since:   new(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
 	}
 	c.Check(obtainedStatus, tc.DeepEquals, expectedStatus)
 }
@@ -2616,7 +2616,7 @@ WHERE machine_uuid=?`, machineUUID)
 		Status:  status.InstanceStatusRunning,
 		Message: "running",
 		Data:    []byte(`{"key": "data"}`),
-		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
+		Since:   new(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
 	}
 	c.Check(obtainedStatus, tc.DeepEquals, expectedStatus)
 }
@@ -2717,7 +2717,7 @@ func (s *modelStateSuite) TestSetInstanceStatusSuccessWithData(c *tc.C) {
 		Status:  status.InstanceStatusRunning,
 		Message: "running",
 		Data:    []byte(`{"key": "data"}`),
-		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
+		Since:   new(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
 	}
 	err := s.state.SetInstanceStatus(c.Context(), machineName.String(), expectedStatus)
 	c.Assert(err, tc.ErrorIsNil)
@@ -2774,15 +2774,15 @@ func (s *modelStateSuite) createMachine(c *tc.C) (coremachine.UUID, coremachine.
 		name.String(),
 		"nonce",
 		&instance.HardwareCharacteristics{
-			Arch:             ptr("arm64"),
-			Mem:              ptr[uint64](1024),
-			RootDisk:         ptr[uint64](256),
-			RootDiskSource:   ptr("/test"),
-			CpuCores:         ptr[uint64](4),
-			CpuPower:         ptr[uint64](75),
-			Tags:             ptr([]string{"tag1", "tag2"}),
-			AvailabilityZone: ptr("az-1"),
-			VirtType:         ptr("virtual-machine"),
+			Arch:             new("arm64"),
+			Mem:              new(uint64(1024)),
+			RootDisk:         new(uint64(256)),
+			RootDiskSource:   new("/test"),
+			CpuCores:         new(uint64(4)),
+			CpuPower:         new(uint64(75)),
+			Tags:             new([]string{"tag1", "tag2"}),
+			AvailabilityZone: new("az-1"),
+			VirtType:         new("virtual-machine"),
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)

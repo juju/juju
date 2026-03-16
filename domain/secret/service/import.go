@@ -117,7 +117,7 @@ func (s *SecretService) importSecretWithRevisions(
 			ValueRef:   rev.ValueRef,
 			CreateTime: rev.CreateTime,
 			UpdateTime: rev.UpdateTime,
-			RevisionID: ptr(revisionID.String()),
+			RevisionID: new(revisionID.String()),
 			ExpireTime: rev.ExpireTime,
 		}
 		if i == len(revisions)-1 {

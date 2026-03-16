@@ -63,8 +63,8 @@ func (s *exportSuite) TestExport(c *tc.C) {
 			"foo": {
 				Resource: "foo",
 				Mounts:   []internalcharm.Mount{{Storage: "foo", Location: "/bar"}},
-				Gid:      ptr(1000),
-				Uid:      ptr(1000),
+				Gid:      new(1000),
+				Uid:      new(1000),
 			},
 		},
 		Assumes: &assumes.ExpressionTree{
@@ -154,8 +154,8 @@ func (s *exportSuite) TestExport(c *tc.C) {
 				"foo": {
 					Resource: "foo",
 					Mounts:   []params.CharmMount{{Storage: "foo", Location: "/bar"}},
-					Gid:      ptr(1000),
-					Uid:      ptr(1000),
+					Gid:      new(1000),
+					Uid:      new(1000),
 				},
 			},
 			AssumesExpr: &assumes.ExpressionTree{

@@ -118,8 +118,8 @@ func (s *registerCAASUnitSuite) TestRegisterNewCAASUnit(c *tc.C) {
 		UnitName:               "foo/666",
 		PasswordHash:           "secret",
 		ProviderID:             "foo-666",
-		Address:                ptr("10.6.6.6"),
-		Ports:                  ptr([]string{"8080"}),
+		Address:                new("10.6.6.6"),
+		Ports:                  new([]string{"8080"}),
 		OrderedScale:           true,
 		OrderedId:              666,
 		RegisterUnitStorageArg: storageArg,
@@ -189,12 +189,12 @@ func (s *registerCAASUnitSuite) TestRegisterExistingCAASUnit(c *tc.C) {
 	).Return(storageArg, nil).AnyTimes()
 
 	expectedArg := application.RegisterCAASUnitArg{
-		Address:                ptr("10.6.6.6"),
+		Address:                new("10.6.6.6"),
 		NetNodeUUID:            unitNetNodeUUID,
 		OrderedId:              666,
 		OrderedScale:           true,
 		PasswordHash:           "secret",
-		Ports:                  ptr([]string{"8080"}),
+		Ports:                  new([]string{"8080"}),
 		ProviderID:             "foo-666",
 		RegisterUnitStorageArg: storageArg,
 		UnitName:               "foo/666",

@@ -88,7 +88,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *tc.C) {
 		CreateTime: time.Now(),
 		UpdateTime: time.Now(),
 	}
-	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	sp.RevisionID = new(uuid.MustNewUUID().String())
 	err = st.CreateCharmApplicationSecret(ctx, 1, uri1, coreapplication.UUID(mysqlappUUID), sp)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -120,15 +120,15 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *tc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
 	harness.AddTest(c, func(c *tc.C) {
 
-		sp.RevisionID = ptr(uuid.MustNewUUID().String())
+		sp.RevisionID = new(uuid.MustNewUUID().String())
 		err = st.CreateCharmUnitSecret(ctx, 1, uri2, coreunit.UUID(mysqlUnitUUID[0]), sp)
 		c.Assert(err, tc.ErrorIsNil)
 
-		sp.RevisionID = ptr(uuid.MustNewUUID().String())
+		sp.RevisionID = new(uuid.MustNewUUID().String())
 		err = st.CreateCharmApplicationSecret(ctx, 1, uri3, coreapplication.UUID(wikiappUUID), sp)
 		c.Assert(err, tc.ErrorIsNil)
 
-		sp.RevisionID = ptr(uuid.MustNewUUID().String())
+		sp.RevisionID = new(uuid.MustNewUUID().String())
 		err = st.CreateCharmUnitSecret(ctx, 1, uri4, coreunit.UUID(wikiUnitUUID[0]), sp)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -136,15 +136,15 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *tc.C) {
 	})
 
 	// We create a new revision 2, then the old revision 1 of each secret should become obsolete.
-	checkObsoleteSecretEvent(c, st, harness, uri1, ptr(1))
-	checkObsoleteSecretEvent(c, st, harness, uri2, ptr(1))
-	checkObsoleteSecretEvent(c, st, harness, uri3, ptr(1))
-	checkObsoleteSecretEvent(c, st, harness, uri4, ptr(1))
+	checkObsoleteSecretEvent(c, st, harness, uri1, new(1))
+	checkObsoleteSecretEvent(c, st, harness, uri2, new(1))
+	checkObsoleteSecretEvent(c, st, harness, uri3, new(1))
+	checkObsoleteSecretEvent(c, st, harness, uri4, new(1))
 
 	//  We create a new revision 3, then the old revision 2 of each secret should become obsolete.
-	checkObsoleteSecretEvent(c, st, harness, uri1, ptr(2))
-	checkObsoleteSecretEvent(c, st, harness, uri2, ptr(2))
-	checkObsoleteSecretEvent(c, st, harness, uri3, ptr(2))
+	checkObsoleteSecretEvent(c, st, harness, uri1, new(2))
+	checkObsoleteSecretEvent(c, st, harness, uri2, new(2))
+	checkObsoleteSecretEvent(c, st, harness, uri3, new(2))
 
 	harness.Run(c, []string(nil))
 }
@@ -181,11 +181,11 @@ func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *tc.C) {
 			CreateTime: time.Now(),
 			UpdateTime: time.Now(),
 		}
-		sp.RevisionID = ptr(uuid.MustNewUUID().String())
+		sp.RevisionID = new(uuid.MustNewUUID().String())
 		err := st.CreateCharmApplicationSecret(ctx, 1, uri1, coreapplication.UUID(mysqlAppUUID), sp)
 		c.Assert(err, tc.ErrorIsNil)
 
-		sp.RevisionID = ptr(uuid.MustNewUUID().String())
+		sp.RevisionID = new(uuid.MustNewUUID().String())
 		err = st.CreateCharmUnitSecret(ctx, 1, uri2, coreunit.UUID(mysqlUnitUUID[0]), sp)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -194,12 +194,12 @@ func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *tc.C) {
 
 	// We create a new revision 2, then the old revision 1 of each secret should become obsolete.
 	// We watch for the application owned secrets, so the unit owned secret uri2 should not be included.
-	checkObsoleteSecretEvent(c, st, harness, uri1, ptr(1))
+	checkObsoleteSecretEvent(c, st, harness, uri1, new(1))
 	checkObsoleteSecretEvent(c, st, harness, uri2, nil)
 
 	// We create a new revision 3, then the old revision 2 of each secret should become obsolete.
 	// We watch for the application owned secrets, so the unit owned secret uri2 should not be included.
-	checkObsoleteSecretEvent(c, st, harness, uri1, ptr(2))
+	checkObsoleteSecretEvent(c, st, harness, uri1, new(2))
 	checkObsoleteSecretEvent(c, st, harness, uri2, nil)
 
 	harness.Run(c, []string(nil))
@@ -237,11 +237,11 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *tc.C) {
 			CreateTime: time.Now(),
 			UpdateTime: time.Now(),
 		}
-		sp.RevisionID = ptr(uuid.MustNewUUID().String())
+		sp.RevisionID = new(uuid.MustNewUUID().String())
 		err := st.CreateCharmApplicationSecret(ctx, 1, uri1, coreapplication.UUID(mysqlAppUUID), sp)
 		c.Assert(err, tc.ErrorIsNil)
 
-		sp.RevisionID = ptr(uuid.MustNewUUID().String())
+		sp.RevisionID = new(uuid.MustNewUUID().String())
 		err = st.CreateCharmUnitSecret(ctx, 1, uri2, coreunit.UUID(mysqlUnitUUID[0]), sp)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -251,7 +251,7 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *tc.C) {
 	// We create a new revision 2, then the old revision 1 of each secret should become obsolete.
 	// We watch for the unit owned secrets, so the application owned secret uri1 should not be included.
 	checkObsoleteSecretEvent(c, st, harness, uri1, nil)
-	checkObsoleteSecretEvent(c, st, harness, uri2, ptr(1))
+	checkObsoleteSecretEvent(c, st, harness, uri2, new(1))
 
 	harness.Run(c, []string(nil))
 }
@@ -276,15 +276,15 @@ func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *tc.C) {
 			CreateTime: time.Now(),
 			UpdateTime: time.Now(),
 			Data:       data,
-			RevisionID: ptr(uuid.MustNewUUID().String()),
+			RevisionID: new(uuid.MustNewUUID().String()),
 		})
 		c.Assert(err, tc.ErrorIsNil)
 		err = st.CreateUserSecret(ctx, 1, uri2, secret.UpsertSecretParams{
 			CreateTime: time.Now(),
 			UpdateTime: time.Now(),
 			Data:       data,
-			AutoPrune:  ptr(true),
-			RevisionID: ptr(uuid.MustNewUUID().String()),
+			AutoPrune:  new(true),
+			RevisionID: new(uuid.MustNewUUID().String()),
 		})
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
@@ -301,7 +301,7 @@ func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *tc.C) {
 
 	harness.AddTest(c, func(c *tc.C) {
 		err = st.UpdateSecret(c.Context(), uri1, secret.UpsertSecretParams{
-			AutoPrune:  ptr(true),
+			AutoPrune:  new(true),
 			CreateTime: time.Now(),
 			UpdateTime: time.Now(),
 		})
@@ -344,7 +344,7 @@ func (s *watcherSuite) TestWatchDeletedForAppOwnedSecret(c *tc.C) {
 		CreateTime: time.Now(),
 		UpdateTime: time.Now(),
 	}
-	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	sp.RevisionID = new(uuid.MustNewUUID().String())
 	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, coreapplication.UUID(mysqlUUID), sp)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -367,12 +367,12 @@ func (s *watcherSuite) TestWatchDeletedForAppOwnedSecret(c *tc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
 	harness.AddTest(c, func(c *tc.C) {
 		// Create another app owned secret with an extra revision.
-		sp.RevisionID = ptr(uuid.MustNewUUID().String())
+		sp.RevisionID = new(uuid.MustNewUUID().String())
 		err = st.CreateCharmApplicationSecret(ctx, 1, uri2, coreapplication.UUID(mysqlUUID), sp)
 		c.Assert(err, tc.ErrorIsNil)
 		createNewRevision(c, st, uri2)
 
-		sp.RevisionID = ptr(uuid.MustNewUUID().String())
+		sp.RevisionID = new(uuid.MustNewUUID().String())
 		err = st.CreateCharmUnitSecret(ctx, 1, uri3, coreunit.UUID(unitUUIDs[0]), sp)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -439,12 +439,12 @@ func (s *watcherSuite) TestWatchDeletedSecretRemovesRevisionFromChangeSet(c *tc.
 			CreateTime: time.Now(),
 			UpdateTime: time.Now(),
 		}
-		sp.RevisionID = ptr(uuid.MustNewUUID().String())
+		sp.RevisionID = new(uuid.MustNewUUID().String())
 		err := st.CreateCharmApplicationSecret(ctx, 1, uri1, coreapplication.UUID(appUUID), sp)
 		c.Assert(err, tc.ErrorIsNil)
 
 		// Create another app owned secret with a few extra revisions.
-		sp.RevisionID = ptr(uuid.MustNewUUID().String())
+		sp.RevisionID = new(uuid.MustNewUUID().String())
 		err = st.CreateCharmApplicationSecret(ctx, 1, uri2, coreapplication.UUID(appUUID), sp)
 		c.Assert(err, tc.ErrorIsNil)
 		createNewRevision(c, st, uri2)
@@ -525,11 +525,11 @@ func (s *watcherSuite) TestWatchDeletedForUnitsOwnedSecret(c *tc.C) {
 			CreateTime: time.Now(),
 			UpdateTime: time.Now(),
 		}
-		sp.RevisionID = ptr(uuid.MustNewUUID().String())
+		sp.RevisionID = new(uuid.MustNewUUID().String())
 		err := st.CreateCharmApplicationSecret(ctx, 1, uri1, coreapplication.UUID(mysqlUUID), sp)
 		c.Assert(err, tc.ErrorIsNil)
 
-		sp.RevisionID = ptr(uuid.MustNewUUID().String())
+		sp.RevisionID = new(uuid.MustNewUUID().String())
 		err = st.CreateCharmUnitSecret(ctx, 1, uri2, coreunit.UUID(unitUUIDs[0]), sp)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -591,11 +591,11 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 			UpdateTime: time.Now(),
 		}
 
-		sp.RevisionID = ptr(uuid.MustNewUUID().String())
+		sp.RevisionID = new(uuid.MustNewUUID().String())
 		err := st.CreateCharmApplicationSecret(ctx, 1, uri1, coreapplication.UUID(mysqlUUID), sp)
 		c.Assert(err, tc.ErrorIsNil)
 
-		sp.RevisionID = ptr(uuid.MustNewUUID().String())
+		sp.RevisionID = new(uuid.MustNewUUID().String())
 		err = st.CreateCharmApplicationSecret(ctx, 1, uri2, coreapplication.UUID(mysqlUUID), sp)
 		c.Assert(err, tc.ErrorIsNil)
 
@@ -781,11 +781,11 @@ func (s *watcherSuite) TestWatchSecretsRotationChanges(c *tc.C) {
 			UpdateTime: time.Now(),
 		}
 
-		sp.RevisionID = ptr(uuid.MustNewUUID().String())
+		sp.RevisionID = new(uuid.MustNewUUID().String())
 		err := st.CreateCharmApplicationSecret(ctx, 1, uri1, coreapplication.UUID(mysqlAppUUID), sp)
 		c.Assert(err, tc.ErrorIsNil)
 
-		sp.RevisionID = ptr(uuid.MustNewUUID().String())
+		sp.RevisionID = new(uuid.MustNewUUID().String())
 		err = st.CreateCharmUnitSecret(ctx, 1, uri2, coreunit.UUID(wikiUnitUUIDs[0]), sp)
 		c.Assert(err, tc.ErrorIsNil)
 		createNewRevision(c, st, uri2)
@@ -855,10 +855,6 @@ func (s *watcherSuite) TestWatchSecretsRotationChanges(c *tc.C) {
 	harness1.Run(c, []corewatcher.SecretTriggerChange(nil))
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 	mysqlAppUUID := s.setupUnits(c, "mysql")
 	s.setupUnits(c, "mediawiki")
@@ -894,7 +890,7 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 	harness.AddTest(c, func(c *tc.C) {
 		err := st.CreateCharmUnitSecret(ctx, 1, uri2, coreunit.UUID(wikiUnitUUIDs[0]), secret.UpsertSecretParams{
 			Data:       coresecrets.SecretData{"foo": "bar", "hello": "world"},
-			RevisionID: ptr(uuid.MustNewUUID().String()),
+			RevisionID: new(uuid.MustNewUUID().String()),
 			CreateTime: time.Now(),
 			UpdateTime: time.Now(),
 		})
@@ -907,8 +903,8 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 	harness.AddTest(c, func(c *tc.C) {
 		err = st.CreateCharmApplicationSecret(ctx, 1, uri1, coreapplication.UUID(mysqlAppUUID), secret.UpsertSecretParams{
 			Data:       coresecrets.SecretData{"foo": "bar", "hello": "world"},
-			ExpireTime: ptr(now.Add(1 * time.Hour)),
-			RevisionID: ptr(uuid.MustNewUUID().String()),
+			ExpireTime: new(now.Add(1 * time.Hour)),
+			RevisionID: new(uuid.MustNewUUID().String()),
 			CreateTime: time.Now(),
 			UpdateTime: time.Now(),
 		})
@@ -916,8 +912,8 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 
 		err = st.UpdateSecret(c.Context(), uri2, secret.UpsertSecretParams{
 			Data:       coresecrets.SecretData{"foo-new": "bar-new"},
-			ExpireTime: ptr(now.Add(2 * time.Hour)),
-			RevisionID: ptr(uuid.MustNewUUID().String()),
+			ExpireTime: new(now.Add(2 * time.Hour)),
+			RevisionID: new(uuid.MustNewUUID().String()),
 			CreateTime: time.Now(),
 			UpdateTime: time.Now(),
 		})
@@ -1054,7 +1050,7 @@ func revID(uri *coresecrets.URI, rev int) string {
 func createNewRevision(c *tc.C, st *state.State, uri *coresecrets.URI) {
 	sp := secret.UpsertSecretParams{
 		Data:       coresecrets.SecretData{"foo-new": "bar-new"},
-		RevisionID: ptr(uuid.MustNewUUID().String()),
+		RevisionID: new(uuid.MustNewUUID().String()),
 		CreateTime: time.Now(),
 		UpdateTime: time.Now(),
 	}
@@ -1166,7 +1162,7 @@ func checkObsoleteUserSecretToPruneEvent(c *tc.C, st *state.State, harness *watc
 	harness.AddTest(c, func(c *tc.C) {
 		sp := secret.UpsertSecretParams{
 			Data:       coresecrets.SecretData{"foo-new": "bar-new"},
-			RevisionID: ptr(uuid.MustNewUUID().String()),
+			RevisionID: new(uuid.MustNewUUID().String()),
 			CreateTime: time.Now(),
 			UpdateTime: time.Now(),
 		}

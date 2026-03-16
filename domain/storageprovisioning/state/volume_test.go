@@ -1237,7 +1237,7 @@ func (s *volumeSuite) TestGetMachineModelProvisionedVolumeParams(c *tc.C) {
 			SizeMiB:              0,
 			StorageName:          "myfilesystem",
 			StorageID:            siID1,
-			StorageOwnerUnitName: ptr(unitName.String()),
+			StorageOwnerUnitName: new(unitName.String()),
 			UUID:                 volumeUUID1,
 		},
 		{

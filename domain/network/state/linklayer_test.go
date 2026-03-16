@@ -267,7 +267,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	// Check eth0 details
 	c.Check(filterNetInterface(eth0), tc.DeepEquals, network.NetInterface{
 		Name:       "eth0",
-		MACAddress: ptr("00:11:22:33:44:55"),
+		MACAddress: new("00:11:22:33:44:55"),
 		Type:       corenetwork.EthernetDevice,
 	})
 	c.Check(filterNetAddr(eth0.Addrs), tc.SameContents, []network.NetAddr{{
@@ -285,7 +285,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	// Check bridge details
 	c.Check(filterNetInterface(bridge), tc.DeepEquals, network.NetInterface{
 		Name:             "eth0-bridge",
-		MACAddress:       ptr("00:11:22:33:44:66"),
+		MACAddress:       new("00:11:22:33:44:66"),
 		Type:             corenetwork.BridgeDevice,
 		ParentDeviceName: "eth0",
 	})
@@ -302,7 +302,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	// Check eth1 details
 	c.Check(filterNetInterface(eth1), tc.DeepEquals, network.NetInterface{
 		Name:       "eth1",
-		MACAddress: ptr("00:11:22:33:44:77"),
+		MACAddress: new("00:11:22:33:44:77"),
 		Type:       corenetwork.EthernetDevice,
 	})
 	c.Check(filterNetAddr(eth1.Addrs), tc.SameContents, []network.NetAddr{

@@ -260,7 +260,7 @@ func (s *auditConfigSuite) createModelAdminUser(c *tc.C, userTag names.UserTag, 
 		Name:        user.NameFromTag(userTag),
 		DisplayName: userTag.Name(),
 		CreatorUUID: s.AdminUserUUID,
-		Password:    ptr(auth.NewPassword(password)),
+		Password:    new(auth.NewPassword(password)),
 		Permission: permission.AccessSpec{
 			Access: permission.LoginAccess,
 			Target: permission.ID{

@@ -93,25 +93,25 @@ func (s *importSuite) TestImportMachineStatus(c *tc.C) {
 		Status:  corestatus.Running,
 		Message: "machine is running",
 		Data:    map[string]any{"baz": "qux"},
-		Since:   ptr(now),
+		Since:   new(now),
 	})
 	s.importService.EXPECT().SetInstanceStatus(gomock.Any(), coremachine.Name("0"), corestatus.StatusInfo{
 		Status:  corestatus.Status("active"),
 		Message: "instance is active",
 		Data:    map[string]any{"biz": "qax"},
-		Since:   ptr(now),
+		Since:   new(now),
 	})
 	s.importService.EXPECT().SetMachineStatus(gomock.Any(), coremachine.Name("1"), corestatus.StatusInfo{
 		Status:  corestatus.Stopped,
 		Message: "machine is stopped",
 		Data:    map[string]any{"buz": "qix"},
-		Since:   ptr(now),
+		Since:   new(now),
 	})
 	s.importService.EXPECT().SetInstanceStatus(gomock.Any(), coremachine.Name("1"), corestatus.StatusInfo{
 		Status:  corestatus.Error,
 		Message: "instance is error",
 		Data:    map[string]any{"boz": "qox"},
-		Since:   ptr(now),
+		Since:   new(now),
 	})
 
 	importOp := importOperation{
@@ -145,7 +145,7 @@ func (s *importSuite) TestImportApplicationStatus(c *tc.C) {
 		Status:  corestatus.Status("foo"),
 		Message: "bar",
 		Data:    map[string]any{"baz": "qux"},
-		Since:   ptr(now),
+		Since:   new(now),
 	})
 
 	importOp := importOperation{
@@ -209,25 +209,25 @@ func (s *importSuite) TestImportUnitStatus(c *tc.C) {
 		Status:  corestatus.Status("idle"),
 		Message: "agent is idle",
 		Data:    map[string]any{"baz": "qux"},
-		Since:   ptr(now),
+		Since:   new(now),
 	})
 	s.importService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), coreunit.Name("foo/0"), corestatus.StatusInfo{
 		Status:  corestatus.Status("active"),
 		Message: "unit is active",
 		Data:    map[string]any{"biz": "qax"},
-		Since:   ptr(now),
+		Since:   new(now),
 	})
 	s.importService.EXPECT().SetUnitAgentStatus(gomock.Any(), coreunit.Name("foo/1"), corestatus.StatusInfo{
 		Status:  corestatus.Status("executing"),
 		Message: "agent is executing",
 		Data:    map[string]any{"buz": "qix"},
-		Since:   ptr(now),
+		Since:   new(now),
 	})
 	s.importService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), coreunit.Name("foo/1"), corestatus.StatusInfo{
 		Status:  corestatus.Status("blocked"),
 		Message: "unit is blocked",
 		Data:    map[string]any{"boz": "qox"},
-		Since:   ptr(now),
+		Since:   new(now),
 	})
 
 	importOp := importOperation{
@@ -271,13 +271,13 @@ func (s *importSuite) TestImportRelationStatus(c *tc.C) {
 		Status:  "foo",
 		Message: "bar",
 		Data:    map[string]any{"baz": "qux"},
-		Since:   ptr(now),
+		Since:   new(now),
 	})
 	s.importService.EXPECT().ImportRelationStatus(gomock.Any(), 2, corestatus.StatusInfo{
 		Status:  "foo2",
 		Message: "bar2",
 		Data:    map[string]any{"baz2": "qux2"},
-		Since:   ptr(now),
+		Since:   new(now),
 	})
 
 	importOp := importOperation{
@@ -375,13 +375,13 @@ func (s *importSuite) TestImportRemoteApplicationOffererStatus(c *tc.C) {
 		Status:  corestatus.Active,
 		Message: "bar",
 		Data:    map[string]any{"baz": "qux"},
-		Since:   ptr(now),
+		Since:   new(now),
 	})
 	s.importService.EXPECT().SetRemoteApplicationOffererStatus(gomock.Any(), "remote-app-2", corestatus.StatusInfo{
 		Status:  corestatus.Blocked,
 		Message: "bar2",
 		Data:    map[string]any{"baz2": "qux2"},
-		Since:   ptr(now),
+		Since:   new(now),
 	})
 
 	importOp := importOperation{
@@ -425,13 +425,13 @@ func (s *importSuite) TestImportFilesystemStatus(c *tc.C) {
 		Status:  corestatus.Active,
 		Message: "active is available",
 		Data:    map[string]any{"baz": "qux"},
-		Since:   ptr(now),
+		Since:   new(now),
 	})
 	s.importService.EXPECT().SetFilesystemStatus(gomock.Any(), "fs-2", corestatus.StatusInfo{
 		Status:  corestatus.Error,
 		Message: "error occurred",
 		Data:    map[string]any{"baz2": "qux2"},
-		Since:   ptr(now),
+		Since:   new(now),
 	})
 
 	importOp := importOperation{
@@ -475,13 +475,13 @@ func (s *importSuite) TestImportVolumeStatus(c *tc.C) {
 		Status:  corestatus.Active,
 		Message: "volume is active",
 		Data:    map[string]any{"baz": "qux"},
-		Since:   ptr(now),
+		Since:   new(now),
 	})
 	s.importService.EXPECT().SetVolumeStatus(gomock.Any(), "vol-2", corestatus.StatusInfo{
 		Status:  corestatus.Pending,
 		Message: "volume is pending",
 		Data:    map[string]any{"baz2": "qux2"},
-		Since:   ptr(now),
+		Since:   new(now),
 	})
 
 	importOp := importOperation{

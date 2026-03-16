@@ -211,10 +211,6 @@ func constraintsToDBInsert(
 	}
 }
 
-func ptr[T any](i T) *T {
-	return &i
-}
-
 // deref returns the dereferenced value of T if T is not nil. Otherwise the zero
 // value of T is returned.
 func deref[T any](i *T) T {
@@ -235,16 +231,16 @@ func (c dbConstraint) toValue(
 		rval.Arch = &c.Arch.String
 	}
 	if c.CPUCores.Valid {
-		rval.CpuCores = ptr(uint64(c.CPUCores.Int64))
+		rval.CpuCores = new(uint64(c.CPUCores.Int64))
 	}
 	if c.CPUPower.Valid {
-		rval.CpuPower = ptr(uint64(c.CPUPower.Int64))
+		rval.CpuPower = new(uint64(c.CPUPower.Int64))
 	}
 	if c.Mem.Valid {
-		rval.Mem = ptr(uint64(c.Mem.Int64))
+		rval.Mem = new(uint64(c.Mem.Int64))
 	}
 	if c.RootDisk.Valid {
-		rval.RootDisk = ptr(uint64(c.RootDisk.Int64))
+		rval.RootDisk = new(uint64(c.RootDisk.Int64))
 	}
 	if c.RootDiskSource.Valid {
 		rval.RootDiskSource = &c.RootDiskSource.String

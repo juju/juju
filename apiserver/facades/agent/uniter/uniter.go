@@ -1241,7 +1241,7 @@ func (u *UniterAPI) Actions(ctx context.Context, args params.Entities) (params.A
 		results.Results[i].Action = &params.Action{
 			Name:           action.ActionName,
 			Parameters:     action.Parameters,
-			Parallel:       ptr(action.IsParallel),
+			Parallel:       new(action.IsParallel),
 			ExecutionGroup: nilZeroPtr(action.ExecutionGroup),
 		}
 	}
@@ -2156,7 +2156,7 @@ func (u *UniterAPI) oneSetRelationStatus(
 	err = u.statusService.SetRelationStatus(ctx, unitName, relationUUID, status.StatusInfo{
 		Status:  status.Status(relStatus),
 		Message: message,
-		Since:   ptr(u.clock.Now()),
+		Since:   new(u.clock.Now()),
 	})
 	if errors.Is(err, errors.NotFound) {
 		return apiservererrors.ErrPerm
@@ -3269,10 +3269,6 @@ func (u *UniterAPI) Read(ctx context.Context, _, _ struct{}) {}
 
 // WatchLeadershipSettings is not implemented in version 21 of the uniter.
 func (u *UniterAPI) WatchLeadershipSettings(ctx context.Context, _, _ struct{}) {}
-
-func ptr[T any](v T) *T {
-	return &v
-}
 
 func nilZeroPtr[T comparable](v T) *T {
 	var zero T

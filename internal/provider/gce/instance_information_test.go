@@ -29,7 +29,7 @@ func (s *instanceInformationSuite) TestInstanceTypesCacheExpiration(c *tc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").
-		Return([]*computepb.Zone{{Name: ptr("us-east1")}}, nil).Times(3)
+		Return([]*computepb.Zone{{Name: new("us-east1")}}, nil).Times(3)
 
 	now := time.Now()
 	clk := testclock.NewClock(now)

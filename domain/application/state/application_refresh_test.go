@@ -804,11 +804,11 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmKeepsValidConfig(c *tc.
 	c.Assert(appConfig, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  charm.OptionString,
-			Value: ptr("baz"),
+			Value: new("baz"),
 		},
 		"bar": {
 			Type:  charm.OptionInt,
-			Value: ptr("43"),
+			Value: new("43"),
 		},
 	})
 }
@@ -856,7 +856,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmCoercedConfig(c *tc.C) 
 	c.Assert(appConfig, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  charm.OptionInt,
-			Value: ptr("12"),
+			Value: new("12"),
 		},
 	})
 }
@@ -915,7 +915,7 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmDropsInvalidConfig(c *t
 	c.Assert(appConfig, tc.DeepEquals, map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  charm.OptionInt,
-			Value: ptr("0"),
+			Value: new("0"),
 		},
 	})
 }

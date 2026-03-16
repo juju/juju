@@ -88,8 +88,8 @@ func (s *applicationSuite) TestDeploy(c *tc.C) {
 						Channel: "24.04",
 					},
 					Architecture: "amd64",
-					Revision:     ptr(42),
-					Track:        ptr("1.0"),
+					Revision:     new(42),
+					Track:        new("1.0"),
 					Risk:         "stable",
 				},
 			},
@@ -130,8 +130,8 @@ func (s *applicationSuite) TestDeployWithPendingResources(c *tc.C) {
 						Channel: "24.04",
 					},
 					Architecture: "amd64",
-					Revision:     ptr(42),
-					Track:        ptr("1.0"),
+					Revision:     new(42),
+					Track:        new("1.0"),
 					Risk:         "stable",
 				},
 				Resources: map[string]string{"foo": resourceUUID.String()},
@@ -164,8 +164,8 @@ func (s *applicationSuite) TestDeployWithApplicationConfig(c *tc.C) {
 						Channel: "24.04",
 					},
 					Architecture: "amd64",
-					Revision:     ptr(42),
-					Track:        ptr("1.0"),
+					Revision:     new(42),
+					Track:        new("1.0"),
 					Risk:         "stable",
 				},
 				Config: map[string]string{"stringOption": "hey"},
@@ -207,8 +207,8 @@ func (s *applicationSuite) TestDeploySubordinate(c *tc.C) {
 						Channel: "24.04",
 					},
 					Architecture: "", // Empty arch in args should resolve to the charm's base arch.
-					Revision:     ptr(42),
-					Track:        ptr("1.0"),
+					Revision:     new(42),
+					Track:        new("1.0"),
 					Risk:         "stable",
 				},
 			},
@@ -245,8 +245,8 @@ func (s *applicationSuite) TestDeployFailureDeletesPendingResources(c *tc.C) {
 						Channel: "24.04",
 					},
 					Architecture: "amd64",
-					Revision:     ptr(42),
-					Track:        ptr("1.0"),
+					Revision:     new(42),
+					Track:        new("1.0"),
 					Risk:         "stable",
 				},
 				Resources: map[string]string{"bar": resourceUUID.String()},
@@ -288,8 +288,8 @@ func (s *applicationSuite) TestDeployMismatchedResources(c *tc.C) {
 						Channel: "24.04",
 					},
 					Architecture: "amd64",
-					Revision:     ptr(42),
-					Track:        ptr("1.0"),
+					Revision:     new(42),
+					Track:        new("1.0"),
 					Risk:         "stable",
 				},
 				Resources: map[string]string{"bar": resourceUUID.String()},
@@ -319,8 +319,8 @@ func (s *applicationSuite) TestDeployInvalidSource(c *tc.C) {
 						Channel: "24.04",
 					},
 					Architecture: "amd64",
-					Revision:     ptr(42),
-					Track:        ptr("1.0"),
+					Revision:     new(42),
+					Track:        new("1.0"),
 					Risk:         "stable",
 				},
 			},
@@ -358,7 +358,7 @@ func (s *applicationSuite) TestGetCharmURLOrigin(c *tc.C) {
 	}, nil)
 	s.applicationService.EXPECT().GetApplicationCharmOrigin(gomock.Any(), "foo").Return(corecharm.Origin{
 		Source:   corecharm.CharmHub,
-		Revision: ptr(42),
+		Revision: new(42),
 		Channel: &internalcharm.Channel{
 			Track: "1.0",
 			Risk:  "stable",
@@ -377,9 +377,9 @@ func (s *applicationSuite) TestGetCharmURLOrigin(c *tc.C) {
 	c.Check(res.URL, tc.Equals, "ch:arm64/foo-42")
 	c.Check(res.Origin, tc.DeepEquals, params.CharmOrigin{
 		Source:       "charm-hub",
-		Revision:     ptr(42),
+		Revision:     new(42),
 		Risk:         "stable",
-		Track:        ptr("1.0"),
+		Track:        new("1.0"),
 		Architecture: "arm64",
 		Base: params.Base{
 			Name:    "ubuntu",
@@ -403,7 +403,7 @@ func (s *applicationSuite) TestGetCharmURLOriginNoOptionals(c *tc.C) {
 	}, nil)
 	s.applicationService.EXPECT().GetApplicationCharmOrigin(gomock.Any(), "foo").Return(corecharm.Origin{
 		Source:   corecharm.Local,
-		Revision: ptr(42),
+		Revision: new(42),
 		Platform: corecharm.Platform{
 			OS:           ostype.Ubuntu.String(),
 			Channel:      "24.04",
@@ -418,7 +418,7 @@ func (s *applicationSuite) TestGetCharmURLOriginNoOptionals(c *tc.C) {
 	c.Check(res.URL, tc.Equals, fmt.Sprintf("local:%s/foo-42", arch))
 	c.Check(res.Origin, tc.DeepEquals, params.CharmOrigin{
 		Source:       "local",
-		Revision:     ptr(42),
+		Revision:     new(42),
 		Architecture: arch,
 		Base: params.Base{
 			Name:    "ubuntu",
@@ -570,13 +570,13 @@ func (s *applicationSuite) TestGetApplicationConstraints(c *tc.C) {
 	s.setupAPI(c)
 
 	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(application.UUID("app-foo"), nil)
-	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), application.UUID("app-foo")).Return(constraints.Value{Mem: ptr(uint64(42))}, nil)
+	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), application.UUID("app-foo")).Return(constraints.Value{Mem: new(uint64(42))}, nil)
 
 	res, err := s.api.GetConstraints(c.Context(), params.Entities{
 		Entities: []params.Entity{{Tag: "application-foo"}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(res.Results[0].Constraints, tc.DeepEquals, constraints.Value{Mem: ptr(uint64(42))})
+	c.Check(res.Results[0].Constraints, tc.DeepEquals, constraints.Value{Mem: new(uint64(42))})
 }
 
 func (s *applicationSuite) TestSetApplicationConstraintsAppNotFound(c *tc.C) {
@@ -588,7 +588,7 @@ func (s *applicationSuite) TestSetApplicationConstraintsAppNotFound(c *tc.C) {
 
 	err := s.api.SetConstraints(c.Context(), params.SetConstraints{
 		ApplicationName: "foo",
-		Constraints:     constraints.Value{Mem: ptr(uint64(42))},
+		Constraints:     constraints.Value{Mem: new(uint64(42))},
 	})
 	c.Assert(err, tc.ErrorMatches, "application foo not found")
 }
@@ -599,11 +599,11 @@ func (s *applicationSuite) TestSetApplicationConstraintsError(c *tc.C) {
 	s.setupAPI(c)
 
 	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(application.UUID("app-foo"), nil)
-	s.applicationService.EXPECT().SetApplicationConstraints(gomock.Any(), application.UUID("app-foo"), constraints.Value{Mem: ptr(uint64(42))}).Return(errors.New("boom"))
+	s.applicationService.EXPECT().SetApplicationConstraints(gomock.Any(), application.UUID("app-foo"), constraints.Value{Mem: new(uint64(42))}).Return(errors.New("boom"))
 
 	err := s.api.SetConstraints(c.Context(), params.SetConstraints{
 		ApplicationName: "foo",
-		Constraints:     constraints.Value{Mem: ptr(uint64(42))},
+		Constraints:     constraints.Value{Mem: new(uint64(42))},
 	})
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
@@ -614,11 +614,11 @@ func (s *applicationSuite) TestSetApplicationConstraints(c *tc.C) {
 	s.setupAPI(c)
 
 	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(application.UUID("app-foo"), nil)
-	s.applicationService.EXPECT().SetApplicationConstraints(gomock.Any(), application.UUID("app-foo"), constraints.Value{Mem: ptr(uint64(42))}).Return(nil)
+	s.applicationService.EXPECT().SetApplicationConstraints(gomock.Any(), application.UUID("app-foo"), constraints.Value{Mem: new(uint64(42))}).Return(nil)
 
 	err := s.api.SetConstraints(c.Context(), params.SetConstraints{
 		ApplicationName: "foo",
-		Constraints:     constraints.Value{Mem: ptr(uint64(42))},
+		Constraints:     constraints.Value{Mem: new(uint64(42))},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -955,7 +955,7 @@ func (s *applicationSuite) TestSetCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupAPI(c)
-	revisionPtr := ptr(42)
+	revisionPtr := new(42)
 	s.applicationService.EXPECT().SetApplicationCharm(gomock.Any(), "foo", applicationcharm.CharmLocator{
 		Name:         "foo",
 		Revision:     42,
@@ -995,7 +995,7 @@ func (s *applicationSuite) TestSetCharm(c *tc.C) {
 			},
 			Architecture: "arm64",
 			Revision:     revisionPtr,
-			Track:        ptr("1.0"),
+			Track:        new("1.0"),
 			Risk:         "stable",
 		},
 		Force: true,
@@ -1394,7 +1394,7 @@ func (s *applicationSuite) TestDestroyRelationWithForceMaxWait(c *tc.C) {
 
 	arg := params.DestroyRelation{
 		RelationId: getUUIDArgs.RelationID,
-		Force:      ptr(true),
+		Force:      new(true),
 		MaxWait:    &maxWait,
 	}
 
@@ -1620,7 +1620,7 @@ func (s *applicationSuite) TestConsume(c *tc.C) {
 	s.crossModelRelationService.EXPECT().AddRemoteApplicationOfferer(gomock.Any(), "my-offer", crossmodelrelationservice.AddRemoteApplicationOffererArgs{
 		OfferUUID:             offerUUID,
 		OfferURL:              tc.Must1(c, crossmodel.ParseOfferURL, "controller:qualifier/model.my-offer"),
-		OffererControllerUUID: ptr(controllerUUID),
+		OffererControllerUUID: new(controllerUUID),
 		OffererModelUUID:      modelUUID,
 		Endpoints: []applicationcharm.Relation{{
 			Name:      "db",
