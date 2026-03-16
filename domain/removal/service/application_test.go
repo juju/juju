@@ -90,6 +90,118 @@ func (s *applicationSuite) TestRemoveApplicationForceWaitSuccess(c *tc.C) {
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
 
+func (s *applicationSuite) TestRemoveApplicationRetrySchedulesRemovalJobs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when).AnyTimes()
+
+	cascaded := internal.CascadedApplicationLives{
+		RelationUUIDs: []string{"relation-1"},
+		UnitUUIDs:     []string{"unit-1"},
+		MachineUUIDs:  []string{"machine-1"},
+		CascadedStorageLives: internal.CascadedStorageLives{
+			CascadedStorageAttachmentLives: internal.CascadedStorageAttachmentLives{
+				StorageAttachmentUUIDs:    []string{"storage-attachment-1"},
+				FileSystemAttachmentUUIDs: []string{"filesystem-attachment-1"},
+				VolumeAttachmentUUIDs:     []string{"volume-attachment-1"},
+				VolumeAttachmentPlanUUIDs: []string{"volume-attachment-plan-1"},
+			},
+			CascadedStorageInstanceLives: internal.CascadedStorageInstanceLives{
+				StorageInstanceUUIDs: []string{"storage-instance-1"},
+				FileSystemUUIDs:      []string{"filesystem-1"},
+				VolumeUUIDs:          []string{"volume-1"},
+			},
+		},
+	}
+
+	exp := s.modelState.EXPECT()
+	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil).Times(2)
+	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String(), false, false).Return(cascaded, nil).Times(2)
+	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil).Times(2)
+	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", false, when.UTC()).Return(nil).Times(2)
+	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-1", false, when.UTC()).Return(nil).Times(2)
+	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "machine-1", false, when.UTC()).Return(nil).Times(2)
+	exp.StorageAttachmentScheduleRemoval(gomock.Any(), gomock.Any(), "storage-attachment-1", false, when.UTC()).Return(nil).Times(2)
+	exp.FilesystemAttachmentScheduleRemoval(gomock.Any(), gomock.Any(), "filesystem-attachment-1", false, when.UTC()).Return(nil).Times(2)
+	exp.VolumeAttachmentScheduleRemoval(gomock.Any(), gomock.Any(), "volume-attachment-1", false, when.UTC()).Return(nil).Times(2)
+	exp.VolumeAttachmentPlanScheduleRemoval(gomock.Any(), gomock.Any(), "volume-attachment-plan-1", false, when.UTC()).Return(nil).Times(2)
+	exp.FilesystemScheduleRemoval(gomock.Any(), gomock.Any(), "filesystem-1", false, when.UTC()).Return(nil).Times(2)
+	exp.VolumeScheduleRemoval(gomock.Any(), gomock.Any(), "volume-1", false, when.UTC()).Return(nil).Times(2)
+	exp.StorageInstanceScheduleRemoval(gomock.Any(), gomock.Any(), "storage-instance-1", false, when.UTC()).Return(nil).Times(2)
+
+	jobUUID1, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, false, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID1.Validate(), tc.ErrorIsNil)
+
+	jobUUID2, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, false, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID2.Validate(), tc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestRemoveApplicationRetryWithForceSchedulesRemovalJobs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when).AnyTimes()
+
+	cascaded := internal.CascadedApplicationLives{
+		RelationUUIDs: []string{"relation-1"},
+		UnitUUIDs:     []string{"unit-1"},
+		MachineUUIDs:  []string{"machine-1"},
+		CascadedStorageLives: internal.CascadedStorageLives{
+			CascadedStorageAttachmentLives: internal.CascadedStorageAttachmentLives{
+				StorageAttachmentUUIDs:    []string{"storage-attachment-1"},
+				FileSystemAttachmentUUIDs: []string{"filesystem-attachment-1"},
+				VolumeAttachmentUUIDs:     []string{"volume-attachment-1"},
+				VolumeAttachmentPlanUUIDs: []string{"volume-attachment-plan-1"},
+			},
+			CascadedStorageInstanceLives: internal.CascadedStorageInstanceLives{
+				StorageInstanceUUIDs: []string{"storage-instance-1"},
+				FileSystemUUIDs:      []string{"filesystem-1"},
+				VolumeUUIDs:          []string{"volume-1"},
+			},
+		},
+	}
+
+	exp := s.modelState.EXPECT()
+	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil).Times(2)
+	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String(), false, false).Return(cascaded, nil)
+	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String(), false, true).Return(cascaded, nil)
+	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
+	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), true, when.UTC()).Return(nil)
+	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", false, when.UTC()).Return(nil)
+	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", true, when.UTC()).Return(nil)
+	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-1", false, when.UTC()).Return(nil)
+	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-1", true, when.UTC()).Return(nil)
+	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "machine-1", false, when.UTC()).Return(nil)
+	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "machine-1", true, when.UTC()).Return(nil)
+	exp.StorageAttachmentScheduleRemoval(gomock.Any(), gomock.Any(), "storage-attachment-1", false, when.UTC()).Return(nil)
+	exp.StorageAttachmentScheduleRemoval(gomock.Any(), gomock.Any(), "storage-attachment-1", true, when.UTC()).Return(nil)
+	exp.FilesystemAttachmentScheduleRemoval(gomock.Any(), gomock.Any(), "filesystem-attachment-1", false, when.UTC()).Return(nil)
+	exp.FilesystemAttachmentScheduleRemoval(gomock.Any(), gomock.Any(), "filesystem-attachment-1", true, when.UTC()).Return(nil)
+	exp.VolumeAttachmentScheduleRemoval(gomock.Any(), gomock.Any(), "volume-attachment-1", false, when.UTC()).Return(nil)
+	exp.VolumeAttachmentScheduleRemoval(gomock.Any(), gomock.Any(), "volume-attachment-1", true, when.UTC()).Return(nil)
+	exp.VolumeAttachmentPlanScheduleRemoval(gomock.Any(), gomock.Any(), "volume-attachment-plan-1", false, when.UTC()).Return(nil)
+	exp.VolumeAttachmentPlanScheduleRemoval(gomock.Any(), gomock.Any(), "volume-attachment-plan-1", true, when.UTC()).Return(nil)
+	exp.FilesystemScheduleRemoval(gomock.Any(), gomock.Any(), "filesystem-1", false, when.UTC()).Return(nil)
+	exp.FilesystemScheduleRemoval(gomock.Any(), gomock.Any(), "filesystem-1", true, when.UTC()).Return(nil)
+	exp.VolumeScheduleRemoval(gomock.Any(), gomock.Any(), "volume-1", false, when.UTC()).Return(nil)
+	exp.VolumeScheduleRemoval(gomock.Any(), gomock.Any(), "volume-1", true, when.UTC()).Return(nil)
+	exp.StorageInstanceScheduleRemoval(gomock.Any(), gomock.Any(), "storage-instance-1", false, when.UTC()).Return(nil)
+	exp.StorageInstanceScheduleRemoval(gomock.Any(), gomock.Any(), "storage-instance-1", true, when.UTC()).Return(nil)
+
+	jobUUID1, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, false, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID1.Validate(), tc.ErrorIsNil)
+
+	jobUUID2, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, true, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID2.Validate(), tc.ErrorIsNil)
+}
+
 func (s *applicationSuite) TestRemoveApplicationNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

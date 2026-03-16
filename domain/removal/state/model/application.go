@@ -5,6 +5,7 @@ package model
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -81,7 +82,8 @@ WHERE  application_uuid = $entityUUID.uuid`, count{}, applicationUUID)
 // application has units, they are also guaranteed to be no longer alive,
 // cascading. The affected unit UUIDs are returned. If the units are also
 // the last ones on their machines, it will cascade and the machines are
-// also set to dying. The affected machine UUIDs are returned.
+// also set to dying. Non-dead cascaded entity UUIDs are returned so retries
+// can re-schedule child removals with updated intent.
 func (st *State) EnsureApplicationNotAliveCascade(
 	ctx context.Context, aUUID string, destroyStorage bool, force bool,
 ) (internal.CascadedApplicationLives, error) {
@@ -123,7 +125,7 @@ AND    life_id = 0`, applicationUUID)
 SELECT &entityUUID.uuid
 FROM   v_relation_endpoint AS re
 JOIN   relation AS r ON re.relation_uuid = r.uuid
-WHERE  r.life_id = 0
+WHERE  r.life_id < 2
 AND    re.application_uuid = $entityUUID.uuid
 `, applicationUUID)
 	if err != nil {
@@ -143,7 +145,7 @@ AND    life_id = 0`, uuids{})
 SELECT &entityUUID.uuid
 FROM   unit
 WHERE  application_uuid = $entityUUID.uuid
-AND    life_id = 0`, applicationUUID)
+AND    life_id < 2`, applicationUUID)
 	if err != nil {
 		return res, errors.Errorf("preparing unit uuids query: %w", err)
 	}
@@ -190,9 +192,12 @@ AND    life_id = 0`, applicationUUID)
 		}
 
 		const checkEmptyMachine = true
+		const includeDyingArtifacts = true
 		res.UnitUUIDs = transform.Slice(unitUUIDsRec, func(e entityUUID) string { return e.UUID })
 		for _, u := range res.UnitUUIDs {
-			cascaded, err := st.ensureUnitNotAliveCascade(ctx, tx, u, checkEmptyMachine, destroyStorage)
+			cascaded, err := st.ensureUnitNotAliveCascade(
+				ctx, tx, u, checkEmptyMachine, destroyStorage, includeDyingArtifacts,
+			)
 			if err != nil {
 				return errors.Errorf("cascading unit %q life advancement: %w", u, err)
 			}
@@ -209,7 +214,26 @@ AND    life_id = 0`, applicationUUID)
 		return res, errors.Capture(err)
 	}
 
+	res.RelationUUIDs = dedupeStrings(res.RelationUUIDs)
+	res.UnitUUIDs = dedupeStrings(res.UnitUUIDs)
+	res.MachineUUIDs = dedupeStrings(res.MachineUUIDs)
+	res.StorageAttachmentUUIDs = dedupeStrings(res.StorageAttachmentUUIDs)
+	res.FileSystemAttachmentUUIDs = dedupeStrings(res.FileSystemAttachmentUUIDs)
+	res.VolumeAttachmentUUIDs = dedupeStrings(res.VolumeAttachmentUUIDs)
+	res.VolumeAttachmentPlanUUIDs = dedupeStrings(res.VolumeAttachmentPlanUUIDs)
+	res.FileSystemUUIDs = dedupeStrings(res.FileSystemUUIDs)
+	res.VolumeUUIDs = dedupeStrings(res.VolumeUUIDs)
+	res.StorageInstanceUUIDs = dedupeStrings(res.StorageInstanceUUIDs)
+
 	return res, nil
+}
+
+func dedupeStrings(in []string) []string {
+	if len(in) < 2 {
+		return in
+	}
+	slices.Sort(in)
+	return slices.Compact(in)
 }
 
 // ApplicationScheduleRemoval schedules a removal job for the application with

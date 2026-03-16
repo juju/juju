@@ -66,14 +66,17 @@ func (st *State) EnsureUnitNotAliveCascade(
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		cascaded, err = st.ensureUnitNotAliveCascade(ctx, tx, uUUID, true, destroyStorage)
+		const includeDyingArtifacts = false
+		cascaded, err = st.ensureUnitNotAliveCascade(
+			ctx, tx, uUUID, true, destroyStorage, includeDyingArtifacts,
+		)
 		return errors.Capture(err)
 	})
 	return cascaded, errors.Capture(err)
 }
 
 func (st *State) ensureUnitNotAliveCascade(
-	ctx context.Context, tx *sqlair.TX, uUUID string, checkMachine, destroyStorage bool,
+	ctx context.Context, tx *sqlair.TX, uUUID string, checkMachine, destroyStorage, includeDyingArtifacts bool,
 ) (internal.CascadedUnitLives, error) {
 	var cascaded internal.CascadedUnitLives
 
@@ -91,21 +94,27 @@ AND    life_id = 0`, unitUUID)
 		return cascaded, errors.Errorf("advancing unit life: %w", err)
 	}
 
-	cascaded.CascadedStorageAttachmentLives, err = st.ensureUnitStorageAttachmentsNotAlive(ctx, tx, uUUID)
+	cascaded.CascadedStorageAttachmentLives, err = st.ensureUnitStorageAttachmentsNotAlive(
+		ctx, tx, uUUID, includeDyingArtifacts,
+	)
 	if err != nil {
 		return cascaded, errors.Errorf("setting unit storage attachment lives to dying: %w", err)
 	}
 
 	if destroyStorage {
 		// TODO(storage): wire through obliterate separately from destroy.
-		cascaded.CascadedStorageInstanceLives, err = st.ensureUnitOwnedStorageInstancesNotAlive(ctx, tx, uUUID, destroyStorage)
+		cascaded.CascadedStorageInstanceLives, err = st.ensureUnitOwnedStorageInstancesNotAlive(
+			ctx, tx, uUUID, destroyStorage, includeDyingArtifacts,
+		)
 		if err != nil {
 			return cascaded, errors.Errorf("setting unit storage instance lives to dying: %w", err)
 		}
 	}
 
 	if checkMachine {
-		mUUID, machineStorageCascaded, err := st.markMachineAsDyingIfAllUnitsAreNotAlive(ctx, tx, uUUID)
+		mUUID, machineStorageCascaded, err := st.markMachineAsDyingIfAllUnitsAreNotAlive(
+			ctx, tx, uUUID, includeDyingArtifacts,
+		)
 		if err != nil {
 			return cascaded, errors.Errorf("setting unit machine life to dying: %w", err)
 		}
@@ -119,17 +128,21 @@ AND    life_id = 0`, unitUUID)
 }
 
 func (st *State) ensureUnitStorageAttachmentsNotAlive(
-	ctx context.Context, tx *sqlair.TX, uUUID string,
+	ctx context.Context, tx *sqlair.TX, uUUID string, includeDying bool,
 ) (internal.CascadedStorageAttachmentLives, error) {
 	var cascaded internal.CascadedStorageAttachmentLives
 
 	unitUUID := entityUUID{UUID: uUUID}
+	storageAttachmentLife := "= 0"
+	if includeDying {
+		storageAttachmentLife = "< 2"
+	}
 
 	stmt, err := st.Prepare(`
 SELECT &entityUUID.*
 FROM   storage_attachment
 WHERE  unit_uuid = $entityUUID.uuid
-AND    life_id = 0`, unitUUID)
+AND    life_id `+storageAttachmentLife, unitUUID)
 	if err != nil {
 		return cascaded, errors.Errorf(
 			"preparing live storage attachments query: %w", err,
@@ -174,7 +187,7 @@ FROM   storage_attachment sa
        JOIN storage_instance_filesystem sif ON sa.storage_instance_uuid = sif.storage_instance_uuid
        JOIN storage_filesystem_attachment sfa ON sif.storage_filesystem_uuid = sfa.storage_filesystem_uuid
 WHERE  sa.unit_uuid = $entityUUID.uuid
-AND    sfa.life_id = 0`, entityUUID{})
+AND    sfa.life_id `+storageAttachmentLife, entityUUID{})
 	if err != nil {
 		return cascaded, errors.Errorf(
 			"preparing live unit filesystem attachments query: %w", err,
@@ -200,7 +213,7 @@ FROM   storage_attachment sa
        JOIN storage_instance_volume siv ON sa.storage_instance_uuid = siv.storage_instance_uuid
        JOIN storage_volume_attachment sva ON siv.storage_volume_uuid = sva.storage_volume_uuid
 WHERE  sa.unit_uuid = $entityUUID.uuid
-AND    sva.life_id = 0`, entityUUID{})
+AND    sva.life_id `+storageAttachmentLife, entityUUID{})
 	if err != nil {
 		return cascaded, errors.Errorf(
 			"preparing live unit volume attachments query: %w", err,
@@ -226,7 +239,7 @@ FROM   storage_attachment sa
        JOIN storage_instance_volume siv ON sa.storage_instance_uuid = siv.storage_instance_uuid
        JOIN storage_volume_attachment_plan svap ON siv.storage_volume_uuid = svap.storage_volume_uuid
 WHERE  sa.unit_uuid = $entityUUID.uuid
-AND    svap.life_id = 0`, unitUUID)
+AND    svap.life_id `+storageAttachmentLife, unitUUID)
 	if err != nil {
 		return cascaded, errors.Errorf(
 			"preparing live unit volume attachment plans query: %w", err,
@@ -250,18 +263,22 @@ AND    svap.life_id = 0`, unitUUID)
 }
 
 func (st *State) ensureUnitOwnedStorageInstancesNotAlive(
-	ctx context.Context, tx *sqlair.TX, uUUID string, obliterate bool,
+	ctx context.Context, tx *sqlair.TX, uUUID string, obliterate, includeDying bool,
 ) (internal.CascadedStorageInstanceLives, error) {
 	var cascaded internal.CascadedStorageInstanceLives
 
 	unitUUID := entityUUID{UUID: uUUID}
+	storageInstanceLife := "= 0"
+	if includeDying {
+		storageInstanceLife = "< 2"
+	}
 
 	stmt, err := st.Prepare(`
 SELECT si.uuid AS &entityUUID.uuid
 FROM   storage_unit_owner so 
 JOIN   storage_instance si ON so.storage_instance_uuid = si.uuid
 WHERE  so.unit_uuid = $entityUUID.uuid
-AND    si.life_id = 0`, entityUUID{})
+AND    si.life_id `+storageInstanceLife, entityUUID{})
 	if err != nil {
 		return cascaded, errors.Errorf(
 			"preparing live storage instances query: %w", err,
@@ -278,13 +295,13 @@ AND    si.life_id = 0`, entityUUID{})
 		)
 	}
 
-	return st.ensureStorageInstancesNotAliveCascade(ctx, tx, instances, obliterate)
+	return st.ensureStorageInstancesNotAliveCascade(ctx, tx, instances, obliterate, includeDying)
 }
 
 // markMachineAsDyingIfAllUnitsAreNotAlive checks if all the units on the
 // machine are not alive. If this is the case, it marks the machine as dying.
 func (st *State) markMachineAsDyingIfAllUnitsAreNotAlive(
-	ctx context.Context, tx *sqlair.TX, uUUID string,
+	ctx context.Context, tx *sqlair.TX, uUUID string, includeDying bool,
 ) (string, internal.CascadedStorageInstanceLives, error) {
 	var cascaded internal.CascadedStorageInstanceLives
 	unitUUID := entityUUID{UUID: uUUID}
@@ -360,8 +377,34 @@ AND    life_id = 0`, entityUUID{})
 	if affected, err := outcome.Result().RowsAffected(); err != nil {
 		return "", cascaded, errors.Errorf("getting affected rows: %w", err)
 	} else if affected == 0 {
-		// The machine was already dying or dead.
-		return "", cascaded, nil
+		if !includeDying {
+			// The machine was already dying or dead.
+			return "", cascaded, nil
+		}
+
+		machineLifeStmt, err := st.Prepare(`
+SELECT life_id AS &entityLife.life_id
+FROM   machine
+WHERE  uuid = $entityUUID.uuid`, entityLife{}, entityUUID{})
+		if err != nil {
+			return "", cascaded, errors.Errorf("preparing machine life query: %w", err)
+		}
+
+		var machineLife entityLife
+		if err := tx.Query(ctx, machineLifeStmt, entityUUID{UUID: result.UUID}).Get(&machineLife); errors.Is(err, sqlair.ErrNoRows) {
+			return "", cascaded, nil
+		} else if err != nil {
+			return "", cascaded, errors.Errorf("getting machine life: %w", err)
+		} else if machineLife.Life == int(life.Dead) {
+			return "", cascaded, nil
+		}
+
+		cascaded, err = st.ensureMachineStorageInstancesNotAliveCascade(ctx, tx, result.UUID, includeDying)
+		if err != nil {
+			return "", cascaded, errors.Errorf("advancing machine storage entity lives: %w", err)
+		}
+
+		return result.UUID, cascaded, nil
 	}
 
 	updateInstanceStmt, err := st.Prepare(`
@@ -377,7 +420,7 @@ AND    life_id = 0`, entityUUID{})
 		return "", cascaded, errors.Errorf("advancing machine cloud instance life: %w", err)
 	}
 
-	cascaded, err = st.ensureMachineStorageInstancesNotAliveCascade(ctx, tx, result.UUID)
+	cascaded, err = st.ensureMachineStorageInstancesNotAliveCascade(ctx, tx, result.UUID, includeDying)
 	if err != nil {
 		return "", cascaded, errors.Errorf("advancing machine storage entity lives: %w", err)
 	}
