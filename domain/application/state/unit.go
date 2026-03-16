@@ -408,6 +408,37 @@ WHERE  u.uuid = $getUnitMachineUUID.unit_uuid
 	return arg.MachineUUID, nil
 }
 
+// getUnitMachineUUIDWithTx returns the machine UUID for the given unit UUID,
+// using the provided SQL transaction. This avoids opening a nested transaction
+// when we are already performing work inside a larger transactional context.
+func (st *State) getUnitMachineUUIDWithTx(ctx context.Context, tx *sqlair.TX, unitID coreunit.UUID) (coremachine.UUID, error) {
+	arg := getUnitMachineUUID{
+		UnitUUID: unitID.String(),
+	}
+	stmt, err := st.Prepare(`
+SELECT (m.uuid) AS (&getUnitMachineUUID.*)
+FROM   unit AS u
+JOIN   machine AS m ON u.net_node_uuid = m.net_node_uuid
+WHERE  u.uuid = $getUnitMachineUUID.unit_uuid
+`, arg)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	if err := st.checkUnitNotDead(ctx, tx, unitID.String()); err != nil {
+		return "", errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, stmt, arg).Get(&arg); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return "", applicationerrors.UnitMachineNotAssigned
+		}
+		return "", errors.Capture(err)
+	}
+
+	return coremachine.UUID(arg.MachineUUID), nil
+}
+
 // AddIAASUnits adds the specified units to the application. Returns the unit
 // names, along with all of the machine names that were created for the
 // units. This machines aren't associated with the units, as this is for a
@@ -1240,11 +1271,11 @@ ON CONFLICT (unit_uuid, charm_uuid, storage_name) DO NOTHING
 			// Get the machine uuid for the unit's current machine to apply any
 			// storage backfill ownership changes for IAAS.
 			if machineUUID == "" {
-				machineUUIDStr, err := st.GetUnitMachineUUID(ctx, unitID.String())
+				unitMachineUUID, err := st.getUnitMachineUUIDWithTx(ctx, tx, unitID)
 				if err != nil {
-					return errors.Capture(err)
+					return errors.Errorf("querying machine UUID for unit %q: %w", unitID, err)
 				}
-				machineUUID = coremachine.UUID(machineUUIDStr)
+				machineUUID = unitMachineUUID
 			}
 
 			err = st.unitState.insertMachineVolumeOwnership(
