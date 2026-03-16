@@ -192,11 +192,10 @@ AND    life_id < 2`, applicationUUID)
 		}
 
 		const checkEmptyMachine = true
-		const includeDyingArtifacts = true
 		res.UnitUUIDs = transform.Slice(unitUUIDsRec, func(e entityUUID) string { return e.UUID })
 		for _, u := range res.UnitUUIDs {
 			cascaded, err := st.ensureUnitNotAliveCascade(
-				ctx, tx, u, checkEmptyMachine, destroyStorage, includeDyingArtifacts,
+				ctx, tx, u, checkEmptyMachine, destroyStorage,
 			)
 			if err != nil {
 				return errors.Errorf("cascading unit %q life advancement: %w", u, err)
@@ -229,9 +228,6 @@ AND    life_id < 2`, applicationUUID)
 }
 
 func dedupeStrings(in []string) []string {
-	if len(in) < 2 {
-		return in
-	}
 	slices.Sort(in)
 	return slices.Compact(in)
 }

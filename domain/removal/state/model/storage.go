@@ -553,7 +553,7 @@ WHERE  siv.storage_instance_uuid = $entityUUID.uuid
 		}
 
 		result, err = st.ensureStorageInstancesNotAliveCascade(
-			ctx, tx, []entityUUID{input}, obliterate, false,
+			ctx, tx, []entityUUID{input}, obliterate,
 		)
 		if err != nil {
 			return err
@@ -2046,7 +2046,7 @@ INSERT INTO removal (*) VALUES ($removalJob.*)
 // ensured to be no longer alive. If a Filesystem or Volume id not attached,
 // then it goes straight to dead.
 func (st *State) ensureStorageInstancesNotAliveCascade(
-	ctx context.Context, tx *sqlair.TX, siUUIDs entityUUIDs, obliterate, includeDying bool,
+	ctx context.Context, tx *sqlair.TX, siUUIDs entityUUIDs, obliterate bool,
 ) (internal.CascadedStorageInstanceLives, error) {
 	var cascaded internal.CascadedStorageInstanceLives
 
@@ -2054,10 +2054,6 @@ func (st *State) ensureStorageInstancesNotAliveCascade(
 		Obliterate: obliterate,
 	}
 	input := siUUIDs.uuids()
-	liveFilter := "= 0"
-	if includeDying {
-		liveFilter = "< 2"
-	}
 
 	// First kill the storage instances.
 	stmt, err := st.Prepare(`
@@ -2108,7 +2104,7 @@ SELECT f.uuid AS &entityUUID.uuid
 FROM   storage_instance_filesystem i
 JOIN   storage_filesystem f ON i.storage_filesystem_uuid = f.uuid
 WHERE  i.storage_instance_uuid IN ($uuids[:])
-AND    f.life_id ` + liveFilter
+AND    f.life_id < 2`
 
 	del = `
 UPDATE storage_filesystem
@@ -2155,7 +2151,7 @@ SELECT &entityUUID.uuid
 FROM   storage_instance_volume i
 JOIN   storage_volume v ON i.storage_volume_uuid = v.uuid
 WHERE  i.storage_instance_uuid IN ($uuids[:])
-AND    v.life_id ` + liveFilter
+AND    v.life_id < 2`
 
 	del = `
 UPDATE storage_volume

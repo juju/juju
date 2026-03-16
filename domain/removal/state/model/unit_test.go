@@ -326,6 +326,31 @@ func (s *unitSuite) TestEnsureUnitNotAliveCascadeDyingSuccess(c *tc.C) {
 	s.checkUnitLife(c, unitUUID.String(), life.Dying)
 }
 
+func (s *unitSuite) TestEnsureUnitNotAliveCascadeRetryReturnsDyingArtifacts(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+	unitMachineUUID := s.getUnitMachineUUID(c, unitUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	firstCascade, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(firstCascade.MachineUUID, tc.NotNil)
+	c.Check(*firstCascade.MachineUUID, tc.Equals, unitMachineUUID.String())
+
+	secondCascade, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(secondCascade.CascadedStorageLives, tc.DeepEquals, firstCascade.CascadedStorageLives)
+	c.Assert(secondCascade.MachineUUID, tc.IsNil)
+
+	s.checkUnitLife(c, unitUUID.String(), life.Dying)
+	s.checkMachineLife(c, unitMachineUUID.String(), life.Dying)
+}
+
 func (s *unitSuite) TestEnsureUnitNotAliveCascadeNotExistsSuccess(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
