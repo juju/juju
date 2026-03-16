@@ -76,18 +76,18 @@ type BackendInfo struct {
 	// Endpoint, AccessKey, SecretKey, and Region are only used for S3 backend.
 	Endpoint *string
 
-	// AccessKey is not returned for security reasons, but it is expected to be
-	// set in the state when the backend is S3, and it will be used to create
-	// the S3 client for the draining process.
+	// AccessKey is the access key for the S3 backend. It is expected to be set
+	// in the state when the backend is S3, and it will be used to create the
+	// S3 client for the draining process.
 	AccessKey *string
 
-	// SecretKey is not returned for security reasons, but it is expected to be
-	// set in the state when the backend is S3, and it will be used to create
-	// the S3 client for the draining process.
+	// SecretKey is the secret key for the S3 backend. It is expected to be set
+	// in the state when the backend is S3, and it will be used to create the
+	// S3 client for the draining process.
 	SecretKey *string
 
-	// SessionToken is not returned for security reasons, but it is expected to
-	// be set in the state when the backend is S3, and it will be used to create
-	// the S3 client for the draining process.
+	// SessionToken is the session token for the S3 backend. It is expected to be
+	// set in the state when the backend is S3, and it will be used to create
+	// the S3 client for the draining process
 	SessionToken *string
 }
