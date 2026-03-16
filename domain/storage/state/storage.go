@@ -125,9 +125,9 @@ func (st *State) CreateStorageInstanceWithExistingFilesystem(
 
 	storageInstance := insertStorageInstance{
 		UUID:             args.UUID.String(),
-		LifeID:           life.Alive,
+		LifeID:           int(life.Alive),
 		StorageName:      args.Name.String(),
-		StorageKindID:    int(args.Kind),
+		StorageKindID:    int(domainstorage.StorageKindFilesystem),
 		StoragePoolUUID:  args.StoragePoolUUID.String(),
 		RequestedSizeMiB: args.RequestedSizeMiB,
 	}
@@ -141,7 +141,7 @@ VALUES ($insertStorageInstance.*)
 
 	filesystem := insertStorageFilesystem{
 		UUID:             args.FilesystemUUID.String(),
-		LifeID:           life.Alive,
+		LifeID:           int(life.Alive),
 		ProvisionScopeID: int(args.FilesystemProvisionScope),
 		ProviderID:       args.FilesystemProviderID,
 		SizeMiB:          args.FilesystemSize,
@@ -194,6 +194,7 @@ VALUES ($insertStorageFilesystemStatus.*)
 			).Add(domainstorageerrors.StoragePoolNotFound)
 		}
 
+		// StorageIDs are type monotonic, not name monotonic.
 		storageSeq, err := sequencestate.NextValue(
 			ctx, st, tx, domainstorage.StorageInstanceSequenceNamespace,
 		)
@@ -257,9 +258,9 @@ func (st *State) CreateStorageInstanceWithExistingVolumeBackedFilesystem(
 
 	storageInstance := insertStorageInstance{
 		UUID:             args.UUID.String(),
-		LifeID:           life.Alive,
+		LifeID:           int(life.Alive),
 		StorageName:      args.Name.String(),
-		StorageKindID:    int(args.Kind),
+		StorageKindID:    int(domainstorage.StorageKindFilesystem),
 		StoragePoolUUID:  args.StoragePoolUUID.String(),
 		RequestedSizeMiB: args.RequestedSizeMiB,
 	}
@@ -273,7 +274,7 @@ VALUES ($insertStorageInstance.*)
 
 	filesystem := insertStorageFilesystem{
 		UUID:             args.FilesystemUUID.String(),
-		LifeID:           life.Alive,
+		LifeID:           int(life.Alive),
 		ProvisionScopeID: int(args.FilesystemProvisionScope),
 		ProviderID:       args.FilesystemProviderID,
 		SizeMiB:          args.FilesystemSize,
@@ -314,7 +315,7 @@ VALUES ($insertStorageFilesystemStatus.*)
 
 	volume := insertStorageVolume{
 		UUID:             args.VolumeUUID.String(),
-		LifeID:           life.Alive,
+		LifeID:           int(life.Alive),
 		ProvisionScopeID: int(args.VolumeProvisionScope),
 		ProviderID:       args.VolumeProviderID,
 		SizeMiB:          args.VolumeSize,

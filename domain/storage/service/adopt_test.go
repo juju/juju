@@ -218,7 +218,6 @@ func (s *adoptFilesystemSuite) TestAdoptFilesystemSuccessFilesystem(c *tc.C) {
 
 	args := domainstorageinternal.CreateStorageInstanceWithExistingFilesystem{
 		Name:                     storageName,
-		Kind:                     domainstorage.StorageKindFilesystem,
 		StoragePoolUUID:          poolUUID,
 		FilesystemSize:           1024,
 		FilesystemProviderID:     providerID,
@@ -296,7 +295,6 @@ func (s *adoptFilesystemSuite) TestAdoptFilesystemSuccessVolumeBacked(c *tc.C) {
 
 	fsArgs := domainstorageinternal.CreateStorageInstanceWithExistingFilesystem{
 		Name:                     storageName,
-		Kind:                     domainstorage.StorageKindFilesystem,
 		StoragePoolUUID:          poolUUID,
 		FilesystemSize:           2048,
 		RequestedSizeMiB:         2048,
@@ -589,7 +587,7 @@ func (s *adoptFilesystemSuite) TestAdoptFilesystemVolumeNotFoundOnProvider(c *tc
 
 	svc := s.makeService()
 	_, err := svc.AdoptFilesystem(ctx, storageName, poolUUID, providerID, false)
-	c.Assert(err, tc.ErrorIs, domainstorageerrors.PooledStorageEntityNotFound)
+	c.Assert(err, tc.ErrorIs, domainstorageerrors.StorageEntityNotFoundInPool)
 }
 
 // TestAdoptFilesystemFilesystemNotFoundOnProvider tests that when the
@@ -630,5 +628,5 @@ func (s *adoptFilesystemSuite) TestAdoptFilesystemFilesystemNotFoundOnProvider(c
 
 	svc := s.makeService()
 	_, err := svc.AdoptFilesystem(ctx, storageName, poolUUID, providerID, false)
-	c.Assert(err, tc.ErrorIs, domainstorageerrors.PooledStorageEntityNotFound)
+	c.Assert(err, tc.ErrorIs, domainstorageerrors.StorageEntityNotFoundInPool)
 }

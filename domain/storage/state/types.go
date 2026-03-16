@@ -6,8 +6,6 @@ package state
 import (
 	"database/sql"
 	"time"
-
-	"github.com/juju/juju/domain/life"
 )
 
 // count represents the result of performing an aggregate count operation in
@@ -228,24 +226,24 @@ type modelResourceTagInfo struct {
 // insertStorageInstance represents the data needed to insert a new storage
 // instance into the storage_instance table.
 type insertStorageInstance struct {
-	UUID             string    `db:"uuid"`
-	StorageName      string    `db:"storage_name"`
-	StorageKindID    int       `db:"storage_kind_id"`
-	StorageID        string    `db:"storage_id"`
-	LifeID           life.Life `db:"life_id"`
-	StoragePoolUUID  string    `db:"storage_pool_uuid"`
-	RequestedSizeMiB uint64    `db:"requested_size_mib"`
+	UUID             string `db:"uuid"`
+	StorageName      string `db:"storage_name"`
+	StorageKindID    int    `db:"storage_kind_id"`
+	StorageID        string `db:"storage_id"`
+	LifeID           int    `db:"life_id"`
+	StoragePoolUUID  string `db:"storage_pool_uuid"`
+	RequestedSizeMiB uint64 `db:"requested_size_mib"`
 }
 
 // insertStorageFilesystem represents the data needed to insert a new
 // filesystem into the storage_filesystem table.
 type insertStorageFilesystem struct {
-	UUID             string    `db:"uuid"`
-	FilesystemID     string    `db:"filesystem_id"`
-	LifeID           life.Life `db:"life_id"`
-	ProvisionScopeID int       `db:"provision_scope_id"`
-	ProviderID       string    `db:"provider_id"`
-	SizeMiB          uint64    `db:"size_mib"`
+	UUID             string `db:"uuid"`
+	FilesystemID     string `db:"filesystem_id"`
+	LifeID           int    `db:"life_id"`
+	ProvisionScopeID int    `db:"provision_scope_id"`
+	ProviderID       string `db:"provider_id"`
+	SizeMiB          uint64 `db:"size_mib"`
 }
 
 // insertStorageInstanceFilesystem represents the data needed to link a storage
@@ -267,15 +265,15 @@ type insertStorageFilesystemStatus struct {
 // insertStorageVolume represents the data needed to insert a new volume into
 // the storage_volume table.
 type insertStorageVolume struct {
-	UUID             string    `db:"uuid"`
-	VolumeID         string    `db:"volume_id"`
-	LifeID           life.Life `db:"life_id"`
-	ProvisionScopeID int       `db:"provision_scope_id"`
-	ProviderID       string    `db:"provider_id"`
-	SizeMiB          uint64    `db:"size_mib"`
-	HardwareID       string    `db:"hardware_id"`
-	WWN              string    `db:"wwn"`
-	Persistent       bool      `db:"persistent"`
+	UUID             string `db:"uuid"`
+	VolumeID         string `db:"volume_id"`
+	LifeID           int    `db:"life_id"`
+	ProvisionScopeID int    `db:"provision_scope_id"`
+	ProviderID       string `db:"provider_id"`
+	SizeMiB          uint64 `db:"size_mib"`
+	HardwareID       string `db:"hardware_id"`
+	WWN              string `db:"wwn"`
+	Persistent       bool   `db:"persistent"`
 }
 
 // insertStorageInstanceVolume represents the data needed to link a storage

@@ -7,6 +7,7 @@ import (
 	"context"
 	stdtesting "testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -1226,6 +1227,7 @@ func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.service = NewImportService(
 		s.state,
 		loggertesting.WrapCheckLog(c),
+		clock.WallClock,
 		registryGetter{s.registry},
 		func(_ context.Context, fn func(_ context.Context, fs internalstorage.FilesystemModelMigration) error) error {
 			return fn(c.Context(), s.fsModelMigration)

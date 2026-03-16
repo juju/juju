@@ -4,8 +4,6 @@
 package service
 
 import (
-	"context"
-
 	"github.com/juju/clock"
 
 	corestorage "github.com/juju/juju/core/storage"

@@ -38,10 +38,10 @@ const (
 	// ProviderTypeNotFound is used when a storage provider type is not found.
 	ProviderTypeNotFound = errors.ConstError("storage provider type not found")
 
-	// PooledStorageEntityNotFound is used when a provider could not find a
+	// StorageEntityNotFoundInPool is used when a provider could not find a
 	// storage entity (e.g. the provider's filesystem or the provider's volume)
 	// with a given storage pool.
-	PooledStorageEntityNotFound = errors.ConstError("pooled storage entity not found")
+	StorageEntityNotFoundInPool = errors.ConstError("pooled storage entity not found")
 
 	// AdoptionNotSupported is used when a storage provider and specified
 	// storage entity (e.g. the provider's filesystem or the provider's volume)

@@ -58,7 +58,7 @@ type AdoptState interface {
 // The following errors can be expected:
 // - [domainstorageerrors.StoragePoolNotFound] if the specified storage pool
 // does not exist.
-// - [domainstorageerrors.PooledStorageEntityNotFound] if the pool name is not
+// - [domainstorageerrors.StorageEntityNotFoundInPool] if the pool name is not
 // valid.
 // - [domainstorageerrors.InvalidStorageName] if the storage name is not valid.
 // - [coreerrors.NotValid] if the storage pool uuid is not valid.
@@ -165,21 +165,6 @@ func (s *StorageService) AdoptFilesystem(
 		)
 	}
 
-	tags, err := s.getStorageResourceTagsForModel(ctx)
-	if err != nil {
-		return "", errors.Errorf("getting resource tag info: %w", err)
-	}
-
-	storageInstanceUUID, err := domainstorage.NewStorageInstanceUUID()
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	filesystemUUID, err := domainstorage.NewFilesystemUUID()
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	updatedAt := s.clock.Now().UTC()
 	if ic.VolumeRequired {
 		src, err := sp.VolumeSource(poolConfig)
 		if err != nil {
@@ -191,65 +176,8 @@ func (s *StorageService) AdoptFilesystem(
 				"storage provider does not support adopting a volume",
 			).Add(domainstorageerrors.AdoptionNotSupported)
 		}
-		volInfo, err := imp.ImportVolume(
-			ctx, providerID, storageName.String(), tags, force)
-		if errors.Is(err, coreerrors.NotSupported) {
-			return "", errors.Errorf(
-				"storage provider does not support adopting volume %q",
-				providerID,
-			).Add(domainstorageerrors.AdoptionNotSupported)
-		} else if errors.Is(err, coreerrors.NotFound) {
-			return "", errors.Errorf(
-				"pooled volume %q not found", providerID,
-			).Add(domainstorageerrors.PooledStorageEntityNotFound)
-		} else if err != nil {
-			return "", errors.Errorf("importing volume: %w", err)
-		}
-
-		volumeUUID, err := domainstorage.NewVolumeUUID()
-		if err != nil {
-			return "", errors.Capture(err)
-		}
-
-		fsArgs := domainstorageinternal.CreateStorageInstanceWithExistingFilesystem{
-			Kind:                      domainstorage.StorageKindFilesystem,
-			Name:                      storageName,
-			RequestedSizeMiB:          volInfo.Size,
-			StoragePoolUUID:           poolUUID,
-			UUID:                      storageInstanceUUID,
-			FilesystemUUID:            filesystemUUID,
-			FilesystemProvisionScope:  ic.FilesystemProvisionScope,
-			FilesystemSize:            volInfo.Size,
-			FilesystemProviderID:      "",
-			FilesystemStatusID:        int(domainstatus.StorageFilesystemStatusTypeDetached),
-			FilesystemStatusMessage:   "filesystem imported",
-			FilesystemStatusUpdatedAt: updatedAt,
-		}
-		args := domainstorageinternal.CreateStorageInstanceWithExistingVolumeBackedFilesystem{
-			CreateStorageInstanceWithExistingFilesystem: fsArgs,
-			VolumeUUID:            volumeUUID,
-			VolumeProvisionScope:  ic.VolumeProvisionScope,
-			VolumeSize:            volInfo.Size,
-			VolumeProviderID:      volInfo.VolumeId,
-			VolumeHardwareID:      volInfo.HardwareId,
-			VolumeWWN:             volInfo.WWN,
-			VolumePersistent:      volInfo.Persistent,
-			VolumeStatusID:        int(domainstatus.StorageVolumeStatusTypeDetached),
-			VolumeStatusMessage:   "volume imported",
-			VolumeStatusUpdatedAt: updatedAt,
-		}
-
-		storageInstanceID, err := s.st.CreateStorageInstanceWithExistingVolumeBackedFilesystem(
-			ctx, args,
-		)
-		if err != nil {
-			return "", errors.Errorf(
-				"creating adopted storage instance with volume backed filesystem: %w",
-				err,
-			)
-		}
-
-		return corestorage.ID(storageInstanceID), nil
+		return s.adoptVolumeBackedFilesystem(
+			ctx, storageName, poolUUID, providerID, force, ic, imp)
 	}
 
 	src, err := sp.FilesystemSource(poolConfig)
@@ -262,6 +190,126 @@ func (s *StorageService) AdoptFilesystem(
 			"storage provider does not support adopting a filesystem",
 		).Add(domainstorageerrors.AdoptionNotSupported)
 	}
+	return s.adoptFilesystem(
+		ctx, storageName, poolUUID, providerID, force, ic, imp)
+}
+
+// adoptVolumeBackedFilesystem adopts a filesystem that is backed by a volume by
+// using the given [internalstorage.VolumeImporter] to import the volume
+// identified by providerID. On success, a new storage instance is persisted
+// with its associated volume and filesystem in a detached state, and the
+// resulting storage ID is returned.
+// The following errors can be expected:
+// - [domainstorageerrors.AdoptionNotSupported] if the storage provider does not
+// support importing the specified volume.
+// - [domainstorageerrors.StorageEntityNotFoundInPool] if no pooled volume with
+// the given providerID exists.
+func (s *StorageService) adoptVolumeBackedFilesystem(
+	ctx context.Context,
+	storageName domainstorage.Name,
+	poolUUID domainstorage.StoragePoolUUID,
+	providerID string,
+	force bool,
+	ic domainstorageprovisioning.StorageInstanceComposition,
+	imp internalstorage.VolumeImporter,
+) (corestorage.ID, error) {
+	tags, err := s.getStorageResourceTagsForModel(ctx)
+	if err != nil {
+		return "", errors.Errorf("getting resource tag info: %w", err)
+	}
+	volInfo, err := imp.ImportVolume(
+		ctx, providerID, storageName.String(), tags, force)
+	if errors.Is(err, coreerrors.NotSupported) {
+		return "", errors.Errorf(
+			"storage provider does not support adopting volume %q",
+			providerID,
+		).Add(domainstorageerrors.AdoptionNotSupported)
+	} else if errors.Is(err, coreerrors.NotFound) {
+		return "", errors.Errorf(
+			"pooled volume %q not found", providerID,
+		).Add(domainstorageerrors.StorageEntityNotFoundInPool)
+	} else if err != nil {
+		return "", errors.Errorf("importing volume: %w", err)
+	}
+
+	storageInstanceUUID, err := domainstorage.NewStorageInstanceUUID()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	filesystemUUID, err := domainstorage.NewFilesystemUUID()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	volumeUUID, err := domainstorage.NewVolumeUUID()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	updatedAt := s.clock.Now().UTC()
+	fsArgs := domainstorageinternal.CreateStorageInstanceWithExistingFilesystem{
+		Name:                      storageName,
+		RequestedSizeMiB:          volInfo.Size,
+		StoragePoolUUID:           poolUUID,
+		UUID:                      storageInstanceUUID,
+		FilesystemUUID:            filesystemUUID,
+		FilesystemProvisionScope:  ic.FilesystemProvisionScope,
+		FilesystemSize:            volInfo.Size,
+		FilesystemProviderID:      "", // No Provider ID when Volume Backed.
+		FilesystemStatusID:        int(domainstatus.StorageFilesystemStatusTypeDetached),
+		FilesystemStatusMessage:   "filesystem imported",
+		FilesystemStatusUpdatedAt: updatedAt,
+	}
+	args := domainstorageinternal.CreateStorageInstanceWithExistingVolumeBackedFilesystem{
+		CreateStorageInstanceWithExistingFilesystem: fsArgs,
+		VolumeUUID:            volumeUUID,
+		VolumeProvisionScope:  ic.VolumeProvisionScope,
+		VolumeSize:            volInfo.Size,
+		VolumeProviderID:      volInfo.VolumeId,
+		VolumeHardwareID:      volInfo.HardwareId,
+		VolumeWWN:             volInfo.WWN,
+		VolumePersistent:      volInfo.Persistent,
+		VolumeStatusID:        int(domainstatus.StorageVolumeStatusTypeDetached),
+		VolumeStatusMessage:   "volume imported",
+		VolumeStatusUpdatedAt: updatedAt,
+	}
+
+	storageInstanceID, err := s.st.CreateStorageInstanceWithExistingVolumeBackedFilesystem(
+		ctx, args,
+	)
+	if err != nil {
+		return "", errors.Errorf(
+			"creating adopted storage instance with volume backed filesystem: %w",
+			err,
+		)
+	}
+
+	return corestorage.ID(storageInstanceID), nil
+}
+
+// adoptFilesystem adopts a directly-provisioned filesystem (i.e. one that is
+// not backed by a volume) by using the given
+// [internalstorage.FilesystemImporter] to import the filesystem identified by
+// providerID. On success, a new storage instance is persisted with its
+// associated filesystem in a detached state, and the resulting storage ID is
+// returned.
+// The following errors can be expected:
+// - [domainstorageerrors.AdoptionNotSupported] if the storage provider does not
+// support importing the specified filesystem.
+// - [domainstorageerrors.StorageEntityNotFoundInPool] if no pooled filesystem
+// with the given providerID exists.
+func (s *StorageService) adoptFilesystem(
+	ctx context.Context,
+	storageName domainstorage.Name,
+	poolUUID domainstorage.StoragePoolUUID,
+	providerID string,
+	force bool,
+	ic domainstorageprovisioning.StorageInstanceComposition,
+	imp internalstorage.FilesystemImporter,
+) (corestorage.ID, error) {
+	tags, err := s.getStorageResourceTagsForModel(ctx)
+	if err != nil {
+		return "", errors.Errorf("getting resource tag info: %w", err)
+	}
 	fsInfo, err := imp.ImportFilesystem(
 		ctx, providerID, storageName.String(), tags, force)
 	if errors.Is(err, coreerrors.NotSupported) {
@@ -272,13 +320,22 @@ func (s *StorageService) AdoptFilesystem(
 	} else if errors.Is(err, coreerrors.NotFound) {
 		return "", errors.Errorf(
 			"pooled filesystem %q not found", providerID,
-		).Add(domainstorageerrors.PooledStorageEntityNotFound)
+		).Add(domainstorageerrors.StorageEntityNotFoundInPool)
 	} else if err != nil {
 		return "", errors.Errorf("importing filesystem: %w", err)
 	}
 
+	storageInstanceUUID, err := domainstorage.NewStorageInstanceUUID()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	filesystemUUID, err := domainstorage.NewFilesystemUUID()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	updatedAt := s.clock.Now().UTC()
 	args := domainstorageinternal.CreateStorageInstanceWithExistingFilesystem{
-		Kind:                      domainstorage.StorageKindFilesystem,
 		Name:                      storageName,
 		RequestedSizeMiB:          fsInfo.Size,
 		StoragePoolUUID:           poolUUID,

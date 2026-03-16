@@ -84,7 +84,7 @@ func ImportOperations(
 	// Storage requires the following domains be imported first:
 	// block devices, machines, application (for units), and model config.
 	storage.RegisterImport(
-		coordinator, storageRegistryGetter, configGetter, logger.Child("storage"),
+		coordinator, storageRegistryGetter, configGetter, clock, logger.Child("storage"),
 	)
 	network.RegisterImportCloudService(coordinator, logger.Child("cloudservice"))
 	agentpassword.RegisterImport(coordinator)

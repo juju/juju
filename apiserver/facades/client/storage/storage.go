@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
-	coreversion "github.com/juju/juju/core/version"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationstorageservice "github.com/juju/juju/domain/application/service/storage"
 	machineerrors "github.com/juju/juju/domain/machine/errors"

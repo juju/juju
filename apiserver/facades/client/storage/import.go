@@ -82,7 +82,7 @@ func (a *StorageAPI) Import(
 				return details, apiservererrors.ParamsErrorf(
 					params.CodeNotFound, "storage pool not found",
 				)
-			} else if errors.Is(err, domainstorageerrors.PooledStorageEntityNotFound) {
+			} else if errors.Is(err, domainstorageerrors.StorageEntityNotFoundInPool) {
 				return details, apiservererrors.ParamsErrorf(
 					params.CodeNotFound, "storage entity not found in pool",
 				)
@@ -128,85 +128,17 @@ func (a *StorageAPI) Import(
 func (a *StorageAPIv6) Import(
 	ctx context.Context, args params.BulkImportStorageParams,
 ) (params.ImportStorageResults, error) {
-	err := a.checkCanWrite(ctx)
-	if err != nil {
-		return params.ImportStorageResults{}, err
+	v2Args := params.BulkImportStorageParamsV2{
+		Storage: make([]params.ImportStorageParamsV2, len(args.Storage)),
 	}
-
-	one := func(
-		arg params.ImportStorageParams,
-	) (params.ImportStorageDetails, error) {
-		var details params.ImportStorageDetails
-
-		poolUUID, err := a.storageService.GetStoragePoolUUID(ctx, arg.Pool)
-		if errors.Is(err, domainstorageerrors.StoragePoolNameInvalid) {
-			return details, apiservererrors.ParamsErrorf(
-				params.CodeNotValid, "storage pool name is not valid",
-			)
-		} else if errors.Is(err, domainstorageerrors.StoragePoolNotFound) {
-			return details, apiservererrors.ParamsErrorf(
-				params.CodeNotFound, "storage pool not found",
-			)
-		} else if err != nil {
-			return details, errors.Errorf(
-				"getting storage pool uuid: %w", err,
-			)
+	for i, arg := range args.Storage {
+		v2Args.Storage[i] = params.ImportStorageParamsV2{
+			Kind:        arg.Kind,
+			Pool:        arg.Pool,
+			ProviderId:  arg.ProviderId,
+			StorageName: arg.StorageName,
+			// Force is not supported in v6; leave as zero value (false).
 		}
-
-		switch arg.Kind {
-		case params.StorageKindFilesystem:
-			id, err := a.storageService.AdoptFilesystem(
-				ctx,
-				domainstorage.Name(arg.StorageName),
-				poolUUID,
-				arg.ProviderId,
-				false,
-			)
-			if errors.Is(err, domainstorageerrors.StoragePoolNotFound) {
-				return details, apiservererrors.ParamsErrorf(
-					params.CodeNotFound, "storage pool not found",
-				)
-			} else if errors.Is(err, domainstorageerrors.PooledStorageEntityNotFound) {
-				return details, apiservererrors.ParamsErrorf(
-					params.CodeNotFound, "storage entity not found in pool",
-				)
-			} else if errors.Is(err, domainstorageerrors.AdoptionNotSupported) {
-				return details, apiservererrors.ParamsErrorf(
-					params.CodeNotSupported, "storage entity cannot be imported by this pool",
-				)
-			} else if err != nil {
-				return details, errors.Errorf(
-					"adopting filesystem: %w", err,
-				)
-			}
-			details.StorageTag = names.NewStorageTag(id.String()).String()
-		case params.StorageKindBlock:
-			return details, apiservererrors.ParamsErrorf(
-				params.CodeNotSupported,
-				"adopting block storage is not supported",
-			)
-		default:
-			return details, apiservererrors.ParamsErrorf(
-				params.CodeNotValid, "invalid storage kind",
-			)
-		}
-
-		return details, nil
 	}
-
-	results := params.ImportStorageResults{
-		Results: make([]params.ImportStorageResult, 0, len(args.Storage)),
-	}
-	for _, v := range args.Storage {
-		var result params.ImportStorageResult
-		res, err := one(v)
-		if err != nil {
-			result.Error = apiservererrors.ServerError(err)
-		} else {
-			result.Result = &res
-		}
-		results.Results = append(results.Results, result)
-	}
-
-	return results, nil
+	return a.StorageAPI.Import(ctx, v2Args)
 }
