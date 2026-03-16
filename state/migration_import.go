@@ -1403,7 +1403,8 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		HasResources:         a.HasResources(),
 		StorageUniqueID:      a.StorageUniqueID(),
 	}
-
+	// TODO(adisazhar123): In a follow-up PR, we have to write the provisioning-state
+	// to new format for incoming models from older controllers.
 	return appDoc, nil
 }
 
