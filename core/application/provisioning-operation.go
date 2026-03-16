@@ -3,11 +3,16 @@
 
 package application
 
+// ProvisioningOperation represents the type of operation
+// being performed on an application.
 type ProvisioningOperation string
 
 const (
-	NoOperation            ProvisioningOperation = ""
-	ScaleOperation         ProvisioningOperation = "scale"
+	// NoOperation indicates no provisioning operation is in progress.
+	NoOperation ProvisioningOperation = ""
+	// ScaleOperation indicates a scaling operation is in progress.
+	ScaleOperation ProvisioningOperation = "scale"
+	// StorageUpdateOperation indicates a storage update operation is in progress.
 	StorageUpdateOperation ProvisioningOperation = "storage-update"
 )
 
