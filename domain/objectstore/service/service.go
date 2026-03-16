@@ -429,22 +429,32 @@ func (s *WatchableDrainingService) SetDrainingPhase(ctx context.Context, phase o
 	}
 
 	phaseInfo, err := s.st.GetActiveDrainingInfo(ctx)
+	if err != nil && !errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
+		return errors.Errorf("getting active draining phase: %w", err)
+	}
+
+	// If there is no active draining phase, we consider the current phase to be
+	// unknown, otherwise we use the active draining phase.
+	current := objectstore.Phase(phaseInfo.Phase)
 	if errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
+		current = objectstore.PhaseUnknown
+	}
+
+	if _, err := current.TransitionTo(phase); errors.Is(err, objectstore.ErrTerminalPhase) {
+		return nil
+	} else if err != nil {
+		return errors.Errorf("transitioning phase: %w", err)
+	}
+
+	// If the phase is draining, we need to start the draining process,
+	// otherwise we just update the phase in the state.
+	if phase.IsDraining() {
 		uuid, err := objectstore.NewUUID()
 		if err != nil {
 			return errors.Errorf("creating new uuid: %w", err)
 		}
 
 		return s.st.StartDraining(ctx, uuid.String())
-	} else if err != nil {
-		return errors.Errorf("getting active draining phase: %w", err)
-	}
-
-	current := objectstore.Phase(phaseInfo.Phase)
-	if _, err := current.TransitionTo(phase); errors.Is(err, objectstore.ErrTerminalPhase) {
-		return nil
-	} else if err != nil {
-		return errors.Errorf("transitioning phase: %w", err)
 	}
 
 	// Set the phase in the state.

@@ -73,7 +73,7 @@ CREATE UNIQUE INDEX idx_singleton_object_store_backend ON object_store_backend (
 CREATE UNIQUE INDEX idx_object_store_backend_life_id ON object_store_backend (life_id) WHERE life_id = 0;
 
 CREATE TABLE object_store_backend_s3_credential (
-    object_store_backend_uuid INT NOT NULL PRIMARY KEY,
+    object_store_backend_uuid TEXT NOT NULL PRIMARY KEY,
     endpoint TEXT NOT NULL,
     static_key TEXT NOT NULL,
     static_secret TEXT NOT NULL,

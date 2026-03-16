@@ -435,7 +435,7 @@ func (s *drainingServiceSuite) TestSetDrainingPhase(c *tc.C) {
 		UUID:  uuid.String(),
 		Phase: currentPhase.String(),
 	}, nil)
-	s.state.EXPECT().SetDrainingPhase(gomock.Any(), uuid.String(), newPhase).Return(nil)
+	s.state.EXPECT().StartDraining(gomock.Any(), tc.Bind(tc.IsNonZeroUUID)).Return(nil)
 
 	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetDrainingPhase(c.Context(), newPhase)
 	c.Assert(err, tc.ErrorIsNil)
@@ -454,6 +454,18 @@ func (s *drainingServiceSuite) TestSetDrainingPhaseNoInitial(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *drainingServiceSuite) TestSetDrainingPhaseNoInitialToCompleted(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	newPhase := objectstore.PhaseCompleted
+
+	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).
+		Return(domainobjectstore.DrainingInfo{}, objectstoreerrors.ErrDrainingPhaseNotFound)
+
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetDrainingPhase(c.Context(), newPhase)
+	c.Assert(err, tc.ErrorIs, objectstore.ErrInvalidTransition)
+}
+
 func (s *drainingServiceSuite) TestSetDrainingPhaseInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -463,11 +475,27 @@ func (s *drainingServiceSuite) TestSetDrainingPhaseInvalid(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "invalid phase \"invalid\"")
 }
 
-func (s *drainingServiceSuite) TestSetDrainingPhaseError(c *tc.C) {
+func (s *drainingServiceSuite) TestSetDrainingPhaseInvalidTransition(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	currentPhase := objectstore.PhaseUnknown
-	newPhase := objectstore.PhaseDraining
+	newPhase := objectstore.PhaseError
+	uuid := objectstoretesting.GenObjectStoreUUID(c)
+
+	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).Return(domainobjectstore.DrainingInfo{
+		UUID:  uuid.String(),
+		Phase: currentPhase.String(),
+	}, nil)
+
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetDrainingPhase(c.Context(), newPhase)
+	c.Assert(err, tc.ErrorIs, objectstore.ErrInvalidTransition)
+}
+
+func (s *drainingServiceSuite) TestSetDrainingPhaseError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	currentPhase := objectstore.PhaseDraining
+	newPhase := objectstore.PhaseError
 	uuid := objectstoretesting.GenObjectStoreUUID(c)
 
 	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).Return(domainobjectstore.DrainingInfo{

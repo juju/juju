@@ -552,7 +552,7 @@ VALUES ($dbSetPhaseInfo.*);
 		var fromBackend backendUUID
 		err := tx.Query(ctx, fromBackendStmt).Get(&fromBackend)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("migrating from: %v", objectstoreerrors.ErrBackendNotFound)
+			return errors.Errorf("migrating from: %w", objectstoreerrors.ErrBackendNotFound)
 		} else if err != nil {
 			return errors.Capture(err)
 		}
@@ -560,7 +560,7 @@ VALUES ($dbSetPhaseInfo.*);
 		var toBackend backendUUID
 		err = tx.Query(ctx, toBackendStmt).Get(&toBackend)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("migrating to: %v", objectstoreerrors.ErrBackendNotFound)
+			return errors.Errorf("migrating to: %w", objectstoreerrors.ErrBackendNotFound)
 		} else if err != nil {
 			return errors.Capture(err)
 		}
