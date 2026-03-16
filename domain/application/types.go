@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource"
+	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/internal"
@@ -500,6 +501,23 @@ type SetCharmStateParams struct {
 	// StorageDirectivesToUpdate contains storage directives that need to be
 	// applied based on the new charm's storage requirements.
 	StorageDirectivesToUpdate []internal.UpdateApplicationStorageDirectiveArg
+}
+
+// UpdateUnitCharmStateParams contains the parameters
+// for updating a unit's charm and storage in the state.
+type UpdateUnitCharmStateParams struct {
+	StorageBackfill []UnitStorageBackfillArg
+}
+
+// UnitStorageBackfillArg provides the information necessary to backfill storage for a unit.
+type UnitStorageBackfillArg struct {
+	StorageName corestorage.Name
+	StorageArg  internal.UnitAddStorageArg
+
+	// IAAS ownership records are only populated for storage that resolves to
+	// machine ownership. These slices are empty for CAAS units.
+	FilesystemsToOwn []domainstorage.FilesystemUUID
+	VolumesToOwn     []domainstorage.VolumeUUID
 }
 
 // ApplicationDetails contains details about an application.

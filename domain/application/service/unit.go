@@ -10,6 +10,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
@@ -75,7 +76,7 @@ type UnitState interface {
 
 	// UpdateUnitCharm updates the currently running charm marker for the given
 	// unit.
-	UpdateUnitCharm(context.Context, coreunit.Name, corecharm.ID) error
+	UpdateUnitCharm(context.Context, coreunit.UUID, corecharm.ID, application.UpdateUnitCharmStateParams) error
 
 	// GetUnitUUIDByName returns the UUID for the named unit, returning an
 	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
@@ -457,7 +458,7 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 // - [applicationerrors.UnitNotFound] if the unit does not exist.
 // - [applicationerrors.UnitIsDead] if the unit is dead.
 // - [applicationerrors.CharmNotFound] if the charm charm does not exist.
-func (s *Service) UpdateUnitCharm(ctx context.Context, unitName coreunit.Name, locator charm.CharmLocator) error {
+func (s *ProviderService) UpdateUnitCharm(ctx context.Context, unitName coreunit.Name, locator charm.CharmLocator) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -467,7 +468,100 @@ func (s *Service) UpdateUnitCharm(ctx context.Context, unitName coreunit.Name, l
 		return errors.Capture(err)
 	}
 
-	return s.st.UpdateUnitCharm(ctx, unitName, id)
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Get appUUID for the unit so that we can get the storage directives for the application.
+	appUUID, err := s.st.GetApplicationUUIDByUnitName(ctx, unitName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Get application storage directives so that we can determine if there are any new storage directives introduced
+	// by the new charm that require storage to be added to the unit as part of the UpdateUnitCharm call.
+	// These storage directives should be the full set of directives that each unit should have.
+	appStorageDirectives, err := s.storageService.GetApplicationStorageDirectives(ctx, appUUID)
+	if err != nil {
+		return errors.Errorf("getting application %q storage directives: %w", appUUID, err)
+	}
+
+	modelType, err := s.st.GetModelType(ctx)
+	if err != nil {
+		return errors.Errorf("getting model type: %w", err)
+	}
+
+	// For each application storage directive, check if it already exists for the unit.
+	// If it doesn't exist, then we need to add it to the list of storage to be backfilled
+	// as part of the UpdateUnitCharm call.
+	storageBackfill := make([]application.UnitStorageBackfillArg, 0, len(appStorageDirectives))
+	for _, directive := range appStorageDirectives {
+
+		// Get unit storage directive.
+		_, err := s.storageService.GetUnitStorageDirectiveByName(
+			ctx, unitUUID, corestorage.Name(directive.Name),
+		)
+
+		// If the storage directive does not exist, add it to the backfill list.
+		if errors.Is(err, applicationerrors.StorageNameNotSupported) {
+			storageArg, makeErr := s.storageService.MakeUnitAddStorageArgs(
+				ctx,
+				unitUUID,
+				directive.Count,
+				directive,
+			)
+			if makeErr != nil {
+				return errors.Errorf(
+					"making storage backfill args for unit %q storage %q: %w",
+					unitUUID, directive.Name, makeErr,
+				)
+			}
+			// CountLessThanEqual is 0 here because the storage count should be 0
+			// for a storage directive that does not exist.
+			storageArg.CountLessThanEqual = 0
+
+			// Populate backfillArg with information required for backfilling storage.
+			backfillArg := application.UnitStorageBackfillArg{
+				StorageName: corestorage.Name(directive.Name),
+				StorageArg:  storageArg,
+			}
+
+			// If the model is IAAS, then we also need to
+			// populate filesystem ownership and or volume ownership.
+			// Both CAAS and IAAS will have unit storage ownership, which will be handled later
+			// in the UpdateUnitCharm call.
+			if modelType == model.IAAS {
+				iaasArg, makeErr := s.storageService.MakeIAASUnitStorageArgs(
+					ctx,
+					storageArg.StorageInstances,
+				)
+				if makeErr != nil {
+					return errors.Errorf(
+						"making IAAS storage ownership args for unit %q storage %q: %w",
+						unitUUID, directive.Name, makeErr,
+					)
+				}
+				backfillArg.FilesystemsToOwn = iaasArg.FilesystemsToOwn
+				backfillArg.VolumesToOwn = iaasArg.VolumesToOwn
+			}
+			storageBackfill = append(storageBackfill, backfillArg)
+			continue
+		}
+		if err != nil {
+			return errors.Errorf(
+				"getting unit %q storage directive %q: %w",
+				unitUUID, directive.Name, err,
+			)
+		}
+	}
+
+	if err := s.st.UpdateUnitCharm(ctx, unitUUID, id, application.UpdateUnitCharmStateParams{
+		StorageBackfill: storageBackfill,
+	}); err != nil {
+		return errors.Capture(err)
+	}
+	return nil
 }
 
 // GetUnitUUID returns the UUID for the named unit.

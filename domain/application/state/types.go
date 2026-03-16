@@ -1289,17 +1289,3 @@ type unitCharmUpdateContext struct {
 	LifeID               life.Life `db:"life_id"`
 	ApplicationCharmUUID string    `db:"application_charm_uuid"`
 }
-
-// unitStorageDirectiveBackfill represents the set of values required for backfilling
-// unit storage directives for existing units during a charm storage upgrade.
-type unitStorageDirectiveBackfill struct {
-	UnitUUID      string `db:"unit_uuid"`
-	NetNodeUUID   string `db:"net_node_uuid"`
-	CharmName     string `db:"charm_name"`
-	StorageName   string `db:"storage_name"`
-	StorageKind   string `db:"storage_kind"`
-	StoragePoolID string `db:"storage_pool_uuid"`
-	SizeMiB       uint64 `db:"size_mib"`
-	DesiredCount  uint32 `db:"desired_count"`
-	CurrentCount  uint32 `db:"current_count"`
-}
