@@ -61,8 +61,8 @@ type ApplicationOps interface {
 	EnsureScale(appName string, app caas.Application, appLife life.Value,
 		facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger Logger) error
 
-	EnsureStorage(appName string, app caas.Application, lastApplied *caas.ApplicationConfig,
-		password string, facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error
+	EnsureStorage(appName string, app caas.Application, password string,
+		facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error
 }
 
 type applicationOps struct {
@@ -150,9 +150,8 @@ func (applicationOps) EnsureScale(appName string, app caas.Application, appLife 
 // configurations when storage updates occur, preserving the current
 // replica count across the operation.
 func (applicationOps) EnsureStorage(appName string, app caas.Application,
-	lastApplied *caas.ApplicationConfig, password string,
-	facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
-	return ensureStorage(appName, app, lastApplied, password, facade, clk, logger)
+	password string, facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
+	return ensureStorage(appName, app, password, facade, clk, logger)
 }
 
 type Tomb interface {
@@ -832,8 +831,7 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 }
 
 // ensureStorage recreates a statefulset with the new filesystems.
-func ensureStorage(appName string, app caas.Application,
-	lastApplied *caas.ApplicationConfig, password string,
+func ensureStorage(appName string, app caas.Application, password string,
 	facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
 	ps, err := facade.ProvisioningState(appName)
 	if err != nil {

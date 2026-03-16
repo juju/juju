@@ -1138,7 +1138,7 @@ func (s *OpsSuite) TestEnsureStorage(c *gc.C) {
 	clk := testclock.NewDilatedWallClock(coretesting.ShortWait)
 
 	err := caasapplicationprovisioner.AppOps.EnsureStorage("test", app,
-		nil, "123456789", facade, clk, s.logger)
+		"123456789", facade, clk, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1156,7 +1156,7 @@ func (s *OpsSuite) TestEnsureStorageError(c *gc.C) {
 	clk := testclock.NewDilatedWallClock(coretesting.ShortWait)
 
 	err := caasapplicationprovisioner.AppOps.EnsureStorage("test", app,
-		nil, "password", facade, clk, s.logger)
+		"password", facade, clk, s.logger)
 	c.Assert(err, gc.ErrorMatches, "retrieving provisioning state: something went wrong")
 }
 

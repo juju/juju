@@ -100,17 +100,17 @@ func (mr *MockApplicationOpsMockRecorder) EnsureScale(arg0, arg1, arg2, arg3, ar
 }
 
 // EnsureStorage mocks base method.
-func (m *MockApplicationOps) EnsureStorage(arg0 string, arg1 caas.Application, arg2 *caas.ApplicationConfig, arg3 string, arg4 caasapplicationprovisioner.CAASProvisionerFacade, arg5 clock.Clock, arg6 caasapplicationprovisioner.Logger) error {
+func (m *MockApplicationOps) EnsureStorage(arg0 string, arg1 caas.Application, arg2 string, arg3 caasapplicationprovisioner.CAASProvisionerFacade, arg4 clock.Clock, arg5 caasapplicationprovisioner.Logger) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureStorage", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	ret := m.ctrl.Call(m, "EnsureStorage", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // EnsureStorage indicates an expected call of EnsureStorage.
-func (mr *MockApplicationOpsMockRecorder) EnsureStorage(arg0, arg1, arg2, arg3, arg4, arg5, arg6 any) *gomock.Call {
+func (mr *MockApplicationOpsMockRecorder) EnsureStorage(arg0, arg1, arg2, arg3, arg4, arg5 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureStorage", reflect.TypeOf((*MockApplicationOps)(nil).EnsureStorage), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureStorage", reflect.TypeOf((*MockApplicationOps)(nil).EnsureStorage), arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
 // EnsureTrust mocks base method.

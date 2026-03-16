@@ -195,7 +195,7 @@ func (a *appWorker) loop() error {
 		// restart.
 		if ps.CurrentOperation == application.StorageUpdateOperation {
 			a.logger.Debugf("app %q resuming storage update operation", a.name)
-			err := a.ops.EnsureStorage(a.name, state.app, &a.lastApplied, a.password,
+			err := a.ops.EnsureStorage(a.name, state.app, a.password,
 				a.facade, a.clock, a.logger)
 			if err != nil {
 				return errors.Annotatef(err, "ensuring storage for %q", a.name)
@@ -583,8 +583,8 @@ func (a *appWorker) handleStorageChange(state *appLoopState) error {
 
 	switch appLife {
 	case life.Alive:
-		err := a.ops.EnsureStorage(a.name, state.app, &a.lastApplied, a.password,
-			a.facade, a.clock, a.logger)
+		err := a.ops.EnsureStorage(a.name, state.app, a.password, a.facade,
+			a.clock, a.logger)
 		if err != nil {
 			return errors.Trace(err)
 		}
