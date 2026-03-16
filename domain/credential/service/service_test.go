@@ -572,3 +572,72 @@ func (s *serviceSuite) TestModelCredentialStatusNotSet(c *tc.C) {
 	_, _, err := s.service(c).GetModelCredentialStatus(c.Context(), modelUUID)
 	c.Check(err, tc.ErrorIs, credentialerrors.ModelCredentialNotSet)
 }
+
+func (s *serviceSuite) TestCheckCredentialModelsInvalidKey(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	key := corecredential.Key{Cloud: "cirrus", Owner: usertesting.GenNewName(c, "fred")}
+	_, err := s.service(c).CheckCredentialModels(c.Context(), key, cloud.Credential{})
+	c.Assert(err, tc.ErrorMatches, "invalid id checking cloud credential.*")
+}
+
+func (s *serviceSuite) TestCheckCredentialModelsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cred := cloud.Credential{}
+	key := corecredential.Key{
+		Cloud: "cirrus",
+		Owner: usertesting.GenNewName(c, "bob"),
+		Name:  "foobar",
+	}
+
+	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), key).Return(nil, errors.New("cannot get models"))
+
+	service := s.service(c)
+
+	results, err := service.CheckCredentialModels(c.Context(), key, cred)
+	c.Assert(err, tc.ErrorMatches, "cannot get models")
+	c.Assert(results, tc.HasLen, 0)
+}
+
+func (s *serviceSuite) TestCheckCredentialModels(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cred := cloud.Credential{}
+	key := corecredential.Key{
+		Cloud: "cirrus",
+		Owner: usertesting.GenNewName(c, "bob"),
+		Name:  "foobar",
+	}
+
+	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), key).Return(map[coremodel.UUID]string{
+		coremodel.UUID(jujutesting.ModelTag.Id()): "mymodel",
+	}, nil)
+
+	service := s.service(c)
+
+	results, err := service.CheckCredentialModels(c.Context(), key, cred)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, []CheckCredentialModelResult{{
+		ModelUUID: coremodel.UUID(jujutesting.ModelTag.Id()), ModelName: "mymodel",
+	}})
+}
+
+func (s *serviceSuite) TestCheckCredentialModelsNewCredential(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cred := cloud.Credential{}
+	key := corecredential.Key{
+		Cloud: "cirrus",
+		Owner: usertesting.GenNewName(c, "bob"),
+		Name:  "foobar",
+	}
+
+	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), key).Return(nil, credentialerrors.NotFound)
+
+	service := s.service(c)
+
+	results, err := service.CheckCredentialModels(c.Context(), key, cred)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 0)
+}
