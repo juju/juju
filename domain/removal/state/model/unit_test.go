@@ -262,11 +262,99 @@ func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccessLastUnitMachineAlr
 	cascade, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// The machine was already "dying", so we don't expect a machine UUID.
-	c.Assert(cascade.MachineUUID, tc.IsNil)
+	// The machine was already "dying", but we still expect the machine UUID
+	// so retries can re-schedule child removal jobs.
+	c.Assert(cascade.MachineUUID, tc.NotNil)
+	c.Check(*cascade.MachineUUID, tc.Equals, unitMachineUUID.String())
 
 	// Unit had life "alive" and should now be "dying".
 	s.checkUnitLife(c, unitUUID.String(), life.Dying)
+}
+
+func (s *unitSuite) TestEnsureUnitNotAliveCascadeMachineAlreadyDyingReturnsStorageCascade(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app",
+		applicationservice.AddIAASUnitArg{},
+	)
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	unitMachineUUID := s.getUnitMachineUUID(c, unitUUID)
+
+	// Create machine-owned storage: pool, instance, filesystem, and link them.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(
+			ctx, "SELECT net_node_uuid FROM unit WHERE uuid = ?", unitUUID.String())
+		if row.Err() != nil {
+			return row.Err()
+		}
+		var netNodeUUID string
+		if err := row.Scan(&netNodeUUID); err != nil {
+			return err
+		}
+
+		if _, err := tx.ExecContext(
+			ctx, "INSERT INTO storage_pool (uuid, name, type) VALUES ('pool-uuid', 'pool', 'whatever')",
+		); err != nil {
+			return err
+		}
+
+		inst := `
+INSERT INTO storage_instance (
+    uuid, storage_id, storage_pool_uuid, storage_kind_id, requested_size_mib, charm_name, storage_name, life_id
+)
+VALUES ('instance-uuid', 'does-not-matter', 'pool-uuid', 1, 100, 'charm-name', 'storage-name', 0)`
+		if _, err := tx.ExecContext(ctx, inst); err != nil {
+			return err
+		}
+
+		fs := `
+INSERT INTO storage_filesystem(uuid, filesystem_id, life_id, provision_scope_id)
+VALUES ('filesystem-uuid', 'filesystem-id', 0, 1)`
+		if _, err := tx.ExecContext(ctx, fs); err != nil {
+			return err
+		}
+
+		mfs := `
+INSERT INTO machine_filesystem(machine_uuid, filesystem_uuid)
+VALUES (?, 'filesystem-uuid')`
+		if _, err := tx.ExecContext(ctx, mfs, unitMachineUUID.String()); err != nil {
+			return err
+		}
+
+		fsi := `
+INSERT INTO storage_instance_filesystem (storage_instance_uuid, storage_filesystem_uuid)
+VALUES ('instance-uuid', 'filesystem-uuid')`
+		if _, err := tx.ExecContext(ctx, fsi); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Set the machine to "dying" manually before the cascade call.
+	s.advanceMachineLife(c, unitMachineUUID, life.Dying)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	cascade, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Machine was already dying, but we still expect the machine UUID
+	// and the machine-owned storage cascade info.
+	c.Assert(cascade.MachineUUID, tc.NotNil)
+	c.Check(*cascade.MachineUUID, tc.Equals, unitMachineUUID.String())
+	c.Check(cascade.StorageInstanceUUIDs, tc.DeepEquals, []string{"instance-uuid"})
+	c.Check(cascade.FileSystemUUIDs, tc.DeepEquals, []string{"filesystem-uuid"})
+
+	s.checkUnitLife(c, unitUUID.String(), life.Dying)
+	s.checkMachineLife(c, unitMachineUUID.String(), life.Dying)
+	s.checkStorageInstanceLife(c, "instance-uuid", life.Dying)
+	// Filesystem has no attachment, so it goes directly to dead.
+	s.checkFileSystemLife(c, "filesystem-uuid", life.Dead)
 }
 
 func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccess(c *tc.C) {
@@ -345,7 +433,8 @@ func (s *unitSuite) TestEnsureUnitNotAliveCascadeRetryReturnsDyingArtifacts(c *t
 	secondCascade, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(secondCascade.CascadedStorageLives, tc.DeepEquals, firstCascade.CascadedStorageLives)
-	c.Assert(secondCascade.MachineUUID, tc.IsNil)
+	c.Assert(secondCascade.MachineUUID, tc.NotNil)
+	c.Check(*secondCascade.MachineUUID, tc.Equals, unitMachineUUID.String())
 
 	s.checkUnitLife(c, unitUUID.String(), life.Dying)
 	s.checkMachineLife(c, unitMachineUUID.String(), life.Dying)

@@ -369,7 +369,14 @@ AND    life_id = 0`, entityUUID{})
 	if affected, err := outcome.Result().RowsAffected(); err != nil {
 		return "", cascaded, errors.Errorf("getting affected rows: %w", err)
 	} else if affected == 0 {
-		return "", cascaded, nil
+		// The machine was already dying or dead.
+		// We still need to return cascaded storage information
+		// so retries can re-schedule child removal jobs.
+		cascaded, err = st.ensureMachineStorageInstancesNotAliveCascade(ctx, tx, result.UUID)
+		if err != nil {
+			return "", cascaded, errors.Errorf("advancing machine storage entity lives: %w", err)
+		}
+		return result.UUID, cascaded, nil
 	}
 
 	updateInstanceStmt, err := st.Prepare(`
