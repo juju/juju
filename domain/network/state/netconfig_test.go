@@ -236,7 +236,16 @@ func (s *netConfigSuite) TestSetMachineNetConfigAddsSingleHostSubnet(c *tc.C) {
 				InterfaceName: devName,
 				AddressValue:  "::1/128",
 				AddressType:   corenetwork.IPv4Address,
-				ConfigType:    corenetwork.ConfigStatic,
+				ConfigType:    corenetwork.ConfigLoopback,
+				Origin:        corenetwork.OriginMachine,
+				Scope:         corenetwork.ScopeMachineLocal,
+			},
+			// We never add IPv4 loopback addresses either.
+			{
+				InterfaceName: devName,
+				AddressValue:  "127.0.0.1/8",
+				AddressType:   corenetwork.IPv4Address,
+				ConfigType:    corenetwork.ConfigLoopback,
 				Origin:        corenetwork.OriginMachine,
 				Scope:         corenetwork.ScopeMachineLocal,
 			},
