@@ -91,25 +91,22 @@ func (p *Partitioner[V, T]) Close() {
 // yielded value.
 func (p *Partitioner[V, T]) NextPart(t T) stditer.Seq[V] {
 	return func(yield func(V) bool) {
-		for {
-			if p.peeked == nil {
-				p.seq(func(v V) bool {
-					if v.Partition() != t {
-						p.peeked = &v
-						return false
-					}
-					return yield(v)
-				})
+		if p.peeked != nil {
+			v := *p.peeked
+			if v.Partition() != t {
 				return
 			}
-
-			if (*p.peeked).Partition() != t {
-				return
-			}
-
-			c := yield(*p.peeked)
 			p.peeked = nil
-			if !c {
+			if !yield(v) {
+				return
+			}
+		}
+		for v := range p.seq {
+			if v.Partition() != t {
+				p.peeked = &v
+				return
+			}
+			if !yield(v) {
 				return
 			}
 		}

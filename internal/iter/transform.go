@@ -9,8 +9,10 @@ import stditer "iter"
 // producing a new sequence of O values.
 func TransformSeq[V, O any](s stditer.Seq[V], f func(V) O) stditer.Seq[O] {
 	return func(yield func(O) bool) {
-		s(func(v V) bool {
-			return yield(f(v))
-		})
+		for v := range s {
+			if !yield(f(v)) {
+				return
+			}
+		}
 	}
 }
