@@ -34,6 +34,6 @@ func (s *Service) GetStorageInstanceUUIDForID(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// We don't have any validation that we run over storage id's at the moment.
+	// We don't have any validation that we run over storage ID's at the moment.
 	return s.st.GetStorageInstanceUUIDByID(ctx, storageID)
 }

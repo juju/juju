@@ -67,11 +67,11 @@ func (p *Partitioner[V, T]) CollectNextPart(t T) []V {
 	return slices.Collect(p.NextPart(t))
 }
 
-// Close releases resources associated with the underlying [Paritioner]. It
+// Close releases resources associated with the underlying [Partitioner]. It
 // should be called when the Partitioner is no longer needed to prevent resource
 // leaks.
 //
-// Paritioner should not be considered usable after a call to Close.
+// Partitioner should not be considered usable after a call to Close.
 func (p *Partitioner[V, T]) Close() {
 	p.seqClose()
 }
