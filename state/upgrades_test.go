@@ -538,12 +538,10 @@ func (s *upgradesSuite) TestConvertScalingToCurrentOperationEnumField(c *gc.C) {
 					},
 				},
 				{
-					"_id":        ensureModelUUID(model1.UUID(), "app2"),
-					"name":       "app2",
-					"model-uuid": model1.UUID(),
-					"provisioning-state": bson.M{
-						"current-operation": "",
-					},
+					"_id":                ensureModelUUID(model1.UUID(), "app2"),
+					"name":               "app2",
+					"model-uuid":         model1.UUID(),
+					"provisioning-state": bson.M{},
 				},
 				{
 					"_id":                ensureModelUUID(model1.UUID(), "app3"),

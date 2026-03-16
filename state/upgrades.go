@@ -452,24 +452,24 @@ func ConvertScalingToCurrentOperationEnumField(pool *StatePool) error {
 				return errors.New("typecasting app scaling to bool")
 			}
 
-			currentOp := application.NoOperation
+			update := bson.D{
+				{"$unset", bson.D{{"provisioning-state.scaling", ""}}},
+			}
+
 			if scaling {
-				currentOp = application.ScaleOperation
+				update = append(update, bson.DocElem{
+					"$set", bson.D{
+						{"provisioning-state.current-operation",
+							application.ScaleOperation},
+					},
+				})
 			}
 
 			ops = append(ops, txn.Op{
 				C:      applicationsC,
 				Id:     id,
 				Assert: txn.DocExists,
-				Update: bson.D{{"$set", bson.D{
-					{
-						"provisioning-state.current-operation",
-						currentOp,
-					}}},
-					{"$unset", bson.D{
-						{"provisioning-state.scaling", ""},
-					}},
-				},
+				Update: update,
 			})
 		}
 		return st.runRawTransaction(ops)
