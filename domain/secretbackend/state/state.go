@@ -259,13 +259,14 @@ func (s *State) UpdateSecretBackend(ctx context.Context, params secretbackend.Up
 	return params.ID, err
 }
 
-// getK8sBuiltinSecretBackend creates or retrieves a Kubernetes secret backend
+// getOrCreateK8sBuiltinSecretBackend creates or retrieves a Kubernetes secret backend
 // for the provided model name.
-func (s *State) getK8sBuiltinSecretBackend(
+func (s *State) getOrCreateK8sBuiltinSecretBackend(
 	ctx context.Context,
 	tx *sqlair.TX,
 	modelName string,
 	getK8sConfig func(modelName string) (*provider.BackendConfig, error),
+	newUUID string,
 ) (*secretbackend.SecretBackend, error) {
 	backendName := secretbackend.MakeBuiltInK8sSecretBackendName(modelName)
 	sb, err := s.getSecretBackend(ctx, tx, secretbackend.BackendIdentifier{Name: backendName})
@@ -696,6 +697,14 @@ WHERE  m.uuid = $M.uuid
 		modelType         coremodel.ModelType
 		currentK8sBackend *secretbackend.SecretBackend
 	)
+	// generate a new backend UUID in case we need to create it inside the
+	// transaction : if the name of a built-in k8s backend is not found, we need
+	// to create it. We can't produce the uuid inside the transaction, due to
+	// concurrency and possible retry
+	newBackendUUID, err := uuid.NewUUID()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var modelDetails modelDetails
 		err := tx.Query(ctx, getModelStmt, sqlair.M{"uuid": modelUUID}).Get(&modelDetails)
@@ -721,7 +730,7 @@ WHERE  m.uuid = $M.uuid
 		if modelType != coremodel.CAAS {
 			return nil
 		}
-		currentK8sBackend, err = s.getK8sSecretBackendForModel(ctx, tx, modelUUID)
+		currentK8sBackend, err = s.getK8sSecretBackendForModel(ctx, tx, modelUUID, newBackendUUID.String())
 		return errors.Capture(err)
 	})
 	if err != nil {
@@ -741,7 +750,7 @@ WHERE  m.uuid = $M.uuid
 	return result, errors.Capture(err)
 }
 
-func (s *State) getK8sSecretBackendForModel(ctx context.Context, tx *sqlair.TX, modelUUID coremodel.UUID) (*secretbackend.SecretBackend, error) {
+func (s *State) getK8sSecretBackendForModel(ctx context.Context, tx *sqlair.TX, modelUUID coremodel.UUID, newBackendUUID string) (*secretbackend.SecretBackend, error) {
 	stmt, err := s.Prepare(`
 SELECT
     vc.uuid       AS &secretBackendForK8sModelRow.cloud_uuid,
@@ -812,7 +821,7 @@ SELECT value AS &controllerName.name FROM v_controller_config WHERE key = 'contr
 		cred := creds.toCloudCredentials()[sbCloudCredentialID.CredentialID]
 		return getK8sBackendConfig(controller.Name, model.Name, cld, cred)
 	}
-	sb, err := s.getK8sBuiltinSecretBackend(ctx, tx, model.Name, getK8sConfigForModel)
+	sb, err := s.getOrCreateK8sBuiltinSecretBackend(ctx, tx, model.Name, getK8sConfigForModel, newBackendUUID)
 	if err != nil {
 		return nil, errors.Errorf("cannot get k8s secret backend for model %q: %w", model.Name, err)
 	}
@@ -872,13 +881,21 @@ func (s *State) GetActiveModelSecretBackend(ctx context.Context, modelUUID corem
 		modelBackend secretbackend.ModelSecretBackend
 		backend      *secretbackend.SecretBackend
 	)
+	// generate a new backend UUID in case we need to create it inside the
+	// transaction : if the name of a built-in k8s backend is not found, we need
+	// to create it. We can't produce the uuid inside the transaction, due to
+	// concurrency and possible retry
+	newBackendUUID, err := uuid.NewUUID()
+	if err != nil {
+		return "", nil, errors.Capture(err)
+	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		modelBackend, err = s.getModelSecretBackendDetails(ctx, tx, modelUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
 		if modelBackend.ModelType == coremodel.CAAS && modelBackend.SecretBackendOrigin == internal.BuiltIn {
-			backend, err = s.getK8sSecretBackendForModel(ctx, tx, modelUUID)
+			backend, err = s.getK8sSecretBackendForModel(ctx, tx, modelUUID, newBackendUUID.String())
 		} else {
 			backend, err = s.getSecretBackend(ctx, tx, secretbackend.BackendIdentifier{Name: modelBackend.ActiveBackendName()})
 		}
