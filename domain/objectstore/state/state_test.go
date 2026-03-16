@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	coreobjectstore "github.com/juju/juju/core/objectstore"
@@ -28,14 +29,14 @@ func TestStateSuite(t *testing.T) {
 }
 
 func (s *stateSuite) TestGetMetadataNotFound(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	_, err := st.GetMetadata(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
 }
 
 func (s *stateSuite) TestGetMetadataFound(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	uuid := tc.Must(c, coreobjectstore.NewUUID).String()
 
@@ -55,7 +56,7 @@ func (s *stateSuite) TestGetMetadataFound(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetMetadataBySHA256Found(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	uuid1 := tc.Must(c, coreobjectstore.NewUUID).String()
 	uuid2 := tc.Must(c, coreobjectstore.NewUUID).String()
@@ -90,14 +91,14 @@ func (s *stateSuite) TestGetMetadataBySHA256Found(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetMetadataBySHA256NotFound(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	_, err := st.GetMetadataBySHA256(c.Context(), "deadbeef")
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
 }
 
 func (s *stateSuite) TestGetMetadataBySHA256PrefixFound(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	uuid1 := tc.Must(c, coreobjectstore.NewUUID).String()
 	uuid2 := tc.Must(c, coreobjectstore.NewUUID).String()
@@ -136,14 +137,14 @@ func (s *stateSuite) TestGetMetadataBySHA256PrefixFound(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetMetadataBySHA256PrefixNotFound(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	_, err := st.GetMetadataBySHA256Prefix(c.Context(), "deadbeef")
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
 }
 
 func (s *stateSuite) TestListMetadataFound(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	uuid := tc.Must(c, coreobjectstore.NewUUID).String()
 
@@ -163,7 +164,7 @@ func (s *stateSuite) TestListMetadataFound(c *tc.C) {
 }
 
 func (s *stateSuite) TestPutMetadata(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	uuid := tc.Must(c, coreobjectstore.NewUUID).String()
 
@@ -177,11 +178,8 @@ func (s *stateSuite) TestPutMetadata(c *tc.C) {
 	uuid, err := st.PutMetadata(c.Context(), uuid, metadata)
 	c.Assert(err, tc.ErrorIsNil)
 
-	runner, err := s.TxnRunnerFactory()(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
 	var received coreobjectstore.Metadata
-	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, `
 SELECT path, size, sha_256, sha_384 FROM v_object_store_metadata WHERE uuid = ?`, uuid)
 		return row.Scan(&received.Path, &received.Size, &received.SHA256, &received.SHA384)
@@ -191,7 +189,7 @@ SELECT path, size, sha_256, sha_384 FROM v_object_store_metadata WHERE uuid = ?`
 }
 
 func (s *stateSuite) TestPutMetadataConflict(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// UUID does not matter in this test, because we are testing the conflict of
 	// the hash and size, which is independent of the UUID.
@@ -215,7 +213,7 @@ func (s *stateSuite) TestPutMetadataConflict(c *tc.C) {
 }
 
 func (s *stateSuite) TestPutMetadataConflictDifferentHash(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// UUID does not matter in this test, because we are testing the conflict of
 	// the hash and size, which is independent of the UUID.
@@ -246,7 +244,7 @@ func (s *stateSuite) TestPutMetadataConflictDifferentHash(c *tc.C) {
 }
 
 func (s *stateSuite) TestPutMetadataWithSameHashesAndSize(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// UUID does not matter in this test, because we are testing the conflict of
 	// the hash and size, which is independent of the UUID.
@@ -275,7 +273,7 @@ func (s *stateSuite) TestPutMetadataWithSameHashesAndSize(c *tc.C) {
 }
 
 func (s *stateSuite) TestPutMetadataWithSameSHA256AndSize(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// UUID does not matter in this test, because we are testing the conflict of
 	// the hash and size, which is independent of the UUID.
@@ -306,7 +304,7 @@ func (s *stateSuite) TestPutMetadataWithSameSHA256AndSize(c *tc.C) {
 }
 
 func (s *stateSuite) TestPutMetadataWithSameSHA384AndSize(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// UUID does not matter in this test, because we are testing the conflict of
 	// the hash and size, which is independent of the UUID.
@@ -337,7 +335,7 @@ func (s *stateSuite) TestPutMetadataWithSameSHA384AndSize(c *tc.C) {
 }
 
 func (s *stateSuite) TestPutMetadataWithSameHashDifferentSize(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Test if the hash is the same but the size is different. The root
 	// cause of this, is if the hash is the same, but the size is different.
@@ -367,7 +365,7 @@ func (s *stateSuite) TestPutMetadataWithSameHashDifferentSize(c *tc.C) {
 }
 
 func (s *stateSuite) TestPutMetadataMultipleTimes(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Ensure that we can add the same metadata multiple times.
 	metadatas := make([]coreobjectstore.Metadata, 10)
@@ -394,7 +392,7 @@ func (s *stateSuite) TestPutMetadataMultipleTimes(c *tc.C) {
 }
 
 func (s *stateSuite) TestPutMetadataWithControllerIDHint(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	uuid := tc.Must(c, coreobjectstore.NewUUID).String()
 
@@ -408,11 +406,8 @@ func (s *stateSuite) TestPutMetadataWithControllerIDHint(c *tc.C) {
 	uuid, err := st.PutMetadataWithControllerIDHint(c.Context(), uuid, metadata, "1")
 	c.Assert(err, tc.ErrorIsNil)
 
-	runner, err := s.TxnRunnerFactory()(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
 	var nodeID string
-	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, `
 SELECT node_id FROM object_store_placement WHERE uuid = ?`, uuid)
 		return row.Scan(&nodeID)
@@ -422,7 +417,7 @@ SELECT node_id FROM object_store_placement WHERE uuid = ?`, uuid)
 }
 
 func (s *stateSuite) TestPutMetadataWithControllerIDHintMultipleTimes(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	// Ensure that we can add the same metadata multiple times.
 	metadatas := make([]coreobjectstore.Metadata, 10)
@@ -449,7 +444,7 @@ func (s *stateSuite) TestPutMetadataWithControllerIDHintMultipleTimes(c *tc.C) {
 }
 
 func (s *stateSuite) TestAddControllerIDHint(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	uuid := tc.Must(c, coreobjectstore.NewUUID).String()
 
@@ -466,11 +461,8 @@ func (s *stateSuite) TestAddControllerIDHint(c *tc.C) {
 	err = st.AddControllerIDHint(c.Context(), "sha384", "2")
 	c.Assert(err, tc.ErrorIsNil)
 
-	runner, err := s.TxnRunnerFactory()(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
 	var nodes []string
-	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
 SELECT p.node_id
 FROM object_store_placement AS p
@@ -494,14 +486,14 @@ WHERE m.sha_384 = ?`, "sha384")
 }
 
 func (s *stateSuite) TestAddControllerIDHintNotFound(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	err := st.AddControllerIDHint(c.Context(), "non-existent-sha384", "1")
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
 }
 
 func (s *stateSuite) TestGetControllerIDHints(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	uuid := tc.Must(c, coreobjectstore.NewUUID).String()
 
@@ -525,7 +517,7 @@ func (s *stateSuite) TestGetControllerIDHints(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetControllerIDHintsNoHints(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	hints, err := st.GetControllerIDHints(c.Context(), "sha384")
 	c.Assert(err, tc.ErrorIsNil)
@@ -533,14 +525,14 @@ func (s *stateSuite) TestGetControllerIDHintsNoHints(c *tc.C) {
 }
 
 func (s *stateSuite) TestRemoveMetadataNotExists(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	err := st.RemoveMetadata(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
 }
 
 func (s *stateSuite) TestRemoveMetadataDoesNotRemoveMetadataIfReferenced(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	uuid1 := tc.Must(c, coreobjectstore.NewUUID).String()
 	uuid2 := tc.Must(c, coreobjectstore.NewUUID).String()
@@ -573,7 +565,7 @@ func (s *stateSuite) TestRemoveMetadataDoesNotRemoveMetadataIfReferenced(c *tc.C
 }
 
 func (s *stateSuite) TestRemoveMetadataCleansUpEverything(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	uuid1 := tc.Must(c, coreobjectstore.NewUUID).String()
 	uuid2 := tc.Must(c, coreobjectstore.NewUUID).String()
@@ -629,7 +621,7 @@ func (s *stateSuite) TestRemoveMetadataCleansUpEverything(c *tc.C) {
 }
 
 func (s *stateSuite) TestRemoveMetadataThenAddAgain(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	uuid1 := tc.Must(c, coreobjectstore.NewUUID).String()
 	uuid2 := tc.Must(c, coreobjectstore.NewUUID).String()
@@ -656,7 +648,7 @@ func (s *stateSuite) TestRemoveMetadataThenAddAgain(c *tc.C) {
 }
 
 func (s *stateSuite) TestListMetadata(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	uuid1 := tc.Must(c, coreobjectstore.NewUUID).String()
 
@@ -678,7 +670,7 @@ func (s *stateSuite) TestListMetadata(c *tc.C) {
 }
 
 func (s *stateSuite) TestListMetadataNoRows(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	metadatas, err := st.ListMetadata(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -686,7 +678,7 @@ func (s *stateSuite) TestListMetadataNoRows(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetActiveDrainingInfo(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	_, err := st.GetActiveDrainingInfo(c.Context())
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingPhaseNotFound)
@@ -710,11 +702,8 @@ func (s *stateSuite) TestGetActiveDrainingInfo(c *tc.C) {
 	c.Check(info.UUID, tc.Equals, "foo")
 	c.Check(info.ActiveBackendUUID, tc.Equals, backendUUID)
 
-	runner, err := s.TxnRunnerFactory()(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
 	var fromBackendUUID string
-	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, `
 SELECT uuid FROM object_store_backend
 WHERE life_id = 1`)
@@ -726,7 +715,7 @@ WHERE life_id = 1`)
 }
 
 func (s *stateSuite) TestSetDrainingPhase(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
 	creds := domainobjectstore.S3Credentials{
@@ -753,19 +742,16 @@ func (s *stateSuite) TestSetDrainingPhase(c *tc.C) {
 }
 
 func (s *stateSuite) TestStartDrainingMissingFromBackend(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	err := st.StartDraining(c.Context(), "foo")
 	c.Assert(err, tc.ErrorMatches, ".*migrating from: backend not found")
 }
 
 func (s *stateSuite) TestStartDrainingMissingToBackend(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
-	runner, err := s.TxnRunnerFactory()(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 UPDATE object_store_backend
 SET life_id = 1`)
@@ -777,8 +763,8 @@ SET life_id = 1`)
 	c.Assert(err, tc.ErrorMatches, ".*migrating to: backend not found")
 }
 
-func (s *stateSuite) TestSetObjectStoreBackendToS3(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *stateSuite) TestStartDraining(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
 	creds := domainobjectstore.S3Credentials{
@@ -791,13 +777,148 @@ func (s *stateSuite) TestSetObjectStoreBackendToS3(c *tc.C) {
 	err := st.SetObjectStoreBackendToS3(c.Context(), backendUUID, creds)
 	c.Assert(err, tc.ErrorIsNil)
 
-	runner, err := s.TxnRunnerFactory()(c.Context())
+	err = st.StartDraining(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.StartDraining(c.Context(), "bar")
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingAlreadyInProgress)
+}
+
+func (s *stateSuite) TestStartDrainingAndSetDrainingPhase(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
+
+	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
+	creds := domainobjectstore.S3Credentials{
+		Endpoint:     "https://s3.example.com",
+		AccessKey:    "access-key",
+		SecretKey:    "secret-key",
+		SessionToken: "session-token",
+	}
+
+	err := st.SetObjectStoreBackendToS3(c.Context(), backendUUID, creds)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.StartDraining(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.SetDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseCompleted)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestSetObjectStoreBackendToS3CalledTwice(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
+
+	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
+	creds := domainobjectstore.S3Credentials{
+		Endpoint:     "https://s3.example.com",
+		AccessKey:    "access-key",
+		SecretKey:    "secret-key",
+		SessionToken: "session-token",
+	}
+
+	err := st.SetObjectStoreBackendToS3(c.Context(), backendUUID, creds)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Force the old backend to be marked as dead.
+	s.markBackendAsDead(c, "f44ea516-22ad-4161-b2bd-cbae9d7a9412")
+
+	err = st.SetObjectStoreBackendToS3(c.Context(), backendUUID, creds)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrBackendAlreadyExists)
+}
+
+func (s *stateSuite) TestSetObjectStoreBackendToS3MultipleTimes(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
+
+	backendUUID0 := tc.Must(c, coreobjectstore.NewUUID).String()
+	backendUUID1 := tc.Must(c, coreobjectstore.NewUUID).String()
+	backendUUID2 := tc.Must(c, coreobjectstore.NewUUID).String()
+
+	creds := domainobjectstore.S3Credentials{
+		Endpoint:     "https://s3.example.com",
+		AccessKey:    "access-key",
+		SecretKey:    "secret-key",
+		SessionToken: "session-token",
+	}
+
+	err := st.SetObjectStoreBackendToS3(c.Context(), backendUUID0, creds)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Force the file backend to be marked as dead.
+	s.markBackendAsDead(c, "f44ea516-22ad-4161-b2bd-cbae9d7a9412")
+
+	err = st.SetObjectStoreBackendToS3(c.Context(), backendUUID1, creds)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.StartDraining(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Force the first backend to be marked as dead.
+	s.markBackendAsDead(c, backendUUID0)
+
+	err = st.SetObjectStoreBackendToS3(c.Context(), backendUUID2, creds)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingAlreadyInProgress)
+
+	err = st.SetDrainingPhase(c.Context(), "foo", coreobjectstore.PhaseCompleted)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.SetObjectStoreBackendToS3(c.Context(), backendUUID2, creds)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestSetObjectStoreBackendToS3WithActiveDrainingBackend(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
+
+	backendUUID0 := tc.Must(c, coreobjectstore.NewUUID).String()
+	backendUUID1 := tc.Must(c, coreobjectstore.NewUUID).String()
+
+	creds := domainobjectstore.S3Credentials{
+		Endpoint:     "https://s3.example.com",
+		AccessKey:    "access-key",
+		SecretKey:    "secret-key",
+		SessionToken: "session-token",
+	}
+
+	// This backend is ignored, as the draining phase is not active.
+	err := st.SetObjectStoreBackendToS3(c.Context(), backendUUID0, creds)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Force the file backend to be marked as dead.
+	s.markBackendAsDead(c, "f44ea516-22ad-4161-b2bd-cbae9d7a9412")
+
+	err = st.SetObjectStoreBackendToS3(c.Context(), backendUUID1, creds)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.StartDraining(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+
+	info, err := st.GetActiveDrainingInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info, tc.DeepEquals, domainobjectstore.DrainingInfo{
+		Phase:             string(coreobjectstore.PhaseDraining),
+		UUID:              "foo",
+		FromBackendUUID:   new(backendUUID0),
+		ActiveBackendUUID: backendUUID1,
+	})
+}
+
+func (s *stateSuite) TestSetObjectStoreBackendToS3(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
+
+	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
+	creds := domainobjectstore.S3Credentials{
+		Endpoint:     "https://s3.example.com",
+		AccessKey:    "access-key",
+		SecretKey:    "secret-key",
+		SessionToken: "session-token",
+	}
+
+	err := st.SetObjectStoreBackendToS3(c.Context(), backendUUID, creds)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var lifeID, typeID int
 	var dyingTypeID int
 	var endpoint, accessKey, secretKey, sessionToken string
-	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, `
 SELECT life_id, type_id FROM object_store_backend
 WHERE uuid = ?`, backendUUID)
@@ -836,7 +957,7 @@ WHERE object_store_backend_uuid = ?`, backendUUID)
 }
 
 func (s *stateSuite) TestMarkObjectStoreBackendAsDrained(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	drainingUUID := tc.Must(c, coreobjectstore.NewUUID).String()
 	activeUUID := tc.Must(c, coreobjectstore.NewUUID).String()
@@ -852,6 +973,9 @@ func (s *stateSuite) TestMarkObjectStoreBackendAsDrained(c *tc.C) {
 	err := st.SetObjectStoreBackendToS3(c.Context(), drainingUUID, creds)
 	c.Assert(err, tc.ErrorIsNil)
 
+	// Force the old backend to be marked as dead.
+	s.markBackendAsDead(c, "f44ea516-22ad-4161-b2bd-cbae9d7a9412")
+
 	// Second call marks the first S3 backend as dying and activates a new one.
 	err = st.SetObjectStoreBackendToS3(c.Context(), activeUUID, creds)
 	c.Assert(err, tc.ErrorIsNil)
@@ -859,12 +983,9 @@ func (s *stateSuite) TestMarkObjectStoreBackendAsDrained(c *tc.C) {
 	err = st.MarkObjectStoreBackendAsDrained(c.Context(), drainingUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	runner, err := s.TxnRunnerFactory()(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
 	var drainingLifeID, activeLifeID int
 	var credsCount int
-	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, `
 SELECT life_id FROM object_store_backend
 WHERE uuid = ?`, drainingUUID)
@@ -896,7 +1017,7 @@ WHERE uuid = ?`, activeUUID)
 }
 
 func (s *stateSuite) TestMarkObjectStoreBackendAsDrainedReentrant(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	drainingUUID := tc.Must(c, coreobjectstore.NewUUID).String()
 	activeUUID := tc.Must(c, coreobjectstore.NewUUID).String()
@@ -911,6 +1032,9 @@ func (s *stateSuite) TestMarkObjectStoreBackendAsDrainedReentrant(c *tc.C) {
 	err := st.SetObjectStoreBackendToS3(c.Context(), drainingUUID, creds)
 	c.Assert(err, tc.ErrorIsNil)
 
+	// Force the old backend to be marked as dead.
+	s.markBackendAsDead(c, "f44ea516-22ad-4161-b2bd-cbae9d7a9412")
+
 	// Second promotion marks the first S3 backend as dying and activates a new
 	// one.
 	err = st.SetObjectStoreBackendToS3(c.Context(), activeUUID, creds)
@@ -924,12 +1048,9 @@ func (s *stateSuite) TestMarkObjectStoreBackendAsDrainedReentrant(c *tc.C) {
 	err = st.MarkObjectStoreBackendAsDrained(c.Context(), drainingUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	runner, err := s.TxnRunnerFactory()(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
 	var lifeID int
 	var credsCount int
-	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, `
 SELECT life_id FROM object_store_backend
 WHERE uuid = ?`, drainingUUID)
@@ -953,13 +1074,10 @@ WHERE object_store_backend_uuid = ?`, drainingUUID)
 }
 
 func (s *stateSuite) TestGetActiveObjectStoreBackend(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
-	runner, err := s.TxnRunnerFactory()(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	var activeUUID string
-	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, `
 SELECT uuid FROM object_store_backend
 WHERE life_id = 0`)
@@ -979,7 +1097,7 @@ WHERE life_id = 0`)
 }
 
 func (s *stateSuite) TestGetActiveObjectStoreBackendS3(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
 	creds := domainobjectstore.S3Credentials{
@@ -1008,12 +1126,9 @@ func (s *stateSuite) TestGetActiveObjectStoreBackendS3(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetActiveObjectStoreBackendNotFound(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
-	runner, err := s.TxnRunnerFactory()(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 UPDATE object_store_backend
 SET life_id = 1`)
@@ -1026,13 +1141,10 @@ SET life_id = 1`)
 }
 
 func (s *stateSuite) TestGetObjectStoreBackend(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
-	runner, err := s.TxnRunnerFactory()(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	var backendUUID string
-	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, `
 SELECT uuid FROM object_store_backend
 WHERE life_id = 0`)
@@ -1052,7 +1164,7 @@ WHERE life_id = 0`)
 }
 
 func (s *stateSuite) TestGetObjectStoreBackendS3(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
 	creds := domainobjectstore.S3Credentials{
@@ -1082,10 +1194,21 @@ func (s *stateSuite) TestGetObjectStoreBackendS3(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetObjectStoreBackendNotFound(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory())
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
 	missingUUID := tc.Must(c, coreobjectstore.NewUUID).String()
 
 	_, err := st.GetObjectStoreBackend(c.Context(), missingUUID)
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrBackendNotFound)
+}
+
+func (s *stateSuite) markBackendAsDead(c *tc.C, uuid string) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE object_store_backend
+SET life_id = 2
+WHERE uuid = ?`, uuid)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }

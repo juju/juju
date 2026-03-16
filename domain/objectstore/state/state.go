@@ -6,8 +6,10 @@ package state
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
 
 	coredatabase "github.com/juju/juju/core/database"
@@ -23,12 +25,15 @@ import (
 // State implements the domain objectstore state.
 type State struct {
 	*domain.StateBase
+
+	clock clock.Clock
 }
 
 // NewState returns a new State instance.
-func NewState(factory coredatabase.TxnRunnerFactory) *State {
+func NewState(factory coredatabase.TxnRunnerFactory, clock clock.Clock) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
+		clock:     clock,
 	}
 }
 
@@ -533,7 +538,8 @@ WHERE b.life_id = 1`, backendUUID{})
 	toBackendStmt, err := s.Prepare(`
 SELECT b.uuid AS &backendUUID.uuid
 FROM object_store_backend AS b
-WHERE b.life_id = 0`, backendUUID{})
+WHERE b.life_id = 0
+ORDER BY b.updated_at DESC`, backendUUID{})
 	if err != nil {
 		return errors.Errorf("preparing to object store backend statement: %w", err)
 	}
@@ -801,8 +807,12 @@ func (s *State) SetObjectStoreBackendToS3(ctx context.Context, uuid string, cred
 		SecretKey    string `db:"static_secret"`
 		SessionToken string `db:"session_token"`
 	}
-	type uuidIdent struct {
-		UUID string `db:"uuid"`
+	type newBackend struct {
+		UUID      string    `db:"uuid"`
+		UpdatedAt time.Time `db:"updated_at"`
+	}
+	type count struct {
+		Count int `db:"count"`
 	}
 
 	s3Creds := s3Credentials{
@@ -812,11 +822,22 @@ func (s *State) SetObjectStoreBackendToS3(ctx context.Context, uuid string, cred
 		SecretKey:    credential.SecretKey,
 		SessionToken: credential.SessionToken,
 	}
-	backendUUID := uuidIdent{UUID: uuid}
+	backend := newBackend{
+		UUID:      uuid,
+		UpdatedAt: s.clock.Now().UTC(),
+	}
 
 	// Force the active backend to be marked as dying, this will ensure that
 	// we can ensure that there is only one active backend at a time, and that
 	// we can monitor the process of draining from on to another.
+
+	getPhaseInfoStmt, err := s.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM object_store_drain_info AS di
+WHERE di.phase_type_id = 1`, count{})
+	if err != nil {
+		return errors.Errorf("preparing select draining phase statement: %w", err)
+	}
 
 	setBackendDyingStmt, err := s.Prepare(`
 UPDATE object_store_backend
@@ -827,20 +848,36 @@ WHERE life_id = 0`)
 	}
 
 	insertBackendInfoStmt, err := s.Prepare(`
-INSERT INTO object_store_backend (uuid, life_id, type_id)
-VALUES ($uuidIdent.uuid, 0, 1)`, backendUUID)
+INSERT INTO object_store_backend (uuid, life_id, type_id, updated_at)
+VALUES ($newBackend.uuid, 0, 1, $newBackend.updated_at)`, backend)
 	if err != nil {
 		return errors.Errorf("preparing insert object store backend statement: %w", err)
 	}
 
 	s3InsertStmt, err := s.Prepare(`
-INSERT INTO object_store_backend_s3_credential (object_store_backend_uuid, endpoint, static_key, static_secret, session_token)
+INSERT INTO object_store_backend_s3_credential (
+    object_store_backend_uuid, 
+    endpoint, 
+    static_key, 
+    static_secret, 
+    session_token
+)
 VALUES ($s3Credentials.*)
 `, s3Creds)
 	if err != nil {
 		return errors.Errorf("preparing insert object store information statement: %w", err)
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Ensure that we're not currently in a draining phase, as we don't want
+		// to update the backend information while we're in the middle of a
+		// draining process.
+		var phaseCount count
+		if err := tx.Query(ctx, getPhaseInfoStmt).Get(&phaseCount); err != nil {
+			return errors.Errorf("checking draining phase: %w", err)
+		} else if phaseCount.Count > 0 {
+			return objectstoreerrors.ErrDrainingAlreadyInProgress
+		}
+
 		var outcome sqlair.Outcome
 		if err := tx.Query(ctx, setBackendDyingStmt).Get(&outcome); err != nil {
 			return errors.Errorf("updating object store backend: %w", err)
@@ -855,7 +892,9 @@ VALUES ($s3Credentials.*)
 
 		// Now activate the new backend by inserting the new backend
 		// information, and the credentials for the S3 backend.
-		if err := tx.Query(ctx, insertBackendInfoStmt, backendUUID).Get(&outcome); err != nil {
+		if err := tx.Query(ctx, insertBackendInfoStmt, backend).Get(&outcome); database.IsErrConstraintPrimaryKey(err) {
+			return objectstoreerrors.ErrBackendAlreadyExists
+		} else if err != nil {
 			return errors.Errorf("inserting object store backend: %w", err)
 		}
 		if rows, err := outcome.Result().RowsAffected(); err != nil {

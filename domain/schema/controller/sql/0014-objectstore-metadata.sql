@@ -51,6 +51,7 @@ CREATE TABLE object_store_backend (
     uuid TEXT NOT NULL PRIMARY KEY,
     life_id INT NOT NULL,
     type_id INT NOT NULL,
+    updated_at DATETIME NOT NULL,
     CONSTRAINT fk_object_store_backend_life_id
     FOREIGN KEY (life_id)
     REFERENCES life (id),
@@ -59,18 +60,19 @@ CREATE TABLE object_store_backend (
     REFERENCES object_store_backend_type (id)
 );
 
-INSERT INTO object_store_backend (uuid, life_id, type_id) VALUES
-('f44ea516-22ad-4161-b2bd-cbae9d7a9412', 0, 0);
+INSERT INTO object_store_backend (uuid, life_id, type_id, updated_at) VALUES
+('f44ea516-22ad-4161-b2bd-cbae9d7a9412', 0, 0, current_timestamp);
 
 -- A unique constraint over a constant index ensures only 1 entry matching the
 -- condition can exist. In this case only 1 object store backend of type file
 -- can exist, but multiple s3 backends can exist.
-CREATE UNIQUE INDEX idx_singleton_object_store_backend ON object_store_backend ((1)) WHERE type_id = 0;
+CREATE UNIQUE INDEX idx_singleton_object_store_backend_type_id ON object_store_backend ((1)) WHERE type_id = 0;
 
--- This index ensures only 1 object store backend can exist with a life_id of 0,
--- which is the life_id used for the file backend. This ensures only 1 file
--- backend can exist at a time.
-CREATE UNIQUE INDEX idx_object_store_backend_life_id ON object_store_backend (life_id) WHERE life_id = 0;
+-- This unique constraint ensures only 1 object store backend can exist with a
+-- life_id of 0, which is the life_id used for the file backend. This ensures
+-- only 1 file backend can exist at a time.
+CREATE UNIQUE INDEX idx_singleton_object_store_backend_life_id_alive ON object_store_backend ((1)) WHERE life_id = 0;
+CREATE UNIQUE INDEX idx_singleton_object_store_backend_life_id_dying ON object_store_backend ((1)) WHERE life_id = 1;
 
 CREATE TABLE object_store_backend_s3_credential (
     object_store_backend_uuid TEXT NOT NULL PRIMARY KEY,

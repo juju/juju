@@ -50,4 +50,7 @@ const (
 
 	// ErrBackendNotFound is returned when the backend is not found.
 	ErrBackendNotFound = errors.ConstError("backend not found")
+
+	// ErrBackendAlreadyExists is returned when the backend already exists.
+	ErrBackendAlreadyExists = errors.ConstError("backend already exists")
 )

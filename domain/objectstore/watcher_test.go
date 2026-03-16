@@ -8,6 +8,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/changestream"
@@ -35,7 +36,7 @@ func (s *watcherSuite) TestWatchWithAdd(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "objectstore")
 
 	svc := service.NewWatchableService(
-		state.NewState(func(ctx context.Context) (database.TxnRunner, error) { return factory(ctx) }),
+		state.NewState(func(ctx context.Context) (database.TxnRunner, error) { return factory(ctx) }, clock.WallClock),
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),
@@ -73,7 +74,7 @@ func (s *watcherSuite) TestWatchWithDelete(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "objectstore")
 
 	svc := service.NewWatchableService(
-		state.NewState(func(ctx context.Context) (database.TxnRunner, error) { return factory(ctx) }),
+		state.NewState(func(ctx context.Context) (database.TxnRunner, error) { return factory(ctx) }, clock.WallClock),
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),
@@ -126,7 +127,7 @@ func (s *watcherSuite) TestWatchDraining(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "objectstore")
 
 	svc := service.NewWatchableDrainingService(
-		state.NewState(func(ctx context.Context) (database.TxnRunner, error) { return factory(ctx) }),
+		state.NewState(func(ctx context.Context) (database.TxnRunner, error) { return factory(ctx) }, clock.WallClock),
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),
