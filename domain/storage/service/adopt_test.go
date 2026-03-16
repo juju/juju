@@ -416,13 +416,6 @@ func (s *adoptFilesystemSuite) TestAdoptFilesystemVolumeSourceNotImporter(c *tc.
 	s.provider.EXPECT().VolumeSource(
 		gomock.Any()).Return(s.volumeSource.MockVolumeSource, nil)
 
-	s.state.EXPECT().GetStorageResourceTagInfoForModel(
-		ctx, config.ResourceTagsKey,
-	).Return(domainstorageprovisioning.ModelResourceTagInfo{
-		ControllerUUID: "controller-uuid",
-		ModelUUID:      "model-uuid",
-	}, nil)
-
 	svc := s.makeService()
 	_, err := svc.AdoptFilesystem(
 		ctx, storageName, poolUUID, "provider-id", false)
@@ -455,13 +448,6 @@ func (s *adoptFilesystemSuite) TestAdoptFilesystemFilesystemSourceNotImporter(c 
 	// Return a filesystem source that doesn't implement FilesystemImporter
 	s.provider.EXPECT().FilesystemSource(
 		gomock.Any()).Return(s.filesystemSource.MockFilesystemSource, nil)
-
-	s.state.EXPECT().GetStorageResourceTagInfoForModel(
-		ctx, config.ResourceTagsKey,
-	).Return(domainstorageprovisioning.ModelResourceTagInfo{
-		ControllerUUID: "controller-uuid",
-		ModelUUID:      "model-uuid",
-	}, nil)
 
 	svc := s.makeService()
 	_, err := svc.AdoptFilesystem(
