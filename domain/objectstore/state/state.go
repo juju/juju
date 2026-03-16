@@ -841,8 +841,8 @@ WHERE di.phase_type_id = 1`, count{})
 
 	setBackendDyingStmt, err := s.Prepare(`
 UPDATE object_store_backend
-SET life_id = 1
-WHERE life_id = 0`)
+SET life_id = 1, updated_at = $newBackend.updated_at
+WHERE life_id = 0`, backend)
 	if err != nil {
 		return errors.Errorf("preparing update object store backend statement: %w", err)
 	}
@@ -879,7 +879,7 @@ VALUES ($s3Credentials.*)
 		}
 
 		var outcome sqlair.Outcome
-		if err := tx.Query(ctx, setBackendDyingStmt).Get(&outcome); err != nil {
+		if err := tx.Query(ctx, setBackendDyingStmt, backend).Get(&outcome); err != nil {
 			return errors.Errorf("updating object store backend: %w", err)
 		}
 		if rows, err := outcome.Result().RowsAffected(); err != nil {

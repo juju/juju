@@ -5,6 +5,7 @@ package objectstore_test
 
 import (
 	"context"
+	"database/sql"
 	stdtesting "testing"
 	"time"
 
@@ -138,7 +139,20 @@ func (s *watcherSuite) TestWatchDraining(c *tc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	harness.AddTest(c, func(c *tc.C) {
-		err := svc.SetDrainingPhase(c.Context(), objectstore.PhaseDraining)
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, `UPDATE object_store_backend SET life_id = 1`); err != nil {
+				return err
+			}
+
+			_, err := tx.ExecContext(ctx, `
+INSERT INTO object_store_backend (uuid, life_id, type_id, updated_at) 
+VALUES ('foo', 0, 1, CURRENT_TIMESTAMP)
+`)
+			return err
+		})
+		c.Assert(err, tc.ErrorIsNil)
+
+		err = svc.SetDrainingPhase(c.Context(), objectstore.PhaseDraining)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
