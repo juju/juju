@@ -24,10 +24,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 type SecretsSuite struct {
 	testhelpers.IsolationSuite
 
@@ -62,7 +58,7 @@ func (s *SecretsSuite) TestAddSecretBackends(c *tc.C) {
 		ID:                  "backend-id",
 		Name:                "myvault",
 		BackendType:         "vault",
-		TokenRotateInterval: ptr(200 * time.Minute),
+		TokenRotateInterval: new(200 * time.Minute),
 		Config:              addedConfig,
 	}).Return(nil)
 	s.mockBackendService.EXPECT().CreateSecretBackend(gomock.Any(), secrets.SecretBackend{
@@ -78,7 +74,7 @@ func (s *SecretsSuite) TestAddSecretBackends(c *tc.C) {
 			SecretBackend: params.SecretBackend{
 				Name:                "myvault",
 				BackendType:         "vault",
-				TokenRotateInterval: ptr(200 * time.Minute),
+				TokenRotateInterval: new(200 * time.Minute),
 				Config:              map[string]interface{}{"endpoint": "http://vault"},
 			},
 		}, {
@@ -132,7 +128,7 @@ func (s *SecretsSuite) assertListSecretBackends(c *tc.C, reveal bool) {
 					ID:                  "backend-id",
 					Name:                "myvault",
 					BackendType:         "vault",
-					TokenRotateInterval: ptr(666 * time.Minute),
+					TokenRotateInterval: new(666 * time.Minute),
 					Config: map[string]any{
 						"endpoint": "http://vault",
 						"token":    "s.ajehjdee",
@@ -165,7 +161,7 @@ func (s *SecretsSuite) assertListSecretBackends(c *tc.C, reveal bool) {
 				Result: params.SecretBackend{
 					Name:                "myvault",
 					BackendType:         "vault",
-					TokenRotateInterval: ptr(666 * time.Minute),
+					TokenRotateInterval: new(666 * time.Minute),
 					Config: map[string]any{
 						"endpoint": "http://vault",
 						"token":    "s.ajehjdee",
@@ -211,8 +207,8 @@ func (s *SecretsSuite) TestUpdateSecretBackends(c *tc.C) {
 		secretbackendservice.UpdateSecretBackendParams{
 			UpdateSecretBackendParams: secretbackend.UpdateSecretBackendParams{
 				BackendIdentifier:   secretbackend.BackendIdentifier{Name: "myvault"},
-				NewName:             ptr("new-name"),
-				TokenRotateInterval: ptr(200 * time.Minute),
+				NewName:             new("new-name"),
+				TokenRotateInterval: new(200 * time.Minute),
 				Config: map[string]any{
 					"endpoint":        "http://vault",
 					"namespace":       "foo",
@@ -234,8 +230,8 @@ func (s *SecretsSuite) TestUpdateSecretBackends(c *tc.C) {
 	results, err := facade.UpdateSecretBackends(c.Context(), params.UpdateSecretBackendArgs{
 		Args: []params.UpdateSecretBackendArg{{
 			Name:                "myvault",
-			NameChange:          ptr("new-name"),
-			TokenRotateInterval: ptr(200 * time.Minute),
+			NameChange:          new("new-name"),
+			TokenRotateInterval: new(200 * time.Minute),
 			Config: map[string]interface{}{
 				"endpoint":        "http://vault",
 				"namespace":       "foo",

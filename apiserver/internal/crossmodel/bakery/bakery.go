@@ -80,7 +80,7 @@ type DeclaredValues struct {
 func NewDeclaredValues(userName, sourceModelUUID, offerUUID, relationKey string) DeclaredValues {
 	var p *string
 	if userName != "" {
-		p = ptr(userName)
+		p = new(userName)
 	}
 	return DeclaredValues{
 		userName:        p,
@@ -238,8 +238,4 @@ func (o *baseBakery) AllowedAuth(ctx context.Context, op bakery.Op, mac macaroon
 		return nil, err
 	}
 	return authInfo.Conditions(), nil
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

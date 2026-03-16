@@ -792,7 +792,7 @@ func (s *updateUnitPortsSuite) createApplicationWithRelations(c *tc.C, appName s
 				Source:        charm.LocalSource,
 			},
 			Constraints: constraints.Constraints{
-				Arch: ptr(arch.AMD64),
+				Arch: new(arch.AMD64),
 			},
 		},
 	}, nil)

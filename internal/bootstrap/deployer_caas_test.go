@@ -75,7 +75,7 @@ func (s *deployerCAASSuite) TestCompleteCAASProcess(c *tc.C) {
 
 	s.caasApplicationService.EXPECT().UpdateCloudService(gomock.Any(), bootstrap.ControllerApplicationName, controllerProviderID(unitName), providerAddress).Return(nil)
 	s.caasApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, applicationservice.UpdateCAASUnitParams{
-		ProviderID: ptr("controller-0"),
+		ProviderID: new("controller-0"),
 	})
 	s.agentPasswordService.EXPECT().SetUnitPassword(gomock.Any(), unitName, cfg.UnitPassword)
 

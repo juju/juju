@@ -46,10 +46,6 @@ func (s *ListSuite) setup(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *ListSuite) TestListTabular(c *tc.C) {
 	defer s.setup(c).Finish()
 
@@ -57,7 +53,7 @@ func (s *ListSuite) TestListTabular(c *tc.C) {
 		[]apisecretbackends.SecretBackend{{
 			Name:                "myvault",
 			BackendType:         "vault",
-			TokenRotateInterval: ptr(666 * time.Minute),
+			TokenRotateInterval: new(666 * time.Minute),
 			Config:              map[string]interface{}{"endpoint": "http://vault"},
 			NumSecrets:          666,
 			Status:              status.Error,
@@ -91,7 +87,7 @@ func (s *ListSuite) TestListYAML(c *tc.C) {
 			ID:                  "vault-id",
 			Name:                "myvault",
 			BackendType:         "vault",
-			TokenRotateInterval: ptr(666 * time.Minute),
+			TokenRotateInterval: new(666 * time.Minute),
 			Config:              map[string]interface{}{"endpoint": "http://vault"},
 			NumSecrets:          666,
 			Status:              status.Error,

@@ -57,21 +57,21 @@ func (s *PlacementSuite) TestPlacement(c *tc.C) {
 				Scope:     instance.MachineScope,
 				Directive: "0/kvm/0",
 			},
-			err: ptr(`container type "kvm" not supported`),
+			err: new(`container type "kvm" not supported`),
 		},
 		{
 			input: &instance.Placement{
 				Scope:     instance.MachineScope,
 				Directive: "0/lxd",
 			},
-			err: ptr(`placement directive "0/lxd" is not in the form of <parent>/<scope>/<child>`),
+			err: new(`placement directive "0/lxd" is not in the form of <parent>/<scope>/<child>`),
 		},
 		{
 			input: &instance.Placement{
 				Scope:     instance.MachineScope,
 				Directive: "0/lxd/0/0",
 			},
-			err: ptr(`placement directive "0/lxd/0/0" is not in the form of <parent>/<scope>/<child>`),
+			err: new(`placement directive "0/lxd/0/0" is not in the form of <parent>/<scope>/<child>`),
 		},
 		{
 			input: &instance.Placement{
@@ -87,7 +87,7 @@ func (s *PlacementSuite) TestPlacement(c *tc.C) {
 				Scope: string(instance.NONE),
 			},
 			output: Placement{},
-			err:    ptr(`invalid container type "none"`),
+			err:    new(`invalid container type "none"`),
 		},
 		{
 			input: &instance.Placement{
@@ -122,8 +122,4 @@ func (s *PlacementSuite) TestPlacement(c *tc.C) {
 		}
 		c.Check(result, tc.Equals, test.output)
 	}
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

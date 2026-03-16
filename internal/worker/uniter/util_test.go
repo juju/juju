@@ -1244,7 +1244,7 @@ func (s waitUnitAgent) step(c tc.LikeC, ctx *testContext) {
 			)
 			ctx.unit.mu.Lock()
 			resolved = ctx.unit.resolved
-			urlStr = ptr(ctx.unit.charmURL)
+			urlStr = new(ctx.unit.charmURL)
 			ctx.unit.mu.Unlock()
 
 			if resolved != s.resolved {
@@ -2068,10 +2068,6 @@ func (s verifyStorageDetached) step(c tc.LikeC, ctx *testContext) {
 	ctx.stateMu.Lock()
 	defer ctx.stateMu.Unlock()
 	c.Assert(ctx.storage, tc.HasLen, 0)
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }
 
 type createSecret struct{}

@@ -2490,7 +2490,7 @@ func (s *uniterRelationSuite) TestSetRelationStatus(c *tc.C) {
 	s.expectGetRelationUUIDByID(relID, relationUUID, nil)
 	relStatus := status.StatusInfo{
 		Status: status.Joined,
-		Since:  ptr(s.uniter.clock.Now()),
+		Since:  new(s.uniter.clock.Now()),
 	}
 	s.expectSetRelationStatus(s.wordpressUnitTag.Id(), relationUUID, relStatus)
 

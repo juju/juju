@@ -26,11 +26,11 @@ func TestStateSuite(t *stdtesting.T) {
 func (s *stateSuite) TestSetUnitState(c *tc.C) {
 	agentState := unitstate.UnitState{
 		Name:          s.unitName,
-		CharmState:    ptr(map[string]string{"one-key": "one-value"}),
-		UniterState:   ptr("some-uniter-state-yaml"),
-		RelationState: ptr(map[int]string{1: "one-value"}),
-		StorageState:  ptr("some-storage-state-yaml"),
-		SecretState:   ptr("some-secret-state-yaml"),
+		CharmState:    new(map[string]string{"one-key": "one-value"}),
+		UniterState:   new("some-uniter-state-yaml"),
+		RelationState: new(map[int]string{1: "one-value"}),
+		StorageState:  new("some-storage-state-yaml"),
+		SecretState:   new("some-secret-state-yaml"),
 	}
 	s.state.SetUnitState(c.Context(), agentState)
 
@@ -50,7 +50,7 @@ func (s *stateSuite) TestSetUnitState(c *tc.C) {
 func (s *stateSuite) TestSetUnitStateJustUniterState(c *tc.C) {
 	agentState := unitstate.UnitState{
 		Name:        s.unitName,
-		UniterState: ptr("some-uniter-state-yaml"),
+		UniterState: new("some-uniter-state-yaml"),
 	}
 	s.state.SetUnitState(c.Context(), agentState)
 

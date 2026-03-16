@@ -142,9 +142,9 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 	}
 
 	unit0Update := applicationservice.UpdateCAASUnitParams{
-		ProviderID: ptr("a"),
-		Address:    ptr("1.2.3.5"),
-		Ports:      ptr([]string{"80", "443"}),
+		ProviderID: new("a"),
+		Address:    new("1.2.3.5"),
+		Ports:      new([]string{"80", "443"}),
 		AgentStatus: &status.StatusInfo{
 			Status: status.Idle,
 			Since:  &now,
@@ -182,9 +182,9 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 
 	lastReportedStatus := caasapplicationprovisioner.UpdateStatusState{
 		"test/1": {
-			ProviderID: ptr("b"),
-			Address:    ptr("1.2.3.6"),
-			Ports:      ptr([]string{"80", "443"}),
+			ProviderID: new("b"),
+			Address:    new("1.2.3.6"),
+			Ports:      new([]string{"80", "443"}),
 			AgentStatus: &status.StatusInfo{
 				Status:  status.Allocating,
 				Message: "same",
@@ -201,9 +201,9 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(currentReportedStatus, tc.DeepEquals, caasapplicationprovisioner.UpdateStatusState{
 		"test/0": {
-			ProviderID: ptr("a"),
-			Address:    ptr("1.2.3.5"),
-			Ports:      ptr([]string{"80", "443"}),
+			ProviderID: new("a"),
+			Address:    new("1.2.3.5"),
+			Ports:      new([]string{"80", "443"}),
 			AgentStatus: &status.StatusInfo{
 				Status: status.Idle,
 				Since:  &now,
@@ -215,9 +215,9 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 			},
 		},
 		"test/1": {
-			ProviderID: ptr("b"),
-			Address:    ptr("1.2.3.6"),
-			Ports:      ptr([]string{"80", "443"}),
+			ProviderID: new("b"),
+			Address:    new("1.2.3.6"),
+			Ports:      new([]string{"80", "443"}),
 			AgentStatus: &status.StatusInfo{
 				Status:  status.Allocating,
 				Message: "same",
@@ -623,8 +623,8 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 				},
 				"rootless": {
 					Resource: "rootless-image",
-					Uid:      ptr(5000),
-					Gid:      ptr(5001),
+					Uid:      new(5000),
+					Gid:      new(5001),
 				},
 			},
 		},
@@ -683,8 +683,8 @@ func (s *OpsSuite) TestAppAlive(c *tc.C) {
 				Image: coreresource.DockerImageDetails{
 					RegistryPath: "rootless:foo-bar",
 				},
-				Uid: ptr(5000),
-				Gid: ptr(5001),
+				Uid: new(5000),
+				Gid: new(5001),
 			},
 		},
 		IntroductionSecret:   "123456789",
@@ -851,8 +851,8 @@ func (s *OpsSuite) TestProvisioningInfo(c *tc.C) {
 			},
 			"rootless": {
 				Resource: "rootless-image",
-				Uid:      ptr(5000),
-				Gid:      ptr(5001),
+				Uid:      new(5000),
+				Gid:      new(5001),
 			},
 		},
 		Resources: map[string]charmresource.Meta{
@@ -922,8 +922,4 @@ func (s *OpsSuite) TestProvisioningInfo(c *tc.C) {
 		FilesystemTemplates: fsTemplates,
 		StorageResourceTags: storageResourceTags,
 	})
-}
-
-func ptr[T any](i T) *T {
-	return &i
 }

@@ -118,7 +118,7 @@ func ParsePlatform(s string) (Platform, error) {
 	case 3:
 		arch, os, channel = &p[0], &p[1], &p[2]
 	case 4:
-		arch, os, channel = &p[0], &p[1], ptr(fmt.Sprintf("%s/%s", p[2], p[3]))
+		arch, os, channel = &p[0], &p[1], new(fmt.Sprintf("%s/%s", p[2], p[3]))
 	default:
 		return Platform{}, errors.Errorf("platform is malformed; it has an invalid number of components %q", s)
 	}
@@ -142,10 +142,6 @@ func ParsePlatform(s string) (Platform, error) {
 	}
 
 	return platform, nil
-}
-
-func ptr[T any](s T) *T {
-	return &s
 }
 
 // ParsePlatformNormalize parses a string presenting a store platform.

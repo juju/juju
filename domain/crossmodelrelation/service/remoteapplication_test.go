@@ -39,7 +39,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOfferer(c *tc.C)
 	defer s.setupMocks(c).Finish()
 
 	offerUUID := tc.Must(c, offer.NewUUID)
-	offererControllerUUID := ptr(tc.Must(c, uuid.NewUUID).String())
+	offererControllerUUID := new(tc.Must(c, uuid.NewUUID).String())
 	offererModelUUID := tc.Must(c, uuid.NewUUID).String()
 	macaroon := newMacaroon(c, "test")
 
@@ -168,7 +168,7 @@ func (s *remoteApplicationServiceSuite) TestAddRemoteApplicationOffererInvalidRo
 	defer s.setupMocks(c).Finish()
 
 	offerUUID := tc.Must(c, offer.NewUUID)
-	offererControllerUUID := ptr(tc.Must(c, uuid.NewUUID).String())
+	offererControllerUUID := new(tc.Must(c, uuid.NewUUID).String())
 	offererModelUUID := tc.Must(c, uuid.NewUUID).String()
 	macaroon := newMacaroon(c, "test")
 

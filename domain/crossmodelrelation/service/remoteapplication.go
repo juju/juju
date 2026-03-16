@@ -329,7 +329,7 @@ func (s *Service) recordInitRemoteApplicationStatusHistory(
 ) {
 	statusInfo := corestatus.StatusInfo{
 		Status: corestatus.Unknown,
-		Since:  ptr(s.clock.Now()),
+		Since:  new(s.clock.Now()),
 	}
 
 	if err := s.statusHistory.RecordStatus(ctx, status.RemoteApplication.WithID(applicationName), statusInfo); err != nil {

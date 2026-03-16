@@ -289,7 +289,3 @@ func (c *domainCharm) IsUploaded() bool {
 func (c *domainCharm) Version() string {
 	return c.charm.Version()
 }
-
-func ptr[T any](v T) *T {
-	return &v
-}

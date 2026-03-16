@@ -52,7 +52,7 @@ func (s *leaderServiceSuite) TestSetRelationStatus(c *tc.C) {
 	sts := corestatus.StatusInfo{
 		Status:  corestatus.Broken,
 		Message: "message",
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 
 	expectedStatus := status.StatusInfo[status.RelationStatusType]{
@@ -82,7 +82,7 @@ func (s *leaderServiceSuite) TestSetRelationStatusRelationNotFound(c *tc.C) {
 	unitName := unittesting.GenNewName(c, "app/0")
 	sts := corestatus.StatusInfo{
 		Status: corestatus.Broken,
-		Since:  ptr(time.Now()),
+		Since:  new(time.Now()),
 	}
 	expectedStatus := status.StatusInfo[status.RelationStatusType]{
 		Status: status.RelationStatusTypeBroken,

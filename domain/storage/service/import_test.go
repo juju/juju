@@ -892,7 +892,7 @@ func (s *importSuite) TestImportVolumes(c *tc.C) {
 			},
 			AttachmentPlans: []internal.ImportVolumeAttachmentPlanArgs{
 				{
-					DeviceTypeID:     ptr(domainstorage.VolumeDeviceTypeISCSI),
+					DeviceTypeID:     new(domainstorage.VolumeDeviceTypeISCSI),
 					LifeID:           life.Alive,
 					NetNodeUUID:      netNodeUUIDTwo,
 					ProvisionScopeID: domainstorageprovisioning.ProvisionScopeModel,
@@ -1022,8 +1022,4 @@ func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	})
 
 	return ctrl
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

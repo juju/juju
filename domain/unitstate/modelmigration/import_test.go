@@ -54,11 +54,11 @@ func (s *importSuite) TestImport(c *tc.C) {
 		CharmState: &map[string]string{
 			"charm": "state",
 		},
-		UniterState: ptr("uniter"),
+		UniterState: new("uniter"),
 		RelationState: &map[int]string{
 			0: "relation",
 		},
-		StorageState: ptr("storage"),
+		StorageState: new("storage"),
 	})
 
 	importOp := importOperation{service: s.service}
@@ -83,8 +83,8 @@ func (s *importSuite) TestImportPartial(c *tc.C) {
 
 	s.service.EXPECT().SetState(gomock.Any(), unitstate.UnitState{
 		Name:         "prometheus/0",
-		UniterState:  ptr("uniter"),
-		StorageState: ptr("storage"),
+		UniterState:  new("uniter"),
+		StorageState: new("storage"),
 	})
 
 	importOp := importOperation{service: s.service}
@@ -109,15 +109,11 @@ func (s *importSuite) TestImportError(c *tc.C) {
 
 	s.service.EXPECT().SetState(gomock.Any(), unitstate.UnitState{
 		Name:         "prometheus/0",
-		UniterState:  ptr("uniter"),
-		StorageState: ptr("storage"),
+		UniterState:  new("uniter"),
+		StorageState: new("storage"),
 	}).Return(unitstateerrors.UnitNotFound)
 
 	importOp := importOperation{service: s.service}
 	err := importOp.Execute(c.Context(), model)
 	c.Assert(err, tc.ErrorIs, unitstateerrors.UnitNotFound)
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

@@ -33,10 +33,6 @@ func (d *dummyAdmissionCreator) EnsureMutatingWebhookConfiguration(ctx context.C
 	return d.EnsureMutatingWebhookConfigurationFunc(ctx)
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (a *AdmissionSuite) TestAdmissionCreatorObject(c *tc.C) {
 	var (
 		ensureWebhookCalled              = false
@@ -53,8 +49,8 @@ func (a *AdmissionSuite) TestAdmissionCreatorObject(c *tc.C) {
 	serviceRef := &admission.ServiceReference{
 		Namespace: namespace,
 		Name:      svcName,
-		Path:      ptr(path),
-		Port:      ptr(port),
+		Path:      new(path),
+		Port:      new(port),
 	}
 
 	admissionCreator, err := caasadmission.NewAdmissionCreator(

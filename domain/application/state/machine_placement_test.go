@@ -155,7 +155,7 @@ func (s *machinePlacementSuite) createUnit(c *tc.C) unit.Name {
 		},
 		MachineNetNodeUUID: netNodeUUID,
 		MachineUUID:        machinetesting.GenUUID(c),
-		Nonce:              ptr("foo"),
+		Nonce:              new("foo"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unitNames, tc.HasLen, 1)

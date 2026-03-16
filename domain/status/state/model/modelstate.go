@@ -2594,7 +2594,3 @@ func encodeIPAddress(address machineSpaceAddress) (corenetwork.SpaceAddress, err
 		},
 	}, nil
 }
-
-func ptr[T any](v T) *T {
-	return &v
-}

@@ -138,8 +138,8 @@ func (s *unitStateSuite) TestUpdateCAASUnitCloudContainer(c *tc.C) {
 	u := application.AddCAASUnitArg{
 		CloudContainer: &application.CloudContainer{
 			ProviderID: "some-id",
-			Ports:      ptr([]string{"666", "668"}),
-			Address: ptr(application.ContainerAddress{
+			Ports:      new([]string{"666", "668"}),
+			Address: new(application.ContainerAddress{
 				Device: application.ContainerDevice{
 					Name:              "placeholder",
 					DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
@@ -162,9 +162,9 @@ func (s *unitStateSuite) TestUpdateCAASUnitCloudContainer(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	cc := application.UpdateCAASUnitParams{
-		ProviderID: ptr("another-id"),
-		Ports:      ptr([]string{"666", "667"}),
-		Address:    ptr("2001:db8::1/24"),
+		ProviderID: new("another-id"),
+		Ports:      new([]string{"666", "667"}),
+		Address:    new("2001:db8::1/24"),
 	}
 	err = s.state.UpdateCAASUnit(c.Context(), unitNames[0], cc)
 	c.Assert(err, tc.ErrorIsNil)
@@ -196,21 +196,21 @@ WHERE u.name=?`,
 func (s *unitStateSuite) TestUpdateCAASUnitStatuses(c *tc.C) {
 	unitName, unitUUID := s.createNamedCAASUnit(c)
 
-	now := ptr(time.Now())
+	now := new(time.Now())
 	params := application.UpdateCAASUnitParams{
-		AgentStatus: ptr(status.StatusInfo[status.UnitAgentStatusType]{
+		AgentStatus: new(status.StatusInfo[status.UnitAgentStatusType]{
 			Status:  status.UnitAgentStatusIdle,
 			Message: "agent status",
 			Data:    []byte(`{"foo": "bar"}`),
 			Since:   now,
 		}),
-		WorkloadStatus: ptr(status.StatusInfo[status.WorkloadStatusType]{
+		WorkloadStatus: new(status.StatusInfo[status.WorkloadStatusType]{
 			Status:  status.WorkloadStatusWaiting,
 			Message: "workload status",
 			Data:    []byte(`{"foo": "bar"}`),
 			Since:   now,
 		}),
-		K8sPodStatus: ptr(status.StatusInfo[status.K8sPodStatusType]{
+		K8sPodStatus: new(status.StatusInfo[status.K8sPodStatusType]{
 			Status:  status.K8sPodStatusRunning,
 			Message: "container status",
 			Data:    []byte(`{"foo": "bar"}`),
@@ -241,8 +241,8 @@ func (s *unitStateSuite) TestRegisterCAASUnit(c *tc.C) {
 		UnitName:     "bar/0",
 		PasswordHash: "passwordhash",
 		ProviderID:   "some-id",
-		Address:      ptr("10.6.6.6/8"),
-		Ports:        ptr([]string{"0"}),
+		Address:      new("10.6.6.6/8"),
+		Ports:        new([]string{"0"}),
 		OrderedScale: true,
 		OrderedId:    0,
 	}
@@ -259,8 +259,8 @@ func (s *unitStateSuite) TestRegisterCAASUnitErrorNotScaling(c *tc.C) {
 		UnitName:     "foo/0",
 		PasswordHash: "passwordhash",
 		ProviderID:   "some-id",
-		Address:      ptr("10.6.6.6/8"),
-		Ports:        ptr([]string{"0"}),
+		Address:      new("10.6.6.6/8"),
+		Ports:        new([]string{"0"}),
 		OrderedScale: true,
 		OrderedId:    0,
 	}
@@ -287,8 +287,8 @@ func (s *unitStateSuite) TestRegisterCAASUnitErrorOutsideTargetScale(c *tc.C) {
 		UnitName:     "foo/2",
 		PasswordHash: "passwordhash",
 		ProviderID:   "some-id",
-		Address:      ptr("10.6.6.6/8"),
-		Ports:        ptr([]string{"0"}),
+		Address:      new("10.6.6.6/8"),
+		Ports:        new([]string{"0"}),
 		OrderedScale: true,
 		OrderedId:    2,
 	}
@@ -362,8 +362,8 @@ func (s *unitStateSuite) TestRegisterCAASUnitAlreadyExists(c *tc.C) {
 		UnitName:     unitName,
 		PasswordHash: "passwordhash",
 		ProviderID:   "some-id",
-		Address:      ptr("10.6.6.6/8"),
-		Ports:        ptr([]string{"666"}),
+		Address:      new("10.6.6.6/8"),
+		Ports:        new([]string{"666"}),
 		OrderedScale: true,
 		OrderedId:    0,
 	}
@@ -404,8 +404,8 @@ func (s *unitStateSuite) TestRegisterCAASUnitReplaceDead(c *tc.C) {
 		UnitName:     unitName,
 		PasswordHash: "passwordhash",
 		ProviderID:   "foo-0",
-		Address:      ptr("10.6.6.6/8"),
-		Ports:        ptr([]string{"666"}),
+		Address:      new("10.6.6.6/8"),
+		Ports:        new([]string{"666"}),
 		OrderedScale: true,
 		OrderedId:    0,
 	}
@@ -419,8 +419,8 @@ func (s *unitStateSuite) TestRegisterCAASUnitApplicationNotAlive(c *tc.C) {
 		UnitName:     "foo/0",
 		PasswordHash: "passwordhash",
 		ProviderID:   "foo-0",
-		Address:      ptr("10.6.6.6/8"),
-		Ports:        ptr([]string{"666"}),
+		Address:      new("10.6.6.6/8"),
+		Ports:        new([]string{"666"}),
 		OrderedScale: true,
 		OrderedId:    0,
 	}
@@ -445,8 +445,8 @@ WHERE application_uuid = ?`, 1, 3, appUUID)
 		UnitName:     "foo/2",
 		PasswordHash: "passwordhash",
 		ProviderID:   "foo-2",
-		Address:      ptr("10.6.6.6/0"),
-		Ports:        ptr([]string{"666"}),
+		Address:      new("10.6.6.6/0"),
+		Ports:        new([]string{"666"}),
 		OrderedScale: true,
 		OrderedId:    2,
 	}
@@ -471,8 +471,8 @@ WHERE application_uuid = ?`, true, 1, 3, appUUID)
 		UnitName:     "foo/2",
 		PasswordHash: "passwordhash",
 		ProviderID:   "foo-2",
-		Address:      ptr("10.6.6.6"),
-		Ports:        ptr([]string{"666"}),
+		Address:      new("10.6.6.6"),
+		Ports:        new([]string{"666"}),
 		OrderedScale: true,
 		OrderedId:    2,
 	}
@@ -497,8 +497,8 @@ WHERE application_uuid = ?`, true, 3, 1, appUUID)
 		UnitName:     "foo/2",
 		PasswordHash: "passwordhash",
 		ProviderID:   "foo-2",
-		Address:      ptr("10.6.6.6/8"),
-		Ports:        ptr([]string{"666"}),
+		Address:      new("10.6.6.6/8"),
+		Ports:        new([]string{"666"}),
 		OrderedScale: true,
 		OrderedId:    2,
 	}
@@ -570,7 +570,7 @@ func (s *unitStateSuite) TestAddUnitsApplicationNotAlive(c *tc.C) {
 func (s *unitStateSuite) TestAddIAASUnits(c *tc.C) {
 	appID := s.createIAASApplication(c, "foo", life.Alive)
 
-	now := ptr(time.Now())
+	now := new(time.Now())
 	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u := application.AddIAASUnitArg{
 		MachineNetNodeUUID: netNodeUUID,
@@ -626,14 +626,14 @@ func (s *unitStateSuite) TestAddIAASUnitWithSpaceConstraint(c *tc.C) {
 	appID := s.createIAASApplication(c, "foo", life.Alive)
 	s.addSpace(c, "beta")
 
-	now := ptr(time.Now())
+	now := new(time.Now())
 	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u := application.AddIAASUnitArg{
 		MachineNetNodeUUID: netNodeUUID,
 		MachineUUID:        tc.Must(c, coremachine.NewUUID),
 		AddUnitArg: application.AddUnitArg{
 			Constraints: constraints.Constraints{
-				Spaces: ptr([]constraints.SpaceConstraint{
+				Spaces: new([]constraints.SpaceConstraint{
 					{SpaceName: "beta", Exclude: false},
 				}),
 			},
@@ -686,7 +686,7 @@ func (s *unitStateSuite) TestAddIAASUnitWithSpaceConstraint(c *tc.C) {
 func (s *unitStateSuite) TestAddCAASUnits(c *tc.C) {
 	appID := s.createIAASApplication(c, "foo", life.Alive)
 
-	now := ptr(time.Now())
+	now := new(time.Now())
 	u := application.AddCAASUnitArg{
 		AddUnitArg: application.AddUnitArg{
 			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
@@ -745,7 +745,7 @@ SELECT charm_uuid FROM application WHERE uuid = ?
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	now := ptr(time.Now())
+	now := new(time.Now())
 	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	u := application.AddIAASUnitArg{
 		MachineNetNodeUUID: netNodeUUID,
@@ -786,7 +786,7 @@ SELECT charm_uuid FROM application WHERE uuid = ?
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	now := ptr(time.Now())
+	now := new(time.Now())
 	u := application.AddCAASUnitArg{
 		AddUnitArg: application.AddUnitArg{
 			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
@@ -879,9 +879,9 @@ func (s *unitStateSuite) TestGetUnitRefreshAttributes(c *tc.C) {
 	unitName, _ := s.createNamedIAASUnit(c)
 
 	cc := application.UpdateCAASUnitParams{
-		ProviderID: ptr("another-id"),
-		Ports:      ptr([]string{"666", "667"}),
-		Address:    ptr("2001:db8::1/8"),
+		ProviderID: new("another-id"),
+		Ports:      new([]string{"666", "667"}),
+		Address:    new("2001:db8::1/8"),
 	}
 	err := s.state.UpdateCAASUnit(c.Context(), unitName, cc)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1225,8 +1225,8 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 		},
 		CloudContainer: &application.CloudContainer{
 			ProviderID: "foo-id",
-			Ports:      ptr([]string{"666", "668"}),
-			Address: ptr(application.ContainerAddress{
+			Ports:      new([]string{"666", "668"}),
+			Address: new(application.ContainerAddress{
 				Value: "10.6.6.6/24",
 			}),
 		},
@@ -1241,8 +1241,8 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 		},
 		CloudContainer: &application.CloudContainer{
 			ProviderID: "bar-id",
-			Ports:      ptr([]string{"777"}),
-			Address: ptr(application.ContainerAddress{
+			Ports:      new([]string{"777"}),
+			Address: new(application.ContainerAddress{
 				Value: "10.6.6.7/24",
 			}),
 		},
@@ -1258,8 +1258,8 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 		},
 		CloudContainer: &application.CloudContainer{
 			ProviderID: "zoo-id",
-			Ports:      ptr([]string{"666", "668"}),
-			Address: ptr(application.ContainerAddress{
+			Ports:      new([]string{"666", "668"}),
+			Address: new(application.ContainerAddress{
 				Value: "10.6.6.8/24",
 			}),
 		},
@@ -1291,8 +1291,8 @@ func (s *unitStateSuite) TestGetUnitK8sPodInfo(c *tc.C) {
 	appUUID := s.createCAASApplication(c, "foo", life.Alive, application.AddCAASUnitArg{
 		CloudContainer: &application.CloudContainer{
 			ProviderID: "some-id",
-			Ports:      ptr([]string{"666", "668"}),
-			Address: ptr(application.ContainerAddress{
+			Ports:      new([]string{"666", "668"}),
+			Address: new(application.ContainerAddress{
 				Device: application.ContainerDevice{
 					Name:              "placeholder",
 					DeviceTypeID:      domainnetwork.DeviceTypeUnknown,

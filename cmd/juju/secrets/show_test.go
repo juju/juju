@@ -56,10 +56,6 @@ func (s *ShowSuite) TestInit(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "revision must be a positive integer")
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *ShowSuite) TestShow(c *tc.C) {
 	defer s.setup(c).Finish()
 
@@ -115,7 +111,7 @@ func (s *ShowSuite) TestShowByName(c *tc.C) {
 	expire := testing.NonZeroTime().UTC()
 	uri := coresecrets.NewURI()
 	s.secretsAPI.EXPECT().ListSecrets(gomock.Any(), false, coresecrets.Filter{
-		Label: ptr("my-secret"),
+		Label: new("my-secret"),
 	}).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
@@ -204,7 +200,7 @@ func (s *ShowSuite) TestShowRevisions(c *tc.C) {
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 			Revisions: []coresecrets.SecretRevisionMetadata{{
 				Revision:    666,
-				BackendName: ptr("some backend"),
+				BackendName: new("some backend"),
 			}},
 		}}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)

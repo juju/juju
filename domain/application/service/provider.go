@@ -886,7 +886,7 @@ func (s *ProviderService) resolveApplicationConstraints(
 	// ensures that we don't end up with an empty arch in places that expect
 	// one.
 	if !mergedCons.HasArch() {
-		mergedCons.Arch = ptr(arch.DefaultArchitecture)
+		mergedCons.Arch = new(arch.DefaultArchitecture)
 	}
 
 	return constraints.DecodeConstraints(mergedCons), nil

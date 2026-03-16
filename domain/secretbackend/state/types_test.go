@@ -25,10 +25,6 @@ func TestTypesSuite(t *testing.T) {
 	tc.Run(t, &typesSuite{})
 }
 
-func ptr[T any](x T) *T {
-	return &x
-}
-
 func (s *typesSuite) TestToSecretBackends(c *tc.C) {
 	rows := secretBackendRows{
 		{
@@ -129,7 +125,7 @@ lines`, "some-other-lines"})),
 			ID:                  "uuid1",
 			Name:                "name1",
 			BackendType:         "vault",
-			TokenRotateInterval: ptr(10 * time.Second),
+			TokenRotateInterval: new(10 * time.Second),
 			Config: map[string]any{
 				"config11": "content11",
 				"config12": "content12",
@@ -148,7 +144,7 @@ lines`, "some-other-lines"})),
 			ID:                  "uuid3",
 			Name:                "name3",
 			BackendType:         "vault",
-			TokenRotateInterval: ptr(30 * time.Second),
+			TokenRotateInterval: new(30 * time.Second),
 			Config: map[string]any{
 				"config31": "content31",
 			},

@@ -577,7 +577,7 @@ func (api *CrossModelRelationsAPIv3) getRemoteRelationChangeEvent(
 		RelationToken:           relationUUID.String(),
 		ApplicationOrOfferToken: applicationUUID.String(),
 		Life:                    change.Life,
-		Suspended:               ptr(change.Suspended),
+		Suspended:               new(change.Suspended),
 		SuspendedReason:         change.SuspendedReason,
 		ApplicationSettings:     appSettings,
 		ChangedUnits:            unitSettings,
@@ -949,8 +949,4 @@ func isNotAlive(l life.Value) bool {
 
 	// Check if the life is not alive.
 	return life.IsNotAlive(l)
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

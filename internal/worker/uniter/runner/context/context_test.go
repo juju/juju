@@ -691,19 +691,19 @@ func (s *InterfaceSuite) TestSecretMetadata(c *tc.C) {
 	uri3, err := ctx.CreateSecret(c.Context(), &jujuc.SecretCreateArgs{
 		Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "foo"},
 		SecretUpdateArgs: jujuc.SecretUpdateArgs{
-			Description: ptr("a new one"),
+			Description: new("a new one"),
 			Value:       coresecrets.NewSecretValue(map[string]string{"foo": "bar"}),
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	err = ctx.UpdateSecret(c.Context(), uri, &jujuc.SecretUpdateArgs{
-		Description: ptr("another"),
+		Description: new("another"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	ctx.GrantSecret(nil, uri, &jujuc.SecretGrantRevokeArgs{
-		UnitName:    ptr("gitlab/1"),
-		RelationKey: ptr("mariadb:db gitlab:db"),
-		Role:        ptr(coresecrets.RoleView),
+		UnitName:    new("gitlab/1"),
+		RelationKey: new("mariadb:db gitlab:db"),
+		Role:        new(coresecrets.RoleView),
 	})
 
 	err = ctx.RemoveSecret(nil, uri2, nil)
@@ -1182,7 +1182,7 @@ func (s *HookContextSuite) TestSecretGetFromPendingCreateChangesExisting(c *tc.C
 		func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string) {
 			arg := uniter.SecretCreateArg{Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: s.mockUnit.Name()}}
 			arg.URI = uri
-			arg.Label = ptr(label)
+			arg.Label = new(label)
 			arg.Value = coresecrets.NewSecretValue(value)
 			arg.Checksum = "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b"
 			hc.SetPendingSecretCreates(
@@ -1196,7 +1196,7 @@ func (s *HookContextSuite) TestSecretGetFromPendingCreateChanges(c *tc.C) {
 		func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string) {
 			arg := uniter.SecretCreateArg{Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: s.mockUnit.Name()}}
 			arg.URI = uri
-			arg.Label = ptr(label)
+			arg.Label = new(label)
 			arg.Value = coresecrets.NewSecretValue(value)
 			arg.Checksum = "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b"
 			hc.SetPendingSecretCreates(
@@ -1210,7 +1210,7 @@ func (s *HookContextSuite) TestAppSecretGetFromPendingCreateChanges(c *tc.C) {
 		func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string) {
 			arg := uniter.SecretCreateArg{Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: s.mockUnit.ApplicationName()}}
 			arg.URI = uri
-			arg.Label = ptr(label)
+			arg.Label = new(label)
 			arg.Value = coresecrets.NewSecretValue(value)
 			arg.Checksum = "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b"
 			hc.SetPendingSecretCreates(
@@ -1224,7 +1224,7 @@ func (s *HookContextSuite) TestSecretGetFromPendingUpdateChanges(c *tc.C) {
 		func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string) {
 			arg := uniter.SecretUpdateArg{}
 			arg.URI = uri
-			arg.Label = ptr(label)
+			arg.Label = new(label)
 			arg.Value = coresecrets.NewSecretValue(value)
 			arg.Checksum = "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b"
 			hc.SetPendingSecretUpdates(
@@ -1373,7 +1373,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingCreate(c 
 		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client api.SecretsAccessor, backend secrets.BackendsClient) {
 			arg := uniter.SecretCreateArg{Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: s.mockUnit.Name()}}
 			arg.URI = uri
-			arg.Label = ptr(label)
+			arg.Label = new(label)
 			arg.Value = coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 			arg.Checksum = "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b"
 			ctx.SetPendingSecretCreates(
@@ -1394,7 +1394,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingCreates
 
 	arg := uniter.SecretCreateArg{Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: s.mockUnit.Name()}}
 	arg.URI = uri
-	arg.Label = ptr(label)
+	arg.Label = new(label)
 	arg.Value = coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 	arg.Checksum = "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b"
 	hookContext.SetPendingSecretCreates(
@@ -1417,7 +1417,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretUpdatePendingCreateLabel(c *t
 
 	arg := uniter.SecretCreateArg{Owner: coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: s.mockUnit.Name()}}
 	arg.URI = uri
-	arg.Label = ptr(label)
+	arg.Label = new(label)
 	arg.Value = coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 	arg.Checksum = "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b"
 	hookContext.SetPendingSecretCreates(
@@ -1428,7 +1428,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretUpdatePendingCreateLabel(c *t
 	c.Assert(value.EncodedValues(), tc.DeepEquals, map[string]string{
 		"foo": "bar",
 	})
-	arg.Label = ptr("foobar")
+	arg.Label = new("foobar")
 	c.Assert(hookContext.PendingSecretCreates(), tc.DeepEquals, map[string]uniter.SecretCreateArg{
 		uri.ID: arg,
 	})
@@ -1439,7 +1439,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingUpdate(c 
 		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client api.SecretsAccessor, backend secrets.BackendsClient) {
 			arg := uniter.SecretUpdateArg{}
 			arg.URI = uri
-			arg.Label = ptr(label)
+			arg.Label = new(label)
 			arg.Value = coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 			arg.Checksum = "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b"
 			ctx.SetPendingSecretUpdates(
@@ -1460,7 +1460,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingUpdates
 
 	arg := uniter.SecretUpdateArg{}
 	arg.URI = uri
-	arg.Label = ptr(label)
+	arg.Label = new(label)
 	arg.Value = coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 	arg.Checksum = "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b"
 	hookContext.SetPendingSecretUpdates(
@@ -1486,7 +1486,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingUpdates
 
 	arg := uniter.SecretUpdateArg{}
 	arg.URI = uri
-	arg.Label = ptr(label)
+	arg.Label = new(label)
 	arg.Value = coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 	arg.Checksum = "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b"
 	hookContext.SetPendingSecretUpdates(
@@ -1510,7 +1510,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretUpdatePendingLabel(c *tc.C) {
 
 	arg := uniter.SecretUpdateArg{}
 	arg.URI = uri
-	arg.Label = ptr(label)
+	arg.Label = new(label)
 	arg.Value = coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 	arg.Checksum = "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b"
 	hookContext.SetPendingSecretUpdates(
@@ -1521,14 +1521,10 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretUpdatePendingLabel(c *tc.C) {
 	c.Assert(value.EncodedValues(), tc.DeepEquals, map[string]string{
 		"foo": "bar",
 	})
-	arg.Label = ptr("foobar")
+	arg.Label = new("foobar")
 	c.Assert(hookContext.PendingSecretUpdates(), tc.DeepEquals, map[string]uniter.SecretUpdateArg{
 		uri.ID: arg,
 	})
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }
 
 func (s *HookContextSuite) TestSecretCreateApplicationOwner(c *tc.C) {
@@ -1572,10 +1568,10 @@ func (s *HookContextSuite) assertSecretCreate(c *tc.C, owner coresecrets.Owner) 
 	uri, err := hookContext.CreateSecret(c.Context(), &jujuc.SecretCreateArgs{
 		SecretUpdateArgs: jujuc.SecretUpdateArgs{
 			Value:        value,
-			RotatePolicy: ptr(coresecrets.RotateDaily),
-			ExpireTime:   ptr(expiry),
-			Description:  ptr("my secret"),
-			Label:        ptr("foo"),
+			RotatePolicy: new(coresecrets.RotateDaily),
+			ExpireTime:   new(expiry),
+			Description:  new("my secret"),
+			Label:        new("foo"),
 		},
 		Owner: owner,
 	})
@@ -1586,10 +1582,10 @@ func (s *HookContextSuite) assertSecretCreate(c *tc.C, owner coresecrets.Owner) 
 			SecretUpsertArg: uniter.SecretUpsertArg{
 				URI:          uri,
 				Value:        value,
-				RotatePolicy: ptr(coresecrets.RotateDaily),
-				ExpireTime:   ptr(expiry),
-				Description:  ptr("my secret"),
-				Label:        ptr("foo"),
+				RotatePolicy: new(coresecrets.RotateDaily),
+				ExpireTime:   new(expiry),
+				Description:  new("my secret"),
+				Label:        new("foo"),
 				Checksum:     "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 			},
 			Owner: owner,
@@ -1626,7 +1622,7 @@ func (s *HookContextSuite) TestSecretCreateDupLabel(c *tc.C) {
 	_, err := hookContext.CreateSecret(c.Context(), &jujuc.SecretCreateArgs{
 		SecretUpdateArgs: jujuc.SecretUpdateArgs{
 			Value: value,
-			Label: ptr("foo"),
+			Label: new("foo"),
 		},
 		Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "myapp"},
 	})
@@ -1634,7 +1630,7 @@ func (s *HookContextSuite) TestSecretCreateDupLabel(c *tc.C) {
 	_, err = hookContext.CreateSecret(c.Context(), &jujuc.SecretCreateArgs{
 		SecretUpdateArgs: jujuc.SecretUpdateArgs{
 			Value: value,
-			Label: ptr("foo"),
+			Label: new("foo"),
 		},
 		Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "myapp"},
 	})
@@ -1660,9 +1656,9 @@ func (s *HookContextSuite) TestSecretUpdate(c *tc.C) {
 	value := coresecrets.NewSecretValue(data)
 	err := hookContext.UpdateSecret(c.Context(), uri, &jujuc.SecretUpdateArgs{
 		Value:        value,                        // will be overwritten by the new value.
-		RotatePolicy: ptr(coresecrets.RotateDaily), // will be kept.
-		Description:  ptr("my secret"),             // will be overwritten by the new value.
-		Label:        ptr("label1"),                // will be overwritten by the new value.
+		RotatePolicy: new(coresecrets.RotateDaily), // will be kept.
+		Description:  new("my secret"),             // will be overwritten by the new value.
+		Label:        new("label1"),                // will be overwritten by the new value.
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1671,10 +1667,10 @@ func (s *HookContextSuite) TestSecretUpdate(c *tc.C) {
 	newValue := coresecrets.NewSecretValue(newData)
 	expiry := time.Now()
 	err = hookContext.UpdateSecret(c.Context(), uri, &jujuc.SecretUpdateArgs{
-		ExpireTime:  ptr(expiry),          // will be merged.
+		ExpireTime:  new(expiry),          // will be merged.
 		Value:       newValue,             // will be the new value.
-		Description: ptr("my new secret"), // will be the new value.
-		Label:       ptr("label2"),        // will be the new value.
+		Description: new("my new secret"), // will be the new value.
+		Label:       new("label2"),        // will be the new value.
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(hookContext.PendingSecretUpdates(), tc.DeepEquals, map[string]uniter.SecretUpdateArg{
@@ -1683,10 +1679,10 @@ func (s *HookContextSuite) TestSecretUpdate(c *tc.C) {
 			SecretUpsertArg: uniter.SecretUpsertArg{
 				URI:          uri,
 				Value:        newValue,
-				RotatePolicy: ptr(coresecrets.RotateDaily),
-				ExpireTime:   ptr(expiry),
-				Description:  ptr("my new secret"),
-				Label:        ptr("label2"),
+				RotatePolicy: new(coresecrets.RotateDaily),
+				ExpireTime:   new(expiry),
+				Description:  new("my new secret"),
+				Label:        new("label2"),
 				Checksum:     "b3aa50894a7e14268a5ab22be352ece5e937f2f2037367e1d7b43a6574969493",
 			},
 		}})
@@ -1711,10 +1707,10 @@ func (s *HookContextSuite) TestSecretUpdateSameContent(c *tc.C) {
 	}, nil, nil)
 	err := hookContext.UpdateSecret(c.Context(), uri, &jujuc.SecretUpdateArgs{
 		Value:        value,
-		RotatePolicy: ptr(coresecrets.RotateDaily),
-		ExpireTime:   ptr(expiry),
-		Description:  ptr("my secret"),
-		Label:        ptr("foo"),
+		RotatePolicy: new(coresecrets.RotateDaily),
+		ExpireTime:   new(expiry),
+		Description:  new("my secret"),
+		Label:        new("foo"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(hookContext.PendingSecretUpdates(), tc.DeepEquals, map[string]uniter.SecretUpdateArg{
@@ -1722,10 +1718,10 @@ func (s *HookContextSuite) TestSecretUpdateSameContent(c *tc.C) {
 			CurrentRevision: 666,
 			SecretUpsertArg: uniter.SecretUpsertArg{
 				URI:          uri,
-				RotatePolicy: ptr(coresecrets.RotateDaily),
-				ExpireTime:   ptr(expiry),
-				Description:  ptr("my secret"),
-				Label:        ptr("foo"),
+				RotatePolicy: new(coresecrets.RotateDaily),
+				ExpireTime:   new(expiry),
+				Description:  new("my secret"),
+				Label:        new("foo"),
 			},
 		}})
 }
@@ -1744,7 +1740,7 @@ func (s *HookContextSuite) TestSecretRemove(c *tc.C) {
 	}, nil, nil)
 	err := hookContext.RemoveSecret(nil, uri, nil)
 	c.Assert(err, tc.ErrorIsNil)
-	err = hookContext.RemoveSecret(nil, uri2, ptr(666))
+	err = hookContext.RemoveSecret(nil, uri2, new(666))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(hookContext.PendingSecretRemoves(), tc.DeepEquals, map[string]uniter.SecretDeleteArg{
 		uri.ID:  {URI: uri},
@@ -1768,17 +1764,17 @@ func (s *HookContextSuite) TestSecretRemoveMulti(c *tc.C) {
 	err := hookContext.RemoveSecret(nil, uri, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	// It isn't an error, but the revision won't be tracked, because we're already deleting all revisions
-	err = hookContext.RemoveSecret(nil, uri, ptr(555))
+	err = hookContext.RemoveSecret(nil, uri, new(555))
 	c.Assert(err, tc.ErrorIsNil)
-	err = hookContext.RemoveSecret(nil, uri2, ptr(666))
+	err = hookContext.RemoveSecret(nil, uri2, new(666))
 	c.Assert(err, tc.ErrorIsNil)
 	// We then remove all secrets after removing just one, so we also just remove all secrets
 	err = hookContext.RemoveSecret(nil, uri2, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	// In the third case, we just remove to exact revisions
-	err = hookContext.RemoveSecret(nil, uri3, ptr(555))
+	err = hookContext.RemoveSecret(nil, uri3, new(555))
 	c.Assert(err, tc.ErrorIsNil)
-	err = hookContext.RemoveSecret(nil, uri3, ptr(666))
+	err = hookContext.RemoveSecret(nil, uri3, new(666))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(hookContext.PendingSecretRemoves(), tc.DeepEquals, map[string]uniter.SecretDeleteArg{
 		uri.ID:  {URI: uri, Revisions: nil},
@@ -1891,7 +1887,7 @@ func (s *HookContextSuite) TestSecretGrantNoOPSBecauseofExactSameApp(c *tc.C) {
 	err := hookContext.GrantSecret(nil, uri, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
-		Role:            ptr(coresecrets.RoleView),
+		Role:            new(coresecrets.RoleView),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(hookContext.PendingSecretGrants(), tc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
@@ -1923,7 +1919,7 @@ func (s *HookContextSuite) TestSecretGrantNoOPSBecauseofExactSameUnit(c *tc.C) {
 	err := hookContext.GrantSecret(nil, uri, &jujuc.SecretGrantRevokeArgs{
 		UnitName:    &unit,
 		RelationKey: &relationKey,
-		Role:        ptr(coresecrets.RoleView),
+		Role:        new(coresecrets.RoleView),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(hookContext.PendingSecretGrants(), tc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
@@ -1955,7 +1951,7 @@ func (s *HookContextSuite) TestSecretGrantNoOPSBecauseApplicationLevelGrantedAlr
 	err := hookContext.GrantSecret(nil, uri, &jujuc.SecretGrantRevokeArgs{
 		UnitName:    &unit,
 		RelationKey: &relationKey,
-		Role:        ptr(coresecrets.RoleView),
+		Role:        new(coresecrets.RoleView),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(hookContext.PendingSecretGrants(), tc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
@@ -1987,7 +1983,7 @@ func (s *HookContextSuite) TestSecretGrantFailedRevokeExistingRecordRequired(c *
 	err := hookContext.GrantSecret(nil, uri, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
-		Role:            ptr(coresecrets.RoleView),
+		Role:            new(coresecrets.RoleView),
 	})
 	c.Assert(err, tc.ErrorMatches, `any unit level grants need to be revoked before granting access to the corresponding application`)
 }

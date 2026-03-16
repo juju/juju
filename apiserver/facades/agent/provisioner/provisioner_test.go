@@ -137,7 +137,7 @@ func (s *provisionerMockSuite) TestPrepareContainerInterfaceInfoNoAddrAllocation
 	expMach.GetMachineUUID(gomock.Any(), coremachine.Name("0/lxd/0")).Return(guestUUID, nil)
 
 	s.networkService.EXPECT().DevicesForGuest(gomock.Any(), hostUUID, guestUUID).Return([]domainnetwork.NetInterface{{
-		MACAddress:       ptr("some:mac:address"),
+		MACAddress:       new("some:mac:address"),
 		Name:             "eth0",
 		ParentDeviceName: "br-eth0",
 		Type:             network.EthernetDevice,
@@ -204,7 +204,7 @@ func (s *provisionerMockSuite) TestPrepareContainerInterfaceInfoProviderAddrAllo
 	expMach.GetMachineUUID(gomock.Any(), coremachine.Name("0/lxd/0")).Return(guestUUID, nil)
 
 	s.networkService.EXPECT().DevicesForGuest(gomock.Any(), hostUUID, guestUUID).Return([]domainnetwork.NetInterface{{
-		MACAddress:       ptr("some:mac:address"),
+		MACAddress:       new("some:mac:address"),
 		Name:             "eth0",
 		ParentDeviceName: "br-eth0",
 		Type:             network.EthernetDevice,

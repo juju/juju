@@ -84,7 +84,7 @@ func (s *importSuite) TestImport(c *tc.C) {
 	s.service.EXPECT().CreateMachine(
 		gomock.Any(),
 		machine.Name("666"),
-		ptr("nonce"),
+		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
 			Channel:      "24.04/stable",
@@ -95,8 +95,8 @@ func (s *importSuite) TestImport(c *tc.C) {
 			Directive: "0",
 		},
 		constraints.Constraints{
-			CpuCores: ptr(uint64(8)),
-			Mem:      ptr(uint64(1024)),
+			CpuCores: new(uint64(8)),
+			Mem:      new(uint64(1024)),
 		},
 	).Return(machine.UUID("uuid"), nil)
 
@@ -118,7 +118,7 @@ func (s *importSuite) TestFailImportMachineWithoutCloudInstance(c *tc.C) {
 	s.service.EXPECT().CreateMachine(
 		gomock.Any(),
 		machine.Name("0"),
-		ptr("nonce"),
+		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
 			Channel:      "24.04/stable",
@@ -161,7 +161,7 @@ func (s *importSuite) TestFailImportMachineWithCloudInstance(c *tc.C) {
 	s.service.EXPECT().CreateMachine(
 		gomock.Any(),
 		machine.Name("0"),
-		ptr("nonce"),
+		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
 			Channel:      "24.04/stable",
@@ -223,7 +223,7 @@ func (s *importSuite) TestImportMachineWithCloudInstance(c *tc.C) {
 	s.service.EXPECT().CreateMachine(
 		gomock.Any(),
 		machine.Name("0"),
-		ptr("nonce"),
+		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
 			Channel:      "24.04/stable",
@@ -284,7 +284,7 @@ func (s *importSuite) TestImportMachineWithContainers(c *tc.C) {
 	s.service.EXPECT().CreateMachine(
 		gomock.Any(),
 		machine.Name("666"),
-		ptr("nonce"),
+		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
 			Channel:      "24.04/stable",
@@ -298,7 +298,7 @@ func (s *importSuite) TestImportMachineWithContainers(c *tc.C) {
 		gomock.Any(),
 		machine.Name("666/lxd/0"),
 		expectedMachineUUID,
-		ptr("nonce"),
+		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
 			Channel:      "24.04/stable",
@@ -316,7 +316,7 @@ func (s *importSuite) TestImportMachineWithContainers(c *tc.C) {
 		gomock.Any(),
 		machine.Name("666/lxd/1"),
 		expectedMachineUUID,
-		ptr("nonce"),
+		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
 			Channel:      "24.04/stable",
@@ -373,7 +373,7 @@ func (s *importSuite) TestImportMachineWithContainerWithCloudInstances(c *tc.C) 
 	s.service.EXPECT().CreateMachine(
 		gomock.Any(),
 		machine.Name("0"),
-		ptr("nonce"),
+		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
 			Channel:      "24.04/stable",
@@ -406,7 +406,7 @@ func (s *importSuite) TestImportMachineWithContainerWithCloudInstances(c *tc.C) 
 		gomock.Any(),
 		machine.Name("0/lxd/0"),
 		expectedMachineUUID,
-		ptr("nonce"),
+		new("nonce"),
 		deployment.Platform{
 			OSType:       deployment.Ubuntu,
 			Channel:      "24.04/stable",

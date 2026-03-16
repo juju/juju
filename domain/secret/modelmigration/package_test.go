@@ -27,7 +27,7 @@ func backendSecrets(uri1, uri2, uri3, uri4 *secrets.URI, nextRotate, expire, tim
 			Label:                  "ownerlabel",
 			LatestRevisionChecksum: "deadbeef",
 			RotatePolicy:           secrets.RotateHourly,
-			NextRotateTime:         ptr(nextRotate),
+			NextRotateTime:         new(nextRotate),
 			CreateTime:             timestamp,
 			UpdateTime:             timestamp,
 		}, {
@@ -56,7 +56,7 @@ func backendSecrets(uri1, uri2, uri3, uri4 *secrets.URI, nextRotate, expire, tim
 					BackendID:  "backend-id",
 					RevisionID: "revision-id",
 				},
-				ExpireTime: ptr(expire),
+				ExpireTime: new(expire),
 				CreateTime: timestamp,
 				UpdateTime: timestamp,
 			}, {
@@ -133,8 +133,4 @@ func backendSecrets(uri1, uri2, uri3, uri4 *secrets.URI, nextRotate, expire, tim
 			uri3.ID: nil,
 		},
 	}
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

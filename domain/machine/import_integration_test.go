@@ -134,9 +134,9 @@ func (s *importSuite) TestImportMachine(c *tc.C) {
 	cons, err := svc.GetMachineConstraints(c.Context(), machineName)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(cons, tc.DeepEquals, constraints.Value{
-		CpuCores: ptr(uint64(4)),
-		Mem:      ptr(uint64(8192)),
-		RootDisk: ptr(uint64(1024)),
+		CpuCores: new(uint64(4)),
+		Mem:      new(uint64(8192)),
+		RootDisk: new(uint64(1024)),
 		Tags:     &[]string{"tag1", "tag2"},
 	})
 
@@ -151,15 +151,15 @@ func (s *importSuite) TestImportMachine(c *tc.C) {
 	machineHardwareCharacteristics, err := svc.GetHardwareCharacteristics(c.Context(), machineUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(machineHardwareCharacteristics, tc.DeepEquals, instance.HardwareCharacteristics{
-		Arch:             ptr("amd64"),
-		Mem:              ptr(uint64(16384)),
-		RootDisk:         ptr(uint64(20480)),
-		RootDiskSource:   ptr("/dev/sda1"),
-		CpuCores:         ptr(uint64(8)),
-		CpuPower:         ptr(uint64(32)),
+		Arch:             new("amd64"),
+		Mem:              new(uint64(16384)),
+		RootDisk:         new(uint64(20480)),
+		RootDiskSource:   new("/dev/sda1"),
+		CpuCores:         new(uint64(8)),
+		CpuPower:         new(uint64(32)),
 		Tags:             &[]string{"cloud-tag1", "cloud-tag2"},
-		AvailabilityZone: ptr("zone1"),
-		VirtType:         ptr("kvm"),
+		AvailabilityZone: new("zone1"),
+		VirtType:         new("kvm"),
 	})
 }
 

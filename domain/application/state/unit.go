@@ -803,7 +803,7 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 	}
 	cloudContainer := makeCloudContainerArg(arg.UnitName, cloudContainerParams)
 
-	now := ptr(st.clock.Now().UTC())
+	now := new(st.clock.Now().UTC())
 	addUnitArg := application.AddCAASUnitArg{
 		AddUnitArg: application.AddUnitArg{
 			CreateUnitStorageArg: arg.CreateUnitStorageArg,

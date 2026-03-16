@@ -396,7 +396,7 @@ func (s *querySuite) TestGetOperations(c *tc.C) {
 	// Arrange
 	params := operation.QueryArgs{
 		ActionNames: []string{"test-action"},
-		Limit:       ptr(10),
+		Limit:       new(10),
 	}
 
 	unitTask := operation.UnitTaskResult{
@@ -540,7 +540,7 @@ func (s *querySuite) TestGetOperationsWithTruncatedResult(c *tc.C) {
 
 	// Arrange
 	params := operation.QueryArgs{
-		Limit: ptr(1),
+		Limit: new(1),
 	}
 
 	expectedStateResult := operation.QueryResult{
@@ -572,8 +572,8 @@ func (s *querySuite) TestGetOperationsWithComplexQueryParams(c *tc.C) {
 		ActionNames:  []string{"action1", "action2"},
 		Applications: []string{"app1", "app2"},
 		Status:       []corestatus.Status{corestatus.Running, corestatus.Completed},
-		Limit:        ptr(20),
-		Offset:       ptr(10),
+		Limit:        new(20),
+		Offset:       new(10),
 	}
 
 	expectedStateResult := operation.QueryResult{
@@ -662,8 +662,4 @@ func (s *querySuite) TestGetOperationsWithEmptyTaskLists(c *tc.C) {
 	c.Check(result.Operations[0].OperationID, tc.Equals, "42")
 	// Empty task list should result in Error status
 	c.Check(result.Operations[0].Status, tc.Equals, corestatus.Error)
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

@@ -418,8 +418,8 @@ var metadataDecodeTestCases = [...]struct {
 				},
 				"beta": {
 					Resource: "baz",
-					Uid:      ptr(1000),
-					Gid:      ptr(1001),
+					Uid:      new(1000),
+					Gid:      new(1001),
 					Mounts: []charm.Mount{
 						{Storage: "storage3", Location: "location3"},
 					},

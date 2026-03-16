@@ -272,11 +272,11 @@ func (s *bootstrapSuite) TestSetModelConstraints(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	cons := coreconstraints.Value{
-		Arch:      ptr("amd64"),
-		Container: ptr(instance.LXD),
-		CpuCores:  ptr(uint64(4)),
-		Mem:       ptr(uint64(1024)),
-		RootDisk:  ptr(uint64(1024)),
+		Arch:      new("amd64"),
+		Container: new(instance.LXD),
+		CpuCores:  new(uint64(4)),
+		Mem:       new(uint64(1024)),
+		RootDisk:  new(uint64(1024)),
 	}
 	fn = SetModelConstraints(cons)
 	err = fn(c.Context(), s.ControllerTxnRunner(), s.ModelTxnRunner(c, modelUUID.String()))
@@ -287,11 +287,11 @@ func (s *bootstrapSuite) TestSetModelConstraints(c *tc.C) {
 	}, loggertesting.WrapCheckLog(c))
 
 	expected := constraints.Constraints{
-		Arch:      ptr("amd64"),
-		Container: ptr(instance.LXD),
-		CpuCores:  ptr(uint64(4)),
-		Mem:       ptr(uint64(1024)),
-		RootDisk:  ptr(uint64(1024)),
+		Arch:      new("amd64"),
+		Container: new(instance.LXD),
+		CpuCores:  new(uint64(4)),
+		Mem:       new(uint64(1024)),
+		RootDisk:  new(uint64(1024)),
 	}
 
 	data, err := modelState.GetModelConstraints(c.Context())
@@ -308,8 +308,8 @@ func (s *bootstrapSuite) TestSetModelConstraintFailedModelNotFound(c *tc.C) {
 	}, loggertesting.WrapCheckLog(c))
 
 	err := state.SetModelConstraints(c.Context(), constraints.Constraints{
-		Arch:      ptr("amd64"),
-		Container: ptr(instance.NONE),
+		Arch:      new("amd64"),
+		Container: new(instance.NONE),
 	})
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
@@ -348,8 +348,8 @@ func (s *bootstrapSuite) TestSetModelConstraintsInvalidContainerType(c *tc.C) {
 	}, loggertesting.WrapCheckLog(c))
 
 	cons := constraints.Constraints{
-		Container: ptr(instance.ContainerType("noexist")),
-		ImageID:   ptr("image-id"),
+		Container: new(instance.ContainerType("noexist")),
+		ImageID:   new("image-id"),
 	}
 
 	err = state.SetModelConstraints(c.Context(), cons)
@@ -392,20 +392,16 @@ func (s *bootstrapSuite) TestSetModelConstraintFailedSpaceDoesNotExist(c *tc.C) 
 	}, loggertesting.WrapCheckLog(c))
 
 	err = state.SetModelConstraints(c.Context(), constraints.Constraints{
-		Spaces: ptr([]constraints.SpaceConstraint{
+		Spaces: new([]constraints.SpaceConstraint{
 			{
 				SpaceName: "space1",
 				Exclude:   false,
 			},
 		}),
-		ImageID: ptr("image-id"),
+		ImageID: new("image-id"),
 	})
 	c.Check(err, tc.ErrorIs, networkerrors.SpaceNotFound)
 
 	_, err = state.GetModelConstraints(c.Context())
 	c.Check(err, tc.ErrorIs, modelerrors.ConstraintsNotFound)
-}
-
-func ptr[T any](s T) *T {
-	return &s
 }

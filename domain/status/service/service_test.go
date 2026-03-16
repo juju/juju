@@ -102,7 +102,7 @@ func (s *serviceSuite) TestImportRelationStatus(c *tc.C) {
 	sts := corestatus.StatusInfo{
 		Status:  corestatus.Broken,
 		Message: "message",
-		Since:   ptr(time.Now()),
+		Since:   new(time.Now()),
 	}
 
 	expectedStatus := status.StatusInfo[status.RelationStatusType]{
@@ -1468,8 +1468,8 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 				},
 				LXDProfile:    []byte(`{}`),
 				Exposed:       true,
-				Scale:         ptr(2),
-				K8sProviderID: ptr("k8s-provider-id"),
+				Scale:         new(2),
+				K8sProviderID: new("k8s-provider-id"),
 				Units: map[coreunit.Name]status.Unit{
 					"foo/666": {
 						Life: life.Alive,
@@ -1495,15 +1495,15 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 							Architecture: architecture.ARM64,
 						},
 						Subordinate: false,
-						MachineName: ptr(machine.Name("0")),
+						MachineName: new(machine.Name("0")),
 						SubordinateNames: map[coreunit.Name]struct{}{
 							coreunit.Name("foo/667"): {},
 						},
 						ApplicationName: "foo",
-						PrincipalName:   ptr(coreunit.Name("foo/666")),
+						PrincipalName:   new(coreunit.Name("foo/666")),
 						AgentVersion:    "1.0.0",
-						WorkloadVersion: ptr("v1.0.0"),
-						K8sProviderID:   ptr("k8s-provider-id"),
+						WorkloadVersion: new("v1.0.0"),
+						K8sProviderID:   new("k8s-provider-id"),
 					},
 				},
 			},
@@ -1543,8 +1543,8 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 			},
 			LXDProfile:    &internalcharm.LXDProfile{},
 			Exposed:       true,
-			Scale:         ptr(2),
-			K8sProviderID: ptr("k8s-provider-id"),
+			Scale:         new(2),
+			K8sProviderID: new("k8s-provider-id"),
 			Units: map[coreunit.Name]Unit{
 				"foo/666": {
 					Life: corelife.Alive,
@@ -1570,15 +1570,15 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 						Architecture: architecture.ARM64,
 					},
 					Subordinate: false,
-					MachineName: ptr(machine.Name("0")),
+					MachineName: new(machine.Name("0")),
 					SubordinateNames: []coreunit.Name{
 						coreunit.Name("foo/667"),
 					},
 					ApplicationName: "foo",
-					PrincipalName:   ptr(coreunit.Name("foo/666")),
+					PrincipalName:   new(coreunit.Name("foo/666")),
 					AgentVersion:    "1.0.0",
-					WorkloadVersion: ptr("v1.0.0"),
-					K8sProviderID:   ptr("k8s-provider-id"),
+					WorkloadVersion: new("v1.0.0"),
+					K8sProviderID:   new("k8s-provider-id"),
 				},
 			},
 		},
@@ -1621,8 +1621,8 @@ func (s *serviceSuite) TestGetApplicationAndUnitModelStatusesDeriveApplicationSt
 				},
 				LXDProfile:    []byte(`{}`),
 				Exposed:       true,
-				Scale:         ptr(2),
-				K8sProviderID: ptr("k8s-provider-id"),
+				Scale:         new(2),
+				K8sProviderID: new("k8s-provider-id"),
 				Units: map[coreunit.Name]status.Unit{
 					"foo/666": {
 						Life: life.Alive,
@@ -1648,15 +1648,15 @@ func (s *serviceSuite) TestGetApplicationAndUnitModelStatusesDeriveApplicationSt
 							Architecture: architecture.ARM64,
 						},
 						Subordinate: false,
-						MachineName: ptr(machine.Name("0")),
+						MachineName: new(machine.Name("0")),
 						SubordinateNames: map[coreunit.Name]struct{}{
 							coreunit.Name("foo/667"): {},
 						},
 						ApplicationName: "foo",
-						PrincipalName:   ptr(coreunit.Name("foo/666")),
+						PrincipalName:   new(coreunit.Name("foo/666")),
 						AgentVersion:    "1.0.0",
-						WorkloadVersion: ptr("v1.0.0"),
-						K8sProviderID:   ptr("k8s-provider-id"),
+						WorkloadVersion: new("v1.0.0"),
+						K8sProviderID:   new("k8s-provider-id"),
 					},
 				},
 			},
@@ -1696,8 +1696,8 @@ func (s *serviceSuite) TestGetApplicationAndUnitModelStatusesDeriveApplicationSt
 			},
 			LXDProfile:    &internalcharm.LXDProfile{},
 			Exposed:       true,
-			Scale:         ptr(2),
-			K8sProviderID: ptr("k8s-provider-id"),
+			Scale:         new(2),
+			K8sProviderID: new("k8s-provider-id"),
 			Units: map[coreunit.Name]Unit{
 				"foo/666": {
 					Life: corelife.Alive,
@@ -1723,15 +1723,15 @@ func (s *serviceSuite) TestGetApplicationAndUnitModelStatusesDeriveApplicationSt
 						Architecture: architecture.ARM64,
 					},
 					Subordinate: false,
-					MachineName: ptr(machine.Name("0")),
+					MachineName: new(machine.Name("0")),
 					SubordinateNames: []coreunit.Name{
 						coreunit.Name("foo/667"),
 					},
 					ApplicationName: "foo",
-					PrincipalName:   ptr(coreunit.Name("foo/666")),
+					PrincipalName:   new(coreunit.Name("foo/666")),
 					AgentVersion:    "1.0.0",
-					WorkloadVersion: ptr("v1.0.0"),
-					K8sProviderID:   ptr("k8s-provider-id"),
+					WorkloadVersion: new("v1.0.0"),
+					K8sProviderID:   new("k8s-provider-id"),
 				},
 			},
 		},
@@ -2689,8 +2689,4 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	})
 
 	return ctrl
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

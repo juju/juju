@@ -92,7 +92,7 @@ func (s *migrationServiceSuite) TestGetHardwareCharacteristics(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hwc := instance.HardwareCharacteristics{
-		Mem: ptr[uint64](1024),
+		Mem: new(uint64(1024)),
 	}
 
 	s.state.EXPECT().GetHardwareCharacteristics(gomock.Any(), "abc").Return(hwc, nil)
@@ -144,7 +144,7 @@ func (s *migrationServiceSuite) TestCreateMachineSuccessNonce(c *tc.C) {
 	obtainedUUID, err := s.service.CreateMachine(
 		c.Context(),
 		"666",
-		ptr("foo"),
+		new("foo"),
 		deployment.Platform{Architecture: architecture.AMD64},
 		deployment.Placement{},
 		constraints.Constraints{},
@@ -237,7 +237,7 @@ func (s *migrationServiceSuite) TestCreateSubordinateMachineNonce(c *tc.C) {
 		c.Context(),
 		coremachine.Name("666"),
 		coremachine.UUID("parent-uuid"),
-		ptr("foo"),
+		new("foo"),
 		deployment.Platform{Architecture: architecture.AMD64},
 		deployment.Placement{},
 		constraints.Constraints{},

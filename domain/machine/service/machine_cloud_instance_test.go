@@ -34,10 +34,10 @@ func (s *serviceSuite) TestRetrieveHardwareCharacteristics(c *tc.C) {
 	machineUUID := tc.Must(c, coremachine.NewUUID)
 
 	expected := instance.HardwareCharacteristics{
-		Mem:      uintptr(1024),
-		RootDisk: uintptr(256),
-		CpuCores: uintptr(4),
-		CpuPower: uintptr(75),
+		Mem:      new(uint64(1024)),
+		RootDisk: new(uint64(256)),
+		CpuCores: new(uint64(4)),
+		CpuPower: new(uint64(75)),
 	}
 	s.state.EXPECT().GetHardwareCharacteristics(gomock.Any(), machineUUID.String()).
 		Return(expected, nil)
@@ -102,10 +102,10 @@ func (s *serviceSuite) TestSetMachineCloudInstance(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hc := &instance.HardwareCharacteristics{
-		Mem:      uintptr(1024),
-		RootDisk: uintptr(256),
-		CpuCores: uintptr(4),
-		CpuPower: uintptr(75),
+		Mem:      new(uint64(1024)),
+		RootDisk: new(uint64(256)),
+		CpuCores: new(uint64(4)),
+		CpuPower: new(uint64(75)),
 	}
 	s.state.EXPECT().SetMachineCloudInstance(
 		gomock.Any(),
@@ -125,10 +125,10 @@ func (s *serviceSuite) TestSetMachineCloudInstanceFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hc := &instance.HardwareCharacteristics{
-		Mem:      uintptr(1024),
-		RootDisk: uintptr(256),
-		CpuCores: uintptr(4),
-		CpuPower: uintptr(75),
+		Mem:      new(uint64(1024)),
+		RootDisk: new(uint64(256)),
+		CpuCores: new(uint64(4)),
+		CpuPower: new(uint64(75)),
 	}
 	s.state.EXPECT().SetMachineCloudInstance(
 		gomock.Any(),
@@ -197,8 +197,4 @@ func (s *serviceSuite) TestGetPollingInfosEmptyArgs(c *tc.C) {
 		GetPollingInfos(c.Context(), []coremachine.Name{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.HasLen, 0)
-}
-
-func uintptr(u uint64) *uint64 {
-	return &u
 }

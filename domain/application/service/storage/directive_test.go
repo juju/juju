@@ -207,7 +207,7 @@ func (s *directiveSuite) TestValidateApplicationStorageDirectiveOverridesNoMaxLi
 
 	overrides := map[string]StorageDirectiveOverride{
 		"st1": {
-			Count: ptr(uint32(5)),
+			Count: new(uint32(5)),
 		},
 	}
 
@@ -265,7 +265,7 @@ func (s *directiveSuite) TestValidateApplicationStorageDirectiveOverridesExceedM
 
 	overrides := map[string]StorageDirectiveOverride{
 		"st1": {
-			Count: ptr(uint32(3)),
+			Count: new(uint32(3)),
 		},
 	}
 
@@ -277,7 +277,7 @@ func (s *directiveSuite) TestValidateApplicationStorageDirectiveOverridesExceedM
 	errVal, is := errors.AsType[applicationerrors.StorageCountLimitExceeded](err)
 	c.Check(is, tc.IsTrue)
 	c.Check(errVal, tc.DeepEquals, applicationerrors.StorageCountLimitExceeded{
-		Maximum:     ptr(2),
+		Maximum:     new(2),
 		Minimum:     0,
 		Requested:   3,
 		StorageName: "st1",

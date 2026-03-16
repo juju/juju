@@ -67,11 +67,11 @@ func (s *importSuite) TestImportLinkLayerDevices(c *tc.C) {
 		{
 			IsAutoStart: dArgs.IsAutoStart,
 			IsEnabled:   dArgs.IsUp,
-			MTU:         ptr(int64(dArgs.MTU)),
+			MTU:         new(int64(dArgs.MTU)),
 			MachineID:   dArgs.MachineID,
-			MACAddress:  ptr(dArgs.MACAddress),
+			MACAddress:  new(dArgs.MACAddress),
 			Name:        dArgs.Name,
-			ProviderID:  ptr(dArgs.ProviderID),
+			ProviderID:  new(dArgs.ProviderID),
 			Type:        network.DeviceTypeEthernet,
 		},
 	}
@@ -172,11 +172,11 @@ func (s *importSuite) TestImportLinkLayerDevicesWithAddresses(c *tc.C) {
 			MachineID: "0",
 			Name:      "eth0",
 			Addresses: []internal.ImportIPAddress{{
-				ProviderID:       ptr("address-10.0.0.1"),
+				ProviderID:       new("address-10.0.0.1"),
 				SubnetCIDR:       "10.0.0.0/24",
 				ConfigType:       corenetwork.ConfigStatic,
 				AddressValue:     "10.0.0.1/24",
-				ProviderSubnetID: ptr("subnet-10.0.0.0/24"),
+				ProviderSubnetID: new("subnet-10.0.0.0/24"),
 				Origin:           "provider",
 				IsShadow:         false,
 				IsSecondary:      false,
@@ -184,11 +184,11 @@ func (s *importSuite) TestImportLinkLayerDevicesWithAddresses(c *tc.C) {
 				Type:  corenetwork.IPv4Address,
 				Scope: corenetwork.ScopeCloudLocal,
 			}, {
-				ProviderID:       ptr("address-fd42:9102:88cb:dce3:216:3eff:fe59:a9dc"),
+				ProviderID:       new("address-fd42:9102:88cb:dce3:216:3eff:fe59:a9dc"),
 				SubnetCIDR:       "fd42:9102:88cb:dce3::/64",
 				ConfigType:       corenetwork.ConfigManual,
 				AddressValue:     "fd42:9102:88cb:dce3:216:3eff:fe59:a9dc/64",
-				ProviderSubnetID: ptr("subnet-fd42:9102:88cb:dce3::/64"),
+				ProviderSubnetID: new("subnet-fd42:9102:88cb:dce3::/64"),
 				Origin:           "provider",
 				IsShadow:         true,
 				IsSecondary:      true,
@@ -200,11 +200,11 @@ func (s *importSuite) TestImportLinkLayerDevicesWithAddresses(c *tc.C) {
 			MachineID: "0",
 			Name:      "eth1",
 			Addresses: []internal.ImportIPAddress{{
-				ProviderID:       ptr("address-198.0.0.1"),
+				ProviderID:       new("address-198.0.0.1"),
 				SubnetCIDR:       "198.0.0.0/24",
 				ConfigType:       corenetwork.ConfigDHCP,
 				AddressValue:     "198.0.0.1/24",
-				ProviderSubnetID: ptr("subnet-198.0.0.0/24"),
+				ProviderSubnetID: new("subnet-198.0.0.0/24"),
 				Origin:           "provider",
 				IsShadow:         true,
 				IsSecondary:      false,
@@ -302,7 +302,7 @@ func (s *importSuite) TestImportLinkLayerDevicesSkipsFanAddresses(c *tc.C) {
 			MachineID: "0",
 			Name:      "eth0",
 			Addresses: []internal.ImportIPAddress{{
-				ProviderID:   ptr("address-10.0.0.1"),
+				ProviderID:   new("address-10.0.0.1"),
 				SubnetCIDR:   "10.0.0.0/24",
 				ConfigType:   corenetwork.ConfigStatic,
 				AddressValue: "10.0.0.1/24",
@@ -438,9 +438,4 @@ func (m lldArgMatcher) Matches(x interface{}) bool {
 
 func (lldArgMatcher) String() string {
 	return "matches args for ImportLinkLayerDevice"
-}
-
-// ptr returns a reference to a copied value of type T.
-func ptr[T any](i T) *T {
-	return &i
 }

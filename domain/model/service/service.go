@@ -325,7 +325,7 @@ func (s *Service) CreateModel(
 	if statusHistory, err := s.statusHistoryGetter.GetStatusHistoryForModel(ctx, modelID); err == nil {
 		if err := statusHistory.RecordStatus(ctx, status.ModelNamespace.WithID(modelID.String()), corestatus.StatusInfo{
 			Status: corestatus.Available,
-			Since:  ptr(s.clock.Now()),
+			Since:  new(s.clock.Now()),
 		}); err != nil {
 			s.logger.Warningf(ctx, "recording status for model %q: %v", modelID, err)
 		}
@@ -925,8 +925,4 @@ func WatchModelCloudCredential(
 		return nil, errors.Errorf("watching model cloud and credential: %w", err)
 	}
 	return result, nil
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

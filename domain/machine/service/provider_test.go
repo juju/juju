@@ -144,7 +144,7 @@ func (s *providerServiceSuite) TestAddMachineSuccessNonce(c *tc.C) {
 		},
 	}).Return(nil)
 	s.state.EXPECT().AddMachine(gomock.Any(), domainmachine.AddMachineArgs{
-		Nonce: ptr("foo"),
+		Nonce: new("foo"),
 		Platform: deployment.Platform{
 			OSType:  deployment.Ubuntu,
 			Channel: "22.04",
@@ -154,7 +154,7 @@ func (s *providerServiceSuite) TestAddMachineSuccessNonce(c *tc.C) {
 	s.expectCreateMachineStatusHistory(c, machine.Name("name"))
 
 	res, err := s.service.AddMachine(c.Context(), domainmachine.AddMachineArgs{
-		Nonce: ptr("foo"),
+		Nonce: new("foo"),
 		Platform: deployment.Platform{
 			OSType:  deployment.Ubuntu,
 			Channel: "22.04",
@@ -271,14 +271,14 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSubordi
 	s.validator.EXPECT().Merge(
 		constraints.EncodeConstraints(constraints.Constraints{}),
 		constraints.EncodeConstraints(constraints.Constraints{
-			Arch: ptr(arch.AMD64),
+			Arch: new(arch.AMD64),
 		})).
 		Return(coreconstraints.Value{
-			Arch: ptr(arch.AMD64),
+			Arch: new(arch.AMD64),
 		}, nil)
 
 	merged, err := s.service.mergeMachineAndModelConstraints(c.Context(), constraints.Constraints{
-		Arch: ptr(arch.AMD64),
+		Arch: new(arch.AMD64),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(*merged.Arch, tc.Equals, arch.AMD64)
@@ -291,26 +291,26 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsSubordinat
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, nil)
 
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{
-		RootDiskSource: ptr("source-disk"),
-		Mem:            ptr(uint64(42)),
+		RootDiskSource: new("source-disk"),
+		Mem:            new(uint64(42)),
 	}, modelerrors.ConstraintsNotFound)
 
 	s.validator.EXPECT().Merge(
 		constraints.EncodeConstraints(constraints.Constraints{
-			RootDiskSource: ptr("source-disk"),
-			Mem:            ptr(uint64(42)),
+			RootDiskSource: new("source-disk"),
+			Mem:            new(uint64(42)),
 		}),
 		constraints.EncodeConstraints(constraints.Constraints{
-			Arch: ptr(arch.AMD64),
+			Arch: new(arch.AMD64),
 		})).
 		Return(coreconstraints.Value{
-			Arch:           ptr(arch.AMD64),
-			RootDiskSource: ptr("source-disk"),
-			Mem:            ptr(uint64(42)),
+			Arch:           new(arch.AMD64),
+			RootDiskSource: new("source-disk"),
+			Mem:            new(uint64(42)),
 		}, nil)
 
 	merged, err := s.service.mergeMachineAndModelConstraints(c.Context(), constraints.Constraints{
-		Arch: ptr(arch.AMD64),
+		Arch: new(arch.AMD64),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(*merged.RootDiskSource, tc.Equals, "source-disk")
@@ -324,23 +324,23 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSubordi
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, nil)
 
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{
-		Mem: ptr(uint64(42)),
+		Mem: new(uint64(42)),
 	}, modelerrors.ConstraintsNotFound)
 
 	s.validator.EXPECT().Merge(
 		constraints.EncodeConstraints(constraints.Constraints{
-			Mem: ptr(uint64(42)),
+			Mem: new(uint64(42)),
 		}),
 		constraints.EncodeConstraints(constraints.Constraints{
-			RootDiskSource: ptr("source-disk"),
+			RootDiskSource: new("source-disk"),
 		})).
 		Return(coreconstraints.Value{
-			RootDiskSource: ptr("source-disk"),
-			Mem:            ptr(uint64(42)),
+			RootDiskSource: new("source-disk"),
+			Mem:            new(uint64(42)),
 		}, nil)
 
 	merged, err := s.service.mergeMachineAndModelConstraints(c.Context(), constraints.Constraints{
-		RootDiskSource: ptr("source-disk"),
+		RootDiskSource: new("source-disk"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(*merged.RootDiskSource, tc.Equals, "source-disk")

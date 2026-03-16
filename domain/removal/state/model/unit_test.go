@@ -1038,8 +1038,8 @@ func (s *unitSuite) TestDeleteCAASUnitNotAffectingOtherUnits(c *tc.C) {
 	appUUID1 := s.createCAASApplication(c, svc, app1, applicationservice.AddUnitArg{})
 
 	err := svc.UpdateCAASUnit(c.Context(), unit.Name(fmt.Sprintf("%s/0", app1)), applicationservice.UpdateCAASUnitParams{
-		ProviderID: ptr("provider-id"),
-		Address:    ptr("10.0.0.1"),
+		ProviderID: new("provider-id"),
+		Address:    new("10.0.0.1"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1050,8 +1050,8 @@ func (s *unitSuite) TestDeleteCAASUnitNotAffectingOtherUnits(c *tc.C) {
 	app2 := "some-otherapp"
 	s.createCAASApplication(c, svc, app2, applicationservice.AddUnitArg{})
 	err = svc.UpdateCAASUnit(c.Context(), unit.Name(fmt.Sprintf("%s/0", app2)), applicationservice.UpdateCAASUnitParams{
-		ProviderID: ptr("provider-id-2"),
-		Address:    ptr("10.0.0.2"),
+		ProviderID: new("provider-id-2"),
+		Address:    new("10.0.0.2"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 

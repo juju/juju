@@ -147,7 +147,7 @@ func (s *offererUnitRelationsWorker) TestChangeEvent(c *tc.C) {
 		},
 		UnitCount:       3,
 		Life:            "alive",
-		Suspended:       ptr(true),
+		Suspended:       new(true),
 		SuspendedReason: "because",
 		DepartedUnits: []int{
 			4,
@@ -271,7 +271,7 @@ func (s *offererUnitRelationsWorker) TestReport(c *tc.C) {
 		},
 		UnitCount:       3,
 		Life:            "alive",
-		Suspended:       ptr(true),
+		Suspended:       new(true),
 		SuspendedReason: "because",
 		DepartedUnits: []int{
 			4,

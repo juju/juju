@@ -89,7 +89,7 @@ func (s *crossModelRelationSuite) TestSetRemoteApplicationOffererStatus(c *tc.C)
 		Status:  status.WorkloadStatusActive,
 		Message: "message",
 		Data:    []byte("data"),
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	err := s.state.SetRemoteApplicationOffererStatus(c.Context(), remoteAppUUID.String(), expected)
@@ -109,7 +109,7 @@ func (s *crossModelRelationSuite) TestSetRemoteApplicationOffererStatusMultipleT
 	err := s.state.SetRemoteApplicationOffererStatus(c.Context(), remoteAppUUID.String(), status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusBlocked,
 		Message: "blocked",
-		Since:   ptr(time.Now().UTC()),
+		Since:   new(time.Now().UTC()),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -118,7 +118,7 @@ func (s *crossModelRelationSuite) TestSetRemoteApplicationOffererStatusMultipleT
 		Status:  status.WorkloadStatusActive,
 		Message: "message",
 		Data:    []byte("data"),
-		Since:   ptr(now),
+		Since:   new(now),
 	}
 
 	err = s.state.SetRemoteApplicationOffererStatus(c.Context(), remoteAppUUID.String(), expected)

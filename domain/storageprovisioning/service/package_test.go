@@ -57,10 +57,6 @@ func (m eventSourcePredFilterMatcher) Matches(v any) bool {
 		filter.ChangePredicate()(m.Predicate)
 }
 
-func ptr[T any](t T) *T {
-	return &t
-}
-
 // String describes what the matcher matches.
 func (m eventSourceFilterMatcher) String() string {
 	return fmt.Sprintf("event source filter matches ns=%q mask=%v",

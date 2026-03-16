@@ -267,7 +267,7 @@ func (s *baseSuite) createIAASApplication(c *tc.C, svc *applicationservice.Provi
 		},
 		ResolvedResources: applicationservice.ResolvedResources{{
 			Name:     "buzz",
-			Revision: ptr(42),
+			Revision: new(42),
 			Origin:   charmresource.OriginStore,
 		}},
 	}, units...)
@@ -295,7 +295,7 @@ func (s *baseSuite) createIAASSubordinateApplication(c *tc.C, svc *applicationse
 		},
 		ResolvedResources: applicationservice.ResolvedResources{{
 			Name:     "buzz",
-			Revision: ptr(42),
+			Revision: new(42),
 			Origin:   charmresource.OriginStore,
 		}},
 	}, units...)
@@ -324,7 +324,7 @@ func (s *baseSuite) createCAASApplication(c *tc.C, svc *applicationservice.Provi
 		},
 		ResolvedResources: applicationservice.ResolvedResources{{
 			Name:     "buzz",
-			Revision: ptr(42),
+			Revision: new(42),
 			Origin:   charmresource.OriginStore,
 		}},
 	}, units...)
@@ -1338,8 +1338,4 @@ func (caasApplication) Units() ([]caas.Unit, error) {
 	}, {
 		Id: "some-otherapp-0",
 	}}, nil
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

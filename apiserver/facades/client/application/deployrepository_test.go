@@ -44,8 +44,8 @@ func (s *deployRepositorySuite) TestResolveResourcesNoResourcesOverride(c *tc.C)
 		{Meta: resource.Meta{Name: "resource2"}, Origin: resource.OriginStore, Revision: 3},
 	}
 	expectedResult := applicationservice.ResolvedResources{
-		{Name: "resource1", Origin: resource.OriginStore, Revision: ptr(2)},
-		{Name: "resource2", Origin: resource.OriginStore, Revision: ptr(3)},
+		{Name: "resource1", Origin: resource.OriginStore, Revision: new(2)},
+		{Name: "resource2", Origin: resource.OriginStore, Revision: new(3)},
 	}
 	charmURL := charm.MustParseURL("ch:ubuntu-0")
 	origin := corecharm.Origin{
@@ -100,8 +100,8 @@ func (s *deployRepositorySuite) TestResolveResourcesWithResourcesWithOverride(c 
 		{Meta: resource.Meta{Name: "override-revision-to-container"}, Origin: resource.OriginUpload, Revision: -1},
 	}
 	expectedResult := applicationservice.ResolvedResources{
-		{Name: "override-revision-to-2", Origin: resource.OriginStore, Revision: ptr(2)},
-		{Name: "no-override", Origin: resource.OriginStore, Revision: ptr(1)},
+		{Name: "override-revision-to-2", Origin: resource.OriginStore, Revision: new(2)},
+		{Name: "no-override", Origin: resource.OriginStore, Revision: new(1)},
 		{Name: "override-revision-to-file", Origin: resource.OriginUpload, Revision: nil},
 		{Name: "override-revision-to-container", Origin: resource.OriginUpload, Revision: nil},
 	}

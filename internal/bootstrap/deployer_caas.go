@@ -110,7 +110,7 @@ func (b *CAASDeployer) AddCAASControllerApplication(ctx context.Context, info De
 			},
 			ApplicationStatus: &status.StatusInfo{
 				Status: status.Unset,
-				Since:  ptr(b.clock.Now()),
+				Since:  new(b.clock.Now()),
 			},
 			IsController: true,
 		},

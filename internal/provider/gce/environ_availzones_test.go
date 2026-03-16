@@ -44,13 +44,13 @@ func (s *environAZSuite) TestAvailabilityZones(c *tc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
-		Name:   ptr("a-zone"),
-		Status: ptr("UP"),
+		Name:   new("a-zone"),
+		Status: new("UP"),
 	}, {
-		Name:   ptr("b-zone"),
-		Status: ptr("DOWN"),
+		Name:   new("b-zone"),
+		Status: new("DOWN"),
 	}, {
-		Name:       ptr("c-zone"),
+		Name:       new("c-zone"),
 		Deprecated: &computepb.DeprecationStatus{},
 	}}, nil)
 
@@ -72,11 +72,11 @@ func (s *environAZSuite) TestInstanceAvailabilityZoneNames(c *tc.C) {
 
 	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
 		Return([]*computepb.Instance{{
-			Name: ptr("inst-0"),
-			Zone: ptr("home-zone"),
+			Name: new("inst-0"),
+			Zone: new("home-zone"),
 		}, {
-			Name: ptr("inst-1"),
-			Zone: ptr("home-a-zone"),
+			Name: new("inst-1"),
+			Zone: new("home-a-zone"),
 		}}, nil)
 
 	id := instance.Id("inst-0")
@@ -111,11 +111,11 @@ func (s *environAZSuite) TestDeriveAvailabilityZones(c *tc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
-		Name:   ptr("test-available"),
-		Status: ptr("UP"),
+		Name:   new("test-available"),
+		Status: new("UP"),
 	}, {
-		Name:   ptr("test-unavailable"),
-		Status: ptr("DOWN"),
+		Name:   new("test-unavailable"),
+		Status: new("DOWN"),
 	}}, nil)
 
 	s.StartInstArgs.Placement = "zone=test-available"
@@ -131,11 +131,11 @@ func (s *environAZSuite) TestDeriveAvailabilityZonesVolumeNoPlacement(c *tc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
-		Name:   ptr("home-zone"),
-		Status: ptr("UP"),
+		Name:   new("home-zone"),
+		Status: new("UP"),
 	}, {
-		Name:   ptr("away-zone"),
-		Status: ptr("UP"),
+		Name:   new("away-zone"),
+		Status: new("UP"),
 	}}, nil)
 
 	s.StartInstArgs.VolumeAttachments = []storage.VolumeAttachmentParams{{
@@ -153,8 +153,8 @@ func (s *environAZSuite) TestDeriveAvailabilityZonesUnavailable(c *tc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
-		Name:   ptr("test-unavailable"),
-		Status: ptr("DOWN"),
+		Name:   new("test-unavailable"),
+		Status: new("DOWN"),
 	}}, nil)
 
 	s.StartInstArgs.Placement = "zone=test-unavailable"
@@ -170,8 +170,8 @@ func (s *environAZSuite) TestDeriveAvailabilityZonesUnknown(c *tc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
-		Name:   ptr("home-zone"),
-		Status: ptr("UP"),
+		Name:   new("home-zone"),
+		Status: new("UP"),
 	}}, nil)
 
 	s.StartInstArgs.Placement = "zone=test-unknown"
@@ -202,11 +202,11 @@ func (s *environAZSuite) TestDeriveAvailabilityZonesVolumeAttachments(c *tc.C) {
 	env := s.SetupEnv(c, s.MockService)
 
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return([]*computepb.Zone{{
-		Name:   ptr("home-zone"),
-		Status: ptr("UP"),
+		Name:   new("home-zone"),
+		Status: new("UP"),
 	}, {
-		Name:   ptr("away-zone"),
-		Status: ptr("UP"),
+		Name:   new("away-zone"),
+		Status: new("UP"),
 	}}, nil)
 
 	s.StartInstArgs.VolumeAttachments = []storage.VolumeAttachmentParams{{

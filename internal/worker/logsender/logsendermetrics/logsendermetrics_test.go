@@ -89,13 +89,10 @@ func (s *bufferedLogWriterSuite) TestCollect(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
-	float64ptr := func(v float64) *float64 {
-		return &v
-	}
 	c.Assert(dtoMetrics, tc.DeepEquals, [4]*dto.Metric{
-		{Counter: &dto.Counter{Value: float64ptr(3)}},
-		{Counter: &dto.Counter{Value: float64ptr(5)}},
-		{Counter: &dto.Counter{Value: float64ptr(3)}},
-		{Counter: &dto.Counter{Value: float64ptr(1)}},
+		{Counter: &dto.Counter{Value: new(float64(3))}},
+		{Counter: &dto.Counter{Value: new(float64(5))}},
+		{Counter: &dto.Counter{Value: new(float64(3))}},
+		{Counter: &dto.Counter{Value: new(float64(1))}},
 	})
 }
