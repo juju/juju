@@ -286,7 +286,7 @@ func (m retryMiddleware) defaultBackoff(resp *http.Response, backoff time.Durati
 		// Check for http-date.
 		date, err := time.Parse(time.RFC1123, header)
 		if err == nil {
-			return m.clampBackoff(m.clock.Now().Sub(date))
+			return m.clampBackoff(date.Sub(m.clock.Now()))
 		}
 		url := ""
 		if resp.Request != nil {
@@ -299,6 +299,9 @@ func (m retryMiddleware) defaultBackoff(resp *http.Response, backoff time.Durati
 }
 
 func (m retryMiddleware) clampBackoff(duration time.Duration) (time.Duration, error) {
+	if duration < 0 {
+		duration = 0
+	}
 	if m.policy.MaxDelay > 0 && duration > m.policy.MaxDelay {
 		future := m.clock.Now().Add(duration)
 		return duration, errors.Errorf("API request retry is not accepting further requests until %s", future.Format(time.RFC3339))
