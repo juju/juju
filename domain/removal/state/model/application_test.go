@@ -175,8 +175,6 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNormalSuccessWith
 	_, err = s.DB().Exec(`UPDATE machine SET life_id = 1 WHERE uuid = ?`, allMachineUUIDs[0].String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	aliveMachineUUIDs := allMachineUUIDs[1:]
-
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, false)
@@ -185,10 +183,14 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNormalSuccessWith
 	c.Check(artifacts.RelationUUIDs, tc.HasLen, 0)
 	// Dying children should be returned too so retries can re-schedule them.
 	s.checkUnitContents(c, artifacts.UnitUUIDs, allUnitUUIDs)
-	s.checkMachineContents(c, artifacts.MachineUUIDs, aliveMachineUUIDs)
+	// All machine UUIDs are returned, including the already-dying one,
+	// so retries can re-schedule child removal jobs.
+	s.checkMachineContents(c, artifacts.MachineUUIDs, allMachineUUIDs)
 
 	s.checkApplicationDyingState(c, appUUID)
 	s.checkUnitDyingState(c, allUnitUUIDs)
+	// Only the previously-alive machines were transitioned by this call.
+	aliveMachineUUIDs := allMachineUUIDs[1:]
 	s.checkMachineDyingState(c, aliveMachineUUIDs)
 }
 
@@ -360,7 +362,9 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeRetryReturnsDying
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(secondArtifacts.RelationUUIDs, tc.DeepEquals, firstArtifacts.RelationUUIDs)
 	c.Check(secondArtifacts.UnitUUIDs, tc.DeepEquals, firstArtifacts.UnitUUIDs)
-	c.Check(secondArtifacts.MachineUUIDs, tc.HasLen, 0)
+	// Machine UUIDs are still returned on retries so child removal
+	// jobs can be re-scheduled.
+	c.Check(secondArtifacts.MachineUUIDs, tc.SameContents, firstArtifacts.MachineUUIDs)
 
 	s.checkApplicationDyingState(c, appUUID)
 	s.checkUnitDyingState(c, s.getAllUnitUUIDs(c, appUUID))
@@ -441,7 +445,9 @@ VALUES ('storage-attachment-uuid', 'instance-uuid', ?, 0)`, allUnitUUIDs[0])
 	c.Check(secondArtifacts.StorageAttachmentUUIDs, tc.DeepEquals, firstArtifacts.StorageAttachmentUUIDs)
 	c.Check(secondArtifacts.StorageInstanceUUIDs, tc.DeepEquals, firstArtifacts.StorageInstanceUUIDs)
 	c.Check(secondArtifacts.UnitUUIDs, tc.DeepEquals, firstArtifacts.UnitUUIDs)
-	c.Check(secondArtifacts.MachineUUIDs, tc.HasLen, 0)
+	// Machine UUIDs are still returned on retries so child removal
+	// jobs can be re-scheduled.
+	c.Check(secondArtifacts.MachineUUIDs, tc.SameContents, firstArtifacts.MachineUUIDs)
 }
 
 func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeOfferConnections(c *tc.C) {
