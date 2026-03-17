@@ -49,6 +49,8 @@ import (
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	crossmodelrelationstatecontroller "github.com/juju/juju/domain/crossmodelrelation/state/controller"
 	crossmodelrelationstatemodel "github.com/juju/juju/domain/crossmodelrelation/state/model"
+	exportservice "github.com/juju/juju/domain/export/service"
+	exportstate "github.com/juju/juju/domain/export/state/model"
 	keymanagerservice "github.com/juju/juju/domain/keymanager/service"
 	keymanagerstate "github.com/juju/juju/domain/keymanager/state"
 	keyupdaterservice "github.com/juju/juju/domain/keyupdater/service"
@@ -457,6 +459,13 @@ func (s *ModelServices) ModelInfo() *modelservice.ProviderModelService {
 		s.storageRegistry,
 		modelservice.DefaultAgentBinaryFinder(),
 		s.logger.Child("modelinfo"),
+	)
+}
+
+// Export returns the model export service.
+func (s *ModelServices) Export() *exportservice.Service {
+	return exportservice.NewService(
+		exportstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 	)
 }
 

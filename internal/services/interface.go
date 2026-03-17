@@ -25,6 +25,7 @@ import (
 	controllerupgraderservice "github.com/juju/juju/domain/controllerupgrader/service"
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
+	exportservice "github.com/juju/juju/domain/export/service"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
 	flagservice "github.com/juju/juju/domain/flag/service"
 	keymanagerservice "github.com/juju/juju/domain/keymanager/service"
@@ -178,6 +179,8 @@ type ModelDomainServices interface {
 	ModelProvider() *modelproviderservice.Service
 	// ChangeStream returns the model change stream.
 	ChangeStream() *changestreamservice.Service
+	// Export returns the service for accessing model exports.
+	Export() *exportservice.Service
 }
 
 // DomainServices provides access to the services required by the apiserver.
@@ -264,6 +267,6 @@ type UpgradeServices interface {
 // UpgradeServicesGetter represents a way to get the UpgradeServices
 // for the controller.
 type UpgradeServicesGetter interface {
-	// ServicesForModel returns a ProviderServices for the given model.
+	// ServicesForController returns the controller UpgradeService.
 	ServicesForController() UpgradeServices
 }
