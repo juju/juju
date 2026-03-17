@@ -2572,7 +2572,7 @@ func (a *app) EnsureStorage(
 	// return early here.
 	currentClaims := currentStatefulset.StatefulSet.StatefulSet.Spec.VolumeClaimTemplates
 	newClaims := newStatefulset.StatefulSet.Spec.VolumeClaimTemplates
-	if a.volumeClaimTemplateMatch(currentClaims, newClaims) {
+	if volumeClaimTemplateMatch(currentClaims, newClaims) {
 		logger.Debugf("no changes in storage for app %q", a.name)
 		return nil
 	}
@@ -2605,7 +2605,7 @@ func (a *app) EnsureStorage(
 	return errors.Annotatef(err, "ensuring storage for app %q", a.name)
 }
 
-func (a *app) volumeClaimTemplateMatch(
+func volumeClaimTemplateMatch(
 	currentVolClaims []corev1.PersistentVolumeClaim,
 	newVolClaims []corev1.PersistentVolumeClaim,
 ) bool {

@@ -67,6 +67,5 @@ func PVCNames(client kubernetes.Interface, namespace, appName, storagePrefix str
 }
 
 func VolumeClaimTemplateMatch(currentVolClaims, newVolClaims []corev1.PersistentVolumeClaim) bool {
-	a := &app{}
-	return a.volumeClaimTemplateMatch(currentVolClaims, newVolClaims)
+	return volumeClaimTemplateMatch(currentVolClaims, newVolClaims)
 }
