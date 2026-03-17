@@ -1726,6 +1726,121 @@ func (s *resourceSuite) TestGetResourceTypeNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNotFound)
 }
 
+// TestVerifyApplicationExistsForResource verifies that no error is returned when
+// the resource is linked to an application.
+func (s *resourceSuite) TestVerifyApplicationExistsForResource(c *tc.C) {
+	// Arrange: insert a resource linked to an application.
+	input := resourceData{
+		UUID:            "resource-id",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "resource-name",
+		Type:            charmresource.TypeFile,
+	}
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return errors.Capture(input.insert(ctx, tx))
+	})
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	// Act.
+	err = s.state.VerifyApplicationExistsForResource(c.Context(), coreresource.UUID(input.UUID))
+
+	// Assert.
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestVerifyApplicationExistsForResourceApplicationNotFound verifies that
+// ApplicationNotFound is returned when the resource is not linked to any
+// application.
+func (s *resourceSuite) TestVerifyApplicationExistsForResourceApplicationNotFound(c *tc.C) {
+	// Arrange: insert a resource without linking it to an application.
+	input := resourceData{
+		UUID: "resource-id",
+		Name: "resource-name",
+		Type: charmresource.TypeFile,
+	}
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return errors.Capture(input.insert(ctx, tx))
+	})
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	// Act.
+	err = s.state.VerifyApplicationExistsForResource(c.Context(), coreresource.UUID(input.UUID))
+
+	// Assert.
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+// TestVerifyApplicationExistsForResourceMissingResource verifies that
+// ApplicationNotFound is returned when the resource does not exist at all.
+func (s *resourceSuite) TestVerifyApplicationExistsForResourceMissingResource(c *tc.C) {
+	// Act.
+	err := s.state.VerifyApplicationExistsForResource(c.Context(), coreresource.UUID("missing-resource-id"))
+
+	// Assert.
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+// TestGetResourceNameAndTypeFile verifies that the resource name and file type
+// are returned for a file resource.
+func (s *resourceSuite) TestGetResourceNameAndTypeFile(c *tc.C) {
+	// Arrange: insert a file resource.
+	resID := "resource-id"
+	input := resourceData{
+		UUID:            resID,
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "resource-name",
+		Type:            charmresource.TypeFile,
+	}
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return errors.Capture(input.insert(ctx, tx))
+	})
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	// Act.
+	name, resourceType, err := s.state.GetResourceNameAndType(c.Context(), coreresource.UUID(resID))
+
+	// Assert.
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to get resource name and type: %v", errors.ErrorStack(err)))
+	c.Assert(name, tc.Equals, input.Name)
+	c.Assert(resourceType, tc.Equals, charmresource.TypeFile)
+}
+
+// TestGetResourceNameAndTypeContainerImage verifies that the resource name and
+// container image type are returned for a container image resource.
+func (s *resourceSuite) TestGetResourceNameAndTypeContainerImage(c *tc.C) {
+	// Arrange: insert a container image resource.
+	resID := "resource-id"
+	input := resourceData{
+		UUID:            resID,
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "resource-name",
+		Type:            charmresource.TypeContainerImage,
+	}
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return errors.Capture(input.insert(ctx, tx))
+	})
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	// Act.
+	name, resourceType, err := s.state.GetResourceNameAndType(c.Context(), coreresource.UUID(resID))
+
+	// Assert.
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to get resource name and type: %v", errors.ErrorStack(err)))
+	c.Assert(name, tc.Equals, input.Name)
+	c.Assert(resourceType, tc.Equals, charmresource.TypeContainerImage)
+}
+
+// TestGetResourceNameAndTypeNotFound verifies that requesting a missing
+// resource returns ResourceNotFound.
+func (s *resourceSuite) TestGetResourceNameAndTypeNotFound(c *tc.C) {
+	// Act.
+	_, _, err := s.state.GetResourceNameAndType(c.Context(), "missing-resource-id")
+
+	// Assert.
+	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNotFound)
+}
+
 // TestListResourcesNoResources verifies that no resources are listed for an
 // application when no resources exist. It checks that the resulting lists for
 // unit resources, general resources, and repository resources are all empty.

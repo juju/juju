@@ -2507,3 +2507,97 @@ WHERE  name = $applicationNameAndID.name
 
 	return appID.ApplicationID, nil
 }
+
+// VerifyApplicationExistsForResource returns whether an application
+// exists for the given resource UUID.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.ApplicationNotFound] is returned if the
+//     application is not found.
+func (st *State) VerifyApplicationExistsForResource(ctx context.Context, resourceUUID coreresource.UUID) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	input := localUUID{UUID: resourceUUID.String()}
+
+	type existsResult struct {
+		Found bool `db:"found"`
+	}
+
+	stmt, err := st.Prepare(`
+SELECT found AS &existsResult.found
+FROM (
+    SELECT EXISTS (
+        SELECT 1
+        FROM application_resource
+        WHERE resource_uuid = $localUUID.uuid
+    ) AS found
+)
+`, input, existsResult{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var output existsResult
+		queryErr := tx.Query(ctx, stmt, input).Get(&output)
+		if errors.Is(queryErr, sqlair.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		} else if queryErr != nil {
+			return queryErr
+		}
+		if !output.Found {
+			return applicationerrors.ApplicationNotFound
+		}
+		return nil
+	})
+	return errors.Capture(err)
+}
+
+// GetResourceNameAndType returns the name and resource type for the given
+// resource UUID.
+func (st *State) GetResourceNameAndType(ctx context.Context, resourceUUID coreresource.UUID) (string, charmresource.Type, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", 0, errors.Capture(err)
+	}
+
+	res := localUUID{
+		UUID: resourceUUID.String(),
+	}
+	stmt, err := st.Prepare(`
+SELECT r.charm_resource_name AS &resourceNameAndKind.name,
+       crk.name AS &resourceNameAndKind.kind
+FROM   resource AS r
+JOIN   charm_resource AS cr ON r.charm_uuid = cr.charm_uuid
+JOIN   charm_resource_kind AS crk ON cr.kind_id = crk.id
+WHERE  r.uuid = $localUUID.uuid
+`, res, resourceNameAndKind{})
+	if err != nil {
+		return "", 0, errors.Capture(err)
+	}
+
+	var output resourceNameAndKind
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		queryErr := tx.Query(ctx, stmt, res).Get(&output)
+		if errors.Is(queryErr, sqlair.ErrNoRows) {
+			st.logger.Criticalf(ctx, "resource %q not found", resourceUUID)
+			return resourceerrors.ResourceNotFound
+		} else if queryErr != nil {
+			st.logger.Criticalf(ctx, "resource : %w", err)
+			return queryErr
+		}
+		st.logger.Debugf(ctx, "resource %+v found", output)
+		return nil
+	})
+	if err != nil {
+		return "", 0, errors.Capture(err)
+	}
+	kind, err := charmresource.ParseType(output.Kind)
+	if err != nil {
+		return "", 0, errors.Errorf("parsing resource type %q: %w", output.Kind, err)
+	}
+	return output.ResourceName, kind, nil
+}
