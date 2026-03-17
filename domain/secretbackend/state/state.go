@@ -298,6 +298,9 @@ func (s *State) getOrCreateK8sBuiltinSecretBackend(
 		if err := s.upsertBackendConfig(ctx, tx, backendID.String(), k8sConfig.Config); err != nil {
 			return nil, errors.Errorf("cannot create built-in secret backend config: %w", err)
 		}
+		if err := s.upsertModelBackend(ctx, tx, backendID.String(), modelName); err != nil {
+			return nil, errors.Errorf("cannot update model backend: %w", err)
+		}
 		sb, err := s.getSecretBackend(ctx, tx, secretbackend.BackendIdentifier{Name: backendName})
 		return sb, errors.Capture(err)
 	} else if err != nil {
@@ -515,7 +518,7 @@ func (s *State) ListSecretBackends(ctx context.Context) ([]*secretbackend.Secret
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	nonK8sQuery := fmt.Sprintf(`
+	query := fmt.Sprintf(`
 SELECT
     b.uuid                                   AS &SecretBackendRow.uuid,
     b.name                                   AS &SecretBackendRow.name,
@@ -528,9 +531,9 @@ FROM secret_backend b
     JOIN secret_backend_type bt ON b.backend_type_id = bt.id
     LEFT JOIN secret_backend_config c ON b.uuid = c.backend_uuid
     LEFT JOIN secret_backend_reference sbr ON b.uuid = sbr.secret_backend_uuid
-WHERE b.name <> '%s'
+WHERE b.name <> '%s' -- ignore the built-in k8s secret backend which is a placeholder for non initialized k8s backend
 GROUP BY b.name, c.name`, kubernetes.BackendName)
-	nonK8sStmt, err := s.Prepare(nonK8sQuery, SecretBackendRow{})
+	stmt, err := s.Prepare(query, SecretBackendRow{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -538,11 +541,7 @@ GROUP BY b.name, c.name`, kubernetes.BackendName)
 	var result []*secretbackend.SecretBackend
 	var nonK8sRows secretBackendRows
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		result, err = s.listInUseKubernetesSecretBackends(ctx, tx)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		err = tx.Query(ctx, nonK8sStmt).GetAll(&nonK8sRows)
+		err = tx.Query(ctx, stmt).GetAll(&nonK8sRows)
 		if errors.Is(err, sql.ErrNoRows) {
 			// We do not want to return an error if there are no secret backends.
 			// We just return an empty list.
@@ -558,77 +557,6 @@ GROUP BY b.name, c.name`, kubernetes.BackendName)
 		return nil, errors.Errorf("cannot list secret backends: %w", err)
 	}
 	return append(result, nonK8sRows.toSecretBackends(ctx, s.logger)...), nil
-}
-
-// listInUseKubernetesSecretBackends returns a list of all kubernetes secret backends which contain secrets.
-func (s *State) listInUseKubernetesSecretBackends(ctx context.Context, tx *sqlair.TX) ([]*secretbackend.SecretBackend, error) {
-	backendQuery := fmt.Sprintf(`
-SELECT
-    sbr.secret_backend_uuid                  AS &secretBackendForK8sModelRow.uuid,
-    b.name                                   AS &secretBackendForK8sModelRow.name,
-    vm.name                                  AS &secretBackendForK8sModelRow.model_name,
-    bt.type                                  AS &secretBackendForK8sModelRow.backend_type,
-    vc.uuid                                  AS &secretBackendForK8sModelRow.cloud_uuid,
-    vcca.uuid                                AS &secretBackendForK8sModelRow.cloud_credential_uuid,
-    COUNT(DISTINCT sbr.secret_revision_uuid) AS &secretBackendForK8sModelRow.num_secrets,
-    (vc.uuid,
-    vc.name,
-    vc.endpoint,
-    vc.skip_tls_verify,
-    vc.is_controller_cloud,
-    ccc.ca_cert) AS (&cloudRow.*),
-    (vcca.uuid,
-    vcca.name,
-    vcca.auth_type,
-    vcca.revoked,
-    vcca.attribute_key,
-    vcca.attribute_value) AS (&cloudCredentialRow.*)
-FROM secret_backend_reference sbr
-    JOIN secret_backend b ON sbr.secret_backend_uuid = b.uuid
-    JOIN secret_backend_type bt ON b.backend_type_id = bt.id
-    JOIN v_model vm ON sbr.model_uuid = vm.uuid
-    JOIN v_cloud_auth vc ON vm.cloud_uuid = vc.uuid
-    JOIN cloud_ca_cert ccc ON vc.uuid = ccc.cloud_uuid
-    JOIN v_cloud_credential_attribute vcca ON vm.cloud_credential_uuid = vcca.uuid
-WHERE b.name = '%s'
-GROUP BY vm.name, vcca.attribute_key`, kubernetes.BackendName)
-	backendStmt, err := s.Prepare(backendQuery, secretBackendForK8sModelRow{}, cloudRow{}, cloudCredentialRow{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	// Controller name is still stored in controller config.
-	var controller controllerName
-	controllerNameStmt, err := s.Prepare(`
-SELECT value AS &controllerName.name FROM v_controller_config WHERE key = 'controller-name'
-`, controller)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var sbData secretBackendForK8sModelRows
-	var cloudData cloudRows
-	var credentialData cloudCredentialRows
-
-	err = tx.Query(ctx, backendStmt).GetAll(&sbData, &cloudData, &credentialData)
-	if errors.Is(err, sql.ErrNoRows) {
-		// We do not want to return an error if there are no secret backends.
-		// We just return an empty list.
-		s.logger.Debugf(ctx, "no in-use kubernetes secret backends found")
-		return nil, nil
-	}
-	if err != nil {
-		return nil, errors.Errorf("querying kubernetes secret backends: %w", err)
-	}
-
-	err = tx.Query(ctx, controllerNameStmt).Get(&controller)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.Errorf("controller name key not found")
-	}
-	if err != nil {
-		return nil, errors.Errorf("cannot select controller name")
-	}
-	return sbData.toSecretBackend(controller.Name, cloudData, credentialData)
 }
 
 func getK8sBackendConfig(controllerName, modelName string, cloud cloud.Cloud, cred cloud.Credential) (*provider.BackendConfig, error) {

@@ -9,8 +9,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/collections/set"
-
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -21,7 +19,6 @@ import (
 	"github.com/juju/juju/domain/secretbackend/internal"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 )
 
 // ModelSecretBackend represents a set of data about a model and its current secret backend config.
@@ -239,39 +236,6 @@ type secretBackendForK8sModelRow struct {
 }
 
 type secretBackendForK8sModelRows []secretBackendForK8sModelRow
-
-func (rows secretBackendForK8sModelRows) toSecretBackend(controllerName string, cldData cloudRows, credData cloudCredentialRows) ([]*secretbackend.SecretBackend, error) {
-	clds := cldData.toClouds()
-	creds := credData.toCloudCredentials()
-
-	cloudIDs := set.NewStrings()
-	var result []*secretbackend.SecretBackend
-	for _, row := range rows {
-		if cloudIDs.Contains(row.CloudID) {
-			continue
-		}
-		cloudIDs.Add(row.CloudID)
-		if _, ok := clds[row.CloudID]; !ok {
-			return nil, errors.Errorf("cloud %q not found", row.CloudID)
-		}
-		if _, ok := creds[row.CredentialID]; !ok {
-			return nil, errors.Errorf("cloud credential %q not found", row.CredentialID)
-		}
-		k8sConfig, err := getK8sBackendConfig(controllerName, row.ModelName, clds[row.CloudID], creds[row.CredentialID])
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-		result = append(result, &secretbackend.SecretBackend{
-			ID:          row.ID,
-			Name:        kubernetes.BuiltInName(row.ModelName),
-			BackendType: row.BackendType,
-			NumSecrets:  row.NumSecrets,
-			Config:      k8sConfig.Config,
-		})
-
-	}
-	return result, nil
-}
 
 // SecretBackendRotationRow represents a single joined result from
 // secret_backend and secret_backend_rotation tables.

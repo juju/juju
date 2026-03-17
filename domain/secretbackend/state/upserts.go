@@ -97,3 +97,35 @@ ON CONFLICT (backend_uuid, name) DO UPDATE SET
 	}
 	return nil
 }
+
+func (s *State) upsertModelBackend(ctx context.Context, tx *sqlair.TX, backendUUID, modelName string) interface{} {
+	type upsert struct {
+		BackendUUID string `db:"secret_backend_uuid"`
+		ModelName   string `db:"model_name"`
+		ModelUUID   string `db:"model_uuid"`
+	}
+	row := upsert{BackendUUID: backendUUID, ModelName: modelName}
+	getModelUUIDStmt, err := s.Prepare(`
+SELECT uuid AS &upsert.model_uuid 
+FROM   model 
+WHERE  name = $upsert.model_name 
+LIMIT 1`, row)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	stmt, err := s.Prepare(`
+INSERT INTO model_secret_backend (model_uuid, secret_backend_uuid)
+VALUES ($upsert.*)
+ON CONFLICT (model_uuid) DO UPDATE SET
+    secret_backend_uuid=excluded.secret_backend_uuid`, row)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err = tx.Query(ctx, getModelUUIDStmt, row).Get(&row); err != nil {
+		return errors.Errorf("cannot get model uuid for %q: %w", modelName, err)
+	}
+
+	return errors.Capture(tx.Query(ctx, stmt, row).Run())
+}
