@@ -421,7 +421,7 @@ func ConvertScalingToCurrentOperationEnumField(pool *StatePool) error {
 		for iter.Next(&app) {
 			id, ok := app["_id"].(string)
 			if !ok {
-				return errors.New("typecasting app id to string")
+				return errors.Errorf("expected app id string, got \"%v\" (%T)", id, id)
 			}
 
 			psRaw, ok := app["provisioning-state"]
@@ -431,7 +431,7 @@ func ConvertScalingToCurrentOperationEnumField(pool *StatePool) error {
 
 			ps, ok := psRaw.(bson.M)
 			if !ok {
-				return errors.New("typecasting app provisioning-state to bson.M")
+				return errors.Errorf("expected app provisioning-state bson.M, got \"%v\" (%T)", psRaw, psRaw)
 			}
 
 			scalingRaw, ok := ps["scaling"]
@@ -449,7 +449,7 @@ func ConvertScalingToCurrentOperationEnumField(pool *StatePool) error {
 
 			scaling, ok := scalingRaw.(bool)
 			if !ok {
-				return errors.New("typecasting app scaling to bool")
+				return errors.Errorf("expected app scaling bool, got \"%v\" (%T)", scalingRaw, scalingRaw)
 			}
 
 			update := bson.D{
