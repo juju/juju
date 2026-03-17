@@ -388,6 +388,16 @@ func (w *storageProvisioner) loop() error {
 // no more changes.
 // If there are no changes, it returns with no error.
 func (w *storageProvisioner) processDependentChanges(ctx context.Context, deps *dependencies, source watcher.StringsChannel, fn func(context.Context, *dependencies, []string) error) error {
+	timer := w.config.Clock.NewTimer(defaultDependentChangesTimeout)
+	defer func() {
+		if !timer.Stop() {
+			select {
+			case <-timer.Chan():
+			default:
+			}
+		}
+	}()
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -399,7 +409,16 @@ func (w *storageProvisioner) processDependentChanges(ctx context.Context, deps *
 			if err := fn(ctx, deps, changes); err != nil {
 				return errors.Trace(err)
 			}
-		case <-time.After(defaultDependentChangesTimeout):
+
+			// Restart the inactivity timeout after every processed change.
+			if !timer.Stop() {
+				select {
+				case <-timer.Chan():
+				default:
+				}
+			}
+			timer.Reset(defaultDependentChangesTimeout)
+		case <-timer.Chan():
 			// Nothing to do, we've waited long enough.
 			return nil
 		}
