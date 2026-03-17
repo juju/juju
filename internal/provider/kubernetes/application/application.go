@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	storagev1client "k8s.io/client-go/kubernetes/typed/storage/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
 
@@ -227,7 +228,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				},
 			},
 		}
-		return a.handleVolume(vol, mountPath, readOnly, podSpec)
+		return handleVolume(vol, mountPath, readOnly, podSpec)
 	}
 	storageClasses, err := resources.ListStorageClass(context.TODO(),
 		a.client.StorageV1().StorageClasses(), metav1.ListOptions{})
@@ -243,7 +244,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			podSpec,
 			applier,
 			config,
-			a.handleVolume, a.handleVolumeMount, handlePVC, a.handleStorageClass,
+			handleVolume, handleVolumeMount, handlePVC, handleStorageClass,
 		)
 		return errors.Trace(err)
 	}
@@ -336,7 +337,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	return applier.Run(context.TODO(), false)
 }
 
-func (a *app) handleVolume(
+func handleVolume(
 	v corev1.Volume,
 	mountPath string,
 	readOnly bool,
@@ -352,7 +353,7 @@ func (a *app) handleVolume(
 	}, nil
 }
 
-func (a *app) handleVolumeMount(
+func handleVolumeMount(
 	storageName string,
 	m corev1.VolumeMount,
 	podSpec *corev1.PodSpec,
@@ -377,8 +378,9 @@ func (a *app) handleVolumeMount(
 	return nil
 }
 
-func (a *app) handleStorageClass(sc storagev1.StorageClass, applier resources.Applier) error {
-	storageClass := resources.NewStorageClass(a.client.StorageV1().StorageClasses(), sc.Name, &sc)
+func handleStorageClass(applier resources.Applier, sc storagev1.StorageClass,
+	storageClient storagev1client.StorageClassInterface) error {
+	storageClass := resources.NewStorageClass(storageClient, sc.Name, &sc)
 	applier.Apply(storageClass)
 	return nil
 }
@@ -2262,7 +2264,7 @@ type handleVolumeFunc func(vol corev1.Volume, mountPath string, readOnly bool,
 	podSpec *corev1.PodSpec) (*corev1.VolumeMount, error)
 type handlePVCFunc func(pvc corev1.PersistentVolumeClaim, mountPath string, readOnly bool) (*corev1.VolumeMount, error)
 type handleVolumeMountFunc func(string, corev1.VolumeMount, *corev1.PodSpec, caas.ApplicationConfig) error
-type handleStorageClassFunc func(storagev1.StorageClass, resources.Applier) error
+type handleStorageClassFunc func(resources.Applier, storagev1.StorageClass, storagev1client.StorageClassInterface) error
 
 func (a *app) volumeName(storageName string) string {
 	return fmt.Sprintf("%s-%s", a.name, storageName)
@@ -2365,14 +2367,14 @@ func (a *app) configureStorage(
 		mountPath := storage.GetMountPathForFilesystem(index, a.name, fs)
 		if vol != nil && handleVolume != nil {
 			logger.Debugf("using volume for %s filesystem %s: %s", a.name, fs.StorageName, pretty.Sprint(*vol))
-			volumeMount, err = a.handleVolume(*vol, mountPath, readOnly, podSpec)
+			volumeMount, err = handleVolume(*vol, mountPath, readOnly, podSpec)
 			if err != nil {
 				return errors.Trace(err)
 			}
 		}
 		if sc != nil && handleStorageClass != nil {
 			logger.Debugf("creating storage class for %s filesystem %s: %s", a.name, fs.StorageName, pretty.Sprint(*sc))
-			if err = handleStorageClass(*sc, applier); err != nil {
+			if err = handleStorageClass(applier, *sc, a.client.StorageV1().StorageClasses()); err != nil {
 				return errors.Trace(err)
 			}
 			storageClassMap[sc.Name] = resources.StorageClass{StorageClass: *sc}
@@ -2548,7 +2550,7 @@ func (a *app) EnsureStorage(
 			podSpec,
 			applier,
 			config,
-			a.handleVolume, a.handleVolumeMount, handlePVC, a.handleStorageClass,
+			handleVolume, handleVolumeMount, handlePVC, handleStorageClass,
 		)
 		return errors.Trace(err)
 	}
