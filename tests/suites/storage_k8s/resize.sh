@@ -8,23 +8,80 @@ cleanup_deny_postgresql_sts_policy() {
 }
 
 add_wrench_application_storage() {
-  juju ssh -m controller controller/0 \
-      'mkdir -p /var/lib/juju/wrench && echo "ensure-storage-fail" > /var/lib/juju/wrench/application-storage'
+	juju ssh -m controller controller/0 \
+		'mkdir -p /var/lib/juju/wrench && echo "ensure-storage-fail" > /var/lib/juju/wrench/application-storage'
 }
 
 cleanup_wrench_application_storage() {
 	juju ssh -m controller controller/0 \
-	  'mkdir -p /var/lib/juju/wrench && : > /var/lib/juju/wrench/application-storage' >/dev/null 2>&1 || true
+		'mkdir -p /var/lib/juju/wrench && : > /var/lib/juju/wrench/application-storage' >/dev/null 2>&1 || true
 }
 
 add_wrench_scale_application() {
-  juju ssh -m controller controller/0 \
-  	  'mkdir -p /var/lib/juju/wrench && echo "ensure-scale-fail" > /var/lib/juju/wrench/scale-application'
+	juju ssh -m controller controller/0 \
+		'mkdir -p /var/lib/juju/wrench && echo "ensure-scale-fail" > /var/lib/juju/wrench/scale-application'
 }
 
 cleanup_wrench_scale_application() {
-  juju ssh -m controller controller/0 \
-    'mkdir -p /var/lib/juju/wrench && : > /var/lib/juju/wrench/scale-application' >/dev/null 2>&1 || true
+	juju ssh -m controller controller/0 \
+		'mkdir -p /var/lib/juju/wrench && : > /var/lib/juju/wrench/scale-application' >/dev/null 2>&1 || true
+}
+
+storage_id_for_pod() {
+	local model_name pod_name storage_name claim_name_prefix_regex
+	local pod_json pvc_name pvc_json pv_name storage_id
+
+	model_name=${1}
+	pod_name=${2}
+	storage_name=${3}
+	claim_name_prefix_regex="$storage_name-.*-$pod_name$"
+
+	pod_json=$(microk8s kubectl get pod "${pod_name}" -n "${model_name}" -o json 2>/dev/null || true)
+	if [[ -z ${pod_json} ]]; then
+		return 1
+	fi
+
+	pvc_name=$(echo "${pod_json}" | CLAIM_NAME_PREFIX="$claim_name_prefix_regex" yq -o json -r '
+		[
+			.spec.volumes[]?
+			| select(.persistentVolumeClaim != null)
+			| .persistentVolumeClaim.claimName
+		] | map(select(test(strenv(CLAIM_NAME_PREFIX)))) | .[0] // ""
+	')
+	if [[ -z ${pvc_name} ]]; then
+		return 1
+	fi
+
+	pvc_json=$(microk8s kubectl get pvc "${pvc_name}" -n "${model_name}" -o json 2>/dev/null || true)
+	if [[ -z ${pvc_json} ]]; then
+		return 1
+	fi
+
+	pv_name=$(echo "${pvc_json}" | yq -o json -r '.spec.volumeName // ""')
+	if [[ -z ${pv_name} ]]; then
+		return 1
+	fi
+
+	storage_id=$(juju storage --format json 2>/dev/null | PV_NAME="${pv_name}" yq -o json -r '
+		.volumes | to_entries[]
+		| select(.value["provider-id"] == strenv(PV_NAME))
+		| .value.storage
+	' | head -n 1)
+	if [[ -z ${storage_id} ]]; then
+		return 1
+	fi
+
+	echo "${storage_id}"
+}
+
+wait_for_active_units() {
+	local app_name expected_count
+
+	app_name=${1}
+	expected_count=${2}
+
+	wait_for "${app_name}" "$(active_condition "${app_name}" 0)"
+	wait_for "${expected_count}" ".applications[\"${app_name}\"].units | map(select(.[\"workload-status\"].current == \"active\")) | length"
 }
 
 # Scenario: update storage first, then scale out with both scale-application and add-unit.
@@ -47,8 +104,9 @@ test_scale_and_update_storage() {
 	juju deploy postgresql-k8s --channel 14/stable --trust
 
 	# Wait until the application is active.
-	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
-	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
+	wait_for_active_units "postgresql-k8s" 1
+	postgresql_k8s_0_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-0" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_0_storage_id\"][\"status\"].current"
 
 	# Update the storage to 2GB.
 	juju application-storage postgresql-k8s pgdata=2G
@@ -62,25 +120,26 @@ test_scale_and_update_storage() {
 
 	# Wait until the application is active and storage for the new units
 	# are attached.
-	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
-	wait_for 3 '.applications["postgresql-k8s"]."units" | keys | length'
-	wait_for_storage "attached" '.storage["pgdata/1"]["status"].current'
-	wait_for_storage "attached" '.storage["pgdata/2"]["status"].current'
+	wait_for_active_units "postgresql-k8s" 3
+	postgresql_k8s_1_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-1" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_1_storage_id\"][\"status\"].current"
+	postgresql_k8s_2_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-2" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_2_storage_id\"][\"status\"].current"
 
 	# Check that the containers in postgresql-k8s-0 pod should not restart
 	microk8s kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
-		yq -o json '[.status.containerStatuses[].restartCount] | add' | check 0
+		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
 
 	# Check that the first unit uses 1GB storage and the new unit
 	# uses 2GB storage.
 	juju storage --format json |
-		yq -o json '.volumes | to_entries[] | select(.value.storage == "pgdata/0") | .value.size' |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_0_storage_id\") | .value.size" |
 		check 1024
 	juju storage --format json |
-		yq -o json '.volumes | to_entries[] | select(.value.storage == "pgdata/1") | .value.size' |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_1_storage_id\") | .value.size" |
 		check 2048
 	juju storage --format json |
-		yq -o json '.volumes | to_entries[] | select(.value.storage == "pgdata/2") | .value.size' |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_2_storage_id\") | .value.size" |
 		check 2048
 
 	destroy_model "${model_name}"
@@ -103,42 +162,43 @@ test_scale_and_update_storage_successive() {
 	ensure "${model_name}" "${file}"
 
 	juju deploy postgresql-k8s --channel 14/stable --trust
-	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
-	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
+	wait_for_active_units "postgresql-k8s" 1
+	postgresql_k8s_0_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-0" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_0_storage_id\"][\"status\"].current"
 
 	# Issue a storage update and scale quickly one after the other.
 	juju application-storage postgresql-k8s pgdata=3G,kubernetes &&
 		juju scale-application postgresql-k8s 2
 
 	# Wait for app to stabilize.
-	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
-	wait_for 2 '.applications["postgresql-k8s"]."units" | keys | length'
-	wait_for_storage "attached" '.storage["pgdata/1"]["status"].current'
+	wait_for_active_units "postgresql-k8s" 2
+	postgresql_k8s_1_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-1" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_1_storage_id\"][\"status\"].current"
 
 	# Check that the first unit uses 1GB storage and the second unit
 	# can be 2GB or 3GB depending on reconcile ordering.
 	# We cannot guarantee ordering especially when successive commands are issued
 	# very close to each other. So we check two possible outcomes.
 	juju storage --format json |
-		yq -o json '.volumes | to_entries[] | select(.value.storage == "pgdata/0") | .value.size' |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_0_storage_id\") | .value.size" |
 		check 1024
 	juju storage --format json |
-		yq -o json -r '.volumes | to_entries[] | select(.value.storage == "pgdata/1") | .value.size' |
+		yq -o json -r ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_1_storage_id\") | .value.size" |
 		check "^(2048|3072)$"
 
 	# Check that volume claim template is 3GB.
 	# This is expected despite the new pod MAY be spawned with old 2GB storage.
 	microk8s kubectl get sts postgresql-k8s -n "${model_name}" -o json |
-		yq -o json -r '.spec.volumeClaimTemplates[] | select(.metadata.name | startswith("postgresql-k8s-pgdata")) | .spec.resources.requests.storage' |
+		yq -o json -r '.spec.volumeClaimTemplates[] | select(.metadata.name | test("postgresql-k8s-pgdata-*.")) | .spec.resources.requests.storage' |
 		check 3Gi
 
 	# Now if you scale the new unit will receive 3GB storage.
 	juju scale-application postgresql-k8s 3
-	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
-	wait_for 3 '.applications["postgresql-k8s"]."units" | keys | length'
-	wait_for_storage "attached" '.storage["pgdata/2"]["status"].current'
+	wait_for_active_units "postgresql-k8s" 3
+	postgresql_k8s_2_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-2" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_2_storage_id\"][\"status\"].current"
 	juju storage --format json |
-		yq -o json -r '.volumes | to_entries[] | select(.value.storage == "pgdata/2") | .value.size' |
+		yq -o json -r ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_2_storage_id\") | .value.size" |
 		check 3072
 
 	# Now do it the other way around.
@@ -147,38 +207,38 @@ test_scale_and_update_storage_successive() {
 		juju application-storage postgresql-k8s pgdata=4G,kubernetes
 
 	# Wait for app to stabilize.
-	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
-	wait_for 4 '.applications["postgresql-k8s"]."units" | keys | length'
-	wait_for_storage "attached" '.storage["pgdata/3"]["status"].current'
+	wait_for_active_units "postgresql-k8s" 4
+	postgresql_k8s_3_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-3" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_3_storage_id\"][\"status\"].current"
 
 	# The newly spawned unit can use either 3GB or 4GB depending on
 	# reconcile ordering.
 	juju storage --format json |
-		yq -o json '.volumes | to_entries[] | select(.value.storage == "pgdata/0") | .value.size' |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_0_storage_id\") | .value.size" |
 		check 1024
 	juju storage --format json |
-		yq -o json -r '.volumes | to_entries[] | select(.value.storage == "pgdata/1") | .value.size' |
+		yq -o json -r ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_1_storage_id\") | .value.size" |
 		check "^(2048|3072)$"
 	juju storage --format json |
-		yq -o json -r '.volumes | to_entries[] | select(.value.storage == "pgdata/2") | .value.size' |
+		yq -o json -r ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_2_storage_id\") | .value.size" |
 		check 3072
 	juju storage --format json |
-		yq -o json -r '.volumes | to_entries[] | select(.value.storage == "pgdata/3") | .value.size' |
+		yq -o json -r ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_3_storage_id\") | .value.size" |
 		check "^(3072|4096)$"
 
 	# Check that volume claim template is 4GB.
 	# This is expected despite the new pod MAY be spawned with old 3GB storage.
 	microk8s kubectl get sts postgresql-k8s -n "${model_name}" -o json |
-		yq -o json -r '.spec.volumeClaimTemplates[] | select(.metadata.name | startswith("postgresql-k8s-pgdata")) | .spec.resources.requests.storage' |
+		yq -o json -r '.spec.volumeClaimTemplates[] | select(.metadata.name | test("postgresql-k8s-pgdata-*.")) | .spec.resources.requests.storage' |
 		check 4Gi
 
 	# Now if you scale, the new unit will receive 4GB storage.
 	juju scale-application postgresql-k8s 5
-	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
-	wait_for 5 '.applications["postgresql-k8s"]."units" | keys | length'
-	wait_for_storage "attached" '.storage["pgdata/4"]["status"].current'
+	wait_for_active_units "postgresql-k8s" 5
+	postgresql_k8s_4_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-4" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_4_storage_id\"][\"status\"].current"
 	juju storage --format json |
-		yq -o json -r '.volumes | to_entries[] | select(.value.storage == "pgdata/4") | .value.size' |
+		yq -o json -r ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_4_storage_id\") | .value.size" |
 		check 4096
 
 	destroy_model "${model_name}"
@@ -209,8 +269,9 @@ test_scale_app_with_updated_storage_self_healing() {
 
 	# Wait until the application is active.
 	juju deploy postgresql-k8s --channel 14/stable --trust
-	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
-	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
+	wait_for_active_units "postgresql-k8s" 1
+	postgresql_k8s_0_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-0" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_0_storage_id\"][\"status\"].current"
 
 	# Apply the admission policy to deny creating a statefulset for postgresql-k8s.
 	microk8s kubectl apply -f "${deny_postgresql_sts_spec}"
@@ -237,24 +298,26 @@ test_scale_app_with_updated_storage_self_healing() {
 
 	# Wait until the application is active and storage for the new units
 	# are attached.
-	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
-	wait_for_storage "attached" '.storage["pgdata/1"]["status"].current'
-	wait_for_storage "attached" '.storage["pgdata/2"]["status"].current'
+	wait_for_active_units "postgresql-k8s" 3
+	postgresql_k8s_1_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-1" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_1_storage_id\"][\"status\"].current"
+	postgresql_k8s_2_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-2" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_2_storage_id\"][\"status\"].current"
 
 	# Check that the containers in postgresql-k8s-0 pod should not restart
 	microk8s kubectl get pod postgresql-k8s-0 -n "${model_name}" -o json |
-		yq -o json '[.status.containerStatuses[].restartCount] | add' | check 0
+		yq '.status.containerStatuses[].restartCount as $c ireduce (0; . + $c)' | check 0
 
 	# Check that the first unit uses 1GB storage and the new unit
 	# uses 2GB storage.
 	juju storage --format json |
-		yq -o json '.volumes | to_entries[] | select(.value.storage == "pgdata/0") | .value.size' |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_0_storage_id\") | .value.size" |
 		check 1024
 	juju storage --format json |
-		yq -o json '.volumes | to_entries[] | select(.value.storage == "pgdata/1") | .value.size' |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_1_storage_id\") | .value.size" |
 		check 2048
 	juju storage --format json |
-		yq -o json '.volumes | to_entries[] | select(.value.storage == "pgdata/2") | .value.size' |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_2_storage_id\") | .value.size" |
 		check 2048
 
 	destroy_model "${model_name}"
@@ -277,8 +340,9 @@ test_scale_after_storage_update_crash() {
 	add_clean_func "cleanup_wrench_application_storage"
 
 	juju deploy postgresql-k8s --channel 14/stable --trust
-	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
-	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
+	wait_for_active_units "postgresql-k8s" 1
+	postgresql_k8s_0_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-0" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_0_storage_id\"][\"status\"].current"
 
 	# Add a feature flag to purposely fail the storage update.
 	add_wrench_application_storage
@@ -296,24 +360,25 @@ test_scale_after_storage_update_crash() {
 		yq -o json -r '.applications["postgresql-k8s"]."units" | keys | length' | check 1
 
 	# Remove the feature flag so we can resume storage update.
-  cleanup_wrench_application_storage
+	cleanup_wrench_application_storage
 
 	# It will safe heal. Wait for the app to be active and new storage attached.
-	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
-	wait_for 3 '.applications["postgresql-k8s"]."units" | keys | length'
-	wait_for_storage "attached" '.storage["pgdata/1"]["status"].current'
-	wait_for_storage "attached" '.storage["pgdata/2"]["status"].current'
+	wait_for_active_units "postgresql-k8s" 3
+	postgresql_k8s_1_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-1" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_1_storage_id\"][\"status\"].current"
+	postgresql_k8s_2_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-2" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_2_storage_id\"][\"status\"].current"
 
 	# Check that the first unit uses 1GB storage and the new unit
 	# uses 2GB storage.
 	juju storage --format json |
-		yq -o json '.volumes | to_entries[] | select(.value.storage == "pgdata/0") | .value.size' |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_0_storage_id\") | .value.size" |
 		check 1024
 	juju storage --format json |
-		yq -o json '.volumes | to_entries[] | select(.value.storage == "pgdata/1") | .value.size' |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_1_storage_id\") | .value.size" |
 		check 2048
 	juju storage --format json |
-		yq -o json '.volumes | to_entries[] | select(.value.storage == "pgdata/2") | .value.size' |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_2_storage_id\") | .value.size" |
 		check 2048
 
 	destroy_model "${model_name}"
@@ -340,8 +405,9 @@ test_scale_resumes_after_storage_update_missing_sts() {
 	cleanup_deny_postgresql_sts_policy
 
 	juju deploy postgresql-k8s --channel 14/stable --trust
-	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
-	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
+	wait_for_active_units "postgresql-k8s" 1
+	postgresql_k8s_0_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-0" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_0_storage_id\"][\"status\"].current"
 
 	# Apply admission policy to deny creating postgresql-k8s sts.
 	microk8s kubectl apply -f "${deny_postgresql_sts_spec}"
@@ -367,27 +433,30 @@ test_scale_resumes_after_storage_update_missing_sts() {
 	cleanup_deny_postgresql_sts_policy
 
 	# We shoud have a total of 5 units.
-	wait_for 5 '.applications["postgresql-k8s"]."units" | keys | length'
-	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
+	wait_for_active_units "postgresql-k8s" 5
 
 	# New storage are attached.
-	wait_for_storage "attached" '.storage["pgdata/1"]["status"].current'
-	wait_for_storage "attached" '.storage["pgdata/2"]["status"].current'
-	wait_for_storage "attached" '.storage["pgdata/3"]["status"].current'
-	wait_for_storage "attached" '.storage["pgdata/4"]["status"].current'
+	postgresql_k8s_1_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-1" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_1_storage_id\"][\"status\"].current"
+	postgresql_k8s_2_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-2" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_2_storage_id\"][\"status\"].current"
+	postgresql_k8s_3_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-3" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_3_storage_id\"][\"status\"].current"
+	postgresql_k8s_4_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-4" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_4_storage_id\"][\"status\"].current"
 
 	# Check that the first unit uses 1GB storage and the new units
 	# use 2GB storage.
 	juju storage --format json |
-		yq -o json '.volumes | to_entries[] | select(.value.storage == "pgdata/0") | .value.size' | check 1024
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_0_storage_id\") | .value.size" | check 1024
 	juju storage --format json |
-		yq -o json '.volumes | to_entries[] | select(.value.storage == "pgdata/1") | .value.size' | check 2048
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_1_storage_id\") | .value.size" | check 2048
 	juju storage --format json |
-		yq -o json '.volumes | to_entries[] | select(.value.storage == "pgdata/2") | .value.size' | check 2048
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_2_storage_id\") | .value.size" | check 2048
 	juju storage --format json |
-		yq -o json '.volumes | to_entries[] | select(.value.storage == "pgdata/3") | .value.size' | check 2048
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_3_storage_id\") | .value.size" | check 2048
 	juju storage --format json |
-		yq -o json '.volumes | to_entries[] | select(.value.storage == "pgdata/4") | .value.size' | check 2048
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_4_storage_id\") | .value.size" | check 2048
 
 	# Let's try scaling down now. Repeat the steps above.
 	microk8s kubectl apply -f "${deny_postgresql_sts_spec}"
@@ -402,8 +471,7 @@ test_scale_resumes_after_storage_update_missing_sts() {
 
 	# Resume scale down to 2 units.
 	cleanup_deny_postgresql_sts_policy
-	wait_for 2 '.applications["postgresql-k8s"]."units" | keys | length'
-	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
+	wait_for_active_units "postgresql-k8s" 2
 
 	destroy_model "${model_name}"
 }
@@ -424,8 +492,9 @@ test_storage_update_after_scale_crash() {
 	add_clean_func "cleanup_wrench_scale_application"
 
 	juju deploy postgresql-k8s --channel 14/stable --trust
-	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
-	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
+	wait_for_active_units "postgresql-k8s" 1
+	postgresql_k8s_0_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-0" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_0_storage_id\"][\"status\"].current"
 
 	# Add a feature flag to fail the scale.
 	add_wrench_scale_application
@@ -440,35 +509,40 @@ test_storage_update_after_scale_crash() {
 	juju application-storage postgresql-k8s pgdata=2G
 
 	# Remove the feature flag.
-  cleanup_wrench_scale_application
+	cleanup_wrench_scale_application
 
 	# Wait for app to stabilize.
-	wait_for 4 '.applications["postgresql-k8s"]."units" | keys | length'
-	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
-	wait_for_storage "attached" '.storage["pgdata/1"]["status"].current'
-	wait_for_storage "attached" '.storage["pgdata/2"]["status"].current'
-	wait_for_storage "attached" '.storage["pgdata/3"]["status"].current'
+	wait_for_active_units "postgresql-k8s" 4
+	postgresql_k8s_1_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-1" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_1_storage_id\"][\"status\"].current"
+	postgresql_k8s_2_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-2" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_2_storage_id\"][\"status\"].current"
+	postgresql_k8s_3_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-3" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_3_storage_id\"][\"status\"].current"
 
 	# All units should use the old size (1GB).
 	juju storage --format json |
-		yq -o json '.volumes | to_entries[] | select(.value.storage == "pgdata/0") | .value.size' | check 1024
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_0_storage_id\") | .value.size" | check 1024
 	juju storage --format json |
-		yq -o json '.volumes | to_entries[] | select(.value.storage == "pgdata/1") | .value.size' | check 1024
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_1_storage_id\") | .value.size" | check 1024
 	juju storage --format json |
-		yq -o json '.volumes | to_entries[] | select(.value.storage == "pgdata/2") | .value.size' | check 1024
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_2_storage_id\") | .value.size" | check 1024
 	juju storage --format json |
-		yq -o json '.volumes | to_entries[] | select(.value.storage == "pgdata/3") | .value.size' | check 1024
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_3_storage_id\") | .value.size" | check 1024
 
 	# Scale again to see new units with 2GB storage.
 	juju scale-application postgresql-k8s 6
-	wait_for 6 '.applications["postgresql-k8s"]."units" | keys | length'
-	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
+	wait_for_active_units "postgresql-k8s" 6
 
 	# New units should use the new size (2GB).
-	wait_for_storage "attached" '.storage["pgdata/4"]["status"].current'
-	wait_for_storage "attached" '.storage["pgdata/5"]["status"].current'
-	juju storage --format json | yq -o json '.volumes | to_entries[] | select(.value.storage == "pgdata/4") | .value.size' | check 2048
-	juju storage --format json | yq -o json '.volumes | to_entries[] | select(.value.storage == "pgdata/5") | .value.size' | check 2048
+	postgresql_k8s_4_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-4" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_4_storage_id\"][\"status\"].current"
+	postgresql_k8s_5_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-5" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_5_storage_id\"][\"status\"].current"
+	juju storage --format json |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_4_storage_id\") | .value.size" | check 2048
+	juju storage --format json |
+		yq -o json ".volumes | to_entries[] | select(.value.storage == \"$postgresql_k8s_5_storage_id\") | .value.size" | check 2048
 
 	destroy_model "${model_name}"
 }
@@ -494,11 +568,13 @@ test_remove_app_while_storage_update_stuck() {
 
 	# Start with 3 replicas.
 	juju deploy postgresql-k8s --channel 14/stable --trust -n 3
-	wait_for "postgresql-k8s" "$(active_condition "postgresql-k8s" 0)"
-	wait_for 3 '.applications["postgresql-k8s"]."units" | keys | length'
-	wait_for_storage "attached" '.storage["pgdata/0"]["status"].current'
-	wait_for_storage "attached" '.storage["pgdata/1"]["status"].current'
-	wait_for_storage "attached" '.storage["pgdata/2"]["status"].current'
+	wait_for_active_units "postgresql-k8s" 3
+	postgresql_k8s_0_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-0" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_0_storage_id\"][\"status\"].current"
+	postgresql_k8s_1_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-1" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_1_storage_id\"][\"status\"].current"
+	postgresql_k8s_2_storage_id=$(storage_id_for_pod "${model_name}" "postgresql-k8s-2" "pgdata")
+	wait_for_storage "attached" ".storage[\"$postgresql_k8s_2_storage_id\"][\"status\"].current"
 
 	# Deny sts creation/reapply, then trigger storage update.
 	microk8s kubectl apply -f "${deny_postgresql_sts_spec}"
