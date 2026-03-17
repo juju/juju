@@ -683,10 +683,13 @@ func (st *State) getResourceType(
 		UUID: resourceUUID.String(),
 	}
 	getResourceType, err := st.Prepare(`
-SELECT &resourceKind.kind_name 
-FROM   v_application_resource
-WHERE  uuid = $resourceKind.uuid
+SELECT crk.name AS &resourceKind.kind_name
+FROM   resource AS r
+JOIN   charm_resource AS cr ON r.charm_uuid = cr.charm_uuid
+JOIN   charm_resource_kind AS crk ON cr.kind_id = crk.id
+WHERE  r.uuid = $resourceKind.uuid
 `, resKind)
+
 	if err != nil {
 		return 0, errors.Capture(err)
 	}
