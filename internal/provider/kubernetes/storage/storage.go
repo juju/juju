@@ -165,9 +165,6 @@ func FilesystemInfo(ctx context.Context, client kubernetes.Interface,
 	// Handle PVC
 	pvc := resources.NewPersistentVolumeClaim(client.CoreV1().PersistentVolumeClaims(namespace), namespace, volume.PersistentVolumeClaim.ClaimName, nil)
 	err := pvc.Get(ctx)
-	if errors.Is(err, errors.NotFound) {
-		return nil, nil
-	}
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get persistent volume claim")
 	}
