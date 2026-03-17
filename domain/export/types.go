@@ -3,7 +3,9 @@
 
 package export
 
-// ModelExport contains a model export payload and the export version.
+// ModelExport contains a typed model export payload and the export version.
+// Use the RPC wire export envelope when serializing across JSON or YAML
+// boundaries.
 type ModelExport struct {
 	// Version is the Juju semantic version that generated this export.
 	Version string

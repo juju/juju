@@ -19,7 +19,7 @@ import (
 {{- end }}
 // ModelExport aggregates all exported model row types.
 type ModelExport struct {
-{{- range .StructNames }}
-	{{ . }} []{{ . }}
+{{- range $i, $name := .StructNames }}
+	{{ $name }} []{{ $name }} `json:"{{ index $.TableNames $i }}" yaml:"{{ index $.TableNames $i }}"`
 {{- end }}
 }
