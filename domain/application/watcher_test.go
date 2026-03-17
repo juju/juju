@@ -80,6 +80,8 @@ func (s *watcherSuite) TestWatchCharm(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "charm")
 
 	svc := s.setupService(c, factory)
+
+	s.AssertChangeStreamIdle(c)
 	watcher, err := svc.WatchCharms(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -179,6 +181,7 @@ func (s *watcherSuite) TestWatchApplicationUnitLife(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
+	s.AssertChangeStreamIdle(c)
 	watcher, err := svc.WatchApplicationUnitLife(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -352,6 +355,7 @@ func (s *watcherSuite) TestWatchApplicationUnitLifeInitial(c *tc.C) {
 
 	}
 
+	s.AssertChangeStreamIdle(c)
 	watcher, err := svc.WatchApplicationUnitLife(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -373,6 +377,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *tc.C) {
 	svc := s.setupService(c, factory)
 	s.createIAASApplication(c, svc, "foo", service.AddIAASUnitArg{}, service.AddIAASUnitArg{})
 
+	s.AssertChangeStreamIdle(c)
 	watcher, err := svc.WatchUnitLife(c.Context(), unit.Name("foo/0"))
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -453,6 +458,7 @@ func (s *watcherSuite) TestWatchApplicationScale(c *tc.C) {
 	s.createCAASApplication(c, svc, "bar")
 
 	ctx := c.Context()
+	s.AssertChangeStreamIdle(c)
 	watcher, err := svc.WatchApplicationScale(ctx, "foo")
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -495,6 +501,7 @@ func (s *watcherSuite) TestWatchApplicationsWithPendingCharms(c *tc.C) {
 	svc := s.setupService(c, factory)
 
 	ctx := c.Context()
+	s.AssertChangeStreamIdle(c)
 	watcher, err := svc.WatchApplicationsWithPendingCharms(ctx)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -575,6 +582,7 @@ func (s *watcherSuite) TestWatchApplication(c *tc.C) {
 	appUUID := s.createIAASApplication(c, svc, appName)
 
 	ctx := c.Context()
+	s.AssertChangeStreamIdle(c)
 	watcher, err := svc.WatchApplication(ctx, appName)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -624,6 +632,7 @@ func (s *watcherSuite) TestWatchApplicationBadName(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application")
 	svc := s.setupService(c, factory)
 
+	s.AssertChangeStreamIdle(c)
 	_, err := svc.WatchApplication(c.Context(), "bad-name")
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
@@ -637,6 +646,7 @@ func (s *watcherSuite) TestWatchApplicationConfig(c *tc.C) {
 	appUUID := s.createIAASApplication(c, svc, appName)
 
 	ctx := c.Context()
+	s.AssertChangeStreamIdle(c)
 	watcher, err := svc.WatchApplicationConfig(ctx, appName)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -714,6 +724,7 @@ func (s *watcherSuite) TestWatchApplicationConfigHash(c *tc.C) {
 	appUUID := s.createIAASApplication(c, svc, appName)
 
 	ctx := c.Context()
+	s.AssertChangeStreamIdle(c)
 	watcher, err := svc.WatchApplicationConfigHash(ctx, appName)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -793,6 +804,7 @@ func (s *watcherSuite) TestWatchApplicationSettings(c *tc.C) {
 	appUUID := s.createIAASApplication(c, svc, appName)
 
 	ctx := c.Context()
+	s.AssertChangeStreamIdle(c)
 	watcher, err := svc.WatchApplicationSettings(ctx, appName)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -847,6 +859,7 @@ func (s *watcherSuite) TestWatchUnitAddressesHashEmptyInitial(c *tc.C) {
 	_ = s.createIAASApplication(c, svc, appName, service.AddIAASUnitArg{})
 
 	ctx := c.Context()
+	s.AssertChangeStreamIdle(c)
 	watcher, err := svc.WatchUnitAddressesHash(ctx, "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -919,6 +932,7 @@ func (s *watcherSuite) TestWatchUnitAddressesHash(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := c.Context()
+	s.AssertChangeStreamIdle(c)
 	watcher, err := svc.WatchUnitAddressesHash(ctx, "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -965,6 +979,7 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	s.AssertChangeStreamIdle(c)
 	watcher, err := svc.WatchUnitAddressesHash(ctx, "foo/0")
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1039,6 +1054,7 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachineInitialEvents(c *tc.C) {
 		},
 	)
 
+	s.AssertChangeStreamIdle(c)
 	ctx := c.Context()
 	watcher, err := svc.WatchUnitAddRemoveOnMachine(ctx, machineName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1084,6 +1100,7 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	s.AssertChangeStreamIdle(c)
 	ctx := c.Context()
 	watcher, err := svc.WatchUnitAddRemoveOnMachine(ctx, res0.MachineName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1166,6 +1183,7 @@ func (s *watcherSuite) TestWatchApplicationsInitialEvent(c *tc.C) {
 	app2 := s.createCAASApplication(c, svc, "bar")
 
 	ctx := c.Context()
+	s.AssertChangeStreamIdle(c)
 	watcher, err := svc.WatchApplications(ctx)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1187,6 +1205,7 @@ func (s *watcherSuite) TestWatchApplications(c *tc.C) {
 	removalSt := removalstatemodel.NewState(modelDB, loggertesting.WrapCheckLog(c))
 
 	ctx := c.Context()
+	s.AssertChangeStreamIdle(c)
 	watcher, err := svc.WatchApplications(ctx)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1234,6 +1253,7 @@ func (s *watcherSuite) TestWatchApplicationExposed(c *tc.C) {
 	appID := s.createIAASApplication(c, svc, appName)
 
 	ctx := c.Context()
+	s.AssertChangeStreamIdle(c)
 	watcher, err := svc.WatchApplicationExposed(ctx, appName)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1483,6 +1503,7 @@ func (s *watcherSuite) TestWatchUnitAddresses(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	s.AssertChangeStreamIdle(c)
 	watcher, err := svc.WatchUnitAddresses(c.Context(), unit.Name("foo/0"))
 	c.Assert(err, tc.ErrorIsNil)
 
