@@ -6,6 +6,7 @@ package action
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -113,12 +114,13 @@ func (c *cancelCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if len(failedCancels) > 0 {
-		message := "The following tasks could not be canceled:\n"
+		var message strings.Builder
+		message.WriteString("The following tasks could not be canceled:\n")
 		for _, a := range failedCancels {
-			message += fmt.Sprintf("task: %s, error: %s\n", a.ID, a.Result.Message)
+			message.WriteString(fmt.Sprintf("task: %s, error: %s\n", a.ID, a.Result.Message))
 		}
 
-		logger.Warningf(context.TODO(), message)
+		logger.Warningf(context.TODO(), message.String())
 	}
 
 	return err

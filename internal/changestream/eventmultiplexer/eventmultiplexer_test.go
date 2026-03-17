@@ -166,7 +166,7 @@ func (s *eventMultiplexerSuite) testMultipleDispatch(c *tc.C, opts ...changestre
 	})
 
 	subs := make([]changestream.Subscription, 10)
-	for i := 0; i < len(subs); i++ {
+	for i := range subs {
 		sub, err := queue.Subscribe("foo", opts...)
 		c.Assert(err, tc.ErrorIsNil)
 
@@ -358,7 +358,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *tc.C) {
 	defer workertest.DirtyKill(c, queue)
 
 	subs := make([]changestream.Subscription, 2)
-	for i := 0; i < len(subs); i++ {
+	for i := range subs {
 		sub, err := queue.Subscribe("foo", changestream.Namespace("topic", changestreamtesting.Create))
 		c.Assert(err, tc.ErrorIsNil)
 		subs[i] = sub
@@ -426,7 +426,7 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 	defer workertest.DirtyKill(c, queue)
 
 	subs := make([]changestream.Subscription, 2)
-	for i := 0; i < len(subs); i++ {
+	for i := range subs {
 
 		sub, err := queue.Subscribe("foo", changestream.Namespace("topic", changestreamtesting.Create))
 		c.Assert(err, tc.ErrorIsNil)
@@ -545,7 +545,7 @@ func (s *eventMultiplexerSuite) TestStreamDying(c *tc.C) {
 	defer workertest.DirtyKill(c, queue)
 
 	subs := make([]changestream.Subscription, 2)
-	for i := 0; i < len(subs); i++ {
+	for i := range subs {
 		sub, err := queue.Subscribe("foo", changestream.Namespace("topic", changestreamtesting.Create))
 		c.Assert(err, tc.ErrorIsNil)
 		subs[i] = sub
@@ -611,7 +611,7 @@ func (s *eventMultiplexerSuite) TestStreamDyingWhilstDispatching(c *tc.C) {
 	defer workertest.CleanKill(c, queue)
 
 	subs := make([]changestream.Subscription, 2)
-	for i := 0; i < len(subs); i++ {
+	for i := range subs {
 		sub, err := queue.Subscribe("foo", changestream.Namespace("topic", changestreamtesting.Create))
 		c.Assert(err, tc.ErrorIsNil)
 		subs[i] = sub
@@ -737,7 +737,7 @@ func (s *eventMultiplexerSuite) TestReportWithAllSubscriptions(c *tc.C) {
 	defer workertest.CleanKill(c, queue)
 
 	var subs []changestream.Subscription
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		sub, err := queue.Subscribe("foo")
 		c.Assert(err, tc.ErrorIsNil)
 		subs = append(subs, sub)
@@ -784,7 +784,7 @@ func (s *eventMultiplexerSuite) TestReportWithTopicSubscriptions(c *tc.C) {
 	defer workertest.CleanKill(c, queue)
 
 	var subs []changestream.Subscription
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		sub, err := queue.Subscribe("foo", changestream.Namespace("topic", changestreamtesting.Create))
 		c.Assert(err, tc.ErrorIsNil)
 
@@ -818,7 +818,7 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleTopicSubscriptions(c *tc.C
 	defer workertest.CleanKill(c, queue)
 
 	var subs []changestream.Subscription
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		sub, err := queue.Subscribe(
 			"foo",
 			changestream.Namespace("topic", changestreamtesting.Create),
@@ -856,7 +856,7 @@ func (s *eventMultiplexerSuite) TestReportWithDuplicateTopicSubscriptions(c *tc.
 	defer workertest.CleanKill(c, queue)
 
 	var subs []changestream.Subscription
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		sub, err := queue.Subscribe(
 			"foo",
 			changestream.Namespace("topic", changestreamtesting.Update),
@@ -894,7 +894,7 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleDuplicateTopicSubscription
 	defer workertest.CleanKill(c, queue)
 
 	var subs []changestream.Subscription
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		sub, err := queue.Subscribe(
 			"foo",
 			changestream.Namespace("topic", changestreamtesting.Create),

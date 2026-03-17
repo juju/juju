@@ -7,6 +7,7 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"maps"
 	"regexp"
 	"strings"
 	"sync"
@@ -383,10 +384,7 @@ func parseVolumeOptions(size uint64, attrs map[string]interface{}) (_ ec2.Create
 	}
 
 	sizeInGib := mibToGib(size)
-	iops := uint64(ebsConfig.iops) * sizeInGib
-	if iops > maxProvisionedIops {
-		iops = maxProvisionedIops
-	}
+	iops := min(uint64(ebsConfig.iops)*sizeInGib, maxProvisionedIops)
 	vol := ec2.CreateVolumeInput{
 		// Juju size is MiB, AWS size is GiB.
 		Size:       aws.Int32(int32(sizeInGib)),
@@ -484,9 +482,7 @@ func (v *ebsVolumeSource) createVolume(ctx context.Context, p storage.VolumePara
 
 	// Tag.
 	resourceTags := make(map[string]string)
-	for k, v := range p.ResourceTags {
-		resourceTags[k] = v
-	}
+	maps.Copy(resourceTags, p.ResourceTags)
 	resourceTags[tagName] = resourceName(p.Tag, v.envName)
 	vol.TagSpecifications = []types.TagSpecification{
 		CreateTagSpecification(types.ResourceTypeVolume, resourceTags),

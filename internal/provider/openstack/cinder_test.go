@@ -63,10 +63,6 @@ func init() {
 	openstack.CinderAttempt.Delay = 0
 }
 
-func toStringPtr(s string) *string {
-	return &s
-}
-
 func (s *cinderVolumeSourceSuite) TestAttachVolumes(c *tc.C) {
 	mockAdaptor := &mockAdaptor{
 		attachVolume: func(serverId, volId, mountPoint string) (*nova.VolumeAttachment, error) {
@@ -76,7 +72,7 @@ func (s *cinderVolumeSourceSuite) TestAttachVolumes(c *tc.C) {
 				Id:       volId,
 				VolumeId: volId,
 				ServerId: serverId,
-				Device:   toStringPtr("/dev/sda"),
+				Device:   new("/dev/sda"),
 			}, nil
 		},
 	}
@@ -203,7 +199,7 @@ func (s *cinderVolumeSourceSuite) TestCreateVolume(c *tc.C) {
 				Id:       volId,
 				VolumeId: volId,
 				ServerId: serverId,
-				Device:   toStringPtr("/dev/sda"),
+				Device:   new("/dev/sda"),
 			}, nil
 		},
 	}
@@ -403,7 +399,7 @@ func (s *cinderVolumeSourceSuite) TestResourceTags(c *tc.C) {
 				Id:       volId,
 				VolumeId: volId,
 				ServerId: serverId,
-				Device:   toStringPtr("/dev/sda"),
+				Device:   new("/dev/sda"),
 			}, nil
 		},
 	}

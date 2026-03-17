@@ -18,7 +18,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Spaces", 6, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newAPI(ctx)
-	}, reflect.TypeOf((*API)(nil)))
+	}, reflect.TypeFor[*API]())
 }
 
 // newAPI creates a new Space API server-side facade with a

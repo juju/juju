@@ -192,7 +192,7 @@ func (c *ServicePrincipalCreator) Create(sdkCtx context.Context, params ServiceP
 
 func (c *ServicePrincipalCreator) getExistingRoleDefinition(ctx context.Context, client *armauthorization.RoleDefinitionsClient, roleScope, roleName string) (string, error) {
 	pager := client.NewListPager(roleScope, &armauthorization.RoleDefinitionsClientListOptions{
-		Filter: to.Ptr("type eq 'CustomRole'"),
+		Filter: new("type eq 'CustomRole'"),
 	})
 	for pager.More() {
 		next, err := pager.NextPage(ctx)
@@ -235,14 +235,14 @@ func (c *ServicePrincipalCreator) ensureRoleDefinition(
 
 	actions := make([]*string, len(JujuActions))
 	for i, r := range JujuActions {
-		actions[i] = to.Ptr(r)
+		actions[i] = new(r)
 	}
 	rd, err := roleDefinitionClient.CreateOrUpdate(ctx, roleScope, roleDefinitionUUID.String(), armauthorization.RoleDefinition{
-		Properties: to.Ptr(armauthorization.RoleDefinitionProperties{
-			RoleName:    to.Ptr(roleName),
-			Description: to.Ptr("Role definition for Juju controller"),
+		Properties: new(armauthorization.RoleDefinitionProperties{
+			RoleName:    new(roleName),
+			Description: new("Role definition for Juju controller"),
 			AssignableScopes: []*string{
-				to.Ptr(roleScope),
+				new(roleScope),
 			},
 			Permissions: []*armauthorization.Permission{{
 				Actions: actions,
@@ -262,7 +262,7 @@ func (c *ServicePrincipalCreator) ensureEnterpriseApplication(
 
 	req := &applications.ApplicationsRequestBuilderGetRequestConfiguration{
 		QueryParameters: &applications.ApplicationsRequestBuilderGetQueryParameters{
-			Filter: to.Ptr(fmt.Sprintf("displayName eq '%s'", name)),
+			Filter: new(fmt.Sprintf("displayName eq '%s'", name)),
 		},
 	}
 	resp, err := applicationClient.Get(ctx, req)
@@ -289,16 +289,16 @@ func (c *ServicePrincipalCreator) ensureEnterpriseApplication(
 
 	description := "Permissions for " + name
 	requestBody := models.NewApplication()
-	requestBody.SetId(to.Ptr(appUUID.String()))
-	requestBody.SetDisplayName(to.Ptr(name))
-	requestBody.SetDescription(to.Ptr(description))
+	requestBody.SetId(new(appUUID.String()))
+	requestBody.SetDisplayName(new(name))
+	requestBody.SetDescription(new(description))
 	appRole := models.NewAppRole()
-	appRole.SetId(to.Ptr(roleUUID))
-	appRole.SetValue(to.Ptr(strings.ReplaceAll(name, " ", "")))
+	appRole.SetId(new(roleUUID))
+	appRole.SetValue(new(strings.ReplaceAll(name, " ", "")))
 	appRole.SetAllowedMemberTypes([]string{"Application"})
-	appRole.SetDisplayName(to.Ptr(name))
-	appRole.SetDescription(to.Ptr(description))
-	appRole.SetIsEnabled(to.Ptr(true))
+	appRole.SetDisplayName(new(name))
+	appRole.SetDescription(new(description))
+	appRole.SetIsEnabled(new(true))
 	requestBody.SetAppRoles([]models.AppRoleable{
 		appRole,
 	})
@@ -351,7 +351,7 @@ func (c *ServicePrincipalCreator) createOrUpdateJujuServicePrincipal(
 
 func (c *ServicePrincipalCreator) createOrUpdateServicePrincipal(ctx context.Context, client *msgraphsdkgo.GraphServiceClient, appId, label string) (models.ServicePrincipalable, error) {
 	// The service principal might already exist, so we need to query its application ID.
-	servicePrincipal, err := client.ServicePrincipalsWithAppId(to.Ptr(appId)).Get(ctx, nil)
+	servicePrincipal, err := client.ServicePrincipalsWithAppId(new(appId)).Get(ctx, nil)
 	if err == nil {
 		return servicePrincipal, nil
 	}
@@ -361,8 +361,8 @@ func (c *ServicePrincipalCreator) createOrUpdateServicePrincipal(ctx context.Con
 
 	createServicePrincipal := func() error {
 		requestBody := models.NewServicePrincipal()
-		requestBody.SetAppId(to.Ptr(appId))
-		requestBody.SetAccountEnabled(to.Ptr(true))
+		requestBody.SetAppId(new(appId))
+		requestBody.SetAccountEnabled(new(true))
 		servicePrincipal, err = client.ServicePrincipals().Post(ctx, requestBody, nil)
 		return errors.Annotate(ReportableError(err), "creating service principal")
 	}
@@ -383,7 +383,7 @@ func (c *ServicePrincipalCreator) createOrUpdateServicePrincipal(ctx context.Con
 		if !isAlreadyExists(err) {
 			return nil, errors.Trace(err)
 		}
-		servicePrincipal, err = client.ServicePrincipalsWithAppId(to.Ptr(appId)).Get(ctx, nil)
+		servicePrincipal, err = client.ServicePrincipalsWithAppId(new(appId)).Get(ctx, nil)
 		if err != nil {
 			return nil, errors.Annotatef(ReportableError(err), "looking for service principal for %s", label)
 		}
@@ -401,7 +401,7 @@ func (c *ServicePrincipalCreator) preparePasswordCredential() (*models.PasswordC
 
 	cred := models.NewPasswordCredential()
 	cred.SetCustomKeyIdentifier([]byte("juju-" + startDate.Format("20060102")))
-	cred.SetKeyId(to.Ptr(passwordKeyUUID))
+	cred.SetKeyId(new(passwordKeyUUID))
 	cred.SetStartDateTime(&startDate)
 	cred.SetEndDateTime(&endDate)
 	return cred, nil
@@ -430,8 +430,8 @@ func (c *ServicePrincipalCreator) createRoleAssignment(
 				roleScope, roleAssignmentName,
 				armauthorization.RoleAssignmentCreateParameters{
 					Properties: &armauthorization.RoleAssignmentProperties{
-						RoleDefinitionID: to.Ptr(roleDefinitionId),
-						PrincipalID:      to.Ptr(servicePrincipalObjectId),
+						RoleDefinitionID: new(roleDefinitionId),
+						PrincipalID:      new(servicePrincipalObjectId),
 						PrincipalType:    to.Ptr(armauthorization.PrincipalTypeServicePrincipal),
 					},
 				}, nil,

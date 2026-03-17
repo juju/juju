@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -243,11 +244,8 @@ func BootstrapInstance(
 		// from the same logic regarding placement.
 		var filteredZones []string
 		for _, zone := range zones {
-			for _, zoneConstraint := range *args.BootstrapConstraints.Zones {
-				if zone == zoneConstraint {
-					filteredZones = append(filteredZones, zone)
-					break
-				}
+			if slices.Contains(*args.BootstrapConstraints.Zones, zone) {
+				filteredZones = append(filteredZones, zone)
 			}
 		}
 		if len(filteredZones) == 0 {

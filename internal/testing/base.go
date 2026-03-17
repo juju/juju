@@ -232,7 +232,7 @@ func GetExportedFields(arg interface{}) set.Strings {
 	result := set.NewStrings()
 
 	count := t.NumField()
-	for i := 0; i < count; i++ {
+	for i := range count {
 		f := t.Field(i)
 		// empty PkgPath means exported field.
 		// see https://golang.org/pkg/reflect/#StructField

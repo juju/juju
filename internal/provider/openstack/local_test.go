@@ -9,12 +9,14 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -150,9 +152,7 @@ func (s *localServer) openstackCertificate(c *tc.C) ([]string, error) {
 
 func (s *localHTTPSServerSuite) envUsingCertificate(c *tc.C) environs.Environ {
 	newattrs := make(map[string]interface{}, len(s.attrs))
-	for k, v := range s.attrs {
-		newattrs[k] = v
-	}
+	maps.Copy(newattrs, s.attrs)
 	newattrs["ssl-hostname-verification"] = true
 	cfg, err := config.New(config.NoDefaults, newattrs)
 	c.Assert(err, tc.ErrorIsNil)
@@ -198,9 +198,7 @@ func makeMockAdaptor() *mockAdaptor {
 		},
 		setVolumeMetadata: func(volumeId string, metadata map[string]string) (map[string]string, error) {
 			if volume, ok := volumes[volumeId]; ok {
-				for k, v := range metadata {
-					volume.Metadata[k] = v
-				}
+				maps.Copy(volume.Metadata, metadata)
 				return volume.Metadata, nil
 			}
 			return nil, errors.New("not found")
@@ -878,13 +876,7 @@ func assertSecurityGroups(c *tc.C, env environs.Environ, expected []string) {
 		}
 	}
 	for _, group := range groups {
-		found := false
-		for _, name := range expected {
-			if group.Name == name {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(expected, group.Name)
 		if !found {
 			c.Errorf("existing security group %q is not expected", group.Name)
 		}
@@ -2738,9 +2730,7 @@ func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *tc.C) {
 	// fail to connect to the environment. Copy the attrs used by SetUp and
 	// force hostname verification.
 	newattrs := make(map[string]interface{}, len(s.attrs))
-	for k, v := range s.attrs {
-		newattrs[k] = v
-	}
+	maps.Copy(newattrs, s.attrs)
 	newattrs["ssl-hostname-verification"] = true
 	cfg, err := config.New(config.NoDefaults, newattrs)
 	c.Assert(err, tc.ErrorIsNil)

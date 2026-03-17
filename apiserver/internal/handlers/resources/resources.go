@@ -426,11 +426,9 @@ func extractFilename(req *http.Request) (string, error) {
 func extractSize(req *http.Request) (int64, error) {
 	var size int64
 	if req.Header.Get(api.HeaderContentLength) == "" {
-		size = req.ContentLength
-		// size will be negative if there is no content.
-		if size < 0 {
-			size = 0
-		}
+		size = max(
+			// size will be negative if there is no content.
+			req.ContentLength, 0)
 		return size, nil
 	}
 

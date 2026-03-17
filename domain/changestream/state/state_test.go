@@ -296,7 +296,7 @@ VALUES ($M.ctrl_id, $M.node_id, $M.addr)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		for i := 0; i < amount; i++ {
+		for i := range amount {
 			err := tx.Query(ctx, query, sqlair.M{
 				"ctrl_id": strconv.Itoa(i + 1),
 				"node_id": i,

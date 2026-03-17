@@ -5,6 +5,7 @@ package uniter
 
 import (
 	"context"
+	"maps"
 	"sort"
 	"strings"
 	"time"
@@ -2550,9 +2551,7 @@ func (u *UniterAPI) goalStateRelations(
 			if err != nil {
 				return nil, err
 			}
-			for unitName, unitGS := range units {
-				relationGoalState[unitName] = unitGS
-			}
+			maps.Copy(relationGoalState, units)
 
 			// Merge in the goal state for the current remote endpoint
 			// with any other goal state already collected for the local endpoint.
@@ -2560,9 +2559,7 @@ func (u *UniterAPI) goalStateRelations(
 			if unitsGoalState == nil {
 				unitsGoalState = params.UnitsGoalState{}
 			}
-			for k, v := range relationGoalState {
-				unitsGoalState[k] = v
-			}
+			maps.Copy(unitsGoalState, relationGoalState)
 			result[resultEndpointName] = unitsGoalState
 		}
 	}

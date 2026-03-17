@@ -365,7 +365,7 @@ func modelRamper(
 
 func makeModels(provider ModelProvider, x int) ([]Model, error) {
 	models := make([]Model, 0, x)
-	for i := 0; i < x; i++ {
+	for range x {
 		model, err := func() (Model, error) {
 			timer := prometheus.NewTimer(modelCreationTime)
 			defer timer.ObserveDuration()

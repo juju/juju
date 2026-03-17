@@ -14,7 +14,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Backups", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacade(ctx)
-	}, reflect.TypeOf((*API)(nil)))
+	}, reflect.TypeFor[*API]())
 }
 
 // newFacade provides the required signature for facade registration.

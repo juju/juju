@@ -427,10 +427,6 @@ func (s *bootstrapSuite) assertFinalizePodBootstrapConfig(c *tc.C, serviceType, 
 	c.Assert(podConfig.AgentEnvironment, tc.DeepEquals, map[string]string{"foo": "bar"})
 }
 
-func intPtr(i uint64) *uint64 {
-	return &i
-}
-
 func (s *bootstrapSuite) TestBootstrapImage(c *tc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
@@ -476,7 +472,7 @@ func (s *bootstrapSuite) TestBootstrapImage(c *tc.C) {
 	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata[0], tc.DeepEquals, metadata[0])
 	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata[1], tc.DeepEquals, env.args.ImageMetadata[0])
 	expectedCons := bootstrapCons
-	expectedCons.Mem = intPtr(3584)
+	expectedCons.Mem = new(uint64(3584))
 	c.Assert(env.instanceConfig.Bootstrap.BootstrapMachineConstraints, tc.DeepEquals, expectedCons)
 	c.Assert(env.instanceConfig.Bootstrap.ControllerModelEnvironVersion, tc.Equals, 123)
 }
@@ -503,7 +499,7 @@ func (s *bootstrapSuite) TestBootstrapAddsArchFromImageToExistingProviderSupport
 		})
 	c.Assert(err, tc.ErrorIsNil)
 	expectedCons := bootstrapCons
-	expectedCons.Mem = intPtr(3584)
+	expectedCons.Mem = new(uint64(3584))
 	s.assertBootstrapImageMetadata(c, env.bootstrapEnviron, data, expectedCons)
 }
 
@@ -587,7 +583,7 @@ func (s *bootstrapSuite) TestBootstrapAddsArchFromImageToProviderWithNoSupported
 		})
 	c.Assert(err, tc.ErrorIsNil)
 	expectedCons := bootstrapCons
-	expectedCons.Mem = intPtr(3584)
+	expectedCons.Mem = new(uint64(3584))
 	s.assertBootstrapImageMetadata(c, env.bootstrapEnviron, data, expectedCons)
 }
 

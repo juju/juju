@@ -4,6 +4,8 @@
 package jujuc
 
 import (
+	"maps"
+
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
@@ -82,9 +84,7 @@ func toDetails(info StatusInfo, includeData bool) map[string]interface{} {
 	details["status"] = info.Status
 	if includeData {
 		data := make(map[string]interface{})
-		for k, v := range info.Data {
-			data[k] = v
-		}
+		maps.Copy(data, info.Data)
 		details["status-data"] = data
 		details["message"] = info.Info
 	}

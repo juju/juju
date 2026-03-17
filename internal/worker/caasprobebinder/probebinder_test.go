@@ -31,7 +31,7 @@ func (s *binderSuite) TestBindingUnbinding(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	checkAdded := func(pt probe.ProbeType) {
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			agg, ok := probes.ProbeAggregate(pt)
 			c.Assert(ok, tc.IsTrue)
 			ok, n, err := agg.Probe()

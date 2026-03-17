@@ -5,6 +5,7 @@ package config_test
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 	stdtesting "testing"
 	"time"
@@ -1010,9 +1011,7 @@ func newTestConfig(c *tc.C, explicit testing.Attrs) *config.Config {
 		"type": "my-type", "name": "my-name",
 		"uuid": testing.ModelTag.Id(),
 	}
-	for key, value := range explicit {
-		final[key] = value
-	}
+	maps.Copy(final, explicit)
 	result, err := config.New(config.UseDefaults, final)
 	c.Assert(err, tc.ErrorIsNil)
 	return result
@@ -1367,9 +1366,7 @@ func (s *ConfigSuite) TestSchemaNoExtra(c *tc.C) {
 	schema, err := config.Schema(nil)
 	c.Assert(err, tc.IsNil)
 	orig := make(configschema.Fields)
-	for name, field := range config.ConfigSchema {
-		orig[name] = field
-	}
+	maps.Copy(orig, config.ConfigSchema)
 	c.Assert(schema, tc.DeepEquals, orig)
 	// Check that we actually returned a copy, not the original.
 	schema["foo"] = configschema.Attr{}
@@ -1389,9 +1386,7 @@ func (s *ConfigSuite) TestSchemaWithExtraFields(c *tc.C) {
 	c.Assert(schema["foo"], tc.DeepEquals, extraField)
 	delete(schema, "foo")
 	orig := make(configschema.Fields)
-	for name, field := range config.ConfigSchema {
-		orig[name] = field
-	}
+	maps.Copy(orig, config.ConfigSchema)
 	c.Assert(schema, tc.DeepEquals, orig)
 }
 

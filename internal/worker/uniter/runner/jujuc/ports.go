@@ -159,7 +159,7 @@ func makePortRangeCommand(op func(string, network.PortRange) error) func(*portCo
 			return op("", c.portRange)
 		}
 
-		for _, endpoint := range strings.Split(c.endpoints, ",") {
+		for endpoint := range strings.SplitSeq(c.endpoints, ",") {
 			endpoint = strings.TrimSpace(endpoint)
 			if err := op(endpoint, c.portRange); err != nil {
 				return errors.Trace(err)

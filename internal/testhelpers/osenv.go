@@ -6,6 +6,7 @@ package testhelpers
 import (
 	"os"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/juju/tc"
@@ -88,12 +89,7 @@ func (s *OsEnvSuite) setEnviron() {
 		}
 	default:
 		isWhitelisted = func(envVar string) bool {
-			for _, testingVar := range testingVariables {
-				if testingVar == envVar {
-					return true
-				}
-			}
-			return false
+			return slices.Contains(testingVariables, envVar)
 		}
 	}
 	for envVar, value := range s.oldEnvironment {

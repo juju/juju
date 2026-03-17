@@ -478,10 +478,7 @@ func GetActionResult(ctx context.Context, api APIClient, requestedId string, clk
 			// TODO: (jam) 2024-08-29 We could try to reconcile this with either gopkg.in/retry.v1 or
 			//  github.com/juju/retry, but neither of them do a great job of handling an exponential
 			//  backoff (with max) and a concurrent global max timeout. Maybe gopkg.in/retry.v1.StartWithCancel
-			nextRetryTime := time.Duration(float64(retryTime) * resultPollBackoffFactor)
-			if nextRetryTime > resultPollMaxTime {
-				nextRetryTime = resultPollMaxTime
-			}
+			nextRetryTime := min(time.Duration(float64(retryTime)*resultPollBackoffFactor), resultPollMaxTime)
 			retryTime = nextRetryTime
 			tick.Reset(retryTime)
 		}

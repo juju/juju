@@ -5,6 +5,7 @@ package modelworkermanager_test
 
 import (
 	"context"
+	"maps"
 	"testing"
 
 	"github.com/juju/errors"
@@ -111,9 +112,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 		"http-client":              s.httpClientGetter,
 		"api-remote-caller-getter": s.apiRemoteCallerGetter,
 	}
-	for k, v := range overlay {
-		resources[k] = v
-	}
+	maps.Copy(resources, overlay)
 	return dt.StubGetter(resources)
 }
 

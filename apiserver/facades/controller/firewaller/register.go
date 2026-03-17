@@ -15,7 +15,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Firewaller", 7, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFirewallerAPIV7(ctx)
-	}, reflect.TypeOf((*FirewallerAPI)(nil)))
+	}, reflect.TypeFor[*FirewallerAPI]())
 }
 
 // newFirewallerAPIV7 creates a new server-side FirewallerAPIv7 facade.

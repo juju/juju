@@ -17,10 +17,10 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegisterForMultiModel("CrossModelSecrets", 1, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 		return makeStateCrossModelSecretsAPIV1(stdCtx, ctx)
-	}, reflect.TypeOf((*CrossModelSecretsAPIV1)(nil)))
+	}, reflect.TypeFor[*CrossModelSecretsAPIV1]())
 	registry.MustRegisterForMultiModel("CrossModelSecrets", 2, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 		return makeStateCrossModelSecretsAPI(stdCtx, ctx)
-	}, reflect.TypeOf((*CrossModelSecretsAPI)(nil)))
+	}, reflect.TypeFor[*CrossModelSecretsAPI]())
 }
 
 // makeStateCrossModelSecretsAPIV1 creates a new server-side CrossModelSecrets V1 API facade.

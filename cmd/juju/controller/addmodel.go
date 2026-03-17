@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -506,10 +507,8 @@ func (c *addModelCommand) findUnspecifiedCredential(ctx *cmd.Context, cloudClien
 	}
 	// If the user has not specified a credential, and the cloud advertises
 	// itself as supporting the "empty" auth-type, then return immediately.
-	for _, authType := range p.cloud.AuthTypes {
-		if authType == jujucloud.EmptyAuthType {
-			return nil, names.CloudCredentialTag{}, p.cloudRegion, nil
-		}
+	if slices.Contains(p.cloud.AuthTypes, jujucloud.EmptyAuthType) {
+		return nil, names.CloudCredentialTag{}, p.cloudRegion, nil
 	}
 
 	// No credential has been specified, so see if there is one already on the controller we can use.

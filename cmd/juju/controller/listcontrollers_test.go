@@ -221,10 +221,6 @@ current-controller: mallards
 	s.assertListControllers(c, "--format", "yaml", "--refresh")
 }
 
-func intPtr(i int) *int {
-	return &i
-}
-
 const testCert = `-----BEGIN CERTIFICATE-----
 MIICHDCCAcagAwIBAgIUfzWn5ktGMxD6OiTgfiZyvKdM+ZYwDQYJKoZIhvcNAQEL
 BQAwazENMAsGA1UEChMEanVqdTEzMDEGA1UEAwwqanVqdS1nZW5lcmF0ZWQgQ0Eg
@@ -259,8 +255,8 @@ func (s *ListControllersSuite) TestListControllersJson(c *tc.C) {
 				Cloud:          "aws",
 				CloudRegion:    "us-east-1",
 				AgentVersion:   "2.0.1",
-				ModelCount:     intPtr(1),
-				MachineCount:   intPtr(5),
+				ModelCount:     new(1),
+				MachineCount:   new(5),
 			},
 			"mallards": {
 				ControllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
@@ -272,7 +268,7 @@ func (s *ListControllersSuite) TestListControllersJson(c *tc.C) {
 				CACert:         testCert,
 				Cloud:          "mallards",
 				CloudRegion:    "mallards1",
-				ModelCount:     intPtr(2),
+				ModelCount:     new(2),
 			},
 			"k8s-controller": {
 				ControllerUUID: "this-is-a-k8s-uuid",
@@ -285,8 +281,8 @@ func (s *ListControllersSuite) TestListControllersJson(c *tc.C) {
 				Cloud:          "microk8s",
 				CloudRegion:    "localhost",
 				AgentVersion:   "6.6.6",
-				NodeCount:      intPtr(3),
-				ModelCount:     intPtr(2),
+				NodeCount:      new(3),
+				ModelCount:     new(2),
 			},
 			"mark-test-prodstack": {
 				ControllerUUID: "this-is-a-uuid",

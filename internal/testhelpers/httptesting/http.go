@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/textproto"
@@ -221,9 +222,7 @@ func DoRequest(c *tc.C, p DoRequestParams) *httptest.ResponseRecorder {
 	defer resp.Body.Close()
 	rec := httptest.NewRecorder()
 	h := rec.Header()
-	for k, v := range resp.Header {
-		h[k] = v
-	}
+	maps.Copy(h, resp.Header)
 	rec.WriteHeader(resp.StatusCode)
 	_, err := io.Copy(rec.Body, resp.Body)
 	c.Assert(err, tc.ErrorIsNil)
@@ -258,9 +257,7 @@ func Do(c *tc.C, p DoRequestParams) *http.Response {
 	if p.JSONBody != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	for key, val := range p.Header {
-		req.Header[key] = val
-	}
+	maps.Copy(req.Header, p.Header)
 	if p.ContentLength != 0 {
 		req.ContentLength = p.ContentLength
 	} else {

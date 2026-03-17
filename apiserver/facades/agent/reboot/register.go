@@ -14,7 +14,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Reboot", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacade(ctx)
-	}, reflect.TypeOf((*RebootAPI)(nil)))
+	}, reflect.TypeFor[*RebootAPI]())
 }
 
 // newFacade creates a new server-side RebootAPI facade.

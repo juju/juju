@@ -4,6 +4,8 @@
 package bootstrap
 
 import (
+	"maps"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/jujuclient"
@@ -198,9 +200,7 @@ func prepare(
 	// UUIDs stored in the bootstrap config. Make a copy, so
 	// we don't disturb the caller's config map.
 	details.Config = make(map[string]interface{})
-	for k, v := range args.ModelConfig {
-		details.Config[k] = v
-	}
+	maps.Copy(details.Config, args.ModelConfig)
 	delete(details.Config, config.UUIDKey)
 
 	// TODO(axw) change signature of CACert() to not return a bool.

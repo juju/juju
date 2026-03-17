@@ -131,7 +131,7 @@ func (s *HTTPServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // the timeout value for them to be made.
 func (s *HTTPServer) WaitRequests(n int) []*http.Request {
 	reqs := make([]*http.Request, 0, n)
-	for i := 0; i < n; i++ {
+	for range n {
 		select {
 		case req := <-s.request:
 			reqs = append(reqs, req)
@@ -152,7 +152,7 @@ func (s *HTTPServer) WaitRequest() *http.Request {
 // ResponseFunc prepares the test server to respond the following n
 // requests using f to build each response.
 func (s *HTTPServer) ResponseFunc(n int, f ResponseFunc) {
-	for i := 0; i < n; i++ {
+	for range n {
 		s.response <- f
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"sort"
 	"strings"
@@ -552,9 +553,7 @@ func (c *bootstrapCommand) parseConstraints(ctx *cmd.Context) (err error) {
 	defer common.WarnConstraintAliases(ctx, allAliases)
 	if c.ConstraintsStr.String() != "" {
 		cons, aliases, err := constraints.ParseWithAliases(strings.Join(c.ConstraintsStr, " "))
-		for k, v := range aliases {
-			allAliases[k] = v
-		}
+		maps.Copy(allAliases, aliases)
 		if err != nil {
 			return err
 		}
@@ -562,9 +561,7 @@ func (c *bootstrapCommand) parseConstraints(ctx *cmd.Context) (err error) {
 	}
 	if c.BootstrapConstraintsStr.String() != "" {
 		cons, aliases, err := constraints.ParseWithAliases(strings.Join(c.BootstrapConstraintsStr, " "))
-		for k, v := range aliases {
-			allAliases[k] = v
-		}
+		maps.Copy(allAliases, aliases)
 		if err != nil {
 			return err
 		}
@@ -803,9 +800,7 @@ to create a new model to deploy %sworkloads.
 	registry := environ
 	for poolName, cfg := range bootstrapCfg.storagePools {
 		poolAttrs := make(storage.Attrs)
-		for k, v := range cfg {
-			poolAttrs[k] = v
-		}
+		maps.Copy(poolAttrs, cfg)
 		poolType, _ := poolAttrs[corestorage.BootstrapStoragePoolTypeKey].(string)
 		delete(poolAttrs, corestorage.BootstrapStoragePoolNameKey)
 		delete(poolAttrs, corestorage.BootstrapStoragePoolTypeKey)
@@ -1083,9 +1078,9 @@ func (c *bootstrapCommand) controllerDataRefresher(
 				AgentVersion:           agentVersion.String(),
 				CurrentHostPorts:       []network.MachineHostPorts{hps},
 				PublicDNSName:          newStringIfNonEmpty(bootstrapCfg.controller.AutocertDNSName()),
-				MachineCount:           newInt(1),
+				MachineCount:           new(1),
 				Proxier:                proxier,
-				ControllerMachineCount: newInt(1),
+				ControllerMachineCount: new(1),
 			},
 		),
 		"saving bootstrap endpoint address",
@@ -1472,25 +1467,17 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	}
 
 	// Start with the model defaults, then add in user config attributes.
-	for k, v := range modelDefaultConfigAttrs {
-		combinedConfig[k] = v
-	}
+	maps.Copy(combinedConfig, modelDefaultConfigAttrs)
 
 	// Store specific attributes are either already specified in model
 	// config (but may have been coerced), or were not present. Either way,
 	// copy them in.
 	logger.Debugf(context.TODO(), "provider attrs: %v", providerAttrs)
-	for k, v := range providerAttrs {
-		combinedConfig[k] = v
-	}
+	maps.Copy(combinedConfig, providerAttrs)
 
-	for k, v := range inheritedControllerAttrs {
-		combinedConfig[k] = v
-	}
+	maps.Copy(combinedConfig, inheritedControllerAttrs)
 
-	for k, v := range userConfigAttrs {
-		combinedConfig[k] = v
-	}
+	maps.Copy(combinedConfig, userConfigAttrs)
 
 	// Add in any default attribute values if not already
 	// specified, making the recorded bootstrap config
@@ -1662,10 +1649,6 @@ func handleChooseCloudRegionError(ctx *cmd.Context, err error) error {
 		err, "juju update-public-clouds",
 	)
 	return cmd.ErrSilent
-}
-
-func newInt(i int) *int {
-	return &i
 }
 
 func newStringIfNonEmpty(s string) *string {

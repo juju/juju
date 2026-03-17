@@ -15,7 +15,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("CAASApplication", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newStateFacade(ctx)
-	}, reflect.TypeOf((*Facade)(nil)))
+	}, reflect.TypeFor[*Facade]())
 }
 
 // newStateFacade provides the signature required for facade registration.

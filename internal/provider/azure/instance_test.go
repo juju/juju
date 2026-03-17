@@ -68,14 +68,14 @@ func (s *instanceSuite) SetUpTest(c *tc.C) {
 		makeDeployment("machine-1", armresources.ProvisioningStateCreating),
 	}
 	s.vms = []*armcompute.VirtualMachine{{
-		Name: to.Ptr("machine-0"),
+		Name: new("machine-0"),
 		Tags: map[string]*string{
-			"juju-controller-uuid": to.Ptr(testing.ControllerTag.Id()),
-			"juju-model-uuid":      to.Ptr(testing.ModelTag.Id()),
-			"juju-is-controller":   to.Ptr("true"),
+			"juju-controller-uuid": new(testing.ControllerTag.Id()),
+			"juju-model-uuid":      new(testing.ModelTag.Id()),
+			"juju-is-controller":   new("true"),
 		},
 		Properties: &armcompute.VirtualMachineProperties{
-			ProvisioningState: to.Ptr("Succeeded")},
+			ProvisioningState: new("Succeeded")},
 	}}
 	s.credentialInvalidator = azure.CredentialInvalidator(func(context.Context, environs.CredentialInvalidReason) error {
 		s.invalidatedCredential = true
@@ -85,21 +85,21 @@ func (s *instanceSuite) SetUpTest(c *tc.C) {
 
 func makeDeployment(name string, provisioningState armresources.ProvisioningState) *armresources.DeploymentExtended {
 	dependsOn := []*armresources.BasicDependency{{
-		ResourceType: to.Ptr("Microsoft.Compute/availabilitySets"),
-		ResourceName: to.Ptr("mysql"),
+		ResourceType: new("Microsoft.Compute/availabilitySets"),
+		ResourceName: new("mysql"),
 	}}
 	dependencies := []*armresources.Dependency{{
-		ResourceType: to.Ptr("Microsoft.Compute/virtualMachines"),
+		ResourceType: new("Microsoft.Compute/virtualMachines"),
 		DependsOn:    dependsOn,
 	}}
 	return &armresources.DeploymentExtended{
-		Name: to.Ptr(name),
+		Name: new(name),
 		Properties: &armresources.DeploymentPropertiesExtended{
-			ProvisioningState: to.Ptr(provisioningState),
+			ProvisioningState: new(provisioningState),
 			Dependencies:      dependencies,
 		},
 		Tags: map[string]*string{
-			"juju-model-uuid": to.Ptr(testing.ModelTag.Id()),
+			"juju-model-uuid": new(testing.ModelTag.Id()),
 		},
 	}
 }
@@ -107,11 +107,11 @@ func makeDeployment(name string, provisioningState armresources.ProvisioningStat
 func makeNetworkInterface(nicName, vmName string, ipConfigurations ...*armnetwork.InterfaceIPConfiguration) *armnetwork.Interface {
 	tags := map[string]*string{"juju-machine-name": &vmName}
 	return &armnetwork.Interface{
-		Name: to.Ptr(nicName),
+		Name: new(nicName),
 		Tags: tags,
 		Properties: &armnetwork.InterfacePropertiesFormat{
 			IPConfigurations: ipConfigurations,
-			Primary:          to.Ptr(true),
+			Primary:          new(true),
 		},
 	}
 }
@@ -121,7 +121,7 @@ func makeIPConfiguration(privateIPAddress string) *armnetwork.InterfaceIPConfigu
 		Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{},
 	}
 	if privateIPAddress != "" {
-		ipConfiguration.Properties.PrivateIPAddress = to.Ptr(privateIPAddress)
+		ipConfiguration.Properties.PrivateIPAddress = new(privateIPAddress)
 	}
 	return ipConfiguration
 }
@@ -129,20 +129,20 @@ func makeIPConfiguration(privateIPAddress string) *armnetwork.InterfaceIPConfigu
 func makePublicIPAddress(pipName, vmName, ipAddress string) *armnetwork.PublicIPAddress {
 	tags := map[string]*string{"juju-machine-name": &vmName}
 	pip := &armnetwork.PublicIPAddress{
-		Name:       to.Ptr(pipName),
+		Name:       new(pipName),
 		Tags:       tags,
 		Properties: &armnetwork.PublicIPAddressPropertiesFormat{},
 	}
 	if ipAddress != "" {
-		pip.Properties.IPAddress = to.Ptr(ipAddress)
+		pip.Properties.IPAddress = new(ipAddress)
 	}
 	return pip
 }
 
 func makeSecurityGroup(rules ...*armnetwork.SecurityRule) armnetwork.SecurityGroup {
 	return armnetwork.SecurityGroup{
-		Name: to.Ptr("juju-internal-nsg"),
-		ID:   to.Ptr(internalSecurityGroupPath),
+		Name: new("juju-internal-nsg"),
+		ID:   new(internalSecurityGroupPath),
 		Properties: &armnetwork.SecurityGroupPropertiesFormat{
 			SecurityRules: rules,
 		},
@@ -151,13 +151,13 @@ func makeSecurityGroup(rules ...*armnetwork.SecurityRule) armnetwork.SecurityGro
 
 func makeSecurityRule(name, ipAddress, ports string) *armnetwork.SecurityRule {
 	return &armnetwork.SecurityRule{
-		Name: to.Ptr(name),
+		Name: new(name),
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
 			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
-			DestinationAddressPrefix: to.Ptr(ipAddress),
-			DestinationPortRange:     to.Ptr(ports),
+			DestinationAddressPrefix: new(ipAddress),
+			DestinationPortRange:     new(ports),
 			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
-			Priority:                 to.Ptr(int32(200)),
+			Priority:                 new(int32(200)),
 			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}
@@ -223,7 +223,7 @@ func (s *instanceSuite) TestInstanceStatusDeploymentFailed(c *tc.C) {
 	s.deployments[1].Properties.ProvisioningState = to.Ptr(armresources.ProvisioningStateFailed)
 	s.deployments[1].Properties.Error = &armresources.ErrorResponse{
 		Details: []*armresources.ErrorResponse{{
-			Message: to.Ptr("boom"),
+			Message: new("boom"),
 		}},
 	}
 	inst := s.getInstance(c, "machine-1")
@@ -324,7 +324,7 @@ func (s *instanceSuite) TestIngressRulesEmpty(c *tc.C) {
 func (s *instanceSuite) setupSecurityGroupRules(nsgRules ...*armnetwork.SecurityRule) *azuretesting.Senders {
 	nsg := &armnetwork.SecurityGroup{
 		ID:   &internalSecurityGroupPath,
-		Name: to.Ptr("juju-internal-nsg"),
+		Name: new("juju-internal-nsg"),
 		Properties: &armnetwork.SecurityGroupPropertiesFormat{
 			SecurityRules: nsgRules,
 		},
@@ -332,7 +332,7 @@ func (s *instanceSuite) setupSecurityGroupRules(nsgRules ...*armnetwork.Security
 	nic0IPConfigurations := []*armnetwork.InterfaceIPConfiguration{
 		makeIPConfiguration("10.0.0.4"),
 	}
-	nic0IPConfigurations[0].Properties.Primary = to.Ptr(true)
+	nic0IPConfigurations[0].Properties.Primary = new(true)
 	nic0IPConfigurations[0].Properties.Subnet = &armnetwork.Subnet{
 		ID: &internalSubnetPath,
 		Properties: &armnetwork.SubnetPropertiesFormat{
@@ -353,87 +353,87 @@ func (s *instanceSuite) setupSecurityGroupRules(nsgRules ...*armnetwork.Security
 
 func (s *instanceSuite) TestIngressRules(c *tc.C) {
 	nsgRules := []*armnetwork.SecurityRule{{
-		Name: to.Ptr("machine-0-xyzzy"),
+		Name: new("machine-0-xyzzy"),
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
 			Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolUDP),
-			DestinationPortRange: to.Ptr("*"),
+			DestinationPortRange: new("*"),
 			Access:               to.Ptr(armnetwork.SecurityRuleAccessAllow),
-			Priority:             to.Ptr(int32(200)),
+			Priority:             new(int32(200)),
 			Direction:            to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}, {
-		Name: to.Ptr("machine-0-tcpcp-1"),
+		Name: new("machine-0-tcpcp-1"),
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
 			Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolTCP),
-			DestinationPortRange: to.Ptr("1000-2000"),
-			SourceAddressPrefix:  to.Ptr("*"),
+			DestinationPortRange: new("1000-2000"),
+			SourceAddressPrefix:  new("*"),
 			Access:               to.Ptr(armnetwork.SecurityRuleAccessAllow),
-			Priority:             to.Ptr(int32(201)),
+			Priority:             new(int32(201)),
 			Direction:            to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}, {
-		Name: to.Ptr("machine-0-tcpcp-2"),
+		Name: new("machine-0-tcpcp-2"),
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
 			Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolTCP),
-			DestinationPortRange: to.Ptr("1000-2000"),
-			SourceAddressPrefix:  to.Ptr("192.168.1.0/24"),
+			DestinationPortRange: new("1000-2000"),
+			SourceAddressPrefix:  new("192.168.1.0/24"),
 			Access:               to.Ptr(armnetwork.SecurityRuleAccessAllow),
-			Priority:             to.Ptr(int32(201)),
+			Priority:             new(int32(201)),
 			Direction:            to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}, {
-		Name: to.Ptr("machine-0-tcpcp-3"),
+		Name: new("machine-0-tcpcp-3"),
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
 			Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolTCP),
-			DestinationPortRange: to.Ptr("1000-2000"),
-			SourceAddressPrefix:  to.Ptr("10.0.0.0/24"),
+			DestinationPortRange: new("1000-2000"),
+			SourceAddressPrefix:  new("10.0.0.0/24"),
 			Access:               to.Ptr(armnetwork.SecurityRuleAccessAllow),
-			Priority:             to.Ptr(int32(201)),
+			Priority:             new(int32(201)),
 			Direction:            to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}, {
-		Name: to.Ptr("machine-0-http"),
+		Name: new("machine-0-http"),
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
 			Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
-			DestinationPortRange: to.Ptr("80"),
+			DestinationPortRange: new("80"),
 			Access:               to.Ptr(armnetwork.SecurityRuleAccessAllow),
-			Priority:             to.Ptr(int32(202)),
+			Priority:             new(int32(202)),
 			Direction:            to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}, {
-		Name: to.Ptr("machine-00-ignored"),
+		Name: new("machine-00-ignored"),
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
 			Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolTCP),
-			DestinationPortRange: to.Ptr("80"),
+			DestinationPortRange: new("80"),
 			Access:               to.Ptr(armnetwork.SecurityRuleAccessAllow),
-			Priority:             to.Ptr(int32(202)),
+			Priority:             new(int32(202)),
 			Direction:            to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}, {
-		Name: to.Ptr("machine-0-ignored"),
+		Name: new("machine-0-ignored"),
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
 			Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolTCP),
-			DestinationPortRange: to.Ptr("80"),
+			DestinationPortRange: new("80"),
 			Access:               to.Ptr(armnetwork.SecurityRuleAccessDeny),
-			Priority:             to.Ptr(int32(202)),
+			Priority:             new(int32(202)),
 			Direction:            to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}, {
-		Name: to.Ptr("machine-0-ignored"),
+		Name: new("machine-0-ignored"),
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
 			Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolTCP),
-			DestinationPortRange: to.Ptr("80"),
+			DestinationPortRange: new("80"),
 			Access:               to.Ptr(armnetwork.SecurityRuleAccessAllow),
-			Priority:             to.Ptr(int32(202)),
+			Priority:             new(int32(202)),
 			Direction:            to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
 		},
 	}, {
-		Name: to.Ptr("machine-0-ignored"),
+		Name: new("machine-0-ignored"),
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
 			Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolTCP),
-			DestinationPortRange: to.Ptr("80"),
+			DestinationPortRange: new("80"),
 			Access:               to.Ptr(armnetwork.SecurityRuleAccessAllow),
-			Priority:             to.Ptr(int32(199)), // internal range
+			Priority:             new(int32(199)), // internal range
 			Direction:            to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}}
@@ -511,14 +511,14 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *tc.C) {
 	c.Assert(s.requests[1].URL.Path, tc.Equals, securityRulePath("machine-0-tcp-1000"))
 	assertRequestBody(c, s.requests[1], &armnetwork.SecurityRule{
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
-			Description:              to.Ptr("1000/tcp from *"),
+			Description:              new("1000/tcp from *"),
 			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
-			SourcePortRange:          to.Ptr("*"),
-			SourceAddressPrefix:      to.Ptr("*"),
-			DestinationPortRange:     to.Ptr("1000"),
-			DestinationAddressPrefix: to.Ptr("10.0.0.4"),
+			SourcePortRange:          new("*"),
+			SourceAddressPrefix:      new("*"),
+			DestinationPortRange:     new("1000"),
+			DestinationAddressPrefix: new("10.0.0.4"),
 			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
-			Priority:                 to.Ptr(int32(200)),
+			Priority:                 new(int32(200)),
 			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	})
@@ -526,14 +526,14 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *tc.C) {
 	c.Assert(s.requests[2].URL.Path, tc.Equals, securityRulePath("machine-0-udp-1000-2000"))
 	assertRequestBody(c, s.requests[2], &armnetwork.SecurityRule{
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
-			Description:              to.Ptr("1000-2000/udp from *"),
+			Description:              new("1000-2000/udp from *"),
 			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolUDP),
-			SourcePortRange:          to.Ptr("*"),
-			SourceAddressPrefix:      to.Ptr("*"),
-			DestinationPortRange:     to.Ptr("1000-2000"),
-			DestinationAddressPrefix: to.Ptr("10.0.0.4"),
+			SourcePortRange:          new("*"),
+			SourceAddressPrefix:      new("*"),
+			DestinationPortRange:     new("1000-2000"),
+			DestinationAddressPrefix: new("10.0.0.4"),
 			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
-			Priority:                 to.Ptr(int32(201)),
+			Priority:                 new(int32(201)),
 			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	})
@@ -541,14 +541,14 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *tc.C) {
 	c.Assert(s.requests[3].URL.Path, tc.Equals, securityRulePath("machine-0-tcp-1000-2000-cidr-10-0-0-0-24"))
 	assertRequestBody(c, s.requests[3], &armnetwork.SecurityRule{
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
-			Description:              to.Ptr("1000-2000/tcp from 10.0.0.0/24"),
+			Description:              new("1000-2000/tcp from 10.0.0.0/24"),
 			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
-			SourcePortRange:          to.Ptr("*"),
-			SourceAddressPrefix:      to.Ptr("10.0.0.0/24"),
-			DestinationPortRange:     to.Ptr("1000-2000"),
-			DestinationAddressPrefix: to.Ptr("10.0.0.4"),
+			SourcePortRange:          new("*"),
+			SourceAddressPrefix:      new("10.0.0.0/24"),
+			DestinationPortRange:     new("1000-2000"),
+			DestinationAddressPrefix: new("10.0.0.4"),
 			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
-			Priority:                 to.Ptr(int32(202)),
+			Priority:                 new(int32(202)),
 			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	})
@@ -556,14 +556,14 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *tc.C) {
 	c.Assert(s.requests[4].URL.Path, tc.Equals, securityRulePath("machine-0-tcp-1000-2000-cidr-192-168-1-0-24"))
 	assertRequestBody(c, s.requests[4], &armnetwork.SecurityRule{
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
-			Description:              to.Ptr("1000-2000/tcp from 192.168.1.0/24"),
+			Description:              new("1000-2000/tcp from 192.168.1.0/24"),
 			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
-			SourcePortRange:          to.Ptr("*"),
-			SourceAddressPrefix:      to.Ptr("192.168.1.0/24"),
-			DestinationPortRange:     to.Ptr("1000-2000"),
-			DestinationAddressPrefix: to.Ptr("10.0.0.4"),
+			SourcePortRange:          new("*"),
+			SourceAddressPrefix:      new("192.168.1.0/24"),
+			DestinationPortRange:     new("1000-2000"),
+			DestinationAddressPrefix: new("10.0.0.4"),
 			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
-			Priority:                 to.Ptr(int32(203)),
+			Priority:                 new(int32(203)),
 			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	})
@@ -571,12 +571,12 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *tc.C) {
 
 func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *tc.C) {
 	nsgRule := &armnetwork.SecurityRule{
-		Name: to.Ptr("machine-0-tcp-1000"),
+		Name: new("machine-0-tcp-1000"),
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
 			Protocol:             to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
-			DestinationPortRange: to.Ptr("1000"),
+			DestinationPortRange: new("1000"),
 			Access:               to.Ptr(armnetwork.SecurityRuleAccessAllow),
-			Priority:             to.Ptr(int32(202)),
+			Priority:             new(int32(202)),
 			Direction:            to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	}
@@ -602,14 +602,14 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *tc.C) {
 	c.Assert(s.requests[1].URL.Path, tc.Equals, securityRulePath("machine-0-udp-1000-2000"))
 	assertRequestBody(c, s.requests[1], &armnetwork.SecurityRule{
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
-			Description:              to.Ptr("1000-2000/udp from *"),
+			Description:              new("1000-2000/udp from *"),
 			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolUDP),
-			SourcePortRange:          to.Ptr("*"),
-			SourceAddressPrefix:      to.Ptr("*"),
-			DestinationPortRange:     to.Ptr("1000-2000"),
-			DestinationAddressPrefix: to.Ptr("10.0.0.4"),
+			SourcePortRange:          new("*"),
+			SourceAddressPrefix:      new("*"),
+			DestinationPortRange:     new("1000-2000"),
+			DestinationAddressPrefix: new("10.0.0.4"),
 			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
-			Priority:                 to.Ptr(int32(200)),
+			Priority:                 new(int32(200)),
 			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	})

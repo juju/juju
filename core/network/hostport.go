@@ -9,6 +9,7 @@ import (
 	"net"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/juju/collections/set"
 
@@ -384,11 +385,11 @@ func (hp HostsPortsSlice) Less(i, j int) bool {
 }
 
 func (hp hostPortsSlice) String() string {
-	var result string
+	var result strings.Builder
 	for _, val := range hp {
-		result += fmt.Sprintf("%s-%d ", val.SpaceAddress, val.Port())
+		result.WriteString(fmt.Sprintf("%s-%d ", val.SpaceAddress, val.Port()))
 	}
-	return result
+	return result.String()
 }
 
 type hostPortsSlice []SpaceHostPort

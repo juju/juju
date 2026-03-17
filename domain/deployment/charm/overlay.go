@@ -351,8 +351,8 @@ func isZero(v reflect.Value) bool {
 	case reflect.String:
 		return v.Len() == 0
 	case reflect.Struct:
-		for i := 0; i < v.NumField(); i++ {
-			if !isZero(v.Field(i)) {
+		for _, field := range v.Fields() {
+			if !isZero(field) {
 				return false
 			}
 		}
@@ -712,7 +712,7 @@ func isNonScalar(val reflect.Value) bool {
 	kind := val.Kind()
 
 	if kind == reflect.Interface {
-		kind = reflect.TypeOf(val).Kind()
+		kind = reflect.TypeFor[reflect.Value]().Kind()
 	}
 
 	switch kind {

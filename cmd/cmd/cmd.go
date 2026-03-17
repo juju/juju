@@ -396,12 +396,13 @@ func (i *Info) describeCommands() string {
 	}
 	sort.Strings(cmdNames)
 
-	descr := "Subcommands:\n"
+	var descr strings.Builder
+	descr.WriteString("Subcommands:\n")
 	for _, name := range cmdNames {
 		purpose := i.Subcommands[name]
-		descr += fmt.Sprintf("    %-*s - %s\n", longest, name, purpose)
+		descr.WriteString(fmt.Sprintf("    %-*s - %s\n", longest, name, purpose))
 	}
-	return descr
+	return descr.String()
 }
 
 // Errors from commands can be ErrSilent (don't print an error message),

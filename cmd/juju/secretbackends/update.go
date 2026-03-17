@@ -6,6 +6,7 @@ package secretbackends
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -131,9 +132,7 @@ func (c *updateSecretBackendCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for k, v := range c.KeyValueAttrs {
-		attrs[k] = v
-	}
+	maps.Copy(attrs, c.KeyValueAttrs)
 
 	tokenRotateInterval, err := parseTokenRotate(attrs, true)
 	if err != nil {

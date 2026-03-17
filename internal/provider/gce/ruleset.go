@@ -6,6 +6,8 @@ package gce
 import (
 	"crypto/sha256"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 
@@ -233,19 +235,11 @@ func (pp protocolPorts) portStrings(protocol string) []string {
 // ranges from both.
 func (pp protocolPorts) union(other protocolPorts) protocolPorts {
 	result := make(protocolPorts)
-	for protocol, ports := range pp {
-		result[protocol] = ports
-	}
+	maps.Copy(result, pp)
 	for protocol, otherPorts := range other {
 		resultPorts := result[protocol]
 		for _, other := range otherPorts {
-			found := false
-			for _, myRange := range resultPorts {
-				if myRange == other {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(resultPorts, other)
 			if !found {
 				resultPorts = append(resultPorts, other)
 			}
@@ -266,13 +260,7 @@ func (pp protocolPorts) remove(other protocolPorts) protocolPorts {
 		}
 		var resultRange []corenetwork.PortRange
 		for _, one := range myRange {
-			found := false
-			for _, other := range otherPorts {
-				if one == other {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(otherPorts, one)
 			if !found {
 				resultRange = append(resultRange, one)
 			}

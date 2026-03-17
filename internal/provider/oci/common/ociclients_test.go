@@ -31,14 +31,6 @@ func TestStorageClientSuite(t *stdtesting.T) {
 
 var compartmentID = "compartment-id"
 
-func makeStringPointer(name string) *string {
-	return &name
-}
-
-func makeIntPointer(name int) *int {
-	return &name
-}
-
 type computeClientSuite struct {
 	client    *computeClient
 	mockAPI   *testing.MockOCIComputeClient
@@ -52,97 +44,97 @@ func (s *computeClientSuite) SetUpSuite(c *tc.C) {
 	s.images = []ociCore.Image{
 		{
 			CompartmentId:          &compartmentID,
-			Id:                     makeStringPointer("fakeUbuntu1"),
-			OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-			OperatingSystemVersion: makeStringPointer("22.04"),
-			DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-2018.01.11-0"),
+			Id:                     new("fakeUbuntu1"),
+			OperatingSystem:        new("Canonical Ubuntu"),
+			OperatingSystemVersion: new("22.04"),
+			DisplayName:            new("Canonical-Ubuntu-22.04-2018.01.11-0"),
 		},
 		{
 			CompartmentId:          &compartmentID,
-			Id:                     makeStringPointer("fakeUbuntu2"),
-			OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-			OperatingSystemVersion: makeStringPointer("22.04"),
-			DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-2018.01.12-0"),
+			Id:                     new("fakeUbuntu2"),
+			OperatingSystem:        new("Canonical Ubuntu"),
+			OperatingSystemVersion: new("22.04"),
+			DisplayName:            new("Canonical-Ubuntu-22.04-2018.01.12-0"),
 		},
 		{
 			CompartmentId:          &compartmentID,
-			Id:                     makeStringPointer("fakeCentOS"),
-			OperatingSystem:        makeStringPointer("CentOS"),
-			OperatingSystemVersion: makeStringPointer("7"),
-			DisplayName:            makeStringPointer("CentOS-7-2017.10.19-0"),
+			Id:                     new("fakeCentOS"),
+			OperatingSystem:        new("CentOS"),
+			OperatingSystemVersion: new("7"),
+			DisplayName:            new("CentOS-7-2017.10.19-0"),
 		},
 	}
 
 	s.instances = []ociCore.Instance{
 		{
-			AvailabilityDomain: makeStringPointer("fakeZone1"),
+			AvailabilityDomain: new("fakeZone1"),
 			CompartmentId:      &compartmentID,
-			Id:                 makeStringPointer("instID"),
+			Id:                 new("instID"),
 			LifecycleState:     ociCore.InstanceLifecycleStateRunning,
-			Region:             makeStringPointer("us-phoenix-1"),
-			Shape:              makeStringPointer("VM.Standard1.1"),
-			DisplayName:        makeStringPointer("fakeName"),
+			Region:             new("us-phoenix-1"),
+			Shape:              new("VM.Standard1.1"),
+			DisplayName:        new("fakeName"),
 		},
 		{
-			AvailabilityDomain: makeStringPointer("fakeZone2"),
+			AvailabilityDomain: new("fakeZone2"),
 			CompartmentId:      &compartmentID,
-			Id:                 makeStringPointer("instID3"),
+			Id:                 new("instID3"),
 			LifecycleState:     ociCore.InstanceLifecycleStateRunning,
-			Region:             makeStringPointer("us-phoenix-1"),
-			Shape:              makeStringPointer("VM.Standard2.1"),
-			DisplayName:        makeStringPointer("fakeNameTheSecond"),
+			Region:             new("us-phoenix-1"),
+			Shape:              new("VM.Standard2.1"),
+			DisplayName:        new("fakeNameTheSecond"),
 		},
 	}
 
 	fakeInstID := "fakeInstanceId"
 	s.vnics = []ociCore.VnicAttachment{
 		{
-			Id:                 makeStringPointer("fakeAttachmentId"),
-			AvailabilityDomain: makeStringPointer("fake"),
+			Id:                 new("fakeAttachmentId"),
+			AvailabilityDomain: new("fake"),
 			CompartmentId:      &compartmentID,
 			InstanceId:         &fakeInstID,
 			LifecycleState:     ociCore.VnicAttachmentLifecycleStateAttached,
-			DisplayName:        makeStringPointer("fakeAttachmentName"),
-			NicIndex:           makeIntPointer(0),
-			VnicId:             makeStringPointer("vnicID1"),
+			DisplayName:        new("fakeAttachmentName"),
+			NicIndex:           new(0),
+			VnicId:             new("vnicID1"),
 		},
 		{
-			Id:                 makeStringPointer("fakeAttachmentId2"),
-			AvailabilityDomain: makeStringPointer("fake2"),
+			Id:                 new("fakeAttachmentId2"),
+			AvailabilityDomain: new("fake2"),
 			CompartmentId:      &compartmentID,
 			InstanceId:         &fakeInstID,
 			LifecycleState:     ociCore.VnicAttachmentLifecycleStateAttached,
-			DisplayName:        makeStringPointer("fakeAttachmentName2"),
-			NicIndex:           makeIntPointer(1),
-			VnicId:             makeStringPointer("vnicID2"),
+			DisplayName:        new("fakeAttachmentName2"),
+			NicIndex:           new(1),
+			VnicId:             new("vnicID2"),
 		},
 	}
 
 	s.volumes = []ociCore.VolumeAttachment{
 		ociCore.IScsiVolumeAttachment{
-			AvailabilityDomain: makeStringPointer("fakeZone1"),
+			AvailabilityDomain: new("fakeZone1"),
 			InstanceId:         &fakeInstID,
 			CompartmentId:      &compartmentID,
-			Iqn:                makeStringPointer("bogus"),
-			Id:                 makeStringPointer("fakeVolumeAttachment1"),
-			VolumeId:           makeStringPointer("volume1"),
-			Ipv4:               makeStringPointer("192.168.1.1"),
-			DisplayName:        makeStringPointer("fakeVolumeAttachment"),
-			ChapSecret:         makeStringPointer("superSecretPassword"),
-			ChapUsername:       makeStringPointer("JohnDoe"),
+			Iqn:                new("bogus"),
+			Id:                 new("fakeVolumeAttachment1"),
+			VolumeId:           new("volume1"),
+			Ipv4:               new("192.168.1.1"),
+			DisplayName:        new("fakeVolumeAttachment"),
+			ChapSecret:         new("superSecretPassword"),
+			ChapUsername:       new("JohnDoe"),
 			LifecycleState:     ociCore.VolumeAttachmentLifecycleStateAttached,
 		},
 		ociCore.IScsiVolumeAttachment{
-			AvailabilityDomain: makeStringPointer("fakeZone1"),
+			AvailabilityDomain: new("fakeZone1"),
 			InstanceId:         &fakeInstID,
 			CompartmentId:      &compartmentID,
-			Iqn:                makeStringPointer("bogus"),
-			Id:                 makeStringPointer("fakeVolumeAttachment2"),
-			VolumeId:           makeStringPointer("volume2"),
-			Ipv4:               makeStringPointer("192.168.1.42"),
-			DisplayName:        makeStringPointer("fakeVolumeAttachment"),
-			ChapSecret:         makeStringPointer("superSecretPassword"),
-			ChapUsername:       makeStringPointer("JohnDoe"),
+			Iqn:                new("bogus"),
+			Id:                 new("fakeVolumeAttachment2"),
+			VolumeId:           new("volume2"),
+			Ipv4:               new("192.168.1.42"),
+			DisplayName:        new("fakeVolumeAttachment"),
+			ChapSecret:         new("superSecretPassword"),
+			ChapUsername:       new("JohnDoe"),
 			LifecycleState:     ociCore.VolumeAttachmentLifecycleStateAttached,
 		},
 	}
@@ -167,11 +159,11 @@ func (s *computeClientSuite) TestListImagesPageN(c *tc.C) {
 
 	s.mockAPI.EXPECT().ListImages(gomock.Any(), gomock.Any()).Return(ociCore.ListImagesResponse{
 		Items:       []ociCore.Image{s.images[0]},
-		OpcNextPage: makeStringPointer("test-pagination"),
+		OpcNextPage: new("test-pagination"),
 	}, nil)
 	s.mockAPI.EXPECT().ListImages(gomock.Any(), gomock.Any()).Return(ociCore.ListImagesResponse{
 		Items:       []ociCore.Image{s.images[1]},
-		OpcNextPage: makeStringPointer("test-pagination"),
+		OpcNextPage: new("test-pagination"),
 	}, nil)
 	s.mockAPI.EXPECT().ListImages(gomock.Any(), gomock.Any()).Return(ociCore.ListImagesResponse{
 		Items: []ociCore.Image{s.images[2]},
@@ -199,7 +191,7 @@ func (s *computeClientSuite) TestListImagesFailPageN(c *tc.C) {
 
 	s.mockAPI.EXPECT().ListImages(gomock.Any(), gomock.Any()).Return(ociCore.ListImagesResponse{
 		Items:       []ociCore.Image{s.images[0]},
-		OpcNextPage: makeStringPointer("test-pagination"),
+		OpcNextPage: new("test-pagination"),
 	}, nil)
 	s.mockAPI.EXPECT().ListImages(gomock.Any(), gomock.Any()).Return(ociCore.ListImagesResponse{}, errors.BadRequestf("test fail"))
 
@@ -254,7 +246,7 @@ func (s *computeClientSuite) TestListShapesPageN(c *tc.C) {
 	}
 	resp := ociCore.ListShapesResponse{
 		Items:       []ociCore.Shape{shapes[0]},
-		OpcNextPage: makeStringPointer("test-pagination"),
+		OpcNextPage: new("test-pagination"),
 	}
 
 	s.mockAPI.EXPECT().ListShapes(gomock.Any(), req).Return(resp, nil)
@@ -276,7 +268,7 @@ func (s *computeClientSuite) TestListShapesFail(c *tc.C) {
 
 	s.mockAPI.EXPECT().ListShapes(gomock.Any(), gomock.Any()).Return(ociCore.ListShapesResponse{}, errors.BadRequestf("test fail"))
 
-	obtained, err := s.client.ListShapes(ctx.TODO(), &compartmentID, makeStringPointer("testFail"))
+	obtained, err := s.client.ListShapes(ctx.TODO(), &compartmentID, new("testFail"))
 	c.Assert(err, tc.ErrorIs, errors.BadRequest)
 	c.Assert(obtained, tc.HasLen, 0)
 }
@@ -289,14 +281,14 @@ func (s *computeClientSuite) TestListShapesFailPageN(c *tc.C) {
 
 	req := ociCore.ListShapesRequest{
 		CompartmentId: &compartmentID,
-		ImageId:       makeStringPointer("testFail"),
+		ImageId:       new("testFail"),
 	}
 	shapes := []ociCore.Shape{
 		{Shape: &shape1},
 	}
 	resp := ociCore.ListShapesResponse{
 		Items:       shapes,
-		OpcNextPage: makeStringPointer("test-pagination"),
+		OpcNextPage: new("test-pagination"),
 	}
 	s.mockAPI.EXPECT().ListShapes(gomock.Any(), req).Return(resp, nil)
 	req.Page = resp.OpcNextPage
@@ -327,7 +319,7 @@ func (s *computeClientSuite) TestListInstancesPageN(c *tc.C) {
 
 	s.mockAPI.EXPECT().ListInstances(gomock.Any(), gomock.Any()).Return(ociCore.ListInstancesResponse{
 		Items:       []ociCore.Instance{s.instances[0]},
-		OpcNextPage: makeStringPointer("test-pagination"),
+		OpcNextPage: new("test-pagination"),
 	}, nil)
 	s.mockAPI.EXPECT().ListInstances(gomock.Any(), gomock.Any()).Return(ociCore.ListInstancesResponse{
 		Items: []ociCore.Instance{s.instances[1]},
@@ -355,7 +347,7 @@ func (s *computeClientSuite) TestListInstancesFailPageN(c *tc.C) {
 
 	s.mockAPI.EXPECT().ListInstances(gomock.Any(), gomock.Any()).Return(ociCore.ListInstancesResponse{
 		Items:       []ociCore.Instance{s.instances[0]},
-		OpcNextPage: makeStringPointer("test-pagination"),
+		OpcNextPage: new("test-pagination"),
 	}, nil)
 	s.mockAPI.EXPECT().ListInstances(gomock.Any(), gomock.Any()).Return(ociCore.ListInstancesResponse{}, errors.BadRequestf("test fail"))
 
@@ -387,7 +379,7 @@ func (s *computeClientSuite) TestListVnicAttachmentsPageN(c *tc.C) {
 	}
 	resp := ociCore.ListVnicAttachmentsResponse{
 		Items:       []ociCore.VnicAttachment{s.vnics[0]},
-		OpcNextPage: makeStringPointer("test-pagination"),
+		OpcNextPage: new("test-pagination"),
 	}
 	s.mockAPI.EXPECT().ListVnicAttachments(gomock.Any(), req).Return(resp, nil)
 	req.Page = resp.OpcNextPage
@@ -422,7 +414,7 @@ func (s *computeClientSuite) TestListVnicAttachmentsFailPageN(c *tc.C) {
 	}
 	resp := ociCore.ListVnicAttachmentsResponse{
 		Items:       []ociCore.VnicAttachment{s.vnics[0]},
-		OpcNextPage: makeStringPointer("test-pagination"),
+		OpcNextPage: new("test-pagination"),
 	}
 	s.mockAPI.EXPECT().ListVnicAttachments(gomock.Any(), req).Return(resp, nil)
 	req.Page = resp.OpcNextPage
@@ -461,7 +453,7 @@ func (s *computeClientSuite) TestListVolumeAttachmentsPageN(c *tc.C) {
 	}
 	resp := ociCore.ListVolumeAttachmentsResponse{
 		Items:       []ociCore.VolumeAttachment{s.volumes[0]},
-		OpcNextPage: makeStringPointer("test-pagination"),
+		OpcNextPage: new("test-pagination"),
 	}
 	s.mockAPI.EXPECT().ListVolumeAttachments(gomock.Any(), req).Return(resp, nil)
 	req.Page = resp.OpcNextPage
@@ -496,7 +488,7 @@ func (s *computeClientSuite) TestListVolumeAttachmentsFailPageN(c *tc.C) {
 	}
 	resp := ociCore.ListVolumeAttachmentsResponse{
 		Items:       []ociCore.VolumeAttachment{s.volumes[0]},
-		OpcNextPage: makeStringPointer("test-pagination"),
+		OpcNextPage: new("test-pagination"),
 	}
 	s.mockAPI.EXPECT().ListVolumeAttachments(gomock.Any(), req).Return(resp, nil)
 	req.Page = resp.OpcNextPage
@@ -529,45 +521,45 @@ func (s *networkClientSuite) SetUpSuite(c *tc.C) {
 	s.vcns = []ociCore.Vcn{
 		{
 			CompartmentId: &compartmentID,
-			Id:            makeStringPointer("idOne"),
+			Id:            new("idOne"),
 		},
 		{
 			CompartmentId: &compartmentID,
-			Id:            makeStringPointer("idTwo"),
+			Id:            new("idTwo"),
 		},
 	}
 	s.subnets = []ociCore.Subnet{
 		{
 			CompartmentId: &compartmentID,
-			Id:            makeStringPointer("fakeSubnetId"),
+			Id:            new("fakeSubnetId"),
 			VcnId:         s.vcns[0].Id,
 		}, {
 			CompartmentId: &compartmentID,
-			Id:            makeStringPointer("fakeSubnetId2"),
+			Id:            new("fakeSubnetId2"),
 			VcnId:         s.vcns[0].Id,
 		},
 	}
 	s.gateways = []ociCore.InternetGateway{
 		{
 			CompartmentId: &compartmentID,
-			Id:            makeStringPointer("fakeGwId"),
+			Id:            new("fakeGwId"),
 			VcnId:         s.vcns[0].Id,
 		},
 		{
 			CompartmentId: &compartmentID,
-			Id:            makeStringPointer("fakeGwId2"),
+			Id:            new("fakeGwId2"),
 			VcnId:         s.vcns[0].Id,
 		},
 	}
 	s.tables = []ociCore.RouteTable{
 		{
 			CompartmentId: &compartmentID,
-			Id:            makeStringPointer("fakeRouteTableId"),
+			Id:            new("fakeRouteTableId"),
 			VcnId:         s.vcns[0].Id,
 		},
 		{
 			CompartmentId: &compartmentID,
-			Id:            makeStringPointer("fakeRouteTableId2"),
+			Id:            new("fakeRouteTableId2"),
 			VcnId:         s.vcns[0].Id,
 		},
 	}
@@ -575,30 +567,30 @@ func (s *networkClientSuite) SetUpSuite(c *tc.C) {
 		{
 			CompartmentId: &compartmentID,
 			VcnId:         s.vcns[0].Id,
-			Id:            makeStringPointer("fakeSecList"),
+			Id:            new("fakeSecList"),
 			EgressSecurityRules: []ociCore.EgressSecurityRule{
 				{
-					Destination: makeStringPointer("dst"),
+					Destination: new("dst"),
 				},
 			},
 			IngressSecurityRules: []ociCore.IngressSecurityRule{
 				{
-					Source: makeStringPointer("src"),
+					Source: new("src"),
 				},
 			},
 		},
 		{
 			CompartmentId: &compartmentID,
 			VcnId:         s.vcns[0].Id,
-			Id:            makeStringPointer("fakeSecList3"),
+			Id:            new("fakeSecList3"),
 			EgressSecurityRules: []ociCore.EgressSecurityRule{
 				{
-					Destination: makeStringPointer("dst"),
+					Destination: new("dst"),
 				},
 			},
 			IngressSecurityRules: []ociCore.IngressSecurityRule{
 				{
-					Source: makeStringPointer("src"),
+					Source: new("src"),
 				},
 			},
 		},
@@ -627,7 +619,7 @@ func (s *networkClientSuite) TestListVcnsPageN(c *tc.C) {
 	}
 	resp := ociCore.ListVcnsResponse{
 		Items:       []ociCore.Vcn{s.vcns[0]},
-		OpcNextPage: makeStringPointer("test-pagination"),
+		OpcNextPage: new("test-pagination"),
 	}
 	s.mockAPI.EXPECT().ListVcns(gomock.Any(), req).Return(resp, nil)
 	req.Page = resp.OpcNextPage
@@ -660,7 +652,7 @@ func (s *networkClientSuite) TestListVcnsFailPageN(c *tc.C) {
 	}
 	resp := ociCore.ListVcnsResponse{
 		Items:       s.vcns,
-		OpcNextPage: makeStringPointer("test-pagination"),
+		OpcNextPage: new("test-pagination"),
 	}
 	s.mockAPI.EXPECT().ListVcns(gomock.Any(), req).Return(resp, nil)
 	req.Page = resp.OpcNextPage
@@ -698,7 +690,7 @@ func (s *networkClientSuite) TestListSubnetsPageN(c *tc.C) {
 	}
 	resp := ociCore.ListSubnetsResponse{
 		Items:       []ociCore.Subnet{s.subnets[0]},
-		OpcNextPage: makeStringPointer("test-pagination"),
+		OpcNextPage: new("test-pagination"),
 	}
 	s.mockAPI.EXPECT().ListSubnets(gomock.Any(), req).Return(resp, nil)
 	req.Page = resp.OpcNextPage
@@ -736,7 +728,7 @@ func (s *networkClientSuite) TestListSubnetsFailPageN(c *tc.C) {
 	}
 	resp := ociCore.ListSubnetsResponse{
 		Items:       []ociCore.Subnet{s.subnets[0]},
-		OpcNextPage: makeStringPointer("test-pagination"),
+		OpcNextPage: new("test-pagination"),
 	}
 	s.mockAPI.EXPECT().ListSubnets(gomock.Any(), req).Return(resp, nil)
 	req.Page = resp.OpcNextPage
@@ -774,7 +766,7 @@ func (s *networkClientSuite) TestListInternetGatewaysPageN(c *tc.C) {
 	}
 	resp := ociCore.ListInternetGatewaysResponse{
 		Items:       []ociCore.InternetGateway{s.gateways[0]},
-		OpcNextPage: makeStringPointer("test-pagination"),
+		OpcNextPage: new("test-pagination"),
 	}
 	s.mockAPI.EXPECT().ListInternetGateways(gomock.Any(), req).Return(resp, nil)
 	req.Page = resp.OpcNextPage
@@ -812,7 +804,7 @@ func (s *networkClientSuite) TestListInternetGatewaysFailPageN(c *tc.C) {
 	}
 	resp := ociCore.ListInternetGatewaysResponse{
 		Items:       s.gateways,
-		OpcNextPage: makeStringPointer("test-pagination"),
+		OpcNextPage: new("test-pagination"),
 	}
 	s.mockAPI.EXPECT().ListInternetGateways(gomock.Any(), req).Return(resp, nil)
 	req.Page = resp.OpcNextPage
@@ -850,7 +842,7 @@ func (s *networkClientSuite) TestListRouteTablesPageN(c *tc.C) {
 	}
 	resp := ociCore.ListRouteTablesResponse{
 		Items:       []ociCore.RouteTable{s.tables[0]},
-		OpcNextPage: makeStringPointer("test-pagination"),
+		OpcNextPage: new("test-pagination"),
 	}
 	s.mockAPI.EXPECT().ListRouteTables(gomock.Any(), req).Return(resp, nil)
 	req.Page = resp.OpcNextPage
@@ -888,7 +880,7 @@ func (s *networkClientSuite) TestListRouteTablesFailPageN(c *tc.C) {
 	}
 	resp := ociCore.ListRouteTablesResponse{
 		Items:       []ociCore.RouteTable{s.tables[0]},
-		OpcNextPage: makeStringPointer("test-pagination"),
+		OpcNextPage: new("test-pagination"),
 	}
 	s.mockAPI.EXPECT().ListRouteTables(gomock.Any(), req).Return(resp, nil)
 	req.Page = resp.OpcNextPage
@@ -926,7 +918,7 @@ func (s *networkClientSuite) TestListSecurityListsPageN(c *tc.C) {
 	}
 	resp := ociCore.ListSecurityListsResponse{
 		Items:       []ociCore.SecurityList{s.securityLists[0]},
-		OpcNextPage: makeStringPointer("test-pagination"),
+		OpcNextPage: new("test-pagination"),
 	}
 	s.mockAPI.EXPECT().ListSecurityLists(gomock.Any(), req).Return(resp, nil)
 	req.Page = resp.OpcNextPage
@@ -964,7 +956,7 @@ func (s *networkClientSuite) TestListSecurityListsFailPageN(c *tc.C) {
 	}
 	resp := ociCore.ListSecurityListsResponse{
 		Items:       []ociCore.SecurityList{s.securityLists[0]},
-		OpcNextPage: makeStringPointer("test-pagination"),
+		OpcNextPage: new("test-pagination"),
 	}
 	s.mockAPI.EXPECT().ListSecurityLists(gomock.Any(), req).Return(resp, nil)
 	req.Page = resp.OpcNextPage
@@ -1009,7 +1001,7 @@ func (s *storageClientSuite) TestListVolumesPageN(c *tc.C) {
 	vol := newVolume(61440)
 	s.mockAPI.EXPECT().ListVolumes(gomock.Any(), gomock.Any()).Return(ociCore.ListVolumesResponse{
 		Items:       []ociCore.Volume{vol},
-		OpcNextPage: makeStringPointer("test-pagination"),
+		OpcNextPage: new("test-pagination"),
 	}, nil)
 
 	vol2 := newVolume(87906)
@@ -1041,7 +1033,7 @@ func (s *storageClientSuite) TestListVolumesFailPageN(c *tc.C) {
 	vol := newVolume(61440)
 	s.mockAPI.EXPECT().ListVolumes(gomock.Any(), gomock.Any()).Return(ociCore.ListVolumesResponse{
 		Items:       []ociCore.Volume{vol},
-		OpcNextPage: makeStringPointer("test-pagination"),
+		OpcNextPage: new("test-pagination"),
 	}, nil)
 	s.mockAPI.EXPECT().ListVolumes(gomock.Any(), gomock.Any()).Return(
 		ociCore.ListVolumesResponse{}, errors.BadRequestf("test fail"))
@@ -1061,9 +1053,9 @@ func (s *storageClientSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func newVolume(size int64) ociCore.Volume {
 	return ociCore.Volume{
-		AvailabilityDomain: makeStringPointer("fakeZone1"),
+		AvailabilityDomain: new("fakeZone1"),
 		CompartmentId:      &compartmentID,
-		Id:                 makeStringPointer("fakeVolumeId"),
+		Id:                 new("fakeVolumeId"),
 		LifecycleState:     ociCore.VolumeLifecycleStateProvisioning,
 		FreeformTags: map[string]string{
 			tags.JujuModel: "fake-uuid",

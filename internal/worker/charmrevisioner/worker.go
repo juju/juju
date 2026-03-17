@@ -5,6 +5,7 @@ package charmrevisioner
 
 import (
 	"context"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -263,11 +264,8 @@ func (w *revisionUpdateWorker) loop() error {
 			}
 
 			var refresh bool
-			for _, key := range changes {
-				if key == config.CharmHubURLKey {
-					refresh = true
-					break
-				}
+			if slices.Contains(changes, config.CharmHubURLKey) {
+				refresh = true
 			}
 
 			if !refresh {

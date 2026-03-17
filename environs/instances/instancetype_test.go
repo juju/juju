@@ -109,9 +109,9 @@ var instanceTypes = []InstanceType{
 		Arch:        "amd64",
 		CpuCores:    1,
 		CpuPower:    CpuPower(8800),
-		MaxCpuCores: makeUint64Pointer(32),
+		MaxCpuCores: new(uint64(32)),
 		Mem:         6144,
-		MaxMem:      makeUint64Pointer(524288),
+		MaxMem:      new(uint64(524288)),
 		Cost:        50,
 	},
 }
@@ -485,8 +485,4 @@ func (s *instanceTypeSuite) TestSortByName(c *tc.C) {
 		}
 		c.Check(names, tc.DeepEquals, t.expectedItypes)
 	}
-}
-
-func makeUint64Pointer(val uint64) *uint64 {
-	return &val
 }

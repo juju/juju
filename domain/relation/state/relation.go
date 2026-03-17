@@ -10,6 +10,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -3040,10 +3041,8 @@ func (st *State) checkCompatibleBases(ctx context.Context, tx *sqlair.TX, ep1 En
 	}
 
 	for _, base1 := range app1Bases {
-		for _, base2 := range app2Bases {
-			if base1.IsCompatible(base2) {
-				return nil
-			}
+		if slices.ContainsFunc(app2Bases, base1.IsCompatible) {
+			return nil
 		}
 	}
 

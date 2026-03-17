@@ -1525,14 +1525,10 @@ storage:
 				Storage:  "a",
 				Location: "/b/",
 			}},
-			Uid: intPtr(10),
-			Gid: intPtr(10),
+			Uid: new(10),
+			Gid: new(10),
 		},
 	})
-}
-
-func intPtr(i int) *int {
-	return &i
 }
 
 func (s *MetaSuite) TestInvalidUid(c *tc.C) {

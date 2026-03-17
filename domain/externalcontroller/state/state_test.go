@@ -4,6 +4,7 @@
 package state
 
 import (
+	"slices"
 	"sort"
 	"testing"
 
@@ -402,9 +403,9 @@ func (s *stateSuite) TestControllersForModels(c *tc.C) {
 	// deep equals assert
 	sort.Slice(controllers, func(i, j int) bool { return controllers[i].ControllerUUID < controllers[j].ControllerUUID })
 	// Also sort addresses.
-	sort.Slice(controllers[0].Addrs, func(i, j int) bool { return controllers[0].Addrs[i] < controllers[0].Addrs[j] })
+	slices.Sort(controllers[0].Addrs)
 	// Also sort models.
-	sort.Slice(controllers[1].ModelUUIDs, func(i, j int) bool { return controllers[1].ModelUUIDs[i] < controllers[1].ModelUUIDs[j] })
+	slices.Sort(controllers[1].ModelUUIDs)
 	c.Assert(controllers, tc.DeepEquals, expectedControllers)
 }
 

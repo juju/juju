@@ -5,6 +5,7 @@ package config
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/schema"
@@ -91,9 +92,7 @@ func (c *Config) schemaChecker() (schema.Checker, error) {
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	for key, value := range c.defaults {
-		schemaDefaults[key] = value
-	}
+	maps.Copy(schemaDefaults, c.defaults)
 	return schema.StrictFieldMap(schemaFields, schemaDefaults), nil
 }
 
@@ -108,9 +107,7 @@ func (c *Config) Attributes() ConfigAttributes {
 		return nil
 	}
 	result := make(ConfigAttributes)
-	for k, v := range c.attributes {
-		result[k] = v
-	}
+	maps.Copy(result, c.attributes)
 	return result
 }
 
@@ -155,9 +152,7 @@ func (c ConfigAttributes) GetStringMap(attrName string, defaultValue map[string]
 		result := make(map[string]string)
 		switch val := valData.(type) {
 		case map[string]string:
-			for k, v := range val {
-				result[k] = v
-			}
+			maps.Copy(result, val)
 		case map[string]interface{}:
 			for k, v := range val {
 				result[k] = fmt.Sprintf("%v", v)

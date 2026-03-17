@@ -851,7 +851,7 @@ func (s *importSuite) createIAASApplication(
 	)
 
 	unitArgs := make([]domainapplication.AddIAASUnitArg, unitCount)
-	for i := 0; i < unitCount; i++ {
+	for i := range unitCount {
 		machineUUID := tc.Must(c, coremachine.NewUUID)
 		netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 		unitArgs[i] = domainapplication.AddIAASUnitArg{

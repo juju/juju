@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -661,12 +662,7 @@ func (p *Pollster) selectOne(schema *jsonschema.Schema) (interface{}, error) {
 }
 
 func isObject(schema *jsonschema.Schema) bool {
-	for _, t := range schema.Type {
-		if t == jsonschema.ObjectType {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(schema.Type, jsonschema.ObjectType)
 }
 
 // convert converts the given string to a specific value based on the schema

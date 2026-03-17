@@ -16,10 +16,10 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Provisioner", 12, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newProvisionerAPIV12(stdCtx, ctx) // Relies on agent-set origin in SetHostMachineNetworkConfig.
-	}, reflect.TypeOf((*ProvisionerAPI)(nil)))
+	}, reflect.TypeFor[*ProvisionerAPI]())
 	registry.MustRegister("Provisioner", 11, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newProvisionerAPIV11(stdCtx, ctx) // Relies on agent-set origin in SetHostMachineNetworkConfig.
-	}, reflect.TypeOf((*ProvisionerAPIV11)(nil)))
+	}, reflect.TypeFor[*ProvisionerAPIV11]())
 }
 
 // newProvisionerAPIV12 creates a new server-side Provisioner API facade.

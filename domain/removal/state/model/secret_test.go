@@ -269,7 +269,7 @@ VALUES (?, ?, ?, ?)`, sec, 0, appUUID, time.Now().UTC())
 		ctx, "INSERT INTO secret_rotation (secret_id, next_rotation_time) VALUES (?, DATETIME('now'))", sec)
 	c.Assert(err, tc.ErrorIsNil)
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		rev := "revision_id_" + strconv.Itoa(i)
 
 		_, err := s.DB().ExecContext(

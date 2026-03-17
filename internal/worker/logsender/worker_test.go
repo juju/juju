@@ -50,7 +50,7 @@ func (s *workerSuite) TestLogSending(c *tc.C) {
 	wg.Add(logCount)
 	writer := mocks.NewMockLogWriter(ctrl)
 	ts := time.Now()
-	for i := 0; i < logCount; i++ {
+	for i := range logCount {
 		location := fmt.Sprintf("loc%d", i)
 		message := fmt.Sprintf("%d", i)
 
@@ -74,7 +74,7 @@ func (s *workerSuite) TestLogSending(c *tc.C) {
 
 	// Send some logs, also building up what should appear in the
 	// database.
-	for i := 0; i < logCount; i++ {
+	for i := range logCount {
 		location := fmt.Sprintf("loc%d", i)
 		message := fmt.Sprintf("%d", i)
 

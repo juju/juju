@@ -3,6 +3,7 @@ package cloudconfig
 import (
 	"context"
 	"encoding/base64"
+	"maps"
 	"os"
 	"path/filepath"
 	"sort"
@@ -102,17 +103,13 @@ func (r *MachineInitReader) GetInitConfig() (map[string]interface{}, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	for k, v := range vendorData {
-		machineCloudInitData[k] = v
-	}
+	maps.Copy(machineCloudInitData, vendorData)
 
 	_, curtinData, err := fileAsConfigMap(r.config.CurtinInstallConfigFile)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	for k, v := range curtinData {
-		machineCloudInitData[k] = v
-	}
+	maps.Copy(machineCloudInitData, curtinData)
 
 	return machineCloudInitData, nil
 }
@@ -139,9 +136,7 @@ func (r *MachineInitReader) getMachineCloudCfgDirData() (map[string]interface{},
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		for k, v := range cloudCfgData {
-			cloudInit[k] = v
-		}
+		maps.Copy(cloudInit, cloudCfgData)
 	}
 	return cloudInit, nil
 }

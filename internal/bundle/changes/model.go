@@ -6,6 +6,7 @@ package bundlechanges
 import (
 	"context"
 	"fmt"
+	"maps"
 	"sort"
 	"strconv"
 
@@ -64,9 +65,7 @@ func (m *Model) pretty() string {
 func (m *Model) initializeSequence() {
 	m.sequence = make(map[string]int)
 	if m.Sequence != nil {
-		for key, value := range m.Sequence {
-			m.sequence[key] = value
-		}
+		maps.Copy(m.sequence, m.Sequence)
 		// We assume that if the mapping was specified, a complete mapping was
 		// specified.
 		return

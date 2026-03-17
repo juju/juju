@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"slices"
 	"sort"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -143,12 +144,7 @@ type ScopeMatchFunc = func(addr Address) ScopeMatch
 // ExactScopeMatch checks if an address exactly
 // matches any of the specified scopes.
 func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
-	for _, scope := range addrScopes {
-		if addr.AddressScope() == scope {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(addrScopes, addr.AddressScope())
 }
 
 // SortOrderOrigin calculates the "weight" of the address origin to use when
@@ -745,7 +741,7 @@ func (sas SpaceAddresses) EqualTo(other SpaceAddresses) bool {
 
 	sort.Sort(sas)
 	sort.Sort(other)
-	for i := 0; i < len(sas); i++ {
+	for i := range sas {
 		if sas[i].String() != other[i].String() {
 			return false
 		}

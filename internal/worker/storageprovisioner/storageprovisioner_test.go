@@ -932,7 +932,7 @@ func (s *storageProvisionerSuite) TestVolumeIncoherent(c *tc.C) {
 	// The third send guarantees we've sent at least the 2nd one
 	// through, which means at least the 1st has been processed
 	// (and ignored).
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		volumeAccessor.volumesWatcher.changes <- []string{noAttachmentVolumeId}
 	}
 }

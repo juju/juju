@@ -266,7 +266,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *tc.C) {
 	defer func() { _ = workertest.CheckKilled(c, u) }()
 	s.expectInitialUpgradeCheckNotDone(c)
 
-	for i := 0; i < retryCount; i++ {
+	for range retryCount {
 		err := s.clock.WaitAdvance(5*time.Second, coretesting.LongWait, 1)
 		c.Assert(err, tc.ErrorIsNil)
 	}

@@ -37,7 +37,7 @@ func (r *pingSuite) TestPingTimeout(c *tc.C) {
 	}
 	clock := testclock.NewClock(time.Now())
 	timeout := pinger.NewPinger(action, clock, 50*time.Millisecond)
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		waitAlarm(c, clock)
 		clock.Advance(10 * time.Millisecond)
 		timeout.Ping()
@@ -138,7 +138,7 @@ func (r *rootSuite) TestFindMethodUnknownVersion(c *tc.C) {
 	myGoodFacade := func(context.Context, facade.ModelContext) (facade.Facade, error) {
 		return &testingType{}, nil
 	}
-	registry.MustRegister("my-testing-facade", 0, myGoodFacade, reflect.TypeOf((*testingType)(nil)).Elem())
+	registry.MustRegister("my-testing-facade", 0, myGoodFacade, reflect.TypeFor[testingType]())
 	srvRoot := apiserver.TestingAPIRoot(registry)
 	caller, err := srvRoot.FindMethod("my-testing-facade", 1, "Exposed")
 	c.Check(caller, tc.IsNil)
@@ -156,7 +156,7 @@ func (r *rootSuite) TestFindMethodEnsuresTypeMatch(c *tc.C) {
 	myErrFacade := func(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 		return nil, fmt.Errorf("you shall not pass")
 	}
-	expectedType := reflect.TypeOf((*testingType)(nil))
+	expectedType := reflect.TypeFor[*testingType]()
 
 	registry := new(facade.Registry)
 	registry.Register("my-testing-facade", 0, myBadFacade, expectedType)
@@ -218,7 +218,7 @@ func (r *rootSuite) TestFindMethodCachesFacades(c *tc.C) {
 		count += 1
 		return &countingType{count: count, id: ""}, nil
 	}
-	facadeType := reflect.TypeOf((*countingType)(nil))
+	facadeType := reflect.TypeFor[*countingType]()
 	registry.MustRegister("my-counting-facade", 0, newCounter, facadeType)
 	registry.MustRegister("my-counting-facade", 1, newCounter, facadeType)
 	srvRoot := apiserver.TestingAPIRoot(registry)
@@ -253,7 +253,7 @@ func (r *rootSuite) TestFindMethodForMultiModelCachesFacades(c *tc.C) {
 		count += 1
 		return &countingType{count: count, id: ""}, nil
 	}
-	facadeType := reflect.TypeOf((*countingType)(nil))
+	facadeType := reflect.TypeFor[*countingType]()
 	registry.MustRegisterForMultiModel("my-counting-facade", 0, newCounter, facadeType)
 	registry.MustRegisterForMultiModel("my-counting-facade", 1, newCounter, facadeType)
 	srvRoot := apiserver.TestingAPIRoot(registry)
@@ -290,7 +290,7 @@ func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *tc.C) {
 		return &countingType{count: count, id: context.ID()}, nil
 	}
 	registry := new(facade.Registry)
-	reflectType := reflect.TypeOf((*countingType)(nil))
+	reflectType := reflect.TypeFor[*countingType]()
 	registry.Register("my-counting-facade", 0, newIdCounter, reflectType)
 	srvRoot := apiserver.TestingAPIRoot(registry)
 
@@ -320,7 +320,7 @@ func (r *rootSuite) TestFindMethodCacheRaceSafe(c *tc.C) {
 		count += 1
 		return &countingType{count: count, id: context.ID()}, nil
 	}
-	reflectType := reflect.TypeOf((*countingType)(nil))
+	reflectType := reflect.TypeFor[*countingType]()
 	registry := new(facade.Registry)
 	registry.Register("my-counting-facade", 0, newIdCounter, reflectType)
 	srvRoot := apiserver.TestingAPIRoot(registry)
@@ -370,10 +370,10 @@ func (r *rootSuite) TestFindMethodHandlesInterfaceTypes(c *tc.C) {
 	registry := new(facade.Registry)
 	registry.MustRegister("my-interface-facade", 0, func(_ context.Context, _ facade.ModelContext) (facade.Facade, error) {
 		return &firstImpl{}, nil
-	}, reflect.TypeOf((*smallInterface)(nil)).Elem())
+	}, reflect.TypeFor[smallInterface]())
 	registry.MustRegister("my-interface-facade", 1, func(_ context.Context, _ facade.ModelContext) (facade.Facade, error) {
 		return &secondImpl{}, nil
-	}, reflect.TypeOf((*smallInterface)(nil)).Elem())
+	}, reflect.TypeFor[smallInterface]())
 	srvRoot := apiserver.TestingAPIRoot(registry)
 
 	caller, err := srvRoot.FindMethod("my-interface-facade", 0, "OneMethod")

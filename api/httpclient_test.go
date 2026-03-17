@@ -71,7 +71,7 @@ var httpClientTests = []struct {
 	handler: func(w http.ResponseWriter, req *http.Request) {
 		httprequest.WriteJSON(w, http.StatusOK, "hello, world")
 	},
-	expectResponse: newString("hello, world"),
+	expectResponse: new("hello, world"),
 }, {
 	about: "unauthorized status without discharge-required error",
 	handler: func(w http.ResponseWriter, req *http.Request) {
@@ -308,7 +308,3 @@ func (s *httpSuite) authHTTPRequest(c *tc.C, info *api.Info) *http.Request {
 // This suite focuses on less reachable paths by changing
 // the BaseURL of the httprequest.Client so that
 // we can use our own custom servers.
-
-func newString(s string) *string {
-	return &s
-}

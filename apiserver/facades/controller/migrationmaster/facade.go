@@ -383,10 +383,7 @@ func (api *API) MinionReports(ctx context.Context) (params.MinionReports, error)
 	naturalsort.Sort(unknown)
 
 	// Limit the number of unknowns reported
-	numSamples := len(unknown)
-	if numSamples > 10 {
-		numSamples = 10
-	}
+	numSamples := min(len(unknown), 10)
 	out.UnknownSample = unknown[:numSamples]
 
 	return out, nil

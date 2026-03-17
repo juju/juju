@@ -4,6 +4,7 @@
 package tools_test
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"testing"
@@ -68,9 +69,7 @@ func (s *SimpleStreamsToolsSuite) reset(c *tc.C, attrs map[string]interface{}) {
 		"agent-metadata-url": utils.MakeFileURL(s.customToolsDir),
 		"agent-stream":       "proposed",
 	}
-	for k, v := range attrs {
-		final[k] = v
-	}
+	maps.Copy(final, attrs)
 	s.resetEnv(c, final)
 }
 
@@ -219,7 +218,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *tc.C) {
 	}
 	sources, err := envtools.GetMetadataSources(s.env, ss)
 	c.Assert(err, tc.ErrorIsNil)
-	for i := 0; i < len(sources); i++ {
+	for range sources {
 		messages = append(messages,
 			loggo.Entry{Level: loggo.TRACE, Message: `fetchData failed for .*`},
 			loggo.Entry{Level: loggo.DEBUG, Message: `cannot load index .*`})

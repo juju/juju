@@ -26,43 +26,43 @@ func (*environSuite) TestConvertConstraints(c *tc.C) {
 		cons     constraints.Value
 		expected gomaasapi.AllocateMachineArgs
 	}{{
-		cons:     constraints.Value{Arch: stringp("arm")},
+		cons:     constraints.Value{Arch: new("arm")},
 		expected: gomaasapi.AllocateMachineArgs{Architecture: "arm"},
 	}, {
-		cons:     constraints.Value{CpuCores: uint64p(4)},
+		cons:     constraints.Value{CpuCores: new(uint64(4))},
 		expected: gomaasapi.AllocateMachineArgs{MinCPUCount: 4},
 	}, {
-		cons:     constraints.Value{Mem: uint64p(1024)},
+		cons:     constraints.Value{Mem: new(uint64(1024))},
 		expected: gomaasapi.AllocateMachineArgs{MinMemory: 1024},
 	}, { // Spaces are converted to bindings and not_networks, but only in acquireNode
-		cons:     constraints.Value{Spaces: stringslicep("foo", "bar", "^baz", "^oof")},
+		cons:     constraints.Value{Spaces: &[]string{"foo", "bar", "^baz", "^oof"}},
 		expected: gomaasapi.AllocateMachineArgs{},
 	}, {
-		cons: constraints.Value{Tags: stringslicep("tag1", "tag2", "^tag3", "^tag4")},
+		cons: constraints.Value{Tags: &[]string{"tag1", "tag2", "^tag3", "^tag4"}},
 		expected: gomaasapi.AllocateMachineArgs{
 			Tags:    []string{"tag1", "tag2"},
 			NotTags: []string{"tag3", "tag4"},
 		},
 	}, { // CpuPower is ignored.
-		cons:     constraints.Value{CpuPower: uint64p(1024)},
+		cons:     constraints.Value{CpuPower: new(uint64(1024))},
 		expected: gomaasapi.AllocateMachineArgs{},
 	}, { // RootDisk is ignored.
-		cons:     constraints.Value{RootDisk: uint64p(8192)},
+		cons:     constraints.Value{RootDisk: new(uint64(8192))},
 		expected: gomaasapi.AllocateMachineArgs{},
 	}, {
-		cons: constraints.Value{Tags: stringslicep("foo", "bar")},
+		cons: constraints.Value{Tags: &[]string{"foo", "bar"}},
 		expected: gomaasapi.AllocateMachineArgs{
 			Tags: []string{"foo", "bar"},
 		},
 	}, {
 		cons: constraints.Value{
-			Arch:     stringp("arm"),
-			CpuCores: uint64p(4),
-			Mem:      uint64p(1024),
-			CpuPower: uint64p(1024),
-			RootDisk: uint64p(8192),
-			Spaces:   stringslicep("foo", "^bar"),
-			Tags:     stringslicep("^tag1", "tag2"),
+			Arch:     new("arm"),
+			CpuCores: new(uint64(4)),
+			Mem:      new(uint64(1024)),
+			CpuPower: new(uint64(1024)),
+			RootDisk: new(uint64(8192)),
+			Spaces:   &[]string{"foo", "^bar"},
+			Tags:     &[]string{"^tag1", "tag2"},
 		},
 		expected: gomaasapi.AllocateMachineArgs{
 			Architecture: "arm",
@@ -93,43 +93,43 @@ func (*environSuite) TestConvertTagsToParams(c *tc.C) {
 		tags:     &[]string{},
 		expected: url.Values{},
 	}, {
-		tags:     stringslicep(""),
+		tags:     &[]string{""},
 		expected: url.Values{},
 	}, {
-		tags: stringslicep("foo"),
+		tags: &[]string{"foo"},
 		expected: url.Values{
 			"tags": {"foo"},
 		},
 	}, {
-		tags: stringslicep("^bar"),
+		tags: &[]string{"^bar"},
 		expected: url.Values{
 			"not_tags": {"bar"},
 		},
 	}, {
-		tags: stringslicep("foo", "^bar", "baz", "^oof"),
+		tags: &[]string{"foo", "^bar", "baz", "^oof"},
 		expected: url.Values{
 			"tags":     {"foo,baz"},
 			"not_tags": {"bar,oof"},
 		},
 	}, {
-		tags: stringslicep("", "^bar", "^", "^oof"),
+		tags: &[]string{"", "^bar", "^", "^oof"},
 		expected: url.Values{
 			"not_tags": {"bar,oof"},
 		},
 	}, {
-		tags: stringslicep("foo", "^", " b a z  ", "^^ ^"),
+		tags: &[]string{"foo", "^", " b a z  ", "^^ ^"},
 		expected: url.Values{
 			"tags":     {"foo, b a z  "},
 			"not_tags": {"^ ^"},
 		},
 	}, {
-		tags: stringslicep("", "^bar", "  ", " ^ o of "),
+		tags: &[]string{"", "^bar", "  ", " ^ o of "},
 		expected: url.Values{
 			"tags":     {"  , ^ o of "},
 			"not_tags": {"bar"},
 		},
 	}, {
-		tags: stringslicep("foo", "foo", "^bar", "^bar"),
+		tags: &[]string{"foo", "foo", "^bar", "^bar"},
 		expected: url.Values{
 			"tags":     {"foo,foo"},
 			"not_tags": {"bar,bar"},
@@ -140,18 +140,6 @@ func (*environSuite) TestConvertTagsToParams(c *tc.C) {
 		convertTagsToParams(vals, test.tags)
 		c.Check(vals, tc.DeepEquals, test.expected)
 	}
-}
-
-func uint64p(val uint64) *uint64 {
-	return &val
-}
-
-func stringp(val string) *string {
-	return &val
-}
-
-func stringslicep(values ...string) *[]string {
-	return &values
 }
 
 func (suite *environSuite) TestParseDelimitedValues(c *tc.C) {

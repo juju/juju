@@ -6,6 +6,7 @@ package provisionertask
 import (
 	"context"
 	"fmt"
+	"maps"
 	"math/rand"
 	"slices"
 	"sort"
@@ -889,9 +890,7 @@ func (task *provisionerTask) constructInstanceConfig(
 	}
 
 	instanceConfig.ControllerConfig = make(map[string]interface{})
-	for k, v := range pInfo.ControllerConfig {
-		instanceConfig.ControllerConfig[k] = v
-	}
+	maps.Copy(instanceConfig.ControllerConfig, pInfo.ControllerConfig)
 
 	instanceConfig.Tags = pInfo.Tags
 	if len(pInfo.Jobs) > 0 {
@@ -1048,12 +1047,7 @@ func (az *AvailabilityZoneMachine) MatchesConstraints(cons constraints.Value) bo
 	if !cons.HasZones() {
 		return true
 	}
-	for _, zone := range *cons.Zones {
-		if az.ZoneName == zone {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(*cons.Zones, az.ZoneName)
 }
 
 // updateAvailabilityZoneMachines maintains a mapping of AZs to machines

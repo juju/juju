@@ -14,7 +14,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("RetryStrategy", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newRetryStrategyAPI(ctx)
-	}, reflect.TypeOf((*RetryStrategyAPI)(nil)))
+	}, reflect.TypeFor[*RetryStrategyAPI]())
 }
 
 // newRetryStrategyAPI creates a new API endpoint for getting retry strategies.

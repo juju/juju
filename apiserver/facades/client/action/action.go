@@ -306,8 +306,8 @@ func (api *ActionAPI) WatchActionsProgress(ctx context.Context, actions params.E
 func makeOperationReceivers(applicationNames []string, machineNames []string, unitNames []string) operation.Receivers {
 	var units, leaderUnits []string
 	for _, unitName := range unitNames {
-		if strings.HasSuffix(unitName, leader) {
-			leaderUnits = append(leaderUnits, strings.TrimSuffix(unitName, leader))
+		if before, ok := strings.CutSuffix(unitName, leader); ok {
+			leaderUnits = append(leaderUnits, before)
 		} else {
 			units = append(units, unitName)
 		}

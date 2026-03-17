@@ -5,6 +5,7 @@ package httpserverargs_test
 
 import (
 	"context"
+	"maps"
 	"testing"
 	"time"
 
@@ -63,9 +64,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 		"clock":           s.clock,
 		"domain-services": &s.domainServices,
 	}
-	for k, v := range overlay {
-		resources[k] = v
-	}
+	maps.Copy(resources, overlay)
 	return dt.StubGetter(resources)
 }
 

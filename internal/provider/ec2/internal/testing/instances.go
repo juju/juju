@@ -346,7 +346,7 @@ func (srv *Server) NewInstancesVPC(vpcId, subnetId string, n int, instType types
 	r := srv.newReservation(rgroups)
 
 	ids := make([]string, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		inst := srv.newInstance(r, instType, imageId, defaultAvailZone, state, nil)
 		inst.vpcId = vpcId
 		inst.subnetId = subnetId

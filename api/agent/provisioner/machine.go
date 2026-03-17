@@ -6,6 +6,7 @@ package provisioner
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -398,13 +399,7 @@ func (m *Machine) WatchContainers(ctx context.Context, ctype instance.ContainerT
 	if string(ctype) == "" {
 		return nil, fmt.Errorf("container type must be specified")
 	}
-	supported := false
-	for _, c := range instance.ContainerTypes {
-		if ctype == c {
-			supported = true
-			break
-		}
-	}
+	supported := slices.Contains(instance.ContainerTypes, ctype)
 	if !supported {
 		return nil, fmt.Errorf("unsupported container type %q", ctype)
 	}

@@ -360,7 +360,7 @@ func groupTagIds(tagStrs []string) ([]string, []string, []string, error) {
 	var units []string
 	var applications []string
 
-	for i := 0; i < len(tagStrs); i++ {
+	for i := range tagStrs {
 		tag, err := names.ParseTag(tagStrs[i])
 		if err != nil {
 			return nil, nil, nil, errors.Trace(err)

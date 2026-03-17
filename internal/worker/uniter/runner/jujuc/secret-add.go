@@ -5,6 +5,7 @@ package jujuc
 
 import (
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/juju/errors"
@@ -132,9 +133,7 @@ func (c *secretUpsertCommand) Init(args []string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for k, v := range dataFromFile {
-		c.data[k] = v
-	}
+	maps.Copy(c.data, dataFromFile)
 	return nil
 }
 

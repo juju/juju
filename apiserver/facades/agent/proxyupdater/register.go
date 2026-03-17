@@ -16,7 +16,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("ProxyUpdater", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacadeV2(ctx)
-	}, reflect.TypeOf((*API)(nil)))
+	}, reflect.TypeFor[*API]())
 }
 
 // newFacadeV2 provides the signature required for facade registration

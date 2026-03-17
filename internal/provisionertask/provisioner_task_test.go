@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1541,7 +1542,7 @@ func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller, machin
 
 	// Environ has 3 availability zones: az1, az2, az3.
 	zones := make(network.AvailabilityZones, 3)
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		az := providermocks.NewMockAvailabilityZone(ctrl)
 		az.EXPECT().Name().Return(fmt.Sprintf("az%d", i+1)).MinTimes(1)
 		az.EXPECT().Available().Return(true).MinTimes(1)
@@ -2135,13 +2136,7 @@ func newAZConstraintStartInstanceParamsMatcher(zones ...string) *startInstancePa
 			return false
 		}
 		for _, z := range zones {
-			found := false
-			for _, cz := range cZones {
-				if z == cz {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(cZones, z)
 			if !found {
 				return false
 			}
@@ -2163,13 +2158,7 @@ func newSpaceConstraintStartInstanceParamsMatcher(spaces ...string) *startInstan
 			return false
 		}
 		for _, s := range spaces {
-			found := false
-			for _, cs := range spaces {
-				if s == cs {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(spaces, s)
 			if !found {
 				return false
 			}

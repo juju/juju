@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"sort"
 	"time"
 
@@ -154,9 +155,7 @@ func gatherSecretBackendInfo(backends []secretbackends.SecretBackend) map[string
 		}
 		if len(b.Config) > 0 {
 			info.Config = make(provider.ConfigAttrs)
-			for k, v := range b.Config {
-				info.Config[k] = v
-			}
+			maps.Copy(info.Config, b.Config)
 		}
 		details[info.Name] = info
 	}

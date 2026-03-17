@@ -8,10 +8,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 
@@ -840,12 +842,7 @@ func (mirrorMetadata *MirrorMetadata) getMirrorInfo(contentId string, cloud Clou
 
 // utility function to see if element exists in values slice.
 func containsString(values []string, element string) bool {
-	for _, value := range values {
-		if value == element {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, element)
 }
 
 // To keep the metadata concise, attributes on the metadata struct which have the same value for each
@@ -925,9 +922,7 @@ var tagsForType structTags = make(structTags)
 // when parsing the simplestreams metadata.
 func RegisterStructTags(vals ...interface{}) {
 	tags := mkTags(vals...)
-	for k, v := range tags {
-		tagsForType[k] = v
-	}
+	maps.Copy(tagsForType, tags)
 }
 
 func init() {
@@ -951,7 +946,7 @@ func jsonTags(t reflect.Type) map[string]int {
 	tags := make(map[string]int)
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
-		if f.Type != reflect.TypeOf("") {
+		if f.Type != reflect.TypeFor[string]() {
 			continue
 		}
 		if tag := f.Tag.Get("json"); tag != "" {

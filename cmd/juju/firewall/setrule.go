@@ -107,8 +107,8 @@ func (c *setFirewallRuleCommand) Init(args []string) (err error) {
 }
 
 func (c *setFirewallRuleCommand) validateCIDRS(value string) error {
-	rawValues := strings.Split(value, ",")
-	for _, cidrStr := range rawValues {
+	rawValues := strings.SplitSeq(value, ",")
+	for cidrStr := range rawValues {
 		cidrStr = strings.TrimSpace(cidrStr)
 		if _, _, err := net.ParseCIDR(cidrStr); err != nil {
 			return errors.NotValidf(cidrStr)

@@ -22,7 +22,7 @@ var _ = Register
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Resources", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacadeV3(ctx)
-	}, reflect.TypeOf((*API)(nil)))
+	}, reflect.TypeFor[*API]())
 }
 
 func newFacadeV3(ctx facade.ModelContext) (*API, error) {

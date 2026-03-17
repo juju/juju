@@ -5,6 +5,7 @@ package modelmanager_test
 
 import (
 	"context"
+	"maps"
 	"testing"
 	"time"
 
@@ -235,9 +236,7 @@ func (s *modelManagerSuite) expectCreateModel(
 	s.expectCreateModelOnModelDB(ctrl, modelCreateArgs.Config)
 
 	modelConfig := map[string]any{}
-	for k, v := range modelCreateArgs.Config {
-		modelConfig[k] = v
-	}
+	maps.Copy(modelConfig, modelCreateArgs.Config)
 
 	modelConfig["uuid"] = modelUUID
 	modelConfig["name"] = modelCreateArgs.Name

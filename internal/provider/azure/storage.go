@@ -216,20 +216,20 @@ func (v *azureVolumeSource) createManagedDiskVolume(ctx context.Context, p stora
 
 	diskTags := make(map[string]*string)
 	for k, v := range p.ResourceTags {
-		diskTags[k] = to.Ptr(v)
+		diskTags[k] = new(v)
 	}
 	diskName := p.Tag.String()
 	sizeInGib := mibToGib(p.Size)
 	diskModel := armcompute.Disk{
-		Name:     to.Ptr(diskName),
-		Location: to.Ptr(v.env.location),
+		Name:     new(diskName),
+		Location: new(v.env.location),
 		Tags:     diskTags,
 		SKU: &armcompute.DiskSKU{
-			Name: to.Ptr(cfg.storageType),
+			Name: new(cfg.storageType),
 		},
 		Properties: &armcompute.DiskProperties{
 			CreationData: &armcompute.CreationData{CreateOption: to.Ptr(armcompute.DiskCreateOptionEmpty)},
-			DiskSizeGB:   to.Ptr(int32(sizeInGib)),
+			DiskSizeGB:   new(int32(sizeInGib)),
 		},
 	}
 
@@ -517,15 +517,15 @@ func (v *azureVolumeSource) addDataDisk(
 	}
 
 	dataDisk := &armcompute.DataDisk{
-		Lun:          to.Ptr(lun),
-		Name:         to.Ptr(diskName),
+		Lun:          new(lun),
+		Name:         new(diskName),
 		Caching:      to.Ptr(armcompute.CachingTypesReadWrite),
-		CreateOption: to.Ptr(createOption),
+		CreateOption: new(createOption),
 		DiskSizeGB:   diskSizeGB,
 	}
 	diskResourceID := v.diskResourceID(diskName)
 	dataDisk.ManagedDisk = &armcompute.ManagedDiskParameters{
-		ID: to.Ptr(diskResourceID),
+		ID: new(diskResourceID),
 	}
 
 	if vm.Properties != nil {

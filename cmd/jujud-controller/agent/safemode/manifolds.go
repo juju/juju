@@ -4,6 +4,7 @@
 package safemode
 
 import (
+	"maps"
 	"path"
 
 	"github.com/juju/clock"
@@ -144,9 +145,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 func mergeManifolds(config ManifoldsConfig, manifolds dependency.Manifolds) dependency.Manifolds {
 	result := commonManifolds(config)
-	for name, manifold := range manifolds {
-		result[name] = manifold
-	}
+	maps.Copy(result, manifolds)
 	return result
 }
 

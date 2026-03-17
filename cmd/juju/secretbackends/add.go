@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"strings"
 	"time"
 
@@ -199,9 +200,7 @@ func (c *addSecretBackendCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for k, v := range c.KeyValueAttrs {
-		attrs[k] = v
-	}
+	maps.Copy(attrs, c.KeyValueAttrs)
 
 	tokenRotateInterval, err := parseTokenRotate(attrs, false)
 	if err != nil {

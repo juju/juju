@@ -5,6 +5,7 @@ package application
 
 import (
 	"context"
+	"maps"
 	"strings"
 
 	"github.com/juju/errors"
@@ -260,9 +261,7 @@ func (c *showUnitCommand) createUnitInfo(details application.UnitInfo) (names.Un
 			ApplicationRelationData: make(map[string]interface{}),
 			Data:                    make(map[string]UnitRelationData),
 		}
-		for k, v := range rdparams.ApplicationData {
-			rd.ApplicationRelationData[k] = v
-		}
+		maps.Copy(rd.ApplicationRelationData, rdparams.ApplicationData)
 		if c.appOnly {
 			info.RelationData = append(info.RelationData, rd)
 			continue
@@ -278,9 +277,7 @@ func (c *showUnitCommand) createUnitInfo(details application.UnitInfo) (names.Un
 					InScope:  data.InScope,
 					UnitData: make(map[string]interface{}),
 				}
-				for k, v := range data.UnitData {
-					urd.UnitData[k] = v
-				}
+				maps.Copy(urd.UnitData, data.UnitData)
 				rd.MyData = urd
 				continue
 			}
@@ -293,9 +290,7 @@ func (c *showUnitCommand) createUnitInfo(details application.UnitInfo) (names.Un
 				InScope:  data.InScope,
 				UnitData: make(map[string]interface{}),
 			}
-			for k, v := range data.UnitData {
-				urd.UnitData[k] = v
-			}
+			maps.Copy(urd.UnitData, data.UnitData)
 			rd.Data[remoteUnit] = urd
 		}
 		if c.endpoint == rd.Endpoint || len(rd.ApplicationRelationData) > 0 ||

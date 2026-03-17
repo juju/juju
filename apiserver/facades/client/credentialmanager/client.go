@@ -31,5 +31,5 @@ func (*CredentialManagerAPI) InvalidateModelCredential(_ context.Context, _ stri
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("CredentialManager", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return &CredentialManagerAPI{}, nil
-	}, reflect.TypeOf((*CredentialManagerAPI)(nil)))
+	}, reflect.TypeFor[*CredentialManagerAPI]())
 }

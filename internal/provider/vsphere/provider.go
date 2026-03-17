@@ -83,7 +83,7 @@ var cloudSchema = &jsonschema.Schema{
 			Plural:   "datacenters",
 			AdditionalProperties: &jsonschema.Schema{
 				Type:          []jsonschema.Type{jsonschema.ObjectType},
-				MaxProperties: jsonschema.Int(0),
+				MaxProperties: new(0),
 			},
 		},
 	},

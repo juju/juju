@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"net"
 	"os"
 	"path"
@@ -670,9 +671,7 @@ func (c0 *configInternal) Clone() Config {
 	c1.apiDetails = c0.apiDetails.clone()
 	c1.jobs = append([]model.MachineJob{}, c0.jobs...)
 	c1.values = make(map[string]string, len(c0.values))
-	for key, val := range c0.values {
-		c1.values[key] = val
-	}
+	maps.Copy(c1.values, c0.values)
 	if c0.controllerAgentInfo != nil {
 		info := *c0.controllerAgentInfo
 		c1.controllerAgentInfo = &info

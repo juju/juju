@@ -4,6 +4,7 @@
 package annotations
 
 import (
+	maps0 "maps"
 	stdtesting "testing"
 
 	"github.com/juju/names/v6"
@@ -100,9 +101,7 @@ func (s *annotationsSuite) TestExistAllExistAnyMergeToMap(c *tc.C) {
 	mergeMap := func(maps ...map[string]string) map[string]string {
 		out := make(map[string]string)
 		for _, m := range maps {
-			for k, v := range m {
-				out[k] = v
-			}
+			maps0.Copy(out, m)
 		}
 		return out
 	}

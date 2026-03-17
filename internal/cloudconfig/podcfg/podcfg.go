@@ -4,6 +4,7 @@
 package podcfg
 
 import (
+	"maps"
 	"net"
 	"path"
 	"strconv"
@@ -311,9 +312,7 @@ func NewBootstrapControllerPodConfig(
 		return nil, err
 	}
 	pcfg.Controller = make(map[string]interface{})
-	for k, v := range config {
-		pcfg.Controller[k] = v
-	}
+	maps.Copy(pcfg.Controller, config)
 	pcfg.Bootstrap = &BootstrapConfig{
 		BootstrapConfig: instancecfg.BootstrapConfig{
 			StateInitializationParams: instancecfg.StateInitializationParams{
@@ -338,9 +337,7 @@ func FinishControllerPodConfig(pcfg *ControllerPodConfig, cfg *config.Config, ag
 		pcfg.AgentEnvironment = make(map[string]string)
 	}
 	pcfg.AgentEnvironment[agent.ProviderType] = cfg.Type()
-	for k, v := range agentEnvironment {
-		pcfg.AgentEnvironment[k] = v
-	}
+	maps.Copy(pcfg.AgentEnvironment, agentEnvironment)
 }
 
 // PodLabels returns the minimum set of tags that should be set on a

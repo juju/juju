@@ -212,12 +212,12 @@ func wordWrapLine(line string, inset, limit int) string {
 		lines[current] = append(lines[current], char)
 	}
 
-	var res string
+	var res strings.Builder
 	for i, line := range lines {
-		res += string(line)
+		res.WriteString(string(line))
 		if i < len(lines)-1 {
-			res += "\n" + strings.Repeat("\t", inset)
+			res.WriteString("\n" + strings.Repeat("\t", inset))
 		}
 	}
-	return res
+	return res.String()
 }

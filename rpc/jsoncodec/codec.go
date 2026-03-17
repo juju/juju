@@ -180,11 +180,11 @@ func (c *Codec) WriteMessage(hdr *rpc.Header, body interface{}) error {
 func DumpRequest(hdr *rpc.Header, body interface{}) []byte {
 	msg, err := response(hdr, body)
 	if err != nil {
-		return []byte(fmt.Sprintf("%q", err.Error()))
+		return fmt.Appendf(nil, "%q", err.Error())
 	}
 	data, err := json.Marshal(msg)
 	if err != nil {
-		return []byte(fmt.Sprintf("%q", "marshal error: "+err.Error()))
+		return fmt.Appendf(nil, "%q", "marshal error: "+err.Error())
 	}
 	return data
 }

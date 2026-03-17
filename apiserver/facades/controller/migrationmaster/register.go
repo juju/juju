@@ -17,11 +17,11 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegisterForMultiModel("MigrationMaster", 4, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 		return newMigrationMasterFacadeV4(stdCtx, ctx)
-	}, reflect.TypeOf((*APIV4)(nil)))
+	}, reflect.TypeFor[*APIV4]())
 	// v5 handles requests with a model qualifier instead of a model owner.
 	registry.MustRegisterForMultiModel("MigrationMaster", 5, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 		return newMigrationMasterFacade(stdCtx, ctx)
-	}, reflect.TypeOf((*API)(nil)))
+	}, reflect.TypeFor[*API]())
 }
 
 func newMigrationMasterFacadeV4(stdCtx context.Context, ctx facade.MultiModelContext) (*APIV4, error) {

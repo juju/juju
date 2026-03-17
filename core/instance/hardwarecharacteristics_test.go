@@ -83,19 +83,19 @@ var parseHardwareTests = []parseHardwareTestSpec{
 	{
 		summary: "set arch empty",
 		args:    []string{"arch="},
-		hc:      &HC{Arch: stringPtr("")},
+		hc:      &HC{Arch: new("")},
 	}, {
 		summary: "set arch amd64",
 		args:    []string{"arch=amd64"},
-		hc:      &HC{Arch: stringPtr("amd64")},
+		hc:      &HC{Arch: new("amd64")},
 	}, {
 		summary: "set arch arm64",
 		args:    []string{"arch=arm64"},
-		hc:      &HC{Arch: stringPtr("arm64")},
+		hc:      &HC{Arch: new("arm64")},
 	}, {
 		summary: "set arch amd64 quoted",
 		args:    []string{`arch="amd64"`},
-		hc:      &HC{Arch: stringPtr("amd64")},
+		hc:      &HC{Arch: new("amd64")},
 	}, {
 		summary: "set nonsense arch 1",
 		args:    []string{"arch=cheese"},
@@ -118,19 +118,19 @@ var parseHardwareTests = []parseHardwareTestSpec{
 	{
 		summary: "set cores empty",
 		args:    []string{"cores="},
-		hc:      &HC{CpuCores: uint64Ptr(0)},
+		hc:      &HC{CpuCores: new(uint64(0))},
 	}, {
 		summary: "set cores zero",
 		args:    []string{"cores=0"},
-		hc:      &HC{CpuCores: uint64Ptr(0)},
+		hc:      &HC{CpuCores: new(uint64(0))},
 	}, {
 		summary: "set cores",
 		args:    []string{"cores=4"},
-		hc:      &HC{CpuCores: uint64Ptr(4)},
+		hc:      &HC{CpuCores: new(uint64(4))},
 	}, {
 		summary: "set cores quoted",
 		args:    []string{`cores="4"`},
-		hc:      &HC{CpuCores: uint64Ptr(4)},
+		hc:      &HC{CpuCores: new(uint64(4))},
 	}, {
 		summary: "set nonsense cores 1",
 		args:    []string{"cores=cheese"},
@@ -157,19 +157,19 @@ var parseHardwareTests = []parseHardwareTestSpec{
 	{
 		summary: "set cpu-power empty",
 		args:    []string{"cpu-power="},
-		hc:      &HC{CpuPower: uint64Ptr(0)},
+		hc:      &HC{CpuPower: new(uint64(0))},
 	}, {
 		summary: "set cpu-power zero",
 		args:    []string{"cpu-power=0"},
-		hc:      &HC{CpuPower: uint64Ptr(0)},
+		hc:      &HC{CpuPower: new(uint64(0))},
 	}, {
 		summary: "set cpu-power",
 		args:    []string{"cpu-power=44"},
-		hc:      &HC{CpuPower: uint64Ptr(44)},
+		hc:      &HC{CpuPower: new(uint64(44))},
 	}, {
 		summary: "set cpu-power quoted",
 		args:    []string{`cpu-power="44"`},
-		hc:      &HC{CpuPower: uint64Ptr(44)},
+		hc:      &HC{CpuPower: new(uint64(44))},
 	}, {
 		summary: "set nonsense cpu-power 1",
 		args:    []string{"cpu-power=cheese"},
@@ -192,35 +192,35 @@ var parseHardwareTests = []parseHardwareTestSpec{
 	{
 		summary: "set mem empty",
 		args:    []string{"mem="},
-		hc:      &HC{Mem: uint64Ptr(0)},
+		hc:      &HC{Mem: new(uint64(0))},
 	}, {
 		summary: "set mem zero",
 		args:    []string{"mem=0"},
-		hc:      &HC{Mem: uint64Ptr(0)},
+		hc:      &HC{Mem: new(uint64(0))},
 	}, {
 		summary: "set mem without suffix",
 		args:    []string{"mem=512"},
-		hc:      &HC{Mem: uint64Ptr(512)},
+		hc:      &HC{Mem: new(uint64(512))},
 	}, {
 		summary: "set mem with M suffix",
 		args:    []string{"mem=512M"},
-		hc:      &HC{Mem: uint64Ptr(512)},
+		hc:      &HC{Mem: new(uint64(512))},
 	}, {
 		summary: "set mem with G suffix",
 		args:    []string{"mem=1.5G"},
-		hc:      &HC{Mem: uint64Ptr(1536)},
+		hc:      &HC{Mem: new(uint64(1536))},
 	}, {
 		summary: "set mem with T suffix",
 		args:    []string{"mem=36.2T"},
-		hc:      &HC{Mem: uint64Ptr(37958452)},
+		hc:      &HC{Mem: new(uint64(37958452))},
 	}, {
 		summary: "set mem with P suffix",
 		args:    []string{"mem=18.9P"},
-		hc:      &HC{Mem: uint64Ptr(20293720474)},
+		hc:      &HC{Mem: new(uint64(20293720474))},
 	}, {
 		summary: "set mem quoted",
 		args:    []string{`mem="42M"`},
-		hc:      &HC{Mem: uint64Ptr(42)},
+		hc:      &HC{Mem: new(uint64(42))},
 	}, {
 		summary: "set nonsense mem 1",
 		args:    []string{"mem=cheese"},
@@ -247,35 +247,35 @@ var parseHardwareTests = []parseHardwareTestSpec{
 	{
 		summary: "set root-disk empty",
 		args:    []string{"root-disk="},
-		hc:      &HC{RootDisk: uint64Ptr(0)},
+		hc:      &HC{RootDisk: new(uint64(0))},
 	}, {
 		summary: "set root-disk zero",
 		args:    []string{"root-disk=0"},
-		hc:      &HC{RootDisk: uint64Ptr(0)},
+		hc:      &HC{RootDisk: new(uint64(0))},
 	}, {
 		summary: "set root-disk without suffix",
 		args:    []string{"root-disk=512"},
-		hc:      &HC{RootDisk: uint64Ptr(512)},
+		hc:      &HC{RootDisk: new(uint64(512))},
 	}, {
 		summary: "set root-disk with M suffix",
 		args:    []string{"root-disk=512M"},
-		hc:      &HC{RootDisk: uint64Ptr(512)},
+		hc:      &HC{RootDisk: new(uint64(512))},
 	}, {
 		summary: "set root-disk with G suffix",
 		args:    []string{"root-disk=1.5G"},
-		hc:      &HC{RootDisk: uint64Ptr(1536)},
+		hc:      &HC{RootDisk: new(uint64(1536))},
 	}, {
 		summary: "set root-disk with T suffix",
 		args:    []string{"root-disk=36.2T"},
-		hc:      &HC{RootDisk: uint64Ptr(37958452)},
+		hc:      &HC{RootDisk: new(uint64(37958452))},
 	}, {
 		summary: "set root-disk with P suffix",
 		args:    []string{"root-disk=18.9P"},
-		hc:      &HC{RootDisk: uint64Ptr(20293720474)},
+		hc:      &HC{RootDisk: new(uint64(20293720474))},
 	}, {
 		summary: "set root-disk quoted",
 		args:    []string{`root-disk="1234M"`},
-		hc:      &HC{RootDisk: uint64Ptr(1234)},
+		hc:      &HC{RootDisk: new(uint64(1234))},
 	}, {
 		summary: "set nonsense root-disk 1",
 		args:    []string{"root-disk=cheese"},
@@ -306,19 +306,19 @@ var parseHardwareTests = []parseHardwareTestSpec{
 	}, {
 		summary: "set root-disk-source",
 		args:    []string{"root-disk-source=something"},
-		hc:      &HC{RootDiskSource: stringPtr("something")},
+		hc:      &HC{RootDiskSource: new("something")},
 	}, {
 		summary: "set root-disk-source quoted",
 		args:    []string{`root-disk-source="Foo Bar"`},
-		hc:      &HC{RootDiskSource: stringPtr("Foo Bar")},
+		hc:      &HC{RootDiskSource: new("Foo Bar")},
 	}, {
 		summary: "set root-disk-source quoted - other whitespace",
 		args:    []string{`root-disk-source="\r\n\t"`},
-		hc:      &HC{RootDiskSource: stringPtr("\r\n\t")},
+		hc:      &HC{RootDiskSource: new("\r\n\t")},
 	}, {
 		summary: "set root-disk-source quoted (with escapes)",
 		args:    []string{`root-disk-source="My Big \"Fat\" Greek Disk"`},
-		hc:      &HC{RootDiskSource: stringPtr(`My Big "Fat" Greek Disk`)},
+		hc:      &HC{RootDiskSource: new(`My Big "Fat" Greek Disk`)},
 	}, {
 		summary: "set root-disk-source quoted (no end quote)",
 		args:    []string{`root-disk-source="foo`},
@@ -384,11 +384,11 @@ var parseHardwareTests = []parseHardwareTestSpec{
 	}, {
 		summary: "set availability-zone non-empty",
 		args:    []string{"availability-zone=a_zone"},
-		hc:      &HC{AvailabilityZone: stringPtr("a_zone")},
+		hc:      &HC{AvailabilityZone: new("a_zone")},
 	}, {
 		summary: "set availability-zone quoted",
 		args:    []string{`availability-zone="A Zone"`},
-		hc:      &HC{AvailabilityZone: stringPtr("A Zone")},
+		hc:      &HC{AvailabilityZone: new("A Zone")},
 	}, {
 		summary: "set availability-zone quoted multi errors",
 		args:    []string{`availability-zone="a b",c`},
@@ -411,11 +411,11 @@ var parseHardwareTests = []parseHardwareTestSpec{
 	}, {
 		summary: "set virt-type non-empty",
 		args:    []string{"virt-type=container"},
-		hc:      &HC{VirtType: stringPtr("container")},
+		hc:      &HC{VirtType: new("container")},
 	}, {
 		summary: "set virt-type quoted",
 		args:    []string{`virt-type="container"`},
-		hc:      &HC{VirtType: stringPtr("container")},
+		hc:      &HC{VirtType: new("container")},
 	}, {
 		summary: "set virt-type quoted multi errors",
 		args:    []string{`virt-type="container",virtual-machine`},
@@ -435,44 +435,41 @@ var parseHardwareTests = []parseHardwareTestSpec{
 		summary: "kitchen sink together",
 		args:    []string{" root-disk=4G mem=2T  arch=arm64  cores=4096 cpu-power=9001 availability-zone=a_zone virt-type=container"},
 		hc: &HC{
-			RootDisk:         uint64Ptr(4096),
-			Mem:              uint64Ptr(2097152),
-			Arch:             stringPtr("arm64"),
-			CpuCores:         uint64Ptr(4096),
-			CpuPower:         uint64Ptr(9001),
-			AvailabilityZone: stringPtr("a_zone"),
-			VirtType:         stringPtr("container"),
+			RootDisk:         new(uint64(4096)),
+			Mem:              new(uint64(2097152)),
+			Arch:             new("arm64"),
+			CpuCores:         new(uint64(4096)),
+			CpuPower:         new(uint64(9001)),
+			AvailabilityZone: new("a_zone"),
+			VirtType:         new("container"),
 		},
 	}, {
 		summary: "kitchen sink separately",
 		args:    []string{"root-disk=4G", "mem=2T", "cores=4096", "cpu-power=9001", "arch=arm64", "availability-zone=a_zone", "virt-type=container"},
 		hc: &HC{
-			RootDisk:         uint64Ptr(4096),
-			Mem:              uint64Ptr(2097152),
-			Arch:             stringPtr("arm64"),
-			CpuCores:         uint64Ptr(4096),
-			CpuPower:         uint64Ptr(9001),
-			AvailabilityZone: stringPtr("a_zone"),
-			VirtType:         stringPtr("container"),
+			RootDisk:         new(uint64(4096)),
+			Mem:              new(uint64(2097152)),
+			Arch:             new("arm64"),
+			CpuCores:         new(uint64(4096)),
+			CpuPower:         new(uint64(9001)),
+			AvailabilityZone: new("a_zone"),
+			VirtType:         new("container"),
 		},
 	}, {
 		summary: "kitchen sink together quoted",
 		args:    []string{`root-disk=4G mem=2T arch=arm64 cores=4096 cpu-power=9001 availability-zone="A Zone" tags="a b" virt-type="container"`},
 		hc: &HC{
-			RootDisk:         uint64Ptr(4096),
-			Mem:              uint64Ptr(2097152),
-			Arch:             stringPtr("arm64"),
-			CpuCores:         uint64Ptr(4096),
-			CpuPower:         uint64Ptr(9001),
-			AvailabilityZone: stringPtr("A Zone"),
+			RootDisk:         new(uint64(4096)),
+			Mem:              new(uint64(2097152)),
+			Arch:             new("arm64"),
+			CpuCores:         new(uint64(4096)),
+			CpuPower:         new(uint64(9001)),
+			AvailabilityZone: new("A Zone"),
 			Tags:             &[]string{"a b"},
-			VirtType:         stringPtr("container"),
+			VirtType:         new("container"),
 		},
 	},
 }
-
-func stringPtr(s string) *string { return &s }
-func uint64Ptr(u uint64) *uint64 { return &u }
 
 func (s *HardwareSuite) TestParseHardware(c *tc.C) {
 	for i, t := range parseHardwareTests {

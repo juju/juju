@@ -5,6 +5,7 @@ package jujuctesting
 
 import (
 	"context"
+	"maps"
 	"sync"
 )
 
@@ -37,9 +38,7 @@ func (c *ContextUnitCharmState) GetCharmState(_ context.Context) (map[string]str
 	}
 
 	retVal := make(map[string]string, len(c.info.values))
-	for k, v := range c.info.values {
-		retVal[k] = v
-	}
+	maps.Copy(retVal, c.info.values)
 	return retVal, nil
 }
 

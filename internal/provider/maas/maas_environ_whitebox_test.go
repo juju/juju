@@ -496,7 +496,7 @@ func (suite *maasEnvironSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *t
 	env, _ = suite.injectControllerWithSpacesAndCheck(c, nil, expected)
 	_, err := env.acquireNode(c.Context(),
 		"", "", "",
-		constraints.Value{Tags: stringslicep("tag1", "^tag2", "tag3", "^tag4")},
+		constraints.Value{Tags: &[]string{"tag1", "^tag2", "tag3", "^tag4"}},
 		nil, nil, nil,
 	)
 	c.Check(err, tc.ErrorIsNil)
@@ -537,7 +537,7 @@ func (suite *maasEnvironSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c 
 	}
 	env, _ := suite.injectControllerWithSpacesAndCheck(c, getFourSpaces(), expected)
 
-	cons := constraints.Value{Spaces: stringslicep("space-1", "^space-2", "space-3", "^space-4")}
+	cons := constraints.Value{Spaces: &[]string{"space-1", "^space-2", "space-3", "^space-4"}}
 	positiveSpaceIDs, negativeSpaceIDs, err := env.networkSpaceRequirements(c.Context(), nil, cons)
 	c.Check(err, tc.ErrorIsNil)
 
@@ -689,7 +689,7 @@ func (suite *maasEnvironSuite) TestAcquireNodeInterfaces(c *tc.C) {
 	// Add some constraints, including spaces to verify specified bindings
 	// always override any spaces constraints.
 	cons := constraints.Value{
-		Spaces: stringslicep("foo", "^bar"),
+		Spaces: &[]string{"foo", "^bar"},
 	}
 	// In the tests below Space 2 means foo, Space 3 means bar.
 	for i, test := range []struct {
@@ -2508,7 +2508,7 @@ func (suite *maasEnvironSuite) TestStartInstanceEndToEnd(c *tc.C) {
 		suite.controllerUUID,
 		"1",
 		constraints.Value{
-			ImageID: stringp("ubuntu-bf2"),
+			ImageID: new("ubuntu-bf2"),
 		})
 	c.Check(instance, tc.NotNil)
 	c.Assert(hc, tc.NotNil)

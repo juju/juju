@@ -4,6 +4,9 @@
 package firewaller_test
 
 import (
+	"maps"
+	"slices"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/network"
@@ -39,9 +42,7 @@ func (p *unitPortRanges) Close(endpoint string, portRange network.PortRange) {
 
 func (p *unitPortRanges) ByUnitEndpoint() map[unit.Name]network.GroupedPortRanges {
 	result := map[unit.Name]network.GroupedPortRanges{}
-	for u, r := range p.unitRanges {
-		result[u] = r
-	}
+	maps.Copy(result, p.unitRanges)
 	return result
 }
 
@@ -158,10 +159,5 @@ func (op *unitPortRangesCommit) rangeExistsForEndpoint(endpointName string, port
 		return false
 	}
 
-	for _, existingRange := range op.updatedUnitPortRanges[op.unitName][endpointName] {
-		if existingRange == portRange {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(op.updatedUnitPortRanges[op.unitName][endpointName], portRange)
 }

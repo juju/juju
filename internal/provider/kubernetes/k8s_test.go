@@ -980,7 +980,7 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithStatefulSet(c *tc.C) {
 				network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopePublic)).AsProviderAddress(),
 				network.NewMachineAddress("host.com.au", network.WithScope(network.ScopePublic)).AsProviderAddress(),
 			},
-			Scale:      k8sutils.IntPtr(2),
+			Scale:      new(2),
 			Generation: pointer.Int64Ptr(1),
 			Status: status.StatusInfo{
 				Status: status.Active,

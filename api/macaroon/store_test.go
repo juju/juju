@@ -123,7 +123,7 @@ func (s *storeSuite) TestExpiryTime(c *tc.C) {
 	mac, err := b.Oven.NewMacaroon(c.Context(), bakery.LatestVersion, nil, bakery.NoOp)
 	c.Assert(err, tc.ErrorIsNil)
 
-	for i := 0; i < 15; i++ {
+	for range 15 {
 		_, _, err = b.Oven.VerifyMacaroon(c.Context(), macaroon.Slice{mac.M()})
 		if err == nil {
 			s.now = s.now.Add(500 * time.Millisecond)
@@ -380,7 +380,7 @@ func (s *storeSuite) TestGet(c *tc.C) {
 	}
 	var keys []idKey
 	keyIds := make(map[string]bool)
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		key, id, err := store.RootKey(c.Context())
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(keyIds[string(id)], tc.Equals, false)

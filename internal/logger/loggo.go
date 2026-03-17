@@ -5,6 +5,7 @@ package logger
 
 import (
 	"context"
+	"maps"
 
 	"github.com/juju/loggo/v2"
 
@@ -110,9 +111,7 @@ func (c loggoLogger) Logf(ctx context.Context, level logger.Level, labels logger
 	if !ok {
 		ctxLabels = labels
 	} else {
-		for k, v := range labels {
-			ctxLabels[k] = v
-		}
+		maps.Copy(ctxLabels, labels)
 	}
 
 	c.logger.LogWithLabelsf(loggo.Level(level), msg, ctxLabels, args...)

@@ -182,7 +182,7 @@ func (s *apiclientSuite) TestDialAPIMultipleError(c *tc.C) {
 
 	// count holds the number of times we've accepted a connection.
 	var count int32
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		listener, err := net.Listen("tcp", "127.0.0.1:0")
 		c.Assert(err, tc.ErrorIsNil)
 		defer listener.Close()
@@ -909,7 +909,7 @@ func (s *apiclientSuite) TestFallbackToIPLookupWhenCacheOutOfDate(c *tc.C) {
 	// happen before the first one and the first
 	// attempt might then never happen.
 	dialed := make(map[string]bool)
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		select {
 		case hostPort := <-dialc:
 			dialed[hostPort] = true

@@ -155,7 +155,7 @@ func (s *ServerSuite) TestNoStdin(c *tc.C) {
 func (s *ServerSuite) TestLocks(c *tc.C) {
 	var wg sync.WaitGroup
 	t0 := time.Now()
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		wg.Add(1)
 		go func() {
 			dir := c.MkDir()

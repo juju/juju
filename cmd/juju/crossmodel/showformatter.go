@@ -67,7 +67,7 @@ func formatOfferedEndpointsTabular(writer io.Writer, all map[string]ShowOfferedA
 		}
 		sort.Strings(names)
 
-		for i := 0; i < maxIterations; i++ {
+		for i := range maxIterations {
 			descLine := descAt(descLines, i)
 			name, endpoint := endpointAt(one.Endpoints, names, i)
 			w.Println(store, offerURL, offerAccess, descLine, name, endpoint.Interface, endpoint.Role)
@@ -146,7 +146,7 @@ func breakOneWord(one string) []string {
 	numParts := (len(one) / columnWidth) + 1
 	parts := make([]string, numParts)
 
-	for i := 0; i < numParts; i++ {
+	for i := range numParts {
 		start := i * columnWidth
 		end := start + columnWidth
 		if end > len(one) {
@@ -156,11 +156,4 @@ func breakOneWord(one string) []string {
 		parts[i] = one[start:end]
 	}
 	return parts
-}
-
-func max(one, two int) int {
-	if one > two {
-		return one
-	}
-	return two
 }

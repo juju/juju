@@ -51,14 +51,11 @@ func (d devices) Swap(i, j int) {
 
 // adapted from runtime/noasm.go
 func intCompare(s1, s2 []int) int {
-	l := len(s1)
-	if len(s2) < l {
-		l = len(s2)
-	}
+	l := min(len(s2), len(s1))
 	if l == 0 || &s1[0] == &s2[0] {
 		goto samebytes
 	}
-	for i := 0; i < l; i++ {
+	for i := range l {
 		c1, c2 := s1[i], s2[i]
 		if c1 < c2 {
 			return -1

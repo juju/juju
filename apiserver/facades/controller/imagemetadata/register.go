@@ -15,7 +15,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("ImageMetadata", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newAPI(ctx)
-	}, reflect.TypeOf((*API)(nil)))
+	}, reflect.TypeFor[*API]())
 }
 
 // newAPI returns a new cloud image metadata API facade.

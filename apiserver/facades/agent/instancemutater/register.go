@@ -14,7 +14,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("InstanceMutater", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacadeV3(ctx)
-	}, reflect.TypeOf((*InstanceMutaterAPI)(nil)))
+	}, reflect.TypeFor[*InstanceMutaterAPI]())
 }
 
 // newFacadeV3 is used for API registration.

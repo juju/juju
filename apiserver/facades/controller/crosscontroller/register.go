@@ -17,7 +17,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("CrossController", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newStateCrossControllerAPI(ctx)
-	}, reflect.TypeOf((*CrossControllerAPI)(nil)))
+	}, reflect.TypeFor[*CrossControllerAPI]())
 }
 
 // newStateCrossControllerAPI creates a new server-side CrossModelRelations API facade

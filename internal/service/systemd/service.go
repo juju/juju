@@ -7,6 +7,7 @@ import (
 	"context"
 	"path"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/coreos/go-systemd/v22/dbus"
@@ -184,10 +185,8 @@ func (s *Service) Installed() (bool, error) {
 	if err != nil {
 		return false, s.errorf(err, "failed to list services")
 	}
-	for _, name := range names {
-		if name == s.Service.Name {
-			return true, nil
-		}
+	if slices.Contains(names, s.Service.Name) {
+		return true, nil
 	}
 	return false, nil
 }

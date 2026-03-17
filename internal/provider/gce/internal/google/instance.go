@@ -6,6 +6,7 @@ package google
 import (
 	"context"
 	"path"
+	"slices"
 
 	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/errors"
@@ -96,12 +97,7 @@ func checkInstStatus(inst *computepb.Instance, statuses []string) bool {
 	if len(statuses) == 0 {
 		return true
 	}
-	for _, status := range statuses {
-		if inst.GetStatus() == status {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(statuses, inst.GetStatus())
 }
 
 // removeInstance sends a request to the GCE API to remove the instance

@@ -591,7 +591,7 @@ func (s *stateSuite) TestSetAPIAddressControllerNodeNotFound(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetControllerIDs(c *tc.C) {
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		controllerID := strconv.Itoa(i)
 		nodeID := uint64(1523785546583723502 + i)
 

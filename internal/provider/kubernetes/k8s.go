@@ -1059,10 +1059,6 @@ func (k *kubernetesClient) getStatusFromEvents(ctx context.Context, name, kind s
 	return statusMessage, jujuStatus, nil
 }
 
-func boolPtr(b bool) *bool {
-	return &b
-}
-
 // legacyAppName returns true if there are any artifacts for
 // appName which indicate that this deployment was for Juju 2.5.0.
 func (k *kubernetesClient) legacyAppName(ctx context.Context, appName string) bool {

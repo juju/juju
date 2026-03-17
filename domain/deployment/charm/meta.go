@@ -6,6 +6,7 @@ package charm
 import (
 	"fmt"
 	"io"
+	"maps"
 	"regexp"
 	"sort"
 	"strconv"
@@ -824,15 +825,9 @@ func parseRelations(relations interface{}, role RelationRole) map[string]Relatio
 // a single map.
 func (m Meta) CombinedRelations() map[string]Relation {
 	combined := make(map[string]Relation)
-	for name, relation := range m.Provides {
-		combined[name] = relation
-	}
-	for name, relation := range m.Requires {
-		combined[name] = relation
-	}
-	for name, relation := range m.Peers {
-		combined[name] = relation
-	}
+	maps.Copy(combined, m.Provides)
+	maps.Copy(combined, m.Requires)
+	maps.Copy(combined, m.Peers)
 	return combined
 }
 

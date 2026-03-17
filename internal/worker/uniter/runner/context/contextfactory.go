@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"slices"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -443,10 +444,8 @@ func inferRemoteUnit(rctxs map[int]*ContextRelation, info CommandInfo) (int, str
 		}
 		return -1, "", errors.Errorf("ambiguous remote unit; possibilities are %+v", possibles)
 	}
-	for _, possible := range possibles {
-		if remoteUnit == possible {
-			return relationId, remoteUnit, nil
-		}
+	if slices.Contains(possibles, remoteUnit) {
+		return relationId, remoteUnit, nil
 	}
 	return -1, "", errors.Errorf("unknown remote unit %s; possibilities are %+v", remoteUnit, possibles)
 }

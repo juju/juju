@@ -406,7 +406,7 @@ func (s *mockListAPI) ListStorageDetails(ctx context.Context) ([]params.StorageD
 // repeat is used for duplicating the string multiple times.
 func repeat(s string, amount int) []interface{} {
 	var a []interface{}
-	for i := 0; i < amount; i++ {
+	for range amount {
 		a = append(a, s)
 	}
 	return a

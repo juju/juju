@@ -407,7 +407,7 @@ func (csau createApplicationAndUnit) step(c tc.LikeC, ctx *testContext) {
 
 	ctx.storage = make(map[string]*storageAttachment)
 	for si, count := range csau.storage {
-		for n := 0; n < count; n++ {
+		for n := range count {
 			tag := names.NewStorageTag(fmt.Sprintf("%s/%d", si, n))
 			ctx.storage[tag.Id()] = &storageAttachment{
 				eventCh: make(chan struct{}, 2),
@@ -1468,10 +1468,7 @@ type verifyCharm struct {
 
 func (s verifyCharm) step(c tc.LikeC, ctx *testContext) {
 	s.checkFiles.Check(c, filepath.Join(ctx.path, "charm"))
-	checkRevision := s.revision
-	if s.attemptedRevision > checkRevision {
-		checkRevision = s.attemptedRevision
-	}
+	checkRevision := max(s.attemptedRevision, s.revision)
 	ctx.unit.mu.Lock()
 	defer ctx.unit.mu.Unlock()
 	urlStr := ctx.unit.charmURL

@@ -119,7 +119,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesResultCountInvalid(c *tc.C)
 	for _, n := range []int{0, 2} {
 		apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 			var results []params.ErrorResult
-			for i := 0; i < n; i++ {
+			for range n {
 				results = append(results, params.ErrorResult{
 					Error: &params.Error{Message: "MSG", Code: "621"},
 				})

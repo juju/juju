@@ -5,6 +5,7 @@ package controller_test
 
 import (
 	"context"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -298,9 +299,7 @@ func (f *fakeControllerAPI) ConfigSet(ctx context.Context, values map[string]int
 		f.values = values
 	} else {
 		// Append values rather than overwriting
-		for key, val := range values {
-			f.values[key] = val
-		}
+		maps.Copy(f.values, values)
 	}
 	return f.err
 }

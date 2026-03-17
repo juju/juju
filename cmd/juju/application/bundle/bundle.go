@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"reflect"
 	"sort"
 	"strings"
@@ -75,9 +76,7 @@ func BuildModelRepresentation(
 	}
 
 	// Now iterate over the bundleMachines that the user specified.
-	for bundleMachine, modelMachine := range bundleMachines {
-		machineMap[bundleMachine] = modelMachine
-	}
+	maps.Copy(machineMap, bundleMachines)
 	applications := make(map[string]*bundlechanges.Application)
 	for name, appStatus := range status.Applications {
 		curl, err := charm.ParseURL(appStatus.Charm)

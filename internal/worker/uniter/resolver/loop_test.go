@@ -246,7 +246,7 @@ func (s *LoopSuite) TestLoopWithChange(c *tc.C) {
 	remoteStateSnapshotCount := 0
 	s.executor.run = func(op operation.Operation, rs <-chan remotestate.Snapshot) error {
 		remoteStateSnapshotChan = rs
-		for i := 0; i < 5; i++ {
+		for range 5 {
 			// queue up a change to trigger snapshot channel.
 			s.watcher.changes <- struct{}{}
 			// wait for changes to propagate

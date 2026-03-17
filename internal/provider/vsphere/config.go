@@ -5,6 +5,7 @@ package vsphere
 
 import (
 	"context"
+	"slices"
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
@@ -211,13 +212,7 @@ func (c environConfig) validate() error {
 		}
 
 		if diskProvTypeStr != "" {
-			found := false
-			for _, val := range vsphereclient.ValidDiskProvisioningTypes {
-				if vsphereclient.DiskProvisioningType(diskProvTypeStr) == val {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(vsphereclient.ValidDiskProvisioningTypes, vsphereclient.DiskProvisioningType(diskProvTypeStr))
 			if !found {
 				return errors.Errorf(
 					"%q must be one of %q", cfgDiskProvisioningType, vsphereclient.ValidDiskProvisioningTypes)

@@ -81,7 +81,7 @@ func (env *azureEnviron) diskEncryptionInfo(
 
 	envTagPtr := make(map[string]*string)
 	for k, v := range envTags {
-		envTagPtr[k] = to.Ptr(v)
+		envTagPtr[k] = new(v)
 	}
 
 	encryptionSets, err := env.encryptionSetsClient()
@@ -164,7 +164,7 @@ func fromStringOrNil(input string) uuid.UUID {
 func vaultAccessPolicy(desIdentity *armcompute.EncryptionSetIdentity) *armkeyvault.AccessPolicyEntry {
 	tenantID := fromStringOrNil(toValue(desIdentity.TenantID))
 	return &armkeyvault.AccessPolicyEntry{
-		TenantID: to.Ptr(tenantID.String()),
+		TenantID: new(tenantID.String()),
 		ObjectID: desIdentity.PrincipalID,
 		Permissions: &armkeyvault.Permissions{
 			Keys: to.SliceOfPtrs(armkeyvault.KeyPermissionsWrapKey, armkeyvault.KeyPermissionsUnwrapKey,
@@ -184,7 +184,7 @@ func (env *azureEnviron) ensureDiskEncryptionSet(
 ) (*armcompute.EncryptionSetIdentity, error) {
 	logger.Debugf(ctx, "ensure disk encryption set %q", encryptionSetName)
 	poller, err := encryptionSets.BeginCreateOrUpdate(ctx, env.resourceGroup, encryptionSetName, armcompute.DiskEncryptionSet{
-		Location: to.Ptr(env.location),
+		Location: new(env.location),
 		Tags:     envTags,
 		Identity: &armcompute.EncryptionSetIdentity{
 			Type: to.Ptr(armcompute.DiskEncryptionSetIdentityTypeSystemAssigned),
@@ -240,16 +240,16 @@ func (env *azureEnviron) ensureVault(
 	}
 
 	vaultAccessPolicies := []*armkeyvault.AccessPolicyEntry{{
-		TenantID: to.Ptr(vaultTenantID.String()),
-		ObjectID: to.Ptr(appObjectID),
+		TenantID: new(vaultTenantID.String()),
+		ObjectID: new(appObjectID),
 		Permissions: &armkeyvault.Permissions{
 			Keys: to.SliceOfPtrs(allKeyPermissions...),
 		},
 	}}
 	if userID != "" {
 		vaultAccessPolicies = append(vaultAccessPolicies, &armkeyvault.AccessPolicyEntry{
-			TenantID: to.Ptr(vaultTenantID.String()),
-			ObjectID: to.Ptr(userID),
+			TenantID: new(vaultTenantID.String()),
+			ObjectID: new(userID),
 			Permissions: &armkeyvault.Permissions{
 				Keys: to.SliceOfPtrs(allKeyPermissions...),
 			},
@@ -259,13 +259,13 @@ func (env *azureEnviron) ensureVault(
 		vaultAccessPolicies = append(vaultAccessPolicies, vaultAccessPolicy(desIdentity))
 	}
 	vaultParams := armkeyvault.VaultCreateOrUpdateParameters{
-		Location: to.Ptr(env.location),
+		Location: new(env.location),
 		Tags:     envTags,
 		Properties: &armkeyvault.VaultProperties{
-			TenantID:                 to.Ptr(vaultTenantID.String()),
-			EnabledForDiskEncryption: to.Ptr(true),
-			EnableSoftDelete:         to.Ptr(true),
-			EnablePurgeProtection:    to.Ptr(true),
+			TenantID:                 new(vaultTenantID.String()),
+			EnabledForDiskEncryption: new(true),
+			EnableSoftDelete:         new(true),
+			EnablePurgeProtection:    new(true),
 			CreateMode:               to.Ptr(armkeyvault.CreateModeDefault),
 			NetworkACLs: &armkeyvault.NetworkRuleSet{
 				Bypass:        to.Ptr(armkeyvault.NetworkRuleBypassOptionsAzureServices),
@@ -337,18 +337,18 @@ func (env *azureEnviron) createVaultKey(
 		azkeys.CreateKeyParameters{
 			Kty: to.Ptr(azkeys.KeyTypeRSA),
 			// TODO(wallyworld) - make these configurable via storage pool attributes
-			KeySize: to.Ptr(int32(4096)),
+			KeySize: new(int32(4096)),
 			KeyOps: []*azkeys.KeyOperation{
 				to.Ptr(azkeys.KeyOperationWrapKey),
 				to.Ptr(azkeys.KeyOperationUnwrapKey),
 			},
 			KeyAttributes: &azkeys.KeyAttributes{
-				Enabled: to.Ptr(true),
+				Enabled: new(true),
 			},
 		},
 		nil)
 	if err == nil {
-		return to.Ptr(string(toValue(resp.Key.KID))), nil
+		return new(string(toValue(resp.Key.KID))), nil
 	}
 	if !errorutils.IsConflictError(err) {
 		return nil, errors.Trace(err)
@@ -359,5 +359,5 @@ func (env *azureEnviron) createVaultKey(
 	if err != nil {
 		return nil, errors.Annotatef(err, "restoring soft deleted vault key %q in %q", keyName, vaultName)
 	}
-	return to.Ptr(string(toValue(result.Key.KID))), nil
+	return new(string(toValue(result.Key.KID))), nil
 }

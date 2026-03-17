@@ -6,6 +6,7 @@ package machinemanager
 import (
 	"context"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/juju/clock"
@@ -338,9 +339,7 @@ func (mm *MachineManagerAPI) maybeUpdateInstanceStatus(ctx context.Context, all 
 	if newData == nil {
 		newData = data
 	} else {
-		for k, v := range data {
-			newData[k] = v
-		}
+		maps.Copy(newData, data)
 	}
 	if len(newData) > 0 && existingStatusInfo.Status != status.Error && existingStatusInfo.Status != status.ProvisioningError {
 		// If a specifc machine has been asked for and it's not in error, that's a problem.

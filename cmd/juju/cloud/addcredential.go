@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/juju/errors"
@@ -239,12 +240,7 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 	}
 
 	validAuthType := func(authType cloud.AuthType) bool {
-		for _, authT := range authTypeNames {
-			if authT == authType {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(authTypeNames, authType)
 	}
 
 	provider, err := environs.Provider(c.cloud.Type)

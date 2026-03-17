@@ -6,6 +6,7 @@ package relation
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	"github.com/juju/errors"
 	"github.com/kr/pretty"
@@ -164,11 +165,7 @@ func (s *State) UnmarshalYAML(unmarshal func(interface{}) error) error {
 func (s *State) copy() *State {
 	stCopy := NewState(s.RelationId)
 	stCopy.ChangedPending = s.ChangedPending
-	for m, v := range s.Members {
-		stCopy.Members[m] = v
-	}
-	for m, v := range s.ApplicationMembers {
-		stCopy.ApplicationMembers[m] = v
-	}
+	maps.Copy(stCopy.Members, s.Members)
+	maps.Copy(stCopy.ApplicationMembers, s.ApplicationMembers)
 	return stCopy
 }

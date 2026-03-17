@@ -68,7 +68,7 @@ func (mock *mockFacade) Watch(_ context.Context, uuid string) (watcher.NotifyWat
 func newMockWatcher() *mockWatcher {
 	const count = 3
 	changes := make(chan struct{}, count)
-	for i := 0; i < count; i++ {
+	for range count {
 		changes <- struct{}{}
 	}
 	return &mockWatcher{

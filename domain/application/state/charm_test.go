@@ -1513,7 +1513,7 @@ func (s *charmStateSuite) TestAddCharmLocalCharmSequencing(c *tc.C) {
 	// The same charm is set multiple times, and each time the revision is
 	// incremented.
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		id, _, err := st.AddCharm(c.Context(), charm, info, true)
 		c.Assert(err, tc.ErrorIsNil)
 
@@ -2986,7 +2986,7 @@ func (s *charmStateSuite) TestListCharmLocatorsMultipleEntries(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), s.modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	var expected []charm.CharmLocator
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		name := fmt.Sprintf("ubuntu-%d", i)
 
 		_, _, err := st.AddCharm(c.Context(), charm.Charm{
@@ -3028,7 +3028,7 @@ func (s *charmStateSuite) TestListCharmLocatorsByNamesMultipleEntries(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), s.modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	var expected []charm.CharmLocator
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		name := fmt.Sprintf("ubuntu-%d", i)
 
 		_, _, err := st.AddCharm(c.Context(), charm.Charm{
@@ -3066,7 +3066,7 @@ func (s *charmStateSuite) TestListCharmLocatorsByNamesMultipleEntries(c *tc.C) {
 func (s *charmStateSuite) TestListCharmLocatorsByNamesInvalidEntries(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), s.modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		name := fmt.Sprintf("ubuntu-%d", i)
 
 		_, _, err := st.AddCharm(c.Context(), charm.Charm{

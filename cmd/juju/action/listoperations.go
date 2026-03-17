@@ -6,6 +6,7 @@ package action
 import (
 	"fmt"
 	"io"
+	"maps"
 	"reflect"
 	"sort"
 	"strconv"
@@ -232,10 +233,7 @@ func (c *listOperationsCommand) formatTabular(writer io.Writer, value interface{
 
 	printOperations := func(operations []operationLine, utc bool) {
 		for _, line := range operations {
-			numTasks := len(line.tasks)
-			if numTasks > maxTaskIDs {
-				numTasks = maxTaskIDs
-			}
+			numTasks := min(len(line.tasks), maxTaskIDs)
 			tasks := strings.Join(line.tasks[:numTasks], ",")
 			if len(line.tasks) > maxTaskIDs {
 				tasks += "..."
@@ -385,9 +383,7 @@ func formatOperationResult(operation actionapi.Operation, utc bool) operationInf
 				Name:       task.Action.Name,
 				Parameters: make(map[string]interface{}),
 			}
-			for k, v := range task.Action.Parameters {
-				singleAction.Parameters[k] = v
-			}
+			maps.Copy(singleAction.Parameters, task.Action.Parameters)
 			continue
 		}
 		// Check to see if there's a different action as part of the operation.

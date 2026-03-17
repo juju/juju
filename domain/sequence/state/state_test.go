@@ -54,7 +54,7 @@ func (s *stateSuite) TestGetSequencesForExportMultiple(c *tc.C) {
 
 	var seqValue uint64
 	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			var err error
 			if seqValue, err = NextValue(ctx, state, tx, domainsequence.StaticNamespace("foo")); err != nil {
 				return err

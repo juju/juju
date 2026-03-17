@@ -14,7 +14,7 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("AgentLifeFlag", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacade(ctx)
-	}, reflect.TypeOf((*Facade)(nil)))
+	}, reflect.TypeFor[*Facade]())
 }
 
 // newFacade is for API registration.

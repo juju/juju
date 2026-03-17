@@ -202,7 +202,7 @@ func (c *exposeCommand) buildExposedEndpoints() map[string]params.ExposedEndpoin
 
 func splitCommaDelimitedList(list string) []string {
 	var items []string
-	for _, token := range strings.Split(list, ",") {
+	for token := range strings.SplitSeq(list, ",") {
 		token = strings.TrimSpace(token)
 		if len(token) == 0 {
 			continue

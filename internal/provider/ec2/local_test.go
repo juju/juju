@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -1975,7 +1976,7 @@ func (t *localServerSuite) TestNetworkInterfacesForMultipleInstances(c *tc.C) {
 	}
 
 	// Sort instance list so we always get consistent results
-	sort.Slice(ids, func(l, r int) bool { return ids[l] < ids[r] })
+	slices.Sort(ids)
 
 	ifLists, err := env.NetworkInterfaces(c.Context(), ids)
 	c.Assert(err, tc.ErrorIsNil)

@@ -9,6 +9,7 @@ package cloud
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/juju/errors"
@@ -128,7 +129,7 @@ func validateCloud(data []byte, jsonSchema *map[string]interface{}) error {
 
 func cloudTags() []string {
 	keys := make(map[string]struct{})
-	collectTags(reflect.TypeOf((*cloud)(nil)), "yaml", []string{"map[string]*cloud.region", "yaml.MapSlice"}, &keys)
+	collectTags(reflect.TypeFor[*cloud](), "yaml", []string{"map[string]*cloud.region", "yaml.MapSlice"}, &keys)
 	keyList := make([]string, 0, len(keys))
 	for k := range keys {
 		keyList = append(keyList, k)
@@ -150,19 +151,11 @@ func collectTags(t reflect.Type, tag string, ignoreTypes []string, keys *map[str
 		collectTags(t.Elem(), tag, ignoreTypes, keys)
 
 	case reflect.Struct:
-		for i := 0; i < t.NumField(); i++ {
-			field := t.Field(i)
-
+		for field := range t.Fields() {
 			fieldTag := field.Tag.Get(tag)
 			var fieldTagKey string
 
-			ignoredType := false
-			for _, it := range ignoreTypes {
-				if field.Type.String() == it {
-					ignoredType = true
-					break
-				}
-			}
+			ignoredType := slices.Contains(ignoreTypes, field.Type.String())
 
 			if fieldTag == "-" || ignoredType {
 				continue

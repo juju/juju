@@ -49,7 +49,7 @@ func (s *TrackerSuite) refreshes(count int) {
 	// and adds delay to that time. Here we advance the clock
 	// in small jumps, and then wait a short time to allow the
 	// worker to do stuff.
-	for i := 0; i < halfRefreshes; i++ {
+	for range halfRefreshes {
 		s.clock.Advance(halfDuration)
 		<-time.After(coretesting.ShortWait)
 	}

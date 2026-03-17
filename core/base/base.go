@@ -5,6 +5,7 @@ package base
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -136,12 +137,7 @@ var ubuntuLTSes = []Base{
 // IsUbuntuLTS returns true if this base is a recognised
 // Ubuntu LTS.
 func (b Base) IsUbuntuLTS() bool {
-	for _, ubuntuLTS := range ubuntuLTSes {
-		if b.IsCompatible(ubuntuLTS) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(ubuntuLTSes, b.IsCompatible)
 }
 
 // DisplayString returns the base string ignoring risk.

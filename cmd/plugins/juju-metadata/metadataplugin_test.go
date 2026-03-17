@@ -66,7 +66,7 @@ func getHelpCommandNames(c *tc.C) []string {
 	commandHelpStrings := strings.SplitAfter(out, "commands:")
 	c.Assert(len(commandHelpStrings), tc.Equals, 2)
 	commandHelp := strings.TrimSpace(commandHelpStrings[1])
-	for _, line := range strings.Split(commandHelp, "\n") {
+	for line := range strings.SplitSeq(commandHelp, "\n") {
 		names = append(names, strings.TrimSpace(strings.Split(line, " - ")[0]))
 	}
 	return names

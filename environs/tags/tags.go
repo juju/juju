@@ -3,7 +3,11 @@
 
 package tags
 
-import "github.com/juju/names/v6"
+import (
+	"maps"
+
+	"github.com/juju/names/v6"
+)
 
 const (
 	// JujuTagPrefix is the prefix for Juju-managed tags.
@@ -59,9 +63,7 @@ func ResourceTags(modelTag names.ModelTag, controllerTag names.ControllerTag, ta
 		if !ok {
 			continue
 		}
-		for k, v := range tags {
-			allTags[k] = v
-		}
+		maps.Copy(allTags, tags)
 	}
 	// Some resources might only be for the controller.
 	if modelTag.Id() != "" {

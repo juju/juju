@@ -22,7 +22,7 @@ func Register(registry facade.FacadeRegistry) {
 			return nil, fmt.Errorf("creating Controller facade v12: %w", err)
 		}
 		return api, nil
-	}, reflect.TypeOf((*ControllerAPIV12)(nil)))
+	}, reflect.TypeFor[*ControllerAPIV12]())
 	// v13 handles requests with a model qualifier instead of a model owner.
 	registry.MustRegisterForMultiModel("Controller", 13, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 		api, err := makeControllerAPIV13(stdCtx, ctx)
@@ -30,14 +30,14 @@ func Register(registry facade.FacadeRegistry) {
 			return nil, fmt.Errorf("creating Controller facade v13: %w", err)
 		}
 		return api, nil
-	}, reflect.TypeOf((*ControllerAPIV13)(nil)))
+	}, reflect.TypeFor[*ControllerAPIV13]())
 	registry.MustRegisterForMultiModel("Controller", 14, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 		api, err := makeControllerAPI(stdCtx, ctx)
 		if err != nil {
 			return nil, fmt.Errorf("creating Controller facade v14: %w", err)
 		}
 		return api, nil
-	}, reflect.TypeOf((*ControllerAPI)(nil)))
+	}, reflect.TypeFor[*ControllerAPI]())
 }
 
 func makeControllerAPIV12(stdCtx context.Context, ctx facade.MultiModelContext) (*ControllerAPIV12, error) {

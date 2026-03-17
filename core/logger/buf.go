@@ -74,10 +74,7 @@ func (b *BufferedLogWriter) Log(in []LogRecord) error {
 
 	for len(in) > 0 {
 		r := cap(b.buf) - len(b.buf)
-		n := len(in)
-		if n > r {
-			n = r
-		}
+		n := min(len(in), r)
 		b.buf = insertSorted(b.buf, in[:n])
 		in = in[n:]
 		if len(b.buf) >= cap(b.buf) {

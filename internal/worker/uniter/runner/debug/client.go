@@ -5,6 +5,7 @@ package debug
 
 import (
 	"encoding/base64"
+	"slices"
 	"strings"
 
 	goyaml "gopkg.in/yaml.v2"
@@ -19,11 +20,8 @@ type hookArgs struct {
 // on the unit system to intercept matching hooks or actions via tmux shell.
 func ClientScript(c *HooksContext, match []string, debugAt string) string {
 	// If any argument is "*", then the client is interested in all.
-	for _, m := range match {
-		if m == "*" {
-			match = nil
-			break
-		}
+	if slices.Contains(match, "*") {
+		match = nil
 	}
 
 	s := strings.Replace(debugHooksClientScript, "{unit_name}", c.Unit, -1)

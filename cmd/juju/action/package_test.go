@@ -6,6 +6,7 @@ package action_test
 import (
 	"context"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/juju/clock"
@@ -183,11 +184,8 @@ func (c *fakeAPIClient) getActionResults(actionIDs []string) []actionapi.ActionR
 			result = append(result, a)
 			continue
 		}
-		for _, ID := range actionIDs {
-			if a.Action.ID == ID {
-				result = append(result, a)
-				break
-			}
+		if slices.Contains(actionIDs, a.Action.ID) {
+			result = append(result, a)
 		}
 	}
 	return result
