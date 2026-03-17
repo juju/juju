@@ -9,10 +9,13 @@ import (
 
 	"github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	coreerrors "github.com/juju/juju/core/errors"
 	coreresource "github.com/juju/juju/core/resource"
 	coreresourcestore "github.com/juju/juju/core/resource/store"
 	"github.com/juju/juju/domain/application/charm"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
+	resourceerrors "github.com/juju/juju/domain/resource/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // StateType indicates if a resource is available to be used on the
@@ -69,6 +72,25 @@ type StoreResourceArgs struct {
 	Size int64
 	// Fingerprint is the hash of the resource blob.
 	Fingerprint charmresource.Fingerprint
+}
+
+func (a StoreResourceArgs) Validate() error {
+	if err := a.ResourceUUID.Validate(); err != nil {
+		return errors.Errorf("resource uuid: %w", err)
+	}
+	if a.Reader == nil {
+		return errors.Errorf("nil reader not valid").Add(coreerrors.NotValid)
+	}
+	if a.Size < 0 {
+		return errors.Errorf("size %d not valid", a.Size).Add(coreerrors.NotValid)
+	}
+	if a.Fingerprint.IsZero() {
+		return errors.Errorf("fingerprint not valid").Add(coreerrors.NotValid)
+	}
+	if a.RetrievedBy != "" && a.RetrievedByType == coreresource.Unknown {
+		return resourceerrors.RetrievedByTypeNotValid
+	}
+	return nil
 }
 
 // RecordStoredResourceArgs holds the arguments for record stored resource state

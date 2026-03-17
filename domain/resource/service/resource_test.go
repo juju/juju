@@ -290,14 +290,8 @@ func (s *resourceServiceSuite) TestStoreResource(c *tc.C) {
 	retrievedByType := coreresource.User
 
 	storageID := storetesting.GenFileResourceStoreID(c, objectstoretesting.GenObjectStoreUUID(c))
-	s.state.EXPECT().GetResource(gomock.Any(), resourceUUID).Return(
-		coreresource.Resource{
-			Resource: charmresource.Resource{
-				Meta: charmresource.Meta{
-					Type: resourceType,
-				},
-			},
-		}, nil,
+	s.state.EXPECT().GetResourceNameAndType(gomock.Any(), resourceUUID).Return(
+		"", resourceType, nil,
 	)
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
 	s.resourceStore.EXPECT().Put(
@@ -348,14 +342,8 @@ func (s *resourceServiceSuite) TestStoreResourceRemovedOnRecordError(c *tc.C) {
 	retrievedByType := coreresource.User
 
 	storageID := storetesting.GenFileResourceStoreID(c, objectstoretesting.GenObjectStoreUUID(c))
-	s.state.EXPECT().GetResource(gomock.Any(), resourceUUID).Return(
-		coreresource.Resource{
-			Resource: charmresource.Resource{
-				Meta: charmresource.Meta{
-					Type: resourceType,
-				},
-			},
-		}, nil,
+	s.state.EXPECT().GetResourceNameAndType(gomock.Any(), resourceUUID).Return(
+		"", resourceType, nil,
 	)
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
 	s.resourceStore.EXPECT().Put(
@@ -406,15 +394,8 @@ func (s *resourceServiceSuite) TestStoreResourceDoesNotStoreIdenticalBlobContain
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.state.EXPECT().GetResource(gomock.Any(), resourceUUID).Return(
-		coreresource.Resource{
-			Resource: charmresource.Resource{
-				Meta: charmresource.Meta{
-					Type: charmresource.TypeContainerImage,
-				},
-				Fingerprint: fp,
-			},
-		}, nil,
+	s.state.EXPECT().GetResourceNameAndType(gomock.Any(), resourceUUID).Return(
+		"", charmresource.TypeContainerImage, nil,
 	)
 
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), charmresource.TypeContainerImage).Return(s.resourceStore, nil)
@@ -450,15 +431,8 @@ func (s *resourceServiceSuite) TestStoreResourceDoesNotStoreIdenticalBlobFile(c 
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.state.EXPECT().GetResource(gomock.Any(), resourceUUID).Return(
-		coreresource.Resource{
-			Resource: charmresource.Resource{
-				Meta: charmresource.Meta{
-					Type: charmresource.TypeFile,
-				},
-				Fingerprint: fp,
-			},
-		}, nil,
+	s.state.EXPECT().GetResourceNameAndType(gomock.Any(), resourceUUID).Return(
+		"", charmresource.TypeFile, nil,
 	)
 
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), charmresource.TypeFile).Return(s.resourceStore, nil)
@@ -507,7 +481,7 @@ func (s *resourceServiceSuite) TestStoreResourceNilReader(c *tc.C) {
 			Reader:       nil,
 		},
 	)
-	c.Assert(err, tc.ErrorMatches, "cannot have nil reader")
+	c.Assert(err, tc.ErrorMatches, "nil reader not valid")
 }
 
 func (s *resourceServiceSuite) TestStoreResourceNegativeSize(c *tc.C) {
@@ -521,7 +495,7 @@ func (s *resourceServiceSuite) TestStoreResourceNegativeSize(c *tc.C) {
 			Size:         -1,
 		},
 	)
-	c.Assert(err, tc.ErrorMatches, "invalid size: -1")
+	c.Assert(err, tc.ErrorMatches, "size -1 not valid")
 }
 
 func (s *resourceServiceSuite) TestStoreResourceZeroFingerprint(c *tc.C) {
@@ -535,7 +509,7 @@ func (s *resourceServiceSuite) TestStoreResourceZeroFingerprint(c *tc.C) {
 			Fingerprint:  charmresource.Fingerprint{},
 		},
 	)
-	c.Assert(err, tc.ErrorMatches, "invalid fingerprint")
+	c.Assert(err, tc.ErrorMatches, "fingerprint not valid")
 }
 
 func (s *resourceServiceSuite) TestStoreResourceBadRetrievedBy(c *tc.C) {
@@ -612,14 +586,9 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 	retrievedByType := coreresource.User
 
 	storageID := storetesting.GenFileResourceStoreID(c, objectstoretesting.GenObjectStoreUUID(c))
-	s.state.EXPECT().GetResource(gomock.Any(), resourceUUID).Return(
-		coreresource.Resource{
-			Resource: charmresource.Resource{
-				Meta: charmresource.Meta{
-					Type: resourceType,
-				},
-			},
-		}, nil,
+	s.state.EXPECT().VerifyApplicationExistsForResource(gomock.Any(), resourceUUID).Return(nil)
+	s.state.EXPECT().GetResourceNameAndType(gomock.Any(), resourceUUID).Return(
+		"", resourceType, nil,
 	)
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
 	s.resourceStore.EXPECT().Put(
@@ -676,7 +645,7 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 			Reader:       nil,
 		},
 	)
-	c.Assert(err, tc.ErrorMatches, "cannot have nil reader")
+	c.Assert(err, tc.ErrorMatches, "nil reader not valid")
 }
 
 func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersionNegativeSize(c *tc.C) {
@@ -690,7 +659,7 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 			Size:         -1,
 		},
 	)
-	c.Assert(err, tc.ErrorMatches, "invalid size: -1")
+	c.Assert(err, tc.ErrorMatches, "size -1 not valid")
 }
 
 func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersionZeroFingerprint(c *tc.C) {
@@ -704,7 +673,7 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 			Fingerprint:  charmresource.Fingerprint{},
 		},
 	)
-	c.Assert(err, tc.ErrorMatches, "invalid fingerprint")
+	c.Assert(err, tc.ErrorMatches, "fingerprint not valid")
 }
 
 func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersionBadRetrievedBy(c *tc.C) {
