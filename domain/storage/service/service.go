@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	domainstorage "github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/domain/storage/internal"
 	"github.com/juju/juju/internal/errors"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
@@ -48,6 +49,11 @@ type State interface {
 		context.Context,
 		domainstorage.StorageInstanceUUID,
 	) ([]domainstorage.StorageAttachmentUUID, error)
+
+	// GetStorageInstanceInfo
+	GetStorageInstanceInfo(
+		context.Context, domainstorage.StorageInstanceUUID,
+	) (internal.StorageInstanceInfo, error)
 
 	// GetStorageInstanceUUIDByID retrieves the UUID of a storage instance by
 	// its ID.

@@ -66,7 +66,7 @@ func (m *machineSuite) TestCheckMachinesUUIDDoesNotExist(c *tc.C) {
 // and one or more of the uuids does not exist in the model.
 func (m *machineSuite) TestCheckMachinesUUIDDoesNotExistWithOtherExisting(c *tc.C) {
 	machineNotFoundUUID := tc.Must(c, coremachine.NewUUID)
-	machine1UUID := m.newMachine(c)
+	machine1UUID, _ := m.newMachine(c)
 
 	var exists bool
 	err := m.TxnRunner().Txn(
@@ -87,9 +87,9 @@ func (m *machineSuite) TestCheckMachinesUUIDDoesNotExistWithOtherExisting(c *tc.
 
 // TestCheckMachinesExist is a happy path test of [checkMachinesExist].
 func (m *machineSuite) TestCheckMachinesExist(c *tc.C) {
-	machine1UUID := m.newMachine(c)
-	machine2UUID := m.newMachine(c)
-	machine3UUID := m.newMachine(c)
+	machine1UUID, _ := m.newMachine(c)
+	machine2UUID, _ := m.newMachine(c)
+	machine3UUID, _ := m.newMachine(c)
 
 	var exists bool
 	err := m.TxnRunner().Txn(
