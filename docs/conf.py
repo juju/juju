@@ -294,6 +294,7 @@ extensions = [
     "sphinx_config_options",
     "sphinx_contributor_listing",
     "sphinx_filtered_toctree",
+    "sphinx_llm.txt",
     "sphinx_related_links",
     "sphinx_roles",
     "sphinx_terminal",

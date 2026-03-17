@@ -371,7 +371,7 @@ snaps for focal or later. The value is ignored for older releases.
 
 **Type:** string
 
-**Default value:** 4.4/stable
+**Default value:** 4.4.30/stable
 
 **Can be changed after bootstrap:** no
 
