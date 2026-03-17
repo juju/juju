@@ -69,7 +69,18 @@ type State interface {
 	ListResources(ctx context.Context, applicationID coreapplication.UUID) (coreresource.ApplicationResources, error)
 
 	// GetResource returns the identified resource.
+	//
+	// The following error types can be expected to be returned:
+	//   - [resourceerrors.ResourceNotFound] if no resource is found.
 	GetResource(ctx context.Context, resourceUUID coreresource.UUID) (coreresource.Resource, error)
+
+	// GetResourceMaybeApplication returns the identified resource without
+	// requiring it is linked to an application. The application name will
+	// be included if available.
+	//
+	// The following error types can be expected to be returned:
+	//   - [resourceerrors.ResourceNotFound] if no resource is found.
+	GetResourceMaybeApplication(ctx context.Context, resourceUUID coreresource.UUID) (coreresource.Resource, error)
 
 	// GetResourceNameAndType returns the name and resource type for the given
 	// resource UUID.
@@ -360,7 +371,8 @@ func (s *Service) GetResource(
 }
 
 // StoreResource adds the application resource to blob storage and updates the
-// metadata. It also sets the retrieval information for the resource.
+// metadata. It also sets the retrieval information for the resource. The
+// identified resource is returned.
 //
 // The Size and Fingerprint should be validated against the resource blob before
 // the resource is passed in.
@@ -375,18 +387,23 @@ func (s *Service) GetResource(
 func (s *Service) StoreResource(
 	ctx context.Context,
 	args resource.StoreResourceArgs,
-) error {
+) (coreresource.Resource, error) {
 	if err := args.Validate(); err != nil {
-		return errors.Capture(err)
+		return coreresource.Resource{}, errors.Capture(err)
 	}
 
-	return s.storeResource(ctx, args, false)
+	err := s.storeResource(ctx, args, false)
+	if err != nil {
+		return coreresource.Resource{}, err
+	}
+
+	return s.st.GetResourceMaybeApplication(ctx, args.ResourceUUID)
 }
 
 // StoreResourceAndIncrementCharmModifiedVersion adds the application resource
 // to blob storage and updates the metadata. It sets the retrival information
 // for the resource and also increments the charm modified version for the
-// resources' application.
+// resources' application. The identified resource is returned.
 //
 // The Size and Fingerprint should be validated against the resource blob before
 // the resource is passed in.
@@ -404,16 +421,21 @@ func (s *Service) StoreResource(
 func (s *Service) StoreResourceAndIncrementCharmModifiedVersion(
 	ctx context.Context,
 	args resource.StoreResourceArgs,
-) error {
+) (coreresource.Resource, error) {
 	if err := args.Validate(); err != nil {
-		return errors.Capture(err)
+		return coreresource.Resource{}, errors.Capture(err)
 	}
 
 	if err := s.st.VerifyApplicationExistsForResource(ctx, args.ResourceUUID); err != nil {
-		return errors.Errorf("application not found: %w", err)
+		return coreresource.Resource{}, errors.Errorf("application not found: %w", err)
 	}
 
-	return s.storeResource(ctx, args, true)
+	err := s.storeResource(ctx, args, true)
+	if err != nil {
+		return coreresource.Resource{}, err
+	}
+
+	return s.st.GetResource(ctx, args.ResourceUUID)
 }
 
 func (s *Service) storeResource(

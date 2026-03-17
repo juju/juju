@@ -277,6 +277,7 @@ var fingerprint = []byte("123456789012345678901234567890123456789012345678")
 func (s *resourceServiceSuite) TestStoreResource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	// Arrange
 	resourceUUID := resourcetesting.GenResourceUUID(c)
 	resourceType := charmresource.TypeFile
 
@@ -311,8 +312,20 @@ func (s *resourceServiceSuite) TestStoreResource(c *tc.C) {
 		Size:                          size,
 		SHA384:                        fp.String(),
 	})
+	expectedRes := coreresource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:        "resource-name",
+				Path:        "/path/to/resource",
+				Description: "this is a test resource",
+				Type:        charmresource.TypeFile,
+			},
+		},
+	}
+	s.state.EXPECT().GetResourceMaybeApplication(gomock.Any(), resourceUUID).Return(expectedRes, nil)
 
-	err = s.service.StoreResource(
+	// Act
+	res, err := s.service.StoreResource(
 		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID:    resourceUUID,
@@ -323,7 +336,10 @@ func (s *resourceServiceSuite) TestStoreResource(c *tc.C) {
 			Fingerprint:     fp,
 		},
 	)
+
+	// Assert
 	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, expectedRes)
 }
 
 func (s *resourceServiceSuite) TestStoreResourceRemovedOnRecordError(c *tc.C) {
@@ -370,7 +386,7 @@ func (s *resourceServiceSuite) TestStoreResourceRemovedOnRecordError(c *tc.C) {
 	// Expect the removal of the resource.
 	s.resourceStore.EXPECT().Remove(gomock.Any(), resourceUUID.String())
 
-	err = s.service.StoreResource(
+	_, err = s.service.StoreResource(
 		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID:    resourceUUID,
@@ -409,7 +425,7 @@ func (s *resourceServiceSuite) TestStoreResourceDoesNotStoreIdenticalBlobContain
 		containerimageresourcestoreerrors.ContainerImageMetadataAlreadyStored)
 
 	// Act:
-	err = s.service.StoreResource(
+	_, err = s.service.StoreResource(
 		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID: resourceUUID,
@@ -446,7 +462,7 @@ func (s *resourceServiceSuite) TestStoreResourceDoesNotStoreIdenticalBlobFile(c 
 		objectstoreerrors.ObjectAlreadyExists)
 
 	// Act:
-	err = s.service.StoreResource(
+	_, err = s.service.StoreResource(
 		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID: resourceUUID,
@@ -462,7 +478,7 @@ func (s *resourceServiceSuite) TestStoreResourceDoesNotStoreIdenticalBlobFile(c 
 func (s *resourceServiceSuite) TestStoreResourceBadUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.service.StoreResource(
+	_, err := s.service.StoreResource(
 		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID: "bad-uuid",
@@ -474,7 +490,7 @@ func (s *resourceServiceSuite) TestStoreResourceBadUUID(c *tc.C) {
 func (s *resourceServiceSuite) TestStoreResourceNilReader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.service.StoreResource(
+	_, err := s.service.StoreResource(
 		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID: resourcetesting.GenResourceUUID(c),
@@ -487,7 +503,7 @@ func (s *resourceServiceSuite) TestStoreResourceNilReader(c *tc.C) {
 func (s *resourceServiceSuite) TestStoreResourceNegativeSize(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.service.StoreResource(
+	_, err := s.service.StoreResource(
 		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID: resourcetesting.GenResourceUUID(c),
@@ -501,7 +517,7 @@ func (s *resourceServiceSuite) TestStoreResourceNegativeSize(c *tc.C) {
 func (s *resourceServiceSuite) TestStoreResourceZeroFingerprint(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.service.StoreResource(
+	_, err := s.service.StoreResource(
 		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID: resourcetesting.GenResourceUUID(c),
@@ -517,7 +533,7 @@ func (s *resourceServiceSuite) TestStoreResourceBadRetrievedBy(c *tc.C) {
 
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.service.StoreResource(
+	_, err = s.service.StoreResource(
 		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID:    resourcetesting.GenResourceUUID(c),
@@ -537,7 +553,7 @@ func (s *resourceServiceSuite) TestStoreResourceRevisionNotValidOriginUpload(c *
 
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.service.StoreResource(
+	_, err = s.service.StoreResource(
 		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID:    resourcetesting.GenResourceUUID(c),
@@ -557,7 +573,7 @@ func (s *resourceServiceSuite) TestStoreResourceRevisionNotValidOriginStore(c *t
 
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.service.StoreResource(
+	_, err = s.service.StoreResource(
 		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID:    resourcetesting.GenResourceUUID(c),
@@ -608,8 +624,19 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 		Size:                          size,
 		SHA384:                        fp.String(),
 	})
+	expectedRes := coreresource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:        "resource-name",
+				Path:        "/path/to/resource",
+				Description: "this is a test resource",
+				Type:        charmresource.TypeFile,
+			},
+		},
+	}
+	s.state.EXPECT().GetResource(gomock.Any(), resourceUUID).Return(expectedRes, nil)
 
-	err = s.service.StoreResourceAndIncrementCharmModifiedVersion(
+	res, err := s.service.StoreResourceAndIncrementCharmModifiedVersion(
 		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID:    resourceUUID,
@@ -621,12 +648,13 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, expectedRes)
 }
 
 func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersionBadUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.service.StoreResourceAndIncrementCharmModifiedVersion(
+	_, err := s.service.StoreResourceAndIncrementCharmModifiedVersion(
 		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID: "bad-uuid",
@@ -638,7 +666,7 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersionNilReader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.service.StoreResourceAndIncrementCharmModifiedVersion(
+	_, err := s.service.StoreResourceAndIncrementCharmModifiedVersion(
 		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID: resourcetesting.GenResourceUUID(c),
@@ -651,7 +679,7 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersionNegativeSize(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.service.StoreResourceAndIncrementCharmModifiedVersion(
+	_, err := s.service.StoreResourceAndIncrementCharmModifiedVersion(
 		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID: resourcetesting.GenResourceUUID(c),
@@ -665,7 +693,7 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersionZeroFingerprint(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.service.StoreResourceAndIncrementCharmModifiedVersion(
+	_, err := s.service.StoreResourceAndIncrementCharmModifiedVersion(
 		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID: resourcetesting.GenResourceUUID(c),
@@ -681,7 +709,7 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.service.StoreResourceAndIncrementCharmModifiedVersion(
+	_, err = s.service.StoreResourceAndIncrementCharmModifiedVersion(
 		c.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID:    resourcetesting.GenResourceUUID(c),

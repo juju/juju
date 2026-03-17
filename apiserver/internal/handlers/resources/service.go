@@ -24,7 +24,10 @@ type ResourceService interface {
 	//     exist.
 	//   - [resourceerrors.ApplicationNotFound] if the specified application
 	//     does not exist.
-	GetResourceUUIDByApplicationAndResourceName(ctx context.Context, appName string, resName string) (coreresource.UUID, error)
+	GetResourceUUIDByApplicationAndResourceName(
+		ctx context.Context,
+		appName, resName string,
+	) (coreresource.UUID, error)
 
 	// GetResource returns the identified application resource.
 	// The following error types can be expected to be returned:
@@ -41,17 +44,24 @@ type ResourceService interface {
 	OpenResource(ctx context.Context, resourceUUID coreresource.UUID) (coreresource.Resource, io.ReadCloser, error)
 
 	// StoreResource adds the application resource to blob storage and updates
-	// the metadata. It also sets the retrival information for the resource.
-	StoreResource(ctx context.Context, args resource.StoreResourceArgs) error
+	// the metadata. It also sets the retrieval information for the resource.
+	// Returns the updated resource.
+	StoreResource(ctx context.Context, args resource.StoreResourceArgs) (coreresource.Resource, error)
 
 	// StoreResourceAndIncrementCharmModifiedVersion adds the application
 	// resource to blob storage and updates the metadata. It also sets the
-	// retrieval information for the resource.
-	StoreResourceAndIncrementCharmModifiedVersion(ctx context.Context, args resource.StoreResourceArgs) error
+	// retrieval information for the resource. Returns the updated resource.
+	StoreResourceAndIncrementCharmModifiedVersion(
+		ctx context.Context,
+		args resource.StoreResourceArgs,
+	) (coreresource.Resource, error)
 
 	// GetApplicationResourceID returns the ID of the application resource
 	// specified by the application and resource name.
-	GetApplicationResourceID(ctx context.Context, args resource.GetApplicationResourceIDArgs) (coreresource.UUID, error)
+	GetApplicationResourceID(
+		ctx context.Context,
+		args resource.GetApplicationResourceIDArgs,
+	) (coreresource.UUID, error)
 
 	// SetUnitResource records that the unit is using the resource.
 	SetUnitResource(ctx context.Context, resourceUUID coreresource.UUID, unitUUID coreunit.UUID) error

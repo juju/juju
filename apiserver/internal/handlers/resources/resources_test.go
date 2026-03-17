@@ -325,6 +325,11 @@ func (s *ResourcesHandlerSuite) TestPutSuccessAttachResource(c *tc.C) {
 		s.resource.Size,
 	).Return(s.resourceReader, nil)
 
+	// The call to StoreResourceAndIncrementCharmModifiedVersion includes
+	// resource details after upload.
+	expectedResource := s.resource
+	expectedResource.Origin = charmresource.OriginUpload
+	expectedResource.Revision = -1
 	s.resourceService.EXPECT().StoreResourceAndIncrementCharmModifiedVersion(gomock.Any(), domainresource.StoreResourceArgs{
 		ResourceUUID:    newResourceUUID,
 		Reader:          s.resourceReader,
@@ -332,15 +337,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccessAttachResource(c *tc.C) {
 		RetrievedByType: coreresource.User,
 		Size:            s.resource.Size,
 		Fingerprint:     s.resource.Fingerprint,
-	})
-
-	// Second call to GetResource gets resource details after upload.
-	expectedResource := s.resource
-	expectedResource.Origin = charmresource.OriginUpload
-	expectedResource.Revision = -1
-	s.resourceService.EXPECT().GetResource(gomock.Any(), newResourceUUID).Return(
-		expectedResource, nil,
-	)
+	}).Return(expectedResource, nil)
 
 	req := s.newUploadRequest(c)
 
@@ -381,6 +378,11 @@ func (s *ResourcesHandlerSuite) TestPutSuccessForApplicationNotFound(c *tc.C) {
 		s.resource.Size,
 	).Return(s.resourceReader, nil)
 
+	// The call to StoreResourceAndIncrementCharmModifiedVersion includes
+	// resource details after upload.
+	expectedResource := s.resource
+	expectedResource.Origin = charmresource.OriginUpload
+	expectedResource.Revision = -1
 	s.resourceService.EXPECT().StoreResourceAndIncrementCharmModifiedVersion(gomock.Any(), domainresource.StoreResourceArgs{
 		ResourceUUID:    newResourceUUID,
 		Reader:          s.resourceReader,
@@ -388,15 +390,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccessForApplicationNotFound(c *tc.C) {
 		RetrievedByType: coreresource.User,
 		Size:            s.resource.Size,
 		Fingerprint:     s.resource.Fingerprint,
-	})
-
-	// Second call to GetResource gets resource details after upload.
-	expectedResource := s.resource
-	expectedResource.Origin = charmresource.OriginUpload
-	expectedResource.Revision = -1
-	s.resourceService.EXPECT().GetResource(gomock.Any(), newResourceUUID).Return(
-		expectedResource, nil,
-	)
+	}).Return(expectedResource, nil)
 
 	req := s.newUploadRequest(c)
 
@@ -477,6 +471,11 @@ func (s *ResourcesHandlerSuite) TestPutSuccessDockerResource(c *tc.C) {
 		s.resource.Size,
 	).Return(s.resourceReader, nil)
 
+	// The call to StoreResourceAndIncrementCharmModifiedVersion includes
+	// resource details after upload.
+	expectedResource := res
+	expectedResource.Origin = charmresource.OriginUpload
+	expectedResource.Revision = -1
 	s.resourceService.EXPECT().StoreResourceAndIncrementCharmModifiedVersion(gomock.Any(), domainresource.StoreResourceArgs{
 		ResourceUUID:    newResourceUUID,
 		Reader:          s.resourceReader,
@@ -484,15 +483,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccessDockerResource(c *tc.C) {
 		RetrievedByType: coreresource.User,
 		Size:            s.resource.Size,
 		Fingerprint:     s.resource.Fingerprint,
-	})
-
-	// Second call to GetResource gets resource details after upload.
-	expectedResource := res
-	expectedResource.Origin = charmresource.OriginUpload
-	expectedResource.Revision = -1
-	s.resourceService.EXPECT().GetResource(gomock.Any(), newResourceUUID).Return(
-		expectedResource, nil,
-	)
+	}).Return(expectedResource, nil)
 
 	// Act:
 	s.serveHTTP(req)
@@ -598,6 +589,10 @@ func (s *ResourcesHandlerSuite) TestPutWithPending(c *tc.C) {
 		s.resource.Size,
 	).Return(s.resourceReader, nil)
 
+	// The call to StoreResource includes resource details after upload.
+	expectedResource := s.resource
+	expectedResource.Origin = charmresource.OriginUpload
+	expectedResource.Revision = -1
 	s.resourceService.EXPECT().StoreResource(gomock.Any(), domainresource.StoreResourceArgs{
 		ResourceUUID:    s.resourceUUID,
 		Reader:          s.resourceReader,
@@ -605,15 +600,7 @@ func (s *ResourcesHandlerSuite) TestPutWithPending(c *tc.C) {
 		RetrievedByType: coreresource.User,
 		Size:            s.resource.Size,
 		Fingerprint:     s.resource.Fingerprint,
-	})
-
-	// Second call to GetResource gets resource details after upload.
-	expectedResource := s.resource
-	expectedResource.Origin = charmresource.OriginUpload
-	expectedResource.Revision = -1
-	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(
-		expectedResource, nil,
-	)
+	}).Return(expectedResource, nil)
 
 	// Act:
 	s.serveHTTP(req)
