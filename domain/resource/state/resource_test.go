@@ -668,10 +668,10 @@ func (s *resourceSuite) TestGetResource(c *tc.C) {
 	c.Assert(obtained, tc.DeepEquals, expected, tc.Commentf("(Assert) resource different than expected"))
 }
 
-// TestGetResourcePending verifies the successful retrieval of a resource
+// TestGetResourceMaybeApplication verifies the successful retrieval of a resource
 // from the database by its ID, even if the application does not yet exist.
-// Required to add a pending resource.
-func (s *resourceSuite) TestGetResourcePending(c *tc.C) {
+// Required when adding a pending resource.
+func (s *resourceSuite) TestGetResourceMaybeApplication(c *tc.C) {
 	// Arrange : a simple resource
 	resID := coreresource.UUID("resource-id")
 	now := time.Now().Truncate(time.Second).UTC()
@@ -706,11 +706,25 @@ func (s *resourceSuite) TestGetResourcePending(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	obtained, err := s.state.GetResource(c.Context(), resID)
+	obtained, err := s.state.GetResourceMaybeApplication(c.Context(), resID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert
 	c.Assert(obtained, tc.DeepEquals, expected)
+}
+
+// TestGetResourceMaybeApplication verifies the successful retrieval of a resource
+// from the database by its ID, even if the application does not yet exist.
+// Required when adding a pending resource.
+func (s *resourceSuite) TestGetResourceMaybeApplicationNotFound(c *tc.C) {
+	// Arrange : a simple resource
+	resID := coreresource.UUID("resource-id")
+
+	// Act
+	_, err := s.state.GetResourceMaybeApplication(c.Context(), resID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNotFound)
 }
 
 func (s *resourceSuite) TestGetResourceWithStoredFile(c *tc.C) {

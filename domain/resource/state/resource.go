@@ -558,8 +558,10 @@ AND state = 'available'`
 //
 // The following error types can be expected to be returned:
 //   - [resourceerrors.ResourceNotFound] if no such resource exists.
-func (st *State) GetResource(ctx context.Context,
-	resourceUUID coreresource.UUID) (coreresource.Resource, error) {
+func (st *State) GetResource(
+	ctx context.Context,
+	resourceUUID coreresource.UUID,
+) (coreresource.Resource, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return coreresource.Resource{}, errors.Capture(err)
@@ -573,6 +575,55 @@ func (st *State) GetResource(ctx context.Context,
 SELECT &resourceView.*
 FROM v_application_resource
 WHERE uuid = $resourceIdentity.uuid`,
+		resourceParam, resourceOutput)
+	if err != nil {
+		return coreresource.Resource{}, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, resourceParam).Get(&resourceOutput)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return resourceerrors.ResourceNotFound
+		}
+
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return coreresource.Resource{}, errors.Capture(err)
+	}
+
+	return resourceOutput.toResource()
+}
+
+// GetResourceMaybeApplication returns the identified resource without
+// requiring it is linked to an application. The application name will
+// be included if available.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.ResourceNotFound] if no resource is found.
+func (st *State) GetResourceMaybeApplication(
+	ctx context.Context,
+	resourceUUID coreresource.UUID,
+) (coreresource.Resource, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return coreresource.Resource{}, errors.Capture(err)
+	}
+	resourceParam := resourceIdentity{
+		UUID: resourceUUID.String(),
+	}
+	resourceOutput := resourceView{}
+
+	stmt, err := st.Prepare(`
+SELECT ( r.uuid, r.name, r.created_at, r.revision, r.origin_type,
+    r.state, r.retrieved_by, r.path, r.description, r.kind_name,
+    r.size, r.sha384) AS (&resourceView.*),
+    a.name AS &resourceView.application_name
+FROM v_resource AS r
+LEFT JOIN application_resource AS ar ON r.uuid = ar.resource_uuid
+LEFT JOIN application AS a ON ar.application_uuid = a.uuid
+WHERE r.uuid = $resourceIdentity.uuid
+`,
 		resourceParam, resourceOutput)
 	if err != nil {
 		return coreresource.Resource{}, errors.Capture(err)
@@ -2586,13 +2637,10 @@ WHERE  r.uuid = $localUUID.uuid
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		queryErr := tx.Query(ctx, stmt, res).Get(&output)
 		if errors.Is(queryErr, sqlair.ErrNoRows) {
-			st.logger.Criticalf(ctx, "resource %q not found", resourceUUID)
 			return resourceerrors.ResourceNotFound
 		} else if queryErr != nil {
-			st.logger.Criticalf(ctx, "resource : %w", err)
 			return queryErr
 		}
-		st.logger.Debugf(ctx, "resource %+v found", output)
 		return nil
 	})
 	if err != nil {
