@@ -159,43 +159,28 @@ type Tomb interface {
 	ErrDying() error
 }
 
-func appConfig(appName string, app caas.Application, password string,
-	facade CAASProvisionerFacade, clk clock.Clock) (
-	caas.ApplicationConfig, caas.DeploymentState, error,
+func appConfig(appName string, password string, facade CAASProvisionerFacade) (
+	caas.ApplicationConfig, error,
 ) {
 	emptyCfg := caas.ApplicationConfig{}
-	emptyState := caas.DeploymentState{}
 
 	provisionInfo, err := facade.ProvisioningInfo(appName)
 	if err != nil {
-		return emptyCfg, emptyState,
-			errors.Annotate(err, "retrieving provisioning info")
+		return emptyCfg, errors.Annotate(err, "retrieving provisioning info")
 	}
 
 	if provisionInfo.CharmURL == nil {
-		return emptyCfg, emptyState,
-			errors.Errorf("missing charm url in provision info")
+		return emptyCfg, errors.Errorf("missing charm url in provision info")
 	}
 
 	charmInfo, err := facade.CharmInfo(provisionInfo.CharmURL.String())
 	if err != nil {
-		return emptyCfg, emptyState, errors.Annotatef(err, "retrieving charm deployment info for %q", appName)
-	}
-
-	appState, err := app.Exists()
-	if err != nil {
-		return emptyCfg, emptyState, errors.Annotatef(err, "retrieving application state for %q", appName)
-	}
-
-	if appState.Exists && appState.Terminating {
-		if err := waitForTerminated(appName, app, clk); err != nil {
-			return emptyCfg, emptyState, errors.Annotatef(err, "%q was terminating and there was an error waiting for it to stop", appName)
-		}
+		return emptyCfg, errors.Annotatef(err, "retrieving charm deployment info for %q", appName)
 	}
 
 	images, err := facade.ApplicationOCIResources(appName)
 	if err != nil {
-		return emptyCfg, emptyState, errors.Annotate(err, "getting OCI image resources")
+		return emptyCfg, errors.Annotate(err, "getting OCI image resources")
 	}
 
 	ch := charmInfo.Charm()
@@ -207,7 +192,7 @@ func appConfig(appName string, app caas.Application, password string,
 		},
 	})
 	if err != nil {
-		return emptyCfg, emptyState, errors.Annotate(err, "getting image for base")
+		return emptyCfg, errors.Annotate(err, "getting image for base")
 	}
 
 	containers := make(map[string]caas.ContainerConfig)
@@ -218,11 +203,11 @@ func appConfig(appName string, app caas.Application, password string,
 			Gid:  v.Gid,
 		}
 		if v.Resource == "" {
-			return emptyCfg, emptyState, errors.NotValidf("empty container resource reference")
+			return emptyCfg, errors.NotValidf("empty container resource reference")
 		}
 		image, ok := images[v.Resource]
 		if !ok {
-			return emptyCfg, emptyState, errors.NotFoundf("referenced charm base image resource %s", v.Resource)
+			return emptyCfg, errors.NotFoundf("referenced charm base image resource %s", v.Resource)
 		}
 		container.Image = image
 		for _, m := range v.Mounts {
@@ -263,9 +248,25 @@ func appConfig(appName string, app caas.Application, password string,
 	case charm.RunAsNonRoot:
 		config.CharmUser = caas.RunAsNonRoot
 	default:
-		return emptyCfg, emptyState, errors.NotValidf("unknown RunAs for CharmUser: %q", ch.Meta().CharmUser)
+		return emptyCfg, errors.NotValidf("unknown RunAs for CharmUser: %q", ch.Meta().CharmUser)
 	}
-	return config, appState, nil
+	return config, nil
+}
+
+func appState(appName string, app caas.Application, clk clock.Clock) (caas.DeploymentState, error) {
+	state, err := app.Exists()
+	if err != nil {
+		return caas.DeploymentState{},
+			errors.Annotatef(err, "retrieving application state for %q", appName)
+	}
+
+	if state.Exists && state.Terminating {
+		if err := waitForTerminated(appName, app, clk); err != nil {
+			return caas.DeploymentState{},
+				errors.Annotatef(err, "%q was terminating and there was an error waiting for it to stop", appName)
+		}
+	}
+	return state, nil
 }
 
 // appAlive handles the life.Alive state for the CAAS application. It handles invoking the
@@ -274,7 +275,11 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 	facade CAASProvisionerFacade, clk clock.Clock, logger Logger) error {
 	logger.Debugf("ensuring application %q exists", appName)
 
-	config, appState, err := appConfig(appName, app, password, facade, clk)
+	state, err := appState(appName, app, clk)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	config, err := appConfig(appName, password, facade)
 	if err != nil {
 		return errors.Annotatef(err, "building app %q config", appName)
 	}
@@ -287,7 +292,7 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		}
 		*lastApplied = config
 		reason = "deployed"
-		if appState.Exists {
+		if state.Exists {
 			reason = "updated"
 		}
 	}
@@ -841,8 +846,7 @@ func ensureStorage(appName string, app caas.Application, password string,
 		ps = &params.CAASApplicationProvisioningState{}
 	}
 
-	config, _, err := appConfig(appName, app, password, facade,
-		clk)
+	config, err := appConfig(appName, password, facade)
 	if err != nil {
 		return errors.Annotatef(err, "creating app config %q", appName)
 	}

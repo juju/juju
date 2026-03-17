@@ -919,10 +919,10 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 		CharmUser:    caas.RunAsDefault,
 	}
 	gomock.InOrder(
-		facade.EXPECT().ProvisioningInfo("test").Return(pi, nil),
-		facade.EXPECT().CharmInfo("ch:my-app").Return(&charmInfo, nil),
 		app.EXPECT().Exists().Return(ds, nil),
 		app.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
+		facade.EXPECT().ProvisioningInfo("test").Return(pi, nil),
+		facade.EXPECT().CharmInfo("ch:my-app").Return(&charmInfo, nil),
 		facade.EXPECT().ApplicationOCIResources("test").Return(oci, nil),
 		app.EXPECT().Ensure(gomock.Any()).DoAndReturn(func(config caas.ApplicationConfig) error {
 			c.Check(config, gc.DeepEquals, ensureParams)
@@ -1108,9 +1108,6 @@ func (s *OpsSuite) TestEnsureStorage(c *gc.C) {
 	facade.EXPECT().ProvisioningState("test").Return(&ps, nil)
 	facade.EXPECT().ProvisioningInfo("test").Return(pi, nil)
 	facade.EXPECT().CharmInfo("ch:my-app").Return(&charmInfo, nil)
-	app.EXPECT().Exists().Return(caas.DeploymentState{
-		Exists: true,
-	}, nil)
 	facade.EXPECT().ApplicationOCIResources("test").Return(oci, nil)
 	facade.EXPECT().SetProvisioningState("test", params.CAASApplicationProvisioningState{
 		ScaleTarget:      ps.ScaleTarget,
