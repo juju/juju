@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/names/v6"
 )
 
 type unitServiceSuite struct {
@@ -628,4 +629,204 @@ func (s *unitServiceSuite) TestGetAllUnitCloudContainerIDsForApplicationInvalidA
 	appID := coreapplication.UUID("$")
 	_, err := s.service.GetAllUnitCloudContainerIDsForApplication(c.Context(), appID)
 	c.Assert(err, tc.NotNil)
+}
+
+func (s *unitServiceSuite) TestGetIAASUnitContext(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/666")
+	subordinateUnit := coreunit.Name("logging/0")
+	stateResult := application.IAASUnitContext{
+		APIAddresses: []string{"10.0.0.1", "10.0.0.2"},
+		LegacyProxySettings: application.ProxySettings{
+			HTTP:    "http://proxy:3128",
+			HTTPS:   "https://proxy:3128",
+			FTP:     "ftp://proxy:21",
+			NoProxy: "localhost",
+		},
+		JujuProxySettings: application.ProxySettings{
+			HTTP:    "http://juju-proxy:3128",
+			HTTPS:   "https://juju-proxy:3128",
+			NoProxy: "juju.local",
+		},
+		PrivateAddress: network.NewSpaceAddresses("192.168.1.1"),
+		OpenedMachinePortRangesByEndpoint: map[coreunit.Name]network.GroupedPortRanges{
+			subordinateUnit: {
+				"endpoint1": []network.PortRange{
+					{
+						FromPort: 8080,
+						ToPort:   8090,
+						Protocol: "tcp",
+					},
+				},
+				"endpoint2": []network.PortRange{
+					{
+						FromPort: 3000,
+						ToPort:   3010,
+						Protocol: "udp",
+					},
+				},
+			},
+		},
+	}
+
+	s.state.EXPECT().GetIAASUnitContext(gomock.Any(), unitName.String()).Return(stateResult, nil)
+	s.cloudInfoProvider.EXPECT().APIVersion().Return("v1.0.0", nil)
+
+	result, err := s.service.GetIAASUnitContext(c.Context(), unitName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.APIAddresses, tc.DeepEquals, []string{"10.0.0.1", "10.0.0.2"})
+	c.Check(result.CloudAPIVersion, tc.Equals, "v1.0.0")
+	c.Check(result.LegacyProxySettings.Http, tc.Equals, "http://proxy:3128")
+	c.Check(result.PrivateAddress, tc.NotNil)
+	c.Check(*result.PrivateAddress, tc.Equals, "192.168.1.1")
+	// Verify port ranges are correctly encoded with names.UnitTag keys
+	c.Check(result.OpenedMachinePortRangesByEndpoint, tc.HasLen, 1)
+	subordinateTag := names.NewUnitTag(subordinateUnit.String())
+	c.Check(result.OpenedMachinePortRangesByEndpoint[subordinateTag], tc.HasLen, 2)
+	c.Check(result.OpenedMachinePortRangesByEndpoint[subordinateTag]["endpoint1"], tc.DeepEquals, []network.PortRange{
+		{FromPort: 8080, ToPort: 8090, Protocol: "tcp"},
+	})
+	c.Check(result.OpenedMachinePortRangesByEndpoint[subordinateTag]["endpoint2"], tc.DeepEquals, []network.PortRange{
+		{FromPort: 3000, ToPort: 3010, Protocol: "udp"},
+	})
+}
+
+func (s *unitServiceSuite) TestGetIAASUnitContextInvalidName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetIAASUnitContext(c.Context(), coreunit.Name("!!!"))
+	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
+}
+
+func (s *unitServiceSuite) TestGetIAASUnitContextNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/666")
+	s.state.EXPECT().GetIAASUnitContext(gomock.Any(), unitName.String()).Return(application.IAASUnitContext{}, applicationerrors.UnitNotFound)
+
+	_, err := s.service.GetIAASUnitContext(c.Context(), unitName)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitServiceSuite) TestGetIAASUnitContextStateError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/666")
+	s.state.EXPECT().GetIAASUnitContext(gomock.Any(), unitName.String()).Return(application.IAASUnitContext{}, errors.New("boom"))
+
+	_, err := s.service.GetIAASUnitContext(c.Context(), unitName)
+	c.Assert(err, tc.ErrorMatches, ".*boom")
+}
+
+func (s *unitServiceSuite) TestGetIAASUnitContextCloudAPIVersionError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/666")
+	stateResult := application.IAASUnitContext{
+		APIAddresses: []string{"10.0.0.1"},
+	}
+
+	s.state.EXPECT().GetIAASUnitContext(gomock.Any(), unitName.String()).Return(stateResult, nil)
+	s.cloudInfoProvider.EXPECT().APIVersion().Return("", errors.New("cloud error"))
+
+	_, err := s.service.GetIAASUnitContext(c.Context(), unitName)
+	c.Assert(err, tc.ErrorMatches, ".*cloud error")
+}
+
+func (s *unitServiceSuite) TestGetCAASUnitContext(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/666")
+	principalUnit := coreunit.Name("foo/0")
+	stateResult := application.CAASUnitContext{
+		APIAddresses: []string{"10.0.0.1", "10.0.0.2"},
+		LegacyProxySettings: application.ProxySettings{
+			HTTP:    "http://proxy:3128",
+			HTTPS:   "https://proxy:3128",
+			FTP:     "ftp://proxy:21",
+			NoProxy: "localhost",
+		},
+		JujuProxySettings: application.ProxySettings{
+			HTTP:    "http://juju-proxy:3128",
+			HTTPS:   "https://juju-proxy:3128",
+			NoProxy: "juju.local",
+		},
+		OpenedPortRangesByEndpoint: map[coreunit.Name]network.GroupedPortRanges{
+			principalUnit: {
+				"": []network.PortRange{
+					{
+						FromPort: 80,
+						ToPort:   80,
+						Protocol: "tcp",
+					},
+					{
+						FromPort: 443,
+						ToPort:   443,
+						Protocol: "tcp",
+					},
+				},
+			},
+		},
+	}
+
+	s.state.EXPECT().GetCAASUnitContext(gomock.Any(), unitName.String()).Return(stateResult, nil)
+	s.cloudInfoProvider.EXPECT().APIVersion().Return("v1.0.0", nil)
+
+	result, err := s.service.GetCAASUnitContext(c.Context(), unitName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.APIAddresses, tc.DeepEquals, []string{"10.0.0.1", "10.0.0.2"})
+	c.Check(result.CloudAPIVersion, tc.Equals, "v1.0.0")
+	c.Check(result.LegacyProxySettings.Http, tc.Equals, "http://proxy:3128")
+	c.Check(result.JujuProxySettings.Http, tc.Equals, "http://juju-proxy:3128")
+	// Verify port ranges are correctly encoded with names.UnitTag keys
+	c.Check(result.OpenedPortRangesByEndpoint, tc.HasLen, 1)
+	principalTag := names.NewUnitTag(principalUnit.String())
+	c.Check(result.OpenedPortRangesByEndpoint[principalTag], tc.HasLen, 1)
+	c.Check(result.OpenedPortRangesByEndpoint[principalTag][""], tc.DeepEquals, []network.PortRange{
+		{FromPort: 80, ToPort: 80, Protocol: "tcp"},
+		{FromPort: 443, ToPort: 443, Protocol: "tcp"},
+	})
+}
+
+func (s *unitServiceSuite) TestGetCAASUnitContextInvalidName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetCAASUnitContext(c.Context(), coreunit.Name("!!!"))
+	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
+}
+
+func (s *unitServiceSuite) TestGetCAASUnitContextNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/666")
+	s.state.EXPECT().GetCAASUnitContext(gomock.Any(), unitName.String()).Return(application.CAASUnitContext{}, applicationerrors.UnitNotFound)
+
+	_, err := s.service.GetCAASUnitContext(c.Context(), unitName)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitServiceSuite) TestGetCAASUnitContextStateError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/666")
+	s.state.EXPECT().GetCAASUnitContext(gomock.Any(), unitName.String()).Return(application.CAASUnitContext{}, errors.New("boom"))
+
+	_, err := s.service.GetCAASUnitContext(c.Context(), unitName)
+	c.Assert(err, tc.ErrorMatches, ".*boom")
+}
+
+func (s *unitServiceSuite) TestGetCAASUnitContextCloudAPIVersionError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/666")
+	stateResult := application.CAASUnitContext{
+		APIAddresses: []string{"10.0.0.1"},
+	}
+
+	s.state.EXPECT().GetCAASUnitContext(gomock.Any(), unitName.String()).Return(stateResult, nil)
+	s.cloudInfoProvider.EXPECT().APIVersion().Return("", errors.New("cloud error"))
+
+	_, err := s.service.GetCAASUnitContext(c.Context(), unitName)
+	c.Assert(err, tc.ErrorMatches, ".*cloud error")
 }
