@@ -70,6 +70,7 @@ func (s *importSuite) SetUpTest(c *tc.C) {
 	s.svc = service.NewService(
 		state.NewState(s.TxnRunnerFactory()),
 		s.logger,
+		clock.WallClock,
 		s.registryGetter,
 	)
 	s.provisioning = storageprovisioningservice.NewService(

@@ -114,7 +114,6 @@ func NewService(
 func NewImportService(
 	st StorageImportState,
 	logger logger.Logger,
-	clock clock.Clock,
 	registryGetter corestorage.ModelStorageRegistryGetter,
 	ephemeralProviderRunner providertracker.EphemeralProviderRunnerGetter[internalstorage.FilesystemModelMigration],
 ) *StorageImportService {
@@ -123,7 +122,6 @@ func NewImportService(
 		ephemeralProviderRunner: ephemeralProviderRunner,
 		st:                      st,
 		logger:                  logger,
-		clock:                   clock,
 	}
 }
 
