@@ -187,6 +187,7 @@ func (s *typesSuite) TestToSecretBackendK8s(c *tc.C) {
 				Name:        "kubernetes",
 				BackendType: "kubernetes",
 			},
+			ModelUUID:    "model1-uuid",
 			ModelName:    "model1",
 			CloudID:      "cloud1",
 			CredentialID: "cred1",
@@ -197,6 +198,7 @@ func (s *typesSuite) TestToSecretBackendK8s(c *tc.C) {
 				Name:        "kubernetes",
 				BackendType: "kubernetes",
 			},
+			ModelUUID:    "model2-uuid",
 			ModelName:    "model2",
 			CloudID:      "cloud1",
 			CredentialID: "cred1",
@@ -249,6 +251,7 @@ func (s *typesSuite) TestToSecretBackendK8sDuplicateRows(c *tc.C) {
 				Name:        "kubernetes",
 				BackendType: "kubernetes",
 			},
+			ModelUUID:    "model1-uuid",
 			ModelName:    "model1",
 			CloudID:      "cloud1",
 			CredentialID: "cred1",
@@ -259,6 +262,7 @@ func (s *typesSuite) TestToSecretBackendK8sDuplicateRows(c *tc.C) {
 				Name:        "kubernetes",
 				BackendType: "kubernetes",
 			},
+			ModelUUID:    "model1-uuid",
 			ModelName:    "model1",
 			CloudID:      "cloud1",
 			CredentialID: "cred1",
@@ -271,6 +275,19 @@ func (s *typesSuite) TestToSecretBackendK8sDuplicateRows(c *tc.C) {
 				BackendType: "kubernetes",
 			},
 			ModelName:    "model2",
+			CloudID:      "cloud1",
+			CredentialID: "cred2",
+		},
+		// a second model1 appears once, using credential cred2,
+		// but with another UUID, simulating a model with another qualifier
+		{
+			SecretBackendRow: SecretBackendRow{
+				ID:          "uuid-k8s",
+				Name:        "kubernetes",
+				BackendType: "kubernetes",
+			},
+			ModelUUID:    "model1-uuid-bis",
+			ModelName:    "model1",
 			CloudID:      "cloud1",
 			CredentialID: "cred2",
 		},
@@ -314,7 +331,7 @@ func (s *typesSuite) TestToSecretBackendK8sDuplicateRows(c *tc.C) {
 
 	// We still expect exactly one backend per model, even though the
 	// underlying query returned multiple rows for model1.
-	c.Assert(result, tc.HasLen, 2)
+	c.Assert(result, tc.HasLen, 3)
 
 	c.Assert(result[0].Name, tc.Equals, "model1-local")
 	c.Assert(result[0].Config["namespace"], tc.Equals, "model1")
@@ -323,6 +340,9 @@ func (s *typesSuite) TestToSecretBackendK8sDuplicateRows(c *tc.C) {
 	c.Assert(result[1].Name, tc.Equals, "model2-local")
 	c.Assert(result[1].Config["namespace"], tc.Equals, "model2")
 	c.Assert(result[1].Config["token"], tc.Equals, "my-token")
+	c.Assert(result[2].Name, tc.Equals, "model1-local")
+	c.Assert(result[2].Config["namespace"], tc.Equals, "model1")
+	c.Assert(result[2].Config["token"], tc.Equals, "my-token")
 }
 
 func (s *typesSuite) TestToChanges(c *tc.C) {

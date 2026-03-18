@@ -506,6 +506,7 @@ func (s *State) listInUseKubernetesSecretBackends(ctx context.Context, tx *sqlai
 SELECT
     sbr.secret_backend_uuid                  AS &secretBackendForK8sModelRow.uuid,
     b.name                                   AS &secretBackendForK8sModelRow.name,
+    vm.uuid                                  AS &secretBackendForK8sModelRow.model_uuid,
     vm.name                                  AS &secretBackendForK8sModelRow.model_name,
     bt.type                                  AS &secretBackendForK8sModelRow.backend_type,
     vc.uuid                                  AS &secretBackendForK8sModelRow.cloud_uuid,
@@ -531,7 +532,7 @@ FROM secret_backend_reference sbr
     JOIN cloud_ca_cert ccc ON vc.uuid = ccc.cloud_uuid
     JOIN v_cloud_credential_attribute vcca ON vm.cloud_credential_uuid = vcca.uuid
 WHERE b.name = '%s'
-GROUP BY vm.name, vcca.attribute_key`, kubernetes.BackendName)
+GROUP BY vm.uuid, vcca.attribute_key`, kubernetes.BackendName)
 	backendStmt, err := s.Prepare(backendQuery, secretBackendForK8sModelRow{}, cloudRow{}, cloudCredentialRow{})
 	if err != nil {
 		return nil, errors.Capture(err)

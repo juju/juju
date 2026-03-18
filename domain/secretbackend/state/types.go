@@ -220,6 +220,8 @@ func (rows secretBackendRows) toSecretBackends(ctx context.Context, logger logge
 // secretBackendForK8sModelRow represents a single joined result from secret_backend, secret_backend_reference and model tables.
 type secretBackendForK8sModelRow struct {
 	SecretBackendRow
+	// ModelUUID is the UUID of the model.
+	ModelUUID string `db:"model_uuid"`
 	// ModelName is the name of the model.
 	ModelName string `db:"model_name"`
 
@@ -236,16 +238,16 @@ func (rows secretBackendForK8sModelRows) toSecretBackend(controllerName string, 
 	creds := credData.toCloudCredentials()
 
 	var result []*secretbackend.SecretBackend
-	modelNames := set.NewStrings()
+	modelUUIDs := set.NewStrings()
 	for _, row := range rows {
-		if modelNames.Contains(row.ModelName) {
+		if modelUUIDs.Contains(row.ModelUUID) {
 			// This model has already been added.
 			// It can be duplicated in rows if there is several credentials attributes
 			// for the same model. Those attributes are merged into a single
 			// creds data in the above credData.toCloudCredentials() call.
 			continue
 		}
-		modelNames.Add(row.ModelName)
+		modelUUIDs.Add(row.ModelUUID)
 		if _, ok := clds[row.CloudID]; !ok {
 			return nil, errors.Errorf("cloud %q not found", row.CloudID)
 		}
