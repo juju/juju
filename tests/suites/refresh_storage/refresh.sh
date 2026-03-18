@@ -1,25 +1,3 @@
-# Verify storage is attached to a unit.
-assert_storage_attached() {
-	# e.g. storage-refresher/0
-	UNIT="$1"
-	# e.g. awesome-fs/0
-	STORAGE_NAME="$2"
-
-	if juju status --format json | jq -e \
-		--arg unit "$UNIT" \
-		--arg storage "$STORAGE_NAME" '
-        .storage.storage
-        | to_entries[]
-        | select(.key == $storage)
-        | select(.value.status.current == "attached")
-        | select(.value.attachments.units[$unit])
-        ' >/dev/null; then
-		return 0
-	else
-		return 1
-	fi
-}
-
 # Verify storage is attached and meets minimum size requirement.
 assert_storage_min_size() {
 	# e.g. storage-refresher/0
@@ -36,11 +14,8 @@ assert_storage_min_size() {
 	fi
 
 	local actual_size
-	actual_size=$(juju status --format json | jq -r \
-		--arg storage "$storage_name" \
-		'.storage.filesystems[]
-         | select(.storage == $storage)
-         | .size')
+	actual_size=$(juju storage --format json | STORAGE_NAME="$storage_name" yq -o json -r \
+		'.filesystems[] | select(.storage == strenv(STORAGE_NAME)) | .size')
 
 	if [[ -z "$actual_size" || "$actual_size" == "null" ]]; then
 		# shellcheck disable=SC2046
@@ -49,12 +24,10 @@ assert_storage_min_size() {
 	fi
 
 	local attached
-	attached=$(juju status --format json | jq -r \
-		--arg storage "$storage_name" \
-		--arg unit "$unit_name" \
-		'.storage.filesystems[]
-         | select(.storage == $storage)
-         | .attachments.units[$unit] != null')
+	attached=$(juju storage --format json | STORAGE_NAME="$storage_name" UNIT_NAME="$unit_name" yq -o json -r \
+		'.filesystems[]
+         | select(.storage == strenv(STORAGE_NAME))
+         | .attachments.units[strenv(UNIT_NAME)] != null')
 
 	if [[ "$attached" != "true" ]]; then
 		# shellcheck disable=SC2046
@@ -65,6 +38,8 @@ assert_storage_min_size() {
 	if ((actual_size >= min_size)); then
 		return 0
 	else
+		# shellcheck disable=SC2046
+		echo $(red "ERROR: Storage '$storage_name' actual size is $actual_size")
 		return 1
 	fi
 }
@@ -80,13 +55,7 @@ run_decrease_size() {
 
 	juju deploy "storage-refresher" --revision 1 --channel latest/edge
 	wait_for "storage-refresher" "$(active_idle_condition "storage-refresher")"
-
-	# Assert that storage is attached to the unit.
-	if ! assert_storage_attached "storage-refresher/0" "awesome-fs/0"; then
-		# shellcheck disable=SC2046
-		echo $(red "awesome-fs/0 is not attached")
-		exit 1
-	fi
+	wait_for_storage "attached" '.storage["awesome-fs/0"]["status"].current'
 
 	# Refresh charm to revision 3 which has a lower storage size of 1G.
 	juju refresh "storage-refresher" --revision 3
@@ -95,13 +64,10 @@ run_decrease_size() {
 
 	juju add-unit storage-refresher
 	wait_for "storage-refresher" "$(active_idle_condition "storage-refresher" 1)"
+	wait_for_storage "attached" '.storage["awesome-fs/1"]["status"].current'
 
 	# Assert the new unit has at least the new storage minimum size requirement.
-	if ! assert_storage_min_size "storage-refresher/1" "awesome-fs/1" 1024; then
-		# shellcheck disable=SC2046
-		echo $(red "attached storage is not at least 1024 in size")
-		exit 1
-	fi
+	assert_storage_min_size "storage-refresher/1" "awesome-fs/1" 1024
 
 	destroy_model "$model_name"
 }
@@ -117,13 +83,7 @@ run_increase_size() {
 
 	juju deploy "storage-refresher" --revision 1 --channel latest/edge
 	wait_for "storage-refresher" "$(active_idle_condition "storage-refresher")"
-
-	# Assert that storage is attached to the unit.
-	if ! assert_storage_attached "storage-refresher/0" "awesome-fs/0"; then
-		# shellcheck disable=SC2046
-		echo $(red "awesome-fs/0 is not attached")
-		exit 1
-	fi
+	wait_for_storage "attached" '.storage["awesome-fs/0"]["status"].current'
 
 	# Refresh charm to revision 2 which has a larger storage size.
 	# This should fail.
@@ -147,13 +107,7 @@ run_new_storage_definition() {
 
 	juju deploy "storage-refresher" --revision 1 --channel latest/edge
 	wait_for "storage-refresher" "$(active_idle_condition "storage-refresher")"
-
-	# Assert that storage is attached to the unit.
-	if ! assert_storage_attached "storage-refresher/0" "awesome-fs/0"; then
-		# shellcheck disable=SC2046
-		echo $(red "awesome-fs/0 is not attached")
-		exit 1
-	fi
+	wait_for_storage "attached" '.storage["awesome-fs/0"]["status"].current'
 
 	# Refresh charm to revision 4 which adds a new storage definition "epic-fs".
 	juju refresh "storage-refresher" --revision 4
@@ -164,16 +118,8 @@ run_new_storage_definition() {
 	wait_for "storage-refresher" "$(active_idle_condition "storage-refresher" 1)"
 
 	# Assert the new unit has the new storage requirement.
-	if ! assert_storage_attached "storage-refresher/1" "awesome-fs/1"; then
-		# shellcheck disable=SC2046
-		echo $(red "awesome-fs/1 is not attached")
-		exit 1
-	fi
-	if ! assert_storage_attached "storage-refresher/1" "epic-fs/2"; then
-		# shellcheck disable=SC2046
-		echo $(red "epic-fs/2 is not attached")
-		exit 1
-	fi
+	wait_for_storage "attached" '.storage["awesome-fs/1"]["status"].current'
+	wait_for_storage "attached" '.storage["epic-fs/2"]["status"].current'
 
 	destroy_model "$model_name"
 }
@@ -189,13 +135,7 @@ run_delete_storage_definition() {
 
 	juju deploy "storage-refresher" --revision 1 --channel latest/edge
 	wait_for "storage-refresher" "$(active_idle_condition "storage-refresher")"
-
-	# Assert that storage is attached to the unit.
-	if ! assert_storage_attached "storage-refresher/0" "awesome-fs/0"; then
-		# shellcheck disable=SC2046
-		echo $(red "awesome-fs/0 is not attached")
-		exit 1
-	fi
+	wait_for_storage "attached" '.storage["awesome-fs/0"]["status"].current'
 
 	# Refresh charm to revision 5 which deletes storage "awesome-fs".
 	# This should fail.
@@ -222,13 +162,7 @@ run_single_to_range_storage_instances() {
 
 	juju deploy "storage-refresher" --revision 1 --channel latest/edge
 	wait_for "storage-refresher" "$(active_idle_condition "storage-refresher")"
-
-	# Assert that storage is attached to the unit.
-	if ! assert_storage_attached "storage-refresher/0" "awesome-fs/0"; then
-		# shellcheck disable=SC2046
-		echo $(red "awesome-fs/0 is not attached")
-		exit 1
-	fi
+	wait_for_storage "attached" '.storage["awesome-fs/0"]["status"].current'
 
 	# Refresh charm to revision 6 which changes "awesome-fs" to be multiple instances
 	# with count range 2-5.
@@ -266,13 +200,7 @@ run_filesystem_to_block() {
 
 	juju deploy "storage-refresher" --revision 1 --channel latest/edge
 	wait_for "storage-refresher" "$(active_idle_condition "storage-refresher")"
-
-	# Assert that storage is attached to the unit.
-	if ! assert_storage_attached "storage-refresher/0" "awesome-fs/0"; then
-		# shellcheck disable=SC2046
-		echo $(red "awesome-fs/0 is not attached")
-		exit 1
-	fi
+	wait_for_storage "attached" '.storage["awesome-fs/0"]["status"].current'
 
 	# Refresh charm to revision 8 which changes "awesome-fs" to be a block type.
 	# This should fail because you cannot change the storage type.
@@ -286,20 +214,14 @@ run_filesystem_to_block() {
 }
 
 run_change_shared_readonly_location() {
-  model_name="test-change-shared-readonly-location"
+	model_name="test-change-shared-readonly-location"
 	file="${TEST_DIR}/${model_name}.log"
 
 	ensure "${model_name}" "${file}"
 
 	juju deploy "storage-refresher" --revision 1 --channel latest/edge
 	wait_for "storage-refresher" "$(active_idle_condition "storage-refresher")"
-
-	# Assert that storage is attached to the unit.
-	if ! assert_storage_attached "storage-refresher/0" "awesome-fs/0"; then
-		# shellcheck disable=SC2046
-		echo $(red "awesome-fs/0 is not attached")
-		exit 1
-	fi
+	wait_for_storage "attached" '.storage["awesome-fs/0"]["status"].current'
 
 	# Refresh charm to revision 11 which changes "awesome-fs" to be a shared storage.
 	# This should fail because you cannot change the shared property.
