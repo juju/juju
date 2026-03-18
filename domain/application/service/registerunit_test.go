@@ -88,7 +88,7 @@ func (*registerCAASUnitSuite) storageChecker() *tc.MultiChecker {
 // TestRegisterNewCAASUnit tests the happy path of registering a new CAAS unit
 // into the model.
 func (s *registerCAASUnitSuite) TestRegisterNewCAASUnit(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
@@ -160,7 +160,7 @@ func (s *registerCAASUnitSuite) TestRegisterNewCAASUnit(c *tc.C) {
 // Key observabilities in this test:
 // - We want to see that the existing net node uuid for the caas unit is re-used.
 func (s *registerCAASUnitSuite) TestRegisterExistingCAASUnit(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
@@ -246,7 +246,7 @@ func (s *registerCAASUnitSuite) TestRegisterCAASUnitMissingProviderID(c *tc.C) {
 //
 // NOTE(tlm): It is unclear if this test has any value.
 func (s *registerCAASUnitSuite) TestRegisterCAASUnitApplicationNoPods(c *tc.C) {
-	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError)
+	ctrl := s.setupMocksWithProvider(c, noProviderError, noProviderError, noProviderError)
 	defer ctrl.Finish()
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)

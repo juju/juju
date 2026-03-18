@@ -59,6 +59,13 @@ type CAASProvider interface {
 	Application(string, caas.DeploymentType) caas.Application
 }
 
+// CloudInfoProvider instances provide a means to get
+// the API version of the underlying cloud.
+type CloudInfoProvider interface {
+	// APIVersion returns the version info for provider's cloud.
+	APIVersion() (string, error)
+}
+
 // ProviderService defines a service for interacting with the underlying
 // model state.
 type ProviderService struct {
@@ -68,6 +75,7 @@ type ProviderService struct {
 	agentVersionGetter      AgentVersionGetter
 	provider                providertracker.ProviderGetter[Provider]
 	caasApplicationProvider providertracker.ProviderGetter[CAASProvider]
+	cloudInfoGetter         providertracker.ProviderGetter[CloudInfoProvider]
 	st                      State
 }
 
@@ -79,6 +87,7 @@ func NewProviderService(
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
 	caasApplicationProvider providertracker.ProviderGetter[CAASProvider],
+	cloudInfoGetter providertracker.ProviderGetter[CloudInfoProvider],
 	charmStore CharmStore,
 	statusHistory StatusHistory,
 	modelUUID model.UUID,
@@ -99,6 +108,7 @@ func NewProviderService(
 		agentVersionGetter:      agentVersionGetter,
 		provider:                provider,
 		caasApplicationProvider: caasApplicationProvider,
+		cloudInfoGetter:         cloudInfoGetter,
 		st:                      st,
 	}
 }

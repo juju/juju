@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go github.com/juju/juju/domain/application/service AgentVersionGetter,CAASProvider,CharmStore,Provider,State,StatusHistory,WatcherFactory
+//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go github.com/juju/juju/domain/application/service AgentVersionGetter,CAASProvider,CharmStore,Provider,CloudInfoProvider,State,StatusHistory,WatcherFactory
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination internal_charm_mock_test.go github.com/juju/juju/domain/deployment/charm Charm
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination constraints_mock_test.go github.com/juju/juju/core/constraints Validator
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination leader_mock_test.go github.com/juju/juju/core/leadership Ensurer
@@ -38,6 +38,7 @@ type baseSuite struct {
 	agentVersionGetter *MockAgentVersionGetter
 	provider           *MockProvider
 	caasProvider       *MockCAASProvider
+	cloudInfoProvider  *MockCloudInfoProvider
 	leadership         *MockEnsurer
 	validator          *MockValidator
 
@@ -72,12 +73,14 @@ func (s *baseSuite) setupMocksWithProvider(
 	c *tc.C,
 	providerGetterError func() error,
 	caasProviderGetterError func() error,
+	cloudInfoProviderGetterError func() error,
 ) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.agentVersionGetter = NewMockAgentVersionGetter(ctrl)
 	s.provider = NewMockProvider(ctrl)
 	s.caasProvider = NewMockCAASProvider(ctrl)
+	s.cloudInfoProvider = NewMockCloudInfoProvider(ctrl)
 	s.leadership = NewMockEnsurer(ctrl)
 	s.state = NewMockState(ctrl)
 	s.storageService = NewMockStorageService(ctrl)
@@ -104,6 +107,12 @@ func (s *baseSuite) setupMocksWithProvider(
 				return nil, err
 			}
 			return s.caasProvider, nil
+		},
+		func(ctx context.Context) (CloudInfoProvider, error) {
+			if err := cloudInfoProviderGetterError(); err != nil {
+				return nil, err
+			}
+			return s.cloudInfoProvider, nil
 		},
 		s.charmStore,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
@@ -139,6 +148,7 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *tc.C, fn func(*gomock.Control
 	s.agentVersionGetter = NewMockAgentVersionGetter(ctrl)
 	s.provider = NewMockProvider(ctrl)
 	s.caasProvider = NewMockCAASProvider(ctrl)
+	s.cloudInfoProvider = NewMockCloudInfoProvider(ctrl)
 	s.leadership = NewMockEnsurer(ctrl)
 
 	s.state = NewMockState(ctrl)
@@ -160,6 +170,9 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *tc.C, fn func(*gomock.Control
 		},
 		func(ctx context.Context) (CAASProvider, error) {
 			return s.caasProvider, nil
+		},
+		func(ctx context.Context) (CloudInfoProvider, error) {
+			return s.cloudInfoProvider, nil
 		},
 		s.charmStore,
 		fn(ctrl),

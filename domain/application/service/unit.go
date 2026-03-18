@@ -5,11 +5,14 @@ package service
 
 import (
 	"context"
+	"sort"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
@@ -25,6 +28,8 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/names/v6"
+	"github.com/juju/proxy"
 )
 
 // UnitState describes retrieval and persistence methods for
@@ -235,6 +240,14 @@ type UnitState interface {
 		ctx context.Context, unitUUID coreunit.UUID, storageName corestorage.Name,
 		storageArg internal.IAASUnitAddStorageArg,
 	) ([]corestorage.ID, error)
+
+	// GetIAASUnitContext returns the IAAS context information required for the
+	// construction of a context factory for a unit.
+	GetIAASUnitContext(ctx context.Context, unitName string) (application.IAASUnitContext, error)
+
+	// GetCAASUnitContext returns the IAAS context information required for the
+	// construction of a context factory for a unit.
+	GetCAASUnitContext(ctx context.Context, unitName string) (application.CAASUnitContext, error)
 }
 
 func (s *ProviderService) makeIAASUnitArgs(
@@ -787,4 +800,139 @@ func (s *Service) GetAllUnitCloudContainerIDsForApplication(ctx context.Context,
 		return nil, errors.Capture(err)
 	}
 	return idMap, nil
+}
+
+// IAASUnitContext describes the IAAS context information required for the
+// construction of a context factory for a unit.
+type IAASUnitContext struct {
+	APIAddresses                      []string
+	CloudAPIVersion                   string
+	LegacyProxySettings               proxy.Settings
+	JujuProxySettings                 proxy.Settings
+	PrivateAddress                    *string
+	OpenedMachinePortRangesByEndpoint map[names.UnitTag]network.GroupedPortRanges
+}
+
+// GetIAASUnitContext returns IAAS context information required for the
+// construction of a context factory.
+//
+// This is a fat method that gathers disparate information about a unit, but is
+// necessary to avoid multiple round trips to the database when constructing a
+// context factory for a unit.
+func (s *ProviderService) GetIAASUnitContext(ctx context.Context, unitName coreunit.Name) (IAASUnitContext, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := unitName.Validate(); err != nil {
+		return IAASUnitContext{}, errors.Capture(err)
+	}
+
+	result, err := s.st.GetIAASUnitContext(ctx, unitName.String())
+	if err != nil {
+		return IAASUnitContext{}, errors.Errorf("getting context for unit %q: %w", unitName, err)
+	}
+
+	cloudAPIVersion, err := s.getCloudAPIVersion(ctx)
+	if err != nil {
+		return IAASUnitContext{}, errors.Errorf("getting cloud api version: %w", err)
+	}
+
+	return IAASUnitContext{
+		APIAddresses:                      result.APIAddresses,
+		CloudAPIVersion:                   cloudAPIVersion,
+		LegacyProxySettings:               encodeProxySettings(result.LegacyProxySettings),
+		JujuProxySettings:                 encodeProxySettings(result.JujuProxySettings),
+		PrivateAddress:                    s.getUnitPrivateAddress(result.PrivateAddress),
+		OpenedMachinePortRangesByEndpoint: encodePortRangesByEndpoint(result.OpenedMachinePortRangesByEndpoint),
+	}, nil
+}
+
+// CAASUnitContext describes the CAAS context information required for the
+// construction of a context factory for a unit.
+type CAASUnitContext struct {
+	APIAddresses               []string
+	CloudAPIVersion            string
+	LegacyProxySettings        proxy.Settings
+	JujuProxySettings          proxy.Settings
+	OpenedPortRangesByEndpoint map[names.UnitTag]network.GroupedPortRanges
+}
+
+// GetCAASUnitContext returns CAAS context information required for the
+// construction of a context factory.
+//
+// This is a fat method that gathers disparate information about a unit, but is
+// necessary to avoid multiple round trips to the database when constructing a
+// context factory for a unit.
+func (s *ProviderService) GetCAASUnitContext(ctx context.Context, unitName coreunit.Name) (CAASUnitContext, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := unitName.Validate(); err != nil {
+		return CAASUnitContext{}, errors.Capture(err)
+	}
+
+	result, err := s.st.GetCAASUnitContext(ctx, unitName.String())
+	if err != nil {
+		return CAASUnitContext{}, errors.Errorf("getting context for unit %q: %w", unitName, err)
+	}
+
+	cloudAPIVersion, err := s.getCloudAPIVersion(ctx)
+	if err != nil {
+		return CAASUnitContext{}, errors.Errorf("getting cloud api version: %w", err)
+	}
+
+	return CAASUnitContext{
+		APIAddresses:               result.APIAddresses,
+		CloudAPIVersion:            cloudAPIVersion,
+		LegacyProxySettings:        encodeProxySettings(result.LegacyProxySettings),
+		JujuProxySettings:          encodeProxySettings(result.JujuProxySettings),
+		OpenedPortRangesByEndpoint: encodePortRangesByEndpoint(result.OpenedPortRangesByEndpoint),
+	}, nil
+}
+
+func (s *ProviderService) getUnitPrivateAddress(addrs network.SpaceAddresses) *string {
+	if len(addrs) == 0 {
+		return nil
+	}
+
+	// First match the scope.
+	matchedAddrs := addrs.AllMatchingScope(network.ScopeMatchCloudLocal)
+	if len(matchedAddrs) == 0 {
+		// If no address matches the scope, return the first private address.
+		return new(addrs[0].IP().String())
+	}
+	// Then sort by origin.
+	sort.Slice(matchedAddrs, matchedAddrs.Less)
+
+	return new(matchedAddrs[0].IP().String())
+}
+
+func (s *ProviderService) getCloudAPIVersion(ctx context.Context) (string, error) {
+	env, err := s.cloudInfoGetter(ctx)
+	if errors.Is(err, coreerrors.NotSupported) {
+		// If the cloud doesn't support returning environment info, we can assume
+		// that it's an older cloud and return an empty string for the API version.
+		return "", nil
+	} else if err != nil {
+		return "", errors.Errorf("opening provider: %w", err)
+	}
+
+	return env.APIVersion()
+}
+
+func encodeProxySettings(settings application.ProxySettings) proxy.Settings {
+	return proxy.Settings{
+		Http:    settings.HTTP,
+		Https:   settings.HTTPS,
+		NoProxy: settings.NoProxy,
+		Ftp:     settings.FTP,
+	}
+}
+
+func encodePortRangesByEndpoint(grouped map[coreunit.Name]network.GroupedPortRanges) map[names.UnitTag]network.GroupedPortRanges {
+	encoded := make(map[names.UnitTag]network.GroupedPortRanges, len(grouped))
+	for name, groupedPortRanges := range grouped {
+		encoded[names.NewUnitTag(name.String())] = groupedPortRanges
+	}
+	return encoded
 }
