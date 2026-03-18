@@ -160,6 +160,7 @@ func NewProvisionerTask(cfg TaskConfig) (ProvisionerTask, error) {
 		broker:                       cfg.Broker,
 		machines:                     make(map[string]apiprovisioner.MachineProvisioner),
 		machinesStarting:             make(map[string]bool),
+		machineStartIdentities:       make(map[string]machineStartIdentity),
 		machinesStopDeferred:         make(map[string]bool),
 		machinesStopping:             make(map[string]bool),
 		machinesStopped:              make(map[string]bool),
@@ -210,6 +211,7 @@ type provisionerTask struct {
 	machinesMutex            sync.RWMutex
 	machines                 map[string]apiprovisioner.MachineProvisioner // machine ID -> machine
 	machinesStarting         map[string]bool                              // machine IDs currently being started.
+	machineStartIdentities   map[string]machineStartIdentity              // machine ID -> cached start identity.
 	machinesStopping         map[string]bool                              // machine IDs currently being stopped.
 	machinesStopped          map[string]bool                              // machine IDs currently being stopped.
 	machinesStopDeferred     map[string]bool                              // machine IDs which were set as dead while starting. They will be stopped once they are online.
@@ -224,6 +226,11 @@ type provisionerTask struct {
 	// will be invoked when the task main loop successfully processes an event.
 	// The event type is provided as the first arg to the callback.
 	eventProcessedCb func(string)
+}
+
+type machineStartIdentity struct {
+	password string
+	nonce    string
 }
 
 // Kill implements worker.Worker.Kill.
@@ -649,6 +656,7 @@ func (task *provisionerTask) queueRemovalOfDeadMachines(
 				machID := machine.Id()
 				task.lockedRemoveMachineFromAZMap(machine)
 				delete(task.machines, machID)
+				delete(task.machineStartIdentities, machID)
 				delete(task.machinesStopping, machID)
 				task.machinesStopped[machID] = true
 			}
@@ -804,6 +812,8 @@ func (task *provisionerTask) constructInstanceConfig(
 	machine apiprovisioner.MachineProvisioner,
 	pInfo *params.ProvisioningInfo,
 ) (*instancecfg.InstanceConfig, error) {
+	machineID := machine.Id()
+
 	apiAddresses, err := task.controllerAPI.APIAddresses(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -816,38 +826,54 @@ func (task *provisionerTask) constructInstanceConfig(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	password, err := password.RandomPassword()
-	if err != nil {
-		return nil, fmt.Errorf("cannot make password for machine %v: %v", machine, err)
+
+	task.machinesMutex.RLock()
+	startIdentity, ok := task.machineStartIdentities[machineID]
+	task.machinesMutex.RUnlock()
+	if !ok {
+		startPassword, err := password.RandomPassword()
+		if err != nil {
+			return nil, fmt.Errorf(
+				"cannot make password for machine %v: %v", machine, err,
+			)
+		}
+		nonceUUID, err := uuid.NewUUID()
+		if err != nil {
+			return nil, errors.Annotate(
+				err, "generating nonce for machine "+machineID,
+			)
+		}
+		startIdentity = machineStartIdentity{
+			password: startPassword,
+			nonce:    fmt.Sprintf("%s:%s", task.hostTag, nonceUUID),
+		}
+		if err := machine.SetPassword(ctx, startIdentity.password); err != nil {
+			return nil, fmt.Errorf(
+				"cannot set API password for machine %v: %v", machine, err,
+			)
+		}
+
+		task.machinesMutex.Lock()
+		task.machineStartIdentities[machineID] = startIdentity
+		task.machinesMutex.Unlock()
 	}
-	if err := machine.SetPassword(ctx, password); err != nil {
-		return nil, fmt.Errorf("cannot set API password for machine %v: %v", machine, err)
-	}
+
 	apiInfo := &api.Info{
 		Addrs:    apiAddresses,
 		CACert:   caCert,
 		ModelTag: names.NewModelTag(modelUUID),
 		Tag:      machine.Tag(),
-		Password: password,
+		Password: startIdentity.password,
 	}
 
-	// Generated a nonce for the new instance, with the format: "machine-#:UUID".
-	// The first part is a badge, specifying the tag of the machine the provisioner
-	// is running on, while the second part is a random UUID.
-	uuid, err := uuid.NewUUID()
-	if err != nil {
-		return nil, errors.Annotate(err, "generating nonce for machine "+machine.Id())
-	}
-
-	nonce := fmt.Sprintf("%s:%s", task.hostTag, uuid)
 	base, err := corebase.ParseBase(pInfo.Base.Name, pInfo.Base.Channel)
 	if err != nil {
 		return nil, errors.Annotatef(err, "parsing machine base %q", pInfo.Base)
 	}
 	instanceConfig, err := instancecfg.NewInstanceConfig(
 		names.NewControllerTag(controller.Config(pInfo.ControllerConfig).ControllerUUID()),
-		machine.Id(),
-		nonce,
+		machineID,
+		startIdentity.nonce,
 		task.imageStream,
 		base,
 		apiInfo,
@@ -1535,6 +1561,9 @@ func (task *provisionerTask) doStartMachine(
 		}
 		return errors.Annotate(err, "setting instance info")
 	}
+	task.machinesMutex.Lock()
+	delete(task.machineStartIdentities, machine.Id())
+	task.machinesMutex.Unlock()
 	task.logger.Infof(ctx,
 		"started machine %s as instance %s with hardware %q, network config %+v, "+
 			"volumes %v, volume attachments %v, subnets to zones %v",

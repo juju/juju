@@ -323,6 +323,62 @@ func (s *ProvisionerTaskSuite) TestSetUpToStartMachine(c *tc.C) {
 	c.Assert(startInstanceParams, tc.DeepEquals, *want)
 }
 
+func (s *ProvisionerTaskSuite) TestSetUpToStartMachineReusesStartIdentity(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	task := s.newProvisionerTask(c,
+		&mockDistributionGroupFinder{},
+		mockToolsFinder{},
+		numProvisionWorkersForTesting,
+	)
+	defer workertest.CleanKill(c, task)
+
+	m0 := &testMachine{c: c, id: "0"}
+	vers := semversion.MustParse("2.99.0")
+	res := params.ProvisioningInfoResult{
+		Result: &params.ProvisioningInfo{
+			Constraints: constraints.MustParse("mem=666G"),
+			Base:        params.Base{Name: "ubuntu", Channel: "22.04"},
+			Placement:   "foo=bar",
+			Tags:        map[string]string{"hello": "world"},
+			ImageMetadata: []params.CloudImageMetadata{{
+				ImageId: "image-12334",
+				Arch:    "amd64",
+				Region:  "west",
+				Stream:  "proposed",
+				Version: "6.6.6",
+			}},
+			EndpointBindings:            map[string]string{"endpoint": "space"},
+			ControllerConfig:            internaltesting.FakeControllerConfig(),
+			CloudInitUserData:           validCloudInitUserData,
+			ProvisioningNetworkTopology: params.ProvisioningNetworkTopology{},
+		},
+	}
+
+	first, err := provisionertask.SetupToStartMachine(c, task, m0, &vers, res)
+	c.Assert(err, tc.ErrorIsNil)
+	second, err := provisionertask.SetupToStartMachine(c, task, m0, &vers, res)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(first.InstanceConfig, tc.NotNil)
+	c.Assert(second.InstanceConfig, tc.NotNil)
+	c.Check(first.InstanceConfig.APIInfo, tc.NotNil)
+	c.Assert(second.InstanceConfig.APIInfo, tc.NotNil)
+	c.Check(first.InstanceConfig.APIInfo.Password, tc.Not(tc.Equals), "")
+	c.Check(first.InstanceConfig.MachineNonce, tc.Not(tc.Equals), "")
+	c.Check(
+		second.InstanceConfig.APIInfo.Password,
+		tc.Equals,
+		first.InstanceConfig.APIInfo.Password,
+	)
+	c.Check(
+		second.InstanceConfig.MachineNonce,
+		tc.Equals,
+		first.InstanceConfig.MachineNonce,
+	)
+	c.Check(m0.GetPassword(), tc.Equals, first.InstanceConfig.APIInfo.Password)
+}
+
 func (s *ProvisionerTaskSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
