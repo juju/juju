@@ -2132,20 +2132,13 @@ WHERE     u.name = $entityName.name
 	}
 
 	var addresses []unitSpaceAddress
-	err = tx.Query(ctx, query, entityName).Get(&addresses)
+	err = tx.Query(ctx, query, entityName).GetAll(&addresses)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return nil, nil
 	} else if err != nil {
 		return nil, errors.Errorf("querying unit private address: %w", err)
 	}
 	return addresses, nil
-}
-
-// controllerAPIAddress is the database representation of a controller api
-// address with the controller id and whether it is for agents or clients.
-type controllerAPIAddress struct {
-	// Address is the address of the controller node.
-	Address string `db:"address"`
 }
 
 // setK8sPodStatus saves the given k8s pod status, overwriting
