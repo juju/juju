@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/canonical/sqlair"
@@ -32,6 +33,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
+	"github.com/juju/juju/domain/port"
 	"github.com/juju/juju/domain/status"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
@@ -377,6 +379,27 @@ func (st *State) GetUnitMachineUUID(ctx context.Context, unitUUID string) (strin
 	if err != nil {
 		return "", errors.Capture(err)
 	}
+
+	var machineUUID string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkUnitNotDead(ctx, tx, unitUUID); err != nil {
+			return errors.Capture(err)
+		}
+
+		machineUUID, err = st.getUnitMachineUUID(ctx, tx, unitUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return machineUUID, nil
+}
+
+func (st *State) getUnitMachineUUID(ctx context.Context, tx *sqlair.TX, unitUUID string) (string, error) {
 	arg := getUnitMachineUUID{
 		UnitUUID: unitUUID,
 	}
@@ -390,18 +413,34 @@ WHERE  u.uuid = $getUnitMachineUUID.unit_uuid
 		return "", errors.Capture(err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkUnitNotDead(ctx, tx, unitUUID); err != nil {
-			return errors.Capture(err)
-		}
+	err = tx.Query(ctx, stmt, arg).Get(&arg)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", applicationerrors.UnitMachineNotAssigned
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
 
-		err = tx.Query(ctx, stmt, arg).Get(&arg)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return applicationerrors.UnitMachineNotAssigned
-		}
-		return errors.Capture(err)
-	})
+	return arg.MachineUUID, nil
+}
+
+func (st *State) getUnitMachineUUIDByUnitName(ctx context.Context, tx *sqlair.TX, unitName string) (string, error) {
+	arg := getUnitMachineUUIDByUnitName{
+		UnitName: unitName,
+	}
+	stmt, err := st.Prepare(`
+SELECT (m.uuid) AS (&getUnitMachineUUIDByUnitName.*)
+FROM   unit AS u
+JOIN   machine AS m ON u.net_node_uuid = m.net_node_uuid
+WHERE  u.name = $getUnitMachineUUIDByUnitName.name
+`, arg)
 	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, arg).Get(&arg)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", applicationerrors.UnitMachineNotAssigned
+	} else if err != nil {
 		return "", errors.Capture(err)
 	}
 
@@ -1823,6 +1862,334 @@ func (st *State) GetCharmStorageAndInstanceCountByUnitUUID(
 	}, count, nil
 }
 
+// GetIAASUnitContext returns IAAS qcontext information required for the construction
+// of a context factory.
+func (st *State) GetIAASUnitContext(ctx context.Context, unitName string) (application.IAASUnitContext, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return application.IAASUnitContext{}, errors.Capture(err)
+	}
+
+	var (
+		apiAddresses                           []controllerAPIAddress
+		legacyProxySettings, jujuProxySettings application.ProxySettings
+		machineOpenedPortRanges                []unitEndpointOpenedPortRange
+		unitAddresses                          []unitSpaceAddress
+	)
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkUnitNotDeadByName(ctx, tx, unitName); err != nil {
+			return errors.Capture(err)
+		}
+
+		apiAddresses, err = st.getAllAPIAddressesForAgents(ctx, tx)
+		if err != nil {
+			return errors.Errorf("getting api addresses for agents: %w", err)
+		}
+
+		legacyProxySettings, err = st.getLegacyProxySettings(ctx, tx)
+		if err != nil {
+			return errors.Errorf("getting legacy proxy settings: %w", err)
+		}
+
+		jujuProxySettings, err = st.getJujuProxySettings(ctx, tx)
+		if err != nil {
+			return errors.Errorf("getting proxy settings: %w", err)
+		}
+
+		// Get the machine associated with the unit.
+		machineUUID, err := st.getUnitMachineUUIDByUnitName(ctx, tx, unitName)
+		if err != nil {
+			return errors.Errorf("getting machine for unit: %w", err)
+		}
+
+		machineOpenedPortRanges, err = st.getMachineOpenedPortRanges(ctx, tx, machineUUID)
+		if err != nil {
+			return errors.Errorf("getting machine opened port ranges: %w", err)
+		}
+
+		unitAddresses, err = st.getUnitPrivateAddress(ctx, tx, unitName)
+		if err != nil {
+			return errors.Errorf("getting private address for unit: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		return application.IAASUnitContext{}, errors.Capture(err)
+	}
+
+	encodedAddresses, err := encodeIPAddresses(unitAddresses)
+	if err != nil {
+		return application.IAASUnitContext{}, errors.Errorf("encoding unit addresses: %w", err)
+	}
+
+	apiAddressesAsStr := transform.Slice(apiAddresses, func(a controllerAPIAddress) string {
+		return a.Address
+	})
+
+	decoded := port.UnitEndpointPortRanges(transform.Slice(machineOpenedPortRanges, func(p unitEndpointOpenedPortRange) port.UnitEndpointPortRange {
+		return p.decodeToUnitEndpointPortRange()
+	}))
+
+	return application.IAASUnitContext{
+		APIAddresses:                      apiAddressesAsStr,
+		LegacyProxySettings:               legacyProxySettings,
+		JujuProxySettings:                 jujuProxySettings,
+		OpenedMachinePortRangesByEndpoint: decoded.ByUnitByEndpoint(),
+		PrivateAddress:                    encodedAddresses,
+	}, nil
+}
+
+// GetCAASUnitContext returns CAAS context information required for the
+// construction of a context factory.
+func (st *State) GetCAASUnitContext(ctx context.Context, unitName string) (application.CAASUnitContext, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return application.CAASUnitContext{}, errors.Capture(err)
+	}
+
+	var (
+		apiAddresses                           []controllerAPIAddress
+		legacyProxySettings, jujuProxySettings application.ProxySettings
+		unitOpenedPortRanges                   []unitEndpointOpenedPortRange
+	)
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkUnitNotDeadByName(ctx, tx, unitName); err != nil {
+			return errors.Capture(err)
+		}
+
+		apiAddresses, err = st.getAllAPIAddressesForAgents(ctx, tx)
+		if err != nil {
+			return errors.Errorf("getting api addresses for agents: %w", err)
+		}
+
+		legacyProxySettings, err = st.getLegacyProxySettings(ctx, tx)
+		if err != nil {
+			return errors.Errorf("getting legacy proxy settings: %w", err)
+		}
+
+		jujuProxySettings, err = st.getJujuProxySettings(ctx, tx)
+		if err != nil {
+			return errors.Errorf("getting proxy settings: %w", err)
+		}
+
+		unitOpenedPortRanges, err = st.getUnitOpenedPortRanges(ctx, tx, unitName)
+		if err != nil {
+			return errors.Errorf("getting machine opened port ranges: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		return application.CAASUnitContext{}, errors.Capture(err)
+	}
+
+	apiAddressesAsStr := transform.Slice(apiAddresses, func(a controllerAPIAddress) string {
+		return a.Address
+	})
+
+	decoded := port.UnitEndpointPortRanges(transform.Slice(unitOpenedPortRanges, func(p unitEndpointOpenedPortRange) port.UnitEndpointPortRange {
+		return p.decodeToUnitEndpointPortRange()
+	}))
+
+	return application.CAASUnitContext{
+		APIAddresses:               apiAddressesAsStr,
+		LegacyProxySettings:        legacyProxySettings,
+		JujuProxySettings:          jujuProxySettings,
+		OpenedPortRangesByEndpoint: decoded.ByUnitByEndpoint(),
+	}, nil
+}
+
+func (st *State) getAllAPIAddressesForAgents(ctx context.Context, tx *sqlair.TX) ([]controllerAPIAddress, error) {
+	stmt, err := st.Prepare(`
+SELECT &controllerAPIAddress.* 
+FROM controller_api_address
+WHERE is_agent = true
+`, controllerAPIAddress{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result []controllerAPIAddress
+	err = tx.Query(ctx, stmt).GetAll(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Errorf("getting all api addresses for controller nodes: %w", err)
+	}
+	return result, nil
+}
+
+func (st *State) getLegacyProxySettings(ctx context.Context, tx *sqlair.TX) (application.ProxySettings, error) {
+	type modelConfig struct {
+		Key   string `db:"key"`
+		Value string `db:"value"`
+	}
+
+	stmt, err := st.Prepare(`
+SELECT key, value
+FROM model_config
+WHERE key IN ('http-proxy', 'https-proxy', 'ftp-proxy', 'no-proxy')
+`, modelConfig{})
+	if err != nil {
+		return application.ProxySettings{}, errors.Capture(err)
+	}
+
+	var configs []modelConfig
+	err = tx.Query(ctx, stmt).GetAll(&configs)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return application.ProxySettings{}, err
+	}
+
+	proxySettings := application.ProxySettings{}
+	for _, config := range configs {
+		switch config.Key {
+		case "http-proxy":
+			proxySettings.HTTP = config.Value
+		case "https-proxy":
+			proxySettings.HTTPS = config.Value
+		case "ftp-proxy":
+			proxySettings.FTP = config.Value
+		case "no-proxy":
+			proxySettings.NoProxy = config.Value
+		}
+	}
+	return proxySettings, nil
+}
+
+func (st *State) getJujuProxySettings(ctx context.Context, tx *sqlair.TX) (application.ProxySettings, error) {
+	type modelConfig struct {
+		Key   string `db:"key"`
+		Value string `db:"value"`
+	}
+
+	stmt, err := st.Prepare(`
+SELECT key, value
+FROM model_config
+WHERE key IN ('juju-http-proxy', 'juju-https-proxy', 'juju-ftp-proxy', 'juju-no-proxy')
+`, modelConfig{})
+	if err != nil {
+		return application.ProxySettings{}, errors.Capture(err)
+	}
+
+	var configs []modelConfig
+	err = tx.Query(ctx, stmt).GetAll(&configs)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return application.ProxySettings{}, err
+	}
+
+	proxySettings := application.ProxySettings{}
+	for _, config := range configs {
+		switch config.Key {
+		case "juju-http-proxy":
+			proxySettings.HTTP = config.Value
+		case "juju-https-proxy":
+			proxySettings.HTTPS = config.Value
+		case "juju-ftp-proxy":
+			proxySettings.FTP = config.Value
+		case "juju-no-proxy":
+			proxySettings.NoProxy = config.Value
+		}
+	}
+	return proxySettings, nil
+}
+
+type unitEndpointOpenedPortRange struct {
+	UnitName coreunit.Name `db:"unit_name"`
+	Protocol string        `db:"protocol"`
+	FromPort int           `db:"from_port"`
+	ToPort   int           `db:"to_port"`
+	Endpoint string        `db:"endpoint"`
+}
+
+func (p unitEndpointOpenedPortRange) decodeToUnitEndpointPortRange() port.UnitEndpointPortRange {
+	return port.UnitEndpointPortRange{
+		UnitName:  p.UnitName,
+		Endpoint:  p.Endpoint,
+		PortRange: p.decodeToPortRange(),
+	}
+}
+
+func (p unitEndpointOpenedPortRange) decodeToPortRange() network.PortRange {
+	return network.PortRange{
+		Protocol: p.Protocol,
+		FromPort: p.FromPort,
+		ToPort:   p.ToPort,
+	}
+}
+
+func (st *State) getMachineOpenedPortRanges(ctx context.Context, tx *sqlair.TX, machineUUID string) ([]unitEndpointOpenedPortRange, error) {
+	mUUID := entityUUID{UUID: machineUUID}
+
+	query, err := st.Prepare(`
+SELECT &unitEndpointOpenedPortRange.*
+FROM v_port_range
+JOIN unit ON unit_uuid = unit.uuid
+JOIN machine ON unit.net_node_uuid = machine.net_node_uuid
+WHERE machine.uuid = $entityUUID.uuid
+`, unitEndpointOpenedPortRange{}, mUUID)
+	if err != nil {
+		return nil, errors.Errorf("preparing get machine opened ports statement: %w", err)
+	}
+
+	var results []unitEndpointOpenedPortRange
+	err = tx.Query(ctx, query, mUUID).GetAll(&results)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	}
+	return results, nil
+}
+
+func (st *State) getUnitOpenedPortRanges(ctx context.Context, tx *sqlair.TX, unitName string) ([]unitEndpointOpenedPortRange, error) {
+	uName := unitEndpointOpenedPortRange{UnitName: coreunit.Name(unitName)}
+
+	query, err := st.Prepare(`
+SELECT &unitEndpointOpenedPortRange.*
+FROM v_port_range
+WHERE unit_name = $unitEndpointOpenedPortRange.unit_name
+`, uName)
+	if err != nil {
+		return nil, errors.Errorf("preparing get unit opened ports statement: %w", err)
+	}
+
+	var results []unitEndpointOpenedPortRange
+	err = tx.Query(ctx, query, uName).GetAll(&results)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	}
+	return results, nil
+}
+
+func (st *State) getUnitPrivateAddress(ctx context.Context, tx *sqlair.TX, unitName string) ([]unitSpaceAddress, error) {
+	entityName := entityName{Name: unitName}
+
+	query, err := st.Prepare(`
+SELECT    &unitSpaceAddress.*
+FROM      unit u
+JOIN      link_layer_device AS lld ON u.net_node_uuid = lld.net_node_uuid
+JOIN      v_ip_address_with_names AS ipa ON lld.uuid = ipa.device_uuid
+LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
+WHERE     u.name = $entityName.name
+`, unitSpaceAddress{}, entityName)
+	if err != nil {
+		return nil, errors.Errorf("preparing get unit private address statement: %w", err)
+	}
+
+	var addresses []unitSpaceAddress
+	err = tx.Query(ctx, query, entityName).Get(&addresses)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Errorf("querying unit private address: %w", err)
+	}
+	return addresses, nil
+}
+
+// controllerAPIAddress is the database representation of a controller api
+// address with the controller id and whether it is for agents or clients.
+type controllerAPIAddress struct {
+	// Address is the address of the controller node.
+	Address string `db:"address"`
+}
+
 // setK8sPodStatus saves the given k8s pod status, overwriting
 // any current status data. If returns an error satisfying
 // [applicationerrors.UnitNotFound] if the unit doesn't exist.
@@ -1941,4 +2308,48 @@ func encodeK8sPodInfo(info unitK8sPodInfo, ports []k8sPodPort) application.K8sPo
 		ret.Ports[i] = p.Port
 	}
 	return ret
+}
+
+func encodeIPAddresses(addresses []unitSpaceAddress) (network.SpaceAddresses, error) {
+	res := make(network.SpaceAddresses, len(addresses))
+	for i, addr := range addresses {
+		encodedIP, err := encodeIPAddress(addr)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		res[i] = encodedIP
+	}
+	return res, nil
+}
+
+func encodeIPAddress(address unitSpaceAddress) (network.SpaceAddress, error) {
+	spaceUUID := network.AlphaSpaceId
+	if address.SpaceUUID.Valid {
+		spaceUUID = network.SpaceUUID(address.SpaceUUID.String)
+	}
+	// The saved address value is in the form 192.0.2.1/24,
+	// parse the parts for the MachineAddress
+	ipAddr, ipNet, err := net.ParseCIDR(address.Value)
+	if err != nil {
+		// Note: IP addresses from Kubernetes do not contain subnet
+		// mask suffixes yet. Handle that scenario here. Eventually
+		// an error should be returned instead.
+		ipAddr = net.ParseIP(address.Value)
+	}
+	cidr := ipNet.String()
+	// Prefer the subnet cidr if one exists.
+	if address.SubnetCIDR.Valid {
+		cidr = address.SubnetCIDR.String
+	}
+	return network.SpaceAddress{
+		SpaceID: spaceUUID,
+		Origin:  network.Origin(address.Origin),
+		MachineAddress: network.MachineAddress{
+			Value:      ipAddr.String(),
+			CIDR:       cidr,
+			Type:       network.AddressType(address.Type),
+			Scope:      network.Scope(address.Scope),
+			ConfigType: network.AddressConfigType(address.ConfigType),
+		},
+	}, nil
 }

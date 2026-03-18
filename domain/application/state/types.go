@@ -234,6 +234,17 @@ type spaceAddress struct {
 	SubnetCIDR   sql.NullString              `db:"cidr"`
 }
 
+type unitSpaceAddress struct {
+	Value      string         `db:"address_value"`
+	ConfigType string         `db:"config_type_name"`
+	Type       string         `db:"type_name"`
+	Origin     string         `db:"origin_name"`
+	Scope      string         `db:"scope_name"`
+	DeviceUUID string         `db:"device_uuid"`
+	SpaceUUID  sql.NullString `db:"space_uuid"`
+	SubnetCIDR sql.NullString `db:"cidr"`
+}
+
 type subnet struct {
 	UUID string `db:"uuid"`
 	CIDR string `db:"cidr"`
@@ -1195,6 +1206,11 @@ type getUnitMachineName struct {
 
 type getUnitMachineUUID struct {
 	UnitUUID    string `db:"unit_uuid"`
+	MachineUUID string `db:"uuid"`
+}
+
+type getUnitMachineUUIDByUnitName struct {
+	UnitName    string `db:"name"`
 	MachineUUID string `db:"uuid"`
 }
 
