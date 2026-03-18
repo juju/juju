@@ -48,7 +48,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *tc.C) {
 
 	args := params.ModelCreateArgs{
 		Name:        "new-model",
-		Qualifier:   "prod",
+		Qualifier:   "user-prod",
 		Config:      map[string]interface{}{"abc": 123},
 		CloudTag:    "cloud-nimbus",
 		CloudRegion: "catbus",

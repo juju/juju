@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/model"
 )
 
 const showCommandDoc = `
@@ -126,8 +125,7 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 	}
 
 	if url.ModelQualifier == "" {
-		qualifier := model.QualifierFromUserTag(names.NewUserTag(accountDetails.User))
-		url.ModelQualifier = qualifier.String()
+		url.ModelQualifier = accountDetails.User
 	}
 	if url.Source != "" {
 		controllerName = url.Source

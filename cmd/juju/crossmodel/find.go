@@ -168,7 +168,7 @@ func (c *findCommand) validateOrSetURL() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		qualifier = model.QualifierFromUserTag(names.NewUserTag(accountDetails.User))
+		qualifier = model.Qualifier(accountDetails.User)
 	}
 	c.modelQualifier = qualifier
 	c.modelName = urlParts.ModelName

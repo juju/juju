@@ -193,7 +193,14 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		}
 	}
 
-	qualifier := coremodel.Qualifier(args.Qualifier)
+	// The qualifier may arrive as a user tag string (e.g. "user-alice@domain.com"
+	// from JIMM or our client) or an already-normalised qualifier.
+	var qualifier coremodel.Qualifier
+	if ownerTag, err := names.ParseUserTag(args.Qualifier); err == nil {
+		qualifier = coremodel.QualifierFromUserTag(ownerTag)
+	} else {
+		qualifier = coremodel.NormalizeQualifier(args.Qualifier)
+	}
 	if err := qualifier.Validate(); err != nil {
 		return result, internalerrors.New(
 			"cannot create model with invalid qualifier",

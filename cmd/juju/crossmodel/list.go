@@ -160,12 +160,21 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 		}
 	}
 
-	unqualifiedModelName, qualifier, err := jujuclient.SplitFullyQualifiedModelName(modelName)
+	unqualifiedModelName, _, err := jujuclient.SplitFullyQualifiedModelName(modelName)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// Use the raw account username for the qualifier sent to the server,
+	// not the normalized qualifier from the client store key. The server
+	// normalizes on receipt, and 3.6 compat needs the raw username.
+	accountDetails, err := c.CurrentAccountDetails()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	c.filters = []crossmodel.ApplicationOfferFilter{{
-		ModelQualifier:  coremodel.Qualifier(qualifier),
+		ModelQualifier:  coremodel.Qualifier(accountDetails.User),
 		ModelName:       unqualifiedModelName,
 		ApplicationName: c.applicationName,
 	}}
