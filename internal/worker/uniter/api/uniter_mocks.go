@@ -435,6 +435,45 @@ func (c *MockUniterClientDestroyUnitStorageAttachmentsCall) DoAndReturn(f func(c
 	return c
 }
 
+// GetUnitContext mocks base method.
+func (m *MockUniterClient) GetUnitContext(ctx context.Context, tag names.UnitTag) (params.UnitContext, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitContext", ctx, tag)
+	ret0, _ := ret[0].(params.UnitContext)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitContext indicates an expected call of GetUnitContext.
+func (mr *MockUniterClientMockRecorder) GetUnitContext(ctx, tag any) *MockUniterClientGetUnitContextCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitContext", reflect.TypeOf((*MockUniterClient)(nil).GetUnitContext), ctx, tag)
+	return &MockUniterClientGetUnitContextCall{Call: call}
+}
+
+// MockUniterClientGetUnitContextCall wrap *gomock.Call
+type MockUniterClientGetUnitContextCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockUniterClientGetUnitContextCall) Return(arg0 params.UnitContext, arg1 error) *MockUniterClientGetUnitContextCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockUniterClientGetUnitContextCall) Do(f func(context.Context, names.UnitTag) (params.UnitContext, error)) *MockUniterClientGetUnitContextCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockUniterClientGetUnitContextCall) DoAndReturn(f func(context.Context, names.UnitTag) (params.UnitContext, error)) *MockUniterClientGetUnitContextCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GoalState mocks base method.
 func (m *MockUniterClient) GoalState(arg0 context.Context) (application.GoalState, error) {
 	m.ctrl.T.Helper()

@@ -45,4 +45,8 @@ type UniterClient interface {
 	WatchUpdateStatusHookInterval(context.Context) (watcher.NotifyWatcher, error)
 	UpdateStatusHookInterval(context.Context) (time.Duration, error)
 	StorageAttachmentLife(context.Context, []params.StorageAttachmentId) ([]params.LifeResult, error)
+
+	// GetUnitContext returns as much context information required for the
+	// construction of a context factory.
+	GetUnitContext(ctx context.Context, tag names.UnitTag) (params.UnitContext, error)
 }
