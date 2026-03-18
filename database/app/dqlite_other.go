@@ -8,6 +8,7 @@ package app
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"database/sql"
 	"path/filepath"
 
@@ -131,4 +132,8 @@ func (*App) Close() error {
 
 func (*App) Address() string {
 	return ""
+}
+
+func SimpleDialTLSConfig(cert tls.Certificate, pool *x509.CertPool) *tls.Config {
+	return nil
 }
