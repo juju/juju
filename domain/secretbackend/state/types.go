@@ -235,13 +235,17 @@ func (rows secretBackendForK8sModelRows) toSecretBackend(controllerName string, 
 	clds := cldData.toClouds()
 	creds := credData.toCloudCredentials()
 
-	cloudIDs := set.NewStrings()
 	var result []*secretbackend.SecretBackend
+	modelNames := set.NewStrings()
 	for _, row := range rows {
-		if cloudIDs.Contains(row.CloudID) {
+		if modelNames.Contains(row.ModelName) {
+			// This model has already been added.
+			// It can be duplicated in rows if there is several credentials attributes
+			// for the same model. Those attributes are merged into a single
+			// creds data in the above credData.toCloudCredentials() call.
 			continue
 		}
-		cloudIDs.Add(row.CloudID)
+		modelNames.Add(row.ModelName)
 		if _, ok := clds[row.CloudID]; !ok {
 			return nil, errors.Errorf("cloud %q not found", row.CloudID)
 		}

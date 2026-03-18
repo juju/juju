@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/tc"
 
+	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/secretbackend"
 	"github.com/juju/juju/internal/database"
@@ -176,6 +177,152 @@ lines`, "some-other-lines"})),
 			},
 		},
 	})
+}
+
+func (s *typesSuite) TestToSecretBackendK8s(c *tc.C) {
+	rows := secretBackendForK8sModelRows{
+		{
+			SecretBackendRow: SecretBackendRow{
+				ID:          "uuid-k8s",
+				Name:        "kubernetes",
+				BackendType: "kubernetes",
+			},
+			ModelName:    "model1",
+			CloudID:      "cloud1",
+			CredentialID: "cred1",
+		},
+		{
+			SecretBackendRow: SecretBackendRow{
+				ID:          "uuid-k8s",
+				Name:        "kubernetes",
+				BackendType: "kubernetes",
+			},
+			ModelName:    "model2",
+			CloudID:      "cloud1",
+			CredentialID: "cred1",
+		},
+	}
+	cldData := cloudRows{
+		{
+			ID:                "cloud1",
+			Name:              "cloud1-name",
+			Endpoint:          "https://cloud1.com",
+			SkipTLSVerify:     true,
+			IsControllerCloud: false,
+			CACert:            "ca-cert1",
+		},
+	}
+	credData := cloudCredentialRows{
+		{
+			ID:             "cred1",
+			Name:           "cred1-name",
+			AuthType:       "userpass",
+			AttributeKey:   "token",
+			AttributeValue: "token-val",
+		},
+	}
+
+	result, err := rows.toSecretBackend("my-controller", cldData, credData)
+	c.Assert(err, tc.IsNil)
+
+	// Verify that we have 2 backends (one for each model), despite having the
+	// same CloudID.
+	c.Assert(result, tc.HasLen, 2)
+
+	c.Assert(result[0].Name, tc.Equals, "model1-local")
+	c.Assert(result[0].Config["namespace"], tc.Equals, "model1")
+
+	c.Assert(result[1].Name, tc.Equals, "model2-local")
+	c.Assert(result[1].Config["namespace"], tc.Equals, "model2")
+}
+
+// Test that when the k8s backend query yields multiple rows for the same
+// model/credential (one per credential attribute key), we still only get
+// a single SecretBackend per model.
+func (s *typesSuite) TestToSecretBackendK8sDuplicateRows(c *tc.C) {
+	rows := secretBackendForK8sModelRows{
+		// model1 appears twice with the same credential, simulating a join
+		// that yields one row per credential attribute for cred1
+		{
+			SecretBackendRow: SecretBackendRow{
+				ID:          "uuid-k8s",
+				Name:        "kubernetes",
+				BackendType: "kubernetes",
+			},
+			ModelName:    "model1",
+			CloudID:      "cloud1",
+			CredentialID: "cred1",
+		},
+		{
+			SecretBackendRow: SecretBackendRow{
+				ID:          "uuid-k8s",
+				Name:        "kubernetes",
+				BackendType: "kubernetes",
+			},
+			ModelName:    "model1",
+			CloudID:      "cloud1",
+			CredentialID: "cred1",
+		},
+		// model2 appears once, using another credential (cred2)
+		{
+			SecretBackendRow: SecretBackendRow{
+				ID:          "uuid-k8s",
+				Name:        "kubernetes",
+				BackendType: "kubernetes",
+			},
+			ModelName:    "model2",
+			CloudID:      "cloud1",
+			CredentialID: "cred2",
+		},
+	}
+	cldData := cloudRows{
+		{
+			ID:                "cloud1",
+			Name:              "cloud1-name",
+			Endpoint:          "https://cloud1.com",
+			SkipTLSVerify:     true,
+			IsControllerCloud: false,
+			CACert:            "ca-cert1",
+		},
+	}
+	credData := cloudCredentialRows{
+		{
+			ID:             "cred1",
+			Name:           "cred1-name",
+			AuthType:       "userpass",
+			AttributeKey:   k8scloud.CredAttrUsername,
+			AttributeValue: "my-user",
+		},
+		{
+			ID:             "cred1",
+			Name:           "cred1-name",
+			AuthType:       "userpass",
+			AttributeKey:   k8scloud.CredAttrPassword,
+			AttributeValue: "my-password",
+		},
+		{
+			ID:             "cred2",
+			Name:           "cred2-name",
+			AuthType:       "token",
+			AttributeKey:   k8scloud.CredAttrToken,
+			AttributeValue: "my-token",
+		},
+	}
+
+	result, err := rows.toSecretBackend("my-controller", cldData, credData)
+	c.Assert(err, tc.IsNil)
+
+	// We still expect exactly one backend per model, even though the
+	// underlying query returned multiple rows for model1.
+	c.Assert(result, tc.HasLen, 2)
+
+	c.Assert(result[0].Name, tc.Equals, "model1-local")
+	c.Assert(result[0].Config["namespace"], tc.Equals, "model1")
+	c.Assert(result[0].Config["username"], tc.Equals, "my-user")
+	c.Assert(result[0].Config["password"], tc.Equals, "my-password")
+	c.Assert(result[1].Name, tc.Equals, "model2-local")
+	c.Assert(result[1].Config["namespace"], tc.Equals, "model2")
+	c.Assert(result[1].Config["token"], tc.Equals, "my-token")
 }
 
 func (s *typesSuite) TestToChanges(c *tc.C) {
