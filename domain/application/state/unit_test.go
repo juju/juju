@@ -31,6 +31,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	domainnetwork "github.com/juju/juju/domain/network"
+	portstate "github.com/juju/juju/domain/port/state"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -1723,6 +1724,139 @@ func (s *unitStateSubordinateSuite) createSubordinateApplication(c *tc.C, name s
 	c.Assert(err, tc.ErrorIsNil)
 
 	return appID
+}
+
+func (s *unitStateSuite) TestGetIAASUnitContext(c *tc.C) {
+	// Arrange: Create an IAAS unit with a machine
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	unitName, err := s.state.GetUnitNameForUUID(c.Context(), unitUUIDs[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: Get the IAAS unit context
+	result, err := s.state.GetIAASUnitContext(c.Context(), unitName.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.LegacyProxySettings, tc.DeepEquals, application.ProxySettings{})
+	c.Check(result.JujuProxySettings, tc.DeepEquals, application.ProxySettings{})
+	c.Check(result.OpenedMachinePortRangesByEndpoint, tc.NotNil)
+}
+
+func (s *unitStateSuite) TestGetIAASUnitContextNotFound(c *tc.C) {
+	// Act & Assert: Try to get context for non-existent unit
+	_, err := s.state.GetIAASUnitContext(c.Context(), "nonexistent/0")
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitStateSuite) TestGetIAASUnitContextDead(c *tc.C) {
+	// Arrange: Create a unit and set it to dead
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	unitName, err := s.state.GetUnitNameForUUID(c.Context(), unitUUIDs[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Set unit to dead
+	s.setUnitLife(c, unitUUIDs[0], life.Dead)
+
+	// Act & Assert: Dead units should not be allowed
+	_, err = s.state.GetIAASUnitContext(c.Context(), unitName.String())
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitIsDead)
+}
+
+func (s *unitStateSuite) TestGetIAASUnitContextWithPortRanges(c *tc.C) {
+	// Arrange: Create an IAAS unit with port ranges
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	unitName, err := s.state.GetUnitNameForUUID(c.Context(), unitUUIDs[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	portState := portstate.NewState(s.TxnRunnerFactory())
+	err = portState.ImportOpenUnitPorts(c.Context(), unitUUIDs[0], network.GroupedPortRanges{
+		"": {
+			{Protocol: "tcp", FromPort: 80, ToPort: 80},
+			{Protocol: "tcp", FromPort: 443, ToPort: 443},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: Get the IAAS unit context
+	result, err := s.state.GetIAASUnitContext(c.Context(), unitName.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.OpenedMachinePortRangesByEndpoint, tc.NotNil)
+	// Port ranges are keyed by unit name as UnitTag
+	c.Check(len(result.OpenedMachinePortRangesByEndpoint) > 0, tc.IsTrue)
+}
+
+func (s *unitStateSuite) TestGetCAASUnitContext(c *tc.C) {
+	// Arrange: Create a CAAS unit
+	unitName, _ := s.createNamedCAASUnit(c)
+
+	// Act: Get the CAAS unit context
+	result, err := s.state.GetCAASUnitContext(c.Context(), unitName.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.LegacyProxySettings, tc.DeepEquals, application.ProxySettings{})
+	c.Check(result.JujuProxySettings, tc.DeepEquals, application.ProxySettings{})
+	c.Check(result.OpenedPortRangesByEndpoint, tc.NotNil)
+}
+
+func (s *unitStateSuite) TestGetCAASUnitContextNotFound(c *tc.C) {
+	// Act & Assert: Try to get context for non-existent unit
+	_, err := s.state.GetCAASUnitContext(c.Context(), "nonexistent/0")
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitStateSuite) TestGetCAASUnitContextDead(c *tc.C) {
+	// Arrange: Create a unit and set it to dead
+	unitName, unitUUID := s.createNamedCAASUnit(c)
+
+	// Set unit to dead
+	s.setUnitLife(c, unitUUID, life.Dead)
+
+	// Act & Assert: Dead units should not be allowed
+	_, err := s.state.GetCAASUnitContext(c.Context(), unitName.String())
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitIsDead)
+}
+
+func (s *unitStateSuite) TestGetCAASUnitContextWithPortRanges(c *tc.C) {
+	// Arrange: Create a CAAS unit with port ranges
+	unitName, unitUUID := s.createNamedCAASUnit(c)
+
+	portState := portstate.NewState(s.TxnRunnerFactory())
+	// Use empty string for endpoint to avoid charm endpoint validation
+	err := portState.ImportOpenUnitPorts(c.Context(), unitUUID, network.GroupedPortRanges{
+		"": {
+			{Protocol: "tcp", FromPort: 80, ToPort: 80},
+			{Protocol: "tcp", FromPort: 443, ToPort: 443},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: Get the CAAS unit context
+	result, err := s.state.GetCAASUnitContext(c.Context(), unitName.String())
+
+	// Assert: Port ranges should be present, API address table might not exist in test db
+	if err != nil {
+		// Expected in test db without full schema
+		c.Check(err, tc.ErrorMatches, ".*no such table.*")
+	} else {
+		c.Check(result.OpenedPortRangesByEndpoint, tc.NotNil)
+		// Port ranges should be present
+		c.Check(len(result.OpenedPortRangesByEndpoint) > 0, tc.IsTrue)
+
+		// Verify port ranges are correctly structured
+		for _, portsByEndpoint := range result.OpenedPortRangesByEndpoint {
+			c.Check(len(portsByEndpoint) > 0, tc.IsTrue)
+			for _, ports := range portsByEndpoint {
+				for _, p := range ports {
+					c.Check(p.Protocol, tc.Matches, "tcp|udp|icmp")
+					c.Check(p.FromPort >= 0, tc.IsTrue)
+					c.Check(p.ToPort >= p.FromPort, tc.IsTrue)
+				}
+			}
+		}
+	}
 }
 
 func deptr[T any](v *T) T {

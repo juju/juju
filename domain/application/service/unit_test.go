@@ -637,7 +637,6 @@ func (s *unitServiceSuite) TestGetIAASUnitContext(c *tc.C) {
 	unitName := coreunit.Name("foo/666")
 	subordinateUnit := coreunit.Name("logging/0")
 	stateResult := application.IAASUnitContext{
-		APIAddresses: []string{"10.0.0.1", "10.0.0.2"},
 		LegacyProxySettings: application.ProxySettings{
 			HTTP:    "http://proxy:3128",
 			HTTPS:   "https://proxy:3128",
@@ -675,7 +674,6 @@ func (s *unitServiceSuite) TestGetIAASUnitContext(c *tc.C) {
 
 	result, err := s.service.GetIAASUnitContext(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result.APIAddresses, tc.DeepEquals, []string{"10.0.0.1", "10.0.0.2"})
 	c.Check(result.CloudAPIVersion, tc.Equals, "v1.0.0")
 	c.Check(result.LegacyProxySettings.Http, tc.Equals, "http://proxy:3128")
 	c.Check(result.PrivateAddress, tc.NotNil)
@@ -723,9 +721,7 @@ func (s *unitServiceSuite) TestGetIAASUnitContextCloudAPIVersionError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/666")
-	stateResult := application.IAASUnitContext{
-		APIAddresses: []string{"10.0.0.1"},
-	}
+	stateResult := application.IAASUnitContext{}
 
 	s.state.EXPECT().GetIAASUnitContext(gomock.Any(), unitName.String()).Return(stateResult, nil)
 	s.cloudInfoProvider.EXPECT().APIVersion().Return("", errors.New("cloud error"))
@@ -740,7 +736,6 @@ func (s *unitServiceSuite) TestGetCAASUnitContext(c *tc.C) {
 	unitName := coreunit.Name("foo/666")
 	principalUnit := coreunit.Name("foo/0")
 	stateResult := application.CAASUnitContext{
-		APIAddresses: []string{"10.0.0.1", "10.0.0.2"},
 		LegacyProxySettings: application.ProxySettings{
 			HTTP:    "http://proxy:3128",
 			HTTPS:   "https://proxy:3128",
@@ -775,7 +770,6 @@ func (s *unitServiceSuite) TestGetCAASUnitContext(c *tc.C) {
 
 	result, err := s.service.GetCAASUnitContext(c.Context(), unitName)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result.APIAddresses, tc.DeepEquals, []string{"10.0.0.1", "10.0.0.2"})
 	c.Check(result.CloudAPIVersion, tc.Equals, "v1.0.0")
 	c.Check(result.LegacyProxySettings.Http, tc.Equals, "http://proxy:3128")
 	c.Check(result.JujuProxySettings.Http, tc.Equals, "http://juju-proxy:3128")
@@ -820,9 +814,7 @@ func (s *unitServiceSuite) TestGetCAASUnitContextCloudAPIVersionError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/666")
-	stateResult := application.CAASUnitContext{
-		APIAddresses: []string{"10.0.0.1"},
-	}
+	stateResult := application.CAASUnitContext{}
 
 	s.state.EXPECT().GetCAASUnitContext(gomock.Any(), unitName.String()).Return(stateResult, nil)
 	s.cloudInfoProvider.EXPECT().APIVersion().Return("", errors.New("cloud error"))

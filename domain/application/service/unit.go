@@ -805,7 +805,6 @@ func (s *Service) GetAllUnitCloudContainerIDsForApplication(ctx context.Context,
 // IAASUnitContext describes the IAAS context information required for the
 // construction of a context factory for a unit.
 type IAASUnitContext struct {
-	APIAddresses                      []string
 	CloudAPIVersion                   string
 	LegacyProxySettings               proxy.Settings
 	JujuProxySettings                 proxy.Settings
@@ -838,7 +837,6 @@ func (s *ProviderService) GetIAASUnitContext(ctx context.Context, unitName coreu
 	}
 
 	return IAASUnitContext{
-		APIAddresses:                      result.APIAddresses,
 		CloudAPIVersion:                   cloudAPIVersion,
 		LegacyProxySettings:               encodeProxySettings(result.LegacyProxySettings),
 		JujuProxySettings:                 encodeProxySettings(result.JujuProxySettings),
@@ -850,7 +848,6 @@ func (s *ProviderService) GetIAASUnitContext(ctx context.Context, unitName coreu
 // CAASUnitContext describes the CAAS context information required for the
 // construction of a context factory for a unit.
 type CAASUnitContext struct {
-	APIAddresses               []string
 	CloudAPIVersion            string
 	LegacyProxySettings        proxy.Settings
 	JujuProxySettings          proxy.Settings
@@ -882,7 +879,6 @@ func (s *ProviderService) GetCAASUnitContext(ctx context.Context, unitName coreu
 	}
 
 	return CAASUnitContext{
-		APIAddresses:               result.APIAddresses,
 		CloudAPIVersion:            cloudAPIVersion,
 		LegacyProxySettings:        encodeProxySettings(result.LegacyProxySettings),
 		JujuProxySettings:          encodeProxySettings(result.JujuProxySettings),

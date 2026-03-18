@@ -540,7 +540,6 @@ type ProxySettings struct {
 // IAASUnitContext contains the IAAS context information required for the
 // construction of a context factory for a unit.
 type IAASUnitContext struct {
-	APIAddresses                      []string
 	LegacyProxySettings               ProxySettings
 	JujuProxySettings                 ProxySettings
 	PrivateAddress                    []network.SpaceAddress
@@ -550,7 +549,6 @@ type IAASUnitContext struct {
 // CAASUnitContext contains the CAAS context information required for the
 // construction of a context factory for a unit.
 type CAASUnitContext struct {
-	APIAddresses               []string
 	LegacyProxySettings        ProxySettings
 	JujuProxySettings          ProxySettings
 	OpenedPortRangesByEndpoint map[coreunit.Name]network.GroupedPortRanges

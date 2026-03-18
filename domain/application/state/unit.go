@@ -1862,8 +1862,8 @@ func (st *State) GetCharmStorageAndInstanceCountByUnitUUID(
 	}, count, nil
 }
 
-// GetIAASUnitContext returns IAAS qcontext information required for the construction
-// of a context factory.
+// GetIAASUnitContext returns IAAS context information required for the
+// construction of a context factory.
 func (st *State) GetIAASUnitContext(ctx context.Context, unitName string) (application.IAASUnitContext, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1871,7 +1871,6 @@ func (st *State) GetIAASUnitContext(ctx context.Context, unitName string) (appli
 	}
 
 	var (
-		apiAddresses                           []controllerAPIAddress
 		legacyProxySettings, jujuProxySettings application.ProxySettings
 		machineOpenedPortRanges                []unitEndpointOpenedPortRange
 		unitAddresses                          []unitSpaceAddress
@@ -1879,11 +1878,6 @@ func (st *State) GetIAASUnitContext(ctx context.Context, unitName string) (appli
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkUnitNotDeadByName(ctx, tx, unitName); err != nil {
 			return errors.Capture(err)
-		}
-
-		apiAddresses, err = st.getAllAPIAddressesForAgents(ctx, tx)
-		if err != nil {
-			return errors.Errorf("getting api addresses for agents: %w", err)
 		}
 
 		legacyProxySettings, err = st.getLegacyProxySettings(ctx, tx)
@@ -1922,16 +1916,11 @@ func (st *State) GetIAASUnitContext(ctx context.Context, unitName string) (appli
 		return application.IAASUnitContext{}, errors.Errorf("encoding unit addresses: %w", err)
 	}
 
-	apiAddressesAsStr := transform.Slice(apiAddresses, func(a controllerAPIAddress) string {
-		return a.Address
-	})
-
 	decoded := port.UnitEndpointPortRanges(transform.Slice(machineOpenedPortRanges, func(p unitEndpointOpenedPortRange) port.UnitEndpointPortRange {
 		return p.decodeToUnitEndpointPortRange()
 	}))
 
 	return application.IAASUnitContext{
-		APIAddresses:                      apiAddressesAsStr,
 		LegacyProxySettings:               legacyProxySettings,
 		JujuProxySettings:                 jujuProxySettings,
 		OpenedMachinePortRangesByEndpoint: decoded.ByUnitByEndpoint(),
@@ -1948,18 +1937,12 @@ func (st *State) GetCAASUnitContext(ctx context.Context, unitName string) (appli
 	}
 
 	var (
-		apiAddresses                           []controllerAPIAddress
 		legacyProxySettings, jujuProxySettings application.ProxySettings
 		unitOpenedPortRanges                   []unitEndpointOpenedPortRange
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkUnitNotDeadByName(ctx, tx, unitName); err != nil {
 			return errors.Capture(err)
-		}
-
-		apiAddresses, err = st.getAllAPIAddressesForAgents(ctx, tx)
-		if err != nil {
-			return errors.Errorf("getting api addresses for agents: %w", err)
 		}
 
 		legacyProxySettings, err = st.getLegacyProxySettings(ctx, tx)
@@ -1982,40 +1965,15 @@ func (st *State) GetCAASUnitContext(ctx context.Context, unitName string) (appli
 		return application.CAASUnitContext{}, errors.Capture(err)
 	}
 
-	apiAddressesAsStr := transform.Slice(apiAddresses, func(a controllerAPIAddress) string {
-		return a.Address
-	})
-
 	decoded := port.UnitEndpointPortRanges(transform.Slice(unitOpenedPortRanges, func(p unitEndpointOpenedPortRange) port.UnitEndpointPortRange {
 		return p.decodeToUnitEndpointPortRange()
 	}))
 
 	return application.CAASUnitContext{
-		APIAddresses:               apiAddressesAsStr,
 		LegacyProxySettings:        legacyProxySettings,
 		JujuProxySettings:          jujuProxySettings,
 		OpenedPortRangesByEndpoint: decoded.ByUnitByEndpoint(),
 	}, nil
-}
-
-func (st *State) getAllAPIAddressesForAgents(ctx context.Context, tx *sqlair.TX) ([]controllerAPIAddress, error) {
-	stmt, err := st.Prepare(`
-SELECT &controllerAPIAddress.* 
-FROM controller_api_address
-WHERE is_agent = true
-`, controllerAPIAddress{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var result []controllerAPIAddress
-	err = tx.Query(ctx, stmt).GetAll(&result)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return nil, nil
-	} else if err != nil {
-		return nil, errors.Errorf("getting all api addresses for controller nodes: %w", err)
-	}
-	return result, nil
 }
 
 func (st *State) getLegacyProxySettings(ctx context.Context, tx *sqlair.TX) (application.ProxySettings, error) {
@@ -2025,7 +1983,7 @@ func (st *State) getLegacyProxySettings(ctx context.Context, tx *sqlair.TX) (app
 	}
 
 	stmt, err := st.Prepare(`
-SELECT key, value
+SELECT &modelConfig.*
 FROM model_config
 WHERE key IN ('http-proxy', 'https-proxy', 'ftp-proxy', 'no-proxy')
 `, modelConfig{})
@@ -2062,7 +2020,7 @@ func (st *State) getJujuProxySettings(ctx context.Context, tx *sqlair.TX) (appli
 	}
 
 	stmt, err := st.Prepare(`
-SELECT key, value
+SELECT &modelConfig.*
 FROM model_config
 WHERE key IN ('juju-http-proxy', 'juju-https-proxy', 'juju-ftp-proxy', 'juju-no-proxy')
 `, modelConfig{})
