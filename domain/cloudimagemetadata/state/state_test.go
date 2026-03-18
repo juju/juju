@@ -198,6 +198,66 @@ func (s *stateSuite) TestSaveMetadataUpdateMetadata(c *tc.C) {
 	})
 }
 
+func (s *stateSuite) TestSaveMetadataEmptyImageID(c *tc.C) {
+	// Arrange
+	testBeginTime := time.Now().Truncate(time.Second) // avoid truncate issue on dqlite creationTime check
+	attrs1 := cloudimagemetadata.MetadataAttributes{
+		Stream:          "stream",
+		Region:          "region-test",
+		Version:         "22.04",
+		Arch:            "arm64",
+		VirtType:        "virtType-test",
+		RootStorageType: "rootStorageType-test",
+		Source:          "test",
+	}
+
+	//  Act - Save with empty ImageID
+	err := s.state.SaveMetadata(c.Context(), []cloudimagemetadata.Metadata{
+		{MetadataAttributes: attrs1, ImageID: ""},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert - Check that it was saved with empty ImageID
+	obtained, err := s.retrieveMetadataFromDB(c)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.HasLen, 1)
+	c.Check(obtained[0].ImageID, tc.Equals, "")
+
+	// Act - Update with non-empty ImageID
+	err = s.state.SaveMetadata(c.Context(), []cloudimagemetadata.Metadata{
+		{MetadataAttributes: attrs1, ImageID: "new-id"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert - Check that it was updated
+	obtained, err = s.retrieveMetadataFromDB(c)
+	for i := range obtained {
+		c.Check(obtained[i].CreationTime, tc.After, testBeginTime)
+		obtained[i].CreationTime = time.Time{} // ignore time since already checked.
+	}
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained, tc.SameContents, []cloudimagemetadata.Metadata{
+		{MetadataAttributes: attrs1, ImageID: "new-id"},
+	})
+
+	// Act - Update with a empty ImageID again
+	err = s.state.SaveMetadata(c.Context(), []cloudimagemetadata.Metadata{
+		{MetadataAttributes: attrs1, ImageID: ""},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert - Check that it was updated
+	obtained, err = s.retrieveMetadataFromDB(c)
+	for i := range obtained {
+		c.Check(obtained[i].CreationTime, tc.After, testBeginTime)
+		obtained[i].CreationTime = time.Time{} // ignore time since already checked.
+	}
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained, tc.SameContents, []cloudimagemetadata.Metadata{
+		{MetadataAttributes: attrs1, ImageID: ""},
+	})
+}
+
 func (s *stateSuite) TestSaveMetadataWithSameAttributes(c *tc.C) {
 	// Arrange
 	attrs1 := cloudimagemetadata.MetadataAttributes{

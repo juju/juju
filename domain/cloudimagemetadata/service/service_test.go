@@ -55,19 +55,28 @@ func (s *serviceSuite) TestSaveMetadataSuccess(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestSaveMetadataEmptyImageID verifies that the SaveMetadata function returns an error when given metadata with an empty ImageID.
+// TestSaveMetadataEmptyImageID verifies that SaveMetadata succeeds when ImageID is empty.
 func (s *serviceSuite) TestSaveMetadataEmptyImageID(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
-	// State layer shouldn't be called
+	inserted := []cloudimagemetadata.Metadata{{
+		MetadataAttributes: cloudimagemetadata.MetadataAttributes{
+			Version: "1.2.3",
+			Stream:  "stream",
+			Source:  "source",
+			Arch:    "amd64",
+			Region:  "region",
+		},
+		ImageID: "",
+	}}
+	s.state.EXPECT().SupportedArchitectures(gomock.Any()).Return(set.NewStrings("amd64"))
+	s.state.EXPECT().SaveMetadata(gomock.Any(), inserted).Return(nil)
 
 	// Act
-	err := NewService(s.state).SaveMetadata(c.Context(), []cloudimagemetadata.Metadata{{ImageID: ""}})
+	err := NewService(s.state).SaveMetadata(c.Context(), inserted)
 
 	// Assert
-	c.Assert(err, tc.ErrorIs, cloudimageerrors.NotValid)
-	c.Assert(err, tc.ErrorIs, cloudimageerrors.EmptyImageID)
-	c.Assert(err, tc.ErrorMatches, "image id is empty: invalid metadata")
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestSaveMetadataInvalidFields validates that SaveMetadata returns an error when required fields in metadata are missing.
