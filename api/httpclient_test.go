@@ -66,7 +66,14 @@ var httpClientTests = []struct {
 }, {
 	about:       "non-JSON error response",
 	handler:     http.NotFound,
-	expectError: `Get http://.*/: unexpected content type text/plain; want application/json; content: 404 page not found`,
+	expectError: `Get http://.*/: 404 page not found`,
+}, {
+	about: "non-JSON auth error response",
+	handler: func(w http.ResponseWriter, req *http.Request) {
+		http.Error(w, "some unauth error", http.StatusUnauthorized)
+	},
+	expectError:     `Get http://.*/: some unauth error`,
+	expectErrorCode: "unauthorized access",
 }, {
 	about: "bad error response",
 	handler: func(w http.ResponseWriter, req *http.Request) {

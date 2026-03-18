@@ -691,7 +691,8 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	logStreamHandler := newLogStreamEndpointHandler(httpCtxt)
 	embeddedCLIHandler := newEmbeddedCLIHandler(httpCtxt)
 	var debuglogAuth httpcontext.CompositeAuthorizer = []httpcontext.Authorizer{
-		tagKindAuthorizer{names.MachineTagKind, names.ControllerAgentTagKind},
+		tagKindAuthorizer{names.ControllerAgentTagKind},
+		controllerAuthorizer{},
 		controllerAdminAuthorizer{
 			st: systemState,
 		},
@@ -762,9 +763,18 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		},
 	}
 	modelToolsDownloadHandler := newToolsDownloadHandler(httpCtxt)
-	resourcesHandler := &ResourcesHandler{
-		StateAuthFunc: func(req *http.Request, tagKinds ...string) (ResourcesBackend, state.PoolHelper, names.Tag, error) {
-			st, entity, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
+	var resourcesUploadAuthorizer httpcontext.CompositeAuthorizer = []httpcontext.Authorizer{
+		controllerAdminAuthorizer{
+			st: systemState,
+		},
+		modelPermissionAuthorizer{
+			userAccess: systemState.UserPermission,
+			perm:       permission.WriteAccess,
+		},
+	}
+	resourceUploadHandler := &ResourcesUploadHandler{
+		StateFunc: func(req *http.Request) (ResourcesBackend, state.PoolHelper, names.Tag, error) {
+			st, entity, err := httpCtxt.stateForRequestAuthenticated(req)
 			if err != nil {
 				return nil, nil, nil, errors.Trace(err)
 			}
@@ -781,6 +791,26 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 				return errors.Trace(err)
 			}
 			return nil
+		},
+	}
+	var resourcesDownloadAuthorizer httpcontext.CompositeAuthorizer = []httpcontext.Authorizer{
+		controllerAdminAuthorizer{
+			st: systemState,
+		},
+		modelPermissionAuthorizer{
+			userAccess: systemState.UserPermission,
+			perm:       permission.ReadAccess,
+		},
+		tagKindAuthorizer{names.ControllerAgentTagKind, names.MachineTagKind, names.ApplicationTagKind},
+	}
+	resourceDownloadHandler := &ResourcesDownloadHandler{
+		StateFunc: func(req *http.Request) (ResourcesBackend, state.PoolHelper, names.Tag, error) {
+			st, entity, err := httpCtxt.stateForRequestAuthenticated(req)
+			if err != nil {
+				return nil, nil, nil, errors.Trace(err)
+			}
+			rst := st.Resources()
+			return rst, st, entity.Tag(), nil
 		},
 	}
 	unitResourcesHandler := &UnitResourcesHandler{
@@ -886,8 +916,15 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		handler:         modelToolsDownloadHandler,
 		unauthenticated: true,
 	}, {
-		pattern: modelRoutePrefix + "/applications/:application/resources/:resource",
-		handler: resourcesHandler,
+		pattern:    modelRoutePrefix + "/applications/:application/resources/:resource",
+		methods:    []string{"GET"},
+		handler:    resourceDownloadHandler,
+		authorizer: resourcesDownloadAuthorizer,
+	}, {
+		pattern:    modelRoutePrefix + "/applications/:application/resources/:resource",
+		methods:    []string{"PUT"},
+		handler:    resourceUploadHandler,
+		authorizer: resourcesUploadAuthorizer,
 	}, {
 		pattern: modelRoutePrefix + "/units/:unit/resources/:resource",
 		handler: unitResourcesHandler,

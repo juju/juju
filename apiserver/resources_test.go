@@ -15,7 +15,6 @@ import (
 	"time"
 
 	charmresource "github.com/juju/charm/v8/resource"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -35,12 +34,13 @@ import (
 type ResourcesHandlerSuite struct {
 	testing.IsolationSuite
 
-	stateAuthErr error
-	backend      *fakeBackend
-	username     string
-	req          *http.Request
-	recorder     *httptest.ResponseRecorder
-	handler      *apiserver.ResourcesHandler
+	stateAuthErr    error
+	backend         *fakeBackend
+	username        string
+	req             *http.Request
+	recorder        *httptest.ResponseRecorder
+	uploadHandler   *apiserver.ResourcesUploadHandler
+	downloadHandler *apiserver.ResourcesDownloadHandler
 }
 
 var _ = gc.Suite(&ResourcesHandlerSuite{})
@@ -59,13 +59,27 @@ func (s *ResourcesHandlerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.req = req
 	s.recorder = httptest.NewRecorder()
-	s.handler = &apiserver.ResourcesHandler{
-		StateAuthFunc:     s.authState,
+	s.uploadHandler = &apiserver.ResourcesUploadHandler{
+		StateFunc:         s.stateFunc,
 		ChangeAllowedFunc: func(*http.Request) error { return nil },
+	}
+	s.downloadHandler = &apiserver.ResourcesDownloadHandler{
+		StateFunc: s.stateFunc,
 	}
 }
 
-func (s *ResourcesHandlerSuite) authState(req *http.Request, tagKinds ...string) (
+func (s *ResourcesHandlerSuite) authStateDownload(req *http.Request, tagKinds ...string) (
+	apiserver.ResourcesBackend, state.PoolHelper, error,
+) {
+	if s.stateAuthErr != nil {
+		return nil, nil, errors.Trace(s.stateAuthErr)
+	}
+
+	ph := apiservertesting.StubPoolHelper{StubRelease: func() bool { return false }}
+	return s.backend, ph, nil
+}
+
+func (s *ResourcesHandlerSuite) stateFunc(req *http.Request) (
 	apiserver.ResourcesBackend, state.PoolHelper, names.Tag, error,
 ) {
 	if s.stateAuthErr != nil {
@@ -77,45 +91,45 @@ func (s *ResourcesHandlerSuite) authState(req *http.Request, tagKinds ...string)
 	return s.backend, ph, tag, nil
 }
 
-func (s *ResourcesHandlerSuite) TestExpectedAuthTags(c *gc.C) {
-	expectedTags := set.NewStrings(names.UserTagKind, names.MachineTagKind, names.ControllerAgentTagKind, names.ApplicationTagKind)
-
-	s.handler.StateAuthFunc = func(req *http.Request, tagKinds ...string) (apiserver.ResourcesBackend, state.PoolHelper, names.Tag, error) {
-		gotTags := set.NewStrings(tagKinds...)
-		if gotTags.Difference(expectedTags).Size() != 0 || expectedTags.Difference(gotTags).Size() != 0 {
-			c.Fatalf("unexpected tag kinds %v", tagKinds)
-			return nil, nil, nil, errors.NotValidf("tag kinds %v", tagKinds)
-		}
-		ph := apiservertesting.StubPoolHelper{StubRelease: func() bool { return false }}
-		tag := names.NewUserTag(s.username)
-		return s.backend, ph, tag, nil
-	}
-	s.req.Method = "GET"
-	s.handler.ServeHTTP(s.recorder, s.req)
-	s.checkResp(c, http.StatusOK, "application/octet-stream", resourceBody)
-}
-
-func (s *ResourcesHandlerSuite) TestStateAuthFailure(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestDownloadStateAuthFailure(c *gc.C) {
 	failure, expected := apiFailure("<failure>", "")
 	s.stateAuthErr = failure
 
-	s.handler.ServeHTTP(s.recorder, s.req)
+	s.downloadHandler.ServeHTTP(s.recorder, s.req)
 
 	s.checkResp(c, http.StatusInternalServerError, "application/json", expected)
 }
 
-func (s *ResourcesHandlerSuite) TestUnsupportedMethod(c *gc.C) {
-	s.req.Method = "POST"
+func (s *ResourcesHandlerSuite) TestUploadStateAuthFailure(c *gc.C) {
+	failure, expected := apiFailure("<failure>", "")
+	s.stateAuthErr = failure
 
-	s.handler.ServeHTTP(s.recorder, s.req)
+	s.uploadHandler.ServeHTTP(s.recorder, s.req)
 
-	_, expected := apiFailure(`unsupported method: "POST"`, params.CodeMethodNotAllowed)
+	s.checkResp(c, http.StatusInternalServerError, "application/json", expected)
+}
+
+func (s *ResourcesHandlerSuite) TestDownloadUnsupportedMethod(c *gc.C) {
+	s.req.Method = "PUT"
+
+	s.downloadHandler.ServeHTTP(s.recorder, s.req)
+
+	_, expected := apiFailure(`unsupported method: "PUT"`, params.CodeMethodNotAllowed)
+	s.checkResp(c, http.StatusMethodNotAllowed, "application/json", expected)
+}
+
+func (s *ResourcesHandlerSuite) TestUploadUnsupportedMethod(c *gc.C) {
+	s.req.Method = "GET"
+
+	s.uploadHandler.ServeHTTP(s.recorder, s.req)
+
+	_, expected := apiFailure(`unsupported method: "GET"`, params.CodeMethodNotAllowed)
 	s.checkResp(c, http.StatusMethodNotAllowed, "application/json", expected)
 }
 
 func (s *ResourcesHandlerSuite) TestGetSuccess(c *gc.C) {
 	s.req.Method = "GET"
-	s.handler.ServeHTTP(s.recorder, s.req)
+	s.downloadHandler.ServeHTTP(s.recorder, s.req)
 	s.checkResp(c, http.StatusOK, "application/octet-stream", resourceBody)
 }
 
@@ -127,7 +141,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccess(c *gc.C) {
 	s.backend.ReturnSetResource = res
 
 	req, _ := newUploadRequest(c, "spam", "a-application", uploadContent)
-	s.handler.ServeHTTP(s.recorder, req)
+	s.uploadHandler.ServeHTTP(s.recorder, req)
 
 	expected := mustMarshalJSON(&params.UploadResult{
 		Resource: api.Resource2API(res),
@@ -143,12 +157,12 @@ func (s *ResourcesHandlerSuite) TestPutChangeBlocked(c *gc.C) {
 	s.backend.ReturnSetResource = res
 
 	expectedError := apiservererrors.OperationBlockedError("test block")
-	s.handler.ChangeAllowedFunc = func(*http.Request) error {
+	s.uploadHandler.ChangeAllowedFunc = func(*http.Request) error {
 		return expectedError
 	}
 
 	req, _ := newUploadRequest(c, "spam", "a-application", uploadContent)
-	s.handler.ServeHTTP(s.recorder, req)
+	s.uploadHandler.ServeHTTP(s.recorder, req)
 
 	expected := mustMarshalJSON(&params.ErrorResult{apiservererrors.ServerError(expectedError)})
 	s.checkResp(c, http.StatusBadRequest, "application/json", string(expected))
@@ -162,7 +176,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccessDockerResource(c *gc.C) {
 	s.backend.ReturnSetResource = res
 
 	req, _ := newUploadRequest(c, "spam", "a-application", uploadContent)
-	s.handler.ServeHTTP(s.recorder, req)
+	s.uploadHandler.ServeHTTP(s.recorder, req)
 
 	expected := mustMarshalJSON(&params.UploadResult{
 		Resource: api.Resource2API(res),
@@ -181,7 +195,7 @@ func (s *ResourcesHandlerSuite) TestPutExtensionMismatch(c *gc.C) {
 
 	req, _ := newUploadRequest(c, "spam", "a-application", content)
 	req.Header.Set("Content-Disposition", "form-data; filename=different.ext")
-	s.handler.ServeHTTP(s.recorder, req)
+	s.uploadHandler.ServeHTTP(s.recorder, req)
 
 	_, expected := apiFailure(`incorrect extension on resource upload "different.ext", expected ".tgz"`,
 		"")
@@ -199,7 +213,7 @@ func (s *ResourcesHandlerSuite) TestPutWithPending(c *gc.C) {
 
 	req, _ := newUploadRequest(c, "spam", "a-application", content)
 	req.URL.RawQuery += "&pendingid=some-unique-id"
-	s.handler.ServeHTTP(s.recorder, req)
+	s.uploadHandler.ServeHTTP(s.recorder, req)
 
 	expected := mustMarshalJSON(&params.UploadResult{
 		Resource: api.Resource2API(res),
@@ -215,7 +229,7 @@ func (s *ResourcesHandlerSuite) TestPutSetResourceFailure(c *gc.C) {
 	s.backend.SetResourceErr = failure
 
 	req, _ := newUploadRequest(c, "spam", "a-application", content)
-	s.handler.ServeHTTP(s.recorder, req)
+	s.uploadHandler.ServeHTTP(s.recorder, req)
 	s.checkResp(c, http.StatusInternalServerError, "application/json", expected)
 }
 
