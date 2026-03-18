@@ -68,17 +68,6 @@ func (s *ResourcesHandlerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ResourcesHandlerSuite) authStateDownload(req *http.Request, tagKinds ...string) (
-	apiserver.ResourcesBackend, state.PoolHelper, error,
-) {
-	if s.stateAuthErr != nil {
-		return nil, nil, errors.Trace(s.stateAuthErr)
-	}
-
-	ph := apiservertesting.StubPoolHelper{StubRelease: func() bool { return false }}
-	return s.backend, ph, nil
-}
-
 func (s *ResourcesHandlerSuite) stateFunc(req *http.Request) (
 	apiserver.ResourcesBackend, state.PoolHelper, names.Tag, error,
 ) {
