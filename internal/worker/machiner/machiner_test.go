@@ -431,13 +431,7 @@ func (s *MachinerSuite) TestAddressWatcherClosedStopsMachiner(c *tc.C) {
 		waitErr <- mr.Wait()
 	}()
 
-	var err error
-	select {
-	case err = <-waitErr:
-	case <-c.Context().Done():
-		c.Fatalf("machiner did not stop after address watcher closed")
-	}
-	c.Assert(err, tc.ErrorMatches, "address change channel closed")
+	c.Assert(<-waitErr, tc.ErrorMatches, "address change channel closed")
 }
 
 func (s *MachinerSuite) TestAliveErrorGetObservedNetworkConfig(c *tc.C) {

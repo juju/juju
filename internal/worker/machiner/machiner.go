@@ -132,6 +132,8 @@ func (mr *Machiner) Handle(ctx context.Context) error {
 
 	life := mr.machine.Life()
 	if life == corelife.Alive {
+		logger.Infof(ctx, "detecting network configuration for %q", mr.config.Tag)
+
 		interfaceInfos, err := mr.config.GetObservedNetworkConfig(
 			corenetwork.DefaultConfigSource(),
 		)

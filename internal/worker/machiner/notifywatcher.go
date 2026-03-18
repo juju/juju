@@ -45,8 +45,6 @@ func newMergedNotifyWatcher(
 }
 
 func (w *mergedNotifyWatcher) loop() error {
-	primaryChanges := w.primary.Changes()
-	secondaryChanges := w.secondary.Changes()
 	skipSecondaryInitial := true
 
 	for {
@@ -54,7 +52,7 @@ func (w *mergedNotifyWatcher) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 
-		case _, ok := <-primaryChanges:
+		case _, ok := <-w.primary.Changes():
 			if !ok {
 				select {
 				case <-w.catacomb.Dying():
@@ -65,7 +63,7 @@ func (w *mergedNotifyWatcher) loop() error {
 			}
 			w.notify()
 
-		case _, ok := <-secondaryChanges:
+		case _, ok := <-w.secondary.Changes():
 			if !ok {
 				select {
 				case <-w.catacomb.Dying():
@@ -87,7 +85,6 @@ func (w *mergedNotifyWatcher) notify() {
 	select {
 	case <-w.catacomb.Dying():
 	case w.changes <- struct{}{}:
-	default:
 	}
 }
 
