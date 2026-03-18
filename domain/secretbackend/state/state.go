@@ -490,6 +490,17 @@ GROUP BY b.name, c.name`, kubernetes.BackendName)
 }
 
 // listInUseKubernetesSecretBackends returns a list of all kubernetes secret backends which contain secrets.
+//
+// This function identifies all CAAS models that have secrets stored in the
+// built-in 'kubernetes' backend. Since each model uses its own Kubernetes
+// namespace (derived from the model name) and its own cloud/credential
+// information, we must join against the `v_model`, `v_cloud_auth`, and
+// `v_cloud_credential_attribute` views to build the model-specific
+// configurations for each model.
+//
+// Even though the `secret_backend` table has only one 'kubernetes' entry, this
+// function returns a separate `SecretBackend` object for each model using it,
+// each with its own dynamically generated configuration.
 func (s *State) listInUseKubernetesSecretBackends(ctx context.Context, tx *sqlair.TX) ([]*secretbackend.SecretBackend, error) {
 	backendQuery := fmt.Sprintf(`
 SELECT
@@ -671,6 +682,16 @@ WHERE  m.uuid = $M.uuid
 	return result, errors.Capture(err)
 }
 
+// getK8sSecretBackendForModel returns the built-in 'kubernetes' secret backend
+// configured for a specific model.
+//
+// It retrieves the cloud and credential details for the model to build the
+// required Kubernetes backend configuration. The Kubernetes namespace is
+// determined by the model name.
+//
+// While there is only one 'kubernetes' entry in the `secret_backend` database
+// table, the returned `SecretBackend` object contains a `Config` that is
+// specific to the requested model.
 func (s *State) getK8sSecretBackendForModel(ctx context.Context, tx *sqlair.TX, modelUUID coremodel.UUID) (*secretbackend.SecretBackend, error) {
 	stmt, err := s.Prepare(`
 SELECT

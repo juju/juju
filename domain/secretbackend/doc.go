@@ -38,4 +38,21 @@
 //     can be retrieved and set through the service layer. The special provider
 //     value “auto” resolves to the built-in `controller` backend for IAAS
 //     models and to the built-in `kubernetes` backend for CAAS models.
+//
+// # Built-in Kubernetes Secret Backend
+//
+// For models deployed on Kubernetes (CAAS), a built-in secret backend is
+// available. This backend is represented by a single entry in the
+// `secret_backend` table named 'kubernetes'.
+//
+// Although multiple CAAS models might use this "built-in" backend, there is
+// only one entry for it in the database. When retrieving the backend
+// configuration for a specific CAAS model, Juju dynamically constructs the
+// configuration using the model's cloud and credential specifications (for
+// endpoint information) and the model's name (which maps to the Kubernetes
+// namespace).
+//
+// This means that from an architectural perspective, all CAAS models share the
+// same backend type and database record, but their effective run-time
+// configuration is model-specific.
 package secretbackend
