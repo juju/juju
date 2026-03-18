@@ -12,6 +12,7 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/proxy"
 	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
 
@@ -32,6 +33,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/application/service"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/deployment/charm"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -56,14 +58,15 @@ type uniterSuite struct {
 	badTag  names.Tag
 	authTag names.Tag
 
-	applicationService *MockApplicationService
-	machineService     *MockMachineService
-	operationService   *MockOperationService
-	networkService     *MockNetworkService
-	portService        *MockPortService
-	resolveService     *MockResolveService
-	removalService     *MockRemovalService
-	watcherRegistry    *MockWatcherRegistry
+	applicationService    *MockApplicationService
+	machineService        *MockMachineService
+	operationService      *MockOperationService
+	networkService        *MockNetworkService
+	portService           *MockPortService
+	controllerNodeService *MockControllerNodeService
+	resolveService        *MockResolveService
+	removalService        *MockRemovalService
+	watcherRegistry       *MockWatcherRegistry
 
 	uniter *UniterAPI
 }
@@ -1525,6 +1528,215 @@ func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *tc.C) {
 	})
 }
 
+func (s *uniterSuite) TestGetUnitContextsUnauthorized(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	s.badTag = names.NewUnitTag("foo/0")
+
+	// Act
+	res, err := s.uniter.GetUnitContexts(c.Context(), params.Entities{
+		Entities: []params.Entity{{Tag: s.badTag.String()}},
+	})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Result, tc.IsNil)
+	c.Check(res.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *uniterSuite) TestGetUnitContextsInvalidTag(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Act
+	res, err := s.uniter.GetUnitContexts(c.Context(), params.Entities{
+		Entities: []params.Entity{{Tag: "application-mysql"}},
+	})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Result, tc.IsNil)
+	c.Check(res.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *uniterSuite) TestGetUnitContextsIAAS(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	unitName := coreunit.Name("mysql/0")
+	unitTag := names.NewUnitTag(unitName.String())
+	privateAddress := "10.10.10.10"
+	legacyProxySettings := proxy.Settings{Http: "http://legacy-proxy:3128"}
+	jujuProxySettings := proxy.Settings{Https: "http://juju-proxy:3130"}
+	openedMachinePortRangesByEndpoint := map[names.UnitTag]network.GroupedPortRanges{
+		names.NewUnitTag("mysql/1"): {
+			"db": []network.PortRange{{
+				FromPort: 3306,
+				ToPort:   3306,
+				Protocol: "tcp",
+			}},
+		},
+	}
+
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(
+		[]string{"10.0.0.1:17070", "10.0.0.2:17070"}, nil,
+	)
+	s.applicationService.EXPECT().GetIAASUnitContext(gomock.Any(), unitName).Return(service.IAASUnitContext{
+		CloudAPIVersion:                   "v1.2.3",
+		LegacyProxySettings:               legacyProxySettings,
+		JujuProxySettings:                 jujuProxySettings,
+		PrivateAddress:                    &privateAddress,
+		OpenedMachinePortRangesByEndpoint: openedMachinePortRangesByEndpoint,
+	}, nil)
+
+	// Act
+	res, err := s.uniter.GetUnitContexts(c.Context(), params.Entities{
+		Entities: []params.Entity{{Tag: unitTag.String()}},
+	})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.IsNil)
+	c.Assert(res.Results[0].Result, tc.NotNil)
+	c.Check(res.Results[0].Result, tc.DeepEquals, &params.UnitContext{
+		APIAddresses:                      []string{"10.0.0.1:17070", "10.0.0.2:17070"},
+		CloudAPIVersion:                   "v1.2.3",
+		LegacyProxySettings:               legacyProxySettings,
+		JujuProxySettings:                 jujuProxySettings,
+		PrivateAddresses:                  &privateAddress,
+		OpenedMachinePortRangesByEndpoint: openedMachinePortRangesByEndpoint,
+	})
+}
+
+func (s *uniterSuite) TestGetUnitContextsIAASUnitNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	unitName := coreunit.Name("mysql/0")
+	unitTag := names.NewUnitTag(unitName.String())
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(
+		[]string{"10.0.0.1:17070"}, nil,
+	)
+	s.applicationService.EXPECT().GetIAASUnitContext(gomock.Any(), unitName).Return(
+		service.IAASUnitContext{}, applicationerrors.UnitNotFound,
+	)
+
+	// Act
+	res, err := s.uniter.GetUnitContexts(c.Context(), params.Entities{
+		Entities: []params.Entity{{Tag: unitTag.String()}},
+	})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Result, tc.IsNil)
+	c.Check(res.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *uniterSuite) TestGetUnitContextsCAAS(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	s.uniter.modelType = coremodel.CAAS
+	unitName := coreunit.Name("mysql/0")
+	unitTag := names.NewUnitTag(unitName.String())
+	legacyProxySettings := proxy.Settings{Http: "http://legacy-proxy:3128"}
+	jujuProxySettings := proxy.Settings{Https: "http://juju-proxy:3130"}
+	openedPortRangesByEndpoint := map[names.UnitTag]network.GroupedPortRanges{
+		names.NewUnitTag("mysql/0"): {
+			"": []network.PortRange{{
+				FromPort: 8080,
+				ToPort:   8080,
+				Protocol: "tcp",
+			}},
+		},
+	}
+
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(
+		[]string{"10.0.0.1:17070"}, nil,
+	)
+	s.applicationService.EXPECT().GetCAASUnitContext(gomock.Any(), unitName).Return(service.CAASUnitContext{
+		CloudAPIVersion:            "v2.0.0",
+		LegacyProxySettings:        legacyProxySettings,
+		JujuProxySettings:          jujuProxySettings,
+		OpenedPortRangesByEndpoint: openedPortRangesByEndpoint,
+	}, nil)
+
+	// Act
+	res, err := s.uniter.GetUnitContexts(c.Context(), params.Entities{
+		Entities: []params.Entity{{Tag: unitTag.String()}},
+	})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.IsNil)
+	c.Assert(res.Results[0].Result, tc.NotNil)
+	c.Check(res.Results[0].Result, tc.DeepEquals, &params.UnitContext{
+		APIAddresses:               []string{"10.0.0.1:17070"},
+		CloudAPIVersion:            "v2.0.0",
+		LegacyProxySettings:        legacyProxySettings,
+		JujuProxySettings:          jujuProxySettings,
+		OpenedPortRangesByEndpoint: openedPortRangesByEndpoint,
+	})
+}
+
+func (s *uniterSuite) TestGetUnitContextsMultipleEntities(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	forbiddenTag := names.NewUnitTag("foo/0")
+	validUnitName := coreunit.Name("mysql/0")
+	validTag := names.NewUnitTag(validUnitName.String())
+	notFoundUnitName := coreunit.Name("postgresql/0")
+	notFoundTag := names.NewUnitTag(notFoundUnitName.String())
+	privateAddress := "10.10.10.11"
+	legacyProxySettings := proxy.Settings{Http: "http://legacy-proxy:3128"}
+	jujuProxySettings := proxy.Settings{Https: "http://juju-proxy:3130"}
+
+	s.badTag = forbiddenTag
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(
+		[]string{"10.0.0.1:17070"}, nil,
+	).Times(2)
+	s.applicationService.EXPECT().GetIAASUnitContext(gomock.Any(), validUnitName).Return(service.IAASUnitContext{
+		CloudAPIVersion:     "v1.2.3",
+		LegacyProxySettings: legacyProxySettings,
+		JujuProxySettings:   jujuProxySettings,
+		PrivateAddress:      &privateAddress,
+	}, nil)
+	s.applicationService.EXPECT().GetIAASUnitContext(gomock.Any(), notFoundUnitName).Return(
+		service.IAASUnitContext{}, applicationerrors.UnitNotFound,
+	)
+
+	// Act
+	res, err := s.uniter.GetUnitContexts(c.Context(), params.Entities{
+		Entities: []params.Entity{
+			{Tag: forbiddenTag.String()},
+			{Tag: validTag.String()},
+			{Tag: notFoundTag.String()},
+		},
+	})
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Assert(res.Results, tc.HasLen, 3)
+	c.Check(res.Results[0].Result, tc.IsNil)
+	c.Check(res.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(res.Results[1].Error, tc.IsNil)
+	c.Check(res.Results[1].Result, tc.DeepEquals, &params.UnitContext{
+		APIAddresses:        []string{"10.0.0.1:17070"},
+		CloudAPIVersion:     "v1.2.3",
+		LegacyProxySettings: legacyProxySettings,
+		JujuProxySettings:   jujuProxySettings,
+		PrivateAddresses:    &privateAddress,
+	})
+	c.Check(res.Results[2].Result, tc.IsNil)
+	c.Check(res.Results[2].Error, tc.Satisfies, params.IsCodeNotFound)
+}
+
 func (s *uniterSuite) expectedGetConfigSettings(unitName coreunit.Name, settings map[string]any, err error) {
 	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(gomock.Any(), unitName).Return(coreapplication.UUID(unitName.Application()), err)
 	if err == nil {
@@ -1567,6 +1779,7 @@ func (s *uniterSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.networkService = NewMockNetworkService(ctrl)
 	s.operationService = NewMockOperationService(ctrl)
 	s.portService = NewMockPortService(ctrl)
+	s.controllerNodeService = NewMockControllerNodeService(ctrl)
 	s.resolveService = NewMockResolveService(ctrl)
 	s.removalService = NewMockRemovalService(ctrl)
 	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
@@ -1578,18 +1791,19 @@ func (s *uniterSuite) setupMocks(c *tc.C) *gomock.Controller {
 	}
 
 	s.uniter = &UniterAPI{
-		applicationService: s.applicationService,
-		machineService:     s.machineService,
-		networkService:     s.networkService,
-		operationService:   s.operationService,
-		portService:        s.portService,
-		resolveService:     s.resolveService,
-		removalService:     s.removalService,
-		auth:               authorizer,
-		accessApplication:  authFunc,
-		accessMachine:      authFunc,
-		accessUnit:         authFunc,
-		watcherRegistry:    s.watcherRegistry,
+		applicationService:    s.applicationService,
+		machineService:        s.machineService,
+		networkService:        s.networkService,
+		operationService:      s.operationService,
+		portService:           s.portService,
+		controllerNodeService: s.controllerNodeService,
+		resolveService:        s.resolveService,
+		removalService:        s.removalService,
+		auth:                  authorizer,
+		accessApplication:     authFunc,
+		accessMachine:         authFunc,
+		accessUnit:            authFunc,
+		watcherRegistry:       s.watcherRegistry,
 	}
 
 	c.Cleanup(func() {
@@ -1599,6 +1813,7 @@ func (s *uniterSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.networkService = nil
 		s.operationService = nil
 		s.portService = nil
+		s.controllerNodeService = nil
 		s.resolveService = nil
 		s.removalService = nil
 		s.watcherRegistry = nil

@@ -77,6 +77,7 @@ type UniterAPI struct {
 	resolveService            ResolveService
 	statusService             StatusService
 	controllerConfigService   ControllerConfigService
+	controllerNodeService     ControllerNodeService
 	crossModelRelationService CrossModelRelationService
 	machineService            MachineService
 	modelConfigService        ModelConfigService
@@ -3270,6 +3271,101 @@ func (u *UniterAPI) Read(ctx context.Context, _, _ struct{}) {}
 
 // WatchLeadershipSettings is not implemented in version 21 of the uniter.
 func (u *UniterAPI) WatchLeadershipSettings(ctx context.Context, _, _ struct{}) {}
+
+// GetUnitContexts returns the contexts of the units specified in the request.
+func (u *UniterAPI) GetUnitContexts(ctx context.Context, args params.Entities) (params.UnitContextsResults, error) {
+	result := params.UnitContextsResults{
+		Results: make([]params.UnitContextsResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit(ctx)
+	if err != nil {
+		return params.UnitContextsResults{}, errors.Trace(err)
+	}
+
+	for i, entity := range args.Entities {
+		info, err := u.getOneUnitContext(ctx, entity, canAccess)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		result.Results[i].Result = info
+	}
+
+	return result, nil
+}
+
+func (u *UniterAPI) getOneUnitContext(ctx context.Context, entity params.Entity, canAccess common.AuthFunc) (*params.UnitContext, error) {
+	tag, err := names.ParseUnitTag(entity.Tag)
+	if err != nil {
+		return nil, apiservererrors.ErrPerm
+	}
+
+	if !canAccess(tag) {
+		return nil, apiservererrors.ErrPerm
+	}
+
+	unitName, err := coreunit.NewName(tag.Id())
+	if err != nil {
+		return nil, errors.BadRequestf("parsing unit name: %s", tag.Id())
+	}
+
+	apiAddresses, err := u.controllerNodeService.GetAllAPIAddressesForAgents(ctx)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return nil, errors.NotFoundf("unit %q", unitName)
+	} else if err != nil {
+		return nil, internalerrors.Errorf("getting private addresses for unit %q: %w", unitName, err)
+	}
+
+	unitContext, err := u.getUnitContext(ctx, unitName)
+	if err != nil {
+		return nil, err
+	}
+
+	unitContext.APIAddresses = apiAddresses
+
+	return unitContext, nil
+}
+
+func (u *UniterAPI) getUnitContext(ctx context.Context, unitName coreunit.Name) (*params.UnitContext, error) {
+	if u.modelType == model.CAAS {
+		return u.getCAASUnitContext(ctx, unitName)
+	}
+	return u.getIAASUnitContext(ctx, unitName)
+}
+
+func (u *UniterAPI) getCAASUnitContext(ctx context.Context, unitName coreunit.Name) (*params.UnitContext, error) {
+	unitContext, err := u.applicationService.GetCAASUnitContext(ctx, unitName)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return nil, errors.NotFoundf("getting unit %q", unitName)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &params.UnitContext{
+		CloudAPIVersion:            unitContext.CloudAPIVersion,
+		LegacyProxySettings:        unitContext.LegacyProxySettings,
+		JujuProxySettings:          unitContext.JujuProxySettings,
+		OpenedPortRangesByEndpoint: unitContext.OpenedPortRangesByEndpoint,
+	}, nil
+}
+
+func (u *UniterAPI) getIAASUnitContext(ctx context.Context, unitName coreunit.Name) (*params.UnitContext, error) {
+	unitContext, err := u.applicationService.GetIAASUnitContext(ctx, unitName)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return nil, errors.NotFoundf("getting unit %q", unitName)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &params.UnitContext{
+		CloudAPIVersion:                   unitContext.CloudAPIVersion,
+		LegacyProxySettings:               unitContext.LegacyProxySettings,
+		JujuProxySettings:                 unitContext.JujuProxySettings,
+		PrivateAddresses:                  unitContext.PrivateAddress,
+		OpenedMachinePortRangesByEndpoint: unitContext.OpenedMachinePortRangesByEndpoint,
+	}, nil
+}
 
 func nilZeroPtr[T comparable](v T) *T {
 	var zero T
