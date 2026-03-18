@@ -1467,7 +1467,7 @@ type UnitContext struct {
 	CloudAPIVersion                   string                                      `json:"cloud-api-version"`
 	LegacyProxySettings               proxy.Settings                              `json:"legacy-proxy-settings"`
 	JujuProxySettings                 proxy.Settings                              `json:"juju-proxy-settings"`
-	PrivateAddresses                  *string                                     `json:"private-addresses,omitempty"`
+	PrivateAddress                    *string                                     `json:"private-address,omitempty"`
 	OpenedMachinePortRangesByEndpoint map[names.UnitTag]network.GroupedPortRanges `json:"opened-machine-port-ranges-by-endpoint,omitempty"`
 	OpenedPortRangesByEndpoint        map[names.UnitTag]network.GroupedPortRanges `json:"opened-port-ranges-by-endpoint,omitempty"`
 }

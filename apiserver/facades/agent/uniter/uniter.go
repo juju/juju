@@ -3362,7 +3362,7 @@ func (u *UniterAPI) getIAASUnitContext(ctx context.Context, unitName coreunit.Na
 		CloudAPIVersion:                   unitContext.CloudAPIVersion,
 		LegacyProxySettings:               unitContext.LegacyProxySettings,
 		JujuProxySettings:                 unitContext.JujuProxySettings,
-		PrivateAddresses:                  unitContext.PrivateAddress,
+		PrivateAddress:                    unitContext.PrivateAddress,
 		OpenedMachinePortRangesByEndpoint: unitContext.OpenedMachinePortRangesByEndpoint,
 	}, nil
 }

@@ -1606,7 +1606,7 @@ func (s *uniterSuite) TestGetUnitContextsIAAS(c *tc.C) {
 		CloudAPIVersion:                   "v1.2.3",
 		LegacyProxySettings:               legacyProxySettings,
 		JujuProxySettings:                 jujuProxySettings,
-		PrivateAddresses:                  &privateAddress,
+		PrivateAddress:                    &privateAddress,
 		OpenedMachinePortRangesByEndpoint: openedMachinePortRangesByEndpoint,
 	})
 }
@@ -1731,7 +1731,7 @@ func (s *uniterSuite) TestGetUnitContextsMultipleEntities(c *tc.C) {
 		CloudAPIVersion:     "v1.2.3",
 		LegacyProxySettings: legacyProxySettings,
 		JujuProxySettings:   jujuProxySettings,
-		PrivateAddresses:    &privateAddress,
+		PrivateAddress:      &privateAddress,
 	})
 	c.Check(res.Results[2].Result, tc.IsNil)
 	c.Check(res.Results[2].Error, tc.Satisfies, params.IsCodeNotFound)

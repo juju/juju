@@ -6,6 +6,7 @@ package uniter_test
 import (
 	stdtesting "testing"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
@@ -187,4 +188,92 @@ func (s *uniterSuite) TestSetUnitWorkloadVersion(c *tc.C) {
 
 	err := client.SetUnitWorkloadVersion(c.Context(), names.NewUnitTag("mysql/0"), "mysql-1.2.3")
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *uniterSuite) TestGetUnitContext(c *tc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(request, tc.Equals, "GetUnitContexts")
+		c.Assert(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.UnitContextsResults{})
+
+		privateAddress := "10.10.10.10"
+		*(result.(*params.UnitContextsResults)) = params.UnitContextsResults{
+			Results: []params.UnitContextsResult{{
+				Result: &params.UnitContext{
+					APIAddresses:    []string{"10.0.0.1:17070"},
+					CloudAPIVersion: "v1.2.3",
+					PrivateAddress:  &privateAddress,
+					OpenedMachinePortRangesByEndpoint: map[names.UnitTag]network.GroupedPortRanges{
+						names.NewUnitTag("mysql/0"): {
+							"db": []network.PortRange{network.MustParsePortRange("3306/tcp")},
+						},
+					},
+				},
+			}},
+		}
+		return nil
+	})
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 22}
+	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
+
+	result, err := client.GetUnitContext(c.Context(), names.NewUnitTag("mysql/0"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.UnitContext{
+		APIAddresses:    []string{"10.0.0.1:17070"},
+		CloudAPIVersion: "v1.2.3",
+		PrivateAddress: func() *string {
+			a := "10.10.10.10"
+			return &a
+		}(),
+		OpenedMachinePortRangesByEndpoint: map[names.UnitTag]network.GroupedPortRanges{
+			names.NewUnitTag("mysql/0"): {
+				"db": []network.PortRange{network.MustParsePortRange("3306/tcp")},
+			},
+		},
+	})
+}
+
+func (s *uniterSuite) TestGetUnitContextAPICallError(c *tc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		return errors.New("boom")
+	})
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 22}
+	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
+
+	_, err := client.GetUnitContext(c.Context(), names.NewUnitTag("mysql/0"))
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+func (s *uniterSuite) TestGetUnitContextResultCountMismatch(c *tc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(result, tc.FitsTypeOf, &params.UnitContextsResults{})
+		*(result.(*params.UnitContextsResults)) = params.UnitContextsResults{
+			Results: []params.UnitContextsResult{{}, {}},
+		}
+		return nil
+	})
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 22}
+	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
+
+	_, err := client.GetUnitContext(c.Context(), names.NewUnitTag("mysql/0"))
+	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
+}
+
+func (s *uniterSuite) TestGetUnitContextResultError(c *tc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(result, tc.FitsTypeOf, &params.UnitContextsResults{})
+		*(result.(*params.UnitContextsResults)) = params.UnitContextsResults{
+			Results: []params.UnitContextsResult{{
+				Error: &params.Error{Message: "unit not found", Code: params.CodeNotFound},
+			}},
+		}
+		return nil
+	})
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 22}
+	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
+
+	_, err := client.GetUnitContext(c.Context(), names.NewUnitTag("mysql/0"))
+	c.Assert(err, tc.ErrorMatches, "unit not found")
+	c.Assert(params.IsCodeNotFound(err), tc.IsTrue)
 }

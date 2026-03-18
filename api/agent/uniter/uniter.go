@@ -563,3 +563,24 @@ func (client *Client) SetUnitWorkloadVersion(ctx context.Context, tag names.Unit
 	}
 	return result.OneError()
 }
+
+// GetUnitContext returns context information required for the construction of a
+// context factory.
+func (client *Client) GetUnitContext(ctx context.Context, tag names.UnitTag) (params.UnitContext, error) {
+	var result params.UnitContextsResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: tag.String()}},
+	}
+	err := client.facade.FacadeCall(ctx, "GetUnitContexts", args, &result)
+	if err != nil {
+		return params.UnitContext{}, errors.Trace(apiservererrors.RestoreError(err))
+	}
+	if len(result.Results) != 1 {
+		return params.UnitContext{}, fmt.Errorf("expected 1 result, got %d", len(result.Results))
+	}
+	resultUnitContext := result.Results[0]
+	if resultUnitContext.Error != nil {
+		return params.UnitContext{}, resultUnitContext.Error
+	}
+	return *resultUnitContext.Result, nil
+}
