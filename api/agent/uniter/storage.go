@@ -117,7 +117,7 @@ func (sa *StorageAccessor) StorageAttachment(ctx context.Context, storageTag nam
 // StorageAttachmentLife returns the lifecycle state of the storage attachments
 // with the specified IDs.
 func (sa *StorageAccessor) StorageAttachmentLife(ctx context.Context, ids []params.StorageAttachmentId) ([]params.LifeResult, error) {
-	args := params.StorageAttachmentIds{ids}
+	args := params.StorageAttachmentIds{Ids: ids}
 	var results params.LifeResults
 	err := sa.facade.FacadeCall(ctx, "StorageAttachmentLife", args, &results)
 	if err != nil {
