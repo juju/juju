@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -209,6 +210,9 @@ func (s *baseSuite) setupApplicationService(c *tc.C) *applicationservice.Provide
 	caasProviderGetter := func(ctx context.Context) (applicationservice.CAASProvider, error) {
 		return appProvider{}, nil
 	}
+	cloudInfoGetter := func(ctx context.Context) (applicationservice.CloudInfoProvider, error) {
+		return nil, coreerrors.NotSupported
+	}
 	storageProviderRegistryGetter := corestorage.ConstModelStorageRegistry(
 		func() internalstorage.ProviderRegistry {
 			return internalstorage.NotImplementedProviderRegistry{}
@@ -230,6 +234,7 @@ func (s *baseSuite) setupApplicationService(c *tc.C) *applicationservice.Provide
 		nil,
 		providerGetter,
 		caasProviderGetter,
+		cloudInfoGetter,
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		coremodel.UUID(s.ModelUUID()),

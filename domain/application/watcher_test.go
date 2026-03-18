@@ -1599,6 +1599,9 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 	caasProviderGetter := func(ctx context.Context) (service.CAASProvider, error) {
 		return nil, coreerrors.NotSupported
 	}
+	cloudInfoGetter := func(ctx context.Context) (service.CloudInfoProvider, error) {
+		return nil, coreerrors.NotSupported
+	}
 
 	storageProviderRegistryGetter := corestorage.ConstModelStorageRegistry(
 		func() internalstorage.ProviderRegistry {
@@ -1622,6 +1625,7 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 		nil,
 		providerGetter,
 		caasProviderGetter,
+		cloudInfoGetter,
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		model.UUID(s.ModelUUID()),

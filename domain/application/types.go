@@ -528,3 +528,30 @@ type ApplicationStorageDirectiveOverride struct {
 	// then this value.
 	Size *uint64
 }
+
+// ProxySettings contains the proxy settings for a unit context.
+type ProxySettings struct {
+	HTTP    string
+	HTTPS   string
+	FTP     string
+	NoProxy string
+}
+
+// IAASUnitContext contains the IAAS context information required for the
+// construction of a context factory for a unit.
+type IAASUnitContext struct {
+	APIAddresses                      []string
+	LegacyProxySettings               ProxySettings
+	JujuProxySettings                 ProxySettings
+	PrivateAddress                    []network.SpaceAddress
+	OpenedMachinePortRangesByEndpoint map[coreunit.Name]network.GroupedPortRanges
+}
+
+// CAASUnitContext contains the CAAS context information required for the
+// construction of a context factory for a unit.
+type CAASUnitContext struct {
+	APIAddresses               []string
+	LegacyProxySettings        ProxySettings
+	JujuProxySettings          ProxySettings
+	OpenedPortRangesByEndpoint map[coreunit.Name]network.GroupedPortRanges
+}

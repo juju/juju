@@ -288,6 +288,7 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		modelagentmodelstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[applicationservice.CAASProvider](s.providerFactory, s.modelUUID.String()),
+		providertracker.ProviderRunner[applicationservice.CloudInfoProvider](s.providerFactory, s.modelUUID.String()),
 		charmstore.NewCharmStore(s.modelObjectStoreGetter, logger.Child("charmstore")),
 		domain.NewStatusHistory(logger, s.clock),
 		s.modelUUID,
