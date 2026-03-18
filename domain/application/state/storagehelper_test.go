@@ -9,8 +9,10 @@ import (
 
 	"github.com/juju/tc"
 
+	corecharm "github.com/juju/juju/core/charm"
 	coredatabase "github.com/juju/juju/core/database"
 	coreunit "github.com/juju/juju/core/unit"
+	domainlife "github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 )
 
@@ -33,6 +35,94 @@ func (s *storageHelper) newStoragePool(c *tc.C,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	return poolUUID
+}
+
+// newStorageInstanceWithName creates a new storage instance with the supplied
+// storage name and no backing filesystem or volume.
+func (s *storageHelper) newStorageInstanceWithName(
+	c *tc.C, storageName string,
+) domainstorage.StorageInstanceUUID {
+	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	storagePoolUUID := s.newStoragePool(c, storageInstanceUUID.String(), "test-provider")
+
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_instance (uuid, storage_name, storage_kind_id, storage_id,
+                              life_id, storage_pool_uuid, charm_name, requested_size_mib)
+VALUES (?, ?, 1, ?, ?, ?, ?, 1024)
+`,
+		storageInstanceUUID.String(),
+		storageName,
+		storageInstanceUUID.String(),
+		domainlife.Alive,
+		storagePoolUUID.String(),
+		"bar",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return storageInstanceUUID
+}
+
+// newModelFilesystemStorageInstance creates a new storage instance backed by a
+// model provisioned filesystem, using the charm name from the supplied charm
+// UUID.
+func (s *storageHelper) newModelFilesystemStorageInstance(
+	c *tc.C, storageName string, charmUUID corecharm.ID,
+) (domainstorage.StorageInstanceUUID, domainstorage.FilesystemUUID) {
+	storageInstanceUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	filesystemUUID := tc.Must(c, domainstorage.NewFilesystemUUID)
+	storagePoolUUID := s.newStoragePool(c, storageInstanceUUID.String(), "test-provider")
+
+	var charmName string
+	err := s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT name FROM charm_metadata WHERE charm_uuid = ?",
+		charmUUID.String(),
+	).Scan(&charmName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_instance (uuid, storage_name, storage_kind_id, storage_id,
+                              life_id, storage_pool_uuid, charm_name, requested_size_mib)
+VALUES (?, ?, 1, ?, ?, ?, ?, 1024)
+`,
+		storageInstanceUUID.String(),
+		storageName,
+		storageInstanceUUID.String(),
+		domainlife.Alive,
+		storagePoolUUID.String(),
+		charmName,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id, size_mib)
+VALUES (?, ?, ?, 0, 1024)
+	`,
+		filesystemUUID.String(),
+		filesystemUUID.String(),
+		domainlife.Alive,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_instance_filesystem (storage_instance_uuid,
+                                         storage_filesystem_uuid)
+VALUES (?, ?)
+	`,
+		storageInstanceUUID.String(),
+		filesystemUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return storageInstanceUUID, filesystemUUID
 }
 
 // newStorageInstanceFilesysatemWithProviderID creates a new storage instance in
@@ -221,4 +311,25 @@ INSERT INTO storage_unit_owner (storage_instance_uuid, unit_uuid) VALUES (?, ?)
 		unitUUID.String(),
 	)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+// newStorageInstanceAttachment creates a storage attachment for the supplied
+// storage instance and unit.
+func (s *storageHelper) newStorageInstanceAttachment(
+	c *tc.C, instUUID domainstorage.StorageInstanceUUID, unitUUID coreunit.UUID,
+) domainstorage.StorageAttachmentUUID {
+	attachmentUUID := tc.Must(c, domainstorage.NewStorageAttachmentUUID)
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		`
+INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
+VALUES (?, ?, ?, ?)
+`,
+		attachmentUUID.String(),
+		instUUID.String(),
+		unitUUID.String(),
+		domainlife.Alive,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	return attachmentUUID
 }

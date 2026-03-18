@@ -11,6 +11,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
+	corecharm "github.com/juju/juju/core/charm"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
@@ -179,14 +180,16 @@ func (u *unitStorageSuite) TestGetUnitOwnedStorageInstances(c *tc.C) {
 	c.Check(owned, mc, expected)
 }
 
-func (u *unitStorageSuite) getUnitCharmUUID(c *tc.C, unitUUID coreunit.UUID) string {
+func (u *unitStorageSuite) getUnitCharmUUID(c *tc.C, unitUUID coreunit.UUID) corecharm.ID {
 	var gotUUID string
 	err := u.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT charm_uuid FROM unit WHERE uuid=?", unitUUID).Scan(&gotUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	return gotUUID
+	charmID, err := corecharm.ParseID(gotUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	return charmID
 }
 
 func (u *unitStorageSuite) newUnitWithStorageDirectives(c *tc.C) (coreunit.UUID, domainstorage.StoragePoolUUID) {
@@ -257,7 +260,7 @@ func (u *unitStorageSuite) newUnitWithStorageDirectives(c *tc.C) (coreunit.UUID,
 		c.Context(),
 		"INSERT INTO unit_storage_directive VALUES (?, ?, ?, ?, ?, ?)",
 		unitUUID.String(),
-		charmUUID,
+		charmUUID.String(),
 		"st1",
 		storagePoolUUID.String(),
 		5000,
@@ -268,7 +271,7 @@ func (u *unitStorageSuite) newUnitWithStorageDirectives(c *tc.C) (coreunit.UUID,
 		c.Context(),
 		"INSERT INTO unit_storage_directive VALUES (?, ?, ?, ?, ?, ?)",
 		unitUUID.String(),
-		charmUUID,
+		charmUUID.String(),
 		"st2",
 		storagePoolUUID.String(),
 		8000,
@@ -279,7 +282,7 @@ func (u *unitStorageSuite) newUnitWithStorageDirectives(c *tc.C) (coreunit.UUID,
 		c.Context(),
 		"INSERT INTO unit_storage_directive VALUES (?, ?, ?, ?, ?, ?)",
 		unitUUID.String(),
-		charmUUID,
+		charmUUID.String(),
 		"st3",
 		storagePoolUUID.String(),
 		5000,
@@ -432,7 +435,7 @@ func (u *unitStorageSuite) TestGetUnitStorageDirectiveByName(c *tc.C) {
 		c.Context(),
 		"INSERT INTO unit_storage_directive VALUES (?, ?, ?, ?, ?, ?)",
 		unitUUID.String(),
-		charmUUID,
+		charmUUID.String(),
 		"st1",
 		storagePoolUUID.String(),
 		5000,
@@ -443,7 +446,7 @@ func (u *unitStorageSuite) TestGetUnitStorageDirectiveByName(c *tc.C) {
 		c.Context(),
 		"INSERT INTO unit_storage_directive VALUES (?, ?, ?, ?, ?, ?)",
 		unitUUID.String(),
-		charmUUID,
+		charmUUID.String(),
 		"st2",
 		storagePoolUUID.String(),
 		8000,
@@ -644,7 +647,7 @@ func (u *unitStorageSuite) TestAttachStorageToIAASUnitStorageNotFound(c *tc.C) {
 	_, unitUUID := u.createNamedIAASUnit(c)
 	storageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	err := u.state.AttachStorageToUnit(c.Context(), storageUUID, unitUUID, internal.AttachExistingStorageToUnitArg{})
-	c.Assert(err, tc.ErrorIs, errors.StorageInstanceNotFound)
+	c.Assert(err, tc.ErrorIs, domainstorageerrors.StorageInstanceNotFound)
 }
 
 func (u *unitStorageSuite) TestAttachStorageToIAASUnitNotAlive(c *tc.C) {
@@ -691,7 +694,7 @@ func (u *unitStorageSuite) TestAttachStorageToUnit(c *tc.C) {
 
 	attachInfo, err := u.state.GetStorageAttachInfoByUnitUUIDAndStorageUUID(c.Context(), unitUUID, siUUID)
 	c.Assert(err, tc.IsNil)
-	c.Assert(attachInfo.AlreadyAttachedToUnits, tc.HasLen, 0)
+	c.Assert(attachInfo.StorageInstanceAttachments, tc.HasLen, 0)
 
 	err = u.state.AttachStorageToUnit(c.Context(), siUUID, unitUUID, internal.AttachExistingStorageToUnitArg{
 		AttachStorageToUnitArg: unitStorageToAttach,
@@ -732,7 +735,7 @@ func (u *unitStorageSuite) TestAttachStorageToUnit(c *tc.C) {
 
 	attachInfo, err = u.state.GetStorageAttachInfoByUnitUUIDAndStorageUUID(c.Context(), unitUUID, siUUID)
 	c.Assert(err, tc.IsNil)
-	c.Assert(attachInfo.AlreadyAttachedToUnits, tc.DeepEquals, map[string]string{unitUUID.String(): "foo/0"})
+	c.Assert(attachInfo.StorageInstanceAttachments, tc.DeepEquals, map[string]string{unitUUID.String(): "foo/0"})
 }
 
 func (u *unitStorageSuite) TestAttachStorageAlreadyAttached(c *tc.C) {
@@ -805,7 +808,7 @@ func (u *unitStorageSuite) TestAttachStorageTwiceSameUnit(c *tc.C) {
 func (u *unitStorageSuite) TestGetStorageInstanceCompositionByUUIDNotFound(c *tc.C) {
 	uuid := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 	_, err := u.state.GetStorageInstanceCompositionByUUID(c.Context(), uuid)
-	c.Assert(err, tc.ErrorIs, errors.StorageInstanceNotFound)
+	c.Assert(err, tc.ErrorIs, domainstorageerrors.StorageInstanceNotFound)
 }
 
 func (u *unitStorageSuite) TestGetStorageInstanceCompositionByUUID(c *tc.C) {
@@ -834,38 +837,179 @@ func (u *unitStorageSuite) TestGetStorageInstanceCompositionByUUID(c *tc.C) {
 	c.Check(result, mc, expected)
 }
 
+// TestGetStorageAttachInfoByUnitUUIDAndStorageUUIDNotFound verifies that
+// looking up attach info for a missing storage instance returns an error
+// satisfying [domainstorageerrors.StorageInstanceNotFound].
 func (u *unitStorageSuite) TestGetStorageAttachInfoByUnitUUIDAndStorageUUIDNotFound(c *tc.C) {
 	unitUUID, _ := u.newUnitWithStorageDirectives(c)
 	stUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
 
 	_, err := u.state.GetStorageAttachInfoByUnitUUIDAndStorageUUID(c.Context(), unitUUID, stUUID)
-	c.Assert(err, tc.ErrorIs, errors.StorageInstanceNotFound)
+	c.Assert(err, tc.ErrorIs, domainstorageerrors.StorageInstanceNotFound)
 }
 
-func (u *unitStorageSuite) TestGetStorageAttachInfoByUnitUUIDAndStorageUUID(c *tc.C) {
-	unitUUID, _ := u.newUnitWithStorageDirectives(c)
+// TestGetStorageAttachInfoByUnitUUIDAndStorageUUIDUnitNotFound verifies that
+// looking up attach info for a missing unit returns not found.
+func (u *unitStorageSuite) TestGetStorageAttachInfoByUnitUUIDAndStorageUUIDUnitNotFound(c *tc.C) {
+	storageInstanceUUID, _ := u.newAliveStorageInstanceWithModelFilesystem(c)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
 
-	st1UUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
-	st2UUID, _ := u.newDyingStorageInstanceWithModelFilesystem(c)
-	u.newStorageUnitOwner(c, st1UUID, unitUUID)
-	u.newStorageUnitOwner(c, st2UUID, unitUUID)
-	charmStorageDef := internal.CharmStorageDefinitionForValidation{
-		Name:        "st1",
-		CountMin:    1,
-		CountMax:    10,
-		Type:        charm.StorageFilesystem,
-		MinimumSize: 1024,
+	_, err := u.state.GetStorageAttachInfoByUnitUUIDAndStorageUUID(
+		c.Context(), unitUUID, storageInstanceUUID,
+	)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+// TestGetStorageAttachInfoByUnitUUIDAndStorageUUIDNotSupported verifies that
+// a storage instance using a name not defined by the unit's charm is rejected.
+// The caller MUST receive an error satisfying
+// [applicationerrors.StorageNameNotSupported].
+func (u *unitStorageSuite) TestGetStorageAttachInfoByUnitUUIDAndStorageUUIDNotSupported(c *tc.C) {
+	storage := map[string]charm.Storage{
+		"str1": {
+			CountMax:    1,
+			CountMin:    1,
+			Description: "str1",
+			Name:        "str1",
+			MinimumSize: 1024,
+			Type:        charm.StorageFilesystem,
+		},
 	}
+	_, unitUUIDs := u.createIAASApplicationWithNUnitsAndStorage(c, "foo", life.Alive, 1, storage)
+	unitUUID := unitUUIDs[0]
+
+	storageInstanceUUID := u.newStorageInstanceWithName(c, "str2")
+
+	_, err := u.state.GetStorageAttachInfoByUnitUUIDAndStorageUUID(
+		c.Context(), unitUUID, storageInstanceUUID,
+	)
+	c.Assert(err, tc.ErrorIs, applicationerrors.StorageNameNotSupported)
+}
+
+// TestGetStorageAttachInfoByUnitUUIDAndStorageUUID verifies the happy path for
+// fetching storage attach info for a unit and storage instance.
+func (u *unitStorageSuite) TestGetStorageAttachInfoByUnitUUIDAndStorageUUID(c *tc.C) {
+	storage := map[string]charm.Storage{
+		"st1": {
+			CountMax:    10,
+			CountMin:    1,
+			Description: "st1",
+			Name:        "st1",
+			MinimumSize: 1024,
+			Type:        charm.StorageFilesystem,
+		},
+	}
+	_, unitUUIDs := u.createIAASApplicationWithNUnitsAndStorage(c, "foo", life.Alive, 1, storage)
+	unitUUID := unitUUIDs[0]
+	unitName := u.getUnitName(c, unitUUID)
+	unitMachineUUID := u.getUnitMachineUUID(c, unitUUID)
+
+	charmUUID := u.getUnitCharmUUID(c, unitUUID)
+	charmName := u.getCharmMetadataName(c, charmUUID)
+
+	storageInstanceUUID, filesystemUUID := u.newModelFilesystemStorageInstance(
+		c, "st1", charmUUID,
+	)
 
 	storageInfo, err := u.state.GetStorageAttachInfoByUnitUUIDAndStorageUUID(
-		c.Context(), unitUUID, st1UUID,
+		c.Context(), unitUUID, storageInstanceUUID,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(storageInfo, tc.DeepEquals, internal.StorageInfoForAttach{
-		CharmStorageDefinitionForValidation: charmStorageDef,
-		AlreadyAttachedCount:                2,
-		ProvisionedSizeMiB:                  1024,
-		AlreadyAttachedToUnits:              nil,
+	expected := internal.StorageInstanceInfoForUnitAttach{
+		StorageInstanceInfo: internal.StorageInstanceInfo{
+			UUID:             storageInstanceUUID,
+			CharmName:        &charmName,
+			Filesystem:       &internal.StorageInstanceFilesystemInfo{UUID: filesystemUUID, Size: 1024},
+			Kind:             domainstorage.StorageKindFilesystem,
+			Life:             life.Alive,
+			RequestedSizeMIB: 1024,
+			StorageName:      "st1",
+		},
+		UnitNamedStorageInfo: internal.UnitNamedStorageInfo{
+			UUID:                 unitUUID,
+			Name:                 coreunit.Name(unitName),
+			MachineUUID:          &unitMachineUUID,
+			AlreadyAttachedCount: 0,
+			CharmStorageDefinitionForValidation: internal.CharmStorageDefinitionForValidation{
+				Name:        "st1",
+				CountMin:    1,
+				CountMax:    10,
+				Type:        charm.StorageFilesystem,
+				MinimumSize: 1024,
+			},
+		},
+	}
+
+	c.Assert(storageInfo, tc.DeepEquals, expected)
+}
+
+// TestGetStorageAttachInfoByUnitUUIDAndStorageUUIDAlreadyAttachedCount verifies
+// that the returned count reflects existing attachments for the unit and
+// storage name.
+func (u *unitStorageSuite) TestGetStorageAttachInfoByUnitUUIDAndStorageUUIDAlreadyAttachedCount(c *tc.C) {
+	storage := map[string]charm.Storage{
+		"st1": {
+			CountMax:    10,
+			CountMin:    1,
+			Description: "st1",
+			Name:        "st1",
+			MinimumSize: 1024,
+			Type:        charm.StorageFilesystem,
+		},
+	}
+	_, unitUUIDs := u.createIAASApplicationWithNUnitsAndStorage(
+		c, "foo", life.Alive, 1, storage)
+	unitUUID := unitUUIDs[0]
+	charmUUID := u.getUnitCharmUUID(c, unitUUID)
+
+	st1UUID, _ := u.newModelFilesystemStorageInstance(c, "st1", charmUUID)
+	st2UUID, _ := u.newModelFilesystemStorageInstance(c, "st1", charmUUID)
+	u.newStorageInstanceAttachment(c, st1UUID, unitUUID)
+	u.newStorageInstanceAttachment(c, st2UUID, unitUUID)
+
+	attachInfo, err := u.state.GetStorageAttachInfoByUnitUUIDAndStorageUUID(
+		c.Context(), unitUUID, st1UUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(attachInfo.UnitNamedStorageInfo.AlreadyAttachedCount, tc.Equals, uint32(2))
+}
+
+// TestGetStorageAttachInfoByUnitUUIDAndStorageUUIDAttachments verifies that
+// existing storage instance attachments are returned.
+func (u *unitStorageSuite) TestGetStorageAttachInfoByUnitUUIDAndStorageUUIDAttachments(c *tc.C) {
+	storage := map[string]charm.Storage{
+		"st1": {
+			CountMax:    10,
+			CountMin:    1,
+			Description: "st1",
+			Name:        "st1",
+			MinimumSize: 1024,
+			Type:        charm.StorageFilesystem,
+		},
+	}
+	_, unitUUIDs := u.createIAASApplicationWithNUnitsAndStorage(c, "foo", life.Alive, 2, storage)
+	unitUUID := unitUUIDs[0]
+	otherUnitUUID := unitUUIDs[1]
+	charmUUID := u.getUnitCharmUUID(c, unitUUID)
+
+	storageInstanceUUID, _ := u.newModelFilesystemStorageInstance(c, "st1", charmUUID)
+	attachUUID := u.newStorageInstanceAttachment(c, storageInstanceUUID, unitUUID)
+	otherAttachUUID := u.newStorageInstanceAttachment(c, storageInstanceUUID, otherUnitUUID)
+
+	attachInfo, err := u.state.GetStorageAttachInfoByUnitUUIDAndStorageUUID(
+		c.Context(), unitUUID, storageInstanceUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(attachInfo.StorageInstanceAttachments, tc.SameContents, []internal.StorageInstanceUnitAttachment{
+		{
+			UnitUUID: unitUUID,
+			UUID:     attachUUID,
+		},
+		{
+			UnitUUID: otherUnitUUID,
+			UUID:     otherAttachUUID,
+		},
 	})
 }

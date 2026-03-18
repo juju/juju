@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/canonical/sqlair"
@@ -32,6 +33,7 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
+	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -2410,66 +2412,142 @@ LIMIT 1;
 // and select details for the storage instance on the specified unit.
 // The details include how many existing instances of the same named storage
 // already exist, the requested size, and the instance's storage pool.
+//
+// The following errors can be expected:
+// - [applicationerrors.UnitNotFound] when the unit does not exist.
+// - [applicationerrors.StorageNameNotSupported] when the unit's charm does not
+// support the storage name in use by the storage instance.
+// - [storageerrors.StorageInstanceNotFound] when the storage instance does not
+// exist.
 func (st *State) GetStorageAttachInfoByUnitUUIDAndStorageUUID(
-	ctx context.Context, unitUUID coreunit.UUID, storageUUID domainstorage.StorageInstanceUUID,
-) (internal.StorageInfoForAttach, error) {
+	ctx context.Context,
+	unitUUID coreunit.UUID,
+	storageUUID domainstorage.StorageInstanceUUID,
+) (internal.StorageInstanceInfoForUnitAttach, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return internal.StorageInfoForAttach{}, errors.Capture(err)
-	}
-	var (
-		attachInfo      storageInfoForAttach
-		attachedToUnits []storageAttachmentUnit
-		ownedByMachine  *storageMachineOwner
-		count           uint32
-	)
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		attachInfo, err = st.getStorageInstanceInfoForAttach(ctx, tx, storageUUID)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		attachedToUnits, err = st.getStorageAttachmentUnits(ctx, tx, storageUUID)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		ownedByMachine, err = st.getStorageMachineOwner(ctx, tx, storageUUID)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		count, err = st.getUnitStorageCount(ctx, tx, unitUUID, attachInfo.StorageName)
-		if err != nil {
-			return errors.Errorf("getting storage count for unit %q storage %s: %w", unitUUID, attachInfo.StorageName, err)
-		}
-		return nil
-	}); err != nil {
-		return internal.StorageInfoForAttach{}, errors.Capture(err)
+		return internal.StorageInstanceInfoForUnitAttach{}, errors.Capture(err)
 	}
 
-	attachedMap := make(map[string]string, len(attachedToUnits))
-	for _, u := range attachedToUnits {
-		attachedMap[u.UUID] = u.Name
+	var (
+		storageInstInfo        storageInstanceInfoForAttach
+		storageInstAttachments []storageInstanceUnitAttachment
+		unitStorageNameInfo    unitStorageNameInfo
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// err is defined locally so as not to be captured due to retries of
+		// the transaction.
+		var err error
+
+		unitExists, err := st.checkUnitExists(ctx, tx, unitUUID.String())
+		if err != nil {
+			return errors.Errorf("check if unit exists: %w", err)
+		}
+		if !unitExists {
+			return errors.Errorf(
+				"unit %q does not exist", unitUUID,
+			).Add(applicationerrors.UnitNotFound)
+		}
+
+		storageInstInfo, err = st.getStorageInstanceInfoForAttach(ctx, tx, storageUUID)
+		if err != nil {
+			return errors.Errorf(
+				"getting storage instance information for attachment: %w", err,
+			)
+		}
+
+		storageInstAttachments, err = st.getStorageInstanceUnitAttachments(ctx, tx, storageUUID)
+		if err != nil {
+			return errors.Errorf(
+				"getting storage instance unit attachments: %w", err,
+			)
+		}
+
+		// We use the name of the Storage Instance to lookup and find the
+		// storage definition information for the unit.
+		unitStorageNameInfo, err = st.getUnitStorageNameInfo(
+			ctx, tx, unitUUID, storageInstInfo.StorageName,
+		)
+		if err != nil {
+			return errors.Errorf(
+				"getting unit storage name %q info: %w",
+				storageInstInfo.StorageName,
+				err,
+			)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return internal.StorageInstanceInfoForUnitAttach{}, err
 	}
-	var ownedByMachinePtr *internal.MachineIdentifier
-	if ownedByMachine != nil {
-		ownedByMachinePtr = &internal.MachineIdentifier{
-			UUID: ownedByMachine.UUID,
-			Name: ownedByMachine.Name,
+
+	retVal := internal.StorageInstanceInfoForUnitAttach{
+		StorageInstanceInfo: internal.StorageInstanceInfo{
+			UUID:             domainstorage.StorageInstanceUUID(storageInstInfo.UUID),
+			Life:             domainlife.Life(storageInstInfo.Life),
+			Kind:             domainstorage.StorageKind(storageInstInfo.StorageKindID),
+			RequestedSizeMIB: storageInstInfo.RequestedSizeMIB,
+			StorageName:      storageInstInfo.StorageName,
+		},
+
+		UnitNamedStorageInfo: internal.UnitNamedStorageInfo{
+			AlreadyAttachedCount: unitStorageNameInfo.AlreadyAttachedCount,
+			CharmStorageDefinitionForValidation: internal.CharmStorageDefinitionForValidation{
+				CountMin:    unitStorageNameInfo.StorageDefinitionCountMin,
+				CountMax:    unitStorageNameInfo.StorageDefinitionCountMax,
+				MinimumSize: unitStorageNameInfo.StorageDefinitionMinimumSize,
+				Name:        unitStorageNameInfo.StorageDefinitionName,
+				Type:        domainapplicationcharm.StorageType(unitStorageNameInfo.StorageDefinitionKind),
+			},
+			Name: coreunit.Name(unitStorageNameInfo.UnitName),
+			UUID: coreunit.UUID(unitStorageNameInfo.UnitUUID),
+		},
+	}
+
+	if unitStorageNameInfo.MachineUUID.Valid {
+		retVal.UnitNamedStorageInfo.MachineUUID = new(
+			coremachine.UUID(unitStorageNameInfo.MachineUUID.V))
+	}
+
+	if storageInstInfo.CharmName.Valid {
+		retVal.StorageInstanceInfo.CharmName = new(storageInstInfo.CharmName.V)
+	}
+
+	if storageInstInfo.FilesystemUUID.Valid {
+		retVal.StorageInstanceInfo.Filesystem = &internal.StorageInstanceFilesystemInfo{
+			UUID: domainstorage.FilesystemUUID(storageInstInfo.FilesystemUUID.V),
+			Size: storageInstInfo.FilesystemSizeMIB.V,
 		}
 	}
-	return internal.StorageInfoForAttach{
-		CharmStorageDefinitionForValidation: internal.CharmStorageDefinitionForValidation{
-			Name:        attachInfo.StorageName.String(),
-			CountMin:    attachInfo.CountMin,
-			CountMax:    attachInfo.CountMax,
-			Type:        domainapplicationcharm.StorageType(attachInfo.StorageKind),
-			MinimumSize: attachInfo.MinimumSize,
-		},
-		ProvisionedSizeMiB:     attachInfo.SizeMIB,
-		AlreadyAttachedCount:   count,
-		AlreadyAttachedToUnits: attachedMap,
-		StorageMachineOwner:    ownedByMachinePtr,
-	}, nil
+	if storageInstInfo.FilesystemOwnedMachineUUID.Valid {
+		retVal.StorageInstanceInfo.Filesystem.OwningMachineUUID =
+			new(coremachine.UUID(storageInstInfo.FilesystemOwnedMachineUUID.V))
+	}
+	if storageInstInfo.VolumeUUID.Valid {
+		retVal.StorageInstanceInfo.Volume = &internal.StorageInstanceVolumeInfo{
+			UUID: domainstorage.VolumeUUID(storageInstInfo.VolumeUUID.V),
+			Size: storageInstInfo.VolumeSizeMIB.V,
+		}
+	}
+	if storageInstInfo.VolumeOwnedMachineUUID.Valid {
+		retVal.StorageInstanceInfo.Volume.OwningMachineUUID =
+			new(coremachine.UUID(storageInstInfo.VolumeOwnedMachineUUID.V))
+	}
+
+	retVal.StorageInstanceAttachments = slices.Grow(
+		retVal.StorageInstanceAttachments, len(storageInstAttachments))
+	for _, unitAttachment := range storageInstAttachments {
+		retVal.StorageInstanceAttachments = append(
+			retVal.StorageInstanceAttachments,
+			internal.StorageInstanceUnitAttachment{
+				UnitUUID: coreunit.UUID(unitAttachment.UnitUUID),
+				UUID:     domainstorage.StorageAttachmentUUID(unitAttachment.UUID),
+			},
+		)
+	}
+
+	return retVal, nil
 }
 
 // setK8sPodStatus saves the given k8s pod status, overwriting

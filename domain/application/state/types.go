@@ -492,6 +492,12 @@ type charmStorage struct {
 	Property    string `db:"property"`
 }
 
+// charmStorageName is used for lookup queries that only require the
+// charm_storage name column.
+type charmStorageName struct {
+	Name string `db:"name"`
+}
+
 // setCharmStorage is used to set the storage of a charm.
 type setCharmStorage struct {
 	CharmUUID   string `db:"charm_uuid"`
@@ -912,15 +918,12 @@ type storageInstance struct {
 	RequestedSizeMIB uint64                            `db:"requested_size_mib"`
 }
 
-// storageAttachmentUnit holds the UUID and name of a unit attached to storage.
-type storageAttachmentUnit struct {
-	UUID string `db:"uuid"`
-	Name string `db:"name"`
-}
-
-type storageMachineOwner struct {
-	UUID string `db:"uuid"`
-	Name string `db:"name"`
+// storageInstanceUnitAttachment holds the unit identity and attachment UUID
+// for a storage instance attachment row.
+type storageInstanceUnitAttachment struct {
+	UnitName string `db:"unit_name"`
+	UnitUUID string `db:"unit_uuid"`
+	UUID     string `db:"uuid"`
 }
 
 type storageInfoForAdd struct {
@@ -931,13 +934,38 @@ type storageInfoForAdd struct {
 	MinimumSize uint64 `db:"minimum_size_mib"`
 }
 
-type storageInfoForAttach struct {
-	StorageName corestorage.Name `db:"storage_name"`
-	CountMin    int              `db:"count_min"`
-	CountMax    int              `db:"count_max"`
-	StorageKind string           `db:"kind"`
-	MinimumSize uint64           `db:"minimum_size_mib"`
-	SizeMIB     uint64           `db:"size_mib"`
+// unitStorageNameInfo is used to hold charm storage definition details for a
+// unit storage name lookup, including the number of existing attachments.
+type unitStorageNameInfo struct {
+	StorageDefinitionCountMax    int    `db:"storage_definition_count_max"`
+	StorageDefinitionCountMin    int    `db:"storage_definition_count_min"`
+	StorageDefinitionKind        string `db:"storage_definition_kind"`
+	StorageDefinitionMinimumSize uint64 `db:"storage_definition_minimum_size_mib"`
+	StorageDefinitionName        string `db:"storage_definition_name"`
+	StorageDefinitionReadOnly    bool   `db:"storage_definition_read_only"`
+	StorageDefinitionShared      bool   `db:"storage_definition_shared"`
+
+	MachineUUID          sql.Null[string] `db:"machine_uuid"`
+	UnitName             string           `db:"unit_name"`
+	UnitUUID             string           `db:"unit_uuid"`
+	AlreadyAttachedCount uint32           `db:"already_attached_count"`
+}
+
+// storageInstanceInfoForAttach holds storage instance metadata and backing
+// filesystem or volume details used to validate attaching an existing instance.
+type storageInstanceInfoForAttach struct {
+	UUID                       string           `db:"uuid"`
+	CharmName                  sql.Null[string] `db:"charm_name"`
+	StorageName                string           `db:"storage_name"`
+	Life                       int              `db:"life_id"`
+	StorageKindID              int              `db:"storage_kind_id"`
+	RequestedSizeMIB           int              `db:"requested_size_mib"`
+	FilesystemOwnedMachineUUID sql.Null[string] `db:"filesystem_owned_machine_uuid"`
+	FilesystemSizeMIB          sql.Null[int]    `db:"filesystem_size_mib"`
+	FilesystemUUID             sql.Null[string] `db:"filesystem_uuid"`
+	VolumeOwnedMachineUUID     sql.Null[string] `db:"volume_owned_machine_uuid"`
+	VolumeSizeMIB              sql.Null[int]    `db:"volume_size_mib"`
+	VolumeUUID                 sql.Null[string] `db:"volume_uuid"`
 }
 
 type unitCharmStorage struct {

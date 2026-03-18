@@ -85,6 +85,54 @@ func (s *baseSuite) minimalManifest(c *tc.C) charm.Manifest {
 	}
 }
 
+// getCharmMetadataName returns the charm metadata name for the supplied charm
+// UUID.
+func (s *baseSuite) getCharmMetadataName(c *tc.C, charmUUID corecharm.ID) string {
+	var name string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(
+			ctx,
+			"SELECT name FROM charm_metadata WHERE charm_uuid = ?",
+			charmUUID.String(),
+		).Scan(&name)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return name
+}
+
+// getUnitName returns the unit name for the supplied unit UUID.
+func (s *baseSuite) getUnitName(c *tc.C, unitUUID coreunit.UUID) string {
+	var name string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(
+			ctx,
+			"SELECT name FROM unit WHERE uuid = ?",
+			unitUUID.String(),
+		).Scan(&name)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return name
+}
+
+// getUnitMachineUUID returns the machine UUID for the supplied unit UUID.
+func (s *baseSuite) getUnitMachineUUID(c *tc.C, unitUUID coreunit.UUID) coremachine.UUID {
+	var uuid string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(
+			ctx,
+			`SELECT m.uuid FROM machine m
+JOIN unit u ON m.net_node_uuid = u.net_node_uuid
+WHERE u.uuid = ?`,
+			unitUUID.String(),
+		).Scan(&uuid)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	machineUUID, err := coremachine.ParseUUID(uuid)
+	c.Assert(err, tc.ErrorIsNil)
+	return machineUUID
+}
+
 func (s *baseSuite) addApplicationArgForResources(c *tc.C,
 	name string,
 	charmResources map[string]charm.Resource,
@@ -250,11 +298,11 @@ func (s *baseSuite) createIAASApplicationWithNUnitsAndStorage(
 	ctx := c.Context()
 	units := make([]application.AddIAASUnitArg, unitCount)
 	unitUUIDs := make([]coreunit.UUID, unitCount)
-	for i := range units {
+	for i := range unitCount {
 		unitUUID := tc.Must(c, coreunit.NewUUID)
 		unitUUIDs[i] = unitUUID
 		netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
-		units[i].MachineUUID = coremachinetesting.GenUUID(c)
+		units[i].MachineUUID = tc.Must(c, coremachine.NewUUID)
 		units[i].MachineNetNodeUUID = netNodeUUID
 		units[i].NetNodeUUID = netNodeUUID
 		units[i].UnitUUID = unitUUID
