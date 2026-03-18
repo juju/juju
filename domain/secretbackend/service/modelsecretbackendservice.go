@@ -60,7 +60,7 @@ func (s *ModelSecretBackendService) SetModelSecretBackend(ctx context.Context, b
 	if backendName == "" {
 		return errors.Errorf("missing backend name")
 	}
-	if backendName == provider.Internal || backendName == kubernetes.BackendName {
+	if backendName == provider.Internal || backendName == kubernetes.BackendName || kubernetes.IsBuiltInName(backendName) {
 		return errors.Errorf("secret backend name %q not valid", backendName).Add(secretbackenderrors.NotValid)
 	}
 
