@@ -310,6 +310,19 @@ extensions = [
     'ibnote',
 ]
 
+# Customize sphinx_llm.txt
+## Add project summary:
+llms_txt_description = (
+    "Juju is an open source orchestration engine for deploying, integrating, "
+    "and managing applications across Kubernetes, VMs, and bare metal using "
+    "software operators called charms."
+)
+## Disable concatenated file generation (because file counterproductively large):
+llms_txt_full_build = False
+## Get cleaner markdown URLs (e.g., `page.md` instead of `page/index.html.md`):
+llms_txt_suffix_mode = "url-suffix"
+
+
 # Excludes files or directories from processing
 
 exclude_patterns = [
