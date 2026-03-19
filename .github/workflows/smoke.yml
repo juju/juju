@@ -1,10 +1,7 @@
 name: "Smoke"
 on:
-  push:
-    branches: ["[0-9].[0-9]+", "[0-9].[0-9]+.[0-9]+", main]
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   smoke:
@@ -15,7 +12,6 @@ jobs:
       - arm64
       - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
       - ${{ (github.repository_owner == 'juju' && 'quad-xlarge') || (github.repository_owner == 'canonical' && 'xlarge') }}
-    if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
       matrix:
@@ -26,12 +22,15 @@ jobs:
         run: |
           set -euxo pipefail
           echo "/snap/bin" >> $GITHUB_PATH
-          sudo DEBIAN_FRONTEND=noninteractive apt install -y expect docker-buildx
+          sudo DEBIAN_FRONTEND=noninteractive apt install -y expect
+          sudo DEBIAN_FRONTEND=noninteractive apt install -y  docker-buildx-plugin >/dev/null 2>&1 || \
+          sudo DEBIAN_FRONTEND=noninteractive apt install -y  docker-buildx >/dev/null 2>&1
 
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: "Squid"
+        if: github.repository_owner != 'juju'
         run: ./.github/squid.sh
 
       - name: Setup LXD

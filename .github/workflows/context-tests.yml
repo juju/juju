@@ -26,6 +26,7 @@ jobs:
       check-snap: ${{ steps.filter-files.outputs.check-snap }}
       check-generate: ${{ steps.filter-files.outputs.check-generate }}
       check-docs: ${{ steps.filter-files.outputs.check-docs }}
+      check-smoke: ${{ steps.filter-files.outputs.check-smoke }}
       ref: ${{ steps.refs.outputs.head_ref }}
       base: ${{ steps.refs.outputs.base_ref }}
     steps:
@@ -108,6 +109,10 @@ jobs:
               - '**.go'
               - 'go.mod'
               - '.github/workflows/docs.yml'
+            check-smoke:
+              - '**.go'
+              - 'go.mod'
+              - '.github/workflows/smoke.yml'
 
   build:
     needs: [changed-files]
@@ -160,8 +165,22 @@ jobs:
     if: github.event.pull_request.draft == false && github.base_ref != 'main' && needs.changed-files.outputs.check-upgrade == 'true' && github.event_name != 'merge_group'
     uses: ./.github/workflows/upgrade.yml
 
+  smoke:
+    needs: [changed-files]
+    name: Smoke
+    if: github.event.pull_request.draft == false && needs.changed-files.outputs.check-smoke == 'true'
+    uses: ./.github/workflows/smoke.yml
+
   result-check:
-    needs: [build, snap, generate, docs, terraform, migrate, upgrade]
+    needs:
+      - build
+      - snap
+      - generate
+      - docs
+      - terraform
+      - migrate
+      - upgrade
+      - smoke
     runs-on: ubuntu-latest
     name: Check Tests Passed
     if: always() && !cancelled()
@@ -176,7 +195,8 @@ jobs:
               && ${{ needs.docs.result == 'success' || needs.docs.result == 'skipped' }} \
               && ${{ needs.terraform.result != 'fix me' || needs.terraform.result == 'skipped' }} \
               && ${{ needs.migrate.result == 'success' || needs.migrate.result == 'skipped' }} \
-              && ${{ needs.upgrade.result == 'success' || needs.upgrade.result == 'skipped' }}; then
+              && ${{ needs.upgrade.result == 'success' || needs.upgrade.result == 'skipped' }} \
+              && ${{ needs.smoke.result == 'success' || needs.smoke.result == 'skipped' }}; then
             exit 0
           fi
           exit 1

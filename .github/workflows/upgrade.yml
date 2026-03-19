@@ -53,6 +53,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: "Squid"
+        if: github.repository_owner != 'juju'
         run: ./.github/squid.sh
 
       - name: Remove LXD
@@ -79,8 +80,6 @@ jobs:
 
           sourceJujuVersion=$(snap info juju | yq ".channels[\"${{ needs.setup.outputs.channel }}\"]" | cut -d' ' -f1)
           echo "source-juju-version=${sourceJujuVersion}" >> $GITHUB_OUTPUT
-
-          cat /home/ubuntu/actions-runner/pre-job.sh
         id: vars
 
       - name: Set up Go

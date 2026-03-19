@@ -14,7 +14,7 @@ jobs:
       - linux
       - x64
       - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
-      - ${{ (github.repository_owner == 'juju' && 'xxlarge') || (github.repository_owner == 'canonical' && 'xlarge') }}
+      - ${{ (github.repository_owner == 'juju' && 'quad-xlarge') || (github.repository_owner == 'canonical' && 'xlarge') }}
 
     steps:
       - name: "Checkout"
@@ -23,6 +23,7 @@ jobs:
           fetch-depth: 0
 
       - name: "Squid"
+        if: github.repository_owner != 'juju'
         run: ./.github/squid.sh
 
       - name: "Set up Go"
