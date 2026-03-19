@@ -169,6 +169,12 @@ func (e *EventMultiplexer) Report() map[string]any {
 		return nil
 	case <-e.stream.Dying():
 		return nil
+	// We can't block the engine report, so we time out after a second.
+	// This can happen if the stream supports reporting and have a slow report
+	// generation.
+	case <-e.clock.After(time.Second):
+		e.logger.Errorf(ctx, "waiting for report request response timed out")
+		return nil
 	case <-r.done:
 		return r.data
 	}
