@@ -544,7 +544,7 @@ var selectInternalMachineTests = []selectTest{{
 		network.NewSpaceAddress("cloud.internal", network.WithScope(network.ScopeCloudLocal)),
 		network.NewSpaceAddress("fe80::1", network.WithScope(network.ScopeLinkLocal)),
 	},
-	1,
+	3,
 }, {
 	"cloud local IPv4 is selected even with other machine/cloud addresses",
 	[]network.SpaceAddress{
@@ -594,8 +594,8 @@ var selectInternalAddressesTests = []selectInternalAddressesTest{
 		},
 		matcher: network.ScopeMatchMachineOrCloudLocal,
 		expected: []network.SpaceAddress{
-			network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
 			network.NewSpaceAddress("10.0.0.9", network.WithScope(network.ScopeCloudLocal)),
+			network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
 		},
 	},
 	{

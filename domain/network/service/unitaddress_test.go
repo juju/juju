@@ -582,6 +582,40 @@ func (s *unitAddressSuite) TestGetPrivateAddressNonMatchingAddresses(c *tc.C) {
 	c.Assert(addr, tc.DeepEquals, nonMatchingScopeAddrs[0])
 }
 
+func (s *unitAddressSuite) TestGetPrivateAddressNonMatchingAddressesSorted(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unit.Name("foo/0")
+
+	nonMatchingScopeAddrs := network.SpaceAddresses{
+		{
+			SpaceID: network.AlphaSpaceId,
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.0.9",
+				ConfigType: network.ConfigDHCP,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeMachineLocal,
+			},
+		},
+		{
+			SpaceID: network.AlphaSpaceId,
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.0.2",
+				ConfigType: network.ConfigStatic,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeMachineLocal,
+			},
+		},
+	}
+
+	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo-uuid"), nil)
+	s.st.EXPECT().GetUnitAddresses(gomock.Any(), unit.UUID("foo-uuid")).Return(nonMatchingScopeAddrs, nil)
+
+	addr, err := s.service(c).GetUnitPrivateAddress(c.Context(), unitName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(addr, tc.DeepEquals, nonMatchingScopeAddrs[1])
+}
+
 func (s *unitAddressSuite) TestGetPrivateAddressMatchingAddress(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

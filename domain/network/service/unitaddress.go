@@ -38,16 +38,16 @@ func (s *Service) GetUnitPrivateAddress(ctx context.Context, unitName unit.Name)
 		return network.SpaceAddress{}, network.NoAddressError("private")
 	}
 
-	// First match the scope.
 	matchedAddrs := addrs.AllMatchingScope(network.ScopeMatchCloudLocal)
-	if len(matchedAddrs) == 0 {
-		// If no address matches the scope, return the first private address.
-		return addrs[0], nil
+	if len(matchedAddrs) > 0 {
+		return matchedAddrs[0], nil
 	}
-	// Then sort by origin.
-	sort.Slice(matchedAddrs, matchedAddrs.Less)
 
-	return matchedAddrs[0], nil
+	// If no address matches cloud-local scope, pick a deterministic first
+	// address from all candidates.
+	sortedAddrs := append(network.SpaceAddresses(nil), addrs...)
+	sort.Sort(sortedAddrs)
+	return sortedAddrs[0], nil
 }
 
 // GetUnitPublicAddress returns the public address for the specified unit.
@@ -85,12 +85,10 @@ func (s *Service) GetUnitPublicAddresses(ctx context.Context, unitName unit.Name
 		return nil, errors.Capture(err)
 	}
 
-	// First match the scope, then sort by origin.
 	matchedAddrs := addrs.AllMatchingScope(network.ScopeMatchPublic)
 	if len(matchedAddrs) == 0 {
 		return nil, network.NoAddressError(string(network.ScopePublic))
 	}
-	sort.Sort(matchedAddrs)
 
 	return matchedAddrs, nil
 }

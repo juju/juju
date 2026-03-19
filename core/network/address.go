@@ -725,10 +725,16 @@ func (sas SpaceAddresses) OneMatchingScope(getMatcher ScopeMatchFunc) (SpaceAddr
 	return addrs[0], true
 }
 
-// AllMatchingScope returns the addresses that satisfy
-// the input scope matching function.
+// AllMatchingScope returns the addresses that satisfy the input scope
+// matching function. Matches are sorted to keep selection deterministic,
+// so that callers can use the first address in a predictable way.
 func (sas SpaceAddresses) AllMatchingScope(getMatcher ScopeMatchFunc) SpaceAddresses {
-	return allMatchingScope(sas, getMatcher)
+	var m SpaceAddresses = allMatchingScope(sas, getMatcher)
+	if len(m) == 0 {
+		return nil
+	}
+	sort.Sort(m)
+	return m
 }
 
 // EqualTo returns true if this set of SpaceAddresses is equal to other.

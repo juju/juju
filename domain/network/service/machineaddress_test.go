@@ -311,3 +311,75 @@ func (s *machineaddressSuite) TestGetMachinePrivateAddressSuccess(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(address, tc.DeepEquals, privateAddress)
 }
+
+func (s *machineaddressSuite) TestGetMachinePrivateAddressSortsMatches(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+	netNodeUUID := "net-node-456"
+
+	addresses := network.SpaceAddresses{
+		network.NewSpaceAddress("10.0.0.9", network.WithScope(network.ScopeCloudLocal)),
+		network.NewSpaceAddress("10.0.0.2", network.WithScope(network.ScopeCloudLocal)),
+	}
+
+	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
+		Return(netNodeUUID, nil)
+	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
+		Return(addresses, nil)
+
+	address, err := NewService(s.st, nil).GetMachinePrivateAddress(c.Context(), machineUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(address, tc.DeepEquals, addresses[1])
+}
+
+// TestGetMachinePublicAddressSortsMatches verifies that when multiple public
+// addresses are available, GetMachinePublicAddress always returns the
+// lexicographically smallest value, ensuring consistent results regardless
+// of the order in which addresses are stored.
+func (s *machineaddressSuite) TestGetMachinePublicAddressSortsMatches(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+	netNodeUUID := "net-node-456"
+
+	// Place the lexicographically larger address first to confirm sorting.
+	addresses := network.SpaceAddresses{
+		network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("1.1.1.1", network.WithScope(network.ScopePublic)),
+	}
+
+	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
+		Return(netNodeUUID, nil)
+	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
+		Return(addresses, nil)
+
+	address, err := NewService(s.st, nil).GetMachinePublicAddress(c.Context(), machineUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	// "1.1.1.1" sorts before "8.8.8.8", so it must always be returned first.
+	c.Check(address, tc.DeepEquals, addresses[1])
+}
+
+func (s *machineaddressSuite) TestGetMachinePublicAddressPrioritizeScope(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID := machinetesting.GenUUID(c)
+	netNodeUUID := "net-node-456"
+
+	// Place the lexicographically larger and internal addresses first to confirm sorting.
+	addresses := network.SpaceAddresses{
+		network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic)),
+		network.NewSpaceAddress("1.1.1.1", network.WithScope(network.ScopeMachineLocal)),
+		network.NewSpaceAddress("2.2.2.2", network.WithScope(network.ScopePublic)),
+	}
+
+	s.st.EXPECT().GetMachineNetNodeUUID(gomock.Any(), machineUUID.String()).
+		Return(netNodeUUID, nil)
+	s.st.EXPECT().GetNetNodeAddresses(gomock.Any(), netNodeUUID).
+		Return(addresses, nil)
+
+	address, err := NewService(s.st, nil).GetMachinePublicAddress(c.Context(), machineUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	// "2.2.2.2" sorts before "8.8.8.8", and "1.1.1.1" is not public.
+	c.Check(address, tc.DeepEquals, addresses[2])
+}
