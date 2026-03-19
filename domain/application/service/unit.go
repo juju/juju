@@ -7,6 +7,9 @@ import (
 	"context"
 	"sort"
 
+	"github.com/juju/names/v6"
+	"github.com/juju/proxy"
+
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -28,8 +31,6 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/names/v6"
-	"github.com/juju/proxy"
 )
 
 // UnitState describes retrieval and persistence methods for
