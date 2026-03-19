@@ -79,8 +79,6 @@ jobs:
 
           sourceJujuVersion=$(snap info juju | yq ".channels[\"${{ needs.setup.outputs.channel }}\"]" | cut -d' ' -f1)
           echo "source-juju-version=${sourceJujuVersion}" >> $GITHUB_OUTPUT
-
-          cat /home/ubuntu/actions-runner/pre-job.sh
         id: vars
 
       - name: Set up Go
