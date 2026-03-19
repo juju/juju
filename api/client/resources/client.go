@@ -6,11 +6,13 @@ package resources
 import (
 	"context"
 	"io"
+	"slices"
 	"strings"
 
 	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+	"gopkg.in/errgo.v1"
 
 	"github.com/juju/juju/api/base"
 	apicharm "github.com/juju/juju/api/common/charm"
@@ -100,6 +102,18 @@ func newListResourcesArgs(applications []string) (params.ListResourcesArgs, erro
 	return args, nil
 }
 
+func translateUploadError(err error) error {
+	permissionCodes := []string{params.CodeForbidden, params.CodeUnauthorized}
+	var uploadErr *errgo.Err
+	if errors.As(err, &uploadErr) {
+		if slices.Contains(permissionCodes, params.ErrCode(uploadErr.Cause())) ||
+			slices.Contains(permissionCodes, params.ErrCode(uploadErr.Underlying())) {
+			return apiservererrors.ErrPerm
+		}
+	}
+	return err
+}
+
 // Upload sends the provided resource blob up to Juju.
 func (c Client) Upload(application, name, filename, pendingID string, reader io.ReadSeeker) error {
 	uReq, err := NewUploadRequest(application, name, filename, reader)
@@ -117,7 +131,7 @@ func (c Client) Upload(application, name, filename, pendingID string, reader io.
 	var response params.UploadResult // ignored
 	ctx := context.TODO()
 	if err := c.httpClient.Do(ctx, req, &response); err != nil {
-		return errors.Trace(err)
+		return errors.Trace(translateUploadError(err))
 	}
 
 	return nil
