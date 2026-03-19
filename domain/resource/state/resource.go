@@ -554,11 +554,12 @@ AND state = 'available'`
 	return result, errors.Capture(err)
 }
 
-// GetResource returns the identified resource.
+// GetApplicationResource returns the identified resource linked to
+// an application.
 //
 // The following error types can be expected to be returned:
-//   - [resourceerrors.ResourceNotFound] if no such resource exists.
-func (st *State) GetResource(
+//   - [resourceerrors.ResourceNotFound] if no resource is found.
+func (st *State) GetApplicationResource(
 	ctx context.Context,
 	resourceUUID coreresource.UUID,
 ) (coreresource.Resource, error) {
@@ -595,13 +596,13 @@ WHERE uuid = $resourceIdentity.uuid`,
 	return resourceOutput.toResource()
 }
 
-// GetResourceMaybeApplication returns the identified resource without
-// requiring it is linked to an application. The application name will
-// be included if available.
+// GetResource returns the identified resource without requiring it to be
+// linked to an application. The application name will be included if
+// available.
 //
 // The following error types can be expected to be returned:
 //   - [resourceerrors.ResourceNotFound] if no resource is found.
-func (st *State) GetResourceMaybeApplication(
+func (st *State) GetResource(
 	ctx context.Context,
 	resourceUUID coreresource.UUID,
 ) (coreresource.Resource, error) {
@@ -2594,19 +2595,19 @@ FROM (
 		return errors.Capture(err)
 	}
 
+	var output existsResult
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var output existsResult
 		queryErr := tx.Query(ctx, stmt, input).Get(&output)
 		if errors.Is(queryErr, sqlair.ErrNoRows) {
 			return applicationerrors.ApplicationNotFound
 		} else if queryErr != nil {
 			return queryErr
 		}
-		if !output.Found {
-			return applicationerrors.ApplicationNotFound
-		}
 		return nil
 	})
+	if !output.Found {
+		return applicationerrors.ApplicationNotFound
+	}
 	return errors.Capture(err)
 }
 
