@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/domain/unitstate/internal"
 	"github.com/juju/juju/internal/errors"
@@ -110,4 +111,26 @@ func (st *State) deleteSecrets(ctx context.Context, tx *sqlair.TX, deletes []uni
 
 func (st *State) trackSecrets(ctx context.Context, tx *sqlair.TX, secrets []string) error {
 	return nil
+}
+
+// GetUnitUUIDByName returns the UUID for the named unit, returning an
+// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
+// exist.
+func (st *State) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (coreunit.UUID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var result unitUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result, err = st.getUnitUUIDForName(ctx, tx, string(name))
+		return err
+	})
+
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return coreunit.UUID(result.UUID), nil
 }
