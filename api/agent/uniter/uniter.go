@@ -581,6 +581,8 @@ func (client *Client) GetUnitContext(ctx context.Context, tag names.UnitTag) (pa
 	resultUnitContext := result.Results[0]
 	if resultUnitContext.Error != nil {
 		return params.UnitContext{}, resultUnitContext.Error
+	} else if resultUnitContext.Result == nil {
+		return params.UnitContext{}, fmt.Errorf("no context returned for unit %q", tag.Id())
 	}
 	return *resultUnitContext.Result, nil
 }
