@@ -822,7 +822,9 @@ func (v *filesystemSource) ensurePersistentVolumeWillRetain(
 func (v *filesystemSource) ImportFilesystem(
 	ctx context.Context,
 	filesystemId string,
+	storageName string,
 	resourceTags map[string]string,
+	force bool,
 ) (jujustorage.FilesystemInfo, error) {
 	return jujustorage.FilesystemInfo{}, errors.New("import filesystem not implemented")
 }

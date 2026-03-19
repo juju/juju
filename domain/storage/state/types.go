@@ -5,6 +5,7 @@ package state
 
 import (
 	"database/sql"
+	"time"
 )
 
 // count represents the result of performing an aggregate count operation in
@@ -212,4 +213,81 @@ type importStorageVolumePlanAttribute struct {
 	PlanUUID string `db:"attachment_plan_uuid"`
 	Key      string `db:"key"`
 	Value    string `db:"value"`
+}
+
+// modelResourceTagInfo represents the information about model resource tag
+// information for storage.
+type modelResourceTagInfo struct {
+	ResourceTags   string `db:"resource_tags"`
+	ModelUUID      string `db:"uuid"`
+	ControllerUUID string `db:"controller_uuid"`
+}
+
+// insertStorageInstance represents the data needed to insert a new storage
+// instance into the storage_instance table.
+type insertStorageInstance struct {
+	UUID             string `db:"uuid"`
+	StorageName      string `db:"storage_name"`
+	StorageKindID    int    `db:"storage_kind_id"`
+	StorageID        string `db:"storage_id"`
+	LifeID           int    `db:"life_id"`
+	StoragePoolUUID  string `db:"storage_pool_uuid"`
+	RequestedSizeMiB uint64 `db:"requested_size_mib"`
+}
+
+// insertStorageFilesystem represents the data needed to insert a new
+// filesystem into the storage_filesystem table.
+type insertStorageFilesystem struct {
+	UUID             string `db:"uuid"`
+	FilesystemID     string `db:"filesystem_id"`
+	LifeID           int    `db:"life_id"`
+	ProvisionScopeID int    `db:"provision_scope_id"`
+	ProviderID       string `db:"provider_id"`
+	SizeMiB          uint64 `db:"size_mib"`
+}
+
+// insertStorageInstanceFilesystem represents the data needed to link a storage
+// instance to a filesystem in the storage_instance_filesystem table.
+type insertStorageInstanceFilesystem struct {
+	StorageInstanceUUID   string `db:"storage_instance_uuid"`
+	StorageFilesystemUUID string `db:"storage_filesystem_uuid"`
+}
+
+// insertStorageFilesystemStatus represents data needed to set a filesystem's
+// status in the storage_filesystem_status table.
+type insertStorageFilesystemStatus struct {
+	StorageFilesystemUUID string    `db:"filesystem_uuid"`
+	StatusID              int       `db:"status_id"`
+	Message               string    `db:"message"`
+	UpdatedAt             time.Time `db:"updated_at"`
+}
+
+// insertStorageVolume represents the data needed to insert a new volume into
+// the storage_volume table.
+type insertStorageVolume struct {
+	UUID             string `db:"uuid"`
+	VolumeID         string `db:"volume_id"`
+	LifeID           int    `db:"life_id"`
+	ProvisionScopeID int    `db:"provision_scope_id"`
+	ProviderID       string `db:"provider_id"`
+	SizeMiB          uint64 `db:"size_mib"`
+	HardwareID       string `db:"hardware_id"`
+	WWN              string `db:"wwn"`
+	Persistent       bool   `db:"persistent"`
+}
+
+// insertStorageInstanceVolume represents the data needed to link a storage
+// instance to a volume in the storage_instance_volume table.
+type insertStorageInstanceVolume struct {
+	StorageInstanceUUID string `db:"storage_instance_uuid"`
+	StorageVolumeUUID   string `db:"storage_volume_uuid"`
+}
+
+// insertStorageVolumeStatus represents the data needed to set a volume's status
+// in the storage_volume_status table.
+type insertStorageVolumeStatus struct {
+	StorageVolumeUUID string    `db:"volume_uuid"`
+	StatusID          int       `db:"status_id"`
+	Message           string    `db:"message"`
+	UpdatedAt         time.Time `db:"updated_at"`
 }

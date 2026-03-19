@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 	gomock "go.uber.org/mock/gomock"
 
@@ -59,7 +60,7 @@ func (s *instanceSuite) TestGetStorageInstanceUUIDForIDNotFound(c *tc.C) {
 	)
 
 	svc := NewService(
-		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
 	)
 	_, err := svc.GetStorageInstanceUUIDForID(c.Context(), "id1")
 	c.Check(err, tc.ErrorIs, domainstorageerrors.StorageInstanceNotFound)
@@ -77,7 +78,7 @@ func (s *instanceSuite) TestGetStorageInstanceUUIDForID(c *tc.C) {
 	)
 
 	svc := NewService(
-		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
 	)
 	uuid, err := svc.GetStorageInstanceUUIDForID(c.Context(), "id1")
 	c.Check(err, tc.ErrorIsNil)

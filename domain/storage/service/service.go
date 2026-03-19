@@ -6,6 +6,8 @@ package service
 import (
 	"context"
 
+	"github.com/juju/clock"
+
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
@@ -19,6 +21,7 @@ import (
 
 // State defines an interface for interacting with the underlying state.
 type State interface {
+	AdoptState
 	FilesystemState
 	StoragePoolState
 	VolumeState
@@ -86,6 +89,7 @@ type Service struct {
 func NewService(
 	st State,
 	logger logger.Logger,
+	clock clock.Clock,
 	registryGetter corestorage.ModelStorageRegistryGetter,
 ) *Service {
 	return &Service{
@@ -99,6 +103,7 @@ func NewService(
 		},
 		StorageService: StorageService{
 			st:             st,
+			clock:          clock,
 			registryGetter: registryGetter,
 		},
 		VolumeService: VolumeService{

@@ -383,6 +383,7 @@ func (s *ModelServices) Storage() *storageservice.Service {
 	return storageservice.NewService(
 		storagestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.logger.Child("storage"),
+		s.clock,
 		s.storageRegistry,
 	)
 }
