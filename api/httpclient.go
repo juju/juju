@@ -8,8 +8,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
@@ -136,6 +138,33 @@ func encodeMacaroonSlice(ms macaroon.Slice) (string, error) {
 func unmarshalHTTPErrorResponse(resp *http.Response) error {
 	var body json.RawMessage
 	if err := httprequest.UnmarshalJSONResponse(resp, &body); err != nil {
+		// Auth errors can come back as plain text as the http handler
+		// authentication function does not write its error response as json.
+		// We want to return a suitable error code so the caller can
+		// handle that case. We don't want to propagate the message
+		// "unexpected content type text/plain; want application/json".
+		var decodeErr *httprequest.DecodeResponseError
+		if errors.As(err, &decodeErr) {
+			var code string
+			switch resp.StatusCode {
+			case http.StatusForbidden:
+				code = params.CodeForbidden
+			case http.StatusUnauthorized:
+				code = params.CodeUnauthorized
+			}
+			var errMsg string
+			msg, readErr := io.ReadAll(decodeErr.Response.Body)
+			if readErr == nil {
+				errMsg = strings.Trim(string(msg), "\n")
+			} else {
+				// Should never happen.
+				errMsg = err.Error()
+			}
+			return params.Error{
+				Message: errMsg,
+				Code:    code,
+			}
+		}
 		return errors.Trace(err)
 	}
 	// genericErrorResponse defines a struct that is compatible with all the
