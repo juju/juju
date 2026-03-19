@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm/v12"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/retry"
@@ -17,6 +18,7 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	jujussh "github.com/juju/juju/network/ssh"
+	"github.com/juju/juju/testcharms"
 )
 
 var _ = gc.Suite(&DebugHooksSuite{})
@@ -167,4 +169,14 @@ func (s *DebugHooksSuite) TestDebugHooksArgFormatting(c *gc.C) {
 	c.Check(args, gc.DeepEquals, map[string]interface{}{
 		"hooks": []interface{}{"install", "start"},
 	})
+}
+
+func (s *DebugHooksSuite) TestGetValidActionsReturnsEmptySetWhenNoActions(c *gc.C) {
+	ch, err := charm.ReadCharmDir(testcharms.Repo.CharmDirPath("actionless"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	cmd := &debugHooksCommand{}
+	validActions, err := cmd.getValidActions(ch)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(validActions.SortedValues(), gc.DeepEquals, []string{})
 }

@@ -231,6 +231,13 @@ func (c *debugHooksCommand) validateHooksOrActions() error {
 
 func (c *debugHooksCommand) getValidActions(ch charm.Charm) (set.Strings, error) {
 	validActions := set.NewStrings()
+
+	// A charm can have no actions defined, but that is not an error. In that
+	// case, return an empty set of actions.
+	if ch.Actions() == nil {
+		return validActions, nil
+	}
+
 	for name := range ch.Actions().ActionSpecs {
 		validActions.Add(name)
 	}
