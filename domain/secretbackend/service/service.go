@@ -417,6 +417,18 @@ func validateExternalBackendName(name string) error {
 	return nil
 }
 
+// GetBuiltInCaaSBackendID returns the ID of the built-in CaaS backend.
+func (s *Service) GetBuiltInKubernetesBackendID(ctx context.Context) (string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	result, err := s.st.GetSecretBackend(ctx, secretbackend.BackendIdentifier{Name: kubernetes.BackendName})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return result.ID, nil
+}
+
 // ListBackendIDs returns the IDs of all the secret backends.
 func (s *Service) ListBackendIDs(ctx context.Context) ([]string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())

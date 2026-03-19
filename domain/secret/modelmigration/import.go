@@ -48,6 +48,7 @@ type ImportService interface {
 // SecretBackendService provides a subset of the secret backend
 // domain service methods needed for secret import.
 type SecretBackendService interface {
+	GetBuiltInKubernetesBackendID(ctx context.Context) (string, error)
 	ListBackendIDs(ctx context.Context) ([]string, error)
 }
 
@@ -60,6 +61,7 @@ type importOperation struct {
 
 	knownSecretBackends set.Strings
 	seenBackendIds      set.Strings
+	migrateBackendID    func(backendID string) (string, error)
 }
 
 // Name returns the name of this operation.
@@ -142,6 +144,41 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return errors.Errorf("loading secret backend IDs: %w", err)
 	}
 	i.knownSecretBackends = set.NewStrings(backendIDs...)
+	i.seenBackendIds = set.NewStrings()
+	builtInCaaSBackendID, err := i.backendService.GetBuiltInKubernetesBackendID(ctx)
+	if err != nil {
+		// This should never happen, except for DB error,
+		// since this backend is always present
+		return errors.Errorf("getting built-in CaaS backend ID: %w", err)
+	}
+	modelUUID := model.UUID()
+	i.migrateBackendID = func(backendID string) (string, error) {
+		// Set the backend ID to the built-in CaaS backend ID
+		// if it matches the model's UUID.
+		// - On IaaS models, exported secrets from the builtin backend are
+		//   by value (so we won't pass into this code).
+		// - On CaaS models, exported secrets from the builtin backend are
+		//   by reference, with a backend ID of the model's UUID. However,
+		//   those secrets are stored in the model namespace in k8s, so we just
+		//   need to change the backend ID to the built-in CaaS backend ID which
+		//   would store the secret in the model namespace.
+		if backendID == modelUUID {
+			return builtInCaaSBackendID, nil
+		}
+
+		// If the backend id is not the CaaS builtin, check it exists in the
+		// target controller.
+		if !i.seenBackendIds.Contains(backendID) {
+			if !i.knownSecretBackends.Contains(backendID) {
+				return "", errors.Errorf(
+					"target controller does not have all required secret backends set up, missing %q",
+					backendID).Add(secreterrors.MissingSecretBackendID)
+
+			}
+		}
+		i.seenBackendIds.Add(backendID)
+		return backendID, nil
+	}
 
 	modelSecrets := model.Secrets()
 	allSecrets := service.SecretImport{
@@ -151,8 +188,6 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		Access:    make(map[string][]service.SecretAccess),
 		Consumers: make(map[string][]service.ConsumerInfo),
 	}
-
-	i.seenBackendIds = set.NewStrings()
 	for j, secret := range modelSecrets {
 		ownerTag, err := secret.Owner()
 		if err != nil {
@@ -182,7 +217,6 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			nextRotateTime := secret.NextRotateTime()
 			allSecrets.Secrets[j].NextRotateTime = nextRotateTime
 		}
-
 		secretRevisions, secretContent, err := i.collateRevisionInfo(secret.Revisions())
 		if err != nil {
 			return errors.Errorf("collating revisions for secret %q: %w", secret.Id(), err)
@@ -227,19 +261,14 @@ func (i *importOperation) collateRevisionInfo(revisions []description.SecretRevi
 					return nil, nil, errors.Errorf("missing content for secret revision %d", rev.Number())
 				}
 			}
+			destBackendID, err := i.migrateBackendID(rev.ValueRef().BackendID())
+			if err != nil {
+				return nil, nil, errors.Capture(err)
+			}
 			valueRef = &secrets.ValueRef{
-				BackendID:  rev.ValueRef().BackendID(),
+				BackendID:  destBackendID,
 				RevisionID: rev.ValueRef().RevisionID(),
 			}
-			if !secrets.IsInternalSecretBackendID(valueRef.BackendID) && !i.seenBackendIds.Contains(valueRef.BackendID) {
-				if !i.knownSecretBackends.Contains(valueRef.BackendID) {
-					return nil, nil, errors.Errorf(
-						"target controller does not have all required secret backends set up, missing %q",
-						valueRef.BackendID).Add(secreterrors.MissingSecretBackendID)
-
-				}
-			}
-			i.seenBackendIds.Add(valueRef.BackendID)
 		} else {
 			secretContent[rev.Number()] = dataCopy
 		}
