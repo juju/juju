@@ -408,10 +408,10 @@ func pingBackend(p provider.SecretBackendProvider, cfg provider.ConfigAttrs) err
 }
 
 func validateExternalBackendName(name string) error {
-	if name == juju.BackendName ||
+	if name == provider.Auto ||
+		name == provider.Internal ||
 		name == kubernetes.BackendName ||
-		name == provider.Auto ||
-		name == provider.Internal {
+		kubernetes.IsBuiltInName(name) {
 		return errors.Errorf("%w: reserved name %q", secretbackenderrors.NotValid, name)
 	}
 	return nil

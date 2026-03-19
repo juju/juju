@@ -1086,6 +1086,13 @@ func (s *serviceSuite) TestCreateSecretBackendFailed(c *tc.C) {
 	c.Check(err, tc.ErrorIs, secretbackenderrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `secret backend not valid: reserved name "auto"`)
 
+	err = svc.CreateSecretBackend(c.Context(), coresecrets.SecretBackend{
+		ID:   "backend-uuid",
+		Name: kubernetes.BuiltInName("foo"),
+	})
+	c.Check(err, tc.ErrorIs, secretbackenderrors.NotValid)
+	c.Check(err, tc.ErrorMatches, `secret backend not valid: reserved name "foo-local"`)
+
 	s.mockRegistry.EXPECT().Type().Return("something").AnyTimes()
 	err = svc.CreateSecretBackend(c.Context(), coresecrets.SecretBackend{
 		ID:          "backend-uuid",
@@ -1557,6 +1564,17 @@ func (s *serviceSuite) TestSetModelSecretBackendFailedReservedNameInternal(c *tc
 
 	err := svc.SetModelSecretBackend(c.Context(), "internal")
 	c.Assert(err, tc.ErrorMatches, `secret backend name "internal" not valid`)
+	c.Assert(err, tc.ErrorIs, secretbackenderrors.NotValid)
+}
+
+func (s *serviceSuite) TestSetModelSecretBackendFailedReservedNameK8sLocal(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+	svc := NewModelSecretBackendService(modelUUID, s.mockState)
+
+	err := svc.SetModelSecretBackend(c.Context(), "b-local")
+	c.Assert(err, tc.ErrorMatches, `secret backend name "b-local" not valid`)
 	c.Assert(err, tc.ErrorIs, secretbackenderrors.NotValid)
 }
 
