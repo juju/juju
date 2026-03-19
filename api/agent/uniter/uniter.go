@@ -10,6 +10,7 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/proxy"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
@@ -564,25 +565,84 @@ func (client *Client) SetUnitWorkloadVersion(ctx context.Context, tag names.Unit
 	return result.OneError()
 }
 
+// UnitContext contains context information required for the construction of a
+// context factory.
+type UnitContext struct {
+	APIAddresses                      []string
+	CloudAPIVersion                   string
+	LegacyProxySettings               proxy.Settings
+	JujuProxySettings                 proxy.Settings
+	PrivateAddress                    *string
+	OpenedMachinePortRangesByEndpoint map[names.UnitTag]network.GroupedPortRanges
+	OpenedPortRangesByEndpoint        map[names.UnitTag]network.GroupedPortRanges
+}
+
 // GetUnitContext returns context information required for the construction of a
 // context factory.
-func (client *Client) GetUnitContext(ctx context.Context, tag names.UnitTag) (params.UnitContext, error) {
+func (client *Client) GetUnitContext(ctx context.Context, tag names.UnitTag) (UnitContext, error) {
 	var result params.UnitContextsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 	err := client.facade.FacadeCall(ctx, "GetUnitContexts", args, &result)
 	if err != nil {
-		return params.UnitContext{}, errors.Trace(apiservererrors.RestoreError(err))
+		return UnitContext{}, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(result.Results) != 1 {
-		return params.UnitContext{}, fmt.Errorf("expected 1 result, got %d", len(result.Results))
+		return UnitContext{}, fmt.Errorf("expected 1 result, got %d", len(result.Results))
 	}
 	resultUnitContext := result.Results[0]
 	if resultUnitContext.Error != nil {
-		return params.UnitContext{}, resultUnitContext.Error
+		return UnitContext{}, resultUnitContext.Error
 	} else if resultUnitContext.Result == nil {
-		return params.UnitContext{}, fmt.Errorf("no context returned for unit %q", tag.Id())
+		return UnitContext{}, fmt.Errorf("no context returned for unit %q", tag.Id())
 	}
-	return *resultUnitContext.Result, nil
+	return decodeUnitContext(*resultUnitContext.Result)
+}
+
+func decodeUnitContext(paramsUnitContext params.UnitContext) (UnitContext, error) {
+	machineOpenedRages, err := decodeOpenedPortRangesByEndpoint(paramsUnitContext.OpenedMachinePortRangesByEndpoint)
+	if err != nil {
+		return UnitContext{}, errors.Trace(err)
+	}
+	unitOpenedRages, err := decodeOpenedPortRangesByEndpoint(paramsUnitContext.OpenedPortRangesByEndpoint)
+	if err != nil {
+		return UnitContext{}, errors.Trace(err)
+	}
+
+	return UnitContext{
+		APIAddresses:                      paramsUnitContext.APIAddresses,
+		CloudAPIVersion:                   paramsUnitContext.CloudAPIVersion,
+		LegacyProxySettings:               decodeProxySettings(paramsUnitContext.LegacyProxySettings),
+		JujuProxySettings:                 decodeProxySettings(paramsUnitContext.JujuProxySettings),
+		PrivateAddress:                    paramsUnitContext.PrivateAddress,
+		OpenedMachinePortRangesByEndpoint: machineOpenedRages,
+		OpenedPortRangesByEndpoint:        unitOpenedRages,
+	}, nil
+}
+
+func decodeProxySettings(encoded params.ProxySettings) proxy.Settings {
+	return proxy.Settings{
+		Http:    encoded.HTTPProxy,
+		Https:   encoded.HTTPSProxy,
+		Ftp:     encoded.FTPProxy,
+		NoProxy: encoded.NoProxy,
+	}
+}
+
+func decodeOpenedPortRangesByEndpoint(encoded map[string]map[string][]params.PortRange) (map[names.UnitTag]network.GroupedPortRanges, error) {
+	portRangeMap := make(map[names.UnitTag]network.GroupedPortRanges)
+	for unitTagStr, unitPortRanges := range encoded {
+		unitTag, err := names.ParseUnitTag(unitTagStr)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		portRangeMap[unitTag] = make(network.GroupedPortRanges)
+		for endpoint, portRanges := range unitPortRanges {
+			portRangeMap[unitTag][endpoint] = transform.Slice(portRanges, func(pr params.PortRange) network.PortRange {
+				return pr.NetworkPortRange()
+			})
+		}
+	}
+	return portRangeMap, nil
 }

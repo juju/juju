@@ -10224,6 +10224,17 @@
                         }
                     }
                 },
+                "GetUnitContexts": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/UnitContextsResults"
+                        }
+                    }
+                },
                 "GoalStates": {
                     "type": "object",
                     "properties": {
@@ -12099,6 +12110,24 @@
                         "protocol"
                     ]
                 },
+                "ProxySettings": {
+                    "type": "object",
+                    "properties": {
+                        "ftp-proxy": {
+                            "type": "string"
+                        },
+                        "http-proxy": {
+                            "type": "string"
+                        },
+                        "https-proxy": {
+                            "type": "string"
+                        },
+                        "no-proxy": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "RelatedApplicationDetails": {
                     "type": "object",
                     "properties": {
@@ -12926,6 +12955,92 @@
                     "required": [
                         "results"
                     ]
+                },
+                "UnitContext": {
+                    "type": "object",
+                    "properties": {
+                        "api-addresses": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "cloud-api-version": {
+                            "type": "string"
+                        },
+                        "juju-proxy-settings": {
+                            "$ref": "#/definitions/ProxySettings"
+                        },
+                        "legacy-proxy-settings": {
+                            "$ref": "#/definitions/ProxySettings"
+                        },
+                        "opened-machine-port-ranges-by-endpoint": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "patternProperties": {
+                                        ".*": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/PortRange"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "opened-port-ranges-by-endpoint": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "patternProperties": {
+                                        ".*": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/PortRange"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "private-address": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "api-addresses",
+                        "cloud-api-version",
+                        "legacy-proxy-settings",
+                        "juju-proxy-settings"
+                    ]
+                },
+                "UnitContextsResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "$ref": "#/definitions/UnitContext"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "UnitContextsResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/UnitContextsResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
                 },
                 "UnitRefreshResult": {
                     "type": "object",

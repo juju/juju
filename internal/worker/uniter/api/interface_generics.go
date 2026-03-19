@@ -48,5 +48,5 @@ type UniterClient interface {
 
 	// GetUnitContext returns as much context information required for the
 	// construction of a context factory.
-	GetUnitContext(ctx context.Context, tag names.UnitTag) (params.UnitContext, error)
+	GetUnitContext(ctx context.Context, tag names.UnitTag) (uniter.UnitContext, error)
 }

@@ -436,10 +436,10 @@ func (c *MockUniterClientDestroyUnitStorageAttachmentsCall) DoAndReturn(f func(c
 }
 
 // GetUnitContext mocks base method.
-func (m *MockUniterClient) GetUnitContext(ctx context.Context, tag names.UnitTag) (params.UnitContext, error) {
+func (m *MockUniterClient) GetUnitContext(ctx context.Context, tag names.UnitTag) (uniter.UnitContext, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitContext", ctx, tag)
-	ret0, _ := ret[0].(params.UnitContext)
+	ret0, _ := ret[0].(uniter.UnitContext)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -457,19 +457,19 @@ type MockUniterClientGetUnitContextCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockUniterClientGetUnitContextCall) Return(arg0 params.UnitContext, arg1 error) *MockUniterClientGetUnitContextCall {
+func (c *MockUniterClientGetUnitContextCall) Return(arg0 uniter.UnitContext, arg1 error) *MockUniterClientGetUnitContextCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUniterClientGetUnitContextCall) Do(f func(context.Context, names.UnitTag) (params.UnitContext, error)) *MockUniterClientGetUnitContextCall {
+func (c *MockUniterClientGetUnitContextCall) Do(f func(context.Context, names.UnitTag) (uniter.UnitContext, error)) *MockUniterClientGetUnitContextCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUniterClientGetUnitContextCall) DoAndReturn(f func(context.Context, names.UnitTag) (params.UnitContext, error)) *MockUniterClientGetUnitContextCall {
+func (c *MockUniterClientGetUnitContextCall) DoAndReturn(f func(context.Context, names.UnitTag) (uniter.UnitContext, error)) *MockUniterClientGetUnitContextCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

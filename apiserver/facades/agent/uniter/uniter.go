@@ -13,6 +13,7 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/proxy"
 
 	"github.com/juju/juju/apiserver/common"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
@@ -3341,9 +3342,9 @@ func (u *UniterAPI) getCAASUnitContext(ctx context.Context, unitName coreunit.Na
 
 	return &params.UnitContext{
 		CloudAPIVersion:            unitContext.CloudAPIVersion,
-		LegacyProxySettings:        unitContext.LegacyProxySettings,
-		JujuProxySettings:          unitContext.JujuProxySettings,
-		OpenedPortRangesByEndpoint: unitContext.OpenedPortRangesByEndpoint,
+		LegacyProxySettings:        encodeProxySettings(unitContext.LegacyProxySettings),
+		JujuProxySettings:          encodeProxySettings(unitContext.JujuProxySettings),
+		OpenedPortRangesByEndpoint: encodeOpenedPortRangesByEndpoint(unitContext.OpenedPortRangesByEndpoint),
 	}, nil
 }
 
@@ -3357,11 +3358,38 @@ func (u *UniterAPI) getIAASUnitContext(ctx context.Context, unitName coreunit.Na
 
 	return &params.UnitContext{
 		CloudAPIVersion:                   unitContext.CloudAPIVersion,
-		LegacyProxySettings:               unitContext.LegacyProxySettings,
-		JujuProxySettings:                 unitContext.JujuProxySettings,
+		LegacyProxySettings:               encodeProxySettings(unitContext.LegacyProxySettings),
+		JujuProxySettings:                 encodeProxySettings(unitContext.JujuProxySettings),
 		PrivateAddress:                    unitContext.PrivateAddress,
-		OpenedMachinePortRangesByEndpoint: unitContext.OpenedMachinePortRangesByEndpoint,
+		OpenedMachinePortRangesByEndpoint: encodeOpenedPortRangesByEndpoint(unitContext.OpenedMachinePortRangesByEndpoint),
 	}, nil
+}
+
+func encodeProxySettings(settings proxy.Settings) params.ProxySettings {
+	return params.ProxySettings{
+		HTTPProxy:  settings.Http,
+		HTTPSProxy: settings.Https,
+		FTPProxy:   settings.Ftp,
+		NoProxy:    settings.NoProxy,
+	}
+}
+
+func encodeOpenedPortRangesByEndpoint(openedPortRangesByEndpoint map[names.UnitTag]network.GroupedPortRanges) map[string]map[string][]params.PortRange {
+	result := map[string]map[string][]params.PortRange{}
+	for tag, groupedPortRanges := range openedPortRangesByEndpoint {
+		unitID := tag.Id()
+		result[unitID] = map[string][]params.PortRange{}
+		for endpoint, portRanges := range groupedPortRanges {
+			for _, portRange := range portRanges {
+				result[unitID][endpoint] = append(result[unitID][endpoint], params.PortRange{
+					FromPort: portRange.FromPort,
+					ToPort:   portRange.ToPort,
+					Protocol: portRange.Protocol,
+				})
+			}
+		}
+	}
+	return result
 }
 
 func nilZeroPtr[T comparable](v T) *T {

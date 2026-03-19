@@ -1604,10 +1604,10 @@ func (s *uniterSuite) TestGetUnitContextsIAAS(c *tc.C) {
 	c.Check(res.Results[0].Result, tc.DeepEquals, &params.UnitContext{
 		APIAddresses:                      []string{"10.0.0.1:17070", "10.0.0.2:17070"},
 		CloudAPIVersion:                   "v1.2.3",
-		LegacyProxySettings:               legacyProxySettings,
-		JujuProxySettings:                 jujuProxySettings,
+		LegacyProxySettings:               encodeProxySettings(legacyProxySettings),
+		JujuProxySettings:                 encodeProxySettings(jujuProxySettings),
 		PrivateAddress:                    &privateAddress,
-		OpenedMachinePortRangesByEndpoint: openedMachinePortRangesByEndpoint,
+		OpenedMachinePortRangesByEndpoint: encodeOpenedPortRangesByEndpoint(openedMachinePortRangesByEndpoint),
 	})
 }
 
@@ -1675,9 +1675,9 @@ func (s *uniterSuite) TestGetUnitContextsCAAS(c *tc.C) {
 	c.Check(res.Results[0].Result, tc.DeepEquals, &params.UnitContext{
 		APIAddresses:               []string{"10.0.0.1:17070"},
 		CloudAPIVersion:            "v2.0.0",
-		LegacyProxySettings:        legacyProxySettings,
-		JujuProxySettings:          jujuProxySettings,
-		OpenedPortRangesByEndpoint: openedPortRangesByEndpoint,
+		LegacyProxySettings:        encodeProxySettings(legacyProxySettings),
+		JujuProxySettings:          encodeProxySettings(jujuProxySettings),
+		OpenedPortRangesByEndpoint: encodeOpenedPortRangesByEndpoint(openedPortRangesByEndpoint),
 	})
 }
 
@@ -1726,8 +1726,8 @@ func (s *uniterSuite) TestGetUnitContextsMultipleEntities(c *tc.C) {
 	c.Check(res.Results[1].Result, tc.DeepEquals, &params.UnitContext{
 		APIAddresses:        []string{"10.0.0.1:17070"},
 		CloudAPIVersion:     "v1.2.3",
-		LegacyProxySettings: legacyProxySettings,
-		JujuProxySettings:   jujuProxySettings,
+		LegacyProxySettings: encodeProxySettings(legacyProxySettings),
+		JujuProxySettings:   encodeProxySettings(jujuProxySettings),
 		PrivateAddress:      &privateAddress,
 	})
 	c.Check(res.Results[2].Result, tc.IsNil)

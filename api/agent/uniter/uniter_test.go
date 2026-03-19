@@ -204,9 +204,9 @@ func (s *uniterSuite) TestGetUnitContext(c *tc.C) {
 					APIAddresses:    []string{"10.0.0.1:17070"},
 					CloudAPIVersion: "v1.2.3",
 					PrivateAddress:  &privateAddress,
-					OpenedMachinePortRangesByEndpoint: map[names.UnitTag]network.GroupedPortRanges{
-						names.NewUnitTag("mysql/0"): {
-							"db": []network.PortRange{network.MustParsePortRange("3306/tcp")},
+					OpenedMachinePortRangesByEndpoint: map[string]map[string][]params.PortRange{
+						"unit-mysql-0": {
+							"db": []params.PortRange{{FromPort: 3306, ToPort: 3306, Protocol: "tcp"}},
 						},
 					},
 				},
@@ -219,7 +219,7 @@ func (s *uniterSuite) TestGetUnitContext(c *tc.C) {
 
 	result, err := client.GetUnitContext(c.Context(), names.NewUnitTag("mysql/0"))
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.UnitContext{
+	c.Assert(result, tc.DeepEquals, uniter.UnitContext{
 		APIAddresses:    []string{"10.0.0.1:17070"},
 		CloudAPIVersion: "v1.2.3",
 		PrivateAddress: func() *string {
