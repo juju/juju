@@ -888,6 +888,27 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeCoHostedUnits(c *tc.C) {
 	s.checkInstanceLife(c, parentMachineUUID.String(), life.Dying)
 }
 
+func (s *machineSuite) TestEnsureMachineNotAliveCascadeRetryReturnsDyingArtifacts(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	firstCascaded, err := st.EnsureMachineNotAliveCascade(c.Context(), machineUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(firstCascaded.UnitUUIDs, tc.HasLen, 1)
+	c.Check(firstCascaded.MachineUUIDs, tc.HasLen, 0)
+
+	secondCascaded, err := st.EnsureMachineNotAliveCascade(c.Context(), machineUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(secondCascaded, tc.DeepEquals, firstCascaded)
+
+	s.checkUnitLife(c, firstCascaded.UnitUUIDs[0], life.Dying)
+	s.checkMachineLife(c, machineUUID.String(), life.Dying)
+	s.checkInstanceLife(c, machineUUID.String(), life.Dying)
+}
+
 func (s *machineSuite) TestEnsureMachineNotAliveCascadeChildMachines(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app",

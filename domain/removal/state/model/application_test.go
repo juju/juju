@@ -175,20 +175,22 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeNormalSuccessWith
 	_, err = s.DB().Exec(`UPDATE machine SET life_id = 1 WHERE uuid = ?`, allMachineUUIDs[0].String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	aliveUnitUUIDs := allUnitUUIDs[1:]
-	aliveMachineUUIDs := allMachineUUIDs[1:]
-
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	artifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(artifacts.RelationUUIDs, tc.HasLen, 0)
-	s.checkUnitContents(c, artifacts.UnitUUIDs, aliveUnitUUIDs)
-	s.checkMachineContents(c, artifacts.MachineUUIDs, aliveMachineUUIDs)
+	// Dying children should be returned too so retries can re-schedule them.
+	s.checkUnitContents(c, artifacts.UnitUUIDs, allUnitUUIDs)
+	// All machine UUIDs are returned, including the already-dying one,
+	// so retries can re-schedule child removal jobs.
+	s.checkMachineContents(c, artifacts.MachineUUIDs, allMachineUUIDs)
 
 	s.checkApplicationDyingState(c, appUUID)
-	s.checkUnitDyingState(c, aliveUnitUUIDs)
+	s.checkUnitDyingState(c, allUnitUUIDs)
+	// Only the previously-alive machines were transitioned by this call.
+	aliveMachineUUIDs := allMachineUUIDs[1:]
 	s.checkMachineDyingState(c, aliveMachineUUIDs)
 }
 
@@ -342,6 +344,110 @@ func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeDyingSuccess(c *t
 	err = row.Scan(&lifeID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(lifeID, tc.Equals, 1)
+}
+
+func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeRetryReturnsDyingArtifacts(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	firstArtifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(firstArtifacts.RelationUUIDs, tc.HasLen, 0)
+	c.Check(firstArtifacts.UnitUUIDs, tc.HasLen, 1)
+	c.Check(firstArtifacts.MachineUUIDs, tc.HasLen, 1)
+
+	secondArtifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(secondArtifacts.RelationUUIDs, tc.DeepEquals, firstArtifacts.RelationUUIDs)
+	c.Check(secondArtifacts.UnitUUIDs, tc.DeepEquals, firstArtifacts.UnitUUIDs)
+	// Machine UUIDs are still returned on retries so child removal
+	// jobs can be re-scheduled.
+	c.Check(secondArtifacts.MachineUUIDs, tc.SameContents, firstArtifacts.MachineUUIDs)
+
+	s.checkApplicationDyingState(c, appUUID)
+	s.checkUnitDyingState(c, s.getAllUnitUUIDs(c, appUUID))
+	_, allMachineUUIDs := s.getAllUnitAndMachineUUIDs(c)
+	s.checkMachineDyingState(c, allMachineUUIDs)
+}
+
+func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeRetryReturnsDyingRelations(c *tc.C) {
+	appSvc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, appSvc, "app1")
+	s.createIAASApplication(c, appSvc, "app2")
+
+	relSvc := s.setupRelationService(c)
+	_, _, err := relSvc.AddRelation(c.Context(), "app1:foo", "app2:bar")
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	firstArtifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(firstArtifacts.RelationUUIDs, tc.HasLen, 1)
+	c.Check(firstArtifacts.UnitUUIDs, tc.HasLen, 0)
+	c.Check(firstArtifacts.MachineUUIDs, tc.HasLen, 0)
+
+	secondArtifacts, err := st.EnsureApplicationNotAliveCascade(c.Context(), appUUID.String(), false, false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(secondArtifacts, tc.DeepEquals, firstArtifacts)
+
+	row := s.DB().QueryRowContext(c.Context(), "SELECT life_id FROM relation WHERE uuid = ?", firstArtifacts.RelationUUIDs[0])
+	var relationLife life.Life
+	err = row.Scan(&relationLife)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(relationLife, tc.Equals, life.Dying)
+}
+
+func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeRetryReturnsDyingStorageArtifacts(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	allUnitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(allUnitUUIDs, tc.HasLen, 1)
+
+	ctx := c.Context()
+	db := s.DB()
+
+	_, err := db.ExecContext(
+		ctx, "INSERT INTO storage_pool (uuid, name, type) VALUES ('pool-uuid', 'pool', 'whatever')",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = db.ExecContext(ctx, `
+INSERT INTO storage_instance (
+	uuid, storage_id, storage_pool_uuid, requested_size_mib, charm_name, storage_name, life_id, storage_kind_id
+)
+VALUES ('instance-uuid', 'does-not-matter', 'pool-uuid', 100, 'charm-name', 'storage-name', 0, 0)`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = db.ExecContext(ctx, `
+INSERT INTO storage_attachment (uuid, storage_instance_uuid, unit_uuid, life_id)
+VALUES ('storage-attachment-uuid', 'instance-uuid', ?, 0)`, allUnitUUIDs[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = db.ExecContext(ctx,
+		"INSERT INTO storage_unit_owner (storage_instance_uuid, unit_uuid) VALUES ('instance-uuid', ?)",
+		allUnitUUIDs[0],
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	firstArtifacts, err := st.EnsureApplicationNotAliveCascade(ctx, appUUID.String(), true, false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(firstArtifacts.StorageAttachmentUUIDs, tc.DeepEquals, []string{"storage-attachment-uuid"})
+	c.Check(firstArtifacts.StorageInstanceUUIDs, tc.DeepEquals, []string{"instance-uuid"})
+
+	secondArtifacts, err := st.EnsureApplicationNotAliveCascade(ctx, appUUID.String(), true, false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(secondArtifacts.StorageAttachmentUUIDs, tc.DeepEquals, firstArtifacts.StorageAttachmentUUIDs)
+	c.Check(secondArtifacts.StorageInstanceUUIDs, tc.DeepEquals, firstArtifacts.StorageInstanceUUIDs)
+	c.Check(secondArtifacts.UnitUUIDs, tc.DeepEquals, firstArtifacts.UnitUUIDs)
+	// Machine UUIDs are still returned on retries so child removal
+	// jobs can be re-scheduled.
+	c.Check(secondArtifacts.MachineUUIDs, tc.SameContents, firstArtifacts.MachineUUIDs)
 }
 
 func (s *applicationSuite) TestEnsureApplicationNotAliveCascadeOfferConnections(c *tc.C) {

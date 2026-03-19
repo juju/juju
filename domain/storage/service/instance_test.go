@@ -99,7 +99,7 @@ func (s *instanceSuite) TestGetStorageInstanceInfoNotFound(c *tc.C) {
 	)
 
 	svc := NewService(
-		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
 	)
 	_, err := svc.GetStorageInstanceInfo(c.Context(), notFoundUUID)
 	c.Check(err, tc.ErrorIs, domainstorageerrors.StorageInstanceNotFound)
@@ -114,7 +114,7 @@ func (s *instanceSuite) TestGetStorageInstanceInfoUUIDNotValid(c *tc.C) {
 	invalidUUID := domainstorage.StorageInstanceUUID("invalid")
 
 	svc := NewService(
-		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
 	)
 	_, err := svc.GetStorageInstanceInfo(c.Context(), invalidUUID)
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
@@ -168,7 +168,7 @@ func (s *instanceSuite) TestGetStorageInstanceInfoFilesystem(c *tc.C) {
 	)
 
 	svc := NewService(
-		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
 	)
 	res, err := svc.GetStorageInstanceInfo(c.Context(), siUUID)
 	c.Check(err, tc.ErrorIsNil)
@@ -268,7 +268,7 @@ func (s *instanceSuite) TestGetStorageInstanceInfoFilesystemVolumeBacked(c *tc.C
 	)
 
 	svc := NewService(
-		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
 	)
 	res, err := svc.GetStorageInstanceInfo(c.Context(), siUUID)
 	c.Check(err, tc.ErrorIsNil)
@@ -375,7 +375,7 @@ func (s *instanceSuite) TestGetStorageInstanceInfoFilesystemMultipleUnits(c *tc.
 	)
 
 	svc := NewService(
-		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
 	)
 	res, err := svc.GetStorageInstanceInfo(c.Context(), siUUID)
 	c.Check(err, tc.ErrorIsNil)
@@ -470,7 +470,7 @@ func (s *instanceSuite) TestGetStorageInstanceInfoBlockVolume(c *tc.C) {
 	)
 
 	svc := NewService(
-		s.state, loggertesting.WrapCheckLog(c), s.storageRegistryGetter,
+		s.state, loggertesting.WrapCheckLog(c), clock.WallClock, s.storageRegistryGetter,
 	)
 	res, err := svc.GetStorageInstanceInfo(c.Context(), siUUID)
 	c.Check(err, tc.ErrorIsNil)
