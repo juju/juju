@@ -3020,6 +3020,10 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
+	secretReservationOps, err := a.st.removeSecretReservationOps(u.Tag())
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	}
 
 	observedFieldsMatch := bson.D{
 		{"charmurl", u.doc.CharmURL},
@@ -3049,6 +3053,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	ops = append(ops, secretConsumerPermissionsOps...)
 	ops = append(ops, secretOwnerLabelOps...)
 	ops = append(ops, secretConsumerLabelOps...)
+	ops = append(ops, secretReservationOps...)
 
 	m, err := a.st.Model()
 	if err != nil {
@@ -3705,6 +3710,16 @@ func (a *Application) DeviceConstraints() (map[string]DeviceConstraints, error) 
 // status is derived from the unit status values.
 func (a *Application) Status() (status.StatusInfo, error) {
 	info, err := getStatus(a.st.db(), a.globalKey(), "application")
+	if err != nil {
+		return status.StatusInfo{}, errors.Trace(err)
+	}
+	return info, nil
+}
+
+// OperatorStatus returns the status of the application's operator, which is
+// only used on CAAS models.
+func (a *Application) OperatorStatus() (status.StatusInfo, error) {
+	info, err := getStatus(a.st.db(), a.globalKey(), "operator")
 	if err != nil {
 		return status.StatusInfo{}, errors.Trace(err)
 	}

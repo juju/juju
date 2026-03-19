@@ -7,7 +7,7 @@ test_backup() {
 	set_verbosity
 
 	echo "==> Checking for dependencies"
-	check_dependencies juju jq
+	check_dependencies juju yq
 
 	file="${TEST_DIR}/test-backup-restore.log"
 

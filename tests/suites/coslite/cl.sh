@@ -15,22 +15,22 @@ run_deploy_coslite() {
 	wait_for 0 "$(not_idle_list) | length" 1800
 
 	# run-action will change in 3.0
-	admin_passwd=$(juju run grafana/0 get-admin-password --wait=2m --format json | jq '.["unit-grafana-0"]["results"]["admin-password"]')
+	admin_passwd=$(juju run grafana/0 get-admin-password --wait=2m --format json | yq '.["unit-grafana-0"]["results"]["admin-password"]')
 	if [ -z "$admin_passwd" ]; then
 		echo "expected to get admin password for grafana/0"
 		exit 1
 	fi
 
 	echo "check if alertmanager is ready"
-	alertmanager_ip=$(juju status --format=json | jq -r '.applications.alertmanager.units."alertmanager/0".address')
+	alertmanager_ip=$(juju status --format=json | yq -r '.applications.alertmanager.units."alertmanager/0".address')
 	check_ready "http://$alertmanager_ip:9093/-/ready" 200
 
 	echo "check if grafana is ready"
-	grafana_ip=$(juju status --format=json | jq -r '.applications.grafana.units."grafana/0".address')
+	grafana_ip=$(juju status --format=json | yq -r '.applications.grafana.units."grafana/0".address')
 	check_ready "http://$grafana_ip:3000/api/health" 200
 
 	echo "check if prometheus is ready"
-	prometheus_ip=$(juju status --format=json | jq -r '.applications.prometheus.units."prometheus/0".address')
+	prometheus_ip=$(juju status --format=json | yq -r '.applications.prometheus.units."prometheus/0".address')
 	check_ready "http://$prometheus_ip:9090/-/ready" 200
 
 	echo "cos lite tests passed"

@@ -592,6 +592,12 @@ func allCollections() CollectionSchema {
 			}},
 		},
 
+		secretReservationsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "owner-tag"},
+			}},
+		},
+
 		secretRevisionsC: {
 			indexes: []mgo.Index{
 				{Key: []string{"model-uuid", "_id", "revision"}},
@@ -635,7 +641,13 @@ func allCollections() CollectionSchema {
 		secretBackendsRotateC: {
 			global: true,
 			indexes: []mgo.Index{{
-				Key: []string{"model-uuid"},
+				Key: []string{"name"},
+			}},
+		},
+
+		secretBackendIssuedTokensC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "expire-time", "consumer-tag"},
 			}},
 		},
 
@@ -773,6 +785,14 @@ const (
 	secretRotateC          = "secretRotate"
 	secretBackendsC        = "secretBackends"
 	secretBackendsRotateC  = "secretBackendsRotate"
+	// secretBackendIssuedTokensC define external token names, their expiry and
+	// which backend they originate from. Once these expire, they must be
+	// cleaned up, if they have not already been cleaned up.
+	secretBackendIssuedTokensC = "secretBackendIssuedTokens"
+	// secretReservationsC define pre-allocated secret IDs that a unit can use
+	// to create a secret. These must be recorded to ensure they are included in
+	// the issued token ACLs for external backends.
+	secretReservationsC = "secretReservations"
 )
 
 // watcherIgnoreList contains all the collections in mongo that should not be watched by the

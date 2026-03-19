@@ -7,6 +7,7 @@ import (
 	"context"
 	"sync"
 
+	jujuclock "github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
@@ -14,6 +15,7 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/caas"
@@ -41,6 +43,7 @@ var (
 	CompileK8sCloudCheckers                    = compileK8sCloudCheckers
 	CompileLifecycleApplicationRemovalSelector = compileLifecycleApplicationRemovalSelector
 	CompileLifecycleModelTeardownSelector      = compileLifecycleModelTeardownSelector
+	LabelSetToRequirements                     = labelSetToRequirements
 
 	UpdateStrategyForDeployment  = updateStrategyForDeployment
 	UpdateStrategyForStatefulSet = updateStrategyForStatefulSet
@@ -171,6 +174,10 @@ func (k *kubernetesClient) ConfigurePodFiles(
 
 func (k *kubernetesClient) DeleteClusterScopeResourcesModelTeardown(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error) {
 	k.deleteClusterScopeResourcesModelTeardown(ctx, wg, errChan)
+}
+
+func (k *kubernetesClient) DeleteClusterScopeAPIExtensionResourcesModelTeardown(ctx context.Context, selector k8slabels.Selector, clk jujuclock.Clock, wg *sync.WaitGroup, errChan chan<- error) {
+	k.deleteClusterScopeAPIExtensionResourcesModelTeardown(ctx, selector, clk, wg, errChan)
 }
 
 func (k *kubernetesClient) DeleteNamespaceModelTeardown(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error) {

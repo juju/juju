@@ -14,7 +14,12 @@ permissions:
 jobs:
   build:
     name: Test Kubeflow
-    runs-on: [self-hosted, linux, arm64, aws, large]
+    runs-on:
+      - self-hosted
+      - linux
+      - arm64
+      - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
+      - large
     if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
@@ -24,6 +29,9 @@ jobs:
     steps:
     - name: Checking out repo
       uses: actions/checkout@v4
+
+    - name: "Squid"
+      run: ./.github/squid.sh
 
     - name: Set up Go
       uses: actions/setup-go@v5
@@ -39,6 +47,7 @@ jobs:
 
     - name: Setup Docker Mirror
       shell: bash
+      if: github.repository_owner == 'juju'
       run: |
         (cat /etc/docker/daemon.json 2> /dev/null || echo "{}") | yq -o json '.registry-mirrors += ["https://docker-cache.us-west-2.aws.jujuqa.com:443"]' | sudo tee /etc/docker/daemon.json
         sudo systemctl restart docker
@@ -49,7 +58,7 @@ jobs:
         channel: '${{ matrix.microk8s }}'
         # enable now to give microk8s more time to settle down.
         addons: '["dns", "hostpath-storage", "dashboard", "ingress", "metallb:10.64.140.43-10.64.140.49"]'
-        launch-configuration: "$GITHUB_WORKSPACE/.github/microk8s-launch-config-aws.yaml"
+        launch-configuration: ${{ github.repository_owner == 'juju' && '$GITHUB_WORKSPACE/.github/microk8s-launch-config-aws.yaml' || '' }}
 
     - name: Install Dependencies
       run: |
@@ -59,7 +68,7 @@ jobs:
         done
 
         sudo DEBIAN_FRONTEND=noninteractive apt update
-        sudo DEBIAN_FRONTEND=noninteractive apt install -y libssl-dev python3-setuptools
+        sudo DEBIAN_FRONTEND=noninteractive apt install -y libssl-dev python3-setuptools docker-buildx
         sudo usermod -a -G microk8s $USER
 
     - name: Build juju and operator image

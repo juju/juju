@@ -44,10 +44,9 @@ echo "failed" | grep -q "passes"   # fails
 
 ## Getting started
 
-Before running tests, you'll need to install `jq`, `yq`, `shellcheck` and `expect`:
+Before running tests, you'll need to install `yq`, `shellcheck` and `expect`:
 
 ```sh
-sudo snap install jq
 sudo snap install yq
 sudo snap install shellcheck
 sudo snap install expect

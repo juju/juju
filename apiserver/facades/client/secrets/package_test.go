@@ -11,6 +11,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/secrets/provider"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -27,7 +28,7 @@ func NewTestAPI(
 	secretsState SecretsState,
 	secretsConsumer SecretsConsumer,
 	adminBackendConfigGetter func() (*provider.ModelBackendConfigInfo, error),
-	backendConfigGetterForUserSecretsWrite func(backendID string) (*provider.ModelBackendConfigInfo, error),
+	backendConfigGetterForUserSecretsWrite func(string, []*coresecrets.URI) (*provider.ModelBackendConfigInfo, error),
 	backendGetter func(*provider.ModelBackendConfig) (provider.SecretsBackend, error),
 ) (*SecretsAPI, error) {
 	if !authorizer.AuthClient() {

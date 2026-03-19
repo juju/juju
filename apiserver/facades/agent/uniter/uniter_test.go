@@ -4762,6 +4762,84 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 	c.Assert(info.LatestRevision, gc.Equals, 2)
 }
 
+func (s *uniterSuite) TestCommitHookChangesRemovesSecretReservations(c *gc.C) {
+	store := state.NewSecrets(s.State)
+
+	// Reserve some secrets for the unit.
+	for range 10 {
+		u := secrets.NewURI()
+		err := store.ReserveSecret(u, s.wordpressUnit.Tag())
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	reserved, err := store.ListReservedSecrets([]names.Tag{
+		s.wordpressUnit.Tag(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reserved, gc.HasLen, 10)
+
+	// Commit the hook changes.
+	b := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag())
+	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
+	req, _ := b.Build()
+
+	result, err := s.uniter.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+
+	// Check all the secret reservations were removed.
+	reserved, err = store.ListReservedSecrets([]names.Tag{s.wordpressUnit.Tag()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(reserved, gc.HasLen, 0)
+}
+
+func (s *uniterSuite) TestCommitHookChangesExpiresSecretBackendTokens(c *gc.C) {
+	store := state.NewSecrets(s.State)
+	now := time.Now()
+
+	// Create some secret backend issued tokens that are not expired yet.
+	for range 10 {
+		issuedToken := state.SecretBackendIssuedToken{
+			UUID:       utils.MustNewUUID().String(),
+			ExpireTime: now.Add(time.Hour),
+			BackendID:  "backend-id",
+			Consumer:   s.wordpressUnit.Tag(),
+		}
+		err := store.CreateSecretBackendIssuedToken(issuedToken)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	tokens, err := store.ListSecretBackendIssuedTokenUntilForConsumer(
+		now, s.wordpressUnit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(tokens, gc.HasLen, 0)
+	tokens, err = store.ListSecretBackendIssuedTokenUntilForConsumer(
+		now.Add(time.Hour).Add(time.Minute), s.wordpressUnit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(tokens, gc.HasLen, 10)
+
+	// Commit the hook changes.
+	b := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag())
+	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
+	req, _ := b.Build()
+
+	result, err := s.uniter.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+
+	// Check that the secret backend issued tokens are all expired now.
+	tokens, err = store.ListSecretBackendIssuedTokenUntilForConsumer(
+		now, s.wordpressUnit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(tokens, gc.HasLen, 10)
+}
+
 func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	// We need to set up a unit that has storage metadata defined.
 	ch := s.AddTestingCharm(c, "storage-block2") // supports multiple storage instances

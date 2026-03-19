@@ -34,28 +34,34 @@ run_secrets_k8s() {
 }
 
 prepare_k8s() {
-	if ! which "microk8s" >/dev/null 2>&1; then
-		sudo snap install microk8s --channel 1.32-strict
-		sudo microk8s.enable hostpath-storage
-		sudo microk8s.enable rbac
-		sudo microk8s status --wait-ready
+	if ! kubectl wait --for=jsonpath='{.status.phase}'=Active ns/kube-system; then
+		if ! which "microk8s" >/dev/null 2>&1; then
+			sudo snap install microk8s --channel 1.32-strict
+			sudo microk8s.enable hostpath-storage
+			sudo microk8s.enable rbac
+			sudo microk8s status --wait-ready
+		fi
+	fi
+	if ! kubectl wait --for=jsonpath='{.status.phase}'=Active ns/kube-system; then
+		echo "No suitable kubernetes cluster for test"
+		exit 1
 	fi
 
-	endpoint=$(microk8s.config | yq ".clusters[0] .cluster .server")
-	cacert=$(microk8s.config | yq ".clusters[0] .cluster .certificate-authority-data" | base64 -d | sed 's/^/  /')
+	endpoint=$(kubectl config view --raw --flatten | yq ".clusters[0] .cluster .server")
+	cacert=$(kubectl config view --raw --flatten | yq ".clusters[0] .cluster .certificate-authority-data" | base64 -d | sed 's/^/  /')
 	namespace=juju-secrets
 	serviceaccount=default
-	microk8s.kubectl create ns ${namespace} --dry-run=client -o yaml | microk8s.kubectl apply -f -
-	microk8s.kubectl create --save-config -n ${namespace} serviceaccount ${serviceaccount} --dry-run=client -o yaml | microk8s.kubectl apply -f -
-	microk8s.kubectl create --save-config clusterrole juju-secrets --verb='*' \
-		--resource=namespaces,secrets,serviceaccounts,serviceaccounts/token,clusterroles,clusterrolebindings --dry-run=client -o yaml | microk8s.kubectl apply -f -
-	microk8s.kubectl create --save-config clusterrolebinding juju-secrets --clusterrole=juju-secrets \
-		--serviceaccount=${namespace}:${serviceaccount} --dry-run=client -o yaml | microk8s.kubectl apply -f -
-	microk8s.kubectl create --save-config role juju-secrets --namespace=${namespace} --verb='*' \
-		--resource=secrets,serviceaccounts,serviceaccounts/token,roles,rolebindings --dry-run=client -o yaml | microk8s.kubectl apply -f -
-	microk8s.kubectl create --save-config rolebinding juju-secrets --namespace=${namespace} --role=juju-secrets \
-		--serviceaccount=${namespace}:${serviceaccount} --dry-run=client -o yaml | microk8s.kubectl apply -f -
-	token=$(microk8s.kubectl create token ${serviceaccount} --namespace ${namespace})
+	kubectl create ns ${namespace} --dry-run=client -o yaml | kubectl apply -f -
+	kubectl create --save-config -n ${namespace} serviceaccount ${serviceaccount} --dry-run=client -o yaml | kubectl apply -f -
+	kubectl create --save-config clusterrole juju-secrets --verb='*' \
+		--resource=namespaces,secrets,serviceaccounts,serviceaccounts/token,clusterroles,clusterrolebindings --dry-run=client -o yaml | kubectl apply -f -
+	kubectl create --save-config clusterrolebinding juju-secrets --clusterrole=juju-secrets \
+		--serviceaccount=${namespace}:${serviceaccount} --dry-run=client -o yaml | kubectl apply -f -
+	kubectl create --save-config role juju-secrets --namespace=${namespace} --verb='*' \
+		--resource=secrets,serviceaccounts,serviceaccounts/token,roles,rolebindings --dry-run=client -o yaml | kubectl apply -f -
+	kubectl create --save-config rolebinding juju-secrets --namespace=${namespace} --role=juju-secrets \
+		--serviceaccount=${namespace}:${serviceaccount} --dry-run=client -o yaml | kubectl apply -f -
+	token=$(kubectl create token ${serviceaccount} --namespace ${namespace})
 
 	cat >"${TEST_DIR}/k8sconfig.yaml" <<EOF
 endpoint: ${endpoint}

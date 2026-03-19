@@ -9,7 +9,12 @@ permissions:
 jobs:
   snap:
     name: Build linux-arm64
-    runs-on: [self-hosted, linux, arm64, aws, quad-xlarge]
+    runs-on:
+      - self-hosted
+      - linux
+      - arm64
+      - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
+      - ${{ (github.repository_owner == 'juju' && 'quad-xlarge') || (github.repository_owner == 'canonical' && 'xlarge') }}
 
     steps:
       - name: Install Dependencies
@@ -21,6 +26,9 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: "Squid"
+        run: ./.github/squid.sh
 
       - name: Setup LXD
         uses: canonical/setup-lxd@4e959f8e0d9c5feb27d44c5e4d9a330a782edee0

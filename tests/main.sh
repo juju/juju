@@ -111,7 +111,7 @@ show_help() {
 	echo "¯¯¯¯¯¯"
 	echo "Flags should appear $(red 'before') arguments."
 	echo ""
-	echo "cmd [-h] [-v] [-A] [-s test] [-a file] [-x file] [-r] [-l controller] [-p provider type <lxd|aws|google|azure|manual|microk8s|vsphere|maas>]"
+	echo "cmd [-h] [-v] [-A] [-s test] [-a file] [-x file] [-r] [-l controller] [-p provider type <lxd|aws|google|azure|manual|k8s|vsphere|maas>]"
 	echo ""
 	echo "    $(green './main.sh -h')        Display this help message"
 	echo "    $(green './main.sh -v')        Verbose and debug messages"
@@ -199,8 +199,8 @@ while getopts "hH?vAs:a:x:rl:p:c:R:S:V" opt; do
 		export BOOTSTRAP_REUSE_LOCAL="${OPTARG}"
 		export BOOTSTRAP_REUSE="true"
 
-		CLOUD=$(juju show-controller "${OPTARG}" --format=json 2>/dev/null | jq -r ".[\"${OPTARG}\"] | .details | .cloud")
-		PROVIDER=$(juju clouds --client --all --format=json 2>/dev/null | jq -r ".[\"${CLOUD}\"] | .type")
+		CLOUD=$(juju show-controller "${OPTARG}" --format=json 2>/dev/null | yq -r ".[\"${OPTARG}\"] | .details | .cloud")
+		PROVIDER=$(juju clouds --client --all --format=json 2>/dev/null | yq -r ".[\"${CLOUD}\"] | .type")
 		export BOOTSTRAP_PROVIDER="${PROVIDER}"
 		export BOOTSTRAP_CLOUD="${CLOUD}"
 		;;
@@ -208,7 +208,7 @@ while getopts "hH?vAs:a:x:rl:p:c:R:S:V" opt; do
 		export BOOTSTRAP_PROVIDER="${OPTARG}"
 		;;
 	c)
-		PROVIDER=$(juju clouds --client --all --format=json 2>/dev/null | jq -r ".[\"${OPTARG}\"] | .type")
+		PROVIDER=$(juju clouds --client --all --format=json 2>/dev/null | yq -r ".[\"${OPTARG}\"] | .type")
 		export BOOTSTRAP_PROVIDER="${PROVIDER}"
 		CLOUD="${OPTARG}"
 		export BOOTSTRAP_CLOUD="${CLOUD}"
@@ -245,7 +245,7 @@ fi
 echo ""
 
 echo "==> Checking for dependencies"
-check_dependencies curl jq yq shellcheck expect
+check_dependencies curl yq shellcheck expect
 
 if [[ ${USER:-'root'} == "root" ]]; then
 	echo "The testsuite must not be run as root." >&2
@@ -281,7 +281,8 @@ cleanup() {
 
 	archive_logs "partial"
 
-	cleanup_pids
+	pop_daemon_scope 0
+
 	cleanup_jujus
 	cleanup_funcs
 
@@ -332,6 +333,7 @@ archive_logs() {
 TEST_CURRENT=setup
 TEST_RESULT=failure
 
+push_daemon_scope
 trap cleanup EXIT HUP INT TERM
 
 # Setup test directory
@@ -351,7 +353,17 @@ run_test() {
 	# shellcheck disable=SC2046,SC2086
 	echo "==> TEST BEGIN: ${TEST_CURRENT_DESCRIPTION} ($(green $(basename ${TEST_DIR})))"
 	START_TIME=$(date +%s)
-	${TEST_CURRENT}
+	(
+		push_daemon_scope
+		local expected_scope_depth
+		expected_scope_depth=${DAEMON_SCOPE_DEPTH}
+		# shellcheck disable=SC2064
+		trap "pop_daemon_scope ${expected_scope_depth}" EXIT
+
+		set_verbosity
+
+		${TEST_CURRENT}
+	)
 	END_TIME=$(date +%s)
 
 	echo "==> TEST DONE: ${TEST_CURRENT_DESCRIPTION} ($((END_TIME - START_TIME))s)"

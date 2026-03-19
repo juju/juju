@@ -73,16 +73,20 @@ func (backgroundService *BackgroundService) Validate() error {
 
 // SetSnapConfig sets a snap's key to value.
 func SetSnapConfig(snap string, key string, value string) error {
+	logger.Infof("setting snap %q config key %q to value %q", snap, key, value)
 	if key == "" {
+		logger.Warningf("set snap config called with empty key for snap %q", snap)
 		return errors.NotValidf("key must not be empty")
 	}
 
 	cmd := exec.Command(Command, "set", snap, fmt.Sprintf("%s=%s", key, value))
 	_, err := cmd.Output()
 	if err != nil {
+		logger.Errorf("failed to set snap %q config %q=%q: %v", snap, key, value, err)
 		return errors.Annotate(err, fmt.Sprintf("setting snap %s config %s to %s", snap, key, value))
 	}
 
+	logger.Infof("successfully set snap %q config %q", snap, key)
 	return nil
 }
 
@@ -179,7 +183,10 @@ type ServiceConfig struct {
 // If no BackgroundServices are provided, Service will wrap all of the snap's
 // background services.
 func NewService(config ServiceConfig) (Service, error) {
+	logger.Infof("creating new snap service %q (path=%q, channel=%q, confinement=%q)",
+		config.ServiceName, config.SnapPath, config.Channel, config.ConfinementPolicy)
 	if config.ServiceName == "" {
+		logger.Warningf("NewService called with empty ServiceName")
 		return Service{}, errors.New("ServiceName must be provided")
 	}
 	app := &App{
@@ -193,10 +200,13 @@ func NewService(config ServiceConfig) (Service, error) {
 	}
 	err := app.Validate()
 	if err != nil {
+		logger.Warningf("snap app validation failed for %q: %v", config.ServiceName, err)
 		return Service{}, errors.Trace(err)
 	}
 
 	isLocal := config.SnapPath != ""
+	logger.Debugf("snap service %q: isLocal=%v, configDir=%q, executable=%q",
+		config.ServiceName, isLocal, config.ConfigDir, config.SnapExecutable)
 
 	return Service{
 		runnable:       defaultRunner{},
@@ -214,16 +224,23 @@ func NewService(config ServiceConfig) (Service, error) {
 // Validate validates that snap.Service has been correctly configured.
 // Validate returns nil when successful and an error when successful.
 func (s Service) Validate() error {
+	logger.Debugf("validating snap service %q", s.name)
 	if err := s.app.Validate(); err != nil {
+		logger.Warningf("snap service %q app validation failed: %v", s.name, err)
 		return errors.Trace(err)
 	}
 
 	for _, prerequisite := range s.app.Prerequisites() {
 		if err := prerequisite.Validate(); err != nil {
+			logger.Warningf(
+				"snap service %q prerequisite %q validation failed: %v",
+				s.name, prerequisite.Name(), err,
+			)
 			return errors.Trace(err)
 		}
 	}
 
+	logger.Debugf("snap service %q validation successful", s.name)
 	return nil
 }
 
@@ -245,10 +262,13 @@ func (s Service) IsLocal() bool {
 
 // Running returns (true, nil) when snap indicates that service is currently active.
 func (s Service) Running() (bool, error) {
+	logger.Debugf("checking if snap service %q is running", s.name)
 	_, _, running, err := s.status()
 	if err != nil {
+		logger.Warningf("failed to check running status for snap service %q: %v", s.name, err)
 		return false, errors.Trace(err)
 	}
+	logger.Debugf("snap service %q running=%v", s.name, running)
 	return running, nil
 }
 
@@ -259,19 +279,30 @@ func (s Service) Exists() (bool, error) {
 
 // Install installs the snap and its background services.
 func (s Service) Install() error {
-	for _, app := range s.app.Prerequisites() {
-		logger.Infof("command: %v", app)
+	logger.Infof("installing snap service %q (isLocal=%v)", s.name, s.isLocal)
+	prerequisites := s.app.Prerequisites()
+	logger.Infof("snap service %q has %d prereq(s) to install", s.name, len(prerequisites))
+	for i, app := range prerequisites {
+		logger.Infof("installing prerequisite %d/%d: %q", i+1, len(prerequisites), app.Name())
 
 		out, err := s.installAppWithRetry(app)
 		if err != nil {
+			logger.Errorf(
+				"failed to install prereq %q for snap service %q: %v (output: %v)",
+				app.Name(), s.name, err, out,
+			)
 			return errors.Annotatef(err, "output: %v", out)
 		}
+		logger.Infof("successfully installed prerequisite %q", app.Name())
 	}
 
+	logger.Infof("installing snap app %q with args: %v", s.app.Name(), s.app.InstallArgs())
 	out, err := s.installAppWithRetry(s.app)
 	if err != nil {
+		logger.Errorf("failed to install snap service %q: %v (output: %v)", s.name, err, out)
 		return errors.Annotatef(err, "output: %v", out)
 	}
+	logger.Infof("successfully installed snap service %q", s.name)
 	return nil
 }
 
@@ -280,46 +311,75 @@ func (s Service) Install() error {
 func (s Service) installAppWithRetry(app Installable) (string, error) {
 	ackAsserts := app.AcknowledgeAssertsArgs()
 	if ackAsserts != nil {
+		logger.Infof("acknowledging asserts for snap %q: %v", app.Name(), ackAsserts)
 		_, err := s.runCommandWithRetry(ackAsserts...)
 		if err != nil {
+			logger.Errorf("failed to acknowledge asserts for snap %q: %v", app.Name(), err)
 			return "", errors.Trace(err)
 		}
+		logger.Infof("successfully acknowledged asserts for snap %q", app.Name())
+	} else {
+		logger.Debugf("no asserts to acknowledge for snap %q", app.Name())
 	}
 
+	logger.Infof("running install command for snap %q with args: %v", app.Name(), app.InstallArgs())
 	return s.runCommandWithRetry(app.InstallArgs()...)
 }
 
 // Installed returns true if the service has been successfully installed.
 func (s Service) Installed() (bool, error) {
+	logger.Debugf("checking if snap service %q is installed", s.name)
 	installed, _, _, err := s.status()
 	if err != nil {
+		logger.Warningf("failed to check installed status for snap service %q: %v", s.name, err)
 		return false, errors.Trace(err)
 	}
+	logger.Debugf("snap service %q installed=%v", s.name, installed)
 	return installed, nil
 }
 
 // ConfigOverride writes a systemd override to enable the
 // specified limits to be used by the snap.
 func (s Service) ConfigOverride() error {
+	logger.Debugf(
+		"applying config overrides for snap service %q (limits count: %d)",
+		s.name, len(s.conf.Limit),
+	)
 	if len(s.conf.Limit) == 0 {
+		logger.Debugf("no config limits defined for snap service %q, skipping override", s.name)
 		return nil
 	}
 
 	unitOptions := systemd.ServiceLimits(s.conf)
 	data, err := io.ReadAll(systemd.UnitSerialize(unitOptions))
 	if err != nil {
+		logger.Errorf("failed to serialise systemd unit options for snap service %q: %v", s.name, err)
 		return errors.Trace(err)
 	}
 
-	for _, backgroundService := range s.app.BackgroundServices() {
+	backgroundServices := s.app.BackgroundServices()
+	logger.Infof(
+		"writing config overrides for %d background services of snap %q",
+		len(backgroundServices), s.name,
+	)
+	for _, backgroundService := range backgroundServices {
 		overridesDir := fmt.Sprintf("%s/snap.%s.%s.service.d", s.configDir, s.name, backgroundService.Name)
+		logger.Debugf(
+			"creating overrides directory %q for background service %q",
+			overridesDir, backgroundService.Name,
+		)
 		if err := os.MkdirAll(overridesDir, 0755); err != nil {
+			logger.Errorf("failed to create overrides directory %q: %v", overridesDir, err)
 			return errors.Trace(err)
 		}
-		if err := os.WriteFile(filepath.Join(overridesDir, "overrides.conf"), data, 0644); err != nil {
+		overridePath := filepath.Join(overridesDir, "overrides.conf")
+		logger.Debugf("writing overrides config to %q", overridePath)
+		if err := os.WriteFile(overridePath, data, 0644); err != nil {
+			logger.Errorf("failed to write overrides config to %q: %v", overridePath, err)
 			return errors.Trace(err)
 		}
 	}
+	logger.Infof("successfully applied config overrides for snap service %q", s.name)
 	return nil
 }
 
@@ -327,11 +387,21 @@ func (s Service) ConfigOverride() error {
 // shell commands to be executed by a shell which start the service.
 func (s Service) StartCommands() ([]string, error) {
 	deps := s.app.Prerequisites()
+	logger.Debugf(
+		"generating start commands for snap service %q (%d prerequisites)",
+		s.name, len(deps),
+	)
 	commands := make([]string, 0, 1+len(deps))
 	for _, prerequisite := range deps {
-		commands = append(commands, prerequisite.StartCommands(s.executable)...)
+		cmds := prerequisite.StartCommands(s.executable)
+		logger.Debugf("prerequisite %q start commands: %v", prerequisite.Name(), cmds)
+		commands = append(commands, cmds...)
 	}
-	return append(commands, s.app.StartCommands(s.executable)...), nil
+	appCmds := s.app.StartCommands(s.executable)
+	logger.Debugf("snap service %q start commands: %v", s.name, appCmds)
+	commands = append(commands, appCmds...)
+	logger.Debugf("total start commands for snap service %q: %v", s.name, commands)
+	return commands, nil
 }
 
 // status returns an interpreted output from the `snap services` command.
@@ -344,64 +414,100 @@ func (s Service) StartCommands() ([]string, error) {
 //
 //	(true, true, false, nil)
 func (s *Service) status() (isInstalled, enabledAtStartup, isCurrentlyActive bool, err error) {
+	logger.Debugf("querying status for snap service %q", s.Name())
 	out, err := s.runCommand("services", s.Name())
 	if err != nil {
+		logger.Warningf("failed to query snap services for %q: %v", s.Name(), err)
 		return false, false, false, errors.Trace(err)
 	}
+	logger.Debugf("snap services output for %q: %q", s.Name(), out)
 	for _, line := range strings.Split(out, "\n") {
 		if !strings.HasPrefix(line, s.Name()) {
 			continue
 		}
 
 		fields := strings.Fields(line)
-		return true, fields[1] == "enabled", fields[2] == "active", nil
+		installed := true
+		enabled := fields[1] == "enabled"
+		active := fields[2] == "active"
+		logger.Debugf(
+			"snap service %q status: installed=%v, enabledAtStartup=%v, active=%v",
+			s.Name(), installed, enabled, active,
+		)
+		return installed, enabled, active, nil
 	}
 
+	logger.Debugf("snap service %q not found in services output", s.Name())
 	return false, false, false, nil
 }
 
 // Start starts the service, returning nil when successful.
 // If the service is already running, Start does not restart it.
 func (s Service) Start() error {
+	logger.Infof("starting snap service %q", s.name)
 	running, err := s.Running()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if running {
+		logger.Debugf("snap service %q is already running, skipping start", s.name)
 		return nil
 	}
 
 	commands, err := s.StartCommands()
 	if err != nil {
+		logger.Errorf("failed to get start commands for snap service %q: %v", s.name, err)
 		return errors.Trace(err)
 	}
-	for _, command := range commands {
+	logger.Infof("executing %d start commands for snap service %q", len(commands), s.name)
+	for i, command := range commands {
+		logger.Infof(
+			"executing start command %d/%d for snap service %q: %q",
+			i, len(commands), s.name, command,
+		)
 		commandParts := strings.Fields(command)
 		out, err := utils.RunCommand(commandParts[0], commandParts[1:]...)
 		if err != nil {
 			if strings.Contains(out, "has no services") {
+				logger.Debugf("snap %q has no services, skipping command %q", s.name, command)
 				continue
 			}
+			logger.Errorf(
+				"start command failed for snap service %q: %q -> %v (output: %v)",
+				s.name, command, err, out,
+			)
 			return errors.Annotatef(err, "%v -> %v", command, out)
 		}
+		logger.Debugf(
+			"start command %d/%d completed successfully for snap service %q (output: %q)",
+			i, len(commands), s.name, out,
+		)
 	}
 
+	logger.Infof("successfully started snap service %q", s.name)
 	return nil
 }
 
 // Stop stops a running service. Returns nil when the underlying
 // call to `snap stop <service-name>` exits with error code 0.
 func (s Service) Stop() error {
+	logger.Infof("stopping snap service %q", s.name)
 	running, err := s.Running()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if !running {
+		logger.Debugf("snap service %q is not running, skipping stop", s.name)
 		return nil
 	}
 
 	args := []string{"stop", s.Name()}
-	return s.execThenExpect(args, "Stopped.")
+	if err := s.execThenExpect(args, "Stopped."); err != nil {
+		logger.Errorf("failed to stop snap service %q: %v", s.name, err)
+		return err
+	}
+	logger.Infof("successfully stopped snap service %q", s.name)
+	return nil
 }
 
 // Restart restarts the service, or starts if it's not currently
@@ -409,21 +515,34 @@ func (s Service) Stop() error {
 //
 // Restart is part of the service.RestartableService interface
 func (s Service) Restart() error {
+	logger.Infof("restarting snap service %q", s.name)
 	args := []string{"restart", s.Name()}
-	return s.execThenExpect(args, "Restarted.")
+	if err := s.execThenExpect(args, "Restarted."); err != nil {
+		logger.Errorf("failed to restart snap service %q: %v", s.name, err)
+		return err
+	}
+	logger.Infof("successfully restarted snap service %q", s.name)
+	return nil
 }
 
 // execThenExpect calls `snap <commandArgs>...` and then checks
 // stdout against expectation and snap's exit code. When there's a
 // mismatch or non-0 exit code, execThenExpect returns an error.
 func (s Service) execThenExpect(commandArgs []string, expectation string) error {
+	logger.Debugf("executing snap command %v, expecting %q", commandArgs, expectation)
 	out, err := s.runCommand(commandArgs...)
 	if err != nil {
+		logger.Errorf("snap command %v failed: %v", commandArgs, err)
 		return errors.Trace(err)
 	}
 	if !strings.Contains(out, expectation) {
+		logger.Errorf(
+			"snap command %v: expected %q in output, got %q",
+			commandArgs, expectation, out,
+		)
 		return errors.Annotatef(err, `expected "%s", got "%s"`, expectation, out)
 	}
+	logger.Debugf("snap command %v output matched expectation %q", commandArgs, expectation)
 	return nil
 }
 
@@ -433,18 +552,35 @@ func (s Service) runCommand(args ...string) (string, error) {
 }
 
 func (s Service) runCommandWithRetry(args ...string) (res string, err error) {
+	const delay = 5 * time.Second
+	const attempts = 2
+	logger.Debugf(
+		"running snap command with retry: %v (delay=%v, attempts=%v)",
+		args, delay, attempts,
+	)
+	attempt := 0
 	if resErr := retry.Call(retry.CallArgs{
 		Clock: s.clock,
 		Func: func() error {
+			attempt++
+			logger.Debugf("snap command attempt %d: %v", attempt, args)
 			res, err = s.runCommand(args...)
+			if err != nil {
+				logger.Warningf(
+					"snap command attempt %d failed: %v (output: %q)",
+					attempt, err, res,
+				)
+			}
 			return errors.Trace(err)
 		},
-		Delay:    5 * time.Second,
-		Attempts: 2,
+		Delay:    delay,
+		Attempts: attempts,
 	}); resErr != nil {
+		logger.Errorf("snap command %v failed after %d attempts: %v", args, attempt, resErr)
 		return "", errors.Trace(resErr)
 	}
 
+	logger.Debugf("snap command %v succeeded on attempt %d (output: %q)", args, attempt, res)
 	// Named args are set via the retry.
 	return
 }

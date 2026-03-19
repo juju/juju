@@ -11,6 +11,7 @@ package mocks
 
 import (
 	reflect "reflect"
+	time "time"
 
 	set "github.com/juju/collections/set"
 	network "github.com/juju/juju/core/network"
@@ -548,6 +549,20 @@ func (mr *MockSecretsStoreMockRecorder) CreateSecret(arg0, arg1 any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecret", reflect.TypeOf((*MockSecretsStore)(nil).CreateSecret), arg0, arg1)
 }
 
+// CreateSecretBackendIssuedToken mocks base method.
+func (m *MockSecretsStore) CreateSecretBackendIssuedToken(arg0 state.SecretBackendIssuedToken) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateSecretBackendIssuedToken", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateSecretBackendIssuedToken indicates an expected call of CreateSecretBackendIssuedToken.
+func (mr *MockSecretsStoreMockRecorder) CreateSecretBackendIssuedToken(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecretBackendIssuedToken", reflect.TypeOf((*MockSecretsStore)(nil).CreateSecretBackendIssuedToken), arg0)
+}
+
 // DeleteSecret mocks base method.
 func (m *MockSecretsStore) DeleteSecret(arg0 *secrets.URI, arg1 ...int) ([]secrets.ValueRef, error) {
 	m.ctrl.T.Helper()
@@ -566,6 +581,20 @@ func (mr *MockSecretsStoreMockRecorder) DeleteSecret(arg0 any, arg1 ...any) *gom
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecret", reflect.TypeOf((*MockSecretsStore)(nil).DeleteSecret), varargs...)
+}
+
+// ExpireSecretBackendIssuedTokensForConsumer mocks base method.
+func (m *MockSecretsStore) ExpireSecretBackendIssuedTokensForConsumer(arg0 names.Tag) state.ModelOperation {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExpireSecretBackendIssuedTokensForConsumer", arg0)
+	ret0, _ := ret[0].(state.ModelOperation)
+	return ret0
+}
+
+// ExpireSecretBackendIssuedTokensForConsumer indicates an expected call of ExpireSecretBackendIssuedTokensForConsumer.
+func (mr *MockSecretsStoreMockRecorder) ExpireSecretBackendIssuedTokensForConsumer(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExpireSecretBackendIssuedTokensForConsumer", reflect.TypeOf((*MockSecretsStore)(nil).ExpireSecretBackendIssuedTokensForConsumer), arg0)
 }
 
 // GetOwnedSecretMetadataAsApp mocks base method.
@@ -734,6 +763,51 @@ func (mr *MockSecretsStoreMockRecorder) ListModelSecrets(arg0 any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListModelSecrets", reflect.TypeOf((*MockSecretsStore)(nil).ListModelSecrets), arg0)
 }
 
+// ListReservedSecrets mocks base method.
+func (m *MockSecretsStore) ListReservedSecrets(arg0 []names.Tag) ([]*secrets.URI, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListReservedSecrets", arg0)
+	ret0, _ := ret[0].([]*secrets.URI)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListReservedSecrets indicates an expected call of ListReservedSecrets.
+func (mr *MockSecretsStoreMockRecorder) ListReservedSecrets(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListReservedSecrets", reflect.TypeOf((*MockSecretsStore)(nil).ListReservedSecrets), arg0)
+}
+
+// ListSecretBackendIssuedTokenUntil mocks base method.
+func (m *MockSecretsStore) ListSecretBackendIssuedTokenUntil(arg0 time.Time) ([]state.SecretBackendIssuedToken, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListSecretBackendIssuedTokenUntil", arg0)
+	ret0, _ := ret[0].([]state.SecretBackendIssuedToken)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListSecretBackendIssuedTokenUntil indicates an expected call of ListSecretBackendIssuedTokenUntil.
+func (mr *MockSecretsStoreMockRecorder) ListSecretBackendIssuedTokenUntil(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecretBackendIssuedTokenUntil", reflect.TypeOf((*MockSecretsStore)(nil).ListSecretBackendIssuedTokenUntil), arg0)
+}
+
+// ListSecretBackendIssuedTokenUntilForConsumer mocks base method.
+func (m *MockSecretsStore) ListSecretBackendIssuedTokenUntilForConsumer(arg0 time.Time, arg1 names.Tag) ([]state.SecretBackendIssuedToken, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListSecretBackendIssuedTokenUntilForConsumer", arg0, arg1)
+	ret0, _ := ret[0].([]state.SecretBackendIssuedToken)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListSecretBackendIssuedTokenUntilForConsumer indicates an expected call of ListSecretBackendIssuedTokenUntilForConsumer.
+func (mr *MockSecretsStoreMockRecorder) ListSecretBackendIssuedTokenUntilForConsumer(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecretBackendIssuedTokenUntilForConsumer", reflect.TypeOf((*MockSecretsStore)(nil).ListSecretBackendIssuedTokenUntilForConsumer), arg0, arg1)
+}
+
 // ListSecretRevisions mocks base method.
 func (m *MockSecretsStore) ListSecretRevisions(arg0 *secrets.URI) ([]*secrets.SecretRevisionMetadata, error) {
 	m.ctrl.T.Helper()
@@ -777,6 +851,63 @@ func (m *MockSecretsStore) ListUnusedSecretRevisions(arg0 *secrets.URI) ([]int, 
 func (mr *MockSecretsStoreMockRecorder) ListUnusedSecretRevisions(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListUnusedSecretRevisions", reflect.TypeOf((*MockSecretsStore)(nil).ListUnusedSecretRevisions), arg0)
+}
+
+// NextSecretBackendIssuedTokenExpiry mocks base method.
+func (m *MockSecretsStore) NextSecretBackendIssuedTokenExpiry() (time.Time, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NextSecretBackendIssuedTokenExpiry")
+	ret0, _ := ret[0].(time.Time)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NextSecretBackendIssuedTokenExpiry indicates an expected call of NextSecretBackendIssuedTokenExpiry.
+func (mr *MockSecretsStoreMockRecorder) NextSecretBackendIssuedTokenExpiry() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NextSecretBackendIssuedTokenExpiry", reflect.TypeOf((*MockSecretsStore)(nil).NextSecretBackendIssuedTokenExpiry))
+}
+
+// RemoveSecretBackendIssuedTokens mocks base method.
+func (m *MockSecretsStore) RemoveSecretBackendIssuedTokens(arg0 []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveSecretBackendIssuedTokens", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveSecretBackendIssuedTokens indicates an expected call of RemoveSecretBackendIssuedTokens.
+func (mr *MockSecretsStoreMockRecorder) RemoveSecretBackendIssuedTokens(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSecretBackendIssuedTokens", reflect.TypeOf((*MockSecretsStore)(nil).RemoveSecretBackendIssuedTokens), arg0)
+}
+
+// RemoveSecretReservations mocks base method.
+func (m *MockSecretsStore) RemoveSecretReservations(arg0 names.Tag) state.ModelOperation {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveSecretReservations", arg0)
+	ret0, _ := ret[0].(state.ModelOperation)
+	return ret0
+}
+
+// RemoveSecretReservations indicates an expected call of RemoveSecretReservations.
+func (mr *MockSecretsStoreMockRecorder) RemoveSecretReservations(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSecretReservations", reflect.TypeOf((*MockSecretsStore)(nil).RemoveSecretReservations), arg0)
+}
+
+// ReserveSecret mocks base method.
+func (m *MockSecretsStore) ReserveSecret(arg0 *secrets.URI, arg1 names.Tag) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReserveSecret", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReserveSecret indicates an expected call of ReserveSecret.
+func (mr *MockSecretsStoreMockRecorder) ReserveSecret(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReserveSecret", reflect.TypeOf((*MockSecretsStore)(nil).ReserveSecret), arg0, arg1)
 }
 
 // SecretGrants mocks base method.
@@ -852,4 +983,18 @@ func (m *MockSecretsStore) WatchRevisionsToPrune(arg0 []names.Tag) (state.String
 func (mr *MockSecretsStoreMockRecorder) WatchRevisionsToPrune(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRevisionsToPrune", reflect.TypeOf((*MockSecretsStore)(nil).WatchRevisionsToPrune), arg0)
+}
+
+// WatchSecretBackendIssuedTokenExpiry mocks base method.
+func (m *MockSecretsStore) WatchSecretBackendIssuedTokenExpiry() state.StringsWatcher {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchSecretBackendIssuedTokenExpiry")
+	ret0, _ := ret[0].(state.StringsWatcher)
+	return ret0
+}
+
+// WatchSecretBackendIssuedTokenExpiry indicates an expected call of WatchSecretBackendIssuedTokenExpiry.
+func (mr *MockSecretsStoreMockRecorder) WatchSecretBackendIssuedTokenExpiry() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchSecretBackendIssuedTokenExpiry", reflect.TypeOf((*MockSecretsStore)(nil).WatchSecretBackendIssuedTokenExpiry))
 }

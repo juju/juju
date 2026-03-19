@@ -13,8 +13,8 @@ RUN useradd --uid 171 --gid 171 --no-create-home --shell /usr/bin/bash sjuju
 RUN mkdir -p /etc/sudoers.d && echo "sjuju ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/sjuju
 
 # Some Python dependencies.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
+RUN DEBIAN_FRONTEND=noninteractive apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     sudo \
     python3-yaml \
     python3-pip \

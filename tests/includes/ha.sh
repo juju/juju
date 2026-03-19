@@ -3,7 +3,7 @@ wait_for_controller_machines() {
 
 	attempt=0
 	# shellcheck disable=SC2143
-	until [[ "$(juju machines -m controller --format=json | jq -r '.machines | .[] | .["juju-status"] | select(.current == "started") | .current' | wc -l | grep "${amount}")" ]]; do
+	until [[ "$(juju machines -m controller --format=json | yq -r '.machines | .[] | .["juju-status"] | select(.current == "started") | .current' | wc -l | grep "${amount}")" ]]; do
 		echo "[+] (attempt ${attempt}) polling machines"
 		juju machines -m controller 2>&1 | sed 's/^/    | /g' || true
 		sleep "${SHORT_TIMEOUT}"
@@ -30,7 +30,7 @@ wait_for_ha() {
 
 	attempt=0
 	# shellcheck disable=SC2143
-	until [[ "$(juju show-controller --format=json | jq -r '.[] | .["controller-machines"] | .[] | select(.["ha-status"] == "ha-enabled") | .["instance-id"]' | wc -l | grep "${amount}")" ]]; do
+	until [[ "$(juju show-controller --format=json | yq -r '.[] | .["controller-machines"] | .[] | select(.["ha-status"] == "ha-enabled") | .["instance-id"]' | wc -l | grep "${amount}")" ]]; do
 		echo "[+] (attempt ${attempt}) polling ha"
 		juju show-controller 2>&1 | sed 's/^/    | /g'
 		sleep "${SHORT_TIMEOUT}"

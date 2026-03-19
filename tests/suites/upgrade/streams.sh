@@ -58,7 +58,6 @@ exec_simplestream_metadata() {
 		--prevent-fallback \
 		-d "./tests/suites/upgrade/streams/"
 
-	add_clean_func "kill_server"
 	start_server "./tests/suites/upgrade/streams/tools"
 
 	# Find a routable address to the server that isn't the loopback address.
@@ -73,12 +72,17 @@ exec_simplestream_metadata() {
 
 	name="test-upgrade-${test_name}-stream"
 
+	local extra_opts
+	if [[ ${stable_version} == "3.6.14" ]]; then
+		extra_opts="--config juju-db-snap-channel=4.4/stable"
+	fi
+
 	file="${TEST_DIR}/test-upgrade-${test_name}-stream.log"
 	${bootstrap_juju_client} bootstrap "lxd" "${name}" \
 		--show-log \
 		--agent-version="${stable_version}" \
 		--bootstrap-series="${BOOTSTRAP_SERIES}" \
-		--config agent-metadata-url="http://${server_address}:8666/" 2>&1 | OUTPUT "${file}"
+		--config agent-metadata-url="http://${server_address}:8666/" ${extra_opts:-} 2>&1 | OUTPUT "${file}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
 
 	juju add-model test-upgrade-"${test_name}"
@@ -87,14 +91,14 @@ exec_simplestream_metadata() {
 
 	local CURRENT UPDATED
 
-	CURRENT=$(juju machines -m controller --format=json | jq -r '.machines | .["0"] | .["juju-status"] | .version')
+	CURRENT=$(juju machines -m controller --format=json | yq -r '.machines | .["0"] | .["juju-status"] | .version')
 	echo "==> Current juju version ${CURRENT}"
 
 	juju upgrade-controller --agent-version="${jujud_version}"
 
 	attempt=0
 	while true; do
-		UPDATED=$(timeout 30 juju machines -m controller --format=json | jq -r '.machines | .["0"] | .["juju-status"] | .version' || echo "${CURRENT}")
+		UPDATED=$(timeout 30 juju machines -m controller --format=json | yq -r '.machines | .["0"] | .["juju-status"] | .version' || echo "${CURRENT}")
 		if [ "$CURRENT" != "$UPDATED" ]; then
 			break
 		fi
@@ -112,7 +116,7 @@ exec_simplestream_metadata() {
 	juju switch test-upgrade-"${test_name}"
 	juju upgrade-model
 	while true; do
-		UPDATED=$(timeout 30 juju machines --format=json | jq -r '.machines | .["0"] | .["juju-status"] | .version' || echo "${CURRENT}")
+		UPDATED=$(timeout 30 juju machines --format=json | yq -r '.machines | .["0"] | .["juju-status"] | .version' || echo "${CURRENT}")
 		if [ "$CURRENT" != "$UPDATED" ]; then
 			break
 		fi

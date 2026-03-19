@@ -10,6 +10,7 @@ import (
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/pki/ssh"
 )
 
@@ -189,6 +190,7 @@ func AddVirtualHostKeys(pool *StatePool) error {
 	}
 	return st.runRawTransaction(ops)
 }
+
 func SplitMigrationStatusMessages(pool *StatePool) error {
 	type legacyModelMigStatusDoc struct {
 		// These are the same as the ids as migrationsC.
@@ -259,6 +261,64 @@ func SplitMigrationStatusMessages(pool *StatePool) error {
 		})
 	}
 	return st.runRawTransaction(ops)
+}
+
+// OpenControllerAPIPort runs an upgrade to open the controller api port
+// on the controller units.
+func OpenControllerAPIPort(pool *StatePool) error {
+	st, err := pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	controllerCfg, err := st.ControllerConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	apiPort := controllerCfg.APIPort()
+
+	unitsColl, closer := st.db().GetRawCollection(unitsC)
+	defer closer()
+
+	var controllerUnits []unitDoc
+	err = unitsColl.Find(bson.M{"application": controllerAppName}).Select(bson.M{"name": 1}).All(&controllerUnits)
+	if err != nil {
+		return errors.Annotatef(err, "cannot get controller units")
+	}
+nextUnit:
+	for _, unitDoc := range controllerUnits {
+		// Ideally we'd want to do this work using bson maps to avoid
+		// using state objects but the logic is complicated enough that
+		// it's viable at the moment to use the existing state code to
+		// manipulate the port ranges.
+		controllerUnit, err := st.Unit(unitDoc.Name)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		pcp, err := controllerUnit.OpenedPortRanges()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, pr := range pcp.UniquePortRanges() {
+			if pr.Protocol != "tcp" {
+				continue
+			}
+			if apiPort >= pr.FromPort && apiPort <= pr.ToPort {
+				continue nextUnit
+			}
+		}
+		pcp.Open("", network.PortRange{
+			FromPort: apiPort,
+			ToPort:   apiPort,
+			Protocol: "tcp",
+		})
+
+		if err = st.ApplyOperation(pcp.Changes()); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 // PopulateApplicationStorageUniqueID has the responsibility of populating the

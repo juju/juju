@@ -23,6 +23,7 @@ type StateBackend interface {
 	AddVirtualHostKeys() error
 	SplitMigrationStatusMessages() error
 	PopulateApplicationStorageUniqueID() error
+	OpenControllerAPIPort() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -53,6 +54,12 @@ func (s stateBackend) AddVirtualHostKeys() error {
 // split migration status messages.
 func (s stateBackend) SplitMigrationStatusMessages() error {
 	return state.SplitMigrationStatusMessages(s.pool)
+}
+
+// OpenControllerAPIPort runs an upgrade to open the controller api port
+// on the controller units.
+func (s stateBackend) OpenControllerAPIPort() error {
+	return state.OpenControllerAPIPort(s.pool)
 }
 
 // PopulateApplicationStorageUniqueID runs an upgrade to backfill CAAS apps
