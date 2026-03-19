@@ -7,11 +7,17 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
+	coreunit "github.com/juju/juju/core/unit"
+	unittesting "github.com/juju/juju/core/unit/testing"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/unitstate/internal"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type commitHookSuite struct {
@@ -101,4 +107,60 @@ func (s *commitHookSuite) TestUpdateCharmStateEmpty(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *commitHookSuite) TestGetUnitUUIDByName(c *tc.C) {
+	// Arrange
+	nodeUUID := s.addNetNode(c)
+	spaceUUID := s.addSpace(c)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	// Act
+	uuid, err := s.state.GetUnitUUIDByName(c.Context(), coreunit.Name(unitUUID))
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuid, tc.Equals, unitUUID)
+}
+
+func (s *commitHookSuite) TestGetUnitUUIDByNameNotFound(c *tc.C) {
+	_, err := s.state.GetUnitUUIDByName(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *commitHookSuite) addCharm(c *tc.C) string {
+	charmUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO charm (uuid, reference_name, create_time) VALUES (?, ?, ?)`,
+		charmUUID, charmUUID, time.Now())
+	return charmUUID
+}
+
+func (s *commitHookSuite) addNetNode(c *tc.C) string {
+	netNodeUUID := uuid.MustNewUUID().String()
+	s.query(c, "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
+	return netNodeUUID
+}
+
+func (s *commitHookSuite) addSpace(c *tc.C) string {
+	spaceUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO space (uuid, name) VALUES (?, ?)`,
+		spaceUUID, spaceUUID)
+	return spaceUUID
+}
+
+func (s *commitHookSuite) addApplication(c *tc.C, charmUUID, spaceUUID string) string {
+	appUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)`,
+		appUUID, appUUID, life.Alive, charmUUID, spaceUUID)
+	return appUUID
+}
+
+func (s *commitHookSuite) addUnit(c *tc.C, appUUID, charmUUID, nodeUUID string) coreunit.UUID {
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.query(c, `INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?, ?)`,
+		unitUUID, unitUUID, life.Alive, appUUID, charmUUID, nodeUUID)
+	return unitUUID
 }
