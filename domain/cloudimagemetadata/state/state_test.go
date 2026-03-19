@@ -91,7 +91,7 @@ func (s *stateSuite) TestSaveMetadata(c *tc.C) {
 		obtained[i].CreationTime = time.Time{} // ignore time since already checked.
 	}
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(obtained, tc.SameContents, expected)
+	c.Check(obtained, tc.SameContents, expected)
 }
 
 // TestSaveMetadataWithDateCreated tests the SaveMetadata method by ensuring metadata is saved with the correct creation date.
@@ -118,7 +118,7 @@ func (s *stateSuite) TestSaveMetadataWithDateCreated(c *tc.C) {
 	// Assert
 	obtained, err := s.retrieveMetadataFromDB(c)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(obtained, tc.SameContents, expected)
+	c.Check(obtained, tc.SameContents, expected)
 }
 
 // TestSaveMetadataSeveralMetadata verifies that multiple metadata entries are saved correctly in the database.
@@ -158,7 +158,7 @@ func (s *stateSuite) TestSaveMetadataSeveralMetadata(c *tc.C) {
 		obtained[i].CreationTime = time.Time{} // ignore time since already checked.
 	}
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(obtained, tc.SameContents, expected)
+	c.Check(obtained, tc.SameContents, expected)
 }
 
 func (s *stateSuite) TestSaveMetadataUpdateMetadata(c *tc.C) {
@@ -193,7 +193,7 @@ func (s *stateSuite) TestSaveMetadataUpdateMetadata(c *tc.C) {
 		obtained[i].CreationTime = time.Time{} // ignore time since already checked.
 	}
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(obtained, tc.SameContents, []cloudimagemetadata.Metadata{
+	c.Check(obtained, tc.SameContents, []cloudimagemetadata.Metadata{
 		{MetadataAttributes: attrs1, ImageID: "2"}, // Imageid has been updated, but other attributes don't.
 	})
 }
@@ -337,7 +337,7 @@ VALUES
 		obtained[i].CreationTime = time.Time{} // ignore time
 	}
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(obtained, tc.SameContents, []cloudimagemetadata.Metadata{
+	c.Check(obtained, tc.SameContents, []cloudimagemetadata.Metadata{
 		{MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 			Stream:          "stream",
 			Region:          "region-1",
@@ -466,7 +466,7 @@ VALUES
 	for i := range obtained {
 		obtained[i].CreationTime = time.Time{} // ignore time
 	}
-	c.Assert(obtained, tc.SameContents, []cloudimagemetadata.Metadata{{
+	c.Check(obtained, tc.SameContents, []cloudimagemetadata.Metadata{{
 		MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 			Stream:          "stream",
 			Region:          "region",
@@ -568,7 +568,7 @@ VALUES
 	for i := range obtained {
 		obtained[i].CreationTime = time.Time{} // ignore time
 	}
-	c.Assert(obtained, tc.SameContents, []cloudimagemetadata.Metadata{
+	c.Check(obtained, tc.SameContents, []cloudimagemetadata.Metadata{
 		{
 			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 				Stream:          "stream",
@@ -615,7 +615,7 @@ VALUES
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(obtained, tc.SameContents, []cloudimagemetadata.Metadata{}) // No non expired metadata
+	c.Check(obtained, tc.SameContents, []cloudimagemetadata.Metadata{}) // No non expired metadata
 }
 
 // TestCleanupMetatada verifies that the metadata is properly cleaned up on a new insert in the
@@ -653,7 +653,7 @@ VALUES
 		obtained[i].CreationTime = time.Time{} // ignore time for simplicity
 	}
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(obtained, tc.SameContents, append(expected,
+	c.Check(obtained, tc.SameContents, append(expected,
 		// Custom that has not expired
 		cloudimagemetadata.Metadata{MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 			Stream:          "stream",
