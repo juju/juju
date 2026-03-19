@@ -23,6 +23,7 @@ jobs:
           fetch-depth: 0
 
       - name: "Squid"
+        if: github.repository_owner != 'juju'
         run: ./.github/squid.sh
 
       - name: "Set up Go"

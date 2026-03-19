@@ -53,6 +53,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: "Squid"
+        if: github.repository_owner != 'juju'
         run: ./.github/squid.sh
 
       - name: Remove LXD
