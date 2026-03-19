@@ -223,7 +223,7 @@ type ApplicationService interface {
 	// provider.
 	GetIAASUnitContext(context.Context, coreunit.Name) (applicationservice.IAASUnitContext, error)
 
-	// GetCAASUnitContext returns the unit context for a unit running on an IAAS
+	// GetCAASUnitContext returns the unit context for a unit running on an CAAS
 	// provider.
 	GetCAASUnitContext(context.Context, coreunit.Name) (applicationservice.CAASUnitContext, error)
 }

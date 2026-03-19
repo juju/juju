@@ -1460,7 +1460,7 @@ type UnitContextsResult struct {
 	Error  *Error       `json:"error,omitempty"`
 }
 
-// UnitContextsResult contains all the context information required for the
+// UnitContext contains all the context information required for the
 // construction of a context factory.
 type UnitContext struct {
 	APIAddresses                      []string                                    `json:"api-addresses"`

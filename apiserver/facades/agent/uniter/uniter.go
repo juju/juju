@@ -3310,18 +3310,15 @@ func (u *UniterAPI) getOneUnitContext(ctx context.Context, entity params.Entity,
 		return nil, errors.BadRequestf("parsing unit name: %s", tag.Id())
 	}
 
-	apiAddresses, err := u.controllerNodeService.GetAllAPIAddressesForAgents(ctx)
-	if errors.Is(err, applicationerrors.UnitNotFound) {
-		return nil, errors.NotFoundf("unit %q", unitName)
-	} else if err != nil {
-		return nil, internalerrors.Errorf("getting private addresses for unit %q: %w", unitName, err)
-	}
-
 	unitContext, err := u.getUnitContext(ctx, unitName)
 	if err != nil {
 		return nil, err
 	}
 
+	apiAddresses, err := u.controllerNodeService.GetAllAPIAddressesForAgents(ctx)
+	if err != nil {
+		return nil, internalerrors.Errorf("getting private addresses for unit %q: %w", unitName, err)
+	}
 	unitContext.APIAddresses = apiAddresses
 
 	return unitContext, nil

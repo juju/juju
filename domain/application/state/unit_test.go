@@ -1835,25 +1835,19 @@ func (s *unitStateSuite) TestGetCAASUnitContextWithPortRanges(c *tc.C) {
 
 	// Act: Get the CAAS unit context
 	result, err := s.state.GetCAASUnitContext(c.Context(), unitName.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.OpenedPortRangesByEndpoint, tc.NotNil)
+	// Port ranges should be present
+	c.Check(len(result.OpenedPortRangesByEndpoint) > 0, tc.IsTrue)
 
-	// Assert: Port ranges should be present, API address table might not exist in test db
-	if err != nil {
-		// Expected in test db without full schema
-		c.Check(err, tc.ErrorMatches, ".*no such table.*")
-	} else {
-		c.Check(result.OpenedPortRangesByEndpoint, tc.NotNil)
-		// Port ranges should be present
-		c.Check(len(result.OpenedPortRangesByEndpoint) > 0, tc.IsTrue)
-
-		// Verify port ranges are correctly structured
-		for _, portsByEndpoint := range result.OpenedPortRangesByEndpoint {
-			c.Check(len(portsByEndpoint) > 0, tc.IsTrue)
-			for _, ports := range portsByEndpoint {
-				for _, p := range ports {
-					c.Check(p.Protocol, tc.Matches, "tcp|udp|icmp")
-					c.Check(p.FromPort >= 0, tc.IsTrue)
-					c.Check(p.ToPort >= p.FromPort, tc.IsTrue)
-				}
+	// Verify port ranges are correctly structured
+	for _, portsByEndpoint := range result.OpenedPortRangesByEndpoint {
+		c.Check(len(portsByEndpoint) > 0, tc.IsTrue)
+		for _, ports := range portsByEndpoint {
+			for _, p := range ports {
+				c.Check(p.Protocol, tc.Matches, "tcp|udp|icmp")
+				c.Check(p.FromPort >= 0, tc.IsTrue)
+				c.Check(p.ToPort >= p.FromPort, tc.IsTrue)
 			}
 		}
 	}

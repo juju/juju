@@ -245,7 +245,7 @@ type UnitState interface {
 	// construction of a context factory for a unit.
 	GetIAASUnitContext(ctx context.Context, unitName string) (application.IAASUnitContext, error)
 
-	// GetCAASUnitContext returns the IAAS context information required for the
+	// GetCAASUnitContext returns the CAAS context information required for the
 	// construction of a context factory for a unit.
 	GetCAASUnitContext(ctx context.Context, unitName string) (application.CAASUnitContext, error)
 }

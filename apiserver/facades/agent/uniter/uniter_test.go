@@ -1617,9 +1617,6 @@ func (s *uniterSuite) TestGetUnitContextsIAASUnitNotFound(c *tc.C) {
 	// Arrange
 	unitName := coreunit.Name("mysql/0")
 	unitTag := names.NewUnitTag(unitName.String())
-	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(
-		[]string{"10.0.0.1:17070"}, nil,
-	)
 	s.applicationService.EXPECT().GetIAASUnitContext(gomock.Any(), unitName).Return(
 		service.IAASUnitContext{}, applicationerrors.UnitNotFound,
 	)
@@ -1700,7 +1697,7 @@ func (s *uniterSuite) TestGetUnitContextsMultipleEntities(c *tc.C) {
 	s.badTag = forbiddenTag
 	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(
 		[]string{"10.0.0.1:17070"}, nil,
-	).Times(2)
+	)
 	s.applicationService.EXPECT().GetIAASUnitContext(gomock.Any(), validUnitName).Return(service.IAASUnitContext{
 		CloudAPIVersion:     "v1.2.3",
 		LegacyProxySettings: legacyProxySettings,
