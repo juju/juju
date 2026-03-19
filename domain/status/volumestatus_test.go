@@ -145,3 +145,16 @@ func (volumeStatusSuite) TestVolumeStatusTransitionPendingInvalid(c *tc.C) {
 		StorageVolumeStatusTypeAttached, true, sts)
 	c.Assert(err, tc.ErrorIs, domainstatuserrors.VolumeStatusTransitionNotValid)
 }
+
+// TestVolumeStatusTransitionPendingValid tests that
+// [VolumeStatusTransitionValid] allows a transition from attached back to
+// pending when the volume is not provisioned. This verifies the exception
+// case for unprovisioned volumes.
+func (volumeStatusSuite) TestVolumeStatusTransitionPendingValid(c *tc.C) {
+	sts := StatusInfo[StorageVolumeStatusType]{
+		Status: StorageVolumeStatusTypePending,
+	}
+	err := VolumeStatusTransitionValid(
+		StorageVolumeStatusTypeAttached, false, sts)
+	c.Assert(err, tc.ErrorIsNil)
+}

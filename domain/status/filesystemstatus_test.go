@@ -141,3 +141,16 @@ func (filesystemStatusSuite) TestFilesystemStatusTransitionPendingInvalid(c *tc.
 		StorageFilesystemStatusTypeAttached, true, sts)
 	c.Assert(err, tc.ErrorIs, statuserrors.FilesystemStatusTransitionNotValid)
 }
+
+// TestFilesystemStatusTransitionPendingValid tests that
+// [FilesystemStatusTransitionValid] allows a transition from attached back to
+// pending when the filesystem is not provisioned. This verifies the exception
+// case for unprovisioned filesystems.
+func (filesystemStatusSuite) TestFilesystemStatusTransitionPendingValid(c *tc.C) {
+	sts := StatusInfo[StorageFilesystemStatusType]{
+		Status: StorageFilesystemStatusTypePending,
+	}
+	err := FilesystemStatusTransitionValid(
+		StorageFilesystemStatusTypeAttached, false, sts)
+	c.Assert(err, tc.ErrorIsNil)
+}
