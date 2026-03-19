@@ -93,7 +93,7 @@ AND    life_id = 0;`, machineUUID)
 	selectContainerMachines, err := st.Prepare(`
 SELECT    mp.machine_uuid AS &entityUUID.uuid
 FROM      machine_parent AS mp
-JOIN      machine AS m ON mp.machine_uuid = m.uuid
+JOIN      machine AS m ON mp.parent_uuid = m.uuid
 WHERE     mp.parent_uuid = $entityUUID.uuid
 AND       m.life_id < 2;`, machineUUID)
 	if err != nil {
