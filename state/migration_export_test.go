@@ -878,7 +878,6 @@ func (s *MigrationExportSuite) TestCharmDataMigrated(c *gc.C) {
 		Name:   "all-charm-data",
 		Series: "jammy",
 	})
-	fmt.Printf("%#v", ch.Meta())
 
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Charm: ch,

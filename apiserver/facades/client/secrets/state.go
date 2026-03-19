@@ -12,6 +12,7 @@ import (
 
 // SecretsState instances provide secret apis.
 type SecretsState interface {
+	ReserveSecret(*secrets.URI, names.Tag) error
 	CreateSecret(*secrets.URI, state.CreateSecretParams) (*secrets.SecretMetadata, error)
 	UpdateSecret(*secrets.URI, state.UpdateSecretParams) (*secrets.SecretMetadata, error)
 	GetSecret(uri *secrets.URI) (*secrets.SecretMetadata, error)

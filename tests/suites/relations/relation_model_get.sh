@@ -23,7 +23,7 @@ run_relation_model_get() {
 	sink_rel_id=$(juju exec --unit dummy-source/0 "relation-ids sink" | cut -d':' -f2)
 
 	echo "Check relation-model-get hook"
-	model_uuid=$(juju show-model --format json | jq -r '.["test-relation-model-get"]["model-uuid"]')
+	model_uuid=$(juju show-model --format json | yq -r '.["test-relation-model-get"]["model-uuid"]')
 	juju exec --unit dummy-source/0 "relation-model-get -r ${sink_rel_id}" | check "${model_uuid}"
 
 	echo "Setting up cross model relation"

@@ -7,8 +7,11 @@ import (
 	"context"
 	"encoding/json"
 	"sort"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
@@ -146,7 +149,7 @@ func DrainBackendConfigInfo(backendID string, model Model, authTag names.Tag, le
 	if !ok {
 		return nil, errors.Errorf("missing secret backend %q", backendID)
 	}
-	backendCfg, err := backendConfigInfo(model, backendID, &cfg, authTag, leadershipChecker, true, true)
+	backendCfg, err := backendConfigInfo(model, backendID, &cfg, authTag, leadershipChecker, true, true, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -180,8 +183,13 @@ func SecretCleanupBackendConfigInfo(model Model, backendID string) (*provider.Mo
 // The client is expected to be restricted to write only those secrets
 // owned by the agent, and read only those secrets shared with the agent.
 // The result includes config for all relevant backends, including the id
-// of the current active backend.
-func BackendConfigInfo(model Model, sameController bool, backendIDs []string, wantAll bool, authTag names.Tag, leadershipChecker leadership.Checker) (*provider.ModelBackendConfigInfo, error) {
+// of the current active backend. If [only] is passed, then the config may be
+// restricted down to just that URI, if the auth tag has access to it.
+func BackendConfigInfo(
+	model Model, sameController bool, backendIDs []string, wantAll bool,
+	authTag names.Tag, leadershipChecker leadership.Checker,
+	only []*coresecrets.URI,
+) (*provider.ModelBackendConfigInfo, error) {
 	adminModelCfg, err := AdminBackendConfigInfo(model)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting configured secrets providers")
@@ -204,7 +212,16 @@ func BackendConfigInfo(model Model, sameController bool, backendIDs []string, wa
 		if !ok {
 			return nil, errors.Errorf("missing secret backend %q", backendID)
 		}
-		backendCfg, err := backendConfigInfo(model, backendID, &cfg, authTag, leadershipChecker, sameController, false)
+		backendCfg, err := backendConfigInfo(
+			model,
+			backendID,
+			&cfg,
+			authTag,
+			leadershipChecker,
+			sameController,
+			false,
+			only,
+		)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -214,8 +231,13 @@ func BackendConfigInfo(model Model, sameController bool, backendIDs []string, wa
 }
 
 func backendConfigInfo(
-	model Model, backendID string, adminCfg *provider.ModelBackendConfig,
-	authTag names.Tag, leadershipChecker leadership.Checker, sameController, forDrain bool,
+	model Model,
+	backendID string,
+	adminCfg *provider.ModelBackendConfig,
+	authTag names.Tag,
+	leadershipChecker leadership.Checker,
+	sameController, forDrain bool,
+	only []*coresecrets.URI,
 ) (*provider.ModelBackendConfig, error) {
 	p, err := GetProvider(adminCfg.BackendType)
 	if err != nil {
@@ -231,11 +253,13 @@ func backendConfigInfo(
 	// (or its app if the agent is a leader).
 	ownedFilter := state.SecretsFilter{
 		OwnerTags: []names.Tag{authTag},
+		URIs:      only,
 	}
 	// Find secrets shared with the agent.
 	// We include secrets shared with the app or just the specified unit.
 	readFilter := state.SecretsFilter{
 		ConsumerTags: []names.Tag{authTag},
+		URIs:         only,
 	}
 	// Find secrets owned by the application that should be readable for non leader units.
 	readAppOwnedFilter := state.SecretsFilter{}
@@ -259,30 +283,79 @@ func backendConfigInfo(
 		// Granted secrets can be consumed in application level for all units.
 		readFilter.ConsumerTags = append(readFilter.ConsumerTags, authApp)
 	case names.ApplicationTag:
+		// App Tag has access to application secrets.
 	case names.ModelTag:
-		// Model Tag is validate for user secrets.
+		// Model Tag has access to user secrets.
 	default:
 		return nil, errors.NotSupportedf("login as %q", authTag)
 	}
 
-	ownedRevisions := map[string]provider.SecretRevisions{}
-	if err := getExternalRevisions(secretsState, backendID, ownedFilter, ownedRevisions); err != nil {
+	ownedIDs, ownedRevs, err := getExternalRevisions(
+		secretsState, backendID, ownedFilter)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	readRevisions := map[string]provider.SecretRevisions{}
-	if err := getExternalRevisions(secretsState, backendID, readFilter, readRevisions); err != nil {
+	ownedReservedIDs, err := secretsState.ListReservedSecrets(ownedFilter.OwnerTags)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(only) > 0 {
+		onlySet := set.NewStrings(transform.Slice(only, func(uri *coresecrets.URI) string {
+			return uri.ID
+		})...)
+		for _, reservedSecretID := range ownedReservedIDs {
+			if onlySet.Contains(reservedSecretID.ID) {
+				ownedIDs = append(ownedIDs, reservedSecretID.ID)
+			}
+		}
+	} else {
+		for _, reservedSecretID := range ownedReservedIDs {
+			ownedIDs = append(ownedIDs, reservedSecretID.ID)
+		}
+	}
+
+	_, readRevs, err := getExternalRevisions(
+		secretsState, backendID, readFilter)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	if len(readAppOwnedFilter.OwnerTags) > 0 {
-		if err := getExternalRevisions(secretsState, backendID, readAppOwnedFilter, readRevisions); err != nil {
+		_, appOwnedReadRevs, err := getExternalRevisions(
+			secretsState, backendID, readAppOwnedFilter)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		readRevs.Insert(appOwnedReadRevs)
+	}
+
+	issuedTokenUUID := ""
+	if p.IssuesTokens() {
+		v, err := uuid.NewRandom()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		issuedTokenUUID = v.String()
+
+		args := state.SecretBackendIssuedToken{
+			UUID:       issuedTokenUUID,
+			ExpireTime: time.Now().Add(coresecrets.IssuedTokenValidity),
+			BackendID:  backendID,
+			Consumer:   authTag,
+		}
+		err = secretsState.CreateSecretBackendIssuedToken(args)
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
 
-	logger.Debugf("secrets for %v:\nowned: %v\nconsumed:%v", authTag.String(), ownedRevisions, readRevisions)
-	cfg, err := p.RestrictedConfig(adminCfg, sameController, forDrain, authTag, ownedRevisions[backendID], readRevisions[backendID])
+	logger.Debugf(
+		"secrets for %v:\nowned: %v\nowned revs: %v\nconsumed revs:%v",
+		authTag.String(), ownedIDs, ownedRevs, readRevs)
+	cfg, err := p.RestrictedConfig(
+		adminCfg, sameController, forDrain, issuedTokenUUID, authTag, ownedIDs,
+		ownedRevs, readRevs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -295,29 +368,39 @@ func backendConfigInfo(
 	return info, nil
 }
 
-func getExternalRevisions(backend state.SecretsStore, backendID string, filter state.SecretsFilter, revisions map[string]provider.SecretRevisions) error {
+func getExternalRevisions(
+	backend state.SecretsStore,
+	backendID string,
+	filter state.SecretsFilter,
+) ([]string, provider.SecretRevisions, error) {
 	secrets, err := backend.ListSecrets(filter)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
+
+	revs := provider.SecretRevisions{}
+	ids := []string{}
 	for _, md := range secrets {
-		revs, err := backend.ListSecretRevisions(md.URI)
+		secretRevs, err := backend.ListSecretRevisions(md.URI)
 		if err != nil {
-			return errors.Annotatef(err, "cannot get revisions for secret %q", md.URI)
+			return nil, nil, errors.Annotatef(err,
+				"cannot get revisions for secret %q", md.URI)
 		}
-		for _, rev := range revs {
-			if rev.ValueRef == nil || rev.ValueRef.BackendID != backendID {
+
+		for _, secretRev := range secretRevs {
+			if secretRev.ValueRef == nil {
 				continue
 			}
-			revs, ok := revisions[rev.ValueRef.BackendID]
-			if !ok {
-				revs = provider.SecretRevisions{}
+			if secretRev.ValueRef.BackendID != backendID {
+				continue
 			}
-			revs.Add(md.URI, rev.ValueRef.RevisionID)
-			revisions[rev.ValueRef.BackendID] = revs
+			revs.Add(md.URI, secretRev.ValueRef.RevisionID)
 		}
+
+		ids = append(ids, md.URI.ID)
 	}
-	return nil
+
+	return ids, revs, nil
 }
 
 func cloudSpecForModel(m Model) (cloudspec.CloudSpec, error) {
@@ -683,7 +766,7 @@ func secretDeletionPreflightCheck(uriStr string, label string, removeState Secre
 // there are multiple secrets with the same label.
 func getSecretURIForLabel(secretsState ListSecretsState, modelUUID string, label string) (*coresecrets.URI, error) {
 	results, err := secretsState.ListSecrets(state.SecretsFilter{
-		Label:     &label,
+		Labels:    []string{label},
 		OwnerTags: []names.Tag{names.NewModelTag(modelUUID)},
 	})
 	if err != nil {

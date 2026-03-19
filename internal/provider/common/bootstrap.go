@@ -20,7 +20,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/parallel"
-	"github.com/juju/utils/v3/shell"
 	"github.com/juju/utils/v3/ssh"
 
 	"github.com/juju/juju/cloudconfig"
@@ -480,6 +479,43 @@ func GetCheckNonceCommand(instanceConfig *instancecfg.InstanceConfig) string {
 	return checkNonceCommand
 }
 
+// DumpOnErrorScript returns a bash script that may be used to dump the contents
+// of the specified files to stderr when the shell exits with an error.
+// Each file is preceded by a header line showing its path.
+// It will also dump the whole journal if possible.
+func DumpOnErrorScript(filenames ...string) string {
+	if len(filenames) == 0 {
+		return ""
+	}
+	lines := []string{
+		"dump_logs() {",
+		"    code=$?",
+		"    if [ $code -ne 0 ]; then",
+		"       echo \"<journal>\" >&2",
+		"       sudo journalctl -m --no-pager --utc --no-hostname -o short-monotonic >&2",
+		"       echo \"</journal>\" >&2",
+	}
+	for _, filename := range filenames {
+		quoted := utils.ShQuote(filename)
+		indent := "        "
+		lines = append(lines,
+			fmt.Sprintf("%sif [ -e %s ]; then", indent, quoted),
+			fmt.Sprintf("%s    echo \"<%s>\" >&2", indent, filename),
+			fmt.Sprintf("%s    sudo cat %s >&2", indent, quoted),
+			fmt.Sprintf("%s    echo \"</%s>\" >&2", indent, filename),
+			fmt.Sprintf("%sfi", indent),
+		)
+	}
+	lines = append(lines,
+		"    fi",
+		"    exit $code",
+		"}",
+		"trap dump_logs EXIT",
+		"",
+	)
+	return strings.Join(lines, "\n")
+}
+
 func ConfigureMachine(
 	ctx environs.BootstrapContext,
 	client ssh.Client,
@@ -533,7 +569,10 @@ func ConfigureMachine(
 		return errors.Annotate(err, "transporting files to machine")
 	}
 
-	script := shell.DumpFileOnErrorScript(instanceConfig.CloudInitOutputLog) + configScript
+	script := DumpOnErrorScript(
+		"/var/snap/juju-db/common/logs/mongodb.log",
+		instanceConfig.CloudInitOutputLog,
+	) + configScript
 	ctx.Infof("Running machine configuration script...")
 	// TODO(benhoyt) - plumb context through juju/utils/ssh?
 	return sshinit.RunConfigureScript(script, sshinitConfig)

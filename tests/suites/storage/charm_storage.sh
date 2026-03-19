@@ -9,11 +9,11 @@ run_charm_storage() {
 	ensure "${model_name}" "${file}"
 
 	echo "Assessing default storage pools"
-	juju list-storage-pools -m "${model_name}" --format json | jq '.loop | .provider' | check "loop"
-	juju list-storage-pools -m "${model_name}" --format json | jq '.rootfs | .provider' | check "rootfs"
-	juju list-storage-pools -m "${model_name}" --format json | jq '.tmpfs | .provider' | check "tmpfs"
+	juju list-storage-pools -m "${model_name}" --format json | yq '.loop | .provider' | check "loop"
+	juju list-storage-pools -m "${model_name}" --format json | yq '.rootfs | .provider' | check "rootfs"
+	juju list-storage-pools -m "${model_name}" --format json | yq '.tmpfs | .provider' | check "tmpfs"
 	if [ "${BOOTSTRAP_PROVIDER:-}" == "ec2" ]; then
-		juju list-storage-pools -m "${model_name}" --format json | jq '.["ebs-ssd"] | .provider' | check "ebs"
+		juju list-storage-pools -m "${model_name}" --format json | yq '.["ebs-ssd"] | .provider' | check "ebs"
 	fi
 	echo "Default storage pools PASSED"
 
@@ -26,10 +26,10 @@ run_charm_storage() {
 
 	# Assess the above created storage pools.
 	echo "Assessing storage pool"
-	juju list-storage-pools -m "${model_name}" --format json | jq '.rooty | .provider' | check "rootfs"
-	juju list-storage-pools -m "${model_name}" --format json | jq '.tempy | .provider' | check "tmpfs"
-	juju list-storage-pools -m "${model_name}" --format json | jq '.loopy | .provider' | check "loop"
-	juju list-storage-pools -m "${model_name}" --format json | jq '.ebsy | .provider' | check "ebs"
+	juju list-storage-pools -m "${model_name}" --format json | yq '.rooty | .provider' | check "rootfs"
+	juju list-storage-pools -m "${model_name}" --format json | yq '.tempy | .provider' | check "tmpfs"
+	juju list-storage-pools -m "${model_name}" --format json | yq '.loopy | .provider' | check "loop"
+	juju list-storage-pools -m "${model_name}" --format json | yq '.ebsy | .provider' | check "ebs"
 	echo "Storage pool PASSED"
 
 	# Assess charm storage with the filesystem storage provider
@@ -130,7 +130,7 @@ assess_rootfs() {
 	wait_for_storage "attached" "$(filesystem_status 0 0).current"
 	# assert the filesystem size
 	requested_storage=1024
-	acquired_storage=$(juju storage --format json | jq '.filesystems | .["0/0"] | select(.pool=="rootfs") | .size ')
+	acquired_storage=$(juju storage --format json | yq '.filesystems | .["0/0"] | select(.pool=="rootfs") | .size ')
 	if [ "$requested_storage" -gt "$acquired_storage" ]; then
 		echo "acquired storage size $acquired_storage should be greater than the requested storage $requested_storage"
 		exit 1

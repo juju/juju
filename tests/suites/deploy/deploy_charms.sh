@@ -41,8 +41,8 @@ run_deploy_charm_placement_directive() {
 
 	# Verify based used to create the machines was used during
 	# deploy.
-	base_name=$(juju status --format=json | jq -r '.applications."ubuntu-lite".base.name')
-	base_chan=$(juju status --format=json | jq -r '.applications."ubuntu-lite".base.channel')
+	base_name=$(juju status --format=json | yq -r '.applications."ubuntu-lite".base.name')
+	base_chan=$(juju status --format=json | yq -r '.applications."ubuntu-lite".base.channel')
 	echo "$base_name@$base_chan" | check "$expected_base"
 
 	destroy_model "test-deploy-charm-placement-directive"
@@ -80,10 +80,10 @@ run_deploy_specific_series() {
 
 	juju deploy "$charm_name" app1
 	juju deploy "$charm_name" app2 --base "$expected_base"
-	base_name1=$(juju status --format=json | jq -r ".applications.app1.base.name")
-	base_chan1=$(juju status --format=json | jq -r ".applications.app1.base.channel")
-	base_name2=$(juju status --format=json | jq -r ".applications.app2.base.name")
-	base_chan2=$(juju status --format=json | jq -r ".applications.app2.base.channel")
+	base_name1=$(juju status --format=json | yq -r ".applications.app1.base.name")
+	base_chan1=$(juju status --format=json | yq -r ".applications.app1.base.channel")
+	base_name2=$(juju status --format=json | yq -r ".applications.app2.base.name")
+	base_chan2=$(juju status --format=json | yq -r ".applications.app2.base.channel")
 
 	destroy_model "test-deploy-specific-series"
 
@@ -104,11 +104,12 @@ run_deploy_lxd_profile_charm() {
 	juju deploy juju-qa-lxd-profile-without-devices --series jammy
 	wait_for "lxd-profile-without-devices" "$(idle_condition "lxd-profile-without-devices")"
 
-	short_uuid=$(juju models --format json |
-		jq -r --arg name "${model_name}" '.models[] | select(.["short-name"]==$name) | ."model-uuid"[0:6]')
+	full_uuid=$(juju models --format json |
+		name="${model_name}" yq -r '.models[] | select(.["short-name"]==env(name)) | ."model-uuid"')
+	short_uuid="${full_uuid:0:6}"
 	lxd_profile="juju-test-deploy-lxd-profile-${short_uuid}-lxd-profile"
 
-	juju status --format=json | jq '.machines | .["0"] | .["lxd-profiles"] | keys[0]' | check "${lxd_profile}"
+	juju status --format=json | yq '.machines | .["0"] | select(.["lxd-profiles"]) | .["lxd-profiles"] | keys[0]' | check "${lxd_profile}"
 
 	destroy_model "test-deploy-lxd-profile"
 }
@@ -127,11 +128,12 @@ run_deploy_lxd_profile_charm_container() {
 	juju deploy juju-qa-lxd-profile-without-devices --to lxd --series jammy
 	wait_for "lxd-profile-without-devices" "$(idle_condition "lxd-profile-without-devices")"
 
-	short_uuid=$(juju models --format json |
-		jq -r --arg name "${model_name}" '.models[] | select(.["short-name"]==$name) | ."model-uuid"[0:6]')
+	full_uuid=$(juju models --format json |
+		name="${model_name}" yq -r '.models[] | select(.["short-name"]==env(name)) | ."model-uuid"')
+	short_uuid="${full_uuid:0:6}"
 	lxd_profile="juju-test-deploy-lxd-profile-container-${short_uuid}-lxd-profile"
 
-	juju status --format=json | jq '.machines | .["0"] | .containers | .["0/lxd/0"] | .["lxd-profiles"] | keys[0]' |
+	juju status --format=json | yq '.machines | .["0"] | .containers | .["0/lxd/0"] | select(.["lxd-profiles"]) | .["lxd-profiles"] | keys[0]' |
 		check "${lxd_profile}"
 
 	destroy_model "test-deploy-lxd-profile-container"
@@ -168,10 +170,11 @@ run_deploy_local_lxd_profile_charm() {
 	juju integrate lxd-profile-subordinate lxd-profile
 
 	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
-	wait_for "lxd-profile-subordinate" ".applications | keys[1]"
+	wait_for "lxd-profile-subordinate" "select(.applications) | .applications | keys[1]"
 
-	short_uuid=$(juju models --format json |
-		jq -r --arg name "${model_name}" '.models[] | select(.["short-name"]==$name) | ."model-uuid"[0:6]')
+	full_uuid=$(juju models --format json |
+		name="${model_name}" yq -r '.models[] | select(.["short-name"]==env(name)) | ."model-uuid"')
+	short_uuid="${full_uuid:0:6}"
 
 	lxd_profile_name="juju-test-deploy-local-lxd-profile-${short_uuid}-lxd-profile"
 	lxd_profile_sub_name="juju-test-deploy-local-lxd-profile-${short_uuid}-lxd-profile-subordinate"
@@ -180,16 +183,16 @@ run_deploy_local_lxd_profile_charm() {
 	machine_0="$(machine_path 0)"
 	wait_for "${lxd_profile_sub_name}" "${machine_0}"
 
-	juju status --format=json | jq "${machine_0}" | check "${lxd_profile_name}"
-	juju status --format=json | jq "${machine_0}" | check "${lxd_profile_sub_name}"
+	juju status --format=json | yq "${machine_0}" | check "${lxd_profile_name}"
+	juju status --format=json | yq "${machine_0}" | check "${lxd_profile_sub_name}"
 
 	juju add-unit "lxd-profile"
 
 	machine_1="$(machine_path 1)"
 	wait_for "${lxd_profile_sub_name}" "${machine_1}"
 
-	juju status --format=json | jq "${machine_1}" | check "${lxd_profile_name}"
-	juju status --format=json | jq "${machine_1}" | check "${lxd_profile_sub_name}"
+	juju status --format=json | yq "${machine_1}" | check "${lxd_profile_name}"
+	juju status --format=json | yq "${machine_1}" | check "${lxd_profile_sub_name}"
 
 	destroy_model "test-deploy-local-lxd-profile"
 }
@@ -214,8 +217,9 @@ run_deploy_lxd_to_machine() {
 
 	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 
-	short_uuid=$(juju models --format json |
-		jq -r --arg name "${model_name}" '.models[] | select(.["short-name"]==$name) | ."model-uuid"[0:6]')
+	full_uuid=$(juju models --format json |
+		name="${model_name}" yq -r '.models[] | select(.["short-name"]==env(name)) | ."model-uuid"')
+	short_uuid="${full_uuid:0:6}"
 
 	lxd_profile_0="juju-test-deploy-lxd-machine-${short_uuid}-lxd-profile-alt-0"
 	lxd_profile_1="juju-test-deploy-lxd-machine-${short_uuid}-lxd-profile-alt-1"
@@ -284,19 +288,20 @@ run_deploy_lxd_to_container() {
 	juju integrate lxd-profile-subordinate lxd-profile-alt
 
 	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
-	wait_for "lxd-profile-subordinate" ".applications | keys[1]"
+	wait_for "lxd-profile-subordinate" "select(.applications) | .applications | keys[1]"
 
 	machine_0="$(machine_container_path 0 0/lxd/0)"
 	wait_for "lxd-profile-subordinate" "${machine_0}"
 
-	short_uuid=$(juju models --format json |
-		jq -r --arg name "${model_name}" '.models[] | select(.["short-name"]==$name) | ."model-uuid"[0:6]')
+	full_uuid=$(juju models --format json |
+		name="${model_name}" yq -r '.models[] | select(.["short-name"]==env(name)) | ."model-uuid"')
+	short_uuid="${full_uuid:0:6}"
 
 	lxd_profile_name="juju-test-deploy-lxd-container-${short_uuid}-lxd-profile-alt"
 	lxd_profile_sub_name="juju-test-deploy-lxd-container-${short_uuid}-lxd-profile-subordinate"
 
-	juju status --format=json | jq "${machine_0}" | check "${lxd_profile_name}"
-	juju status --format=json | jq "${machine_0}" | check "${lxd_profile_sub_name}"
+	juju status --format=json | yq "${machine_0}" | check "${lxd_profile_name}"
+	juju status --format=json | yq "${machine_0}" | check "${lxd_profile_sub_name}"
 
 	lxd_profile_0="juju-test-deploy-lxd-container-${short_uuid}-lxd-profile-alt-0"
 	lxd_profile_1="juju-test-deploy-lxd-container-${short_uuid}-lxd-profile-alt-1"
@@ -414,7 +419,7 @@ machine_path() {
 
 	machine=${1}
 
-	echo ".machines | .[\"${machine}\"] | .[\"lxd-profiles\"] | keys"
+	echo ".machines | .[\"${machine}\"] | select(.[\"lxd-profiles\"]) | .[\"lxd-profiles\"] | keys"
 }
 
 machine_container_path() {
@@ -423,5 +428,5 @@ machine_container_path() {
 	machine=${1}
 	container=${2}
 
-	echo ".machines | .[\"${machine}\"] | .containers | .[\"${container}\"] | .[\"lxd-profiles\"] | keys"
+	echo ".machines | .[\"${machine}\"] | .containers | .[\"${container}\"] | select(.[\"lxd-profiles\"]) | .[\"lxd-profiles\"] | keys"
 }

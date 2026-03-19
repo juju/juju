@@ -28,7 +28,7 @@ run_persistent_storage() {
 	wait_for "active" "$(workload_status "dummy-storage" 0).current"
 
 	echo "Checking total number of storage unit(s)."
-	assert_storage 2 ".storage | keys | length"
+	assert_storage 2 "select(.storage) | .storage | keys | length"
 	echo "Checking names of storage unit(s)."
 	assert_storage "single-blk/0" "$(label 0)"
 	assert_storage "single-fs/1" "$(label 1)"
@@ -82,7 +82,7 @@ run_persistent_storage() {
 	assert_storage false '.storage | has("single-fs/1")'
 
 	echo "Checking total number of storage unit(s)."
-	assert_storage 1 ".storage | keys | length"
+	assert_storage 1 "select(.storage) | .storage | keys | length"
 	echo "Check for existence of single block storage"
 	assert_storage true '.storage | has("single-blk/0")'
 	echo "single-blk/0 found in storage list."
@@ -101,7 +101,7 @@ run_persistent_storage() {
 	# wait for current workload-status to be active
 	wait_for "active" "$(workload_status "dummy-storage" 1).current"
 	# assert storage unit count
-	assert_storage 1 ".storage | keys | length"
+	assert_storage 1 "select(.storage) | .storage | keys | length"
 	echo "Checking existence of single block device storage single-blk/0."
 	assert_storage true '.storage | has("single-blk/0")'
 	# assert persistent setting

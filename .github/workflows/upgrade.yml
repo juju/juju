@@ -26,7 +26,12 @@ jobs:
 
   upgrade:
     name: Upgrade Smoke
-    runs-on: [self-hosted, linux, x64, aws, quad-xlarge]
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
+      - ${{ (github.repository_owner == 'juju' && 'quad-xlarge') || (github.repository_owner == 'canonical' && 'xlarge') }}
     timeout-minutes: 30
     needs: setup
     if: needs.setup.outputs.channel != ''
@@ -46,6 +51,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: "Squid"
+        if: github.repository_owner != 'juju'
+        run: ./.github/squid.sh
 
       - name: Remove LXD
         if: env.RUN_TEST == 'RUN'
@@ -96,12 +105,13 @@ jobs:
           echo "/snap/bin" >> $GITHUB_PATH
 
       - name: Setup Docker Mirror
-        if: matrix.cloud == 'microk8s'
+        if: matrix.cloud == 'microk8s' && env.DOCKERHUB_MIRROR != ''
         shell: bash
         run: |
-          (cat /etc/docker/daemon.json 2> /dev/null || echo "{}") | yq -o json '.registry-mirrors += ["https://docker-cache.us-west-2.aws.jujuqa.com:443"]' | sudo tee /etc/docker/daemon.json
+          (cat /etc/docker/daemon.json 2> /dev/null || echo "{}") | yq -o json ".registry-mirrors += [\"${DOCKERHUB_MIRROR}\"]" | sudo tee /etc/docker/daemon.json
           sudo systemctl restart docker
           docker system info
+          envsubst < $GITHUB_WORKSPACE/.github/microk8s-launch-config-mirror.yaml > $GITHUB_WORKSPACE/.github/microk8s-launch-config.yaml
 
       - name: Setup k8s
         if: matrix.cloud == 'microk8s'
@@ -109,7 +119,7 @@ jobs:
         with:
           channel: "1.34-strict/stable"
           addons: '["dns", "hostpath-storage"]'
-          launch-configuration: "$GITHUB_WORKSPACE/.github/microk8s-launch-config-aws.yaml"
+          launch-configuration: $GITHUB_WORKSPACE/.github/microk8s-launch-config.yaml
 
       - name: Install k8s Dependencies
         if: matrix.cloud == 'microk8s'
@@ -167,6 +177,7 @@ jobs:
           EOL
           podman build $BUILD_TEMP -t ${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
           podman push -f v2s2 "${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}" "docker://${OCI_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}"
+
           OCI_REGISTRY_USERNAME=${OCI_REGISTRY}/test-repo LEGACY_JUJU_DB_VERSION=4.4 make seed-repository
 
       - name: Bootstrap Juju - localhost

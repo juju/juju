@@ -24,11 +24,11 @@ run_constraints_aws() {
 	wait_for_machine_agent_status "1" "started"
 
 	echo "Ensure machine 0 has 2 cores"
-	machine0_hardware=$(juju machines --format json | jq -r '.["machines"]["0"]["hardware"]')
+	machine0_hardware=$(juju machines --format json | yq -r '.["machines"]["0"]["hardware"]')
 	check_contains "${machine0_hardware}" "cores=2"
 
 	echo "Ensure machine 1 uses the correct AMI ID from image-id constraint"
-	machine_instance_id=$(juju show-machine --format json | jq -r '.["machines"]["1"]["instance-id"]')
+	machine_instance_id=$(juju show-machine --format json | yq -r '.["machines"]["1"]["instance-id"]')
 	aws ec2 describe-instances --instance-ids "${machine_instance_id}" --query 'Reservations[0].Instances[0].ImageId' --output text | check "${ami_id}"
 
 	destroy_model "${name}"

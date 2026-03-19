@@ -82,7 +82,7 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	secretBackendConfigGetter := func(backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
-		return secrets.BackendConfigInfo(secrets.SecretsModel(model), true, backendIDs, wantAll, context.Auth().GetAuthTag(), leadershipChecker)
+		return secrets.BackendConfigInfo(secrets.SecretsModel(model), true, backendIDs, wantAll, context.Auth().GetAuthTag(), leadershipChecker, nil)
 	}
 	secretBackendAdminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
 		return secrets.AdminBackendConfigInfo(secrets.SecretsModel(model))

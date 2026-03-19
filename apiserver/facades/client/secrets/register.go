@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
 )
@@ -50,10 +51,15 @@ func newSecretsAPI(context facade.Context) (*SecretsAPI, error) {
 	adminBackendConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
 		return secrets.AdminBackendConfigInfo(secrets.SecretsModel(model))
 	}
-	backendConfigGetterForUserSecretsWrite := func(backendID string) (*provider.ModelBackendConfigInfo, error) {
+	backendConfigGetterForUserSecretsWrite := func(
+		backendID string, only []*coresecrets.URI,
+	) (*provider.ModelBackendConfigInfo, error) {
 		// User secrets are owned by the model.
 		authTag := model.ModelTag()
-		return secrets.BackendConfigInfo(secrets.SecretsModel(model), true, []string{backendID}, false, authTag, leadershipChecker)
+		return secrets.BackendConfigInfo(
+			secrets.SecretsModel(model), true, []string{backendID}, false,
+			authTag, leadershipChecker, only,
+		)
 	}
 
 	backendGetter := func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {

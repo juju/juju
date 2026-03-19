@@ -63,6 +63,7 @@ import (
 	"github.com/juju/juju/internal/worker/remoterelations"
 	"github.com/juju/juju/internal/worker/secretsdrainworker"
 	"github.com/juju/juju/internal/worker/secretspruner"
+	"github.com/juju/juju/internal/worker/secretsrevoker"
 	"github.com/juju/juju/internal/worker/singular"
 	"github.com/juju/juju/internal/worker/statushistorypruner"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
@@ -343,6 +344,16 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewSecretsDrainFacade: secretsdrainworker.NewUserSecretsDrainFacade,
 			NewWorker:             secretsdrainworker.NewWorker,
 			NewBackendsClient:     secretsdrainworker.NewUserSecretBackendsClient,
+		})),
+		// secrets revoker worker deals with revoking authentication tokens from
+		// secret backends used by this model. In 4.0, this could probably be
+		// replaced with a cleanup job that schedules cleanups in the future.
+		secretsRevokerName: ifNotMigrating(secretsrevoker.Manifold(secretsrevoker.ManifoldConfig{
+			APICallerName:    apiCallerName,
+			Clock:            config.Clock,
+			Logger:           config.LoggingContext.GetLogger("juju.worker.secretsrevoker"),
+			NewSecretsFacade: secretsrevoker.NewSecretsFacade,
+			NewWorker:        secretsrevoker.NewWorker,
 		})),
 	}
 	return result
@@ -744,6 +755,7 @@ const (
 
 	secretsPrunerName      = "secrets-pruner"
 	userSecretsDrainWorker = "user-secrets-drain-worker"
+	secretsRevokerName     = "secrets-revoker"
 
 	validCredentialFlagName = "valid-credential-flag"
 )

@@ -15,13 +15,13 @@ run_deploy_local_charm_revision() {
 
 	# Initialise a git repo to check the commit SHA is used as the charm version.
 	create_local_git_and_commit_all
-	SHA_OF_UBUNTU_PLUS=\"$(git describe --dirty --always)\"
+	SHA_OF_UBUNTU_PLUS=$(git describe --dirty --always)
 
 	# Deploy from directory.
 	juju deploy .
 
-	wait_for "ubuntu-plus" ".applications | keys[0]"
-	CURRENT_CHARM_SHA=$(juju status --format=json | jq '.applications."ubuntu-plus"."charm-version"')
+	wait_for "ubuntu-plus" "select(.applications) | .applications | keys[0]"
+	CURRENT_CHARM_SHA=$(juju status --format=json | yq -r '.applications."ubuntu-plus"."charm-version"')
 
 	if [ "${SHA_OF_UBUNTU_PLUS}" != "${CURRENT_CHARM_SHA}" ]; then
 		echo "The expected sha does not equal the ntp SHA"
@@ -65,14 +65,14 @@ run_deploy_local_charm_revision_no_vcs_but_version_file() {
 	cp -r "$CURRENT_DIR/../testcharms/charms/ubuntu-plus" "${TMP}"
 	cd "${TMP}/ubuntu-plus" || exit 1
 
-	VERSION_OUTPUT=\""$(cat version | sed 's/.* //')"\"
+	VERSION_OUTPUT="$(cat version | sed 's/.* //')"
 	CURRENT_DIRECTORY=$(pwd)
 
 	# this is done relative because we expect that the output will be absolute in the end.
 	OUTPUT=$(juju deploy --debug . 2>&1)
 
-	wait_for "ubuntu-plus" ".applications | keys[0]"
-	CURRENT_CHARM_SHA=$(juju status --format=json | jq '.applications."ubuntu-plus"."charm-version"')
+	wait_for "ubuntu-plus" "select(.applications) | .applications | keys[0]"
+	CURRENT_CHARM_SHA=$(juju status --format=json | yq '.applications."ubuntu-plus"."charm-version"')
 
 	if [ "${VERSION_OUTPUT}" != "${CURRENT_CHARM_SHA}" ]; then
 		echo "The expected sha does not equal the ubuntu-plus SHA. Current sha: ${CURRENT_CHARM_SHA} expected sha: ${VERSION_OUTPUT}"
@@ -100,24 +100,24 @@ run_deploy_local_charm_revision_relative_path() {
 
 	# Initialise a git repo and commit everything so that commit SHA is used as the charm version.
 	create_local_git_and_commit_all
-	SHA_OF_UBUNTU_PLUS=\"$(git describe --dirty --always)\"
+	SHA_OF_UBUNTU_PLUS=$(git describe --dirty --always)
 
 	# Create git directory outside the charm directory
 	cd ..
 	create_local_git_folder
-	SHA_OF_TMP=\"$(git describe --dirty --always)\"
+	SHA_OF_TMP=$(git describe --dirty --always)
 
 	# state: there is a git repo in the current directory, $TMP, but the correct
 	# git repo is in $TMP/ubuntu-plus.
 	juju deploy ./ubuntu-plus 2>&1
 
 	cd "${TMP}/ubuntu-plus" || exit 1
-	SHA_OF_UBUNTU_PLUS=\"$(git describe --dirty --always)\"
+	SHA_OF_UBUNTU_PLUS=$(git describe --dirty --always)
 
-	wait_for "ubuntu-plus" ".applications | keys[0]"
+	wait_for "ubuntu-plus" "select(.applications) | .applications | keys[0]"
 
 	# We still expect the SHA to be the one from the place we deploy and not the CWD, which in this case has no SHA
-	CURRENT_CHARM_SHA=$(juju status --format=json | jq '.applications."ubuntu-plus"."charm-version"')
+	CURRENT_CHARM_SHA=$(juju status --format=json | yq -r '.applications."ubuntu-plus"."charm-version"')
 
 	if [ "${SHA_OF_TMP}" = "${CURRENT_CHARM_SHA}" ]; then
 		echo "The expected sha should not equal the tmp SHA. Current sha: ${CURRENT_CHARM_SHA}"
@@ -148,9 +148,7 @@ run_deploy_local_charm_revision_invalid_git() {
 
 	# Initialise a git repo and commit everything so that commit SHA is used as the charm version.
 	create_local_git_and_commit_all
-	SHA_OF_UBUNTU_PLUS=\"$(git describe --dirty --always)\"
-
-	WANTED_CHARM_SHA=\"$(git describe --dirty --always)\"
+	WANTED_CHARM_SHA=$(git describe --dirty --always)
 
 	# We cd into a folder without git, add an unrelated repo there.
 	cd "${TMP}" || exit 1
@@ -158,9 +156,9 @@ run_deploy_local_charm_revision_invalid_git() {
 	# Deploy from the correct repo
 	juju deploy "${TMP_CHARM_GIT}"/ubuntu-plus
 
-	wait_for "ubuntu-plus" ".applications | keys[0]"
+	wait_for "ubuntu-plus" "select(.applications) | .applications | keys[0]"
 	# We still expect the SHA to be the one from the place we deploy and not the CWD, which in this case has no SHA.
-	CURRENT_CHARM_SHA=$(juju status --format=json | jq '.applications."ubuntu-plus"."charm-version"')
+	CURRENT_CHARM_SHA=$(juju status --format=json | yq -r '.applications."ubuntu-plus"."charm-version"')
 	if [ "${WANTED_CHARM_SHA}" != "${CURRENT_CHARM_SHA}" ]; then
 		echo "The expected sha does not equal the ubuntu-plus SHA. Current sha: ${CURRENT_CHARM_SHA} expected sha: ${WANTED_CHARM_SHA}"
 		exit 1

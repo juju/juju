@@ -41,6 +41,12 @@ type State interface {
 
 	// ControllerUUID returns the UUID of the controller.
 	ControllerUUID() string
+
+	ListSecretBackendIssuedTokenUntil(
+		until time.Time,
+	) ([]state.SecretBackendIssuedToken, error)
+
+	RemoveSecretBackendIssuedTokens(uuids []string) error
 }
 
 type stateShim struct {
@@ -49,6 +55,16 @@ type stateShim struct {
 
 func (s *stateShim) Model() (Model, error) {
 	return s.State.Model()
+}
+
+func (s *stateShim) ListSecretBackendIssuedTokenUntil(
+	until time.Time,
+) ([]state.SecretBackendIssuedToken, error) {
+	return state.NewSecrets(s.State).ListSecretBackendIssuedTokenUntil(until)
+}
+
+func (s *stateShim) RemoveSecretBackendIssuedTokens(uuids []string) error {
+	return state.NewSecrets(s.State).RemoveSecretBackendIssuedTokens(uuids)
 }
 
 // Model defines the needed methods of state.Model for

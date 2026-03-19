@@ -18,8 +18,8 @@ run_unit_set_series() {
 	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 1)"
 
 	echo "Check the base for machine of added unit"
-	juju status --format=json | jq -r '.machines | .["1"] | .base | .name' | grep "ubuntu"
-	juju status --format=json | jq -r '.machines | .["1"] | .base | .channel' | grep "24.04"
+	juju status --format=json | yq -r '.machines | .["1"] | .base | .name' | grep "ubuntu"
+	juju status --format=json | yq -r '.machines | .["1"] | .base | .channel' | grep "24.04"
 
 	destroy_model "unit-series"
 }

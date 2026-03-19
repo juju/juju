@@ -41,7 +41,7 @@ test_spaces_ec2() {
 }
 
 ensure_subnet() {
-	isolated_subnet_id=$(aws ec2 describe-subnets --filters Name=cidr-block,Values=172.31.254.0/24 2>/dev/null | jq -r '.Subnets[0].SubnetId')
+	isolated_subnet_id=$(aws ec2 describe-subnets --filters Name=cidr-block,Values=172.31.254.0/24 2>/dev/null | yq -r '.Subnets[0].SubnetId')
 	if [ "$isolated_subnet_id" != "null" ]; then
 		cleanup_stale_nics
 		echo "$isolated_subnet_id"
@@ -49,8 +49,8 @@ ensure_subnet() {
 	fi
 
 	# Create a subnet in the default vpc
-	vpc_id=$(aws ec2 describe-vpcs | jq -r ".Vpcs[0].VpcId")
-	subnet_id=$(aws ec2 create-subnet --vpc-id "${vpc_id}" --cidr-block "172.31.254.0/24" | jq -r ".Subnet.SubnetId")
+	vpc_id=$(aws ec2 describe-vpcs | yq -r ".Vpcs[0].VpcId")
+	subnet_id=$(aws ec2 create-subnet --vpc-id "${vpc_id}" --cidr-block "172.31.254.0/24" | yq -r ".Subnet.SubnetId")
 	if [ -z "${subnet_id}" ] || [ "${subnet_id}" == "null" ]; then
 		echo "$(red "failed to create subnet in vpc $vpc_id")" 1>&2
 		exit 1
@@ -60,7 +60,7 @@ ensure_subnet() {
 
 setup_nic_for_space_tests() {
 	isolated_subnet_id=${1}
-	hotplug_nic_id=$(aws ec2 create-network-interface --subnet-id "$isolated_subnet_id" --description="hot-pluggable NIC for space tests" 2>"${TEST_DIR}/create-network-interface-stderr.log" | jq -r '.NetworkInterface.NetworkInterfaceId')
+	hotplug_nic_id=$(aws ec2 create-network-interface --subnet-id "$isolated_subnet_id" --description="hot-pluggable NIC for space tests" 2>"${TEST_DIR}/create-network-interface-stderr.log" | yq -r '.NetworkInterface.NetworkInterfaceId')
 	if [ -z "$hotplug_nic_id" ] || [ "$hotplug_nic_id" == "null" ]; then
 		# shellcheck disable=SC2046
 		echo $(red "Unable to create extra NIC for space tests; please check that your account has permissions to create NICs. Failed with:") 1>&2
@@ -82,7 +82,7 @@ cleanup_stale_nics() {
 	# try to delete anything older in a best effort manner.
 
 	# TODO(jack-w-shaw) fix this. This:
-	# 1) Should use jq
+	# 1) Should use yq
 	# 2) Should work. At the moment the created_at tag is not created, so all nics are destroyed
 	aws ec2 describe-network-interfaces --filter Name=description,Values="hot-pluggable NIC for space tests" |
 		grep 'NetworkInterfaceId\|Value' |

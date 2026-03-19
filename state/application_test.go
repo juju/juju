@@ -4175,19 +4175,23 @@ func (s *ApplicationSuite) TestWatchStorageConstraints(c *gc.C) {
 		Charm:       newCh,
 		CharmOrigin: defaultCharmOrigin(newCh.URL()),
 	}
-	err = app.SetCharm(cfg)
+	// Use a fresh Application for updates so the watcher goroutine and
+	// this test do not concurrently read/write the same application doc.
+	appForUpdates, err := s.State.Application(app.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	err = appForUpdates.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make another change, check one event.
 	constraints = map[string]state.StorageConstraints{
 		"data0": {Count: 6, Size: 2048, Pool: "loop"},
 	}
-	err = app.UpdateStorageConstraints(constraints)
+	err = appForUpdates.UpdateStorageConstraints(constraints)
 	c.Assert(err, jc.ErrorIsNil)
 	appWc.AssertOneChange()
 
 	// Check the watcher does not react when the content remains the same.
-	err = app.UpdateStorageConstraints(constraints)
+	err = appForUpdates.UpdateStorageConstraints(constraints)
 	c.Assert(err, jc.ErrorIsNil)
 	appWc.AssertNoChange()
 

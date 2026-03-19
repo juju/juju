@@ -312,7 +312,7 @@ func ensureServer(ctx context.Context, args EnsureServerParams, mongoKernelTweak
 	return retry.Call(retry.CallArgs{
 		Func: func() error {
 			if err := svc.Start(); err != nil {
-				logger.Debugf("cannot start mongo service: %v", err)
+				logger.Warningf("cannot start mongo service: %v", err)
 			}
 			return ensureMongoServiceRunning(ctx, svc)
 		},
@@ -322,7 +322,7 @@ func ensureServer(ctx context.Context, args EnsureServerParams, mongoKernelTweak
 			return errors.Cause(err) == ErrMongoServiceNotInstalled
 		},
 		NotifyFunc: func(err error, attempt int) {
-			logger.Debugf("attempt %d to start mongo service: %v", attempt, err)
+			logger.Warningf("attempt %d to start mongo service: %v", attempt, err)
 		},
 		Stop:        ctx.Done(),
 		Attempts:    -1,
@@ -389,7 +389,7 @@ func setupDataDirectory(args EnsureServerParams) error {
 
 func truncateAndWriteIfExists(procFile, value string) error {
 	if _, err := os.Stat(procFile); os.IsNotExist(err) {
-		logger.Debugf("%q does not exist, will not set %q", procFile, value)
+		logger.Warningf("%q does not exist, will not set %q", procFile, value)
 		return errors.Errorf("%q does not exist, will not set %q", procFile, value)
 	}
 	f, err := os.OpenFile(procFile, os.O_WRONLY|os.O_TRUNC, 0600)
@@ -431,7 +431,7 @@ func logVersion(mongoPath string) {
 		logger.Infof("failed to read the output from %s --version: %v", mongoPath, err)
 		return
 	}
-	logger.Debugf("using mongod: %s --version:\n%s", mongoPath, output)
+	logger.Infof("using mongod: %s --version:\n%s", mongoPath, output)
 }
 
 func mongoSnapService(dataDir, configDir, snapChannel string) (MongoSnapService, error) {

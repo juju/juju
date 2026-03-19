@@ -16,22 +16,25 @@ run() {
 
 	START_TIME=$(date +%s)
 
+	push_daemon_scope
+	local expected_scope_depth
+	expected_scope_depth=${DAEMON_SCOPE_DEPTH}
+	# shellcheck disable=SC2064
+	trap "pop_daemon_scope ${expected_scope_depth}" RETURN
+
 	set_verbosity
 
+	local pid
 	if [[ ${VERBOSE} -gt 1 ]]; then
 		touch "${TEST_DIR}/${TEST_CURRENT}.log"
 		tail -f "${TEST_DIR}/${TEST_CURRENT}.log" 2>/dev/null &
 		pid=$!
 
-		# SIGKILL it with fire, as we don't know what state we're in.
-		trap 'kill -9 "${pid}" >/dev/null 2>&1 || true' EXIT
+		track_daemon_pid "$pid"
 	fi
 
 	"${CMD}" "$@" >"${TEST_DIR}/${TEST_CURRENT}.log" 2>&1
-	if [[ ${VERBOSE} -gt 1 ]]; then
-		# SIGKILL because it should be safe to do so.
-		kill -9 "${pid}" >/dev/null 2>&1 || true
-	fi
+	pop_daemon_scope ${expected_scope_depth}
 
 	END_TIME=$(date +%s)
 
@@ -86,18 +89,28 @@ run_linter() {
 }
 
 skip() {
-	CMD="${1}"
-
-	if [[ -n ${RUN_LIST} ]]; then
-		# shellcheck disable=SC2143,SC2046
-		if [[ ! $(echo "${RUN_LIST}" | grep -w "${CMD}") ]]; then
-			echo "SKIP"
-			exit 1
-		fi
-	fi
-
-	# shellcheck disable=SC2143,SC2046
-	if [[ $(echo "${SKIP_LIST:-}" | grep -w "${CMD}") ]]; then
+	# For each command, check if it would be skipped (absent from RUN_LIST when
+	# provided or present in SKIP_LIST). Only output "SKIP" if every command
+	# would be skipped.
+	if echo "$@" | tr ' ' '\n' | awk -v run_list="${RUN_LIST:-}" -v skip_list="${SKIP_LIST:-}" '
+		function strip_quotes(s) {
+			gsub(/^"+|"+$/, "", s)
+			return s
+		}
+		function is_skipped(cmd, i, n, parts) {
+			if (run_list != "") {
+				n = split(run_list, parts, /,/)
+				for (i = 1; i <= n; i++) if (strip_quotes(parts[i]) == cmd) { break }
+				if (i > n) return 1
+			}
+			n = split(skip_list, parts, /,/)
+			for (i = 1; i <= n; i++) if (strip_quotes(parts[i]) == cmd) return 1
+			return 0
+		}
+		BEGIN { all_skip = 1 }
+		{ if (!is_skipped($0)) { all_skip = 0 } }
+		END { exit (NR == 0 || !all_skip) }
+	'; then
 		echo "SKIP"
 		exit 1
 	fi

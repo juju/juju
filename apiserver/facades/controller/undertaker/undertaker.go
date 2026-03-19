@@ -4,6 +4,8 @@
 package undertaker
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -110,6 +112,34 @@ func (u *UndertakerAPI) RemoveModelSecrets() error {
 	if err != nil {
 		return errors.Annotate(err, "getting secrets backends config")
 	}
+
+	issuedTokens, err := u.st.ListSecretBackendIssuedTokenUntil(time.Now())
+	if err != nil {
+		return errors.Annotate(err, "getting secrets issued tokens")
+	}
+	if len(issuedTokens) > 0 {
+		issuedTokensToBackend := map[string][]string{}
+		for _, ik := range issuedTokens {
+			b := issuedTokensToBackend[ik.BackendID]
+			b = append(b, ik.UUID)
+			issuedTokensToBackend[ik.BackendID] = b
+		}
+		for backendID, issuedTokenUUIDs := range issuedTokensToBackend {
+			cfg, ok := secretBackendCfg.Configs[backendID]
+			if !ok {
+				err := u.st.RemoveSecretBackendIssuedTokens(issuedTokenUUIDs)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				continue
+			}
+			err := u.revokeSecretIssuedTokensForBackend(&cfg, issuedTokenUUIDs)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+
 	for _, cfg := range secretBackendCfg.Configs {
 		if err := u.removeModelSecretsForBackend(&cfg); err != nil {
 			return errors.Annotatef(err, "cleaning model from inactive secrets provider %q", cfg.BackendType)
@@ -124,6 +154,24 @@ func (u *UndertakerAPI) removeModelSecretsForBackend(cfg *provider.ModelBackendC
 		return errors.Trace(err)
 	}
 	return p.CleanupModel(cfg)
+}
+
+func (u *UndertakerAPI) revokeSecretIssuedTokensForBackend(
+	cfg *provider.ModelBackendConfig,
+	issuedTokenUUIDs []string,
+) error {
+	p, err := GetProvider(cfg.BackendType)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	removed, cleanupErr := p.CleanupIssuedTokens(cfg, issuedTokenUUIDs)
+	if len(removed) > 0 {
+		err := u.st.RemoveSecretBackendIssuedTokens(removed)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return errors.Trace(cleanupErr)
 }
 
 func (u *UndertakerAPI) modelEntitiesWatcher() params.NotifyWatchResult {

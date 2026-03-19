@@ -192,13 +192,13 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 
 	echo "Create telegraf_bundle_without_revisions.yaml with known latest revisions from charmhub"
 	if [[ -n ${MODEL_ARCH} ]]; then
-		influxdb_rev=$(juju info influxdb --arch="${MODEL_ARCH}" --format json | jq -r '."channels"."latest"."stable"[0].revision')
-		telegraf_rev=$(juju info telegraf --arch="${MODEL_ARCH}" --format json | jq -r '."channels"."latest"."stable"[0].revision')
-		juju_qa_test_rev=$(juju info juju-qa-test --arch="${MODEL_ARCH}" --format json | jq -r '."channels"."latest"."candidate"[0].revision')
+		influxdb_rev=$(juju info influxdb --arch="${MODEL_ARCH}" --format json | yq -r '."channels"."latest"."stable"[0].revision')
+		telegraf_rev=$(juju info telegraf --arch="${MODEL_ARCH}" --format json | yq -r '."channels"."latest"."stable"[0].revision')
+		juju_qa_test_rev=$(juju info juju-qa-test --arch="${MODEL_ARCH}" --format json | yq -r '."channels"."latest"."candidate"[0].revision')
 	else
-		influxdb_rev=$(juju info influxdb --format json | jq -r '."channels"."latest"."stable"[0].revision')
-		telegraf_rev=$(juju info telegraf --format json | jq -r '."channels"."latest"."stable"[0].revision')
-		juju_qa_test_rev=$(juju info juju-qa-test --format json | jq -r '."channels"."latest"."candidate"[0].revision')
+		influxdb_rev=$(juju info influxdb --format json | yq -r '."channels"."latest"."stable"[0].revision')
+		telegraf_rev=$(juju info telegraf --format json | yq -r '."channels"."latest"."stable"[0].revision')
+		juju_qa_test_rev=$(juju info juju-qa-test --format json | yq -r '."channels"."latest"."candidate"[0].revision')
 	fi
 
 	echo "Make a copy of reference yaml and insert revisions in it"
@@ -295,15 +295,16 @@ run_deploy_lxd_profile_bundle() {
 		wait_for "ubuntu" "$(idle_condition "ubuntu" 1 "${i}")"
 	done
 
-	short_uuid=$(juju models --format json |
-		jq -r --arg name "${model_name}" '.models[] | select(.["short-name"]==$name) | ."model-uuid"[0:6]')
+	full_uuid=$(juju models --format json |
+		name="${model_name}" yq -r '.models[] | select(.["short-name"]==env(name)) | ."model-uuid"')
+	short_uuid="${full_uuid:0:6}"
 	lxd_profile_name="juju-${model_name}-${short_uuid}-lxd-profile"
 
 	for i in 0 1 2 3; do
 		machine_n_lxd0="$(machine_container_path "${i}" "${i}"/lxd/0)"
-		juju status --format=json | jq "${machine_n_lxd0}" | check "${lxd_profile_name}"
+		juju status --format=json | yq "${machine_n_lxd0}" | check "${lxd_profile_name}"
 		machine_n_lxd1="$(machine_container_path "${i}" "${i}"/lxd/1)"
-		juju status --format=json | jq "${machine_n_lxd1}" | check "${lxd_profile_name}"
+		juju status --format=json | yq "${machine_n_lxd1}" | check "${lxd_profile_name}"
 	done
 
 	destroy_model "${model_name}"
