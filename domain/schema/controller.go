@@ -68,6 +68,7 @@ var controllerPostPatchFilesByVersion = []struct {
 	version: semversion.MustParse("4.0.4"),
 	files: []string{
 		"0028-object-store-node-id.PATCH.sql",
+		"0029-tracing.PATCH.sql",
 	},
 }}
 
