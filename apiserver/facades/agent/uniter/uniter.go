@@ -51,7 +51,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// UniterAPI implements the latest version (v21) of the Uniter API.
+// UniterAPI implements the latest version (v22) of the Uniter API.
 type UniterAPI struct {
 	*StatusAPI
 	*StorageAPI
@@ -105,6 +105,10 @@ type UniterAPIv19 struct {
 }
 
 type UniterAPIv20 struct {
+	*UniterAPIv21
+}
+
+type UniterAPIv21 struct {
 	*UniterAPI
 }
 
@@ -2781,15 +2785,7 @@ func (u *UniterAPI) CloudAPIVersion(ctx context.Context) (params.StringResult, e
 
 // UpdateNetworkInfo refreshes the network settings for a unit's bound
 // endpoints.
-func (u *UniterAPI) UpdateNetworkInfo(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
-	// TODO(gfouillet) - 2025-07-01 - Remove me in the next facade update
-	//   Looks like this method is never called. I implemented it in case
-	//   of possible calls I cannot be aware, but nor QA with config changes
-	//   nor searching "UpdateNetworkInfo" in the code base make me find
-	//   a possible code path to this facade method. I believe it is unused.
-	//   Update relation unit settings with network info are already done in
-	//   both EnterScope and CommitHookChanged, which seems to be enough for
-	//   all our use cases.
+func (u *UniterAPIv21) UpdateNetworkInfo(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
 	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
@@ -2815,6 +2811,11 @@ func (u *UniterAPI) UpdateNetworkInfo(ctx context.Context, args params.Entities)
 
 	return params.ErrorResults{Results: res}, nil
 }
+
+// UpdateNetworkInfo is not implemented in version 22 of the uniter. The
+// Uniter API package stopped using it with version 18, however it was
+// not removed from the facade at that time.
+func (u *UniterAPI) UpdateNetworkInfo(_ context.Context, _, _ struct{}) {}
 
 // CommitHookChanges batches together all required API calls for applying
 // a set of changes after a hook successfully completes and executes them in a

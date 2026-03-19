@@ -9960,7 +9960,7 @@
     {
         "Name": "Uniter",
         "Description": "",
-        "Version": 21,
+        "Version": 22,
         "Schema": {
             "type": "object",
             "properties": {
@@ -10619,17 +10619,6 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/StorageAttachmentIdsResults"
-                        }
-                    }
-                },
-                "UpdateNetworkInfo": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
                         }
                     }
                 },
