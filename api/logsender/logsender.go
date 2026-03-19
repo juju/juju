@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/url"
 
+	gorillaws "github.com/gorilla/websocket"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
@@ -64,10 +65,19 @@ func newWriter(conn base.Stream) *writer {
 // readLoop is necessary for the client to process websocket control messages.
 // If we get an error, enqueue it so that if a subsequent call to WriteLog
 // fails do to our closure of the socket, we can enhance the resulting error.
+// Clean close codes are normalised to io.EOF so callers can distinguish an
+// expected server-side close from a real network error.
 // Close() is safe to call concurrently.
 func (w *writer) readLoop() {
 	for {
 		if _, _, err := w.conn.NextReader(); err != nil {
+			if gorillaws.IsCloseError(err,
+				gorillaws.CloseNormalClosure,
+				gorillaws.CloseGoingAway,
+				gorillaws.CloseNoStatusReceived,
+			) {
+				err = io.EOF
+			}
 			select {
 			case w.readErrs <- err:
 			default:
@@ -89,10 +99,13 @@ func (w *writer) WriteLog(m *params.LogRecord) error {
 	if err := w.conn.WriteJSON(m); err != nil {
 		var readErr error
 		select {
-		case readErr, _ = <-w.readErrs:
+		case readErr = <-w.readErrs:
 		default:
 		}
 
+		if errors.Is(readErr, io.EOF) {
+			return io.EOF
+		}
 		if readErr != nil {
 			err = errors.Annotate(err, readErr.Error())
 		}

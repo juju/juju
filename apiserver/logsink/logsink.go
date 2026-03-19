@@ -331,7 +331,7 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn,
 				// care that much.
 				h.mu.Lock()
 				defer h.mu.Unlock()
-				_ = socket.WriteMessage(gorillaws.CloseMessage, []byte{})
+				_ = socket.WriteMessage(gorillaws.CloseMessage, gorillaws.FormatCloseMessage(gorillaws.CloseGoingAway, ""))
 				return
 			}
 			h.metrics.LogReadCount(resolvedModelUUID, metricLogReadLabelSuccess).Inc()
