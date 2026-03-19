@@ -1011,7 +1011,8 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeWithoutForceFailsForMachi
 
 	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
 	c.Assert(err, tc.ErrorIsNil)
-	containerUUID, err := svc.GetMachineUUID(c.Context(), containerRes.MachineName)
+	c.Assert(containerRes.ChildMachineName, tc.NotNil)
+	containerUUID, err := svc.GetMachineUUID(c.Context(), *containerRes.ChildMachineName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
@@ -1023,6 +1024,53 @@ func (s *machineSuite) TestEnsureMachineNotAliveCascadeWithoutForceFailsForMachi
 	s.checkInstanceLife(c, machineUUID.String(), life.Alive)
 	s.checkMachineLife(c, containerUUID.String(), life.Alive)
 	s.checkInstanceLife(c, containerUUID.String(), life.Alive)
+}
+
+func (s *machineSuite) TestEnsureMachineNotAliveCascadeWithForceCascadesAliveContainerWhenParentAlreadyDying(c *tc.C) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	containerRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+		Directive: deployment.Placement{
+			Type:      deployment.PlacementTypeContainer,
+			Container: deployment.ContainerTypeLXD,
+			Directive: machineRes.MachineName.String(),
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(containerRes.ChildMachineName, tc.NotNil)
+	containerUUID, err := svc.GetMachineUUID(c.Context(), *containerRes.ChildMachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Simulate a retry where the parent is already Dying but the container
+	// machine is still Alive.
+	s.advanceMachineLife(c, machineUUID, life.Dying)
+	s.advanceInstanceLife(c, machineUUID, life.Dying)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	cascaded, err := st.EnsureMachineNotAliveCascade(c.Context(), machineUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cascaded.UnitUUIDs, tc.HasLen, 0)
+	c.Check(cascaded.MachineUUIDs, tc.DeepEquals, []string{containerUUID.String()})
+
+	// Parent remains Dying and the alive child container is cascaded to Dying.
+	s.checkMachineLife(c, machineUUID.String(), life.Dying)
+	s.checkInstanceLife(c, machineUUID.String(), life.Dying)
+	s.checkMachineLife(c, containerUUID.String(), life.Dying)
+	s.checkInstanceLife(c, containerUUID.String(), life.Dying)
 }
 
 func (s *machineSuite) TestEnsureMachineNotAliveCascadeWithoutForceFailsForMachineHostingUnits(c *tc.C) {
