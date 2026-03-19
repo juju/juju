@@ -1,4 +1,5 @@
 ---
+applyTo: "**/*"
 exclude-agent: "code-review"
 ---
 
