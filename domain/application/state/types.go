@@ -19,6 +19,12 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 )
 
+// entityLife is used to get and describe the the current life value of an
+// entity.
+type entityLife struct {
+	LifeID int `db:"life_id"`
+}
+
 type entityUUID struct {
 	UUID string `db:"uuid"`
 }
@@ -1327,10 +1333,6 @@ type bindingToTable struct {
 	Name        string       `db:"name"`
 	UUID        string       `db:"uuid"`
 	BindingType bindingTable `db:"binding_type"`
-}
-
-type infoQuerydb struct {
-	LifeID int `db:"life_id"`
 }
 
 type unitK8sPodInfoWithName struct {

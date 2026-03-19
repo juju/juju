@@ -1826,7 +1826,7 @@ func (st *State) GetUnitsK8sPodInfo(ctx context.Context) (map[coreunit.Name]appl
 		return nil, errors.Capture(err)
 	}
 
-	infoQuerydb := infoQuerydb{
+	deadLife := entityLife{
 		LifeID: int(life.Dead),
 	}
 
@@ -1846,11 +1846,11 @@ LEFT JOIN link_layer_device lld ON lld.net_node_uuid = u.net_node_uuid
 LEFT JOIN ip_address ip ON ip.device_uuid = lld.uuid
 LEFT JOIN k8s_pod_port kpp ON kpp.unit_uuid = u.uuid
 WHERE
-	u.life_id != $infoQuerydb.life_id
+	u.life_id != $entityLife.life_id
 GROUP BY
 	u.name
 `
-	stmt, err := st.Prepare(infoQuery, unitK8sPodInfoWithName{}, infoQuerydb)
+	stmt, err := st.Prepare(infoQuery, unitK8sPodInfoWithName{}, deadLife)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1858,7 +1858,7 @@ GROUP BY
 	var infos []unitK8sPodInfoWithName
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt, infoQuerydb).GetAll(&infos); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		if err := tx.Query(ctx, stmt, deadLife).GetAll(&infos); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		}
 		return nil
