@@ -60,7 +60,7 @@ func (s *ContextFactorySuite) setupContextFactory(c *tc.C, ctrl *gomock.Controll
 		ModelType: s.modelType,
 	}, nil)
 	privateAddress := "u-0.testing.invalid"
-	s.uniter.EXPECT().GetUnitContext(gomock.Any(), s.unit.Tag()).Return(params.UnitContext{
+	s.uniter.EXPECT().GetUnitContext(gomock.Any(), s.unit.Tag()).Return(apiuniter.UnitContext{
 		APIAddresses:    []string{"10.6.6.6"},
 		CloudAPIVersion: "6.6.6",
 		PrivateAddress:  &privateAddress,
