@@ -43,7 +43,9 @@ type State interface {
 // SpaceState describes persistence layer methods for the space (sub-) domain.
 type SpaceState interface {
 	// AddSpace creates a space.
-	AddSpace(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error
+	AddSpace(
+		ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string,
+	) error
 	// GetSpace returns the space by UUID. If the space is not found, an error
 	// is returned matching
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
@@ -60,7 +62,9 @@ type SpaceState interface {
 	UpdateSpace(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName) error
 	// RemoveSpace removes a space from the system, optionally forcing removal,
 	// or simulating it via dry run.
-	RemoveSpace(ctx context.Context, spaceName network.SpaceName, force, dryRun bool) (domainnetwork.RemoveSpaceViolations, error)
+	RemoveSpace(
+		ctx context.Context, spaceName network.SpaceName, force, dryRun bool,
+	) (domainnetwork.RemoveSpaceViolations, error)
 	// MoveSubnetsToSpace transfers a list of subnets to a specified network
 	// space. It verifies that existing machines will still satisfy their
 	// constraints and bindings. The check can be ignored if forced. In this
@@ -111,13 +115,13 @@ type NetConfigState interface {
 	// (k8s or machines).
 	//
 	// The following errors may be returned:
-	// - [uniterrors.UnitNotFound] if the unit does not exist
+	// - [uniterrors.UnitNotFound] if the unit does not exist.
 	GetUnitAndK8sServiceAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error)
 
 	// GetUnitAddresses returns the addresses of the specified unit.
 	//
 	// The following errors may be returned:
-	// - [uniterrors.UnitNotFound] if the unit does not exist
+	// - [uniterrors.UnitNotFound] if the unit does not exist.
 	GetUnitAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error)
 
 	// GetNetNodeAddresses retrieves network space addresses associated with the
@@ -167,6 +171,10 @@ type NetworkInfoState interface {
 	// Kubernetes service.
 	IsCaasUnit(ctx context.Context, unitUUID string) (bool, error)
 
+	// GetUnitEgressSubnets retrieves the egress subnets for the specified
+	// unit.
+	GetUnitEgressSubnets(ctx context.Context, unitUUID string) ([]string, error)
+
 	// GetUnitEndpointNetworks retrieves network relationship details for a
 	// specified unit and its given endpoints.
 	// It returns a list of domainnetwork.Info, one per endpoint name,
@@ -174,19 +182,12 @@ type NetworkInfoState interface {
 	// Returns if retrieval fails, or an empty list if the unit is not found or
 	// endpoints are inconsistent.
 	GetUnitEndpointNetworks(
-		ctx context.Context,
-		unitUUID string,
-		endpointNames []string,
-		isCaas bool,
+		ctx context.Context, unitUUID string, endpointNames []string, isCaas bool,
 	) ([]domainnetwork.UnitNetwork, error)
 
 	// GetUnitNetwork retrieves network information for the specified unit by
 	// selecting the best candidate from *all* unit addresses.
 	// This is used on providers that do not support spaces, and therefore can
 	// not factor endpoint bindings.
-	GetUnitNetwork(
-		ctx context.Context,
-		unitUUID string,
-		isCaas bool,
-	) (domainnetwork.UnitNetwork, error)
+	GetUnitNetwork(ctx context.Context, unitUUID string, isCaas bool) (domainnetwork.UnitNetwork, error)
 }

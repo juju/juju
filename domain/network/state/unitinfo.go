@@ -47,24 +47,14 @@ func (st *State) GetUnitEndpointNetworks(ctx context.Context, unitUUID string,
 			return spaceUUID, buildUnitNetworkFromAddresses(addrs, isCaas)
 		})
 
-	// All endpoints of the unit will have the same egress subnet.
-	egressCIDRs, err := st.getUnitEgressSubnets(ctx, unitUUID)
-	if err != nil {
-		return nil, errors.Errorf("getting unit egress subnets: %w", err)
-	}
-
 	// Transform in order to dispatch info by endpoint.
 	spaceEp := transform.SliceToMap(spaces, func(endpoint spaceEndpoint) (string, string) {
 		return endpoint.EndpointName, endpoint.SpaceUUID
 	})
 	infos, _ := transform.SliceOrErr(endpointNames, func(name string) (domainnetwork.UnitNetwork, error) {
 		info := infoBySpaces[spaceEp[name]]
-		return domainnetwork.UnitNetwork{
-			EndpointName:     name,
-			DeviceInfos:      info.DeviceInfos,
-			IngressAddresses: info.IngressAddresses,
-			EgressSubnets:    egressCIDRs,
-		}, nil
+		info.EndpointName = name
+		return info, nil
 	})
 
 	return infos, nil
@@ -80,12 +70,7 @@ func (st *State) GetUnitNetwork(ctx context.Context, unitUUID string, isCaas boo
 		return domainnetwork.UnitNetwork{}, errors.Errorf("getting all unit addresses: %w", err)
 	}
 
-	info := buildUnitNetworkFromAddresses(addresses, isCaas)
-	info.EgressSubnets, err = st.getUnitEgressSubnets(ctx, unitUUID)
-	if err != nil {
-		return domainnetwork.UnitNetwork{}, errors.Errorf("getting unit egress subnets: %w", err)
-	}
-	return info, nil
+	return buildUnitNetworkFromAddresses(addresses, isCaas), nil
 }
 
 func buildUnitNetworkFromAddresses(addresses []unitAddress, isCaas bool) domainnetwork.UnitNetwork {
@@ -129,7 +114,8 @@ func buildUnitNetworkFromAddresses(addresses []unitAddress, isCaas bool) domainn
 	}
 }
 
-func (st *State) getUnitEgressSubnets(ctx context.Context, unitUUID string) ([]string, error) {
+// GetUnitEgressSubnets retrieves the egress subnets for the specified unit.
+func (st *State) GetUnitEgressSubnets(ctx context.Context, unitUUID string) ([]string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)

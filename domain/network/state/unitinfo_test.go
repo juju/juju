@@ -467,7 +467,7 @@ func (s *infoSuite) TestGetUnitEgressSubnetsWithMultipleCIDRs(c *tc.C) {
 	s.addRelationNetworkEgress(c, relation2UUID, "10.0.3.0/24")
 
 	// Act
-	cidrs, err := s.state.getUnitEgressSubnets(c.Context(), string(unitUUID))
+	cidrs, err := s.state.GetUnitEgressSubnets(c.Context(), string(unitUUID))
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -485,7 +485,7 @@ func (s *infoSuite) TestGetUnitEgressSubnetsWithNoRelations(c *tc.C) {
 	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
 
 	// Act
-	cidrs, err := s.state.getUnitEgressSubnets(c.Context(), string(unitUUID))
+	cidrs, err := s.state.GetUnitEgressSubnets(c.Context(), string(unitUUID))
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -508,7 +508,7 @@ func (s *infoSuite) TestGetUnitEgressSubnetsWithRelationsButNoEgress(c *tc.C) {
 	s.addRelationUnit(c, relationEndpointUUID, string(unitUUID))
 
 	// Act
-	cidrs, err := s.state.getUnitEgressSubnets(c.Context(), string(unitUUID))
+	cidrs, err := s.state.GetUnitEgressSubnets(c.Context(), string(unitUUID))
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -542,7 +542,7 @@ func (s *infoSuite) TestGetUnitEgressSubnetsDeduplicated(c *tc.C) {
 	s.addRelationNetworkEgress(c, relation2UUID, "10.0.1.0/24")
 
 	// Act
-	cidrs, err := s.state.getUnitEgressSubnets(c.Context(), string(unitUUID))
+	cidrs, err := s.state.GetUnitEgressSubnets(c.Context(), string(unitUUID))
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -550,8 +550,9 @@ func (s *infoSuite) TestGetUnitEgressSubnetsDeduplicated(c *tc.C) {
 	c.Check(cidrs, tc.DeepEquals, []string{"10.0.1.0/24"})
 }
 
-// TestGetUnitEndpointNetworksWithEgressSubnets tests the integration of egress subnets in GetUnitEndpointNetworks
-func (s *infoSuite) TestGetUnitEndpointNetworksWithEgressSubnets(c *tc.C) {
+// TestGetUnitEndpointNetworksIgnoresEgressSubnets verifies state does not
+// attach egress subnets to endpoint network results.
+func (s *infoSuite) TestGetUnitEndpointNetworksIgnoresEgressSubnets(c *tc.C) {
 	// Arrange
 	nodeUUID := s.addNetNode(c)
 	deviceUUID := s.addLinkLayerDevice(c, nodeUUID, "eth0", "00:11:22:33:44:55", corenetwork.EthernetDevice)
@@ -582,7 +583,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworksWithEgressSubnets(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(networks, tc.HasLen, 1)
-	c.Check(networks[0].EgressSubnets, tc.SameContents, []string{"192.168.1.0/24", "192.168.2.0/24"})
+	c.Check(networks[0].EgressSubnets, tc.HasLen, 0)
 	c.Check(networks[0].EndpointName, tc.Equals, endpointName)
 	c.Check(networks[0].IngressAddresses, tc.DeepEquals, []string{expectedAddr})
 }

@@ -19,7 +19,7 @@ import (
 // unit and relation key.
 //
 // The following errors may be returned:
-//   - [applicationerrors.UnitNotFound] if the unit does not exist
+//   - [applicationerrors.UnitNotFound] if the unit does not exist.
 //   - [relationerrors.RelationNotFound] if the relation key doesn't belong to
 //     the unit.
 func (s *ProviderService) GetUnitRelationNetwork(ctx context.Context, unitName coreunit.Name,
@@ -45,8 +45,8 @@ func (s *ProviderService) GetUnitRelationNetwork(ctx context.Context, unitName c
 		// GetUnitEndpointNetworks is broken.
 		// If not broken, providing exactly one endpoint as a parameter for
 		// GetUnitEndpointNetworks should return exactly one info.
-		return network.UnitNetwork{}, internalerrors.Errorf("expected 1 NetworkInfo for unit %q on endpoint %q, got %d", unitName, endpoint,
-			len(infos))
+		return network.UnitNetwork{}, internalerrors.Errorf(
+			"expected 1 NetworkInfo for unit %q on endpoint %q, got %d", unitName, endpoint, len(infos))
 	}
 	return infos[0], nil
 }
@@ -60,11 +60,9 @@ func (s *ProviderService) GetUnitRelationNetwork(ctx context.Context, unitName c
 // all unit addresses and return it for all the input endpoints.
 //
 // The following errors may be returned:
-// - [applicationerrors.UnitNotFound] if the unit does not exist
+// - [applicationerrors.UnitNotFound] if the unit does not exist.
 func (s *ProviderService) GetUnitEndpointNetworks(
-	ctx context.Context,
-	unitName coreunit.Name,
-	endpointNames []string,
+	ctx context.Context, unitName coreunit.Name, endpointNames []string,
 ) ([]network.UnitNetwork, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -83,30 +81,40 @@ func (s *ProviderService) GetUnitEndpointNetworks(
 	if err != nil {
 		return nil, internalerrors.Errorf("checking if unit is caas: %w", err)
 	}
-
-	if !supportsNetworking {
-		info, err := s.st.GetUnitNetwork(ctx, unitUUID.String(), isCaas)
-		if err != nil {
-			return nil, internalerrors.Errorf("getting unit network: %w", err)
-		}
-
-		infos := make([]network.UnitNetwork, len(endpointNames))
-		for i, endpointName := range endpointNames {
-			infos[i] = info
-			infos[i].EndpointName = endpointName
-		}
-		return infos, nil
+	egressSubnets, err := s.st.GetUnitEgressSubnets(ctx, unitUUID.String())
+	if err != nil {
+		return nil, internalerrors.Errorf("getting unit egress subnets: %w", err)
 	}
 
-	result, err := s.st.GetUnitEndpointNetworks(
-		ctx,
-		unitUUID.String(),
-		endpointNames,
-		isCaas,
-	)
+	if !supportsNetworking {
+		return s.getUnitEndpointNetworksWithoutProviderNetworking(
+			ctx, unitUUID.String(), endpointNames, isCaas, egressSubnets)
+	}
+
+	result, err := s.st.GetUnitEndpointNetworks(ctx, unitUUID.String(), endpointNames, isCaas)
 	if err != nil {
 		return nil, internalerrors.Errorf("getting unit endpoint networks: %w", err)
 	}
+	for i := range result {
+		result[i].EgressSubnets = egressSubnets
+	}
 
 	return result, nil
+}
+
+func (s *ProviderService) getUnitEndpointNetworksWithoutProviderNetworking(
+	ctx context.Context, unitUUID string, endpointNames []string, isCaas bool, egressSubnets []string,
+) ([]network.UnitNetwork, error) {
+	info, err := s.st.GetUnitNetwork(ctx, unitUUID, isCaas)
+	if err != nil {
+		return nil, internalerrors.Errorf("getting unit network: %w", err)
+	}
+	info.EgressSubnets = egressSubnets
+
+	infos := make([]network.UnitNetwork, len(endpointNames))
+	for i, endpointName := range endpointNames {
+		infos[i] = info
+		infos[i].EndpointName = endpointName
+	}
+	return infos, nil
 }
