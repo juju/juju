@@ -230,13 +230,14 @@ func (st *State) getAllUnitAddresses(
 	var address []allUnitAddressWithDevice
 	ident := entityUUID{UUID: unitUUID}
 	stmt, err := st.Prepare(`
-SELECT &allUnitAddressWithDevice.*
-FROM   v_all_unit_address AS ua
-JOIN (
+WITH lld AS (
 	SELECT lld.uuid, lld.name, lld.mac_address, lldt.name AS device_type
 	FROM   link_layer_device AS lld
 	JOIN   link_layer_device_type AS lldt ON lld.device_type_id = lldt.id
-) AS lld ON ua.device_uuid = lld.uuid
+)
+SELECT &allUnitAddressWithDevice.*
+FROM   v_all_unit_address AS ua
+JOIN   lld ON ua.device_uuid = lld.uuid
 WHERE  ua.unit_uuid = $entityUUID.uuid
 `, allUnitAddressWithDevice{}, entityUUID{})
 	if err != nil {
@@ -289,13 +290,14 @@ func (st *State) getAllUnitAddressesInSpaces(
 	var address []spaceAddressWithDevice
 	ident := entityUUID{UUID: unitUUID}
 	stmt, err := st.Prepare(`
-SELECT &spaceAddressWithDevice.*
-FROM   v_all_unit_address AS ua
-JOIN (
+WITH lld AS (
 	SELECT lld.uuid, lld.name, lld.mac_address, lldt.name AS device_type
 	FROM   link_layer_device AS lld
 	JOIN   link_layer_device_type AS lldt ON lld.device_type_id = lldt.id
-) AS lld ON ua.device_uuid = lld.uuid
+)
+SELECT &spaceAddressWithDevice.*
+FROM   v_all_unit_address AS ua
+JOIN   lld ON ua.device_uuid = lld.uuid
 WHERE  ua.unit_uuid = $entityUUID.uuid
 AND    space_uuid IN ($uuids[:])
 `, spaceAddressWithDevice{}, entityUUID{}, uuids{})
