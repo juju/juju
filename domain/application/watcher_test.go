@@ -632,7 +632,6 @@ func (s *watcherSuite) TestWatchApplicationBadName(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application")
 	svc := s.setupService(c, factory)
 
-	s.AssertChangeStreamIdle(c)
 	_, err := svc.WatchApplication(c.Context(), "bad-name")
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }

@@ -70,6 +70,8 @@ func (s *watcherSuite) TestWatchCloud(c *tc.C) {
 	}
 	s.createCloudCredential(c, st, key)
 
+	s.AssertChangeStreamIdle(c)
+
 	watcher, err := service.WatchCredential(c.Context(), key)
 	c.Assert(err, tc.ErrorIsNil)
 
