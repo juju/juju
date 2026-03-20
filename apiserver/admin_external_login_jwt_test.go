@@ -101,8 +101,9 @@ func (s *externalUserJWTLoginSuite) TestExternalUserCreatedOnJWTLogin(c *tc.C) {
 	//   1. Client sends LoginRequest with Token set (the JWT).
 	//   2. Macaroon authenticator returns NotSupported (no macaroons).
 	//   3. JWT authenticator parses the token, extracts user-testuser@external.
-	//   4. admin.authenticate() calls EnsureExternalUser (unconditionally),
-	//      inserting testuser@external into Juju's user table.
+	//   4. admin.authenticate() validates permissions from the JWT claims.
+	//   5. On success, admin.authenticate() calls EnsureExternalUser, inserting
+	//      testuser@external into Juju's user table.
 	info := s.ControllerModelApiInfo()
 	info.Tag = nil
 	info.Password = ""

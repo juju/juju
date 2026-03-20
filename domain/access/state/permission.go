@@ -300,8 +300,7 @@ func (st *PermissionState) ReadUserAccessLevelForTarget(ctx context.Context, sub
 	}
 
 	readQuery := `
-SELECT  (u.external) AS (&dbPermissionUser.*),
-        (p.access_type, p.uuid) AS (&dbPermission.*)
+SELECT  (p.access_type, p.uuid) AS (&dbPermission.*)
 FROM    v_user_auth u
         LEFT JOIN v_permission p ON u.uuid = p.grant_to AND p.grant_on = $dbPermission.grant_on
 WHERE   u.name = $dbPermissionUser.name
@@ -316,30 +315,36 @@ AND     u.removed = false
 
 	var baseExternalPerms dbPermission
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, readStmt, user, perm).Get(&user, &perm)
+		err = tx.Query(ctx, readStmt, user, perm).Get(&perm)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("%w for %q on %q", accesserrors.AccessNotFound, subject, target.Key)
+			if subject.IsLocal() {
+				return errors.Errorf("%w for %q on %q", accesserrors.AccessNotFound, subject, target.Key)
+			}
+			// External user has no DB record yet. Their access is
+			// determined entirely by everyone@external below.
 		} else if err != nil {
 			return errors.Errorf("reading user access level for target: %w", err)
 		}
 
-		if user.External {
+		// For external users, also retrieve the base everyone@external
+		// access so we can return the higher of the two.
+		if !subject.IsLocal() {
 			baseExternalPerms, err = st.baseExternalAccessForTarget(ctx, tx, target)
 			if err != nil {
 				return errors.Capture(err)
 			}
 		}
-		return err
+		return nil
 	})
 	if err != nil {
 		return userAccess, errors.Capture(err)
 	}
 
 	userAccess = corepermission.Access(perm.AccessType)
-	if user.External && baseExternalAccessGreater(baseExternalPerms, userAccess) {
-		return corepermission.Access(baseExternalPerms.AccessType), nil
+	if !subject.IsLocal() && baseExternalAccessGreater(baseExternalPerms, userAccess) {
+		userAccess = corepermission.Access(baseExternalPerms.AccessType)
 	}
-	if perm.AccessType != string(corepermission.NoAccess) {
+	if userAccess != corepermission.NoAccess {
 		return userAccess, nil
 	}
 	return corepermission.NoAccess, errors.Errorf("%w for %q on %q", accesserrors.AccessNotFound, subject, target.Key)

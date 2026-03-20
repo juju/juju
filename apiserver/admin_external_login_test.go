@@ -70,8 +70,10 @@ func (s *externalUserLoginSuite) TearDownTest(c *tc.C) {
 //  3. The client retries login with the discharged macaroon.
 //  4. The macaroon authenticator extracts "testuser" from the declared
 //     caveat and produces a "user-testuser@external" tag.
-//  5. admin.authenticate() sees IsExternallyAuthenticated and calls
-//     EnsureExternalUser, inserting testuser@external into Juju's user table.
+//  5. admin.authenticate() validates permissions, including inherited
+//     everyone@external access for first-time external users.
+//  6. After successful authorisation, admin.authenticate() persists the
+//     external user via EnsureExternalUser.
 func (s *externalUserLoginSuite) TestExternalUserCreatedOnMacaroonLogin(c *tc.C) {
 	accessService := s.ControllerDomainServices(c).Access()
 
@@ -119,4 +121,30 @@ func (s *externalUserLoginSuite) TestExternalUserCreatedOnMacaroonLogin(c *tc.C)
 	_, err = accessService.GetUserByName(c.Context(), externalUserName)
 	c.Assert(err, tc.ErrorIsNil,
 		tc.Commentf("testuser@external was not created in Juju's DB after external macaroon login"))
+}
+
+func (s *externalUserLoginSuite) TestExternalUserNotCreatedWhenMacaroonLoginUnauthorized(c *tc.C) {
+	accessService := s.ControllerDomainServices(c).Access()
+
+	// everyone@external must exist as a user record, but do not grant it
+	// permissions. This keeps external login unauthorised.
+	err := accessService.AddExternalUser(c.Context(), permission.EveryoneUserName, "", s.AdminUserUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	externalUserName := tc.Must1(c, user.NewName, "testuser@external")
+	_, err = accessService.GetUserByName(c.Context(), externalUserName)
+	c.Assert(err, tc.ErrorIs, accesserrors.UserNotFound)
+
+	info := s.ControllerModelApiInfo()
+	info.Tag = nil
+	info.Password = ""
+	info.Macaroons = nil
+	_, err = api.Open(c.Context(), info, api.DialOpts{
+		BakeryClient: httpbakery.NewClient(),
+	})
+	c.Assert(err, tc.NotNil)
+
+	// Failed login must not create an external user row.
+	_, err = accessService.GetUserByName(c.Context(), externalUserName)
+	c.Assert(err, tc.ErrorIs, accesserrors.UserNotFound)
 }

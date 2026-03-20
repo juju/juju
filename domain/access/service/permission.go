@@ -113,6 +113,9 @@ func (s *PermissionService) ReadUserAccessForTarget(ctx context.Context, subject
 // from the state layer are passed through.
 // If the access level of a user cannot be found then
 // [accesserrors.AccessNotFound] is returned.
+// For external users the state layer transparently resolves inheritance
+// from everyone@external, returning the higher of the user's own access
+// and the base external access.
 func (s *PermissionService) ReadUserAccessLevelForTarget(ctx context.Context, subject user.Name, target corepermission.ID) (corepermission.Access, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()

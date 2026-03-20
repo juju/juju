@@ -485,20 +485,58 @@ func (s *permissionStateSuite) TestReadUserAccessLevelForTargetExternalUser(c *t
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Check that Jim gets the higher level of access given to everyone@external.
+	// Jim inherits the higher everyone@external access.
 	accessLevel, err = st.ReadUserAccessLevelForTarget(c.Context(), jimUserName, target)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(accessLevel, tc.Equals, corepermission.SuperuserAccess)
 
-	// Delete Jim's permissions.
+	// Delete Jim's direct permissions; he still inherits from everyone@external.
 	err = st.DeletePermission(c.Context(), jimUserName, target)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Check that Jim gets everyone@external permissions when he has none
-	// himself.
 	accessLevel, err = st.ReadUserAccessLevelForTarget(c.Context(), jimUserName, target)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(accessLevel, tc.DeepEquals, corepermission.SuperuserAccess)
+	c.Assert(accessLevel, tc.Equals, corepermission.SuperuserAccess)
+}
+
+func (s *permissionStateSuite) TestReadUserAccessLevelForTargetExternalUserWithoutUserRecord(c *tc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	jimUserName := usertesting.GenNewName(c, "jim@juju")
+	target := corepermission.ID{
+		Key:        s.controllerUUID,
+		ObjectType: corepermission.Controller,
+	}
+
+	// Grant access to everyone@external. Jim has not been created in the DB.
+	_, err := st.CreatePermission(c.Context(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: corepermission.EveryoneUserName,
+		AccessSpec: corepermission.AccessSpec{
+			Target: target,
+			Access: corepermission.SuperuserAccess,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Jim inherits permissions from everyone@external even without a DB record.
+	accessLevel, err := st.ReadUserAccessLevelForTarget(c.Context(), jimUserName, target)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(accessLevel, tc.Equals, corepermission.SuperuserAccess)
+}
+
+func (s *permissionStateSuite) TestReadUserAccessLevelForTargetExternalUserNoAccessAnywhere(c *tc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	jimUserName := usertesting.GenNewName(c, "jim@juju")
+	target := corepermission.ID{
+		Key:        s.controllerUUID,
+		ObjectType: corepermission.Controller,
+	}
+
+	// No permissions granted anywhere — neither Jim nor everyone@external.
+	accessLevel, err := st.ReadUserAccessLevelForTarget(c.Context(), jimUserName, target)
+	c.Assert(err, tc.ErrorIs, accesserrors.AccessNotFound)
+	c.Assert(accessLevel, tc.Equals, corepermission.NoAccess)
 }
 
 func (s *permissionStateSuite) TestReadAllUserAccessForUser(c *tc.C) {

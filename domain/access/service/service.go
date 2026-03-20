@@ -180,6 +180,9 @@ type PermissionState interface {
 
 	// ReadUserAccessLevelForTarget returns the subject's (user) access level
 	// for the given user on the given target.
+	// For external users, this transparently resolves inheritance from
+	// everyone@external and returns the higher of the user's own access and
+	// the base external access.
 	// If the access level of a user cannot be found then
 	// accesserrors.AccessNotFound is returned.
 	ReadUserAccessLevelForTarget(ctx context.Context, subject user.Name, target permission.ID) (permission.Access, error)
