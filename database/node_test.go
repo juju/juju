@@ -382,11 +382,22 @@ func (s *nodeManagerSuite) TestWithTLSOptionRejectsClientWithoutCertificate(c *g
 	ok := pool.AppendCertsFromPEM([]byte(jujutesting.CACert))
 	c.Assert(ok, jc.IsTrue)
 
-	_, err = tls.Dial("tcp", dqliteApp.Address(), &tls.Config{
+	conn, err := tls.Dial("tcp", dqliteApp.Address(), &tls.Config{
 		RootCAs:    pool,
 		ServerName: firstCertificateDNSName(c, jujutesting.ServerCert),
 	})
-	c.Assert(err, gc.ErrorMatches, ".*tls:.*(certificate required|handshake failure|bad certificate).*")
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		err := conn.Close()
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+
+	err = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	c.Assert(err, jc.ErrorIsNil)
+
+	var buf [1]byte
+	_, err = conn.Read(buf[:])
+	c.Assert(err, gc.ErrorMatches, ".*(tls:.*(certificate required|handshake failure|bad certificate)|EOF).*")
 }
 
 func (s *nodeManagerSuite) TestWithTLSOptionJoinClusterSuccess(c *gc.C) {
