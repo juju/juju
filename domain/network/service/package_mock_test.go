@@ -945,84 +945,6 @@ func (c *MockStateGetUnitAndK8sServiceAddressesCall) DoAndReturn(f func(context.
 	return c
 }
 
-// GetUnitEndpointNetworks mocks base method.
-func (m *MockState) GetUnitEndpointNetworks(arg0 context.Context, arg1 string, arg2 []string, arg3 bool) ([]network0.UnitNetwork, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnitEndpointNetworks", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].([]network0.UnitNetwork)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetUnitEndpointNetworks indicates an expected call of GetUnitEndpointNetworks.
-func (mr *MockStateMockRecorder) GetUnitEndpointNetworks(arg0, arg1, arg2, arg3 any) *MockStateGetUnitEndpointNetworksCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitEndpointNetworks", reflect.TypeOf((*MockState)(nil).GetUnitEndpointNetworks), arg0, arg1, arg2, arg3)
-	return &MockStateGetUnitEndpointNetworksCall{Call: call}
-}
-
-// MockStateGetUnitEndpointNetworksCall wrap *gomock.Call
-type MockStateGetUnitEndpointNetworksCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetUnitEndpointNetworksCall) Return(arg0 []network0.UnitNetwork, arg1 error) *MockStateGetUnitEndpointNetworksCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetUnitEndpointNetworksCall) Do(f func(context.Context, string, []string, bool) ([]network0.UnitNetwork, error)) *MockStateGetUnitEndpointNetworksCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetUnitEndpointNetworksCall) DoAndReturn(f func(context.Context, string, []string, bool) ([]network0.UnitNetwork, error)) *MockStateGetUnitEndpointNetworksCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// IsCaasUnit mocks base method.
-func (m *MockState) IsCaasUnit(arg0 context.Context, arg1 string) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsCaasUnit", arg0, arg1)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// IsCaasUnit indicates an expected call of IsCaasUnit.
-func (mr *MockStateMockRecorder) IsCaasUnit(arg0, arg1 any) *MockStateIsCaasUnitCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsCaasUnit", reflect.TypeOf((*MockState)(nil).IsCaasUnit), arg0, arg1)
-	return &MockStateIsCaasUnitCall{Call: call}
-}
-
-// MockStateIsCaasUnitCall wrap *gomock.Call
-type MockStateIsCaasUnitCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateIsCaasUnitCall) Return(arg0 bool, arg1 error) *MockStateIsCaasUnitCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateIsCaasUnitCall) Do(f func(context.Context, string) (bool, error)) *MockStateIsCaasUnitCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateIsCaasUnitCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockStateIsCaasUnitCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetUnitEgressSubnets mocks base method.
 func (m *MockState) GetUnitEgressSubnets(arg0 context.Context, arg1 string) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -1058,6 +980,45 @@ func (c *MockStateGetUnitEgressSubnetsCall) Do(f func(context.Context, string) (
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetUnitEgressSubnetsCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockStateGetUnitEgressSubnetsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitEndpointNetworks mocks base method.
+func (m *MockState) GetUnitEndpointNetworks(arg0 context.Context, arg1 string, arg2 []string, arg3 bool) ([]network0.UnitNetwork, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitEndpointNetworks", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].([]network0.UnitNetwork)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitEndpointNetworks indicates an expected call of GetUnitEndpointNetworks.
+func (mr *MockStateMockRecorder) GetUnitEndpointNetworks(arg0, arg1, arg2, arg3 any) *MockStateGetUnitEndpointNetworksCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitEndpointNetworks", reflect.TypeOf((*MockState)(nil).GetUnitEndpointNetworks), arg0, arg1, arg2, arg3)
+	return &MockStateGetUnitEndpointNetworksCall{Call: call}
+}
+
+// MockStateGetUnitEndpointNetworksCall wrap *gomock.Call
+type MockStateGetUnitEndpointNetworksCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitEndpointNetworksCall) Return(arg0 []network0.UnitNetwork, arg1 error) *MockStateGetUnitEndpointNetworksCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitEndpointNetworksCall) Do(f func(context.Context, string, []string, bool) ([]network0.UnitNetwork, error)) *MockStateGetUnitEndpointNetworksCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitEndpointNetworksCall) DoAndReturn(f func(context.Context, string, []string, bool) ([]network0.UnitNetwork, error)) *MockStateGetUnitEndpointNetworksCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1174,6 +1135,45 @@ func (c *MockStateImportLinkLayerDevicesCall) Do(f func(context.Context, []inter
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateImportLinkLayerDevicesCall) DoAndReturn(f func(context.Context, []internal.ImportLinkLayerDevice) error) *MockStateImportLinkLayerDevicesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// IsCaasUnit mocks base method.
+func (m *MockState) IsCaasUnit(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsCaasUnit", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsCaasUnit indicates an expected call of IsCaasUnit.
+func (mr *MockStateMockRecorder) IsCaasUnit(arg0, arg1 any) *MockStateIsCaasUnitCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsCaasUnit", reflect.TypeOf((*MockState)(nil).IsCaasUnit), arg0, arg1)
+	return &MockStateIsCaasUnitCall{Call: call}
+}
+
+// MockStateIsCaasUnitCall wrap *gomock.Call
+type MockStateIsCaasUnitCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateIsCaasUnitCall) Return(arg0 bool, arg1 error) *MockStateIsCaasUnitCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateIsCaasUnitCall) Do(f func(context.Context, string) (bool, error)) *MockStateIsCaasUnitCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateIsCaasUnitCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockStateIsCaasUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
