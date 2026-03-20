@@ -193,6 +193,54 @@ func (s *infoSuite) TestGetUnitEndpointNetworksNoAddresses(c *tc.C) {
 	}})
 }
 
+func (s *infoSuite) TestGetUnitEndpointNetworksExcludesVethFromIngress(c *tc.C) {
+	// Arrange
+	nodeUUID := s.addNetNode(c)
+	ethDeviceUUID := s.addLinkLayerDevice(c, nodeUUID, "eth0",
+		"00:11:22:33:44:55", corenetwork.EthernetDevice)
+	vethDeviceUUID := s.addLinkLayerDevice(c, nodeUUID, "veth0",
+		"00:11:22:33:44:66", corenetwork.VirtualEthernetDevice)
+	spaceUUID := corenetwork.AlphaSpaceId.String()
+	subnetUUID := s.addSubnet(c, "10.0.0.0/24", spaceUUID)
+
+	s.addIPAddressWithSubnetAndScope(c, ethDeviceUUID, nodeUUID, subnetUUID,
+		"10.0.0.1", corenetwork.ScopeCloudLocal)
+	s.addIPAddressWithSubnetAndScope(c, vethDeviceUUID, nodeUUID, subnetUUID,
+		"10.0.0.2", corenetwork.ScopeCloudLocal)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	endpointName := "endpoint1"
+	s.addApplicationEndpoint(c, appUUID, charmUUID, endpointName, "")
+
+	// Act
+	networks, err := s.state.GetUnitEndpointNetworks(c.Context(),
+		string(unitUUID), []string{endpointName})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(networks, tc.HasLen, 1)
+	c.Assert(networks[0].IngressAddresses, tc.DeepEquals, []string{"10.0.0.1"})
+
+	devices := transform.SliceToMap(networks[0].DeviceInfos,
+		func(d network.DeviceInfo) (string, network.DeviceInfo) {
+			return d.Name, d
+		})
+	c.Assert(devices, tc.HasLen, 2)
+	c.Check(devices["eth0"].Addresses, tc.DeepEquals, []network.AddressInfo{{
+		Hostname: "10.0.0.1",
+		Value:    "10.0.0.1",
+		CIDR:     "10.0.0.0/24",
+	}})
+	c.Check(devices["veth0"].Addresses, tc.DeepEquals, []network.AddressInfo{{
+		Hostname: "10.0.0.2",
+		Value:    "10.0.0.2",
+		CIDR:     "10.0.0.0/24",
+	}})
+}
+
 func (s *infoSuite) TestGetUnitNetwork(c *tc.C) {
 	// Arrange
 	nodeUUID := s.addNetNode(c)

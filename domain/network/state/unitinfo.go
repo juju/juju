@@ -120,7 +120,8 @@ func buildUnitNetworkFromAddresses(addresses []unitAddress, isCaas bool) domainn
 				CIDR:     addr.AddressCIDR(),
 			})
 		}
-		if !isCaas || addr.Scope != network.ScopeMachineLocal {
+		if (!isCaas || addr.Scope != network.ScopeMachineLocal) &&
+			addr.DeviceType != network.VirtualEthernetDevice.String() {
 			ingressAddresses = append(ingressAddresses, addr.SpaceAddress)
 		}
 
@@ -244,8 +245,9 @@ func (st *State) getAllUnitAddresses(
 	type InSpaceAddress spaceAddress
 	type allUnitAddressWithDevice struct {
 		InSpaceAddress
-		Device string `db:"name"`
-		MAC    string `db:"mac_address"`
+		Device     string `db:"name"`
+		MAC        string `db:"mac_address"`
+		DeviceType string `db:"device_type"`
 	}
 
 	var address []allUnitAddressWithDevice
@@ -253,7 +255,11 @@ func (st *State) getAllUnitAddresses(
 	stmt, err := st.Prepare(`
 SELECT &allUnitAddressWithDevice.*
 FROM   v_all_unit_address AS ua
-JOIN   link_layer_device AS lld ON ua.device_uuid = lld.uuid
+JOIN (
+	SELECT lld.uuid, lld.name, lld.mac_address, lldt.name AS device_type
+	FROM   link_layer_device AS lld
+	JOIN   link_layer_device_type AS lldt ON lld.device_type_id = lldt.id
+) AS lld ON ua.device_uuid = lld.uuid
 WHERE  ua.unit_uuid = $entityUUID.uuid
 `, allUnitAddressWithDevice{}, entityUUID{})
 	if err != nil {
@@ -277,6 +283,7 @@ WHERE  ua.unit_uuid = $entityUUID.uuid
 			SpaceAddress: encodedIP,
 			Device:       f.Device,
 			MAC:          f.MAC,
+			DeviceType:   f.DeviceType,
 		}, err
 	})
 }
@@ -297,8 +304,9 @@ func (st *State) getAllUnitAddressesInSpaces(
 	type InSpaceAddress spaceAddress
 	type spaceAddressWithDevice struct {
 		InSpaceAddress
-		Device string `db:"name"`
-		MAC    string `db:"mac_address"`
+		Device     string `db:"name"`
+		MAC        string `db:"mac_address"`
+		DeviceType string `db:"device_type"`
 	}
 
 	var address []spaceAddressWithDevice
@@ -306,7 +314,11 @@ func (st *State) getAllUnitAddressesInSpaces(
 	stmt, err := st.Prepare(`
 SELECT &spaceAddressWithDevice.*
 FROM   v_all_unit_address AS ua
-JOIN   link_layer_device AS lld ON ua.device_uuid = lld.uuid
+JOIN (
+	SELECT lld.uuid, lld.name, lld.mac_address, lldt.name AS device_type
+	FROM   link_layer_device AS lld
+	JOIN   link_layer_device_type AS lldt ON lld.device_type_id = lldt.id
+) AS lld ON ua.device_uuid = lld.uuid
 WHERE  ua.unit_uuid = $entityUUID.uuid
 AND    space_uuid IN ($uuids[:])
 `, spaceAddressWithDevice{}, entityUUID{}, uuids{})
@@ -330,6 +342,7 @@ AND    space_uuid IN ($uuids[:])
 			SpaceAddress: encodedIP,
 			Device:       f.Device,
 			MAC:          f.MAC,
+			DeviceType:   f.DeviceType,
 		}, err
 	})
 }
@@ -370,6 +383,7 @@ WHERE  u.uuid = $entityUUID.uuid`, entityUUID{})
 // including additional information like device and MAC.
 type unitAddress struct {
 	network.SpaceAddress
-	Device string
-	MAC    string
+	Device     string
+	MAC        string
+	DeviceType string
 }
