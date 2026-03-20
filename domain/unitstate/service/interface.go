@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/domain/unitstate/internal"
 )
@@ -21,6 +22,11 @@ type CommitHookState interface {
 	// CommitHookChanges persists a set of changes after a hook successfully
 	// completes and executes them in a single transaction.
 	CommitHookChanges(ctx context.Context, arg internal.CommitHookChangesArg) error
+
+	// GetUnitUUIDByName returns the UUID for the named unit, returning an
+	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
+	// exist.
+	GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (coreunit.UUID, error)
 }
 
 // UnitStateState defines a persistence layer interface for retrieving

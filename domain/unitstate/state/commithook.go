@@ -23,11 +23,6 @@ func (st *State) CommitHookChanges(ctx context.Context, arg internal.CommitHookC
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		unit, err := st.getUnitUUIDForName(ctx, tx, arg.UnitName)
-		if err != nil {
-			return errors.Errorf("get unit uuid: %v", err)
-		}
-
 		if err := st.updateNetworkInfo(ctx, tx, arg.UpdateNetworkInfo); err != nil {
 			return errors.Errorf("update network info: %v", err)
 		}
@@ -36,11 +31,11 @@ func (st *State) CommitHookChanges(ctx context.Context, arg internal.CommitHookC
 			return errors.Errorf("update relation settings: %v", err)
 		}
 
-		if err := st.updateUnitPorts(ctx, tx, unit.UUID, arg.OpenPorts, arg.ClosePorts); err != nil {
+		if err := st.updateUnitPorts(ctx, tx, arg.UnitUUID.String(), arg.OpenPorts, arg.ClosePorts); err != nil {
 			return errors.Errorf("update ports: %v", err)
 		}
 
-		if err := st.updateCharmState(ctx, tx, unit, arg.CharmState); err != nil {
+		if err := st.updateCharmState(ctx, tx, unitUUID{UUID: arg.UnitUUID.String()}, arg.CharmState); err != nil {
 			return errors.Errorf("update charm state: %v", err)
 		}
 
