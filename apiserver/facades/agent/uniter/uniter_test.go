@@ -1668,8 +1668,10 @@ func (s *uniterv19Suite) SetUpTest(c *tc.C) {
 
 		s.uniter = &UniterAPIv19{
 			UniterAPIv20: &UniterAPIv20{
-				UniterAPI: &UniterAPI{
-					watcherRegistry: s.watcherRegistry,
+				UniterAPIv21: &UniterAPIv21{
+					UniterAPI: &UniterAPI{
+						watcherRegistry: s.watcherRegistry,
+					},
 				},
 			},
 		}
@@ -1694,10 +1696,12 @@ func (s *uniterv20Suite) SetUpTest(c *tc.C) {
 		s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("watcher1", nil).AnyTimes()
 
 		s.uniter = &UniterAPIv20{
-			UniterAPI: &UniterAPI{
-				modelUUID:       tc.Must(c, coremodel.NewUUID),
-				modelType:       coremodel.IAAS,
-				watcherRegistry: s.watcherRegistry,
+			UniterAPIv21: &UniterAPIv21{
+				UniterAPI: &UniterAPI{
+					modelUUID:       tc.Must(c, coremodel.NewUUID),
+					modelType:       coremodel.IAAS,
+					watcherRegistry: s.watcherRegistry,
+				},
 			},
 		}
 
@@ -2459,6 +2463,8 @@ func (s *uniterRelationSuite) TestRelationStatus(c *tc.C) {
 // TestRelationsStatusUnitTagNotUnitNorApplication test that a valid tag not of
 // the type application nor unit fails with unauthorized.
 func (s *uniterRelationSuite) TestRelationsStatusUnitTagNotUnitNorApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// act
 	args := params.Entities{Entities: []params.Entity{{Tag: "machine-0"}}}
 	result, err := s.uniter.RelationsStatus(c.Context(), args)
@@ -2472,6 +2478,8 @@ func (s *uniterRelationSuite) TestRelationsStatusUnitTagNotUnitNorApplication(c 
 // TestRelationsStatusUnitTagCannotAccess tests that a valid unit tag which is not
 // the authorized one will fail.
 func (s *uniterRelationSuite) TestRelationsStatusUnitTagCannotAccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// act
 	args := params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}}
 	result, err := s.uniter.RelationsStatus(c.Context(), args)
@@ -2871,7 +2879,7 @@ func (s *uniterRelationSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.relationService = nil
 		s.statusService = nil
 		s.watcherRegistry = nil
-
+		s.uniter = nil
 	})
 	return ctrl
 }
