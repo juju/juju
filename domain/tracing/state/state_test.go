@@ -36,3 +36,32 @@ func (s *stateSuite) TestSetTracingConfig(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(tracingConfigFromDB, tc.DeepEquals, expectedTracingConfig)
 }
+
+func (s *stateSuite) TestSetTracingConfigWithDeletion(c *tc.C) {
+	state := NewState(s.TxnRunnerFactory())
+
+	tracingConfig := map[string]string{
+		"one-key":   "one-value",
+		"two-key":   "two-value",
+		"three-key": "three-value",
+	}
+	err := state.SetTracingConfig(c.Context(), tracingConfig, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	tracingConfig = map[string]string{
+		"four-key": "four-value",
+	}
+	deletionKeys := []string{"two-key", "three-key"}
+
+	err = state.SetTracingConfig(c.Context(), tracingConfig, deletionKeys)
+	c.Assert(err, tc.ErrorIsNil)
+
+	expectedTracingConfig := map[string]string{
+		"one-key":  "one-value",
+		"four-key": "four-value",
+	}
+
+	tracingConfigFromDB, err := state.GetTracingConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(tracingConfigFromDB, tc.DeepEquals, expectedTracingConfig)
+}
