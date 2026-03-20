@@ -79,8 +79,13 @@ func (s *ProviderService) GetUnitEndpointNetworks(
 		return nil, internalerrors.Errorf("checking provider networking support: %w", err)
 	}
 
+	isCaas, err := s.st.IsCaasUnit(ctx, unitUUID.String())
+	if err != nil {
+		return nil, internalerrors.Errorf("checking if unit is caas: %w", err)
+	}
+
 	if !supportsNetworking {
-		info, err := s.st.GetUnitNetwork(ctx, unitUUID.String())
+		info, err := s.st.GetUnitNetwork(ctx, unitUUID.String(), isCaas)
 		if err != nil {
 			return nil, internalerrors.Errorf("getting unit network: %w", err)
 		}
@@ -93,7 +98,12 @@ func (s *ProviderService) GetUnitEndpointNetworks(
 		return infos, nil
 	}
 
-	result, err := s.st.GetUnitEndpointNetworks(ctx, unitUUID.String(), endpointNames)
+	result, err := s.st.GetUnitEndpointNetworks(
+		ctx,
+		unitUUID.String(),
+		endpointNames,
+		isCaas,
+	)
 	if err != nil {
 		return nil, internalerrors.Errorf("getting unit endpoint networks: %w", err)
 	}

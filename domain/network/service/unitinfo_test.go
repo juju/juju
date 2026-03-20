@@ -95,7 +95,8 @@ func (s *infoSuite) TestGetUnitEndpointNetworks(c *tc.C) {
 	}
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
-	s.st.EXPECT().GetUnitEndpointNetworks(gomock.Any(), unitUUID.String(), endpointNames).Return(expectedInfos, nil)
+	s.st.EXPECT().IsCaasUnit(gomock.Any(), unitUUID.String()).Return(false, nil)
+	s.st.EXPECT().GetUnitEndpointNetworks(gomock.Any(), unitUUID.String(), endpointNames, false).Return(expectedInfos, nil)
 
 	service := NewProviderService(s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c))
 	infos, err := service.GetUnitEndpointNetworks(c.Context(), unitName, endpointNames)
@@ -123,12 +124,26 @@ func (s *infoSuite) TestGetUnitEndpointNetworksStateError(c *tc.C) {
 	endpointNames := []string{"db"}
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
-	s.st.EXPECT().GetUnitEndpointNetworks(gomock.Any(), unitUUID.String(), endpointNames).Return(nil,
-		errors.New("state error"))
+	s.st.EXPECT().IsCaasUnit(gomock.Any(), unitUUID.String()).Return(true, nil)
+	s.st.EXPECT().GetUnitEndpointNetworks(gomock.Any(), unitUUID.String(), endpointNames, true).Return(nil, errors.New("state error"))
 
 	service := NewProviderService(s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c))
 	_, err := service.GetUnitEndpointNetworks(c.Context(), unitName, endpointNames)
 	c.Assert(err, tc.ErrorMatches, "getting unit endpoint networks: state error")
+}
+
+func (s *infoSuite) TestGetUnitEndpointNetworksIsCaasUnitError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("mysql/0")
+	unitUUID := coreunit.UUID("unit-uuid-123")
+
+	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.st.EXPECT().IsCaasUnit(gomock.Any(), unitUUID.String()).Return(false, errors.New("boom"))
+
+	service := NewProviderService(s.st, s.networkProviderGetter, nil, loggertesting.WrapCheckLog(c))
+	_, err := service.GetUnitEndpointNetworks(c.Context(), unitName, []string{"db"})
+	c.Assert(err, tc.ErrorMatches, "checking if unit is caas: boom")
 }
 
 func (s *infoSuite) TestGetUnitEndpointNetworksNotSupportedUsesUnitNetwork(c *tc.C) {
@@ -146,7 +161,8 @@ func (s *infoSuite) TestGetUnitEndpointNetworksNotSupportedUsesUnitNetwork(c *tc
 	}
 
 	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
-	s.st.EXPECT().GetUnitNetwork(gomock.Any(), unitUUID.String()).Return(info, nil)
+	s.st.EXPECT().IsCaasUnit(gomock.Any(), unitUUID.String()).Return(false, nil)
+	s.st.EXPECT().GetUnitNetwork(gomock.Any(), unitUUID.String(), false).Return(info, nil)
 
 	service := NewProviderService(s.st, s.notSupportedProviderGetter, nil, loggertesting.WrapCheckLog(c))
 	infos, err := service.GetUnitEndpointNetworks(c.Context(), unitName, endpointNames)

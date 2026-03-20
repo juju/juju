@@ -163,6 +163,9 @@ type NetConfigState interface {
 // NetworkInfoState defines a persistence layer interface for retrieving
 // network relationship details.
 type NetworkInfoState interface {
+	// IsCaasUnit returns whether the specified unit is backed by a
+	// Kubernetes service.
+	IsCaasUnit(ctx context.Context, unitUUID string) (bool, error)
 
 	// GetUnitEndpointNetworks retrieves network relationship details for a
 	// specified unit and its given endpoints.
@@ -170,11 +173,20 @@ type NetworkInfoState interface {
 	// with no guaranteed order.
 	// Returns if retrieval fails, or an empty list if the unit is not found or
 	// endpoints are inconsistent.
-	GetUnitEndpointNetworks(ctx context.Context, unitUUID string, endpointNames []string) ([]domainnetwork.UnitNetwork, error)
+	GetUnitEndpointNetworks(
+		ctx context.Context,
+		unitUUID string,
+		endpointNames []string,
+		isCaas bool,
+	) ([]domainnetwork.UnitNetwork, error)
 
 	// GetUnitNetwork retrieves network information for the specified unit by
 	// selecting the best candidate from *all* unit addresses.
 	// This is used on providers that do not support spaces, and therefore can
 	// not factor endpoint bindings.
-	GetUnitNetwork(ctx context.Context, unitUUID string) (domainnetwork.UnitNetwork, error)
+	GetUnitNetwork(
+		ctx context.Context,
+		unitUUID string,
+		isCaas bool,
+	) (domainnetwork.UnitNetwork, error)
 }

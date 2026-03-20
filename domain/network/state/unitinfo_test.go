@@ -43,7 +43,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworks(c *tc.C) {
 	s.addApplicationEndpoint(c, appUUID, charmUUID, endpointName, "")
 
 	// Act
-	networks, err := s.state.GetUnitEndpointNetworks(c.Context(), string(unitUUID), []string{endpointName})
+	networks, err := s.state.GetUnitEndpointNetworks(c.Context(), string(unitUUID), []string{endpointName}, false)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -84,7 +84,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworksMultipleEndpoints(c *tc.C) {
 	s.addApplicationEndpoint(c, appUUID, charmUUID, "endpoint2", space2UUID)
 
 	// Act
-	networks, err := s.state.GetUnitEndpointNetworks(c.Context(), string(unitUUID), []string{"endpoint1", "endpoint2"})
+	networks, err := s.state.GetUnitEndpointNetworks(c.Context(), string(unitUUID), []string{"endpoint1", "endpoint2"}, false)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -143,7 +143,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworksCaasUnit(c *tc.C) {
 	s.addApplicationEndpoint(c, appUUID, charmUUID, endpointName, spaceUUID)
 
 	// Act
-	networks, err := s.state.GetUnitEndpointNetworks(c.Context(), string(unitUUID), []string{endpointName})
+	networks, err := s.state.GetUnitEndpointNetworks(c.Context(), string(unitUUID), []string{endpointName}, true)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -183,7 +183,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworksNoAddresses(c *tc.C) {
 	s.addApplicationEndpoint(c, appUUID, charmUUID, endpointName, spaceUUID)
 
 	// Act
-	networks, err := s.state.GetUnitEndpointNetworks(c.Context(), string(unitUUID), []string{endpointName})
+	networks, err := s.state.GetUnitEndpointNetworks(c.Context(), string(unitUUID), []string{endpointName}, false)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -217,7 +217,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworksExcludesVethFromIngress(c *tc.C) 
 
 	// Act
 	networks, err := s.state.GetUnitEndpointNetworks(c.Context(),
-		string(unitUUID), []string{endpointName})
+		string(unitUUID), []string{endpointName}, false)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -256,7 +256,7 @@ func (s *infoSuite) TestGetUnitNetwork(c *tc.C) {
 	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
 
 	// Act
-	info, err := s.state.GetUnitNetwork(c.Context(), string(unitUUID))
+	info, err := s.state.GetUnitNetwork(c.Context(), string(unitUUID), false)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -296,7 +296,7 @@ func (s *infoSuite) TestGetUnitNetworkCaasUnit(c *tc.C) {
 	s.addK8sService(c, svcNodeUUID, appUUID)
 
 	// Act
-	info, err := s.state.GetUnitNetwork(c.Context(), string(unitUUID))
+	info, err := s.state.GetUnitNetwork(c.Context(), string(unitUUID), true)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -429,9 +429,9 @@ func (s *infoSuite) TestIsCaasUnit(c *tc.C) {
 	s.addK8sService(c, svcNodeUUID, caasAppUUID)
 
 	// Act - Check both Caas and Iaas Apps
-	isCaasIaaS, err := s.state.isCaasUnit(c.Context(), string(iaasUnitUUID))
+	isCaasIaaS, err := s.state.IsCaasUnit(c.Context(), string(iaasUnitUUID))
 	c.Assert(err, tc.ErrorIsNil)
-	isCaasCaas, err := s.state.isCaasUnit(c.Context(), string(caasUnitUUID))
+	isCaasCaas, err := s.state.IsCaasUnit(c.Context(), string(caasUnitUUID))
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Assert
@@ -577,7 +577,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworksWithEgressSubnets(c *tc.C) {
 	s.addRelationNetworkEgress(c, relationUUID, "192.168.2.0/24")
 
 	// Act
-	networks, err := s.state.GetUnitEndpointNetworks(c.Context(), string(unitUUID), []string{endpointName})
+	networks, err := s.state.GetUnitEndpointNetworks(c.Context(), string(unitUUID), []string{endpointName}, false)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -621,7 +621,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworksIgnoresLoopbackAddresses(c *tc.C)
 	s.addApplicationEndpoint(c, appUUID, charmUUID, endpointName, "")
 
 	// Act
-	networks, err := s.state.GetUnitEndpointNetworks(c.Context(), string(unitUUID), []string{endpointName})
+	networks, err := s.state.GetUnitEndpointNetworks(c.Context(), string(unitUUID), []string{endpointName}, false)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -664,7 +664,7 @@ func (s *infoSuite) TestGetUnitEndpointNetworksOnlyLoopbackIgnored(c *tc.C) {
 	s.addApplicationEndpoint(c, appUUID, charmUUID, endpointName, "")
 
 	// Act
-	networks, err := s.state.GetUnitEndpointNetworks(c.Context(), string(unitUUID), []string{endpointName})
+	networks, err := s.state.GetUnitEndpointNetworks(c.Context(), string(unitUUID), []string{endpointName}, false)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)

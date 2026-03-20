@@ -20,7 +20,7 @@ import (
 // GetUnitEndpointNetworks retrieves network information for the specified unit
 // and endpoints, including device and ingress details.
 func (st *State) GetUnitEndpointNetworks(ctx context.Context, unitUUID string,
-	endpointNames []string) ([]domainnetwork.UnitNetwork, error) {
+	endpointNames []string, isCaas bool) ([]domainnetwork.UnitNetwork, error) {
 
 	// Determine the set of unique spaces to which the endpoints are bound.
 	spaces, err := st.getAllSpacesForEndpoints(ctx, unitUUID, endpointNames)
@@ -38,10 +38,6 @@ func (st *State) GetUnitEndpointNetworks(ctx context.Context, unitUUID string,
 		return nil, errors.Errorf("getting all unit addresses in spaces: %w", err)
 	}
 
-	isCaas, err := st.isCaasUnit(ctx, unitUUID)
-	if err != nil {
-		return nil, errors.Errorf("checking if unit is caas: %w", err)
-	}
 	addressesBySpace, _ := accumulateToMap(addresses, func(address unitAddress) (string, unitAddress, error) {
 		return address.SpaceID.String(), address, nil
 	})
@@ -78,12 +74,7 @@ func (st *State) GetUnitEndpointNetworks(ctx context.Context, unitUUID string,
 // selecting the best candidate from *all* unit addresses.
 // This is used on providers that do not support spaces, and therefore can
 // not factor endpoint bindings.
-func (st *State) GetUnitNetwork(ctx context.Context, unitUUID string) (domainnetwork.UnitNetwork, error) {
-	isCaas, err := st.isCaasUnit(ctx, unitUUID)
-	if err != nil {
-		return domainnetwork.UnitNetwork{}, errors.Errorf("checking if unit is caas: %w", err)
-	}
-
+func (st *State) GetUnitNetwork(ctx context.Context, unitUUID string, isCaas bool) (domainnetwork.UnitNetwork, error) {
 	addresses, err := st.getAllUnitAddresses(ctx, unitUUID)
 	if err != nil {
 		return domainnetwork.UnitNetwork{}, errors.Errorf("getting all unit addresses: %w", err)
@@ -347,9 +338,9 @@ AND    space_uuid IN ($uuids[:])
 	})
 }
 
-// isCaasUnit determines if a unit identified by the given UUID is tied to a
+// IsCaasUnit determines if a unit identified by the given UUID is tied to a
 // Kubernetes service.
-func (st *State) isCaasUnit(ctx context.Context, uuid string) (bool, error) {
+func (st *State) IsCaasUnit(ctx context.Context, uuid string) (bool, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
