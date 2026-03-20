@@ -74,6 +74,7 @@ jobs:
         shell: bash
         run: |
           cd tests
+          mkdir -p artifacts
           export MODEL_ARCH=$(go env GOARCH)
           export BOOTSTRAP_ADDITIONAL_ARGS="--model-default enable-os-upgrade=false"
           ./main.sh -v -a artifacts/output.tar.gz -x output.txt cli
