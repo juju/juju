@@ -76,7 +76,7 @@ Point readers to related packages (zoom-out) and sections below (zoom-in). Use g
 ```
 
 ### Additional Sections (Optional)
-Add sections only for package-level patterns. Use ASCII diagrams for state machines or workflows (70 character width max).
+Add sections only for package-level patterns. Use ASCII diagrams for state machines or workflows.
 
 ## Writing Guidelines
 
@@ -112,4 +112,4 @@ Before finalizing a doc.go file:
 
 3. **Check sections**: Each section describes patterns spanning multiple types/functions, not individual type behavior.
 
-4. **Consider ASCII diagrams**: For state transitions, sequences, or workflows, add ASCII diagrams (70 char width max).
+4. **Consider ASCII diagrams**: For state transitions, sequences, or workflows, add ASCII diagrams.
