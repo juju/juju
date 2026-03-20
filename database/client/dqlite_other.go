@@ -7,12 +7,31 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
 	"net"
+
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/database/dqlite"
 )
 
 type Client struct{}
+
+type DialFunc func(context.Context, string) (net.Conn, error)
+
+// DefaultDialFunc is the default dial function, which can handle plain TCP and
+// Unix socket endpoints. You can customize it with WithDialFunc()
+func DefaultDialFunc(ctx context.Context, address string) (net.Conn, error) {
+	return nil, errors.Errorf("dqlite is not available")
+}
+
+// DialFuncWithTLS returns a dial function that uses TLS encryption.
+//
+// The given dial function will be used to establish the network connection,
+// and the given TLS config will be used for encryption.
+func DialFuncWithTLS(dial DialFunc, config *tls.Config) DialFunc {
+	return nil
+}
 
 func (c *Client) Cluster(context.Context) ([]dqlite.NodeInfo, error) {
 	return nil, nil
@@ -22,6 +41,24 @@ func (c *Client) Cluster(context.Context) ([]dqlite.NodeInfo, error) {
 func (c *Client) Leader(ctx context.Context) (*dqlite.NodeInfo, error) {
 	return nil, nil
 }
+
+// FindLeader returns no leader and no error, as dqlite is not available.
+func FindLeader(ctx context.Context, store NodeStore, opts ...Option) (*Client, error) {
+	return nil, nil
+}
+
+// WithDialFunc sets a custom dial function for creating the client network
+// connection.
+func WithDialFunc(dial DialFunc) Option {
+	return Option{}
+}
+
+type NodeStore interface {
+	Get(context.Context) ([]dqlite.NodeInfo, error)
+	Set(context.Context, []dqlite.NodeInfo) error
+}
+
+type Option struct{}
 
 type YamlNodeStore struct {
 }
@@ -67,5 +104,3 @@ func (l LogLevel) String() string {
 		return "UNKNOWN"
 	}
 }
-
-type DialFunc func(context.Context, string) (net.Conn, error)
