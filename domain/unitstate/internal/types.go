@@ -7,6 +7,7 @@ import (
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/unitstate"
 )
 
@@ -26,8 +27,8 @@ type RelationSettings struct {
 // CommitHookChangesArg contains data needed to commit a hook change
 // represented by scalar types.
 type CommitHookChangesArg struct {
-	// UnitName is the name of the unit these changes pertain to.
-	UnitName string
+	// UnitUUID is the uuid of the unit these changes pertain to.
+	UnitUUID unit.UUID
 
 	// UpdateNetworkInfo indicates that the relation network settings
 	// should be updated for this unit.
@@ -73,9 +74,9 @@ type CommitHookChangesArg struct {
 
 // TransformCommitHookChangesArg takes a domain package CommitHookChangesArg
 // struct and return an internal package CommitHookChangesArg struct.
-func TransformCommitHookChangesArg(in unitstate.CommitHookChangesArg) CommitHookChangesArg {
+func TransformCommitHookChangesArg(in unitstate.CommitHookChangesArg, unitUUID unit.UUID) CommitHookChangesArg {
 	return CommitHookChangesArg{
-		UnitName:          in.UnitName.String(),
+		UnitUUID:          unitUUID,
 		UpdateNetworkInfo: in.UpdateNetworkInfo,
 		RelationSettings: transform.Slice(in.RelationSettings, func(in unitstate.RelationSettings) RelationSettings {
 			return RelationSettings{

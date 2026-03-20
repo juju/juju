@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	unit "github.com/juju/juju/core/unit"
 	unitstate "github.com/juju/juju/domain/unitstate"
 	internal "github.com/juju/juju/domain/unitstate/internal"
 	gomock "go.uber.org/mock/gomock"
@@ -114,6 +115,45 @@ func (c *MockStateGetUnitStateCall) Do(f func(context.Context, string) (unitstat
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetUnitStateCall) DoAndReturn(f func(context.Context, string) (unitstate.RetrievedUnitState, error)) *MockStateGetUnitStateCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitUUIDByName mocks base method.
+func (m *MockState) GetUnitUUIDByName(arg0 context.Context, arg1 unit.Name) (unit.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitUUIDByName", arg0, arg1)
+	ret0, _ := ret[0].(unit.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitUUIDByName indicates an expected call of GetUnitUUIDByName.
+func (mr *MockStateMockRecorder) GetUnitUUIDByName(arg0, arg1 any) *MockStateGetUnitUUIDByNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitUUIDByName", reflect.TypeOf((*MockState)(nil).GetUnitUUIDByName), arg0, arg1)
+	return &MockStateGetUnitUUIDByNameCall{Call: call}
+}
+
+// MockStateGetUnitUUIDByNameCall wrap *gomock.Call
+type MockStateGetUnitUUIDByNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitUUIDByNameCall) Return(arg0 unit.UUID, arg1 error) *MockStateGetUnitUUIDByNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitUUIDByNameCall) Do(f func(context.Context, unit.Name) (unit.UUID, error)) *MockStateGetUnitUUIDByNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitUUIDByNameCall) DoAndReturn(f func(context.Context, unit.Name) (unit.UUID, error)) *MockStateGetUnitUUIDByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

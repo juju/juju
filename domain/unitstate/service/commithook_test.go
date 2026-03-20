@@ -10,6 +10,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	corerelation "github.com/juju/juju/core/relation"
+	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/domain/unitstate/internal"
@@ -50,7 +51,9 @@ func (s *commitHookSuite) TestCommitHookChangesNoLeadership(c *tc.C) {
 			Settings:     map[string]string{"key": "value"},
 		}},
 	}
-	s.st.EXPECT().CommitHookChanges(c.Context(), internal.TransformCommitHookChangesArg(arg)).Return(nil)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	s.st.EXPECT().GetUnitUUIDByName(c.Context(), arg.UnitName).Return(unitUUID, nil)
+	s.st.EXPECT().CommitHookChanges(c.Context(), internal.TransformCommitHookChangesArg(arg, unitUUID)).Return(nil)
 
 	// Act
 	svc := NewLeadershipService(s.st, s.leadershipEnsurer, loggertesting.WrapCheckLog(c))
@@ -70,6 +73,8 @@ func (s *commitHookSuite) TestCommitHookChangesLeadership(c *tc.C) {
 			ApplicationSettings: map[string]string{"key": "value"},
 		}},
 	}
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	s.st.EXPECT().GetUnitUUIDByName(c.Context(), arg.UnitName).Return(unitUUID, nil)
 	s.leadershipEnsurer.EXPECT().WithLeader(c.Context(), "test", "test/0", gomock.Any()).Return(nil)
 
 	// Act

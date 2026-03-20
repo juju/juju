@@ -25,12 +25,17 @@ func (s *LeadershipService) CommitHookChanges(ctx context.Context, arg unitstate
 		return nil
 	}
 
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, arg.UnitName)
+	if err != nil {
+		return err
+	}
+
 	withCaveat, err := s.getManagementCaveat(arg)
 	if err != nil {
 		return err
 	}
 	return withCaveat(ctx, func(innerCtx context.Context) error {
-		return s.st.CommitHookChanges(innerCtx, internal.TransformCommitHookChangesArg(arg))
+		return s.st.CommitHookChanges(innerCtx, internal.TransformCommitHookChangesArg(arg, unitUUID))
 	})
 }
 
