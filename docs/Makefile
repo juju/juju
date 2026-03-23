@@ -89,14 +89,18 @@ run: install convert-excalidraw-to-svg
 	. $(VENV); $(VENVDIR)/bin/sphinx-autobuild -b dirhtml --host $(SPHINX_HOST) --port $(SPHINX_PORT) \
 	 --pre-build "bash scripts/convert-excalidraw-to-svg-recursively.sh" \
 	 --pre-build "python3 scripts/autogenerate-docs.py" \
-	 --post-build "sh -c 'test -f $(BUILDDIR)/llms.txt && python3 scripts/fix_llms_txt_urls.py $(BUILDDIR)/llms.txt || true'" \
+	 --post-build "sh -c 'if [ -f $(BUILDDIR)/llms.txt ]; then python3 scripts/fix_llms_txt_urls.py $(BUILDDIR)/llms.txt; else echo \"No llms.txt file found, skipping URL conversion\"; fi'" \
 	 "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS)
 
 # Does not depend on $(BUILDDIR) to rebuild properly at every run.
 html: install convert-excalidraw-to-svg
 	. $(VENV); $(SPHINXBUILD) --keep-going -b dirhtml "$(SOURCEDIR)" "$(BUILDDIR)" -w $(SPHINXDIR)/warnings.txt $(SPHINXOPTS)
 	@echo "Post-processing llms.txt to use absolute URLs..."
-	@test -f "$(BUILDDIR)/llms.txt" && python3 scripts/fix_llms_txt_urls.py "$(BUILDDIR)/llms.txt" || echo "No llms.txt file found, skipping URL conversion"
+	@if [ -f "$(BUILDDIR)/llms.txt" ]; then \
+		python3 scripts/fix_llms_txt_urls.py "$(BUILDDIR)/llms.txt"; \
+	else \
+		echo "No llms.txt file found, skipping URL conversion"; \
+	fi
 
 epub: install
 	. $(VENV); $(SPHINXBUILD) -b epub "$(SOURCEDIR)" "$(BUILDDIR)" -w $(SPHINXDIR)/warnings.txt $(SPHINXOPTS)

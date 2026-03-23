@@ -62,19 +62,19 @@ def convert_llms_txt_to_absolute_urls(file_path, base_url):
         title = match.group(1)
         rel_path = match.group(2)
 
+        # Skip if URL is already absolute
+        if rel_path.startswith(('http://', 'https://', '/')):
+            return match.group(0)  # Return unchanged
+
         # Convert .md path to absolute URL
-        if rel_path.endswith('.md'):
-            url_path = rel_path[:-3]  # Remove .md extension
-            if url_path == 'index':
-                absolute_url = base_url
-            else:
-                absolute_url = base_url + url_path + '/'
+        url_path = rel_path[:-3]  # Remove .md extension
+        if url_path == 'index':
+            absolute_url = base_url
         else:
-            # If no .md extension, keep as is
-            absolute_url = base_url + rel_path + '/'
-
+            absolute_url = base_url + url_path + '/'
+        
         return f'[{title}]({absolute_url})'
-
+    
     # Replace all markdown links with relative paths
     # Pattern matches: [Title](path.md) or [Title](path/to/file.md)
     pattern = r'\[([^\]]+)\]\(([^)]+\.md)\)'
