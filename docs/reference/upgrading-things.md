@@ -9,8 +9,6 @@ myst:
 ```{ibnote}
 See also: {ref}`upgrade-your-deployment`
 ```
-<!--TODO Revisit. We might not need this doc in this form anymore.-->
-
 
 In Juju, upgrades can happen at the level of the `juju` CLI client, the controller, the model, the application, and the machine.
 
@@ -38,7 +36,6 @@ Upgrades to the client, the controller, and the model are typically related: You
    you need to bootstrap a new controller, migrate your models to it, and then run `upgrade-model`. (This is because upgrades are risky, and model migration is a relatively safer way to upgrade than upgrading in place.) It is also important to pay attention to the allowed upgrade paths -- for example, to update from `juju v2.2` to `juju v3.0`, one must first upgrade the client, controller, and model to `juju v2.9` and then perform a second upgrade to `juju v3.0`.
 
 Application upgrades and machine upgrades are usually completely independent of this and of each other -- the former concerns the version of a charm and the latter the version of Ubuntu running on a machine. The only exception (relevant for upgrades to `3.0`) is when you upgrade across versions where the, e.g., a new controller has dropped support for, e.g., base (OS, series) required by some charm. In that case, before upgrading the controller, you'll want to make sure that all the existing machines (usually already attached to some application) have been upgraded to a supported series (`upgrade-machine`; going away in Juju 4) and also that any new machines provisioned for an application will use a supported series (`refresh <charm>`, `set-application-base <charm> <base>`). See more: {ref}`upgrade-your-deployment`.
-
 
 ## Agent software and related components
 

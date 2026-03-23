@@ -17,7 +17,6 @@ This may include anything from creating a snapshot of a database, adding a user 
 An action is triggered via the {ref}`juju-cli` and applied to one or more {ref}`units <unit>`.
 It is run with parameters supplied by the user and records the success/fail status and any results for subsequent perusal.
 
-
 ```{ibnote}
 See examples: [Charmhub | `kafka` > Actions](https://charmhub.io/kafka/actions), [Charmhub | `prometheus-k8s` > Actions](https://charmhub.io/prometheus-k8s/actions), etc.
 ```
@@ -43,15 +42,6 @@ it is running.
 If the action does use a hook command like `relation-set`, after the action completes successfully, a
 {ref}`relation-changed hook <hook-relation-changed>`  will be emitted afterwards on the affected units.
 ```
-
-<!-- This information should be in Ops docs. It doesn't belong here.
-```{note}
-When implementing an action using [Ops](https://ops.readthedocs.io/en/latest/), any hyphens in action names are replaced with underscores
-in the corresponding event names.
-For example, an action named `snapshot-database` would result in an event named `snapshot_database_action`
-being triggered when the action is invoked.
-```
--->
 
 (action-execution)=
 ## Action execution

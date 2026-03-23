@@ -17,7 +17,6 @@ The purpose of the Manual cloud is to cater to the situation where you have mach
 If this collection of machines is composed solely of bare metal you might opt for a {ref}`MAAS cloud <cloud-maas>`. However, recall that such machines would also require [IPMI hardware](https://docs.maas.io/en/nodes-power-types) and a MAAS infrastructure. In contrast, the Manual cloud can make use of a collection of disparate hardware as well as of machines of varying natures (bare metal or virtual), all without any extra overhead/infrastructure.
 ```
 
-
 When using this cloud with Juju, it is important to keep in mind that it is a (1) machine cloud and (2) not some other cloud.
 
 ```{ibnote}
@@ -25,7 +24,6 @@ See more: {ref}`cloud-differences`
 ```
 
 As the differences related to (1) are already documented generically in the rest of the docs, here we record just those that follow from (2).
-
 
 ## Requirements
 
@@ -71,7 +69,6 @@ See more: https://bugs.launchpad.net/juju/+bug/2030507
 
 With any other cloud, the Juju client can trigger the creation of a backing machine (e.g. a cloud instance) as they become necessary. In addition, the client can also cause charms to be deployed automatically onto those newly-created machines. However, with a Manual cloud the machines must pre-exist and they must also be specifically targeted during charm deployment.
 
-
 (Note: A MAAS cloud must also have pre-existing backing machines. However, Juju, by default, can deploy charms onto those machines, or add a machine to its pool of managed machines, without any extra effort.)
 
 Machines must be added manually, unless they are LXD. Example: <p>  `juju add-machine ssh:bob@10.55.60.93` <br> `juju add-machine lxd -n 2`
@@ -103,7 +100,6 @@ N/A
 | - {ref}`constraint-tags`               | &#10005;                                                                                                         |
 | - {ref}`constraint-virt-type`          | &#10005;                                                                                                         |
 | - {ref}`constraint-zones`              | &#10003;                                                                                                         |
-
 
 ## Supported placement directives
 

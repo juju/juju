@@ -11,8 +11,6 @@ myst:
 
 ### Query profiling
 
-<!-- TODO(gfouillet): do not merge into 4.0, or delete whenever merged (reason: related to mongodb) -->
-
 By default MongoDB's profiler will record queries which took more than 100ms. You can configure this threshold as well
 turning profiling on and off using the db.setProfilingLevel command.
 
@@ -93,7 +91,4 @@ A large amount of useful statistics about a particular collection can be obtaine
 ```
 db.<collection>.stats()
 ```
-
-
-
 

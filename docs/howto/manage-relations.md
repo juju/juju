@@ -13,8 +13,6 @@ See also: {ref}`relation`
 
 ## Add a relation
 
-<!--TODO: Streamline story, e.g.: Suppose you have two applications, `mysql` and `wordpress`. These applications can only be related in one way-->
-
 The procedure differs slightly depending on whether the applications that you want to integrate are on the same model or rather on different models.
 
 ### Add a same-model relation

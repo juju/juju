@@ -56,7 +56,6 @@ Attributes:
 - `project-domain-name`: The OpenStack project domain name. (optional)
 - `user-domain-name`: The OpenStack user domain name. (optional)
 
-
 ## Notes on `juju bootstrap`
 
 You will need to create an OpenStack machine metadata. If the metadata is available locally, you can pass it to Juju via `juju bootstrap ... --metadata-source <path to metadata simplestreams`. <br> > See more: {ref}`manage-metadata`. <p> **If your cloud has multiple private networks:** You will need to specify the one that you want the instances to boot from via `juju bootstrap ... --model-default network=<network uuid or name>`. <p> **If your cloud's topology requires that its instances are accessed via floating IP addresses:** Pass the `allocate-public-ip=true` (see constraints below) as a bootstrap constraint.
@@ -143,7 +142,6 @@ The network label or UUID to bring machines up on when multiple networks exist.
 | - {ref}`placement-directive-subnet`              | &#10005; |
 | - {ref}`placement-directive-system-id`           | &#10005; |
 | - {ref}`placement-directive-zone`                | &#10003; |
-
 
 ## Cloud-specific storage providers
 

@@ -30,7 +30,6 @@ State Pool Report:
 Model count: 1 models
 Marked for removal: 0 models
 
-
 Model: 73e18e39-035a-4ceb-8cd6-dbba16fd9c16
   Marked for removal: false
   Reference count: 3

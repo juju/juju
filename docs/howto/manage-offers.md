@@ -13,35 +13,6 @@ See also: {ref}`offer`
 
 This document shows how to manage offers.
 
-<!--
-This document demonstrates the various steps involved in managing a cross-model integration. The step of adding the integration is the same as for a regular, same-model integration. However, as a cross-model integration may in principle cross controller, cloud, and administrative boundaries, there are additional steps before and after, for making an application accessible from another model, or *offering* it, and for relating to it from the other model, or *consuming* it.
-
-### Central monitoring of model workloads
-Assume that we have a number of models for which we want to collect performance metrics using a common prometheus deployment.
-
-We'll deploy prometheus to one model and offer it.
-``text
-juju switch bigbrother:voyeur
-juju deploy prometheus2
-juju expose prometheus2
-juju offer prometheus2:target offerprom
-``
-In a different model, we'll deploy a workload.
-``text
-juju switch monitorme
-juju deploy ubuntu
-juju deploy telegraf
-juju integrate ubuntu:juju-info telegraf
-``
-Now we'll consume the prometheus offer and integrate our workload with it.
-``text
-juju consume bigbrother:admin/voyeur.offerprom promed
-juju integrate telegraf:prometheus2-client promed:target
-``
-
--->
-
-
 ## Create an offer
 > Who: User with {ref}`offer admin access <user-access-offer-admin>`.
 

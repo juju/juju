@@ -19,7 +19,6 @@ juju-exec [options] [-u] [<unit-name>] <commands>
 
 ### Options
 
-
 ```text
 --force-remote-unit  (= false)
     run the commands for a specific relation context, bypassing the remote unit check

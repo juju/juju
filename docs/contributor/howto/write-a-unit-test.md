@@ -24,11 +24,6 @@ Below is a standard `package_test.go` file for an example package called `magic`
 the standard library and then the `gocheck` package as `gc`. We also create a function `Test` that will be the
 entry-point into our test suites.
 
-<!--?loads the test suites that have been added to a list by var in the "HTG create a test suite"-->
-<!-- // TestingT runs all test suites registered with the Suite function,
-// printing results to stdout, and reporting any failures back to
-// the "testing" package.-->
-
 ```go
 // Copyright 20XX Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
@@ -147,7 +142,6 @@ go test github.com/juju/juju/x/y/magic/ -check.f magicSuite.TestSum # run the te
 See more here [`gocheck` > Selecting which tests to run](https://labix.org/gocheck) .
 [/note]
 
-
 ## Debug a test
 
 If you need to reproduce a failing test but can’t reproduce it easily, use this script: `juju/scripts/unit-test/stress-race.bash`.
@@ -160,7 +154,4 @@ stress you may still need to rsync over the build environment as some tests look
 ```{tip}
 **How many times to run?** It has been noticed that, if the test runs 100 times without failure, things are probably all right.
 ```
-
-
-
 

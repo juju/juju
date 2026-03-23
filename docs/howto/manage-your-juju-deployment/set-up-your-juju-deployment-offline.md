@@ -7,35 +7,6 @@ myst:
 (take-your-deployment-offline)=
 # Set up your Juju deployment - offline
 
-<!--This doc is intended to supersede https://discourse.charmhub.io/t/how-to-work-offline/1072 and the docs linked there.
-
-IMO the doc has roughly the correct skeleton, though we may want to revisit the list of external services and we may want to include suggestions for server and proxy software, as in the now archived https://discourse.charmhub.io/t/offline-mode-strategies/1071.
-
-When all is said and done, though, I feel the perspective still needs to be that of the constructs Juju provides, namely, the model-config keys, as it is that that will dictate whether you should plan to set up a local mirror or a proxy or rather download the resources beforehand.
-
-PS Noticed some of the environment variables don't match what's in the list of model config keys. Does the envvar have to have a particular name, or can it be anything and it is something just by convention? Either way, we need to clarify.
-
-Details:
-
-https://discourse.charmhub.io/t/how-to-configure-juju-for-offline-usage/1068
->> we've incorporated the list of external sites and even added to it, but left out the detail about client-controller-machine and just linked to our ref docs on the bootstrap and deploy process -- though when you compare the list and those docs you realize those docs are missing some detail (cloud-images..., archive-..., and security-..., and container image registry)
->> we've incorporated and cleaned up the examples
-
-https://discourse.charmhub.io/t/offline-mode-strategies/1071
->> This doc mentions a bunch of proxies and local mirrors that should be set, including suggestions for possible proxy software, and then the model-config keys that can be used to configure Juju to use those proxies / local mirrors.  The content duplicates some of the content in https://discourse.charmhub.io/t/how-to-configure-juju-for-offline-usage/1068  -- we've already incorporated all of that. However, we haven't yet incorporated the suggestions for server and proxy software.
-
-
-https://discourse.charmhub.io/t/how-to-deploy-charms-offline/1069
->> This doc is all wrong. The current process would be to download the charms on a machine connected to the internet; move them to an offline machine; deploy locally. There is no mention of this here at all (as we don't support either proxies or mirrors?).
-
-https://discourse.charmhub.io/t/how-to-install-snaps-offline/1179
->> This doc merely illustrates how to use the http-proxy model-config. We now also have more specific snap store proxy keys.
-
-https://discourse.charmhub.io/t/how-to-use-the-localhost-cloud-offline/1070
->> This doc is merely featuring how to use the no-proxy key to exclude the localhost cloud from the list of things that you want to use a proxy.
-
--->
-
 For an offline (to be more precise, proxy-restricted) deployment:
 
 1. Set up a private cloud.
@@ -87,12 +58,6 @@ See more: {ref}`List of supported clouds <list-of-supported-clouds>`
 
 
 Set up an HTTP proxy, export it to an environment variable, then use the `http-proxy` model configuration key to point the client to that value.
-
-<!--
-``` text
-export http_proxy=$PROXY_HTTP
-```
--->
 
 ````
 

@@ -84,14 +84,6 @@ juju switch <controller>:<admin>/<model>
 
 The command also allows you to specify the target controller in an abbreviated form by omitting one or more of the components. However, for important operations, we recommend you specify the model in the unambiguous form shown above.
 
-<!--
-|Ways to change to a model:||
-|--|--|
-|`juju switch foo` | If a controller with name 'foo' exists, then this selects the last used <br> model in that controller. Otherwise, i.e. if there is no controller called 'foo', <br> then the model with name 'foo' in the current controller is selected. |
-|`juju switch :foo` | Selects model 'foo' in the current controller.|
-|`juju switch foo:bar` | Selects model 'bar' in controller 'foo'.|
-|`juju switch foo:` | Selects the last used model in controller 'foo'.
--->
 
 ```{ibnote}
 See more: {ref}`command-juju-switch`
@@ -341,20 +333,6 @@ See more: {ref}`command-juju-model-constraints`
 ```text
 juju disable-command destroy-model ""Check with SA before destruction.""
 ```
-
-<!--
-If a user now attempts to destroy a protected model, they'd encounter an error similar to the following:
-
-```text
-Destroying model
-ERROR cannot destroy model: Check with SA before destruction.
-
-destroy-model operation has been disabled for the current model.
-To enable the command run
-
-    juju enable-command destroy-model
-```
--->
 
 ```{ibnote}
 See more: {ref}`command-juju-disable-command`
@@ -743,8 +721,6 @@ juju controller-config migration-agent-wait-time=30m
 See more: {ref}`controller-config-agent-ratelimit-rate`, {ref}`controller-config-agent-ratelimit-max`, {ref}`controller-config-migration-agent-wait-time`
 ```
 
-<!--(Migration time depends on the complexity of the model, the resources it uses, and the capabilities of the backing cloud.)-->
-
 - **If the model has multiple users:** Ensure that all the users have been set up on the destination controller. The operation will be aborted, and an advisory message displayed, if this is not the case.
 - **If the model contains secrets:** Set up the target controller to use the same secret bank end as the source controller. For example, for a backend called `myvault`, as below. This will ensure that any secrets are correctly migrated with the model.
 
@@ -805,61 +781,6 @@ Inspect the migrated model with the `status` command:
 ```text
 juju status -m <destination-controller>:<model>
 ```
-
-
-
-<!-- MIGRATING LARGE MODELS:
-When a model is migrated, the agents running for each machine and unit need to reestablish a connection to the new controller. If the model is large, it may be that the number and frequency of incoming connections is enough to overload the controller. There are 2 controller config settings which can be used to throttle the agent reconnection rate.
-
-* agent-ratelimit-max - the number of agents allowed to connect before rate limiting kicks in
-* agent-ratelimit-rate - the minimum time interval between connections when rate limiting is active
-
-The default values for these config attributes are:
-
-* agent-ratelimit-max = 10
-* agent-ratelimit-rate = 250ms
-
-When migrating large models, with high performing controllers, these values may be better, in order to address pre- or post- check errors that may be reported:
-
-* agent-ratelimit-max = 100
-* agent-ratelimit-rate = 50ms
-
-For example:
-
-```text
-juju controller-config agent-ratelimit-rate=50ms
-juju controller-config agent-ratelimit-max=100
-```
-
--->
-
-<!--
-<a href="#heading---migrating-models-with-secrets"><h3 id="heading---migrating-models-with-secrets"> Migrating models with secrets</h3></a>
-
-
-If a model has secrets stored in a secret backend like Vault, migrating that model to a new controller requires an extra step. The target controller must be set up to use the same (Vault) backend as is available on the source controller. This is done by running `add-secret-backend` on the target controller and using the `import-id` option to use the same internal backend ID as on the source controller.
-
-On the source controller, inspect the backend(s) in use by the model to be migrated. The relevant backends can be discovered by running `juju show-model` as described earlier. For any in-use backends, use the `show-secret-backend` command (or just list them all with `--format yaml`) to see the ID of the relevant backend(s). Before running the migration, add the backend(s) to the target controller, eg
-
-```text
-$ juju switch sourcecontroller
-$ juju show-secret-backend myvault
-myvault:
-  backend: vault
-  config:
-    endpoint: http://10.0.0.77:8200
-  secrets: 0
-  status: active
-  id: 63c8ad37c906eb278540e942
-
-$ juju switch targetcontroller
-$ juju add-secret-backend --config /path/to/backendcfg.yaml --import-id 63c8ad37c906eb278540e942
-```
-
-Now a migration can be run as normal and any secrets will be correctly migrated with the model.
-
--->
-
 
 ```{ibnote}
 See more: {ref}`command-juju-migrate`

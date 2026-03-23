@@ -7,14 +7,12 @@ myst:
 (architectural-overview)=
 # Juju architectural overview
 
-
 ## Audience
 
 This document is targeted at new developers of Juju, and may be useful to experienced
 developers who need a refresher on some aspect of Juju's operation. It is deliberately
 light on detail, because the precise mechanisms of various components' operation are
 expected to change much faster than the general interactions between components.
-
 
 ## The view From space
 
@@ -115,7 +113,6 @@ different set of workers to a machine agent.
 There are a number of *clients* which interact with Juju using the Juju
 API. These include the `juju` command line tool.
 
-
 ## The Mongo data store (aka "state")
 
 There's a lot of *detail* to cover, but there's not much to say from an architectural
@@ -135,7 +132,6 @@ but we're not devoting resources to it until it becomes more pressing.
 
 Code for dealing with mongodb is found primarily in the `state`, `state/watcher`,
 `replicaset`, and `internal/worker/peergrouper` packages.
-
 
 ## API
 
@@ -169,7 +165,6 @@ bulk.
 
 The Juju API client is implemented under the `api` top level package. Client
 side API facade are implemented as subpackages underneath `api`.
-
 
 ## The Agents
 
@@ -276,7 +271,6 @@ it's also a unite-r because it's where all the various components of Juju come
 together to run actual workloads.) It's sufficiently large that it deserves its
 own top-level heading, below.
 
-
 ## The Uniter
 
 At the highest level, the Uniter is a state machine. After a "little bit" of setup,
@@ -303,21 +297,17 @@ rest of the outside world) such that relevant events can be delivered to the mod
 func via channels exposed on the filter; and then there's the `Uniter` itself, which
 exposes a number of methods that are expected to be called by the mode funcs.
 
-
 ### Uniter Modes
 
 XXXX
-
 
 ### Hook contexts
 
 XXXX
 
-
 ### The Relation Model
 
 XXXX
-
 
 ## The Providers
 

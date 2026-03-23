@@ -13,8 +13,6 @@ entity in a particular deployment environment.
 
 ## List of agents
 
-
-
 While Juju agents can be counted based on the number of files in the codebase that invoke `dependency.NewEngine`, the
 type of process that they represent depends on the specific [`jujud`](https://github.com/juju/juju/blob/3.6/cmd/jujud/doc.go) / [
 `containeragent`](https://github.com/juju/juju/blob/3.6/cmd/containeragent))
@@ -27,9 +25,6 @@ and factoring in these variations, one can distinguish the following agents:
 You can think of the list of agents based on invocations of `dependency.NewEngine`  files as the 'actual agents' and of
 the list of agents arising from the various splits defined in those files as the 'logical agents'.
 ```
-
-<!-- TODO: There is a lot of relative link to possible outdated version of code. Maybe we should review it to make it more
-relative to the code (and maybe move it into some doc.go or go documentation anyway -->
 
 - [`cmd/jujud/agent/machine.go`](https://github.com/juju/juju/blob/3.6/cmd/jujud/agent/machine.go) <br>
   Uses [`jujud/main.go` >
@@ -50,7 +45,6 @@ relative to the code (and maybe move it into some doc.go or go documentation any
   agent)
   and [`internal/worker/deployer/unit_manifolds.go`](https://github.com/juju/juju/blob/3.6/internal/worker/deployer/unit_manifolds.go)
   to define an agent that will run workers for units in a machine deployment.
-
 
 - [`cmd/jujud/agent/model.go`](https://github.com/juju/juju/blob/3.6/cmd/jujud/agent/model.go) <br>
   Uses [`jujud/main.go` >
