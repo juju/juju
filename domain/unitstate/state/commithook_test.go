@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/domain/deployment/charm"
 	domainrelation "github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/unitstate/internal"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type commitHookSuite struct {
@@ -127,7 +126,7 @@ func (s *commitHookSuite) TestCommitHookRelationSettings(c *tc.C) {
 
 	// Arrange: Add a unit to the relation.
 	unitName := coreunittesting.GenNewName(c, "app/7")
-	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	unitUUID := s.addUnitAndNetNode(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
 
 	// Arrange: setup the method input
@@ -165,9 +164,9 @@ func (s *commitHookSuite) TestGetUnitUUIDByName(c *tc.C) {
 	spaceUUID := s.addSpace(c)
 
 	charmUUID := s.addCharm(c)
-	appUUID := s.addApplication(c, charmUUID, "testname", spaceUUID)
+	appUUID := s.addApplicationWithName(c, charmUUID, "testname", spaceUUID)
 	unitName := coreunit.Name("testname/0")
-	expectedUUID := s.addUnit(c, unitName, appUUID, charmUUID)
+	expectedUUID := s.addUnitAndNetNode(c, unitName, appUUID, charmUUID)
 
 	// Act
 	unitUUID, err := s.state.GetUnitUUIDByName(c.Context(), unitName)
@@ -180,11 +179,4 @@ func (s *commitHookSuite) TestGetUnitUUIDByName(c *tc.C) {
 func (s *commitHookSuite) TestGetUnitUUIDByNameNotFound(c *tc.C) {
 	_, err := s.state.GetUnitUUIDByName(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
-}
-
-func (s *commitHookSuite) addSpace(c *tc.C) string {
-	spaceUUID := uuid.MustNewUUID().String()
-	s.query(c, `INSERT INTO space (uuid, name) VALUES (?, ?)`,
-		spaceUUID, spaceUUID)
-	return spaceUUID
 }

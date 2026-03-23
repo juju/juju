@@ -10,6 +10,18 @@ import (
 	"github.com/juju/juju/domain/unitstate"
 )
 
+type RelationNetworkInfo struct {
+	// RelationUUID is the UUID of the relation.
+	RelationUUID relation.UUID
+
+	// IngressAddress is the ingress address of the relation.
+	IngressAddress string
+
+	// EgressSubnets is a comma separated list of egress subnets
+	// of the relation.
+	EgressSubnets string
+}
+
 // RelationSettings holds a relation uuid and local unit and
 // app-level settings, represented by scalar types.
 type RelationSettings struct {

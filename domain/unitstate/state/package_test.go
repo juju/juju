@@ -14,8 +14,11 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/machine"
+	machinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	corenetwork "github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	coreunit "github.com/juju/juju/core/unit"
@@ -104,7 +107,7 @@ func (s *baseSuite) addCharm(c *tc.C) string {
 	return charmUUID
 }
 
-func (s *baseSuite) addApplication(c *tc.C, charmUUID, appName, spaceUUID string) string {
+func (s *baseSuite) addApplicationWithName(c *tc.C, charmUUID, appName, spaceUUID string) string {
 	appUUID := tc.Must(c, coreapplication.NewUUID).String()
 	s.query(c, `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)`,
 		appUUID, appName, life.Alive, charmUUID, spaceUUID)
@@ -167,8 +170,8 @@ func (s *commitHookBaseSuite) SetUpTest(c *tc.C) {
 	s.fakeCharmUUID1 = s.addCharm(c)
 	s.fakeCharmUUID2 = s.addCharm(c)
 	s.fakeCharmRelationProvidesUUID = s.addCharmRelationWithDefaults(c, s.fakeCharmUUID1)
-	s.fakeApplicationUUID1 = s.addApplication(c, s.fakeCharmUUID1, s.fakeApplicationName1, network.AlphaSpaceId.String())
-	s.fakeApplicationUUID2 = s.addApplication(c, s.fakeCharmUUID2, s.fakeApplicationName2, network.AlphaSpaceId.String())
+	s.fakeApplicationUUID1 = s.addApplicationWithName(c, s.fakeCharmUUID1, s.fakeApplicationName1, network.AlphaSpaceId.String())
+	s.fakeApplicationUUID2 = s.addApplicationWithName(c, s.fakeCharmUUID2, s.fakeApplicationName2, network.AlphaSpaceId.String())
 
 	c.Cleanup(func() {
 		s.fakeCharmUUID1 = ""
@@ -182,45 +185,18 @@ func (s *commitHookBaseSuite) SetUpTest(c *tc.C) {
 	})
 }
 
-// addUnit adds a new unit to the specified application in the database with
-// the given UUID and name. Returns the unit uuid.
-func (s *commitHookBaseSuite) addUnit(c *tc.C, unitName coreunit.Name, appUUID, charmUUID string) coreunit.UUID {
-	unitUUID := tc.Must(c, coreunit.NewUUID)
-	netNodeUUID := tc.Must(c, uuid.NewUUID).String()
-	s.query(c, `
-INSERT INTO net_node (uuid)
-VALUES (?)
-ON CONFLICT DO NOTHING
-`, netNodeUUID)
-	s.query(c, `
-INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid)
-VALUES (?, ?, ?, ?, ?, ?)
-`, unitUUID, unitName, 0 /* alive */, appUUID, charmUUID, netNodeUUID)
-	return unitUUID
-}
-
 // addCharmRelation inserts a new charm relation into the database with the
 // given UUID and attributes. Returns the relation UUID.
 func (s *commitHookBaseSuite) addCharmRelation(c *tc.C, charmUUID string, r deploymentcharm.Relation) string {
 	charmRelationUUID := tc.Must(c, uuid.NewUUID).String()
 	s.query(c, `
-INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, interface, optional, capacity, scope_id)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-`, charmRelationUUID, charmUUID, r.Name, s.encodeRoleID(r.Role), r.Interface, r.Optional, r.Limit, s.encodeScopeID(r.Scope))
+INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, interface, optional, capacity, scope_id) 
+VALUES (?, ?, ?,
+       (SELECT id FROM charm_relation_role WHERE name = ?),
+       ?, ?, ?,
+       (SELECT id FROM charm_relation_scope WHERE name = ?))
+`, charmRelationUUID, charmUUID, r.Name, r.Role, r.Interface, r.Optional, r.Limit, r.Scope)
 	return charmRelationUUID
-}
-
-// addApplicationEndpoint inserts a new application endpoint into the database
-// with the specified UUIDs. Returns the endpoint uuid.
-func (s *commitHookBaseSuite) addApplicationEndpoint(
-	c *tc.C, applicationUUID string, charmRelationUUID string,
-) string {
-	applicationEndpointUUID := uuid.MustNewUUID().String()
-	s.query(c, `
-INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid,space_uuid)
-VALUES (?, ?, ?, ?)
-`, applicationEndpointUUID, applicationUUID, charmRelationUUID, network.AlphaSpaceId)
-	return applicationEndpointUUID
 }
 
 // addRelation inserts a new relation into the database with default relation
@@ -257,6 +233,20 @@ INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
 VALUES (?,?,?)
 `, relationEndpointUUID, relationUUID, applicationEndpointUUID)
 	return relationEndpointUUID
+}
+
+// addApplicationEndpoint inserts a new application endpoint into the
+// database with the specified UUIDs. Returns the endpoint uuid.
+func (s *commitHookBaseSuite) addApplicationEndpoint(
+	c *tc.C, applicationUUID, charmRelationUUID string,
+) string {
+	applicationEndpointUUID := tc.Must(c, uuid.NewUUID).String()
+	var spacePtr *string
+	s.query(c, `
+INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid, space_uuid)
+VALUES (?, ?, ?, ?)
+`, applicationEndpointUUID, applicationUUID, charmRelationUUID, spacePtr)
+	return applicationEndpointUUID
 }
 
 // addCharmRelationWithDefaults inserts a new charm relation into the database
@@ -382,21 +372,168 @@ WHERE  relation_endpoint_uuid = ?
 	return hash
 }
 
-// encodeRoleID returns the ID used in the database for the given charm role. This
-// reflects the contents of the charm_relation_role table.
-func (s *commitHookBaseSuite) encodeRoleID(role deploymentcharm.RelationRole) int {
-	return map[deploymentcharm.RelationRole]int{
-		deploymentcharm.RoleProvider: 0,
-		deploymentcharm.RoleRequirer: 1,
-		deploymentcharm.RolePeer:     2,
-	}[role]
+func (s *commitHookBaseSuite) addCharm(c *tc.C) string {
+	charmUUID := tc.Must(c, uuid.NewUUID).String()
+	s.query(c, `INSERT INTO charm (uuid, reference_name, create_time) VALUES (?, ?, ?)`,
+		charmUUID, charmUUID, time.Now())
+	return charmUUID
 }
 
-// encodeScopeID returns the ID used in the database for the given charm scope. This
-// reflects the contents of the charm_relation_scope table.
-func (s *commitHookBaseSuite) encodeScopeID(role deploymentcharm.RelationScope) int {
-	return map[deploymentcharm.RelationScope]int{
-		deploymentcharm.ScopeGlobal:    0,
-		deploymentcharm.ScopeContainer: 1,
-	}[role]
+func (s *commitHookBaseSuite) addNetNode(c *tc.C) string {
+	netNodeUUID := tc.Must(c, uuid.NewUUID).String()
+	s.query(c, "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
+	return netNodeUUID
+}
+
+func (s *commitHookBaseSuite) addSpace(c *tc.C) string {
+	spaceUUID := tc.Must(c, uuid.NewUUID).String()
+	s.query(c, `INSERT INTO space (uuid, name) VALUES (?, ?)`,
+		spaceUUID, spaceUUID)
+	return spaceUUID
+}
+
+func (s *commitHookBaseSuite) addApplication(c *tc.C, charmUUID, spaceUUID string) string {
+	appUUID := tc.Must(c, uuid.NewUUID).String()
+	s.query(c, `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)`,
+		appUUID, appUUID, life.Alive, charmUUID, spaceUUID)
+	return appUUID
+}
+
+func (s *commitHookBaseSuite) addUnit(c *tc.C, appUUID, charmUUID, nodeUUID string) coreunit.UUID {
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	s.query(c, `INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?, ?)`,
+		unitUUID, unitUUID, life.Alive, appUUID, charmUUID, nodeUUID)
+	return unitUUID
+}
+
+// addUnitAndNetNode adds a new unit to the specified application in the
+// database with the given UUID and name. A netnode is created for the unit.
+// Returns the unit uuid.
+func (s *commitHookBaseSuite) addUnitAndNetNode(c *tc.C, unitName coreunit.Name, appUUID, charmUUID string) coreunit.UUID {
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	netNodeUUID := tc.Must(c, uuid.NewUUID).String()
+	s.query(c, `
+INSERT INTO net_node (uuid)
+VALUES (?)
+ON CONFLICT DO NOTHING
+`, netNodeUUID)
+	s.query(c, `
+INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid)
+VALUES (?, ?, ?, ?, ?, ?)
+`, unitUUID, unitName, 0 /* alive */, appUUID, charmUUID, netNodeUUID)
+	return unitUUID
+}
+
+// addApplicationExtraEndpoint inserts a new application extra endpoint into the
+// database with the specified UUIDs. Returns the endpoint uuid.
+func (s *commitHookBaseSuite) addApplicationExtraEndpoint(
+	c *tc.C, applicationUUID coreapplication.UUID, charmRelationUUID string, boundSpaceUUID string) {
+	s.query(c, `
+INSERT INTO application_extra_endpoint (application_uuid, charm_extra_binding_uuid,space_uuid)
+VALUES (?, ?, ?)
+`, applicationUUID, charmRelationUUID, nilZeroPtr(boundSpaceUUID))
+}
+
+// addApplicationExposedEndpoint inserts a record linking an application,
+// its exposed endpoint, and the associated space into the database.
+func (s *commitHookBaseSuite) addApplicationExposedEndpoint(c *tc.C, applicationUUID, endpointUUID, boundSpaceUUID string) {
+	s.query(c, `INSERT INTO application_exposed_endpoint_space (application_uuid, application_endpoint_uuid, space_uuid) 
+			VALUES (?, ?, ?)`, applicationUUID, endpointUUID, boundSpaceUUID)
+}
+
+// addCharmExtraBinding inserts a new record into the charm_extra_binding table
+// and returns the generated UUID.
+func (s *commitHookBaseSuite) addCharmExtraBinding(c *tc.C, charmUUID corecharm.ID, name string) string {
+	uuid := tc.Must(c, uuid.NewUUID).String()
+	s.query(c, `
+INSERT INTO charm_extra_binding (uuid, charm_uuid, name) VALUES (?, ?, ?)`, uuid, charmUUID, name)
+	return uuid
+}
+func (s *commitHookBaseSuite) addMachine(c *tc.C, name, netNodeUUID string) machine.UUID {
+	machineUUID := machinetesting.GenUUID(c)
+	s.query(c, "INSERT INTO machine (uuid, net_node_uuid, name, life_id) VALUES (?, ?, ? ,?)",
+		machineUUID.String(), netNodeUUID, name, 0)
+	return machineUUID
+}
+
+func (s *commitHookBaseSuite) addSpaceWithName(c *tc.C, name string) string {
+	spaceUUID := tc.Must(c, uuid.NewUUID).String()
+	s.query(c, `INSERT INTO space (uuid, name) VALUES (?, ?)`,
+		spaceUUID, name)
+	return spaceUUID
+}
+
+// addLinkLayerDevice adds a link layer device to the database and returns its UUID.
+func (s *commitHookBaseSuite) addLinkLayerDevice(
+	c *tc.C, netNodeUUID, name, macAddress string, deviceType corenetwork.LinkLayerDeviceType,
+) string {
+	deviceUUID := "device-" + name + "-uuid"
+
+	mtu := int64(1500)
+
+	s.query(c, `
+INSERT INTO link_layer_device (
+	uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id, 
+    is_auto_start, is_enabled, is_default_gateway, gateway_address, vlan_tag)
+VALUES (?, ?, ?, ?, ?,
+       (SELECT id FROM link_layer_device_type WHERE name = ?),
+       (SELECT id FROM virtual_port_type WHERE name = ""),
+       ?, ?, ?, ?, ?)
+	`, deviceUUID, netNodeUUID, name, mtu, macAddress, deviceType, true,
+		true, false, nil, 0)
+
+	return deviceUUID
+}
+
+func (s *commitHookBaseSuite) addSubnet(c *tc.C, cidr string, spaceUUID string) string {
+	uuid := "subnet-" + cidr + "-uuid"
+	s.query(c, `
+INSERT INTO subnet (uuid, cidr, space_uuid) 
+VALUES (?, ?, ?)`, uuid, cidr, spaceUUID)
+	return uuid
+}
+
+// addIPAddressWithSubnet adds an IP address to the database and returns its UUID.
+func (s *commitHookBaseSuite) addIPAddressWithSubnetAndScope(c *tc.C, deviceUUID, netNodeUUID,
+	subnetUUID, addressValue string, scope corenetwork.Scope) string {
+	addressUUID := "address-" + addressValue + "-uuid"
+
+	s.query(c, `
+		INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, subnet_uuid, type_id, config_type_id, origin_id, scope_id)
+		SELECT ?, ?, ?, ?, ?, ?, ?, ?, scope.id
+		FROM ip_address_scope AS scope
+		WHERE scope.name = ?
+	`, addressUUID, deviceUUID, addressValue, netNodeUUID, subnetUUID, 0, 4, 1, string(scope))
+
+	return addressUUID
+}
+
+// addK8sService inserts a new Kubernetes service into the database with the associated node, application, and
+// provider ID.
+func (s *commitHookBaseSuite) addK8sService(c *tc.C, nodeUUID, appUUID string) {
+	svcUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO k8s_service (uuid, net_node_uuid, application_uuid, provider_id) VALUES (?, ?, ?, ?)`,
+		svcUUID, nodeUUID, appUUID, "provider-id")
+}
+
+// addIPAddressWithSubnet adds an IP address to the database and returns its UUID.
+func (s *commitHookBaseSuite) addIPAddressWithSubnet(c *tc.C, deviceUUID, netNodeUUID,
+	subnetUUID, addressValue string) string {
+	addressUUID := "address-" + addressValue + "-uuid"
+
+	s.query(c, `
+		INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, subnet_uuid, type_id, config_type_id, origin_id, scope_id, is_secondary, is_shadow)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, addressUUID, deviceUUID, addressValue, netNodeUUID, subnetUUID, 0, 4, 1, 0,
+		false, false)
+
+	return addressUUID
+}
+
+func nilZeroPtr[T comparable](v T) *T {
+	var zero T
+	if v == zero {
+		return nil
+	}
+	return &v
 }

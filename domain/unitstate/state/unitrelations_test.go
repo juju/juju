@@ -11,7 +11,6 @@ import (
 	"github.com/juju/tc"
 
 	corerelation "github.com/juju/juju/core/relation"
-	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/deployment/charm"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -20,7 +19,7 @@ import (
 )
 
 type unitRelationsSuite struct {
-	commitHookSuite
+	commitHookBaseSuite
 }
 
 func TestUnitRelationsSuite(t *testing.T) {
@@ -265,8 +264,7 @@ func (s *unitRelationsSuite) TestSetRelationApplicationAndUnitSettings(c *tc.C) 
 	}
 
 	// Arrange: Add a unit to the relation.
-	unitName := coreunittesting.GenNewName(c, "app/7")
-	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	unitUUID := s.addUnitAndNetNode(c, "app/7", s.fakeApplicationUUID1, s.fakeCharmUUID1)
 	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
 
 	unitInitialSettings := map[string]string{
@@ -326,8 +324,7 @@ func (s *unitRelationsSuite) TestSetRelationApplicationAndUnitSettingsNilMap(c *
 	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 
 	// Arrange: Add a unit to the relation.
-	unitName := coreunittesting.GenNewName(c, "app/3")
-	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	unitUUID := s.addUnitAndNetNode(c, "app/3", s.fakeApplicationUUID1, s.fakeCharmUUID1)
 	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
 
 	// Act:

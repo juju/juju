@@ -4,8 +4,12 @@
 package state
 
 import (
+	"database/sql"
+
 	"github.com/juju/juju/core/network"
 )
+
+type uuids []string
 
 // entityUUID identifies a unit.
 type entityUUID struct {
@@ -18,6 +22,28 @@ type unitName struct {
 	// Name uniquely identifies a unit and indicates its application.
 	// For example, postgresql/3.
 	Name string `db:"name"`
+}
+
+type spaceAddress struct {
+	Value      string         `db:"address_value"`
+	ConfigType string         `db:"config_type_name"`
+	Type       string         `db:"type_name"`
+	Origin     string         `db:"origin_name"`
+	Scope      string         `db:"scope_name"`
+	DeviceUUID string         `db:"device_uuid"`
+	SpaceUUID  sql.NullString `db:"space_uuid"`
+	SubnetCIDR sql.NullString `db:"cidr"`
+}
+
+type egressCIDR struct {
+	CIDR string `db:"cidr"`
+}
+
+// spaceRelation represents the relationship between a network endpoint and its
+// associated space. It maps an relation UUID to a specific space UUID.
+type spaceRelation struct {
+	RelationUUID string `db:"relation_uuid"`
+	SpaceUUID    string `db:"space_uuid"`
 }
 
 // portRange represents a range of ports for a given protocol.
@@ -107,6 +133,13 @@ type relationUnitSetting struct {
 	UUID  string `db:"relation_unit_uuid"`
 	Key   string `db:"key"`
 	Value string `db:"value"`
+}
+
+// spaceEndpoint represents the relationship between a network endpoint and its
+// associated space. It maps an endpoint name to a specific space UUID.
+type spaceEndpoint struct {
+	EndpointName string `db:"endpoint_name"`
+	SpaceUUID    string `db:"space_uuid"`
 }
 
 type portRangeUUIDs []string
