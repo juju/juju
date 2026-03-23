@@ -42,7 +42,7 @@ If at least one storage directive component is specified, the following default 
 * `<count>`: the minimum number required by the charm, or '1' if the storage is optional
 * `<size>`: determined from the charm's minimum storage size, or 1GiB if the charm does not specify a minimum
 
-In the absence of any explicit storage directive, the storage will be put on the root filesystem (`rootfs`). 
+In the absence of any explicit storage directive, the storage will be put on the root filesystem (`rootfs`).
 
 (storage-pool)=
 ## Storage pool

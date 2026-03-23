@@ -1,7 +1,7 @@
 (list-of-juju-cli-commands)=
 <!---
-This stub is the index file for the cli reference, the contents table below is
-populated by the code in custom_conf.py on make doc-build
+This stub is the index file for the cli reference. The TOC below is
+populated by the autogenerate-docs.py script.
 -->
 # List of `juju` CLI commands
 
